@@ -28,19 +28,19 @@ struct PreferencesView: View {
                                 Text(Strings.maxFileSize50mb)
                             }.onChange(of: maxFileSizeLimitPreference) { _, newValue in
                                 Defaults.unlimitedFileSize = !newValue
-                            }
+                            }.focusable(false)
                             
                             Toggle(isOn: $videoPreference) {
                                 Text(Strings.downloadVideo)
                             }.onChange(of: videoPreference) { _, newValue in
                                 Defaults.downloadVideo = newValue
-                            }
+                            }.focusable(false)
                             
                             Toggle(isOn: $audioPreference) {
                                 Text(Strings.downloadAudio)
                             }.onChange(of: audioPreference) { _, newValue in
                                 Defaults.downloadAudio = newValue
-                            }
+                            }.focusable(false)
                         }
                             .padding()
                     )
@@ -60,7 +60,7 @@ struct PreferencesView: View {
                                     hoveringOverURL = nil
                                 }
                             }
-                    }
+                    }.focusable(false)
                 }
             }.padding(.top).padding(.bottom)
         }

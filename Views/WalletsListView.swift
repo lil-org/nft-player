@@ -8,6 +8,7 @@ import UniformTypeIdentifiers
 struct WalletsListView: View {
     
     private let uuid = UUID().uuidString
+    private let toolbarButtonMinWidth: CGFloat = 30
     
     @State private var isWaiting = false
     @State private var showAddWalletPopup: Bool
@@ -49,14 +50,14 @@ struct WalletsListView: View {
                                     AllDownloadsManager.shared.stopAllDownloads()
                                 }) {
                                     Images.pause
-                                }.frame(width: 23)
+                                }.frame(minWidth: toolbarButtonMinWidth)
                             }
                             
                             Button(action: {
                                 showSettingsPopup = true
                             }) {
                                 Images.gearshape
-                            }.frame(width: 23)
+                            }.frame(minWidth: toolbarButtonMinWidth)
                             
                             Button(action: {
                                 if let nftDirectory = URL.nftDirectory {
@@ -64,19 +65,19 @@ struct WalletsListView: View {
                                 }
                             }) {
                                 Images.openFinder
-                            }.frame(width: 23)
+                            }.frame(minWidth: toolbarButtonMinWidth)
                             
                             Button(action: {
                                 showPlayer(id: nil)
                             }) {
                                 Images.shuffle
-                            }.frame(width: 23)
+                            }.frame(minWidth: toolbarButtonMinWidth)
                             
                             Button(action: {
                                 showAddWalletPopup = true
                             }) {
                                 Images.plus
-                            }.frame(width: 23)
+                            }.frame(minWidth: toolbarButtonMinWidth)
                         }
                     }
             }
@@ -109,29 +110,34 @@ struct WalletsListView: View {
                         showMorePreferences.toggle()
                     }) {
                         Images.ellipsis
-                    }.popover(isPresented: $showMorePreferences, arrowEdge: .bottom) {
+                            .frame(width: 24, height: 16, alignment: .center)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.regular)
+                    .focusable(false)
+                    .popover(isPresented: $showMorePreferences, arrowEdge: .bottom) {
                         VStack(spacing: 13) {
                             Button(Strings.rateOnTheAppStore) {
                                 NSWorkspace.shared.open(URL.writeAppStoreReview)
                                 showSettingsPopup = false
                                 showMorePreferences = false
-                            }
+                            }.focusable(false)
                             Button(Strings.restoreHiddenItems) {
                                 restoreHiddenItems()
                                 showSettingsPopup = false
                                 showMorePreferences = false
-                            }
+                            }.focusable(false)
                             Button(Strings.eraseAllContent) {
                                 eraseAllContent()
                                 showSettingsPopup = false
                                 showMorePreferences = false
-                            }.buttonStyle(BorderlessButtonStyle()).foregroundColor(.red)
+                            }.buttonStyle(BorderlessButtonStyle()).foregroundColor(.red).focusable(false)
                         }.frame(height: 81).padding()
                     }
                     Spacer()
                     Button(Strings.ok, action: {
                         showSettingsPopup = false
-                    }).keyboardShortcut(.defaultAction)
+                    }).keyboardShortcut(.defaultAction).focusable(false)
                 }
             }.frame(width: 230).padding()
         }.onAppear() {
