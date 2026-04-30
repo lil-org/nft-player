@@ -138,6 +138,8 @@
 		2C8E246F2C24A6E200C13536 /* FirstMouseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C8E246E2C24A6E200C13536 /* FirstMouseView.swift */; };
 		2C91131A2B08F71200A8EE80 /* WalletDownloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C9113192B08F71200A8EE80 /* WalletDownloader.swift */; };
 		2C9113282B09751D00A8EE80 /* WalletImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C9113272B09751D00A8EE80 /* WalletImageView.swift */; };
+		2C92642D2E11D3D300FBF476 /* liquid_glass_icon_wip.icon in Resources */ = {isa = PBXBuildFile; fileRef = 2C92642C2E11D3D300FBF476 /* liquid_glass_icon_wip.icon */; };
+		2C92642E2E11D3D300FBF476 /* liquid_glass_icon_wip.icon in Resources */ = {isa = PBXBuildFile; fileRef = 2C92642C2E11D3D300FBF476 /* liquid_glass_icon_wip.icon */; };
 		2C9442882C5154CF0078C051 /* twemoji.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CEF35B32C413DA000388574 /* twemoji.js */; };
 		2C9442892C5154E00078C051 /* p5js100.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CEF35B42C413DA000388574 /* p5js100.js */; };
 		2C94428A2C5154E00078C051 /* paper.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CEF35B02C413D9F00388574 /* paper.js */; };
@@ -5104,6 +5106,7 @@
 				2CF08B042D2B239300D82ACA /* square.mp4 in Resources */,
 				2C460EDF2D2987000083124E /* Suggested.bundle in Resources */,
 				2CF08AAD2D2A937400D82ACA /* Assets.xcassets in Resources */,
+				2C92642D2E11D3D300FBF476 /* liquid_glass_icon_wip.icon in Resources */,
 				2C460EE02D2987080083124E /* Covers.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -5158,6 +5161,7 @@
 				2C85F3A22FA3469B0065AE2B /* Suggested.bundle in Resources */,
 				2CA4CF592B07F76000CC75F4 /* Assets.xcassets in Resources */,
 				2CA4CF5C2B07F76000CC75F4 /* Main.storyboard in Resources */,
+				2C92642E2E11D3D300FBF476 /* liquid_glass_icon_wip.icon in Resources */,
 				2C4659942C308B47008CF97F /* Covers.xcassets in Resources */,
 				2CE9A7712BAD8ECD00579BF7 /* Localizable.xcstrings in Resources */,
 			);
@@ -5410,7 +5414,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = AppIconLegacy;
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = liquid_glass_icon_wip;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 234;
@@ -5446,7 +5450,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = AppIconLegacy;
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = liquid_glass_icon_wip;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 234;
@@ -5762,7 +5766,7 @@
 		2CA4CF612B07F76000CC75F4 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = liquid_glass_icon_wip;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = "nft-folder/nft_folder.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
@@ -5799,7 +5803,7 @@
 		2CA4CF622B07F76000CC75F4 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = liquid_glass_icon_wip;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = "nft-folder/nft_folder.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
