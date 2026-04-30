@@ -2,7 +2,7 @@ Nft Folder — una eina personal i privada per veure art en alta resolució fora
 
 És gratuïta, de codi obert, i sense distraccions.
 
-Explora més de 700 col·leccions destacades. Reprodueix en pantalla completa, en mode imatge dins la imatge, o posa-ho com a salvapantalles.
+Explora més de 700 col·leccions destacades. Reprodueix a pantalla completa.
 
 També la pots fer servir per descarregar tots els nfts de qualsevol adreça d’Ethereum.
 

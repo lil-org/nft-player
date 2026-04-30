@@ -1,6 +1,6 @@
 Nft Folder er et personligt, privat værktøj til at se kunst i høj opløsning offline. Det er gratis, open-source og uden distraktioner.
 
-Gennemse over 100 udvalgte Art Blocks-kollektioner. Afspil i fuld skærm, billede-i-billede, eller tag et screenshot til et baggrundsbillede.
+Gennemse over 100 udvalgte Art Blocks-kollektioner. Afspil i fuld skærm, eller tag et screenshot til et baggrundsbillede.
 
 Hvert kunstværk genskabes dynamisk på din enhed.
 

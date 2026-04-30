@@ -96,12 +96,6 @@ struct MobilePlayerView: View {
                         }) {
                             makeCircularImageView(image: Images.changeCollection)
                         }
-                        Button(action: {
-                            startPip()
-                            Haptic.selectionChanged()
-                        }) {
-                            makeCircularImageView(image: Images.pip)
-                        }
                     }
                     .padding(.horizontal, 20)
                     .padding(.bottom, 30)
@@ -127,19 +121,6 @@ struct MobilePlayerView: View {
                 }
             }
         }
-        .onReceive(NotificationCenter.default.publisher(for: Notification.Name.restoreMinimizedPip)) { notification in
-            if let token = notification.object as? GeneratedToken {
-                if token.id != currentToken.id {
-                    let sameCollection = token.fullCollectionId == currentToken.fullCollectionId
-                    DispatchQueue.main.async {
-                        MobilePlaybackController.shared.showNewToken(displayId: initialConfig.id,
-                                                                     token: token,
-                                                                     sameCollection: sameCollection,
-                                                                     coordinate: currentCoordinate)
-                    }
-                }
-            }
-        }
     }
     
     private func goForward() {
@@ -158,10 +139,6 @@ struct MobilePlayerView: View {
         if let url = currentToken.url {
             UIApplication.shared.open(url)
         }
-    }
-    
-    private func startPip() {
-        NotificationCenter.default.post(name: Notification.Name.togglePip, object: currentToken)
     }
     
 }

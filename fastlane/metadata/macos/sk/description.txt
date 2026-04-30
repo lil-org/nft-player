@@ -2,7 +2,7 @@ Nft Folder — osobný, súkromný nástroj na prezeranie umenia vo vysokom rozl
 
 Je zadarmo, open-source a bez rušivých prvkov.
 
-Prehliadajte viac než 700 vybraných kolekcií. Spustite na celú obrazovku, použite režim „obraz v obraze“, alebo nastavte ako šetrič obrazovky.
+Prehliadajte viac než 700 vybraných kolekcií. Spustite na celú obrazovku.
 
 Môžete ho použiť aj na stiahnutie všetkých NFT pre ľubovoľnú Ethereum adresu.
 

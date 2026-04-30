@@ -9,17 +9,13 @@ enum NftGallery: Int, CaseIterable, Codable {
     
     static let referrer = "0xE26067c76fdbe877F48b0a8400cf5Db8B47aF0fE"
     
-    case zora, mintfun, opensea, blockExplorer
+    case opensea, blockExplorer
     
 #if canImport(AppKit)
     var image: NSImage {
         switch self {
         case .blockExplorer:
             return Images.infoTitleBar
-        case .zora:
-            return Images.zora
-        case .mintfun:
-            return Images.mintfun
         case .opensea:
             return Images.opensea
         }
@@ -28,10 +24,6 @@ enum NftGallery: Int, CaseIterable, Codable {
     
     var title: String {
         switch self {
-        case .zora:
-            Strings.zora
-        case .mintfun:
-            Strings.mintfun
         case .opensea:
             Strings.opensea
         case .blockExplorer:
@@ -54,10 +46,6 @@ enum NftGallery: Int, CaseIterable, Codable {
         switch self {
         case .blockExplorer:
             return URL(string: "https://eth.blockscout.com/address/\(walletAddress)")
-        case .zora:
-            return URL(string: "https://zora.co/\(walletAddress)?referrer=\(NftGallery.referrer)")
-        case .mintfun:
-            return URL(string: "https://mint.fun/profile/\(walletAddress)?ref=\(NftGallery.referrer)")
         case .opensea:
             return URL(string: "https://opensea.io/\(walletAddress)")
         }
@@ -69,40 +57,6 @@ enum NftGallery: Int, CaseIterable, Codable {
         case .blockExplorer:
             let urlString = "https://eth.blockscout.com/token/\(collectionAddress)" + (tokenId != nil ? "/instance/\(tokenId!)?tab=metadata" : "")
             return URL(string: urlString)
-        case .zora:
-            let prefix: String
-            switch network {
-            case .mainnet:
-                prefix = "eth"
-            case .optimism:
-                prefix = "optimism"
-            case .zora:
-                prefix = "zora"
-            case .base:
-                prefix = "base"
-            case .arbitrum:
-                prefix = "arb"
-            case .blast:
-                prefix = "blast"
-            }
-            return URL(string: "https://zora.co/collect/\(prefix):\(collectionAddress)/\(tokenId ?? "")?referrer=\(NftGallery.referrer)")
-        case .mintfun:
-            let prefix: String
-            switch network {
-            case .mainnet:
-                prefix = "ethereum"
-            case .optimism:
-                prefix = "op"
-            case .zora:
-                prefix = "zora"
-            case .base:
-                prefix = "base"
-            case .arbitrum:
-                prefix = "arbitrum"
-            case .blast:
-                prefix = "blast"
-            }
-            return URL(string: "https://mint.fun/\(prefix)/\(collectionAddress)?ref=\(NftGallery.referrer)")
         case .opensea:
             let prefix: String
             switch network {

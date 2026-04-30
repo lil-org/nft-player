@@ -1,6 +1,6 @@
 Nft Folder je osobný, súkromný nástroj na prezeranie vysokokvalitného umenia offline. Je zadarmo, open-source a bez rozptyľovania.
 
-Prehliadajte viac než 100 vybraných kolekcií Art Blocks. Prehrávajte na celú obrazovku, v režime obraz v obraze alebo si spravte snímku obrazovky ako tapetu.
+Prehliadajte viac než 100 vybraných kolekcií Art Blocks. Prehrávajte na celú obrazovku alebo si spravte snímku obrazovky ako tapetu.
 
 Každé dielo sa dynamicky znovu vytvorí priamo na vašom zariadení.
 

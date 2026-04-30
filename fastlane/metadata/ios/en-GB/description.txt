@@ -1,6 +1,6 @@
 Nft Folder is a personal, private tool for viewing high-resolution art offline. It’s free, open-source, and distraction-free.
 
-Browse over 100 featured Art Blocks collections. Play in fullscreen, picture-in-picture, or screenshot for a wallpaper.
+Browse over 100 featured Art Blocks collections. Play in fullscreen or screenshot for a wallpaper.
 
 Each artwork is dynamically recreated on your device.
 

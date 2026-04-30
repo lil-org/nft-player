@@ -2,7 +2,7 @@ Nft Folder — công cụ cá nhân, riêng tư để xem nghệ thuật độ p
 
 Miễn phí, mã nguồn mở, và không gây xao nhãng.
 
-Duyệt hơn 700 bộ sưu tập nổi bật. Xem toàn màn hình, dùng chế độ hình trong hình, hoặc đặt làm trình bảo vệ màn hình.
+Duyệt hơn 700 bộ sưu tập nổi bật. Xem toàn màn hình.
 
 Bạn cũng có thể dùng để tải xuống tất cả nfts cho bất kỳ địa chỉ Ethereum nào.
 

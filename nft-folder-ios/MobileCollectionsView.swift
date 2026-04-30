@@ -20,12 +20,7 @@ struct MobileCollectionsView: View {
             NavigationStack {
                 VStack {
                     ScrollView {
-                        ZStack {
-                            createGrid().frame(maxWidth: .infinity)
-                            PipPlaceholderOverlay()
-                                .frame(width: 1, height: 1)
-                                .position(x: 0, y: 0)
-                        }
+                        createGrid().frame(maxWidth: .infinity)
                     }
                 }
                 .navigationBarTitleDisplayMode(.inline)
@@ -49,10 +44,6 @@ struct MobileCollectionsView: View {
                     }
                     ToolbarItem(placement: .navigationBarTrailing) {
                         HStack {
-                            Button { showRandomPip() } label: {
-                                Images.pip
-                            }
-                            
                             Button { showRandomPlayer() } label: {
                                 Images.shuffle
                             }
@@ -80,11 +71,7 @@ struct MobileCollectionsView: View {
             }
         }
         .animation(.easeInOut, value: selectedConfig)
-        .onReceive(NotificationCenter.default.publisher(for: Notification.Name.restoreMinimizedPip)) { notification in
-            if let token = notification.object as? GeneratedToken, selectedConfig == nil {
-                selectedConfig = MobilePlayerConfig(initialItemId: nil, specificToken: token)
-            }
-        }.persistentSystemOverlays(.hidden)
+        .persistentSystemOverlays(.hidden)
     }
     
     private func didClickToggleAppIcon() {
@@ -150,21 +137,7 @@ struct MobileCollectionsView: View {
                     Text(Strings.play)
                 }
             }
-            Button(action: {
-                didSelectPip(item)
-            }) {
-                HStack {
-                    Images.pip
-                    Text(Strings.pip)
-                }
-            }
         }
-    }
-    
-    private func didSelectPip(_ item: SuggestedItem) {
-        let token = TokenGenerator.generateRandomToken(specificCollectionId: item.id, notTokenId: nil)
-        NotificationCenter.default.post(name: Notification.Name.togglePip, object: token)
-        Haptic.selectionChanged()
     }
     
     private func didSelectSuggestedItem(_ item: SuggestedItem) {
@@ -177,9 +150,4 @@ struct MobileCollectionsView: View {
         Haptic.selectionChanged()
     }
     
-    private func showRandomPip() {
-        let token = TokenGenerator.generateRandomToken(specificCollectionId: nil, notTokenId: nil)
-        NotificationCenter.default.post(name: Notification.Name.togglePip, object: token)
-        Haptic.selectionChanged()
-    }
 }

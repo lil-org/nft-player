@@ -188,10 +188,6 @@ class LocalHtmlWindow: NSWindow {
         playerModel.showingInfoPopover.toggle()
     }
     
-    @objc private func pipButtonClicked() {
-        AmbientAgent.start(generatedToken: playerModel.currentToken)
-    }
-    
     deinit {
         if let monitor = mouseMoveEventMonitor {
             NSEvent.removeMonitor(monitor)
@@ -211,8 +207,6 @@ extension LocalHtmlWindow: PlayerMenuDelegate {
         menu.addItem(NSMenuItem(title: playerModel.currentToken.displayName, action: nil, keyEquivalent: ""))
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: Strings.info, action: #selector(infoButtonClicked), keyEquivalent: ""))
-        menu.addItem(.separator())
-        menu.addItem(NSMenuItem(title: Strings.pip, action: #selector(pipButtonClicked), keyEquivalent: ""))
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: Strings.back, action: #selector(backButtonClicked), keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: Strings.forward, action: #selector(forwardButtonClicked), keyEquivalent: ""))

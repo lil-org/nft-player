@@ -10,7 +10,5 @@ extension Notification.Name {
     static let didUpdateWalletAvatar = Notification.Name("didUpdateWalletAvatar")
     static let updateAnotherVisibleWalletsList = Notification.Name("updateAnotherVisibleWalletsList")
     static let updateAnotherVisibleSuggestions = Notification.Name("updateAnotherVisibleSuggestions")
-    static let togglePip = Notification.Name("togglePip")
-    static let restoreFromPip = Notification.Name("restoreFromPip")
     
 }

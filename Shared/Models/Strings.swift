@@ -31,7 +31,6 @@ struct Strings {
     static let eraseAllContent = loc("Erase All Content")
     static let experimetalOfflineGeneration = loc("Offline generation is a new experimental feature")
     static let letUsKnowOfIssues = loc("Let us know of any issues.")
-    static let setScreenSaver = loc("Set Screen Saver")
     static let back = loc("Back")
     static let forward = loc("Forward")
     static let info = loc("Info")
@@ -49,14 +48,11 @@ struct Strings {
     static let navigate = loc("Navigate")
     static let toggleInfo = loc("Toggle Info")
 
-    static let pip = loc("Picture in Picture")
     static let airplay = "AirPlay"
     static let x = "𝕏"
     static let github = "GitHub"
-    static let zora = "Zora"
     static let blockExplorer = "Blockscout"
     static let opensea = "OpenSea"
-    static let mintfun = "mint.fun"
     static let ens = "ENS"
     static let lilOrgLinkWithEmojis = "🌐 lil.org 👈"
     

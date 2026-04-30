@@ -2,7 +2,7 @@ Nft Folder este un instrument personal și privat pentru a vizualiza artă de î
 
 Este gratuit, open-source și fără distrageri.
 
-Răsfoiți peste 700 de colecții selectate. Redați pe tot ecranul, în modul imagine-în-imagine, sau setați ca screensaver.
+Răsfoiți peste 700 de colecții selectate. Redați pe tot ecranul.
 
 Îl puteți folosi și pentru a descărca toate nft-urile pentru orice adresă Ethereum.
 

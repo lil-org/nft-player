@@ -2,7 +2,7 @@ Nft Folder är ett personligt, privat verktyg för att visa högupplöst konst o
 
 Det är gratis, öppen källkod och utan distraktioner.
 
-Bläddra bland över 700 utvalda kollektioner. Spela i helskärm, bild-i-bild eller ställ in som skärmsläckare.
+Bläddra bland över 700 utvalda kollektioner. Spela i helskärm.
 
 Du kan också använda det för att ladda ner alla nfts för valfri Ethereum-adress.
 

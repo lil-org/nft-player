@@ -67,12 +67,6 @@ struct WalletsListView: View {
                             }.frame(width: 23)
                             
                             Button(action: {
-                                AmbientAgent.start(collectionId: nil)
-                            }) {
-                                Images.pip
-                            }.frame(width: 23)
-                            
-                            Button(action: {
                                 showPlayer(id: nil)
                             }) {
                                 Images.shuffle
@@ -321,12 +315,6 @@ struct WalletsListView: View {
         Group {
             Text(item.name)
             Divider()
-            if TokenGenerator.canGenerate(id: item.id) {
-                Button(Strings.pip, action: {
-                    AmbientAgent.start(collectionId: item.id)
-                })
-                Divider()
-            }
             Button(Strings.viewinFinder, action: {
                 didSelectSuggestedItem(item, noAutoPlayer: true)
             })
@@ -353,11 +341,6 @@ struct WalletsListView: View {
             Divider()
             Button(Strings.viewinFinder, action: {
                 openFolderForWallet(wallet, noAutoPlayer: true)
-            })
-            Button(Strings.viewOnZora, action: {
-                if let galleryURL = NftGallery.zora.url(wallet: wallet) {
-                    DispatchQueue.main.async { NSWorkspace.shared.open(galleryURL) }
-                }
             })
             Button(Strings.viewOnOpensea, action: {
                 if let galleryURL = NftGallery.opensea.url(wallet: wallet) {

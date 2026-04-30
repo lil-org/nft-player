@@ -1,6 +1,6 @@
 Az Nft Folder egy személyes, privát eszköz nagy felbontású művek offline megtekintéséhez. Ingyenes, nyílt forráskódú, és zavaró tényezők nélkül használható.
 
-Böngéssz több mint 100 kiemelt Art Blocks gyűjteményt. Nézd teljes képernyőn, kép a képben módban, vagy készíts képernyőképet háttérképnek.
+Böngéssz több mint 100 kiemelt Art Blocks gyűjteményt. Nézd teljes képernyőn, vagy készíts képernyőképet háttérképnek.
 
 Minden alkotás dinamikusan újraalkotásra kerül az eszközödön.
 

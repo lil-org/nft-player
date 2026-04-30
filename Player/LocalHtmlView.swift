@@ -86,10 +86,6 @@ struct LocalHtmlView: View {
         }
     }
     
-    private func showPip() {
-        AmbientAgent.start(generatedToken: playerModel.currentToken)
-    }
-    
     private func listPopoverView() -> some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
@@ -116,24 +112,6 @@ struct LocalHtmlView: View {
     
     private func infoPopoverView() -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Button(action: showPip) {
-                Text(Strings.pip)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .fontWeight(Font.Weight.semibold)
-            }
-            .buttonStyle(LinkButtonStyle())
-            Divider()
-            
-            if playerModel.currentToken.screensaver != nil {
-                Button(action: getScreensaver) {
-                    Text(Strings.setScreenSaver)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .fontWeight(Font.Weight.semibold)
-                }
-                .buttonStyle(LinkButtonStyle())
-                Divider()
-            }
-            
             Button(action: viewOnWeb) {
                 Text(Strings.viewOnOpensea)
                     .frame(maxWidth: .infinity, alignment: .leading)

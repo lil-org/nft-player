@@ -1,6 +1,6 @@
 Nft Folder — un outil personnel et privé pour voir de l’art en haute résolution hors ligne. Gratuit, open-source, et sans distractions.
 
-Parcourez plus de 100 collections Art Blocks à la une. Regardez en plein écran, en image dans l’image, ou faites une capture d’écran pour un fond d’écran.
+Parcourez plus de 100 collections Art Blocks à la une. Regardez en plein écran ou faites une capture d’écran pour un fond d’écran.
 
 Chaque œuvre est recréée dynamiquement sur votre appareil.
 

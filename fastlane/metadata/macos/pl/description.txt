@@ -2,7 +2,7 @@ Nft Folder — prywatne narzędzie do oglądania sztuki offline, w wysokiej rozd
 
 Darmowe, open-source i bez rozpraszaczy.
 
-Przeglądaj ponad 700 wyróżnionych kolekcji. Otwieraj na pełnym ekranie, używaj trybu „obraz w obrazie” lub ustaw jako wygaszacz ekranu.
+Przeglądaj ponad 700 wyróżnionych kolekcji. Otwieraj na pełnym ekranie.
 
 Możesz też pobrać wszystkie nfts dla dowolnego adresu Ethereum.
 
