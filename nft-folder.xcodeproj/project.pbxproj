@@ -5571,7 +5571,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "org.lil.nft-folder";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
-				"PROVISIONING_PROFILE_SPECIFIER[sdk=appletvos*]" = "nft folder tv";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=appletvos*]" = "tvos 26 x2";
 				SDKROOT = appletvos;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -5607,7 +5607,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "org.lil.nft-folder";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
-				"PROVISIONING_PROFILE_SPECIFIER[sdk=appletvos*]" = "nft folder tv";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=appletvos*]" = "tvos 26 x2";
 				SDKROOT = appletvos;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
