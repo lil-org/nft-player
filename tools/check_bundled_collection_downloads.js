@@ -20,6 +20,11 @@ Options:
   --bytes <number>      Bytes to read from each response before stopping. Default: 65536
   --retries <number>    Retries for transient failures such as 429/5xx. Default: 1
   --retry-delay-ms <ms> Base retry delay. Default: 1000
+  --opensea-api-key <key>
+                       OpenSea API key for suggested items without bundled token JSON.
+                       Can also be set with OPENSEA_API_KEY.
+  --opensea-pages <n|all>
+                       OpenSea NFT pages to fetch per missing-token collection. Default: 1
   --full                Read each response fully instead of stopping after --bytes
   --no-head-fallback    Do not use HEAD to confirm URLs after repeated GET 429s
   --output <path>       Markdown report path. Default: ${DEFAULT_REPORT_PATH}
@@ -39,6 +44,8 @@ function parseArgs(argv) {
     bytes: 65536,
     retries: 1,
     retryDelayMs: 1000,
+    openSeaApiKey: process.env.OPENSEA_API_KEY ?? null,
+    openSeaPages: 1,
     headFallbackOn429: true,
     full: false,
     output: DEFAULT_REPORT_PATH,
@@ -79,6 +86,12 @@ function parseArgs(argv) {
         break;
       case "--retry-delay-ms":
         options.retryDelayMs = positiveInteger(readValue(), arg);
+        break;
+      case "--opensea-api-key":
+        options.openSeaApiKey = readValue();
+        break;
+      case "--opensea-pages":
+        options.openSeaPages = openSeaPageLimit(readValue(), arg);
         break;
       case "--output":
         options.output = readValue();
@@ -126,6 +139,13 @@ function nonNegativeInteger(value, optionName) {
   return number;
 }
 
+function openSeaPageLimit(value, optionName) {
+  if (value === "all") {
+    return Number.POSITIVE_INFINITY;
+  }
+  return positiveInteger(value, optionName);
+}
+
 function collectionIdFor(item) {
   return `${item.address}${item.abId ?? item.collectionId ?? ""}`;
 }
@@ -135,6 +155,10 @@ function projectIdFor(item) {
 }
 
 function buildDownloadTarget(collection, token) {
+  if (collection.source === "opensea-api") {
+    return buildOpenSeaDownloadTarget(token);
+  }
+
   if (token.sh) {
     return {
       kind: "simplehash",
@@ -149,6 +173,32 @@ function buildDownloadTarget(collection, token) {
   return {
     kind: "artblocks-media-proxy",
     url: `https://media-proxy.artblocks.io/${collection.address}/${token.id}.png`,
+  };
+}
+
+function buildOpenSeaDownloadTarget(token) {
+  const candidates = [
+    { kind: "opensea-image-url", url: token.imageUrl },
+    { kind: "opensea-display-image-url", url: token.displayImageUrl },
+    { kind: "opensea-metadata-url", url: token.metadataUrl },
+  ];
+
+  for (const candidate of candidates) {
+    if (!candidate.url) {
+      continue;
+    }
+    const target = normalizeAppURL(candidate.url);
+    return {
+      ...target,
+      kind: target.kind === "explicit-url" ? candidate.kind : `${candidate.kind}:${target.kind}`,
+    };
+  }
+
+  return {
+    kind: "opensea-no-downloadable-url",
+    url: null,
+    okWithoutURL: false,
+    error: "no downloadable image or metadata URL in OpenSea NFT response",
   };
 }
 
@@ -223,6 +273,7 @@ async function readCollections(options) {
 
   const collections = [];
   const missingTokenFiles = [];
+  let suggestedItemsMatched = 0;
   for (const item of items) {
     const id = collectionIdFor(item);
     if (options.collectionFilter) {
@@ -232,14 +283,24 @@ async function readCollections(options) {
       }
     }
 
+    suggestedItemsMatched += 1;
+
     if (!tokenIds.has(id)) {
-      missingTokenFiles.push({ id, name: item.name });
+      missingTokenFiles.push({
+        id,
+        name: item.name,
+        address: item.address,
+        projectId: projectIdFor(item),
+        chain: item.chain,
+        chainId: item.chainId,
+      });
       continue;
     }
 
     const tokenFilePath = path.join(tokensPath, `${id}.json`);
     const bundledTokens = await readJson(tokenFilePath);
     collections.push({
+      source: "bundled-tokens",
       id,
       name: item.name,
       address: item.address,
@@ -252,13 +313,210 @@ async function readCollections(options) {
     });
   }
 
-  return { bundlePath, collections, missingTokenFiles };
+  return {
+    bundlePath,
+    collections,
+    missingTokenFiles,
+    suggestedItemsMatched,
+    bundledTokenJsonFiles: tokenIds.size,
+  };
+}
+
+async function loadOpenSeaFallbackCollections(missingTokenFiles, options) {
+  const collections = [];
+  if (missingTokenFiles.length === 0) {
+    return collections;
+  }
+
+  if (!options.openSeaApiKey) {
+    return missingTokenFiles.map((item) => ({
+      ...item,
+      source: "opensea-api",
+      isComplete: false,
+      tokenCount: 0,
+      sampledTokens: [],
+      openSeaApiError: "missing OpenSea API key; pass --opensea-api-key or set OPENSEA_API_KEY",
+    }));
+  }
+
+  for (const item of missingTokenFiles) {
+    const result = await fetchOpenSeaCollectionNfts(item, options);
+    if (!result.ok) {
+      collections.push({
+        ...item,
+        source: "opensea-api",
+        isComplete: false,
+        tokenCount: 0,
+        sampledTokens: [],
+        openSeaApiError: result.error,
+        openSeaStatus: result.status ?? null,
+        openSeaPagesFetched: result.pagesFetched ?? 0,
+      });
+      continue;
+    }
+
+    collections.push({
+      ...item,
+      source: "opensea-api",
+      isComplete: false,
+      tokenCount: result.tokens.length,
+      sampledTokens: sampleTokens(result.tokens, options.samples),
+      openSeaPagesFetched: result.pagesFetched,
+      openSeaHasMore: Boolean(result.nextCursor),
+    });
+  }
+
+  return collections;
+}
+
+async function fetchOpenSeaCollectionNfts(collection, options) {
+  const tokens = [];
+  let nextCursor = null;
+  let pagesFetched = 0;
+
+  while (pagesFetched < options.openSeaPages) {
+    const result = await fetchOpenSeaNftPage(collection.address, nextCursor, options);
+    if (!result.ok) {
+      return {
+        ...result,
+        tokens,
+        pagesFetched,
+      };
+    }
+
+    pagesFetched += 1;
+    tokens.push(...result.nfts.map(normalizeOpenSeaNft).filter((token) => token.id));
+    nextCursor = result.nextCursor ?? null;
+    if (!nextCursor) {
+      break;
+    }
+  }
+
+  return {
+    ok: true,
+    tokens,
+    nextCursor,
+    pagesFetched,
+  };
+}
+
+async function fetchOpenSeaNftPage(contractAddress, nextCursor, options) {
+  const url = new URL(`https://api.opensea.io/api/v2/chain/ethereum/contract/${contractAddress}/nfts`);
+  if (nextCursor) {
+    url.searchParams.set("next", nextCursor);
+  }
+
+  let lastResult = null;
+  for (let attemptIndex = 0; attemptIndex <= options.retries; attemptIndex += 1) {
+    const result = await fetchOpenSeaJson(url, options);
+    if (result.ok || !shouldRetry(result) || attemptIndex >= options.retries) {
+      return result;
+    }
+
+    lastResult = result;
+    const retryDelay = retryDelayMs(result, options.retryDelayMs, attemptIndex);
+    await sleep(retryDelay);
+  }
+
+  return lastResult;
+}
+
+async function fetchOpenSeaJson(url, options) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), options.timeoutMs);
+
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      redirect: "follow",
+      signal: controller.signal,
+      headers: {
+        "accept": "application/json",
+        "x-api-key": options.openSeaApiKey,
+        "User-Agent": "nft-folder-bundled-download-check/1.0",
+      },
+    });
+
+    const text = await response.text();
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        retryAfterMs: parseRetryAfter(response.headers.get("retry-after")),
+        error: `OpenSea HTTP ${response.status}${formatOpenSeaErrorText(text)}`,
+      };
+    }
+
+    let body;
+    try {
+      body = JSON.parse(text);
+    } catch (error) {
+      return {
+        ok: false,
+        status: response.status,
+        retryable: false,
+        error: `OpenSea JSON parse failed: ${error.message}`,
+      };
+    }
+
+    return {
+      ok: true,
+      status: response.status,
+      nfts: Array.isArray(body.nfts) ? body.nfts : [],
+      nextCursor: body.next ?? null,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      status: null,
+      error: error.name === "AbortError" ? `OpenSea timeout after ${options.timeoutMs}ms` : `OpenSea request failed: ${error.message}`,
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function formatOpenSeaErrorText(text) {
+  if (!text) {
+    return "";
+  }
+
+  try {
+    const body = JSON.parse(text);
+    if (Array.isArray(body.errors) && body.errors.length > 0) {
+      return `: ${body.errors.join("; ")}`;
+    }
+    if (typeof body.error === "string") {
+      return `: ${body.error}`;
+    }
+    if (typeof body.message === "string") {
+      return `: ${body.message}`;
+    }
+  } catch {
+    const trimmed = text.trim();
+    if (trimmed) {
+      return `: ${trimmed.slice(0, 160)}`;
+    }
+  }
+
+  return "";
+}
+
+function normalizeOpenSeaNft(nft) {
+  return {
+    id: nft.identifier,
+    name: nft.name ?? null,
+    imageUrl: nft.image_url ?? null,
+    displayImageUrl: nft.display_image_url ?? null,
+    displayAnimationUrl: nft.display_animation_url ?? null,
+    metadataUrl: nft.metadata_url ?? null,
+  };
 }
 
 async function attemptDownload(target, options) {
   if (!target.url) {
     return {
-      ok: true,
+      ok: target.okWithoutURL !== false,
       targetKind: target.kind,
       url: null,
       status: null,
@@ -267,7 +525,8 @@ async function attemptDownload(target, options) {
       bytesRead: 0,
       elapsedMs: 0,
       attempts: 0,
-      note: "embedded data, no network URL",
+      error: target.okWithoutURL === false ? target.error : null,
+      note: target.okWithoutURL === false ? null : "embedded data, no network URL",
     };
   }
 
@@ -491,12 +750,15 @@ async function runPool(items, concurrency, worker, onProgress) {
 function summarizeCollection(collection) {
   const successes = collection.samples.filter((sample) => sample.ok).length;
   const failures = collection.samples.length - successes;
+  const apiFailures = collection.openSeaApiError ? 1 : 0;
   return {
     ...collection,
     successes,
     failures,
-    reachable: successes > 0,
-    fullyReachable: failures === 0 && collection.samples.length > 0,
+    apiFailures,
+    totalFailures: failures + apiFailures,
+    reachable: apiFailures === 0 && successes > 0,
+    fullyReachable: apiFailures === 0 && failures === 0 && collection.samples.length > 0,
   };
 }
 
@@ -543,6 +805,7 @@ function renderFailureList(samples) {
 function renderMarkdownReport(report) {
   const unreachable = report.collections.filter((collection) => !collection.reachable);
   const partial = report.collections.filter((collection) => collection.reachable && !collection.fullyReachable);
+  const openSeaFallback = report.collections.filter((collection) => collection.source === "opensea-api");
   const failedSamples = report.collections.flatMap((collection) =>
     collection.samples
       .filter((sample) => !sample.ok)
@@ -557,16 +820,21 @@ function renderMarkdownReport(report) {
   lines.push("## Scope");
   lines.push("");
   lines.push(`- Suggested bundle: \`${report.bundlePath}\``);
-  lines.push(`- Bundled collections checked: ${report.summary.collectionsChecked}`);
+  lines.push(`- Suggested items matched: ${report.summary.suggestedItemsMatched}`);
+  lines.push(`- Bundled token JSON files present: ${report.summary.bundledTokenJsonFiles}`);
+  lines.push(`- Token-backed suggested collections checked: ${report.summary.tokenBackedCollectionsChecked}`);
+  lines.push(`- OpenSea fallback collections checked: ${report.summary.openSeaFallbackCollectionsChecked}`);
+  lines.push(`- Collections checked: ${report.summary.collectionsChecked}`);
   lines.push(`- Download attempts: ${report.summary.downloadAttempts}`);
   lines.push(`- Samples per collection requested: ${report.options.samples}`);
+  lines.push(`- OpenSea fallback API: ${report.options.openSeaApiEnabled ? `enabled, ${report.options.openSeaPages} page(s) per missing-token collection` : "disabled, no API key"}`);
   lines.push(`- Timeout per item: ${report.options.timeoutMs}ms`);
   lines.push(`- Response bytes read per item: ${report.options.full ? "full response" : report.options.bytes}`);
   lines.push(`- Retries per item: ${report.options.retries}`);
   lines.push(`- HEAD fallback after repeated GET 429s: ${report.options.headFallbackOn429 ? "yes" : "no"}`);
   lines.push(`- Concurrency: ${report.options.concurrency}`);
   lines.push("");
-  lines.push("The script uses the same bundled item URL precedence as `WalletDownloader`: `sh` fields map to `https://cdn.simplehash.com/assets/{sh}`, explicit `url` fields are used after the app's `ipfs://` and `ar://` gateway normalization, and other items map to `https://media-proxy.artblocks.io/{collectionAddress}/{tokenId}.png`.");
+  lines.push("The script uses the same bundled item URL precedence as `WalletDownloader`: `sh` fields map to `https://cdn.simplehash.com/assets/{sh}`, explicit `url` fields are used after the app's `ipfs://` and `ar://` gateway normalization, and other bundled items map to `https://media-proxy.artblocks.io/{collectionAddress}/{tokenId}.png`. Suggested items without bundled token JSON use the same OpenSea contract NFT endpoint as `RawNftsApi.get(contract:)`, then sample the image, display image, and metadata URLs that the app would use by default.");
   lines.push("");
   lines.push("## Summary");
   lines.push("");
@@ -574,6 +842,7 @@ function renderMarkdownReport(report) {
   lines.push(`- Partially reachable collections: ${report.summary.partiallyReachableCollections}`);
   lines.push(`- Unreachable collections: ${report.summary.unreachableCollections}`);
   lines.push(`- Failed item samples: ${report.summary.failedSamples}`);
+  lines.push(`- OpenSea fallback API failures: ${report.summary.openSeaFallbackApiFailures}`);
   lines.push(`- Samples confirmed by HEAD fallback after GET 429: ${report.summary.headFallbackConfirmedSamples}`);
   lines.push(`- Suggested items without bundled token JSON: ${report.summary.suggestedItemsWithoutTokenJson}`);
   lines.push("");
@@ -587,7 +856,7 @@ function renderMarkdownReport(report) {
     lines.push("| Collection | Collection id | Address | Project id | Tokens sampled | Failures |");
     lines.push("| --- | --- | --- | --- | ---: | --- |");
     for (const collection of unreachable) {
-      lines.push(`| ${escapeCell(collection.name)} | \`${escapeCell(collection.id)}\` | \`${escapeCell(collection.address)}\` | \`${escapeCell(collection.projectId)}\` | ${collection.samples.length} | ${renderFailureList(collection.samples)} |`);
+      lines.push(`| ${escapeCell(collection.name)} | \`${escapeCell(collection.id)}\` | \`${escapeCell(collection.address)}\` | \`${escapeCell(collection.projectId)}\` | ${collection.samples.length} | ${renderFailureList(collection.samples) || escapeCell(collection.openSeaApiError)} |`);
     }
   }
   lines.push("");
@@ -600,6 +869,22 @@ function renderMarkdownReport(report) {
     lines.push("| --- | --- | ---: | ---: | --- |");
     for (const collection of partial) {
       lines.push(`| ${escapeCell(collection.name)} | \`${escapeCell(collection.id)}\` | ${collection.successes} | ${collection.failures} | ${renderFailureList(collection.samples)} |`);
+    }
+  }
+  lines.push("");
+  lines.push("## Suggested Items Without Bundled Token JSON");
+  lines.push("");
+  if (report.missingTokenFiles.length === 0) {
+    lines.push("None.");
+  } else {
+    lines.push("These items are present in `items.json` but do not have matching `Tokens/{collectionId}.json` files. The app falls through to the live OpenSea NFT API path for them, and this report now checks that path when an API key is available.");
+    lines.push("");
+    lines.push("| Collection | Collection id | Address | Chain | OpenSea tokens loaded | Status |");
+    lines.push("| --- | --- | --- | --- | ---: | --- |");
+    for (const item of report.missingTokenFiles) {
+      const checked = openSeaFallback.find((collection) => collection.id === item.id);
+      const status = checked?.openSeaApiError ? checked.openSeaApiError : checked ? "checked via OpenSea API" : "not checked";
+      lines.push(`| ${escapeCell(item.name)} | \`${escapeCell(item.id)}\` | \`${escapeCell(item.address)}\` | ${escapeCell(item.chain ?? item.chainId ?? "")} | ${checked?.tokenCount ?? 0} | ${escapeCell(status)} |`);
     }
   }
   lines.push("");
@@ -621,7 +906,12 @@ function renderMarkdownReport(report) {
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
-  const { bundlePath, collections, missingTokenFiles } = await readCollections(options);
+  const { bundlePath, collections: bundledCollections, missingTokenFiles, suggestedItemsMatched, bundledTokenJsonFiles } = await readCollections(options);
+  if (missingTokenFiles.length > 0) {
+    console.error(`Loading ${missingTokenFiles.length} suggested item(s) without bundled token JSON through OpenSea fallback...`);
+  }
+  const openSeaCollections = await loadOpenSeaFallbackCollections(missingTokenFiles, options);
+  const collections = [...bundledCollections, ...openSeaCollections];
   const attempts = [];
 
   for (const collection of collections) {
@@ -642,7 +932,7 @@ async function main() {
 
   const startedAt = Date.now();
   let lastProgressAt = 0;
-  console.error(`Checking ${collections.length} bundled collections with ${attempts.length} download attempts...`);
+  console.error(`Checking ${collections.length} collections with ${attempts.length} download attempts...`);
   await runPool(
     attempts,
     options.concurrency,
@@ -669,6 +959,11 @@ async function main() {
     0,
   );
   const summary = {
+    suggestedItemsMatched,
+    bundledTokenJsonFiles,
+    tokenBackedCollectionsChecked: bundledCollections.length,
+    openSeaFallbackCollectionsChecked: openSeaCollections.length,
+    openSeaFallbackApiFailures: openSeaCollections.filter((collection) => collection.openSeaApiError).length,
     collectionsChecked: summarizedCollections.length,
     downloadAttempts: attempts.length,
     fullyReachableCollections: summarizedCollections.filter((collection) => collection.fullyReachable).length,
@@ -693,6 +988,8 @@ async function main() {
       retryDelayMs: options.retryDelayMs,
       headFallbackOn429: options.headFallbackOn429,
       collectionFilter: options.collectionFilter,
+      openSeaApiEnabled: Boolean(options.openSeaApiKey),
+      openSeaPages: Number.isFinite(options.openSeaPages) ? options.openSeaPages : "all",
     },
     summary,
     missingTokenFiles,
