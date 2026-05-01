@@ -1,9 +1,0 @@
-Nft Folder on henkilökohtainen ja yksityinen työkalu korkearesoluutioisen taiteen katseluun offline-tilassa.
-
-Se on ilmainen, avoimen lähdekoodin ja häiriötön.
-
-Selaa yli 700 esiteltyä kokoelmaa. Katso koko näytöllä.
-
-Voit myös käyttää sitä kaikkien nft:iden lataamiseen mille tahansa Ethereum-osoitteelle.
-
-Palaute yo@lil.org

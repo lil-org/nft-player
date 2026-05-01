@@ -1,7 +1,0 @@
-vizualizează artă hi-res offline!
-
-include colecții selectate art blocks.
-
-fiecare lucrare este recreată dinamic pe dispozitivul tău.
-
-feedback yo@lil.org

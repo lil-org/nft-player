@@ -1,9 +1,0 @@
-Nft Folder ist ein persönliches, privates Tool, um hochauflösende Kunst offline anzusehen.
-
-Es ist kostenlos, Open Source und ohne Ablenkungen.
-
-Durchstöbere über 700 ausgewählte Kollektionen. Wiedergabe im Vollbild.
-
-Du kannst es auch verwenden, um alle nfts für jede Ethereum-Adresse herunterzuladen.
-
-Feedback an yo@lil.org

@@ -1,0 +1,58 @@
+{
+  "workflows": {
+    "validate": {
+      "description": "Validate local App Store metadata and screenshots for every platform.",
+      "steps": [
+        "scripts/asc-store.sh validate all"
+      ]
+    },
+    "metadata": {
+      "description": "Push App Store metadata for every platform.",
+      "steps": [
+        "scripts/asc-store.sh metadata all"
+      ]
+    },
+    "screenshots": {
+      "description": "Upload App Store screenshots for every platform.",
+      "steps": [
+        "scripts/asc-store.sh screenshots all"
+      ]
+    },
+    "release": {
+      "description": "Build, upload, attach, and submit every platform.",
+      "steps": [
+        "scripts/asc-store.sh release all"
+      ]
+    },
+    "release_ios": {
+      "description": "Build, upload, attach, and submit the iOS app.",
+      "steps": [
+        "scripts/asc-store.sh release ios"
+      ]
+    },
+    "release_macos": {
+      "description": "Build, direct-upload, attach, and submit the macOS app.",
+      "steps": [
+        "scripts/asc-store.sh release macos"
+      ]
+    },
+    "release_tvos": {
+      "description": "Build, upload, attach, and submit the tvOS app.",
+      "steps": [
+        "scripts/asc-store.sh release tvos"
+      ]
+    },
+    "release_visionos": {
+      "description": "Build, upload, attach, and submit the visionOS app.",
+      "steps": [
+        "scripts/asc-store.sh release visionos"
+      ]
+    },
+    "bump": {
+      "description": "Increment the project version and build number, then commit and push.",
+      "steps": [
+        "scripts/asc-store.sh bump"
+      ]
+    }
+  }
+}
