@@ -34,7 +34,7 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
     private let initialConfig: MobilePlayerConfig
     private let onCoordinateUpdate: ((PlayerCoordinate) -> Void)
 
-    private lazy var verticalVC = VerticalPageViewController(fourDirectionalPlayerDataSource: self)
+    private lazy var pagingVC = HorizontalPageViewController(fourDirectionalPlayerDataSource: self)
     private var renderedCoordinates = Set<PlayerCoordinate>()
 
     init(initialConfig: MobilePlayerConfig, onCoordinateUpdate: @escaping (PlayerCoordinate) -> Void) {
@@ -51,15 +51,15 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
         super.viewDidLoad()
         MobilePlaybackController.shared.subscribe(config: initialConfig, display: self)
         view.backgroundColor = .black
-        addChild(verticalVC)
-        view.addSubview(verticalVC.view)
-        verticalVC.didMove(toParent: self)
-        verticalVC.view.translatesAutoresizingMaskIntoConstraints = false
+        addChild(pagingVC)
+        view.addSubview(pagingVC.view)
+        pagingVC.didMove(toParent: self)
+        pagingVC.view.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
-            verticalVC.view.topAnchor.constraint(equalTo: view.topAnchor),
-            verticalVC.view.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            verticalVC.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            verticalVC.view.trailingAnchor.constraint(equalTo: view.trailingAnchor)
+            pagingVC.view.topAnchor.constraint(equalTo: view.topAnchor),
+            pagingVC.view.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            pagingVC.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            pagingVC.view.trailingAnchor.constraint(equalTo: view.trailingAnchor)
         ])
         UIApplication.shared.isIdleTimerDisabled = true
     }
@@ -74,11 +74,11 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
     }
 
     func getCurrentCoordinate() -> (Int, Int) {
-        return verticalVC.getCurrentCoordinate()
+        return pagingVC.getCurrentCoordinate()
     }
 
     func navigate(_ direction: PlaybackNavigationDirection) {
-        verticalVC.navigate(direction)
+        pagingVC.navigate(direction)
     }
 
     private func enableNavigationBackSwipe() {
@@ -89,7 +89,7 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
 
         popGesture.isEnabled = navigationController.viewControllers.count > 1
         popGesture.delegate = self
-        verticalVC.requirePagingPanToFail(for: popGesture)
+        pagingVC.requirePagingPanToFail(for: popGesture)
     }
 
     fileprivate func getHtml(x: Int, y: Int) -> String {
@@ -211,7 +211,7 @@ private class SpecificPageViewController: UIViewController {
 
 }
 
-private class VerticalPageViewController: UIPageViewController, UIPageViewControllerDataSource, UIPageViewControllerDelegate {
+private class HorizontalPageViewController: UIPageViewController, UIPageViewControllerDataSource, UIPageViewControllerDelegate {
 
     let pageA: SpecificPageViewController
     let pageB: SpecificPageViewController
@@ -223,7 +223,7 @@ private class VerticalPageViewController: UIPageViewController, UIPageViewContro
         pageA = SpecificPageViewController(horizontalIndex: 0, verticalIndex: 0, fourDirectionalPlayerDataSource: fourDirectionalPlayerDataSource)
         pageB = SpecificPageViewController(horizontalIndex: 1, verticalIndex: 0, fourDirectionalPlayerDataSource: fourDirectionalPlayerDataSource)
         pageC = SpecificPageViewController(horizontalIndex: -1, verticalIndex: 0, fourDirectionalPlayerDataSource: fourDirectionalPlayerDataSource)
-        super.init(transitionStyle: .scroll, navigationOrientation: .vertical, options: nil)
+        super.init(transitionStyle: .scroll, navigationOrientation: .horizontal, options: nil)
     }
 
     required init?(coder: NSCoder) {
