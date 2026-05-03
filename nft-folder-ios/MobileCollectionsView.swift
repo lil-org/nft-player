@@ -6,71 +6,62 @@ struct MobileCollectionsView: View {
     @State private var suggestedItems = TokenGenerator.allGenerativeSuggestedItems
     @State private var didAppear = false
     @State private var showMorePreferences = false
-    @State private var selectedConfig: MobilePlayerConfig?
+    @State private var navigationPath = [MobilePlayerConfig]()
     
     init() {
         let appearance = UINavigationBarAppearance()
         appearance.configureWithTransparentBackground()
-        appearance.backgroundColor = UIColor.quaternarySystemFill
+        appearance.backgroundColor = .clear
+        appearance.backgroundEffect = nil
+        appearance.shadowColor = .clear
+        UINavigationBar.appearance().standardAppearance = appearance
         UINavigationBar.appearance().scrollEdgeAppearance = appearance
+        UINavigationBar.appearance().compactAppearance = appearance
+        UINavigationBar.appearance().compactScrollEdgeAppearance = appearance
     }
     
     var body: some View {
-        ZStack {
-            NavigationStack {
-                VStack {
-                    ScrollView {
-                        createGrid().frame(maxWidth: .infinity)
-                    }
-                }
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .principal) {}
-                }
-                .toolbar {
-                    ToolbarItem(placement: .navigationBarLeading) {
-                        Menu {
-                            Text(Strings.sendFeedback)
-                            Button(Strings.github) { UIApplication.shared.open(URL.github) }
-                            Button(Strings.mail) { UIApplication.shared.open(URL.mail) }
-                            Button(Strings.x) { UIApplication.shared.open(URL.x) }
-                            Divider()
-                            Button(Strings.rateOnTheAppStore) { UIApplication.shared.open(URL.writeAppStoreReview) }
-                            Divider()
-                            Button(Strings.changeAppIcon) { didClickToggleAppIcon() }
-                        } label: {
-                            Images.preferences
-                        }
-                    }
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        HStack {
-                            Button { showRandomPlayer() } label: {
-                                Images.shuffle
-                            }
-                        }
-                        
-                    }
+        NavigationStack(path: $navigationPath) {
+            VStack {
+                ScrollView {
+                    createGrid().frame(maxWidth: .infinity)
                 }
             }
-            if let selectedConfig = selectedConfig {
-                InteractiveDismissContainer(onDismiss: {
-                    self.selectedConfig = nil
-                    MobilePlaybackController.shared.stopAndDisconnect(uuid: selectedConfig.id)
-                    Haptic.selectionChanged()
-                }) {
-                    MobilePlayerView(config: selectedConfig) {
-                        self.selectedConfig = nil
-                        MobilePlaybackController.shared.stopAndDisconnect(uuid: selectedConfig.id)
-                        Haptic.selectionChanged()
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .principal) {}
+            }
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Menu {
+                        Text(Strings.sendFeedback)
+                        Button(Strings.github) { UIApplication.shared.open(URL.github) }
+                        Button(Strings.mail) { UIApplication.shared.open(URL.mail) }
+                        Button(Strings.x) { UIApplication.shared.open(URL.x) }
+                        Divider()
+                        Button(Strings.rateOnTheAppStore) { UIApplication.shared.open(URL.writeAppStoreReview) }
+                        Divider()
+                        Button(Strings.changeAppIcon) { didClickToggleAppIcon() }
+                    } label: {
+                        Images.preferences
                     }
                 }
-                .edgesIgnoringSafeArea(.all)
-                .persistentSystemOverlays(.hidden)
-                .transition(.opacity)
-                .id(selectedConfig.id)
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    HStack {
+                        Button { showRandomPlayer() } label: {
+                            Images.shuffle
+                        }
+                    }
+                    
+                }
+            }
+            .navigationDestination(for: MobilePlayerConfig.self) { config in
+                MobilePlayerView(config: config)
+                    .edgesIgnoringSafeArea(.all)
+                    .persistentSystemOverlays(.hidden)
+                    .id(config.id)
             }
         }
-        .animation(.easeInOut, value: selectedConfig)
         .persistentSystemOverlays(.hidden)
     }
     
@@ -141,12 +132,12 @@ struct MobileCollectionsView: View {
     }
     
     private func didSelectSuggestedItem(_ item: SuggestedItem) {
-        selectedConfig = MobilePlayerConfig(initialItemId: item.id)
+        navigationPath.append(MobilePlayerConfig(initialItemId: item.id))
         Haptic.selectionChanged()
     }
     
     private func showRandomPlayer() {
-        selectedConfig = MobilePlayerConfig(initialItemId: nil)
+        navigationPath.append(MobilePlayerConfig(initialItemId: nil))
         Haptic.selectionChanged()
     }
     

@@ -18,6 +18,7 @@ class AutoReloadingWebView: WKWebView {
         wkWebView.backgroundColor = .black
         wkWebView.scrollView.backgroundColor = .black
         wkWebView.scrollView.contentInsetAdjustmentBehavior = .never
+        wkWebView.scrollView.hideAutomaticScrollEdgeEffects()
         wkWebView.configuration.userContentController.addUserScript(WKUserScript(source: "document.addEventListener('contextmenu', function(e) { e.preventDefault(); }, false);", injectionTime: .atDocumentEnd, forMainFrameOnly: true))
         return wkWebView
     }
@@ -69,6 +70,19 @@ class AutoReloadingWebView: WKWebView {
     
     private func hasVisibleSize(_ rect: CGRect) -> Bool {
         return rect.size.width > 5 && rect.size.height > 5
+    }
+    
+}
+
+extension UIScrollView {
+    
+    func hideAutomaticScrollEdgeEffects() {
+        if #available(iOS 26.0, *) {
+            topEdgeEffect.isHidden = true
+            bottomEdgeEffect.isHidden = true
+            leftEdgeEffect.isHidden = true
+            rightEdgeEffect.isHidden = true
+        }
     }
     
 }

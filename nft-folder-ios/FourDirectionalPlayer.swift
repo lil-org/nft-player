@@ -29,12 +29,12 @@ struct FourDirectionalPlayerContainerView: UIViewControllerRepresentable {
     func updateUIViewController(_ uiViewController: FourDirectionalPlayerContainer, context: Context) {}
 }
 
-class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDataSource, MobilePlaybackControllerDisplay {
+class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDataSource, MobilePlaybackControllerDisplay, UIGestureRecognizerDelegate {
 
     private let initialConfig: MobilePlayerConfig
     private let onCoordinateUpdate: ((PlayerCoordinate) -> Void)
 
-    private lazy var horizontalVC = HorizontalPageViewController(fourDirectionalPlayerDataSource: self)
+    private lazy var verticalVC = VerticalPageViewController(fourDirectionalPlayerDataSource: self)
     private var renderedCoordinates = Set<PlayerCoordinate>()
 
     init(initialConfig: MobilePlayerConfig, onCoordinateUpdate: @escaping (PlayerCoordinate) -> Void) {
@@ -50,17 +50,22 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
     override func viewDidLoad() {
         super.viewDidLoad()
         MobilePlaybackController.shared.subscribe(config: initialConfig, display: self)
-        addChild(horizontalVC)
-        view.addSubview(horizontalVC.view)
-        horizontalVC.didMove(toParent: self)
-        horizontalVC.view.translatesAutoresizingMaskIntoConstraints = false
+        addChild(verticalVC)
+        view.addSubview(verticalVC.view)
+        verticalVC.didMove(toParent: self)
+        verticalVC.view.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
-            horizontalVC.view.topAnchor.constraint(equalTo: view.topAnchor),
-            horizontalVC.view.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            horizontalVC.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            horizontalVC.view.trailingAnchor.constraint(equalTo: view.trailingAnchor)
+            verticalVC.view.topAnchor.constraint(equalTo: view.topAnchor),
+            verticalVC.view.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            verticalVC.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            verticalVC.view.trailingAnchor.constraint(equalTo: view.trailingAnchor)
         ])
         UIApplication.shared.isIdleTimerDisabled = true
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        enableNavigationBackSwipe()
     }
 
     deinit {
@@ -68,11 +73,22 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
     }
 
     func getCurrentCoordinate() -> (Int, Int) {
-        return horizontalVC.getCurrentCoordinate()
+        return verticalVC.getCurrentCoordinate()
     }
 
     func navigate(_ direction: PlaybackNavigationDirection) {
-        horizontalVC.navigate(direction)
+        verticalVC.navigate(direction)
+    }
+
+    private func enableNavigationBackSwipe() {
+        guard let navigationController = navigationController,
+              let popGesture = navigationController.interactivePopGestureRecognizer else {
+            return
+        }
+
+        popGesture.isEnabled = navigationController.viewControllers.count > 1
+        popGesture.delegate = self
+        verticalVC.requirePagingPanToFail(for: popGesture)
     }
 
     fileprivate func getHtml(x: Int, y: Int) -> String {
@@ -94,6 +110,14 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
         if renderedCoordinates.count == 1, let coordinate = renderedCoordinates.first {
             onCoordinateUpdate(coordinate)
         }
+    }
+
+    func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        guard gestureRecognizer === navigationController?.interactivePopGestureRecognizer else {
+            return true
+        }
+
+        return navigationController?.viewControllers.count ?? 0 > 1
     }
 
 }
@@ -186,7 +210,7 @@ private class SpecificPageViewController: UIViewController {
 
 }
 
-private class HorizontalPageViewController: UIPageViewController, UIPageViewControllerDataSource, UIPageViewControllerDelegate {
+private class VerticalPageViewController: UIPageViewController, UIPageViewControllerDataSource, UIPageViewControllerDelegate {
 
     let pageA: SpecificPageViewController
     let pageB: SpecificPageViewController
@@ -198,7 +222,7 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
         pageA = SpecificPageViewController(horizontalIndex: 0, verticalIndex: 0, fourDirectionalPlayerDataSource: fourDirectionalPlayerDataSource)
         pageB = SpecificPageViewController(horizontalIndex: 1, verticalIndex: 0, fourDirectionalPlayerDataSource: fourDirectionalPlayerDataSource)
         pageC = SpecificPageViewController(horizontalIndex: -1, verticalIndex: 0, fourDirectionalPlayerDataSource: fourDirectionalPlayerDataSource)
-        super.init(transitionStyle: .scroll, navigationOrientation: .horizontal, options: nil)
+        super.init(transitionStyle: .scroll, navigationOrientation: .vertical, options: nil)
     }
 
     required init?(coder: NSCoder) {
@@ -210,6 +234,29 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
         dataSource = self
         delegate = self
         setViewControllers([pageA], direction: .forward, animated: false, completion: nil)
+        configurePagingScrollViews()
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        configurePagingScrollViews()
+    }
+
+    func requirePagingPanToFail(for gestureRecognizer: UIGestureRecognizer) {
+        pagingScrollViews.forEach { scrollView in
+            scrollView.panGestureRecognizer.require(toFail: gestureRecognizer)
+            scrollView.hideAutomaticScrollEdgeEffects()
+        }
+    }
+
+    private var pagingScrollViews: [UIScrollView] {
+        view.subviews.compactMap { $0 as? UIScrollView }
+    }
+
+    private func configurePagingScrollViews() {
+        pagingScrollViews.forEach { scrollView in
+            scrollView.hideAutomaticScrollEdgeEffects()
+        }
     }
 
     func getCurrentCoordinate() -> (Int, Int) {
