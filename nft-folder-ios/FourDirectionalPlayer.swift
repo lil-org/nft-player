@@ -166,7 +166,7 @@ private class SpecificPageViewController: UIViewController {
     }
 
     private func cleanupDisplayedContent() {
-        webView.loadHTMLString("", baseURL: nil)
+        webView?.loadHTMLString("", baseURL: nil)
         if let renderedCoordinate = renderedCoordinate {
             fourDirectionalPlayerDataSource?.didCleanupCoordinate(renderedCoordinate)
         }

@@ -2,6 +2,16 @@ import SwiftUI
 import Combine
 import UIKit
 
+private enum MobileInitialPlayerCreationDelay {
+    private static var shouldDeferNextPlayerCreation = true
+    
+    static func consumeShouldDefer() -> Bool {
+        guard shouldDeferNextPlayerCreation else { return false }
+        shouldDeferNextPlayerCreation = false
+        return true
+    }
+}
+
 struct MobileCollectionsView: View {
     @State private var showSettingsPopup = false
     @State private var suggestedItems = TokenGenerator.allGenerativeSuggestedItems
@@ -175,9 +185,9 @@ private struct PlayerNavigationOverlay: UIViewControllerRepresentable {
         rootViewController.navigationItem.backButtonTitle = Strings.nftFolder
         rootViewController.navigationItem.backButtonDisplayMode = .minimal
         
-        let playerViewController = UIHostingController(rootView: MobilePlayerView(config: config))
-        playerViewController.view.backgroundColor = .clear
-        playerViewController.view.isOpaque = false
+        let shouldDeferPlayerCreation = MobileInitialPlayerCreationDelay.consumeShouldDefer()
+        let deferredPlayerViewController = shouldDeferPlayerCreation ? DeferredMobilePlayerViewController(config: config) : nil
+        let playerViewController: UIViewController = deferredPlayerViewController ?? makeMobilePlayerViewController(config: config)
         
         let navigationController = PlayerNavigationController(rootViewController: rootViewController)
         navigationController.view.backgroundColor = .clear
@@ -193,11 +203,13 @@ private struct PlayerNavigationOverlay: UIViewControllerRepresentable {
         
         context.coordinator.rootViewController = rootViewController
         context.coordinator.playerViewController = playerViewController
+        context.coordinator.deferredPlayerViewController = deferredPlayerViewController
         context.coordinator.overlayViewController = overlayViewController
         
         DispatchQueue.main.async {
             guard navigationController.viewControllers.last === rootViewController else { return }
             navigationController.pushViewController(playerViewController, animated: true)
+            navigationController.setNeedsStatusBarAppearanceUpdate()
         }
         
         return overlayViewController
@@ -214,6 +226,7 @@ private struct PlayerNavigationOverlay: UIViewControllerRepresentable {
         weak var rootViewController: UIViewController?
         weak var overlayViewController: PlayerOverlayViewController?
         var playerViewController: UIViewController?
+        var deferredPlayerViewController: DeferredMobilePlayerViewController?
         private var didShowPlayer = false
         private var didNotifyDismiss = false
         
@@ -224,6 +237,7 @@ private struct PlayerNavigationOverlay: UIViewControllerRepresentable {
         func navigationController(_ navigationController: UINavigationController, didShow viewController: UIViewController, animated: Bool) {
             if viewController === playerViewController {
                 didShowPlayer = true
+                installDeferredPlayerIfNeeded(in: navigationController)
                 overlayViewController?.didUpdateNavigationStack()
                 return
             }
@@ -238,6 +252,59 @@ private struct PlayerNavigationOverlay: UIViewControllerRepresentable {
             onDismiss()
         }
         
+        private func installDeferredPlayerIfNeeded(in navigationController: UINavigationController) {
+            guard let deferredPlayerViewController else { return }
+            
+            let playerViewController = makeMobilePlayerViewController(config: deferredPlayerViewController.config)
+            var viewControllers = navigationController.viewControllers
+            guard let index = viewControllers.firstIndex(of: deferredPlayerViewController) else { return }
+            viewControllers[index] = playerViewController
+            self.playerViewController = playerViewController
+            self.deferredPlayerViewController = nil
+            navigationController.setViewControllers(viewControllers, animated: false)
+        }
+        
+    }
+    
+}
+
+private func makeMobilePlayerViewController(config: MobilePlayerConfig) -> UIHostingController<MobilePlayerView> {
+    let playerViewController = UIHostingController(rootView: MobilePlayerView(config: config))
+    playerViewController.view.backgroundColor = .clear
+    playerViewController.view.isOpaque = false
+    return playerViewController
+}
+
+private final class DeferredMobilePlayerViewController: UIViewController {
+    
+    let config: MobilePlayerConfig
+    
+    init(config: MobilePlayerConfig) {
+        self.config = config
+        super.init(nibName: nil, bundle: nil)
+        navigationItem.hidesBackButton = true
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("yo")
+    }
+    
+    override var prefersStatusBarHidden: Bool {
+        true
+    }
+    
+    override var preferredStatusBarUpdateAnimation: UIStatusBarAnimation {
+        .fade
+    }
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = .black
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        navigationController?.setNavigationBarHidden(true, animated: false)
     }
     
 }
