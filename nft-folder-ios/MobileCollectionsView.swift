@@ -712,10 +712,10 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
 
         let location = topDismissPan.location(in: view)
         let velocity = topDismissPan.velocity(in: view)
-        let activationHeight = max(132, view.safeAreaInsets.top + 96)
+        let activationHeight = MobilePlayerGestureTuning.topDismissActivationHeight(safeAreaTop: view.safeAreaInsets.top)
         return location.y <= activationHeight
             && velocity.y > 0
-            && velocity.y > abs(velocity.x) * 0.8
+            && velocity.y > abs(velocity.x) * MobilePlayerGestureTuning.topDismissVerticalIntentRatio
     }
 
 }

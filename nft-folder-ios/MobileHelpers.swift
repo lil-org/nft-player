@@ -24,3 +24,18 @@ struct Haptic {
     }
     
 }
+
+enum MobilePlayerGestureTuning {
+
+    static let verticalPagingAxisDominance: CGFloat = 1.15
+    static let verticalPagingMinimumVelocity: CGFloat = 160
+    static let verticalPagingCommitTranslation: CGFloat = 50
+    static let verticalPagingCommitVelocity: CGFloat = 450
+    static let topDismissVerticalIntentRatio: CGFloat = 0.8
+    static let pageTransitionSettleDelay: TimeInterval = 0.18
+
+    static func topDismissActivationHeight(safeAreaTop: CGFloat) -> CGFloat {
+        max(132, safeAreaTop + 96)
+    }
+
+}
