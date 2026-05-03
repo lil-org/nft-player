@@ -39,11 +39,11 @@ struct MobilePlayerView: View {
                 .onLongPressGesture {
                     showControls.toggle()
                 }
-                .statusBar(hidden: isAllowedToHideStatusBar && !showControls)
         }
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(showControls ? .visible : .hidden, for: .navigationBar)
         .toolbarBackground(.hidden, for: .navigationBar)
+        .statusBar(hidden: isAllowedToHideStatusBar && !showControls)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 infoMenu

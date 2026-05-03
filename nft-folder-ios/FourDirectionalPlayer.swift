@@ -50,6 +50,7 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
     override func viewDidLoad() {
         super.viewDidLoad()
         MobilePlaybackController.shared.subscribe(config: initialConfig, display: self)
+        view.backgroundColor = .black
         addChild(verticalVC)
         view.addSubview(verticalVC.view)
         verticalVC.didMove(toParent: self)
