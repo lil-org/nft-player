@@ -172,6 +172,7 @@ private struct PlayerNavigationOverlay: UIViewControllerRepresentable {
         let rootViewController = UIViewController()
         rootViewController.view.backgroundColor = .clear
         rootViewController.view.isOpaque = false
+        rootViewController.navigationItem.backButtonTitle = Strings.nftFolder
         rootViewController.navigationItem.backButtonDisplayMode = .minimal
         
         let playerViewController = UIHostingController(rootView: MobilePlayerView(config: config))
