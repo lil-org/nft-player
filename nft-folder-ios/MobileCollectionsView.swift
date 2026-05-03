@@ -12,6 +12,38 @@ private enum MobileInitialPlayerCreationDelay {
     }
 }
 
+private enum InfiniteCollectionsLoop {
+    private static let repetitionCount = 31
+    private static let middleRepetition = repetitionCount / 2
+    private static let recenterThreshold = 5
+    private static let initialSourceOffset = 12
+
+    static func virtualItemCount(itemCount: Int) -> Int {
+        repetitionCount * itemCount
+    }
+
+    static func repetition(for virtualIndex: Int, itemCount: Int) -> Int {
+        virtualIndex / itemCount
+    }
+
+    static func sourceIndex(for virtualIndex: Int, itemCount: Int) -> Int {
+        virtualIndex % itemCount
+    }
+
+    static func centeredIndex(sourceIndex: Int, itemCount: Int) -> Int {
+        middleRepetition * itemCount + sourceIndex
+    }
+
+    static func initialScrollPosition(itemCount: Int) -> Int? {
+        guard itemCount > 0 else { return nil }
+        return centeredIndex(sourceIndex: initialSourceOffset % itemCount, itemCount: itemCount)
+    }
+
+    static func shouldRecenter(repetition: Int) -> Bool {
+        repetition <= recenterThreshold || repetition >= repetitionCount - recenterThreshold
+    }
+}
+
 struct MobileCollectionsView: View {
     @State private var showSettingsPopup = false
     @State private var suggestedItems = TokenGenerator.allGenerativeSuggestedItems
@@ -35,9 +67,8 @@ struct MobileCollectionsView: View {
         ZStack {
             NavigationStack {
                 VStack {
-                    ScrollView {
-                        createGrid().frame(maxWidth: .infinity)
-                    }
+                    InfiniteCollectionsGridView(items: suggestedItems, onSelect: didSelectSuggestedItem)
+                        .ignoresSafeArea()
                 }
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
@@ -90,64 +121,6 @@ struct MobileCollectionsView: View {
         }
     }
     
-    private func createGrid() -> some View {
-        let gridLayout = [GridItem(.adaptive(minimum: UIDevice.current.userInterfaceIdiom == .pad ? 130 : 77), spacing: 0)]
-        return LazyVGrid(columns: gridLayout, alignment: .leading, spacing: 0) {
-            ForEach(suggestedItems) { item in
-                Button {
-                    didSelectSuggestedItem(item)
-                } label: {
-                    ZStack {
-                        Image(item.id)
-                            .resizable()
-                            .scaledToFill()
-                            .clipped()
-                            .aspectRatio(1, contentMode: .fill)
-                            .contentShape(Rectangle())
-                        VStack {
-                            Spacer()
-                            gridItemText(item.name) {
-                                didSelectSuggestedItem(item)
-                            }
-                        }
-                    }
-                }
-                .aspectRatio(1, contentMode: .fit)
-                .contextMenu { suggestedItemContextMenu(item: item) }
-            }
-        }
-    }
-    
-    private func gridItemText(_ text: String, onTap: @escaping () -> Void) -> some View {
-        HStack {
-            Text(text)
-                .font(.system(size: 9, weight: .regular))
-                .lineLimit(2)
-                .foregroundColor(.white)
-                .padding(.horizontal, 1)
-                .background(Color.black.opacity(0.7))
-                .cornerRadius(3)
-                .padding(.leading, 4)
-                .padding(.bottom, 3)
-                .multilineTextAlignment(.leading)
-                .onTapGesture { onTap() }
-            Spacer()
-        }
-    }
-    private func suggestedItemContextMenu(item: SuggestedItem) -> some View {
-        Group {
-            Text(item.name)
-            Button(action: {
-                didSelectSuggestedItem(item)
-            }) {
-                HStack {
-                    Images.play
-                    Text(Strings.play)
-                }
-            }
-        }
-    }
-    
     private func didSelectSuggestedItem(_ item: SuggestedItem) {
         playerConfig = MobilePlayerConfig(initialItemId: item.id)
         Haptic.selectionChanged()
@@ -167,6 +140,279 @@ struct MobileCollectionsView: View {
         }
     }
     
+}
+
+private struct InfiniteCollectionsGridView: UIViewRepresentable {
+    let items: [SuggestedItem]
+    let onSelect: (SuggestedItem) -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(items: [], onSelect: onSelect)
+    }
+
+    func makeUIView(context: Context) -> InfiniteCollectionsGridContainerView {
+        let containerView = InfiniteCollectionsGridContainerView()
+        containerView.update(items: items, coordinator: context.coordinator)
+        return containerView
+    }
+
+    func updateUIView(_ containerView: InfiniteCollectionsGridContainerView, context: Context) {
+        context.coordinator.onSelect = onSelect
+        containerView.update(items: items, coordinator: context.coordinator)
+    }
+
+    final class Coordinator: NSObject, UICollectionViewDataSource, UICollectionViewDelegateFlowLayout {
+        var items: [SuggestedItem]
+        var onSelect: (SuggestedItem) -> Void
+        private var isRecentering = false
+
+        init(items: [SuggestedItem], onSelect: @escaping (SuggestedItem) -> Void) {
+            self.items = items
+            self.onSelect = onSelect
+        }
+
+        func update(items: [SuggestedItem]) -> Bool {
+            guard self.items != items else { return false }
+            self.items = items
+            return true
+        }
+
+        func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
+            InfiniteCollectionsLoop.virtualItemCount(itemCount: items.count)
+        }
+
+        func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
+            let cell = collectionView.dequeueReusableCell(withReuseIdentifier: CollectionGridCell.reuseIdentifier, for: indexPath)
+            guard let gridCell = cell as? CollectionGridCell else { return cell }
+            gridCell.configure(item: item(for: indexPath.item))
+            return gridCell
+        }
+
+        func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+            onSelect(item(for: indexPath.item))
+        }
+
+        func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {
+            let minimumItemWidth: CGFloat = UIDevice.current.userInterfaceIdiom == .pad ? 130 : 77
+            let columns = max(Int(collectionView.bounds.width / minimumItemWidth), 1)
+            let itemWidth = collectionView.bounds.width / CGFloat(columns)
+            return CGSize(width: itemWidth, height: itemWidth)
+        }
+
+        func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, minimumInteritemSpacingForSectionAt section: Int) -> CGFloat {
+            0
+        }
+
+        func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, minimumLineSpacingForSectionAt section: Int) -> CGFloat {
+            0
+        }
+
+        func collectionView(_ collectionView: UICollectionView, contextMenuConfigurationForItemAt indexPath: IndexPath, point: CGPoint) -> UIContextMenuConfiguration? {
+            let item = item(for: indexPath.item)
+            return UIContextMenuConfiguration(identifier: nil, previewProvider: nil) { [weak self] _ in
+                let playAction = UIAction(title: Strings.play, image: UIImage(systemName: "play")) { _ in
+                    self?.onSelect(item)
+                }
+                return UIMenu(title: item.name, children: [playAction])
+            }
+        }
+
+        func scrollViewDidScroll(_ scrollView: UIScrollView) {
+            guard !isRecentering,
+                  let collectionView = scrollView as? UICollectionView,
+                  !items.isEmpty,
+                  let topIndexPath = collectionView.indexPathsForVisibleItems.min(by: { $0.item < $1.item }) else {
+                return
+            }
+
+            let itemCount = items.count
+            let repetition = InfiniteCollectionsLoop.repetition(for: topIndexPath.item, itemCount: itemCount)
+            guard InfiniteCollectionsLoop.shouldRecenter(repetition: repetition),
+                  let topAttributes = collectionView.layoutAttributesForItem(at: topIndexPath) else {
+                return
+            }
+
+            let sourceIndex = InfiniteCollectionsLoop.sourceIndex(for: topIndexPath.item, itemCount: itemCount)
+            let targetIndexPath = IndexPath(item: InfiniteCollectionsLoop.centeredIndex(sourceIndex: sourceIndex, itemCount: itemCount), section: 0)
+            collectionView.layoutIfNeeded()
+            guard let targetAttributes = collectionView.layoutAttributesForItem(at: targetIndexPath) else { return }
+
+            isRecentering = true
+            let offsetWithinTopItem = collectionView.contentOffset.y - topAttributes.frame.minY
+            collectionView.setContentOffset(
+                CGPoint(x: collectionView.contentOffset.x, y: targetAttributes.frame.minY + offsetWithinTopItem),
+                animated: false
+            )
+            isRecentering = false
+        }
+
+        func setInitialScrollPosition(in collectionView: UICollectionView) {
+            guard !items.isEmpty,
+                  let targetIndex = InfiniteCollectionsLoop.initialScrollPosition(itemCount: items.count) else {
+                return
+            }
+
+            collectionView.layoutIfNeeded()
+            let targetIndexPath = IndexPath(item: targetIndex, section: 0)
+            guard let targetAttributes = collectionView.layoutAttributesForItem(at: targetIndexPath) else {
+                collectionView.scrollToItem(at: targetIndexPath, at: .top, animated: false)
+                return
+            }
+
+            isRecentering = true
+            collectionView.setContentOffset(CGPoint(x: 0, y: targetAttributes.frame.minY), animated: false)
+            isRecentering = false
+        }
+
+        private func item(for virtualIndex: Int) -> SuggestedItem {
+            items[InfiniteCollectionsLoop.sourceIndex(for: virtualIndex, itemCount: items.count)]
+        }
+    }
+}
+
+private final class InfiniteCollectionsGridContainerView: UIView {
+    private let collectionView: UICollectionView
+    private weak var coordinator: InfiniteCollectionsGridView.Coordinator?
+    private var didSetInitialScrollPosition = false
+    private var previousBoundsSize = CGSize.zero
+
+    override init(frame: CGRect) {
+        let layout = UICollectionViewFlowLayout()
+        layout.scrollDirection = .vertical
+        layout.minimumInteritemSpacing = 0
+        layout.minimumLineSpacing = 0
+        layout.sectionInset = .zero
+
+        collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
+        super.init(frame: frame)
+
+        backgroundColor = .clear
+        collectionView.backgroundColor = .clear
+        collectionView.showsVerticalScrollIndicator = false
+        collectionView.showsHorizontalScrollIndicator = false
+        collectionView.contentInsetAdjustmentBehavior = .never
+        collectionView.alwaysBounceVertical = true
+        collectionView.register(CollectionGridCell.self, forCellWithReuseIdentifier: CollectionGridCell.reuseIdentifier)
+        addSubview(collectionView)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    func update(items: [SuggestedItem], coordinator: InfiniteCollectionsGridView.Coordinator) {
+        self.coordinator = coordinator
+        collectionView.dataSource = coordinator
+        collectionView.delegate = coordinator
+
+        if coordinator.update(items: items) {
+            didSetInitialScrollPosition = false
+            collectionView.reloadData()
+        }
+
+        setNeedsLayout()
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+
+        collectionView.frame = bounds
+        if previousBoundsSize != bounds.size {
+            previousBoundsSize = bounds.size
+            collectionView.collectionViewLayout.invalidateLayout()
+        }
+
+        guard !didSetInitialScrollPosition,
+              bounds.width > 0,
+              bounds.height > 0,
+              collectionView.numberOfItems(inSection: 0) > 0 else {
+            return
+        }
+
+        coordinator?.setInitialScrollPosition(in: collectionView)
+        didSetInitialScrollPosition = true
+    }
+}
+
+private final class CollectionGridCell: UICollectionViewCell {
+    static let reuseIdentifier = "CollectionGridCell"
+
+    private let imageView = UIImageView()
+    private let titleLabel = GridTitleLabel()
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+
+        clipsToBounds = false
+        contentView.clipsToBounds = false
+        imageView.contentMode = .scaleAspectFill
+        imageView.clipsToBounds = true
+        contentView.addSubview(imageView)
+
+        titleLabel.font = .systemFont(ofSize: 9, weight: .regular)
+        titleLabel.textColor = .white
+        titleLabel.numberOfLines = 2
+        titleLabel.textAlignment = .left
+        titleLabel.backgroundColor = UIColor.black.withAlphaComponent(0.7)
+        titleLabel.layer.cornerRadius = 3
+        titleLabel.clipsToBounds = true
+        contentView.addSubview(titleLabel)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        imageView.image = nil
+        titleLabel.text = nil
+    }
+
+    func configure(item: SuggestedItem) {
+        imageView.image = UIImage(named: item.id)
+        titleLabel.text = item.name
+        accessibilityLabel = item.name
+        setNeedsLayout()
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+
+        imageView.frame = contentView.bounds.insetBy(dx: -0.5, dy: -0.5)
+
+        let maximumLabelWidth = max(contentView.bounds.width - 8, 0)
+        let maximumLabelSize = CGSize(width: maximumLabelWidth, height: CGFloat.greatestFiniteMagnitude)
+        let labelSize = titleLabel.sizeThatFits(maximumLabelSize)
+        let labelWidth = min(maximumLabelWidth, ceil(labelSize.width))
+        let labelHeight = min(ceil(labelSize.height), 28)
+        titleLabel.frame = CGRect(
+            x: 4,
+            y: contentView.bounds.height - labelHeight - 3,
+            width: labelWidth,
+            height: labelHeight
+        )
+    }
+}
+
+private final class GridTitleLabel: UILabel {
+    private let textInsets = UIEdgeInsets(top: 0, left: 1, bottom: 0, right: 1)
+
+    override func drawText(in rect: CGRect) {
+        super.drawText(in: rect.inset(by: textInsets))
+    }
+
+    override func sizeThatFits(_ size: CGSize) -> CGSize {
+        let adjustedSize = CGSize(
+            width: max(size.width - textInsets.left - textInsets.right, 0),
+            height: max(size.height - textInsets.top - textInsets.bottom, 0)
+        )
+        let measuredSize = super.sizeThatFits(adjustedSize)
+        return CGSize(
+            width: measuredSize.width + textInsets.left + textInsets.right,
+            height: measuredSize.height + textInsets.top + textInsets.bottom
+        )
+    }
 }
 
 private struct PlayerNavigationOverlay: UIViewControllerRepresentable {
