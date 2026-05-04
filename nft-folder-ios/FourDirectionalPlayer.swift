@@ -211,23 +211,13 @@ private class SpecificPageViewController: UIViewController {
 
 }
 
-private class HorizontalPageViewController: UIPageViewController, UIPageViewControllerDataSource, UIPageViewControllerDelegate, UIGestureRecognizerDelegate {
+private class HorizontalPageViewController: UIPageViewController, UIPageViewControllerDataSource, UIPageViewControllerDelegate {
 
     let pageA: SpecificPageViewController
     let pageB: SpecificPageViewController
     let pageC: SpecificPageViewController
 
-    private lazy var verticalPagingPanGestureRecognizer: UIPanGestureRecognizer = {
-        let gesture = UIPanGestureRecognizer(target: self, action: #selector(handleVerticalPagingPan(_:)))
-        gesture.delegate = self
-        gesture.cancelsTouchesInView = false
-        return gesture
-    }()
-
-    private var configuredPagingScrollPanGestures = Set<ObjectIdentifier>()
-    private var isPagingScrollEnabled = true
-    private var isVerticalNavigating = false
-    private var navigationUnlockWorkItem: DispatchWorkItem?
+    private var isPageTransitioning = false
 
     init(fourDirectionalPlayerDataSource: FourDirectionalPlayerDataSource) {
         pageA = SpecificPageViewController(horizontalIndex: 0, verticalIndex: 0, fourDirectionalPlayerDataSource: fourDirectionalPlayerDataSource)
@@ -245,7 +235,6 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
         dataSource = self
         delegate = self
         setViewControllers([pageA], direction: .forward, animated: false, completion: nil)
-        view.addGestureRecognizer(verticalPagingPanGestureRecognizer)
         configurePagingScrollViews()
     }
 
@@ -255,7 +244,6 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
     }
 
     func requirePagingPanToFail(for gestureRecognizer: UIGestureRecognizer) {
-        verticalPagingPanGestureRecognizer.require(toFail: gestureRecognizer)
         pagingScrollViews.forEach { scrollView in
             scrollView.panGestureRecognizer.require(toFail: gestureRecognizer)
             scrollView.hideAutomaticScrollEdgeEffects()
@@ -268,12 +256,6 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
 
     private func configurePagingScrollViews() {
         pagingScrollViews.forEach { scrollView in
-            let panGestureId = ObjectIdentifier(scrollView.panGestureRecognizer)
-            if !configuredPagingScrollPanGestures.contains(panGestureId) {
-                scrollView.panGestureRecognizer.require(toFail: verticalPagingPanGestureRecognizer)
-                configuredPagingScrollPanGestures.insert(panGestureId)
-            }
-            scrollView.isScrollEnabled = isPagingScrollEnabled
             scrollView.hideAutomaticScrollEdgeEffects()
         }
     }
@@ -314,90 +296,6 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
         update(verticalIndex: coordinate.1 + 1)
         if let currentPage = viewControllers?.first as? SpecificPageViewController {
             currentPage.renderCurrentItem()
-        }
-    }
-
-    @objc private func handleVerticalPagingPan(_ gesture: UIPanGestureRecognizer) {
-        guard gesture.state == .ended else { return }
-        let translation = gesture.translation(in: view)
-        let velocity = gesture.velocity(in: view)
-
-        guard abs(translation.y) >= MobilePlayerGestureTuning.verticalPagingCommitTranslation
-                || abs(velocity.y) >= MobilePlayerGestureTuning.verticalPagingCommitVelocity else {
-            return
-        }
-
-        let shouldMoveForward: Bool
-        if abs(velocity.y) >= MobilePlayerGestureTuning.verticalPagingCommitVelocity {
-            shouldMoveForward = velocity.y < 0
-        } else {
-            shouldMoveForward = translation.y < 0
-        }
-
-        let direction: PlaybackNavigationDirection = shouldMoveForward ? .forward : .back
-        navigate(direction)
-    }
-
-    func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
-        guard gestureRecognizer === verticalPagingPanGestureRecognizer else {
-            return true
-        }
-
-        guard !isVerticalNavigating else { return false }
-
-        let velocity = verticalPagingPanGestureRecognizer.velocity(in: view)
-        let absoluteXVelocity = abs(velocity.x)
-        let absoluteYVelocity = abs(velocity.y)
-
-        guard absoluteYVelocity >= MobilePlayerGestureTuning.verticalPagingMinimumVelocity,
-              absoluteYVelocity > absoluteXVelocity * MobilePlayerGestureTuning.verticalPagingAxisDominance else {
-            return false
-        }
-
-        if shouldYieldToTopDismissGesture(velocity: velocity) {
-            return false
-        }
-
-        return true
-    }
-
-    private func shouldYieldToTopDismissGesture(velocity: CGPoint) -> Bool {
-        guard velocity.y > 0 else { return false }
-        let location = verticalPagingPanGestureRecognizer.location(in: view)
-        let activationHeight = MobilePlayerGestureTuning.topDismissActivationHeight(safeAreaTop: view.safeAreaInsets.top)
-        return location.y <= activationHeight
-            && velocity.y > abs(velocity.x) * MobilePlayerGestureTuning.topDismissVerticalIntentRatio
-    }
-
-    private func beginVerticalPageTransition() -> Bool {
-        guard !isVerticalNavigating else { return false }
-        guard transitionCoordinator == nil else { return false }
-        navigationUnlockWorkItem?.cancel()
-        navigationUnlockWorkItem = nil
-        isVerticalNavigating = true
-        setPagingScrollEnabled(false)
-        return true
-    }
-
-    private func finishVerticalPageTransition() {
-        navigationUnlockWorkItem?.cancel()
-        setPagingScrollEnabled(false)
-        let workItem = DispatchWorkItem { [weak self] in
-            self?.isVerticalNavigating = false
-            self?.setPagingScrollEnabled(true)
-            self?.navigationUnlockWorkItem = nil
-        }
-        navigationUnlockWorkItem = workItem
-        DispatchQueue.main.asyncAfter(
-            deadline: .now() + MobilePlayerGestureTuning.pageTransitionSettleDelay,
-            execute: workItem
-        )
-    }
-
-    private func setPagingScrollEnabled(_ isEnabled: Bool) {
-        isPagingScrollEnabled = isEnabled
-        pagingScrollViews.forEach { scrollView in
-            scrollView.isScrollEnabled = isEnabled
         }
     }
 
@@ -461,43 +359,39 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
             return
         }
 
-        let targetViewControllers: [UIViewController]
+        let targetViewController: UIViewController?
         switch direction {
         case .reverse:
-            guard let targetViewController = pageViewController(self, viewControllerBefore: currentPage) else {
-                completion()
-                return
-            }
-            targetViewControllers = [targetViewController]
+            targetViewController = pageViewController(self, viewControllerBefore: currentPage)
         case .forward:
-            guard let targetViewController = pageViewController(self, viewControllerAfter: currentPage) else {
-                completion()
-                return
-            }
-            targetViewControllers = [targetViewController]
+            targetViewController = pageViewController(self, viewControllerAfter: currentPage)
         default:
             completion()
             return
         }
 
-        if let destinationPage = targetViewControllers.first as? SpecificPageViewController {
+        guard let targetViewController else {
+            completion()
+            return
+        }
+
+        if let destinationPage = targetViewController as? SpecificPageViewController {
             destinationPage.renderCurrentItem()
         }
 
-        setViewControllers(targetViewControllers, direction: direction, animated: true) { _ in
+        setViewControllers([targetViewController], direction: direction, animated: true) { _ in
             self.didSettleOnCurrentPage()
             completion()
         }
     }
 
     func navigate(_ direction: PlaybackNavigationDirection) {
-        guard !isVerticalNavigating else { return }
-
         switch direction {
         case .back, .forward:
-            guard beginVerticalPageTransition() else { return }
+            guard !isPageTransitioning, transitionCoordinator == nil else { return }
+            isPageTransitioning = true
             performPageTransition(direction == .back ? .reverse : .forward) { [weak self] in
-                self?.finishVerticalPageTransition()
+                self?.isPageTransitioning = false
             }
         case .down, .nextCollection:
             changeCollection()
