@@ -572,9 +572,9 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
     let playerNavigationController: UINavigationController
     var onDismiss: () -> Void
 
-    private lazy var topDismissPan = UIPanGestureRecognizer(target: self, action: #selector(handleTopDismissPan(_:)))
+    private lazy var dismissPan = UIPanGestureRecognizer(target: self, action: #selector(handleDismissPan(_:)))
     private var configuredScrollPanGestures = Set<ObjectIdentifier>()
-    private var isTopDismissing = false
+    private var isDismissing = false
 
     init(navigationController: UINavigationController, onDismiss: @escaping () -> Void) {
         self.playerNavigationController = navigationController
@@ -611,9 +611,9 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         ])
         playerNavigationController.didMove(toParent: self)
 
-        topDismissPan.delegate = self
-        topDismissPan.cancelsTouchesInView = false
-        view.addGestureRecognizer(topDismissPan)
+        dismissPan.delegate = self
+        dismissPan.cancelsTouchesInView = false
+        view.addGestureRecognizer(dismissPan)
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -637,15 +637,15 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
             .forEach { scrollView in
                 let panGestureId = ObjectIdentifier(scrollView.panGestureRecognizer)
                 if !configuredScrollPanGestures.contains(panGestureId) {
-                    scrollView.panGestureRecognizer.require(toFail: topDismissPan)
+                    scrollView.panGestureRecognizer.require(toFail: dismissPan)
                     configuredScrollPanGestures.insert(panGestureId)
                 }
                 scrollView.hideAutomaticScrollEdgeEffects()
             }
     }
 
-    @objc private func handleTopDismissPan(_ gesture: UIPanGestureRecognizer) {
-        guard !isTopDismissing else { return }
+    @objc private func handleDismissPan(_ gesture: UIPanGestureRecognizer) {
+        guard !isDismissing else { return }
 
         let translation = gesture.translation(in: view)
         let clampedY = max(0, translation.y)
@@ -655,37 +655,47 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
             playerNavigationController.view.layer.removeAllAnimations()
 
         case .changed:
-            let progress = min(clampedY / 700, 1)
+            let progress = min(clampedY / MobilePlayerGestureTuning.dismissProgressDistance, 1)
             applyTransform(
-                scale: 1 - progress * 0.14,
-                offsetX: translation.x * 0.22,
+                scale: 1 - progress * 0.13,
+                offsetX: translation.x * 0.18,
                 offsetY: clampedY
             )
 
         case .ended:
-            finishTopDismissGesture(translation: translation, velocity: gesture.velocity(in: view))
+            finishDismissGesture(translation: translation, velocity: gesture.velocity(in: view))
 
         case .cancelled, .failed:
-            resetTopDismissTransform()
+            resetDismissTransform()
 
         default:
             break
         }
     }
 
-    private func finishTopDismissGesture(translation: CGPoint, velocity: CGPoint) {
+    private func finishDismissGesture(translation: CGPoint, velocity: CGPoint) {
         let clampedY = max(0, translation.y)
-        let shouldDismiss = clampedY > 120 || (velocity.y > 500 && clampedY > 20)
+        let projectedY = clampedY + max(velocity.y, 0) * MobilePlayerGestureTuning.dismissVelocityProjectionDuration
+        let translationThreshold = max(
+            MobilePlayerGestureTuning.dismissMinimumTranslation,
+            view.bounds.height * MobilePlayerGestureTuning.dismissTranslationHeightRatio
+        )
+        let shouldDismiss = projectedY > translationThreshold
+            || (velocity.y > MobilePlayerGestureTuning.dismissFastSwipeVelocity
+                && clampedY > MobilePlayerGestureTuning.dismissMinimumFastSwipeTranslation)
 
         if shouldDismiss {
-            isTopDismissing = true
-            UIView.animate(withDuration: 0.18, delay: 0, options: [.curveEaseOut, .beginFromCurrentState], animations: {
+            isDismissing = true
+            let remainingDistance = max(view.bounds.height - clampedY, 0)
+            let velocityDuration = velocity.y > 0 ? remainingDistance / velocity.y : 0.24
+            let duration = min(max(TimeInterval(velocityDuration), 0.16), 0.28)
+            UIView.animate(withDuration: duration, delay: 0, options: [.curveEaseOut, .beginFromCurrentState], animations: {
                 self.applyTransform(scale: 0.82, offsetX: 0, offsetY: self.view.bounds.height)
             }, completion: { _ in
                 self.onDismiss()
             })
         } else {
-            resetTopDismissTransform()
+            resetDismissTransform()
         }
     }
 
@@ -696,26 +706,25 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         playerNavigationController.view.transform = scaleTransform.concatenating(translateTransform)
     }
 
-    private func resetTopDismissTransform() {
+    private func resetDismissTransform() {
         UIView.animate(withDuration: 0.3, delay: 0, usingSpringWithDamping: 0.85, initialSpringVelocity: 0, options: [.beginFromCurrentState], animations: {
             self.playerNavigationController.view.transform = .identity
         })
     }
 
     func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
-        guard gestureRecognizer === topDismissPan else {
+        guard gestureRecognizer === dismissPan else {
             return true
         }
-        guard playerNavigationController.viewControllers.count > 1, !isTopDismissing else {
+        guard playerNavigationController.viewControllers.count > 1, !isDismissing else {
             return false
         }
 
-        let location = topDismissPan.location(in: view)
-        let velocity = topDismissPan.velocity(in: view)
-        let activationHeight = MobilePlayerGestureTuning.topDismissActivationHeight(safeAreaTop: view.safeAreaInsets.top)
-        return location.y <= activationHeight
+        let location = dismissPan.location(in: playerNavigationController.view)
+        let velocity = dismissPan.velocity(in: view)
+        return playerNavigationController.view.bounds.contains(location)
             && velocity.y > 0
-            && velocity.y > abs(velocity.x) * MobilePlayerGestureTuning.topDismissVerticalIntentRatio
+            && velocity.y > abs(velocity.x) * MobilePlayerGestureTuning.dismissVerticalIntentRatio
     }
 
 }
