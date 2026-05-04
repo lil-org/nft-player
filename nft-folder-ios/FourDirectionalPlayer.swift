@@ -29,7 +29,7 @@ struct FourDirectionalPlayerContainerView: UIViewControllerRepresentable {
     func updateUIViewController(_ uiViewController: FourDirectionalPlayerContainer, context: Context) {}
 }
 
-class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDataSource, MobilePlaybackControllerDisplay, UIGestureRecognizerDelegate {
+class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDataSource, MobilePlaybackControllerDisplay {
 
     private let initialConfig: MobilePlayerConfig
     private let onCoordinateUpdate: ((PlayerCoordinate) -> Void)
@@ -64,11 +64,6 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
         UIApplication.shared.isIdleTimerDisabled = true
     }
 
-    override func viewDidAppear(_ animated: Bool) {
-        super.viewDidAppear(animated)
-        enableNavigationBackSwipe()
-    }
-
     deinit {
         UIApplication.shared.isIdleTimerDisabled = false
     }
@@ -79,17 +74,6 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
 
     func navigate(_ direction: PlaybackNavigationDirection) {
         pagingVC.navigate(direction)
-    }
-
-    private func enableNavigationBackSwipe() {
-        guard let navigationController = navigationController,
-              let popGesture = navigationController.interactivePopGestureRecognizer else {
-            return
-        }
-
-        popGesture.isEnabled = navigationController.viewControllers.count > 1
-        popGesture.delegate = self
-        pagingVC.requirePagingPanToFail(for: popGesture)
     }
 
     fileprivate func getHtml(x: Int, y: Int) -> String {
@@ -111,14 +95,6 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
         if renderedCoordinates.count == 1, let coordinate = renderedCoordinates.first {
             onCoordinateUpdate(coordinate)
         }
-    }
-
-    func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
-        guard gestureRecognizer === navigationController?.interactivePopGestureRecognizer else {
-            return true
-        }
-
-        return navigationController?.viewControllers.count ?? 0 > 1
     }
 
 }
@@ -241,13 +217,6 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         configurePagingScrollViews()
-    }
-
-    func requirePagingPanToFail(for gestureRecognizer: UIGestureRecognizer) {
-        pagingScrollViews.forEach { scrollView in
-            scrollView.panGestureRecognizer.require(toFail: gestureRecognizer)
-            scrollView.hideAutomaticScrollEdgeEffects()
-        }
     }
 
     private var pagingScrollViews: [UIScrollView] {

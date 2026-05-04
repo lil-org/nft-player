@@ -1,16 +1,7 @@
 import SwiftUI
-import Combine
 import UIKit
 
-private enum MobileInitialPlayerCreationDelay {
-    private static var shouldDeferNextPlayerCreation = true
-    
-    static func consumeShouldDefer() -> Bool {
-        guard shouldDeferNextPlayerCreation else { return false }
-        shouldDeferNextPlayerCreation = false
-        return true
-    }
-}
+private let playerCrossfadeAnimation = Animation.easeInOut(duration: 0.18)
 
 private enum InfiniteCollectionsLoop {
     private static let repetitionCount = 31
@@ -45,10 +36,7 @@ private enum InfiniteCollectionsLoop {
 }
 
 struct MobileCollectionsView: View {
-    @State private var showSettingsPopup = false
     @State private var suggestedItems = TokenGenerator.allGenerativeSuggestedItems
-    @State private var didAppear = false
-    @State private var showMorePreferences = false
     @State private var playerConfig: MobilePlayerConfig?
     
     init() {
@@ -108,6 +96,7 @@ struct MobileCollectionsView: View {
                 .persistentSystemOverlays(.hidden)
                 .zIndex(1)
                 .id(playerConfig.id)
+                .transition(.opacity)
             }
         }
         .persistentSystemOverlays(.hidden)
@@ -122,20 +111,22 @@ struct MobileCollectionsView: View {
     }
     
     private func didSelectSuggestedItem(_ item: SuggestedItem) {
-        playerConfig = MobilePlayerConfig(initialItemId: item.id)
+        withAnimation(playerCrossfadeAnimation) {
+            playerConfig = MobilePlayerConfig(initialItemId: item.id)
+        }
         Haptic.selectionChanged()
     }
     
     private func showRandomPlayer() {
-        playerConfig = MobilePlayerConfig(initialItemId: nil)
+        withAnimation(playerCrossfadeAnimation) {
+            playerConfig = MobilePlayerConfig(initialItemId: nil)
+        }
         Haptic.selectionChanged()
     }
 
     private func dismissPlayer(_ config: MobilePlayerConfig) {
         guard playerConfig?.id == config.id else { return }
-        var transaction = Transaction()
-        transaction.disablesAnimations = true
-        withTransaction(transaction) {
+        withAnimation(playerCrossfadeAnimation) {
             playerConfig = nil
         }
     }
@@ -416,143 +407,39 @@ private final class GridTitleLabel: UILabel {
 }
 
 private struct PlayerNavigationOverlay: UIViewControllerRepresentable {
-    
+
     let config: MobilePlayerConfig
     let onDismiss: () -> Void
-    
-    func makeCoordinator() -> Coordinator {
-        Coordinator(onDismiss: onDismiss)
-    }
-    
+
     func makeUIViewController(context: Context) -> PlayerOverlayViewController {
-        let rootViewController = UIViewController()
-        rootViewController.view.backgroundColor = .clear
-        rootViewController.view.isOpaque = false
-        rootViewController.navigationItem.backButtonTitle = Strings.nftFolder
-        rootViewController.navigationItem.backButtonDisplayMode = .minimal
-        
-        let shouldDeferPlayerCreation = MobileInitialPlayerCreationDelay.consumeShouldDefer()
-        let deferredPlayerViewController = shouldDeferPlayerCreation ? DeferredMobilePlayerViewController(config: config) : nil
-        let playerViewController: UIViewController = deferredPlayerViewController ?? makeMobilePlayerViewController(config: config)
-        
-        let navigationController = PlayerNavigationController(rootViewController: rootViewController)
+        let playerViewController = makeMobilePlayerViewController(config: config, onDismiss: onDismiss)
+        let navigationController = PlayerNavigationController(rootViewController: playerViewController)
         navigationController.view.backgroundColor = .clear
         navigationController.view.isOpaque = false
         navigationController.navigationBar.isTranslucent = true
-        navigationController.delegate = context.coordinator
+        navigationController.interactivePopGestureRecognizer?.isEnabled = false
         navigationController.setNavigationBarHidden(false, animated: false)
-        
-        let overlayViewController = PlayerOverlayViewController(
+
+        return PlayerOverlayViewController(
             navigationController: navigationController,
             onDismiss: onDismiss
         )
-        
-        context.coordinator.rootViewController = rootViewController
-        context.coordinator.playerViewController = playerViewController
-        context.coordinator.deferredPlayerViewController = deferredPlayerViewController
-        context.coordinator.overlayViewController = overlayViewController
-        
-        DispatchQueue.main.async {
-            guard navigationController.viewControllers.last === rootViewController else { return }
-            navigationController.pushViewController(playerViewController, animated: true)
-            navigationController.setNeedsStatusBarAppearanceUpdate()
-        }
-        
-        return overlayViewController
     }
-    
+
     func updateUIViewController(_ overlayViewController: PlayerOverlayViewController, context: Context) {
-        context.coordinator.onDismiss = onDismiss
         overlayViewController.onDismiss = onDismiss
     }
-    
-    final class Coordinator: NSObject, UINavigationControllerDelegate {
-        
-        var onDismiss: () -> Void
-        weak var rootViewController: UIViewController?
-        weak var overlayViewController: PlayerOverlayViewController?
-        var playerViewController: UIViewController?
-        var deferredPlayerViewController: DeferredMobilePlayerViewController?
-        private var didShowPlayer = false
-        private var didNotifyDismiss = false
-        
-        init(onDismiss: @escaping () -> Void) {
-            self.onDismiss = onDismiss
-        }
-        
-        func navigationController(_ navigationController: UINavigationController, didShow viewController: UIViewController, animated: Bool) {
-            if viewController === playerViewController {
-                didShowPlayer = true
-                installDeferredPlayerIfNeeded(in: navigationController)
-                overlayViewController?.didUpdateNavigationStack()
-                return
-            }
-            
-            guard didShowPlayer,
-                  viewController === rootViewController,
-                  !didNotifyDismiss else {
-                return
-            }
-            
-            didNotifyDismiss = true
-            onDismiss()
-        }
-        
-        private func installDeferredPlayerIfNeeded(in navigationController: UINavigationController) {
-            guard let deferredPlayerViewController else { return }
-            
-            let playerViewController = makeMobilePlayerViewController(config: deferredPlayerViewController.config)
-            var viewControllers = navigationController.viewControllers
-            guard let index = viewControllers.firstIndex(of: deferredPlayerViewController) else { return }
-            viewControllers[index] = playerViewController
-            self.playerViewController = playerViewController
-            self.deferredPlayerViewController = nil
-            navigationController.setViewControllers(viewControllers, animated: false)
-        }
-        
-    }
-    
+
 }
 
-private func makeMobilePlayerViewController(config: MobilePlayerConfig) -> UIHostingController<MobilePlayerView> {
-    let playerViewController = UIHostingController(rootView: MobilePlayerView(config: config))
+private func makeMobilePlayerViewController(
+    config: MobilePlayerConfig,
+    onDismiss: @escaping () -> Void
+) -> UIHostingController<MobilePlayerView> {
+    let playerViewController = UIHostingController(rootView: MobilePlayerView(config: config, onDismiss: onDismiss))
     playerViewController.view.backgroundColor = .clear
     playerViewController.view.isOpaque = false
     return playerViewController
-}
-
-private final class DeferredMobilePlayerViewController: UIViewController {
-    
-    let config: MobilePlayerConfig
-    
-    init(config: MobilePlayerConfig) {
-        self.config = config
-        super.init(nibName: nil, bundle: nil)
-        navigationItem.hidesBackButton = true
-    }
-    
-    required init?(coder: NSCoder) {
-        fatalError("yo")
-    }
-    
-    override var prefersStatusBarHidden: Bool {
-        true
-    }
-    
-    override var preferredStatusBarUpdateAnimation: UIStatusBarAnimation {
-        .fade
-    }
-    
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        view.backgroundColor = .black
-    }
-    
-    override func viewWillAppear(_ animated: Bool) {
-        super.viewWillAppear(animated)
-        navigationController?.setNavigationBarHidden(true, animated: false)
-    }
-    
 }
 
 private final class PlayerNavigationController: UINavigationController {
@@ -576,7 +463,10 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
     private var configuredScrollPanGestures = Set<ObjectIdentifier>()
     private var isDismissing = false
 
-    init(navigationController: UINavigationController, onDismiss: @escaping () -> Void) {
+    init(
+        navigationController: UINavigationController,
+        onDismiss: @escaping () -> Void
+    ) {
         self.playerNavigationController = navigationController
         self.onDismiss = onDismiss
         super.init(nibName: nil, bundle: nil)
@@ -624,11 +514,6 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         configurePagingScrollViews()
-    }
-
-    func didUpdateNavigationStack() {
-        configurePagingScrollViews()
-        setNeedsStatusBarAppearanceUpdate()
     }
 
     private func configurePagingScrollViews() {
@@ -716,7 +601,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         guard gestureRecognizer === dismissPan else {
             return true
         }
-        guard playerNavigationController.viewControllers.count > 1, !isDismissing else {
+        guard !isDismissing else {
             return false
         }
 
