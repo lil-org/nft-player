@@ -872,8 +872,11 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
     }
 
     private func applyDismissPresentation(offsetY: CGFloat, progress: CGFloat) {
+        let clampedProgress = min(max(progress, 0), 1)
+        let underlayFadeProgress = min(clampedProgress / MobilePlayerGestureTuning.dismissUnderlayFadeCompletionProgress, 1)
+
         playerNavigationController.view.transform = CGAffineTransform(translationX: 0, y: offsetY)
-        dimmingView.alpha = 1 - min(max(progress, 0), 1)
+        dimmingView.alpha = 1 - easeOutQuadratic(underlayFadeProgress)
     }
 
     private func resetDismissTransform() {
@@ -882,6 +885,11 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
             self.playerNavigationController.view.transform = .identity
             self.dimmingView.alpha = 1
         })
+    }
+
+    private func easeOutQuadratic(_ progress: CGFloat) -> CGFloat {
+        let clampedProgress = min(max(progress, 0), 1)
+        return 1 - pow(1 - clampedProgress, 2)
     }
 
     private func setDismissStatusBarRevealed(_ isRevealed: Bool) {
