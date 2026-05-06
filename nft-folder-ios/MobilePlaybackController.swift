@@ -17,7 +17,6 @@ struct MobileViewingProgress: Codable, Hashable {
     let collectionId: String
     let collectionName: String
     let tokenId: String
-    let tokenLabel: String
     let tokenIndex: Int
     let tokenCount: Int
     let updatedAt: Date
@@ -35,6 +34,11 @@ struct MobileViewingProgress: Codable, Hashable {
 
     var isComplete: Bool {
         tokenCount > 0 && tokenIndex >= tokenCount - 1
+    }
+
+    var pageLabel: String {
+        guard tokenCount > 0 else { return "" }
+        return Strings.pagePosition(current: tokenIndex + 1, total: tokenCount)
     }
 }
 
@@ -233,7 +237,6 @@ private class GeneratedTokensDataSource {
             collectionId: token.fullCollectionId,
             collectionName: token.collectionName,
             tokenId: token.id,
-            tokenLabel: token.displayTokenId,
             tokenIndex: tokenIndex,
             tokenCount: tokenCount,
             updatedAt: Date()

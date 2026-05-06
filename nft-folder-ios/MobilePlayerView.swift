@@ -244,7 +244,7 @@ private struct PlayerBottomControls: View {
                 .disabled(!canGoBack)
                 .opacity(canGoBack ? 1 : 0.35)
 
-                Text(progress?.tokenLabel ?? "")
+                Text(progress?.pageLabel ?? "")
                     .font(.system(size: 15, weight: .semibold, design: .rounded))
                     .monospacedDigit()
                     .lineLimit(1)

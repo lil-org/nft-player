@@ -66,5 +66,9 @@ struct Strings {
     static func percent(_ value: Int) -> String {
         String.localizedStringWithFormat(loc("%lld%%"), Int64(value))
     }
+
+    static func pagePosition(current: Int, total: Int) -> String {
+        String.localizedStringWithFormat(loc("%1$lld of %2$lld"), Int64(current), Int64(total))
+    }
     
 }
