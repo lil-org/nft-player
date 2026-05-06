@@ -309,7 +309,6 @@ private struct PlayerProgressActionButton: View {
             .frame(height: 34)
             .contentShape(Capsule())
         }
-        .foregroundStyle(.white)
         .accessibilityLabel(title)
 
         if #available(iOS 26.0, *) {
