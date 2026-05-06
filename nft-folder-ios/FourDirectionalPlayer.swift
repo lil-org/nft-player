@@ -257,7 +257,7 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
         super.init(
             transitionStyle: .scroll,
             navigationOrientation: .horizontal,
-            options: [.interPageSpacing: 8]
+            options: [.interPageSpacing: MobilePlayerGestureTuning.playerPageGap]
         )
     }
 

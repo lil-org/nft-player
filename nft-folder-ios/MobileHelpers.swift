@@ -42,6 +42,7 @@ enum MobilePlayerGestureTuning {
     static let dismissHorizontalEdgeExclusion: CGFloat = 44
     static let controlsRevealVelocity: CGFloat = 80
     static let controlsRevealVerticalIntentRatio: CGFloat = 1.05
+    static let playerPageGap: CGFloat = 23
     static let pageBoundaryRevealTranslation: CGFloat = 18
     static let pageBoundaryRevealHorizontalIntentRatio: CGFloat = 1.15
 
