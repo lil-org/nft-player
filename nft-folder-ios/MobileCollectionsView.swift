@@ -39,12 +39,12 @@ struct MobileCollectionsView: View {
     private let suggestedItems = TokenGenerator.allGenerativeSuggestedItems
     @State private var playerConfig: MobilePlayerConfig?
     @State private var viewingProgressByCollectionId: [String: Int]
-    @State private var latestIncompleteProgress: MobileViewingProgress?
+    @State private var continueViewingProgress: MobileViewingProgress?
     
     init() {
         let progressSnapshot = MobileViewingProgressStore.progressSnapshot()
         _viewingProgressByCollectionId = State(initialValue: progressSnapshot.percentagesByCollectionId)
-        _latestIncompleteProgress = State(initialValue: progressSnapshot.latestIncompleteProgress)
+        _continueViewingProgress = State(initialValue: progressSnapshot.continueViewingProgress)
 
         let appearance = UINavigationBarAppearance()
         appearance.configureWithTransparentBackground()
@@ -93,16 +93,16 @@ struct MobileCollectionsView: View {
                 }
             }
 
-            if playerConfig == nil, let latestIncompleteProgress {
+            if playerConfig == nil, let continueViewingProgress {
                 VStack {
                     Spacer()
-                    ContinueViewingButton(progress: latestIncompleteProgress) {
-                        resumeViewing(latestIncompleteProgress)
+                    ContinueViewingButton(progress: continueViewingProgress) {
+                        resumeViewing(continueViewingProgress)
                     }
                     .padding(.horizontal, 16)
                     .padding(.bottom, 18)
                 }
-                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .transition(.opacity)
                 .zIndex(0.5)
             }
 
@@ -131,20 +131,22 @@ struct MobileCollectionsView: View {
             UIApplication.shared.setAlternateIconName(nil)
         }
     }
-    
+
     private func didSelectSuggestedItem(_ item: SuggestedItem) {
         if let progress = MobileViewingProgressStore.progress(collectionId: item.id) {
             resumeViewing(progress)
             return
         }
 
+        MobileViewingProgressStore.setContinueViewingCollectionId(item.id)
         withAnimation(playerCrossfadeAnimation) {
-            playerConfig = MobilePlayerConfig(initialItemId: item.id)
+            playerConfig = MobilePlayerConfig(initialItemId: item.id, continueViewingCollectionId: item.id)
         }
         Haptic.selectionChanged()
     }
     
     private func showShuffledCollectionPlayer() {
+        MobileViewingProgressStore.clearContinueViewingCollectionId()
         withAnimation(playerCrossfadeAnimation) {
             playerConfig = MobilePlayerConfig(initialItemId: nil)
         }
@@ -152,8 +154,13 @@ struct MobileCollectionsView: View {
     }
 
     private func resumeViewing(_ progress: MobileViewingProgress) {
+        MobileViewingProgressStore.setContinueViewingCollectionId(progress.collectionId)
         withAnimation(playerCrossfadeAnimation) {
-            playerConfig = MobilePlayerConfig(initialItemId: progress.collectionId, initialTokenId: progress.tokenId)
+            playerConfig = MobilePlayerConfig(
+                initialItemId: progress.collectionId,
+                initialTokenId: progress.tokenId,
+                continueViewingCollectionId: progress.collectionId
+            )
         }
         Haptic.selectionChanged()
     }
@@ -169,7 +176,7 @@ struct MobileCollectionsView: View {
     private func refreshViewingProgress() {
         let progressSnapshot = MobileViewingProgressStore.progressSnapshot()
         viewingProgressByCollectionId = progressSnapshot.percentagesByCollectionId
-        latestIncompleteProgress = progressSnapshot.latestIncompleteProgress
+        continueViewingProgress = progressSnapshot.continueViewingProgress
     }
     
 }

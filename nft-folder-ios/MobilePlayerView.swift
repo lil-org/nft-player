@@ -8,6 +8,7 @@ struct MobilePlayerConfig: Hashable, Codable, Identifiable {
     var initialItemId: String?
     var specificToken: GeneratedToken?
     var initialTokenId: String?
+    var continueViewingCollectionId: String?
 }
 
 private let doNotShowInstructionsTmp = true
@@ -416,10 +417,12 @@ struct ProgressCapsuleBackground: View {
             Capsule()
                 .fill(.white.opacity(0.08))
                 .glassEffect(.regular.tint(.black.opacity(0.42)).interactive(), in: Capsule())
+                .glassEffectTransition(.materialize)
         } else {
             Capsule()
                 .fill(.white.opacity(0.08))
                 .glassEffect(.regular.tint(.black.opacity(0.42)), in: Capsule())
+                .glassEffectTransition(.materialize)
         }
     }
 }

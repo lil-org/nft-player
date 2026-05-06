@@ -43,7 +43,8 @@ struct MobileViewingProgress: Codable, Hashable {
 }
 
 enum MobileViewingProgressStore {
-    private static let key = "mobileViewingProgressByCollectionId"
+    private static let progressKey = "mobileViewingProgressByCollectionId"
+    private static let continueViewingCollectionIdKey = "mobileContinueViewingCollectionId"
     private static let userDefaults = UserDefaults.standard
     private static var cachedProgressByCollectionId: [String: MobileViewingProgress]?
     private static var cachedProgressData: Data?
@@ -54,21 +55,34 @@ enum MobileViewingProgressStore {
         save(allProgress)
     }
 
-    static func progressSnapshot() -> (percentagesByCollectionId: [String: Int], latestIncompleteProgress: MobileViewingProgress?) {
+    static func progressSnapshot() -> (percentagesByCollectionId: [String: Int], continueViewingProgress: MobileViewingProgress?) {
         let progressByCollectionId = allProgressByCollectionId()
-        let latestIncompleteProgress = progressByCollectionId
-            .values
-            .filter { !$0.isComplete }
-            .max(by: { $0.updatedAt < $1.updatedAt })
-        return (progressByCollectionId.mapValues(\.percent), latestIncompleteProgress)
+        return (progressByCollectionId.mapValues(\.percent), continueViewingProgress(in: progressByCollectionId))
     }
 
     static func progress(collectionId: String) -> MobileViewingProgress? {
         allProgressByCollectionId()[collectionId]
     }
 
+    static func setContinueViewingCollectionId(_ collectionId: String) {
+        userDefaults.set(collectionId, forKey: continueViewingCollectionIdKey)
+    }
+
+    static func clearContinueViewingCollectionId() {
+        userDefaults.removeObject(forKey: continueViewingCollectionIdKey)
+    }
+
+    private static func continueViewingProgress(in progressByCollectionId: [String: MobileViewingProgress]) -> MobileViewingProgress? {
+        guard let collectionId = userDefaults.string(forKey: continueViewingCollectionIdKey),
+              let progress = progressByCollectionId[collectionId],
+              !progress.isComplete else {
+            return nil
+        }
+        return progress
+    }
+
     private static func allProgressByCollectionId() -> [String: MobileViewingProgress] {
-        let storedData = userDefaults.data(forKey: key)
+        let storedData = userDefaults.data(forKey: progressKey)
         if let cachedProgressByCollectionId, cachedProgressData == storedData {
             return cachedProgressByCollectionId
         }
@@ -88,7 +102,7 @@ enum MobileViewingProgressStore {
         guard let data = try? JSONEncoder().encode(progress) else { return }
         cachedProgressByCollectionId = progress
         cachedProgressData = data
-        userDefaults.set(data, forKey: key)
+        userDefaults.set(data, forKey: progressKey)
     }
 }
 
@@ -162,7 +176,19 @@ class MobilePlaybackController {
     func markViewed(uuid: UUID, coordinate: PlayerCoordinate) -> MobileViewingProgress? {
         guard let progress = dataSource(uuid: uuid)?.progress(coordinate: coordinate) else { return nil }
         MobileViewingProgressStore.save(progress)
+        updateContinueViewingCollection(for: progress, uuid: uuid)
         return progress
+    }
+
+    private func updateContinueViewingCollection(for progress: MobileViewingProgress, uuid: UUID) {
+        guard let continueViewingCollectionId = initialConfigs[uuid]?.continueViewingCollectionId,
+              progress.collectionId == continueViewingCollectionId,
+              !progress.isComplete else {
+            MobileViewingProgressStore.clearContinueViewingCollectionId()
+            return
+        }
+
+        MobileViewingProgressStore.setContinueViewingCollectionId(progress.collectionId)
     }
 
     func startHorizontalCoordinate(uuid: UUID, verticalIndex: Int) -> Int {
