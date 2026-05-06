@@ -32,10 +32,7 @@ final class MobilePlayerChromeController: ObservableObject {
         }
 
         guard showControls != isVisible else { return }
-        let animation = isVisible ? playerChromeToggleAnimation : playerManualGlassHideAnimation
-        withAnimation(animation) {
-            showControls = isVisible
-        }
+        showControls = isVisible
     }
 }
 
@@ -110,6 +107,7 @@ struct MobilePlayerView: View {
                     )
                     .padding(.horizontal, 18)
                     .padding(.bottom, max(geometry.safeAreaInsets.bottom, 16))
+                    .animation(chrome.showControls ? playerChromeToggleAnimation : playerManualGlassHideAnimation, value: chrome.showControls)
                 }
                 .allowsHitTesting(chrome.showControls)
 
