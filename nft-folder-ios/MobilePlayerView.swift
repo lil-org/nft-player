@@ -71,6 +71,11 @@ struct MobilePlayerView: View {
                             updateExternalDisplayToken(token)
                         }
                     },
+                    onPaginationAttempt: {
+                        DispatchQueue.main.async {
+                            self.hideStartupProgressForPaginationAttempt()
+                        }
+                    },
                     onUnavailableNavigation: {
                         chrome.setControlsVisible(true)
                     }
@@ -281,6 +286,15 @@ struct MobilePlayerView: View {
         }
         startupProgressAutoHideWorkItem = workItem
         DispatchQueue.main.asyncAfter(deadline: .now() + startupProgressVisibleDuration, execute: workItem)
+    }
+
+    private func hideStartupProgressForPaginationAttempt() {
+        guard shouldShowStartupProgress, !chrome.showControls else { return }
+
+        cancelStartupProgressAutoHide()
+        withAnimation(startupProgressHideAnimation) {
+            isStartupProgressVisible = false
+        }
     }
 
     private func invalidateStartupProgressAutoHide() {

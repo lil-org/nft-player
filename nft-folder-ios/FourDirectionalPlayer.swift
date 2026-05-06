@@ -13,15 +13,18 @@ struct FourDirectionalPlayerContainerView: UIViewControllerRepresentable {
 
     private let initialConfig: MobilePlayerConfig
     private let onCoordinateUpdate: ((PlayerCoordinate) -> Void)
+    private let onPaginationAttempt: (() -> Void)
     private let onUnavailableNavigation: (() -> Void)
 
     init(
         initialConfig: MobilePlayerConfig,
         onCoordinateUpdate: @escaping (PlayerCoordinate) -> Void,
+        onPaginationAttempt: @escaping () -> Void,
         onUnavailableNavigation: @escaping () -> Void
     ) {
         self.initialConfig = initialConfig
         self.onCoordinateUpdate = onCoordinateUpdate
+        self.onPaginationAttempt = onPaginationAttempt
         self.onUnavailableNavigation = onUnavailableNavigation
     }
 
@@ -29,6 +32,7 @@ struct FourDirectionalPlayerContainerView: UIViewControllerRepresentable {
         return FourDirectionalPlayerContainer(
             initialConfig: initialConfig,
             onCoordinateUpdate: onCoordinateUpdate,
+            onPaginationAttempt: onPaginationAttempt,
             onUnavailableNavigation: onUnavailableNavigation
         )
     }
@@ -40,6 +44,7 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
 
     private let initialConfig: MobilePlayerConfig
     private let onCoordinateUpdate: ((PlayerCoordinate) -> Void)
+    private let onPaginationAttempt: (() -> Void)
     private let onUnavailableNavigation: (() -> Void)
 
     private lazy var pagingVC = HorizontalPageViewController(fourDirectionalPlayerDataSource: self)
@@ -49,10 +54,12 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
     init(
         initialConfig: MobilePlayerConfig,
         onCoordinateUpdate: @escaping (PlayerCoordinate) -> Void,
+        onPaginationAttempt: @escaping () -> Void,
         onUnavailableNavigation: @escaping () -> Void
     ) {
         self.initialConfig = initialConfig
         self.onCoordinateUpdate = onCoordinateUpdate
+        self.onPaginationAttempt = onPaginationAttempt
         self.onUnavailableNavigation = onUnavailableNavigation
         super.init(nibName: nil, bundle: nil)
     }
@@ -119,6 +126,10 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
         onUnavailableNavigation()
     }
 
+    fileprivate func didAttemptPagination() {
+        onPaginationAttempt()
+    }
+
     fileprivate func didDisplayCoordinate(_ coordinate: (Int, Int)) {
         updateDisplayedCoordinate(PlayerCoordinate(x: coordinate.0, y: coordinate.1))
     }
@@ -144,6 +155,7 @@ private protocol FourDirectionalPlayerDataSource: AnyObject {
     func startHorizontalCoordinate(verticalIndex: Int) -> Int
     func didRenderCoordinate(_ coordinate: (Int, Int))
     func didCleanupCoordinate(_ coordinate: (Int, Int))
+    func didAttemptPagination()
     func didAttemptUnavailableHorizontalNavigation()
     func didDisplayCoordinate(_ coordinate: (Int, Int))
 
@@ -246,6 +258,7 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
     private var isPageTransitioning = false
     private var pendingNavigationDirection: PlaybackNavigationDirection?
     private var configuredPagingPanGestures = Set<ObjectIdentifier>()
+    private var didNotifyPaginationAttemptDuringCurrentPan = false
     private var didNotifyUnavailableNavigationDuringCurrentPan = false
     private weak var fourDirectionalPlayerDataSource: FourDirectionalPlayerDataSource?
 
@@ -297,10 +310,12 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
     @objc private func handlePagingPan(_ gesture: UIPanGestureRecognizer) {
         switch gesture.state {
         case .began:
+            didNotifyPaginationAttemptDuringCurrentPan = false
             didNotifyUnavailableNavigationDuringCurrentPan = false
 
         case .changed:
-            guard !didNotifyUnavailableNavigationDuringCurrentPan else { return }
+            guard !didNotifyPaginationAttemptDuringCurrentPan,
+                  !didNotifyUnavailableNavigationDuringCurrentPan else { return }
 
             let translation = gesture.translation(in: view)
             let hasHorizontalIntent = abs(translation.x) > MobilePlayerGestureTuning.pageBoundaryRevealTranslation
@@ -309,12 +324,17 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
 
             let targetOffset = translation.x > 0 ? -1 : 1
             let coordinate = getCurrentCoordinate()
-            guard !canRender(horizontalIndex: coordinate.0 + targetOffset, verticalIndex: coordinate.1) else { return }
+            guard !canRender(horizontalIndex: coordinate.0 + targetOffset, verticalIndex: coordinate.1) else {
+                didNotifyPaginationAttemptDuringCurrentPan = true
+                fourDirectionalPlayerDataSource?.didAttemptPagination()
+                return
+            }
 
             didNotifyUnavailableNavigationDuringCurrentPan = true
             fourDirectionalPlayerDataSource?.didAttemptUnavailableHorizontalNavigation()
 
         case .ended, .cancelled, .failed:
+            didNotifyPaginationAttemptDuringCurrentPan = false
             didNotifyUnavailableNavigationDuringCurrentPan = false
 
         default:
@@ -423,6 +443,7 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
 
     func pageViewController(_ pageViewController: UIPageViewController, willTransitionTo pendingViewControllers: [UIViewController]) {
         guard let destinationPage = pendingViewControllers.first as? SpecificPageViewController else { return }
+        fourDirectionalPlayerDataSource?.didAttemptPagination()
         isPageTransitioning = true
         destinationPage.renderCurrentItem()
     }
@@ -462,6 +483,8 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
             completion()
             return
         }
+
+        fourDirectionalPlayerDataSource?.didAttemptPagination()
 
         if let destinationPage = targetViewController as? SpecificPageViewController {
             destinationPage.renderCurrentItem()
