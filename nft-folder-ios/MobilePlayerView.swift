@@ -80,8 +80,8 @@ struct MobilePlayerView: View {
                             canGoForward: canGoForward,
                             onBack: goBack,
                             onForward: goForward,
-                            onWatchAgain: watchAgain,
-                            onNextCollection: nextCollection
+                            onViewAgain: viewAgain,
+                            onFinish: onDismiss
                         )
                         .padding(.horizontal, 18)
                         .padding(.bottom, max(geometry.safeAreaInsets.bottom, 16))
@@ -183,16 +183,11 @@ struct MobilePlayerView: View {
         Haptic.selectionChanged()
     }
 
-    private func watchAgain() {
+    private func viewAgain() {
         MobilePlaybackController.shared.restartCollection(uuid: initialConfig.id)
         Haptic.selectionChanged()
     }
 
-    private func nextCollection() {
-        MobilePlaybackController.shared.changeCollection(uuid: initialConfig.id)
-        Haptic.selectionChanged()
-    }
-    
 }
 
 private struct PlayerCollectionTitlePill: View {
@@ -228,25 +223,29 @@ private struct PlayerBottomControls: View {
     let canGoForward: Bool
     let onBack: () -> Void
     let onForward: () -> Void
-    let onWatchAgain: () -> Void
-    let onNextCollection: () -> Void
+    let onViewAgain: () -> Void
+    let onFinish: () -> Void
 
     var body: some View {
-        VStack(spacing: 10) {
-            progressNavigationControls
+        controlsStack
+    }
 
+    private var controlsStack: some View {
+        VStack(spacing: 12) {
             if progress?.isComplete == true {
-                HStack(spacing: 8) {
-                    Button(Strings.watchAgain, action: onWatchAgain)
-                    Button(Strings.anotherCollection, action: onNextCollection)
-                }
-                .font(.caption.weight(.semibold))
-                .buttonStyle(.borderedProminent)
-                .tint(.white.opacity(0.18))
-                .foregroundStyle(.white)
-                .transition(.opacity.combined(with: .move(edge: .bottom)))
+                completionActions
             }
+
+            progressNavigationControls
         }
+    }
+
+    private var completionActions: some View {
+        HStack(spacing: 18) {
+            PlayerProgressActionButton(image: Images.viewAgain, title: Strings.viewAgain, action: onViewAgain)
+            PlayerProgressActionButton(image: Images.finish, title: Strings.finish, action: onFinish)
+        }
+        .transition(.opacity.combined(with: .move(edge: .top)))
     }
 
     @ViewBuilder
@@ -277,6 +276,43 @@ private struct PlayerBottomControls: View {
                 isEnabled: canGoForward,
                 action: onForward
             )
+        }
+    }
+}
+
+private struct PlayerProgressActionButton: View {
+    let image: Image
+    let title: String
+    let action: () -> Void
+
+    @ViewBuilder
+    var body: some View {
+        let button = Button(action: action) {
+            HStack(spacing: 6) {
+                image
+                    .font(.caption.weight(.semibold))
+                    .imageScale(.small)
+
+                Text(title)
+                    .font(.caption.weight(.semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            .padding(.horizontal, 12)
+            .frame(height: 34)
+            .contentShape(Capsule())
+        }
+        .foregroundStyle(.white)
+        .accessibilityLabel(title)
+
+        if #available(iOS 26.0, *) {
+            button
+                .buttonStyle(.glass)
+                .buttonBorderShape(.capsule)
+        } else {
+            button
+                .buttonStyle(.plain)
+                .background(.ultraThinMaterial, in: Capsule())
         }
     }
 }
