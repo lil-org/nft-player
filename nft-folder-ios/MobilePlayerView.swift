@@ -94,6 +94,7 @@ struct MobilePlayerView: View {
                             progress: currentProgress,
                             canGoBack: canGoBack,
                             canGoForward: canGoForward,
+                            hidesProgressLabel: shouldShowStartupProgress,
                             onBack: goBack,
                             onForward: goForward,
                             onViewAgain: viewAgain,
@@ -136,6 +137,8 @@ struct MobilePlayerView: View {
         }
         .onChange(of: chrome.showControls) { _, showControls in
             if showControls {
+                cancelStartupProgressAutoHide()
+            } else {
                 invalidateStartupProgressAutoHide()
             }
         }
@@ -158,17 +161,18 @@ struct MobilePlayerView: View {
     }
 
     private var shouldShowStartupProgress: Bool {
-        isStartupProgressVisible && !chrome.showControls && currentProgress?.pageLabel.isEmpty == false
+        isStartupProgressVisible && currentProgress?.pageLabel.isEmpty == false
     }
 
     private func startupProgressOverlay(safeAreaBottom: CGFloat) -> some View {
         VStack {
             Spacer()
             startupProgressControl
-                .frame(height: playerProgressControlSize)
+                .padding(.horizontal, 18)
                 .padding(.bottom, max(safeAreaBottom, 16))
         }
         .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 
     @ViewBuilder
@@ -176,18 +180,37 @@ struct MobilePlayerView: View {
         if #available(iOS 26.0, *) {
             GlassEffectContainer(spacing: 8) {
                 if shouldShowStartupProgress {
-                    StartupProgressTextPill(
-                        text: currentProgress?.pageLabel ?? "",
-                        namespace: startupProgressGlassNamespace
-                    )
+                    startupProgressNavigationRow
                 }
             }
         } else if shouldShowStartupProgress {
+            startupProgressNavigationRow
+            .transition(.scale(scale: 0.92).combined(with: .opacity))
+        }
+    }
+
+    private var startupProgressNavigationRow: some View {
+        HStack(spacing: 8) {
+            PlayerProgressArrowButton(
+                image: Images.back,
+                accessibilityLabel: Strings.back,
+                isEnabled: false,
+                action: {}
+            )
+            .hidden()
+
             StartupProgressTextPill(
                 text: currentProgress?.pageLabel ?? "",
                 namespace: startupProgressGlassNamespace
             )
-            .transition(.scale(scale: 0.92).combined(with: .opacity))
+
+            PlayerProgressArrowButton(
+                image: Images.forward,
+                accessibilityLabel: Strings.forward,
+                isEnabled: false,
+                action: {}
+            )
+            .hidden()
         }
     }
     
@@ -261,9 +284,13 @@ struct MobilePlayerView: View {
     }
 
     private func invalidateStartupProgressAutoHide() {
+        cancelStartupProgressAutoHide()
+        isStartupProgressVisible = false
+    }
+
+    private func cancelStartupProgressAutoHide() {
         startupProgressAutoHideWorkItem?.cancel()
         startupProgressAutoHideWorkItem = nil
-        isStartupProgressVisible = false
     }
 
 }
@@ -299,6 +326,7 @@ private struct PlayerBottomControls: View {
     let progress: MobileViewingProgress?
     let canGoBack: Bool
     let canGoForward: Bool
+    let hidesProgressLabel: Bool
     let onBack: () -> Void
     let onForward: () -> Void
     let onViewAgain: () -> Void
@@ -353,6 +381,7 @@ private struct PlayerBottomControls: View {
             )
 
             PlayerProgressTextPill(text: progress?.pageLabel ?? "")
+                .hidden(hidesProgressLabel)
 
             PlayerProgressArrowButton(
                 image: Images.forward,
@@ -360,6 +389,17 @@ private struct PlayerBottomControls: View {
                 isEnabled: canGoForward,
                 action: onForward
             )
+        }
+    }
+}
+
+private extension View {
+    @ViewBuilder
+    func hidden(_ isHidden: Bool) -> some View {
+        if isHidden {
+            hidden()
+        } else {
+            self
         }
     }
 }
