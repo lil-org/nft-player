@@ -39,11 +39,13 @@ struct MobileCollectionsView: View {
     private let suggestedItems = TokenGenerator.allGenerativeSuggestedItems
     @State private var playerConfig: MobilePlayerConfig?
     @State private var viewingProgressByCollectionId: [String: Int]
+    @State private var viewedToEndCollectionIds: Set<String>
     @State private var continueViewingProgress: MobileViewingProgress?
     
     init() {
         let progressSnapshot = MobileViewingProgressStore.progressSnapshot()
         _viewingProgressByCollectionId = State(initialValue: progressSnapshot.percentagesByCollectionId)
+        _viewedToEndCollectionIds = State(initialValue: progressSnapshot.viewedToEndCollectionIds)
         _continueViewingProgress = State(initialValue: progressSnapshot.continueViewingProgress)
 
         let appearance = UINavigationBarAppearance()
@@ -63,6 +65,7 @@ struct MobileCollectionsView: View {
                 InfiniteCollectionsGridView(
                     items: suggestedItems,
                     progressByCollectionId: viewingProgressByCollectionId,
+                    viewedToEndCollectionIds: viewedToEndCollectionIds,
                     onSelect: didSelectSuggestedItem
                 )
                 .ignoresSafeArea()
@@ -176,6 +179,7 @@ struct MobileCollectionsView: View {
     private func refreshViewingProgress() {
         let progressSnapshot = MobileViewingProgressStore.progressSnapshot()
         viewingProgressByCollectionId = progressSnapshot.percentagesByCollectionId
+        viewedToEndCollectionIds = progressSnapshot.viewedToEndCollectionIds
         continueViewingProgress = progressSnapshot.continueViewingProgress
     }
     
@@ -184,26 +188,38 @@ struct MobileCollectionsView: View {
 private struct InfiniteCollectionsGridView: UIViewRepresentable {
     let items: [SuggestedItem]
     let progressByCollectionId: [String: Int]
+    let viewedToEndCollectionIds: Set<String>
     let onSelect: (SuggestedItem) -> Void
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(items: [], progressByCollectionId: [:], onSelect: onSelect)
+        Coordinator(items: [], progressByCollectionId: [:], viewedToEndCollectionIds: [], onSelect: onSelect)
     }
 
     func makeUIView(context: Context) -> InfiniteCollectionsGridContainerView {
         let containerView = InfiniteCollectionsGridContainerView()
-        containerView.update(items: items, progressByCollectionId: progressByCollectionId, coordinator: context.coordinator)
+        containerView.update(
+            items: items,
+            progressByCollectionId: progressByCollectionId,
+            viewedToEndCollectionIds: viewedToEndCollectionIds,
+            coordinator: context.coordinator
+        )
         return containerView
     }
 
     func updateUIView(_ containerView: InfiniteCollectionsGridContainerView, context: Context) {
         context.coordinator.onSelect = onSelect
-        containerView.update(items: items, progressByCollectionId: progressByCollectionId, coordinator: context.coordinator)
+        containerView.update(
+            items: items,
+            progressByCollectionId: progressByCollectionId,
+            viewedToEndCollectionIds: viewedToEndCollectionIds,
+            coordinator: context.coordinator
+        )
     }
 
     final class Coordinator: NSObject, UICollectionViewDataSource, UICollectionViewDelegateFlowLayout {
         var items: [SuggestedItem]
         var progressByCollectionId: [String: Int]
+        var viewedToEndCollectionIds: Set<String>
         var onSelect: (SuggestedItem) -> Void
         private var isRecentering = false
 
@@ -213,18 +229,30 @@ private struct InfiniteCollectionsGridView: UIViewRepresentable {
             case itemsChanged
         }
 
-        init(items: [SuggestedItem], progressByCollectionId: [String: Int], onSelect: @escaping (SuggestedItem) -> Void) {
+        init(
+            items: [SuggestedItem],
+            progressByCollectionId: [String: Int],
+            viewedToEndCollectionIds: Set<String>,
+            onSelect: @escaping (SuggestedItem) -> Void
+        ) {
             self.items = items
             self.progressByCollectionId = progressByCollectionId
+            self.viewedToEndCollectionIds = viewedToEndCollectionIds
             self.onSelect = onSelect
         }
 
-        func update(items: [SuggestedItem], progressByCollectionId: [String: Int]) -> UpdateResult {
+        func update(
+            items: [SuggestedItem],
+            progressByCollectionId: [String: Int],
+            viewedToEndCollectionIds: Set<String>
+        ) -> UpdateResult {
             let itemsChanged = self.items != items
             let progressChanged = self.progressByCollectionId != progressByCollectionId
+                || self.viewedToEndCollectionIds != viewedToEndCollectionIds
             guard itemsChanged || progressChanged else { return .noChange }
             self.items = items
             self.progressByCollectionId = progressByCollectionId
+            self.viewedToEndCollectionIds = viewedToEndCollectionIds
             return itemsChanged ? .itemsChanged : .progressOnly
         }
 
@@ -236,7 +264,11 @@ private struct InfiniteCollectionsGridView: UIViewRepresentable {
             let cell = collectionView.dequeueReusableCell(withReuseIdentifier: CollectionGridCell.reuseIdentifier, for: indexPath)
             guard let gridCell = cell as? CollectionGridCell else { return cell }
             let item = item(for: indexPath.item)
-            gridCell.configure(item: item, progressPercent: progressByCollectionId[item.id])
+            gridCell.configure(
+                item: item,
+                progressPercent: progressByCollectionId[item.id],
+                hasViewedToEnd: viewedToEndCollectionIds.contains(item.id)
+            )
             return gridCell
         }
 
@@ -320,7 +352,11 @@ private struct InfiniteCollectionsGridView: UIViewRepresentable {
             collectionView.indexPathsForVisibleItems.forEach { indexPath in
                 guard let gridCell = collectionView.cellForItem(at: indexPath) as? CollectionGridCell else { return }
                 let item = item(for: indexPath.item)
-                gridCell.configure(item: item, progressPercent: progressByCollectionId[item.id])
+                gridCell.configure(
+                    item: item,
+                    progressPercent: progressByCollectionId[item.id],
+                    hasViewedToEnd: viewedToEndCollectionIds.contains(item.id)
+                )
             }
         }
 
@@ -360,12 +396,21 @@ private final class InfiniteCollectionsGridContainerView: UIView {
         fatalError("init(coder:) has not been implemented")
     }
 
-    func update(items: [SuggestedItem], progressByCollectionId: [String: Int], coordinator: InfiniteCollectionsGridView.Coordinator) {
+    func update(
+        items: [SuggestedItem],
+        progressByCollectionId: [String: Int],
+        viewedToEndCollectionIds: Set<String>,
+        coordinator: InfiniteCollectionsGridView.Coordinator
+    ) {
         self.coordinator = coordinator
         collectionView.dataSource = coordinator
         collectionView.delegate = coordinator
 
-        switch coordinator.update(items: items, progressByCollectionId: progressByCollectionId) {
+        switch coordinator.update(
+            items: items,
+            progressByCollectionId: progressByCollectionId,
+            viewedToEndCollectionIds: viewedToEndCollectionIds
+        ) {
         case .itemsChanged:
             didSetInitialScrollPosition = false
             collectionView.reloadData()
@@ -405,6 +450,7 @@ private final class CollectionGridCell: UICollectionViewCell {
     private let imageView = UIImageView()
     private let titleLabel = GridTitleLabel()
     private let progressLabel = GridTitleLabel()
+    private var showsCompletedBadge = false
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -444,13 +490,20 @@ private final class CollectionGridCell: UICollectionViewCell {
         titleLabel.text = nil
         progressLabel.text = nil
         progressLabel.isHidden = true
+        showsCompletedBadge = false
     }
 
-    func configure(item: SuggestedItem, progressPercent: Int?) {
+    func configure(item: SuggestedItem, progressPercent: Int?, hasViewedToEnd: Bool) {
         imageView.image = UIImage(named: item.id)
         titleLabel.text = item.name
-        if let progressPercent, progressPercent > 0 {
+        showsCompletedBadge = hasViewedToEnd
+        if hasViewedToEnd {
+            progressLabel.text = "✓"
+            progressLabel.font = .systemFont(ofSize: 9, weight: .semibold)
+            progressLabel.isHidden = false
+        } else if let progressPercent, progressPercent > 0 {
             progressLabel.text = Strings.percent(progressPercent)
+            progressLabel.font = .systemFont(ofSize: 9, weight: .semibold)
             progressLabel.isHidden = false
         } else {
             progressLabel.text = nil
@@ -478,14 +531,26 @@ private final class CollectionGridCell: UICollectionViewCell {
         )
 
         if !progressLabel.isHidden {
-            let progressSize = progressLabel.sizeThatFits(CGSize(width: 42, height: 16))
-            let progressWidth = min(max(ceil(progressSize.width), 28), 44)
-            progressLabel.frame = CGRect(
-                x: contentView.bounds.width - progressWidth - 4,
-                y: 4,
-                width: progressWidth,
-                height: 15
-            )
+            if showsCompletedBadge {
+                let badgeSide: CGFloat = 15
+                progressLabel.frame = CGRect(
+                    x: contentView.bounds.width - badgeSide - 4,
+                    y: 4,
+                    width: badgeSide,
+                    height: badgeSide
+                )
+                progressLabel.layer.cornerRadius = badgeSide / 2
+            } else {
+                let progressSize = progressLabel.sizeThatFits(CGSize(width: 42, height: 16))
+                let progressWidth = min(max(ceil(progressSize.width), 28), 44)
+                progressLabel.frame = CGRect(
+                    x: contentView.bounds.width - progressWidth - 4,
+                    y: 4,
+                    width: progressWidth,
+                    height: 15
+                )
+                progressLabel.layer.cornerRadius = 3
+            }
         }
     }
 }

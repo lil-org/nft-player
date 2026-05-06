@@ -20,6 +20,46 @@ struct MobileViewingProgress: Codable, Hashable {
     let tokenIndex: Int
     let tokenCount: Int
     let updatedAt: Date
+    var hasViewedToEnd: Bool
+
+    init(
+        collectionId: String,
+        collectionName: String,
+        tokenId: String,
+        tokenIndex: Int,
+        tokenCount: Int,
+        updatedAt: Date,
+        hasViewedToEnd: Bool = false
+    ) {
+        self.collectionId = collectionId
+        self.collectionName = collectionName
+        self.tokenId = tokenId
+        self.tokenIndex = tokenIndex
+        self.tokenCount = tokenCount
+        self.updatedAt = updatedAt
+        self.hasViewedToEnd = hasViewedToEnd
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case collectionId
+        case collectionName
+        case tokenId
+        case tokenIndex
+        case tokenCount
+        case updatedAt
+        case hasViewedToEnd
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        collectionId = try container.decode(String.self, forKey: .collectionId)
+        collectionName = try container.decode(String.self, forKey: .collectionName)
+        tokenId = try container.decode(String.self, forKey: .tokenId)
+        tokenIndex = try container.decode(Int.self, forKey: .tokenIndex)
+        tokenCount = try container.decode(Int.self, forKey: .tokenCount)
+        updatedAt = try container.decode(Date.self, forKey: .updatedAt)
+        hasViewedToEnd = try container.decodeIfPresent(Bool.self, forKey: .hasViewedToEnd) ?? false
+    }
 
     var fraction: Double {
         guard tokenCount > 0 else { return 0 }
@@ -34,6 +74,10 @@ struct MobileViewingProgress: Codable, Hashable {
 
     var isComplete: Bool {
         tokenCount > 0 && tokenIndex >= tokenCount - 1
+    }
+
+    var hasBeenViewedToEnd: Bool {
+        hasViewedToEnd || isComplete
     }
 
     var pageLabel: String {
@@ -51,13 +95,26 @@ enum MobileViewingProgressStore {
 
     static func save(_ progress: MobileViewingProgress) {
         var allProgress = allProgressByCollectionId()
-        allProgress[progress.collectionId] = progress
+        var updatedProgress = progress
+        updatedProgress.hasViewedToEnd = progress.hasBeenViewedToEnd || allProgress[progress.collectionId]?.hasBeenViewedToEnd == true
+        allProgress[progress.collectionId] = updatedProgress
         save(allProgress)
     }
 
-    static func progressSnapshot() -> (percentagesByCollectionId: [String: Int], continueViewingProgress: MobileViewingProgress?) {
+    static func progressSnapshot() -> (
+        percentagesByCollectionId: [String: Int],
+        viewedToEndCollectionIds: Set<String>,
+        continueViewingProgress: MobileViewingProgress?
+    ) {
         let progressByCollectionId = allProgressByCollectionId()
-        return (progressByCollectionId.mapValues(\.percent), continueViewingProgress(in: progressByCollectionId))
+        let viewedToEndCollectionIds = Set(progressByCollectionId.compactMap { collectionId, progress in
+            progress.hasBeenViewedToEnd ? collectionId : nil
+        })
+        return (
+            progressByCollectionId.mapValues(\.percent),
+            viewedToEndCollectionIds,
+            continueViewingProgress(in: progressByCollectionId)
+        )
     }
 
     static func progress(collectionId: String) -> MobileViewingProgress? {
