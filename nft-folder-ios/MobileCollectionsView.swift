@@ -32,6 +32,11 @@ private enum InfiniteCollectionsLoop {
         return centeredIndex(sourceIndex: initialSourceOffset % itemCount, itemCount: itemCount)
     }
 
+    static func initialSourceIndices(itemCount: Int, limit: Int) -> [Int] {
+        guard itemCount > 0, limit > 0 else { return [] }
+        return (0..<min(itemCount, limit)).map { (initialSourceOffset + $0) % itemCount }
+    }
+
     static func shouldRecenter(repetition: Int) -> Bool {
         repetition <= recenterThreshold || repetition >= repetitionCount - recenterThreshold
     }
@@ -123,9 +128,13 @@ struct MobileCollectionsView: View {
             }
         }
         .persistentSystemOverlays(.hidden)
-        .onAppear(perform: refreshViewingProgress)
+        .onAppear {
+            refreshViewingProgress()
+            schedulePlayerPrewarm()
+        }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
             refreshViewingProgress()
+            schedulePlayerPrewarm()
         }
     }
     
@@ -143,11 +152,7 @@ struct MobileCollectionsView: View {
             return
         }
 
-        MobileViewingProgressStore.setContinueViewingCollectionId(item.id)
-        withAnimation(playerCrossfadeAnimation) {
-            playerConfig = MobilePlayerConfig(initialItemId: item.id, continueViewingCollectionId: item.id)
-        }
-        Haptic.selectionChanged()
+        openPlayer(initialItemId: item.id, continueViewingCollectionId: item.id)
     }
     
     private func showShuffledCollectionPlayer() {
@@ -155,15 +160,11 @@ struct MobileCollectionsView: View {
         let progress = MobileViewingProgressStore.progress(collectionId: item.id)
         let initialTokenId = progress?.isComplete == false ? progress?.tokenId : nil
 
-        MobileViewingProgressStore.setContinueViewingCollectionId(item.id)
-        withAnimation(playerCrossfadeAnimation) {
-            playerConfig = MobilePlayerConfig(
-                initialItemId: item.id,
-                initialTokenId: initialTokenId,
-                continueViewingCollectionId: item.id
-            )
-        }
-        Haptic.selectionChanged()
+        openPlayer(
+            initialItemId: item.id,
+            initialTokenId: initialTokenId,
+            continueViewingCollectionId: item.id
+        )
     }
 
     private func randomSuggestedItemPreferringUnfinishedCollections() -> SuggestedItem? {
@@ -173,13 +174,22 @@ struct MobileCollectionsView: View {
     }
 
     private func resumeViewing(_ progress: MobileViewingProgress) {
-        MobileViewingProgressStore.setContinueViewingCollectionId(progress.collectionId)
+        openPlayer(
+            initialItemId: progress.collectionId,
+            initialTokenId: progress.tokenId,
+            continueViewingCollectionId: progress.collectionId
+        )
+    }
+
+    private func openPlayer(initialItemId: String, initialTokenId: String? = nil, continueViewingCollectionId: String) {
+        MobileViewingProgressStore.setContinueViewingCollectionId(continueViewingCollectionId)
+        let config = MobilePlayerPrewarmer.preparedConfig(
+            initialItemId: initialItemId,
+            initialTokenId: initialTokenId,
+            continueViewingCollectionId: continueViewingCollectionId
+        )
         withAnimation(playerCrossfadeAnimation) {
-            playerConfig = MobilePlayerConfig(
-                initialItemId: progress.collectionId,
-                initialTokenId: progress.tokenId,
-                continueViewingCollectionId: progress.collectionId
-            )
+            playerConfig = config
         }
         Haptic.selectionChanged()
     }
@@ -197,6 +207,19 @@ struct MobileCollectionsView: View {
         viewingProgressByCollectionId = progressSnapshot.percentagesByCollectionId
         viewedToEndCollectionIds = progressSnapshot.viewedToEndCollectionIds
         continueViewingProgress = progressSnapshot.continueViewingProgress
+    }
+
+    private func schedulePlayerPrewarm() {
+        MobilePlayerPrewarmer.scheduleAfterLaunch(
+            continueViewingProgress: continueViewingProgress,
+            initialCollectionIds: likelyInitialCollectionIds()
+        )
+    }
+
+    private func likelyInitialCollectionIds() -> [String] {
+        InfiniteCollectionsLoop
+            .initialSourceIndices(itemCount: suggestedItems.count, limit: 2)
+            .map { suggestedItems[$0].id }
     }
     
 }

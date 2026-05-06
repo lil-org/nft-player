@@ -1,26 +1,90 @@
 // ∅ 2026 lil org
 
-import SwiftUI
+import UIKit
 import WebKit
 
 class AutoReloadingWebView: WKWebView {
-    
+
     private static var isResizeReloadEnabled = true
-    
+    private static var prewarmTimer: Timer?
+    private static var prewarmedWebView: AutoReloadingWebView?
+    private static var didSchedulePrewarm = false
+
     private var lastLoadedHtmlString: String?
     private var needsLoadWhenVisible = false
-    
+
     static var new: AutoReloadingWebView {
+        let wkWebView = takePrewarmedWebView() ?? AutoReloadingWebView(frame: .zero, configuration: webConfiguration())
+        wkWebView.frame = .zero
+        wkWebView.applyPlayerDefaults()
+        wkWebView.isHidden = false
+        return wkWebView
+    }
+
+    static func scheduleFirstUsePrewarm() {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { scheduleFirstUsePrewarm() }
+            return
+        }
+
+        guard !didSchedulePrewarm, prewarmedWebView == nil else { return }
+        didSchedulePrewarm = true
+
+        let timer = Timer(timeInterval: 1.15, repeats: false) { _ in
+            prewarmTimer = nil
+            prewarmForFirstUseIfNeeded()
+        }
+        prewarmTimer = timer
+        RunLoop.main.add(timer, forMode: .default)
+    }
+
+    private static func prewarmForFirstUseIfNeeded() {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { prewarmForFirstUseIfNeeded() }
+            return
+        }
+        guard prewarmedWebView == nil else { return }
+        guard UIApplication.shared.applicationState == .active else {
+            didSchedulePrewarm = false
+            return
+        }
+
+        let webView = AutoReloadingWebView(frame: CGRect(x: 0, y: 0, width: 8, height: 8), configuration: webConfiguration())
+        webView.isHidden = true
+        webView.isUserInteractionEnabled = false
+        webView.applyPlayerDefaults()
+        webView.loadHTMLString("<!doctype html><html><head><meta charset=\"utf-8\"></head><body></body></html>", baseURL: nil)
+        prewarmedWebView = webView
+    }
+
+    private static func takePrewarmedWebView() -> AutoReloadingWebView? {
+        guard Thread.isMainThread else { return nil }
+        let webView = prewarmedWebView
+        prewarmedWebView = nil
+        prewarmTimer?.invalidate()
+        prewarmTimer = nil
+        return webView
+    }
+
+    private static func webConfiguration() -> WKWebViewConfiguration {
         let webConfiguration = WKWebViewConfiguration()
         webConfiguration.suppressesIncrementalRendering = true
-        let wkWebView = AutoReloadingWebView(frame: .zero, configuration: webConfiguration)
-        wkWebView.isOpaque = false
-        wkWebView.backgroundColor = .black
-        wkWebView.scrollView.backgroundColor = .black
-        wkWebView.scrollView.contentInsetAdjustmentBehavior = .never
-        wkWebView.scrollView.hideAutomaticScrollEdgeEffects()
-        wkWebView.configuration.userContentController.addUserScript(WKUserScript(source: "document.addEventListener('contextmenu', function(e) { e.preventDefault(); }, false);", injectionTime: .atDocumentEnd, forMainFrameOnly: true))
-        return wkWebView
+        webConfiguration.userContentController.addUserScript(
+            WKUserScript(
+                source: "document.addEventListener('contextmenu', function(e) { e.preventDefault(); }, false);",
+                injectionTime: .atDocumentEnd,
+                forMainFrameOnly: true
+            )
+        )
+        return webConfiguration
+    }
+
+    private func applyPlayerDefaults() {
+        isOpaque = false
+        backgroundColor = .black
+        scrollView.backgroundColor = .black
+        scrollView.contentInsetAdjustmentBehavior = .never
+        scrollView.hideAutomaticScrollEdgeEffects()
     }
     
     override var bounds: CGRect {

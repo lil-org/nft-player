@@ -6,6 +6,7 @@ struct TokenGenerator {
     
     private static let dirURL = SuggestedItemsService.bundle.url(forResource: "Scripts", withExtension: nil)!
     private static var collectionDataCache = [String: CollectionTokenData]()
+    private static let collectionDataCacheLock = NSLock()
     
     private static let jsonsNames: Set<String> = {
         let fileManager = FileManager.default
@@ -105,7 +106,7 @@ struct TokenGenerator {
     }
 
     private static func collectionData(jsonName: String) -> CollectionTokenData? {
-        if let collectionData = collectionDataCache[jsonName] {
+        if let collectionData = collectionDataCacheLock.withLock({ collectionDataCache[jsonName] }) {
             return collectionData
         }
 
@@ -113,8 +114,13 @@ struct TokenGenerator {
               let tokens = bundledTokens(script: script) else { return nil }
 
         let collectionData = CollectionTokenData(script: script, tokens: tokens)
-        collectionDataCache[jsonName] = collectionData
-        return collectionData
+        return collectionDataCacheLock.withLock {
+            if let cachedCollectionData = collectionDataCache[jsonName] {
+                return cachedCollectionData
+            }
+            collectionDataCache[jsonName] = collectionData
+            return collectionData
+        }
     }
 
     private static func script(jsonName: String) -> Script? {

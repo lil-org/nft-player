@@ -5,19 +5,26 @@ import Foundation
 struct RawHtmlGenerator {
     
     private static var libScriptsDict = [String: String]()
+    private static let libScriptsLock = NSLock()
     
     private static func libScript(_ kind: Script.Kind) -> String {
-        if let libScript = libScriptsDict[kind.rawValue] {
+        if let libScript = libScriptsLock.withLock({ libScriptsDict[kind.rawValue] }) {
             return libScript
-        } else {
-            let url: URL? = {
-                if let altPath = alternativeResourcesPath {
-                    return URL(fileURLWithPath: altPath + "/Contents/Resources/\(kind.rawValue).js")
-                } else {
-                    return Bundle.main.url(forResource: kind.rawValue, withExtension: "js")
-                }
-            }()
-            guard let url = url, let libScript = try? String(contentsOf: url) else { return "" }
+        }
+
+        let url: URL? = {
+            if let altPath = alternativeResourcesPath {
+                return URL(fileURLWithPath: altPath + "/Contents/Resources/\(kind.rawValue).js")
+            } else {
+                return Bundle.main.url(forResource: kind.rawValue, withExtension: "js")
+            }
+        }()
+        guard let url = url, let libScript = try? String(contentsOf: url) else { return "" }
+
+        return libScriptsLock.withLock {
+            if let cachedLibScript = libScriptsDict[kind.rawValue] {
+                return cachedLibScript
+            }
             libScriptsDict[kind.rawValue] = libScript
             return libScript
         }
