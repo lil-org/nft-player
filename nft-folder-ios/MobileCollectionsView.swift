@@ -2,6 +2,9 @@ import SwiftUI
 import UIKit
 
 private let playerCrossfadeAnimation = Animation.easeInOut(duration: 0.18)
+private let playerStatusBarRevealAnimation = Animation.easeInOut(duration: 0.38)
+private let playerStatusBarRevealDuration: TimeInterval = 0.3
+private let playerDismissStatusBarRevealProgress: CGFloat = 0.03
 
 private enum InfiniteCollectionsLoop {
     private static let repetitionCount = 31
@@ -658,10 +661,18 @@ private func makeMobilePlayerViewController(
     onDismiss: @escaping () -> Void,
     chrome: MobilePlayerChromeController
 ) -> UIHostingController<MobilePlayerView> {
-    let playerViewController = UIHostingController(rootView: MobilePlayerView(config: config, onDismiss: onDismiss, chrome: chrome))
+    let playerViewController = MobilePlayerHostingController(rootView: MobilePlayerView(config: config, onDismiss: onDismiss, chrome: chrome))
     playerViewController.view.backgroundColor = .clear
     playerViewController.view.isOpaque = false
     return playerViewController
+}
+
+private final class MobilePlayerHostingController: UIHostingController<MobilePlayerView> {
+
+    override var preferredStatusBarUpdateAnimation: UIStatusBarAnimation {
+        .fade
+    }
+
 }
 
 private final class PlayerNavigationController: UINavigationController {
@@ -672,6 +683,10 @@ private final class PlayerNavigationController: UINavigationController {
 
     override var childForStatusBarStyle: UIViewController? {
         topViewController
+    }
+
+    override var preferredStatusBarUpdateAnimation: UIStatusBarAnimation {
+        .fade
     }
 
 }
@@ -715,6 +730,10 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
 
     override var childForStatusBarStyle: UIViewController? {
         playerNavigationController
+    }
+
+    override var preferredStatusBarUpdateAnimation: UIStatusBarAnimation {
+        .fade
     }
 
     override func viewDidLoad() {
@@ -794,11 +813,13 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
             dismissPanMode = .dismiss
             playerNavigationController.view.layer.removeAllAnimations()
             dimmingView.layer.removeAllAnimations()
+            setDismissStatusBarRevealed(false)
 
         case .changed:
             guard dismissPanMode == .dismiss else { return }
             let progress = min(clampedY / MobilePlayerGestureTuning.dismissProgressDistance, 1)
             applyDismissPresentation(offsetY: clampedY, progress: progress)
+            setDismissStatusBarRevealed(progress > playerDismissStatusBarRevealProgress)
 
         case .ended:
             if dismissPanMode == .dismiss {
@@ -843,6 +864,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         if shouldDismiss {
             isDismissing = true
             view.isUserInteractionEnabled = false
+            setDismissStatusBarRevealed(true)
             let remainingDistance = max(view.bounds.height - clampedY, 0)
             let velocityDuration = velocity.y > 0 ? remainingDistance / velocity.y : 0.24
             let duration = min(max(TimeInterval(velocityDuration), 0.14), 0.24)
@@ -862,10 +884,24 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
     }
 
     private func resetDismissTransform() {
+        setDismissStatusBarRevealed(false)
         UIView.animate(withDuration: 0.3, delay: 0, usingSpringWithDamping: 0.85, initialSpringVelocity: 0, options: [.beginFromCurrentState], animations: {
             self.playerNavigationController.view.transform = .identity
             self.dimmingView.alpha = 1
         })
+    }
+
+    private func setDismissStatusBarRevealed(_ isRevealed: Bool) {
+        guard chrome.isStatusBarRevealedByDismiss != isRevealed else { return }
+
+        UIView.animate(withDuration: playerStatusBarRevealDuration, delay: 0, options: [.beginFromCurrentState, .allowUserInteraction]) {
+            withAnimation(playerStatusBarRevealAnimation) {
+                self.chrome.setStatusBarRevealedByDismiss(isRevealed)
+            }
+            self.setNeedsStatusBarAppearanceUpdate()
+            self.playerNavigationController.setNeedsStatusBarAppearanceUpdate()
+            self.playerNavigationController.topViewController?.setNeedsStatusBarAppearanceUpdate()
+        }
     }
 
     func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {

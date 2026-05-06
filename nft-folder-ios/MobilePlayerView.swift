@@ -20,6 +20,7 @@ private let playerProgressControlSize: CGFloat = 34
 
 final class MobilePlayerChromeController: ObservableObject {
     @Published private(set) var showControls = false
+    @Published private(set) var isStatusBarRevealedByDismiss = false
 
     func toggleControls() {
         setControlsVisible(!showControls)
@@ -33,6 +34,16 @@ final class MobilePlayerChromeController: ObservableObject {
 
         guard showControls != isVisible else { return }
         showControls = isVisible
+    }
+
+    func setStatusBarRevealedByDismiss(_ isRevealed: Bool) {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { self.setStatusBarRevealedByDismiss(isRevealed) }
+            return
+        }
+
+        guard isStatusBarRevealedByDismiss != isRevealed else { return }
+        isStatusBarRevealedByDismiss = isRevealed
     }
 }
 
@@ -117,7 +128,7 @@ struct MobilePlayerView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(chrome.showControls ? .visible : .hidden, for: .navigationBar)
         .toolbarBackground(.hidden, for: .navigationBar)
-        .statusBar(hidden: isAllowedToHideStatusBar && !chrome.showControls)
+        .statusBar(hidden: shouldHideStatusBar)
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {
                 Button(action: onDismiss) {
@@ -162,6 +173,10 @@ struct MobilePlayerView: View {
                 isAllowedToHideStatusBar = true
             }
         }
+    }
+
+    private var shouldHideStatusBar: Bool {
+        isAllowedToHideStatusBar && !chrome.showControls && !chrome.isStatusBarRevealedByDismiss
     }
 
     private var shouldShowStartupProgress: Bool {
