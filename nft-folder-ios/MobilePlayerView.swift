@@ -208,7 +208,6 @@ private struct PlayerCollectionTitlePill: View {
             .font(.caption.weight(.semibold))
             .lineLimit(1)
             .minimumScaleFactor(0.8)
-            .foregroundStyle(.white)
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
             .frame(maxWidth: 220)
@@ -234,38 +233,7 @@ private struct PlayerBottomControls: View {
 
     var body: some View {
         VStack(spacing: 10) {
-            HStack(spacing: 0) {
-                Button(action: onBack) {
-                    Images.back
-                        .font(.title3.weight(.semibold))
-                        .frame(width: 56, height: 46)
-                }
-                .accessibilityLabel(Strings.back)
-                .disabled(!canGoBack)
-                .opacity(canGoBack ? 1 : 0.35)
-
-                Text(progress?.pageLabel ?? "")
-                    .font(.system(size: 15, weight: .semibold, design: .rounded))
-                    .monospacedDigit()
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-                    .frame(maxWidth: .infinity, minHeight: 46)
-
-                Button(action: onForward) {
-                    Images.forward
-                        .font(.title3.weight(.semibold))
-                        .frame(width: 56, height: 46)
-                }
-                .accessibilityLabel(Strings.forward)
-                .disabled(!canGoForward)
-                .opacity(canGoForward ? 1 : 0.35)
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(.white)
-            .background {
-                ProgressCapsuleBackground(progress: progress?.fraction ?? 0)
-            }
-            .clipShape(Capsule())
+            progressNavigationControls
 
             if progress?.isComplete == true {
                 HStack(spacing: 8) {
@@ -278,6 +246,94 @@ private struct PlayerBottomControls: View {
                 .foregroundStyle(.white)
                 .transition(.opacity.combined(with: .move(edge: .bottom)))
             }
+        }
+    }
+
+    @ViewBuilder
+    private var progressNavigationControls: some View {
+        if #available(iOS 26.0, *) {
+            GlassEffectContainer(spacing: 8) {
+                progressNavigationRow
+            }
+        } else {
+            progressNavigationRow
+        }
+    }
+
+    private var progressNavigationRow: some View {
+        HStack(spacing: 8) {
+            PlayerProgressArrowButton(
+                image: Images.back,
+                accessibilityLabel: Strings.back,
+                isEnabled: canGoBack,
+                action: onBack
+            )
+
+            PlayerProgressTextPill(text: progress?.pageLabel ?? "")
+
+            PlayerProgressArrowButton(
+                image: Images.forward,
+                accessibilityLabel: Strings.forward,
+                isEnabled: canGoForward,
+                action: onForward
+            )
+        }
+    }
+}
+
+private struct PlayerProgressTextPill: View {
+    let text: String
+
+    var body: some View {
+        label
+    }
+
+    @ViewBuilder
+    private var label: some View {
+        let label = Text(text)
+            .font(.caption.weight(.semibold))
+            .monospacedDigit()
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .frame(minWidth: 58)
+
+        if #available(iOS 26.0, *) {
+            label
+                .glassEffect(.regular, in: Capsule())
+        } else {
+            label
+                .background(.ultraThinMaterial, in: Capsule())
+        }
+    }
+}
+
+private struct PlayerProgressArrowButton: View {
+    let image: Image
+    let accessibilityLabel: String
+    let isEnabled: Bool
+    let action: () -> Void
+
+    @ViewBuilder
+    var body: some View {
+        let button = Button(action: action) {
+            image
+                .font(.subheadline.weight(.semibold))
+                .frame(width: 34, height: 34)
+                .contentShape(Circle())
+        }
+        .accessibilityLabel(accessibilityLabel)
+        .disabled(!isEnabled)
+
+        if #available(iOS 26.0, *) {
+            button
+                .buttonStyle(.glass)
+                .buttonBorderShape(.circle)
+        } else {
+            button
+                .buttonStyle(.plain)
+                .background(.ultraThinMaterial, in: Circle())
         }
     }
 }
