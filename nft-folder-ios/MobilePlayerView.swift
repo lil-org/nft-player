@@ -192,7 +192,6 @@ struct MobilePlayerView: View {
 
     private func viewAgain() {
         MobilePlaybackController.shared.restartCollection(uuid: initialConfig.id)
-        Haptic.selectionChanged()
     }
 
 }
@@ -249,8 +248,14 @@ private struct PlayerBottomControls: View {
 
     private var completionActions: some View {
         HStack(spacing: 18) {
-            PlayerProgressActionButton(image: Images.viewAgain, title: Strings.viewAgain, action: onViewAgain)
-            PlayerProgressActionButton(image: Images.finish, title: Strings.finish, action: onFinish)
+            PlayerProgressActionButton(image: Images.viewAgain, title: Strings.viewAgain) {
+                Haptic.selectionChanged()
+                onViewAgain()
+            }
+            PlayerProgressActionButton(image: Images.finish, title: Strings.finish) {
+                Haptic.success()
+                onFinish()
+            }
         }
         .transition(.opacity.combined(with: .move(edge: .top)))
     }

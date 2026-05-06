@@ -22,6 +22,10 @@ struct Haptic {
     static func selectionChanged() {
         UISelectionFeedbackGenerator().selectionChanged()
     }
+
+    static func success() {
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+    }
     
 }
 

@@ -44,6 +44,7 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
 
     private lazy var pagingVC = HorizontalPageViewController(fourDirectionalPlayerDataSource: self)
     private var renderedCoordinates = Set<PlayerCoordinate>()
+    private var displayedCoordinate: PlayerCoordinate?
 
     init(
         initialConfig: MobilePlayerConfig,
@@ -118,10 +119,20 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
         onUnavailableNavigation()
     }
 
+    fileprivate func didDisplayCoordinate(_ coordinate: (Int, Int)) {
+        updateDisplayedCoordinate(PlayerCoordinate(x: coordinate.0, y: coordinate.1))
+    }
+
     private func didUpdateRenderedCoordinates() {
         if renderedCoordinates.count == 1, let coordinate = renderedCoordinates.first {
-            onCoordinateUpdate(coordinate)
+            updateDisplayedCoordinate(coordinate)
         }
+    }
+
+    private func updateDisplayedCoordinate(_ coordinate: PlayerCoordinate) {
+        guard displayedCoordinate != coordinate else { return }
+        displayedCoordinate = coordinate
+        onCoordinateUpdate(coordinate)
     }
 
 }
@@ -134,6 +145,7 @@ private protocol FourDirectionalPlayerDataSource: AnyObject {
     func didRenderCoordinate(_ coordinate: (Int, Int))
     func didCleanupCoordinate(_ coordinate: (Int, Int))
     func didAttemptUnavailableHorizontalNavigation()
+    func didDisplayCoordinate(_ coordinate: (Int, Int))
 
 }
 
@@ -180,10 +192,14 @@ private class SpecificPageViewController: UIViewController {
     }
 
     func update(horizontalIndex: Int) {
+        guard self.horizontalIndex != horizontalIndex else { return }
+        cleanupDisplayedContent()
         self.horizontalIndex = horizontalIndex
     }
 
     func update(verticalIndex: Int) {
+        guard self.verticalIndex != verticalIndex else { return }
+        cleanupDisplayedContent()
         self.verticalIndex = verticalIndex
     }
 
@@ -228,6 +244,7 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
     let pageC: SpecificPageViewController
 
     private var isPageTransitioning = false
+    private var pendingNavigationDirection: PlaybackNavigationDirection?
     private var configuredPagingPanGestures = Set<ObjectIdentifier>()
     private var didNotifyUnavailableNavigationDuringCurrentPan = false
     private weak var fourDirectionalPlayerDataSource: FourDirectionalPlayerDataSource?
@@ -338,21 +355,28 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
 
     private func changeCollection() {
         let coordinate = getCurrentCoordinate()
-        update(verticalIndex: coordinate.1 + 1)
-        jumpToHorizontalIndex(0)
+        jumpToCoordinate(horizontalIndex: 0, verticalIndex: coordinate.1 + 1)
     }
 
     private func restartCollection() {
         let coordinate = getCurrentCoordinate()
         let targetHorizontalIndex = fourDirectionalPlayerDataSource?.startHorizontalCoordinate(verticalIndex: coordinate.1) ?? 0
-        jumpToHorizontalIndex(targetHorizontalIndex)
+        guard canRender(horizontalIndex: targetHorizontalIndex, verticalIndex: coordinate.1) else { return }
+        jumpToCoordinate(horizontalIndex: targetHorizontalIndex, verticalIndex: coordinate.1)
     }
 
-    private func jumpToHorizontalIndex(_ horizontalIndex: Int) {
-        guard let currentPage = viewControllers?.first as? SpecificPageViewController else { return }
-        currentPage.update(horizontalIndex: horizontalIndex)
-        update(currentHorizontalIndex: horizontalIndex)
-        currentPage.renderCurrentItem()
+    private func jumpToCoordinate(horizontalIndex: Int, verticalIndex: Int) {
+        pageA.update(horizontalIndex: horizontalIndex)
+        pageA.update(verticalIndex: verticalIndex)
+        pageB.update(horizontalIndex: horizontalIndex + 1)
+        pageB.update(verticalIndex: verticalIndex)
+        pageC.update(horizontalIndex: horizontalIndex - 1)
+        pageC.update(verticalIndex: verticalIndex)
+
+        setViewControllers([pageA], direction: .forward, animated: false) { [weak self] _ in
+            self?.pageA.renderCurrentItem()
+            self?.fourDirectionalPlayerDataSource?.didDisplayCoordinate((horizontalIndex, verticalIndex))
+        }
     }
 
     private func didSettleOnCurrentPage() {
@@ -411,6 +435,7 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
     ) {
         isPageTransitioning = false
         didSettleOnCurrentPage()
+        performPendingNavigationIfNeeded()
     }
 
     private func performPageTransition(
@@ -455,6 +480,7 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
             isPageTransitioning = true
             performPageTransition(direction == .back ? .reverse : .forward) { [weak self] in
                 self?.isPageTransitioning = false
+                self?.performPendingNavigationIfNeeded()
             }
         case .down, .nextCollection:
             guard canStartNavigation else { return }
@@ -462,13 +488,28 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
         case .up:
             return
         case .restartCollection:
-            guard canStartNavigation else { return }
+            guard canStartNavigation else {
+                pendingNavigationDirection = direction
+                return
+            }
             restartCollection()
         }
     }
 
     private var canStartNavigation: Bool {
         !isPageTransitioning && transitionCoordinator == nil
+    }
+
+    private func performPendingNavigationIfNeeded() {
+        guard let pendingNavigationDirection else { return }
+        guard canStartNavigation else {
+            DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(30)) { [weak self] in
+                self?.performPendingNavigationIfNeeded()
+            }
+            return
+        }
+        self.pendingNavigationDirection = nil
+        navigate(pendingNavigationDirection)
     }
 
     private func canRender(horizontalIndex: Int, verticalIndex: Int) -> Bool {
