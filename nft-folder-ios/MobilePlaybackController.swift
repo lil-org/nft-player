@@ -172,6 +172,7 @@ class MobilePlaybackController {
     private var displays = [UUID: MobilePlaybackControllerDisplay]()
     private var initialConfigs = [UUID: MobilePlayerConfig]()
     private var tokensDataSources = [UUID: GeneratedTokensDataSource]()
+    private var restartSuppressedCollectionIds = [UUID: String]()
     
     func showNewToken(displayId: UUID, token: GeneratedToken, sameCollection: Bool, coordinate: PlayerCoordinate) {
         guard let dataSource = tokensDataSources[displayId] else { return }
@@ -204,6 +205,7 @@ class MobilePlaybackController {
     }
 
     func restartCollection(uuid: UUID) {
+        suppressContinueViewingUntilMovementAfterRestart(uuid: uuid)
         navigate(.restartCollection, uuid: uuid)
     }
 
@@ -220,6 +222,7 @@ class MobilePlaybackController {
         displays.removeValue(forKey: uuid)
         initialConfigs.removeValue(forKey: uuid)
         tokensDataSources.removeValue(forKey: uuid)
+        restartSuppressedCollectionIds.removeValue(forKey: uuid)
     }
     
     func getToken(uuid: UUID, coordinate: PlayerCoordinate) -> GeneratedToken {
@@ -238,6 +241,21 @@ class MobilePlaybackController {
     }
 
     private func updateContinueViewingCollection(for progress: MobileViewingProgress, uuid: UUID) {
+        if let suppressedCollectionId = restartSuppressedCollectionIds[uuid] {
+            guard progress.collectionId == suppressedCollectionId else {
+                restartSuppressedCollectionIds.removeValue(forKey: uuid)
+                MobileViewingProgressStore.clearContinueViewingCollectionId()
+                return
+            }
+
+            guard progress.tokenIndex > 0 else {
+                MobileViewingProgressStore.clearContinueViewingCollectionId()
+                return
+            }
+
+            restartSuppressedCollectionIds.removeValue(forKey: uuid)
+        }
+
         guard let continueViewingCollectionId = initialConfigs[uuid]?.continueViewingCollectionId,
               progress.collectionId == continueViewingCollectionId,
               !progress.isComplete else {
@@ -246,6 +264,17 @@ class MobilePlaybackController {
         }
 
         MobileViewingProgressStore.setContinueViewingCollectionId(progress.collectionId)
+    }
+
+    private func suppressContinueViewingUntilMovementAfterRestart(uuid: UUID) {
+        guard let coordinate = displays[uuid]?.getCurrentCoordinate(),
+              let progress = dataSource(uuid: uuid)?.progress(coordinate: PlayerCoordinate(x: coordinate.0, y: coordinate.1)) else {
+            restartSuppressedCollectionIds.removeValue(forKey: uuid)
+            return
+        }
+
+        restartSuppressedCollectionIds[uuid] = progress.collectionId
+        MobileViewingProgressStore.clearContinueViewingCollectionId()
     }
 
     func startHorizontalCoordinate(uuid: UUID, verticalIndex: Int) -> Int {
