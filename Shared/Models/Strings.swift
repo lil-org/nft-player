@@ -10,6 +10,7 @@ struct Strings {
     static let viewOnArtBlocks = loc("View on Art Blocks")
     static let viewOnBlockscout = loc("View on Blockscout")
     static let viewOnOpensea = loc("View on OpenSea")
+    static let viewOnSolscan = loc("View on Solscan")
     static let viewinFinder = loc("Show in Finder")
     static let viewOnZora = loc("View on Zora")
     static let addressOrEns = loc("Address or ENS")

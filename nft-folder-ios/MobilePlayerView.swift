@@ -239,12 +239,16 @@ struct MobilePlayerView: View {
             if !doNotShowInstructionsTmp, let instructions = currentToken.instructions {
                 Text(instructions)
             }
-            Button(Strings.viewOnBlockscout, action: viewOnWeb)
+            Button(viewOnWebTitle, action: viewOnWeb)
             Text(currentToken.displayName)
         } label: {
             Images.info
         }
         .accessibilityLabel(Strings.info)
+    }
+
+    private var viewOnWebTitle: String {
+        currentToken.url?.isSolscanURL == true ? Strings.viewOnSolscan : Strings.viewOnBlockscout
     }
     
     private func viewOnWeb() {
@@ -324,6 +328,16 @@ struct MobilePlayerView: View {
         startupProgressAutoHideWorkItem = nil
     }
 
+}
+
+private extension URL {
+    var isSolscanURL: Bool {
+        guard var host = host?.lowercased() else { return false }
+        if host.hasPrefix("www.") {
+            host.removeFirst(4)
+        }
+        return host == "solscan.io" || host.hasSuffix(".solscan.io")
+    }
 }
 
 private struct PlayerCollectionTitlePill: View {

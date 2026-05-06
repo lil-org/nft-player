@@ -43,7 +43,7 @@ private enum InfiniteCollectionsLoop {
 }
 
 struct MobileCollectionsView: View {
-    private let suggestedItems = TokenGenerator.allGenerativeSuggestedItems
+    private let collectionItems = MobileCollectionCatalog.allItems
     @State private var playerConfig: MobilePlayerConfig?
     @State private var viewingProgressByCollectionId: [String: Int]
     @State private var viewedToEndCollectionIds: Set<String>
@@ -70,10 +70,10 @@ struct MobileCollectionsView: View {
         ZStack {
             NavigationStack {
                 InfiniteCollectionsGridView(
-                    items: suggestedItems,
+                    items: collectionItems,
                     progressByCollectionId: viewingProgressByCollectionId,
                     viewedToEndCollectionIds: viewedToEndCollectionIds,
-                    onSelect: didSelectSuggestedItem
+                    onSelect: didSelectCollectionItem
                 )
                 .ignoresSafeArea()
                 .navigationBarTitleDisplayMode(.inline)
@@ -129,6 +129,7 @@ struct MobileCollectionsView: View {
         }
         .persistentSystemOverlays(.hidden)
         .onAppear {
+            CollectionCoverImageCache.prepareForSmoothScrolling(items: collectionItems)
             refreshViewingProgress()
             schedulePlayerPrewarm()
         }
@@ -146,7 +147,7 @@ struct MobileCollectionsView: View {
         }
     }
 
-    private func didSelectSuggestedItem(_ item: SuggestedItem) {
+    private func didSelectCollectionItem(_ item: MobileCollectionItem) {
         if let progress = MobileViewingProgressStore.progress(collectionId: item.id) {
             resumeViewing(progress)
             return
@@ -156,7 +157,7 @@ struct MobileCollectionsView: View {
     }
     
     private func showShuffledCollectionPlayer() {
-        guard let item = randomSuggestedItemPreferringUnfinishedCollections() else { return }
+        guard let item = randomCollectionItemPreferringUnfinishedCollections() else { return }
         let progress = MobileViewingProgressStore.progress(collectionId: item.id)
         let initialTokenId = progress?.isComplete == false ? progress?.tokenId : nil
 
@@ -167,10 +168,10 @@ struct MobileCollectionsView: View {
         )
     }
 
-    private func randomSuggestedItemPreferringUnfinishedCollections() -> SuggestedItem? {
+    private func randomCollectionItemPreferringUnfinishedCollections() -> MobileCollectionItem? {
         let progressSnapshot = MobileViewingProgressStore.progressSnapshot()
-        let unfinishedItems = suggestedItems.filter { !progressSnapshot.viewedToEndCollectionIds.contains($0.id) }
-        return (unfinishedItems.isEmpty ? suggestedItems : unfinishedItems).randomElement()
+        let unfinishedItems = collectionItems.filter { !progressSnapshot.viewedToEndCollectionIds.contains($0.id) }
+        return (unfinishedItems.isEmpty ? collectionItems : unfinishedItems).randomElement()
     }
 
     private func resumeViewing(_ progress: MobileViewingProgress) {
@@ -218,17 +219,17 @@ struct MobileCollectionsView: View {
 
     private func likelyInitialCollectionIds() -> [String] {
         InfiniteCollectionsLoop
-            .initialSourceIndices(itemCount: suggestedItems.count, limit: 2)
-            .map { suggestedItems[$0].id }
+            .initialSourceIndices(itemCount: collectionItems.count, limit: 2)
+            .map { collectionItems[$0].id }
     }
     
 }
 
 private struct InfiniteCollectionsGridView: UIViewRepresentable {
-    let items: [SuggestedItem]
+    let items: [MobileCollectionItem]
     let progressByCollectionId: [String: Int]
     let viewedToEndCollectionIds: Set<String>
-    let onSelect: (SuggestedItem) -> Void
+    let onSelect: (MobileCollectionItem) -> Void
 
     func makeCoordinator() -> Coordinator {
         Coordinator(items: [], progressByCollectionId: [:], viewedToEndCollectionIds: [], onSelect: onSelect)
@@ -256,10 +257,10 @@ private struct InfiniteCollectionsGridView: UIViewRepresentable {
     }
 
     final class Coordinator: NSObject, UICollectionViewDataSource, UICollectionViewDelegateFlowLayout {
-        var items: [SuggestedItem]
+        var items: [MobileCollectionItem]
         var progressByCollectionId: [String: Int]
         var viewedToEndCollectionIds: Set<String>
-        var onSelect: (SuggestedItem) -> Void
+        var onSelect: (MobileCollectionItem) -> Void
         private var isRecentering = false
 
         enum UpdateResult {
@@ -269,10 +270,10 @@ private struct InfiniteCollectionsGridView: UIViewRepresentable {
         }
 
         init(
-            items: [SuggestedItem],
+            items: [MobileCollectionItem],
             progressByCollectionId: [String: Int],
             viewedToEndCollectionIds: Set<String>,
-            onSelect: @escaping (SuggestedItem) -> Void
+            onSelect: @escaping (MobileCollectionItem) -> Void
         ) {
             self.items = items
             self.progressByCollectionId = progressByCollectionId
@@ -281,7 +282,7 @@ private struct InfiniteCollectionsGridView: UIViewRepresentable {
         }
 
         func update(
-            items: [SuggestedItem],
+            items: [MobileCollectionItem],
             progressByCollectionId: [String: Int],
             viewedToEndCollectionIds: Set<String>
         ) -> UpdateResult {
@@ -399,7 +400,7 @@ private struct InfiniteCollectionsGridView: UIViewRepresentable {
             }
         }
 
-        private func item(for virtualIndex: Int) -> SuggestedItem {
+        private func item(for virtualIndex: Int) -> MobileCollectionItem {
             items[InfiniteCollectionsLoop.sourceIndex(for: virtualIndex, itemCount: items.count)]
         }
     }
@@ -436,7 +437,7 @@ private final class InfiniteCollectionsGridContainerView: UIView {
     }
 
     func update(
-        items: [SuggestedItem],
+        items: [MobileCollectionItem],
         progressByCollectionId: [String: Int],
         viewedToEndCollectionIds: Set<String>,
         coordinator: InfiniteCollectionsGridView.Coordinator
@@ -490,6 +491,7 @@ private final class CollectionGridCell: UICollectionViewCell {
     private let titleLabel = GridTitleLabel()
     private let progressLabel = GridTitleLabel()
     private var showsCompletedBadge = false
+    private var representedCoverAssetName: String?
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -525,6 +527,7 @@ private final class CollectionGridCell: UICollectionViewCell {
 
     override func prepareForReuse() {
         super.prepareForReuse()
+        representedCoverAssetName = nil
         imageView.image = nil
         titleLabel.text = nil
         progressLabel.text = nil
@@ -532,8 +535,19 @@ private final class CollectionGridCell: UICollectionViewCell {
         showsCompletedBadge = false
     }
 
-    func configure(item: SuggestedItem, progressPercent: Int?, hasViewedToEnd: Bool) {
-        imageView.image = UIImage(named: item.id)
+    func configure(item: MobileCollectionItem, progressPercent: Int?, hasViewedToEnd: Bool) {
+        representedCoverAssetName = item.coverAssetName
+        if item.isSolana {
+            imageView.image = CollectionCoverImageCache.cachedImage(named: item.coverAssetName)
+            if imageView.image == nil {
+                CollectionCoverImageCache.image(named: item.coverAssetName) { [weak self] assetName, image in
+                    guard self?.representedCoverAssetName == assetName else { return }
+                    self?.imageView.image = image
+                }
+            }
+        } else {
+            imageView.image = UIImage(named: item.coverAssetName)
+        }
         titleLabel.text = item.name
         showsCompletedBadge = hasViewedToEnd
         if hasViewedToEnd {
@@ -590,6 +604,79 @@ private final class CollectionGridCell: UICollectionViewCell {
                 )
                 progressLabel.layer.cornerRadius = 3
             }
+        }
+    }
+}
+
+private enum CollectionCoverImageCache {
+    private static let cache = NSCache<NSString, UIImage>()
+    private static let queue = DispatchQueue(label: "org.lil.nft-folder.collection-cover-image-cache", qos: .utility)
+    private static let lock = NSLock()
+    private static var pendingCompletions = [String: [(String, UIImage?) -> Void]]()
+
+    static func prepareForSmoothScrolling(items: [MobileCollectionItem]) {
+        items
+            .filter(\.isSolana)
+            .map(\.coverAssetName)
+            .forEach { assetName in
+                image(named: assetName) { _, _ in }
+            }
+    }
+
+    static func cachedImage(named assetName: String) -> UIImage? {
+        cache.object(forKey: assetName as NSString)
+    }
+
+    static func image(named assetName: String, completion: @escaping (String, UIImage?) -> Void) {
+        if let image = cachedImage(named: assetName) {
+            DispatchQueue.main.async {
+                completion(assetName, image)
+            }
+            return
+        }
+
+        let shouldStartLoad = lock.withLock {
+            if pendingCompletions[assetName] != nil {
+                pendingCompletions[assetName]?.append(completion)
+                return false
+            }
+            pendingCompletions[assetName] = [completion]
+            return true
+        }
+
+        guard shouldStartLoad else { return }
+
+        queue.async {
+            let image = loadDecodedImage(named: assetName)
+            let completions = lock.withLock {
+                let completions = pendingCompletions.removeValue(forKey: assetName) ?? []
+                if let image {
+                    cache.setObject(image, forKey: assetName as NSString)
+                }
+                return completions
+            }
+
+            DispatchQueue.main.async {
+                completions.forEach { $0(assetName, image) }
+            }
+        }
+    }
+
+    private static func loadDecodedImage(named assetName: String) -> UIImage? {
+        autoreleasepool {
+            UIImage(named: assetName)?.decodedForGridDisplay()
+        }
+    }
+}
+
+private extension UIImage {
+    func decodedForGridDisplay() -> UIImage {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = scale
+        format.opaque = false
+
+        return UIGraphicsImageRenderer(size: size, format: format).image { _ in
+            draw(in: CGRect(origin: .zero, size: size))
         }
     }
 }

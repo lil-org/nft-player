@@ -326,14 +326,19 @@ enum MobilePlayerPrewarmer {
         var candidates = [TokenKey]()
         let continueCollectionId: String?
         if let continueViewingProgress, !continueViewingProgress.isComplete {
-            candidates.append(TokenKey(collectionId: continueViewingProgress.collectionId, tokenId: continueViewingProgress.tokenId))
+            let tokenKey = TokenKey(collectionId: continueViewingProgress.collectionId, tokenId: continueViewingProgress.tokenId)
+            if shouldPrewarm(tokenKey) {
+                candidates.append(tokenKey)
+            }
             continueCollectionId = continueViewingProgress.collectionId
         } else {
             continueCollectionId = nil
         }
         initialCollectionIds.forEach { collectionId in
             guard collectionId != continueCollectionId else { return }
-            candidates.append(TokenKey(collectionId: collectionId, tokenId: nil))
+            let tokenKey = TokenKey(collectionId: collectionId, tokenId: nil)
+            guard shouldPrewarm(tokenKey) else { return }
+            candidates.append(tokenKey)
         }
 
         let dedupedCandidates = candidates.reduce(into: [TokenKey]()) { result, candidate in
@@ -374,6 +379,8 @@ enum MobilePlayerPrewarmer {
     }
 
     private static func requestTokenPrewarm(_ key: TokenKey) {
+        guard shouldPrewarm(key) else { return }
+
         let shouldRequestToken = lock.withLock {
             guard prewarmedTokens[key] == nil, !requestedKeys.contains(key) else { return false }
             requestedKeys.insert(key)
@@ -392,14 +399,18 @@ enum MobilePlayerPrewarmer {
     private static func generateToken(for key: TokenKey) -> GeneratedToken? {
         let tokenIndex: Int
         if let tokenId = key.tokenId {
-            guard let requestedTokenIndex = TokenGenerator.tokenIndex(specificCollectionId: key.collectionId, tokenId: tokenId) else {
+            guard let requestedTokenIndex = MobileCollectionCatalog.tokenIndex(specificCollectionId: key.collectionId, tokenId: tokenId) else {
                 return nil
             }
             tokenIndex = requestedTokenIndex
         } else {
             tokenIndex = 0
         }
-        return TokenGenerator.generateToken(specificCollectionId: key.collectionId, tokenIndex: tokenIndex)
+        return MobileCollectionCatalog.generateToken(specificCollectionId: key.collectionId, tokenIndex: tokenIndex)
+    }
+
+    private static func shouldPrewarm(_ key: TokenKey) -> Bool {
+        !MobileCollectionCatalog.isSolanaCollection(specificCollectionId: key.collectionId)
     }
 
 }
@@ -418,7 +429,7 @@ private class GeneratedTokensDataSource {
         if let specificInitialToken {
             let initialCoordinate = PlayerCoordinate(x: 0, y: 0)
             collectionIds[initialCoordinate.y] = specificInitialToken.fullCollectionId
-            collectionBaseTokenIndices[initialCoordinate.y] = TokenGenerator.tokenIndex(
+            collectionBaseTokenIndices[initialCoordinate.y] = MobileCollectionCatalog.tokenIndex(
                 specificCollectionId: specificInitialToken.fullCollectionId,
                 tokenId: specificInitialToken.id
             ) ?? 0
@@ -437,7 +448,7 @@ private class GeneratedTokensDataSource {
         let newCoordinate = sameCollection
             ? PlayerCoordinate(x: coordinate.x + 1, y: coordinate.y)
             : PlayerCoordinate(x: 0, y: coordinate.y + 1)
-        let tokenIndex = TokenGenerator.tokenIndex(specificCollectionId: token.fullCollectionId, tokenId: token.id) ?? 0
+        let tokenIndex = MobileCollectionCatalog.tokenIndex(specificCollectionId: token.fullCollectionId, tokenId: token.id) ?? 0
         collectionIds[newCoordinate.y] = token.fullCollectionId
         collectionBaseTokenIndices[newCoordinate.y] = tokenIndex - newCoordinate.x
         latestToken = nil
@@ -447,7 +458,7 @@ private class GeneratedTokensDataSource {
     func canRender(coordinate: PlayerCoordinate) -> Bool {
         guard let collectionId = collectionId(verticalIndex: coordinate.y),
               let tokenIndex = tokenIndex(coordinate: coordinate) else { return false }
-        return tokenIndex >= 0 && tokenIndex < TokenGenerator.tokenCount(specificCollectionId: collectionId)
+        return tokenIndex >= 0 && tokenIndex < MobileCollectionCatalog.tokenCount(specificCollectionId: collectionId)
     }
 
     func horizontalCoordinateForTokenIndex(_ tokenIndex: Int, verticalIndex: Int) -> Int {
@@ -460,7 +471,7 @@ private class GeneratedTokensDataSource {
         guard !token.fullCollectionId.isEmpty,
               let tokenIndex = tokenIndex(coordinate: coordinate) else { return nil }
 
-        let tokenCount = TokenGenerator.tokenCount(specificCollectionId: token.fullCollectionId)
+        let tokenCount = MobileCollectionCatalog.tokenCount(specificCollectionId: token.fullCollectionId)
         guard tokenCount > 0 else { return nil }
         return MobileViewingProgress(
             collectionId: token.fullCollectionId,
@@ -479,7 +490,7 @@ private class GeneratedTokensDataSource {
 
         guard let collectionId = collectionId(verticalIndex: coordinate.y),
               let tokenIndex = tokenIndex(coordinate: coordinate),
-              let token = TokenGenerator.generateToken(specificCollectionId: collectionId, tokenIndex: tokenIndex) else {
+              let token = MobileCollectionCatalog.generateToken(specificCollectionId: collectionId, tokenIndex: tokenIndex) else {
             return .empty
         }
 
@@ -505,11 +516,11 @@ private class GeneratedTokensDataSource {
         let collection: (id: String?, requestedTokenId: String?)
         if verticalIndex == 0 {
             collection = (
-                specificInitialToken?.fullCollectionId ?? initialCollectionId ?? TokenGenerator.nextShuffledCollectionId(),
+                specificInitialToken?.fullCollectionId ?? initialCollectionId ?? MobileCollectionCatalog.nextShuffledCollectionId(),
                 specificInitialToken?.id ?? initialTokenId
             )
         } else {
-            collection = (TokenGenerator.nextShuffledCollectionId(), nil)
+            collection = (MobileCollectionCatalog.nextShuffledCollectionId(), nil)
         }
 
         guard let collectionId = collection.id else { return nil }
@@ -517,7 +528,7 @@ private class GeneratedTokensDataSource {
 
         let baseTokenIndex: Int
         if let requestedTokenId = collection.requestedTokenId,
-           let requestedIndex = TokenGenerator.tokenIndex(specificCollectionId: collectionId, tokenId: requestedTokenId) {
+           let requestedIndex = MobileCollectionCatalog.tokenIndex(specificCollectionId: collectionId, tokenId: requestedTokenId) {
             baseTokenIndex = requestedIndex
         } else {
             baseTokenIndex = 0
