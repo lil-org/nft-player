@@ -107,10 +107,7 @@ struct MobilePlayerView: View {
             }
             ToolbarItem(placement: .principal) {
                 if chrome.showControls {
-                    Text(currentToken.collectionName)
-                        .font(.subheadline.weight(.semibold))
-                        .lineLimit(1)
-                        .foregroundStyle(.white)
+                    PlayerCollectionTitlePill(title: currentToken.collectionName)
                 }
             }
         }
@@ -196,6 +193,34 @@ struct MobilePlayerView: View {
         Haptic.selectionChanged()
     }
     
+}
+
+private struct PlayerCollectionTitlePill: View {
+    let title: String
+
+    var body: some View {
+        titleLabel
+    }
+
+    @ViewBuilder
+    private var titleLabel: some View {
+        let label = Text(title)
+            .font(.caption.weight(.semibold))
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
+            .foregroundStyle(.white)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .frame(maxWidth: 220)
+
+        if #available(iOS 26.0, *) {
+            label
+                .glassEffect(.regular, in: Capsule())
+        } else {
+            label
+                .background(.ultraThinMaterial, in: Capsule())
+        }
+    }
 }
 
 private struct PlayerBottomControls: View {
