@@ -80,8 +80,18 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
         return MobilePlaybackController.shared.getToken(uuid: initialConfig.id, coordinate: PlayerCoordinate(x: x, y: y)).html
     }
 
+    fileprivate func canRenderCoordinate(_ coordinate: (Int, Int)) -> Bool {
+        MobilePlaybackController.shared.canRender(
+            uuid: initialConfig.id,
+            coordinate: PlayerCoordinate(x: coordinate.0, y: coordinate.1)
+        )
+    }
+
+    fileprivate func startHorizontalCoordinate(verticalIndex: Int) -> Int {
+        MobilePlaybackController.shared.startHorizontalCoordinate(uuid: initialConfig.id, verticalIndex: verticalIndex)
+    }
+
     fileprivate func didRenderCoordinate(_ coordinate: (Int, Int)) {
-        guard renderedCoordinates.count < 2 else { return }
         renderedCoordinates.insert(PlayerCoordinate(x: coordinate.0, y: coordinate.1))
         didUpdateRenderedCoordinates()
     }
@@ -102,6 +112,8 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
 private protocol FourDirectionalPlayerDataSource: AnyObject {
 
     func getHtml(x: Int, y: Int) -> String
+    func canRenderCoordinate(_ coordinate: (Int, Int)) -> Bool
+    func startHorizontalCoordinate(verticalIndex: Int) -> Int
     func didRenderCoordinate(_ coordinate: (Int, Int))
     func didCleanupCoordinate(_ coordinate: (Int, Int))
 
@@ -176,13 +188,17 @@ private class SpecificPageViewController: UIViewController {
         let newCoordinate = (horizontalIndex, verticalIndex)
         if let renderedCoordinate = renderedCoordinate, renderedCoordinate == newCoordinate {
             return
-        } else {
-            renderedCoordinate = newCoordinate
-            if let html = fourDirectionalPlayerDataSource?.getHtml(x: horizontalIndex, y: verticalIndex) {
-                webView.loadHTMLString(html, baseURL: nil)
-            }
-            fourDirectionalPlayerDataSource?.didRenderCoordinate(newCoordinate)
         }
+
+        if let renderedCoordinate {
+            fourDirectionalPlayerDataSource?.didCleanupCoordinate(renderedCoordinate)
+        }
+
+        renderedCoordinate = newCoordinate
+        if let html = fourDirectionalPlayerDataSource?.getHtml(x: horizontalIndex, y: verticalIndex) {
+            webView.loadHTMLString(html, baseURL: nil)
+        }
+        fourDirectionalPlayerDataSource?.didRenderCoordinate(newCoordinate)
     }
 
 }
@@ -194,12 +210,18 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
     let pageC: SpecificPageViewController
 
     private var isPageTransitioning = false
+    private weak var fourDirectionalPlayerDataSource: FourDirectionalPlayerDataSource?
 
     init(fourDirectionalPlayerDataSource: FourDirectionalPlayerDataSource) {
+        self.fourDirectionalPlayerDataSource = fourDirectionalPlayerDataSource
         pageA = SpecificPageViewController(horizontalIndex: 0, verticalIndex: 0, fourDirectionalPlayerDataSource: fourDirectionalPlayerDataSource)
         pageB = SpecificPageViewController(horizontalIndex: 1, verticalIndex: 0, fourDirectionalPlayerDataSource: fourDirectionalPlayerDataSource)
         pageC = SpecificPageViewController(horizontalIndex: -1, verticalIndex: 0, fourDirectionalPlayerDataSource: fourDirectionalPlayerDataSource)
-        super.init(transitionStyle: .scroll, navigationOrientation: .horizontal, options: nil)
+        super.init(
+            transitionStyle: .scroll,
+            navigationOrientation: .horizontal,
+            options: [.interPageSpacing: 8]
+        )
     }
 
     required init?(coder: NSCoder) {
@@ -263,9 +285,20 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
     private func changeCollection() {
         let coordinate = getCurrentCoordinate()
         update(verticalIndex: coordinate.1 + 1)
-        if let currentPage = viewControllers?.first as? SpecificPageViewController {
-            currentPage.renderCurrentItem()
-        }
+        jumpToHorizontalIndex(0)
+    }
+
+    private func restartCollection() {
+        let coordinate = getCurrentCoordinate()
+        let targetHorizontalIndex = fourDirectionalPlayerDataSource?.startHorizontalCoordinate(verticalIndex: coordinate.1) ?? 0
+        jumpToHorizontalIndex(targetHorizontalIndex)
+    }
+
+    private func jumpToHorizontalIndex(_ horizontalIndex: Int) {
+        guard let currentPage = viewControllers?.first as? SpecificPageViewController else { return }
+        currentPage.update(horizontalIndex: horizontalIndex)
+        update(currentHorizontalIndex: horizontalIndex)
+        currentPage.renderCurrentItem()
     }
 
     private func didSettleOnCurrentPage() {
@@ -276,14 +309,11 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
     func pageViewController(_ pvc: UIPageViewController, viewControllerBefore vc: UIViewController) -> UIViewController? {
         switch vc {
         case pageA:
-            pageC.update(horizontalIndex: pageA.horizontalIndex - 1)
-            return pageC
+            return adjacentHorizontalPage(from: pageA, targetPage: pageC, offset: -1)
         case pageB:
-            pageA.update(horizontalIndex: pageB.horizontalIndex - 1)
-            return pageA
+            return adjacentHorizontalPage(from: pageB, targetPage: pageA, offset: -1)
         case pageC:
-            pageB.update(horizontalIndex: pageC.horizontalIndex - 1)
-            return pageB
+            return adjacentHorizontalPage(from: pageC, targetPage: pageB, offset: -1)
         default:
             return pageA
         }
@@ -292,21 +322,30 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
     func pageViewController(_ pvc: UIPageViewController, viewControllerAfter vc: UIViewController) -> UIViewController? {
         switch vc {
         case pageA:
-            pageB.update(horizontalIndex: pageA.horizontalIndex + 1)
-            return pageB
+            return adjacentHorizontalPage(from: pageA, targetPage: pageB, offset: 1)
         case pageB:
-            pageC.update(horizontalIndex: pageB.horizontalIndex + 1)
-            return pageC
+            return adjacentHorizontalPage(from: pageB, targetPage: pageC, offset: 1)
         case pageC:
-            pageA.update(horizontalIndex: pageC.horizontalIndex + 1)
-            return pageA
+            return adjacentHorizontalPage(from: pageC, targetPage: pageA, offset: 1)
         default:
             return pageA
         }
     }
 
+    private func adjacentHorizontalPage(
+        from sourcePage: SpecificPageViewController,
+        targetPage: SpecificPageViewController,
+        offset: Int
+    ) -> UIViewController? {
+        let targetIndex = sourcePage.horizontalIndex + offset
+        guard canRender(horizontalIndex: targetIndex, verticalIndex: sourcePage.verticalIndex) else { return nil }
+        targetPage.update(horizontalIndex: targetIndex)
+        return targetPage
+    }
+
     func pageViewController(_ pageViewController: UIPageViewController, willTransitionTo pendingViewControllers: [UIViewController]) {
         guard let destinationPage = pendingViewControllers.first as? SpecificPageViewController else { return }
+        isPageTransitioning = true
         destinationPage.renderCurrentItem()
     }
 
@@ -316,6 +355,7 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
         previousViewControllers: [UIViewController],
         transitionCompleted completed: Bool
     ) {
+        isPageTransitioning = false
         didSettleOnCurrentPage()
     }
 
@@ -357,16 +397,28 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
     func navigate(_ direction: PlaybackNavigationDirection) {
         switch direction {
         case .back, .forward:
-            guard !isPageTransitioning, transitionCoordinator == nil else { return }
+            guard canStartNavigation else { return }
             isPageTransitioning = true
             performPageTransition(direction == .back ? .reverse : .forward) { [weak self] in
                 self?.isPageTransitioning = false
             }
         case .down, .nextCollection:
+            guard canStartNavigation else { return }
             changeCollection()
         case .up:
             return
+        case .restartCollection:
+            guard canStartNavigation else { return }
+            restartCollection()
         }
+    }
+
+    private var canStartNavigation: Bool {
+        !isPageTransitioning && transitionCoordinator == nil
+    }
+
+    private func canRender(horizontalIndex: Int, verticalIndex: Int) -> Bool {
+        fourDirectionalPlayerDataSource?.canRenderCoordinate((horizontalIndex, verticalIndex)) ?? false
     }
 
 }

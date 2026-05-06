@@ -27,12 +27,16 @@ struct Haptic {
 
 enum MobilePlayerGestureTuning {
 
-    static let dismissVerticalIntentRatio: CGFloat = 0.65
-    static let dismissProgressDistance: CGFloat = 560
-    static let dismissVelocityProjectionDuration: CGFloat = 0.16
-    static let dismissFastSwipeVelocity: CGFloat = 420
-    static let dismissMinimumFastSwipeTranslation: CGFloat = 16
-    static let dismissMinimumTranslation: CGFloat = 88
-    static let dismissTranslationHeightRatio: CGFloat = 0.13
+    static let dismissVerticalIntentRatio: CGFloat = 1.45
+    static let dismissProgressDistance: CGFloat = 720
+    static let dismissVelocityProjectionDuration: CGFloat = 0.07
+    static let dismissFastSwipeVelocity: CGFloat = 1450
+    static let dismissMinimumFastSwipeTranslation: CGFloat = 140
+    static let dismissMinimumTranslation: CGFloat = 180
+    static let dismissTranslationHeightRatio: CGFloat = 0.28
+    static let dismissInitialVelocity: CGFloat = 120
+    static let dismissHorizontalEdgeExclusion: CGFloat = 44
+    static let controlsRevealVelocity: CGFloat = 80
+    static let controlsRevealVerticalIntentRatio: CGFloat = 1.05
 
 }

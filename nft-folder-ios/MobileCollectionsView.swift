@@ -36,10 +36,16 @@ private enum InfiniteCollectionsLoop {
 }
 
 struct MobileCollectionsView: View {
-    @State private var suggestedItems = TokenGenerator.allGenerativeSuggestedItems
+    private let suggestedItems = TokenGenerator.allGenerativeSuggestedItems
     @State private var playerConfig: MobilePlayerConfig?
+    @State private var viewingProgressByCollectionId: [String: Int]
+    @State private var latestIncompleteProgress: MobileViewingProgress?
     
     init() {
+        let progressSnapshot = MobileViewingProgressStore.progressSnapshot()
+        _viewingProgressByCollectionId = State(initialValue: progressSnapshot.percentagesByCollectionId)
+        _latestIncompleteProgress = State(initialValue: progressSnapshot.latestIncompleteProgress)
+
         let appearance = UINavigationBarAppearance()
         appearance.configureWithTransparentBackground()
         appearance.backgroundColor = .clear
@@ -54,10 +60,12 @@ struct MobileCollectionsView: View {
     var body: some View {
         ZStack {
             NavigationStack {
-                VStack {
-                    InfiniteCollectionsGridView(items: suggestedItems, onSelect: didSelectSuggestedItem)
-                        .ignoresSafeArea()
-                }
+                InfiniteCollectionsGridView(
+                    items: suggestedItems,
+                    progressByCollectionId: viewingProgressByCollectionId,
+                    onSelect: didSelectSuggestedItem
+                )
+                .ignoresSafeArea()
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .principal) {}
@@ -78,14 +86,24 @@ struct MobileCollectionsView: View {
                         }
                     }
                     ToolbarItem(placement: .navigationBarTrailing) {
-                        HStack {
-                            Button { showRandomPlayer() } label: {
-                                Images.shuffle
-                            }
+                        Button { showShuffledCollectionPlayer() } label: {
+                            Images.shuffle
                         }
-                        
                     }
                 }
+            }
+
+            if playerConfig == nil, let latestIncompleteProgress {
+                VStack {
+                    Spacer()
+                    ContinueViewingButton(progress: latestIncompleteProgress) {
+                        resumeViewing(latestIncompleteProgress)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 18)
+                }
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .zIndex(0.5)
             }
 
             if let playerConfig {
@@ -100,6 +118,10 @@ struct MobileCollectionsView: View {
             }
         }
         .persistentSystemOverlays(.hidden)
+        .onAppear(perform: refreshViewingProgress)
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            refreshViewingProgress()
+        }
     }
     
     private func didClickToggleAppIcon() {
@@ -111,15 +133,27 @@ struct MobileCollectionsView: View {
     }
     
     private func didSelectSuggestedItem(_ item: SuggestedItem) {
+        if let progress = MobileViewingProgressStore.progress(collectionId: item.id) {
+            resumeViewing(progress)
+            return
+        }
+
         withAnimation(playerCrossfadeAnimation) {
             playerConfig = MobilePlayerConfig(initialItemId: item.id)
         }
         Haptic.selectionChanged()
     }
     
-    private func showRandomPlayer() {
+    private func showShuffledCollectionPlayer() {
         withAnimation(playerCrossfadeAnimation) {
             playerConfig = MobilePlayerConfig(initialItemId: nil)
+        }
+        Haptic.selectionChanged()
+    }
+
+    private func resumeViewing(_ progress: MobileViewingProgress) {
+        withAnimation(playerCrossfadeAnimation) {
+            playerConfig = MobilePlayerConfig(initialItemId: progress.collectionId, initialTokenId: progress.tokenId)
         }
         Haptic.selectionChanged()
     }
@@ -128,44 +162,63 @@ struct MobileCollectionsView: View {
         guard playerConfig?.id == config.id else { return }
         withAnimation(playerCrossfadeAnimation) {
             playerConfig = nil
+            refreshViewingProgress()
         }
+    }
+
+    private func refreshViewingProgress() {
+        let progressSnapshot = MobileViewingProgressStore.progressSnapshot()
+        viewingProgressByCollectionId = progressSnapshot.percentagesByCollectionId
+        latestIncompleteProgress = progressSnapshot.latestIncompleteProgress
     }
     
 }
 
 private struct InfiniteCollectionsGridView: UIViewRepresentable {
     let items: [SuggestedItem]
+    let progressByCollectionId: [String: Int]
     let onSelect: (SuggestedItem) -> Void
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(items: [], onSelect: onSelect)
+        Coordinator(items: [], progressByCollectionId: [:], onSelect: onSelect)
     }
 
     func makeUIView(context: Context) -> InfiniteCollectionsGridContainerView {
         let containerView = InfiniteCollectionsGridContainerView()
-        containerView.update(items: items, coordinator: context.coordinator)
+        containerView.update(items: items, progressByCollectionId: progressByCollectionId, coordinator: context.coordinator)
         return containerView
     }
 
     func updateUIView(_ containerView: InfiniteCollectionsGridContainerView, context: Context) {
         context.coordinator.onSelect = onSelect
-        containerView.update(items: items, coordinator: context.coordinator)
+        containerView.update(items: items, progressByCollectionId: progressByCollectionId, coordinator: context.coordinator)
     }
 
     final class Coordinator: NSObject, UICollectionViewDataSource, UICollectionViewDelegateFlowLayout {
         var items: [SuggestedItem]
+        var progressByCollectionId: [String: Int]
         var onSelect: (SuggestedItem) -> Void
         private var isRecentering = false
 
-        init(items: [SuggestedItem], onSelect: @escaping (SuggestedItem) -> Void) {
+        enum UpdateResult {
+            case noChange
+            case progressOnly
+            case itemsChanged
+        }
+
+        init(items: [SuggestedItem], progressByCollectionId: [String: Int], onSelect: @escaping (SuggestedItem) -> Void) {
             self.items = items
+            self.progressByCollectionId = progressByCollectionId
             self.onSelect = onSelect
         }
 
-        func update(items: [SuggestedItem]) -> Bool {
-            guard self.items != items else { return false }
+        func update(items: [SuggestedItem], progressByCollectionId: [String: Int]) -> UpdateResult {
+            let itemsChanged = self.items != items
+            let progressChanged = self.progressByCollectionId != progressByCollectionId
+            guard itemsChanged || progressChanged else { return .noChange }
             self.items = items
-            return true
+            self.progressByCollectionId = progressByCollectionId
+            return itemsChanged ? .itemsChanged : .progressOnly
         }
 
         func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
@@ -175,7 +228,8 @@ private struct InfiniteCollectionsGridView: UIViewRepresentable {
         func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
             let cell = collectionView.dequeueReusableCell(withReuseIdentifier: CollectionGridCell.reuseIdentifier, for: indexPath)
             guard let gridCell = cell as? CollectionGridCell else { return cell }
-            gridCell.configure(item: item(for: indexPath.item))
+            let item = item(for: indexPath.item)
+            gridCell.configure(item: item, progressPercent: progressByCollectionId[item.id])
             return gridCell
         }
 
@@ -255,6 +309,14 @@ private struct InfiniteCollectionsGridView: UIViewRepresentable {
             isRecentering = false
         }
 
+        func updateVisibleProgressCells(in collectionView: UICollectionView) {
+            collectionView.indexPathsForVisibleItems.forEach { indexPath in
+                guard let gridCell = collectionView.cellForItem(at: indexPath) as? CollectionGridCell else { return }
+                let item = item(for: indexPath.item)
+                gridCell.configure(item: item, progressPercent: progressByCollectionId[item.id])
+            }
+        }
+
         private func item(for virtualIndex: Int) -> SuggestedItem {
             items[InfiniteCollectionsLoop.sourceIndex(for: virtualIndex, itemCount: items.count)]
         }
@@ -291,14 +353,19 @@ private final class InfiniteCollectionsGridContainerView: UIView {
         fatalError("init(coder:) has not been implemented")
     }
 
-    func update(items: [SuggestedItem], coordinator: InfiniteCollectionsGridView.Coordinator) {
+    func update(items: [SuggestedItem], progressByCollectionId: [String: Int], coordinator: InfiniteCollectionsGridView.Coordinator) {
         self.coordinator = coordinator
         collectionView.dataSource = coordinator
         collectionView.delegate = coordinator
 
-        if coordinator.update(items: items) {
+        switch coordinator.update(items: items, progressByCollectionId: progressByCollectionId) {
+        case .itemsChanged:
             didSetInitialScrollPosition = false
             collectionView.reloadData()
+        case .progressOnly:
+            coordinator.updateVisibleProgressCells(in: collectionView)
+        case .noChange:
+            break
         }
 
         setNeedsLayout()
@@ -330,6 +397,7 @@ private final class CollectionGridCell: UICollectionViewCell {
 
     private let imageView = UIImageView()
     private let titleLabel = GridTitleLabel()
+    private let progressLabel = GridTitleLabel()
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -348,6 +416,15 @@ private final class CollectionGridCell: UICollectionViewCell {
         titleLabel.layer.cornerRadius = 3
         titleLabel.clipsToBounds = true
         contentView.addSubview(titleLabel)
+
+        progressLabel.font = .systemFont(ofSize: 9, weight: .semibold)
+        progressLabel.textColor = .white
+        progressLabel.numberOfLines = 1
+        progressLabel.textAlignment = .center
+        progressLabel.backgroundColor = UIColor.black.withAlphaComponent(0.7)
+        progressLabel.layer.cornerRadius = 3
+        progressLabel.clipsToBounds = true
+        contentView.addSubview(progressLabel)
     }
 
     required init?(coder: NSCoder) {
@@ -358,11 +435,20 @@ private final class CollectionGridCell: UICollectionViewCell {
         super.prepareForReuse()
         imageView.image = nil
         titleLabel.text = nil
+        progressLabel.text = nil
+        progressLabel.isHidden = true
     }
 
-    func configure(item: SuggestedItem) {
+    func configure(item: SuggestedItem, progressPercent: Int?) {
         imageView.image = UIImage(named: item.id)
         titleLabel.text = item.name
+        if let progressPercent, progressPercent > 0 {
+            progressLabel.text = Strings.percent(progressPercent)
+            progressLabel.isHidden = false
+        } else {
+            progressLabel.text = nil
+            progressLabel.isHidden = true
+        }
         accessibilityLabel = item.name
         setNeedsLayout()
     }
@@ -383,6 +469,17 @@ private final class CollectionGridCell: UICollectionViewCell {
             width: labelWidth,
             height: labelHeight
         )
+
+        if !progressLabel.isHidden {
+            let progressSize = progressLabel.sizeThatFits(CGSize(width: 42, height: 16))
+            let progressWidth = min(max(ceil(progressSize.width), 28), 44)
+            progressLabel.frame = CGRect(
+                x: contentView.bounds.width - progressWidth - 4,
+                y: 4,
+                width: progressWidth,
+                height: 15
+            )
+        }
     }
 }
 
@@ -406,13 +503,50 @@ private final class GridTitleLabel: UILabel {
     }
 }
 
+private struct ContinueViewingButton: View {
+    let progress: MobileViewingProgress
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                Images.play
+                    .font(.subheadline.weight(.bold))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(Strings.continueViewing)
+                        .font(.caption.weight(.semibold))
+                    Text(progress.collectionName)
+                        .font(.subheadline.weight(.semibold))
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 12)
+
+                Text(Strings.percent(progress.percent))
+                    .font(.subheadline.weight(.bold))
+                    .monospacedDigit()
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background {
+                ProgressCapsuleBackground(progress: progress.fraction, isInteractive: true)
+            }
+            .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 private struct PlayerNavigationOverlay: UIViewControllerRepresentable {
 
     let config: MobilePlayerConfig
     let onDismiss: () -> Void
 
     func makeUIViewController(context: Context) -> PlayerOverlayViewController {
-        let playerViewController = makeMobilePlayerViewController(config: config, onDismiss: onDismiss)
+        let chrome = MobilePlayerChromeController()
+        let playerViewController = makeMobilePlayerViewController(config: config, onDismiss: onDismiss, chrome: chrome)
         let navigationController = PlayerNavigationController(rootViewController: playerViewController)
         navigationController.view.backgroundColor = .clear
         navigationController.view.isOpaque = false
@@ -422,6 +556,7 @@ private struct PlayerNavigationOverlay: UIViewControllerRepresentable {
 
         return PlayerOverlayViewController(
             navigationController: navigationController,
+            chrome: chrome,
             onDismiss: onDismiss
         )
     }
@@ -434,9 +569,10 @@ private struct PlayerNavigationOverlay: UIViewControllerRepresentable {
 
 private func makeMobilePlayerViewController(
     config: MobilePlayerConfig,
-    onDismiss: @escaping () -> Void
+    onDismiss: @escaping () -> Void,
+    chrome: MobilePlayerChromeController
 ) -> UIHostingController<MobilePlayerView> {
-    let playerViewController = UIHostingController(rootView: MobilePlayerView(config: config, onDismiss: onDismiss))
+    let playerViewController = UIHostingController(rootView: MobilePlayerView(config: config, onDismiss: onDismiss, chrome: chrome))
     playerViewController.view.backgroundColor = .clear
     playerViewController.view.isOpaque = false
     return playerViewController
@@ -457,17 +593,28 @@ private final class PlayerNavigationController: UINavigationController {
 private final class PlayerOverlayViewController: UIViewController, UIGestureRecognizerDelegate {
 
     let playerNavigationController: UINavigationController
+    let chrome: MobilePlayerChromeController
     var onDismiss: () -> Void
 
     private lazy var dismissPan = UIPanGestureRecognizer(target: self, action: #selector(handleDismissPan(_:)))
+    private lazy var controlsPan = UIPanGestureRecognizer(target: self, action: #selector(handleControlsPan(_:)))
+    private let dimmingView = UIView()
     private var configuredScrollPanGestures = Set<ObjectIdentifier>()
     private var isDismissing = false
+    private var dismissPanMode = DismissPanMode.dismiss
+
+    private enum DismissPanMode {
+        case dismiss
+        case hideControls
+    }
 
     init(
         navigationController: UINavigationController,
+        chrome: MobilePlayerChromeController,
         onDismiss: @escaping () -> Void
     ) {
         self.playerNavigationController = navigationController
+        self.chrome = chrome
         self.onDismiss = onDismiss
         super.init(nibName: nil, bundle: nil)
     }
@@ -490,6 +637,17 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         view.backgroundColor = .clear
         view.isOpaque = false
 
+        dimmingView.backgroundColor = .black
+        dimmingView.alpha = 1
+        view.addSubview(dimmingView)
+        dimmingView.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            dimmingView.topAnchor.constraint(equalTo: view.topAnchor),
+            dimmingView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            dimmingView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            dimmingView.trailingAnchor.constraint(equalTo: view.trailingAnchor)
+        ])
+
         addChild(playerNavigationController)
         view.addSubview(playerNavigationController.view)
         playerNavigationController.view.translatesAutoresizingMaskIntoConstraints = false
@@ -504,6 +662,10 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         dismissPan.delegate = self
         dismissPan.cancelsTouchesInView = false
         view.addGestureRecognizer(dismissPan)
+
+        controlsPan.delegate = self
+        controlsPan.cancelsTouchesInView = false
+        view.addGestureRecognizer(controlsPan)
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -537,22 +699,45 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
 
         switch gesture.state {
         case .began:
+            if chrome.showControls {
+                dismissPanMode = .hideControls
+                chrome.setControlsVisible(false)
+                return
+            }
+
+            dismissPanMode = .dismiss
             playerNavigationController.view.layer.removeAllAnimations()
+            dimmingView.layer.removeAllAnimations()
 
         case .changed:
+            guard dismissPanMode == .dismiss else { return }
             let progress = min(clampedY / MobilePlayerGestureTuning.dismissProgressDistance, 1)
-            applyTransform(
-                scale: 1 - progress * 0.13,
-                offsetX: translation.x * 0.18,
-                offsetY: clampedY
-            )
+            applyDismissPresentation(offsetY: clampedY, progress: progress)
 
         case .ended:
-            finishDismissGesture(translation: translation, velocity: gesture.velocity(in: view))
+            if dismissPanMode == .dismiss {
+                finishDismissGesture(translation: translation, velocity: gesture.velocity(in: view))
+            }
 
         case .cancelled, .failed:
-            resetDismissTransform()
+            if dismissPanMode == .dismiss {
+                resetDismissTransform()
+            }
 
+        default:
+            break
+        }
+    }
+
+    @objc private func handleControlsPan(_ gesture: UIPanGestureRecognizer) {
+        guard !isDismissing else { return }
+
+        switch gesture.state {
+        case .began, .changed:
+            let translation = gesture.translation(in: view)
+            if translation.y < -8 {
+                chrome.setControlsVisible(true)
+            }
         default:
             break
         }
@@ -571,11 +756,12 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
 
         if shouldDismiss {
             isDismissing = true
+            view.isUserInteractionEnabled = false
             let remainingDistance = max(view.bounds.height - clampedY, 0)
             let velocityDuration = velocity.y > 0 ? remainingDistance / velocity.y : 0.24
-            let duration = min(max(TimeInterval(velocityDuration), 0.16), 0.28)
+            let duration = min(max(TimeInterval(velocityDuration), 0.14), 0.24)
             UIView.animate(withDuration: duration, delay: 0, options: [.curveEaseOut, .beginFromCurrentState], animations: {
-                self.applyTransform(scale: 0.82, offsetX: 0, offsetY: self.view.bounds.height)
+                self.applyDismissPresentation(offsetY: self.view.bounds.height, progress: 1)
             }, completion: { _ in
                 self.onDismiss()
             })
@@ -584,20 +770,25 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         }
     }
 
-    private func applyTransform(scale: CGFloat, offsetX: CGFloat, offsetY: CGFloat) {
-        let anchorCompensation = playerNavigationController.view.bounds.height * (1 - scale) / 2
-        let scaleTransform = CGAffineTransform(scaleX: scale, y: scale)
-        let translateTransform = CGAffineTransform(translationX: offsetX, y: offsetY - anchorCompensation)
-        playerNavigationController.view.transform = scaleTransform.concatenating(translateTransform)
+    private func applyDismissPresentation(offsetY: CGFloat, progress: CGFloat) {
+        playerNavigationController.view.transform = CGAffineTransform(translationX: 0, y: offsetY)
+        dimmingView.alpha = 1 - min(max(progress, 0), 1)
     }
 
     private func resetDismissTransform() {
         UIView.animate(withDuration: 0.3, delay: 0, usingSpringWithDamping: 0.85, initialSpringVelocity: 0, options: [.beginFromCurrentState], animations: {
             self.playerNavigationController.view.transform = .identity
+            self.dimmingView.alpha = 1
         })
     }
 
     func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        if gestureRecognizer === controlsPan {
+            let velocity = controlsPan.velocity(in: view)
+            return velocity.y < -MobilePlayerGestureTuning.controlsRevealVelocity
+                && abs(velocity.y) > abs(velocity.x) * MobilePlayerGestureTuning.controlsRevealVerticalIntentRatio
+        }
+
         guard gestureRecognizer === dismissPan else {
             return true
         }
@@ -607,9 +798,24 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
 
         let location = dismissPan.location(in: playerNavigationController.view)
         let velocity = dismissPan.velocity(in: view)
+        let bounds = playerNavigationController.view.bounds
+        let isAwayFromHorizontalEdges = location.x > MobilePlayerGestureTuning.dismissHorizontalEdgeExclusion
+            && location.x < bounds.width - MobilePlayerGestureTuning.dismissHorizontalEdgeExclusion
+
+        if chrome.showControls {
+            return bounds.contains(location)
+                && velocity.y > 0
+                && velocity.y > abs(velocity.x)
+        }
+
         return playerNavigationController.view.bounds.contains(location)
-            && velocity.y > 0
+            && isAwayFromHorizontalEdges
+            && velocity.y > MobilePlayerGestureTuning.dismissInitialVelocity
             && velocity.y > abs(velocity.x) * MobilePlayerGestureTuning.dismissVerticalIntentRatio
+    }
+
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+        gestureRecognizer === controlsPan || otherGestureRecognizer === controlsPan
     }
 
 }

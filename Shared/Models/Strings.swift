@@ -36,6 +36,9 @@ struct Strings {
     static let info = loc("Info")
     static let editPlaylist = loc("Edit Playlist")
     static let nextCollection = loc("Next Collection")
+    static let anotherCollection = loc("Another Collection")
+    static let continueViewing = loc("Continue Viewing")
+    static let watchAgain = loc("Watch Again")
     static let play = loc("Play")
     static let go = loc("Go")
     static let tokenId = loc("Token Id")
@@ -58,6 +61,10 @@ struct Strings {
     
     private static func loc(_ string: String.LocalizationValue) -> String {
         return String(localized: string)
+    }
+
+    static func percent(_ value: Int) -> String {
+        String.localizedStringWithFormat(loc("%lld%%"), Int64(value))
     }
     
 }
