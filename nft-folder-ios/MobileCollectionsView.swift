@@ -149,11 +149,25 @@ struct MobileCollectionsView: View {
     }
     
     private func showShuffledCollectionPlayer() {
-        MobileViewingProgressStore.clearContinueViewingCollectionId()
+        guard let item = randomSuggestedItemPreferringUnfinishedCollections() else { return }
+        let progress = MobileViewingProgressStore.progress(collectionId: item.id)
+        let initialTokenId = progress?.isComplete == false ? progress?.tokenId : nil
+
+        MobileViewingProgressStore.setContinueViewingCollectionId(item.id)
         withAnimation(playerCrossfadeAnimation) {
-            playerConfig = MobilePlayerConfig(initialItemId: nil)
+            playerConfig = MobilePlayerConfig(
+                initialItemId: item.id,
+                initialTokenId: initialTokenId,
+                continueViewingCollectionId: item.id
+            )
         }
         Haptic.selectionChanged()
+    }
+
+    private func randomSuggestedItemPreferringUnfinishedCollections() -> SuggestedItem? {
+        let progressSnapshot = MobileViewingProgressStore.progressSnapshot()
+        let unfinishedItems = suggestedItems.filter { !progressSnapshot.viewedToEndCollectionIds.contains($0.id) }
+        return (unfinishedItems.isEmpty ? suggestedItems : unfinishedItems).randomElement()
     }
 
     private func resumeViewing(_ progress: MobileViewingProgress) {
