@@ -12,10 +12,11 @@ struct MobilePlayerConfig: Hashable, Codable, Identifiable {
 }
 
 private let doNotShowInstructionsTmp = true
-private let startupProgressVisibleDuration: DispatchTimeInterval = .milliseconds(1000)
+private let startupProgressAutoHideDelay: DispatchTimeInterval = .milliseconds(650)
 private let playerChromeToggleAnimation = Animation.easeInOut(duration: 0.12)
 private let playerManualGlassHideAnimation = Animation.smooth(duration: 0.23)
-private let startupProgressHideAnimation = Animation.smooth(duration: 0.3)
+private let startupProgressAutoHideAnimation = Animation.easeInOut(duration: 0.75)
+private let startupProgressForcedHideAnimation = Animation.smooth(duration: 0.3)
 private let playerProgressControlSize: CGFloat = 34
 
 final class MobilePlayerChromeController: ObservableObject {
@@ -204,7 +205,7 @@ struct MobilePlayerView: View {
             }
         } else if shouldShowStartupProgress {
             startupProgressNavigationRow
-            .transition(.scale(scale: 0.92).combined(with: .opacity))
+                .transition(.scale(scale: 0.98).combined(with: .opacity))
         }
     }
 
@@ -294,19 +295,19 @@ struct MobilePlayerView: View {
         let workItem = DispatchWorkItem {
             guard !chrome.showControls else { return }
 
-            withAnimation(startupProgressHideAnimation) {
+            withAnimation(startupProgressAutoHideAnimation) {
                 isStartupProgressVisible = false
             }
         }
         startupProgressAutoHideWorkItem = workItem
-        DispatchQueue.main.asyncAfter(deadline: .now() + startupProgressVisibleDuration, execute: workItem)
+        DispatchQueue.main.asyncAfter(deadline: .now() + startupProgressAutoHideDelay, execute: workItem)
     }
 
     private func hideStartupProgressForPaginationAttempt() {
         guard shouldShowStartupProgress, !chrome.showControls else { return }
 
         cancelStartupProgressAutoHide()
-        withAnimation(startupProgressHideAnimation) {
+        withAnimation(startupProgressForcedHideAnimation) {
             isStartupProgressVisible = false
         }
     }
