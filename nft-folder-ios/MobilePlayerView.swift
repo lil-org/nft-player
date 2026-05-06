@@ -12,7 +12,7 @@ struct MobilePlayerConfig: Hashable, Codable, Identifiable {
 }
 
 private let doNotShowInstructionsTmp = true
-private let startupProgressAutoHideDelay: DispatchTimeInterval = .milliseconds(650)
+private let startupProgressAutoHideDelay: DispatchTimeInterval = .milliseconds(333)
 private let playerChromeToggleAnimation = Animation.easeInOut(duration: 0.12)
 private let playerManualGlassHideAnimation = Animation.smooth(duration: 0.23)
 private let startupProgressAutoHideAnimation = Animation.easeInOut(duration: 0.75)
