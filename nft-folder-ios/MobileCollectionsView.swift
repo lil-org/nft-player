@@ -4,7 +4,6 @@ import UIKit
 private let playerCrossfadeAnimation = Animation.easeInOut(duration: 0.18)
 private let playerStatusBarRevealAnimation = Animation.easeInOut(duration: 0.38)
 private let playerStatusBarRevealDuration: TimeInterval = 0.3
-private let playerDismissStatusBarRevealProgress: CGFloat = 0.03
 
 private enum InfiniteCollectionsLoop {
     private static let repetitionCount = 31
@@ -702,12 +701,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
     private let dimmingView = UIView()
     private var configuredScrollPanGestures = Set<ObjectIdentifier>()
     private var isDismissing = false
-    private var dismissPanMode = DismissPanMode.dismiss
-
-    private enum DismissPanMode {
-        case dismiss
-        case hideControls
-    }
+    private var isDismissPanDrivingPlayerDismiss = false
 
     init(
         navigationController: UINavigationController,
@@ -804,32 +798,31 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
 
         switch gesture.state {
         case .began:
-            if chrome.showControls {
-                dismissPanMode = .hideControls
-                chrome.setControlsVisible(false)
-                return
-            }
+            let location = gesture.location(in: playerNavigationController.view)
+            let velocity = gesture.velocity(in: view)
+            isDismissPanDrivingPlayerDismiss = hasPlayerDismissIntent(location: location, velocity: velocity)
 
-            dismissPanMode = .dismiss
-            playerNavigationController.view.layer.removeAllAnimations()
-            dimmingView.layer.removeAllAnimations()
-            setDismissStatusBarRevealed(false)
+            if isDismissPanDrivingPlayerDismiss {
+                playerNavigationController.view.layer.removeAllAnimations()
+                dimmingView.layer.removeAllAnimations()
+                setDismissStatusBarRevealed(true)
+            }
+            chrome.setControlsVisible(false)
 
         case .changed:
-            guard dismissPanMode == .dismiss else { return }
+            guard isDismissPanDrivingPlayerDismiss else { return }
             let progress = min(clampedY / MobilePlayerGestureTuning.dismissProgressDistance, 1)
             applyDismissPresentation(offsetY: clampedY, progress: progress)
-            setDismissStatusBarRevealed(progress > playerDismissStatusBarRevealProgress)
 
         case .ended:
-            if dismissPanMode == .dismiss {
-                finishDismissGesture(translation: translation, velocity: gesture.velocity(in: view))
-            }
+            guard isDismissPanDrivingPlayerDismiss else { return }
+            isDismissPanDrivingPlayerDismiss = false
+            finishDismissGesture(translation: translation, velocity: gesture.velocity(in: view))
 
         case .cancelled, .failed:
-            if dismissPanMode == .dismiss {
-                resetDismissTransform()
-            }
+            guard isDismissPanDrivingPlayerDismiss else { return }
+            isDismissPanDrivingPlayerDismiss = false
+            resetDismissTransform()
 
         default:
             break
@@ -920,20 +913,26 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
 
         let location = dismissPan.location(in: playerNavigationController.view)
         let velocity = dismissPan.velocity(in: view)
+
+        return hasPlayerDismissIntent(location: location, velocity: velocity)
+            || (chrome.showControls && hasControlsHideIntent(location: location, velocity: velocity))
+    }
+
+    private func hasPlayerDismissIntent(location: CGPoint, velocity: CGPoint) -> Bool {
         let bounds = playerNavigationController.view.bounds
         let isAwayFromHorizontalEdges = location.x > MobilePlayerGestureTuning.dismissHorizontalEdgeExclusion
             && location.x < bounds.width - MobilePlayerGestureTuning.dismissHorizontalEdgeExclusion
 
-        if chrome.showControls {
-            return bounds.contains(location)
-                && velocity.y > 0
-                && velocity.y > abs(velocity.x)
-        }
-
-        return playerNavigationController.view.bounds.contains(location)
+        return bounds.contains(location)
             && isAwayFromHorizontalEdges
             && velocity.y > MobilePlayerGestureTuning.dismissInitialVelocity
             && velocity.y > abs(velocity.x) * MobilePlayerGestureTuning.dismissVerticalIntentRatio
+    }
+
+    private func hasControlsHideIntent(location: CGPoint, velocity: CGPoint) -> Bool {
+        playerNavigationController.view.bounds.contains(location)
+            && velocity.y > 0
+            && velocity.y > abs(velocity.x)
     }
 
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
