@@ -12,8 +12,10 @@ struct MobilePlayerConfig: Hashable, Codable, Identifiable {
 }
 
 private let doNotShowInstructionsTmp = true
-private let startupProgressVisibleDuration: DispatchTimeInterval = .milliseconds(1300)
-private let startupProgressHideAnimation = Animation.smooth(duration: 0.5)
+private let startupProgressVisibleDuration: DispatchTimeInterval = .milliseconds(1000)
+private let playerChromeToggleAnimation = Animation.easeInOut(duration: 0.12)
+private let playerManualGlassHideAnimation = Animation.smooth(duration: 0.23)
+private let startupProgressHideAnimation = Animation.smooth(duration: 0.3)
 private let playerProgressControlSize: CGFloat = 34
 
 final class MobilePlayerChromeController: ObservableObject {
@@ -30,7 +32,8 @@ final class MobilePlayerChromeController: ObservableObject {
         }
 
         guard showControls != isVisible else { return }
-        withAnimation(.easeInOut(duration: 0.16)) {
+        let animation = isVisible ? playerChromeToggleAnimation : playerManualGlassHideAnimation
+        withAnimation(animation) {
             showControls = isVisible
         }
     }
@@ -92,25 +95,23 @@ struct MobilePlayerView: View {
                     chrome.toggleControls()
                 }
 
-                if chrome.showControls {
-                    VStack {
-                        Spacer()
-                        PlayerBottomControls(
-                            progress: currentProgress,
-                            canGoBack: canGoBack,
-                            canGoForward: canGoForward,
-                            hidesProgressLabel: shouldShowStartupProgress,
-                            onBack: goBack,
-                            onForward: goForward,
-                            onViewAgain: viewAgain,
-                            onFinish: onDismiss
-                        )
-                        .padding(.horizontal, 18)
-                        .padding(.bottom, max(geometry.safeAreaInsets.bottom, 16))
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
-                    }
-                    .allowsHitTesting(true)
+                VStack {
+                    Spacer()
+                    PlayerBottomControls(
+                        isVisible: chrome.showControls,
+                        progress: currentProgress,
+                        canGoBack: canGoBack,
+                        canGoForward: canGoForward,
+                        hidesProgressLabel: shouldShowStartupProgress,
+                        onBack: goBack,
+                        onForward: goForward,
+                        onViewAgain: viewAgain,
+                        onFinish: onDismiss
+                    )
+                    .padding(.horizontal, 18)
+                    .padding(.bottom, max(geometry.safeAreaInsets.bottom, 16))
                 }
+                .allowsHitTesting(chrome.showControls)
 
                 startupProgressOverlay(safeAreaBottom: geometry.safeAreaInsets.bottom)
             }
@@ -299,7 +300,9 @@ struct MobilePlayerView: View {
 
     private func invalidateStartupProgressAutoHide() {
         cancelStartupProgressAutoHide()
-        isStartupProgressVisible = false
+        withAnimation(playerManualGlassHideAnimation) {
+            isStartupProgressVisible = false
+        }
     }
 
     private func cancelStartupProgressAutoHide() {
@@ -337,6 +340,7 @@ private struct PlayerCollectionTitlePill: View {
 }
 
 private struct PlayerBottomControls: View {
+    let isVisible: Bool
     let progress: MobileViewingProgress?
     let canGoBack: Bool
     let canGoForward: Bool
@@ -355,12 +359,25 @@ private struct PlayerBottomControls: View {
             if progress?.isComplete == true {
                 completionActions
             }
-
             progressNavigationControls
         }
     }
 
+    @ViewBuilder
     private var completionActions: some View {
+        if #available(iOS 26.0, *) {
+            GlassEffectContainer(spacing: 18) {
+                if isVisible {
+                    completionActionsRow
+                }
+            }
+        } else if isVisible {
+            completionActionsRow
+                .transition(.opacity.combined(with: .move(edge: .top)))
+        }
+    }
+
+    private var completionActionsRow: some View {
         HStack(spacing: 18) {
             PlayerProgressActionButton(image: Images.viewAgain, title: Strings.viewAgain) {
                 Haptic.selectionChanged()
@@ -371,17 +388,19 @@ private struct PlayerBottomControls: View {
                 onFinish()
             }
         }
-        .transition(.opacity.combined(with: .move(edge: .top)))
     }
 
     @ViewBuilder
     private var progressNavigationControls: some View {
         if #available(iOS 26.0, *) {
             GlassEffectContainer(spacing: 8) {
-                progressNavigationRow
+                if isVisible {
+                    progressNavigationRow
+                }
             }
-        } else {
+        } else if isVisible {
             progressNavigationRow
+                .transition(.move(edge: .bottom).combined(with: .opacity))
         }
     }
 
@@ -446,6 +465,7 @@ private struct PlayerProgressActionButton: View {
             button
                 .buttonStyle(.glass)
                 .buttonBorderShape(.capsule)
+                .glassEffectTransition(.materialize)
         } else {
             button
                 .buttonStyle(.plain)
@@ -468,6 +488,7 @@ private struct PlayerProgressTextPill: View {
         if #available(iOS 26.0, *) {
             label
                 .glassEffect(.regular, in: Capsule())
+                .glassEffectTransition(.materialize)
         } else {
             label
                 .background(.ultraThinMaterial, in: Capsule())
@@ -528,6 +549,7 @@ private struct PlayerProgressArrowButton: View {
             button
                 .buttonStyle(.glass)
                 .buttonBorderShape(.circle)
+                .glassEffectTransition(.materialize)
         } else {
             button
                 .buttonStyle(.plain)
