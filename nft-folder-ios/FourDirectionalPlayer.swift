@@ -13,17 +13,24 @@ struct FourDirectionalPlayerContainerView: UIViewControllerRepresentable {
 
     private let initialConfig: MobilePlayerConfig
     private let onCoordinateUpdate: ((PlayerCoordinate) -> Void)
+    private let onUnavailableNavigation: (() -> Void)
 
     init(
         initialConfig: MobilePlayerConfig,
-        onCoordinateUpdate: @escaping (PlayerCoordinate) -> Void
+        onCoordinateUpdate: @escaping (PlayerCoordinate) -> Void,
+        onUnavailableNavigation: @escaping () -> Void
     ) {
         self.initialConfig = initialConfig
         self.onCoordinateUpdate = onCoordinateUpdate
+        self.onUnavailableNavigation = onUnavailableNavigation
     }
 
     func makeUIViewController(context: Context) -> FourDirectionalPlayerContainer {
-        return FourDirectionalPlayerContainer(initialConfig: initialConfig, onCoordinateUpdate: onCoordinateUpdate)
+        return FourDirectionalPlayerContainer(
+            initialConfig: initialConfig,
+            onCoordinateUpdate: onCoordinateUpdate,
+            onUnavailableNavigation: onUnavailableNavigation
+        )
     }
 
     func updateUIViewController(_ uiViewController: FourDirectionalPlayerContainer, context: Context) {}
@@ -33,13 +40,19 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
 
     private let initialConfig: MobilePlayerConfig
     private let onCoordinateUpdate: ((PlayerCoordinate) -> Void)
+    private let onUnavailableNavigation: (() -> Void)
 
     private lazy var pagingVC = HorizontalPageViewController(fourDirectionalPlayerDataSource: self)
     private var renderedCoordinates = Set<PlayerCoordinate>()
 
-    init(initialConfig: MobilePlayerConfig, onCoordinateUpdate: @escaping (PlayerCoordinate) -> Void) {
+    init(
+        initialConfig: MobilePlayerConfig,
+        onCoordinateUpdate: @escaping (PlayerCoordinate) -> Void,
+        onUnavailableNavigation: @escaping () -> Void
+    ) {
         self.initialConfig = initialConfig
         self.onCoordinateUpdate = onCoordinateUpdate
+        self.onUnavailableNavigation = onUnavailableNavigation
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -101,6 +114,10 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
         didUpdateRenderedCoordinates()
     }
 
+    fileprivate func didAttemptUnavailableHorizontalNavigation() {
+        onUnavailableNavigation()
+    }
+
     private func didUpdateRenderedCoordinates() {
         if renderedCoordinates.count == 1, let coordinate = renderedCoordinates.first {
             onCoordinateUpdate(coordinate)
@@ -116,6 +133,7 @@ private protocol FourDirectionalPlayerDataSource: AnyObject {
     func startHorizontalCoordinate(verticalIndex: Int) -> Int
     func didRenderCoordinate(_ coordinate: (Int, Int))
     func didCleanupCoordinate(_ coordinate: (Int, Int))
+    func didAttemptUnavailableHorizontalNavigation()
 
 }
 
@@ -210,6 +228,8 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
     let pageC: SpecificPageViewController
 
     private var isPageTransitioning = false
+    private var configuredPagingPanGestures = Set<ObjectIdentifier>()
+    private var didNotifyUnavailableNavigationDuringCurrentPan = false
     private weak var fourDirectionalPlayerDataSource: FourDirectionalPlayerDataSource?
 
     init(fourDirectionalPlayerDataSource: FourDirectionalPlayerDataSource) {
@@ -248,6 +268,40 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
     private func configurePagingScrollViews() {
         pagingScrollViews.forEach { scrollView in
             scrollView.hideAutomaticScrollEdgeEffects()
+            let panGesture = scrollView.panGestureRecognizer
+            let panGestureId = ObjectIdentifier(panGesture)
+            if !configuredPagingPanGestures.contains(panGestureId) {
+                panGesture.addTarget(self, action: #selector(handlePagingPan(_:)))
+                configuredPagingPanGestures.insert(panGestureId)
+            }
+        }
+    }
+
+    @objc private func handlePagingPan(_ gesture: UIPanGestureRecognizer) {
+        switch gesture.state {
+        case .began:
+            didNotifyUnavailableNavigationDuringCurrentPan = false
+
+        case .changed:
+            guard !didNotifyUnavailableNavigationDuringCurrentPan else { return }
+
+            let translation = gesture.translation(in: view)
+            let hasHorizontalIntent = abs(translation.x) > MobilePlayerGestureTuning.pageBoundaryRevealTranslation
+                && abs(translation.x) > abs(translation.y) * MobilePlayerGestureTuning.pageBoundaryRevealHorizontalIntentRatio
+            guard hasHorizontalIntent else { return }
+
+            let targetOffset = translation.x > 0 ? -1 : 1
+            let coordinate = getCurrentCoordinate()
+            guard !canRender(horizontalIndex: coordinate.0 + targetOffset, verticalIndex: coordinate.1) else { return }
+
+            didNotifyUnavailableNavigationDuringCurrentPan = true
+            fourDirectionalPlayerDataSource?.didAttemptUnavailableHorizontalNavigation()
+
+        case .ended, .cancelled, .failed:
+            didNotifyUnavailableNavigationDuringCurrentPan = false
+
+        default:
+            break
         }
     }
 

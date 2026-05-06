@@ -51,14 +51,20 @@ struct MobilePlayerView: View {
     var body: some View {
         GeometryReader { geometry in
             ZStack {
-                FourDirectionalPlayerContainerView(initialConfig: initialConfig, onCoordinateUpdate: { newCoordinate in
-                    DispatchQueue.main.async {
-                        let token = MobilePlaybackController.shared.getToken(uuid: initialConfig.id, coordinate: newCoordinate)
-                        self.currentToken = token
-                        self.currentProgress = MobilePlaybackController.shared.markViewed(uuid: initialConfig.id, coordinate: newCoordinate)
-                        updateExternalDisplayToken(token)
+                FourDirectionalPlayerContainerView(
+                    initialConfig: initialConfig,
+                    onCoordinateUpdate: { newCoordinate in
+                        DispatchQueue.main.async {
+                            let token = MobilePlaybackController.shared.getToken(uuid: initialConfig.id, coordinate: newCoordinate)
+                            self.currentToken = token
+                            self.currentProgress = MobilePlaybackController.shared.markViewed(uuid: initialConfig.id, coordinate: newCoordinate)
+                            updateExternalDisplayToken(token)
+                        }
+                    },
+                    onUnavailableNavigation: {
+                        chrome.setControlsVisible(true)
                     }
-                })
+                )
                 .edgesIgnoringSafeArea(.all)
                 .contentShape(Rectangle())
                 .simultaneousGesture(
