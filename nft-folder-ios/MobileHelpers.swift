@@ -51,3 +51,24 @@ enum MobilePlayerGestureTuning {
     static let pageBoundaryRevealHorizontalIntentRatio: CGFloat = 1.15
 
 }
+
+enum MobileBottomChromeSpacing {
+
+    private static let rectangularDisplayPadding: CGFloat = 12
+    private static let roundedDisplayMinimumPadding: CGFloat = 16
+    private static let roundedDisplaySafeAreaOverlap: CGFloat = 10
+    private static let continueViewingRoundedDisplayPadding: CGFloat = 14
+
+    static func padding(forSafeAreaBottom safeAreaBottom: CGFloat) -> CGFloat {
+        guard safeAreaBottom > 0 else { return rectangularDisplayPadding }
+
+        return max(roundedDisplayMinimumPadding, safeAreaBottom - roundedDisplaySafeAreaOverlap)
+    }
+
+    static func continueViewingPadding(forSafeAreaBottom safeAreaBottom: CGFloat) -> CGFloat {
+        guard safeAreaBottom > 0 else { return rectangularDisplayPadding }
+
+        return continueViewingRoundedDisplayPadding
+    }
+
+}

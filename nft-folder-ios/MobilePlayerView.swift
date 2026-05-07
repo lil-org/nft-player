@@ -68,6 +68,8 @@ struct MobilePlayerView: View {
 
     var body: some View {
         GeometryReader { geometry in
+            let bottomChromePadding = MobileBottomChromeSpacing.padding(forSafeAreaBottom: geometry.safeAreaInsets.bottom)
+
             ZStack {
                 FourDirectionalPlayerContainerView(
                     initialConfig: initialConfig,
@@ -113,7 +115,7 @@ struct MobilePlayerView: View {
                         onFinish: onDismiss
                     )
                     .padding(.horizontal, 18)
-                    .padding(.bottom, max(geometry.safeAreaInsets.bottom, 16))
+                    .padding(.bottom, bottomChromePadding)
                     .animation(chrome.showControls ? playerChromeToggleAnimation : playerManualGlassHideAnimation, value: chrome.showControls)
                 }
                 .allowsHitTesting(chrome.showControls)
@@ -128,7 +130,7 @@ struct MobilePlayerView: View {
                         Spacer()
                     }
                     .padding(.leading, 18)
-                    .padding(.bottom, max(geometry.safeAreaInsets.bottom, 16))
+                    .padding(.bottom, bottomChromePadding)
                     .animation(chrome.showControls ? playerChromeToggleAnimation : playerManualGlassHideAnimation, value: chrome.showControls)
                     .animation(playerChromeToggleAnimation, value: shareImageURL)
                 }
@@ -147,12 +149,13 @@ struct MobilePlayerView: View {
                         }
                     }
                     .padding(.trailing, 18)
-                    .padding(.bottom, max(geometry.safeAreaInsets.bottom, 16))
+                    .padding(.bottom, bottomChromePadding)
                     .animation(chrome.showControls ? playerChromeToggleAnimation : playerManualGlassHideAnimation, value: chrome.showControls)
                     .animation(playerChromeToggleAnimation, value: isCurrentTokenBookmarked)
                 }
                 .allowsHitTesting(chrome.showControls && canBookmarkCurrentToken)
             }
+            .ignoresSafeArea(edges: .bottom)
         }
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(chrome.showControls ? .visible : .hidden, for: .navigationBar)

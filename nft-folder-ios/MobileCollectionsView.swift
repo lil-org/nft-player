@@ -104,13 +104,17 @@ struct MobileCollectionsView: View {
             }
 
             if playerConfig == nil, let continueViewingProgress {
-                VStack {
-                    Spacer()
-                    ContinueViewingButton(progress: continueViewingProgress) {
-                        resumeViewing(continueViewingProgress)
+                GeometryReader { geometry in
+                    VStack {
+                        Spacer()
+                        ContinueViewingButton(progress: continueViewingProgress) {
+                            resumeViewing(continueViewingProgress)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, MobileBottomChromeSpacing.continueViewingPadding(forSafeAreaBottom: geometry.safeAreaInsets.bottom))
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 18)
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+                    .ignoresSafeArea(edges: .bottom)
                 }
                 .transition(.opacity)
                 .zIndex(0.5)
