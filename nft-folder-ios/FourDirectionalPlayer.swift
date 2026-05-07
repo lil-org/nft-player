@@ -9,6 +9,120 @@ struct PlayerCoordinate: Hashable {
     let y: Int
 }
 
+enum FullscreenTokenMediaView {
+    static func imageView(in containerView: UIView) -> UIImageView {
+        let imageView = UIImageView()
+        imageView.backgroundColor = .black
+        imageView.contentMode = .scaleAspectFit
+        imageView.clipsToBounds = true
+        imageView.isUserInteractionEnabled = false
+        install(imageView, in: containerView)
+        return imageView
+    }
+
+    static func webView(in containerView: UIView) -> WKWebView {
+        let webView = AutoReloadingWebView.new
+        webView.isUserInteractionEnabled = false
+        install(webView, in: containerView)
+        return webView
+    }
+
+    private static func install(_ view: UIView, in containerView: UIView) {
+        view.translatesAutoresizingMaskIntoConstraints = false
+        containerView.addSubview(view)
+        NSLayoutConstraint.activate([
+            view.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
+            view.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
+            view.topAnchor.constraint(equalTo: containerView.topAnchor),
+            view.bottomAnchor.constraint(equalTo: containerView.bottomAnchor)
+        ])
+    }
+}
+
+final class FullscreenTokenMediaRenderer {
+    private let containerView: UIView
+    private var webView: WKWebView!
+    private var imageView: UIImageView!
+    private var representedImageKey: AnyHashable?
+
+    init(containerView: UIView) {
+        self.containerView = containerView
+    }
+
+    func clearContent() {
+        representedImageKey = nil
+        webView?.stopLoading()
+        webView?.loadHTMLString("", baseURL: nil)
+        imageView?.image = nil
+    }
+
+    func renderImage<Key: Hashable>(
+        key: Key,
+        hideImageUntilLoaded: Bool,
+        onBegin: (() -> Void)? = nil,
+        load: (@escaping (UIImage?) -> Void) -> Void,
+        fallbackToWebContent: @escaping () -> Void,
+        onSuccess: (() -> Void)? = nil
+    ) {
+        ensureImageView()
+        hideWebContent()
+        imageView.isHidden = hideImageUntilLoaded
+        imageView.image = nil
+        onBegin?()
+
+        let imageKey = AnyHashable(key)
+        representedImageKey = imageKey
+        load { [weak self] image in
+            guard let self,
+                  self.representedImageKey == imageKey else {
+                return
+            }
+
+            guard let image else {
+                fallbackToWebContent()
+                return
+            }
+
+            onSuccess?()
+            self.webView?.isHidden = true
+            self.imageView.isHidden = false
+            self.imageView.image = image
+        }
+    }
+
+    func renderWebContent(
+        _ html: String,
+        hidesEmptyWebContent: Bool = false,
+        onBegin: (() -> Void)? = nil
+    ) {
+        representedImageKey = nil
+        ensureWebView()
+        imageView?.isHidden = true
+        imageView?.image = nil
+        webView.stopLoading()
+        webView.isHidden = hidesEmptyWebContent && html.isEmpty
+        onBegin?()
+        webView.loadHTMLString(html, baseURL: nil)
+    }
+
+    private func ensureImageView() {
+        guard imageView == nil else { return }
+
+        imageView = FullscreenTokenMediaView.imageView(in: containerView)
+    }
+
+    private func ensureWebView() {
+        guard webView == nil else { return }
+
+        webView = FullscreenTokenMediaView.webView(in: containerView)
+    }
+
+    private func hideWebContent() {
+        webView?.stopLoading()
+        webView?.isHidden = true
+    }
+}
+
 struct FourDirectionalPlayerContainerView: UIViewControllerRepresentable {
 
     private let initialConfig: MobilePlayerConfig
@@ -97,8 +211,19 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
         pagingVC.navigate(direction)
     }
 
-    fileprivate func getHtml(x: Int, y: Int) -> String {
-        return MobilePlaybackController.shared.getToken(uuid: initialConfig.id, coordinate: PlayerCoordinate(x: x, y: y)).html
+    fileprivate func getToken(x: Int, y: Int) -> GeneratedToken {
+        MobilePlaybackController.shared.getToken(uuid: initialConfig.id, coordinate: PlayerCoordinate(x: x, y: y))
+    }
+
+    fileprivate func prepareSolanaImageWindow(
+        for coordinate: (Int, Int),
+        direction: SolanaImageCache.PrefetchDirection
+    ) -> SolanaImageDescriptor? {
+        MobilePlaybackController.shared.prepareSolanaImageWindow(
+            uuid: initialConfig.id,
+            coordinate: PlayerCoordinate(x: coordinate.0, y: coordinate.1),
+            direction: direction
+        )
     }
 
     fileprivate func canRenderCoordinate(_ coordinate: (Int, Int)) -> Bool {
@@ -150,7 +275,11 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
 
 private protocol FourDirectionalPlayerDataSource: AnyObject {
 
-    func getHtml(x: Int, y: Int) -> String
+    func getToken(x: Int, y: Int) -> GeneratedToken
+    func prepareSolanaImageWindow(
+        for coordinate: (Int, Int),
+        direction: SolanaImageCache.PrefetchDirection
+    ) -> SolanaImageDescriptor?
     func canRenderCoordinate(_ coordinate: (Int, Int)) -> Bool
     func startHorizontalCoordinate(verticalIndex: Int) -> Int
     func didRenderCoordinate(_ coordinate: (Int, Int))
@@ -164,13 +293,14 @@ private protocol FourDirectionalPlayerDataSource: AnyObject {
 private class SpecificPageViewController: UIViewController {
 
     private weak var fourDirectionalPlayerDataSource: FourDirectionalPlayerDataSource?
-    private var webView: WKWebView!
+    private lazy var mediaRenderer = FullscreenTokenMediaRenderer(containerView: view)
 
     private(set) var horizontalIndex: Int
     private(set) var verticalIndex: Int
 
     private var renderedCoordinate: (Int, Int)?
     private var willOrDidAppear = false
+    var preferredPrefetchDirection: SolanaImageCache.PrefetchDirection = .forward
 
     init(horizontalIndex: Int, verticalIndex: Int, fourDirectionalPlayerDataSource: FourDirectionalPlayerDataSource?) {
         self.fourDirectionalPlayerDataSource = fourDirectionalPlayerDataSource
@@ -196,7 +326,7 @@ private class SpecificPageViewController: UIViewController {
     }
 
     private func cleanupDisplayedContent() {
-        webView?.loadHTMLString("", baseURL: nil)
+        mediaRenderer.clearContent()
         if let renderedCoordinate = renderedCoordinate {
             fourDirectionalPlayerDataSource?.didCleanupCoordinate(renderedCoordinate)
         }
@@ -218,19 +348,6 @@ private class SpecificPageViewController: UIViewController {
     func renderCurrentItem() {
         guard willOrDidAppear else { return }
 
-        if webView == nil {
-            webView = AutoReloadingWebView.new
-            webView.isUserInteractionEnabled = false
-            webView.translatesAutoresizingMaskIntoConstraints = false
-            view.addSubview(webView)
-            NSLayoutConstraint.activate([
-                webView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-                webView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-                webView.topAnchor.constraint(equalTo: view.topAnchor),
-                webView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
-            ])
-        }
-
         let newCoordinate = (horizontalIndex, verticalIndex)
         if let renderedCoordinate = renderedCoordinate, renderedCoordinate == newCoordinate {
             return
@@ -241,10 +358,40 @@ private class SpecificPageViewController: UIViewController {
         }
 
         renderedCoordinate = newCoordinate
-        if let html = fourDirectionalPlayerDataSource?.getHtml(x: horizontalIndex, y: verticalIndex) {
-            webView.loadHTMLString(html, baseURL: nil)
+        let solanaImageDescriptor = fourDirectionalPlayerDataSource?.prepareSolanaImageWindow(
+            for: newCoordinate,
+            direction: preferredPrefetchDirection
+        )
+
+        guard let token = fourDirectionalPlayerDataSource?.getToken(x: horizontalIndex, y: verticalIndex) else {
+            fourDirectionalPlayerDataSource?.didRenderCoordinate(newCoordinate)
+            return
+        }
+
+        if let descriptor = solanaImageDescriptor,
+           descriptor.isStaticImage {
+            renderImage(descriptor, fallbackHTML: token.html)
+        } else {
+            renderWebContent(token.html)
         }
         fourDirectionalPlayerDataSource?.didRenderCoordinate(newCoordinate)
+    }
+
+    private func renderImage(_ descriptor: SolanaImageDescriptor, fallbackHTML: String) {
+        mediaRenderer.renderImage(
+            key: descriptor,
+            hideImageUntilLoaded: false,
+            load: { completion in
+                SolanaImageCache.shared.loadImage(for: descriptor, completion: completion)
+            },
+            fallbackToWebContent: { [weak self] in
+                self?.renderWebContent(fallbackHTML)
+            }
+        )
+    }
+
+    private func renderWebContent(_ html: String) {
+        mediaRenderer.renderWebContent(html)
     }
 
 }
@@ -386,6 +533,9 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
     }
 
     private func jumpToCoordinate(horizontalIndex: Int, verticalIndex: Int) {
+        pageA.preferredPrefetchDirection = .forward
+        pageB.preferredPrefetchDirection = .forward
+        pageC.preferredPrefetchDirection = .forward
         pageA.update(horizontalIndex: horizontalIndex)
         pageA.update(verticalIndex: verticalIndex)
         pageB.update(horizontalIndex: horizontalIndex + 1)
@@ -437,6 +587,7 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
     ) -> UIViewController? {
         let targetIndex = sourcePage.horizontalIndex + offset
         guard canRender(horizontalIndex: targetIndex, verticalIndex: sourcePage.verticalIndex) else { return nil }
+        targetPage.preferredPrefetchDirection = offset < 0 ? .backward : .forward
         targetPage.update(horizontalIndex: targetIndex)
         return targetPage
     }

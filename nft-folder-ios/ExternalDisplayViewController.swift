@@ -13,9 +13,9 @@ func updateExternalDisplayToken(_ token: GeneratedToken) {
 
 class ExternalDisplayViewController: UIViewController {
     
-    private var webView: WKWebView!
+    private lazy var mediaRenderer = FullscreenTokenMediaRenderer(containerView: view)
     private var placeholderStack: UIStackView!
-    private var renderedTokenId = ""
+    private var renderedTokenKey = ""
     private var willOrDidAppear = false
     
     init() {
@@ -77,31 +77,51 @@ class ExternalDisplayViewController: UIViewController {
     fileprivate func renderCurrentItem() {
         guard willOrDidAppear else { return }
         
-        let isEmpty = currentToken.html.isEmpty
         ensurePlaceholder()
         
-        if webView == nil {
-            webView = AutoReloadingWebView.new
-            webView.isUserInteractionEnabled = false
-            webView.translatesAutoresizingMaskIntoConstraints = false
-            view.addSubview(webView)
-            NSLayoutConstraint.activate([
-                webView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-                webView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-                webView.topAnchor.constraint(equalTo: view.topAnchor),
-                webView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
-            ])
-        }
-        
-        placeholderStack.isHidden = !isEmpty
-        webView.isHidden = isEmpty
-        
-        if currentToken.id == renderedTokenId {
-            return
+        let tokenKey = renderKey(for: currentToken)
+        guard tokenKey != renderedTokenKey else { return }
+
+        renderedTokenKey = tokenKey
+        if case .staticImage = currentToken.media {
+            renderImage(currentToken, tokenKey: tokenKey)
         } else {
-            renderedTokenId = currentToken.id
-            webView.loadHTMLString(currentToken.html, baseURL: nil)
+            renderWebContent(currentToken.html)
         }
+    }
+
+    private func renderImage(_ token: GeneratedToken, tokenKey: String) {
+        mediaRenderer.renderImage(
+            key: tokenKey,
+            hideImageUntilLoaded: true,
+            onBegin: { [weak self] in
+                self?.placeholderStack.isHidden = false
+            },
+            load: { completion in
+                SolanaImageCache.shared.loadImage(for: token, completion: completion)
+            },
+            fallbackToWebContent: { [weak self] in
+                self?.renderWebContent(token.html)
+            },
+            onSuccess: { [weak self] in
+                self?.placeholderStack.isHidden = true
+            }
+        )
+    }
+
+    private func renderWebContent(_ html: String) {
+        ensurePlaceholder()
+        mediaRenderer.renderWebContent(
+            html,
+            hidesEmptyWebContent: true,
+            onBegin: { [weak self] in
+                self?.placeholderStack.isHidden = !html.isEmpty
+            }
+        )
+    }
+
+    private func renderKey(for token: GeneratedToken) -> String {
+        "\(token.fullCollectionId)|\(token.id)"
     }
     
 }

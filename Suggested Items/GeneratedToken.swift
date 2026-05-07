@@ -2,6 +2,32 @@
 
 import Foundation
 
+enum GeneratedTokenMedia: Hashable, Codable {
+    case staticImage(url: URL, fileExtension: String)
+    case animatedImage(url: URL, fileExtension: String)
+
+    var url: URL {
+        switch self {
+        case let .staticImage(url, _), let .animatedImage(url, _):
+            return url
+        }
+    }
+
+    var fileExtension: String {
+        switch self {
+        case let .staticImage(_, fileExtension), let .animatedImage(_, fileExtension):
+            return fileExtension
+        }
+    }
+
+    var isStaticImage: Bool {
+        if case .staticImage = self {
+            return true
+        }
+        return false
+    }
+}
+
 struct GeneratedToken: Hashable, Codable, Identifiable {
     let fullCollectionId: String
     let collectionName: String
@@ -13,6 +39,33 @@ struct GeneratedToken: Hashable, Codable, Identifiable {
     let url: URL?
     let instructions: String?
     let screensaver: URL?
+    let media: GeneratedTokenMedia?
+
+    init(
+        fullCollectionId: String,
+        collectionName: String,
+        address: String,
+        id: String,
+        html: String,
+        displayName: String,
+        displayTokenId: String,
+        url: URL?,
+        instructions: String?,
+        screensaver: URL?,
+        media: GeneratedTokenMedia? = nil
+    ) {
+        self.fullCollectionId = fullCollectionId
+        self.collectionName = collectionName
+        self.address = address
+        self.id = id
+        self.html = html
+        self.displayName = displayName
+        self.displayTokenId = displayTokenId
+        self.url = url
+        self.instructions = instructions
+        self.screensaver = screensaver
+        self.media = media
+    }
     
     static let empty = GeneratedToken(fullCollectionId: "", collectionName: "", address: "", id: "", html: "", displayName: "", displayTokenId: "", url: nil, instructions: nil, screensaver: nil)
 }

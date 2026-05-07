@@ -664,19 +664,7 @@ private enum CollectionCoverImageCache {
 
     private static func loadDecodedImage(named assetName: String) -> UIImage? {
         autoreleasepool {
-            UIImage(named: assetName)?.decodedForGridDisplay()
-        }
-    }
-}
-
-private extension UIImage {
-    func decodedForGridDisplay() -> UIImage {
-        let format = UIGraphicsImageRendererFormat()
-        format.scale = scale
-        format.opaque = false
-
-        return UIGraphicsImageRenderer(size: size, format: format).image { _ in
-            draw(in: CGRect(origin: .zero, size: size))
+            UIImage(named: assetName)?.decodedForDisplay()
         }
     }
 }
