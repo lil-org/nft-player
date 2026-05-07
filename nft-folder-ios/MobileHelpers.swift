@@ -9,6 +9,8 @@ struct Images {
     static let preferences = Image(systemName: "gearshape")
     static let play = Image(systemName: "play")
     static let share = Image(systemName: "square.and.arrow.up")
+    static let bookmark = Image(systemName: "bookmark")
+    static let bookmarkFill = Image(systemName: "bookmark.fill")
     
     static let appIcon: UIImage? = {
         let icons = (Bundle.main.infoDictionary?["CFBundleIcons"] as? [String: Any])?["CFBundlePrimaryIcon"] as? [String: Any]

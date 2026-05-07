@@ -39,6 +39,8 @@ struct Strings {
     static let nextCollection = loc("Next Collection")
     static let finish = loc("Finish")
     static let share = loc("Share")
+    static let bookmark = loc("Bookmark")
+    static let removeBookmark = loc("Remove Bookmark")
     static let continueViewing = loc("Continue Viewing")
     static let viewAgain = loc("View Again")
     static let play = loc("Play")

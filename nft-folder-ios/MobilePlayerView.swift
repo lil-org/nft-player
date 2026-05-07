@@ -56,6 +56,7 @@ struct MobilePlayerView: View {
     @State private var currentProgress: MobileViewingProgress?
     @State private var currentCoordinate: PlayerCoordinate?
     @State private var shareImageURL: URL?
+    @State private var isCurrentTokenBookmarked = false
     
     init(config: MobilePlayerConfig, onDismiss: @escaping () -> Void, chrome: MobilePlayerChromeController) {
         self.initialConfig = config
@@ -76,6 +77,7 @@ struct MobilePlayerView: View {
                             self.currentToken = token
                             self.currentProgress = progress
                             self.updateShareImageURL(for: newCoordinate)
+                            self.updateBookmarkState(for: token)
                             updateExternalDisplayToken(token)
                         }
                     },
@@ -129,6 +131,25 @@ struct MobilePlayerView: View {
                     .animation(playerChromeToggleAnimation, value: shareImageURL)
                 }
                 .allowsHitTesting(chrome.showControls && shareImageURL != nil)
+
+                VStack {
+                    Spacer()
+                    HStack {
+                        Spacer()
+                        if chrome.showControls, canBookmarkCurrentToken {
+                            PlayerBookmarkButton(
+                                isBookmarked: isCurrentTokenBookmarked,
+                                action: toggleCurrentTokenBookmark
+                            )
+                            .transition(.opacity)
+                        }
+                    }
+                    .padding(.trailing, 18)
+                    .padding(.bottom, max(geometry.safeAreaInsets.bottom, 16))
+                    .animation(chrome.showControls ? playerChromeToggleAnimation : playerManualGlassHideAnimation, value: chrome.showControls)
+                    .animation(playerChromeToggleAnimation, value: isCurrentTokenBookmarked)
+                }
+                .allowsHitTesting(chrome.showControls && canBookmarkCurrentToken)
             }
         }
         .navigationBarTitleDisplayMode(.inline)
@@ -213,6 +234,10 @@ struct MobilePlayerView: View {
         return currentProgress.tokenIndex < currentProgress.tokenCount - 1
     }
 
+    private var canBookmarkCurrentToken: Bool {
+        !currentToken.fullCollectionId.isEmpty && !currentToken.id.isEmpty
+    }
+
     private func goBack() {
         navigateIfPossible(canGoBack) {
             MobilePlaybackController.shared.goBack(uuid: initialConfig.id)
@@ -236,6 +261,28 @@ struct MobilePlayerView: View {
 
     private func viewAgain() {
         MobilePlaybackController.shared.restartCollection(uuid: initialConfig.id)
+    }
+
+    private func toggleCurrentTokenBookmark() {
+        guard canBookmarkCurrentToken else { return }
+
+        isCurrentTokenBookmarked = MobileBookmarksStore.toggleBookmark(
+            collectionId: currentToken.fullCollectionId,
+            tokenId: currentToken.id
+        )
+        Haptic.selectionChanged()
+    }
+
+    private func updateBookmarkState(for token: GeneratedToken) {
+        guard !token.fullCollectionId.isEmpty, !token.id.isEmpty else {
+            isCurrentTokenBookmarked = false
+            return
+        }
+
+        isCurrentTokenBookmarked = MobileBookmarksStore.isBookmarked(
+            collectionId: token.fullCollectionId,
+            tokenId: token.id
+        )
     }
 
     private func updateShareImageURL(for coordinate: PlayerCoordinate?) {
@@ -498,6 +545,33 @@ private struct PlayerShareButton: View {
                 .glassEffectTransition(.materialize)
         } else {
             link
+                .buttonStyle(.plain)
+                .background(.ultraThinMaterial, in: Circle())
+        }
+    }
+}
+
+private struct PlayerBookmarkButton: View {
+    let isBookmarked: Bool
+    let action: () -> Void
+
+    @ViewBuilder
+    var body: some View {
+        let button = Button(action: action) {
+            (isBookmarked ? Images.bookmarkFill : Images.bookmark)
+                .font(.subheadline.weight(.semibold))
+                .frame(width: playerProgressControlSize, height: playerProgressControlSize)
+                .contentShape(Circle())
+        }
+        .accessibilityLabel(isBookmarked ? Strings.removeBookmark : Strings.bookmark)
+
+        if #available(iOS 26.0, *) {
+            button
+                .buttonStyle(.glass)
+                .buttonBorderShape(.circle)
+                .glassEffectTransition(.materialize)
+        } else {
+            button
                 .buttonStyle(.plain)
                 .background(.ultraThinMaterial, in: Circle())
         }

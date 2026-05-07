@@ -167,6 +167,88 @@ enum MobileViewingProgressStore {
     }
 }
 
+private struct MobileBookmark: Codable, Hashable {
+    let bookmarkedAt: Date
+}
+
+enum MobileBookmarksStore {
+    private static let bookmarksKey = "mobileBookmarksByCollectionId"
+    private static let userDefaults = UserDefaults.standard
+    private static var cachedBookmarksByCollectionId: [String: [String: MobileBookmark]]?
+    private static var cachedBookmarksData: Data?
+
+    private struct LegacyMobileBookmark: Codable {
+        let tokenId: String
+        let bookmarkedAt: Date
+    }
+
+    static func isBookmarked(collectionId: String, tokenId: String) -> Bool {
+        bookmarksByCollectionId()[collectionId]?[tokenId] != nil
+    }
+
+    @discardableResult
+    static func toggleBookmark(collectionId: String, tokenId: String) -> Bool {
+        guard !collectionId.isEmpty, !tokenId.isEmpty else { return false }
+
+        var bookmarks = bookmarksByCollectionId()
+        var collectionBookmarks = bookmarks[collectionId] ?? [:]
+        if collectionBookmarks[tokenId] != nil {
+            collectionBookmarks.removeValue(forKey: tokenId)
+            if collectionBookmarks.isEmpty {
+                bookmarks.removeValue(forKey: collectionId)
+            } else {
+                bookmarks[collectionId] = collectionBookmarks
+            }
+            save(bookmarks)
+            return false
+        }
+
+        collectionBookmarks[tokenId] = MobileBookmark(bookmarkedAt: Date())
+        bookmarks[collectionId] = collectionBookmarks
+        save(bookmarks)
+        return true
+    }
+
+    private static func bookmarksByCollectionId() -> [String: [String: MobileBookmark]] {
+        let storedData = userDefaults.data(forKey: bookmarksKey)
+        if let cachedBookmarksByCollectionId, cachedBookmarksData == storedData {
+            return cachedBookmarksByCollectionId
+        }
+
+        guard let storedData else {
+            cachedBookmarksByCollectionId = [:]
+            cachedBookmarksData = storedData
+            return [:]
+        }
+
+        if let bookmarks = try? JSONDecoder().decode([String: [String: MobileBookmark]].self, from: storedData) {
+            cachedBookmarksByCollectionId = bookmarks
+            cachedBookmarksData = storedData
+            return bookmarks
+        }
+
+        if let legacyBookmarks = try? JSONDecoder().decode([String: LegacyMobileBookmark].self, from: storedData) {
+            let bookmarks = legacyBookmarks.reduce(into: [String: [String: MobileBookmark]]()) { result, entry in
+                guard !entry.value.tokenId.isEmpty else { return }
+                result[entry.key, default: [:]][entry.value.tokenId] = MobileBookmark(bookmarkedAt: entry.value.bookmarkedAt)
+            }
+            save(bookmarks)
+            return bookmarks
+        }
+
+        cachedBookmarksByCollectionId = [:]
+        cachedBookmarksData = storedData
+        return [:]
+    }
+
+    private static func save(_ bookmarks: [String: [String: MobileBookmark]]) {
+        guard let data = try? JSONEncoder().encode(bookmarks) else { return }
+        cachedBookmarksByCollectionId = bookmarks
+        cachedBookmarksData = data
+        userDefaults.set(data, forKey: bookmarksKey)
+    }
+}
+
 class MobilePlaybackController {
     
     private init() {}
