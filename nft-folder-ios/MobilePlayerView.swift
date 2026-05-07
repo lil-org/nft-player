@@ -14,7 +14,9 @@ struct MobilePlayerConfig: Hashable, Codable, Identifiable {
 private let doNotShowInstructionsTmp = true
 private let playerChromeToggleAnimation = Animation.easeInOut(duration: 0.12)
 private let playerManualGlassHideAnimation = Animation.smooth(duration: 0.23)
+private let playerNavigationBarControlSize: CGFloat = 44
 private let playerProgressControlSize: CGFloat = 34
+private let playerNavigationArrowSpacing: CGFloat = 4
 
 final class MobilePlayerChromeController: ObservableObject {
     @Published private(set) var showControls = true
@@ -168,7 +170,10 @@ struct MobilePlayerView: View {
             }
             ToolbarItem(placement: .principal) {
                 if chrome.showControls {
-                    PlayerCollectionTitlePill(title: currentToken.collectionName)
+                    PlayerCollectionTitlePill(
+                        title: currentToken.collectionName,
+                        progressText: currentProgress?.pageLabel ?? ""
+                    )
                 }
             }
         }
@@ -311,6 +316,7 @@ private extension URL {
 
 private struct PlayerCollectionTitlePill: View {
     let title: String
+    let progressText: String
 
     var body: some View {
         titleLabel
@@ -318,13 +324,24 @@ private struct PlayerCollectionTitlePill: View {
 
     @ViewBuilder
     private var titleLabel: some View {
-        let label = Text(title)
-            .font(.caption.weight(.semibold))
-            .lineLimit(1)
-            .minimumScaleFactor(0.8)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 5)
+        let label = VStack(spacing: 1) {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+
+            if !progressText.isEmpty {
+                Text(progressText)
+                    .font(.caption2.weight(.semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+        }
+            .padding(.horizontal, 14)
             .frame(maxWidth: 220)
+            .frame(height: playerNavigationBarControlSize)
 
         if #available(iOS 26.0, *) {
             label
@@ -389,7 +406,7 @@ private struct PlayerBottomControls: View {
     @ViewBuilder
     private var progressNavigationControls: some View {
         if #available(iOS 26.0, *) {
-            GlassEffectContainer(spacing: 8) {
+            GlassEffectContainer(spacing: playerNavigationArrowSpacing) {
                 if isVisible {
                     progressNavigationRow
                 }
@@ -401,15 +418,13 @@ private struct PlayerBottomControls: View {
     }
 
     private var progressNavigationRow: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: playerNavigationArrowSpacing) {
             PlayerProgressArrowButton(
                 image: Images.back,
                 accessibilityLabel: Strings.back,
                 isEnabled: canGoBack,
                 action: onBack
             )
-
-            PlayerProgressTextPill(text: progress?.pageLabel ?? "")
 
             PlayerProgressArrowButton(
                 image: Images.forward,
@@ -455,43 +470,6 @@ private struct PlayerProgressActionButton: View {
                 .buttonStyle(.plain)
                 .background(.ultraThinMaterial, in: Capsule())
         }
-    }
-}
-
-private struct PlayerProgressTextPill: View {
-    let text: String
-
-    var body: some View {
-        label
-    }
-
-    @ViewBuilder
-    private var label: some View {
-        let label = PlayerProgressTextLabel(text: text)
-
-        if #available(iOS 26.0, *) {
-            label
-                .glassEffect(.regular, in: Capsule())
-                .glassEffectTransition(.materialize)
-        } else {
-            label
-                .background(.ultraThinMaterial, in: Capsule())
-        }
-    }
-}
-
-private struct PlayerProgressTextLabel: View {
-    let text: String
-
-    var body: some View {
-        Text(text)
-            .font(.caption.weight(.semibold))
-            .monospacedDigit()
-            .lineLimit(1)
-            .minimumScaleFactor(0.8)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 5)
-            .frame(minWidth: 58)
     }
 }
 
