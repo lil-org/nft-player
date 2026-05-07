@@ -12,15 +12,12 @@ struct MobilePlayerConfig: Hashable, Codable, Identifiable {
 }
 
 private let doNotShowInstructionsTmp = true
-private let startupProgressAutoHideDelay: DispatchTimeInterval = .milliseconds(420)
 private let playerChromeToggleAnimation = Animation.easeInOut(duration: 0.12)
 private let playerManualGlassHideAnimation = Animation.smooth(duration: 0.23)
-private let startupProgressAutoHideAnimation = Animation.easeInOut(duration: 0.75)
-private let startupProgressForcedHideAnimation = Animation.smooth(duration: 0.3)
 private let playerProgressControlSize: CGFloat = 34
 
 final class MobilePlayerChromeController: ObservableObject {
-    @Published private(set) var showControls = false
+    @Published private(set) var showControls = true
     @Published private(set) var isStatusBarRevealedByDismiss = false
 
     func toggleControls() {
@@ -57,10 +54,6 @@ struct MobilePlayerView: View {
     @State private var isAllowedToHideStatusBar = false
     @State private var currentToken = GeneratedToken.empty
     @State private var currentProgress: MobileViewingProgress?
-    @State private var isStartupProgressVisible = true
-    @State private var didScheduleStartupProgressAutoHide = false
-    @State private var startupProgressAutoHideWorkItem: DispatchWorkItem?
-    @Namespace private var startupProgressGlassNamespace
     
     init(config: MobilePlayerConfig, onDismiss: @escaping () -> Void, chrome: MobilePlayerChromeController) {
         self.initialConfig = config
@@ -79,15 +72,10 @@ struct MobilePlayerView: View {
                             let progress = MobilePlaybackController.shared.markViewed(uuid: initialConfig.id, coordinate: newCoordinate)
                             self.currentToken = token
                             self.currentProgress = progress
-                            self.scheduleStartupProgressAutoHideIfNeeded(progress: progress)
                             updateExternalDisplayToken(token)
                         }
                     },
-                    onPaginationAttempt: {
-                        DispatchQueue.main.async {
-                            self.hideStartupProgressForPaginationAttempt()
-                        }
-                    },
+                    onPaginationAttempt: {},
                     onUnavailableNavigation: {
                         chrome.setControlsVisible(true)
                     }
@@ -111,7 +99,6 @@ struct MobilePlayerView: View {
                         progress: currentProgress,
                         canGoBack: canGoBack,
                         canGoForward: canGoForward,
-                        hidesProgressLabel: shouldShowStartupProgress,
                         onBack: goBack,
                         onForward: goForward,
                         onViewAgain: viewAgain,
@@ -122,8 +109,6 @@ struct MobilePlayerView: View {
                     .animation(chrome.showControls ? playerChromeToggleAnimation : playerManualGlassHideAnimation, value: chrome.showControls)
                 }
                 .allowsHitTesting(chrome.showControls)
-
-                startupProgressOverlay(safeAreaBottom: geometry.safeAreaInsets.bottom)
             }
         }
         .navigationBarTitleDisplayMode(.inline)
@@ -147,16 +132,8 @@ struct MobilePlayerView: View {
             }
         }
         .onDisappear {
-            startupProgressAutoHideWorkItem?.cancel()
             updateExternalDisplayToken(GeneratedToken.empty)
             MobilePlaybackController.shared.stopAndDisconnect(uuid: initialConfig.id)
-        }
-        .onChange(of: chrome.showControls) { _, showControls in
-            if showControls {
-                cancelStartupProgressAutoHide()
-            } else {
-                invalidateStartupProgressAutoHide()
-            }
         }
         .onAppear {
             guard !isAllowedToHideStatusBar else { return }
@@ -178,60 +155,6 @@ struct MobilePlayerView: View {
 
     private var shouldHideStatusBar: Bool {
         isAllowedToHideStatusBar && !chrome.showControls && !chrome.isStatusBarRevealedByDismiss
-    }
-
-    private var shouldShowStartupProgress: Bool {
-        isStartupProgressVisible && currentProgress?.pageLabel.isEmpty == false
-    }
-
-    private func startupProgressOverlay(safeAreaBottom: CGFloat) -> some View {
-        VStack {
-            Spacer()
-            startupProgressControl
-                .padding(.horizontal, 18)
-                .padding(.bottom, max(safeAreaBottom, 16))
-        }
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
-    }
-
-    @ViewBuilder
-    private var startupProgressControl: some View {
-        if #available(iOS 26.0, *) {
-            GlassEffectContainer(spacing: 8) {
-                if shouldShowStartupProgress {
-                    startupProgressNavigationRow
-                }
-            }
-        } else if shouldShowStartupProgress {
-            startupProgressNavigationRow
-                .transition(.scale(scale: 0.98).combined(with: .opacity))
-        }
-    }
-
-    private var startupProgressNavigationRow: some View {
-        HStack(spacing: 8) {
-            PlayerProgressArrowButton(
-                image: Images.back,
-                accessibilityLabel: Strings.back,
-                isEnabled: false,
-                action: {}
-            )
-            .hidden()
-
-            StartupProgressTextPill(
-                text: currentProgress?.pageLabel ?? "",
-                namespace: startupProgressGlassNamespace
-            )
-
-            PlayerProgressArrowButton(
-                image: Images.forward,
-                accessibilityLabel: Strings.forward,
-                isEnabled: false,
-                action: {}
-            )
-            .hidden()
-        }
     }
     
     private var infoMenu: some View {
@@ -292,42 +215,6 @@ struct MobilePlayerView: View {
         MobilePlaybackController.shared.restartCollection(uuid: initialConfig.id)
     }
 
-    private func scheduleStartupProgressAutoHideIfNeeded(progress: MobileViewingProgress?) {
-        guard progress != nil, isStartupProgressVisible, !didScheduleStartupProgressAutoHide else { return }
-
-        didScheduleStartupProgressAutoHide = true
-        let workItem = DispatchWorkItem {
-            guard !chrome.showControls else { return }
-
-            withAnimation(startupProgressAutoHideAnimation) {
-                isStartupProgressVisible = false
-            }
-        }
-        startupProgressAutoHideWorkItem = workItem
-        DispatchQueue.main.asyncAfter(deadline: .now() + startupProgressAutoHideDelay, execute: workItem)
-    }
-
-    private func hideStartupProgressForPaginationAttempt() {
-        guard shouldShowStartupProgress, !chrome.showControls else { return }
-
-        cancelStartupProgressAutoHide()
-        withAnimation(startupProgressForcedHideAnimation) {
-            isStartupProgressVisible = false
-        }
-    }
-
-    private func invalidateStartupProgressAutoHide() {
-        cancelStartupProgressAutoHide()
-        withAnimation(playerManualGlassHideAnimation) {
-            isStartupProgressVisible = false
-        }
-    }
-
-    private func cancelStartupProgressAutoHide() {
-        startupProgressAutoHideWorkItem?.cancel()
-        startupProgressAutoHideWorkItem = nil
-    }
-
 }
 
 private extension URL {
@@ -372,7 +259,6 @@ private struct PlayerBottomControls: View {
     let progress: MobileViewingProgress?
     let canGoBack: Bool
     let canGoForward: Bool
-    let hidesProgressLabel: Bool
     let onBack: () -> Void
     let onForward: () -> Void
     let onViewAgain: () -> Void
@@ -442,7 +328,6 @@ private struct PlayerBottomControls: View {
             )
 
             PlayerProgressTextPill(text: progress?.pageLabel ?? "")
-                .hidden(hidesProgressLabel)
 
             PlayerProgressArrowButton(
                 image: Images.forward,
@@ -450,17 +335,6 @@ private struct PlayerBottomControls: View {
                 isEnabled: canGoForward,
                 action: onForward
             )
-        }
-    }
-}
-
-private extension View {
-    @ViewBuilder
-    func hidden(_ isHidden: Bool) -> some View {
-        if isHidden {
-            hidden()
-        } else {
-            self
         }
     }
 }
@@ -520,23 +394,6 @@ private struct PlayerProgressTextPill: View {
         } else {
             label
                 .background(.ultraThinMaterial, in: Capsule())
-        }
-    }
-}
-
-private struct StartupProgressTextPill: View {
-    let text: String
-    let namespace: Namespace.ID
-
-    @ViewBuilder
-    var body: some View {
-        if #available(iOS 26.0, *) {
-            PlayerProgressTextLabel(text: text)
-                .glassEffect(.regular, in: Capsule())
-                .glassEffectID("startup-progress", in: namespace)
-                .glassEffectTransition(.materialize)
-        } else {
-            PlayerProgressTextPill(text: text)
         }
     }
 }
