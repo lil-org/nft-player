@@ -13,6 +13,10 @@ enum PlaybackNavigationDirection {
     case up, down, back, forward, nextCollection, restartCollection
 }
 
+extension Notification.Name {
+    static let solanaImageCacheFileAvailabilityDidChange = Notification.Name("SolanaImageCacheFileAvailabilityDidChange")
+}
+
 struct MobileViewingProgress: Codable, Hashable {
     let collectionId: String
     let collectionName: String
@@ -279,6 +283,19 @@ class MobilePlaybackController {
         MobileViewingProgressStore.save(progress)
         updateContinueViewingCollection(for: progress, uuid: uuid)
         return progress
+    }
+
+    func downloadedStaticImageFileURL(uuid: UUID, coordinate: PlayerCoordinate) -> URL? {
+        guard let context = dataSource(uuid: uuid)?.collectionTokenContext(coordinate: coordinate),
+              let descriptor = MobileCollectionCatalog.solanaImageDescriptor(
+                specificCollectionId: context.collectionId,
+                tokenIndex: context.tokenIndex
+              ),
+              descriptor.isStaticImage else {
+            return nil
+        }
+
+        return SolanaImageCache.shared.localFileURL(for: descriptor)
     }
 
     private func updateContinueViewingCollection(for progress: MobileViewingProgress, uuid: UUID) {
@@ -556,6 +573,31 @@ final class SolanaImageCache {
         loadImage(for: descriptor, completion: completion)
     }
 
+    func localFileURL(for descriptor: SolanaImageDescriptor) -> URL? {
+        guard descriptor.isStaticImage else { return nil }
+        let url = fileURL(for: descriptor)
+        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+        return url
+    }
+
+    private func notifyFileAvailabilityChanged() {
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(name: .solanaImageCacheFileAvailabilityDidChange, object: nil)
+        }
+    }
+
+    @discardableResult
+    private func removeItemIfPresent(at url: URL) -> Bool {
+        guard FileManager.default.fileExists(atPath: url.path) else { return false }
+
+        do {
+            try FileManager.default.removeItem(at: url)
+            return true
+        } catch {
+            return false
+        }
+    }
+
     private func clearMemoryCache() {
         queue.async { [weak self] in
             self?.memoryCache.removeAllObjects()
@@ -648,17 +690,20 @@ final class SolanaImageCache {
         }
 
         let fileURL = fileURL(for: descriptor)
+        var didRemoveExistingItem = false
         do {
             try FileManager.default.createDirectory(
                 at: fileURL.deletingLastPathComponent(),
                 withIntermediateDirectories: true,
                 attributes: nil
             )
-            if FileManager.default.fileExists(atPath: fileURL.path) {
-                try FileManager.default.removeItem(at: fileURL)
-            }
+            didRemoveExistingItem = removeItemIfPresent(at: fileURL)
             try FileManager.default.moveItem(at: tmpURL, to: fileURL)
+            notifyFileAvailabilityChanged()
         } catch {
+            if didRemoveExistingItem {
+                notifyFileAvailabilityChanged()
+            }
             try? FileManager.default.removeItem(at: tmpURL)
             complete(callbacks, with: nil)
             startDownloadsIfNeeded()
@@ -735,7 +780,9 @@ final class SolanaImageCache {
             return
         }
 
-        try? FileManager.default.removeItem(at: fileURL)
+        if removeItemIfPresent(at: fileURL) {
+            notifyFileAvailabilityChanged()
+        }
         guard shouldRedownloadOnFailure, !callbacks.isEmpty else {
             complete(callbacks, with: nil)
             return
@@ -948,8 +995,12 @@ final class SolanaImageCache {
             return
         }
 
+        var didRemoveItem = false
         for url in contents where !allowedFileNames.contains(url.lastPathComponent) {
-            try? FileManager.default.removeItem(at: url)
+            didRemoveItem = removeItemIfPresent(at: url) || didRemoveItem
+        }
+        if didRemoveItem {
+            notifyFileAvailabilityChanged()
         }
     }
 
@@ -970,8 +1021,12 @@ final class SolanaImageCache {
             return
         }
 
+        var didRemoveItem = false
         for url in contents where url.lastPathComponent != activeDirectoryName {
-            try? FileManager.default.removeItem(at: url)
+            didRemoveItem = removeItemIfPresent(at: url) || didRemoveItem
+        }
+        if didRemoveItem {
+            notifyFileAvailabilityChanged()
         }
     }
 

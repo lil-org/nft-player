@@ -38,6 +38,7 @@ struct Strings {
     static let editPlaylist = loc("Edit Playlist")
     static let nextCollection = loc("Next Collection")
     static let finish = loc("Finish")
+    static let share = loc("Share")
     static let continueViewing = loc("Continue Viewing")
     static let viewAgain = loc("View Again")
     static let play = loc("Play")

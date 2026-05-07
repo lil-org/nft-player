@@ -54,6 +54,8 @@ struct MobilePlayerView: View {
     @State private var isAllowedToHideStatusBar = false
     @State private var currentToken = GeneratedToken.empty
     @State private var currentProgress: MobileViewingProgress?
+    @State private var currentCoordinate: PlayerCoordinate?
+    @State private var shareImageURL: URL?
     
     init(config: MobilePlayerConfig, onDismiss: @escaping () -> Void, chrome: MobilePlayerChromeController) {
         self.initialConfig = config
@@ -70,8 +72,10 @@ struct MobilePlayerView: View {
                         DispatchQueue.main.async {
                             let token = MobilePlaybackController.shared.getToken(uuid: initialConfig.id, coordinate: newCoordinate)
                             let progress = MobilePlaybackController.shared.markViewed(uuid: initialConfig.id, coordinate: newCoordinate)
+                            self.currentCoordinate = newCoordinate
                             self.currentToken = token
                             self.currentProgress = progress
+                            self.updateShareImageURL(for: newCoordinate)
                             updateExternalDisplayToken(token)
                         }
                     },
@@ -109,6 +113,22 @@ struct MobilePlayerView: View {
                     .animation(chrome.showControls ? playerChromeToggleAnimation : playerManualGlassHideAnimation, value: chrome.showControls)
                 }
                 .allowsHitTesting(chrome.showControls)
+
+                VStack {
+                    Spacer()
+                    HStack {
+                        if chrome.showControls, let shareImageURL {
+                            PlayerShareButton(imageURL: shareImageURL)
+                                .transition(.opacity)
+                        }
+                        Spacer()
+                    }
+                    .padding(.leading, 18)
+                    .padding(.bottom, max(geometry.safeAreaInsets.bottom, 16))
+                    .animation(chrome.showControls ? playerChromeToggleAnimation : playerManualGlassHideAnimation, value: chrome.showControls)
+                    .animation(playerChromeToggleAnimation, value: shareImageURL)
+                }
+                .allowsHitTesting(chrome.showControls && shareImageURL != nil)
             }
         }
         .navigationBarTitleDisplayMode(.inline)
@@ -134,6 +154,9 @@ struct MobilePlayerView: View {
         .onDisappear {
             updateExternalDisplayToken(GeneratedToken.empty)
             MobilePlaybackController.shared.stopAndDisconnect(uuid: initialConfig.id)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .solanaImageCacheFileAvailabilityDidChange)) { _ in
+            updateShareImageURL(for: currentCoordinate)
         }
         .onAppear {
             guard !isAllowedToHideStatusBar else { return }
@@ -213,6 +236,18 @@ struct MobilePlayerView: View {
 
     private func viewAgain() {
         MobilePlaybackController.shared.restartCollection(uuid: initialConfig.id)
+    }
+
+    private func updateShareImageURL(for coordinate: PlayerCoordinate?) {
+        guard let coordinate else {
+            shareImageURL = nil
+            return
+        }
+
+        shareImageURL = MobilePlaybackController.shared.downloadedStaticImageFileURL(
+            uuid: initialConfig.id,
+            coordinate: coordinate
+        )
     }
 
 }
@@ -437,6 +472,32 @@ private struct PlayerProgressArrowButton: View {
                 .glassEffectTransition(.materialize)
         } else {
             button
+                .buttonStyle(.plain)
+                .background(.ultraThinMaterial, in: Circle())
+        }
+    }
+}
+
+private struct PlayerShareButton: View {
+    let imageURL: URL
+
+    @ViewBuilder
+    var body: some View {
+        let link = ShareLink(item: imageURL) {
+            Images.share
+                .font(.subheadline.weight(.semibold))
+                .frame(width: playerProgressControlSize, height: playerProgressControlSize)
+                .contentShape(Circle())
+        }
+        .accessibilityLabel(Strings.share)
+
+        if #available(iOS 26.0, *) {
+            link
+                .buttonStyle(.glass)
+                .buttonBorderShape(.circle)
+                .glassEffectTransition(.materialize)
+        } else {
+            link
                 .buttonStyle(.plain)
                 .background(.ultraThinMaterial, in: Circle())
         }
