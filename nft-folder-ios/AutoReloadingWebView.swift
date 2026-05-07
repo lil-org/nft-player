@@ -5,13 +5,30 @@ import WebKit
 
 class AutoReloadingWebView: WKWebView {
 
+    private enum WebContentLoad: Equatable {
+        case html(string: String, baseURL: URL?)
+        case localHTML(string: String, htmlDirectoryURL: URL, readAccessURL: URL)
+
+        var requiresSuccessfulNavigation: Bool {
+            switch self {
+            case .html:
+                return false
+            case .localHTML:
+                return true
+            }
+        }
+    }
+
     private static var isResizeReloadEnabled = true
     private static var prewarmTimer: Timer?
     private static var prewarmedWebView: AutoReloadingWebView?
     private static var didSchedulePrewarm = false
 
-    private var lastLoadedHtmlString: String?
+    private var lastRequestedLoad: WebContentLoad?
     private var needsLoadWhenVisible = false
+    private var pendingLoadFailureHandler: (() -> Void)?
+    private let localHTMLFileName = "\(UUID().uuidString).html"
+    private var localHTMLFileURL: URL?
 
     static var new: AutoReloadingWebView {
         let wkWebView = takePrewarmedWebView() ?? AutoReloadingWebView(frame: .zero, configuration: webConfiguration())
@@ -19,6 +36,12 @@ class AutoReloadingWebView: WKWebView {
         wkWebView.applyPlayerDefaults()
         wkWebView.isHidden = false
         return wkWebView
+    }
+
+    deinit {
+        if let localHTMLFileURL {
+            try? FileManager.default.removeItem(at: localHTMLFileURL)
+        }
     }
 
     static func scheduleFirstUsePrewarm() {
@@ -100,21 +123,81 @@ class AutoReloadingWebView: WKWebView {
     }
     
     @discardableResult override func loadHTMLString(_ string: String, baseURL: URL?) -> WKNavigation? {
-        let newHtmlContent = lastLoadedHtmlString != string
-        
-        if newHtmlContent {
-            lastLoadedHtmlString = string
-        }
+        return loadWebContent(.html(string: string, baseURL: baseURL))
+    }
+
+    @discardableResult func loadLocalHTMLString(
+        _ string: String,
+        htmlDirectoryURL: URL,
+        allowingReadAccessTo readAccessURL: URL,
+        onFailure: (() -> Void)? = nil
+    ) -> WKNavigation? {
+        return loadWebContent(
+            .localHTML(string: string, htmlDirectoryURL: htmlDirectoryURL, readAccessURL: readAccessURL),
+            onFailure: onFailure
+        )
+    }
+
+    private func loadWebContent(_ content: WebContentLoad, onFailure: (() -> Void)? = nil) -> WKNavigation? {
+        let newContent = lastRequestedLoad != content
 
         if !hasVisibleSize {
+            if newContent {
+                lastRequestedLoad = content
+            }
+            pendingLoadFailureHandler = onFailure
             needsLoadWhenVisible = true
             stopLoading()
             return nil
         }
-        
-        guard newHtmlContent || needsLoadWhenVisible else { return nil }
+
+        guard newContent || needsLoadWhenVisible else { return nil }
+        let navigation = performLoad(content)
+        if navigation == nil, content.requiresSuccessfulNavigation {
+            pendingLoadFailureHandler = nil
+            needsLoadWhenVisible = false
+            onFailure?()
+            return nil
+        }
+
+        lastRequestedLoad = content
+        pendingLoadFailureHandler = nil
         needsLoadWhenVisible = false
-        return super.loadHTMLString(string, baseURL: baseURL)
+        return navigation
+    }
+
+    private func performLoad(_ content: WebContentLoad) -> WKNavigation? {
+        switch content {
+        case let .html(string, baseURL):
+            return super.loadHTMLString(string, baseURL: baseURL)
+
+        case let .localHTML(string, htmlDirectoryURL, readAccessURL):
+            guard let localHTMLFileURL = writeLocalHTMLString(string, in: htmlDirectoryURL) else {
+                return nil
+            }
+            return super.loadFileURL(localHTMLFileURL, allowingReadAccessTo: readAccessURL)
+        }
+    }
+
+    private func writeLocalHTMLString(_ string: String, in directoryURL: URL) -> URL? {
+        let data = Data(string.utf8)
+        let fileURL = directoryURL.appendingPathComponent(localHTMLFileName, isDirectory: false)
+
+        do {
+            try FileManager.default.createDirectory(
+                at: directoryURL,
+                withIntermediateDirectories: true,
+                attributes: nil
+            )
+            try data.write(to: fileURL, options: .atomic)
+            if let localHTMLFileURL, localHTMLFileURL != fileURL {
+                try? FileManager.default.removeItem(at: localHTMLFileURL)
+            }
+            localHTMLFileURL = fileURL
+            return fileURL
+        } catch {
+            return nil
+        }
     }
     
     private var hasVisibleSize: Bool {
@@ -128,8 +211,8 @@ class AutoReloadingWebView: WKWebView {
     private func loadPendingContentIfNeeded(oldRect: CGRect) {
         guard Self.isResizeReloadEnabled else { return }
         guard !hasVisibleSize(oldRect), hasVisibleSize else { return }
-        guard needsLoadWhenVisible, let html = lastLoadedHtmlString else { return }
-        loadHTMLString(html, baseURL: nil)
+        guard needsLoadWhenVisible, let lastRequestedLoad else { return }
+        _ = loadWebContent(lastRequestedLoad, onFailure: pendingLoadFailureHandler)
     }
     
     private func hasVisibleSize(_ rect: CGRect) -> Bool {

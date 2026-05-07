@@ -379,7 +379,7 @@ private enum SolanaMediaFileExtension {
     }
 }
 
-private enum SolanaTokenHTML {
+enum SolanaTokenHTML {
     static func createImageHTML(imageURL: String, nextImageURL: String?) -> String {
         """
         <!doctype html>

@@ -20,7 +20,7 @@ enum FullscreenTokenMediaView {
         return imageView
     }
 
-    static func webView(in containerView: UIView) -> WKWebView {
+    static func webView(in containerView: UIView) -> AutoReloadingWebView {
         let webView = AutoReloadingWebView.new
         webView.isUserInteractionEnabled = false
         install(webView, in: containerView)
@@ -41,7 +41,7 @@ enum FullscreenTokenMediaView {
 
 final class FullscreenTokenMediaRenderer {
     private let containerView: UIView
-    private var webView: WKWebView!
+    private var webView: AutoReloadingWebView!
     private var imageView: UIImageView!
     private var representedImageKey: AnyHashable?
 
@@ -95,6 +95,32 @@ final class FullscreenTokenMediaRenderer {
         hidesEmptyWebContent: Bool = false,
         onBegin: (() -> Void)? = nil
     ) {
+        prepareWebContent(html, hidesEmptyWebContent: hidesEmptyWebContent, onBegin: onBegin)
+        webView.loadHTMLString(html, baseURL: nil)
+    }
+
+    func renderLocalWebContent(
+        _ html: String,
+        htmlDirectoryURL: URL,
+        readAccessURL: URL,
+        hidesEmptyWebContent: Bool = false,
+        onBegin: (() -> Void)? = nil,
+        onLoadFailure: (() -> Void)? = nil
+    ) {
+        prepareWebContent(html, hidesEmptyWebContent: hidesEmptyWebContent, onBegin: onBegin)
+        webView.loadLocalHTMLString(
+            html,
+            htmlDirectoryURL: htmlDirectoryURL,
+            allowingReadAccessTo: readAccessURL,
+            onFailure: onLoadFailure
+        )
+    }
+
+    private func prepareWebContent(
+        _ html: String,
+        hidesEmptyWebContent: Bool,
+        onBegin: (() -> Void)?
+    ) {
         representedImageKey = nil
         ensureWebView()
         imageView?.isHidden = true
@@ -102,7 +128,6 @@ final class FullscreenTokenMediaRenderer {
         webView.stopLoading()
         webView.isHidden = hidesEmptyWebContent && html.isEmpty
         onBegin?()
-        webView.loadHTMLString(html, baseURL: nil)
     }
 
     private func ensureImageView() {
@@ -226,6 +251,17 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
         )
     }
 
+    fileprivate func adjacentSolanaImageDescriptor(
+        for coordinate: (Int, Int),
+        direction: SolanaImageCache.PrefetchDirection
+    ) -> SolanaImageDescriptor? {
+        MobilePlaybackController.shared.adjacentSolanaImageDescriptor(
+            uuid: initialConfig.id,
+            coordinate: PlayerCoordinate(x: coordinate.0, y: coordinate.1),
+            direction: direction
+        )
+    }
+
     fileprivate func canRenderCoordinate(_ coordinate: (Int, Int)) -> Bool {
         MobilePlaybackController.shared.canRender(
             uuid: initialConfig.id,
@@ -280,6 +316,10 @@ private protocol FourDirectionalPlayerDataSource: AnyObject {
         for coordinate: (Int, Int),
         direction: SolanaImageCache.PrefetchDirection
     ) -> SolanaImageDescriptor?
+    func adjacentSolanaImageDescriptor(
+        for coordinate: (Int, Int),
+        direction: SolanaImageCache.PrefetchDirection
+    ) -> SolanaImageDescriptor?
     func canRenderCoordinate(_ coordinate: (Int, Int)) -> Bool
     func startHorizontalCoordinate(verticalIndex: Int) -> Int
     func didRenderCoordinate(_ coordinate: (Int, Int))
@@ -292,6 +332,12 @@ private protocol FourDirectionalPlayerDataSource: AnyObject {
 
 private class SpecificPageViewController: UIViewController {
 
+    private struct AnimatedRenderContext: Equatable {
+        let descriptor: SolanaImageDescriptor
+        let adjacentDescriptor: SolanaImageDescriptor?
+        let fallbackHTML: String
+    }
+
     private weak var fourDirectionalPlayerDataSource: FourDirectionalPlayerDataSource?
     private lazy var mediaRenderer = FullscreenTokenMediaRenderer(containerView: view)
 
@@ -299,6 +345,10 @@ private class SpecificPageViewController: UIViewController {
     private(set) var verticalIndex: Int
 
     private var renderedCoordinate: (Int, Int)?
+    private var animatedRenderContext: AnimatedRenderContext?
+    private var renderedAnimatedImageURL: URL?
+    private var renderedAnimatedNextImageURL: URL?
+    private var solanaImageCacheObserver: NSObjectProtocol?
     private var willOrDidAppear = false
     var preferredPrefetchDirection: SolanaImageCache.PrefetchDirection = .forward
 
@@ -314,6 +364,10 @@ private class SpecificPageViewController: UIViewController {
         fatalError("yo")
     }
 
+    deinit {
+        removeSolanaImageCacheObserver()
+    }
+
     override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
         cleanupDisplayedContent()
@@ -326,6 +380,7 @@ private class SpecificPageViewController: UIViewController {
     }
 
     private func cleanupDisplayedContent() {
+        clearAnimatedRenderContext()
         mediaRenderer.clearContent()
         if let renderedCoordinate = renderedCoordinate {
             fourDirectionalPlayerDataSource?.didCleanupCoordinate(renderedCoordinate)
@@ -368,9 +423,17 @@ private class SpecificPageViewController: UIViewController {
             return
         }
 
-        if let descriptor = solanaImageDescriptor,
-           descriptor.isStaticImage {
-            renderImage(descriptor, fallbackHTML: token.html)
+        if let descriptor = solanaImageDescriptor {
+            switch descriptor.media {
+            case .staticImage:
+                renderImage(descriptor, fallbackHTML: token.html)
+            case .animatedImage:
+                let adjacentDescriptor = fourDirectionalPlayerDataSource?.adjacentSolanaImageDescriptor(
+                    for: newCoordinate,
+                    direction: preferredPrefetchDirection
+                )
+                renderAnimatedImage(descriptor, adjacentDescriptor: adjacentDescriptor, fallbackHTML: token.html)
+            }
         } else {
             renderWebContent(token.html)
         }
@@ -378,6 +441,7 @@ private class SpecificPageViewController: UIViewController {
     }
 
     private func renderImage(_ descriptor: SolanaImageDescriptor, fallbackHTML: String) {
+        clearAnimatedRenderContext()
         mediaRenderer.renderImage(
             key: descriptor,
             hideImageUntilLoaded: false,
@@ -391,7 +455,108 @@ private class SpecificPageViewController: UIViewController {
     }
 
     private func renderWebContent(_ html: String) {
+        clearAnimatedRenderContext()
+        renderAnimatedFallbackWebContent(html)
+    }
+
+    private func renderAnimatedFallbackWebContent(_ html: String) {
         mediaRenderer.renderWebContent(html)
+    }
+
+    private func renderAnimatedImage(
+        _ descriptor: SolanaImageDescriptor,
+        adjacentDescriptor: SolanaImageDescriptor?,
+        fallbackHTML: String
+    ) {
+        setAnimatedRenderContext(
+            AnimatedRenderContext(
+                descriptor: descriptor,
+                adjacentDescriptor: adjacentDescriptor,
+                fallbackHTML: fallbackHTML
+            )
+        )
+        renderAvailableAnimatedLocalContent(allowFallback: true)
+    }
+
+    private func renderAvailableAnimatedLocalContent(allowFallback: Bool) {
+        guard let context = animatedRenderContext else { return }
+
+        let imageCache = SolanaImageCache.shared
+        guard let localFileURL = imageCache.localFileURL(for: context.descriptor) else {
+            renderedAnimatedImageURL = nil
+            renderedAnimatedNextImageURL = nil
+            if allowFallback {
+                renderAnimatedFallbackWebContent(context.fallbackHTML)
+            }
+            return
+        }
+
+        let nextLocalFileURL = context.adjacentDescriptor.flatMap {
+            imageCache.localFileURL(for: $0)
+        }
+        if renderedAnimatedImageURL == localFileURL {
+            renderedAnimatedNextImageURL = nextLocalFileURL
+            return
+        }
+
+        let html = SolanaTokenHTML.createImageHTML(
+            imageURL: localFileURL.absoluteString,
+            nextImageURL: nextLocalFileURL?.absoluteString
+        )
+        var didFailLocalLoad = false
+        mediaRenderer.renderLocalWebContent(
+            html,
+            htmlDirectoryURL: imageCache.webViewHTMLDirectoryURL,
+            readAccessURL: imageCache.webViewReadAccessURL,
+            onLoadFailure: { [weak self] in
+                guard let self,
+                      self.animatedRenderContext == context else {
+                    return
+                }
+
+                didFailLocalLoad = true
+                self.renderedAnimatedImageURL = nil
+                self.renderedAnimatedNextImageURL = nil
+                self.renderAnimatedFallbackWebContent(context.fallbackHTML)
+            }
+        )
+        guard !didFailLocalLoad else { return }
+
+        renderedAnimatedImageURL = localFileURL
+        renderedAnimatedNextImageURL = nextLocalFileURL
+    }
+
+    private func setAnimatedRenderContext(_ context: AnimatedRenderContext) {
+        animatedRenderContext = context
+        renderedAnimatedImageURL = nil
+        renderedAnimatedNextImageURL = nil
+        installSolanaImageCacheObserverIfNeeded()
+    }
+
+    private func clearAnimatedRenderContext() {
+        animatedRenderContext = nil
+        renderedAnimatedImageURL = nil
+        renderedAnimatedNextImageURL = nil
+        removeSolanaImageCacheObserver()
+    }
+
+    private func installSolanaImageCacheObserverIfNeeded() {
+        guard solanaImageCacheObserver == nil else { return }
+
+        solanaImageCacheObserver = NotificationCenter.default.addObserver(
+            forName: .solanaImageCacheFileAvailabilityDidChange,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.renderAvailableAnimatedLocalContent(allowFallback: false)
+        }
+    }
+
+    private func removeSolanaImageCacheObserver() {
+        guard let solanaImageCacheObserver else { return }
+
+        NotificationCenter.default.removeObserver(solanaImageCacheObserver)
+        self.solanaImageCacheObserver = nil
     }
 
 }

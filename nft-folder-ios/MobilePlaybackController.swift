@@ -360,6 +360,31 @@ class MobilePlaybackController {
         return currentDescriptor
     }
 
+    func adjacentSolanaImageDescriptor(
+        uuid: UUID,
+        coordinate: PlayerCoordinate,
+        direction: SolanaImageCache.PrefetchDirection
+    ) -> SolanaImageDescriptor? {
+        guard let context = dataSource(uuid: uuid)?.collectionTokenContext(coordinate: coordinate),
+              MobileCollectionCatalog.isSolanaCollection(specificCollectionId: context.collectionId) else {
+            return nil
+        }
+
+        let targetTokenIndex: Int
+        switch direction {
+        case .forward:
+            targetTokenIndex = context.tokenIndex + 1
+        case .backward:
+            targetTokenIndex = context.tokenIndex - 1
+        }
+
+        guard targetTokenIndex >= 0, targetTokenIndex < context.tokenCount else { return nil }
+        return MobileCollectionCatalog.solanaImageDescriptor(
+            specificCollectionId: context.collectionId,
+            tokenIndex: targetTokenIndex
+        )
+    }
+
     func markViewed(uuid: UUID, coordinate: PlayerCoordinate) -> MobileViewingProgress? {
         guard let progress = dataSource(uuid: uuid)?.progress(coordinate: coordinate) else { return nil }
         MobileViewingProgressStore.save(progress)
@@ -450,6 +475,7 @@ final class SolanaImageCache {
     private static let decodedPreferredRadius = 3
     private static let decodedOppositeRadius = 1
     private static let decodedWindowCapacity = decodedPreferredRadius + decodedOppositeRadius + 1
+    private static let webViewHTMLDirectoryName = "_WebViewHTML"
 
     static func orderedWindowIndices(currentIndex: Int, tokenCount: Int, direction: PrefetchDirection) -> [Int] {
         guard tokenCount > 0 else { return [] }
@@ -511,6 +537,9 @@ final class SolanaImageCache {
             ?? FileManager.default.temporaryDirectory
         cacheRoot = cachesDirectory.appendingPathComponent("SolanaTokenImages", isDirectory: true)
         stagingRoot = FileManager.default.temporaryDirectory.appendingPathComponent("SolanaTokenImages", isDirectory: true)
+        try? FileManager.default.removeItem(
+            at: cacheRoot.appendingPathComponent(Self.webViewHTMLDirectoryName, isDirectory: true)
+        )
         memoryCache.countLimit = Self.decodedWindowCapacity
         memoryCache.totalCostLimit = 128 * 1024 * 1024
 
@@ -541,8 +570,8 @@ final class SolanaImageCache {
                 self.evictMemoryOutsideActiveCollection(collectionId: collectionId)
             }
 
-            let allowedFileNames = Set(staticDescriptors.map(self.fileName(for:)))
-            let allowedKeys = Set(staticDescriptors.map(self.cacheKey(for:)))
+            let allowedFileNames = Set(descriptors.map(self.fileName(for:)))
+            let allowedKeys = Set(descriptors.map(self.cacheKey(for:)))
             let decodedDescriptors = self.decodedWindowDescriptors(
                 from: staticDescriptors,
                 currentTokenIndex: currentTokenIndex,
@@ -561,7 +590,8 @@ final class SolanaImageCache {
             }
 
             let downloadDescriptors = self.prioritizedDownloadDescriptors(
-                staticDescriptors: staticDescriptors,
+                currentTokenIndex: currentTokenIndex,
+                descriptors: descriptors,
                 decodedDescriptors: decodedDescriptors
             )
             for descriptor in downloadDescriptors {
@@ -656,10 +686,17 @@ final class SolanaImageCache {
     }
 
     func localFileURL(for descriptor: SolanaImageDescriptor) -> URL? {
-        guard descriptor.isStaticImage else { return nil }
         let url = fileURL(for: descriptor)
         guard FileManager.default.fileExists(atPath: url.path) else { return nil }
         return url
+    }
+
+    var webViewHTMLDirectoryURL: URL {
+        cacheRoot.appendingPathComponent(Self.webViewHTMLDirectoryName, isDirectory: true)
+    }
+
+    var webViewReadAccessURL: URL {
+        cacheRoot
     }
 
     private func notifyFileAvailabilityChanged() {
@@ -787,6 +824,12 @@ final class SolanaImageCache {
                 notifyFileAvailabilityChanged()
             }
             try? FileManager.default.removeItem(at: tmpURL)
+            complete(callbacks, with: nil)
+            startDownloadsIfNeeded()
+            return
+        }
+
+        guard descriptor.isStaticImage else {
             complete(callbacks, with: nil)
             startDownloadsIfNeeded()
             return
@@ -964,7 +1007,8 @@ final class SolanaImageCache {
     }
 
     private func prioritizedDownloadDescriptors(
-        staticDescriptors: [SolanaImageDescriptor],
+        currentTokenIndex: Int,
+        descriptors: [SolanaImageDescriptor],
         decodedDescriptors: [SolanaImageDescriptor]
     ) -> [SolanaImageDescriptor] {
         var orderedDescriptors = [SolanaImageDescriptor]()
@@ -975,8 +1019,11 @@ final class SolanaImageCache {
             orderedDescriptors.append(descriptor)
         }
 
+        if let currentDescriptor = descriptors.first(where: { $0.tokenIndex == currentTokenIndex }) {
+            appendDescriptor(currentDescriptor)
+        }
         decodedDescriptors.forEach(appendDescriptor)
-        staticDescriptors.forEach(appendDescriptor)
+        descriptors.forEach(appendDescriptor)
         return orderedDescriptors
     }
 
@@ -1104,7 +1151,12 @@ final class SolanaImageCache {
         }
 
         var didRemoveItem = false
-        for url in contents where url.lastPathComponent != activeDirectoryName {
+        for url in contents {
+            guard url.lastPathComponent != activeDirectoryName,
+                  url.lastPathComponent != Self.webViewHTMLDirectoryName else {
+                continue
+            }
+
             didRemoveItem = removeItemIfPresent(at: url) || didRemoveItem
         }
         if didRemoveItem {

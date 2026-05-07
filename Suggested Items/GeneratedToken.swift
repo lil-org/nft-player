@@ -26,6 +26,7 @@ enum GeneratedTokenMedia: Hashable, Codable {
         }
         return false
     }
+
 }
 
 struct GeneratedToken: Hashable, Codable, Identifiable {
