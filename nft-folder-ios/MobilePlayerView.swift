@@ -486,7 +486,8 @@ private struct PlayerProgressArrowButton: View {
     var body: some View {
         let button = Button(action: action) {
             image
-                .font(.subheadline.weight(.semibold))
+                .font(.body.weight(.semibold))
+                .imageScale(.large)
                 .frame(width: playerProgressControlSize, height: playerProgressControlSize)
                 .contentShape(Circle())
         }
@@ -517,7 +518,8 @@ private struct PlayerShareButton: View {
             isShareSheetPresented = true
         } label: {
             Images.share
-                .font(.subheadline.weight(.semibold))
+                .font(.body.weight(.semibold))
+                .imageScale(.large)
                 .frame(width: playerProgressControlSize, height: playerProgressControlSize)
                 .contentShape(Circle())
         }
@@ -599,7 +601,8 @@ private struct PlayerBookmarkButton: View {
     var body: some View {
         let button = Button(action: action) {
             (isBookmarked ? Images.bookmarkFill : Images.bookmark)
-                .font(.subheadline.weight(.semibold))
+                .font(.body.weight(.semibold))
+                .imageScale(.large)
                 .frame(width: playerProgressControlSize, height: playerProgressControlSize)
                 .contentShape(Circle())
         }
