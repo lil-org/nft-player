@@ -92,7 +92,25 @@ struct MobileViewingProgress: Codable, Hashable {
 
 struct MobilePlayerImageShareItem {
     let fileURL: URL
+    let previewTitle: String
     let previewImage: () -> UIImage?
+}
+
+extension MobilePlayerImageShareItem {
+    static func previewTitle(for token: GeneratedToken, progressText: String) -> String {
+        let trimmedCollectionName = token.collectionName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedDisplayName = token.displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let baseTitle: String
+        if !trimmedCollectionName.isEmpty {
+            baseTitle = trimmedCollectionName
+        } else if !trimmedDisplayName.isEmpty {
+            baseTitle = trimmedDisplayName
+        } else {
+            baseTitle = Strings.nftFolder
+        }
+        let trimmedProgressText = progressText.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmedProgressText.isEmpty ? baseTitle : "\(baseTitle) \(trimmedProgressText)"
+    }
 }
 
 enum MobileViewingProgressStore {
@@ -398,7 +416,8 @@ class MobilePlaybackController {
     }
 
     func downloadedStaticImageShareItem(uuid: UUID, coordinate: PlayerCoordinate) -> MobilePlayerImageShareItem? {
-        guard let context = dataSource(uuid: uuid)?.collectionTokenContext(coordinate: coordinate),
+        guard let dataSource = dataSource(uuid: uuid),
+              let context = dataSource.collectionTokenContext(coordinate: coordinate),
               let descriptor = MobileCollectionCatalog.solanaImageDescriptor(
                 specificCollectionId: context.collectionId,
                 tokenIndex: context.tokenIndex
@@ -408,7 +427,14 @@ class MobilePlaybackController {
         }
 
         guard let fileURL = SolanaImageCache.shared.localFileURL(for: descriptor) else { return nil }
-        return MobilePlayerImageShareItem(fileURL: fileURL) {
+        let token = dataSource.getToken(coordinate: coordinate)
+        return MobilePlayerImageShareItem(
+            fileURL: fileURL,
+            previewTitle: MobilePlayerImageShareItem.previewTitle(
+                for: token,
+                progressText: Strings.pagePosition(current: context.tokenIndex + 1, total: context.tokenCount)
+            )
+        ) {
             SolanaImageCache.shared.cachedDecodedImage(for: descriptor)
         }
     }

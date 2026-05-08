@@ -577,7 +577,7 @@ private final class PlayerImageActivityItemSource: NSObject, UIActivityItemSourc
 
     func activityViewControllerLinkMetadata(_ activityViewController: UIActivityViewController) -> LPLinkMetadata? {
         let metadata = LPLinkMetadata()
-        metadata.title = shareItem.fileURL.deletingPathExtension().lastPathComponent
+        metadata.title = shareItem.previewTitle
         metadata.originalURL = shareItem.fileURL
         metadata.url = shareItem.fileURL
 
