@@ -540,17 +540,23 @@ private final class CollectionGridCell: UICollectionViewCell {
     }
 
     func configure(item: MobileCollectionItem, progressPercent: Int?, hasViewedToEnd: Bool) {
+        let shouldUpdateCover = representedCoverAssetName != item.coverAssetName || imageView.image == nil
         representedCoverAssetName = item.coverAssetName
         if item.isSolana {
-            imageView.image = CollectionCoverImageCache.cachedImage(named: item.coverAssetName)
+            if shouldUpdateCover {
+                imageView.image = CollectionCoverImageCache.cachedImage(named: item.coverAssetName)
+            }
             if imageView.image == nil {
                 CollectionCoverImageCache.image(named: item.coverAssetName) { [weak self] assetName, image in
-                    guard self?.representedCoverAssetName == assetName else { return }
+                    guard self?.representedCoverAssetName == assetName,
+                          let image else { return }
                     self?.imageView.image = image
                 }
             }
         } else {
-            imageView.image = UIImage(named: item.coverAssetName)
+            if shouldUpdateCover {
+                imageView.image = UIImage(named: item.coverAssetName)
+            }
         }
         titleLabel.text = item.name
         showsCompletedBadge = hasViewedToEnd
@@ -616,6 +622,7 @@ private enum CollectionCoverImageCache {
     private static let cache = NSCache<NSString, UIImage>()
     private static let queue = DispatchQueue(label: "org.lil.nft-folder.collection-cover-image-cache", qos: .utility)
     private static let lock = NSLock()
+    private static var preparedImages = [String: UIImage]()
     private static var pendingCompletions = [String: [(String, UIImage?) -> Void]]()
 
     static func prepareForSmoothScrolling(items: [MobileCollectionItem]) {
@@ -628,7 +635,10 @@ private enum CollectionCoverImageCache {
     }
 
     static func cachedImage(named assetName: String) -> UIImage? {
-        cache.object(forKey: assetName as NSString)
+        if let preparedImage = lock.withLock({ preparedImages[assetName] }) {
+            return preparedImage
+        }
+        return cache.object(forKey: assetName as NSString)
     }
 
     static func image(named assetName: String, completion: @escaping (String, UIImage?) -> Void) {
@@ -655,6 +665,7 @@ private enum CollectionCoverImageCache {
             let completions = lock.withLock {
                 let completions = pendingCompletions.removeValue(forKey: assetName) ?? []
                 if let image {
+                    preparedImages[assetName] = image
                     cache.setObject(image, forKey: assetName as NSString)
                 }
                 return completions
