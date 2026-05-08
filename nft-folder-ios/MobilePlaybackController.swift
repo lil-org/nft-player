@@ -90,13 +90,13 @@ struct MobileViewingProgress: Codable, Hashable {
     }
 }
 
-struct MobilePlayerImageShareItem {
+struct MobilePlayerFileShareItem {
     let fileURL: URL
     let previewTitle: String
     let previewImage: () -> UIImage?
 }
 
-extension MobilePlayerImageShareItem {
+extension MobilePlayerFileShareItem {
     static func previewTitle(for token: GeneratedToken, progressText: String) -> String {
         let trimmedCollectionName = token.collectionName.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedDisplayName = token.displayName.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -415,22 +415,21 @@ class MobilePlaybackController {
         return progress
     }
 
-    func downloadedStaticImageShareItem(uuid: UUID, coordinate: PlayerCoordinate) -> MobilePlayerImageShareItem? {
+    func downloadedFileShareItem(uuid: UUID, coordinate: PlayerCoordinate) -> MobilePlayerFileShareItem? {
         guard let dataSource = dataSource(uuid: uuid),
               let context = dataSource.collectionTokenContext(coordinate: coordinate),
               let descriptor = MobileCollectionCatalog.solanaImageDescriptor(
                 specificCollectionId: context.collectionId,
                 tokenIndex: context.tokenIndex
-              ),
-              descriptor.isStaticImage else {
+              ) else {
             return nil
         }
 
         guard let fileURL = SolanaImageCache.shared.localFileURL(for: descriptor) else { return nil }
         let token = dataSource.getToken(coordinate: coordinate)
-        return MobilePlayerImageShareItem(
+        return MobilePlayerFileShareItem(
             fileURL: fileURL,
-            previewTitle: MobilePlayerImageShareItem.previewTitle(
+            previewTitle: MobilePlayerFileShareItem.previewTitle(
                 for: token,
                 progressText: Strings.pagePosition(current: context.tokenIndex + 1, total: context.tokenCount)
             )

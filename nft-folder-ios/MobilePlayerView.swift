@@ -58,7 +58,7 @@ struct MobilePlayerView: View {
     @State private var currentToken = GeneratedToken.empty
     @State private var currentProgress: MobileViewingProgress?
     @State private var currentCoordinate: PlayerCoordinate?
-    @State private var shareItem: MobilePlayerImageShareItem?
+    @State private var shareItem: MobilePlayerFileShareItem?
     @State private var isCurrentTokenBookmarked = false
     
     init(config: MobilePlayerConfig, onDismiss: @escaping () -> Void, chrome: MobilePlayerChromeController) {
@@ -299,7 +299,7 @@ struct MobilePlayerView: View {
             return
         }
 
-        shareItem = MobilePlaybackController.shared.downloadedStaticImageShareItem(
+        shareItem = MobilePlaybackController.shared.downloadedFileShareItem(
             uuid: initialConfig.id,
             coordinate: coordinate
         )
@@ -508,7 +508,7 @@ private struct PlayerProgressArrowButton: View {
 }
 
 private struct PlayerShareButton: View {
-    let shareItem: MobilePlayerImageShareItem
+    let shareItem: MobilePlayerFileShareItem
     @State private var isShareSheetPresented = false
 
     @ViewBuilder
@@ -525,7 +525,7 @@ private struct PlayerShareButton: View {
         }
         .accessibilityLabel(Strings.share)
         .sheet(isPresented: $isShareSheetPresented) {
-            PlayerImageShareSheet(shareItem: shareItem)
+            PlayerFileShareSheet(shareItem: shareItem)
         }
 
         if #available(iOS 26.0, *) {
@@ -541,12 +541,12 @@ private struct PlayerShareButton: View {
     }
 }
 
-private struct PlayerImageShareSheet: UIViewControllerRepresentable {
-    let shareItem: MobilePlayerImageShareItem
+private struct PlayerFileShareSheet: UIViewControllerRepresentable {
+    let shareItem: MobilePlayerFileShareItem
 
     func makeUIViewController(context: Context) -> UIActivityViewController {
         UIActivityViewController(
-            activityItems: [PlayerImageActivityItemSource(shareItem: shareItem)],
+            activityItems: [PlayerFileActivityItemSource(shareItem: shareItem)],
             applicationActivities: nil
         )
     }
@@ -554,10 +554,10 @@ private struct PlayerImageShareSheet: UIViewControllerRepresentable {
     func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
-private final class PlayerImageActivityItemSource: NSObject, UIActivityItemSource {
-    private let shareItem: MobilePlayerImageShareItem
+private final class PlayerFileActivityItemSource: NSObject, UIActivityItemSource {
+    private let shareItem: MobilePlayerFileShareItem
 
-    init(shareItem: MobilePlayerImageShareItem) {
+    init(shareItem: MobilePlayerFileShareItem) {
         self.shareItem = shareItem
         super.init()
     }
