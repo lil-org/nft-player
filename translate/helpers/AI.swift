@@ -18,7 +18,7 @@ struct AI {
             case .cheap:
                 return "gpt-5-mini"
             case .highQuality:
-                return "gpt-5.2"
+                return "gpt-5.5"
             }
         }
     }
