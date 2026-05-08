@@ -215,11 +215,10 @@ struct MobilePlayerView: View {
                 Text(instructions)
             }
             Button(viewOnWebTitle, action: viewOnWeb)
-            Text(currentToken.displayName)
         } label: {
-            Images.info
+            Images.ellipsis
         }
-        .accessibilityLabel(Strings.info)
+        .accessibilityLabel(Strings.more)
     }
 
     private var viewOnWebTitle: String {

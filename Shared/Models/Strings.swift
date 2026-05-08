@@ -35,6 +35,7 @@ struct Strings {
     static let back = loc("Back")
     static let forward = loc("Forward")
     static let info = loc("Info")
+    static let more = loc("More")
     static let editPlaylist = loc("Edit Playlist")
     static let nextCollection = loc("Next Collection")
     static let finish = loc("Finish")
