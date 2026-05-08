@@ -129,7 +129,7 @@ private enum SolanaCollectionService {
             ? tokenData.tokens[tokenIndex + 1].url
             : nil
         let displayTokenId = "#\(tokenIndex + 1)"
-        let solscanURL = URL(string: "https://solscan.io/token/\(token.id)?cluster=mainnet")
+        let solanaExplorerURL = URL(string: "https://explorer.solana.com/address/\(token.id)")
         let media = resolvedMedia(for: token, defaultFileExtension: tokenData.defaultFileExtension)
 
         return GeneratedToken(
@@ -140,7 +140,7 @@ private enum SolanaCollectionService {
             html: SolanaTokenHTML.createImageHTML(imageURL: token.url, nextImageURL: nextImageURL),
             displayName: "\(collection.name) \(displayTokenId)",
             displayTokenId: displayTokenId,
-            url: solscanURL,
+            url: solanaExplorerURL,
             instructions: nil,
             screensaver: nil,
             media: media

@@ -9630,210 +9630,210 @@
         }
       }
     },
-    "View on Solscan" : {
+    "View on Solana Explorer" : {
       "localizations" : {
         "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "عرض على Solscan"
+            "value" : "عرض على Solana Explorer"
           }
         },
         "ca" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Obrir a Solscan"
+            "value" : "Obrir a Solana Explorer"
           }
         },
         "cs" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Otevřít na Solscan"
+            "value" : "Otevřít na Solana Explorer"
           }
         },
         "da" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Åbn på Solscan"
+            "value" : "Åbn på Solana Explorer"
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Auf Solscan öffnen"
+            "value" : "Auf Solana Explorer öffnen"
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Προβολή στο Solscan"
+            "value" : "Προβολή στο Solana Explorer"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "View on Solscan"
+            "value" : "View on Solana Explorer"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ver en Solscan"
+            "value" : "Ver en Solana Explorer"
           }
         },
         "es-419" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ver en Solscan"
+            "value" : "Ver en Solana Explorer"
           }
         },
         "fi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Avaa Solscanissa"
+            "value" : "Avaa Solana Explorerissa"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ouvrir sur Solscan"
+            "value" : "Ouvrir sur Solana Explorer"
           }
         },
         "he" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "פתח ב-Solscan"
+            "value" : "פתח ב-Solana Explorer"
           }
         },
         "hi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Solscan पर खोलें"
+            "value" : "Solana Explorer पर खोलें"
           }
         },
         "hr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Otvori na Solscan"
+            "value" : "Otvori na Solana Explorer"
           }
         },
         "hu" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Megnyitás a Solscanon"
+            "value" : "Megnyitás a Solana Exploreren"
           }
         },
         "id" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Buka di Solscan"
+            "value" : "Buka di Solana Explorer"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Apri su Solscan"
+            "value" : "Apri su Solana Explorer"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Solscanで表示"
+            "value" : "Solana Explorerで表示"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Solscan에서 보기"
+            "value" : "Solana Explorer에서 보기"
           }
         },
         "ms" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Buka di Solscan"
+            "value" : "Buka di Solana Explorer"
           }
         },
         "nb" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Åpne i Solscan"
+            "value" : "Åpne i Solana Explorer"
           }
         },
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Bekijken op Solscan"
+            "value" : "Bekijken op Solana Explorer"
           }
         },
         "pl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Otwórz na Solscan"
+            "value" : "Otwórz w Solana Explorer"
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ver no Solscan"
+            "value" : "Ver no Solana Explorer"
           }
         },
         "pt-PT" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ver no Solscan"
+            "value" : "Ver no Solana Explorer"
           }
         },
         "ro" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Deschide pe Solscan"
+            "value" : "Deschide pe Solana Explorer"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Открыть на Solscan"
+            "value" : "Открыть в Solana Explorer"
           }
         },
         "sk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Otvoriť na Solscan"
+            "value" : "Otvoriť v Solana Explorer"
           }
         },
         "sv" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Öppna i Solscan"
+            "value" : "Öppna i Solana Explorer"
           }
         },
         "th" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "เปิดดูบน Solscan"
+            "value" : "เปิดดูบน Solana Explorer"
           }
         },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Solscan'da Görüntüle"
+            "value" : "Solana Explorer'da Görüntüle"
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Відкрити на Solscan"
+            "value" : "Відкрити в Solana Explorer"
           }
         },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Xem trên Solscan"
+            "value" : "Xem trên Solana Explorer"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "在 Solscan 上查看"
+            "value" : "在 Solana Explorer 上查看"
           }
         }
       }

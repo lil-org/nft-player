@@ -222,7 +222,7 @@ struct MobilePlayerView: View {
     }
 
     private var viewOnWebTitle: String {
-        currentToken.url?.isSolscanURL == true ? Strings.viewOnSolscan : Strings.viewOnBlockscout
+        currentToken.url?.isSolanaExplorerURL == true ? Strings.viewOnSolanaExplorer : Strings.viewOnBlockscout
     }
     
     private func viewOnWeb() {
@@ -307,12 +307,12 @@ struct MobilePlayerView: View {
 }
 
 private extension URL {
-    var isSolscanURL: Bool {
+    var isSolanaExplorerURL: Bool {
         guard var host = host?.lowercased() else { return false }
         if host.hasPrefix("www.") {
             host.removeFirst(4)
         }
-        return host == "solscan.io" || host.hasSuffix(".solscan.io")
+        return host == "explorer.solana.com"
     }
 }
 
