@@ -90,6 +90,11 @@ struct MobileViewingProgress: Codable, Hashable {
     }
 }
 
+struct MobilePlayerImageShareItem {
+    let fileURL: URL
+    let previewImage: () -> UIImage?
+}
+
 enum MobileViewingProgressStore {
     private static let progressKey = "mobileViewingProgressByCollectionId"
     private static let continueViewingCollectionIdKey = "mobileContinueViewingCollectionId"
@@ -392,7 +397,7 @@ class MobilePlaybackController {
         return progress
     }
 
-    func downloadedStaticImageFileURL(uuid: UUID, coordinate: PlayerCoordinate) -> URL? {
+    func downloadedStaticImageShareItem(uuid: UUID, coordinate: PlayerCoordinate) -> MobilePlayerImageShareItem? {
         guard let context = dataSource(uuid: uuid)?.collectionTokenContext(coordinate: coordinate),
               let descriptor = MobileCollectionCatalog.solanaImageDescriptor(
                 specificCollectionId: context.collectionId,
@@ -402,7 +407,10 @@ class MobilePlaybackController {
             return nil
         }
 
-        return SolanaImageCache.shared.localFileURL(for: descriptor)
+        guard let fileURL = SolanaImageCache.shared.localFileURL(for: descriptor) else { return nil }
+        return MobilePlayerImageShareItem(fileURL: fileURL) {
+            SolanaImageCache.shared.cachedDecodedImage(for: descriptor)
+        }
     }
 
     private func updateContinueViewingCollection(for progress: MobileViewingProgress, uuid: UUID) {
@@ -638,7 +646,7 @@ final class SolanaImageCache {
             guard let self else { return }
 
             let key = self.cacheKey(for: descriptor)
-            if let cachedImage = self.memoryCache.object(forKey: key as NSString) {
+            if let cachedImage = self.cachedDecodedImage(forKey: key) {
                 DispatchQueue.main.async {
                     completion(cachedImage)
                 }
@@ -689,6 +697,10 @@ final class SolanaImageCache {
         let url = fileURL(for: descriptor)
         guard FileManager.default.fileExists(atPath: url.path) else { return nil }
         return url
+    }
+
+    func cachedDecodedImage(for descriptor: SolanaImageDescriptor) -> UIImage? {
+        cachedDecodedImage(forKey: cacheKey(for: descriptor))
     }
 
     var webViewHTMLDirectoryURL: URL {
@@ -987,7 +999,7 @@ final class SolanaImageCache {
         for descriptor in descriptors {
             let key = cacheKey(for: descriptor)
             guard activeDecodedKeys.contains(key),
-                  memoryCache.object(forKey: key as NSString) == nil else {
+                  cachedDecodedImage(forKey: key) == nil else {
                 continue
             }
 
@@ -1194,6 +1206,10 @@ final class SolanaImageCache {
 
     private func cacheKey(for descriptor: SolanaImageDescriptor) -> String {
         "\(descriptor.collectionId)|\(descriptor.tokenIndex)|\(descriptor.tokenId)|\(sourceURLHash(for: descriptor))|\(descriptor.fileExtension)"
+    }
+
+    private func cachedDecodedImage(forKey key: String) -> UIImage? {
+        memoryCache.object(forKey: key as NSString)
     }
 
     private func fileURL(for descriptor: SolanaImageDescriptor) -> URL {

@@ -2,6 +2,7 @@
 
 import SwiftUI
 import UIKit
+import LinkPresentation
 
 struct MobilePlayerConfig: Hashable, Codable, Identifiable {
     var id = UUID()
@@ -57,7 +58,7 @@ struct MobilePlayerView: View {
     @State private var currentToken = GeneratedToken.empty
     @State private var currentProgress: MobileViewingProgress?
     @State private var currentCoordinate: PlayerCoordinate?
-    @State private var shareImageURL: URL?
+    @State private var shareItem: MobilePlayerImageShareItem?
     @State private var isCurrentTokenBookmarked = false
     
     init(config: MobilePlayerConfig, onDismiss: @escaping () -> Void, chrome: MobilePlayerChromeController) {
@@ -80,7 +81,7 @@ struct MobilePlayerView: View {
                             self.currentCoordinate = newCoordinate
                             self.currentToken = token
                             self.currentProgress = progress
-                            self.updateShareImageURL(for: newCoordinate)
+                            self.updateShareItem(for: newCoordinate)
                             self.updateBookmarkState(for: token)
                             updateExternalDisplayToken(token)
                         }
@@ -123,8 +124,8 @@ struct MobilePlayerView: View {
                 VStack {
                     Spacer()
                     HStack {
-                        if chrome.showControls, let shareImageURL {
-                            PlayerShareButton(imageURL: shareImageURL)
+                        if chrome.showControls, let shareItem {
+                            PlayerShareButton(shareItem: shareItem)
                                 .transition(.opacity)
                         }
                         Spacer()
@@ -132,9 +133,9 @@ struct MobilePlayerView: View {
                     .padding(.leading, 18)
                     .padding(.bottom, bottomChromePadding)
                     .animation(chrome.showControls ? playerChromeToggleAnimation : playerManualGlassHideAnimation, value: chrome.showControls)
-                    .animation(playerChromeToggleAnimation, value: shareImageURL)
+                    .animation(playerChromeToggleAnimation, value: shareItem?.fileURL)
                 }
-                .allowsHitTesting(chrome.showControls && shareImageURL != nil)
+                .allowsHitTesting(chrome.showControls && shareItem != nil)
 
                 VStack {
                     Spacer()
@@ -185,7 +186,7 @@ struct MobilePlayerView: View {
             MobilePlaybackController.shared.stopAndDisconnect(uuid: initialConfig.id)
         }
         .onReceive(NotificationCenter.default.publisher(for: .solanaImageCacheFileAvailabilityDidChange)) { _ in
-            updateShareImageURL(for: currentCoordinate)
+            updateShareItem(for: currentCoordinate)
         }
         .onAppear {
             guard !isAllowedToHideStatusBar else { return }
@@ -292,13 +293,13 @@ struct MobilePlayerView: View {
         )
     }
 
-    private func updateShareImageURL(for coordinate: PlayerCoordinate?) {
+    private func updateShareItem(for coordinate: PlayerCoordinate?) {
         guard let coordinate else {
-            shareImageURL = nil
+            shareItem = nil
             return
         }
 
-        shareImageURL = MobilePlaybackController.shared.downloadedStaticImageFileURL(
+        shareItem = MobilePlaybackController.shared.downloadedStaticImageShareItem(
             uuid: initialConfig.id,
             coordinate: coordinate
         )
@@ -506,28 +507,87 @@ private struct PlayerProgressArrowButton: View {
 }
 
 private struct PlayerShareButton: View {
-    let imageURL: URL
+    let shareItem: MobilePlayerImageShareItem
+    @State private var isShareSheetPresented = false
 
     @ViewBuilder
     var body: some View {
-        let link = ShareLink(item: imageURL) {
+        let button = Button {
+            Haptic.selectionChanged()
+            isShareSheetPresented = true
+        } label: {
             Images.share
                 .font(.subheadline.weight(.semibold))
                 .frame(width: playerProgressControlSize, height: playerProgressControlSize)
                 .contentShape(Circle())
         }
         .accessibilityLabel(Strings.share)
+        .sheet(isPresented: $isShareSheetPresented) {
+            PlayerImageShareSheet(shareItem: shareItem)
+        }
 
         if #available(iOS 26.0, *) {
-            link
+            button
                 .buttonStyle(.glass)
                 .buttonBorderShape(.circle)
                 .glassEffectTransition(.materialize)
         } else {
-            link
+            button
                 .buttonStyle(.plain)
                 .background(.ultraThinMaterial, in: Circle())
         }
+    }
+}
+
+private struct PlayerImageShareSheet: UIViewControllerRepresentable {
+    let shareItem: MobilePlayerImageShareItem
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(
+            activityItems: [PlayerImageActivityItemSource(shareItem: shareItem)],
+            applicationActivities: nil
+        )
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+}
+
+private final class PlayerImageActivityItemSource: NSObject, UIActivityItemSource {
+    private let shareItem: MobilePlayerImageShareItem
+
+    init(shareItem: MobilePlayerImageShareItem) {
+        self.shareItem = shareItem
+        super.init()
+    }
+
+    private var activityItem: Any {
+        shareItem.previewImage() ?? shareItem.fileURL
+    }
+
+    func activityViewControllerPlaceholderItem(_ activityViewController: UIActivityViewController) -> Any {
+        activityItem
+    }
+
+    func activityViewController(
+        _ activityViewController: UIActivityViewController,
+        itemForActivityType activityType: UIActivity.ActivityType?
+    ) -> Any? {
+        activityItem
+    }
+
+    func activityViewControllerLinkMetadata(_ activityViewController: UIActivityViewController) -> LPLinkMetadata? {
+        let metadata = LPLinkMetadata()
+        metadata.title = shareItem.fileURL.deletingPathExtension().lastPathComponent
+        metadata.originalURL = shareItem.fileURL
+        metadata.url = shareItem.fileURL
+
+        if let fileProvider = NSItemProvider(contentsOf: shareItem.fileURL) {
+            metadata.imageProvider = fileProvider
+        } else if let previewImage = shareItem.previewImage() {
+            metadata.imageProvider = NSItemProvider(object: previewImage)
+        }
+
+        return metadata
     }
 }
 
