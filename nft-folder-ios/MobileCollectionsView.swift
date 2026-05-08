@@ -794,6 +794,12 @@ private final class PlayerNavigationController: UINavigationController {
 
 private final class PlayerOverlayViewController: UIViewController, UIGestureRecognizerDelegate {
 
+    private struct PlayerBackgroundSnapshot {
+        weak var view: UIView?
+        let backgroundColor: UIColor?
+        let isOpaque: Bool
+    }
+
     let playerNavigationController: UINavigationController
     let chrome: MobilePlayerChromeController
     var onDismiss: () -> Void
@@ -804,6 +810,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
     private var configuredScrollPanGestures = Set<ObjectIdentifier>()
     private var isDismissing = false
     private var isDismissPanDrivingPlayerDismiss = false
+    private var dismissBackgroundSnapshots: [PlayerBackgroundSnapshot] = []
 
     init(
         navigationController: UINavigationController,
@@ -907,6 +914,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
             if isDismissPanDrivingPlayerDismiss {
                 playerNavigationController.view.layer.removeAllAnimations()
                 dimmingView.layer.removeAllAnimations()
+                makePlayerDismissBackgroundsTransparent()
                 setDismissStatusBarRevealed(true)
             }
             chrome.setControlsVisible(false)
@@ -986,7 +994,67 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         UIView.animate(withDuration: 0.3, delay: 0, usingSpringWithDamping: 0.85, initialSpringVelocity: 0, options: [.beginFromCurrentState], animations: {
             self.playerNavigationController.view.transform = .identity
             self.dimmingView.alpha = 1
+        }, completion: { _ in
+            guard !self.isDismissPanDrivingPlayerDismiss else { return }
+            self.restorePlayerDismissBackgrounds()
         })
+    }
+
+    private func makePlayerDismissBackgroundsTransparent() {
+        guard dismissBackgroundSnapshots.isEmpty else { return }
+        guard let rootView = playerNavigationController.view else { return }
+
+        clearOpaqueBlackBackgrounds(in: rootView, relativeTo: rootView)
+    }
+
+    private func clearOpaqueBlackBackgrounds(in view: UIView, relativeTo rootView: UIView) {
+        if shouldClearDismissBackground(view, relativeTo: rootView) {
+            dismissBackgroundSnapshots.append(
+                PlayerBackgroundSnapshot(
+                    view: view,
+                    backgroundColor: view.backgroundColor,
+                    isOpaque: view.isOpaque
+                )
+            )
+            view.backgroundColor = .clear
+            view.isOpaque = false
+        }
+
+        view.subviews.forEach { subview in
+            clearOpaqueBlackBackgrounds(in: subview, relativeTo: rootView)
+        }
+    }
+
+    private func shouldClearDismissBackground(_ view: UIView, relativeTo rootView: UIView) -> Bool {
+        guard isOpaqueBlack(view.backgroundColor) else { return false }
+        guard view === rootView || !rootView.bounds.isEmpty else { return view === rootView }
+
+        let boundsInRoot = view.convert(view.bounds, to: rootView)
+        return boundsInRoot.width >= rootView.bounds.width * 0.85
+            && boundsInRoot.height >= rootView.bounds.height * 0.85
+    }
+
+    private func restorePlayerDismissBackgrounds() {
+        dismissBackgroundSnapshots.forEach { snapshot in
+            snapshot.view?.backgroundColor = snapshot.backgroundColor
+            snapshot.view?.isOpaque = snapshot.isOpaque
+        }
+        dismissBackgroundSnapshots.removeAll()
+    }
+
+    private func isOpaqueBlack(_ color: UIColor?) -> Bool {
+        guard let color else { return false }
+
+        var red: CGFloat = 0
+        var green: CGFloat = 0
+        var blue: CGFloat = 0
+        var alpha: CGFloat = 0
+
+        guard color.getRed(&red, green: &green, blue: &blue, alpha: &alpha) else {
+            return false
+        }
+
+        return alpha > 0.98 && red < 0.02 && green < 0.02 && blue < 0.02
     }
 
     private func easeOutQuadratic(_ progress: CGFloat) -> CGFloat {

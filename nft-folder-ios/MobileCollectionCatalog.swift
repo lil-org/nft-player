@@ -393,7 +393,7 @@ enum SolanaTokenHTML {
             height: 100%;
             margin: 0;
             padding: 0;
-            background: #000;
+            background: transparent;
             overflow: hidden;
         }
         body {
