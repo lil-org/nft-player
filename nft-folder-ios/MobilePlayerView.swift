@@ -408,15 +408,16 @@ private struct PlayerBottomControls: View {
 
     @ViewBuilder
     private var progressNavigationControls: some View {
-        if #available(iOS 26.0, *) {
-            GlassEffectContainer(spacing: playerNavigationArrowSpacing) {
-                if isVisible {
+        if isVisible {
+            if #available(iOS 26.0, *) {
+                GlassEffectContainer(spacing: playerNavigationArrowSpacing) {
                     progressNavigationRow
                 }
+                .transition(.opacity)
+            } else {
+                progressNavigationRow
+                    .transition(.opacity)
             }
-        } else if isVisible {
-            progressNavigationRow
-                .transition(.move(edge: .bottom).combined(with: .opacity))
         }
     }
 
