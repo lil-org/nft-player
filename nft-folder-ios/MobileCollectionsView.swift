@@ -1124,11 +1124,8 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
 
     private func hasPlayerDismissIntent(location: CGPoint, velocity: CGPoint) -> Bool {
         let bounds = playerNavigationController.view.bounds
-        let isAwayFromHorizontalEdges = location.x > MobilePlayerGestureTuning.dismissHorizontalEdgeExclusion
-            && location.x < bounds.width - MobilePlayerGestureTuning.dismissHorizontalEdgeExclusion
 
         return bounds.contains(location)
-            && isAwayFromHorizontalEdges
             && velocity.y > MobilePlayerGestureTuning.dismissInitialVelocity
             && velocity.y > abs(velocity.x) * MobilePlayerGestureTuning.dismissVerticalIntentRatio
     }
