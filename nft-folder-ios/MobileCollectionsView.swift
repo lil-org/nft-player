@@ -821,6 +821,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
     private var configuredScrollPanGestures = Set<ObjectIdentifier>()
     private var isDismissing = false
     private var isDismissPanDrivingPlayerDismiss = false
+    private var didControlsPanConflictWithHorizontalScroll = false
     private var dismissBackgroundSnapshots: [PlayerBackgroundSnapshot] = []
 
     init(
@@ -956,11 +957,19 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         guard !isDismissing else { return }
 
         switch gesture.state {
-        case .began, .changed:
-            let translation = gesture.translation(in: view)
-            if translation.y < -8 {
-                chrome.setControlsVisible(true)
+        case .began:
+            didControlsPanConflictWithHorizontalScroll = isHorizontalPlayerScrollActive()
+            revealControlsIfAllowed(for: gesture)
+
+        case .changed:
+            if isHorizontalPlayerScrollActive() {
+                didControlsPanConflictWithHorizontalScroll = true
             }
+            revealControlsIfAllowed(for: gesture)
+
+        case .ended, .cancelled, .failed:
+            didControlsPanConflictWithHorizontalScroll = false
+
         default:
             break
         }
@@ -1096,8 +1105,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
             }
 
             let velocity = controlsPan.velocity(in: view)
-            return velocity.y < -MobilePlayerGestureTuning.controlsRevealVelocity
-                && abs(velocity.y) > abs(velocity.x) * MobilePlayerGestureTuning.controlsRevealVerticalIntentRatio
+            return hasControlsRevealIntent(location: location, velocity: velocity)
         }
 
         guard gestureRecognizer === dismissPan else {
@@ -1128,6 +1136,38 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         return bounds.contains(location)
             && velocity.y > MobilePlayerGestureTuning.dismissInitialVelocity
             && velocity.y > abs(velocity.x) * MobilePlayerGestureTuning.dismissVerticalIntentRatio
+    }
+
+    private func hasControlsRevealIntent(location: CGPoint, velocity: CGPoint) -> Bool {
+        playerNavigationController.view.bounds.contains(location)
+            && velocity.y < -MobilePlayerGestureTuning.controlsRevealVelocity
+            && abs(velocity.y) > abs(velocity.x) * MobilePlayerGestureTuning.controlsRevealVerticalIntentRatio
+    }
+
+    private func revealControlsIfAllowed(for gesture: UIPanGestureRecognizer) {
+        guard !didControlsPanConflictWithHorizontalScroll else { return }
+
+        let translation = gesture.translation(in: view)
+        guard hasControlsRevealTranslation(translation) else { return }
+
+        chrome.setControlsVisible(true)
+    }
+
+    private func hasControlsRevealTranslation(_ translation: CGPoint) -> Bool {
+        translation.y < -MobilePlayerGestureTuning.controlsRevealMinimumTranslation
+            && abs(translation.y) > abs(translation.x) * MobilePlayerGestureTuning.controlsRevealVerticalIntentRatio
+    }
+
+    private func isHorizontalPlayerScrollActive() -> Bool {
+        playerNavigationController.view
+            .allSubviews(ofType: UIScrollView.self)
+            .contains { scrollView in
+                let panGesture = scrollView.panGestureRecognizer
+                guard panGesture.state == .began || panGesture.state == .changed else { return false }
+
+                let translation = panGesture.translation(in: view)
+                return abs(translation.x) > MobilePlayerGestureTuning.controlsRevealHorizontalScrollTolerance
+            }
     }
 
     private func hasControlsHideIntent(location: CGPoint, velocity: CGPoint) -> Bool {

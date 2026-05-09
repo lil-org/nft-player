@@ -43,8 +43,10 @@ enum MobilePlayerGestureTuning {
     static let dismissTranslationHeightRatio: CGFloat = 0.28
     static let dismissInitialVelocity: CGFloat = 120
     static let dismissUnderlayFadeCompletionProgress: CGFloat = 0.68
-    static let controlsRevealVelocity: CGFloat = 80
-    static let controlsRevealVerticalIntentRatio: CGFloat = 1.05
+    static let controlsRevealVelocity: CGFloat = 150
+    static let controlsRevealMinimumTranslation: CGFloat = 44
+    static let controlsRevealVerticalIntentRatio: CGFloat = 1.45
+    static let controlsRevealHorizontalScrollTolerance: CGFloat = 8
     static let playerPageGap: CGFloat = 23
     static let pageBoundaryRevealTranslation: CGFloat = 18
     static let pageBoundaryRevealHorizontalIntentRatio: CGFloat = 1.15
