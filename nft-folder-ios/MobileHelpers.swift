@@ -52,6 +52,7 @@ enum MobilePlayerGestureTuning {
     static let playerMaximumZoomScale: CGFloat = 4
     static let playerDoubleTapZoomScale: CGFloat = 2.5
     static let playerZoomResetTolerance: CGFloat = 0.01
+    static let playerZoomEdgePaginationTolerance: CGFloat = 2
 
 }
 

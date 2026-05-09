@@ -390,6 +390,64 @@ private protocol FourDirectionalPlayerDataSource: AnyObject {
 
 }
 
+private final class PlayerZoomScrollView: UIScrollView {
+
+    private var pagingPanGestureRecognizerIds = Set<ObjectIdentifier>()
+
+    func registerPagingPanGesture(_ panGesture: UIPanGestureRecognizer) {
+        pagingPanGestureRecognizerIds.insert(ObjectIdentifier(panGesture))
+    }
+
+    func allowsPagingPanFromCurrentZoomEdge(_ panGesture: UIPanGestureRecognizer) -> Bool {
+        guard zoomScale > minimumZoomScale + MobilePlayerGestureTuning.playerZoomResetTolerance else { return false }
+
+        let velocity = panGesture.velocity(in: self)
+        let isHorizontalPan = abs(velocity.x) > abs(velocity.y) * MobilePlayerGestureTuning.pageBoundaryRevealHorizontalIntentRatio
+        guard isHorizontalPan else { return false }
+
+        if velocity.x > 0 {
+            return isAtLeftContentEdge
+        } else if velocity.x < 0 {
+            return isAtRightContentEdge
+        } else {
+            return false
+        }
+    }
+
+    @objc func gestureRecognizer(
+        _ gestureRecognizer: UIGestureRecognizer,
+        shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+    ) -> Bool {
+        guard zoomScale > minimumZoomScale + MobilePlayerGestureTuning.playerZoomResetTolerance else { return false }
+
+        return gestureRecognizer === panGestureRecognizer && isPagingPanGesture(otherGestureRecognizer)
+            || otherGestureRecognizer === panGestureRecognizer && isPagingPanGesture(gestureRecognizer)
+    }
+
+    private func isPagingPanGesture(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        guard let panGesture = gestureRecognizer as? UIPanGestureRecognizer else { return false }
+
+        return pagingPanGestureRecognizerIds.contains(ObjectIdentifier(panGesture))
+    }
+
+    private var isAtLeftContentEdge: Bool {
+        contentOffset.x <= minimumContentOffsetX + MobilePlayerGestureTuning.playerZoomEdgePaginationTolerance
+    }
+
+    private var isAtRightContentEdge: Bool {
+        contentOffset.x >= maximumContentOffsetX - MobilePlayerGestureTuning.playerZoomEdgePaginationTolerance
+    }
+
+    private var minimumContentOffsetX: CGFloat {
+        -adjustedContentInset.left
+    }
+
+    private var maximumContentOffsetX: CGFloat {
+        max(minimumContentOffsetX, contentSize.width - bounds.width + adjustedContentInset.right)
+    }
+
+}
+
 private class SpecificPageViewController: UIViewController, UIScrollViewDelegate {
 
     private struct AnimatedRenderContext: Equatable {
@@ -399,7 +457,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     }
 
     private weak var fourDirectionalPlayerDataSource: FourDirectionalPlayerDataSource?
-    private let zoomScrollView = UIScrollView()
+    private let zoomScrollView = PlayerZoomScrollView()
     private let mediaContentView = UIView()
     private lazy var mediaRenderer = FullscreenTokenMediaRenderer(containerView: mediaContentView)
 
@@ -512,6 +570,14 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         if !animated {
             updateZoomInteraction()
         }
+    }
+
+    func registerPagingPanGesture(_ panGesture: UIPanGestureRecognizer) {
+        zoomScrollView.registerPagingPanGesture(panGesture)
+    }
+
+    func allowsPagingPanFromCurrentZoomEdge(_ panGesture: UIPanGestureRecognizer) -> Bool {
+        zoomScrollView.allowsPagingPanFromCurrentZoomEdge(panGesture)
     }
 
     private func configureZoomScrollView() {
@@ -751,6 +817,8 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
     private var didNotifyUnavailableNavigationDuringCurrentPan = false
     private var isPagingScrollEnabled = true
     private var isCurrentPageZoomed = false
+    private var zoomedPagingPanRestingOffsets = [ObjectIdentifier: CGFloat]()
+    private var unlockedZoomedPagingPanGestures = Set<ObjectIdentifier>()
     private weak var fourDirectionalPlayerDataSource: FourDirectionalPlayerDataSource?
     var onCurrentZoomStateChange: ((Bool) -> Void)?
 
@@ -820,6 +888,9 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
             let panGesture = scrollView.panGestureRecognizer
             let panGestureId = ObjectIdentifier(panGesture)
             if !configuredPagingPanGestures.contains(panGestureId) {
+                [pageA, pageB, pageC].forEach { page in
+                    page.registerPagingPanGesture(panGesture)
+                }
                 panGesture.addTarget(self, action: #selector(handlePagingPan(_:)))
                 configuredPagingPanGestures.insert(panGestureId)
                 didConfigureNewPagingScrollView = true
@@ -830,7 +901,7 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
 
     private func updatePagingScrollEnabled(force: Bool = false) {
         let currentPageIsZoomed = currentPage?.isZoomed == true
-        let shouldEnablePaging = !currentPageIsZoomed
+        let shouldEnablePaging = true
         if force || isPagingScrollEnabled != shouldEnablePaging {
             isPagingScrollEnabled = shouldEnablePaging
             pagingScrollViews.forEach { scrollView in
@@ -855,8 +926,11 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
         case .began:
             didNotifyPaginationAttemptDuringCurrentPan = false
             didNotifyUnavailableNavigationDuringCurrentPan = false
+            beginZoomedPagingPanIfNeeded(gesture)
 
         case .changed:
+            updateZoomedPagingPanLock(for: gesture)
+
             guard !didNotifyPaginationAttemptDuringCurrentPan,
                   !didNotifyUnavailableNavigationDuringCurrentPan else { return }
 
@@ -879,10 +953,53 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
         case .ended, .cancelled, .failed:
             didNotifyPaginationAttemptDuringCurrentPan = false
             didNotifyUnavailableNavigationDuringCurrentPan = false
+            endZoomedPagingPan(gesture)
 
         default:
             break
         }
+    }
+
+    private func beginZoomedPagingPanIfNeeded(_ gesture: UIPanGestureRecognizer) {
+        guard currentPage?.isZoomed == true,
+              let scrollView = pagingScrollView(for: gesture) else { return }
+
+        let gestureId = ObjectIdentifier(gesture)
+        zoomedPagingPanRestingOffsets[gestureId] = scrollView.contentOffset.x
+        unlockedZoomedPagingPanGestures.remove(gestureId)
+    }
+
+    private func updateZoomedPagingPanLock(for gesture: UIPanGestureRecognizer) {
+        guard let currentPage,
+              currentPage.isZoomed,
+              let scrollView = pagingScrollView(for: gesture) else { return }
+
+        let gestureId = ObjectIdentifier(gesture)
+        let restingOffsetX = zoomedPagingPanRestingOffsets[gestureId] ?? scrollView.contentOffset.x
+        if currentPage.allowsPagingPanFromCurrentZoomEdge(gesture) {
+            if !unlockedZoomedPagingPanGestures.contains(gestureId) {
+                scrollView.contentOffset.x = restingOffsetX
+                gesture.setTranslation(.zero, in: view)
+                zoomedPagingPanRestingOffsets[gestureId] = scrollView.contentOffset.x
+                unlockedZoomedPagingPanGestures.insert(gestureId)
+            }
+        } else if !unlockedZoomedPagingPanGestures.contains(gestureId) {
+            scrollView.contentOffset.x = restingOffsetX
+        }
+    }
+
+    private func endZoomedPagingPan(_ gesture: UIPanGestureRecognizer) {
+        let gestureId = ObjectIdentifier(gesture)
+        zoomedPagingPanRestingOffsets.removeValue(forKey: gestureId)
+        unlockedZoomedPagingPanGestures.remove(gestureId)
+    }
+
+    private func pagingScrollView(for gesture: UIPanGestureRecognizer) -> UIScrollView? {
+        if let scrollView = gesture.view as? UIScrollView {
+            return scrollView
+        }
+
+        return pagingScrollViews.first { $0.panGestureRecognizer === gesture }
     }
 
     func getCurrentCoordinate() -> (Int, Int) {
