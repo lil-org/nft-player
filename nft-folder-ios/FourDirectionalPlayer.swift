@@ -3,6 +3,7 @@
 import UIKit
 import SwiftUI
 import WebKit
+import ImageIO
 
 struct PlayerCoordinate: Hashable {
     let x: Int
@@ -62,6 +63,7 @@ final class FullscreenTokenMediaRenderer {
         onBegin: (() -> Void)? = nil,
         load: (@escaping (UIImage?) -> Void) -> Void,
         fallbackToWebContent: @escaping () -> Void,
+        onLoadedImage: ((UIImage) -> Void)? = nil,
         onSuccess: (() -> Void)? = nil
     ) {
         ensureImageView()
@@ -87,6 +89,7 @@ final class FullscreenTokenMediaRenderer {
             self.webView?.isHidden = true
             self.imageView.isHidden = false
             self.imageView.image = image
+            onLoadedImage?(image)
         }
     }
 
@@ -456,6 +459,11 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         let fallbackHTML: String
     }
 
+    private enum ZoomContentLayout: Equatable {
+        case viewport
+        case staticImage(CGSize)
+    }
+
     private weak var fourDirectionalPlayerDataSource: FourDirectionalPlayerDataSource?
     private let zoomScrollView = PlayerZoomScrollView()
     private let mediaContentView = UIView()
@@ -471,6 +479,8 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     private var solanaImageCacheObserver: NSObjectProtocol?
     private var willOrDidAppear = false
     private var isZoomInteractionActive = false
+    private var zoomContentLayout: ZoomContentLayout = .viewport
+    private var laidOutZoomViewportSize: CGSize = .zero
     var onZoomStateChange: (() -> Void)?
     var preferredPrefetchDirection: SolanaImageCache.PrefetchDirection = .forward
     var isZoomed: Bool {
@@ -509,8 +519,27 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         renderCurrentItem()
     }
 
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+
+        let viewportSize = zoomScrollView.bounds.size
+        guard viewportSize.width > 0, viewportSize.height > 0 else { return }
+
+        if laidOutZoomViewportSize != viewportSize {
+            laidOutZoomViewportSize = viewportSize
+            if isZoomed {
+                resetZoom(animated: false)
+            }
+            updateZoomContentFrame(resetOffset: true)
+        } else {
+            updateZoomContentInsets()
+            clampZoomContentOffsetIfNeeded()
+        }
+    }
+
     private func cleanupDisplayedContent() {
         resetZoom(animated: false)
+        setZoomContentLayout(.viewport)
         clearAnimatedRenderContext()
         mediaRenderer.clearContent()
         if let renderedCoordinate = renderedCoordinate {
@@ -549,14 +578,35 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             width: zoomScrollView.bounds.width / targetScale,
             height: zoomScrollView.bounds.height / targetScale
         )
+        let contentBounds = mediaContentView.bounds
+        let zoomOrigin = CGPoint(
+            x: boundedZoomOrigin(
+                centeredAt: locationInContent.x,
+                zoomLength: zoomSize.width,
+                contentLength: contentBounds.width
+            ),
+            y: boundedZoomOrigin(
+                centeredAt: locationInContent.y,
+                zoomLength: zoomSize.height,
+                contentLength: contentBounds.height
+            )
+        )
         let zoomRect = CGRect(
-            x: locationInContent.x - zoomSize.width / 2,
-            y: locationInContent.y - zoomSize.height / 2,
+            x: zoomOrigin.x,
+            y: zoomOrigin.y,
             width: zoomSize.width,
             height: zoomSize.height
         )
 
         zoomScrollView.zoom(to: zoomRect, animated: true)
+    }
+
+    private func boundedZoomOrigin(centeredAt center: CGFloat, zoomLength: CGFloat, contentLength: CGFloat) -> CGFloat {
+        guard contentLength > zoomLength else {
+            return (contentLength - zoomLength) / 2
+        }
+
+        return min(max(center - zoomLength / 2, 0), contentLength - zoomLength)
     }
 
     func resetZoom(animated: Bool) {
@@ -568,6 +618,8 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
 
         zoomScrollView.setZoomScale(zoomScrollView.minimumZoomScale, animated: animated)
         if !animated {
+            updateZoomContentInsets()
+            zoomScrollView.contentOffset = centeredZoomContentOffset
             updateZoomInteraction()
         }
     }
@@ -588,6 +640,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         zoomScrollView.delegate = self
         zoomScrollView.minimumZoomScale = 1
         zoomScrollView.maximumZoomScale = MobilePlayerGestureTuning.playerMaximumZoomScale
+        zoomScrollView.bounces = true
         zoomScrollView.bouncesZoom = true
         zoomScrollView.showsHorizontalScrollIndicator = false
         zoomScrollView.showsVerticalScrollIndicator = false
@@ -595,7 +648,6 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         zoomScrollView.hideAutomaticScrollEdgeEffects()
 
         zoomScrollView.translatesAutoresizingMaskIntoConstraints = false
-        mediaContentView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(zoomScrollView)
         zoomScrollView.addSubview(mediaContentView)
 
@@ -603,17 +655,104 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             zoomScrollView.topAnchor.constraint(equalTo: view.topAnchor),
             zoomScrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             zoomScrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            zoomScrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-
-            mediaContentView.topAnchor.constraint(equalTo: zoomScrollView.contentLayoutGuide.topAnchor),
-            mediaContentView.bottomAnchor.constraint(equalTo: zoomScrollView.contentLayoutGuide.bottomAnchor),
-            mediaContentView.leadingAnchor.constraint(equalTo: zoomScrollView.contentLayoutGuide.leadingAnchor),
-            mediaContentView.trailingAnchor.constraint(equalTo: zoomScrollView.contentLayoutGuide.trailingAnchor),
-            mediaContentView.widthAnchor.constraint(equalTo: zoomScrollView.frameLayoutGuide.widthAnchor),
-            mediaContentView.heightAnchor.constraint(equalTo: zoomScrollView.frameLayoutGuide.heightAnchor)
+            zoomScrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor)
         ])
 
+        updateZoomContentFrame(resetOffset: true)
         updateZoomInteraction()
+    }
+
+    private func setZoomContentLayout(_ layout: ZoomContentLayout) {
+        guard zoomContentLayout != layout else {
+            updateZoomContentFrame(resetOffset: false)
+            return
+        }
+
+        zoomContentLayout = layout
+        resetZoom(animated: false)
+        updateZoomContentFrame(resetOffset: true)
+    }
+
+    private func updateZoomContentFrame(resetOffset: Bool) {
+        let viewportSize = zoomScrollView.bounds.size
+        guard viewportSize.width > 0, viewportSize.height > 0 else { return }
+
+        let contentSize = zoomContentSize(fitting: viewportSize)
+        if zoomScrollView.zoomScale <= zoomScrollView.minimumZoomScale + MobilePlayerGestureTuning.playerZoomResetTolerance {
+            mediaContentView.transform = .identity
+            mediaContentView.frame = CGRect(origin: .zero, size: contentSize)
+            zoomScrollView.contentSize = contentSize
+        }
+
+        updateZoomContentInsets()
+        if resetOffset {
+            zoomScrollView.contentOffset = centeredZoomContentOffset
+        } else {
+            clampZoomContentOffsetIfNeeded()
+        }
+    }
+
+    private func zoomContentSize(fitting viewportSize: CGSize) -> CGSize {
+        switch zoomContentLayout {
+        case .viewport:
+            return viewportSize
+
+        case .staticImage(let imageSize):
+            guard imageSize.width > 0, imageSize.height > 0 else { return viewportSize }
+
+            let scale = min(viewportSize.width / imageSize.width, viewportSize.height / imageSize.height)
+            return CGSize(
+                width: imageSize.width * scale,
+                height: imageSize.height * scale
+            )
+        }
+    }
+
+    private func updateZoomContentInsets() {
+        let viewportSize = zoomScrollView.bounds.size
+        guard viewportSize.width > 0, viewportSize.height > 0 else { return }
+
+        let contentFrameSize = mediaContentView.frame.size
+        let horizontalInset = max(0, (viewportSize.width - contentFrameSize.width) / 2)
+        let verticalInset = max(0, (viewportSize.height - contentFrameSize.height) / 2)
+        let contentInset = UIEdgeInsets(
+            top: verticalInset,
+            left: horizontalInset,
+            bottom: verticalInset,
+            right: horizontalInset
+        )
+
+        if zoomScrollView.contentInset != contentInset {
+            zoomScrollView.contentInset = contentInset
+        }
+    }
+
+    private var centeredZoomContentOffset: CGPoint {
+        CGPoint(
+            x: -zoomScrollView.contentInset.left,
+            y: -zoomScrollView.contentInset.top
+        )
+    }
+
+    private func clampZoomContentOffsetIfNeeded() {
+        let minimumOffsetX = -zoomScrollView.contentInset.left
+        let minimumOffsetY = -zoomScrollView.contentInset.top
+        let maximumOffsetX = max(
+            minimumOffsetX,
+            zoomScrollView.contentSize.width - zoomScrollView.bounds.width + zoomScrollView.contentInset.right
+        )
+        let maximumOffsetY = max(
+            minimumOffsetY,
+            zoomScrollView.contentSize.height - zoomScrollView.bounds.height + zoomScrollView.contentInset.bottom
+        )
+        let clampedOffset = CGPoint(
+            x: min(max(zoomScrollView.contentOffset.x, minimumOffsetX), maximumOffsetX),
+            y: min(max(zoomScrollView.contentOffset.y, minimumOffsetY), maximumOffsetY)
+        )
+
+        if zoomScrollView.contentOffset != clampedOffset {
+            zoomScrollView.contentOffset = clampedOffset
+        }
     }
 
     private func updateZoomInteraction() {
@@ -632,6 +771,8 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     }
 
     func scrollViewDidZoom(_ scrollView: UIScrollView) {
+        updateZoomContentInsets()
+        clampZoomContentOffsetIfNeeded()
         updateZoomInteraction()
     }
 
@@ -639,6 +780,8 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         if scale <= scrollView.minimumZoomScale + MobilePlayerGestureTuning.playerZoomResetTolerance {
             resetZoom(animated: true)
         } else {
+            updateZoomContentInsets()
+            clampZoomContentOffsetIfNeeded()
             updateZoomInteraction()
         }
     }
@@ -693,16 +836,21 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             },
             fallbackToWebContent: { [weak self] in
                 self?.renderWebContent(fallbackHTML)
+            },
+            onLoadedImage: { [weak self] image in
+                self?.setZoomContentLayout(.staticImage(image.size))
             }
         )
     }
 
     private func renderWebContent(_ html: String) {
         clearAnimatedRenderContext()
+        setZoomContentLayout(.viewport)
         renderAnimatedFallbackWebContent(html)
     }
 
     private func renderAnimatedFallbackWebContent(_ html: String) {
+        setZoomContentLayout(.viewport)
         mediaRenderer.renderWebContent(html)
     }
 
@@ -711,6 +859,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         adjacentDescriptor: SolanaImageDescriptor?,
         fallbackHTML: String
     ) {
+        setZoomContentLayout(.viewport)
         setAnimatedRenderContext(
             AnimatedRenderContext(
                 descriptor: descriptor,
@@ -742,6 +891,10 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             return
         }
 
+        if let imageSize = imageSize(at: localFileURL) {
+            setZoomContentLayout(.staticImage(imageSize))
+        }
+
         let html = SolanaTokenHTML.createImageHTML(
             imageURL: localFileURL.absoluteString,
             nextImageURL: nextLocalFileURL?.absoluteString
@@ -767,6 +920,19 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
 
         renderedAnimatedImageURL = localFileURL
         renderedAnimatedNextImageURL = nextLocalFileURL
+    }
+
+    private func imageSize(at fileURL: URL) -> CGSize? {
+        guard let imageSource = CGImageSourceCreateWithURL(fileURL as CFURL, nil),
+              let properties = CGImageSourceCopyPropertiesAtIndex(imageSource, 0, nil) as? [CFString: Any],
+              let width = properties[kCGImagePropertyPixelWidth] as? NSNumber,
+              let height = properties[kCGImagePropertyPixelHeight] as? NSNumber else {
+            return nil
+        }
+
+        let size = CGSize(width: CGFloat(width.doubleValue), height: CGFloat(height.doubleValue))
+        guard size.width > 0, size.height > 0 else { return nil }
+        return size
     }
 
     private func setAnimatedRenderContext(_ context: AnimatedRenderContext) {
