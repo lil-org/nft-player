@@ -212,11 +212,6 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
         gesture.cancelsTouchesInView = false
         return gesture
     }()
-    private lazy var longPressRecognizer: UILongPressGestureRecognizer = {
-        let gesture = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPress(_:)))
-        gesture.cancelsTouchesInView = false
-        return gesture
-    }()
     private var renderedCoordinates = Set<PlayerCoordinate>()
     private var displayedCoordinate: PlayerCoordinate?
 
@@ -278,7 +273,6 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
         singleTapRecognizer.require(toFail: doubleTapRecognizer)
         view.addGestureRecognizer(singleTapRecognizer)
         view.addGestureRecognizer(doubleTapRecognizer)
-        view.addGestureRecognizer(longPressRecognizer)
     }
 
     @objc private func handleSingleTap(_ gesture: UITapGestureRecognizer) {
@@ -291,12 +285,6 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
         guard gesture.state == .ended else { return }
 
         pagingVC.toggleZoom(at: gesture.location(in: view), in: view)
-    }
-
-    @objc private func handleLongPress(_ gesture: UILongPressGestureRecognizer) {
-        guard gesture.state == .began else { return }
-
-        onToggleChrome()
     }
 
     fileprivate func getToken(x: Int, y: Int) -> GeneratedToken {
