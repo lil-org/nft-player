@@ -155,19 +155,22 @@ struct FourDirectionalPlayerContainerView: UIViewControllerRepresentable {
     private let onPaginationAttempt: (() -> Void)
     private let onUnavailableNavigation: (() -> Void)
     private let onToggleChrome: (() -> Void)
+    private let onZoomStateChange: ((Bool) -> Void)
 
     init(
         initialConfig: MobilePlayerConfig,
         onCoordinateUpdate: @escaping (PlayerCoordinate) -> Void,
         onPaginationAttempt: @escaping () -> Void,
         onUnavailableNavigation: @escaping () -> Void,
-        onToggleChrome: @escaping () -> Void
+        onToggleChrome: @escaping () -> Void,
+        onZoomStateChange: @escaping (Bool) -> Void
     ) {
         self.initialConfig = initialConfig
         self.onCoordinateUpdate = onCoordinateUpdate
         self.onPaginationAttempt = onPaginationAttempt
         self.onUnavailableNavigation = onUnavailableNavigation
         self.onToggleChrome = onToggleChrome
+        self.onZoomStateChange = onZoomStateChange
     }
 
     func makeUIViewController(context: Context) -> FourDirectionalPlayerContainer {
@@ -176,7 +179,8 @@ struct FourDirectionalPlayerContainerView: UIViewControllerRepresentable {
             onCoordinateUpdate: onCoordinateUpdate,
             onPaginationAttempt: onPaginationAttempt,
             onUnavailableNavigation: onUnavailableNavigation,
-            onToggleChrome: onToggleChrome
+            onToggleChrome: onToggleChrome,
+            onZoomStateChange: onZoomStateChange
         )
     }
 
@@ -190,6 +194,7 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
     private let onPaginationAttempt: (() -> Void)
     private let onUnavailableNavigation: (() -> Void)
     private let onToggleChrome: (() -> Void)
+    private let onZoomStateChange: ((Bool) -> Void)
 
     private lazy var pagingVC = HorizontalPageViewController(fourDirectionalPlayerDataSource: self)
     private lazy var singleTapRecognizer: UITapGestureRecognizer = {
@@ -217,13 +222,15 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
         onCoordinateUpdate: @escaping (PlayerCoordinate) -> Void,
         onPaginationAttempt: @escaping () -> Void,
         onUnavailableNavigation: @escaping () -> Void,
-        onToggleChrome: @escaping () -> Void
+        onToggleChrome: @escaping () -> Void,
+        onZoomStateChange: @escaping (Bool) -> Void
     ) {
         self.initialConfig = initialConfig
         self.onCoordinateUpdate = onCoordinateUpdate
         self.onPaginationAttempt = onPaginationAttempt
         self.onUnavailableNavigation = onUnavailableNavigation
         self.onToggleChrome = onToggleChrome
+        self.onZoomStateChange = onZoomStateChange
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -235,6 +242,9 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
         super.viewDidLoad()
         MobilePlaybackController.shared.subscribe(config: initialConfig, display: self)
         view.backgroundColor = .black
+        pagingVC.onCurrentZoomStateChange = { [weak self] isZoomed in
+            self?.onZoomStateChange(isZoomed)
+        }
         addChild(pagingVC)
         view.addSubview(pagingVC.view)
         pagingVC.didMove(toParent: self)
@@ -740,7 +750,9 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
     private var didNotifyPaginationAttemptDuringCurrentPan = false
     private var didNotifyUnavailableNavigationDuringCurrentPan = false
     private var isPagingScrollEnabled = true
+    private var isCurrentPageZoomed = false
     private weak var fourDirectionalPlayerDataSource: FourDirectionalPlayerDataSource?
+    var onCurrentZoomStateChange: ((Bool) -> Void)?
 
     init(fourDirectionalPlayerDataSource: FourDirectionalPlayerDataSource) {
         self.fourDirectionalPlayerDataSource = fourDirectionalPlayerDataSource
@@ -802,6 +814,7 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
     }
 
     private func configurePagingScrollViews() {
+        var didConfigureNewPagingScrollView = false
         pagingScrollViews.forEach { scrollView in
             scrollView.hideAutomaticScrollEdgeEffects()
             let panGesture = scrollView.panGestureRecognizer
@@ -809,21 +822,32 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
             if !configuredPagingPanGestures.contains(panGestureId) {
                 panGesture.addTarget(self, action: #selector(handlePagingPan(_:)))
                 configuredPagingPanGestures.insert(panGestureId)
+                didConfigureNewPagingScrollView = true
             }
         }
-        updatePagingScrollEnabled(force: true)
+        updatePagingScrollEnabled(force: didConfigureNewPagingScrollView)
     }
 
     private func updatePagingScrollEnabled(force: Bool = false) {
-        let shouldEnablePaging = currentPage?.isZoomed != true
-        guard force || isPagingScrollEnabled != shouldEnablePaging else { return }
-
-        isPagingScrollEnabled = shouldEnablePaging
-        pagingScrollViews.forEach { scrollView in
-            if scrollView.isScrollEnabled != shouldEnablePaging {
-                scrollView.isScrollEnabled = shouldEnablePaging
+        let currentPageIsZoomed = currentPage?.isZoomed == true
+        let shouldEnablePaging = !currentPageIsZoomed
+        if force || isPagingScrollEnabled != shouldEnablePaging {
+            isPagingScrollEnabled = shouldEnablePaging
+            pagingScrollViews.forEach { scrollView in
+                if scrollView.isScrollEnabled != shouldEnablePaging {
+                    scrollView.isScrollEnabled = shouldEnablePaging
+                }
             }
         }
+
+        updateCurrentZoomState(currentPageIsZoomed)
+    }
+
+    private func updateCurrentZoomState(_ isZoomed: Bool) {
+        guard isCurrentPageZoomed != isZoomed else { return }
+
+        isCurrentPageZoomed = isZoomed
+        onCurrentZoomStateChange?(isZoomed)
     }
 
     @objc private func handlePagingPan(_ gesture: UIPanGestureRecognizer) {

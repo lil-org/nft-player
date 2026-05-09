@@ -1090,6 +1090,11 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
 
     func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
         if gestureRecognizer === controlsPan {
+            let location = controlsPan.location(in: playerNavigationController.view)
+            guard !hasZoomedPlayerContent(at: location) else {
+                return false
+            }
+
             let velocity = controlsPan.velocity(in: view)
             return velocity.y < -MobilePlayerGestureTuning.controlsRevealVelocity
                 && abs(velocity.y) > abs(velocity.x) * MobilePlayerGestureTuning.controlsRevealVerticalIntentRatio
@@ -1114,20 +1119,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
     }
 
     private func hasZoomedPlayerContent(at location: CGPoint) -> Bool {
-        playerNavigationController.view
-            .allSubviews(ofType: UIScrollView.self)
-            .contains { scrollView in
-                guard scrollView.isUserInteractionEnabled,
-                      !scrollView.isHidden,
-                      scrollView.alpha > 0.01,
-                      scrollView.maximumZoomScale > scrollView.minimumZoomScale + MobilePlayerGestureTuning.playerZoomResetTolerance,
-                      scrollView.zoomScale > scrollView.minimumZoomScale + MobilePlayerGestureTuning.playerZoomResetTolerance else {
-                    return false
-                }
-
-                let locationInScrollView = playerNavigationController.view.convert(location, to: scrollView)
-                return scrollView.bounds.contains(locationInScrollView)
-            }
+        chrome.isPlayerContentZoomed && playerNavigationController.view.bounds.contains(location)
     }
 
     private func hasPlayerDismissIntent(location: CGPoint, velocity: CGPoint) -> Bool {

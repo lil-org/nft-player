@@ -22,6 +22,7 @@ private let playerNavigationArrowSpacing: CGFloat = 4
 final class MobilePlayerChromeController: ObservableObject {
     @Published private(set) var showControls = true
     @Published private(set) var isStatusBarRevealedByDismiss = false
+    private(set) var isPlayerContentZoomed = false
 
     func toggleControls() {
         setControlsVisible(!showControls)
@@ -45,6 +46,16 @@ final class MobilePlayerChromeController: ObservableObject {
 
         guard isStatusBarRevealedByDismiss != isRevealed else { return }
         isStatusBarRevealedByDismiss = isRevealed
+    }
+
+    func setPlayerContentZoomed(_ isZoomed: Bool) {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { self.setPlayerContentZoomed(isZoomed) }
+            return
+        }
+
+        guard isPlayerContentZoomed != isZoomed else { return }
+        isPlayerContentZoomed = isZoomed
     }
 }
 
@@ -92,6 +103,9 @@ struct MobilePlayerView: View {
                     },
                     onToggleChrome: {
                         chrome.toggleControls()
+                    },
+                    onZoomStateChange: { isZoomed in
+                        chrome.setPlayerContentZoomed(isZoomed)
                     }
                 )
                 .edgesIgnoringSafeArea(.all)
