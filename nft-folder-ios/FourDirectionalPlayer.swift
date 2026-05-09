@@ -154,17 +154,20 @@ struct FourDirectionalPlayerContainerView: UIViewControllerRepresentable {
     private let onCoordinateUpdate: ((PlayerCoordinate) -> Void)
     private let onPaginationAttempt: (() -> Void)
     private let onUnavailableNavigation: (() -> Void)
+    private let onToggleChrome: (() -> Void)
 
     init(
         initialConfig: MobilePlayerConfig,
         onCoordinateUpdate: @escaping (PlayerCoordinate) -> Void,
         onPaginationAttempt: @escaping () -> Void,
-        onUnavailableNavigation: @escaping () -> Void
+        onUnavailableNavigation: @escaping () -> Void,
+        onToggleChrome: @escaping () -> Void
     ) {
         self.initialConfig = initialConfig
         self.onCoordinateUpdate = onCoordinateUpdate
         self.onPaginationAttempt = onPaginationAttempt
         self.onUnavailableNavigation = onUnavailableNavigation
+        self.onToggleChrome = onToggleChrome
     }
 
     func makeUIViewController(context: Context) -> FourDirectionalPlayerContainer {
@@ -172,7 +175,8 @@ struct FourDirectionalPlayerContainerView: UIViewControllerRepresentable {
             initialConfig: initialConfig,
             onCoordinateUpdate: onCoordinateUpdate,
             onPaginationAttempt: onPaginationAttempt,
-            onUnavailableNavigation: onUnavailableNavigation
+            onUnavailableNavigation: onUnavailableNavigation,
+            onToggleChrome: onToggleChrome
         )
     }
 
@@ -185,8 +189,26 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
     private let onCoordinateUpdate: ((PlayerCoordinate) -> Void)
     private let onPaginationAttempt: (() -> Void)
     private let onUnavailableNavigation: (() -> Void)
+    private let onToggleChrome: (() -> Void)
 
     private lazy var pagingVC = HorizontalPageViewController(fourDirectionalPlayerDataSource: self)
+    private lazy var singleTapRecognizer: UITapGestureRecognizer = {
+        let gesture = UITapGestureRecognizer(target: self, action: #selector(handleSingleTap(_:)))
+        gesture.numberOfTapsRequired = 1
+        gesture.cancelsTouchesInView = false
+        return gesture
+    }()
+    private lazy var doubleTapRecognizer: UITapGestureRecognizer = {
+        let gesture = UITapGestureRecognizer(target: self, action: #selector(handleDoubleTap(_:)))
+        gesture.numberOfTapsRequired = 2
+        gesture.cancelsTouchesInView = false
+        return gesture
+    }()
+    private lazy var longPressRecognizer: UILongPressGestureRecognizer = {
+        let gesture = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPress(_:)))
+        gesture.cancelsTouchesInView = false
+        return gesture
+    }()
     private var renderedCoordinates = Set<PlayerCoordinate>()
     private var displayedCoordinate: PlayerCoordinate?
 
@@ -194,12 +216,14 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
         initialConfig: MobilePlayerConfig,
         onCoordinateUpdate: @escaping (PlayerCoordinate) -> Void,
         onPaginationAttempt: @escaping () -> Void,
-        onUnavailableNavigation: @escaping () -> Void
+        onUnavailableNavigation: @escaping () -> Void,
+        onToggleChrome: @escaping () -> Void
     ) {
         self.initialConfig = initialConfig
         self.onCoordinateUpdate = onCoordinateUpdate
         self.onPaginationAttempt = onPaginationAttempt
         self.onUnavailableNavigation = onUnavailableNavigation
+        self.onToggleChrome = onToggleChrome
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -221,6 +245,7 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
             pagingVC.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             pagingVC.view.trailingAnchor.constraint(equalTo: view.trailingAnchor)
         ])
+        installTapGestures()
         UIApplication.shared.isIdleTimerDisabled = true
     }
 
@@ -234,6 +259,31 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
 
     func navigate(_ direction: PlaybackNavigationDirection) {
         pagingVC.navigate(direction)
+    }
+
+    private func installTapGestures() {
+        singleTapRecognizer.require(toFail: doubleTapRecognizer)
+        view.addGestureRecognizer(singleTapRecognizer)
+        view.addGestureRecognizer(doubleTapRecognizer)
+        view.addGestureRecognizer(longPressRecognizer)
+    }
+
+    @objc private func handleSingleTap(_ gesture: UITapGestureRecognizer) {
+        guard gesture.state == .ended else { return }
+
+        onToggleChrome()
+    }
+
+    @objc private func handleDoubleTap(_ gesture: UITapGestureRecognizer) {
+        guard gesture.state == .ended else { return }
+
+        pagingVC.toggleZoom(at: gesture.location(in: view), in: view)
+    }
+
+    @objc private func handleLongPress(_ gesture: UILongPressGestureRecognizer) {
+        guard gesture.state == .began else { return }
+
+        onToggleChrome()
     }
 
     fileprivate func getToken(x: Int, y: Int) -> GeneratedToken {
@@ -330,7 +380,7 @@ private protocol FourDirectionalPlayerDataSource: AnyObject {
 
 }
 
-private class SpecificPageViewController: UIViewController {
+private class SpecificPageViewController: UIViewController, UIScrollViewDelegate {
 
     private struct AnimatedRenderContext: Equatable {
         let descriptor: SolanaImageDescriptor
@@ -339,7 +389,9 @@ private class SpecificPageViewController: UIViewController {
     }
 
     private weak var fourDirectionalPlayerDataSource: FourDirectionalPlayerDataSource?
-    private lazy var mediaRenderer = FullscreenTokenMediaRenderer(containerView: view)
+    private let zoomScrollView = UIScrollView()
+    private let mediaContentView = UIView()
+    private lazy var mediaRenderer = FullscreenTokenMediaRenderer(containerView: mediaContentView)
 
     private(set) var horizontalIndex: Int
     private(set) var verticalIndex: Int
@@ -350,7 +402,12 @@ private class SpecificPageViewController: UIViewController {
     private var renderedAnimatedNextImageURL: URL?
     private var solanaImageCacheObserver: NSObjectProtocol?
     private var willOrDidAppear = false
+    private var isZoomInteractionActive = false
+    var onZoomStateChange: (() -> Void)?
     var preferredPrefetchDirection: SolanaImageCache.PrefetchDirection = .forward
+    var isZoomed: Bool {
+        zoomScrollView.zoomScale > zoomScrollView.minimumZoomScale + MobilePlayerGestureTuning.playerZoomResetTolerance
+    }
 
     init(horizontalIndex: Int, verticalIndex: Int, fourDirectionalPlayerDataSource: FourDirectionalPlayerDataSource?) {
         self.fourDirectionalPlayerDataSource = fourDirectionalPlayerDataSource
@@ -368,6 +425,11 @@ private class SpecificPageViewController: UIViewController {
         removeSolanaImageCacheObserver()
     }
 
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        configureZoomScrollView()
+    }
+
     override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
         cleanupDisplayedContent()
@@ -380,6 +442,7 @@ private class SpecificPageViewController: UIViewController {
     }
 
     private func cleanupDisplayedContent() {
+        resetZoom(animated: false)
         clearAnimatedRenderContext()
         mediaRenderer.clearContent()
         if let renderedCoordinate = renderedCoordinate {
@@ -398,6 +461,110 @@ private class SpecificPageViewController: UIViewController {
         guard self.verticalIndex != verticalIndex else { return }
         cleanupDisplayedContent()
         self.verticalIndex = verticalIndex
+    }
+
+    func toggleZoom(at location: CGPoint, in coordinateView: UIView) {
+        guard isViewLoaded else { return }
+        guard zoomScrollView.bounds.width > 0, zoomScrollView.bounds.height > 0 else { return }
+
+        if isZoomed {
+            resetZoom(animated: true)
+            return
+        }
+
+        let locationInContent = coordinateView.convert(location, to: mediaContentView)
+        let targetScale = min(
+            MobilePlayerGestureTuning.playerDoubleTapZoomScale,
+            zoomScrollView.maximumZoomScale
+        )
+        let zoomSize = CGSize(
+            width: zoomScrollView.bounds.width / targetScale,
+            height: zoomScrollView.bounds.height / targetScale
+        )
+        let zoomRect = CGRect(
+            x: locationInContent.x - zoomSize.width / 2,
+            y: locationInContent.y - zoomSize.height / 2,
+            width: zoomSize.width,
+            height: zoomSize.height
+        )
+
+        zoomScrollView.zoom(to: zoomRect, animated: true)
+    }
+
+    func resetZoom(animated: Bool) {
+        guard isViewLoaded else { return }
+        guard zoomScrollView.zoomScale != zoomScrollView.minimumZoomScale else {
+            updateZoomInteraction()
+            return
+        }
+
+        zoomScrollView.setZoomScale(zoomScrollView.minimumZoomScale, animated: animated)
+        if !animated {
+            updateZoomInteraction()
+        }
+    }
+
+    private func configureZoomScrollView() {
+        view.backgroundColor = .black
+        mediaContentView.backgroundColor = .black
+
+        zoomScrollView.backgroundColor = .black
+        zoomScrollView.delegate = self
+        zoomScrollView.minimumZoomScale = 1
+        zoomScrollView.maximumZoomScale = MobilePlayerGestureTuning.playerMaximumZoomScale
+        zoomScrollView.bouncesZoom = true
+        zoomScrollView.showsHorizontalScrollIndicator = false
+        zoomScrollView.showsVerticalScrollIndicator = false
+        zoomScrollView.contentInsetAdjustmentBehavior = .never
+        zoomScrollView.hideAutomaticScrollEdgeEffects()
+
+        zoomScrollView.translatesAutoresizingMaskIntoConstraints = false
+        mediaContentView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(zoomScrollView)
+        zoomScrollView.addSubview(mediaContentView)
+
+        NSLayoutConstraint.activate([
+            zoomScrollView.topAnchor.constraint(equalTo: view.topAnchor),
+            zoomScrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            zoomScrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            zoomScrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+
+            mediaContentView.topAnchor.constraint(equalTo: zoomScrollView.contentLayoutGuide.topAnchor),
+            mediaContentView.bottomAnchor.constraint(equalTo: zoomScrollView.contentLayoutGuide.bottomAnchor),
+            mediaContentView.leadingAnchor.constraint(equalTo: zoomScrollView.contentLayoutGuide.leadingAnchor),
+            mediaContentView.trailingAnchor.constraint(equalTo: zoomScrollView.contentLayoutGuide.trailingAnchor),
+            mediaContentView.widthAnchor.constraint(equalTo: zoomScrollView.frameLayoutGuide.widthAnchor),
+            mediaContentView.heightAnchor.constraint(equalTo: zoomScrollView.frameLayoutGuide.heightAnchor)
+        ])
+
+        updateZoomInteraction()
+    }
+
+    private func updateZoomInteraction() {
+        let shouldActivateZoomInteraction = isZoomed
+        if zoomScrollView.panGestureRecognizer.isEnabled != shouldActivateZoomInteraction {
+            zoomScrollView.panGestureRecognizer.isEnabled = shouldActivateZoomInteraction
+        }
+        guard isZoomInteractionActive != shouldActivateZoomInteraction else { return }
+
+        isZoomInteractionActive = shouldActivateZoomInteraction
+        onZoomStateChange?()
+    }
+
+    func viewForZooming(in scrollView: UIScrollView) -> UIView? {
+        mediaContentView
+    }
+
+    func scrollViewDidZoom(_ scrollView: UIScrollView) {
+        updateZoomInteraction()
+    }
+
+    func scrollViewDidEndZooming(_ scrollView: UIScrollView, with view: UIView?, atScale scale: CGFloat) {
+        if scale <= scrollView.minimumZoomScale + MobilePlayerGestureTuning.playerZoomResetTolerance {
+            resetZoom(animated: true)
+        } else {
+            updateZoomInteraction()
+        }
     }
 
     func renderCurrentItem() {
@@ -572,6 +739,7 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
     private var configuredPagingPanGestures = Set<ObjectIdentifier>()
     private var didNotifyPaginationAttemptDuringCurrentPan = false
     private var didNotifyUnavailableNavigationDuringCurrentPan = false
+    private var isPagingScrollEnabled = true
     private weak var fourDirectionalPlayerDataSource: FourDirectionalPlayerDataSource?
 
     init(fourDirectionalPlayerDataSource: FourDirectionalPlayerDataSource) {
@@ -584,6 +752,11 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
             navigationOrientation: .horizontal,
             options: [.interPageSpacing: MobilePlayerGestureTuning.playerPageGap]
         )
+        [pageA, pageB, pageC].forEach { page in
+            page.onZoomStateChange = { [weak self] in
+                self?.updatePagingScrollEnabled()
+            }
+        }
     }
 
     required init?(coder: NSCoder) {
@@ -607,6 +780,27 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
         view.subviews.compactMap { $0 as? UIScrollView }
     }
 
+    private var currentPage: SpecificPageViewController? {
+        viewControllers?.first as? SpecificPageViewController
+    }
+
+    func toggleZoom(at location: CGPoint, in coordinateView: UIView) {
+        currentPage?.toggleZoom(at: location, in: coordinateView)
+        updatePagingScrollEnabled()
+    }
+
+    private func resetCurrentZoom(animated: Bool) {
+        currentPage?.resetZoom(animated: animated)
+        updatePagingScrollEnabled()
+    }
+
+    private func resetAllZoom(animated: Bool) {
+        [pageA, pageB, pageC].forEach { page in
+            page.resetZoom(animated: animated)
+        }
+        updatePagingScrollEnabled()
+    }
+
     private func configurePagingScrollViews() {
         pagingScrollViews.forEach { scrollView in
             scrollView.hideAutomaticScrollEdgeEffects()
@@ -615,6 +809,19 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
             if !configuredPagingPanGestures.contains(panGestureId) {
                 panGesture.addTarget(self, action: #selector(handlePagingPan(_:)))
                 configuredPagingPanGestures.insert(panGestureId)
+            }
+        }
+        updatePagingScrollEnabled(force: true)
+    }
+
+    private func updatePagingScrollEnabled(force: Bool = false) {
+        let shouldEnablePaging = currentPage?.isZoomed != true
+        guard force || isPagingScrollEnabled != shouldEnablePaging else { return }
+
+        isPagingScrollEnabled = shouldEnablePaging
+        pagingScrollViews.forEach { scrollView in
+            if scrollView.isScrollEnabled != shouldEnablePaging {
+                scrollView.isScrollEnabled = shouldEnablePaging
             }
         }
     }
@@ -698,6 +905,7 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
     }
 
     private func jumpToCoordinate(horizontalIndex: Int, verticalIndex: Int) {
+        resetAllZoom(animated: false)
         pageA.preferredPrefetchDirection = .forward
         pageB.preferredPrefetchDirection = .forward
         pageC.preferredPrefetchDirection = .forward
@@ -717,6 +925,7 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
     private func didSettleOnCurrentPage() {
         guard let currentPage = viewControllers?.first as? SpecificPageViewController else { return }
         update(currentHorizontalIndex: currentPage.horizontalIndex)
+        updatePagingScrollEnabled()
     }
 
     func pageViewController(_ pvc: UIPageViewController, viewControllerBefore vc: UIViewController) -> UIViewController? {
@@ -800,6 +1009,7 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
             return
         }
 
+        resetCurrentZoom(animated: false)
         fourDirectionalPlayerDataSource?.didAttemptPagination()
 
         if let destinationPage = targetViewController as? SpecificPageViewController {

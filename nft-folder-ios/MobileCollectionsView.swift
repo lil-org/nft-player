@@ -880,10 +880,12 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
 
         dismissPan.delegate = self
         dismissPan.cancelsTouchesInView = false
+        dismissPan.maximumNumberOfTouches = 1
         view.addGestureRecognizer(dismissPan)
 
         controlsPan.delegate = self
         controlsPan.cancelsTouchesInView = false
+        controlsPan.maximumNumberOfTouches = 1
         view.addGestureRecognizer(controlsPan)
     }
 
@@ -1103,8 +1105,29 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         let location = dismissPan.location(in: playerNavigationController.view)
         let velocity = dismissPan.velocity(in: view)
 
+        guard !hasZoomedPlayerContent(at: location) else {
+            return false
+        }
+
         return hasPlayerDismissIntent(location: location, velocity: velocity)
             || (chrome.showControls && hasControlsHideIntent(location: location, velocity: velocity))
+    }
+
+    private func hasZoomedPlayerContent(at location: CGPoint) -> Bool {
+        playerNavigationController.view
+            .allSubviews(ofType: UIScrollView.self)
+            .contains { scrollView in
+                guard scrollView.isUserInteractionEnabled,
+                      !scrollView.isHidden,
+                      scrollView.alpha > 0.01,
+                      scrollView.maximumZoomScale > scrollView.minimumZoomScale + MobilePlayerGestureTuning.playerZoomResetTolerance,
+                      scrollView.zoomScale > scrollView.minimumZoomScale + MobilePlayerGestureTuning.playerZoomResetTolerance else {
+                    return false
+                }
+
+                let locationInScrollView = playerNavigationController.view.convert(location, to: scrollView)
+                return scrollView.bounds.contains(locationInScrollView)
+            }
     }
 
     private func hasPlayerDismissIntent(location: CGPoint, velocity: CGPoint) -> Bool {

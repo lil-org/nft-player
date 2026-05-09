@@ -49,6 +49,9 @@ enum MobilePlayerGestureTuning {
     static let playerPageGap: CGFloat = 23
     static let pageBoundaryRevealTranslation: CGFloat = 18
     static let pageBoundaryRevealHorizontalIntentRatio: CGFloat = 1.15
+    static let playerMaximumZoomScale: CGFloat = 4
+    static let playerDoubleTapZoomScale: CGFloat = 2.5
+    static let playerZoomResetTolerance: CGFloat = 0.01
 
 }
 

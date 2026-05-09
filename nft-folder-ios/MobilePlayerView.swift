@@ -89,19 +89,13 @@ struct MobilePlayerView: View {
                     onPaginationAttempt: {},
                     onUnavailableNavigation: {
                         chrome.setControlsVisible(true)
+                    },
+                    onToggleChrome: {
+                        chrome.toggleControls()
                     }
                 )
                 .edgesIgnoringSafeArea(.all)
                 .contentShape(Rectangle())
-                .simultaneousGesture(
-                    TapGesture()
-                        .onEnded {
-                            chrome.toggleControls()
-                        }
-                )
-                .onLongPressGesture {
-                    chrome.toggleControls()
-                }
 
                 VStack {
                     Spacer()
