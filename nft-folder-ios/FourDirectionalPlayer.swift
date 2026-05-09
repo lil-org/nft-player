@@ -867,19 +867,17 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
                 fallbackHTML: fallbackHTML
             )
         )
-        renderAvailableAnimatedLocalContent(allowFallback: true)
+        renderAvailableAnimatedLocalContent()
     }
 
-    private func renderAvailableAnimatedLocalContent(allowFallback: Bool) {
+    private func renderAvailableAnimatedLocalContent() {
         guard let context = animatedRenderContext else { return }
 
         let imageCache = SolanaImageCache.shared
         guard let localFileURL = imageCache.localFileURL(for: context.descriptor) else {
             renderedAnimatedImageURL = nil
             renderedAnimatedNextImageURL = nil
-            if allowFallback {
-                renderAnimatedFallbackWebContent(context.fallbackHTML)
-            }
+            mediaRenderer.clearContent()
             return
         }
 
@@ -957,7 +955,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            self?.renderAvailableAnimatedLocalContent(allowFallback: false)
+            self?.renderAvailableAnimatedLocalContent()
         }
     }
 
