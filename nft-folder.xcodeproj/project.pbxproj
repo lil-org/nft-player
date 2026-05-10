@@ -124,7 +124,6 @@
 		2C6A50C32DB17A6C002D4143 /* AirPlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C6A50C22DB17A68002D4143 /* AirPlay.swift */; };
 		2C7134D62D30460B001E33DC /* MobilePlaybackController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C7134D52D304609001E33DC /* MobilePlaybackController.swift */; };
 		2CFA90012EB0000000000001 /* MobileCollectionCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CFA90002EB0000000000001 /* MobileCollectionCatalog.swift */; };
-		2CFA90032EB0000000000001 /* SolanaCollections.bundle in Resources */ = {isa = PBXBuildFile; fileRef = 2CFA90022EB0000000000001 /* SolanaCollections.bundle */; };
 		2C85F3A22FA3469B0065AE2B /* Suggested.bundle in Resources */ = {isa = PBXBuildFile; fileRef = 2C09BAE32C308145009BA300 /* Suggested.bundle */; };
 		2C85F3A32FA3470D0065AE2B /* p5js100.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CEF35B42C413DA000388574 /* p5js100.js */; };
 		2C85F3A42FA3470D0065AE2B /* paper.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CEF35B02C413D9F00388574 /* paper.js */; };
@@ -349,7 +348,6 @@
 		2CF08AA32D2A937400D82ACA /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		2CF08AA42D2A937400D82ACA /* MobileCollectionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileCollectionsView.swift; sourceTree = "<group>"; };
 		2CFA90002EB0000000000001 /* MobileCollectionCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileCollectionCatalog.swift; sourceTree = "<group>"; };
-		2CFA90022EB0000000000001 /* SolanaCollections.bundle */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.plug-in"; path = SolanaCollections.bundle; sourceTree = "<group>"; };
 		2CF08AA52D2A937400D82ACA /* MobileHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileHelpers.swift; sourceTree = "<group>"; };
 		2CF08AA62D2A937400D82ACA /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		2CF08AA72D2A937400D82ACA /* nft_folder_iosApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = nft_folder_iosApp.swift; sourceTree = "<group>"; };
@@ -687,7 +685,6 @@
 				2CF08AA52D2A937400D82ACA /* MobileHelpers.swift */,
 				2CF08AA72D2A937400D82ACA /* nft_folder_iosApp.swift */,
 				2CF08AA32D2A937400D82ACA /* Assets.xcassets */,
-				2CFA90022EB0000000000001 /* SolanaCollections.bundle */,
 				2CF08AA62D2A937400D82ACA /* Info.plist */,
 			);
 			path = "nft-folder-ios";
@@ -900,7 +897,6 @@
 				2C0804202D2991F200CA9AB2 /* twemoji.js in Resources */,
 				2C460EED2D2990EA0083124E /* p5js100.js in Resources */,
 				2C460EDF2D2987000083124E /* Suggested.bundle in Resources */,
-				2CFA90032EB0000000000001 /* SolanaCollections.bundle in Resources */,
 				2CF08AAD2D2A937400D82ACA /* Assets.xcassets in Resources */,
 				2C92642D2E11D3D300FBF476 /* liquid_glass_icon_wip.icon in Resources */,
 				2C460EE02D2987080083124E /* Covers.xcassets in Resources */,

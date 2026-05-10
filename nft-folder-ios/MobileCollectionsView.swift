@@ -133,7 +133,6 @@ struct MobileCollectionsView: View {
         }
         .persistentSystemOverlays(.hidden)
         .onAppear {
-            CollectionCoverImageCache.prepareForSmoothScrolling(items: collectionItems)
             refreshViewingProgress()
             schedulePlayerPrewarm()
         }
@@ -542,21 +541,8 @@ private final class CollectionGridCell: UICollectionViewCell {
     func configure(item: MobileCollectionItem, progressPercent: Int?, hasViewedToEnd: Bool) {
         let shouldUpdateCover = representedCoverAssetName != item.coverAssetName || imageView.image == nil
         representedCoverAssetName = item.coverAssetName
-        if item.isSolana {
-            if shouldUpdateCover {
-                imageView.image = CollectionCoverImageCache.cachedImage(named: item.coverAssetName)
-            }
-            if imageView.image == nil {
-                CollectionCoverImageCache.image(named: item.coverAssetName) { [weak self] assetName, image in
-                    guard self?.representedCoverAssetName == assetName,
-                          let image else { return }
-                    self?.imageView.image = image
-                }
-            }
-        } else {
-            if shouldUpdateCover {
-                imageView.image = UIImage(named: item.coverAssetName)
-            }
+        if shouldUpdateCover {
+            imageView.image = UIImage(named: item.coverAssetName)
         }
         titleLabel.text = item.name
         showsCompletedBadge = hasViewedToEnd
@@ -614,72 +600,6 @@ private final class CollectionGridCell: UICollectionViewCell {
                 )
                 progressLabel.layer.cornerRadius = 3
             }
-        }
-    }
-}
-
-private enum CollectionCoverImageCache {
-    private static let cache = NSCache<NSString, UIImage>()
-    private static let queue = DispatchQueue(label: "org.lil.nft-folder.collection-cover-image-cache", qos: .utility)
-    private static let lock = NSLock()
-    private static var preparedImages = [String: UIImage]()
-    private static var pendingCompletions = [String: [(String, UIImage?) -> Void]]()
-
-    static func prepareForSmoothScrolling(items: [MobileCollectionItem]) {
-        items
-            .filter(\.isSolana)
-            .map(\.coverAssetName)
-            .forEach { assetName in
-                image(named: assetName) { _, _ in }
-            }
-    }
-
-    static func cachedImage(named assetName: String) -> UIImage? {
-        if let preparedImage = lock.withLock({ preparedImages[assetName] }) {
-            return preparedImage
-        }
-        return cache.object(forKey: assetName as NSString)
-    }
-
-    static func image(named assetName: String, completion: @escaping (String, UIImage?) -> Void) {
-        if let image = cachedImage(named: assetName) {
-            DispatchQueue.main.async {
-                completion(assetName, image)
-            }
-            return
-        }
-
-        let shouldStartLoad = lock.withLock {
-            if pendingCompletions[assetName] != nil {
-                pendingCompletions[assetName]?.append(completion)
-                return false
-            }
-            pendingCompletions[assetName] = [completion]
-            return true
-        }
-
-        guard shouldStartLoad else { return }
-
-        queue.async {
-            let image = loadDecodedImage(named: assetName)
-            let completions = lock.withLock {
-                let completions = pendingCompletions.removeValue(forKey: assetName) ?? []
-                if let image {
-                    preparedImages[assetName] = image
-                    cache.setObject(image, forKey: assetName as NSString)
-                }
-                return completions
-            }
-
-            DispatchQueue.main.async {
-                completions.forEach { $0(assetName, image) }
-            }
-        }
-    }
-
-    private static func loadDecodedImage(named assetName: String) -> UIImage? {
-        autoreleasepool {
-            UIImage(named: assetName)?.decodedForDisplay()
         }
     }
 }

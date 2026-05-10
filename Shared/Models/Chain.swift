@@ -3,7 +3,7 @@
 import Foundation
 
 enum Chain: String, Codable {
-    case ethereum, base, zora, optimism
+    case ethereum, base, zora, optimism, solana
     
     var network: Network {
         switch self {
@@ -15,6 +15,8 @@ enum Chain: String, Codable {
             return .optimism
         case .zora:
             return .zora
+        case .solana:
+            return .mainnet
         }
     }
     
@@ -26,7 +28,7 @@ enum Chain: String, Codable {
             return .zora
         case .zora:
             return .optimism
-        case .optimism:
+        case .optimism, .solana:
             return nil
         }
     }

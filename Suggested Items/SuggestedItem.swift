@@ -5,6 +5,10 @@ import Foundation
 struct SuggestedItem: Identifiable, Hashable, Codable {
     
     var id: String { address + (abId ?? collectionId ?? "") }
+
+    var isSolanaCollection: Bool {
+        chain == .solana
+    }
     
     var network: Network {
         return Network(rawValue: chainId) ?? .mainnet
@@ -16,5 +20,6 @@ struct SuggestedItem: Identifiable, Hashable, Codable {
     let chain: Chain
     let collectionId: String?
     let abId: String?
+    let tokenCount: Int?
     
 }

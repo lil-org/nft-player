@@ -6,20 +6,11 @@ struct MobileCollectionItem: Hashable, Identifiable {
     let id: String
     let name: String
     let coverAssetName: String
-    let isSolana: Bool
 
-    init(generative item: SuggestedItem) {
+    init(item: SuggestedItem) {
         id = item.id
         name = item.name
         coverAssetName = item.id
-        isSolana = false
-    }
-
-    init(solana item: SolanaCollectionIndexItem) {
-        id = item.id
-        name = item.name
-        coverAssetName = item.coverAssetName
-        isSolana = true
     }
 }
 
@@ -41,8 +32,11 @@ enum MobileCollectionCatalog {
     private static var currentPassCollectionIds = Set<String>()
 
     static let allItems: [MobileCollectionItem] = {
-        TokenGenerator.allGenerativeSuggestedItems.map(MobileCollectionItem.init(generative:))
-            + SolanaCollectionService.collections.map(MobileCollectionItem.init(solana:))
+        (
+            TokenGenerator.allGenerativeSuggestedItems
+                + SuggestedItemsService.allSolanaCollectionItems
+        )
+        .map(MobileCollectionItem.init(item:))
     }()
 
     static func nextShuffledCollectionId() -> String? {
@@ -92,8 +86,17 @@ enum MobileCollectionCatalog {
 struct SolanaCollectionIndexItem: Codable, Hashable, Identifiable {
     let id: String
     let name: String
-    let coverAssetName: String
     let tokenCount: Int
+
+    init?(item: SuggestedItem) {
+        guard item.isSolanaCollection,
+              let tokenCount = item.tokenCount else {
+            return nil
+        }
+        id = item.id
+        name = item.name
+        self.tokenCount = tokenCount
+    }
 }
 
 private enum SolanaCollectionService {
@@ -220,16 +223,13 @@ private enum SolanaCollectionService {
     }
 
     private static func loadIndex() -> SolanaCollectionsIndex {
-        guard let url = bundle.url(forResource: "index", withExtension: "json"),
-              let data = try? Data(contentsOf: url),
-              let payload = try? JSONDecoder().decode(SolanaCollectionsIndexPayload.self, from: data) else {
-            return SolanaCollectionsIndex(collections: [])
-        }
-        return SolanaCollectionsIndex(collections: payload.collections)
+        SolanaCollectionsIndex(
+            collections: SuggestedItemsService.allSolanaCollectionItems.compactMap(SolanaCollectionIndexItem.init(item:))
+        )
     }
 
     private static func loadTokenData(collectionId: String) -> SolanaCollectionTokenData? {
-        guard let url = bundle.url(forResource: collectionId, withExtension: "json", subdirectory: "Tokens"),
+        guard let url = SuggestedItemsService.bundle.url(forResource: collectionId, withExtension: "json", subdirectory: "Tokens"),
               let data = try? Data(contentsOf: url),
               let payload = try? JSONDecoder().decode(SolanaCollectionTokensPayload.self, from: data) else {
             return nil
@@ -239,18 +239,6 @@ private enum SolanaCollectionService {
             tokens: payload.items
         )
     }
-
-    private static var bundle: Bundle {
-        guard let bundleURL = Bundle.main.url(forResource: "SolanaCollections", withExtension: "bundle"),
-              let bundle = Bundle(url: bundleURL) else {
-            return .main
-        }
-        return bundle
-    }
-}
-
-private struct SolanaCollectionsIndexPayload: Codable {
-    let collections: [SolanaCollectionIndexItem]
 }
 
 private struct SolanaCollectionsIndex {

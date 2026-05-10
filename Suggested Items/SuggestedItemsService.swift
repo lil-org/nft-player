@@ -21,6 +21,11 @@ struct SuggestedItemsService {
     static var allItems = [SuggestedItem]()
     static var visibleItems = readSuggestedItems()
     static var toHide = Set(Defaults.suggestedItemsToHide)
+
+    static var allSolanaCollectionItems: [SuggestedItem] {
+        ensureItemsLoaded()
+        return allItems.filter(\.isSolanaCollection)
+    }
     
     static func doNotSuggestAnymore(item: SuggestedItem) {
         visibleItems.removeAll(where: { item.id == $0.id })
@@ -31,7 +36,10 @@ struct SuggestedItemsService {
     static func suggestedItems(address: String) -> [SuggestedItem] {
         let lowercased = address.lowercased()
         guard !address.hasSuffix(".eth") else { return [] }
-        return allItems.filter { $0.address.lowercased() == lowercased }
+        ensureItemsLoaded()
+        return allItems.filter {
+            $0.address.lowercased() == lowercased && shouldIncludeInVisibleItems($0)
+        }
     }
     
     static func bundledTokens(collectionId: String) -> BundledTokens? {
@@ -54,17 +62,30 @@ struct SuggestedItemsService {
     }
     
     private static func readSuggestedItems() -> [SuggestedItem] {
-        if allItems.isEmpty {
-            guard let url = bundle.url(forResource: "items", withExtension: "json"),
-                  let data = try? Data(contentsOf: url),
-                  let items = try? JSONDecoder().decode([SuggestedItem].self, from: data) else {
-                return []
-            }
-            allItems = items
-        }
+        ensureItemsLoaded()
         
-        let filtered = allItems.filter { !toHide.contains($0.id) }
+        let filtered = allItems.filter { item in
+            !toHide.contains(item.id) && shouldIncludeInVisibleItems(item)
+        }
         return filtered
+    }
+
+    private static func shouldIncludeInVisibleItems(_ item: SuggestedItem) -> Bool {
+#if os(iOS)
+        return true
+#else
+        return !item.isSolanaCollection
+#endif
+    }
+
+    private static func ensureItemsLoaded() {
+        guard allItems.isEmpty else { return }
+        guard let url = bundle.url(forResource: "items", withExtension: "json"),
+              let data = try? Data(contentsOf: url),
+              let items = try? JSONDecoder().decode([SuggestedItem].self, from: data) else {
+            return
+        }
+        allItems = items
     }
     
 }
