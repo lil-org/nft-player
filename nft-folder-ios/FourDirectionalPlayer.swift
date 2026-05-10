@@ -313,13 +313,16 @@ private final class PlayerEdgeTapHighlightView: UIView {
     }
 
     private func configureGradient() {
-        let edgeColor = UIColor(red: 0.34, green: 0.38, blue: 0.46, alpha: 0.62).cgColor
-        let clearColor = UIColor(red: 0.34, green: 0.38, blue: 0.46, alpha: 0).cgColor
+        let edgeColor = UIColor.black.withAlphaComponent(0.36).cgColor
+        let midColor = UIColor.black.withAlphaComponent(0.18).cgColor
+        let featherColor = UIColor.black.withAlphaComponent(0.05).cgColor
+        let clearColor = UIColor.black.withAlphaComponent(0).cgColor
         gradientLayer.startPoint = CGPoint(x: 0, y: 0.5)
         gradientLayer.endPoint = CGPoint(x: 1, y: 0.5)
         gradientLayer.colors = side == .left
-            ? [edgeColor, clearColor]
-            : [clearColor, edgeColor]
+            ? [edgeColor, midColor, featherColor, clearColor]
+            : [clearColor, featherColor, midColor, edgeColor]
+        gradientLayer.locations = [0, 0.34, 0.72, 1]
     }
 }
 
