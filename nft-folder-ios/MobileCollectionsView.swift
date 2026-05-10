@@ -259,7 +259,7 @@ private struct InfiniteCollectionsGridView: UIViewRepresentable {
         )
     }
 
-    final class Coordinator: NSObject, UICollectionViewDataSource, UICollectionViewDelegateFlowLayout {
+    final class Coordinator: NSObject, UICollectionViewDataSource, UICollectionViewDelegate, UICollectionViewDataSourcePrefetching {
         var items: [MobileCollectionItem]
         var progressByCollectionId: [String: Int]
         var viewedToEndCollectionIds: Set<String>
@@ -310,28 +310,15 @@ private struct InfiniteCollectionsGridView: UIViewRepresentable {
             gridCell.configure(
                 item: item,
                 progressPercent: progressByCollectionId[item.id],
-                hasViewedToEnd: viewedToEndCollectionIds.contains(item.id)
+                hasViewedToEnd: viewedToEndCollectionIds.contains(item.id),
+                coverSize: coverImageTargetSize(in: collectionView),
+                displayScale: displayScale(in: collectionView)
             )
             return gridCell
         }
 
         func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
             onSelect(item(for: indexPath.item))
-        }
-
-        func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {
-            let minimumItemWidth: CGFloat = UIDevice.current.userInterfaceIdiom == .pad ? 130 : 77
-            let columns = max(Int(collectionView.bounds.width / minimumItemWidth), 1)
-            let itemWidth = collectionView.bounds.width / CGFloat(columns)
-            return CGSize(width: itemWidth, height: itemWidth)
-        }
-
-        func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, minimumInteritemSpacingForSectionAt section: Int) -> CGFloat {
-            0
-        }
-
-        func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, minimumLineSpacingForSectionAt section: Int) -> CGFloat {
-            0
         }
 
         func collectionView(_ collectionView: UICollectionView, contextMenuConfigurationForItemAt indexPath: IndexPath, point: CGPoint) -> UIContextMenuConfiguration? {
@@ -373,6 +360,14 @@ private struct InfiniteCollectionsGridView: UIViewRepresentable {
             isRecentering = false
         }
 
+        func collectionView(_ collectionView: UICollectionView, prefetchItemsAt indexPaths: [IndexPath]) {
+            prefetchImages(for: indexPaths, in: collectionView)
+        }
+
+        func collectionView(_ collectionView: UICollectionView, cancelPrefetchingForItemsAt indexPaths: [IndexPath]) {
+            cancelPrefetchingImages(for: indexPaths, in: collectionView)
+        }
+
         func setInitialScrollPosition(in collectionView: UICollectionView) {
             guard !items.isEmpty,
                   let targetIndex = InfiniteCollectionsLoop.initialScrollPosition(itemCount: items.count) else {
@@ -398,13 +393,68 @@ private struct InfiniteCollectionsGridView: UIViewRepresentable {
                 gridCell.configure(
                     item: item,
                     progressPercent: progressByCollectionId[item.id],
-                    hasViewedToEnd: viewedToEndCollectionIds.contains(item.id)
+                    hasViewedToEnd: viewedToEndCollectionIds.contains(item.id),
+                    coverSize: coverImageTargetSize(in: collectionView),
+                    displayScale: displayScale(in: collectionView)
                 )
             }
         }
 
+        func prefetchImages(aroundVisibleItemsIn collectionView: UICollectionView) {
+            guard !items.isEmpty else { return }
+            let visibleItems = collectionView.indexPathsForVisibleItems.map(\.item)
+            guard let firstVisibleItem = visibleItems.min(),
+                  let lastVisibleItem = visibleItems.max() else {
+                return
+            }
+
+            let flowLayout = collectionView.collectionViewLayout as? UICollectionViewFlowLayout
+            let itemWidth = max(flowLayout?.itemSize.width ?? collectionView.bounds.width, 1)
+            let visibleColumnCount = max(Int(collectionView.bounds.width / itemWidth), 1)
+            let prefetchDistance = visibleColumnCount * 3
+            let itemRange = max(firstVisibleItem - prefetchDistance, 0)...min(lastVisibleItem + prefetchDistance, collectionView.numberOfItems(inSection: 0) - 1)
+            prefetchImages(
+                for: itemRange.map { IndexPath(item: $0, section: 0) },
+                in: collectionView
+            )
+        }
+
         private func item(for virtualIndex: Int) -> MobileCollectionItem {
             items[InfiniteCollectionsLoop.sourceIndex(for: virtualIndex, itemCount: items.count)]
+        }
+
+        private func prefetchImages(for indexPaths: [IndexPath], in collectionView: UICollectionView) {
+            guard !items.isEmpty else { return }
+            let assetNames = Set(indexPaths.map { item(for: $0.item).coverAssetName })
+            MobileCollectionCoverImageCache.shared.prefetch(
+                assetNames: Array(assetNames),
+                targetSize: coverImageTargetSize(in: collectionView),
+                displayScale: displayScale(in: collectionView)
+            )
+        }
+
+        private func cancelPrefetchingImages(for indexPaths: [IndexPath], in collectionView: UICollectionView) {
+            guard !items.isEmpty else { return }
+            let assetNames = Set(indexPaths.map { item(for: $0.item).coverAssetName })
+            MobileCollectionCoverImageCache.shared.cancelPrefetch(
+                assetNames: Array(assetNames),
+                targetSize: coverImageTargetSize(in: collectionView),
+                displayScale: displayScale(in: collectionView)
+            )
+        }
+
+        private func coverImageTargetSize(in collectionView: UICollectionView) -> CGSize {
+            if let itemSize = (collectionView.collectionViewLayout as? UICollectionViewFlowLayout)?.itemSize,
+               itemSize.width > 0,
+               itemSize.height > 0 {
+                return itemSize
+            }
+            return InfiniteCollectionsGridContainerView.itemSize(forWidth: collectionView.bounds.width)
+        }
+
+        private func displayScale(in collectionView: UICollectionView) -> CGFloat {
+            let scale = collectionView.traitCollection.displayScale
+            return scale > 0 ? scale : UIScreen.main.scale
         }
     }
 }
@@ -421,6 +471,7 @@ private final class InfiniteCollectionsGridContainerView: UIView {
         layout.minimumInteritemSpacing = 0
         layout.minimumLineSpacing = 0
         layout.sectionInset = .zero
+        layout.estimatedItemSize = .zero
 
         collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
         super.init(frame: frame)
@@ -431,6 +482,7 @@ private final class InfiniteCollectionsGridContainerView: UIView {
         collectionView.showsHorizontalScrollIndicator = false
         collectionView.contentInsetAdjustmentBehavior = .never
         collectionView.alwaysBounceVertical = true
+        collectionView.isPrefetchingEnabled = true
         collectionView.register(CollectionGridCell.self, forCellWithReuseIdentifier: CollectionGridCell.reuseIdentifier)
         addSubview(collectionView)
     }
@@ -448,6 +500,7 @@ private final class InfiniteCollectionsGridContainerView: UIView {
         self.coordinator = coordinator
         collectionView.dataSource = coordinator
         collectionView.delegate = coordinator
+        collectionView.prefetchDataSource = coordinator
 
         switch coordinator.update(
             items: items,
@@ -472,7 +525,10 @@ private final class InfiniteCollectionsGridContainerView: UIView {
         collectionView.frame = bounds
         if previousBoundsSize != bounds.size {
             previousBoundsSize = bounds.size
-            collectionView.collectionViewLayout.invalidateLayout()
+            if updateGridLayoutItemSize() {
+                coordinator?.updateVisibleProgressCells(in: collectionView)
+                coordinator?.prefetchImages(aroundVisibleItemsIn: collectionView)
+            }
         }
 
         guard !didSetInitialScrollPosition,
@@ -484,6 +540,200 @@ private final class InfiniteCollectionsGridContainerView: UIView {
 
         coordinator?.setInitialScrollPosition(in: collectionView)
         didSetInitialScrollPosition = true
+        coordinator?.prefetchImages(aroundVisibleItemsIn: collectionView)
+    }
+
+    fileprivate static func itemSize(forWidth width: CGFloat) -> CGSize {
+        let minimumItemWidth: CGFloat = UIDevice.current.userInterfaceIdiom == .pad ? 130 : 77
+        let columns = max(Int(width / minimumItemWidth), 1)
+        let itemWidth = width / CGFloat(columns)
+        return CGSize(width: itemWidth, height: itemWidth)
+    }
+
+    private func updateGridLayoutItemSize() -> Bool {
+        guard bounds.width > 0,
+              let flowLayout = collectionView.collectionViewLayout as? UICollectionViewFlowLayout else {
+            return false
+        }
+
+        let itemSize = Self.itemSize(forWidth: bounds.width)
+        guard flowLayout.itemSize != itemSize else { return false }
+        flowLayout.itemSize = itemSize
+        flowLayout.invalidateLayout()
+        return true
+    }
+}
+
+private final class MobileCollectionCoverImageCache {
+    static let shared = MobileCollectionCoverImageCache()
+
+    private let visibleQueue = DispatchQueue(label: "org.lil.nft-folder.mobile-collection-cover-cache.visible", qos: .userInitiated)
+    private let prefetchQueue = DispatchQueue(label: "org.lil.nft-folder.mobile-collection-cover-cache.prefetch", qos: .utility)
+    private let lock = NSLock()
+    private let cache = NSCache<NSString, UIImage>()
+    private var pendingPrefetchKeys = Set<String>()
+    private var cancelledPrefetchKeys = Set<String>()
+
+    private init() {
+        cache.countLimit = 320
+        cache.totalCostLimit = 64 * 1024 * 1024
+    }
+
+    func cachedImage(assetName: String, targetSize: CGSize, displayScale: CGFloat) -> UIImage? {
+        let targetPixelSide = targetPixelSide(for: targetSize, displayScale: displayScale)
+        return cache.object(forKey: cacheKey(assetName: assetName, targetPixelSide: targetPixelSide) as NSString)
+    }
+
+    func loadImage(
+        assetName: String,
+        targetSize: CGSize,
+        displayScale: CGFloat,
+        completion: @escaping (UIImage?) -> Void
+    ) {
+        let targetPixelSide = targetPixelSide(for: targetSize, displayScale: displayScale)
+        let key = cacheKey(assetName: assetName, targetPixelSide: targetPixelSide)
+        if let image = cache.object(forKey: key as NSString) {
+            completion(image)
+            return
+        }
+
+        visibleQueue.async { [cache] in
+            if let cachedImage = cache.object(forKey: key as NSString) {
+                DispatchQueue.main.async {
+                    completion(cachedImage)
+                }
+                return
+            }
+
+            let image = Self.preparedImage(
+                assetName: assetName,
+                targetPixelSide: targetPixelSide,
+                displayScale: displayScale
+            )
+            if let image {
+                cache.setObject(image, forKey: key as NSString, cost: image.memoryCost)
+            }
+
+            DispatchQueue.main.async {
+                completion(image)
+            }
+        }
+    }
+
+    func prefetch(assetNames: [String], targetSize: CGSize, displayScale: CGFloat) {
+        assetNames.forEach { assetName in
+            let targetPixelSide = targetPixelSide(for: targetSize, displayScale: displayScale)
+            let key = cacheKey(assetName: assetName, targetPixelSide: targetPixelSide)
+            guard cache.object(forKey: key as NSString) == nil else { return }
+            guard shouldSchedulePrefetch(forKey: key) else { return }
+
+            prefetchQueue.async { [cache] in
+                guard self.shouldRunPrefetch(forKey: key) else { return }
+                guard cache.object(forKey: key as NSString) == nil else {
+                    self.finishPrefetch(forKey: key)
+                    return
+                }
+
+                let image = Self.preparedImage(
+                    assetName: assetName,
+                    targetPixelSide: targetPixelSide,
+                    displayScale: displayScale
+                )
+                if let image {
+                    cache.setObject(image, forKey: key as NSString, cost: image.memoryCost)
+                }
+                self.finishPrefetch(forKey: key)
+            }
+        }
+    }
+
+    func cancelPrefetch(assetNames: [String], targetSize: CGSize, displayScale: CGFloat) {
+        let targetPixelSide = targetPixelSide(for: targetSize, displayScale: displayScale)
+        let keys = assetNames.map { assetName in
+            cacheKey(assetName: assetName, targetPixelSide: targetPixelSide)
+        }
+        lock.withLock {
+            keys.forEach { key in
+                guard pendingPrefetchKeys.contains(key) else { return }
+                cancelledPrefetchKeys.insert(key)
+            }
+        }
+    }
+
+    private func targetPixelSide(for targetSize: CGSize, displayScale: CGFloat) -> Int {
+        let pointSide = max(max(targetSize.width, targetSize.height), 1)
+        return max(Int(ceil(pointSide * displayScale)), 1)
+    }
+
+    private func cacheKey(assetName: String, targetPixelSide: Int) -> String {
+        "\(assetName)-\(targetPixelSide)"
+    }
+
+    private func shouldSchedulePrefetch(forKey key: String) -> Bool {
+        lock.withLock {
+            if pendingPrefetchKeys.contains(key) {
+                cancelledPrefetchKeys.remove(key)
+                return false
+            }
+            cancelledPrefetchKeys.remove(key)
+            pendingPrefetchKeys.insert(key)
+            return true
+        }
+    }
+
+    private func shouldRunPrefetch(forKey key: String) -> Bool {
+        lock.withLock {
+            if cancelledPrefetchKeys.contains(key) {
+                pendingPrefetchKeys.remove(key)
+                cancelledPrefetchKeys.remove(key)
+                return false
+            }
+            return true
+        }
+    }
+
+    private func finishPrefetch(forKey key: String) {
+        lock.withLock {
+            pendingPrefetchKeys.remove(key)
+            cancelledPrefetchKeys.remove(key)
+        }
+    }
+
+    private static func preparedImage(assetName: String, targetPixelSide: Int, displayScale: CGFloat) -> UIImage? {
+        autoreleasepool {
+            guard let image = UIImage(named: assetName) else { return nil }
+
+            let scale = max(displayScale, 1)
+            let targetSide = CGFloat(targetPixelSide) / scale
+            let targetSize = CGSize(width: targetSide, height: targetSide)
+            let imageSize = image.size
+            guard imageSize.width > 0, imageSize.height > 0 else { return image }
+
+            let fillScale = max(targetSize.width / imageSize.width, targetSize.height / imageSize.height)
+            let scaledSize = CGSize(width: imageSize.width * fillScale, height: imageSize.height * fillScale)
+            let drawRect = CGRect(
+                x: (targetSize.width - scaledSize.width) / 2,
+                y: (targetSize.height - scaledSize.height) / 2,
+                width: scaledSize.width,
+                height: scaledSize.height
+            )
+
+            let format = UIGraphicsImageRendererFormat()
+            format.scale = scale
+            format.opaque = false
+            return UIGraphicsImageRenderer(size: targetSize, format: format).image { _ in
+                image.draw(in: drawRect)
+            }
+        }
+    }
+}
+
+private extension UIImage {
+    var memoryCost: Int {
+        guard let cgImage else {
+            return Int(size.width * scale * size.height * scale * 4)
+        }
+        return cgImage.bytesPerRow * cgImage.height
     }
 }
 
@@ -495,6 +745,9 @@ private final class CollectionGridCell: UICollectionViewCell {
     private let progressLabel = GridTitleLabel()
     private var showsCompletedBadge = false
     private var representedCoverAssetName: String?
+    private var representedCoverSize = CGSize.zero
+    private var representedProgressPercent: Int?
+    private var representedHasViewedToEnd = false
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -521,6 +774,7 @@ private final class CollectionGridCell: UICollectionViewCell {
         progressLabel.backgroundColor = UIColor.black.withAlphaComponent(0.7)
         progressLabel.layer.cornerRadius = 3
         progressLabel.clipsToBounds = true
+        progressLabel.isHidden = true
         contentView.addSubview(progressLabel)
     }
 
@@ -531,6 +785,9 @@ private final class CollectionGridCell: UICollectionViewCell {
     override func prepareForReuse() {
         super.prepareForReuse()
         representedCoverAssetName = nil
+        representedCoverSize = .zero
+        representedProgressPercent = nil
+        representedHasViewedToEnd = false
         imageView.image = nil
         titleLabel.text = nil
         progressLabel.text = nil
@@ -538,25 +795,61 @@ private final class CollectionGridCell: UICollectionViewCell {
         showsCompletedBadge = false
     }
 
-    func configure(item: MobileCollectionItem, progressPercent: Int?, hasViewedToEnd: Bool) {
-        let shouldUpdateCover = representedCoverAssetName != item.coverAssetName || imageView.image == nil
+    func configure(
+        item: MobileCollectionItem,
+        progressPercent: Int?,
+        hasViewedToEnd: Bool,
+        coverSize: CGSize,
+        displayScale: CGFloat
+    ) {
+        let coverAssetChanged = representedCoverAssetName != item.coverAssetName
+        let shouldUpdateCover = coverAssetChanged
+            || representedCoverSize != coverSize
+            || imageView.image == nil
         representedCoverAssetName = item.coverAssetName
+        representedCoverSize = coverSize
         if shouldUpdateCover {
-            imageView.image = UIImage(named: item.coverAssetName)
+            if let image = MobileCollectionCoverImageCache.shared.cachedImage(
+                assetName: item.coverAssetName,
+                targetSize: coverSize,
+                displayScale: displayScale
+            ) {
+                imageView.image = image
+            } else {
+                if coverAssetChanged || imageView.image == nil {
+                    imageView.image = nil
+                }
+                MobileCollectionCoverImageCache.shared.loadImage(
+                    assetName: item.coverAssetName,
+                    targetSize: coverSize,
+                    displayScale: displayScale
+                ) { [weak self] image in
+                    guard let self,
+                          self.representedCoverAssetName == item.coverAssetName,
+                          self.representedCoverSize == coverSize else {
+                        return
+                    }
+                    self.imageView.image = image
+                }
+            }
         }
         titleLabel.text = item.name
-        showsCompletedBadge = hasViewedToEnd
-        if hasViewedToEnd {
-            progressLabel.text = "✓"
-            progressLabel.font = .systemFont(ofSize: 9, weight: .semibold)
-            progressLabel.isHidden = false
-        } else if let progressPercent, progressPercent > 0 {
-            progressLabel.text = Strings.percent(progressPercent)
-            progressLabel.font = .systemFont(ofSize: 9, weight: .semibold)
-            progressLabel.isHidden = false
-        } else {
-            progressLabel.text = nil
-            progressLabel.isHidden = true
+        if representedProgressPercent != progressPercent || representedHasViewedToEnd != hasViewedToEnd {
+            representedProgressPercent = progressPercent
+            representedHasViewedToEnd = hasViewedToEnd
+            showsCompletedBadge = hasViewedToEnd
+            if hasViewedToEnd {
+                progressLabel.text = "✓"
+                progressLabel.font = .systemFont(ofSize: 9, weight: .semibold)
+                progressLabel.isHidden = false
+            } else if let progressPercent, progressPercent > 0 {
+                progressLabel.text = Strings.percent(progressPercent)
+                progressLabel.font = .systemFont(ofSize: 9, weight: .semibold)
+                progressLabel.isHidden = false
+            } else {
+                progressLabel.text = nil
+                progressLabel.isHidden = true
+            }
         }
         accessibilityLabel = item.name
         setNeedsLayout()
