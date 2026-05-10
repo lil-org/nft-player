@@ -399,7 +399,7 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
             self?.edgeTapSide(at: location)
         }
         gesture.canBeginEdgeTap = { [weak self] side in
-            self?.canHandleEdgeTap(on: side) == true
+            self?.canRecognizeEdgeTap(on: side) == true
         }
         gesture.onEdgePressBegan = { [weak self] side in
             self?.beginEdgeTapHighlight(on: side)
@@ -528,14 +528,18 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
         edgeTapSide(at: location) != nil
     }
 
-    private func canHandleEdgeTap(on side: PlayerEdgeTapSide) -> Bool {
-        pagingVC.canNavigateWithoutAnimation(side.navigationDirection)
+    private func canRecognizeEdgeTap(on side: PlayerEdgeTapSide) -> Bool {
+        let direction = side.navigationDirection
+        return pagingVC.canNavigateWithoutAnimation(direction)
+            || !pagingVC.hasNavigationDestination(direction)
     }
 
     private func beginEdgeTapHighlight(on side: PlayerEdgeTapSide) {
         cancelPendingEdgeTapHighlight()
         edgeTapHighlight(for: oppositeSide(of: side)).setHighlighted(false)
         edgeTapHighlight(for: side).setHighlighted(false)
+
+        guard pagingVC.canNavigateWithoutAnimation(side.navigationDirection) else { return }
 
         pendingEdgeTapHighlightSide = side
         edgeTapHighlightRequestId += 1
@@ -565,12 +569,21 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
     }
 
     private func handleEdgeTap(on side: PlayerEdgeTapSide) {
+        let direction = side.navigationDirection
+        guard pagingVC.canNavigateWithoutAnimation(direction) else {
+            endEdgeTapHighlight(on: side)
+            if !pagingVC.hasNavigationDestination(direction) {
+                onUnavailableNavigation()
+            }
+            return
+        }
+
         if cancelPendingEdgeTapHighlight(on: side) {
             flashEdgeTapHighlight(on: side)
         } else {
             endEdgeTapHighlight(on: side)
         }
-        guard pagingVC.navigateWithoutAnimation(side.navigationDirection) else { return }
+        guard pagingVC.navigateWithoutAnimation(direction) else { return }
 
         Haptic.selectionChanged()
     }
@@ -1732,6 +1745,12 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
     func canNavigateWithoutAnimation(_ direction: PlaybackNavigationDirection) -> Bool {
         guard direction == .back || direction == .forward else { return false }
         guard canStartNavigation else { return false }
+
+        return hasNavigationDestination(direction)
+    }
+
+    func hasNavigationDestination(_ direction: PlaybackNavigationDirection) -> Bool {
+        guard direction == .back || direction == .forward else { return false }
         guard let currentPage = viewControllers?.first as? SpecificPageViewController else { return false }
 
         let targetOffset = direction == .back ? -1 : 1
