@@ -169,12 +169,14 @@ private final class PlayerEdgeTapGestureRecognizer: UIGestureRecognizer {
     var edgeSideProvider: ((CGPoint) -> PlayerEdgeTapSide?)?
     var canBeginEdgeTap: ((PlayerEdgeTapSide) -> Bool)?
     var onEdgePressBegan: ((PlayerEdgeTapSide) -> Void)?
+    var onEdgePressMoved: ((PlayerEdgeTapSide) -> Void)?
     var onEdgePressCancelled: ((PlayerEdgeTapSide) -> Void)?
     var onEdgeTapRecognized: ((PlayerEdgeTapSide) -> Void)?
 
     private var trackedTouch: UITouch?
     private var initialLocation = CGPoint.zero
     private var activeSide: PlayerEdgeTapSide?
+    private var didMoveEnoughToCancelHighlight = false
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent) {
         guard trackedTouch == nil,
@@ -195,6 +197,7 @@ private final class PlayerEdgeTapGestureRecognizer: UIGestureRecognizer {
         trackedTouch = touch
         initialLocation = location
         activeSide = side
+        didMoveEnoughToCancelHighlight = false
         onEdgePressBegan?(side)
         state = .began
     }
@@ -206,6 +209,12 @@ private final class PlayerEdgeTapGestureRecognizer: UIGestureRecognizer {
         guard isTapStillValid(at: location, for: activeSide) else {
             cancelOrFailActivePress()
             return
+        }
+
+        if !didMoveEnoughToCancelHighlight,
+           hasMovedEnoughToCancelHighlight(at: location) {
+            didMoveEnoughToCancelHighlight = true
+            onEdgePressMoved?(activeSide)
         }
 
         state = .changed
@@ -235,6 +244,7 @@ private final class PlayerEdgeTapGestureRecognizer: UIGestureRecognizer {
         trackedTouch = nil
         initialLocation = .zero
         activeSide = nil
+        didMoveEnoughToCancelHighlight = false
     }
 
     private func isTapStillValid(at location: CGPoint, for side: PlayerEdgeTapSide) -> Bool {
@@ -242,6 +252,11 @@ private final class PlayerEdgeTapGestureRecognizer: UIGestureRecognizer {
 
         let distance = hypot(location.x - initialLocation.x, location.y - initialLocation.y)
         return distance <= MobilePlayerGestureTuning.edgeTapMaximumMovement
+    }
+
+    private func hasMovedEnoughToCancelHighlight(at location: CGPoint) -> Bool {
+        let distance = hypot(location.x - initialLocation.x, location.y - initialLocation.y)
+        return distance > MobilePlayerGestureTuning.edgeTapHighlightMaximumMovement
     }
 
     private func cancelOrFailActivePress() {
@@ -386,6 +401,9 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
         gesture.onEdgePressBegan = { [weak self] side in
             self?.beginEdgeTapHighlight(on: side)
         }
+        gesture.onEdgePressMoved = { [weak self] side in
+            self?.endEdgeTapHighlight(on: side)
+        }
         gesture.onEdgePressCancelled = { [weak self] side in
             self?.endEdgeTapHighlight(on: side)
         }
@@ -396,6 +414,9 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
     }()
     private var renderedCoordinates = Set<PlayerCoordinate>()
     private var displayedCoordinate: PlayerCoordinate?
+    private var pendingEdgeTapHighlightSide: PlayerEdgeTapSide?
+    private var edgeTapHighlightWorkItem: DispatchWorkItem?
+    private var edgeTapHighlightRequestId = 0
 
     init(
         initialConfig: MobilePlayerConfig,
@@ -441,6 +462,7 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
     }
 
     deinit {
+        edgeTapHighlightWorkItem?.cancel()
         UIApplication.shared.isIdleTimerDisabled = false
     }
 
@@ -508,19 +530,77 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
     }
 
     private func beginEdgeTapHighlight(on side: PlayerEdgeTapSide) {
+        cancelPendingEdgeTapHighlight()
         edgeTapHighlight(for: oppositeSide(of: side)).setHighlighted(false)
-        edgeTapHighlight(for: side).setHighlighted(true)
+        edgeTapHighlight(for: side).setHighlighted(false)
+
+        pendingEdgeTapHighlightSide = side
+        edgeTapHighlightRequestId += 1
+        let requestId = edgeTapHighlightRequestId
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self,
+                  self.edgeTapHighlightRequestId == requestId,
+                  self.pendingEdgeTapHighlightSide == side else {
+                return
+            }
+
+            self.pendingEdgeTapHighlightSide = nil
+            self.edgeTapHighlightWorkItem = nil
+            self.edgeTapHighlight(for: side).setHighlighted(true)
+        }
+        edgeTapHighlightWorkItem = workItem
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + MobilePlayerGestureTuning.edgeTapHighlightActivationDelay,
+            execute: workItem
+        )
     }
 
     private func endEdgeTapHighlight(on side: PlayerEdgeTapSide) {
+        cancelPendingEdgeTapHighlight()
+        edgeTapHighlightRequestId += 1
         edgeTapHighlight(for: side).setHighlighted(false)
     }
 
     private func handleEdgeTap(on side: PlayerEdgeTapSide) {
-        endEdgeTapHighlight(on: side)
+        if cancelPendingEdgeTapHighlight(on: side) {
+            flashEdgeTapHighlight(on: side)
+        } else {
+            endEdgeTapHighlight(on: side)
+        }
         guard pagingVC.navigateWithoutAnimation(side.navigationDirection) else { return }
 
         Haptic.selectionChanged()
+    }
+
+    @discardableResult
+    private func cancelPendingEdgeTapHighlight(on side: PlayerEdgeTapSide? = nil) -> Bool {
+        guard let pendingSide = pendingEdgeTapHighlightSide else {
+            return false
+        }
+        if let side, pendingSide != side {
+            return false
+        }
+
+        edgeTapHighlightWorkItem?.cancel()
+        edgeTapHighlightWorkItem = nil
+        pendingEdgeTapHighlightSide = nil
+        edgeTapHighlightRequestId += 1
+        return true
+    }
+
+    private func flashEdgeTapHighlight(on side: PlayerEdgeTapSide) {
+        edgeTapHighlight(for: oppositeSide(of: side)).setHighlighted(false)
+        edgeTapHighlight(for: side).setHighlighted(true)
+        edgeTapHighlightRequestId += 1
+        let requestId = edgeTapHighlightRequestId
+
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + MobilePlayerGestureTuning.edgeTapHighlightTapFlashDuration
+        ) { [weak self] in
+            guard let self, self.edgeTapHighlightRequestId == requestId else { return }
+
+            self.edgeTapHighlight(for: side).setHighlighted(false)
+        }
     }
 
     private func oppositeSide(of side: PlayerEdgeTapSide) -> PlayerEdgeTapSide {
