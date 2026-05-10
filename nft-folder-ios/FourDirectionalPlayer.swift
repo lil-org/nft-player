@@ -363,6 +363,7 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
         let gesture = UITapGestureRecognizer(target: self, action: #selector(handleSingleTap(_:)))
         gesture.numberOfTapsRequired = 1
         gesture.cancelsTouchesInView = false
+        gesture.delegate = self
         return gesture
     }()
     private lazy var doubleTapRecognizer: UITapGestureRecognizer = {
@@ -395,7 +396,6 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
     }()
     private var renderedCoordinates = Set<PlayerCoordinate>()
     private var displayedCoordinate: PlayerCoordinate?
-    private var lastHandledEdgeTapTime: CFTimeInterval?
 
     init(
         initialConfig: MobilePlayerConfig,
@@ -481,7 +481,7 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
     @objc private func handleSingleTap(_ gesture: UITapGestureRecognizer) {
         guard gesture.state == .ended else { return }
 
-        if edgeTapSide(at: gesture.location(in: view)) != nil {
+        if isEdgeTapLocation(gesture.location(in: view)) {
             return
         }
 
@@ -497,6 +497,10 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
             return .right
         }
         return nil
+    }
+
+    private func isEdgeTapLocation(_ location: CGPoint) -> Bool {
+        edgeTapSide(at: location) != nil
     }
 
     private func canHandleEdgeTap(on side: PlayerEdgeTapSide) -> Bool {
@@ -516,7 +520,6 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
         endEdgeTapHighlight(on: side)
         guard pagingVC.navigateWithoutAnimation(side.navigationDirection) else { return }
 
-        lastHandledEdgeTapTime = CACurrentMediaTime()
         Haptic.selectionChanged()
     }
 
@@ -540,15 +543,25 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
 
     @objc private func handleDoubleTap(_ gesture: UITapGestureRecognizer) {
         guard gesture.state == .ended else { return }
-        guard !shouldSuppressDoubleTapZoom() else { return }
 
-        pagingVC.toggleZoom(at: gesture.location(in: view), in: view)
+        let location = gesture.location(in: view)
+        guard !isEdgeTapLocation(location) else { return }
+
+        pagingVC.toggleZoom(at: location, in: view)
     }
 
     func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
         guard gestureRecognizer === doubleTapRecognizer else { return true }
 
-        return !shouldSuppressDoubleTapZoom()
+        return !isEdgeTapLocation(gestureRecognizer.location(in: view))
+    }
+
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+        guard gestureRecognizer === singleTapRecognizer || gestureRecognizer === doubleTapRecognizer else {
+            return true
+        }
+
+        return !isEdgeTapLocation(touch.location(in: view))
     }
 
     func gestureRecognizer(
@@ -556,12 +569,6 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
         shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
     ) -> Bool {
         gestureRecognizer === edgeTapRecognizer || otherGestureRecognizer === edgeTapRecognizer
-    }
-
-    private func shouldSuppressDoubleTapZoom() -> Bool {
-        guard let lastHandledEdgeTapTime else { return false }
-
-        return CACurrentMediaTime() - lastHandledEdgeTapTime <= MobilePlayerGestureTuning.edgeTapDoubleTapSuppressionDuration
     }
 
     fileprivate func getToken(x: Int, y: Int) -> GeneratedToken {

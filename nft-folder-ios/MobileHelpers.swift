@@ -53,7 +53,6 @@ enum MobilePlayerGestureTuning {
     static let edgeTapNavigationWidth: CGFloat = 42
     static let edgeTapHighlightWidth: CGFloat = 69
     static let edgeTapMaximumMovement: CGFloat = 12
-    static let edgeTapDoubleTapSuppressionDuration: TimeInterval = 0.45
     static let edgeTapHighlightFadeInDuration: TimeInterval = 0.1
     static let edgeTapHighlightFadeOutDuration: TimeInterval = 0.34
     static let playerMaximumZoomScale: CGFloat = 4
