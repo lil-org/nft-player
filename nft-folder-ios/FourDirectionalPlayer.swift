@@ -151,6 +151,163 @@ final class FullscreenTokenMediaRenderer {
     }
 }
 
+private enum PlayerEdgeTapSide {
+    case left, right
+
+    var navigationDirection: PlaybackNavigationDirection {
+        switch self {
+        case .left:
+            return .back
+        case .right:
+            return .forward
+        }
+    }
+}
+
+private final class PlayerEdgeTapGestureRecognizer: UIGestureRecognizer {
+
+    var edgeSideProvider: ((CGPoint) -> PlayerEdgeTapSide?)?
+    var canBeginEdgeTap: ((PlayerEdgeTapSide) -> Bool)?
+    var onEdgePressBegan: ((PlayerEdgeTapSide) -> Void)?
+    var onEdgePressCancelled: ((PlayerEdgeTapSide) -> Void)?
+    var onEdgeTapRecognized: ((PlayerEdgeTapSide) -> Void)?
+
+    private var trackedTouch: UITouch?
+    private var initialLocation = CGPoint.zero
+    private var activeSide: PlayerEdgeTapSide?
+
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent) {
+        guard trackedTouch == nil,
+              event.allTouches?.count == 1,
+              let touch = touches.first,
+              let view else {
+            cancelOrFailActivePress()
+            return
+        }
+
+        let location = touch.location(in: view)
+        guard let side = edgeSideProvider?(location),
+              canBeginEdgeTap?(side) == true else {
+            state = .failed
+            return
+        }
+
+        trackedTouch = touch
+        initialLocation = location
+        activeSide = side
+        onEdgePressBegan?(side)
+        state = .began
+    }
+
+    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent) {
+        guard let trackedTouch, touches.contains(trackedTouch), let view, let activeSide else { return }
+
+        let location = trackedTouch.location(in: view)
+        guard isTapStillValid(at: location, for: activeSide) else {
+            cancelOrFailActivePress()
+            return
+        }
+
+        state = .changed
+    }
+
+    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent) {
+        guard let trackedTouch, touches.contains(trackedTouch), let view, let activeSide else {
+            cancelOrFailActivePress()
+            return
+        }
+
+        let location = trackedTouch.location(in: view)
+        guard isTapStillValid(at: location, for: activeSide) else {
+            cancelOrFailActivePress()
+            return
+        }
+
+        onEdgeTapRecognized?(activeSide)
+        state = .ended
+    }
+
+    override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent) {
+        cancelOrFailActivePress()
+    }
+
+    override func reset() {
+        trackedTouch = nil
+        initialLocation = .zero
+        activeSide = nil
+    }
+
+    private func isTapStillValid(at location: CGPoint, for side: PlayerEdgeTapSide) -> Bool {
+        guard edgeSideProvider?(location) == side else { return false }
+
+        let distance = hypot(location.x - initialLocation.x, location.y - initialLocation.y)
+        return distance <= MobilePlayerGestureTuning.edgeTapMaximumMovement
+    }
+
+    private func cancelOrFailActivePress() {
+        if let activeSide {
+            onEdgePressCancelled?(activeSide)
+            state = .cancelled
+        } else {
+            state = .failed
+        }
+    }
+}
+
+private final class PlayerEdgeTapHighlightView: UIView {
+
+    private let side: PlayerEdgeTapSide
+
+    override class var layerClass: AnyClass {
+        CAGradientLayer.self
+    }
+
+    private var gradientLayer: CAGradientLayer {
+        layer as! CAGradientLayer
+    }
+
+    init(side: PlayerEdgeTapSide) {
+        self.side = side
+        super.init(frame: .zero)
+        isUserInteractionEnabled = false
+        configureGradient()
+        gradientLayer.opacity = 0
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("yo")
+    }
+
+    func setHighlighted(_ isHighlighted: Bool) {
+        let currentOpacity = gradientLayer.presentation()?.opacity ?? gradientLayer.opacity
+        gradientLayer.removeAnimation(forKey: "edgeTapHighlightOpacity")
+
+        let targetOpacity: Float = isHighlighted ? 1 : 0
+        gradientLayer.opacity = targetOpacity
+
+        let animation = CABasicAnimation(keyPath: "opacity")
+        animation.fromValue = currentOpacity
+        animation.toValue = targetOpacity
+        animation.duration = isHighlighted
+            ? MobilePlayerGestureTuning.edgeTapHighlightFadeInDuration
+            : MobilePlayerGestureTuning.edgeTapHighlightFadeOutDuration
+        animation.timingFunction = isHighlighted
+            ? CAMediaTimingFunction(controlPoints: 0.2, 0, 0, 1)
+            : CAMediaTimingFunction(controlPoints: 0.16, 1, 0.3, 1)
+        gradientLayer.add(animation, forKey: "edgeTapHighlightOpacity")
+    }
+
+    private func configureGradient() {
+        let edgeColor = UIColor(red: 0.34, green: 0.38, blue: 0.46, alpha: 0.62).cgColor
+        let clearColor = UIColor(red: 0.34, green: 0.38, blue: 0.46, alpha: 0).cgColor
+        gradientLayer.startPoint = CGPoint(x: 0, y: 0.5)
+        gradientLayer.endPoint = CGPoint(x: 1, y: 0.5)
+        gradientLayer.colors = side == .left
+            ? [edgeColor, clearColor]
+            : [clearColor, edgeColor]
+    }
+}
+
 struct FourDirectionalPlayerContainerView: UIViewControllerRepresentable {
 
     private let initialConfig: MobilePlayerConfig
@@ -190,7 +347,7 @@ struct FourDirectionalPlayerContainerView: UIViewControllerRepresentable {
     func updateUIViewController(_ uiViewController: FourDirectionalPlayerContainer, context: Context) {}
 }
 
-class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDataSource, MobilePlaybackControllerDisplay {
+class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDataSource, MobilePlaybackControllerDisplay, UIGestureRecognizerDelegate {
 
     private let initialConfig: MobilePlayerConfig
     private let onCoordinateUpdate: ((PlayerCoordinate) -> Void)
@@ -200,6 +357,8 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
     private let onZoomStateChange: ((Bool) -> Void)
 
     private lazy var pagingVC = HorizontalPageViewController(fourDirectionalPlayerDataSource: self)
+    private let leftEdgeTapHighlight = PlayerEdgeTapHighlightView(side: .left)
+    private let rightEdgeTapHighlight = PlayerEdgeTapHighlightView(side: .right)
     private lazy var singleTapRecognizer: UITapGestureRecognizer = {
         let gesture = UITapGestureRecognizer(target: self, action: #selector(handleSingleTap(_:)))
         gesture.numberOfTapsRequired = 1
@@ -210,10 +369,33 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
         let gesture = UITapGestureRecognizer(target: self, action: #selector(handleDoubleTap(_:)))
         gesture.numberOfTapsRequired = 2
         gesture.cancelsTouchesInView = false
+        gesture.delegate = self
+        return gesture
+    }()
+    private lazy var edgeTapRecognizer: PlayerEdgeTapGestureRecognizer = {
+        let gesture = PlayerEdgeTapGestureRecognizer()
+        gesture.cancelsTouchesInView = false
+        gesture.delegate = self
+        gesture.edgeSideProvider = { [weak self] location in
+            self?.edgeTapSide(at: location)
+        }
+        gesture.canBeginEdgeTap = { [weak self] side in
+            self?.canHandleEdgeTap(on: side) == true
+        }
+        gesture.onEdgePressBegan = { [weak self] side in
+            self?.beginEdgeTapHighlight(on: side)
+        }
+        gesture.onEdgePressCancelled = { [weak self] side in
+            self?.endEdgeTapHighlight(on: side)
+        }
+        gesture.onEdgeTapRecognized = { [weak self] side in
+            self?.handleEdgeTap(on: side)
+        }
         return gesture
     }()
     private var renderedCoordinates = Set<PlayerCoordinate>()
     private var displayedCoordinate: PlayerCoordinate?
+    private var lastHandledEdgeTapTime: CFTimeInterval?
 
     init(
         initialConfig: MobilePlayerConfig,
@@ -253,6 +435,7 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
             pagingVC.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             pagingVC.view.trailingAnchor.constraint(equalTo: view.trailingAnchor)
         ])
+        installEdgeTapHighlights()
         installTapGestures()
         UIApplication.shared.isIdleTimerDisabled = true
     }
@@ -271,20 +454,114 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
 
     private func installTapGestures() {
         singleTapRecognizer.require(toFail: doubleTapRecognizer)
+        view.addGestureRecognizer(edgeTapRecognizer)
         view.addGestureRecognizer(singleTapRecognizer)
         view.addGestureRecognizer(doubleTapRecognizer)
+    }
+
+    private func installEdgeTapHighlights() {
+        [leftEdgeTapHighlight, rightEdgeTapHighlight].forEach { highlightView in
+            highlightView.translatesAutoresizingMaskIntoConstraints = false
+            view.addSubview(highlightView)
+        }
+
+        NSLayoutConstraint.activate([
+            leftEdgeTapHighlight.topAnchor.constraint(equalTo: view.topAnchor),
+            leftEdgeTapHighlight.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            leftEdgeTapHighlight.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            leftEdgeTapHighlight.widthAnchor.constraint(equalToConstant: MobilePlayerGestureTuning.edgeTapHighlightWidth),
+
+            rightEdgeTapHighlight.topAnchor.constraint(equalTo: view.topAnchor),
+            rightEdgeTapHighlight.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            rightEdgeTapHighlight.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            rightEdgeTapHighlight.widthAnchor.constraint(equalToConstant: MobilePlayerGestureTuning.edgeTapHighlightWidth)
+        ])
     }
 
     @objc private func handleSingleTap(_ gesture: UITapGestureRecognizer) {
         guard gesture.state == .ended else { return }
 
+        if edgeTapSide(at: gesture.location(in: view)) != nil {
+            return
+        }
+
         onToggleChrome()
+    }
+
+    private func edgeTapSide(at location: CGPoint) -> PlayerEdgeTapSide? {
+        let edgeWidth = min(MobilePlayerGestureTuning.edgeTapNavigationWidth, view.bounds.width / 2)
+        if location.x <= edgeWidth {
+            return .left
+        }
+        if location.x >= view.bounds.width - edgeWidth {
+            return .right
+        }
+        return nil
+    }
+
+    private func canHandleEdgeTap(on side: PlayerEdgeTapSide) -> Bool {
+        pagingVC.canNavigateWithoutAnimation(side.navigationDirection)
+    }
+
+    private func beginEdgeTapHighlight(on side: PlayerEdgeTapSide) {
+        edgeTapHighlight(for: oppositeSide(of: side)).setHighlighted(false)
+        edgeTapHighlight(for: side).setHighlighted(true)
+    }
+
+    private func endEdgeTapHighlight(on side: PlayerEdgeTapSide) {
+        edgeTapHighlight(for: side).setHighlighted(false)
+    }
+
+    private func handleEdgeTap(on side: PlayerEdgeTapSide) {
+        endEdgeTapHighlight(on: side)
+        guard pagingVC.navigateWithoutAnimation(side.navigationDirection) else { return }
+
+        lastHandledEdgeTapTime = CACurrentMediaTime()
+        Haptic.selectionChanged()
+    }
+
+    private func oppositeSide(of side: PlayerEdgeTapSide) -> PlayerEdgeTapSide {
+        switch side {
+        case .left:
+            return .right
+        case .right:
+            return .left
+        }
+    }
+
+    private func edgeTapHighlight(for side: PlayerEdgeTapSide) -> PlayerEdgeTapHighlightView {
+        switch side {
+        case .left:
+            return leftEdgeTapHighlight
+        case .right:
+            return rightEdgeTapHighlight
+        }
     }
 
     @objc private func handleDoubleTap(_ gesture: UITapGestureRecognizer) {
         guard gesture.state == .ended else { return }
+        guard !shouldSuppressDoubleTapZoom() else { return }
 
         pagingVC.toggleZoom(at: gesture.location(in: view), in: view)
+    }
+
+    func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        guard gestureRecognizer === doubleTapRecognizer else { return true }
+
+        return !shouldSuppressDoubleTapZoom()
+    }
+
+    func gestureRecognizer(
+        _ gestureRecognizer: UIGestureRecognizer,
+        shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+    ) -> Bool {
+        gestureRecognizer === edgeTapRecognizer || otherGestureRecognizer === edgeTapRecognizer
+    }
+
+    private func shouldSuppressDoubleTapZoom() -> Bool {
+        guard let lastHandledEdgeTapTime else { return false }
+
+        return CACurrentMediaTime() - lastHandledEdgeTapTime <= MobilePlayerGestureTuning.edgeTapDoubleTapSuppressionDuration
     }
 
     fileprivate func getToken(x: Int, y: Int) -> GeneratedToken {
@@ -1219,6 +1496,7 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
         guard let currentPage = viewControllers?.first as? SpecificPageViewController else { return }
         update(currentHorizontalIndex: currentPage.horizontalIndex)
         updatePagingScrollEnabled()
+        fourDirectionalPlayerDataSource?.didDisplayCoordinate((currentPage.horizontalIndex, currentPage.verticalIndex))
     }
 
     func pageViewController(_ pvc: UIPageViewController, viewControllerBefore vc: UIViewController) -> UIViewController? {
@@ -1277,13 +1555,15 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
         performPendingNavigationIfNeeded()
     }
 
+    @discardableResult
     private func performPageTransition(
         _ direction: UIPageViewController.NavigationDirection,
+        animated: Bool,
         completion: @escaping () -> Void
-    ) {
+    ) -> Bool {
         guard let currentPage = viewControllers?.first as? SpecificPageViewController else {
             completion()
-            return
+            return false
         }
 
         let targetViewController: UIViewController?
@@ -1294,12 +1574,12 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
             targetViewController = pageViewController(self, viewControllerAfter: currentPage)
         default:
             completion()
-            return
+            return false
         }
 
         guard let targetViewController else {
             completion()
-            return
+            return false
         }
 
         resetCurrentZoom(animated: false)
@@ -1309,10 +1589,11 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
             destinationPage.renderCurrentItem()
         }
 
-        setViewControllers([targetViewController], direction: direction, animated: true) { _ in
+        setViewControllers([targetViewController], direction: direction, animated: animated) { _ in
             self.didSettleOnCurrentPage()
             completion()
         }
+        return true
     }
 
     func navigate(_ direction: PlaybackNavigationDirection) {
@@ -1320,9 +1601,13 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
         case .back, .forward:
             guard canStartNavigation else { return }
             isPageTransitioning = true
-            performPageTransition(direction == .back ? .reverse : .forward) { [weak self] in
+            let pageDirection: UIPageViewController.NavigationDirection = direction == .back ? .reverse : .forward
+            let didStartTransition = performPageTransition(pageDirection, animated: true) { [weak self] in
                 self?.isPageTransitioning = false
                 self?.performPendingNavigationIfNeeded()
+            }
+            if !didStartTransition {
+                isPageTransitioning = false
             }
         case .down, .nextCollection:
             guard canStartNavigation else { return }
@@ -1336,6 +1621,34 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
             }
             restartCollection()
         }
+    }
+
+    @discardableResult
+    func navigateWithoutAnimation(_ direction: PlaybackNavigationDirection) -> Bool {
+        guard canNavigateWithoutAnimation(direction) else { return false }
+
+        isPageTransitioning = true
+        let pageDirection: UIPageViewController.NavigationDirection = direction == .back ? .reverse : .forward
+        let didStartTransition = performPageTransition(pageDirection, animated: false) { [weak self] in
+            self?.isPageTransitioning = false
+            self?.performPendingNavigationIfNeeded()
+        }
+        if !didStartTransition {
+            isPageTransitioning = false
+        }
+        return didStartTransition
+    }
+
+    func canNavigateWithoutAnimation(_ direction: PlaybackNavigationDirection) -> Bool {
+        guard direction == .back || direction == .forward else { return false }
+        guard canStartNavigation else { return false }
+        guard let currentPage = viewControllers?.first as? SpecificPageViewController else { return false }
+
+        let targetOffset = direction == .back ? -1 : 1
+        return canRender(
+            horizontalIndex: currentPage.horizontalIndex + targetOffset,
+            verticalIndex: currentPage.verticalIndex
+        )
     }
 
     private var canStartNavigation: Bool {
