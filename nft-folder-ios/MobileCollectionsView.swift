@@ -4,7 +4,7 @@ import UIKit
 private let playerCrossfadeAnimation = Animation.easeInOut(duration: 0.18)
 private let playerStatusBarRevealAnimation = Animation.easeInOut(duration: 0.38)
 private let playerStatusBarRevealDuration: TimeInterval = 0.3
-private let initialCollectionItemFadeDuration: TimeInterval = 0.18
+private let initialCollectionItemFadeDuration: TimeInterval = 0.3
 private let initialCollectionItemFadeAnimationKey = "initialGridItemFade"
 
 private enum InfiniteCollectionsLoop {
