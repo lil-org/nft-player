@@ -50,7 +50,7 @@ enum MobilePlayerGestureTuning {
     static let playerPageGap: CGFloat = 23
     static let pageBoundaryRevealTranslation: CGFloat = 18
     static let pageBoundaryRevealHorizontalIntentRatio: CGFloat = 1.15
-    static let edgeTapNavigationWidth: CGFloat = 42
+    static let edgeTapNavigationWidth: CGFloat = 44
     static let edgeTapHighlightWidth: CGFloat = 50
     static let edgeTapMaximumMovement: CGFloat = 12
     static let edgeTapHighlightMaximumMovement: CGFloat = edgeTapMaximumMovement / 2
