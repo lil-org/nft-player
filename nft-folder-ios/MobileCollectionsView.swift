@@ -4,6 +4,8 @@ import UIKit
 private let playerCrossfadeAnimation = Animation.easeInOut(duration: 0.18)
 private let playerStatusBarRevealAnimation = Animation.easeInOut(duration: 0.38)
 private let playerStatusBarRevealDuration: TimeInterval = 0.3
+private let initialCollectionItemFadeDuration: TimeInterval = 0.18
+private let initialCollectionItemFadeAnimationKey = "initialGridItemFade"
 
 private enum InfiniteCollectionsLoop {
     private static let repetitionCount = 31
@@ -265,6 +267,8 @@ private struct InfiniteCollectionsGridView: UIViewRepresentable {
         var viewedToEndCollectionIds: Set<String>
         var onSelect: (MobileCollectionItem) -> Void
         private var isRecentering = false
+        private var isInitialCoverImageFadeActive = true
+        private var pendingInitialCoverFadeIndexPaths = Set<IndexPath>()
 
         enum UpdateResult {
             case noChange
@@ -306,14 +310,7 @@ private struct InfiniteCollectionsGridView: UIViewRepresentable {
         func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
             let cell = collectionView.dequeueReusableCell(withReuseIdentifier: CollectionGridCell.reuseIdentifier, for: indexPath)
             guard let gridCell = cell as? CollectionGridCell else { return cell }
-            let item = item(for: indexPath.item)
-            gridCell.configure(
-                item: item,
-                progressPercent: progressByCollectionId[item.id],
-                hasViewedToEnd: viewedToEndCollectionIds.contains(item.id),
-                coverSize: coverImageTargetSize(in: collectionView),
-                displayScale: displayScale(in: collectionView)
-            )
+            configureCell(gridCell, at: indexPath, in: collectionView)
             return gridCell
         }
 
@@ -381,23 +378,44 @@ private struct InfiniteCollectionsGridView: UIViewRepresentable {
                 return
             }
 
+            let targetContentOffset = CGPoint(x: 0, y: targetAttributes.frame.minY)
+            prepareInitialCoverFade(
+                in: collectionView,
+                visibleRect: CGRect(origin: targetContentOffset, size: collectionView.bounds.size)
+            )
             isRecentering = true
-            collectionView.setContentOffset(CGPoint(x: 0, y: targetAttributes.frame.minY), animated: false)
+            collectionView.setContentOffset(targetContentOffset, animated: false)
             isRecentering = false
         }
 
         func updateVisibleProgressCells(in collectionView: UICollectionView) {
             collectionView.indexPathsForVisibleItems.forEach { indexPath in
                 guard let gridCell = collectionView.cellForItem(at: indexPath) as? CollectionGridCell else { return }
-                let item = item(for: indexPath.item)
-                gridCell.configure(
-                    item: item,
-                    progressPercent: progressByCollectionId[item.id],
-                    hasViewedToEnd: viewedToEndCollectionIds.contains(item.id),
-                    coverSize: coverImageTargetSize(in: collectionView),
-                    displayScale: displayScale(in: collectionView)
-                )
+                configureCell(gridCell, at: indexPath, in: collectionView)
             }
+        }
+
+        private func prepareInitialCoverFade(in collectionView: UICollectionView, visibleRect: CGRect) {
+            guard isInitialCoverImageFadeActive,
+                  pendingInitialCoverFadeIndexPaths.isEmpty,
+                  !items.isEmpty else {
+                return
+            }
+
+            let visibleIndexPaths = collectionView.collectionViewLayout
+                .layoutAttributesForElements(in: visibleRect)?
+                .compactMap { attributes -> IndexPath? in
+                    guard attributes.representedElementCategory == .cell else { return nil }
+                    return attributes.indexPath
+                } ?? []
+
+            guard !visibleIndexPaths.isEmpty else { return }
+            pendingInitialCoverFadeIndexPaths = Set(visibleIndexPaths)
+        }
+
+        func finishInitialCoverFadeScheduling() {
+            isInitialCoverImageFadeActive = false
+            pendingInitialCoverFadeIndexPaths.removeAll()
         }
 
         func prefetchImages(aroundVisibleItemsIn collectionView: UICollectionView) {
@@ -421,6 +439,18 @@ private struct InfiniteCollectionsGridView: UIViewRepresentable {
 
         private func item(for virtualIndex: Int) -> MobileCollectionItem {
             items[InfiniteCollectionsLoop.sourceIndex(for: virtualIndex, itemCount: items.count)]
+        }
+
+        private func configureCell(_ gridCell: CollectionGridCell, at indexPath: IndexPath, in collectionView: UICollectionView) {
+            let item = item(for: indexPath.item)
+            gridCell.configure(
+                item: item,
+                progressPercent: progressByCollectionId[item.id],
+                hasViewedToEnd: viewedToEndCollectionIds.contains(item.id),
+                coverSize: coverImageTargetSize(in: collectionView),
+                displayScale: displayScale(in: collectionView),
+                shouldAnimateInitialAppearance: consumeInitialCoverFade(at: indexPath)
+            )
         }
 
         private func prefetchImages(for indexPaths: [IndexPath], in collectionView: UICollectionView) {
@@ -455,6 +485,11 @@ private struct InfiniteCollectionsGridView: UIViewRepresentable {
         private func displayScale(in collectionView: UICollectionView) -> CGFloat {
             let scale = collectionView.traitCollection.displayScale
             return scale > 0 ? scale : UIScreen.main.scale
+        }
+
+        private func consumeInitialCoverFade(at indexPath: IndexPath) -> Bool {
+            guard isInitialCoverImageFadeActive else { return false }
+            return pendingInitialCoverFadeIndexPaths.remove(indexPath) != nil
         }
     }
 }
@@ -541,6 +576,8 @@ private final class InfiniteCollectionsGridContainerView: UIView {
         coordinator?.setInitialScrollPosition(in: collectionView)
         didSetInitialScrollPosition = true
         coordinator?.prefetchImages(aroundVisibleItemsIn: collectionView)
+        collectionView.layoutIfNeeded()
+        coordinator?.finishInitialCoverFadeScheduling()
     }
 
     fileprivate static func itemSize(forWidth width: CGFloat) -> CGSize {
@@ -748,6 +785,8 @@ private final class CollectionGridCell: UICollectionViewCell {
     private var representedCoverSize = CGSize.zero
     private var representedProgressPercent: Int?
     private var representedHasViewedToEnd = false
+    private var hasInitialCoverAppearanceState = false
+    private var isInitialCoverAppearancePending = false
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -788,6 +827,7 @@ private final class CollectionGridCell: UICollectionViewCell {
         representedCoverSize = .zero
         representedProgressPercent = nil
         representedHasViewedToEnd = false
+        cancelInitialCoverAppearance()
         imageView.image = nil
         titleLabel.text = nil
         progressLabel.text = nil
@@ -800,7 +840,8 @@ private final class CollectionGridCell: UICollectionViewCell {
         progressPercent: Int?,
         hasViewedToEnd: Bool,
         coverSize: CGSize,
-        displayScale: CGFloat
+        displayScale: CGFloat,
+        shouldAnimateInitialAppearance: Bool
     ) {
         let coverAssetChanged = representedCoverAssetName != item.coverAssetName
         let shouldUpdateCover = coverAssetChanged
@@ -808,14 +849,23 @@ private final class CollectionGridCell: UICollectionViewCell {
             || imageView.image == nil
         representedCoverAssetName = item.coverAssetName
         representedCoverSize = coverSize
+        let cachedCoverImage: UIImage?
         if shouldUpdateCover {
-            if let image = MobileCollectionCoverImageCache.shared.cachedImage(
+            cachedCoverImage = MobileCollectionCoverImageCache.shared.cachedImage(
                 assetName: item.coverAssetName,
                 targetSize: coverSize,
                 displayScale: displayScale
-            ) {
-                imageView.image = image
-            } else {
+            )
+        } else {
+            cachedCoverImage = nil
+        }
+
+        if shouldUpdateCover {
+            if shouldAnimateInitialAppearance {
+                prepareInitialCoverAppearance()
+            }
+
+            if cachedCoverImage == nil {
                 if coverAssetChanged || imageView.image == nil {
                     imageView.image = nil
                 }
@@ -826,10 +876,11 @@ private final class CollectionGridCell: UICollectionViewCell {
                 ) { [weak self] image in
                     guard let self,
                           self.representedCoverAssetName == item.coverAssetName,
-                          self.representedCoverSize == coverSize else {
+                          self.representedCoverSize == coverSize,
+                          self.imageView.image == nil else {
                         return
                     }
-                    self.imageView.image = image
+                    self.setCoverImage(image, animated: self.consumeInitialCoverAppearance())
                 }
             }
         }
@@ -852,7 +903,49 @@ private final class CollectionGridCell: UICollectionViewCell {
             }
         }
         accessibilityLabel = item.name
+        if let cachedCoverImage {
+            setCoverImage(cachedCoverImage, animated: consumeInitialCoverAppearance())
+        }
         setNeedsLayout()
+    }
+
+    private func cancelInitialCoverAppearance() {
+        guard hasInitialCoverAppearanceState else { return }
+        contentView.layer.removeAnimation(forKey: initialCollectionItemFadeAnimationKey)
+        contentView.alpha = 1
+        hasInitialCoverAppearanceState = false
+        isInitialCoverAppearancePending = false
+    }
+
+    private func prepareInitialCoverAppearance() {
+        contentView.layer.removeAnimation(forKey: initialCollectionItemFadeAnimationKey)
+        contentView.alpha = 0
+        hasInitialCoverAppearanceState = true
+        isInitialCoverAppearancePending = true
+    }
+
+    private func consumeInitialCoverAppearance() -> Bool {
+        guard isInitialCoverAppearancePending else { return false }
+        isInitialCoverAppearancePending = false
+        return true
+    }
+
+    private func setCoverImage(_ image: UIImage?, animated: Bool) {
+        imageView.image = image
+
+        guard animated, image != nil else {
+            cancelInitialCoverAppearance()
+            return
+        }
+
+        contentView.layer.removeAnimation(forKey: initialCollectionItemFadeAnimationKey)
+        contentView.alpha = 1
+        let animation = CABasicAnimation(keyPath: "opacity")
+        animation.fromValue = 0
+        animation.toValue = 1
+        animation.duration = initialCollectionItemFadeDuration
+        animation.timingFunction = CAMediaTimingFunction(controlPoints: 0.2, 0, 0, 1)
+        contentView.layer.add(animation, forKey: initialCollectionItemFadeAnimationKey)
     }
 
     override func layoutSubviews() {
