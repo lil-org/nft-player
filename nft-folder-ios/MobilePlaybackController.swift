@@ -350,11 +350,7 @@ class MobilePlaybackController {
         coordinate: PlayerCoordinate,
         direction: SolanaImageCache.PrefetchDirection
     ) -> SolanaImageDescriptor? {
-        guard let context = dataSource(uuid: uuid)?.collectionTokenContext(coordinate: coordinate) else {
-            return nil
-        }
-
-        guard MobileCollectionCatalog.isSolanaCollection(specificCollectionId: context.collectionId) else {
+        guard let context = solanaCollectionTokenContext(uuid: uuid, coordinate: coordinate) else {
             return nil
         }
 
@@ -383,13 +379,23 @@ class MobilePlaybackController {
         return currentDescriptor
     }
 
+    func solanaImageDescriptor(uuid: UUID, coordinate: PlayerCoordinate) -> SolanaImageDescriptor? {
+        guard let context = solanaCollectionTokenContext(uuid: uuid, coordinate: coordinate) else {
+            return nil
+        }
+
+        return MobileCollectionCatalog.solanaImageDescriptor(
+            specificCollectionId: context.collectionId,
+            tokenIndex: context.tokenIndex
+        )
+    }
+
     func adjacentSolanaImageDescriptor(
         uuid: UUID,
         coordinate: PlayerCoordinate,
         direction: SolanaImageCache.PrefetchDirection
     ) -> SolanaImageDescriptor? {
-        guard let context = dataSource(uuid: uuid)?.collectionTokenContext(coordinate: coordinate),
-              MobileCollectionCatalog.isSolanaCollection(specificCollectionId: context.collectionId) else {
+        guard let context = solanaCollectionTokenContext(uuid: uuid, coordinate: coordinate) else {
             return nil
         }
 
@@ -408,6 +414,25 @@ class MobilePlaybackController {
         )
     }
 
+    private func solanaCollectionTokenContext(
+        uuid: UUID,
+        coordinate: PlayerCoordinate
+    ) -> (collectionId: String, tokenIndex: Int, tokenCount: Int)? {
+        guard let dataSource = dataSource(uuid: uuid) else { return nil }
+        return solanaCollectionTokenContext(dataSource: dataSource, coordinate: coordinate)
+    }
+
+    private func solanaCollectionTokenContext(
+        dataSource: GeneratedTokensDataSource,
+        coordinate: PlayerCoordinate
+    ) -> (collectionId: String, tokenIndex: Int, tokenCount: Int)? {
+        guard let context = dataSource.collectionTokenContext(coordinate: coordinate),
+              MobileCollectionCatalog.isSolanaCollection(specificCollectionId: context.collectionId) else {
+            return nil
+        }
+        return context
+    }
+
     func markViewed(uuid: UUID, coordinate: PlayerCoordinate) -> MobileViewingProgress? {
         guard let progress = dataSource(uuid: uuid)?.progress(coordinate: coordinate) else { return nil }
         MobileViewingProgressStore.save(progress)
@@ -417,7 +442,7 @@ class MobilePlaybackController {
 
     func downloadedFileShareItem(uuid: UUID, coordinate: PlayerCoordinate) -> MobilePlayerFileShareItem? {
         guard let dataSource = dataSource(uuid: uuid),
-              let context = dataSource.collectionTokenContext(coordinate: coordinate),
+              let context = solanaCollectionTokenContext(dataSource: dataSource, coordinate: coordinate),
               let descriptor = MobileCollectionCatalog.solanaImageDescriptor(
                 specificCollectionId: context.collectionId,
                 tokenIndex: context.tokenIndex

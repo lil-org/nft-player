@@ -3,7 +3,7 @@
 import UIKit
 import WebKit
 
-class AutoReloadingWebView: WKWebView {
+class AutoReloadingWebView: WKWebView, WKNavigationDelegate {
 
     private enum WebContentLoad: Equatable {
         case html(string: String, baseURL: URL?)
@@ -26,7 +26,13 @@ class AutoReloadingWebView: WKWebView {
 
     private var lastRequestedLoad: WebContentLoad?
     private var needsLoadWhenVisible = false
+    private var pendingLoadSuccessHandler: (() -> Void)?
     private var pendingLoadFailureHandler: (() -> Void)?
+    private var activeNavigation: WKNavigation?
+    private var activeNavigationContent: WebContentLoad?
+    private var activeNavigationSuccessHandler: (() -> Void)?
+    private var activeNavigationFailureHandler: (() -> Void)?
+    private var successfullyLoadedContent: WebContentLoad?
     private let localHTMLFileName = "\(UUID().uuidString).html"
     private var localHTMLFileURL: URL?
 
@@ -103,6 +109,7 @@ class AutoReloadingWebView: WKWebView {
     }
 
     private func applyPlayerDefaults() {
+        navigationDelegate = self
         isOpaque = false
         backgroundColor = .black
         scrollView.backgroundColor = .black
@@ -130,40 +137,171 @@ class AutoReloadingWebView: WKWebView {
         _ string: String,
         htmlDirectoryURL: URL,
         allowingReadAccessTo readAccessURL: URL,
+        onSuccess: (() -> Void)? = nil,
         onFailure: (() -> Void)? = nil
     ) -> WKNavigation? {
         return loadWebContent(
             .localHTML(string: string, htmlDirectoryURL: htmlDirectoryURL, readAccessURL: readAccessURL),
+            onSuccess: onSuccess,
             onFailure: onFailure
         )
     }
 
-    private func loadWebContent(_ content: WebContentLoad, onFailure: (() -> Void)? = nil) -> WKNavigation? {
+    func invalidateRequestedContent() {
+        stopLoading()
+        clearRequestedContentState()
+    }
+
+    func unloadContent() {
+        stopLoading()
+        _ = super.loadHTMLString("", baseURL: nil)
+        clearRequestedContentState()
+    }
+
+    private func clearRequestedContentState() {
+        lastRequestedLoad = nil
+        pendingLoadSuccessHandler = nil
+        pendingLoadFailureHandler = nil
+        needsLoadWhenVisible = false
+        successfullyLoadedContent = nil
+    }
+
+    private func loadWebContent(
+        _ content: WebContentLoad,
+        onSuccess: (() -> Void)? = nil,
+        onFailure: (() -> Void)? = nil
+    ) -> WKNavigation? {
         let newContent = lastRequestedLoad != content
 
         if !hasVisibleSize {
             if newContent {
                 lastRequestedLoad = content
             }
+            pendingLoadSuccessHandler = onSuccess
             pendingLoadFailureHandler = onFailure
             needsLoadWhenVisible = true
             stopLoading()
             return nil
         }
 
-        guard newContent || needsLoadWhenVisible else { return nil }
+        if !newContent && !needsLoadWhenVisible {
+            if handleDuplicateLoadRequest(
+                content,
+                onSuccess: onSuccess,
+                onFailure: onFailure
+            ) {
+                return nil
+            }
+        }
+
+        clearActiveNavigationCallbacks()
+        if newContent {
+            successfullyLoadedContent = nil
+        }
         let navigation = performLoad(content)
         if navigation == nil, content.requiresSuccessfulNavigation {
+            pendingLoadSuccessHandler = nil
             pendingLoadFailureHandler = nil
             needsLoadWhenVisible = false
             onFailure?()
             return nil
         }
 
+        if let navigation {
+            activeNavigation = navigation
+            activeNavigationContent = content
+            activeNavigationSuccessHandler = content.requiresSuccessfulNavigation ? onSuccess : nil
+            activeNavigationFailureHandler = content.requiresSuccessfulNavigation ? onFailure : nil
+        }
         lastRequestedLoad = content
+        pendingLoadSuccessHandler = nil
         pendingLoadFailureHandler = nil
         needsLoadWhenVisible = false
         return navigation
+    }
+
+    override func stopLoading() {
+        clearActiveNavigationCallbacks()
+        super.stopLoading()
+    }
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        guard navigation === activeNavigation else { return }
+
+        let content = activeNavigationContent
+        let successHandler = activeNavigationSuccessHandler
+        clearActiveNavigationCallbacks()
+        if content?.requiresSuccessfulNavigation == true {
+            successfullyLoadedContent = content
+        }
+        successHandler?()
+    }
+
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        finishActiveNavigationWithFailure(navigation, error: error)
+    }
+
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        finishActiveNavigationWithFailure(navigation, error: error)
+    }
+
+    private func finishActiveNavigationWithFailure(_ navigation: WKNavigation?, error: Error) {
+        guard let navigation, navigation === activeNavigation else { return }
+        guard !Self.isCancelledNavigationError(error) else {
+            clearActiveNavigationCallbacks()
+            return
+        }
+
+        let failureHandler = activeNavigationFailureHandler
+        clearActiveNavigationCallbacks()
+        clearRequestedContentState()
+        failureHandler?()
+    }
+
+    private static func isCancelledNavigationError(_ error: Error) -> Bool {
+        let error = error as NSError
+        return error.domain == NSURLErrorDomain && error.code == NSURLErrorCancelled
+    }
+
+    private func clearActiveNavigationCallbacks() {
+        activeNavigation = nil
+        activeNavigationContent = nil
+        activeNavigationSuccessHandler = nil
+        activeNavigationFailureHandler = nil
+    }
+
+    private func handleDuplicateLoadRequest(
+        _ content: WebContentLoad,
+        onSuccess: (() -> Void)?,
+        onFailure: (() -> Void)?
+    ) -> Bool {
+        guard content.requiresSuccessfulNavigation else { return true }
+
+        if successfullyLoadedContent == content {
+            DispatchQueue.main.async {
+                onSuccess?()
+            }
+            return true
+        }
+
+        guard activeNavigationContent == content else { return false }
+        activeNavigationSuccessHandler = combined(
+            activeNavigationSuccessHandler,
+            onSuccess
+        )
+        activeNavigationFailureHandler = combined(
+            activeNavigationFailureHandler,
+            onFailure
+        )
+        return true
+    }
+
+    private func combined(_ first: (() -> Void)?, _ second: (() -> Void)?) -> (() -> Void)? {
+        guard first != nil || second != nil else { return nil }
+        return {
+            first?()
+            second?()
+        }
     }
 
     private func performLoad(_ content: WebContentLoad) -> WKNavigation? {
@@ -212,7 +350,11 @@ class AutoReloadingWebView: WKWebView {
         guard Self.isResizeReloadEnabled else { return }
         guard !hasVisibleSize(oldRect), hasVisibleSize else { return }
         guard needsLoadWhenVisible, let lastRequestedLoad else { return }
-        _ = loadWebContent(lastRequestedLoad, onFailure: pendingLoadFailureHandler)
+        _ = loadWebContent(
+            lastRequestedLoad,
+            onSuccess: pendingLoadSuccessHandler,
+            onFailure: pendingLoadFailureHandler
+        )
     }
     
     private func hasVisibleSize(_ rect: CGRect) -> Bool {

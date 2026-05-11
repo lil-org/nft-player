@@ -368,7 +368,7 @@ private enum SolanaMediaFileExtension {
 }
 
 enum SolanaTokenHTML {
-    static func createImageHTML(imageURL: String, nextImageURL: String?) -> String {
+    static func createImageHTML(imageURL: String, nextImageURL: String? = nil) -> String {
         """
         <!doctype html>
         <html>
@@ -400,6 +400,7 @@ enum SolanaTokenHTML {
         <body>
         <img id="tokenImage" alt="">
         <script>
+        \(retainedPreloadFunctionJavaScript)
         const imageURL = \(javaScriptStringLiteral(imageURL));
         const nextImageURL = \(javaScriptStringLiteral(nextImageURL));
         const tokenImage = document.getElementById("tokenImage");
@@ -407,13 +408,127 @@ enum SolanaTokenHTML {
         tokenImage.src = imageURL;
 
         if (nextImageURL) {
-            const preloadImage = new Image();
-            preloadImage.decoding = "async";
-            preloadImage.src = nextImageURL;
+            retainSolanaTokenImagePreload(nextImageURL);
         }
         </script>
         </body>
         </html>
+        """
+    }
+
+    static func preloadImageJavaScript(imageURL: URL) -> String {
+        """
+        \(retainedPreloadFunctionJavaScript)
+        return await retainSolanaTokenImagePreload(\(javaScriptStringLiteral(imageURL.absoluteString)));
+        """
+    }
+
+    private static var retainedPreloadFunctionJavaScript: String {
+        """
+        function retainSolanaTokenImagePreload(url) {
+            if (!url) {
+                return Promise.resolve(false);
+            }
+
+            const maximumRetainedPreloads = 4;
+            const releasePreload = (entry) => {
+                if (!entry) {
+                    return;
+                }
+                if (entry.cancel) {
+                    entry.cancel();
+                    return;
+                }
+                if (entry.timeoutId) {
+                    clearTimeout(entry.timeoutId);
+                    entry.timeoutId = null;
+                }
+                if (entry.image) {
+                    entry.image.onload = null;
+                    entry.image.onerror = null;
+                    entry.image.removeAttribute("src");
+                }
+                entry.promise = null;
+            };
+
+            let existingPreloads = window.__solanaTokenImagePreloads || [];
+            const existingPreload = existingPreloads.find((entry) => entry.url === url);
+            if (existingPreload) {
+                if (existingPreload.promise) {
+                    return existingPreload.promise;
+                }
+                if (existingPreload.didLoad === true) {
+                    return Promise.resolve(true);
+                }
+
+                const existingImage = existingPreload.image;
+                if (existingImage && existingImage.complete && (existingImage.naturalWidth > 0 || existingImage.naturalHeight > 0)) {
+                    existingPreload.didLoad = true;
+                    return Promise.resolve(true);
+                }
+
+                existingPreloads = existingPreloads.filter((entry) => entry !== existingPreload);
+                releasePreload(existingPreload);
+            }
+
+            const preloadImage = new Image();
+            const preloadEntry = {
+                url,
+                image: preloadImage,
+                didLoad: false,
+                promise: null,
+                timeoutId: null,
+                cancel: null
+            };
+            let finishPreload = null;
+            const preloadPromise = new Promise((resolve) => {
+                let didFinish = false;
+                const finish = (didLoad) => {
+                    if (didFinish) {
+                        return;
+                    }
+                    didFinish = true;
+                    if (preloadEntry.timeoutId) {
+                        clearTimeout(preloadEntry.timeoutId);
+                        preloadEntry.timeoutId = null;
+                    }
+                    preloadImage.onload = null;
+                    preloadImage.onerror = null;
+                    preloadEntry.didLoad = didLoad;
+                    preloadEntry.promise = null;
+                    preloadEntry.cancel = null;
+                    resolve(didLoad);
+                };
+                finishPreload = finish;
+
+                preloadEntry.timeoutId = setTimeout(() => finish(false), 8000);
+                preloadImage.onload = () => finish(true);
+                preloadImage.onerror = () => finish(false);
+            });
+            preloadEntry.promise = preloadPromise;
+            preloadEntry.cancel = () => {
+                preloadImage.onload = null;
+                preloadImage.onerror = null;
+                preloadImage.removeAttribute("src");
+                if (finishPreload) {
+                    finishPreload(false);
+                }
+            };
+
+            preloadImage.decoding = "async";
+            preloadImage.src = url;
+            Promise.resolve().then(() => {
+                if (preloadImage.complete && finishPreload) {
+                    finishPreload(preloadImage.naturalWidth > 0 || preloadImage.naturalHeight > 0);
+                }
+            });
+
+            const nextPreloads = existingPreloads.concat(preloadEntry);
+            const evictedPreloads = nextPreloads.slice(0, Math.max(0, nextPreloads.length - maximumRetainedPreloads));
+            window.__solanaTokenImagePreloads = nextPreloads.slice(-maximumRetainedPreloads);
+            evictedPreloads.forEach(releasePreload);
+            return preloadPromise;
+        }
         """
     }
 

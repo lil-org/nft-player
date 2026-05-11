@@ -45,6 +45,7 @@ final class FullscreenTokenMediaRenderer {
     private var webView: AutoReloadingWebView!
     private var imageView: UIImageView!
     private var representedImageKey: AnyHashable?
+    private var webViewMayContainContent = false
 
     init(containerView: UIView) {
         self.containerView = containerView
@@ -52,9 +53,29 @@ final class FullscreenTokenMediaRenderer {
 
     func clearContent() {
         representedImageKey = nil
-        webView?.stopLoading()
-        webView?.loadHTMLString("", baseURL: nil)
+        unloadWebContentIfNeeded()
         imageView?.image = nil
+    }
+
+    func displayLoadedImage<Key: Hashable>(_ image: UIImage, key: Key) {
+        let imageKey = AnyHashable(key)
+        representedImageKey = imageKey
+        ensureImageView()
+        webView?.isHidden = true
+        imageView.isHidden = false
+        imageView.image = image
+
+        webView?.invalidateRequestedContent()
+        guard webViewMayContainContent else { return }
+
+        DispatchQueue.main.async { [weak self] in
+            guard let self,
+                  self.representedImageKey == imageKey else {
+                return
+            }
+
+            self.unloadWebContentIfNeeded()
+        }
     }
 
     func renderImage<Key: Hashable>(
@@ -86,9 +107,7 @@ final class FullscreenTokenMediaRenderer {
             }
 
             onSuccess?()
-            self.webView?.isHidden = true
-            self.imageView.isHidden = false
-            self.imageView.image = image
+            self.displayLoadedImage(image, key: key)
             onLoadedImage?(image)
         }
     }
@@ -108,6 +127,7 @@ final class FullscreenTokenMediaRenderer {
         readAccessURL: URL,
         hidesEmptyWebContent: Bool = false,
         onBegin: (() -> Void)? = nil,
+        onLoadSuccess: (() -> Void)? = nil,
         onLoadFailure: (() -> Void)? = nil
     ) {
         prepareWebContent(html, hidesEmptyWebContent: hidesEmptyWebContent, onBegin: onBegin)
@@ -115,8 +135,30 @@ final class FullscreenTokenMediaRenderer {
             html,
             htmlDirectoryURL: htmlDirectoryURL,
             allowingReadAccessTo: readAccessURL,
+            onSuccess: onLoadSuccess,
             onFailure: onLoadFailure
         )
+    }
+
+    func preloadWebImage(_ imageURL: URL, completion: ((Bool) -> Void)? = nil) {
+        guard let webView else {
+            completion?(false)
+            return
+        }
+
+        webView.callAsyncJavaScript(
+            SolanaTokenHTML.preloadImageJavaScript(imageURL: imageURL),
+            arguments: [:],
+            in: nil,
+            in: .page
+        ) { result in
+            switch result {
+            case .success(let value):
+                completion?((value as? Bool) == true)
+            case .failure:
+                completion?(false)
+            }
+        }
     }
 
     private func prepareWebContent(
@@ -129,6 +171,7 @@ final class FullscreenTokenMediaRenderer {
         imageView?.isHidden = true
         imageView?.image = nil
         webView.stopLoading()
+        webViewMayContainContent = !html.isEmpty
         webView.isHidden = hidesEmptyWebContent && html.isEmpty
         onBegin?()
     }
@@ -146,9 +189,20 @@ final class FullscreenTokenMediaRenderer {
     }
 
     private func hideWebContent() {
-        webView?.stopLoading()
+        webView?.invalidateRequestedContent()
         webView?.isHidden = true
     }
+
+    private func unloadWebContentIfNeeded() {
+        guard webViewMayContainContent else {
+            webView?.invalidateRequestedContent()
+            return
+        }
+
+        webView?.unloadContent()
+        webViewMayContainContent = false
+    }
+
 }
 
 private enum PlayerEdgeTapSide {
@@ -415,7 +469,7 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
         }
         return gesture
     }()
-    private var renderedCoordinates = Set<PlayerCoordinate>()
+    private var renderedCoordinateCounts = [PlayerCoordinate: Int]()
     private var displayedCoordinate: PlayerCoordinate?
     private var pendingEdgeTapHighlightSide: PlayerEdgeTapSide?
     private var edgeTapHighlightWorkItem: DispatchWorkItem?
@@ -682,6 +736,13 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
         )
     }
 
+    fileprivate func solanaImageDescriptor(for coordinate: (Int, Int)) -> SolanaImageDescriptor? {
+        MobilePlaybackController.shared.solanaImageDescriptor(
+            uuid: initialConfig.id,
+            coordinate: PlayerCoordinate(x: coordinate.0, y: coordinate.1)
+        )
+    }
+
     fileprivate func adjacentSolanaImageDescriptor(
         for coordinate: (Int, Int),
         direction: SolanaImageCache.PrefetchDirection
@@ -705,12 +766,18 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
     }
 
     fileprivate func didRenderCoordinate(_ coordinate: (Int, Int)) {
-        renderedCoordinates.insert(PlayerCoordinate(x: coordinate.0, y: coordinate.1))
+        let playerCoordinate = PlayerCoordinate(x: coordinate.0, y: coordinate.1)
+        renderedCoordinateCounts[playerCoordinate, default: 0] += 1
         didUpdateRenderedCoordinates()
     }
 
     fileprivate func didCleanupCoordinate(_ coordinate: (Int, Int)) {
-        renderedCoordinates.remove(PlayerCoordinate(x: coordinate.0, y: coordinate.1))
+        let playerCoordinate = PlayerCoordinate(x: coordinate.0, y: coordinate.1)
+        if let count = renderedCoordinateCounts[playerCoordinate], count > 1 {
+            renderedCoordinateCounts[playerCoordinate] = count - 1
+        } else {
+            renderedCoordinateCounts.removeValue(forKey: playerCoordinate)
+        }
         didUpdateRenderedCoordinates()
     }
 
@@ -727,7 +794,7 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
     }
 
     private func didUpdateRenderedCoordinates() {
-        if renderedCoordinates.count == 1, let coordinate = renderedCoordinates.first {
+        if renderedCoordinateCounts.count == 1, let coordinate = renderedCoordinateCounts.keys.first {
             updateDisplayedCoordinate(coordinate)
         }
     }
@@ -747,6 +814,7 @@ private protocol FourDirectionalPlayerDataSource: AnyObject {
         for coordinate: (Int, Int),
         direction: SolanaImageCache.PrefetchDirection
     ) -> SolanaImageDescriptor?
+    func solanaImageDescriptor(for coordinate: (Int, Int)) -> SolanaImageDescriptor?
     func adjacentSolanaImageDescriptor(
         for coordinate: (Int, Int),
         direction: SolanaImageCache.PrefetchDirection
@@ -842,8 +910,10 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
 
     private var renderedCoordinate: (Int, Int)?
     private var animatedRenderContext: AnimatedRenderContext?
+    private var pendingAnimatedImageURL: URL?
     private var renderedAnimatedImageURL: URL?
     private var renderedAnimatedNextImageURL: URL?
+    private var pendingAnimatedNextImageURL: URL?
     private var solanaImageCacheObserver: NSObjectProtocol?
     private var willOrDidAppear = false
     private var isZoomInteractionActive = false
@@ -1162,11 +1232,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             return
         }
 
-        if let renderedCoordinate {
-            fourDirectionalPlayerDataSource?.didCleanupCoordinate(renderedCoordinate)
-        }
-
-        renderedCoordinate = newCoordinate
+        beginRenderingCoordinate(newCoordinate)
         let solanaImageDescriptor = fourDirectionalPlayerDataSource?.prepareSolanaImageWindow(
             for: newCoordinate,
             direction: preferredPrefetchDirection
@@ -1182,16 +1248,76 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             case .staticImage:
                 renderImage(descriptor, fallbackHTML: token.html)
             case .animatedImage:
-                let adjacentDescriptor = fourDirectionalPlayerDataSource?.adjacentSolanaImageDescriptor(
-                    for: newCoordinate,
-                    direction: preferredPrefetchDirection
-                )
-                renderAnimatedImage(descriptor, adjacentDescriptor: adjacentDescriptor, fallbackHTML: token.html)
+                renderAnimatedImage(descriptor, fallbackHTML: token.html)
             }
         } else {
             renderWebContent(token.html)
         }
         fourDirectionalPlayerDataSource?.didRenderCoordinate(newCoordinate)
+    }
+
+    fileprivate func replaceVisibleContentIfAvailable(
+        targetHorizontalIndex: Int,
+        preferredPrefetchDirection: SolanaImageCache.PrefetchDirection
+    ) -> Bool {
+        guard canReplaceVisibleContent else { return false }
+
+        let newCoordinate = (targetHorizontalIndex, verticalIndex)
+        if let renderedCoordinate, renderedCoordinate == newCoordinate {
+            return false
+        }
+
+        guard let descriptor = fourDirectionalPlayerDataSource?.solanaImageDescriptor(for: newCoordinate),
+              descriptor.isStaticImage else {
+            return false
+        }
+
+        if let image = SolanaImageCache.shared.cachedDecodedImage(for: descriptor) {
+            guard commitStaticImageReplacement(
+                image,
+                descriptor: descriptor,
+                coordinate: newCoordinate,
+                preferredPrefetchDirection: preferredPrefetchDirection
+            ) else { return false }
+            return true
+        }
+
+        return false
+    }
+
+    private var canReplaceVisibleContent: Bool {
+        willOrDidAppear && isViewLoaded && view.window != nil
+    }
+
+    private func commitStaticImageReplacement(
+        _ image: UIImage,
+        descriptor: SolanaImageDescriptor,
+        coordinate: (Int, Int),
+        preferredPrefetchDirection: SolanaImageCache.PrefetchDirection
+    ) -> Bool {
+        guard fourDirectionalPlayerDataSource?.prepareSolanaImageWindow(
+            for: coordinate,
+            direction: preferredPrefetchDirection
+        ) != nil else {
+            return false
+        }
+
+        self.preferredPrefetchDirection = preferredPrefetchDirection
+        horizontalIndex = coordinate.0
+        resetZoom(animated: false)
+        beginRenderingCoordinate(coordinate)
+        clearAnimatedRenderContext()
+        setZoomContentLayout(.staticImage(image.size))
+        mediaRenderer.displayLoadedImage(image, key: descriptor)
+        fourDirectionalPlayerDataSource?.didRenderCoordinate(coordinate)
+        return true
+    }
+
+    private func beginRenderingCoordinate(_ coordinate: (Int, Int)) {
+        if let renderedCoordinate {
+            fourDirectionalPlayerDataSource?.didCleanupCoordinate(renderedCoordinate)
+        }
+        renderedCoordinate = coordinate
     }
 
     private func renderImage(_ descriptor: SolanaImageDescriptor, fallbackHTML: String) {
@@ -1222,11 +1348,11 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         mediaRenderer.renderWebContent(html)
     }
 
-    private func renderAnimatedImage(
-        _ descriptor: SolanaImageDescriptor,
-        adjacentDescriptor: SolanaImageDescriptor?,
-        fallbackHTML: String
-    ) {
+    private func renderAnimatedImage(_ descriptor: SolanaImageDescriptor, fallbackHTML: String) {
+        let adjacentDescriptor = fourDirectionalPlayerDataSource?.adjacentSolanaImageDescriptor(
+            for: (horizontalIndex, verticalIndex),
+            direction: preferredPrefetchDirection
+        )
         setZoomContentLayout(.viewport)
         setAnimatedRenderContext(
             AnimatedRenderContext(
@@ -1243,8 +1369,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
 
         let imageCache = SolanaImageCache.shared
         guard let localFileURL = imageCache.localFileURL(for: context.descriptor) else {
-            renderedAnimatedImageURL = nil
-            renderedAnimatedNextImageURL = nil
+            clearAnimatedImageURLState()
             mediaRenderer.clearContent()
             return
         }
@@ -1252,8 +1377,33 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         let nextLocalFileURL = context.adjacentDescriptor.flatMap {
             imageCache.localFileURL(for: $0)
         }
+        if pendingAnimatedImageURL == localFileURL {
+            return
+        }
         if renderedAnimatedImageURL == localFileURL {
-            renderedAnimatedNextImageURL = nextLocalFileURL
+            guard renderedAnimatedNextImageURL != nextLocalFileURL else { return }
+            guard pendingAnimatedNextImageURL != nextLocalFileURL else { return }
+            guard let nextLocalFileURL else {
+                pendingAnimatedNextImageURL = nil
+                renderedAnimatedNextImageURL = nil
+                return
+            }
+
+            pendingAnimatedNextImageURL = nextLocalFileURL
+            mediaRenderer.preloadWebImage(nextLocalFileURL) { [weak self] didPreload in
+                guard let self,
+                      self.animatedRenderContext == context,
+                      self.renderedAnimatedImageURL == localFileURL else {
+                    return
+                }
+
+                if self.pendingAnimatedNextImageURL == nextLocalFileURL {
+                    self.pendingAnimatedNextImageURL = nil
+                }
+                guard didPreload else { return }
+
+                self.renderedAnimatedNextImageURL = nextLocalFileURL
+            }
             return
         }
 
@@ -1265,27 +1415,32 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             imageURL: localFileURL.absoluteString,
             nextImageURL: nextLocalFileURL?.absoluteString
         )
-        var didFailLocalLoad = false
+        pendingAnimatedImageURL = localFileURL
         mediaRenderer.renderLocalWebContent(
             html,
             htmlDirectoryURL: imageCache.webViewHTMLDirectoryURL,
             readAccessURL: imageCache.webViewReadAccessURL,
+            onLoadSuccess: { [weak self] in
+                guard let self,
+                      self.animatedRenderContext == context,
+                      self.pendingAnimatedImageURL == localFileURL else {
+                    return
+                }
+
+                self.clearAnimatedImageURLState()
+                self.renderedAnimatedImageURL = localFileURL
+                self.renderAvailableAnimatedLocalContent()
+            },
             onLoadFailure: { [weak self] in
                 guard let self,
                       self.animatedRenderContext == context else {
                     return
                 }
 
-                didFailLocalLoad = true
-                self.renderedAnimatedImageURL = nil
-                self.renderedAnimatedNextImageURL = nil
+                self.clearAnimatedRenderContext()
                 self.renderAnimatedFallbackWebContent(context.fallbackHTML)
             }
         )
-        guard !didFailLocalLoad else { return }
-
-        renderedAnimatedImageURL = localFileURL
-        renderedAnimatedNextImageURL = nextLocalFileURL
     }
 
     private func imageSize(at fileURL: URL) -> CGSize? {
@@ -1303,16 +1458,21 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
 
     private func setAnimatedRenderContext(_ context: AnimatedRenderContext) {
         animatedRenderContext = context
-        renderedAnimatedImageURL = nil
-        renderedAnimatedNextImageURL = nil
+        clearAnimatedImageURLState()
         installSolanaImageCacheObserverIfNeeded()
     }
 
     private func clearAnimatedRenderContext() {
         animatedRenderContext = nil
+        clearAnimatedImageURLState()
+        removeSolanaImageCacheObserver()
+    }
+
+    private func clearAnimatedImageURLState() {
+        pendingAnimatedImageURL = nil
         renderedAnimatedImageURL = nil
         renderedAnimatedNextImageURL = nil
-        removeSolanaImageCacheObserver()
+        pendingAnimatedNextImageURL = nil
     }
 
     private func installSolanaImageCacheObserverIfNeeded() {
@@ -1730,9 +1890,41 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
     func navigateWithoutAnimation(_ direction: PlaybackNavigationDirection) -> Bool {
         guard canNavigateWithoutAnimation(direction) else { return false }
 
+        if replaceCurrentPageContentWithoutPageControllerTransition(direction) {
+            return true
+        }
+
+        return performUnanimatedPageTransition(direction)
+    }
+
+    private func replaceCurrentPageContentWithoutPageControllerTransition(_ direction: PlaybackNavigationDirection) -> Bool {
+        guard direction == .back || direction == .forward,
+              let currentPage = viewControllers?.first as? SpecificPageViewController else {
+            return false
+        }
+
+        let targetOffset = direction == .back ? -1 : 1
+        let targetHorizontalIndex = currentPage.horizontalIndex + targetOffset
+
+        let prefetchDirection: SolanaImageCache.PrefetchDirection = direction == .back ? .backward : .forward
+        guard currentPage.replaceVisibleContentIfAvailable(
+            targetHorizontalIndex: targetHorizontalIndex,
+            preferredPrefetchDirection: prefetchDirection
+        ) else { return false }
+
+        fourDirectionalPlayerDataSource?.didAttemptPagination()
+        didSettleOnCurrentPage()
+        performPendingNavigationIfNeeded()
+        return true
+    }
+
+    private func performUnanimatedPageTransition(_ direction: PlaybackNavigationDirection) -> Bool {
         isPageTransitioning = true
         let pageDirection: UIPageViewController.NavigationDirection = direction == .back ? .reverse : .forward
-        let didStartTransition = performPageTransition(pageDirection, animated: false) { [weak self] in
+        let didStartTransition = performPageTransition(
+            pageDirection,
+            animated: false
+        ) { [weak self] in
             self?.isPageTransitioning = false
             self?.performPendingNavigationIfNeeded()
         }
