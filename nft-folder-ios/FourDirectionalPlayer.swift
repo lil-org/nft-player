@@ -1258,6 +1258,10 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         guard willOrDidAppear else { return }
 
         let newCoordinate = (horizontalIndex, verticalIndex)
+        guard fourDirectionalPlayerDataSource?.canRenderCoordinate(newCoordinate) == true else {
+            cleanupDisplayedContent()
+            return
+        }
         if let renderedCoordinate = renderedCoordinate, renderedCoordinate == newCoordinate {
             return
         }
@@ -1549,6 +1553,7 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
     private var didNotifyUnavailableNavigationDuringCurrentPan = false
     private var isPagingScrollEnabled = true
     private var isCurrentPageZoomed = false
+    private var lastSettledCoordinate: (horizontalIndex: Int, verticalIndex: Int)?
     private var zoomedPagingPanRestingOffsets = [ObjectIdentifier: CGFloat]()
     private var unlockedZoomedPagingPanGestures = Set<ObjectIdentifier>()
     private weak var fourDirectionalPlayerDataSource: FourDirectionalPlayerDataSource?
@@ -1773,11 +1778,13 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
     private func restartCollection() {
         let coordinate = getCurrentCoordinate()
         let targetHorizontalIndex = fourDirectionalPlayerDataSource?.startHorizontalCoordinate(verticalIndex: coordinate.1) ?? 0
-        guard canRender(horizontalIndex: targetHorizontalIndex, verticalIndex: coordinate.1) else { return }
         jumpToCoordinate(horizontalIndex: targetHorizontalIndex, verticalIndex: coordinate.1)
     }
 
     private func jumpToCoordinate(horizontalIndex: Int, verticalIndex: Int) {
+        guard canRender(horizontalIndex: horizontalIndex, verticalIndex: verticalIndex) else { return }
+
+        isPageTransitioning = true
         resetAllZoom(animated: false)
         pageA.preferredPrefetchDirection = .forward
         pageB.preferredPrefetchDirection = .forward
@@ -1790,16 +1797,70 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
         pageC.update(verticalIndex: verticalIndex)
 
         setViewControllers([pageA], direction: .forward, animated: false) { [weak self] _ in
-            self?.pageA.renderCurrentItem()
-            self?.fourDirectionalPlayerDataSource?.didDisplayCoordinate((horizontalIndex, verticalIndex))
+            guard let self else { return }
+
+            self.pageA.renderCurrentItem()
+            self.didDisplayRenderableCoordinate(horizontalIndex: horizontalIndex, verticalIndex: verticalIndex)
+            self.isPageTransitioning = false
+            self.performPendingNavigationIfNeeded()
         }
     }
 
-    private func didSettleOnCurrentPage() {
-        guard let currentPage = viewControllers?.first as? SpecificPageViewController else { return }
+    private func didSettleOnCurrentPage() -> Bool {
+        guard let currentPage = viewControllers?.first as? SpecificPageViewController else { return false }
+        guard canRender(horizontalIndex: currentPage.horizontalIndex, verticalIndex: currentPage.verticalIndex) else {
+            recoverFromInvalidCurrentPage(currentPage)
+            return false
+        }
+
         update(currentHorizontalIndex: currentPage.horizontalIndex)
         updatePagingScrollEnabled()
-        fourDirectionalPlayerDataSource?.didDisplayCoordinate((currentPage.horizontalIndex, currentPage.verticalIndex))
+        didDisplayRenderableCoordinate(horizontalIndex: currentPage.horizontalIndex, verticalIndex: currentPage.verticalIndex)
+        return true
+    }
+
+    private func didDisplayRenderableCoordinate(horizontalIndex: Int, verticalIndex: Int) {
+        lastSettledCoordinate = (horizontalIndex, verticalIndex)
+        fourDirectionalPlayerDataSource?.didDisplayCoordinate((horizontalIndex, verticalIndex))
+    }
+
+    private func recoverFromInvalidCurrentPage(_ currentPage: SpecificPageViewController) {
+        guard let recoveryCoordinate = recoveryCoordinate(
+            horizontalIndex: currentPage.horizontalIndex,
+            verticalIndex: currentPage.verticalIndex
+        ) else {
+            updatePagingScrollEnabled()
+            isPageTransitioning = false
+            return
+        }
+
+        jumpToCoordinate(horizontalIndex: recoveryCoordinate.horizontalIndex, verticalIndex: recoveryCoordinate.verticalIndex)
+    }
+
+    private func recoveryCoordinate(
+        horizontalIndex: Int,
+        verticalIndex: Int
+    ) -> (horizontalIndex: Int, verticalIndex: Int)? {
+        for candidateHorizontalIndex in [horizontalIndex - 1, horizontalIndex + 1] {
+            if canRender(horizontalIndex: candidateHorizontalIndex, verticalIndex: verticalIndex) {
+                return (candidateHorizontalIndex, verticalIndex)
+            }
+        }
+
+        if let lastSettledCoordinate,
+           canRender(
+            horizontalIndex: lastSettledCoordinate.horizontalIndex,
+            verticalIndex: lastSettledCoordinate.verticalIndex
+           ) {
+            return lastSettledCoordinate
+        }
+
+        let startHorizontalIndex = fourDirectionalPlayerDataSource?.startHorizontalCoordinate(verticalIndex: verticalIndex) ?? 0
+        if canRender(horizontalIndex: startHorizontalIndex, verticalIndex: verticalIndex) {
+            return (startHorizontalIndex, verticalIndex)
+        }
+
+        return nil
     }
 
     func pageViewController(_ pvc: UIPageViewController, viewControllerBefore vc: UIViewController) -> UIViewController? {
@@ -1854,7 +1915,8 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
         transitionCompleted completed: Bool
     ) {
         isPageTransitioning = false
-        didSettleOnCurrentPage()
+        guard didSettleOnCurrentPage() else { return }
+
         if !completed {
             currentPage?.refreshSolanaImageWindow()
         }
@@ -1896,7 +1958,7 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
         }
 
         setViewControllers([targetViewController], direction: direction, animated: animated) { _ in
-            self.didSettleOnCurrentPage()
+            guard self.didSettleOnCurrentPage() else { return }
             completion()
         }
         return true
@@ -1956,9 +2018,33 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
         ) else { return false }
 
         fourDirectionalPlayerDataSource?.didAttemptPagination()
-        didSettleOnCurrentPage()
-        performPendingNavigationIfNeeded()
+        guard didSettleOnCurrentPage() else { return true }
+        reloadPageControllerAfterInPlaceNavigation(direction) { [weak self] in
+            self?.performPendingNavigationIfNeeded()
+        }
         return true
+    }
+
+    private func reloadPageControllerAfterInPlaceNavigation(
+        _ direction: PlaybackNavigationDirection,
+        completion: @escaping () -> Void
+    ) {
+        guard let currentPage else {
+            completion()
+            return
+        }
+
+        isPageTransitioning = true
+        let pageDirection: UIPageViewController.NavigationDirection = direction == .back ? .reverse : .forward
+        dataSource = nil
+        setViewControllers([currentPage], direction: pageDirection, animated: false) { [weak self] _ in
+            guard let self else { return }
+
+            self.dataSource = self
+            self.configurePagingScrollViews()
+            self.isPageTransitioning = false
+            completion()
+        }
     }
 
     private func performUnanimatedPageTransition(_ direction: PlaybackNavigationDirection) -> Bool {
