@@ -41,23 +41,33 @@ enum FullscreenTokenMediaView {
 }
 
 final class FullscreenTokenMediaRenderer {
+    private typealias ImageLoadCancellation = () -> Void
+
     private let containerView: UIView
     private var webView: AutoReloadingWebView!
     private var imageView: UIImageView!
     private var representedImageKey: AnyHashable?
+    private var activeImageLoadId: UUID?
+    private var cancelActiveImageLoad: ImageLoadCancellation?
     private var webViewMayContainContent = false
 
     init(containerView: UIView) {
         self.containerView = containerView
     }
 
+    deinit {
+        cancelCurrentImageLoad()
+    }
+
     func clearContent() {
+        cancelCurrentImageLoad()
         representedImageKey = nil
         unloadWebContentIfNeeded()
         imageView?.image = nil
     }
 
     func displayLoadedImage<Key: Hashable>(_ image: UIImage, key: Key) {
+        cancelCurrentImageLoad()
         let imageKey = AnyHashable(key)
         representedImageKey = imageKey
         ensureImageView()
@@ -82,11 +92,12 @@ final class FullscreenTokenMediaRenderer {
         key: Key,
         hideImageUntilLoaded: Bool,
         onBegin: (() -> Void)? = nil,
-        load: (@escaping (UIImage?) -> Void) -> Void,
+        load: (@escaping (UIImage?) -> Void) -> (() -> Void)?,
         fallbackToWebContent: @escaping () -> Void,
         onLoadedImage: ((UIImage) -> Void)? = nil,
         onSuccess: (() -> Void)? = nil
     ) {
+        cancelCurrentImageLoad()
         ensureImageView()
         hideWebContent()
         imageView.isHidden = hideImageUntilLoaded
@@ -94,12 +105,18 @@ final class FullscreenTokenMediaRenderer {
         onBegin?()
 
         let imageKey = AnyHashable(key)
+        let imageLoadId = UUID()
         representedImageKey = imageKey
-        load { [weak self] image in
+        activeImageLoadId = imageLoadId
+        let cancellation = load { [weak self] image in
             guard let self,
-                  self.representedImageKey == imageKey else {
+                  self.representedImageKey == imageKey,
+                  self.activeImageLoadId == imageLoadId else {
                 return
             }
+
+            self.cancelActiveImageLoad = nil
+            self.activeImageLoadId = nil
 
             guard let image else {
                 fallbackToWebContent()
@@ -110,6 +127,11 @@ final class FullscreenTokenMediaRenderer {
             self.displayLoadedImage(image, key: key)
             onLoadedImage?(image)
         }
+        guard representedImageKey == imageKey, activeImageLoadId == imageLoadId else {
+            cancellation?()
+            return
+        }
+        cancelActiveImageLoad = cancellation
     }
 
     func renderWebContent(
@@ -166,6 +188,7 @@ final class FullscreenTokenMediaRenderer {
         hidesEmptyWebContent: Bool,
         onBegin: (() -> Void)?
     ) {
+        cancelCurrentImageLoad()
         representedImageKey = nil
         ensureWebView()
         imageView?.isHidden = true
@@ -174,6 +197,13 @@ final class FullscreenTokenMediaRenderer {
         webViewMayContainContent = !html.isEmpty
         webView.isHidden = hidesEmptyWebContent && html.isEmpty
         onBegin?()
+    }
+
+    private func cancelCurrentImageLoad() {
+        let cancellation = cancelActiveImageLoad
+        cancelActiveImageLoad = nil
+        activeImageLoadId = nil
+        cancellation?()
     }
 
     private func ensureImageView() {
@@ -1233,10 +1263,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         }
 
         beginRenderingCoordinate(newCoordinate)
-        let solanaImageDescriptor = fourDirectionalPlayerDataSource?.prepareSolanaImageWindow(
-            for: newCoordinate,
-            direction: preferredPrefetchDirection
-        )
+        let solanaImageDescriptor = prepareCurrentSolanaImageWindow()
 
         guard let token = fourDirectionalPlayerDataSource?.getToken(x: horizontalIndex, y: verticalIndex) else {
             fourDirectionalPlayerDataSource?.didRenderCoordinate(newCoordinate)
@@ -1254,6 +1281,19 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             renderWebContent(token.html)
         }
         fourDirectionalPlayerDataSource?.didRenderCoordinate(newCoordinate)
+    }
+
+    fileprivate func refreshSolanaImageWindow() {
+        guard willOrDidAppear else { return }
+
+        _ = prepareCurrentSolanaImageWindow()
+    }
+
+    private func prepareCurrentSolanaImageWindow() -> SolanaImageDescriptor? {
+        fourDirectionalPlayerDataSource?.prepareSolanaImageWindow(
+            for: (horizontalIndex, verticalIndex),
+            direction: preferredPrefetchDirection
+        )
     }
 
     fileprivate func replaceVisibleContentIfAvailable(
@@ -1815,6 +1855,9 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
     ) {
         isPageTransitioning = false
         didSettleOnCurrentPage()
+        if !completed {
+            currentPage?.refreshSolanaImageWindow()
+        }
         performPendingNavigationIfNeeded()
     }
 

@@ -558,6 +558,10 @@ final class SolanaImageCache {
 
     private let queue = DispatchQueue(label: "org.lil.nft-folder.solana-image-cache", qos: .utility)
     private let imageDecodeQueue = DispatchQueue(label: "org.lil.nft-folder.solana-image-cache.decode", qos: .utility)
+    private let foregroundImageDecodeQueue = DispatchQueue(
+        label: "org.lil.nft-folder.solana-image-cache.decode.foreground",
+        qos: .userInitiated
+    )
     private let memoryCache = NSCache<NSString, UIImage>()
     private let session: URLSession
     private let cacheRoot: URL
@@ -570,6 +574,47 @@ final class SolanaImageCache {
         let id: UUID
     }
 
+    private enum ImageDecodePriority: Equatable {
+        case foreground, prefetch
+    }
+
+    private enum ImageDecodeWorkKind: Equatable {
+        case primary, foregroundRace
+    }
+
+    private struct ImageDecodeJob {
+        let decodeId: UUID
+        let fileURL: URL
+        let descriptor: SolanaImageDescriptor
+        let key: String
+        let redownloadOnFailure: Bool
+        let priority: ImageDecodePriority
+        let workKind: ImageDecodeWorkKind
+    }
+
+    private final class ImageLoadRequest {
+        let id = UUID()
+        private let lock = NSLock()
+        private var cancelled = false
+
+        var isCancelled: Bool {
+            lock.withLock { cancelled }
+        }
+
+        func cancel() {
+            lock.withLock {
+                cancelled = true
+            }
+        }
+    }
+
+    private typealias ImageLoadCompletion = (UIImage?) -> Void
+    private struct ImageLoadCallback {
+        let request: ImageLoadRequest
+        let completion: ImageLoadCompletion
+    }
+    private typealias ImageLoadCompletions = [UUID: ImageLoadCallback]
+
     private var activeCollectionId: String?
     private var activeFileNames = Set<String>()
     private var activeDecodedKeys = Set<String>()
@@ -577,10 +622,13 @@ final class SolanaImageCache {
     private var pendingDescriptors = [SolanaImageDescriptor]()
     private var pendingKeys = Set<String>()
     private var ongoingDownloads = [String: OngoingDownload]()
-    private var decodingKeys = Set<String>()
+    private var decodeIdsByKey = [String: UUID]()
+    private var foregroundDecodeIdsByKey = [String: UUID]()
     private var freshDownloadDecodeKeys = Set<String>()
     private var redownloadOnDecodeFailureKeys = Set<String>()
-    private var completions = [String: [(UIImage?) -> Void]]()
+    private var foregroundKey: String?
+    private var foregroundWorkKeys = Set<String>()
+    private var completions = [String: ImageLoadCompletions]()
     private var memoryWarningObserver: NSObjectProtocol?
 
     private init() {
@@ -641,11 +689,22 @@ final class SolanaImageCache {
                 self.evictFilesOutsideWindow(collectionId: collectionId, allowedFileNames: allowedFileNames)
                 self.cancelDownloadsOutsideWindow(collectionId: collectionId, allowedKeys: allowedKeys)
             }
+            self.pruneForegroundTracking(allowedKeys: allowedKeys)
+            if let currentDescriptor = descriptors.first(where: { $0.tokenIndex == currentTokenIndex }) {
+                self.prioritizeForegroundImageIfNeeded(
+                    currentDescriptor,
+                    requireDecodedStaticImage: currentDescriptor.isStaticImage
+                )
+            } else {
+                self.foregroundKey = nil
+                self.foregroundWorkKeys.removeAll()
+                self.updateOngoingDownloadPriorities()
+            }
             if didChangeCollection || self.activeDecodedKeys != decodedKeys {
                 self.activeDecodedKeys = decodedKeys
                 self.evictMemoryOutsideWindow(collectionId: collectionId, allowedKeys: decodedKeys)
-                self.decodeCachedImagesIfNeeded(decodedDescriptors)
             }
+            self.decodeCachedImagesIfNeeded(decodedDescriptors)
 
             let downloadDescriptors = self.prioritizedDownloadDescriptors(
                 currentTokenIndex: currentTokenIndex,
@@ -653,7 +712,7 @@ final class SolanaImageCache {
                 decodedDescriptors: decodedDescriptors
             )
             for descriptor in downloadDescriptors {
-                self.enqueueDownloadIfNeeded(descriptor, priority: false)
+                self.enqueueDownloadIfNeeded(descriptor, isForegroundRequest: false)
             }
             self.reorderPendingDownloads(preferredDescriptors: downloadDescriptors)
             self.startDownloadsIfNeeded()
@@ -669,13 +728,16 @@ final class SolanaImageCache {
 
             self.ongoingDownloads.values.forEach { $0.task.cancel() }
             self.ongoingDownloads.removeAll()
-            self.decodingKeys.removeAll()
+            self.decodeIdsByKey.removeAll()
+            self.foregroundDecodeIdsByKey.removeAll()
             self.freshDownloadDecodeKeys.removeAll()
             self.redownloadOnDecodeFailureKeys.removeAll()
+            self.foregroundKey = nil
+            self.foregroundWorkKeys.removeAll()
             self.memoryCache.removeAllObjects()
             self.memoryKeysByCollection.removeAll()
 
-            let callbacks = self.completions.values.flatMap { $0 }
+            let callbacks = Array(self.completions.values.flatMap { $0.values })
             self.completions.removeAll()
             self.complete(callbacks, with: nil)
             self.activeCollectionId = nil
@@ -684,48 +746,68 @@ final class SolanaImageCache {
         }
     }
 
-    func loadImage(for descriptor: SolanaImageDescriptor, completion: @escaping (UIImage?) -> Void) {
+    @discardableResult
+    func loadImage(
+        for descriptor: SolanaImageDescriptor,
+        completion: @escaping (UIImage?) -> Void
+    ) -> (() -> Void)? {
         guard descriptor.isStaticImage else {
             DispatchQueue.main.async {
                 completion(nil)
             }
-            return
+            return nil
         }
 
+        let request = ImageLoadRequest()
         queue.async { [weak self] in
             guard let self else { return }
+            guard !request.isCancelled else { return }
 
             let key = self.cacheKey(for: descriptor)
+            let callback = ImageLoadCallback(request: request, completion: completion)
             if let cachedImage = self.cachedDecodedImage(forKey: key) {
-                DispatchQueue.main.async {
-                    completion(cachedImage)
-                }
+                self.complete([callback], with: cachedImage)
                 return
             }
 
             let fileURL = self.fileURL(for: descriptor)
+            self.completions[key, default: [:]][request.id] = callback
+            self.prioritizeForegroundImageIfNeeded(descriptor, requireDecodedStaticImage: true)
             if FileManager.default.fileExists(atPath: fileURL.path) {
-                self.completions[key, default: []].append(completion)
-                if self.decodingKeys.insert(key).inserted {
-                    self.decodeImage(
+                if self.decodeIdsByKey[key] == nil {
+                    self.startImageDecode(
                         at: fileURL,
                         descriptor: descriptor,
                         key: key,
-                        redownloadOnFailure: true
+                        redownloadOnFailure: true,
+                        priority: .foreground
                     )
-                } else if !self.freshDownloadDecodeKeys.contains(key) {
-                    self.redownloadOnDecodeFailureKeys.insert(key)
+                } else {
+                    let shouldRedownloadOnFailure = !self.freshDownloadDecodeKeys.contains(key)
+                    if shouldRedownloadOnFailure {
+                        self.redownloadOnDecodeFailureKeys.insert(key)
+                    }
+                    self.startForegroundDecodeIfNeeded(
+                        at: fileURL,
+                        descriptor: descriptor,
+                        key: key,
+                        redownloadOnFailure: shouldRedownloadOnFailure
+                    )
                 }
                 return
             }
 
-            self.completions[key, default: []].append(completion)
-            self.enqueueDownloadIfNeeded(descriptor, priority: true)
             self.startDownloadsIfNeeded()
+        }
+
+        return { [weak self, request] in
+            request.cancel()
+            self?.cancelImageLoad(for: descriptor, requestId: request.id)
         }
     }
 
-    func loadImage(for token: GeneratedToken, completion: @escaping (UIImage?) -> Void) {
+    @discardableResult
+    func loadImage(for token: GeneratedToken, completion: @escaping (UIImage?) -> Void) -> (() -> Void)? {
         guard let tokenIndex = MobileCollectionCatalog.tokenIndex(
             specificCollectionId: token.fullCollectionId,
             tokenId: token.id
@@ -737,10 +819,53 @@ final class SolanaImageCache {
             DispatchQueue.main.async {
                 completion(nil)
             }
-            return
+            return nil
         }
 
-        loadImage(for: descriptor, completion: completion)
+        return loadImage(for: descriptor, completion: completion)
+    }
+
+    private func cancelImageLoad(for descriptor: SolanaImageDescriptor, requestId: UUID) {
+        queue.async { [weak self] in
+            guard let self else { return }
+
+            let key = self.cacheKey(for: descriptor)
+            guard self.removeCompletion(forKey: key, requestId: requestId) else {
+                return
+            }
+
+            guard !self.hasDemandCallbacks(forKey: key) else { return }
+
+            if self.foregroundKey == key {
+                self.foregroundKey = nil
+            }
+            self.markForegroundWorkFinished(forKey: key)
+
+            if !self.isDescriptorInActiveWindow(descriptor) {
+                self.pendingDescriptors.removeAll { self.cacheKey(for: $0) == key }
+                self.pendingKeys.remove(key)
+                self.cancelDownload(forKey: key)
+            } else if !self.foregroundWorkKeys.isEmpty {
+                self.cancelOngoingPrefetchDownloadForForeground(forKey: key)
+            } else {
+                self.updateOngoingDownloadPriorities()
+            }
+            self.startDownloadsIfNeeded()
+        }
+    }
+
+    private func removeCompletion(forKey key: String, requestId: UUID) -> Bool {
+        guard var callbacks = completions[key],
+              callbacks.removeValue(forKey: requestId) != nil else {
+            return false
+        }
+
+        if callbacks.isEmpty {
+            completions.removeValue(forKey: key)
+        } else {
+            completions[key] = callbacks
+        }
+        return true
     }
 
     func localFileURL(for descriptor: SolanaImageDescriptor) -> URL? {
@@ -786,20 +911,25 @@ final class SolanaImageCache {
         }
     }
 
-    private func enqueueDownloadIfNeeded(_ descriptor: SolanaImageDescriptor, priority: Bool) {
+    private func enqueueDownloadIfNeeded(_ descriptor: SolanaImageDescriptor, isForegroundRequest: Bool) {
         let key = cacheKey(for: descriptor)
-        guard ongoingDownloads[key] == nil else { return }
+        if let ongoingDownload = ongoingDownloads[key] {
+            if isForegroundRequest {
+                ongoingDownload.task.priority = downloadTaskPriority(forKey: key)
+            }
+            return
+        }
         guard !FileManager.default.fileExists(atPath: fileURL(for: descriptor).path) else { return }
 
         if pendingKeys.contains(key) {
-            guard priority else { return }
+            guard isForegroundRequest else { return }
             pendingDescriptors.removeAll { cacheKey(for: $0) == key }
             pendingDescriptors.insert(descriptor, at: 0)
             return
         }
 
         pendingKeys.insert(key)
-        if priority {
+        if isForegroundRequest {
             pendingDescriptors.insert(descriptor, at: 0)
         } else {
             pendingDescriptors.append(descriptor)
@@ -807,14 +937,9 @@ final class SolanaImageCache {
     }
 
     private func startDownloadsIfNeeded() {
-        while ongoingDownloads.count < maximumConcurrentDownloads, !pendingDescriptors.isEmpty {
-            let descriptor = pendingDescriptors.removeFirst()
+        while ongoingDownloads.count < maximumConcurrentDownloads {
+            guard let descriptor = popNextStartablePendingDescriptor() else { return }
             let key = cacheKey(for: descriptor)
-            pendingKeys.remove(key)
-
-            guard isDescriptorInActiveWindow(descriptor) || completions[key]?.isEmpty == false else {
-                continue
-            }
 
             let downloadId = UUID()
             let task = session.downloadTask(with: descriptor.url) { [weak self] tmpURL, response, error in
@@ -831,9 +956,35 @@ final class SolanaImageCache {
                     )
                 }
             }
+            task.priority = downloadTaskPriority(forKey: key)
             ongoingDownloads[key] = OngoingDownload(task: task, descriptor: descriptor, id: downloadId)
             task.resume()
         }
+    }
+
+    private func popNextStartablePendingDescriptor() -> SolanaImageDescriptor? {
+        var index = 0
+        while index < pendingDescriptors.count {
+            let descriptor = pendingDescriptors[index]
+            let key = cacheKey(for: descriptor)
+            let hasDemandCallback = hasDemandCallbacks(forKey: key)
+            let isAllowed = isDescriptorInActiveWindow(descriptor) || hasDemandCallback
+            if !isAllowed {
+                pendingDescriptors.remove(at: index)
+                pendingKeys.remove(key)
+                continue
+            }
+
+            if !foregroundWorkKeys.isEmpty && !isForegroundKey(key) && !hasDemandCallback {
+                index += 1
+                continue
+            }
+
+            pendingDescriptors.remove(at: index)
+            pendingKeys.remove(key)
+            return descriptor
+        }
+        return nil
     }
 
     private func finishDownload(
@@ -853,20 +1004,18 @@ final class SolanaImageCache {
 
         ongoingDownloads.removeValue(forKey: key)
 
-        let callbacks = completions.removeValue(forKey: key) ?? []
+        let callbacks = completions.removeValue(forKey: key) ?? [:]
         let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
         guard error == nil,
               (200...299).contains(statusCode),
               let tmpURL else {
-            complete(callbacks, with: nil)
-            startDownloadsIfNeeded()
+            finishForegroundWork(forKey: key, callbacks: callbacks)
             return
         }
 
         guard isDescriptorInActiveWindow(descriptor) || !callbacks.isEmpty else {
             try? FileManager.default.removeItem(at: tmpURL)
-            complete(callbacks, with: nil)
-            startDownloadsIfNeeded()
+            finishForegroundWork(forKey: key, callbacks: callbacks)
             return
         }
 
@@ -886,61 +1035,114 @@ final class SolanaImageCache {
                 notifyFileAvailabilityChanged()
             }
             try? FileManager.default.removeItem(at: tmpURL)
-            complete(callbacks, with: nil)
-            startDownloadsIfNeeded()
+            finishForegroundWork(forKey: key, callbacks: callbacks)
             return
         }
 
         guard descriptor.isStaticImage else {
-            complete(callbacks, with: nil)
-            startDownloadsIfNeeded()
+            finishForegroundWork(forKey: key, callbacks: callbacks)
             return
         }
 
         let shouldDecodeForPrefetch = shouldKeepDecodedImage(descriptor, key: key)
         guard !callbacks.isEmpty || shouldDecodeForPrefetch else {
-            startDownloadsIfNeeded()
+            finishForegroundWork(forKey: key)
             return
         }
 
         if !callbacks.isEmpty {
-            completions[key, default: []].append(contentsOf: callbacks)
+            completions[key, default: [:]].merge(callbacks) { current, _ in current }
         }
-        if decodingKeys.insert(key).inserted {
+        let decodePriority = imageDecodePriority(forKey: key, hasKnownDemandCallbacks: !callbacks.isEmpty)
+        if decodeIdsByKey[key] == nil {
             freshDownloadDecodeKeys.insert(key)
-            decodeImage(
+            startImageDecode(
+                at: fileURL,
+                descriptor: descriptor,
+                key: key,
+                redownloadOnFailure: false,
+                priority: decodePriority
+            )
+        } else if !callbacks.isEmpty && !freshDownloadDecodeKeys.contains(key) {
+            redownloadOnDecodeFailureKeys.insert(key)
+            startForegroundDecodeIfNeeded(
+                at: fileURL,
+                descriptor: descriptor,
+                key: key,
+                redownloadOnFailure: true
+            )
+        } else if decodePriority == .foreground {
+            startForegroundDecodeIfNeeded(
                 at: fileURL,
                 descriptor: descriptor,
                 key: key,
                 redownloadOnFailure: false
             )
-        } else if !callbacks.isEmpty && !freshDownloadDecodeKeys.contains(key) {
-            redownloadOnDecodeFailureKeys.insert(key)
         }
         startDownloadsIfNeeded()
     }
 
-    private func decodeImage(
+    private func startImageDecode(
         at fileURL: URL,
         descriptor: SolanaImageDescriptor,
         key: String,
-        redownloadOnFailure: Bool
+        redownloadOnFailure: Bool,
+        priority: ImageDecodePriority
     ) {
+        let decodeId = UUID()
+        decodeIdsByKey[key] = decodeId
+
         if redownloadOnFailure {
             redownloadOnDecodeFailureKeys.insert(key)
         } else {
             redownloadOnDecodeFailureKeys.remove(key)
         }
 
-        imageDecodeQueue.async { [weak self] in
-            let image = Self.loadDecodedImage(at: fileURL)
+        if priority == .foreground {
+            foregroundDecodeIdsByKey[key] = decodeId
+        }
+        enqueueImageDecodeWork(ImageDecodeJob(
+            decodeId: decodeId,
+            fileURL: fileURL,
+            descriptor: descriptor,
+            key: key,
+            redownloadOnFailure: redownloadOnFailure,
+            priority: priority,
+            workKind: .primary
+        ))
+    }
+
+    private func startForegroundDecodeIfNeeded(
+        at fileURL: URL,
+        descriptor: SolanaImageDescriptor,
+        key: String,
+        redownloadOnFailure: Bool
+    ) {
+        guard let decodeId = decodeIdsByKey[key],
+              foregroundDecodeIdsByKey[key] != decodeId else { return }
+
+        foregroundDecodeIdsByKey[key] = decodeId
+
+        // Race the existing prefetch decode on the foreground queue.
+        enqueueImageDecodeWork(ImageDecodeJob(
+            decodeId: decodeId,
+            fileURL: fileURL,
+            descriptor: descriptor,
+            key: key,
+            redownloadOnFailure: redownloadOnFailure,
+            priority: .foreground,
+            workKind: .foregroundRace
+        ))
+    }
+
+    private func enqueueImageDecodeWork(_ job: ImageDecodeJob) {
+        let decodeQueue = job.priority == .foreground ? foregroundImageDecodeQueue : imageDecodeQueue
+        decodeQueue.async { [weak self] in
+            let image = Self.loadDecodedImage(at: job.fileURL)
             self?.queue.async { [weak self] in
                 self?.finishImageDecode(
                     image,
-                    fileURL: fileURL,
-                    descriptor: descriptor,
-                    key: key,
-                    redownloadOnFailure: redownloadOnFailure
+                    job: job
                 )
             }
         }
@@ -948,35 +1150,43 @@ final class SolanaImageCache {
 
     private func finishImageDecode(
         _ image: UIImage?,
-        fileURL: URL,
-        descriptor: SolanaImageDescriptor,
-        key: String,
-        redownloadOnFailure: Bool
+        job: ImageDecodeJob
     ) {
-        guard decodingKeys.remove(key) != nil else { return }
-        freshDownloadDecodeKeys.remove(key)
-        let wasRequestedForRedownloadOnFailure = redownloadOnDecodeFailureKeys.remove(key) != nil
-        let shouldRedownloadOnFailure = redownloadOnFailure || wasRequestedForRedownloadOnFailure
+        if job.priority == .foreground,
+           foregroundDecodeIdsByKey[job.key] == job.decodeId {
+            foregroundDecodeIdsByKey.removeValue(forKey: job.key)
+        }
+        guard decodeIdsByKey[job.key] == job.decodeId else { return }
 
-        let callbacks = completions.removeValue(forKey: key) ?? []
-        if let image {
-            if shouldKeepDecodedImage(descriptor, key: key) {
-                cache(image, for: descriptor)
+        if job.workKind == .foregroundRace, image == nil {
+            guard redownloadOnDecodeFailureKeys.contains(job.key) else {
+                return
             }
-            complete(callbacks, with: image)
+        }
+        decodeIdsByKey.removeValue(forKey: job.key)
+        freshDownloadDecodeKeys.remove(job.key)
+        let wasRequestedForRedownloadOnFailure = redownloadOnDecodeFailureKeys.remove(job.key) != nil
+        let shouldRedownloadOnFailure = job.redownloadOnFailure || wasRequestedForRedownloadOnFailure
+
+        let callbacks = completions.removeValue(forKey: job.key) ?? [:]
+        if let image {
+            if shouldKeepDecodedImage(job.descriptor, key: job.key) {
+                cache(image, for: job.descriptor)
+            }
+            finishForegroundWork(forKey: job.key, callbacks: callbacks, image: image)
             return
         }
 
-        if removeItemIfPresent(at: fileURL) {
+        if removeItemIfPresent(at: job.fileURL) {
             notifyFileAvailabilityChanged()
         }
         guard shouldRedownloadOnFailure, !callbacks.isEmpty else {
-            complete(callbacks, with: nil)
+            finishForegroundWork(forKey: job.key, callbacks: callbacks)
             return
         }
 
-        completions[key, default: []].append(contentsOf: callbacks)
-        enqueueDownloadIfNeeded(descriptor, priority: true)
+        completions[job.key, default: [:]].merge(callbacks) { current, _ in current }
+        startForegroundDownload(for: job.descriptor, key: job.key)
         startDownloadsIfNeeded()
     }
 
@@ -1014,6 +1224,127 @@ final class SolanaImageCache {
                 return nil
             }
         }
+    }
+
+    private func pruneForegroundTracking(allowedKeys: Set<String>) {
+        var retainedKeys = allowedKeys
+        retainedKeys.formUnion(completions.keys)
+        if let foregroundKey, !retainedKeys.contains(foregroundKey) {
+            self.foregroundKey = nil
+        }
+        foregroundWorkKeys.formIntersection(retainedKeys)
+        updateOngoingDownloadPriorities()
+    }
+
+    private func prioritizeForegroundImageIfNeeded(
+        _ descriptor: SolanaImageDescriptor,
+        requireDecodedStaticImage: Bool
+    ) {
+        let key = cacheKey(for: descriptor)
+        foregroundKey = key
+        foregroundWorkKeys.formIntersection([key])
+        updateOngoingDownloadPriorities()
+
+        let fileURL = fileURL(for: descriptor)
+        let hasFile = FileManager.default.fileExists(atPath: fileURL.path)
+        let isReady: Bool
+        if descriptor.isStaticImage {
+            isReady = cachedDecodedImage(forKey: key) != nil || (!requireDecodedStaticImage && hasFile)
+        } else {
+            isReady = hasFile
+        }
+        guard !isReady else {
+            markForegroundWorkFinished(forKey: key)
+            return
+        }
+
+        if hasFile {
+            markForegroundWorkStarted(forKey: key)
+        } else {
+            startForegroundDownload(for: descriptor, key: key)
+        }
+    }
+
+    private func isForegroundKey(_ key: String) -> Bool {
+        foregroundKey == key
+    }
+
+    private func hasDemandCallbacks(forKey key: String) -> Bool {
+        completions[key]?.isEmpty == false
+    }
+
+    private func downloadTaskPriority(forKey key: String) -> Float {
+        if isForegroundKey(key) || hasDemandCallbacks(forKey: key) {
+            return URLSessionTask.highPriority
+        }
+
+        return foregroundWorkKeys.isEmpty ? URLSessionTask.defaultPriority : URLSessionTask.lowPriority
+    }
+
+    private func imageDecodePriority(
+        forKey key: String,
+        hasKnownDemandCallbacks: Bool = false
+    ) -> ImageDecodePriority {
+        let hasDemandCallbacks = hasKnownDemandCallbacks || self.hasDemandCallbacks(forKey: key)
+        if isForegroundKey(key) || hasDemandCallbacks {
+            return .foreground
+        }
+
+        return .prefetch
+    }
+
+    private func updateOngoingDownloadPriorities() {
+        ongoingDownloads.forEach { key, download in
+            download.task.priority = downloadTaskPriority(forKey: key)
+        }
+    }
+
+    private func markForegroundWorkFinished(forKey key: String) {
+        guard foregroundWorkKeys.remove(key) != nil else { return }
+        updateOngoingDownloadPriorities()
+    }
+
+    private func markForegroundWorkStarted(forKey key: String) {
+        foregroundWorkKeys.insert(key)
+        updateOngoingDownloadPriorities()
+    }
+
+    private func startForegroundDownload(for descriptor: SolanaImageDescriptor, key: String) {
+        markForegroundWorkStarted(forKey: key)
+        cancelOngoingPrefetchDownloadsForForeground()
+        enqueueDownloadIfNeeded(descriptor, isForegroundRequest: true)
+    }
+
+    private func finishForegroundWork(
+        forKey key: String,
+        callbacks: ImageLoadCompletions = [:],
+        image: UIImage? = nil
+    ) {
+        markForegroundWorkFinished(forKey: key)
+        complete(callbacks, with: image)
+        startDownloadsIfNeeded()
+    }
+
+    private func cancelOngoingPrefetchDownloadsForForeground() {
+        let keysToCancel = ongoingDownloads.keys.filter { key in
+            !isForegroundKey(key) && !hasDemandCallbacks(forKey: key)
+        }
+
+        for key in keysToCancel {
+            cancelOngoingPrefetchDownloadForForeground(forKey: key)
+        }
+    }
+
+    private func cancelOngoingPrefetchDownloadForForeground(forKey key: String) {
+        guard !isForegroundKey(key),
+              !hasDemandCallbacks(forKey: key),
+              let descriptor = ongoingDownloads[key]?.descriptor else {
+            return
+        }
+
+        cancelDownload(forKey: key)
+        guard isDescriptorInActiveWindow(descriptor) else { return }
+        enqueueDownloadIfNeeded(descriptor, isForegroundRequest: false)
     }
 
     private func decodedWindowDescriptors(
@@ -1054,17 +1385,27 @@ final class SolanaImageCache {
             }
 
             let fileURL = fileURL(for: descriptor)
-            guard FileManager.default.fileExists(atPath: fileURL.path),
-                  decodingKeys.insert(key).inserted else {
+            guard FileManager.default.fileExists(atPath: fileURL.path) else {
                 continue
             }
 
-            decodeImage(
-                at: fileURL,
-                descriptor: descriptor,
-                key: key,
-                redownloadOnFailure: false
-            )
+            let decodePriority = imageDecodePriority(forKey: key)
+            if decodeIdsByKey[key] == nil {
+                startImageDecode(
+                    at: fileURL,
+                    descriptor: descriptor,
+                    key: key,
+                    redownloadOnFailure: false,
+                    priority: decodePriority
+                )
+            } else if decodePriority == .foreground {
+                startForegroundDecodeIfNeeded(
+                    at: fileURL,
+                    descriptor: descriptor,
+                    key: key,
+                    redownloadOnFailure: false
+                )
+            }
         }
     }
 
@@ -1110,7 +1451,7 @@ final class SolanaImageCache {
 
         for descriptor in pendingDescriptors {
             let key = cacheKey(for: descriptor)
-            if completions[key]?.isEmpty == false {
+            if hasDemandCallbacks(forKey: key) {
                 appendPendingDescriptor(forKey: key)
             }
         }
@@ -1127,10 +1468,18 @@ final class SolanaImageCache {
         pendingKeys = Set(reorderedDescriptors.map { cacheKey(for: $0) })
     }
 
-    private func complete(_ callbacks: [(UIImage?) -> Void], with image: UIImage?) {
-        guard !callbacks.isEmpty else { return }
+    private func complete(_ callbacks: ImageLoadCompletions, with image: UIImage?) {
+        complete(Array(callbacks.values), with: image)
+    }
+
+    private func complete(_ callbacks: [ImageLoadCallback], with image: UIImage?) {
+        let activeCallbacks = callbacks.filter { !$0.request.isCancelled }
+        guard !activeCallbacks.isEmpty else { return }
         DispatchQueue.main.async {
-            callbacks.forEach { $0(image) }
+            activeCallbacks.forEach { callback in
+                guard !callback.request.isCancelled else { return }
+                callback.completion(image)
+            }
         }
     }
 
@@ -1140,7 +1489,7 @@ final class SolanaImageCache {
             let shouldRemove = descriptor.collectionId == collectionId && !allowedKeys.contains(key)
             if shouldRemove {
                 pendingKeys.remove(key)
-                complete(completions.removeValue(forKey: key) ?? [], with: nil)
+                complete(completions.removeValue(forKey: key) ?? [:], with: nil)
             }
             return shouldRemove
         }
@@ -1160,7 +1509,7 @@ final class SolanaImageCache {
             let shouldRemove = descriptor.collectionId != collectionId
             if shouldRemove {
                 pendingKeys.remove(key)
-                complete(completions.removeValue(forKey: key) ?? [], with: nil)
+                complete(completions.removeValue(forKey: key) ?? [:], with: nil)
             }
             return shouldRemove
         }
@@ -1174,7 +1523,7 @@ final class SolanaImageCache {
     private func cancelDownload(forKey key: String) {
         guard let download = ongoingDownloads.removeValue(forKey: key) else { return }
         download.task.cancel()
-        complete(completions.removeValue(forKey: key) ?? [], with: nil)
+        complete(completions.removeValue(forKey: key) ?? [:], with: nil)
     }
 
     private func evictFilesOutsideWindow(collectionId: String, allowedFileNames: Set<String>) {
