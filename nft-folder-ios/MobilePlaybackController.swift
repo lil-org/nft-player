@@ -672,7 +672,6 @@ final class SolanaImageCache {
             if didChangeCollection {
                 self.activeCollectionId = collectionId
                 self.cancelDownloadsOutsideActiveCollection(collectionId: collectionId)
-                self.evictFilesOutsideActiveCollection(collectionId: collectionId)
                 self.evictMemoryOutsideActiveCollection(collectionId: collectionId)
             }
 
@@ -1550,29 +1549,6 @@ final class SolanaImageCache {
             memoryCache.removeObject(forKey: key as NSString)
         }
         memoryKeysByCollection[collectionId] = existingKeys.intersection(allowedKeys)
-    }
-
-    private func evictFilesOutsideActiveCollection(collectionId: String) {
-        let activeDirectoryName = safePathComponent(collectionId)
-        guard let contents = try? FileManager.default.contentsOfDirectory(
-            at: cacheRoot,
-            includingPropertiesForKeys: nil
-        ) else {
-            return
-        }
-
-        var didRemoveItem = false
-        for url in contents {
-            guard url.lastPathComponent != activeDirectoryName,
-                  url.lastPathComponent != Self.webViewHTMLDirectoryName else {
-                continue
-            }
-
-            didRemoveItem = removeItemIfPresent(at: url) || didRemoveItem
-        }
-        if didRemoveItem {
-            notifyFileAvailabilityChanged()
-        }
     }
 
     private func evictMemoryOutsideActiveCollection(collectionId: String) {
