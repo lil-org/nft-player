@@ -4674,7 +4674,8 @@
     "address" : "0x32d6ba9aa1b06fbcaeb3f6c5ff05cd6a77dcf387",
     "chain" : "ethereum",
     "chainId" : 1,
-    "name" : "Super Sofubi"
+    "name" : "Super Sofubi",
+    "tokenCount" : 300
   },
   {
     "address" : "0xf528e3381372c43f5e8a55b3e6c252e32f1a26e4",
@@ -4720,7 +4721,8 @@
     "address" : "0x160ee826cb805d9109005250e18e5371107c2e1f",
     "chain" : "ethereum",
     "chainId" : 1,
-    "name" : "Everything I Own"
+    "name" : "Everything I Own",
+    "tokenCount" : 1026
   },
   {
     "address" : "0x3ffe880dd25d870e2acf54f4c639c50704fadee8",
@@ -4738,13 +4740,15 @@
     "address" : "0xEC0a7A26456B8451aefc4b00393ce1BefF5eB3e9",
     "chain" : "ethereum",
     "chainId" : 1,
-    "name" : "Allstarz"
+    "name" : "Allstarz",
+    "tokenCount" : 10000
   },
   {
     "address" : "0x6120991c423f3566753d3c6c91a5b50d7d2461b4",
     "chain" : "ethereum",
     "chainId" : 1,
-    "name" : "Allstarz PSX"
+    "name" : "Allstarz PSX",
+    "tokenCount" : 2500
   },
   {
     "address" : "0xc92cedDfb8dd984A89fb494c376f9A48b999aAFc",
@@ -4762,7 +4766,8 @@
     "address" : "0x91680cf5f9071cafae21b90ebf2c9cc9e480fb93",
     "chain" : "ethereum",
     "chainId" : 1,
-    "name" : "frank"
+    "name" : "frank",
+    "tokenCount" : 2000
   },
   {
     "address" : "0xc62e3fd5b02618f90dd07d1e478963038fa9089c",
@@ -4780,7 +4785,8 @@
     "address" : "0x1ee3bcc37b747c29a0583352b3d9541f393cea82",
     "chain" : "ethereum",
     "chainId" : 1,
-    "name" : "Gushies"
+    "name" : "Gushies",
+    "tokenCount" : 545
   },
   {
     "address" : "0xa29798f81ae9c7110091527edd8d869604a2dac8",
@@ -4806,7 +4812,8 @@
     "address" : "0xf694002c6d990036916013e8562fe6a26d44586d",
     "chain" : "ethereum",
     "chainId" : 1,
-    "name" : "Ladies"
+    "name" : "Ladies",
+    "tokenCount" : 500
   },
   {
     "address" : "0x1cb1a5e65610aeff2551a50f76a87a7d3fb649c6",
@@ -4830,19 +4837,22 @@
     "address" : "0xeeca64ea9fcf99a22806cd99b3d29cf6e8d54925",
     "chain" : "ethereum",
     "chainId" : 1,
-    "name" : "Sproto Gremlins"
+    "name" : "Sproto Gremlins",
+    "tokenCount" : 3333
   },
   {
     "address" : "0x181cde16170fac94c27584492cc9842e2cb3bd54",
     "chain" : "ethereum",
     "chainId" : 1,
-    "name" : "pfp+"
+    "name" : "pfp+",
+    "tokenCount" : 376
   },
   {
     "address" : "0x9d09df7143ed764baa9427c05ca504d4241e2dba",
     "chain" : "ethereum",
     "chainId" : 1,
-    "name" : "Bloomers"
+    "name" : "Bloomers",
+    "tokenCount" : 502
   },
   {
     "address" : "0x375ea781c49eafedde07afe6196f885761f166ae",
