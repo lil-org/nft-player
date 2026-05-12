@@ -29,7 +29,7 @@ Options:
   --no-head-fallback    Do not use HEAD to confirm URLs after repeated GET 429s
   --output <path>       Markdown report path. Default: ${DEFAULT_REPORT_PATH}
   --json-output <path>  JSON report path. Default: ${DEFAULT_JSON_PATH}
-  --collection <text>   Optional collection name or id filter for debugging
+  --collection <text>   Optional collection name or id filter for debugging. Can be repeated.
   --verbose             Print every failed sample while running
   --help                Show this help
 `.trim();
@@ -50,7 +50,7 @@ function parseArgs(argv) {
     full: false,
     output: DEFAULT_REPORT_PATH,
     jsonOutput: DEFAULT_JSON_PATH,
-    collectionFilter: null,
+    collectionFilters: [],
     verbose: false,
   };
 
@@ -100,7 +100,7 @@ function parseArgs(argv) {
         options.jsonOutput = readValue();
         break;
       case "--collection":
-        options.collectionFilter = readValue().toLowerCase();
+        options.collectionFilters.push(readValue().toLowerCase());
         break;
       case "--full":
         options.full = true;
@@ -230,6 +230,29 @@ function normalizeAppURL(urlString) {
   };
 }
 
+function normalizeBundledTokenRows(bundledTokens) {
+  const urlPrefixes = Array.isArray(bundledTokens.urlPrefixes) ? bundledTokens.urlPrefixes : [];
+  const defaultFileExtension = typeof bundledTokens.defaultFileExtension === "string"
+    ? bundledTokens.defaultFileExtension
+    : null;
+
+  return (bundledTokens.items ?? []).map((token) => {
+    if (!Array.isArray(token)) {
+      return token;
+    }
+
+    const [id, prefixIndex, urlSuffix, fileExtension] = token;
+    const urlPrefix = urlPrefixes[prefixIndex] ?? "";
+    const extension = typeof fileExtension === "string" ? fileExtension : defaultFileExtension;
+
+    return {
+      id,
+      url: `${urlPrefix}${urlSuffix ?? ""}`,
+      fileExtension: extension,
+    };
+  });
+}
+
 function sampleTokens(tokens, count) {
   const validTokens = tokens.filter((token) => token && token.id);
   if (validTokens.length <= count) {
@@ -276,9 +299,9 @@ async function readCollections(options) {
   let suggestedItemsMatched = 0;
   for (const item of items) {
     const id = collectionIdFor(item);
-    if (options.collectionFilter) {
+    if (options.collectionFilters.length > 0) {
       const haystack = `${id} ${item.name ?? ""} ${item.address ?? ""}`.toLowerCase();
-      if (!haystack.includes(options.collectionFilter)) {
+      if (!options.collectionFilters.some((filter) => haystack.includes(filter))) {
         continue;
       }
     }
@@ -299,6 +322,7 @@ async function readCollections(options) {
 
     const tokenFilePath = path.join(tokensPath, `${id}.json`);
     const bundledTokens = await readJson(tokenFilePath);
+    const normalizedTokens = normalizeBundledTokenRows(bundledTokens);
     collections.push({
       source: "bundled-tokens",
       id,
@@ -308,8 +332,8 @@ async function readCollections(options) {
       chain: item.chain,
       chainId: item.chainId,
       isComplete: Boolean(bundledTokens.isComplete),
-      tokenCount: Array.isArray(bundledTokens.items) ? bundledTokens.items.length : 0,
-      sampledTokens: sampleTokens(bundledTokens.items ?? [], options.samples),
+      tokenCount: normalizedTokens.length,
+      sampledTokens: sampleTokens(normalizedTokens, options.samples),
     });
   }
 
