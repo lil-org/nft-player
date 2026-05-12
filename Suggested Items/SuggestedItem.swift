@@ -9,6 +9,10 @@ struct SuggestedItem: Identifiable, Hashable, Codable {
     var isSolanaCollection: Bool {
         chain == .solana
     }
+
+    var isDownloadableCollection: Bool {
+        isSolanaCollection || tokenCount != nil
+    }
     
     var network: Network {
         return Network(rawValue: chainId) ?? .mainnet

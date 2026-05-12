@@ -14,7 +14,7 @@ struct MobileCollectionItem: Hashable, Identifiable {
     }
 }
 
-struct SolanaImageDescriptor: Hashable {
+struct DownloadableMediaDescriptor: Hashable {
     let collectionId: String
     let tokenId: String
     let tokenIndex: Int
@@ -32,9 +32,9 @@ enum MobileCollectionCatalog {
     private static var currentPassCollectionIds = Set<String>()
 
     static let allItems: [MobileCollectionItem] = {
-        (
+        dedupedItems(
             TokenGenerator.allGenerativeSuggestedItems
-                + SuggestedItemsService.allSolanaCollectionItems
+                + SuggestedItemsService.allDownloadableCollectionItems
         )
         .map(MobileCollectionItem.init(item:))
     }()
@@ -53,67 +53,80 @@ enum MobileCollectionCatalog {
     }
 
     static func tokenCount(specificCollectionId: String) -> Int {
-        if SolanaCollectionService.hasCollection(id: specificCollectionId) {
-            return SolanaCollectionService.tokenCount(collectionId: specificCollectionId)
+        if DownloadableCollectionService.hasCollection(id: specificCollectionId) {
+            return DownloadableCollectionService.tokenCount(collectionId: specificCollectionId)
         }
         return TokenGenerator.tokenCount(specificCollectionId: specificCollectionId)
     }
 
-    static func isSolanaCollection(specificCollectionId: String) -> Bool {
-        SolanaCollectionService.hasCollection(id: specificCollectionId)
+    static func isDownloadableCollection(specificCollectionId: String) -> Bool {
+        DownloadableCollectionService.hasCollection(id: specificCollectionId)
     }
 
     static func tokenIndex(specificCollectionId: String, tokenId: String) -> Int? {
-        if SolanaCollectionService.hasCollection(id: specificCollectionId) {
-            return SolanaCollectionService.tokenIndex(collectionId: specificCollectionId, tokenId: tokenId)
+        if DownloadableCollectionService.hasCollection(id: specificCollectionId) {
+            return DownloadableCollectionService.tokenIndex(collectionId: specificCollectionId, tokenId: tokenId)
         }
         return TokenGenerator.tokenIndex(specificCollectionId: specificCollectionId, tokenId: tokenId)
     }
 
     static func generateToken(specificCollectionId: String, tokenIndex: Int) -> GeneratedToken? {
-        if SolanaCollectionService.hasCollection(id: specificCollectionId) {
-            return SolanaCollectionService.generateToken(collectionId: specificCollectionId, tokenIndex: tokenIndex)
+        if DownloadableCollectionService.hasCollection(id: specificCollectionId) {
+            return DownloadableCollectionService.generateToken(collectionId: specificCollectionId, tokenIndex: tokenIndex)
         }
         return TokenGenerator.generateToken(specificCollectionId: specificCollectionId, tokenIndex: tokenIndex)
     }
 
-    static func solanaImageDescriptor(specificCollectionId: String, tokenIndex: Int) -> SolanaImageDescriptor? {
-        guard SolanaCollectionService.hasCollection(id: specificCollectionId) else { return nil }
-        return SolanaCollectionService.imageDescriptor(collectionId: specificCollectionId, tokenIndex: tokenIndex)
+    static func downloadableMediaDescriptor(specificCollectionId: String, tokenIndex: Int) -> DownloadableMediaDescriptor? {
+        guard DownloadableCollectionService.hasCollection(id: specificCollectionId) else { return nil }
+        return DownloadableCollectionService.mediaDescriptor(collectionId: specificCollectionId, tokenIndex: tokenIndex)
+    }
+
+    private static func dedupedItems(_ items: [SuggestedItem]) -> [SuggestedItem] {
+        var seenIds = Set<String>()
+        return items.filter { item in
+            guard !seenIds.contains(item.id) else { return false }
+            seenIds.insert(item.id)
+            return true
+        }
     }
 }
 
-struct SolanaCollectionIndexItem: Codable, Hashable, Identifiable {
+struct DownloadableCollectionIndexItem: Codable, Hashable, Identifiable {
     let id: String
     let name: String
+    let address: String
+    let chain: Chain
+    let network: Network
     let tokenCount: Int
 
     init?(item: SuggestedItem) {
-        guard item.isSolanaCollection,
+        guard item.isDownloadableCollection,
               let tokenCount = item.tokenCount else {
             return nil
         }
         id = item.id
         name = item.name
+        address = item.address
+        chain = item.chain
+        network = item.network
         self.tokenCount = tokenCount
     }
 }
 
-private enum SolanaCollectionService {
+private enum DownloadableCollectionService {
     private static let lock = NSLock()
-    private static var cachedIndex: SolanaCollectionsIndex?
-    private static var cachedTokenDataByCollectionId = [String: SolanaCollectionTokenData]()
-
-    static var collections: [SolanaCollectionIndexItem] {
-        index.collections
-    }
+    private static var cachedIndex: DownloadableCollectionsIndex?
+    private static var cachedTokenDataByCollectionId = [String: DownloadableCollectionTokenData]()
 
     static func hasCollection(id: String) -> Bool {
         index.collectionById[id] != nil
     }
 
     static func tokenCount(collectionId: String) -> Int {
-        index.collectionById[collectionId]?.tokenCount ?? 0
+        tokenData(collectionId: collectionId)?.tokens.count
+            ?? index.collectionById[collectionId]?.tokenCount
+            ?? 0
     }
 
     static func tokenIndex(collectionId: String, tokenId: String) -> Int? {
@@ -128,68 +141,102 @@ private enum SolanaCollectionService {
         }
 
         let token = tokenData.tokens[tokenIndex]
-        let nextImageURL = tokenData.tokens.indices.contains(tokenIndex + 1)
-            ? tokenData.tokens[tokenIndex + 1].url
+        let nextMedia = tokenData.tokens.indices.contains(tokenIndex + 1)
+            ? resolvedMedia(for: tokenData.tokens[tokenIndex + 1], defaultFileExtension: tokenData.defaultFileExtension)
             : nil
-        let displayTokenId = "#\(tokenIndex + 1)"
-        let solanaExplorerURL = URL(string: "https://explorer.solana.com/address/\(token.id)")
-        let media = resolvedMedia(for: token, defaultFileExtension: tokenData.defaultFileExtension)
+        guard let media = resolvedMedia(for: token, defaultFileExtension: tokenData.defaultFileExtension) else {
+            return nil
+        }
+
+        let displayTokenId = Self.displayTokenId(
+            chain: collection.chain,
+            token: token,
+            tokenIndex: tokenIndex
+        )
+        let webURL = Self.webURL(collection: collection, tokenId: token.id)
 
         return GeneratedToken(
             fullCollectionId: collection.id,
             collectionName: collection.name,
-            address: collection.id,
+            address: collection.address,
             id: token.id,
-            html: SolanaTokenHTML.createImageHTML(imageURL: token.url, nextImageURL: nextImageURL),
-            displayName: "\(collection.name) \(displayTokenId)",
+            html: DownloadableTokenHTML.createImageHTML(
+                imageURL: media.url.absoluteString,
+                nextImageURL: nextMedia?.url.absoluteString
+            ),
+            displayName: token.name ?? "\(collection.name) \(displayTokenId)",
             displayTokenId: displayTokenId,
-            url: solanaExplorerURL,
+            url: webURL,
             instructions: nil,
             screensaver: nil,
             media: media
         )
     }
 
-    static func imageDescriptor(collectionId: String, tokenIndex: Int) -> SolanaImageDescriptor? {
+    static func mediaDescriptor(collectionId: String, tokenIndex: Int) -> DownloadableMediaDescriptor? {
         guard let tokenData = tokenData(collectionId: collectionId),
               tokenData.tokens.indices.contains(tokenIndex) else {
             return nil
         }
 
         let token = tokenData.tokens[tokenIndex]
-        guard let resolvedMedia = resolvedMedia(for: token, defaultFileExtension: tokenData.defaultFileExtension) else {
+        guard let media = resolvedMedia(for: token, defaultFileExtension: tokenData.defaultFileExtension) else {
             return nil
         }
 
-        return SolanaImageDescriptor(
+        return DownloadableMediaDescriptor(
             collectionId: collectionId,
             tokenId: token.id,
             tokenIndex: tokenIndex,
-            url: resolvedMedia.url,
-            fileExtension: resolvedMedia.fileExtension,
-            media: resolvedMedia
+            url: media.url,
+            fileExtension: media.fileExtension,
+            media: media
+        )
+    }
+
+    private static func displayTokenId(
+        chain: Chain,
+        token: DownloadableTokenItem,
+        tokenIndex: Int
+    ) -> String {
+        if chain == .solana {
+            return "#\(tokenIndex + 1)"
+        }
+        return "#\(token.id)"
+    }
+
+    private static func webURL(collection: DownloadableCollectionIndexItem, tokenId: String) -> URL? {
+        if collection.chain == .solana {
+            return URL(string: "https://explorer.solana.com/address/\(tokenId)")
+        }
+        return NftGallery.blockExplorer.url(
+            network: collection.network,
+            chain: collection.chain,
+            collectionAddress: collection.address,
+            tokenId: tokenId
         )
     }
 
     private static func resolvedMedia(
-        for token: SolanaTokenItem,
+        for token: DownloadableTokenItem,
         defaultFileExtension: String?
     ) -> GeneratedTokenMedia? {
-        guard let url = URL(string: token.url),
+        guard let urlString = token.url,
+              let url = URL(string: urlString),
               let fileExtension = token.resolvedFileExtension(defaultFileExtension: defaultFileExtension) else {
             return nil
         }
 
-        if SolanaMediaFileExtension.isAnimatedImage(fileExtension) {
+        if DownloadableMediaFileExtension.isAnimatedImage(fileExtension) {
             return .animatedImage(url: url, fileExtension: fileExtension)
         }
-        if SolanaMediaFileExtension.isStaticImage(fileExtension) {
+        if DownloadableMediaFileExtension.isStaticImage(fileExtension) {
             return .staticImage(url: url, fileExtension: fileExtension)
         }
         return nil
     }
 
-    private static var index: SolanaCollectionsIndex {
+    private static var index: DownloadableCollectionsIndex {
         if let cachedIndex = lock.withLock({ cachedIndex }) {
             return cachedIndex
         }
@@ -204,7 +251,7 @@ private enum SolanaCollectionService {
         }
     }
 
-    private static func tokenData(collectionId: String) -> SolanaCollectionTokenData? {
+    private static func tokenData(collectionId: String) -> DownloadableCollectionTokenData? {
         if let cachedTokenData = lock.withLock({ cachedTokenDataByCollectionId[collectionId] }) {
             return cachedTokenData
         }
@@ -222,38 +269,40 @@ private enum SolanaCollectionService {
         }
     }
 
-    private static func loadIndex() -> SolanaCollectionsIndex {
-        SolanaCollectionsIndex(
-            collections: SuggestedItemsService.allSolanaCollectionItems.compactMap(SolanaCollectionIndexItem.init(item:))
+    private static func loadIndex() -> DownloadableCollectionsIndex {
+        DownloadableCollectionsIndex(
+            collections: SuggestedItemsService.allDownloadableCollectionItems.compactMap(DownloadableCollectionIndexItem.init(item:))
         )
     }
 
-    private static func loadTokenData(collectionId: String) -> SolanaCollectionTokenData? {
+    private static func loadTokenData(collectionId: String) -> DownloadableCollectionTokenData? {
         guard let url = SuggestedItemsService.bundle.url(forResource: collectionId, withExtension: "json", subdirectory: "Tokens"),
               let data = try? Data(contentsOf: url),
-              let payload = try? JSONDecoder().decode(SolanaCollectionTokensPayload.self, from: data) else {
+              let payload = try? JSONDecoder().decode(DownloadableCollectionTokensPayload.self, from: data) else {
             return nil
         }
-        return SolanaCollectionTokenData(
+        return DownloadableCollectionTokenData(
             defaultFileExtension: payload.defaultFileExtension,
-            tokens: payload.items
+            tokens: payload.items.filter {
+                resolvedMedia(for: $0, defaultFileExtension: payload.defaultFileExtension) != nil
+            }
         )
     }
 }
 
-private struct SolanaCollectionsIndex {
-    let collections: [SolanaCollectionIndexItem]
-    let collectionById: [String: SolanaCollectionIndexItem]
+private struct DownloadableCollectionsIndex {
+    let collections: [DownloadableCollectionIndexItem]
+    let collectionById: [String: DownloadableCollectionIndexItem]
 
-    init(collections: [SolanaCollectionIndexItem]) {
+    init(collections: [DownloadableCollectionIndexItem]) {
         self.collections = collections
         collectionById = Dictionary(uniqueKeysWithValues: collections.map { ($0.id, $0) })
     }
 }
 
-private struct SolanaCollectionTokensPayload: Decodable {
+private struct DownloadableCollectionTokensPayload: Decodable {
     let defaultFileExtension: String?
-    let items: [SolanaTokenItem]
+    let items: [DownloadableTokenItem]
 
     enum CodingKeys: String, CodingKey {
         case defaultFileExtension
@@ -268,18 +317,20 @@ private struct SolanaCollectionTokensPayload: Decodable {
         )
         let urlPrefixes = try container.decodeIfPresent([String].self, forKey: .urlPrefixes) ?? []
 
-        if let compactRows = try? container.decode([SolanaCompactTokenRow].self, forKey: .items) {
+        if let compactRows = try? container.decode([DownloadableCompactTokenRow].self, forKey: .items) {
             items = compactRows.map { row in
-                SolanaTokenItem(
+                DownloadableTokenItem(
                     id: row.id,
+                    name: nil,
                     url: row.url(prefixes: urlPrefixes),
                     fileExtension: row.fileExtension
                 )
             }
         } else {
-            items = try container.decode([SolanaTokenItem].self, forKey: .items).map { item in
-                SolanaTokenItem(
+            items = try container.decode([DownloadableTokenItem].self, forKey: .items).map { item in
+                DownloadableTokenItem(
                     id: item.id,
+                    name: item.name,
                     url: item.url,
                     fileExtension: Self.normalizedFileExtension(item.fileExtension)
                 )
@@ -288,23 +339,25 @@ private struct SolanaCollectionTokensPayload: Decodable {
     }
 
     private static func normalizedFileExtension(_ value: String?) -> String? {
-        SolanaMediaFileExtension.normalized(value)
+        DownloadableMediaFileExtension.normalized(value)
     }
 }
 
-private struct SolanaTokenItem: Codable, Hashable {
+private struct DownloadableTokenItem: Codable, Hashable {
     let id: String
-    let url: String
+    let name: String?
+    let url: String?
     let fileExtension: String?
 
     func resolvedFileExtension(defaultFileExtension: String?) -> String? {
-        SolanaMediaFileExtension.explicitPathExtension(in: url)
-            ?? SolanaMediaFileExtension.normalized(fileExtension)
+        guard let url else { return nil }
+        return DownloadableMediaFileExtension.explicitPathExtension(in: url)
+            ?? DownloadableMediaFileExtension.normalized(fileExtension)
             ?? defaultFileExtension
     }
 }
 
-private struct SolanaCompactTokenRow: Decodable {
+private struct DownloadableCompactTokenRow: Decodable {
     let id: String
     let prefixIndex: Int
     let urlSuffix: String
@@ -315,7 +368,7 @@ private struct SolanaCompactTokenRow: Decodable {
         id = try container.decode(String.self)
         prefixIndex = try container.decode(Int.self)
         urlSuffix = try container.decode(String.self)
-        fileExtension = SolanaMediaFileExtension.normalized(try? container.decode(String.self))
+        fileExtension = DownloadableMediaFileExtension.normalized(try? container.decode(String.self))
     }
 
     func url(prefixes: [String]) -> String {
@@ -324,12 +377,12 @@ private struct SolanaCompactTokenRow: Decodable {
     }
 }
 
-private struct SolanaCollectionTokenData {
+private struct DownloadableCollectionTokenData {
     let defaultFileExtension: String?
-    let tokens: [SolanaTokenItem]
+    let tokens: [DownloadableTokenItem]
     let tokenIndicesById: [String: Int]
 
-    init(defaultFileExtension: String?, tokens: [SolanaTokenItem]) {
+    init(defaultFileExtension: String?, tokens: [DownloadableTokenItem]) {
         self.defaultFileExtension = defaultFileExtension
         self.tokens = tokens
 
@@ -341,7 +394,7 @@ private struct SolanaCollectionTokenData {
     }
 }
 
-private enum SolanaMediaFileExtension {
+private enum DownloadableMediaFileExtension {
     private static let staticImageExtensions = Set(["png", "jpg", "jpeg", "webp", "heic", "heif"])
     private static let animatedImageExtensions = Set(["gif"])
 
@@ -367,7 +420,7 @@ private enum SolanaMediaFileExtension {
     }
 }
 
-enum SolanaTokenHTML {
+enum DownloadableTokenHTML {
     static func createImageHTML(imageURL: String, nextImageURL: String? = nil) -> String {
         """
         <!doctype html>
@@ -408,7 +461,7 @@ enum SolanaTokenHTML {
         tokenImage.src = imageURL;
 
         if (nextImageURL) {
-            retainSolanaTokenImagePreload(nextImageURL);
+            retainDownloadableTokenImagePreload(nextImageURL);
         }
         </script>
         </body>
@@ -419,13 +472,13 @@ enum SolanaTokenHTML {
     static func preloadImageJavaScript(imageURL: URL) -> String {
         """
         \(retainedPreloadFunctionJavaScript)
-        return await retainSolanaTokenImagePreload(\(javaScriptStringLiteral(imageURL.absoluteString)));
+        return await retainDownloadableTokenImagePreload(\(javaScriptStringLiteral(imageURL.absoluteString)));
         """
     }
 
     private static var retainedPreloadFunctionJavaScript: String {
         """
-        function retainSolanaTokenImagePreload(url) {
+        function retainDownloadableTokenImagePreload(url) {
             if (!url) {
                 return Promise.resolve(false);
             }
@@ -451,7 +504,7 @@ enum SolanaTokenHTML {
                 entry.promise = null;
             };
 
-            let existingPreloads = window.__solanaTokenImagePreloads || [];
+            let existingPreloads = window.__downloadableTokenImagePreloads || [];
             const existingPreload = existingPreloads.find((entry) => entry.url === url);
             if (existingPreload) {
                 if (existingPreload.promise) {
@@ -525,7 +578,7 @@ enum SolanaTokenHTML {
 
             const nextPreloads = existingPreloads.concat(preloadEntry);
             const evictedPreloads = nextPreloads.slice(0, Math.max(0, nextPreloads.length - maximumRetainedPreloads));
-            window.__solanaTokenImagePreloads = nextPreloads.slice(-maximumRetainedPreloads);
+            window.__downloadableTokenImagePreloads = nextPreloads.slice(-maximumRetainedPreloads);
             evictedPreloads.forEach(releasePreload);
             return preloadPromise;
         }

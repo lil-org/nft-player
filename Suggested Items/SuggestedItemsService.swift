@@ -22,9 +22,9 @@ struct SuggestedItemsService {
     static var visibleItems = readSuggestedItems()
     static var toHide = Set(Defaults.suggestedItemsToHide)
 
-    static var allSolanaCollectionItems: [SuggestedItem] {
+    static var allDownloadableCollectionItems: [SuggestedItem] {
         ensureItemsLoaded()
-        return allItems.filter(\.isSolanaCollection)
+        return allItems.filter(\.isDownloadableCollection)
     }
     
     static func doNotSuggestAnymore(item: SuggestedItem) {

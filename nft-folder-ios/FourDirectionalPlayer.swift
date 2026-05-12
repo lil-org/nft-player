@@ -169,7 +169,7 @@ final class FullscreenTokenMediaRenderer {
         }
 
         webView.callAsyncJavaScript(
-            SolanaTokenHTML.preloadImageJavaScript(imageURL: imageURL),
+            DownloadableTokenHTML.preloadImageJavaScript(imageURL: imageURL),
             arguments: [:],
             in: nil,
             in: .page
@@ -755,29 +755,29 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
         MobilePlaybackController.shared.getToken(uuid: initialConfig.id, coordinate: PlayerCoordinate(x: x, y: y))
     }
 
-    fileprivate func prepareSolanaImageWindow(
+    fileprivate func prepareDownloadableMediaWindow(
         for coordinate: (Int, Int),
-        direction: SolanaImageCache.PrefetchDirection
-    ) -> SolanaImageDescriptor? {
-        MobilePlaybackController.shared.prepareSolanaImageWindow(
+        direction: DownloadableMediaCache.PrefetchDirection
+    ) -> DownloadableMediaDescriptor? {
+        MobilePlaybackController.shared.prepareDownloadableMediaWindow(
             uuid: initialConfig.id,
             coordinate: PlayerCoordinate(x: coordinate.0, y: coordinate.1),
             direction: direction
         )
     }
 
-    fileprivate func solanaImageDescriptor(for coordinate: (Int, Int)) -> SolanaImageDescriptor? {
-        MobilePlaybackController.shared.solanaImageDescriptor(
+    fileprivate func downloadableMediaDescriptor(for coordinate: (Int, Int)) -> DownloadableMediaDescriptor? {
+        MobilePlaybackController.shared.downloadableMediaDescriptor(
             uuid: initialConfig.id,
             coordinate: PlayerCoordinate(x: coordinate.0, y: coordinate.1)
         )
     }
 
-    fileprivate func adjacentSolanaImageDescriptor(
+    fileprivate func adjacentDownloadableMediaDescriptor(
         for coordinate: (Int, Int),
-        direction: SolanaImageCache.PrefetchDirection
-    ) -> SolanaImageDescriptor? {
-        MobilePlaybackController.shared.adjacentSolanaImageDescriptor(
+        direction: DownloadableMediaCache.PrefetchDirection
+    ) -> DownloadableMediaDescriptor? {
+        MobilePlaybackController.shared.adjacentDownloadableMediaDescriptor(
             uuid: initialConfig.id,
             coordinate: PlayerCoordinate(x: coordinate.0, y: coordinate.1),
             direction: direction
@@ -840,15 +840,15 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
 private protocol FourDirectionalPlayerDataSource: AnyObject {
 
     func getToken(x: Int, y: Int) -> GeneratedToken
-    func prepareSolanaImageWindow(
+    func prepareDownloadableMediaWindow(
         for coordinate: (Int, Int),
-        direction: SolanaImageCache.PrefetchDirection
-    ) -> SolanaImageDescriptor?
-    func solanaImageDescriptor(for coordinate: (Int, Int)) -> SolanaImageDescriptor?
-    func adjacentSolanaImageDescriptor(
+        direction: DownloadableMediaCache.PrefetchDirection
+    ) -> DownloadableMediaDescriptor?
+    func downloadableMediaDescriptor(for coordinate: (Int, Int)) -> DownloadableMediaDescriptor?
+    func adjacentDownloadableMediaDescriptor(
         for coordinate: (Int, Int),
-        direction: SolanaImageCache.PrefetchDirection
-    ) -> SolanaImageDescriptor?
+        direction: DownloadableMediaCache.PrefetchDirection
+    ) -> DownloadableMediaDescriptor?
     func canRenderCoordinate(_ coordinate: (Int, Int)) -> Bool
     func startHorizontalCoordinate(verticalIndex: Int) -> Int
     func didRenderCoordinate(_ coordinate: (Int, Int))
@@ -920,8 +920,8 @@ private final class PlayerZoomScrollView: UIScrollView {
 private class SpecificPageViewController: UIViewController, UIScrollViewDelegate {
 
     private struct AnimatedRenderContext: Equatable {
-        let descriptor: SolanaImageDescriptor
-        let adjacentDescriptor: SolanaImageDescriptor?
+        let descriptor: DownloadableMediaDescriptor
+        let adjacentDescriptor: DownloadableMediaDescriptor?
         let fallbackHTML: String
     }
 
@@ -944,13 +944,13 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     private var renderedAnimatedImageURL: URL?
     private var renderedAnimatedNextImageURL: URL?
     private var pendingAnimatedNextImageURL: URL?
-    private var solanaImageCacheObserver: NSObjectProtocol?
+    private var downloadableMediaCacheObserver: NSObjectProtocol?
     private var willOrDidAppear = false
     private var isZoomInteractionActive = false
     private var zoomContentLayout: ZoomContentLayout = .viewport
     private var laidOutZoomViewportSize: CGSize = .zero
     var onZoomStateChange: (() -> Void)?
-    var preferredPrefetchDirection: SolanaImageCache.PrefetchDirection = .forward
+    var preferredPrefetchDirection: DownloadableMediaCache.PrefetchDirection = .forward
     var isZoomed: Bool {
         zoomScrollView.zoomScale > zoomScrollView.minimumZoomScale + MobilePlayerGestureTuning.playerZoomResetTolerance
     }
@@ -968,7 +968,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     }
 
     deinit {
-        removeSolanaImageCacheObserver()
+        removeDownloadableMediaCacheObserver()
     }
 
     override func viewDidLoad() {
@@ -1267,14 +1267,14 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         }
 
         beginRenderingCoordinate(newCoordinate)
-        let solanaImageDescriptor = prepareCurrentSolanaImageWindow()
+        let downloadableMediaDescriptor = prepareCurrentDownloadableMediaWindow()
 
         guard let token = fourDirectionalPlayerDataSource?.getToken(x: horizontalIndex, y: verticalIndex) else {
             fourDirectionalPlayerDataSource?.didRenderCoordinate(newCoordinate)
             return
         }
 
-        if let descriptor = solanaImageDescriptor {
+        if let descriptor = downloadableMediaDescriptor {
             switch descriptor.media {
             case .staticImage:
                 renderImage(descriptor, fallbackHTML: token.html)
@@ -1287,14 +1287,14 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         fourDirectionalPlayerDataSource?.didRenderCoordinate(newCoordinate)
     }
 
-    fileprivate func refreshSolanaImageWindow() {
+    fileprivate func refreshDownloadableMediaWindow() {
         guard willOrDidAppear else { return }
 
-        _ = prepareCurrentSolanaImageWindow()
+        _ = prepareCurrentDownloadableMediaWindow()
     }
 
-    private func prepareCurrentSolanaImageWindow() -> SolanaImageDescriptor? {
-        fourDirectionalPlayerDataSource?.prepareSolanaImageWindow(
+    private func prepareCurrentDownloadableMediaWindow() -> DownloadableMediaDescriptor? {
+        fourDirectionalPlayerDataSource?.prepareDownloadableMediaWindow(
             for: (horizontalIndex, verticalIndex),
             direction: preferredPrefetchDirection
         )
@@ -1302,7 +1302,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
 
     fileprivate func replaceVisibleContentIfAvailable(
         targetHorizontalIndex: Int,
-        preferredPrefetchDirection: SolanaImageCache.PrefetchDirection
+        preferredPrefetchDirection: DownloadableMediaCache.PrefetchDirection
     ) -> Bool {
         guard canReplaceVisibleContent else { return false }
 
@@ -1311,12 +1311,12 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             return false
         }
 
-        guard let descriptor = fourDirectionalPlayerDataSource?.solanaImageDescriptor(for: newCoordinate),
+        guard let descriptor = fourDirectionalPlayerDataSource?.downloadableMediaDescriptor(for: newCoordinate),
               descriptor.isStaticImage else {
             return false
         }
 
-        if let image = SolanaImageCache.shared.cachedDecodedImage(for: descriptor) {
+        if let image = DownloadableMediaCache.shared.cachedDecodedImage(for: descriptor) {
             guard commitStaticImageReplacement(
                 image,
                 descriptor: descriptor,
@@ -1335,11 +1335,11 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
 
     private func commitStaticImageReplacement(
         _ image: UIImage,
-        descriptor: SolanaImageDescriptor,
+        descriptor: DownloadableMediaDescriptor,
         coordinate: (Int, Int),
-        preferredPrefetchDirection: SolanaImageCache.PrefetchDirection
+        preferredPrefetchDirection: DownloadableMediaCache.PrefetchDirection
     ) -> Bool {
-        guard fourDirectionalPlayerDataSource?.prepareSolanaImageWindow(
+        guard fourDirectionalPlayerDataSource?.prepareDownloadableMediaWindow(
             for: coordinate,
             direction: preferredPrefetchDirection
         ) != nil else {
@@ -1364,13 +1364,13 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         renderedCoordinate = coordinate
     }
 
-    private func renderImage(_ descriptor: SolanaImageDescriptor, fallbackHTML: String) {
+    private func renderImage(_ descriptor: DownloadableMediaDescriptor, fallbackHTML: String) {
         clearAnimatedRenderContext()
         mediaRenderer.renderImage(
             key: descriptor,
             hideImageUntilLoaded: false,
             load: { completion in
-                SolanaImageCache.shared.loadImage(for: descriptor, completion: completion)
+                DownloadableMediaCache.shared.loadImage(for: descriptor, completion: completion)
             },
             fallbackToWebContent: { [weak self] in
                 self?.renderWebContent(fallbackHTML)
@@ -1392,8 +1392,8 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         mediaRenderer.renderWebContent(html)
     }
 
-    private func renderAnimatedImage(_ descriptor: SolanaImageDescriptor, fallbackHTML: String) {
-        let adjacentDescriptor = fourDirectionalPlayerDataSource?.adjacentSolanaImageDescriptor(
+    private func renderAnimatedImage(_ descriptor: DownloadableMediaDescriptor, fallbackHTML: String) {
+        let adjacentDescriptor = fourDirectionalPlayerDataSource?.adjacentDownloadableMediaDescriptor(
             for: (horizontalIndex, verticalIndex),
             direction: preferredPrefetchDirection
         )
@@ -1411,7 +1411,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     private func renderAvailableAnimatedLocalContent() {
         guard let context = animatedRenderContext else { return }
 
-        let imageCache = SolanaImageCache.shared
+        let imageCache = DownloadableMediaCache.shared
         guard let localFileURL = imageCache.localFileURL(for: context.descriptor) else {
             clearAnimatedImageURLState()
             mediaRenderer.clearContent()
@@ -1455,7 +1455,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             setZoomContentLayout(.staticImage(imageSize))
         }
 
-        let html = SolanaTokenHTML.createImageHTML(
+        let html = DownloadableTokenHTML.createImageHTML(
             imageURL: localFileURL.absoluteString,
             nextImageURL: nextLocalFileURL?.absoluteString
         )
@@ -1503,13 +1503,13 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     private func setAnimatedRenderContext(_ context: AnimatedRenderContext) {
         animatedRenderContext = context
         clearAnimatedImageURLState()
-        installSolanaImageCacheObserverIfNeeded()
+        installDownloadableMediaCacheObserverIfNeeded()
     }
 
     private func clearAnimatedRenderContext() {
         animatedRenderContext = nil
         clearAnimatedImageURLState()
-        removeSolanaImageCacheObserver()
+        removeDownloadableMediaCacheObserver()
     }
 
     private func clearAnimatedImageURLState() {
@@ -1519,11 +1519,11 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         pendingAnimatedNextImageURL = nil
     }
 
-    private func installSolanaImageCacheObserverIfNeeded() {
-        guard solanaImageCacheObserver == nil else { return }
+    private func installDownloadableMediaCacheObserverIfNeeded() {
+        guard downloadableMediaCacheObserver == nil else { return }
 
-        solanaImageCacheObserver = NotificationCenter.default.addObserver(
-            forName: .solanaImageCacheFileAvailabilityDidChange,
+        downloadableMediaCacheObserver = NotificationCenter.default.addObserver(
+            forName: .downloadableMediaCacheFileAvailabilityDidChange,
             object: nil,
             queue: .main
         ) { [weak self] _ in
@@ -1531,11 +1531,11 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         }
     }
 
-    private func removeSolanaImageCacheObserver() {
-        guard let solanaImageCacheObserver else { return }
+    private func removeDownloadableMediaCacheObserver() {
+        guard let downloadableMediaCacheObserver else { return }
 
-        NotificationCenter.default.removeObserver(solanaImageCacheObserver)
-        self.solanaImageCacheObserver = nil
+        NotificationCenter.default.removeObserver(downloadableMediaCacheObserver)
+        self.downloadableMediaCacheObserver = nil
     }
 
 }
@@ -1918,7 +1918,7 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
         guard didSettleOnCurrentPage() else { return }
 
         if !completed {
-            currentPage?.refreshSolanaImageWindow()
+            currentPage?.refreshDownloadableMediaWindow()
         }
         performPendingNavigationIfNeeded()
     }
@@ -2011,7 +2011,7 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
         let targetOffset = direction == .back ? -1 : 1
         let targetHorizontalIndex = currentPage.horizontalIndex + targetOffset
 
-        let prefetchDirection: SolanaImageCache.PrefetchDirection = direction == .back ? .backward : .forward
+        let prefetchDirection: DownloadableMediaCache.PrefetchDirection = direction == .back ? .backward : .forward
         guard currentPage.replaceVisibleContentIfAvailable(
             targetHorizontalIndex: targetHorizontalIndex,
             preferredPrefetchDirection: prefetchDirection

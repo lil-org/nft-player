@@ -14,7 +14,7 @@ enum PlaybackNavigationDirection {
 }
 
 extension Notification.Name {
-    static let solanaImageCacheFileAvailabilityDidChange = Notification.Name("SolanaImageCacheFileAvailabilityDidChange")
+    static let downloadableMediaCacheFileAvailabilityDidChange = Notification.Name("DownloadableMediaCacheFileAvailabilityDidChange")
 }
 
 struct MobileViewingProgress: Codable, Hashable {
@@ -333,7 +333,7 @@ class MobilePlaybackController {
         tokensDataSources.removeValue(forKey: uuid)
         restartSuppressedCollectionIds.removeValue(forKey: uuid)
         if displays.isEmpty {
-            SolanaImageCache.shared.cancelAllDownloads()
+            DownloadableMediaCache.shared.cancelAllDownloads()
         }
     }
     
@@ -345,23 +345,23 @@ class MobilePlaybackController {
         dataSource(uuid: uuid)?.canRender(coordinate: coordinate) ?? false
     }
 
-    func prepareSolanaImageWindow(
+    func prepareDownloadableMediaWindow(
         uuid: UUID,
         coordinate: PlayerCoordinate,
-        direction: SolanaImageCache.PrefetchDirection
-    ) -> SolanaImageDescriptor? {
-        guard let context = solanaCollectionTokenContext(uuid: uuid, coordinate: coordinate) else {
+        direction: DownloadableMediaCache.PrefetchDirection
+    ) -> DownloadableMediaDescriptor? {
+        guard let context = downloadableCollectionTokenContext(uuid: uuid, coordinate: coordinate) else {
             return nil
         }
 
-        let orderedIndices = SolanaImageCache.orderedWindowIndices(
+        let orderedIndices = DownloadableMediaCache.orderedWindowIndices(
             currentIndex: context.tokenIndex,
             tokenCount: context.tokenCount,
             direction: direction
         )
-        var currentDescriptor: SolanaImageDescriptor?
+        var currentDescriptor: DownloadableMediaDescriptor?
         let descriptors = orderedIndices.compactMap { tokenIndex in
-            let descriptor = MobileCollectionCatalog.solanaImageDescriptor(
+            let descriptor = MobileCollectionCatalog.downloadableMediaDescriptor(
                 specificCollectionId: context.collectionId,
                 tokenIndex: tokenIndex
             )
@@ -370,7 +370,7 @@ class MobilePlaybackController {
             }
             return descriptor
         }
-        SolanaImageCache.shared.prepareWindow(
+        DownloadableMediaCache.shared.prepareWindow(
             collectionId: context.collectionId,
             currentTokenIndex: context.tokenIndex,
             descriptors: descriptors,
@@ -379,23 +379,23 @@ class MobilePlaybackController {
         return currentDescriptor
     }
 
-    func solanaImageDescriptor(uuid: UUID, coordinate: PlayerCoordinate) -> SolanaImageDescriptor? {
-        guard let context = solanaCollectionTokenContext(uuid: uuid, coordinate: coordinate) else {
+    func downloadableMediaDescriptor(uuid: UUID, coordinate: PlayerCoordinate) -> DownloadableMediaDescriptor? {
+        guard let context = downloadableCollectionTokenContext(uuid: uuid, coordinate: coordinate) else {
             return nil
         }
 
-        return MobileCollectionCatalog.solanaImageDescriptor(
+        return MobileCollectionCatalog.downloadableMediaDescriptor(
             specificCollectionId: context.collectionId,
             tokenIndex: context.tokenIndex
         )
     }
 
-    func adjacentSolanaImageDescriptor(
+    func adjacentDownloadableMediaDescriptor(
         uuid: UUID,
         coordinate: PlayerCoordinate,
-        direction: SolanaImageCache.PrefetchDirection
-    ) -> SolanaImageDescriptor? {
-        guard let context = solanaCollectionTokenContext(uuid: uuid, coordinate: coordinate) else {
+        direction: DownloadableMediaCache.PrefetchDirection
+    ) -> DownloadableMediaDescriptor? {
+        guard let context = downloadableCollectionTokenContext(uuid: uuid, coordinate: coordinate) else {
             return nil
         }
 
@@ -408,26 +408,26 @@ class MobilePlaybackController {
         }
 
         guard targetTokenIndex >= 0, targetTokenIndex < context.tokenCount else { return nil }
-        return MobileCollectionCatalog.solanaImageDescriptor(
+        return MobileCollectionCatalog.downloadableMediaDescriptor(
             specificCollectionId: context.collectionId,
             tokenIndex: targetTokenIndex
         )
     }
 
-    private func solanaCollectionTokenContext(
+    private func downloadableCollectionTokenContext(
         uuid: UUID,
         coordinate: PlayerCoordinate
     ) -> (collectionId: String, tokenIndex: Int, tokenCount: Int)? {
         guard let dataSource = dataSource(uuid: uuid) else { return nil }
-        return solanaCollectionTokenContext(dataSource: dataSource, coordinate: coordinate)
+        return downloadableCollectionTokenContext(dataSource: dataSource, coordinate: coordinate)
     }
 
-    private func solanaCollectionTokenContext(
+    private func downloadableCollectionTokenContext(
         dataSource: GeneratedTokensDataSource,
         coordinate: PlayerCoordinate
     ) -> (collectionId: String, tokenIndex: Int, tokenCount: Int)? {
         guard let context = dataSource.collectionTokenContext(coordinate: coordinate),
-              MobileCollectionCatalog.isSolanaCollection(specificCollectionId: context.collectionId) else {
+              MobileCollectionCatalog.isDownloadableCollection(specificCollectionId: context.collectionId) else {
             return nil
         }
         return context
@@ -442,15 +442,15 @@ class MobilePlaybackController {
 
     func downloadedFileShareItem(uuid: UUID, coordinate: PlayerCoordinate) -> MobilePlayerFileShareItem? {
         guard let dataSource = dataSource(uuid: uuid),
-              let context = solanaCollectionTokenContext(dataSource: dataSource, coordinate: coordinate),
-              let descriptor = MobileCollectionCatalog.solanaImageDescriptor(
+              let context = downloadableCollectionTokenContext(dataSource: dataSource, coordinate: coordinate),
+              let descriptor = MobileCollectionCatalog.downloadableMediaDescriptor(
                 specificCollectionId: context.collectionId,
                 tokenIndex: context.tokenIndex
               ) else {
             return nil
         }
 
-        guard let fileURL = SolanaImageCache.shared.localFileURL(for: descriptor) else { return nil }
+        guard let fileURL = DownloadableMediaCache.shared.localFileURL(for: descriptor) else { return nil }
         let token = dataSource.getToken(coordinate: coordinate)
         return MobilePlayerFileShareItem(
             fileURL: fileURL,
@@ -459,7 +459,7 @@ class MobilePlaybackController {
                 progressText: Strings.pagePosition(current: context.tokenIndex + 1, total: context.tokenCount)
             )
         ) {
-            SolanaImageCache.shared.cachedDecodedImage(for: descriptor)
+            DownloadableMediaCache.shared.cachedDecodedImage(for: descriptor)
         }
     }
 
@@ -521,13 +521,13 @@ class MobilePlaybackController {
 
 }
 
-final class SolanaImageCache {
+final class DownloadableMediaCache {
 
     enum PrefetchDirection {
         case forward, backward
     }
 
-    static let shared = SolanaImageCache()
+    static let shared = DownloadableMediaCache()
 
     private static let windowRadius = 10
     private static let decodedPreferredRadius = 3
@@ -556,10 +556,10 @@ final class SolanaImageCache {
         }
     }
 
-    private let queue = DispatchQueue(label: "org.lil.nft-folder.solana-image-cache", qos: .utility)
-    private let imageDecodeQueue = DispatchQueue(label: "org.lil.nft-folder.solana-image-cache.decode", qos: .utility)
+    private let queue = DispatchQueue(label: "org.lil.nft-folder.downloadable-media-cache", qos: .utility)
+    private let imageDecodeQueue = DispatchQueue(label: "org.lil.nft-folder.downloadable-media-cache.decode", qos: .utility)
     private let foregroundImageDecodeQueue = DispatchQueue(
-        label: "org.lil.nft-folder.solana-image-cache.decode.foreground",
+        label: "org.lil.nft-folder.downloadable-media-cache.decode.foreground",
         qos: .userInitiated
     )
     private let memoryCache = NSCache<NSString, UIImage>()
@@ -570,7 +570,7 @@ final class SolanaImageCache {
 
     private struct OngoingDownload {
         let task: URLSessionDownloadTask
-        let descriptor: SolanaImageDescriptor
+        let descriptor: DownloadableMediaDescriptor
         let id: UUID
     }
 
@@ -585,7 +585,7 @@ final class SolanaImageCache {
     private struct ImageDecodeJob {
         let decodeId: UUID
         let fileURL: URL
-        let descriptor: SolanaImageDescriptor
+        let descriptor: DownloadableMediaDescriptor
         let key: String
         let redownloadOnFailure: Bool
         let priority: ImageDecodePriority
@@ -619,7 +619,7 @@ final class SolanaImageCache {
     private var activeFileNames = Set<String>()
     private var activeDecodedKeys = Set<String>()
     private var memoryKeysByCollection = [String: Set<String>]()
-    private var pendingDescriptors = [SolanaImageDescriptor]()
+    private var pendingDescriptors = [DownloadableMediaDescriptor]()
     private var pendingKeys = Set<String>()
     private var ongoingDownloads = [String: OngoingDownload]()
     private var decodeIdsByKey = [String: UUID]()
@@ -641,8 +641,8 @@ final class SolanaImageCache {
         session = URLSession(configuration: configuration)
         let cachesDirectory = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
             ?? FileManager.default.temporaryDirectory
-        cacheRoot = cachesDirectory.appendingPathComponent("SolanaTokenImages", isDirectory: true)
-        stagingRoot = FileManager.default.temporaryDirectory.appendingPathComponent("SolanaTokenImages", isDirectory: true)
+        cacheRoot = cachesDirectory.appendingPathComponent("DownloadableTokenMedia", isDirectory: true)
+        stagingRoot = FileManager.default.temporaryDirectory.appendingPathComponent("DownloadableTokenMedia", isDirectory: true)
         try? FileManager.default.removeItem(
             at: cacheRoot.appendingPathComponent(Self.webViewHTMLDirectoryName, isDirectory: true)
         )
@@ -661,7 +661,7 @@ final class SolanaImageCache {
     func prepareWindow(
         collectionId: String,
         currentTokenIndex: Int,
-        descriptors: [SolanaImageDescriptor],
+        descriptors: [DownloadableMediaDescriptor],
         direction: PrefetchDirection
     ) {
         let staticDescriptors = descriptors.filter(\.isStaticImage)
@@ -747,7 +747,7 @@ final class SolanaImageCache {
 
     @discardableResult
     func loadImage(
-        for descriptor: SolanaImageDescriptor,
+        for descriptor: DownloadableMediaDescriptor,
         completion: @escaping (UIImage?) -> Void
     ) -> (() -> Void)? {
         guard descriptor.isStaticImage else {
@@ -811,7 +811,7 @@ final class SolanaImageCache {
             specificCollectionId: token.fullCollectionId,
             tokenId: token.id
         ),
-              let descriptor = MobileCollectionCatalog.solanaImageDescriptor(
+              let descriptor = MobileCollectionCatalog.downloadableMediaDescriptor(
                 specificCollectionId: token.fullCollectionId,
                 tokenIndex: tokenIndex
               ) else {
@@ -824,7 +824,7 @@ final class SolanaImageCache {
         return loadImage(for: descriptor, completion: completion)
     }
 
-    private func cancelImageLoad(for descriptor: SolanaImageDescriptor, requestId: UUID) {
+    private func cancelImageLoad(for descriptor: DownloadableMediaDescriptor, requestId: UUID) {
         queue.async { [weak self] in
             guard let self else { return }
 
@@ -867,13 +867,13 @@ final class SolanaImageCache {
         return true
     }
 
-    func localFileURL(for descriptor: SolanaImageDescriptor) -> URL? {
+    func localFileURL(for descriptor: DownloadableMediaDescriptor) -> URL? {
         let url = fileURL(for: descriptor)
         guard FileManager.default.fileExists(atPath: url.path) else { return nil }
         return url
     }
 
-    func cachedDecodedImage(for descriptor: SolanaImageDescriptor) -> UIImage? {
+    func cachedDecodedImage(for descriptor: DownloadableMediaDescriptor) -> UIImage? {
         cachedDecodedImage(forKey: cacheKey(for: descriptor))
     }
 
@@ -887,7 +887,7 @@ final class SolanaImageCache {
 
     private func notifyFileAvailabilityChanged() {
         DispatchQueue.main.async {
-            NotificationCenter.default.post(name: .solanaImageCacheFileAvailabilityDidChange, object: nil)
+            NotificationCenter.default.post(name: .downloadableMediaCacheFileAvailabilityDidChange, object: nil)
         }
     }
 
@@ -910,7 +910,7 @@ final class SolanaImageCache {
         }
     }
 
-    private func enqueueDownloadIfNeeded(_ descriptor: SolanaImageDescriptor, isForegroundRequest: Bool) {
+    private func enqueueDownloadIfNeeded(_ descriptor: DownloadableMediaDescriptor, isForegroundRequest: Bool) {
         let key = cacheKey(for: descriptor)
         if let ongoingDownload = ongoingDownloads[key] {
             if isForegroundRequest {
@@ -961,7 +961,7 @@ final class SolanaImageCache {
         }
     }
 
-    private func popNextStartablePendingDescriptor() -> SolanaImageDescriptor? {
+    private func popNextStartablePendingDescriptor() -> DownloadableMediaDescriptor? {
         var index = 0
         while index < pendingDescriptors.count {
             let descriptor = pendingDescriptors[index]
@@ -987,7 +987,7 @@ final class SolanaImageCache {
     }
 
     private func finishDownload(
-        descriptor: SolanaImageDescriptor,
+        descriptor: DownloadableMediaDescriptor,
         downloadId: UUID,
         tmpURL: URL?,
         response: URLResponse?,
@@ -1083,7 +1083,7 @@ final class SolanaImageCache {
 
     private func startImageDecode(
         at fileURL: URL,
-        descriptor: SolanaImageDescriptor,
+        descriptor: DownloadableMediaDescriptor,
         key: String,
         redownloadOnFailure: Bool,
         priority: ImageDecodePriority
@@ -1113,7 +1113,7 @@ final class SolanaImageCache {
 
     private func startForegroundDecodeIfNeeded(
         at fileURL: URL,
-        descriptor: SolanaImageDescriptor,
+        descriptor: DownloadableMediaDescriptor,
         key: String,
         redownloadOnFailure: Bool
     ) {
@@ -1236,7 +1236,7 @@ final class SolanaImageCache {
     }
 
     private func prioritizeForegroundImageIfNeeded(
-        _ descriptor: SolanaImageDescriptor,
+        _ descriptor: DownloadableMediaDescriptor,
         requireDecodedStaticImage: Bool
     ) {
         let key = cacheKey(for: descriptor)
@@ -1308,7 +1308,7 @@ final class SolanaImageCache {
         updateOngoingDownloadPriorities()
     }
 
-    private func startForegroundDownload(for descriptor: SolanaImageDescriptor, key: String) {
+    private func startForegroundDownload(for descriptor: DownloadableMediaDescriptor, key: String) {
         markForegroundWorkStarted(forKey: key)
         cancelOngoingPrefetchDownloadsForForeground()
         enqueueDownloadIfNeeded(descriptor, isForegroundRequest: true)
@@ -1347,12 +1347,12 @@ final class SolanaImageCache {
     }
 
     private func decodedWindowDescriptors(
-        from descriptors: [SolanaImageDescriptor],
+        from descriptors: [DownloadableMediaDescriptor],
         currentTokenIndex: Int,
         direction: PrefetchDirection
-    ) -> [SolanaImageDescriptor] {
-        let preferredDescriptors: [SolanaImageDescriptor]
-        let oppositeDescriptors: [SolanaImageDescriptor]
+    ) -> [DownloadableMediaDescriptor] {
+        let preferredDescriptors: [DownloadableMediaDescriptor]
+        let oppositeDescriptors: [DownloadableMediaDescriptor]
 
         switch direction {
         case .forward:
@@ -1375,7 +1375,7 @@ final class SolanaImageCache {
         return currentDescriptor + preferredDescriptors + oppositeDescriptors
     }
 
-    private func decodeCachedImagesIfNeeded(_ descriptors: [SolanaImageDescriptor]) {
+    private func decodeCachedImagesIfNeeded(_ descriptors: [DownloadableMediaDescriptor]) {
         for descriptor in descriptors {
             let key = cacheKey(for: descriptor)
             guard activeDecodedKeys.contains(key),
@@ -1410,13 +1410,13 @@ final class SolanaImageCache {
 
     private func prioritizedDownloadDescriptors(
         currentTokenIndex: Int,
-        descriptors: [SolanaImageDescriptor],
-        decodedDescriptors: [SolanaImageDescriptor]
-    ) -> [SolanaImageDescriptor] {
-        var orderedDescriptors = [SolanaImageDescriptor]()
+        descriptors: [DownloadableMediaDescriptor],
+        decodedDescriptors: [DownloadableMediaDescriptor]
+    ) -> [DownloadableMediaDescriptor] {
+        var orderedDescriptors = [DownloadableMediaDescriptor]()
         var usedKeys = Set<String>()
 
-        func appendDescriptor(_ descriptor: SolanaImageDescriptor) {
+        func appendDescriptor(_ descriptor: DownloadableMediaDescriptor) {
             guard usedKeys.insert(cacheKey(for: descriptor)).inserted else { return }
             orderedDescriptors.append(descriptor)
         }
@@ -1429,15 +1429,15 @@ final class SolanaImageCache {
         return orderedDescriptors
     }
 
-    private func reorderPendingDownloads(preferredDescriptors: [SolanaImageDescriptor]) {
+    private func reorderPendingDownloads(preferredDescriptors: [DownloadableMediaDescriptor]) {
         guard !pendingDescriptors.isEmpty else { return }
 
-        var pendingDescriptorsByKey = [String: SolanaImageDescriptor]()
+        var pendingDescriptorsByKey = [String: DownloadableMediaDescriptor]()
         for descriptor in pendingDescriptors {
             pendingDescriptorsByKey[cacheKey(for: descriptor)] = descriptor
         }
 
-        var reorderedDescriptors = [SolanaImageDescriptor]()
+        var reorderedDescriptors = [DownloadableMediaDescriptor]()
         var usedKeys = Set<String>()
 
         func appendPendingDescriptor(forKey key: String) {
@@ -1558,7 +1558,7 @@ final class SolanaImageCache {
         memoryKeysByCollection = memoryKeysByCollection.filter { $0.key == collectionId }
     }
 
-    private func cache(_ image: UIImage, for descriptor: SolanaImageDescriptor) {
+    private func cache(_ image: UIImage, for descriptor: DownloadableMediaDescriptor) {
         let key = cacheKey(for: descriptor)
         memoryCache.setObject(image, forKey: key as NSString, cost: estimatedCost(of: image))
         memoryKeysByCollection[descriptor.collectionId, default: []].insert(key)
@@ -1570,16 +1570,16 @@ final class SolanaImageCache {
         return max(width * height * 4, 1)
     }
 
-    private func isDescriptorInActiveWindow(_ descriptor: SolanaImageDescriptor) -> Bool {
+    private func isDescriptorInActiveWindow(_ descriptor: DownloadableMediaDescriptor) -> Bool {
         guard activeCollectionId == descriptor.collectionId else { return false }
         return activeFileNames.contains(fileName(for: descriptor))
     }
 
-    private func shouldKeepDecodedImage(_ descriptor: SolanaImageDescriptor, key: String) -> Bool {
+    private func shouldKeepDecodedImage(_ descriptor: DownloadableMediaDescriptor, key: String) -> Bool {
         activeCollectionId == descriptor.collectionId && activeDecodedKeys.contains(key)
     }
 
-    private func cacheKey(for descriptor: SolanaImageDescriptor) -> String {
+    private func cacheKey(for descriptor: DownloadableMediaDescriptor) -> String {
         "\(descriptor.collectionId)|\(descriptor.tokenIndex)|\(descriptor.tokenId)|\(sourceURLHash(for: descriptor))|\(descriptor.fileExtension)"
     }
 
@@ -1587,11 +1587,11 @@ final class SolanaImageCache {
         memoryCache.object(forKey: key as NSString)
     }
 
-    private func fileURL(for descriptor: SolanaImageDescriptor) -> URL {
+    private func fileURL(for descriptor: DownloadableMediaDescriptor) -> URL {
         collectionDirectory(collectionId: descriptor.collectionId).appendingPathComponent(fileName(for: descriptor))
     }
 
-    private func fileName(for descriptor: SolanaImageDescriptor) -> String {
+    private func fileName(for descriptor: DownloadableMediaDescriptor) -> String {
         let paddedIndex = String(format: "%06d", descriptor.tokenIndex)
         return "\(paddedIndex)-\(safePathComponent(descriptor.tokenId))-\(sourceURLHash(for: descriptor)).\(descriptor.fileExtension)"
     }
@@ -1606,7 +1606,7 @@ final class SolanaImageCache {
         return String(scalars)
     }
 
-    private func sourceURLHash(for descriptor: SolanaImageDescriptor) -> String {
+    private func sourceURLHash(for descriptor: DownloadableMediaDescriptor) -> String {
         var hash: UInt64 = 14_695_981_039_346_656_037
         for byte in descriptor.url.absoluteString.utf8 {
             hash ^= UInt64(byte)
@@ -1742,7 +1742,7 @@ enum MobilePlayerPrewarmer {
     }
 
     private static func shouldPrewarm(_ key: TokenKey) -> Bool {
-        !MobileCollectionCatalog.isSolanaCollection(specificCollectionId: key.collectionId)
+        !MobileCollectionCatalog.isDownloadableCollection(specificCollectionId: key.collectionId)
     }
 
 }

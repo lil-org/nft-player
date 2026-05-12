@@ -98,7 +98,7 @@ class ExternalDisplayViewController: UIViewController {
                 self?.placeholderStack.isHidden = false
             },
             load: { completion in
-                SolanaImageCache.shared.loadImage(for: token, completion: completion)
+                DownloadableMediaCache.shared.loadImage(for: token, completion: completion)
             },
             fallbackToWebContent: { [weak self] in
                 self?.renderWebContent(token.html)

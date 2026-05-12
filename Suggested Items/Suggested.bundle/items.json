@@ -986,7 +986,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "001b77228ac834941166157c70965a86",
-    "name" : "Finiliar"
+    "name" : "Finiliar",
+    "tokenCount" : 9799
   },
   {
     "address" : "0x9c6cb16ce41bd23aabbceaa0d49d09840baa3c35",

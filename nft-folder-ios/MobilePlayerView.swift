@@ -193,7 +193,7 @@ struct MobilePlayerView: View {
             updateExternalDisplayToken(GeneratedToken.empty)
             MobilePlaybackController.shared.stopAndDisconnect(uuid: initialConfig.id)
         }
-        .onReceive(NotificationCenter.default.publisher(for: .solanaImageCacheFileAvailabilityDidChange)) { _ in
+        .onReceive(NotificationCenter.default.publisher(for: .downloadableMediaCacheFileAvailabilityDidChange)) { _ in
             updateShareItem(for: currentCoordinate)
         }
         .onAppear {
