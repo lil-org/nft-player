@@ -5294,7 +5294,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "20f51f9fc697507118f5215d5e3a2261",
-    "name" : "screenshot catalog"
+    "name" : "screenshot catalog",
+    "tokenCount" : 319
   },
   {
     "address" : "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
