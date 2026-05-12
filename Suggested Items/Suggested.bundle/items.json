@@ -1025,7 +1025,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "62fed6de62ee3c66ac30cbab9fd8a77d",
-    "name" : "Archetype"
+    "name" : "Archetype",
+    "tokenCount" : 600
   },
   {
     "abId" : "78",
@@ -1033,7 +1034,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "0949ae798b3c017f5a4ba28247886220",
-    "name" : "Fidenza"
+    "name" : "Fidenza",
+    "tokenCount" : 999
   },
   {
     "abId" : "28",
@@ -1097,7 +1099,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "c2ae8375f7ef9579d1004c829f126abf",
-    "name" : "Fragments of an Infinite Field"
+    "name" : "Fragments of an Infinite Field",
+    "tokenCount" : 1024
   },
   {
     "abId" : "41",
@@ -1217,7 +1220,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "3cbb5aefcaba02af25a1deb7f8c9143a",
-    "name" : "Ringers"
+    "name" : "Ringers",
+    "tokenCount" : 1000
   },
   {
     "abId" : "232",
@@ -2665,7 +2669,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "553311176c799eebdf49fd784ca25540",
-    "name" : "CIVICS"
+    "name" : "CIVICS",
+    "tokenCount" : 100
   },
   {
     "abId" : "461",
@@ -2897,7 +2902,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "a95c30fff3197cdaba91445279325cc7",
-    "name" : "Flore Perdue"
+    "name" : "Flore Perdue",
+    "tokenCount" : 100
   },
   {
     "abId" : "174",
@@ -2905,7 +2911,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "72ddc3e2981c2b29ba0edf9e6eb7c7ac",
-    "name" : "Letters to My Future Self"
+    "name" : "Letters to My Future Self",
+    "tokenCount" : 1000
   },
   {
     "abId" : "81",
@@ -3273,7 +3280,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "9e8ea984c71e50ab0c3b5a679a674f30",
-    "name" : "Instructions for Defacement"
+    "name" : "Instructions for Defacement",
+    "tokenCount" : 712
   },
   {
     "abId" : "5",
@@ -4369,7 +4377,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "d0b6cbef56f42c36e25ff83a81a7d295",
-    "name" : "Meridian"
+    "name" : "Meridian",
+    "tokenCount" : 1000
   },
   {
     "abId" : "167",
@@ -4441,7 +4450,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "fa3e8df7a7bc8c6eaed5c2e64e329884",
-    "name" : "The Eternal Pump"
+    "name" : "The Eternal Pump",
+    "tokenCount" : 50
   },
   {
     "abId" : "25",
@@ -4520,7 +4530,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "f09dc93e48530b0803410a2b32c56cbf",
-    "name" : "Math Art (1980-1995)"
+    "name" : "Math Art (1980-1995)",
+    "tokenCount" : 100
   },
   {
     "address" : "0x20c70bdfcc398c1f06ba81730c8b52ace3af7cc3",
@@ -4534,7 +4545,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "144c64c061c4ba648713383cf8cc43a7",
-    "name" : "Storms"
+    "name" : "Storms",
+    "tokenCount" : 75
   },
   {
     "address" : "0x46ac8540d698167fcbb9e846511beb8cf8af9bd8",
@@ -4555,7 +4567,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "871b7d328998282360628407aaf03f65",
-    "name" : "0xmons"
+    "name" : "0xmons",
+    "tokenCount" : 341
   },
   {
     "address" : "0x46ac8540d698167fcbb9e846511beb8cf8af9bd8",
@@ -4583,7 +4596,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "2b0b7d3bb471c1e4580baed3a35067cf",
-    "name" : "Tokyo Nude"
+    "name" : "Tokyo Nude",
+    "tokenCount" : 55
   },
   {
     "address" : "0x46ac8540d698167fcbb9e846511beb8cf8af9bd8",
@@ -4604,21 +4618,24 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "22c88225c2e244fcfb994a12b654d85b",
-    "name" : "Temporals"
+    "name" : "Temporals",
+    "tokenCount" : 222
   },
   {
     "address" : "0xBE8E0F43A2CEB7ee944B4FC5F4f54b078223422c",
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "418936174274cf2fb348f0458d37b5d5",
-    "name" : "COSMOS"
+    "name" : "COSMOS",
+    "tokenCount" : 60
   },
   {
     "address" : "0xabfae8a54e6817f57f9de7796044e9a60e61ad67",
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "e43431dc5b6433737504e6ebbbb45089",
-    "name" : "Bonkler"
+    "name" : "Bonkler",
+    "tokenCount" : 150
   },
   {
     "address" : "0xd4e4078ca3495de5b1d4db434bebc5a986197782",
@@ -4768,7 +4785,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "5dd402105864ca1b290a19037612cd00",
-    "name" : "EMOJIPACK"
+    "name" : "EMOJIPACK",
+    "tokenCount" : 71
   },
   {
     "address" : "0x44096d6de5d17020ce0c41d75ce27b33c6d28e1a",
@@ -4877,7 +4895,8 @@
     "chain" : "base",
     "chainId" : 8453,
     "collectionId" : "eeb4d062d7c79f1145c10a7d200781b1",
-    "name" : "Babes"
+    "name" : "Babes",
+    "tokenCount" : 339
   },
   {
     "address" : "0xe7ed54673455193f1d4448c88c6544fd93a237c0",
@@ -4891,7 +4910,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "5f45e9d37d3af3d25536c5a38d0183bd",
-    "name" : "BAD JPEGS"
+    "name" : "BAD JPEGS",
+    "tokenCount" : 1000
   },
   {
     "address" : "0x6c6b9a46ccf6168a10b1f1a85cb19314659d87a6",
@@ -4905,14 +4925,16 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "60e1b32bbecc294747acd29283997fdb",
-    "name" : "Changing Places"
+    "name" : "Changing Places",
+    "tokenCount" : 500
   },
   {
     "address" : "0x92e64d1a27f4f42ecaf0ef7f725f119751113a38",
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "a5e40fa144e354b53d60abaaef1732e2",
-    "name" : "The Vault of Wonders - The Abyssal Unseen"
+    "name" : "The Vault of Wonders - The Abyssal Unseen",
+    "tokenCount" : 1000
   },
   {
     "address" : "0x082dcab372505ae56eafde58204ba5b12ff3f3f5",
@@ -4940,7 +4962,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "8cefcc309feca1168f86592b22c1c24d",
-    "name" : "Crowded Fields"
+    "name" : "Crowded Fields",
+    "tokenCount" : 41
   },
   {
     "address" : "0xf9267911480fb5ce2ff2b4deb1295d9b2ab5bb69",
@@ -4975,7 +4998,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "8ad0539abb7bc90c33e3dd7d6ca92c97",
-    "name" : "The Age of Self Indulgence"
+    "name" : "The Age of Self Indulgence",
+    "tokenCount" : 80
   },
   {
     "address" : "0xdfde78d2baec499fe18f2be74b6c287eed9511d7",
@@ -5108,7 +5132,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "08d6aaf47dc6b529fb63597a57c26407",
-    "name" : "Fifty Ways of Looking at a Poem"
+    "name" : "Fifty Ways of Looking at a Poem",
+    "tokenCount" : 44
   },
   {
     "address" : "0x740067ff706c18e1b017e43e4b3b81be787e3d50",
@@ -5129,7 +5154,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "41e5c67c186d3fcfad65bc991cbfd66c",
-    "name" : "Vacation"
+    "name" : "Vacation",
+    "tokenCount" : 428
   },
   {
     "address" : "0x391f5dcff76fbd0827369949a630cc1491758f05",
@@ -5143,7 +5169,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "c645d0e0982854db7d397645efc8bab4",
-    "name" : "CAR"
+    "name" : "CAR",
+    "tokenCount" : 999
   },
   {
     "address" : "0x8bd8eab9655573165fdafa404e72dc5e769a83fa",
@@ -5192,7 +5219,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "f470d8cead31b5fb399c238a8e0fb87f",
-    "name" : "Urban Transportation; Red Trucks"
+    "name" : "Urban Transportation; Red Trucks",
+    "tokenCount" : 50
   },
   {
     "address" : "0x0c8b135a721b017f983f76bb32f53d37f8510a5b",
@@ -5241,7 +5269,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "48d6a02bf86e5e15f2b97d93bba0055b",
-    "name" : "Overpopulated Symphonies"
+    "name" : "Overpopulated Symphonies",
+    "tokenCount" : 300
   },
   {
     "address" : "0x10a10cd4bec5203ebe20e4c31e81da36b052c517",
@@ -5360,7 +5389,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "88555cfa692828b54b413e7cfc3e6bcd",
-    "name" : "IMAGINED WRECKAGE"
+    "name" : "IMAGINED WRECKAGE",
+    "tokenCount" : 96
   },
   {
     "address" : "2A6Rr4fKgDDYrTMJ1aNo4njNkGNyr7Bw298tYXHwGMcu",

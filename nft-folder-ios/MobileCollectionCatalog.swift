@@ -142,9 +142,17 @@ private enum DownloadableCollectionService {
 
         let token = tokenData.tokens[tokenIndex]
         let nextMedia = tokenData.tokens.indices.contains(tokenIndex + 1)
-            ? resolvedMedia(for: tokenData.tokens[tokenIndex + 1], defaultFileExtension: tokenData.defaultFileExtension)
+            ? resolvedMedia(
+                for: tokenData.tokens[tokenIndex + 1],
+                collection: collection,
+                defaultFileExtension: tokenData.defaultFileExtension
+            )
             : nil
-        guard let media = resolvedMedia(for: token, defaultFileExtension: tokenData.defaultFileExtension) else {
+        guard let media = resolvedMedia(
+            for: token,
+            collection: collection,
+            defaultFileExtension: tokenData.defaultFileExtension
+        ) else {
             return nil
         }
 
@@ -174,13 +182,18 @@ private enum DownloadableCollectionService {
     }
 
     static func mediaDescriptor(collectionId: String, tokenIndex: Int) -> DownloadableMediaDescriptor? {
-        guard let tokenData = tokenData(collectionId: collectionId),
+        guard let collection = index.collectionById[collectionId],
+              let tokenData = tokenData(collectionId: collectionId),
               tokenData.tokens.indices.contains(tokenIndex) else {
             return nil
         }
 
         let token = tokenData.tokens[tokenIndex]
-        guard let media = resolvedMedia(for: token, defaultFileExtension: tokenData.defaultFileExtension) else {
+        guard let media = resolvedMedia(
+            for: token,
+            collection: collection,
+            defaultFileExtension: tokenData.defaultFileExtension
+        ) else {
             return nil
         }
 
@@ -219,11 +232,15 @@ private enum DownloadableCollectionService {
 
     private static func resolvedMedia(
         for token: DownloadableTokenItem,
+        collection: DownloadableCollectionIndexItem,
         defaultFileExtension: String?
     ) -> GeneratedTokenMedia? {
-        guard let urlString = token.url,
+        guard let urlString = token.resolvedURLString(collection: collection),
               let url = URL(string: urlString),
-              let fileExtension = token.resolvedFileExtension(defaultFileExtension: defaultFileExtension) else {
+              let fileExtension = token.resolvedFileExtension(
+                collection: collection,
+                defaultFileExtension: defaultFileExtension
+              ) else {
             return nil
         }
 
@@ -276,7 +293,8 @@ private enum DownloadableCollectionService {
     }
 
     private static func loadTokenData(collectionId: String) -> DownloadableCollectionTokenData? {
-        guard let url = SuggestedItemsService.bundle.url(forResource: collectionId, withExtension: "json", subdirectory: "Tokens"),
+        guard let collection = index.collectionById[collectionId],
+              let url = SuggestedItemsService.bundle.url(forResource: collectionId, withExtension: "json", subdirectory: "Tokens"),
               let data = try? Data(contentsOf: url),
               let payload = try? JSONDecoder().decode(DownloadableCollectionTokensPayload.self, from: data) else {
             return nil
@@ -284,7 +302,11 @@ private enum DownloadableCollectionService {
         return DownloadableCollectionTokenData(
             defaultFileExtension: payload.defaultFileExtension,
             tokens: payload.items.filter {
-                resolvedMedia(for: $0, defaultFileExtension: payload.defaultFileExtension) != nil
+                resolvedMedia(
+                    for: $0,
+                    collection: collection,
+                    defaultFileExtension: payload.defaultFileExtension
+                ) != nil
             }
         )
     }
@@ -323,6 +345,7 @@ private struct DownloadableCollectionTokensPayload: Decodable {
                     id: row.id,
                     name: nil,
                     url: row.url(prefixes: urlPrefixes),
+                    sh: nil,
                     fileExtension: row.fileExtension
                 )
             }
@@ -332,6 +355,7 @@ private struct DownloadableCollectionTokensPayload: Decodable {
                     id: item.id,
                     name: item.name,
                     url: item.url,
+                    sh: item.sh,
                     fileExtension: Self.normalizedFileExtension(item.fileExtension)
                 )
             }
@@ -347,10 +371,27 @@ private struct DownloadableTokenItem: Codable, Hashable {
     let id: String
     let name: String?
     let url: String?
+    let sh: String?
     let fileExtension: String?
 
-    func resolvedFileExtension(defaultFileExtension: String?) -> String? {
-        guard let url else { return nil }
+    func resolvedURLString(collection: DownloadableCollectionIndexItem) -> String? {
+        if let url {
+            return url
+        }
+        if let sh {
+            return "https://cdn.simplehash.com/assets/\(sh)"
+        }
+        if collection.chain == .ethereum {
+            return "https://media-proxy.artblocks.io/\(collection.address)/\(id).png"
+        }
+        return nil
+    }
+
+    func resolvedFileExtension(
+        collection: DownloadableCollectionIndexItem,
+        defaultFileExtension: String?
+    ) -> String? {
+        guard let url = resolvedURLString(collection: collection) else { return nil }
         return DownloadableMediaFileExtension.explicitPathExtension(in: url)
             ?? DownloadableMediaFileExtension.normalized(fileExtension)
             ?? defaultFileExtension
