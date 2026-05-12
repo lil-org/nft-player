@@ -639,10 +639,16 @@ final class DownloadableMediaCache {
         configuration.timeoutIntervalForResource = 120
         configuration.httpMaximumConnectionsPerHost = maximumConcurrentDownloads
         session = URLSession(configuration: configuration)
-        let cachesDirectory = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
-            ?? FileManager.default.temporaryDirectory
-        cacheRoot = cachesDirectory.appendingPathComponent("DownloadableTokenMedia", isDirectory: true)
-        stagingRoot = FileManager.default.temporaryDirectory.appendingPathComponent("DownloadableTokenMedia", isDirectory: true)
+        let fileManager = FileManager.default
+        let applicationSupportDirectory = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? fileManager.temporaryDirectory
+        cacheRoot = applicationSupportDirectory.appendingPathComponent("DownloadableTokenMedia", isDirectory: true)
+        stagingRoot = fileManager.temporaryDirectory.appendingPathComponent("DownloadableTokenMedia", isDirectory: true)
+        try? fileManager.createDirectory(at: cacheRoot, withIntermediateDirectories: true)
+        var excludedFromBackupURL = cacheRoot
+        var resourceValues = URLResourceValues()
+        resourceValues.isExcludedFromBackup = true
+        try? excludedFromBackupURL.setResourceValues(resourceValues)
         try? FileManager.default.removeItem(
             at: cacheRoot.appendingPathComponent(Self.webViewHTMLDirectoryName, isDirectory: true)
         )
