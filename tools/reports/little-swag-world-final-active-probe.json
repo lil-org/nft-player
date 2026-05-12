@@ -1,0 +1,30 @@
+{
+  "checked": 3323,
+  "failures": 0,
+  "byType": {
+    "image/png": 3323
+  },
+  "byPrefix": [
+    {
+      "prefix": "https://cdn.helius-rpc.com/cdn-cgi/image//https://gateway.lighthouse.storage/ipfs/",
+      "rows": 3296
+    },
+    {
+      "prefix": "https://ipfs.filebase.io/ipfs/",
+      "rows": 6
+    },
+    {
+      "prefix": "https://gateway.pinata.cloud/ipfs/",
+      "rows": 1
+    },
+    {
+      "prefix": "https://ipfs.io/ipfs/",
+      "rows": 19
+    },
+    {
+      "prefix": "https://",
+      "rows": 1
+    }
+  ],
+  "failureDetails": []
+}
