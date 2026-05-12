@@ -4933,7 +4933,7 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "a5e40fa144e354b53d60abaaef1732e2",
-    "name" : "The Vault of Wonders - The Abyssal Unseen",
+    "name" : "The Abyssal Unseen",
     "tokenCount" : 1000
   },
   {
@@ -5219,7 +5219,7 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "f470d8cead31b5fb399c238a8e0fb87f",
-    "name" : "Urban Transportation; Red Trucks",
+    "name" : "Red Trucks",
     "tokenCount" : 50
   },
   {
