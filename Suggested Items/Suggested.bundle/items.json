@@ -4667,7 +4667,8 @@
     "address" : "0x17abd4cc1382397ec2b675f98621c3ba809897de",
     "chain" : "ethereum",
     "chainId" : 1,
-    "name" : "Super Metal Mons!!"
+    "name" : "Super Metal Mons!!",
+    "tokenCount" : 777
   },
   {
     "address" : "0x32d6ba9aa1b06fbcaeb3f6c5ff05cd6a77dcf387",
@@ -4680,7 +4681,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "80e308cf1a65bcb4fcc194d208ada0c5",
-    "name" : "Bibos"
+    "name" : "Bibos",
+    "tokenCount" : 1111
   },
   {
     "address" : "0xba5e05cb26b78eda3a2f8e3b3814726305dcac83",
@@ -5255,7 +5257,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "814722f021add634f952ac39cf6923ad",
-    "name" : "Constant"
+    "name" : "Constant",
+    "tokenCount" : 15
   },
   {
     "address" : "0x802f48de163cafb073dd00f582d3365112ee181b",

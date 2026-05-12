@@ -163,15 +163,23 @@ private enum DownloadableCollectionService {
         )
         let webURL = Self.webURL(collection: collection, tokenId: token.id)
 
+        let html: String
+        switch media {
+        case .staticImage, .animatedImage:
+            html = DownloadableTokenHTML.createImageHTML(
+                imageURL: media.url.absoluteString,
+                nextImageURL: nextMedia?.url.absoluteString
+            )
+        case .video:
+            html = DownloadableTokenHTML.createVideoHTML(videoURL: media.url.absoluteString)
+        }
+
         return GeneratedToken(
             fullCollectionId: collection.id,
             collectionName: collection.name,
             address: collection.address,
             id: token.id,
-            html: DownloadableTokenHTML.createImageHTML(
-                imageURL: media.url.absoluteString,
-                nextImageURL: nextMedia?.url.absoluteString
-            ),
+            html: html,
             displayName: token.name ?? "\(collection.name) \(displayTokenId)",
             displayTokenId: displayTokenId,
             url: webURL,
@@ -246,6 +254,9 @@ private enum DownloadableCollectionService {
 
         if DownloadableMediaFileExtension.isAnimatedImage(fileExtension) {
             return .animatedImage(url: url, fileExtension: fileExtension)
+        }
+        if DownloadableMediaFileExtension.isVideo(fileExtension) {
+            return .video(url: url, fileExtension: fileExtension)
         }
         if DownloadableMediaFileExtension.isStaticImage(fileExtension) {
             return .staticImage(url: url, fileExtension: fileExtension)
@@ -437,7 +448,8 @@ private struct DownloadableCollectionTokenData {
 
 private enum DownloadableMediaFileExtension {
     private static let staticImageExtensions = Set(["png", "jpg", "jpeg", "webp", "heic", "heif"])
-    private static let animatedImageExtensions = Set(["gif"])
+    private static let animatedImageExtensions = Set(["gif", "svg"])
+    private static let videoExtensions = Set(["mp4"])
 
     static func normalized(_ value: String?) -> String? {
         guard let value else { return nil }
@@ -458,6 +470,10 @@ private enum DownloadableMediaFileExtension {
 
     static func isAnimatedImage(_ fileExtension: String) -> Bool {
         animatedImageExtensions.contains(fileExtension)
+    }
+
+    static func isVideo(_ fileExtension: String) -> Bool {
+        videoExtensions.contains(fileExtension)
     }
 }
 
@@ -504,6 +520,67 @@ enum DownloadableTokenHTML {
         if (nextImageURL) {
             retainDownloadableTokenImagePreload(nextImageURL);
         }
+        </script>
+        </body>
+        </html>
+        """
+    }
+
+    static func createVideoHTML(videoURL: String) -> String {
+        """
+        <!doctype html>
+        <html>
+        <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+        <style>
+        html, body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            background: transparent;
+            overflow: hidden;
+        }
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #tokenVideo {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+        }
+        </style>
+        </head>
+        <body>
+        <video id="tokenVideo" autoplay loop muted playsinline webkit-playsinline preload="auto"></video>
+        <script>
+        const videoURL = \(javaScriptStringLiteral(videoURL));
+        const tokenVideo = document.getElementById("tokenVideo");
+        tokenVideo.muted = true;
+        tokenVideo.loop = true;
+        tokenVideo.playsInline = true;
+        tokenVideo.autoplay = true;
+        tokenVideo.src = videoURL;
+
+        function playTokenVideo() {
+            const playPromise = tokenVideo.play();
+            if (playPromise && playPromise.catch) {
+                playPromise.catch(() => {});
+            }
+        }
+
+        tokenVideo.addEventListener("canplay", playTokenVideo, { once: true });
+        tokenVideo.addEventListener("loadeddata", playTokenVideo, { once: true });
+        document.addEventListener("visibilitychange", () => {
+            if (!document.hidden) {
+                playTokenVideo();
+            }
+        });
+        playTokenVideo();
         </script>
         </body>
         </html>

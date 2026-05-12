@@ -920,9 +920,14 @@ private final class PlayerZoomScrollView: UIScrollView {
 private class SpecificPageViewController: UIViewController, UIScrollViewDelegate {
 
     private struct AnimatedRenderContext: Equatable {
+        enum MediaKind: Equatable {
+            case image, video
+        }
+
         let descriptor: DownloadableMediaDescriptor
         let adjacentDescriptor: DownloadableMediaDescriptor?
         let fallbackHTML: String
+        let mediaKind: MediaKind
     }
 
     private enum ZoomContentLayout: Equatable {
@@ -1280,6 +1285,8 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
                 renderImage(descriptor, fallbackHTML: token.html)
             case .animatedImage:
                 renderAnimatedImage(descriptor, fallbackHTML: token.html)
+            case .video:
+                renderVideo(descriptor, fallbackHTML: token.html)
             }
         } else {
             renderWebContent(token.html)
@@ -1402,7 +1409,21 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             AnimatedRenderContext(
                 descriptor: descriptor,
                 adjacentDescriptor: adjacentDescriptor,
-                fallbackHTML: fallbackHTML
+                fallbackHTML: fallbackHTML,
+                mediaKind: .image
+            )
+        )
+        renderAvailableAnimatedLocalContent()
+    }
+
+    private func renderVideo(_ descriptor: DownloadableMediaDescriptor, fallbackHTML: String) {
+        setZoomContentLayout(.viewport)
+        setAnimatedRenderContext(
+            AnimatedRenderContext(
+                descriptor: descriptor,
+                adjacentDescriptor: nil,
+                fallbackHTML: fallbackHTML,
+                mediaKind: .video
             )
         )
         renderAvailableAnimatedLocalContent()
@@ -1451,14 +1472,20 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             return
         }
 
-        if let imageSize = imageSize(at: localFileURL) {
+        if context.mediaKind == .image, let imageSize = imageSize(at: localFileURL) {
             setZoomContentLayout(.staticImage(imageSize))
         }
 
-        let html = DownloadableTokenHTML.createImageHTML(
-            imageURL: localFileURL.absoluteString,
-            nextImageURL: nextLocalFileURL?.absoluteString
-        )
+        let html: String
+        switch context.mediaKind {
+        case .image:
+            html = DownloadableTokenHTML.createImageHTML(
+                imageURL: localFileURL.absoluteString,
+                nextImageURL: nextLocalFileURL?.absoluteString
+            )
+        case .video:
+            html = DownloadableTokenHTML.createVideoHTML(videoURL: localFileURL.absoluteString)
+        }
         pendingAnimatedImageURL = localFileURL
         mediaRenderer.renderLocalWebContent(
             html,

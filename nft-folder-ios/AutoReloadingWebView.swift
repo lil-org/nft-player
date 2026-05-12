@@ -98,6 +98,8 @@ class AutoReloadingWebView: WKWebView, WKNavigationDelegate {
     private static func webConfiguration() -> WKWebViewConfiguration {
         let webConfiguration = WKWebViewConfiguration()
         webConfiguration.suppressesIncrementalRendering = true
+        webConfiguration.allowsInlineMediaPlayback = true
+        webConfiguration.mediaTypesRequiringUserActionForPlayback = []
         webConfiguration.userContentController.addUserScript(
             WKUserScript(
                 source: "document.addEventListener('contextmenu', function(e) { e.preventDefault(); }, false);",

@@ -5,17 +5,18 @@ import Foundation
 enum GeneratedTokenMedia: Hashable, Codable {
     case staticImage(url: URL, fileExtension: String)
     case animatedImage(url: URL, fileExtension: String)
+    case video(url: URL, fileExtension: String)
 
     var url: URL {
         switch self {
-        case let .staticImage(url, _), let .animatedImage(url, _):
+        case let .staticImage(url, _), let .animatedImage(url, _), let .video(url, _):
             return url
         }
     }
 
     var fileExtension: String {
         switch self {
-        case let .staticImage(_, fileExtension), let .animatedImage(_, fileExtension):
+        case let .staticImage(_, fileExtension), let .animatedImage(_, fileExtension), let .video(_, fileExtension):
             return fileExtension
         }
     }
