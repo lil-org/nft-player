@@ -5822,7 +5822,7 @@
     "address" : "0xd497a414bb00803e846b53d07fcb742831b24906",
     "chain" : "ethereum",
     "chainId" : 1,
-    "name" : "Tigerbob NFT Genesis Collection",
+    "name" : "Tigerbob NFT Genesis",
     "tokenCount" : 1000,
     "iosOnly" : true
   },
@@ -5830,7 +5830,7 @@
     "address" : "0x4e1f41613c9084fdb9e34e11fae9412427480e56",
     "chain" : "ethereum",
     "chainId" : 1,
-    "name" : "Terraforms by Mathcastles",
+    "name" : "Terraforms",
     "tokenCount" : 9911,
     "iosOnly" : true
   },
@@ -5846,7 +5846,7 @@
     "address" : "0xda1bf9b5de160cecde3f9304b187a2f5f5b83707",
     "chain" : "ethereum",
     "chainId" : 1,
-    "name" : "CHRONOPHOTOGRAPH by 0xDEAFBEEF",
+    "name" : "CHRONOPHOTOGRAPH",
     "tokenCount" : 267,
     "iosOnly" : true
   },
@@ -5854,7 +5854,7 @@
     "address" : "0x11f8a67716f2bec393763d1e2a1cc6cc01164d24",
     "chain" : "ethereum",
     "chainId" : 1,
-    "name" : "TOMIE by Junji Ito",
+    "name" : "TOMIE",
     "tokenCount" : 2219,
     "iosOnly" : true
   }
