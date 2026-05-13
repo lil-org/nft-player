@@ -14,6 +14,7 @@ const DEFAULT_MAX_TOKENS = 15000;
 const OPENSEA_API_BASE_URL = "https://api.opensea.io/api/v2";
 const IPFS_GATEWAY_URL = "https://ipfs.io/ipfs/";
 const MEDIA_TYPE_PROBE_TIMEOUT_MS = 10000;
+const DEFAULT_MEDIA_PROBE_CONCURRENCY = 16;
 const OPENSEA_RAW_MEDIA_HOST = "raw2.seadn.io";
 const SUPPORTED_EXTENSIONS = new Set(["png", "jpg", "jpeg", "webp", "heic", "heif", "gif", "mp4", "mov"]);
 const STATIC_EXTENSIONS = new Set(["png", "jpg", "jpeg", "webp", "heic", "heif"]);
@@ -68,11 +69,14 @@ Options:
   --limit <number>        OpenSea page size. Default: 200
   --timeout-ms <number>   Request timeout. Default: 30000
   --max-tokens <number>   Maximum OpenSea tokens to bundle per collection. Default: ${DEFAULT_MAX_TOKENS}
+  --media-probe-concurrency <n>
+                           Concurrent media content-type probes. Default: ${DEFAULT_MEDIA_PROBE_CONCURRENCY}
   --cover-size <number>   Cover width/height in pixels. Default: 300
   --cover-quality <n>     HEIC quality passed to ImageMagick. Default: 62
   --max-retries <n|forever>
                            Transient retry limit per request. Default: forever
   --skip-covers           Do not download or generate cover images.
+  --continue-on-error     Continue with later inputs if one collection cannot be bundled.
   --verbose               Print per-page and media diagnostics.
   --help                  Show this help.
 `.trim();
@@ -92,10 +96,12 @@ function parseArgs(argv) {
     limit: 200,
     timeoutMs: 30000,
     maxTokens: DEFAULT_MAX_TOKENS,
+    mediaProbeConcurrency: DEFAULT_MEDIA_PROBE_CONCURRENCY,
     coverSize: 300,
     coverQuality: 62,
     maxRetries: Number.POSITIVE_INFINITY,
     skipCovers: false,
+    continueOnError: false,
     verbose: false,
   };
 
@@ -147,6 +153,9 @@ function parseArgs(argv) {
       case "--max-tokens":
         options.maxTokens = positiveInteger(readValue(), arg);
         break;
+      case "--media-probe-concurrency":
+        options.mediaProbeConcurrency = positiveInteger(readValue(), arg);
+        break;
       case "--cover-size":
         options.coverSize = positiveInteger(readValue(), arg);
         break;
@@ -160,6 +169,9 @@ function parseArgs(argv) {
       }
       case "--skip-covers":
         options.skipCovers = true;
+        break;
+      case "--continue-on-error":
+        options.continueOnError = true;
         break;
       case "--verbose":
         options.verbose = true;
@@ -222,6 +234,7 @@ async function main() {
 
   await fs.mkdir(context.tempRoot, { recursive: true });
   const collectionResults = [];
+  const failedCollections = [];
   const seenCollectionIds = new Set();
 
   for (const input of inputs) {
@@ -234,15 +247,30 @@ async function main() {
     seenCollectionIds.add(collectionId);
 
     console.log(`Fetching ${target.openSeaChain}:${target.address}`);
-    const result = await fetchCollectionBundle(input, target, context);
-    collectionResults.push(result);
-    console.log(`  ${result.name}: ${result.tokens.length} token media row(s), ${result.tokenPayload.urlPrefixes.length} URL prefix(es)`);
+    try {
+      const result = await fetchCollectionBundle(input, target, context);
+      collectionResults.push(result);
+      console.log(`  ${result.name}: ${result.tokens.length} token media row(s), ${result.tokenPayload.urlPrefixes.length} URL prefix(es)`);
+    } catch (error) {
+      if (!options.continueOnError) {
+        throw error;
+      }
+      failedCollections.push({
+        input,
+        address: target.address,
+        chain: target.appChain,
+        chainId: target.chainId,
+        openSeaChain: target.openSeaChain,
+        error: error.message,
+      });
+      console.error(`  Skipping ${target.openSeaChain}:${target.address}: ${error.message}`);
+    }
   }
 
   if (options.apply) {
-    await writeBundle(collectionResults, context);
+    await writeBundle(collectionResults, context, failedCollections);
   } else {
-    await writeReports(collectionResults, options, true);
+    await writeReports(collectionResults, options, true, failedCollections);
     console.log("Dry run complete. Reports were written; bundle assets were not changed.");
   }
 
@@ -256,6 +284,9 @@ async function main() {
   0);
   if (reviewCount > 0) {
     console.log(`${reviewCount} media item(s) reported. See ${options.reportPath}`);
+  }
+  if (failedCollections.length > 0) {
+    console.log(`${failedCollections.length} collection(s) skipped due to errors. See ${options.reportPath}`);
   }
 }
 
@@ -576,40 +607,69 @@ async function prepareTokens(tokens, target, context) {
   const unsupportedItems = [];
   const missingMediaItems = [];
 
-  for (const token of tokens) {
+  const tokenResults = await mapConcurrent(tokens, options.mediaProbeConcurrency, async (token) => {
     const id = tokenId(token);
     if (!id) {
-      continue;
+      return null;
     }
+    const name = tokenName(token);
     const candidates = await resolveCandidateExtensionsForSelection(mediaCandidatesForToken(token), context);
     const supportedCandidates = candidates.filter((candidate) => SUPPORTED_EXTENSIONS.has(candidate.extension));
     const selected = choosePreferredCandidate(supportedCandidates);
 
     if (!selected) {
       if (candidates.length > 0) {
-        unsupportedItems.push({
-          id,
-          name: tokenName(token),
-          candidates: candidates.map(reportableCandidate),
-        });
+        return {
+          kind: "unsupported",
+          item: {
+            id,
+            name,
+            candidates: candidates.map(reportableCandidate),
+          },
+        };
       } else {
-        missingMediaItems.push({
-          id,
-          name: tokenName(token),
-        });
+        return {
+          kind: "missing",
+          item: {
+            id,
+            name,
+          },
+        };
       }
+    }
+
+    return {
+      kind: "candidate",
+      item: {
+        id,
+        name,
+        media: selected,
+        candidates,
+        supportedCandidates,
+        coverUrls: coverCandidatesForToken(token),
+        sortKey: sortKeyForToken(token, selected),
+      },
+    };
+  });
+
+  for (const result of tokenResults) {
+    if (!result) {
       continue;
     }
 
-    candidatesByToken.push({
-      id,
-      name: tokenName(token),
-      media: selected,
-      candidates,
-      supportedCandidates,
-      coverUrls: coverCandidatesForToken(token),
-      sortKey: sortKeyForToken(token, selected),
-    });
+    switch (result.kind) {
+      case "candidate":
+        candidatesByToken.push(result.item);
+        break;
+      case "unsupported":
+        unsupportedItems.push(result.item);
+        break;
+      case "missing":
+        missingMediaItems.push(result.item);
+        break;
+      default:
+        throw new Error(`Unexpected token preparation result: ${result.kind}`);
+    }
   }
 
   candidatesByToken.sort(comparePreparedTokens);
@@ -1273,7 +1333,7 @@ function mostCommonValue(values) {
   return [...counts.entries()].sort((left, right) => right[1] - left[1] || naturalCompare(left[0], right[0]))[0]?.[0] ?? null;
 }
 
-async function writeBundle(collections, context) {
+async function writeBundle(collections, context, failedCollections = []) {
   const { options } = context;
   const bundlePath = path.resolve(options.bundlePath);
   const tokensPath = path.join(bundlePath, "Tokens");
@@ -1294,7 +1354,7 @@ async function writeBundle(collections, context) {
     await writeCovers(collections, context);
   }
 
-  await writeReports(collections, options, false);
+  await writeReports(collections, options, false, failedCollections);
   console.log(`Wrote ${collections.length} Ethereum/EVM collection bundle(s).`);
 }
 
@@ -1628,18 +1688,19 @@ async function runCommand(command, args) {
   });
 }
 
-async function writeReports(collections, options, dryRun) {
+async function writeReports(collections, options, dryRun, failedCollections = []) {
   await fs.mkdir(path.dirname(options.reportPath), { recursive: true });
   await fs.mkdir(path.dirname(options.jsonReportPath), { recursive: true });
-  await fs.writeFile(options.reportPath, buildReport(collections, { ...options, apply: !dryRun }));
+  await fs.writeFile(options.reportPath, buildReport(collections, { ...options, apply: !dryRun }, failedCollections));
   await fs.writeFile(options.jsonReportPath, `${JSON.stringify({
     generatedAt: new Date().toISOString(),
     dryRun,
     collections: collections.map((collection) => reportableCollection(collection)),
+    failedCollections,
   }, null, 2)}\n`);
 }
 
-function buildReport(collections, options) {
+function buildReport(collections, options, failedCollections = []) {
   const lines = [
     "# Ethereum/EVM Collection Bundle Report",
     "",
@@ -1659,6 +1720,14 @@ function buildReport(collections, options) {
       + collection.mediaReview.unsupportedItems.length
       + collection.mediaReview.missingMediaItems.length;
     lines.push(`| ${escapeMarkdownTable(collection.input)} | ${collection.appChain} (${collection.chainId}) | ${collection.collectionId} | ${escapeMarkdownTable(collection.name)} | ${collection.tokensSeen} | ${collection.tokens.length} | ${collection.cover.sourceKind} | ${reviewCount} |`);
+  }
+
+  if (failedCollections.length > 0) {
+    lines.push("", "## Failed Collections", "");
+    lines.push("| Input | Chain | Error |", "| --- | --- | --- |");
+    for (const failure of failedCollections) {
+      lines.push(`| ${escapeMarkdownTable(failure.input)} | ${escapeMarkdownTable(`${failure.chain} (${failure.chainId})`)} | ${escapeMarkdownTable(failure.error)} |`);
+    }
   }
 
   lines.push("", "## Media Review", "");
@@ -1842,6 +1911,22 @@ function escapeMarkdownTable(value) {
 
 function escapeMarkdown(value) {
   return String(value ?? "").replace(/\n/gu, " ");
+}
+
+async function mapConcurrent(values, concurrency, mapper) {
+  const results = new Array(values.length);
+  let nextIndex = 0;
+
+  async function worker() {
+    while (nextIndex < values.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      results[index] = await mapper(values[index], index);
+    }
+  }
+
+  await Promise.all(Array.from({ length: Math.min(concurrency, values.length) }, worker));
+  return results;
 }
 
 function sleep(ms) {
