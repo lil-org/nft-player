@@ -19,6 +19,8 @@ https://api.tzkt.io
 
 Use `--api-base-url` to point at another TzKT-compatible API.
 
+By default, the script refuses to bundle collections above 15,000 tokens. Use `--max-tokens <number>` only when intentionally bundling a larger collection.
+
 ## Output
 
 `--apply` writes:
@@ -44,9 +46,10 @@ Rows include a fourth extension field only when a token differs from `defaultFil
 ## Media Policy
 
 - Prefer token `artifactUri` and matching `formats[].uri` over display and thumbnail URLs.
-- Fall back to `displayUri`, `image`, then `thumbnailUri`.
+- Fall back to `displayUri`, `image`, then `thumbnailUri` only when artifact/source media is missing, unavailable, or not app-supported.
 - Normalize `ipfs://` and `ar://` URLs to HTTPS gateways. The Tezos helper uses `https://ipfs.io/ipfs/` for IPFS media because full MP4 reads from `https://ipfs.decentralized-content.com/ipfs/` can terminate early for some Tezos artifacts.
-- Keep active playback to app-supported media: `png`, `jpg`, `jpeg`, `webp`, `heic`, `heif`, `gif`, and `mp4`.
+- Probe extensionless artifact/source URLs by content type. If the TzKT metadata exposes an app-playable MIME type, add the extension mapping instead of falling back to display or thumbnail media.
+- Keep active playback to app-supported media: `png`, `jpg`, `jpeg`, `webp`, `heic`, `heif`, `gif`, `mp4`, and `mov`.
 - Deduplicate by selected normalized file URL within each collection. The lowest numeric token id is kept; duplicate token ids are listed in the generated report.
 - Warn on repeated normalized token names within each bundled collection. These warnings do not block bundling or remove tokens, because some collections intentionally reuse names, but they flag likely MP4/GIF or still/animated variants for manual review.
 - Unsupported media, alternate candidates, duplicates, and missing media are listed in the generated report for review.
@@ -61,6 +64,12 @@ xcodebuild -project nft-folder.xcodeproj -scheme nft-folder-ios -destination 'ge
 ```
 
 For a full batch, omit `--collection` from the download checker if you want it to sample every bundled collection.
+
+Before shipping, do a highest-resolution source audit against the TzKT metadata:
+
+- Review `tools/reports/tezos-collection-bundle-report.json` and confirm every selected display, image, or thumbnail URL has no app-supported `artifactUri` or `formats[].uri` candidate.
+- For extensionless artifact/source URLs, probe the response status and content type. If the media is available and app-playable, update the bundler MIME/extension mapping and rebundle.
+- Keep a fallback only when artifact/source media is unavailable, unsupported by the iOS downloadable player, or a duplicate of an already bundled file.
 
 ## Deep Dedup
 

@@ -452,7 +452,7 @@ private struct DownloadableCollectionTokenData {
 private enum DownloadableMediaFileExtension {
     private static let staticImageExtensions = Set(["png", "jpg", "jpeg", "webp", "heic", "heif"])
     private static let animatedImageExtensions = Set(["gif", "svg"])
-    private static let videoExtensions = Set(["mp4"])
+    private static let videoExtensions = Set(["mp4", "mov"])
 
     static func normalized(_ value: String?) -> String? {
         guard let value else { return nil }

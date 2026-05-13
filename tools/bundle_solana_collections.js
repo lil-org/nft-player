@@ -10,11 +10,12 @@ const DEFAULT_COVERS_PATH = path.join("Suggested Items", "Covers.xcassets");
 const DEFAULT_REPORT_PATH = path.join("tools", "reports", "solana-collection-bundle-report.md");
 const DEFAULT_JSON_REPORT_PATH = path.join("tools", "reports", "solana-collection-bundle-report.json");
 const DEFAULT_API_KEY_PATH = path.join(os.homedir(), "Developer", "secrets", "tools", "HELIUS_API_KEY");
+const DEFAULT_MAX_TOKENS = 15000;
 const HELIUS_MAINNET_URL = "https://mainnet.helius-rpc.com/";
-const SUPPORTED_EXTENSIONS = new Set(["png", "jpg", "jpeg", "webp", "heic", "heif", "gif", "mp4"]);
+const SUPPORTED_EXTENSIONS = new Set(["png", "jpg", "jpeg", "webp", "heic", "heif", "gif", "mp4", "mov"]);
 const STATIC_EXTENSIONS = new Set(["png", "jpg", "jpeg", "webp", "heic", "heif"]);
 const ANIMATED_EXTENSIONS = new Set(["gif"]);
-const VIDEO_EXTENSIONS = new Set(["mp4"]);
+const VIDEO_EXTENSIONS = new Set(["mp4", "mov"]);
 const TRANSIENT_HTTP_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504]);
 const TRANSIENT_RPC_CODES = new Set([-32005, -32603]);
 const EXTENSION_BY_MIME = new Map([
@@ -26,6 +27,8 @@ const EXTENSION_BY_MIME = new Map([
   ["image/heif", "heif"],
   ["image/gif", "gif"],
   ["video/mp4", "mp4"],
+  ["video/quicktime", "mov"],
+  ["video/x-quicktime", "mov"],
   ["video/webm", "webm"],
 ]);
 
@@ -53,6 +56,7 @@ Options:
   --delay-ms <number>     Delay between Helius calls. Default: 650
   --limit <number>        Helius page size. Default: 1000
   --timeout-ms <number>   Request timeout. Default: 30000
+  --max-tokens <number>   Maximum Helius assets to bundle per collection. Default: ${DEFAULT_MAX_TOKENS}
   --cover-size <number>   Cover width/height in pixels. Default: 300
   --cover-quality <n>     HEIC quality passed to ImageMagick. Default: 62
   --max-retries <n|forever>
@@ -76,6 +80,7 @@ function parseArgs(argv) {
     delayMs: 650,
     limit: 1000,
     timeoutMs: 30000,
+    maxTokens: DEFAULT_MAX_TOKENS,
     coverSize: 300,
     coverQuality: 62,
     maxRetries: Number.POSITIVE_INFINITY,
@@ -127,6 +132,9 @@ function parseArgs(argv) {
         break;
       case "--timeout-ms":
         options.timeoutMs = positiveInteger(readValue(), arg);
+        break;
+      case "--max-tokens":
+        options.maxTokens = positiveInteger(readValue(), arg);
         break;
       case "--cover-size":
         options.coverSize = positiveInteger(readValue(), arg);
@@ -311,12 +319,24 @@ async function fetchCollectionBundle(input, canonicalId, context) {
       throw new Error(`Resolved ${input} to ${collectionId}, but that collection returned no assets.`);
     }
   }
+  assertCollectionWithinTokenLimit({
+    collectionId,
+    count: firstPage.total,
+    source: "reported supply",
+    options: context.options,
+  });
 
   const pages = [firstPage];
   let page = 2;
   while (pages[pages.length - 1].items.length === context.options.limit) {
     const nextPage = await getAssetsByGroup(collectionId, page, context, { includeGrandTotal: false });
     pages.push(nextPage);
+    assertCollectionWithinTokenLimit({
+      collectionId,
+      count: pages.reduce((count, pageResult) => count + pageResult.items.length, 0),
+      source: "fetched asset count",
+      options: context.options,
+    });
     page += 1;
   }
 
@@ -368,6 +388,21 @@ async function fetchCollectionBundle(input, canonicalId, context) {
       outputPath: path.join(context.options.coversPath, `${collectionId}.imageset`, `${collectionId}.heic`),
     },
   };
+}
+
+function assertCollectionWithinTokenLimit({ collectionId, count, source, options }) {
+  const tokenCount = numericTokenCount(count);
+  if (tokenCount != null && tokenCount > options.maxTokens) {
+    throw new Error(`${collectionId} has ${tokenCount} asset(s) by ${source}, exceeding --max-tokens ${options.maxTokens}. Refusing to bundle a likely shared collection.`);
+  }
+}
+
+function numericTokenCount(value) {
+  if (value == null || value === "") {
+    return null;
+  }
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
 }
 
 async function getAssetsByGroup(collectionId, page, context, requestOptions) {

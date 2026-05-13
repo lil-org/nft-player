@@ -10,11 +10,12 @@ const DEFAULT_COVERS_PATH = path.join("Suggested Items", "Covers.xcassets");
 const DEFAULT_REPORT_PATH = path.join("tools", "reports", "tezos-collection-bundle-report.md");
 const DEFAULT_JSON_REPORT_PATH = path.join("tools", "reports", "tezos-collection-bundle-report.json");
 const DEFAULT_TZKT_API_BASE_URL = "https://api.tzkt.io";
+const DEFAULT_MAX_TOKENS = 15000;
 const IPFS_GATEWAY_URL = "https://ipfs.io/ipfs/";
-const SUPPORTED_EXTENSIONS = new Set(["png", "jpg", "jpeg", "webp", "heic", "heif", "gif", "mp4"]);
+const SUPPORTED_EXTENSIONS = new Set(["png", "jpg", "jpeg", "webp", "heic", "heif", "gif", "mp4", "mov"]);
 const STATIC_EXTENSIONS = new Set(["png", "jpg", "jpeg", "webp", "heic", "heif"]);
 const ANIMATED_EXTENSIONS = new Set(["gif"]);
-const VIDEO_EXTENSIONS = new Set(["mp4"]);
+const VIDEO_EXTENSIONS = new Set(["mp4", "mov"]);
 const TRANSIENT_HTTP_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504]);
 const EXTENSION_BY_MIME = new Map([
   ["image/png", "png"],
@@ -25,6 +26,8 @@ const EXTENSION_BY_MIME = new Map([
   ["image/heif", "heif"],
   ["image/gif", "gif"],
   ["video/mp4", "mp4"],
+  ["video/quicktime", "mov"],
+  ["video/x-quicktime", "mov"],
   ["video/webm", "webm"],
 ]);
 
@@ -46,6 +49,7 @@ Options:
   --delay-ms <number>     Delay between TzKT calls. Default: 250
   --limit <number>        TzKT page size. Default: 1000
   --timeout-ms <number>   Request timeout. Default: 30000
+  --max-tokens <number>   Maximum TzKT tokens to bundle per collection. Default: ${DEFAULT_MAX_TOKENS}
   --cover-size <number>   Cover width/height in pixels. Default: 300
   --cover-quality <n>     HEIC quality passed to ImageMagick. Default: 62
   --max-retries <n|forever>
@@ -69,6 +73,7 @@ function parseArgs(argv) {
     delayMs: 250,
     limit: 1000,
     timeoutMs: 30000,
+    maxTokens: DEFAULT_MAX_TOKENS,
     coverSize: 300,
     coverQuality: 62,
     maxRetries: Number.POSITIVE_INFINITY,
@@ -120,6 +125,9 @@ function parseArgs(argv) {
         break;
       case "--timeout-ms":
         options.timeoutMs = positiveInteger(readValue(), arg);
+        break;
+      case "--max-tokens":
+        options.maxTokens = positiveInteger(readValue(), arg);
         break;
       case "--cover-size":
         options.coverSize = positiveInteger(readValue(), arg);
@@ -242,11 +250,17 @@ async function readInputs(options) {
 }
 
 async function fetchCollectionBundle(contract, context) {
-  const [contractInfo, tokens, totalFromTzkt] = await Promise.all([
+  const [contractInfo, totalFromTzkt] = await Promise.all([
     getContractInfo(contract, context),
-    getTokens(contract, context),
     getTokenCount(contract, context),
   ]);
+  assertCollectionWithinTokenLimit({
+    contract,
+    count: totalFromTzkt,
+    source: "reported supply",
+    options: context.options,
+  });
+  const tokens = await getTokens(contract, context);
 
   if (tokens.length === 0) {
     throw new Error(`No TzKT tokens found for ${contract}.`);
@@ -327,6 +341,12 @@ async function getTokens(contract, context) {
     const page = await tzktJson(url, context);
     const pageItems = Array.isArray(page) ? page : [];
     tokens.push(...pageItems);
+    assertCollectionWithinTokenLimit({
+      contract,
+      count: tokens.length,
+      source: "fetched token count",
+      options: context.options,
+    });
     if (context.options.verbose) {
       console.log(`  offset ${offset}: ${pageItems.length}`);
     }
@@ -337,6 +357,21 @@ async function getTokens(contract, context) {
   }
 
   return tokens.sort(compareTzktTokens);
+}
+
+function assertCollectionWithinTokenLimit({ contract, count, source, options }) {
+  const tokenCount = numericTokenCount(count);
+  if (tokenCount != null && tokenCount > options.maxTokens) {
+    throw new Error(`${contract} has ${tokenCount} token(s) by ${source}, exceeding --max-tokens ${options.maxTokens}. Refusing to bundle a likely shared contract.`);
+  }
+}
+
+function numericTokenCount(value) {
+  if (value == null || value === "") {
+    return null;
+  }
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
 }
 
 async function tzktJson(pathOrUrl, context) {

@@ -28,6 +28,8 @@ The script reads the OpenSea API key from `OPENSEA_API_KEY`, then from:
 $HOME/Developer/secrets/tools/OPENSEA_API_KEY
 ```
 
+By default, the script refuses to bundle collections above 15,000 tokens. Use `--max-tokens <number>` only when intentionally bundling a larger collection.
+
 ## Output
 
 `--apply` writes:
@@ -66,12 +68,13 @@ The corresponding `items.json` entries include `"iosOnly" : true`, so these down
 - Fetch every OpenSea NFT page from `/api/v2/chain/{chain}/contract/{address}/nfts`.
 - Prefer supported animated/video media from `original_animation_url`, `display_animation_url`, and `animation_url`.
 - Prefer `original_image_url` for static image media when OpenSea provides it.
-- For OpenSea `i*.seadn.io` cached derivative URLs, add and prefer the matching `raw2.seadn.io` URL before falling back to the cached derivative.
+- For OpenSea `i*.seadn.io` cached derivative URLs, add and prefer the matching `raw2.seadn.io` URL only after app-supported original/source media candidates.
 - Fall back to `image_url`, then `display_image_url`, only after original/raw media candidates.
+- Do not replace `original_*` or metadata source URLs with OpenSea CDN/cache derivatives solely because the original URL uses IPFS or Arweave. Use cache/CDN media only when the original/source media is missing, unavailable, or not app-supported.
 - Normalize `ipfs://` and `ar://` URLs to HTTPS gateways.
-- Probe extensionless animation URLs by content type, and probe other extensionless URLs only when no supported media URL is otherwise available.
+- Probe extensionless original/source and animation URLs by content type. If the API exposes an app-playable MIME type, add the extension mapping instead of falling back to a compressed derivative.
 - Treat OpenSea derivative CDN URLs as preview-quality fallbacks. They should not be bundled when an original media URL or raw OpenSea media URL is available.
-- Keep active playback to app-supported media: `png`, `jpg`, `jpeg`, `webp`, `heic`, `heif`, `gif`, and `mp4`.
+- Keep active playback to app-supported media: `png`, `jpg`, `jpeg`, `webp`, `heic`, `heif`, `gif`, `mp4`, and `mov`.
 - Deduplicate by selected normalized file URL within each collection. Tokens are sorted by token id, token number/name hints, file basename hints, basename, then token id before deduplication, so the lowest numeric token id is kept.
 - Warn on repeated normalized token names within each bundled collection.
 - Unsupported media, alternate candidates, duplicates, and missing media are listed in the generated report for review.
@@ -86,6 +89,12 @@ xcodebuild -project nft-folder.xcodeproj -scheme nft-folder-ios -destination 'ge
 ```
 
 For a full batch, omit `--collection` from the download checker if you want it to sample every bundled collection.
+
+Before shipping, do a highest-resolution source audit against the OpenSea response data:
+
+- Review `tools/reports/ethereum-collection-bundle-report.json` and confirm every selected CDN/cache, `raw2.*`, `image_url`, or `display_*` URL has no app-supported `original_*` or metadata source candidate.
+- For extensionless `original_*` or metadata URLs, probe the response status and content type. If the media is available and app-playable, update the bundler MIME/extension mapping and rebundle instead of keeping a compressed fallback.
+- Keep a fallback only when the original/source media is unavailable, unsupported by the iOS downloadable player, or a duplicate of an already bundled file.
 
 ## Removal
 

@@ -10,14 +10,15 @@ const DEFAULT_COVERS_PATH = path.join("Suggested Items", "Covers.xcassets");
 const DEFAULT_REPORT_PATH = path.join("tools", "reports", "ethereum-collection-bundle-report.md");
 const DEFAULT_JSON_REPORT_PATH = path.join("tools", "reports", "ethereum-collection-bundle-report.json");
 const DEFAULT_API_KEY_PATH = path.join(os.homedir(), "Developer", "secrets", "tools", "OPENSEA_API_KEY");
+const DEFAULT_MAX_TOKENS = 15000;
 const OPENSEA_API_BASE_URL = "https://api.opensea.io/api/v2";
 const IPFS_GATEWAY_URL = "https://ipfs.io/ipfs/";
 const MEDIA_TYPE_PROBE_TIMEOUT_MS = 10000;
 const OPENSEA_RAW_MEDIA_HOST = "raw2.seadn.io";
-const SUPPORTED_EXTENSIONS = new Set(["png", "jpg", "jpeg", "webp", "heic", "heif", "gif", "mp4"]);
+const SUPPORTED_EXTENSIONS = new Set(["png", "jpg", "jpeg", "webp", "heic", "heif", "gif", "mp4", "mov"]);
 const STATIC_EXTENSIONS = new Set(["png", "jpg", "jpeg", "webp", "heic", "heif"]);
 const ANIMATED_EXTENSIONS = new Set(["gif"]);
-const VIDEO_EXTENSIONS = new Set(["mp4"]);
+const VIDEO_EXTENSIONS = new Set(["mp4", "mov"]);
 const TRANSIENT_HTTP_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504]);
 const EXTENSION_BY_MIME = new Map([
   ["image/png", "png"],
@@ -28,6 +29,8 @@ const EXTENSION_BY_MIME = new Map([
   ["image/heif", "heif"],
   ["image/gif", "gif"],
   ["video/mp4", "mp4"],
+  ["video/quicktime", "mov"],
+  ["video/x-quicktime", "mov"],
   ["video/webm", "webm"],
 ]);
 const SUPPORTED_CHAINS = new Map([
@@ -64,6 +67,7 @@ Options:
   --delay-ms <number>     Delay between OpenSea calls. Default: 250
   --limit <number>        OpenSea page size. Default: 200
   --timeout-ms <number>   Request timeout. Default: 30000
+  --max-tokens <number>   Maximum OpenSea tokens to bundle per collection. Default: ${DEFAULT_MAX_TOKENS}
   --cover-size <number>   Cover width/height in pixels. Default: 300
   --cover-quality <n>     HEIC quality passed to ImageMagick. Default: 62
   --max-retries <n|forever>
@@ -87,6 +91,7 @@ function parseArgs(argv) {
     delayMs: 250,
     limit: 200,
     timeoutMs: 30000,
+    maxTokens: DEFAULT_MAX_TOKENS,
     coverSize: 300,
     coverQuality: 62,
     maxRetries: Number.POSITIVE_INFINITY,
@@ -138,6 +143,9 @@ function parseArgs(argv) {
         break;
       case "--timeout-ms":
         options.timeoutMs = positiveInteger(readValue(), arg);
+        break;
+      case "--max-tokens":
+        options.maxTokens = positiveInteger(readValue(), arg);
         break;
       case "--cover-size":
         options.coverSize = positiveInteger(readValue(), arg);
@@ -326,6 +334,12 @@ async function fetchCollectionBundle(input, target, context) {
         _collectionInfoError: error.message,
       }))
     : null;
+  assertCollectionWithinTokenLimit({
+    target,
+    count: collectionInfo?.total_supply ?? contractInfo.total_supply,
+    source: "reported supply",
+    options: context.options,
+  });
   const tokens = await getTokens(target, context);
 
   if (tokens.length === 0) {
@@ -411,6 +425,12 @@ async function getTokens(target, context) {
     const body = await fetchOpenSeaJson(url, context);
     const pageTokens = Array.isArray(body.nfts) ? body.nfts : [];
     tokens.push(...pageTokens);
+    assertCollectionWithinTokenLimit({
+      target,
+      count: tokens.length,
+      source: "fetched token count",
+      options: context.options,
+    });
     nextCursor = body.next ?? null;
     page += 1;
 
@@ -420,6 +440,21 @@ async function getTokens(target, context) {
   } while (nextCursor);
 
   return tokens;
+}
+
+function assertCollectionWithinTokenLimit({ target, count, source, options }) {
+  const tokenCount = numericTokenCount(count);
+  if (tokenCount != null && tokenCount > options.maxTokens) {
+    throw new Error(`${target.openSeaChain}:${target.address} has ${tokenCount} token(s) by ${source}, exceeding --max-tokens ${options.maxTokens}. Refusing to bundle a likely shared contract.`);
+  }
+}
+
+function numericTokenCount(value) {
+  if (value == null || value === "") {
+    return null;
+  }
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
 }
 
 async function fetchOpenSeaJson(url, context) {
@@ -697,7 +732,7 @@ function mediaCandidatesForToken(token) {
 async function resolveCandidateExtensionsForSelection(candidates, context) {
   let resolved = await resolveUnknownCandidateExtensions(
     candidates,
-    (candidate) => isAnimationCandidateSource(candidate.source),
+    (candidate) => isAnimationCandidateSource(candidate.source) || isOriginalCandidateSource(candidate.source),
     context
   );
   if (resolved.some((candidate) => SUPPORTED_EXTENSIONS.has(candidate.extension))) {
@@ -735,6 +770,11 @@ function isAnimationCandidateSource(source) {
   return String(source).includes("animation");
 }
 
+function isOriginalCandidateSource(source) {
+  const sourceName = String(source);
+  return sourceName.includes("original") || sourceName.startsWith("metadata.");
+}
+
 function coverCandidatesForToken(token) {
   const candidates = [];
   const imageExtensions = new Set([...STATIC_EXTENSIONS, ...ANIMATED_EXTENSIONS]);
@@ -751,7 +791,7 @@ function coverCandidatesForToken(token) {
     token.display_animation_url ?? token.displayAnimationUrl,
   ]) {
     const normalizedURL = normalizeAssetUrl(url);
-    if (normalizedURL) {
+    if (normalizedURL && !isKnownInteractiveGeneratorURL(normalizedURL)) {
       candidates.push(normalizedURL);
     }
   }
@@ -780,6 +820,14 @@ function appendCandidate(candidates, candidate) {
 }
 
 function appendNormalizedCandidate(candidates, candidate) {
+  if (isKnownInteractiveGeneratorURL(candidate.url)) {
+    candidates.push({
+      ...candidate,
+      extension: "html",
+    });
+    return;
+  }
+
   const extension = fileExtensionForURL(candidate.url, candidate.mime);
   if (!extension) {
     candidates.push({
@@ -792,6 +840,15 @@ function appendNormalizedCandidate(candidates, candidate) {
     ...candidate,
     extension,
   });
+}
+
+function isKnownInteractiveGeneratorURL(urlString) {
+  try {
+    const url = new URL(urlString);
+    return url.hostname === "generator.artblocks.io";
+  } catch {
+    return false;
+  }
 }
 
 function uniqueCandidates(candidates) {

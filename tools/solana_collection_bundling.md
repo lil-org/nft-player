@@ -17,6 +17,8 @@ It reads the Helius API key from `HELIUS_API_KEY`, then from:
 $HOME/Developer/secrets/tools/HELIUS_API_KEY
 ```
 
+By default, the script refuses to bundle collections above 15,000 assets. Use `--max-tokens <number>` only when intentionally bundling a larger collection.
+
 ## Output
 
 `--apply` writes:
@@ -42,9 +44,11 @@ Rows include a fourth extension field only when a token differs from `defaultFil
 ## Media Policy
 
 - Prefer original `content.files[].uri` from Helius over CDN URLs.
-- Fall back to `content.links.image`.
+- Do not use `content.files[].cdn_uri` or `cdn.helius-rpc.com` media when an app-supported `content.files[].uri` is available.
+- Fall back to `content.links.image` and `content.links.animation_url` only after original file URI candidates.
 - Normalize `ipfs://` and `ar://` URLs to HTTPS gateways.
-- Keep active playback to app-supported media: `png`, `jpg`, `jpeg`, `webp`, `heic`, `heif`, `gif`, and `mp4`.
+- Probe extensionless original/source URLs by content type. If the Helius response exposes an app-playable MIME type, add the extension mapping instead of falling back to CDN media.
+- Keep active playback to app-supported media: `png`, `jpg`, `jpeg`, `webp`, `heic`, `heif`, `gif`, `mp4`, and `mov`.
 - Prefer app-supported video/animated candidates (`mp4`, then `gif`) over static images when a token has both.
 - Deduplicate by selected normalized file URL within each collection. Tokens are sorted first by token number/name hints, file basename hints, basename, then mint address; the first token in that order is kept.
 - Unsupported media, alternate candidates, duplicates, and missing media are listed in the generated report for review.
@@ -59,6 +63,12 @@ xcodebuild -project nft-folder.xcodeproj -scheme nft-folder-ios -destination 'ge
 ```
 
 For a full batch, omit `--collection` from the download checker if you want it to sample every bundled collection.
+
+Before shipping, do a highest-resolution source audit against the Helius response data:
+
+- Review `tools/reports/solana-collection-bundle-report.json` and confirm every selected CDN/cache or `content.links.*` URL has no app-supported `content.files[].uri` candidate.
+- For extensionless `content.files[].uri` URLs, probe the response status and content type. If the media is available and app-playable, update the bundler MIME/extension mapping and rebundle.
+- Keep a fallback only when the original file URI is unavailable, unsupported by the iOS downloadable player, or a duplicate of an already bundled file.
 
 ## Removal
 
