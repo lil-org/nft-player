@@ -5822,7 +5822,7 @@
     "address" : "0xd497a414bb00803e846b53d07fcb742831b24906",
     "chain" : "ethereum",
     "chainId" : 1,
-    "name" : "Tigerbob NFT Genesis",
+    "name" : "Tigerbob",
     "tokenCount" : 1000,
     "iosOnly" : true
   },
