@@ -921,7 +921,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
 
     private struct AnimatedRenderContext: Equatable {
         enum MediaKind: Equatable {
-            case image, video
+            case image, video, html
         }
 
         let descriptor: DownloadableMediaDescriptor
@@ -938,6 +938,10 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     private weak var fourDirectionalPlayerDataSource: FourDirectionalPlayerDataSource?
     private let zoomScrollView = PlayerZoomScrollView()
     private let mediaContentView = UIView()
+    private let htmlDocumentRenderQueue = DispatchQueue(
+        label: "org.lil.nft-folder.html-document-render",
+        qos: .userInitiated
+    )
     private lazy var mediaRenderer = FullscreenTokenMediaRenderer(containerView: mediaContentView)
 
     private(set) var horizontalIndex: Int
@@ -1287,6 +1291,8 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
                 renderAnimatedImage(descriptor, fallbackHTML: token.html)
             case .video:
                 renderVideo(descriptor, fallbackHTML: token.html)
+            case .html:
+                renderHTMLDocument(descriptor, fallbackHTML: token.html)
             }
         } else {
             renderWebContent(token.html)
@@ -1404,26 +1410,35 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             for: (horizontalIndex, verticalIndex),
             direction: preferredPrefetchDirection
         )
+        renderDownloadableWebMedia(
+            descriptor,
+            adjacentDescriptor: adjacentDescriptor,
+            fallbackHTML: fallbackHTML,
+            mediaKind: .image
+        )
+    }
+
+    private func renderVideo(_ descriptor: DownloadableMediaDescriptor, fallbackHTML: String) {
+        renderDownloadableWebMedia(descriptor, fallbackHTML: fallbackHTML, mediaKind: .video)
+    }
+
+    private func renderHTMLDocument(_ descriptor: DownloadableMediaDescriptor, fallbackHTML: String) {
+        renderDownloadableWebMedia(descriptor, fallbackHTML: fallbackHTML, mediaKind: .html)
+    }
+
+    private func renderDownloadableWebMedia(
+        _ descriptor: DownloadableMediaDescriptor,
+        adjacentDescriptor: DownloadableMediaDescriptor? = nil,
+        fallbackHTML: String,
+        mediaKind: AnimatedRenderContext.MediaKind
+    ) {
         setZoomContentLayout(.viewport)
         setAnimatedRenderContext(
             AnimatedRenderContext(
                 descriptor: descriptor,
                 adjacentDescriptor: adjacentDescriptor,
                 fallbackHTML: fallbackHTML,
-                mediaKind: .image
-            )
-        )
-        renderAvailableAnimatedLocalContent()
-    }
-
-    private func renderVideo(_ descriptor: DownloadableMediaDescriptor, fallbackHTML: String) {
-        setZoomContentLayout(.viewport)
-        setAnimatedRenderContext(
-            AnimatedRenderContext(
-                descriptor: descriptor,
-                adjacentDescriptor: nil,
-                fallbackHTML: fallbackHTML,
-                mediaKind: .video
+                mediaKind: mediaKind
             )
         )
         renderAvailableAnimatedLocalContent()
@@ -1472,39 +1487,63 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             return
         }
 
-        if context.mediaKind == .image, let imageSize = imageSize(at: localFileURL) {
-            setZoomContentLayout(.staticImage(imageSize))
-        }
-
         let html: String
         switch context.mediaKind {
         case .image:
+            if let imageSize = imageSize(at: localFileURL) {
+                setZoomContentLayout(.staticImage(imageSize))
+            }
             html = DownloadableTokenHTML.createImageHTML(
                 imageURL: localFileURL.absoluteString,
                 nextImageURL: nextLocalFileURL?.absoluteString
             )
         case .video:
             html = DownloadableTokenHTML.createVideoHTML(videoURL: localFileURL.absoluteString)
+        case .html:
+            renderCachedHTMLDocument(
+                fileURL: localFileURL,
+                context: context,
+                imageCache: imageCache
+            )
+            return
         }
-        pendingAnimatedImageURL = localFileURL
+
+        renderAnimatedLocalWebContent(
+            html,
+            fileURL: localFileURL,
+            context: context,
+            htmlDirectoryURL: imageCache.webViewHTMLDirectoryURL,
+            readAccessURL: imageCache.webViewReadAccessURL
+        )
+    }
+
+    private func renderAnimatedLocalWebContent(
+        _ html: String,
+        fileURL: URL,
+        context: AnimatedRenderContext,
+        htmlDirectoryURL: URL,
+        readAccessURL: URL
+    ) {
+        pendingAnimatedImageURL = fileURL
         mediaRenderer.renderLocalWebContent(
             html,
-            htmlDirectoryURL: imageCache.webViewHTMLDirectoryURL,
-            readAccessURL: imageCache.webViewReadAccessURL,
+            htmlDirectoryURL: htmlDirectoryURL,
+            readAccessURL: readAccessURL,
             onLoadSuccess: { [weak self] in
                 guard let self,
                       self.animatedRenderContext == context,
-                      self.pendingAnimatedImageURL == localFileURL else {
+                      self.pendingAnimatedImageURL == fileURL else {
                     return
                 }
 
                 self.clearAnimatedImageURLState()
-                self.renderedAnimatedImageURL = localFileURL
+                self.renderedAnimatedImageURL = fileURL
                 self.renderAvailableAnimatedLocalContent()
             },
             onLoadFailure: { [weak self] in
                 guard let self,
-                      self.animatedRenderContext == context else {
+                      self.animatedRenderContext == context,
+                      self.pendingAnimatedImageURL == fileURL else {
                     return
                 }
 
@@ -1512,6 +1551,45 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
                 self.renderAnimatedFallbackWebContent(context.fallbackHTML)
             }
         )
+    }
+
+    private func renderCachedHTMLDocument(
+        fileURL: URL,
+        context: AnimatedRenderContext,
+        imageCache: DownloadableMediaCache
+    ) {
+        mediaRenderer.clearContent()
+        pendingAnimatedImageURL = fileURL
+        htmlDocumentRenderQueue.async {
+            let html = (try? String(contentsOf: fileURL, encoding: .utf8)).map { documentHTML in
+                DownloadableTokenHTML.createInlineHTMLDocumentHTML(
+                    documentHTML: documentHTML,
+                    baseURL: imageCache.downloadedSourceURL(for: context.descriptor).absoluteString
+                )
+            }
+
+            DispatchQueue.main.async { [weak self] in
+                guard let self,
+                      self.animatedRenderContext == context,
+                      self.pendingAnimatedImageURL == fileURL else {
+                    return
+                }
+
+                guard let html else {
+                    self.clearAnimatedRenderContext()
+                    self.renderAnimatedFallbackWebContent(context.fallbackHTML)
+                    return
+                }
+
+                self.renderAnimatedLocalWebContent(
+                    html,
+                    fileURL: fileURL,
+                    context: context,
+                    htmlDirectoryURL: imageCache.webViewHTMLDirectoryURL,
+                    readAccessURL: imageCache.webViewHTMLDirectoryURL
+                )
+            }
+        }
     }
 
     private func imageSize(at fileURL: URL) -> CGSize? {

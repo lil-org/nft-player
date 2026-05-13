@@ -574,6 +574,10 @@ final class DownloadableMediaCache {
         let id: UUID
     }
 
+    private struct DownloadedMediaMetadata: Codable {
+        let sourceURL: URL
+    }
+
     private enum ImageDecodePriority: Equatable {
         case foreground, prefetch
     }
@@ -681,7 +685,7 @@ final class DownloadableMediaCache {
                 self.evictMemoryOutsideActiveCollection(collectionId: collectionId)
             }
 
-            let allowedFileNames = Set(descriptors.map(self.fileName(for:)))
+            let allowedFileNames = Set(descriptors.flatMap(self.fileNames(for:)))
             let allowedKeys = Set(descriptors.map(self.cacheKey(for:)))
             let decodedDescriptors = self.decodedWindowDescriptors(
                 from: staticDescriptors,
@@ -879,6 +883,14 @@ final class DownloadableMediaCache {
         return url
     }
 
+    func downloadedSourceURL(for descriptor: DownloadableMediaDescriptor) -> URL {
+        guard let data = try? Data(contentsOf: metadataFileURL(for: descriptor)),
+              let metadata = try? JSONDecoder().decode(DownloadedMediaMetadata.self, from: data) else {
+            return descriptor.url
+        }
+        return metadata.sourceURL
+    }
+
     func cachedDecodedImage(for descriptor: DownloadableMediaDescriptor) -> UIImage? {
         cachedDecodedImage(forKey: cacheKey(for: descriptor))
     }
@@ -1034,9 +1046,11 @@ final class DownloadableMediaCache {
             )
             didRemoveExistingItem = removeItemIfPresent(at: fileURL)
             try FileManager.default.moveItem(at: tmpURL, to: fileURL)
+            writeDownloadedMediaMetadata(response: response, for: descriptor)
             notifyFileAvailabilityChanged()
         } catch {
             if didRemoveExistingItem {
+                try? FileManager.default.removeItem(at: metadataFileURL(for: descriptor))
                 notifyFileAvailabilityChanged()
             }
             try? FileManager.default.removeItem(at: tmpURL)
@@ -1183,6 +1197,7 @@ final class DownloadableMediaCache {
         }
 
         if removeItemIfPresent(at: job.fileURL) {
+            try? FileManager.default.removeItem(at: metadataFileURL(for: job.descriptor))
             notifyFileAvailabilityChanged()
         }
         guard shouldRedownloadOnFailure, !callbacks.isEmpty else {
@@ -1570,6 +1585,21 @@ final class DownloadableMediaCache {
         memoryKeysByCollection[descriptor.collectionId, default: []].insert(key)
     }
 
+    private func writeDownloadedMediaMetadata(response: URLResponse?, for descriptor: DownloadableMediaDescriptor) {
+        let metadataURL = metadataFileURL(for: descriptor)
+        let metadata = DownloadedMediaMetadata(sourceURL: response?.url ?? descriptor.url)
+        guard let data = try? JSONEncoder().encode(metadata) else {
+            try? FileManager.default.removeItem(at: metadataURL)
+            return
+        }
+
+        do {
+            try data.write(to: metadataURL, options: .atomic)
+        } catch {
+            try? FileManager.default.removeItem(at: metadataURL)
+        }
+    }
+
     private func estimatedCost(of image: UIImage) -> Int {
         let width = Int(image.size.width * image.scale)
         let height = Int(image.size.height * image.scale)
@@ -1597,9 +1627,21 @@ final class DownloadableMediaCache {
         collectionDirectory(collectionId: descriptor.collectionId).appendingPathComponent(fileName(for: descriptor))
     }
 
+    private func metadataFileURL(for descriptor: DownloadableMediaDescriptor) -> URL {
+        collectionDirectory(collectionId: descriptor.collectionId).appendingPathComponent(metadataFileName(for: descriptor))
+    }
+
+    private func fileNames(for descriptor: DownloadableMediaDescriptor) -> [String] {
+        [fileName(for: descriptor), metadataFileName(for: descriptor)]
+    }
+
     private func fileName(for descriptor: DownloadableMediaDescriptor) -> String {
         let paddedIndex = String(format: "%06d", descriptor.tokenIndex)
         return "\(paddedIndex)-\(safePathComponent(descriptor.tokenId))-\(sourceURLHash(for: descriptor)).\(descriptor.fileExtension)"
+    }
+
+    private func metadataFileName(for descriptor: DownloadableMediaDescriptor) -> String {
+        "\(fileName(for: descriptor)).metadata.json"
     }
 
     private func collectionDirectory(collectionId: String) -> URL {

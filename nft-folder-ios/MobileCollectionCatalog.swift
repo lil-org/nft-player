@@ -172,6 +172,8 @@ private enum DownloadableCollectionService {
             )
         case .video:
             html = DownloadableTokenHTML.createVideoHTML(videoURL: media.url.absoluteString)
+        case .html:
+            html = DownloadableTokenHTML.createHTMLDocumentHTML(documentURL: media.url.absoluteString)
         }
 
         return GeneratedToken(
@@ -260,6 +262,9 @@ private enum DownloadableCollectionService {
         }
         if DownloadableMediaFileExtension.isVideo(fileExtension) {
             return .video(url: url, fileExtension: fileExtension)
+        }
+        if DownloadableMediaFileExtension.isHTML(fileExtension) {
+            return .html(url: url, fileExtension: fileExtension)
         }
         if DownloadableMediaFileExtension.isStaticImage(fileExtension) {
             return .staticImage(url: url, fileExtension: fileExtension)
@@ -453,6 +458,7 @@ private enum DownloadableMediaFileExtension {
     private static let staticImageExtensions = Set(["png", "jpg", "jpeg", "webp", "heic", "heif"])
     private static let animatedImageExtensions = Set(["gif", "svg"])
     private static let videoExtensions = Set(["mp4", "mov"])
+    private static let htmlExtensions = Set(["html", "htm", "xhtml"])
 
     static func normalized(_ value: String?) -> String? {
         guard let value else { return nil }
@@ -478,9 +484,15 @@ private enum DownloadableMediaFileExtension {
     static func isVideo(_ fileExtension: String) -> Bool {
         videoExtensions.contains(fileExtension)
     }
+
+    static func isHTML(_ fileExtension: String) -> Bool {
+        htmlExtensions.contains(fileExtension)
+    }
 }
 
 enum DownloadableTokenHTML {
+    private static let trustedHTMLDocumentSandbox = "allow-scripts allow-same-origin"
+
     static func createImageHTML(imageURL: String, nextImageURL: String? = nil) -> String {
         """
         <!doctype html>
@@ -584,6 +596,65 @@ enum DownloadableTokenHTML {
             }
         });
         playTokenVideo();
+        </script>
+        </body>
+        </html>
+        """
+    }
+
+    static func createHTMLDocumentHTML(documentURL: String) -> String {
+        createHTMLDocumentFrameHTML(
+            iframeSandbox: trustedHTMLDocumentSandbox,
+            iframeSourceJavaScript: """
+        const documentURL = \(javaScriptStringLiteral(documentURL));
+        document.getElementById("tokenDocument").src = documentURL;
+        """
+        )
+    }
+
+    static func createInlineHTMLDocumentHTML(documentHTML: String, baseURL: String?) -> String {
+        let documentHTML = htmlDocument(documentHTML, insertingBaseURL: baseURL)
+        return createHTMLDocumentFrameHTML(
+            iframeSandbox: trustedHTMLDocumentSandbox,
+            iframeSourceJavaScript: """
+        const documentHTML = \(javaScriptStringLiteral(documentHTML));
+        document.getElementById("tokenDocument").srcdoc = documentHTML;
+        """
+        )
+    }
+
+    private static func createHTMLDocumentFrameHTML(
+        iframeSandbox: String,
+        iframeSourceJavaScript: String
+    ) -> String {
+        """
+        <!doctype html>
+        <html>
+        <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+        <style>
+        html, body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            background: transparent;
+            overflow: hidden;
+        }
+        #tokenDocument {
+            width: 100%;
+            height: 100%;
+            border: 0;
+            display: block;
+            background: transparent;
+        }
+        </style>
+        </head>
+        <body>
+        <iframe id="tokenDocument" sandbox="\(iframeSandbox)" allow="autoplay; fullscreen"></iframe>
+        <script>
+        \(iframeSourceJavaScript)
         </script>
         </body>
         </html>
@@ -706,13 +777,54 @@ enum DownloadableTokenHTML {
         """
     }
 
+    private static func htmlDocument(_ html: String, insertingBaseURL baseURL: String?) -> String {
+        guard let baseURL,
+              !baseURL.isEmpty,
+              openingTagRange("base", in: html) == nil else {
+            return html
+        }
+
+        let baseElement = "<base href=\"\(htmlAttributeValue(baseURL))\">"
+        if let headRange = openingTagRange("head", in: html) {
+            var html = html
+            html.insert(contentsOf: "\n\(baseElement)", at: headRange.upperBound)
+            return html
+        }
+
+        if let htmlRange = openingTagRange("html", in: html) {
+            var html = html
+            html.insert(contentsOf: "\n<head>\(baseElement)</head>", at: htmlRange.upperBound)
+            return html
+        }
+
+        return "\(baseElement)\n\(html)"
+    }
+
+    private static func openingTagRange(_ tagName: String, in html: String) -> Range<String.Index>? {
+        html.range(
+            of: "<\(tagName)(?=\\s|/?>)[^>]*>",
+            options: [.regularExpression, .caseInsensitive]
+        )
+    }
+
+    private static func htmlAttributeValue(_ value: String) -> String {
+        value
+            .replacingOccurrences(of: "&", with: "&amp;")
+            .replacingOccurrences(of: "\"", with: "&quot;")
+            .replacingOccurrences(of: "<", with: "&lt;")
+            .replacingOccurrences(of: ">", with: "&gt;")
+    }
+
     private static func javaScriptStringLiteral(_ value: String?) -> String {
         guard let value,
               let data = try? JSONEncoder().encode(value),
               var literal = String(data: data, encoding: .utf8) else {
             return "null"
         }
-        literal = literal.replacingOccurrences(of: "</", with: "<\\/")
+        literal = literal
+            .replacingOccurrences(of: "<", with: "\\u003C")
+            .replacingOccurrences(of: "\u{2028}", with: "\\u2028")
+            .replacingOccurrences(of: "\u{2029}", with: "\\u2029")
         return literal
     }
 }
