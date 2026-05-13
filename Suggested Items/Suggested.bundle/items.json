@@ -5771,14 +5771,5 @@
     "name" : "MILADY AURA2 AFTER DEATH",
     "tokenCount" : 1369,
     "iosOnly" : true
-  },
-  {
-    "address" : "0x41dc69132cce31fcbf6755c84538ca268520246f",
-    "chain" : "base",
-    "chainId" : 8453,
-    "collectionId" : "base",
-    "name" : "DX Terminal",
-    "tokenCount" : 36646,
-    "iosOnly" : true
   }
 ]
