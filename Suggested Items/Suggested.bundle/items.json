@@ -5773,7 +5773,7 @@
     "address" : "0x23b72f7458a204446983f544d655df10f70533e9",
     "chain" : "ethereum",
     "chainId" : 1,
-    "name" : "Quantizer by Harm van den Dorpel",
+    "name" : "Quantizer",
     "tokenCount" : 256,
     "iosOnly" : true
   },
@@ -5797,7 +5797,7 @@
     "address" : "0xc4bd6aeb9e67502e1564642a1820c8576a6e808b",
     "chain" : "ethereum",
     "chainId" : 1,
-    "name" : "Safe Haven by Kirill Semenovich",
+    "name" : "Safe Haven",
     "tokenCount" : 23,
     "iosOnly" : true
   },
@@ -5805,7 +5805,7 @@
     "address" : "0x6dc47d63df19198e87b7c500c6ed9861b0fab7de",
     "chain" : "ethereum",
     "chainId" : 1,
-    "name" : "BURNT UMBER BROKEN SILVER AMERICAN SPIRIT by Petra Cortright",
+    "name" : "BURNT UMBER BROKEN SILVER AMERICAN SPIRIT",
     "tokenCount" : 60,
     "iosOnly" : true
   },
@@ -5821,7 +5821,7 @@
     "address" : "0xc292e3e1160500cb9832b7e40f5585d66c639503",
     "chain" : "ethereum",
     "chainId" : 1,
-    "name" : "Sketchbook B by William Mapan",
+    "name" : "Sketchbook B",
     "tokenCount" : 64,
     "iosOnly" : true
   }
