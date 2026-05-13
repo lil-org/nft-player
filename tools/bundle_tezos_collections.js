@@ -1250,11 +1250,12 @@ async function convertCover(tool, inputPath, outputPath, size, quality) {
   }
 
   await runCommand(tool, [
-    inputPath,
+    `${inputPath}[0]`,
     "-auto-orient",
     "-resize", `${size}x${size}^`,
     "-gravity", "center",
     "-extent", `${size}x${size}`,
+    "-strip",
     "-quality", String(quality),
     outputPath,
   ]);

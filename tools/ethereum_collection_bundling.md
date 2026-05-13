@@ -74,10 +74,13 @@ The corresponding `items.json` entries include `"iosOnly" : true`, so these down
 - Normalize `ipfs://` and `ar://` URLs to HTTPS gateways.
 - Probe extensionless original/source and animation URLs by content type. If the API exposes an app-playable MIME type, add the extension mapping instead of falling back to a compressed derivative.
 - Treat OpenSea derivative CDN URLs as preview-quality fallbacks. They should not be bundled when an original media URL or raw OpenSea media URL is available.
-- Keep active playback to app-supported media: `png`, `jpg`, `jpeg`, `webp`, `heic`, `heif`, `gif`, `mp4`, and `mov`.
+- Keep active playback to app-supported media: `png`, `jpg`, `jpeg`, `webp`, `heic`, `heif`, `gif`, `svg`, `mp4`, `mov`, and downloadable `html`.
+- For Terraforms by Mathcastles, prefer downloadable `original_animation_url` HTML links such as `tokens.mathcastles.xyz/terraforms/token-html/<id>` over OpenSea cached HTML/SVG. These HTML files remain remote downloadable links in token JSON; they are not inlined or prebundled like generative collection scripts.
 - Deduplicate by selected normalized file URL within each collection. Tokens are sorted by token id, token number/name hints, file basename hints, basename, then token id before deduplication, so the lowest numeric token id is kept.
 - Warn on repeated normalized token names within each bundled collection.
 - Unsupported media, alternate candidates, duplicates, and missing media are listed in the generated report for review.
+- Keep bundled token JSON payloads app-focused. Do not include `_ethereumBundler` or other report metadata in `Suggested.bundle/Tokens`; keep detailed review output in `tools/reports`.
+- Convert covers to a single-frame HEIC thumbnail even when the source cover is animated.
 
 ## Validation
 

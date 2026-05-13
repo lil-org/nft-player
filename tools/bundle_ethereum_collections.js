@@ -16,10 +16,11 @@ const IPFS_GATEWAY_URL = "https://ipfs.io/ipfs/";
 const MEDIA_TYPE_PROBE_TIMEOUT_MS = 10000;
 const DEFAULT_MEDIA_PROBE_CONCURRENCY = 16;
 const OPENSEA_RAW_MEDIA_HOST = "raw2.seadn.io";
-const SUPPORTED_EXTENSIONS = new Set(["png", "jpg", "jpeg", "webp", "heic", "heif", "gif", "mp4", "mov"]);
+const SUPPORTED_EXTENSIONS = new Set(["png", "jpg", "jpeg", "webp", "heic", "heif", "gif", "svg", "mp4", "mov", "html"]);
 const STATIC_EXTENSIONS = new Set(["png", "jpg", "jpeg", "webp", "heic", "heif"]);
-const ANIMATED_EXTENSIONS = new Set(["gif"]);
+const ANIMATED_EXTENSIONS = new Set(["gif", "svg"]);
 const VIDEO_EXTENSIONS = new Set(["mp4", "mov"]);
+const HTML_EXTENSIONS = new Set(["html"]);
 const TRANSIENT_HTTP_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504]);
 const EXTENSION_BY_MIME = new Map([
   ["image/png", "png"],
@@ -29,10 +30,13 @@ const EXTENSION_BY_MIME = new Map([
   ["image/heic", "heic"],
   ["image/heif", "heif"],
   ["image/gif", "gif"],
+  ["image/svg+xml", "svg"],
   ["video/mp4", "mp4"],
   ["video/quicktime", "mov"],
   ["video/x-quicktime", "mov"],
   ["video/webm", "webm"],
+  ["text/html", "html"],
+  ["application/xhtml+xml", "html"],
 ]);
 const SUPPORTED_CHAINS = new Map([
   ["ethereum", { openSeaChain: "ethereum", appChain: "ethereum", chainId: 1, collectionIdSuffix: "" }],
@@ -388,23 +392,7 @@ async function fetchCollectionBundle(input, target, context) {
 
   const collectionId = collectionIdForTarget(target);
   const coverSource = firstCollectionCoverURL(collectionInfo);
-  const tokenPayload = buildTokenPayload(preparedTokens.tokens, {
-    input,
-    collectionId,
-    address: target.address,
-    chain: target.appChain,
-    chainId: target.chainId,
-    openSeaChain: target.openSeaChain,
-    openSeaCollection: contractInfo.collection ?? null,
-    name,
-    totalSupply: collectionInfo?.total_supply ?? contractInfo.total_supply ?? null,
-    tokensSeen: tokens.length,
-    mediaDecisionItems: preparedTokens.mediaReview.decisionItems,
-    duplicateFileURLItems: preparedTokens.mediaReview.duplicateFileURLItems,
-    duplicateNameItems: preparedTokens.mediaReview.duplicateNameItems,
-    unsupportedMedia: preparedTokens.mediaReview.unsupportedItems,
-    missingMediaItems: preparedTokens.mediaReview.missingMediaItems,
-  });
+  const tokenPayload = buildTokenPayload(preparedTokens.tokens);
 
   return {
     input,
@@ -883,6 +871,13 @@ function appendNormalizedCandidate(candidates, candidate) {
   if (isKnownInteractiveGeneratorURL(candidate.url)) {
     candidates.push({
       ...candidate,
+      extension: "interactive-html",
+    });
+    return;
+  }
+  if (isKnownMathcastlesHTMLURL(candidate.url)) {
+    candidates.push({
+      ...candidate,
       extension: "html",
     });
     return;
@@ -906,6 +901,15 @@ function isKnownInteractiveGeneratorURL(urlString) {
   try {
     const url = new URL(urlString);
     return url.hostname === "generator.artblocks.io";
+  } catch {
+    return false;
+  }
+}
+
+function isKnownMathcastlesHTMLURL(urlString) {
+  try {
+    const url = new URL(urlString);
+    return url.hostname === "tokens.mathcastles.xyz" && /\/token-html\//u.test(url.pathname);
   } catch {
     return false;
   }
@@ -961,6 +965,8 @@ function candidateRank(candidate) {
   let rank = 100;
   if (VIDEO_EXTENSIONS.has(candidate.extension)) {
     rank = 0;
+  } else if (HTML_EXTENSIONS.has(candidate.extension)) {
+    rank = 5;
   } else if (ANIMATED_EXTENSIONS.has(candidate.extension)) {
     rank = 10;
   } else if (STATIC_EXTENSIONS.has(candidate.extension)) {
@@ -1067,7 +1073,7 @@ async function fetchContentType(urlString, method, timeoutMs) {
       redirect: "follow",
       signal: controller.signal,
       headers: {
-        accept: "image/*, video/mp4, video/*;q=0.8, */*;q=0.1",
+        accept: "image/*, text/html, application/xhtml+xml, video/mp4, video/*;q=0.8, */*;q=0.1",
         "User-Agent": "nft-folder-ethereum-collection-bundler/1.0",
         ...(method === "GET" ? { Range: "bytes=0-0" } : {}),
       },
@@ -1114,6 +1120,9 @@ function normalizeExtension(value) {
   }
   if (normalized === "jpe") {
     return "jpg";
+  }
+  if (normalized === "htm" || normalized === "xhtml") {
+    return "html";
   }
   return normalized;
 }
@@ -1238,7 +1247,7 @@ function normalizedNameKey(value) {
     .toLowerCase();
 }
 
-function buildTokenPayload(tokens, metadata) {
+function buildTokenPayload(tokens) {
   const urls = tokens.map((token) => token.media.url);
   const prefixes = buildUrlPrefixes(urls);
   const extensions = tokens.map((token) => token.media.extension);
@@ -1256,27 +1265,6 @@ function buildTokenPayload(tokens, metadata) {
       }
       return row;
     }),
-    _ethereumBundler: {
-      generatedAt: new Date().toISOString(),
-      input: metadata.input,
-      collectionId: metadata.collectionId,
-      address: metadata.address,
-      chain: metadata.chain,
-      chainId: metadata.chainId,
-      openSeaChain: metadata.openSeaChain,
-      openSeaCollection: metadata.openSeaCollection,
-      name: metadata.name,
-      totalSupply: metadata.totalSupply,
-      tokensSeen: metadata.tokensSeen,
-      tokenCount: tokens.length,
-      mediaReview: {
-        decisionItems: metadata.mediaDecisionItems,
-        duplicateFileURLItems: metadata.duplicateFileURLItems,
-        duplicateNameItems: metadata.duplicateNameItems,
-        unsupportedItems: metadata.unsupportedMedia,
-        missingMediaItems: metadata.missingMediaItems,
-      },
-    },
   };
 }
 
@@ -1627,11 +1615,12 @@ async function convertCover(tool, inputPath, outputPath, size, quality) {
   }
 
   await runCommand(tool, [
-    inputPath,
+    `${inputPath}[0]`,
     "-auto-orient",
     "-resize", `${size}x${size}^`,
     "-gravity", "center",
     "-extent", `${size}x${size}`,
+    "-strip",
     "-quality", String(quality),
     outputPath,
   ]);
