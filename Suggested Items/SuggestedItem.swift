@@ -10,8 +10,16 @@ struct SuggestedItem: Identifiable, Hashable, Codable {
         chain == .solana
     }
 
+    var isTezosCollection: Bool {
+        chain == .tezos
+    }
+
+    var isIOSOnlyCollection: Bool {
+        isSolanaCollection || isTezosCollection
+    }
+
     var isDownloadableCollection: Bool {
-        isSolanaCollection || tokenCount != nil
+        isIOSOnlyCollection || tokenCount != nil
     }
     
     var network: Network {

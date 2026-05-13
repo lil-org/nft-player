@@ -230,6 +230,9 @@ private enum DownloadableCollectionService {
         if collection.chain == .solana {
             return URL(string: "https://explorer.solana.com/address/\(tokenId)")
         }
+        if collection.chain == .tezos {
+            return URL(string: "https://tzkt.io/\(collection.address)/tokens/\(tokenId)")
+        }
         return NftGallery.blockExplorer.url(
             network: collection.network,
             chain: collection.chain,

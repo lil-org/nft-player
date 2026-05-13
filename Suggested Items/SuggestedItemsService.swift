@@ -74,7 +74,7 @@ struct SuggestedItemsService {
 #if os(iOS)
         return true
 #else
-        return !item.isSolanaCollection
+        return !item.isIOSOnlyCollection
 #endif
     }
 

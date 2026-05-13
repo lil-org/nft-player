@@ -5678,5 +5678,26 @@
     "chainId" : 0,
     "name" : "Mifella Genesis",
     "tokenCount" : 4381
+  },
+  {
+    "address" : "KT1PkEhFLSvvsw9wwf6mxvVJ7Q633FrYAyX6",
+    "chain" : "tezos",
+    "chainId" : 0,
+    "name" : "BESTIARY",
+    "tokenCount" : 24
+  },
+  {
+    "address" : "KT1D9bUmPBXK1KgpgaTDjH6yNnBubof1ELzK",
+    "chain" : "tezos",
+    "chainId" : 0,
+    "name" : "Drawing Exercises",
+    "tokenCount" : 79
+  },
+  {
+    "address" : "KT1W9KTJDVQQtscFgT1wVJXSJWEBFsxxccGB",
+    "chain" : "tezos",
+    "chainId" : 0,
+    "name" : "LAVA STUDIES",
+    "tokenCount" : 9
   }
 ]

@@ -231,7 +231,13 @@ struct MobilePlayerView: View {
     }
 
     private var viewOnWebTitle: String {
-        currentToken.url?.isSolanaExplorerURL == true ? Strings.viewOnSolanaExplorer : Strings.viewOnBlockscout
+        if currentToken.url?.isSolanaExplorerURL == true {
+            return Strings.viewOnSolanaExplorer
+        }
+        if currentToken.url?.isTzKTURL == true {
+            return Strings.viewOnTzkt
+        }
+        return Strings.viewOnBlockscout
     }
     
     private func viewOnWeb() {
@@ -322,6 +328,14 @@ private extension URL {
             host.removeFirst(4)
         }
         return host == "explorer.solana.com"
+    }
+
+    var isTzKTURL: Bool {
+        guard var host = host?.lowercased() else { return false }
+        if host.hasPrefix("www.") {
+            host.removeFirst(4)
+        }
+        return host == "tzkt.io"
     }
 }
 

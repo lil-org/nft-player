@@ -11,6 +11,7 @@ struct Strings {
     static let viewOnBlockscout = loc("View on Blockscout")
     static let viewOnOpensea = loc("View on OpenSea")
     static let viewOnSolanaExplorer = loc("View on Solana Explorer")
+    static let viewOnTzkt = loc("View on TzKT")
     static let viewinFinder = loc("Show in Finder")
     static let viewOnZora = loc("View on Zora")
     static let addressOrEns = loc("Address or ENS")

@@ -42,6 +42,9 @@ enum NftGallery: Int, CaseIterable, Codable {
     private func url(walletAddress: String, chain: Chain?) -> URL? {
         switch self {
         case .blockExplorer:
+            if chain == .tezos {
+                return URL(string: "https://tzkt.io/\(walletAddress)")
+            }
             let network = chain?.network ?? .mainnet
             return URL(string: "\(network.blockExplorerBaseURLString)/address/\(walletAddress)")
         case .opensea:
@@ -52,6 +55,10 @@ enum NftGallery: Int, CaseIterable, Codable {
     func url(network: Network, chain: Chain?, collectionAddress: String, tokenId: String?) -> URL? {
         switch self {
         case .blockExplorer:
+            if chain == .tezos {
+                let tokenPath = tokenId.map { "/tokens/\($0)" } ?? ""
+                return URL(string: "https://tzkt.io/\(collectionAddress)\(tokenPath)")
+            }
             let tokenInstancePath = tokenId.map { "/instance/\($0)?tab=metadata" } ?? ""
             let urlString = "\(network.blockExplorerBaseURLString)/token/\(collectionAddress)\(tokenInstancePath)"
             return URL(string: urlString)
