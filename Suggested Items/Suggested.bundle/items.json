@@ -4922,8 +4922,7 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "5f45e9d37d3af3d25536c5a38d0183bd",
-    "name" : "BAD JPEGS",
-    "tokenCount" : 997
+    "name" : "BAD JPEGS"
   },
   {
     "address" : "0x6c6b9a46ccf6168a10b1f1a85cb19314659d87a6",
@@ -5010,8 +5009,7 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "8ad0539abb7bc90c33e3dd7d6ca92c97",
-    "name" : "The Age of Self Indulgence",
-    "tokenCount" : 80
+    "name" : "The Age of Self Indulgence"
   },
   {
     "address" : "0xdfde78d2baec499fe18f2be74b6c287eed9511d7",
@@ -5282,8 +5280,7 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "48d6a02bf86e5e15f2b97d93bba0055b",
-    "name" : "Overpopulated Symphonies",
-    "tokenCount" : 300
+    "name" : "Overpopulated Symphonies"
   },
   {
     "address" : "0x10a10cd4bec5203ebe20e4c31e81da36b052c517",
