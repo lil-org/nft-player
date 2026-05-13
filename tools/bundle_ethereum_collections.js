@@ -13,6 +13,7 @@ const DEFAULT_API_KEY_PATH = path.join(os.homedir(), "Developer", "secrets", "to
 const OPENSEA_API_BASE_URL = "https://api.opensea.io/api/v2";
 const IPFS_GATEWAY_URL = "https://ipfs.io/ipfs/";
 const MEDIA_TYPE_PROBE_TIMEOUT_MS = 10000;
+const OPENSEA_RAW_MEDIA_HOST = "raw2.seadn.io";
 const SUPPORTED_EXTENSIONS = new Set(["png", "jpg", "jpeg", "webp", "heic", "heif", "gif", "mp4"]);
 const STATIC_EXTENSIONS = new Set(["png", "jpg", "jpeg", "webp", "heic", "heif"]);
 const ANIMATED_EXTENSIONS = new Set(["gif"]);
@@ -600,17 +601,19 @@ async function prepareTokens(tokens, target, context) {
 
     const distinctSupported = uniqueCandidates(token.supportedCandidates);
     const alternates = distinctSupported
-      .filter((candidate) => candidate.url !== token.media.url || candidate.extension !== token.media.extension)
+      .filter((candidate) => shouldReportAlternateCandidate(candidate, token.media))
       .map(reportableCandidate);
-    if (alternates.length > 0 || token.candidates.some((candidate) => !SUPPORTED_EXTENSIONS.has(candidate.extension))) {
+    const unsupported = token.candidates
+      .filter((candidate) => !SUPPORTED_EXTENSIONS.has(candidate.extension))
+      .filter((candidate) => shouldReportAlternateCandidate(candidate, token.media))
+      .map(reportableCandidate);
+    if (alternates.length > 0 || unsupported.length > 0) {
       decisionItems.push({
         id: token.id,
         name: token.name,
         selected: reportableCandidate(token.media),
         alternates,
-        unsupported: token.candidates
-          .filter((candidate) => !SUPPORTED_EXTENSIONS.has(candidate.extension))
-          .map(reportableCandidate),
+        unsupported,
       });
     }
 
@@ -643,6 +646,16 @@ async function prepareTokens(tokens, target, context) {
 
 function mediaCandidatesForToken(token) {
   const candidates = [];
+  appendCandidate(candidates, {
+    url: token.original_animation_url ?? token.originalAnimationUrl,
+    mime: null,
+    source: "original_animation_url",
+  });
+  appendCandidate(candidates, {
+    url: token.original_image_url ?? token.originalImageUrl,
+    mime: null,
+    source: "original_image_url",
+  });
   appendCandidate(candidates, {
     url: token.display_animation_url ?? token.displayAnimationUrl,
     mime: null,
@@ -751,18 +764,32 @@ function appendCandidate(candidates, candidate) {
   if (!normalizedUrl) {
     return;
   }
-  const extension = fileExtensionForURL(normalizedUrl, candidate.mime);
+  appendNormalizedCandidate(candidates, {
+    ...candidate,
+    url: normalizedUrl,
+  });
+
+  const rawOpenSeaURL = rawOpenSeaMediaURL(normalizedUrl);
+  if (rawOpenSeaURL) {
+    appendNormalizedCandidate(candidates, {
+      ...candidate,
+      url: rawOpenSeaURL,
+      source: `raw2.${candidate.source}`,
+    });
+  }
+}
+
+function appendNormalizedCandidate(candidates, candidate) {
+  const extension = fileExtensionForURL(candidate.url, candidate.mime);
   if (!extension) {
     candidates.push({
       ...candidate,
-      url: normalizedUrl,
       extension: "unknown",
     });
     return;
   }
   candidates.push({
     ...candidate,
-    url: normalizedUrl,
     extension,
   });
 }
@@ -790,6 +817,19 @@ function uniqueCandidates(candidates) {
   return unique;
 }
 
+function shouldReportAlternateCandidate(candidate, selected) {
+  if (candidate.url === selected.url && candidate.extension === selected.extension) {
+    return false;
+  }
+  if (isOpenSeaDerivativeMediaURL(candidate.url) && !isOpenSeaDerivativeMediaURL(selected.url)) {
+    return false;
+  }
+  if (String(candidate.source ?? "").startsWith("raw2.") && String(selected.source ?? "").includes("original")) {
+    return false;
+  }
+  return true;
+}
+
 function choosePreferredCandidate(candidates) {
   if (candidates.length === 0) {
     return null;
@@ -800,31 +840,29 @@ function choosePreferredCandidate(candidates) {
 }
 
 function candidateRank(candidate) {
+  const source = String(candidate.source ?? "");
   let rank = 100;
-  switch (candidate.source) {
-    case "display_animation_url":
-      rank = 0;
-      break;
-    case "animation_url":
-    case "metadata.animation_url":
-      rank = 5;
-      break;
-    case "image_url":
-    case "metadata.image":
-      rank = 30;
-      break;
-    case "display_image_url":
-      rank = 35;
-      break;
-    default:
-      break;
-  }
   if (VIDEO_EXTENSIONS.has(candidate.extension)) {
-    rank -= 20;
+    rank = 0;
   } else if (ANIMATED_EXTENSIONS.has(candidate.extension)) {
-    rank -= 15;
+    rank = 10;
   } else if (STATIC_EXTENSIONS.has(candidate.extension)) {
-    rank -= 5;
+    rank = 30;
+  }
+  if (source.includes("animation")) {
+    rank -= 20;
+  }
+  if (source.includes("original")) {
+    rank -= 10;
+  } else if (source.startsWith("raw2.")) {
+    rank -= 8;
+  } else if (source === "display_image_url") {
+    rank += 8;
+  } else if (source === "image_url" || source === "metadata.image") {
+    rank += 6;
+  }
+  if (isOpenSeaDerivativeMediaURL(candidate.url)) {
+    rank += 50;
   }
   return rank;
 }
@@ -847,6 +885,33 @@ function normalizeAssetUrl(urlString) {
     return trimmed;
   }
   return null;
+}
+
+function rawOpenSeaMediaURL(urlString) {
+  try {
+    const url = new URL(urlString);
+    if (!isOpenSeaDerivativeMediaHost(url.hostname)) {
+      return null;
+    }
+    url.hostname = OPENSEA_RAW_MEDIA_HOST;
+    url.search = "";
+    url.hash = "";
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+function isOpenSeaDerivativeMediaURL(urlString) {
+  try {
+    return isOpenSeaDerivativeMediaHost(new URL(urlString).hostname);
+  } catch {
+    return false;
+  }
+}
+
+function isOpenSeaDerivativeMediaHost(hostname) {
+  return /^(?:i|i\d+c?)\.seadn\.io$/iu.test(String(hostname));
 }
 
 function fileExtensionForURL(urlString, mime) {

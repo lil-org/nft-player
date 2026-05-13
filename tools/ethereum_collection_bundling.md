@@ -64,10 +64,13 @@ The corresponding `items.json` entries include `"iosOnly" : true`, so these down
 ## Media Policy
 
 - Fetch every OpenSea NFT page from `/api/v2/chain/{chain}/contract/{address}/nfts`.
-- Prefer supported animated/video media from `display_animation_url` and `animation_url`.
-- Fall back to `image_url`, then `display_image_url`.
+- Prefer supported animated/video media from `original_animation_url`, `display_animation_url`, and `animation_url`.
+- Prefer `original_image_url` for static image media when OpenSea provides it.
+- For OpenSea `i*.seadn.io` cached derivative URLs, add and prefer the matching `raw2.seadn.io` URL before falling back to the cached derivative.
+- Fall back to `image_url`, then `display_image_url`, only after original/raw media candidates.
 - Normalize `ipfs://` and `ar://` URLs to HTTPS gateways.
 - Probe extensionless animation URLs by content type, and probe other extensionless URLs only when no supported media URL is otherwise available.
+- Treat OpenSea derivative CDN URLs as preview-quality fallbacks. They should not be bundled when an original media URL or raw OpenSea media URL is available.
 - Keep active playback to app-supported media: `png`, `jpg`, `jpeg`, `webp`, `heic`, `heif`, `gif`, and `mp4`.
 - Deduplicate by selected normalized file URL within each collection. Tokens are sorted by token id, token number/name hints, file basename hints, basename, then token id before deduplication, so the lowest numeric token id is kept.
 - Warn on repeated normalized token names within each bundled collection.
