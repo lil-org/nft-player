@@ -5810,14 +5810,6 @@
     "iosOnly" : true
   },
   {
-    "address" : "0x81c882c59799ea442317d020c39174aaaa8d7fc7",
-    "chain" : "ethereum",
-    "chainId" : 1,
-    "name" : "CRAWL MULTI LEVEL by Travess Smalley",
-    "tokenCount" : 478,
-    "iosOnly" : true
-  },
-  {
     "address" : "0xc292e3e1160500cb9832b7e40f5585d66c639503",
     "chain" : "ethereum",
     "chainId" : 1,
