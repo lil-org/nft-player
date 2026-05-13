@@ -5816,5 +5816,13 @@
     "name" : "Sketchbook B",
     "tokenCount" : 64,
     "iosOnly" : true
+  },
+  {
+    "address" : "0x8ffc6bfbce284b508f0e53b8599f8f03ffeb452f",
+    "chain" : "ethereum",
+    "chainId" : 1,
+    "name" : "Mi Note 2",
+    "tokenCount" : 1114,
+    "iosOnly" : true
   }
 ]
