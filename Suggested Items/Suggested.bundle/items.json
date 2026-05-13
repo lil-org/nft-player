@@ -4645,13 +4645,6 @@
     "name" : "Autoglyphs"
   },
   {
-    "address" : "0x4e1f41613c9084fdb9e34e11fae9412427480e56",
-    "chain" : "ethereum",
-    "chainId" : 1,
-    "collectionId" : "e54dabfada7df2f5952131aed7bdfa13",
-    "name" : "Terraforms"
-  },
-  {
     "address" : "0xe6b8631dcd1d9f9f26bb8aec2df74a971383b94a",
     "chain" : "ethereum",
     "chainId" : 7777777,
