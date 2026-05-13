@@ -5699,5 +5699,47 @@
     "chainId" : 0,
     "name" : "LAVA STUDIES",
     "tokenCount" : 9
+  },
+  {
+    "address" : "KT1WEmBKKQGMqvdWTpTYF2EXkriM4QBKoKjb",
+    "chain" : "tezos",
+    "chainId" : 0,
+    "name" : "moeshit",
+    "tokenCount" : 1573
+  },
+  {
+    "address" : "KT1ReF4XJNvhqiC5ckP4XcH6GZdpDzKHpKc8",
+    "chain" : "tezos",
+    "chainId" : 0,
+    "name" : "real world data",
+    "tokenCount" : 128
+  },
+  {
+    "address" : "KT1GPEoYJ3HNCe7FPbCwczY8KF5Ud4cphe3d",
+    "chain" : "tezos",
+    "chainId" : 0,
+    "name" : "Archaics",
+    "tokenCount" : 130
+  },
+  {
+    "address" : "KT1W8veemEfwiZZveFW3ktaz2x3tvEz8Tx3q",
+    "chain" : "tezos",
+    "chainId" : 0,
+    "name" : "FRATZE",
+    "tokenCount" : 51
+  },
+  {
+    "address" : "KT1UjurJFhKpw7WSmuGfRyUvYXLwTmKWwUDR",
+    "chain" : "tezos",
+    "chainId" : 0,
+    "name" : "Multi Windows",
+    "tokenCount" : 196
+  },
+  {
+    "address" : "KT1Aaas4fpfgpdbwopnba9SUhvSsswSTSdo2",
+    "chain" : "tezos",
+    "chainId" : 0,
+    "name" : "skomra",
+    "tokenCount" : 131
   }
 ]
