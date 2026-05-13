@@ -40,22 +40,20 @@ enum NftGallery: Int, CaseIterable, Codable {
     }
     
     private func url(walletAddress: String, chain: Chain?) -> URL? {
-        // TODO: use chain for non eth explorers
-        // https://magiceden.io/marketplace/CjL5WpAmf4cMEEGwZGTfTDKWok9a92ykq9aLZrEK2D5H
-        
         switch self {
         case .blockExplorer:
-            return URL(string: "https://eth.blockscout.com/address/\(walletAddress)")
+            let network = chain?.network ?? .mainnet
+            return URL(string: "\(network.blockExplorerBaseURLString)/address/\(walletAddress)")
         case .opensea:
             return URL(string: "https://opensea.io/\(walletAddress)")
         }
     }
     
     func url(network: Network, chain: Chain?, collectionAddress: String, tokenId: String?) -> URL? {
-        // TODO: use chain for non eth explorers
         switch self {
         case .blockExplorer:
-            let urlString = "https://eth.blockscout.com/token/\(collectionAddress)" + (tokenId != nil ? "/instance/\(tokenId!)?tab=metadata" : "")
+            let tokenInstancePath = tokenId.map { "/instance/\($0)?tab=metadata" } ?? ""
+            let urlString = "\(network.blockExplorerBaseURLString)/token/\(collectionAddress)\(tokenInstancePath)"
             return URL(string: urlString)
         case .opensea:
             let prefix: String
@@ -77,4 +75,23 @@ enum NftGallery: Int, CaseIterable, Codable {
         }
     }
     
+}
+
+private extension Network {
+    var blockExplorerBaseURLString: String {
+        switch self {
+        case .mainnet:
+            return "https://eth.blockscout.com"
+        case .optimism:
+            return "https://explorer.optimism.io"
+        case .zora:
+            return "https://explorer.zora.energy"
+        case .base:
+            return "https://base.blockscout.com"
+        case .arbitrum:
+            return "https://arbitrum.blockscout.com"
+        case .blast:
+            return "https://blast.blockscout.com"
+        }
+    }
 }
