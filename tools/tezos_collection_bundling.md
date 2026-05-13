@@ -48,6 +48,7 @@ Rows include a fourth extension field only when a token differs from `defaultFil
 - Normalize `ipfs://` and `ar://` URLs to HTTPS gateways. The Tezos helper uses `https://ipfs.io/ipfs/` for IPFS media because full MP4 reads from `https://ipfs.decentralized-content.com/ipfs/` can terminate early for some Tezos artifacts.
 - Keep active playback to app-supported media: `png`, `jpg`, `jpeg`, `webp`, `heic`, `heif`, `gif`, and `mp4`.
 - Deduplicate by selected normalized file URL within each collection. The lowest numeric token id is kept; duplicate token ids are listed in the generated report.
+- Warn on repeated normalized token names within each bundled collection. These warnings do not block bundling or remove tokens, because some collections intentionally reuse names, but they flag likely MP4/GIF or still/animated variants for manual review.
 - Unsupported media, alternate candidates, duplicates, and missing media are listed in the generated report for review.
 
 ## Validation

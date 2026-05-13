@@ -5684,14 +5684,14 @@
     "chain" : "tezos",
     "chainId" : 0,
     "name" : "BESTIARY",
-    "tokenCount" : 24
+    "tokenCount" : 23
   },
   {
     "address" : "KT1D9bUmPBXK1KgpgaTDjH6yNnBubof1ELzK",
     "chain" : "tezos",
     "chainId" : 0,
     "name" : "Drawing Exercises",
-    "tokenCount" : 79
+    "tokenCount" : 76
   },
   {
     "address" : "KT1W9KTJDVQQtscFgT1wVJXSJWEBFsxxccGB",
@@ -5705,21 +5705,21 @@
     "chain" : "tezos",
     "chainId" : 0,
     "name" : "moeshit",
-    "tokenCount" : 1573
+    "tokenCount" : 1526
   },
   {
     "address" : "KT1ReF4XJNvhqiC5ckP4XcH6GZdpDzKHpKc8",
     "chain" : "tezos",
     "chainId" : 0,
     "name" : "real world data",
-    "tokenCount" : 128
+    "tokenCount" : 126
   },
   {
     "address" : "KT1GPEoYJ3HNCe7FPbCwczY8KF5Ud4cphe3d",
     "chain" : "tezos",
     "chainId" : 0,
     "name" : "Archaics",
-    "tokenCount" : 130
+    "tokenCount" : 129
   },
   {
     "address" : "KT1W8veemEfwiZZveFW3ktaz2x3tvEz8Tx3q",
@@ -5740,7 +5740,7 @@
     "chain" : "tezos",
     "chainId" : 0,
     "name" : "skomra",
-    "tokenCount" : 131
+    "tokenCount" : 128
   },
   {
     "address" : "C22esis7kQMbX9JGWsMaKvsh1X5GeBmHPju28jiKDyAP",

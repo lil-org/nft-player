@@ -212,6 +212,7 @@ async function main() {
     count
     + collection.mediaReview.decisionItems.length
     + collection.mediaReview.duplicateFileURLItems.length
+    + collection.mediaReview.duplicateNameItems.length
     + collection.mediaReview.unsupportedItems.length
     + collection.mediaReview.missingMediaItems.length,
   0);
@@ -265,6 +266,7 @@ async function fetchCollectionBundle(contract, context) {
     totalFromTzkt,
     tokensSeen: tokens.length,
     duplicateFileURLItems: preparedTokens.mediaReview.duplicateFileURLItems,
+    duplicateNameItems: preparedTokens.mediaReview.duplicateNameItems,
     unsupportedMedia: preparedTokens.mediaReview.unsupportedItems,
     mediaDecisionItems: preparedTokens.mediaReview.decisionItems,
     missingMediaItems: preparedTokens.mediaReview.missingMediaItems,
@@ -443,6 +445,7 @@ function prepareTokens(tokens, contract, options) {
   const seenMediaURLs = new Map();
   const decisionItems = [];
   const duplicateFileURLItems = [];
+  const duplicateNameItems = [];
   const unsupportedItems = [];
   const missingMediaItems = [];
 
@@ -511,9 +514,10 @@ function prepareTokens(tokens, contract, options) {
   }
 
   prepared.sort(comparePreparedTokens);
+  duplicateNameItems.push(...nameCollisionItems(prepared));
 
-  if (options.verbose && (duplicateFileURLItems.length > 0 || unsupportedItems.length > 0 || missingMediaItems.length > 0)) {
-    console.log(`  ${contract}: skipped ${duplicateFileURLItems.length} duplicate, ${unsupportedItems.length} unsupported, and ${missingMediaItems.length} missing-media token(s)`);
+  if (options.verbose && (duplicateFileURLItems.length > 0 || duplicateNameItems.length > 0 || unsupportedItems.length > 0 || missingMediaItems.length > 0)) {
+    console.log(`  ${contract}: skipped ${duplicateFileURLItems.length} duplicate URL, found ${duplicateNameItems.length} duplicate-name group(s), skipped ${unsupportedItems.length} unsupported, and ${missingMediaItems.length} missing-media token(s)`);
   }
 
   return {
@@ -521,10 +525,48 @@ function prepareTokens(tokens, contract, options) {
     mediaReview: {
       decisionItems,
       duplicateFileURLItems,
+      duplicateNameItems,
       unsupportedItems,
       missingMediaItems,
     },
   };
+}
+
+function nameCollisionItems(tokens) {
+  const groups = new Map();
+  for (const token of tokens) {
+    const nameKey = normalizedNameKey(token.name);
+    if (!nameKey) {
+      continue;
+    }
+    const group = groups.get(nameKey) ?? [];
+    group.push({
+      id: token.id,
+      name: token.name,
+      url: token.media.url,
+      extension: token.media.extension,
+    });
+    groups.set(nameKey, group);
+  }
+
+  return [...groups.entries()]
+    .filter(([, items]) => items.length > 1)
+    .map(([nameKey, items]) => ({
+      nameKey,
+      items,
+    }))
+    .sort((left, right) =>
+      compareNullableNumbers(numericTokenId(left.items[0].id), numericTokenId(right.items[0].id))
+      || naturalCompare(left.items[0].id, right.items[0].id)
+    );
+}
+
+function normalizedNameKey(value) {
+  return String(value ?? "")
+    .normalize("NFKC")
+    .trim()
+    .replace(/\s+/gu, " ")
+    .toLowerCase();
 }
 
 function mediaCandidatesForToken(token) {
@@ -835,6 +877,7 @@ function buildTokenPayload(tokens, metadata) {
       mediaReview: {
         decisionItems: metadata.mediaDecisionItems,
         duplicateFileURLItems: metadata.duplicateFileURLItems,
+        duplicateNameItems: metadata.duplicateNameItems,
         unsupportedItems: metadata.unsupportedMedia,
         missingMediaItems: metadata.missingMediaItems,
       },
@@ -1259,6 +1302,7 @@ function buildReport(collections, options) {
   for (const collection of collections) {
     const reviewCount = collection.mediaReview.decisionItems.length
       + collection.mediaReview.duplicateFileURLItems.length
+      + collection.mediaReview.duplicateNameItems.length
       + collection.mediaReview.unsupportedItems.length
       + collection.mediaReview.missingMediaItems.length;
     lines.push(`| ${collection.input} | ${collection.collectionId} | ${escapeMarkdownTable(collection.name)} | ${collection.totalFromTzkt ?? collection.tokensSeen} | ${collection.tokens.length} | ${collection.cover.sourceKind} | ${reviewCount} |`);
@@ -1268,6 +1312,7 @@ function buildReport(collections, options) {
   const reviewCollections = collections.filter((collection) =>
     collection.mediaReview.decisionItems.length > 0
     || collection.mediaReview.duplicateFileURLItems.length > 0
+    || collection.mediaReview.duplicateNameItems.length > 0
     || collection.mediaReview.unsupportedItems.length > 0
     || collection.mediaReview.missingMediaItems.length > 0
   );
@@ -1278,6 +1323,7 @@ function buildReport(collections, options) {
       lines.push(`### ${escapeMarkdown(collection.name)} (${collection.collectionId})`, "");
       appendReviewSample(lines, "Selected media with alternates", collection.mediaReview.decisionItems);
       appendDuplicateSample(lines, collection.mediaReview.duplicateFileURLItems);
+      appendNameCollisionSample(lines, collection.mediaReview.duplicateNameItems);
       appendReviewSample(lines, "Unsupported media skipped", collection.mediaReview.unsupportedItems);
       appendReviewSample(lines, "Missing media skipped", collection.mediaReview.missingMediaItems);
       lines.push("");
@@ -1323,6 +1369,24 @@ function appendDuplicateSample(lines, items) {
   const sample = items.slice(0, 12);
   for (const item of sample) {
     lines.push(`- ${item.id}${item.name ? ` (${escapeMarkdown(item.name)})` : ""} duplicates ${item.keptId}${item.keptName ? ` (${escapeMarkdown(item.keptName)})` : ""}: ${item.url}`);
+  }
+  if (items.length > sample.length) {
+    lines.push(`- ... ${items.length - sample.length} more`);
+  }
+  lines.push("");
+}
+
+function appendNameCollisionSample(lines, items) {
+  if (items.length === 0) {
+    return;
+  }
+  lines.push("#### Duplicate token names to review", "");
+  const sample = items.slice(0, 12);
+  for (const item of sample) {
+    const tokens = item.items
+      .map((token) => `${token.id}${token.name ? ` (${escapeMarkdown(token.name)})` : ""} ${token.extension}: ${token.url}`)
+      .join("; ");
+    lines.push(`- ${escapeMarkdown(item.nameKey)}: ${tokens}`);
   }
   if (items.length > sample.length) {
     lines.push(`- ... ${items.length - sample.length} more`);
