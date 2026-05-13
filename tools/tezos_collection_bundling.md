@@ -61,6 +61,17 @@ xcodebuild -project nft-folder.xcodeproj -scheme nft-folder-ios -destination 'ge
 
 For a full batch, omit `--collection` from the download checker if you want it to sample every bundled collection.
 
+## Deep Dedup
+
+The Tezos bundler removes duplicate selected media URLs during the initial TzKT import. To audit already-bundled collections more deeply, use the reusable bundled-collection dedup tool:
+
+```sh
+node tools/deep_dedup_bundled_collections.js --chain tezos --dry-run
+node tools/deep_dedup_bundled_collections.js --chain tezos --apply
+```
+
+The tool resolves each bundled media URL, hashes the fetched file bytes, and removes later token rows that duplicate either the exact same URL or the same `byteCount + sha256` content within a collection. It rewrites compact token rows and updates `items.json` token counts when rows are removed.
+
 Tezos collections are catalog-visible only in the iOS app, matching the Solana collection behavior.
 
 ## Removal
