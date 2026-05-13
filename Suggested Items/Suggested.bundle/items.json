@@ -5755,5 +5755,30 @@
     "chainId" : 0,
     "name" : "Little Swag World: HEXP",
     "tokenCount" : 332
+  },
+  {
+    "address" : "0xeed41d06ae195ca8f5cacace4cd691ee75f0683f",
+    "chain" : "ethereum",
+    "chainId" : 1,
+    "name" : "Cigawrette Packs",
+    "tokenCount" : 9997,
+    "iosOnly" : true
+  },
+  {
+    "address" : "0x30f9efa712dde239a13a5fef1a8c7a6ac530a26d",
+    "chain" : "ethereum",
+    "chainId" : 1,
+    "name" : "MILADY AURA2 AFTER DEATH",
+    "tokenCount" : 1369,
+    "iosOnly" : true
+  },
+  {
+    "address" : "0x41dc69132cce31fcbf6755c84538ca268520246f",
+    "chain" : "base",
+    "chainId" : 8453,
+    "collectionId" : "base",
+    "name" : "DX Terminal",
+    "tokenCount" : 36646,
+    "iosOnly" : true
   }
 ]

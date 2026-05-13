@@ -15,7 +15,7 @@ struct SuggestedItem: Identifiable, Hashable, Codable {
     }
 
     var isIOSOnlyCollection: Bool {
-        isSolanaCollection || isTezosCollection
+        isSolanaCollection || isTezosCollection || iosOnly == true
     }
 
     var isDownloadableCollection: Bool {
@@ -33,5 +33,6 @@ struct SuggestedItem: Identifiable, Hashable, Codable {
     let collectionId: String?
     let abId: String?
     let tokenCount: Int?
+    let iosOnly: Bool?
     
 }
