@@ -5741,5 +5741,12 @@
     "chainId" : 0,
     "name" : "skomra",
     "tokenCount" : 131
+  },
+  {
+    "address" : "C22esis7kQMbX9JGWsMaKvsh1X5GeBmHPju28jiKDyAP",
+    "chain" : "solana",
+    "chainId" : 0,
+    "name" : "swag pack",
+    "tokenCount" : 467
   }
 ]

@@ -234,7 +234,15 @@ async function main() {
     console.log("Dry run complete. Reports were written; bundle assets were not changed.");
   }
 
-  const decisionCount = collectionResults.reduce((count, collection) => count + collection.mediaReview.decisionItems.length, 0);
+  const decisionCount = collectionResults.reduce(
+    (count, collection) =>
+      count
+        + collection.mediaReview.decisionItems.length
+        + collection.mediaReview.duplicateFileURLItems.length
+        + collection.mediaReview.unsupportedItems.length
+        + collection.mediaReview.missingMediaItems.length,
+    0,
+  );
   if (decisionCount > 0) {
     console.log(`${decisionCount} media item(s) need review. See ${options.reportPath}`);
   }
@@ -325,6 +333,8 @@ async function fetchCollectionBundle(input, canonicalId, context) {
     name,
     resolvedFromToken,
     totalFromHelius: firstPage.total ?? null,
+    assetsSeen: assets.length,
+    duplicateFileURLItems: preparedTokens.mediaReview.duplicateFileURLItems,
     unsupportedMedia: preparedTokens.mediaReview.unsupportedItems,
     mediaDecisionItems: preparedTokens.mediaReview.decisionItems,
     missingMediaItems: preparedTokens.mediaReview.missingMediaItems,
@@ -524,8 +534,11 @@ function fallbackCollectionName(assets, collectionId) {
 }
 
 function prepareTokens(assets, collectionId, options) {
+  const selectedTokens = [];
   const tokens = [];
+  const seenMediaURLs = new Map();
   const decisionItems = [];
+  const duplicateFileURLItems = [];
   const unsupportedItems = [];
   const missingMediaItems = [];
 
@@ -555,8 +568,8 @@ function prepareTokens(assets, collectionId, options) {
       .filter((candidate) => candidate.url !== selected.url || candidate.extension !== selected.extension)
       .map(reportableCandidate);
 
-    if (alternates.length > 0 || candidates.some((candidate) => !SUPPORTED_EXTENSIONS.has(candidate.extension))) {
-      decisionItems.push({
+    const reviewItem = alternates.length > 0 || candidates.some((candidate) => !SUPPORTED_EXTENSIONS.has(candidate.extension))
+      ? {
         id: asset.id,
         name: asset.content?.metadata?.name ?? "",
         selected: reportableCandidate(selected),
@@ -564,27 +577,54 @@ function prepareTokens(assets, collectionId, options) {
         unsupported: candidates
           .filter((candidate) => !SUPPORTED_EXTENSIONS.has(candidate.extension))
           .map(reportableCandidate),
-      });
-    }
+      }
+      : null;
 
-    tokens.push({
+    selectedTokens.push({
       id: asset.id,
       name: asset.content?.metadata?.name ?? "",
       media: selected,
+      reviewItem,
       sortKey: sortKeyForAsset(asset, selected),
     });
   }
 
-  tokens.sort(comparePreparedTokens);
+  selectedTokens.sort(comparePreparedTokens);
 
-  if (options.verbose && (unsupportedItems.length > 0 || missingMediaItems.length > 0)) {
-    console.log(`  ${collectionId}: skipped ${unsupportedItems.length} unsupported and ${missingMediaItems.length} missing-media token(s)`);
+  for (const token of selectedTokens) {
+    const existing = seenMediaURLs.get(token.media.url);
+    if (existing) {
+      duplicateFileURLItems.push({
+        id: token.id,
+        name: token.name,
+        keptId: existing.id,
+        keptName: existing.name,
+        url: token.media.url,
+      });
+      continue;
+    }
+
+    seenMediaURLs.set(token.media.url, {
+      id: token.id,
+      name: token.name,
+    });
+
+    if (token.reviewItem) {
+      decisionItems.push(token.reviewItem);
+    }
+    delete token.reviewItem;
+    tokens.push(token);
+  }
+
+  if (options.verbose && (duplicateFileURLItems.length > 0 || unsupportedItems.length > 0 || missingMediaItems.length > 0)) {
+    console.log(`  ${collectionId}: skipped ${duplicateFileURLItems.length} duplicate, ${unsupportedItems.length} unsupported, and ${missingMediaItems.length} missing-media token(s)`);
   }
 
   return {
     tokens,
     mediaReview: {
       decisionItems,
+      duplicateFileURLItems,
       unsupportedItems,
       missingMediaItems,
     },
@@ -838,9 +878,11 @@ function buildTokenPayload(tokens, metadata) {
       name: metadata.name,
       resolvedFromToken: metadata.resolvedFromToken,
       totalFromHelius: metadata.totalFromHelius,
+      assetsSeen: metadata.assetsSeen,
       tokenCount: tokens.length,
       mediaReview: {
         decisionItems: metadata.mediaDecisionItems,
+        duplicateFileURLItemCount: metadata.duplicateFileURLItems.length,
         unsupportedItems: metadata.unsupportedMedia,
         missingMediaItems: metadata.missingMediaItems,
       },
@@ -1256,13 +1298,16 @@ function buildReport(collections, options) {
     "",
     "## Collections",
     "",
-    "| Input | Collection ID | Name | Tokens | Cover | Review |",
-    "| --- | --- | --- | ---: | --- | ---: |",
+    "| Input | Collection ID | Name | Loaded Assets | Bundled Tokens | Cover | Review |",
+    "| --- | --- | --- | ---: | ---: | --- | ---: |",
   ];
 
   for (const collection of collections) {
-    const reviewCount = collection.mediaReview.decisionItems.length + collection.mediaReview.unsupportedItems.length + collection.mediaReview.missingMediaItems.length;
-    lines.push(`| ${collection.input} | ${collection.collectionId} | ${escapeMarkdownTable(collection.name)} | ${collection.tokens.length} | ${collection.cover.sourceKind} | ${reviewCount} |`);
+    const reviewCount = collection.mediaReview.decisionItems.length
+      + collection.mediaReview.duplicateFileURLItems.length
+      + collection.mediaReview.unsupportedItems.length
+      + collection.mediaReview.missingMediaItems.length;
+    lines.push(`| ${collection.input} | ${collection.collectionId} | ${escapeMarkdownTable(collection.name)} | ${collection.assetsSeen} | ${collection.tokens.length} | ${collection.cover.sourceKind} | ${reviewCount} |`);
   }
 
   lines.push("", "## Resolved Inputs", "");
@@ -1278,6 +1323,7 @@ function buildReport(collections, options) {
   lines.push("", "## Media Review", "");
   const reviewCollections = collections.filter((collection) =>
     collection.mediaReview.decisionItems.length > 0
+    || collection.mediaReview.duplicateFileURLItems.length > 0
     || collection.mediaReview.unsupportedItems.length > 0
     || collection.mediaReview.missingMediaItems.length > 0
   );
@@ -1287,6 +1333,7 @@ function buildReport(collections, options) {
     for (const collection of reviewCollections) {
       lines.push(`### ${escapeMarkdown(collection.name)} (${collection.collectionId})`, "");
       appendReviewSample(lines, "Selected media with alternates", collection.mediaReview.decisionItems);
+      appendDuplicateSample(lines, collection.mediaReview.duplicateFileURLItems);
       appendReviewSample(lines, "Unsupported media skipped", collection.mediaReview.unsupportedItems);
       appendReviewSample(lines, "Missing media skipped", collection.mediaReview.missingMediaItems);
       lines.push("");
@@ -1324,6 +1371,21 @@ function appendReviewSample(lines, title, items) {
   lines.push("");
 }
 
+function appendDuplicateSample(lines, items) {
+  if (items.length === 0) {
+    return;
+  }
+  lines.push("#### Duplicate file URLs skipped", "");
+  const sample = items.slice(0, 12);
+  for (const item of sample) {
+    lines.push(`- ${item.id}${item.name ? ` (${escapeMarkdown(item.name)})` : ""} duplicates ${item.keptId}${item.keptName ? ` (${escapeMarkdown(item.keptName)})` : ""}: ${item.url}`);
+  }
+  if (items.length > sample.length) {
+    lines.push(`- ... ${items.length - sample.length} more`);
+  }
+  lines.push("");
+}
+
 function reportableCollection(collection) {
   return {
     input: collection.input,
@@ -1331,6 +1393,7 @@ function reportableCollection(collection) {
     name: collection.name,
     tokenCount: collection.tokens.length,
     totalFromHelius: collection.totalFromHelius,
+    assetsSeen: collection.assetsSeen,
     resolvedFromToken: collection.resolvedFromToken,
     cover: collection.cover,
     mediaReview: collection.mediaReview,
