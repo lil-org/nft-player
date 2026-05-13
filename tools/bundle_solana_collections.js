@@ -11,9 +11,10 @@ const DEFAULT_REPORT_PATH = path.join("tools", "reports", "solana-collection-bun
 const DEFAULT_JSON_REPORT_PATH = path.join("tools", "reports", "solana-collection-bundle-report.json");
 const DEFAULT_API_KEY_PATH = path.join(os.homedir(), "Developer", "secrets", "tools", "HELIUS_API_KEY");
 const HELIUS_MAINNET_URL = "https://mainnet.helius-rpc.com/";
-const SUPPORTED_EXTENSIONS = new Set(["png", "jpg", "jpeg", "webp", "heic", "heif", "gif"]);
+const SUPPORTED_EXTENSIONS = new Set(["png", "jpg", "jpeg", "webp", "heic", "heif", "gif", "mp4"]);
 const STATIC_EXTENSIONS = new Set(["png", "jpg", "jpeg", "webp", "heic", "heif"]);
 const ANIMATED_EXTENSIONS = new Set(["gif"]);
+const VIDEO_EXTENSIONS = new Set(["mp4"]);
 const TRANSIENT_HTTP_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504]);
 const TRANSIENT_RPC_CODES = new Set([-32005, -32603]);
 const EXTENSION_BY_MIME = new Map([
@@ -324,7 +325,7 @@ async function fetchCollectionBundle(input, canonicalId, context) {
   const name = collectionMetadata?.name || fallbackCollectionName(assets, collectionId);
   const preparedTokens = prepareTokens(assets, collectionId, context.options);
   if (preparedTokens.tokens.length === 0) {
-    throw new Error(`No app-supported image or GIF media found for ${collectionId} (${name}).`);
+    throw new Error(`No app-supported image, GIF, or MP4 media found for ${collectionId} (${name}).`);
   }
 
   const tokenPayload = buildTokenPayload(preparedTokens.tokens, {
@@ -340,6 +341,7 @@ async function fetchCollectionBundle(input, canonicalId, context) {
     missingMediaItems: preparedTokens.mediaReview.missingMediaItems,
   });
 
+  const tokenCoverUrls = preparedTokens.tokens.flatMap((token) => token.coverUrls);
   return {
     input,
     collectionId,
@@ -353,9 +355,15 @@ async function fetchCollectionBundle(input, canonicalId, context) {
     tokenPayload,
     mediaReview: preparedTokens.mediaReview,
     cover: {
-      sourceUrl: normalizeAssetUrl(collectionMetadata?.image) ?? preparedTokens.tokens[0]?.media.url ?? null,
-      fallbackSourceUrl: preparedTokens.tokens[0]?.media.url ?? null,
-      fallbackSourceUrls: sampleTokens(preparedTokens.tokens, 40).map((token) => token.media.url),
+      sourceUrl: normalizeAssetUrl(collectionMetadata?.image)
+        ?? tokenCoverUrls[0]
+        ?? firstImageMediaURL(preparedTokens.tokens)
+        ?? null,
+      fallbackSourceUrl: tokenCoverUrls[0] ?? firstImageMediaURL(preparedTokens.tokens) ?? null,
+      fallbackSourceUrls: uniqueStrings([
+        ...tokenCoverUrls,
+        ...sampleTokens(preparedTokens.tokens, 40).map((token) => token.media.url),
+      ]),
       sourceKind: collectionMetadata?.image ? "collection-metadata" : "first-token",
       outputPath: path.join(context.options.coversPath, `${collectionId}.imageset`, `${collectionId}.heic`),
     },
@@ -584,6 +592,7 @@ function prepareTokens(assets, collectionId, options) {
       id: asset.id,
       name: asset.content?.metadata?.name ?? "",
       media: selected,
+      coverUrls: coverCandidatesForAsset(asset),
       reviewItem,
       sortKey: sortKeyForAsset(asset, selected),
     });
@@ -657,6 +666,24 @@ function mediaCandidatesForAsset(asset) {
   return uniqueCandidates(candidates);
 }
 
+function coverCandidatesForAsset(asset) {
+  const candidates = [];
+  const imageExtensions = new Set([...STATIC_EXTENSIONS, ...ANIMATED_EXTENSIONS]);
+
+  for (const candidate of mediaCandidatesForAsset(asset)) {
+    if (imageExtensions.has(candidate.extension) && !VIDEO_EXTENSIONS.has(candidate.extension)) {
+      candidates.push(candidate.url);
+    }
+  }
+
+  const imageUrl = normalizeAssetUrl(asset.content?.links?.image);
+  if (imageUrl) {
+    candidates.push(imageUrl);
+  }
+
+  return uniqueStrings(candidates);
+}
+
 function appendCandidate(candidates, candidate) {
   const normalizedUrl = normalizeAssetUrl(candidate.url);
   if (!normalizedUrl) {
@@ -723,8 +750,11 @@ function candidateRank(candidate) {
   if (candidate.source === "content.links.image") {
     rank -= 10;
   }
+  if (VIDEO_EXTENSIONS.has(candidate.extension)) {
+    rank -= 100;
+  }
   if (ANIMATED_EXTENSIONS.has(candidate.extension)) {
-    rank -= 6;
+    rank -= 90;
   }
   if (STATIC_EXTENSIONS.has(candidate.extension)) {
     rank -= 5;
@@ -1417,6 +1447,10 @@ function sampleTokens(tokens, count) {
   return [...indexes].sort((a, b) => a - b).map((index) => tokens[index]);
 }
 
+function firstImageMediaURL(tokens) {
+  return tokens.find((token) => STATIC_EXTENSIONS.has(token.media.extension) || ANIMATED_EXTENSIONS.has(token.media.extension))?.media.url ?? null;
+}
+
 function reportableCandidate(candidate) {
   return {
     url: candidate.url,
@@ -1425,6 +1459,19 @@ function reportableCandidate(candidate) {
     mime: candidate.mime ?? null,
     source: candidate.source,
   };
+}
+
+function uniqueStrings(values) {
+  const seen = new Set();
+  const unique = [];
+  for (const value of values) {
+    if (!value || seen.has(value)) {
+      continue;
+    }
+    seen.add(value);
+    unique.push(value);
+  }
+  return unique;
 }
 
 function escapeMarkdownTable(value) {

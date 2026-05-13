@@ -44,7 +44,8 @@ Rows include a fourth extension field only when a token differs from `defaultFil
 - Prefer original `content.files[].uri` from Helius over CDN URLs.
 - Fall back to `content.links.image`.
 - Normalize `ipfs://` and `ar://` URLs to HTTPS gateways.
-- Keep active playback to app-supported static images and GIFs: `png`, `jpg`, `jpeg`, `webp`, `heic`, `heif`, `gif`.
+- Keep active playback to app-supported media: `png`, `jpg`, `jpeg`, `webp`, `heic`, `heif`, `gif`, and `mp4`.
+- Prefer app-supported video/animated candidates (`mp4`, then `gif`) over static images when a token has both.
 - Deduplicate by selected normalized file URL within each collection. Tokens are sorted first by token number/name hints, file basename hints, basename, then mint address; the first token in that order is kept.
 - Unsupported media, alternate candidates, duplicates, and missing media are listed in the generated report for review.
 
