@@ -4,6 +4,7 @@ import UIKit
 import SwiftUI
 import WebKit
 import ImageIO
+import AVFoundation
 
 struct PlayerCoordinate: Hashable {
     let x: Int
@@ -917,7 +918,28 @@ private final class PlayerZoomScrollView: UIScrollView {
 
 }
 
+private enum VideoAssetLayout {
+    static func displaySize(at fileURL: URL) async -> CGSize? {
+        let asset = AVURLAsset(url: fileURL)
+        guard let track = try? await asset.loadTracks(withMediaType: .video).first else { return nil }
+
+        async let naturalSize = track.load(.naturalSize)
+        async let preferredTransform = track.load(.preferredTransform)
+
+        guard let (loadedNaturalSize, loadedPreferredTransform) = try? await (naturalSize, preferredTransform) else {
+            return nil
+        }
+
+        let transformedSize = loadedNaturalSize.applying(loadedPreferredTransform)
+        let size = CGSize(width: abs(transformedSize.width), height: abs(transformedSize.height))
+        guard size.width > 0, size.height > 0 else { return nil }
+        return size
+    }
+}
+
 private class SpecificPageViewController: UIViewController, UIScrollViewDelegate {
+
+    private static let maximumCachedVideoSizeCount = 24
 
     private struct AnimatedRenderContext: Equatable {
         enum MediaKind: Equatable {
@@ -928,6 +950,28 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         let adjacentDescriptor: DownloadableMediaDescriptor?
         let fallbackHTML: String
         let mediaKind: MediaKind
+    }
+
+    private struct VideoSizeRequest: Equatable, Hashable {
+        let descriptor: DownloadableMediaDescriptor
+        let fileURL: URL
+        let fileSize: Int?
+        let contentModificationDate: Date?
+
+        init(fileURL: URL, descriptor: DownloadableMediaDescriptor) {
+            let resourceValues = try? fileURL.resourceValues(
+                forKeys: [.fileSizeKey, .contentModificationDateKey]
+            )
+            self.descriptor = descriptor
+            self.fileURL = fileURL
+            self.fileSize = resourceValues?.fileSize
+            self.contentModificationDate = resourceValues?.contentModificationDate
+        }
+    }
+
+    private struct VideoSizeLoad {
+        let request: VideoSizeRequest
+        let task: Task<Void, Never>
     }
 
     private enum ZoomContentLayout: Equatable {
@@ -954,6 +998,9 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     private var renderedAnimatedNextImageURL: URL?
     private var pendingAnimatedNextImageURL: URL?
     private var downloadableMediaCacheObserver: NSObjectProtocol?
+    private var videoSizeLoad: VideoSizeLoad?
+    private var cachedVideoSizes = [VideoSizeRequest: CGSize]()
+    private var cachedVideoSizeRequests = [VideoSizeRequest]()
     private var willOrDidAppear = false
     private var isZoomInteractionActive = false
     private var zoomContentLayout: ZoomContentLayout = .viewport
@@ -977,6 +1024,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     }
 
     deinit {
+        cancelVideoSizeLoad()
         removeDownloadableMediaCacheObserver()
     }
 
@@ -1045,6 +1093,8 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             resetZoom(animated: true)
             return
         }
+
+        applyCachedCurrentVideoSizeIfAvailable()
 
         let locationInContent = coordinateView.convert(location, to: mediaContentView)
         let targetScale = min(
@@ -1449,6 +1499,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
 
         let imageCache = DownloadableMediaCache.shared
         guard let localFileURL = imageCache.localFileURL(for: context.descriptor) else {
+            cancelVideoSizeLoad()
             clearAnimatedImageURLState()
             mediaRenderer.clearContent()
             return
@@ -1498,6 +1549,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
                 nextImageURL: nextLocalFileURL?.absoluteString
             )
         case .video:
+            loadVideoSizeIfNeeded(at: localFileURL, context: context)
             html = DownloadableTokenHTML.createVideoHTML(videoURL: localFileURL.absoluteString)
         case .html:
             renderCachedHTMLDocument(
@@ -1613,13 +1665,95 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         return size
     }
 
+    private func loadVideoSizeIfNeeded(at fileURL: URL, context: AnimatedRenderContext) {
+        let request = VideoSizeRequest(fileURL: fileURL, descriptor: context.descriptor)
+
+        if let videoSizeLoad, videoSizeLoad.request != request {
+            cancelVideoSizeLoad()
+        }
+
+        if let cachedSize = cachedVideoSizes[request] {
+            applyVideoSizeIfCurrent(cachedSize, for: request)
+            return
+        }
+
+        guard videoSizeLoad == nil else { return }
+
+        let task = Task.detached(priority: .utility) { [fileURL, request] in
+            let size = await VideoAssetLayout.displaySize(at: fileURL)
+            guard !Task.isCancelled else { return }
+
+            await MainActor.run { [weak self] in
+                guard !Task.isCancelled,
+                      let self,
+                      self.videoSizeLoad?.request == request else {
+                    return
+                }
+
+                self.videoSizeLoad = nil
+                guard let size else { return }
+
+                self.cacheVideoSize(size, for: request)
+                self.applyVideoSizeIfCurrent(size, for: request)
+            }
+        }
+
+        videoSizeLoad = VideoSizeLoad(request: request, task: task)
+    }
+
+    private func cacheVideoSize(_ size: CGSize, for request: VideoSizeRequest) {
+        if cachedVideoSizes[request] == nil {
+            cachedVideoSizeRequests.append(request)
+        }
+        cachedVideoSizes[request] = size
+
+        while cachedVideoSizeRequests.count > Self.maximumCachedVideoSizeCount {
+            let removedRequest = cachedVideoSizeRequests.removeFirst()
+            cachedVideoSizes.removeValue(forKey: removedRequest)
+        }
+    }
+
+    private func applyCachedCurrentVideoSizeIfAvailable() {
+        guard let context = animatedRenderContext,
+              context.mediaKind == .video,
+              let fileURL = DownloadableMediaCache.shared.localFileURL(for: context.descriptor) else {
+            return
+        }
+
+        let request = VideoSizeRequest(fileURL: fileURL, descriptor: context.descriptor)
+        guard let cachedSize = cachedVideoSizes[request] else { return }
+
+        applyVideoSizeIfCurrent(cachedSize, for: request)
+    }
+
+    private func applyVideoSizeIfCurrent(_ size: CGSize, for request: VideoSizeRequest) {
+        guard let context = animatedRenderContext,
+              context.mediaKind == .video,
+              context.descriptor == request.descriptor,
+              DownloadableMediaCache.shared.localFileURL(for: request.descriptor) == request.fileURL,
+              VideoSizeRequest(fileURL: request.fileURL, descriptor: request.descriptor) == request,
+              !isZoomed,
+              !zoomScrollView.isZooming else {
+            return
+        }
+
+        setZoomContentLayout(.staticImage(size))
+    }
+
+    private func cancelVideoSizeLoad() {
+        videoSizeLoad?.task.cancel()
+        videoSizeLoad = nil
+    }
+
     private func setAnimatedRenderContext(_ context: AnimatedRenderContext) {
+        cancelVideoSizeLoad()
         animatedRenderContext = context
         clearAnimatedImageURLState()
         installDownloadableMediaCacheObserverIfNeeded()
     }
 
     private func clearAnimatedRenderContext() {
+        cancelVideoSizeLoad()
         animatedRenderContext = nil
         clearAnimatedImageURLState()
         removeDownloadableMediaCacheObserver()
