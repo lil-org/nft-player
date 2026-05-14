@@ -501,7 +501,7 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "716103a017faaf909a4b843fd8b481e2",
-    "name" : "89 Bright x Empty Rooms"
+    "name" : "Bright Empty Rooms"
   },
   {
     "abId" : "3",
@@ -813,7 +813,7 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "32ffc19d2d2fbe376a64ecd65030d07a",
-    "name" : "923 EMPTY ROOMS"
+    "name" : "EMPTY ROOMS"
   },
   {
     "abId" : "18",
@@ -4530,7 +4530,7 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "f09dc93e48530b0803410a2b32c56cbf",
-    "name" : "Math Art (1980-1995)",
+    "name" : "Math Art",
     "tokenCount" : 100
   },
   {
