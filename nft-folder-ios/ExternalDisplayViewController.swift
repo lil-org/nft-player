@@ -83,7 +83,9 @@ class ExternalDisplayViewController: UIViewController {
         guard tokenKey != renderedTokenKey else { return }
 
         renderedTokenKey = tokenKey
-        if case .staticImage = currentToken.media {
+        if currentToken.usesPonchoDrifellaMetalRenderer {
+            renderPonchoDrifellaMetalCard(currentToken)
+        } else if case .staticImage = currentToken.media {
             renderImage(currentToken, tokenKey: tokenKey)
         } else {
             renderWebContent(currentToken.html)
@@ -118,6 +120,12 @@ class ExternalDisplayViewController: UIViewController {
                 self?.placeholderStack.isHidden = !html.isEmpty
             }
         )
+    }
+
+    private func renderPonchoDrifellaMetalCard(_ token: GeneratedToken) {
+        ensurePlaceholder()
+        placeholderStack.isHidden = true
+        mediaRenderer.renderPonchoDrifellaMetalCard(tokenId: token.id)
     }
 
     private func renderKey(for token: GeneratedToken) -> String {
