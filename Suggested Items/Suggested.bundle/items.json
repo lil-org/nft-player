@@ -5670,6 +5670,26 @@
     "tokenCount" : 4381
   },
   {
+    "address" : "C22esis7kQMbX9JGWsMaKvsh1X5GeBmHPju28jiKDyAP",
+    "chain" : "solana",
+    "chainId" : 0,
+    "name" : "swag pack",
+    "tokenCount" : 467
+  },
+  {
+    "address" : "Gzzo24jJSDzXYGnWx6sgesWRVumNayM1vwvKWWruZbzs",
+    "chain" : "solana",
+    "chainId" : 0,
+    "name" : "Little Swag World: HEXP",
+    "tokenCount" : 332
+  },
+  {
+    "address" : "JCTP3kK3xGtWs5mDHxJBuRro38HftaiCDdKsfkXuK2gH",
+    "chain" : "solana",
+    "chainId" : 0,
+    "name" : "Poncho Drifella"
+  },
+  {
     "address" : "KT1PkEhFLSvvsw9wwf6mxvVJ7Q633FrYAyX6",
     "chain" : "tezos",
     "chainId" : 0,
@@ -5731,20 +5751,6 @@
     "chainId" : 0,
     "name" : "skomra",
     "tokenCount" : 128
-  },
-  {
-    "address" : "C22esis7kQMbX9JGWsMaKvsh1X5GeBmHPju28jiKDyAP",
-    "chain" : "solana",
-    "chainId" : 0,
-    "name" : "swag pack",
-    "tokenCount" : 467
-  },
-  {
-    "address" : "Gzzo24jJSDzXYGnWx6sgesWRVumNayM1vwvKWWruZbzs",
-    "chain" : "solana",
-    "chainId" : 0,
-    "name" : "Little Swag World: HEXP",
-    "tokenCount" : 332
   },
   {
     "address" : "0xeed41d06ae195ca8f5cacace4cd691ee75f0683f",
@@ -5857,11 +5863,5 @@
     "name" : "TOMIE",
     "tokenCount" : 2219,
     "iosOnly" : true
-  },
-  {
-    "address" : "JCTP3kK3xGtWs5mDHxJBuRro38HftaiCDdKsfkXuK2gH",
-    "chain" : "solana",
-    "chainId" : 0,
-    "name" : "Poncho Drifella"
   }
 ]

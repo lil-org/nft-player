@@ -33,7 +33,7 @@ enum MobileCollectionCatalog {
 
     static let allItems: [MobileCollectionItem] = {
         dedupedItems(
-            TokenGenerator.allGenerativeSuggestedItems
+            generativeItemsForGrid
                 + SuggestedItemsService.allDownloadableCollectionItems
         )
         .map(MobileCollectionItem.init(item:))
@@ -88,6 +88,12 @@ enum MobileCollectionCatalog {
             guard !seenIds.contains(item.id) else { return false }
             seenIds.insert(item.id)
             return true
+        }
+    }
+
+    private static var generativeItemsForGrid: [SuggestedItem] {
+        return TokenGenerator.allGenerativeSuggestedItems.filter {
+            !$0.isSolanaCollection && !$0.isTezosCollection
         }
     }
 }
