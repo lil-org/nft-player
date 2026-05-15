@@ -1316,10 +1316,10 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         zoomScrollView.pagingContentOffsetXRange = zoomAllowedContent == .fullContent ? nil : offsetRanges.x
         let contentSize = zoomScrollView.contentSize
         let contentInset = UIEdgeInsets(
-            top: max(0, -offsetRanges.y.lowerBound),
-            left: max(0, -offsetRanges.x.lowerBound),
-            bottom: max(0, offsetRanges.y.upperBound - (contentSize.height - viewportSize.height)),
-            right: max(0, offsetRanges.x.upperBound - (contentSize.width - viewportSize.width))
+            top: -offsetRanges.y.lowerBound,
+            left: -offsetRanges.x.lowerBound,
+            bottom: offsetRanges.y.upperBound - (contentSize.height - viewportSize.height),
+            right: offsetRanges.x.upperBound - (contentSize.width - viewportSize.width)
         )
 
         if zoomScrollView.contentInset != contentInset {
@@ -1408,11 +1408,6 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
 
     func viewForZooming(in scrollView: UIScrollView) -> UIView? {
         mediaContentView
-    }
-
-    func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        guard scrollView === zoomScrollView, zoomAllowedContent != .fullContent else { return }
-        clampZoomContentOffsetIfNeeded()
     }
 
     func scrollViewDidZoom(_ scrollView: UIScrollView) {
