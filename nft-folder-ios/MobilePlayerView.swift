@@ -191,6 +191,7 @@ struct MobilePlayerView: View {
         }
         .onDisappear {
             updateExternalDisplayToken(GeneratedToken.empty)
+            PonchoDrifellaMetalCardView.resetMotionCalibration()
             MobilePlaybackController.shared.stopAndDisconnect(uuid: initialConfig.id)
         }
         .onReceive(NotificationCenter.default.publisher(for: .downloadableMediaCacheFileAvailabilityDidChange)) { _ in

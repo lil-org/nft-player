@@ -564,6 +564,7 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        PonchoDrifellaMetalCardView.resetMotionCalibration()
         MobilePlaybackController.shared.subscribe(config: initialConfig, display: self)
         view.backgroundColor = .black
         pagingVC.onCurrentZoomStateChange = { [weak self] isZoomed in

@@ -47,6 +47,10 @@ final class PonchoDrifellaMetalCardView: UIView {
         renderer?.stop()
     }
 
+    static func resetMotionCalibration() {
+        PonchoDrifellaMotionTracker.shared.resetCalibration()
+    }
+
     private func configureMetalView() {
         guard let device = MTLCreateSystemDefaultDevice() else {
             ponchoDrifellaLogger.error("Metal device is unavailable")
@@ -159,6 +163,11 @@ private final class PonchoDrifellaMotionTracker {
 
     func snapshot() -> PonchoDrifellaMotionState {
         state
+    }
+
+    func resetCalibration() {
+        neutralGravity = nil
+        updateEffect(rawX: 0, rawY: 0, smooth: false)
     }
 
     private func handleMotion(_ motion: CMDeviceMotion) {
