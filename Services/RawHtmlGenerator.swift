@@ -31,10 +31,23 @@ struct RawHtmlGenerator {
     }
     
     static func createHtml(script: Script, token: BundledTokens.Item, forceLibScript: String? = nil) -> String {
+        guard script.kind != .ponchoDrifellaNative else { return "" }
         guard let hash = token.hash else { return "" }
-        
+
         let id = token.id
         let libScript = forceLibScript ?? libScript(script.kind)
+        let viewport =
+            """
+            <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+            """
+
+        let tuning = {
+            if let nftFolderDisplayTuning = script.nftFolderDisplayTuning {
+                return "\n<script>\(nftFolderDisplayTuning)</script>\n"
+            } else {
+                return ""
+            }
+        }()
         
         let tokenData: String
         if script.address == "0x059edd72cd353df5106d2b9cc5ab83a52287ac3a" {
@@ -48,19 +61,6 @@ struct RawHtmlGenerator {
                 let tokenData = {"tokenId": "\(id)", "hash": "\(hash)"}
                 """
         }
-        
-        let viewport =
-            """
-            <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
-            """
-        
-        let tuning = {
-            if let nftFolderDisplayTuning = script.nftFolderDisplayTuning {
-                return "\n<script>\(nftFolderDisplayTuning)</script>\n"
-            } else {
-                return ""
-            }
-        }()
         
         let html: String
         switch script.kind {
@@ -321,6 +321,8 @@ struct RawHtmlGenerator {
               <script>\(script.value)</script>\(tuning)
             </html>
             """
+        case .ponchoDrifellaNative:
+            html = ""
         }
         return html
     }

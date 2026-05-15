@@ -5857,5 +5857,11 @@
     "name" : "TOMIE",
     "tokenCount" : 2219,
     "iosOnly" : true
+  },
+  {
+    "address" : "JCTP3kK3xGtWs5mDHxJBuRro38HftaiCDdKsfkXuK2gH",
+    "chain" : "solana",
+    "chainId" : 0,
+    "name" : "Poncho Drifella"
   }
 ]

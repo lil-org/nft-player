@@ -4,6 +4,7 @@ import Foundation
 
 struct TokenGenerator {
     
+    private static let ponchoDrifellaCollectionId = "JCTP3kK3xGtWs5mDHxJBuRro38HftaiCDdKsfkXuK2gH"
     private static let dirURL = SuggestedItemsService.bundle.url(forResource: "Scripts", withExtension: nil)!
     private static var collectionDataCache = [String: CollectionTokenData]()
     private static let collectionDataCacheLock = NSLock()
@@ -12,9 +13,9 @@ struct TokenGenerator {
         let fileManager = FileManager.default
         let fileURLs = (try? fileManager.contentsOfDirectory(at: dirURL, includingPropertiesForKeys: nil)) ?? []
 #if os(macOS) || os(watchOS)
-        let fileNames = fileURLs.map { $0.lastPathComponent }
+        let disabledCollectionIds = Set([ponchoDrifellaCollectionId])
 #elseif os(iOS)
-        let disabledForIOS = Set([
+        let disabledCollectionIds = Set([
             "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce367646",
             "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce367664",
             "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270112",
@@ -29,26 +30,31 @@ struct TokenGenerator {
             "0x8cdbd7010bd197848e95c1fd7f6e870aac9b0d3c2",
             "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce367660",
         ])
-        let fileNames = fileURLs.compactMap { disabledForIOS.contains(String($0.lastPathComponent.dropLast(5))) ? nil : $0.lastPathComponent }
 #elseif os(visionOS)
-        let tmpDisabledForVisionPro = Set([
+        let disabledCollectionIds = Set([
             "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce367650",
             "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270250",
             "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270356",
             "0x99a9b7c1116f9ceeb1652de04d5969cce509b069472",
             "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce367667",
+            ponchoDrifellaCollectionId,
         ])
-        let fileNames = fileURLs.compactMap { tmpDisabledForVisionPro.contains(String($0.lastPathComponent.dropLast(5))) ? nil : $0.lastPathComponent }
 #elseif os(tvOS)
-        let disabledForTv = Set([
+        let disabledCollectionIds = Set([
             "0x99a9b7c1116f9ceeb1652de04d5969cce509b069472",
             "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270356",
             "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270250",
             "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce367664",
+            ponchoDrifellaCollectionId,
         ])
-        let fileNames = fileURLs.compactMap { disabledForTv.contains(String($0.lastPathComponent.dropLast(5))) ? nil : $0.lastPathComponent }
+#else
+        let disabledCollectionIds = Set<String>()
 #endif
-        return Set(fileNames)
+        return Set(fileURLs.compactMap { fileURL in
+            let fileName = fileURL.lastPathComponent
+            let collectionId = String(fileName.dropLast(5))
+            return disabledCollectionIds.contains(collectionId) ? nil : fileName
+        })
     }()
     
     static func canGenerate(id: String) -> Bool {
@@ -152,16 +158,14 @@ struct TokenGenerator {
     }
     
     private static func generateToken(_ token: BundledTokens.Item, script: Script) -> GeneratedToken? {
-        let html = RawHtmlGenerator.createHtml(script: script, token: token)
+        let usesNativePonchoRenderer = script.kind == .ponchoDrifellaNative
+        let html = usesNativePonchoRenderer ? "" : RawHtmlGenerator.createHtml(script: script, token: token)
         let cleanId = (token.id.hasPrefix(script.abId) && token.id != script.abId) ? String(token.id.dropFirst(script.abId.count).drop(while: { $0 == "0" })) : token.id
         let displayTokenId = "#" + (cleanId.isEmpty ? "0" : cleanId)
         let name = script.name + " " + displayTokenId
+        let renderKind: GeneratedTokenRenderKind? = usesNativePonchoRenderer ? .ponchoDrifellaMetal : nil
         
-#if canImport(AppKit)
-        let webURL = NftGallery.opensea.url(network: .mainnet, chain: .ethereum, collectionAddress: script.address, tokenId: token.id)
-#else
-        let webURL = NftGallery.blockExplorer.url(network: .mainnet, chain: .ethereum, collectionAddress: script.address, tokenId: token.id)
-#endif
+        let webURL = webURL(script: script, token: token)
         let generatedToken = GeneratedToken(fullCollectionId: script.id,
                                             collectionName: script.name,
                                             address: script.address,
@@ -171,8 +175,21 @@ struct TokenGenerator {
                                             displayTokenId: displayTokenId,
                                             url: webURL,
                                             instructions: script.instructions,
-                                            screensaver: script.screensaverUrl)
+                                            screensaver: script.screensaverUrl,
+                                            renderKind: renderKind)
         return generatedToken
+    }
+
+    private static func webURL(script: Script, token: BundledTokens.Item) -> URL? {
+        if script.chain == .solana {
+            return URL(string: "https://explorer.solana.com/address/\(script.address)")
+        }
+
+#if canImport(AppKit)
+        return NftGallery.opensea.url(network: .mainnet, chain: .ethereum, collectionAddress: script.address, tokenId: token.id)
+#else
+        return NftGallery.blockExplorer.url(network: .mainnet, chain: .ethereum, collectionAddress: script.address, tokenId: token.id)
+#endif
     }
     
 }

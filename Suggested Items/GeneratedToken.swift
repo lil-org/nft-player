@@ -2,6 +2,11 @@
 
 import Foundation
 
+enum GeneratedTokenRenderKind: String, Hashable, Codable {
+    case html
+    case ponchoDrifellaMetal
+}
+
 enum GeneratedTokenMedia: Hashable, Codable {
     case staticImage(url: URL, fileExtension: String)
     case animatedImage(url: URL, fileExtension: String)
@@ -43,6 +48,15 @@ struct GeneratedToken: Hashable, Codable, Identifiable {
     let instructions: String?
     let screensaver: URL?
     let media: GeneratedTokenMedia?
+    let renderKind: GeneratedTokenRenderKind?
+
+    var playbackRenderKind: GeneratedTokenRenderKind {
+        renderKind ?? .html
+    }
+
+    var usesPonchoDrifellaMetalRenderer: Bool {
+        playbackRenderKind == .ponchoDrifellaMetal
+    }
 
     init(
         fullCollectionId: String,
@@ -55,7 +69,8 @@ struct GeneratedToken: Hashable, Codable, Identifiable {
         url: URL?,
         instructions: String?,
         screensaver: URL?,
-        media: GeneratedTokenMedia? = nil
+        media: GeneratedTokenMedia? = nil,
+        renderKind: GeneratedTokenRenderKind? = nil
     ) {
         self.fullCollectionId = fullCollectionId
         self.collectionName = collectionName
@@ -68,6 +83,7 @@ struct GeneratedToken: Hashable, Codable, Identifiable {
         self.instructions = instructions
         self.screensaver = screensaver
         self.media = media
+        self.renderKind = renderKind
     }
     
     static let empty = GeneratedToken(fullCollectionId: "", collectionName: "", address: "", id: "", html: "", displayName: "", displayTokenId: "", url: nil, instructions: nil, screensaver: nil)
