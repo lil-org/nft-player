@@ -124,6 +124,9 @@ private struct PonchoDrifellaMotionState {
 private final class PonchoDrifellaMotionTracker {
 
     static let shared = PonchoDrifellaMotionTracker()
+    private static let fixedLightPosition = SIMD2<Float>(0.5, 0.5)
+    private static let pointerTravel = SIMD2<Float>(0.42, 0.42)
+    private static let backgroundTravel = SIMD2<Float>(0.13, 0.17)
 
     private let motionManager = CMMotionManager()
     private var neutralGravity: CMAcceleration?
@@ -187,20 +190,29 @@ private final class PonchoDrifellaMotionTracker {
     }
 
     private func updateEffect(rawX: Float, rawY: Float, smooth: Bool) {
-        let targetPointer = SIMD2<Float>(
-            0.5 + Self.clamped(rawX) * 0.49,
-            0.5 + Self.clamped(rawY) * 0.49
-        )
-        let smoothing: Float = smooth ? 0.38 : 1
-        state.pointer += (targetPointer - state.pointer) * smoothing
-        state.pointer.x = min(max(state.pointer.x, 0.01), 0.99)
-        state.pointer.y = min(max(state.pointer.y, 0.01), 0.99)
+        let cardTilt = SIMD2<Float>(Self.clamped(rawX), Self.clamped(rawY))
+        let cardOffset = cardTilt * Self.pointerTravel
+        let backgroundOffset = cardTilt * Self.backgroundTravel
 
-        state.background = SIMD2<Float>(
-            0.37 + state.pointer.x * 0.26,
-            0.33 + state.pointer.y * 0.34
+        // Keep the light fixed in screen space; tilt moves the card surface under it.
+        let targetPointer = Self.clamped(
+            Self.fixedLightPosition - cardOffset,
+            lowerBound: 0.04,
+            upperBound: 0.96
         )
-        state.pointerFromCenter = min(length((state.pointer - SIMD2<Float>(repeating: 0.5)) * 2), 1)
+        let targetBackground = Self.clamped(
+            Self.fixedLightPosition - backgroundOffset,
+            lowerBound: 0.25,
+            upperBound: 0.75
+        )
+
+        let smoothing: Float = smooth ? 0.30 : 1
+        state.pointer += (targetPointer - state.pointer) * smoothing
+        state.pointer = Self.clamped(state.pointer, lowerBound: 0.01, upperBound: 0.99)
+
+        state.background += (targetBackground - state.background) * smoothing
+        state.background = Self.clamped(state.background, lowerBound: 0.12, upperBound: 0.88)
+        state.pointerFromCenter = min(length(cardTilt), 1)
         state.effectOpacity = 0.99
         notifyObservers()
     }
@@ -211,6 +223,13 @@ private final class PonchoDrifellaMotionTracker {
 
     private static func clamped(_ value: Float) -> Float {
         min(max(value, -1), 1)
+    }
+
+    private static func clamped(_ value: SIMD2<Float>, lowerBound: Float, upperBound: Float) -> SIMD2<Float> {
+        SIMD2<Float>(
+            min(max(value.x, lowerBound), upperBound),
+            min(max(value.y, lowerBound), upperBound)
+        )
     }
 }
 
