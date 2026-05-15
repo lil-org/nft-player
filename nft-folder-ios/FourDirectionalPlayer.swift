@@ -899,6 +899,7 @@ private protocol FourDirectionalPlayerDataSource: AnyObject {
 private final class PlayerZoomScrollView: UIScrollView {
 
     private var pagingPanGestureRecognizerIds = Set<ObjectIdentifier>()
+    var pagingContentOffsetXRange: ClosedRange<CGFloat>?
 
     func registerPagingPanGesture(_ panGesture: UIPanGestureRecognizer) {
         pagingPanGestureRecognizerIds.insert(ObjectIdentifier(panGesture))
@@ -945,11 +946,19 @@ private final class PlayerZoomScrollView: UIScrollView {
     }
 
     private var minimumContentOffsetX: CGFloat {
-        -adjustedContentInset.left
+        if let pagingContentOffsetXRange {
+            return pagingContentOffsetXRange.lowerBound
+        }
+
+        return -adjustedContentInset.left
     }
 
     private var maximumContentOffsetX: CGFloat {
-        max(minimumContentOffsetX, contentSize.width - bounds.width + adjustedContentInset.right)
+        if let pagingContentOffsetXRange {
+            return pagingContentOffsetXRange.upperBound
+        }
+
+        return max(minimumContentOffsetX, contentSize.width - bounds.width + adjustedContentInset.right)
     }
 
 }
@@ -1015,6 +1024,20 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         case staticImage(CGSize)
     }
 
+    private enum ZoomAllowedContent: Equatable {
+        case fullContent
+        case ponchoDrifellaCard
+
+        func rect(in contentBounds: CGRect) -> CGRect {
+            switch self {
+            case .fullContent:
+                return contentBounds
+            case .ponchoDrifellaCard:
+                return PonchoDrifellaMetalCardView.cardContentRect(in: contentBounds.size)
+            }
+        }
+    }
+
     private weak var fourDirectionalPlayerDataSource: FourDirectionalPlayerDataSource?
     private let zoomScrollView = PlayerZoomScrollView()
     private let mediaContentView = UIView()
@@ -1040,6 +1063,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     private var willOrDidAppear = false
     private var isZoomInteractionActive = false
     private var zoomContentLayout: ZoomContentLayout = .viewport
+    private var zoomAllowedContent: ZoomAllowedContent = .fullContent
     private var laidOutZoomViewportSize: CGSize = .zero
     var onZoomStateChange: (() -> Void)?
     var preferredPrefetchDirection: DownloadableMediaCache.PrefetchDirection = .forward
@@ -1141,17 +1165,19 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             width: zoomScrollView.bounds.width / targetScale,
             height: zoomScrollView.bounds.height / targetScale
         )
-        let contentBounds = mediaContentView.bounds
+        let allowedContentRect = zoomAllowedContentRect()
         let zoomOrigin = CGPoint(
             x: boundedZoomOrigin(
                 centeredAt: locationInContent.x,
                 zoomLength: zoomSize.width,
-                contentLength: contentBounds.width
+                allowedMin: allowedContentRect.minX,
+                allowedMax: allowedContentRect.maxX
             ),
             y: boundedZoomOrigin(
                 centeredAt: locationInContent.y,
                 zoomLength: zoomSize.height,
-                contentLength: contentBounds.height
+                allowedMin: allowedContentRect.minY,
+                allowedMax: allowedContentRect.maxY
             )
         )
         let zoomRect = CGRect(
@@ -1164,12 +1190,19 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         zoomScrollView.zoom(to: zoomRect, animated: true)
     }
 
-    private func boundedZoomOrigin(centeredAt center: CGFloat, zoomLength: CGFloat, contentLength: CGFloat) -> CGFloat {
+    private func boundedZoomOrigin(
+        centeredAt center: CGFloat,
+        zoomLength: CGFloat,
+        allowedMin: CGFloat,
+        allowedMax: CGFloat
+    ) -> CGFloat {
+        let clampedCenter = min(max(center, allowedMin), allowedMax)
+        let contentLength = allowedMax - allowedMin
         guard contentLength > zoomLength else {
-            return (contentLength - zoomLength) / 2
+            return (allowedMin + allowedMax - zoomLength) / 2
         }
 
-        return min(max(center - zoomLength / 2, 0), contentLength - zoomLength)
+        return min(max(clampedCenter - zoomLength / 2, allowedMin), allowedMax - zoomLength)
     }
 
     func resetZoom(animated: Bool) {
@@ -1225,13 +1258,17 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         updateZoomInteraction()
     }
 
-    private func setZoomContentLayout(_ layout: ZoomContentLayout) {
-        guard zoomContentLayout != layout else {
+    private func setZoomContentLayout(
+        _ layout: ZoomContentLayout,
+        allowedContent: ZoomAllowedContent = .fullContent
+    ) {
+        guard zoomContentLayout != layout || zoomAllowedContent != allowedContent else {
             updateZoomContentFrame(resetOffset: false)
             return
         }
 
         zoomContentLayout = layout
+        zoomAllowedContent = allowedContent
         resetZoom(animated: false)
         updateZoomContentFrame(resetOffset: true)
     }
@@ -1275,14 +1312,14 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         let viewportSize = zoomScrollView.bounds.size
         guard viewportSize.width > 0, viewportSize.height > 0 else { return }
 
-        let contentFrameSize = mediaContentView.frame.size
-        let horizontalInset = max(0, (viewportSize.width - contentFrameSize.width) / 2)
-        let verticalInset = max(0, (viewportSize.height - contentFrameSize.height) / 2)
+        let offsetRanges = zoomContentOffsetRanges()
+        zoomScrollView.pagingContentOffsetXRange = zoomAllowedContent == .fullContent ? nil : offsetRanges.x
+        let contentSize = zoomScrollView.contentSize
         let contentInset = UIEdgeInsets(
-            top: verticalInset,
-            left: horizontalInset,
-            bottom: verticalInset,
-            right: horizontalInset
+            top: max(0, -offsetRanges.y.lowerBound),
+            left: max(0, -offsetRanges.x.lowerBound),
+            bottom: max(0, offsetRanges.y.upperBound - (contentSize.height - viewportSize.height)),
+            right: max(0, offsetRanges.x.upperBound - (contentSize.width - viewportSize.width))
         )
 
         if zoomScrollView.contentInset != contentInset {
@@ -1291,31 +1328,71 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     }
 
     private var centeredZoomContentOffset: CGPoint {
-        CGPoint(
-            x: -zoomScrollView.contentInset.left,
-            y: -zoomScrollView.contentInset.top
+        let offsetRanges = zoomContentOffsetRanges()
+        return CGPoint(
+            x: offsetRanges.x.lowerBound,
+            y: offsetRanges.y.lowerBound
         )
     }
 
     private func clampZoomContentOffsetIfNeeded() {
-        let minimumOffsetX = -zoomScrollView.contentInset.left
-        let minimumOffsetY = -zoomScrollView.contentInset.top
-        let maximumOffsetX = max(
-            minimumOffsetX,
-            zoomScrollView.contentSize.width - zoomScrollView.bounds.width + zoomScrollView.contentInset.right
-        )
-        let maximumOffsetY = max(
-            minimumOffsetY,
-            zoomScrollView.contentSize.height - zoomScrollView.bounds.height + zoomScrollView.contentInset.bottom
-        )
+        let offsetRanges = zoomContentOffsetRanges()
         let clampedOffset = CGPoint(
-            x: min(max(zoomScrollView.contentOffset.x, minimumOffsetX), maximumOffsetX),
-            y: min(max(zoomScrollView.contentOffset.y, minimumOffsetY), maximumOffsetY)
+            x: min(max(zoomScrollView.contentOffset.x, offsetRanges.x.lowerBound), offsetRanges.x.upperBound),
+            y: min(max(zoomScrollView.contentOffset.y, offsetRanges.y.lowerBound), offsetRanges.y.upperBound)
         )
 
         if zoomScrollView.contentOffset != clampedOffset {
             zoomScrollView.contentOffset = clampedOffset
         }
+    }
+
+    private func zoomContentOffsetRanges() -> (x: ClosedRange<CGFloat>, y: ClosedRange<CGFloat>) {
+        let viewportSize = zoomScrollView.bounds.size
+        guard viewportSize.width > 0, viewportSize.height > 0 else {
+            return (x: 0...0, y: 0...0)
+        }
+
+        let scale = zoomScrollView.zoomScale
+        let allowedContentRect = zoomAllowedContentRect()
+        return (
+            x: zoomContentOffsetRange(
+                allowedMin: allowedContentRect.minX * scale,
+                allowedMax: allowedContentRect.maxX * scale,
+                viewportLength: viewportSize.width
+            ),
+            y: zoomContentOffsetRange(
+                allowedMin: allowedContentRect.minY * scale,
+                allowedMax: allowedContentRect.maxY * scale,
+                viewportLength: viewportSize.height
+            )
+        )
+    }
+
+    private func zoomContentOffsetRange(
+        allowedMin: CGFloat,
+        allowedMax: CGFloat,
+        viewportLength: CGFloat
+    ) -> ClosedRange<CGFloat> {
+        let contentLength = max(allowedMax - allowedMin, 0)
+        guard contentLength > viewportLength else {
+            let centeredOffset = (allowedMin + allowedMax - viewportLength) / 2
+            return centeredOffset...centeredOffset
+        }
+
+        return allowedMin...(allowedMax - viewportLength)
+    }
+
+    private func zoomAllowedContentRect() -> CGRect {
+        let contentBounds = CGRect(origin: .zero, size: mediaContentView.bounds.size)
+        guard contentBounds.width > 0, contentBounds.height > 0 else { return .zero }
+
+        let allowedRect = zoomAllowedContent.rect(in: contentBounds)
+        guard !allowedRect.isNull, !allowedRect.isEmpty else { return contentBounds }
+
+        let clippedRect = allowedRect.intersection(contentBounds)
+        guard !clippedRect.isNull, !clippedRect.isEmpty else { return contentBounds }
+        return clippedRect
     }
 
     private func updateZoomInteraction() {
@@ -1331,6 +1408,11 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
 
     func viewForZooming(in scrollView: UIScrollView) -> UIView? {
         mediaContentView
+    }
+
+    func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        guard scrollView === zoomScrollView, zoomAllowedContent != .fullContent else { return }
+        clampZoomContentOffsetIfNeeded()
     }
 
     func scrollViewDidZoom(_ scrollView: UIScrollView) {
@@ -1490,7 +1572,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
 
     private func renderPonchoDrifellaMetalCard(_ token: GeneratedToken) {
         clearAnimatedRenderContext()
-        setZoomContentLayout(.viewport)
+        setZoomContentLayout(.viewport, allowedContent: .ponchoDrifellaCard)
         mediaRenderer.renderPonchoDrifellaMetalCard(tokenId: token.id)
     }
 

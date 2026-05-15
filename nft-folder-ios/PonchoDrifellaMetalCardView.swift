@@ -15,6 +15,9 @@ private let ponchoDrifellaLogger = Logger(
 
 final class PonchoDrifellaMetalCardView: UIView {
 
+    static let cardAspectRatio = CGFloat(1000.0 / 1400.0)
+    static let cardViewportInset = CGFloat(23)
+
     private var metalView: MTKView?
     private var renderer: PonchoDrifellaMetalRenderer?
 
@@ -49,6 +52,17 @@ final class PonchoDrifellaMetalCardView: UIView {
 
     static func resetMotionCalibration() {
         PonchoDrifellaMotionTracker.shared.resetCalibration()
+    }
+
+    static func cardContentRect(in size: CGSize) -> CGRect {
+        guard size.width > 0, size.height > 0 else { return .zero }
+        let availableWidth = max(size.width - cardViewportInset * 2, 1)
+        let availableHeight = max(size.height - cardViewportInset * 2, 1)
+        let cardWidth = min(availableWidth, availableHeight * cardAspectRatio)
+        let cardHeight = cardWidth / cardAspectRatio
+        let minX = (size.width - cardWidth) / 2
+        let minY = (size.height - cardHeight) / 2
+        return CGRect(x: minX, y: minY, width: cardWidth, height: cardHeight)
     }
 
     private func configureMetalView() {
@@ -235,9 +249,6 @@ private final class PonchoDrifellaMotionTracker {
 
 private final class PonchoDrifellaMetalRenderer: NSObject, MTKViewDelegate {
 
-    private static let cardAspectRatio = CGFloat(1000.0 / 1400.0)
-    private static let viewportInset = CGFloat(23)
-
     private weak var metalView: MTKView?
     private let device: MTLDevice
     private let commandQueue: MTLCommandQueue
@@ -406,14 +417,7 @@ private final class PonchoDrifellaMetalRenderer: NSObject, MTKViewDelegate {
     }
 
     private func cardRect(in size: CGSize) -> CGRect {
-        guard size.width > 0, size.height > 0 else { return .zero }
-        let availableWidth = max(size.width - Self.viewportInset * 2, 1)
-        let availableHeight = max(size.height - Self.viewportInset * 2, 1)
-        let cardWidth = min(availableWidth, availableHeight * Self.cardAspectRatio)
-        let cardHeight = cardWidth / Self.cardAspectRatio
-        let minX = (size.width - cardWidth) / 2
-        let minY = (size.height - cardHeight) / 2
-        return CGRect(x: minX, y: minY, width: cardWidth, height: cardHeight)
+        PonchoDrifellaMetalCardView.cardContentRect(in: size)
     }
 
     private func cardVertices(in size: CGSize, cardRect: CGRect) -> [PonchoDrifellaVertex] {
