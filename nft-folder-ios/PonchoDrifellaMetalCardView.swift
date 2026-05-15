@@ -217,7 +217,7 @@ private final class PonchoDrifellaMotionTracker {
 private final class PonchoDrifellaMetalRenderer: NSObject, MTKViewDelegate {
 
     private static let cardAspectRatio = CGFloat(1000.0 / 1400.0)
-    private static let viewportInset = CGFloat(16)
+    private static let viewportInset = CGFloat(23)
 
     private weak var metalView: MTKView?
     private let device: MTLDevice
