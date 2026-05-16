@@ -757,6 +757,7 @@
 				ar,
 				ca,
 				"zh-Hans",
+				"zh-Hant",
 				hr,
 				cs,
 				da,

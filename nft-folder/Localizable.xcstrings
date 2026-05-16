@@ -207,11 +207,25 @@
             "state" : "translated",
             "value" : "%2$lld 中的 %1$lld"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%2$lld 中的 %1$lld"
+          }
         }
       }
     },
     "%lld%%" : {
-      "comment" : "A compact label displaying viewing progress as a percentage. The argument is the viewed percentage."
+      "comment" : "A compact label displaying viewing progress as a percentage. The argument is the viewed percentage.",
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld%%"
+          }
+        }
+      }
     },
     "Address or ENS" : {
       "comment" : "14712148383832498636",
@@ -415,6 +429,12 @@
           }
         },
         "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "地址或 ENS"
+          }
+        },
+        "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "地址或 ENS"
@@ -628,11 +648,24 @@
             "state" : "translated",
             "value" : "返回"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "返回"
+          }
         }
       }
     },
     "Bookmark" : {
-
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "書籤"
+          }
+        }
+      }
     },
     "Cancel" : {
       "comment" : "15808957755385318799",
@@ -836,6 +869,12 @@
           }
         },
         "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取消"
+          }
+        },
+        "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "取消"
@@ -1049,6 +1088,12 @@
             "state" : "translated",
             "value" : "更换应用图标"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更改 App 圖示"
+          }
         }
       }
     },
@@ -1259,6 +1304,12 @@
             "state" : "translated",
             "value" : "继续查看"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "繼續觀看"
+          }
         }
       }
     },
@@ -1467,6 +1518,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "下载音频"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下載音訊"
           }
         }
       }
@@ -1677,6 +1734,12 @@
             "state" : "translated",
             "value" : "下载视频"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下載影片"
+          }
         }
       }
     },
@@ -1885,6 +1948,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "编辑播放列表"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "編輯播放列表"
           }
         }
       }
@@ -2095,6 +2164,12 @@
             "state" : "translated",
             "value" : "清除所有内容"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "清除所有內容"
+          }
         }
       }
     },
@@ -2300,6 +2375,12 @@
           }
         },
         "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "完成"
+          }
+        },
+        "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "完成"
@@ -2513,6 +2594,12 @@
             "state" : "translated",
             "value" : "前进"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "前進"
+          }
         }
       }
     },
@@ -2721,6 +2808,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "打开"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "前往"
           }
         }
       }
@@ -2931,6 +3024,12 @@
             "state" : "translated",
             "value" : "硬重置"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "硬重設"
+          }
         }
       }
     },
@@ -3139,6 +3238,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "隐藏"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "隱藏"
           }
         }
       }
@@ -3349,6 +3454,12 @@
             "state" : "translated",
             "value" : "信息"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "資訊"
+          }
         }
       }
     },
@@ -3557,6 +3668,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "如果有任何问题，请告诉我们。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "如果遇到任何問題，請告訴我們。"
           }
         }
       }
@@ -3767,6 +3884,12 @@
             "state" : "translated",
             "value" : "邮件"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "郵件"
+          }
         }
       }
     },
@@ -3976,11 +4099,24 @@
             "state" : "translated",
             "value" : "文件大小不超过 50 MB"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "檔案大小上限 50 MB"
+          }
         }
       }
     },
     "More" : {
-
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更多"
+          }
+        }
+      }
     },
     "Navigate" : {
       "comment" : "6574510995510112606",
@@ -4187,6 +4323,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "浏览"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "瀏覽"
           }
         }
       }
@@ -4397,6 +4539,12 @@
             "state" : "translated",
             "value" : "新建文件夹"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新增資料夾"
+          }
         }
       }
     },
@@ -4605,6 +4753,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "下一组收藏"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下一個收藏系列"
           }
         }
       }
@@ -4815,6 +4969,12 @@
             "state" : "translated",
             "value" : "NFT 文件夹"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NFT 資料夾"
+          }
         }
       }
     },
@@ -5024,6 +5184,12 @@
             "state" : "translated",
             "value" : "离线生成是一项新的实验性功能"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "離線生成是一項新的實驗性功能"
+          }
         }
       }
     },
@@ -5229,6 +5395,12 @@
           }
         },
         "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "好"
+          }
+        },
+        "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "好"
@@ -5442,6 +5614,12 @@
             "state" : "translated",
             "value" : "暂停"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "暫停"
+          }
         }
       }
     },
@@ -5647,6 +5825,12 @@
           }
         },
         "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "播放"
+          }
+        },
+        "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "播放"
@@ -5860,12 +6044,26 @@
             "state" : "translated",
             "value" : "在 App Store 评分"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 App Store 評分"
+          }
         }
       }
     },
     "Remove Bookmark" : {
       "comment" : "The text of a button that removes a bookmark.",
-      "isCommentAutoGenerated" : true
+      "isCommentAutoGenerated" : true,
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移除書籤"
+          }
+        }
+      }
     },
     "Remove Folder" : {
       "comment" : "18375307326384788604",
@@ -6072,6 +6270,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "删除文件夹"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移除資料夾"
           }
         }
       }
@@ -6282,6 +6486,12 @@
             "state" : "translated",
             "value" : "恢复隐藏项目"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "復原隱藏項目"
+          }
         }
       }
     },
@@ -6490,6 +6700,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "重试"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重試"
           }
         }
       }
@@ -6700,6 +6916,12 @@
             "state" : "translated",
             "value" : "在应用中选择某项内容。"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "請在 App 中選擇某個項目。"
+          }
         }
       }
     },
@@ -6908,6 +7130,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "发送反馈"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "傳送意見回饋"
           }
         }
       }
@@ -7119,6 +7347,12 @@
             "state" : "translated",
             "value" : "设置屏幕保护程序"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "設定螢幕保護程式"
+          }
         }
       }
     },
@@ -7324,6 +7558,12 @@
           }
         },
         "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "分享"
+          }
+        },
+        "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "分享"
@@ -7537,6 +7777,12 @@
             "state" : "translated",
             "value" : "在 Finder 中显示"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 Finder 中顯示"
+          }
         }
       }
     },
@@ -7745,6 +7991,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "出了点问题"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "發生錯誤"
           }
         }
       }
@@ -7955,6 +8207,12 @@
             "state" : "translated",
             "value" : "停止下载"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停止下載"
+          }
         }
       }
     },
@@ -8160,6 +8418,12 @@
           }
         },
         "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同步"
+          }
+        },
+        "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "同步"
@@ -8373,6 +8637,12 @@
             "state" : "translated",
             "value" : "信息"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "切換資訊"
+          }
         }
       }
     },
@@ -8582,6 +8852,12 @@
             "state" : "translated",
             "value" : "令牌编号"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "代幣 ID"
+          }
         }
       }
     },
@@ -8787,6 +9063,12 @@
           }
         },
         "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "再次查看"
+          }
+        },
+        "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "再次查看"
@@ -9000,6 +9282,12 @@
             "state" : "translated",
             "value" : "在 Art Blocks 上查看"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 Art Blocks 上查看"
+          }
         }
       }
     },
@@ -9205,6 +9493,12 @@
           }
         },
         "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 Blockscout 上查看"
+          }
+        },
+        "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "在 Blockscout 上查看"
@@ -9418,6 +9712,12 @@
             "state" : "translated",
             "value" : "在 OpenSea 上查看"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 OpenSea 上查看"
+          }
         }
       }
     },
@@ -9626,12 +9926,26 @@
             "state" : "translated",
             "value" : "在 Solana Explorer 上查看"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 Solana Explorer 上查看"
+          }
         }
       }
     },
     "View on TzKT" : {
       "comment" : "The name of the Tezos explorer.",
-      "isCommentAutoGenerated" : true
+      "isCommentAutoGenerated" : true,
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 TzKT 上查看"
+          }
+        }
+      }
     },
     "View on Zora" : {
       "comment" : "11057636647060570457",
@@ -9835,6 +10149,12 @@
           }
         },
         "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 Zora 上查看"
+          }
+        },
+        "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "在 Zora 上查看"
