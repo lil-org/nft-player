@@ -7,8 +7,8 @@ struct RawNftsApi {
     private static let urlSession = URLSession.shared
     private static let queue = DispatchQueue(label: "\(Bundle.hostBundleId).RawNftsApi", qos: .default)
     
-    static func get(owner: String, nextCursor: String?, completion: @escaping (NftsResponse?) -> Void) {
-        guard let url = URL(string: "https://api.opensea.io/api/v2/chain/ethereum/account/\(owner)/nfts") else {
+    static func get(owner: String, network: Network = .mainnet, nextCursor: String?, completion: @escaping (NftsResponse?) -> Void) {
+        guard let url = URL(string: "https://api.opensea.io/api/v2/chain/\(network.openSeaChain)/account/\(owner)/nfts") else {
             completion(nil)
             return
         }
@@ -16,8 +16,8 @@ struct RawNftsApi {
         getNfts(url: url, nextCursor: nextCursor, completion: completion)
     }
     
-    static func get(contract: String, nextCursor: String?, completion: @escaping (NftsResponse?) -> Void) {
-        guard let url = URL(string: "https://api.opensea.io/api/v2/chain/ethereum/contract/\(contract)/nfts") else {
+    static func get(contract: String, network: Network = .mainnet, nextCursor: String?, completion: @escaping (NftsResponse?) -> Void) {
+        guard let url = URL(string: "https://api.opensea.io/api/v2/chain/\(network.openSeaChain)/contract/\(contract)/nfts") else {
             completion(nil)
             return
         }
@@ -126,7 +126,7 @@ struct OpenSeaNft: Codable {
 
 extension OpenSeaNft {
     
-    func detailedMetadata(network: Network) -> DetailedTokenMetadata {
+    func detailedMetadata(network: Network, chain: Chain?) -> DetailedTokenMetadata {
         let rawContentRepresentations = [
             ContentRepresentation(url: displayAnimationUrl, size: nil, mimeType: nil, knownKind: .video),
             ContentRepresentation(url: imageUrl, size: nil, mimeType: nil, knownKind: .image),
@@ -155,12 +155,33 @@ extension OpenSeaNft {
                                      collectionName: collection,
                                      collectionAddress: contract,
                                      tokenId: identifier,
-                                     chain: nil,
+                                     chain: chain,
                                      network: network,
                                      tokenStandard: tokenStandard,
                                      contentRepresentations: contentRepresentations)
     }
     
+}
+
+private extension Network {
+
+    var openSeaChain: String {
+        switch self {
+        case .mainnet:
+            return "ethereum"
+        case .optimism:
+            return "optimism"
+        case .zora:
+            return "zora"
+        case .base:
+            return "base"
+        case .arbitrum:
+            return "arbitrum"
+        case .blast:
+            return "blast"
+        }
+    }
+
 }
 
 struct InlineContentJSON: Decodable {

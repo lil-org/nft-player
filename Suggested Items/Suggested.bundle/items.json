@@ -977,9 +977,10 @@
   },
   {
     "address" : "0x2612d478f73bce4ff76d5ed25ee1e1c49fa6073d",
-    "chain" : "ethereum",
+    "chain" : "zora",
     "chainId" : 7777777,
-    "name" : "unknown fake locations"
+    "name" : "unknown fake locations",
+    "tokenCount" : 13
   },
   {
     "address" : "0x5a0121a0a21232ec0d024dab9017314509026480",
@@ -987,13 +988,14 @@
     "chainId" : 1,
     "collectionId" : "001b77228ac834941166157c70965a86",
     "name" : "Finiliar",
-    "tokenCount" : 9799
+    "tokenCount" : 10000
   },
   {
     "address" : "0x9c6cb16ce41bd23aabbceaa0d49d09840baa3c35",
-    "chain" : "ethereum",
+    "chain" : "zora",
     "chainId" : 7777777,
-    "name" : "zibblerguyz"
+    "name" : "zibblerguyz",
+    "tokenCount" : 10
   },
   {
     "abId" : "39",
@@ -4646,15 +4648,10 @@
   },
   {
     "address" : "0xe6b8631dcd1d9f9f26bb8aec2df74a971383b94a",
-    "chain" : "ethereum",
+    "chain" : "zora",
     "chainId" : 7777777,
-    "name" : "slides"
-  },
-  {
-    "address" : "0x4f89Cd0CAE1e54D98db6a80150a824a533502EEa",
-    "chain" : "ethereum",
-    "chainId" : 1,
-    "name" : "Groupies"
+    "name" : "slides",
+    "tokenCount" : 20
   },
   {
     "address" : "0x17abd4cc1382397ec2b675f98621c3ba809897de",
@@ -4694,21 +4691,24 @@
   },
   {
     "address" : "0x2a290299828138096da60a2a74f2dd5e3c6a3ac2",
-    "chain" : "ethereum",
+    "chain" : "zora",
     "chainId" : 7777777,
-    "name" : "poor traits"
+    "name" : "poor traits",
+    "tokenCount" : 17
   },
   {
     "address" : "0x0c640779dbd6cda40d54350344dfd37d99aed8aa",
-    "chain" : "ethereum",
+    "chain" : "zora",
     "chainId" : 7777777,
-    "name" : "Very Internet Printout"
+    "name" : "Very Internet Printout",
+    "tokenCount" : 24
   },
   {
     "address" : "0xc2276a4a03e7c2e2fa122692b07a870eff43cf51",
     "chain" : "ethereum",
     "chainId" : 1,
-    "name" : "All My Files"
+    "name" : "All My Files",
+    "tokenCount" : 162
   },
   {
     "address" : "0x160ee826cb805d9109005250e18e5371107c2e1f",
@@ -4719,15 +4719,10 @@
   },
   {
     "address" : "0x3ffe880dd25d870e2acf54f4c639c50704fadee8",
-    "chain" : "ethereum",
+    "chain" : "zora",
     "chainId" : 7777777,
-    "name" : "Cats: A form study"
-  },
-  {
-    "address" : "0xBd3531dA5CF5857e7CfAA92426877b022e612cf8",
-    "chain" : "ethereum",
-    "chainId" : 1,
-    "name" : "Pudgy Penguins"
+    "name" : "Cats: A form study",
+    "tokenCount" : 22
   },
   {
     "address" : "0xEC0a7A26456B8451aefc4b00393ce1BefF5eB3e9",
@@ -4744,18 +4739,6 @@
     "tokenCount" : 2500
   },
   {
-    "address" : "0xc92cedDfb8dd984A89fb494c376f9A48b999aAFc",
-    "chain" : "ethereum",
-    "chainId" : 1,
-    "name" : "Creature World"
-  },
-  {
-    "address" : "0xca7ca7bcc765f77339be2d648ba53ce9c8a262bd",
-    "chain" : "ethereum",
-    "chainId" : 1,
-    "name" : "Tubby Cats"
-  },
-  {
     "address" : "0x91680cf5f9071cafae21b90ebf2c9cc9e480fb93",
     "chain" : "ethereum",
     "chainId" : 1,
@@ -4766,13 +4749,15 @@
     "address" : "0xc62e3fd5b02618f90dd07d1e478963038fa9089c",
     "chain" : "ethereum",
     "chainId" : 1,
-    "name" : "milady aura petz"
+    "name" : "milady aura petz",
+    "tokenCount" : 1884
   },
   {
     "address" : "0x9c8ff314c9bc7f6e59a9d9225fb22946427edc03",
     "chain" : "ethereum",
     "chainId" : 1,
-    "name" : "Nouns"
+    "name" : "Nouns",
+    "tokenCount" : 1889
   },
   {
     "address" : "0x1ee3bcc37b747c29a0583352b3d9541f393cea82",
@@ -4793,13 +4778,15 @@
     "address" : "0x44096d6de5d17020ce0c41d75ce27b33c6d28e1a",
     "chain" : "ethereum",
     "chainId" : 1,
-    "name" : "tubbypxgan"
+    "name" : "tubbypxgan",
+    "tokenCount" : 1335
   },
   {
     "address" : "0x290cb7f4bb752d28d759cf15e929922be996d6b3",
-    "chain" : "ethereum",
+    "chain" : "zora",
     "chainId" : 7777777,
-    "name" : "Soul Experience"
+    "name" : "Soul Experience",
+    "tokenCount" : 5
   },
   {
     "address" : "0xf694002c6d990036916013e8562fe6a26d44586d",
@@ -4807,24 +4794,6 @@
     "chainId" : 1,
     "name" : "Ladies",
     "tokenCount" : 500
-  },
-  {
-    "address" : "0x1cb1a5e65610aeff2551a50f76a87a7d3fb649c6",
-    "chain" : "ethereum",
-    "chainId" : 1,
-    "name" : "Cryptoadz"
-  },
-  {
-    "address" : "0x582048c4077a34e7c3799962f1f8c5342a3f4b12",
-    "chain" : "ethereum",
-    "chainId" : 1,
-    "name" : "Shinsei Galverse"
-  },
-  {
-    "address" : "0x5a876ffc6e75066f5ca870e20fca4754c1efe91f",
-    "chain" : "ethereum",
-    "chainId" : 1,
-    "name" : "Flowers"
   },
   {
     "address" : "0xeeca64ea9fcf99a22806cd99b3d29cf6e8d54925",
@@ -4846,12 +4815,6 @@
     "chainId" : 1,
     "name" : "Bloomers",
     "tokenCount" : 502
-  },
-  {
-    "address" : "0x375ea781c49eafedde07afe6196f885761f166ae",
-    "chain" : "ethereum",
-    "chainId" : 1,
-    "name" : "CryptoTrunks"
   },
   {
     "address" : "0xaa39b261b8d4fdaa8a1ed436cc14a723c0480ee9",
@@ -4991,25 +4954,11 @@
     "name" : "Dominoes in Fluxus"
   },
   {
-    "address" : "0xdfde78d2baec499fe18f2be74b6c287eed9511d7",
-    "chain" : "ethereum",
-    "chainId" : 1,
-    "collectionId" : "174824fc5d4b8f2061aba73e3a5b6573",
-    "name" : "New Realities"
-  },
-  {
     "address" : "0xb17278f7428e2052bff433e475beb6effda3c817",
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "8ad0539abb7bc90c33e3dd7d6ca92c97",
     "name" : "The Age of Self Indulgence"
-  },
-  {
-    "address" : "0xdfde78d2baec499fe18f2be74b6c287eed9511d7",
-    "chain" : "ethereum",
-    "chainId" : 1,
-    "collectionId" : "bbd14faf63d583dbbdeea7c5e7b359b0",
-    "name" : "Life In West America"
   },
   {
     "address" : "0xa86cd4ecebd96085fce4697614d30600803455c4",

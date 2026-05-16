@@ -42,7 +42,7 @@ const SUPPORTED_CHAINS = new Map([
   ["ethereum", { openSeaChain: "ethereum", appChain: "ethereum", chainId: 1, collectionIdSuffix: "" }],
   ["base", { openSeaChain: "base", appChain: "base", chainId: 8453, collectionIdSuffix: "base" }],
   ["optimism", { openSeaChain: "optimism", appChain: "optimism", chainId: 10, collectionIdSuffix: "optimism" }],
-  ["zora", { openSeaChain: "zora", appChain: "zora", chainId: 7777777, collectionIdSuffix: "zora" }],
+  ["zora", { openSeaChain: "zora", appChain: "zora", chainId: 7777777, collectionIdSuffix: "" }],
 ]);
 const CHAIN_ALIASES = new Map([
   ["eth", "ethereum"],
@@ -1347,38 +1347,69 @@ async function writeBundle(collections, context, failedCollections = []) {
 }
 
 function mergeSuggestedItems(existingItems, collections) {
-  const updatesById = new Map(collections.map((collection) => [
-    collection.collectionId.toLowerCase(),
-    {
-      address: collection.address,
-      chain: collection.appChain,
-      chainId: collection.chainId,
-      ...(collection.collectionIdSuffix ? { collectionId: collection.collectionIdSuffix } : {}),
-      name: collection.name,
-      tokenCount: collection.tokens.length,
-      iosOnly: true,
-    },
-  ]));
+  const updatesById = new Map();
+  for (const collection of collections) {
+    for (const id of suggestedItemMergeIds(collection)) {
+      updatesById.set(id.toLowerCase(), collection);
+    }
+  }
   const existingIds = new Set();
 
-  const updated = existingItems.map((item) => {
+  const updated = [];
+  for (const item of existingItems) {
     const id = suggestedItemId(item).toLowerCase();
-    const replacement = updatesById.get(id);
-    if (replacement) {
-      existingIds.add(id);
-      return replacement;
+    const collection = updatesById.get(id);
+    if (collection) {
+      const canonicalId = collection.collectionId.toLowerCase();
+      if (existingIds.has(canonicalId)) {
+        continue;
+      }
+      existingIds.add(canonicalId);
+      updated.push(mergedSuggestedItem(item, collection));
+    } else {
+      updated.push(item);
     }
-    return item;
-  });
+  }
 
   for (const collection of collections) {
     const id = collection.collectionId.toLowerCase();
     if (!existingIds.has(id)) {
-      updated.push(updatesById.get(id));
+      updated.push(newSuggestedItem(collection));
     }
   }
 
   return updated;
+}
+
+function suggestedItemMergeIds(collection) {
+  const ids = new Set([collection.collectionId]);
+  if (!collection.collectionIdSuffix && collection.appChain !== "ethereum") {
+    ids.add(`${collection.address}${collection.appChain}`);
+  }
+  return ids;
+}
+
+function mergedSuggestedItem(item, collection) {
+  const { collectionId, ...itemWithoutCollectionId } = item;
+  return {
+    ...itemWithoutCollectionId,
+    chain: collection.appChain,
+    chainId: collection.chainId,
+    ...(collection.collectionIdSuffix ? { collectionId: collection.collectionIdSuffix } : {}),
+    tokenCount: collection.tokens.length,
+  };
+}
+
+function newSuggestedItem(collection) {
+  return {
+    address: collection.address,
+    chain: collection.appChain,
+    chainId: collection.chainId,
+    ...(collection.collectionIdSuffix ? { collectionId: collection.collectionIdSuffix } : {}),
+    name: collection.name,
+    tokenCount: collection.tokens.length,
+    iosOnly: true,
+  };
 }
 
 function suggestedItemId(item) {

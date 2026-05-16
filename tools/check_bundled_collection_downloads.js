@@ -288,10 +288,10 @@ async function readCollections(options) {
     fs.readdir(tokensPath),
   ]);
 
-  const tokenIds = new Set(
+  const tokenFileNameById = new Map(
     tokenFileNames
       .filter((fileName) => fileName.endsWith(".json"))
-      .map((fileName) => fileName.slice(0, -".json".length)),
+      .map((fileName) => [fileName.slice(0, -".json".length), fileName]),
   );
 
   const collections = [];
@@ -308,7 +308,8 @@ async function readCollections(options) {
 
     suggestedItemsMatched += 1;
 
-    if (!tokenIds.has(id)) {
+    const tokenFileName = tokenFileNameById.get(id) ?? tokenFileNameById.get(id.toLowerCase());
+    if (!tokenFileName) {
       missingTokenFiles.push({
         id,
         name: item.name,
@@ -320,7 +321,7 @@ async function readCollections(options) {
       continue;
     }
 
-    const tokenFilePath = path.join(tokensPath, `${id}.json`);
+    const tokenFilePath = path.join(tokensPath, tokenFileName);
     const bundledTokens = await readJson(tokenFilePath);
     const normalizedTokens = normalizeBundledTokenRows(bundledTokens);
     collections.push({
@@ -331,7 +332,7 @@ async function readCollections(options) {
       projectId: projectIdFor(item),
       chain: item.chain,
       chainId: item.chainId,
-      isComplete: Boolean(bundledTokens.isComplete),
+      isComplete: bundledTokens.isComplete !== false,
       tokenCount: normalizedTokens.length,
       sampledTokens: sampleTokens(normalizedTokens, options.samples),
     });
@@ -342,7 +343,7 @@ async function readCollections(options) {
     collections,
     missingTokenFiles,
     suggestedItemsMatched,
-    bundledTokenJsonFiles: tokenIds.size,
+    bundledTokenJsonFiles: tokenFileNameById.size,
   };
 }
 
@@ -399,7 +400,7 @@ async function fetchOpenSeaCollectionNfts(collection, options) {
   let pagesFetched = 0;
 
   while (pagesFetched < options.openSeaPages) {
-    const result = await fetchOpenSeaNftPage(collection.address, nextCursor, options);
+    const result = await fetchOpenSeaNftPage(collection, nextCursor, options);
     if (!result.ok) {
       return {
         ...result,
@@ -424,8 +425,8 @@ async function fetchOpenSeaCollectionNfts(collection, options) {
   };
 }
 
-async function fetchOpenSeaNftPage(contractAddress, nextCursor, options) {
-  const url = new URL(`https://api.opensea.io/api/v2/chain/ethereum/contract/${contractAddress}/nfts`);
+async function fetchOpenSeaNftPage(collection, nextCursor, options) {
+  const url = new URL(`https://api.opensea.io/api/v2/chain/${openSeaChain(collection)}/contract/${collection.address}/nfts`);
   if (nextCursor) {
     url.searchParams.set("next", nextCursor);
   }
@@ -443,6 +444,24 @@ async function fetchOpenSeaNftPage(contractAddress, nextCursor, options) {
   }
 
   return lastResult;
+}
+
+function openSeaChain(collection) {
+  switch (collection.chainId) {
+    case 10:
+      return "optimism";
+    case 7777777:
+      return "zora";
+    case 8453:
+      return "base";
+    case 42161:
+      return "arbitrum";
+    case 238:
+      return "blast";
+    case 1:
+    default:
+      return "ethereum";
+  }
 }
 
 async function fetchOpenSeaJson(url, options) {
@@ -858,7 +877,7 @@ function renderMarkdownReport(report) {
   lines.push(`- HEAD fallback after repeated GET 429s: ${report.options.headFallbackOn429 ? "yes" : "no"}`);
   lines.push(`- Concurrency: ${report.options.concurrency}`);
   lines.push("");
-  lines.push("The script uses the same bundled item URL precedence as `WalletDownloader`: `sh` fields map to `https://cdn.simplehash.com/assets/{sh}`, explicit `url` fields are used after the app's `ipfs://` and `ar://` gateway normalization, and other bundled items map to `https://media-proxy.artblocks.io/{collectionAddress}/{tokenId}.png`. Suggested items without bundled token JSON use the same OpenSea contract NFT endpoint as `RawNftsApi.get(contract:)`, then sample the image, display image, and metadata URLs that the app would use by default.");
+  lines.push("The script uses the same bundled item URL precedence as `WalletDownloader`: `sh` fields map to `https://cdn.simplehash.com/assets/{sh}`, explicit `url` fields are used after the app's `ipfs://` and `ar://` gateway normalization, and other bundled items map to `https://media-proxy.artblocks.io/{collectionAddress}/{tokenId}.png`. Suggested items without bundled token JSON use the same network-specific OpenSea contract NFT endpoint as `RawNftsApi.get(contract:)`, then sample the image, display image, and metadata URLs that the app would use by default.");
   lines.push("");
   lines.push("## Summary");
   lines.push("");

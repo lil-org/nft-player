@@ -319,7 +319,8 @@ private enum DownloadableCollectionService {
 
     private static func loadTokenData(collectionId: String) -> DownloadableCollectionTokenData? {
         guard let collection = index.collectionById[collectionId],
-              let url = SuggestedItemsService.bundle.url(forResource: collectionId, withExtension: "json", subdirectory: "Tokens"),
+              let url = SuggestedItemsService.bundle.url(forResource: collectionId, withExtension: "json", subdirectory: "Tokens")
+                ?? SuggestedItemsService.bundle.url(forResource: collectionId.lowercased(), withExtension: "json", subdirectory: "Tokens"),
               let data = try? Data(contentsOf: url),
               let payload = try? JSONDecoder().decode(DownloadableCollectionTokensPayload.self, from: data) else {
             return nil

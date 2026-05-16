@@ -43,7 +43,7 @@ struct SuggestedItemsService {
     }
     
     static func bundledTokens(collectionId: String) -> BundledTokens? {
-        if let url = bundle.url(forResource: "Tokens/" + collectionId, withExtension: "json"),
+        if let url = bundle.url(forResource: "Tokens/" + collectionId, withExtension: "json") ?? bundle.url(forResource: "Tokens/" + collectionId.lowercased(), withExtension: "json"),
            let data = try? Data(contentsOf: url),
            let bundledTokens = try? JSONDecoder().decode(BundledTokens.self, from: data) {
             return bundledTokens

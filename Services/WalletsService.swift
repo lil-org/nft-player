@@ -108,7 +108,7 @@ struct WalletsService {
         guard let path = URL.nftDirectory?.path else { return }
         RawNftsApi.getCollectionInfo(contract: wallet.address) { response in
             if let response = response {
-                let collections = [CollectionInfo(name: response.name.isEmpty ? response.collection : response.name, network: tmpOnlyNetwork, chain: nil)]
+                let collections = [CollectionInfo(name: response.name.isEmpty ? response.collection : response.name, network: .mainnet, chain: nil)]
                 
                 guard var collectionName = collections.first?.name else { return }
                 if hasWallet(folderName: collectionName) {

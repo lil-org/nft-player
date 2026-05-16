@@ -2,13 +2,10 @@
 
 import Foundation
 
-let tmpOnlyNetwork = Network.mainnet
-
 class WalletDownloader {
     
     private var didStudy = false
     private var completion: () -> Void
-    private var bundledTokensIdsWithAddresses = Set<String>()
     
     private lazy var fileDownloader = FileDownloader { [weak self] in
         if self?.didStudy == true {
@@ -21,7 +18,7 @@ class WalletDownloader {
     }
     
     func study(wallet: WatchOnlyWallet) {
-        let shouldGoThroughNfts = processBundledTokensAndSeeIfShouldGoThroughNfts(wallet: wallet)
+        let shouldGoThroughNfts = processBundledTokens(wallet: wallet)
         
         if shouldGoThroughNfts {
             goThroughNfts(wallet: wallet)
@@ -30,11 +27,10 @@ class WalletDownloader {
         }
     }
     
-    private func processBundledTokensAndSeeIfShouldGoThroughNfts(wallet: WatchOnlyWallet) -> Bool {
+    private func processBundledTokens(wallet: WatchOnlyWallet) -> Bool {
         guard let collection = wallet.collections?.first else { return true }
         if let bundledTokens = SuggestedItemsService.bundledTokens(collectionId: wallet.id),
            let walletRootDirectory = URL.nftDirectory(wallet: wallet, createIfDoesNotExist: false) {
-            let isComplete = bundledTokens.isComplete
             var tasks = [DownloadFileTask]()
             for item in bundledTokens.items.shuffled() {
                 let name: String?
@@ -64,10 +60,6 @@ class WalletDownloader {
                     }
                 }
                 
-                if !isComplete {
-                    bundledTokensIdsWithAddresses.insert(item.id + wallet.address)
-                }
-                
                 let detailedMetadata = DetailedTokenMetadata(name: name, collectionName: collection.name, collectionAddress: wallet.address, tokenId: item.id, chain: wallet.chain, network: collection.network, tokenStandard: nil, contentRepresentations: contentRepresentations)
                 guard !MetadataStorage.hasSomethingFor(detailedMetadata: detailedMetadata, addressDirectoryURL: walletRootDirectory) else { continue }
                 let minimalMetadata = MinimalTokenMetadata(tokenId: item.id, collectionAddress: wallet.address, chain: wallet.chain, network: collection.network)
@@ -75,7 +67,7 @@ class WalletDownloader {
                 tasks.append(downloadTask)
             }
             fileDownloader.addTasks(tasks, wallet: wallet)
-            return !isComplete
+            return false
         } else {
             return true
         }
@@ -111,21 +103,25 @@ class WalletDownloader {
         }
         
         if wallet.isCollection {
-            RawNftsApi.get(contract: wallet.address, nextCursor: nextCursor, completion: completion)
+            RawNftsApi.get(contract: wallet.address, network: downloadNetwork(for: wallet), nextCursor: nextCursor, completion: completion)
         } else {
-            RawNftsApi.get(owner: wallet.address, nextCursor: nextCursor, completion: completion)
+            RawNftsApi.get(owner: wallet.address, network: downloadNetwork(for: wallet), nextCursor: nextCursor, completion: completion)
         }
     }
     
     private func processResultNfts(_ nfts: [OpenSeaNft], wallet: WatchOnlyWallet) {
         guard let destination = URL.nftDirectory(wallet: wallet, createIfDoesNotExist: false) else { return }
-        let newNodes = bundledTokensIdsWithAddresses.isEmpty ? nfts : nfts.filter { !bundledTokensIdsWithAddresses.contains($0.identifier + $0.contract) }
-        let tasks = newNodes.map { nft -> DownloadFileTask in
-            let minimal = MinimalTokenMetadata(tokenId: nft.identifier, collectionAddress: nft.contract, chain: wallet.chain, network: .mainnet)
-            let detailed = nft.detailedMetadata(network: tmpOnlyNetwork)
+        let network = downloadNetwork(for: wallet)
+        let tasks = nfts.map { nft -> DownloadFileTask in
+            let minimal = MinimalTokenMetadata(tokenId: nft.identifier, collectionAddress: nft.contract, chain: wallet.chain, network: network)
+            let detailed = nft.detailedMetadata(network: network, chain: wallet.chain)
             return DownloadFileTask(walletRootDirectory: destination, minimalMetadata: minimal, detailedMetadata: detailed)
         }
         fileDownloader.addTasks(tasks, wallet: wallet)
+    }
+
+    private func downloadNetwork(for wallet: WatchOnlyWallet) -> Network {
+        wallet.collections?.first?.network ?? wallet.chain?.network ?? .mainnet
     }
     
     deinit {
