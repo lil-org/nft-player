@@ -53,7 +53,6 @@
 		2C1E2B8E2B877F290035E0CA /* Data.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C1E2B8D2B877F290035E0CA /* Data.swift */; };
 		2C1FD2AB2B88B53F004F42B3 /* ContentRepresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C1FD2AA2B88B53F004F42B3 /* ContentRepresentation.swift */; };
 		2C1FD2AD2B88D2EF004F42B3 /* Int.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C1FD2AC2B88D2EF004F42B3 /* Int.swift */; };
-		2C2329DA2B68367F00001936 /* RightClickServiceProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C2329D92B68367F00001936 /* RightClickServiceProvider.swift */; };
 		2C25BFEB2C6D28410084FD7A /* Platform.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C25BFEA2C6D28410084FD7A /* Platform.swift */; };
 		2C2B5AD12B84E2DA005C38B0 /* DownloadFileTask.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C2B5AD02B84E2DA005C38B0 /* DownloadFileTask.swift */; };
 		2C3924C12C1F0F1200161154 /* StringTask.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C3924C02C1F0F1200161154 /* StringTask.swift */; };
@@ -85,8 +84,6 @@
 		2C460EDF2D2987000083124E /* Suggested.bundle in Resources */ = {isa = PBXBuildFile; fileRef = 2C09BAE32C308145009BA300 /* Suggested.bundle */; };
 		2C460EE02D2987080083124E /* Covers.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2C4659932C308B44008CF97F /* Covers.xcassets */; };
 		2C460EED2D2990EA0083124E /* p5js100.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CEF35B42C413DA000388574 /* p5js100.js */; };
-		2CFA91022EB1000000000001 /* PonchoDrifellaMetalCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CFA91002EB1000000000001 /* PonchoDrifellaMetalCardView.swift */; };
-		2CFA91032EB1000000000001 /* PonchoDrifellaShaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = 2CFA91012EB1000000000001 /* PonchoDrifellaShaders.metal */; };
 		2C4659942C308B47008CF97F /* Covers.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2C4659932C308B44008CF97F /* Covers.xcassets */; };
 		2C4D315F2C56AC7F00C586D1 /* TvPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C4D315E2C56AC7F00C586D1 /* TvPlayerView.swift */; };
 		2C4D31612C56B10E00C586D1 /* HostAppImages.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C1B60C32B7D41D1009949C2 /* HostAppImages.swift */; };
@@ -125,7 +122,6 @@
 		2C6359562D29C5A400E40241 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 2CE9A7702BAD8ECD00579BF7 /* Localizable.xcstrings */; };
 		2C6A50C32DB17A6C002D4143 /* AirPlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C6A50C22DB17A68002D4143 /* AirPlay.swift */; };
 		2C7134D62D30460B001E33DC /* MobilePlaybackController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C7134D52D304609001E33DC /* MobilePlaybackController.swift */; };
-		2CFA90012EB0000000000001 /* MobileCollectionCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CFA90002EB0000000000001 /* MobileCollectionCatalog.swift */; };
 		2C85F3A22FA3469B0065AE2B /* Suggested.bundle in Resources */ = {isa = PBXBuildFile; fileRef = 2C09BAE32C308145009BA300 /* Suggested.bundle */; };
 		2C85F3A32FA3470D0065AE2B /* p5js100.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CEF35B42C413DA000388574 /* p5js100.js */; };
 		2C85F3A42FA3470D0065AE2B /* paper.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CEF35B02C413D9F00388574 /* paper.js */; };
@@ -204,6 +200,9 @@
 		2CF7339E2B0ED50000B1AC68 /* RawNftsApi.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CF7339D2B0ED50000B1AC68 /* RawNftsApi.swift */; };
 		2CFA24712B19F956009B58FD /* DataOrUrl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CFA24702B19F956009B58FD /* DataOrUrl.swift */; };
 		2CFA24732B19FB92009B58FD /* FileExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CFA24722B19FB92009B58FD /* FileExtension.swift */; };
+		2CFA90012EB0000000000001 /* MobileCollectionCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CFA90002EB0000000000001 /* MobileCollectionCatalog.swift */; };
+		2CFA91022EB1000000000001 /* PonchoDrifellaMetalCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CFA91002EB1000000000001 /* PonchoDrifellaMetalCardView.swift */; };
+		2CFA91032EB1000000000001 /* PonchoDrifellaShaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = 2CFA91012EB1000000000001 /* PonchoDrifellaShaders.metal */; };
 		2CFF885B2C288C9A0007045F /* SuggestedItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CFF885A2C288C9A0007045F /* SuggestedItem.swift */; };
 /* End PBXBuildFile section */
 
@@ -255,7 +254,6 @@
 		2C1E2B8D2B877F290035E0CA /* Data.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Data.swift; sourceTree = "<group>"; };
 		2C1FD2AA2B88B53F004F42B3 /* ContentRepresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentRepresentation.swift; sourceTree = "<group>"; };
 		2C1FD2AC2B88D2EF004F42B3 /* Int.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Int.swift; sourceTree = "<group>"; };
-		2C2329D92B68367F00001936 /* RightClickServiceProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RightClickServiceProvider.swift; sourceTree = "<group>"; };
 		2C25BFEA2C6D28410084FD7A /* Platform.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Platform.swift; sourceTree = "<group>"; };
 		2C2B5AD02B84E2DA005C38B0 /* DownloadFileTask.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadFileTask.swift; sourceTree = "<group>"; };
 		2C2CB47C2D29545F00042E74 /* nft-folder-ios.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "nft-folder-ios.app"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -349,13 +347,10 @@
 		2CEF35B42C413DA000388574 /* p5js100.js */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.javascript; path = p5js100.js; sourceTree = "<group>"; };
 		2CF08AA32D2A937400D82ACA /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		2CF08AA42D2A937400D82ACA /* MobileCollectionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileCollectionsView.swift; sourceTree = "<group>"; };
-		2CFA90002EB0000000000001 /* MobileCollectionCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileCollectionCatalog.swift; sourceTree = "<group>"; };
 		2CF08AA52D2A937400D82ACA /* MobileHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileHelpers.swift; sourceTree = "<group>"; };
 		2CF08AA62D2A937400D82ACA /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		2CF08AA72D2A937400D82ACA /* nft_folder_iosApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = nft_folder_iosApp.swift; sourceTree = "<group>"; };
 		2CF08AA82D2A937400D82ACA /* MobilePlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobilePlayerView.swift; sourceTree = "<group>"; };
-		2CFA91002EB1000000000001 /* PonchoDrifellaMetalCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PonchoDrifellaMetalCardView.swift; sourceTree = "<group>"; };
-		2CFA91012EB1000000000001 /* PonchoDrifellaShaders.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = PonchoDrifellaShaders.metal; sourceTree = "<group>"; };
 		2CF08AAF2D2A955D00D82ACA /* VisionWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisionWebView.swift; sourceTree = "<group>"; };
 		2CF4C49A2B7F567B000AB4A6 /* Navigator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Navigator.swift; sourceTree = "<group>"; };
 		2CF4C49D2B7FB26C000AB4A6 /* DetailedTokenMetadata.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetailedTokenMetadata.swift; sourceTree = "<group>"; };
@@ -364,6 +359,9 @@
 		2CF7339D2B0ED50000B1AC68 /* RawNftsApi.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawNftsApi.swift; sourceTree = "<group>"; };
 		2CFA24702B19F956009B58FD /* DataOrUrl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataOrUrl.swift; sourceTree = "<group>"; };
 		2CFA24722B19FB92009B58FD /* FileExtension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileExtension.swift; sourceTree = "<group>"; };
+		2CFA90002EB0000000000001 /* MobileCollectionCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileCollectionCatalog.swift; sourceTree = "<group>"; };
+		2CFA91002EB1000000000001 /* PonchoDrifellaMetalCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PonchoDrifellaMetalCardView.swift; sourceTree = "<group>"; };
+		2CFA91012EB1000000000001 /* PonchoDrifellaShaders.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = PonchoDrifellaShaders.metal; sourceTree = "<group>"; };
 		2CFF885A2C288C9A0007045F /* SuggestedItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SuggestedItem.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -436,7 +434,6 @@
 				2CAFA62A2B09C3610054160D /* MetadataStorage.swift */,
 				2C4039F02B83B11100DB94D7 /* FileSaver.swift */,
 				2CF4C49F2B7FCDDC000AB4A6 /* Defaults.swift */,
-				2C2329D92B68367F00001936 /* RightClickServiceProvider.swift */,
 				2CF4C49A2B7F567B000AB4A6 /* Navigator.swift */,
 				2CE9A5752C3DA9FB009AEAF4 /* TokenGenerator.swift */,
 				2CEF35AC2C413AE700388574 /* RawHtmlGenerator.swift */,
@@ -786,7 +783,6 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 2CA4CF602B07F76000CC75F4 /* Build configuration list for PBXNativeTarget "nft folder" */;
 			buildPhases = (
-				2CA34B5C2B08BE5500DAB623 /* ShellScript */,
 				2C0CD5BE2DA3EE9300642A77 /* ShellScript */,
 				2CA4CF4D2B07F75E00CC75F4 /* Sources */,
 				2CA4CF4E2B07F75E00CC75F4 /* Frameworks */,
@@ -989,25 +985,6 @@
 			shellScript = "if [ -f \"${HOME}/Developer/secrets/nft-folder/Secrets.plist\" ]; then\n    cp -f \"${HOME}/Developer/secrets/nft-folder/Secrets.plist\" \"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/Secrets.plist\"\nelse\n    echo \"warning: 🟢🔴 YO BUNDLING EMPTY SECRETS\"\n    cp -f \"$SRCROOT/nft-folder/Secrets.plist\" \"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/Secrets.plist\"\nfi\n";
 			showEnvVarsInLog = 0;
 		};
-		2CA34B5C2B08BE5500DAB623 /* ShellScript */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 12;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "/System/Library/CoreServices/pbs -flush\n";
-			showEnvVarsInLog = 0;
-		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -1131,7 +1108,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				2C2329DA2B68367F00001936 /* RightClickServiceProvider.swift in Sources */,
 				2CA979AA2B627B3900DB3AC8 /* MinimalTokenMetadata.swift in Sources */,
 				2C1B60C62B7E1145009949C2 /* PreferencesView.swift in Sources */,
 				2C5065F72C0DFC8700D9D01A /* String.swift in Sources */,

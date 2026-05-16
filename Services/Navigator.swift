@@ -65,35 +65,4 @@ class Navigator: NSObject {
         }
     }
     
-    func show(filePath: String, on gallery: NftGallery) {
-        let fileUrl = URL(filePath: filePath)
-        if fileUrl.pathComponents.count == URL.nftDirectoryPathComponentsCount { // nft folder root
-            DispatchQueue.main.async { self.showControlCenter(addWallet: false) }
-        } else if fileUrl.pathComponents.count == URL.nftDirectoryPathComponentsCount + 1 { // address root
-            let name = fileUrl.lastPathComponent
-            if let wallet = WalletsService.shared.wallet(folderName: name), let galleryURL = gallery.url(wallet: wallet) {
-                DispatchQueue.main.async { NSWorkspace.shared.open(galleryURL) }
-            }
-        } else if let nftURL = MetadataStorage.nftURL(filePath: filePath, gallery: gallery) { // specific nft
-            DispatchQueue.main.async { NSWorkspace.shared.open(nftURL) }
-        } else { // custom nft folder within
-            let fileManager = FileManager.default
-            var didOpenSome = false
-            if let children = try? fileManager.contentsOfDirectory(at: fileUrl, includingPropertiesForKeys: nil) {
-                for child in children {
-                    if let nftURL = MetadataStorage.nftURL(filePath: child.path, gallery: gallery) {
-                        didOpenSome = true
-                        DispatchQueue.main.async { NSWorkspace.shared.open(nftURL) }
-                    }
-                }
-            }
-            if !didOpenSome && fileUrl.pathComponents.count > URL.nftDirectoryPathComponentsCount {
-                let rootFolderName = fileUrl.pathComponents[URL.nftDirectoryPathComponentsCount]
-                if let wallet = WalletsService.shared.wallet(folderName: rootFolderName), let galleryURL = gallery.url(wallet: wallet) {
-                    DispatchQueue.main.async { NSWorkspace.shared.open(galleryURL) }
-                }
-            }
-        }
-    }
-    
 }

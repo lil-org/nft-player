@@ -15,9 +15,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         createDirectoryIfNeeded()
         didFinishLaunching = true
         
-        NSApplication.shared.servicesProvider = RightClickServiceProvider()
-        NSUpdateDynamicServices()
-        
         Navigator.shared.showControlCenter(addWallet: false)
         
         let notificationCenter = DistributedNotificationCenter.default()
