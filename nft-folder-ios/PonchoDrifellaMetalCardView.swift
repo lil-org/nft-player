@@ -146,8 +146,16 @@ private final class PonchoDrifellaMotionTracker {
     private var neutralGravity: CMAcceleration?
     private var state = PonchoDrifellaMotionState()
     private var observers = [UUID: () -> Void]()
+    private var applicationIsActive = UIApplication.shared.applicationState == .active
+    private var applicationLifecycleObservers = [NSObjectProtocol]()
 
-    private init() {}
+    private init() {
+        installApplicationLifecycleObservers()
+    }
+
+    deinit {
+        applicationLifecycleObservers.forEach(NotificationCenter.default.removeObserver)
+    }
 
     func addObserver(_ observer: @escaping () -> Void) -> UUID {
         let id = UUID()
@@ -158,11 +166,15 @@ private final class PonchoDrifellaMotionTracker {
     func removeObserver(id: UUID) {
         observers[id] = nil
         if observers.isEmpty {
-            motionManager.stopDeviceMotionUpdates()
+            stopDeviceMotionUpdates(resetCalibration: false)
         }
     }
 
     func start() {
+        guard applicationIsActive else {
+            resetCalibration(notifyObservers: false)
+            return
+        }
         guard motionManager.isDeviceMotionAvailable else {
             if state.effectOpacity == 0 {
                 updateEffect(rawX: 0, rawY: 0, smooth: false)
@@ -173,7 +185,12 @@ private final class PonchoDrifellaMotionTracker {
 
         motionManager.deviceMotionUpdateInterval = 1.0 / 30.0
         motionManager.startDeviceMotionUpdates(to: .main) { [weak self] motion, _ in
-            guard let self, let motion else { return }
+            guard let self,
+                  self.applicationIsActive,
+                  !self.observers.isEmpty,
+                  let motion else {
+                return
+            }
             self.handleMotion(motion)
         }
     }
@@ -183,8 +200,58 @@ private final class PonchoDrifellaMotionTracker {
     }
 
     func resetCalibration() {
+        resetCalibration(notifyObservers: applicationIsActive)
+    }
+
+    private func resetCalibration(notifyObservers: Bool) {
         neutralGravity = nil
-        updateEffect(rawX: 0, rawY: 0, smooth: false)
+        updateEffect(rawX: 0, rawY: 0, smooth: false, notifyObservers: notifyObservers)
+    }
+
+    private func installApplicationLifecycleObservers() {
+        let notificationCenter = NotificationCenter.default
+        let inactiveNotifications: [NSNotification.Name] = [
+            UIApplication.willResignActiveNotification,
+            UIApplication.didEnterBackgroundNotification
+        ]
+
+        applicationLifecycleObservers = inactiveNotifications.map { name in
+            notificationCenter.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                self?.suspendForApplicationLifecycle()
+            }
+        }
+        applicationLifecycleObservers.append(
+            notificationCenter.addObserver(
+                forName: UIApplication.didBecomeActiveNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                self?.resumeFromApplicationLifecycle()
+            }
+        )
+    }
+
+    private func suspendForApplicationLifecycle() {
+        guard applicationIsActive else { return }
+
+        applicationIsActive = false
+        stopDeviceMotionUpdates(resetCalibration: true, notifyObservers: false)
+    }
+
+    private func resumeFromApplicationLifecycle() {
+        applicationIsActive = true
+        resetCalibration()
+
+        guard !observers.isEmpty else { return }
+        start()
+    }
+
+    private func stopDeviceMotionUpdates(resetCalibration: Bool, notifyObservers: Bool = true) {
+        motionManager.stopDeviceMotionUpdates()
+
+        if resetCalibration {
+            self.resetCalibration(notifyObservers: notifyObservers)
+        }
     }
 
     private func handleMotion(_ motion: CMDeviceMotion) {
@@ -203,7 +270,7 @@ private final class PonchoDrifellaMotionTracker {
         updateEffect(rawX: rawX, rawY: rawY, smooth: true)
     }
 
-    private func updateEffect(rawX: Float, rawY: Float, smooth: Bool) {
+    private func updateEffect(rawX: Float, rawY: Float, smooth: Bool, notifyObservers: Bool = true) {
         let cardTilt = SIMD2<Float>(Self.clamped(rawX), Self.clamped(rawY))
         let cardOffset = cardTilt * Self.pointerTravel
         let backgroundOffset = cardTilt * Self.backgroundTravel
@@ -228,10 +295,13 @@ private final class PonchoDrifellaMotionTracker {
         state.background = Self.clamped(state.background, lowerBound: 0.12, upperBound: 0.88)
         state.pointerFromCenter = min(length(cardTilt), 1)
         state.effectOpacity = 0.99
-        notifyObservers()
+        if notifyObservers {
+            self.notifyObservers()
+        }
     }
 
     private func notifyObservers() {
+        guard applicationIsActive else { return }
         Array(observers.values).forEach { $0() }
     }
 
