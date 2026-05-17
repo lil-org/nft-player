@@ -114,9 +114,16 @@ class AutoReloadingWebView: WKWebView, WKNavigationDelegate {
         navigationDelegate = self
         isOpaque = false
         backgroundColor = .black
+        underPageBackgroundColor = .black
         scrollView.backgroundColor = .black
         scrollView.contentInsetAdjustmentBehavior = .never
         scrollView.hideAutomaticScrollEdgeEffects()
+    }
+
+    func makePlayerBackgroundTransparent() {
+        makeBackgroundTransparent()
+        underPageBackgroundColor = .clear
+        scrollView.makeBackgroundTransparent()
     }
     
     override var bounds: CGRect {

@@ -32,6 +32,118 @@ struct Haptic {
     
 }
 
+enum MobilePlayerBackgroundColor {
+
+    static let defaultColor = UIColor.black
+    private static var cachedColorsByCollectionId = [String: UIColor]()
+
+    static func color(for config: MobilePlayerConfig) -> UIColor {
+        color(forCollectionId: config.specificToken?.fullCollectionId ?? config.initialItemId)
+    }
+
+    static func color(for token: GeneratedToken) -> UIColor {
+        color(forCollectionId: token.fullCollectionId)
+    }
+
+    static func color(forCollectionId collectionId: String?) -> UIColor {
+        guard let collectionId else {
+            return defaultColor
+        }
+        if let cachedColor = cachedColorsByCollectionId[collectionId] {
+            return cachedColor
+        }
+
+        let color = MobileCollectionCatalog.playerBackgroundColor(specificCollectionId: collectionId)
+            .flatMap(UIColor.init(playerBackgroundColorString:))
+            ?? defaultColor
+
+        cachedColorsByCollectionId[collectionId] = color
+        return color
+    }
+
+}
+
+extension UIView {
+
+    func makeBackgroundTransparent() {
+        backgroundColor = .clear
+        isOpaque = false
+    }
+
+}
+
+extension UIColor {
+
+    convenience init?(playerBackgroundColorString string: String) {
+        let normalized = string.trimmingCharacters(in: .whitespacesAndNewlines)
+        switch normalized.lowercased() {
+        case "black":
+            self.init(red: 0, green: 0, blue: 0, alpha: 1)
+            return
+        case "white":
+            self.init(red: 1, green: 1, blue: 1, alpha: 1)
+            return
+        default:
+            break
+        }
+
+        var hex = normalized
+        if hex.hasPrefix("#") {
+            hex.removeFirst()
+        } else if hex.lowercased().hasPrefix("0x") {
+            hex.removeFirst(2)
+        }
+
+        if hex.count == 3 {
+            hex = hex.map { "\($0)\($0)" }.joined()
+        }
+
+        guard hex.count == 6,
+              let value = UInt32(hex, radix: 16) else {
+            return nil
+        }
+
+        self.init(
+            red: CGFloat((value >> 16) & 0xFF) / 255,
+            green: CGFloat((value >> 8) & 0xFF) / 255,
+            blue: CGFloat(value & 0xFF) / 255,
+            alpha: 1
+        )
+    }
+
+    func isVisuallyEqual(to otherColor: UIColor, tolerance: CGFloat = 0.01) -> Bool {
+        guard let lhs = rgbaComponents,
+              let rhs = otherColor.rgbaComponents else {
+            return self == otherColor
+        }
+
+        return abs(lhs.red - rhs.red) <= tolerance
+            && abs(lhs.green - rhs.green) <= tolerance
+            && abs(lhs.blue - rhs.blue) <= tolerance
+            && abs(lhs.alpha - rhs.alpha) <= tolerance
+    }
+
+    func isOpaqueAndVisuallyEqual(to otherColor: UIColor, tolerance: CGFloat = 0.01) -> Bool {
+        guard let lhs = rgbaComponents else { return false }
+
+        return lhs.alpha > 0.98 && isVisuallyEqual(to: otherColor, tolerance: tolerance)
+    }
+
+    private var rgbaComponents: (red: CGFloat, green: CGFloat, blue: CGFloat, alpha: CGFloat)? {
+        var red: CGFloat = 0
+        var green: CGFloat = 0
+        var blue: CGFloat = 0
+        var alpha: CGFloat = 0
+
+        guard getRed(&red, green: &green, blue: &blue, alpha: &alpha) else {
+            return nil
+        }
+
+        return (red, green, blue, alpha)
+    }
+
+}
+
 enum MobilePlayerGestureTuning {
 
     static let dismissVerticalIntentRatio: CGFloat = 1.45

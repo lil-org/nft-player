@@ -1052,11 +1052,10 @@ private struct PlayerNavigationOverlay: UIViewControllerRepresentable {
     let onDismiss: () -> Void
 
     func makeUIViewController(context: Context) -> PlayerOverlayViewController {
-        let chrome = MobilePlayerChromeController()
+        let chrome = MobilePlayerChromeController(playerBackgroundColor: MobilePlayerBackgroundColor.color(for: config))
         let playerViewController = makeMobilePlayerViewController(config: config, onDismiss: onDismiss, chrome: chrome)
         let navigationController = PlayerNavigationController(rootViewController: playerViewController)
-        navigationController.view.backgroundColor = .clear
-        navigationController.view.isOpaque = false
+        navigationController.view.makeBackgroundTransparent()
         navigationController.navigationBar.isTranslucent = true
         navigationController.interactivePopGestureRecognizer?.isEnabled = false
         navigationController.setNavigationBarHidden(false, animated: false)
@@ -1080,8 +1079,7 @@ private func makeMobilePlayerViewController(
     chrome: MobilePlayerChromeController
 ) -> UIHostingController<MobilePlayerView> {
     let playerViewController = MobilePlayerHostingController(rootView: MobilePlayerView(config: config, onDismiss: onDismiss, chrome: chrome))
-    playerViewController.view.backgroundColor = .clear
-    playerViewController.view.isOpaque = false
+    playerViewController.view.makeBackgroundTransparent()
     return playerViewController
 }
 
@@ -1111,6 +1109,10 @@ private final class PlayerNavigationController: UINavigationController {
 
 private final class PlayerOverlayViewController: UIViewController, UIGestureRecognizerDelegate {
 
+    private static let dismissBackgroundClearPassDelay: TimeInterval = 0.05
+    private static let dismissGestureBackgroundClearPasses = 4
+    private static let finalDismissBackgroundClearPasses = 2
+
     private struct PlayerBackgroundSnapshot {
         weak var view: UIView?
         let backgroundColor: UIColor?
@@ -1139,6 +1141,9 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         self.chrome = chrome
         self.onDismiss = onDismiss
         super.init(nibName: nil, bundle: nil)
+        chrome.onPlayerBackgroundColorChange = { [weak self] color in
+            self?.setPlayerBackgroundColor(color)
+        }
     }
 
     required init?(coder: NSCoder) {
@@ -1160,10 +1165,9 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        view.backgroundColor = .clear
-        view.isOpaque = false
+        view.makeBackgroundTransparent()
 
-        dimmingView.backgroundColor = .black
+        dimmingView.backgroundColor = chrome.playerBackgroundColor
         dimmingView.alpha = 1
         view.addSubview(dimmingView)
         dimmingView.translatesAutoresizingMaskIntoConstraints = false
@@ -1234,7 +1238,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
             if isDismissPanDrivingPlayerDismiss {
                 playerNavigationController.view.layer.removeAllAnimations()
                 dimmingView.layer.removeAllAnimations()
-                makePlayerDismissBackgroundsTransparent()
+                startDismissBackgroundClearing()
                 setDismissStatusBarRevealed(true)
             }
             chrome.setControlsVisible(false)
@@ -1296,6 +1300,8 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
             isDismissing = true
             view.isUserInteractionEnabled = false
             setDismissStatusBarRevealed(true)
+            makePlayerDismissBackgroundsTransparent()
+            scheduleDismissBackgroundClearPasses(Self.finalDismissBackgroundClearPasses)
             let remainingDistance = max(view.bounds.height - clampedY, 0)
             let velocityDuration = velocity.y > 0 ? remainingDistance / velocity.y : 0.24
             let duration = min(max(TimeInterval(velocityDuration), 0.14), 0.24)
@@ -1328,38 +1334,58 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         })
     }
 
-    private func makePlayerDismissBackgroundsTransparent() {
-        guard dismissBackgroundSnapshots.isEmpty else { return }
-        guard let rootView = playerNavigationController.view else { return }
+    private func setPlayerBackgroundColor(_ color: UIColor) {
+        guard isViewLoaded else { return }
 
-        clearOpaqueBlackBackgrounds(in: rootView, relativeTo: rootView)
+        dimmingView.backgroundColor = color
     }
 
-    private func clearOpaqueBlackBackgrounds(in view: UIView, relativeTo rootView: UIView) {
-        if shouldClearDismissBackground(view, relativeTo: rootView) {
-            dismissBackgroundSnapshots.append(
-                PlayerBackgroundSnapshot(
-                    view: view,
-                    backgroundColor: view.backgroundColor,
-                    isOpaque: view.isOpaque
-                )
-            )
-            view.backgroundColor = .clear
-            view.isOpaque = false
-        }
+    private func startDismissBackgroundClearing() {
+        makePlayerDismissBackgroundsTransparent()
+        scheduleDismissBackgroundClearPasses(Self.dismissGestureBackgroundClearPasses)
+    }
 
-        view.subviews.forEach { subview in
-            clearOpaqueBlackBackgrounds(in: subview, relativeTo: rootView)
+    private func scheduleDismissBackgroundClearPasses(_ remainingPasses: Int) {
+        guard remainingPasses > 0, isDismissPanDrivingPlayerDismiss || isDismissing else { return }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.dismissBackgroundClearPassDelay) { [weak self] in
+            guard let self else { return }
+            guard self.isDismissPanDrivingPlayerDismiss || self.isDismissing else { return }
+
+            self.makePlayerDismissBackgroundsTransparent()
+            self.scheduleDismissBackgroundClearPasses(remainingPasses - 1)
+        }
+    }
+
+    private func makePlayerDismissBackgroundsTransparent() {
+        guard let rootView = playerNavigationController.view else { return }
+
+        ([rootView] + rootView.allSubviews(ofType: UIView.self)).forEach { view in
+            guard shouldClearDismissBackground(view, relativeTo: rootView) else { return }
+            if !hasDismissBackgroundSnapshot(for: view) {
+                dismissBackgroundSnapshots.append(
+                    PlayerBackgroundSnapshot(
+                        view: view,
+                        backgroundColor: view.backgroundColor,
+                        isOpaque: view.isOpaque
+                    )
+                )
+            }
+            view.makeBackgroundTransparent()
         }
     }
 
     private func shouldClearDismissBackground(_ view: UIView, relativeTo rootView: UIView) -> Bool {
-        guard isOpaqueBlack(view.backgroundColor) else { return false }
+        guard isOpaquePlayerBackground(view.backgroundColor) else { return false }
         guard view === rootView || !rootView.bounds.isEmpty else { return view === rootView }
 
         let boundsInRoot = view.convert(view.bounds, to: rootView)
         return boundsInRoot.width >= rootView.bounds.width * 0.85
             && boundsInRoot.height >= rootView.bounds.height * 0.85
+    }
+
+    private func hasDismissBackgroundSnapshot(for view: UIView) -> Bool {
+        dismissBackgroundSnapshots.contains { $0.view === view }
     }
 
     private func restorePlayerDismissBackgrounds() {
@@ -1370,19 +1396,11 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         dismissBackgroundSnapshots.removeAll()
     }
 
-    private func isOpaqueBlack(_ color: UIColor?) -> Bool {
+    private func isOpaquePlayerBackground(_ color: UIColor?) -> Bool {
         guard let color else { return false }
 
-        var red: CGFloat = 0
-        var green: CGFloat = 0
-        var blue: CGFloat = 0
-        var alpha: CGFloat = 0
-
-        guard color.getRed(&red, green: &green, blue: &blue, alpha: &alpha) else {
-            return false
-        }
-
-        return alpha > 0.98 && red < 0.02 && green < 0.02 && blue < 0.02
+        return color.isOpaqueAndVisuallyEqual(to: chrome.playerBackgroundColor)
+            || color.isOpaqueAndVisuallyEqual(to: MobilePlayerBackgroundColor.defaultColor)
     }
 
     private func easeOutQuadratic(_ progress: CGFloat) -> CGFloat {

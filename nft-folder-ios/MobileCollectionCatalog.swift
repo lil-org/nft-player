@@ -82,6 +82,10 @@ enum MobileCollectionCatalog {
         return DownloadableCollectionService.mediaDescriptor(collectionId: specificCollectionId, tokenIndex: tokenIndex)
     }
 
+    static func playerBackgroundColor(specificCollectionId: String) -> String? {
+        SuggestedItemsService.item(id: specificCollectionId)?.playerBackgroundColor
+    }
+
     private static func dedupedItems(_ items: [SuggestedItem]) -> [SuggestedItem] {
         var seenIds = Set<String>()
         return items.filter { item in

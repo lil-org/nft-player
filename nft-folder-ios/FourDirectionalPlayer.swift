@@ -59,6 +59,7 @@ final class FullscreenTokenMediaRenderer {
     private var activeImageLoadId: UUID?
     private var cancelActiveImageLoad: ImageLoadCancellation?
     private var webViewMayContainContent = false
+    private var usesTransparentPlayerBackground = false
 
     init(containerView: UIView) {
         self.containerView = containerView
@@ -207,6 +208,18 @@ final class FullscreenTokenMediaRenderer {
         }
     }
 
+    func makePlayerBackgroundTransparent() {
+        usesTransparentPlayerBackground = true
+        containerView.makeBackgroundTransparent()
+        if let imageView = imageView {
+            imageView.makeBackgroundTransparent()
+        }
+        webView?.makePlayerBackgroundTransparent()
+        if let ponchoDrifellaMetalCardView = ponchoDrifellaMetalCardView {
+            ponchoDrifellaMetalCardView.makeBackgroundTransparent()
+        }
+    }
+
     private func prepareWebContent(
         _ html: String,
         hidesEmptyWebContent: Bool,
@@ -235,18 +248,27 @@ final class FullscreenTokenMediaRenderer {
         guard imageView == nil else { return }
 
         imageView = FullscreenTokenMediaView.imageView(in: containerView)
+        if usesTransparentPlayerBackground {
+            imageView.makeBackgroundTransparent()
+        }
     }
 
     private func ensureWebView() {
         guard webView == nil else { return }
 
         webView = FullscreenTokenMediaView.webView(in: containerView)
+        if usesTransparentPlayerBackground {
+            webView.makePlayerBackgroundTransparent()
+        }
     }
 
     private func ensurePonchoDrifellaMetalCardView() {
         guard ponchoDrifellaMetalCardView == nil else { return }
 
         ponchoDrifellaMetalCardView = FullscreenTokenMediaView.ponchoDrifellaMetalCardView(in: containerView)
+        if usesTransparentPlayerBackground {
+            ponchoDrifellaMetalCardView.makeBackgroundTransparent()
+        }
     }
 
     private func hideWebContent() {
@@ -566,7 +588,7 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
         super.viewDidLoad()
         PonchoDrifellaMetalCardView.resetMotionCalibration()
         MobilePlaybackController.shared.subscribe(config: initialConfig, display: self)
-        view.backgroundColor = .black
+        makePlayerBackgroundTransparent()
         pagingVC.onCurrentZoomStateChange = { [weak self] isZoomed in
             self?.onZoomStateChange(isZoomed)
         }
@@ -583,6 +605,11 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
         installEdgeTapHighlights()
         installTapGestures()
         UIApplication.shared.isIdleTimerDisabled = true
+    }
+
+    private func makePlayerBackgroundTransparent() {
+        view.makeBackgroundTransparent()
+        pagingVC.makePlayerBackgroundTransparent()
     }
 
     deinit {
@@ -1229,10 +1256,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     }
 
     private func configureZoomScrollView() {
-        view.backgroundColor = .black
-        mediaContentView.backgroundColor = .black
-
-        zoomScrollView.backgroundColor = .black
+        makePlayerBackgroundTransparent()
         zoomScrollView.delegate = self
         zoomScrollView.minimumZoomScale = 1
         zoomScrollView.maximumZoomScale = MobilePlayerGestureTuning.playerMaximumZoomScale
@@ -1256,6 +1280,19 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
 
         updateZoomContentFrame(resetOffset: true)
         updateZoomInteraction()
+    }
+
+    fileprivate func makePlayerBackgroundTransparent() {
+        guard isViewLoaded else { return }
+
+        applyPlayerBackgroundTransparency()
+    }
+
+    private func applyPlayerBackgroundTransparency() {
+        view.makeBackgroundTransparent()
+        mediaContentView.makeBackgroundTransparent()
+        zoomScrollView.makeBackgroundTransparent()
+        mediaRenderer.makePlayerBackgroundTransparent()
     }
 
     private func setZoomContentLayout(
@@ -2033,6 +2070,7 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        makePlayerBackgroundTransparent()
         dataSource = self
         delegate = self
         setViewControllers([pageA], direction: .forward, animated: false, completion: nil)
@@ -2050,6 +2088,16 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
 
     private var currentPage: SpecificPageViewController? {
         viewControllers?.first as? SpecificPageViewController
+    }
+
+    func makePlayerBackgroundTransparent() {
+        view.makeBackgroundTransparent()
+        pagingScrollViews.forEach {
+            $0.makeBackgroundTransparent()
+        }
+        pageA.makePlayerBackgroundTransparent()
+        pageB.makePlayerBackgroundTransparent()
+        pageC.makePlayerBackgroundTransparent()
     }
 
     func toggleZoom(at location: CGPoint, in coordinateView: UIView) {
@@ -2072,6 +2120,7 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
     private func configurePagingScrollViews() {
         var didConfigureNewPagingScrollView = false
         pagingScrollViews.forEach { scrollView in
+            scrollView.makeBackgroundTransparent()
             scrollView.hideAutomaticScrollEdgeEffects()
             let panGesture = scrollView.panGestureRecognizer
             let panGestureId = ObjectIdentifier(panGesture)

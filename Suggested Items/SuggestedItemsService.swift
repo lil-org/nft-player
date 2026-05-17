@@ -19,6 +19,7 @@ struct SuggestedItemsService {
     }()
     
     static var allItems = [SuggestedItem]()
+    private static var itemsById = [String: SuggestedItem]()
     static var visibleItems = readSuggestedItems()
     static var toHide = Set(Defaults.suggestedItemsToHide)
 
@@ -40,6 +41,11 @@ struct SuggestedItemsService {
         return allItems.filter {
             $0.address.lowercased() == lowercased && shouldIncludeInVisibleItems($0)
         }
+    }
+
+    static func item(id: String) -> SuggestedItem? {
+        ensureItemsLoaded()
+        return itemsById[id]
     }
     
     static func bundledTokens(collectionId: String) -> BundledTokens? {
@@ -86,6 +92,9 @@ struct SuggestedItemsService {
             return
         }
         allItems = items
+        itemsById = items.reduce(into: [:]) { result, item in
+            result[item.id] = result[item.id] ?? item
+        }
     }
     
 }

@@ -4,6 +4,7 @@ const fs = require("node:fs/promises");
 const path = require("node:path");
 const os = require("node:os");
 const { spawn } = require("node:child_process");
+const { mergeGeneratedSuggestedItem } = require("./suggested_items");
 
 const DEFAULT_BUNDLE_PATH = path.join("Suggested Items", "Suggested.bundle");
 const DEFAULT_COVERS_PATH = path.join("Suggested Items", "Covers.xcassets");
@@ -1007,7 +1008,7 @@ function mergeSuggestedItems(existingItems, collections) {
   const updated = existingItems.map((item) => {
     if (item.chain === "tezos" && updatesById.has(item.address)) {
       existingIds.add(item.address);
-      return updatesById.get(item.address);
+      return mergeGeneratedSuggestedItem(item, updatesById.get(item.address));
     }
     return item;
   });

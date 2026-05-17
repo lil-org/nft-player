@@ -22,7 +22,13 @@ private let playerNavigationArrowSpacing: CGFloat = 4
 final class MobilePlayerChromeController: ObservableObject {
     @Published private(set) var showControls = true
     @Published private(set) var isStatusBarRevealedByDismiss = false
+    private(set) var playerBackgroundColor: UIColor
     private(set) var isPlayerContentZoomed = false
+    var onPlayerBackgroundColorChange: ((UIColor) -> Void)?
+
+    init(playerBackgroundColor: UIColor = MobilePlayerBackgroundColor.defaultColor) {
+        self.playerBackgroundColor = playerBackgroundColor
+    }
 
     func toggleControls() {
         setControlsVisible(!showControls)
@@ -46,6 +52,17 @@ final class MobilePlayerChromeController: ObservableObject {
 
         guard isStatusBarRevealedByDismiss != isRevealed else { return }
         isStatusBarRevealedByDismiss = isRevealed
+    }
+
+    func setPlayerBackgroundColor(_ color: UIColor) {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { self.setPlayerBackgroundColor(color) }
+            return
+        }
+
+        guard !playerBackgroundColor.isVisuallyEqual(to: color) else { return }
+        playerBackgroundColor = color
+        onPlayerBackgroundColorChange?(color)
     }
 
     func setPlayerContentZoomed(_ isZoomed: Bool) {
@@ -88,6 +105,8 @@ struct MobilePlayerView: View {
                     onCoordinateUpdate: { newCoordinate in
                         DispatchQueue.main.async {
                             let token = MobilePlaybackController.shared.getToken(uuid: initialConfig.id, coordinate: newCoordinate)
+                            chrome.setPlayerBackgroundColor(MobilePlayerBackgroundColor.color(for: token))
+
                             let progress = MobilePlaybackController.shared.markViewed(uuid: initialConfig.id, coordinate: newCoordinate)
                             self.currentCoordinate = newCoordinate
                             self.currentToken = token

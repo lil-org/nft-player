@@ -5390,6 +5390,7 @@
     "chain" : "solana",
     "chainId" : 0,
     "name" : "Artifact Magazine #2",
+    "playerBackgroundColor" : "#FFFFFF",
     "tokenCount" : 99
   },
   {
