@@ -976,26 +976,12 @@
     "name" : "Orthogone"
   },
   {
-    "address" : "0x2612d478f73bce4ff76d5ed25ee1e1c49fa6073d",
-    "chain" : "zora",
-    "chainId" : 7777777,
-    "name" : "unknown fake locations",
-    "tokenCount" : 13
-  },
-  {
     "address" : "0x5a0121a0a21232ec0d024dab9017314509026480",
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "001b77228ac834941166157c70965a86",
     "name" : "Finiliar",
     "tokenCount" : 10000
-  },
-  {
-    "address" : "0x9c6cb16ce41bd23aabbceaa0d49d09840baa3c35",
-    "chain" : "zora",
-    "chainId" : 7777777,
-    "name" : "zibblerguyz",
-    "tokenCount" : 10
   },
   {
     "abId" : "39",
@@ -2664,15 +2650,6 @@
     "chainId" : 1,
     "collectionId" : "c2ff5587dd8c91e48678d6ecbea91219",
     "name" : "Viridaria"
-  },
-  {
-    "abId" : "9",
-    "address" : "0x7c3ea2b7b3befa1115ab51c09f0c9f245c500b18",
-    "chain" : "ethereum",
-    "chainId" : 1,
-    "collectionId" : "553311176c799eebdf49fd784ca25540",
-    "name" : "CIVICS",
-    "tokenCount" : 100
   },
   {
     "abId" : "461",
@@ -4647,13 +4624,6 @@
     "name" : "Autoglyphs"
   },
   {
-    "address" : "0xe6b8631dcd1d9f9f26bb8aec2df74a971383b94a",
-    "chain" : "zora",
-    "chainId" : 7777777,
-    "name" : "slides",
-    "tokenCount" : 20
-  },
-  {
     "address" : "0x17abd4cc1382397ec2b675f98621c3ba809897de",
     "chain" : "ethereum",
     "chainId" : 1,
@@ -4688,13 +4658,6 @@
     "chainId" : 7777777,
     "collectionId" : "b63ebcb3609bb67e2eaccd5015adf6b3",
     "name" : "OPEN-SOURCE++"
-  },
-  {
-    "address" : "0x2a290299828138096da60a2a74f2dd5e3c6a3ac2",
-    "chain" : "zora",
-    "chainId" : 7777777,
-    "name" : "poor traits",
-    "tokenCount" : 17
   },
   {
     "address" : "0x0c640779dbd6cda40d54350344dfd37d99aed8aa",
@@ -4780,13 +4743,6 @@
     "chainId" : 1,
     "name" : "tubbypxgan",
     "tokenCount" : 1335
-  },
-  {
-    "address" : "0x290cb7f4bb752d28d759cf15e929922be996d6b3",
-    "chain" : "zora",
-    "chainId" : 7777777,
-    "name" : "Soul Experience",
-    "tokenCount" : 5
   },
   {
     "address" : "0xf694002c6d990036916013e8562fe6a26d44586d",
