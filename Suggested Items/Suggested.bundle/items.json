@@ -4554,7 +4554,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "3d03a379662061b89758b4d858b967eb",
-    "name" : "Landscape Sublime"
+    "name" : "Landscape Sublime",
+    "tokenCount" : 18
   },
   {
     "address" : "0x46ac8540d698167fcbb9e846511beb8cf8af9bd8",
@@ -4568,7 +4569,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "9db3ef33595e1a6439fc9464a28fec83",
-    "name" : "Beyond the Veil"
+    "name" : "Beyond the Veil",
+    "tokenCount" : 24
   },
   {
     "address" : "0x46ac8540d698167fcbb9e846511beb8cf8af9bd8",
@@ -4784,7 +4786,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "71f6ddfea755d56de211919de8fc87ec",
-    "name" : "Parnassus"
+    "name" : "Parnassus",
+    "tokenCount" : 100
   },
   {
     "address" : "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
