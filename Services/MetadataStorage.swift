@@ -5,6 +5,9 @@ import Foundation
 struct MetadataStorage {
     
     private static let fileManager = FileManager.default
+    private static let collectionAddressOnlyBlockExplorerAddresses: Set<String> = [
+        "0xc2276a4a03e7c2e2fa122692b07a870eff43cf51",
+    ]
     
     static func detailedMetadata(nftFilePath: String) -> DetailedTokenMetadata? {
         if let fileId = fileId(path: nftFilePath), var url = URL.minimalMetadataDirectory(filePath: nftFilePath) {
@@ -118,7 +121,10 @@ struct MetadataStorage {
     }
     
     private static func nftURL(metadata: MinimalTokenMetadata, gallery: NftGallery) -> URL? {
-        let url = gallery.url(network: metadata.network, chain: metadata.chain, collectionAddress: metadata.collectionAddress, tokenId: metadata.tokenId)
+        let tokenId = gallery == .blockExplorer && collectionAddressOnlyBlockExplorerAddresses.contains(metadata.collectionAddress.lowercased())
+            ? nil
+            : metadata.tokenId
+        let url = gallery.url(network: metadata.network, chain: metadata.chain, collectionAddress: metadata.collectionAddress, tokenId: tokenId)
         return url
     }
     

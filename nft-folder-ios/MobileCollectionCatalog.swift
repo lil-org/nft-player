@@ -121,6 +121,9 @@ struct DownloadableCollectionIndexItem: Codable, Hashable, Identifiable {
 }
 
 private enum DownloadableCollectionService {
+    private static let collectionAddressOnlyBlockExplorerAddresses: Set<String> = [
+        "0xc2276a4a03e7c2e2fa122692b07a870eff43cf51",
+    ]
     private static let lock = NSLock()
     private static var cachedIndex: DownloadableCollectionsIndex?
     private static var cachedTokenDataByCollectionId = [String: DownloadableCollectionTokenData]()
@@ -241,11 +244,14 @@ private enum DownloadableCollectionService {
         if collection.chain == .tezos {
             return URL(string: "https://tzkt.io/\(collection.address)/tokens/\(tokenId)")
         }
+        let blockExplorerTokenId = collectionAddressOnlyBlockExplorerAddresses.contains(collection.address.lowercased())
+            ? nil
+            : tokenId
         return NftGallery.blockExplorer.url(
             network: collection.network,
             chain: collection.chain,
             collectionAddress: collection.address,
-            tokenId: tokenId
+            tokenId: blockExplorerTokenId
         )
     }
 
