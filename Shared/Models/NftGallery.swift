@@ -1,33 +1,10 @@
 // ∅ 2026 lil org
 
 import Foundation
-#if canImport(AppKit)
-import Cocoa
-#endif
 
 enum NftGallery: Int, CaseIterable, Codable {
 
     case opensea, blockExplorer
-    
-#if canImport(AppKit)
-    var image: NSImage {
-        switch self {
-        case .blockExplorer:
-            return Images.infoTitleBar
-        case .opensea:
-            return Images.opensea
-        }
-    }
-#endif
-    
-    var title: String {
-        switch self {
-        case .opensea:
-            Strings.opensea
-        case .blockExplorer:
-            Strings.blockExplorer
-        }
-    }
 
     func url(network: Network, chain: Chain?, collectionAddress: String, tokenId: String?) -> URL? {
         switch self {

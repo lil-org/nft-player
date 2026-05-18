@@ -8,11 +8,8 @@ struct Strings {
     static let viewOnOpensea = loc("View on OpenSea")
     static let viewOnSolanaExplorer = loc("View on Solana Explorer")
     static let viewOnTzkt = loc("View on TzKT")
-    static let cancel = loc("Cancel")
     static let ok = loc("OK")
-    static let retry = loc("Retry")
     static let nftFolder = loc("Nft Folder")
-    static let somethingWentWrong = loc("Something went wrong")
     static let experimetalOfflineGeneration = loc("Offline generation is a new experimental feature")
     static let letUsKnowOfIssues = loc("Let us know of any issues.")
     static let back = loc("Back")
@@ -39,11 +36,8 @@ struct Strings {
     static let navigate = loc("Navigate")
     static let toggleInfo = loc("Toggle Info")
 
-    static let airplay = "AirPlay"
     static let x = "𝕏"
     static let github = "GitHub"
-    static let blockExplorer = "Blockscout"
-    static let opensea = "OpenSea"
     static let lilOrgLinkWithEmojis = "🌐 lil.org 👈"
     
     private static func loc(_ string: String.LocalizationValue) -> String {

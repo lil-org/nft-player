@@ -23,37 +23,4 @@ enum Network: Int, CaseIterable, Codable {
         }
     }
     
-    private var chainStringValue: String {
-        let mainnet = "MAINNET"
-        switch self {
-        case .mainnet:
-            return mainnet
-        default:
-            return name + "_" + mainnet
-        }
-    }
-    
-    var query: String {
-        return "{network: \(name), chain: \(chainStringValue)}"
-    }
-    
-    static func withName(_ name: String) -> Network? {
-        switch name {
-        case "ETHEREUM":
-            return .mainnet
-        case "OPTIMISM":
-            return .optimism
-        case "ZORA":
-            return .zora
-        case "BASE":
-            return .base
-        case "ARBITRUM":
-            return .arbitrum
-        case "BLAST":
-            return .blast
-        default:
-            return nil
-        }
-    }
-    
 }

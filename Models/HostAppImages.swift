@@ -13,8 +13,5 @@ extension Images {
     static let finish = Image(systemName: "checkmark")
     static let info = Image(systemName: "info")
     static let changeCollection = Image(systemName: "forward")
-    static let up = Image(systemName: "chevron.up")
-    static let down = Image(systemName: "chevron.down")
-    static let airplay = Image(systemName: "airplay.video")
     
 }
