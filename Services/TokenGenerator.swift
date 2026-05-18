@@ -14,23 +14,6 @@ struct TokenGenerator {
         let fileURLs = (try? fileManager.contentsOfDirectory(at: dirURL, includingPropertiesForKeys: nil)) ?? []
 #if os(macOS) || os(watchOS)
         let disabledCollectionIds = Set([ponchoDrifellaCollectionId])
-#elseif os(iOS)
-        let disabledCollectionIds = Set([
-            "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce367646",
-            "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce367664",
-            "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270112",
-            "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270219",
-            "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd27070",
-            "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270242",
-            "0x99a9b7c1116f9ceeb1652de04d5969cce509b069452",
-            "0x99a9b7c1116f9ceeb1652de04d5969cce509b069384",
-            "0x99a9b7c1116f9ceeb1652de04d5969cce509b069390",
-            "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270246",
-            "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270126",
-            "0x8cdbd7010bd197848e95c1fd7f6e870aac9b0d3c2",
-            "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce367660",
-            "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270105"
-        ])
 #elseif os(visionOS)
         let disabledCollectionIds = Set([
             "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce367650",
@@ -45,7 +28,6 @@ struct TokenGenerator {
             "0x99a9b7c1116f9ceeb1652de04d5969cce509b069472",
             "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270356",
             "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270250",
-            "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce367664",
             ponchoDrifellaCollectionId,
         ])
 #else
