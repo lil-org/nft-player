@@ -13,7 +13,10 @@ class PlayerModel: ObservableObject {
     @Published var showingListPopover = false
 
     init(specificCollectionId: String?, notTokenId: String?) {
-        let token = TokenGenerator.generateRandomToken(specificCollectionId: specificCollectionId, notTokenId: notTokenId) ?? GeneratedToken.empty
+        let token = Self.generateRandomToken(
+            specificCollectionId: specificCollectionId,
+            notTokenId: notTokenId
+        ) ?? GeneratedToken.empty
         self.currentToken = token
         self.history = [token]
         self.specificCollectionId = specificCollectionId
@@ -26,7 +29,7 @@ class PlayerModel: ObservableObject {
     }
     
     func showInitialCollection() {
-        let newToken = TokenGenerator.generateRandomToken(specificCollectionId: specificCollectionId, notTokenId: nil) ?? currentToken
+        let newToken = Self.generateRandomToken(specificCollectionId: specificCollectionId, notTokenId: nil) ?? currentToken
         showNewToken(newToken)
     }
     
@@ -44,7 +47,10 @@ class PlayerModel: ObservableObject {
             currentIndex += 1
             currentToken = history[currentIndex]
         } else {
-            let newToken = TokenGenerator.generateRandomToken(specificCollectionId: currentToken.fullCollectionId, notTokenId: currentToken.id) ?? currentToken
+            let newToken = Self.generateRandomToken(
+                specificCollectionId: currentToken.fullCollectionId,
+                notTokenId: currentToken.id
+            ) ?? currentToken
             history.append(newToken)
             currentIndex = history.count - 1
             currentToken = newToken
@@ -55,13 +61,16 @@ class PlayerModel: ObservableObject {
     }
 
     func tryNavigatingTo(inputTokenId: String) {
-        if let newToken = TokenGenerator.generateRandomToken(specificCollectionId: currentToken.fullCollectionId, specificInputTokenId: inputTokenId) {
+        if let newToken = Self.generateToken(
+            specificCollectionId: currentToken.fullCollectionId,
+            specificInputTokenId: inputTokenId
+        ) {
             showNewToken(newToken)
         }
     }
     
     func changeCollection() {
-        let newToken = TokenGenerator.generateRandomToken(specificCollectionId: nil, notTokenId: nil) ?? currentToken
+        let newToken = Self.generateRandomToken(specificCollectionId: nil, notTokenId: nil) ?? currentToken
         showNewToken(newToken)
     }
     
@@ -80,5 +89,27 @@ class PlayerModel: ObservableObject {
             history.removeFirst(history.count - cutTarget)
             currentIndex = cutTarget - 1
         }
+    }
+
+    private static func generateRandomToken(specificCollectionId: String?, notTokenId: String?) -> GeneratedToken? {
+#if os(macOS)
+        CollectionCatalog.generateRandomToken(specificCollectionId: specificCollectionId, notTokenId: notTokenId)
+#else
+        TokenGenerator.generateRandomToken(specificCollectionId: specificCollectionId, notTokenId: notTokenId)
+#endif
+    }
+
+    private static func generateToken(specificCollectionId: String, specificInputTokenId: String) -> GeneratedToken? {
+#if os(macOS)
+        CollectionCatalog.generateToken(
+            specificCollectionId: specificCollectionId,
+            specificInputTokenId: specificInputTokenId
+        )
+#else
+        TokenGenerator.generateRandomToken(
+            specificCollectionId: specificCollectionId,
+            specificInputTokenId: specificInputTokenId
+        )
+#endif
     }
 }

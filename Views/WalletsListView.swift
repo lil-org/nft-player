@@ -5,12 +5,11 @@ import SwiftUI
 
 struct WalletsListView: View {
 
-    private let suggestedItems = SuggestedItemsService.visibleItems
+    private let collectionItems = CollectionCatalog.allItems
 
     var body: some View {
-        ScrollView {
-            createGrid()
-                .frame(maxWidth: .infinity)
+        InfiniteCollectionsGridView(items: collectionItems) { item in
+            showPlayer(id: item.id)
         }
         .background(Color(nsColor: .controlBackgroundColor))
         .toolbar {
@@ -42,24 +41,14 @@ struct WalletsListView: View {
         .menuIndicator(.hidden)
     }
 
-    private func createGrid() -> some View {
-        let gridLayout = [GridItem(.adaptive(minimum: 100), spacing: 0)]
-        let grid = LazyVGrid(columns: gridLayout, alignment: .leading, spacing: 0) {
-            ForEach(suggestedItems) { item in
-                CollectionTile(
-                    item: item,
-                    canGenerate: TokenGenerator.canGenerate(id: item.id),
-                    onSelect: {
-                        showPlayer(id: item.id)
-                    }
-                )
-            }
-        }
-        return grid
-    }
-
     private func showPlayer(id: String?) {
-        Navigator.shared.showPlayer(model: PlayerModel(specificCollectionId: id, notTokenId: nil))
+        guard let token = CollectionCatalog.generateRandomToken(
+            specificCollectionId: id,
+            notTokenId: nil
+        ) else {
+            return
+        }
+        Navigator.shared.showPlayer(model: PlayerModel(token: token))
     }
 
     private func open(_ url: URL) {
@@ -68,46 +57,723 @@ struct WalletsListView: View {
 
 }
 
-private struct CollectionTile: View {
+private enum InfiniteCollectionsLoop {
+    private static let repetitionCount = 31
+    private static let middleRepetition = repetitionCount / 2
+    private static let recenterThreshold = 5
+    private static let initialSourceOffset = 12
 
-    let item: SuggestedItem
-    let canGenerate: Bool
-    let onSelect: () -> Void
+    static func virtualItemCount(itemCount: Int) -> Int {
+        repetitionCount * itemCount
+    }
 
-    var body: some View {
-        ZStack {
-            Image(item.id)
-                .resizable()
-                .scaledToFill()
-                .clipped()
-                .aspectRatio(1, contentMode: .fit)
+    static func repetition(for virtualIndex: Int, itemCount: Int) -> Int {
+        virtualIndex / itemCount
+    }
 
-            VStack {
-                Spacer()
-                title
+    static func sourceIndex(for virtualIndex: Int, itemCount: Int) -> Int {
+        virtualIndex % itemCount
+    }
+
+    static func centeredIndex(sourceIndex: Int, itemCount: Int) -> Int {
+        middleRepetition * itemCount + sourceIndex
+    }
+
+    static func initialScrollPosition(itemCount: Int) -> Int? {
+        guard itemCount > 0 else { return nil }
+        return centeredIndex(sourceIndex: initialSourceOffset % itemCount, itemCount: itemCount)
+    }
+
+    static func shouldRecenter(repetition: Int) -> Bool {
+        repetition <= recenterThreshold || repetition >= repetitionCount - recenterThreshold
+    }
+}
+
+private struct InfiniteCollectionsGridView: NSViewRepresentable {
+    let items: [CollectionCatalogItem]
+    let onSelect: (CollectionCatalogItem) -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(items: [], onSelect: onSelect)
+    }
+
+    func makeNSView(context: Context) -> InfiniteCollectionsGridContainerView {
+        let containerView = InfiniteCollectionsGridContainerView()
+        containerView.update(items: items, coordinator: context.coordinator)
+        return containerView
+    }
+
+    func updateNSView(_ containerView: InfiniteCollectionsGridContainerView, context: Context) {
+        context.coordinator.onSelect = onSelect
+        containerView.update(items: items, coordinator: context.coordinator)
+    }
+
+    final class Coordinator: NSObject, NSCollectionViewDataSource, NSCollectionViewDelegate, NSCollectionViewPrefetching {
+        var items: [CollectionCatalogItem]
+        var onSelect: (CollectionCatalogItem) -> Void
+        private var isRecentering = false
+
+        init(items: [CollectionCatalogItem], onSelect: @escaping (CollectionCatalogItem) -> Void) {
+            self.items = items
+            self.onSelect = onSelect
+        }
+
+        func update(items: [CollectionCatalogItem]) -> Bool {
+            guard self.items != items else { return false }
+            self.items = items
+            return true
+        }
+
+        func collectionView(_ collectionView: NSCollectionView, numberOfItemsInSection section: Int) -> Int {
+            InfiniteCollectionsLoop.virtualItemCount(itemCount: items.count)
+        }
+
+        func collectionView(
+            _ collectionView: NSCollectionView,
+            itemForRepresentedObjectAt indexPath: IndexPath
+        ) -> NSCollectionViewItem {
+            let item = collectionView.makeItem(
+                withIdentifier: CollectionGridItem.reuseIdentifier,
+                for: indexPath
+            )
+            guard let gridItem = item as? CollectionGridItem else { return item }
+            configure(gridItem, at: indexPath, in: collectionView)
+            return gridItem
+        }
+
+        func collectionView(_ collectionView: NSCollectionView, didSelectItemsAt indexPaths: Set<IndexPath>) {
+            collectionView.deselectItems(at: indexPaths)
+            guard let indexPath = indexPaths.first,
+                  !items.isEmpty else {
+                return
+            }
+            onSelect(item(for: indexPath.item))
+        }
+
+        func collectionView(_ collectionView: NSCollectionView, prefetchItemsAt indexPaths: [IndexPath]) {
+            prefetchImages(for: indexPaths, in: collectionView)
+        }
+
+        func collectionView(_ collectionView: NSCollectionView, cancelPrefetchingForItemsAt indexPaths: [IndexPath]) {
+            cancelPrefetchingImages(for: indexPaths, in: collectionView)
+        }
+
+        func visibleAnchor(in collectionView: NSCollectionView, scrollView: NSScrollView) -> VisibleAnchor? {
+            guard !items.isEmpty,
+                  let topIndexPath = collectionView.indexPathsForVisibleItems().min(by: { $0.item < $1.item }),
+                  let topAttributes = collectionView.layoutAttributesForItem(at: topIndexPath) else {
+                return nil
+            }
+
+            return VisibleAnchor(
+                sourceIndex: InfiniteCollectionsLoop.sourceIndex(for: topIndexPath.item, itemCount: items.count),
+                offsetWithinItem: scrollView.contentView.bounds.origin.y - topAttributes.frame.minY
+            )
+        }
+
+        func restore(_ anchor: VisibleAnchor, in collectionView: NSCollectionView, scrollView: NSScrollView) {
+            guard !items.isEmpty else { return }
+
+            collectionView.layoutSubtreeIfNeeded()
+            let targetIndexPath = IndexPath(
+                item: InfiniteCollectionsLoop.centeredIndex(sourceIndex: anchor.sourceIndex, itemCount: items.count),
+                section: 0
+            )
+            guard let targetAttributes = collectionView.layoutAttributesForItem(at: targetIndexPath) else {
+                return
+            }
+            setScrollY(targetAttributes.frame.minY + anchor.offsetWithinItem, in: scrollView)
+        }
+
+        func setInitialScrollPosition(in collectionView: NSCollectionView, scrollView: NSScrollView) {
+            guard !items.isEmpty,
+                  let targetIndex = InfiniteCollectionsLoop.initialScrollPosition(itemCount: items.count) else {
+                return
+            }
+
+            collectionView.layoutSubtreeIfNeeded()
+            let targetIndexPath = IndexPath(item: targetIndex, section: 0)
+            guard let targetAttributes = collectionView.layoutAttributesForItem(at: targetIndexPath) else {
+                return
+            }
+
+            isRecentering = true
+            setScrollY(targetAttributes.frame.minY, in: scrollView)
+            isRecentering = false
+        }
+
+        func scrollViewDidScroll(_ scrollView: NSScrollView, collectionView: NSCollectionView) {
+            guard !isRecentering,
+                  !items.isEmpty,
+                  let topIndexPath = collectionView.indexPathsForVisibleItems().min(by: { $0.item < $1.item }),
+                  let topAttributes = collectionView.layoutAttributesForItem(at: topIndexPath) else {
+                return
+            }
+
+            let itemCount = items.count
+            let repetition = InfiniteCollectionsLoop.repetition(for: topIndexPath.item, itemCount: itemCount)
+            guard InfiniteCollectionsLoop.shouldRecenter(repetition: repetition) else { return }
+
+            let sourceIndex = InfiniteCollectionsLoop.sourceIndex(for: topIndexPath.item, itemCount: itemCount)
+            let targetIndexPath = IndexPath(
+                item: InfiniteCollectionsLoop.centeredIndex(sourceIndex: sourceIndex, itemCount: itemCount),
+                section: 0
+            )
+            collectionView.layoutSubtreeIfNeeded()
+            guard let targetAttributes = collectionView.layoutAttributesForItem(at: targetIndexPath) else { return }
+
+            isRecentering = true
+            let offsetWithinTopItem = scrollView.contentView.bounds.origin.y - topAttributes.frame.minY
+            setScrollY(targetAttributes.frame.minY + offsetWithinTopItem, in: scrollView)
+            isRecentering = false
+        }
+
+        func updateVisibleItems(in collectionView: NSCollectionView) {
+            collectionView.indexPathsForVisibleItems().forEach { indexPath in
+                guard let item = collectionView.item(at: indexPath) as? CollectionGridItem else { return }
+                configure(item, at: indexPath, in: collectionView)
             }
         }
-        .contentShape(Rectangle())
-        .onTapGesture {
-            if canGenerate {
-                onSelect()
+
+        func prefetchImages(aroundVisibleItemsIn collectionView: NSCollectionView) {
+            guard !items.isEmpty else { return }
+            let visibleItems = collectionView.indexPathsForVisibleItems().map(\.item)
+            guard let firstVisibleItem = visibleItems.min(),
+                  let lastVisibleItem = visibleItems.max() else {
+                return
+            }
+
+            let itemWidth = max((collectionView.collectionViewLayout as? NSCollectionViewFlowLayout)?.itemSize.width ?? collectionView.bounds.width, 1)
+            let visibleColumnCount = max(Int(collectionView.bounds.width / itemWidth), 1)
+            let prefetchDistance = visibleColumnCount * 3
+            let maximumItem = max(collectionView.numberOfItems(inSection: 0) - 1, 0)
+            let itemRange = max(firstVisibleItem - prefetchDistance, 0)...min(lastVisibleItem + prefetchDistance, maximumItem)
+            prefetchImages(
+                for: itemRange.map { IndexPath(item: $0, section: 0) },
+                in: collectionView
+            )
+        }
+
+        private func item(for virtualIndex: Int) -> CollectionCatalogItem {
+            items[InfiniteCollectionsLoop.sourceIndex(for: virtualIndex, itemCount: items.count)]
+        }
+
+        private func configure(_ gridItem: CollectionGridItem, at indexPath: IndexPath, in collectionView: NSCollectionView) {
+            let item = item(for: indexPath.item)
+            gridItem.configure(
+                item: item,
+                coverSize: coverImageTargetSize(in: collectionView),
+                displayScale: displayScale(in: collectionView)
+            )
+        }
+
+        private func prefetchImages(for indexPaths: [IndexPath], in collectionView: NSCollectionView) {
+            guard !items.isEmpty else { return }
+            let assetNames = Set(indexPaths.map { item(for: $0.item).coverAssetName })
+            CollectionCoverImageCache.shared.prefetch(
+                assetNames: Array(assetNames),
+                targetSize: coverImageTargetSize(in: collectionView),
+                displayScale: displayScale(in: collectionView)
+            )
+        }
+
+        private func cancelPrefetchingImages(for indexPaths: [IndexPath], in collectionView: NSCollectionView) {
+            guard !items.isEmpty else { return }
+            let assetNames = Set(indexPaths.map { item(for: $0.item).coverAssetName })
+            CollectionCoverImageCache.shared.cancelPrefetch(
+                assetNames: Array(assetNames),
+                targetSize: coverImageTargetSize(in: collectionView),
+                displayScale: displayScale(in: collectionView)
+            )
+        }
+
+        private func coverImageTargetSize(in collectionView: NSCollectionView) -> CGSize {
+            if let itemSize = (collectionView.collectionViewLayout as? NSCollectionViewFlowLayout)?.itemSize,
+               itemSize.width > 0,
+               itemSize.height > 0 {
+                return itemSize
+            }
+            return InfiniteCollectionsGridContainerView.itemSize(forWidth: collectionView.bounds.width)
+        }
+
+        private func displayScale(in collectionView: NSCollectionView) -> CGFloat {
+            collectionView.window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2
+        }
+
+        private func setScrollY(_ y: CGFloat, in scrollView: NSScrollView) {
+            scrollView.contentView.scroll(to: NSPoint(x: 0, y: max(y, 0)))
+            scrollView.reflectScrolledClipView(scrollView.contentView)
+        }
+    }
+
+    struct VisibleAnchor {
+        let sourceIndex: Int
+        let offsetWithinItem: CGFloat
+    }
+}
+
+private final class InfiniteCollectionsGridContainerView: NSView {
+    private let scrollView = NSScrollView()
+    private let collectionView: NSCollectionView
+    private let flowLayout = NSCollectionViewFlowLayout()
+    private weak var coordinator: InfiniteCollectionsGridView.Coordinator?
+    private var boundsObserver: NSObjectProtocol?
+    private var didSetInitialScrollPosition = false
+    private var previousBoundsSize = CGSize.zero
+
+    override init(frame frameRect: NSRect) {
+        flowLayout.scrollDirection = .vertical
+        flowLayout.minimumInteritemSpacing = 0
+        flowLayout.minimumLineSpacing = 0
+        flowLayout.sectionInset = NSEdgeInsets(top: 0, left: 0, bottom: 0, right: 0)
+
+        collectionView = NSCollectionView()
+        collectionView.collectionViewLayout = flowLayout
+
+        super.init(frame: frameRect)
+
+        wantsLayer = true
+        layer?.backgroundColor = NSColor.controlBackgroundColor.cgColor
+
+        scrollView.drawsBackground = false
+        scrollView.hasVerticalScroller = false
+        scrollView.hasHorizontalScroller = false
+        scrollView.autohidesScrollers = true
+        scrollView.allowsMagnification = false
+        scrollView.verticalScrollElasticity = .allowed
+        scrollView.horizontalScrollElasticity = .none
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+
+        collectionView.backgroundColors = [.clear]
+        collectionView.isSelectable = true
+        collectionView.allowsMultipleSelection = false
+        collectionView.register(CollectionGridItem.self, forItemWithIdentifier: CollectionGridItem.reuseIdentifier)
+        scrollView.documentView = collectionView
+        addSubview(scrollView)
+
+        NSLayoutConstraint.activate([
+            scrollView.topAnchor.constraint(equalTo: topAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: bottomAnchor),
+            scrollView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: trailingAnchor)
+        ])
+
+        scrollView.contentView.postsBoundsChangedNotifications = true
+        boundsObserver = NotificationCenter.default.addObserver(
+            forName: NSView.boundsDidChangeNotification,
+            object: scrollView.contentView,
+            queue: .main
+        ) { [weak self] _ in
+            guard let self, let coordinator = self.coordinator else { return }
+            coordinator.scrollViewDidScroll(self.scrollView, collectionView: self.collectionView)
+        }
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    deinit {
+        if let boundsObserver {
+            NotificationCenter.default.removeObserver(boundsObserver)
+        }
+    }
+
+    func update(
+        items: [CollectionCatalogItem],
+        coordinator: InfiniteCollectionsGridView.Coordinator
+    ) {
+        self.coordinator = coordinator
+        collectionView.dataSource = coordinator
+        collectionView.delegate = coordinator
+        collectionView.prefetchDataSource = coordinator
+
+        if coordinator.update(items: items) {
+            didSetInitialScrollPosition = false
+            collectionView.reloadData()
+        }
+
+        needsLayout = true
+    }
+
+    override func layout() {
+        super.layout()
+
+        guard bounds.width > 0,
+              bounds.height > 0 else {
+            return
+        }
+
+        collectionView.setFrameSize(CGSize(width: bounds.width, height: max(collectionView.frame.height, bounds.height)))
+        if previousBoundsSize != bounds.size {
+            let anchor = coordinator?.visibleAnchor(in: collectionView, scrollView: scrollView)
+            previousBoundsSize = bounds.size
+
+            if updateGridLayoutItemSize() {
+                collectionView.layoutSubtreeIfNeeded()
+                updateCollectionViewContentHeight()
+                if let anchor {
+                    coordinator?.restore(anchor, in: collectionView, scrollView: scrollView)
+                }
+                coordinator?.updateVisibleItems(in: collectionView)
+                coordinator?.prefetchImages(aroundVisibleItemsIn: collectionView)
+            }
+        }
+
+        guard !didSetInitialScrollPosition,
+              collectionView.numberOfItems(inSection: 0) > 0 else {
+            return
+        }
+
+        collectionView.layoutSubtreeIfNeeded()
+        updateCollectionViewContentHeight()
+        coordinator?.setInitialScrollPosition(in: collectionView, scrollView: scrollView)
+        didSetInitialScrollPosition = true
+        coordinator?.prefetchImages(aroundVisibleItemsIn: collectionView)
+    }
+
+    fileprivate static func itemSize(forWidth width: CGFloat) -> CGSize {
+        let minimumItemWidth: CGFloat = 100
+        let columns = max(Int(width / minimumItemWidth), 1)
+        let itemWidth = width / CGFloat(columns)
+        return CGSize(width: itemWidth, height: itemWidth)
+    }
+
+    private func updateGridLayoutItemSize() -> Bool {
+        let itemSize = Self.itemSize(forWidth: bounds.width)
+        guard flowLayout.itemSize != itemSize else { return false }
+        flowLayout.itemSize = itemSize
+        flowLayout.invalidateLayout()
+        return true
+    }
+
+    private func updateCollectionViewContentHeight() {
+        let contentHeight = collectionView.collectionViewLayout?.collectionViewContentSize.height ?? bounds.height
+        let targetSize = CGSize(width: bounds.width, height: max(bounds.height, contentHeight))
+        guard collectionView.frame.size != targetSize else { return }
+        collectionView.setFrameSize(targetSize)
+    }
+}
+
+private final class CollectionCoverImageCache {
+    static let shared = CollectionCoverImageCache()
+
+    private let visibleQueue = DispatchQueue(label: "org.lil.nft-folder.collection-cover-cache.visible", qos: .userInitiated)
+    private let prefetchQueue = DispatchQueue(label: "org.lil.nft-folder.collection-cover-cache.prefetch", qos: .utility)
+    private let lock = NSLock()
+    private let cache = NSCache<NSString, NSImage>()
+    private var pendingPrefetchKeys = Set<String>()
+    private var cancelledPrefetchKeys = Set<String>()
+
+    private init() {
+        cache.countLimit = 320
+        cache.totalCostLimit = 64 * 1024 * 1024
+    }
+
+    func cachedImage(assetName: String, targetSize: CGSize, displayScale: CGFloat) -> NSImage? {
+        let targetPixelSide = targetPixelSide(for: targetSize, displayScale: displayScale)
+        return cache.object(forKey: cacheKey(assetName: assetName, targetPixelSide: targetPixelSide) as NSString)
+    }
+
+    func loadImage(
+        assetName: String,
+        targetSize: CGSize,
+        displayScale: CGFloat,
+        completion: @escaping (NSImage?) -> Void
+    ) {
+        let targetPixelSide = targetPixelSide(for: targetSize, displayScale: displayScale)
+        let key = cacheKey(assetName: assetName, targetPixelSide: targetPixelSide)
+        if let image = cache.object(forKey: key as NSString) {
+            completion(image)
+            return
+        }
+
+        visibleQueue.async { [cache] in
+            if let cachedImage = cache.object(forKey: key as NSString) {
+                DispatchQueue.main.async {
+                    completion(cachedImage)
+                }
+                return
+            }
+
+            let image = Self.preparedImage(assetName: assetName, targetPixelSide: targetPixelSide, displayScale: displayScale)
+            if let image {
+                cache.setObject(image, forKey: key as NSString, cost: image.memoryCost)
+            }
+
+            DispatchQueue.main.async {
+                completion(image)
             }
         }
     }
 
-    private var title: some View {
-        HStack {
-            Text(item.name)
-                .font(.system(size: 10, weight: .regular))
-                .lineLimit(2)
-                .foregroundColor(.white)
-                .padding(.horizontal, 1)
-                .background(Color.black.opacity(0.7))
-                .cornerRadius(3)
-                .padding(.leading, 4)
-                .padding(.bottom, 3)
-            Spacer()
+    func prefetch(assetNames: [String], targetSize: CGSize, displayScale: CGFloat) {
+        assetNames.forEach { assetName in
+            let targetPixelSide = targetPixelSide(for: targetSize, displayScale: displayScale)
+            let key = cacheKey(assetName: assetName, targetPixelSide: targetPixelSide)
+            guard cache.object(forKey: key as NSString) == nil else { return }
+            guard shouldSchedulePrefetch(forKey: key) else { return }
+
+            prefetchQueue.async { [cache] in
+                guard self.shouldRunPrefetch(forKey: key) else { return }
+                guard cache.object(forKey: key as NSString) == nil else {
+                    self.finishPrefetch(forKey: key)
+                    return
+                }
+
+                let image = Self.preparedImage(assetName: assetName, targetPixelSide: targetPixelSide, displayScale: displayScale)
+                if let image {
+                    cache.setObject(image, forKey: key as NSString, cost: image.memoryCost)
+                }
+                self.finishPrefetch(forKey: key)
+            }
         }
     }
 
+    func cancelPrefetch(assetNames: [String], targetSize: CGSize, displayScale: CGFloat) {
+        let targetPixelSide = targetPixelSide(for: targetSize, displayScale: displayScale)
+        let keys = assetNames.map { assetName in
+            cacheKey(assetName: assetName, targetPixelSide: targetPixelSide)
+        }
+        lock.withLock {
+            keys.forEach { key in
+                guard pendingPrefetchKeys.contains(key) else { return }
+                cancelledPrefetchKeys.insert(key)
+            }
+        }
+    }
+
+    private func targetPixelSide(for targetSize: CGSize, displayScale: CGFloat) -> Int {
+        let pointSide = max(max(targetSize.width, targetSize.height), 1)
+        return max(Int(ceil(pointSide * displayScale)), 1)
+    }
+
+    private func cacheKey(assetName: String, targetPixelSide: Int) -> String {
+        "\(assetName)-\(targetPixelSide)"
+    }
+
+    private func shouldSchedulePrefetch(forKey key: String) -> Bool {
+        lock.withLock {
+            if pendingPrefetchKeys.contains(key) {
+                cancelledPrefetchKeys.remove(key)
+                return false
+            }
+            cancelledPrefetchKeys.remove(key)
+            pendingPrefetchKeys.insert(key)
+            return true
+        }
+    }
+
+    private func shouldRunPrefetch(forKey key: String) -> Bool {
+        lock.withLock {
+            if cancelledPrefetchKeys.contains(key) {
+                pendingPrefetchKeys.remove(key)
+                cancelledPrefetchKeys.remove(key)
+                return false
+            }
+            return true
+        }
+    }
+
+    private func finishPrefetch(forKey key: String) {
+        lock.withLock {
+            pendingPrefetchKeys.remove(key)
+            cancelledPrefetchKeys.remove(key)
+        }
+    }
+
+    private static func preparedImage(assetName: String, targetPixelSide: Int, displayScale: CGFloat) -> NSImage? {
+        autoreleasepool {
+            guard let sourceImage = NSImage(named: assetName) else { return nil }
+            var proposedRect = CGRect(origin: .zero, size: sourceImage.size)
+            guard let sourceCGImage = sourceImage.cgImage(forProposedRect: &proposedRect, context: nil, hints: nil),
+                  let colorSpace = sourceCGImage.colorSpace ?? CGColorSpace(name: CGColorSpace.sRGB),
+                  let context = CGContext(
+                    data: nil,
+                    width: targetPixelSide,
+                    height: targetPixelSide,
+                    bitsPerComponent: 8,
+                    bytesPerRow: 0,
+                    space: colorSpace,
+                    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+                  ) else {
+                return sourceImage
+            }
+
+            context.interpolationQuality = .high
+            let sourceSize = CGSize(width: sourceCGImage.width, height: sourceCGImage.height)
+            guard sourceSize.width > 0, sourceSize.height > 0 else { return sourceImage }
+
+            let targetSize = CGSize(width: targetPixelSide, height: targetPixelSide)
+            let fillScale = max(targetSize.width / sourceSize.width, targetSize.height / sourceSize.height)
+            let scaledSize = CGSize(width: sourceSize.width * fillScale, height: sourceSize.height * fillScale)
+            let drawRect = CGRect(
+                x: (targetSize.width - scaledSize.width) / 2,
+                y: (targetSize.height - scaledSize.height) / 2,
+                width: scaledSize.width,
+                height: scaledSize.height
+            )
+            context.draw(sourceCGImage, in: drawRect)
+
+            guard let image = context.makeImage() else { return sourceImage }
+            let scale = max(displayScale, 1)
+            let pointSide = CGFloat(targetPixelSide) / scale
+            return NSImage(cgImage: image, size: CGSize(width: pointSide, height: pointSide))
+        }
+    }
+}
+
+private extension NSImage {
+    var memoryCost: Int {
+        if let cgImage = cgImage(forProposedRect: nil, context: nil, hints: nil) {
+            return cgImage.bytesPerRow * cgImage.height
+        }
+        return Int(size.width * size.height * 4)
+    }
+}
+
+private final class CollectionGridItem: NSCollectionViewItem {
+    static let reuseIdentifier = NSUserInterfaceItemIdentifier("CollectionGridItem")
+
+    private var cellView: CollectionGridCellView {
+        view as! CollectionGridCellView
+    }
+
+    private var representedCoverAssetName: String?
+    private var representedCoverSize = CGSize.zero
+
+    override func loadView() {
+        view = CollectionGridCellView()
+    }
+
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        representedCoverAssetName = nil
+        representedCoverSize = .zero
+        cellView.image = nil
+        cellView.title = nil
+    }
+
+    func configure(item: CollectionCatalogItem, coverSize: CGSize, displayScale: CGFloat) {
+        let coverAssetChanged = representedCoverAssetName != item.coverAssetName
+        let shouldUpdateCover = coverAssetChanged
+            || representedCoverSize != coverSize
+            || cellView.image == nil
+        representedCoverAssetName = item.coverAssetName
+        representedCoverSize = coverSize
+        cellView.title = item.name
+        view.setAccessibilityLabel(item.name)
+
+        guard shouldUpdateCover else { return }
+        if let cachedCoverImage = CollectionCoverImageCache.shared.cachedImage(
+            assetName: item.coverAssetName,
+            targetSize: coverSize,
+            displayScale: displayScale
+        ) {
+            cellView.image = cachedCoverImage
+            return
+        }
+
+        if coverAssetChanged || cellView.image == nil {
+            cellView.image = nil
+        }
+        CollectionCoverImageCache.shared.loadImage(
+            assetName: item.coverAssetName,
+            targetSize: coverSize,
+            displayScale: displayScale
+        ) { [weak self] image in
+            guard let self,
+                  self.representedCoverAssetName == item.coverAssetName,
+                  self.representedCoverSize == coverSize else {
+                return
+            }
+            self.cellView.image = image
+        }
+    }
+}
+
+private final class CollectionGridCellView: NSView {
+    var image: NSImage? {
+        didSet {
+            imageView.image = image
+        }
+    }
+
+    var title: String? {
+        didSet {
+            titleLabel.stringValue = title ?? ""
+            needsLayout = true
+        }
+    }
+
+    private let imageView = CoverImageView()
+    private let titleLabel = NSTextField(labelWithString: "")
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+
+        wantsLayer = true
+        layer?.masksToBounds = false
+
+        imageView.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(imageView)
+
+        titleLabel.font = .systemFont(ofSize: 10, weight: .regular)
+        titleLabel.textColor = .white
+        titleLabel.backgroundColor = NSColor.black.withAlphaComponent(0.7)
+        titleLabel.drawsBackground = true
+        titleLabel.isBezeled = false
+        titleLabel.isEditable = false
+        titleLabel.isSelectable = false
+        titleLabel.maximumNumberOfLines = 2
+        titleLabel.lineBreakMode = .byWordWrapping
+        titleLabel.wantsLayer = true
+        titleLabel.layer?.cornerRadius = 3
+        titleLabel.layer?.masksToBounds = true
+        addSubview(titleLabel)
+
+        NSLayoutConstraint.activate([
+            imageView.topAnchor.constraint(equalTo: topAnchor),
+            imageView.bottomAnchor.constraint(equalTo: bottomAnchor),
+            imageView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            imageView.trailingAnchor.constraint(equalTo: trailingAnchor)
+        ])
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func layout() {
+        super.layout()
+
+        let maximumLabelWidth = max(bounds.width - 8, 0)
+        let measuredSize = titleLabel.attributedStringValue.boundingRect(
+            with: CGSize(width: max(maximumLabelWidth - 2, 0), height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading]
+        ).size
+        let labelWidth = min(maximumLabelWidth, ceil(measuredSize.width) + 2)
+        let labelHeight = min(ceil(measuredSize.height), 30)
+        titleLabel.frame = CGRect(
+            x: 4,
+            y: 3,
+            width: labelWidth,
+            height: labelHeight
+        )
+    }
+}
+
+private final class CoverImageView: NSView {
+    var image: NSImage? {
+        didSet {
+            needsDisplay = true
+        }
+    }
+
+    override var isFlipped: Bool { true }
+
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+        image?.draw(in: bounds)
+    }
 }

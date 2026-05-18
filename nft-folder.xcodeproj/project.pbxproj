@@ -155,6 +155,8 @@
 		2CF4C49B2B7F567B000AB4A6 /* Navigator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CF4C49A2B7F567B000AB4A6 /* Navigator.swift */; };
 		2CF4C4A02B7FCDDC000AB4A6 /* Defaults.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CF4C49F2B7FCDDC000AB4A6 /* Defaults.swift */; };
 		2CFA90012EB0000000000001 /* MobileCollectionCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CFA90002EB0000000000001 /* MobileCollectionCatalog.swift */; };
+		2CFA92012EB2000000000001 /* CollectionCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CFA92002EB2000000000001 /* CollectionCatalog.swift */; };
+		2CFA92022EB2000000000001 /* CollectionCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CFA92002EB2000000000001 /* CollectionCatalog.swift */; };
 		2CFA91022EB1000000000001 /* PonchoDrifellaMetalCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CFA91002EB1000000000001 /* PonchoDrifellaMetalCardView.swift */; };
 		2CFA91032EB1000000000001 /* PonchoDrifellaShaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = 2CFA91012EB1000000000001 /* PonchoDrifellaShaders.metal */; };
 		2CFF885B2C288C9A0007045F /* SuggestedItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CFF885A2C288C9A0007045F /* SuggestedItem.swift */; };
@@ -268,6 +270,7 @@
 		2CF4C49A2B7F567B000AB4A6 /* Navigator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Navigator.swift; sourceTree = "<group>"; };
 		2CF4C49F2B7FCDDC000AB4A6 /* Defaults.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Defaults.swift; sourceTree = "<group>"; };
 		2CFA90002EB0000000000001 /* MobileCollectionCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileCollectionCatalog.swift; sourceTree = "<group>"; };
+		2CFA92002EB2000000000001 /* CollectionCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionCatalog.swift; sourceTree = "<group>"; };
 		2CFA91002EB1000000000001 /* PonchoDrifellaMetalCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PonchoDrifellaMetalCardView.swift; sourceTree = "<group>"; };
 		2CFA91012EB1000000000001 /* PonchoDrifellaShaders.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = PonchoDrifellaShaders.metal; sourceTree = "<group>"; };
 		2CFF885A2C288C9A0007045F /* SuggestedItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SuggestedItem.swift; sourceTree = "<group>"; };
@@ -311,6 +314,7 @@
 				2CA979AB2B62BA2400DB3AC8 /* NftGallery.swift */,
 				2C4DBFC02C3698D10097AD35 /* Chain.swift */,
 				2C98C4AC2BEE9E390040383D /* Consts.swift */,
+				2CFA92002EB2000000000001 /* CollectionCatalog.swift */,
 				2C1B60CA2B7E2481009949C2 /* Images.swift */,
 				2C1B60BC2B7D3505009949C2 /* Strings.swift */,
 			);
@@ -835,6 +839,7 @@
 				2C460ED32D2985D20083124E /* Network.swift in Sources */,
 				2C460ED42D2985D20083124E /* HostAppImages.swift in Sources */,
 				2CF08AA92D2A937400D82ACA /* MobileCollectionsView.swift in Sources */,
+				2CFA92012EB2000000000001 /* CollectionCatalog.swift in Sources */,
 				2CFA90012EB0000000000001 /* MobileCollectionCatalog.swift in Sources */,
 				2CF08AAA2D2A937400D82ACA /* MobileHelpers.swift in Sources */,
 				2C6A50C32DB17A6C002D4143 /* AirPlay.swift in Sources */,
@@ -918,6 +923,7 @@
 				2CE9A5762C3DA9FB009AEAF4 /* TokenGenerator.swift in Sources */,
 				2C98C4AD2BEE9E390040383D /* Consts.swift in Sources */,
 				2C424F462B9775E6007868F8 /* RightClickActivatingWindow.swift in Sources */,
+				2CFA92022EB2000000000001 /* CollectionCatalog.swift in Sources */,
 				2C1B60D32B7EA27E009949C2 /* Bundle.swift in Sources */,
 				2C1B60BD2B7D3505009949C2 /* Strings.swift in Sources */,
 				2CA34B3D2B082BDF00DAB623 /* WalletsListView.swift in Sources */,
