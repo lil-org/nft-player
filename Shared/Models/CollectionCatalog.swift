@@ -98,27 +98,6 @@ enum CollectionCatalog {
         return TokenGenerator.generateRandomToken(specificCollectionId: collectionId, notTokenId: notTokenId)
     }
 
-    static func generateToken(specificCollectionId: String, specificInputTokenId: String) -> GeneratedToken? {
-        guard DownloadableCollectionService.hasCollection(id: specificCollectionId) else {
-            return TokenGenerator.generateRandomToken(
-                specificCollectionId: specificCollectionId,
-                specificInputTokenId: specificInputTokenId
-            )
-        }
-
-        guard let tokenIndex = DownloadableCollectionService.tokenIndexForInput(
-                collectionId: specificCollectionId,
-                inputTokenId: specificInputTokenId
-              ) else {
-            return nil
-        }
-
-        return DownloadableCollectionService.generateToken(
-            collectionId: specificCollectionId,
-            tokenIndex: tokenIndex
-        )
-    }
-
     static func generateToken(specificCollectionId: String, tokenIndex: Int) -> GeneratedToken? {
         if DownloadableCollectionService.hasCollection(id: specificCollectionId) {
             return DownloadableCollectionService.generateToken(collectionId: specificCollectionId, tokenIndex: tokenIndex)
@@ -218,34 +197,6 @@ private enum DownloadableCollectionService {
 
     static func tokenIndex(collectionId: String, tokenId: String) -> Int? {
         tokenData(collectionId: collectionId)?.tokenIndicesById[tokenId]
-    }
-
-    static func tokenIndexForInput(collectionId: String, inputTokenId: String) -> Int? {
-        let trimmedTokenId = inputTokenId.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedTokenId.isEmpty else { return nil }
-
-        if let exactIndex = tokenIndex(collectionId: collectionId, tokenId: trimmedTokenId) {
-            return exactIndex
-        }
-
-        let displayTokenId = trimmedTokenId.hasPrefix("#")
-            ? String(trimmedTokenId.dropFirst()).trimmingCharacters(in: .whitespacesAndNewlines)
-            : trimmedTokenId
-        if displayTokenId != trimmedTokenId,
-           let exactDisplayIndex = tokenIndex(collectionId: collectionId, tokenId: displayTokenId) {
-            return exactDisplayIndex
-        }
-
-        guard index.collectionById[collectionId]?.chain == .solana,
-              let displayIndex = Int(displayTokenId),
-              displayIndex > 0,
-              let tokenData = tokenData(collectionId: collectionId) else {
-            return nil
-        }
-
-        let tokenIndex = displayIndex - 1
-        guard tokenData.tokens.indices.contains(tokenIndex) else { return nil }
-        return tokenIndex
     }
 
     static func generateToken(collectionId: String, tokenIndex: Int) -> GeneratedToken? {

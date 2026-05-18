@@ -882,8 +882,10 @@
           }
         }
       }
-    },   "Edit Playlist" : {
+    },
+    "Edit Playlist" : {
       "comment" : "13578230696778257711",
+      "extractionState" : "stale",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -1529,6 +1531,7 @@
     },
     "Go" : {
       "comment" : "14234271196711857402",
+      "extractionState" : "stale",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -1741,8 +1744,10 @@
           }
         }
       }
-    },   "Info" : {
+    },
+    "Info" : {
       "comment" : "11704282400537059688",
+      "extractionState" : "stale",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -1958,6 +1963,7 @@
     },
     "Let us know of any issues." : {
       "comment" : "8902998191512113439",
+      "extractionState" : "stale",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -2613,6 +2619,7 @@
     },
     "Next Collection" : {
       "comment" : "13135977840189858416",
+      "extractionState" : "stale",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -3043,6 +3050,7 @@
     },
     "Offline generation is a new experimental feature" : {
       "comment" : "157989199419070276",
+      "extractionState" : "stale",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -3912,7 +3920,8 @@
           }
         }
       }
-    },  "Select something in the app." : {
+    },
+    "Select something in the app." : {
       "comment" : "1751097206123454091",
       "localizations" : {
         "ar" : {
@@ -4556,7 +4565,8 @@
           }
         }
       }
-    }, "Toggle Info" : {
+    },
+    "Toggle Info" : {
       "comment" : "10128180121268908390",
       "localizations" : {
         "ar" : {
@@ -4773,6 +4783,7 @@
     },
     "Token Id" : {
       "comment" : "14085774395193647832",
+      "extractionState" : "stale",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -5418,6 +5429,7 @@
     },
     "View on OpenSea" : {
       "comment" : "8216105011788924242",
+      "extractionState" : "stale",
       "localizations" : {
         "ar" : {
           "stringUnit" : {

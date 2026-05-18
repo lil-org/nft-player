@@ -10,7 +10,6 @@ class PlayerModel: ObservableObject {
     @Published var history: [GeneratedToken]
     @Published var currentIndex: Int = 0
     @Published var showingInfoPopover = false
-    @Published var showingListPopover = false
 
     init(specificCollectionId: String?, notTokenId: String?) {
         let token = Self.generateRandomToken(
@@ -27,6 +26,37 @@ class PlayerModel: ObservableObject {
         self.history = [token]
         self.specificCollectionId = token.fullCollectionId
     }
+
+    var playerWindowTitle: String {
+        let collectionName = currentToken.collectionName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let displayName = currentToken.displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let baseTitle: String
+        if !collectionName.isEmpty {
+            baseTitle = collectionName
+        } else if !displayName.isEmpty {
+            baseTitle = displayName
+        } else {
+            baseTitle = Strings.nftFolder
+        }
+
+#if os(macOS)
+        guard !currentToken.fullCollectionId.isEmpty,
+              !currentToken.id.isEmpty,
+              let tokenIndex = CollectionCatalog.tokenIndex(
+                specificCollectionId: currentToken.fullCollectionId,
+                tokenId: currentToken.id
+              ) else {
+            return baseTitle
+        }
+
+        let tokenCount = CollectionCatalog.tokenCount(specificCollectionId: currentToken.fullCollectionId)
+        guard tokenCount > 0 else { return baseTitle }
+
+        return "\(baseTitle) \(Strings.pagePosition(current: tokenIndex + 1, total: tokenCount))"
+#else
+        return baseTitle
+#endif
+    }
     
     func showInitialCollection() {
         let newToken = Self.generateRandomToken(specificCollectionId: specificCollectionId, notTokenId: nil) ?? currentToken
@@ -39,7 +69,6 @@ class PlayerModel: ObservableObject {
             currentToken = history[currentIndex]
         }
         showingInfoPopover = false
-        showingListPopover = false
     }
 
     func goForward() {
@@ -57,16 +86,6 @@ class PlayerModel: ObservableObject {
             freeUpHistoryIfNeeded()
         }
         showingInfoPopover = false
-        showingListPopover = false
-    }
-
-    func tryNavigatingTo(inputTokenId: String) {
-        if let newToken = Self.generateToken(
-            specificCollectionId: currentToken.fullCollectionId,
-            specificInputTokenId: inputTokenId
-        ) {
-            showNewToken(newToken)
-        }
     }
     
     func changeCollection() {
@@ -80,7 +99,6 @@ class PlayerModel: ObservableObject {
         currentToken = newToken
         freeUpHistoryIfNeeded()
         showingInfoPopover = false
-        showingListPopover = false
     }
     
     private func freeUpHistoryIfNeeded() {
@@ -99,17 +117,4 @@ class PlayerModel: ObservableObject {
 #endif
     }
 
-    private static func generateToken(specificCollectionId: String, specificInputTokenId: String) -> GeneratedToken? {
-#if os(macOS)
-        CollectionCatalog.generateToken(
-            specificCollectionId: specificCollectionId,
-            specificInputTokenId: specificInputTokenId
-        )
-#else
-        TokenGenerator.generateRandomToken(
-            specificCollectionId: specificCollectionId,
-            specificInputTokenId: specificInputTokenId
-        )
-#endif
-    }
 }

@@ -4,7 +4,7 @@ import Foundation
 
 enum NftGallery: Int, CaseIterable, Codable {
 
-    case opensea, blockExplorer
+    case blockExplorer = 1
 
     func url(network: Network, chain: Chain?, collectionAddress: String, tokenId: String?) -> URL? {
         switch self {
@@ -16,23 +16,6 @@ enum NftGallery: Int, CaseIterable, Codable {
             let tokenInstancePath = tokenId.map { "/instance/\($0)?tab=metadata" } ?? ""
             let urlString = "\(network.blockExplorerBaseURLString)/token/\(collectionAddress)\(tokenInstancePath)"
             return URL(string: urlString)
-        case .opensea:
-            let prefix: String
-            switch network {
-            case .mainnet:
-                prefix = "ethereum"
-            case .optimism:
-                prefix = "optimism"
-            case .zora:
-                prefix = "zora"
-            case .base:
-                prefix = "base"
-            case .arbitrum:
-                prefix = "arbitrum"
-            case .blast:
-                prefix = "blast"
-            }
-            return URL(string: "https://opensea.io/assets/\(prefix)/\(collectionAddress)/\(tokenId ?? "")")
         }
     }
     

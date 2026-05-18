@@ -251,13 +251,7 @@ struct MobilePlayerView: View {
     }
 
     private var viewOnWebTitle: String {
-        if currentToken.url?.isSolanaExplorerURL == true {
-            return Strings.viewOnSolanaExplorer
-        }
-        if currentToken.url?.isTzKTURL == true {
-            return Strings.viewOnTzkt
-        }
-        return Strings.viewOnBlockscout
+        Strings.viewOnWebTitle(for: currentToken.url)
     }
     
     private func viewOnWeb() {
@@ -339,24 +333,6 @@ struct MobilePlayerView: View {
         )
     }
 
-}
-
-private extension URL {
-    var isSolanaExplorerURL: Bool {
-        guard var host = host?.lowercased() else { return false }
-        if host.hasPrefix("www.") {
-            host.removeFirst(4)
-        }
-        return host == "explorer.solana.com"
-    }
-
-    var isTzKTURL: Bool {
-        guard var host = host?.lowercased() else { return false }
-        if host.hasPrefix("www.") {
-            host.removeFirst(4)
-        }
-        return host == "tzkt.io"
-    }
 }
 
 private struct PlayerCollectionTitlePill: View {

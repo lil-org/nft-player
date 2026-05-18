@@ -5,19 +5,13 @@ import Foundation
 struct Strings {
 
     static let viewOnBlockscout = loc("View on Blockscout")
-    static let viewOnOpensea = loc("View on OpenSea")
     static let viewOnSolanaExplorer = loc("View on Solana Explorer")
     static let viewOnTzkt = loc("View on TzKT")
     static let ok = loc("OK")
     static let nftFolder = loc("Nft Folder")
-    static let experimetalOfflineGeneration = loc("Offline generation is a new experimental feature")
-    static let letUsKnowOfIssues = loc("Let us know of any issues.")
     static let back = loc("Back")
     static let forward = loc("Forward")
-    static let info = loc("Info")
     static let more = loc("More")
-    static let editPlaylist = loc("Edit Playlist")
-    static let nextCollection = loc("Next Collection")
     static let finish = loc("Finish")
     static let share = loc("Share")
     static let bookmark = loc("Bookmark")
@@ -25,8 +19,6 @@ struct Strings {
     static let continueViewing = loc("Continue Viewing")
     static let viewAgain = loc("View Again")
     static let play = loc("Play")
-    static let go = loc("Go")
-    static let tokenId = loc("Token Id")
     static let sendFeedback = loc("Send Feedback")
     static let mail = loc("Mail")
     static let rateOnTheAppStore = loc("Rate on the App Store")
@@ -51,5 +43,25 @@ struct Strings {
     static func pagePosition(current: Int, total: Int) -> String {
         String(format: loc("%1$lld of %2$lld"), Int64(current), Int64(total))
     }
+
+    static func viewOnWebTitle(for url: URL?) -> String {
+        if url?.isHosted(on: "explorer.solana.com") == true {
+            return viewOnSolanaExplorer
+        }
+        if url?.isHosted(on: "tzkt.io") == true {
+            return viewOnTzkt
+        }
+        return viewOnBlockscout
+    }
     
+}
+
+private extension URL {
+    func isHosted(on expectedHost: String) -> Bool {
+        guard var host = host?.lowercased() else { return false }
+        if host.hasPrefix("www.") {
+            host.removeFirst(4)
+        }
+        return host == expectedHost
+    }
 }

@@ -38,7 +38,7 @@ class LocalHtmlWindow: NSWindow {
         titleBarView.wantsLayer = true
         titleBarView.layer?.backgroundColor = .black
         
-        let titleLabel = NSTextField(labelWithString: playerModel.currentToken.displayName)
+        let titleLabel = NSTextField(labelWithString: playerModel.playerWindowTitle)
         titleLabel.font = NSFont.preferredFont(forTextStyle: .callout)
         titleLabel.textColor = .gray
         titleLabel.backgroundColor = .clear
@@ -50,35 +50,19 @@ class LocalHtmlWindow: NSWindow {
         self.titleLabel = titleLabel
         updateTitle()
         
-        let nextCollectionButton = NSButton(image: Images.nextCollectionTitleBar, target: self, action: #selector(nextCollectionButtonClicked))
-        nextCollectionButton.keyEquivalent = "\r"
-        nextCollectionButton.isBordered = false
-        nextCollectionButton.contentTintColor = .gray
-        titleBarView.addSubview(nextCollectionButton)
-        nextCollectionButton.translatesAutoresizingMaskIntoConstraints = false
+        let moreButton = NSButton(image: Images.moreTitleBar, target: self, action: #selector(moreButtonClicked(_:)))
+        moreButton.isBordered = false
+        moreButton.contentTintColor = .gray
+        moreButton.imageScaling = .scaleProportionallyDown
+        moreButton.toolTip = Strings.more
+        moreButton.setAccessibilityLabel(Strings.more)
+        titleBarView.addSubview(moreButton)
+        moreButton.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
-            nextCollectionButton.centerYAnchor.constraint(equalTo: closeButton.centerYAnchor),
-            nextCollectionButton.trailingAnchor.constraint(equalTo: titleBarView.trailingAnchor, constant: -8)
-        ])
-        
-        let listButton = NSButton(image: Images.playlistConfiguration, target: self, action: #selector(listButtonClicked))
-        listButton.isBordered = false
-        listButton.contentTintColor = .gray
-        titleBarView.addSubview(listButton)
-        listButton.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            listButton.centerYAnchor.constraint(equalTo: closeButton.centerYAnchor),
-            listButton.trailingAnchor.constraint(equalTo: nextCollectionButton.leadingAnchor, constant: -8)
-        ])
-        
-        let infoButton = NSButton(image: Images.infoTitleBar, target: self, action: #selector(infoButtonClicked))
-        infoButton.isBordered = false
-        infoButton.contentTintColor = .gray
-        titleBarView.addSubview(infoButton)
-        infoButton.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            infoButton.centerYAnchor.constraint(equalTo: closeButton.centerYAnchor),
-            infoButton.trailingAnchor.constraint(equalTo: listButton.leadingAnchor, constant: -8)
+            moreButton.centerYAnchor.constraint(equalTo: closeButton.centerYAnchor),
+            moreButton.trailingAnchor.constraint(equalTo: titleBarView.trailingAnchor, constant: -8),
+            moreButton.widthAnchor.constraint(equalToConstant: 28),
+            moreButton.heightAnchor.constraint(equalToConstant: 24)
         ])
         
         let leftButton = NSButton(image: Images.backTitleBar, target: self, action: #selector(backButtonClicked))
@@ -114,24 +98,14 @@ class LocalHtmlWindow: NSWindow {
                 return constraint
             }(),
             {
-                let constraint = titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: infoButton.leadingAnchor, constant: -8)
+                let constraint = titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: moreButton.leadingAnchor, constant: -8)
                 constraint.priority = .defaultHigh
                 return constraint
             }()
         ])
         
         navigationKeysEventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            if event.keyCode == 0x22 && event.modifierFlags.intersection(.deviceIndependentFlagsMask) == [] {
-                self?.infoButtonClicked()
-                return nil
-            }
-            
             switch event.charactersIgnoringModifiers?.unicodeScalars.first?.value {
-            case 0x0D:
-                if self?.playerModel.showingListPopover == false {
-                    self?.nextCollectionButtonClicked()
-                    return nil
-                }
             case 0xF700, 0xF702:
                 self?.backButtonClicked()
                 return nil
@@ -141,8 +115,6 @@ class LocalHtmlWindow: NSWindow {
             default:
                 return event
             }
-            
-            return event
         }
     }
     
@@ -165,13 +137,8 @@ class LocalHtmlWindow: NSWindow {
         }
     }
     
-    @objc private func nextCollectionButtonClicked() {
-        playerModel.changeCollection()
-        updateTitle()
-    }
-    
-    @objc private func listButtonClicked() {
-        playerModel.showingListPopover.toggle()
+    @objc private func moreButtonClicked(_ sender: NSButton) {
+        popUpMoreMenu(from: sender)
     }
     
     @objc private func forwardButtonClicked() {
@@ -184,8 +151,36 @@ class LocalHtmlWindow: NSWindow {
         updateTitle()
     }
     
-    @objc private func infoButtonClicked() {
-        playerModel.showingInfoPopover.toggle()
+    @objc private func viewOnWeb() {
+        if let url = playerModel.currentToken.url {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
+    private func makeMoreMenu() -> NSMenu {
+        let menu = NSMenu()
+        let viewOnWebItem = NSMenuItem(
+            title: Strings.viewOnWebTitle(for: playerModel.currentToken.url),
+            action: #selector(viewOnWeb),
+            keyEquivalent: ""
+        )
+        viewOnWebItem.target = self
+        menu.addItem(viewOnWebItem)
+        return menu
+    }
+
+    private func popUpMoreMenu(from view: NSView) {
+        makeMoreMenu().popUp(
+            positioning: nil,
+            at: NSPoint(x: 0, y: view.bounds.height),
+            in: view
+        )
+    }
+
+    private func updateTitle() {
+        let newTitle = playerModel.playerWindowTitle
+        titleLabel?.stringValue = newTitle
+        title = newTitle
     }
     
     deinit {
@@ -203,25 +198,11 @@ class LocalHtmlWindow: NSWindow {
 extension LocalHtmlWindow: PlayerMenuDelegate {
     
     func popUpMenu(view: NSView) {
-        let menu = NSMenu()
-        menu.addItem(NSMenuItem(title: playerModel.currentToken.displayName, action: nil, keyEquivalent: ""))
-        menu.addItem(.separator())
-        menu.addItem(NSMenuItem(title: Strings.info, action: #selector(infoButtonClicked), keyEquivalent: ""))
-        menu.addItem(.separator())
-        menu.addItem(NSMenuItem(title: Strings.back, action: #selector(backButtonClicked), keyEquivalent: ""))
-        menu.addItem(NSMenuItem(title: Strings.forward, action: #selector(forwardButtonClicked), keyEquivalent: ""))
-        menu.addItem(.separator())
-        menu.addItem(NSMenuItem(title: Strings.editPlaylist, action: #selector(listButtonClicked), keyEquivalent: ""))
-        menu.addItem(NSMenuItem(title: Strings.nextCollection, action: #selector(nextCollectionButtonClicked), keyEquivalent: ""))
         if let event = NSApp.currentEvent {
-            NSMenu.popUpContextMenu(menu, with: event, for: view)
+            NSMenu.popUpContextMenu(makeMoreMenu(), with: event, for: view)
+        } else {
+            popUpMoreMenu(from: view)
         }
     }
-    
-    func updateTitle() {
-        let newTitle = playerModel.currentToken.displayName
-        titleLabel?.stringValue = newTitle
-        title = newTitle
-    }
-    
+
 }

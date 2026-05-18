@@ -79,16 +79,6 @@ struct TokenGenerator {
         return generateToken(collectionData.tokens[tokenIndex], script: collectionData.script)
     }
     
-    static func generateRandomToken(specificCollectionId: String, specificInputTokenId: String) -> GeneratedToken? {
-        guard !specificInputTokenId.isEmpty && !specificInputTokenId.contains(where: { $0.isLetter }) else { return nil }
-        guard let collectionData = collectionData(specificCollectionId: specificCollectionId) else { return nil }
-        let cleanInput = specificInputTokenId.filter { $0.isNumber }
-        let exactMatch = collectionData.tokens.first(where: { $0.id == cleanInput })
-        let paddedMatch = collectionData.tokens.first(where: { $0.id.hasSuffix("000" + cleanInput) })
-        guard let target = exactMatch ?? paddedMatch else { return nil }
-        return generateToken(target, script: collectionData.script)
-    }
-    
     static func generateRandomToken(specificCollectionId: String?, notTokenId: String?) -> GeneratedToken? {
         var jsonName: String
         if let specificCollectionId = specificCollectionId {
@@ -168,11 +158,7 @@ struct TokenGenerator {
             return URL(string: "https://explorer.solana.com/address/\(script.address)")
         }
 
-#if canImport(AppKit)
-        return NftGallery.opensea.url(network: .mainnet, chain: .ethereum, collectionAddress: script.address, tokenId: token.id)
-#else
         return NftGallery.blockExplorer.url(network: .mainnet, chain: .ethereum, collectionAddress: script.address, tokenId: token.id)
-#endif
     }
     
 }
