@@ -8,8 +8,6 @@
 	<array>
 		<string>$(TeamIdentifierPrefix)group.org.lil.folder</string>
 	</array>
-	<key>com.apple.security.assets.music.read-write</key>
-	<true/>
 	<key>com.apple.security.files.user-selected.read-write</key>
 	<true/>
 	<key>com.apple.security.network.client</key>

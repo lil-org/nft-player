@@ -155,10 +155,10 @@
 		2CF4C49B2B7F567B000AB4A6 /* Navigator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CF4C49A2B7F567B000AB4A6 /* Navigator.swift */; };
 		2CF4C4A02B7FCDDC000AB4A6 /* Defaults.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CF4C49F2B7FCDDC000AB4A6 /* Defaults.swift */; };
 		2CFA90012EB0000000000001 /* MobileCollectionCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CFA90002EB0000000000001 /* MobileCollectionCatalog.swift */; };
-		2CFA92012EB2000000000001 /* CollectionCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CFA92002EB2000000000001 /* CollectionCatalog.swift */; };
-		2CFA92022EB2000000000001 /* CollectionCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CFA92002EB2000000000001 /* CollectionCatalog.swift */; };
 		2CFA91022EB1000000000001 /* PonchoDrifellaMetalCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CFA91002EB1000000000001 /* PonchoDrifellaMetalCardView.swift */; };
 		2CFA91032EB1000000000001 /* PonchoDrifellaShaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = 2CFA91012EB1000000000001 /* PonchoDrifellaShaders.metal */; };
+		2CFA92012EB2000000000001 /* CollectionCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CFA92002EB2000000000001 /* CollectionCatalog.swift */; };
+		2CFA92022EB2000000000001 /* CollectionCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CFA92002EB2000000000001 /* CollectionCatalog.swift */; };
 		2CFF885B2C288C9A0007045F /* SuggestedItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CFF885A2C288C9A0007045F /* SuggestedItem.swift */; };
 /* End PBXBuildFile section */
 
@@ -270,9 +270,9 @@
 		2CF4C49A2B7F567B000AB4A6 /* Navigator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Navigator.swift; sourceTree = "<group>"; };
 		2CF4C49F2B7FCDDC000AB4A6 /* Defaults.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Defaults.swift; sourceTree = "<group>"; };
 		2CFA90002EB0000000000001 /* MobileCollectionCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileCollectionCatalog.swift; sourceTree = "<group>"; };
-		2CFA92002EB2000000000001 /* CollectionCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionCatalog.swift; sourceTree = "<group>"; };
 		2CFA91002EB1000000000001 /* PonchoDrifellaMetalCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PonchoDrifellaMetalCardView.swift; sourceTree = "<group>"; };
 		2CFA91012EB1000000000001 /* PonchoDrifellaShaders.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = PonchoDrifellaShaders.metal; sourceTree = "<group>"; };
+		2CFA92002EB2000000000001 /* CollectionCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionCatalog.swift; sourceTree = "<group>"; };
 		2CFF885A2C288C9A0007045F /* SuggestedItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SuggestedItem.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -1318,7 +1318,18 @@
 				CURRENT_PROJECT_VERSION = 261;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 8DXC3N7E7P;
+				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_INCOMING_NETWORK_CONNECTIONS = NO;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = NO;
+				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = NO;
+				ENABLE_RESOURCE_ACCESS_BLUETOOTH = NO;
+				ENABLE_RESOURCE_ACCESS_CALENDARS = NO;
+				ENABLE_RESOURCE_ACCESS_CAMERA = NO;
+				ENABLE_RESOURCE_ACCESS_CONTACTS = NO;
+				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
+				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
+				ENABLE_RESOURCE_ACCESS_USB = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "nft-folder/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Nft Folder";
@@ -1355,7 +1366,18 @@
 				CURRENT_PROJECT_VERSION = 261;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 8DXC3N7E7P;
+				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_INCOMING_NETWORK_CONNECTIONS = NO;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = NO;
+				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = NO;
+				ENABLE_RESOURCE_ACCESS_BLUETOOTH = NO;
+				ENABLE_RESOURCE_ACCESS_CALENDARS = NO;
+				ENABLE_RESOURCE_ACCESS_CAMERA = NO;
+				ENABLE_RESOURCE_ACCESS_CONTACTS = NO;
+				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
+				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
+				ENABLE_RESOURCE_ACCESS_USB = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "nft-folder/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Nft Folder";
