@@ -137,7 +137,7 @@ private struct InfiniteCollectionsGridView: NSViewRepresentable {
                 for: indexPath
             )
             guard let gridItem = item as? CollectionGridItem else { return item }
-            configure(gridItem, at: indexPath, in: collectionView)
+            configure(gridItem, at: indexPath)
             return gridItem
         }
 
@@ -151,11 +151,11 @@ private struct InfiniteCollectionsGridView: NSViewRepresentable {
         }
 
         func collectionView(_ collectionView: NSCollectionView, prefetchItemsAt indexPaths: [IndexPath]) {
-            prefetchImages(for: indexPaths, in: collectionView)
+            prefetchImages(for: indexPaths)
         }
 
         func collectionView(_ collectionView: NSCollectionView, cancelPrefetchingForItemsAt indexPaths: [IndexPath]) {
-            cancelPrefetchingImages(for: indexPaths, in: collectionView)
+            cancelPrefetchingImages(for: indexPaths)
         }
 
         func visibleAnchor(in collectionView: NSCollectionView, scrollView: NSScrollView) -> VisibleAnchor? {
@@ -231,7 +231,7 @@ private struct InfiniteCollectionsGridView: NSViewRepresentable {
         func updateVisibleItems(in collectionView: NSCollectionView) {
             collectionView.indexPathsForVisibleItems().forEach { indexPath in
                 guard let item = collectionView.item(at: indexPath) as? CollectionGridItem else { return }
-                configure(item, at: indexPath, in: collectionView)
+                configure(item, at: indexPath)
             }
         }
 
@@ -249,8 +249,7 @@ private struct InfiniteCollectionsGridView: NSViewRepresentable {
             let maximumItem = max(collectionView.numberOfItems(inSection: 0) - 1, 0)
             let itemRange = max(firstVisibleItem - prefetchDistance, 0)...min(lastVisibleItem + prefetchDistance, maximumItem)
             prefetchImages(
-                for: itemRange.map { IndexPath(item: $0, section: 0) },
-                in: collectionView
+                for: itemRange.map { IndexPath(item: $0, section: 0) }
             )
         }
 
@@ -258,46 +257,21 @@ private struct InfiniteCollectionsGridView: NSViewRepresentable {
             items[InfiniteCollectionsLoop.sourceIndex(for: virtualIndex, itemCount: items.count)]
         }
 
-        private func configure(_ gridItem: CollectionGridItem, at indexPath: IndexPath, in collectionView: NSCollectionView) {
+        private func configure(_ gridItem: CollectionGridItem, at indexPath: IndexPath) {
             let item = item(for: indexPath.item)
-            gridItem.configure(
-                item: item,
-                coverSize: coverImageTargetSize(in: collectionView),
-                displayScale: displayScale(in: collectionView)
-            )
+            gridItem.configure(item: item)
         }
 
-        private func prefetchImages(for indexPaths: [IndexPath], in collectionView: NSCollectionView) {
+        private func prefetchImages(for indexPaths: [IndexPath]) {
             guard !items.isEmpty else { return }
             let assetNames = Set(indexPaths.map { item(for: $0.item).coverAssetName })
-            CollectionCoverImageCache.shared.prefetch(
-                assetNames: Array(assetNames),
-                targetSize: coverImageTargetSize(in: collectionView),
-                displayScale: displayScale(in: collectionView)
-            )
+            CollectionCoverImageCache.shared.prefetch(assetNames: Array(assetNames))
         }
 
-        private func cancelPrefetchingImages(for indexPaths: [IndexPath], in collectionView: NSCollectionView) {
+        private func cancelPrefetchingImages(for indexPaths: [IndexPath]) {
             guard !items.isEmpty else { return }
             let assetNames = Set(indexPaths.map { item(for: $0.item).coverAssetName })
-            CollectionCoverImageCache.shared.cancelPrefetch(
-                assetNames: Array(assetNames),
-                targetSize: coverImageTargetSize(in: collectionView),
-                displayScale: displayScale(in: collectionView)
-            )
-        }
-
-        private func coverImageTargetSize(in collectionView: NSCollectionView) -> CGSize {
-            if let itemSize = (collectionView.collectionViewLayout as? NSCollectionViewFlowLayout)?.itemSize,
-               itemSize.width > 0,
-               itemSize.height > 0 {
-                return itemSize
-            }
-            return InfiniteCollectionsGridContainerView.itemSize(forWidth: collectionView.bounds.width)
-        }
-
-        private func displayScale(in collectionView: NSCollectionView) -> CGFloat {
-            collectionView.window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2
+            CollectionCoverImageCache.shared.cancelPrefetch(assetNames: Array(assetNames))
         }
 
         private func setScrollY(_ y: CGFloat, in scrollView: NSScrollView) {
@@ -344,7 +318,7 @@ private final class InfiniteCollectionsGridContainerView: NSView {
         scrollView.horizontalScrollElasticity = .none
         scrollView.translatesAutoresizingMaskIntoConstraints = false
 
-        collectionView.backgroundColors = [.clear]
+        collectionView.backgroundColors = [.black]
         collectionView.isSelectable = true
         collectionView.allowsMultipleSelection = false
         collectionView.register(CollectionGridItem.self, forItemWithIdentifier: CollectionGridItem.reuseIdentifier)
@@ -458,10 +432,14 @@ private final class InfiniteCollectionsGridContainerView: NSView {
 private final class CollectionCoverImageCache {
     static let shared = CollectionCoverImageCache()
 
+    private typealias ImageCompletion = (NSImage?) -> Void
+    private static let preparedPixelSide = 300
+
     private let visibleQueue = DispatchQueue(label: "org.lil.nft-folder.collection-cover-cache.visible", qos: .userInitiated)
-    private let prefetchQueue = DispatchQueue(label: "org.lil.nft-folder.collection-cover-cache.prefetch", qos: .utility)
+    private let prefetchQueue = DispatchQueue(label: "org.lil.nft-folder.collection-cover-cache.prefetch", qos: .userInitiated)
     private let lock = NSLock()
     private let cache = NSCache<NSString, NSImage>()
+    private var pendingVisibleCompletions = [String: [ImageCompletion]]()
     private var pendingPrefetchKeys = Set<String>()
     private var cancelledPrefetchKeys = Set<String>()
 
@@ -470,86 +448,92 @@ private final class CollectionCoverImageCache {
         cache.totalCostLimit = 64 * 1024 * 1024
     }
 
-    func cachedImage(assetName: String, targetSize: CGSize, displayScale: CGFloat) -> NSImage? {
-        let targetPixelSide = targetPixelSide(for: targetSize, displayScale: displayScale)
-        return cache.object(forKey: cacheKey(assetName: assetName, targetPixelSide: targetPixelSide) as NSString)
+    func cachedImage(assetName: String) -> NSImage? {
+        cache.object(forKey: assetName as NSString)
     }
 
     func loadImage(
         assetName: String,
-        targetSize: CGSize,
-        displayScale: CGFloat,
         completion: @escaping (NSImage?) -> Void
     ) {
-        let targetPixelSide = targetPixelSide(for: targetSize, displayScale: displayScale)
-        let key = cacheKey(assetName: assetName, targetPixelSide: targetPixelSide)
-        if let image = cache.object(forKey: key as NSString) {
+        if let image = cache.object(forKey: assetName as NSString) {
             completion(image)
             return
         }
 
-        visibleQueue.async { [cache] in
-            if let cachedImage = cache.object(forKey: key as NSString) {
-                DispatchQueue.main.async {
-                    completion(cachedImage)
+        guard scheduleVisibleLoad(forKey: assetName, completion: completion) else { return }
+
+        visibleQueue.async {
+            let image: NSImage?
+            if let cachedImage = self.cache.object(forKey: assetName as NSString) {
+                image = cachedImage
+            } else {
+                let loadedImage = Self.preparedImage(assetName: assetName)
+                if let loadedImage {
+                    self.store(loadedImage, key: assetName)
                 }
-                return
+                image = loadedImage
             }
 
-            let image = Self.preparedImage(assetName: assetName, targetPixelSide: targetPixelSide, displayScale: displayScale)
-            if let image {
-                cache.setObject(image, forKey: key as NSString, cost: image.memoryCost)
-            }
-
+            let completions = self.finishVisibleLoad(forKey: assetName)
             DispatchQueue.main.async {
-                completion(image)
+                completions.forEach { $0(image) }
             }
         }
     }
 
-    func prefetch(assetNames: [String], targetSize: CGSize, displayScale: CGFloat) {
+    func prefetch(assetNames: [String]) {
         assetNames.forEach { assetName in
-            let targetPixelSide = targetPixelSide(for: targetSize, displayScale: displayScale)
-            let key = cacheKey(assetName: assetName, targetPixelSide: targetPixelSide)
-            guard cache.object(forKey: key as NSString) == nil else { return }
-            guard shouldSchedulePrefetch(forKey: key) else { return }
+            guard cache.object(forKey: assetName as NSString) == nil else { return }
+            guard shouldSchedulePrefetch(forKey: assetName) else { return }
 
-            prefetchQueue.async { [cache] in
-                guard self.shouldRunPrefetch(forKey: key) else { return }
-                guard cache.object(forKey: key as NSString) == nil else {
-                    self.finishPrefetch(forKey: key)
+            prefetchQueue.async {
+                guard self.shouldRunPrefetch(forKey: assetName) else { return }
+                guard self.cache.object(forKey: assetName as NSString) == nil else {
+                    self.finishPrefetch(forKey: assetName)
                     return
                 }
 
-                let image = Self.preparedImage(assetName: assetName, targetPixelSide: targetPixelSide, displayScale: displayScale)
+                let image = Self.preparedImage(assetName: assetName)
                 if let image {
-                    cache.setObject(image, forKey: key as NSString, cost: image.memoryCost)
+                    self.store(image, key: assetName)
                 }
-                self.finishPrefetch(forKey: key)
+                self.finishPrefetch(forKey: assetName)
             }
         }
     }
 
-    func cancelPrefetch(assetNames: [String], targetSize: CGSize, displayScale: CGFloat) {
-        let targetPixelSide = targetPixelSide(for: targetSize, displayScale: displayScale)
-        let keys = assetNames.map { assetName in
-            cacheKey(assetName: assetName, targetPixelSide: targetPixelSide)
-        }
+    func cancelPrefetch(assetNames: [String]) {
         lock.withLock {
-            keys.forEach { key in
-                guard pendingPrefetchKeys.contains(key) else { return }
-                cancelledPrefetchKeys.insert(key)
+            assetNames.forEach { assetName in
+                guard pendingPrefetchKeys.contains(assetName) else { return }
+                cancelledPrefetchKeys.insert(assetName)
             }
         }
     }
 
-    private func targetPixelSide(for targetSize: CGSize, displayScale: CGFloat) -> Int {
-        let pointSide = max(max(targetSize.width, targetSize.height), 1)
-        return max(Int(ceil(pointSide * displayScale)), 1)
+    private func store(_ image: NSImage, key: String) {
+        cache.setObject(image, forKey: key as NSString, cost: image.memoryCost)
     }
 
-    private func cacheKey(assetName: String, targetPixelSide: Int) -> String {
-        "\(assetName)-\(targetPixelSide)"
+    private func scheduleVisibleLoad(
+        forKey key: String,
+        completion: @escaping ImageCompletion
+    ) -> Bool {
+        lock.withLock {
+            if pendingVisibleCompletions[key] != nil {
+                pendingVisibleCompletions[key]?.append(completion)
+                return false
+            }
+            pendingVisibleCompletions[key] = [completion]
+            return true
+        }
+    }
+
+    private func finishVisibleLoad(forKey key: String) -> [ImageCompletion] {
+        lock.withLock {
+            return pendingVisibleCompletions.removeValue(forKey: key) ?? []
+        }
     }
 
     private func shouldSchedulePrefetch(forKey key: String) -> Bool {
@@ -582,7 +566,7 @@ private final class CollectionCoverImageCache {
         }
     }
 
-    private static func preparedImage(assetName: String, targetPixelSide: Int, displayScale: CGFloat) -> NSImage? {
+    private static func preparedImage(assetName: String) -> NSImage? {
         autoreleasepool {
             guard let sourceImage = NSImage(named: assetName) else { return nil }
             var proposedRect = CGRect(origin: .zero, size: sourceImage.size)
@@ -590,8 +574,8 @@ private final class CollectionCoverImageCache {
                   let colorSpace = sourceCGImage.colorSpace ?? CGColorSpace(name: CGColorSpace.sRGB),
                   let context = CGContext(
                     data: nil,
-                    width: targetPixelSide,
-                    height: targetPixelSide,
+                    width: preparedPixelSide,
+                    height: preparedPixelSide,
                     bitsPerComponent: 8,
                     bytesPerRow: 0,
                     space: colorSpace,
@@ -604,7 +588,7 @@ private final class CollectionCoverImageCache {
             let sourceSize = CGSize(width: sourceCGImage.width, height: sourceCGImage.height)
             guard sourceSize.width > 0, sourceSize.height > 0 else { return sourceImage }
 
-            let targetSize = CGSize(width: targetPixelSide, height: targetPixelSide)
+            let targetSize = CGSize(width: preparedPixelSide, height: preparedPixelSide)
             let fillScale = max(targetSize.width / sourceSize.width, targetSize.height / sourceSize.height)
             let scaledSize = CGSize(width: sourceSize.width * fillScale, height: sourceSize.height * fillScale)
             let drawRect = CGRect(
@@ -616,9 +600,7 @@ private final class CollectionCoverImageCache {
             context.draw(sourceCGImage, in: drawRect)
 
             guard let image = context.makeImage() else { return sourceImage }
-            let scale = max(displayScale, 1)
-            let pointSide = CGFloat(targetPixelSide) / scale
-            return NSImage(cgImage: image, size: CGSize(width: pointSide, height: pointSide))
+            return NSImage(cgImage: image, size: targetSize)
         }
     }
 }
@@ -640,7 +622,6 @@ private final class CollectionGridItem: NSCollectionViewItem {
     }
 
     private var representedCoverAssetName: String?
-    private var representedCoverSize = CGSize.zero
 
     override func loadView() {
         view = CollectionGridCellView()
@@ -649,27 +630,19 @@ private final class CollectionGridItem: NSCollectionViewItem {
     override func prepareForReuse() {
         super.prepareForReuse()
         representedCoverAssetName = nil
-        representedCoverSize = .zero
         cellView.image = nil
         cellView.title = nil
     }
 
-    func configure(item: CollectionCatalogItem, coverSize: CGSize, displayScale: CGFloat) {
+    func configure(item: CollectionCatalogItem) {
         let coverAssetChanged = representedCoverAssetName != item.coverAssetName
-        let shouldUpdateCover = coverAssetChanged
-            || representedCoverSize != coverSize
-            || cellView.image == nil
+        let shouldUpdateCover = coverAssetChanged || cellView.image == nil
         representedCoverAssetName = item.coverAssetName
-        representedCoverSize = coverSize
         cellView.title = item.name
         view.setAccessibilityLabel(item.name)
 
         guard shouldUpdateCover else { return }
-        if let cachedCoverImage = CollectionCoverImageCache.shared.cachedImage(
-            assetName: item.coverAssetName,
-            targetSize: coverSize,
-            displayScale: displayScale
-        ) {
+        if let cachedCoverImage = CollectionCoverImageCache.shared.cachedImage(assetName: item.coverAssetName) {
             cellView.image = cachedCoverImage
             return
         }
@@ -677,14 +650,9 @@ private final class CollectionGridItem: NSCollectionViewItem {
         if coverAssetChanged || cellView.image == nil {
             cellView.image = nil
         }
-        CollectionCoverImageCache.shared.loadImage(
-            assetName: item.coverAssetName,
-            targetSize: coverSize,
-            displayScale: displayScale
-        ) { [weak self] image in
+        CollectionCoverImageCache.shared.loadImage(assetName: item.coverAssetName) { [weak self] image in
             guard let self,
-                  self.representedCoverAssetName == item.coverAssetName,
-                  self.representedCoverSize == coverSize else {
+                  self.representedCoverAssetName == item.coverAssetName else {
                 return
             }
             self.cellView.image = image
@@ -701,13 +669,15 @@ private final class CollectionGridCellView: NSView {
 
     var title: String? {
         didSet {
-            titleLabel.stringValue = title ?? ""
+            guard title != oldValue else { return }
+            titleLabel.text = title ?? ""
             needsLayout = true
         }
     }
 
     private let imageView = CoverImageView()
-    private let titleLabel = NSTextField(labelWithString: "")
+    private let titleLabel = GridTitleLabel()
+    private let imageBleed: CGFloat = 1
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -718,25 +688,13 @@ private final class CollectionGridCellView: NSView {
         imageView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(imageView)
 
-        titleLabel.font = .systemFont(ofSize: 10, weight: .regular)
-        titleLabel.textColor = .white
-        titleLabel.backgroundColor = NSColor.black.withAlphaComponent(0.7)
-        titleLabel.drawsBackground = true
-        titleLabel.isBezeled = false
-        titleLabel.isEditable = false
-        titleLabel.isSelectable = false
-        titleLabel.maximumNumberOfLines = 2
-        titleLabel.lineBreakMode = .byWordWrapping
-        titleLabel.wantsLayer = true
-        titleLabel.layer?.cornerRadius = 3
-        titleLabel.layer?.masksToBounds = true
         addSubview(titleLabel)
 
         NSLayoutConstraint.activate([
-            imageView.topAnchor.constraint(equalTo: topAnchor),
-            imageView.bottomAnchor.constraint(equalTo: bottomAnchor),
-            imageView.leadingAnchor.constraint(equalTo: leadingAnchor),
-            imageView.trailingAnchor.constraint(equalTo: trailingAnchor)
+            imageView.topAnchor.constraint(equalTo: topAnchor, constant: -imageBleed),
+            imageView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: imageBleed),
+            imageView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: -imageBleed),
+            imageView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: imageBleed)
         ])
     }
 
@@ -744,16 +702,28 @@ private final class CollectionGridCellView: NSView {
         fatalError("init(coder:) has not been implemented")
     }
 
+    override func setFrameSize(_ newSize: NSSize) {
+        let sizeChanged = frame.size != newSize
+        super.setFrameSize(newSize)
+        if sizeChanged {
+            needsLayout = true
+        }
+    }
+
     override func layout() {
         super.layout()
 
         let maximumLabelWidth = max(bounds.width - 8, 0)
-        let measuredSize = titleLabel.attributedStringValue.boundingRect(
-            with: CGSize(width: max(maximumLabelWidth - 2, 0), height: .greatestFiniteMagnitude),
-            options: [.usesLineFragmentOrigin, .usesFontLeading]
-        ).size
-        let labelWidth = min(maximumLabelWidth, ceil(measuredSize.width) + 2)
-        let labelHeight = min(ceil(measuredSize.height), 30)
+        guard maximumLabelWidth > 0, !titleLabel.text.isEmpty else {
+            titleLabel.frame = .zero
+            return
+        }
+
+        let measuredSize = titleLabel.sizeThatFits(
+            CGSize(width: maximumLabelWidth, height: .greatestFiniteMagnitude)
+        )
+        let labelWidth = min(maximumLabelWidth, max(ceil(measuredSize.width) + 2, 12))
+        let labelHeight = min(max(ceil(measuredSize.height), titleLabel.minimumHeight), 30)
         titleLabel.frame = CGRect(
             x: 4,
             y: 3,
@@ -763,17 +733,113 @@ private final class CollectionGridCellView: NSView {
     }
 }
 
-private final class CoverImageView: NSView {
-    var image: NSImage? {
+private final class GridTitleLabel: NSView {
+    var text: String = "" {
         didSet {
             needsDisplay = true
         }
     }
 
+    var minimumHeight: CGFloat {
+        ceil(font.boundingRectForFont.height) + textInsets.top + textInsets.bottom
+    }
+
+    private let font = NSFont.systemFont(ofSize: 10, weight: .regular)
+    private let textInsets = NSEdgeInsets(top: 1, left: 3, bottom: 1, right: 3)
+
     override var isFlipped: Bool { true }
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+
+        wantsLayer = true
+        layer?.masksToBounds = false
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    func sizeThatFits(_ size: CGSize) -> CGSize {
+        guard !text.isEmpty else { return .zero }
+
+        let textSize = CGSize(
+            width: max(size.width - textInsets.left - textInsets.right, 0),
+            height: .greatestFiniteMagnitude
+        )
+        let measuredSize = attributedText.boundingRect(
+            with: textSize,
+            options: [.usesLineFragmentOrigin, .usesFontLeading]
+        ).size
+        return CGSize(
+            width: measuredSize.width + textInsets.left + textInsets.right,
+            height: measuredSize.height + textInsets.top + textInsets.bottom
+        )
+    }
 
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
-        image?.draw(in: bounds)
+        guard !text.isEmpty else { return }
+
+        NSColor.black.withAlphaComponent(0.7).setFill()
+        NSBezierPath(roundedRect: bounds, xRadius: 3, yRadius: 3).fill()
+
+        attributedText.draw(
+            with: CGRect(
+                x: textInsets.left,
+                y: textInsets.top,
+                width: max(bounds.width - textInsets.left - textInsets.right, 0),
+                height: max(bounds.height - textInsets.top - textInsets.bottom, 0)
+            ),
+            options: [.usesLineFragmentOrigin, .usesFontLeading]
+        )
+    }
+
+    private var attributedText: NSAttributedString {
+        let paragraphStyle = NSMutableParagraphStyle()
+        paragraphStyle.lineBreakMode = .byWordWrapping
+        return NSAttributedString(
+            string: text,
+            attributes: [
+                .font: font,
+                .foregroundColor: NSColor.white,
+                .paragraphStyle: paragraphStyle
+            ]
+        )
+    }
+}
+
+private final class CoverImageView: NSView {
+    var image: NSImage? {
+        didSet {
+            layer?.contents = image?.cgImage
+        }
+    }
+
+    override var isFlipped: Bool { true }
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+
+        wantsLayer = true
+        layer?.contentsGravity = .resizeAspectFill
+        layer?.masksToBounds = true
+        layer?.contentsScale = NSScreen.main?.backingScaleFactor ?? 2
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        layer?.contentsScale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2
+    }
+}
+
+private extension NSImage {
+    var cgImage: CGImage? {
+        var proposedRect = CGRect(origin: .zero, size: size)
+        return cgImage(forProposedRect: &proposedRect, context: nil, hints: nil)
     }
 }
