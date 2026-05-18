@@ -20,27 +20,14 @@ struct SuggestedItemsService {
     
     static var allItems = [SuggestedItem]()
     private static var itemsById = [String: SuggestedItem]()
-    static var visibleItems = readSuggestedItems()
-    static var toHide = Set(Defaults.suggestedItemsToHide)
+    static var visibleItems: [SuggestedItem] {
+        ensureItemsLoaded()
+        return allItems
+    }
 
     static var allDownloadableCollectionItems: [SuggestedItem] {
         ensureItemsLoaded()
         return allItems.filter(\.isDownloadableCollection)
-    }
-    
-    static func doNotSuggestAnymore(item: SuggestedItem) {
-        visibleItems.removeAll(where: { item.id == $0.id })
-        toHide.insert(item.id)
-        Defaults.suggestedItemsToHide = Array(toHide)
-    }
-    
-    static func suggestedItems(address: String) -> [SuggestedItem] {
-        let lowercased = address.lowercased()
-        guard !address.hasSuffix(".eth") else { return [] }
-        ensureItemsLoaded()
-        return allItems.filter {
-            $0.address.lowercased() == lowercased && shouldIncludeInVisibleItems($0)
-        }
     }
 
     static func item(id: String) -> SuggestedItem? {
@@ -56,32 +43,6 @@ struct SuggestedItemsService {
         } else {
             return nil
         }
-    }
-    
-    static func restoredSuggestedItems(usersWallets: [WatchOnlyWallet]) -> [SuggestedItem] {
-        let walletsIds = Set(usersWallets.map { $0.id })
-        let hiddenAndAddedByUser = Defaults.suggestedItemsToHide.filter { walletsIds.contains($0) }
-        Defaults.suggestedItemsToHide = hiddenAndAddedByUser
-        toHide = Set(hiddenAndAddedByUser)
-        visibleItems = readSuggestedItems()
-        return visibleItems
-    }
-    
-    private static func readSuggestedItems() -> [SuggestedItem] {
-        ensureItemsLoaded()
-        
-        let filtered = allItems.filter { item in
-            !toHide.contains(item.id) && shouldIncludeInVisibleItems(item)
-        }
-        return filtered
-    }
-
-    private static func shouldIncludeInVisibleItems(_ item: SuggestedItem) -> Bool {
-#if os(iOS)
-        return true
-#else
-        return !item.isIOSOnlyCollection
-#endif
     }
 
     private static func ensureItemsLoaded() {

@@ -5,32 +5,14 @@ import Cocoa
 @main
 class AppDelegate: NSObject, NSApplicationDelegate {
     
-    private var didFinishLaunching = false
     private let currentInstanceId = UUID().uuidString
     
-    private let allDownloadsManager = AllDownloadsManager.shared
-    
     func applicationDidFinishLaunching(_ aNotification: Notification) {
-        cleanupDefaultsIfNeeded()
-        createDirectoryIfNeeded()
-        didFinishLaunching = true
-        
-        Navigator.shared.showControlCenter(addWallet: false)
+        Navigator.shared.showControlCenter()
         
         let notificationCenter = DistributedNotificationCenter.default()
         notificationCenter.post(name: .mustTerminate, object: currentInstanceId)
         notificationCenter.addObserver(self, selector: #selector(terminateInstance(_:)), name: .mustTerminate, object: nil, suspensionBehavior: .deliverImmediately)
-        allDownloadsManager.start()
-        AvatarService.setup()
-    }
-    
-    private func cleanupDefaultsIfNeeded() {
-        let currentVersion = Defaults.cleanupVersion
-        if currentVersion == 0 {
-            Defaults.performCleanup(version: currentVersion)
-            SharedDefaults.performCleanup(version: currentVersion)
-            Defaults.cleanupVersion = 1
-        }
     }
     
     func applicationWillTerminate(_ aNotification: Notification) {
@@ -48,17 +30,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return false
     }
     
-    private func createDirectoryIfNeeded() {
-        _ = URL.nftDirectory
-    }
-    
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        Navigator.shared.showControlCenter(addWallet: false)
+        Navigator.shared.showControlCenter()
         return true
     }
     
     @IBAction func didClickNewWindowItem(_ sender: Any) {
-        Navigator.shared.showControlCenter(addWallet: false)
+        Navigator.shared.showControlCenter()
     }
     
 }

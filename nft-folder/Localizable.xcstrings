@@ -229,6 +229,7 @@
     },
     "Address or ENS" : {
       "comment" : "14712148383832498636",
+      "extractionState" : "stale",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -1315,6 +1316,7 @@
     },
     "Download audio" : {
       "comment" : "12055255706787845431",
+      "extractionState" : "stale",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -1530,6 +1532,7 @@
     },
     "Download video" : {
       "comment" : "10627447846317511530",
+      "extractionState" : "stale",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -1960,6 +1963,7 @@
     },
     "Erase All Content" : {
       "comment" : "4536237638154053432",
+      "extractionState" : "stale",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -2820,6 +2824,7 @@
     },
     "Hard Reset" : {
       "comment" : "490651129669441073",
+      "extractionState" : "stale",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -3035,6 +3040,7 @@
     },
     "Hide" : {
       "comment" : "16072022511923465352",
+      "extractionState" : "stale",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -3895,6 +3901,7 @@
     },
     "Max file size 50 MB" : {
       "comment" : "2613287854261392803",
+      "extractionState" : "stale",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -4335,6 +4342,7 @@
     },
     "New Folder" : {
       "comment" : "11485402576256047661",
+      "extractionState" : "stale",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -5410,6 +5418,7 @@
     },
     "Pause" : {
       "comment" : "8864816960819541920",
+      "extractionState" : "stale",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -6067,6 +6076,7 @@
     },
     "Remove Folder" : {
       "comment" : "18375307326384788604",
+      "extractionState" : "stale",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -6282,6 +6292,7 @@
     },
     "Restore Hidden Items" : {
       "comment" : "7835671561617059315",
+      "extractionState" : "stale",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -7573,6 +7584,7 @@
     },
     "Show in Finder" : {
       "comment" : "10454314836971756470",
+      "extractionState" : "stale",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -8003,6 +8015,7 @@
     },
     "Stop Downloads" : {
       "comment" : "17852437186316460618",
+      "extractionState" : "stale",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -8218,6 +8231,7 @@
     },
     "Sync" : {
       "comment" : "13960022110583755124",
+      "extractionState" : "stale",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -9078,6 +9092,7 @@
     },
     "View on Art Blocks" : {
       "comment" : "9100513374961874108",
+      "extractionState" : "stale",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -9949,6 +9964,7 @@
     },
     "View on Zora" : {
       "comment" : "11057636647060570457",
+      "extractionState" : "stale",
       "localizations" : {
         "ar" : {
           "stringUnit" : {

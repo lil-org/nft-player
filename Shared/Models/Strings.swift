@@ -3,33 +3,16 @@
 import Foundation
 
 struct Strings {
-        
-    static let newFolder = loc("New Folder")
-    static let removeFolder = loc("Remove Folder")
-    static let hardReset = loc("Hard Reset")
-    static let viewOnArtBlocks = loc("View on Art Blocks")
+
     static let viewOnBlockscout = loc("View on Blockscout")
     static let viewOnOpensea = loc("View on OpenSea")
     static let viewOnSolanaExplorer = loc("View on Solana Explorer")
     static let viewOnTzkt = loc("View on TzKT")
-    static let viewinFinder = loc("Show in Finder")
-    static let viewOnZora = loc("View on Zora")
-    static let addressOrEns = loc("Address or ENS")
     static let cancel = loc("Cancel")
     static let ok = loc("OK")
-    static let sync = loc("Sync")
-    static let pause = loc("Pause")
-    static let stopAllDownloads = loc("Stop Downloads")
-    static let newFolderMenuItem = newFolder
     static let retry = loc("Retry")
     static let nftFolder = loc("Nft Folder")
     static let somethingWentWrong = loc("Something went wrong")
-    static let maxFileSize50mb = loc("Max file size 50 MB")
-    static let hideFromHere = loc("Hide")
-    static let downloadVideo = loc("Download video")
-    static let downloadAudio = loc("Download audio")
-    static let restoreHiddenItems = loc("Restore Hidden Items")
-    static let eraseAllContent = loc("Erase All Content")
     static let experimetalOfflineGeneration = loc("Offline generation is a new experimental feature")
     static let letUsKnowOfIssues = loc("Let us know of any issues.")
     static let back = loc("Back")
@@ -61,7 +44,6 @@ struct Strings {
     static let github = "GitHub"
     static let blockExplorer = "Blockscout"
     static let opensea = "OpenSea"
-    static let ens = "ENS"
     static let lilOrgLinkWithEmojis = "🌐 lil.org 👈"
     
     private static func loc(_ string: String.LocalizationValue) -> String {

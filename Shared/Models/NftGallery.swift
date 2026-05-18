@@ -6,9 +6,7 @@ import Cocoa
 #endif
 
 enum NftGallery: Int, CaseIterable, Codable {
-    
-    static let referrer = "0xE26067c76fdbe877F48b0a8400cf5Db8B47aF0fE"
-    
+
     case opensea, blockExplorer
     
 #if canImport(AppKit)
@@ -30,28 +28,7 @@ enum NftGallery: Int, CaseIterable, Codable {
             Strings.blockExplorer
         }
     }
-    
-    func url(wallet: WatchOnlyWallet) -> URL? {
-        if let collectionNetwork = wallet.collections?.first?.network {
-            return url(network: collectionNetwork, chain: wallet.chain, collectionAddress: wallet.address, tokenId: nil)
-        } else {
-            return url(walletAddress: wallet.address, chain: wallet.chain)
-        }
-    }
-    
-    private func url(walletAddress: String, chain: Chain?) -> URL? {
-        switch self {
-        case .blockExplorer:
-            if chain == .tezos {
-                return URL(string: "https://tzkt.io/\(walletAddress)")
-            }
-            let network = chain?.network ?? .mainnet
-            return URL(string: "\(network.blockExplorerBaseURLString)/address/\(walletAddress)")
-        case .opensea:
-            return URL(string: "https://opensea.io/\(walletAddress)")
-        }
-    }
-    
+
     func url(network: Network, chain: Chain?, collectionAddress: String, tokenId: String?) -> URL? {
         switch self {
         case .blockExplorer:

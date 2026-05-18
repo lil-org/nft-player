@@ -7,11 +7,7 @@ class Navigator: NSObject {
     
     private override init() { super.init() }
     static let shared = Navigator()
-    
-    func showNewFolderInput() {
-        showControlCenter(addWallet: true)
-    }
-    
+
     func showPlayer(model: PlayerModel) {
         Window.closeOtherPlayers()
         let window = LocalHtmlWindow(
@@ -38,10 +34,9 @@ class Navigator: NSObject {
         }
     }
     
-    func showControlCenter(addWallet: Bool) {
-        AllDownloadsManager.shared.checkFolders()
+    func showControlCenter() {
         Window.closeAllControlCenters()
-        let contentView = WalletsListView(showAddWalletPopup: addWallet)
+        let contentView = WalletsListView()
         let window = RightClickActivatingWindow(
             contentRect: CGRect(origin: .zero, size: CGSize(width: 777, height: 593)),
             styleMask: [.closable, .fullSizeContentView, .titled, .resizable, .miniaturizable],
