@@ -4,6 +4,7 @@ import Cocoa
 import SwiftUI
 
 private let continueViewingButtonPadding: CGFloat = 16
+private let continueViewingCollectionNameMaxWidth: CGFloat = 250
 
 struct WalletsListView: View {
 
@@ -12,12 +13,14 @@ struct WalletsListView: View {
     @State private var viewingProgressByCollectionId: [String: Int]
     @State private var viewedToEndCollectionIds: Set<String>
     @State private var continueViewingProgress: PlayerViewingProgress?
+    @State private var hasOpenPlayerWindows: Bool
 
     init() {
         let progressSnapshot = PlayerViewingProgressStore.progressSnapshot()
         _viewingProgressByCollectionId = State(initialValue: progressSnapshot.percentagesByCollectionId)
         _viewedToEndCollectionIds = State(initialValue: progressSnapshot.viewedToEndCollectionIds)
         _continueViewingProgress = State(initialValue: progressSnapshot.continueViewingProgress)
+        _hasOpenPlayerWindows = State(initialValue: Window.hasOpenPlayerWindows)
     }
 
     var body: some View {
@@ -26,14 +29,18 @@ struct WalletsListView: View {
                 .frame(maxWidth: .infinity)
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            if let continueViewingProgress {
-                ContinueViewingButton(progress: continueViewingProgress) {
-                    resumeViewing(continueViewingProgress)
+            if shouldShowContinueViewingControl, let continueViewingProgress {
+                HStack {
+                    Spacer(minLength: 0)
+                    ContinueViewingButton(progress: continueViewingProgress) {
+                        resumeViewing(continueViewingProgress)
+                    }
+                    Spacer(minLength: 0)
                 }
+                .frame(maxWidth: .infinity)
                 .padding(.horizontal, continueViewingButtonPadding)
                 .padding(.top, continueViewingButtonPadding / 2)
                 .padding(.bottom, continueViewingButtonPadding)
-                .transition(.opacity.combined(with: .move(edge: .bottom)))
             }
         }
         .background(Color(nsColor: .controlBackgroundColor))
@@ -50,14 +57,22 @@ struct WalletsListView: View {
                 }
             }
         }
-        .onAppear(perform: refreshViewingProgress)
+        .onAppear {
+            refreshViewingProgress()
+            refreshPlayerWindowState()
+        }
         .onReceive(NotificationCenter.default.publisher(for: .playerViewingProgressDidChange)) { _ in
             refreshViewingProgress()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .playerWindowsDidChange)) { _ in
+            refreshPlayerWindowState()
+        }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             refreshViewingProgress()
+            refreshPlayerWindowState()
         }
-        .animation(.easeInOut(duration: 0.16), value: continueViewingProgress)
+        .animation(continueViewingControlAnimation, value: continueViewingProgress)
+        .animation(continueViewingControlAnimation, value: hasOpenPlayerWindows)
     }
 
     private var settingsMenu: some View {
@@ -72,6 +87,14 @@ struct WalletsListView: View {
             Images.gearshape
         }
         .menuIndicator(.hidden)
+    }
+
+    private var shouldShowContinueViewingControl: Bool {
+        continueViewingProgress != nil && !hasOpenPlayerWindows
+    }
+
+    private var continueViewingControlAnimation: Animation? {
+        shouldShowContinueViewingControl ? .easeInOut(duration: 0.16) : nil
     }
 
     private func createGrid() -> some View {
@@ -165,6 +188,10 @@ struct WalletsListView: View {
         continueViewingProgress = progressSnapshot.continueViewingProgress
     }
 
+    private func refreshPlayerWindowState() {
+        hasOpenPlayerWindows = Window.hasOpenPlayerWindows
+    }
+
     private func open(_ url: URL) {
         NSWorkspace.shared.open(url)
     }
@@ -235,10 +262,14 @@ private struct CollectionTile: View {
     }
 
     private func badgeImage(_ image: Image) -> some View {
-        badge {
-            image
-                .imageScale(.small)
-        }
+        image
+            .font(.system(size: 9, weight: .semibold))
+            .imageScale(.small)
+            .foregroundColor(.white)
+            .frame(width: 15, height: 15)
+            .background(Color.black.opacity(0.72), in: Circle())
+            .padding(.top, 4)
+            .padding(.trailing, 4)
     }
 
     private func badge<Content: View>(@ViewBuilder content: () -> Content) -> some View {
@@ -267,31 +298,38 @@ private struct ContinueViewingButton: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(Strings.continueViewing)
                         .font(.caption.weight(.semibold))
+                        .lineLimit(1)
                     Text(progress.collectionName)
                         .font(.subheadline.weight(.semibold))
                         .lineLimit(1)
+                        .truncationMode(.tail)
+                        .frame(maxWidth: continueViewingCollectionNameMaxWidth, alignment: .leading)
+                        .layoutPriority(1)
                 }
-
-                Spacer(minLength: 12)
 
                 Text(Strings.percent(progress.percent))
                     .font(.subheadline.weight(.bold))
                     .monospacedDigit()
+                    .lineLimit(1)
+                    .fixedSize()
             }
             .foregroundStyle(.white)
             .padding(.horizontal, 14)
             .padding(.vertical, 12)
             .background {
-                ProgressCapsuleBackground(progress: progress.fraction)
+                ContinueViewingCapsuleBackground(progress: progress.fraction)
             }
             .clipShape(Capsule())
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
+        .focusable(false)
+        .keyboardShortcut(.return, modifiers: [])
+        .accessibilityLabel("\(Strings.continueViewing), \(progress.collectionName)")
     }
 }
 
-private struct ProgressCapsuleBackground: View {
+private struct ContinueViewingCapsuleBackground: View {
     let progress: Double
 
     var body: some View {
@@ -299,13 +337,32 @@ private struct ProgressCapsuleBackground: View {
             let clampedProgress = min(max(progress, 0), 1)
 
             ZStack(alignment: .leading) {
-                Capsule()
-                    .fill(.black.opacity(0.72))
+                base
 
                 Capsule()
                     .fill(.white.opacity(0.18))
                     .frame(width: geometry.size.width * clampedProgress)
             }
+            .clipShape(Capsule())
         }
+    }
+
+    @ViewBuilder
+    private var base: some View {
+        if #available(macOS 26.0, *) {
+            liquidGlassBase
+        } else {
+            Capsule()
+                .fill(.black.opacity(0.66))
+                .background(.ultraThinMaterial, in: Capsule())
+        }
+    }
+
+    @available(macOS 26.0, *)
+    private var liquidGlassBase: some View {
+        Capsule()
+            .fill(.white.opacity(0.08))
+            .glassEffect(.regular.tint(.black.opacity(0.42)).interactive(), in: Capsule())
+            .glassEffectTransition(.materialize)
     }
 }

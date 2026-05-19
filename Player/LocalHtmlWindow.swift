@@ -39,6 +39,12 @@ class LocalHtmlWindow: NSWindow {
         
         setupTitleBar()
         playerModel.markCurrentTokenViewed()
+        Window.registerPlayerWindow(self)
+    }
+
+    override func close() {
+        Window.unregisterPlayerWindow(self)
+        super.close()
     }
     
     private func setupTitleBar() {
@@ -263,6 +269,8 @@ class LocalHtmlWindow: NSWindow {
         if let monitor = navigationKeysEventMonitor {
             NSEvent.removeMonitor(monitor)
         }
+
+        Window.unregisterPlayerWindow(self)
     }
     
 }
