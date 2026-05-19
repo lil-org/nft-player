@@ -60,6 +60,7 @@ struct WalletsListView: View {
         .onAppear {
             refreshViewingProgress()
             refreshPlayerWindowState()
+            schedulePlayerPrewarm()
         }
         .onReceive(NotificationCenter.default.publisher(for: .playerViewingProgressDidChange)) { _ in
             refreshViewingProgress()
@@ -172,13 +173,16 @@ struct WalletsListView: View {
 
     private func showPlayer(collectionId: String, initialTokenId: String? = nil, continueViewingCollectionId: String) {
         PlayerViewingProgressStore.setContinueViewingCollectionId(continueViewingCollectionId)
-        Navigator.shared.showPlayer(
-            model: PlayerModel(
-                collectionId: collectionId,
-                initialTokenId: initialTokenId,
-                continueViewingCollectionId: continueViewingCollectionId
-            )
+        let preparedToken = PlayerTokenPrewarmer.preparedToken(
+            initialCollectionId: collectionId,
+            initialTokenId: initialTokenId
         )
+        let model = preparedToken.map(PlayerModel.init(token:)) ?? PlayerModel(
+            collectionId: collectionId,
+            initialTokenId: initialTokenId,
+            continueViewingCollectionId: continueViewingCollectionId
+        )
+        Navigator.shared.showPlayer(model: model)
     }
 
     private func refreshViewingProgress() {
@@ -190,6 +194,14 @@ struct WalletsListView: View {
 
     private func refreshPlayerWindowState() {
         hasOpenPlayerWindows = Window.hasOpenPlayerWindows
+    }
+
+    private func schedulePlayerPrewarm() {
+        PlayerWebView.scheduleFirstUsePrewarm()
+        PlayerTokenPrewarmer.scheduleAfterLaunch(
+            continueViewingProgress: continueViewingProgress,
+            initialCollectionIds: Array(collectionItems.prefix(2).map(\.id))
+        )
     }
 
     private func open(_ url: URL) {

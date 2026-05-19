@@ -11,6 +11,10 @@ class WebViewWithMenu: WKWebView {
         self.playerMenuDelegate = playerMenuDelegate
         setupRightClickGesture()
     }
+
+    func updatePlayerMenuDelegate(_ playerMenuDelegate: PlayerMenuDelegate?) {
+        self.playerMenuDelegate = playerMenuDelegate
+    }
     
     required init?(coder: NSCoder) {
         super.init(coder: coder)

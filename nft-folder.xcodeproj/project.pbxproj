@@ -43,7 +43,6 @@
 		2C1B60CB2B7E2481009949C2 /* Images.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C1B60CA2B7E2481009949C2 /* Images.swift */; };
 		2C3B775F2C3D6DEC000A9B52 /* LocalHtmlView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C3B775E2C3D6DEC000A9B52 /* LocalHtmlView.swift */; };
 		2C3B77612C3D6F82000A9B52 /* LocalHtmlWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C3B77602C3D6F82000A9B52 /* LocalHtmlWindow.swift */; };
-		2C3B77632C3D773B000A9B52 /* DesktopWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C3B77622C3D773B000A9B52 /* DesktopWebView.swift */; };
 		2C424F462B9775E6007868F8 /* RightClickActivatingWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C424F452B9775E6007868F8 /* RightClickActivatingWindow.swift */; };
 		2C460ECA2D29855A0083124E /* AutoReloadingWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C9442952C5186530078C051 /* AutoReloadingWebView.swift */; };
 		2C460ECD2D2985910083124E /* Strings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C1B60BC2B7D3505009949C2 /* Strings.swift */; };
@@ -158,6 +157,18 @@
 		2CFA92012EB2000000000001 /* CollectionCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CFA92002EB2000000000001 /* CollectionCatalog.swift */; };
 		2CFA92022EB2000000000001 /* CollectionCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CFA92002EB2000000000001 /* CollectionCatalog.swift */; };
 		2CFF885B2C288C9A0007045F /* SuggestedItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CFF885A2C288C9A0007045F /* SuggestedItem.swift */; };
+		2CDF00102F10000000000001 /* DownloadableMediaCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF00012F10000000000001 /* DownloadableMediaCache.swift */; };
+		2CDF00112F10000000000001 /* DownloadableMediaCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF00012F10000000000001 /* DownloadableMediaCache.swift */; };
+		2CDF00122F10000000000001 /* PlayerTokenPrewarmer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF00022F10000000000001 /* PlayerTokenPrewarmer.swift */; };
+		2CDF00132F10000000000001 /* PlayerTokenPrewarmer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF00022F10000000000001 /* PlayerTokenPrewarmer.swift */; };
+		2CDF00142F10000000000001 /* PlayerWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF00032F10000000000001 /* PlayerWebView.swift */; };
+		2CDF00152F10000000000001 /* MacPlayerMediaView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF00042F10000000000001 /* MacPlayerMediaView.swift */; };
+		2CDF00162F10000000000001 /* PonchoDrifellaMetalCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF00052F10000000000001 /* PonchoDrifellaMetalCardView.swift */; };
+		2CDF00172F10000000000001 /* PonchoDrifellaShaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = 2CFA91012EB1000000000001 /* PonchoDrifellaShaders.metal */; };
+		2CDF00182F10000000000001 /* PonchoDrifellaCardMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF00062F10000000000001 /* PonchoDrifellaCardMetadata.swift */; };
+		2CDF00192F10000000000001 /* PonchoDrifellaCardMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF00062F10000000000001 /* PonchoDrifellaCardMetadata.swift */; };
+		2CDF001A2F10000000000001 /* PonchoDrifellaAssetCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF00072F10000000000001 /* PonchoDrifellaAssetCache.swift */; };
+		2CDF001B2F10000000000001 /* PonchoDrifellaAssetCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF00072F10000000000001 /* PonchoDrifellaAssetCache.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -192,7 +203,6 @@
 		2C2CB47C2D29545F00042E74 /* nft-folder-ios.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "nft-folder-ios.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		2C3B775E2C3D6DEC000A9B52 /* LocalHtmlView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalHtmlView.swift; sourceTree = "<group>"; };
 		2C3B77602C3D6F82000A9B52 /* LocalHtmlWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalHtmlWindow.swift; sourceTree = "<group>"; };
-		2C3B77622C3D773B000A9B52 /* DesktopWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesktopWebView.swift; sourceTree = "<group>"; };
 		2C424F452B9775E6007868F8 /* RightClickActivatingWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RightClickActivatingWindow.swift; sourceTree = "<group>"; };
 		2C4659932C308B44008CF97F /* Covers.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Covers.xcassets; sourceTree = "<group>"; };
 		2C4D315E2C56AC7F00C586D1 /* TvPlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TvPlayerView.swift; sourceTree = "<group>"; };
@@ -266,6 +276,13 @@
 		2CFA91012EB1000000000001 /* PonchoDrifellaShaders.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = PonchoDrifellaShaders.metal; sourceTree = "<group>"; };
 		2CFA92002EB2000000000001 /* CollectionCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionCatalog.swift; sourceTree = "<group>"; };
 		2CFF885A2C288C9A0007045F /* SuggestedItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SuggestedItem.swift; sourceTree = "<group>"; };
+		2CDF00012F10000000000001 /* DownloadableMediaCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadableMediaCache.swift; sourceTree = "<group>"; };
+		2CDF00022F10000000000001 /* PlayerTokenPrewarmer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerTokenPrewarmer.swift; sourceTree = "<group>"; };
+		2CDF00032F10000000000001 /* PlayerWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerWebView.swift; sourceTree = "<group>"; };
+		2CDF00042F10000000000001 /* MacPlayerMediaView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacPlayerMediaView.swift; sourceTree = "<group>"; };
+		2CDF00052F10000000000001 /* PonchoDrifellaMetalCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PonchoDrifellaMetalCardView.swift; sourceTree = "<group>"; };
+		2CDF00062F10000000000001 /* PonchoDrifellaCardMetadata.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PonchoDrifellaCardMetadata.swift; sourceTree = "<group>"; };
+		2CDF00072F10000000000001 /* PonchoDrifellaAssetCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PonchoDrifellaAssetCache.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -311,6 +328,7 @@
 				2C1B60BC2B7D3505009949C2 /* Strings.swift */,
 				2CB01A022F01000000000001 /* PlayerBookmarksStore.swift */,
 				2CB01A032F01000000000001 /* PlayerViewingProgressStore.swift */,
+				2CDF00062F10000000000001 /* PonchoDrifellaCardMetadata.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -318,6 +336,9 @@
 		2C0D86CA2B08E7D900106915 /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				2CDF00012F10000000000001 /* DownloadableMediaCache.swift */,
+				2CDF00072F10000000000001 /* PonchoDrifellaAssetCache.swift */,
+				2CDF00022F10000000000001 /* PlayerTokenPrewarmer.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -375,6 +396,8 @@
 				2C3B77602C3D6F82000A9B52 /* LocalHtmlWindow.swift */,
 				2C9973FF2C4AF12400C058E2 /* PlayerMenuDelegate.swift */,
 				2C3B775E2C3D6DEC000A9B52 /* LocalHtmlView.swift */,
+				2CDF00042F10000000000001 /* MacPlayerMediaView.swift */,
+				2CDF00052F10000000000001 /* PonchoDrifellaMetalCardView.swift */,
 				2C8ADAA72C46F3FC008BC560 /* PlayerModel.swift */,
 			);
 			path = Player;
@@ -383,7 +406,7 @@
 		2C91131C2B08FCDF00A8EE80 /* Views */ = {
 			isa = PBXGroup;
 			children = (
-				2C3B77622C3D773B000A9B52 /* DesktopWebView.swift */,
+				2CDF00032F10000000000001 /* PlayerWebView.swift */,
 				2C9973FD2C4AEAAB00C058E2 /* WebViewWithMenu.swift */,
 				2CCFED972B08246800D98A2E /* WalletsListView.swift */,
 			);
@@ -782,6 +805,10 @@
 				2C460ED62D2985F60083124E /* Defaults.swift in Sources */,
 				2C460EDE2D29865F0083124E /* Script.swift in Sources */,
 				2C460ECA2D29855A0083124E /* AutoReloadingWebView.swift in Sources */,
+				2CDF00102F10000000000001 /* DownloadableMediaCache.swift in Sources */,
+				2CDF001A2F10000000000001 /* PonchoDrifellaAssetCache.swift in Sources */,
+				2CDF00122F10000000000001 /* PlayerTokenPrewarmer.swift in Sources */,
+				2CDF00182F10000000000001 /* PonchoDrifellaCardMetadata.swift in Sources */,
 				2C7134D62D30460B001E33DC /* MobilePlaybackController.swift in Sources */,
 				2CB01A012F01000000000001 /* PlayerBookmarksStore.swift in Sources */,
 				2CB01A052F01000000000001 /* PlayerViewingProgressStore.swift in Sources */,
@@ -886,13 +913,19 @@
 				2CEF35AD2C413AE700388574 /* RawHtmlGenerator.swift in Sources */,
 				2CF4C49B2B7F567B000AB4A6 /* Navigator.swift in Sources */,
 				2C3B77612C3D6F82000A9B52 /* LocalHtmlWindow.swift in Sources */,
+				2CDF00112F10000000000001 /* DownloadableMediaCache.swift in Sources */,
+				2CDF001B2F10000000000001 /* PonchoDrifellaAssetCache.swift in Sources */,
+				2CDF00132F10000000000001 /* PlayerTokenPrewarmer.swift in Sources */,
+				2CDF00142F10000000000001 /* PlayerWebView.swift in Sources */,
+				2CDF00152F10000000000001 /* MacPlayerMediaView.swift in Sources */,
+				2CDF00162F10000000000001 /* PonchoDrifellaMetalCardView.swift in Sources */,
+				2CDF00192F10000000000001 /* PonchoDrifellaCardMetadata.swift in Sources */,
 				2CFF885B2C288C9A0007045F /* SuggestedItem.swift in Sources */,
 				2C1B60CB2B7E2481009949C2 /* Images.swift in Sources */,
 				2CB01A002F01000000000001 /* PlayerBookmarksStore.swift in Sources */,
 				2CB01A042F01000000000001 /* PlayerViewingProgressStore.swift in Sources */,
 				2CA4CF552B07F75F00CC75F4 /* AppDelegate.swift in Sources */,
 				2C9C60352C2C5FE8001D9B51 /* SuggestedItemsService.swift in Sources */,
-				2C3B77632C3D773B000A9B52 /* DesktopWebView.swift in Sources */,
 				2C9974002C4AF12400C058E2 /* PlayerMenuDelegate.swift in Sources */,
 				2C4DBFC12C3698D10097AD35 /* Chain.swift in Sources */,
 				2C508C9D2B6830E6005F548A /* Notification.swift in Sources */,
@@ -901,6 +934,7 @@
 				2C1B60C42B7D41D1009949C2 /* HostAppImages.swift in Sources */,
 				2C8C8DE92C3C890B00BC83E9 /* Script.swift in Sources */,
 				2CE9A5782C3DAB03009AEAF4 /* GeneratedToken.swift in Sources */,
+				2CDF00172F10000000000001 /* PonchoDrifellaShaders.metal in Sources */,
 				2C60AAD12B8A4DE200F2C143 /* Window.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

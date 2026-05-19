@@ -30,7 +30,7 @@ struct LocalHtmlView: View {
         let isCollectionComplete = playerModel.currentProgress?.isComplete == true
 
         ZStack(alignment: .bottom) {
-            DesktopWebView(htmlContent: playerModel.currentToken.html, playerMenuDelegate: playerMenuDelegate)
+            MacPlayerMediaView(token: playerModel.currentToken, playerMenuDelegate: playerMenuDelegate)
                 .onAppear {
                     hideCursorIfFullscreen()
                 }

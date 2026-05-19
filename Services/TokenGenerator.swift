@@ -12,7 +12,7 @@ struct TokenGenerator {
     private static let jsonsNames: Set<String> = {
         let fileManager = FileManager.default
         let fileURLs = (try? fileManager.contentsOfDirectory(at: dirURL, includingPropertiesForKeys: nil)) ?? []
-#if os(macOS) || os(watchOS)
+#if os(watchOS)
         let disabledCollectionIds = Set([ponchoDrifellaCollectionId])
 #elseif os(visionOS)
         let disabledCollectionIds = Set([
