@@ -6,11 +6,6 @@ import WebKit
 import ImageIO
 import AVFoundation
 
-struct PlayerCoordinate: Hashable {
-    let x: Int
-    let y: Int
-}
-
 enum FullscreenTokenMediaView {
     static func imageView(in containerView: UIView) -> UIImageView {
         let imageView = UIImageView()

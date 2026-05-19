@@ -10,6 +10,8 @@ final class PlayerWebView: WebViewWithMenu, WKNavigationDelegate {
     private static var prewarmedWebView: PlayerWebView?
     private static var didSchedulePrewarm = false
 
+    var passesPlayerGesturesThrough = false
+
     private lazy var contentLoadCoordinator = PlayerWebContentLoadCoordinator(
         hasVisibleSize: { [weak self] in self?.hasVisibleSize == true },
         stopLoading: { [weak self] in self?.performSuperStopLoading() },
@@ -98,9 +100,14 @@ final class PlayerWebView: WebViewWithMenu, WKNavigationDelegate {
 
     private func applyPlayerDefaults() {
         navigationDelegate = self
+        allowsBackForwardNavigationGestures = false
         wantsLayer = true
         layer?.backgroundColor = NSColor.black.cgColor
         setValue(true, forKey: "drawsTransparentBackground")
+    }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        passesPlayerGesturesThrough ? nil : super.hitTest(point)
     }
 
     override var bounds: NSRect {

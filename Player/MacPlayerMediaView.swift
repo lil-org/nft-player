@@ -25,6 +25,20 @@ struct MacPlayerMediaView: NSViewRepresentable {
     }
 }
 
+enum MacPlayerMediaRenderMode {
+    case active
+    case transitionDestination
+    case preview
+
+    var canDemandLoad: Bool {
+        self != .preview
+    }
+
+    var managesDownloadWindow: Bool {
+        self == .active
+    }
+}
+
 final class MacPlayerMediaContainerView: NSView {
 
     private enum WebMediaKind {
@@ -38,18 +52,13 @@ final class MacPlayerMediaContainerView: NSView {
         let mediaKind: WebMediaKind
     }
 
-    private struct TokenContext: Equatable {
-        let collectionId: String
-        let tokenIndex: Int
-        let tokenCount: Int
-    }
-
     private weak var playerMenuDelegate: PlayerMenuDelegate?
     private var imageView: AspectFitImageView?
     private var webView: PlayerWebView?
     private var ponchoDrifellaMetalCardView: PonchoDrifellaMetalCardView?
     private var currentToken: GeneratedToken?
-    private var currentTokenContext: TokenContext?
+    private var currentTokenContext: PlayerTokenContext?
+    private var renderMode: MacPlayerMediaRenderMode?
     private var representedImageKey: AnyHashable?
     private var activeImageLoadId: UUID?
     private var cancelActiveImageLoad: (() -> Void)?
@@ -64,6 +73,7 @@ final class MacPlayerMediaContainerView: NSView {
     private var webViewMayContainContent = false
     private var lastPlayerMenuEventNumber: Int?
     private let downloadableMediaWindowOwnerId = UUID()
+    private var activeDownloadableMediaCollectionId: String?
     private let htmlDocumentRenderQueue = DispatchQueue(
         label: "org.lil.nft-folder.mac-html-document-render",
         qos: .userInitiated
@@ -74,6 +84,7 @@ final class MacPlayerMediaContainerView: NSView {
         super.init(frame: .zero)
         wantsLayer = true
         layer?.backgroundColor = NSColor.black.cgColor
+        installPlayerMenuGesture(on: self)
     }
 
     required init?(coder: NSCoder) {
@@ -89,54 +100,67 @@ final class MacPlayerMediaContainerView: NSView {
         webView?.updatePlayerMenuDelegate(playerMenuDelegate)
     }
 
-    func render(_ token: GeneratedToken) {
-        guard currentToken != token else { return }
+    func render(_ token: GeneratedToken, mode: MacPlayerMediaRenderMode = .active) {
+        let tokenChanged = currentToken != token
+        let modeChanged = renderMode != mode
+        guard tokenChanged || modeChanged else { return }
 
         currentToken = token
-        representedImageKey = nil
-        activeImageLoadId = nil
-        cancelActiveImageLoad?()
-        cancelActiveImageLoad = nil
-        activeFileLoadId = nil
-        cancelActiveFileLoad?()
-        cancelActiveFileLoad = nil
+        renderMode = mode
+
+        if tokenChanged || !mode.canDemandLoad {
+            representedImageKey = nil
+            activeImageLoadId = nil
+            cancelActiveImageLoad?()
+            cancelActiveImageLoad = nil
+            activeFileLoadId = nil
+            cancelActiveFileLoad?()
+            cancelActiveFileLoad = nil
+        }
+
+        if !mode.managesDownloadWindow {
+            clearManagedDownloadableMediaWindow()
+        }
 
         let previousContext = currentTokenContext
-        let tokenContext = Self.tokenContext(for: token)
+        let tokenContext = CollectionCatalog.tokenContext(for: token)
         currentTokenContext = tokenContext
         let direction = Self.prefetchDirection(from: previousContext, to: tokenContext)
 
         if token.usesPonchoDrifellaMetalRenderer {
             clearWebMediaContext()
-            clearDownloadableMediaWindow(for: previousContext)
+            clearManagedDownloadableMediaWindow()
             renderPonchoDrifellaMetalCard(token)
             return
         }
 
         guard let descriptor = Self.downloadableMediaDescriptor(for: token, context: tokenContext) else {
             clearWebMediaContext()
-            clearDownloadableMediaWindow(for: previousContext)
+            clearManagedDownloadableMediaWindow()
             renderWebContent(token.html)
             return
         }
 
-        prepareDownloadableMediaWindow(context: tokenContext, direction: direction)
+        if mode.managesDownloadWindow {
+            prepareDownloadableMediaWindow(context: tokenContext, direction: direction)
+        }
 
         switch descriptor.media {
         case .staticImage:
             clearWebMediaContext()
-            renderImage(descriptor, fallbackHTML: token.html)
+            renderImage(descriptor, fallbackHTML: token.html, mode: mode)
         case .animatedImage:
             renderDownloadableWebMedia(
                 descriptor,
                 adjacentDescriptor: adjacentDownloadableMediaDescriptor(for: tokenContext, direction: direction),
                 fallbackHTML: token.html,
-                mediaKind: .image
+                mediaKind: .image,
+                mode: mode
             )
         case .video:
-            renderDownloadableWebMedia(descriptor, fallbackHTML: token.html, mediaKind: .video)
+            renderDownloadableWebMedia(descriptor, fallbackHTML: token.html, mediaKind: .video, mode: mode)
         case .html:
-            renderDownloadableWebMedia(descriptor, fallbackHTML: token.html, mediaKind: .html)
+            renderDownloadableWebMedia(descriptor, fallbackHTML: token.html, mediaKind: .html, mode: mode)
         }
     }
 
@@ -147,25 +171,43 @@ final class MacPlayerMediaContainerView: NSView {
         cancelActiveFileLoad = nil
         activeFileLoadId = nil
         clearWebMediaContext()
-        DownloadableMediaCache.shared.clearActiveWindow(ownerId: downloadableMediaWindowOwnerId)
+        clearManagedDownloadableMediaWindow()
         ponchoDrifellaMetalCardView?.stop()
         PonchoDrifellaMetalCardView.resetMotionCalibration()
         unloadWebContentIfNeeded()
         webView?.isHidden = true
         imageView?.image = nil
         currentToken = nil
+        renderMode = nil
         cancelDownloadsIfNoPlayerWindows()
     }
 
-    private func renderImage(_ descriptor: CollectionCatalogDownloadableMediaDescriptor, fallbackHTML: String) {
+    private func renderImage(
+        _ descriptor: CollectionCatalogDownloadableMediaDescriptor,
+        fallbackHTML: String,
+        mode: MacPlayerMediaRenderMode
+    ) {
+        let imageKey = AnyHashable(descriptor)
+        if let cachedImage = DownloadableMediaCache.shared.cachedDecodedImage(for: descriptor) {
+            displayLoadedImage(cachedImage, key: descriptor)
+            return
+        }
+
         hideWebView()
         hidePonchoDrifellaMetalCardView()
         let imageView = ensureImageView()
-        imageView.image = nil
+        if representedImageKey != imageKey {
+            imageView.image = nil
+        }
         imageView.isHidden = false
 
-        let imageKey = AnyHashable(descriptor)
         representedImageKey = imageKey
+        guard mode.canDemandLoad else { return }
+
+        if representedImageKey == imageKey, activeImageLoadId != nil {
+            return
+        }
+
         let imageLoadId = UUID()
         activeImageLoadId = imageLoadId
 
@@ -203,7 +245,8 @@ final class MacPlayerMediaContainerView: NSView {
         _ descriptor: CollectionCatalogDownloadableMediaDescriptor,
         adjacentDescriptor: CollectionCatalogDownloadableMediaDescriptor? = nil,
         fallbackHTML: String,
-        mediaKind: WebMediaKind
+        mediaKind: WebMediaKind,
+        mode: MacPlayerMediaRenderMode
     ) {
         webMediaContext = WebMediaContext(
             descriptor: descriptor,
@@ -211,9 +254,15 @@ final class MacPlayerMediaContainerView: NSView {
             fallbackHTML: fallbackHTML,
             mediaKind: mediaKind
         )
-        installDownloadableMediaCacheObserverIfNeeded()
+        if mode.managesDownloadWindow {
+            installDownloadableMediaCacheObserverIfNeeded()
+        } else {
+            removeDownloadableMediaCacheObserver()
+        }
         renderAvailableLocalWebContent()
-        requestLocalWebContentIfNeeded()
+        if mode.canDemandLoad {
+            requestLocalWebContentIfNeeded()
+        }
     }
 
     private func renderAvailableLocalWebContent() {
@@ -367,6 +416,7 @@ final class MacPlayerMediaContainerView: NSView {
               DownloadableMediaCache.shared.localFileURL(for: context.descriptor) == nil else {
             return
         }
+        guard activeFileLoadId == nil else { return }
 
         let fileLoadId = UUID()
         activeFileLoadId = fileLoadId
@@ -462,7 +512,7 @@ final class MacPlayerMediaContainerView: NSView {
     }
 
     private func prepareDownloadableMediaWindow(
-        context: TokenContext?,
+        context: PlayerTokenContext?,
         direction: DownloadableMediaCache.PrefetchDirection
     ) {
         guard let context else { return }
@@ -480,18 +530,21 @@ final class MacPlayerMediaContainerView: NSView {
             descriptors: descriptors,
             direction: direction
         )
+        activeDownloadableMediaCollectionId = context.collectionId
     }
 
-    private func clearDownloadableMediaWindow(for context: TokenContext?) {
-        guard let collectionId = context?.collectionId else { return }
+    private func clearManagedDownloadableMediaWindow() {
+        guard let collectionId = activeDownloadableMediaCollectionId else { return }
+
         DownloadableMediaCache.shared.clearActiveWindow(
             for: collectionId,
             ownerId: downloadableMediaWindowOwnerId
         )
+        activeDownloadableMediaCollectionId = nil
     }
 
     private func adjacentDownloadableMediaDescriptor(
-        for context: TokenContext?,
+        for context: PlayerTokenContext?,
         direction: DownloadableMediaCache.PrefetchDirection
     ) -> CollectionCatalogDownloadableMediaDescriptor? {
         guard let context else { return nil }
@@ -524,6 +577,7 @@ final class MacPlayerMediaContainerView: NSView {
         }
 
         let webView = PlayerWebView.make(playerMenuDelegate: playerMenuDelegate)
+        webView.passesPlayerGesturesThrough = true
         webView.translatesAutoresizingMaskIntoConstraints = false
         addSubviewFillingBounds(webView)
         self.webView = webView
@@ -647,23 +701,9 @@ final class MacPlayerMediaContainerView: NSView {
         self.downloadableMediaCacheObserver = nil
     }
 
-    private static func tokenContext(for token: GeneratedToken) -> TokenContext? {
-        guard !token.fullCollectionId.isEmpty,
-              let tokenIndex = CollectionCatalog.tokenIndex(
-                specificCollectionId: token.fullCollectionId,
-                tokenId: token.id
-              ) else {
-            return nil
-        }
-
-        let tokenCount = CollectionCatalog.tokenCount(specificCollectionId: token.fullCollectionId)
-        guard tokenCount > 0 else { return nil }
-        return TokenContext(collectionId: token.fullCollectionId, tokenIndex: tokenIndex, tokenCount: tokenCount)
-    }
-
     private static func downloadableMediaDescriptor(
         for token: GeneratedToken,
-        context: TokenContext?
+        context: PlayerTokenContext?
     ) -> CollectionCatalogDownloadableMediaDescriptor? {
         guard let context,
               CollectionCatalog.isDownloadableCollection(specificCollectionId: context.collectionId) else {
@@ -677,8 +717,8 @@ final class MacPlayerMediaContainerView: NSView {
     }
 
     private static func prefetchDirection(
-        from previousContext: TokenContext?,
-        to newContext: TokenContext?
+        from previousContext: PlayerTokenContext?,
+        to newContext: PlayerTokenContext?
     ) -> DownloadableMediaCache.PrefetchDirection {
         guard let previousContext,
               let newContext,
@@ -692,48 +732,88 @@ final class MacPlayerMediaContainerView: NSView {
 
 private final class AspectFitImageView: NSView {
 
+    private let imageLayer = CALayer()
+    private var imageSize: CGSize?
+
     var image: NSImage? {
         didSet {
-            needsDisplay = true
+            withoutLayerAnimations {
+                updateLayerContents()
+                updateImageLayerFrame()
+            }
         }
     }
 
-    override var isFlipped: Bool {
-        true
+    override func makeBackingLayer() -> CALayer {
+        let layer = CALayer()
+        layer.backgroundColor = NSColor.black.cgColor
+        layer.masksToBounds = true
+        imageLayer.contentsGravity = .resize
+        imageLayer.masksToBounds = true
+        layer.minificationFilter = .linear
+        layer.magnificationFilter = .linear
+        imageLayer.minificationFilter = .linear
+        imageLayer.magnificationFilter = .linear
+        layer.actions = Self.disabledLayerActions
+        imageLayer.actions = Self.disabledLayerActions
+        layer.addSublayer(imageLayer)
+        return layer
     }
 
     override var bounds: NSRect {
         didSet {
-            needsDisplay = true
+            withoutLayerAnimations(updateImageLayerFrame)
         }
     }
 
     override var frame: NSRect {
         didSet {
-            needsDisplay = true
+            withoutLayerAnimations(updateImageLayerFrame)
         }
     }
 
-    override func draw(_ dirtyRect: NSRect) {
-        NSColor.black.setFill()
-        dirtyRect.fill()
+    override func layout() {
+        super.layout()
+        withoutLayerAnimations(updateImageLayerFrame)
+    }
 
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        withoutLayerAnimations {
+            updateLayerContents()
+            updateImageLayerFrame()
+        }
+    }
+
+    private func updateLayerContents() {
+        let contentsScale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2
+        layer?.contentsScale = contentsScale
+        imageLayer.contentsScale = contentsScale
         guard let image,
               image.isValid,
-              image.size.width > 0,
-              image.size.height > 0,
-              bounds.width > 0,
-              bounds.height > 0 else {
+              let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+            imageSize = nil
+            imageLayer.contents = nil
             return
         }
 
-        image.draw(
-            in: aspectFitRect(for: image.size, in: bounds),
-            from: NSRect(origin: .zero, size: image.size),
-            operation: .sourceOver,
-            fraction: 1,
-            respectFlipped: true,
-            hints: [.interpolation: NSImageInterpolation.high]
+        imageSize = CGSize(width: cgImage.width, height: cgImage.height)
+        imageLayer.contents = cgImage
+    }
+
+    private func updateImageLayerFrame() {
+        guard let imageSize,
+              imageSize.width > 0,
+              imageSize.height > 0,
+              bounds.width > 0,
+              bounds.height > 0 else {
+            imageLayer.frame = .zero
+            return
+        }
+
+        imageLayer.frame = aspectFitRect(
+            for: imageSize,
+            in: CGRect(origin: .zero, size: bounds.size)
         )
     }
 
@@ -747,4 +827,20 @@ private final class AspectFitImageView: NSView {
             height: scaledSize.height
         )
     }
+
+    private func withoutLayerAnimations(_ updates: () -> Void) {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        updates()
+        CATransaction.commit()
+    }
+
+    private static let disabledLayerActions: [String: CAAction] = [
+        "backgroundColor": NSNull(),
+        "bounds": NSNull(),
+        "contents": NSNull(),
+        "contentsScale": NSNull(),
+        "frame": NSNull(),
+        "position": NSNull()
+    ]
 }

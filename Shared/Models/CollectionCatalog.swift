@@ -33,6 +33,157 @@ struct CollectionCatalogDownloadableMediaDescriptor: Hashable {
     }
 }
 
+struct PlayerTokenContext: Hashable {
+    let collectionId: String
+    let tokenIndex: Int
+    let tokenCount: Int
+}
+
+struct PlayerCoordinate: Hashable {
+    let x: Int
+    let y: Int
+}
+
+enum PlaybackNavigationDirection {
+    case up, down, back, forward, nextCollection, restartCollection
+}
+
+final class PlayerTokenPagingDataSource {
+
+    private let initialCollectionId: String?
+    private let specificInitialToken: GeneratedToken?
+    private let initialTokenId: String?
+
+    private var collectionIds = [Int: String]()
+    private var collectionBaseTokenIndices = [Int: Int]()
+    private var latestToken: GeneratedToken?
+    private var latestCoordinate: PlayerCoordinate?
+
+    init(initialCollectionId: String?, specificInitialToken: GeneratedToken?, initialTokenId: String?) {
+        self.initialCollectionId = initialCollectionId
+        self.specificInitialToken = specificInitialToken
+        self.initialTokenId = initialTokenId
+
+        if let specificInitialToken {
+            let initialCoordinate = PlayerCoordinate(x: 0, y: 0)
+            collectionIds[initialCoordinate.y] = specificInitialToken.fullCollectionId
+            collectionBaseTokenIndices[initialCoordinate.y] = CollectionCatalog.tokenIndex(
+                specificCollectionId: specificInitialToken.fullCollectionId,
+                tokenId: specificInitialToken.id
+            ) ?? 0
+            latestToken = specificInitialToken
+            latestCoordinate = initialCoordinate
+        }
+    }
+
+    func pushToken(_ token: GeneratedToken, coordinate: PlayerCoordinate, sameCollection: Bool) {
+        let newCoordinate = sameCollection
+            ? PlayerCoordinate(x: coordinate.x + 1, y: coordinate.y)
+            : PlayerCoordinate(x: 0, y: coordinate.y + 1)
+        let tokenIndex = CollectionCatalog.tokenIndex(
+            specificCollectionId: token.fullCollectionId,
+            tokenId: token.id
+        ) ?? 0
+        collectionIds[newCoordinate.y] = token.fullCollectionId
+        collectionBaseTokenIndices[newCoordinate.y] = tokenIndex - newCoordinate.x
+        latestToken = nil
+        latestCoordinate = nil
+    }
+
+    func canRender(coordinate: PlayerCoordinate) -> Bool {
+        collectionTokenContext(coordinate: coordinate) != nil
+    }
+
+    func collectionTokenContext(coordinate: PlayerCoordinate) -> PlayerTokenContext? {
+        guard let collectionId = collectionId(verticalIndex: coordinate.y),
+              let tokenIndex = tokenIndex(coordinate: coordinate) else {
+            return nil
+        }
+
+        let tokenCount = CollectionCatalog.tokenCount(specificCollectionId: collectionId)
+        guard tokenIndex >= 0,
+              tokenIndex < tokenCount,
+              CollectionCatalog.canGenerateToken(specificCollectionId: collectionId, tokenIndex: tokenIndex) else {
+            return nil
+        }
+        return PlayerTokenContext(collectionId: collectionId, tokenIndex: tokenIndex, tokenCount: tokenCount)
+    }
+
+    func horizontalCoordinateForTokenIndex(_ tokenIndex: Int, verticalIndex: Int) -> Int {
+        ensureCollectionLoaded(verticalIndex: verticalIndex)
+        return tokenIndex - (collectionBaseTokenIndices[verticalIndex] ?? 0)
+    }
+
+    func progress(coordinate: PlayerCoordinate) -> PlayerViewingProgress? {
+        guard let context = collectionTokenContext(coordinate: coordinate) else { return nil }
+
+        let token = getToken(coordinate: coordinate)
+        guard !token.fullCollectionId.isEmpty else { return nil }
+        return PlayerViewingProgress(
+            collectionId: context.collectionId,
+            collectionName: token.collectionName,
+            tokenId: token.id,
+            tokenIndex: context.tokenIndex,
+            tokenCount: context.tokenCount,
+            updatedAt: Date()
+        )
+    }
+
+    func getToken(coordinate: PlayerCoordinate) -> GeneratedToken {
+        if latestCoordinate == coordinate, let token = latestToken {
+            return token
+        }
+
+        guard let collectionId = collectionId(verticalIndex: coordinate.y),
+              let tokenIndex = tokenIndex(coordinate: coordinate),
+              let token = CollectionCatalog.generateToken(specificCollectionId: collectionId, tokenIndex: tokenIndex) else {
+            return .empty
+        }
+
+        latestToken = token
+        latestCoordinate = coordinate
+        return token
+    }
+
+    private func tokenIndex(coordinate: PlayerCoordinate) -> Int? {
+        guard let baseTokenIndex = collectionBaseTokenIndices[coordinate.y] else { return nil }
+        return baseTokenIndex + coordinate.x
+    }
+
+    private func ensureCollectionLoaded(verticalIndex: Int) {
+        _ = collectionId(verticalIndex: verticalIndex)
+    }
+
+    private func collectionId(verticalIndex: Int) -> String? {
+        if let collectionId = collectionIds[verticalIndex] {
+            return collectionId
+        }
+
+        let collection: (id: String?, requestedTokenId: String?)
+        if verticalIndex == 0 {
+            collection = (
+                specificInitialToken?.fullCollectionId ?? initialCollectionId ?? CollectionCatalog.nextShuffledCollectionId(),
+                specificInitialToken?.id ?? initialTokenId
+            )
+        } else {
+            collection = (CollectionCatalog.nextShuffledCollectionId(), nil)
+        }
+
+        guard let collectionId = collection.id else { return nil }
+        collectionIds[verticalIndex] = collectionId
+
+        let baseTokenIndex: Int
+        if let requestedTokenId = collection.requestedTokenId,
+           let requestedIndex = CollectionCatalog.tokenIndex(specificCollectionId: collectionId, tokenId: requestedTokenId) {
+            baseTokenIndex = requestedIndex
+        } else {
+            baseTokenIndex = 0
+        }
+        collectionBaseTokenIndices[verticalIndex] = baseTokenIndex
+        return collectionId
+    }
+}
+
 enum CollectionCatalog {
     private static let shuffleLock = NSLock()
     private static var currentPassCollectionIds = Set<String>()
@@ -76,6 +227,25 @@ enum CollectionCatalog {
         return TokenGenerator.tokenIndex(specificCollectionId: specificCollectionId, tokenId: tokenId)
     }
 
+    static func tokenContext(for token: GeneratedToken) -> PlayerTokenContext? {
+        guard !token.fullCollectionId.isEmpty,
+              !token.id.isEmpty,
+              let tokenIndex = tokenIndex(
+                specificCollectionId: token.fullCollectionId,
+                tokenId: token.id
+              ) else {
+            return nil
+        }
+
+        let tokenCount = tokenCount(specificCollectionId: token.fullCollectionId)
+        guard tokenCount > 0 else { return nil }
+        return PlayerTokenContext(
+            collectionId: token.fullCollectionId,
+            tokenIndex: tokenIndex,
+            tokenCount: tokenCount
+        )
+    }
+
     static func generateRandomToken(specificCollectionId: String?, notTokenId: String?) -> GeneratedToken? {
         if specificCollectionId == nil {
             for _ in 0..<allItems.count {
@@ -103,6 +273,14 @@ enum CollectionCatalog {
             return DownloadableCollectionService.generateToken(collectionId: specificCollectionId, tokenIndex: tokenIndex)
         }
         return TokenGenerator.generateToken(specificCollectionId: specificCollectionId, tokenIndex: tokenIndex)
+    }
+
+    static func canGenerateToken(specificCollectionId: String, tokenIndex: Int) -> Bool {
+        guard tokenIndex >= 0 else { return false }
+        if DownloadableCollectionService.hasCollection(id: specificCollectionId) {
+            return DownloadableCollectionService.mediaDescriptor(collectionId: specificCollectionId, tokenIndex: tokenIndex) != nil
+        }
+        return tokenIndex < TokenGenerator.tokenCount(specificCollectionId: specificCollectionId)
     }
 
     static func downloadableMediaDescriptor(specificCollectionId: String, tokenIndex: Int) -> CollectionCatalogDownloadableMediaDescriptor? {

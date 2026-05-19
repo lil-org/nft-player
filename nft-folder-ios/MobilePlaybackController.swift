@@ -3,14 +3,10 @@
 import UIKit
 
 protocol MobilePlaybackControllerDisplay: AnyObject {
-    
+
     func navigate(_ direction: PlaybackNavigationDirection)
     func getCurrentCoordinate() -> (Int, Int)
-    
-}
 
-enum PlaybackNavigationDirection {
-    case up, down, back, forward, nextCollection, restartCollection
 }
 
 struct MobilePlayerFileShareItem {
@@ -44,7 +40,7 @@ class MobilePlaybackController {
     
     private var displays = [UUID: MobilePlaybackControllerDisplay]()
     private var initialConfigs = [UUID: MobilePlayerConfig]()
-    private var tokensDataSources = [UUID: GeneratedTokensDataSource]()
+    private var tokensDataSources = [UUID: PlayerTokenPagingDataSource]()
     private var restartSuppressedCollectionIds = [UUID: String]()
     
     func showNewToken(displayId: UUID, token: GeneratedToken, sameCollection: Bool, coordinate: PlayerCoordinate) {
@@ -172,15 +168,15 @@ class MobilePlaybackController {
     private func downloadableCollectionTokenContext(
         uuid: UUID,
         coordinate: PlayerCoordinate
-    ) -> (collectionId: String, tokenIndex: Int, tokenCount: Int)? {
+    ) -> PlayerTokenContext? {
         guard let dataSource = dataSource(uuid: uuid) else { return nil }
         return downloadableCollectionTokenContext(dataSource: dataSource, coordinate: coordinate)
     }
 
     private func downloadableCollectionTokenContext(
-        dataSource: GeneratedTokensDataSource,
+        dataSource: PlayerTokenPagingDataSource,
         coordinate: PlayerCoordinate
-    ) -> (collectionId: String, tokenIndex: Int, tokenCount: Int)? {
+    ) -> PlayerTokenContext? {
         guard let context = dataSource.collectionTokenContext(coordinate: coordinate),
               MobileCollectionCatalog.isDownloadableCollection(specificCollectionId: context.collectionId) else {
             return nil
@@ -259,13 +255,13 @@ class MobilePlaybackController {
         dataSource(uuid: uuid)?.horizontalCoordinateForTokenIndex(0, verticalIndex: verticalIndex) ?? 0
     }
 
-    private func dataSource(uuid: UUID) -> GeneratedTokensDataSource? {
+    private func dataSource(uuid: UUID) -> PlayerTokenPagingDataSource? {
         guard let initialConfig = initialConfigs[uuid] else { return nil }
         if let dataSource = tokensDataSources[uuid] {
             return dataSource
         }
 
-        let newDataSource = GeneratedTokensDataSource(
+        let newDataSource = PlayerTokenPagingDataSource(
             initialCollectionId: initialConfig.initialItemId,
             specificInitialToken: initialConfig.specificToken,
             initialTokenId: initialConfig.initialTokenId
@@ -302,137 +298,4 @@ enum MobilePlayerPrewarmer {
         )
         return config
     }
-}
-
-private class GeneratedTokensDataSource {
-    
-    private let initialCollectionId: String?
-    private let specificInitialToken: GeneratedToken?
-    private let initialTokenId: String?
-    
-    init(initialCollectionId: String?, specificInitialToken: GeneratedToken?, initialTokenId: String?) {
-        self.initialCollectionId = initialCollectionId
-        self.specificInitialToken = specificInitialToken
-        self.initialTokenId = initialTokenId
-
-        if let specificInitialToken {
-            let initialCoordinate = PlayerCoordinate(x: 0, y: 0)
-            collectionIds[initialCoordinate.y] = specificInitialToken.fullCollectionId
-            collectionBaseTokenIndices[initialCoordinate.y] = MobileCollectionCatalog.tokenIndex(
-                specificCollectionId: specificInitialToken.fullCollectionId,
-                tokenId: specificInitialToken.id
-            ) ?? 0
-            latestToken = specificInitialToken
-            latestCoordinate = initialCoordinate
-        }
-    }
-    
-    private var collectionIds = [Int: String]()
-    private var collectionBaseTokenIndices = [Int: Int]()
-    
-    private var latestToken: GeneratedToken?
-    private var latestCoordinate: PlayerCoordinate?
-    
-    func pushToken(_ token: GeneratedToken, coordinate: PlayerCoordinate, sameCollection: Bool) {
-        let newCoordinate = sameCollection
-            ? PlayerCoordinate(x: coordinate.x + 1, y: coordinate.y)
-            : PlayerCoordinate(x: 0, y: coordinate.y + 1)
-        let tokenIndex = MobileCollectionCatalog.tokenIndex(specificCollectionId: token.fullCollectionId, tokenId: token.id) ?? 0
-        collectionIds[newCoordinate.y] = token.fullCollectionId
-        collectionBaseTokenIndices[newCoordinate.y] = tokenIndex - newCoordinate.x
-        latestToken = nil
-        latestCoordinate = nil
-    }
-
-    func canRender(coordinate: PlayerCoordinate) -> Bool {
-        collectionTokenContext(coordinate: coordinate) != nil
-    }
-
-    func collectionTokenContext(coordinate: PlayerCoordinate) -> (collectionId: String, tokenIndex: Int, tokenCount: Int)? {
-        guard let collectionId = collectionId(verticalIndex: coordinate.y),
-              let tokenIndex = tokenIndex(coordinate: coordinate) else {
-            return nil
-        }
-
-        let tokenCount = MobileCollectionCatalog.tokenCount(specificCollectionId: collectionId)
-        guard tokenIndex >= 0, tokenIndex < tokenCount else { return nil }
-        return (collectionId, tokenIndex, tokenCount)
-    }
-
-    func horizontalCoordinateForTokenIndex(_ tokenIndex: Int, verticalIndex: Int) -> Int {
-        ensureCollectionLoaded(verticalIndex: verticalIndex)
-        return tokenIndex - (collectionBaseTokenIndices[verticalIndex] ?? 0)
-    }
-
-    func progress(coordinate: PlayerCoordinate) -> MobileViewingProgress? {
-        let token = getToken(coordinate: coordinate)
-        guard !token.fullCollectionId.isEmpty,
-              let tokenIndex = tokenIndex(coordinate: coordinate) else { return nil }
-
-        let tokenCount = MobileCollectionCatalog.tokenCount(specificCollectionId: token.fullCollectionId)
-        guard tokenCount > 0 else { return nil }
-        return MobileViewingProgress(
-            collectionId: token.fullCollectionId,
-            collectionName: token.collectionName,
-            tokenId: token.id,
-            tokenIndex: tokenIndex,
-            tokenCount: tokenCount,
-            updatedAt: Date()
-        )
-    }
-
-    func getToken(coordinate: PlayerCoordinate) -> GeneratedToken {
-        if latestCoordinate == coordinate, let token = latestToken {
-            return token
-        }
-
-        guard let collectionId = collectionId(verticalIndex: coordinate.y),
-              let tokenIndex = tokenIndex(coordinate: coordinate),
-              let token = MobileCollectionCatalog.generateToken(specificCollectionId: collectionId, tokenIndex: tokenIndex) else {
-            return .empty
-        }
-
-        latestToken = token
-        latestCoordinate = coordinate
-        return token
-    }
-
-    private func tokenIndex(coordinate: PlayerCoordinate) -> Int? {
-        guard let baseTokenIndex = collectionBaseTokenIndices[coordinate.y] else { return nil }
-        return baseTokenIndex + coordinate.x
-    }
-
-    private func ensureCollectionLoaded(verticalIndex: Int) {
-        _ = collectionId(verticalIndex: verticalIndex)
-    }
-
-    private func collectionId(verticalIndex: Int) -> String? {
-        if let collectionId = collectionIds[verticalIndex] {
-            return collectionId
-        }
-
-        let collection: (id: String?, requestedTokenId: String?)
-        if verticalIndex == 0 {
-            collection = (
-                specificInitialToken?.fullCollectionId ?? initialCollectionId ?? MobileCollectionCatalog.nextShuffledCollectionId(),
-                specificInitialToken?.id ?? initialTokenId
-            )
-        } else {
-            collection = (MobileCollectionCatalog.nextShuffledCollectionId(), nil)
-        }
-
-        guard let collectionId = collection.id else { return nil }
-        collectionIds[verticalIndex] = collectionId
-
-        let baseTokenIndex: Int
-        if let requestedTokenId = collection.requestedTokenId,
-           let requestedIndex = MobileCollectionCatalog.tokenIndex(specificCollectionId: collectionId, tokenId: requestedTokenId) {
-            baseTokenIndex = requestedIndex
-        } else {
-            baseTokenIndex = 0
-        }
-        collectionBaseTokenIndices[verticalIndex] = baseTokenIndex
-        return collectionId
-    }
-
 }

@@ -42,8 +42,12 @@ class PlayerModel: ObservableObject {
     }
 
     var playerWindowTitle: String {
-        let collectionName = currentToken.collectionName.trimmingCharacters(in: .whitespacesAndNewlines)
-        let displayName = currentToken.displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        playerWindowTitle(for: currentToken)
+    }
+
+    func playerWindowTitle(for token: GeneratedToken) -> String {
+        let collectionName = token.collectionName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let displayName = token.displayName.trimmingCharacters(in: .whitespacesAndNewlines)
         let baseTitle: String
         if !collectionName.isEmpty {
             baseTitle = collectionName
@@ -54,19 +58,11 @@ class PlayerModel: ObservableObject {
         }
 
 #if os(macOS)
-        guard !currentToken.fullCollectionId.isEmpty,
-              !currentToken.id.isEmpty,
-              let tokenIndex = CollectionCatalog.tokenIndex(
-                specificCollectionId: currentToken.fullCollectionId,
-                tokenId: currentToken.id
-              ) else {
+        guard let tokenContext = CollectionCatalog.tokenContext(for: token) else {
             return baseTitle
         }
 
-        let tokenCount = CollectionCatalog.tokenCount(specificCollectionId: currentToken.fullCollectionId)
-        guard tokenCount > 0 else { return baseTitle }
-
-        return "\(baseTitle) \(Strings.pagePosition(current: tokenIndex + 1, total: tokenCount))"
+        return "\(baseTitle) \(Strings.pagePosition(current: tokenContext.tokenIndex + 1, total: tokenContext.tokenCount))"
 #else
         return baseTitle
 #endif
@@ -152,21 +148,45 @@ class PlayerModel: ObservableObject {
         showingInfoPopover = false
     }
 
+    func showPagedToken(_ token: GeneratedToken) {
+        guard currentToken != token else { return }
+
+        if currentIndex > 0, history[currentIndex - 1] == token {
+            currentIndex -= 1
+        } else if currentIndex < history.count - 1, history[currentIndex + 1] == token {
+            currentIndex += 1
+        } else {
+            if currentIndex < history.count - 1 {
+                history.removeLast(history.count - currentIndex - 1)
+            }
+            history.append(token)
+            currentIndex = history.count - 1
+            trimHistoryBeforeCurrentIfNeeded()
+        }
+
+        currentToken = token
+        showingInfoPopover = false
+    }
+
     var currentProgress: PlayerViewingProgress? {
-        guard !currentToken.fullCollectionId.isEmpty,
+        progress(for: currentToken)
+    }
+
+    func progress(for token: GeneratedToken) -> PlayerViewingProgress? {
+        guard !token.fullCollectionId.isEmpty,
               let tokenIndex = Self.tokenIndex(
-                specificCollectionId: currentToken.fullCollectionId,
-                tokenId: currentToken.id
+                specificCollectionId: token.fullCollectionId,
+                tokenId: token.id
               ) else {
             return nil
         }
 
-        let tokenCount = Self.tokenCount(specificCollectionId: currentToken.fullCollectionId)
+        let tokenCount = Self.tokenCount(specificCollectionId: token.fullCollectionId)
         guard tokenCount > 0 else { return nil }
         return PlayerViewingProgress(
-            collectionId: currentToken.fullCollectionId,
-            collectionName: currentToken.collectionName,
-            tokenId: currentToken.id,
+            collectionId: token.fullCollectionId,
+            collectionName: token.collectionName,
+            tokenId: token.id,
             tokenIndex: tokenIndex,
             tokenCount: tokenCount,
             updatedAt: Date()
@@ -175,7 +195,12 @@ class PlayerModel: ObservableObject {
 
     @discardableResult
     func markCurrentTokenViewed() -> PlayerViewingProgress? {
-        guard let progress = currentProgress else { return nil }
+        markTokenViewed(currentToken)
+    }
+
+    @discardableResult
+    func markTokenViewed(_ token: GeneratedToken) -> PlayerViewingProgress? {
+        guard let progress = progress(for: token) else { return nil }
         PlayerViewingProgressStore.save(progress)
         updateContinueViewingCollection(for: progress)
         return progress

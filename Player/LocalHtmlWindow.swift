@@ -1,14 +1,17 @@
 // ∅ 2026 lil org
 
 import Cocoa
+import Combine
 import SwiftUI
 
 class LocalHtmlWindow: NSWindow {
     
     private var playerModel: PlayerModel
+    private let navigationBridge = MacPlayerNavigationBridge()
     private var cursorHideTimer: Timer?
     private var mouseMoveEventMonitor: Any?
     private var navigationKeysEventMonitor: Any?
+    private var currentTokenObserver: AnyCancellable?
     private weak var titleLabel: NSTextField?
     private weak var bookmarkButton: NSButton?
 
@@ -24,6 +27,7 @@ class LocalHtmlWindow: NSWindow {
             playerModel: playerModel,
             windowNumber: windowNumber,
             playerMenuDelegate: self,
+            navigationBridge: navigationBridge,
             onViewAgain: { [weak self] in self?.viewAgainButtonClicked() },
             onFinish: { [weak self] in self?.finishButtonClicked() }
         )
@@ -38,6 +42,12 @@ class LocalHtmlWindow: NSWindow {
         }
         
         setupTitleBar()
+        currentTokenObserver = playerModel.$currentToken
+            .dropFirst()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] token in
+                self?.updatePlayerChrome(for: token)
+            }
         playerModel.markCurrentTokenViewed()
         Window.registerPlayerWindow(self)
     }
@@ -135,16 +145,15 @@ class LocalHtmlWindow: NSWindow {
         ])
         
         navigationKeysEventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            switch event.charactersIgnoringModifiers?.unicodeScalars.first?.value {
-            case 0xF700, 0xF702:
-                self?.backButtonClicked()
-                return nil
-            case 0xF701, 0xF703, 0x20:
-                self?.forwardButtonClicked()
-                return nil
-            default:
+            guard let self else { return event }
+            guard self.shouldHandleNavigationKeyEvent(event) else {
                 return event
             }
+            guard let navigationAction = Self.navigationAction(for: event) else {
+                return event
+            }
+            self.performNavigation(navigationAction)
+            return nil
         }
     }
     
@@ -172,7 +181,7 @@ class LocalHtmlWindow: NSWindow {
     }
 
     @objc private func bookmarkButtonClicked() {
-        guard canBookmarkCurrentToken else { return }
+        guard canBookmark(playerModel.currentToken) else { return }
 
         PlayerBookmarksStore.toggleBookmark(
             collectionId: playerModel.currentToken.fullCollectionId,
@@ -183,7 +192,6 @@ class LocalHtmlWindow: NSWindow {
 
     @objc private func viewAgainButtonClicked() {
         playerModel.restartCollection()
-        updatePlayerChrome()
     }
 
     @objc private func finishButtonClicked() {
@@ -191,13 +199,11 @@ class LocalHtmlWindow: NSWindow {
     }
     
     @objc private func forwardButtonClicked() {
-        playerModel.goForward()
-        updatePlayerChrome()
+        navigationBridge.goForward(animation: .immediate)
     }
     
     @objc private func backButtonClicked() {
-        playerModel.goBack()
-        updatePlayerChrome()
+        navigationBridge.goBack(animation: .immediate)
     }
     
     @objc private func viewOnWeb() {
@@ -226,39 +232,85 @@ class LocalHtmlWindow: NSWindow {
         )
     }
 
-    private func updateTitle() {
-        let newTitle = playerModel.playerWindowTitle
+    private func updateTitle(for token: GeneratedToken? = nil) {
+        let newTitle = token.map { playerModel.playerWindowTitle(for: $0) } ?? playerModel.playerWindowTitle
         titleLabel?.stringValue = newTitle
         title = newTitle
     }
 
-    private var canBookmarkCurrentToken: Bool {
-        !playerModel.currentToken.fullCollectionId.isEmpty && !playerModel.currentToken.id.isEmpty
+    private func canBookmark(_ token: GeneratedToken) -> Bool {
+        !token.fullCollectionId.isEmpty && !token.id.isEmpty
     }
 
-    private var isCurrentTokenBookmarked: Bool {
+    private func isTokenBookmarked(_ token: GeneratedToken) -> Bool {
         PlayerBookmarksStore.isBookmarked(
-            collectionId: playerModel.currentToken.fullCollectionId,
-            tokenId: playerModel.currentToken.id
+            collectionId: token.fullCollectionId,
+            tokenId: token.id
         )
     }
 
-    private func updateBookmarkButton() {
+    private func updateBookmarkButton(for token: GeneratedToken? = nil) {
         guard let bookmarkButton else { return }
 
-        let canBookmark = canBookmarkCurrentToken
+        let token = token ?? playerModel.currentToken
+        let canBookmark = canBookmark(token)
         bookmarkButton.isHidden = !canBookmark
-        let isBookmarked = canBookmark && isCurrentTokenBookmarked
+        let isBookmarked = canBookmark && isTokenBookmarked(token)
         bookmarkButton.image = isBookmarked ? Images.bookmarkFillTitleBar : Images.bookmarkTitleBar
         let label = isBookmarked ? Strings.removeBookmark : Strings.bookmark
         bookmarkButton.toolTip = label
         bookmarkButton.setAccessibilityLabel(label)
     }
 
-    private func updatePlayerChrome() {
-        playerModel.markCurrentTokenViewed()
-        updateTitle()
-        updateBookmarkButton()
+    private func updatePlayerChrome(for token: GeneratedToken? = nil) {
+        let token = token ?? playerModel.currentToken
+        playerModel.markTokenViewed(token)
+        updateTitle(for: token)
+        updateBookmarkButton(for: token)
+    }
+
+    private func performNavigation(_ action: PlayerNavigationKeyAction) {
+        switch action {
+        case .back(let animation):
+            navigationBridge.goBack(animation: animation)
+        case .forward(let animation):
+            navigationBridge.goForward(animation: animation)
+        }
+    }
+
+    private func shouldHandleNavigationKeyEvent(_ event: NSEvent) -> Bool {
+        guard isKeyWindow, event.window === self else { return false }
+        guard !(firstResponder is NSTextView) else { return false }
+        return true
+    }
+
+    private static func navigationAction(for event: NSEvent) -> PlayerNavigationKeyAction? {
+        let shortcutModifiers: NSEvent.ModifierFlags = [.command, .control, .option]
+        guard event.modifierFlags.intersection(shortcutModifiers).isEmpty else { return nil }
+        guard let characters = event.charactersIgnoringModifiers?.lowercased(),
+              let scalar = characters.unicodeScalars.first else {
+            return nil
+        }
+
+        switch scalar.value {
+        case 0x20:
+            return .forward(animation: .animated)
+        case 0xF700, 0xF703:
+            return .forward(animation: .immediate)
+        case 0xF701, 0xF702:
+            return .back(animation: .immediate)
+        default:
+            break
+        }
+
+        switch characters {
+        case "w", "d":
+            return .forward(animation: .immediate)
+        case "a", "s":
+            return .back(animation: .immediate)
+        default:
+            return nil
+        }
     }
     
     deinit {
@@ -273,6 +325,11 @@ class LocalHtmlWindow: NSWindow {
         Window.unregisterPlayerWindow(self)
     }
     
+}
+
+private enum PlayerNavigationKeyAction {
+    case back(animation: MacPlayerNavigationAnimation)
+    case forward(animation: MacPlayerNavigationAnimation)
 }
 
 extension LocalHtmlWindow: PlayerMenuDelegate {
