@@ -126,6 +126,9 @@ final class MacPlayerMediaContainerView: NSView {
         let tokenContext = CollectionCatalog.tokenContext(for: token)
         currentTokenContext = tokenContext
         let direction = Self.prefetchDirection(from: previousContext, to: tokenContext)
+        let isDownloadableToken = tokenContext.map {
+            CollectionCatalog.isDownloadableCollection(specificCollectionId: $0.collectionId)
+        } == true
 
         if token.usesPonchoDrifellaMetalRenderer {
             clearWebMediaContext()
@@ -137,6 +140,10 @@ final class MacPlayerMediaContainerView: NSView {
         guard let descriptor = Self.downloadableMediaDescriptor(for: token, context: tokenContext) else {
             clearWebMediaContext()
             clearManagedDownloadableMediaWindow()
+            if !mode.canDemandLoad, isDownloadableToken {
+                clearVisibleContentForPendingDownload()
+                return
+            }
             renderWebContent(token.html)
             return
         }

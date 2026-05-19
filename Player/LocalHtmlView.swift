@@ -225,15 +225,19 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
             initialTokenId: playerModel.currentToken.id
         )
         tokenPagingDataSource = dataSource
-        pageObjects = (0..<context.tokenCount).compactMap {
-            guard CollectionCatalog.canGenerateToken(specificCollectionId: context.collectionId, tokenIndex: $0) else {
+        let requiresRenderabilityFilter = CollectionCatalog.isDownloadableCollection(
+            specificCollectionId: context.collectionId
+        )
+        pageObjects = (0..<context.tokenCount).compactMap { tokenIndex in
+            if requiresRenderabilityFilter,
+               !CollectionCatalog.canGenerateToken(specificCollectionId: context.collectionId, tokenIndex: tokenIndex) {
                 return nil
             }
             return MacPlayerPageObject(
                 collectionId: context.collectionId,
-                tokenIndex: $0,
+                tokenIndex: tokenIndex,
                 coordinate: PlayerCoordinate(
-                    x: dataSource.horizontalCoordinateForTokenIndex($0, verticalIndex: 0),
+                    x: tokenIndex - context.tokenIndex,
                     y: 0
                 )
             )
