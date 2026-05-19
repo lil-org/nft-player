@@ -830,6 +830,10 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
         )
     }
 
+    fileprivate func clearDownloadableMediaWindow() {
+        MobilePlaybackController.shared.clearDownloadableMediaWindow(uuid: initialConfig.id)
+    }
+
     fileprivate func downloadableMediaDescriptor(for coordinate: (Int, Int)) -> DownloadableMediaDescriptor? {
         MobilePlaybackController.shared.downloadableMediaDescriptor(
             uuid: initialConfig.id,
@@ -908,6 +912,7 @@ private protocol FourDirectionalPlayerDataSource: AnyObject {
         for coordinate: (Int, Int),
         direction: DownloadableMediaCache.PrefetchDirection
     ) -> DownloadableMediaDescriptor?
+    func clearDownloadableMediaWindow()
     func downloadableMediaDescriptor(for coordinate: (Int, Int)) -> DownloadableMediaDescriptor?
     func adjacentDownloadableMediaDescriptor(
         for coordinate: (Int, Int),
@@ -1469,6 +1474,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         let newCoordinate = (horizontalIndex, verticalIndex)
         guard fourDirectionalPlayerDataSource?.canRenderCoordinate(newCoordinate) == true else {
             cleanupDisplayedContent()
+            fourDirectionalPlayerDataSource?.clearDownloadableMediaWindow()
             return
         }
         if let renderedCoordinate = renderedCoordinate, renderedCoordinate == newCoordinate {
@@ -1476,16 +1482,17 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         }
 
         beginRenderingCoordinate(newCoordinate)
-        let downloadableMediaDescriptor = prepareCurrentDownloadableMediaWindow()
 
         guard let token = fourDirectionalPlayerDataSource?.getToken(x: horizontalIndex, y: verticalIndex) else {
+            fourDirectionalPlayerDataSource?.clearDownloadableMediaWindow()
             fourDirectionalPlayerDataSource?.didRenderCoordinate(newCoordinate)
             return
         }
 
         if token.usesPonchoDrifellaMetalRenderer {
+            fourDirectionalPlayerDataSource?.clearDownloadableMediaWindow()
             renderPonchoDrifellaMetalCard(token)
-        } else if let descriptor = downloadableMediaDescriptor {
+        } else if let descriptor = prepareCurrentDownloadableMediaWindow() {
             switch descriptor.media {
             case .staticImage:
                 renderImage(descriptor, fallbackHTML: token.html)
@@ -1504,6 +1511,11 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
 
     fileprivate func refreshDownloadableMediaWindow() {
         guard willOrDidAppear else { return }
+        guard let token = fourDirectionalPlayerDataSource?.getToken(x: horizontalIndex, y: verticalIndex),
+              !token.usesPonchoDrifellaMetalRenderer else {
+            fourDirectionalPlayerDataSource?.clearDownloadableMediaWindow()
+            return
+        }
 
         _ = prepareCurrentDownloadableMediaWindow()
     }

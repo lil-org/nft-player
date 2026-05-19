@@ -63,6 +63,7 @@ final class MacPlayerMediaContainerView: NSView {
     private var pendingNextLocalWebURL: URL?
     private var webViewMayContainContent = false
     private var lastPlayerMenuEventNumber: Int?
+    private let downloadableMediaWindowOwnerId = UUID()
     private let htmlDocumentRenderQueue = DispatchQueue(
         label: "org.lil.nft-folder.mac-html-document-render",
         qos: .userInitiated
@@ -107,12 +108,14 @@ final class MacPlayerMediaContainerView: NSView {
 
         if token.usesPonchoDrifellaMetalRenderer {
             clearWebMediaContext()
+            clearDownloadableMediaWindow(for: previousContext)
             renderPonchoDrifellaMetalCard(token)
             return
         }
 
         guard let descriptor = Self.downloadableMediaDescriptor(for: token, context: tokenContext) else {
             clearWebMediaContext()
+            clearDownloadableMediaWindow(for: previousContext)
             renderWebContent(token.html)
             return
         }
@@ -144,6 +147,7 @@ final class MacPlayerMediaContainerView: NSView {
         cancelActiveFileLoad = nil
         activeFileLoadId = nil
         clearWebMediaContext()
+        DownloadableMediaCache.shared.clearActiveWindow(ownerId: downloadableMediaWindowOwnerId)
         ponchoDrifellaMetalCardView?.stop()
         PonchoDrifellaMetalCardView.resetMotionCalibration()
         unloadWebContentIfNeeded()
@@ -471,9 +475,18 @@ final class MacPlayerMediaContainerView: NSView {
         )
         DownloadableMediaCache.shared.prepareWindow(
             collectionId: context.collectionId,
+            ownerId: downloadableMediaWindowOwnerId,
             currentTokenIndex: context.tokenIndex,
             descriptors: descriptors,
             direction: direction
+        )
+    }
+
+    private func clearDownloadableMediaWindow(for context: TokenContext?) {
+        guard let collectionId = context?.collectionId else { return }
+        DownloadableMediaCache.shared.clearActiveWindow(
+            for: collectionId,
+            ownerId: downloadableMediaWindowOwnerId
         )
     }
 

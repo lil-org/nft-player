@@ -161,6 +161,8 @@
 		2CDF00112F10000000000001 /* DownloadableMediaCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF00012F10000000000001 /* DownloadableMediaCache.swift */; };
 		2CDF00122F10000000000001 /* PlayerTokenPrewarmer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF00022F10000000000001 /* PlayerTokenPrewarmer.swift */; };
 		2CDF00132F10000000000001 /* PlayerTokenPrewarmer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF00022F10000000000001 /* PlayerTokenPrewarmer.swift */; };
+		2CDF001C2F10000000000001 /* PlayerWebContentLoadCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF00082F10000000000001 /* PlayerWebContentLoadCoordinator.swift */; };
+		2CDF001D2F10000000000001 /* PlayerWebContentLoadCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF00082F10000000000001 /* PlayerWebContentLoadCoordinator.swift */; };
 		2CDF00142F10000000000001 /* PlayerWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF00032F10000000000001 /* PlayerWebView.swift */; };
 		2CDF00152F10000000000001 /* MacPlayerMediaView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF00042F10000000000001 /* MacPlayerMediaView.swift */; };
 		2CDF00162F10000000000001 /* PonchoDrifellaMetalCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF00052F10000000000001 /* PonchoDrifellaMetalCardView.swift */; };
@@ -278,6 +280,7 @@
 		2CFF885A2C288C9A0007045F /* SuggestedItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SuggestedItem.swift; sourceTree = "<group>"; };
 		2CDF00012F10000000000001 /* DownloadableMediaCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadableMediaCache.swift; sourceTree = "<group>"; };
 		2CDF00022F10000000000001 /* PlayerTokenPrewarmer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerTokenPrewarmer.swift; sourceTree = "<group>"; };
+		2CDF00082F10000000000001 /* PlayerWebContentLoadCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerWebContentLoadCoordinator.swift; sourceTree = "<group>"; };
 		2CDF00032F10000000000001 /* PlayerWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerWebView.swift; sourceTree = "<group>"; };
 		2CDF00042F10000000000001 /* MacPlayerMediaView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacPlayerMediaView.swift; sourceTree = "<group>"; };
 		2CDF00052F10000000000001 /* PonchoDrifellaMetalCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PonchoDrifellaMetalCardView.swift; sourceTree = "<group>"; };
@@ -339,6 +342,7 @@
 				2CDF00012F10000000000001 /* DownloadableMediaCache.swift */,
 				2CDF00072F10000000000001 /* PonchoDrifellaAssetCache.swift */,
 				2CDF00022F10000000000001 /* PlayerTokenPrewarmer.swift */,
+				2CDF00082F10000000000001 /* PlayerWebContentLoadCoordinator.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -808,6 +812,7 @@
 				2CDF00102F10000000000001 /* DownloadableMediaCache.swift in Sources */,
 				2CDF001A2F10000000000001 /* PonchoDrifellaAssetCache.swift in Sources */,
 				2CDF00122F10000000000001 /* PlayerTokenPrewarmer.swift in Sources */,
+				2CDF001C2F10000000000001 /* PlayerWebContentLoadCoordinator.swift in Sources */,
 				2CDF00182F10000000000001 /* PonchoDrifellaCardMetadata.swift in Sources */,
 				2C7134D62D30460B001E33DC /* MobilePlaybackController.swift in Sources */,
 				2CB01A012F01000000000001 /* PlayerBookmarksStore.swift in Sources */,
@@ -916,6 +921,7 @@
 				2CDF00112F10000000000001 /* DownloadableMediaCache.swift in Sources */,
 				2CDF001B2F10000000000001 /* PonchoDrifellaAssetCache.swift in Sources */,
 				2CDF00132F10000000000001 /* PlayerTokenPrewarmer.swift in Sources */,
+				2CDF001D2F10000000000001 /* PlayerWebContentLoadCoordinator.swift in Sources */,
 				2CDF00142F10000000000001 /* PlayerWebView.swift in Sources */,
 				2CDF00152F10000000000001 /* MacPlayerMediaView.swift in Sources */,
 				2CDF00162F10000000000001 /* PonchoDrifellaMetalCardView.swift in Sources */,

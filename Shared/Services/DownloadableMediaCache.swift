@@ -160,9 +160,14 @@ final class DownloadableMediaCache {
     }
     private typealias FileLoadCompletions = [UUID: FileLoadCallback]
 
-    private var activeCollectionId: String?
-    private var activeFileNames = Set<String>()
-    private var activeDecodedKeys = Set<String>()
+    private struct ActiveWindow {
+        let collectionId: String
+        let ownerId: UUID
+        let fileNames: Set<String>
+        let decodedKeys: Set<String>
+    }
+
+    private var activeWindow: ActiveWindow?
     private var memoryKeysByCollection = [String: Set<String>]()
     private var pendingDescriptors = [CollectionCatalogDownloadableMediaDescriptor]()
     private var pendingKeys = Set<String>()
@@ -214,6 +219,7 @@ final class DownloadableMediaCache {
 
     func prepareWindow(
         collectionId: String,
+        ownerId: UUID,
         currentTokenIndex: Int,
         descriptors: [CollectionCatalogDownloadableMediaDescriptor],
         direction: PrefetchDirection
@@ -222,9 +228,9 @@ final class DownloadableMediaCache {
         queue.async { [weak self] in
             guard let self else { return }
 
-            let didChangeCollection = self.activeCollectionId != collectionId
+            let previousWindow = self.activeWindow
+            let didChangeCollection = previousWindow?.collectionId != collectionId
             if didChangeCollection {
-                self.activeCollectionId = collectionId
                 self.cancelDownloadsOutsideActiveCollection(collectionId: collectionId)
                 self.evictMemoryOutsideActiveCollection(collectionId: collectionId)
             }
@@ -237,8 +243,16 @@ final class DownloadableMediaCache {
                 direction: direction
             )
             let decodedKeys = Set(decodedDescriptors.map(self.cacheKey(for:)))
-            if didChangeCollection || self.activeFileNames != allowedFileNames {
-                self.activeFileNames = allowedFileNames
+            let didChangeFileWindow = didChangeCollection || previousWindow?.fileNames != allowedFileNames
+            let didChangeDecodedWindow = didChangeCollection || previousWindow?.decodedKeys != decodedKeys
+            self.activeWindow = ActiveWindow(
+                collectionId: collectionId,
+                ownerId: ownerId,
+                fileNames: allowedFileNames,
+                decodedKeys: decodedKeys
+            )
+
+            if didChangeFileWindow {
                 self.evictFilesOutsideWindow(collectionId: collectionId, allowedFileNames: allowedFileNames)
                 self.cancelDownloadsOutsideWindow(collectionId: collectionId, allowedKeys: allowedKeys)
             }
@@ -253,8 +267,7 @@ final class DownloadableMediaCache {
                 self.foregroundWorkKeys.removeAll()
                 self.updateOngoingDownloadPriorities()
             }
-            if didChangeCollection || self.activeDecodedKeys != decodedKeys {
-                self.activeDecodedKeys = decodedKeys
+            if didChangeDecodedWindow {
                 self.evictMemoryOutsideWindow(collectionId: collectionId, allowedKeys: decodedKeys)
             }
             self.decodeCachedImagesIfNeeded(decodedDescriptors)
@@ -269,6 +282,25 @@ final class DownloadableMediaCache {
             }
             self.reorderPendingDownloads(preferredDescriptors: downloadDescriptors)
             self.startDownloadsIfNeeded()
+        }
+    }
+
+    func clearActiveWindow(for collectionId: String, ownerId: UUID) {
+        queue.async { [weak self] in
+            guard let self else { return }
+            guard self.activeWindow?.collectionId == collectionId,
+                  self.activeWindow?.ownerId == ownerId else {
+                return
+            }
+
+            self.clearActiveWindowState()
+        }
+    }
+
+    func clearActiveWindow(ownerId: UUID) {
+        queue.async { [weak self] in
+            guard let self, self.activeWindow?.ownerId == ownerId else { return }
+            self.clearActiveWindowState()
         }
     }
 
@@ -296,9 +328,7 @@ final class DownloadableMediaCache {
             let fileCallbacks = Array(self.fileCompletions.values.flatMap { $0.values })
             self.fileCompletions.removeAll()
             self.completeFile(fileCallbacks, with: nil)
-            self.activeCollectionId = nil
-            self.activeFileNames.removeAll()
-            self.activeDecodedKeys.removeAll()
+            self.activeWindow = nil
         }
     }
 
@@ -1009,7 +1039,7 @@ final class DownloadableMediaCache {
     private func decodeCachedImagesIfNeeded(_ descriptors: [CollectionCatalogDownloadableMediaDescriptor]) {
         for descriptor in descriptors {
             let key = cacheKey(for: descriptor)
-            guard activeDecodedKeys.contains(key),
+            guard activeWindow?.decodedKeys.contains(key) == true,
                   cachedDecodedImage(forKey: key) == nil else {
                 continue
             }
@@ -1174,6 +1204,31 @@ final class DownloadableMediaCache {
         completeFile(fileCompletions.removeValue(forKey: key) ?? [:], with: nil)
     }
 
+    private func cancelPrefetchDownloadsAndPendingWork() {
+        pendingDescriptors.removeAll { descriptor in
+            let key = cacheKey(for: descriptor)
+            let shouldRemove = !hasDemandCallbacks(forKey: key)
+            if shouldRemove {
+                pendingKeys.remove(key)
+            }
+            return shouldRemove
+        }
+
+        let keysToCancel = ongoingDownloads.keys.filter { !hasDemandCallbacks(forKey: $0) }
+        keysToCancel.forEach(cancelDownload)
+    }
+
+    private func clearActiveWindowState() {
+        activeWindow = nil
+        foregroundKey = nil
+        foregroundWorkKeys.removeAll()
+        memoryCache.removeAllObjects()
+        memoryKeysByCollection.removeAll()
+        cancelPrefetchDownloadsAndPendingWork()
+        updateOngoingDownloadPriorities()
+        startDownloadsIfNeeded()
+    }
+
     private func evictFilesOutsideWindow(collectionId: String, allowedFileNames: Set<String>) {
         let directory = collectionDirectory(collectionId: collectionId)
         guard let contents = try? FileManager.default.contentsOfDirectory(
@@ -1244,12 +1299,15 @@ final class DownloadableMediaCache {
     }
 
     private func isDescriptorInActiveWindow(_ descriptor: CollectionCatalogDownloadableMediaDescriptor) -> Bool {
-        guard activeCollectionId == descriptor.collectionId else { return false }
-        return activeFileNames.contains(fileName(for: descriptor))
+        guard let activeWindow,
+              activeWindow.collectionId == descriptor.collectionId else {
+            return false
+        }
+        return activeWindow.fileNames.contains(fileName(for: descriptor))
     }
 
     private func shouldKeepDecodedImage(_ descriptor: CollectionCatalogDownloadableMediaDescriptor, key: String) -> Bool {
-        activeCollectionId == descriptor.collectionId && activeDecodedKeys.contains(key)
+        activeWindow?.collectionId == descriptor.collectionId && activeWindow?.decodedKeys.contains(key) == true
     }
 
     private func cacheKey(for descriptor: CollectionCatalogDownloadableMediaDescriptor) -> String {

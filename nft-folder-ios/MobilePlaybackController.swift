@@ -98,7 +98,13 @@ class MobilePlaybackController {
         restartSuppressedCollectionIds.removeValue(forKey: uuid)
         if displays.isEmpty {
             DownloadableMediaCache.shared.cancelAllDownloads()
+        } else {
+            clearDownloadableMediaWindow(uuid: uuid)
         }
+    }
+
+    func clearDownloadableMediaWindow(uuid: UUID) {
+        DownloadableMediaCache.shared.clearActiveWindow(ownerId: uuid)
     }
     
     func getToken(uuid: UUID, coordinate: PlayerCoordinate) -> GeneratedToken {
@@ -115,6 +121,7 @@ class MobilePlaybackController {
         direction: DownloadableMediaCache.PrefetchDirection
     ) -> DownloadableMediaDescriptor? {
         guard let context = downloadableCollectionTokenContext(uuid: uuid, coordinate: coordinate) else {
+            clearDownloadableMediaWindow(uuid: uuid)
             return nil
         }
 
@@ -126,6 +133,7 @@ class MobilePlaybackController {
         )
         DownloadableMediaCache.shared.prepareWindow(
             collectionId: context.collectionId,
+            ownerId: uuid,
             currentTokenIndex: context.tokenIndex,
             descriptors: descriptors,
             direction: direction
