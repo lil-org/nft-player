@@ -65,7 +65,7 @@ struct VisionPlayerView: View {
         VStack(alignment: .leading, spacing: 10) {
             Text(playerModel.currentToken.displayName)
             Divider()
-            Button(Strings.viewOnBlockscout, action: viewOnWeb)
+            Button(Strings.viewOnBlockExplorer, action: viewOnWeb)
             if let instructions = playerModel.currentToken.instructions {
                 Divider()
                 Text(instructions).font(.body)

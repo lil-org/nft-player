@@ -209,7 +209,7 @@ class LocalHtmlWindow: NSWindow {
     private func makeMoreMenu() -> NSMenu {
         let menu = NSMenu()
         let viewOnWebItem = NSMenuItem(
-            title: Strings.viewOnWebTitle(for: playerModel.currentToken.url),
+            title: Strings.viewOnBlockExplorer,
             action: #selector(viewOnWeb),
             keyEquivalent: ""
         )

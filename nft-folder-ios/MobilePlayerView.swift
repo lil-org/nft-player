@@ -243,15 +243,11 @@ struct MobilePlayerView: View {
             if !doNotShowInstructionsTmp, let instructions = currentToken.instructions {
                 Text(instructions)
             }
-            Button(viewOnWebTitle, action: viewOnWeb)
+            Button(Strings.viewOnBlockExplorer, action: viewOnWeb)
         } label: {
             Images.ellipsis
         }
         .accessibilityLabel(Strings.more)
-    }
-
-    private var viewOnWebTitle: String {
-        Strings.viewOnWebTitle(for: currentToken.url)
     }
     
     private func viewOnWeb() {
