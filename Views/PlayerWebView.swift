@@ -106,8 +106,43 @@ final class PlayerWebView: WebViewWithMenu, WKNavigationDelegate {
         setValue(true, forKey: "drawsTransparentBackground")
     }
 
+    override var mouseDownCanMoveWindow: Bool {
+        passesPlayerGesturesThrough || super.mouseDownCanMoveWindow
+    }
+
     override func hitTest(_ point: NSPoint) -> NSView? {
-        passesPlayerGesturesThrough ? nil : super.hitTest(point)
+        guard passesPlayerGesturesThrough else {
+            return super.hitTest(point)
+        }
+
+        return bounds.contains(point) ? self : nil
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        guard passesPlayerGesturesThrough else {
+            super.mouseDown(with: event)
+            return
+        }
+
+        window?.performDrag(with: event)
+    }
+
+    override func scrollWheel(with event: NSEvent) {
+        guard passesPlayerGesturesThrough else {
+            super.scrollWheel(with: event)
+            return
+        }
+
+        nextResponder?.scrollWheel(with: event)
+    }
+
+    override func swipe(with event: NSEvent) {
+        guard passesPlayerGesturesThrough else {
+            super.swipe(with: event)
+            return
+        }
+
+        nextResponder?.swipe(with: event)
     }
 
     override var bounds: NSRect {
