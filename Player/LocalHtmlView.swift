@@ -7,27 +7,51 @@ struct LocalHtmlView: View {
     
     private var windowNumber = 0
     private weak var playerMenuDelegate: PlayerMenuDelegate?
+    private let onViewAgain: () -> Void
+    private let onFinish: () -> Void
     
     @ObservedObject var playerModel: PlayerModel
     
-    init(playerModel: PlayerModel, windowNumber: Int, playerMenuDelegate: PlayerMenuDelegate) {
+    init(
+        playerModel: PlayerModel,
+        windowNumber: Int,
+        playerMenuDelegate: PlayerMenuDelegate,
+        onViewAgain: @escaping () -> Void,
+        onFinish: @escaping () -> Void
+    ) {
         self.playerModel = playerModel
         self.windowNumber = windowNumber
         self.playerMenuDelegate = playerMenuDelegate
+        self.onViewAgain = onViewAgain
+        self.onFinish = onFinish
     }
     
     var body: some View {
-        DesktopWebView(htmlContent: playerModel.currentToken.html, playerMenuDelegate: playerMenuDelegate)
-            .onAppear {
-                hideCursorIfFullscreen()
-            }
-            .frame(minWidth: 200, maxWidth: .infinity, minHeight: 200, maxHeight: .infinity)
-            .background(.black)
-            .onReceive(NotificationCenter.default.publisher(for: NSWindow.didEnterFullScreenNotification)) { notification in
-                if (notification.object as? NSWindow)?.windowNumber == windowNumber {
-                    NSCursor.setHiddenUntilMouseMoves(true)
+        let isCollectionComplete = playerModel.currentProgress?.isComplete == true
+
+        ZStack(alignment: .bottom) {
+            DesktopWebView(htmlContent: playerModel.currentToken.html, playerMenuDelegate: playerMenuDelegate)
+                .onAppear {
+                    hideCursorIfFullscreen()
                 }
+                .frame(minWidth: 200, maxWidth: .infinity, minHeight: 200, maxHeight: .infinity)
+                .background(.black)
+                .onReceive(NotificationCenter.default.publisher(for: NSWindow.didEnterFullScreenNotification)) { notification in
+                    if (notification.object as? NSWindow)?.windowNumber == windowNumber {
+                        NSCursor.setHiddenUntilMouseMoves(true)
+                    }
+                }
+
+            if isCollectionComplete {
+                MacPlayerCompletionControls(
+                    onViewAgain: onViewAgain,
+                    onFinish: onFinish
+                )
+                .padding(.bottom, 18)
+                .transition(.opacity.combined(with: .move(edge: .bottom)))
             }
+        }
+        .animation(.easeInOut(duration: 0.16), value: isCollectionComplete)
     }
     
     private func hideCursorIfFullscreen() {
@@ -38,4 +62,35 @@ struct LocalHtmlView: View {
         }
     }
     
+}
+
+private struct MacPlayerCompletionControls: View {
+    let onViewAgain: () -> Void
+    let onFinish: () -> Void
+
+    var body: some View {
+        HStack(spacing: 10) {
+            actionButton(image: Images.viewAgain, title: Strings.viewAgain, action: onViewAgain)
+            actionButton(image: Images.finish, title: Strings.finish, action: onFinish)
+        }
+    }
+
+    private func actionButton(image: Image, title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                image
+                    .font(.caption.weight(.semibold))
+                    .imageScale(.small)
+                Text(title)
+                    .font(.caption.weight(.semibold))
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 12)
+            .frame(height: 32)
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .background(.ultraThinMaterial, in: Capsule())
+        .accessibilityLabel(title)
+    }
 }

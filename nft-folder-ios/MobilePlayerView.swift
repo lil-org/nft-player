@@ -302,7 +302,7 @@ struct MobilePlayerView: View {
     private func toggleCurrentTokenBookmark() {
         guard canBookmarkCurrentToken else { return }
 
-        isCurrentTokenBookmarked = MobileBookmarksStore.toggleBookmark(
+        isCurrentTokenBookmarked = PlayerBookmarksStore.toggleBookmark(
             collectionId: currentToken.fullCollectionId,
             tokenId: currentToken.id
         )
@@ -315,7 +315,7 @@ struct MobilePlayerView: View {
             return
         }
 
-        isCurrentTokenBookmarked = MobileBookmarksStore.isBookmarked(
+        isCurrentTokenBookmarked = PlayerBookmarksStore.isBookmarked(
             collectionId: token.fullCollectionId,
             tokenId: token.id
         )

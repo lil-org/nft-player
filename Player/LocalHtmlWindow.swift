@@ -10,6 +10,7 @@ class LocalHtmlWindow: NSWindow {
     private var mouseMoveEventMonitor: Any?
     private var navigationKeysEventMonitor: Any?
     private weak var titleLabel: NSTextField?
+    private weak var bookmarkButton: NSButton?
 
     private var isFullScreenOnActiveSpace: Bool {
         return styleMask.contains(.fullScreen) && isOnActiveSpace
@@ -19,7 +20,14 @@ class LocalHtmlWindow: NSWindow {
         self.playerModel = playerModel
         super.init(contentRect: contentRect, styleMask: style, backing: backingStoreType, defer: flag)
         
-        let htmlView = LocalHtmlView(playerModel: playerModel, windowNumber: windowNumber, playerMenuDelegate: self).background(.black)
+        let htmlView = LocalHtmlView(
+            playerModel: playerModel,
+            windowNumber: windowNumber,
+            playerMenuDelegate: self,
+            onViewAgain: { [weak self] in self?.viewAgainButtonClicked() },
+            onFinish: { [weak self] in self?.finishButtonClicked() }
+        )
+        .background(.black)
         self.contentView = NSHostingView(rootView: htmlView.frame(minWidth: 251, minHeight: 130))
         
         if NSScreen.screens.count <= 1 {
@@ -30,6 +38,7 @@ class LocalHtmlWindow: NSWindow {
         }
         
         setupTitleBar()
+        playerModel.markCurrentTokenViewed()
     }
     
     private func setupTitleBar() {
@@ -63,6 +72,21 @@ class LocalHtmlWindow: NSWindow {
             moreButton.trailingAnchor.constraint(equalTo: titleBarView.trailingAnchor, constant: -8),
             moreButton.widthAnchor.constraint(equalToConstant: 28),
             moreButton.heightAnchor.constraint(equalToConstant: 24)
+        ])
+
+        let bookmarkButton = NSButton(image: Images.bookmarkTitleBar, target: self, action: #selector(bookmarkButtonClicked))
+        bookmarkButton.isBordered = false
+        bookmarkButton.contentTintColor = .gray
+        bookmarkButton.imageScaling = .scaleProportionallyDown
+        titleBarView.addSubview(bookmarkButton)
+        bookmarkButton.translatesAutoresizingMaskIntoConstraints = false
+        self.bookmarkButton = bookmarkButton
+        updateBookmarkButton()
+        NSLayoutConstraint.activate([
+            bookmarkButton.centerYAnchor.constraint(equalTo: closeButton.centerYAnchor),
+            bookmarkButton.trailingAnchor.constraint(equalTo: moreButton.leadingAnchor, constant: -4),
+            bookmarkButton.widthAnchor.constraint(equalToConstant: 28),
+            bookmarkButton.heightAnchor.constraint(equalToConstant: 24)
         ])
         
         let leftButton = NSButton(image: Images.backTitleBar, target: self, action: #selector(backButtonClicked))
@@ -98,7 +122,7 @@ class LocalHtmlWindow: NSWindow {
                 return constraint
             }(),
             {
-                let constraint = titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: moreButton.leadingAnchor, constant: -8)
+                let constraint = titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: bookmarkButton.leadingAnchor, constant: -8)
                 constraint.priority = .defaultHigh
                 return constraint
             }()
@@ -140,15 +164,34 @@ class LocalHtmlWindow: NSWindow {
     @objc private func moreButtonClicked(_ sender: NSButton) {
         popUpMoreMenu(from: sender)
     }
+
+    @objc private func bookmarkButtonClicked() {
+        guard canBookmarkCurrentToken else { return }
+
+        PlayerBookmarksStore.toggleBookmark(
+            collectionId: playerModel.currentToken.fullCollectionId,
+            tokenId: playerModel.currentToken.id
+        )
+        updateBookmarkButton()
+    }
+
+    @objc private func viewAgainButtonClicked() {
+        playerModel.restartCollection()
+        updatePlayerChrome()
+    }
+
+    @objc private func finishButtonClicked() {
+        close()
+    }
     
     @objc private func forwardButtonClicked() {
         playerModel.goForward()
-        updateTitle()
+        updatePlayerChrome()
     }
     
     @objc private func backButtonClicked() {
         playerModel.goBack()
-        updateTitle()
+        updatePlayerChrome()
     }
     
     @objc private func viewOnWeb() {
@@ -181,6 +224,35 @@ class LocalHtmlWindow: NSWindow {
         let newTitle = playerModel.playerWindowTitle
         titleLabel?.stringValue = newTitle
         title = newTitle
+    }
+
+    private var canBookmarkCurrentToken: Bool {
+        !playerModel.currentToken.fullCollectionId.isEmpty && !playerModel.currentToken.id.isEmpty
+    }
+
+    private var isCurrentTokenBookmarked: Bool {
+        PlayerBookmarksStore.isBookmarked(
+            collectionId: playerModel.currentToken.fullCollectionId,
+            tokenId: playerModel.currentToken.id
+        )
+    }
+
+    private func updateBookmarkButton() {
+        guard let bookmarkButton else { return }
+
+        let canBookmark = canBookmarkCurrentToken
+        bookmarkButton.isHidden = !canBookmark
+        let isBookmarked = canBookmark && isCurrentTokenBookmarked
+        bookmarkButton.image = isBookmarked ? Images.bookmarkFillTitleBar : Images.bookmarkTitleBar
+        let label = isBookmarked ? Strings.removeBookmark : Strings.bookmark
+        bookmarkButton.toolTip = label
+        bookmarkButton.setAccessibilityLabel(label)
+    }
+
+    private func updatePlayerChrome() {
+        playerModel.markCurrentTokenViewed()
+        updateTitle()
+        updateBookmarkButton()
     }
     
     deinit {

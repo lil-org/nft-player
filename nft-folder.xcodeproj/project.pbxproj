@@ -41,6 +41,12 @@
 		2C1B60BD2B7D3505009949C2 /* Strings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C1B60BC2B7D3505009949C2 /* Strings.swift */; };
 		2C1B60C42B7D41D1009949C2 /* HostAppImages.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C1B60C32B7D41D1009949C2 /* HostAppImages.swift */; };
 		2C1B60CB2B7E2481009949C2 /* Images.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C1B60CA2B7E2481009949C2 /* Images.swift */; };
+		2CB01A002F01000000000001 /* PlayerBookmarksStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CB01A022F01000000000001 /* PlayerBookmarksStore.swift */; };
+		2CB01A012F01000000000001 /* PlayerBookmarksStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CB01A022F01000000000001 /* PlayerBookmarksStore.swift */; };
+		2CB01A042F01000000000001 /* PlayerViewingProgressStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CB01A032F01000000000001 /* PlayerViewingProgressStore.swift */; };
+		2CB01A052F01000000000001 /* PlayerViewingProgressStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CB01A032F01000000000001 /* PlayerViewingProgressStore.swift */; };
+		2CB01A062F01000000000001 /* PlayerViewingProgressStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CB01A032F01000000000001 /* PlayerViewingProgressStore.swift */; };
+		2CB01A072F01000000000001 /* PlayerViewingProgressStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CB01A032F01000000000001 /* PlayerViewingProgressStore.swift */; };
 		2C3B775F2C3D6DEC000A9B52 /* LocalHtmlView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C3B775E2C3D6DEC000A9B52 /* LocalHtmlView.swift */; };
 		2C3B77612C3D6F82000A9B52 /* LocalHtmlWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C3B77602C3D6F82000A9B52 /* LocalHtmlWindow.swift */; };
 		2C3B77632C3D773B000A9B52 /* DesktopWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C3B77622C3D773B000A9B52 /* DesktopWebView.swift */; };
@@ -183,6 +189,8 @@
 		2C1B60BC2B7D3505009949C2 /* Strings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Strings.swift; sourceTree = "<group>"; };
 		2C1B60C32B7D41D1009949C2 /* HostAppImages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostAppImages.swift; sourceTree = "<group>"; };
 		2C1B60CA2B7E2481009949C2 /* Images.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Images.swift; sourceTree = "<group>"; };
+		2CB01A022F01000000000001 /* PlayerBookmarksStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerBookmarksStore.swift; sourceTree = "<group>"; };
+		2CB01A032F01000000000001 /* PlayerViewingProgressStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerViewingProgressStore.swift; sourceTree = "<group>"; };
 		2C2CB47C2D29545F00042E74 /* nft-folder-ios.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "nft-folder-ios.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		2C3B775E2C3D6DEC000A9B52 /* LocalHtmlView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalHtmlView.swift; sourceTree = "<group>"; };
 		2C3B77602C3D6F82000A9B52 /* LocalHtmlWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalHtmlWindow.swift; sourceTree = "<group>"; };
@@ -301,6 +309,8 @@
 				2CFA92002EB2000000000001 /* CollectionCatalog.swift */,
 				2C1B60CA2B7E2481009949C2 /* Images.swift */,
 				2C1B60BC2B7D3505009949C2 /* Strings.swift */,
+				2CB01A022F01000000000001 /* PlayerBookmarksStore.swift */,
+				2CB01A032F01000000000001 /* PlayerViewingProgressStore.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -781,6 +791,8 @@
 				2C460EDE2D29865F0083124E /* Script.swift in Sources */,
 				2C460ECA2D29855A0083124E /* AutoReloadingWebView.swift in Sources */,
 				2C7134D62D30460B001E33DC /* MobilePlaybackController.swift in Sources */,
+				2CB01A012F01000000000001 /* PlayerBookmarksStore.swift in Sources */,
+				2CB01A052F01000000000001 /* PlayerViewingProgressStore.swift in Sources */,
 				2C460EDB2D29863A0083124E /* BundledTokens.swift in Sources */,
 				2C6359552D29C0E400E40241 /* Links.swift in Sources */,
 				2C460EDD2D2986530083124E /* SuggestedItem.swift in Sources */,
@@ -825,6 +837,7 @@
 				2C9442902C515A490078C051 /* TokenGenerator.swift in Sources */,
 				2C5A59BF2C514FDB00788870 /* Script.swift in Sources */,
 				2C9442932C517E870078C051 /* PlayerModel.swift in Sources */,
+				2CB01A062F01000000000001 /* PlayerViewingProgressStore.swift in Sources */,
 				2C5A59CD2C51529800788870 /* VisionCollectionsView.swift in Sources */,
 				2C5A59D12C5152B000788870 /* VisionHelpers.swift in Sources */,
 				2C5A59D22C5153E500788870 /* Strings.swift in Sources */,
@@ -856,6 +869,7 @@
 				2C02181A2C53CECD0012EC40 /* Script.swift in Sources */,
 				2C02181B2C53CECD0012EC40 /* GeneratedToken.swift in Sources */,
 				2C0218032C53CC200012EC40 /* TvCollectionsView.swift in Sources */,
+				2CB01A072F01000000000001 /* PlayerViewingProgressStore.swift in Sources */,
 				2C0218042C53CE3D0012EC40 /* Consts.swift in Sources */,
 				2C5A59B12C51400200788870 /* nft_folder_tvosApp.swift in Sources */,
 				2C4D315F2C56AC7F00C586D1 /* TvPlayerView.swift in Sources */,
@@ -882,6 +896,8 @@
 				2C3B77612C3D6F82000A9B52 /* LocalHtmlWindow.swift in Sources */,
 				2CFF885B2C288C9A0007045F /* SuggestedItem.swift in Sources */,
 				2C1B60CB2B7E2481009949C2 /* Images.swift in Sources */,
+				2CB01A002F01000000000001 /* PlayerBookmarksStore.swift in Sources */,
+				2CB01A042F01000000000001 /* PlayerViewingProgressStore.swift in Sources */,
 				2CA4CF552B07F75F00CC75F4 /* AppDelegate.swift in Sources */,
 				2C9C60352C2C5FE8001D9B51 /* SuggestedItemsService.swift in Sources */,
 				2C3B77632C3D773B000A9B52 /* DesktopWebView.swift in Sources */,
