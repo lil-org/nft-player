@@ -90,6 +90,30 @@ enum MacPlayerNavigationAnimation {
     case immediate
 }
 
+private enum MacPlayerEdgeClickTuning {
+    static let navigationWidth: CGFloat = 44
+    static let highlightWidth: CGFloat = 50
+    static let maximumMovement: CGFloat = 12
+    static let highlightMaximumMovement: CGFloat = maximumMovement / 2
+    static let highlightActivationDelay: TimeInterval = 0.3
+    static let highlightTapFlashDuration: TimeInterval = 0.09
+    static let highlightFadeInDuration: TimeInterval = 0.1
+    static let highlightFadeOutDuration: TimeInterval = 0.34
+}
+
+private enum MacPlayerEdgeClickSide {
+    case left, right
+
+    var navigationOffset: Int {
+        switch self {
+        case .left:
+            return -1
+        case .right:
+            return 1
+        }
+    }
+}
+
 private struct MacPlayerPageControllerView: NSViewControllerRepresentable {
 
     @ObservedObject var playerModel: PlayerModel
@@ -121,6 +145,17 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
 
     private let playerModel: PlayerModel
     private weak var playerMenuDelegate: PlayerMenuDelegate?
+    private lazy var edgeClickNavigationView: MacPlayerEdgeClickNavigationView = {
+        let view = MacPlayerEdgeClickNavigationView()
+        view.canNavigate = { [weak self] side in
+            self?.canNavigateFromChrome(offset: side.navigationOffset) == true
+        }
+        view.navigate = { [weak self] side in
+            self?.navigateFromChrome(offset: side.navigationOffset, animation: .immediate) == true
+        }
+        return view
+    }()
+    private var edgeClickNavigationConstraints = [NSLayoutConstraint]()
     private var displayedCollectionId: String?
     private var displayedCollectionTokenCount: Int?
     private var tokenPagingDataSource: PlayerTokenPagingDataSource?
@@ -152,10 +187,12 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
         view.wantsLayer = true
         view.layer?.backgroundColor = NSColor.black.cgColor
         syncSelectionWithModel()
+        installEdgeClickNavigationOverlay()
     }
 
     override func viewDidLayout() {
         super.viewDidLayout()
+        bringEdgeClickNavigationOverlayToFront()
         guard !isLiveTransitioning else { return }
         resizePageViewControllersToCurrentBounds()
     }
@@ -167,6 +204,7 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
     }
 
     func cleanup() {
+        edgeClickNavigationView.cancelActivePressAndHighlights()
         pageViewControllers.allObjects.forEach { $0.cleanup() }
     }
 
@@ -178,6 +216,38 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
     @discardableResult
     func navigateForwardFromChrome(animation: MacPlayerNavigationAnimation) -> Bool {
         navigateFromChrome(offset: 1, animation: animation)
+    }
+
+    private func installEdgeClickNavigationOverlay() {
+        guard edgeClickNavigationView.superview == nil else { return }
+
+        edgeClickNavigationView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(edgeClickNavigationView)
+        edgeClickNavigationConstraints = edgeClickNavigationConstraints(for: edgeClickNavigationView)
+        NSLayoutConstraint.activate(edgeClickNavigationConstraints)
+    }
+
+    private func bringEdgeClickNavigationOverlayToFront() {
+        guard edgeClickNavigationView.superview === view else {
+            installEdgeClickNavigationOverlay()
+            return
+        }
+        guard view.subviews.last !== edgeClickNavigationView else { return }
+
+        NSLayoutConstraint.deactivate(edgeClickNavigationConstraints)
+        edgeClickNavigationView.removeFromSuperview()
+        view.addSubview(edgeClickNavigationView)
+        edgeClickNavigationConstraints = edgeClickNavigationConstraints(for: edgeClickNavigationView)
+        NSLayoutConstraint.activate(edgeClickNavigationConstraints)
+    }
+
+    private func edgeClickNavigationConstraints(for overlayView: NSView) -> [NSLayoutConstraint] {
+        [
+            overlayView.topAnchor.constraint(equalTo: view.topAnchor),
+            overlayView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            overlayView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            overlayView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ]
     }
 
     private func syncSelectionWithModel() {
@@ -401,6 +471,13 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
         return startNavigation(offset: offset, animation: animation)
     }
 
+    private func canNavigateFromChrome(offset: Int) -> Bool {
+        guard pageObjects.count > 1, !isTransitioning else { return false }
+        let targetIndex = selectedIndex + offset
+        guard pageObjects.indices.contains(targetIndex) else { return false }
+        return token(for: pageObjects[targetIndex]) != nil
+    }
+
     private func queueNavigation(offset: Int, animation: MacPlayerNavigationAnimation) {
         queuedNavigationRequests = [QueuedNavigationRequest(offset: offset, animation: animation)]
     }
@@ -541,6 +618,320 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
         return NSPageController.ObjectIdentifier(
             "MacPlayerPage:\(pageObject.collectionId):\(pageObject.tokenIndex):\(pageObject.fallbackToken?.id ?? "")"
         )
+    }
+}
+
+private final class MacPlayerEdgeClickNavigationView: NSView {
+
+    var canNavigate: ((MacPlayerEdgeClickSide) -> Bool)?
+    var navigate: ((MacPlayerEdgeClickSide) -> Bool)?
+
+    private let leftHighlight = MacPlayerEdgeClickHighlightView(side: .left)
+    private let rightHighlight = MacPlayerEdgeClickHighlightView(side: .right)
+    private var activeSide: MacPlayerEdgeClickSide?
+    private var initialLocation = CGPoint.zero
+    private var didMoveEnoughToCancelHighlight = false
+    private var pendingHighlightSide: MacPlayerEdgeClickSide?
+    private var highlightWorkItem: DispatchWorkItem?
+    private var highlightRequestId = 0
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+        layer?.backgroundColor = NSColor.clear.cgColor
+        installHighlights()
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("yo")
+    }
+
+    deinit {
+        highlightWorkItem?.cancel()
+    }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        guard shouldReceiveCurrentMouseDownEvent,
+              navigableEdgeClickSide(at: point) != nil else {
+            return nil
+        }
+        return self
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        let location = convert(event.locationInWindow, from: nil)
+        guard let side = navigableEdgeClickSide(at: location) else { return }
+
+        activeSide = side
+        initialLocation = location
+        didMoveEnoughToCancelHighlight = false
+        beginHighlight(on: side)
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard let activeSide else { return }
+
+        let location = convert(event.locationInWindow, from: nil)
+        guard isClickStillValid(at: location, for: activeSide) else {
+            cancelActivePress()
+            return
+        }
+
+        if !didMoveEnoughToCancelHighlight,
+           hasMovedEnoughToCancelHighlight(at: location) {
+            didMoveEnoughToCancelHighlight = true
+            endHighlight(on: activeSide)
+        }
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        guard let activeSide else { return }
+
+        let location = convert(event.locationInWindow, from: nil)
+        guard isClickStillValid(at: location, for: activeSide) else {
+            cancelActivePress()
+            return
+        }
+
+        handleClick(on: activeSide)
+        clearActivePress()
+    }
+
+    func cancelActivePressAndHighlights() {
+        cancelPendingHighlight()
+        clearActivePress()
+        highlightRequestId += 1
+        leftHighlight.setHighlighted(false)
+        rightHighlight.setHighlighted(false)
+    }
+
+    private var shouldReceiveCurrentMouseDownEvent: Bool {
+        guard let event = window?.currentEvent ?? NSApp.currentEvent else { return false }
+        return event.type == .leftMouseDown
+            && (event.window ?? window)?.isKeyWindow == true
+    }
+
+    private func installHighlights() {
+        [leftHighlight, rightHighlight].forEach { highlightView in
+            highlightView.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(highlightView)
+        }
+
+        NSLayoutConstraint.activate([
+            leftHighlight.topAnchor.constraint(equalTo: topAnchor),
+            leftHighlight.bottomAnchor.constraint(equalTo: bottomAnchor),
+            leftHighlight.leadingAnchor.constraint(equalTo: leadingAnchor),
+            leftHighlight.widthAnchor.constraint(equalToConstant: MacPlayerEdgeClickTuning.highlightWidth),
+
+            rightHighlight.topAnchor.constraint(equalTo: topAnchor),
+            rightHighlight.bottomAnchor.constraint(equalTo: bottomAnchor),
+            rightHighlight.trailingAnchor.constraint(equalTo: trailingAnchor),
+            rightHighlight.widthAnchor.constraint(equalToConstant: MacPlayerEdgeClickTuning.highlightWidth)
+        ])
+    }
+
+    private func edgeClickSide(at location: CGPoint) -> MacPlayerEdgeClickSide? {
+        let edgeWidth = min(MacPlayerEdgeClickTuning.navigationWidth, bounds.width / 2)
+        if location.x <= edgeWidth {
+            return .left
+        }
+        if location.x >= bounds.width - edgeWidth {
+            return .right
+        }
+        return nil
+    }
+
+    private func navigableEdgeClickSide(at location: CGPoint) -> MacPlayerEdgeClickSide? {
+        guard let side = edgeClickSide(at: location),
+              canNavigate?(side) == true else {
+            return nil
+        }
+        return side
+    }
+
+    private func isClickStillValid(at location: CGPoint, for side: MacPlayerEdgeClickSide) -> Bool {
+        guard edgeClickSide(at: location) == side else { return false }
+
+        let distance = hypot(location.x - initialLocation.x, location.y - initialLocation.y)
+        return distance <= MacPlayerEdgeClickTuning.maximumMovement
+    }
+
+    private func hasMovedEnoughToCancelHighlight(at location: CGPoint) -> Bool {
+        let distance = hypot(location.x - initialLocation.x, location.y - initialLocation.y)
+        return distance > MacPlayerEdgeClickTuning.highlightMaximumMovement
+    }
+
+    private func beginHighlight(on side: MacPlayerEdgeClickSide) {
+        cancelPendingHighlight()
+        highlight(for: oppositeSide(of: side)).setHighlighted(false)
+        highlight(for: side).setHighlighted(false)
+
+        guard canNavigate?(side) == true else { return }
+
+        pendingHighlightSide = side
+        highlightRequestId += 1
+        let requestId = highlightRequestId
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self,
+                  self.highlightRequestId == requestId,
+                  self.pendingHighlightSide == side,
+                  self.canNavigate?(side) == true else {
+                return
+            }
+
+            self.pendingHighlightSide = nil
+            self.highlightWorkItem = nil
+            self.highlight(for: side).setHighlighted(true)
+        }
+        highlightWorkItem = workItem
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + MacPlayerEdgeClickTuning.highlightActivationDelay,
+            execute: workItem
+        )
+    }
+
+    private func endHighlight(on side: MacPlayerEdgeClickSide) {
+        cancelPendingHighlight()
+        highlightRequestId += 1
+        highlight(for: side).setHighlighted(false)
+    }
+
+    private func handleClick(on side: MacPlayerEdgeClickSide) {
+        guard canNavigate?(side) == true else {
+            endHighlight(on: side)
+            return
+        }
+
+        if cancelPendingHighlight(on: side) {
+            flashHighlight(on: side)
+        } else {
+            endHighlight(on: side)
+        }
+
+        _ = navigate?(side)
+    }
+
+    @discardableResult
+    private func cancelPendingHighlight(on side: MacPlayerEdgeClickSide? = nil) -> Bool {
+        guard let pendingSide = pendingHighlightSide else {
+            return false
+        }
+        if let side, pendingSide != side {
+            return false
+        }
+
+        highlightWorkItem?.cancel()
+        highlightWorkItem = nil
+        pendingHighlightSide = nil
+        highlightRequestId += 1
+        return true
+    }
+
+    private func flashHighlight(on side: MacPlayerEdgeClickSide) {
+        highlight(for: oppositeSide(of: side)).setHighlighted(false)
+        highlight(for: side).setHighlighted(true)
+        highlightRequestId += 1
+        let requestId = highlightRequestId
+
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + MacPlayerEdgeClickTuning.highlightTapFlashDuration
+        ) { [weak self] in
+            guard let self, self.highlightRequestId == requestId else { return }
+
+            self.highlight(for: side).setHighlighted(false)
+        }
+    }
+
+    private func cancelActivePress() {
+        if let activeSide {
+            endHighlight(on: activeSide)
+        }
+        clearActivePress()
+    }
+
+    private func clearActivePress() {
+        activeSide = nil
+        initialLocation = .zero
+        didMoveEnoughToCancelHighlight = false
+    }
+
+    private func oppositeSide(of side: MacPlayerEdgeClickSide) -> MacPlayerEdgeClickSide {
+        switch side {
+        case .left:
+            return .right
+        case .right:
+            return .left
+        }
+    }
+
+    private func highlight(for side: MacPlayerEdgeClickSide) -> MacPlayerEdgeClickHighlightView {
+        switch side {
+        case .left:
+            return leftHighlight
+        case .right:
+            return rightHighlight
+        }
+    }
+}
+
+private final class MacPlayerEdgeClickHighlightView: NSView {
+
+    private let side: MacPlayerEdgeClickSide
+
+    private var gradientLayer: CAGradientLayer {
+        layer as! CAGradientLayer
+    }
+
+    init(side: MacPlayerEdgeClickSide) {
+        self.side = side
+        super.init(frame: .zero)
+        wantsLayer = true
+        layer = CAGradientLayer()
+        configureGradient()
+        gradientLayer.opacity = 0
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("yo")
+    }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        nil
+    }
+
+    func setHighlighted(_ isHighlighted: Bool) {
+        let currentOpacity = gradientLayer.presentation()?.opacity ?? gradientLayer.opacity
+        gradientLayer.removeAnimation(forKey: "edgeClickHighlightOpacity")
+
+        let targetOpacity: Float = isHighlighted ? 1 : 0
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        gradientLayer.opacity = targetOpacity
+        CATransaction.commit()
+
+        let animation = CABasicAnimation(keyPath: "opacity")
+        animation.fromValue = currentOpacity
+        animation.toValue = targetOpacity
+        animation.duration = isHighlighted
+            ? MacPlayerEdgeClickTuning.highlightFadeInDuration
+            : MacPlayerEdgeClickTuning.highlightFadeOutDuration
+        animation.timingFunction = isHighlighted
+            ? CAMediaTimingFunction(controlPoints: 0.2, 0, 0, 1)
+            : CAMediaTimingFunction(controlPoints: 0.16, 1, 0.3, 1)
+        gradientLayer.add(animation, forKey: "edgeClickHighlightOpacity")
+    }
+
+    private func configureGradient() {
+        let edgeColor = NSColor.black.withAlphaComponent(0.36).cgColor
+        let midColor = NSColor.black.withAlphaComponent(0.18).cgColor
+        let featherColor = NSColor.black.withAlphaComponent(0.05).cgColor
+        let clearColor = NSColor.black.withAlphaComponent(0).cgColor
+        gradientLayer.startPoint = CGPoint(x: 0, y: 0.5)
+        gradientLayer.endPoint = CGPoint(x: 1, y: 0.5)
+        gradientLayer.colors = side == .left
+            ? [edgeColor, midColor, featherColor, clearColor]
+            : [clearColor, featherColor, midColor, edgeColor]
+        gradientLayer.locations = [0, 0.34, 0.72, 1]
     }
 }
 
