@@ -10,7 +10,14 @@ final class PlayerWebView: WebViewWithMenu, WKNavigationDelegate {
     private static var prewarmedWebView: PlayerWebView?
     private static var didSchedulePrewarm = false
 
-    var passesPlayerGesturesThrough = false
+    var passesPlayerGesturesThrough = false {
+        didSet {
+            updateLockedCursorTrackingArea()
+            invalidateCursorRects()
+        }
+    }
+
+    private var lockedCursorTrackingArea: NSTrackingArea?
 
     private lazy var contentLoadCoordinator = PlayerWebContentLoadCoordinator(
         hasVisibleSize: { [weak self] in self?.hasVisibleSize == true },
@@ -104,6 +111,13 @@ final class PlayerWebView: WebViewWithMenu, WKNavigationDelegate {
         wantsLayer = true
         layer?.backgroundColor = NSColor.black.cgColor
         setValue(true, forKey: "drawsTransparentBackground")
+        updateLockedCursorTrackingArea()
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        updateLockedCursorTrackingArea()
+        invalidateCursorRects()
     }
 
     override var mouseDownCanMoveWindow: Bool {
@@ -143,6 +157,47 @@ final class PlayerWebView: WebViewWithMenu, WKNavigationDelegate {
         }
 
         nextResponder?.swipe(with: event)
+    }
+
+    override func cursorUpdate(with event: NSEvent) {
+        guard locksPlayedContentCursor else {
+            super.cursorUpdate(with: event)
+            return
+        }
+
+        super.cursorUpdate(with: event)
+        setLockedCursor()
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        guard locksPlayedContentCursor else {
+            super.mouseEntered(with: event)
+            return
+        }
+
+        super.mouseEntered(with: event)
+        setLockedCursor()
+    }
+
+    override func mouseMoved(with event: NSEvent) {
+        guard locksPlayedContentCursor else {
+            super.mouseMoved(with: event)
+            return
+        }
+
+        super.mouseMoved(with: event)
+        setLockedCursor()
+    }
+
+    override func resetCursorRects() {
+        super.resetCursorRects()
+        guard locksPlayedContentCursor else { return }
+        addCursorRect(bounds, cursor: .arrow)
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        updateLockedCursorTrackingArea()
     }
 
     override var bounds: NSRect {
@@ -232,5 +287,35 @@ final class PlayerWebView: WebViewWithMenu, WKNavigationDelegate {
 
     private func hasVisibleSize(_ rect: NSRect) -> Bool {
         rect.size.width > 5 && rect.size.height > 5
+    }
+
+    private var locksPlayedContentCursor: Bool {
+        passesPlayerGesturesThrough
+    }
+
+    private func updateLockedCursorTrackingArea() {
+        if let lockedCursorTrackingArea {
+            removeTrackingArea(lockedCursorTrackingArea)
+            self.lockedCursorTrackingArea = nil
+        }
+
+        guard locksPlayedContentCursor else { return }
+
+        let trackingArea = NSTrackingArea(
+            rect: .zero,
+            options: [.activeAlways, .inVisibleRect, .mouseEnteredAndExited, .mouseMoved, .cursorUpdate],
+            owner: self
+        )
+        addTrackingArea(trackingArea)
+        lockedCursorTrackingArea = trackingArea
+    }
+
+    private func invalidateCursorRects() {
+        guard let window else { return }
+        window.invalidateCursorRects(for: self)
+    }
+
+    private func setLockedCursor() {
+        NSCursor.arrow.set()
     }
 }
