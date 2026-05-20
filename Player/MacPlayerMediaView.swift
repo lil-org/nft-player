@@ -1,6 +1,8 @@
 // ∅ 2026 lil org
 
 import AppKit
+import AVFoundation
+import ImageIO
 import SwiftUI
 import WebKit
 
@@ -54,12 +56,46 @@ final class MacPlayerMediaContainerView: NSView {
         case image, video, html
     }
 
+    private enum ZoomContentLayout: Equatable {
+        case viewport
+        case staticImage(CGSize)
+    }
+
+    private enum ZoomAllowedContent: Equatable {
+        case fullContent
+        case ponchoDrifellaCard
+    }
+
+    private struct VideoSizeRequest: Equatable, Hashable {
+        let descriptor: CollectionCatalogDownloadableMediaDescriptor
+        let fileURL: URL
+        let fileSize: Int?
+        let contentModificationDate: Date?
+
+        init(fileURL: URL, descriptor: CollectionCatalogDownloadableMediaDescriptor) {
+            let resourceValues = try? fileURL.resourceValues(
+                forKeys: [.fileSizeKey, .contentModificationDateKey]
+            )
+            self.descriptor = descriptor
+            self.fileURL = fileURL
+            self.fileSize = resourceValues?.fileSize
+            self.contentModificationDate = resourceValues?.contentModificationDate
+        }
+    }
+
+    private struct VideoSizeLoad {
+        let request: VideoSizeRequest
+        let task: Task<Void, Never>
+    }
+
     private struct WebMediaContext: Equatable {
         let descriptor: CollectionCatalogDownloadableMediaDescriptor
         let adjacentDescriptor: CollectionCatalogDownloadableMediaDescriptor?
         let fallbackHTML: String
         let mediaKind: WebMediaKind
     }
+
+    private static let maximumCachedVideoSizeCount = 24
 
     private weak var playerMenuDelegate: PlayerMenuDelegate?
     private let zoomScrollView = MacPlayerZoomScrollView()
@@ -83,6 +119,13 @@ final class MacPlayerMediaContainerView: NSView {
     private var pendingNextLocalWebURL: URL?
     private var webViewMayContainContent = false
     private var laidOutZoomViewportSize: CGSize = .zero
+    private var videoSizeLoad: VideoSizeLoad?
+    private var cachedVideoSizes = [VideoSizeRequest: CGSize]()
+    private var cachedVideoSizeRequests = [VideoSizeRequest]()
+    private var isNativeMagnifyGestureActive = false
+    private var activeZoomAnimationCount = 0
+    private var zoomContentLayout: ZoomContentLayout = .viewport
+    private var zoomAllowedContent: ZoomAllowedContent = .fullContent
     private var lastPlayerMenuEventNumber: Int?
     private var lastZoomToggleEventNumber: Int?
     private let downloadableMediaWindowOwnerId = UUID()
@@ -99,11 +142,16 @@ final class MacPlayerMediaContainerView: NSView {
         layer?.backgroundColor = NSColor.black.cgColor
         layer?.masksToBounds = true
         zoomScrollView.eventDelegate = self
+        zoomScrollView.constrainVisibleRect = { [weak self] proposedRect in
+            self?.constrainedZoomVisibleRect(proposedRect) ?? proposedRect
+        }
         zoomScrollView.drawsBackground = false
         zoomScrollView.hasHorizontalScroller = false
         zoomScrollView.hasVerticalScroller = false
         zoomScrollView.autohidesScrollers = true
         zoomScrollView.borderType = .noBorder
+        zoomScrollView.horizontalScrollElasticity = .none
+        zoomScrollView.verticalScrollElasticity = .none
         zoomScrollView.allowsMagnification = true
         zoomScrollView.minMagnification = ZoomTuning.minimumScale
         zoomScrollView.maxMagnification = ZoomTuning.maximumScale
@@ -246,6 +294,9 @@ final class MacPlayerMediaContainerView: NSView {
         cancelActiveFileLoad?()
         cancelActiveFileLoad = nil
         activeFileLoadId = nil
+        cancelVideoSizeLoad()
+        isNativeMagnifyGestureActive = false
+        activeZoomAnimationCount = 0
         clearWebMediaContext()
         clearManagedDownloadableMediaWindow()
         ponchoDrifellaMetalCardView?.stop()
@@ -253,7 +304,7 @@ final class MacPlayerMediaContainerView: NSView {
         unloadWebContentIfNeeded()
         webView?.isHidden = true
         imageView?.image = nil
-        resetZoom(animated: false)
+        clearZoomContentLayout()
         currentToken = nil
         renderMode = nil
         cancelDownloadsIfNoPlayerWindows()
@@ -320,6 +371,7 @@ final class MacPlayerMediaContainerView: NSView {
         let imageView = ensureImageView()
         imageView.image = image
         imageView.isHidden = false
+        setZoomContentLayout(.staticImage(Self.zoomImageSize(for: image) ?? image.size))
     }
 
     private func renderDownloadableWebMedia(
@@ -329,12 +381,16 @@ final class MacPlayerMediaContainerView: NSView {
         mediaKind: WebMediaKind,
         mode: MacPlayerMediaRenderMode
     ) {
-        webMediaContext = WebMediaContext(
+        let context = WebMediaContext(
             descriptor: descriptor,
             adjacentDescriptor: adjacentDescriptor,
             fallbackHTML: fallbackHTML,
             mediaKind: mediaKind
         )
+        if webMediaContext != context {
+            cancelVideoSizeLoad()
+        }
+        webMediaContext = context
         if mode.managesDownloadWindow {
             installDownloadableMediaCacheObserverIfNeeded()
         } else {
@@ -351,6 +407,7 @@ final class MacPlayerMediaContainerView: NSView {
 
         let imageCache = DownloadableMediaCache.shared
         guard let localFileURL = imageCache.localFileURL(for: context.descriptor) else {
+            cancelVideoSizeLoad()
             clearLocalWebURLState()
             clearVisibleContentForPendingDownload()
             return
@@ -397,11 +454,17 @@ final class MacPlayerMediaContainerView: NSView {
         let html: String
         switch context.mediaKind {
         case .image:
+            if let imageSize = imageOrSVGSize(at: localFileURL) {
+                setZoomContentLayout(.staticImage(imageSize))
+            } else {
+                setZoomContentLayout(.viewport)
+            }
             html = DownloadableTokenHTML.createImageHTML(
                 imageURL: localFileURL.absoluteString,
                 nextImageURL: nextLocalFileURL?.absoluteString
             )
         case .video:
+            loadVideoSizeIfNeeded(at: localFileURL, context: context)
             html = DownloadableTokenHTML.createVideoHTML(videoURL: localFileURL.absoluteString)
         case .html:
             renderCachedHTMLDocument(fileURL: localFileURL, context: context, imageCache: imageCache)
@@ -426,9 +489,12 @@ final class MacPlayerMediaContainerView: NSView {
         pendingLocalWebURL = fileURL
         htmlDocumentRenderQueue.async {
             let renderedDocument = (try? String(contentsOf: fileURL, encoding: .utf8)).map { documentHTML in
-                DownloadableTokenHTML.createInlineHTMLDocumentHTML(
-                    documentHTML: documentHTML,
-                    baseURL: imageCache.downloadedSourceURL(for: context.descriptor).absoluteString
+                (
+                    html: DownloadableTokenHTML.createInlineHTMLDocumentHTML(
+                        documentHTML: documentHTML,
+                        baseURL: imageCache.downloadedSourceURL(for: context.descriptor).absoluteString
+                    ),
+                    viewportSize: DownloadableHTMLDocumentLayout.rootSVGViewBoxSize(in: documentHTML)
                 )
             }
 
@@ -445,8 +511,13 @@ final class MacPlayerMediaContainerView: NSView {
                     return
                 }
 
+                if let viewportSize = renderedDocument.viewportSize {
+                    self.setZoomContentLayout(.staticImage(viewportSize))
+                } else {
+                    self.setZoomContentLayout(.viewport)
+                }
                 self.renderLocalWebContent(
-                    renderedDocument,
+                    renderedDocument.html,
                     fileURL: fileURL,
                     context: context,
                     htmlDirectoryURL: imageCache.webViewHTMLDirectoryURL,
@@ -549,6 +620,7 @@ final class MacPlayerMediaContainerView: NSView {
 
     private func renderWebContent(_ html: String) {
         clearWebMediaContext()
+        setZoomContentLayout(.viewport)
         displayWebHTML(html)
     }
 
@@ -589,6 +661,7 @@ final class MacPlayerMediaContainerView: NSView {
         hideWebView()
         let cardView = ensurePonchoDrifellaMetalCardView()
         cardView.isHidden = false
+        setZoomContentLayout(.viewport, allowedContent: .ponchoDrifellaCard)
         cardView.display(tokenId: token.id)
     }
 
@@ -738,6 +811,7 @@ final class MacPlayerMediaContainerView: NSView {
         cancelActiveFileLoad?()
         cancelActiveFileLoad = nil
         activeFileLoadId = nil
+        cancelVideoSizeLoad()
         webMediaContext = nil
         clearLocalWebURLState()
         removeDownloadableMediaCacheObserver()
@@ -766,6 +840,7 @@ final class MacPlayerMediaContainerView: NSView {
         hideImageView()
         hidePonchoDrifellaMetalCardView()
         hideWebView()
+        setZoomContentLayout(.viewport)
     }
 
     private func unloadWebContentIfNeeded() {
@@ -825,6 +900,120 @@ final class MacPlayerMediaContainerView: NSView {
         return .backward
     }
 
+    private static func zoomImageSize(for image: NSImage) -> CGSize? {
+        guard image.isValid,
+              let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+            return nil
+        }
+        return CGSize(width: cgImage.width, height: cgImage.height)
+    }
+
+    private func imageOrSVGSize(at fileURL: URL) -> CGSize? {
+        if let imageSize = imageSize(at: fileURL) {
+            return imageSize
+        }
+
+        guard let documentHTML = try? String(contentsOf: fileURL, encoding: .utf8) else {
+            return nil
+        }
+        return DownloadableHTMLDocumentLayout.rootSVGViewBoxSize(in: documentHTML)
+    }
+
+    private func imageSize(at fileURL: URL) -> CGSize? {
+        guard let imageSource = CGImageSourceCreateWithURL(fileURL as CFURL, nil),
+              let properties = CGImageSourceCopyPropertiesAtIndex(imageSource, 0, nil) as? [CFString: Any],
+              let width = properties[kCGImagePropertyPixelWidth] as? NSNumber,
+              let height = properties[kCGImagePropertyPixelHeight] as? NSNumber else {
+            return nil
+        }
+
+        let size = CGSize(width: CGFloat(width.doubleValue), height: CGFloat(height.doubleValue))
+        guard size.width > 0, size.height > 0 else { return nil }
+        return size
+    }
+
+    private func loadVideoSizeIfNeeded(at fileURL: URL, context: WebMediaContext) {
+        let request = VideoSizeRequest(fileURL: fileURL, descriptor: context.descriptor)
+
+        if let videoSizeLoad, videoSizeLoad.request != request {
+            cancelVideoSizeLoad()
+        }
+
+        if let cachedSize = cachedVideoSizes[request] {
+            applyVideoSizeIfCurrent(cachedSize, for: request)
+            return
+        }
+
+        setZoomContentLayout(.viewport)
+        guard videoSizeLoad == nil else { return }
+
+        let task = Task.detached(priority: .utility) { [fileURL, request] in
+            let size = await VideoAssetLayout.displaySize(at: fileURL)
+            guard !Task.isCancelled else { return }
+
+            await MainActor.run { [weak self] in
+                guard !Task.isCancelled,
+                      let self,
+                      self.videoSizeLoad?.request == request else {
+                    return
+                }
+
+                self.videoSizeLoad = nil
+                guard let size else { return }
+
+                self.cacheVideoSize(size, for: request)
+                self.applyVideoSizeIfCurrent(size, for: request)
+            }
+        }
+
+        videoSizeLoad = VideoSizeLoad(request: request, task: task)
+    }
+
+    private func cacheVideoSize(_ size: CGSize, for request: VideoSizeRequest) {
+        if cachedVideoSizes[request] == nil {
+            cachedVideoSizeRequests.append(request)
+        }
+        cachedVideoSizes[request] = size
+
+        while cachedVideoSizeRequests.count > Self.maximumCachedVideoSizeCount {
+            let removedRequest = cachedVideoSizeRequests.removeFirst()
+            cachedVideoSizes.removeValue(forKey: removedRequest)
+        }
+    }
+
+    private func applyCachedCurrentVideoSizeIfAvailable() {
+        guard let context = webMediaContext,
+              context.mediaKind == .video,
+              let fileURL = DownloadableMediaCache.shared.localFileURL(for: context.descriptor) else {
+            return
+        }
+
+        let request = VideoSizeRequest(fileURL: fileURL, descriptor: context.descriptor)
+        guard let cachedSize = cachedVideoSizes[request] else { return }
+
+        applyVideoSizeIfCurrent(cachedSize, for: request)
+    }
+
+    private func applyVideoSizeIfCurrent(_ size: CGSize, for request: VideoSizeRequest) {
+        guard let context = webMediaContext,
+              context.mediaKind == .video,
+              context.descriptor == request.descriptor,
+              DownloadableMediaCache.shared.localFileURL(for: request.descriptor) == request.fileURL,
+              VideoSizeRequest(fileURL: request.fileURL, descriptor: request.descriptor) == request,
+              !isZoomed,
+              !isNativeMagnifyGestureActive,
+              activeZoomAnimationCount == 0 else {
+            return
+        }
+
+        setZoomContentLayout(.staticImage(size))
+    }
+
+    private func cancelVideoSizeLoad() {
+        videoSizeLoad?.task.cancel()
+        videoSizeLoad = nil
+    }
+
     private func shouldHandleCurrentMouseEvent(lastHandledEventNumber: inout Int?) -> Bool {
         guard let event = NSApp.currentEvent,
               event.hasMouseEventNumber else {
@@ -868,6 +1057,26 @@ final class MacPlayerMediaContainerView: NSView {
         scrollDocumentToOrigin()
     }
 
+    private func setZoomContentLayout(
+        _ layout: ZoomContentLayout,
+        allowedContent: ZoomAllowedContent = .fullContent
+    ) {
+        guard zoomContentLayout != layout || zoomAllowedContent != allowedContent else {
+            clampZoomDocumentOffsetIfNeeded()
+            return
+        }
+
+        zoomContentLayout = layout
+        zoomAllowedContent = allowedContent
+        resetZoom(animated: false)
+        updateZoomViewportLayoutIfNeeded()
+    }
+
+    private func clearZoomContentLayout() {
+        zoomContentLayout = .viewport
+        zoomAllowedContent = .fullContent
+    }
+
     private func toggleZoom(at locationInContainer: CGPoint, animated: Bool) {
         guard bounds.width > 0, bounds.height > 0 else { return }
 
@@ -875,6 +1084,8 @@ final class MacPlayerMediaContainerView: NSView {
             resetZoom(animated: animated)
             return
         }
+
+        applyCachedCurrentVideoSizeIfAvailable()
 
         let targetScale = min(ZoomTuning.doubleTapScale, ZoomTuning.maximumScale)
         let documentPoint = zoomContentView.convert(locationInContainer, from: self)
@@ -907,21 +1118,30 @@ final class MacPlayerMediaContainerView: NSView {
             max(magnification, ZoomTuning.minimumScale),
             ZoomTuning.maximumScale
         )
-        let centeredAt = clampedDocumentPoint(documentPoint)
+        let centeredAt = clampedZoomCenter(for: clampedMagnification, centeredAt: documentPoint)
+
+        let finish = { [weak self] in
+            self?.clampZoomDocumentOffsetIfNeeded()
+            completion?()
+        }
 
         if animated {
+            activeZoomAnimationCount += 1
             NSAnimationContext.runAnimationGroup { context in
                 context.duration = 0.18
                 context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
                 zoomScrollView.animator().setMagnification(clampedMagnification, centeredAt: centeredAt)
-            } completionHandler: {
-                completion?()
+            } completionHandler: { [weak self] in
+                if let self = self {
+                    self.activeZoomAnimationCount = max(0, self.activeZoomAnimationCount - 1)
+                }
+                finish()
             }
         } else {
             withoutLayerAnimations {
                 zoomScrollView.setMagnification(clampedMagnification, centeredAt: centeredAt)
             }
-            completion?()
+            finish()
         }
     }
 
@@ -932,12 +1152,79 @@ final class MacPlayerMediaContainerView: NSView {
     }
 
     private func clampedDocumentPoint(_ point: CGPoint) -> CGPoint {
-        let bounds = zoomContentView.bounds
+        let bounds = zoomAllowedDocumentRect()
         guard bounds.width > 0, bounds.height > 0 else { return point }
         return CGPoint(
             x: min(max(point.x, bounds.minX), bounds.maxX),
             y: min(max(point.y, bounds.minY), bounds.maxY)
         )
+    }
+
+    private func clampedZoomCenter(for magnification: CGFloat, centeredAt point: CGPoint) -> CGPoint {
+        let visibleRect = boundedVisibleDocumentRect(for: magnification, centeredAt: clampedDocumentPoint(point))
+        return CGPoint(x: visibleRect.midX, y: visibleRect.midY)
+    }
+
+    private func boundedVisibleDocumentRect(for magnification: CGFloat, centeredAt point: CGPoint) -> CGRect {
+        let scale = max(magnification, ZoomTuning.minimumScale)
+        let visibleSize = CGSize(
+            width: bounds.width / scale,
+            height: bounds.height / scale
+        )
+        let allowedRect = zoomAllowedDocumentRect()
+        guard visibleSize.width > 0,
+              visibleSize.height > 0,
+              allowedRect.width > 0,
+              allowedRect.height > 0 else {
+            return CGRect(origin: .zero, size: visibleSize)
+        }
+
+        return CGRect(
+            x: boundedZoomOrigin(
+                centeredAt: point.x,
+                zoomLength: visibleSize.width,
+                allowedMin: allowedRect.minX,
+                allowedMax: allowedRect.maxX
+            ),
+            y: boundedZoomOrigin(
+                centeredAt: point.y,
+                zoomLength: visibleSize.height,
+                allowedMin: allowedRect.minY,
+                allowedMax: allowedRect.maxY
+            ),
+            width: visibleSize.width,
+            height: visibleSize.height
+        )
+    }
+
+    private func boundedZoomOrigin(
+        centeredAt center: CGFloat,
+        zoomLength: CGFloat,
+        allowedMin: CGFloat,
+        allowedMax: CGFloat
+    ) -> CGFloat {
+        let clampedCenter = min(max(center, allowedMin), allowedMax)
+        let contentLength = allowedMax - allowedMin
+        guard contentLength > zoomLength else {
+            return (allowedMin + allowedMax - zoomLength) / 2
+        }
+
+        return min(max(clampedCenter - zoomLength / 2, allowedMin), allowedMax - zoomLength)
+    }
+
+    private func clampZoomDocumentOffsetIfNeeded() {
+        guard isZoomed else { return }
+
+        let visibleRect = zoomScrollView.documentVisibleRect
+        guard visibleRect.width > 0, visibleRect.height > 0 else { return }
+
+        let constrainedRect = constrainedZoomVisibleRect(visibleRect)
+        let clampedOrigin = constrainedRect.origin
+
+        guard clampedOrigin != visibleRect.origin else { return }
+
+        zoomScrollView.contentView.scroll(to: clampedOrigin)
+        zoomScrollView.reflectScrolledClipView(zoomScrollView.contentView)
     }
 
     private func scrollDocumentToOrigin() {
@@ -962,12 +1249,14 @@ final class MacPlayerMediaContainerView: NSView {
 
     private func isAtLeadingZoomEdge() -> Bool {
         let visibleRect = zoomScrollView.documentVisibleRect
-        return visibleRect.minX <= zoomContentView.bounds.minX + zoomEdgeToleranceInDocumentCoordinates
+        let allowedRect = zoomAllowedDocumentRect()
+        return visibleRect.minX <= allowedRect.minX + zoomEdgeToleranceInDocumentCoordinates
     }
 
     private func isAtTrailingZoomEdge() -> Bool {
         let visibleRect = zoomScrollView.documentVisibleRect
-        return visibleRect.maxX >= zoomContentView.bounds.maxX - zoomEdgeToleranceInDocumentCoordinates
+        let allowedRect = zoomAllowedDocumentRect()
+        return visibleRect.maxX >= allowedRect.maxX - zoomEdgeToleranceInDocumentCoordinates
     }
 
     private var zoomEdgeToleranceInDocumentCoordinates: CGFloat {
@@ -1004,6 +1293,77 @@ final class MacPlayerMediaContainerView: NSView {
         return isAtTrailingZoomEdge()
     }
 
+    private func constrainedZoomVisibleRect(_ proposedRect: CGRect) -> CGRect {
+        guard isZoomed,
+              proposedRect.width > 0,
+              proposedRect.height > 0 else {
+            return proposedRect
+        }
+
+        let allowedRect = zoomAllowedDocumentRect()
+        guard allowedRect.width > 0, allowedRect.height > 0 else { return proposedRect }
+
+        return CGRect(
+            x: boundedZoomOrigin(
+                centeredAt: proposedRect.midX,
+                zoomLength: proposedRect.width,
+                allowedMin: allowedRect.minX,
+                allowedMax: allowedRect.maxX
+            ),
+            y: boundedZoomOrigin(
+                centeredAt: proposedRect.midY,
+                zoomLength: proposedRect.height,
+                allowedMin: allowedRect.minY,
+                allowedMax: allowedRect.maxY
+            ),
+            width: proposedRect.width,
+            height: proposedRect.height
+        )
+    }
+
+    private func zoomAllowedDocumentRect() -> CGRect {
+        let contentBounds = CGRect(origin: .zero, size: zoomContentView.bounds.size)
+        guard contentBounds.width > 0, contentBounds.height > 0 else { return .zero }
+
+        let layoutRect: CGRect
+        switch zoomContentLayout {
+        case .viewport:
+            layoutRect = contentBounds
+        case .staticImage(let imageSize):
+            layoutRect = aspectFitRect(for: imageSize, in: contentBounds)
+        }
+
+        let allowedRect: CGRect
+        switch zoomAllowedContent {
+        case .fullContent:
+            allowedRect = layoutRect
+        case .ponchoDrifellaCard:
+            allowedRect = PonchoDrifellaMetalCardView.cardContentRect(in: contentBounds.size)
+        }
+
+        let clippedRect = allowedRect.intersection(contentBounds)
+        guard !clippedRect.isNull, !clippedRect.isEmpty else { return contentBounds }
+        return clippedRect
+    }
+
+    private func aspectFitRect(for sourceSize: CGSize, in bounds: CGRect) -> CGRect {
+        guard sourceSize.width > 0,
+              sourceSize.height > 0,
+              bounds.width > 0,
+              bounds.height > 0 else {
+            return bounds
+        }
+
+        let scale = min(bounds.width / sourceSize.width, bounds.height / sourceSize.height)
+        let scaledSize = CGSize(width: sourceSize.width * scale, height: sourceSize.height * scale)
+        return CGRect(
+            x: bounds.midX - scaledSize.width / 2,
+            y: bounds.midY - scaledSize.height / 2,
+            width: scaledSize.width,
+            height: scaledSize.height
+        )
+    }
+
     private func withoutLayerAnimations(_ updates: () -> Void) {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
@@ -1012,16 +1372,166 @@ final class MacPlayerMediaContainerView: NSView {
     }
 }
 
+private enum VideoAssetLayout {
+    static func displaySize(at fileURL: URL) async -> CGSize? {
+        let asset = AVURLAsset(url: fileURL)
+        guard let track = try? await asset.loadTracks(withMediaType: .video).first else { return nil }
+
+        async let naturalSize = track.load(.naturalSize)
+        async let preferredTransform = track.load(.preferredTransform)
+
+        guard let (loadedNaturalSize, loadedPreferredTransform) = try? await (naturalSize, preferredTransform) else {
+            return nil
+        }
+
+        let transformedSize = loadedNaturalSize.applying(loadedPreferredTransform)
+        let size = CGSize(width: abs(transformedSize.width), height: abs(transformedSize.height))
+        guard size.width > 0, size.height > 0 else { return nil }
+        return size
+    }
+}
+
+private enum DownloadableHTMLDocumentLayout {
+
+    static func rootSVGViewBoxSize(in html: String) -> CGSize? {
+        guard let svgOpeningTag = rootSVGOpeningTag(in: html) else { return nil }
+
+        if let viewBox = attribute("viewBox", in: svgOpeningTag),
+           let viewBoxSize = size(fromViewBox: viewBox) {
+            return viewBoxSize
+        }
+
+        guard let width = absoluteLengthAttribute("width", in: svgOpeningTag),
+              let height = absoluteLengthAttribute("height", in: svgOpeningTag),
+              width > 0,
+              height > 0 else {
+            return nil
+        }
+
+        return CGSize(width: width, height: height)
+    }
+
+    private static func size(fromViewBox viewBox: String) -> CGSize? {
+        let components = viewBox
+            .replacingOccurrences(of: ",", with: " ")
+            .split(whereSeparator: \.isWhitespace)
+        guard components.count == 4 else { return nil }
+
+        let values = components.compactMap { Double($0) }
+        guard values.count == 4,
+              values.allSatisfy({ $0.isFinite }) else {
+            return nil
+        }
+
+        let width = values[2]
+        let height = values[3]
+        guard width > 0, height > 0 else { return nil }
+        return CGSize(width: CGFloat(width), height: CGFloat(height))
+    }
+
+    private static func rootSVGOpeningTag(in html: String) -> String? {
+        if let bodyRootSVG = firstCapturedMatch(
+            pattern: "<body(?=\\s|>)[^>]*>\\s*(<svg(?=\\s|/?>)[^>]*>)",
+            in: html
+        ) {
+            return bodyRootSVG
+        }
+
+        return firstCapturedMatch(
+            pattern: "^\\s*(?:(?:<\\?xml\\b[^>]*\\?>|<!doctype\\b[^>]*>)\\s*)*(<svg(?=\\s|/?>)[^>]*>)",
+            in: html
+        )
+    }
+
+    private static func firstCapturedMatch(pattern: String, in html: String) -> String? {
+        guard let expression = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
+            return nil
+        }
+
+        let fullRange = NSRange(html.startIndex..<html.endIndex, in: html)
+        guard let match = expression.firstMatch(in: html, range: fullRange),
+              match.numberOfRanges > 1 else {
+            return nil
+        }
+
+        let range = match.range(at: 1)
+        guard range.location != NSNotFound,
+              let valueRange = Range(range, in: html) else {
+            return nil
+        }
+        return String(html[valueRange])
+    }
+
+    private static func absoluteLengthAttribute(_ name: String, in openingTag: String) -> CGFloat? {
+        guard let value = attribute(name, in: openingTag)?.trimmingCharacters(in: .whitespacesAndNewlines) else {
+            return nil
+        }
+
+        guard let expression = try? NSRegularExpression(
+            pattern: #"^([-+]?(?:\d+\.?\d*|\.\d+))(?:px)?$"#,
+            options: [.caseInsensitive]
+        ),
+              let match = expression.firstMatch(
+                in: value,
+                range: NSRange(value.startIndex..<value.endIndex, in: value)
+              ),
+              let valueRange = Range(match.range(at: 1), in: value),
+              let number = Double(String(value[valueRange])) else {
+            return nil
+        }
+        return number.isFinite ? CGFloat(number) : nil
+    }
+
+    private static func attribute(_ name: String, in openingTag: String) -> String? {
+        let escapedName = NSRegularExpression.escapedPattern(for: name)
+        let pattern = "(?:^|[\\s<])\(escapedName)\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)'|([^\\s\"'>]+))"
+        guard let expression = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
+            return nil
+        }
+
+        let fullRange = NSRange(openingTag.startIndex..<openingTag.endIndex, in: openingTag)
+        guard let match = expression.firstMatch(in: openingTag, range: fullRange) else {
+            return nil
+        }
+
+        for index in 1..<match.numberOfRanges {
+            let range = match.range(at: index)
+            guard range.location != NSNotFound,
+                  let valueRange = Range(range, in: openingTag) else {
+                continue
+            }
+            return String(openingTag[valueRange])
+        }
+        return nil
+    }
+}
+
 private protocol MacPlayerZoomScrollViewEventDelegate: AnyObject {
     func zoomScrollViewShouldForwardScrollWheel(_ scrollView: MacPlayerZoomScrollView, event: NSEvent) -> Bool
     func zoomScrollViewShouldForwardSwipe(_ scrollView: MacPlayerZoomScrollView, event: NSEvent) -> Bool
     func zoomScrollViewSmartMagnify(_ scrollView: MacPlayerZoomScrollView, event: NSEvent)
+    func zoomScrollViewDidBeginMagnify(_ scrollView: MacPlayerZoomScrollView)
     func zoomScrollViewDidEndMagnify(_ scrollView: MacPlayerZoomScrollView)
 }
 
 private final class MacPlayerZoomScrollView: NSScrollView {
 
     weak var eventDelegate: MacPlayerZoomScrollViewEventDelegate?
+    var constrainVisibleRect: ((CGRect) -> CGRect)? {
+        didSet {
+            (contentView as? MacPlayerZoomClipView)?.constrainVisibleRect = constrainVisibleRect
+        }
+    }
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        contentView = MacPlayerZoomClipView()
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        contentView = MacPlayerZoomClipView()
+    }
 
     override func scrollWheel(with event: NSEvent) {
         guard eventDelegate?.zoomScrollViewShouldForwardScrollWheel(self, event: event) != true else {
@@ -1037,9 +1547,14 @@ private final class MacPlayerZoomScrollView: NSScrollView {
     }
 
     override func magnify(with event: NSEvent) {
+        let phase = event.phase
+        if phase.contains(.began) || phase.contains(.changed) || phase.contains(.stationary) {
+            eventDelegate?.zoomScrollViewDidBeginMagnify(self)
+        }
+
         super.magnify(with: event)
 
-        if event.phase == .ended || event.phase == .cancelled {
+        if phase.contains(.ended) || phase.contains(.cancelled) {
             eventDelegate?.zoomScrollViewDidEndMagnify(self)
         }
     }
@@ -1049,6 +1564,26 @@ private final class MacPlayerZoomScrollView: NSScrollView {
             nextResponder?.swipe(with: event)
             return
         }
+    }
+}
+
+private final class MacPlayerZoomClipView: NSClipView {
+
+    var constrainVisibleRect: ((CGRect) -> CGRect)?
+
+    override func scroll(to newOrigin: NSPoint) {
+        let proposedBounds = NSRect(origin: newOrigin, size: bounds.size)
+        super.scroll(to: constrainBoundsRect(proposedBounds).origin)
+    }
+
+    override func setBoundsOrigin(_ newOrigin: NSPoint) {
+        let proposedBounds = NSRect(origin: newOrigin, size: bounds.size)
+        super.setBoundsOrigin(constrainBoundsRect(proposedBounds).origin)
+    }
+
+    override func constrainBoundsRect(_ proposedBounds: NSRect) -> NSRect {
+        let constrainedBounds = super.constrainBoundsRect(proposedBounds)
+        return constrainVisibleRect?(constrainedBounds) ?? constrainedBounds
     }
 }
 
@@ -1091,7 +1626,12 @@ extension MacPlayerMediaContainerView: MacPlayerZoomScrollViewEventDelegate {
         handleNativeSmartMagnify(event)
     }
 
+    fileprivate func zoomScrollViewDidBeginMagnify(_ scrollView: MacPlayerZoomScrollView) {
+        isNativeMagnifyGestureActive = true
+    }
+
     fileprivate func zoomScrollViewDidEndMagnify(_ scrollView: MacPlayerZoomScrollView) {
+        isNativeMagnifyGestureActive = false
         settleNativeMagnification()
     }
 }
