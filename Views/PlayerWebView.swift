@@ -150,6 +150,24 @@ final class PlayerWebView: WebViewWithMenu, WKNavigationDelegate {
         nextResponder?.scrollWheel(with: event)
     }
 
+    override func smartMagnify(with event: NSEvent) {
+        guard passesPlayerGesturesThrough else {
+            super.smartMagnify(with: event)
+            return
+        }
+
+        nextResponder?.smartMagnify(with: event)
+    }
+
+    override func magnify(with event: NSEvent) {
+        guard passesPlayerGesturesThrough else {
+            super.magnify(with: event)
+            return
+        }
+
+        nextResponder?.magnify(with: event)
+    }
+
     override func swipe(with event: NSEvent) {
         guard passesPlayerGesturesThrough else {
             super.swipe(with: event)

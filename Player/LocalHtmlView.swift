@@ -343,6 +343,7 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
 
         if !isLiveTransitioning {
             renderSelectedViewController(token, mode: .active)
+            resetZoomInPageViewControllers()
         }
         playerModel.showPagedToken(token)
         if !isLiveTransitioning {
@@ -353,11 +354,16 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
     }
 
     func pageControllerDidEndLiveTransition(_ pageController: NSPageController) {
+        let sourcePageObject = liveTransitionSourcePageObject
         completeTransition()
+        let didChangePage = currentPageObject != sourcePageObject
         isLiveTransitioning = false
         liveTransitionSourceViewController = nil
         liveTransitionSourcePageObject = nil
         renderCurrentPageViewController(mode: .active)
+        if didChangePage {
+            resetZoomInPageViewControllers()
+        }
         finishTransition()
     }
 
@@ -446,6 +452,7 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
         isSyncingSelectionFromModel = false
 
         renderSelectedViewController(token, mode: .active)
+        resetZoomInPageViewControllers()
         playerModel.showPagedToken(token)
         resizePageViewControllersToCurrentBounds()
         return true
@@ -484,6 +491,10 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
         let size = view.bounds.size
         guard size.width > 0, size.height > 0 else { return }
         pageViewControllers.allObjects.forEach { $0.resizeContent(to: size) }
+    }
+
+    private func resetZoomInPageViewControllers() {
+        pageViewControllers.allObjects.forEach { $0.resetZoomForReuse() }
     }
 
     private var currentPageObject: MacPlayerPageObject? {
@@ -613,6 +624,10 @@ private final class MacPlayerPageViewController: NSViewController {
 
     func cleanup() {
         mediaView?.cleanup()
+    }
+
+    func resetZoomForReuse() {
+        mediaView?.resetZoomForReuse()
     }
 
     func resizeContent(to size: CGSize) {

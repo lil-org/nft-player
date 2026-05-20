@@ -41,6 +41,15 @@ enum MacPlayerMediaRenderMode {
 
 final class MacPlayerMediaContainerView: NSView {
 
+    private enum ZoomTuning {
+        static let minimumScale: CGFloat = 1
+        static let maximumScale: CGFloat = 4
+        static let doubleTapScale: CGFloat = 2.5
+        static let resetTolerance: CGFloat = 0.01
+        static let edgePaginationTolerance: CGFloat = 2
+        static let horizontalIntentRatio: CGFloat = 1.15
+    }
+
     private enum WebMediaKind {
         case image, video, html
     }
@@ -53,6 +62,8 @@ final class MacPlayerMediaContainerView: NSView {
     }
 
     private weak var playerMenuDelegate: PlayerMenuDelegate?
+    private let zoomScrollView = MacPlayerZoomScrollView()
+    private let zoomContentView = MacPlayerZoomContentView()
     private var imageView: AspectFitImageView?
     private var webView: PlayerWebView?
     private var ponchoDrifellaMetalCardView: PonchoDrifellaMetalCardView?
@@ -71,7 +82,9 @@ final class MacPlayerMediaContainerView: NSView {
     private var renderedNextLocalWebURL: URL?
     private var pendingNextLocalWebURL: URL?
     private var webViewMayContainContent = false
+    private var laidOutZoomViewportSize: CGSize = .zero
     private var lastPlayerMenuEventNumber: Int?
+    private var lastZoomToggleEventNumber: Int?
     private let downloadableMediaWindowOwnerId = UUID()
     private var activeDownloadableMediaCollectionId: String?
     private let htmlDocumentRenderQueue = DispatchQueue(
@@ -84,7 +97,26 @@ final class MacPlayerMediaContainerView: NSView {
         super.init(frame: .zero)
         wantsLayer = true
         layer?.backgroundColor = NSColor.black.cgColor
+        layer?.masksToBounds = true
+        zoomScrollView.eventDelegate = self
+        zoomScrollView.drawsBackground = false
+        zoomScrollView.hasHorizontalScroller = false
+        zoomScrollView.hasVerticalScroller = false
+        zoomScrollView.autohidesScrollers = true
+        zoomScrollView.borderType = .noBorder
+        zoomScrollView.allowsMagnification = true
+        zoomScrollView.minMagnification = ZoomTuning.minimumScale
+        zoomScrollView.maxMagnification = ZoomTuning.maximumScale
+        zoomContentView.wantsLayer = true
+        zoomContentView.layer?.backgroundColor = NSColor.black.cgColor
+        zoomScrollView.documentView = zoomContentView
+        addSubview(zoomScrollView)
         installPlayerMenuGesture(on: self)
+        installPlayerMenuGesture(on: zoomScrollView)
+        installPlayerMenuGesture(on: zoomContentView)
+        installPlayerZoomGestures(on: self)
+        installPlayerZoomGestures(on: zoomScrollView)
+        installPlayerZoomGestures(on: zoomContentView)
     }
 
     required init?(coder: NSCoder) {
@@ -93,6 +125,39 @@ final class MacPlayerMediaContainerView: NSView {
 
     deinit {
         cleanup()
+    }
+
+    override var bounds: NSRect {
+        didSet {
+            updateZoomViewportLayoutIfNeeded()
+        }
+    }
+
+    override var frame: NSRect {
+        didSet {
+            updateZoomViewportLayoutIfNeeded()
+        }
+    }
+
+    override func layout() {
+        super.layout()
+        updateZoomViewportLayoutIfNeeded()
+    }
+
+    override func scrollWheel(with event: NSEvent) {
+        nextResponder?.scrollWheel(with: event)
+    }
+
+    override func smartMagnify(with event: NSEvent) {
+        handleNativeSmartMagnify(event)
+    }
+
+    override func magnify(with event: NSEvent) {
+        zoomScrollView.magnify(with: event)
+    }
+
+    override func swipe(with event: NSEvent) {
+        nextResponder?.swipe(with: event)
     }
 
     func updatePlayerMenuDelegate(_ playerMenuDelegate: PlayerMenuDelegate?) {
@@ -107,6 +172,10 @@ final class MacPlayerMediaContainerView: NSView {
 
         currentToken = token
         renderMode = mode
+
+        if tokenChanged || modeChanged {
+            resetZoom(animated: false)
+        }
 
         if tokenChanged || !mode.canDemandLoad {
             representedImageKey = nil
@@ -184,9 +253,14 @@ final class MacPlayerMediaContainerView: NSView {
         unloadWebContentIfNeeded()
         webView?.isHidden = true
         imageView?.image = nil
+        resetZoom(animated: false)
         currentToken = nil
         renderMode = nil
         cancelDownloadsIfNoPlayerWindows()
+    }
+
+    func resetZoomForReuse() {
+        resetZoom(animated: false)
     }
 
     private func renderImage(
@@ -573,7 +647,8 @@ final class MacPlayerMediaContainerView: NSView {
         imageView.layer?.backgroundColor = NSColor.black.cgColor
         imageView.translatesAutoresizingMaskIntoConstraints = false
         installPlayerMenuGesture(on: imageView)
-        addSubviewFillingBounds(imageView)
+        installPlayerZoomGestures(on: imageView)
+        addSubviewFillingZoomContent(imageView)
         self.imageView = imageView
         return imageView
     }
@@ -586,7 +661,8 @@ final class MacPlayerMediaContainerView: NSView {
         let webView = PlayerWebView.make(playerMenuDelegate: playerMenuDelegate)
         webView.passesPlayerGesturesThrough = true
         webView.translatesAutoresizingMaskIntoConstraints = false
-        addSubviewFillingBounds(webView)
+        installPlayerZoomGestures(on: webView)
+        addSubviewFillingZoomContent(webView)
         self.webView = webView
         return webView
     }
@@ -599,8 +675,10 @@ final class MacPlayerMediaContainerView: NSView {
         let cardView = PonchoDrifellaMetalCardView()
         cardView.translatesAutoresizingMaskIntoConstraints = false
         installPlayerMenuGesture(on: cardView)
+        installPlayerZoomGestures(on: cardView)
         cardView.subviews.forEach(installPlayerMenuGesture)
-        addSubviewFillingBounds(cardView)
+        cardView.subviews.forEach(installPlayerZoomGestures)
+        addSubviewFillingZoomContent(cardView)
         ponchoDrifellaMetalCardView = cardView
         return cardView
     }
@@ -611,22 +689,33 @@ final class MacPlayerMediaContainerView: NSView {
         view.addGestureRecognizer(rightClickGestureRecognizer)
     }
 
+    private func installPlayerZoomGestures(on view: NSView) {
+        let doubleClickGestureRecognizer = NSClickGestureRecognizer(target: self, action: #selector(handleDoubleClick(_:)))
+        doubleClickGestureRecognizer.buttonMask = 0x1
+        doubleClickGestureRecognizer.numberOfClicksRequired = 2
+        view.addGestureRecognizer(doubleClickGestureRecognizer)
+    }
+
     @objc private func handleRightClick(_ gestureRecognizer: NSClickGestureRecognizer) {
         guard gestureRecognizer.state == .ended else { return }
-        if let eventNumber = NSApp.currentEvent?.eventNumber {
-            guard lastPlayerMenuEventNumber != eventNumber else { return }
-            lastPlayerMenuEventNumber = eventNumber
-        }
+        guard shouldHandleCurrentMouseEvent(lastHandledEventNumber: &lastPlayerMenuEventNumber) else { return }
         playerMenuDelegate?.popUpMenu(view: gestureRecognizer.view ?? self)
     }
 
-    private func addSubviewFillingBounds(_ subview: NSView) {
-        addSubview(subview)
+    @objc private func handleDoubleClick(_ gestureRecognizer: NSClickGestureRecognizer) {
+        guard gestureRecognizer.state == .ended else { return }
+        guard shouldHandleCurrentMouseEvent(lastHandledEventNumber: &lastZoomToggleEventNumber) else { return }
+
+        toggleZoom(at: gestureRecognizer.location(in: self), animated: true)
+    }
+
+    private func addSubviewFillingZoomContent(_ subview: NSView) {
+        zoomContentView.addSubview(subview)
         NSLayoutConstraint.activate([
-            subview.topAnchor.constraint(equalTo: topAnchor),
-            subview.leadingAnchor.constraint(equalTo: leadingAnchor),
-            subview.trailingAnchor.constraint(equalTo: trailingAnchor),
-            subview.bottomAnchor.constraint(equalTo: bottomAnchor)
+            subview.topAnchor.constraint(equalTo: zoomContentView.topAnchor),
+            subview.leadingAnchor.constraint(equalTo: zoomContentView.leadingAnchor),
+            subview.trailingAnchor.constraint(equalTo: zoomContentView.trailingAnchor),
+            subview.bottomAnchor.constraint(equalTo: zoomContentView.bottomAnchor)
         ])
     }
 
@@ -735,6 +824,298 @@ final class MacPlayerMediaContainerView: NSView {
         }
         return .backward
     }
+
+    private func shouldHandleCurrentMouseEvent(lastHandledEventNumber: inout Int?) -> Bool {
+        guard let event = NSApp.currentEvent,
+              event.hasMouseEventNumber else {
+            return true
+        }
+
+        let eventNumber = event.eventNumber
+        guard lastHandledEventNumber != eventNumber else { return false }
+
+        lastHandledEventNumber = eventNumber
+        return true
+    }
+
+    private var isZoomed: Bool {
+        zoomScrollView.magnification > ZoomTuning.minimumScale + ZoomTuning.resetTolerance
+    }
+
+    private func updateZoomViewportLayoutIfNeeded() {
+        let viewportSize = bounds.size
+        guard viewportSize.width > 0, viewportSize.height > 0 else { return }
+
+        if zoomScrollView.frame != bounds {
+            zoomScrollView.frame = bounds
+        }
+
+        if laidOutZoomViewportSize != viewportSize {
+            laidOutZoomViewportSize = viewportSize
+            if isZoomed {
+                resetZoom(animated: false)
+            }
+        }
+
+        let documentFrame = CGRect(origin: .zero, size: viewportSize)
+        guard zoomContentView.frame != documentFrame || zoomContentView.bounds.size != viewportSize else { return }
+
+        withoutLayerAnimations {
+            zoomContentView.frame = documentFrame
+            zoomContentView.bounds = documentFrame
+            zoomContentView.layoutSubtreeIfNeeded()
+        }
+        scrollDocumentToOrigin()
+    }
+
+    private func toggleZoom(at locationInContainer: CGPoint, animated: Bool) {
+        guard bounds.width > 0, bounds.height > 0 else { return }
+
+        if isZoomed {
+            resetZoom(animated: animated)
+            return
+        }
+
+        let targetScale = min(ZoomTuning.doubleTapScale, ZoomTuning.maximumScale)
+        let documentPoint = zoomContentView.convert(locationInContainer, from: self)
+        setZoomMagnification(targetScale, centeredAt: documentPoint, animated: animated)
+    }
+
+    private func resetZoom(animated: Bool) {
+        guard animated else {
+            setZoomMagnification(ZoomTuning.minimumScale, centeredAt: .zero, animated: false)
+            scrollDocumentToOrigin()
+            return
+        }
+
+        setZoomMagnification(
+            ZoomTuning.minimumScale,
+            centeredAt: .zero,
+            animated: animated
+        ) { [weak self] in
+            self?.scrollDocumentToOrigin()
+        }
+    }
+
+    private func setZoomMagnification(
+        _ magnification: CGFloat,
+        centeredAt documentPoint: CGPoint,
+        animated: Bool,
+        completion: (() -> Void)? = nil
+    ) {
+        let clampedMagnification = min(
+            max(magnification, ZoomTuning.minimumScale),
+            ZoomTuning.maximumScale
+        )
+        let centeredAt = clampedDocumentPoint(documentPoint)
+
+        if animated {
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.18
+                context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                zoomScrollView.animator().setMagnification(clampedMagnification, centeredAt: centeredAt)
+            } completionHandler: {
+                completion?()
+            }
+        } else {
+            withoutLayerAnimations {
+                zoomScrollView.setMagnification(clampedMagnification, centeredAt: centeredAt)
+            }
+            completion?()
+        }
+    }
+
+    private func settleNativeMagnification() {
+        if zoomScrollView.magnification <= ZoomTuning.minimumScale + ZoomTuning.resetTolerance {
+            resetZoom(animated: true)
+        }
+    }
+
+    private func clampedDocumentPoint(_ point: CGPoint) -> CGPoint {
+        let bounds = zoomContentView.bounds
+        guard bounds.width > 0, bounds.height > 0 else { return point }
+        return CGPoint(
+            x: min(max(point.x, bounds.minX), bounds.maxX),
+            y: min(max(point.y, bounds.minY), bounds.maxY)
+        )
+    }
+
+    private func scrollDocumentToOrigin() {
+        zoomScrollView.contentView.scroll(to: .zero)
+        zoomScrollView.reflectScrolledClipView(zoomScrollView.contentView)
+    }
+
+    private func shouldForwardZoomScrollWheel(_ event: NSEvent) -> Bool {
+        guard isZoomed else { return true }
+        return shouldHandOffZoomedHorizontalScroll(event)
+    }
+
+    private func shouldForwardZoomSwipe(_ event: NSEvent) -> Bool {
+        guard isZoomed else { return true }
+        return shouldHandOffZoomedHorizontalSwipe(event)
+    }
+
+    private func handleNativeSmartMagnify(_ event: NSEvent) {
+        let location = convert(event.locationInWindow, from: nil)
+        toggleZoom(at: location, animated: true)
+    }
+
+    private func isAtLeadingZoomEdge() -> Bool {
+        let visibleRect = zoomScrollView.documentVisibleRect
+        return visibleRect.minX <= zoomContentView.bounds.minX + zoomEdgeToleranceInDocumentCoordinates
+    }
+
+    private func isAtTrailingZoomEdge() -> Bool {
+        let visibleRect = zoomScrollView.documentVisibleRect
+        return visibleRect.maxX >= zoomContentView.bounds.maxX - zoomEdgeToleranceInDocumentCoordinates
+    }
+
+    private var zoomEdgeToleranceInDocumentCoordinates: CGFloat {
+        ZoomTuning.edgePaginationTolerance / max(zoomScrollView.magnification, ZoomTuning.minimumScale)
+    }
+
+    private func shouldHandOffZoomedHorizontalScroll(_ event: NSEvent) -> Bool {
+        let deltaX = event.scrollingDeltaX
+        let deltaY = event.scrollingDeltaY
+        guard deltaX != 0,
+              abs(deltaX) > abs(deltaY) * ZoomTuning.horizontalIntentRatio else {
+            return false
+        }
+
+        if deltaX > 0 {
+            return isAtLeadingZoomEdge()
+        }
+
+        return isAtTrailingZoomEdge()
+    }
+
+    private func shouldHandOffZoomedHorizontalSwipe(_ event: NSEvent) -> Bool {
+        let deltaX = event.deltaX
+        let deltaY = event.deltaY
+        guard deltaX != 0,
+              abs(deltaX) > abs(deltaY) * ZoomTuning.horizontalIntentRatio else {
+            return false
+        }
+
+        if deltaX > 0 {
+            return isAtLeadingZoomEdge()
+        }
+
+        return isAtTrailingZoomEdge()
+    }
+
+    private func withoutLayerAnimations(_ updates: () -> Void) {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        updates()
+        CATransaction.commit()
+    }
+}
+
+private protocol MacPlayerZoomScrollViewEventDelegate: AnyObject {
+    func zoomScrollViewShouldForwardScrollWheel(_ scrollView: MacPlayerZoomScrollView, event: NSEvent) -> Bool
+    func zoomScrollViewShouldForwardSwipe(_ scrollView: MacPlayerZoomScrollView, event: NSEvent) -> Bool
+    func zoomScrollViewSmartMagnify(_ scrollView: MacPlayerZoomScrollView, event: NSEvent)
+    func zoomScrollViewDidEndMagnify(_ scrollView: MacPlayerZoomScrollView)
+}
+
+private final class MacPlayerZoomScrollView: NSScrollView {
+
+    weak var eventDelegate: MacPlayerZoomScrollViewEventDelegate?
+
+    override func scrollWheel(with event: NSEvent) {
+        guard eventDelegate?.zoomScrollViewShouldForwardScrollWheel(self, event: event) != true else {
+            nextResponder?.scrollWheel(with: event)
+            return
+        }
+
+        super.scrollWheel(with: event)
+    }
+
+    override func smartMagnify(with event: NSEvent) {
+        eventDelegate?.zoomScrollViewSmartMagnify(self, event: event)
+    }
+
+    override func magnify(with event: NSEvent) {
+        super.magnify(with: event)
+
+        if event.phase == .ended || event.phase == .cancelled {
+            eventDelegate?.zoomScrollViewDidEndMagnify(self)
+        }
+    }
+
+    override func swipe(with event: NSEvent) {
+        guard eventDelegate?.zoomScrollViewShouldForwardSwipe(self, event: event) != true else {
+            nextResponder?.swipe(with: event)
+            return
+        }
+    }
+}
+
+private final class MacPlayerZoomContentView: NSView {
+
+    override func scrollWheel(with event: NSEvent) {
+        nextResponder?.scrollWheel(with: event)
+    }
+
+    override func smartMagnify(with event: NSEvent) {
+        nextResponder?.smartMagnify(with: event)
+    }
+
+    override func magnify(with event: NSEvent) {
+        nextResponder?.magnify(with: event)
+    }
+
+    override func swipe(with event: NSEvent) {
+        nextResponder?.swipe(with: event)
+    }
+}
+
+extension MacPlayerMediaContainerView: MacPlayerZoomScrollViewEventDelegate {
+
+    fileprivate func zoomScrollViewShouldForwardScrollWheel(
+        _ scrollView: MacPlayerZoomScrollView,
+        event: NSEvent
+    ) -> Bool {
+        shouldForwardZoomScrollWheel(event)
+    }
+
+    fileprivate func zoomScrollViewShouldForwardSwipe(
+        _ scrollView: MacPlayerZoomScrollView,
+        event: NSEvent
+    ) -> Bool {
+        shouldForwardZoomSwipe(event)
+    }
+
+    fileprivate func zoomScrollViewSmartMagnify(_ scrollView: MacPlayerZoomScrollView, event: NSEvent) {
+        handleNativeSmartMagnify(event)
+    }
+
+    fileprivate func zoomScrollViewDidEndMagnify(_ scrollView: MacPlayerZoomScrollView) {
+        settleNativeMagnification()
+    }
+}
+
+private extension NSEvent {
+    var hasMouseEventNumber: Bool {
+        switch type {
+        case .leftMouseDown,
+             .leftMouseUp,
+             .rightMouseDown,
+             .rightMouseUp,
+             .otherMouseDown,
+             .otherMouseUp,
+             .leftMouseDragged,
+             .rightMouseDragged,
+             .otherMouseDragged,
+             .mouseMoved,
+             .mouseEntered,
+             .mouseExited:
+            return true
+        default:
+            return false
+        }
+    }
 }
 
 private final class AspectFitImageView: NSView {
@@ -782,6 +1163,22 @@ private final class AspectFitImageView: NSView {
     override func layout() {
         super.layout()
         withoutLayerAnimations(updateImageLayerFrame)
+    }
+
+    override func scrollWheel(with event: NSEvent) {
+        nextResponder?.scrollWheel(with: event)
+    }
+
+    override func smartMagnify(with event: NSEvent) {
+        nextResponder?.smartMagnify(with: event)
+    }
+
+    override func magnify(with event: NSEvent) {
+        nextResponder?.magnify(with: event)
+    }
+
+    override func swipe(with event: NSEvent) {
+        nextResponder?.swipe(with: event)
     }
 
     override func viewDidMoveToWindow() {
