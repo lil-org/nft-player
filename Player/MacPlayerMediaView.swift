@@ -489,12 +489,14 @@ final class MacPlayerMediaContainerView: NSView {
         pendingLocalWebURL = fileURL
         htmlDocumentRenderQueue.async {
             let renderedDocument = (try? String(contentsOf: fileURL, encoding: .utf8)).map { documentHTML in
-                (
+                let viewportSize = DownloadableHTMLDocumentLayout.rootSVGViewBoxSize(in: documentHTML)
+                return (
                     html: DownloadableTokenHTML.createInlineHTMLDocumentHTML(
                         documentHTML: documentHTML,
-                        baseURL: imageCache.downloadedSourceURL(for: context.descriptor).absoluteString
+                        baseURL: imageCache.downloadedSourceURL(for: context.descriptor).absoluteString,
+                        contentSize: viewportSize
                     ),
-                    viewportSize: DownloadableHTMLDocumentLayout.rootSVGViewBoxSize(in: documentHTML)
+                    viewportSize: viewportSize
                 )
             }
 

@@ -1,5 +1,6 @@
 // ∅ 2026 lil org
 
+import CoreGraphics
 import Foundation
 
 struct CollectionCatalogItem: Hashable, Identifiable {
@@ -856,10 +857,15 @@ enum DownloadableTokenHTML {
         )
     }
 
-    static func createInlineHTMLDocumentHTML(documentHTML: String, baseURL: String?) -> String {
+    static func createInlineHTMLDocumentHTML(
+        documentHTML: String,
+        baseURL: String?,
+        contentSize: CGSize? = nil
+    ) -> String {
         let documentHTML = htmlDocument(documentHTML, insertingBaseURL: baseURL)
         return createHTMLDocumentFrameHTML(
             iframeSandbox: trustedHTMLDocumentSandbox,
+            contentSize: contentSize,
             iframeSourceJavaScript: """
         const documentHTML = \(javaScriptStringLiteral(documentHTML));
         document.getElementById("tokenDocument").srcdoc = documentHTML;
@@ -869,6 +875,7 @@ enum DownloadableTokenHTML {
 
     private static func createHTMLDocumentFrameHTML(
         iframeSandbox: String,
+        contentSize: CGSize? = nil,
         iframeSourceJavaScript: String
     ) -> String {
         """
@@ -886,6 +893,11 @@ enum DownloadableTokenHTML {
             background: transparent;
             overflow: hidden;
         }
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
         #tokenDocument {
             width: 100%;
             height: 100%;
@@ -898,6 +910,7 @@ enum DownloadableTokenHTML {
         <body>
         <iframe id="tokenDocument" sandbox="\(iframeSandbox)" allow="autoplay; fullscreen"></iframe>
         <script>
+        \(htmlDocumentAspectFitJavaScript(contentSize: contentSize))
         \(iframeSourceJavaScript)
         </script>
         </body>
@@ -1044,6 +1057,47 @@ enum DownloadableTokenHTML {
         return "\(baseElement)\n\(html)"
     }
 
+    private static func htmlDocumentAspectFitJavaScript(contentSize: CGSize?) -> String {
+        guard let contentSize,
+              contentSize.width > 0,
+              contentSize.height > 0,
+              contentSize.width.isFinite,
+              contentSize.height.isFinite else {
+            return ""
+        }
+
+        return """
+        const tokenDocumentAspectWidth = \(javaScriptNumberLiteral(Double(contentSize.width)));
+        const tokenDocumentAspectHeight = \(javaScriptNumberLiteral(Double(contentSize.height)));
+        const tokenDocumentAspectRatio = tokenDocumentAspectWidth / tokenDocumentAspectHeight;
+        const tokenDocument = document.getElementById("tokenDocument");
+
+        function layoutTokenDocument() {
+            const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+            const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+            if (!viewportWidth || !viewportHeight || !tokenDocumentAspectRatio) {
+                tokenDocument.style.width = "100%";
+                tokenDocument.style.height = "100%";
+                return;
+            }
+
+            let width = viewportWidth;
+            let height = width / tokenDocumentAspectRatio;
+            if (height > viewportHeight) {
+                height = viewportHeight;
+                width = height * tokenDocumentAspectRatio;
+            }
+
+            tokenDocument.style.width = `${width}px`;
+            tokenDocument.style.height = `${height}px`;
+        }
+
+        window.addEventListener("resize", layoutTokenDocument);
+        layoutTokenDocument();
+        requestAnimationFrame(layoutTokenDocument);
+        """
+    }
+
     private static func openingTagRange(_ tagName: String, in html: String) -> Range<String.Index>? {
         html.range(
             of: "<\(tagName)(?=\\s|/?>)[^>]*>",
@@ -1070,5 +1124,10 @@ enum DownloadableTokenHTML {
             .replacingOccurrences(of: "\u{2028}", with: "\\u2028")
             .replacingOccurrences(of: "\u{2029}", with: "\\u2029")
         return literal
+    }
+
+    private static func javaScriptNumberLiteral(_ value: Double) -> String {
+        guard value.isFinite else { return "0" }
+        return String(value)
     }
 }
