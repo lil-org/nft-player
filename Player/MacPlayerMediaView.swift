@@ -1031,6 +1031,10 @@ final class MacPlayerMediaContainerView: NSView {
         zoomScrollView.magnification > ZoomTuning.minimumScale + ZoomTuning.resetTolerance
     }
 
+    private var isProgrammaticZoomAnimationActive: Bool {
+        activeZoomAnimationCount > 0 && !isNativeMagnifyGestureActive
+    }
+
     private func updateZoomViewportLayoutIfNeeded() {
         let viewportSize = bounds.size
         guard viewportSize.width > 0, viewportSize.height > 0 else { return }
@@ -1295,6 +1299,7 @@ final class MacPlayerMediaContainerView: NSView {
 
     private func constrainedZoomVisibleRect(_ proposedRect: CGRect) -> CGRect {
         guard isZoomed,
+              !isProgrammaticZoomAnimationActive,
               proposedRect.width > 0,
               proposedRect.height > 0 else {
             return proposedRect
