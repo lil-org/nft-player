@@ -28,16 +28,11 @@ struct WalletsListView: View {
             createGrid()
                 .frame(maxWidth: .infinity)
         }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
+        .overlay(alignment: .bottom) {
             if shouldShowContinueViewingControl, let continueViewingProgress {
-                HStack {
-                    Spacer(minLength: 0)
-                    ContinueViewingButton(progress: continueViewingProgress) {
-                        resumeViewing(continueViewingProgress)
-                    }
-                    Spacer(minLength: 0)
+                ContinueViewingButton(progress: continueViewingProgress) {
+                    resumeViewing(continueViewingProgress)
                 }
-                .frame(maxWidth: .infinity)
                 .padding(.horizontal, continueViewingButtonPadding)
                 .padding(.top, continueViewingButtonPadding / 2)
                 .padding(.bottom, continueViewingButtonPadding)
