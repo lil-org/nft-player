@@ -30,6 +30,8 @@ struct TokenGenerator {
             "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270250",
             ponchoDrifellaCollectionId,
         ])
+#elseif os(macOS)
+        let disabledCollectionIds = Set([ponchoDrifellaCollectionId])
 #else
         let disabledCollectionIds = Set<String>()
 #endif
