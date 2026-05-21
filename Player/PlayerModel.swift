@@ -213,7 +213,7 @@ class PlayerModel: ObservableObject {
         }
 
         restartSuppressedCollectionId = currentToken.fullCollectionId
-        PlayerViewingProgressStore.clearContinueViewingCollectionId()
+        PlayerViewingProgressStore.recordContinueViewingClearedForSync()
         history = [firstToken]
         currentIndex = 0
         currentToken = firstToken
@@ -258,14 +258,10 @@ class PlayerModel: ObservableObject {
             restartSuppressedCollectionId = nil
         }
 
-        guard let continueViewingCollectionId,
-              progress.collectionId == continueViewingCollectionId,
-              !progress.isComplete else {
-            PlayerViewingProgressStore.clearContinueViewingCollectionId()
-            return
-        }
-
-        PlayerViewingProgressStore.setContinueViewingCollectionId(progress.collectionId)
+        PlayerViewingProgressStore.updateContinueViewingCollection(
+            for: progress,
+            expectedCollectionId: continueViewingCollectionId
+        )
     }
 
     private static func generateRandomToken(specificCollectionId: String?, notTokenId: String?) -> GeneratedToken? {

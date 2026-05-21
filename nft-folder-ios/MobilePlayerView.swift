@@ -216,6 +216,9 @@ struct MobilePlayerView: View {
         .onReceive(NotificationCenter.default.publisher(for: .downloadableMediaCacheFileAvailabilityDidChange)) { _ in
             updateShareItem(for: currentCoordinate)
         }
+        .onReceive(NotificationCenter.default.publisher(for: .playerBookmarksDidChange)) { _ in
+            updateBookmarkState(for: currentToken)
+        }
         .onAppear {
             guard !isAllowedToHideStatusBar else { return }
 

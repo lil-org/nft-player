@@ -8,6 +8,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private let currentInstanceId = UUID().uuidString
     
     func applicationDidFinishLaunching(_ aNotification: Notification) {
+        PlayerICloudSync.shared.start()
         Navigator.shared.showControlCenter()
         
         let notificationCenter = DistributedNotificationCenter.default()
@@ -16,6 +17,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     func applicationWillTerminate(_ aNotification: Notification) {
+        PlayerICloudSync.shared.flushPendingChanges(synchronize: true)
         DistributedNotificationCenter.default().removeObserver(self)
     }
     

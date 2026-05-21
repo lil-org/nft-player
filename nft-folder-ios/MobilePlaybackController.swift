@@ -230,14 +230,10 @@ class MobilePlaybackController {
             restartSuppressedCollectionIds.removeValue(forKey: uuid)
         }
 
-        guard let continueViewingCollectionId = initialConfigs[uuid]?.continueViewingCollectionId,
-              progress.collectionId == continueViewingCollectionId,
-              !progress.isComplete else {
-            MobileViewingProgressStore.clearContinueViewingCollectionId()
-            return
-        }
-
-        MobileViewingProgressStore.setContinueViewingCollectionId(progress.collectionId)
+        MobileViewingProgressStore.updateContinueViewingCollection(
+            for: progress,
+            expectedCollectionId: initialConfigs[uuid]?.continueViewingCollectionId
+        )
     }
 
     private func suppressContinueViewingUntilMovementAfterRestart(uuid: UUID) {
@@ -248,7 +244,7 @@ class MobilePlaybackController {
         }
 
         restartSuppressedCollectionIds[uuid] = progress.collectionId
-        MobileViewingProgressStore.clearContinueViewingCollectionId()
+        MobileViewingProgressStore.recordContinueViewingClearedForSync()
     }
 
     func startHorizontalCoordinate(uuid: UUID, verticalIndex: Int) -> Int {

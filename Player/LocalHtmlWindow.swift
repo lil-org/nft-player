@@ -12,6 +12,7 @@ class LocalHtmlWindow: NSWindow {
     private var mouseMoveEventMonitor: Any?
     private var navigationKeysEventMonitor: Any?
     private var currentTokenObserver: AnyCancellable?
+    private var bookmarkChangesObserver: AnyCancellable?
     private weak var titleLabel: NSTextField?
     private weak var bookmarkButton: NSButton?
 
@@ -47,6 +48,11 @@ class LocalHtmlWindow: NSWindow {
             .receive(on: RunLoop.main)
             .sink { [weak self] token in
                 self?.updatePlayerChrome(for: token)
+            }
+        bookmarkChangesObserver = NotificationCenter.default.publisher(for: .playerBookmarksDidChange)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.updateBookmarkButton()
             }
         playerModel.markCurrentTokenViewed()
         Window.registerPlayerWindow(self)

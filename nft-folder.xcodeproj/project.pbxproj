@@ -135,6 +135,12 @@
 		2CB01A052F01000000000001 /* PlayerViewingProgressStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CB01A032F01000000000001 /* PlayerViewingProgressStore.swift */; };
 		2CB01A062F01000000000001 /* PlayerViewingProgressStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CB01A032F01000000000001 /* PlayerViewingProgressStore.swift */; };
 		2CB01A072F01000000000001 /* PlayerViewingProgressStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CB01A032F01000000000001 /* PlayerViewingProgressStore.swift */; };
+		2CF100052F20000000000001 /* PlayerSyncTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CF100042F20000000000001 /* PlayerSyncTypes.swift */; };
+		2CF100062F20000000000001 /* PlayerSyncTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CF100042F20000000000001 /* PlayerSyncTypes.swift */; };
+		2CF100072F20000000000001 /* PlayerSyncTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CF100042F20000000000001 /* PlayerSyncTypes.swift */; };
+		2CF100082F20000000000001 /* PlayerSyncTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CF100042F20000000000001 /* PlayerSyncTypes.swift */; };
+		2CF100012F20000000000001 /* PlayerICloudSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CF100002F20000000000001 /* PlayerICloudSync.swift */; };
+		2CF100022F20000000000001 /* PlayerICloudSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CF100002F20000000000001 /* PlayerICloudSync.swift */; };
 		2CC0C63A2C6A630700FB56BB /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2C5A59A12C51074B00788870 /* Assets.xcassets */; };
 		2CC93C672DB2B13C00C5801A /* ExternalDisplayViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CC93C662DB2B13A00C5801A /* ExternalDisplayViewController.swift */; };
 		2CC971632D2F4219005A8C4C /* FourDirectionalPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CC971622D2F4214005A8C4C /* FourDirectionalPlayer.swift */; };
@@ -249,6 +255,9 @@
 		2CABCDEF2EAD000000000004 /* review */ = {isa = PBXFileReference; lastKnownFileType = folder; path = review; sourceTree = "<group>"; };
 		2CB01A022F01000000000001 /* PlayerBookmarksStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerBookmarksStore.swift; sourceTree = "<group>"; };
 		2CB01A032F01000000000001 /* PlayerViewingProgressStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerViewingProgressStore.swift; sourceTree = "<group>"; };
+		2CF100042F20000000000001 /* PlayerSyncTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerSyncTypes.swift; sourceTree = "<group>"; };
+		2CF100002F20000000000001 /* PlayerICloudSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerICloudSync.swift; sourceTree = "<group>"; };
+		2CF100032F20000000000001 /* nft_folder_ios.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = nft_folder_ios.entitlements; sourceTree = "<group>"; };
 		2CC93C662DB2B13A00C5801A /* ExternalDisplayViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExternalDisplayViewController.swift; sourceTree = "<group>"; };
 		2CC971622D2F4214005A8C4C /* FourDirectionalPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FourDirectionalPlayer.swift; sourceTree = "<group>"; };
 		2CCFED972B08246800D98A2E /* WalletsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletsListView.swift; sourceTree = "<group>"; };
@@ -331,6 +340,7 @@
 				2C1B60BC2B7D3505009949C2 /* Strings.swift */,
 				2CB01A022F01000000000001 /* PlayerBookmarksStore.swift */,
 				2CB01A032F01000000000001 /* PlayerViewingProgressStore.swift */,
+				2CF100042F20000000000001 /* PlayerSyncTypes.swift */,
 				2CDF00062F10000000000001 /* PonchoDrifellaCardMetadata.swift */,
 			);
 			path = Models;
@@ -343,6 +353,7 @@
 				2CDF00072F10000000000001 /* PonchoDrifellaAssetCache.swift */,
 				2CDF00022F10000000000001 /* PlayerTokenPrewarmer.swift */,
 				2CDF00082F10000000000001 /* PlayerWebContentLoadCoordinator.swift */,
+				2CF100002F20000000000001 /* PlayerICloudSync.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -557,6 +568,7 @@
 				2CF08AA72D2A937400D82ACA /* nft_folder_iosApp.swift */,
 				2CF08AA32D2A937400D82ACA /* Assets.xcassets */,
 				2CF08AA62D2A937400D82ACA /* Info.plist */,
+				2CF100032F20000000000001 /* nft_folder_ios.entitlements */,
 			);
 			path = "nft-folder-ios";
 			sourceTree = "<group>";
@@ -813,10 +825,12 @@
 				2CDF001A2F10000000000001 /* PonchoDrifellaAssetCache.swift in Sources */,
 				2CDF00122F10000000000001 /* PlayerTokenPrewarmer.swift in Sources */,
 				2CDF001C2F10000000000001 /* PlayerWebContentLoadCoordinator.swift in Sources */,
+				2CF100012F20000000000001 /* PlayerICloudSync.swift in Sources */,
 				2CDF00182F10000000000001 /* PonchoDrifellaCardMetadata.swift in Sources */,
 				2C7134D62D30460B001E33DC /* MobilePlaybackController.swift in Sources */,
 				2CB01A012F01000000000001 /* PlayerBookmarksStore.swift in Sources */,
 				2CB01A052F01000000000001 /* PlayerViewingProgressStore.swift in Sources */,
+				2CF100052F20000000000001 /* PlayerSyncTypes.swift in Sources */,
 				2C460EDB2D29863A0083124E /* BundledTokens.swift in Sources */,
 				2C6359552D29C0E400E40241 /* Links.swift in Sources */,
 				2C460EDD2D2986530083124E /* SuggestedItem.swift in Sources */,
@@ -862,6 +876,7 @@
 				2C5A59BF2C514FDB00788870 /* Script.swift in Sources */,
 				2C9442932C517E870078C051 /* PlayerModel.swift in Sources */,
 				2CB01A062F01000000000001 /* PlayerViewingProgressStore.swift in Sources */,
+				2CF100072F20000000000001 /* PlayerSyncTypes.swift in Sources */,
 				2C5A59CD2C51529800788870 /* VisionCollectionsView.swift in Sources */,
 				2C5A59D12C5152B000788870 /* VisionHelpers.swift in Sources */,
 				2C5A59D22C5153E500788870 /* Strings.swift in Sources */,
@@ -894,6 +909,7 @@
 				2C02181B2C53CECD0012EC40 /* GeneratedToken.swift in Sources */,
 				2C0218032C53CC200012EC40 /* TvCollectionsView.swift in Sources */,
 				2CB01A072F01000000000001 /* PlayerViewingProgressStore.swift in Sources */,
+				2CF100082F20000000000001 /* PlayerSyncTypes.swift in Sources */,
 				2C0218042C53CE3D0012EC40 /* Consts.swift in Sources */,
 				2C5A59B12C51400200788870 /* nft_folder_tvosApp.swift in Sources */,
 				2C4D315F2C56AC7F00C586D1 /* TvPlayerView.swift in Sources */,
@@ -922,6 +938,7 @@
 				2CDF001B2F10000000000001 /* PonchoDrifellaAssetCache.swift in Sources */,
 				2CDF00132F10000000000001 /* PlayerTokenPrewarmer.swift in Sources */,
 				2CDF001D2F10000000000001 /* PlayerWebContentLoadCoordinator.swift in Sources */,
+				2CF100022F20000000000001 /* PlayerICloudSync.swift in Sources */,
 				2CDF00142F10000000000001 /* PlayerWebView.swift in Sources */,
 				2CDF00152F10000000000001 /* MacPlayerMediaView.swift in Sources */,
 				2CDF00162F10000000000001 /* PonchoDrifellaMetalCardView.swift in Sources */,
@@ -930,6 +947,7 @@
 				2C1B60CB2B7E2481009949C2 /* Images.swift in Sources */,
 				2CB01A002F01000000000001 /* PlayerBookmarksStore.swift in Sources */,
 				2CB01A042F01000000000001 /* PlayerViewingProgressStore.swift in Sources */,
+				2CF100062F20000000000001 /* PlayerSyncTypes.swift in Sources */,
 				2CA4CF552B07F75F00CC75F4 /* AppDelegate.swift in Sources */,
 				2C9C60352C2C5FE8001D9B51 /* SuggestedItemsService.swift in Sources */,
 				2C9974002C4AF12400C058E2 /* PlayerMenuDelegate.swift in Sources */,
@@ -965,6 +983,7 @@
 				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = AppIconLegacy;
 				ASSETCATALOG_COMPILER_APPICON_NAME = liquid_glass_icon_wip;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "nft-folder-ios/nft_folder_ios.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 261;
 				DEVELOPMENT_TEAM = 8DXC3N7E7P;
@@ -1002,6 +1021,7 @@
 				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = AppIconLegacy;
 				ASSETCATALOG_COMPILER_APPICON_NAME = liquid_glass_icon_wip;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "nft-folder-ios/nft_folder_ios.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 261;
 				DEVELOPMENT_TEAM = 8DXC3N7E7P;

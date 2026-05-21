@@ -142,6 +142,10 @@ struct MobileCollectionsView: View {
             refreshViewingProgress()
             schedulePlayerPrewarm()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .playerViewingProgressDidChange)) { _ in
+            guard playerConfig == nil else { return }
+            refreshViewingProgress()
+        }
     }
     
     private func didClickToggleAppIcon() {
