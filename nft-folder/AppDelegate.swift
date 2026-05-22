@@ -29,14 +29,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         let timeoutWorkItem = DispatchWorkItem { [weak self, weak sender] in
             guard let self, let sender else { return }
-            finishTerminationFlush(sender)
+            self.finishTerminationFlush(sender)
         }
         terminateFlushTimeoutWorkItem = timeoutWorkItem
 
         PlayerICloudSync.shared.flushPendingChanges { [weak self, weak sender] in
             DispatchQueue.main.async {
                 guard let self, let sender else { return }
-                finishTerminationFlush(sender)
+                self.finishTerminationFlush(sender)
             }
         }
 
