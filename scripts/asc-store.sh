@@ -40,12 +40,66 @@ project_build_number() {
 }
 
 project_bundle_identifier() {
-  read_project_setting PRODUCT_BUNDLE_IDENTIFIER
+  node - "$PROJECT_FILE" <<'NODE'
+const fs = require('fs');
+const projectFile = process.argv[2];
+const text = fs.readFileSync(projectFile, 'utf8');
+const objectPattern = /\n\t\t([A-F0-9]{24}) \/\* [^*]* \*\/ = \{([\s\S]*?)\n\t\t\};/g;
+const applicationConfigurationLists = new Set();
+const applicationBuildConfigurations = new Set();
+const values = new Set();
+
+for (const match of text.matchAll(objectPattern)) {
+  const block = match[2];
+  if (
+    block.includes('isa = PBXNativeTarget;') &&
+    block.includes('productType = "com.apple.product-type.application";')
+  ) {
+    const listMatch = block.match(/buildConfigurationList = ([A-F0-9]{24}) \/\*/);
+    if (listMatch) {
+      applicationConfigurationLists.add(listMatch[1]);
+    }
+  }
+}
+
+for (const match of text.matchAll(objectPattern)) {
+  const [id, block] = [match[1], match[2]];
+  if (!applicationConfigurationLists.has(id)) continue;
+
+  for (const configMatch of block.matchAll(/^\t\t\t\t([A-F0-9]{24}) \/\*/gm)) {
+    applicationBuildConfigurations.add(configMatch[1]);
+  }
+}
+
+for (const match of text.matchAll(objectPattern)) {
+  const [id, block] = [match[1], match[2]];
+  if (!applicationBuildConfigurations.has(id)) continue;
+
+  const valueMatch = block.match(/PRODUCT_BUNDLE_IDENTIFIER = ([^;]+);/);
+  if (valueMatch) {
+    values.add(valueMatch[1].replace(/^"|"$/g, '').trim());
+  }
+}
+
+const bundleIdentifiers = [...values].filter(Boolean).sort();
+
+if (bundleIdentifiers.length === 0) {
+  console.error(`Could not read application PRODUCT_BUNDLE_IDENTIFIER from ${projectFile}`);
+  process.exit(1);
+}
+
+if (bundleIdentifiers.length !== 1) {
+  console.error(`Application PRODUCT_BUNDLE_IDENTIFIER has inconsistent values in ${projectFile}: ${bundleIdentifiers.join('\n')}`);
+  process.exit(1);
+}
+
+process.stdout.write(bundleIdentifiers[0]);
+NODE
 }
 
 VERSION="${VERSION_OVERRIDE:-$(project_version)}"
 BUILD_NUMBER="${BUILD_NUMBER_OVERRIDE:-$(project_build_number)}"
-BUNDLE_ID="${BUNDLE_ID:-$(project_bundle_identifier)}"
+BUNDLE_ID="${BUNDLE_ID:-}"
 APP_ID_OVERRIDE="${ASC_APP_ID:-${APP_ID:-}}"
 RESOLVED_ASC_APP_ID=""
 
@@ -155,6 +209,10 @@ ensure_app_id() {
   if [[ -n "$APP_ID_OVERRIDE" ]]; then
     RESOLVED_ASC_APP_ID="$APP_ID_OVERRIDE"
     return 0
+  fi
+
+  if [[ -z "$BUNDLE_ID" ]]; then
+    BUNDLE_ID="$(project_bundle_identifier)"
   fi
 
   local apps_json
