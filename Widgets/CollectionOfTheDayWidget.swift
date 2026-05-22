@@ -15,7 +15,27 @@ struct CollectionOfTheDayEntry: TimelineEntry {
     }
 }
 
+enum CollectionOfTheDaySource {
+    case collectionOfTheDay
+    case fixedCollection(id: String)
+
+    func collection(for date: Date) -> WidgetCollection? {
+        switch self {
+        case .collectionOfTheDay:
+            return CollectionOfTheDayWidgetData.collection(for: date)
+        case let .fixedCollection(id):
+            return CollectionOfTheDayWidgetData.collection(id: id)
+        }
+    }
+}
+
 struct CollectionOfTheDayProvider: TimelineProvider {
+    let source: CollectionOfTheDaySource
+
+    init(source: CollectionOfTheDaySource = .collectionOfTheDay) {
+        self.source = source
+    }
+
     func placeholder(in context: Context) -> CollectionOfTheDayEntry {
         fallbackEntry(date: Date())
     }
@@ -26,7 +46,7 @@ struct CollectionOfTheDayProvider: TimelineProvider {
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<CollectionOfTheDayEntry>) -> Void) {
         let now = Date()
-        guard let collection = CollectionOfTheDayWidgetData.collection(for: now) else {
+        guard let collection = source.collection(for: now) else {
             completion(Timeline(entries: [fallbackEntry(date: now)], policy: .after(CollectionOfTheDayWidgetData.retryDate(after: now))))
             return
         }
@@ -68,7 +88,7 @@ struct CollectionOfTheDayProvider: TimelineProvider {
     }
 
     private func fallbackEntry(date: Date) -> CollectionOfTheDayEntry {
-        if let collection = CollectionOfTheDayWidgetData.collection(for: date) {
+        if let collection = source.collection(for: date) {
             return fallbackEntry(collection: collection, date: date)
         }
 
@@ -133,6 +153,13 @@ struct CollectionOfTheDayWidgetView: View {
 }
 
 @main
+struct NftFolderWidgets: WidgetBundle {
+    var body: some Widget {
+        CollectionOfTheDayWidget()
+        TojibaCPUCorpWidget()
+    }
+}
+
 struct CollectionOfTheDayWidget: Widget {
     let kind = "org.lil.nft-folder.collection-of-the-day"
 
@@ -141,7 +168,24 @@ struct CollectionOfTheDayWidget: Widget {
             CollectionOfTheDayWidgetView(entry: entry)
         }
         .configurationDisplayName("Collection of the Day")
-        .description("A daily collection from Nft Folder.")
+        .supportedFamilies([.systemSmall, .systemLarge])
+        .contentMarginsDisabled()
+    }
+}
+
+struct TojibaCPUCorpWidget: Widget {
+    let kind = "org.lil.nft-folder.tojiba-cpu-corp"
+
+    var body: some WidgetConfiguration {
+        StaticConfiguration(
+            kind: kind,
+            provider: CollectionOfTheDayProvider(
+                source: .fixedCollection(id: CollectionOfTheDayWidgetData.tojibaCPUCorpCollectionId)
+            )
+        ) { entry in
+            CollectionOfTheDayWidgetView(entry: entry)
+        }
+        .configurationDisplayName("Tojiba CPU Corp")
         .supportedFamilies([.systemSmall, .systemLarge])
         .contentMarginsDisabled()
     }

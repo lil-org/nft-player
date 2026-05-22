@@ -12,6 +12,8 @@ typealias WidgetPlatformImage = NSImage
 #endif
 
 enum CollectionOfTheDayWidgetData {
+    static let tojibaCPUCorpCollectionId = "AU9F91RsrqQEeN8sshErtQnT8CgYxrg9YD9n4AHHvus7"
+
     private static let retryInterval: TimeInterval = 30 * 60
     private static let imageScale: CGFloat = 3
     private static let minimumImagePixelSize = 512
@@ -54,10 +56,8 @@ enum CollectionOfTheDayWidgetData {
         "0xc62e3fd5b02618f90dd07d1e478963038fa9089c",
         "0x44096d6de5d17020ce0c41d75ce27b33c6d28e1a",
     ]
-    private static let eligibleCollections: [WidgetCollection] = {
-        let collectionsById = catalogCollectionsById()
-        return eligibleCollectionIds.compactMap { collectionsById[$0] }
-    }()
+    private static let collectionsById = catalogCollectionsById()
+    private static let eligibleCollections = eligibleCollectionIds.compactMap { collectionsById[$0] }
     private static var cachedStaticImageURLsByCollectionId = [String: [URL]]()
 
     static func collection(for date: Date = Date(), calendar: Calendar? = nil) -> WidgetCollection? {
@@ -68,6 +68,10 @@ enum CollectionOfTheDayWidgetData {
         let dayKey = "\(components.year ?? 0)-\(components.month ?? 0)-\(components.day ?? 0)"
         let index = Int(stableHash(dayKey) % UInt64(eligibleCollections.count))
         return eligibleCollections[index]
+    }
+
+    static func collection(id: String) -> WidgetCollection? {
+        collectionsById[id]
     }
 
     static func nextRotationDate(after date: Date, calendar: Calendar? = nil) -> Date {
