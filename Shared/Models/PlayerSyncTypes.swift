@@ -2,7 +2,7 @@
 
 import Foundation
 
-enum PlayerSyncMergeResult {
+enum PlayerSyncMergeResult: Equatable {
     case ignored
     case localChanged
     case remoteWasStale
@@ -17,11 +17,6 @@ enum PlayerSyncDomain: CaseIterable, Hashable {
     case continueViewingState
     case bookmarks
 
-    init?(key: String) {
-        guard let domain = Self.allCases.first(where: { $0.key == key }) else { return nil }
-        self = domain
-    }
-
     var key: String {
         switch self {
         case .viewingProgress:
@@ -33,21 +28,15 @@ enum PlayerSyncDomain: CaseIterable, Hashable {
         }
     }
 
-    var maximumPayloadBytes: Int? {
+    var cloudKitRecordName: String {
         switch self {
+        case .viewingProgress:
+            return "player-viewing-progress"
+        case .continueViewingState:
+            return "player-continue-viewing-state"
         case .bookmarks:
-            return 700_000
-        case .viewingProgress, .continueViewingState:
-            return nil
+            return "player-bookmarks"
         }
-    }
-
-    var canBeDroppedForTotalQuota: Bool {
-        self == .bookmarks
-    }
-
-    var removesCloudValueWhenPayloadIsNil: Bool {
-        false
     }
 
     var logLabel: String {

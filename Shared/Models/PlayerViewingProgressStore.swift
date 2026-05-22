@@ -6,7 +6,7 @@ extension Notification.Name {
     static let playerViewingProgressDidChange = Notification.Name("PlayerViewingProgressDidChange")
 }
 
-private struct PlayerContinueViewingState: Codable, Hashable {
+struct PlayerContinueViewingState: Codable, Hashable {
     let collectionId: String?
     let updatedAt: Date
 }
@@ -111,7 +111,12 @@ enum PlayerViewingProgressStore {
     }
 
     static var syncedContinueViewingStateData: Data? {
-        guard let state = continueViewingState() else { return nil }
+        guard let state = continueViewingState() else {
+            return nil
+        }
+        if let collectionId = state.collectionId, collectionId.isEmpty {
+            return nil
+        }
         return encodeContinueViewingState(state)
     }
 
@@ -167,7 +172,8 @@ enum PlayerViewingProgressStore {
             return
         }
 
-        guard !progress.isComplete else {
+        let savedProgress = allProgressByCollectionId()[progress.collectionId] ?? progress
+        guard !savedProgress.hasBeenViewedToEnd else {
             ensureContinueViewingClearedForSync()
             return
         }
@@ -189,17 +195,28 @@ enum PlayerViewingProgressStore {
     }
 
     static func mergeSyncedContinueViewingStateData(_ data: Data?) -> PlayerSyncMergeResult {
-        guard let remoteState = decodeContinueViewingState(from: data) else { return .ignored }
+        let remoteState = decodeContinueViewingState(from: data)
+        let localState = continueViewingState()
+        let progressByCollectionId = allProgressByCollectionId()
 
-        guard let localState = continueViewingState() else {
-            saveContinueViewingState(remoteState, mirrorToICloud: false)
+        guard let mergedState = preferredContinueViewingState(
+            localState: localState,
+            remoteState: remoteState,
+            progressByCollectionId: progressByCollectionId
+        ) else {
+            guard localState?.collectionId != nil else {
+                return .ignored
+            }
+
+            saveClearedContinueViewingState(mirrorToICloud: false)
             return .localChanged
         }
 
-        guard remoteState.updatedAt > localState.updatedAt else {
+        guard mergedState != localState else {
             return remoteState == localState ? .ignored : .remoteWasStale
         }
-        saveContinueViewingState(remoteState, mirrorToICloud: false)
+
+        saveContinueViewingState(mergedState, mirrorToICloud: false)
         return .localChanged
     }
 
@@ -218,7 +235,7 @@ enum PlayerViewingProgressStore {
         let collectionId = continueViewingState()?.collectionId
         guard let collectionId,
               let progress = progressByCollectionId[collectionId],
-              !progress.isComplete else {
+              !progress.hasBeenViewedToEnd else {
             return nil
         }
         return progress
@@ -303,8 +320,11 @@ enum PlayerViewingProgressStore {
 #endif
     }
 
-    private static func saveClearedContinueViewingState() {
-        saveContinueViewingState(PlayerContinueViewingState(collectionId: nil, updatedAt: Date()))
+    private static func saveClearedContinueViewingState(mirrorToICloud: Bool = true) {
+        saveContinueViewingState(
+            PlayerContinueViewingState(collectionId: nil, updatedAt: Date()),
+            mirrorToICloud: mirrorToICloud
+        )
     }
 
     private static func encodeContinueViewingState(_ state: PlayerContinueViewingState) -> Data? {
@@ -326,11 +346,69 @@ enum PlayerViewingProgressStore {
                 return
             }
 
-            var mergedEntry = entry.value.updatedAt > localEntry.updatedAt ? entry.value : localEntry
+            var mergedEntry = furthestProgressEntry(localEntry, entry.value)
             let hasViewedToEnd = localEntry.hasBeenViewedToEnd || entry.value.hasBeenViewedToEnd
             mergedEntry.hasViewedToEnd = hasViewedToEnd
             result[entry.key] = mergedEntry
         }
+    }
+
+    private static func furthestProgressEntry(
+        _ localEntry: PlayerViewingProgress,
+        _ remoteEntry: PlayerViewingProgress
+    ) -> PlayerViewingProgress {
+        if localEntry.fraction != remoteEntry.fraction {
+            return localEntry.fraction > remoteEntry.fraction ? localEntry : remoteEntry
+        }
+
+        if localEntry.tokenIndex != remoteEntry.tokenIndex {
+            return localEntry.tokenIndex > remoteEntry.tokenIndex ? localEntry : remoteEntry
+        }
+
+        return localEntry.updatedAt >= remoteEntry.updatedAt ? localEntry : remoteEntry
+    }
+
+    private static func preferredContinueViewingState(
+        localState: PlayerContinueViewingState?,
+        remoteState: PlayerContinueViewingState?,
+        progressByCollectionId: ProgressByCollectionId
+    ) -> PlayerContinueViewingState? {
+        let usefulCandidates = [localState, remoteState].compactMap { state -> PlayerContinueViewingState? in
+            guard let state,
+                  let collectionId = state.collectionId,
+                  let progress = progressByCollectionId[collectionId],
+                  !progress.hasBeenViewedToEnd else {
+                return nil
+            }
+            return state
+        }
+
+        if let localState,
+           localState.collectionId == nil {
+            return usefulCandidates
+                .filter { $0.updatedAt > localState.updatedAt }
+                .max { $0.updatedAt < $1.updatedAt }
+        }
+
+        if let candidate = usefulCandidates.max(by: { $0.updatedAt < $1.updatedAt }) {
+            return candidate
+        }
+
+        if let localState,
+           localState.collectionId == nil {
+            return nil
+        }
+
+        guard let progress = progressByCollectionId.values
+            .filter({ !$0.hasBeenViewedToEnd })
+            .max(by: { $0.updatedAt < $1.updatedAt }) else {
+            return nil
+        }
+
+        return PlayerContinueViewingState(
+            collectionId: progress.collectionId,
+            updatedAt: progress.updatedAt
+        )
     }
 }
 

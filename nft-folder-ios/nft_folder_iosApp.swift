@@ -16,6 +16,9 @@ struct nft_folder_iosApp: App {
 
 class AppDelegate: NSObject, UIApplicationDelegate {
 
+    private var playerSyncBackgroundTask: UIBackgroundTaskIdentifier = .invalid
+    private var playerSyncBackgroundTaskId: UUID?
+
     func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
@@ -25,17 +28,47 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     }
 
     func applicationDidEnterBackground(_ application: UIApplication) {
-        PlayerICloudSync.shared.flushPendingChanges(synchronize: true)
+        flushPendingPlayerSync(application)
     }
 
     func applicationWillTerminate(_ application: UIApplication) {
-        PlayerICloudSync.shared.flushPendingChanges(synchronize: true)
+        flushPendingPlayerSync(application)
     }
     
     func application(_ application: UIApplication, configurationForConnecting connectingSceneSession: UISceneSession, options: UIScene.ConnectionOptions) -> UISceneConfiguration {
         let config = UISceneConfiguration(name: nil, sessionRole: connectingSceneSession.role)
         config.delegateClass = SceneDelegate.self
         return config
+    }
+
+    private func flushPendingPlayerSync(_ application: UIApplication) {
+        endPlayerSyncBackgroundTask(application)
+        let backgroundTaskId = UUID()
+        playerSyncBackgroundTaskId = backgroundTaskId
+        playerSyncBackgroundTask = application.beginBackgroundTask(withName: "PlayerICloudSyncFlush") { [weak self, weak application] in
+            guard let application else { return }
+            self?.endPlayerSyncBackgroundTask(id: backgroundTaskId, application: application)
+        }
+        PlayerICloudSync.shared.flushPendingChanges { [weak self, weak application] in
+            guard let application else { return }
+            self?.endPlayerSyncBackgroundTask(id: backgroundTaskId, application: application)
+        }
+    }
+
+    private func endPlayerSyncBackgroundTask(_ application: UIApplication) {
+        guard let playerSyncBackgroundTaskId else { return }
+        endPlayerSyncBackgroundTask(id: playerSyncBackgroundTaskId, application: application)
+    }
+
+    private func endPlayerSyncBackgroundTask(id: UUID, application: UIApplication) {
+        guard playerSyncBackgroundTaskId == id,
+              playerSyncBackgroundTask != .invalid else {
+            return
+        }
+        let task = playerSyncBackgroundTask
+        playerSyncBackgroundTask = .invalid
+        playerSyncBackgroundTaskId = nil
+        application.endBackgroundTask(task)
     }
     
 }

@@ -104,16 +104,14 @@ enum PlayerBookmarksStore {
         }
 
         let localBookmarkRecords = bookmarkRecordsByCollectionId()
+        let compactedLocalBookmarkRecords = compactBookmarkRecords(localBookmarkRecords)
         let compactedRemoteBookmarkRecords = compactBookmarkRecords(remoteBookmarkRecords)
-        let didPruneRemoteBookmarkRecords = compactedRemoteBookmarkRecords != remoteBookmarkRecords
         let mergedBookmarkRecords = mergeBookmarkRecords(
-            compactBookmarkRecords(localBookmarkRecords),
+            compactedLocalBookmarkRecords,
             with: compactedRemoteBookmarkRecords
         )
         guard mergedBookmarkRecords != localBookmarkRecords else {
-            return compactedRemoteBookmarkRecords == localBookmarkRecords && !didPruneRemoteBookmarkRecords
-                ? .ignored
-                : .remoteWasStale
+            return compactedRemoteBookmarkRecords == compactedLocalBookmarkRecords ? .ignored : .remoteWasStale
         }
 
         save(mergedBookmarkRecords, mirrorToICloud: false)
@@ -225,13 +223,36 @@ enum PlayerBookmarksStore {
     ) -> BookmarkRecordsByCollectionId {
         remoteBookmarkRecords.reduce(into: localBookmarkRecords) { result, collectionEntry in
             for tokenEntry in collectionEntry.value {
-                if let localBookmark = result[collectionEntry.key]?[tokenEntry.key],
-                   localBookmark.updatedAt >= tokenEntry.value.updatedAt {
+                if let localBookmark = result[collectionEntry.key]?[tokenEntry.key] {
+                    result[collectionEntry.key, default: [:]][tokenEntry.key] = mergeBookmark(
+                        localBookmark,
+                        with: tokenEntry.value
+                    )
                     continue
                 }
 
                 result[collectionEntry.key, default: [:]][tokenEntry.key] = tokenEntry.value
             }
         }
+    }
+
+    private static func mergeBookmark(
+        _ localBookmark: PlayerBookmark,
+        with remoteBookmark: PlayerBookmark
+    ) -> PlayerBookmark {
+        guard localBookmark.isDeleted == remoteBookmark.isDeleted else {
+            if localBookmark.updatedAt == remoteBookmark.updatedAt {
+                return localBookmark.isDeleted ? remoteBookmark : localBookmark
+            }
+            return localBookmark.updatedAt > remoteBookmark.updatedAt ? localBookmark : remoteBookmark
+        }
+
+        let bookmarkedAt = min(localBookmark.bookmarkedAt, remoteBookmark.bookmarkedAt)
+        let updatedAt = max(localBookmark.updatedAt, remoteBookmark.updatedAt)
+        return PlayerBookmark(
+            bookmarkedAt: bookmarkedAt,
+            updatedAt: updatedAt,
+            isDeleted: localBookmark.isDeleted
+        )
     }
 }

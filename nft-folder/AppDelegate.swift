@@ -6,6 +6,8 @@ import Cocoa
 class AppDelegate: NSObject, NSApplicationDelegate {
     
     private let currentInstanceId = UUID().uuidString
+    private var terminateFlushTimeoutWorkItem: DispatchWorkItem?
+    private var isReplyingToTerminate = false
     
     func applicationDidFinishLaunching(_ aNotification: Notification) {
         PlayerICloudSync.shared.start()
@@ -17,8 +19,38 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     func applicationWillTerminate(_ aNotification: Notification) {
-        PlayerICloudSync.shared.flushPendingChanges(synchronize: true)
+        terminateFlushTimeoutWorkItem?.cancel()
+        terminateFlushTimeoutWorkItem = nil
         DistributedNotificationCenter.default().removeObserver(self)
+    }
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard !isReplyingToTerminate else { return .terminateNow }
+
+        let timeoutWorkItem = DispatchWorkItem { [weak self, weak sender] in
+            guard let self, let sender else { return }
+            finishTerminationFlush(sender)
+        }
+        terminateFlushTimeoutWorkItem = timeoutWorkItem
+
+        PlayerICloudSync.shared.flushPendingChanges { [weak self, weak sender] in
+            DispatchQueue.main.async {
+                guard let self, let sender else { return }
+                finishTerminationFlush(sender)
+            }
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5, execute: timeoutWorkItem)
+        return .terminateLater
+    }
+
+    private func finishTerminationFlush(_ sender: NSApplication) {
+        guard !isReplyingToTerminate else { return }
+
+        isReplyingToTerminate = true
+        terminateFlushTimeoutWorkItem?.cancel()
+        terminateFlushTimeoutWorkItem = nil
+        sender.reply(toApplicationShouldTerminate: true)
     }
     
     @objc private func terminateInstance(_ notification: Notification) {
