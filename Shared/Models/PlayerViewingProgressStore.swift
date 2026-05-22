@@ -346,17 +346,21 @@ enum PlayerViewingProgressStore {
                 return
             }
 
-            var mergedEntry = furthestProgressEntry(localEntry, entry.value)
+            var mergedEntry = latestProgressEntry(localEntry, entry.value)
             let hasViewedToEnd = localEntry.hasBeenViewedToEnd || entry.value.hasBeenViewedToEnd
             mergedEntry.hasViewedToEnd = hasViewedToEnd
             result[entry.key] = mergedEntry
         }
     }
 
-    private static func furthestProgressEntry(
+    private static func latestProgressEntry(
         _ localEntry: PlayerViewingProgress,
         _ remoteEntry: PlayerViewingProgress
     ) -> PlayerViewingProgress {
+        if localEntry.updatedAt != remoteEntry.updatedAt {
+            return localEntry.updatedAt > remoteEntry.updatedAt ? localEntry : remoteEntry
+        }
+
         if localEntry.fraction != remoteEntry.fraction {
             return localEntry.fraction > remoteEntry.fraction ? localEntry : remoteEntry
         }
@@ -365,7 +369,7 @@ enum PlayerViewingProgressStore {
             return localEntry.tokenIndex > remoteEntry.tokenIndex ? localEntry : remoteEntry
         }
 
-        return localEntry.updatedAt >= remoteEntry.updatedAt ? localEntry : remoteEntry
+        return localEntry
     }
 
     private static func preferredContinueViewingState(

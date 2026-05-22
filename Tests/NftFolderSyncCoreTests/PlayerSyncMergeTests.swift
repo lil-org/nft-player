@@ -15,7 +15,7 @@ final class PlayerSyncMergeTests: XCTestCase {
         super.tearDown()
     }
 
-    func testProgressMergeKeepsFurthestProgressOverNewestProgress() throws {
+    func testProgressMergeKeepsNewerLocalProgressOverStaleRemoteForwardProgress() throws {
         let collectionId = "collection"
         let newerLocalProgress = progress(
             collectionId: collectionId,
@@ -36,23 +36,74 @@ final class PlayerSyncMergeTests: XCTestCase {
             try encodedProgress([collectionId: olderRemoteProgress])
         )
 
-        XCTAssertEqual(result, .localChanged)
-        XCTAssertEqual(PlayerViewingProgressStore.progress(collectionId: collectionId)?.tokenIndex, 6)
+        XCTAssertEqual(result, .remoteWasStale)
+        XCTAssertEqual(PlayerViewingProgressStore.progress(collectionId: collectionId)?.tokenIndex, 2)
     }
 
-    func testProgressMergeKeepsViewedToEndStateWithoutMovingProgressBackward() throws {
+    func testProgressMergeAppliesNewerRemoteProgressEvenWhenItMovesBackward() throws {
         let collectionId = "collection"
-        let viewedToEndProgress = progress(
+        let olderLocalProgress = progress(
             collectionId: collectionId,
-            tokenId: "token-1",
-            tokenIndex: 1,
-            updatedAt: Date(timeIntervalSinceReferenceDate: 100),
-            hasViewedToEnd: true
+            tokenId: "token-6",
+            tokenIndex: 6,
+            updatedAt: Date(timeIntervalSinceReferenceDate: 200)
+        )
+        let newerRemoteProgress = progress(
+            collectionId: collectionId,
+            tokenId: "token-2",
+            tokenIndex: 2,
+            updatedAt: Date(timeIntervalSinceReferenceDate: 300)
+        )
+
+        writeProgress([collectionId: olderLocalProgress])
+
+        let result = PlayerViewingProgressStore.mergeSyncedProgressData(
+            try encodedProgress([collectionId: newerRemoteProgress])
+        )
+
+        XCTAssertEqual(result, .localChanged)
+        XCTAssertEqual(PlayerViewingProgressStore.progress(collectionId: collectionId)?.tokenIndex, 2)
+    }
+
+    func testProgressMergeUsesFurthestProgressWhenTimestampsMatch() throws {
+        let collectionId = "collection"
+        let updatedAt = Date(timeIntervalSinceReferenceDate: 300)
+        let localProgress = progress(
+            collectionId: collectionId,
+            tokenId: "token-2",
+            tokenIndex: 2,
+            updatedAt: updatedAt
         )
         let remoteProgress = progress(
             collectionId: collectionId,
             tokenId: "token-6",
             tokenIndex: 6,
+            updatedAt: updatedAt
+        )
+
+        writeProgress([collectionId: localProgress])
+
+        let result = PlayerViewingProgressStore.mergeSyncedProgressData(
+            try encodedProgress([collectionId: remoteProgress])
+        )
+
+        XCTAssertEqual(result, .localChanged)
+        XCTAssertEqual(PlayerViewingProgressStore.progress(collectionId: collectionId)?.tokenIndex, 6)
+    }
+
+    func testProgressMergeKeepsViewedToEndStateWhileUsingLatestStopPosition() throws {
+        let collectionId = "collection"
+        let viewedToEndProgress = progress(
+            collectionId: collectionId,
+            tokenId: "token-6",
+            tokenIndex: 6,
+            updatedAt: Date(timeIntervalSinceReferenceDate: 100),
+            hasViewedToEnd: true
+        )
+        let remoteProgress = progress(
+            collectionId: collectionId,
+            tokenId: "token-2",
+            tokenIndex: 2,
             updatedAt: Date(timeIntervalSinceReferenceDate: 300)
         )
 
@@ -63,7 +114,7 @@ final class PlayerSyncMergeTests: XCTestCase {
         )
 
         let mergedProgress = try XCTUnwrap(PlayerViewingProgressStore.progress(collectionId: collectionId))
-        XCTAssertEqual(mergedProgress.tokenIndex, 6)
+        XCTAssertEqual(mergedProgress.tokenIndex, 2)
         XCTAssertEqual(
             PlayerViewingProgressStore.progressSnapshot().viewedToEndCollectionIds,
             [collectionId]

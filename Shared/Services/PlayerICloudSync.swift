@@ -35,7 +35,7 @@ final class PlayerICloudSync {
 
     private static let allDomains = Set(PlayerSyncDomain.allCases)
 
-    private let container = CKContainer(identifier: PlayerICloudSync.containerIdentifier)
+    private lazy var container = CKContainer(identifier: PlayerICloudSync.containerIdentifier)
     private lazy var database = container.privateCloudDatabase
 
     private var lifecycleObservers: [NSObjectProtocol] = []
