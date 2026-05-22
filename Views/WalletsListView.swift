@@ -137,7 +137,7 @@ struct WalletsListView: View {
             return
         }
 
-        showPlayer(collectionId: item.id, continueViewingCollectionId: item.id)
+        Navigator.shared.showPlayer(collectionId: item.id, continueViewingCollectionId: item.id)
     }
 
     private func showShuffledCollectionPlayer() {
@@ -145,7 +145,7 @@ struct WalletsListView: View {
         let progress = PlayerViewingProgressStore.progress(collectionId: item.id)
         let initialTokenId = progress?.isComplete == false ? progress?.tokenId : nil
 
-        showPlayer(
+        Navigator.shared.showPlayer(
             collectionId: item.id,
             initialTokenId: initialTokenId,
             continueViewingCollectionId: item.id
@@ -159,25 +159,11 @@ struct WalletsListView: View {
     }
 
     private func resumeViewing(_ progress: PlayerViewingProgress) {
-        showPlayer(
+        Navigator.shared.showPlayer(
             collectionId: progress.collectionId,
             initialTokenId: progress.tokenId,
             continueViewingCollectionId: progress.collectionId
         )
-    }
-
-    private func showPlayer(collectionId: String, initialTokenId: String? = nil, continueViewingCollectionId: String) {
-        PlayerViewingProgressStore.setContinueViewingCollectionId(continueViewingCollectionId)
-        let preparedToken = PlayerTokenPrewarmer.preparedToken(
-            initialCollectionId: collectionId,
-            initialTokenId: initialTokenId
-        )
-        let model = preparedToken.map(PlayerModel.init(token:)) ?? PlayerModel(
-            collectionId: collectionId,
-            initialTokenId: initialTokenId,
-            continueViewingCollectionId: continueViewingCollectionId
-        )
-        Navigator.shared.showPlayer(model: model)
     }
 
     private func refreshViewingProgress() {

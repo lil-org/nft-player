@@ -146,6 +146,7 @@ struct MobileCollectionsView: View {
             guard playerConfig == nil else { return }
             refreshViewingProgress()
         }
+        .onOpenURL(perform: openWidgetURL)
     }
     
     private func didClickToggleAppIcon() {
@@ -157,12 +158,16 @@ struct MobileCollectionsView: View {
     }
 
     private func didSelectCollectionItem(_ item: MobileCollectionItem) {
-        if let progress = MobileViewingProgressStore.progress(collectionId: item.id) {
+        openCollection(collectionId: item.id)
+    }
+
+    private func openCollection(collectionId: String) {
+        if let progress = MobileViewingProgressStore.progress(collectionId: collectionId) {
             resumeViewing(progress)
             return
         }
 
-        openPlayer(initialItemId: item.id, continueViewingCollectionId: item.id)
+        openPlayer(initialItemId: collectionId, continueViewingCollectionId: collectionId)
     }
     
     private func showShuffledCollectionPlayer() {
@@ -189,6 +194,16 @@ struct MobileCollectionsView: View {
             initialTokenId: progress.tokenId,
             continueViewingCollectionId: progress.collectionId
         )
+    }
+
+    private func openWidgetURL(_ url: URL) {
+        guard let deepLink = WidgetDeepLink(url: url),
+              case let .collection(collectionId) = deepLink,
+              collectionItems.contains(where: { $0.id == collectionId }) else {
+            return
+        }
+
+        openCollection(collectionId: collectionId)
     }
 
     private func openPlayer(initialItemId: String, initialTokenId: String? = nil, continueViewingCollectionId: String) {

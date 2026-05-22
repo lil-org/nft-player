@@ -8,7 +8,46 @@ class Navigator: NSObject {
     private override init() { super.init() }
     static let shared = Navigator()
 
-    func showPlayer(model: PlayerModel) {
+    func showPlayer(collectionId: String, ensureFrontAfterOpening: Bool = false) {
+        guard CollectionCatalog.allItems.contains(where: { $0.id == collectionId }) else { return }
+
+        if let progress = PlayerViewingProgressStore.progress(collectionId: collectionId) {
+            showPlayer(
+                collectionId: progress.collectionId,
+                initialTokenId: progress.tokenId,
+                continueViewingCollectionId: progress.collectionId,
+                ensureFrontAfterOpening: ensureFrontAfterOpening
+            )
+            return
+        }
+
+        showPlayer(
+            collectionId: collectionId,
+            continueViewingCollectionId: collectionId,
+            ensureFrontAfterOpening: ensureFrontAfterOpening
+        )
+    }
+
+    func showPlayer(
+        collectionId: String,
+        initialTokenId: String? = nil,
+        continueViewingCollectionId: String,
+        ensureFrontAfterOpening: Bool = false
+    ) {
+        PlayerViewingProgressStore.setContinueViewingCollectionId(continueViewingCollectionId)
+        let preparedToken = PlayerTokenPrewarmer.preparedToken(
+            initialCollectionId: collectionId,
+            initialTokenId: initialTokenId
+        )
+        let model = preparedToken.map(PlayerModel.init(token:)) ?? PlayerModel(
+            collectionId: collectionId,
+            initialTokenId: initialTokenId,
+            continueViewingCollectionId: continueViewingCollectionId
+        )
+        showPlayer(model: model, ensureFrontAfterOpening: ensureFrontAfterOpening)
+    }
+
+    func showPlayer(model: PlayerModel, ensureFrontAfterOpening: Bool = false) {
         Window.closeOtherPlayers()
         let window = LocalHtmlWindow(
             playerModel: model,
@@ -25,12 +64,22 @@ class Navigator: NSObject {
         window.isRestorable = true
         window.setFrameAutosaveName(Consts.playerFrameAutosaveName)
         window.isReleasedWhenClosed = false
-        NSApp.activate(ignoringOtherApps: true)
-        window.makeKeyAndOrderFront(nil)
-        window.makeMain()
         
+        orderPlayerWindowToFront(window, regardless: ensureFrontAfterOpening)
         if window.frame.origin == .zero || !window.isOnActiveSpace || !window.isVisible {
             window.center()
+            orderPlayerWindowToFront(window, regardless: ensureFrontAfterOpening)
+        }
+
+        guard ensureFrontAfterOpening else { return }
+
+        DispatchQueue.main.async { [weak self, weak window] in
+            guard let self, let window, window.isVisible else { return }
+            self.orderPlayerWindowToFront(window, regardless: true)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(150)) { [weak self, weak window] in
+            guard let self, let window, window.isVisible else { return }
+            self.orderPlayerWindowToFront(window, regardless: true)
         }
     }
     
@@ -57,6 +106,15 @@ class Navigator: NSObject {
         
         if window.frame.origin == .zero || !window.isOnActiveSpace || !window.isVisible {
             window.center()
+        }
+    }
+
+    private func orderPlayerWindowToFront(_ window: NSWindow, regardless: Bool = false) {
+        NSApp.activate(ignoringOtherApps: true)
+        window.makeKeyAndOrderFront(nil)
+        window.makeMain()
+        if regardless {
+            window.orderFrontRegardless()
         }
     }
     

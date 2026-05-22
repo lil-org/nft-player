@@ -68,9 +68,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         Navigator.shared.showControlCenter()
         return true
     }
+
+    func application(_ application: NSApplication, open urls: [URL]) {
+        urls.forEach(openWidgetURL)
+    }
     
     @IBAction func didClickNewWindowItem(_ sender: Any) {
         Navigator.shared.showControlCenter()
+    }
+
+    private func openWidgetURL(_ url: URL) {
+        guard let deepLink = WidgetDeepLink(url: url),
+              case let .collection(collectionId) = deepLink else {
+            return
+        }
+
+        DispatchQueue.main.async {
+            Navigator.shared.showPlayer(collectionId: collectionId, ensureFrontAfterOpening: true)
+        }
     }
     
 }
