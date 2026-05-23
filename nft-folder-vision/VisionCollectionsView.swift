@@ -5,6 +5,7 @@ import SwiftUI
 struct VisionCollectionsView: View {
     
     private let suggestedItems = VisionCollectionCatalog.allItems
+    @State private var gridPassCount = 1
     @State private var playerConfig: VisionPlayerConfig?
     
     var body: some View {
@@ -55,7 +56,8 @@ struct VisionCollectionsView: View {
     private func createGrid() -> some View {
         let gridLayout = [GridItem(.adaptive(minimum: 150), spacing: 0)]
         let grid = LazyVGrid(columns: gridLayout, alignment: .leading, spacing: 0) {
-            ForEach(suggestedItems) { item in
+            ForEach(0..<visibleItemCount, id: \.self) { index in
+                let item = item(at: index)
                 Button(action: {
                     didSelectSuggestedItem(item)
                 }) {
@@ -73,10 +75,33 @@ struct VisionCollectionsView: View {
                             }
                         }
                     }
-                }.aspectRatio(1, contentMode: .fit).contextMenu { suggestedItemContextMenu(item: item) }
+                }
+                .aspectRatio(1, contentMode: .fit)
+                .contextMenu { suggestedItemContextMenu(item: item) }
+                .onAppear {
+                    appendNextPassIfNeeded(for: index)
+                }
             }
         }
         return grid
+    }
+
+    private var visibleItemCount: Int {
+        suggestedItems.count * gridPassCount
+    }
+
+    private func item(at index: Int) -> SuggestedItem {
+        suggestedItems[index % suggestedItems.count]
+    }
+
+    private func appendNextPassIfNeeded(for index: Int) {
+        guard !suggestedItems.isEmpty else { return }
+
+        let appendThreshold = min(max(suggestedItems.count / 2, 24), suggestedItems.count)
+        let triggerIndex = visibleItemCount - appendThreshold
+        guard index >= triggerIndex else { return }
+
+        gridPassCount += 1
     }
     
     private func gridItemText(_ text: String, onTap: @escaping () -> Void) -> some View {
