@@ -1,46 +1,55 @@
 // ∅ 2026 lil org
 
 import SwiftUI
-import Combine
 
 struct VisionCollectionsView: View {
     
-    @Environment(\.openWindow) private var openWindow
-    
-    @State private var showSettingsPopup = false
     @State private var suggestedItems = TokenGenerator.allGenerativeSuggestedItems
-    @State private var didAppear = false
-    @State private var showMorePreferences = false
+    @State private var playerConfig: VisionPlayerConfig?
     
     var body: some View {
         ZStack {
-            HStack {
-                Spacer()
-                Spacer()
-            }
-            HStack {
-                Spacer()
-                Menu {
-                    Text(Strings.sendFeedback)
-                    Button(Strings.github, action: { UIApplication.shared.open(URL.github) })
-                    Button(Strings.mail, action: { UIApplication.shared.open(URL.mail) })
-                    Button(Strings.x, action: { UIApplication.shared.open(URL.x) })
-                    Divider()
-                    Button(Strings.rateOnTheAppStore) { UIApplication.shared.open(URL.writeAppStoreReview) }
-                } label: {
-                    Images.preferences
-                }
-                Button(action: {
-                    showRandomPlayer()
-                }) {
-                    Images.shuffle
+            VStack(spacing: 0) {
+                controlsBar
+                ScrollView {
+                    createGrid().frame(maxWidth: .infinity)
                 }
             }
+
+            if let playerConfig {
+                VisionPlayerView(config: playerConfig) {
+                    dismissPlayer(playerConfig)
+                }
+                .ignoresSafeArea()
+                .zIndex(1)
+                .id(playerConfig.id)
+                .transition(.opacity)
+            }
         }
-        .frame(height: 42).padding(.horizontal).padding(.top, 8)
-        ScrollView {
-            createGrid().frame(maxWidth: .infinity)
+    }
+
+    private var controlsBar: some View {
+        HStack {
+            Spacer()
+            Menu {
+                Text(Strings.sendFeedback)
+                Button(Strings.github, action: { UIApplication.shared.open(URL.github) })
+                Button(Strings.mail, action: { UIApplication.shared.open(URL.mail) })
+                Button(Strings.x, action: { UIApplication.shared.open(URL.x) })
+                Divider()
+                Button(Strings.rateOnTheAppStore) { UIApplication.shared.open(URL.writeAppStoreReview) }
+            } label: {
+                Images.preferences
+            }
+            Button(action: {
+                showRandomPlayer()
+            }) {
+                Images.shuffle
+            }
         }
+        .frame(height: 42)
+        .padding(.horizontal)
+        .padding(.top, 8)
     }
     
     private func createGrid() -> some View {
@@ -95,11 +104,16 @@ struct VisionCollectionsView: View {
     }
     
     private func didSelectSuggestedItem(_ item: SuggestedItem) {
-        openWindow(value: VisionPlayerWindowConfig(initialItemId: item.id))
+        playerConfig = VisionPlayerConfig(initialItemId: item.id)
     }
 
     private func showRandomPlayer() {
-        openWindow(value: VisionPlayerWindowConfig(initialItemId: nil))
+        playerConfig = VisionPlayerConfig(initialItemId: nil)
+    }
+
+    private func dismissPlayer(_ config: VisionPlayerConfig) {
+        guard playerConfig?.id == config.id else { return }
+        playerConfig = nil
     }
     
 }

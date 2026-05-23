@@ -8,11 +8,5 @@ struct nft_folder_visionApp: App {
         WindowGroup(id: WindowId.collections) {
             VisionCollectionsView()
         }
-        
-        WindowGroup(for: VisionPlayerWindowConfig.self) { $config in
-            if let config = config {
-                VisionPlayerView(config: config).handlesExternalEvents(preferring: [], allowing: [])
-            }
-        }
     }
 }
