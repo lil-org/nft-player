@@ -40,11 +40,6 @@ struct PlayerTokenContext: Hashable {
     let tokenCount: Int
 }
 
-struct PlayerCoordinate: Hashable {
-    let x: Int
-    let y: Int
-}
-
 enum PlaybackNavigationDirection {
     case up, down, back, forward, nextCollection, restartCollection
 }
@@ -54,18 +49,30 @@ final class PlayerTokenPagingDataSource {
     private let initialCollectionId: String?
     private let specificInitialToken: GeneratedToken?
     private let initialTokenId: String?
+    private let widgetTokenInsertion: PlayerWidgetTokenInsertion?
 
     private var collectionIds = [Int: String]()
     private var collectionBaseTokenIndices = [Int: Int]()
     private var latestToken: GeneratedToken?
     private var latestCoordinate: PlayerCoordinate?
 
-    init(initialCollectionId: String?, specificInitialToken: GeneratedToken?, initialTokenId: String?) {
+    init(
+        initialCollectionId: String?,
+        specificInitialToken: GeneratedToken?,
+        initialTokenId: String?,
+        widgetTokenInsertion: PlayerWidgetTokenInsertion? = nil
+    ) {
         self.initialCollectionId = initialCollectionId
         self.specificInitialToken = specificInitialToken
         self.initialTokenId = initialTokenId
+        self.widgetTokenInsertion = widgetTokenInsertion
 
-        if let specificInitialToken {
+        if let widgetTokenInsertion {
+            let initialCoordinate = PlayerCoordinate(x: 0, y: 0)
+            collectionIds[initialCoordinate.y] = widgetTokenInsertion.collectionId
+            latestToken = widgetTokenInsertion.insertedToken
+            latestCoordinate = initialCoordinate
+        } else if let specificInitialToken {
             let initialCoordinate = PlayerCoordinate(x: 0, y: 0)
             collectionIds[initialCoordinate.y] = specificInitialToken.fullCollectionId
             collectionBaseTokenIndices[initialCoordinate.y] = CollectionCatalog.tokenIndex(
@@ -111,11 +118,19 @@ final class PlayerTokenPagingDataSource {
     }
 
     func horizontalCoordinateForTokenIndex(_ tokenIndex: Int, verticalIndex: Int) -> Int {
+        if let widgetTokenInsertion, verticalIndex == 0 {
+            return widgetTokenInsertion.coordinateX(forTokenIndex: tokenIndex)
+        }
         ensureCollectionLoaded(verticalIndex: verticalIndex)
         return tokenIndex - (collectionBaseTokenIndices[verticalIndex] ?? 0)
     }
 
     func progress(coordinate: PlayerCoordinate) -> PlayerViewingProgress? {
+        if isInsertedWidgetToken(coordinate: coordinate),
+           let widgetTokenInsertion {
+            return widgetTokenInsertion.updatedAnchorProgress()
+        }
+
         guard let context = collectionTokenContext(coordinate: coordinate) else { return nil }
 
         let token = getToken(coordinate: coordinate)
@@ -130,9 +145,30 @@ final class PlayerTokenPagingDataSource {
         )
     }
 
+    func pageLabel(coordinate: PlayerCoordinate) -> String? {
+        guard let context = collectionTokenContext(coordinate: coordinate) else { return nil }
+
+        if isInsertedWidgetToken(coordinate: coordinate) {
+            return Strings.maskedPagePosition(total: context.tokenCount)
+        }
+
+        return Strings.pagePosition(current: context.tokenIndex + 1, total: context.tokenCount)
+    }
+
+    func isInsertedWidgetToken(coordinate: PlayerCoordinate) -> Bool {
+        widgetTokenInsertion != nil && coordinate.y == 0 && coordinate.x == 0
+    }
+
     func getToken(coordinate: PlayerCoordinate) -> GeneratedToken {
         if latestCoordinate == coordinate, let token = latestToken {
             return token
+        }
+
+        if isInsertedWidgetToken(coordinate: coordinate),
+           let widgetTokenInsertion {
+            latestToken = widgetTokenInsertion.insertedToken
+            latestCoordinate = coordinate
+            return widgetTokenInsertion.insertedToken
         }
 
         guard let collectionId = collectionId(verticalIndex: coordinate.y),
@@ -147,6 +183,10 @@ final class PlayerTokenPagingDataSource {
     }
 
     private func tokenIndex(coordinate: PlayerCoordinate) -> Int? {
+        if let widgetTokenInsertion, coordinate.y == 0 {
+            return widgetTokenInsertion.tokenIndex(for: coordinate)
+        }
+
         guard let baseTokenIndex = collectionBaseTokenIndices[coordinate.y] else { return nil }
         return baseTokenIndex + coordinate.x
     }
@@ -163,8 +203,8 @@ final class PlayerTokenPagingDataSource {
         let collection: (id: String?, requestedTokenId: String?)
         if verticalIndex == 0 {
             collection = (
-                specificInitialToken?.fullCollectionId ?? initialCollectionId ?? CollectionCatalog.nextShuffledCollectionId(),
-                specificInitialToken?.id ?? initialTokenId
+                widgetTokenInsertion?.collectionId ?? specificInitialToken?.fullCollectionId ?? initialCollectionId ?? CollectionCatalog.nextShuffledCollectionId(),
+                widgetTokenInsertion?.anchorTokenId ?? specificInitialToken?.id ?? initialTokenId
             )
         } else {
             collection = (CollectionCatalog.nextShuffledCollectionId(), nil)
@@ -244,6 +284,52 @@ enum CollectionCatalog {
             collectionId: token.fullCollectionId,
             tokenIndex: tokenIndex,
             tokenCount: tokenCount
+        )
+    }
+
+    static func widgetTokenInsertion(
+        collectionId: String,
+        widgetTokenId: String,
+        progress: PlayerViewingProgress?
+    ) -> PlayerWidgetTokenInsertion? {
+        guard allItems.contains(where: { $0.id == collectionId }),
+              let insertedTokenIndex = tokenIndex(specificCollectionId: collectionId, tokenId: widgetTokenId),
+              let insertedToken = generateToken(specificCollectionId: collectionId, tokenIndex: insertedTokenIndex) else {
+            return nil
+        }
+
+        let tokenCount = tokenCount(specificCollectionId: collectionId)
+        guard tokenCount > 0 else { return nil }
+
+        let anchorTokenIndex: Int
+        if let progress,
+           progress.collectionId == collectionId,
+           progress.tokenIndex >= 0,
+           progress.tokenIndex < tokenCount,
+           tokenIndex(specificCollectionId: collectionId, tokenId: progress.tokenId) == progress.tokenIndex {
+            anchorTokenIndex = progress.tokenIndex
+        } else {
+            anchorTokenIndex = 0
+        }
+
+        guard let anchorToken = generateToken(specificCollectionId: collectionId, tokenIndex: anchorTokenIndex) else {
+            return nil
+        }
+
+        let anchorProgress = PlayerViewingProgress(
+            collectionId: collectionId,
+            collectionName: anchorToken.collectionName,
+            tokenId: anchorToken.id,
+            tokenIndex: anchorTokenIndex,
+            tokenCount: tokenCount,
+            updatedAt: Date(),
+            hasViewedToEnd: progress?.hasBeenViewedToEnd == true
+        )
+
+        return PlayerWidgetTokenInsertion(
+            insertedToken: insertedToken,
+            insertedTokenIndex: insertedTokenIndex,
+            anchorProgress: anchorProgress
         )
     }
 

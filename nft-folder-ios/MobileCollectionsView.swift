@@ -198,20 +198,48 @@ struct MobileCollectionsView: View {
 
     private func openWidgetURL(_ url: URL) {
         guard let deepLink = WidgetDeepLink(url: url),
-              case let .collection(collectionId) = deepLink,
+              case let .collection(collectionId, tokenId) = deepLink,
               collectionItems.contains(where: { $0.id == collectionId }) else {
             return
         }
 
-        openCollection(collectionId: collectionId)
+        if let tokenId {
+            openWidgetToken(collectionId: collectionId, tokenId: tokenId)
+        } else {
+            openCollection(collectionId: collectionId)
+        }
     }
 
-    private func openPlayer(initialItemId: String, initialTokenId: String? = nil, continueViewingCollectionId: String) {
+    private func openWidgetToken(collectionId: String, tokenId: String) {
+        guard let widgetTokenInsertion = MobileCollectionCatalog.widgetTokenInsertion(
+            collectionId: collectionId,
+            widgetTokenId: tokenId,
+            progress: MobileViewingProgressStore.progress(collectionId: collectionId)
+        ) else {
+            openCollection(collectionId: collectionId)
+            return
+        }
+
+        MobileViewingProgressStore.save(widgetTokenInsertion.updatedAnchorProgress())
+        openPlayer(
+            initialItemId: collectionId,
+            continueViewingCollectionId: collectionId,
+            widgetTokenInsertion: widgetTokenInsertion
+        )
+    }
+
+    private func openPlayer(
+        initialItemId: String,
+        initialTokenId: String? = nil,
+        continueViewingCollectionId: String,
+        widgetTokenInsertion: PlayerWidgetTokenInsertion? = nil
+    ) {
         MobileViewingProgressStore.setContinueViewingCollectionId(continueViewingCollectionId)
         let config = MobilePlayerPrewarmer.preparedConfig(
             initialItemId: initialItemId,
             initialTokenId: initialTokenId,
-            continueViewingCollectionId: continueViewingCollectionId
+            continueViewingCollectionId: continueViewingCollectionId,
+            widgetTokenInsertion: widgetTokenInsertion
         )
         withAnimation(playerCrossfadeAnimation) {
             playerConfig = config

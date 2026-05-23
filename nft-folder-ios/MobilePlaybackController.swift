@@ -111,6 +111,14 @@ class MobilePlaybackController {
         dataSource(uuid: uuid)?.canRender(coordinate: coordinate) ?? false
     }
 
+    func pageLabel(uuid: UUID, coordinate: PlayerCoordinate) -> String? {
+        dataSource(uuid: uuid)?.pageLabel(coordinate: coordinate)
+    }
+
+    func isInsertedWidgetToken(uuid: UUID, coordinate: PlayerCoordinate) -> Bool {
+        dataSource(uuid: uuid)?.isInsertedWidgetToken(coordinate: coordinate) ?? false
+    }
+
     func prepareDownloadableMediaWindow(
         uuid: UUID,
         coordinate: PlayerCoordinate,
@@ -207,7 +215,8 @@ class MobilePlaybackController {
             fileURL: fileURL,
             previewTitle: MobilePlayerFileShareItem.previewTitle(
                 for: token,
-                progressText: Strings.pagePosition(current: context.tokenIndex + 1, total: context.tokenCount)
+                progressText: dataSource.pageLabel(coordinate: coordinate)
+                    ?? Strings.pagePosition(current: context.tokenIndex + 1, total: context.tokenCount)
             )
         ) {
             DownloadableMediaCache.shared.cachedDecodedImage(for: descriptor)
@@ -260,7 +269,8 @@ class MobilePlaybackController {
         let newDataSource = PlayerTokenPagingDataSource(
             initialCollectionId: initialConfig.initialItemId,
             specificInitialToken: initialConfig.specificToken,
-            initialTokenId: initialConfig.initialTokenId
+            initialTokenId: initialConfig.initialTokenId,
+            widgetTokenInsertion: initialConfig.widgetTokenInsertion
         )
         tokensDataSources[uuid] = newDataSource
         return newDataSource
@@ -281,17 +291,21 @@ enum MobilePlayerPrewarmer {
     static func preparedConfig(
         initialItemId: String?,
         initialTokenId: String? = nil,
-        continueViewingCollectionId: String?
+        continueViewingCollectionId: String?,
+        widgetTokenInsertion: PlayerWidgetTokenInsertion? = nil
     ) -> MobilePlayerConfig {
         var config = MobilePlayerConfig(
             initialItemId: initialItemId,
             initialTokenId: initialTokenId,
-            continueViewingCollectionId: continueViewingCollectionId
+            continueViewingCollectionId: continueViewingCollectionId,
+            widgetTokenInsertion: widgetTokenInsertion
         )
-        config.specificToken = PlayerTokenPrewarmer.preparedToken(
-            initialCollectionId: initialItemId,
-            initialTokenId: initialTokenId
-        )
+        if widgetTokenInsertion == nil {
+            config.specificToken = PlayerTokenPrewarmer.preparedToken(
+                initialCollectionId: initialItemId,
+                initialTokenId: initialTokenId
+            )
+        }
         return config
     }
 }

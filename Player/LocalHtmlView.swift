@@ -31,6 +31,7 @@ struct LocalHtmlView: View {
     
     var body: some View {
         let isCollectionComplete = playerModel.currentProgress?.isComplete == true
+            && !playerModel.isCurrentTokenInsertedWidgetToken
 
         ZStack(alignment: .bottom) {
             MacPlayerPageControllerView(
@@ -271,8 +272,13 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
             return
         }
 
-        if currentPageObject?.tokenIndex != tokenContext.tokenIndex {
-            guard let targetIndex = pageObjects.firstIndex(where: { $0.tokenIndex == tokenContext.tokenIndex }) else {
+        if currentPageObject?.matches(
+            tokenContext,
+            isInsertedWidgetToken: playerModel.isCurrentTokenInsertedWidgetToken
+        ) != true {
+            guard let targetIndex = pageObjects.firstIndex(where: {
+                $0.matches(tokenContext, isInsertedWidgetToken: playerModel.isCurrentTokenInsertedWidgetToken)
+            }) else {
                 displayFallbackToken(token)
                 return
             }
@@ -292,32 +298,54 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
         let dataSource = PlayerTokenPagingDataSource(
             initialCollectionId: context.collectionId,
             specificInitialToken: playerModel.currentToken,
-            initialTokenId: playerModel.currentToken.id
+            initialTokenId: playerModel.currentToken.id,
+            widgetTokenInsertion: playerModel.widgetTokenInsertion
         )
         tokenPagingDataSource = dataSource
         let requiresRenderabilityFilter = CollectionCatalog.isDownloadableCollection(
             specificCollectionId: context.collectionId
         )
-        pageObjects = (0..<context.tokenCount).compactMap { tokenIndex in
+        var nextPageObjects = [MacPlayerPageObject]()
+        nextPageObjects.reserveCapacity(
+            context.tokenCount + (playerModel.widgetTokenInsertion?.collectionId == context.collectionId ? 1 : 0)
+        )
+        for tokenIndex in 0..<context.tokenCount {
+            if let widgetTokenInsertion = playerModel.widgetTokenInsertion,
+               widgetTokenInsertion.collectionId == context.collectionId,
+               tokenIndex == widgetTokenInsertion.anchorTokenIndex {
+                nextPageObjects.append(
+                    MacPlayerPageObject(
+                        collectionId: context.collectionId,
+                        tokenIndex: widgetTokenInsertion.insertedTokenIndex,
+                        coordinate: PlayerCoordinate(x: 0, y: 0),
+                        isInsertedWidgetToken: true
+                    )
+                )
+            }
+
             if requiresRenderabilityFilter,
                !CollectionCatalog.canGenerateToken(specificCollectionId: context.collectionId, tokenIndex: tokenIndex) {
-                return nil
+                continue
             }
-            return MacPlayerPageObject(
+
+            nextPageObjects.append(MacPlayerPageObject(
                 collectionId: context.collectionId,
                 tokenIndex: tokenIndex,
                 coordinate: PlayerCoordinate(
-                    x: tokenIndex - context.tokenIndex,
+                    x: dataSource.horizontalCoordinateForTokenIndex(tokenIndex, verticalIndex: 0),
                     y: 0
                 )
-            )
+            ))
         }
+        pageObjects = nextPageObjects
         guard !pageObjects.isEmpty else {
             displayFallbackToken(playerModel.currentToken)
             return
         }
 
-        let targetIndex = pageObjects.firstIndex { $0.tokenIndex == context.tokenIndex } ?? 0
+        let targetIndex = pageObjects.firstIndex {
+            $0.matches(context, isInsertedWidgetToken: playerModel.isCurrentTokenInsertedWidgetToken)
+        } ?? 0
         withoutImplicitAnimation {
             arrangedObjects = pageObjects
             selectedIndex = targetIndex
@@ -415,7 +443,7 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
             renderSelectedViewController(token, mode: .active)
             resetZoomInPageViewControllers()
         }
-        playerModel.showPagedToken(token)
+        playerModel.showPagedToken(token, isInsertedWidgetToken: pageObject.isInsertedWidgetToken)
         if !isLiveTransitioning {
             DispatchQueue.main.async { [weak self] in
                 self?.finishTransition()
@@ -530,7 +558,7 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
 
         renderSelectedViewController(token, mode: .active)
         resetZoomInPageViewControllers()
-        playerModel.showPagedToken(token)
+        playerModel.showPagedToken(token, isInsertedWidgetToken: pageObject.isInsertedWidgetToken)
         resizePageViewControllersToCurrentBounds()
         return true
     }
@@ -616,7 +644,7 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
         }
 
         return NSPageController.ObjectIdentifier(
-            "MacPlayerPage:\(pageObject.collectionId):\(pageObject.tokenIndex):\(pageObject.fallbackToken?.id ?? "")"
+            "MacPlayerPage:\(pageObject.collectionId):\(pageObject.tokenIndex):\(pageObject.isInsertedWidgetToken):\(pageObject.fallbackToken?.id ?? "")"
         )
     }
 }
@@ -940,12 +968,19 @@ private final class MacPlayerPageObject: NSObject {
     let tokenIndex: Int
     let coordinate: PlayerCoordinate
     let fallbackToken: GeneratedToken?
+    let isInsertedWidgetToken: Bool
 
-    init(collectionId: String, tokenIndex: Int, coordinate: PlayerCoordinate) {
+    init(
+        collectionId: String,
+        tokenIndex: Int,
+        coordinate: PlayerCoordinate,
+        isInsertedWidgetToken: Bool = false
+    ) {
         self.collectionId = collectionId
         self.tokenIndex = tokenIndex
         self.coordinate = coordinate
         self.fallbackToken = nil
+        self.isInsertedWidgetToken = isInsertedWidgetToken
         super.init()
     }
 
@@ -954,7 +989,14 @@ private final class MacPlayerPageObject: NSObject {
         self.tokenIndex = 0
         self.coordinate = PlayerCoordinate(x: 0, y: 0)
         self.fallbackToken = fallbackToken
+        self.isInsertedWidgetToken = false
         super.init()
+    }
+
+    func matches(_ context: PlayerTokenContext, isInsertedWidgetToken: Bool) -> Bool {
+        collectionId == context.collectionId
+            && tokenIndex == context.tokenIndex
+            && self.isInsertedWidgetToken == isInsertedWidgetToken
     }
 
     override var hash: Int {
@@ -962,6 +1004,7 @@ private final class MacPlayerPageObject: NSObject {
         hasher.combine(collectionId)
         hasher.combine(tokenIndex)
         hasher.combine(fallbackToken?.id)
+        hasher.combine(isInsertedWidgetToken)
         return hasher.finalize()
     }
 
@@ -970,6 +1013,7 @@ private final class MacPlayerPageObject: NSObject {
         return collectionId == other.collectionId
             && tokenIndex == other.tokenIndex
             && fallbackToken?.id == other.fallbackToken?.id
+            && isInsertedWidgetToken == other.isInsertedWidgetToken
     }
 }
 

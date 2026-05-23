@@ -165,6 +165,10 @@
 		2D10001F2F30000000000001 /* CollectionOfTheDayWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D1000022F30000000000001 /* CollectionOfTheDayWidget.swift */; };
 		2D1000202F30000000000001 /* CollectionOfTheDayWidgetData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D1000032F30000000000001 /* CollectionOfTheDayWidgetData.swift */; };
 		2D1000212F30000000000001 /* CollectionOfTheDayWidgetData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D1000032F30000000000001 /* CollectionOfTheDayWidgetData.swift */; };
+		2D1000312F30000000000001 /* PlayerWidgetTokenInsertion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D1000302F30000000000001 /* PlayerWidgetTokenInsertion.swift */; };
+		2D1000322F30000000000001 /* PlayerWidgetTokenInsertion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D1000302F30000000000001 /* PlayerWidgetTokenInsertion.swift */; };
+		2D1000332F30000000000001 /* PlayerWidgetTokenInsertion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D1000302F30000000000001 /* PlayerWidgetTokenInsertion.swift */; };
+		2D1000342F30000000000001 /* PlayerWidgetTokenInsertion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D1000302F30000000000001 /* PlayerWidgetTokenInsertion.swift */; };
 		2D1000222F30000000000001 /* WidgetSuggested.bundle in Resources */ = {isa = PBXBuildFile; fileRef = 2D2000002F31000000000001 /* WidgetSuggested.bundle */; };
 		2D1000232F30000000000001 /* WidgetSuggested.bundle in Resources */ = {isa = PBXBuildFile; fileRef = 2D2000002F31000000000001 /* WidgetSuggested.bundle */; };
 		2D1000242F30000000000001 /* WidgetCovers.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2D2000012F31000000000001 /* WidgetCovers.xcassets */; };
@@ -331,6 +335,7 @@
 		2CFA92002EB2000000000001 /* CollectionCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionCatalog.swift; sourceTree = "<group>"; };
 		2CFF885A2C288C9A0007045F /* SuggestedItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SuggestedItem.swift; sourceTree = "<group>"; };
 		2D1000012F30000000000001 /* WidgetDeepLink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetDeepLink.swift; sourceTree = "<group>"; };
+		2D1000302F30000000000001 /* PlayerWidgetTokenInsertion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerWidgetTokenInsertion.swift; sourceTree = "<group>"; };
 		2D1000022F30000000000001 /* CollectionOfTheDayWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionOfTheDayWidget.swift; sourceTree = "<group>"; };
 		2D1000032F30000000000001 /* CollectionOfTheDayWidgetData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionOfTheDayWidgetData.swift; sourceTree = "<group>"; };
 		2D1000042F30000000000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -403,6 +408,7 @@
 				2C4DBFC02C3698D10097AD35 /* Chain.swift */,
 				2C98C4AC2BEE9E390040383D /* Consts.swift */,
 				2CFA92002EB2000000000001 /* CollectionCatalog.swift */,
+				2D1000302F30000000000001 /* PlayerWidgetTokenInsertion.swift */,
 				2D1000012F30000000000001 /* WidgetDeepLink.swift */,
 				2C1B60CA2B7E2481009949C2 /* Images.swift */,
 				2C1B60BC2B7D3505009949C2 /* Strings.swift */,
@@ -1009,6 +1015,7 @@
 				2C460ED32D2985D20083124E /* Network.swift in Sources */,
 				2C460ED42D2985D20083124E /* HostAppImages.swift in Sources */,
 				2CF08AA92D2A937400D82ACA /* MobileCollectionsView.swift in Sources */,
+				2D1000312F30000000000001 /* PlayerWidgetTokenInsertion.swift in Sources */,
 				2CFA92012EB2000000000001 /* CollectionCatalog.swift in Sources */,
 				2CFA90012EB0000000000001 /* MobileCollectionCatalog.swift in Sources */,
 				2CF08AAA2D2A937400D82ACA /* MobileHelpers.swift in Sources */,
@@ -1045,6 +1052,7 @@
 				2C5A59BF2C514FDB00788870 /* Script.swift in Sources */,
 				2C9442932C517E870078C051 /* PlayerModel.swift in Sources */,
 				2CB01A062F01000000000001 /* PlayerViewingProgressStore.swift in Sources */,
+				2D1000332F30000000000001 /* PlayerWidgetTokenInsertion.swift in Sources */,
 				2CF100072F20000000000001 /* PlayerSyncTypes.swift in Sources */,
 				2C5A59CD2C51529800788870 /* VisionCollectionsView.swift in Sources */,
 				2C5A59D12C5152B000788870 /* VisionHelpers.swift in Sources */,
@@ -1078,6 +1086,7 @@
 				2C02181B2C53CECD0012EC40 /* GeneratedToken.swift in Sources */,
 				2C0218032C53CC200012EC40 /* TvCollectionsView.swift in Sources */,
 				2CB01A072F01000000000001 /* PlayerViewingProgressStore.swift in Sources */,
+				2D1000342F30000000000001 /* PlayerWidgetTokenInsertion.swift in Sources */,
 				2CF100082F20000000000001 /* PlayerSyncTypes.swift in Sources */,
 				2C0218042C53CE3D0012EC40 /* Consts.swift in Sources */,
 				2C5A59B12C51400200788870 /* nft_folder_tvosApp.swift in Sources */,
@@ -1094,6 +1103,7 @@
 				2CE9A5762C3DA9FB009AEAF4 /* TokenGenerator.swift in Sources */,
 				2C98C4AD2BEE9E390040383D /* Consts.swift in Sources */,
 				2C424F462B9775E6007868F8 /* RightClickActivatingWindow.swift in Sources */,
+				2D1000322F30000000000001 /* PlayerWidgetTokenInsertion.swift in Sources */,
 				2CFA92022EB2000000000001 /* CollectionCatalog.swift in Sources */,
 				2C1B60BD2B7D3505009949C2 /* Strings.swift in Sources */,
 				2CA34B3D2B082BDF00DAB623 /* WalletsListView.swift in Sources */,

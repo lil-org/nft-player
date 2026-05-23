@@ -28,6 +28,24 @@ class Navigator: NSObject {
         )
     }
 
+    func showPlayer(collectionId: String, widgetTokenId: String, ensureFrontAfterOpening: Bool = false) {
+        guard let widgetTokenInsertion = CollectionCatalog.widgetTokenInsertion(
+            collectionId: collectionId,
+            widgetTokenId: widgetTokenId,
+            progress: PlayerViewingProgressStore.progress(collectionId: collectionId)
+        ) else {
+            showPlayer(collectionId: collectionId, ensureFrontAfterOpening: ensureFrontAfterOpening)
+            return
+        }
+
+        PlayerViewingProgressStore.save(widgetTokenInsertion.updatedAnchorProgress())
+        PlayerViewingProgressStore.setContinueViewingCollectionId(collectionId)
+        showPlayer(
+            model: PlayerModel(widgetTokenInsertion: widgetTokenInsertion),
+            ensureFrontAfterOpening: ensureFrontAfterOpening
+        )
+    }
+
     func showPlayer(
         collectionId: String,
         initialTokenId: String? = nil,

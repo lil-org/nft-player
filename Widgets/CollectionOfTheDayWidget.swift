@@ -6,12 +6,13 @@ import WidgetKit
 struct CollectionOfTheDayEntry: TimelineEntry {
     let date: Date
     let collectionId: String
+    let tokenId: String?
     let coverAssetName: String
     let image: WidgetPlatformImage?
 
     var widgetURL: URL? {
         guard !collectionId.isEmpty else { return nil }
-        return WidgetDeepLink.collection(id: collectionId).url
+        return WidgetDeepLink.collection(id: collectionId, tokenId: tokenId).url
     }
 }
 
@@ -51,12 +52,12 @@ struct CollectionOfTheDayProvider: TimelineProvider {
             return
         }
 
-        guard let imageURL = CollectionOfTheDayWidgetData.randomStaticImageURL(collection: collection) else {
+        guard let imageReference = CollectionOfTheDayWidgetData.randomStaticImageReference(collection: collection) else {
             completion(fallbackTimeline(collection: collection, date: now))
             return
         }
 
-        let request = URLRequest(url: imageURL, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 20)
+        let request = URLRequest(url: imageReference.url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 20)
         URLSession.shared.dataTask(with: request) { data, response, _ in
             guard let data,
                   isSuccessfulImageResponse(response),
@@ -69,12 +70,17 @@ struct CollectionOfTheDayProvider: TimelineProvider {
                 return
             }
 
-            CollectionOfTheDayWidgetData.cacheImageData(imageData, collectionId: collection.id)
             let entry = CollectionOfTheDayEntry(
                 date: now,
                 collectionId: collection.id,
+                tokenId: imageReference.tokenId,
                 coverAssetName: collection.coverAssetName,
                 image: image
+            )
+            CollectionOfTheDayWidgetData.cacheImageData(
+                imageData,
+                collectionId: collection.id,
+                tokenId: imageReference.tokenId
             )
             completion(Timeline(entries: [entry], policy: .after(CollectionOfTheDayWidgetData.nextRotationDate(after: now))))
         }.resume()
@@ -95,17 +101,20 @@ struct CollectionOfTheDayProvider: TimelineProvider {
         return CollectionOfTheDayEntry(
             date: date,
             collectionId: "",
+            tokenId: nil,
             coverAssetName: "",
             image: nil
         )
     }
 
     private func fallbackEntry(collection: WidgetCollection, date: Date) -> CollectionOfTheDayEntry {
-        CollectionOfTheDayEntry(
+        let cachedImage = CollectionOfTheDayWidgetData.cachedImage(collectionId: collection.id)
+        return CollectionOfTheDayEntry(
             date: date,
             collectionId: collection.id,
+            tokenId: cachedImage == nil ? nil : CollectionOfTheDayWidgetData.cachedTokenId(collectionId: collection.id),
             coverAssetName: collection.coverAssetName,
-            image: CollectionOfTheDayWidgetData.cachedImage(collectionId: collection.id)
+            image: cachedImage
         )
     }
 

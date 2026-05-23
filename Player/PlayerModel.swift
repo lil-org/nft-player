@@ -6,11 +6,13 @@ class PlayerModel: ObservableObject {
     
     let specificCollectionId: String?
     let continueViewingCollectionId: String?
+    private(set) var widgetTokenInsertion: PlayerWidgetTokenInsertion?
     
     @Published var currentToken: GeneratedToken
     @Published var history: [GeneratedToken]
     @Published var currentIndex: Int = 0
     @Published var showingInfoPopover = false
+    @Published private(set) var isCurrentTokenInsertedWidgetToken = false
     private static let historyTrimThreshold = 23
     private static let retainedHistoryCount = 10
     private var restartSuppressedCollectionId: String?
@@ -24,6 +26,7 @@ class PlayerModel: ObservableObject {
         self.history = [token]
         self.specificCollectionId = specificCollectionId
         self.continueViewingCollectionId = specificCollectionId
+        self.widgetTokenInsertion = nil
     }
 
     init(collectionId: String, initialTokenId: String? = nil, continueViewingCollectionId: String? = nil) {
@@ -32,6 +35,7 @@ class PlayerModel: ObservableObject {
         self.history = [token]
         self.specificCollectionId = collectionId
         self.continueViewingCollectionId = continueViewingCollectionId ?? collectionId
+        self.widgetTokenInsertion = nil
     }
     
     init(token: GeneratedToken) {
@@ -39,6 +43,16 @@ class PlayerModel: ObservableObject {
         self.history = [token]
         self.specificCollectionId = token.fullCollectionId
         self.continueViewingCollectionId = token.fullCollectionId
+        self.widgetTokenInsertion = nil
+    }
+
+    init(widgetTokenInsertion: PlayerWidgetTokenInsertion) {
+        self.currentToken = widgetTokenInsertion.insertedToken
+        self.history = [widgetTokenInsertion.insertedToken]
+        self.specificCollectionId = widgetTokenInsertion.collectionId
+        self.continueViewingCollectionId = widgetTokenInsertion.collectionId
+        self.widgetTokenInsertion = widgetTokenInsertion
+        self.isCurrentTokenInsertedWidgetToken = true
     }
 
     var playerWindowTitle: String {
@@ -62,7 +76,10 @@ class PlayerModel: ObservableObject {
             return baseTitle
         }
 
-        return "\(baseTitle) \(Strings.pagePosition(current: tokenContext.tokenIndex + 1, total: tokenContext.tokenCount))"
+        let pagePosition = shouldMaskPagePosition(for: token)
+            ? Strings.maskedPagePosition(total: tokenContext.tokenCount)
+            : Strings.pagePosition(current: tokenContext.tokenIndex + 1, total: tokenContext.tokenCount)
+        return "\(baseTitle) \(pagePosition)"
 #else
         return baseTitle
 #endif
@@ -77,6 +94,7 @@ class PlayerModel: ObservableObject {
 #else
         let newToken = Self.generateRandomToken(specificCollectionId: specificCollectionId, notTokenId: nil) ?? currentToken
 #endif
+        clearWidgetTokenInsertion()
         showNewToken(newToken)
     }
     
@@ -137,10 +155,12 @@ class PlayerModel: ObservableObject {
 #else
         let newToken = Self.generateRandomToken(specificCollectionId: nil, notTokenId: nil) ?? currentToken
 #endif
+        clearWidgetTokenInsertion()
         showNewToken(newToken)
     }
     
     func showNewToken(_ newToken: GeneratedToken) {
+        setCurrentTokenInsertedWidgetToken(false)
         history.append(newToken)
         currentIndex = history.count - 1
         currentToken = newToken
@@ -148,8 +168,14 @@ class PlayerModel: ObservableObject {
         showingInfoPopover = false
     }
 
-    func showPagedToken(_ token: GeneratedToken) {
-        guard currentToken != token else { return }
+    func showPagedToken(_ token: GeneratedToken, isInsertedWidgetToken: Bool = false) {
+        guard currentToken != token || isCurrentTokenInsertedWidgetToken != isInsertedWidgetToken else { return }
+
+        if currentToken == token {
+            setCurrentTokenInsertedWidgetToken(isInsertedWidgetToken)
+            showingInfoPopover = false
+            return
+        }
 
         if currentIndex > 0, history[currentIndex - 1] == token {
             currentIndex -= 1
@@ -164,12 +190,17 @@ class PlayerModel: ObservableObject {
             trimHistoryBeforeCurrentIfNeeded()
         }
 
+        setCurrentTokenInsertedWidgetToken(isInsertedWidgetToken)
         currentToken = token
         showingInfoPopover = false
     }
 
     var currentProgress: PlayerViewingProgress? {
-        progress(for: currentToken)
+        if isCurrentTokenInsertedWidgetToken,
+           let widgetTokenInsertion {
+            return widgetTokenInsertion.updatedAnchorProgress()
+        }
+        return progress(for: currentToken)
     }
 
     func progress(for token: GeneratedToken) -> PlayerViewingProgress? {
@@ -200,7 +231,10 @@ class PlayerModel: ObservableObject {
 
     @discardableResult
     func markTokenViewed(_ token: GeneratedToken) -> PlayerViewingProgress? {
-        guard let progress = progress(for: token) else { return nil }
+        let progress = shouldMaskPagePosition(for: token)
+            ? widgetTokenInsertion?.updatedAnchorProgress()
+            : progress(for: token)
+        guard let progress else { return nil }
         PlayerViewingProgressStore.save(progress)
         updateContinueViewingCollection(for: progress)
         return progress
@@ -214,6 +248,7 @@ class PlayerModel: ObservableObject {
 
         restartSuppressedCollectionId = currentToken.fullCollectionId
         PlayerViewingProgressStore.recordContinueViewingClearedForSync()
+        clearWidgetTokenInsertion()
         history = [firstToken]
         currentIndex = 0
         currentToken = firstToken
@@ -235,11 +270,35 @@ class PlayerModel: ObservableObject {
         currentIndex = min(currentIndex, history.count - 1)
     }
 
+    private func clearWidgetTokenInsertion() {
+        widgetTokenInsertion = nil
+        setCurrentTokenInsertedWidgetToken(false)
+    }
+
+    private func setCurrentTokenInsertedWidgetToken(_ isInsertedWidgetToken: Bool) {
+        guard isCurrentTokenInsertedWidgetToken != isInsertedWidgetToken else { return }
+        isCurrentTokenInsertedWidgetToken = isInsertedWidgetToken
+    }
+
     private func adjacentToken(offset: Int) -> GeneratedToken? {
+        if isCurrentTokenInsertedWidgetToken,
+           let widgetTokenInsertion {
+            let targetIndex = widgetTokenInsertion.tokenIndex(adjacentToInsertedTokenBy: offset)
+            guard targetIndex >= 0,
+                  targetIndex < widgetTokenInsertion.anchorProgress.tokenCount else {
+                return nil
+            }
+            return Self.generateToken(specificCollectionId: widgetTokenInsertion.collectionId, tokenIndex: targetIndex)
+        }
+
         guard let currentProgress else { return nil }
         let targetIndex = currentProgress.tokenIndex + offset
         guard targetIndex >= 0, targetIndex < currentProgress.tokenCount else { return nil }
         return Self.generateToken(specificCollectionId: currentProgress.collectionId, tokenIndex: targetIndex)
+    }
+
+    private func shouldMaskPagePosition(for token: GeneratedToken) -> Bool {
+        isCurrentTokenInsertedWidgetToken && currentToken == token
     }
 
     private func updateContinueViewingCollection(for progress: PlayerViewingProgress) {

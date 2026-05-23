@@ -13,6 +13,7 @@ class LocalHtmlWindow: NSWindow {
     private var mouseMoveEventMonitor: Any?
     private var navigationKeysEventMonitor: Any?
     private var currentTokenObserver: AnyCancellable?
+    private var currentTokenInsertionObserver: AnyCancellable?
     private var bookmarkChangesObserver: AnyCancellable?
     private let mediaFileWorkQueue = DispatchQueue(label: "org.lil.nft-folder.player-media-file-actions", qos: .utility)
     private var activeCopyMediaRequest: CopyMediaRequest?
@@ -108,6 +109,13 @@ class LocalHtmlWindow: NSWindow {
             .receive(on: RunLoop.main)
             .sink { [weak self] token in
                 self?.updatePlayerChrome(for: token)
+            }
+        currentTokenInsertionObserver = playerModel.$isCurrentTokenInsertedWidgetToken
+            .dropFirst()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.updateTitle()
+                self?.updateBookmarkButton()
             }
         bookmarkChangesObserver = NotificationCenter.default.publisher(for: .playerBookmarksDidChange)
             .receive(on: RunLoop.main)

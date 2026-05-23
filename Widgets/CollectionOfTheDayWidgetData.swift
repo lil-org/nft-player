@@ -24,7 +24,7 @@ enum CollectionOfTheDayWidgetData {
     private static let collectionsById = eligibleCollections.reduce(into: [String: WidgetCollection]()) { result, item in
         result[item.id] = result[item.id] ?? item
     }
-    private static var cachedStaticImageURLsByCollectionId = [String: [URL]]()
+    private static var cachedStaticImageReferencesByCollectionId = [String: [WidgetStaticImageReference]]()
 
     static func collection(for date: Date = Date(), calendar: Calendar? = nil) -> WidgetCollection? {
         guard !eligibleCollections.isEmpty else { return nil }
@@ -57,13 +57,22 @@ enum CollectionOfTheDayWidgetData {
         date.addingTimeInterval(retryInterval)
     }
 
-    static func randomStaticImageURL(collection: WidgetCollection) -> URL? {
-        staticImageURLs(collection: collection).randomElement()
+    static func randomStaticImageReference(collection: WidgetCollection) -> WidgetStaticImageReference? {
+        staticImageReferences(collection: collection).randomElement()
     }
 
     static func cachedImage(collectionId: String) -> WidgetPlatformImage? {
         guard let data = try? Data(contentsOf: cacheURL(collectionId: collectionId)) else { return nil }
         return platformImage(data: data)
+    }
+
+    static func cachedTokenId(collectionId: String) -> String? {
+        guard let tokenId = try? String(contentsOf: cacheTokenIdURL(collectionId: collectionId), encoding: .utf8)
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+              !tokenId.isEmpty else {
+            return nil
+        }
+        return tokenId
     }
 
     static func maxImagePixelSize(displaySize: CGSize) -> Int {
@@ -97,13 +106,35 @@ enum CollectionOfTheDayWidgetData {
         return encodedImageData(thumbnail)
     }
 
-    static func cacheImageData(_ data: Data, collectionId: String) {
+    static func cacheImageData(_ data: Data, collectionId: String, tokenId: String?) {
         let fileURL = cacheURL(collectionId: collectionId)
-        try? FileManager.default.createDirectory(
-            at: fileURL.deletingLastPathComponent(),
-            withIntermediateDirectories: true
-        )
-        try? data.write(to: fileURL, options: .atomic)
+        let tokenIdURL = cacheTokenIdURL(collectionId: collectionId)
+
+        do {
+            try FileManager.default.createDirectory(
+                at: fileURL.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+        } catch {
+            return
+        }
+
+        // Clear first so a failed partial cache refresh cannot pair a new image with an old token id.
+        guard clearCachedTokenId(at: tokenIdURL) else { return }
+
+        do {
+            try data.write(to: fileURL, options: .atomic)
+        } catch {
+            return
+        }
+
+        if let tokenId, !tokenId.isEmpty {
+            do {
+                try tokenId.write(to: tokenIdURL, atomically: true, encoding: .utf8)
+            } catch {
+                _ = clearCachedTokenId(at: tokenIdURL)
+            }
+        }
     }
 
     static func platformImage(data: Data) -> WidgetPlatformImage? {
@@ -141,26 +172,26 @@ enum CollectionOfTheDayWidgetData {
         return payload
     }
 
-    private static func staticImageURLs(collection: WidgetCollection) -> [URL] {
-        if let cachedImageURLs = cacheLock.withLock({ cachedStaticImageURLsByCollectionId[collection.id] }) {
-            return cachedImageURLs
+    private static func staticImageReferences(collection: WidgetCollection) -> [WidgetStaticImageReference] {
+        if let cachedImageReferences = cacheLock.withLock({ cachedStaticImageReferencesByCollectionId[collection.id] }) {
+            return cachedImageReferences
         }
 
-        let imageURLs: [URL]
+        let imageReferences: [WidgetStaticImageReference]
         if let payload = tokenPayload(collectionId: collection.id) {
-            imageURLs = payload.items.compactMap { item in
-                item.staticImageURL(collection: collection, defaultFileExtension: payload.defaultFileExtension)
+            imageReferences = payload.items.compactMap { item in
+                item.staticImageReference(collection: collection, defaultFileExtension: payload.defaultFileExtension)
             }
         } else {
-            imageURLs = []
+            imageReferences = []
         }
 
         return cacheLock.withLock {
-            if let cachedImageURLs = cachedStaticImageURLsByCollectionId[collection.id] {
-                return cachedImageURLs
+            if let cachedImageReferences = cachedStaticImageReferencesByCollectionId[collection.id] {
+                return cachedImageReferences
             }
-            cachedStaticImageURLsByCollectionId[collection.id] = imageURLs
-            return imageURLs
+            cachedStaticImageReferencesByCollectionId[collection.id] = imageReferences
+            return imageReferences
         }
     }
 
@@ -168,6 +199,21 @@ enum CollectionOfTheDayWidgetData {
         let directory = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("CollectionOfTheDayWidgetImages", isDirectory: true)
         return directory.appendingPathComponent(cacheFileName(collectionId: collectionId))
+    }
+
+    private static func cacheTokenIdURL(collectionId: String) -> URL {
+        cacheURL(collectionId: collectionId).appendingPathExtension("token-id")
+    }
+
+    private static func clearCachedTokenId(at url: URL) -> Bool {
+        do {
+            try FileManager.default.removeItem(at: url)
+            return true
+        } catch {
+            let nsError = error as NSError
+            return nsError.domain == NSCocoaErrorDomain
+                && nsError.code == CocoaError.fileNoSuchFile.rawValue
+        }
     }
 
     private static var suggestedBundle: Bundle {
@@ -230,6 +276,11 @@ struct WidgetCollection: Decodable, Hashable {
     var usesEthereumMediaProxyFallback: Bool {
         chain == .ethereum
     }
+}
+
+struct WidgetStaticImageReference: Hashable {
+    let tokenId: String
+    let url: URL
 }
 
 private enum WidgetCollectionChain: Decodable, Hashable {
@@ -306,14 +357,14 @@ private struct WidgetTokenItem: Decodable, Hashable {
     let sh: String?
     let fileExtension: String?
 
-    func staticImageURL(collection: WidgetCollection, defaultFileExtension: String?) -> URL? {
+    func staticImageReference(collection: WidgetCollection, defaultFileExtension: String?) -> WidgetStaticImageReference? {
         guard let urlString = resolvedURLString(collection: collection),
               let url = URL(string: urlString),
               let fileExtension = resolvedFileExtension(urlString: urlString, defaultFileExtension: defaultFileExtension),
               WidgetMediaFileExtension.isStaticImage(fileExtension) else {
             return nil
         }
-        return url
+        return WidgetStaticImageReference(tokenId: id, url: url)
     }
 
     private func resolvedURLString(collection: WidgetCollection) -> String? {

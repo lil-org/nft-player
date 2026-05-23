@@ -45,5 +45,9 @@ struct Strings {
     static func pagePosition(current: Int, total: Int) -> String {
         String(format: loc("%1$lld of %2$lld"), Int64(current), Int64(total))
     }
+
+    static func maskedPagePosition(total: Int) -> String {
+        String(format: loc("☺︎ of %lld"), Int64(total))
+    }
     
 }

@@ -6,7 +6,7 @@ enum WidgetDeepLink: Hashable {
     private static let scheme = "nft-folder"
     private static let collectionHost = "collection"
 
-    case collection(id: String)
+    case collection(id: String, tokenId: String?)
 
     init?(url: URL) {
         guard url.scheme == Self.scheme else { return nil }
@@ -18,7 +18,8 @@ enum WidgetDeepLink: Hashable {
                   !collectionId.isEmpty else {
                 return nil
             }
-            self = .collection(id: collectionId)
+            let tokenId = components.queryItems?.first(where: { $0.name == "tokenId" })?.value
+            self = .collection(id: collectionId, tokenId: tokenId?.isEmpty == false ? tokenId : nil)
         default:
             return nil
         }
@@ -26,14 +27,18 @@ enum WidgetDeepLink: Hashable {
 
     var url: URL? {
         switch self {
-        case let .collection(id):
+        case let .collection(id, tokenId):
             guard !id.isEmpty else { return nil }
             var components = URLComponents()
             components.scheme = Self.scheme
             components.host = Self.collectionHost
-            components.queryItems = [
+            var queryItems = [
                 URLQueryItem(name: "id", value: id),
             ]
+            if let tokenId, !tokenId.isEmpty {
+                queryItems.append(URLQueryItem(name: "tokenId", value: tokenId))
+            }
+            components.queryItems = queryItems
             return components.url
         }
     }

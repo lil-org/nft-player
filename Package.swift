@@ -31,6 +31,7 @@ let package = Package(
                 "Models/PlayerViewingProgressStore.swift",
                 "Models/PlayerBookmarksStore.swift",
                 "Models/Strings.swift",
+                "Models/WidgetDeepLink.swift",
                 "Services/PlayerICloudSync.swift"
             ]
         ),

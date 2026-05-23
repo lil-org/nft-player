@@ -10,6 +10,7 @@ struct MobilePlayerConfig: Hashable, Codable, Identifiable {
     var specificToken: GeneratedToken?
     var initialTokenId: String?
     var continueViewingCollectionId: String?
+    var widgetTokenInsertion: PlayerWidgetTokenInsertion?
 }
 
 private let doNotShowInstructionsTmp = true
@@ -85,7 +86,11 @@ struct MobilePlayerView: View {
     @State private var isAllowedToHideStatusBar = false
     @State private var currentToken = GeneratedToken.empty
     @State private var currentProgress: MobileViewingProgress?
+    @State private var currentPageLabel = ""
     @State private var currentCoordinate: PlayerCoordinate?
+    @State private var isCurrentCoordinateInsertedWidgetToken = false
+    @State private var canGoBack = false
+    @State private var canGoForward = false
     @State private var shareItem: MobilePlayerFileShareItem?
     @State private var isCurrentTokenBookmarked = false
     
@@ -111,6 +116,16 @@ struct MobilePlayerView: View {
                             self.currentCoordinate = newCoordinate
                             self.currentToken = token
                             self.currentProgress = progress
+                            self.currentPageLabel = MobilePlaybackController.shared.pageLabel(
+                                uuid: initialConfig.id,
+                                coordinate: newCoordinate
+                            ) ?? ""
+                            self.isCurrentCoordinateInsertedWidgetToken = MobilePlaybackController.shared.isInsertedWidgetToken(
+                                uuid: initialConfig.id,
+                                coordinate: newCoordinate
+                            )
+                            self.canGoBack = canRenderAdjacentCoordinate(from: newCoordinate, offset: -1)
+                            self.canGoForward = canRenderAdjacentCoordinate(from: newCoordinate, offset: 1)
                             self.updateShareItem(for: newCoordinate)
                             self.updateBookmarkState(for: token)
                             updateExternalDisplayToken(token)
@@ -134,7 +149,7 @@ struct MobilePlayerView: View {
                     Spacer()
                     PlayerBottomControls(
                         isVisible: chrome.showControls,
-                        progress: currentProgress,
+                        progress: isCurrentCoordinateInsertedWidgetToken ? nil : currentProgress,
                         canGoBack: canGoBack,
                         canGoForward: canGoForward,
                         onBack: goBack,
@@ -203,7 +218,7 @@ struct MobilePlayerView: View {
                 if chrome.showControls {
                     PlayerCollectionTitlePill(
                         title: currentToken.collectionName,
-                        progressText: currentProgress?.pageLabel ?? ""
+                        progressText: currentPageLabel
                     )
                 }
             }
@@ -259,16 +274,6 @@ struct MobilePlayerView: View {
         }
     }
 
-    private var canGoBack: Bool {
-        guard let currentProgress else { return false }
-        return currentProgress.tokenIndex > 0
-    }
-
-    private var canGoForward: Bool {
-        guard let currentProgress else { return false }
-        return currentProgress.tokenIndex < currentProgress.tokenCount - 1
-    }
-
     private var canBookmarkCurrentToken: Bool {
         !currentToken.fullCollectionId.isEmpty && !currentToken.id.isEmpty
     }
@@ -292,6 +297,16 @@ struct MobilePlayerView: View {
         }
         action()
         Haptic.selectionChanged()
+    }
+
+    private func canRenderAdjacentCoordinate(from coordinate: PlayerCoordinate, offset: Int) -> Bool {
+        return MobilePlaybackController.shared.canRender(
+            uuid: initialConfig.id,
+            coordinate: PlayerCoordinate(
+                x: coordinate.x + offset,
+                y: coordinate.y
+            )
+        )
     }
 
     private func viewAgain() {

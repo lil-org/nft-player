@@ -79,12 +79,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func openWidgetURL(_ url: URL) {
         guard let deepLink = WidgetDeepLink(url: url),
-              case let .collection(collectionId) = deepLink else {
+              case let .collection(collectionId, tokenId) = deepLink else {
             return
         }
 
         DispatchQueue.main.async {
-            Navigator.shared.showPlayer(collectionId: collectionId, ensureFrontAfterOpening: true)
+            if let tokenId {
+                Navigator.shared.showPlayer(
+                    collectionId: collectionId,
+                    widgetTokenId: tokenId,
+                    ensureFrontAfterOpening: true
+                )
+            } else {
+                Navigator.shared.showPlayer(collectionId: collectionId, ensureFrontAfterOpening: true)
+            }
         }
     }
     
