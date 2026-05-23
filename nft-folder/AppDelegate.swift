@@ -5,6 +5,8 @@ import Cocoa
 @main
 class AppDelegate: NSObject, NSApplicationDelegate {
     
+    private static let terminationSyncGracePeriod: DispatchTimeInterval = .milliseconds(250)
+
     private let currentInstanceId = UUID().uuidString
     private var terminateFlushTimeoutWorkItem: DispatchWorkItem?
     private var isReplyingToTerminate = false
@@ -27,20 +29,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard !isReplyingToTerminate else { return .terminateNow }
 
-        let timeoutWorkItem = DispatchWorkItem { [weak self, weak sender] in
-            guard let self, let sender else { return }
-            self.finishTerminationFlush(sender)
-        }
-        terminateFlushTimeoutWorkItem = timeoutWorkItem
-
-        PlayerICloudSync.shared.flushPendingChanges { [weak self, weak sender] in
+        let hasPendingSyncWork = PlayerICloudSync.shared.flushPendingWorkBeforeTermination { [weak self, weak sender] in
             DispatchQueue.main.async {
                 guard let self, let sender else { return }
                 self.finishTerminationFlush(sender)
             }
         }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 5, execute: timeoutWorkItem)
+        guard hasPendingSyncWork else { return .terminateNow }
+
+        let timeoutWorkItem = DispatchWorkItem { [weak self, weak sender] in
+            guard let self, let sender else { return }
+            self.finishTerminationFlush(sender)
+        }
+        terminateFlushTimeoutWorkItem = timeoutWorkItem
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.terminationSyncGracePeriod, execute: timeoutWorkItem)
         return .terminateLater
     }
 

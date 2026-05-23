@@ -85,6 +85,19 @@ final class PlayerICloudSync {
         }
     }
 
+#if os(macOS)
+    @discardableResult
+    func flushPendingWorkBeforeTermination(completion: @escaping () -> Void) -> Bool {
+        guard Thread.isMainThread else {
+            return DispatchQueue.main.sync {
+                flushPendingWorkBeforeTerminationOnMain(completion: completion)
+            }
+        }
+
+        return flushPendingWorkBeforeTerminationOnMain(completion: completion)
+    }
+#endif
+
     private func startOnMain() {
         guard !isStarted else { return }
 
@@ -93,6 +106,24 @@ final class PlayerICloudSync {
         refreshActiveRemotePollingState()
         scheduleSync(for: Self.allDomains, delay: 0)
     }
+
+#if os(macOS)
+    private func flushPendingWorkBeforeTerminationOnMain(completion: @escaping () -> Void) -> Bool {
+        guard isStarted, isSyncInFlight || !pendingDomains.isEmpty else {
+            return false
+        }
+
+        flushCompletionHandlers.append(completion)
+        pendingSyncWorkItem?.cancel()
+        pendingSyncWorkItem = nil
+
+        if !isSyncInFlight {
+            startPendingSync()
+        }
+
+        return true
+    }
+#endif
 
     private func scheduleLocalSync(for domain: PlayerSyncDomain) {
         runOnMain { [weak self] in
