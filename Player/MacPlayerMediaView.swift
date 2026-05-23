@@ -254,7 +254,7 @@ final class MacPlayerMediaContainerView: NSView {
             return
         }
 
-        guard let descriptor = Self.downloadableMediaDescriptor(for: token, context: tokenContext) else {
+        guard let descriptor = CollectionCatalog.downloadableMediaDescriptor(for: tokenContext) else {
             clearWebMediaContext()
             clearManagedDownloadableMediaWindow()
             if !mode.canDemandLoad, isDownloadableToken {
@@ -872,21 +872,6 @@ final class MacPlayerMediaContainerView: NSView {
 
         NotificationCenter.default.removeObserver(downloadableMediaCacheObserver)
         self.downloadableMediaCacheObserver = nil
-    }
-
-    private static func downloadableMediaDescriptor(
-        for token: GeneratedToken,
-        context: PlayerTokenContext?
-    ) -> CollectionCatalogDownloadableMediaDescriptor? {
-        guard let context,
-              CollectionCatalog.isDownloadableCollection(specificCollectionId: context.collectionId) else {
-            return nil
-        }
-
-        return CollectionCatalog.downloadableMediaDescriptor(
-            specificCollectionId: token.fullCollectionId,
-            tokenIndex: context.tokenIndex
-        )
     }
 
     private static func prefetchDirection(

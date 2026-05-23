@@ -139,11 +139,31 @@ final class DownloadableMediaCache {
             lock.withLock { cancelled }
         }
 
-        func cancel() {
+        func cancelIfNeeded() -> Bool {
             lock.withLock {
+                guard !cancelled else { return false }
                 cancelled = true
+                return true
             }
         }
+    }
+
+    private final class OneShotToken {
+        private let lock = NSLock()
+        private var wasTaken = false
+
+        func take() -> Bool {
+            lock.withLock {
+                guard !wasTaken else { return false }
+                wasTaken = true
+                return true
+            }
+        }
+    }
+
+    private struct RetainedFileNameKey: Hashable {
+        let collectionId: String
+        let fileName: String
     }
 
     private typealias ImageLoadCompletion = (DownloadableMediaImage?) -> Void
@@ -180,6 +200,9 @@ final class DownloadableMediaCache {
     private var foregroundWorkKeys = Set<String>()
     private var completions = [String: ImageLoadCompletions]()
     private var fileCompletions = [String: FileLoadCompletions]()
+    private var retainedFileKeys = [String: Int]()
+    private var retainedFileNameKeys = [RetainedFileNameKey: Int]()
+    private var retainedDecodeFailureDescriptors = [String: CollectionCatalogDownloadableMediaDescriptor]()
     private var memoryWarningObserver: NSObjectProtocol?
 
     private init() {
@@ -308,11 +331,8 @@ final class DownloadableMediaCache {
         queue.async { [weak self] in
             guard let self else { return }
 
-            self.pendingDescriptors.removeAll()
-            self.pendingKeys.removeAll()
+            self.cancelUnretainedDownloadsAndPendingWork()
 
-            self.ongoingDownloads.values.forEach { $0.task.cancel() }
-            self.ongoingDownloads.removeAll()
             self.decodeIdsByKey.removeAll()
             self.foregroundDecodeIdsByKey.removeAll()
             self.freshDownloadDecodeKeys.removeAll()
@@ -321,14 +341,9 @@ final class DownloadableMediaCache {
             self.foregroundWorkKeys.removeAll()
             self.memoryCache.removeAllObjects()
             self.memoryKeysByCollection.removeAll()
-
-            let callbacks = Array(self.completions.values.flatMap { $0.values })
-            self.completions.removeAll()
-            self.complete(callbacks, with: nil)
-            let fileCallbacks = Array(self.fileCompletions.values.flatMap { $0.values })
-            self.fileCompletions.removeAll()
-            self.completeFile(fileCallbacks, with: nil)
             self.activeWindow = nil
+            self.updateOngoingDownloadPriorities()
+            self.startDownloadsIfNeeded()
         }
     }
 
@@ -387,7 +402,7 @@ final class DownloadableMediaCache {
         }
 
         return { [weak self, request] in
-            request.cancel()
+            guard request.cancelIfNeeded() else { return }
             self?.cancelImageLoad(for: descriptor, requestId: request.id)
         }
     }
@@ -435,7 +450,7 @@ final class DownloadableMediaCache {
         }
 
         return { [weak self, request] in
-            request.cancel()
+            guard request.cancelIfNeeded() else { return }
             self?.cancelFileLoad(for: descriptor, requestId: request.id)
         }
     }
@@ -465,22 +480,7 @@ final class DownloadableMediaCache {
     ) {
         let key = cacheKey(for: descriptor)
         guard removeCallback(key, requestId) else { return }
-        guard !hasDemandCallbacks(forKey: key) else { return }
-
-        if foregroundKey == key {
-            foregroundKey = nil
-        }
-        markForegroundWorkFinished(forKey: key)
-
-        if !isDescriptorInActiveWindow(descriptor) {
-            pendingDescriptors.removeAll { cacheKey(for: $0) == key }
-            pendingKeys.remove(key)
-            cancelDownload(forKey: key)
-        } else if !foregroundWorkKeys.isEmpty {
-            cancelOngoingPrefetchDownloadForForeground(forKey: key)
-        } else {
-            updateOngoingDownloadPriorities()
-        }
+        guard cancelFileWorkIfNoLongerNeeded(for: descriptor, key: key) else { return }
         startDownloadsIfNeeded()
     }
 
@@ -514,6 +514,47 @@ final class DownloadableMediaCache {
         let url = fileURL(for: descriptor)
         guard FileManager.default.fileExists(atPath: url.path) else { return nil }
         return url
+    }
+
+    func retainFile(for descriptor: CollectionCatalogDownloadableMediaDescriptor) -> () -> Void {
+        let key = cacheKey(for: descriptor)
+        let collectionId = descriptor.collectionId
+        let fileNameKeys = fileNames(for: descriptor).map {
+            RetainedFileNameKey(collectionId: collectionId, fileName: $0)
+        }
+        let releaseToken = OneShotToken()
+
+        queue.async { [weak self] in
+            guard let self else { return }
+            self.retainedFileKeys[key, default: 0] += 1
+            for fileNameKey in fileNameKeys {
+                self.retainedFileNameKeys[fileNameKey, default: 0] += 1
+            }
+            self.updateOngoingDownloadPriorities()
+            self.startDownloadsIfNeeded()
+        }
+
+        return { [weak self, releaseToken] in
+            guard releaseToken.take() else { return }
+            self?.queue.async { [weak self] in
+                guard let self else { return }
+                self.releaseRetainedFile(forKey: key, fileNameKeys: fileNameKeys)
+                if !self.hasRetainedFile(forKey: key) {
+                    self.handleRetainedDecodeFailureIfNeeded(forKey: key)
+                    self.cancelFileWorkIfNoLongerNeeded(for: descriptor, key: key)
+                }
+                if let activeWindow,
+                   activeWindow.collectionId == collectionId,
+                   !Set(self.fileNames(for: descriptor)).isSubset(of: activeWindow.fileNames) {
+                    self.evictFilesOutsideWindow(
+                        collectionId: collectionId,
+                        allowedFileNames: activeWindow.fileNames
+                    )
+                }
+                self.updateOngoingDownloadPriorities()
+                self.startDownloadsIfNeeded()
+            }
+        }
     }
 
     func downloadedSourceURL(for descriptor: CollectionCatalogDownloadableMediaDescriptor) -> URL {
@@ -617,15 +658,15 @@ final class DownloadableMediaCache {
         while index < pendingDescriptors.count {
             let descriptor = pendingDescriptors[index]
             let key = cacheKey(for: descriptor)
-            let hasDemandCallback = hasDemandCallbacks(forKey: key)
-            let isAllowed = isDescriptorInActiveWindow(descriptor) || hasDemandCallback
+            let hasActiveFileInterest = hasDemandCallbacksOrRetainedFile(forKey: key)
+            let isAllowed = isDescriptorInActiveWindow(descriptor) || hasActiveFileInterest
             if !isAllowed {
                 pendingDescriptors.remove(at: index)
                 pendingKeys.remove(key)
                 continue
             }
 
-            if !foregroundWorkKeys.isEmpty && !isForegroundKey(key) && !hasDemandCallback {
+            if !foregroundWorkKeys.isEmpty && !isForegroundKey(key) && !hasActiveFileInterest {
                 index += 1
                 continue
             }
@@ -665,7 +706,10 @@ final class DownloadableMediaCache {
             return
         }
 
-        guard isDescriptorInActiveWindow(descriptor) || !callbacks.isEmpty || !fileCallbacks.isEmpty else {
+        guard isDescriptorInActiveWindow(descriptor)
+                || !callbacks.isEmpty
+                || !fileCallbacks.isEmpty
+                || hasRetainedFile(forKey: key) else {
             try? FileManager.default.removeItem(at: tmpURL)
             completeFile(fileCallbacks, with: nil)
             finishForegroundWork(forKey: key, callbacks: callbacks)
@@ -835,10 +879,17 @@ final class DownloadableMediaCache {
             return
         }
 
-        if removeItemIfPresent(at: job.fileURL) {
-            try? FileManager.default.removeItem(at: metadataFileURL(for: job.descriptor))
-            notifyFileAvailabilityChanged()
+        if hasRetainedFile(forKey: job.key) {
+            retainedDecodeFailureDescriptors[job.key] = job.descriptor
+            if shouldRedownloadOnFailure, !callbacks.isEmpty {
+                completions[job.key, default: [:]].merge(callbacks) { current, _ in current }
+            } else {
+                finishForegroundWork(forKey: job.key, callbacks: callbacks)
+            }
+            return
         }
+
+        removeCachedFileAfterDecodeFailure(for: job.descriptor, fileURL: job.fileURL)
         guard shouldRedownloadOnFailure, !callbacks.isEmpty else {
             finishForegroundWork(forKey: job.key, callbacks: callbacks)
             return
@@ -933,8 +984,57 @@ final class DownloadableMediaCache {
         completions[key]?.isEmpty == false || fileCompletions[key]?.isEmpty == false
     }
 
+    private func hasRetainedFile(forKey key: String) -> Bool {
+        (retainedFileKeys[key] ?? 0) > 0
+    }
+
+    private func hasDemandCallbacksOrRetainedFile(forKey key: String) -> Bool {
+        hasDemandCallbacks(forKey: key) || hasRetainedFile(forKey: key)
+    }
+
+    private func isRetainedFileName(_ fileName: String, collectionId: String) -> Bool {
+        (retainedFileNameKeys[RetainedFileNameKey(collectionId: collectionId, fileName: fileName)] ?? 0) > 0
+    }
+
+    private func releaseRetainedFile(forKey key: String, fileNameKeys: [RetainedFileNameKey]) {
+        decrementRetainedCount(for: key, in: &retainedFileKeys)
+        for fileNameKey in fileNameKeys {
+            decrementRetainedCount(for: fileNameKey, in: &retainedFileNameKeys)
+        }
+    }
+
+    private func handleRetainedDecodeFailureIfNeeded(forKey key: String) {
+        guard let descriptor = retainedDecodeFailureDescriptors.removeValue(forKey: key) else { return }
+        removeCachedFileAfterDecodeFailure(for: descriptor, fileURL: fileURL(for: descriptor))
+
+        if completions[key]?.isEmpty == false {
+            startForegroundDownload(for: descriptor, key: key)
+        } else {
+            finishForegroundWork(forKey: key)
+        }
+    }
+
+    private func removeCachedFileAfterDecodeFailure(
+        for descriptor: CollectionCatalogDownloadableMediaDescriptor,
+        fileURL: URL
+    ) {
+        if removeItemIfPresent(at: fileURL) {
+            try? FileManager.default.removeItem(at: metadataFileURL(for: descriptor))
+            notifyFileAvailabilityChanged()
+        }
+    }
+
+    private func decrementRetainedCount<Key: Hashable>(for value: Key, in counts: inout [Key: Int]) {
+        guard let count = counts[value] else { return }
+        if count <= 1 {
+            counts.removeValue(forKey: value)
+        } else {
+            counts[value] = count - 1
+        }
+    }
+
     private func downloadTaskPriority(forKey key: String) -> Float {
-        if isForegroundKey(key) || hasDemandCallbacks(forKey: key) {
+        if isForegroundKey(key) || hasDemandCallbacksOrRetainedFile(forKey: key) {
             return URLSessionTask.highPriority
         }
 
@@ -987,7 +1087,7 @@ final class DownloadableMediaCache {
 
     private func cancelOngoingPrefetchDownloadsForForeground() {
         let keysToCancel = ongoingDownloads.keys.filter { key in
-            !isForegroundKey(key) && !hasDemandCallbacks(forKey: key)
+            !isForegroundKey(key) && !hasDemandCallbacksOrRetainedFile(forKey: key)
         }
 
         for key in keysToCancel {
@@ -997,7 +1097,7 @@ final class DownloadableMediaCache {
 
     private func cancelOngoingPrefetchDownloadForForeground(forKey key: String) {
         guard !isForegroundKey(key),
-              !hasDemandCallbacks(forKey: key),
+              !hasDemandCallbacksOrRetainedFile(forKey: key),
               let descriptor = ongoingDownloads[key]?.descriptor else {
             return
         }
@@ -1111,7 +1211,7 @@ final class DownloadableMediaCache {
 
         for descriptor in pendingDescriptors {
             let key = cacheKey(for: descriptor)
-            if hasDemandCallbacks(forKey: key) {
+            if hasDemandCallbacksOrRetainedFile(forKey: key) {
                 appendPendingDescriptor(forKey: key)
             }
         }
@@ -1161,7 +1261,9 @@ final class DownloadableMediaCache {
     private func cancelDownloadsOutsideWindow(collectionId: String, allowedKeys: Set<String>) {
         pendingDescriptors.removeAll { descriptor in
             let key = cacheKey(for: descriptor)
-            let shouldRemove = descriptor.collectionId == collectionId && !allowedKeys.contains(key)
+            let shouldRemove = descriptor.collectionId == collectionId
+                && !allowedKeys.contains(key)
+                && !hasDemandCallbacksOrRetainedFile(forKey: key)
             if shouldRemove {
                 pendingKeys.remove(key)
                 complete(completions.removeValue(forKey: key) ?? [:], with: nil)
@@ -1171,7 +1273,11 @@ final class DownloadableMediaCache {
         }
 
         let keysToCancel = ongoingDownloads.compactMap { key, download in
-            download.descriptor.collectionId == collectionId && !allowedKeys.contains(key) ? key : nil
+            download.descriptor.collectionId == collectionId
+                && !allowedKeys.contains(key)
+                && !hasDemandCallbacksOrRetainedFile(forKey: key)
+                ? key
+                : nil
         }
 
         for key in keysToCancel {
@@ -1183,6 +1289,7 @@ final class DownloadableMediaCache {
         pendingDescriptors.removeAll { descriptor in
             let key = cacheKey(for: descriptor)
             let shouldRemove = descriptor.collectionId != collectionId
+                && !hasDemandCallbacksOrRetainedFile(forKey: key)
             if shouldRemove {
                 pendingKeys.remove(key)
                 complete(completions.removeValue(forKey: key) ?? [:], with: nil)
@@ -1192,7 +1299,10 @@ final class DownloadableMediaCache {
         }
 
         let keysToCancel = ongoingDownloads.compactMap { key, download in
-            download.descriptor.collectionId == collectionId ? nil : key
+            download.descriptor.collectionId != collectionId
+                && !hasDemandCallbacksOrRetainedFile(forKey: key)
+                ? key
+                : nil
         }
         keysToCancel.forEach(cancelDownload)
     }
@@ -1204,17 +1314,77 @@ final class DownloadableMediaCache {
         completeFile(fileCompletions.removeValue(forKey: key) ?? [:], with: nil)
     }
 
+    @discardableResult
+    private func cancelFileWorkIfNoLongerNeeded(
+        for descriptor: CollectionCatalogDownloadableMediaDescriptor,
+        key: String
+    ) -> Bool {
+        guard !hasDemandCallbacksOrRetainedFile(forKey: key) else { return false }
+
+        if foregroundKey == key {
+            foregroundKey = nil
+        }
+        markForegroundWorkFinished(forKey: key)
+
+        if !isDescriptorInActiveWindow(descriptor) {
+            pendingDescriptors.removeAll { cacheKey(for: $0) == key }
+            pendingKeys.remove(key)
+            cancelDownload(forKey: key)
+        } else if !foregroundWorkKeys.isEmpty {
+            cancelOngoingPrefetchDownloadForForeground(forKey: key)
+        } else {
+            updateOngoingDownloadPriorities()
+        }
+        return true
+    }
+
+    private func cancelUnretainedDownloadsAndPendingWork() {
+        let retainedKeys = Set(retainedFileKeys.keys)
+
+        cancelPendingAndOngoingDownloads { !retainedKeys.contains($0) }
+
+        let imageCallbacks = removeAllCallbacks(from: &completions)
+        let fileCallbacks = unretainedCallbacks(from: &fileCompletions, retainedKeys: retainedKeys)
+        complete(imageCallbacks, with: nil)
+        completeFile(fileCallbacks, with: nil)
+    }
+
+    private func removeAllCallbacks<Callback>(
+        from callbacksByKey: inout [String: [UUID: Callback]]
+    ) -> [Callback] {
+        let callbacks = callbacksByKey.values.flatMap { $0.values }
+        callbacksByKey.removeAll()
+        return callbacks
+    }
+
+    private func unretainedCallbacks<Callback>(
+        from callbacksByKey: inout [String: [UUID: Callback]],
+        retainedKeys: Set<String>
+    ) -> [Callback] {
+        var callbacks = [Callback]()
+        for key in Array(callbacksByKey.keys) where !retainedKeys.contains(key) {
+            if let removedCallbacks = callbacksByKey.removeValue(forKey: key) {
+                callbacks.append(contentsOf: removedCallbacks.values)
+            }
+        }
+        return callbacks
+    }
+
     private func cancelPrefetchDownloadsAndPendingWork() {
+        cancelPendingAndOngoingDownloads { !hasDemandCallbacksOrRetainedFile(forKey: $0) }
+    }
+
+    private func cancelPendingAndOngoingDownloads(where shouldCancelKey: (String) -> Bool) {
         pendingDescriptors.removeAll { descriptor in
             let key = cacheKey(for: descriptor)
-            let shouldRemove = !hasDemandCallbacks(forKey: key)
-            if shouldRemove {
+            let shouldCancel = shouldCancelKey(key)
+            if shouldCancel {
                 pendingKeys.remove(key)
             }
-            return shouldRemove
+            return shouldCancel
         }
 
-        let keysToCancel = ongoingDownloads.keys.filter { !hasDemandCallbacks(forKey: $0) }
+        let keysToCancel = ongoingDownloads.keys.filter(shouldCancelKey)
         keysToCancel.forEach(cancelDownload)
     }
 
@@ -1239,7 +1409,8 @@ final class DownloadableMediaCache {
         }
 
         var didRemoveItem = false
-        for url in contents where !allowedFileNames.contains(url.lastPathComponent) {
+        for url in contents where !allowedFileNames.contains(url.lastPathComponent)
+            && !isRetainedFileName(url.lastPathComponent, collectionId: collectionId) {
             didRemoveItem = removeItemIfPresent(at: url) || didRemoveItem
         }
         if didRemoveItem {

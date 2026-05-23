@@ -895,6 +895,39 @@
         }
       }
     },
+    "Copy Media" : {
+      "comment" : "A menu item that copies the currently displayed token media file.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Copy Media"
+          }
+        }
+      }
+    },
+    "Could not copy media." : {
+      "comment" : "A short alert message shown when copying the current token media file fails.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Could not copy media."
+          }
+        }
+      }
+    },
+    "Could not save media." : {
+      "comment" : "A short alert message shown when saving the current token media file fails.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Could not save media."
+          }
+        }
+      }
+    },
     "Edit Playlist" : {
       "comment" : "13578230696778257711",
       "extractionState" : "stale",
@@ -3929,6 +3962,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "移除書籤"
+          }
+        }
+      }
+    },
+    "Save As…" : {
+      "comment" : "A menu item that saves the currently displayed token media file.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Save As…"
           }
         }
       }

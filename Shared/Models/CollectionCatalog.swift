@@ -289,6 +289,14 @@ enum CollectionCatalog {
         return DownloadableCollectionService.mediaDescriptor(collectionId: specificCollectionId, tokenIndex: tokenIndex)
     }
 
+    static func downloadableMediaDescriptor(for context: PlayerTokenContext?) -> CollectionCatalogDownloadableMediaDescriptor? {
+        guard let context else { return nil }
+        return downloadableMediaDescriptor(
+            specificCollectionId: context.collectionId,
+            tokenIndex: context.tokenIndex
+        )
+    }
+
     static func playerBackgroundColor(specificCollectionId: String) -> String? {
         SuggestedItemsService.item(id: specificCollectionId)?.playerBackgroundColor
     }
