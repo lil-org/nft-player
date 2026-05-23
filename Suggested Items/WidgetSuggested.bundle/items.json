@@ -1,0 +1,254 @@
+[
+  {
+    "abId": "23",
+    "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
+    "chain": "ethereum",
+    "chainId": 1,
+    "collectionId": "62fed6de62ee3c66ac30cbab9fd8a77d",
+    "name": "Archetype",
+    "tokenCount": 600
+  },
+  {
+    "abId": "159",
+    "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
+    "chain": "ethereum",
+    "chainId": 1,
+    "collectionId": "c2ae8375f7ef9579d1004c829f126abf",
+    "name": "Fragments of an Infinite Field",
+    "tokenCount": 1024
+  },
+  {
+    "abId": "22",
+    "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
+    "chain": "ethereum",
+    "chainId": 1,
+    "collectionId": "fa3e8df7a7bc8c6eaed5c2e64e329884",
+    "name": "The Eternal Pump",
+    "tokenCount": 50
+  },
+  {
+    "address": "0x46ac8540d698167fcbb9e846511beb8cf8af9bd8",
+    "chain": "ethereum",
+    "chainId": 1,
+    "collectionId": "f09dc93e48530b0803410a2b32c56cbf",
+    "name": "Math Art",
+    "tokenCount": 100
+  },
+  {
+    "address": "0x46ac8540d698167fcbb9e846511beb8cf8af9bd8",
+    "chain": "ethereum",
+    "chainId": 1,
+    "collectionId": "2b0b7d3bb471c1e4580baed3a35067cf",
+    "name": "Tokyo Nude",
+    "tokenCount": 55
+  },
+  {
+    "address": "0x72f28b86749cba12bbac8783a67bbc48d80c92e9",
+    "chain": "ethereum",
+    "chainId": 1,
+    "collectionId": "22c88225c2e244fcfb994a12b654d85b",
+    "name": "Temporals",
+    "tokenCount": 222
+  },
+  {
+    "address": "0x17abd4cc1382397ec2b675f98621c3ba809897de",
+    "chain": "ethereum",
+    "chainId": 1,
+    "name": "Super Metal Mons!!",
+    "tokenCount": 777
+  },
+  {
+    "address": "0x32d6ba9aa1b06fbcaeb3f6c5ff05cd6a77dcf387",
+    "chain": "ethereum",
+    "chainId": 1,
+    "name": "Super Sofubi",
+    "tokenCount": 300
+  },
+  {
+    "address": "0x0c640779dbd6cda40d54350344dfd37d99aed8aa",
+    "chain": "zora",
+    "chainId": 7777777,
+    "name": "Very Internet Printout",
+    "tokenCount": 24
+  },
+  {
+    "address": "0x1ee3bcc37b747c29a0583352b3d9541f393cea82",
+    "chain": "ethereum",
+    "chainId": 1,
+    "name": "Gushies",
+    "tokenCount": 545
+  },
+  {
+    "address": "0x1d2550d198197df1a10af515cf2ea0d790889b93",
+    "chain": "base",
+    "chainId": 8453,
+    "collectionId": "eeb4d062d7c79f1145c10a7d200781b1",
+    "name": "Babes",
+    "tokenCount": 339
+  },
+  {
+    "address": "0x92e64d1a27f4f42ecaf0ef7f725f119751113a38",
+    "chain": "ethereum",
+    "chainId": 1,
+    "collectionId": "a5e40fa144e354b53d60abaaef1732e2",
+    "name": "The Abyssal Unseen",
+    "tokenCount": 1000
+  },
+  {
+    "address": "3dWnCTx5gY3F9hVhiMu7b5we6WSKnyzL9CYdE1rW1HUm",
+    "chain": "solana",
+    "chainId": 0,
+    "name": "Tojiba Disc Buddies",
+    "tokenCount": 4998
+  },
+  {
+    "address": "4rWMqk4PXKrWdmA9QSJB27CYwThYmDvZ9rwcZsQfnJ6K",
+    "chain": "solana",
+    "chainId": 0,
+    "name": "BRICKS",
+    "tokenCount": 1500
+  },
+  {
+    "address": "5AVocDEamuwaZf3bXP6tcg52w7cgBvMNJAYvG9rmouCh",
+    "chain": "solana",
+    "chainId": 0,
+    "name": "Little Fellow",
+    "tokenCount": 2024
+  },
+  {
+    "address": "JDmZF2EsfWHcq9evTLDfqqUhAHh3zTYMy2rTeEfhx9hy",
+    "chain": "solana",
+    "chainId": 0,
+    "name": "Heavy Liquid Graphic",
+    "tokenCount": 999
+  },
+  {
+    "address": "Bkp4sEpGBgHkjtXpBdZiCxiMhAnx2aY6m3a5E8RdgY6S",
+    "chain": "solana",
+    "chainId": 0,
+    "name": "EDIBLE KAWAII DEMONZ®",
+    "tokenCount": 3333
+  },
+  {
+    "address": "r1pCPYkbbpZWv7RCvuCMtpA3NSQY3fzVFo6HL43A4ot",
+    "chain": "solana",
+    "chainId": 0,
+    "name": "John",
+    "tokenCount": 3210
+  },
+  {
+    "address": "21nXQ4m9zfTsqAHADNjFHRJBxnoynMsL9HRSpdwqKHQH",
+    "chain": "solana",
+    "chainId": 0,
+    "name": "Blume™",
+    "tokenCount": 368
+  },
+  {
+    "address": "GVQ4Zsd7jLZbVCxq9QsmQySuKekwT1XbMSjGbwt8UtcB",
+    "chain": "solana",
+    "chainId": 0,
+    "name": "Flopawrettes",
+    "tokenCount": 4439
+  },
+  {
+    "address": "BBkMWyu4RRrNSdjGDV27FGgZZ58o7jfvQY1MrD2iTfs6",
+    "chain": "solana",
+    "chainId": 0,
+    "name": "Vehicle Wammin",
+    "tokenCount": 1289
+  },
+  {
+    "address": "HCWQe6eVmzawiQTf58kM795eGTvvqNZSUrbvnEYokd4B",
+    "chain": "solana",
+    "chainId": 0,
+    "name": "FOODIEZ",
+    "tokenCount": 4424
+  },
+  {
+    "address": "8bP9cNrTrwuMnmUsSHZ9ReTiJhKVmyjXUfUUrjkqEmef",
+    "chain": "solana",
+    "chainId": 0,
+    "name": "Yeche Lunch",
+    "tokenCount": 32
+  },
+  {
+    "address": "CjL5WpAmf4cMEEGwZGTfTDKWok9a92ykq9aLZrEK2D5H",
+    "chain": "solana",
+    "chainId": 0,
+    "name": "little swag world",
+    "tokenCount": 3323
+  },
+  {
+    "address": "2W68ofaUBEQYoFUwEWWHoYq8MBauPbxhZtv71vqZsyhp",
+    "chain": "solana",
+    "chainId": 0,
+    "name": "Organic Evolution",
+    "tokenCount": 69
+  },
+  {
+    "address": "9xAjzT43stvxq8fNLtWxYu3sBYWdbZP22fQqzQdNYMzY",
+    "chain": "solana",
+    "chainId": 0,
+    "name": "TOJIA",
+    "tokenCount": 4438
+  },
+  {
+    "address": "AU9F91RsrqQEeN8sshErtQnT8CgYxrg9YD9n4AHHvus7",
+    "chain": "solana",
+    "chainId": 0,
+    "name": "Tojiba CPU Corp",
+    "tokenCount": 2221
+  },
+  {
+    "address": "CHuQxKgso7sGagfakRPeii6xQGByJtnMm3V3ho7ZTJBn",
+    "chain": "solana",
+    "chainId": 0,
+    "name": "The Same Old Gag",
+    "tokenCount": 616
+  },
+  {
+    "address": "0x30f9efa712dde239a13a5fef1a8c7a6ac530a26d",
+    "chain": "ethereum",
+    "chainId": 1,
+    "name": "MILADY AURA2 AFTER DEATH",
+    "tokenCount": 1369,
+    "iosOnly": true
+  },
+  {
+    "address": "0xd497a414bb00803e846b53d07fcb742831b24906",
+    "chain": "ethereum",
+    "chainId": 1,
+    "name": "Tigerbob",
+    "tokenCount": 1000,
+    "iosOnly": true
+  },
+  {
+    "address": "0x6873e99fb85de770cc89fa37bc9c859fc2ebaf60",
+    "chain": "ethereum",
+    "chainId": 1,
+    "name": "Shishi",
+    "tokenCount": 3520,
+    "iosOnly": true
+  },
+  {
+    "address": "0xEC0a7A26456B8451aefc4b00393ce1BefF5eB3e9",
+    "chain": "ethereum",
+    "chainId": 1,
+    "name": "Allstarz",
+    "tokenCount": 10000
+  },
+  {
+    "address": "0xc62e3fd5b02618f90dd07d1e478963038fa9089c",
+    "chain": "ethereum",
+    "chainId": 1,
+    "name": "milady aura petz",
+    "tokenCount": 1884
+  },
+  {
+    "address": "0x44096d6de5d17020ce0c41d75ce27b33c6d28e1a",
+    "chain": "ethereum",
+    "chainId": 1,
+    "name": "tubbypxgan",
+    "tokenCount": 1335
+  }
+]

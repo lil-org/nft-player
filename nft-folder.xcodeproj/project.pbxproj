@@ -165,10 +165,10 @@
 		2D10001F2F30000000000001 /* CollectionOfTheDayWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D1000022F30000000000001 /* CollectionOfTheDayWidget.swift */; };
 		2D1000202F30000000000001 /* CollectionOfTheDayWidgetData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D1000032F30000000000001 /* CollectionOfTheDayWidgetData.swift */; };
 		2D1000212F30000000000001 /* CollectionOfTheDayWidgetData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D1000032F30000000000001 /* CollectionOfTheDayWidgetData.swift */; };
-		2D1000222F30000000000001 /* Suggested.bundle in Resources */ = {isa = PBXBuildFile; fileRef = 2C09BAE32C308145009BA300 /* Suggested.bundle */; };
-		2D1000232F30000000000001 /* Suggested.bundle in Resources */ = {isa = PBXBuildFile; fileRef = 2C09BAE32C308145009BA300 /* Suggested.bundle */; };
-		2D1000242F30000000000001 /* Covers.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2C4659932C308B44008CF97F /* Covers.xcassets */; };
-		2D1000252F30000000000001 /* Covers.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2C4659932C308B44008CF97F /* Covers.xcassets */; };
+		2D1000222F30000000000001 /* WidgetSuggested.bundle in Resources */ = {isa = PBXBuildFile; fileRef = 2D2000002F31000000000001 /* WidgetSuggested.bundle */; };
+		2D1000232F30000000000001 /* WidgetSuggested.bundle in Resources */ = {isa = PBXBuildFile; fileRef = 2D2000002F31000000000001 /* WidgetSuggested.bundle */; };
+		2D1000242F30000000000001 /* WidgetCovers.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2D2000012F31000000000001 /* WidgetCovers.xcassets */; };
+		2D1000252F30000000000001 /* WidgetCovers.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2D2000012F31000000000001 /* WidgetCovers.xcassets */; };
 		2D1000262F30000000000001 /* nft-folder-ios-widget.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 2D1000072F30000000000001 /* nft-folder-ios-widget.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		2D1000272F30000000000001 /* nft-folder-widget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 2D1000082F30000000000001 /* nft-folder-widget.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		2CFA90012EB0000000000001 /* MobileCollectionCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CFA90002EB0000000000001 /* MobileCollectionCatalog.swift */; };
@@ -338,6 +338,8 @@
 		2D1000062F30000000000001 /* nft_folder_widget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = nft_folder_widget.entitlements; sourceTree = "<group>"; };
 		2D1000072F30000000000001 /* nft-folder-ios-widget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "nft-folder-ios-widget.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
 		2D1000082F30000000000001 /* nft-folder-widget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "nft-folder-widget.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
+		2D2000002F31000000000001 /* WidgetSuggested.bundle */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.plug-in"; path = WidgetSuggested.bundle; sourceTree = "<group>"; };
+		2D2000012F31000000000001 /* WidgetCovers.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = WidgetCovers.xcassets; sourceTree = "<group>"; };
 		2CDF00012F10000000000001 /* DownloadableMediaCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadableMediaCache.swift; sourceTree = "<group>"; };
 		2CDF00022F10000000000001 /* PlayerTokenPrewarmer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerTokenPrewarmer.swift; sourceTree = "<group>"; };
 		2CDF00082F10000000000001 /* PlayerWebContentLoadCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerWebContentLoadCoordinator.swift; sourceTree = "<group>"; };
@@ -511,6 +513,8 @@
 				2C086E862C2F3C3600D4268D /* BundledTokens.swift */,
 				2C8C8DE82C3C890B00BC83E9 /* Script.swift */,
 				2CE9A5772C3DAB03009AEAF4 /* GeneratedToken.swift */,
+				2D2000012F31000000000001 /* WidgetCovers.xcassets */,
+				2D2000002F31000000000001 /* WidgetSuggested.bundle */,
 				2C4659932C308B44008CF97F /* Covers.xcassets */,
 				2C09BAE32C308145009BA300 /* Suggested.bundle */,
 			);
@@ -959,8 +963,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				2D1000222F30000000000001 /* Suggested.bundle in Resources */,
-				2D1000242F30000000000001 /* Covers.xcassets in Resources */,
+				2D1000222F30000000000001 /* WidgetSuggested.bundle in Resources */,
+				2D1000242F30000000000001 /* WidgetCovers.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -968,8 +972,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				2D1000232F30000000000001 /* Suggested.bundle in Resources */,
-				2D1000252F30000000000001 /* Covers.xcassets in Resources */,
+				2D1000232F30000000000001 /* WidgetSuggested.bundle in Resources */,
+				2D1000252F30000000000001 /* WidgetCovers.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
