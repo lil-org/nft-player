@@ -124,6 +124,16 @@
 			<key>primary</key>
 			<true/>
 		</dict>
+		<key>2D1000122F30000000000001</key>
+		<dict>
+			<key>primary</key>
+			<true/>
+		</dict>
+		<key>2D1000132F30000000000001</key>
+		<dict>
+			<key>primary</key>
+			<true/>
+		</dict>
 	</dict>
 </dict>
 </plist>
