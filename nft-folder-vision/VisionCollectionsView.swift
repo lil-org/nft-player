@@ -4,7 +4,7 @@ import SwiftUI
 
 struct VisionCollectionsView: View {
     
-    @State private var suggestedItems = TokenGenerator.allGenerativeSuggestedItems
+    private let suggestedItems = VisionCollectionCatalog.allItems
     @State private var playerConfig: VisionPlayerConfig?
     
     var body: some View {
@@ -104,6 +104,7 @@ struct VisionCollectionsView: View {
     }
     
     private func didSelectSuggestedItem(_ item: SuggestedItem) {
+        guard TokenGenerator.canGenerate(id: item.id) else { return }
         playerConfig = VisionPlayerConfig(initialItemId: item.id)
     }
 
@@ -115,5 +116,33 @@ struct VisionCollectionsView: View {
         guard playerConfig?.id == config.id else { return }
         playerConfig = nil
     }
-    
+
+}
+
+private enum VisionCollectionCatalog {
+
+    static let allItems: [SuggestedItem] = {
+        dedupedItems(generativeItemsForGrid + downloadableItemsForGrid)
+            .filter { !TokenGenerator.isCollectionDisabledOnCurrentPlatform(id: $0.id) }
+    }()
+
+    private static var generativeItemsForGrid: [SuggestedItem] {
+        return TokenGenerator.allGenerativeSuggestedItems.filter {
+            !$0.isSolanaCollection && !$0.isTezosCollection
+        }
+    }
+
+    private static var downloadableItemsForGrid: [SuggestedItem] {
+        return SuggestedItemsService.allDownloadableCollectionItems
+    }
+
+    private static func dedupedItems(_ items: [SuggestedItem]) -> [SuggestedItem] {
+        var seenIds = Set<String>()
+        return items.filter { item in
+            guard !seenIds.contains(item.id) else { return false }
+            seenIds.insert(item.id)
+            return true
+        }
+    }
+
 }

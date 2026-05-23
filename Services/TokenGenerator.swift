@@ -9,13 +9,11 @@ struct TokenGenerator {
     private static var collectionDataCache = [String: CollectionTokenData]()
     private static let collectionDataCacheLock = NSLock()
     
-    private static let jsonsNames: Set<String> = {
-        let fileManager = FileManager.default
-        let fileURLs = (try? fileManager.contentsOfDirectory(at: dirURL, includingPropertiesForKeys: nil)) ?? []
+    private static let disabledCollectionIds: Set<String> = {
 #if os(watchOS)
-        let disabledCollectionIds = Set([ponchoDrifellaCollectionId])
+        return Set([ponchoDrifellaCollectionId])
 #elseif os(visionOS)
-        let disabledCollectionIds = Set([
+        return Set([
             "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce367650",
             "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270250",
             "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270356",
@@ -24,26 +22,35 @@ struct TokenGenerator {
             ponchoDrifellaCollectionId,
         ])
 #elseif os(tvOS)
-        let disabledCollectionIds = Set([
+        return Set([
             "0x99a9b7c1116f9ceeb1652de04d5969cce509b069472",
             "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270356",
             "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270250",
             ponchoDrifellaCollectionId,
         ])
 #else
-        let disabledCollectionIds = Set<String>()
+        return Set<String>()
 #endif
+    }()
+
+    private static let jsonsNames: Set<String> = {
+        let fileManager = FileManager.default
+        let fileURLs = (try? fileManager.contentsOfDirectory(at: dirURL, includingPropertiesForKeys: nil)) ?? []
         return Set(fileURLs.compactMap { fileURL in
             let fileName = fileURL.lastPathComponent
             let collectionId = String(fileName.dropLast(5))
             return disabledCollectionIds.contains(collectionId) ? nil : fileName
         })
     }()
-    
+
     static func canGenerate(id: String) -> Bool {
         return jsonsNames.contains(id + ".json")
     }
     
+    static func isCollectionDisabledOnCurrentPlatform(id: String) -> Bool {
+        return disabledCollectionIds.contains(id)
+    }
+
     static var allGenerativeSuggestedItems: [SuggestedItem] {
         return SuggestedItemsService.visibleItems.filter { jsonsNames.contains($0.id + ".json") }
     }
