@@ -362,6 +362,10 @@ class LocalHtmlWindow: NSWindow {
         let savePanel = NSSavePanel()
         savePanel.canCreateDirectories = true
         savePanel.nameFieldStringValue = request.defaultFileName
+        savePanel.directoryURL = FileManager.default.urls(
+            for: .downloadsDirectory,
+            in: .userDomainMask
+        ).first
         savePanel.beginSheetModal(for: self) { [weak self] response in
             guard let self else { return }
             guard response == .OK, let destinationURL = savePanel.url else { return }
