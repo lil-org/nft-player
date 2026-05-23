@@ -7,6 +7,20 @@ private let playerStatusBarRevealDuration: TimeInterval = 0.3
 private let initialCollectionItemFadeDuration: TimeInterval = 0.3
 private let initialCollectionItemFadeAnimationKey = "initialGridItemFade"
 
+private enum PlayerPresentationTransition {
+    case animated
+    case instant
+
+    var overlayTransition: AnyTransition {
+        switch self {
+        case .animated:
+            return .opacity
+        case .instant:
+            return .identity
+        }
+    }
+}
+
 private enum InfiniteCollectionsLoop {
     private static let repetitionCount = 31
     private static let middleRepetition = repetitionCount / 2
@@ -47,6 +61,7 @@ private enum InfiniteCollectionsLoop {
 struct MobileCollectionsView: View {
     private let collectionItems = MobileCollectionCatalog.allItems
     @State private var playerConfig: MobilePlayerConfig?
+    @State private var playerPresentationTransition: PlayerPresentationTransition = .animated
     @State private var viewingProgressByCollectionId: [String: Int]
     @State private var viewedToEndCollectionIds: Set<String>
     @State private var continueViewingProgress: MobileViewingProgress?
@@ -130,7 +145,7 @@ struct MobileCollectionsView: View {
                 .persistentSystemOverlays(.hidden)
                 .zIndex(1)
                 .id(playerConfig.id)
-                .transition(.opacity)
+                .transition(playerPresentationTransition.overlayTransition)
             }
         }
         .persistentSystemOverlays(.hidden)
@@ -161,13 +176,20 @@ struct MobileCollectionsView: View {
         openCollection(collectionId: item.id)
     }
 
-    private func openCollection(collectionId: String) {
+    private func openCollection(
+        collectionId: String,
+        presentationTransition: PlayerPresentationTransition = .animated
+    ) {
         if let progress = MobileViewingProgressStore.progress(collectionId: collectionId) {
-            resumeViewing(progress)
+            resumeViewing(progress, presentationTransition: presentationTransition)
             return
         }
 
-        openPlayer(initialItemId: collectionId, continueViewingCollectionId: collectionId)
+        openPlayer(
+            initialItemId: collectionId,
+            continueViewingCollectionId: collectionId,
+            presentationTransition: presentationTransition
+        )
     }
     
     private func showShuffledCollectionPlayer() {
@@ -188,11 +210,15 @@ struct MobileCollectionsView: View {
         return (unfinishedItems.isEmpty ? collectionItems : unfinishedItems).randomElement()
     }
 
-    private func resumeViewing(_ progress: MobileViewingProgress) {
+    private func resumeViewing(
+        _ progress: MobileViewingProgress,
+        presentationTransition: PlayerPresentationTransition = .animated
+    ) {
         openPlayer(
             initialItemId: progress.collectionId,
             initialTokenId: progress.tokenId,
-            continueViewingCollectionId: progress.collectionId
+            continueViewingCollectionId: progress.collectionId,
+            presentationTransition: presentationTransition
         )
     }
 
@@ -206,7 +232,7 @@ struct MobileCollectionsView: View {
         if let tokenId {
             openWidgetToken(collectionId: collectionId, tokenId: tokenId)
         } else {
-            openCollection(collectionId: collectionId)
+            openCollection(collectionId: collectionId, presentationTransition: .instant)
         }
     }
 
@@ -216,7 +242,7 @@ struct MobileCollectionsView: View {
             widgetTokenId: tokenId,
             progress: MobileViewingProgressStore.progress(collectionId: collectionId)
         ) else {
-            openCollection(collectionId: collectionId)
+            openCollection(collectionId: collectionId, presentationTransition: .instant)
             return
         }
 
@@ -224,7 +250,8 @@ struct MobileCollectionsView: View {
         openPlayer(
             initialItemId: collectionId,
             continueViewingCollectionId: collectionId,
-            widgetTokenInsertion: widgetTokenInsertion
+            widgetTokenInsertion: widgetTokenInsertion,
+            presentationTransition: .instant
         )
     }
 
@@ -232,7 +259,8 @@ struct MobileCollectionsView: View {
         initialItemId: String,
         initialTokenId: String? = nil,
         continueViewingCollectionId: String,
-        widgetTokenInsertion: PlayerWidgetTokenInsertion? = nil
+        widgetTokenInsertion: PlayerWidgetTokenInsertion? = nil,
+        presentationTransition: PlayerPresentationTransition = .animated
     ) {
         MobileViewingProgressStore.setContinueViewingCollectionId(continueViewingCollectionId)
         let config = MobilePlayerPrewarmer.preparedConfig(
@@ -241,14 +269,29 @@ struct MobileCollectionsView: View {
             continueViewingCollectionId: continueViewingCollectionId,
             widgetTokenInsertion: widgetTokenInsertion
         )
-        withAnimation(playerCrossfadeAnimation) {
+
+        let presentPlayer = {
+            playerPresentationTransition = presentationTransition
             playerConfig = config
+        }
+        switch presentationTransition {
+        case .animated:
+            withAnimation(playerCrossfadeAnimation) {
+                presentPlayer()
+            }
+        case .instant:
+            var transaction = Transaction(animation: nil)
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                presentPlayer()
+            }
         }
         Haptic.selectionChanged()
     }
 
     private func dismissPlayer(_ config: MobilePlayerConfig) {
         guard playerConfig?.id == config.id else { return }
+        playerPresentationTransition = .animated
         withAnimation(playerCrossfadeAnimation) {
             playerConfig = nil
             refreshViewingProgress()
