@@ -239,13 +239,13 @@
         }
       }
     },
-    "☺︎ of %lld" : {
+    "𝓦 of %lld" : {
       "comment" : "A compact page-position label shown for a widget-opened token. The current page number is intentionally hidden with a symbol; the argument is the total page count.",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "☺︎ of %lld"
+            "value" : "𝓦 of %lld"
           }
         }
       }
