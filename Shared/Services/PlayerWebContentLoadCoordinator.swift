@@ -1,6 +1,6 @@
 // ∅ 2026 lil org
 
-#if os(iOS) || os(macOS)
+#if os(iOS) || os(macOS) || os(visionOS)
 import Foundation
 import WebKit
 

@@ -1784,7 +1784,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
                         documentHTML: documentHTML,
                         baseURL: imageCache.downloadedSourceURL(for: context.descriptor).absoluteString
                     ),
-                    viewportSize: DownloadableHTMLDocumentLayout.rootSVGViewBoxSize(in: documentHTML)
+                    viewportSize: DownloadableTokenHTMLLayout.rootSVGViewBoxSize(in: documentHTML)
                 )
             }
 
@@ -1948,89 +1948,6 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
 
         NotificationCenter.default.removeObserver(downloadableMediaCacheObserver)
         self.downloadableMediaCacheObserver = nil
-    }
-
-}
-
-private enum DownloadableHTMLDocumentLayout {
-
-    static func rootSVGViewBoxSize(in html: String) -> CGSize? {
-        guard let svgOpeningTag = rootSVGOpeningTag(in: html),
-              let viewBox = attribute("viewBox", in: svgOpeningTag) else {
-            return nil
-        }
-
-        let components = viewBox
-            .replacingOccurrences(of: ",", with: " ")
-            .split(whereSeparator: \.isWhitespace)
-        guard components.count == 4 else { return nil }
-
-        let values = components.compactMap { Double($0) }
-        guard values.count == 4,
-              values.allSatisfy({ $0.isFinite }) else {
-            return nil
-        }
-
-        let width = values[2]
-        let height = values[3]
-        guard width > 0, height > 0 else { return nil }
-        return CGSize(width: CGFloat(width), height: CGFloat(height))
-    }
-
-    private static func rootSVGOpeningTag(in html: String) -> String? {
-        if let bodyRootSVG = firstCapturedMatch(
-            pattern: "<body(?=\\s|>)[^>]*>\\s*(<svg(?=\\s|/?>)[^>]*>)",
-            in: html
-        ) {
-            return bodyRootSVG
-        }
-
-        return firstCapturedMatch(
-            pattern: "^\\s*(?:(?:<\\?xml\\b[^>]*\\?>|<!doctype\\b[^>]*>)\\s*)*(<svg(?=\\s|/?>)[^>]*>)",
-            in: html
-        )
-    }
-
-    private static func firstCapturedMatch(pattern: String, in html: String) -> String? {
-        guard let expression = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
-            return nil
-        }
-
-        let fullRange = NSRange(html.startIndex..<html.endIndex, in: html)
-        guard let match = expression.firstMatch(in: html, range: fullRange),
-              match.numberOfRanges > 1 else {
-            return nil
-        }
-
-        let range = match.range(at: 1)
-        guard range.location != NSNotFound,
-              let valueRange = Range(range, in: html) else {
-            return nil
-        }
-        return String(html[valueRange])
-    }
-
-    private static func attribute(_ name: String, in openingTag: String) -> String? {
-        let escapedName = NSRegularExpression.escapedPattern(for: name)
-        let pattern = "(?:^|[\\s<])\(escapedName)\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)'|([^\\s\"'>]+))"
-        guard let expression = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
-            return nil
-        }
-
-        let fullRange = NSRange(openingTag.startIndex..<openingTag.endIndex, in: openingTag)
-        guard let match = expression.firstMatch(in: openingTag, range: fullRange) else {
-            return nil
-        }
-
-        for index in 1..<match.numberOfRanges {
-            let range = match.range(at: index)
-            guard range.location != NSNotFound,
-                  let valueRange = Range(range, in: openingTag) else {
-                continue
-            }
-            return String(openingTag[valueRange])
-        }
-        return nil
     }
 
 }

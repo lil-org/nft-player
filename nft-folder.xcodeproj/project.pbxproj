@@ -187,6 +187,10 @@
 		2CDF00132F10000000000001 /* PlayerTokenPrewarmer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF00022F10000000000001 /* PlayerTokenPrewarmer.swift */; };
 		2CDF001C2F10000000000001 /* PlayerWebContentLoadCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF00082F10000000000001 /* PlayerWebContentLoadCoordinator.swift */; };
 		2CDF001D2F10000000000001 /* PlayerWebContentLoadCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF00082F10000000000001 /* PlayerWebContentLoadCoordinator.swift */; };
+		2D3000002F40000000000001 /* CollectionCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CFA92002EB2000000000001 /* CollectionCatalog.swift */; };
+		2D3000012F40000000000001 /* DownloadableMediaCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF00012F10000000000001 /* DownloadableMediaCache.swift */; };
+		2D3000022F40000000000001 /* PlayerTokenPrewarmer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF00022F10000000000001 /* PlayerTokenPrewarmer.swift */; };
+		2D3000032F40000000000001 /* PlayerWebContentLoadCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF00082F10000000000001 /* PlayerWebContentLoadCoordinator.swift */; };
 		2CDF00142F10000000000001 /* PlayerWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF00032F10000000000001 /* PlayerWebView.swift */; };
 		2CDF00152F10000000000001 /* MacPlayerMediaView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF00042F10000000000001 /* MacPlayerMediaView.swift */; };
 		2CDF00162F10000000000001 /* PonchoDrifellaMetalCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF00052F10000000000001 /* PonchoDrifellaMetalCardView.swift */; };
@@ -1053,6 +1057,10 @@
 				2C9442932C517E870078C051 /* PlayerModel.swift in Sources */,
 				2CB01A062F01000000000001 /* PlayerViewingProgressStore.swift in Sources */,
 				2D1000332F30000000000001 /* PlayerWidgetTokenInsertion.swift in Sources */,
+				2D3000002F40000000000001 /* CollectionCatalog.swift in Sources */,
+				2D3000012F40000000000001 /* DownloadableMediaCache.swift in Sources */,
+				2D3000022F40000000000001 /* PlayerTokenPrewarmer.swift in Sources */,
+				2D3000032F40000000000001 /* PlayerWebContentLoadCoordinator.swift in Sources */,
 				2CF100072F20000000000001 /* PlayerSyncTypes.swift in Sources */,
 				2C5A59CD2C51529800788870 /* VisionCollectionsView.swift in Sources */,
 				2C5A59D12C5152B000788870 /* VisionHelpers.swift in Sources */,

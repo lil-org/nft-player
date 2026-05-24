@@ -4,7 +4,7 @@ import SwiftUI
 
 struct VisionCollectionsView: View {
     
-    private let suggestedItems = VisionCollectionCatalog.allItems
+    private let collectionItems = CollectionCatalog.allItems
     @State private var gridPassCount = 1
     @State private var playerConfig: VisionPlayerConfig?
     
@@ -26,6 +26,12 @@ struct VisionCollectionsView: View {
                 .id(playerConfig.id)
                 .transition(.opacity)
             }
+        }
+        .onAppear {
+            schedulePlayerPrewarm()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            schedulePlayerPrewarm()
         }
     }
 
@@ -59,10 +65,10 @@ struct VisionCollectionsView: View {
             ForEach(0..<visibleItemCount, id: \.self) { index in
                 let item = item(at: index)
                 Button(action: {
-                    didSelectSuggestedItem(item)
+                    didSelectCollectionItem(item)
                 }) {
                     ZStack {
-                        Image(item.id)
+                        Image(item.coverAssetName)
                             .resizable()
                             .scaledToFill()
                             .clipped()
@@ -71,13 +77,13 @@ struct VisionCollectionsView: View {
                         VStack {
                             Spacer()
                             gridItemText(item.name) {
-                                didSelectSuggestedItem(item)
+                                didSelectCollectionItem(item)
                             }
                         }
                     }
                 }
                 .aspectRatio(1, contentMode: .fit)
-                .contextMenu { suggestedItemContextMenu(item: item) }
+                .contextMenu { collectionItemContextMenu(item: item) }
                 .onAppear {
                     appendNextPassIfNeeded(for: index)
                 }
@@ -87,17 +93,17 @@ struct VisionCollectionsView: View {
     }
 
     private var visibleItemCount: Int {
-        suggestedItems.count * gridPassCount
+        collectionItems.count * gridPassCount
     }
 
-    private func item(at index: Int) -> SuggestedItem {
-        suggestedItems[index % suggestedItems.count]
+    private func item(at index: Int) -> CollectionCatalogItem {
+        collectionItems[index % collectionItems.count]
     }
 
     private func appendNextPassIfNeeded(for index: Int) {
-        guard !suggestedItems.isEmpty else { return }
+        guard !collectionItems.isEmpty else { return }
 
-        let appendThreshold = min(max(suggestedItems.count / 2, 24), suggestedItems.count)
+        let appendThreshold = min(max(collectionItems.count / 2, 24), collectionItems.count)
         let triggerIndex = visibleItemCount - appendThreshold
         guard index >= triggerIndex else { return }
 
@@ -118,23 +124,22 @@ struct VisionCollectionsView: View {
         }
     }
     
-    private func suggestedItemContextMenu(item: SuggestedItem) -> some View {
+    private func collectionItemContextMenu(item: CollectionCatalogItem) -> some View {
         Group {
             Text(item.name)
             Divider()
             Button(Strings.play, action: {
-                didSelectSuggestedItem(item)
+                didSelectCollectionItem(item)
             })
         }
     }
     
-    private func didSelectSuggestedItem(_ item: SuggestedItem) {
-        guard TokenGenerator.canGenerate(id: item.id) else { return }
-        playerConfig = VisionPlayerConfig(initialItemId: item.id)
+    private func didSelectCollectionItem(_ item: CollectionCatalogItem) {
+        playerConfig = VisionPlayerPrewarmer.preparedConfig(initialItemId: item.id)
     }
 
     private func showRandomPlayer() {
-        playerConfig = VisionPlayerConfig(initialItemId: nil)
+        playerConfig = VisionPlayerPrewarmer.preparedConfig(initialItemId: nil)
     }
 
     private func dismissPlayer(_ config: VisionPlayerConfig) {
@@ -142,32 +147,12 @@ struct VisionCollectionsView: View {
         playerConfig = nil
     }
 
-}
-
-private enum VisionCollectionCatalog {
-
-    static let allItems: [SuggestedItem] = {
-        dedupedItems(generativeItemsForGrid + downloadableItemsForGrid)
-            .filter { !TokenGenerator.isCollectionDisabledOnCurrentPlatform(id: $0.id) }
-    }()
-
-    private static var generativeItemsForGrid: [SuggestedItem] {
-        return TokenGenerator.allGenerativeSuggestedItems.filter {
-            !$0.isSolanaCollection && !$0.isTezosCollection
-        }
+    private func schedulePlayerPrewarm() {
+        VisionPlayerPrewarmer.scheduleAfterLaunch(initialCollectionIds: likelyInitialCollectionIds())
     }
 
-    private static var downloadableItemsForGrid: [SuggestedItem] {
-        return SuggestedItemsService.allDownloadableCollectionItems
-    }
-
-    private static func dedupedItems(_ items: [SuggestedItem]) -> [SuggestedItem] {
-        var seenIds = Set<String>()
-        return items.filter { item in
-            guard !seenIds.contains(item.id) else { return false }
-            seenIds.insert(item.id)
-            return true
-        }
+    private func likelyInitialCollectionIds() -> [String] {
+        collectionItems.prefix(2).map(\.id)
     }
 
 }

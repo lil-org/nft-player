@@ -17,7 +17,7 @@ extension Notification.Name {
 
 final class DownloadableMediaCache {
 
-    enum PrefetchDirection {
+    enum PrefetchDirection: Hashable {
         case forward, backward
     }
 
@@ -87,6 +87,19 @@ final class DownloadableMediaCache {
         return CollectionCatalog.downloadableMediaDescriptor(
             specificCollectionId: collectionId,
             tokenIndex: targetTokenIndex
+        )
+    }
+
+    static func adjacentDescriptor(
+        for context: PlayerTokenContext?,
+        direction: PrefetchDirection
+    ) -> CollectionCatalogDownloadableMediaDescriptor? {
+        guard let context else { return nil }
+        return adjacentDescriptor(
+            collectionId: context.collectionId,
+            currentTokenIndex: context.tokenIndex,
+            tokenCount: context.tokenCount,
+            direction: direction
         )
     }
 
@@ -238,6 +251,33 @@ final class DownloadableMediaCache {
             self?.clearMemoryCache()
         }
 #endif
+    }
+
+    @discardableResult
+    func prepareWindow(
+        for context: PlayerTokenContext?,
+        ownerId: UUID,
+        direction: PrefetchDirection
+    ) -> CollectionCatalogDownloadableMediaDescriptor? {
+        guard let context else { return nil }
+
+        let descriptors = Self.windowDescriptors(
+            collectionId: context.collectionId,
+            currentTokenIndex: context.tokenIndex,
+            tokenCount: context.tokenCount,
+            direction: direction
+        )
+        guard let currentDescriptor = descriptors.first(where: { $0.tokenIndex == context.tokenIndex }) else {
+            return nil
+        }
+        prepareWindow(
+            collectionId: context.collectionId,
+            ownerId: ownerId,
+            currentTokenIndex: context.tokenIndex,
+            descriptors: descriptors,
+            direction: direction
+        )
+        return currentDescriptor
     }
 
     func prepareWindow(

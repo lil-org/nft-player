@@ -234,6 +234,7 @@ enum CollectionCatalog {
             generativeItemsForGrid
                 + downloadableItemsForGrid
         )
+        .filter { !TokenGenerator.isCollectionDisabledOnCurrentPlatform(id: $0.id) }
         .map(CollectionCatalogItem.init(item:))
     }()
 
@@ -403,13 +404,9 @@ enum CollectionCatalog {
     }
 
     private static var downloadableItemsForGrid: [SuggestedItem] {
-#if os(macOS)
         return SuggestedItemsService.allDownloadableCollectionItems.filter {
             $0.tokenCount != nil || TokenGenerator.canGenerate(id: $0.id)
         }
-#else
-        return SuggestedItemsService.allDownloadableCollectionItems
-#endif
     }
 
     private static func generateRandomDownloadableToken(collectionId: String, notTokenId: String?) -> GeneratedToken? {
@@ -1223,5 +1220,120 @@ enum DownloadableTokenHTML {
     private static func javaScriptNumberLiteral(_ value: Double) -> String {
         guard value.isFinite else { return "0" }
         return String(value)
+    }
+}
+
+enum DownloadableTokenHTMLLayout {
+    static func rootSVGViewBoxSize(in html: String) -> CGSize? {
+        guard let svgOpeningTag = rootSVGOpeningTag(in: html) else { return nil }
+
+        if let viewBox = attribute("viewBox", in: svgOpeningTag),
+           let viewBoxSize = size(fromViewBox: viewBox) {
+            return viewBoxSize
+        }
+
+        guard let width = absoluteLengthAttribute("width", in: svgOpeningTag),
+              let height = absoluteLengthAttribute("height", in: svgOpeningTag),
+              width > 0,
+              height > 0 else {
+            return nil
+        }
+
+        return CGSize(width: width, height: height)
+    }
+
+    private static func size(fromViewBox viewBox: String) -> CGSize? {
+        let components = viewBox
+            .split(whereSeparator: { $0 == "," || $0.isWhitespace })
+            .compactMap { Double($0) }
+
+        guard components.count == 4,
+              components.allSatisfy({ $0.isFinite }),
+              components[2] > 0,
+              components[3] > 0 else {
+            return nil
+        }
+
+        return CGSize(width: components[2], height: components[3])
+    }
+
+    private static func rootSVGOpeningTag(in html: String) -> String? {
+        let patterns = [
+            "<body(?=\\s|>)[^>]*>\\s*(<svg(?=\\s|/?>)[^>]*>)",
+            "^\\s*(?:(?:<\\?xml\\b[^>]*\\?>|<!doctype\\b[^>]*>)\\s*)*(<svg(?=\\s|/?>)[^>]*>)",
+        ]
+
+        for pattern in patterns {
+            if let match = firstCapturedMatch(pattern: pattern, in: html) {
+                return match
+            }
+        }
+
+        return nil
+    }
+
+    private static func firstCapturedMatch(pattern: String, in html: String) -> String? {
+        guard let regex = try? NSRegularExpression(
+            pattern: pattern,
+            options: [.caseInsensitive, .dotMatchesLineSeparators]
+        ) else {
+            return nil
+        }
+
+        let range = NSRange(html.startIndex..<html.endIndex, in: html)
+        guard let match = regex.firstMatch(in: html, range: range),
+              match.numberOfRanges > 1,
+              let capturedRange = Range(match.range(at: 1), in: html) else {
+            return nil
+        }
+
+        return String(html[capturedRange])
+    }
+
+    private static func absoluteLengthAttribute(_ name: String, in openingTag: String) -> CGFloat? {
+        guard let value = attribute(name, in: openingTag)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) else {
+            return nil
+        }
+
+        guard let regex = try? NSRegularExpression(
+            pattern: "^([-+]?(?:\\d+\\.?\\d*|\\.\\d+))(?:px)?$",
+            options: [.caseInsensitive]
+        ) else {
+            return nil
+        }
+
+        let range = NSRange(value.startIndex..<value.endIndex, in: value)
+        guard let match = regex.firstMatch(in: value, range: range),
+              let numberRange = Range(match.range(at: 1), in: value),
+              let number = Double(value[numberRange]),
+              number.isFinite else {
+            return nil
+        }
+
+        return CGFloat(number)
+    }
+
+    private static func attribute(_ name: String, in openingTag: String) -> String? {
+        let escapedName = NSRegularExpression.escapedPattern(for: name)
+        let pattern = "(?:^|[\\s<])\(escapedName)\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)'|([^\\s\"'>]+))"
+
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
+            return nil
+        }
+
+        let range = NSRange(openingTag.startIndex..<openingTag.endIndex, in: openingTag)
+        guard let match = regex.firstMatch(in: openingTag, range: range) else {
+            return nil
+        }
+
+        for index in 1..<match.numberOfRanges {
+            guard let capturedRange = Range(match.range(at: index), in: openingTag) else {
+                continue
+            }
+            return String(openingTag[capturedRange])
+        }
+
+        return nil
     }
 }

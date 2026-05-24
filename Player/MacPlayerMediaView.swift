@@ -489,7 +489,7 @@ final class MacPlayerMediaContainerView: NSView {
         pendingLocalWebURL = fileURL
         htmlDocumentRenderQueue.async {
             let renderedDocument = (try? String(contentsOf: fileURL, encoding: .utf8)).map { documentHTML in
-                let viewportSize = DownloadableHTMLDocumentLayout.rootSVGViewBoxSize(in: documentHTML)
+                let viewportSize = DownloadableTokenHTMLLayout.rootSVGViewBoxSize(in: documentHTML)
                 return (
                     html: DownloadableTokenHTML.createInlineHTMLDocumentHTML(
                         documentHTML: documentHTML,
@@ -673,17 +673,9 @@ final class MacPlayerMediaContainerView: NSView {
     ) {
         guard let context else { return }
 
-        let descriptors = DownloadableMediaCache.windowDescriptors(
-            collectionId: context.collectionId,
-            currentTokenIndex: context.tokenIndex,
-            tokenCount: context.tokenCount,
-            direction: direction
-        )
         DownloadableMediaCache.shared.prepareWindow(
-            collectionId: context.collectionId,
+            for: context,
             ownerId: downloadableMediaWindowOwnerId,
-            currentTokenIndex: context.tokenIndex,
-            descriptors: descriptors,
             direction: direction
         )
         activeDownloadableMediaCollectionId = context.collectionId
@@ -703,11 +695,8 @@ final class MacPlayerMediaContainerView: NSView {
         for context: PlayerTokenContext?,
         direction: DownloadableMediaCache.PrefetchDirection
     ) -> CollectionCatalogDownloadableMediaDescriptor? {
-        guard let context else { return nil }
-        return DownloadableMediaCache.adjacentDescriptor(
-            collectionId: context.collectionId,
-            currentTokenIndex: context.tokenIndex,
-            tokenCount: context.tokenCount,
+        DownloadableMediaCache.adjacentDescriptor(
+            for: context,
             direction: direction
         )
     }
@@ -903,7 +892,7 @@ final class MacPlayerMediaContainerView: NSView {
         guard let documentHTML = try? String(contentsOf: fileURL, encoding: .utf8) else {
             return nil
         }
-        return DownloadableHTMLDocumentLayout.rootSVGViewBoxSize(in: documentHTML)
+        return DownloadableTokenHTMLLayout.rootSVGViewBoxSize(in: documentHTML)
     }
 
     private func imageSize(at fileURL: URL) -> CGSize? {
@@ -1380,121 +1369,6 @@ private enum VideoAssetLayout {
         let size = CGSize(width: abs(transformedSize.width), height: abs(transformedSize.height))
         guard size.width > 0, size.height > 0 else { return nil }
         return size
-    }
-}
-
-private enum DownloadableHTMLDocumentLayout {
-
-    static func rootSVGViewBoxSize(in html: String) -> CGSize? {
-        guard let svgOpeningTag = rootSVGOpeningTag(in: html) else { return nil }
-
-        if let viewBox = attribute("viewBox", in: svgOpeningTag),
-           let viewBoxSize = size(fromViewBox: viewBox) {
-            return viewBoxSize
-        }
-
-        guard let width = absoluteLengthAttribute("width", in: svgOpeningTag),
-              let height = absoluteLengthAttribute("height", in: svgOpeningTag),
-              width > 0,
-              height > 0 else {
-            return nil
-        }
-
-        return CGSize(width: width, height: height)
-    }
-
-    private static func size(fromViewBox viewBox: String) -> CGSize? {
-        let components = viewBox
-            .replacingOccurrences(of: ",", with: " ")
-            .split(whereSeparator: \.isWhitespace)
-        guard components.count == 4 else { return nil }
-
-        let values = components.compactMap { Double($0) }
-        guard values.count == 4,
-              values.allSatisfy({ $0.isFinite }) else {
-            return nil
-        }
-
-        let width = values[2]
-        let height = values[3]
-        guard width > 0, height > 0 else { return nil }
-        return CGSize(width: CGFloat(width), height: CGFloat(height))
-    }
-
-    private static func rootSVGOpeningTag(in html: String) -> String? {
-        if let bodyRootSVG = firstCapturedMatch(
-            pattern: "<body(?=\\s|>)[^>]*>\\s*(<svg(?=\\s|/?>)[^>]*>)",
-            in: html
-        ) {
-            return bodyRootSVG
-        }
-
-        return firstCapturedMatch(
-            pattern: "^\\s*(?:(?:<\\?xml\\b[^>]*\\?>|<!doctype\\b[^>]*>)\\s*)*(<svg(?=\\s|/?>)[^>]*>)",
-            in: html
-        )
-    }
-
-    private static func firstCapturedMatch(pattern: String, in html: String) -> String? {
-        guard let expression = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
-            return nil
-        }
-
-        let fullRange = NSRange(html.startIndex..<html.endIndex, in: html)
-        guard let match = expression.firstMatch(in: html, range: fullRange),
-              match.numberOfRanges > 1 else {
-            return nil
-        }
-
-        let range = match.range(at: 1)
-        guard range.location != NSNotFound,
-              let valueRange = Range(range, in: html) else {
-            return nil
-        }
-        return String(html[valueRange])
-    }
-
-    private static func absoluteLengthAttribute(_ name: String, in openingTag: String) -> CGFloat? {
-        guard let value = attribute(name, in: openingTag)?.trimmingCharacters(in: .whitespacesAndNewlines) else {
-            return nil
-        }
-
-        guard let expression = try? NSRegularExpression(
-            pattern: #"^([-+]?(?:\d+\.?\d*|\.\d+))(?:px)?$"#,
-            options: [.caseInsensitive]
-        ),
-              let match = expression.firstMatch(
-                in: value,
-                range: NSRange(value.startIndex..<value.endIndex, in: value)
-              ),
-              let valueRange = Range(match.range(at: 1), in: value),
-              let number = Double(String(value[valueRange])) else {
-            return nil
-        }
-        return number.isFinite ? CGFloat(number) : nil
-    }
-
-    private static func attribute(_ name: String, in openingTag: String) -> String? {
-        let escapedName = NSRegularExpression.escapedPattern(for: name)
-        let pattern = "(?:^|[\\s<])\(escapedName)\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)'|([^\\s\"'>]+))"
-        guard let expression = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
-            return nil
-        }
-
-        let fullRange = NSRange(openingTag.startIndex..<openingTag.endIndex, in: openingTag)
-        guard let match = expression.firstMatch(in: openingTag, range: fullRange) else {
-            return nil
-        }
-
-        for index in 1..<match.numberOfRanges {
-            let range = match.range(at: index)
-            guard range.location != NSNotFound,
-                  let valueRange = Range(range, in: openingTag) else {
-                continue
-            }
-            return String(openingTag[valueRange])
-        }
-        return nil
     }
 }
 
