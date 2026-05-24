@@ -1,5 +1,7 @@
 // ∅ 2026 lil org
 
+import AVFoundation
+import ImageIO
 import SwiftUI
 import UIKit
 
@@ -195,6 +197,19 @@ private enum VisionPlayerPagingTuning {
     static let pageGap: CGFloat = 23
 }
 
+private enum VisionPlayerZoomTuning {
+    static let maximumScale: CGFloat = 4
+    static let doubleTapScale: CGFloat = 2.5
+    static let resetTolerance: CGFloat = 0.01
+    static let edgePaginationTolerance: CGFloat = 2
+    static let horizontalIntentRatio: CGFloat = 1.15
+}
+
+private enum VisionPlayerZoomContentLayout: Equatable {
+    case viewport
+    case intrinsicMediaSize(CGSize)
+}
+
 private enum VisionPlayerPageNavigation {
     case back, forward
 
@@ -253,6 +268,9 @@ private final class VisionPlayerPageController: UIPageViewController, UIPageView
     private var isTransitioning = false
     private var queuedNavigationRequest: VisionPlayerPageNavigation?
     private weak var transitionDestinationPage: VisionPlayerPageHostController?
+    private var configuredPagingPanGestures = [ObjectIdentifier: UIPanGestureRecognizer]()
+    private var zoomedPagingPanRestingOffsets = [ObjectIdentifier: CGFloat]()
+    private var unlockedZoomedPagingPanGestures = Set<ObjectIdentifier>()
 
     init(playerModel: VisionPlayerModel) {
         self.playerModel = playerModel
@@ -278,6 +296,12 @@ private final class VisionPlayerPageController: UIPageViewController, UIPageView
             direction: .forward,
             animated: false
         )
+        configurePagingScrollViews()
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        configurePagingScrollViews()
     }
 
     func update() {
@@ -317,6 +341,12 @@ private final class VisionPlayerPageController: UIPageViewController, UIPageView
         transitionDestinationPage = nil
         dataSource = nil
         delegate = nil
+        configuredPagingPanGestures.values.forEach {
+            $0.removeTarget(self, action: #selector(handlePagingPan(_:)))
+        }
+        configuredPagingPanGestures.removeAll()
+        zoomedPagingPanRestingOffsets.removeAll()
+        unlockedZoomedPagingPanGestures.removeAll()
     }
 
     @discardableResult
@@ -355,12 +385,14 @@ private final class VisionPlayerPageController: UIPageViewController, UIPageView
         preferredPrefetchDirection: DownloadableMediaCache.PrefetchDirection,
         ownsDownloadableMediaWindow: Bool = true
     ) -> VisionPlayerPageHostController {
-        VisionPlayerPageHostController(
+        let page = VisionPlayerPageHostController(
             playerModel: playerModel,
             coordinate: coordinate,
             preferredPrefetchDirection: preferredPrefetchDirection,
             ownsDownloadableMediaWindow: ownsDownloadableMediaWindow
         )
+        pagingPanGestures.forEach { page.registerPagingPanGesture($0) }
+        return page
     }
 
     @discardableResult
@@ -399,6 +431,7 @@ private final class VisionPlayerPageController: UIPageViewController, UIPageView
         )
         let sourcePage = currentPage
         isTransitioning = true
+        sourcePage?.resetZoomForReuse()
         setViewControllers([targetPage], direction: request.pageDirection, animated: animated) { [weak self] completed in
             guard let self else { return }
 
@@ -410,26 +443,23 @@ private final class VisionPlayerPageController: UIPageViewController, UIPageView
                 )
             } else {
                 self.markPageAsNotOwningDownloadableMediaWindow(targetPage)
-                self.refreshCurrentPage()
+                self.refreshCurrentDownloadableMediaWindow()
             }
             self.finishTransition()
         }
         return true
     }
 
-    private func refreshCurrentPage() {
+    private func refreshCurrentDownloadableMediaWindow() {
         guard let currentPage else { return }
-        currentPage.update(
-            coordinate: currentPage.coordinate,
-            preferredPrefetchDirection: playerModel.preferredPrefetchDirection,
-            forceRefresh: true
-        )
+        currentPage.refreshDownloadableMediaWindow()
     }
 
     private func finishTransition() {
         let request = queuedNavigationRequest
         queuedNavigationRequest = nil
         isTransitioning = false
+        configurePagingScrollViews()
 
         guard let request else { return }
         DispatchQueue.main.async { [weak self] in
@@ -502,16 +532,137 @@ private final class VisionPlayerPageController: UIPageViewController, UIPageView
         transitionDestinationPage = nil
 
         if completed, let currentPage {
-            previousViewControllers.forEach { markPageAsNotOwningDownloadableMediaWindow($0) }
+            previousViewControllers.forEach {
+                resetZoomForInactivePage($0)
+                markPageAsNotOwningDownloadableMediaWindow($0)
+            }
             playerModel.display(
                 coordinate: currentPage.coordinate,
                 direction: currentPage.preferredPrefetchDirection
             )
         } else {
             markPageAsNotOwningDownloadableMediaWindow(destinationPage)
-            refreshCurrentPage()
+            refreshCurrentDownloadableMediaWindow()
         }
         finishTransition()
+    }
+
+    private var pagingScrollViews: [UIScrollView] {
+        view.subviews.compactMap { $0 as? UIScrollView }
+    }
+
+    private var pagingPanGestures: [UIPanGestureRecognizer] {
+        pagingScrollViews.map(\.panGestureRecognizer)
+    }
+
+    private func configurePagingScrollViews() {
+        pagingScrollViews.forEach { scrollView in
+            let panGesture = scrollView.panGestureRecognizer
+            let panGestureId = ObjectIdentifier(panGesture)
+            if configuredPagingPanGestures[panGestureId] == nil {
+                panGesture.addTarget(self, action: #selector(handlePagingPan(_:)))
+                configuredPagingPanGestures[panGestureId] = panGesture
+            }
+        }
+        registerPagingPanGesturesWithActivePages()
+    }
+
+    private func registerPagingPanGesturesWithActivePages() {
+        let gestures = pagingPanGestures
+        guard !gestures.isEmpty else { return }
+
+        activePages.forEach { page in
+            gestures.forEach { page.registerPagingPanGesture($0) }
+        }
+    }
+
+    private var activePages: [VisionPlayerPageHostController] {
+        var pages = [VisionPlayerPageHostController]()
+        func append(_ page: VisionPlayerPageHostController?) {
+            guard let page,
+                  !pages.contains(where: { $0 === page }) else {
+                return
+            }
+            pages.append(page)
+        }
+
+        append(currentPage)
+        append(transitionDestinationPage)
+        viewControllers?
+            .compactMap { $0 as? VisionPlayerPageHostController }
+            .forEach { append($0) }
+        return pages
+    }
+
+    @objc private func handlePagingPan(_ gesture: UIPanGestureRecognizer) {
+        switch gesture.state {
+        case .began:
+            beginZoomedPagingPanIfNeeded(gesture)
+
+        case .changed:
+            updateZoomedPagingPanLock(for: gesture)
+
+        case .ended, .cancelled, .failed:
+            endZoomedPagingPan(gesture)
+
+        default:
+            break
+        }
+    }
+
+    private func beginZoomedPagingPanIfNeeded(_ gesture: UIPanGestureRecognizer) {
+        guard currentPage?.isZoomed == true,
+              let scrollView = pagingScrollView(for: gesture) else {
+            return
+        }
+
+        let gestureId = ObjectIdentifier(gesture)
+        zoomedPagingPanRestingOffsets[gestureId] = scrollView.contentOffset.x
+        unlockedZoomedPagingPanGestures.remove(gestureId)
+    }
+
+    private func updateZoomedPagingPanLock(for gesture: UIPanGestureRecognizer) {
+        guard let currentPage,
+              currentPage.isZoomed,
+              let scrollView = pagingScrollView(for: gesture) else {
+            return
+        }
+
+        let gestureId = ObjectIdentifier(gesture)
+        let restingOffsetX = zoomedPagingPanRestingOffsets[gestureId] ?? scrollView.contentOffset.x
+        guard !unlockedZoomedPagingPanGestures.contains(gestureId) else { return }
+
+        if currentPage.allowsPagingPanFromCurrentZoomEdge(gesture) {
+            scrollView.contentOffset.x = restingOffsetX
+            gesture.setTranslation(.zero, in: view)
+            zoomedPagingPanRestingOffsets[gestureId] = scrollView.contentOffset.x
+            unlockedZoomedPagingPanGestures.insert(gestureId)
+        } else {
+            scrollView.contentOffset.x = restingOffsetX
+        }
+    }
+
+    private func endZoomedPagingPan(_ gesture: UIPanGestureRecognizer) {
+        let gestureId = ObjectIdentifier(gesture)
+        zoomedPagingPanRestingOffsets.removeValue(forKey: gestureId)
+        unlockedZoomedPagingPanGestures.remove(gestureId)
+    }
+
+    private func pagingScrollView(for gesture: UIPanGestureRecognizer) -> UIScrollView? {
+        if let scrollView = gesture.view as? UIScrollView {
+            return scrollView
+        }
+
+        return pagingScrollViews.first { $0.panGestureRecognizer === gesture }
+    }
+
+    private func resetZoomForInactivePage(_ viewController: UIViewController?) {
+        guard let page = viewController as? VisionPlayerPageHostController,
+              page !== currentPage else {
+            return
+        }
+
+        page.resetZoomForReuse()
     }
 
     private func markPageAsNotOwningDownloadableMediaWindow(_ viewController: UIViewController?) {
@@ -524,13 +675,30 @@ private final class VisionPlayerPageController: UIPageViewController, UIPageView
     }
 }
 
-private final class VisionPlayerPageHostController: UIHostingController<VisionPlayerPageHostView> {
+private final class VisionPlayerPageHostController: UIViewController, UIScrollViewDelegate {
+
+    private static let maximumCachedVideoSizeCount = 24
 
     private let playerModel: VisionPlayerModel
+    private let zoomScrollView = VisionPlayerZoomScrollView()
+    private let zoomContentView = UIView()
+    private lazy var hostingController: UIHostingController<VisionPlayerPageHostView> = {
+        UIHostingController(rootView: makeRootView())
+    }()
     private var renderGeneration = 0
+    private var mediaRefreshGeneration = 0
+    private var zoomContentLayout: VisionPlayerZoomContentLayout = .viewport
+    private var laidOutZoomViewportSize: CGSize = .zero
+    private var currentVideoSizeRequest: VisionVideoSizeRequest?
+    private var videoSizeLoad: VisionVideoSizeLoad?
+    private var cachedVideoSizes = [VisionVideoSizeRequest: CGSize]()
+    private var cachedVideoSizeRequests = [VisionVideoSizeRequest]()
     private(set) var coordinate: PlayerCoordinate
     private(set) var preferredPrefetchDirection: DownloadableMediaCache.PrefetchDirection
     private(set) var ownsDownloadableMediaWindow: Bool
+    var isZoomed: Bool {
+        zoomScrollView.isZoomed
+    }
 
     init(
         playerModel: VisionPlayerModel,
@@ -542,18 +710,41 @@ private final class VisionPlayerPageHostController: UIHostingController<VisionPl
         self.coordinate = coordinate
         self.preferredPrefetchDirection = preferredPrefetchDirection
         self.ownsDownloadableMediaWindow = ownsDownloadableMediaWindow
-        super.init(rootView: Self.rootView(
-            playerModel: playerModel,
-            coordinate: coordinate,
-            preferredPrefetchDirection: preferredPrefetchDirection,
-            ownsDownloadableMediaWindow: ownsDownloadableMediaWindow,
-            renderGeneration: 0
-        ))
+        super.init(nibName: nil, bundle: nil)
         view.backgroundColor = .black
+    }
+
+    deinit {
+        cancelVideoSizeLoad()
     }
 
     required init?(coder: NSCoder) {
         fatalError("yo")
+    }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        configureZoomScrollView()
+        installHostingController()
+        installTapGestures()
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+
+        let viewportSize = zoomScrollView.bounds.size
+        guard viewportSize.width > 0, viewportSize.height > 0 else { return }
+
+        if laidOutZoomViewportSize != viewportSize {
+            laidOutZoomViewportSize = viewportSize
+            if isZoomed {
+                resetZoom(animated: false)
+            }
+            updateZoomContentFrame(resetOffset: true)
+        } else {
+            updateZoomContentInsets()
+            clampZoomContentOffsetIfNeeded()
+        }
     }
 
     func update(
@@ -570,18 +761,43 @@ private final class VisionPlayerPageHostController: UIHostingController<VisionPl
             return
         }
 
+        if forceRefresh || self.coordinate != coordinate {
+            clearVideoZoomContentLayout()
+            resetZoomForReuse()
+            setZoomContentLayout(.viewport)
+        }
         self.coordinate = coordinate
         self.preferredPrefetchDirection = preferredPrefetchDirection
         self.ownsDownloadableMediaWindow = ownsDownloadableMediaWindow
         if forceRefresh || didBecomeDownloadableMediaWindowOwner {
             renderGeneration += 1
         }
-        rootView = Self.rootView(
-            playerModel: playerModel,
-            coordinate: coordinate,
+        updateHostedRootView()
+    }
+
+    private func updateHostedRootView() {
+        hostingController.rootView = makeRootView()
+    }
+
+    private func makeRootView() -> VisionPlayerPageHostView {
+        VisionPlayerPageHostView(
+            token: playerModel.token(for: coordinate),
+            context: playerModel.context(for: coordinate),
+            ownerId: playerModel.id,
             preferredPrefetchDirection: preferredPrefetchDirection,
             ownsDownloadableMediaWindow: ownsDownloadableMediaWindow,
-            renderGeneration: renderGeneration
+            renderGeneration: renderGeneration,
+            mediaRefreshGeneration: mediaRefreshGeneration,
+            onZoomContentLayoutChange: { [weak self] layout, generation in
+                self?.setZoomContentLayout(layout, from: generation)
+            },
+            onVideoZoomContentLayoutRequest: { [weak self] descriptor, fileURL, generation in
+                self?.requestVideoZoomContentLayout(
+                    descriptor: descriptor,
+                    fileURL: fileURL,
+                    from: generation
+                )
+            }
         )
     }
 
@@ -597,21 +813,454 @@ private final class VisionPlayerPageHostController: UIHostingController<VisionPl
         )
     }
 
-    private static func rootView(
-        playerModel: VisionPlayerModel,
-        coordinate: PlayerCoordinate,
-        preferredPrefetchDirection: DownloadableMediaCache.PrefetchDirection,
-        ownsDownloadableMediaWindow: Bool,
-        renderGeneration: Int
-    ) -> VisionPlayerPageHostView {
-        VisionPlayerPageHostView(
-            token: playerModel.token(for: coordinate),
-            context: playerModel.context(for: coordinate),
-            ownerId: playerModel.id,
-            preferredPrefetchDirection: preferredPrefetchDirection,
-            ownsDownloadableMediaWindow: ownsDownloadableMediaWindow,
-            renderGeneration: renderGeneration
+    func registerPagingPanGesture(_ panGesture: UIPanGestureRecognizer) {
+        zoomScrollView.registerPagingPanGesture(panGesture)
+    }
+
+    func allowsPagingPanFromCurrentZoomEdge(_ panGesture: UIPanGestureRecognizer) -> Bool {
+        zoomScrollView.allowsPagingPanFromCurrentZoomEdge(panGesture)
+    }
+
+    func resetZoomForReuse() {
+        resetZoom(animated: false)
+    }
+
+    func refreshDownloadableMediaWindow() {
+        guard ownsDownloadableMediaWindow else { return }
+        mediaRefreshGeneration += 1
+        updateHostedRootView()
+    }
+
+    private func configureZoomScrollView() {
+        zoomScrollView.delegate = self
+        zoomScrollView.minimumZoomScale = 1
+        zoomScrollView.maximumZoomScale = VisionPlayerZoomTuning.maximumScale
+        zoomScrollView.bounces = true
+        zoomScrollView.bouncesZoom = true
+        zoomScrollView.showsHorizontalScrollIndicator = false
+        zoomScrollView.showsVerticalScrollIndicator = false
+        zoomScrollView.contentInsetAdjustmentBehavior = .never
+        zoomScrollView.backgroundColor = .black
+        zoomContentView.backgroundColor = .black
+
+        zoomScrollView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(zoomScrollView)
+        zoomScrollView.addSubview(zoomContentView)
+
+        NSLayoutConstraint.activate([
+            zoomScrollView.topAnchor.constraint(equalTo: view.topAnchor),
+            zoomScrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            zoomScrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            zoomScrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor)
+        ])
+
+        updateZoomContentFrame(resetOffset: true)
+        updateZoomInteraction()
+    }
+
+    private func installHostingController() {
+        addChild(hostingController)
+        hostingController.view.backgroundColor = .black
+        hostingController.view.isUserInteractionEnabled = false
+        hostingController.view.translatesAutoresizingMaskIntoConstraints = false
+        zoomContentView.addSubview(hostingController.view)
+        NSLayoutConstraint.activate([
+            hostingController.view.topAnchor.constraint(equalTo: zoomContentView.topAnchor),
+            hostingController.view.bottomAnchor.constraint(equalTo: zoomContentView.bottomAnchor),
+            hostingController.view.leadingAnchor.constraint(equalTo: zoomContentView.leadingAnchor),
+            hostingController.view.trailingAnchor.constraint(equalTo: zoomContentView.trailingAnchor)
+        ])
+        hostingController.didMove(toParent: self)
+    }
+
+    private func installTapGestures() {
+        let doubleTapRecognizer = UITapGestureRecognizer(target: self, action: #selector(handleDoubleTap(_:)))
+        doubleTapRecognizer.numberOfTapsRequired = 2
+        doubleTapRecognizer.cancelsTouchesInView = false
+        view.addGestureRecognizer(doubleTapRecognizer)
+    }
+
+    @objc private func handleDoubleTap(_ gesture: UITapGestureRecognizer) {
+        guard gesture.state == .ended else { return }
+
+        toggleZoom(at: gesture.location(in: view), in: view)
+    }
+
+    private func toggleZoom(at location: CGPoint, in coordinateView: UIView) {
+        guard isViewLoaded else { return }
+        guard zoomScrollView.bounds.width > 0, zoomScrollView.bounds.height > 0 else { return }
+
+        if isZoomed {
+            resetZoom(animated: true)
+            return
+        }
+
+        applyCachedCurrentVideoSizeIfAvailable()
+
+        let locationInContent = coordinateView.convert(location, to: zoomContentView)
+        let targetScale = min(
+            VisionPlayerZoomTuning.doubleTapScale,
+            zoomScrollView.maximumZoomScale
         )
+        let zoomSize = CGSize(
+            width: zoomScrollView.bounds.width / targetScale,
+            height: zoomScrollView.bounds.height / targetScale
+        )
+        let allowedContentRect = zoomAllowedContentRect()
+        let zoomOrigin = CGPoint(
+            x: boundedZoomOrigin(
+                centeredAt: locationInContent.x,
+                zoomLength: zoomSize.width,
+                allowedMin: allowedContentRect.minX,
+                allowedMax: allowedContentRect.maxX
+            ),
+            y: boundedZoomOrigin(
+                centeredAt: locationInContent.y,
+                zoomLength: zoomSize.height,
+                allowedMin: allowedContentRect.minY,
+                allowedMax: allowedContentRect.maxY
+            )
+        )
+        let zoomRect = CGRect(origin: zoomOrigin, size: zoomSize)
+        zoomScrollView.zoom(to: zoomRect, animated: true)
+    }
+
+    private func resetZoom(animated: Bool) {
+        guard isViewLoaded else { return }
+        guard zoomScrollView.zoomScale != zoomScrollView.minimumZoomScale else {
+            updateZoomInteraction()
+            return
+        }
+
+        zoomScrollView.setZoomScale(zoomScrollView.minimumZoomScale, animated: animated)
+        if !animated {
+            updateZoomContentInsets()
+            zoomScrollView.contentOffset = centeredZoomContentOffset
+            updateZoomInteraction()
+        }
+    }
+
+    private func setZoomContentLayout(
+        _ layout: VisionPlayerZoomContentLayout,
+        from generation: Int
+    ) {
+        guard generation == renderGeneration else { return }
+
+        clearVideoZoomContentLayout()
+        setZoomContentLayout(layout)
+    }
+
+    private func setZoomContentLayout(_ layout: VisionPlayerZoomContentLayout) {
+        guard zoomContentLayout != layout else { return }
+
+        zoomContentLayout = layout
+        resetZoom(animated: false)
+        updateZoomContentFrame(resetOffset: true)
+    }
+
+    private func updateZoomContentFrame(resetOffset: Bool) {
+        let viewportSize = zoomScrollView.bounds.size
+        guard viewportSize.width > 0, viewportSize.height > 0 else { return }
+
+        let contentSize = zoomContentSize(fitting: viewportSize)
+        if !zoomScrollView.isZoomed {
+            zoomContentView.transform = .identity
+            zoomContentView.frame = CGRect(origin: .zero, size: contentSize)
+            zoomScrollView.contentSize = contentSize
+        }
+
+        updateZoomContentInsets()
+        if resetOffset {
+            zoomScrollView.contentOffset = centeredZoomContentOffset
+        } else {
+            clampZoomContentOffsetIfNeeded()
+        }
+    }
+
+    private func zoomContentSize(fitting viewportSize: CGSize) -> CGSize {
+        switch zoomContentLayout {
+        case .viewport:
+            return viewportSize
+
+        case .intrinsicMediaSize(let imageSize):
+            guard imageSize.width > 0, imageSize.height > 0 else { return viewportSize }
+
+            let scale = min(viewportSize.width / imageSize.width, viewportSize.height / imageSize.height)
+            return CGSize(
+                width: imageSize.width * scale,
+                height: imageSize.height * scale
+            )
+        }
+    }
+
+    private func updateZoomContentInsets() {
+        let viewportSize = zoomScrollView.bounds.size
+        guard viewportSize.width > 0, viewportSize.height > 0 else { return }
+
+        let offsetRanges = zoomContentOffsetRanges()
+        let contentSize = zoomScrollView.contentSize
+        let contentInset = UIEdgeInsets(
+            top: -offsetRanges.y.lowerBound,
+            left: -offsetRanges.x.lowerBound,
+            bottom: offsetRanges.y.upperBound - (contentSize.height - viewportSize.height),
+            right: offsetRanges.x.upperBound - (contentSize.width - viewportSize.width)
+        )
+
+        if zoomScrollView.contentInset != contentInset {
+            zoomScrollView.contentInset = contentInset
+        }
+    }
+
+    private var centeredZoomContentOffset: CGPoint {
+        let offsetRanges = zoomContentOffsetRanges()
+        return CGPoint(
+            x: offsetRanges.x.lowerBound,
+            y: offsetRanges.y.lowerBound
+        )
+    }
+
+    private func clampZoomContentOffsetIfNeeded() {
+        let offsetRanges = zoomContentOffsetRanges()
+        let clampedOffset = CGPoint(
+            x: min(max(zoomScrollView.contentOffset.x, offsetRanges.x.lowerBound), offsetRanges.x.upperBound),
+            y: min(max(zoomScrollView.contentOffset.y, offsetRanges.y.lowerBound), offsetRanges.y.upperBound)
+        )
+
+        if zoomScrollView.contentOffset != clampedOffset {
+            zoomScrollView.contentOffset = clampedOffset
+        }
+    }
+
+    private func zoomContentOffsetRanges() -> (x: ClosedRange<CGFloat>, y: ClosedRange<CGFloat>) {
+        let viewportSize = zoomScrollView.bounds.size
+        guard viewportSize.width > 0, viewportSize.height > 0 else {
+            return (x: 0...0, y: 0...0)
+        }
+
+        let scale = zoomScrollView.zoomScale
+        let allowedContentRect = zoomAllowedContentRect()
+        return (
+            x: zoomContentOffsetRange(
+                allowedMin: allowedContentRect.minX * scale,
+                allowedMax: allowedContentRect.maxX * scale,
+                viewportLength: viewportSize.width
+            ),
+            y: zoomContentOffsetRange(
+                allowedMin: allowedContentRect.minY * scale,
+                allowedMax: allowedContentRect.maxY * scale,
+                viewportLength: viewportSize.height
+            )
+        )
+    }
+
+    private func zoomContentOffsetRange(
+        allowedMin: CGFloat,
+        allowedMax: CGFloat,
+        viewportLength: CGFloat
+    ) -> ClosedRange<CGFloat> {
+        let contentLength = max(allowedMax - allowedMin, 0)
+        guard contentLength > viewportLength else {
+            let centeredOffset = (allowedMin + allowedMax - viewportLength) / 2
+            return centeredOffset...centeredOffset
+        }
+
+        return allowedMin...(allowedMax - viewportLength)
+    }
+
+    private func zoomAllowedContentRect() -> CGRect {
+        let contentBounds = CGRect(origin: .zero, size: zoomContentView.bounds.size)
+        guard contentBounds.width > 0, contentBounds.height > 0 else { return .zero }
+        return contentBounds
+    }
+
+    private func boundedZoomOrigin(
+        centeredAt center: CGFloat,
+        zoomLength: CGFloat,
+        allowedMin: CGFloat,
+        allowedMax: CGFloat
+    ) -> CGFloat {
+        let clampedCenter = min(max(center, allowedMin), allowedMax)
+        let contentLength = allowedMax - allowedMin
+        guard contentLength > zoomLength else {
+            return (allowedMin + allowedMax - zoomLength) / 2
+        }
+
+        return min(max(clampedCenter - zoomLength / 2, allowedMin), allowedMax - zoomLength)
+    }
+
+    private func updateZoomInteraction() {
+        let shouldActivateZoomInteraction = isZoomed
+        if zoomScrollView.panGestureRecognizer.isEnabled != shouldActivateZoomInteraction {
+            zoomScrollView.panGestureRecognizer.isEnabled = shouldActivateZoomInteraction
+        }
+    }
+
+    private func requestVideoZoomContentLayout(
+        descriptor: CollectionCatalogDownloadableMediaDescriptor,
+        fileURL: URL,
+        from generation: Int
+    ) {
+        guard generation == renderGeneration else { return }
+
+        let request = VisionVideoSizeRequest(fileURL: fileURL, descriptor: descriptor)
+        currentVideoSizeRequest = request
+
+        if let videoSizeLoad, videoSizeLoad.request != request {
+            cancelVideoSizeLoad()
+        }
+
+        if let cachedSize = cachedVideoSizes[request] {
+            applyVideoSizeIfCurrent(cachedSize, for: request)
+            return
+        }
+
+        setZoomContentLayout(.viewport)
+        guard videoSizeLoad == nil else { return }
+
+        let task = Task.detached(priority: .utility) { [fileURL, request] in
+            let size = await VisionVideoAssetLayout.displaySize(at: fileURL)
+            guard !Task.isCancelled else { return }
+
+            await MainActor.run { [weak self] in
+                guard !Task.isCancelled,
+                      let self,
+                      self.videoSizeLoad?.request == request else {
+                    return
+                }
+
+                self.videoSizeLoad = nil
+                guard let size else { return }
+
+                self.cacheVideoSize(size, for: request)
+                self.applyVideoSizeIfCurrent(size, for: request)
+            }
+        }
+
+        videoSizeLoad = VisionVideoSizeLoad(request: request, task: task)
+    }
+
+    private func cacheVideoSize(_ size: CGSize, for request: VisionVideoSizeRequest) {
+        if cachedVideoSizes[request] == nil {
+            cachedVideoSizeRequests.append(request)
+        }
+        cachedVideoSizes[request] = size
+
+        while cachedVideoSizeRequests.count > Self.maximumCachedVideoSizeCount {
+            let removedRequest = cachedVideoSizeRequests.removeFirst()
+            cachedVideoSizes.removeValue(forKey: removedRequest)
+        }
+    }
+
+    private func applyCachedCurrentVideoSizeIfAvailable() {
+        guard let currentVideoSizeRequest,
+              let cachedSize = cachedVideoSizes[currentVideoSizeRequest] else {
+            return
+        }
+
+        applyVideoSizeIfCurrent(cachedSize, for: currentVideoSizeRequest)
+    }
+
+    private func applyVideoSizeIfCurrent(_ size: CGSize, for request: VisionVideoSizeRequest) {
+        guard currentVideoSizeRequest == request,
+              DownloadableMediaCache.shared.localFileURL(for: request.descriptor) == request.fileURL,
+              request.matchesCurrentFileVersion(),
+              !zoomScrollView.isZoomed,
+              !zoomScrollView.isZooming else {
+            return
+        }
+
+        setZoomContentLayout(.intrinsicMediaSize(size))
+    }
+
+    private func clearVideoZoomContentLayout() {
+        currentVideoSizeRequest = nil
+        cancelVideoSizeLoad()
+    }
+
+    private func cancelVideoSizeLoad() {
+        videoSizeLoad?.task.cancel()
+        videoSizeLoad = nil
+    }
+
+    func viewForZooming(in scrollView: UIScrollView) -> UIView? {
+        zoomContentView
+    }
+
+    func scrollViewDidZoom(_ scrollView: UIScrollView) {
+        updateZoomContentInsets()
+        clampZoomContentOffsetIfNeeded()
+        updateZoomInteraction()
+    }
+
+    func scrollViewDidEndZooming(_ scrollView: UIScrollView, with view: UIView?, atScale scale: CGFloat) {
+        if scale <= scrollView.minimumZoomScale + VisionPlayerZoomTuning.resetTolerance {
+            resetZoom(animated: true)
+        } else {
+            updateZoomContentInsets()
+            clampZoomContentOffsetIfNeeded()
+            updateZoomInteraction()
+        }
+    }
+
+}
+
+private final class VisionPlayerZoomScrollView: UIScrollView {
+
+    private var pagingPanGestureRecognizerIds = Set<ObjectIdentifier>()
+    var isZoomed: Bool {
+        zoomScale > minimumZoomScale + VisionPlayerZoomTuning.resetTolerance
+    }
+
+    func registerPagingPanGesture(_ panGesture: UIPanGestureRecognizer) {
+        pagingPanGestureRecognizerIds.insert(ObjectIdentifier(panGesture))
+    }
+
+    func allowsPagingPanFromCurrentZoomEdge(_ panGesture: UIPanGestureRecognizer) -> Bool {
+        guard isZoomed else { return false }
+
+        let velocity = panGesture.velocity(in: self)
+        let isHorizontalPan = abs(velocity.x) > abs(velocity.y) * VisionPlayerZoomTuning.horizontalIntentRatio
+        guard isHorizontalPan else { return false }
+
+        if velocity.x > 0 {
+            return isAtLeftContentEdge
+        } else if velocity.x < 0 {
+            return isAtRightContentEdge
+        } else {
+            return false
+        }
+    }
+
+    @objc func gestureRecognizer(
+        _ gestureRecognizer: UIGestureRecognizer,
+        shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+    ) -> Bool {
+        guard isZoomed else { return false }
+
+        return gestureRecognizer === panGestureRecognizer && isPagingPanGesture(otherGestureRecognizer)
+            || otherGestureRecognizer === panGestureRecognizer && isPagingPanGesture(gestureRecognizer)
+    }
+
+    private func isPagingPanGesture(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        guard let panGesture = gestureRecognizer as? UIPanGestureRecognizer else { return false }
+
+        return pagingPanGestureRecognizerIds.contains(ObjectIdentifier(panGesture))
+    }
+
+    private var isAtLeftContentEdge: Bool {
+        contentOffset.x <= minimumContentOffsetX + VisionPlayerZoomTuning.edgePaginationTolerance
+    }
+
+    private var isAtRightContentEdge: Bool {
+        contentOffset.x >= maximumContentOffsetX - VisionPlayerZoomTuning.edgePaginationTolerance
+    }
+
+    private var minimumContentOffsetX: CGFloat {
+        -adjustedContentInset.left
+    }
+
+    private var maximumContentOffsetX: CGFloat {
+        max(minimumContentOffsetX, contentSize.width - bounds.width + adjustedContentInset.right)
     }
 }
 
@@ -623,6 +1272,9 @@ private struct VisionPlayerPageHostView: View {
     let preferredPrefetchDirection: DownloadableMediaCache.PrefetchDirection
     let ownsDownloadableMediaWindow: Bool
     let renderGeneration: Int
+    let mediaRefreshGeneration: Int
+    let onZoomContentLayoutChange: (VisionPlayerZoomContentLayout, Int) -> Void
+    let onVideoZoomContentLayoutRequest: (CollectionCatalogDownloadableMediaDescriptor, URL, Int) -> Void
 
     var body: some View {
         VisionPlayerMediaView(
@@ -630,7 +1282,11 @@ private struct VisionPlayerPageHostView: View {
             context: context,
             ownerId: ownerId,
             preferredPrefetchDirection: preferredPrefetchDirection,
-            ownsDownloadableMediaWindow: ownsDownloadableMediaWindow
+            ownsDownloadableMediaWindow: ownsDownloadableMediaWindow,
+            mediaRefreshGeneration: mediaRefreshGeneration,
+            layoutGeneration: renderGeneration,
+            onZoomContentLayoutChange: onZoomContentLayoutChange,
+            onVideoZoomContentLayoutRequest: onVideoZoomContentLayoutRequest
         )
         .id(renderGeneration)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -650,6 +1306,10 @@ private struct VisionPlayerMediaView: View {
     let ownerId: UUID
     let preferredPrefetchDirection: DownloadableMediaCache.PrefetchDirection
     let ownsDownloadableMediaWindow: Bool
+    let mediaRefreshGeneration: Int
+    let layoutGeneration: Int
+    let onZoomContentLayoutChange: (VisionPlayerZoomContentLayout, Int) -> Void
+    let onVideoZoomContentLayoutRequest: (CollectionCatalogDownloadableMediaDescriptor, URL, Int) -> Void
 
     @State private var staticImage: UIImage?
     @State private var staticImageDescriptor: CollectionCatalogDownloadableMediaDescriptor?
@@ -663,6 +1323,9 @@ private struct VisionPlayerMediaView: View {
         content
             .onAppear(perform: renderCurrentContent)
             .onChange(of: renderKey) {
+                renderCurrentContent()
+            }
+            .onChange(of: mediaRefreshGeneration) {
                 renderCurrentContent()
             }
             .onReceive(NotificationCenter.default.publisher(for: .downloadableMediaCacheFileAvailabilityDidChange)) { _ in
@@ -770,6 +1433,7 @@ private struct VisionPlayerMediaView: View {
             cancelActiveLoad = nil
             staticImage = nil
             staticImageDescriptor = descriptor
+            updateZoomContentLayout(.viewport)
             clearDownloadableMediaFallback()
         }
 
@@ -779,6 +1443,7 @@ private struct VisionPlayerMediaView: View {
             clearDownloadableMediaFallback()
             staticImage = cachedImage
             staticImageDescriptor = descriptor
+            updateZoomContentLayout(.intrinsicMediaSize(cachedImage.size))
             return
         }
 
@@ -796,6 +1461,7 @@ private struct VisionPlayerMediaView: View {
 
             clearDownloadableMediaFallback()
             staticImage = image
+            updateZoomContentLayout(.intrinsicMediaSize(image.size))
         }
     }
 
@@ -805,6 +1471,10 @@ private struct VisionPlayerMediaView: View {
 
         if localWebContentDescriptor == descriptor,
            localWebContent != nil {
+            if case .html = descriptor.media {
+                return
+            }
+            updateLocalWebZoomContentLayoutIfAvailable(for: descriptor)
             return
         }
 
@@ -814,6 +1484,7 @@ private struct VisionPlayerMediaView: View {
             localWebContent = nil
             localWebContentDescriptor = descriptor
             pendingHTMLDocumentRender = nil
+            updateZoomContentLayout(.viewport)
             clearDownloadableMediaFallback()
         }
 
@@ -866,6 +1537,7 @@ private struct VisionPlayerMediaView: View {
         }
 
         pendingHTMLDocumentRender = nil
+        updateLocalWebZoomContentLayout(for: descriptor, fileURL: fileURL)
         guard let content = localWebContent(
             for: descriptor,
             fileURL: fileURL,
@@ -890,23 +1562,27 @@ private struct VisionPlayerMediaView: View {
 
         pendingHTMLDocumentRender = request
         localWebContent = nil
+        updateZoomContentLayout(.viewport)
         clearDownloadableMediaFallback()
 
         let htmlDirectoryURL = DownloadableMediaCache.shared.webViewHTMLDirectoryURL
 
         Self.htmlDocumentRenderQueue.async {
             let baseURL = DownloadableMediaCache.shared.downloadedSourceURL(for: descriptor).absoluteString
-            let content = (try? String(contentsOf: fileURL, encoding: .utf8)).map { documentHTML in
+            let renderedDocument = (try? String(contentsOf: fileURL, encoding: .utf8)).map { documentHTML in
                 let viewportSize = DownloadableTokenHTMLLayout.rootSVGViewBoxSize(in: documentHTML)
 
-                return VisionWebContent.localHTML(
-                    string: DownloadableTokenHTML.createInlineHTMLDocumentHTML(
-                        documentHTML: documentHTML,
-                        baseURL: baseURL,
-                        contentSize: viewportSize
+                return (
+                    content: VisionWebContent.localHTML(
+                        string: DownloadableTokenHTML.createInlineHTMLDocumentHTML(
+                            documentHTML: documentHTML,
+                            baseURL: baseURL,
+                            contentSize: viewportSize
+                        ),
+                        htmlDirectoryURL: htmlDirectoryURL,
+                        readAccessURL: htmlDirectoryURL
                     ),
-                    htmlDirectoryURL: htmlDirectoryURL,
-                    readAccessURL: htmlDirectoryURL
+                    viewportSize: viewportSize
                 )
             }
 
@@ -917,14 +1593,19 @@ private struct VisionPlayerMediaView: View {
                 }
 
                 pendingHTMLDocumentRender = nil
-                guard let content else {
+                guard let renderedDocument else {
                     localWebContent = nil
                     renderDownloadableMediaFallback(for: descriptor)
                     return
                 }
 
+                if let viewportSize = renderedDocument.viewportSize {
+                    updateZoomContentLayout(.intrinsicMediaSize(viewportSize))
+                } else {
+                    updateZoomContentLayout(.viewport)
+                }
                 clearDownloadableMediaFallback()
-                localWebContent = content
+                localWebContent = renderedDocument.content
             }
         }
     }
@@ -959,6 +1640,71 @@ private struct VisionPlayerMediaView: View {
             htmlDirectoryURL: cache.webViewHTMLDirectoryURL,
             readAccessURL: readAccessURL
         )
+    }
+
+    private func updateLocalWebZoomContentLayoutIfAvailable(
+        for descriptor: CollectionCatalogDownloadableMediaDescriptor
+    ) {
+        guard let fileURL = DownloadableMediaCache.shared.localFileURL(for: descriptor) else {
+            updateZoomContentLayout(.viewport)
+            return
+        }
+
+        updateLocalWebZoomContentLayout(for: descriptor, fileURL: fileURL)
+    }
+
+    private func updateLocalWebZoomContentLayout(
+        for descriptor: CollectionCatalogDownloadableMediaDescriptor,
+        fileURL: URL
+    ) {
+        switch descriptor.media {
+        case .staticImage:
+            updateZoomContentLayout(.viewport)
+
+        case .animatedImage:
+            if let imageSize = imageOrSVGSize(at: fileURL) {
+                updateZoomContentLayout(.intrinsicMediaSize(imageSize))
+            } else {
+                updateZoomContentLayout(.viewport)
+            }
+
+        case .video:
+            requestVideoZoomContentLayout(for: descriptor, fileURL: fileURL)
+
+        case .html:
+            updateZoomContentLayout(.viewport)
+        }
+    }
+
+    private func imageOrSVGSize(at fileURL: URL) -> CGSize? {
+        if let imageSize = imageSize(at: fileURL) {
+            return imageSize
+        }
+
+        guard let documentHTML = try? String(contentsOf: fileURL, encoding: .utf8) else {
+            return nil
+        }
+        return DownloadableTokenHTMLLayout.rootSVGViewBoxSize(in: documentHTML)
+    }
+
+    private func imageSize(at fileURL: URL) -> CGSize? {
+        guard let imageSource = CGImageSourceCreateWithURL(fileURL as CFURL, nil),
+              let properties = CGImageSourceCopyPropertiesAtIndex(imageSource, 0, nil) as? [CFString: Any],
+              let width = properties[kCGImagePropertyPixelWidth] as? NSNumber,
+              let height = properties[kCGImagePropertyPixelHeight] as? NSNumber else {
+            return nil
+        }
+
+        let size = CGSize(width: CGFloat(width.doubleValue), height: CGFloat(height.doubleValue))
+        guard size.width > 0, size.height > 0 else { return nil }
+        return size
+    }
+
+    private func requestVideoZoomContentLayout(
+        for descriptor: CollectionCatalogDownloadableMediaDescriptor,
+        fileURL: URL
+    ) {
+        onVideoZoomContentLayoutRequest(descriptor, fileURL, layoutGeneration)
     }
 
     private func adjacentLocalFileURL(for descriptor: CollectionCatalogDownloadableMediaDescriptor) -> URL? {
@@ -998,7 +1744,12 @@ private struct VisionPlayerMediaView: View {
             return
         }
 
+        updateZoomContentLayout(.viewport)
         fallbackHTMLDescriptor = descriptor
+    }
+
+    private func updateZoomContentLayout(_ layout: VisionPlayerZoomContentLayout) {
+        onZoomContentLayoutChange(layout, layoutGeneration)
     }
 
     private func cleanup() {
@@ -1010,6 +1761,7 @@ private struct VisionPlayerMediaView: View {
         localWebContentDescriptor = nil
         fallbackHTMLDescriptor = nil
         pendingHTMLDocumentRender = nil
+        updateZoomContentLayout(.viewport)
     }
 
 }
@@ -1025,6 +1777,51 @@ private struct VisionPlayerRenderKey: Hashable {
 private struct VisionHTMLDocumentRenderRequest: Hashable {
     let descriptor: CollectionCatalogDownloadableMediaDescriptor
     let fileURL: URL
+}
+
+private struct VisionVideoSizeRequest: Hashable {
+    let descriptor: CollectionCatalogDownloadableMediaDescriptor
+    let fileURL: URL
+    let fileSize: Int?
+    let contentModificationDate: Date?
+
+    init(fileURL: URL, descriptor: CollectionCatalogDownloadableMediaDescriptor) {
+        let resourceValues = try? fileURL.resourceValues(
+            forKeys: [.fileSizeKey, .contentModificationDateKey]
+        )
+        self.descriptor = descriptor
+        self.fileURL = fileURL
+        self.fileSize = resourceValues?.fileSize
+        self.contentModificationDate = resourceValues?.contentModificationDate
+    }
+
+    func matchesCurrentFileVersion() -> Bool {
+        Self(fileURL: fileURL, descriptor: descriptor) == self
+    }
+}
+
+private struct VisionVideoSizeLoad {
+    let request: VisionVideoSizeRequest
+    let task: Task<Void, Never>
+}
+
+private enum VisionVideoAssetLayout {
+    static func displaySize(at fileURL: URL) async -> CGSize? {
+        let asset = AVURLAsset(url: fileURL)
+        guard let track = try? await asset.loadTracks(withMediaType: .video).first else { return nil }
+
+        async let naturalSize = track.load(.naturalSize)
+        async let preferredTransform = track.load(.preferredTransform)
+
+        guard let (loadedNaturalSize, loadedPreferredTransform) = try? await (naturalSize, preferredTransform) else {
+            return nil
+        }
+
+        let transformedSize = loadedNaturalSize.applying(loadedPreferredTransform)
+        let size = CGSize(width: abs(transformedSize.width), height: abs(transformedSize.height))
+        guard size.width > 0, size.height > 0 else { return nil }
+        return size
+    }
 }
 
 enum VisionPlayerPrewarmer {
