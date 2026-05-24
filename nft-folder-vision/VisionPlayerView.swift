@@ -84,11 +84,11 @@ struct VisionPlayerView: View {
     }
 
     private func goBack() {
-        navigationBridge.goBack()
+        navigationBridge.goBack(animated: false)
     }
 
     private func goForward() {
-        navigationBridge.goForward()
+        navigationBridge.goForward(animated: false)
     }
 
 }
@@ -241,6 +241,11 @@ private enum VisionPlayerPageNavigation {
     }
 }
 
+private struct VisionPlayerQueuedNavigationRequest {
+    let navigation: VisionPlayerPageNavigation
+    let animated: Bool
+}
+
 private struct VisionPlayerPagerView: UIViewControllerRepresentable {
 
     @ObservedObject var playerModel: VisionPlayerModel
@@ -266,7 +271,7 @@ private final class VisionPlayerPageController: UIPageViewController, UIPageView
 
     private let playerModel: VisionPlayerModel
     private var isTransitioning = false
-    private var queuedNavigationRequest: VisionPlayerPageNavigation?
+    private var queuedNavigationRequest: VisionPlayerQueuedNavigationRequest?
     private weak var transitionDestinationPage: VisionPlayerPageHostController?
     private var configuredPagingPanGestures = [ObjectIdentifier: UIPanGestureRecognizer]()
     private var zoomedPagingPanRestingOffsets = [ObjectIdentifier: CGFloat]()
@@ -405,7 +410,10 @@ private final class VisionPlayerPageController: UIPageViewController, UIPageView
         }
 
         guard !isTransitioning else {
-            queuedNavigationRequest = request
+            queuedNavigationRequest = VisionPlayerQueuedNavigationRequest(
+                navigation: request,
+                animated: animated
+            )
             return true
         }
 
@@ -456,14 +464,14 @@ private final class VisionPlayerPageController: UIPageViewController, UIPageView
     }
 
     private func finishTransition() {
-        let request = queuedNavigationRequest
+        let queuedRequest = queuedNavigationRequest
         queuedNavigationRequest = nil
         isTransitioning = false
         configurePagingScrollViews()
 
-        guard let request else { return }
+        guard let queuedRequest else { return }
         DispatchQueue.main.async { [weak self] in
-            self?.navigate(request, animated: true)
+            self?.navigate(queuedRequest.navigation, animated: queuedRequest.animated)
         }
     }
 
