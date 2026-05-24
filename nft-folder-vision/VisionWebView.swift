@@ -72,7 +72,6 @@ final class VisionPlayerWebView: WKWebView, WKNavigationDelegate {
             ?? VisionPlayerWebView(frame: .zero, configuration: webConfiguration())
         webView.frame = .zero
         webView.isHidden = false
-        webView.isUserInteractionEnabled = true
         webView.applyPlayerDefaults()
         return webView
     }
@@ -110,7 +109,6 @@ final class VisionPlayerWebView: WKWebView, WKNavigationDelegate {
             configuration: webConfiguration()
         )
         webView.isHidden = true
-        webView.isUserInteractionEnabled = false
         webView.applyPlayerDefaults()
         webView.loadHTMLString("<!doctype html><html><head><meta charset=\"utf-8\"></head><body></body></html>", baseURL: nil)
         prewarmedWebView = webView
@@ -142,6 +140,7 @@ final class VisionPlayerWebView: WKWebView, WKNavigationDelegate {
 
     private func applyPlayerDefaults() {
         navigationDelegate = self
+        isUserInteractionEnabled = false
         isOpaque = false
         backgroundColor = .black
         scrollView.backgroundColor = .black

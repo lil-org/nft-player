@@ -13,20 +13,19 @@ struct VisionPlayerConfig: Hashable, Identifiable {
 struct VisionPlayerView: View {
     
     private let onDismiss: () -> Void
-    @State private var playerState: VisionPlayerState
+    @StateObject private var playerModel: VisionPlayerModel
+    @State private var navigationBridge = VisionPlayerNavigationBridge()
     
     init(config: VisionPlayerConfig, onDismiss: @escaping () -> Void) {
         self.onDismiss = onDismiss
-        _playerState = State(initialValue: VisionPlayerState(config: config))
+        _playerModel = StateObject(wrappedValue: VisionPlayerModel(config: config))
     }
     
     var body: some View {
         VStack(spacing: 0) {
-            VisionPlayerMediaView(
-                token: playerState.currentToken,
-                context: playerState.currentTokenContext,
-                ownerId: playerState.id,
-                preferredPrefetchDirection: playerState.preferredPrefetchDirection
+            VisionPlayerPagerView(
+                playerModel: playerModel,
+                navigationBridge: navigationBridge
             )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
@@ -43,14 +42,14 @@ struct VisionPlayerView: View {
                         Images.back
                     }
                     .keyboardShortcut("[", modifiers: .command)
-                    .disabled(!playerState.canGoBack)
+                    .disabled(!playerModel.canGoBack)
                     .accessibilityLabel(Strings.back)
 
                     Button(action: goForward) {
                         Images.forward
                     }
                     .keyboardShortcut("]", modifiers: .command)
-                    .disabled(!playerState.canGoForward)
+                    .disabled(!playerModel.canGoForward)
                     .accessibilityLabel(Strings.forward)
                 }
 
@@ -62,14 +61,14 @@ struct VisionPlayerView: View {
         }
         .background(Color.black)
         .onDisappear {
-            DownloadableMediaCache.shared.clearActiveWindow(ownerId: playerState.id)
+            DownloadableMediaCache.shared.clearActiveWindow(ownerId: playerModel.id)
         }
     }
 
     private var moreMenu: some View {
         Menu {
             Button(Strings.viewOnBlockExplorer, action: viewOnWeb)
-                .disabled(playerState.currentToken.url == nil)
+                .disabled(playerModel.currentToken.url == nil)
         } label: {
             Images.ellipsis
         }
@@ -77,41 +76,52 @@ struct VisionPlayerView: View {
     }
     
     private func viewOnWeb() {
-        if let url = playerState.currentToken.url {
+        if let url = playerModel.currentToken.url {
             UIApplication.shared.open(url)
         }
     }
 
     private func goBack() {
-        playerState.goBack()
+        navigationBridge.goBack()
     }
 
     private func goForward() {
-        playerState.goForward()
+        navigationBridge.goForward()
     }
 
 }
 
-private struct VisionPlayerState {
+private final class VisionPlayerModel: ObservableObject {
 
     let id: UUID
     private let dataSource: PlayerTokenPagingDataSource
-    private(set) var currentToken: GeneratedToken
-    private(set) var currentCoordinate = PlayerCoordinate(x: 0, y: 0)
-    private(set) var preferredPrefetchDirection: DownloadableMediaCache.PrefetchDirection = .forward
+    @Published private var displayState: VisionPlayerDisplayState
 
     init(config: VisionPlayerConfig) {
+        let initialCoordinate = PlayerCoordinate(x: 0, y: 0)
         id = config.id
         dataSource = PlayerTokenPagingDataSource(
             initialCollectionId: config.initialItemId,
             specificInitialToken: config.specificToken,
             initialTokenId: config.initialTokenId
         )
-        currentToken = dataSource.getToken(coordinate: currentCoordinate)
+        displayState = VisionPlayerDisplayState(
+            coordinate: initialCoordinate,
+            token: dataSource.getToken(coordinate: initialCoordinate),
+            preferredPrefetchDirection: .forward
+        )
     }
 
-    var currentTokenContext: PlayerTokenContext? {
-        dataSource.collectionTokenContext(coordinate: currentCoordinate)
+    var currentToken: GeneratedToken {
+        displayState.token
+    }
+
+    var currentCoordinate: PlayerCoordinate {
+        displayState.coordinate
+    }
+
+    var preferredPrefetchDirection: DownloadableMediaCache.PrefetchDirection {
+        displayState.preferredPrefetchDirection
     }
 
     var canGoBack: Bool {
@@ -122,42 +132,510 @@ private struct VisionPlayerState {
         canRender(offset: 1)
     }
 
-    mutating func goBack() {
-        showCoordinate(
-            PlayerCoordinate(x: currentCoordinate.x - 1, y: currentCoordinate.y),
-            direction: .backward
+    func token(for coordinate: PlayerCoordinate) -> GeneratedToken {
+        dataSource.getToken(coordinate: coordinate)
+    }
+
+    func context(for coordinate: PlayerCoordinate) -> PlayerTokenContext? {
+        dataSource.collectionTokenContext(coordinate: coordinate)
+    }
+
+    func canRender(_ coordinate: PlayerCoordinate) -> Bool {
+        dataSource.canRender(coordinate: coordinate)
+    }
+
+    func coordinate(adjacentTo coordinate: PlayerCoordinate, offset: Int) -> PlayerCoordinate {
+        PlayerCoordinate(
+            x: coordinate.x + offset,
+            y: coordinate.y
         )
     }
 
-    mutating func goForward() {
-        showCoordinate(
-            PlayerCoordinate(x: currentCoordinate.x + 1, y: currentCoordinate.y),
-            direction: .forward
+    func display(
+        coordinate: PlayerCoordinate,
+        direction: DownloadableMediaCache.PrefetchDirection
+    ) {
+        guard dataSource.canRender(coordinate: coordinate) else { return }
+
+        displayState = VisionPlayerDisplayState(
+            coordinate: coordinate,
+            token: dataSource.getToken(coordinate: coordinate),
+            preferredPrefetchDirection: direction
         )
     }
 
     private func canRender(offset: Int) -> Bool {
-        dataSource.canRender(
-            coordinate: PlayerCoordinate(
-                x: currentCoordinate.x + offset,
-                y: currentCoordinate.y
-            )
+        canRender(coordinate(adjacentTo: currentCoordinate, offset: offset))
+    }
+}
+
+private struct VisionPlayerDisplayState {
+    let coordinate: PlayerCoordinate
+    let token: GeneratedToken
+    let preferredPrefetchDirection: DownloadableMediaCache.PrefetchDirection
+}
+
+private final class VisionPlayerNavigationBridge {
+
+    fileprivate weak var pageController: VisionPlayerPageController?
+
+    @discardableResult
+    func goBack(animated: Bool = true) -> Bool {
+        pageController?.goBack(animated: animated) ?? false
+    }
+
+    @discardableResult
+    func goForward(animated: Bool = true) -> Bool {
+        pageController?.goForward(animated: animated) ?? false
+    }
+
+}
+
+private enum VisionPlayerPagingTuning {
+    static let pageGap: CGFloat = 23
+}
+
+private enum VisionPlayerPageNavigation {
+    case back, forward
+
+    var offset: Int {
+        switch self {
+        case .back:
+            return -1
+        case .forward:
+            return 1
+        }
+    }
+
+    var pageDirection: UIPageViewController.NavigationDirection {
+        switch self {
+        case .back:
+            return .reverse
+        case .forward:
+            return .forward
+        }
+    }
+
+    var prefetchDirection: DownloadableMediaCache.PrefetchDirection {
+        switch self {
+        case .back:
+            return .backward
+        case .forward:
+            return .forward
+        }
+    }
+}
+
+private struct VisionPlayerPagerView: UIViewControllerRepresentable {
+
+    @ObservedObject var playerModel: VisionPlayerModel
+    let navigationBridge: VisionPlayerNavigationBridge
+
+    func makeUIViewController(context: Context) -> VisionPlayerPageController {
+        let pageController = VisionPlayerPageController(playerModel: playerModel)
+        navigationBridge.pageController = pageController
+        return pageController
+    }
+
+    func updateUIViewController(_ pageController: VisionPlayerPageController, context: Context) {
+        navigationBridge.pageController = pageController
+        pageController.update()
+    }
+
+    static func dismantleUIViewController(_ pageController: VisionPlayerPageController, coordinator: ()) {
+        pageController.cleanup()
+    }
+}
+
+private final class VisionPlayerPageController: UIPageViewController, UIPageViewControllerDataSource, UIPageViewControllerDelegate {
+
+    private let playerModel: VisionPlayerModel
+    private var isTransitioning = false
+    private var queuedNavigationRequest: VisionPlayerPageNavigation?
+    private weak var transitionDestinationPage: VisionPlayerPageHostController?
+
+    init(playerModel: VisionPlayerModel) {
+        self.playerModel = playerModel
+        super.init(
+            transitionStyle: .scroll,
+            navigationOrientation: .horizontal,
+            options: [.interPageSpacing: VisionPlayerPagingTuning.pageGap]
         )
     }
 
-    private mutating func showCoordinate(
-        _ coordinate: PlayerCoordinate,
-        direction: DownloadableMediaCache.PrefetchDirection
-    ) {
-        guard dataSource.canRender(coordinate: coordinate) else {
+    required init?(coder: NSCoder) {
+        fatalError("yo")
+    }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = .black
+        dataSource = self
+        delegate = self
+        setCurrentPage(
+            coordinate: playerModel.currentCoordinate,
+            preferredPrefetchDirection: playerModel.preferredPrefetchDirection,
+            direction: .forward,
+            animated: false
+        )
+    }
+
+    func update() {
+        guard isViewLoaded else { return }
+        guard let currentPage else {
+            setCurrentPage(
+                coordinate: playerModel.currentCoordinate,
+                preferredPrefetchDirection: playerModel.preferredPrefetchDirection,
+                direction: .forward,
+                animated: false
+            )
             return
         }
 
-        currentCoordinate = coordinate
-        preferredPrefetchDirection = direction
-        currentToken = dataSource.getToken(coordinate: coordinate)
+        guard !isTransitioning else { return }
+
+        if currentPage.coordinate != playerModel.currentCoordinate {
+            setCurrentPage(
+                coordinate: playerModel.currentCoordinate,
+                preferredPrefetchDirection: playerModel.preferredPrefetchDirection,
+                direction: pageDirection(
+                    from: currentPage.coordinate,
+                    to: playerModel.currentCoordinate
+                ),
+                animated: false
+            )
+        } else {
+            currentPage.update(
+                coordinate: playerModel.currentCoordinate,
+                preferredPrefetchDirection: playerModel.preferredPrefetchDirection
+            )
+        }
     }
 
+    func cleanup() {
+        queuedNavigationRequest = nil
+        transitionDestinationPage = nil
+        dataSource = nil
+        delegate = nil
+    }
+
+    @discardableResult
+    func goBack(animated: Bool) -> Bool {
+        navigate(.back, animated: animated)
+    }
+
+    @discardableResult
+    func goForward(animated: Bool) -> Bool {
+        navigate(.forward, animated: animated)
+    }
+
+    private var currentPage: VisionPlayerPageHostController? {
+        viewControllers?.first as? VisionPlayerPageHostController
+    }
+
+    private var displayedCoordinate: PlayerCoordinate {
+        currentPage?.coordinate ?? playerModel.currentCoordinate
+    }
+
+    private func setCurrentPage(
+        coordinate: PlayerCoordinate,
+        preferredPrefetchDirection: DownloadableMediaCache.PrefetchDirection,
+        direction: UIPageViewController.NavigationDirection,
+        animated: Bool
+    ) {
+        let page = makePage(
+            coordinate: coordinate,
+            preferredPrefetchDirection: preferredPrefetchDirection
+        )
+        setViewControllers([page], direction: direction, animated: animated, completion: nil)
+    }
+
+    private func makePage(
+        coordinate: PlayerCoordinate,
+        preferredPrefetchDirection: DownloadableMediaCache.PrefetchDirection,
+        ownsDownloadableMediaWindow: Bool = true
+    ) -> VisionPlayerPageHostController {
+        VisionPlayerPageHostController(
+            playerModel: playerModel,
+            coordinate: coordinate,
+            preferredPrefetchDirection: preferredPrefetchDirection,
+            ownsDownloadableMediaWindow: ownsDownloadableMediaWindow
+        )
+    }
+
+    @discardableResult
+    private func navigate(_ request: VisionPlayerPageNavigation, animated: Bool) -> Bool {
+        let sourceCoordinate = displayedCoordinate
+        let targetCoordinate = targetCoordinate(from: sourceCoordinate, for: request)
+        guard playerModel.canRender(targetCoordinate) else {
+            queuedNavigationRequest = nil
+            return false
+        }
+
+        guard !isTransitioning else {
+            queuedNavigationRequest = request
+            return true
+        }
+
+        return startNavigation(
+            request,
+            from: sourceCoordinate,
+            animated: animated
+        )
+    }
+
+    @discardableResult
+    private func startNavigation(
+        _ request: VisionPlayerPageNavigation,
+        from sourceCoordinate: PlayerCoordinate,
+        animated: Bool
+    ) -> Bool {
+        let targetCoordinate = targetCoordinate(from: sourceCoordinate, for: request)
+        guard playerModel.canRender(targetCoordinate) else { return false }
+
+        let targetPage = makePage(
+            coordinate: targetCoordinate,
+            preferredPrefetchDirection: request.prefetchDirection
+        )
+        let sourcePage = currentPage
+        isTransitioning = true
+        setViewControllers([targetPage], direction: request.pageDirection, animated: animated) { [weak self] completed in
+            guard let self else { return }
+
+            if completed {
+                self.markPageAsNotOwningDownloadableMediaWindow(sourcePage)
+                self.playerModel.display(
+                    coordinate: targetCoordinate,
+                    direction: request.prefetchDirection
+                )
+            } else {
+                self.markPageAsNotOwningDownloadableMediaWindow(targetPage)
+                self.refreshCurrentPage()
+            }
+            self.finishTransition()
+        }
+        return true
+    }
+
+    private func refreshCurrentPage() {
+        guard let currentPage else { return }
+        currentPage.update(
+            coordinate: currentPage.coordinate,
+            preferredPrefetchDirection: playerModel.preferredPrefetchDirection,
+            forceRefresh: true
+        )
+    }
+
+    private func finishTransition() {
+        let request = queuedNavigationRequest
+        queuedNavigationRequest = nil
+        isTransitioning = false
+
+        guard let request else { return }
+        DispatchQueue.main.async { [weak self] in
+            self?.navigate(request, animated: true)
+        }
+    }
+
+    private func pageDirection(
+        from source: PlayerCoordinate,
+        to target: PlayerCoordinate
+    ) -> UIPageViewController.NavigationDirection {
+        target.x < source.x ? .reverse : .forward
+    }
+
+    private func targetCoordinate(
+        from sourceCoordinate: PlayerCoordinate,
+        for navigation: VisionPlayerPageNavigation
+    ) -> PlayerCoordinate {
+        playerModel.coordinate(
+            adjacentTo: sourceCoordinate,
+            offset: navigation.offset
+        )
+    }
+
+    private func adjacentPage(
+        from viewController: UIViewController,
+        navigation: VisionPlayerPageNavigation
+    ) -> UIViewController? {
+        guard let sourcePage = viewController as? VisionPlayerPageHostController else { return nil }
+        let targetCoordinate = targetCoordinate(from: sourcePage.coordinate, for: navigation)
+        guard playerModel.canRender(targetCoordinate) else { return nil }
+        return makePage(
+            coordinate: targetCoordinate,
+            preferredPrefetchDirection: navigation.prefetchDirection,
+            ownsDownloadableMediaWindow: false
+        )
+    }
+
+    func pageViewController(
+        _ pageViewController: UIPageViewController,
+        viewControllerBefore viewController: UIViewController
+    ) -> UIViewController? {
+        adjacentPage(from: viewController, navigation: .back)
+    }
+
+    func pageViewController(
+        _ pageViewController: UIPageViewController,
+        viewControllerAfter viewController: UIViewController
+    ) -> UIViewController? {
+        adjacentPage(from: viewController, navigation: .forward)
+    }
+
+    func pageViewController(
+        _ pageViewController: UIPageViewController,
+        willTransitionTo pendingViewControllers: [UIViewController]
+    ) {
+        guard let pendingPage = pendingViewControllers.first as? VisionPlayerPageHostController else { return }
+        pendingPage.setOwnsDownloadableMediaWindow(true, forceRefresh: true)
+        transitionDestinationPage = pendingPage
+        isTransitioning = true
+    }
+
+    func pageViewController(
+        _ pageViewController: UIPageViewController,
+        didFinishAnimating finished: Bool,
+        previousViewControllers: [UIViewController],
+        transitionCompleted completed: Bool
+    ) {
+        let destinationPage = transitionDestinationPage
+        transitionDestinationPage = nil
+
+        if completed, let currentPage {
+            previousViewControllers.forEach { markPageAsNotOwningDownloadableMediaWindow($0) }
+            playerModel.display(
+                coordinate: currentPage.coordinate,
+                direction: currentPage.preferredPrefetchDirection
+            )
+        } else {
+            markPageAsNotOwningDownloadableMediaWindow(destinationPage)
+            refreshCurrentPage()
+        }
+        finishTransition()
+    }
+
+    private func markPageAsNotOwningDownloadableMediaWindow(_ viewController: UIViewController?) {
+        guard let page = viewController as? VisionPlayerPageHostController,
+              page !== currentPage else {
+            return
+        }
+
+        page.setOwnsDownloadableMediaWindow(false)
+    }
+}
+
+private final class VisionPlayerPageHostController: UIHostingController<VisionPlayerPageHostView> {
+
+    private let playerModel: VisionPlayerModel
+    private var renderGeneration = 0
+    private(set) var coordinate: PlayerCoordinate
+    private(set) var preferredPrefetchDirection: DownloadableMediaCache.PrefetchDirection
+    private(set) var ownsDownloadableMediaWindow: Bool
+
+    init(
+        playerModel: VisionPlayerModel,
+        coordinate: PlayerCoordinate,
+        preferredPrefetchDirection: DownloadableMediaCache.PrefetchDirection,
+        ownsDownloadableMediaWindow: Bool
+    ) {
+        self.playerModel = playerModel
+        self.coordinate = coordinate
+        self.preferredPrefetchDirection = preferredPrefetchDirection
+        self.ownsDownloadableMediaWindow = ownsDownloadableMediaWindow
+        super.init(rootView: Self.rootView(
+            playerModel: playerModel,
+            coordinate: coordinate,
+            preferredPrefetchDirection: preferredPrefetchDirection,
+            ownsDownloadableMediaWindow: ownsDownloadableMediaWindow,
+            renderGeneration: 0
+        ))
+        view.backgroundColor = .black
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("yo")
+    }
+
+    func update(
+        coordinate: PlayerCoordinate,
+        preferredPrefetchDirection: DownloadableMediaCache.PrefetchDirection,
+        ownsDownloadableMediaWindow: Bool = true,
+        forceRefresh: Bool = false
+    ) {
+        let didBecomeDownloadableMediaWindowOwner = !self.ownsDownloadableMediaWindow && ownsDownloadableMediaWindow
+        guard forceRefresh
+                || self.coordinate != coordinate
+                || self.preferredPrefetchDirection != preferredPrefetchDirection
+                || self.ownsDownloadableMediaWindow != ownsDownloadableMediaWindow else {
+            return
+        }
+
+        self.coordinate = coordinate
+        self.preferredPrefetchDirection = preferredPrefetchDirection
+        self.ownsDownloadableMediaWindow = ownsDownloadableMediaWindow
+        if forceRefresh || didBecomeDownloadableMediaWindowOwner {
+            renderGeneration += 1
+        }
+        rootView = Self.rootView(
+            playerModel: playerModel,
+            coordinate: coordinate,
+            preferredPrefetchDirection: preferredPrefetchDirection,
+            ownsDownloadableMediaWindow: ownsDownloadableMediaWindow,
+            renderGeneration: renderGeneration
+        )
+    }
+
+    func setOwnsDownloadableMediaWindow(
+        _ ownsDownloadableMediaWindow: Bool,
+        forceRefresh: Bool = false
+    ) {
+        update(
+            coordinate: coordinate,
+            preferredPrefetchDirection: preferredPrefetchDirection,
+            ownsDownloadableMediaWindow: ownsDownloadableMediaWindow,
+            forceRefresh: forceRefresh
+        )
+    }
+
+    private static func rootView(
+        playerModel: VisionPlayerModel,
+        coordinate: PlayerCoordinate,
+        preferredPrefetchDirection: DownloadableMediaCache.PrefetchDirection,
+        ownsDownloadableMediaWindow: Bool,
+        renderGeneration: Int
+    ) -> VisionPlayerPageHostView {
+        VisionPlayerPageHostView(
+            token: playerModel.token(for: coordinate),
+            context: playerModel.context(for: coordinate),
+            ownerId: playerModel.id,
+            preferredPrefetchDirection: preferredPrefetchDirection,
+            ownsDownloadableMediaWindow: ownsDownloadableMediaWindow,
+            renderGeneration: renderGeneration
+        )
+    }
+}
+
+private struct VisionPlayerPageHostView: View {
+
+    let token: GeneratedToken
+    let context: PlayerTokenContext?
+    let ownerId: UUID
+    let preferredPrefetchDirection: DownloadableMediaCache.PrefetchDirection
+    let ownsDownloadableMediaWindow: Bool
+    let renderGeneration: Int
+
+    var body: some View {
+        VisionPlayerMediaView(
+            token: token,
+            context: context,
+            ownerId: ownerId,
+            preferredPrefetchDirection: preferredPrefetchDirection,
+            ownsDownloadableMediaWindow: ownsDownloadableMediaWindow
+        )
+        .id(renderGeneration)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.black)
+    }
 }
 
 private struct VisionPlayerMediaView: View {
@@ -171,6 +649,7 @@ private struct VisionPlayerMediaView: View {
     let context: PlayerTokenContext?
     let ownerId: UUID
     let preferredPrefetchDirection: DownloadableMediaCache.PrefetchDirection
+    let ownsDownloadableMediaWindow: Bool
 
     @State private var staticImage: UIImage?
     @State private var staticImageDescriptor: CollectionCatalogDownloadableMediaDescriptor?
@@ -262,12 +741,17 @@ private struct VisionPlayerMediaView: View {
     }
 
     private func prepareCurrentDownloadableMediaWindow() -> CollectionCatalogDownloadableMediaDescriptor? {
-        guard let descriptor = DownloadableMediaCache.shared.prepareWindow(
+        guard ownsDownloadableMediaWindow else {
+            return downloadableMediaDescriptor
+        }
+
+        let cache = DownloadableMediaCache.shared
+        guard let descriptor = cache.prepareWindow(
             for: context,
             ownerId: ownerId,
             direction: preferredPrefetchDirection
         ) else {
-            DownloadableMediaCache.shared.clearActiveWindow(ownerId: ownerId)
+            cache.clearActiveWindow(ownerId: ownerId)
             return nil
         }
 
