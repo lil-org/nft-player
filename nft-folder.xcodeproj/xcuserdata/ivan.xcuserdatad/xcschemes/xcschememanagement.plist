@@ -56,11 +56,6 @@
 			<key>orderHint</key>
 			<integer>2</integer>
 		</dict>
-		<key>nft-folder-vision-widget.xcscheme_^#shared#^_</key>
-		<dict>
-			<key>orderHint</key>
-			<integer>4</integer>
-		</dict>
 		<key>nft-folder-vision.xcscheme_^#shared#^_</key>
 		<dict>
 			<key>orderHint</key>
@@ -135,6 +130,11 @@
 			<true/>
 		</dict>
 		<key>2D1000132F30000000000001</key>
+		<dict>
+			<key>primary</key>
+			<true/>
+		</dict>
+		<key>2D50000C2F60000000000001</key>
 		<dict>
 			<key>primary</key>
 			<true/>
