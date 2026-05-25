@@ -11,6 +11,7 @@ struct VisionPlayerConfig: Hashable, Identifiable {
     var specificToken: GeneratedToken?
     var initialTokenId: String?
     var continueViewingCollectionId: String?
+    var widgetTokenInsertion: PlayerWidgetTokenInsertion?
 }
 
 struct VisionPlayerView: View {
@@ -212,7 +213,8 @@ private final class VisionPlayerModel: ObservableObject {
         let dataSource = PlayerTokenPagingDataSource(
             initialCollectionId: config.initialItemId,
             specificInitialToken: config.specificToken,
-            initialTokenId: config.initialTokenId
+            initialTokenId: config.initialTokenId,
+            widgetTokenInsertion: config.widgetTokenInsertion
         )
         id = config.id
         self.dataSource = dataSource
@@ -2599,18 +2601,23 @@ enum VisionPlayerPrewarmer {
     static func preparedConfig(
         initialItemId: String?,
         initialTokenId: String? = nil,
-        continueViewingCollectionId: String?
+        continueViewingCollectionId: String?,
+        widgetTokenInsertion: PlayerWidgetTokenInsertion? = nil
     ) -> VisionPlayerConfig {
-        var config = VisionPlayerConfig(
+        let specificToken = widgetTokenInsertion == nil
+            ? PlayerTokenPrewarmer.preparedToken(
+                initialCollectionId: initialItemId,
+                initialTokenId: initialTokenId
+            )
+            : nil
+
+        return VisionPlayerConfig(
             initialItemId: initialItemId,
+            specificToken: specificToken,
             initialTokenId: initialTokenId,
-            continueViewingCollectionId: continueViewingCollectionId
+            continueViewingCollectionId: continueViewingCollectionId,
+            widgetTokenInsertion: widgetTokenInsertion
         )
-        config.specificToken = PlayerTokenPrewarmer.preparedToken(
-            initialCollectionId: initialItemId,
-            initialTokenId: initialTokenId
-        )
-        return config
     }
 
 }

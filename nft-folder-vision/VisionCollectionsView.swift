@@ -80,6 +80,7 @@ struct VisionCollectionsView: View {
             guard playerConfig == nil else { return }
             refreshViewingProgress()
         }
+        .onOpenURL(perform: openWidgetURL)
     }
     
     private func createGrid() -> some View {
@@ -235,10 +236,43 @@ struct VisionCollectionsView: View {
         )
     }
 
+    private func openWidgetURL(_ url: URL) {
+        guard let deepLink = WidgetDeepLink(url: url),
+              case let .collection(collectionId, tokenId) = deepLink,
+              isVisibleCollection(collectionId) else {
+            return
+        }
+
+        if let tokenId {
+            openWidgetToken(collectionId: collectionId, tokenId: tokenId)
+        } else {
+            openCollection(collectionId: collectionId)
+        }
+    }
+
+    private func openWidgetToken(collectionId: String, tokenId: String) {
+        guard let widgetTokenInsertion = CollectionCatalog.widgetTokenInsertion(
+            collectionId: collectionId,
+            widgetTokenId: tokenId,
+            progress: PlayerViewingProgressStore.progress(collectionId: collectionId)
+        ) else {
+            openCollection(collectionId: collectionId)
+            return
+        }
+
+        openPlayer(
+            initialItemId: collectionId,
+            continueViewingCollectionId: collectionId,
+            widgetTokenInsertion: widgetTokenInsertion
+        )
+        PlayerViewingProgressStore.save(widgetTokenInsertion.updatedAnchorProgress())
+    }
+
     private func openPlayer(
         initialItemId: String?,
         initialTokenId: String? = nil,
-        continueViewingCollectionId: String
+        continueViewingCollectionId: String,
+        widgetTokenInsertion: PlayerWidgetTokenInsertion? = nil
     ) {
         guard isVisibleCollection(continueViewingCollectionId),
               initialItemId.map({ isVisibleCollection($0) }) ?? true else {
@@ -246,12 +280,14 @@ struct VisionCollectionsView: View {
             return
         }
 
-        PlayerViewingProgressStore.setContinueViewingCollectionId(continueViewingCollectionId)
-        playerConfig = VisionPlayerPrewarmer.preparedConfig(
+        let config = VisionPlayerPrewarmer.preparedConfig(
             initialItemId: initialItemId,
             initialTokenId: initialTokenId,
-            continueViewingCollectionId: continueViewingCollectionId
+            continueViewingCollectionId: continueViewingCollectionId,
+            widgetTokenInsertion: widgetTokenInsertion
         )
+        playerConfig = config
+        PlayerViewingProgressStore.setContinueViewingCollectionId(continueViewingCollectionId)
     }
 
     private func randomCollectionItemPreferringUnfinishedCollections() -> CollectionCatalogItem? {

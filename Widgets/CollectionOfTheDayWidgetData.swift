@@ -3,10 +3,10 @@
 import Foundation
 import ImageIO
 
-#if os(iOS)
+#if canImport(UIKit)
 import UIKit
 typealias WidgetPlatformImage = UIImage
-#elseif os(macOS)
+#elseif canImport(AppKit)
 import AppKit
 typealias WidgetPlatformImage = NSImage
 #endif
@@ -157,12 +157,12 @@ enum CollectionOfTheDayWidgetData {
     }
 
     static func platformImage(data: Data) -> WidgetPlatformImage? {
-#if os(iOS)
+#if canImport(UIKit)
         guard let image = UIImage(data: data), image.size.width > 0, image.size.height > 0 else {
             return nil
         }
         return image
-#elseif os(macOS)
+#elseif canImport(AppKit)
         guard let image = NSImage(data: data), image.size.width > 0, image.size.height > 0 else {
             return nil
         }

@@ -205,6 +205,13 @@
 		2D4000032F50000000000001 /* PlayerViewingSessionTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D4000042F50000000000001 /* PlayerViewingSessionTracker.swift */; };
 		2D4000052F50000000000001 /* PlayerBookmarksStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CB01A022F01000000000001 /* PlayerBookmarksStore.swift */; };
 		2D4000062F50000000000001 /* PlayerICloudSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CF100002F20000000000001 /* PlayerICloudSync.swift */; };
+		2D5000132F60000000000001 /* WidgetDeepLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D1000012F30000000000001 /* WidgetDeepLink.swift */; };
+		2D5000002F60000000000001 /* WidgetDeepLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D1000012F30000000000001 /* WidgetDeepLink.swift */; };
+		2D5000012F60000000000001 /* CollectionOfTheDayWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D1000022F30000000000001 /* CollectionOfTheDayWidget.swift */; };
+		2D5000022F60000000000001 /* CollectionOfTheDayWidgetData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D1000032F30000000000001 /* CollectionOfTheDayWidgetData.swift */; };
+		2D5000032F60000000000001 /* WidgetSuggested.bundle in Resources */ = {isa = PBXBuildFile; fileRef = 2D2000002F31000000000001 /* WidgetSuggested.bundle */; };
+		2D5000042F60000000000001 /* WidgetCovers.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2D2000012F31000000000001 /* WidgetCovers.xcassets */; };
+		2D5000052F60000000000001 /* nft-folder-vision-widget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 2D5000092F60000000000001 /* nft-folder-vision-widget.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -221,6 +228,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 2D1000132F30000000000001;
 			remoteInfo = "nft-folder-widget";
+		};
+		2D5000062F60000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2CA4CF492B07F75E00CC75F4 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2D50000C2F60000000000001;
+			remoteInfo = "nft-folder-vision-widget";
 		};
 /* End PBXContainerItemProxy section */
 
@@ -252,6 +266,17 @@
 			dstSubfolderSpec = 13;
 			files = (
 				2D1000262F30000000000001 /* nft-folder-ios-widget.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2D5000072F60000000000001 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				2D5000052F60000000000001 /* nft-folder-vision-widget.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -365,6 +390,8 @@
 		2D2000012F31000000000001 /* WidgetCovers.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = WidgetCovers.xcassets; sourceTree = "<group>"; };
 		2D4000042F50000000000001 /* PlayerViewingSessionTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerViewingSessionTracker.swift; sourceTree = "<group>"; };
 		2D4000072F50000000000001 /* nft_folder_vision.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = nft_folder_vision.entitlements; sourceTree = "<group>"; };
+		2D5000082F60000000000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		2D5000092F60000000000001 /* nft-folder-vision-widget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "nft-folder-vision-widget.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -404,6 +431,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		2D1000102F30000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2D50000A2F60000000000001 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -578,6 +612,7 @@
 				2D10000A2F30000000000001 /* nft-folder-ios-widget */,
 				2D10000B2F30000000000001 /* nft-folder-widget */,
 				2C5A59982C51073F00788870 /* nft-folder-vision */,
+				2D50000B2F60000000000001 /* nft-folder-vision-widget */,
 				2C5A59AF2C51400100788870 /* nft-folder-tvos */,
 				2CA4CF522B07F75F00CC75F4 /* Products */,
 			);
@@ -592,6 +627,7 @@
 				2C2CB47C2D29545F00042E74 /* nft-folder-ios.app */,
 				2D1000072F30000000000001 /* nft-folder-ios-widget.appex */,
 				2D1000082F30000000000001 /* nft-folder-widget.appex */,
+				2D5000092F60000000000001 /* nft-folder-vision-widget.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -694,6 +730,14 @@
 			path = "nft-folder-widget";
 			sourceTree = "<group>";
 		};
+		2D50000B2F60000000000001 /* nft-folder-vision-widget */ = {
+			isa = PBXGroup;
+			children = (
+				2D5000082F60000000000001 /* Info.plist */,
+			);
+			path = "nft-folder-vision-widget";
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -725,10 +769,12 @@
 				2C5A59932C51073F00788870 /* Sources */,
 				2C5A59942C51073F00788870 /* Frameworks */,
 				2C5A59952C51073F00788870 /* Resources */,
+				2D5000072F60000000000001 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				2D50000F2F60000000000001 /* PBXTargetDependency */,
 			);
 			name = "nft-folder-vision";
 			packageProductDependencies = (
@@ -814,6 +860,25 @@
 			productReference = 2D1000082F30000000000001 /* nft-folder-widget.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		2D50000C2F60000000000001 /* nft-folder-vision-widget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2D5000122F60000000000001 /* Build configuration list for PBXNativeTarget "nft-folder-vision-widget" */;
+			buildPhases = (
+				2D50000E2F60000000000001 /* Sources */,
+				2D50000A2F60000000000001 /* Frameworks */,
+				2D50000D2F60000000000001 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "nft-folder-vision-widget";
+			packageProductDependencies = (
+			);
+			productName = "nft-folder-vision-widget";
+			productReference = 2D5000092F60000000000001 /* nft-folder-vision-widget.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -840,6 +905,9 @@
 						CreatedOnToolsVersion = 16.2;
 					};
 					2D1000132F30000000000001 = {
+						CreatedOnToolsVersion = 16.2;
+					};
+					2D50000C2F60000000000001 = {
 						CreatedOnToolsVersion = 16.2;
 					};
 				};
@@ -899,6 +967,7 @@
 				2C2CB47B2D29545F00042E74 /* nft-folder-ios */,
 				2D1000122F30000000000001 /* nft-folder-ios-widget */,
 				2D1000132F30000000000001 /* nft-folder-widget */,
+				2D50000C2F60000000000001 /* nft-folder-vision-widget */,
 			);
 		};
 /* End PBXProject section */
@@ -997,6 +1066,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		2D50000D2F60000000000001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2D5000032F60000000000001 /* WidgetSuggested.bundle in Resources */,
+				2D5000042F60000000000001 /* WidgetCovers.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -1069,6 +1147,7 @@
 				2CB01A062F01000000000001 /* PlayerViewingProgressStore.swift in Sources */,
 				2D4000022F50000000000001 /* PlayerViewingSessionTracker.swift in Sources */,
 				2D4000052F50000000000001 /* PlayerBookmarksStore.swift in Sources */,
+				2D5000132F60000000000001 /* WidgetDeepLink.swift in Sources */,
 				2D1000332F30000000000001 /* PlayerWidgetTokenInsertion.swift in Sources */,
 				2D3000002F40000000000001 /* CollectionCatalog.swift in Sources */,
 				2D3000012F40000000000001 /* DownloadableMediaCache.swift in Sources */,
@@ -1187,6 +1266,16 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		2D50000E2F60000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2D5000002F60000000000001 /* WidgetDeepLink.swift in Sources */,
+				2D5000022F60000000000001 /* CollectionOfTheDayWidgetData.swift in Sources */,
+				2D5000012F60000000000001 /* CollectionOfTheDayWidget.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -1199,6 +1288,11 @@
 			isa = PBXTargetDependency;
 			target = 2D1000132F30000000000001 /* nft-folder-widget */;
 			targetProxy = 2D10002A2F30000000000001 /* PBXContainerItemProxy */;
+		};
+		2D50000F2F60000000000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2D50000C2F60000000000001 /* nft-folder-vision-widget */;
+			targetProxy = 2D5000062F60000000000001 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -1319,7 +1413,7 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,7";
-				XROS_DEPLOYMENT_TARGET = 1.0;
+				XROS_DEPLOYMENT_TARGET = 26.0;
 			};
 			name = Debug;
 		};
@@ -1352,7 +1446,7 @@
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,7";
 				VALIDATE_PRODUCT = YES;
-				XROS_DEPLOYMENT_TARGET = 1.0;
+				XROS_DEPLOYMENT_TARGET = 26.0;
 			};
 			name = Release;
 		};
@@ -1785,6 +1879,71 @@
 			};
 			name = Release;
 		};
+		2D5000102F60000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 265;
+				DEVELOPMENT_TEAM = 8DXC3N7E7P;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "nft-folder-vision-widget/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Nft Folder";
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 2.1.25;
+				PRODUCT_BUNDLE_IDENTIFIER = "org.lil.nft-folder.collection-widget";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = xros;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "xros xrsimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 7;
+				XROS_DEPLOYMENT_TARGET = 26.0;
+			};
+			name = Debug;
+		};
+		2D5000112F60000000000001 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 265;
+				DEVELOPMENT_TEAM = 8DXC3N7E7P;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "nft-folder-vision-widget/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Nft Folder";
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 2.1.25;
+				PRODUCT_BUNDLE_IDENTIFIER = "org.lil.nft-folder.collection-widget";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = xros;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "xros xrsimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 7;
+				VALIDATE_PRODUCT = YES;
+				XROS_DEPLOYMENT_TARGET = 26.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -1847,6 +2006,15 @@
 			buildConfigurations = (
 				2D1000182F30000000000001 /* Debug */,
 				2D1000192F30000000000001 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		2D5000122F60000000000001 /* Build configuration list for PBXNativeTarget "nft-folder-vision-widget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2D5000102F60000000000001 /* Debug */,
+				2D5000112F60000000000001 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

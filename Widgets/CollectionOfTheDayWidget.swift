@@ -191,9 +191,9 @@ struct CollectionOfTheDayWidgetView: View {
     }
 
     private func platformImage(_ image: WidgetPlatformImage) -> Image {
-#if os(iOS)
+#if canImport(UIKit)
         Image(uiImage: image)
-#elseif os(macOS)
+#elseif canImport(AppKit)
         Image(nsImage: image)
 #endif
     }
@@ -317,7 +317,11 @@ struct SelectedCollectionWidget: Widget {
         }
         .configurationDisplayName("Collection")
         .description("Choose a collection to display.")
+#if os(visionOS)
+        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge, .systemExtraLargePortrait])
+#else
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge, .systemExtraLarge])
+#endif
         .contentMarginsDisabled()
     }
 }
