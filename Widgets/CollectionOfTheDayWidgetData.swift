@@ -27,17 +27,36 @@ enum CollectionOfTheDayWidgetData {
     private static var cachedStaticImageReferencesByCollectionId = [String: [WidgetStaticImageReference]]()
 
     static func collection(for date: Date = Date(), calendar: Calendar? = nil) -> WidgetCollection? {
+        stableCollection(for: date, calendar: calendar, salt: nil)
+    }
+
+    static func defaultSelectedCollection(for date: Date = Date(), calendar: Calendar? = nil) -> WidgetCollection? {
+        stableCollection(for: date, calendar: calendar, salt: "selected-collection-default")
+    }
+
+    private static func stableCollection(for date: Date, calendar: Calendar?, salt: String?) -> WidgetCollection? {
         guard !eligibleCollections.isEmpty else { return nil }
 
         let calendar = calendar ?? localGregorianCalendar
         let components = calendar.dateComponents([.year, .month, .day], from: date)
-        let dayKey = "\(components.year ?? 0)-\(components.month ?? 0)-\(components.day ?? 0)"
+        let dateKey = "\(components.year ?? 0)-\(components.month ?? 0)-\(components.day ?? 0)"
+        let dayKey = salt.map { "\($0)-\(dateKey)" } ?? dateKey
         let index = Int(stableHash(dayKey) % UInt64(eligibleCollections.count))
         return eligibleCollections[index]
     }
 
     static func collection(id: String) -> WidgetCollection? {
         collectionsById[id]
+    }
+
+    static func configurationCollections() -> [WidgetCollection] {
+        eligibleCollections.sorted {
+            let nameComparison = $0.name.localizedCaseInsensitiveCompare($1.name)
+            if nameComparison == .orderedSame {
+                return $0.id < $1.id
+            }
+            return nameComparison == .orderedAscending
+        }
     }
 
     static func nextRotationDate(after date: Date, calendar: Calendar? = nil) -> Date {
@@ -263,7 +282,33 @@ struct WidgetCollection: Decodable, Hashable {
     let address: String
     let collectionId: String?
     let abId: String?
+    let name: String
     private let chain: WidgetCollectionChain
+
+    enum CodingKeys: String, CodingKey {
+        case address
+        case collectionId
+        case abId
+        case name
+        case chain
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        address = try container.decode(String.self, forKey: .address)
+        collectionId = try container.decodeIfPresent(String.self, forKey: .collectionId)
+        abId = try container.decodeIfPresent(String.self, forKey: .abId)
+        chain = try container.decode(WidgetCollectionChain.self, forKey: .chain)
+
+        let decodedName = try container.decodeIfPresent(String.self, forKey: .name)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let fallbackName = address + (abId ?? collectionId ?? "")
+        if let decodedName, !decodedName.isEmpty {
+            name = decodedName
+        } else {
+            name = fallbackName
+        }
+    }
 
     var id: String {
         address + (abId ?? collectionId ?? "")
