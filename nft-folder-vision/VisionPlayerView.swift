@@ -422,6 +422,230 @@ private enum VisionPlayerPageNavigation {
     }
 }
 
+private enum VisionPlayerSideTapSide {
+    case left, right
+
+    var navigation: VisionPlayerPageNavigation {
+        switch self {
+        case .left:
+            return .back
+        case .right:
+            return .forward
+        }
+    }
+
+    var opposite: VisionPlayerSideTapSide {
+        switch self {
+        case .left:
+            return .right
+        case .right:
+            return .left
+        }
+    }
+}
+
+private enum VisionPlayerSideTapTuning {
+    static let navigationWidth: CGFloat = 64
+    static let highlightWidth: CGFloat = 72
+    static let maximumMovement: CGFloat = 12
+    static let highlightMaximumMovement: CGFloat = maximumMovement / 2
+    static let hoverHighlightOpacity: Float = 0.62
+    static let highlightActivationDelay: TimeInterval = 0.3
+    static let highlightTapFlashDuration: TimeInterval = 0.09
+    static let highlightFadeInDuration: TimeInterval = 0.1
+    static let highlightFadeOutDuration: TimeInterval = 0.34
+
+    static func side(at location: CGPoint, in bounds: CGRect) -> VisionPlayerSideTapSide? {
+        guard bounds.width > 0, bounds.height > 0, bounds.contains(location) else { return nil }
+
+        let edgeWidth = min(navigationWidth, bounds.width / 2)
+        if location.x <= bounds.minX + edgeWidth {
+            return .left
+        }
+        if location.x >= bounds.maxX - edgeWidth {
+            return .right
+        }
+        return nil
+    }
+}
+
+private final class VisionPlayerSideTapGestureRecognizer: UIGestureRecognizer {
+
+    var sideProvider: ((CGPoint) -> VisionPlayerSideTapSide?)?
+    var canBeginSideTap: ((VisionPlayerSideTapSide) -> Bool)?
+    var onSidePressBegan: ((VisionPlayerSideTapSide) -> Void)?
+    var onSidePressMovedPastHighlightThreshold: ((VisionPlayerSideTapSide) -> Void)?
+    var onSidePressCancelled: ((VisionPlayerSideTapSide) -> Void)?
+    var onSideTapRecognized: ((VisionPlayerSideTapSide) -> Void)?
+
+    private var trackedTouch: UITouch?
+    private var initialLocation = CGPoint.zero
+    private var activeSide: VisionPlayerSideTapSide?
+    private var didMoveEnoughToCancelHighlight = false
+
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent) {
+        guard trackedTouch == nil,
+              event.allTouches?.count == 1,
+              let touch = touches.first,
+              let view else {
+            cancelOrFailActivePress()
+            return
+        }
+
+        let location = touch.location(in: view)
+        guard let side = sideProvider?(location),
+              canBeginSideTap?(side) == true else {
+            state = .failed
+            return
+        }
+
+        trackedTouch = touch
+        initialLocation = location
+        activeSide = side
+        didMoveEnoughToCancelHighlight = false
+        onSidePressBegan?(side)
+    }
+
+    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent) {
+        guard let trackedTouch, touches.contains(trackedTouch), let view, let activeSide else { return }
+
+        let location = trackedTouch.location(in: view)
+        guard isTapStillValid(at: location, for: activeSide) else {
+            cancelOrFailActivePress()
+            return
+        }
+
+        if !didMoveEnoughToCancelHighlight,
+           hasMovedEnoughToCancelHighlight(at: location) {
+            didMoveEnoughToCancelHighlight = true
+            onSidePressMovedPastHighlightThreshold?(activeSide)
+        }
+    }
+
+    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent) {
+        guard let trackedTouch, touches.contains(trackedTouch), let view, let activeSide else {
+            cancelOrFailActivePress()
+            return
+        }
+
+        let location = trackedTouch.location(in: view)
+        guard isTapStillValid(at: location, for: activeSide) else {
+            cancelOrFailActivePress()
+            return
+        }
+
+        let recognizedSide = activeSide
+        clearActivePress()
+        onSideTapRecognized?(recognizedSide)
+        state = .recognized
+    }
+
+    override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent) {
+        cancelOrFailActivePress()
+    }
+
+    override func reset() {
+        let cancelledSide = activeSide
+        clearActivePress()
+        if let cancelledSide {
+            onSidePressCancelled?(cancelledSide)
+        }
+    }
+
+    private func clearActivePress() {
+        trackedTouch = nil
+        initialLocation = .zero
+        activeSide = nil
+        didMoveEnoughToCancelHighlight = false
+    }
+
+    private func isTapStillValid(at location: CGPoint, for side: VisionPlayerSideTapSide) -> Bool {
+        guard sideProvider?(location) == side else { return false }
+
+        let distance = hypot(location.x - initialLocation.x, location.y - initialLocation.y)
+        return distance <= VisionPlayerSideTapTuning.maximumMovement
+    }
+
+    private func hasMovedEnoughToCancelHighlight(at location: CGPoint) -> Bool {
+        let distance = hypot(location.x - initialLocation.x, location.y - initialLocation.y)
+        return distance > VisionPlayerSideTapTuning.highlightMaximumMovement
+    }
+
+    private func cancelOrFailActivePress() {
+        let cancelledSide = activeSide
+        clearActivePress()
+        if let cancelledSide {
+            onSidePressCancelled?(cancelledSide)
+        }
+        state = .failed
+    }
+}
+
+private final class VisionPlayerSideTapHighlightView: UIView {
+
+    private static let opacityAnimationKey = "sideTapHighlightOpacity"
+
+    private let side: VisionPlayerSideTapSide
+
+    override class var layerClass: AnyClass {
+        CAGradientLayer.self
+    }
+
+    private var gradientLayer: CAGradientLayer {
+        layer as! CAGradientLayer
+    }
+
+    init(side: VisionPlayerSideTapSide) {
+        self.side = side
+        super.init(frame: .zero)
+        isUserInteractionEnabled = false
+        accessibilityElementsHidden = true
+        configureGradient()
+        gradientLayer.opacity = 0
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("yo")
+    }
+
+    func setHighlighted(_ isHighlighted: Bool, intensity: Float = 1) {
+        let targetOpacity = isHighlighted ? intensity : 0
+        if gradientLayer.animation(forKey: Self.opacityAnimationKey) == nil,
+           gradientLayer.opacity == targetOpacity {
+            return
+        }
+
+        let currentOpacity = gradientLayer.presentation()?.opacity ?? gradientLayer.opacity
+        gradientLayer.removeAnimation(forKey: Self.opacityAnimationKey)
+
+        gradientLayer.opacity = targetOpacity
+
+        let animation = CABasicAnimation(keyPath: "opacity")
+        animation.fromValue = currentOpacity
+        animation.toValue = targetOpacity
+        animation.duration = isHighlighted
+            ? VisionPlayerSideTapTuning.highlightFadeInDuration
+            : VisionPlayerSideTapTuning.highlightFadeOutDuration
+        animation.timingFunction = isHighlighted
+            ? CAMediaTimingFunction(controlPoints: 0.2, 0, 0, 1)
+            : CAMediaTimingFunction(controlPoints: 0.16, 1, 0.3, 1)
+        gradientLayer.add(animation, forKey: Self.opacityAnimationKey)
+    }
+
+    private func configureGradient() {
+        let edgeColor = UIColor.black.withAlphaComponent(0.36).cgColor
+        let midColor = UIColor.black.withAlphaComponent(0.18).cgColor
+        let featherColor = UIColor.black.withAlphaComponent(0.05).cgColor
+        let clearColor = UIColor.black.withAlphaComponent(0).cgColor
+        gradientLayer.startPoint = CGPoint(x: 0, y: 0.5)
+        gradientLayer.endPoint = CGPoint(x: 1, y: 0.5)
+        gradientLayer.colors = side == .left
+            ? [edgeColor, midColor, featherColor, clearColor]
+            : [clearColor, featherColor, midColor, edgeColor]
+        gradientLayer.locations = [0, 0.34, 0.72, 1]
+    }
+}
+
 private struct VisionPlayerQueuedNavigationRequest {
     let navigation: VisionPlayerPageNavigation
     let animated: Bool
@@ -448,15 +672,53 @@ private struct VisionPlayerPagerView: UIViewControllerRepresentable {
     }
 }
 
-private final class VisionPlayerPageController: UIPageViewController, UIPageViewControllerDataSource, UIPageViewControllerDelegate {
+private final class VisionPlayerPageController: UIPageViewController, UIPageViewControllerDataSource, UIPageViewControllerDelegate, UIGestureRecognizerDelegate {
 
     private let playerModel: VisionPlayerModel
+    private let leftSideTapHighlight = VisionPlayerSideTapHighlightView(side: .left)
+    private let rightSideTapHighlight = VisionPlayerSideTapHighlightView(side: .right)
+    private lazy var sideTapRecognizer: VisionPlayerSideTapGestureRecognizer = {
+        let gesture = VisionPlayerSideTapGestureRecognizer()
+        gesture.cancelsTouchesInView = false
+        gesture.delegate = self
+        gesture.sideProvider = { [weak self] location in
+            self?.sideTapSide(at: location)
+        }
+        gesture.canBeginSideTap = { [weak self] side in
+            self?.canNavigateBySideTap(side) == true
+        }
+        gesture.onSidePressBegan = { [weak self] side in
+            self?.beginSideTapHighlight(on: side)
+        }
+        gesture.onSidePressMovedPastHighlightThreshold = { [weak self] side in
+            self?.cancelSideTapPressHighlight(on: side)
+        }
+        gesture.onSidePressCancelled = { [weak self] side in
+            self?.endSideTapHighlight(on: side)
+        }
+        gesture.onSideTapRecognized = { [weak self] side in
+            self?.handleSideTap(on: side)
+        }
+        return gesture
+    }()
+    private lazy var sideTapHoverRecognizer: UIHoverGestureRecognizer = {
+        let gesture = UIHoverGestureRecognizer(target: self, action: #selector(handleSideTapHover(_:)))
+        gesture.cancelsTouchesInView = false
+        gesture.delegate = self
+        return gesture
+    }()
     private var isTransitioning = false
     private var queuedNavigationRequest: VisionPlayerQueuedNavigationRequest?
     private weak var transitionDestinationPage: VisionPlayerPageHostController?
     private var configuredPagingPanGestures = [ObjectIdentifier: UIPanGestureRecognizer]()
     private var zoomedPagingPanRestingOffsets = [ObjectIdentifier: CGFloat]()
     private var unlockedZoomedPagingPanGestures = Set<ObjectIdentifier>()
+    private var sideTapPressSide: VisionPlayerSideTapSide?
+    private var hoveredSideTapSide: VisionPlayerSideTapSide?
+    private var sideTapFlashSide: VisionPlayerSideTapSide?
+    private var pendingSideTapHighlightSide: VisionPlayerSideTapSide?
+    private var sideTapHighlightWorkItem: DispatchWorkItem?
+    private var sideTapHighlightRequestId = 0
 
     init(playerModel: VisionPlayerModel) {
         self.playerModel = playerModel
@@ -483,11 +745,13 @@ private final class VisionPlayerPageController: UIPageViewController, UIPageView
             animated: false
         )
         configurePagingScrollViews()
+        installSideTapNavigation()
     }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         configurePagingScrollViews()
+        bringSideTapHighlightsToFront()
     }
 
     func update() {
@@ -525,6 +789,9 @@ private final class VisionPlayerPageController: UIPageViewController, UIPageView
     func cleanup() {
         queuedNavigationRequest = nil
         transitionDestinationPage = nil
+        view.removeGestureRecognizer(sideTapRecognizer)
+        view.removeGestureRecognizer(sideTapHoverRecognizer)
+        cancelSideTapHighlights()
         dataSource = nil
         delegate = nil
         configuredPagingPanGestures.values.forEach {
@@ -575,14 +842,24 @@ private final class VisionPlayerPageController: UIPageViewController, UIPageView
             playerModel: playerModel,
             coordinate: coordinate,
             preferredPrefetchDirection: preferredPrefetchDirection,
-            ownsDownloadableMediaWindow: ownsDownloadableMediaWindow
+            ownsDownloadableMediaWindow: ownsDownloadableMediaWindow,
+            shouldIgnoreDoubleTap: { [weak self] location, bounds in
+                guard let side = VisionPlayerSideTapTuning.side(at: location, in: bounds) else {
+                    return false
+                }
+                return self?.canNavigateBySideTap(side) == true
+            }
         )
         pagingPanGestures.forEach { page.registerPagingPanGesture($0) }
         return page
     }
 
     @discardableResult
-    private func navigate(_ request: VisionPlayerPageNavigation, animated: Bool) -> Bool {
+    private func navigate(
+        _ request: VisionPlayerPageNavigation,
+        animated: Bool,
+        preservingSideTapFlash: Bool = false
+    ) -> Bool {
         let sourceCoordinate = displayedCoordinate
         let targetCoordinate = targetCoordinate(from: sourceCoordinate, for: request)
         guard playerModel.canRender(targetCoordinate) else {
@@ -601,7 +878,8 @@ private final class VisionPlayerPageController: UIPageViewController, UIPageView
         return startNavigation(
             request,
             from: sourceCoordinate,
-            animated: animated
+            animated: animated,
+            preservingSideTapFlash: preservingSideTapFlash
         )
     }
 
@@ -609,7 +887,8 @@ private final class VisionPlayerPageController: UIPageViewController, UIPageView
     private func startNavigation(
         _ request: VisionPlayerPageNavigation,
         from sourceCoordinate: PlayerCoordinate,
-        animated: Bool
+        animated: Bool,
+        preservingSideTapFlash: Bool = false
     ) -> Bool {
         let targetCoordinate = targetCoordinate(from: sourceCoordinate, for: request)
         guard playerModel.canRender(targetCoordinate) else { return false }
@@ -619,6 +898,7 @@ private final class VisionPlayerPageController: UIPageViewController, UIPageView
             preferredPrefetchDirection: request.prefetchDirection
         )
         let sourcePage = currentPage
+        cancelSideTapHighlights(preservingFlash: preservingSideTapFlash)
         isTransitioning = true
         sourcePage?.resetZoomForReuse()
         setViewControllers([targetPage], direction: request.pageDirection, animated: animated) { [weak self] completed in
@@ -649,6 +929,8 @@ private final class VisionPlayerPageController: UIPageViewController, UIPageView
         queuedNavigationRequest = nil
         isTransitioning = false
         configurePagingScrollViews()
+        cancelSideTapHighlights(preservingFlash: sideTapFlashSide != nil)
+        refreshSideTapHoverIfNeeded()
 
         guard let queuedRequest else { return }
         DispatchQueue.main.async { [weak self] in
@@ -706,6 +988,7 @@ private final class VisionPlayerPageController: UIPageViewController, UIPageView
         willTransitionTo pendingViewControllers: [UIViewController]
     ) {
         guard let pendingPage = pendingViewControllers.first as? VisionPlayerPageHostController else { return }
+        cancelSideTapHighlights()
         pendingPage.setOwnsDownloadableMediaWindow(true, forceRefresh: true)
         transitionDestinationPage = pendingPage
         isTransitioning = true
@@ -742,6 +1025,278 @@ private final class VisionPlayerPageController: UIPageViewController, UIPageView
 
     private var pagingPanGestures: [UIPanGestureRecognizer] {
         pagingScrollViews.map(\.panGestureRecognizer)
+    }
+
+    private func installSideTapNavigation() {
+        installSideTapHighlights()
+        if view.gestureRecognizers?.contains(where: { $0 === sideTapRecognizer }) != true {
+            view.addGestureRecognizer(sideTapRecognizer)
+        }
+        if view.gestureRecognizers?.contains(where: { $0 === sideTapHoverRecognizer }) != true {
+            view.addGestureRecognizer(sideTapHoverRecognizer)
+        }
+    }
+
+    private func installSideTapHighlights() {
+        guard leftSideTapHighlight.superview == nil,
+              rightSideTapHighlight.superview == nil else {
+            return
+        }
+
+        [leftSideTapHighlight, rightSideTapHighlight].forEach { highlightView in
+            highlightView.translatesAutoresizingMaskIntoConstraints = false
+            view.addSubview(highlightView)
+        }
+
+        NSLayoutConstraint.activate([
+            leftSideTapHighlight.topAnchor.constraint(equalTo: view.topAnchor),
+            leftSideTapHighlight.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            leftSideTapHighlight.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            leftSideTapHighlight.widthAnchor.constraint(equalToConstant: VisionPlayerSideTapTuning.highlightWidth),
+
+            rightSideTapHighlight.topAnchor.constraint(equalTo: view.topAnchor),
+            rightSideTapHighlight.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            rightSideTapHighlight.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            rightSideTapHighlight.widthAnchor.constraint(equalToConstant: VisionPlayerSideTapTuning.highlightWidth)
+        ])
+    }
+
+    private func bringSideTapHighlightsToFront() {
+        guard leftSideTapHighlight.superview === view,
+              rightSideTapHighlight.superview === view else {
+            installSideTapHighlights()
+            return
+        }
+
+        view.bringSubviewToFront(leftSideTapHighlight)
+        view.bringSubviewToFront(rightSideTapHighlight)
+        refreshSideTapHoverIfNeeded()
+    }
+
+    private func sideTapSide(at location: CGPoint) -> VisionPlayerSideTapSide? {
+        VisionPlayerSideTapTuning.side(at: location, in: view.bounds)
+    }
+
+    private func navigableSideTapSide(at location: CGPoint) -> VisionPlayerSideTapSide? {
+        guard let side = sideTapSide(at: location),
+              canNavigateBySideTap(side) else {
+            return nil
+        }
+        return side
+    }
+
+    private func canNavigateBySideTap(_ side: VisionPlayerSideTapSide) -> Bool {
+        guard !isTransitioning, transitionCoordinator == nil else { return false }
+
+        let targetCoordinate = targetCoordinate(
+            from: displayedCoordinate,
+            for: side.navigation
+        )
+        return playerModel.canRender(targetCoordinate)
+    }
+
+    @objc private func handleSideTapHover(_ gesture: UIHoverGestureRecognizer) {
+        switch gesture.state {
+        case .began, .changed:
+            updateSideTapHover(at: gesture.location(in: view))
+
+        case .ended, .cancelled, .failed:
+            endSideTapHover()
+
+        default:
+            break
+        }
+    }
+
+    private func updateSideTapHover(at location: CGPoint) {
+        guard let side = navigableSideTapSide(at: location) else {
+            endSideTapHover()
+            return
+        }
+
+        beginSideTapHover(on: side)
+    }
+
+    private func beginSideTapHover(on side: VisionPlayerSideTapSide) {
+        guard !isSideTapVisualStateLocked else { return }
+        guard hoveredSideTapSide != side else { return }
+
+        if let hoveredSideTapSide {
+            sideTapHighlight(for: hoveredSideTapSide).setHighlighted(false)
+        }
+        hoveredSideTapSide = side
+
+        sideTapHighlight(for: side.opposite).setHighlighted(false)
+        sideTapHighlight(for: side).setHighlighted(
+            true,
+            intensity: VisionPlayerSideTapTuning.hoverHighlightOpacity
+        )
+    }
+
+    private func endSideTapHover() {
+        guard let hoveredSideTapSide else { return }
+
+        self.hoveredSideTapSide = nil
+        guard sideTapPressSide == nil, sideTapFlashSide == nil else { return }
+
+        sideTapHighlight(for: hoveredSideTapSide).setHighlighted(false)
+    }
+
+    private var isSideTapVisualStateLocked: Bool {
+        sideTapPressSide != nil || sideTapFlashSide != nil
+    }
+
+    private func beginSideTapHighlight(on side: VisionPlayerSideTapSide) {
+        cancelSideTapHighlights()
+        sideTapPressSide = side
+
+        guard canNavigateBySideTap(side) else { return }
+
+        pendingSideTapHighlightSide = side
+        sideTapHighlightRequestId += 1
+        let requestId = sideTapHighlightRequestId
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self,
+                  self.sideTapHighlightRequestId == requestId,
+                  self.pendingSideTapHighlightSide == side,
+                  self.canNavigateBySideTap(side) else {
+                return
+            }
+
+            self.pendingSideTapHighlightSide = nil
+            self.sideTapHighlightWorkItem = nil
+            self.sideTapHighlight(for: side).setHighlighted(true)
+        }
+        sideTapHighlightWorkItem = workItem
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + VisionPlayerSideTapTuning.highlightActivationDelay,
+            execute: workItem
+        )
+    }
+
+    private func cancelSideTapPressHighlight(on side: VisionPlayerSideTapSide) {
+        cancelPendingSideTapHighlight()
+        sideTapHighlightRequestId += 1
+        sideTapHighlight(for: side).setHighlighted(false)
+    }
+
+    private func endSideTapHighlight(
+        on side: VisionPlayerSideTapSide,
+        refreshingHover: Bool = true
+    ) {
+        cancelPendingSideTapHighlight()
+        if sideTapPressSide == side {
+            sideTapPressSide = nil
+        }
+        sideTapHighlightRequestId += 1
+        sideTapHighlight(for: side).setHighlighted(false)
+        if refreshingHover {
+            refreshSideTapHoverIfNeeded()
+        }
+    }
+
+    private func handleSideTap(on side: VisionPlayerSideTapSide) {
+        guard canNavigateBySideTap(side) else {
+            endSideTapHighlight(on: side)
+            return
+        }
+
+        if cancelPendingSideTapHighlight(on: side) {
+            flashSideTapHighlight(on: side)
+        } else {
+            endSideTapHighlight(on: side, refreshingHover: false)
+        }
+
+        let didNavigate = navigate(
+            side.navigation,
+            animated: false,
+            preservingSideTapFlash: sideTapFlashSide == side
+        )
+        if !didNavigate {
+            refreshSideTapHoverIfNeeded()
+        }
+    }
+
+    @discardableResult
+    private func cancelPendingSideTapHighlight(on side: VisionPlayerSideTapSide? = nil) -> Bool {
+        guard let pendingSide = pendingSideTapHighlightSide else {
+            return false
+        }
+        if let side, pendingSide != side {
+            return false
+        }
+
+        sideTapHighlightWorkItem?.cancel()
+        sideTapHighlightWorkItem = nil
+        pendingSideTapHighlightSide = nil
+        sideTapHighlightRequestId += 1
+        return true
+    }
+
+    private func flashSideTapHighlight(on side: VisionPlayerSideTapSide) {
+        sideTapPressSide = nil
+        hoveredSideTapSide = nil
+        sideTapFlashSide = side
+        sideTapHighlight(for: side.opposite).setHighlighted(false)
+        sideTapHighlight(for: side).setHighlighted(true)
+        sideTapHighlightRequestId += 1
+        let requestId = sideTapHighlightRequestId
+
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + VisionPlayerSideTapTuning.highlightTapFlashDuration
+        ) { [weak self] in
+            guard let self,
+                  self.sideTapHighlightRequestId == requestId,
+                  self.sideTapFlashSide == side else {
+                return
+            }
+
+            self.sideTapFlashSide = nil
+            self.sideTapHighlight(for: side).setHighlighted(false)
+            self.refreshSideTapHoverIfNeeded()
+        }
+    }
+
+    private func cancelSideTapHighlights(preservingFlash: Bool = false) {
+        if preservingFlash, sideTapFlashSide != nil {
+            sideTapHighlightWorkItem?.cancel()
+            sideTapHighlightWorkItem = nil
+            pendingSideTapHighlightSide = nil
+            sideTapPressSide = nil
+            hoveredSideTapSide = nil
+            return
+        }
+
+        sideTapHighlightWorkItem?.cancel()
+        sideTapHighlightWorkItem = nil
+        pendingSideTapHighlightSide = nil
+        sideTapPressSide = nil
+        hoveredSideTapSide = nil
+        sideTapFlashSide = nil
+        sideTapHighlightRequestId += 1
+        leftSideTapHighlight.setHighlighted(false)
+        rightSideTapHighlight.setHighlighted(false)
+    }
+
+    private func refreshSideTapHoverIfNeeded() {
+        guard sideTapPressSide == nil, sideTapFlashSide == nil else { return }
+
+        switch sideTapHoverRecognizer.state {
+        case .began, .changed:
+            updateSideTapHover(at: sideTapHoverRecognizer.location(in: view))
+
+        default:
+            break
+        }
+    }
+
+    private func sideTapHighlight(for side: VisionPlayerSideTapSide) -> VisionPlayerSideTapHighlightView {
+        switch side {
+        case .left:
+            return leftSideTapHighlight
+        case .right:
+            return rightSideTapHighlight
+        }
     }
 
     private func configurePagingScrollViews() {
@@ -845,6 +1400,16 @@ private final class VisionPlayerPageController: UIPageViewController, UIPageView
         return pagingScrollViews.first { $0.panGestureRecognizer === gesture }
     }
 
+    func gestureRecognizer(
+        _ gestureRecognizer: UIGestureRecognizer,
+        shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+    ) -> Bool {
+        gestureRecognizer === sideTapRecognizer
+            || otherGestureRecognizer === sideTapRecognizer
+            || gestureRecognizer === sideTapHoverRecognizer
+            || otherGestureRecognizer === sideTapHoverRecognizer
+    }
+
     private func resetZoomForInactivePage(_ viewController: UIViewController?) {
         guard let page = viewController as? VisionPlayerPageHostController,
               page !== currentPage else {
@@ -874,6 +1439,7 @@ private final class VisionPlayerPageHostController: UIViewController, UIScrollVi
     private lazy var hostingController: UIHostingController<VisionPlayerPageHostView> = {
         UIHostingController(rootView: makeRootView())
     }()
+    private let shouldIgnoreDoubleTap: (CGPoint, CGRect) -> Bool
     private var renderGeneration = 0
     private var mediaRefreshGeneration = 0
     private var zoomContentLayout: VisionPlayerZoomContentLayout = .viewport
@@ -893,12 +1459,14 @@ private final class VisionPlayerPageHostController: UIViewController, UIScrollVi
         playerModel: VisionPlayerModel,
         coordinate: PlayerCoordinate,
         preferredPrefetchDirection: DownloadableMediaCache.PrefetchDirection,
-        ownsDownloadableMediaWindow: Bool
+        ownsDownloadableMediaWindow: Bool,
+        shouldIgnoreDoubleTap: @escaping (CGPoint, CGRect) -> Bool
     ) {
         self.playerModel = playerModel
         self.coordinate = coordinate
         self.preferredPrefetchDirection = preferredPrefetchDirection
         self.ownsDownloadableMediaWindow = ownsDownloadableMediaWindow
+        self.shouldIgnoreDoubleTap = shouldIgnoreDoubleTap
         super.init(nibName: nil, bundle: nil)
         view.backgroundColor = .black
     }
@@ -1072,7 +1640,12 @@ private final class VisionPlayerPageHostController: UIViewController, UIScrollVi
     @objc private func handleDoubleTap(_ gesture: UITapGestureRecognizer) {
         guard gesture.state == .ended else { return }
 
-        toggleZoom(at: gesture.location(in: view), in: view)
+        let location = gesture.location(in: view)
+        if shouldIgnoreDoubleTap(location, view.bounds) {
+            return
+        }
+
+        toggleZoom(at: location, in: view)
     }
 
     private func toggleZoom(at location: CGPoint, in coordinateView: UIView) {
