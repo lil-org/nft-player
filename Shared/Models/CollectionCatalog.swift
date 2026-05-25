@@ -40,6 +40,140 @@ struct PlayerTokenContext: Hashable {
     let tokenCount: Int
 }
 
+enum PlayerMediaPrefetchDirection: Hashable {
+    case forward, backward
+
+    var adjacentOffset: Int {
+        switch self {
+        case .forward:
+            return 1
+        case .backward:
+            return -1
+        }
+    }
+}
+
+enum PlayerDownloadableMediaWindowLayout {
+    static let windowRadius = 10
+    static let decodedPreferredRadius = 3
+    static let decodedOppositeRadius = 1
+    static let decodedWindowCapacity = decodedPreferredRadius + decodedOppositeRadius + 1
+
+    static func orderedWindowOffsets(direction: PlayerMediaPrefetchDirection) -> [Int] {
+        return [0] + preferredOffsets(radius: windowRadius, direction: direction)
+            + oppositeOffsets(radius: windowRadius, direction: direction)
+    }
+
+    static func decodedWindowOffsets(direction: PlayerMediaPrefetchDirection) -> [Int] {
+        return [0] + preferredOffsets(radius: decodedPreferredRadius, direction: direction)
+            + oppositeOffsets(radius: decodedOppositeRadius, direction: direction)
+    }
+
+    static func orderedWindowIndices(
+        currentIndex: Int,
+        tokenCount: Int,
+        direction: PlayerMediaPrefetchDirection
+    ) -> [Int] {
+        indices(
+            currentIndex: currentIndex,
+            tokenCount: tokenCount,
+            offsets: orderedWindowOffsets(direction: direction)
+        )
+    }
+
+    static func decodedWindowIndices(
+        currentIndex: Int,
+        tokenCount: Int,
+        direction: PlayerMediaPrefetchDirection
+    ) -> [Int] {
+        indices(
+            currentIndex: currentIndex,
+            tokenCount: tokenCount,
+            offsets: decodedWindowOffsets(direction: direction)
+        )
+    }
+
+    private static func preferredOffsets(radius: Int, direction: PlayerMediaPrefetchDirection) -> [Int] {
+        guard radius > 0 else { return [] }
+
+        let offsets = Array(1...radius)
+        switch direction {
+        case .forward:
+            return offsets
+        case .backward:
+            return offsets.map { -$0 }
+        }
+    }
+
+    private static func oppositeOffsets(radius: Int, direction: PlayerMediaPrefetchDirection) -> [Int] {
+        guard radius > 0 else { return [] }
+
+        let offsets = Array(1...radius)
+        switch direction {
+        case .forward:
+            return offsets.map { -$0 }
+        case .backward:
+            return offsets
+        }
+    }
+
+    private static func indices(currentIndex: Int, tokenCount: Int, offsets: [Int]) -> [Int] {
+        guard tokenCount > 0 else { return [] }
+
+        return offsets.compactMap { offset in
+            let index = currentIndex + offset
+            guard index >= 0, index < tokenCount else { return nil }
+            return index
+        }
+    }
+}
+
+struct PlayerDownloadableMediaWindow: Hashable {
+    let currentDescriptor: CollectionCatalogDownloadableMediaDescriptor
+    let descriptors: [CollectionCatalogDownloadableMediaDescriptor]
+    let decodedDescriptors: [CollectionCatalogDownloadableMediaDescriptor]
+    let adjacentDescriptor: CollectionCatalogDownloadableMediaDescriptor?
+
+    init(
+        currentDescriptor: CollectionCatalogDownloadableMediaDescriptor,
+        descriptors: [CollectionCatalogDownloadableMediaDescriptor],
+        decodedDescriptors: [CollectionCatalogDownloadableMediaDescriptor],
+        adjacentDescriptor: CollectionCatalogDownloadableMediaDescriptor?
+    ) {
+        self.currentDescriptor = currentDescriptor
+        self.descriptors = Self.uniqueDescriptors(
+            currentDescriptor: currentDescriptor,
+            descriptors: descriptors
+        )
+        self.decodedDescriptors = Array(
+            Self.uniqueDescriptors(
+                currentDescriptor: currentDescriptor,
+                descriptors: decodedDescriptors
+            )
+            .filter(\.isStaticImage)
+            .prefix(PlayerDownloadableMediaWindowLayout.decodedWindowCapacity)
+        )
+        self.adjacentDescriptor = adjacentDescriptor
+    }
+
+    private static func uniqueDescriptors(
+        currentDescriptor: CollectionCatalogDownloadableMediaDescriptor,
+        descriptors: [CollectionCatalogDownloadableMediaDescriptor]
+    ) -> [CollectionCatalogDownloadableMediaDescriptor] {
+        var orderedDescriptors = [CollectionCatalogDownloadableMediaDescriptor]()
+        var usedDescriptors = Set<CollectionCatalogDownloadableMediaDescriptor>()
+
+        func appendDescriptor(_ descriptor: CollectionCatalogDownloadableMediaDescriptor) {
+            guard usedDescriptors.insert(descriptor).inserted else { return }
+            orderedDescriptors.append(descriptor)
+        }
+
+        appendDescriptor(currentDescriptor)
+        descriptors.forEach(appendDescriptor)
+        return orderedDescriptors
+    }
+}
+
 enum PlaybackNavigationDirection {
     case up, down, back, forward, nextCollection, restartCollection
 }
@@ -117,6 +251,22 @@ final class PlayerTokenPagingDataSource {
         return PlayerTokenContext(collectionId: collectionId, tokenIndex: tokenIndex, tokenCount: tokenCount)
     }
 
+    func downloadableMediaWindow(
+        coordinate: PlayerCoordinate,
+        direction: PlayerMediaPrefetchDirection
+    ) -> PlayerDownloadableMediaWindow? {
+        guard let context = collectionTokenContext(coordinate: coordinate),
+              CollectionCatalog.isDownloadableCollection(specificCollectionId: context.collectionId) else {
+            return nil
+        }
+
+        if isWidgetCoordinateSpace(coordinate) {
+            return logicalDownloadableMediaWindow(coordinate: coordinate, direction: direction)
+        }
+
+        return indexedDownloadableMediaWindow(context: context, direction: direction)
+    }
+
     func horizontalCoordinateForTokenIndex(_ tokenIndex: Int, verticalIndex: Int) -> Int {
         if let widgetTokenInsertion, verticalIndex == 0 {
             return widgetTokenInsertion.coordinateX(forTokenIndex: tokenIndex)
@@ -189,6 +339,129 @@ final class PlayerTokenPagingDataSource {
 
         guard let baseTokenIndex = collectionBaseTokenIndices[coordinate.y] else { return nil }
         return baseTokenIndex + coordinate.x
+    }
+
+    private func isWidgetCoordinateSpace(_ coordinate: PlayerCoordinate) -> Bool {
+        widgetTokenInsertion != nil && coordinate.y == 0
+    }
+
+    private func indexedDownloadableMediaWindow(
+        context: PlayerTokenContext,
+        direction: PlayerMediaPrefetchDirection
+    ) -> PlayerDownloadableMediaWindow? {
+        let descriptors = downloadableMediaDescriptors(
+            collectionId: context.collectionId,
+            tokenIndices: PlayerDownloadableMediaWindowLayout.orderedWindowIndices(
+                currentIndex: context.tokenIndex,
+                tokenCount: context.tokenCount,
+                direction: direction
+            )
+        )
+        let decodedDescriptors = downloadableMediaDescriptors(
+            collectionId: context.collectionId,
+            tokenIndices: PlayerDownloadableMediaWindowLayout.decodedWindowIndices(
+                currentIndex: context.tokenIndex,
+                tokenCount: context.tokenCount,
+                direction: direction
+            )
+        )
+        guard let currentDescriptor = descriptors.first(where: { $0.tokenIndex == context.tokenIndex }) else {
+            return nil
+        }
+
+        return PlayerDownloadableMediaWindow(
+            currentDescriptor: currentDescriptor,
+            descriptors: descriptors,
+            decodedDescriptors: decodedDescriptors,
+            adjacentDescriptor: adjacentDownloadableMediaDescriptor(
+                context: context,
+                direction: direction
+            )
+        )
+    }
+
+    private func logicalDownloadableMediaWindow(
+        coordinate: PlayerCoordinate,
+        direction: PlayerMediaPrefetchDirection
+    ) -> PlayerDownloadableMediaWindow? {
+        guard let currentDescriptor = downloadableMediaDescriptor(coordinate: coordinate) else { return nil }
+
+        let descriptors = uniqueDownloadableMediaDescriptors(
+            PlayerDownloadableMediaWindowLayout.orderedWindowOffsets(direction: direction).map {
+                PlayerCoordinate(x: coordinate.x + $0, y: coordinate.y)
+            }
+        )
+        let decodedDescriptors = uniqueDownloadableMediaDescriptors(
+            PlayerDownloadableMediaWindowLayout.decodedWindowOffsets(direction: direction).map {
+                PlayerCoordinate(x: coordinate.x + $0, y: coordinate.y)
+            }
+        )
+
+        return PlayerDownloadableMediaWindow(
+            currentDescriptor: currentDescriptor,
+            descriptors: descriptors,
+            decodedDescriptors: decodedDescriptors,
+            adjacentDescriptor: downloadableMediaDescriptor(
+                coordinate: PlayerCoordinate(
+                    x: coordinate.x + direction.adjacentOffset,
+                    y: coordinate.y
+                )
+            )
+        )
+    }
+
+    private func downloadableMediaDescriptors(
+        collectionId: String,
+        tokenIndices: [Int]
+    ) -> [CollectionCatalogDownloadableMediaDescriptor] {
+        tokenIndices.compactMap {
+            CollectionCatalog.downloadableMediaDescriptor(
+                specificCollectionId: collectionId,
+                tokenIndex: $0
+            )
+        }
+    }
+
+    private func adjacentDownloadableMediaDescriptor(
+        context: PlayerTokenContext,
+        direction: PlayerMediaPrefetchDirection
+    ) -> CollectionCatalogDownloadableMediaDescriptor? {
+        let targetTokenIndex = context.tokenIndex + direction.adjacentOffset
+        guard targetTokenIndex >= 0, targetTokenIndex < context.tokenCount else { return nil }
+        return CollectionCatalog.downloadableMediaDescriptor(
+            specificCollectionId: context.collectionId,
+            tokenIndex: targetTokenIndex
+        )
+    }
+
+    private func uniqueDownloadableMediaDescriptors(
+        _ coordinates: [PlayerCoordinate]
+    ) -> [CollectionCatalogDownloadableMediaDescriptor] {
+        var descriptors = [CollectionCatalogDownloadableMediaDescriptor]()
+        var usedDescriptors = Set<CollectionCatalogDownloadableMediaDescriptor>()
+
+        for coordinate in coordinates {
+            guard let descriptor = downloadableMediaDescriptor(coordinate: coordinate),
+                  usedDescriptors.insert(descriptor).inserted else {
+                continue
+            }
+            descriptors.append(descriptor)
+        }
+        return descriptors
+    }
+
+    private func downloadableMediaDescriptor(
+        coordinate: PlayerCoordinate
+    ) -> CollectionCatalogDownloadableMediaDescriptor? {
+        guard let context = collectionTokenContext(coordinate: coordinate),
+              CollectionCatalog.isDownloadableCollection(specificCollectionId: context.collectionId) else {
+            return nil
+        }
+
+        return CollectionCatalog.downloadableMediaDescriptor(
+            specificCollectionId: context.collectionId,
+            tokenIndex: context.tokenIndex
+        )
     }
 
     private func ensureCollectionLoaded(verticalIndex: Int) {

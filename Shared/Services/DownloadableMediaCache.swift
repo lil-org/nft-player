@@ -17,37 +17,18 @@ extension Notification.Name {
 
 final class DownloadableMediaCache {
 
-    enum PrefetchDirection: Hashable {
-        case forward, backward
-    }
+    typealias PrefetchDirection = PlayerMediaPrefetchDirection
 
     static let shared = DownloadableMediaCache()
 
-    private static let windowRadius = 10
-    private static let decodedPreferredRadius = 3
-    private static let decodedOppositeRadius = 1
-    private static let decodedWindowCapacity = decodedPreferredRadius + decodedOppositeRadius + 1
     private static let webViewHTMLDirectoryName = "_WebViewHTML"
 
     static func orderedWindowIndices(currentIndex: Int, tokenCount: Int, direction: PrefetchDirection) -> [Int] {
-        guard tokenCount > 0 else { return [] }
-
-        let forwardStart = currentIndex + 1
-        let forwardEnd = min(currentIndex + windowRadius, tokenCount - 1)
-        let forwardIndices = forwardStart <= forwardEnd ? Array(forwardStart...forwardEnd) : []
-
-        let backwardStart = currentIndex - 1
-        let backwardEnd = max(currentIndex - windowRadius, 0)
-        let backwardIndices = backwardStart >= backwardEnd
-            ? stride(from: backwardStart, through: backwardEnd, by: -1).map { $0 }
-            : []
-
-        switch direction {
-        case .forward:
-            return [currentIndex] + forwardIndices + backwardIndices
-        case .backward:
-            return [currentIndex] + backwardIndices + forwardIndices
-        }
+        PlayerDownloadableMediaWindowLayout.orderedWindowIndices(
+            currentIndex: currentIndex,
+            tokenCount: tokenCount,
+            direction: direction
+        )
     }
 
     static func windowDescriptors(
@@ -69,20 +50,32 @@ final class DownloadableMediaCache {
         }
     }
 
+    private static func decodedWindowDescriptors(
+        collectionId: String,
+        currentTokenIndex: Int,
+        tokenCount: Int,
+        direction: PrefetchDirection
+    ) -> [CollectionCatalogDownloadableMediaDescriptor] {
+        PlayerDownloadableMediaWindowLayout.decodedWindowIndices(
+            currentIndex: currentTokenIndex,
+            tokenCount: tokenCount,
+            direction: direction
+        )
+        .compactMap {
+            CollectionCatalog.downloadableMediaDescriptor(
+                specificCollectionId: collectionId,
+                tokenIndex: $0
+            )
+        }
+    }
+
     static func adjacentDescriptor(
         collectionId: String,
         currentTokenIndex: Int,
         tokenCount: Int,
         direction: PrefetchDirection
     ) -> CollectionCatalogDownloadableMediaDescriptor? {
-        let targetTokenIndex: Int
-        switch direction {
-        case .forward:
-            targetTokenIndex = currentTokenIndex + 1
-        case .backward:
-            targetTokenIndex = currentTokenIndex - 1
-        }
-
+        let targetTokenIndex = currentTokenIndex + direction.adjacentOffset
         guard targetTokenIndex >= 0, targetTokenIndex < tokenCount else { return nil }
         return CollectionCatalog.downloadableMediaDescriptor(
             specificCollectionId: collectionId,
@@ -239,7 +232,7 @@ final class DownloadableMediaCache {
         try? FileManager.default.removeItem(
             at: cacheRoot.appendingPathComponent(Self.webViewHTMLDirectoryName, isDirectory: true)
         )
-        memoryCache.countLimit = Self.decodedWindowCapacity
+        memoryCache.countLimit = PlayerDownloadableMediaWindowLayout.decodedWindowCapacity
         memoryCache.totalCostLimit = 128 * 1024 * 1024
 
 #if os(iOS)
@@ -267,27 +260,48 @@ final class DownloadableMediaCache {
             tokenCount: context.tokenCount,
             direction: direction
         )
+        let decodedDescriptors = Self.decodedWindowDescriptors(
+            collectionId: context.collectionId,
+            currentTokenIndex: context.tokenIndex,
+            tokenCount: context.tokenCount,
+            direction: direction
+        )
         guard let currentDescriptor = descriptors.first(where: { $0.tokenIndex == context.tokenIndex }) else {
             return nil
         }
-        prepareWindow(
-            collectionId: context.collectionId,
-            ownerId: ownerId,
-            currentTokenIndex: context.tokenIndex,
+
+        let window = PlayerDownloadableMediaWindow(
+            currentDescriptor: currentDescriptor,
             descriptors: descriptors,
-            direction: direction
+            decodedDescriptors: decodedDescriptors,
+            adjacentDescriptor: nil
         )
+        prepareWindow(window, ownerId: ownerId)
         return currentDescriptor
     }
 
+    @discardableResult
     func prepareWindow(
+        _ window: PlayerDownloadableMediaWindow,
+        ownerId: UUID
+    ) -> CollectionCatalogDownloadableMediaDescriptor {
+        prepareWindow(
+            collectionId: window.currentDescriptor.collectionId,
+            ownerId: ownerId,
+            currentDescriptor: window.currentDescriptor,
+            descriptors: window.descriptors,
+            decodedDescriptors: window.decodedDescriptors
+        )
+        return window.currentDescriptor
+    }
+
+    private func prepareWindow(
         collectionId: String,
         ownerId: UUID,
-        currentTokenIndex: Int,
+        currentDescriptor: CollectionCatalogDownloadableMediaDescriptor,
         descriptors: [CollectionCatalogDownloadableMediaDescriptor],
-        direction: PrefetchDirection
+        decodedDescriptors: [CollectionCatalogDownloadableMediaDescriptor]
     ) {
-        let staticDescriptors = descriptors.filter(\.isStaticImage)
         queue.async { [weak self] in
             guard let self else { return }
 
@@ -300,11 +314,6 @@ final class DownloadableMediaCache {
 
             let allowedFileNames = Set(descriptors.flatMap(self.fileNames(for:)))
             let allowedKeys = Set(descriptors.map(self.cacheKey(for:)))
-            let decodedDescriptors = self.decodedWindowDescriptors(
-                from: staticDescriptors,
-                currentTokenIndex: currentTokenIndex,
-                direction: direction
-            )
             let decodedKeys = Set(decodedDescriptors.map(self.cacheKey(for:)))
             let didChangeFileWindow = didChangeCollection || previousWindow?.fileNames != allowedFileNames
             let didChangeDecodedWindow = didChangeCollection || previousWindow?.decodedKeys != decodedKeys
@@ -320,23 +329,17 @@ final class DownloadableMediaCache {
                 self.cancelDownloadsOutsideWindow(collectionId: collectionId, allowedKeys: allowedKeys)
             }
             self.pruneForegroundTracking(allowedKeys: allowedKeys)
-            if let currentDescriptor = descriptors.first(where: { $0.tokenIndex == currentTokenIndex }) {
-                self.prioritizeForegroundImageIfNeeded(
-                    currentDescriptor,
-                    requireDecodedStaticImage: currentDescriptor.isStaticImage
-                )
-            } else {
-                self.foregroundKey = nil
-                self.foregroundWorkKeys.removeAll()
-                self.updateOngoingDownloadPriorities()
-            }
+            self.prioritizeForegroundImageIfNeeded(
+                currentDescriptor,
+                requireDecodedStaticImage: currentDescriptor.isStaticImage
+            )
             if didChangeDecodedWindow {
                 self.evictMemoryOutsideWindow(collectionId: collectionId, allowedKeys: decodedKeys)
             }
             self.decodeCachedImagesIfNeeded(decodedDescriptors)
 
             let downloadDescriptors = self.prioritizedDownloadDescriptors(
-                currentTokenIndex: currentTokenIndex,
+                currentDescriptor: currentDescriptor,
                 descriptors: descriptors,
                 decodedDescriptors: decodedDescriptors
             )
@@ -1147,35 +1150,6 @@ final class DownloadableMediaCache {
         enqueueDownloadIfNeeded(descriptor, isForegroundRequest: false)
     }
 
-    private func decodedWindowDescriptors(
-        from descriptors: [CollectionCatalogDownloadableMediaDescriptor],
-        currentTokenIndex: Int,
-        direction: PrefetchDirection
-    ) -> [CollectionCatalogDownloadableMediaDescriptor] {
-        let preferredDescriptors: [CollectionCatalogDownloadableMediaDescriptor]
-        let oppositeDescriptors: [CollectionCatalogDownloadableMediaDescriptor]
-
-        switch direction {
-        case .forward:
-            preferredDescriptors = descriptors.filter {
-                $0.tokenIndex > currentTokenIndex && $0.tokenIndex - currentTokenIndex <= Self.decodedPreferredRadius
-            }
-            oppositeDescriptors = descriptors.filter {
-                currentTokenIndex > $0.tokenIndex && currentTokenIndex - $0.tokenIndex <= Self.decodedOppositeRadius
-            }
-        case .backward:
-            preferredDescriptors = descriptors.filter {
-                currentTokenIndex > $0.tokenIndex && currentTokenIndex - $0.tokenIndex <= Self.decodedPreferredRadius
-            }
-            oppositeDescriptors = descriptors.filter {
-                $0.tokenIndex > currentTokenIndex && $0.tokenIndex - currentTokenIndex <= Self.decodedOppositeRadius
-            }
-        }
-
-        let currentDescriptor = descriptors.first { $0.tokenIndex == currentTokenIndex }.map { [$0] } ?? []
-        return currentDescriptor + preferredDescriptors + oppositeDescriptors
-    }
-
     private func decodeCachedImagesIfNeeded(_ descriptors: [CollectionCatalogDownloadableMediaDescriptor]) {
         for descriptor in descriptors {
             let key = cacheKey(for: descriptor)
@@ -1210,7 +1184,7 @@ final class DownloadableMediaCache {
     }
 
     private func prioritizedDownloadDescriptors(
-        currentTokenIndex: Int,
+        currentDescriptor: CollectionCatalogDownloadableMediaDescriptor,
         descriptors: [CollectionCatalogDownloadableMediaDescriptor],
         decodedDescriptors: [CollectionCatalogDownloadableMediaDescriptor]
     ) -> [CollectionCatalogDownloadableMediaDescriptor] {
@@ -1222,9 +1196,7 @@ final class DownloadableMediaCache {
             orderedDescriptors.append(descriptor)
         }
 
-        if let currentDescriptor = descriptors.first(where: { $0.tokenIndex == currentTokenIndex }) {
-            appendDescriptor(currentDescriptor)
-        }
+        appendDescriptor(currentDescriptor)
         decodedDescriptors.forEach(appendDescriptor)
         descriptors.forEach(appendDescriptor)
         return orderedDescriptors

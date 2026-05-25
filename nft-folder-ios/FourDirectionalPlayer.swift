@@ -817,7 +817,7 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
     fileprivate func prepareDownloadableMediaWindow(
         for coordinate: (Int, Int),
         direction: DownloadableMediaCache.PrefetchDirection
-    ) -> DownloadableMediaDescriptor? {
+    ) -> PlayerDownloadableMediaWindow? {
         MobilePlaybackController.shared.prepareDownloadableMediaWindow(
             uuid: initialConfig.id,
             coordinate: PlayerCoordinate(x: coordinate.0, y: coordinate.1),
@@ -833,17 +833,6 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
         MobilePlaybackController.shared.downloadableMediaDescriptor(
             uuid: initialConfig.id,
             coordinate: PlayerCoordinate(x: coordinate.0, y: coordinate.1)
-        )
-    }
-
-    fileprivate func adjacentDownloadableMediaDescriptor(
-        for coordinate: (Int, Int),
-        direction: DownloadableMediaCache.PrefetchDirection
-    ) -> DownloadableMediaDescriptor? {
-        MobilePlaybackController.shared.adjacentDownloadableMediaDescriptor(
-            uuid: initialConfig.id,
-            coordinate: PlayerCoordinate(x: coordinate.0, y: coordinate.1),
-            direction: direction
         )
     }
 
@@ -906,13 +895,9 @@ private protocol FourDirectionalPlayerDataSource: AnyObject {
     func prepareDownloadableMediaWindow(
         for coordinate: (Int, Int),
         direction: DownloadableMediaCache.PrefetchDirection
-    ) -> DownloadableMediaDescriptor?
+    ) -> PlayerDownloadableMediaWindow?
     func clearDownloadableMediaWindow()
     func downloadableMediaDescriptor(for coordinate: (Int, Int)) -> DownloadableMediaDescriptor?
-    func adjacentDownloadableMediaDescriptor(
-        for coordinate: (Int, Int),
-        direction: DownloadableMediaCache.PrefetchDirection
-    ) -> DownloadableMediaDescriptor?
     func canRenderCoordinate(_ coordinate: (Int, Int)) -> Bool
     func startHorizontalCoordinate(verticalIndex: Int) -> Int
     func didRenderCoordinate(_ coordinate: (Int, Int))
@@ -1487,12 +1472,17 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         if token.usesPonchoDrifellaMetalRenderer {
             fourDirectionalPlayerDataSource?.clearDownloadableMediaWindow()
             renderPonchoDrifellaMetalCard(token)
-        } else if let descriptor = prepareCurrentDownloadableMediaWindow() {
+        } else if let mediaWindow = prepareCurrentDownloadableMediaWindow() {
+            let descriptor = mediaWindow.currentDescriptor
             switch descriptor.media {
             case .staticImage:
                 renderImage(descriptor, fallbackHTML: token.html)
             case .animatedImage:
-                renderAnimatedImage(descriptor, fallbackHTML: token.html)
+                renderAnimatedImage(
+                    descriptor,
+                    adjacentDescriptor: mediaWindow.adjacentDescriptor,
+                    fallbackHTML: token.html
+                )
             case .video:
                 renderVideo(descriptor, fallbackHTML: token.html)
             case .html:
@@ -1515,7 +1505,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         _ = prepareCurrentDownloadableMediaWindow()
     }
 
-    private func prepareCurrentDownloadableMediaWindow() -> DownloadableMediaDescriptor? {
+    private func prepareCurrentDownloadableMediaWindow() -> PlayerDownloadableMediaWindow? {
         fourDirectionalPlayerDataSource?.prepareDownloadableMediaWindow(
             for: (horizontalIndex, verticalIndex),
             direction: preferredPrefetchDirection
@@ -1620,11 +1610,11 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         mediaRenderer.renderWebContent(html)
     }
 
-    private func renderAnimatedImage(_ descriptor: DownloadableMediaDescriptor, fallbackHTML: String) {
-        let adjacentDescriptor = fourDirectionalPlayerDataSource?.adjacentDownloadableMediaDescriptor(
-            for: (horizontalIndex, verticalIndex),
-            direction: preferredPrefetchDirection
-        )
+    private func renderAnimatedImage(
+        _ descriptor: DownloadableMediaDescriptor,
+        adjacentDescriptor: DownloadableMediaDescriptor?,
+        fallbackHTML: String
+    ) {
         renderDownloadableWebMedia(
             descriptor,
             adjacentDescriptor: adjacentDescriptor,

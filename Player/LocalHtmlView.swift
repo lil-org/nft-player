@@ -161,12 +161,15 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
     private var displayedCollectionTokenCount: Int?
     private var tokenPagingDataSource: PlayerTokenPagingDataSource?
     private var pageObjects = [MacPlayerPageObject]()
+    private var pageObjectIndices = [MacPlayerPageObject: Int]()
     private let pageViewControllers = NSHashTable<MacPlayerPageViewController>.weakObjects()
     private var isSyncingSelectionFromModel = false
     private var shouldSyncSelectionAfterTransition = false
     private var isTransitioning = false
     private var isLiveTransitioning = false
+    private var transitionSourceIndex: Int?
     private var transitionDestinationIndex: Int?
+    private var lastActivePrefetchDirection: DownloadableMediaCache.PrefetchDirection = .forward
     private var queuedNavigationRequests = [QueuedNavigationRequest]()
     private weak var liveTransitionSourceViewController: MacPlayerPageViewController?
     private var liveTransitionSourcePageObject: MacPlayerPageObject?
@@ -283,6 +286,8 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
                 return
             }
             queuedNavigationRequests.removeAll()
+            lastActivePrefetchDirection = targetIndex < selectedIndex ? .backward : .forward
+            transitionSourceIndex = nil
             transitionDestinationIndex = nil
             withoutImplicitAnimation {
                 selectedIndex = targetIndex
@@ -294,7 +299,9 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
         displayedCollectionId = context.collectionId
         displayedCollectionTokenCount = context.tokenCount
         queuedNavigationRequests.removeAll()
+        transitionSourceIndex = nil
         transitionDestinationIndex = nil
+        lastActivePrefetchDirection = .forward
         let dataSource = PlayerTokenPagingDataSource(
             initialCollectionId: context.collectionId,
             specificInitialToken: playerModel.currentToken,
@@ -337,7 +344,7 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
                 )
             ))
         }
-        pageObjects = nextPageObjects
+        setPageObjects(nextPageObjects)
         guard !pageObjects.isEmpty else {
             displayFallbackToken(playerModel.currentToken)
             return
@@ -358,8 +365,9 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
         displayedCollectionTokenCount = nil
         tokenPagingDataSource = nil
         queuedNavigationRequests.removeAll()
+        transitionSourceIndex = nil
         transitionDestinationIndex = nil
-        pageObjects = [MacPlayerPageObject(fallbackToken: token)]
+        setPageObjects([MacPlayerPageObject(fallbackToken: token)])
         withoutImplicitAnimation {
             arrangedObjects = pageObjects
             selectedIndex = 0
@@ -419,7 +427,8 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
         viewController.render(
             token,
             playerMenuDelegate: playerMenuDelegate,
-            mode: renderMode(for: pageObject)
+            mode: renderMode(for: pageObject),
+            downloadableMediaWindow: downloadableMediaWindow(for: pageObject)
         )
     }
 
@@ -454,6 +463,9 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
     func pageControllerDidEndLiveTransition(_ pageController: NSPageController) {
         let sourcePageObject = liveTransitionSourcePageObject
         completeTransition()
+        if let transitionSourceIndex, selectedIndex != transitionSourceIndex {
+            lastActivePrefetchDirection = selectedIndex < transitionSourceIndex ? .backward : .forward
+        }
         let didChangePage = currentPageObject != sourcePageObject
         isLiveTransitioning = false
         liveTransitionSourceViewController = nil
@@ -468,12 +480,15 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
     func pageControllerWillStartLiveTransition(_ pageController: NSPageController) {
         isTransitioning = true
         isLiveTransitioning = true
+        transitionSourceIndex = selectedIndex
+        transitionDestinationIndex = nil
         liveTransitionSourceViewController = selectedViewController as? MacPlayerPageViewController
         liveTransitionSourcePageObject = currentPageObject
     }
 
     private func finishTransition() {
         isTransitioning = false
+        transitionSourceIndex = nil
         transitionDestinationIndex = nil
         resizePageViewControllersToCurrentBounds()
         if shouldSyncSelectionAfterTransition {
@@ -527,14 +542,19 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
     private func startAnimatedNavigation(offset: Int) -> Bool {
         switch offset {
         case ..<0:
+            transitionSourceIndex = selectedIndex
             transitionDestinationIndex = selectedIndex + offset
+            lastActivePrefetchDirection = .backward
             isTransitioning = true
             navigateBack(nil)
         case 1...:
+            transitionSourceIndex = selectedIndex
             transitionDestinationIndex = selectedIndex + offset
+            lastActivePrefetchDirection = .forward
             isTransitioning = true
             navigateForward(nil)
         default:
+            transitionSourceIndex = nil
             transitionDestinationIndex = nil
             return false
         }
@@ -550,6 +570,9 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
         let pageObject = pageObjects[targetIndex]
         guard let token = token(for: pageObject) else { return false }
 
+        lastActivePrefetchDirection = targetIndex < selectedIndex ? .backward : .forward
+        transitionSourceIndex = nil
+        transitionDestinationIndex = nil
         isSyncingSelectionFromModel = true
         withoutImplicitAnimation {
             selectedIndex = targetIndex
@@ -564,9 +587,15 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
     }
 
     private func renderSelectedViewController(_ token: GeneratedToken, mode: MacPlayerMediaRenderMode) {
-        guard let viewController = selectedViewController as? MacPlayerPageViewController else { return }
+        guard let viewController = selectedViewController as? MacPlayerPageViewController,
+              let pageObject = currentPageObject else { return }
         viewController.resizeContent(to: view.bounds.size)
-        viewController.render(token, playerMenuDelegate: playerMenuDelegate, mode: mode)
+        viewController.render(
+            token,
+            playerMenuDelegate: playerMenuDelegate,
+            mode: mode,
+            downloadableMediaWindow: downloadableMediaWindow(for: pageObject)
+        )
     }
 
     private func renderCurrentPageViewController(mode: MacPlayerMediaRenderMode) {
@@ -605,6 +634,37 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
     private var currentPageObject: MacPlayerPageObject? {
         guard pageObjects.indices.contains(selectedIndex) else { return nil }
         return pageObjects[selectedIndex]
+    }
+
+    private func setPageObjects(_ nextPageObjects: [MacPlayerPageObject]) {
+        pageObjects = nextPageObjects
+        pageObjectIndices.removeAll(keepingCapacity: true)
+        for (index, pageObject) in nextPageObjects.enumerated() where pageObjectIndices[pageObject] == nil {
+            pageObjectIndices[pageObject] = index
+        }
+    }
+
+    private func downloadableMediaWindow(for pageObject: MacPlayerPageObject) -> PlayerDownloadableMediaWindow? {
+        tokenPagingDataSource?.downloadableMediaWindow(
+            coordinate: pageObject.coordinate,
+            direction: prefetchDirection(for: pageObject)
+        )
+    }
+
+    private func prefetchDirection(for pageObject: MacPlayerPageObject) -> DownloadableMediaCache.PrefetchDirection {
+        guard let pageIndex = pageObjectIndices[pageObject] else {
+            return lastActivePrefetchDirection
+        }
+
+        if let transitionSourceIndex, pageIndex != transitionSourceIndex {
+            return pageIndex < transitionSourceIndex ? .backward : .forward
+        }
+
+        if pageIndex == selectedIndex {
+            return lastActivePrefetchDirection
+        }
+
+        return pageIndex < selectedIndex ? .backward : .forward
     }
 
     private func renderMode(for pageObject: MacPlayerPageObject) -> MacPlayerMediaRenderMode {
@@ -1050,11 +1110,12 @@ private final class MacPlayerPageViewController: NSViewController {
     func render(
         _ token: GeneratedToken,
         playerMenuDelegate: PlayerMenuDelegate?,
-        mode: MacPlayerMediaRenderMode
+        mode: MacPlayerMediaRenderMode,
+        downloadableMediaWindow: PlayerDownloadableMediaWindow?
     ) {
         updatePlayerMenuDelegate(playerMenuDelegate)
         let mediaView = ensureMediaView()
-        mediaView.render(token, mode: mode)
+        mediaView.render(token, mode: mode, downloadableMediaWindow: downloadableMediaWindow)
     }
 
     func cleanup() {

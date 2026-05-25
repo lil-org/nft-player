@@ -105,6 +105,7 @@ final class MacPlayerMediaContainerView: NSView {
     private var ponchoDrifellaMetalCardView: PonchoDrifellaMetalCardView?
     private var currentToken: GeneratedToken?
     private var currentTokenContext: PlayerTokenContext?
+    private var currentDownloadableMediaWindow: PlayerDownloadableMediaWindow?
     private var renderMode: MacPlayerMediaRenderMode?
     private var representedImageKey: AnyHashable?
     private var activeImageLoadId: UUID?
@@ -213,13 +214,19 @@ final class MacPlayerMediaContainerView: NSView {
         webView?.updatePlayerMenuDelegate(playerMenuDelegate)
     }
 
-    func render(_ token: GeneratedToken, mode: MacPlayerMediaRenderMode = .active) {
+    func render(
+        _ token: GeneratedToken,
+        mode: MacPlayerMediaRenderMode = .active,
+        downloadableMediaWindow: PlayerDownloadableMediaWindow? = nil
+    ) {
         let tokenChanged = currentToken != token
         let modeChanged = renderMode != mode
-        guard tokenChanged || modeChanged else { return }
+        let mediaWindowChanged = currentDownloadableMediaWindow != downloadableMediaWindow
+        guard tokenChanged || modeChanged || mediaWindowChanged else { return }
 
         currentToken = token
         renderMode = mode
+        currentDownloadableMediaWindow = downloadableMediaWindow
 
         if tokenChanged || modeChanged {
             resetZoom(animated: false)
@@ -254,7 +261,8 @@ final class MacPlayerMediaContainerView: NSView {
             return
         }
 
-        guard let descriptor = CollectionCatalog.downloadableMediaDescriptor(for: tokenContext) else {
+        guard let descriptor = downloadableMediaWindow?.currentDescriptor
+                ?? CollectionCatalog.downloadableMediaDescriptor(for: tokenContext) else {
             clearWebMediaContext()
             clearManagedDownloadableMediaWindow()
             if !mode.canDemandLoad, isDownloadableToken {
@@ -266,7 +274,11 @@ final class MacPlayerMediaContainerView: NSView {
         }
 
         if mode.managesDownloadWindow {
-            prepareDownloadableMediaWindow(context: tokenContext, direction: direction)
+            if let downloadableMediaWindow {
+                prepareDownloadableMediaWindow(downloadableMediaWindow)
+            } else {
+                prepareDownloadableMediaWindow(context: tokenContext, direction: direction)
+            }
         }
 
         switch descriptor.media {
@@ -276,7 +288,8 @@ final class MacPlayerMediaContainerView: NSView {
         case .animatedImage:
             renderDownloadableWebMedia(
                 descriptor,
-                adjacentDescriptor: adjacentDownloadableMediaDescriptor(for: tokenContext, direction: direction),
+                adjacentDescriptor: downloadableMediaWindow?.adjacentDescriptor
+                    ?? adjacentDownloadableMediaDescriptor(for: tokenContext, direction: direction),
                 fallbackHTML: token.html,
                 mediaKind: .image,
                 mode: mode
@@ -307,6 +320,7 @@ final class MacPlayerMediaContainerView: NSView {
         clearZoomContentLayout()
         currentToken = nil
         renderMode = nil
+        currentDownloadableMediaWindow = nil
         cancelDownloadsIfNoPlayerWindows()
     }
 
@@ -679,6 +693,14 @@ final class MacPlayerMediaContainerView: NSView {
             direction: direction
         )
         activeDownloadableMediaCollectionId = context.collectionId
+    }
+
+    private func prepareDownloadableMediaWindow(_ window: PlayerDownloadableMediaWindow) {
+        DownloadableMediaCache.shared.prepareWindow(
+            window,
+            ownerId: downloadableMediaWindowOwnerId
+        )
+        activeDownloadableMediaCollectionId = window.currentDescriptor.collectionId
     }
 
     private func clearManagedDownloadableMediaWindow() {

@@ -126,26 +126,17 @@ class MobilePlaybackController {
         uuid: UUID,
         coordinate: PlayerCoordinate,
         direction: DownloadableMediaCache.PrefetchDirection
-    ) -> DownloadableMediaDescriptor? {
-        guard let context = downloadableCollectionTokenContext(uuid: uuid, coordinate: coordinate) else {
+    ) -> PlayerDownloadableMediaWindow? {
+        guard let window = dataSource(uuid: uuid)?.downloadableMediaWindow(
+            coordinate: coordinate,
+            direction: direction
+        ) else {
             clearDownloadableMediaWindow(uuid: uuid)
             return nil
         }
 
-        let descriptors = DownloadableMediaCache.windowDescriptors(
-            collectionId: context.collectionId,
-            currentTokenIndex: context.tokenIndex,
-            tokenCount: context.tokenCount,
-            direction: direction
-        )
-        DownloadableMediaCache.shared.prepareWindow(
-            collectionId: context.collectionId,
-            ownerId: uuid,
-            currentTokenIndex: context.tokenIndex,
-            descriptors: descriptors,
-            direction: direction
-        )
-        return descriptors.first { $0.tokenIndex == context.tokenIndex }
+        DownloadableMediaCache.shared.prepareWindow(window, ownerId: uuid)
+        return window
     }
 
     func downloadableMediaDescriptor(uuid: UUID, coordinate: PlayerCoordinate) -> DownloadableMediaDescriptor? {
@@ -156,23 +147,6 @@ class MobilePlaybackController {
         return MobileCollectionCatalog.downloadableMediaDescriptor(
             specificCollectionId: context.collectionId,
             tokenIndex: context.tokenIndex
-        )
-    }
-
-    func adjacentDownloadableMediaDescriptor(
-        uuid: UUID,
-        coordinate: PlayerCoordinate,
-        direction: DownloadableMediaCache.PrefetchDirection
-    ) -> DownloadableMediaDescriptor? {
-        guard let context = downloadableCollectionTokenContext(uuid: uuid, coordinate: coordinate) else {
-            return nil
-        }
-
-        return DownloadableMediaCache.adjacentDescriptor(
-            collectionId: context.collectionId,
-            currentTokenIndex: context.tokenIndex,
-            tokenCount: context.tokenCount,
-            direction: direction
         )
     }
 
