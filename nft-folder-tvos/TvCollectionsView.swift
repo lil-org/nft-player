@@ -5,10 +5,14 @@ import Combine
 
 struct TvCollectionsView: View {
     
-    @State private var suggestedItems = TokenGenerator.allGenerativeSuggestedItems
+    private let collectionItems: [CollectionCatalogItem]
     @State private var selectedItemId: String?
     @State private var isNavigatingToPlayer = false
     @State private var showPreferencesAlert = false
+
+    init(collectionItems: [CollectionCatalogItem] = CollectionCatalog.allItems) {
+        self.collectionItems = collectionItems
+    }
     
     var body: some View {
         NavigationView {
@@ -53,12 +57,12 @@ struct TvCollectionsView: View {
     private func createGrid() -> some View {
         let gridLayout = [GridItem(.adaptive(minimum: 230), spacing: 20)]
         let grid = LazyVGrid(columns: gridLayout, alignment: .center, spacing: 23) {
-            ForEach(suggestedItems) { item in
+            ForEach(collectionItems) { item in
                 Button(action: {
-                    didSelectSuggestedItem(item)
+                    didSelectCollectionItem(item)
                 }) {
                     VStack {
-                        Image(item.id)
+                        Image(item.coverAssetName)
                             .resizable()
                             .scaledToFit()
                             .aspectRatio(contentMode: .fit)
@@ -66,7 +70,7 @@ struct TvCollectionsView: View {
                         gridItemText(item.name)
                     }
                 }
-                .contextMenu { suggestedItemContextMenu(item: item) }
+                .contextMenu { collectionItemContextMenu(item: item) }
             }
         }
         .padding(.horizontal)
@@ -84,24 +88,34 @@ struct TvCollectionsView: View {
             .cornerRadius(5)
     }
     
-    private func suggestedItemContextMenu(item: SuggestedItem) -> some View {
+    private func collectionItemContextMenu(item: CollectionCatalogItem) -> some View {
         Group {
             Text(item.name)
-            Divider()
-            Button(Strings.play, action: {
-                didSelectSuggestedItem(item)
-            })
+            if isPlayableCollectionItem(item) {
+                Divider()
+                Button(Strings.play, action: {
+                    didSelectCollectionItem(item)
+                })
+            }
         }
     }
     
-    private func didSelectSuggestedItem(_ item: SuggestedItem) {
+    private func didSelectCollectionItem(_ item: CollectionCatalogItem) {
+        guard isPlayableCollectionItem(item) else { return }
+
         selectedItemId = item.id
         isNavigatingToPlayer = true
     }
     
     private func showRandomPlayer() {
-        selectedItemId = suggestedItems.randomElement()?.id
+        guard let item = collectionItems.filter(isPlayableCollectionItem).randomElement() else { return }
+
+        selectedItemId = item.id
         isNavigatingToPlayer = true
+    }
+
+    private func isPlayableCollectionItem(_ item: CollectionCatalogItem) -> Bool {
+        TokenGenerator.canGenerate(id: item.id)
     }
     
 }
