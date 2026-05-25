@@ -27,7 +27,7 @@ enum CollectionOfTheDaySource {
         case .collectionOfTheDay:
             return CollectionOfTheDayWidgetData.collection(for: date)
         case .defaultSelectedCollection:
-            return CollectionOfTheDayWidgetData.defaultSelectedCollection(for: date)
+            return CollectionOfTheDayWidgetData.defaultSelectedCollection()
         case let .fixedCollection(id):
             return CollectionOfTheDayWidgetData.collection(id: id)
         }
@@ -63,6 +63,7 @@ private enum CollectionWidgetTimelineFactory {
         source: CollectionOfTheDaySource,
         context: TimelineProviderContext,
         date: Date = Date(),
+        rotationFrequency: WidgetRotationFrequency? = nil,
         completion: @escaping (Timeline<CollectionOfTheDayEntry>) -> Void
     ) {
         guard let collection = source.collection(for: date) else {
@@ -104,17 +105,27 @@ private enum CollectionWidgetTimelineFactory {
                 collectionId: collection.id,
                 tokenId: imageReference.tokenId
             )
-            completion(Timeline(entries: [entry], policy: .after(CollectionOfTheDayWidgetData.nextRotationDate(after: date))))
+            let nextRotationDate: Date
+            if let rotationFrequency {
+                nextRotationDate = CollectionOfTheDayWidgetData.nextRotationDate(
+                    after: date,
+                    frequency: rotationFrequency
+                )
+            } else {
+                nextRotationDate = CollectionOfTheDayWidgetData.nextRotationDate(after: date)
+            }
+            completion(Timeline(entries: [entry], policy: .after(nextRotationDate)))
         }.resume()
     }
 
     static func timeline(
         source: CollectionOfTheDaySource,
         context: TimelineProviderContext,
-        date: Date = Date()
+        date: Date = Date(),
+        rotationFrequency: WidgetRotationFrequency? = nil
     ) async -> Timeline<CollectionOfTheDayEntry> {
         await withCheckedContinuation { continuation in
-            timeline(source: source, context: context, date: date) { timeline in
+            timeline(source: source, context: context, date: date, rotationFrequency: rotationFrequency) { timeline in
                 continuation.resume(returning: timeline)
             }
         }
@@ -234,12 +245,50 @@ struct WidgetCollectionEntityQuery: EntityQuery, EnumerableEntityQuery {
     }
 }
 
+enum WidgetRotationFrequency: String, AppEnum, CaseIterable {
+    case onceDaily
+    case twiceDaily
+    case threeTimesDaily
+
+    static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Rotation")
+    static let caseDisplayRepresentations: [WidgetRotationFrequency: DisplayRepresentation] = [
+        .onceDaily: "Once per Day",
+        .twiceDaily: "Twice per Day",
+        .threeTimesDaily: "Three Times per Day",
+    ]
+
+    var rotationHours: [Int] {
+        switch self {
+        case .onceDaily:
+            return [8]
+        case .twiceDaily:
+            return [8, 20]
+        case .threeTimesDaily:
+            return [8, 14, 20]
+        }
+    }
+
+    var fallbackHourInterval: Int {
+        switch self {
+        case .onceDaily:
+            return 24
+        case .twiceDaily:
+            return 12
+        case .threeTimesDaily:
+            return 8
+        }
+    }
+}
+
 struct SelectedCollectionWidgetIntent: WidgetConfigurationIntent {
     static let title: LocalizedStringResource = "Collection"
     static let description = IntentDescription("Choose a collection to display.")
 
     @Parameter(title: "Collection")
     var collection: WidgetCollectionEntity?
+
+    @Parameter(title: "Rotation", default: .twiceDaily)
+    var rotation: WidgetRotationFrequency
 }
 
 struct SelectedCollectionWidgetProvider: AppIntentTimelineProvider {
@@ -252,7 +301,11 @@ struct SelectedCollectionWidgetProvider: AppIntentTimelineProvider {
     }
 
     func timeline(for configuration: SelectedCollectionWidgetIntent, in context: Context) async -> Timeline<CollectionOfTheDayEntry> {
-        await CollectionWidgetTimelineFactory.timeline(source: source(for: configuration), context: context)
+        await CollectionWidgetTimelineFactory.timeline(
+            source: source(for: configuration),
+            context: context,
+            rotationFrequency: configuration.rotation
+        )
     }
 
     private func source(for configuration: SelectedCollectionWidgetIntent) -> CollectionOfTheDaySource {

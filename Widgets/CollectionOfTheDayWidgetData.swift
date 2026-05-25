@@ -13,6 +13,7 @@ typealias WidgetPlatformImage = NSImage
 
 enum CollectionOfTheDayWidgetData {
     static let tojibaCPUCorpCollectionId = "AU9F91RsrqQEeN8sshErtQnT8CgYxrg9YD9n4AHHvus7"
+    static let defaultSelectedCollectionId = "0x30f9efa712dde239a13a5fef1a8c7a6ac530a26d"
 
     private static let retryInterval: TimeInterval = 30 * 60
     private static let imageScale: CGFloat = 3
@@ -30,8 +31,8 @@ enum CollectionOfTheDayWidgetData {
         stableCollection(for: date, calendar: calendar, salt: nil)
     }
 
-    static func defaultSelectedCollection(for date: Date = Date(), calendar: Calendar? = nil) -> WidgetCollection? {
-        stableCollection(for: date, calendar: calendar, salt: "selected-collection-default")
+    static func defaultSelectedCollection() -> WidgetCollection? {
+        collection(id: defaultSelectedCollectionId)
     }
 
     private static func stableCollection(for date: Date, calendar: Calendar?, salt: String?) -> WidgetCollection? {
@@ -60,16 +61,52 @@ enum CollectionOfTheDayWidgetData {
     }
 
     static func nextRotationDate(after date: Date, calendar: Calendar? = nil) -> Date {
+        nextRotationDate(
+            after: date,
+            hours: [8, 16],
+            wrapToFirstHourOnNextDay: false,
+            fallbackHourInterval: 8,
+            calendar: calendar
+        )
+    }
+
+    static func nextRotationDate(
+        after date: Date,
+        frequency: WidgetRotationFrequency,
+        calendar: Calendar? = nil
+    ) -> Date {
+        nextRotationDate(
+            after: date,
+            hours: frequency.rotationHours,
+            wrapToFirstHourOnNextDay: true,
+            fallbackHourInterval: frequency.fallbackHourInterval,
+            calendar: calendar
+        )
+    }
+
+    private static func nextRotationDate(
+        after date: Date,
+        hours: [Int],
+        wrapToFirstHourOnNextDay: Bool,
+        fallbackHourInterval: Int,
+        calendar: Calendar?
+    ) -> Date {
         let calendar = calendar ?? localGregorianCalendar
         let startOfDay = calendar.startOfDay(for: date)
-        for hour in [8, 16] {
+        for hour in hours {
             if let candidate = calendar.date(byAdding: .hour, value: hour, to: startOfDay),
                candidate > date {
                 return candidate
             }
         }
+        if wrapToFirstHourOnNextDay,
+           let firstHour = hours.first,
+           let nextDayStart = calendar.date(byAdding: .day, value: 1, to: startOfDay),
+           let candidate = calendar.date(byAdding: .hour, value: firstHour, to: nextDayStart) {
+            return candidate
+        }
         return calendar.date(byAdding: .day, value: 1, to: startOfDay)
-            ?? date.addingTimeInterval(8 * 60 * 60)
+            ?? date.addingTimeInterval(TimeInterval(fallbackHourInterval * 60 * 60))
     }
 
     static func retryDate(after date: Date) -> Date {
