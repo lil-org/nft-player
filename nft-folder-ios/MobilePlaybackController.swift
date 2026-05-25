@@ -41,7 +41,7 @@ class MobilePlaybackController {
     private var displays = [UUID: MobilePlaybackControllerDisplay]()
     private var initialConfigs = [UUID: MobilePlayerConfig]()
     private var tokensDataSources = [UUID: PlayerTokenPagingDataSource]()
-    private var restartSuppressedCollectionIds = [UUID: String]()
+    private var viewingSessionTrackers = [UUID: PlayerViewingSessionTracker]()
     
     func showNewToken(displayId: UUID, token: GeneratedToken, sameCollection: Bool, coordinate: PlayerCoordinate) {
         guard let dataSource = tokensDataSources[displayId] else { return }
@@ -85,13 +85,16 @@ class MobilePlaybackController {
     func subscribe(config: MobilePlayerConfig, display: MobilePlaybackControllerDisplay) {
         displays[config.id] = display
         initialConfigs[config.id] = config
+        viewingSessionTrackers[config.id] = PlayerViewingSessionTracker(
+            continueViewingCollectionId: config.continueViewingCollectionId
+        )
     }
     
     func stopAndDisconnect(uuid: UUID) {
         displays.removeValue(forKey: uuid)
         initialConfigs.removeValue(forKey: uuid)
         tokensDataSources.removeValue(forKey: uuid)
-        restartSuppressedCollectionIds.removeValue(forKey: uuid)
+        viewingSessionTrackers.removeValue(forKey: uuid)
         if displays.isEmpty {
             DownloadableMediaCache.shared.cancelAllDownloads()
         } else {
@@ -194,8 +197,9 @@ class MobilePlaybackController {
 
     func markViewed(uuid: UUID, coordinate: PlayerCoordinate) -> MobileViewingProgress? {
         guard let progress = dataSource(uuid: uuid)?.progress(coordinate: coordinate) else { return nil }
-        MobileViewingProgressStore.save(progress)
-        updateContinueViewingCollection(for: progress, uuid: uuid)
+        updateViewingSessionTracker(uuid: uuid) { tracker in
+            tracker.markViewed(progress)
+        }
         return progress
     }
 
@@ -223,37 +227,18 @@ class MobilePlaybackController {
         }
     }
 
-    private func updateContinueViewingCollection(for progress: MobileViewingProgress, uuid: UUID) {
-        if let suppressedCollectionId = restartSuppressedCollectionIds[uuid] {
-            guard progress.collectionId == suppressedCollectionId else {
-                restartSuppressedCollectionIds.removeValue(forKey: uuid)
-                MobileViewingProgressStore.clearContinueViewingCollectionId()
-                return
-            }
-
-            guard progress.tokenIndex > 0 else {
-                MobileViewingProgressStore.clearContinueViewingCollectionId()
-                return
-            }
-
-            restartSuppressedCollectionIds.removeValue(forKey: uuid)
-        }
-
-        MobileViewingProgressStore.updateContinueViewingCollection(
-            for: progress,
-            expectedCollectionId: initialConfigs[uuid]?.continueViewingCollectionId
-        )
-    }
-
     private func suppressContinueViewingUntilMovementAfterRestart(uuid: UUID) {
-        guard let coordinate = displays[uuid]?.getCurrentCoordinate(),
-              let progress = dataSource(uuid: uuid)?.progress(coordinate: PlayerCoordinate(x: coordinate.0, y: coordinate.1)) else {
-            restartSuppressedCollectionIds.removeValue(forKey: uuid)
-            return
+        let collectionId: String?
+        if let coordinate = displays[uuid]?.getCurrentCoordinate() {
+            let playerCoordinate = PlayerCoordinate(x: coordinate.0, y: coordinate.1)
+            collectionId = dataSource(uuid: uuid)?.collectionTokenContext(coordinate: playerCoordinate)?.collectionId
+        } else {
+            collectionId = nil
         }
 
-        restartSuppressedCollectionIds[uuid] = progress.collectionId
-        MobileViewingProgressStore.recordContinueViewingClearedForSync()
+        updateViewingSessionTracker(uuid: uuid) { tracker in
+            tracker.beginRestart(collectionId: collectionId)
+        }
     }
 
     func startHorizontalCoordinate(uuid: UUID, verticalIndex: Int) -> Int {
@@ -274,6 +259,28 @@ class MobilePlaybackController {
         )
         tokensDataSources[uuid] = newDataSource
         return newDataSource
+    }
+
+    private func viewingSessionTracker(uuid: UUID) -> PlayerViewingSessionTracker {
+        if let tracker = viewingSessionTrackers[uuid] {
+            return tracker
+        }
+
+        let tracker = PlayerViewingSessionTracker(
+            continueViewingCollectionId: initialConfigs[uuid]?.continueViewingCollectionId
+        )
+        viewingSessionTrackers[uuid] = tracker
+        return tracker
+    }
+
+    private func updateViewingSessionTracker<T>(
+        uuid: UUID,
+        _ update: (inout PlayerViewingSessionTracker) -> T
+    ) -> T {
+        var tracker = viewingSessionTracker(uuid: uuid)
+        let result = update(&tracker)
+        viewingSessionTrackers[uuid] = tracker
+        return result
     }
 
 }

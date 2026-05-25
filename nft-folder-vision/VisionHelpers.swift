@@ -12,5 +12,8 @@ struct WindowId {
 struct Images {
     
     static let preferences = Image(systemName: "gearshape")
+    static let bookmark = Image(systemName: "bookmark")
+    static let bookmarkFill = Image(systemName: "bookmark.fill")
+    static let play = Image(systemName: "play")
     
 }

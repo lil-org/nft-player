@@ -10,6 +10,7 @@ struct VisionPlayerConfig: Hashable, Identifiable {
     var initialItemId: String?
     var specificToken: GeneratedToken?
     var initialTokenId: String?
+    var continueViewingCollectionId: String?
 }
 
 struct VisionPlayerView: View {
@@ -31,39 +32,136 @@ struct VisionPlayerView: View {
             )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            HStack {
-                Button(action: onDismiss) {
-                    Images.back
-                }
-                .accessibilityLabel(Strings.back)
-
-                Spacer()
-
-                HStack {
-                    Button(action: goBack) {
-                        Images.back
-                    }
-                    .keyboardShortcut("[", modifiers: .command)
-                    .disabled(!playerModel.canGoBack)
-                    .accessibilityLabel(Strings.back)
-
-                    Button(action: goForward) {
-                        Images.forward
-                    }
-                    .keyboardShortcut("]", modifiers: .command)
-                    .disabled(!playerModel.canGoForward)
-                    .accessibilityLabel(Strings.forward)
-                }
-
-                Spacer()
-
-                moreMenu
-            }
-            .padding()
+            playerToolbar
+                .padding()
         }
         .background(Color.black)
         .onDisappear {
             DownloadableMediaCache.shared.clearActiveWindow(ownerId: playerModel.id)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .playerBookmarksDidChange)) { _ in
+            playerModel.refreshBookmarkState()
+        }
+    }
+
+    private var playerToolbar: some View {
+        ViewThatFits(in: .horizontal) {
+            fullPlayerToolbar
+            compactPlayerToolbar
+        }
+    }
+
+    private var fullPlayerToolbar: some View {
+        HStack(spacing: 12) {
+            dismissButton
+
+            Spacer(minLength: 12)
+
+            playerTitle
+
+            Spacer(minLength: 12)
+
+            playerNavigationControls
+            playerCompletionControls
+            playerBookmarkButton
+            moreMenu
+        }
+    }
+
+    private var compactPlayerToolbar: some View {
+        HStack(spacing: 10) {
+            dismissButton
+            playerNavigationControls
+
+            Spacer(minLength: 8)
+
+            compactPlayerTitle
+
+            Spacer(minLength: 8)
+
+            playerCompletionControls
+            playerBookmarkButton
+            moreMenu
+        }
+    }
+
+    private var dismissButton: some View {
+        Button(action: onDismiss) {
+            Images.back
+        }
+        .accessibilityLabel(Strings.back)
+    }
+
+    private var playerTitle: some View {
+        VStack(spacing: 2) {
+            Text(playerModel.currentToken.collectionName)
+                .font(.headline.weight(.semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+
+            if !playerModel.currentPageLabel.isEmpty {
+                Text(playerModel.currentPageLabel)
+                    .font(.caption.weight(.semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+        }
+        .frame(maxWidth: 360)
+    }
+
+    @ViewBuilder
+    private var compactPlayerTitle: some View {
+        if !playerModel.currentPageLabel.isEmpty {
+            Text(playerModel.currentPageLabel)
+                .font(.caption.weight(.semibold))
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .frame(minWidth: 64)
+        }
+    }
+
+    private var playerNavigationControls: some View {
+        HStack(spacing: 8) {
+            Button(action: goBack) {
+                Images.back
+            }
+            .keyboardShortcut("[", modifiers: .command)
+            .disabled(!playerModel.canGoBack)
+            .accessibilityLabel(Strings.back)
+
+            Button(action: goForward) {
+                Images.forward
+            }
+            .keyboardShortcut("]", modifiers: .command)
+            .disabled(!playerModel.canGoForward)
+            .accessibilityLabel(Strings.forward)
+        }
+    }
+
+    @ViewBuilder
+    private var playerCompletionControls: some View {
+        if playerModel.currentProgress?.isComplete == true {
+            Button(action: viewAgain) {
+                Images.viewAgain
+            }
+            .accessibilityLabel(Strings.viewAgain)
+
+            Button(action: onDismiss) {
+                Images.finish
+            }
+            .accessibilityLabel(Strings.finish)
+        }
+    }
+
+    @ViewBuilder
+    private var playerBookmarkButton: some View {
+        if playerModel.canBookmarkCurrentToken {
+            Button(action: toggleCurrentTokenBookmark) {
+                playerModel.isCurrentTokenBookmarked ? Images.bookmarkFill : Images.bookmark
+            }
+            .accessibilityLabel(playerModel.isCurrentTokenBookmarked ? Strings.removeBookmark : Strings.bookmark)
         }
     }
 
@@ -91,27 +189,50 @@ struct VisionPlayerView: View {
         navigationBridge.goForward(animated: false)
     }
 
+    private func viewAgain() {
+        playerModel.restartCollection()
+    }
+
+    private func toggleCurrentTokenBookmark() {
+        playerModel.toggleCurrentTokenBookmark()
+    }
+
 }
 
 private final class VisionPlayerModel: ObservableObject {
 
     let id: UUID
     private let dataSource: PlayerTokenPagingDataSource
+    private var viewingSessionTracker: PlayerViewingSessionTracker
     @Published private var displayState: VisionPlayerDisplayState
+    @Published private(set) var isCurrentTokenBookmarked = false
 
     init(config: VisionPlayerConfig) {
         let initialCoordinate = PlayerCoordinate(x: 0, y: 0)
-        id = config.id
-        dataSource = PlayerTokenPagingDataSource(
+        let dataSource = PlayerTokenPagingDataSource(
             initialCollectionId: config.initialItemId,
             specificInitialToken: config.specificToken,
             initialTokenId: config.initialTokenId
         )
+        id = config.id
+        self.dataSource = dataSource
+        var tracker = PlayerViewingSessionTracker(
+            continueViewingCollectionId: config.continueViewingCollectionId
+        )
+        let token = dataSource.getToken(coordinate: initialCoordinate)
+        let progress = dataSource.progress(coordinate: initialCoordinate)
+        if let progress {
+            tracker.markViewed(progress)
+        }
+        viewingSessionTracker = tracker
         displayState = VisionPlayerDisplayState(
             coordinate: initialCoordinate,
-            token: dataSource.getToken(coordinate: initialCoordinate),
+            token: token,
+            progress: progress,
+            pageLabel: dataSource.pageLabel(coordinate: initialCoordinate) ?? "",
             preferredPrefetchDirection: .forward
         )
+        isCurrentTokenBookmarked = Self.isBookmarked(token: token)
     }
 
     var currentToken: GeneratedToken {
@@ -122,8 +243,20 @@ private final class VisionPlayerModel: ObservableObject {
         displayState.coordinate
     }
 
+    var currentProgress: PlayerViewingProgress? {
+        displayState.progress
+    }
+
+    var currentPageLabel: String {
+        displayState.pageLabel
+    }
+
     var preferredPrefetchDirection: DownloadableMediaCache.PrefetchDirection {
         displayState.preferredPrefetchDirection
+    }
+
+    var canBookmarkCurrentToken: Bool {
+        !currentToken.fullCollectionId.isEmpty && !currentToken.id.isEmpty
     }
 
     var canGoBack: Bool {
@@ -159,21 +292,69 @@ private final class VisionPlayerModel: ObservableObject {
     ) {
         guard dataSource.canRender(coordinate: coordinate) else { return }
 
-        displayState = VisionPlayerDisplayState(
-            coordinate: coordinate,
-            token: dataSource.getToken(coordinate: coordinate),
-            preferredPrefetchDirection: direction
+        displayState = makeDisplayState(coordinate: coordinate, direction: direction)
+        refreshBookmarkState()
+    }
+
+    func restartCollection() {
+        guard let currentProgress else { return }
+        viewingSessionTracker.beginRestart(collectionId: currentProgress.collectionId)
+        let targetCoordinate = PlayerCoordinate(
+            x: dataSource.horizontalCoordinateForTokenIndex(0, verticalIndex: currentCoordinate.y),
+            y: currentCoordinate.y
         )
+        display(coordinate: targetCoordinate, direction: .backward)
+    }
+
+    func toggleCurrentTokenBookmark() {
+        guard canBookmarkCurrentToken else { return }
+
+        isCurrentTokenBookmarked = PlayerBookmarksStore.toggleBookmark(
+            collectionId: currentToken.fullCollectionId,
+            tokenId: currentToken.id
+        )
+    }
+
+    func refreshBookmarkState() {
+        isCurrentTokenBookmarked = Self.isBookmarked(token: currentToken)
     }
 
     private func canRender(offset: Int) -> Bool {
         canRender(coordinate(adjacentTo: currentCoordinate, offset: offset))
+    }
+
+    private func makeDisplayState(
+        coordinate: PlayerCoordinate,
+        direction: DownloadableMediaCache.PrefetchDirection
+    ) -> VisionPlayerDisplayState {
+        let token = dataSource.getToken(coordinate: coordinate)
+        let progress = dataSource.progress(coordinate: coordinate)
+        if let progress {
+            viewingSessionTracker.markViewed(progress)
+        }
+        return VisionPlayerDisplayState(
+            coordinate: coordinate,
+            token: token,
+            progress: progress,
+            pageLabel: dataSource.pageLabel(coordinate: coordinate) ?? "",
+            preferredPrefetchDirection: direction
+        )
+    }
+
+    private static func isBookmarked(token: GeneratedToken) -> Bool {
+        guard !token.fullCollectionId.isEmpty, !token.id.isEmpty else { return false }
+        return PlayerBookmarksStore.isBookmarked(
+            collectionId: token.fullCollectionId,
+            tokenId: token.id
+        )
     }
 }
 
 private struct VisionPlayerDisplayState {
     let coordinate: PlayerCoordinate
     let token: GeneratedToken
+    let progress: PlayerViewingProgress?
+    let pageLabel: String
     let preferredPrefetchDirection: DownloadableMediaCache.PrefetchDirection
 }
 
@@ -1834,21 +2015,23 @@ private enum VisionVideoAssetLayout {
 
 enum VisionPlayerPrewarmer {
 
-    static func scheduleAfterLaunch(initialCollectionIds: [String]) {
+    static func scheduleAfterLaunch(continueViewingProgress: PlayerViewingProgress?, initialCollectionIds: [String]) {
         VisionPlayerWebView.scheduleFirstUsePrewarm()
         PlayerTokenPrewarmer.scheduleAfterLaunch(
-            continueViewingProgress: nil,
+            continueViewingProgress: continueViewingProgress,
             initialCollectionIds: initialCollectionIds
         )
     }
 
     static func preparedConfig(
         initialItemId: String?,
-        initialTokenId: String? = nil
+        initialTokenId: String? = nil,
+        continueViewingCollectionId: String?
     ) -> VisionPlayerConfig {
         var config = VisionPlayerConfig(
             initialItemId: initialItemId,
-            initialTokenId: initialTokenId
+            initialTokenId: initialTokenId,
+            continueViewingCollectionId: continueViewingCollectionId
         )
         config.specificToken = PlayerTokenPrewarmer.preparedToken(
             initialCollectionId: initialItemId,

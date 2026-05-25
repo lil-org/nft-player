@@ -210,7 +210,7 @@ enum PlayerBookmarksStore {
         cachedBookmarksData = data
         userDefaults.set(data, forKey: bookmarksSyncDomain.key)
         NotificationCenter.default.post(name: .playerBookmarksDidChange, object: nil)
-#if os(macOS) || os(iOS)
+#if os(macOS) || os(iOS) || os(visionOS)
         if mirrorToICloud {
             PlayerICloudSync.shared.playerBookmarksDidChange()
         }

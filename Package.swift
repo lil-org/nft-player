@@ -29,6 +29,7 @@ let package = Package(
             sources: [
                 "Models/PlayerSyncTypes.swift",
                 "Models/PlayerViewingProgressStore.swift",
+                "Models/PlayerViewingSessionTracker.swift",
                 "Models/PlayerBookmarksStore.swift",
                 "Models/Strings.swift",
                 "Models/WidgetDeepLink.swift",

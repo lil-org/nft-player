@@ -279,7 +279,7 @@ enum PlayerViewingProgressStore {
         cachedProgressData = data
         userDefaults.set(data, forKey: progressSyncDomain.key)
         NotificationCenter.default.post(name: .playerViewingProgressDidChange, object: nil)
-#if os(macOS) || os(iOS)
+#if os(macOS) || os(iOS) || os(visionOS)
         if mirrorToICloud {
             PlayerICloudSync.shared.playerProgressDidChange()
         }
@@ -313,7 +313,7 @@ enum PlayerViewingProgressStore {
         }
         userDefaults.removeObject(forKey: legacyMobileContinueViewingCollectionIdKey)
         NotificationCenter.default.post(name: .playerViewingProgressDidChange, object: nil)
-#if os(macOS) || os(iOS)
+#if os(macOS) || os(iOS) || os(visionOS)
         if mirrorToICloud {
             PlayerICloudSync.shared.playerContinueViewingStateDidChange()
         }

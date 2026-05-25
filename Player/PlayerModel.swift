@@ -5,7 +5,6 @@ import SwiftUI
 class PlayerModel: ObservableObject {
     
     let specificCollectionId: String?
-    let continueViewingCollectionId: String?
     private(set) var widgetTokenInsertion: PlayerWidgetTokenInsertion?
     
     @Published var currentToken: GeneratedToken
@@ -15,7 +14,7 @@ class PlayerModel: ObservableObject {
     @Published private(set) var isCurrentTokenInsertedWidgetToken = false
     private static let historyTrimThreshold = 23
     private static let retainedHistoryCount = 10
-    private var restartSuppressedCollectionId: String?
+    private var viewingSessionTracker: PlayerViewingSessionTracker
 
     init(specificCollectionId: String?, notTokenId: String?) {
         let token = Self.generateRandomToken(
@@ -25,8 +24,8 @@ class PlayerModel: ObservableObject {
         self.currentToken = token
         self.history = [token]
         self.specificCollectionId = specificCollectionId
-        self.continueViewingCollectionId = specificCollectionId
         self.widgetTokenInsertion = nil
+        self.viewingSessionTracker = PlayerViewingSessionTracker(continueViewingCollectionId: specificCollectionId)
     }
 
     init(collectionId: String, initialTokenId: String? = nil, continueViewingCollectionId: String? = nil) {
@@ -34,25 +33,29 @@ class PlayerModel: ObservableObject {
         self.currentToken = token
         self.history = [token]
         self.specificCollectionId = collectionId
-        self.continueViewingCollectionId = continueViewingCollectionId ?? collectionId
         self.widgetTokenInsertion = nil
+        self.viewingSessionTracker = PlayerViewingSessionTracker(
+            continueViewingCollectionId: continueViewingCollectionId ?? collectionId
+        )
     }
     
     init(token: GeneratedToken) {
         self.currentToken = token
         self.history = [token]
         self.specificCollectionId = token.fullCollectionId
-        self.continueViewingCollectionId = token.fullCollectionId
         self.widgetTokenInsertion = nil
+        self.viewingSessionTracker = PlayerViewingSessionTracker(continueViewingCollectionId: token.fullCollectionId)
     }
 
     init(widgetTokenInsertion: PlayerWidgetTokenInsertion) {
         self.currentToken = widgetTokenInsertion.insertedToken
         self.history = [widgetTokenInsertion.insertedToken]
         self.specificCollectionId = widgetTokenInsertion.collectionId
-        self.continueViewingCollectionId = widgetTokenInsertion.collectionId
         self.widgetTokenInsertion = widgetTokenInsertion
         self.isCurrentTokenInsertedWidgetToken = true
+        self.viewingSessionTracker = PlayerViewingSessionTracker(
+            continueViewingCollectionId: widgetTokenInsertion.collectionId
+        )
     }
 
     var playerWindowTitle: String {
@@ -235,8 +238,7 @@ class PlayerModel: ObservableObject {
             ? widgetTokenInsertion?.updatedAnchorProgress()
             : progress(for: token)
         guard let progress else { return nil }
-        PlayerViewingProgressStore.save(progress)
-        updateContinueViewingCollection(for: progress)
+        viewingSessionTracker.markViewed(progress)
         return progress
     }
 
@@ -246,8 +248,7 @@ class PlayerModel: ObservableObject {
             return
         }
 
-        restartSuppressedCollectionId = currentToken.fullCollectionId
-        PlayerViewingProgressStore.recordContinueViewingClearedForSync()
+        viewingSessionTracker.beginRestart(collectionId: currentToken.fullCollectionId)
         clearWidgetTokenInsertion()
         history = [firstToken]
         currentIndex = 0
@@ -299,28 +300,6 @@ class PlayerModel: ObservableObject {
 
     private func shouldMaskPagePosition(for token: GeneratedToken) -> Bool {
         isCurrentTokenInsertedWidgetToken && currentToken == token
-    }
-
-    private func updateContinueViewingCollection(for progress: PlayerViewingProgress) {
-        if let suppressedCollectionId = restartSuppressedCollectionId {
-            guard progress.collectionId == suppressedCollectionId else {
-                restartSuppressedCollectionId = nil
-                PlayerViewingProgressStore.clearContinueViewingCollectionId()
-                return
-            }
-
-            guard progress.tokenIndex > 0 else {
-                PlayerViewingProgressStore.clearContinueViewingCollectionId()
-                return
-            }
-
-            restartSuppressedCollectionId = nil
-        }
-
-        PlayerViewingProgressStore.updateContinueViewingCollection(
-            for: progress,
-            expectedCollectionId: continueViewingCollectionId
-        )
     }
 
     private static func generateRandomToken(specificCollectionId: String?, notTokenId: String?) -> GeneratedToken? {

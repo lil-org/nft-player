@@ -1,13 +1,13 @@
 // ∅ 2026 lil org
 
-#if os(macOS) || os(iOS)
+#if os(macOS) || os(iOS) || os(visionOS)
 import CloudKit
 import Foundation
 import os
 
 #if os(macOS)
 import AppKit
-#elseif os(iOS)
+#elseif os(iOS) || os(visionOS)
 import UIKit
 #endif
 
@@ -156,7 +156,7 @@ final class PlayerICloudSync {
     }
 
     private var didBecomeActiveNotificationName: Notification.Name {
-#if os(iOS)
+#if os(iOS) || os(visionOS)
         UIApplication.didBecomeActiveNotification
 #elseif os(macOS)
         NSApplication.didBecomeActiveNotification
@@ -164,7 +164,7 @@ final class PlayerICloudSync {
     }
 
     private var willResignActiveNotificationName: Notification.Name {
-#if os(iOS)
+#if os(iOS) || os(visionOS)
         UIApplication.willResignActiveNotification
 #elseif os(macOS)
         NSApplication.willResignActiveNotification
@@ -180,7 +180,7 @@ final class PlayerICloudSync {
     }
 
     private var isApplicationActive: Bool {
-#if os(iOS)
+#if os(iOS) || os(visionOS)
         UIApplication.shared.applicationState == .active
 #elseif os(macOS)
         NSApplication.shared.isActive

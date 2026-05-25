@@ -4,10 +4,27 @@ import SwiftUI
 
 struct VisionCollectionsView: View {
     
-    private let collectionItems = CollectionCatalog.allItems
+    private let collectionItems: [CollectionCatalogItem]
     @State private var gridPassCount = 1
     @State private var playerConfig: VisionPlayerConfig?
-    
+
+    @State private var viewingProgressByCollectionId: [String: Int]
+    @State private var viewedToEndCollectionIds: Set<String>
+    @State private var continueViewingProgress: PlayerViewingProgress?
+
+    init(collectionItems: [CollectionCatalogItem] = CollectionCatalog.allItems) {
+        self.collectionItems = collectionItems
+        let progressSnapshot = PlayerViewingProgressStore.progressSnapshot()
+        _viewingProgressByCollectionId = State(initialValue: progressSnapshot.percentagesByCollectionId)
+        _viewedToEndCollectionIds = State(initialValue: progressSnapshot.viewedToEndCollectionIds)
+        _continueViewingProgress = State(
+            initialValue: Self.visibleContinueViewingProgress(
+                progressSnapshot.continueViewingProgress,
+                collectionItems: collectionItems
+            )
+        )
+    }
+
     var body: some View {
         ZStack {
             VStack(spacing: 0) {
@@ -15,6 +32,19 @@ struct VisionCollectionsView: View {
                 ScrollView {
                     createGrid().frame(maxWidth: .infinity)
                 }
+            }
+
+            if playerConfig == nil, let continueViewingProgress {
+                VStack {
+                    Spacer()
+                    VisionContinueViewingButton(progress: continueViewingProgress) {
+                        resumeViewing(continueViewingProgress)
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 24)
+                }
+                .transition(.opacity)
+                .zIndex(0.5)
             }
 
             if let playerConfig {
@@ -28,10 +58,16 @@ struct VisionCollectionsView: View {
             }
         }
         .onAppear {
+            refreshViewingProgress()
             schedulePlayerPrewarm()
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            refreshViewingProgress()
             schedulePlayerPrewarm()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .playerViewingProgressDidChange)) { _ in
+            guard playerConfig == nil else { return }
+            refreshViewingProgress()
         }
     }
 
@@ -67,7 +103,7 @@ struct VisionCollectionsView: View {
                 Button(action: {
                     didSelectCollectionItem(item)
                 }) {
-                    ZStack {
+                    ZStack(alignment: .topTrailing) {
                         Image(item.coverAssetName)
                             .resizable()
                             .scaledToFill()
@@ -80,6 +116,8 @@ struct VisionCollectionsView: View {
                                 didSelectCollectionItem(item)
                             }
                         }
+                        gridProgressBadge(for: item)
+                            .padding(6)
                     }
                 }
                 .aspectRatio(1, contentMode: .fit)
@@ -123,6 +161,22 @@ struct VisionCollectionsView: View {
             Spacer()
         }
     }
+
+    @ViewBuilder
+    private func gridProgressBadge(for item: CollectionCatalogItem) -> some View {
+        if viewedToEndCollectionIds.contains(item.id) {
+            VisionGridProgressBadge {
+                Images.checkmark
+                    .font(.caption.weight(.semibold))
+            }
+        } else if let progressPercent = viewingProgressByCollectionId[item.id], progressPercent > 0 {
+            VisionGridProgressBadge {
+                Text(Strings.percent(progressPercent))
+                    .font(.caption.weight(.semibold))
+                    .monospacedDigit()
+            }
+        }
+    }
     
     private func collectionItemContextMenu(item: CollectionCatalogItem) -> some View {
         Group {
@@ -135,24 +189,182 @@ struct VisionCollectionsView: View {
     }
     
     private func didSelectCollectionItem(_ item: CollectionCatalogItem) {
-        playerConfig = VisionPlayerPrewarmer.preparedConfig(initialItemId: item.id)
+        openCollection(collectionId: item.id)
     }
 
     private func showRandomPlayer() {
-        playerConfig = VisionPlayerPrewarmer.preparedConfig(initialItemId: nil)
+        guard let item = randomCollectionItemPreferringUnfinishedCollections() else { return }
+        let progress = PlayerViewingProgressStore.progress(collectionId: item.id)
+        let initialTokenId = progress?.isComplete == false ? progress?.tokenId : nil
+
+        openPlayer(
+            initialItemId: item.id,
+            initialTokenId: initialTokenId,
+            continueViewingCollectionId: item.id
+        )
     }
 
     private func dismissPlayer(_ config: VisionPlayerConfig) {
         guard playerConfig?.id == config.id else { return }
         playerConfig = nil
+        refreshViewingProgress()
     }
 
     private func schedulePlayerPrewarm() {
-        VisionPlayerPrewarmer.scheduleAfterLaunch(initialCollectionIds: likelyInitialCollectionIds())
+        VisionPlayerPrewarmer.scheduleAfterLaunch(
+            continueViewingProgress: continueViewingProgress,
+            initialCollectionIds: likelyInitialCollectionIds()
+        )
     }
 
     private func likelyInitialCollectionIds() -> [String] {
         collectionItems.prefix(2).map(\.id)
     }
 
+    private func openCollection(collectionId: String) {
+        guard isVisibleCollection(collectionId) else { return }
+
+        if let progress = PlayerViewingProgressStore.progress(collectionId: collectionId) {
+            resumeViewing(progress)
+            return
+        }
+
+        openPlayer(
+            initialItemId: collectionId,
+            continueViewingCollectionId: collectionId
+        )
+    }
+
+    private func resumeViewing(_ progress: PlayerViewingProgress) {
+        guard isVisibleCollection(progress.collectionId) else {
+            refreshViewingProgress()
+            return
+        }
+
+        openPlayer(
+            initialItemId: progress.collectionId,
+            initialTokenId: progress.tokenId,
+            continueViewingCollectionId: progress.collectionId
+        )
+    }
+
+    private func openPlayer(
+        initialItemId: String?,
+        initialTokenId: String? = nil,
+        continueViewingCollectionId: String
+    ) {
+        guard isVisibleCollection(continueViewingCollectionId),
+              initialItemId.map({ isVisibleCollection($0) }) ?? true else {
+            refreshViewingProgress()
+            return
+        }
+
+        PlayerViewingProgressStore.setContinueViewingCollectionId(continueViewingCollectionId)
+        playerConfig = VisionPlayerPrewarmer.preparedConfig(
+            initialItemId: initialItemId,
+            initialTokenId: initialTokenId,
+            continueViewingCollectionId: continueViewingCollectionId
+        )
+    }
+
+    private func randomCollectionItemPreferringUnfinishedCollections() -> CollectionCatalogItem? {
+        let progressSnapshot = PlayerViewingProgressStore.progressSnapshot()
+        let unfinishedItems = collectionItems.filter { !progressSnapshot.viewedToEndCollectionIds.contains($0.id) }
+        return (unfinishedItems.isEmpty ? collectionItems : unfinishedItems).randomElement()
+    }
+
+    private func refreshViewingProgress() {
+        let progressSnapshot = PlayerViewingProgressStore.progressSnapshot()
+        viewingProgressByCollectionId = progressSnapshot.percentagesByCollectionId
+        viewedToEndCollectionIds = progressSnapshot.viewedToEndCollectionIds
+        continueViewingProgress = Self.visibleContinueViewingProgress(
+            progressSnapshot.continueViewingProgress,
+            collectionItems: collectionItems
+        )
+    }
+
+    private func isVisibleCollection(_ collectionId: String) -> Bool {
+        collectionItems.contains { $0.id == collectionId }
+    }
+
+    private static func visibleContinueViewingProgress(
+        _ progress: PlayerViewingProgress?,
+        collectionItems: [CollectionCatalogItem]
+    ) -> PlayerViewingProgress? {
+        guard let progress,
+              collectionItems.contains(where: { $0.id == progress.collectionId }) else {
+            return nil
+        }
+        return progress
+    }
+
+}
+
+private struct VisionGridProgressBadge<Content: View>: View {
+    let content: () -> Content
+
+    var body: some View {
+        content()
+            .foregroundStyle(.white)
+            .padding(.horizontal, 7)
+            .frame(minWidth: 24, minHeight: 24)
+            .background(Color.black.opacity(0.72), in: Capsule())
+    }
+}
+
+private struct VisionContinueViewingButton: View {
+    let progress: PlayerViewingProgress
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                Images.play
+                    .font(.subheadline.weight(.bold))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(Strings.continueViewing)
+                        .font(.caption.weight(.semibold))
+                    Text(progress.collectionName)
+                        .font(.subheadline.weight(.semibold))
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 16)
+
+                Text(Strings.percent(progress.percent))
+                    .font(.subheadline.weight(.bold))
+                    .monospacedDigit()
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .frame(maxWidth: 420)
+            .background {
+                VisionProgressCapsuleBackground(progress: progress.fraction)
+            }
+            .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct VisionProgressCapsuleBackground: View {
+    let progress: Double
+
+    var body: some View {
+        GeometryReader { geometry in
+            let clampedProgress = min(max(progress, 0), 1)
+
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(.black.opacity(0.66))
+                    .background(.regularMaterial, in: Capsule())
+
+                Capsule()
+                    .fill(.white.opacity(0.2))
+                    .frame(width: geometry.size.width * clampedProgress)
+            }
+        }
+    }
 }
