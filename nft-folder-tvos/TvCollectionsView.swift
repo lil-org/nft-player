@@ -6,6 +6,7 @@ import Combine
 struct TvCollectionsView: View {
     
     private let collectionItems: [CollectionCatalogItem]
+    @State private var gridPassCount = 1
     @State private var selectedItemId: String?
     @State private var isNavigatingToPlayer = false
     @State private var showPreferencesAlert = false
@@ -57,7 +58,8 @@ struct TvCollectionsView: View {
     private func createGrid() -> some View {
         let gridLayout = [GridItem(.adaptive(minimum: 230), spacing: 20)]
         let grid = LazyVGrid(columns: gridLayout, alignment: .center, spacing: 23) {
-            ForEach(collectionItems) { item in
+            ForEach(0..<visibleItemCount, id: \.self) { index in
+                let item = item(at: index)
                 Button(action: {
                     didSelectCollectionItem(item)
                 }) {
@@ -71,10 +73,31 @@ struct TvCollectionsView: View {
                     }
                 }
                 .contextMenu { collectionItemContextMenu(item: item) }
+                .onAppear {
+                    appendNextPassIfNeeded(for: index)
+                }
             }
         }
         .padding(.horizontal)
         return grid
+    }
+
+    private var visibleItemCount: Int {
+        collectionItems.count * gridPassCount
+    }
+
+    private func item(at index: Int) -> CollectionCatalogItem {
+        collectionItems[index % collectionItems.count]
+    }
+
+    private func appendNextPassIfNeeded(for index: Int) {
+        guard !collectionItems.isEmpty else { return }
+
+        let appendThreshold = min(max(collectionItems.count / 2, 24), collectionItems.count)
+        let triggerIndex = visibleItemCount - appendThreshold
+        guard index >= triggerIndex else { return }
+
+        gridPassCount += 1
     }
     
     private func gridItemText(_ text: String) -> some View {
