@@ -21,6 +21,8 @@ struct Strings {
     static let continueViewing = loc("Continue Viewing")
     static let viewAgain = loc("View Again")
     static let play = loc("Play")
+    static let settings = loc("Settings")
+    static let shuffle = loc("Shuffle")
     static let sendFeedback = loc("Send Feedback")
     static let mail = loc("Mail")
     static let rateOnTheAppStore = loc("Rate on the App Store")

@@ -3,6 +3,9 @@
 import SwiftUI
 import UIKit
 
+private let visionCollectionsDefaultWindowWidth: CGFloat = 960
+private let visionCollectionsDefaultWindowHeight: CGFloat = 720
+
 @main
 struct nft_folder_visionApp: App {
     @UIApplicationDelegateAdaptor(VisionAppDelegate.self) var appDelegate
@@ -11,6 +14,11 @@ struct nft_folder_visionApp: App {
         WindowGroup(id: WindowId.collections) {
             VisionCollectionsView()
         }
+        .defaultSize(
+            width: visionCollectionsDefaultWindowWidth,
+            height: visionCollectionsDefaultWindowHeight
+        )
+        .windowResizability(.contentMinSize)
     }
 }
 

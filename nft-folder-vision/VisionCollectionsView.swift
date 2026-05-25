@@ -2,6 +2,16 @@
 
 import SwiftUI
 
+private let visionCollectionsMinimumWindowWidth: CGFloat = 720
+private let visionCollectionsMinimumWindowHeight: CGFloat = 540
+private let visionCollectionsTopOrnamentSpacing: CGFloat = 10
+private let visionCollectionsTopOrnamentHorizontalPadding: CGFloat = 24
+private let visionCollectionsContinueViewingMinWidth: CGFloat = 360
+private let visionCollectionsContinueViewingMaxWidth: CGFloat = 520
+private let visionCollectionsControlButtonSize: CGFloat = 46
+private let visionCollectionsControlsGroupHeight: CGFloat = visionCollectionsControlButtonSize + 8
+private let visionCollectionsTopOrnamentWidth: CGFloat = 640
+
 struct VisionCollectionsView: View {
     
     private let collectionItems: [CollectionCatalogItem]
@@ -27,24 +37,8 @@ struct VisionCollectionsView: View {
 
     var body: some View {
         ZStack {
-            VStack(spacing: 0) {
-                controlsBar
-                ScrollView {
-                    createGrid().frame(maxWidth: .infinity)
-                }
-            }
-
-            if playerConfig == nil, let continueViewingProgress {
-                VStack {
-                    Spacer()
-                    VisionContinueViewingButton(progress: continueViewingProgress) {
-                        resumeViewing(continueViewingProgress)
-                    }
-                    .padding(.horizontal, 24)
-                    .padding(.bottom, 24)
-                }
-                .transition(.opacity)
-                .zIndex(0.5)
+            ScrollView {
+                createGrid().frame(maxWidth: .infinity)
             }
 
             if let playerConfig {
@@ -56,6 +50,23 @@ struct VisionCollectionsView: View {
                 .id(playerConfig.id)
                 .transition(.opacity)
             }
+        }
+        .frame(
+            minWidth: visionCollectionsMinimumWindowWidth,
+            minHeight: visionCollectionsMinimumWindowHeight
+        )
+        .ornament(
+            visibility: playerConfig == nil ? .visible : .hidden,
+            attachmentAnchor: .scene(.top),
+            contentAlignment: .bottom
+        ) {
+            VisionCollectionsTopOrnament(
+                continueViewingProgress: continueViewingProgress,
+                onContinueViewing: resumeViewing,
+                onShowRandomPlayer: showRandomPlayer
+            )
+            .padding(.horizontal, visionCollectionsTopOrnamentHorizontalPadding)
+            .padding(.bottom, 10)
         }
         .onAppear {
             refreshViewingProgress()
@@ -69,30 +80,6 @@ struct VisionCollectionsView: View {
             guard playerConfig == nil else { return }
             refreshViewingProgress()
         }
-    }
-
-    private var controlsBar: some View {
-        HStack {
-            Spacer()
-            Menu {
-                Text(Strings.sendFeedback)
-                Button(Strings.github, action: { UIApplication.shared.open(URL.github) })
-                Button(Strings.mail, action: { UIApplication.shared.open(URL.mail) })
-                Button(Strings.x, action: { UIApplication.shared.open(URL.x) })
-                Divider()
-                Button(Strings.rateOnTheAppStore) { UIApplication.shared.open(URL.writeAppStoreReview) }
-            } label: {
-                Images.preferences
-            }
-            Button(action: {
-                showRandomPlayer()
-            }) {
-                Images.shuffle
-            }
-        }
-        .frame(height: 42)
-        .padding(.horizontal)
-        .padding(.top, 8)
     }
     
     private func createGrid() -> some View {
@@ -300,6 +287,75 @@ struct VisionCollectionsView: View {
 
 }
 
+private struct VisionCollectionsTopOrnament: View {
+    let continueViewingProgress: PlayerViewingProgress?
+    let onContinueViewing: (PlayerViewingProgress) -> Void
+    let onShowRandomPlayer: () -> Void
+
+    var body: some View {
+        HStack(spacing: visionCollectionsTopOrnamentSpacing) {
+            if let continueViewingProgress {
+                VisionContinueViewingButton(progress: continueViewingProgress) {
+                    onContinueViewing(continueViewingProgress)
+                }
+                .transition(.opacity)
+            }
+
+            Spacer(minLength: visionCollectionsTopOrnamentSpacing)
+
+            controlsGroup
+        }
+        .frame(width: visionCollectionsTopOrnamentWidth)
+        .animation(.easeInOut(duration: 0.16), value: continueViewingProgress)
+    }
+
+    private var controlsGroup: some View {
+        HStack(spacing: 8) {
+            settingsMenu
+
+            Button(action: onShowRandomPlayer) {
+                Images.shuffle
+                    .font(.title3.weight(.semibold))
+                    .frame(
+                        width: visionCollectionsControlButtonSize,
+                        height: visionCollectionsControlButtonSize
+                    )
+            }
+            .buttonStyle(.plain)
+            .background(.regularMaterial, in: Circle())
+            .contentShape(Circle())
+            .accessibilityLabel(Strings.shuffle)
+        }
+        .padding(4)
+        .frame(height: visionCollectionsControlsGroupHeight)
+        .background(.ultraThinMaterial, in: Capsule())
+        .clipShape(Capsule())
+    }
+
+    private var settingsMenu: some View {
+        Menu {
+            Text(Strings.sendFeedback)
+            Button(Strings.github, action: { UIApplication.shared.open(URL.github) })
+            Button(Strings.mail, action: { UIApplication.shared.open(URL.mail) })
+            Button(Strings.x, action: { UIApplication.shared.open(URL.x) })
+            Divider()
+            Button(Strings.rateOnTheAppStore) { UIApplication.shared.open(URL.writeAppStoreReview) }
+        } label: {
+            Images.preferences
+                .font(.title3.weight(.semibold))
+                .frame(
+                    width: visionCollectionsControlButtonSize,
+                    height: visionCollectionsControlButtonSize
+                )
+        }
+        .menuIndicator(.hidden)
+        .buttonStyle(.plain)
+        .background(.regularMaterial, in: Circle())
+        .contentShape(Circle())
+        .accessibilityLabel(Strings.settings)
+    }
+}
+
 private struct VisionGridProgressBadge<Content: View>: View {
     let content: () -> Content
 
@@ -325,9 +381,12 @@ private struct VisionContinueViewingButton: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(Strings.continueViewing)
                         .font(.caption.weight(.semibold))
+                        .lineLimit(1)
                     Text(progress.collectionName)
                         .font(.subheadline.weight(.semibold))
                         .lineLimit(1)
+                        .truncationMode(.tail)
+                        .layoutPriority(1)
                 }
 
                 Spacer(minLength: 16)
@@ -335,17 +394,25 @@ private struct VisionContinueViewingButton: View {
                 Text(Strings.percent(progress.percent))
                     .font(.subheadline.weight(.bold))
                     .monospacedDigit()
+                    .lineLimit(1)
+                    .fixedSize()
             }
             .foregroundStyle(.white)
             .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .frame(maxWidth: 420)
+            .frame(
+                minWidth: visionCollectionsContinueViewingMinWidth,
+                maxWidth: visionCollectionsContinueViewingMaxWidth,
+                minHeight: visionCollectionsControlsGroupHeight,
+                maxHeight: visionCollectionsControlsGroupHeight
+            )
             .background {
                 VisionProgressCapsuleBackground(progress: progress.fraction)
             }
             .clipShape(Capsule())
+            .contentShape(Capsule())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("\(Strings.continueViewing), \(progress.collectionName)")
     }
 }
 
@@ -358,11 +425,11 @@ private struct VisionProgressCapsuleBackground: View {
 
             ZStack(alignment: .leading) {
                 Capsule()
-                    .fill(.black.opacity(0.66))
-                    .background(.regularMaterial, in: Capsule())
+                    .fill(.clear)
+                    .background(.ultraThinMaterial, in: Capsule())
 
                 Capsule()
-                    .fill(.white.opacity(0.2))
+                    .fill(.white.opacity(0.18))
                     .frame(width: geometry.size.width * clampedProgress)
             }
         }

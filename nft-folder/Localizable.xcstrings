@@ -4418,6 +4418,17 @@
         }
       }
     },
+    "Settings" : {
+      "comment" : "An accessibility label for the button that opens the app options menu.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Settings"
+          }
+        }
+      }
+    },
     "Share" : {
       "comment" : "An accessibility label for the button that shares the current image.",
       "localizations" : {
@@ -4629,6 +4640,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "分享"
+          }
+        }
+      }
+    },
+    "Shuffle" : {
+      "comment" : "An accessibility label for the button that opens a random collection.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Shuffle"
           }
         }
       }
