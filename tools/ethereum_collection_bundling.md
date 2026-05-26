@@ -91,6 +91,7 @@ After applying a bundle, run:
 ```sh
 node tools/check_bundled_collection_downloads.js --samples 5 --retries 3 --full --collection "<collection id or name>"
 sips -g format -g hasAlpha -g samplesPerPixel "Suggested Items/Covers.xcassets/<collection id>.imageset/<collection id>.heic"
+heif-info "Suggested Items/Covers.xcassets/<collection id>.imageset/<collection id>.heic"
 xcodebuild -project nft-folder.xcodeproj -scheme nft-folder-ios -destination 'generic/platform=iOS' build
 ```
 

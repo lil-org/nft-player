@@ -12,6 +12,7 @@ async function resolveCoverTools() {
   }
 
   const hasSips = await commandExists("sips");
+  const hasHeifInfo = await commandExists("heif-info");
   const identifyCommand = await firstExistingCommand(["magick", "identify"]);
   if (!hasSips && !identifyCommand) {
     throw new Error("No cover validation tool found. Install sips or ImageMagick identify.");
@@ -19,6 +20,7 @@ async function resolveCoverTools() {
 
   return {
     convertCommand,
+    hasHeifInfo,
     hasSips,
     identifyCommand,
   };
@@ -30,6 +32,7 @@ async function convertCover(coverTools, inputPath, outputPath, size, quality) {
       `${inputPath}[0]`,
       "-auto-orient",
       "-colorspace", "sRGB",
+      "-depth", "8",
       "-resize", `${size}x${size}^`,
       "-gravity", "center",
       "-extent", `${size}x${size}`,
@@ -50,6 +53,7 @@ async function writePlaceholderCover(coverTools, outputPath, collectionName, siz
       "-size", `${size}x${size}`,
       `xc:${COVER_BACKGROUND_COLOR}`,
       "-colorspace", "sRGB",
+      "-depth", "8",
       "-fill", "#f4f1e8",
       "-gravity", "center",
       "-font", "Helvetica",
@@ -87,21 +91,25 @@ async function assertCoverIsDecodeSafeHEIC(coverTools, outputPath) {
     if (sipsInspection.hasAlpha !== "no" || sipsInspection.samplesPerPixel !== "3") {
       throw new Error(`cover ${outputPath} must be RGB HEIC without alpha; got hasAlpha=${sipsInspection.hasAlpha}, samplesPerPixel=${sipsInspection.samplesPerPixel}`);
     }
-    return;
-  }
-
-  const imageMagickInspection = await inspectCoverWithImageMagick(coverTools.identifyCommand, outputPath);
-  if (imageMagickInspection) {
+  } else {
+    const imageMagickInspection = await inspectCoverWithImageMagick(coverTools.identifyCommand, outputPath);
+    if (!imageMagickInspection) {
+      throw new Error(`cover ${outputPath} could not be validated; install sips or ImageMagick identify`);
+    }
     if (imageMagickInspection.format !== "HEIC") {
       throw new Error(`cover ${outputPath} was ${imageMagickInspection.format}, expected HEIC`);
     }
     if (!isThreeChannelRGBWithoutAlpha(imageMagickInspection.channels)) {
       throw new Error(`cover ${outputPath} must be RGB HEIC without alpha; got channels=${imageMagickInspection.channels}`);
     }
-    return;
   }
 
-  throw new Error(`cover ${outputPath} could not be validated; install sips or ImageMagick identify`);
+  if (coverTools.hasHeifInfo) {
+    const heifInspection = await inspectCoverWithHeifInfo(outputPath);
+    if (heifInspection.mainBrand !== "heic" || heifInspection.bitDepth !== "8" || heifInspection.colorProfile !== "no" || heifInspection.alphaChannel !== "no" || heifInspection.hasMetadata || heifInspection.hasMimeItems) {
+      throw new Error(`cover ${outputPath} must be stripped 8-bit HEIC without alpha/profile/metadata; got mainBrand=${heifInspection.mainBrand}, bitDepth=${heifInspection.bitDepth}, colorProfile=${heifInspection.colorProfile}, alphaChannel=${heifInspection.alphaChannel}, metadata=${heifInspection.hasMetadata}, mimeItems=${heifInspection.hasMimeItems}`);
+    }
+  }
 }
 
 async function writeValidatedCover(coverTools, outputPath, writeTempOutput) {
@@ -146,6 +154,38 @@ async function inspectCoverWithImageMagick(identifyCommand, outputPath) {
     : ["-format", "%m\n%[channels]\n", outputPath];
   const [format = "", channels = ""] = (await runCommandOutput(identifyCommand, args)).trim().split(/\r?\n/u);
   return { format, channels };
+}
+
+async function inspectCoverWithHeifInfo(outputPath) {
+  const output = await runCommandOutput("heif-info", [outputPath]);
+  return {
+    mainBrand: output.match(/main brand:\s*(\S+)/u)?.[1] ?? "",
+    bitDepth: output.match(/bit depth:\s*(\S+)/u)?.[1] ?? "",
+    colorProfile: output.match(/color profile:\s*(\S+)/u)?.[1] ?? "",
+    alphaChannel: output.match(/alpha channel:\s*(\S+)/u)?.[1] ?? "",
+    hasMetadata: heifSectionHasContent(output, "metadata"),
+    hasMimeItems: heifSectionHasContent(output, "MIME items"),
+  };
+}
+
+function heifSectionHasContent(output, header) {
+  const lines = output.split(/\r?\n/u);
+  const start = lines.findIndex((line) => line === `${header}:`);
+  if (start < 0) {
+    return false;
+  }
+
+  for (let index = start + 1; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (line && !/^\s/u.test(line) && /:$/.test(line)) {
+      break;
+    }
+    const value = line.trim();
+    if (value && value !== "none") {
+      return true;
+    }
+  }
+  return false;
 }
 
 function isThreeChannelRGBWithoutAlpha(channels) {
