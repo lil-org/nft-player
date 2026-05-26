@@ -66,9 +66,6 @@
 		2C4D31612C56B10E00C586D1 /* HostAppImages.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C1B60C32B7D41D1009949C2 /* HostAppImages.swift */; };
 		2C4D31632C56B29000C586D1 /* TvGeneratedTokenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C4D31622C56B29000C586D1 /* TvGeneratedTokenView.swift */; };
 		2C4D31652C56B65E00C586D1 /* TvHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C4D31642C56B65E00C586D1 /* TvHelpers.swift */; };
-		2D7000022F70000100000001 /* TvPlayerMediaView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D7000012F70000100000001 /* TvPlayerMediaView.swift */; };
-		2D7000032F70000100000001 /* DownloadableMediaCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF00012F10000000000001 /* DownloadableMediaCache.swift */; };
-		2D7000042F70000100000001 /* PlayerTokenPrewarmer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF00022F10000000000001 /* PlayerTokenPrewarmer.swift */; };
 		2C4DBFC12C3698D10097AD35 /* Chain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C4DBFC02C3698D10097AD35 /* Chain.swift */; };
 		2C508C9D2B6830E6005F548A /* Notification.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C508C9C2B6830E6005F548A /* Notification.swift */; };
 		2C5A599E2C51073F00788870 /* nft_folder_visionApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C5A599D2C51073F00788870 /* nft_folder_visionApp.swift */; };
@@ -176,7 +173,6 @@
 		2CFA91032EB1000000000001 /* PonchoDrifellaShaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = 2CFA91012EB1000000000001 /* PonchoDrifellaShaders.metal */; };
 		2CFA92012EB2000000000001 /* CollectionCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CFA92002EB2000000000001 /* CollectionCatalog.swift */; };
 		2CFA92022EB2000000000001 /* CollectionCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CFA92002EB2000000000001 /* CollectionCatalog.swift */; };
-		2D6000002F70000000000001 /* CollectionCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CFA92002EB2000000000001 /* CollectionCatalog.swift */; };
 		2CFF885B2C288C9A0007045F /* SuggestedItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CFF885A2C288C9A0007045F /* SuggestedItem.swift */; };
 		2D10001A2F30000000000001 /* WidgetDeepLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D1000012F30000000000001 /* WidgetDeepLink.swift */; };
 		2D10001B2F30000000000001 /* WidgetDeepLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D1000012F30000000000001 /* WidgetDeepLink.swift */; };
@@ -206,15 +202,19 @@
 		2D4000032F50000000000001 /* PlayerViewingSessionTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D4000042F50000000000001 /* PlayerViewingSessionTracker.swift */; };
 		2D4000052F50000000000001 /* PlayerBookmarksStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CB01A022F01000000000001 /* PlayerBookmarksStore.swift */; };
 		2D4000062F50000000000001 /* PlayerICloudSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CF100002F20000000000001 /* PlayerICloudSync.swift */; };
-		2D8000002FA0000000000001 /* PlayerBookmarksStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CB01A022F01000000000001 /* PlayerBookmarksStore.swift */; };
-		2D8000012FA0000000000001 /* PlayerICloudSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CF100002F20000000000001 /* PlayerICloudSync.swift */; };
-		2D5000132F60000000000001 /* WidgetDeepLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D1000012F30000000000001 /* WidgetDeepLink.swift */; };
 		2D5000002F60000000000001 /* WidgetDeepLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D1000012F30000000000001 /* WidgetDeepLink.swift */; };
 		2D5000012F60000000000001 /* CollectionOfTheDayWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D1000022F30000000000001 /* CollectionOfTheDayWidget.swift */; };
 		2D5000022F60000000000001 /* CollectionOfTheDayWidgetData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D1000032F30000000000001 /* CollectionOfTheDayWidgetData.swift */; };
 		2D5000032F60000000000001 /* WidgetSuggested.bundle in Resources */ = {isa = PBXBuildFile; fileRef = 2D2000002F31000000000001 /* WidgetSuggested.bundle */; };
 		2D5000042F60000000000001 /* WidgetCovers.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2D2000012F31000000000001 /* WidgetCovers.xcassets */; };
 		2D5000052F60000000000001 /* nft-folder-vision-widget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 2D5000092F60000000000001 /* nft-folder-vision-widget.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		2D5000132F60000000000001 /* WidgetDeepLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D1000012F30000000000001 /* WidgetDeepLink.swift */; };
+		2D6000002F70000000000001 /* CollectionCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CFA92002EB2000000000001 /* CollectionCatalog.swift */; };
+		2D7000022F70000100000001 /* TvPlayerMediaView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D7000012F70000100000001 /* TvPlayerMediaView.swift */; };
+		2D7000032F70000100000001 /* DownloadableMediaCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF00012F10000000000001 /* DownloadableMediaCache.swift */; };
+		2D7000042F70000100000001 /* PlayerTokenPrewarmer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF00022F10000000000001 /* PlayerTokenPrewarmer.swift */; };
+		2D8000002FA0000000000001 /* PlayerBookmarksStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CB01A022F01000000000001 /* PlayerBookmarksStore.swift */; };
+		2D8000012FA0000000000001 /* PlayerICloudSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CF100002F20000000000001 /* PlayerICloudSync.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -299,7 +299,6 @@
 		2C424F452B9775E6007868F8 /* RightClickActivatingWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RightClickActivatingWindow.swift; sourceTree = "<group>"; };
 		2C4659932C308B44008CF97F /* Covers.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Covers.xcassets; sourceTree = "<group>"; };
 		2C4D315E2C56AC7F00C586D1 /* TvPlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TvPlayerView.swift; sourceTree = "<group>"; };
-		2D7000012F70000100000001 /* TvPlayerMediaView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TvPlayerMediaView.swift; sourceTree = "<group>"; };
 		2C4D31622C56B29000C586D1 /* TvGeneratedTokenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TvGeneratedTokenView.swift; sourceTree = "<group>"; };
 		2C4D31642C56B65E00C586D1 /* TvHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TvHelpers.swift; sourceTree = "<group>"; };
 		2C4DBFC02C3698D10097AD35 /* Chain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Chain.swift; sourceTree = "<group>"; };
@@ -311,7 +310,6 @@
 		2C5A59AE2C51400100788870 /* nft-folder-tvos.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "nft-folder-tvos.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		2C5A59B02C51400200788870 /* nft_folder_tvosApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = nft_folder_tvosApp.swift; sourceTree = "<group>"; };
 		2C5A59B42C51400300788870 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		2D8000022FA0000000000001 /* nft_folder_tvos.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = nft_folder_tvos.entitlements; sourceTree = "<group>"; };
 		2C5A59CC2C51529800788870 /* VisionCollectionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisionCollectionsView.swift; sourceTree = "<group>"; };
 		2C5A59CE2C5152A600788870 /* VisionPlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisionPlayerView.swift; sourceTree = "<group>"; };
 		2C5A59D02C5152B000788870 /* VisionHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisionHelpers.swift; sourceTree = "<group>"; };
@@ -396,6 +394,8 @@
 		2D4000072F50000000000001 /* nft_folder_vision.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = nft_folder_vision.entitlements; sourceTree = "<group>"; };
 		2D5000082F60000000000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		2D5000092F60000000000001 /* nft-folder-vision-widget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "nft-folder-vision-widget.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
+		2D7000012F70000100000001 /* TvPlayerMediaView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TvPlayerMediaView.swift; sourceTree = "<group>"; };
+		2D8000022FA0000000000001 /* nft_folder_tvos.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = nft_folder_tvos.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1487,7 +1487,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "org.lil.nft-folder";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
-				"PROVISIONING_PROFILE_SPECIFIER[sdk=appletvos*]" = "tvos 26 x2";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=appletvos*]" = "nft player tvos";
 				SDKROOT = appletvos;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -1525,7 +1525,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "org.lil.nft-folder";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
-				"PROVISIONING_PROFILE_SPECIFIER[sdk=appletvos*]" = "tvos 26 x2";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=appletvos*]" = "nft player tvos";
 				SDKROOT = appletvos;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
