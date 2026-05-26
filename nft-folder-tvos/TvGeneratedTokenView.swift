@@ -3,16 +3,24 @@
 import SwiftUI
 import UIKit
 
-private var loadContent: ((String, URL?) -> Void)?
-private var currentFallbackImageTask: URLSessionDataTask?
+private let maxLayoutRetryCount = 60
+private let layoutRetryDelay: DispatchTimeInterval = .milliseconds(50)
+private let fallbackSamplingDelay: DispatchTimeInterval = .milliseconds(230)
 
 private var shouldSkipTvFallbackCheck = false
 private var shouldAlwaysFallback = false
+private var shouldSampleTvFallback: Bool {
+    !shouldAlwaysFallback && !shouldSkipTvFallbackCheck
+}
 
 struct TvGeneratedTokenView: UIViewRepresentable {
     
     let contentString: String
     let fallbackURL: URL?
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
     
     func makeUIView(context: Context) -> UIView {
         var name: String {
@@ -48,68 +56,95 @@ struct TvGeneratedTokenView: UIViewRepresentable {
             """
             target?.perform(loadSelector, with: sample, with: nil)
             
-            loadContent = { [weak target] content, url in
+            let coordinator = context.coordinator
+            coordinator.loadSample = { [weak target] in
+                target?.perform(loadSelector, with: sample, with: nil)
+            }
+            coordinator.loadContent = { [weak target, weak coordinator] content, url in
                 target?.perform(loadSelector, with: content, with: nil)
-                guard let url = url else { return }
-                if let fallbackView = target?.subviews.first(where: { $0 is UIImageView }) as? UIImageView {
-                    updateFallbackView(fallbackView, url: url)
-                } else {
-                    let newFallbackView = UIImageView()
-                    target?.addSubview(newFallbackView)
-                    newFallbackView.translatesAutoresizingMaskIntoConstraints = false
-                    newFallbackView.contentMode = .scaleAspectFill
-                    if let parentView = target {
-                        NSLayoutConstraint.activate([
-                            newFallbackView.topAnchor.constraint(equalTo: parentView.topAnchor),
-                            newFallbackView.bottomAnchor.constraint(equalTo: parentView.bottomAnchor),
-                            newFallbackView.leadingAnchor.constraint(equalTo: parentView.leadingAnchor),
-                            newFallbackView.trailingAnchor.constraint(equalTo: parentView.trailingAnchor)
-                        ])
-                    }
-                    updateFallbackView(newFallbackView, url: url)
+                guard let coordinator else { return }
+
+                guard let url = url else {
+                    coordinator.clearFallbackView()
+                    return
                 }
+                guard let target else { return }
+
+                coordinator.updateFallbackView(in: target, url: url)
             }
             return view as? UIView ?? UIView()
         } else {
             return UIView()
         }
     }
-    
-    private func updateFallbackView(_ fallbackView: UIImageView, url: URL?) {
-        guard let url = url else { return }
-        fallbackView.image = nil
-        currentFallbackImageTask?.cancel()
-        let task = URLSession.shared.dataTask(with: url) { data, _, error in
-            guard let data = data, error == nil else { return }
-            DispatchQueue.main.async { fallbackView.image = UIImage(data: data) }
-        }
-        currentFallbackImageTask = task
-        task.resume()
-    }
-    
+
     func updateUIView(_ uiView: UIView, context: Context) {
-        guard uiView.bounds.width > 0 && uiView.bounds.height > 0 else { return }
-        if !shouldAlwaysFallback && !shouldSkipTvFallbackCheck {
-            DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(230)) { [weak uiView] in
-                if let view = uiView {
-                    loadContentInto(view: view)
-                }
+        let request = LoadRequest(contentString: contentString, fallbackURL: fallbackURL)
+        guard let loadGeneration = context.coordinator.beginLoading(request) else { return }
+
+        loadContentWhenReady(
+            request,
+            in: uiView,
+            coordinator: context.coordinator,
+            loadGeneration: loadGeneration
+        )
+    }
+
+    private func loadContentWhenReady(
+        _ request: LoadRequest,
+        in view: UIView,
+        coordinator: Coordinator,
+        loadGeneration: Int,
+        attempt: Int = 0
+    ) {
+        guard coordinator.isCurrentGeneration(loadGeneration) else { return }
+
+        guard view.bounds.width >= 1 && view.bounds.height >= 1 else {
+            guard attempt < maxLayoutRetryCount else {
+                loadContentWithoutSampling(request, coordinator: coordinator)
+                return
+            }
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + layoutRetryDelay) { [weak view, weak coordinator] in
+                guard let view, let coordinator else { return }
+                loadContentWhenReady(
+                    request,
+                    in: view,
+                    coordinator: coordinator,
+                    loadGeneration: loadGeneration,
+                    attempt: attempt + 1
+                )
+            }
+            return
+        }
+
+        if shouldSampleTvFallback {
+            coordinator.prepareForSamplingIfNeeded()
+            DispatchQueue.main.asyncAfter(deadline: .now() + fallbackSamplingDelay) { [weak view, weak coordinator] in
+                guard let view, let coordinator, coordinator.isCurrentGeneration(loadGeneration) else { return }
+                loadContentInto(request, view: view, coordinator: coordinator)
             }
         } else {
-            loadContentInto(view: uiView)
+            loadContentInto(request, view: view, coordinator: coordinator)
         }
     }
     
-    private func loadContentInto(view: UIView) {
+    private func loadContentInto(_ request: LoadRequest, view: UIView, coordinator: Coordinator) {
         if shouldSkipTvFallbackCheck {
-            loadContent?(contentString, nil)
-        } else if !shouldAlwaysFallback, !randomPixelIsBlackOrTransparent(in: view) {
+            coordinator.loadContent?(request.contentString, nil)
+        } else if shouldSampleTvFallback, !randomPixelIsBlackOrTransparent(in: view) {
             shouldSkipTvFallbackCheck = true
-            loadContent?(contentString, nil)
+            coordinator.loadContent?(request.contentString, nil)
         } else {
             shouldAlwaysFallback = true
-            loadContent?(contentString, fallbackURL)
+            coordinator.loadContent?(request.contentString, request.fallbackURL)
         }
+    }
+
+    private func loadContentWithoutSampling(_ request: LoadRequest, coordinator: Coordinator) {
+        coordinator.finishWithoutSampling(request)
+        let fallbackURL = shouldSkipTvFallbackCheck ? nil : request.fallbackURL
+        coordinator.loadContent?(request.contentString, fallbackURL)
     }
     
     private func randomPixelIsBlackOrTransparent(in view: UIView) -> Bool {
@@ -134,6 +169,94 @@ struct TvGeneratedTokenView: UIViewRepresentable {
         let a = CGFloat(data[pixelIndex + 3]) / 255.0
         
         return (r.isZero && g.isZero && b.isZero) || a.isZero
+    }
+
+    struct LoadRequest: Equatable {
+        let contentString: String
+        let fallbackURL: URL?
+    }
+
+    final class Coordinator {
+        var loadSample: (() -> Void)?
+        var loadContent: ((String, URL?) -> Void)?
+        private var loadGeneration = 0
+        private var currentRequest: LoadRequest?
+        private var currentFallbackImageTask: URLSessionDataTask?
+        private weak var fallbackView: UIImageView?
+        private var needsSampleReload = false
+
+        deinit {
+            currentFallbackImageTask?.cancel()
+        }
+
+        func beginLoading(_ request: LoadRequest) -> Int? {
+            guard currentRequest != request else { return nil }
+
+            currentRequest = request
+            loadGeneration += 1
+            return loadGeneration
+        }
+
+        func isCurrentGeneration(_ generation: Int) -> Bool {
+            loadGeneration == generation
+        }
+
+        func clearFallbackView() {
+            currentFallbackImageTask?.cancel()
+            currentFallbackImageTask = nil
+            fallbackView?.removeFromSuperview()
+            fallbackView = nil
+        }
+
+        func prepareForSamplingIfNeeded() {
+            guard needsSampleReload else { return }
+            clearFallbackView()
+            loadSample?()
+            needsSampleReload = false
+        }
+
+        func finishWithoutSampling(_ request: LoadRequest) {
+            if currentRequest == request {
+                currentRequest = nil
+            }
+            if shouldSampleTvFallback {
+                needsSampleReload = true
+            }
+        }
+
+        func updateFallbackView(in parentView: UIView, url: URL) {
+            let fallbackView = fallbackImageView(in: parentView)
+            fallbackView.image = nil
+            currentFallbackImageTask?.cancel()
+
+            let task = URLSession.shared.dataTask(with: url) { [weak fallbackView] data, _, error in
+                guard let data, error == nil, let image = UIImage(data: data) else { return }
+                DispatchQueue.main.async {
+                    fallbackView?.image = image
+                }
+            }
+            currentFallbackImageTask = task
+            task.resume()
+        }
+
+        private func fallbackImageView(in parentView: UIView) -> UIImageView {
+            if let fallbackView {
+                return fallbackView
+            }
+
+            let fallbackView = UIImageView()
+            parentView.addSubview(fallbackView)
+            fallbackView.translatesAutoresizingMaskIntoConstraints = false
+            fallbackView.contentMode = .scaleAspectFill
+            NSLayoutConstraint.activate([
+                fallbackView.topAnchor.constraint(equalTo: parentView.topAnchor),
+                fallbackView.bottomAnchor.constraint(equalTo: parentView.bottomAnchor),
+                fallbackView.leadingAnchor.constraint(equalTo: parentView.leadingAnchor),
+                fallbackView.trailingAnchor.constraint(equalTo: parentView.trailingAnchor)
+            ])
+            self.fallbackView = fallbackView
+            return fallbackView
+        }
     }
     
 }
