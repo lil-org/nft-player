@@ -531,6 +531,13 @@ enum CollectionCatalog {
         return TokenGenerator.tokenCount(specificCollectionId: specificCollectionId)
     }
 
+    static func canOpenCollection(specificCollectionId: String) -> Bool {
+        if let tokenCount = DownloadableCollectionService.indexedTokenCount(collectionId: specificCollectionId) {
+            return tokenCount > 0
+        }
+        return TokenGenerator.canGenerate(id: specificCollectionId)
+    }
+
     static func isDownloadableCollection(specificCollectionId: String) -> Bool {
         DownloadableCollectionService.hasCollection(id: specificCollectionId)
     }
@@ -736,6 +743,10 @@ private enum DownloadableCollectionService {
         tokenData(collectionId: collectionId)?.tokens.count
             ?? index.collectionById[collectionId]?.tokenCount
             ?? 0
+    }
+
+    static func indexedTokenCount(collectionId: String) -> Int? {
+        index.collectionById[collectionId]?.tokenCount
     }
 
     static func tokenIndex(collectionId: String, tokenId: String) -> Int? {
@@ -1100,6 +1111,9 @@ private enum DownloadableMediaFileExtension {
 }
 
 enum DownloadableTokenHTML {
+    static let imageElementId = "tokenImage"
+    static let videoElementId = "tokenVideo"
+
     private static let trustedHTMLDocumentSandbox = "allow-scripts allow-same-origin"
 
     static func createImageHTML(imageURL: String, nextImageURL: String? = nil) -> String {
@@ -1123,7 +1137,7 @@ enum DownloadableTokenHTML {
             align-items: center;
             justify-content: center;
         }
-        #tokenImage {
+        #\(imageElementId) {
             width: 100%;
             height: 100%;
             object-fit: contain;
@@ -1132,12 +1146,12 @@ enum DownloadableTokenHTML {
         </style>
         </head>
         <body>
-        <img id="tokenImage" alt="">
+        <img id="\(imageElementId)" alt="">
         <script>
         \(retainedPreloadFunctionJavaScript)
         const imageURL = \(javaScriptStringLiteral(imageURL));
         const nextImageURL = \(javaScriptStringLiteral(nextImageURL));
-        const tokenImage = document.getElementById("tokenImage");
+        const tokenImage = document.getElementById(\(javaScriptStringLiteral(imageElementId)));
         tokenImage.decoding = "async";
         tokenImage.src = imageURL;
 
@@ -1171,7 +1185,7 @@ enum DownloadableTokenHTML {
             align-items: center;
             justify-content: center;
         }
-        #tokenVideo {
+        #\(videoElementId) {
             width: 100%;
             height: 100%;
             object-fit: contain;
@@ -1180,10 +1194,10 @@ enum DownloadableTokenHTML {
         </style>
         </head>
         <body>
-        <video id="tokenVideo" autoplay loop muted playsinline webkit-playsinline preload="auto"></video>
+        <video id="\(videoElementId)" autoplay loop muted playsinline webkit-playsinline preload="auto"></video>
         <script>
         const videoURL = \(javaScriptStringLiteral(videoURL));
-        const tokenVideo = document.getElementById("tokenVideo");
+        const tokenVideo = document.getElementById(\(javaScriptStringLiteral(videoElementId)));
         tokenVideo.muted = true;
         tokenVideo.loop = true;
         tokenVideo.playsInline = true;

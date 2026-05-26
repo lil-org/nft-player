@@ -74,7 +74,7 @@ class PlayerModel: ObservableObject {
             baseTitle = Strings.nftFolder
         }
 
-#if os(macOS)
+#if os(macOS) || os(tvOS)
         guard let tokenContext = CollectionCatalog.tokenContext(for: token) else {
             return baseTitle
         }
@@ -89,7 +89,7 @@ class PlayerModel: ObservableObject {
     }
     
     func showInitialCollection() {
-#if os(macOS)
+#if os(macOS) || os(tvOS)
         let newToken = specificCollectionId
             .flatMap { Self.generateToken(specificCollectionId: $0, tokenIndex: 0) }
             ?? Self.generateRandomToken(specificCollectionId: specificCollectionId, notTokenId: nil)
@@ -150,7 +150,7 @@ class PlayerModel: ObservableObject {
     }
     
     func changeCollection() {
-#if os(macOS)
+#if os(macOS) || os(tvOS)
         let newToken = CollectionCatalog
             .nextShuffledCollectionId()
             .flatMap { Self.generateToken(specificCollectionId: $0, tokenIndex: 0) }
@@ -303,7 +303,7 @@ class PlayerModel: ObservableObject {
     }
 
     private static func generateRandomToken(specificCollectionId: String?, notTokenId: String?) -> GeneratedToken? {
-#if os(macOS)
+#if os(macOS) || os(tvOS)
         CollectionCatalog.generateRandomToken(specificCollectionId: specificCollectionId, notTokenId: notTokenId)
 #else
         TokenGenerator.generateRandomToken(specificCollectionId: specificCollectionId, notTokenId: notTokenId)
@@ -320,7 +320,7 @@ class PlayerModel: ObservableObject {
     }
 
     private static func tokenIndex(specificCollectionId: String, tokenId: String) -> Int? {
-#if os(macOS)
+#if os(macOS) || os(tvOS)
         CollectionCatalog.tokenIndex(specificCollectionId: specificCollectionId, tokenId: tokenId)
 #else
         TokenGenerator.tokenIndex(specificCollectionId: specificCollectionId, tokenId: tokenId)
@@ -328,7 +328,7 @@ class PlayerModel: ObservableObject {
     }
 
     private static func tokenCount(specificCollectionId: String) -> Int {
-#if os(macOS)
+#if os(macOS) || os(tvOS)
         CollectionCatalog.tokenCount(specificCollectionId: specificCollectionId)
 #else
         TokenGenerator.tokenCount(specificCollectionId: specificCollectionId)
@@ -336,7 +336,7 @@ class PlayerModel: ObservableObject {
     }
 
     private static func generateToken(specificCollectionId: String, tokenIndex: Int) -> GeneratedToken? {
-#if os(macOS)
+#if os(macOS) || os(tvOS)
         CollectionCatalog.generateToken(specificCollectionId: specificCollectionId, tokenIndex: tokenIndex)
 #else
         TokenGenerator.generateToken(specificCollectionId: specificCollectionId, tokenIndex: tokenIndex)

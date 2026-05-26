@@ -6,38 +6,39 @@ struct TvPlayerView: View {
     
     @StateObject private var playerModel: PlayerModel
     @State private var showInfoPopover = false
+    @State private var preferredPrefetchDirection: DownloadableMediaCache.PrefetchDirection = .forward
     
     init(initialItemId: String?) {
         _playerModel = StateObject(wrappedValue: Self.makePlayerModel(initialItemId: initialItemId))
     }
 
     private static func makePlayerModel(initialItemId: String?) -> PlayerModel {
-        if let initialItemId {
-            return PlayerModel(collectionId: initialItemId)
-        }
-        return PlayerModel(specificCollectionId: nil, notTokenId: nil)
+        TvPlayerPrewarmer.preparedModel(initialItemId: initialItemId)
     }
     
     var body: some View {
         ZStack(alignment: .topTrailing) {
-            TvGeneratedTokenView(contentString: playerModel.currentToken.html, fallbackURL: fallbackURL()).edgesIgnoringSafeArea(.all)
+            mediaView(for: playerModel.currentToken)
+                .edgesIgnoringSafeArea(.all)
                 .focusable()
                 .onMoveCommand { direction in
                     switch direction {
-                    case .left:
-                        DispatchQueue.main.async { playerModel.goBack() }
-                    case .right:
-                        DispatchQueue.main.async { playerModel.goForward() }
-                    case .up:
-                        DispatchQueue.main.async { playerModel.goForward() }
-                    case .down:
-                        DispatchQueue.main.async { playerModel.goBack() }
+                    case .left, .down:
+                        navigateBack()
+                    case .right, .up:
+                        navigateForward()
                     default:
                         break
                     }
                 }
                 .onPlayPauseCommand {
                     showInfoPopover.toggle()
+                }
+                .onAppear {
+                    playerModel.markCurrentTokenViewed()
+                }
+                .onChange(of: playerModel.currentToken) { _ in
+                    playerModel.markCurrentTokenViewed()
                 }
             
             if showInfoPopover {
@@ -48,9 +49,29 @@ struct TvPlayerView: View {
             }
         }
     }
-    
-    private func fallbackURL() -> URL? {
-        return URL(string: "https://media-proxy.artblocks.io/\(playerModel.currentToken.address)/\(playerModel.currentToken.id).png")
+
+    private func mediaView(for token: GeneratedToken) -> some View {
+        let context = CollectionCatalog.tokenContext(for: token)
+        return TvPlayerMediaView(
+            token: token,
+            context: context,
+            preferredPrefetchDirection: preferredPrefetchDirection
+        )
+        .id(TvPlayerMediaIdentity(token: token, context: context))
+    }
+
+    private func navigateBack() {
+        DispatchQueue.main.async {
+            preferredPrefetchDirection = .backward
+            playerModel.goBack()
+        }
+    }
+
+    private func navigateForward() {
+        DispatchQueue.main.async {
+            preferredPrefetchDirection = .forward
+            playerModel.goForward()
+        }
     }
     
     private func infoPopoverView() -> some View {
@@ -64,4 +85,16 @@ struct TvPlayerView: View {
         .padding().frame(width: 230)
     }
     
+}
+
+private struct TvPlayerMediaIdentity: Hashable {
+    let collectionId: String
+    let tokenId: String
+    let media: GeneratedTokenMedia?
+
+    init(token: GeneratedToken, context: PlayerTokenContext?) {
+        self.collectionId = context?.collectionId ?? token.fullCollectionId
+        self.tokenId = token.id
+        self.media = token.media
+    }
 }

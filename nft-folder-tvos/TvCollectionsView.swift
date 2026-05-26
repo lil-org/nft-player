@@ -53,6 +53,7 @@ struct TvCollectionsView: View {
                     EmptyView().hidden()
                 }.hidden()
             )
+            .onAppear(perform: schedulePlayerPrewarm)
         }
     }
     
@@ -147,7 +148,23 @@ struct TvCollectionsView: View {
     }
 
     private func isPlayableCollectionItem(_ item: CollectionCatalogItem) -> Bool {
-        TokenGenerator.canGenerate(id: item.id)
+        CollectionCatalog.canOpenCollection(specificCollectionId: item.id)
+    }
+
+    private func schedulePlayerPrewarm() {
+        let progressSnapshot = PlayerViewingProgressStore.progressSnapshot()
+        TvPlayerPrewarmer.scheduleAfterLaunch(
+            continueViewingProgress: visibleContinueViewingProgress(progressSnapshot.continueViewingProgress),
+            initialCollectionIds: collectionItems.prefix(2).map(\.id)
+        )
+    }
+
+    private func visibleContinueViewingProgress(_ progress: PlayerViewingProgress?) -> PlayerViewingProgress? {
+        guard let progress,
+              collectionItems.contains(where: { $0.id == progress.collectionId }) else {
+            return nil
+        }
+        return progress
     }
     
 }
