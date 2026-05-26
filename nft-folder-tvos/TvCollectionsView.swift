@@ -7,6 +7,7 @@ import UIKit
 
 private let tvContinueViewingButtonMaxWidth: CGFloat = 500
 private let tvContinueViewingCollectionNameMaxWidth: CGFloat = 440
+private let tvCollectionGridItemInset: CGFloat = 8
 
 struct TvCollectionsView: View {
     
@@ -119,26 +120,14 @@ struct TvCollectionsView: View {
         let grid = LazyVGrid(columns: gridLayout, alignment: .center, spacing: 23) {
             ForEach(0..<visibleItemCount, id: \.self) { index in
                 let item = item(at: index)
-                Button(action: {
+                TvCollectionGridItemButton(
+                    item: item,
+                    progressPercent: progressSnapshot.percentagesByCollectionId[item.id],
+                    hasViewedToEnd: progressSnapshot.viewedToEndCollectionIds.contains(item.id)
+                ) {
                     didSelectCollectionItem(item)
-                }) {
-                    ZStack(alignment: .topTrailing) {
-                        Image(item.coverAssetName)
-                            .resizable()
-                            .scaledToFit()
-                            .aspectRatio(contentMode: .fit)
-                            .cornerRadius(10)
-
-                        VStack {
-                            Spacer()
-                            gridItemText(item.name)
-                        }
-
-                        gridProgressBadge(for: item)
-                            .padding(8)
-                    }
                 }
-                .aspectRatio(1, contentMode: .fit)
+                .padding(tvCollectionGridItemInset)
                 .contextMenu { collectionItemContextMenu(item: item) }
                 .onAppear {
                     appendNextPassIfNeeded(for: index)
@@ -165,33 +154,6 @@ struct TvCollectionsView: View {
         guard index >= triggerIndex else { return }
 
         gridPassCount += 1
-    }
-    
-    private func gridItemText(_ text: String) -> some View {
-        Text(text)
-            .font(.system(size: 15, weight: .regular))
-            .lineLimit(2)
-            .foregroundColor(.white)
-            .frame(height: 40)
-            .frame(maxWidth: .infinity)
-            .background(Color.black.opacity(0.7))
-            .cornerRadius(5)
-    }
-
-    @ViewBuilder
-    private func gridProgressBadge(for item: CollectionCatalogItem) -> some View {
-        if progressSnapshot.viewedToEndCollectionIds.contains(item.id) {
-            TvGridProgressBadge {
-                Images.checkmark
-                    .font(.caption.weight(.semibold))
-            }
-        } else if let progressPercent = progressSnapshot.percentagesByCollectionId[item.id], progressPercent > 0 {
-            TvGridProgressBadge {
-                Text(Strings.percent(progressPercent))
-                    .font(.caption.weight(.semibold))
-                    .monospacedDigit()
-            }
-        }
     }
     
     private func collectionItemContextMenu(item: CollectionCatalogItem) -> some View {
@@ -318,6 +280,80 @@ private struct TvPlayerNavigationRequest: Identifiable {
     let initialItemId: String
     let initialTokenId: String?
     let continueViewingCollectionId: String
+}
+
+private struct TvCollectionGridItemButton: View {
+    let item: CollectionCatalogItem
+    let progressPercent: Int?
+    let hasViewedToEnd: Bool
+    let action: () -> Void
+    @FocusState private var isFocused: Bool
+
+    var body: some View {
+        Button(action: action) {
+            ZStack(alignment: .topTrailing) {
+                Image(item.coverAssetName)
+                    .resizable()
+                    .scaledToFill()
+                    .clipped()
+                    .aspectRatio(1, contentMode: .fill)
+                    .contentShape(Rectangle())
+
+                VStack {
+                    Spacer()
+                    title
+                }
+
+                progressBadge
+                    .padding(8)
+            }
+            .aspectRatio(1, contentMode: .fit)
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay {
+                if isFocused {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(.white.opacity(0.92), lineWidth: 6)
+                }
+            }
+            .shadow(color: isFocused ? .black.opacity(0.34) : .clear, radius: 18, y: 8)
+            .scaleEffect(isFocused ? 1.06 : 1)
+        }
+        .buttonStyle(.plain)
+        .focused($isFocused)
+        .animation(.easeInOut(duration: 0.12), value: isFocused)
+    }
+
+    private var title: some View {
+        HStack {
+            Text(item.name)
+                .font(.system(size: 15, weight: .regular))
+                .lineLimit(2)
+                .foregroundColor(.white)
+                .multilineTextAlignment(.leading)
+                .padding(.horizontal, 1)
+                .background(Color.black.opacity(0.7))
+                .cornerRadius(3)
+                .padding(.leading, 4)
+                .padding(.bottom, 3)
+            Spacer()
+        }
+    }
+
+    @ViewBuilder
+    private var progressBadge: some View {
+        if hasViewedToEnd {
+            TvGridProgressBadge {
+                Images.checkmark
+                    .font(.caption.weight(.semibold))
+            }
+        } else if let progressPercent, progressPercent > 0 {
+            TvGridProgressBadge {
+                Text(Strings.percent(progressPercent))
+                    .font(.caption.weight(.semibold))
+                    .monospacedDigit()
+            }
+        }
+    }
 }
 
 private struct TvGridProgressBadge<Content: View>: View {
