@@ -6,6 +6,11 @@ import CoreImage.CIFilterBuiltins
 
 struct Images {
     static let preferences = Image(systemName: "gearshape")
+    static let play = Image(systemName: "play.fill")
+    static let bookmarkSystemName = "bookmark"
+    static let bookmarkFillSystemName = "bookmark.fill"
+    static let bookmark = Image(systemName: bookmarkSystemName)
+    static let bookmarkFill = Image(systemName: bookmarkFillSystemName)
     
     static func generateQRCode(_ string: String) -> UIImage {
         let context = CIContext()

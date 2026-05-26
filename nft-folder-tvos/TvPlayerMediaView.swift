@@ -468,15 +468,23 @@ enum TvPlayerPrewarmer {
         )
     }
 
-    static func preparedModel(initialItemId: String?) -> PlayerModel {
+    static func preparedModel(
+        initialItemId: String?,
+        initialTokenId: String? = nil,
+        continueViewingCollectionId: String? = nil
+    ) -> PlayerModel {
         if let preparedToken = PlayerTokenPrewarmer.preparedToken(
             initialCollectionId: initialItemId,
-            initialTokenId: nil
+            initialTokenId: initialTokenId
         ) {
             return PlayerModel(token: preparedToken)
         }
         if let initialItemId {
-            return PlayerModel(collectionId: initialItemId)
+            return PlayerModel(
+                collectionId: initialItemId,
+                initialTokenId: initialTokenId,
+                continueViewingCollectionId: continueViewingCollectionId ?? initialItemId
+            )
         }
         return PlayerModel(specificCollectionId: nil, notTokenId: nil)
     }

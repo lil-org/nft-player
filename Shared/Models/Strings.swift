@@ -18,6 +18,8 @@ struct Strings {
     static let saveMediaFailed = loc("Could not save media.")
     static let bookmark = loc("Bookmark")
     static let removeBookmark = loc("Remove Bookmark")
+    static let bookmarked = loc("Bookmarked")
+    static let bookmarkRemoved = loc("Bookmark Removed")
     static let continueViewing = loc("Continue Viewing")
     static let viewAgain = loc("View Again")
     static let play = loc("Play")

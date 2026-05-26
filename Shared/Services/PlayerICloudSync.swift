@@ -1,13 +1,13 @@
 // ∅ 2026 lil org
 
-#if os(macOS) || os(iOS) || os(visionOS)
+#if os(macOS) || os(iOS) || os(visionOS) || os(tvOS)
 import CloudKit
 import Foundation
 import os
 
 #if os(macOS)
 import AppKit
-#elseif os(iOS) || os(visionOS)
+#elseif os(iOS) || os(visionOS) || os(tvOS)
 import UIKit
 #endif
 
@@ -81,7 +81,17 @@ final class PlayerICloudSync {
                 startOnMain()
                 return
             }
-            scheduleSync(for: Self.allDomains, delay: 0)
+            guard isSyncInFlight || !pendingDomains.isEmpty else {
+                completeFlushes()
+                return
+            }
+
+            pendingSyncWorkItem?.cancel()
+            pendingSyncWorkItem = nil
+
+            if !isSyncInFlight {
+                startPendingSync()
+            }
         }
     }
 
@@ -156,7 +166,7 @@ final class PlayerICloudSync {
     }
 
     private var didBecomeActiveNotificationName: Notification.Name {
-#if os(iOS) || os(visionOS)
+#if os(iOS) || os(visionOS) || os(tvOS)
         UIApplication.didBecomeActiveNotification
 #elseif os(macOS)
         NSApplication.didBecomeActiveNotification
@@ -164,7 +174,7 @@ final class PlayerICloudSync {
     }
 
     private var willResignActiveNotificationName: Notification.Name {
-#if os(iOS) || os(visionOS)
+#if os(iOS) || os(visionOS) || os(tvOS)
         UIApplication.willResignActiveNotification
 #elseif os(macOS)
         NSApplication.willResignActiveNotification
@@ -180,7 +190,7 @@ final class PlayerICloudSync {
     }
 
     private var isApplicationActive: Bool {
-#if os(iOS) || os(visionOS)
+#if os(iOS) || os(visionOS) || os(tvOS)
         UIApplication.shared.applicationState == .active
 #elseif os(macOS)
         NSApplication.shared.isActive

@@ -1,5 +1,6 @@
 // ∅ 2026 lil org
 
+import Combine
 import SwiftUI
 
 class PlayerModel: ObservableObject {
@@ -7,14 +8,20 @@ class PlayerModel: ObservableObject {
     let specificCollectionId: String?
     private(set) var widgetTokenInsertion: PlayerWidgetTokenInsertion?
     
-    @Published var currentToken: GeneratedToken
+    @Published var currentToken: GeneratedToken {
+        didSet {
+            refreshCurrentTokenBookmarkState()
+        }
+    }
     @Published var history: [GeneratedToken]
     @Published var currentIndex: Int = 0
     @Published var showingInfoPopover = false
     @Published private(set) var isCurrentTokenInsertedWidgetToken = false
+    @Published private(set) var isCurrentTokenBookmarked = false
     private static let historyTrimThreshold = 23
     private static let retainedHistoryCount = 10
     private var viewingSessionTracker: PlayerViewingSessionTracker
+    private var bookmarkChangesObserver: AnyCancellable?
 
     init(specificCollectionId: String?, notTokenId: String?) {
         let token = Self.generateRandomToken(
@@ -26,6 +33,7 @@ class PlayerModel: ObservableObject {
         self.specificCollectionId = specificCollectionId
         self.widgetTokenInsertion = nil
         self.viewingSessionTracker = PlayerViewingSessionTracker(continueViewingCollectionId: specificCollectionId)
+        configureBookmarkState(for: token)
     }
 
     init(collectionId: String, initialTokenId: String? = nil, continueViewingCollectionId: String? = nil) {
@@ -37,6 +45,7 @@ class PlayerModel: ObservableObject {
         self.viewingSessionTracker = PlayerViewingSessionTracker(
             continueViewingCollectionId: continueViewingCollectionId ?? collectionId
         )
+        configureBookmarkState(for: token)
     }
     
     init(token: GeneratedToken) {
@@ -45,6 +54,7 @@ class PlayerModel: ObservableObject {
         self.specificCollectionId = token.fullCollectionId
         self.widgetTokenInsertion = nil
         self.viewingSessionTracker = PlayerViewingSessionTracker(continueViewingCollectionId: token.fullCollectionId)
+        configureBookmarkState(for: token)
     }
 
     init(widgetTokenInsertion: PlayerWidgetTokenInsertion) {
@@ -56,6 +66,7 @@ class PlayerModel: ObservableObject {
         self.viewingSessionTracker = PlayerViewingSessionTracker(
             continueViewingCollectionId: widgetTokenInsertion.collectionId
         )
+        configureBookmarkState(for: widgetTokenInsertion.insertedToken)
     }
 
     var playerWindowTitle: String {
@@ -206,6 +217,29 @@ class PlayerModel: ObservableObject {
         return progress(for: currentToken)
     }
 
+    var canBookmarkCurrentToken: Bool {
+        Self.canBookmark(token: currentToken)
+    }
+
+    @discardableResult
+    func toggleCurrentTokenBookmark() -> Bool {
+        guard canBookmarkCurrentToken else {
+            setCurrentTokenBookmarked(false)
+            return false
+        }
+
+        let isBookmarked = PlayerBookmarksStore.toggleBookmark(
+            collectionId: currentToken.fullCollectionId,
+            tokenId: currentToken.id
+        )
+        setCurrentTokenBookmarked(isBookmarked)
+        return isBookmarked
+    }
+
+    func refreshCurrentTokenBookmarkState() {
+        setCurrentTokenBookmarked(Self.isBookmarked(token: currentToken))
+    }
+
     func progress(for token: GeneratedToken) -> PlayerViewingProgress? {
         guard !token.fullCollectionId.isEmpty,
               let tokenIndex = Self.tokenIndex(
@@ -341,6 +375,36 @@ class PlayerModel: ObservableObject {
 #else
         TokenGenerator.generateToken(specificCollectionId: specificCollectionId, tokenIndex: tokenIndex)
 #endif
+    }
+
+    private func configureBookmarkState(for token: GeneratedToken) {
+        setCurrentTokenBookmarked(Self.isBookmarked(token: token))
+        installBookmarkChangesObserver()
+    }
+
+    private func setCurrentTokenBookmarked(_ isBookmarked: Bool) {
+        guard isCurrentTokenBookmarked != isBookmarked else { return }
+        isCurrentTokenBookmarked = isBookmarked
+    }
+
+    private static func canBookmark(token: GeneratedToken) -> Bool {
+        !token.fullCollectionId.isEmpty && !token.id.isEmpty
+    }
+
+    private static func isBookmarked(token: GeneratedToken) -> Bool {
+        guard canBookmark(token: token) else { return false }
+        return PlayerBookmarksStore.isBookmarked(
+            collectionId: token.fullCollectionId,
+            tokenId: token.id
+        )
+    }
+
+    private func installBookmarkChangesObserver() {
+        bookmarkChangesObserver = NotificationCenter.default.publisher(for: .playerBookmarksDidChange)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.refreshCurrentTokenBookmarkState()
+            }
     }
 
 }

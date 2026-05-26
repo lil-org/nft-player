@@ -206,6 +206,8 @@
 		2D4000032F50000000000001 /* PlayerViewingSessionTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D4000042F50000000000001 /* PlayerViewingSessionTracker.swift */; };
 		2D4000052F50000000000001 /* PlayerBookmarksStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CB01A022F01000000000001 /* PlayerBookmarksStore.swift */; };
 		2D4000062F50000000000001 /* PlayerICloudSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CF100002F20000000000001 /* PlayerICloudSync.swift */; };
+		2D8000002FA0000000000001 /* PlayerBookmarksStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CB01A022F01000000000001 /* PlayerBookmarksStore.swift */; };
+		2D8000012FA0000000000001 /* PlayerICloudSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CF100002F20000000000001 /* PlayerICloudSync.swift */; };
 		2D5000132F60000000000001 /* WidgetDeepLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D1000012F30000000000001 /* WidgetDeepLink.swift */; };
 		2D5000002F60000000000001 /* WidgetDeepLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D1000012F30000000000001 /* WidgetDeepLink.swift */; };
 		2D5000012F60000000000001 /* CollectionOfTheDayWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D1000022F30000000000001 /* CollectionOfTheDayWidget.swift */; };
@@ -309,6 +311,7 @@
 		2C5A59AE2C51400100788870 /* nft-folder-tvos.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "nft-folder-tvos.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		2C5A59B02C51400200788870 /* nft_folder_tvosApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = nft_folder_tvosApp.swift; sourceTree = "<group>"; };
 		2C5A59B42C51400300788870 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		2D8000022FA0000000000001 /* nft_folder_tvos.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = nft_folder_tvos.entitlements; sourceTree = "<group>"; };
 		2C5A59CC2C51529800788870 /* VisionCollectionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisionCollectionsView.swift; sourceTree = "<group>"; };
 		2C5A59CE2C5152A600788870 /* VisionPlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisionPlayerView.swift; sourceTree = "<group>"; };
 		2C5A59D02C5152B000788870 /* VisionHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisionHelpers.swift; sourceTree = "<group>"; };
@@ -524,6 +527,7 @@
 				2C4D31642C56B65E00C586D1 /* TvHelpers.swift */,
 				2C5A59B02C51400200788870 /* nft_folder_tvosApp.swift */,
 				2C5A59B42C51400300788870 /* Assets.xcassets */,
+				2D8000022FA0000000000001 /* nft_folder_tvos.entitlements */,
 			);
 			path = "nft-folder-tvos";
 			sourceTree = "<group>";
@@ -1185,10 +1189,12 @@
 				2C02181A2C53CECD0012EC40 /* Script.swift in Sources */,
 				2C02181B2C53CECD0012EC40 /* GeneratedToken.swift in Sources */,
 				2C0218032C53CC200012EC40 /* TvCollectionsView.swift in Sources */,
+				2D8000002FA0000000000001 /* PlayerBookmarksStore.swift in Sources */,
 				2CB01A072F01000000000001 /* PlayerViewingProgressStore.swift in Sources */,
 				2D4000032F50000000000001 /* PlayerViewingSessionTracker.swift in Sources */,
 				2D1000342F30000000000001 /* PlayerWidgetTokenInsertion.swift in Sources */,
 				2CF100082F20000000000001 /* PlayerSyncTypes.swift in Sources */,
+				2D8000012FA0000000000001 /* PlayerICloudSync.swift in Sources */,
 				2D6000002F70000000000001 /* CollectionCatalog.swift in Sources */,
 				2D7000032F70000100000001 /* DownloadableMediaCache.swift in Sources */,
 				2D7000042F70000100000001 /* PlayerTokenPrewarmer.swift in Sources */,
@@ -1457,6 +1463,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = "App Icon & Top Shelf Image";
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "nft-folder-tvos/nft_folder_tvos.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "iPhone Distribution";
 				CODE_SIGN_STYLE = Manual;
@@ -1494,6 +1501,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = "App Icon & Top Shelf Image";
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "nft-folder-tvos/nft_folder_tvos.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "iPhone Distribution";
 				CODE_SIGN_STYLE = Manual;

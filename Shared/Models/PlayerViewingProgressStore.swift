@@ -84,6 +84,12 @@ struct PlayerViewingProgress: Codable, Hashable {
     }
 }
 
+struct PlayerViewingProgressSnapshot: Hashable {
+    let percentagesByCollectionId: [String: Int]
+    let viewedToEndCollectionIds: Set<String>
+    let continueViewingProgress: PlayerViewingProgress?
+}
+
 enum PlayerViewingProgressStore {
     private typealias ProgressByCollectionId = [String: PlayerViewingProgress]
 
@@ -120,19 +126,15 @@ enum PlayerViewingProgressStore {
         return encodeContinueViewingState(state)
     }
 
-    static func progressSnapshot() -> (
-        percentagesByCollectionId: [String: Int],
-        viewedToEndCollectionIds: Set<String>,
-        continueViewingProgress: PlayerViewingProgress?
-    ) {
+    static func progressSnapshot() -> PlayerViewingProgressSnapshot {
         let progressByCollectionId = allProgressByCollectionId()
         let viewedToEndCollectionIds = Set(progressByCollectionId.compactMap { collectionId, progress in
             progress.hasBeenViewedToEnd ? collectionId : nil
         })
-        return (
-            progressByCollectionId.mapValues(\.percent),
-            viewedToEndCollectionIds,
-            continueViewingProgress(in: progressByCollectionId)
+        return PlayerViewingProgressSnapshot(
+            percentagesByCollectionId: progressByCollectionId.mapValues(\.percent),
+            viewedToEndCollectionIds: viewedToEndCollectionIds,
+            continueViewingProgress: continueViewingProgress(in: progressByCollectionId)
         )
     }
 
@@ -279,7 +281,7 @@ enum PlayerViewingProgressStore {
         cachedProgressData = data
         userDefaults.set(data, forKey: progressSyncDomain.key)
         NotificationCenter.default.post(name: .playerViewingProgressDidChange, object: nil)
-#if os(macOS) || os(iOS) || os(visionOS)
+#if os(macOS) || os(iOS) || os(visionOS) || os(tvOS)
         if mirrorToICloud {
             PlayerICloudSync.shared.playerProgressDidChange()
         }
@@ -313,7 +315,7 @@ enum PlayerViewingProgressStore {
         }
         userDefaults.removeObject(forKey: legacyMobileContinueViewingCollectionIdKey)
         NotificationCenter.default.post(name: .playerViewingProgressDidChange, object: nil)
-#if os(macOS) || os(iOS) || os(visionOS)
+#if os(macOS) || os(iOS) || os(visionOS) || os(tvOS)
         if mirrorToICloud {
             PlayerICloudSync.shared.playerContinueViewingStateDidChange()
         }
