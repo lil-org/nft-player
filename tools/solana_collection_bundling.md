@@ -29,6 +29,8 @@ By default, the script refuses to bundle collections above 15,000 assets. Use `-
 - `tools/reports/solana-collection-bundle-report.md`
 - `tools/reports/solana-collection-bundle-report.json`
 
+Cover generation requires ImageMagick. Generated covers are normalized to 300x300 HEIC, sRGB, three-channel RGB, no alpha channel, and stripped metadata. The bundler validates the final file and fails the collection cover write if the output is not decode-safe for tvOS/visionOS.
+
 Token JSON uses the iOS app's compact Solana format:
 
 ```json
@@ -59,6 +61,7 @@ After applying a bundle, run:
 
 ```sh
 node tools/check_bundled_collection_downloads.js --samples 5 --retries 3 --full --collection "<collection id or name>"
+sips -g format -g hasAlpha -g samplesPerPixel "Suggested Items/Covers.xcassets/<collection id>.imageset/<collection id>.heic"
 xcodebuild -project nft-folder.xcodeproj -scheme nft-folder-ios -destination 'generic/platform=iOS' build
 ```
 

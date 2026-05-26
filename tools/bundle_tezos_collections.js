@@ -3,7 +3,12 @@
 const fs = require("node:fs/promises");
 const path = require("node:path");
 const os = require("node:os");
-const { spawn } = require("node:child_process");
+const {
+  convertCover,
+  resolveCoverTools,
+  writeCoverContents,
+  writePlaceholderCover,
+} = require("./cover_images");
 const { mergeGeneratedSuggestedItem } = require("./suggested_items");
 
 const DEFAULT_BUNDLE_PATH = path.join("Suggested Items", "Suggested.bundle");
@@ -1027,7 +1032,7 @@ function formatSuggestedItems(items) {
 }
 
 async function writeCovers(collections, context) {
-  const tool = await coverTool();
+  const coverTools = await resolveCoverTools();
   for (const collection of collections) {
     const coverCandidates = uniqueCoverCandidates([
       {
@@ -1061,7 +1066,7 @@ async function writeCovers(collections, context) {
 
       try {
         await downloadFileWithRetry(candidate.url, tempPath, context.options.timeoutMs);
-        await convertCover(tool, tempPath, outputPath, context.options.coverSize, context.options.coverQuality);
+        await convertCover(coverTools, tempPath, outputPath, context.options.coverSize, context.options.coverQuality);
         await writeCoverContents(imagesetPath, collection.collectionId);
         collection.cover.sourceUrl = candidate.url;
         collection.cover.sourceKind = candidate.kind;
@@ -1080,7 +1085,7 @@ async function writeCovers(collections, context) {
     if (lastError) {
       collection.cover.error = lastError.message;
       try {
-        await writePlaceholderCover(tool, outputPath, collection.name, context.options.coverSize, context.options.coverQuality);
+        await writePlaceholderCover(coverTools, outputPath, collection.name, context.options.coverSize, context.options.coverQuality, "Tezos");
         await writeCoverContents(imagesetPath, collection.collectionId);
         collection.cover.sourceUrl = null;
         collection.cover.sourceKind = "generated-placeholder";
@@ -1174,27 +1179,6 @@ function coverURLAlternates(urlString) {
   return alternates;
 }
 
-async function coverTool() {
-  if (await commandExists("magick")) {
-    return "magick";
-  }
-  if (await commandExists("convert")) {
-    return "convert";
-  }
-  if (await commandExists("sips")) {
-    return "sips";
-  }
-  throw new Error("No cover conversion tool found. Install ImageMagick or use macOS sips.");
-}
-
-async function commandExists(command) {
-  return new Promise((resolve) => {
-    const child = spawn("which", [command], { stdio: "ignore" });
-    child.on("close", (code) => resolve(code === 0));
-    child.on("error", () => resolve(false));
-  });
-}
-
 async function downloadFileWithRetry(url, outputPath, timeoutMs) {
   let lastError = null;
   for (let attempt = 0; attempt < 1; attempt += 1) {
@@ -1237,80 +1221,6 @@ function isTransientDownloadError(error) {
 function coverSourceExtension(url) {
   const extension = extensionFromURL(url);
   return extension ? `.${normalizeExtension(extension)}` : ".img";
-}
-
-async function convertCover(tool, inputPath, outputPath, size, quality) {
-  if (tool === "sips") {
-    await runCommand("sips", [
-      "-s", "format", "heic",
-      "--resampleHeightWidthMax", String(size),
-      inputPath,
-      "--out", outputPath,
-    ]);
-    return;
-  }
-
-  await runCommand(tool, [
-    `${inputPath}[0]`,
-    "-auto-orient",
-    "-resize", `${size}x${size}^`,
-    "-gravity", "center",
-    "-extent", `${size}x${size}`,
-    "-strip",
-    "-quality", String(quality),
-    outputPath,
-  ]);
-}
-
-async function writePlaceholderCover(tool, outputPath, collectionName, size, quality) {
-  if (tool === "sips") {
-    throw new Error("placeholder covers require ImageMagick");
-  }
-  const label = String(collectionName ?? "Tezos").slice(0, 32);
-  await runCommand(tool, [
-    "-size", `${size}x${size}`,
-    "xc:#161616",
-    "-fill", "#f4f1e8",
-    "-gravity", "center",
-    "-font", "Helvetica",
-    "-pointsize", "28",
-    "-annotate", "0", label,
-    "-quality", String(quality),
-    outputPath,
-  ]);
-}
-
-async function writeCoverContents(imagesetPath, collectionId) {
-  await fs.writeFile(path.join(imagesetPath, "Contents.json"), `${JSON.stringify({
-    images: [
-      {
-        filename: `${collectionId}.heic`,
-        idiom: "universal",
-      },
-    ],
-    info: {
-      author: "xcode",
-      version: 1,
-    },
-  }, null, 2)}\n`);
-}
-
-async function runCommand(command, args) {
-  return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { stdio: ["ignore", "pipe", "pipe"] });
-    let stderr = "";
-    child.stderr.on("data", (chunk) => {
-      stderr += chunk.toString();
-    });
-    child.on("close", (code) => {
-      if (code === 0) {
-        resolve();
-      } else {
-        reject(new Error(`${command} exited ${code}: ${stderr.trim()}`));
-      }
-    });
-    child.on("error", reject);
-  });
 }
 
 async function writeReports(collections, options, dryRun) {
