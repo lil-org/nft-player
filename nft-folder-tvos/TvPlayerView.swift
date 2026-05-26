@@ -1,6 +1,7 @@
 // ∅ 2026 lil org
 
 import SwiftUI
+import UIKit
 
 struct TvPlayerView: View {
     
@@ -208,28 +209,191 @@ private struct TvBookmarkHUDView: View {
     }
 }
 
-private struct TvPlayerInputSurface: View {
+private struct TvPlayerInputSurface: UIViewControllerRepresentable {
     let onBookmarkToggle: () -> Void
     let onMove: (MoveCommandDirection) -> Void
     let onPlayPause: () -> Void
     let accessibilityLabel: String
-    @FocusState private var isFocused: Bool
 
-    var body: some View {
-        Button(action: onBookmarkToggle) {
-            Color.clear
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .contentShape(Rectangle())
+    func makeUIViewController(context: Context) -> TvPlayerInputViewController {
+        let viewController = TvPlayerInputViewController()
+        update(viewController)
+        return viewController
+    }
+
+    func updateUIViewController(_ uiViewController: TvPlayerInputViewController, context: Context) {
+        update(uiViewController)
+    }
+
+    private func update(_ viewController: TvPlayerInputViewController) {
+        viewController.onSelect = onBookmarkToggle
+        viewController.onMove = onMove
+        viewController.onPlayPause = onPlayPause
+        viewController.accessibilityLabel = accessibilityLabel
+    }
+}
+
+private final class TvPlayerInputViewController: UIViewController {
+    private let focusView = TvPlayerInputView()
+
+    var onSelect: (() -> Void)? {
+        get { focusView.onSelect }
+        set { focusView.onSelect = newValue }
+    }
+
+    var onMove: ((MoveCommandDirection) -> Void)? {
+        get { focusView.onMove }
+        set { focusView.onMove = newValue }
+    }
+
+    var onPlayPause: (() -> Void)? {
+        get { focusView.onPlayPause }
+        set { focusView.onPlayPause = newValue }
+    }
+
+    override var accessibilityLabel: String? {
+        get { focusView.accessibilityLabel }
+        set { focusView.accessibilityLabel = newValue }
+    }
+
+    override var preferredFocusEnvironments: [UIFocusEnvironment] {
+        [focusView]
+    }
+
+    override func loadView() {
+        view = focusView
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        requestFocus()
+    }
+
+    func requestFocus() {
+        setNeedsFocusUpdate()
+        updateFocusIfNeeded()
+    }
+}
+
+private final class TvPlayerInputView: UIView {
+    var onSelect: (() -> Void)?
+    var onMove: ((MoveCommandDirection) -> Void)?
+    var onPlayPause: (() -> Void)?
+
+    override var canBecomeFocused: Bool {
+        true
+    }
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        backgroundColor = .clear
+        isOpaque = false
+        isAccessibilityElement = true
+        accessibilityTraits = .button
+        installSwipeGestures()
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        nil
+    }
+
+    override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        let unhandledPresses = unhandledPresses(from: presses)
+        if !unhandledPresses.isEmpty {
+            super.pressesBegan(unhandledPresses, with: event)
         }
-        .buttonStyle(.plain)
-        .focused($isFocused)
-        .onAppear {
-            DispatchQueue.main.async {
-                isFocused = true
-            }
+    }
+
+    override func pressesChanged(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        let unhandledPresses = unhandledPresses(from: presses)
+        if !unhandledPresses.isEmpty {
+            super.pressesChanged(unhandledPresses, with: event)
         }
-        .onMoveCommand(perform: onMove)
-        .onPlayPauseCommand(perform: onPlayPause)
-        .accessibilityLabel(accessibilityLabel)
+    }
+
+    override func pressesEnded(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        if let press = presses.first(where: isHandledPress) {
+            performAction(for: press)
+        }
+
+        let unhandledPresses = unhandledPresses(from: presses)
+        if !unhandledPresses.isEmpty {
+            super.pressesEnded(unhandledPresses, with: event)
+        }
+    }
+
+    override func pressesCancelled(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        let unhandledPresses = unhandledPresses(from: presses)
+        if !unhandledPresses.isEmpty {
+            super.pressesCancelled(unhandledPresses, with: event)
+        }
+    }
+
+    override func accessibilityActivate() -> Bool {
+        onSelect?()
+        return true
+    }
+
+    private func installSwipeGestures() {
+        [
+            UISwipeGestureRecognizer.Direction.left,
+            .right,
+            .up,
+            .down
+        ].forEach { direction in
+            let recognizer = UISwipeGestureRecognizer(target: self, action: #selector(handleSwipe(_:)))
+            recognizer.direction = direction
+            addGestureRecognizer(recognizer)
+        }
+    }
+
+    @objc private func handleSwipe(_ recognizer: UISwipeGestureRecognizer) {
+        guard recognizer.state == .ended else { return }
+
+        switch recognizer.direction {
+        case .left:
+            onMove?(.left)
+        case .right:
+            onMove?(.right)
+        case .up:
+            onMove?(.up)
+        case .down:
+            onMove?(.down)
+        default:
+            break
+        }
+    }
+
+    private func unhandledPresses(from presses: Set<UIPress>) -> Set<UIPress> {
+        presses.filter { !isHandledPress($0) }
+    }
+
+    private func isHandledPress(_ press: UIPress) -> Bool {
+        switch press.type {
+        case .select, .playPause, .leftArrow, .rightArrow, .upArrow, .downArrow:
+            return true
+        default:
+            return false
+        }
+    }
+
+    private func performAction(for press: UIPress) {
+        switch press.type {
+        case .select:
+            onSelect?()
+        case .playPause:
+            onPlayPause?()
+        case .leftArrow:
+            onMove?(.left)
+        case .rightArrow:
+            onMove?(.right)
+        case .upArrow:
+            onMove?(.up)
+        case .downArrow:
+            onMove?(.down)
+        default:
+            break
+        }
     }
 }
