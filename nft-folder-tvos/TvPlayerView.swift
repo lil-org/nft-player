@@ -81,6 +81,11 @@ struct TvPlayerView: View {
 
     private func navigateForward() {
         DispatchQueue.main.async {
+            guard !isCurrentCollectionComplete else {
+                showChrome()
+                return
+            }
+
             preferredPrefetchDirection = .forward
             playerModel.goForward()
         }
@@ -100,6 +105,14 @@ struct TvPlayerView: View {
     private func toggleChromeVisibility() {
         withAnimation(.easeInOut(duration: 0.16)) {
             isChromeVisible.toggle()
+        }
+    }
+
+    private func showChrome() {
+        guard !isChromeVisible else { return }
+
+        withAnimation(.easeInOut(duration: 0.16)) {
+            isChromeVisible = true
         }
     }
 
@@ -167,6 +180,10 @@ struct TvPlayerView: View {
             return collectionName
         }
         return Strings.nftFolder
+    }
+
+    private var isCurrentCollectionComplete: Bool {
+        playerModel.currentProgress?.isComplete == true && !playerModel.isCurrentTokenInsertedWidgetToken
     }
     
 }
