@@ -4,29 +4,23 @@ import SwiftUI
 
 struct TvPlayerView: View {
     
-    @ObservedObject private var playerModel: PlayerModel
-    @State private var showInfoPopover = !Defaults.preferresInfoPopoverHidden
-    @State private var showTutorial = false
+    @StateObject private var playerModel: PlayerModel
+    @State private var showInfoPopover = false
     
     init(initialItemId: String?) {
-        self.playerModel = PlayerModel(specificCollectionId: initialItemId, notTokenId: nil)
+        _playerModel = StateObject(wrappedValue: Self.makePlayerModel(initialItemId: initialItemId))
+    }
+
+    private static func makePlayerModel(initialItemId: String?) -> PlayerModel {
+        if let initialItemId {
+            return PlayerModel(collectionId: initialItemId)
+        }
+        return PlayerModel(specificCollectionId: nil, notTokenId: nil)
     }
     
     var body: some View {
         ZStack(alignment: .topTrailing) {
             TvGeneratedTokenView(contentString: playerModel.currentToken.html, fallbackURL: fallbackURL()).edgesIgnoringSafeArea(.all)
-                .onAppear() {
-                    if let initialSpecific = playerModel.specificCollectionId, initialSpecific != playerModel.currentToken.fullCollectionId {
-                        playerModel.showInitialCollection()
-                    } else if !playerModel.history.isEmpty {
-                        playerModel.goForward()
-                    }
-                    if !Defaults.didShowTvPlayerTutorial {
-                        showTutorial = true
-                        showInfoPopover = true
-                        Defaults.didShowTvPlayerTutorial = true
-                    }
-                }
                 .focusable()
                 .onMoveCommand { direction in
                     switch direction {
@@ -35,16 +29,14 @@ struct TvPlayerView: View {
                     case .right:
                         DispatchQueue.main.async { playerModel.goForward() }
                     case .up:
-                        DispatchQueue.main.async { playerModel.goBack() }
+                        DispatchQueue.main.async { playerModel.goForward() }
                     case .down:
-                        DispatchQueue.main.async { playerModel.changeCollection() }
+                        DispatchQueue.main.async { playerModel.goBack() }
                     default:
                         break
                     }
                 }
                 .onPlayPauseCommand {
-                    showTutorial = false
-                    Defaults.preferresInfoPopoverHidden = showInfoPopover
                     showInfoPopover.toggle()
                 }
             
@@ -68,11 +60,6 @@ struct TvPlayerView: View {
                 .resizable()
                 .scaledToFit()
                 .frame(width: 200, height: 200)
-            if showTutorial {
-                Divider()
-                Text("↔️↕️ " + Strings.navigate)
-                Text("⏯️ " + Strings.toggleInfo)
-            }
         }
         .padding().frame(width: 230)
     }

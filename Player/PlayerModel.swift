@@ -102,7 +102,7 @@ class PlayerModel: ObservableObject {
     }
     
     func goBack() {
-#if os(macOS)
+#if os(macOS) || os(tvOS)
         if currentIndex > 0 {
             currentIndex -= 1
             currentToken = history[currentIndex]
@@ -121,7 +121,7 @@ class PlayerModel: ObservableObject {
     }
 
     func goForward() {
-#if os(macOS)
+#if os(macOS) || os(tvOS)
         if currentIndex < history.count - 1 {
             currentIndex += 1
             currentToken = history[currentIndex]

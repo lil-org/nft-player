@@ -1,5 +1,6 @@
 // ∅ 2026 lil org
 
+import Foundation
 import SwiftUI
 import Combine
 
@@ -8,6 +9,7 @@ struct TvCollectionsView: View {
     private let collectionItems: [CollectionCatalogItem]
     @State private var gridPassCount = 1
     @State private var selectedItemId: String?
+    @State private var playerNavigationId = UUID()
     @State private var isNavigatingToPlayer = false
     @State private var showPreferencesAlert = false
 
@@ -42,7 +44,12 @@ struct TvCollectionsView: View {
                 shuffleButton
             })
             .background(
-                NavigationLink(destination: TvPlayerView(initialItemId: selectedItemId).edgesIgnoringSafeArea(.all), isActive: $isNavigatingToPlayer) {
+                NavigationLink(
+                    destination: TvPlayerView(initialItemId: selectedItemId)
+                        .id(playerNavigationId)
+                        .edgesIgnoringSafeArea(.all),
+                    isActive: $isNavigatingToPlayer
+                ) {
                     EmptyView().hidden()
                 }.hidden()
             )
@@ -127,6 +134,7 @@ struct TvCollectionsView: View {
         guard isPlayableCollectionItem(item) else { return }
 
         selectedItemId = item.id
+        playerNavigationId = UUID()
         isNavigatingToPlayer = true
     }
     
@@ -134,6 +142,7 @@ struct TvCollectionsView: View {
         guard let item = collectionItems.filter(isPlayableCollectionItem).randomElement() else { return }
 
         selectedItemId = item.id
+        playerNavigationId = UUID()
         isNavigatingToPlayer = true
     }
 
