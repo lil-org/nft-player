@@ -6,6 +6,16 @@ import UIKit
 private let maxLayoutRetryCount = 60
 private let layoutRetryDelay: DispatchTimeInterval = .milliseconds(50)
 private let fallbackSamplingDelay: DispatchTimeInterval = .milliseconds(230)
+private let unloadedHTML = """
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>html, body { width: 100%; height: 100%; margin: 0; background: #000; }</style>
+</head>
+<body></body>
+</html>
+"""
 
 private var shouldSkipTvFallbackCheck = false
 private var shouldAlwaysFallback = false
@@ -208,6 +218,12 @@ struct TvGeneratedTokenView: UIViewRepresentable {
         coordinator.loadSample = { [weak target = container.target] in
             target?.perform(container.loadSelector, with: Self.sampleHTML, with: nil)
         }
+        coordinator.unloadContent = { [weak webView = container.webView, weak target = container.target] in
+            if webView?.responds(to: Self.stopLoadingSelector) == true {
+                webView?.perform(Self.stopLoadingSelector)
+            }
+            target?.perform(container.loadSelector, with: unloadedHTML, with: nil)
+        }
         coordinator.loadContent = { [weak webView = container.webView, weak target = container.target, weak coordinator] content, url in
             guard let coordinator else { return }
             if webView?.responds(to: Self.stopLoadingSelector) == true {
@@ -363,6 +379,7 @@ struct TvGeneratedTokenView: UIViewRepresentable {
     final class Coordinator: NSObject {
         var loadSample: (() -> Void)?
         var loadContent: ((TvWebContent, URL?) -> Void)?
+        var unloadContent: (() -> Void)?
         private var loadGeneration = 0
         private var currentRequest: LoadRequest?
         private var currentFallbackImageTask: URLSessionDataTask?
@@ -454,7 +471,16 @@ struct TvGeneratedTokenView: UIViewRepresentable {
         }
 
         func dismantle() {
+            loadGeneration += 1
+            currentRequest = nil
+            needsSampleReload = false
+            isLoadingLocalHTML = false
+            didHandleLocalLoadFailure = true
             clearFallbackView()
+            unloadContent?()
+            loadSample = nil
+            loadContent = nil
+            unloadContent = nil
             detachWebView()
             for fileURL in localHTMLFileURLs {
                 try? FileManager.default.removeItem(at: fileURL)
