@@ -5,8 +5,8 @@ import SwiftUI
 import Combine
 import UIKit
 
-private let tvContinueViewingButtonPadding: CGFloat = 28
-private let tvContinueViewingCollectionNameMaxWidth: CGFloat = 360
+private let tvContinueViewingButtonMaxWidth: CGFloat = 500
+private let tvContinueViewingCollectionNameMaxWidth: CGFloat = 440
 
 struct TvCollectionsView: View {
     
@@ -27,37 +27,30 @@ struct TvCollectionsView: View {
             ScrollView {
                 createGrid()
             }
-            .overlay(alignment: .bottom) {
-                if let continueViewingProgress {
-                    TvContinueViewingButton(progress: continueViewingProgress) {
-                        resumeViewing(continueViewingProgress)
-                    }
-                    .padding(.horizontal, tvContinueViewingButtonPadding)
-                    .padding(.bottom, tvContinueViewingButtonPadding)
-                    .transition(.opacity)
-                }
-            }
             .toolbar {
                 ToolbarItem(placement: .principal) {}
             }
-            .navigationBarItems(trailing: HStack {
-                Button(action: {
-                    showPreferencesAlert = true
-                }) {
-                    Images.preferences
+            .navigationBarItems(
+                leading: continueViewingNavigationItem,
+                trailing: HStack {
+                    Button(action: {
+                        showPreferencesAlert = true
+                    }) {
+                        Images.preferences
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    .foregroundStyle(.tertiary)
+                    .alert(isPresented: $showPreferencesAlert) {
+                        Alert(
+                            title: Text(Strings.sendFeedback),
+                            message: Text(Strings.lilOrgLinkWithEmojis),
+                            dismissButton: .default(Text(Strings.ok))
+                        )
+                    }
+                    
+                    shuffleButton
                 }
-                .buttonStyle(PlainButtonStyle())
-                .foregroundStyle(.tertiary)
-                .alert(isPresented: $showPreferencesAlert) {
-                    Alert(
-                        title: Text(Strings.sendFeedback),
-                        message: Text(Strings.lilOrgLinkWithEmojis),
-                        dismissButton: .default(Text(Strings.ok))
-                    )
-                }
-                
-                shuffleButton
-            })
+            )
             .background(
                 NavigationLink(
                     destination: playerDestination,
@@ -109,6 +102,16 @@ struct TvCollectionsView: View {
             progressSnapshot.continueViewingProgress,
             collectionItems: collectionItems
         )
+    }
+
+    @ViewBuilder
+    private var continueViewingNavigationItem: some View {
+        if let continueViewingProgress {
+            TvContinueViewingButton(progress: continueViewingProgress) {
+                resumeViewing(continueViewingProgress)
+            }
+            .transition(.opacity)
+        }
     }
     
     private func createGrid() -> some View {
@@ -332,62 +335,35 @@ private struct TvGridProgressBadge<Content: View>: View {
 private struct TvContinueViewingButton: View {
     let progress: PlayerViewingProgress
     let action: () -> Void
+    @FocusState private var isFocused: Bool
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 14) {
+            HStack(spacing: 8) {
                 Images.play
-                    .font(.headline.weight(.bold))
+                    .font(.subheadline.weight(.bold))
 
-                VStack(alignment: .leading, spacing: 3) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text(Strings.continueViewing)
-                        .font(.caption.weight(.semibold))
+                        .font(.caption2.weight(.semibold))
                         .lineLimit(1)
                     Text(progress.collectionName)
-                        .font(.headline.weight(.semibold))
+                        .font(.caption.weight(.semibold))
                         .lineLimit(1)
                         .truncationMode(.tail)
                         .frame(maxWidth: tvContinueViewingCollectionNameMaxWidth, alignment: .leading)
                         .layoutPriority(1)
                 }
-
-                Text(Strings.percent(progress.percent))
-                    .font(.headline.weight(.bold))
-                    .monospacedDigit()
-                    .lineLimit(1)
-                    .fixedSize()
             }
-            .foregroundStyle(.white)
-            .padding(.horizontal, 18)
-            .padding(.vertical, 14)
-            .background {
-                TvProgressCapsuleBackground(progress: progress.fraction)
-            }
+            .foregroundStyle(isFocused ? Color.black : Color.white.opacity(0.64))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .frame(maxWidth: tvContinueViewingButtonMaxWidth, alignment: .leading)
             .clipShape(Capsule())
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
+        .focused($isFocused)
         .accessibilityLabel("\(Strings.continueViewing), \(progress.collectionName)")
-    }
-}
-
-private struct TvProgressCapsuleBackground: View {
-    let progress: Double
-
-    var body: some View {
-        GeometryReader { geometry in
-            let clampedProgress = min(max(progress, 0), 1)
-
-            ZStack(alignment: .leading) {
-                Capsule()
-                    .fill(Color.black.opacity(0.68))
-                    .background(.ultraThinMaterial, in: Capsule())
-
-                Capsule()
-                    .fill(.white.opacity(0.2))
-                    .frame(width: geometry.size.width * clampedProgress)
-            }
-            .clipShape(Capsule())
-        }
     }
 }
