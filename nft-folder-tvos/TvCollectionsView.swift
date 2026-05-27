@@ -7,7 +7,14 @@ import UIKit
 
 private let tvContinueViewingButtonMaxWidth: CGFloat = 500
 private let tvContinueViewingCollectionNameMaxWidth: CGFloat = 440
-private let tvCollectionGridItemInset: CGFloat = 8
+private let tvCollectionGridMinimumItemWidth: CGFloat = 230
+private let tvCollectionGridColumnSpacing: CGFloat = 32
+private let tvCollectionGridRowSpacing: CGFloat = 32
+private let tvCollectionGridItemInset: CGFloat = 10
+private let tvCollectionGridCornerRadius: CGFloat = 10
+private let tvCollectionGridFocusedScale: CGFloat = 1.025
+private let tvCollectionGridFocusRingOutset: CGFloat = 6
+private let tvCollectionGridFocusRingWidth: CGFloat = 4
 
 struct TvCollectionsView: View {
     
@@ -116,8 +123,13 @@ struct TvCollectionsView: View {
     }
     
     private func createGrid() -> some View {
-        let gridLayout = [GridItem(.adaptive(minimum: 230), spacing: 20)]
-        let grid = LazyVGrid(columns: gridLayout, alignment: .center, spacing: 23) {
+        let gridLayout = [
+            GridItem(
+                .adaptive(minimum: tvCollectionGridMinimumItemWidth),
+                spacing: tvCollectionGridColumnSpacing
+            )
+        ]
+        let grid = LazyVGrid(columns: gridLayout, alignment: .center, spacing: tvCollectionGridRowSpacing) {
             ForEach(0..<visibleItemCount, id: \.self) { index in
                 let item = item(at: index)
                 TvCollectionGridItemButton(
@@ -308,18 +320,24 @@ private struct TvCollectionGridItemButton: View {
                     .padding(8)
             }
             .aspectRatio(1, contentMode: .fit)
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: tvCollectionGridCornerRadius, style: .continuous))
             .overlay {
                 if isFocused {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(.white.opacity(0.92), lineWidth: 6)
+                    RoundedRectangle(
+                        cornerRadius: tvCollectionGridCornerRadius + tvCollectionGridFocusRingOutset,
+                        style: .continuous
+                    )
+                        .strokeBorder(.white.opacity(0.92), lineWidth: tvCollectionGridFocusRingWidth)
+                        .padding(-tvCollectionGridFocusRingOutset)
                 }
             }
-            .shadow(color: isFocused ? .black.opacity(0.34) : .clear, radius: 18, y: 8)
-            .scaleEffect(isFocused ? 1.06 : 1)
+            .shadow(color: isFocused ? .black.opacity(0.24) : .clear, radius: 10, y: 5)
+            .scaleEffect(isFocused ? tvCollectionGridFocusedScale : 1)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(TvCollectionGridButtonStyle())
         .focused($isFocused)
+        .tvCollectionGridFocusEffectDisabled()
+        .zIndex(isFocused ? 1 : 0)
         .animation(.easeInOut(duration: 0.12), value: isFocused)
     }
 
@@ -352,6 +370,24 @@ private struct TvCollectionGridItemButton: View {
                     .font(.caption.weight(.semibold))
                     .monospacedDigit()
             }
+        }
+    }
+}
+
+private struct TvCollectionGridButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .opacity(configuration.isPressed ? 0.94 : 1)
+    }
+}
+
+private extension View {
+    @ViewBuilder
+    func tvCollectionGridFocusEffectDisabled() -> some View {
+        if #available(tvOS 17.0, *) {
+            focusEffectDisabled()
+        } else {
+            self
         }
     }
 }
