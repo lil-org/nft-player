@@ -2903,37 +2903,37 @@
         "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "مجلد NFT"
+            "value" : "مشغل إن إف تي"
           }
         },
         "ca" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Carpeta NFT"
+            "value" : "Reproductor Nft"
           }
         },
         "cs" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Složka NFT"
+            "value" : "Přehrávač Nft"
           }
         },
         "da" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "NFT-mappe"
+            "value" : "Nft-afspiller"
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "NFT-Ordner"
+            "value" : "Nft-Player"
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Φάκελος Nft"
+            "value" : "Νφτ Πλέερ"
           }
         },
         "en" : {
@@ -2945,115 +2945,115 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Carpeta NFT"
+            "value" : "Reproductor Nft"
           }
         },
         "es-419" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Carpeta NFT"
+            "value" : "Reproductor Nft"
           }
         },
         "fi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "NFT-kansio"
+            "value" : "Nft-soitin"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Dossier Nft"
+            "value" : "Lecteur Nft"
           }
         },
         "he" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "תיקיית NFT"
+            "value" : "נגן אן־אף־טי"
           }
         },
         "hi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "एनएफटी फ़ोल्डर"
+            "value" : "एनएफटी प्लेयर"
           }
         },
         "hr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "NFT Mapa"
+            "value" : "Nft reproduktor"
           }
         },
         "hu" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "NFT mappa"
+            "value" : "Nft-lejátszó"
           }
         },
         "id" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nft Player"
+            "value" : "Pemutar Nft"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Cartella Nft"
+            "value" : "Lettore Nft"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "NFTフォルダ"
+            "value" : "エヌエフティープレイヤー"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "NFT 폴더"
+            "value" : "엔에프티 플레이어"
           }
         },
         "ms" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nft Player"
+            "value" : "Pemain Nft"
           }
         },
         "nb" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "NFT-mappe"
+            "value" : "Nft-spiller"
           }
         },
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nft Map"
+            "value" : "Nft-speler"
           }
         },
         "pl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nft Player"
+            "value" : "Odtwarzacz Nft"
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Pasta de NFT"
+            "value" : "Reprodutor Nft"
           }
         },
         "pt-PT" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Pasta NFT"
+            "value" : "Leitor Nft"
           }
         },
         "ro" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nft Player"
+            "value" : "Player Nft"
           }
         },
         "ru" : {
@@ -3065,49 +3065,49 @@
         "sk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Priečinok NFT"
+            "value" : "Prehrávač Nft"
           }
         },
         "sv" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "NFT-mapp"
+            "value" : "Nft-spelare"
           }
         },
         "th" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "โฟลเดอร์ NFT"
+            "value" : "เครื่องเล่นเอ็นเอฟที"
           }
         },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "NFT Klasörü"
+            "value" : "Nft Oynatıcı"
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Нфт Плеер"
+            "value" : "Нфт Плеєр"
           }
         },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Thư mục NFT"
+            "value" : "Trình phát Nft"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "NFT 文件夹"
+            "value" : "Nft 播放器"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "NFT 資料夾"
+            "value" : "Nft 播放器"
           }
         }
       }
