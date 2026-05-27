@@ -1,0 +1,209 @@
+lane :bb do
+  new_build_number = increment_build_number()
+
+  git_add(path: "nft-folder.xcodeproj/project.pbxproj")
+  git_commit(
+    path: "nft-folder.xcodeproj/project.pbxproj",
+    message: "bump build number #{new_build_number}"
+  )
+
+  push_to_git_remote
+end
+
+lane :bump do |options|
+  current_version = get_version_number(xcodeproj: "nft-folder.xcodeproj", target: "nft folder")
+  version_parts = current_version.split(".").map(&:to_i)
+  version_parts[-1] += 1
+  new_version = options[:version] || version_parts.join(".")
+  sh("sed -i '' -e 's/MARKETING_VERSION \\= [^\\;]*\\;/MARKETING_VERSION = #{new_version};/' ../nft-folder.xcodeproj/project.pbxproj")
+  increment_version_number(version_number: new_version)
+  new_build_number = increment_build_number()
+
+  git_add(path: "nft-folder.xcodeproj/project.pbxproj")
+  git_commit(
+    path: "nft-folder.xcodeproj/project.pbxproj",
+    message: "bump version to #{new_version} (#{new_build_number})"
+  )
+
+  push_to_git_remote
+end
+
+lane :update_and_login do
+  local_fastlane_password = ENV['FASTLANE_PASSWORD']
+  ENV['FASTLANE_PASSWORD'] = nil
+
+  require 'spaceship'
+  Spaceship::Tunes.login('ivan@ivan.lol')
+
+  update_fastlane
+  ENV['FASTLANE_PASSWORD'] = local_fastlane_password
+end
+
+lane :deliver_metadata do
+  deliver_metadata_ios
+  deliver_metadata_macos
+  deliver_metadata_tvos
+  deliver_metadata_visionos
+end
+
+lane :deliver_metadata_ios do
+  update_and_login
+  platform :ios do
+    deliver(
+      metadata_path: "./fastlane/metadata/ios",
+      screenshots_path: "./fastlane/screenshots/ios",
+      overwrite_screenshots: true,
+      platform: "ios",
+      run_precheck_before_submit: false,
+      force: true,
+    )
+  end
+end
+
+lane :deliver_metadata_macos do
+  update_and_login
+  platform :mac do
+    deliver(
+      metadata_path: "./fastlane/metadata/macos",
+      screenshots_path: "./fastlane/screenshots/macos",
+      overwrite_screenshots: true, 
+      platform: "osx",
+      run_precheck_before_submit: false,
+      force: true,
+    )
+  end
+end
+
+lane :deliver_metadata_tvos do
+  update_and_login
+  platform :tvos do
+    deliver(
+      metadata_path: "./fastlane/metadata/tvos",
+      screenshots_path: "./fastlane/screenshots/tvos",
+      overwrite_screenshots: true, 
+      platform: "appletvos",
+      run_precheck_before_submit: false,
+      force: true,
+    )
+  end
+end
+
+lane :deliver_metadata_visionos do
+  update_and_login
+  platform :xros do
+    deliver(
+      metadata_path: "./fastlane/metadata/visionos",
+      platform: "xros",
+      run_precheck_before_submit: false,
+      force: true,
+      ignore_language_directory_validation: true,
+    )
+  end
+end
+
+lane :release_tvos do
+  update_and_login
+  platform :tvos do
+    gym(scheme: "nft-folder-tvos", output_directory: "fastlane/build/tvos", clean: true, export_method: "app-store", export_options: {
+      provisioningProfiles: {
+        "org.lil.nft-folder" => "nft folder tv"
+      }
+    })
+    deliver(
+      metadata_path: "./fastlane/metadata/tvos",
+      screenshots_path: "./fastlane/screenshots/tvos",
+      overwrite_screenshots: true,
+      platform: "appletvos",
+      run_precheck_before_submit: false,
+      force: true,
+      submit_for_review: true,
+      automatic_release: true,
+      submission_information: { add_id_info_uses_idfa: false, export_compliance_uses_encryption: false },
+    )
+    clean
+  end
+end
+
+lane :release_ios do
+  update_and_login
+  platform :ios do
+    gym(scheme: "nft-folder-ios", output_directory: "fastlane/build/ios", clean: true)
+    deliver(
+      metadata_path: "./fastlane/metadata/ios",
+      screenshots_path: "./fastlane/screenshots/ios",
+      overwrite_screenshots: true,
+      ignore_language_directory_validation: true,
+      platform: "ios",
+      run_precheck_before_submit: false,
+      force: true,
+      submit_for_review: true,
+      automatic_release: true,
+      submission_information: { add_id_info_uses_idfa: false, export_compliance_uses_encryption: false },
+    )
+    clean
+  end
+end
+
+lane :release_visionos do
+  platform :xros do
+    gym(scheme: "nft-folder-vision", output_directory: "fastlane/build/visionos", clean: true)
+    deliver(
+      metadata_path: "./fastlane/metadata/visionos",
+      ignore_language_directory_validation: true,
+      platform: "xros",
+      run_precheck_before_submit: false,
+      force: true,
+      submit_for_review: true,
+      automatic_release: true,
+      submission_information: { add_id_info_uses_idfa: false, export_compliance_uses_encryption: false },
+    )
+    clean
+  end
+end
+
+lane :release_macos do
+  update_and_login
+  platform :mac do
+    gym(scheme: "nft-folder", output_directory: "fastlane/build/macos", clean: true)
+    deliver(
+      metadata_path: "./fastlane/metadata/macos",
+      screenshots_path: "./fastlane/screenshots/macos",
+      overwrite_screenshots: true,
+      ignore_language_directory_validation: true,
+      platform: "osx",
+      run_precheck_before_submit: false,
+      force: true,
+      submit_for_review: true,
+      automatic_release: true,
+      submission_information: { add_id_info_uses_idfa: false },
+    )
+    clean
+  end
+end
+
+lane :release do |options|
+  update_and_login
+  platform = options[:platform]
+
+  if platform.nil?
+    release_ios
+    release_macos
+    release_tvos
+  elsif platform == "macos"
+    release_macos
+  elsif platform == "visionos"
+    release_visionos
+  elsif platform == "tvos"
+    release_tvos
+  elsif platform == "ios"
+    release_ios
+  end
+
+  sh "rm -rf #{File.expand_path('build')}"
+  clean_build_artifacts
+end
+
+lane :clean do
+  xcclean
+  clear_derived_data
+end

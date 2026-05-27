@@ -1,0 +1,7 @@
+view high-res art!
+
+includes selected art blocks collections.
+
+each artwork is dynamically recreated on your device.
+
+send feedback yo@lil.org

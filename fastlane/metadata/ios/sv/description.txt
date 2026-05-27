@@ -1,0 +1,5 @@
+Nft Folder är ett personligt, privat verktyg för att se högupplösta konstverk. Det är gratis, open source och utan distraktioner.
+
+Bläddra bland över 200 utvalda Ethereum-, Solana- och Tezos-kollektioner. Öppna i helskärm, spara originalfiler och fortsätt där du slutade.
+
+Feedback yo@lil.org
