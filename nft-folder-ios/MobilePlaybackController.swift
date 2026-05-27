@@ -86,7 +86,8 @@ class MobilePlaybackController {
         displays[config.id] = display
         initialConfigs[config.id] = config
         viewingSessionTrackers[config.id] = PlayerViewingSessionTracker(
-            continueViewingCollectionId: config.continueViewingCollectionId
+            continueViewingCollectionId: config.continueViewingCollectionId,
+            trackingMode: config.trackingMode
         )
     }
     
@@ -241,7 +242,8 @@ class MobilePlaybackController {
         }
 
         let tracker = PlayerViewingSessionTracker(
-            continueViewingCollectionId: initialConfigs[uuid]?.continueViewingCollectionId
+            continueViewingCollectionId: initialConfigs[uuid]?.continueViewingCollectionId,
+            trackingMode: initialConfigs[uuid]?.trackingMode ?? .updateContinueViewing
         )
         viewingSessionTrackers[uuid] = tracker
         return tracker
@@ -273,12 +275,14 @@ enum MobilePlayerPrewarmer {
         initialItemId: String?,
         initialTokenId: String? = nil,
         continueViewingCollectionId: String?,
+        trackingMode: PlayerViewingSessionTrackingMode = .updateContinueViewing,
         widgetTokenInsertion: PlayerWidgetTokenInsertion? = nil
     ) -> MobilePlayerConfig {
         var config = MobilePlayerConfig(
             initialItemId: initialItemId,
             initialTokenId: initialTokenId,
             continueViewingCollectionId: continueViewingCollectionId,
+            trackingMode: trackingMode,
             widgetTokenInsertion: widgetTokenInsertion
         )
         if widgetTokenInsertion == nil {

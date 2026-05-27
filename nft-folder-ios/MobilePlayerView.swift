@@ -10,6 +10,7 @@ struct MobilePlayerConfig: Hashable, Codable, Identifiable {
     var specificToken: GeneratedToken?
     var initialTokenId: String?
     var continueViewingCollectionId: String?
+    var trackingMode: PlayerViewingSessionTrackingMode = .updateContinueViewing
     var widgetTokenInsertion: PlayerWidgetTokenInsertion?
 }
 

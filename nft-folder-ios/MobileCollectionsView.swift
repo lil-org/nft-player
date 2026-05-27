@@ -178,17 +178,19 @@ struct MobileCollectionsView: View {
 
     private func openCollection(
         collectionId: String,
-        presentationTransition: PlayerPresentationTransition = .animated
+        presentationTransition: PlayerPresentationTransition = .animated,
+        trackingMode: PlayerViewingSessionTrackingMode = .updateContinueViewing
     ) {
         if let progress = MobileViewingProgressStore.progress(collectionId: collectionId) {
-            resumeViewing(progress, presentationTransition: presentationTransition)
+            resumeViewing(progress, presentationTransition: presentationTransition, trackingMode: trackingMode)
             return
         }
 
         openPlayer(
             initialItemId: collectionId,
             continueViewingCollectionId: collectionId,
-            presentationTransition: presentationTransition
+            presentationTransition: presentationTransition,
+            trackingMode: trackingMode
         )
     }
     
@@ -212,13 +214,15 @@ struct MobileCollectionsView: View {
 
     private func resumeViewing(
         _ progress: MobileViewingProgress,
-        presentationTransition: PlayerPresentationTransition = .animated
+        presentationTransition: PlayerPresentationTransition = .animated,
+        trackingMode: PlayerViewingSessionTrackingMode = .updateContinueViewing
     ) {
         openPlayer(
             initialItemId: progress.collectionId,
             initialTokenId: progress.tokenId,
             continueViewingCollectionId: progress.collectionId,
-            presentationTransition: presentationTransition
+            presentationTransition: presentationTransition,
+            trackingMode: trackingMode
         )
     }
 
@@ -229,20 +233,33 @@ struct MobileCollectionsView: View {
             return
         }
 
+        let trackingMode = widgetOpenTrackingMode()
         if let tokenId {
-            openWidgetToken(collectionId: collectionId, tokenId: tokenId)
+            openWidgetToken(collectionId: collectionId, tokenId: tokenId, trackingMode: trackingMode)
         } else {
-            openCollection(collectionId: collectionId, presentationTransition: .instant)
+            openCollection(
+                collectionId: collectionId,
+                presentationTransition: .instant,
+                trackingMode: trackingMode
+            )
         }
     }
 
-    private func openWidgetToken(collectionId: String, tokenId: String) {
+    private func openWidgetToken(
+        collectionId: String,
+        tokenId: String,
+        trackingMode: PlayerViewingSessionTrackingMode
+    ) {
         guard let widgetTokenInsertion = MobileCollectionCatalog.widgetTokenInsertion(
             collectionId: collectionId,
             widgetTokenId: tokenId,
             progress: MobileViewingProgressStore.progress(collectionId: collectionId)
         ) else {
-            openCollection(collectionId: collectionId, presentationTransition: .instant)
+            openCollection(
+                collectionId: collectionId,
+                presentationTransition: .instant,
+                trackingMode: trackingMode
+            )
             return
         }
 
@@ -251,7 +268,8 @@ struct MobileCollectionsView: View {
             initialItemId: collectionId,
             continueViewingCollectionId: collectionId,
             widgetTokenInsertion: widgetTokenInsertion,
-            presentationTransition: .instant
+            presentationTransition: .instant,
+            trackingMode: trackingMode
         )
     }
 
@@ -260,13 +278,17 @@ struct MobileCollectionsView: View {
         initialTokenId: String? = nil,
         continueViewingCollectionId: String,
         widgetTokenInsertion: PlayerWidgetTokenInsertion? = nil,
-        presentationTransition: PlayerPresentationTransition = .animated
+        presentationTransition: PlayerPresentationTransition = .animated,
+        trackingMode: PlayerViewingSessionTrackingMode = .updateContinueViewing
     ) {
-        MobileViewingProgressStore.setContinueViewingCollectionId(continueViewingCollectionId)
+        if trackingMode.updatesContinueViewing {
+            MobileViewingProgressStore.setContinueViewingCollectionId(continueViewingCollectionId)
+        }
         let config = MobilePlayerPrewarmer.preparedConfig(
             initialItemId: initialItemId,
             initialTokenId: initialTokenId,
             continueViewingCollectionId: continueViewingCollectionId,
+            trackingMode: trackingMode,
             widgetTokenInsertion: widgetTokenInsertion
         )
 
@@ -310,6 +332,12 @@ struct MobileCollectionsView: View {
             continueViewingProgress: continueViewingProgress,
             initialCollectionIds: likelyInitialCollectionIds()
         )
+    }
+
+    private func widgetOpenTrackingMode() -> PlayerViewingSessionTrackingMode {
+        MobileViewingProgressStore.progressSnapshot().continueViewingProgress == nil
+            ? .updateContinueViewing
+            : .progressOnly
     }
 
     private func likelyInitialCollectionIds() -> [String] {

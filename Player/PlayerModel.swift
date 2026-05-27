@@ -36,35 +36,51 @@ class PlayerModel: ObservableObject {
         configureBookmarkState(for: token)
     }
 
-    init(collectionId: String, initialTokenId: String? = nil, continueViewingCollectionId: String? = nil) {
+    init(
+        collectionId: String,
+        initialTokenId: String? = nil,
+        continueViewingCollectionId: String? = nil,
+        trackingMode: PlayerViewingSessionTrackingMode = .updateContinueViewing
+    ) {
         let token = Self.initialToken(collectionId: collectionId, initialTokenId: initialTokenId) ?? GeneratedToken.empty
         self.currentToken = token
         self.history = [token]
         self.specificCollectionId = collectionId
         self.widgetTokenInsertion = nil
         self.viewingSessionTracker = PlayerViewingSessionTracker(
-            continueViewingCollectionId: continueViewingCollectionId ?? collectionId
+            continueViewingCollectionId: continueViewingCollectionId ?? collectionId,
+            trackingMode: trackingMode
         )
         configureBookmarkState(for: token)
     }
     
-    init(token: GeneratedToken) {
+    init(
+        token: GeneratedToken,
+        trackingMode: PlayerViewingSessionTrackingMode = .updateContinueViewing
+    ) {
         self.currentToken = token
         self.history = [token]
         self.specificCollectionId = token.fullCollectionId
         self.widgetTokenInsertion = nil
-        self.viewingSessionTracker = PlayerViewingSessionTracker(continueViewingCollectionId: token.fullCollectionId)
+        self.viewingSessionTracker = PlayerViewingSessionTracker(
+            continueViewingCollectionId: token.fullCollectionId,
+            trackingMode: trackingMode
+        )
         configureBookmarkState(for: token)
     }
 
-    init(widgetTokenInsertion: PlayerWidgetTokenInsertion) {
+    init(
+        widgetTokenInsertion: PlayerWidgetTokenInsertion,
+        trackingMode: PlayerViewingSessionTrackingMode = .updateContinueViewing
+    ) {
         self.currentToken = widgetTokenInsertion.insertedToken
         self.history = [widgetTokenInsertion.insertedToken]
         self.specificCollectionId = widgetTokenInsertion.collectionId
         self.widgetTokenInsertion = widgetTokenInsertion
         self.isCurrentTokenInsertedWidgetToken = true
         self.viewingSessionTracker = PlayerViewingSessionTracker(
-            continueViewingCollectionId: widgetTokenInsertion.collectionId
+            continueViewingCollectionId: widgetTokenInsertion.collectionId,
+            trackingMode: trackingMode
         )
         configureBookmarkState(for: widgetTokenInsertion.insertedToken)
     }

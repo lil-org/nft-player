@@ -328,6 +328,114 @@ final class PlayerSyncMergeTests: XCTestCase {
         try assertSyncedContinueViewingCleared()
     }
 
+    func testProgressOnlySessionTrackerSavesProgressWithoutReplacingContinueViewing() {
+        let continueViewingCollectionId = "continue"
+        let widgetCollectionId = "widget"
+        let continueViewingProgress = progress(
+            collectionId: continueViewingCollectionId,
+            tokenId: "token-2",
+            tokenIndex: 2,
+            updatedAt: Date(timeIntervalSinceReferenceDate: 100)
+        )
+        let widgetProgress = progress(
+            collectionId: widgetCollectionId,
+            tokenId: "token-4",
+            tokenIndex: 4,
+            updatedAt: Date(timeIntervalSinceReferenceDate: 200)
+        )
+        writeProgress([continueViewingCollectionId: continueViewingProgress])
+        writeContinueViewing(
+            PlayerContinueViewingState(
+                collectionId: continueViewingCollectionId,
+                updatedAt: Date(timeIntervalSinceReferenceDate: 100)
+            )
+        )
+
+        var tracker = PlayerViewingSessionTracker(
+            continueViewingCollectionId: widgetCollectionId,
+            trackingMode: .progressOnly
+        )
+        tracker.markViewed(widgetProgress)
+
+        XCTAssertEqual(PlayerViewingProgressStore.progress(collectionId: widgetCollectionId), widgetProgress)
+        XCTAssertEqual(
+            PlayerViewingProgressStore.progressSnapshot().continueViewingProgress?.collectionId,
+            continueViewingCollectionId
+        )
+    }
+
+    func testProgressOnlySessionTrackerDoesNotClearContinueViewingForMismatchedProgress() {
+        let continueViewingCollectionId = "continue"
+        let continueViewingProgress = progress(
+            collectionId: continueViewingCollectionId,
+            tokenId: "token-2",
+            tokenIndex: 2,
+            updatedAt: Date(timeIntervalSinceReferenceDate: 100)
+        )
+        writeProgress([continueViewingCollectionId: continueViewingProgress])
+        writeContinueViewing(
+            PlayerContinueViewingState(
+                collectionId: continueViewingCollectionId,
+                updatedAt: Date(timeIntervalSinceReferenceDate: 100)
+            )
+        )
+
+        var tracker = PlayerViewingSessionTracker(
+            continueViewingCollectionId: "expected-widget",
+            trackingMode: .progressOnly
+        )
+        tracker.markViewed(
+            progress(
+                collectionId: "other-widget",
+                tokenId: "token-4",
+                tokenIndex: 4,
+                updatedAt: Date(timeIntervalSinceReferenceDate: 200)
+            )
+        )
+
+        XCTAssertEqual(
+            PlayerViewingProgressStore.progressSnapshot().continueViewingProgress?.collectionId,
+            continueViewingCollectionId
+        )
+    }
+
+    func testProgressOnlySessionTrackerDoesNotClearContinueViewingDuringRestart() {
+        let continueViewingCollectionId = "continue"
+        let widgetCollectionId = "widget"
+        let continueViewingProgress = progress(
+            collectionId: continueViewingCollectionId,
+            tokenId: "token-2",
+            tokenIndex: 2,
+            updatedAt: Date(timeIntervalSinceReferenceDate: 100)
+        )
+        writeProgress([continueViewingCollectionId: continueViewingProgress])
+        writeContinueViewing(
+            PlayerContinueViewingState(
+                collectionId: continueViewingCollectionId,
+                updatedAt: Date(timeIntervalSinceReferenceDate: 100)
+            )
+        )
+
+        var tracker = PlayerViewingSessionTracker(
+            continueViewingCollectionId: widgetCollectionId,
+            trackingMode: .progressOnly
+        )
+        tracker.beginRestart(collectionId: widgetCollectionId)
+        tracker.markViewed(
+            progress(
+                collectionId: widgetCollectionId,
+                tokenId: "token-0",
+                tokenIndex: 0,
+                updatedAt: Date(timeIntervalSinceReferenceDate: 200)
+            )
+        )
+
+        XCTAssertEqual(
+            PlayerViewingProgressStore.progressSnapshot().continueViewingProgress?.collectionId,
+            continueViewingCollectionId
+        )
+    }
+
     private func assertSyncedContinueViewingCleared() throws {
         let data = try XCTUnwrap(PlayerViewingProgressStore.syncedContinueViewingStateData)
         let state = try JSONDecoder().decode(PlayerContinueViewingState.self, from: data)

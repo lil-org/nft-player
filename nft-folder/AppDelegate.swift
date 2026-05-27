@@ -88,15 +88,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         DispatchQueue.main.async {
-            if let tokenId {
-                Navigator.shared.showPlayer(
-                    collectionId: collectionId,
-                    widgetTokenId: tokenId,
-                    ensureFrontAfterOpening: true
-                )
-            } else {
-                Navigator.shared.showPlayer(collectionId: collectionId, ensureFrontAfterOpening: true)
-            }
+            Navigator.shared.showWidgetPlayer(
+                collectionId: collectionId,
+                tokenId: tokenId,
+                ensureFrontAfterOpening: true
+            )
         }
     }
     
