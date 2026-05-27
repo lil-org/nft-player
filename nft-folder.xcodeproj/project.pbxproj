@@ -327,7 +327,7 @@
 		2C9973FF2C4AF12400C058E2 /* PlayerMenuDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerMenuDelegate.swift; sourceTree = "<group>"; };
 		2C9C60342C2C5FE8001D9B51 /* SuggestedItemsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SuggestedItemsService.swift; sourceTree = "<group>"; };
 		2CA34B742B08CA8200DAB623 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
-		2CA4CF512B07F75F00CC75F4 /* Nft Folder.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Nft Folder.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		2CA4CF512B07F75F00CC75F4 /* Nft Player.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Nft Player.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		2CA4CF542B07F75F00CC75F4 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		2CA4CF582B07F76000CC75F4 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		2CA4CF5B2B07F76000CC75F4 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
@@ -626,7 +626,7 @@
 		2CA4CF522B07F75F00CC75F4 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				2CA4CF512B07F75F00CC75F4 /* Nft Folder.app */,
+				2CA4CF512B07F75F00CC75F4 /* Nft Player.app */,
 				2C5A59972C51073F00788870 /* nft-folder-vision.app */,
 				2C5A59AE2C51400100788870 /* nft-folder-tvos.app */,
 				2C2CB47C2D29545F00042E74 /* nft-folder-ios.app */,
@@ -805,9 +805,9 @@
 			productReference = 2C5A59AE2C51400100788870 /* nft-folder-tvos.app */;
 			productType = "com.apple.product-type.application";
 		};
-		2CA4CF502B07F75E00CC75F4 /* nft folder */ = {
+		2CA4CF502B07F75E00CC75F4 /* nft player */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 2CA4CF602B07F76000CC75F4 /* Build configuration list for PBXNativeTarget "nft folder" */;
+			buildConfigurationList = 2CA4CF602B07F76000CC75F4 /* Build configuration list for PBXNativeTarget "nft player" */;
 			buildPhases = (
 				2CA4CF4D2B07F75E00CC75F4 /* Sources */,
 				2CA4CF4E2B07F75E00CC75F4 /* Frameworks */,
@@ -820,11 +820,11 @@
 			dependencies = (
 				2D10002C2F30000000000001 /* PBXTargetDependency */,
 			);
-			name = "nft folder";
+			name = "nft player";
 			packageProductDependencies = (
 			);
 			productName = "nft-folder";
-			productReference = 2CA4CF512B07F75F00CC75F4 /* Nft Folder.app */;
+			productReference = 2CA4CF512B07F75F00CC75F4 /* Nft Player.app */;
 			productType = "com.apple.product-type.application";
 		};
 		2D1000122F30000000000001 /* nft-folder-ios-widget */ = {
@@ -966,7 +966,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				2CA4CF502B07F75E00CC75F4 /* nft folder */,
+				2CA4CF502B07F75E00CC75F4 /* nft player */,
 				2C5A59962C51073F00788870 /* nft-folder-vision */,
 				2C5A59AD2C51400100788870 /* nft-folder-tvos */,
 				2C2CB47B2D29545F00042E74 /* nft-folder-ios */,
@@ -1329,7 +1329,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "nft-folder-ios/Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = "Nft Folder";
+				INFOPLIST_KEY_CFBundleDisplayName = "Nft Player";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -1367,7 +1367,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "nft-folder-ios/Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = "Nft Folder";
+				INFOPLIST_KEY_CFBundleDisplayName = "Nft Player";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -1406,7 +1406,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "$(TARGET_NAME)/Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = "Nft Folder";
+				INFOPLIST_KEY_CFBundleDisplayName = "Nft Player";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1438,7 +1438,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "$(TARGET_NAME)/Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = "Nft Folder";
+				INFOPLIST_KEY_CFBundleDisplayName = "Nft Player";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1473,7 +1473,7 @@
 				"DEVELOPMENT_TEAM[sdk=appletvos*]" = 8DXC3N7E7P;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "Nft Folder";
+				INFOPLIST_KEY_CFBundleDisplayName = "Nft Player";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -1511,7 +1511,7 @@
 				"DEVELOPMENT_TEAM[sdk=appletvos*]" = 8DXC3N7E7P;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "Nft Folder";
+				INFOPLIST_KEY_CFBundleDisplayName = "Nft Player";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -1686,7 +1686,7 @@
 				ENABLE_RESOURCE_ACCESS_USB = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "nft-folder/Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = "Nft Folder";
+				INFOPLIST_KEY_CFBundleDisplayName = "Nft Player";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
@@ -1699,7 +1699,7 @@
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MARKETING_VERSION = 2.1.28;
 				PRODUCT_BUNDLE_IDENTIFIER = "org.lil.nft-folder";
-				PRODUCT_NAME = "Nft Folder";
+				PRODUCT_NAME = "Nft Player";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				REGISTER_APP_GROUPS = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -1734,7 +1734,7 @@
 				ENABLE_RESOURCE_ACCESS_USB = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "nft-folder/Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = "Nft Folder";
+				INFOPLIST_KEY_CFBundleDisplayName = "Nft Player";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
@@ -1747,7 +1747,7 @@
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MARKETING_VERSION = 2.1.28;
 				PRODUCT_BUNDLE_IDENTIFIER = "org.lil.nft-folder";
-				PRODUCT_NAME = "Nft Folder";
+				PRODUCT_NAME = "Nft Player";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				REGISTER_APP_GROUPS = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -1764,7 +1764,7 @@
 				DEVELOPMENT_TEAM = 8DXC3N7E7P;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "nft-folder-ios-widget/Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = "Nft Folder";
+				INFOPLIST_KEY_CFBundleDisplayName = "Nft Player";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1796,7 +1796,7 @@
 				DEVELOPMENT_TEAM = 8DXC3N7E7P;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "nft-folder-ios-widget/Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = "Nft Folder";
+				INFOPLIST_KEY_CFBundleDisplayName = "Nft Player";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1837,7 +1837,7 @@
 				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "nft-folder-widget/Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = "Nft Folder";
+				INFOPLIST_KEY_CFBundleDisplayName = "Nft Player";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1871,7 +1871,7 @@
 				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "nft-folder-widget/Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = "Nft Folder";
+				INFOPLIST_KEY_CFBundleDisplayName = "Nft Player";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1898,7 +1898,7 @@
 				DEVELOPMENT_TEAM = 8DXC3N7E7P;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "nft-folder-vision-widget/Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = "Nft Folder";
+				INFOPLIST_KEY_CFBundleDisplayName = "Nft Player";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1930,7 +1930,7 @@
 				DEVELOPMENT_TEAM = 8DXC3N7E7P;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "nft-folder-vision-widget/Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = "Nft Folder";
+				INFOPLIST_KEY_CFBundleDisplayName = "Nft Player";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1993,7 +1993,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		2CA4CF602B07F76000CC75F4 /* Build configuration list for PBXNativeTarget "nft folder" */ = {
+		2CA4CF602B07F76000CC75F4 /* Build configuration list for PBXNativeTarget "nft player" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				2CA4CF612B07F76000CC75F4 /* Debug */,

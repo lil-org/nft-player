@@ -2897,7 +2897,7 @@
         }
       }
     },
-    "Nft Folder" : {
+    "Nft Player" : {
       "comment" : "15119139201880375191",
       "localizations" : {
         "ar" : {
@@ -2939,7 +2939,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nft Folder"
+            "value" : "Nft Player"
           }
         },
         "es" : {
@@ -2993,7 +2993,7 @@
         "id" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Folder NFT"
+            "value" : "Nft Player"
           }
         },
         "it" : {
@@ -3017,7 +3017,7 @@
         "ms" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Folder NFT"
+            "value" : "Nft Player"
           }
         },
         "nb" : {
@@ -3035,7 +3035,7 @@
         "pl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Folder NFT"
+            "value" : "Nft Player"
           }
         },
         "pt-BR" : {
@@ -3053,13 +3053,13 @@
         "ro" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Folder NFT"
+            "value" : "Nft Player"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Нфт Папка"
+            "value" : "Нфт Плеер"
           }
         },
         "sk" : {
@@ -3089,7 +3089,7 @@
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Нфт Папка"
+            "value" : "Нфт Плеер"
           }
         },
         "vi" : {

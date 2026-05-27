@@ -1,4 +1,4 @@
-Az Nft Folder személyes, privát eszköz nagy felbontású műalkotások megtekintéséhez. Ingyenes, nyílt forráskódú, és zavaró tényezők nélkül használható.
+Az Nft Player személyes, privát eszköz nagy felbontású műalkotások megtekintéséhez. Ingyenes, nyílt forráskódú, és zavaró tényezők nélkül használható.
 
 Böngéssz több mint 200 kiemelt Ethereum-, Solana- és Tezos-gyűjteményt. Nyisd meg teljes képernyőn, mentsd az eredeti fájlokat, és folytasd ott, ahol abbahagytad.
 

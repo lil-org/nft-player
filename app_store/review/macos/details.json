@@ -3,5 +3,5 @@
   "contactLastName": "grachev",
   "contactEmail": "yo@lil.org",
   "contactPhone": "+905421085279",
-  "notes": "create a folder named jacob.eth inside of nft folder\ncreated folder gets populated with files\n\nthe app uses com.apple.security.assets.music.read-write permission to sync files into \".../music/nft folder\" directory\n\n\"If your application manages libraries of pictures, music, or movies, the application may also write to the following directories:\n~/Pictures/<app-identifier>\n~/Music/<app-identifier>\n~/Movies/<app-identifier>\"\n\n\"where <app-identifier> is your application's bundle identifier, its name, or your company’s name. This must exactly match what is in App Store Connect for the application.\"\n\n\"nft folder\" is my app's name, so it should work as app-identifier.\n\nhttps://developer.apple.com/library/archive/documentation/General/Conceptual/MOSXAppProgrammingGuide/AppRuntime/AppRuntime.html#//apple_ref/doc/uid/TP40010543-CH2-SW11"
+  "notes": ""
 }

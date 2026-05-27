@@ -1,4 +1,4 @@
-Nft Folder je osoban i privatan alat za gledanje umjetničkih djela visoke rezolucije. Besplatan je, open-source i bez ometanja.
+Nft Player je osoban i privatan alat za gledanje umjetničkih djela visoke rezolucije. Besplatan je, open-source i bez ometanja.
 
 Pregledajte više od 200 odabranih kolekcija na Ethereum, Solana i Tezos mrežama. Otvorite preko cijelog zaslona, spremite izvorne datoteke i nastavite gdje ste stali.
 

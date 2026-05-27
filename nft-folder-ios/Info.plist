@@ -21,7 +21,7 @@
 	<key>NSMotionUsageDescription</key>
 	<string>Animate interactive cards based on how you tilt your device.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>Save images from Nft Folder to your photo library.</string>
+	<string>Save images from Nft Player to your photo library.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

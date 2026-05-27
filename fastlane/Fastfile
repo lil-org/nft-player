@@ -11,7 +11,7 @@ lane :bb do
 end
 
 lane :bump do |options|
-  current_version = get_version_number(xcodeproj: "nft-folder.xcodeproj", target: "nft folder")
+  current_version = get_version_number(xcodeproj: "nft-folder.xcodeproj", target: "nft player")
   version_parts = current_version.split(".").map(&:to_i)
   version_parts[-1] += 1
   new_version = options[:version] || version_parts.join(".")
@@ -106,7 +106,7 @@ lane :release_tvos do
   platform :tvos do
     gym(scheme: "nft-folder-tvos", output_directory: "fastlane/build/tvos", clean: true, export_method: "app-store", export_options: {
       provisioningProfiles: {
-        "org.lil.nft-folder" => "nft folder tv"
+        "org.lil.nft-folder" => "nft player tv"
       }
     })
     deliver(

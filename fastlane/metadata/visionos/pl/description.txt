@@ -1,4 +1,4 @@
-Nft Folder to osobiste i prywatne narzędzie do oglądania dzieł w wysokiej rozdzielczości. Jest darmowe, open-source i bez rozpraszaczy.
+Nft Player to osobiste i prywatne narzędzie do oglądania dzieł w wysokiej rozdzielczości. Jest darmowe, open-source i bez rozpraszaczy.
 
 Przeglądaj ponad 200 wybranych kolekcji Ethereum, Solana i Tezos. Otwieraj na pełnym ekranie, zapisuj oryginalne pliki i wracaj do miejsca, w którym skończyłeś.
 
