@@ -1,9 +1,5 @@
-lihat karya seni resolusi tinggi!
+Nft Player adalah alat pribadi untuk melihat karya seni beresolusi tinggi. Gratis, open-source, dan bebas gangguan.
 
-termasuk pilihan koleksi art blocks.
+Jelajahi lebih dari 200 koleksi pilihan Ethereum, Solana, dan Tezos. Buka layar penuh, simpan file asli, dan lanjutkan dari posisi terakhir.
 
-setiap karya dibuat ulang secara dinamis di perangkat anda.
-
-lihat koleksi lengkap atau jadikan latar belakang.
-
-kirim masukan yo@lil.org
+Masukan yo@lil.org

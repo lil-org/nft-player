@@ -1,7 +1,5 @@
-guarda arte in alta risoluzione!
+Nft Player è uno strumento personale e privato per vedere opere d’arte in alta risoluzione. È gratuito, open-source e senza distrazioni.
 
-include una selezione di collezioni art blocks.
+Sfoglia oltre 200 collezioni selezionate di Ethereum, Solana e Tezos. Apri a schermo intero, salva i file originali e riprendi da dove eri rimasto.
 
-ogni opera viene ricreata dinamicamente sul tuo dispositivo.
-
-feedback yo@lil.org
+Feedback yo@lil.org

@@ -1,7 +1,5 @@
-oglądaj sztukę w wysokiej jakości!
+Nft Player to osobiste i prywatne narzędzie do oglądania dzieł w wysokiej rozdzielczości. Jest darmowe, open-source i bez rozpraszaczy.
 
-ponad 100 generatywnych kolekcji art blocks.
+Przeglądaj ponad 200 wybranych kolekcji Ethereum, Solana i Tezos. Otwieraj na pełnym ekranie, zapisuj oryginalne pliki i wracaj do miejsca, w którym skończyłeś.
 
-przeglądaj całe kolekcje lub ustaw jako tło.
-
-opinie yo@lil.org
+Kontakt yo@lil.org

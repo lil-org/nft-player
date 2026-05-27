@@ -1,7 +1,5 @@
-prohlížejte umění ve vysokém rozlišení!
+Nft Player je osobní a soukromý nástroj pro prohlížení děl ve vysokém rozlišení. Je zdarma, open-source a bez rušení.
 
-obsahuje vybrané kolekce art blocks.
+Procházejte více než 200 vybraných kolekcí na sítích Ethereum, Solana a Tezos. Otevírejte na celou obrazovku, ukládejte originální soubory a sledujte, kde jste skončili.
 
-každé dílo se na vašem zařízení dynamicky znovu vytvoří.
-
-zpětná vazba yo@lil.org
+Zpětná vazba yo@lil.org

@@ -1,7 +1,5 @@
-katso taidetta korkealla resoluutiolla!
+Nft Player on henkilökohtainen ja yksityinen työkalu korkearesoluutioisten taideteosten katseluun. Se on ilmainen, avoimen lähdekoodin ja häiriötön.
 
-sisältää valikoituja art blocks -kokoelmia.
+Selaa yli 200 valittua Ethereum-, Solana- ja Tezos-kokoelmaa. Avaa koko näytölle, tallenna alkuperäiset tiedostot ja jatka siitä, mihin jäit.
 
-jokainen teos luodaan dynaamisesti laitteellasi.
-
-palaute yo@lil.org
+Palaute yo@lil.org
