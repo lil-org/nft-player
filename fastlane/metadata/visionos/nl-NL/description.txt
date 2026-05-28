@@ -1,4 +1,4 @@
-Nft Player is een persoonlijke, private tool om kunstwerken in hoge resolutie te bekijken. Het is gratis, open-source en zonder afleiding.
+NFT Player is een persoonlijke, private tool om kunstwerken in hoge resolutie te bekijken. Het is gratis, open-source en zonder afleiding.
 
 Blader door meer dan 200 uitgelichte Ethereum-, Solana- en Tezos-collecties. Open op volledig scherm, bewaar originele bestanden en ga verder waar je gebleven was.
 

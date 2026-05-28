@@ -15,7 +15,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "2CA4CF502B07F75E00CC75F4"
-               BuildableName = "Nft Player.app"
+               BuildableName = "NFT Player.app"
                BlueprintName = "nft player"
                ReferencedContainer = "container:nft-folder.xcodeproj">
             </BuildableReference>
@@ -44,7 +44,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "2CA4CF502B07F75E00CC75F4"
-            BuildableName = "Nft Player.app"
+            BuildableName = "NFT Player.app"
             BlueprintName = "nft player"
             ReferencedContainer = "container:nft-folder.xcodeproj">
          </BuildableReference>
@@ -61,7 +61,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "2CA4CF502B07F75E00CC75F4"
-            BuildableName = "Nft Player.app"
+            BuildableName = "NFT Player.app"
             BlueprintName = "nft player"
             ReferencedContainer = "container:nft-folder.xcodeproj">
          </BuildableReference>

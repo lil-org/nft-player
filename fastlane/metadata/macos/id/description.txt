@@ -1,4 +1,4 @@
-Nft Player adalah alat pribadi untuk melihat karya seni beresolusi tinggi. Gratis, open-source, dan bebas gangguan.
+NFT Player adalah alat pribadi untuk melihat karya seni beresolusi tinggi. Gratis, open-source, dan bebas gangguan.
 
 Jelajahi lebih dari 200 koleksi pilihan Ethereum, Solana, dan Tezos. Buka layar penuh, simpan file asli, dan lanjutkan dari posisi terakhir.
 

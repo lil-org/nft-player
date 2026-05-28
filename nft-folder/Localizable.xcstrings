@@ -2897,7 +2897,7 @@
         }
       }
     },
-    "Nft Player" : {
+    "NFT Player" : {
       "comment" : "15119139201880375191",
       "localizations" : {
         "ar" : {
@@ -2939,7 +2939,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nft Player"
+            "value" : "NFT Player"
           }
         },
         "es" : {

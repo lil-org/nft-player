@@ -6,7 +6,7 @@ struct Strings {
 
     static let viewOnBlockExplorer = loc("View on block explorer")
     static let ok = loc("OK")
-    static let nftFolder = loc("Nft Player")
+    static let nftFolder = loc("NFT Player")
     static let back = loc("Back")
     static let forward = loc("Forward")
     static let more = loc("More")
