@@ -1,1 +1,1 @@
-nfts,nft,solana,ethereum,tezos,arts,culture,museum,artists,wallpapers,screensaver,4k,relax,paintings
+nfts,nft,arts,culture,museum,artists,wallpapers,screensaver,4k,relax,paintings,solana,ethereum,tezos
