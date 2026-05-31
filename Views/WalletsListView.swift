@@ -318,7 +318,7 @@ private struct ContinueViewingButton: View {
         .buttonStyle(.plain)
         .focusable(false)
         .keyboardShortcut(.return, modifiers: [])
-        .accessibilityLabel("\(Strings.continueViewing), \(progress.collectionName)")
+        .accessibilityLabel(Text(verbatim: "\(Strings.continueViewing), \(progress.collectionName)"))
     }
 }
 

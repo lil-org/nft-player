@@ -958,6 +958,21 @@
 				uk,
 				vi,
 				he,
+				bn,
+				"en-AU",
+				"en-CA",
+				"en-US",
+				"fr-CA",
+				gu,
+				kn,
+				ml,
+				mr,
+				or,
+				pa,
+				sl,
+				ta,
+				te,
+				ur,
 			);
 			mainGroup = 2CA4CF482B07F75E00CC75F4;
 			packageReferences = (

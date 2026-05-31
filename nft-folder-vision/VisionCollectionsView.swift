@@ -472,7 +472,7 @@ private struct VisionContinueViewingButton: View {
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("\(Strings.continueViewing), \(progress.collectionName)")
+        .accessibilityLabel(Text(verbatim: "\(Strings.continueViewing), \(progress.collectionName)"))
     }
 }
 

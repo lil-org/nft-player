@@ -436,6 +436,6 @@ private struct TvContinueViewingButton: View {
         }
         .buttonStyle(.plain)
         .focused($isFocused)
-        .accessibilityLabel("\(Strings.continueViewing), \(progress.collectionName)")
+        .accessibilityLabel(Text(verbatim: "\(Strings.continueViewing), \(progress.collectionName)"))
     }
 }
