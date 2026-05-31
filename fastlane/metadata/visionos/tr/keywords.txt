@@ -1,1 +1,1 @@
-nft,sanat,hd,4k,ekrankoruyucu,duvarkagidi,arkaPlan,soyut,galeri,muzey,cevrimdisi,koleksiyonlar
+nfts,nft,kültür,müze,sanatçılar,tablolar,duvarkağıdı,ekrankoruyucu,4k,rahatla,solana,ethereum,tezos

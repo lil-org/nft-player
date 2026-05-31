@@ -1,1 +1,1 @@
-nft,art,hd,4k,čuvarzaslona,pozadina,abstraktno,generativno,galerija,offline,kolekcije,muzej
+nfts,nft,kultura,muzej,umjetnici,slikarstvo,pozadine,čuvarzaslona,4k,opuštanje,solana,ethereum,tezos

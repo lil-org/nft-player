@@ -1,1 +1,1 @@
-nft,umetnost,hd,4k,ohranjevalnik,ozadje,galerija,abstraktno,offline,zbirke
+nfts,nft,kultura,muzej,umetniki,slike,ozadja,ohranjevalnik,4k,sprostitev,solana,ethereum,tezos
