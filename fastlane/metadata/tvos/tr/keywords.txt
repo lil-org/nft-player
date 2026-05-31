@@ -1,1 +1,1 @@
-nfts,nft,kültür,müze,sanatçılar,tablolar,duvarkağıdı,ekrankoruyucu,4k,rahatla,solana,ethereum,tezos
+nfts,kültür,müze,sanatçılar,tablolar,duvarkağıdı,ekrankoruyucu,4k,rahatla,solana,ethereum,tezos

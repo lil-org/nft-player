@@ -1,1 +1,1 @@
-nfts,nft,kultura,muzeum,artyści,obrazy,tapety,wygaszacz,4k,relaks,wystawy,solana,ethereum,tezos
+nfts,kultura,muzeum,artyści,obrazy,tapety,wygaszacz,4k,relaks,wystawy,solana,ethereum,tezos

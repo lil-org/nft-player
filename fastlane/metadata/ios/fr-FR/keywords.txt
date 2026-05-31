@@ -1,1 +1,1 @@
-nfts,nft,culture,musee,artistes,peintures,fondecran,ecranveille,4k,relax,expo,solana,ethereum,tezos
+nfts,culture,musee,artistes,peintures,fondecran,ecranveille,4k,relax,expo,solana,ethereum,tezos

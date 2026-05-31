@@ -1,1 +1,1 @@
-nfts,nft,kulttuuri,museo,taiteilijat,maalaukset,taustakuva,4k,näytönsäästäjä,solana,ethereum,tezos
+nfts,kulttuuri,museo,taiteilijat,maalaukset,taustakuva,4k,näytönsäästäjä,solana,ethereum,tezos

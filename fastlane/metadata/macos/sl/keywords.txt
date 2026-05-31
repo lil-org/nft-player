@@ -1,1 +1,1 @@
-nfts,nft,kultura,muzej,umetniki,slike,ozadja,ohranjevalnik,4k,sprostitev,solana,ethereum,tezos
+nfts,kultura,muzej,umetniki,slike,ozadja,ohranjevalnik,4k,sprostitev,solana,ethereum,tezos
