@@ -30,10 +30,6 @@ struct Strings {
     static let rateOnTheAppStore = loc("Rate on the App Store")
     static let changeAppIcon = loc("Change App Icon")
     static let selectSomethingInTheApp = loc("Select something in the app.")
-    
-    static let navigate = loc("Navigate")
-    static let toggleInfo = loc("Toggle Info")
-
     static let x = "𝕏"
     static let github = "GitHub"
     static let lilOrgLinkWithEmojis = "🌐 lil.org 👈"
