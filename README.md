@@ -32,6 +32,7 @@ Use platform-specific workflows when needed:
 ```sh
 asc workflow run metadata
 asc workflow run screenshots
+asc workflow run release PLATFORMS:macos,tvos,visionos
 asc workflow run release_ios
 asc workflow run release_macos
 asc workflow run release_tvos

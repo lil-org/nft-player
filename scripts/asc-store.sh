@@ -117,10 +117,10 @@ require_node() {
 usage() {
   cat <<'EOF'
 Usage:
-  scripts/asc-store.sh validate [all|ios|macos|tvos|visionos]
-  scripts/asc-store.sh metadata [all|ios|macos|tvos|visionos]
-  scripts/asc-store.sh screenshots [all|ios|macos|tvos|visionos]
-  scripts/asc-store.sh release [all|ios|macos|tvos|visionos]
+  scripts/asc-store.sh validate [all|ios|macos|tvos|visionos|comma-list]
+  scripts/asc-store.sh metadata [all|ios|macos|tvos|visionos|comma-list]
+  scripts/asc-store.sh screenshots [all|ios|macos|tvos|visionos|comma-list]
+  scripts/asc-store.sh release [all|ios|macos|tvos|visionos|comma-list]
   scripts/asc-store.sh bump [version]
   scripts/asc-store.sh version
 
@@ -139,11 +139,51 @@ Environment:
 EOF
 }
 
+trim_space() {
+  local value="$1"
+
+  value="${value#"${value%%[![:space:]]*}"}"
+  value="${value%"${value##*[![:space:]]}"}"
+  printf '%s' "$value"
+}
+
 platforms_for() {
-  case "${1:-all}" in
+  local target="${1:-all}"
+  local platform
+  local seen_platforms=""
+  local -a requested_platforms
+  local -a normalized_platforms
+
+  if [[ "$target" == *","* ]]; then
+    if [[ "$target" == *, ]]; then
+      echo "Empty platform in comma-separated target: $target" >&2
+      return 1
+    fi
+
+    IFS=',' read -ra requested_platforms <<< "$target"
+    for platform in "${requested_platforms[@]}"; do
+      platform="$(trim_space "$platform")"
+      case "$platform" in
+        ios|macos|tvos|visionos) ;;
+        "") echo "Empty platform in comma-separated target: $target" >&2; return 1 ;;
+        *) echo "Unsupported platform: $platform" >&2; return 1 ;;
+      esac
+
+      case " $seen_platforms " in
+        *" $platform "*) echo "Duplicate platform in comma-separated target: $platform" >&2; return 1 ;;
+      esac
+
+      seen_platforms="${seen_platforms:+$seen_platforms }$platform"
+      normalized_platforms+=("$platform")
+    done
+    printf '%s\n' "${normalized_platforms[@]}"
+    return 0
+  fi
+
+  case "$target" in
     all) printf '%s\n' ios macos tvos visionos ;;
-    ios|macos|tvos|visionos) printf '%s\n' "$1" ;;
-    *) echo "Unsupported platform: $1" >&2; return 1 ;;
+    ios|macos|tvos|visionos) printf '%s\n' "$target" ;;
+    *) echo "Unsupported platform: $target" >&2; return 1 ;;
   esac
 }
 
@@ -1481,10 +1521,16 @@ run_for_platforms() {
   local target="$1"
   local action="$2"
   local platform
+  local platforms
 
+  if ! platforms="$(platforms_for "$target")"; then
+    return 1
+  fi
+
+  [[ -n "$platforms" ]] || return 0
   while IFS= read -r platform; do
     "$action" "$platform"
-  done < <(platforms_for "$target")
+  done <<< "$platforms"
 }
 
 command="${1:-}"

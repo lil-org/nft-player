@@ -1,27 +1,27 @@
 {
   "workflows": {
     "validate": {
-      "description": "Validate local App Store metadata and screenshots for every platform.",
+      "description": "Validate local App Store metadata and screenshots for every platform, or PLATFORMS.",
       "steps": [
-        "scripts/asc-store.sh validate all"
+        "scripts/asc-store.sh validate \"${PLATFORMS:-all}\""
       ]
     },
     "metadata": {
-      "description": "Push App Store metadata for every platform.",
+      "description": "Push App Store metadata for every platform, or PLATFORMS.",
       "steps": [
-        "scripts/asc-store.sh metadata all"
+        "scripts/asc-store.sh metadata \"${PLATFORMS:-all}\""
       ]
     },
     "screenshots": {
-      "description": "Upload App Store screenshots for every platform.",
+      "description": "Upload App Store screenshots for every platform, or PLATFORMS.",
       "steps": [
-        "scripts/asc-store.sh screenshots all"
+        "scripts/asc-store.sh screenshots \"${PLATFORMS:-all}\""
       ]
     },
     "release": {
-      "description": "Build, upload, attach, and submit every platform.",
+      "description": "Build, upload, attach, and submit every platform, or PLATFORMS.",
       "steps": [
-        "scripts/asc-store.sh release all"
+        "scripts/asc-store.sh release \"${PLATFORMS:-all}\""
       ]
     },
     "release_ios": {
