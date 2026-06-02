@@ -15,7 +15,7 @@ download on the [app store](https://folder.lil.org)
 ## app store
 Install [asc](https://asccli.sh) and Node.js, then authenticate asc with App Store Connect. The release helper uses Node for JSON parsing; no npm packages are required.
 
-The release metadata lives in `app_store/metadata/<platform>/app-info` and `app_store/metadata/<platform>/versions/<version>`, screenshots live in `app_store/screenshots/<platform>`, and asc workflows live in `.asc/workflow.json`.
+The release metadata lives in `app_store/metadata/<platform>/app-info` and `app_store/metadata/<platform>/version/<version>`, screenshots live in `app_store/screenshots/<platform>`, and asc workflows live in `.asc/workflow.json`.
 
 ```sh
 asc workflow run validate

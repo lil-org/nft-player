@@ -179,7 +179,7 @@ metadata_dir() {
 }
 
 version_metadata_dir_for() {
-  echo "app_store/metadata/$1/versions/$2"
+  echo "app_store/metadata/$1/version/$2"
 }
 
 export_options_for() {
@@ -959,6 +959,10 @@ apply_version_compliance_settings() {
     return 1
   fi
   if [[ "$update_help" != *"--uses-idfa"* ]]; then
+    if [[ "$uses_idfa" == "false" ]]; then
+      echo "Installed asc does not expose 'versions update --uses-idfa'; skipping usesIdfa=false from $file." >&2
+      return 0
+    fi
     echo "Installed asc does not expose 'versions update --uses-idfa'." >&2
     echo "Refusing to PATCH App Store Connect directly because release mutations must go through asccli." >&2
     echo "Upgrade asc to a version with --uses-idfa support before applying usesIdfa from $file." >&2
