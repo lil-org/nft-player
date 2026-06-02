@@ -9,6 +9,7 @@ UPLOAD_EXPORT_OPTIONS="${UPLOAD_EXPORT_OPTIONS:-.asc/export-options-upload.plist
 DRY_RUN="${DRY_RUN:-0}"
 VERSION_OVERRIDE="${VERSION:-}"
 BUILD_NUMBER_OVERRIDE="${BUILD_NUMBER:-}"
+export ASC_TIMEOUT="${ASC_TIMEOUT:-180s}"
 
 read_project_setting() {
   local key="$1"
@@ -135,6 +136,7 @@ Environment:
   UPLOAD_EXPORT_OPTIONS  Export options for direct upload releases.
   VERSION                Optional release version override. Defaults to the Xcode project version.
   BUILD_NUMBER           Optional build number override. Defaults to the Xcode project build number.
+  ASC_TIMEOUT            asc request timeout. Defaults to 180s.
   DRY_RUN=1              Preview asc mutations where the command supports it.
 EOF
 }
