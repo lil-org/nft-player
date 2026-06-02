@@ -363,7 +363,6 @@ screenshot_file_count() {
 push_metadata() {
   local platform="$1"
   local args=(metadata push)
-  local file
   local app_info_id
   local app_info_status
 
@@ -378,15 +377,12 @@ push_metadata() {
     args+=(--dry-run)
   fi
 
-  file="$(release_settings_file "$platform")"
-  if [[ -f "$file" ]]; then
-    if app_info_id="$(release_settings_app_info_id "$file")"; then
-      args+=(--app-info "$app_info_id")
-    else
-      app_info_status=$?
-      if [[ "$app_info_status" -ne 2 ]]; then
-        return "$app_info_status"
-      fi
+  if app_info_id="$(resolve_app_info_id_for_metadata "$platform")"; then
+    args+=(--app-info "$app_info_id")
+  else
+    app_info_status=$?
+    if [[ "$app_info_status" -ne 2 ]]; then
+      return "$app_info_status"
     fi
   fi
 
@@ -982,6 +978,15 @@ release_settings_app_info_id() {
   release_settings_json app-info-id "$1"
 }
 
+explicit_release_settings_app_info_id() {
+  local platform="$1"
+  local file
+
+  file="$(release_settings_file "$platform")"
+  [[ -f "$file" ]] || return 2
+  release_settings_app_info_id "$file"
+}
+
 release_uses_idfa_value() {
   release_settings_json uses-idfa "$1"
 }
@@ -1015,14 +1020,12 @@ apply_version_compliance_settings() {
 resolve_app_info_id_for_version() {
   local platform="$1"
   local version_id="$2"
-  local file
   local explicit_app_info_id
   local app_info_status
   local version_state
   local app_infos_json
 
-  file="$(release_settings_file "$platform")"
-  if explicit_app_info_id="$(release_settings_app_info_id "$file")"; then
+  if explicit_app_info_id="$(explicit_release_settings_app_info_id "$platform")"; then
     printf '%s' "$explicit_app_info_id"
     return 0
   else
@@ -1068,13 +1071,39 @@ process.stdin.on("end", () => {
       })
       .join(", ");
   }
-  function acceptableStates(state) {
+  function statePreference(state) {
     const resolved = String(state || "").trim().toUpperCase();
     if (!resolved) return [];
     switch (resolved) {
+      case "PREPARE_FOR_SUBMISSION":
+      case "DEVELOPER_REJECTED":
+      case "REJECTED":
+        return [
+          resolved,
+          "READY_FOR_REVIEW",
+          "WAITING_FOR_REVIEW",
+          "IN_REVIEW",
+          "PENDING_DEVELOPER_RELEASE",
+          "PENDING_APPLE_RELEASE",
+          "PENDING_RELEASE",
+          "READY_FOR_DISTRIBUTION",
+          "READY_FOR_SALE",
+        ];
+      case "READY_FOR_REVIEW":
+      case "WAITING_FOR_REVIEW":
+      case "IN_REVIEW":
+        return [
+          resolved,
+          "READY_FOR_REVIEW",
+          "WAITING_FOR_REVIEW",
+          "IN_REVIEW",
+          "PENDING_DEVELOPER_RELEASE",
+          "PENDING_APPLE_RELEASE",
+          "PENDING_RELEASE",
+        ];
       case "PENDING_DEVELOPER_RELEASE":
       case "PENDING_APPLE_RELEASE":
-        return [resolved, "PENDING_RELEASE"];
+        return [resolved, "PENDING_RELEASE", "READY_FOR_REVIEW", "WAITING_FOR_REVIEW", "IN_REVIEW"];
       case "REPLACED_WITH_NEW_VERSION":
         return [resolved, "REPLACED_WITH_NEW_INFO"];
       case "READY_FOR_SALE":
@@ -1098,22 +1127,61 @@ process.stdin.on("end", () => {
     return;
   }
 
-  const acceptable = acceptableStates(versionState);
-  const matches = appInfos.filter(item => {
-    if (!item || !item.id) return false;
-    const state = stringAttribute(item, ["state", "appStoreState"]).toUpperCase();
-    return acceptable.includes(state);
-  });
-  if (matches.length !== 1) {
-    console.error(
-      `Could not resolve a single App Info for ${version} ${platform} in state ${versionState}. ` +
-      `Candidates: ${formatCandidates(appInfos)}. Add appInfoId to ${platform} release settings if this is ambiguous.`
-    );
-    process.exit(1);
+  for (const preferredState of statePreference(versionState)) {
+    const matches = appInfos.filter(item => {
+      if (!item || !item.id) return false;
+      const state = stringAttribute(item, ["state", "appStoreState"]).toUpperCase();
+      return state === preferredState;
+    });
+    if (matches.length === 1) {
+      process.stdout.write(String(matches[0].id));
+      return;
+    }
+    if (matches.length > 1) {
+      console.error(
+        `Could not resolve a single App Info for ${version} ${platform} in state ${versionState}. ` +
+        `Candidates: ${formatCandidates(appInfos)}. Add appInfoId to ${platform} release settings if this is ambiguous.`
+      );
+      process.exit(1);
+    }
   }
-  process.stdout.write(String(matches[0].id));
+  console.error(
+    `Could not resolve a single App Info for ${version} ${platform} in state ${versionState}. ` +
+    `Candidates: ${formatCandidates(appInfos)}. Add appInfoId to ${platform} release settings if this is ambiguous.`
+  );
+  process.exit(1);
 });
   ' "$VERSION" "$(asc_platform "$platform")" "$version_state" "$RESOLVED_ASC_APP_ID"
+}
+
+resolve_app_info_id_for_metadata() {
+  local platform="$1"
+  local explicit_app_info_id
+  local app_info_status
+  local version_id
+  local status
+
+  if explicit_app_info_id="$(explicit_release_settings_app_info_id "$platform")"; then
+    printf '%s' "$explicit_app_info_id"
+    return 0
+  else
+    app_info_status=$?
+    if [[ "$app_info_status" -ne 2 ]]; then
+      return "$app_info_status"
+    fi
+  fi
+
+  if version_id="$(find_version_id "$platform")"; then
+    resolve_app_info_id_for_version "$platform" "$version_id"
+    return
+  else
+    status=$?
+  fi
+
+  if [[ "$status" -eq 2 ]]; then
+    return 2
+  fi
+  return "$status"
 }
 
 ensure_app_store_version() {
