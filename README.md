@@ -39,7 +39,7 @@ asc workflow run release_tvos
 asc workflow run release_visionos
 ```
 
-Use `DRY_RUN=1` with `scripts/asc-store.sh` commands to preview supported uploads, releases, and version bumps. The helper defaults `ASC_TIMEOUT` to `180s` for slower App Store Connect review-submission requests; set `ASC_TIMEOUT` explicitly to override it.
+Use `DRY_RUN=1` with `scripts/asc-store.sh` commands to preview supported uploads, releases, and version bumps. The helper defaults `ASC_TIMEOUT` to `600s` for slower App Store Connect review-submission requests; set `ASC_TIMEOUT` explicitly to override it. If a review-submission request times out after App Store Connect accepts it, the helper verifies the remote version state and continues when the version is already in review.
 
 ## see also
 [nft-folder-cli](https://github.com/sameoldlab/nft-folder-cli)

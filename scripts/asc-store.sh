@@ -9,7 +9,7 @@ UPLOAD_EXPORT_OPTIONS="${UPLOAD_EXPORT_OPTIONS:-.asc/export-options-upload.plist
 DRY_RUN="${DRY_RUN:-0}"
 VERSION_OVERRIDE="${VERSION:-}"
 BUILD_NUMBER_OVERRIDE="${BUILD_NUMBER:-}"
-export ASC_TIMEOUT="${ASC_TIMEOUT:-180s}"
+export ASC_TIMEOUT="${ASC_TIMEOUT:-600s}"
 
 read_project_setting() {
   local key="$1"
@@ -415,6 +415,60 @@ upload_screenshots() {
   done < <(screenshot_types_for "$platform")
 }
 
+app_store_version_is_submitted_state() {
+  case "$1" in
+    WAITING_FOR_REVIEW|IN_REVIEW|PENDING_DEVELOPER_RELEASE|PENDING_APPLE_RELEASE|PENDING_RELEASE|READY_FOR_SALE|READY_FOR_DISTRIBUTION|PREORDER_READY_FOR_SALE)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+review_submission_timeout_succeeded() {
+  local platform="$1"
+  local output="$2"
+  local version_id
+  local version_state
+
+  [[ "$output" == *"context deadline exceeded"* ]] || return 1
+
+  version_id="$(resolve_version_id "$platform")" || return 1
+  version_state="$(resolve_version_state "$platform" "$version_id")" || return 1
+  if app_store_version_is_submitted_state "$version_state"; then
+    printf 'Review submission for %s timed out locally, but App Store Connect reports %s %s as %s; continuing.\n' \
+      "$platform" "$(asc_platform "$platform")" "$VERSION" "$version_state" >&2
+    return 0
+  fi
+
+  return 1
+}
+
+run_review_submission_command() {
+  local platform="$1"
+  local log_file
+  local output
+  local status
+  shift
+
+  log_file="$(mktemp "${TMPDIR:-/tmp}/asc-review-submit.XXXXXX")"
+  if "$@" 2>&1 | tee "$log_file"; then
+    rm -f "$log_file"
+    return 0
+  else
+    status="${PIPESTATUS[0]}"
+  fi
+
+  output="$(cat "$log_file")"
+  rm -f "$log_file"
+  if review_submission_timeout_succeeded "$platform" "$output"; then
+    return 0
+  fi
+
+  return "$status"
+}
+
 publish_local_appstore() {
   local platform="$1"
   local archive_path=".asc/artifacts/nft-folder-$(asc_platform "$platform")-$VERSION-$BUILD_NUMBER.xcarchive"
@@ -462,7 +516,7 @@ publish_local_appstore() {
     return 1
   fi
 
-  asc publish appstore \
+  run_review_submission_command "$platform" asc publish appstore \
     --app "$RESOLVED_ASC_APP_ID" \
     --ipa "$ipa_path" \
     --version "$VERSION" \
@@ -1477,7 +1531,7 @@ submit_macos_review() {
       --platform MAC_OS
       --confirm
     )
-    asc "${submit_args[@]}"
+    run_review_submission_command macos asc "${submit_args[@]}"
     return
   fi
 
@@ -1494,7 +1548,7 @@ submit_macos_review() {
     return 1
   fi
   asc review items-add --submission "$submission_id" --item-type appStoreVersions --item-id "$version_id"
-  asc review submissions-submit --id "$submission_id" --confirm
+  run_review_submission_command macos asc review submissions-submit --id "$submission_id" --confirm
 }
 
 release_macos() {
