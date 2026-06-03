@@ -14,7 +14,7 @@ struct Script: Codable {
     let kind: Kind
     let instructions: String?
     let screensaverFileName: String?
-    let nftFolderDisplayTuning: String?
+    let nftPlayerDisplayTuning: String?
     
     enum Kind: String, Codable {
         case svg, js, p5js100, regl, twemoji, three, tone, paper, p5js190

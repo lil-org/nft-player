@@ -1,10 +1,10 @@
-# nft-folder-macos
+# nft-player-macos
 
 ### bring nfts to macos folders
 
 
-### [💻 testflight](https://folder.lil.org)
-### [🛠️ github](https://github.com/lil-org/nft-folder-macos)
+### [💻 testflight](https://player.lil.org)
+### [🛠️ github](https://github.com/lil-org/nft-player-macos)
 
 
 ## why
@@ -21,13 +21,13 @@
 * create as many .eth folders as you wish
 
 ## todo
-- [x] the alpha version is on a [testflight](https://folder.lil.org)
+- [x] the alpha version is on a [testflight](https://player.lil.org)
 - [x] **make a reliable version**
 - [x] handle all kinds of nft syncing errors / scenarios
-- [x] **release nft-folder app on the app store** (5-6 weeks)
+- [x] **release nft-player app on the app store** (5-6 weeks)
 
 ```
-garden round 3 prop included bundling nft-folder extension into the tokenary wallet
+garden round 3 prop included bundling nft-player extension into the tokenary wallet
 
 i have removed it from this prop in favor of standalone app simplicity
 ```

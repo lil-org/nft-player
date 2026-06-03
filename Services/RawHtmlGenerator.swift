@@ -42,8 +42,8 @@ struct RawHtmlGenerator {
             """
 
         let tuning = {
-            if let nftFolderDisplayTuning = script.nftFolderDisplayTuning {
-                return "\n<script>\(nftFolderDisplayTuning)</script>\n"
+            if let nftPlayerDisplayTuning = script.nftPlayerDisplayTuning {
+                return "\n<script>\(nftPlayerDisplayTuning)</script>\n"
             } else {
                 return ""
             }

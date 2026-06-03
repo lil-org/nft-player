@@ -98,7 +98,7 @@ class PlayerModel: ObservableObject {
         } else if !displayName.isEmpty {
             baseTitle = displayName
         } else {
-            baseTitle = Strings.nftFolder
+            baseTitle = Strings.nftPlayer
         }
 
 #if os(macOS) || os(tvOS)

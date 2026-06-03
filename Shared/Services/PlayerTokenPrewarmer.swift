@@ -9,7 +9,7 @@ enum PlayerTokenPrewarmer {
         let tokenId: String?
     }
 
-    private static let queue = DispatchQueue(label: "org.lil.nft-folder.player-token-prewarm", qos: .utility)
+    private static let queue = DispatchQueue(label: "org.lil.nft-player.player-token-prewarm", qos: .utility)
     private static let lock = NSLock()
     private static let maximumLaunchTokenPrewarmCount = 2
 

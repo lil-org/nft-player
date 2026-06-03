@@ -12,7 +12,7 @@ import UIKit
 #endif
 
 private let playerICloudSyncLogger = Logger(
-    subsystem: Bundle.main.bundleIdentifier ?? "org.lil.nft-folder",
+    subsystem: Bundle.main.bundleIdentifier ?? "org.lil.nft-player",
     category: "PlayerICloudSync"
 )
 

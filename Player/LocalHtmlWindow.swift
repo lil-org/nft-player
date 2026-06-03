@@ -15,7 +15,7 @@ class LocalHtmlWindow: NSWindow {
     private var currentTokenObserver: AnyCancellable?
     private var currentTokenInsertionObserver: AnyCancellable?
     private var bookmarkChangesObserver: AnyCancellable?
-    private let mediaFileWorkQueue = DispatchQueue(label: "org.lil.nft-folder.player-media-file-actions", qos: .utility)
+    private let mediaFileWorkQueue = DispatchQueue(label: "org.lil.nft-player.player-media-file-actions", qos: .utility)
     private var activeCopyMediaRequest: CopyMediaRequest?
     private weak var titleLabel: NSTextField?
     private weak var bookmarkButton: NSButton?

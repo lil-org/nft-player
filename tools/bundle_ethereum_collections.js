@@ -495,7 +495,7 @@ async function fetchOpenSeaJson(url, context) {
         headers: {
           accept: "application/json",
           "x-api-key": context.apiKey,
-          "User-Agent": "nft-folder-ethereum-collection-bundler/1.0",
+          "User-Agent": "nft-player-ethereum-collection-bundler/1.0",
         },
       });
       const text = await response.text();
@@ -1079,7 +1079,7 @@ async function fetchContentType(urlString, method, timeoutMs) {
       signal: controller.signal,
       headers: {
         accept: "image/*, text/html, application/xhtml+xml, video/mp4, video/*;q=0.8, */*;q=0.1",
-        "User-Agent": "nft-folder-ethereum-collection-bundler/1.0",
+        "User-Agent": "nft-player-ethereum-collection-bundler/1.0",
         ...(method === "GET" ? { Range: "bytes=0-0" } : {}),
       },
     });

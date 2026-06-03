@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PROJECT="${PROJECT:-nft-folder.xcodeproj}"
+PROJECT="${PROJECT:-nft-player.xcodeproj}"
 PROJECT_FILE="$PROJECT/project.pbxproj"
 EXPORT_OPTIONS="${EXPORT_OPTIONS:-.asc/export-options-app-store.plist}"
 TVOS_EXPORT_OPTIONS="${TVOS_EXPORT_OPTIONS:-.asc/export-options-tvos.plist}"
@@ -200,10 +200,10 @@ asc_platform() {
 
 scheme_for() {
   case "$1" in
-    ios) echo "nft-folder-ios" ;;
-    macos) echo "nft-folder" ;;
-    tvos) echo "nft-folder-tvos" ;;
-    visionos) echo "nft-folder-vision" ;;
+    ios) echo "nft-player-ios" ;;
+    macos) echo "nft-player" ;;
+    tvos) echo "nft-player-tvos" ;;
+    visionos) echo "nft-player-vision" ;;
   esac
 }
 
@@ -471,8 +471,8 @@ run_review_submission_command() {
 
 publish_local_appstore() {
   local platform="$1"
-  local archive_path=".asc/artifacts/nft-folder-$(asc_platform "$platform")-$VERSION-$BUILD_NUMBER.xcarchive"
-  local ipa_path=".asc/artifacts/nft-folder-$(asc_platform "$platform")-$VERSION-$BUILD_NUMBER.ipa"
+  local archive_path=".asc/artifacts/nft-player-$(asc_platform "$platform")-$VERSION-$BUILD_NUMBER.xcarchive"
+  local ipa_path=".asc/artifacts/nft-player-$(asc_platform "$platform")-$VERSION-$BUILD_NUMBER.ipa"
   local export_json
 
   ensure_app_id
@@ -1557,8 +1557,8 @@ release_macos() {
     return 1
   fi
 
-  local archive_path=".asc/artifacts/nft-folder-MAC_OS-$VERSION-$BUILD_NUMBER.xcarchive"
-  local ipa_placeholder=".asc/artifacts/nft-folder-MAC_OS-$VERSION-$BUILD_NUMBER.ipa"
+  local archive_path=".asc/artifacts/nft-player-MAC_OS-$VERSION-$BUILD_NUMBER.xcarchive"
+  local ipa_placeholder=".asc/artifacts/nft-player-MAC_OS-$VERSION-$BUILD_NUMBER.ipa"
 
   if is_dry_run; then
     printf 'Would archive %s with scheme %s and upload via %s\n' "$archive_path" "$(scheme_for macos)" "$UPLOAD_EXPORT_OPTIONS"

@@ -64,7 +64,7 @@ After applying a bundle, run:
 node tools/check_bundled_collection_downloads.js --samples 5 --retries 3 --full --collection "<collection id or name>"
 sips -g format -g hasAlpha -g samplesPerPixel "Suggested Items/Covers.xcassets/<collection id>.imageset/<collection id>.heic"
 heif-info "Suggested Items/Covers.xcassets/<collection id>.imageset/<collection id>.heic"
-xcodebuild -project nft-folder.xcodeproj -scheme nft-folder-ios -destination 'generic/platform=iOS' build
+xcodebuild -project nft-player.xcodeproj -scheme nft-player-ios -destination 'generic/platform=iOS' build
 ```
 
 For a full batch, omit `--collection` from the download checker if you want it to sample every bundled collection.

@@ -3,14 +3,14 @@
 import PackageDescription
 
 let package = Package(
-    name: "NftFolderSyncCore",
+    name: "NftPlayerSyncCore",
     defaultLocalization: "en",
     platforms: [
         .macOS(.v14)
     ],
     targets: [
         .target(
-            name: "NftFolderSyncCore",
+            name: "NftPlayerSyncCore",
             path: "Shared",
             exclude: [
                 "Extensions/Links.swift",
@@ -38,9 +38,9 @@ let package = Package(
             ]
         ),
         .testTarget(
-            name: "NftFolderSyncCoreTests",
-            dependencies: ["NftFolderSyncCore"],
-            path: "Tests/NftFolderSyncCoreTests"
+            name: "NftPlayerSyncCoreTests",
+            dependencies: ["NftPlayerSyncCore"],
+            path: "Tests/NftPlayerSyncCoreTests"
         )
     ]
 )

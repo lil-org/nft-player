@@ -2,7 +2,7 @@
 
 ios / macos / visionos / tvos
 
-download on the [app store](https://folder.lil.org)
+download on the [app store](https://player.lil.org)
 
 ![nft player on apple tv](https://github.com/user-attachments/assets/abe9fe36-fa9d-4a49-9567-c435d8da6c2a)
 
@@ -23,7 +23,7 @@ asc workflow run release
 asc workflow run bump
 ```
 
-Release commands resolve the app from the project bundle id and read `MARKETING_VERSION` plus `CURRENT_PROJECT_VERSION` from `nft-folder.xcodeproj`. Use `ASC_APP_ID`, `VERSION`, or `BUILD_NUMBER` only when an override is intentional.
+Release commands resolve the app from the project bundle id and read `MARKETING_VERSION` plus `CURRENT_PROJECT_VERSION` from `nft-player.xcodeproj`. Use `ASC_APP_ID`, `VERSION`, or `BUILD_NUMBER` only when an override is intentional.
 
 Release settings are applied through asccli commands only. `usesIdfa` requires an asc release that exposes `asc versions update --uses-idfa`; the helper stops with an explicit error instead of mutating App Store Connect through a raw API fallback.
 
@@ -42,4 +42,4 @@ asc workflow run release_visionos
 Use `DRY_RUN=1` with `scripts/asc-store.sh` commands to preview supported uploads, releases, and version bumps. The helper defaults `ASC_TIMEOUT` to `600s` for slower App Store Connect review-submission requests; set `ASC_TIMEOUT` explicitly to override it. If a review-submission request times out after App Store Connect accepts it, the helper verifies the remote version state and continues when the version is already in review.
 
 ## see also
-[nft-folder-cli](https://github.com/sameoldlab/nft-folder-cli)
+[nft-player-cli](https://github.com/sameoldlab/nft-player-cli)

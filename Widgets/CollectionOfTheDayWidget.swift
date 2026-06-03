@@ -318,7 +318,7 @@ struct SelectedCollectionWidgetProvider: AppIntentTimelineProvider {
 }
 
 @main
-struct NftFolderWidgets: WidgetBundle {
+struct NftPlayerWidgets: WidgetBundle {
     var body: some Widget {
         CollectionOfTheDayWidget()
         TojibaCPUCorpWidget()

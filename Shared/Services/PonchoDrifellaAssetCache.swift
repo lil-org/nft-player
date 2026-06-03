@@ -4,7 +4,7 @@ import Foundation
 import os
 
 private let ponchoDrifellaAssetCacheLogger = Logger(
-    subsystem: Bundle.main.bundleIdentifier ?? "org.lil.nft-folder",
+    subsystem: Bundle.main.bundleIdentifier ?? "org.lil.nft-player",
     category: "PonchoDrifellaMetal"
 )
 
@@ -46,7 +46,7 @@ final class PonchoDrifellaAssetCache {
     private let fileManager = FileManager.default
     private let rootURL: URL
     private let baseURL = URL(string: "https://mons.shop/Poncho_Drifella")!
-    private let workQueue = DispatchQueue(label: "org.lil.nft-folder.poncho-cache", qos: .utility)
+    private let workQueue = DispatchQueue(label: "org.lil.nft-player.poncho-cache", qos: .utility)
     private var pendingDownloadCompletions = [String: [(Bool) -> Void]]()
 
     private init() {

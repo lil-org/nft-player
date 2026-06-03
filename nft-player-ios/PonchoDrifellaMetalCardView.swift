@@ -1,9 +1,10 @@
 // ∅ 2026 lil org
 
-import AppKit
+import CoreMotion
 import Foundation
 import ImageIO
 import MetalKit
+import UIKit
 import os
 import simd
 
@@ -12,19 +13,17 @@ private let ponchoDrifellaLogger = Logger(
     category: "PonchoDrifellaMetal"
 )
 
-final class PonchoDrifellaMetalCardView: NSView {
+final class PonchoDrifellaMetalCardView: UIView {
 
     static let cardAspectRatio = CGFloat(1000.0 / 1400.0)
     static let cardViewportInset = CGFloat(23)
 
     private var metalView: MTKView?
     private var renderer: PonchoDrifellaMetalRenderer?
-    private var trackingArea: NSTrackingArea?
 
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-        wantsLayer = true
-        layer?.backgroundColor = NSColor.black.cgColor
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        backgroundColor = .black
         configureMetalView()
     }
 
@@ -32,42 +31,14 @@ final class PonchoDrifellaMetalCardView: NSView {
         fatalError("yo")
     }
 
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
 
         if window == nil {
             renderer?.stop()
         } else {
             renderer?.start()
         }
-    }
-
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-
-        if let trackingArea {
-            removeTrackingArea(trackingArea)
-        }
-        let trackingArea = NSTrackingArea(
-            rect: bounds,
-            options: [.activeInKeyWindow, .mouseEnteredAndExited, .mouseMoved, .inVisibleRect],
-            owner: self,
-            userInfo: nil
-        )
-        addTrackingArea(trackingArea)
-        self.trackingArea = trackingArea
-    }
-
-    override func mouseMoved(with event: NSEvent) {
-        updatePointer(with: event)
-    }
-
-    override func mouseEntered(with event: NSEvent) {
-        updatePointer(with: event)
-    }
-
-    override func mouseExited(with event: NSEvent) {
-        renderer?.resetPointer()
     }
 
     func display(tokenId: String) {
@@ -80,7 +51,7 @@ final class PonchoDrifellaMetalCardView: NSView {
     }
 
     static func resetMotionCalibration() {
-        PonchoDrifellaPointerStateTracker.shared.reset()
+        PonchoDrifellaMotionTracker.shared.resetCalibration()
     }
 
     static func cardContentRect(in size: CGSize) -> CGRect {
@@ -106,7 +77,8 @@ final class PonchoDrifellaMetalCardView: NSView {
 
         let metalView = MTKView(frame: bounds, device: device)
         metalView.translatesAutoresizingMaskIntoConstraints = false
-        metalView.layer?.backgroundColor = NSColor.clear.cgColor
+        metalView.backgroundColor = .clear
+        metalView.isOpaque = false
         metalView.clearColor = MTLClearColorMake(0, 0, 0, 0)
         metalView.colorPixelFormat = .bgra8Unorm
         metalView.framebufferOnly = true
@@ -126,11 +98,6 @@ final class PonchoDrifellaMetalCardView: NSView {
         renderer.attach(to: metalView)
         self.metalView = metalView
         self.renderer = renderer
-    }
-
-    private func updatePointer(with event: NSEvent) {
-        let location = convert(event.locationInWindow, from: nil)
-        renderer?.updatePointer(location: location, in: bounds.size)
     }
 }
 
@@ -161,41 +128,188 @@ private struct PonchoDrifellaLoadedTextures {
     let maskUsesAlpha: Bool
 }
 
-private struct PonchoDrifellaPointerState {
+private struct PonchoDrifellaMotionState {
     var pointer = SIMD2<Float>(0.5, 0.5)
     var background = SIMD2<Float>(0.5, 0.5)
     var pointerFromCenter: Float = 0
-    var effectOpacity: Float = 0.99
+    var effectOpacity: Float = 0
 }
 
-private final class PonchoDrifellaPointerStateTracker {
-    static let shared = PonchoDrifellaPointerStateTracker()
+private final class PonchoDrifellaMotionTracker {
 
-    private(set) var state = PonchoDrifellaPointerState()
+    static let shared = PonchoDrifellaMotionTracker()
+    private static let fixedLightPosition = SIMD2<Float>(0.5, 0.5)
+    private static let pointerTravel = SIMD2<Float>(0.42, 0.42)
+    private static let backgroundTravel = SIMD2<Float>(0.13, 0.17)
 
-    private init() {}
+    private let motionManager = CMMotionManager()
+    private var neutralGravity: CMAcceleration?
+    private var state = PonchoDrifellaMotionState()
+    private var observers = [UUID: () -> Void]()
+    private var applicationIsActive = UIApplication.shared.applicationState == .active
+    private var applicationLifecycleObservers = [NSObjectProtocol]()
 
-    func update(location: CGPoint, in size: CGSize) {
-        guard size.width > 0, size.height > 0 else {
-            reset()
+    private init() {
+        installApplicationLifecycleObservers()
+    }
+
+    deinit {
+        applicationLifecycleObservers.forEach(NotificationCenter.default.removeObserver)
+    }
+
+    func addObserver(_ observer: @escaping () -> Void) -> UUID {
+        let id = UUID()
+        observers[id] = observer
+        return id
+    }
+
+    func removeObserver(id: UUID) {
+        observers[id] = nil
+        if observers.isEmpty {
+            stopDeviceMotionUpdates(resetCalibration: false)
+        }
+    }
+
+    func start() {
+        guard applicationIsActive else {
+            resetCalibration(notifyObservers: false)
+            return
+        }
+        guard motionManager.isDeviceMotionAvailable else {
+            if state.effectOpacity == 0 {
+                updateEffect(rawX: 0, rawY: 0, smooth: false)
+            }
+            return
+        }
+        guard !motionManager.isDeviceMotionActive else { return }
+
+        motionManager.deviceMotionUpdateInterval = 1.0 / 30.0
+        motionManager.startDeviceMotionUpdates(to: .main) { [weak self] motion, _ in
+            guard let self,
+                  self.applicationIsActive,
+                  !self.observers.isEmpty,
+                  let motion else {
+                return
+            }
+            self.handleMotion(motion)
+        }
+    }
+
+    func snapshot() -> PonchoDrifellaMotionState {
+        state
+    }
+
+    func resetCalibration() {
+        resetCalibration(notifyObservers: applicationIsActive)
+    }
+
+    private func resetCalibration(notifyObservers: Bool) {
+        neutralGravity = nil
+        updateEffect(rawX: 0, rawY: 0, smooth: false, notifyObservers: notifyObservers)
+    }
+
+    private func installApplicationLifecycleObservers() {
+        let notificationCenter = NotificationCenter.default
+        let inactiveNotifications: [NSNotification.Name] = [
+            UIApplication.willResignActiveNotification,
+            UIApplication.didEnterBackgroundNotification
+        ]
+
+        applicationLifecycleObservers = inactiveNotifications.map { name in
+            notificationCenter.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                self?.suspendForApplicationLifecycle()
+            }
+        }
+        applicationLifecycleObservers.append(
+            notificationCenter.addObserver(
+                forName: UIApplication.didBecomeActiveNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                self?.resumeFromApplicationLifecycle()
+            }
+        )
+    }
+
+    private func suspendForApplicationLifecycle() {
+        guard applicationIsActive else { return }
+
+        applicationIsActive = false
+        stopDeviceMotionUpdates(resetCalibration: true, notifyObservers: false)
+    }
+
+    private func resumeFromApplicationLifecycle() {
+        applicationIsActive = true
+        resetCalibration()
+
+        guard !observers.isEmpty else { return }
+        start()
+    }
+
+    private func stopDeviceMotionUpdates(resetCalibration: Bool, notifyObservers: Bool = true) {
+        motionManager.stopDeviceMotionUpdates()
+
+        if resetCalibration {
+            self.resetCalibration(notifyObservers: notifyObservers)
+        }
+    }
+
+    private func handleMotion(_ motion: CMDeviceMotion) {
+        if neutralGravity == nil {
+            neutralGravity = motion.gravity
+            if state.effectOpacity == 0 {
+                updateEffect(rawX: 0, rawY: 0, smooth: false)
+            }
             return
         }
 
-        let x = Float(min(max(location.x / size.width, 0), 1))
-        let y = Float(min(max(1 - location.y / size.height, 0), 1))
-        let pointer = SIMD2<Float>(x, y)
-        let centered = pointer - SIMD2<Float>(0.5, 0.5)
-        state.pointer = clamped(pointer, lowerBound: 0.04, upperBound: 0.96)
-        state.background = clamped(SIMD2<Float>(0.5, 0.5) + centered * 0.32, lowerBound: 0.25, upperBound: 0.75)
-        state.pointerFromCenter = min(length(centered) * 2, 1)
+        guard let neutralGravity else { return }
+
+        let rawX = Self.clamped(Float((motion.gravity.x - neutralGravity.x) * 4.0))
+        let rawY = Self.clamped(Float((neutralGravity.z - motion.gravity.z) * 4.8))
+        updateEffect(rawX: rawX, rawY: rawY, smooth: true)
+    }
+
+    private func updateEffect(rawX: Float, rawY: Float, smooth: Bool, notifyObservers: Bool = true) {
+        let cardTilt = SIMD2<Float>(Self.clamped(rawX), Self.clamped(rawY))
+        let cardOffset = cardTilt * Self.pointerTravel
+        let backgroundOffset = cardTilt * Self.backgroundTravel
+
+        // Keep the light fixed in screen space; tilt moves the card surface under it.
+        let targetPointer = Self.clamped(
+            Self.fixedLightPosition - cardOffset,
+            lowerBound: 0.04,
+            upperBound: 0.96
+        )
+        let targetBackground = Self.clamped(
+            Self.fixedLightPosition - backgroundOffset,
+            lowerBound: 0.25,
+            upperBound: 0.75
+        )
+
+        let smoothing: Float = smooth ? 0.30 : 1
+        state.pointer += (targetPointer - state.pointer) * smoothing
+        state.pointer = Self.clamped(state.pointer, lowerBound: 0.01, upperBound: 0.99)
+
+        state.background += (targetBackground - state.background) * smoothing
+        state.background = Self.clamped(state.background, lowerBound: 0.12, upperBound: 0.88)
+        state.pointerFromCenter = min(length(cardTilt), 1)
         state.effectOpacity = 0.99
+        if notifyObservers {
+            self.notifyObservers()
+        }
     }
 
-    func reset() {
-        state = PonchoDrifellaPointerState()
+    private func notifyObservers() {
+        guard applicationIsActive else { return }
+        Array(observers.values).forEach { $0() }
     }
 
-    private func clamped(_ value: SIMD2<Float>, lowerBound: Float, upperBound: Float) -> SIMD2<Float> {
+    private static func clamped(_ value: Float) -> Float {
+        min(max(value, -1), 1)
+    }
+
+    private static func clamped(_ value: SIMD2<Float>, lowerBound: Float, upperBound: Float) -> SIMD2<Float> {
         SIMD2<Float>(
             min(max(value.x, lowerBound), upperBound),
             min(max(value.y, lowerBound), upperBound)
@@ -212,12 +326,13 @@ private final class PonchoDrifellaMetalRenderer: NSObject, MTKViewDelegate {
     private let placeholderTexture: MTLTexture
     private let textureQueue = DispatchQueue(label: "org.lil.nft-player.poncho-textures", qos: .userInitiated)
     private let textureLoader: MTKTextureLoader
-    private let pointerTracker = PonchoDrifellaPointerStateTracker.shared
+    private let motionTracker = PonchoDrifellaMotionTracker.shared
 
     private var currentTokenID: Int?
     private var loadGeneration = UUID()
     private var metadata = PonchoDrifellaCardMetadata.metadata(for: 1)
     private var textures: PonchoDrifellaLoadedTextures?
+    private var motionObserverID: UUID?
 
     init?(device: MTLDevice) {
         guard let commandQueue = device.makeCommandQueue() else {
@@ -229,7 +344,7 @@ private final class PonchoDrifellaMetalRenderer: NSObject, MTKViewDelegate {
             return nil
         }
         guard let library = device.makeDefaultLibrary() else {
-            ponchoDrifellaLogger.error("Default Metal library is unavailable; check that PonchoDrifellaShaders.metal is in the macOS target sources")
+            ponchoDrifellaLogger.error("Default Metal library is unavailable; check that PonchoDrifellaShaders.metal is in the iOS target sources")
             return nil
         }
         guard let vertexFunction = library.makeFunction(name: "ponchoDrifellaVertex"),
@@ -255,6 +370,10 @@ private final class PonchoDrifellaMetalRenderer: NSObject, MTKViewDelegate {
         self.placeholderTexture = placeholderTexture
         self.textureLoader = MTKTextureLoader(device: device)
         super.init()
+    }
+
+    deinit {
+        stop()
     }
 
     func attach(to metalView: MTKView) {
@@ -284,15 +403,16 @@ private final class PonchoDrifellaMetalRenderer: NSObject, MTKViewDelegate {
                 return
             }
             self.loadFaceTexture(from: faceURL, tokenID: clampedTokenID, generation: generation)
-        }
-        PonchoDrifellaAssetCache.shared.loadAssets(for: clampedTokenID) { [weak self] assetURLs in
-            guard let self,
-                  self.currentTokenID == clampedTokenID,
-                  self.loadGeneration == generation,
-                  let assetURLs else {
-                return
+
+            PonchoDrifellaAssetCache.shared.loadAssets(for: clampedTokenID) { [weak self] assetURLs in
+                guard let self,
+                      self.currentTokenID == clampedTokenID,
+                      self.loadGeneration == generation,
+                      let assetURLs else {
+                    return
+                }
+                self.loadTextures(from: assetURLs, generation: generation)
             }
-            self.loadTextures(from: assetURLs, generation: generation)
         }
         PonchoDrifellaAssetCache.shared.prefetch(around: clampedTokenID, radius: 2)
         start()
@@ -300,22 +420,19 @@ private final class PonchoDrifellaMetalRenderer: NSObject, MTKViewDelegate {
 
     func start() {
         guard metalView?.window != nil else { return }
+        if motionObserverID == nil {
+            motionObserverID = motionTracker.addObserver { [weak self] in
+                self?.metalView?.draw()
+            }
+        }
+        motionTracker.start()
         metalView?.draw()
     }
 
     func stop() {
-        pointerTracker.reset()
-        metalView?.draw()
-    }
-
-    func resetPointer() {
-        pointerTracker.reset()
-        metalView?.draw()
-    }
-
-    func updatePointer(location: CGPoint, in size: CGSize) {
-        pointerTracker.update(location: location, in: size)
-        metalView?.draw()
+        guard let motionObserverID else { return }
+        motionTracker.removeObserver(id: motionObserverID)
+        self.motionObserverID = nil
     }
 
     func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
@@ -333,17 +450,18 @@ private final class PonchoDrifellaMetalRenderer: NSObject, MTKViewDelegate {
 
         let cardRect = cardRect(in: view.bounds.size)
         let vertices = cardVertices(in: view.bounds.size, cardRect: cardRect)
-        let scale = view.window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 1
-        let pointerState = pointerTracker.state
+        let scaleX = view.bounds.width > 0 ? view.drawableSize.width / view.bounds.width : view.contentScaleFactor
+        let scaleY = view.bounds.height > 0 ? view.drawableSize.height / view.bounds.height : view.contentScaleFactor
+        let motionState = motionTracker.snapshot()
         var uniforms = PonchoDrifellaUniforms(
-            pointer: pointerState.pointer,
-            background: pointerState.background,
+            pointer: motionState.pointer,
+            background: motionState.background,
             cardSize: SIMD2<Float>(
-                Float(cardRect.width * scale),
-                Float(cardRect.height * scale)
+                Float(cardRect.width * scaleX),
+                Float(cardRect.height * scaleY)
             ),
-            pointerFromCenter: pointerState.pointerFromCenter,
-            opacity: textures.hasEffects ? pointerState.effectOpacity : 0,
+            pointerFromCenter: motionState.pointerFromCenter,
+            opacity: textures.hasEffects ? motionState.effectOpacity : 0,
             maskUsesAlpha: textures.maskUsesAlpha ? 1 : 0,
             effectKind: Int32(metadata.effectKind),
             glowKind: Int32(metadata.glowKind)
@@ -551,4 +669,5 @@ private final class PonchoDrifellaMetalRenderer: NSObject, MTKViewDelegate {
         )
         return texture
     }
+
 }

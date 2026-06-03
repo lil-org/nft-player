@@ -110,7 +110,7 @@ final class MacPlayerMediaContainerView: NSView {
     private let downloadableMediaWindowOwnerId = UUID()
     private var activeDownloadableMediaCollectionId: String?
     private let htmlDocumentRenderQueue = DispatchQueue(
-        label: "org.lil.nft-folder.mac-html-document-render",
+        label: "org.lil.nft-player.mac-html-document-render",
         qos: .userInitiated
     )
 

@@ -476,7 +476,7 @@ async function fetchOpenSeaJson(url, options) {
       headers: {
         "accept": "application/json",
         "x-api-key": options.openSeaApiKey,
-        "User-Agent": "nft-folder-bundled-download-check/1.0",
+        "User-Agent": "nft-player-bundled-download-check/1.0",
       },
     });
 
@@ -647,7 +647,7 @@ async function fetchTarget(target, options, method) {
       redirect: "follow",
       signal: controller.signal,
       headers: {
-        "User-Agent": "nft-folder-bundled-download-check/1.0",
+        "User-Agent": "nft-player-bundled-download-check/1.0",
       },
     });
 

@@ -96,10 +96,10 @@ final class DownloadableMediaCache {
         )
     }
 
-    private let queue = DispatchQueue(label: "org.lil.nft-folder.downloadable-media-cache", qos: .utility)
-    private let imageDecodeQueue = DispatchQueue(label: "org.lil.nft-folder.downloadable-media-cache.decode", qos: .utility)
+    private let queue = DispatchQueue(label: "org.lil.nft-player.downloadable-media-cache", qos: .utility)
+    private let imageDecodeQueue = DispatchQueue(label: "org.lil.nft-player.downloadable-media-cache.decode", qos: .utility)
     private let foregroundImageDecodeQueue = DispatchQueue(
-        label: "org.lil.nft-folder.downloadable-media-cache.decode.foreground",
+        label: "org.lil.nft-player.downloadable-media-cache.decode.foreground",
         qos: .utility
     )
     private let memoryCache = NSCache<NSString, DownloadableMediaImage>()
