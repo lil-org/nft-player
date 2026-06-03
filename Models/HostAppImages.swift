@@ -15,7 +15,5 @@ extension Images {
     static let viewAgain = Image(systemName: "arrow.counterclockwise")
     static let finish = Image(systemName: "checkmark")
     static let checkmark = Image(systemName: "checkmark")
-    static let info = Image(systemName: "info")
-    static let changeCollection = Image(systemName: "forward")
     
 }

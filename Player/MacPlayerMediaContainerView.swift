@@ -3,29 +3,7 @@
 import AppKit
 import AVFoundation
 import ImageIO
-import SwiftUI
 import WebKit
-
-struct MacPlayerMediaView: NSViewRepresentable {
-
-    let token: GeneratedToken
-    weak var playerMenuDelegate: PlayerMenuDelegate?
-
-    func makeNSView(context: Context) -> MacPlayerMediaContainerView {
-        let view = MacPlayerMediaContainerView(playerMenuDelegate: playerMenuDelegate)
-        view.render(token)
-        return view
-    }
-
-    func updateNSView(_ nsView: MacPlayerMediaContainerView, context: Context) {
-        nsView.updatePlayerMenuDelegate(playerMenuDelegate)
-        nsView.render(token)
-    }
-
-    static func dismantleNSView(_ nsView: MacPlayerMediaContainerView, coordinator: ()) {
-        nsView.cleanup()
-    }
-}
 
 enum MacPlayerMediaRenderMode {
     case active

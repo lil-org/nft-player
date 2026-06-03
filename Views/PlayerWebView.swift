@@ -5,7 +5,6 @@ import WebKit
 
 final class PlayerWebView: WebViewWithMenu, WKNavigationDelegate {
 
-    private static var isResizeReloadEnabled = true
     private static var prewarmTimer: Timer?
     private static var prewarmedWebView: PlayerWebView?
     private static var didSchedulePrewarm = false
@@ -291,12 +290,7 @@ final class PlayerWebView: WebViewWithMenu, WKNavigationDelegate {
         hasVisibleSize(bounds)
     }
 
-    static func setResizeReloadEnabled(_ isEnabled: Bool) {
-        isResizeReloadEnabled = isEnabled
-    }
-
     private func loadPendingContentIfNeeded(oldRect: NSRect) {
-        guard Self.isResizeReloadEnabled else { return }
         contentLoadCoordinator.loadPendingContentIfNeeded(
             wasVisible: hasVisibleSize(oldRect),
             isVisible: hasVisibleSize

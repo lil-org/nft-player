@@ -175,7 +175,7 @@ struct PlayerDownloadableMediaWindow: Hashable {
 }
 
 enum PlaybackNavigationDirection {
-    case up, down, back, forward, nextCollection, restartCollection
+    case back, forward, restartCollection
 }
 
 final class PlayerTokenPagingDataSource {
@@ -216,20 +216,6 @@ final class PlayerTokenPagingDataSource {
             latestToken = specificInitialToken
             latestCoordinate = initialCoordinate
         }
-    }
-
-    func pushToken(_ token: GeneratedToken, coordinate: PlayerCoordinate, sameCollection: Bool) {
-        let newCoordinate = sameCollection
-            ? PlayerCoordinate(x: coordinate.x + 1, y: coordinate.y)
-            : PlayerCoordinate(x: 0, y: coordinate.y + 1)
-        let tokenIndex = CollectionCatalog.tokenIndex(
-            specificCollectionId: token.fullCollectionId,
-            tokenId: token.id
-        ) ?? 0
-        collectionIds[newCoordinate.y] = token.fullCollectionId
-        collectionBaseTokenIndices[newCoordinate.y] = tokenIndex - newCoordinate.x
-        latestToken = nil
-        latestCoordinate = nil
     }
 
     func canRender(coordinate: PlayerCoordinate) -> Bool {

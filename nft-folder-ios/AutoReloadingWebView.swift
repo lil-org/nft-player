@@ -5,7 +5,6 @@ import WebKit
 
 class AutoReloadingWebView: WKWebView, WKNavigationDelegate {
 
-    private static var isResizeReloadEnabled = true
     private static var prewarmTimer: Timer?
     private static var prewarmedWebView: AutoReloadingWebView?
     private static var didSchedulePrewarm = false
@@ -178,12 +177,7 @@ class AutoReloadingWebView: WKWebView, WKNavigationDelegate {
         return bounds.size.width > 5 && bounds.size.height > 5
     }
     
-    static func setResizeReloadEnabled(_ isEnabled: Bool) {
-        isResizeReloadEnabled = isEnabled
-    }
-    
     private func loadPendingContentIfNeeded(oldRect: CGRect) {
-        guard Self.isResizeReloadEnabled else { return }
         contentLoadCoordinator.loadPendingContentIfNeeded(
             wasVisible: hasVisibleSize(oldRect),
             isVisible: hasVisibleSize

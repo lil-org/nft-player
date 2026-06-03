@@ -21,6 +21,7 @@ let package = Package(
                 "Models/Images.swift",
                 "Models/NftGallery.swift",
                 "Models/PonchoDrifellaCardMetadata.swift",
+                "Models/PlayerWidgetTokenInsertion.swift",
                 "Services/DownloadableMediaCache.swift",
                 "Services/PlayerTokenPrewarmer.swift",
                 "Services/PlayerWebContentLoadCoordinator.swift",

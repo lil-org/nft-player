@@ -2184,11 +2184,6 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
         pageC.update(verticalIndex: verticalIndex)
     }
 
-    private func changeCollection() {
-        let coordinate = getCurrentCoordinate()
-        jumpToCoordinate(horizontalIndex: 0, verticalIndex: coordinate.1 + 1)
-    }
-
     private func restartCollection() {
         let coordinate = getCurrentCoordinate()
         let targetHorizontalIndex = fourDirectionalPlayerDataSource?.startHorizontalCoordinate(verticalIndex: coordinate.1) ?? 0
@@ -2391,11 +2386,6 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
             if !didStartTransition {
                 isPageTransitioning = false
             }
-        case .down, .nextCollection:
-            guard canStartNavigation else { return }
-            changeCollection()
-        case .up:
-            return
         case .restartCollection:
             guard canStartNavigation else {
                 pendingNavigationDirection = direction

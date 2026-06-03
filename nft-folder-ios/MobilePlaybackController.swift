@@ -43,34 +43,12 @@ class MobilePlaybackController {
     private var tokensDataSources = [UUID: PlayerTokenPagingDataSource]()
     private var viewingSessionTrackers = [UUID: PlayerViewingSessionTracker]()
     
-    func showNewToken(displayId: UUID, token: GeneratedToken, sameCollection: Bool, coordinate: PlayerCoordinate) {
-        guard let dataSource = tokensDataSources[displayId] else { return }
-        dataSource.pushToken(token, coordinate: coordinate, sameCollection: sameCollection)
-        if sameCollection {
-            goForward(uuid: displayId)
-        } else {
-            goDown(uuid: displayId)
-        }
-    }
-    
     func goForward(uuid: UUID) {
         navigate(.forward, uuid: uuid)
     }
     
     func goBack(uuid: UUID) {
         navigate(.back, uuid: uuid)
-    }
-    
-    func goUp(uuid: UUID) {
-        navigate(.up, uuid: uuid)
-    }
-    
-    func goDown(uuid: UUID) {
-        navigate(.down, uuid: uuid)
-    }
-
-    func changeCollection(uuid: UUID) {
-        navigate(.nextCollection, uuid: uuid)
     }
 
     func restartCollection(uuid: UUID) {

@@ -115,19 +115,6 @@ class PlayerModel: ObservableObject {
 #endif
     }
     
-    func showInitialCollection() {
-#if os(macOS) || os(tvOS)
-        let newToken = specificCollectionId
-            .flatMap { Self.generateToken(specificCollectionId: $0, tokenIndex: 0) }
-            ?? Self.generateRandomToken(specificCollectionId: specificCollectionId, notTokenId: nil)
-            ?? currentToken
-#else
-        let newToken = Self.generateRandomToken(specificCollectionId: specificCollectionId, notTokenId: nil) ?? currentToken
-#endif
-        clearWidgetTokenInsertion()
-        showNewToken(newToken)
-    }
-    
     func goBack() {
 #if os(macOS) || os(tvOS)
         if currentIndex > 0 {
