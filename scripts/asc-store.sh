@@ -1047,6 +1047,36 @@ release_uses_idfa_value() {
   release_settings_json uses-idfa "$1"
 }
 
+category_update_is_locked_shared_metadata() {
+  local output="$1"
+
+  [[ "$output" == *"relationship value is not acceptable for the current resource state"* ]] ||
+    [[ "$output" == *"current resource state"* ]]
+}
+
+apply_categories() {
+  local platform="$1"
+  local app_info_id="$2"
+  local output
+  local status
+
+  if output="$(asc categories set --app "$RESOLVED_ASC_APP_ID" --app-info "$app_info_id" "${@:3}" 2>&1)"; then
+    [[ -z "$output" ]] || printf '%s\n' "$output"
+    return 0
+  else
+    status=$?
+  fi
+
+  if category_update_is_locked_shared_metadata "$output"; then
+    printf 'Skipping %s category update because App Store Connect reports shared App Info is locked by the current resource state.\n' "$platform" >&2
+    printf '%s\n' "$output" >&2
+    return 0
+  fi
+
+  printf '%s\n' "$output" >&2
+  return "$status"
+}
+
 apply_version_compliance_settings() {
   local file="$1"
   local version_id="$2"
@@ -1321,7 +1351,7 @@ apply_release_settings() {
   if [[ "${#category_args[@]}" -gt 0 ]]; then
     local app_info_id
     app_info_id="$(resolve_app_info_id_for_version "$platform" "$version_id")"
-    asc categories set --app "$RESOLVED_ASC_APP_ID" --app-info "$app_info_id" "${category_args[@]}"
+    apply_categories "$platform" "$app_info_id" "${category_args[@]}"
   fi
 }
 
