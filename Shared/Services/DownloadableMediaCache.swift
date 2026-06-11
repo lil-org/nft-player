@@ -351,18 +351,6 @@ final class DownloadableMediaCache {
         }
     }
 
-    func clearActiveWindow(for collectionId: String, ownerId: UUID) {
-        queue.async { [weak self] in
-            guard let self else { return }
-            guard self.activeWindow?.collectionId == collectionId,
-                  self.activeWindow?.ownerId == ownerId else {
-                return
-            }
-
-            self.clearActiveWindowState()
-        }
-    }
-
     func clearActiveWindow(ownerId: UUID) {
         queue.async { [weak self] in
             guard let self, self.activeWindow?.ownerId == ownerId else { return }

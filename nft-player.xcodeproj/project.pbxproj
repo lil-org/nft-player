@@ -50,7 +50,6 @@
 		2C460ED22D2985A90083124E /* Chain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C4DBFC02C3698D10097AD35 /* Chain.swift */; };
 		2C460ED32D2985D20083124E /* Network.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C8A42E92B1A272600BE4166 /* Network.swift */; };
 		2C460ED42D2985D20083124E /* HostAppImages.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C1B60C32B7D41D1009949C2 /* HostAppImages.swift */; };
-		2C460ED52D2985E20083124E /* PlayerModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C8ADAA72C46F3FC008BC560 /* PlayerModel.swift */; };
 		2C460ED72D2985FF0083124E /* TokenGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CE9A5752C3DA9FB009AEAF4 /* TokenGenerator.swift */; };
 		2C460ED82D2985FF0083124E /* RawHtmlGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CEF35AC2C413AE700388574 /* RawHtmlGenerator.swift */; };
 		2C460EDA2D2986240083124E /* GeneratedToken.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CE9A5772C3DAB03009AEAF4 /* GeneratedToken.swift */; };
@@ -115,7 +114,6 @@
 		2C9442902C515A490078C051 /* TokenGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CE9A5752C3DA9FB009AEAF4 /* TokenGenerator.swift */; };
 		2C9442912C515A570078C051 /* NftGallery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CA979AB2B62BA2400DB3AC8 /* NftGallery.swift */; };
 		2C9442922C515AC40078C051 /* RawHtmlGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CEF35AC2C413AE700388574 /* RawHtmlGenerator.swift */; };
-		2C9442932C517E870078C051 /* PlayerModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C8ADAA72C46F3FC008BC560 /* PlayerModel.swift */; };
 		2C98C4AD2BEE9E390040383D /* Consts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C98C4AC2BEE9E390040383D /* Consts.swift */; };
 		2C9973FE2C4AEAAB00C058E2 /* WebViewWithMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C9973FD2C4AEAAB00C058E2 /* WebViewWithMenu.swift */; };
 		2C9974002C4AF12400C058E2 /* PlayerMenuDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C9973FF2C4AF12400C058E2 /* PlayerMenuDelegate.swift */; };
@@ -1100,7 +1098,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				2C460EDC2D2986460083124E /* SuggestedItemsService.swift in Sources */,
-				2C460ED52D2985E20083124E /* PlayerModel.swift in Sources */,
 				2C460EDE2D29865F0083124E /* Script.swift in Sources */,
 				2C460ECA2D29855A0083124E /* AutoReloadingWebView.swift in Sources */,
 				2CDF00102F10000000000001 /* DownloadableMediaCache.swift in Sources */,
@@ -1157,7 +1154,6 @@
 				2C5A599E2C51073F00788870 /* nft_player_visionApp.swift in Sources */,
 				2C9442902C515A490078C051 /* TokenGenerator.swift in Sources */,
 				2C5A59BF2C514FDB00788870 /* Script.swift in Sources */,
-				2C9442932C517E870078C051 /* PlayerModel.swift in Sources */,
 				2CB01A062F01000000000001 /* PlayerViewingProgressStore.swift in Sources */,
 				2D4000022F50000000000001 /* PlayerViewingSessionTracker.swift in Sources */,
 				2D4000052F50000000000001 /* PlayerBookmarksStore.swift in Sources */,

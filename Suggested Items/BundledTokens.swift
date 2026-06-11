@@ -34,11 +34,6 @@ struct BundledTokens: Codable {
     let isComplete: Bool
     let items: [Item]
 
-    init(isComplete: Bool, items: [Item]) {
-        self.isComplete = isComplete
-        self.items = items
-    }
-
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         isComplete = try container.decodeIfPresent(Bool.self, forKey: .isComplete) ?? true

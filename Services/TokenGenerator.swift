@@ -55,23 +55,6 @@ struct TokenGenerator {
         return SuggestedItemsService.visibleItems.filter { jsonsNames.contains($0.id + ".json") }
     }
     
-    private static var currentPassSet = Set<String>()
-    
-    private static func nextShuffledCollectionJsonName() -> String {
-        if currentPassSet.isEmpty {
-            currentPassSet = jsonsNames
-        }
-        let next = currentPassSet.randomElement() ?? ""
-        currentPassSet.remove(next)
-        return next
-    }
-
-    static func nextShuffledCollectionId() -> String? {
-        let jsonName = nextShuffledCollectionJsonName()
-        guard jsonName.hasSuffix(".json") else { return nil }
-        return String(jsonName.dropLast(5))
-    }
-
     static func tokenCount(specificCollectionId: String) -> Int {
         collectionData(specificCollectionId: specificCollectionId)?.tokens.count ?? 0
     }
@@ -86,15 +69,8 @@ struct TokenGenerator {
         return generateToken(collectionData.tokens[tokenIndex], script: collectionData.script)
     }
     
-    static func generateRandomToken(specificCollectionId: String?, notTokenId: String?) -> GeneratedToken? {
-        var jsonName: String
-        if let specificCollectionId = specificCollectionId {
-            jsonName = specificCollectionId + ".json"
-        } else {
-            jsonName = nextShuffledCollectionJsonName()
-        }
-        
-        guard let collectionData = collectionData(jsonName: jsonName),
+    static func generateRandomToken(specificCollectionId: String, notTokenId: String?) -> GeneratedToken? {
+        guard let collectionData = collectionData(specificCollectionId: specificCollectionId),
               var randomToken = collectionData.tokens.randomElement() else { return nil }
         
         if randomToken.id == notTokenId, let another = collectionData.tokens.randomElement() {

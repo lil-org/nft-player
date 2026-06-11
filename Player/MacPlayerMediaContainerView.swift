@@ -108,7 +108,6 @@ final class MacPlayerMediaContainerView: NSView {
     private var lastPlayerMenuEventNumber: Int?
     private var lastZoomToggleEventNumber: Int?
     private let downloadableMediaWindowOwnerId = UUID()
-    private var activeDownloadableMediaCollectionId: String?
     private let htmlDocumentRenderQueue = DispatchQueue(
         label: "org.lil.nft-player.mac-html-document-render",
         qos: .userInitiated
@@ -670,7 +669,6 @@ final class MacPlayerMediaContainerView: NSView {
             ownerId: downloadableMediaWindowOwnerId,
             direction: direction
         )
-        activeDownloadableMediaCollectionId = context.collectionId
     }
 
     private func prepareDownloadableMediaWindow(_ window: PlayerDownloadableMediaWindow) {
@@ -678,17 +676,10 @@ final class MacPlayerMediaContainerView: NSView {
             window,
             ownerId: downloadableMediaWindowOwnerId
         )
-        activeDownloadableMediaCollectionId = window.currentDescriptor.collectionId
     }
 
     private func clearManagedDownloadableMediaWindow() {
-        guard let collectionId = activeDownloadableMediaCollectionId else { return }
-
-        DownloadableMediaCache.shared.clearActiveWindow(
-            for: collectionId,
-            ownerId: downloadableMediaWindowOwnerId
-        )
-        activeDownloadableMediaCollectionId = nil
+        DownloadableMediaCache.shared.clearActiveWindow(ownerId: downloadableMediaWindowOwnerId)
     }
 
     private func adjacentDownloadableMediaDescriptor(

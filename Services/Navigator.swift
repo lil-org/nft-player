@@ -34,16 +34,6 @@ class Navigator: NSObject {
         )
     }
 
-    func showPlayer(collectionId: String, widgetTokenId: String, ensureFrontAfterOpening: Bool = false) {
-        let trackingMode = widgetOpenTrackingMode()
-        showPlayer(
-            collectionId: collectionId,
-            widgetTokenId: widgetTokenId,
-            ensureFrontAfterOpening: ensureFrontAfterOpening,
-            trackingMode: trackingMode
-        )
-    }
-
     func showWidgetPlayer(collectionId: String, tokenId: String?, ensureFrontAfterOpening: Bool = false) {
         let trackingMode = widgetOpenTrackingMode()
         if let tokenId {

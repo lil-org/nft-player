@@ -5,7 +5,6 @@ import SwiftUI
 
 class PlayerModel: ObservableObject {
     
-    let specificCollectionId: String?
     private(set) var widgetTokenInsertion: PlayerWidgetTokenInsertion?
     
     @Published var currentToken: GeneratedToken {
@@ -30,7 +29,6 @@ class PlayerModel: ObservableObject {
         ) ?? GeneratedToken.empty
         self.currentToken = token
         self.history = [token]
-        self.specificCollectionId = specificCollectionId
         self.widgetTokenInsertion = nil
         self.viewingSessionTracker = PlayerViewingSessionTracker(continueViewingCollectionId: specificCollectionId)
         configureBookmarkState(for: token)
@@ -45,7 +43,6 @@ class PlayerModel: ObservableObject {
         let token = Self.initialToken(collectionId: collectionId, initialTokenId: initialTokenId) ?? GeneratedToken.empty
         self.currentToken = token
         self.history = [token]
-        self.specificCollectionId = collectionId
         self.widgetTokenInsertion = nil
         self.viewingSessionTracker = PlayerViewingSessionTracker(
             continueViewingCollectionId: continueViewingCollectionId ?? collectionId,
@@ -60,7 +57,6 @@ class PlayerModel: ObservableObject {
     ) {
         self.currentToken = token
         self.history = [token]
-        self.specificCollectionId = token.fullCollectionId
         self.widgetTokenInsertion = nil
         self.viewingSessionTracker = PlayerViewingSessionTracker(
             continueViewingCollectionId: token.fullCollectionId,
@@ -75,7 +71,6 @@ class PlayerModel: ObservableObject {
     ) {
         self.currentToken = widgetTokenInsertion.insertedToken
         self.history = [widgetTokenInsertion.insertedToken]
-        self.specificCollectionId = widgetTokenInsertion.collectionId
         self.widgetTokenInsertion = widgetTokenInsertion
         self.isCurrentTokenInsertedWidgetToken = true
         self.viewingSessionTracker = PlayerViewingSessionTracker(
@@ -163,28 +158,6 @@ class PlayerModel: ObservableObject {
         showingInfoPopover = false
     }
     
-    func changeCollection() {
-#if os(macOS) || os(tvOS)
-        let newToken = CollectionCatalog
-            .nextShuffledCollectionId()
-            .flatMap { Self.generateToken(specificCollectionId: $0, tokenIndex: 0) }
-            ?? currentToken
-#else
-        let newToken = Self.generateRandomToken(specificCollectionId: nil, notTokenId: nil) ?? currentToken
-#endif
-        clearWidgetTokenInsertion()
-        showNewToken(newToken)
-    }
-    
-    func showNewToken(_ newToken: GeneratedToken) {
-        setCurrentTokenInsertedWidgetToken(false)
-        history.append(newToken)
-        currentIndex = history.count - 1
-        currentToken = newToken
-        trimHistoryBeforeCurrentIfNeeded()
-        showingInfoPopover = false
-    }
-
     func showPagedToken(_ token: GeneratedToken, isInsertedWidgetToken: Bool = false) {
         guard currentToken != token || isCurrentTokenInsertedWidgetToken != isInsertedWidgetToken else { return }
 
@@ -340,11 +313,7 @@ class PlayerModel: ObservableObject {
     }
 
     private static func generateRandomToken(specificCollectionId: String?, notTokenId: String?) -> GeneratedToken? {
-#if os(macOS) || os(tvOS)
         CollectionCatalog.generateRandomToken(specificCollectionId: specificCollectionId, notTokenId: notTokenId)
-#else
-        TokenGenerator.generateRandomToken(specificCollectionId: specificCollectionId, notTokenId: notTokenId)
-#endif
     }
 
     private static func initialToken(collectionId: String, initialTokenId: String?) -> GeneratedToken? {
@@ -357,27 +326,15 @@ class PlayerModel: ObservableObject {
     }
 
     private static func tokenIndex(specificCollectionId: String, tokenId: String) -> Int? {
-#if os(macOS) || os(tvOS)
         CollectionCatalog.tokenIndex(specificCollectionId: specificCollectionId, tokenId: tokenId)
-#else
-        TokenGenerator.tokenIndex(specificCollectionId: specificCollectionId, tokenId: tokenId)
-#endif
     }
 
     private static func tokenCount(specificCollectionId: String) -> Int {
-#if os(macOS) || os(tvOS)
         CollectionCatalog.tokenCount(specificCollectionId: specificCollectionId)
-#else
-        TokenGenerator.tokenCount(specificCollectionId: specificCollectionId)
-#endif
     }
 
     private static func generateToken(specificCollectionId: String, tokenIndex: Int) -> GeneratedToken? {
-#if os(macOS) || os(tvOS)
         CollectionCatalog.generateToken(specificCollectionId: specificCollectionId, tokenIndex: tokenIndex)
-#else
-        TokenGenerator.generateToken(specificCollectionId: specificCollectionId, tokenIndex: tokenIndex)
-#endif
     }
 
     private func configureBookmarkState(for token: GeneratedToken) {
