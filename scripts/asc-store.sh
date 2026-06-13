@@ -762,12 +762,107 @@ version_list_json() {
     --output json
 }
 
+editable_version_list_json() {
+  local platform="$1"
+  ensure_app_id
+  asc versions list \
+    --app "$RESOLVED_ASC_APP_ID" \
+    --platform "$(asc_platform "$platform")" \
+    --state PREPARE_FOR_SUBMISSION,DEVELOPER_REJECTED \
+    --limit 10 \
+    --output json
+}
+
+editable_version_from_list_json() {
+  local version="$1"
+  local platform="$2"
+
+  node -e '
+let input = "";
+process.stdin.setEncoding("utf8");
+process.stdin.on("data", chunk => input += chunk);
+process.stdin.on("end", () => {
+  const targetVersion = process.argv[1];
+  const platform = process.argv[2];
+  const parsed = JSON.parse(input);
+  const versions = Array.isArray(parsed.data) ? parsed.data : [];
+  const editableStates = new Set(["PREPARE_FOR_SUBMISSION", "DEVELOPER_REJECTED"]);
+  const candidates = versions.filter(item => {
+    const attributes = item && item.attributes ? item.attributes : {};
+    const state = String(attributes.appVersionState || attributes.appStoreState || attributes.state || "").trim().toUpperCase();
+    return item && item.id && editableStates.has(state);
+  });
+
+  function describe(item) {
+    const attributes = item && item.attributes ? item.attributes : {};
+    const version = attributes.versionString || attributes.version || "unknown";
+    const state = attributes.appVersionState || attributes.appStoreState || attributes.state || "unknown";
+    return `${item && item.id ? item.id : "unknown"}:${version}:${state}`;
+  }
+
+  if (candidates.length === 0) {
+    process.exit(2);
+  }
+  if (candidates.length !== 1) {
+    console.error(
+      `Expected one editable App Store version to reuse for ${targetVersion} ${platform}, ` +
+      `found ${candidates.length}: ${candidates.map(describe).join(", ")}.`
+    );
+    process.exit(1);
+  }
+
+  const candidate = candidates[0];
+  const attributes = candidate.attributes || {};
+  const currentVersion = attributes.versionString || attributes.version || "";
+  const state = attributes.appVersionState || attributes.appStoreState || attributes.state || "";
+  if (typeof currentVersion !== "string" || !currentVersion.trim() || typeof state !== "string" || !state.trim()) {
+    console.error(`Editable App Store version ${candidate.id} is missing version or state.`);
+    process.exit(1);
+  }
+  process.stdout.write([candidate.id, currentVersion.trim(), state.trim()].join("\t"));
+});
+  ' "$version" "$platform"
+}
+
 find_version_id() {
   local platform="$1"
   local versions_json
 
   versions_json="$(version_list_json "$platform")"
   printf '%s' "$versions_json" | version_field_from_list_json id "$VERSION" "$(asc_platform "$platform")"
+}
+
+find_editable_version_for_reuse() {
+  local platform="$1"
+  local versions_json
+
+  versions_json="$(editable_version_list_json "$platform")"
+  printf '%s' "$versions_json" | editable_version_from_list_json "$VERSION" "$(asc_platform "$platform")"
+}
+
+reuse_editable_app_store_version() {
+  local platform="$1"
+  local reusable
+  local status
+  local version_id
+  local current_version
+  local version_state
+
+  if reusable="$(find_editable_version_for_reuse "$platform")"; then
+    IFS=$'\t' read -r version_id current_version version_state <<< "$reusable"
+  else
+    status=$?
+    return "$status"
+  fi
+
+  if [[ "$current_version" == "$VERSION" ]]; then
+    printf 'Using existing %s App Store version %s (%s)\n' "$platform" "$version_id" "$version_state"
+    return 0
+  fi
+
+  printf 'Reusing existing %s App Store version %s (%s %s) by updating it to %s\n' \
+    "$platform" "$version_id" "$current_version" "$version_state" "$VERSION"
+  asc versions update --version-id "$version_id" --version "$VERSION"
 }
 
 resolve_version_id() {
@@ -1288,6 +1383,15 @@ ensure_app_store_version() {
 
   if version_id="$(find_version_id "$platform")"; then
     printf 'Using existing %s App Store version %s\n' "$platform" "$version_id"
+    return 0
+  else
+    status=$?
+  fi
+  if [[ "$status" -ne 2 ]]; then
+    return "$status"
+  fi
+
+  if reuse_editable_app_store_version "$platform"; then
     return 0
   else
     status=$?
