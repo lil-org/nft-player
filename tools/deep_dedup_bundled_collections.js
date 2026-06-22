@@ -5,6 +5,7 @@ const fs = require("node:fs/promises");
 const path = require("node:path");
 const { spawn } = require("node:child_process");
 const { Readable } = require("node:stream");
+const { suggestedItemId } = require("./suggested_items");
 
 const DEFAULT_BUNDLE_PATH = path.join("Suggested Items", "Suggested.bundle");
 const DEFAULT_REPORT_PATH = path.join("tools", "reports", "deep-dedup-bundled-collections.md");
@@ -220,10 +221,6 @@ function selectSuggestedItems(items, options) {
 
     return values.some((value) => collectionFilter.has(value));
   });
-}
-
-function suggestedItemId(item) {
-  return `${item.address}${item.abId ?? item.collectionId ?? ""}`;
 }
 
 function parseTokenRecords(payload, collectionItem) {

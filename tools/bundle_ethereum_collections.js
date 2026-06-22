@@ -4,11 +4,14 @@ const fs = require("node:fs/promises");
 const path = require("node:path");
 const os = require("node:os");
 const {
+  assertUniqueCoverAssetIds,
   convertCover,
+  coverAssetIdForCollection,
   resolveCoverTools,
   writeCoverContents,
   writePlaceholderCover,
 } = require("./cover_images");
+const { suggestedItemId } = require("./suggested_items");
 
 const DEFAULT_BUNDLE_PATH = path.join("Suggested Items", "Suggested.bundle");
 const DEFAULT_COVERS_PATH = path.join("Suggested Items", "Covers.xcassets");
@@ -279,6 +282,7 @@ async function main() {
   if (options.apply) {
     await writeBundle(collectionResults, context, failedCollections);
   } else {
+    assertUniqueCoverAssetIds(collectionResults, { caseInsensitive: true });
     await writeReports(collectionResults, options, true, failedCollections);
     console.log("Dry run complete. Reports were written; bundle assets were not changed.");
   }
@@ -1334,6 +1338,7 @@ async function writeBundle(collections, context, failedCollections = []) {
   await fs.mkdir(tokensPath, { recursive: true });
 
   const existingItems = JSON.parse(await fs.readFile(itemsPath, "utf8"));
+  assertUniqueCoverAssetIds(collections, { caseInsensitive: true });
   const updatedItems = mergeSuggestedItems(existingItems, collections);
 
   for (const collection of collections) {
@@ -1417,10 +1422,6 @@ function newSuggestedItem(collection) {
   };
 }
 
-function suggestedItemId(item) {
-  return `${item.address}${item.abId ?? item.collectionId ?? ""}`;
-}
-
 function formatSuggestedItems(items) {
   return `${JSON.stringify(items, null, 2).replace(/"([^"]+)":/gu, "\"$1\" :")}\n`;
 }
@@ -1428,6 +1429,7 @@ function formatSuggestedItems(items) {
 async function writeCovers(collections, context) {
   const coverTools = await resolveCoverTools();
   for (const collection of collections) {
+    const coverAssetId = coverAssetIdForCollection(collection);
     const coverCandidates = uniqueCoverCandidates([
       {
         url: collection.cover.sourceUrl,
@@ -1448,20 +1450,21 @@ async function writeCovers(collections, context) {
       continue;
     }
 
-    const imagesetPath = path.join(context.options.coversPath, `${collection.collectionId}.imageset`);
-    const outputPath = path.join(imagesetPath, `${collection.collectionId}.heic`);
+    const imagesetPath = path.join(context.options.coversPath, `${coverAssetId}.imageset`);
+    const outputPath = path.join(imagesetPath, `${coverAssetId}.heic`);
     await fs.mkdir(imagesetPath, { recursive: true });
 
     let lastError = null;
     const reachableCandidates = await reachableCoverCandidates(coverCandidates, 2500, 8);
     for (let index = 0; index < reachableCandidates.length; index += 1) {
       const candidate = reachableCandidates[index];
-      const tempPath = path.join(context.tempRoot, `${collection.collectionId}-${index}${coverSourceExtension(candidate.url)}`);
+      const tempPath = path.join(context.tempRoot, `${coverAssetId}-${index}${coverSourceExtension(candidate.url)}`);
 
       try {
         await downloadFileWithRetry(candidate.url, tempPath, context.options.timeoutMs, context.options.maxRetries);
         await convertCover(coverTools, tempPath, outputPath, context.options.coverSize, context.options.coverQuality);
-        await writeCoverContents(imagesetPath, collection.collectionId);
+        await writeCoverContents(imagesetPath, coverAssetId);
+        collection.cover.assetId = coverAssetId;
         collection.cover.sourceUrl = candidate.url;
         collection.cover.sourceKind = candidate.kind;
         delete collection.cover.error;
@@ -1480,13 +1483,14 @@ async function writeCovers(collections, context) {
       collection.cover.error = lastError.message;
       try {
         await writePlaceholderCover(coverTools, outputPath, collection.name, context.options.coverSize, context.options.coverQuality, "EVM");
-        await writeCoverContents(imagesetPath, collection.collectionId);
+        await writeCoverContents(imagesetPath, coverAssetId);
+        collection.cover.assetId = coverAssetId;
         collection.cover.sourceUrl = null;
         collection.cover.sourceKind = "generated-placeholder";
-        console.error(`Cover placeholder used for ${collection.collectionId}: ${lastError.message}`);
+        console.error(`Cover placeholder used for ${coverAssetId}: ${lastError.message}`);
       } catch (placeholderError) {
         collection.cover.error = `${lastError.message}; placeholder failed: ${placeholderError.message}`;
-        console.error(`Cover failed for ${collection.collectionId}: ${collection.cover.error}`);
+        console.error(`Cover failed for ${coverAssetId}: ${collection.cover.error}`);
       }
     }
   }
@@ -1639,8 +1643,8 @@ function buildReport(collections, options, failedCollections = []) {
     "",
     "## Collections",
     "",
-    "| Input | Chain | Collection ID | Name | OpenSea Tokens | Bundled Tokens | Cover | Review |",
-    "| --- | --- | --- | --- | ---: | ---: | --- | ---: |",
+    "| Input | Chain | Collection ID | Cover Asset ID | Name | OpenSea Tokens | Bundled Tokens | Cover | Review |",
+    "| --- | --- | --- | --- | --- | ---: | ---: | --- | ---: |",
   ];
 
   for (const collection of collections) {
@@ -1649,7 +1653,7 @@ function buildReport(collections, options, failedCollections = []) {
       + collection.mediaReview.duplicateNameItems.length
       + collection.mediaReview.unsupportedItems.length
       + collection.mediaReview.missingMediaItems.length;
-    lines.push(`| ${escapeMarkdownTable(collection.input)} | ${collection.appChain} (${collection.chainId}) | ${collection.collectionId} | ${escapeMarkdownTable(collection.name)} | ${collection.tokensSeen} | ${collection.tokens.length} | ${collection.cover.sourceKind} | ${reviewCount} |`);
+    lines.push(`| ${escapeMarkdownTable(collection.input)} | ${collection.appChain} (${collection.chainId}) | ${collection.collectionId} | ${coverAssetIdForCollection(collection)} | ${escapeMarkdownTable(collection.name)} | ${collection.tokensSeen} | ${collection.tokens.length} | ${collection.cover.sourceKind} | ${reviewCount} |`);
   }
 
   if (failedCollections.length > 0) {
@@ -1685,7 +1689,7 @@ function buildReport(collections, options, failedCollections = []) {
   lines.push("## Cover Sources", "");
   for (const collection of collections) {
     const status = collection.cover.error ? `failed: ${collection.cover.error}` : collection.cover.sourceKind;
-    lines.push(`- ${escapeMarkdown(collection.name)}: ${status} - ${collection.cover.sourceUrl ?? "none"}`);
+    lines.push(`- ${escapeMarkdown(collection.name)} (${coverAssetIdForCollection(collection)}): ${status} - ${collection.cover.sourceUrl ?? "none"}`);
   }
 
   return `${lines.join("\n")}\n`;

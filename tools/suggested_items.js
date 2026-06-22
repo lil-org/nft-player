@@ -7,6 +7,10 @@ function mergeGeneratedSuggestedItem(existingItem, generatedItem) {
   };
 }
 
+function suggestedItemId(item) {
+  return `${item.address}${item.abId ?? item.collectionId ?? ""}`;
+}
+
 function pickExistingFields(item, fields) {
   return Object.fromEntries(
     fields
@@ -17,4 +21,5 @@ function pickExistingFields(item, fields) {
 
 module.exports = {
   mergeGeneratedSuggestedItem,
+  suggestedItemId,
 };

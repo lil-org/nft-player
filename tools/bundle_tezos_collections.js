@@ -4,7 +4,9 @@ const fs = require("node:fs/promises");
 const path = require("node:path");
 const os = require("node:os");
 const {
+  assertUniqueCoverAssetIds,
   convertCover,
+  coverAssetIdForCollection,
   resolveCoverTools,
   writeCoverContents,
   writePlaceholderCover,
@@ -215,6 +217,10 @@ async function main() {
     console.log(`  ${result.name}: ${result.tokens.length} unique token media, ${result.tokenPayload.urlPrefixes.length} URL prefix(es)`);
   }
 
+  if (!options.skipCovers) {
+    assertUniqueCoverAssetIds(collectionResults);
+  }
+
   if (options.apply) {
     await writeBundle(collectionResults, context);
   } else {
@@ -304,6 +310,7 @@ async function fetchCollectionBundle(contract, context) {
     tokenPayload,
     mediaReview: preparedTokens.mediaReview,
     cover: {
+      assetId: contract,
       sourceUrl: normalizeAssetUrl(collectionMetadata.imageUri ?? collectionMetadata.image ?? collectionMetadata.thumbnailUri)
         ?? tokenCoverUrls[0]
         ?? firstImageMediaURL(preparedTokens.tokens)
@@ -977,6 +984,9 @@ async function writeBundle(collections, context) {
   const bundlePath = path.resolve(options.bundlePath);
   const tokensPath = path.join(bundlePath, "Tokens");
   const itemsPath = path.join(bundlePath, "items.json");
+  if (!options.skipCovers) {
+    assertUniqueCoverAssetIds(collections);
+  }
   await fs.mkdir(tokensPath, { recursive: true });
 
   const existingItems = JSON.parse(await fs.readFile(itemsPath, "utf8"));
@@ -1034,6 +1044,7 @@ function formatSuggestedItems(items) {
 async function writeCovers(collections, context) {
   const coverTools = await resolveCoverTools();
   for (const collection of collections) {
+    const coverAssetId = coverAssetIdForCollection(collection);
     const coverCandidates = uniqueCoverCandidates([
       {
         url: collection.cover.sourceUrl,
@@ -1054,20 +1065,21 @@ async function writeCovers(collections, context) {
       continue;
     }
 
-    const imagesetPath = path.join(context.options.coversPath, `${collection.collectionId}.imageset`);
-    const outputPath = path.join(imagesetPath, `${collection.collectionId}.heic`);
+    const imagesetPath = path.join(context.options.coversPath, `${coverAssetId}.imageset`);
+    const outputPath = path.join(imagesetPath, `${coverAssetId}.heic`);
     await fs.mkdir(imagesetPath, { recursive: true });
 
     let lastError = null;
     const reachableCandidates = await reachableCoverCandidates(coverCandidates, 2500, 8);
     for (let index = 0; index < reachableCandidates.length; index += 1) {
       const candidate = reachableCandidates[index];
-      const tempPath = path.join(context.tempRoot, `${collection.collectionId}-${index}${coverSourceExtension(candidate.url)}`);
+      const tempPath = path.join(context.tempRoot, `${coverAssetId}-${index}${coverSourceExtension(candidate.url)}`);
 
       try {
         await downloadFileWithRetry(candidate.url, tempPath, context.options.timeoutMs);
         await convertCover(coverTools, tempPath, outputPath, context.options.coverSize, context.options.coverQuality);
-        await writeCoverContents(imagesetPath, collection.collectionId);
+        await writeCoverContents(imagesetPath, coverAssetId);
+        collection.cover.assetId = coverAssetId;
         collection.cover.sourceUrl = candidate.url;
         collection.cover.sourceKind = candidate.kind;
         delete collection.cover.error;
@@ -1086,13 +1098,14 @@ async function writeCovers(collections, context) {
       collection.cover.error = lastError.message;
       try {
         await writePlaceholderCover(coverTools, outputPath, collection.name, context.options.coverSize, context.options.coverQuality, "Tezos");
-        await writeCoverContents(imagesetPath, collection.collectionId);
+        await writeCoverContents(imagesetPath, coverAssetId);
+        collection.cover.assetId = coverAssetId;
         collection.cover.sourceUrl = null;
         collection.cover.sourceKind = "generated-placeholder";
-        console.error(`Cover placeholder used for ${collection.collectionId}: ${lastError.message}`);
+        console.error(`Cover placeholder used for ${coverAssetId}: ${lastError.message}`);
       } catch (placeholderError) {
         collection.cover.error = `${lastError.message}; placeholder failed: ${placeholderError.message}`;
-        console.error(`Cover failed for ${collection.collectionId}: ${collection.cover.error}`);
+        console.error(`Cover failed for ${coverAssetId}: ${collection.cover.error}`);
       }
     }
   }
@@ -1242,8 +1255,8 @@ function buildReport(collections, options) {
     "",
     "## Collections",
     "",
-    "| Input | Collection ID | Name | TzKT Tokens | Bundled Tokens | Cover | Review |",
-    "| --- | --- | --- | ---: | ---: | --- | ---: |",
+    "| Input | Collection ID | Cover Asset ID | Name | TzKT Tokens | Bundled Tokens | Cover | Review |",
+    "| --- | --- | --- | --- | ---: | ---: | --- | ---: |",
   ];
 
   for (const collection of collections) {
@@ -1252,7 +1265,7 @@ function buildReport(collections, options) {
       + collection.mediaReview.duplicateNameItems.length
       + collection.mediaReview.unsupportedItems.length
       + collection.mediaReview.missingMediaItems.length;
-    lines.push(`| ${collection.input} | ${collection.collectionId} | ${escapeMarkdownTable(collection.name)} | ${collection.totalFromTzkt ?? collection.tokensSeen} | ${collection.tokens.length} | ${collection.cover.sourceKind} | ${reviewCount} |`);
+    lines.push(`| ${collection.input} | ${collection.collectionId} | ${coverAssetIdForCollection(collection)} | ${escapeMarkdownTable(collection.name)} | ${collection.totalFromTzkt ?? collection.tokensSeen} | ${collection.tokens.length} | ${collection.cover.sourceKind} | ${reviewCount} |`);
   }
 
   lines.push("", "## Media Review", "");
@@ -1280,7 +1293,7 @@ function buildReport(collections, options) {
   lines.push("## Cover Sources", "");
   for (const collection of collections) {
     const status = collection.cover.error ? `failed: ${collection.cover.error}` : collection.cover.sourceKind;
-    lines.push(`- ${escapeMarkdown(collection.name)}: ${status} - ${collection.cover.sourceUrl ?? "none"}`);
+    lines.push(`- ${escapeMarkdown(collection.name)} (${coverAssetIdForCollection(collection)}): ${status} - ${collection.cover.sourceUrl ?? "none"}`);
   }
 
   return `${lines.join("\n")}\n`;

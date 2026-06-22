@@ -36,11 +36,11 @@ By default, the script refuses to bundle collections above 15,000 tokens. Use `-
 
 - `Suggested Items/Suggested.bundle/Tokens/<collectionId>.json`
 - `Suggested Items/Suggested.bundle/items.json`
-- `Suggested Items/Covers.xcassets/<collectionId>.imageset/<collectionId>.heic`
+- `Suggested Items/Covers.xcassets/<coverAssetId>.imageset/<coverAssetId>.heic`
 - `tools/reports/ethereum-collection-bundle-report.md`
 - `tools/reports/ethereum-collection-bundle-report.json`
 
-Cover generation requires ImageMagick. Generated covers are normalized to 300x300 HEIC, sRGB, three-channel RGB, no alpha channel, and stripped metadata. The bundler validates the final file and fails the collection cover write if the output is not decode-safe for tvOS/visionOS.
+Cover generation requires ImageMagick. Generated covers are static single-frame 300x300 HEIC files, three-channel RGB, no alpha channel, and flattened on an opaque black canvas. The converter strips non-color metadata but preserves an embedded ICC color profile when the source has one. The bundler validates the final file and fails the collection cover write if the output is not decode-safe for tvOS/visionOS.
 
 Token JSON uses the iOS app's compact downloadable collection format:
 
@@ -64,6 +64,8 @@ Ethereum mainnet collections use the contract address as the bundle collection i
 - `zora:0xabc...` -> `0xabc...zora`
 
 The corresponding `items.json` entries include `"iosOnly" : true`, so these downloadable OpenSea bundles appear only in the iOS catalog.
+
+Cover asset ids use the same catalog lookup key as the app: `address + (abId ?? collectionId ?? "")`. Shared-contract entries such as Art Blocks should keep their collection-specific cover workflow so the script does not overwrite the wrong cover asset.
 
 ## Media Policy
 
@@ -90,8 +92,8 @@ After applying a bundle, run:
 
 ```sh
 node tools/check_bundled_collection_downloads.js --samples 5 --retries 3 --full --collection "<collection id or name>"
-sips -g format -g hasAlpha -g samplesPerPixel "Suggested Items/Covers.xcassets/<collection id>.imageset/<collection id>.heic"
-heif-info "Suggested Items/Covers.xcassets/<collection id>.imageset/<collection id>.heic"
+sips -g format -g pixelWidth -g pixelHeight -g hasAlpha -g samplesPerPixel -g profile "Suggested Items/Covers.xcassets/<coverAssetId>.imageset/<coverAssetId>.heic"
+heif-info "Suggested Items/Covers.xcassets/<coverAssetId>.imageset/<coverAssetId>.heic"
 xcodebuild -project nft-player.xcodeproj -scheme nft-player-ios -destination 'generic/platform=iOS' build
 ```
 
@@ -113,4 +115,4 @@ node tools/remove_bundled_collections.js --apply "DX Terminal"
 node tools/remove_bundled_collections.js --apply "0x41dc69132cce31fcbf6755c84538ca268520246fbase"
 ```
 
-The remover matches exact collection id, address, or collection name. `--apply` removes the matching `items.json` entry, `Tokens/<collectionId>.json`, and `Covers.xcassets/<collectionId>.imageset`.
+The remover matches exact collection id, address, or collection name. `--apply` removes the matching `items.json` entry, `Tokens/<collectionId>.json`, and `Covers.xcassets/<coverAssetId>.imageset`.

@@ -2,6 +2,7 @@
 
 const fs = require("node:fs/promises");
 const path = require("node:path");
+const { suggestedItemId: collectionIdFor } = require("./suggested_items");
 
 const DEFAULT_BUNDLE_PATH = path.join("Suggested Items", "Suggested.bundle");
 const DEFAULT_REPORT_PATH = path.join("tools", "reports", "bundled-collection-download-report.md");
@@ -144,10 +145,6 @@ function openSeaPageLimit(value, optionName) {
     return Number.POSITIVE_INFINITY;
   }
   return positiveInteger(value, optionName);
-}
-
-function collectionIdFor(item) {
-  return `${item.address}${item.abId ?? item.collectionId ?? ""}`;
 }
 
 function projectIdFor(item) {
