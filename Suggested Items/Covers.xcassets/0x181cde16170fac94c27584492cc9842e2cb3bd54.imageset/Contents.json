@@ -1,12 +1,12 @@
 {
-  "images" : [
+  "images": [
     {
-      "filename" : "0x181cde16170fac94c27584492cc9842e2cb3bd54.heic",
-      "idiom" : "universal"
+      "filename": "0x181cde16170fac94c27584492cc9842e2cb3bd54.jpg",
+      "idiom": "universal"
     }
   ],
-  "info" : {
-    "author" : "xcode",
-    "version" : 1
+  "info": {
+    "author": "xcode",
+    "version": 1
   }
 }

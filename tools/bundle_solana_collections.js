@@ -4,6 +4,7 @@ const fs = require("node:fs/promises");
 const path = require("node:path");
 const os = require("node:os");
 const {
+  assertCoverCatalogIsAssetCatalogCompatible,
   assertUniqueCoverAssetIds,
   convertCover,
   coverAssetIdForCollection,
@@ -66,7 +67,7 @@ Options:
   --timeout-ms <number>   Request timeout. Default: 30000
   --max-tokens <number>   Maximum Helius assets to bundle per collection. Default: ${DEFAULT_MAX_TOKENS}
   --cover-size <number>   Cover width/height in pixels. Default: 300
-  --cover-quality <n>     HEIC quality passed to ImageMagick. Default: 62
+  --cover-quality <n>     JPEG quality passed to ImageMagick. Default: 85
   --max-retries <n|forever>
                            Transient retry limit per request. Default: forever
   --skip-covers           Do not download or generate cover images.
@@ -90,7 +91,7 @@ function parseArgs(argv) {
     timeoutMs: 30000,
     maxTokens: DEFAULT_MAX_TOKENS,
     coverSize: 300,
-    coverQuality: 62,
+    coverQuality: 85,
     maxRetries: Number.POSITIVE_INFINITY,
     skipCovers: false,
     verbose: false,
@@ -398,7 +399,7 @@ async function fetchCollectionBundle(input, canonicalId, context) {
         ...sampleTokens(preparedTokens.tokens, 40).map((token) => token.media.url),
       ]),
       sourceKind: collectionMetadata?.image ? "collection-metadata" : "first-token",
-      outputPath: path.join(context.options.coversPath, `${collectionId}.imageset`, `${collectionId}.heic`),
+      outputPath: path.join(context.options.coversPath, `${collectionId}.imageset`, `${collectionId}.jpg`),
     },
   };
 }
@@ -1109,7 +1110,7 @@ async function writeCovers(collections, context) {
     }
 
     const imagesetPath = path.join(context.options.coversPath, `${coverAssetId}.imageset`);
-    const outputPath = path.join(imagesetPath, `${coverAssetId}.heic`);
+    const outputPath = path.join(imagesetPath, `${coverAssetId}.jpg`);
     await fs.mkdir(imagesetPath, { recursive: true });
 
     let lastError = null;
@@ -1152,6 +1153,8 @@ async function writeCovers(collections, context) {
       }
     }
   }
+
+  await assertCoverCatalogIsAssetCatalogCompatible(context.options.coversPath);
 }
 
 async function reachableCoverCandidates(candidates, timeoutMs, concurrency) {

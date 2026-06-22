@@ -25,13 +25,13 @@ By default, the script refuses to bundle collections above 15,000 assets. Use `-
 
 - `Suggested Items/Suggested.bundle/Tokens/<collectionId>.json`
 - `Suggested Items/Suggested.bundle/items.json`
-- `Suggested Items/Covers.xcassets/<coverAssetId>.imageset/<coverAssetId>.heic`
+- `Suggested Items/Covers.xcassets/<coverAssetId>.imageset/<coverAssetId>.jpg`
 - `tools/reports/solana-collection-bundle-report.md`
 - `tools/reports/solana-collection-bundle-report.json`
 
 For Solana bundles, `<coverAssetId>` is currently the same value as `<collectionId>`.
 
-Cover generation requires ImageMagick. Generated covers are static single-frame 300x300 HEIC files, three-channel RGB, no alpha channel, and flattened on an opaque black canvas. The converter strips non-color metadata but preserves an embedded ICC color profile when the source has one. The bundler validates the final file and fails the collection cover write if the output is not decode-safe for tvOS/visionOS.
+Cover generation requires ImageMagick, macOS `sips`, and Xcode `actool`. ImageMagick writes a static 300x300 JPEG from the first source frame with no alpha, flattened on an opaque black canvas; `--cover-quality` is passed to ImageMagick's JPEG encoder. The converter writes standard sRGB pixels with a standard sRGB ICC profile instead of preserving device/display profiles, which keeps colors stable across Apple platforms and avoids the pale-cover regression. Covers are JPEG instead of HEIC because tvOS/visionOS can render some bundled HEIF renditions as blank even when macOS and iOS decode them. The bundler validates each final JPEG structurally, validates the completed catalog with temporary tvOS/visionOS asset-catalog compiles, then fails the collection cover write if Apple tooling reports an unsafe cover.
 
 Token JSON uses the iOS app's compact Solana format:
 
@@ -63,8 +63,8 @@ After applying a bundle, run:
 
 ```sh
 node tools/check_bundled_collection_downloads.js --samples 5 --retries 3 --full --collection "<collection id or name>"
-sips -g format -g pixelWidth -g pixelHeight -g hasAlpha -g samplesPerPixel -g profile "Suggested Items/Covers.xcassets/<coverAssetId>.imageset/<coverAssetId>.heic"
-heif-info "Suggested Items/Covers.xcassets/<coverAssetId>.imageset/<coverAssetId>.heic"
+sips -g format -g pixelWidth -g pixelHeight -g hasAlpha -g samplesPerPixel -g profile "Suggested Items/Covers.xcassets/<coverAssetId>.imageset/<coverAssetId>.jpg"
+magick identify -format "%m %[colorspace] %[channels] %w %h %[profiles]\n" "Suggested Items/Covers.xcassets/<coverAssetId>.imageset/<coverAssetId>.jpg"
 xcodebuild -project nft-player.xcodeproj -scheme nft-player-ios -destination 'generic/platform=iOS' build
 ```
 
