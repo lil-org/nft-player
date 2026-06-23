@@ -16,10 +16,21 @@ final class PonchoDrifellaMetalCardView: NSView {
 
     static let cardAspectRatio = CGFloat(1000.0 / 1400.0)
     static let cardViewportInset = CGFloat(23)
+    private static let pointerTrackingInterval: TimeInterval = 1.0 / 30.0
 
     private var metalView: MTKView?
     private var renderer: PonchoDrifellaMetalRenderer?
     private var trackingArea: NSTrackingArea?
+    private var windowFocusObservers = [NSObjectProtocol]()
+    private var pointerTrackingTimer: Timer?
+    private var lastPolledScreenLocation: CGPoint?
+    private var isDisplayed = false
+
+    override var isHidden: Bool {
+        didSet {
+            updatePointerTrackingTimer()
+        }
+    }
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -32,13 +43,22 @@ final class PonchoDrifellaMetalCardView: NSView {
         fatalError("yo")
     }
 
+    deinit {
+        removeWindowFocusObservers()
+        stopPointerTrackingTimer()
+    }
+
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
 
         if window == nil {
+            removeWindowFocusObservers()
+            stopPointerTrackingTimer()
             renderer?.stop()
         } else {
+            installWindowFocusObservers()
             renderer?.start()
+            updatePointerTrackingTimer()
         }
     }
 
@@ -67,15 +87,19 @@ final class PonchoDrifellaMetalCardView: NSView {
     }
 
     override func mouseExited(with event: NSEvent) {
-        renderer?.resetPointer()
+        updatePointer(with: event)
     }
 
     func display(tokenId: String) {
         guard let tokenID = Int(tokenId) else { return }
+        isDisplayed = true
         renderer?.display(tokenID: tokenID)
+        updatePointerTrackingTimer()
     }
 
     func stop() {
+        isDisplayed = false
+        stopPointerTrackingTimer()
         renderer?.stop()
     }
 
@@ -129,7 +153,86 @@ final class PonchoDrifellaMetalCardView: NSView {
     }
 
     private func updatePointer(with event: NSEvent) {
+        if let window {
+            lastPolledScreenLocation = window.convertPoint(toScreen: event.locationInWindow)
+        }
         let location = convert(event.locationInWindow, from: nil)
+        renderer?.updatePointer(location: location, in: bounds.size)
+    }
+
+    private func installWindowFocusObservers() {
+        removeWindowFocusObservers()
+
+        guard let window else { return }
+
+        let notificationCenter = NotificationCenter.default
+        let observerSpecs: [(Notification.Name, Any?)] = [
+            (NSWindow.didBecomeKeyNotification, window),
+            (NSWindow.didResignKeyNotification, window),
+            (NSApplication.didBecomeActiveNotification, nil),
+            (NSApplication.didResignActiveNotification, nil)
+        ]
+        windowFocusObservers = observerSpecs.map { name, object in
+            notificationCenter.addObserver(
+                forName: name,
+                object: object,
+                queue: .main
+            ) { [weak self] _ in
+                self?.updatePointerTrackingTimer()
+            }
+        }
+    }
+
+    private func removeWindowFocusObservers() {
+        windowFocusObservers.forEach(NotificationCenter.default.removeObserver)
+        windowFocusObservers = []
+    }
+
+    private var shouldPollPointerOutsideWindow: Bool {
+        isDisplayed
+            && !isHidden
+            && window?.isKeyWindow == true
+            && NSApplication.shared.isActive
+    }
+
+    private func updatePointerTrackingTimer() {
+        if shouldPollPointerOutsideWindow {
+            startPointerTrackingTimer()
+        } else {
+            stopPointerTrackingTimer()
+        }
+    }
+
+    private func startPointerTrackingTimer() {
+        guard pointerTrackingTimer == nil else { return }
+
+        pollPointerFromScreen()
+
+        let timer = Timer(timeInterval: Self.pointerTrackingInterval, repeats: true) { [weak self] _ in
+            self?.pollPointerFromScreen()
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        pointerTrackingTimer = timer
+    }
+
+    private func stopPointerTrackingTimer() {
+        pointerTrackingTimer?.invalidate()
+        pointerTrackingTimer = nil
+        lastPolledScreenLocation = nil
+    }
+
+    private func pollPointerFromScreen() {
+        guard shouldPollPointerOutsideWindow, let window else {
+            updatePointerTrackingTimer()
+            return
+        }
+
+        let screenLocation = NSEvent.mouseLocation
+        guard screenLocation != lastPolledScreenLocation else { return }
+
+        lastPolledScreenLocation = screenLocation
+        let windowLocation = window.convertPoint(fromScreen: screenLocation)
+        let location = convert(windowLocation, from: nil)
         renderer?.updatePointer(location: location, in: bounds.size)
     }
 }
@@ -304,11 +407,6 @@ private final class PonchoDrifellaMetalRenderer: NSObject, MTKViewDelegate {
     }
 
     func stop() {
-        pointerTracker.reset()
-        metalView?.draw()
-    }
-
-    func resetPointer() {
         pointerTracker.reset()
         metalView?.draw()
     }
