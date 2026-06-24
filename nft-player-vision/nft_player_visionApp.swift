@@ -9,16 +9,24 @@ private let visionCollectionsDefaultWindowHeight: CGFloat = 720
 @main
 struct nft_player_visionApp: App {
     @UIApplicationDelegateAdaptor(VisionAppDelegate.self) var appDelegate
+    @StateObject private var immersiveMode = VisionImmersiveModeModel()
 
     var body: some Scene {
         WindowGroup(id: WindowId.collections) {
             VisionCollectionsView()
+                .environmentObject(immersiveMode)
         }
         .defaultSize(
             width: visionCollectionsDefaultWindowWidth,
             height: visionCollectionsDefaultWindowHeight
         )
         .windowResizability(.contentMinSize)
+
+        ImmersiveSpace(id: WindowId.blackImmersiveBackdrop) {
+            VisionBlackImmersiveBackdropView()
+                .environmentObject(immersiveMode)
+        }
+        .immersionStyle(selection: .constant(.mixed), in: .mixed)
     }
 }
 

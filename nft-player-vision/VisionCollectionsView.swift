@@ -12,11 +12,27 @@ private let visionCollectionsControlButtonSize: CGFloat = 46
 private let visionCollectionsControlsGroupHeight: CGFloat = visionCollectionsControlButtonSize + 8
 private let visionCollectionsTopOrnamentWidth: CGFloat = 640
 
+private enum VisionImmersiveSpaceState {
+    case closed
+    case opening
+    case open
+
+    var isOpening: Bool {
+        self == .opening
+    }
+}
+
 struct VisionCollectionsView: View {
     
     private let collectionItems: [CollectionCatalogItem]
+    @Environment(\.openImmersiveSpace) private var openImmersiveSpace
+    @Environment(\.dismissImmersiveSpace) private var dismissImmersiveSpace
+    @EnvironmentObject private var immersiveMode: VisionImmersiveModeModel
     @State private var gridPassCount = 1
     @State private var playerConfig: VisionPlayerConfig?
+    @State private var immersiveSpaceState = VisionImmersiveSpaceState.closed
+    @State private var immersiveModeRequestID = 0
+    @State private var shouldEnableImmersiveModeWhenReady = false
 
     @State private var viewingProgressByCollectionId: [String: Int]
     @State private var viewedToEndCollectionIds: Set<String>
@@ -68,9 +84,25 @@ struct VisionCollectionsView: View {
             .padding(.horizontal, visionCollectionsTopOrnamentHorizontalPadding)
             .padding(.bottom, 10)
         }
+        .ornament(
+            visibility: .visible,
+            attachmentAnchor: .scene(.topTrailing),
+            contentAlignment: .bottomTrailing
+        ) {
+            VisionImmersiveModeButton(
+                isEnabled: immersiveMode.isEnabled,
+                isOpening: immersiveSpaceState.isOpening,
+                action: toggleImmersiveMode
+            )
+            .padding(.trailing, visionCollectionsTopOrnamentHorizontalPadding)
+            .padding(.bottom, 10)
+        }
         .onAppear {
             refreshViewingProgress()
             schedulePlayerPrewarm()
+        }
+        .onChange(of: immersiveMode.isSpaceVisible) {
+            reconcileImmersiveSpaceVisibility()
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
             refreshViewingProgress()
@@ -79,6 +111,9 @@ struct VisionCollectionsView: View {
         .onReceive(NotificationCenter.default.publisher(for: .playerViewingProgressDidChange)) { _ in
             guard playerConfig == nil else { return }
             refreshViewingProgress()
+        }
+        .onDisappear {
+            dismissImmersiveSpaceIfNeeded()
         }
         .onOpenURL(perform: openWidgetURL)
     }
@@ -196,6 +231,108 @@ struct VisionCollectionsView: View {
         guard playerConfig?.id == config.id else { return }
         playerConfig = nil
         refreshViewingProgress()
+    }
+
+    private func toggleImmersiveMode() {
+        if immersiveMode.isEnabled {
+            immersiveMode.isEnabled = false
+        } else {
+            enableImmersiveMode()
+        }
+    }
+
+    private func enableImmersiveMode() {
+        if immersiveMode.isSpaceVisible {
+            immersiveSpaceState = .open
+            immersiveMode.isEnabled = true
+            shouldEnableImmersiveModeWhenReady = false
+        } else if immersiveSpaceState == .opening {
+            shouldEnableImmersiveModeWhenReady = true
+        } else {
+            prepareImmersiveSpaceIfNeeded(shouldEnableWhenReady: true)
+        }
+    }
+
+    private func prepareImmersiveSpaceIfNeeded(shouldEnableWhenReady: Bool = false) {
+        if shouldEnableWhenReady {
+            shouldEnableImmersiveModeWhenReady = true
+        }
+
+        if immersiveMode.isSpaceVisible {
+            immersiveSpaceState = .open
+            if shouldEnableImmersiveModeWhenReady {
+                immersiveMode.isEnabled = true
+                shouldEnableImmersiveModeWhenReady = false
+            }
+            return
+        }
+
+        guard immersiveSpaceState != .opening else { return }
+
+        immersiveModeRequestID += 1
+        let requestID = immersiveModeRequestID
+        immersiveSpaceState = .opening
+
+        Task { @MainActor in
+            await finishOpeningImmersiveSpace(requestID: requestID)
+        }
+    }
+
+    private func finishOpeningImmersiveSpace(requestID: Int) async {
+        let result = await openImmersiveSpace(id: WindowId.blackImmersiveBackdrop)
+
+        guard requestID == immersiveModeRequestID else {
+            if case .opened = result {
+                await dismissImmersiveSpace()
+            }
+            return
+        }
+
+        switch result {
+        case .opened:
+            immersiveSpaceState = .open
+            if shouldEnableImmersiveModeWhenReady {
+                immersiveMode.isEnabled = true
+                shouldEnableImmersiveModeWhenReady = false
+            }
+        case .userCancelled, .error:
+            immersiveSpaceState = .closed
+            immersiveMode.isEnabled = false
+            shouldEnableImmersiveModeWhenReady = false
+        @unknown default:
+            immersiveSpaceState = .closed
+            immersiveMode.isEnabled = false
+            shouldEnableImmersiveModeWhenReady = false
+        }
+    }
+
+    private func reconcileImmersiveSpaceVisibility() {
+        if immersiveMode.isSpaceVisible {
+            immersiveSpaceState = .open
+            if shouldEnableImmersiveModeWhenReady {
+                immersiveMode.isEnabled = true
+                shouldEnableImmersiveModeWhenReady = false
+            }
+        } else if immersiveSpaceState != .closed {
+            immersiveSpaceState = .closed
+            shouldEnableImmersiveModeWhenReady = false
+        }
+    }
+
+    private func dismissImmersiveSpaceIfNeeded() {
+        guard immersiveSpaceState != .closed || immersiveMode.isEnabled || immersiveMode.isSpaceVisible else { return }
+
+        immersiveModeRequestID += 1
+        immersiveMode.isEnabled = false
+        shouldEnableImmersiveModeWhenReady = false
+
+        let shouldDismissVisibleSpace = immersiveMode.isSpaceVisible
+        immersiveSpaceState = .closed
+
+        guard shouldDismissVisibleSpace else { return }
+        Task { @MainActor in
+            await dismissImmersiveSpace()
+        }
     }
 
     private func schedulePlayerPrewarm() {
@@ -345,6 +482,36 @@ struct VisionCollectionsView: View {
         return progress
     }
 
+}
+
+private struct VisionImmersiveModeButton: View {
+    let isEnabled: Bool
+    let isOpening: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            image
+                .font(.title3.weight(.semibold))
+                .frame(
+                    width: visionCollectionsControlButtonSize,
+                    height: visionCollectionsControlButtonSize
+                )
+        }
+        .buttonStyle(.plain)
+        .disabled(isOpening)
+        .background(.regularMaterial, in: Circle())
+        .contentShape(Circle())
+        .accessibilityLabel(accessibilityLabel)
+    }
+
+    private var image: Image {
+        isEnabled ? Images.exitImmersiveMode : Images.enterImmersiveMode
+    }
+
+    private var accessibilityLabel: String {
+        isEnabled ? Strings.exitImmersiveMode : Strings.enterImmersiveMode
+    }
 }
 
 private struct VisionCollectionsTopOrnament: View {

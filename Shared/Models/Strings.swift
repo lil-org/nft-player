@@ -22,6 +22,8 @@ struct Strings {
     static let bookmarkRemoved = loc("Bookmark Removed")
     static let continueViewing = loc("Continue Viewing")
     static let viewAgain = loc("View Again")
+    static let enterImmersiveMode = loc("Enter Immersive Mode")
+    static let exitImmersiveMode = loc("Exit Immersive Mode")
     static let play = loc("Play")
     static let settings = loc("Settings")
     static let shuffle = loc("Shuffle")
