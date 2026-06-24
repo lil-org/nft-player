@@ -6,6 +6,8 @@ private let playerStatusBarRevealAnimation = Animation.easeInOut(duration: 0.38)
 private let playerStatusBarRevealDuration: TimeInterval = 0.3
 private let initialCollectionItemFadeDuration: TimeInterval = 0.3
 private let initialCollectionItemFadeAnimationKey = "initialGridItemFade"
+private let continueViewingLargeIPadMinimumWidth: CGFloat = 700
+private let continueViewingContentSizedCollectionNameMaxWidth: CGFloat = 250
 
 private enum PlayerPresentationTransition {
     case animated
@@ -122,9 +124,15 @@ struct MobileCollectionsView: View {
 
             if playerConfig == nil, let continueViewingProgress {
                 GeometryReader { geometry in
+                    let usesContentSizedContinueViewingButton = UIDevice.current.userInterfaceIdiom == .pad
+                        && geometry.size.width >= continueViewingLargeIPadMinimumWidth
+
                     VStack {
                         Spacer()
-                        ContinueViewingButton(progress: continueViewingProgress) {
+                        ContinueViewingButton(
+                            progress: continueViewingProgress,
+                            usesContentSizedLayout: usesContentSizedContinueViewingButton
+                        ) {
                             resumeViewing(continueViewingProgress)
                         }
                         .padding(.horizontal, 16)
@@ -1130,6 +1138,7 @@ private final class GridTitleLabel: UILabel {
 
 private struct ContinueViewingButton: View {
     let progress: MobileViewingProgress
+    var usesContentSizedLayout = false
     let action: () -> Void
 
     var body: some View {
@@ -1141,12 +1150,12 @@ private struct ContinueViewingButton: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(Strings.continueViewing)
                         .font(.caption.weight(.semibold))
-                    Text(progress.collectionName)
-                        .font(.subheadline.weight(.semibold))
-                        .lineLimit(1)
+                    collectionName
                 }
 
-                Spacer(minLength: 12)
+                if !usesContentSizedLayout {
+                    Spacer(minLength: 12)
+                }
 
                 Text(Strings.percent(progress.percent))
                     .font(.subheadline.weight(.bold))
@@ -1161,6 +1170,22 @@ private struct ContinueViewingButton: View {
             .clipShape(Capsule())
         }
         .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private var collectionName: some View {
+        let text = Text(progress.collectionName)
+            .font(.subheadline.weight(.semibold))
+            .lineLimit(1)
+            .truncationMode(.tail)
+
+        if usesContentSizedLayout {
+            text
+                .frame(maxWidth: continueViewingContentSizedCollectionNameMaxWidth, alignment: .leading)
+                .layoutPriority(1)
+        } else {
+            text
+        }
     }
 }
 
