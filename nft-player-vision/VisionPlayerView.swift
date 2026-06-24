@@ -5,6 +5,9 @@ import ImageIO
 import SwiftUI
 import UIKit
 
+private let visionPlayerTitlePillWidth: CGFloat = 280
+private let visionPlayerCompactTitlePillWidth: CGFloat = 104
+
 struct VisionPlayerConfig: Hashable, Identifiable {
     var id = UUID()
     var initialItemId: String?
@@ -27,17 +30,25 @@ struct VisionPlayerView: View {
     }
     
     var body: some View {
-        VStack(spacing: 0) {
-            VisionPlayerPagerView(
-                playerModel: playerModel,
-                navigationBridge: navigationBridge
-            )
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-            playerToolbar
-                .padding()
-        }
+        VisionPlayerPagerView(
+            playerModel: playerModel,
+            navigationBridge: navigationBridge
+        )
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.black)
+        .ornament(
+            visibility: .visible,
+            attachmentAnchor: .scene(.top),
+            contentAlignment: .bottom
+        ) {
+            playerOrnament
+                .padding(.leading, VisionOrnamentMetrics.horizontalPadding)
+                .padding(
+                    .trailing,
+                    VisionOrnamentMetrics.horizontalPadding + VisionOrnamentMetrics.trailingControlReservedWidth
+                )
+                .padding(.bottom, VisionOrnamentMetrics.bottomPadding)
+        }
         .onDisappear {
             DownloadableMediaCache.shared.clearActiveWindow(ownerId: playerModel.id)
         }
@@ -46,55 +57,63 @@ struct VisionPlayerView: View {
         }
     }
 
-    private var playerToolbar: some View {
+    private var playerOrnament: some View {
         ViewThatFits(in: .horizontal) {
-            fullPlayerToolbar
-            compactPlayerToolbar
+            playerOrnamentContent {
+                playerTitlePill
+            }
+            playerOrnamentContent {
+                compactPlayerTitlePill
+            }
+            playerControlsGroup
         }
     }
 
-    private var fullPlayerToolbar: some View {
-        HStack(spacing: 12) {
+    private func playerOrnamentContent<Title: View>(
+        @ViewBuilder title: () -> Title
+    ) -> some View {
+        HStack(spacing: VisionOrnamentMetrics.spacing) {
+            dismissControlsGroup
+            title()
+            playerActionControlsGroup
+        }
+        .fixedSize(horizontal: true, vertical: false)
+    }
+
+    private var playerControlsGroup: some View {
+        HStack(spacing: VisionOrnamentMetrics.spacing) {
+            dismissControlsGroup
+            playerActionControlsGroup
+        }
+        .fixedSize(horizontal: true, vertical: false)
+    }
+
+    private var dismissControlsGroup: some View {
+        HStack(spacing: VisionOrnamentMetrics.controlGroupSpacing) {
             dismissButton
+        }
+        .visionOrnamentControlGroupStyle()
+    }
 
-            Spacer(minLength: 12)
-
-            playerTitle
-
-            Spacer(minLength: 12)
-
+    private var playerActionControlsGroup: some View {
+        HStack(spacing: VisionOrnamentMetrics.controlGroupSpacing) {
             playerNavigationControls
             playerCompletionControls
             playerBookmarkButton
             moreMenu
         }
-    }
-
-    private var compactPlayerToolbar: some View {
-        HStack(spacing: 10) {
-            dismissButton
-            playerNavigationControls
-
-            Spacer(minLength: 8)
-
-            compactPlayerTitle
-
-            Spacer(minLength: 8)
-
-            playerCompletionControls
-            playerBookmarkButton
-            moreMenu
-        }
+        .visionOrnamentControlGroupStyle()
     }
 
     private var dismissButton: some View {
-        Button(action: onDismiss) {
-            Images.back
-        }
-        .accessibilityLabel(Strings.back)
+        VisionOrnamentIconButton(
+            image: Images.back,
+            accessibilityLabel: Strings.back,
+            action: onDismiss
+        )
     }
 
-    private var playerTitle: some View {
+    private var playerTitlePill: some View {
         VStack(spacing: 2) {
             Text(playerModel.currentToken.collectionName)
                 .font(.headline.weight(.semibold))
@@ -109,61 +128,84 @@ struct VisionPlayerView: View {
                     .lineLimit(1)
             }
         }
-        .frame(maxWidth: 360)
+        .padding(.horizontal, 16)
+        .frame(
+            width: visionPlayerTitlePillWidth,
+            height: VisionOrnamentMetrics.controlGroupHeight
+        )
+        .background(.ultraThinMaterial, in: Capsule())
+        .clipShape(Capsule())
+        .accessibilityElement(children: .combine)
     }
 
-    @ViewBuilder
-    private var compactPlayerTitle: some View {
-        if !playerModel.currentPageLabel.isEmpty {
-            Text(playerModel.currentPageLabel)
-                .font(.caption.weight(.semibold))
-                .monospacedDigit()
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .frame(minWidth: 64)
-        }
+    private var compactPlayerTitlePill: some View {
+        Text(compactPlayerTitleText)
+            .font(.caption.weight(.semibold))
+            .monospacedDigit()
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+            .minimumScaleFactor(0.75)
+            .padding(.horizontal, 12)
+            .frame(
+                width: visionPlayerCompactTitlePillWidth,
+                height: VisionOrnamentMetrics.controlGroupHeight
+            )
+            .background(.ultraThinMaterial, in: Capsule())
+            .clipShape(Capsule())
+            .accessibilityLabel(Text(compactPlayerTitleText))
+    }
+
+    private var compactPlayerTitleText: String {
+        playerModel.currentPageLabel.isEmpty
+            ? playerModel.currentToken.collectionName
+            : playerModel.currentPageLabel
     }
 
     private var playerNavigationControls: some View {
-        HStack(spacing: 8) {
-            Button(action: goBack) {
-                Images.back
-            }
+        HStack(spacing: VisionOrnamentMetrics.controlGroupSpacing) {
+            VisionOrnamentIconButton(
+                image: Images.back,
+                accessibilityLabel: Strings.back,
+                action: goBack
+            )
             .keyboardShortcut("[", modifiers: .command)
             .disabled(!playerModel.canGoBack)
-            .accessibilityLabel(Strings.back)
 
-            Button(action: goForward) {
-                Images.forward
-            }
+            VisionOrnamentIconButton(
+                image: Images.forward,
+                accessibilityLabel: Strings.forward,
+                action: goForward
+            )
             .keyboardShortcut("]", modifiers: .command)
             .disabled(!playerModel.canGoForward)
-            .accessibilityLabel(Strings.forward)
         }
     }
 
     @ViewBuilder
     private var playerCompletionControls: some View {
         if playerModel.currentProgress?.isComplete == true {
-            Button(action: viewAgain) {
-                Images.viewAgain
-            }
-            .accessibilityLabel(Strings.viewAgain)
+            VisionOrnamentIconButton(
+                image: Images.viewAgain,
+                accessibilityLabel: Strings.viewAgain,
+                action: viewAgain
+            )
 
-            Button(action: onDismiss) {
-                Images.finish
-            }
-            .accessibilityLabel(Strings.finish)
+            VisionOrnamentIconButton(
+                image: Images.finish,
+                accessibilityLabel: Strings.finish,
+                action: onDismiss
+            )
         }
     }
 
     @ViewBuilder
     private var playerBookmarkButton: some View {
         if playerModel.canBookmarkCurrentToken {
-            Button(action: toggleCurrentTokenBookmark) {
-                playerModel.isCurrentTokenBookmarked ? Images.bookmarkFill : Images.bookmark
-            }
-            .accessibilityLabel(playerModel.isCurrentTokenBookmarked ? Strings.removeBookmark : Strings.bookmark)
+            VisionOrnamentIconButton(
+                image: playerModel.isCurrentTokenBookmarked ? Images.bookmarkFill : Images.bookmark,
+                accessibilityLabel: playerModel.isCurrentTokenBookmarked ? Strings.removeBookmark : Strings.bookmark,
+                action: toggleCurrentTokenBookmark
+            )
         }
     }
 
@@ -172,8 +214,10 @@ struct VisionPlayerView: View {
             Button(Strings.viewOnBlockExplorer, action: viewOnWeb)
                 .disabled(playerModel.currentToken.url == nil)
         } label: {
-            Images.ellipsis
+            VisionOrnamentIconLabel(image: Images.ellipsis)
         }
+        .menuIndicator(.hidden)
+        .visionOrnamentIconControlStyle()
         .accessibilityLabel(Strings.more)
     }
     

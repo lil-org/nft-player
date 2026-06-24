@@ -2,6 +2,79 @@
 
 import SwiftUI
 
+enum VisionOrnamentMetrics {
+    static let spacing: CGFloat = 10
+    static let horizontalPadding: CGFloat = 24
+    static let bottomPadding: CGFloat = 10
+    static let controlButtonSize: CGFloat = 46
+    static let controlGroupPadding: CGFloat = 4
+    static let controlGroupSpacing: CGFloat = 8
+
+    static var controlGroupHeight: CGFloat {
+        controlButtonSize + controlGroupPadding * 2
+    }
+
+    static var trailingControlReservedWidth: CGFloat {
+        controlButtonSize + horizontalPadding + spacing
+    }
+}
+
+struct VisionOrnamentIconButton: View {
+    let image: Image
+    let accessibilityLabel: String
+    let isDisabled: Bool
+    let action: () -> Void
+
+    init(
+        image: Image,
+        accessibilityLabel: String,
+        isDisabled: Bool = false,
+        action: @escaping () -> Void
+    ) {
+        self.image = image
+        self.accessibilityLabel = accessibilityLabel
+        self.isDisabled = isDisabled
+        self.action = action
+    }
+
+    var body: some View {
+        Button(action: action) {
+            VisionOrnamentIconLabel(image: image)
+        }
+        .visionOrnamentIconControlStyle()
+        .disabled(isDisabled)
+        .accessibilityLabel(accessibilityLabel)
+    }
+}
+
+struct VisionOrnamentIconLabel: View {
+    let image: Image
+
+    var body: some View {
+        image
+            .font(.title3.weight(.semibold))
+            .frame(
+                width: VisionOrnamentMetrics.controlButtonSize,
+                height: VisionOrnamentMetrics.controlButtonSize
+            )
+    }
+}
+
+extension View {
+    func visionOrnamentIconControlStyle() -> some View {
+        buttonStyle(.plain)
+            .background(.regularMaterial, in: Circle())
+            .contentShape(Circle())
+    }
+
+    func visionOrnamentControlGroupStyle() -> some View {
+        padding(VisionOrnamentMetrics.controlGroupPadding)
+            .frame(height: VisionOrnamentMetrics.controlGroupHeight)
+            .background(.ultraThinMaterial, in: Capsule())
+            .clipShape(Capsule())
+    }
+}
+
 struct WindowId {
     
     static let collections = "collections"

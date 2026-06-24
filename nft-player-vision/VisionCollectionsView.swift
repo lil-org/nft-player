@@ -4,13 +4,13 @@ import SwiftUI
 
 private let visionCollectionsMinimumWindowWidth: CGFloat = 720
 private let visionCollectionsMinimumWindowHeight: CGFloat = 540
-private let visionCollectionsTopOrnamentSpacing: CGFloat = 10
-private let visionCollectionsTopOrnamentHorizontalPadding: CGFloat = 24
 private let visionCollectionsContinueViewingMinWidth: CGFloat = 360
 private let visionCollectionsContinueViewingMaxWidth: CGFloat = 520
-private let visionCollectionsControlButtonSize: CGFloat = 46
-private let visionCollectionsControlsGroupHeight: CGFloat = visionCollectionsControlButtonSize + 8
-private let visionCollectionsTopOrnamentWidth: CGFloat = 640
+private let visionCollectionsTopOrnamentWidth: CGFloat = (
+    visionCollectionsMinimumWindowWidth
+    - VisionOrnamentMetrics.horizontalPadding * 2
+    - VisionOrnamentMetrics.trailingControlReservedWidth
+)
 
 private enum VisionImmersiveSpaceState {
     case closed
@@ -81,8 +81,12 @@ struct VisionCollectionsView: View {
                 onContinueViewing: { progress in resumeViewing(progress) },
                 onShowRandomPlayer: showRandomPlayer
             )
-            .padding(.horizontal, visionCollectionsTopOrnamentHorizontalPadding)
-            .padding(.bottom, 10)
+            .padding(.leading, VisionOrnamentMetrics.horizontalPadding)
+            .padding(
+                .trailing,
+                VisionOrnamentMetrics.horizontalPadding + VisionOrnamentMetrics.trailingControlReservedWidth
+            )
+            .padding(.bottom, VisionOrnamentMetrics.bottomPadding)
         }
         .ornament(
             visibility: .visible,
@@ -94,8 +98,8 @@ struct VisionCollectionsView: View {
                 isOpening: immersiveSpaceState.isOpening,
                 action: toggleImmersiveMode
             )
-            .padding(.trailing, visionCollectionsTopOrnamentHorizontalPadding)
-            .padding(.bottom, 10)
+            .padding(.trailing, VisionOrnamentMetrics.horizontalPadding)
+            .padding(.bottom, VisionOrnamentMetrics.bottomPadding)
         }
         .onAppear {
             refreshViewingProgress()
@@ -490,19 +494,12 @@ private struct VisionImmersiveModeButton: View {
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            image
-                .font(.title3.weight(.semibold))
-                .frame(
-                    width: visionCollectionsControlButtonSize,
-                    height: visionCollectionsControlButtonSize
-                )
-        }
-        .buttonStyle(.plain)
-        .disabled(isOpening)
-        .background(.regularMaterial, in: Circle())
-        .contentShape(Circle())
-        .accessibilityLabel(accessibilityLabel)
+        VisionOrnamentIconButton(
+            image: image,
+            accessibilityLabel: accessibilityLabel,
+            isDisabled: isOpening,
+            action: action
+        )
     }
 
     private var image: Image {
@@ -520,7 +517,7 @@ private struct VisionCollectionsTopOrnament: View {
     let onShowRandomPlayer: () -> Void
 
     var body: some View {
-        HStack(spacing: visionCollectionsTopOrnamentSpacing) {
+        HStack(spacing: VisionOrnamentMetrics.spacing) {
             if let continueViewingProgress {
                 VisionContinueViewingButton(progress: continueViewingProgress) {
                     onContinueViewing(continueViewingProgress)
@@ -528,7 +525,7 @@ private struct VisionCollectionsTopOrnament: View {
                 .transition(.opacity)
             }
 
-            Spacer(minLength: visionCollectionsTopOrnamentSpacing)
+            Spacer(minLength: VisionOrnamentMetrics.spacing)
 
             controlsGroup
         }
@@ -537,26 +534,16 @@ private struct VisionCollectionsTopOrnament: View {
     }
 
     private var controlsGroup: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: VisionOrnamentMetrics.controlGroupSpacing) {
             settingsMenu
 
-            Button(action: onShowRandomPlayer) {
-                Images.shuffle
-                    .font(.title3.weight(.semibold))
-                    .frame(
-                        width: visionCollectionsControlButtonSize,
-                        height: visionCollectionsControlButtonSize
-                    )
-            }
-            .buttonStyle(.plain)
-            .background(.regularMaterial, in: Circle())
-            .contentShape(Circle())
-            .accessibilityLabel(Strings.shuffle)
+            VisionOrnamentIconButton(
+                image: Images.shuffle,
+                accessibilityLabel: Strings.shuffle,
+                action: onShowRandomPlayer
+            )
         }
-        .padding(4)
-        .frame(height: visionCollectionsControlsGroupHeight)
-        .background(.ultraThinMaterial, in: Capsule())
-        .clipShape(Capsule())
+        .visionOrnamentControlGroupStyle()
     }
 
     private var settingsMenu: some View {
@@ -568,17 +555,10 @@ private struct VisionCollectionsTopOrnament: View {
             Divider()
             Button(Strings.rateOnTheAppStore) { UIApplication.shared.open(URL.writeAppStoreReview) }
         } label: {
-            Images.preferences
-                .font(.title3.weight(.semibold))
-                .frame(
-                    width: visionCollectionsControlButtonSize,
-                    height: visionCollectionsControlButtonSize
-                )
+            VisionOrnamentIconLabel(image: Images.preferences)
         }
         .menuIndicator(.hidden)
-        .buttonStyle(.plain)
-        .background(.regularMaterial, in: Circle())
-        .contentShape(Circle())
+        .visionOrnamentIconControlStyle()
         .accessibilityLabel(Strings.settings)
     }
 }
@@ -629,8 +609,8 @@ private struct VisionContinueViewingButton: View {
             .frame(
                 minWidth: visionCollectionsContinueViewingMinWidth,
                 maxWidth: visionCollectionsContinueViewingMaxWidth,
-                minHeight: visionCollectionsControlsGroupHeight,
-                maxHeight: visionCollectionsControlsGroupHeight
+                minHeight: VisionOrnamentMetrics.controlGroupHeight,
+                maxHeight: VisionOrnamentMetrics.controlGroupHeight
             )
             .background {
                 VisionProgressCapsuleBackground(progress: progress.fraction)
