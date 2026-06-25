@@ -24,8 +24,8 @@ enum FullscreenTokenMediaView {
         return webView
     }
 
-    static func ponchoDrifellaMetalCardView(in containerView: UIView) -> PonchoDrifellaMetalCardView {
-        let cardView = PonchoDrifellaMetalCardView()
+    static func nativeMetalCardView(in containerView: UIView) -> NativeMetalCardView {
+        let cardView = NativeMetalCardView()
         cardView.isUserInteractionEnabled = false
         install(cardView, in: containerView)
         return cardView
@@ -49,7 +49,7 @@ final class FullscreenTokenMediaRenderer {
     private let containerView: UIView
     private var webView: AutoReloadingWebView!
     private var imageView: UIImageView!
-    private var ponchoDrifellaMetalCardView: PonchoDrifellaMetalCardView!
+    private var nativeMetalCardView: NativeMetalCardView!
     private var representedImageKey: AnyHashable?
     private var activeImageLoadId: UUID?
     private var cancelActiveImageLoad: ImageLoadCancellation?
@@ -62,12 +62,12 @@ final class FullscreenTokenMediaRenderer {
 
     deinit {
         cancelCurrentImageLoad()
-        ponchoDrifellaMetalCardView?.stop()
+        nativeMetalCardView?.stop()
     }
 
     func clearContent() {
         cancelCurrentImageLoad()
-        hidePonchoDrifellaMetalCardView()
+        hideNativeMetalCardView()
         representedImageKey = nil
         unloadWebContentIfNeeded()
         imageView?.image = nil
@@ -75,7 +75,7 @@ final class FullscreenTokenMediaRenderer {
 
     func displayLoadedImage<Key: Hashable>(_ image: UIImage, key: Key) {
         cancelCurrentImageLoad()
-        hidePonchoDrifellaMetalCardView()
+        hideNativeMetalCardView()
         let imageKey = AnyHashable(key)
         representedImageKey = imageKey
         ensureImageView()
@@ -108,7 +108,7 @@ final class FullscreenTokenMediaRenderer {
         cancelCurrentImageLoad()
         ensureImageView()
         hideWebContent()
-        hidePonchoDrifellaMetalCardView()
+        hideNativeMetalCardView()
         imageView.isHidden = hideImageUntilLoaded
         imageView.image = nil
         onBegin?()
@@ -171,15 +171,15 @@ final class FullscreenTokenMediaRenderer {
         )
     }
 
-    func renderPonchoDrifellaMetalCard(tokenId: String) {
+    func renderNativeMetalCard(tokenId: String, renderKind: NativeMetalCardRenderKind) {
         cancelCurrentImageLoad()
         representedImageKey = nil
-        ensurePonchoDrifellaMetalCardView()
+        ensureNativeMetalCardView()
         imageView?.isHidden = true
         imageView?.image = nil
         hideWebContent()
-        ponchoDrifellaMetalCardView.isHidden = false
-        ponchoDrifellaMetalCardView.display(tokenId: tokenId)
+        nativeMetalCardView.isHidden = false
+        nativeMetalCardView.display(tokenId: tokenId, renderKind: renderKind)
     }
 
     func preloadWebImage(_ imageURL: URL, completion: ((Bool) -> Void)? = nil) {
@@ -210,8 +210,8 @@ final class FullscreenTokenMediaRenderer {
             imageView.makeBackgroundTransparent()
         }
         webView?.makePlayerBackgroundTransparent()
-        if let ponchoDrifellaMetalCardView = ponchoDrifellaMetalCardView {
-            ponchoDrifellaMetalCardView.makeBackgroundTransparent()
+        if let nativeMetalCardView = nativeMetalCardView {
+            nativeMetalCardView.makeBackgroundTransparent()
         }
     }
 
@@ -225,7 +225,7 @@ final class FullscreenTokenMediaRenderer {
         ensureWebView()
         imageView?.isHidden = true
         imageView?.image = nil
-        hidePonchoDrifellaMetalCardView()
+        hideNativeMetalCardView()
         webView.stopLoading()
         webViewMayContainContent = !html.isEmpty
         webView.isHidden = hidesEmptyWebContent && html.isEmpty
@@ -257,12 +257,12 @@ final class FullscreenTokenMediaRenderer {
         }
     }
 
-    private func ensurePonchoDrifellaMetalCardView() {
-        guard ponchoDrifellaMetalCardView == nil else { return }
+    private func ensureNativeMetalCardView() {
+        guard nativeMetalCardView == nil else { return }
 
-        ponchoDrifellaMetalCardView = FullscreenTokenMediaView.ponchoDrifellaMetalCardView(in: containerView)
+        nativeMetalCardView = FullscreenTokenMediaView.nativeMetalCardView(in: containerView)
         if usesTransparentPlayerBackground {
-            ponchoDrifellaMetalCardView.makeBackgroundTransparent()
+            nativeMetalCardView.makeBackgroundTransparent()
         }
     }
 
@@ -271,9 +271,9 @@ final class FullscreenTokenMediaRenderer {
         webView?.isHidden = true
     }
 
-    private func hidePonchoDrifellaMetalCardView() {
-        ponchoDrifellaMetalCardView?.stop()
-        ponchoDrifellaMetalCardView?.isHidden = true
+    private func hideNativeMetalCardView() {
+        nativeMetalCardView?.stop()
+        nativeMetalCardView?.isHidden = true
     }
 
     private func unloadWebContentIfNeeded() {
@@ -581,7 +581,7 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        PonchoDrifellaMetalCardView.resetMotionCalibration()
+        NativeMetalCardView.resetMotionCalibration()
         MobilePlaybackController.shared.subscribe(config: initialConfig, display: self)
         makePlayerBackgroundTransparent()
         pagingVC.onCurrentZoomStateChange = { [weak self] isZoomed in
@@ -1038,14 +1038,14 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
 
     private enum ZoomAllowedContent: Equatable {
         case fullContent
-        case ponchoDrifellaCard
+        case nativeMetalCard
 
         func rect(in contentBounds: CGRect) -> CGRect {
             switch self {
             case .fullContent:
                 return contentBounds
-            case .ponchoDrifellaCard:
-                return PonchoDrifellaMetalCardView.cardContentRect(in: contentBounds.size)
+            case .nativeMetalCard:
+                return NativeMetalCardLayout.cardContentRect(in: contentBounds.size)
             }
         }
     }
@@ -1469,9 +1469,9 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             return
         }
 
-        if token.usesPonchoDrifellaMetalRenderer {
+        if let nativeRenderKind = token.nativeMetalCardRenderKind {
             fourDirectionalPlayerDataSource?.clearDownloadableMediaWindow()
-            renderPonchoDrifellaMetalCard(token)
+            renderNativeMetalCard(token, renderKind: nativeRenderKind)
         } else if let mediaWindow = prepareCurrentDownloadableMediaWindow() {
             let descriptor = mediaWindow.currentDescriptor
             switch descriptor.media {
@@ -1497,7 +1497,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     fileprivate func refreshDownloadableMediaWindow() {
         guard willOrDidAppear else { return }
         guard let token = fourDirectionalPlayerDataSource?.getToken(x: horizontalIndex, y: verticalIndex),
-              !token.usesPonchoDrifellaMetalRenderer else {
+              token.nativeMetalCardRenderKind == nil else {
             fourDirectionalPlayerDataSource?.clearDownloadableMediaWindow()
             return
         }
@@ -1599,10 +1599,10 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         renderAnimatedFallbackWebContent(html)
     }
 
-    private func renderPonchoDrifellaMetalCard(_ token: GeneratedToken) {
+    private func renderNativeMetalCard(_ token: GeneratedToken, renderKind: NativeMetalCardRenderKind) {
         clearAnimatedRenderContext()
-        setZoomContentLayout(.viewport, allowedContent: .ponchoDrifellaCard)
-        mediaRenderer.renderPonchoDrifellaMetalCard(tokenId: token.id)
+        setZoomContentLayout(.viewport, allowedContent: .nativeMetalCard)
+        mediaRenderer.renderNativeMetalCard(tokenId: token.id, renderKind: renderKind)
     }
 
     private func renderAnimatedFallbackWebContent(_ html: String) {

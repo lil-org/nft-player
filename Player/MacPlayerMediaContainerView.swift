@@ -41,7 +41,7 @@ final class MacPlayerMediaContainerView: NSView {
 
     private enum ZoomAllowedContent: Equatable {
         case fullContent
-        case ponchoDrifellaCard
+        case nativeMetalCard
     }
 
     private struct VideoSizeRequest: Equatable, Hashable {
@@ -80,7 +80,7 @@ final class MacPlayerMediaContainerView: NSView {
     private let zoomContentView = MacPlayerZoomContentView()
     private var imageView: AspectFitImageView?
     private var webView: PlayerWebView?
-    private var ponchoDrifellaMetalCardView: PonchoDrifellaMetalCardView?
+    private var nativeMetalCardView: NativeMetalCardView?
     private var currentToken: GeneratedToken?
     private var currentTokenContext: PlayerTokenContext?
     private var currentDownloadableMediaWindow: PlayerDownloadableMediaWindow?
@@ -231,10 +231,10 @@ final class MacPlayerMediaContainerView: NSView {
             CollectionCatalog.isDownloadableCollection(specificCollectionId: $0.collectionId)
         } == true
 
-        if token.usesPonchoDrifellaMetalRenderer {
+        if let nativeRenderKind = token.nativeMetalCardRenderKind {
             clearWebMediaContext()
             clearManagedDownloadableMediaWindow()
-            renderPonchoDrifellaMetalCard(token)
+            renderNativeMetalCard(token, renderKind: nativeRenderKind)
             return
         }
 
@@ -289,8 +289,8 @@ final class MacPlayerMediaContainerView: NSView {
         activeZoomAnimationCount = 0
         clearWebMediaContext()
         clearManagedDownloadableMediaWindow()
-        ponchoDrifellaMetalCardView?.stop()
-        PonchoDrifellaMetalCardView.resetMotionCalibration()
+        nativeMetalCardView?.stop()
+        NativeMetalCardView.resetMotionCalibration()
         unloadWebContentIfNeeded()
         webView?.isHidden = true
         imageView?.image = nil
@@ -317,7 +317,7 @@ final class MacPlayerMediaContainerView: NSView {
         }
 
         hideWebView()
-        hidePonchoDrifellaMetalCardView()
+        hideNativeMetalCardView()
         let imageView = ensureImageView()
         if representedImageKey != imageKey {
             imageView.image = nil
@@ -357,7 +357,7 @@ final class MacPlayerMediaContainerView: NSView {
         cancelActiveImageLoad = nil
         activeImageLoadId = nil
         hideWebView()
-        hidePonchoDrifellaMetalCardView()
+        hideNativeMetalCardView()
         representedImageKey = AnyHashable(key)
         let imageView = ensureImageView()
         imageView.image = image
@@ -628,7 +628,7 @@ final class MacPlayerMediaContainerView: NSView {
         cancelActiveImageLoad = nil
         representedImageKey = nil
         hideImageView()
-        hidePonchoDrifellaMetalCardView()
+        hideNativeMetalCardView()
         let webView = ensureWebView()
         webViewMayContainContent = !html.isEmpty
         webView.isHidden = false
@@ -646,16 +646,16 @@ final class MacPlayerMediaContainerView: NSView {
         }
     }
 
-    private func renderPonchoDrifellaMetalCard(_ token: GeneratedToken) {
+    private func renderNativeMetalCard(_ token: GeneratedToken, renderKind: NativeMetalCardRenderKind) {
         cancelActiveImageLoad?()
         cancelActiveImageLoad = nil
         representedImageKey = nil
         hideImageView()
         hideWebView()
-        let cardView = ensurePonchoDrifellaMetalCardView()
+        let cardView = ensureNativeMetalCardView()
         cardView.isHidden = false
-        setZoomContentLayout(.viewport, allowedContent: .ponchoDrifellaCard)
-        cardView.display(tokenId: token.id)
+        setZoomContentLayout(.viewport, allowedContent: .nativeMetalCard)
+        cardView.display(tokenId: token.id, renderKind: renderKind)
     }
 
     private func prepareDownloadableMediaWindow(
@@ -722,19 +722,19 @@ final class MacPlayerMediaContainerView: NSView {
         return webView
     }
 
-    private func ensurePonchoDrifellaMetalCardView() -> PonchoDrifellaMetalCardView {
-        if let ponchoDrifellaMetalCardView {
-            return ponchoDrifellaMetalCardView
+    private func ensureNativeMetalCardView() -> NativeMetalCardView {
+        if let nativeMetalCardView {
+            return nativeMetalCardView
         }
 
-        let cardView = PonchoDrifellaMetalCardView()
+        let cardView = NativeMetalCardView()
         cardView.translatesAutoresizingMaskIntoConstraints = false
         installPlayerMenuGesture(on: cardView)
         installPlayerZoomGestures(on: cardView)
         cardView.subviews.forEach(installPlayerMenuGesture)
         cardView.subviews.forEach(installPlayerZoomGestures)
         addSubviewFillingZoomContent(cardView)
-        ponchoDrifellaMetalCardView = cardView
+        nativeMetalCardView = cardView
         return cardView
     }
 
@@ -784,9 +784,9 @@ final class MacPlayerMediaContainerView: NSView {
         webView?.isHidden = true
     }
 
-    private func hidePonchoDrifellaMetalCardView() {
-        ponchoDrifellaMetalCardView?.stop()
-        ponchoDrifellaMetalCardView?.isHidden = true
+    private func hideNativeMetalCardView() {
+        nativeMetalCardView?.stop()
+        nativeMetalCardView?.isHidden = true
     }
 
     private func clearWebMediaContext() {
@@ -820,7 +820,7 @@ final class MacPlayerMediaContainerView: NSView {
         activeImageLoadId = nil
         representedImageKey = nil
         hideImageView()
-        hidePonchoDrifellaMetalCardView()
+        hideNativeMetalCardView()
         hideWebView()
         setZoomContentLayout(.viewport)
     }
@@ -1309,8 +1309,8 @@ final class MacPlayerMediaContainerView: NSView {
         switch zoomAllowedContent {
         case .fullContent:
             allowedRect = layoutRect
-        case .ponchoDrifellaCard:
-            allowedRect = PonchoDrifellaMetalCardView.cardContentRect(in: contentBounds.size)
+        case .nativeMetalCard:
+            allowedRect = NativeMetalCardLayout.cardContentRect(in: contentBounds.size)
         }
 
         let clippedRect = allowedRect.intersection(contentBounds)

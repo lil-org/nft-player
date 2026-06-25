@@ -5,6 +5,25 @@ import Foundation
 enum GeneratedTokenRenderKind: String, Hashable, Codable {
     case html
     case ponchoDrifellaMetal
+    case cardNft2Metal
+}
+
+enum NativeMetalCardRenderKind: String, Hashable {
+    case ponchoDrifella
+    case cardNft2
+}
+
+extension GeneratedTokenRenderKind {
+    var nativeMetalCardRenderKind: NativeMetalCardRenderKind? {
+        switch self {
+        case .ponchoDrifellaMetal:
+            return .ponchoDrifella
+        case .cardNft2Metal:
+            return .cardNft2
+        case .html:
+            return nil
+        }
+    }
 }
 
 enum GeneratedTokenMedia: Hashable, Codable {
@@ -50,12 +69,8 @@ struct GeneratedToken: Hashable, Codable, Identifiable {
     let media: GeneratedTokenMedia?
     let renderKind: GeneratedTokenRenderKind?
 
-    var playbackRenderKind: GeneratedTokenRenderKind {
-        renderKind ?? .html
-    }
-
-    var usesPonchoDrifellaMetalRenderer: Bool {
-        playbackRenderKind == .ponchoDrifellaMetal
+    var nativeMetalCardRenderKind: NativeMetalCardRenderKind? {
+        renderKind?.nativeMetalCardRenderKind
     }
 
     init(

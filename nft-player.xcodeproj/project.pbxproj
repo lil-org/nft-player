@@ -138,7 +138,7 @@
 		2CDF00132F10000000000001 /* PlayerTokenPrewarmer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF00022F10000000000001 /* PlayerTokenPrewarmer.swift */; };
 		2CDF00142F10000000000001 /* PlayerWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF00032F10000000000001 /* PlayerWebView.swift */; };
 		2CDF00152F10000000000001 /* MacPlayerMediaContainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF00042F10000000000001 /* MacPlayerMediaContainerView.swift */; };
-		2CDF00162F10000000000001 /* PonchoDrifellaMetalCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF00052F10000000000001 /* PonchoDrifellaMetalCardView.swift */; };
+		2CDF00162F10000000000001 /* NativeMetalCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF00052F10000000000001 /* NativeMetalCardView.swift */; };
 		2CDF00172F10000000000001 /* PonchoDrifellaShaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = 2CFA91012EB1000000000001 /* PonchoDrifellaShaders.metal */; };
 		2CDF00182F10000000000001 /* PonchoDrifellaCardMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF00062F10000000000001 /* PonchoDrifellaCardMetadata.swift */; };
 		2CDF00192F10000000000001 /* PonchoDrifellaCardMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF00062F10000000000001 /* PonchoDrifellaCardMetadata.swift */; };
@@ -146,6 +146,16 @@
 		2CDF001B2F10000000000001 /* PonchoDrifellaAssetCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF00072F10000000000001 /* PonchoDrifellaAssetCache.swift */; };
 		2CDF001C2F10000000000001 /* PlayerWebContentLoadCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF00082F10000000000001 /* PlayerWebContentLoadCoordinator.swift */; };
 		2CDF001D2F10000000000001 /* PlayerWebContentLoadCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF00082F10000000000001 /* PlayerWebContentLoadCoordinator.swift */; };
+		2CDF001E2F10000000000001 /* CardNft2CardMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF00092F10000000000001 /* CardNft2CardMetadata.swift */; };
+		2CDF001F2F10000000000001 /* CardNft2CardMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF00092F10000000000001 /* CardNft2CardMetadata.swift */; };
+		2CDF00202F10000000000001 /* CardNft2AssetCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF000A2F10000000000001 /* CardNft2AssetCache.swift */; };
+		2CDF00212F10000000000001 /* CardNft2AssetCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF000A2F10000000000001 /* CardNft2AssetCache.swift */; };
+		2CDF00222F10000000000001 /* NativeMetalCardMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF000B2F10000000000001 /* NativeMetalCardMetadata.swift */; };
+		2CDF00232F10000000000001 /* NativeMetalCardMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF000B2F10000000000001 /* NativeMetalCardMetadata.swift */; };
+		2CDF00242F10000000000001 /* NativeMetalCardAssetCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF000C2F10000000000001 /* NativeMetalCardAssetCache.swift */; };
+		2CDF00252F10000000000001 /* NativeMetalCardAssetCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF000C2F10000000000001 /* NativeMetalCardAssetCache.swift */; };
+		2CDF00262F10000000000001 /* NativeMetalCardRendererCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF000D2F10000000000001 /* NativeMetalCardRendererCore.swift */; };
+		2CDF00272F10000000000001 /* NativeMetalCardRendererCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF000D2F10000000000001 /* NativeMetalCardRendererCore.swift */; };
 		2CE9A5762C3DA9FB009AEAF4 /* TokenGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CE9A5752C3DA9FB009AEAF4 /* TokenGenerator.swift */; };
 		2CE9A5782C3DAB03009AEAF4 /* GeneratedToken.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CE9A5772C3DAB03009AEAF4 /* GeneratedToken.swift */; };
 		2CE9A7712BAD8ECD00579BF7 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 2CE9A7702BAD8ECD00579BF7 /* Localizable.xcstrings */; };
@@ -166,7 +176,7 @@
 		2CF100082F20000000000001 /* PlayerSyncTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CF100042F20000000000001 /* PlayerSyncTypes.swift */; };
 		2CF4C49B2B7F567B000AB4A6 /* Navigator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CF4C49A2B7F567B000AB4A6 /* Navigator.swift */; };
 		2CFA90012EB0000000000001 /* MobileCollectionCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CFA90002EB0000000000001 /* MobileCollectionCatalog.swift */; };
-		2CFA91022EB1000000000001 /* PonchoDrifellaMetalCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CFA91002EB1000000000001 /* PonchoDrifellaMetalCardView.swift */; };
+		2CFA91022EB1000000000001 /* NativeMetalCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CFA91002EB1000000000001 /* NativeMetalCardView.swift */; };
 		2CFA91032EB1000000000001 /* PonchoDrifellaShaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = 2CFA91012EB1000000000001 /* PonchoDrifellaShaders.metal */; };
 		2CFA92012EB2000000000001 /* CollectionCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CFA92002EB2000000000001 /* CollectionCatalog.swift */; };
 		2CFA92022EB2000000000001 /* CollectionCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CFA92002EB2000000000001 /* CollectionCatalog.swift */; };
@@ -344,10 +354,15 @@
 		2CDF00022F10000000000001 /* PlayerTokenPrewarmer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerTokenPrewarmer.swift; sourceTree = "<group>"; };
 		2CDF00032F10000000000001 /* PlayerWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerWebView.swift; sourceTree = "<group>"; };
 		2CDF00042F10000000000001 /* MacPlayerMediaContainerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacPlayerMediaContainerView.swift; sourceTree = "<group>"; };
-		2CDF00052F10000000000001 /* PonchoDrifellaMetalCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PonchoDrifellaMetalCardView.swift; sourceTree = "<group>"; };
+		2CDF00052F10000000000001 /* NativeMetalCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeMetalCardView.swift; sourceTree = "<group>"; };
 		2CDF00062F10000000000001 /* PonchoDrifellaCardMetadata.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PonchoDrifellaCardMetadata.swift; sourceTree = "<group>"; };
 		2CDF00072F10000000000001 /* PonchoDrifellaAssetCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PonchoDrifellaAssetCache.swift; sourceTree = "<group>"; };
 		2CDF00082F10000000000001 /* PlayerWebContentLoadCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerWebContentLoadCoordinator.swift; sourceTree = "<group>"; };
+		2CDF00092F10000000000001 /* CardNft2CardMetadata.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardNft2CardMetadata.swift; sourceTree = "<group>"; };
+		2CDF000A2F10000000000001 /* CardNft2AssetCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardNft2AssetCache.swift; sourceTree = "<group>"; };
+		2CDF000B2F10000000000001 /* NativeMetalCardMetadata.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeMetalCardMetadata.swift; sourceTree = "<group>"; };
+		2CDF000C2F10000000000001 /* NativeMetalCardAssetCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeMetalCardAssetCache.swift; sourceTree = "<group>"; };
+		2CDF000D2F10000000000001 /* NativeMetalCardRendererCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeMetalCardRendererCore.swift; sourceTree = "<group>"; };
 		2CE0F1572C4D37E6003004F2 /* p5js190.js */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.javascript; path = p5js190.js; sourceTree = "<group>"; };
 		2CE9A5752C3DA9FB009AEAF4 /* TokenGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenGenerator.swift; sourceTree = "<group>"; };
 		2CE9A5772C3DAB03009AEAF4 /* GeneratedToken.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeneratedToken.swift; sourceTree = "<group>"; };
@@ -371,7 +386,7 @@
 		2CF100042F20000000000001 /* PlayerSyncTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerSyncTypes.swift; sourceTree = "<group>"; };
 		2CF4C49A2B7F567B000AB4A6 /* Navigator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Navigator.swift; sourceTree = "<group>"; };
 		2CFA90002EB0000000000001 /* MobileCollectionCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileCollectionCatalog.swift; sourceTree = "<group>"; };
-		2CFA91002EB1000000000001 /* PonchoDrifellaMetalCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PonchoDrifellaMetalCardView.swift; sourceTree = "<group>"; };
+		2CFA91002EB1000000000001 /* NativeMetalCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeMetalCardView.swift; sourceTree = "<group>"; };
 		2CFA91012EB1000000000001 /* PonchoDrifellaShaders.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = PonchoDrifellaShaders.metal; sourceTree = "<group>"; };
 		2CFA92002EB2000000000001 /* CollectionCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionCatalog.swift; sourceTree = "<group>"; };
 		2CFF885A2C288C9A0007045F /* SuggestedItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SuggestedItem.swift; sourceTree = "<group>"; };
@@ -463,6 +478,8 @@
 				2D4000042F50000000000001 /* PlayerViewingSessionTracker.swift */,
 				2CF100042F20000000000001 /* PlayerSyncTypes.swift */,
 				2CDF00062F10000000000001 /* PonchoDrifellaCardMetadata.swift */,
+				2CDF00092F10000000000001 /* CardNft2CardMetadata.swift */,
+				2CDF000B2F10000000000001 /* NativeMetalCardMetadata.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -472,6 +489,9 @@
 			children = (
 				2CDF00012F10000000000001 /* DownloadableMediaCache.swift */,
 				2CDF00072F10000000000001 /* PonchoDrifellaAssetCache.swift */,
+				2CDF000A2F10000000000001 /* CardNft2AssetCache.swift */,
+				2CDF000C2F10000000000001 /* NativeMetalCardAssetCache.swift */,
+				2CDF000D2F10000000000001 /* NativeMetalCardRendererCore.swift */,
 				2CDF00022F10000000000001 /* PlayerTokenPrewarmer.swift */,
 				2CDF00082F10000000000001 /* PlayerWebContentLoadCoordinator.swift */,
 				2CF100002F20000000000001 /* PlayerICloudSync.swift */,
@@ -535,7 +555,7 @@
 				2C9973FF2C4AF12400C058E2 /* PlayerMenuDelegate.swift */,
 				2C3B775E2C3D6DEC000A9B52 /* LocalHtmlView.swift */,
 				2CDF00042F10000000000001 /* MacPlayerMediaContainerView.swift */,
-				2CDF00052F10000000000001 /* PonchoDrifellaMetalCardView.swift */,
+				2CDF00052F10000000000001 /* NativeMetalCardView.swift */,
 				2C8ADAA72C46F3FC008BC560 /* PlayerModel.swift */,
 			);
 			path = Player;
@@ -692,7 +712,7 @@
 				2CC971622D2F4214005A8C4C /* FourDirectionalPlayer.swift */,
 				2C7134D52D304609001E33DC /* MobilePlaybackController.swift */,
 				2CC93C662DB2B13A00C5801A /* ExternalDisplayViewController.swift */,
-				2CFA91002EB1000000000001 /* PonchoDrifellaMetalCardView.swift */,
+				2CFA91002EB1000000000001 /* NativeMetalCardView.swift */,
 				2CFA91012EB1000000000001 /* PonchoDrifellaShaders.metal */,
 				2C9442952C5186530078C051 /* AutoReloadingWebView.swift */,
 				2CF08AA52D2A937400D82ACA /* MobileHelpers.swift */,
@@ -1102,10 +1122,15 @@
 				2C460ECA2D29855A0083124E /* AutoReloadingWebView.swift in Sources */,
 				2CDF00102F10000000000001 /* DownloadableMediaCache.swift in Sources */,
 				2CDF001A2F10000000000001 /* PonchoDrifellaAssetCache.swift in Sources */,
+				2CDF00202F10000000000001 /* CardNft2AssetCache.swift in Sources */,
+				2CDF00242F10000000000001 /* NativeMetalCardAssetCache.swift in Sources */,
+				2CDF00262F10000000000001 /* NativeMetalCardRendererCore.swift in Sources */,
 				2CDF00122F10000000000001 /* PlayerTokenPrewarmer.swift in Sources */,
 				2CDF001C2F10000000000001 /* PlayerWebContentLoadCoordinator.swift in Sources */,
 				2CF100012F20000000000001 /* PlayerICloudSync.swift in Sources */,
 				2CDF00182F10000000000001 /* PonchoDrifellaCardMetadata.swift in Sources */,
+				2CDF001E2F10000000000001 /* CardNft2CardMetadata.swift in Sources */,
+				2CDF00222F10000000000001 /* NativeMetalCardMetadata.swift in Sources */,
 				2C7134D62D30460B001E33DC /* MobilePlaybackController.swift in Sources */,
 				2CB01A012F01000000000001 /* PlayerBookmarksStore.swift in Sources */,
 				2CB01A052F01000000000001 /* PlayerViewingProgressStore.swift in Sources */,
@@ -1127,7 +1152,7 @@
 				2CF08AAA2D2A937400D82ACA /* MobileHelpers.swift in Sources */,
 				2CF08AAB2D2A937400D82ACA /* nft_player_iosApp.swift in Sources */,
 				2CC93C672DB2B13C00C5801A /* ExternalDisplayViewController.swift in Sources */,
-				2CFA91022EB1000000000001 /* PonchoDrifellaMetalCardView.swift in Sources */,
+				2CFA91022EB1000000000001 /* NativeMetalCardView.swift in Sources */,
 				2CFA91032EB1000000000001 /* PonchoDrifellaShaders.metal in Sources */,
 				2CF08AAC2D2A937400D82ACA /* MobilePlayerView.swift in Sources */,
 				2CC971632D2F4219005A8C4C /* FourDirectionalPlayer.swift in Sources */,
@@ -1233,13 +1258,18 @@
 				2C3B77612C3D6F82000A9B52 /* LocalHtmlWindow.swift in Sources */,
 				2CDF00112F10000000000001 /* DownloadableMediaCache.swift in Sources */,
 				2CDF001B2F10000000000001 /* PonchoDrifellaAssetCache.swift in Sources */,
+				2CDF00212F10000000000001 /* CardNft2AssetCache.swift in Sources */,
+				2CDF00252F10000000000001 /* NativeMetalCardAssetCache.swift in Sources */,
+				2CDF00272F10000000000001 /* NativeMetalCardRendererCore.swift in Sources */,
 				2CDF00132F10000000000001 /* PlayerTokenPrewarmer.swift in Sources */,
 				2CDF001D2F10000000000001 /* PlayerWebContentLoadCoordinator.swift in Sources */,
 				2CF100022F20000000000001 /* PlayerICloudSync.swift in Sources */,
 				2CDF00142F10000000000001 /* PlayerWebView.swift in Sources */,
 				2CDF00152F10000000000001 /* MacPlayerMediaContainerView.swift in Sources */,
-				2CDF00162F10000000000001 /* PonchoDrifellaMetalCardView.swift in Sources */,
+				2CDF00162F10000000000001 /* NativeMetalCardView.swift in Sources */,
 				2CDF00192F10000000000001 /* PonchoDrifellaCardMetadata.swift in Sources */,
+				2CDF001F2F10000000000001 /* CardNft2CardMetadata.swift in Sources */,
+				2CDF00232F10000000000001 /* NativeMetalCardMetadata.swift in Sources */,
 				2CFF885B2C288C9A0007045F /* SuggestedItem.swift in Sources */,
 				2C1B60CB2B7E2481009949C2 /* Images.swift in Sources */,
 				2CB01A002F01000000000001 /* PlayerBookmarksStore.swift in Sources */,

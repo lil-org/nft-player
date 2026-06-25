@@ -3,17 +3,17 @@
 #include <metal_stdlib>
 using namespace metal;
 
-struct PonchoDrifellaVertex {
+struct NativeMetalCardVertex {
     float2 position;
     float2 uv;
 };
 
-struct PonchoDrifellaVertexOut {
+struct NativeMetalCardVertexOut {
     float4 position [[position]];
     float2 uv;
 };
 
-struct PonchoDrifellaUniforms {
+struct NativeMetalCardUniforms {
     float2 pointer;
     float2 background;
     float2 cardSize;
@@ -25,11 +25,20 @@ struct PonchoDrifellaUniforms {
     float padding;
 };
 
-vertex PonchoDrifellaVertexOut ponchoDrifellaVertex(
-    const device PonchoDrifellaVertex *vertices [[buffer(0)]],
+// Raw values must match NativeMetalCardEffect in NativeMetalCardMetadata.swift.
+enum NativeMetalCardEffect : int {
+    nativeMetalCardEffectRareHoloV = 0,
+    nativeMetalCardEffectSupporter = 1,
+    nativeMetalCardEffectAmazingRare = 2,
+    nativeMetalCardEffectRareHolo = 3,
+    nativeMetalCardEffectCardNft2Common = 4
+};
+
+vertex NativeMetalCardVertexOut nativeMetalCardVertex(
+    const device NativeMetalCardVertex *vertices [[buffer(0)]],
     uint vertexID [[vertex_id]]
 ) {
-    PonchoDrifellaVertexOut out;
+    NativeMetalCardVertexOut out;
     out.position = float4(vertices[vertexID].position, 0, 1);
     out.uv = vertices[vertexID].uv;
     return out;
@@ -301,6 +310,33 @@ static PonchoCssLayer cssPixelRadialPremultipliedAlphaStops(
     float outerMix = linearStep(stop1, stop2, d);
     PonchoCssLayer inner = premultipliedStopMix(color0, alpha0, color1, alpha1, midMix);
     return premultipliedStopMix(inner.color, inner.alpha, color2, alpha2, outerMix);
+}
+
+static PonchoCssLayer cssPixelRadialPremultipliedAlphaStops4(
+    float2 uv,
+    float2 pointer,
+    float2 cardSize,
+    float3 color0,
+    float alpha0,
+    float stop0,
+    float3 color1,
+    float alpha1,
+    float stop1,
+    float3 color2,
+    float alpha2,
+    float stop2,
+    float3 color3,
+    float alpha3,
+    float stop3
+) {
+    float d = cssPixelRadialProgress(uv, pointer, cardSize);
+    if (d <= stop1) {
+        return premultipliedStopMix(color0, alpha0, color1, alpha1, linearStep(stop0, stop1, d));
+    }
+    if (d <= stop2) {
+        return premultipliedStopMix(color1, alpha1, color2, alpha2, linearStep(stop1, stop2, d));
+    }
+    return premultipliedStopMix(color2, alpha2, color3, alpha3, linearStep(stop2, stop3, d));
 }
 
 static PonchoCssLayer cssBackgroundRadialPremultipliedAlphaStops(
@@ -776,9 +812,14 @@ static float3 glowColor(int glowKind) {
     }
 }
 
-fragment float4 ponchoDrifellaFragment(
-    PonchoDrifellaVertexOut in [[stage_in]],
-    constant PonchoDrifellaUniforms &uniforms [[buffer(0)]],
+static float3 nativeCardEdgeGlow(float3 base, float2 uv, int glowKind, float opacity) {
+    float edge = 1.0 - smoothstep(0.0, 0.08, min(min(uv.x, 1.0 - uv.x), min(uv.y, 1.0 - uv.y)));
+    return screenBlend(base, glowColor(glowKind) * edge * opacity * 0.10);
+}
+
+fragment float4 nativeMetalCardFragment(
+    NativeMetalCardVertexOut in [[stage_in]],
+    constant NativeMetalCardUniforms &uniforms [[buffer(0)]],
     texture2d<float> faceTexture [[texture(0)]],
     texture2d<float> foilTexture [[texture(1)]],
     texture2d<float> maskTexture [[texture(2)]],
@@ -802,6 +843,31 @@ fragment float4 ponchoDrifellaFragment(
     }
 
     float2 cardSize = max(uniforms.cardSize, float2(1.0));
+    float2 pointer = uniforms.pointer;
+    if (uniforms.effectKind == nativeMetalCardEffectCardNft2Common) {
+        PonchoCssLayer glare = cssPixelRadialPremultipliedAlphaStops4(
+            uv,
+            pointer,
+            cardSize,
+            float3(1.0),
+            0.66,
+            0.08,
+            float3(1.0),
+            0.34,
+            0.24,
+            float3(1.0),
+            0.04,
+            0.58,
+            float3(0.0),
+            0.16,
+            1.0
+        );
+        glare.color = filterColor(glare.color, 0.98, 1.0, 1.0);
+        base = applyBrowserLayer(base, glare.color, opacity * 0.56 * glare.alpha, 1);
+        base = nativeCardEdgeGlow(base, uv, uniforms.glowKind, opacity);
+        return float4(saturate(base), 1.0);
+    }
+
     float2 maskOffset = 0.5 / cardSize;
     float4 maskCenter = maskTexture.sample(clampMipSampler, uv);
     float4 maskLeft = maskTexture.sample(clampMipSampler, uv + float2(-maskOffset.x, 0.0));
@@ -817,12 +883,11 @@ fragment float4 ponchoDrifellaFragment(
         (luminance(maskLeft.rgb) + luminance(maskRight.rgb) + luminance(maskTop.rgb) + luminance(maskBottom.rgb)) * 0.15
     );
     float maskAlpha = saturate(uniforms.maskUsesAlpha > 0.5 ? maskAlphaAverage : rgbMaskAverage);
-    float2 pointer = uniforms.pointer;
     float2 background = uniforms.background;
     float pfc = saturate(uniforms.pointerFromCenter);
 
     switch (uniforms.effectKind) {
-    case 1: {
+    case nativeMetalCardEffectSupporter: {
         // rare ultra supporter
         float3 foilSharp = foilTexture.sample(clampSampler, uv).rgb;
         PonchoCssLayer shineGroup = supporterFoilLayer(uv, pointer, background, cardSize, foilSharp, false);
@@ -874,7 +939,7 @@ fragment float4 ponchoDrifellaFragment(
         base = applyBrowserLayer(base, float3(1.0, 0.96, 0.82), opacity * 0.16 * supporterRibHotspot, 0);
         break;
     }
-    case 2: {
+    case nativeMetalCardEffectAmazingRare: {
         // amazing rare
         float2 glitterTileSize = cardSize * 0.25;
         float3 glitterA = glitterTexture.sample(
@@ -928,7 +993,7 @@ fragment float4 ponchoDrifellaFragment(
         );
         break;
     }
-    case 3: {
+    case nativeMetalCardEffectRareHolo: {
         // rare holo
         float3 rainbow = rareHoloRainbowLayer(uv, background, cardSize);
         float3 lines = rareHoloScanlinesLayer(uv, cardSize);
@@ -1011,8 +1076,7 @@ fragment float4 ponchoDrifellaFragment(
     }
     }
 
-    float edge = 1.0 - smoothstep(0.0, 0.08, min(min(uv.x, 1.0 - uv.x), min(uv.y, 1.0 - uv.y)));
-    base = screenBlend(base, glowColor(uniforms.glowKind) * edge * opacity * 0.10);
+    base = nativeCardEdgeGlow(base, uv, uniforms.glowKind, opacity);
 
     return float4(saturate(base), 1.0);
 }

@@ -1544,6 +1544,12 @@
     "tokenCount" : 332
   },
   {
+    "address" : "EAzEpagtyeRAx9npnpVMpygoA8ouX7DRpLTghhPvYTiu",
+    "chain" : "solana",
+    "chainId" : 0,
+    "name" : "Card NFT 2"
+  },
+  {
     "address" : "JCTP3kK3xGtWs5mDHxJBuRro38HftaiCDdKsfkXuK2gH",
     "chain" : "solana",
     "chainId" : 0,

@@ -143,6 +143,8 @@ private struct MacPlayerPageControllerView: NSViewControllerRepresentable {
 final class MacPlayerPageController: NSPageController, NSPageControllerDelegate {
 
     private static let fallbackPageIdentifier = NSPageController.ObjectIdentifier("MacPlayerPage")
+    private static let pageObjectWindowThreshold = 1_000
+    private static let pageObjectWindowRadius = 300
 
     private let playerModel: PlayerModel
     private weak var playerMenuDelegate: PlayerMenuDelegate?
@@ -161,7 +163,9 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
     private var displayedCollectionTokenCount: Int?
     private var tokenPagingDataSource: PlayerTokenPagingDataSource?
     private var pageObjects = [MacPlayerPageObject]()
-    private var pageObjectIndices = [MacPlayerPageObject: Int]()
+    private var pageObjectIndices = [MacPlayerPageObjectKey: Int]()
+    private var usesWindowedPageObjects = false
+    private var displayedPageObjectWindow: ClosedRange<Int>?
     private let pageViewControllers = NSHashTable<MacPlayerPageViewController>.weakObjects()
     private var isSyncingSelectionFromModel = false
     private var shouldSyncSelectionAfterTransition = false
@@ -279,17 +283,37 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
             tokenContext,
             isInsertedWidgetToken: playerModel.isCurrentTokenInsertedWidgetToken
         ) != true {
-            guard let targetIndex = pageObjects.firstIndex(where: {
-                $0.matches(tokenContext, isInsertedWidgetToken: playerModel.isCurrentTokenInsertedWidgetToken)
-            }) else {
+            let previousTokenIndex = currentPageObject?.tokenIndex
+            let targetIndex: Int?
+            if usesWindowedPageObjects {
+                targetIndex = setWindowedPageObjects(
+                    around: tokenContext.tokenIndex,
+                    collectionId: tokenContext.collectionId,
+                    tokenCount: tokenContext.tokenCount
+                )
+            } else {
+                targetIndex = pageObjectIndex(
+                    matching: tokenContext,
+                    isInsertedWidgetToken: playerModel.isCurrentTokenInsertedWidgetToken
+                )
+            }
+
+            guard let targetIndex else {
                 displayFallbackToken(token)
                 return
             }
             queuedNavigationRequests.removeAll()
-            lastActivePrefetchDirection = targetIndex < selectedIndex ? .backward : .forward
+            if let previousTokenIndex {
+                lastActivePrefetchDirection = tokenContext.tokenIndex < previousTokenIndex ? .backward : .forward
+            } else {
+                lastActivePrefetchDirection = targetIndex < selectedIndex ? .backward : .forward
+            }
             transitionSourceIndex = nil
             transitionDestinationIndex = nil
             withoutImplicitAnimation {
+                if usesWindowedPageObjects {
+                    arrangedObjects = pageObjects
+                }
                 selectedIndex = targetIndex
             }
         }
@@ -312,6 +336,29 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
         let requiresRenderabilityFilter = CollectionCatalog.isDownloadableCollection(
             specificCollectionId: context.collectionId
         )
+        usesWindowedPageObjects = shouldUseWindowedPageObjects(
+            for: context,
+            requiresRenderabilityFilter: requiresRenderabilityFilter
+        )
+        displayedPageObjectWindow = nil
+
+        if usesWindowedPageObjects {
+            guard let targetIndex = setWindowedPageObjects(
+                around: context.tokenIndex,
+                collectionId: context.collectionId,
+                tokenCount: context.tokenCount
+            ) else {
+                displayFallbackToken(playerModel.currentToken)
+                return
+            }
+            withoutImplicitAnimation {
+                arrangedObjects = pageObjects
+                selectedIndex = targetIndex
+            }
+            resizePageViewControllersToCurrentBounds()
+            return
+        }
+
         var nextPageObjects = [MacPlayerPageObject]()
         nextPageObjects.reserveCapacity(
             context.tokenCount + (playerModel.widgetTokenInsertion?.collectionId == context.collectionId ? 1 : 0)
@@ -364,6 +411,8 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
         displayedCollectionId = nil
         displayedCollectionTokenCount = nil
         tokenPagingDataSource = nil
+        usesWindowedPageObjects = false
+        displayedPageObjectWindow = nil
         queuedNavigationRequests.removeAll()
         transitionSourceIndex = nil
         transitionDestinationIndex = nil
@@ -495,19 +544,15 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
             shouldSyncSelectionAfterTransition = false
             syncSelectionWithModel()
         }
+        recenterWindowIfNeeded()
         startQueuedNavigationIfNeeded()
     }
 
     private func navigateFromChrome(offset: Int, animation: MacPlayerNavigationAnimation) -> Bool {
-        guard pageObjects.count > 1 else { return false }
+        guard canNavigateWithinCollection(offset: offset) else { return false }
 
         if isTransitioning {
             queueNavigation(offset: offset, animation: animation)
-            return true
-        }
-
-        guard pageObjects.indices.contains(selectedIndex + offset) else {
-            queuedNavigationRequests.removeAll()
             return true
         }
 
@@ -515,10 +560,26 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
     }
 
     private func canNavigateFromChrome(offset: Int) -> Bool {
-        guard pageObjects.count > 1, !isTransitioning else { return false }
+        guard !isTransitioning else { return false }
+        return canNavigateWithinCollection(offset: offset)
+    }
+
+    private func canNavigateWithinCollection(offset: Int) -> Bool {
+        guard offset != 0, pageObjects.count > 1 else { return false }
         let targetIndex = selectedIndex + offset
-        guard pageObjects.indices.contains(targetIndex) else { return false }
-        return token(for: pageObjects[targetIndex]) != nil
+        if pageObjects.indices.contains(targetIndex) {
+            return token(for: pageObjects[targetIndex]) != nil
+        }
+
+        guard usesWindowedPageObjects,
+              let pageObject = currentPageObject,
+              pageObject.fallbackToken == nil,
+              let tokenCount = displayedCollectionTokenCount else {
+            return false
+        }
+
+        let targetTokenIndex = pageObject.tokenIndex + offset
+        return targetTokenIndex >= 0 && targetTokenIndex < tokenCount
     }
 
     private func queueNavigation(offset: Int, animation: MacPlayerNavigationAnimation) {
@@ -528,6 +589,7 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
     @discardableResult
     private func startNavigation(offset: Int, animation: MacPlayerNavigationAnimation) -> Bool {
         guard !isTransitioning else { return false }
+        guard prepareWindowForNavigation(offset: offset) else { return false }
         guard pageObjects.indices.contains(selectedIndex + offset) else { return false }
 
         switch animation {
@@ -631,6 +693,144 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
         pageViewControllers.allObjects.forEach { $0.resetZoomForReuse() }
     }
 
+    private func shouldUseWindowedPageObjects(
+        for context: PlayerTokenContext,
+        requiresRenderabilityFilter: Bool
+    ) -> Bool {
+        context.tokenCount > Self.pageObjectWindowThreshold
+            && !requiresRenderabilityFilter
+            && playerModel.widgetTokenInsertion == nil
+    }
+
+    private func pageObjectWindow(around tokenIndex: Int, tokenCount: Int) -> ClosedRange<Int>? {
+        guard tokenCount > 0 else { return nil }
+        let clampedTokenIndex = min(max(tokenIndex, 0), tokenCount - 1)
+        let lowerBound = max(0, clampedTokenIndex - Self.pageObjectWindowRadius)
+        let upperBound = min(tokenCount - 1, clampedTokenIndex + Self.pageObjectWindowRadius)
+        return lowerBound...upperBound
+    }
+
+    @discardableResult
+    private func setWindowedPageObjects(
+        around tokenIndex: Int,
+        collectionId: String,
+        tokenCount: Int
+    ) -> Int? {
+        guard let dataSource = tokenPagingDataSource,
+              let window = pageObjectWindow(around: tokenIndex, tokenCount: tokenCount),
+              window.contains(tokenIndex) else {
+            return nil
+        }
+
+        var nextPageObjects = [MacPlayerPageObject]()
+        nextPageObjects.reserveCapacity(window.count)
+        for tokenIndex in window {
+            nextPageObjects.append(MacPlayerPageObject(
+                collectionId: collectionId,
+                tokenIndex: tokenIndex,
+                coordinate: PlayerCoordinate(
+                    x: dataSource.horizontalCoordinateForTokenIndex(tokenIndex, verticalIndex: 0),
+                    y: 0
+                )
+            ))
+        }
+
+        displayedPageObjectWindow = window
+        setPageObjects(nextPageObjects)
+        return tokenIndex - window.lowerBound
+    }
+
+    private func prepareWindowForNavigation(offset: Int) -> Bool {
+        let targetIndex = selectedIndex + offset
+        if pageObjects.indices.contains(targetIndex) {
+            return token(for: pageObjects[targetIndex]) != nil
+        }
+
+        guard usesWindowedPageObjects,
+              let pageObject = currentPageObject,
+              pageObject.fallbackToken == nil,
+              let tokenCount = displayedCollectionTokenCount else {
+            return false
+        }
+
+        let targetTokenIndex = pageObject.tokenIndex + offset
+        guard targetTokenIndex >= 0 && targetTokenIndex < tokenCount else { return false }
+        guard offset >= -Self.pageObjectWindowRadius,
+              offset <= Self.pageObjectWindowRadius else {
+            return false
+        }
+        guard setWindowedPageObjects(
+            around: targetTokenIndex,
+            collectionId: pageObject.collectionId,
+            tokenCount: tokenCount
+        ) != nil else {
+            return false
+        }
+        guard let currentIndex = pageObjectIndices[pageObject.indexKey],
+              pageObjects.indices.contains(currentIndex + offset) else {
+            return false
+        }
+
+        isSyncingSelectionFromModel = true
+        withoutImplicitAnimation {
+            arrangedObjects = pageObjects
+            selectedIndex = currentIndex
+        }
+        isSyncingSelectionFromModel = false
+        return true
+    }
+
+    private func recenterWindowIfNeeded() {
+        guard usesWindowedPageObjects,
+              let window = displayedPageObjectWindow,
+              let pageObject = currentPageObject,
+              pageObject.fallbackToken == nil,
+              let tokenCount = displayedCollectionTokenCount else {
+            return
+        }
+
+        let edgeMargin = max(1, Self.pageObjectWindowRadius / 4)
+        let isNearLowerEdge = pageObject.tokenIndex - window.lowerBound <= edgeMargin
+        let isNearUpperEdge = window.upperBound - pageObject.tokenIndex <= edgeMargin
+        let shouldRecenter: Bool
+        switch lastActivePrefetchDirection {
+        case .backward:
+            shouldRecenter = isNearLowerEdge
+        case .forward:
+            shouldRecenter = isNearUpperEdge
+        }
+        guard shouldRecenter,
+              let nextWindow = pageObjectWindow(around: pageObject.tokenIndex, tokenCount: tokenCount),
+              nextWindow != window,
+              let targetIndex = setWindowedPageObjects(
+                around: pageObject.tokenIndex,
+                collectionId: pageObject.collectionId,
+                tokenCount: tokenCount
+              ) else {
+            return
+        }
+
+        isSyncingSelectionFromModel = true
+        withoutImplicitAnimation {
+            arrangedObjects = pageObjects
+            selectedIndex = targetIndex
+        }
+        isSyncingSelectionFromModel = false
+    }
+
+    private func pageObjectIndex(
+        matching context: PlayerTokenContext,
+        isInsertedWidgetToken: Bool
+    ) -> Int? {
+        let key = MacPlayerPageObjectKey(
+            collectionId: context.collectionId,
+            tokenIndex: context.tokenIndex,
+            fallbackTokenID: nil,
+            isInsertedWidgetToken: isInsertedWidgetToken
+        )
+        return pageObjectIndices[key]
+    }
+
     private var currentPageObject: MacPlayerPageObject? {
         guard pageObjects.indices.contains(selectedIndex) else { return nil }
         return pageObjects[selectedIndex]
@@ -639,8 +839,11 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
     private func setPageObjects(_ nextPageObjects: [MacPlayerPageObject]) {
         pageObjects = nextPageObjects
         pageObjectIndices.removeAll(keepingCapacity: true)
-        for (index, pageObject) in nextPageObjects.enumerated() where pageObjectIndices[pageObject] == nil {
-            pageObjectIndices[pageObject] = index
+        for (index, pageObject) in nextPageObjects.enumerated() {
+            let key = pageObject.indexKey
+            if pageObjectIndices[key] == nil {
+                pageObjectIndices[key] = index
+            }
         }
     }
 
@@ -652,7 +855,7 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
     }
 
     private func prefetchDirection(for pageObject: MacPlayerPageObject) -> DownloadableMediaCache.PrefetchDirection {
-        guard let pageIndex = pageObjectIndices[pageObject] else {
+        guard let pageIndex = pageObjectIndices[pageObject.indexKey] else {
             return lastActivePrefetchDirection
         }
 
@@ -1023,6 +1226,13 @@ private final class MacPlayerEdgeClickHighlightView: NSView {
     }
 }
 
+private struct MacPlayerPageObjectKey: Hashable {
+    let collectionId: String
+    let tokenIndex: Int
+    let fallbackTokenID: String?
+    let isInsertedWidgetToken: Bool
+}
+
 private final class MacPlayerPageObject: NSObject {
     let collectionId: String
     let tokenIndex: Int
@@ -1059,21 +1269,22 @@ private final class MacPlayerPageObject: NSObject {
             && self.isInsertedWidgetToken == isInsertedWidgetToken
     }
 
+    var indexKey: MacPlayerPageObjectKey {
+        MacPlayerPageObjectKey(
+            collectionId: collectionId,
+            tokenIndex: tokenIndex,
+            fallbackTokenID: fallbackToken?.id,
+            isInsertedWidgetToken: isInsertedWidgetToken
+        )
+    }
+
     override var hash: Int {
-        var hasher = Hasher()
-        hasher.combine(collectionId)
-        hasher.combine(tokenIndex)
-        hasher.combine(fallbackToken?.id)
-        hasher.combine(isInsertedWidgetToken)
-        return hasher.finalize()
+        indexKey.hashValue
     }
 
     override func isEqual(_ object: Any?) -> Bool {
         guard let other = object as? MacPlayerPageObject else { return false }
-        return collectionId == other.collectionId
-            && tokenIndex == other.tokenIndex
-            && fallbackToken?.id == other.fallbackToken?.id
-            && isInsertedWidgetToken == other.isInsertedWidgetToken
+        return indexKey == other.indexKey
     }
 }
 

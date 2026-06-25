@@ -31,7 +31,7 @@ struct RawHtmlGenerator {
     }
     
     static func createHtml(script: Script, token: BundledTokens.Item, forceLibScript: String? = nil) -> String {
-        guard script.kind != .ponchoDrifellaNative else { return "" }
+        guard !script.kind.isNativeRenderer else { return "" }
         guard let hash = token.hash else { return "" }
 
         let id = token.id
@@ -321,7 +321,7 @@ struct RawHtmlGenerator {
               <script>\(script.value)</script>\(tuning)
             </html>
             """
-        case .ponchoDrifellaNative:
+        case .ponchoDrifellaNative, .cardNft2Native:
             html = ""
         }
         return html

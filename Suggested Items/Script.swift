@@ -19,6 +19,22 @@ struct Script: Codable {
     enum Kind: String, Codable {
         case svg, js, p5js100, regl, twemoji, three, tone, paper, p5js190
         case ponchoDrifellaNative = "native.poncho-drifella"
+        case cardNft2Native = "native.card-nft-2"
+
+        var generatedTokenRenderKind: GeneratedTokenRenderKind? {
+            switch self {
+            case .ponchoDrifellaNative:
+                return .ponchoDrifellaMetal
+            case .cardNft2Native:
+                return .cardNft2Metal
+            default:
+                return nil
+            }
+        }
+
+        var isNativeRenderer: Bool {
+            generatedTokenRenderKind != nil
+        }
     }
     
     var screensaverUrl: URL? {

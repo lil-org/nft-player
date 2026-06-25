@@ -4,34 +4,104 @@ import Foundation
 
 struct TokenGenerator {
     
-    private static let ponchoDrifellaCollectionId = "JCTP3kK3xGtWs5mDHxJBuRro38HftaiCDdKsfkXuK2gH"
     private static let dirURL = SuggestedItemsService.bundle.url(forResource: "Scripts", withExtension: nil)!
     private static var collectionDataCache = [String: CollectionTokenData]()
     private static let collectionDataCacheLock = NSLock()
-    
-    private static let disabledCollectionIds: Set<String> = {
-#if os(watchOS)
-        return Set([ponchoDrifellaCollectionId])
-#elseif os(visionOS)
+    private static var scriptCache = [String: ScriptCacheEntry]()
+    private static let scriptCacheLock = NSLock()
+    private static let ponchoDrifellaNativeCollectionId = "JCTP3kK3xGtWs5mDHxJBuRro38HftaiCDdKsfkXuK2gH"
+    private static let cardNft2NativeCollection = RangedNativeCollection(
+        collectionId: "EAzEpagtyeRAx9npnpVMpygoA8ouX7DRpLTghhPvYTiu",
+        tokenCount: { cardNft2RangedTokenCount },
+        tokenAtIndex: { cardNft2Token(at: $0) },
+        tokenWithID: { cardNft2Token(id: $0) }
+    )
+    private static let rangedNativeCollectionsById: [String: RangedNativeCollection] = [
+        cardNft2NativeCollection.collectionId: cardNft2NativeCollection
+    ]
+    private static let nativeRendererCollectionIds: Set<String> = {
+        var ids = Set([ponchoDrifellaNativeCollectionId])
+        ids.formUnion(rangedNativeCollectionsById.keys)
+        return ids
+    }()
+
+    private enum ScriptCacheEntry {
+        case found(Script)
+        case missing
+
+        var script: Script? {
+            switch self {
+            case let .found(script):
+                return script
+            case .missing:
+                return nil
+            }
+        }
+    }
+
+    private struct RangedNativeCollection {
+        let collectionId: String
+        let tokenCount: () -> Int
+        let tokenAtIndex: (Int) -> BundledTokens.Item?
+        let tokenWithID: (Int) -> BundledTokens.Item
+
+        var count: Int {
+            tokenCount()
+        }
+
+        func token(at tokenIndex: Int) -> BundledTokens.Item? {
+            guard tokenIndex >= 0,
+                  tokenIndex < count else { return nil }
+            return tokenAtIndex(tokenIndex)
+        }
+
+        func tokenIndex(for tokenId: String) -> Int? {
+            guard let tokenID = Int(tokenId),
+                  tokenID >= 1,
+                  tokenID <= count else { return nil }
+            return tokenID - 1
+        }
+
+        func randomToken(notTokenId: String?) -> BundledTokens.Item? {
+            let availableCount = count
+            guard availableCount > 0 else { return nil }
+
+            var tokenID = Int.random(in: 1...availableCount)
+            if availableCount > 1, String(tokenID) == notTokenId {
+                let offset = Int.random(in: 1..<availableCount)
+                tokenID = ((tokenID - 1 + offset) % availableCount) + 1
+            }
+            return tokenWithID(tokenID)
+        }
+    }
+
+    private static let platformDisabledCollectionIds: Set<String> = {
+#if os(visionOS)
         return Set([
             "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce367650",
             "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270250",
             "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270356",
             "0x99a9b7c1116f9ceeb1652de04d5969cce509b069472",
             "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce367667",
-            ponchoDrifellaCollectionId,
         ])
 #elseif os(tvOS)
         return Set([
             "0x99a9b7c1116f9ceeb1652de04d5969cce509b069472",
             "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270356",
             "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270250",
-            ponchoDrifellaCollectionId,
         ])
 #else
         return Set<String>()
 #endif
     }()
+
+    private static var disablesNativeRenderersOnCurrentPlatform: Bool {
+#if os(watchOS) || os(visionOS) || os(tvOS)
+        return true
+#else
+        return false
+#endif
+    }
 
     private static let jsonsNames: Set<String> = {
         let fileManager = FileManager.default
@@ -39,7 +109,12 @@ struct TokenGenerator {
         return Set(fileURLs.compactMap { fileURL in
             let fileName = fileURL.lastPathComponent
             let collectionId = String(fileName.dropLast(5))
-            return disabledCollectionIds.contains(collectionId) ? nil : fileName
+            guard !platformDisabledCollectionIds.contains(collectionId) else { return nil }
+            if disablesNativeRenderersOnCurrentPlatform,
+               nativeRendererCollectionIds.contains(collectionId) {
+                return nil
+            }
+            return fileName
         })
     }()
 
@@ -48,7 +123,13 @@ struct TokenGenerator {
     }
     
     static func isCollectionDisabledOnCurrentPlatform(id: String) -> Bool {
-        return disabledCollectionIds.contains(id)
+        if platformDisabledCollectionIds.contains(id) {
+            return true
+        }
+        guard disablesNativeRenderersOnCurrentPlatform else {
+            return false
+        }
+        return nativeRendererCollectionIds.contains(id)
     }
 
     static var allGenerativeSuggestedItems: [SuggestedItem] {
@@ -56,20 +137,41 @@ struct TokenGenerator {
     }
     
     static func tokenCount(specificCollectionId: String) -> Int {
-        collectionData(specificCollectionId: specificCollectionId)?.tokens.count ?? 0
+        if isRangedNativeCollection(specificCollectionId) {
+            return activeRangedNativeCollection(specificCollectionId: specificCollectionId)?.count ?? 0
+        }
+        return collectionData(specificCollectionId: specificCollectionId)?.tokens.count ?? 0
     }
 
     static func tokenIndex(specificCollectionId: String, tokenId: String) -> Int? {
-        collectionData(specificCollectionId: specificCollectionId)?.tokenIndicesById[tokenId]
+        if isRangedNativeCollection(specificCollectionId) {
+            guard let collection = activeRangedNativeCollection(specificCollectionId: specificCollectionId) else { return nil }
+            return collection.tokenIndex(for: tokenId)
+        }
+        return collectionData(specificCollectionId: specificCollectionId)?.tokenIndicesById[tokenId]
     }
 
     static func generateToken(specificCollectionId: String, tokenIndex: Int) -> GeneratedToken? {
+        if isRangedNativeCollection(specificCollectionId) {
+            guard let collection = activeRangedNativeCollection(specificCollectionId: specificCollectionId) else { return nil }
+            guard let script = script(specificCollectionId: specificCollectionId),
+                  let token = collection.token(at: tokenIndex) else { return nil }
+            return generateToken(token, script: script)
+        }
+
         guard let collectionData = collectionData(specificCollectionId: specificCollectionId),
               collectionData.tokens.indices.contains(tokenIndex) else { return nil }
         return generateToken(collectionData.tokens[tokenIndex], script: collectionData.script)
     }
     
     static func generateRandomToken(specificCollectionId: String, notTokenId: String?) -> GeneratedToken? {
+        if isRangedNativeCollection(specificCollectionId) {
+            guard let collection = activeRangedNativeCollection(specificCollectionId: specificCollectionId) else { return nil }
+            guard let script = script(specificCollectionId: specificCollectionId),
+                  let token = collection.randomToken(notTokenId: notTokenId) else { return nil }
+            return generateToken(token, script: script)
+        }
+
         guard let collectionData = collectionData(specificCollectionId: specificCollectionId),
               var randomToken = collectionData.tokens.randomElement() else { return nil }
         
@@ -82,6 +184,39 @@ struct TokenGenerator {
 
     private static func collectionData(specificCollectionId: String) -> CollectionTokenData? {
         collectionData(jsonName: specificCollectionId + ".json")
+    }
+
+    private static func isRangedNativeCollection(_ specificCollectionId: String) -> Bool {
+        rangedNativeCollectionsById[specificCollectionId] != nil
+    }
+
+    private static func activeRangedNativeCollection(specificCollectionId: String) -> RangedNativeCollection? {
+        guard let collection = rangedNativeCollectionsById[specificCollectionId],
+              collection.count > 0,
+              jsonsNames.contains(specificCollectionId + ".json") else { return nil }
+        return collection
+    }
+
+    private static var cardNft2RangedTokenCount: Int {
+#if os(watchOS) || os(visionOS) || os(tvOS)
+        return 0
+#else
+        return CardNft2CardMetadata.tokenCount
+#endif
+    }
+
+    private static func cardNft2Token(at tokenIndex: Int) -> BundledTokens.Item? {
+        guard tokenIndex >= 0,
+              tokenIndex < cardNft2RangedTokenCount else { return nil }
+        return cardNft2Token(id: tokenIndex + 1)
+    }
+
+    private static func cardNft2Token(id tokenID: Int) -> BundledTokens.Item {
+        BundledTokens.Item(id: String(tokenID), name: nil, url: nil, sh: nil, hash: nil)
+    }
+
+    private static func script(specificCollectionId: String) -> Script? {
+        script(jsonName: specificCollectionId + ".json")
     }
 
     private static func collectionData(jsonName: String) -> CollectionTokenData? {
@@ -103,10 +238,22 @@ struct TokenGenerator {
     }
 
     private static func script(jsonName: String) -> Script? {
+        if let cachedEntry = scriptCacheLock.withLock({ scriptCache[jsonName] }) {
+            return cachedEntry.script
+        }
+
         let url = dirURL.appendingPathComponent(jsonName)
-        guard let data = try? Data(contentsOf: url),
-              let script = try? JSONDecoder().decode(Script.self, from: data) else { return nil }
-        return script
+        let decodedScript = (try? Data(contentsOf: url)).flatMap {
+            try? JSONDecoder().decode(Script.self, from: $0)
+        }
+        let entry: ScriptCacheEntry = decodedScript.map(ScriptCacheEntry.found) ?? .missing
+        return scriptCacheLock.withLock {
+            if let cachedEntry = scriptCache[jsonName] {
+                return cachedEntry.script
+            }
+            scriptCache[jsonName] = entry
+            return decodedScript
+        }
     }
 
     private static func bundledTokens(script: Script) -> [BundledTokens.Item]? {
@@ -114,12 +261,11 @@ struct TokenGenerator {
     }
     
     private static func generateToken(_ token: BundledTokens.Item, script: Script) -> GeneratedToken? {
-        let usesNativePonchoRenderer = script.kind == .ponchoDrifellaNative
-        let html = usesNativePonchoRenderer ? "" : RawHtmlGenerator.createHtml(script: script, token: token)
+        let renderKind = script.kind.generatedTokenRenderKind
+        let html = RawHtmlGenerator.createHtml(script: script, token: token)
         let cleanId = (token.id.hasPrefix(script.abId) && token.id != script.abId) ? String(token.id.dropFirst(script.abId.count).drop(while: { $0 == "0" })) : token.id
         let displayTokenId = "#" + (cleanId.isEmpty ? "0" : cleanId)
         let name = script.name + " " + displayTokenId
-        let renderKind: GeneratedTokenRenderKind? = usesNativePonchoRenderer ? .ponchoDrifellaMetal : nil
         
         let webURL = webURL(script: script, token: token)
         let generatedToken = GeneratedToken(fullCollectionId: script.id,
