@@ -189,15 +189,25 @@ struct CollectionOfTheDayWidgetView: View {
     @ViewBuilder
     private var widgetImage: some View {
         if let image = entry.image {
-            platformImage(image)
-                .resizable()
-                .scaledToFill()
+            fullColorWidgetImage(platformImage(image))
         } else if !entry.coverAssetName.isEmpty {
-            Image(entry.coverAssetName)
-                .resizable()
-                .scaledToFill()
+            fullColorWidgetImage(Image(entry.coverAssetName))
         } else {
             Color.black
+        }
+    }
+
+    @ViewBuilder
+    private func fullColorWidgetImage(_ image: Image) -> some View {
+        if #available(iOS 18.0, macOS 15.0, watchOS 11.0, visionOS 26.0, *) {
+            image
+                .resizable()
+                .widgetAccentedRenderingMode(.fullColor)
+                .scaledToFill()
+        } else {
+            image
+                .resizable()
+                .scaledToFill()
         }
     }
 
