@@ -283,11 +283,6 @@ final class PlayerTokenPagingDataSource {
 
     func pageLabel(coordinate: PlayerCoordinate) -> String? {
         guard let context = collectionTokenContext(coordinate: coordinate) else { return nil }
-
-        if isInsertedWidgetToken(coordinate: coordinate) {
-            return Strings.maskedPagePosition(total: context.tokenCount)
-        }
-
         return Strings.pagePosition(current: context.tokenIndex + 1, total: context.tokenCount)
     }
 

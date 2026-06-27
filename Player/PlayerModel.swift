@@ -101,9 +101,10 @@ class PlayerModel: ObservableObject {
             return baseTitle
         }
 
-        let pagePosition = shouldMaskPagePosition(for: token)
-            ? Strings.maskedPagePosition(total: tokenContext.tokenCount)
-            : Strings.pagePosition(current: tokenContext.tokenIndex + 1, total: tokenContext.tokenCount)
+        let pagePosition = Strings.pagePosition(
+            current: tokenContext.tokenIndex + 1,
+            total: tokenContext.tokenCount
+        )
         return "\(baseTitle) \(pagePosition)"
 #else
         return baseTitle
@@ -244,7 +245,7 @@ class PlayerModel: ObservableObject {
 
     @discardableResult
     func markTokenViewed(_ token: GeneratedToken) -> PlayerViewingProgress? {
-        let progress = shouldMaskPagePosition(for: token)
+        let progress = shouldRecordAnchorProgress(for: token)
             ? widgetTokenInsertion?.updatedAnchorProgress()
             : progress(for: token)
         guard let progress else { return nil }
@@ -308,7 +309,7 @@ class PlayerModel: ObservableObject {
         return Self.generateToken(specificCollectionId: currentProgress.collectionId, tokenIndex: targetIndex)
     }
 
-    private func shouldMaskPagePosition(for token: GeneratedToken) -> Bool {
+    private func shouldRecordAnchorProgress(for token: GeneratedToken) -> Bool {
         isCurrentTokenInsertedWidgetToken && currentToken == token
     }
 
