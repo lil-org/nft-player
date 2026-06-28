@@ -1390,6 +1390,12 @@
     "tokenCount" : 999
   },
   {
+    "address" : "JCTP3kK3xGtWs5mDHxJBuRro38HftaiCDdKsfkXuK2gH",
+    "chain" : "solana",
+    "chainId" : 0,
+    "name" : "Poncho Drifella"
+  },
+  {
     "address" : "r1pCPYkbbpZWv7RCvuCMtpA3NSQY3fzVFo6HL43A4ot",
     "chain" : "solana",
     "chainId" : 0,
@@ -1544,18 +1550,6 @@
     "tokenCount" : 332
   },
   {
-    "address" : "EAzEpagtyeRAx9npnpVMpygoA8ouX7DRpLTghhPvYTiu",
-    "chain" : "solana",
-    "chainId" : 0,
-    "name" : "Card NFT 2"
-  },
-  {
-    "address" : "JCTP3kK3xGtWs5mDHxJBuRro38HftaiCDdKsfkXuK2gH",
-    "chain" : "solana",
-    "chainId" : 0,
-    "name" : "Poncho Drifella"
-  },
-  {
     "address" : "KT1PkEhFLSvvsw9wwf6mxvVJ7Q633FrYAyX6",
     "chain" : "tezos",
     "chainId" : 0,
@@ -1689,6 +1683,12 @@
     "name" : "Mi Note 2",
     "tokenCount" : 1114,
     "iosOnly" : true
+  },
+  {
+    "address" : "EAzEpagtyeRAx9npnpVMpygoA8ouX7DRpLTghhPvYTiu",
+    "chain" : "solana",
+    "chainId" : 0,
+    "name" : "Card NFT 2"
   },
   {
     "address" : "0xd497a414bb00803e846b53d07fcb742831b24906",
