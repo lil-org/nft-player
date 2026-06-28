@@ -46,18 +46,46 @@ private enum InfiniteCollectionsLoop {
         middleRepetition * itemCount + sourceIndex
     }
 
+    static func centeredIndex(
+        sourceIndex: Int,
+        itemCount: Int,
+        columnCount: Int
+    ) -> Int {
+        let fallbackIndex = centeredIndex(sourceIndex: sourceIndex, itemCount: itemCount)
+        guard itemCount > 0,
+              columnCount > 1 else {
+            return fallbackIndex
+        }
+
+        var targetIndex = fallbackIndex
+        for _ in 0..<min(columnCount, repetitionCount - middleRepetition) {
+            guard targetIndex % columnCount != 0 else { return targetIndex }
+            targetIndex += itemCount
+        }
+
+        return fallbackIndex
+    }
+
     static func defaultInitialSourceIndex(itemCount: Int) -> Int? {
         guard itemCount > 0 else { return nil }
         return initialSourceOffset % itemCount
     }
 
-    static func initialScrollPosition(sourceIndex: Int, itemCount: Int) -> Int? {
+    static func initialScrollPosition(
+        sourceIndex: Int,
+        itemCount: Int,
+        columnCount: Int = 1
+    ) -> Int? {
         guard itemCount > 0,
               sourceIndex >= 0,
               sourceIndex < itemCount else {
             return nil
         }
-        return centeredIndex(sourceIndex: sourceIndex, itemCount: itemCount)
+        return centeredIndex(
+            sourceIndex: sourceIndex,
+            itemCount: itemCount,
+            columnCount: columnCount
+        )
     }
 
     static func initialSourceIndices(
@@ -554,7 +582,14 @@ private struct InfiniteCollectionsGridView: UIViewRepresentable {
             }
 
             let sourceIndex = InfiniteCollectionsLoop.sourceIndex(for: topIndexPath.item, itemCount: itemCount)
-            let targetIndexPath = IndexPath(item: InfiniteCollectionsLoop.centeredIndex(sourceIndex: sourceIndex, itemCount: itemCount), section: 0)
+            let targetIndexPath = IndexPath(
+                item: InfiniteCollectionsLoop.centeredIndex(
+                    sourceIndex: sourceIndex,
+                    itemCount: itemCount,
+                    columnCount: columnCount(in: collectionView)
+                ),
+                section: 0
+            )
             collectionView.layoutIfNeeded()
             guard let targetAttributes = collectionView.layoutAttributesForItem(at: targetIndexPath) else {
                 rememberScrollPosition(in: collectionView, topIndexPath: topIndexPath, topAttributes: topAttributes)
@@ -596,11 +631,13 @@ private struct InfiniteCollectionsGridView: UIViewRepresentable {
             let savedSourceIndex = savedPosition?.resolvedSourceIndex(in: items)
             let sourceIndex = savedSourceIndex
                 ?? InfiniteCollectionsLoop.defaultInitialSourceIndex(itemCount: items.count)
+            let restoreColumnCount = savedSourceIndex == nil ? 1 : columnCount(in: collectionView)
             guard !items.isEmpty,
                   let sourceIndex,
                   let targetIndex = InfiniteCollectionsLoop.initialScrollPosition(
                     sourceIndex: sourceIndex,
-                    itemCount: items.count
+                    itemCount: items.count,
+                    columnCount: restoreColumnCount
                   ) else {
                 return
             }
@@ -783,6 +820,16 @@ private struct InfiniteCollectionsGridView: UIViewRepresentable {
 
         private func topVisibleIndexPath(in collectionView: UICollectionView) -> IndexPath? {
             collectionView.indexPathsForVisibleItems.min { $0.item < $1.item }
+        }
+
+        private func columnCount(in collectionView: UICollectionView) -> Int {
+            guard collectionView.bounds.width > 0 else { return 1 }
+            if let itemWidth = (collectionView.collectionViewLayout as? UICollectionViewFlowLayout)?.itemSize.width,
+               itemWidth > 0 {
+                return max(Int(round(collectionView.bounds.width / itemWidth)), 1)
+            }
+            let itemWidth = InfiniteCollectionsGridContainerView.itemSize(forWidth: collectionView.bounds.width).width
+            return max(Int(round(collectionView.bounds.width / itemWidth)), 1)
         }
     }
 }
