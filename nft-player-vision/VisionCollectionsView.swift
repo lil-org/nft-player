@@ -6,6 +6,9 @@ private let visionCollectionsMinimumWindowWidth: CGFloat = 720
 private let visionCollectionsMinimumWindowHeight: CGFloat = 540
 private let visionCollectionsContinueViewingMinWidth: CGFloat = 360
 private let visionCollectionsContinueViewingMaxWidth: CGFloat = 520
+private let visionCollectionsGridMinimumItemWidth: CGFloat = 150
+private let visionCollectionsGridColumnSpacing: CGFloat = 0
+private let visionCollectionsGridRowSpacing: CGFloat = 0
 private let visionCollectionsTopOrnamentWidth: CGFloat = (
     visionCollectionsMinimumWindowWidth
     - VisionOrnamentMetrics.horizontalPadding * 2
@@ -28,7 +31,9 @@ struct VisionCollectionsView: View {
     @Environment(\.openImmersiveSpace) private var openImmersiveSpace
     @Environment(\.dismissImmersiveSpace) private var dismissImmersiveSpace
     @EnvironmentObject private var immersiveMode: VisionImmersiveModeModel
-    @State private var gridPassCount = 1
+    @State private var gridPassCount: Int
+    @State private var gridScrollMemoryTracker: CollectionsGridScrollMemoryTracker
+    @State private var hasRestoredInitialGridScrollPosition: Bool
     @State private var playerConfig: VisionPlayerConfig?
     @State private var immersiveSpaceState = VisionImmersiveSpaceState.closed
     @State private var immersiveModeRequestID = 0
@@ -41,6 +46,12 @@ struct VisionCollectionsView: View {
     init(collectionItems: [CollectionCatalogItem] = CollectionCatalog.allItems) {
         self.collectionItems = collectionItems
         let progressSnapshot = PlayerViewingProgressStore.progressSnapshot()
+        let gridScrollMemoryTracker = CollectionsGridScrollMemoryTracker(items: collectionItems)
+        _gridPassCount = State(initialValue: gridScrollMemoryTracker.initialGridPassCount)
+        _gridScrollMemoryTracker = State(initialValue: gridScrollMemoryTracker)
+        _hasRestoredInitialGridScrollPosition = State(
+            initialValue: gridScrollMemoryTracker.initialDisplayedIndex == nil
+        )
         _viewingProgressByCollectionId = State(initialValue: progressSnapshot.percentagesByCollectionId)
         _viewedToEndCollectionIds = State(initialValue: progressSnapshot.viewedToEndCollectionIds)
         _continueViewingProgress = State(
@@ -53,8 +64,26 @@ struct VisionCollectionsView: View {
 
     var body: some View {
         ZStack {
-            ScrollView {
-                createGrid().frame(maxWidth: .infinity)
+            ScrollViewReader { scrollProxy in
+                ScrollView {
+                    createGrid()
+                        .frame(maxWidth: .infinity)
+                        .collectionsGridScrollMemoryContent()
+                }
+                .collectionsGridScrollMemoryTracking(
+                    tracker: gridScrollMemoryTracker,
+                    minimumItemWidth: visionCollectionsGridMinimumItemWidth,
+                    columnSpacing: visionCollectionsGridColumnSpacing,
+                    rowSpacing: visionCollectionsGridRowSpacing,
+                    visibleItemCount: visibleItemCount
+                )
+                .opacity(hasRestoredInitialGridScrollPosition ? 1 : 0)
+                .allowsHitTesting(hasRestoredInitialGridScrollPosition)
+                .collectionsGridScrollMemoryRestoration(
+                    using: scrollProxy,
+                    tracker: gridScrollMemoryTracker,
+                    hasRestored: $hasRestoredInitialGridScrollPosition
+                )
             }
 
             if let playerConfig {
@@ -116,6 +145,7 @@ struct VisionCollectionsView: View {
             guard playerConfig == nil else { return }
             refreshViewingProgress()
         }
+        .collectionsGridScrollMemoryLifecycleFlush(tracker: gridScrollMemoryTracker)
         .onDisappear {
             dismissImmersiveSpaceIfNeeded()
         }
@@ -123,10 +153,16 @@ struct VisionCollectionsView: View {
     }
     
     private func createGrid() -> some View {
-        let gridLayout = [GridItem(.adaptive(minimum: 150), spacing: 0)]
-        let grid = LazyVGrid(columns: gridLayout, alignment: .leading, spacing: 0) {
+        let gridLayout = [
+            GridItem(
+                .adaptive(minimum: visionCollectionsGridMinimumItemWidth),
+                spacing: visionCollectionsGridColumnSpacing
+            )
+        ]
+        let grid = LazyVGrid(columns: gridLayout, alignment: .leading, spacing: visionCollectionsGridRowSpacing) {
             ForEach(0..<visibleItemCount, id: \.self) { index in
-                let item = item(at: index)
+                let sourceIndex = sourceIndex(for: index)
+                let item = collectionItems[sourceIndex]
                 Button(action: {
                     didSelectCollectionItem(item)
                 }) {
@@ -149,6 +185,10 @@ struct VisionCollectionsView: View {
                 }
                 .aspectRatio(1, contentMode: .fit)
                 .contextMenu { collectionItemContextMenu(item: item) }
+                .collectionsGridMemoryItem(
+                    displayedIndex: index,
+                    tracker: gridScrollMemoryTracker
+                )
                 .onAppear {
                     appendNextPassIfNeeded(for: index)
                 }
@@ -161,17 +201,19 @@ struct VisionCollectionsView: View {
         collectionItems.count * gridPassCount
     }
 
-    private func item(at index: Int) -> CollectionCatalogItem {
-        collectionItems[index % collectionItems.count]
+    private func sourceIndex(for displayedIndex: Int) -> Int {
+        CollectionsGridLoop.sourceIndex(
+            forDisplayedIndex: displayedIndex,
+            itemCount: collectionItems.count
+        )
     }
 
     private func appendNextPassIfNeeded(for index: Int) {
-        guard !collectionItems.isEmpty else { return }
-
-        let appendThreshold = min(max(collectionItems.count / 2, 24), collectionItems.count)
-        let triggerIndex = visibleItemCount - appendThreshold
-        guard index >= triggerIndex else { return }
-
+        guard CollectionsGridLoop.shouldAppendNextPass(
+            forDisplayedIndex: index,
+            itemCount: collectionItems.count,
+            visibleItemCount: visibleItemCount
+        ) else { return }
         gridPassCount += 1
     }
     
@@ -347,7 +389,7 @@ struct VisionCollectionsView: View {
     }
 
     private func likelyInitialCollectionIds() -> [String] {
-        collectionItems.prefix(2).map(\.id)
+        gridScrollMemoryTracker.initialCollectionIds(limit: 2)
     }
 
     private func openCollection(

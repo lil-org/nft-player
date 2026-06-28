@@ -5,18 +5,30 @@ import SwiftUI
 
 private let continueViewingButtonPadding: CGFloat = 16
 private let continueViewingCollectionNameMaxWidth: CGFloat = 250
+private let collectionsGridMinimumItemWidth: CGFloat = 100
+private let collectionsGridColumnSpacing: CGFloat = 0
+private let collectionsGridRowSpacing: CGFloat = 0
 
 struct WalletsListView: View {
 
-    private let collectionItems = CollectionCatalog.allItems
-    @State private var gridPassCount = 1
+    private let collectionItems: [CollectionCatalogItem]
+    @State private var gridPassCount: Int
+    @State private var gridScrollMemoryTracker: CollectionsGridScrollMemoryTracker
+    @State private var hasRestoredInitialGridScrollPosition: Bool
     @State private var viewingProgressByCollectionId: [String: Int]
     @State private var viewedToEndCollectionIds: Set<String>
     @State private var continueViewingProgress: PlayerViewingProgress?
     @State private var hasOpenPlayerWindows: Bool
 
-    init() {
+    init(collectionItems: [CollectionCatalogItem] = CollectionCatalog.allItems) {
+        self.collectionItems = collectionItems
         let progressSnapshot = PlayerViewingProgressStore.progressSnapshot()
+        let gridScrollMemoryTracker = CollectionsGridScrollMemoryTracker(items: collectionItems)
+        _gridPassCount = State(initialValue: gridScrollMemoryTracker.initialGridPassCount)
+        _gridScrollMemoryTracker = State(initialValue: gridScrollMemoryTracker)
+        _hasRestoredInitialGridScrollPosition = State(
+            initialValue: gridScrollMemoryTracker.initialDisplayedIndex == nil
+        )
         _viewingProgressByCollectionId = State(initialValue: progressSnapshot.percentagesByCollectionId)
         _viewedToEndCollectionIds = State(initialValue: progressSnapshot.viewedToEndCollectionIds)
         _continueViewingProgress = State(initialValue: progressSnapshot.continueViewingProgress)
@@ -24,9 +36,26 @@ struct WalletsListView: View {
     }
 
     var body: some View {
-        ScrollView {
-            createGrid()
-                .frame(maxWidth: .infinity)
+        ScrollViewReader { scrollProxy in
+            ScrollView {
+                createGrid()
+                    .frame(maxWidth: .infinity)
+                    .collectionsGridScrollMemoryContent()
+            }
+            .collectionsGridScrollMemoryTracking(
+                tracker: gridScrollMemoryTracker,
+                minimumItemWidth: collectionsGridMinimumItemWidth,
+                columnSpacing: collectionsGridColumnSpacing,
+                rowSpacing: collectionsGridRowSpacing,
+                visibleItemCount: visibleItemCount
+            )
+            .opacity(hasRestoredInitialGridScrollPosition ? 1 : 0)
+            .allowsHitTesting(hasRestoredInitialGridScrollPosition)
+            .collectionsGridScrollMemoryRestoration(
+                using: scrollProxy,
+                tracker: gridScrollMemoryTracker,
+                hasRestored: $hasRestoredInitialGridScrollPosition
+            )
         }
         .overlay(alignment: .bottom) {
             if shouldShowContinueViewingControl, let continueViewingProgress {
@@ -67,6 +96,7 @@ struct WalletsListView: View {
             refreshViewingProgress()
             refreshPlayerWindowState()
         }
+        .collectionsGridScrollMemoryLifecycleFlush(tracker: gridScrollMemoryTracker)
         .animation(continueViewingControlAnimation, value: continueViewingProgress)
         .animation(continueViewingControlAnimation, value: hasOpenPlayerWindows)
     }
@@ -94,10 +124,16 @@ struct WalletsListView: View {
     }
 
     private func createGrid() -> some View {
-        let gridLayout = [GridItem(.adaptive(minimum: 100), spacing: 0)]
-        let grid = LazyVGrid(columns: gridLayout, alignment: .leading, spacing: 0) {
+        let gridLayout = [
+            GridItem(
+                .adaptive(minimum: collectionsGridMinimumItemWidth),
+                spacing: collectionsGridColumnSpacing
+            )
+        ]
+        let grid = LazyVGrid(columns: gridLayout, alignment: .leading, spacing: collectionsGridRowSpacing) {
             ForEach(0..<visibleItemCount, id: \.self) { index in
-                let item = item(at: index)
+                let sourceIndex = sourceIndex(for: index)
+                let item = collectionItems[sourceIndex]
                 CollectionTile(
                     item: item,
                     progressPercent: viewingProgressByCollectionId[item.id],
@@ -105,6 +141,10 @@ struct WalletsListView: View {
                 ) {
                     didSelectCollectionItem(item)
                 }
+                .collectionsGridMemoryItem(
+                    displayedIndex: index,
+                    tracker: gridScrollMemoryTracker
+                )
                 .onAppear {
                     appendNextPassIfNeeded(for: index)
                 }
@@ -117,17 +157,19 @@ struct WalletsListView: View {
         collectionItems.count * gridPassCount
     }
 
-    private func item(at index: Int) -> CollectionCatalogItem {
-        collectionItems[index % collectionItems.count]
+    private func sourceIndex(for displayedIndex: Int) -> Int {
+        CollectionsGridLoop.sourceIndex(
+            forDisplayedIndex: displayedIndex,
+            itemCount: collectionItems.count
+        )
     }
 
     private func appendNextPassIfNeeded(for index: Int) {
-        guard !collectionItems.isEmpty else { return }
-
-        let appendThreshold = min(max(collectionItems.count / 2, 24), collectionItems.count)
-        let triggerIndex = visibleItemCount - appendThreshold
-        guard index >= triggerIndex else { return }
-
+        guard CollectionsGridLoop.shouldAppendNextPass(
+            forDisplayedIndex: index,
+            itemCount: collectionItems.count,
+            visibleItemCount: visibleItemCount
+        ) else { return }
         gridPassCount += 1
     }
 
@@ -181,7 +223,7 @@ struct WalletsListView: View {
         PlayerWebView.scheduleFirstUsePrewarm()
         PlayerTokenPrewarmer.scheduleAfterLaunch(
             continueViewingProgress: continueViewingProgress,
-            initialCollectionIds: Array(collectionItems.prefix(2).map(\.id))
+            initialCollectionIds: gridScrollMemoryTracker.initialCollectionIds(limit: 2)
         )
     }
 

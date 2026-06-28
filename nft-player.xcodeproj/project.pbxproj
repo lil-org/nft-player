@@ -222,6 +222,12 @@
 		2D7000042F70000100000001 /* PlayerTokenPrewarmer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF00022F10000000000001 /* PlayerTokenPrewarmer.swift */; };
 		2D8000002FA0000000000001 /* PlayerBookmarksStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CB01A022F01000000000001 /* PlayerBookmarksStore.swift */; };
 		2D8000012FA0000000000001 /* PlayerICloudSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CF100002F20000000000001 /* PlayerICloudSync.swift */; };
+		2D9000012FB0000000000001 /* CollectionsGridScrollMemory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D9000002FB0000000000001 /* CollectionsGridScrollMemory.swift */; };
+		2D9000022FB0000000000001 /* CollectionsGridScrollMemory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D9000002FB0000000000001 /* CollectionsGridScrollMemory.swift */; };
+		2D9000032FB0000000000001 /* CollectionsGridScrollMemory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D9000002FB0000000000001 /* CollectionsGridScrollMemory.swift */; };
+		2D9000052FB0000000000001 /* CollectionsGridScrollViewHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D9000042FB0000000000001 /* CollectionsGridScrollViewHelpers.swift */; };
+		2D9000062FB0000000000001 /* CollectionsGridScrollViewHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D9000042FB0000000000001 /* CollectionsGridScrollViewHelpers.swift */; };
+		2D9000072FB0000000000001 /* CollectionsGridScrollViewHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D9000042FB0000000000001 /* CollectionsGridScrollViewHelpers.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -407,6 +413,8 @@
 		2D5000092F60000000000001 /* nft-player-vision-widget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "nft-player-vision-widget.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
 		2D7000012F70000100000001 /* TvPlayerMediaView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TvPlayerMediaView.swift; sourceTree = "<group>"; };
 		2D8000022FA0000000000001 /* nft_player_tvos.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = nft_player_tvos.entitlements; sourceTree = "<group>"; };
+		2D9000002FB0000000000001 /* CollectionsGridScrollMemory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionsGridScrollMemory.swift; sourceTree = "<group>"; };
+		2D9000042FB0000000000001 /* CollectionsGridScrollViewHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionsGridScrollViewHelpers.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -475,6 +483,7 @@
 				2C1B60BC2B7D3505009949C2 /* Strings.swift */,
 				2CB01A022F01000000000001 /* PlayerBookmarksStore.swift */,
 				2CB01A032F01000000000001 /* PlayerViewingProgressStore.swift */,
+				2D9000002FB0000000000001 /* CollectionsGridScrollMemory.swift */,
 				2D4000042F50000000000001 /* PlayerViewingSessionTracker.swift */,
 				2CF100042F20000000000001 /* PlayerSyncTypes.swift */,
 				2CDF00062F10000000000001 /* PonchoDrifellaCardMetadata.swift */,
@@ -611,6 +620,7 @@
 			children = (
 				2C508C9C2B6830E6005F548A /* Notification.swift */,
 				2C6359522D29C07D00E40241 /* Links.swift */,
+				2D9000042FB0000000000001 /* CollectionsGridScrollViewHelpers.swift */,
 			);
 			path = Extensions;
 			sourceTree = "<group>";
@@ -1190,6 +1200,8 @@
 				2D3000032F40000000000001 /* PlayerWebContentLoadCoordinator.swift in Sources */,
 				2D4000062F50000000000001 /* PlayerICloudSync.swift in Sources */,
 				2CF100072F20000000000001 /* PlayerSyncTypes.swift in Sources */,
+				2D9000012FB0000000000001 /* CollectionsGridScrollMemory.swift in Sources */,
+				2D9000052FB0000000000001 /* CollectionsGridScrollViewHelpers.swift in Sources */,
 				2C5A59CD2C51529800788870 /* VisionCollectionsView.swift in Sources */,
 				2C5A59D12C5152B000788870 /* VisionHelpers.swift in Sources */,
 				2C5A59D22C5153E500788870 /* Strings.swift in Sources */,
@@ -1230,6 +1242,8 @@
 				2D6000002F70000000000001 /* CollectionCatalog.swift in Sources */,
 				2D7000032F70000100000001 /* DownloadableMediaCache.swift in Sources */,
 				2D7000042F70000100000001 /* PlayerTokenPrewarmer.swift in Sources */,
+				2D9000022FB0000000000001 /* CollectionsGridScrollMemory.swift in Sources */,
+				2D9000062FB0000000000001 /* CollectionsGridScrollViewHelpers.swift in Sources */,
 				2C0218042C53CE3D0012EC40 /* Consts.swift in Sources */,
 				2C5A59B12C51400200788870 /* nft_player_tvosApp.swift in Sources */,
 				2C4D315F2C56AC7F00C586D1 /* TvPlayerView.swift in Sources */,
@@ -1276,6 +1290,8 @@
 				2CB01A042F01000000000001 /* PlayerViewingProgressStore.swift in Sources */,
 				2D4000012F50000000000001 /* PlayerViewingSessionTracker.swift in Sources */,
 				2CF100062F20000000000001 /* PlayerSyncTypes.swift in Sources */,
+				2D9000032FB0000000000001 /* CollectionsGridScrollMemory.swift in Sources */,
+				2D9000072FB0000000000001 /* CollectionsGridScrollViewHelpers.swift in Sources */,
 				2CA4CF552B07F75F00CC75F4 /* AppDelegate.swift in Sources */,
 				2C9C60352C2C5FE8001D9B51 /* SuggestedItemsService.swift in Sources */,
 				2C9974002C4AF12400C058E2 /* PlayerMenuDelegate.swift in Sources */,

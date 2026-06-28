@@ -18,22 +18,52 @@ private let tvCollectionGridFocusRingWidth: CGFloat = 4
 
 struct TvCollectionsView: View {
     
+    @Environment(\.resetFocus) private var resetFocus
     private let collectionItems: [CollectionCatalogItem]
-    @State private var gridPassCount = 1
+    @Namespace private var gridFocusNamespace
+    @State private var gridPassCount: Int
+    @State private var gridScrollMemoryTracker: CollectionsGridScrollMemoryTracker
+    @State private var hasRestoredInitialGridScrollPosition: Bool
     @State private var playerNavigationRequest: TvPlayerNavigationRequest?
     @State private var isNavigatingToPlayer = false
     @State private var showPreferencesAlert = false
     @State private var progressSnapshot: PlayerViewingProgressSnapshot
+    @State private var preferredFocusDisplayedIndex: Int?
 
     init(collectionItems: [CollectionCatalogItem] = CollectionCatalog.allItems) {
         self.collectionItems = collectionItems
+        let gridScrollMemoryTracker = CollectionsGridScrollMemoryTracker(items: collectionItems)
+        _gridPassCount = State(initialValue: gridScrollMemoryTracker.initialGridPassCount)
+        _gridScrollMemoryTracker = State(initialValue: gridScrollMemoryTracker)
+        _hasRestoredInitialGridScrollPosition = State(
+            initialValue: gridScrollMemoryTracker.initialDisplayedIndex == nil
+        )
         _progressSnapshot = State(initialValue: PlayerViewingProgressStore.progressSnapshot())
     }
     
     var body: some View {
         NavigationView {
-            ScrollView {
-                createGrid()
+            ScrollViewReader { scrollProxy in
+                ScrollView {
+                    createGrid()
+                }
+                .collectionsGridScrollMemoryTracking(
+                    tracker: gridScrollMemoryTracker,
+                    minimumItemWidth: tvCollectionGridMinimumItemWidth,
+                    columnSpacing: tvCollectionGridColumnSpacing,
+                    rowSpacing: tvCollectionGridRowSpacing,
+                    visibleItemCount: visibleItemCount
+                )
+                .opacity(hasRestoredInitialGridScrollPosition ? 1 : 0)
+                .disabled(!hasRestoredInitialGridScrollPosition)
+                .collectionsGridScrollMemoryRestoration(
+                    using: scrollProxy,
+                    tracker: gridScrollMemoryTracker,
+                    hasRestored: $hasRestoredInitialGridScrollPosition,
+                    onRestored: { displayedIndex in
+                        resetGridFocus(to: displayedIndex)
+                    }
+                )
             }
             .toolbar {
                 ToolbarItem(placement: .principal) {}
@@ -80,6 +110,7 @@ struct TvCollectionsView: View {
                 guard !isNavigatingToPlayer else { return }
                 refreshViewingProgress()
             }
+            .collectionsGridScrollMemoryLifecycleFlush(tracker: gridScrollMemoryTracker)
             .onChange(of: isNavigatingToPlayer) { isNavigatingToPlayer in
                 guard !isNavigatingToPlayer else { return }
                 refreshViewingProgress()
@@ -121,6 +152,18 @@ struct TvCollectionsView: View {
             .transition(.opacity)
         }
     }
+
+    private func resetGridFocus(to displayedIndex: Int) {
+        preferredFocusDisplayedIndex = displayedIndex
+        DispatchQueue.main.async {
+            resetFocus(in: gridFocusNamespace)
+            // Clear after the focus update has consumed the temporary default-focus preference.
+            DispatchQueue.main.async {
+                guard preferredFocusDisplayedIndex == displayedIndex else { return }
+                preferredFocusDisplayedIndex = nil
+            }
+        }
+    }
     
     private func createGrid() -> some View {
         let gridLayout = [
@@ -131,40 +174,50 @@ struct TvCollectionsView: View {
         ]
         let grid = LazyVGrid(columns: gridLayout, alignment: .center, spacing: tvCollectionGridRowSpacing) {
             ForEach(0..<visibleItemCount, id: \.self) { index in
-                let item = item(at: index)
+                let sourceIndex = sourceIndex(for: index)
+                let item = collectionItems[sourceIndex]
                 TvCollectionGridItemButton(
                     item: item,
                     progressPercent: progressSnapshot.percentagesByCollectionId[item.id],
-                    hasViewedToEnd: progressSnapshot.viewedToEndCollectionIds.contains(item.id)
+                    hasViewedToEnd: progressSnapshot.viewedToEndCollectionIds.contains(item.id),
+                    prefersDefaultFocus: preferredFocusDisplayedIndex == index,
+                    focusNamespace: gridFocusNamespace
                 ) {
                     didSelectCollectionItem(item)
                 }
                 .padding(tvCollectionGridItemInset)
                 .contextMenu { collectionItemContextMenu(item: item) }
+                .collectionsGridMemoryItem(
+                    displayedIndex: index,
+                    tracker: gridScrollMemoryTracker
+                )
                 .onAppear {
                     appendNextPassIfNeeded(for: index)
                 }
             }
         }
-        .padding(.horizontal)
         return grid
+            .collectionsGridScrollMemoryContent()
+            .padding(.horizontal)
     }
 
     private var visibleItemCount: Int {
         collectionItems.count * gridPassCount
     }
 
-    private func item(at index: Int) -> CollectionCatalogItem {
-        collectionItems[index % collectionItems.count]
+    private func sourceIndex(for displayedIndex: Int) -> Int {
+        CollectionsGridLoop.sourceIndex(
+            forDisplayedIndex: displayedIndex,
+            itemCount: collectionItems.count
+        )
     }
 
     private func appendNextPassIfNeeded(for index: Int) {
-        guard !collectionItems.isEmpty else { return }
-
-        let appendThreshold = min(max(collectionItems.count / 2, 24), collectionItems.count)
-        let triggerIndex = visibleItemCount - appendThreshold
-        guard index >= triggerIndex else { return }
-
+        guard CollectionsGridLoop.shouldAppendNextPass(
+            forDisplayedIndex: index,
+            itemCount: collectionItems.count,
+            visibleItemCount: visibleItemCount
+        ) else { return }
         gridPassCount += 1
     }
     
@@ -263,7 +316,7 @@ struct TvCollectionsView: View {
     }
 
     private func likelyInitialCollectionIds() -> [String] {
-        collectionItems.prefix(2).map(\.id)
+        gridScrollMemoryTracker.initialCollectionIds(limit: 2)
     }
 
     private static func visibleContinueViewingProgress(
@@ -298,6 +351,8 @@ private struct TvCollectionGridItemButton: View {
     let item: CollectionCatalogItem
     let progressPercent: Int?
     let hasViewedToEnd: Bool
+    let prefersDefaultFocus: Bool
+    let focusNamespace: Namespace.ID
     let action: () -> Void
     @FocusState private var isFocused: Bool
 
@@ -336,6 +391,7 @@ private struct TvCollectionGridItemButton: View {
         }
         .buttonStyle(TvCollectionGridButtonStyle())
         .focused($isFocused)
+        .prefersDefaultFocus(prefersDefaultFocus, in: focusNamespace)
         .tvCollectionGridFocusEffectDisabled()
         .zIndex(isFocused ? 1 : 0)
         .animation(.easeInOut(duration: 0.12), value: isFocused)
