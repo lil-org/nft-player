@@ -8,6 +8,7 @@ private let initialCollectionItemFadeDuration: TimeInterval = 0.3
 private let initialCollectionItemFadeAnimationKey = "initialGridItemFade"
 private let continueViewingLargeIPadMinimumWidth: CGFloat = 700
 private let continueViewingContentSizedCollectionNameMaxWidth: CGFloat = 250
+private let mobileCollectionsGridScrollPositionKey = "mobileCollectionsGridScrollPosition"
 
 private enum PlayerPresentationTransition {
     case animated
@@ -45,18 +46,85 @@ private enum InfiniteCollectionsLoop {
         middleRepetition * itemCount + sourceIndex
     }
 
-    static func initialScrollPosition(itemCount: Int) -> Int? {
+    static func defaultInitialSourceIndex(itemCount: Int) -> Int? {
         guard itemCount > 0 else { return nil }
-        return centeredIndex(sourceIndex: initialSourceOffset % itemCount, itemCount: itemCount)
+        return initialSourceOffset % itemCount
     }
 
-    static func initialSourceIndices(itemCount: Int, limit: Int) -> [Int] {
-        guard itemCount > 0, limit > 0 else { return [] }
-        return (0..<min(itemCount, limit)).map { (initialSourceOffset + $0) % itemCount }
+    static func initialScrollPosition(sourceIndex: Int, itemCount: Int) -> Int? {
+        guard itemCount > 0,
+              sourceIndex >= 0,
+              sourceIndex < itemCount else {
+            return nil
+        }
+        return centeredIndex(sourceIndex: sourceIndex, itemCount: itemCount)
+    }
+
+    static func initialSourceIndices(
+        startingAt sourceIndex: Int,
+        itemCount: Int,
+        limit: Int
+    ) -> [Int] {
+        guard itemCount > 0,
+              limit > 0,
+              sourceIndex >= 0,
+              sourceIndex < itemCount else {
+            return []
+        }
+        return (0..<min(itemCount, limit)).map { (sourceIndex + $0) % itemCount }
     }
 
     static func shouldRecenter(repetition: Int) -> Bool {
         repetition <= recenterThreshold || repetition >= repetitionCount - recenterThreshold
+    }
+}
+
+private struct MobileCollectionsGridScrollPosition: Codable, Equatable {
+    let collectionId: String
+    let sourceIndex: Int
+    let offsetFractionWithinItem: Double
+
+    init(collectionId: String, sourceIndex: Int, offsetFractionWithinItem: CGFloat) {
+        self.collectionId = collectionId
+        self.sourceIndex = sourceIndex
+        self.offsetFractionWithinItem = Double(offsetFractionWithinItem).clamped(to: 0..<1)
+    }
+
+    var offsetFraction: CGFloat {
+        guard offsetFractionWithinItem.isFinite else { return 0 }
+        return CGFloat(offsetFractionWithinItem.clamped(to: 0..<1))
+    }
+
+    func resolvedSourceIndex(in items: [MobileCollectionItem]) -> Int? {
+        if let collectionIndex = items.firstIndex(where: { $0.id == collectionId }) {
+            return collectionIndex
+        }
+        guard sourceIndex >= 0, sourceIndex < items.count else { return nil }
+        return sourceIndex
+    }
+}
+
+private func resolvedInitialSourceIndex(
+    in items: [MobileCollectionItem],
+    savedPosition: MobileCollectionsGridScrollPosition?
+) -> Int? {
+    savedPosition?.resolvedSourceIndex(in: items)
+        ?? InfiniteCollectionsLoop.defaultInitialSourceIndex(itemCount: items.count)
+}
+
+private enum MobileCollectionsGridScrollPositionStore {
+    private static let userDefaults = UserDefaults.standard
+
+    static func load() -> MobileCollectionsGridScrollPosition? {
+        guard let data = userDefaults.data(forKey: mobileCollectionsGridScrollPositionKey) else {
+            return nil
+        }
+        return try? JSONDecoder().decode(MobileCollectionsGridScrollPosition.self, from: data)
+    }
+
+    static func save(_ position: MobileCollectionsGridScrollPosition) {
+        guard let data = try? JSONEncoder().encode(position) else { return }
+        userDefaults.set(data, forKey: mobileCollectionsGridScrollPositionKey)
     }
 }
 
@@ -349,8 +417,19 @@ struct MobileCollectionsView: View {
     }
 
     private func likelyInitialCollectionIds() -> [String] {
-        InfiniteCollectionsLoop
-            .initialSourceIndices(itemCount: collectionItems.count, limit: 2)
+        guard let sourceIndex = resolvedInitialSourceIndex(
+            in: collectionItems,
+            savedPosition: MobileCollectionsGridScrollPositionStore.load()
+        ) else {
+            return []
+        }
+
+        return InfiniteCollectionsLoop
+            .initialSourceIndices(
+                startingAt: sourceIndex,
+                itemCount: collectionItems.count,
+                limit: 2
+            )
             .map { collectionItems[$0].id }
     }
     
@@ -395,6 +474,8 @@ private struct InfiniteCollectionsGridView: UIViewRepresentable {
         private var isRecentering = false
         private var isInitialCoverImageFadeActive = true
         private var pendingInitialCoverFadeIndexPaths = Set<IndexPath>()
+        private var pendingScrollPosition: MobileCollectionsGridScrollPosition?
+        private var lastSavedScrollPosition: MobileCollectionsGridScrollPosition?
 
         enum UpdateResult {
             case noChange
@@ -458,21 +539,27 @@ private struct InfiniteCollectionsGridView: UIViewRepresentable {
             guard !isRecentering,
                   let collectionView = scrollView as? UICollectionView,
                   !items.isEmpty,
-                  let topIndexPath = collectionView.indexPathsForVisibleItems.min(by: { $0.item < $1.item }) else {
+                  let topIndexPath = topVisibleIndexPath(in: collectionView) else {
                 return
             }
 
             let itemCount = items.count
             let repetition = InfiniteCollectionsLoop.repetition(for: topIndexPath.item, itemCount: itemCount)
-            guard InfiniteCollectionsLoop.shouldRecenter(repetition: repetition),
-                  let topAttributes = collectionView.layoutAttributesForItem(at: topIndexPath) else {
+            guard InfiniteCollectionsLoop.shouldRecenter(repetition: repetition) else {
+                return
+            }
+
+            guard let topAttributes = collectionView.layoutAttributesForItem(at: topIndexPath) else {
                 return
             }
 
             let sourceIndex = InfiniteCollectionsLoop.sourceIndex(for: topIndexPath.item, itemCount: itemCount)
             let targetIndexPath = IndexPath(item: InfiniteCollectionsLoop.centeredIndex(sourceIndex: sourceIndex, itemCount: itemCount), section: 0)
             collectionView.layoutIfNeeded()
-            guard let targetAttributes = collectionView.layoutAttributesForItem(at: targetIndexPath) else { return }
+            guard let targetAttributes = collectionView.layoutAttributesForItem(at: targetIndexPath) else {
+                rememberScrollPosition(in: collectionView, topIndexPath: topIndexPath, topAttributes: topAttributes)
+                return
+            }
 
             isRecentering = true
             let offsetWithinTopItem = collectionView.contentOffset.y - topAttributes.frame.minY
@@ -481,6 +568,17 @@ private struct InfiniteCollectionsGridView: UIViewRepresentable {
                 animated: false
             )
             isRecentering = false
+            rememberScrollPosition(in: collectionView, topIndexPath: targetIndexPath, topAttributes: targetAttributes)
+        }
+
+        func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
+            guard !decelerate, let collectionView = scrollView as? UICollectionView else { return }
+            flushScrollPosition(in: collectionView)
+        }
+
+        func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
+            guard let collectionView = scrollView as? UICollectionView else { return }
+            flushScrollPosition(in: collectionView)
         }
 
         func collectionView(_ collectionView: UICollectionView, prefetchItemsAt indexPaths: [IndexPath]) {
@@ -491,9 +589,19 @@ private struct InfiniteCollectionsGridView: UIViewRepresentable {
             cancelPrefetchingImages(for: indexPaths, in: collectionView)
         }
 
-        func setInitialScrollPosition(in collectionView: UICollectionView) {
+        func setInitialScrollPosition(
+            in collectionView: UICollectionView,
+            savedPosition: MobileCollectionsGridScrollPosition?
+        ) {
+            let savedSourceIndex = savedPosition?.resolvedSourceIndex(in: items)
+            let sourceIndex = savedSourceIndex
+                ?? InfiniteCollectionsLoop.defaultInitialSourceIndex(itemCount: items.count)
             guard !items.isEmpty,
-                  let targetIndex = InfiniteCollectionsLoop.initialScrollPosition(itemCount: items.count) else {
+                  let sourceIndex,
+                  let targetIndex = InfiniteCollectionsLoop.initialScrollPosition(
+                    sourceIndex: sourceIndex,
+                    itemCount: items.count
+                  ) else {
                 return
             }
 
@@ -504,7 +612,9 @@ private struct InfiniteCollectionsGridView: UIViewRepresentable {
                 return
             }
 
-            let targetContentOffset = CGPoint(x: 0, y: targetAttributes.frame.minY)
+            let offsetFraction = savedSourceIndex == nil ? 0 : savedPosition?.offsetFraction ?? 0
+            let offsetWithinItem = targetAttributes.frame.height * offsetFraction
+            let targetContentOffset = CGPoint(x: 0, y: targetAttributes.frame.minY + offsetWithinItem)
             prepareInitialCoverFade(
                 in: collectionView,
                 visibleRect: CGRect(origin: targetContentOffset, size: collectionView.bounds.size)
@@ -519,6 +629,13 @@ private struct InfiniteCollectionsGridView: UIViewRepresentable {
                 guard let gridCell = collectionView.cellForItem(at: indexPath) as? CollectionGridCell else { return }
                 configureCell(gridCell, at: indexPath, in: collectionView)
             }
+        }
+
+        func flushScrollPosition(in collectionView: UICollectionView) {
+            if let currentPosition = scrollPosition(in: collectionView) {
+                pendingScrollPosition = currentPosition
+            }
+            savePendingScrollPosition()
         }
 
         private func prepareInitialCoverFade(in collectionView: UICollectionView, visibleRect: CGRect) {
@@ -617,11 +734,62 @@ private struct InfiniteCollectionsGridView: UIViewRepresentable {
             guard isInitialCoverImageFadeActive else { return false }
             return pendingInitialCoverFadeIndexPaths.remove(indexPath) != nil
         }
+
+        private func rememberScrollPosition(
+            in collectionView: UICollectionView,
+            topIndexPath: IndexPath? = nil,
+            topAttributes: UICollectionViewLayoutAttributes? = nil
+        ) {
+            guard let scrollPosition = scrollPosition(
+                in: collectionView,
+                topIndexPath: topIndexPath,
+                topAttributes: topAttributes
+            ) else { return }
+            pendingScrollPosition = scrollPosition
+        }
+
+        private func savePendingScrollPosition() {
+            guard let pendingScrollPosition,
+                  pendingScrollPosition != lastSavedScrollPosition else {
+                self.pendingScrollPosition = nil
+                return
+            }
+            MobileCollectionsGridScrollPositionStore.save(pendingScrollPosition)
+            lastSavedScrollPosition = pendingScrollPosition
+            self.pendingScrollPosition = nil
+        }
+
+        private func scrollPosition(
+            in collectionView: UICollectionView,
+            topIndexPath: IndexPath? = nil,
+            topAttributes: UICollectionViewLayoutAttributes? = nil
+        ) -> MobileCollectionsGridScrollPosition? {
+            guard !items.isEmpty else { return nil }
+            guard let topIndexPath = topIndexPath ?? topVisibleIndexPath(in: collectionView),
+                  let topAttributes = topAttributes ?? collectionView.layoutAttributesForItem(at: topIndexPath),
+                  topAttributes.frame.height > 0 else {
+                return nil
+            }
+
+            let sourceIndex = InfiniteCollectionsLoop.sourceIndex(for: topIndexPath.item, itemCount: items.count)
+            let offsetWithinItem = collectionView.contentOffset.y - topAttributes.frame.minY
+            let offsetFraction = offsetWithinItem / topAttributes.frame.height
+            return MobileCollectionsGridScrollPosition(
+                collectionId: items[sourceIndex].id,
+                sourceIndex: sourceIndex,
+                offsetFractionWithinItem: offsetFraction
+            )
+        }
+
+        private func topVisibleIndexPath(in collectionView: UICollectionView) -> IndexPath? {
+            collectionView.indexPathsForVisibleItems.min { $0.item < $1.item }
+        }
     }
 }
 
 private final class InfiniteCollectionsGridContainerView: UIView {
     private let collectionView: UICollectionView
+    private let initialScrollPosition = MobileCollectionsGridScrollPositionStore.load()
     private weak var coordinator: InfiniteCollectionsGridView.Coordinator?
     private var didSetInitialScrollPosition = false
     private var previousBoundsSize = CGSize.zero
@@ -646,10 +814,28 @@ private final class InfiniteCollectionsGridContainerView: UIView {
         collectionView.isPrefetchingEnabled = true
         collectionView.register(CollectionGridCell.self, forCellWithReuseIdentifier: CollectionGridCell.reuseIdentifier)
         addSubview(collectionView)
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(flushRememberedScrollPosition),
+            name: UIApplication.willResignActiveNotification,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(flushRememberedScrollPosition),
+            name: UIApplication.didEnterBackgroundNotification,
+            object: nil
+        )
     }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    deinit {
+        coordinator?.flushScrollPosition(in: collectionView)
+        NotificationCenter.default.removeObserver(self)
     }
 
     func update(
@@ -684,26 +870,33 @@ private final class InfiniteCollectionsGridContainerView: UIView {
         super.layoutSubviews()
 
         collectionView.frame = bounds
+        let itemSizeDidChange: Bool
         if previousBoundsSize != bounds.size {
             previousBoundsSize = bounds.size
-            if updateGridLayoutItemSize() {
-                coordinator?.updateVisibleProgressCells(in: collectionView)
-                coordinator?.prefetchImages(aroundVisibleItemsIn: collectionView)
-            }
+            itemSizeDidChange = updateGridLayoutItemSize()
+        } else {
+            itemSizeDidChange = false
         }
 
-        guard !didSetInitialScrollPosition,
-              bounds.width > 0,
-              bounds.height > 0,
-              collectionView.numberOfItems(inSection: 0) > 0 else {
+        guard bounds.width > 0,
+              bounds.height > 0 else {
             return
         }
 
-        coordinator?.setInitialScrollPosition(in: collectionView)
-        didSetInitialScrollPosition = true
-        coordinator?.prefetchImages(aroundVisibleItemsIn: collectionView)
-        collectionView.layoutIfNeeded()
-        coordinator?.finishInitialCoverFadeScheduling()
+        if !didSetInitialScrollPosition,
+           collectionView.numberOfItems(inSection: 0) > 0 {
+            coordinator?.setInitialScrollPosition(in: collectionView, savedPosition: initialScrollPosition)
+            didSetInitialScrollPosition = true
+            collectionView.layoutIfNeeded()
+            coordinator?.prefetchImages(aroundVisibleItemsIn: collectionView)
+            coordinator?.finishInitialCoverFadeScheduling()
+            return
+        }
+
+        if itemSizeDidChange {
+            coordinator?.updateVisibleProgressCells(in: collectionView)
+            coordinator?.prefetchImages(aroundVisibleItemsIn: collectionView)
+        }
     }
 
     fileprivate static func itemSize(forWidth width: CGFloat) -> CGSize {
@@ -724,6 +917,17 @@ private final class InfiniteCollectionsGridContainerView: UIView {
         flowLayout.itemSize = itemSize
         flowLayout.invalidateLayout()
         return true
+    }
+
+    @objc private func flushRememberedScrollPosition() {
+        coordinator?.flushScrollPosition(in: collectionView)
+    }
+}
+
+private extension Double {
+    func clamped(to range: Range<Double>) -> Double {
+        guard isFinite else { return range.lowerBound }
+        return min(max(self, range.lowerBound), range.upperBound.nextDown)
     }
 }
 
