@@ -95,7 +95,7 @@ struct MobilePlayerView: View {
     @State private var shareItem: MobilePlayerFileShareItem?
     @State private var isCurrentTokenBookmarked = false
     @State private var pageLayout: MobilePlayerPageLayout = .onePerPage
-    @State private var supportsCurrentTwoPerPageLayout = false
+    @State private var supportsCurrentThreePerPageLayout = false
     
     init(config: MobilePlayerConfig, onDismiss: @escaping () -> Void, chrome: MobilePlayerChromeController) {
         self.initialConfig = config
@@ -128,9 +128,9 @@ struct MobilePlayerView: View {
                                 uuid: initialConfig.id,
                                 coordinate: newCoordinate
                             )
-                            let supportsTwoPerPageLayout = self.supportsTwoPerPageLayout(for: newCoordinate)
-                            self.supportsCurrentTwoPerPageLayout = supportsTwoPerPageLayout
-                            if !supportsTwoPerPageLayout && self.pageLayout == .twoPerPage {
+                            let supportsThreePerPageLayout = self.supportsThreePerPageLayout(for: newCoordinate)
+                            self.supportsCurrentThreePerPageLayout = supportsThreePerPageLayout
+                            if !supportsThreePerPageLayout && self.pageLayout == .threePerPage {
                                 self.pageLayout = .onePerPage
                             }
                             self.canGoBack = canRenderAdjacentCoordinate(from: newCoordinate, offset: -1)
@@ -296,12 +296,12 @@ struct MobilePlayerView: View {
     }
 
     private var canChangePageLayout: Bool {
-        supportsCurrentTwoPerPageLayout
+        supportsCurrentThreePerPageLayout
     }
 
-    private func supportsTwoPerPageLayout(for coordinate: PlayerCoordinate) -> Bool {
+    private func supportsThreePerPageLayout(for coordinate: PlayerCoordinate) -> Bool {
         return MobilePlaybackController.shared.supportsPageLayout(
-            .twoPerPage,
+            .threePerPage,
             uuid: initialConfig.id,
             coordinate: coordinate
         )

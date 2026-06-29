@@ -114,18 +114,21 @@ final class FullscreenTokenMediaRenderer {
         unloadWebContentAfterImageDisplay(imageKey: imageKey)
     }
 
-    func displayLoadedImageSpread<Key: Hashable>(_ primaryImage: UIImage, companionImage: UIImage, key: Key) {
+    func displayLoadedImageSpread<Key: Hashable>(_ images: [UIImage], key: Key) {
+        guard !images.isEmpty else { return }
+
         cancelCurrentImageLoad()
         hideNativeMetalCardView()
         imageView?.isHidden = true
         imageView?.image = nil
         let imageKey = AnyHashable(key)
         representedImageKey = imageKey
-        ensureImageSpreadStackView()
+        ensureImageSpreadStackView(imageCount: images.count)
         webView?.isHidden = true
         imageSpreadStackView.isHidden = false
-        imageSpreadViews[0].image = primaryImage
-        imageSpreadViews[1].image = companionImage
+        for (imageView, image) in zip(imageSpreadViews, images) {
+            imageView.image = image
+        }
 
         unloadWebContentAfterImageDisplay(imageKey: imageKey)
     }
@@ -180,13 +183,17 @@ final class FullscreenTokenMediaRenderer {
 
     func renderImageSpread<Key: Hashable>(
         key: Key,
-        loadPrimary: (@escaping (UIImage?) -> Void) -> (() -> Void)?,
-        loadCompanion: (@escaping (UIImage?) -> Void) -> (() -> Void)?,
+        loadImages: [(@escaping (UIImage?) -> Void) -> (() -> Void)?],
         fallbackToPrimary: @escaping (UIImage?) -> Void,
-        onLoadedImages: ((UIImage, UIImage) -> Void)? = nil
+        onLoadedImages: (([UIImage]) -> Void)? = nil
     ) {
+        guard loadImages.count > 1 else {
+            fallbackToPrimary(nil)
+            return
+        }
+
         cancelCurrentImageLoad()
-        ensureImageSpreadStackView()
+        ensureImageSpreadStackView(imageCount: loadImages.count)
         hideWebContent()
         hideNativeMetalCardView()
         imageView?.isHidden = true
@@ -199,20 +206,16 @@ final class FullscreenTokenMediaRenderer {
         representedImageKey = imageKey
         activeImageLoadId = imageLoadId
 
-        var primaryImage: UIImage?
-        var companionImage: UIImage?
-        var primaryCancellation: ImageLoadCancellation?
-        var companionCancellation: ImageLoadCancellation?
+        var loadedImages = Array<UIImage?>(repeating: nil, count: loadImages.count)
+        var cancellations = Array<ImageLoadCancellation?>(repeating: nil, count: loadImages.count)
 
         func isCurrentLoad(in renderer: FullscreenTokenMediaRenderer) -> Bool {
             renderer.representedImageKey == imageKey && renderer.activeImageLoadId == imageLoadId
         }
 
         func cancelSpreadLoads() {
-            primaryCancellation?()
-            companionCancellation?()
-            primaryCancellation = nil
-            companionCancellation = nil
+            cancellations.forEach { $0?() }
+            cancellations = Array(repeating: nil, count: loadImages.count)
         }
 
         func failIfCurrent(in renderer: FullscreenTokenMediaRenderer) {
@@ -220,45 +223,34 @@ final class FullscreenTokenMediaRenderer {
 
             renderer.cancelActiveImageLoad = nil
             renderer.activeImageLoadId = nil
-            let loadedPrimaryImage = primaryImage
+            let loadedPrimaryImage = loadedImages.first ?? nil
             cancelSpreadLoads()
             fallbackToPrimary(loadedPrimaryImage)
         }
 
         func finishIfReady(in renderer: FullscreenTokenMediaRenderer) {
-            guard isCurrentLoad(in: renderer),
-                  let primaryImage,
-                  let companionImage else {
-                return
-            }
+            guard isCurrentLoad(in: renderer) else { return }
+            let images = loadedImages.compactMap { $0 }
+            guard images.count == loadedImages.count else { return }
 
             renderer.cancelActiveImageLoad = nil
             renderer.activeImageLoadId = nil
-            primaryCancellation = nil
-            companionCancellation = nil
-            renderer.displayLoadedImageSpread(primaryImage, companionImage: companionImage, key: key)
-            onLoadedImages?(primaryImage, companionImage)
+            cancellations = Array(repeating: nil, count: loadImages.count)
+            renderer.displayLoadedImageSpread(images, key: key)
+            onLoadedImages?(images)
         }
 
-        primaryCancellation = loadPrimary { [weak self] image in
-            guard let self, isCurrentLoad(in: self) else { return }
-            guard let image else {
-                failIfCurrent(in: self)
-                return
-            }
+        for (index, loadImage) in loadImages.enumerated() {
+            cancellations[index] = loadImage { [weak self] image in
+                guard let self, isCurrentLoad(in: self) else { return }
+                guard let image else {
+                    failIfCurrent(in: self)
+                    return
+                }
 
-            primaryImage = image
-            finishIfReady(in: self)
-        }
-        companionCancellation = loadCompanion { [weak self] image in
-            guard let self, isCurrentLoad(in: self) else { return }
-            guard let image else {
-                failIfCurrent(in: self)
-                return
+                loadedImages[index] = image
+                finishIfReady(in: self)
             }
-
-            companionImage = image
-            finishIfReady(in: self)
         }
 
         guard isCurrentLoad(in: self) else {
@@ -387,10 +379,16 @@ final class FullscreenTokenMediaRenderer {
         }
     }
 
-    private func ensureImageSpreadStackView() {
-        guard imageSpreadStackView == nil else { return }
+    private func ensureImageSpreadStackView(imageCount: Int) {
+        guard imageCount > 0 else { return }
+        if imageSpreadStackView != nil, imageSpreadViews.count == imageCount {
+            return
+        }
 
-        imageSpreadViews = (0..<2).map { _ in
+        imageSpreadStackView?.removeFromSuperview()
+        imageSpreadStackView = nil
+
+        imageSpreadViews = (0..<imageCount).map { _ in
             let imageView = UIImageView()
             imageView.backgroundColor = .black
             imageView.contentMode = .scaleAspectFit
@@ -1258,22 +1256,25 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     }
 
     private struct StaticImageSpreadZoomLayout: Equatable {
-        let primaryImageSize: CGSize
-        let companionImageSize: CGSize
+        let imageSizes: [CGSize]
 
         func contentSize(fitting viewportSize: CGSize) -> CGSize {
+            guard !imageSizes.isEmpty else { return viewportSize }
+
             let axis = axis(fitting: viewportSize)
+            let imageCount = CGFloat(imageSizes.count)
+            let totalSpacing = CGFloat(imageSizes.count - 1) * MobilePlayerPageLayoutMetrics.spreadCardSpacing
             let maximumSlotSize: CGSize
             switch axis {
             case .horizontal:
                 maximumSlotSize = CGSize(
-                    width: max((viewportSize.width - MobilePlayerPageLayoutMetrics.spreadCardSpacing) / 2, 0),
+                    width: max((viewportSize.width - totalSpacing) / imageCount, 0),
                     height: viewportSize.height
                 )
             case .vertical:
                 maximumSlotSize = CGSize(
                     width: viewportSize.width,
-                    height: max((viewportSize.height - MobilePlayerPageLayoutMetrics.spreadCardSpacing) / 2, 0)
+                    height: max((viewportSize.height - totalSpacing) / imageCount, 0)
                 )
             @unknown default:
                 maximumSlotSize = viewportSize
@@ -1283,13 +1284,13 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             switch axis {
             case .horizontal:
                 return CGSize(
-                    width: slotSize.width * 2 + MobilePlayerPageLayoutMetrics.spreadCardSpacing,
+                    width: slotSize.width * imageCount + totalSpacing,
                     height: slotSize.height
                 )
             case .vertical:
                 return CGSize(
                     width: slotSize.width,
-                    height: slotSize.height * 2 + MobilePlayerPageLayoutMetrics.spreadCardSpacing
+                    height: slotSize.height * imageCount + totalSpacing
                 )
             @unknown default:
                 return slotSize
@@ -1301,24 +1302,19 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         }
 
         private func imageSlotSize(fitting maximumSize: CGSize) -> CGSize {
-            let primarySlotSize = MobilePlayerAspectFitLayout.size(
-                for: primaryImageSize,
-                fitting: maximumSize
-            )
-            let companionSlotSize = MobilePlayerAspectFitLayout.size(
-                for: companionImageSize,
-                fitting: maximumSize
-            )
-            return CGSize(
-                width: max(primarySlotSize.width, companionSlotSize.width),
-                height: max(primarySlotSize.height, companionSlotSize.height)
-            )
+            imageSizes
+                .map { MobilePlayerAspectFitLayout.size(for: $0, fitting: maximumSize) }
+                .reduce(.zero) { result, slotSize in
+                    CGSize(
+                        width: max(result.width, slotSize.width),
+                        height: max(result.height, slotSize.height)
+                    )
+                }
         }
     }
 
     private struct StaticImageSpreadRenderKey: Hashable {
-        let primaryDescriptor: DownloadableMediaDescriptor
-        let companionDescriptor: DownloadableMediaDescriptor
+        let descriptors: [DownloadableMediaDescriptor]
     }
 
     private enum ZoomContentLayout: Equatable {
@@ -1460,10 +1456,10 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     func setPageLayout(_ pageLayout: MobilePlayerPageLayout, shouldRender: Bool) {
         guard self.pageLayout != pageLayout else { return }
 
-        let wasUsingTwoPerPageLayout = usesTwoPerPageLayoutForCurrentCoordinate
+        let wasUsingThreePerPageLayout = usesThreePerPageLayoutForCurrentCoordinate
         self.pageLayout = pageLayout
-        let isUsingTwoPerPageLayout = usesTwoPerPageLayoutForCurrentCoordinate
-        let needsRenderForLayoutChange = wasUsingTwoPerPageLayout != isUsingTwoPerPageLayout
+        let isUsingThreePerPageLayout = usesThreePerPageLayoutForCurrentCoordinate
+        let needsRenderForLayoutChange = wasUsingThreePerPageLayout != isUsingThreePerPageLayout
 
         guard shouldRender else {
             if needsRenderForLayoutChange {
@@ -1814,13 +1810,13 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             let descriptor = mediaWindow.currentDescriptor
             switch descriptor.media {
             case .staticImage:
-                if let companionDescriptor = companionStaticImageDescriptor(
-                    for: descriptor,
-                    adjacentDescriptor: mediaWindow.adjacentDescriptor
-                ) {
+                let companionDescriptors = companionStaticImageDescriptors(
+                    for: descriptor
+                )
+                if !companionDescriptors.isEmpty {
                     renderImageSpread(
                         descriptor,
-                        companionDescriptor: companionDescriptor,
+                        companionDescriptors: companionDescriptors,
                         fallbackHTML: token.html
                     )
                 } else {
@@ -1857,7 +1853,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     private func prepareCurrentDownloadableMediaWindow() -> PlayerDownloadableMediaWindow? {
         fourDirectionalPlayerDataSource?.prepareDownloadableMediaWindow(
             for: (horizontalIndex, verticalIndex),
-            direction: usesTwoPerPageLayoutForCurrentCoordinate ? .forward : preferredPrefetchDirection
+            direction: usesThreePerPageLayoutForCurrentCoordinate ? .forward : preferredPrefetchDirection
         )
     }
 
@@ -1945,20 +1941,24 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
 
     private func renderImageSpread(
         _ descriptor: DownloadableMediaDescriptor,
-        companionDescriptor: DownloadableMediaDescriptor,
+        companionDescriptors: [DownloadableMediaDescriptor],
         fallbackHTML: String
     ) {
+        guard !companionDescriptors.isEmpty else {
+            renderImage(descriptor, fallbackHTML: fallbackHTML)
+            return
+        }
+
+        let imageDescriptors = [descriptor] + companionDescriptors
         clearAnimatedRenderContext()
         mediaRenderer.renderImageSpread(
             key: StaticImageSpreadRenderKey(
-                primaryDescriptor: descriptor,
-                companionDescriptor: companionDescriptor
+                descriptors: imageDescriptors
             ),
-            loadPrimary: { completion in
-                DownloadableMediaCache.shared.loadImage(for: descriptor, completion: completion)
-            },
-            loadCompanion: { completion in
-                DownloadableMediaCache.shared.loadImage(for: companionDescriptor, completion: completion)
+            loadImages: imageDescriptors.map { imageDescriptor in
+                { completion in
+                    DownloadableMediaCache.shared.loadImage(for: imageDescriptor, completion: completion)
+                }
             },
             fallbackToPrimary: { [weak self] primaryImage in
                 guard let self else { return }
@@ -1971,12 +1971,11 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
                 self.setZoomContentLayout(.staticImage(primaryImage.size))
                 self.mediaRenderer.displayLoadedImage(primaryImage, key: descriptor)
             },
-            onLoadedImages: { [weak self] primaryImage, companionImage in
+            onLoadedImages: { [weak self] images in
                 self?.setZoomContentLayout(
                     .staticImageSpread(
                         StaticImageSpreadZoomLayout(
-                            primaryImageSize: primaryImage.size,
-                            companionImageSize: companionImage.size
+                            imageSizes: images.map(\.size)
                         )
                     )
                 )
@@ -1984,24 +1983,32 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         )
     }
 
-    private func companionStaticImageDescriptor(
-        for descriptor: DownloadableMediaDescriptor,
-        adjacentDescriptor: DownloadableMediaDescriptor?
-    ) -> DownloadableMediaDescriptor? {
-        guard pageLayout == .twoPerPage,
-              pageLayout.supports(descriptor: descriptor),
-              let companionDescriptor = adjacentDescriptor,
-              companionDescriptor.collectionId == descriptor.collectionId,
-              pageLayout.supports(descriptor: companionDescriptor) else {
-            return nil
+    private func companionStaticImageDescriptors(
+        for descriptor: DownloadableMediaDescriptor
+    ) -> [DownloadableMediaDescriptor] {
+        guard pageLayout == .threePerPage,
+              pageLayout.supports(descriptor: descriptor) else {
+            return []
         }
-        return companionDescriptor
+
+        var companionDescriptors = [DownloadableMediaDescriptor]()
+        companionDescriptors.reserveCapacity(2)
+        for offset in 1...2 {
+            let coordinate = (horizontalIndex + offset, verticalIndex)
+            guard let companionDescriptor = fourDirectionalPlayerDataSource?.downloadableMediaDescriptor(for: coordinate),
+                  companionDescriptor.collectionId == descriptor.collectionId,
+                  pageLayout.supports(descriptor: companionDescriptor) else {
+                break
+            }
+            companionDescriptors.append(companionDescriptor)
+        }
+        return companionDescriptors
     }
 
-    private var usesTwoPerPageLayoutForCurrentCoordinate: Bool {
-        pageLayout == .twoPerPage
+    private var usesThreePerPageLayoutForCurrentCoordinate: Bool {
+        pageLayout == .threePerPage
             && fourDirectionalPlayerDataSource?.supportsPageLayout(
-                .twoPerPage,
+                .threePerPage,
                 for: (horizontalIndex, verticalIndex)
             ) == true
     }
