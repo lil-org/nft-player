@@ -1452,7 +1452,7 @@ private struct PlayerNavigationOverlay: UIViewControllerRepresentable {
         navigationController.view.makeBackgroundTransparent()
         navigationController.navigationBar.isTranslucent = true
         navigationController.interactivePopGestureRecognizer?.isEnabled = false
-        navigationController.setNavigationBarHidden(false, animated: false)
+        navigationController.setNavigationBarHidden(!chrome.showControls, animated: false)
 
         return PlayerOverlayViewController(
             navigationController: navigationController,

@@ -22,7 +22,7 @@ private let playerProgressControlSize: CGFloat = 34
 private let playerNavigationArrowSpacing: CGFloat = 4
 
 final class MobilePlayerChromeController: ObservableObject {
-    @Published private(set) var showControls = true
+    @Published private(set) var showControls = false
     @Published private(set) var isStatusBarRevealedByDismiss = false
     private(set) var playerBackgroundColor: UIColor
     private(set) var isPlayerContentZoomed = false
