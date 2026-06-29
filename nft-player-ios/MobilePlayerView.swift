@@ -94,6 +94,8 @@ struct MobilePlayerView: View {
     @State private var canGoForward = false
     @State private var shareItem: MobilePlayerFileShareItem?
     @State private var isCurrentTokenBookmarked = false
+    @State private var pageLayout: MobilePlayerPageLayout = .onePerPage
+    @State private var supportsCurrentTwoPerPageLayout = false
     
     init(config: MobilePlayerConfig, onDismiss: @escaping () -> Void, chrome: MobilePlayerChromeController) {
         self.initialConfig = config
@@ -108,6 +110,7 @@ struct MobilePlayerView: View {
             ZStack {
                 FourDirectionalPlayerContainerView(
                     initialConfig: initialConfig,
+                    pageLayout: pageLayout,
                     onCoordinateUpdate: { newCoordinate in
                         DispatchQueue.main.async {
                             let token = MobilePlaybackController.shared.getToken(uuid: initialConfig.id, coordinate: newCoordinate)
@@ -125,6 +128,11 @@ struct MobilePlayerView: View {
                                 uuid: initialConfig.id,
                                 coordinate: newCoordinate
                             )
+                            let supportsTwoPerPageLayout = self.supportsTwoPerPageLayout(for: newCoordinate)
+                            self.supportsCurrentTwoPerPageLayout = supportsTwoPerPageLayout
+                            if !supportsTwoPerPageLayout && self.pageLayout == .twoPerPage {
+                                self.pageLayout = .onePerPage
+                            }
                             self.canGoBack = canRenderAdjacentCoordinate(from: newCoordinate, offset: -1)
                             self.canGoForward = canRenderAdjacentCoordinate(from: newCoordinate, offset: 1)
                             self.updateShareItem(for: newCoordinate)
@@ -262,6 +270,14 @@ struct MobilePlayerView: View {
             if !doNotShowInstructionsTmp, let instructions = currentToken.instructions {
                 Text(instructions)
             }
+            if canChangePageLayout {
+                Picker(Strings.pageLayout, selection: $pageLayout) {
+                    ForEach(MobilePlayerPageLayout.allCases) { layout in
+                        Text(layout.title).tag(layout)
+                    }
+                }
+                Divider()
+            }
             Button(Strings.viewOnBlockExplorer, action: viewOnWeb)
         } label: {
             Images.ellipsis
@@ -277,6 +293,18 @@ struct MobilePlayerView: View {
 
     private var canBookmarkCurrentToken: Bool {
         !currentToken.fullCollectionId.isEmpty && !currentToken.id.isEmpty
+    }
+
+    private var canChangePageLayout: Bool {
+        supportsCurrentTwoPerPageLayout
+    }
+
+    private func supportsTwoPerPageLayout(for coordinate: PlayerCoordinate) -> Bool {
+        return MobilePlaybackController.shared.supportsPageLayout(
+            .twoPerPage,
+            uuid: initialConfig.id,
+            coordinate: coordinate
+        )
     }
 
     private func goBack() {

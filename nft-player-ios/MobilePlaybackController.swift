@@ -15,6 +15,40 @@ struct MobilePlayerFileShareItem {
     let previewImage: () -> UIImage?
 }
 
+enum MobilePlayerPageLayout: CaseIterable, Hashable, Identifiable {
+    case onePerPage
+    case twoPerPage
+
+    private static let twoPerPageStaticImageCollectionIds = Set([
+        "HpGDYGz6aRUs5qbvp1dmWGKTicQctX4PixfcouAQDCHF",
+    ])
+
+    var id: Self { self }
+
+    var title: String {
+        switch self {
+        case .onePerPage:
+            return Strings.onePerPage
+        case .twoPerPage:
+            return Strings.twoPerPage
+        }
+    }
+
+    func supports(descriptor: DownloadableMediaDescriptor?) -> Bool {
+        switch self {
+        case .onePerPage:
+            return true
+        case .twoPerPage:
+            guard let descriptor,
+                  descriptor.isStaticImage,
+                  Self.twoPerPageStaticImageCollectionIds.contains(descriptor.collectionId) else {
+                return false
+            }
+            return true
+        }
+    }
+}
+
 extension MobilePlayerFileShareItem {
     static func previewTitle(for token: GeneratedToken, progressText: String) -> String {
         let trimmedCollectionName = token.collectionName.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -126,6 +160,12 @@ class MobilePlaybackController {
         return MobileCollectionCatalog.downloadableMediaDescriptor(
             specificCollectionId: context.collectionId,
             tokenIndex: context.tokenIndex
+        )
+    }
+
+    func supportsPageLayout(_ pageLayout: MobilePlayerPageLayout, uuid: UUID, coordinate: PlayerCoordinate) -> Bool {
+        pageLayout.supports(
+            descriptor: downloadableMediaDescriptor(uuid: uuid, coordinate: coordinate)
         )
     }
 

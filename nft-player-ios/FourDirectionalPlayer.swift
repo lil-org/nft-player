@@ -6,6 +6,30 @@ import WebKit
 import ImageIO
 import AVFoundation
 
+private enum MobilePlayerPageLayoutMetrics {
+    static let spreadCardSpacing: CGFloat = 8
+}
+
+private enum MobilePlayerAspectFitLayout {
+    static func size(for contentSize: CGSize, fitting maximumSize: CGSize) -> CGSize {
+        guard contentSize.width > 0,
+              contentSize.height > 0,
+              maximumSize.width > 0,
+              maximumSize.height > 0 else {
+            return .zero
+        }
+
+        let scale = min(
+            maximumSize.width / contentSize.width,
+            maximumSize.height / contentSize.height
+        )
+        return CGSize(
+            width: contentSize.width * scale,
+            height: contentSize.height * scale
+        )
+    }
+}
+
 enum FullscreenTokenMediaView {
     static func imageView(in containerView: UIView) -> UIImageView {
         let imageView = UIImageView()
@@ -49,6 +73,8 @@ final class FullscreenTokenMediaRenderer {
     private let containerView: UIView
     private var webView: AutoReloadingWebView!
     private var imageView: UIImageView!
+    private var imageSpreadStackView: UIStackView!
+    private var imageSpreadViews = [UIImageView]()
     private var nativeMetalCardView: NativeMetalCardView!
     private var representedImageKey: AnyHashable?
     private var activeImageLoadId: UUID?
@@ -71,11 +97,13 @@ final class FullscreenTokenMediaRenderer {
         representedImageKey = nil
         unloadWebContentIfNeeded()
         imageView?.image = nil
+        clearImageSpread()
     }
 
     func displayLoadedImage<Key: Hashable>(_ image: UIImage, key: Key) {
         cancelCurrentImageLoad()
         hideNativeMetalCardView()
+        hideImageSpread()
         let imageKey = AnyHashable(key)
         representedImageKey = imageKey
         ensureImageView()
@@ -83,17 +111,23 @@ final class FullscreenTokenMediaRenderer {
         imageView.isHidden = false
         imageView.image = image
 
-        webView?.invalidateRequestedContent()
-        guard webViewMayContainContent else { return }
+        unloadWebContentAfterImageDisplay(imageKey: imageKey)
+    }
 
-        DispatchQueue.main.async { [weak self] in
-            guard let self,
-                  self.representedImageKey == imageKey else {
-                return
-            }
+    func displayLoadedImageSpread<Key: Hashable>(_ primaryImage: UIImage, companionImage: UIImage, key: Key) {
+        cancelCurrentImageLoad()
+        hideNativeMetalCardView()
+        imageView?.isHidden = true
+        imageView?.image = nil
+        let imageKey = AnyHashable(key)
+        representedImageKey = imageKey
+        ensureImageSpreadStackView()
+        webView?.isHidden = true
+        imageSpreadStackView.isHidden = false
+        imageSpreadViews[0].image = primaryImage
+        imageSpreadViews[1].image = companionImage
 
-            self.unloadWebContentIfNeeded()
-        }
+        unloadWebContentAfterImageDisplay(imageKey: imageKey)
     }
 
     func renderImage<Key: Hashable>(
@@ -109,6 +143,7 @@ final class FullscreenTokenMediaRenderer {
         ensureImageView()
         hideWebContent()
         hideNativeMetalCardView()
+        hideImageSpread()
         imageView.isHidden = hideImageUntilLoaded
         imageView.image = nil
         onBegin?()
@@ -141,6 +176,99 @@ final class FullscreenTokenMediaRenderer {
             return
         }
         cancelActiveImageLoad = cancellation
+    }
+
+    func renderImageSpread<Key: Hashable>(
+        key: Key,
+        loadPrimary: (@escaping (UIImage?) -> Void) -> (() -> Void)?,
+        loadCompanion: (@escaping (UIImage?) -> Void) -> (() -> Void)?,
+        fallbackToPrimary: @escaping (UIImage?) -> Void,
+        onLoadedImages: ((UIImage, UIImage) -> Void)? = nil
+    ) {
+        cancelCurrentImageLoad()
+        ensureImageSpreadStackView()
+        hideWebContent()
+        hideNativeMetalCardView()
+        imageView?.isHidden = true
+        imageView?.image = nil
+        imageSpreadStackView.isHidden = true
+        imageSpreadViews.forEach { $0.image = nil }
+
+        let imageKey = AnyHashable(key)
+        let imageLoadId = UUID()
+        representedImageKey = imageKey
+        activeImageLoadId = imageLoadId
+
+        var primaryImage: UIImage?
+        var companionImage: UIImage?
+        var primaryCancellation: ImageLoadCancellation?
+        var companionCancellation: ImageLoadCancellation?
+
+        func isCurrentLoad(in renderer: FullscreenTokenMediaRenderer) -> Bool {
+            renderer.representedImageKey == imageKey && renderer.activeImageLoadId == imageLoadId
+        }
+
+        func cancelSpreadLoads() {
+            primaryCancellation?()
+            companionCancellation?()
+            primaryCancellation = nil
+            companionCancellation = nil
+        }
+
+        func failIfCurrent(in renderer: FullscreenTokenMediaRenderer) {
+            guard isCurrentLoad(in: renderer) else { return }
+
+            renderer.cancelActiveImageLoad = nil
+            renderer.activeImageLoadId = nil
+            let loadedPrimaryImage = primaryImage
+            cancelSpreadLoads()
+            fallbackToPrimary(loadedPrimaryImage)
+        }
+
+        func finishIfReady(in renderer: FullscreenTokenMediaRenderer) {
+            guard isCurrentLoad(in: renderer),
+                  let primaryImage,
+                  let companionImage else {
+                return
+            }
+
+            renderer.cancelActiveImageLoad = nil
+            renderer.activeImageLoadId = nil
+            primaryCancellation = nil
+            companionCancellation = nil
+            renderer.displayLoadedImageSpread(primaryImage, companionImage: companionImage, key: key)
+            onLoadedImages?(primaryImage, companionImage)
+        }
+
+        primaryCancellation = loadPrimary { [weak self] image in
+            guard let self, isCurrentLoad(in: self) else { return }
+            guard let image else {
+                failIfCurrent(in: self)
+                return
+            }
+
+            primaryImage = image
+            finishIfReady(in: self)
+        }
+        companionCancellation = loadCompanion { [weak self] image in
+            guard let self, isCurrentLoad(in: self) else { return }
+            guard let image else {
+                failIfCurrent(in: self)
+                return
+            }
+
+            companionImage = image
+            finishIfReady(in: self)
+        }
+
+        guard isCurrentLoad(in: self) else {
+            cancelSpreadLoads()
+            return
+        }
+
+        cancelActiveImageLoad = {
+            cancelSpreadLoads()
+        }
     }
 
     func renderWebContent(
@@ -177,9 +305,15 @@ final class FullscreenTokenMediaRenderer {
         ensureNativeMetalCardView()
         imageView?.isHidden = true
         imageView?.image = nil
+        hideImageSpread()
         hideWebContent()
         nativeMetalCardView.isHidden = false
         nativeMetalCardView.display(tokenId: tokenId, renderKind: renderKind)
+    }
+
+    func setImageSpreadAxis(_ axis: NSLayoutConstraint.Axis) {
+        guard let imageSpreadStackView else { return }
+        imageSpreadStackView.axis = axis
     }
 
     func preloadWebImage(_ imageURL: URL, completion: ((Bool) -> Void)? = nil) {
@@ -209,6 +343,10 @@ final class FullscreenTokenMediaRenderer {
         if let imageView = imageView {
             imageView.makeBackgroundTransparent()
         }
+        if let imageSpreadStackView {
+            imageSpreadStackView.makeBackgroundTransparent()
+            imageSpreadViews.forEach { $0.makeBackgroundTransparent() }
+        }
         webView?.makePlayerBackgroundTransparent()
         if let nativeMetalCardView = nativeMetalCardView {
             nativeMetalCardView.makeBackgroundTransparent()
@@ -225,6 +363,7 @@ final class FullscreenTokenMediaRenderer {
         ensureWebView()
         imageView?.isHidden = true
         imageView?.image = nil
+        hideImageSpread()
         hideNativeMetalCardView()
         webView.stopLoading()
         webViewMayContainContent = !html.isEmpty
@@ -246,6 +385,42 @@ final class FullscreenTokenMediaRenderer {
         if usesTransparentPlayerBackground {
             imageView.makeBackgroundTransparent()
         }
+    }
+
+    private func ensureImageSpreadStackView() {
+        guard imageSpreadStackView == nil else { return }
+
+        imageSpreadViews = (0..<2).map { _ in
+            let imageView = UIImageView()
+            imageView.backgroundColor = .black
+            imageView.contentMode = .scaleAspectFit
+            imageView.clipsToBounds = true
+            imageView.isUserInteractionEnabled = false
+            if usesTransparentPlayerBackground {
+                imageView.makeBackgroundTransparent()
+            }
+            return imageView
+        }
+
+        let stackView = UIStackView(arrangedSubviews: imageSpreadViews)
+        stackView.axis = .horizontal
+        stackView.alignment = .fill
+        stackView.distribution = .fillEqually
+        stackView.spacing = MobilePlayerPageLayoutMetrics.spreadCardSpacing
+        stackView.isUserInteractionEnabled = false
+        stackView.translatesAutoresizingMaskIntoConstraints = false
+        if usesTransparentPlayerBackground {
+            stackView.makeBackgroundTransparent()
+        }
+
+        containerView.addSubview(stackView)
+        NSLayoutConstraint.activate([
+            stackView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
+            stackView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
+            stackView.topAnchor.constraint(equalTo: containerView.topAnchor),
+            stackView.bottomAnchor.constraint(equalTo: containerView.bottomAnchor)
+        ])
+        imageSpreadStackView = stackView
     }
 
     private func ensureWebView() {
@@ -274,6 +449,29 @@ final class FullscreenTokenMediaRenderer {
     private func hideNativeMetalCardView() {
         nativeMetalCardView?.stop()
         nativeMetalCardView?.isHidden = true
+    }
+
+    private func unloadWebContentAfterImageDisplay(imageKey: AnyHashable) {
+        webView?.invalidateRequestedContent()
+        guard webViewMayContainContent else { return }
+
+        DispatchQueue.main.async { [weak self] in
+            guard let self,
+                  self.representedImageKey == imageKey else {
+                return
+            }
+
+            self.unloadWebContentIfNeeded()
+        }
+    }
+
+    private func hideImageSpread() {
+        imageSpreadStackView?.isHidden = true
+        imageSpreadViews.forEach { $0.image = nil }
+    }
+
+    private func clearImageSpread() {
+        hideImageSpread()
     }
 
     private func unloadWebContentIfNeeded() {
@@ -466,6 +664,7 @@ private final class PlayerEdgeTapHighlightView: UIView {
 struct FourDirectionalPlayerContainerView: UIViewControllerRepresentable {
 
     private let initialConfig: MobilePlayerConfig
+    private let pageLayout: MobilePlayerPageLayout
     private let onCoordinateUpdate: ((PlayerCoordinate) -> Void)
     private let onPaginationAttempt: (() -> Void)
     private let onUnavailableNavigation: (() -> Void)
@@ -474,6 +673,7 @@ struct FourDirectionalPlayerContainerView: UIViewControllerRepresentable {
 
     init(
         initialConfig: MobilePlayerConfig,
+        pageLayout: MobilePlayerPageLayout,
         onCoordinateUpdate: @escaping (PlayerCoordinate) -> Void,
         onPaginationAttempt: @escaping () -> Void,
         onUnavailableNavigation: @escaping () -> Void,
@@ -481,6 +681,7 @@ struct FourDirectionalPlayerContainerView: UIViewControllerRepresentable {
         onZoomStateChange: @escaping (Bool) -> Void
     ) {
         self.initialConfig = initialConfig
+        self.pageLayout = pageLayout
         self.onCoordinateUpdate = onCoordinateUpdate
         self.onPaginationAttempt = onPaginationAttempt
         self.onUnavailableNavigation = onUnavailableNavigation
@@ -491,6 +692,7 @@ struct FourDirectionalPlayerContainerView: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> FourDirectionalPlayerContainer {
         return FourDirectionalPlayerContainer(
             initialConfig: initialConfig,
+            pageLayout: pageLayout,
             onCoordinateUpdate: onCoordinateUpdate,
             onPaginationAttempt: onPaginationAttempt,
             onUnavailableNavigation: onUnavailableNavigation,
@@ -499,19 +701,25 @@ struct FourDirectionalPlayerContainerView: UIViewControllerRepresentable {
         )
     }
 
-    func updateUIViewController(_ uiViewController: FourDirectionalPlayerContainer, context: Context) {}
+    func updateUIViewController(_ uiViewController: FourDirectionalPlayerContainer, context: Context) {
+        uiViewController.setPageLayout(pageLayout)
+    }
 }
 
 class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDataSource, MobilePlaybackControllerDisplay, UIGestureRecognizerDelegate {
 
     private let initialConfig: MobilePlayerConfig
+    private var pageLayout: MobilePlayerPageLayout
     private let onCoordinateUpdate: ((PlayerCoordinate) -> Void)
     private let onPaginationAttempt: (() -> Void)
     private let onUnavailableNavigation: (() -> Void)
     private let onToggleChrome: (() -> Void)
     private let onZoomStateChange: ((Bool) -> Void)
 
-    private lazy var pagingVC = HorizontalPageViewController(fourDirectionalPlayerDataSource: self)
+    private lazy var pagingVC = HorizontalPageViewController(
+        pageLayout: pageLayout,
+        fourDirectionalPlayerDataSource: self
+    )
     private let leftEdgeTapHighlight = PlayerEdgeTapHighlightView(side: .left)
     private let rightEdgeTapHighlight = PlayerEdgeTapHighlightView(side: .right)
     private lazy var singleTapRecognizer: UITapGestureRecognizer = {
@@ -560,6 +768,7 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
 
     init(
         initialConfig: MobilePlayerConfig,
+        pageLayout: MobilePlayerPageLayout,
         onCoordinateUpdate: @escaping (PlayerCoordinate) -> Void,
         onPaginationAttempt: @escaping () -> Void,
         onUnavailableNavigation: @escaping () -> Void,
@@ -567,6 +776,7 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
         onZoomStateChange: @escaping (Bool) -> Void
     ) {
         self.initialConfig = initialConfig
+        self.pageLayout = pageLayout
         self.onCoordinateUpdate = onCoordinateUpdate
         self.onPaginationAttempt = onPaginationAttempt
         self.onUnavailableNavigation = onUnavailableNavigation
@@ -618,6 +828,13 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
 
     func navigate(_ direction: PlaybackNavigationDirection) {
         pagingVC.navigate(direction)
+    }
+
+    func setPageLayout(_ pageLayout: MobilePlayerPageLayout) {
+        guard self.pageLayout != pageLayout else { return }
+
+        self.pageLayout = pageLayout
+        pagingVC.setPageLayout(pageLayout)
     }
 
     private func installTapGestures() {
@@ -836,6 +1053,14 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
         )
     }
 
+    fileprivate func supportsPageLayout(_ pageLayout: MobilePlayerPageLayout, for coordinate: (Int, Int)) -> Bool {
+        MobilePlaybackController.shared.supportsPageLayout(
+            pageLayout,
+            uuid: initialConfig.id,
+            coordinate: PlayerCoordinate(x: coordinate.0, y: coordinate.1)
+        )
+    }
+
     fileprivate func canRenderCoordinate(_ coordinate: (Int, Int)) -> Bool {
         MobilePlaybackController.shared.canRender(
             uuid: initialConfig.id,
@@ -898,6 +1123,7 @@ private protocol FourDirectionalPlayerDataSource: AnyObject {
     ) -> PlayerDownloadableMediaWindow?
     func clearDownloadableMediaWindow()
     func downloadableMediaDescriptor(for coordinate: (Int, Int)) -> DownloadableMediaDescriptor?
+    func supportsPageLayout(_ pageLayout: MobilePlayerPageLayout, for coordinate: (Int, Int)) -> Bool
     func canRenderCoordinate(_ coordinate: (Int, Int)) -> Bool
     func startHorizontalCoordinate(verticalIndex: Int) -> Int
     func didRenderCoordinate(_ coordinate: (Int, Int))
@@ -1031,9 +1257,74 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         let task: Task<Void, Never>
     }
 
+    private struct StaticImageSpreadZoomLayout: Equatable {
+        let primaryImageSize: CGSize
+        let companionImageSize: CGSize
+
+        func contentSize(fitting viewportSize: CGSize) -> CGSize {
+            let axis = axis(fitting: viewportSize)
+            let maximumSlotSize: CGSize
+            switch axis {
+            case .horizontal:
+                maximumSlotSize = CGSize(
+                    width: max((viewportSize.width - MobilePlayerPageLayoutMetrics.spreadCardSpacing) / 2, 0),
+                    height: viewportSize.height
+                )
+            case .vertical:
+                maximumSlotSize = CGSize(
+                    width: viewportSize.width,
+                    height: max((viewportSize.height - MobilePlayerPageLayoutMetrics.spreadCardSpacing) / 2, 0)
+                )
+            @unknown default:
+                maximumSlotSize = viewportSize
+            }
+
+            let slotSize = imageSlotSize(fitting: maximumSlotSize)
+            switch axis {
+            case .horizontal:
+                return CGSize(
+                    width: slotSize.width * 2 + MobilePlayerPageLayoutMetrics.spreadCardSpacing,
+                    height: slotSize.height
+                )
+            case .vertical:
+                return CGSize(
+                    width: slotSize.width,
+                    height: slotSize.height * 2 + MobilePlayerPageLayoutMetrics.spreadCardSpacing
+                )
+            @unknown default:
+                return slotSize
+            }
+        }
+
+        func axis(fitting viewportSize: CGSize) -> NSLayoutConstraint.Axis {
+            viewportSize.width >= viewportSize.height ? .horizontal : .vertical
+        }
+
+        private func imageSlotSize(fitting maximumSize: CGSize) -> CGSize {
+            let primarySlotSize = MobilePlayerAspectFitLayout.size(
+                for: primaryImageSize,
+                fitting: maximumSize
+            )
+            let companionSlotSize = MobilePlayerAspectFitLayout.size(
+                for: companionImageSize,
+                fitting: maximumSize
+            )
+            return CGSize(
+                width: max(primarySlotSize.width, companionSlotSize.width),
+                height: max(primarySlotSize.height, companionSlotSize.height)
+            )
+        }
+    }
+
+    private struct StaticImageSpreadRenderKey: Hashable {
+        let primaryDescriptor: DownloadableMediaDescriptor
+        let companionDescriptor: DownloadableMediaDescriptor
+    }
+
     private enum ZoomContentLayout: Equatable {
         case viewport
         case staticImage(CGSize)
+        case staticImageSpread(StaticImageSpreadZoomLayout)
     }
 
     private enum ZoomAllowedContent: Equatable {
@@ -1074,6 +1365,8 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     private var cachedVideoSizeRequests = [VideoSizeRequest]()
     private var willOrDidAppear = false
     private var isZoomInteractionActive = false
+    private var pageLayout: MobilePlayerPageLayout
+    private var needsPageLayoutRender = false
     private var zoomContentLayout: ZoomContentLayout = .viewport
     private var zoomAllowedContent: ZoomAllowedContent = .fullContent
     private var laidOutZoomViewportSize: CGSize = .zero
@@ -1083,10 +1376,16 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         zoomScrollView.zoomScale > zoomScrollView.minimumZoomScale + MobilePlayerGestureTuning.playerZoomResetTolerance
     }
 
-    init(horizontalIndex: Int, verticalIndex: Int, fourDirectionalPlayerDataSource: FourDirectionalPlayerDataSource?) {
+    init(
+        horizontalIndex: Int,
+        verticalIndex: Int,
+        pageLayout: MobilePlayerPageLayout,
+        fourDirectionalPlayerDataSource: FourDirectionalPlayerDataSource?
+    ) {
         self.fourDirectionalPlayerDataSource = fourDirectionalPlayerDataSource
         self.horizontalIndex = horizontalIndex
         self.verticalIndex = verticalIndex
+        self.pageLayout = pageLayout
         super.init(nibName: nil, bundle: nil)
         renderCurrentItem()
     }
@@ -1143,6 +1442,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             fourDirectionalPlayerDataSource?.didCleanupCoordinate(renderedCoordinate)
         }
         renderedCoordinate = nil
+        needsPageLayoutRender = false
     }
 
     func update(horizontalIndex: Int) {
@@ -1155,6 +1455,36 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         guard self.verticalIndex != verticalIndex else { return }
         cleanupDisplayedContent()
         self.verticalIndex = verticalIndex
+    }
+
+    func setPageLayout(_ pageLayout: MobilePlayerPageLayout, shouldRender: Bool) {
+        guard self.pageLayout != pageLayout else { return }
+
+        let wasUsingTwoPerPageLayout = usesTwoPerPageLayoutForCurrentCoordinate
+        self.pageLayout = pageLayout
+        let isUsingTwoPerPageLayout = usesTwoPerPageLayoutForCurrentCoordinate
+        let needsRenderForLayoutChange = wasUsingTwoPerPageLayout != isUsingTwoPerPageLayout
+
+        guard shouldRender else {
+            if needsRenderForLayoutChange {
+                needsPageLayoutRender = renderedCoordinate != nil
+            }
+            return
+        }
+
+        guard needsRenderForLayoutChange else {
+            return
+        }
+        guard willOrDidAppear else { return }
+
+        cleanupDisplayedContent()
+        renderCurrentItem()
+    }
+
+    func renderCurrentItemIfNeededForPageLayout() {
+        guard needsPageLayoutRender else { return }
+
+        renderCurrentItem()
     }
 
     func toggleZoom(at location: CGPoint, in coordinateView: UIView) {
@@ -1306,6 +1636,10 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             zoomScrollView.contentSize = contentSize
         }
 
+        if case .staticImageSpread(let layout) = zoomContentLayout {
+            mediaRenderer.setImageSpreadAxis(layout.axis(fitting: viewportSize))
+        }
+
         updateZoomContentInsets()
         if resetOffset {
             zoomScrollView.contentOffset = centeredZoomContentOffset
@@ -1322,11 +1656,10 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         case .staticImage(let imageSize):
             guard imageSize.width > 0, imageSize.height > 0 else { return viewportSize }
 
-            let scale = min(viewportSize.width / imageSize.width, viewportSize.height / imageSize.height)
-            return CGSize(
-                width: imageSize.width * scale,
-                height: imageSize.height * scale
-            )
+            return MobilePlayerAspectFitLayout.size(for: imageSize, fitting: viewportSize)
+
+        case .staticImageSpread(let layout):
+            return layout.contentSize(fitting: viewportSize)
         }
     }
 
@@ -1457,10 +1790,15 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             fourDirectionalPlayerDataSource?.clearDownloadableMediaWindow()
             return
         }
-        if let renderedCoordinate = renderedCoordinate, renderedCoordinate == newCoordinate {
+        if let renderedCoordinate = renderedCoordinate,
+           renderedCoordinate == newCoordinate,
+           !needsPageLayoutRender {
             return
         }
 
+        if needsPageLayoutRender {
+            cleanupDisplayedContent()
+        }
         beginRenderingCoordinate(newCoordinate)
 
         guard let token = fourDirectionalPlayerDataSource?.getToken(x: horizontalIndex, y: verticalIndex) else {
@@ -1476,7 +1814,18 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             let descriptor = mediaWindow.currentDescriptor
             switch descriptor.media {
             case .staticImage:
-                renderImage(descriptor, fallbackHTML: token.html)
+                if let companionDescriptor = companionStaticImageDescriptor(
+                    for: descriptor,
+                    adjacentDescriptor: mediaWindow.adjacentDescriptor
+                ) {
+                    renderImageSpread(
+                        descriptor,
+                        companionDescriptor: companionDescriptor,
+                        fallbackHTML: token.html
+                    )
+                } else {
+                    renderImage(descriptor, fallbackHTML: token.html)
+                }
             case .animatedImage:
                 renderAnimatedImage(
                     descriptor,
@@ -1508,7 +1857,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     private func prepareCurrentDownloadableMediaWindow() -> PlayerDownloadableMediaWindow? {
         fourDirectionalPlayerDataSource?.prepareDownloadableMediaWindow(
             for: (horizontalIndex, verticalIndex),
-            direction: preferredPrefetchDirection
+            direction: usesTwoPerPageLayoutForCurrentCoordinate ? .forward : preferredPrefetchDirection
         )
     }
 
@@ -1516,6 +1865,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         targetHorizontalIndex: Int,
         preferredPrefetchDirection: DownloadableMediaCache.PrefetchDirection
     ) -> Bool {
+        guard pageLayout == .onePerPage else { return false }
         guard canReplaceVisibleContent else { return false }
 
         let newCoordinate = (targetHorizontalIndex, verticalIndex)
@@ -1591,6 +1941,69 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
                 self?.setZoomContentLayout(.staticImage(image.size))
             }
         )
+    }
+
+    private func renderImageSpread(
+        _ descriptor: DownloadableMediaDescriptor,
+        companionDescriptor: DownloadableMediaDescriptor,
+        fallbackHTML: String
+    ) {
+        clearAnimatedRenderContext()
+        mediaRenderer.renderImageSpread(
+            key: StaticImageSpreadRenderKey(
+                primaryDescriptor: descriptor,
+                companionDescriptor: companionDescriptor
+            ),
+            loadPrimary: { completion in
+                DownloadableMediaCache.shared.loadImage(for: descriptor, completion: completion)
+            },
+            loadCompanion: { completion in
+                DownloadableMediaCache.shared.loadImage(for: companionDescriptor, completion: completion)
+            },
+            fallbackToPrimary: { [weak self] primaryImage in
+                guard let self else { return }
+
+                guard let primaryImage else {
+                    self.renderImage(descriptor, fallbackHTML: fallbackHTML)
+                    return
+                }
+
+                self.setZoomContentLayout(.staticImage(primaryImage.size))
+                self.mediaRenderer.displayLoadedImage(primaryImage, key: descriptor)
+            },
+            onLoadedImages: { [weak self] primaryImage, companionImage in
+                self?.setZoomContentLayout(
+                    .staticImageSpread(
+                        StaticImageSpreadZoomLayout(
+                            primaryImageSize: primaryImage.size,
+                            companionImageSize: companionImage.size
+                        )
+                    )
+                )
+            }
+        )
+    }
+
+    private func companionStaticImageDescriptor(
+        for descriptor: DownloadableMediaDescriptor,
+        adjacentDescriptor: DownloadableMediaDescriptor?
+    ) -> DownloadableMediaDescriptor? {
+        guard pageLayout == .twoPerPage,
+              pageLayout.supports(descriptor: descriptor),
+              let companionDescriptor = adjacentDescriptor,
+              companionDescriptor.collectionId == descriptor.collectionId,
+              pageLayout.supports(descriptor: companionDescriptor) else {
+            return nil
+        }
+        return companionDescriptor
+    }
+
+    private var usesTwoPerPageLayoutForCurrentCoordinate: Bool {
+        pageLayout == .twoPerPage
+            && fourDirectionalPlayerDataSource?.supportsPageLayout(
+                .twoPerPage,
+                for: (horizontalIndex, verticalIndex)
+            ) == true
     }
 
     private func renderWebContent(_ html: String) {
@@ -1959,13 +2372,30 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
     private var zoomedPagingPanRestingOffsets = [ObjectIdentifier: CGFloat]()
     private var unlockedZoomedPagingPanGestures = Set<ObjectIdentifier>()
     private weak var fourDirectionalPlayerDataSource: FourDirectionalPlayerDataSource?
+    private var pageLayout: MobilePlayerPageLayout
     var onCurrentZoomStateChange: ((Bool) -> Void)?
 
-    init(fourDirectionalPlayerDataSource: FourDirectionalPlayerDataSource) {
+    init(pageLayout: MobilePlayerPageLayout, fourDirectionalPlayerDataSource: FourDirectionalPlayerDataSource) {
         self.fourDirectionalPlayerDataSource = fourDirectionalPlayerDataSource
-        pageA = SpecificPageViewController(horizontalIndex: 0, verticalIndex: 0, fourDirectionalPlayerDataSource: fourDirectionalPlayerDataSource)
-        pageB = SpecificPageViewController(horizontalIndex: 1, verticalIndex: 0, fourDirectionalPlayerDataSource: fourDirectionalPlayerDataSource)
-        pageC = SpecificPageViewController(horizontalIndex: -1, verticalIndex: 0, fourDirectionalPlayerDataSource: fourDirectionalPlayerDataSource)
+        self.pageLayout = pageLayout
+        pageA = SpecificPageViewController(
+            horizontalIndex: 0,
+            verticalIndex: 0,
+            pageLayout: pageLayout,
+            fourDirectionalPlayerDataSource: fourDirectionalPlayerDataSource
+        )
+        pageB = SpecificPageViewController(
+            horizontalIndex: 1,
+            verticalIndex: 0,
+            pageLayout: pageLayout,
+            fourDirectionalPlayerDataSource: fourDirectionalPlayerDataSource
+        )
+        pageC = SpecificPageViewController(
+            horizontalIndex: -1,
+            verticalIndex: 0,
+            pageLayout: pageLayout,
+            fourDirectionalPlayerDataSource: fourDirectionalPlayerDataSource
+        )
         super.init(
             transitionStyle: .scroll,
             navigationOrientation: .horizontal,
@@ -2016,6 +2446,19 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
 
     func toggleZoom(at location: CGPoint, in coordinateView: UIView) {
         currentPage?.toggleZoom(at: location, in: coordinateView)
+        updatePagingScrollEnabled()
+    }
+
+    func setPageLayout(_ pageLayout: MobilePlayerPageLayout) {
+        guard self.pageLayout != pageLayout else { return }
+
+        self.pageLayout = pageLayout
+        let visiblePage = currentPage
+        let pages: [SpecificPageViewController] = [pageA, pageB, pageC]
+        pages.forEach { page in
+            let shouldRender = visiblePage.map { page === $0 } ?? false
+            page.setPageLayout(pageLayout, shouldRender: shouldRender)
+        }
         updatePagingScrollEnabled()
     }
 
@@ -2223,6 +2666,7 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
         }
 
         update(currentHorizontalIndex: currentPage.horizontalIndex)
+        currentPage.renderCurrentItemIfNeededForPageLayout()
         updatePagingScrollEnabled()
         didDisplayRenderableCoordinate(horizontalIndex: currentPage.horizontalIndex, verticalIndex: currentPage.verticalIndex)
         return true
