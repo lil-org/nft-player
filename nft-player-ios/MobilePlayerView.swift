@@ -88,8 +88,8 @@ struct MobilePlayerView: View {
     @State private var currentToken = GeneratedToken.empty
     @State private var currentProgress: MobileViewingProgress?
     @State private var currentPageLabel = ""
-    @State private var currentCoordinate: PlayerCoordinate?
-    @State private var isCurrentCoordinateInsertedWidgetToken = false
+    @State private var currentPagePosition: PlayerPagePosition?
+    @State private var isCurrentPagePositionInsertedWidgetToken = false
     @State private var canGoBack = false
     @State private var canGoForward = false
     @State private var shareItem: MobilePlayerFileShareItem?
@@ -108,34 +108,34 @@ struct MobilePlayerView: View {
             let bottomChromePadding = MobileBottomChromeSpacing.padding(forSafeAreaBottom: geometry.safeAreaInsets.bottom)
 
             ZStack {
-                FourDirectionalPlayerContainerView(
+                HorizontalPlayerContainerView(
                     initialConfig: initialConfig,
                     pageLayout: pageLayout,
-                    onCoordinateUpdate: { newCoordinate in
+                    onPagePositionUpdate: { newPagePosition in
                         DispatchQueue.main.async {
-                            let token = MobilePlaybackController.shared.getToken(uuid: initialConfig.id, coordinate: newCoordinate)
+                            let token = MobilePlaybackController.shared.getToken(uuid: initialConfig.id, pagePosition: newPagePosition)
                             chrome.setPlayerBackgroundColor(MobilePlayerBackgroundColor.color(for: token))
 
-                            let progress = MobilePlaybackController.shared.markViewed(uuid: initialConfig.id, coordinate: newCoordinate)
-                            self.currentCoordinate = newCoordinate
+                            let progress = MobilePlaybackController.shared.markViewed(uuid: initialConfig.id, pagePosition: newPagePosition)
+                            self.currentPagePosition = newPagePosition
                             self.currentToken = token
                             self.currentProgress = progress
                             self.currentPageLabel = MobilePlaybackController.shared.pageLabel(
                                 uuid: initialConfig.id,
-                                coordinate: newCoordinate
+                                pagePosition: newPagePosition
                             ) ?? ""
-                            self.isCurrentCoordinateInsertedWidgetToken = MobilePlaybackController.shared.isInsertedWidgetToken(
+                            self.isCurrentPagePositionInsertedWidgetToken = MobilePlaybackController.shared.isInsertedWidgetToken(
                                 uuid: initialConfig.id,
-                                coordinate: newCoordinate
+                                pagePosition: newPagePosition
                             )
-                            let supportsFourPerPageLayout = self.supportsFourPerPageLayout(for: newCoordinate)
+                            let supportsFourPerPageLayout = self.supportsFourPerPageLayout(for: newPagePosition)
                             self.supportsCurrentFourPerPageLayout = supportsFourPerPageLayout
                             if !supportsFourPerPageLayout && self.pageLayout == .fourPerPage {
                                 self.pageLayout = .onePerPage
                             }
-                            self.canGoBack = canRenderAdjacentCoordinate(from: newCoordinate, offset: -1)
-                            self.canGoForward = canRenderAdjacentCoordinate(from: newCoordinate, offset: 1)
-                            self.updateShareItem(for: newCoordinate)
+                            self.canGoBack = canRenderAdjacentPagePosition(from: newPagePosition, offset: -1)
+                            self.canGoForward = canRenderAdjacentPagePosition(from: newPagePosition, offset: 1)
+                            self.updateShareItem(for: newPagePosition)
                             self.updateBookmarkState(for: token)
                             updateExternalDisplayToken(token)
                         }
@@ -158,7 +158,7 @@ struct MobilePlayerView: View {
                     Spacer()
                     PlayerBottomControls(
                         isVisible: chrome.showControls,
-                        progress: isCurrentCoordinateInsertedWidgetToken ? nil : currentProgress,
+                        progress: isCurrentPagePositionInsertedWidgetToken ? nil : currentProgress,
                         canGoBack: canGoBack,
                         canGoForward: canGoForward,
                         onBack: goBack,
@@ -238,7 +238,7 @@ struct MobilePlayerView: View {
             MobilePlaybackController.shared.stopAndDisconnect(uuid: initialConfig.id)
         }
         .onReceive(NotificationCenter.default.publisher(for: .downloadableMediaCacheFileAvailabilityDidChange)) { _ in
-            updateShareItem(for: currentCoordinate)
+            updateShareItem(for: currentPagePosition)
         }
         .onReceive(NotificationCenter.default.publisher(for: .playerBookmarksDidChange)) { _ in
             updateBookmarkState(for: currentToken)
@@ -299,11 +299,11 @@ struct MobilePlayerView: View {
         supportsCurrentFourPerPageLayout
     }
 
-    private func supportsFourPerPageLayout(for coordinate: PlayerCoordinate) -> Bool {
+    private func supportsFourPerPageLayout(for pagePosition: PlayerPagePosition) -> Bool {
         return MobilePlaybackController.shared.supportsPageLayout(
             .fourPerPage,
             uuid: initialConfig.id,
-            coordinate: coordinate
+            pagePosition: pagePosition
         )
     }
 
@@ -328,13 +328,10 @@ struct MobilePlayerView: View {
         Haptic.selectionChanged()
     }
 
-    private func canRenderAdjacentCoordinate(from coordinate: PlayerCoordinate, offset: Int) -> Bool {
+    private func canRenderAdjacentPagePosition(from pagePosition: PlayerPagePosition, offset: Int) -> Bool {
         return MobilePlaybackController.shared.canRender(
             uuid: initialConfig.id,
-            coordinate: PlayerCoordinate(
-                x: coordinate.x + offset,
-                y: coordinate.y
-            )
+            pagePosition: pagePosition.advanced(by: offset)
         )
     }
 
@@ -364,15 +361,15 @@ struct MobilePlayerView: View {
         )
     }
 
-    private func updateShareItem(for coordinate: PlayerCoordinate?) {
-        guard let coordinate else {
+    private func updateShareItem(for pagePosition: PlayerPagePosition?) {
+        guard let pagePosition else {
             shareItem = nil
             return
         }
 
         shareItem = MobilePlaybackController.shared.downloadedFileShareItem(
             uuid: initialConfig.id,
-            coordinate: coordinate
+            pagePosition: pagePosition
         )
     }
 

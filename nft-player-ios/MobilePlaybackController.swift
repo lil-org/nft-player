@@ -5,7 +5,7 @@ import UIKit
 protocol MobilePlaybackControllerDisplay: AnyObject {
 
     func navigate(_ direction: PlaybackNavigationDirection)
-    func getCurrentCoordinate() -> (Int, Int)
+    func getCurrentPagePosition() -> PlayerPagePosition
 
 }
 
@@ -119,29 +119,29 @@ class MobilePlaybackController {
         DownloadableMediaCache.shared.clearActiveWindow(ownerId: uuid)
     }
     
-    func getToken(uuid: UUID, coordinate: PlayerCoordinate) -> GeneratedToken {
-        dataSource(uuid: uuid)?.getToken(coordinate: coordinate) ?? .empty
+    func getToken(uuid: UUID, pagePosition: PlayerPagePosition) -> GeneratedToken {
+        dataSource(uuid: uuid)?.getToken(pagePosition: pagePosition) ?? .empty
     }
 
-    func canRender(uuid: UUID, coordinate: PlayerCoordinate) -> Bool {
-        dataSource(uuid: uuid)?.canRender(coordinate: coordinate) ?? false
+    func canRender(uuid: UUID, pagePosition: PlayerPagePosition) -> Bool {
+        dataSource(uuid: uuid)?.canRender(pagePosition: pagePosition) ?? false
     }
 
-    func pageLabel(uuid: UUID, coordinate: PlayerCoordinate) -> String? {
-        dataSource(uuid: uuid)?.pageLabel(coordinate: coordinate)
+    func pageLabel(uuid: UUID, pagePosition: PlayerPagePosition) -> String? {
+        dataSource(uuid: uuid)?.pageLabel(pagePosition: pagePosition)
     }
 
-    func isInsertedWidgetToken(uuid: UUID, coordinate: PlayerCoordinate) -> Bool {
-        dataSource(uuid: uuid)?.isInsertedWidgetToken(coordinate: coordinate) ?? false
+    func isInsertedWidgetToken(uuid: UUID, pagePosition: PlayerPagePosition) -> Bool {
+        dataSource(uuid: uuid)?.isInsertedWidgetToken(pagePosition: pagePosition) ?? false
     }
 
     func prepareDownloadableMediaWindow(
         uuid: UUID,
-        coordinate: PlayerCoordinate,
+        pagePosition: PlayerPagePosition,
         direction: DownloadableMediaCache.PrefetchDirection
     ) -> PlayerDownloadableMediaWindow? {
         guard let window = dataSource(uuid: uuid)?.downloadableMediaWindow(
-            coordinate: coordinate,
+            pagePosition: pagePosition,
             direction: direction
         ) else {
             clearDownloadableMediaWindow(uuid: uuid)
@@ -152,8 +152,8 @@ class MobilePlaybackController {
         return window
     }
 
-    func downloadableMediaDescriptor(uuid: UUID, coordinate: PlayerCoordinate) -> DownloadableMediaDescriptor? {
-        guard let context = downloadableCollectionTokenContext(uuid: uuid, coordinate: coordinate) else {
+    func downloadableMediaDescriptor(uuid: UUID, pagePosition: PlayerPagePosition) -> DownloadableMediaDescriptor? {
+        guard let context = downloadableCollectionTokenContext(uuid: uuid, pagePosition: pagePosition) else {
             return nil
         }
 
@@ -163,42 +163,42 @@ class MobilePlaybackController {
         )
     }
 
-    func supportsPageLayout(_ pageLayout: MobilePlayerPageLayout, uuid: UUID, coordinate: PlayerCoordinate) -> Bool {
+    func supportsPageLayout(_ pageLayout: MobilePlayerPageLayout, uuid: UUID, pagePosition: PlayerPagePosition) -> Bool {
         pageLayout.supports(
-            descriptor: downloadableMediaDescriptor(uuid: uuid, coordinate: coordinate)
+            descriptor: downloadableMediaDescriptor(uuid: uuid, pagePosition: pagePosition)
         )
     }
 
     private func downloadableCollectionTokenContext(
         uuid: UUID,
-        coordinate: PlayerCoordinate
+        pagePosition: PlayerPagePosition
     ) -> PlayerTokenContext? {
         guard let dataSource = dataSource(uuid: uuid) else { return nil }
-        return downloadableCollectionTokenContext(dataSource: dataSource, coordinate: coordinate)
+        return downloadableCollectionTokenContext(dataSource: dataSource, pagePosition: pagePosition)
     }
 
     private func downloadableCollectionTokenContext(
         dataSource: PlayerTokenPagingDataSource,
-        coordinate: PlayerCoordinate
+        pagePosition: PlayerPagePosition
     ) -> PlayerTokenContext? {
-        guard let context = dataSource.collectionTokenContext(coordinate: coordinate),
+        guard let context = dataSource.collectionTokenContext(pagePosition: pagePosition),
               MobileCollectionCatalog.isDownloadableCollection(specificCollectionId: context.collectionId) else {
             return nil
         }
         return context
     }
 
-    func markViewed(uuid: UUID, coordinate: PlayerCoordinate) -> MobileViewingProgress? {
-        guard let progress = dataSource(uuid: uuid)?.progress(coordinate: coordinate) else { return nil }
+    func markViewed(uuid: UUID, pagePosition: PlayerPagePosition) -> MobileViewingProgress? {
+        guard let progress = dataSource(uuid: uuid)?.progress(pagePosition: pagePosition) else { return nil }
         updateViewingSessionTracker(uuid: uuid) { tracker in
             tracker.markViewed(progress)
         }
         return progress
     }
 
-    func downloadedFileShareItem(uuid: UUID, coordinate: PlayerCoordinate) -> MobilePlayerFileShareItem? {
+    func downloadedFileShareItem(uuid: UUID, pagePosition: PlayerPagePosition) -> MobilePlayerFileShareItem? {
         guard let dataSource = dataSource(uuid: uuid),
-              let context = downloadableCollectionTokenContext(dataSource: dataSource, coordinate: coordinate),
+              let context = downloadableCollectionTokenContext(dataSource: dataSource, pagePosition: pagePosition),
               let descriptor = MobileCollectionCatalog.downloadableMediaDescriptor(
                 specificCollectionId: context.collectionId,
                 tokenIndex: context.tokenIndex
@@ -207,12 +207,12 @@ class MobilePlaybackController {
         }
 
         guard let fileURL = DownloadableMediaCache.shared.localFileURL(for: descriptor) else { return nil }
-        let token = dataSource.getToken(coordinate: coordinate)
+        let token = dataSource.getToken(pagePosition: pagePosition)
         return MobilePlayerFileShareItem(
             fileURL: fileURL,
             previewTitle: MobilePlayerFileShareItem.previewTitle(
                 for: token,
-                progressText: dataSource.pageLabel(coordinate: coordinate)
+                progressText: dataSource.pageLabel(pagePosition: pagePosition)
                     ?? Strings.pagePosition(current: context.tokenIndex + 1, total: context.tokenCount)
             )
         ) {
@@ -222,9 +222,8 @@ class MobilePlaybackController {
 
     private func suppressContinueViewingUntilMovementAfterRestart(uuid: UUID) {
         let collectionId: String?
-        if let coordinate = displays[uuid]?.getCurrentCoordinate() {
-            let playerCoordinate = PlayerCoordinate(x: coordinate.0, y: coordinate.1)
-            collectionId = dataSource(uuid: uuid)?.collectionTokenContext(coordinate: playerCoordinate)?.collectionId
+        if let pagePosition = displays[uuid]?.getCurrentPagePosition() {
+            collectionId = dataSource(uuid: uuid)?.collectionTokenContext(pagePosition: pagePosition)?.collectionId
         } else {
             collectionId = nil
         }
@@ -234,8 +233,8 @@ class MobilePlaybackController {
         }
     }
 
-    func startHorizontalCoordinate(uuid: UUID, verticalIndex: Int) -> Int {
-        dataSource(uuid: uuid)?.horizontalCoordinateForTokenIndex(0, verticalIndex: verticalIndex) ?? 0
+    func startPagePosition(uuid: UUID) -> PlayerPagePosition {
+        dataSource(uuid: uuid)?.pagePosition(forTokenIndex: 0) ?? .initial
     }
 
     private func dataSource(uuid: UUID) -> PlayerTokenPagingDataSource? {

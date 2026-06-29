@@ -2,11 +2,6 @@
 
 import Foundation
 
-struct PlayerCoordinate: Hashable {
-    let x: Int
-    let y: Int
-}
-
 struct PlayerWidgetTokenInsertion: Hashable, Codable {
     let insertedToken: GeneratedToken
     let insertedTokenIndex: Int
@@ -24,19 +19,18 @@ struct PlayerWidgetTokenInsertion: Hashable, Codable {
         anchorProgress.tokenIndex
     }
 
-    func tokenIndex(for coordinate: PlayerCoordinate) -> Int? {
-        guard coordinate.y == 0 else { return nil }
-        if coordinate.x == 0 {
+    func tokenIndex(for pagePosition: PlayerPagePosition) -> Int? {
+        if pagePosition.position == 0 {
             return insertedTokenIndex
         }
-        return anchorTokenIndex + (coordinate.x < 0 ? coordinate.x : coordinate.x - 1)
+        return tokenIndex(adjacentToInsertedTokenBy: pagePosition.position)
     }
 
-    func coordinateX(forTokenIndex tokenIndex: Int) -> Int {
+    func pagePosition(forTokenIndex tokenIndex: Int) -> PlayerPagePosition {
         if tokenIndex < anchorTokenIndex {
-            return tokenIndex - anchorTokenIndex
+            return PlayerPagePosition(position: tokenIndex - anchorTokenIndex)
         }
-        return tokenIndex - anchorTokenIndex + 1
+        return PlayerPagePosition(position: tokenIndex - anchorTokenIndex + 1)
     }
 
     func tokenIndex(adjacentToInsertedTokenBy offset: Int) -> Int {

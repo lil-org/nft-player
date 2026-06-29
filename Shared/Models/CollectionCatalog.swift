@@ -34,6 +34,16 @@ struct CollectionCatalogDownloadableMediaDescriptor: Hashable {
     }
 }
 
+struct PlayerPagePosition: Hashable {
+    let position: Int
+
+    static let initial = PlayerPagePosition(position: 0)
+
+    func advanced(by offset: Int) -> PlayerPagePosition {
+        PlayerPagePosition(position: position + offset)
+    }
+}
+
 struct PlayerTokenContext: Hashable {
     let collectionId: String
     let tokenIndex: Int
@@ -185,10 +195,10 @@ final class PlayerTokenPagingDataSource {
     private let initialTokenId: String?
     private let widgetTokenInsertion: PlayerWidgetTokenInsertion?
 
-    private var collectionIds = [Int: String]()
-    private var collectionBaseTokenIndices = [Int: Int]()
+    private var collectionId: String?
+    private var collectionBaseTokenIndex: Int?
     private var latestToken: GeneratedToken?
-    private var latestCoordinate: PlayerCoordinate?
+    private var latestPagePosition: PlayerPagePosition?
 
     init(
         initialCollectionId: String?,
@@ -202,29 +212,27 @@ final class PlayerTokenPagingDataSource {
         self.widgetTokenInsertion = widgetTokenInsertion
 
         if let widgetTokenInsertion {
-            let initialCoordinate = PlayerCoordinate(x: 0, y: 0)
-            collectionIds[initialCoordinate.y] = widgetTokenInsertion.collectionId
+            collectionId = widgetTokenInsertion.collectionId
             latestToken = widgetTokenInsertion.insertedToken
-            latestCoordinate = initialCoordinate
+            latestPagePosition = .initial
         } else if let specificInitialToken {
-            let initialCoordinate = PlayerCoordinate(x: 0, y: 0)
-            collectionIds[initialCoordinate.y] = specificInitialToken.fullCollectionId
-            collectionBaseTokenIndices[initialCoordinate.y] = CollectionCatalog.tokenIndex(
+            collectionId = specificInitialToken.fullCollectionId
+            collectionBaseTokenIndex = CollectionCatalog.tokenIndex(
                 specificCollectionId: specificInitialToken.fullCollectionId,
                 tokenId: specificInitialToken.id
             ) ?? 0
             latestToken = specificInitialToken
-            latestCoordinate = initialCoordinate
+            latestPagePosition = .initial
         }
     }
 
-    func canRender(coordinate: PlayerCoordinate) -> Bool {
-        collectionTokenContext(coordinate: coordinate) != nil
+    func canRender(pagePosition: PlayerPagePosition) -> Bool {
+        collectionTokenContext(pagePosition: pagePosition) != nil
     }
 
-    func collectionTokenContext(coordinate: PlayerCoordinate) -> PlayerTokenContext? {
-        guard let collectionId = collectionId(verticalIndex: coordinate.y),
-              let tokenIndex = tokenIndex(coordinate: coordinate) else {
+    func collectionTokenContext(pagePosition: PlayerPagePosition) -> PlayerTokenContext? {
+        guard let collectionId = activeCollectionId(),
+              let tokenIndex = tokenIndex(pagePosition: pagePosition) else {
             return nil
         }
 
@@ -238,38 +246,38 @@ final class PlayerTokenPagingDataSource {
     }
 
     func downloadableMediaWindow(
-        coordinate: PlayerCoordinate,
+        pagePosition: PlayerPagePosition,
         direction: PlayerMediaPrefetchDirection
     ) -> PlayerDownloadableMediaWindow? {
-        guard let context = collectionTokenContext(coordinate: coordinate),
+        guard let context = collectionTokenContext(pagePosition: pagePosition),
               CollectionCatalog.isDownloadableCollection(specificCollectionId: context.collectionId) else {
             return nil
         }
 
-        if isWidgetCoordinateSpace(coordinate) {
-            return logicalDownloadableMediaWindow(coordinate: coordinate, direction: direction)
+        if isWidgetPositionSpace {
+            return logicalDownloadableMediaWindow(pagePosition: pagePosition, direction: direction)
         }
 
         return indexedDownloadableMediaWindow(context: context, direction: direction)
     }
 
-    func horizontalCoordinateForTokenIndex(_ tokenIndex: Int, verticalIndex: Int) -> Int {
-        if let widgetTokenInsertion, verticalIndex == 0 {
-            return widgetTokenInsertion.coordinateX(forTokenIndex: tokenIndex)
+    func pagePosition(forTokenIndex tokenIndex: Int) -> PlayerPagePosition {
+        if let widgetTokenInsertion {
+            return widgetTokenInsertion.pagePosition(forTokenIndex: tokenIndex)
         }
-        ensureCollectionLoaded(verticalIndex: verticalIndex)
-        return tokenIndex - (collectionBaseTokenIndices[verticalIndex] ?? 0)
+        ensureCollectionLoaded()
+        return PlayerPagePosition(position: tokenIndex - (collectionBaseTokenIndex ?? 0))
     }
 
-    func progress(coordinate: PlayerCoordinate) -> PlayerViewingProgress? {
-        if isInsertedWidgetToken(coordinate: coordinate),
+    func progress(pagePosition: PlayerPagePosition) -> PlayerViewingProgress? {
+        if isInsertedWidgetToken(pagePosition: pagePosition),
            let widgetTokenInsertion {
             return widgetTokenInsertion.updatedAnchorProgress()
         }
 
-        guard let context = collectionTokenContext(coordinate: coordinate) else { return nil }
+        guard let context = collectionTokenContext(pagePosition: pagePosition) else { return nil }
 
-        let token = getToken(coordinate: coordinate)
+        let token = getToken(pagePosition: pagePosition)
         guard !token.fullCollectionId.isEmpty else { return nil }
         return PlayerViewingProgress(
             collectionId: context.collectionId,
@@ -281,49 +289,49 @@ final class PlayerTokenPagingDataSource {
         )
     }
 
-    func pageLabel(coordinate: PlayerCoordinate) -> String? {
-        guard let context = collectionTokenContext(coordinate: coordinate) else { return nil }
+    func pageLabel(pagePosition: PlayerPagePosition) -> String? {
+        guard let context = collectionTokenContext(pagePosition: pagePosition) else { return nil }
         return Strings.pagePosition(current: context.tokenIndex + 1, total: context.tokenCount)
     }
 
-    func isInsertedWidgetToken(coordinate: PlayerCoordinate) -> Bool {
-        widgetTokenInsertion != nil && coordinate.y == 0 && coordinate.x == 0
+    func isInsertedWidgetToken(pagePosition: PlayerPagePosition) -> Bool {
+        widgetTokenInsertion != nil && pagePosition == .initial
     }
 
-    func getToken(coordinate: PlayerCoordinate) -> GeneratedToken {
-        if latestCoordinate == coordinate, let token = latestToken {
+    func getToken(pagePosition: PlayerPagePosition) -> GeneratedToken {
+        if latestPagePosition == pagePosition, let token = latestToken {
             return token
         }
 
-        if isInsertedWidgetToken(coordinate: coordinate),
+        if isInsertedWidgetToken(pagePosition: pagePosition),
            let widgetTokenInsertion {
             latestToken = widgetTokenInsertion.insertedToken
-            latestCoordinate = coordinate
+            latestPagePosition = pagePosition
             return widgetTokenInsertion.insertedToken
         }
 
-        guard let collectionId = collectionId(verticalIndex: coordinate.y),
-              let tokenIndex = tokenIndex(coordinate: coordinate),
+        guard let collectionId = activeCollectionId(),
+              let tokenIndex = tokenIndex(pagePosition: pagePosition),
               let token = CollectionCatalog.generateToken(specificCollectionId: collectionId, tokenIndex: tokenIndex) else {
             return .empty
         }
 
         latestToken = token
-        latestCoordinate = coordinate
+        latestPagePosition = pagePosition
         return token
     }
 
-    private func tokenIndex(coordinate: PlayerCoordinate) -> Int? {
-        if let widgetTokenInsertion, coordinate.y == 0 {
-            return widgetTokenInsertion.tokenIndex(for: coordinate)
+    private func tokenIndex(pagePosition: PlayerPagePosition) -> Int? {
+        if let widgetTokenInsertion {
+            return widgetTokenInsertion.tokenIndex(for: pagePosition)
         }
 
-        guard let baseTokenIndex = collectionBaseTokenIndices[coordinate.y] else { return nil }
-        return baseTokenIndex + coordinate.x
+        guard let collectionBaseTokenIndex else { return nil }
+        return collectionBaseTokenIndex + pagePosition.position
     }
 
-    private func isWidgetCoordinateSpace(_ coordinate: PlayerCoordinate) -> Bool {
-        widgetTokenInsertion != nil && coordinate.y == 0
+    private var isWidgetPositionSpace: Bool {
+        widgetTokenInsertion != nil
     }
 
     private func indexedDownloadableMediaWindow(
@@ -362,19 +370,19 @@ final class PlayerTokenPagingDataSource {
     }
 
     private func logicalDownloadableMediaWindow(
-        coordinate: PlayerCoordinate,
+        pagePosition: PlayerPagePosition,
         direction: PlayerMediaPrefetchDirection
     ) -> PlayerDownloadableMediaWindow? {
-        guard let currentDescriptor = downloadableMediaDescriptor(coordinate: coordinate) else { return nil }
+        guard let currentDescriptor = downloadableMediaDescriptor(pagePosition: pagePosition) else { return nil }
 
         let descriptors = uniqueDownloadableMediaDescriptors(
             PlayerDownloadableMediaWindowLayout.orderedWindowOffsets(direction: direction).map {
-                PlayerCoordinate(x: coordinate.x + $0, y: coordinate.y)
+                pagePosition.advanced(by: $0)
             }
         )
         let decodedDescriptors = uniqueDownloadableMediaDescriptors(
             PlayerDownloadableMediaWindowLayout.decodedWindowOffsets(direction: direction).map {
-                PlayerCoordinate(x: coordinate.x + $0, y: coordinate.y)
+                pagePosition.advanced(by: $0)
             }
         )
 
@@ -383,10 +391,7 @@ final class PlayerTokenPagingDataSource {
             descriptors: descriptors,
             decodedDescriptors: decodedDescriptors,
             adjacentDescriptor: downloadableMediaDescriptor(
-                coordinate: PlayerCoordinate(
-                    x: coordinate.x + direction.adjacentOffset,
-                    y: coordinate.y
-                )
+                pagePosition: pagePosition.advanced(by: direction.adjacentOffset)
             )
         )
     }
@@ -416,13 +421,13 @@ final class PlayerTokenPagingDataSource {
     }
 
     private func uniqueDownloadableMediaDescriptors(
-        _ coordinates: [PlayerCoordinate]
+        _ pagePositions: [PlayerPagePosition]
     ) -> [CollectionCatalogDownloadableMediaDescriptor] {
         var descriptors = [CollectionCatalogDownloadableMediaDescriptor]()
         var usedDescriptors = Set<CollectionCatalogDownloadableMediaDescriptor>()
 
-        for coordinate in coordinates {
-            guard let descriptor = downloadableMediaDescriptor(coordinate: coordinate),
+        for pagePosition in pagePositions {
+            guard let descriptor = downloadableMediaDescriptor(pagePosition: pagePosition),
                   usedDescriptors.insert(descriptor).inserted else {
                 continue
             }
@@ -432,9 +437,9 @@ final class PlayerTokenPagingDataSource {
     }
 
     private func downloadableMediaDescriptor(
-        coordinate: PlayerCoordinate
+        pagePosition: PlayerPagePosition
     ) -> CollectionCatalogDownloadableMediaDescriptor? {
-        guard let context = collectionTokenContext(coordinate: coordinate),
+        guard let context = collectionTokenContext(pagePosition: pagePosition),
               CollectionCatalog.isDownloadableCollection(specificCollectionId: context.collectionId) else {
             return nil
         }
@@ -445,27 +450,22 @@ final class PlayerTokenPagingDataSource {
         )
     }
 
-    private func ensureCollectionLoaded(verticalIndex: Int) {
-        _ = collectionId(verticalIndex: verticalIndex)
+    private func ensureCollectionLoaded() {
+        _ = activeCollectionId()
     }
 
-    private func collectionId(verticalIndex: Int) -> String? {
-        if let collectionId = collectionIds[verticalIndex] {
+    private func activeCollectionId() -> String? {
+        if let collectionId {
             return collectionId
         }
 
-        let collection: (id: String?, requestedTokenId: String?)
-        if verticalIndex == 0 {
-            collection = (
-                widgetTokenInsertion?.collectionId ?? specificInitialToken?.fullCollectionId ?? initialCollectionId ?? CollectionCatalog.nextShuffledCollectionId(),
-                widgetTokenInsertion?.anchorTokenId ?? specificInitialToken?.id ?? initialTokenId
-            )
-        } else {
-            collection = (CollectionCatalog.nextShuffledCollectionId(), nil)
-        }
+        let collection = (
+            id: widgetTokenInsertion?.collectionId ?? specificInitialToken?.fullCollectionId ?? initialCollectionId ?? CollectionCatalog.nextShuffledCollectionId(),
+            requestedTokenId: widgetTokenInsertion?.anchorTokenId ?? specificInitialToken?.id ?? initialTokenId
+        )
 
         guard let collectionId = collection.id else { return nil }
-        collectionIds[verticalIndex] = collectionId
+        self.collectionId = collectionId
 
         let baseTokenIndex: Int
         if let requestedTokenId = collection.requestedTokenId,
@@ -474,7 +474,7 @@ final class PlayerTokenPagingDataSource {
         } else {
             baseTokenIndex = 0
         }
-        collectionBaseTokenIndices[verticalIndex] = baseTokenIndex
+        collectionBaseTokenIndex = baseTokenIndex
         return collectionId
     }
 }

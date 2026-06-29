@@ -371,7 +371,7 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
                     MacPlayerPageObject(
                         collectionId: context.collectionId,
                         tokenIndex: widgetTokenInsertion.insertedTokenIndex,
-                        coordinate: PlayerCoordinate(x: 0, y: 0),
+                        pagePosition: .initial,
                         isInsertedWidgetToken: true
                     )
                 )
@@ -385,10 +385,7 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
             nextPageObjects.append(MacPlayerPageObject(
                 collectionId: context.collectionId,
                 tokenIndex: tokenIndex,
-                coordinate: PlayerCoordinate(
-                    x: dataSource.horizontalCoordinateForTokenIndex(tokenIndex, verticalIndex: 0),
-                    y: 0
-                )
+                pagePosition: dataSource.pagePosition(forTokenIndex: tokenIndex)
             ))
         }
         setPageObjects(nextPageObjects)
@@ -429,7 +426,7 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
             return fallbackToken
         }
 
-        guard let token = tokenPagingDataSource?.getToken(coordinate: pageObject.coordinate),
+        guard let token = tokenPagingDataSource?.getToken(pagePosition: pageObject.pagePosition),
               !token.fullCollectionId.isEmpty else {
             return nil
         }
@@ -728,10 +725,7 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
             nextPageObjects.append(MacPlayerPageObject(
                 collectionId: collectionId,
                 tokenIndex: tokenIndex,
-                coordinate: PlayerCoordinate(
-                    x: dataSource.horizontalCoordinateForTokenIndex(tokenIndex, verticalIndex: 0),
-                    y: 0
-                )
+                pagePosition: dataSource.pagePosition(forTokenIndex: tokenIndex)
             ))
         }
 
@@ -849,7 +843,7 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
 
     private func downloadableMediaWindow(for pageObject: MacPlayerPageObject) -> PlayerDownloadableMediaWindow? {
         tokenPagingDataSource?.downloadableMediaWindow(
-            coordinate: pageObject.coordinate,
+            pagePosition: pageObject.pagePosition,
             direction: prefetchDirection(for: pageObject)
         )
     }
@@ -1236,19 +1230,19 @@ private struct MacPlayerPageObjectKey: Hashable {
 private final class MacPlayerPageObject: NSObject {
     let collectionId: String
     let tokenIndex: Int
-    let coordinate: PlayerCoordinate
+    let pagePosition: PlayerPagePosition
     let fallbackToken: GeneratedToken?
     let isInsertedWidgetToken: Bool
 
     init(
         collectionId: String,
         tokenIndex: Int,
-        coordinate: PlayerCoordinate,
+        pagePosition: PlayerPagePosition,
         isInsertedWidgetToken: Bool = false
     ) {
         self.collectionId = collectionId
         self.tokenIndex = tokenIndex
-        self.coordinate = coordinate
+        self.pagePosition = pagePosition
         self.fallbackToken = nil
         self.isInsertedWidgetToken = isInsertedWidgetToken
         super.init()
@@ -1257,7 +1251,7 @@ private final class MacPlayerPageObject: NSObject {
     init(fallbackToken: GeneratedToken) {
         self.collectionId = fallbackToken.fullCollectionId
         self.tokenIndex = 0
-        self.coordinate = PlayerCoordinate(x: 0, y: 0)
+        self.pagePosition = .initial
         self.fallbackToken = fallbackToken
         self.isInsertedWidgetToken = false
         super.init()

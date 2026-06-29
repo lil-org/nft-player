@@ -254,7 +254,7 @@ private final class VisionPlayerModel: ObservableObject {
     @Published private(set) var isCurrentTokenBookmarked = false
 
     init(config: VisionPlayerConfig) {
-        let initialCoordinate = PlayerCoordinate(x: 0, y: 0)
+        let initialPagePosition = PlayerPagePosition.initial
         let dataSource = PlayerTokenPagingDataSource(
             initialCollectionId: config.initialItemId,
             specificInitialToken: config.specificToken,
@@ -267,17 +267,17 @@ private final class VisionPlayerModel: ObservableObject {
             continueViewingCollectionId: config.continueViewingCollectionId,
             trackingMode: config.trackingMode
         )
-        let token = dataSource.getToken(coordinate: initialCoordinate)
-        let progress = dataSource.progress(coordinate: initialCoordinate)
+        let token = dataSource.getToken(pagePosition: initialPagePosition)
+        let progress = dataSource.progress(pagePosition: initialPagePosition)
         if let progress {
             tracker.markViewed(progress)
         }
         viewingSessionTracker = tracker
         displayState = VisionPlayerDisplayState(
-            coordinate: initialCoordinate,
+            pagePosition: initialPagePosition,
             token: token,
             progress: progress,
-            pageLabel: dataSource.pageLabel(coordinate: initialCoordinate) ?? "",
+            pageLabel: dataSource.pageLabel(pagePosition: initialPagePosition) ?? "",
             preferredPrefetchDirection: .forward
         )
         isCurrentTokenBookmarked = Self.isBookmarked(token: token)
@@ -287,8 +287,8 @@ private final class VisionPlayerModel: ObservableObject {
         displayState.token
     }
 
-    var currentCoordinate: PlayerCoordinate {
-        displayState.coordinate
+    var currentPagePosition: PlayerPagePosition {
+        displayState.pagePosition
     }
 
     var currentProgress: PlayerViewingProgress? {
@@ -315,43 +315,32 @@ private final class VisionPlayerModel: ObservableObject {
         canRender(offset: 1)
     }
 
-    func token(for coordinate: PlayerCoordinate) -> GeneratedToken {
-        dataSource.getToken(coordinate: coordinate)
+    func token(for pagePosition: PlayerPagePosition) -> GeneratedToken {
+        dataSource.getToken(pagePosition: pagePosition)
     }
 
-    func context(for coordinate: PlayerCoordinate) -> PlayerTokenContext? {
-        dataSource.collectionTokenContext(coordinate: coordinate)
+    func context(for pagePosition: PlayerPagePosition) -> PlayerTokenContext? {
+        dataSource.collectionTokenContext(pagePosition: pagePosition)
     }
 
-    func canRender(_ coordinate: PlayerCoordinate) -> Bool {
-        dataSource.canRender(coordinate: coordinate)
-    }
-
-    func coordinate(adjacentTo coordinate: PlayerCoordinate, offset: Int) -> PlayerCoordinate {
-        PlayerCoordinate(
-            x: coordinate.x + offset,
-            y: coordinate.y
-        )
+    func canRender(_ pagePosition: PlayerPagePosition) -> Bool {
+        dataSource.canRender(pagePosition: pagePosition)
     }
 
     func display(
-        coordinate: PlayerCoordinate,
+        pagePosition: PlayerPagePosition,
         direction: DownloadableMediaCache.PrefetchDirection
     ) {
-        guard dataSource.canRender(coordinate: coordinate) else { return }
+        guard dataSource.canRender(pagePosition: pagePosition) else { return }
 
-        displayState = makeDisplayState(coordinate: coordinate, direction: direction)
+        displayState = makeDisplayState(pagePosition: pagePosition, direction: direction)
         refreshBookmarkState()
     }
 
     func restartCollection() {
         guard let currentProgress else { return }
         viewingSessionTracker.beginRestart(collectionId: currentProgress.collectionId)
-        let targetCoordinate = PlayerCoordinate(
-            x: dataSource.horizontalCoordinateForTokenIndex(0, verticalIndex: currentCoordinate.y),
-            y: currentCoordinate.y
-        )
-        display(coordinate: targetCoordinate, direction: .backward)
+        display(pagePosition: dataSource.pagePosition(forTokenIndex: 0), direction: .backward)
     }
 
     func toggleCurrentTokenBookmark() {
@@ -368,23 +357,23 @@ private final class VisionPlayerModel: ObservableObject {
     }
 
     private func canRender(offset: Int) -> Bool {
-        canRender(coordinate(adjacentTo: currentCoordinate, offset: offset))
+        canRender(currentPagePosition.advanced(by: offset))
     }
 
     private func makeDisplayState(
-        coordinate: PlayerCoordinate,
+        pagePosition: PlayerPagePosition,
         direction: DownloadableMediaCache.PrefetchDirection
     ) -> VisionPlayerDisplayState {
-        let token = dataSource.getToken(coordinate: coordinate)
-        let progress = dataSource.progress(coordinate: coordinate)
+        let token = dataSource.getToken(pagePosition: pagePosition)
+        let progress = dataSource.progress(pagePosition: pagePosition)
         if let progress {
             viewingSessionTracker.markViewed(progress)
         }
         return VisionPlayerDisplayState(
-            coordinate: coordinate,
+            pagePosition: pagePosition,
             token: token,
             progress: progress,
-            pageLabel: dataSource.pageLabel(coordinate: coordinate) ?? "",
+            pageLabel: dataSource.pageLabel(pagePosition: pagePosition) ?? "",
             preferredPrefetchDirection: direction
         )
     }
@@ -399,7 +388,7 @@ private final class VisionPlayerModel: ObservableObject {
 }
 
 private struct VisionPlayerDisplayState {
-    let coordinate: PlayerCoordinate
+    let pagePosition: PlayerPagePosition
     let token: GeneratedToken
     let progress: PlayerViewingProgress?
     let pageLabel: String
@@ -787,7 +776,7 @@ private final class VisionPlayerPageController: UIPageViewController, UIPageView
         dataSource = self
         delegate = self
         setCurrentPage(
-            coordinate: playerModel.currentCoordinate,
+            pagePosition: playerModel.currentPagePosition,
             preferredPrefetchDirection: playerModel.preferredPrefetchDirection,
             direction: .forward,
             animated: false
@@ -806,7 +795,7 @@ private final class VisionPlayerPageController: UIPageViewController, UIPageView
         guard isViewLoaded else { return }
         guard let currentPage else {
             setCurrentPage(
-                coordinate: playerModel.currentCoordinate,
+                pagePosition: playerModel.currentPagePosition,
                 preferredPrefetchDirection: playerModel.preferredPrefetchDirection,
                 direction: .forward,
                 animated: false
@@ -816,19 +805,19 @@ private final class VisionPlayerPageController: UIPageViewController, UIPageView
 
         guard !isTransitioning else { return }
 
-        if currentPage.coordinate != playerModel.currentCoordinate {
+        if currentPage.pagePosition != playerModel.currentPagePosition {
             setCurrentPage(
-                coordinate: playerModel.currentCoordinate,
+                pagePosition: playerModel.currentPagePosition,
                 preferredPrefetchDirection: playerModel.preferredPrefetchDirection,
                 direction: pageDirection(
-                    from: currentPage.coordinate,
-                    to: playerModel.currentCoordinate
+                    from: currentPage.pagePosition,
+                    to: playerModel.currentPagePosition
                 ),
                 animated: false
             )
         } else {
             currentPage.update(
-                coordinate: playerModel.currentCoordinate,
+                pagePosition: playerModel.currentPagePosition,
                 preferredPrefetchDirection: playerModel.preferredPrefetchDirection
             )
         }
@@ -864,31 +853,31 @@ private final class VisionPlayerPageController: UIPageViewController, UIPageView
         viewControllers?.first as? VisionPlayerPageHostController
     }
 
-    private var displayedCoordinate: PlayerCoordinate {
-        currentPage?.coordinate ?? playerModel.currentCoordinate
+    private var displayedPagePosition: PlayerPagePosition {
+        currentPage?.pagePosition ?? playerModel.currentPagePosition
     }
 
     private func setCurrentPage(
-        coordinate: PlayerCoordinate,
+        pagePosition: PlayerPagePosition,
         preferredPrefetchDirection: DownloadableMediaCache.PrefetchDirection,
         direction: UIPageViewController.NavigationDirection,
         animated: Bool
     ) {
         let page = makePage(
-            coordinate: coordinate,
+            pagePosition: pagePosition,
             preferredPrefetchDirection: preferredPrefetchDirection
         )
         setViewControllers([page], direction: direction, animated: animated, completion: nil)
     }
 
     private func makePage(
-        coordinate: PlayerCoordinate,
+        pagePosition: PlayerPagePosition,
         preferredPrefetchDirection: DownloadableMediaCache.PrefetchDirection,
         ownsDownloadableMediaWindow: Bool = true
     ) -> VisionPlayerPageHostController {
         let page = VisionPlayerPageHostController(
             playerModel: playerModel,
-            coordinate: coordinate,
+            pagePosition: pagePosition,
             preferredPrefetchDirection: preferredPrefetchDirection,
             ownsDownloadableMediaWindow: ownsDownloadableMediaWindow,
             shouldIgnoreDoubleTap: { [weak self] location, bounds in
@@ -908,9 +897,9 @@ private final class VisionPlayerPageController: UIPageViewController, UIPageView
         animated: Bool,
         preservingSideTapFlash: Bool = false
     ) -> Bool {
-        let sourceCoordinate = displayedCoordinate
-        let targetCoordinate = targetCoordinate(from: sourceCoordinate, for: request)
-        guard playerModel.canRender(targetCoordinate) else {
+        let sourcePagePosition = displayedPagePosition
+        let targetPagePosition = targetPagePosition(from: sourcePagePosition, for: request)
+        guard playerModel.canRender(targetPagePosition) else {
             queuedNavigationRequest = nil
             return false
         }
@@ -925,7 +914,7 @@ private final class VisionPlayerPageController: UIPageViewController, UIPageView
 
         return startNavigation(
             request,
-            from: sourceCoordinate,
+            from: sourcePagePosition,
             animated: animated,
             preservingSideTapFlash: preservingSideTapFlash
         )
@@ -934,15 +923,15 @@ private final class VisionPlayerPageController: UIPageViewController, UIPageView
     @discardableResult
     private func startNavigation(
         _ request: VisionPlayerPageNavigation,
-        from sourceCoordinate: PlayerCoordinate,
+        from sourcePagePosition: PlayerPagePosition,
         animated: Bool,
         preservingSideTapFlash: Bool = false
     ) -> Bool {
-        let targetCoordinate = targetCoordinate(from: sourceCoordinate, for: request)
-        guard playerModel.canRender(targetCoordinate) else { return false }
+        let targetPagePosition = targetPagePosition(from: sourcePagePosition, for: request)
+        guard playerModel.canRender(targetPagePosition) else { return false }
 
         let targetPage = makePage(
-            coordinate: targetCoordinate,
+            pagePosition: targetPagePosition,
             preferredPrefetchDirection: request.prefetchDirection
         )
         let sourcePage = currentPage
@@ -955,7 +944,7 @@ private final class VisionPlayerPageController: UIPageViewController, UIPageView
             if completed {
                 self.markPageAsNotOwningDownloadableMediaWindow(sourcePage)
                 self.playerModel.display(
-                    coordinate: targetCoordinate,
+                    pagePosition: targetPagePosition,
                     direction: request.prefetchDirection
                 )
             } else {
@@ -987,20 +976,17 @@ private final class VisionPlayerPageController: UIPageViewController, UIPageView
     }
 
     private func pageDirection(
-        from source: PlayerCoordinate,
-        to target: PlayerCoordinate
+        from source: PlayerPagePosition,
+        to target: PlayerPagePosition
     ) -> UIPageViewController.NavigationDirection {
-        target.x < source.x ? .reverse : .forward
+        target.position < source.position ? .reverse : .forward
     }
 
-    private func targetCoordinate(
-        from sourceCoordinate: PlayerCoordinate,
+    private func targetPagePosition(
+        from sourcePagePosition: PlayerPagePosition,
         for navigation: VisionPlayerPageNavigation
-    ) -> PlayerCoordinate {
-        playerModel.coordinate(
-            adjacentTo: sourceCoordinate,
-            offset: navigation.offset
-        )
+    ) -> PlayerPagePosition {
+        sourcePagePosition.advanced(by: navigation.offset)
     }
 
     private func adjacentPage(
@@ -1008,10 +994,10 @@ private final class VisionPlayerPageController: UIPageViewController, UIPageView
         navigation: VisionPlayerPageNavigation
     ) -> UIViewController? {
         guard let sourcePage = viewController as? VisionPlayerPageHostController else { return nil }
-        let targetCoordinate = targetCoordinate(from: sourcePage.coordinate, for: navigation)
-        guard playerModel.canRender(targetCoordinate) else { return nil }
+        let targetPagePosition = targetPagePosition(from: sourcePage.pagePosition, for: navigation)
+        guard playerModel.canRender(targetPagePosition) else { return nil }
         return makePage(
-            coordinate: targetCoordinate,
+            pagePosition: targetPagePosition,
             preferredPrefetchDirection: navigation.prefetchDirection,
             ownsDownloadableMediaWindow: false
         )
@@ -1057,7 +1043,7 @@ private final class VisionPlayerPageController: UIPageViewController, UIPageView
                 markPageAsNotOwningDownloadableMediaWindow($0)
             }
             playerModel.display(
-                coordinate: currentPage.coordinate,
+                pagePosition: currentPage.pagePosition,
                 direction: currentPage.preferredPrefetchDirection
             )
         } else {
@@ -1136,11 +1122,11 @@ private final class VisionPlayerPageController: UIPageViewController, UIPageView
     private func canNavigateBySideTap(_ side: VisionPlayerSideTapSide) -> Bool {
         guard !isTransitioning, transitionCoordinator == nil else { return false }
 
-        let targetCoordinate = targetCoordinate(
-            from: displayedCoordinate,
+        let targetPagePosition = targetPagePosition(
+            from: displayedPagePosition,
             for: side.navigation
         )
-        return playerModel.canRender(targetCoordinate)
+        return playerModel.canRender(targetPagePosition)
     }
 
     @objc private func handleSideTapHover(_ gesture: UIHoverGestureRecognizer) {
@@ -1496,7 +1482,7 @@ private final class VisionPlayerPageHostController: UIViewController, UIScrollVi
     private var videoSizeLoad: VisionVideoSizeLoad?
     private var cachedVideoSizes = [VisionVideoSizeRequest: CGSize]()
     private var cachedVideoSizeRequests = [VisionVideoSizeRequest]()
-    private(set) var coordinate: PlayerCoordinate
+    private(set) var pagePosition: PlayerPagePosition
     private(set) var preferredPrefetchDirection: DownloadableMediaCache.PrefetchDirection
     private(set) var ownsDownloadableMediaWindow: Bool
     var isZoomed: Bool {
@@ -1505,13 +1491,13 @@ private final class VisionPlayerPageHostController: UIViewController, UIScrollVi
 
     init(
         playerModel: VisionPlayerModel,
-        coordinate: PlayerCoordinate,
+        pagePosition: PlayerPagePosition,
         preferredPrefetchDirection: DownloadableMediaCache.PrefetchDirection,
         ownsDownloadableMediaWindow: Bool,
         shouldIgnoreDoubleTap: @escaping (CGPoint, CGRect) -> Bool
     ) {
         self.playerModel = playerModel
-        self.coordinate = coordinate
+        self.pagePosition = pagePosition
         self.preferredPrefetchDirection = preferredPrefetchDirection
         self.ownsDownloadableMediaWindow = ownsDownloadableMediaWindow
         self.shouldIgnoreDoubleTap = shouldIgnoreDoubleTap
@@ -1553,25 +1539,25 @@ private final class VisionPlayerPageHostController: UIViewController, UIScrollVi
     }
 
     func update(
-        coordinate: PlayerCoordinate,
+        pagePosition: PlayerPagePosition,
         preferredPrefetchDirection: DownloadableMediaCache.PrefetchDirection,
         ownsDownloadableMediaWindow: Bool = true,
         forceRefresh: Bool = false
     ) {
         let didBecomeDownloadableMediaWindowOwner = !self.ownsDownloadableMediaWindow && ownsDownloadableMediaWindow
         guard forceRefresh
-                || self.coordinate != coordinate
+                || self.pagePosition != pagePosition
                 || self.preferredPrefetchDirection != preferredPrefetchDirection
                 || self.ownsDownloadableMediaWindow != ownsDownloadableMediaWindow else {
             return
         }
 
-        if forceRefresh || self.coordinate != coordinate {
+        if forceRefresh || self.pagePosition != pagePosition {
             clearVideoZoomContentLayout()
             resetZoomForReuse()
             setZoomContentLayout(.viewport)
         }
-        self.coordinate = coordinate
+        self.pagePosition = pagePosition
         self.preferredPrefetchDirection = preferredPrefetchDirection
         self.ownsDownloadableMediaWindow = ownsDownloadableMediaWindow
         if forceRefresh || didBecomeDownloadableMediaWindowOwner {
@@ -1586,8 +1572,8 @@ private final class VisionPlayerPageHostController: UIViewController, UIScrollVi
 
     private func makeRootView() -> VisionPlayerPageHostView {
         VisionPlayerPageHostView(
-            token: playerModel.token(for: coordinate),
-            context: playerModel.context(for: coordinate),
+            token: playerModel.token(for: pagePosition),
+            context: playerModel.context(for: pagePosition),
             ownerId: playerModel.id,
             preferredPrefetchDirection: preferredPrefetchDirection,
             ownsDownloadableMediaWindow: ownsDownloadableMediaWindow,
@@ -1611,7 +1597,7 @@ private final class VisionPlayerPageHostController: UIViewController, UIScrollVi
         forceRefresh: Bool = false
     ) {
         update(
-            coordinate: coordinate,
+            pagePosition: pagePosition,
             preferredPrefetchDirection: preferredPrefetchDirection,
             ownsDownloadableMediaWindow: ownsDownloadableMediaWindow,
             forceRefresh: forceRefresh

@@ -693,11 +693,11 @@ private final class PlayerEdgeTapHighlightView: UIView {
     }
 }
 
-struct FourDirectionalPlayerContainerView: UIViewControllerRepresentable {
+struct HorizontalPlayerContainerView: UIViewControllerRepresentable {
 
     private let initialConfig: MobilePlayerConfig
     private let pageLayout: MobilePlayerPageLayout
-    private let onCoordinateUpdate: ((PlayerCoordinate) -> Void)
+    private let onPagePositionUpdate: ((PlayerPagePosition) -> Void)
     private let onPaginationAttempt: (() -> Void)
     private let onUnavailableNavigation: (() -> Void)
     private let onToggleChrome: (() -> Void)
@@ -706,7 +706,7 @@ struct FourDirectionalPlayerContainerView: UIViewControllerRepresentable {
     init(
         initialConfig: MobilePlayerConfig,
         pageLayout: MobilePlayerPageLayout,
-        onCoordinateUpdate: @escaping (PlayerCoordinate) -> Void,
+        onPagePositionUpdate: @escaping (PlayerPagePosition) -> Void,
         onPaginationAttempt: @escaping () -> Void,
         onUnavailableNavigation: @escaping () -> Void,
         onToggleChrome: @escaping () -> Void,
@@ -714,18 +714,18 @@ struct FourDirectionalPlayerContainerView: UIViewControllerRepresentable {
     ) {
         self.initialConfig = initialConfig
         self.pageLayout = pageLayout
-        self.onCoordinateUpdate = onCoordinateUpdate
+        self.onPagePositionUpdate = onPagePositionUpdate
         self.onPaginationAttempt = onPaginationAttempt
         self.onUnavailableNavigation = onUnavailableNavigation
         self.onToggleChrome = onToggleChrome
         self.onZoomStateChange = onZoomStateChange
     }
 
-    func makeUIViewController(context: Context) -> FourDirectionalPlayerContainer {
-        return FourDirectionalPlayerContainer(
+    func makeUIViewController(context: Context) -> HorizontalPlayerContainer {
+        return HorizontalPlayerContainer(
             initialConfig: initialConfig,
             pageLayout: pageLayout,
-            onCoordinateUpdate: onCoordinateUpdate,
+            onPagePositionUpdate: onPagePositionUpdate,
             onPaginationAttempt: onPaginationAttempt,
             onUnavailableNavigation: onUnavailableNavigation,
             onToggleChrome: onToggleChrome,
@@ -733,16 +733,16 @@ struct FourDirectionalPlayerContainerView: UIViewControllerRepresentable {
         )
     }
 
-    func updateUIViewController(_ uiViewController: FourDirectionalPlayerContainer, context: Context) {
+    func updateUIViewController(_ uiViewController: HorizontalPlayerContainer, context: Context) {
         uiViewController.setPageLayout(pageLayout)
     }
 }
 
-class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDataSource, MobilePlaybackControllerDisplay, UIGestureRecognizerDelegate {
+class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, MobilePlaybackControllerDisplay, UIGestureRecognizerDelegate {
 
     private let initialConfig: MobilePlayerConfig
     private var pageLayout: MobilePlayerPageLayout
-    private let onCoordinateUpdate: ((PlayerCoordinate) -> Void)
+    private let onPagePositionUpdate: ((PlayerPagePosition) -> Void)
     private let onPaginationAttempt: (() -> Void)
     private let onUnavailableNavigation: (() -> Void)
     private let onToggleChrome: (() -> Void)
@@ -750,7 +750,7 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
 
     private lazy var pagingVC = HorizontalPageViewController(
         pageLayout: pageLayout,
-        fourDirectionalPlayerDataSource: self
+        playerDataSource: self
     )
     private let leftEdgeTapHighlight = PlayerEdgeTapHighlightView(side: .left)
     private let rightEdgeTapHighlight = PlayerEdgeTapHighlightView(side: .right)
@@ -792,8 +792,8 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
         }
         return gesture
     }()
-    private var renderedCoordinateCounts = [PlayerCoordinate: Int]()
-    private var displayedCoordinate: PlayerCoordinate?
+    private var renderedPagePositionCounts = [PlayerPagePosition: Int]()
+    private var displayedPagePosition: PlayerPagePosition?
     private var pendingEdgeTapHighlightSide: PlayerEdgeTapSide?
     private var edgeTapHighlightWorkItem: DispatchWorkItem?
     private var edgeTapHighlightRequestId = 0
@@ -801,7 +801,7 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
     init(
         initialConfig: MobilePlayerConfig,
         pageLayout: MobilePlayerPageLayout,
-        onCoordinateUpdate: @escaping (PlayerCoordinate) -> Void,
+        onPagePositionUpdate: @escaping (PlayerPagePosition) -> Void,
         onPaginationAttempt: @escaping () -> Void,
         onUnavailableNavigation: @escaping () -> Void,
         onToggleChrome: @escaping () -> Void,
@@ -809,7 +809,7 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
     ) {
         self.initialConfig = initialConfig
         self.pageLayout = pageLayout
-        self.onCoordinateUpdate = onCoordinateUpdate
+        self.onPagePositionUpdate = onPagePositionUpdate
         self.onPaginationAttempt = onPaginationAttempt
         self.onUnavailableNavigation = onUnavailableNavigation
         self.onToggleChrome = onToggleChrome
@@ -854,8 +854,8 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
         UIApplication.shared.isIdleTimerDisabled = false
     }
 
-    func getCurrentCoordinate() -> (Int, Int) {
-        return pagingVC.getCurrentCoordinate()
+    func getCurrentPagePosition() -> PlayerPagePosition {
+        return pagingVC.getCurrentPagePosition()
     }
 
     func navigate(_ direction: PlaybackNavigationDirection) {
@@ -1059,17 +1059,17 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
         gestureRecognizer === edgeTapRecognizer || otherGestureRecognizer === edgeTapRecognizer
     }
 
-    fileprivate func getToken(x: Int, y: Int) -> GeneratedToken {
-        MobilePlaybackController.shared.getToken(uuid: initialConfig.id, coordinate: PlayerCoordinate(x: x, y: y))
+    fileprivate func getToken(pagePosition: PlayerPagePosition) -> GeneratedToken {
+        MobilePlaybackController.shared.getToken(uuid: initialConfig.id, pagePosition: pagePosition)
     }
 
     fileprivate func prepareDownloadableMediaWindow(
-        for coordinate: (Int, Int),
+        for pagePosition: PlayerPagePosition,
         direction: DownloadableMediaCache.PrefetchDirection
     ) -> PlayerDownloadableMediaWindow? {
         MobilePlaybackController.shared.prepareDownloadableMediaWindow(
             uuid: initialConfig.id,
-            coordinate: PlayerCoordinate(x: coordinate.0, y: coordinate.1),
+            pagePosition: pagePosition,
             direction: direction
         )
     }
@@ -1078,46 +1078,44 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
         MobilePlaybackController.shared.clearDownloadableMediaWindow(uuid: initialConfig.id)
     }
 
-    fileprivate func downloadableMediaDescriptor(for coordinate: (Int, Int)) -> DownloadableMediaDescriptor? {
+    fileprivate func downloadableMediaDescriptor(for pagePosition: PlayerPagePosition) -> DownloadableMediaDescriptor? {
         MobilePlaybackController.shared.downloadableMediaDescriptor(
             uuid: initialConfig.id,
-            coordinate: PlayerCoordinate(x: coordinate.0, y: coordinate.1)
+            pagePosition: pagePosition
         )
     }
 
-    fileprivate func supportsPageLayout(_ pageLayout: MobilePlayerPageLayout, for coordinate: (Int, Int)) -> Bool {
+    fileprivate func supportsPageLayout(_ pageLayout: MobilePlayerPageLayout, for pagePosition: PlayerPagePosition) -> Bool {
         MobilePlaybackController.shared.supportsPageLayout(
             pageLayout,
             uuid: initialConfig.id,
-            coordinate: PlayerCoordinate(x: coordinate.0, y: coordinate.1)
+            pagePosition: pagePosition
         )
     }
 
-    fileprivate func canRenderCoordinate(_ coordinate: (Int, Int)) -> Bool {
+    fileprivate func canRenderPagePosition(_ pagePosition: PlayerPagePosition) -> Bool {
         MobilePlaybackController.shared.canRender(
             uuid: initialConfig.id,
-            coordinate: PlayerCoordinate(x: coordinate.0, y: coordinate.1)
+            pagePosition: pagePosition
         )
     }
 
-    fileprivate func startHorizontalCoordinate(verticalIndex: Int) -> Int {
-        MobilePlaybackController.shared.startHorizontalCoordinate(uuid: initialConfig.id, verticalIndex: verticalIndex)
+    fileprivate func startPagePosition() -> PlayerPagePosition {
+        MobilePlaybackController.shared.startPagePosition(uuid: initialConfig.id)
     }
 
-    fileprivate func didRenderCoordinate(_ coordinate: (Int, Int)) {
-        let playerCoordinate = PlayerCoordinate(x: coordinate.0, y: coordinate.1)
-        renderedCoordinateCounts[playerCoordinate, default: 0] += 1
-        didUpdateRenderedCoordinates()
+    fileprivate func didRenderPagePosition(_ pagePosition: PlayerPagePosition) {
+        renderedPagePositionCounts[pagePosition, default: 0] += 1
+        didUpdateRenderedPagePositions()
     }
 
-    fileprivate func didCleanupCoordinate(_ coordinate: (Int, Int)) {
-        let playerCoordinate = PlayerCoordinate(x: coordinate.0, y: coordinate.1)
-        if let count = renderedCoordinateCounts[playerCoordinate], count > 1 {
-            renderedCoordinateCounts[playerCoordinate] = count - 1
+    fileprivate func didCleanupPagePosition(_ pagePosition: PlayerPagePosition) {
+        if let count = renderedPagePositionCounts[pagePosition], count > 1 {
+            renderedPagePositionCounts[pagePosition] = count - 1
         } else {
-            renderedCoordinateCounts.removeValue(forKey: playerCoordinate)
+            renderedPagePositionCounts.removeValue(forKey: pagePosition)
         }
-        didUpdateRenderedCoordinates()
+        didUpdateRenderedPagePositions()
     }
 
     fileprivate func didAttemptUnavailableHorizontalNavigation() {
@@ -1128,41 +1126,41 @@ class FourDirectionalPlayerContainer: UIViewController, FourDirectionalPlayerDat
         onPaginationAttempt()
     }
 
-    fileprivate func didDisplayCoordinate(_ coordinate: (Int, Int)) {
-        updateDisplayedCoordinate(PlayerCoordinate(x: coordinate.0, y: coordinate.1))
+    fileprivate func didDisplayPagePosition(_ pagePosition: PlayerPagePosition) {
+        updateDisplayedPagePosition(pagePosition)
     }
 
-    private func didUpdateRenderedCoordinates() {
-        if renderedCoordinateCounts.count == 1, let coordinate = renderedCoordinateCounts.keys.first {
-            updateDisplayedCoordinate(coordinate)
+    private func didUpdateRenderedPagePositions() {
+        if renderedPagePositionCounts.count == 1, let pagePosition = renderedPagePositionCounts.keys.first {
+            updateDisplayedPagePosition(pagePosition)
         }
     }
 
-    private func updateDisplayedCoordinate(_ coordinate: PlayerCoordinate) {
-        guard displayedCoordinate != coordinate else { return }
-        displayedCoordinate = coordinate
-        onCoordinateUpdate(coordinate)
+    private func updateDisplayedPagePosition(_ pagePosition: PlayerPagePosition) {
+        guard displayedPagePosition != pagePosition else { return }
+        displayedPagePosition = pagePosition
+        onPagePositionUpdate(pagePosition)
     }
 
 }
 
-private protocol FourDirectionalPlayerDataSource: AnyObject {
+private protocol HorizontalPlayerDataSource: AnyObject {
 
-    func getToken(x: Int, y: Int) -> GeneratedToken
+    func getToken(pagePosition: PlayerPagePosition) -> GeneratedToken
     func prepareDownloadableMediaWindow(
-        for coordinate: (Int, Int),
+        for pagePosition: PlayerPagePosition,
         direction: DownloadableMediaCache.PrefetchDirection
     ) -> PlayerDownloadableMediaWindow?
     func clearDownloadableMediaWindow()
-    func downloadableMediaDescriptor(for coordinate: (Int, Int)) -> DownloadableMediaDescriptor?
-    func supportsPageLayout(_ pageLayout: MobilePlayerPageLayout, for coordinate: (Int, Int)) -> Bool
-    func canRenderCoordinate(_ coordinate: (Int, Int)) -> Bool
-    func startHorizontalCoordinate(verticalIndex: Int) -> Int
-    func didRenderCoordinate(_ coordinate: (Int, Int))
-    func didCleanupCoordinate(_ coordinate: (Int, Int))
+    func downloadableMediaDescriptor(for pagePosition: PlayerPagePosition) -> DownloadableMediaDescriptor?
+    func supportsPageLayout(_ pageLayout: MobilePlayerPageLayout, for pagePosition: PlayerPagePosition) -> Bool
+    func canRenderPagePosition(_ pagePosition: PlayerPagePosition) -> Bool
+    func startPagePosition() -> PlayerPagePosition
+    func didRenderPagePosition(_ pagePosition: PlayerPagePosition)
+    func didCleanupPagePosition(_ pagePosition: PlayerPagePosition)
     func didAttemptPagination()
     func didAttemptUnavailableHorizontalNavigation()
-    func didDisplayCoordinate(_ coordinate: (Int, Int))
+    func didDisplayPagePosition(_ pagePosition: PlayerPagePosition)
 
 }
 
@@ -1400,7 +1398,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         }
     }
 
-    private weak var fourDirectionalPlayerDataSource: FourDirectionalPlayerDataSource?
+    private weak var playerDataSource: HorizontalPlayerDataSource?
     private let zoomScrollView = PlayerZoomScrollView()
     private let mediaContentView = UIView()
     private let htmlDocumentRenderQueue = DispatchQueue(
@@ -1409,10 +1407,9 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     )
     private lazy var mediaRenderer = FullscreenTokenMediaRenderer(containerView: mediaContentView)
 
-    private(set) var horizontalIndex: Int
-    private(set) var verticalIndex: Int
+    private(set) var pagePosition: PlayerPagePosition
 
-    private var renderedCoordinate: (Int, Int)?
+    private var renderedPagePosition: PlayerPagePosition?
     private var animatedRenderContext: AnimatedRenderContext?
     private var pendingAnimatedImageURL: URL?
     private var renderedAnimatedImageURL: URL?
@@ -1436,14 +1433,12 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     }
 
     init(
-        horizontalIndex: Int,
-        verticalIndex: Int,
+        pagePosition: PlayerPagePosition,
         pageLayout: MobilePlayerPageLayout,
-        fourDirectionalPlayerDataSource: FourDirectionalPlayerDataSource?
+        playerDataSource: HorizontalPlayerDataSource?
     ) {
-        self.fourDirectionalPlayerDataSource = fourDirectionalPlayerDataSource
-        self.horizontalIndex = horizontalIndex
-        self.verticalIndex = verticalIndex
+        self.playerDataSource = playerDataSource
+        self.pagePosition = pagePosition
         self.pageLayout = pageLayout
         super.init(nibName: nil, bundle: nil)
         renderCurrentItem()
@@ -1497,36 +1492,30 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         setZoomContentLayout(.viewport)
         clearAnimatedRenderContext()
         mediaRenderer.clearContent()
-        if let renderedCoordinate = renderedCoordinate {
-            fourDirectionalPlayerDataSource?.didCleanupCoordinate(renderedCoordinate)
+        if let renderedPagePosition {
+            playerDataSource?.didCleanupPagePosition(renderedPagePosition)
         }
-        renderedCoordinate = nil
+        renderedPagePosition = nil
         needsPageLayoutRender = false
     }
 
-    func update(horizontalIndex: Int) {
-        guard self.horizontalIndex != horizontalIndex else { return }
+    func update(pagePosition: PlayerPagePosition) {
+        guard self.pagePosition != pagePosition else { return }
         cleanupDisplayedContent()
-        self.horizontalIndex = horizontalIndex
-    }
-
-    func update(verticalIndex: Int) {
-        guard self.verticalIndex != verticalIndex else { return }
-        cleanupDisplayedContent()
-        self.verticalIndex = verticalIndex
+        self.pagePosition = pagePosition
     }
 
     func setPageLayout(_ pageLayout: MobilePlayerPageLayout, shouldRender: Bool) {
         guard self.pageLayout != pageLayout else { return }
 
-        let wasUsingFourPerPageLayout = usesFourPerPageLayoutForCurrentCoordinate
+        let wasUsingFourPerPageLayout = usesFourPerPageLayoutForCurrentPagePosition
         self.pageLayout = pageLayout
-        let isUsingFourPerPageLayout = usesFourPerPageLayoutForCurrentCoordinate
+        let isUsingFourPerPageLayout = usesFourPerPageLayoutForCurrentPagePosition
         let needsRenderForLayoutChange = wasUsingFourPerPageLayout != isUsingFourPerPageLayout
 
         guard shouldRender else {
             if needsRenderForLayoutChange {
-                needsPageLayoutRender = renderedCoordinate != nil
+                needsPageLayoutRender = renderedPagePosition != nil
             }
             return
         }
@@ -1844,14 +1833,13 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     func renderCurrentItem() {
         guard willOrDidAppear else { return }
 
-        let newCoordinate = (horizontalIndex, verticalIndex)
-        guard fourDirectionalPlayerDataSource?.canRenderCoordinate(newCoordinate) == true else {
+        guard playerDataSource?.canRenderPagePosition(pagePosition) == true else {
             cleanupDisplayedContent()
-            fourDirectionalPlayerDataSource?.clearDownloadableMediaWindow()
+            playerDataSource?.clearDownloadableMediaWindow()
             return
         }
-        if let renderedCoordinate = renderedCoordinate,
-           renderedCoordinate == newCoordinate,
+        if let renderedPagePosition,
+           renderedPagePosition == pagePosition,
            !needsPageLayoutRender {
             return
         }
@@ -1859,16 +1847,16 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         if needsPageLayoutRender {
             cleanupDisplayedContent()
         }
-        beginRenderingCoordinate(newCoordinate)
+        beginRenderingPagePosition(pagePosition)
 
-        guard let token = fourDirectionalPlayerDataSource?.getToken(x: horizontalIndex, y: verticalIndex) else {
-            fourDirectionalPlayerDataSource?.clearDownloadableMediaWindow()
-            fourDirectionalPlayerDataSource?.didRenderCoordinate(newCoordinate)
+        guard let token = playerDataSource?.getToken(pagePosition: pagePosition) else {
+            playerDataSource?.clearDownloadableMediaWindow()
+            playerDataSource?.didRenderPagePosition(pagePosition)
             return
         }
 
         if let nativeRenderKind = token.nativeMetalCardRenderKind {
-            fourDirectionalPlayerDataSource?.clearDownloadableMediaWindow()
+            playerDataSource?.clearDownloadableMediaWindow()
             renderNativeMetalCard(token, renderKind: nativeRenderKind)
         } else if let mediaWindow = prepareCurrentDownloadableMediaWindow() {
             let descriptor = mediaWindow.currentDescriptor
@@ -1900,14 +1888,14 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         } else {
             renderWebContent(token.html)
         }
-        fourDirectionalPlayerDataSource?.didRenderCoordinate(newCoordinate)
+        playerDataSource?.didRenderPagePosition(pagePosition)
     }
 
     fileprivate func refreshDownloadableMediaWindow() {
         guard willOrDidAppear else { return }
-        guard let token = fourDirectionalPlayerDataSource?.getToken(x: horizontalIndex, y: verticalIndex),
+        guard let token = playerDataSource?.getToken(pagePosition: pagePosition),
               token.nativeMetalCardRenderKind == nil else {
-            fourDirectionalPlayerDataSource?.clearDownloadableMediaWindow()
+            playerDataSource?.clearDownloadableMediaWindow()
             return
         }
 
@@ -1915,25 +1903,24 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     }
 
     private func prepareCurrentDownloadableMediaWindow() -> PlayerDownloadableMediaWindow? {
-        fourDirectionalPlayerDataSource?.prepareDownloadableMediaWindow(
-            for: (horizontalIndex, verticalIndex),
-            direction: usesFourPerPageLayoutForCurrentCoordinate ? .forward : preferredPrefetchDirection
+        playerDataSource?.prepareDownloadableMediaWindow(
+            for: pagePosition,
+            direction: usesFourPerPageLayoutForCurrentPagePosition ? .forward : preferredPrefetchDirection
         )
     }
 
     fileprivate func replaceVisibleContentIfAvailable(
-        targetHorizontalIndex: Int,
+        targetPagePosition: PlayerPagePosition,
         preferredPrefetchDirection: DownloadableMediaCache.PrefetchDirection
     ) -> Bool {
         guard pageLayout == .onePerPage else { return false }
         guard canReplaceVisibleContent else { return false }
 
-        let newCoordinate = (targetHorizontalIndex, verticalIndex)
-        if let renderedCoordinate, renderedCoordinate == newCoordinate {
+        if let renderedPagePosition, renderedPagePosition == targetPagePosition {
             return false
         }
 
-        guard let descriptor = fourDirectionalPlayerDataSource?.downloadableMediaDescriptor(for: newCoordinate),
+        guard let descriptor = playerDataSource?.downloadableMediaDescriptor(for: targetPagePosition),
               descriptor.isStaticImage else {
             return false
         }
@@ -1942,7 +1929,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             guard commitStaticImageReplacement(
                 image,
                 descriptor: descriptor,
-                coordinate: newCoordinate,
+                pagePosition: targetPagePosition,
                 preferredPrefetchDirection: preferredPrefetchDirection
             ) else { return false }
             return true
@@ -1958,32 +1945,32 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     private func commitStaticImageReplacement(
         _ image: UIImage,
         descriptor: DownloadableMediaDescriptor,
-        coordinate: (Int, Int),
+        pagePosition: PlayerPagePosition,
         preferredPrefetchDirection: DownloadableMediaCache.PrefetchDirection
     ) -> Bool {
-        guard fourDirectionalPlayerDataSource?.prepareDownloadableMediaWindow(
-            for: coordinate,
+        guard playerDataSource?.prepareDownloadableMediaWindow(
+            for: pagePosition,
             direction: preferredPrefetchDirection
         ) != nil else {
             return false
         }
 
         self.preferredPrefetchDirection = preferredPrefetchDirection
-        horizontalIndex = coordinate.0
+        self.pagePosition = pagePosition
         resetZoom(animated: false)
-        beginRenderingCoordinate(coordinate)
+        beginRenderingPagePosition(pagePosition)
         clearAnimatedRenderContext()
         setZoomContentLayout(.staticImage(image.size))
         mediaRenderer.displayLoadedImage(image, key: descriptor)
-        fourDirectionalPlayerDataSource?.didRenderCoordinate(coordinate)
+        playerDataSource?.didRenderPagePosition(pagePosition)
         return true
     }
 
-    private func beginRenderingCoordinate(_ coordinate: (Int, Int)) {
-        if let renderedCoordinate {
-            fourDirectionalPlayerDataSource?.didCleanupCoordinate(renderedCoordinate)
+    private func beginRenderingPagePosition(_ pagePosition: PlayerPagePosition) {
+        if let renderedPagePosition {
+            playerDataSource?.didCleanupPagePosition(renderedPagePosition)
         }
-        renderedCoordinate = coordinate
+        renderedPagePosition = pagePosition
     }
 
     private func renderImage(_ descriptor: DownloadableMediaDescriptor, fallbackHTML: String) {
@@ -2058,8 +2045,8 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         var companionDescriptors = [DownloadableMediaDescriptor]()
         companionDescriptors.reserveCapacity(3)
         for offset in 1...3 {
-            let coordinate = (horizontalIndex + offset, verticalIndex)
-            guard let companionDescriptor = fourDirectionalPlayerDataSource?.downloadableMediaDescriptor(for: coordinate),
+            let companionPagePosition = pagePosition.advanced(by: offset)
+            guard let companionDescriptor = playerDataSource?.downloadableMediaDescriptor(for: companionPagePosition),
                   companionDescriptor.collectionId == descriptor.collectionId,
                   pageLayout.supports(descriptor: companionDescriptor) else {
                 break
@@ -2069,11 +2056,11 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         return companionDescriptors
     }
 
-    private var usesFourPerPageLayoutForCurrentCoordinate: Bool {
+    private var usesFourPerPageLayoutForCurrentPagePosition: Bool {
         pageLayout == .fourPerPage
-            && fourDirectionalPlayerDataSource?.supportsPageLayout(
+            && playerDataSource?.supportsPageLayout(
                 .fourPerPage,
-                for: (horizontalIndex, verticalIndex)
+                for: pagePosition
             ) == true
     }
 
@@ -2439,33 +2426,30 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
     private var didNotifyUnavailableNavigationDuringCurrentPan = false
     private var isPagingScrollEnabled = true
     private var isCurrentPageZoomed = false
-    private var lastSettledCoordinate: (horizontalIndex: Int, verticalIndex: Int)?
+    private var lastSettledPagePosition: PlayerPagePosition?
     private var zoomedPagingPanRestingOffsets = [ObjectIdentifier: CGFloat]()
     private var unlockedZoomedPagingPanGestures = Set<ObjectIdentifier>()
-    private weak var fourDirectionalPlayerDataSource: FourDirectionalPlayerDataSource?
+    private weak var playerDataSource: HorizontalPlayerDataSource?
     private var pageLayout: MobilePlayerPageLayout
     var onCurrentZoomStateChange: ((Bool) -> Void)?
 
-    init(pageLayout: MobilePlayerPageLayout, fourDirectionalPlayerDataSource: FourDirectionalPlayerDataSource) {
-        self.fourDirectionalPlayerDataSource = fourDirectionalPlayerDataSource
+    init(pageLayout: MobilePlayerPageLayout, playerDataSource: HorizontalPlayerDataSource) {
+        self.playerDataSource = playerDataSource
         self.pageLayout = pageLayout
         pageA = SpecificPageViewController(
-            horizontalIndex: 0,
-            verticalIndex: 0,
+            pagePosition: .initial,
             pageLayout: pageLayout,
-            fourDirectionalPlayerDataSource: fourDirectionalPlayerDataSource
+            playerDataSource: playerDataSource
         )
         pageB = SpecificPageViewController(
-            horizontalIndex: 1,
-            verticalIndex: 0,
+            pagePosition: .initial.advanced(by: 1),
             pageLayout: pageLayout,
-            fourDirectionalPlayerDataSource: fourDirectionalPlayerDataSource
+            playerDataSource: playerDataSource
         )
         pageC = SpecificPageViewController(
-            horizontalIndex: -1,
-            verticalIndex: 0,
+            pagePosition: .initial.advanced(by: -1),
             pageLayout: pageLayout,
-            fourDirectionalPlayerDataSource: fourDirectionalPlayerDataSource
+            playerDataSource: playerDataSource
         )
         super.init(
             transitionStyle: .scroll,
@@ -2605,15 +2589,15 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
             guard hasHorizontalIntent else { return }
 
             let targetOffset = translation.x > 0 ? -1 : 1
-            let coordinate = getCurrentCoordinate()
-            guard !canRender(horizontalIndex: coordinate.0 + targetOffset, verticalIndex: coordinate.1) else {
+            let pagePosition = getCurrentPagePosition()
+            guard !canRender(pagePosition.advanced(by: targetOffset)) else {
                 didNotifyPaginationAttemptDuringCurrentPan = true
-                fourDirectionalPlayerDataSource?.didAttemptPagination()
+                playerDataSource?.didAttemptPagination()
                 return
             }
 
             didNotifyUnavailableNavigationDuringCurrentPan = true
-            fourDirectionalPlayerDataSource?.didAttemptUnavailableHorizontalNavigation()
+            playerDataSource?.didAttemptUnavailableHorizontalNavigation()
 
         case .ended, .cancelled, .failed:
             didNotifyPaginationAttemptDuringCurrentPan = false
@@ -2667,63 +2651,52 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
         return pagingScrollViews.first { $0.panGestureRecognizer === gesture }
     }
 
-    func getCurrentCoordinate() -> (Int, Int) {
-        guard let currentPage = viewControllers?.first as? SpecificPageViewController else { return (0, 0) }
-        return (currentPage.horizontalIndex, currentPage.verticalIndex)
+    func getCurrentPagePosition() -> PlayerPagePosition {
+        guard let currentPage = viewControllers?.first as? SpecificPageViewController else { return .initial }
+        return currentPage.pagePosition
     }
 
-    private func update(currentHorizontalIndex: Int) {
+    private func update(currentPagePosition: PlayerPagePosition) {
         guard let currentPage = viewControllers?.first as? SpecificPageViewController else { return }
         switch currentPage {
         case pageA:
-            pageA.update(horizontalIndex: currentHorizontalIndex)
-            pageB.update(horizontalIndex: currentHorizontalIndex + 1)
-            pageC.update(horizontalIndex: currentHorizontalIndex - 1)
+            pageA.update(pagePosition: currentPagePosition)
+            pageB.update(pagePosition: currentPagePosition.advanced(by: 1))
+            pageC.update(pagePosition: currentPagePosition.advanced(by: -1))
         case pageB:
-            pageA.update(horizontalIndex: currentHorizontalIndex - 1)
-            pageB.update(horizontalIndex: currentHorizontalIndex)
-            pageC.update(horizontalIndex: currentHorizontalIndex + 1)
+            pageA.update(pagePosition: currentPagePosition.advanced(by: -1))
+            pageB.update(pagePosition: currentPagePosition)
+            pageC.update(pagePosition: currentPagePosition.advanced(by: 1))
         case pageC:
-            pageA.update(horizontalIndex: currentHorizontalIndex + 1)
-            pageB.update(horizontalIndex: currentHorizontalIndex - 1)
-            pageC.update(horizontalIndex: currentHorizontalIndex)
+            pageA.update(pagePosition: currentPagePosition.advanced(by: 1))
+            pageB.update(pagePosition: currentPagePosition.advanced(by: -1))
+            pageC.update(pagePosition: currentPagePosition)
         default:
             break
         }
     }
 
-    private func update(verticalIndex: Int) {
-        pageA.update(verticalIndex: verticalIndex)
-        pageB.update(verticalIndex: verticalIndex)
-        pageC.update(verticalIndex: verticalIndex)
-    }
-
     private func restartCollection() {
-        let coordinate = getCurrentCoordinate()
-        let targetHorizontalIndex = fourDirectionalPlayerDataSource?.startHorizontalCoordinate(verticalIndex: coordinate.1) ?? 0
-        jumpToCoordinate(horizontalIndex: targetHorizontalIndex, verticalIndex: coordinate.1)
+        jumpToPagePosition(playerDataSource?.startPagePosition() ?? .initial)
     }
 
-    private func jumpToCoordinate(horizontalIndex: Int, verticalIndex: Int) {
-        guard canRender(horizontalIndex: horizontalIndex, verticalIndex: verticalIndex) else { return }
+    private func jumpToPagePosition(_ pagePosition: PlayerPagePosition) {
+        guard canRender(pagePosition) else { return }
 
         isPageTransitioning = true
         resetAllZoom(animated: false)
         pageA.preferredPrefetchDirection = .forward
         pageB.preferredPrefetchDirection = .forward
         pageC.preferredPrefetchDirection = .forward
-        pageA.update(horizontalIndex: horizontalIndex)
-        pageA.update(verticalIndex: verticalIndex)
-        pageB.update(horizontalIndex: horizontalIndex + 1)
-        pageB.update(verticalIndex: verticalIndex)
-        pageC.update(horizontalIndex: horizontalIndex - 1)
-        pageC.update(verticalIndex: verticalIndex)
+        pageA.update(pagePosition: pagePosition)
+        pageB.update(pagePosition: pagePosition.advanced(by: 1))
+        pageC.update(pagePosition: pagePosition.advanced(by: -1))
 
         setViewControllers([pageA], direction: .forward, animated: false) { [weak self] _ in
             guard let self else { return }
 
             self.pageA.renderCurrentItem()
-            self.didDisplayRenderableCoordinate(horizontalIndex: horizontalIndex, verticalIndex: verticalIndex)
+            self.didDisplayRenderablePagePosition(pagePosition)
             self.isPageTransitioning = false
             self.performPendingNavigationIfNeeded()
         }
@@ -2731,57 +2704,48 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
 
     private func didSettleOnCurrentPage() -> Bool {
         guard let currentPage = viewControllers?.first as? SpecificPageViewController else { return false }
-        guard canRender(horizontalIndex: currentPage.horizontalIndex, verticalIndex: currentPage.verticalIndex) else {
+        guard canRender(currentPage.pagePosition) else {
             recoverFromInvalidCurrentPage(currentPage)
             return false
         }
 
-        update(currentHorizontalIndex: currentPage.horizontalIndex)
+        update(currentPagePosition: currentPage.pagePosition)
         currentPage.renderCurrentItemIfNeededForPageLayout()
         updatePagingScrollEnabled()
-        didDisplayRenderableCoordinate(horizontalIndex: currentPage.horizontalIndex, verticalIndex: currentPage.verticalIndex)
+        didDisplayRenderablePagePosition(currentPage.pagePosition)
         return true
     }
 
-    private func didDisplayRenderableCoordinate(horizontalIndex: Int, verticalIndex: Int) {
-        lastSettledCoordinate = (horizontalIndex, verticalIndex)
-        fourDirectionalPlayerDataSource?.didDisplayCoordinate((horizontalIndex, verticalIndex))
+    private func didDisplayRenderablePagePosition(_ pagePosition: PlayerPagePosition) {
+        lastSettledPagePosition = pagePosition
+        playerDataSource?.didDisplayPagePosition(pagePosition)
     }
 
     private func recoverFromInvalidCurrentPage(_ currentPage: SpecificPageViewController) {
-        guard let recoveryCoordinate = recoveryCoordinate(
-            horizontalIndex: currentPage.horizontalIndex,
-            verticalIndex: currentPage.verticalIndex
-        ) else {
+        guard let recoveryPagePosition = recoveryPagePosition(from: currentPage.pagePosition) else {
             updatePagingScrollEnabled()
             isPageTransitioning = false
             return
         }
 
-        jumpToCoordinate(horizontalIndex: recoveryCoordinate.horizontalIndex, verticalIndex: recoveryCoordinate.verticalIndex)
+        jumpToPagePosition(recoveryPagePosition)
     }
 
-    private func recoveryCoordinate(
-        horizontalIndex: Int,
-        verticalIndex: Int
-    ) -> (horizontalIndex: Int, verticalIndex: Int)? {
-        for candidateHorizontalIndex in [horizontalIndex - 1, horizontalIndex + 1] {
-            if canRender(horizontalIndex: candidateHorizontalIndex, verticalIndex: verticalIndex) {
-                return (candidateHorizontalIndex, verticalIndex)
+    private func recoveryPagePosition(from pagePosition: PlayerPagePosition) -> PlayerPagePosition? {
+        for candidatePagePosition in [pagePosition.advanced(by: -1), pagePosition.advanced(by: 1)] {
+            if canRender(candidatePagePosition) {
+                return candidatePagePosition
             }
         }
 
-        if let lastSettledCoordinate,
-           canRender(
-            horizontalIndex: lastSettledCoordinate.horizontalIndex,
-            verticalIndex: lastSettledCoordinate.verticalIndex
-           ) {
-            return lastSettledCoordinate
+        if let lastSettledPagePosition,
+           canRender(lastSettledPagePosition) {
+            return lastSettledPagePosition
         }
 
-        let startHorizontalIndex = fourDirectionalPlayerDataSource?.startHorizontalCoordinate(verticalIndex: verticalIndex) ?? 0
-        if canRender(horizontalIndex: startHorizontalIndex, verticalIndex: verticalIndex) {
-            return (startHorizontalIndex, verticalIndex)
+        let startPagePosition = playerDataSource?.startPagePosition() ?? .initial
+        if canRender(startPagePosition) {
+            return startPagePosition
         }
 
         return nil
@@ -2818,16 +2782,16 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
         targetPage: SpecificPageViewController,
         offset: Int
     ) -> UIViewController? {
-        let targetIndex = sourcePage.horizontalIndex + offset
-        guard canRender(horizontalIndex: targetIndex, verticalIndex: sourcePage.verticalIndex) else { return nil }
+        let targetPagePosition = sourcePage.pagePosition.advanced(by: offset)
+        guard canRender(targetPagePosition) else { return nil }
         targetPage.preferredPrefetchDirection = offset < 0 ? .backward : .forward
-        targetPage.update(horizontalIndex: targetIndex)
+        targetPage.update(pagePosition: targetPagePosition)
         return targetPage
     }
 
     func pageViewController(_ pageViewController: UIPageViewController, willTransitionTo pendingViewControllers: [UIViewController]) {
         guard let destinationPage = pendingViewControllers.first as? SpecificPageViewController else { return }
-        fourDirectionalPlayerDataSource?.didAttemptPagination()
+        playerDataSource?.didAttemptPagination()
         isPageTransitioning = true
         destinationPage.renderCurrentItem()
     }
@@ -2875,7 +2839,7 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
         }
 
         resetCurrentZoom(animated: false)
-        fourDirectionalPlayerDataSource?.didAttemptPagination()
+        playerDataSource?.didAttemptPagination()
 
         if let destinationPage = targetViewController as? SpecificPageViewController {
             destinationPage.renderCurrentItem()
@@ -2928,15 +2892,15 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
         }
 
         let targetOffset = direction == .back ? -1 : 1
-        let targetHorizontalIndex = currentPage.horizontalIndex + targetOffset
+        let targetPagePosition = currentPage.pagePosition.advanced(by: targetOffset)
 
         let prefetchDirection: DownloadableMediaCache.PrefetchDirection = direction == .back ? .backward : .forward
         guard currentPage.replaceVisibleContentIfAvailable(
-            targetHorizontalIndex: targetHorizontalIndex,
+            targetPagePosition: targetPagePosition,
             preferredPrefetchDirection: prefetchDirection
         ) else { return false }
 
-        fourDirectionalPlayerDataSource?.didAttemptPagination()
+        playerDataSource?.didAttemptPagination()
         guard didSettleOnCurrentPage() else { return true }
         reloadPageControllerAfterInPlaceNavigation(direction) { [weak self] in
             self?.performPendingNavigationIfNeeded()
@@ -2994,10 +2958,7 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
         guard let currentPage = viewControllers?.first as? SpecificPageViewController else { return false }
 
         let targetOffset = direction == .back ? -1 : 1
-        return canRender(
-            horizontalIndex: currentPage.horizontalIndex + targetOffset,
-            verticalIndex: currentPage.verticalIndex
-        )
+        return canRender(currentPage.pagePosition.advanced(by: targetOffset))
     }
 
     private var canStartNavigation: Bool {
@@ -3016,8 +2977,8 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
         navigate(pendingNavigationDirection)
     }
 
-    private func canRender(horizontalIndex: Int, verticalIndex: Int) -> Bool {
-        fourDirectionalPlayerDataSource?.canRenderCoordinate((horizontalIndex, verticalIndex)) ?? false
+    private func canRender(_ pagePosition: PlayerPagePosition) -> Bool {
+        playerDataSource?.canRenderPagePosition(pagePosition) ?? false
     }
 
 }
