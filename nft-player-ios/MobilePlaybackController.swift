@@ -17,9 +17,9 @@ struct MobilePlayerFileShareItem {
 
 enum MobilePlayerPageLayout: CaseIterable, Hashable, Identifiable {
     case onePerPage
-    case threePerPage
+    case fourPerPage
 
-    private static let threePerPageStaticImageCollectionIds = Set([
+    private static let fourPerPageStaticImageCollectionIds = Set([
         "HpGDYGz6aRUs5qbvp1dmWGKTicQctX4PixfcouAQDCHF",
     ])
 
@@ -29,8 +29,8 @@ enum MobilePlayerPageLayout: CaseIterable, Hashable, Identifiable {
         switch self {
         case .onePerPage:
             return Strings.onePerPage
-        case .threePerPage:
-            return Strings.threePerPage
+        case .fourPerPage:
+            return Strings.fourPerPage
         }
     }
 
@@ -38,10 +38,10 @@ enum MobilePlayerPageLayout: CaseIterable, Hashable, Identifiable {
         switch self {
         case .onePerPage:
             return true
-        case .threePerPage:
+        case .fourPerPage:
             guard let descriptor,
                   descriptor.isStaticImage,
-                  Self.threePerPageStaticImageCollectionIds.contains(descriptor.collectionId) else {
+                  Self.fourPerPageStaticImageCollectionIds.contains(descriptor.collectionId) else {
                 return false
             }
             return true

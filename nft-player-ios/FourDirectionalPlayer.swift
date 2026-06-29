@@ -74,6 +74,8 @@ final class FullscreenTokenMediaRenderer {
     private var webView: AutoReloadingWebView!
     private var imageView: UIImageView!
     private var imageSpreadStackView: UIStackView!
+    private var imageSpreadArrangement: ImageSpreadArrangement?
+    private var imageSpreadNestedStackViews = [UIStackView]()
     private var imageSpreadViews = [UIImageView]()
     private var nativeMetalCardView: NativeMetalCardView!
     private var representedImageKey: AnyHashable?
@@ -81,6 +83,11 @@ final class FullscreenTokenMediaRenderer {
     private var cancelActiveImageLoad: ImageLoadCancellation?
     private var webViewMayContainContent = false
     private var usesTransparentPlayerBackground = false
+
+    private enum ImageSpreadArrangement: Equatable {
+        case linear
+        case grid
+    }
 
     init(containerView: UIView) {
         self.containerView = containerView
@@ -304,7 +311,10 @@ final class FullscreenTokenMediaRenderer {
     }
 
     func setImageSpreadAxis(_ axis: NSLayoutConstraint.Axis) {
-        guard let imageSpreadStackView else { return }
+        guard let imageSpreadStackView,
+              imageSpreadArrangement == .linear else {
+            return
+        }
         imageSpreadStackView.axis = axis
     }
 
@@ -337,6 +347,7 @@ final class FullscreenTokenMediaRenderer {
         }
         if let imageSpreadStackView {
             imageSpreadStackView.makeBackgroundTransparent()
+            imageSpreadNestedStackViews.forEach { $0.makeBackgroundTransparent() }
             imageSpreadViews.forEach { $0.makeBackgroundTransparent() }
         }
         webView?.makePlayerBackgroundTransparent()
@@ -381,12 +392,17 @@ final class FullscreenTokenMediaRenderer {
 
     private func ensureImageSpreadStackView(imageCount: Int) {
         guard imageCount > 0 else { return }
-        if imageSpreadStackView != nil, imageSpreadViews.count == imageCount {
+        let arrangement = imageCount == 4 ? ImageSpreadArrangement.grid : .linear
+        if imageSpreadStackView != nil,
+           imageSpreadViews.count == imageCount,
+           imageSpreadArrangement == arrangement {
             return
         }
 
         imageSpreadStackView?.removeFromSuperview()
         imageSpreadStackView = nil
+        imageSpreadArrangement = nil
+        imageSpreadNestedStackViews.removeAll()
 
         imageSpreadViews = (0..<imageCount).map { _ in
             let imageView = UIImageView()
@@ -400,15 +416,22 @@ final class FullscreenTokenMediaRenderer {
             return imageView
         }
 
-        let stackView = UIStackView(arrangedSubviews: imageSpreadViews)
-        stackView.axis = .horizontal
-        stackView.alignment = .fill
-        stackView.distribution = .fillEqually
-        stackView.spacing = MobilePlayerPageLayoutMetrics.spreadCardSpacing
+        let stackView: UIStackView
+        switch arrangement {
+        case .linear:
+            stackView = makeImageSpreadStackView(arrangedSubviews: imageSpreadViews, axis: .horizontal)
+        case .grid:
+            let topRow = makeImageSpreadStackView(arrangedSubviews: Array(imageSpreadViews[0..<2]), axis: .horizontal)
+            let bottomRow = makeImageSpreadStackView(arrangedSubviews: Array(imageSpreadViews[2..<4]), axis: .horizontal)
+            imageSpreadNestedStackViews = [topRow, bottomRow]
+            stackView = makeImageSpreadStackView(arrangedSubviews: [topRow, bottomRow], axis: .vertical)
+        }
+
         stackView.isUserInteractionEnabled = false
         stackView.translatesAutoresizingMaskIntoConstraints = false
         if usesTransparentPlayerBackground {
             stackView.makeBackgroundTransparent()
+            imageSpreadNestedStackViews.forEach { $0.makeBackgroundTransparent() }
         }
 
         containerView.addSubview(stackView)
@@ -419,6 +442,17 @@ final class FullscreenTokenMediaRenderer {
             stackView.bottomAnchor.constraint(equalTo: containerView.bottomAnchor)
         ])
         imageSpreadStackView = stackView
+        imageSpreadArrangement = arrangement
+    }
+
+    private func makeImageSpreadStackView(arrangedSubviews: [UIView], axis: NSLayoutConstraint.Axis) -> UIStackView {
+        let stackView = UIStackView(arrangedSubviews: arrangedSubviews)
+        stackView.axis = axis
+        stackView.alignment = .fill
+        stackView.distribution = .fillEqually
+        stackView.spacing = MobilePlayerPageLayoutMetrics.spreadCardSpacing
+        stackView.isUserInteractionEnabled = false
+        return stackView
     }
 
     private func ensureWebView() {
@@ -1261,7 +1295,11 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         func contentSize(fitting viewportSize: CGSize) -> CGSize {
             guard !imageSizes.isEmpty else { return viewportSize }
 
-            let axis = axis(fitting: viewportSize)
+            if usesGrid {
+                return gridContentSize(fitting: viewportSize)
+            }
+
+            let axis = linearAxis(fitting: viewportSize)
             let imageCount = CGFloat(imageSizes.count)
             let totalSpacing = CGFloat(imageSizes.count - 1) * MobilePlayerPageLayoutMetrics.spreadCardSpacing
             let maximumSlotSize: CGSize
@@ -1297,8 +1335,33 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             }
         }
 
-        func axis(fitting viewportSize: CGSize) -> NSLayoutConstraint.Axis {
+        func axis(fitting viewportSize: CGSize) -> NSLayoutConstraint.Axis? {
+            guard !usesGrid else { return nil }
+            return linearAxis(fitting: viewportSize)
+        }
+
+        private var usesGrid: Bool {
+            imageSizes.count == 4
+        }
+
+        private func linearAxis(fitting viewportSize: CGSize) -> NSLayoutConstraint.Axis {
             viewportSize.width >= viewportSize.height ? .horizontal : .vertical
+        }
+
+        private func gridContentSize(fitting viewportSize: CGSize) -> CGSize {
+            let columnCount: CGFloat = 2
+            let rowCount: CGFloat = 2
+            let horizontalSpacing = (columnCount - 1) * MobilePlayerPageLayoutMetrics.spreadCardSpacing
+            let verticalSpacing = (rowCount - 1) * MobilePlayerPageLayoutMetrics.spreadCardSpacing
+            let maximumSlotSize = CGSize(
+                width: max((viewportSize.width - horizontalSpacing) / columnCount, 0),
+                height: max((viewportSize.height - verticalSpacing) / rowCount, 0)
+            )
+            let slotSize = imageSlotSize(fitting: maximumSlotSize)
+            return CGSize(
+                width: slotSize.width * columnCount + horizontalSpacing,
+                height: slotSize.height * rowCount + verticalSpacing
+            )
         }
 
         private func imageSlotSize(fitting maximumSize: CGSize) -> CGSize {
@@ -1456,10 +1519,10 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     func setPageLayout(_ pageLayout: MobilePlayerPageLayout, shouldRender: Bool) {
         guard self.pageLayout != pageLayout else { return }
 
-        let wasUsingThreePerPageLayout = usesThreePerPageLayoutForCurrentCoordinate
+        let wasUsingFourPerPageLayout = usesFourPerPageLayoutForCurrentCoordinate
         self.pageLayout = pageLayout
-        let isUsingThreePerPageLayout = usesThreePerPageLayoutForCurrentCoordinate
-        let needsRenderForLayoutChange = wasUsingThreePerPageLayout != isUsingThreePerPageLayout
+        let isUsingFourPerPageLayout = usesFourPerPageLayoutForCurrentCoordinate
+        let needsRenderForLayoutChange = wasUsingFourPerPageLayout != isUsingFourPerPageLayout
 
         guard shouldRender else {
             if needsRenderForLayoutChange {
@@ -1632,8 +1695,9 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             zoomScrollView.contentSize = contentSize
         }
 
-        if case .staticImageSpread(let layout) = zoomContentLayout {
-            mediaRenderer.setImageSpreadAxis(layout.axis(fitting: viewportSize))
+        if case .staticImageSpread(let layout) = zoomContentLayout,
+           let axis = layout.axis(fitting: viewportSize) {
+            mediaRenderer.setImageSpreadAxis(axis)
         }
 
         updateZoomContentInsets()
@@ -1853,7 +1917,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     private func prepareCurrentDownloadableMediaWindow() -> PlayerDownloadableMediaWindow? {
         fourDirectionalPlayerDataSource?.prepareDownloadableMediaWindow(
             for: (horizontalIndex, verticalIndex),
-            direction: usesThreePerPageLayoutForCurrentCoordinate ? .forward : preferredPrefetchDirection
+            direction: usesFourPerPageLayoutForCurrentCoordinate ? .forward : preferredPrefetchDirection
         )
     }
 
@@ -1986,14 +2050,14 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     private func companionStaticImageDescriptors(
         for descriptor: DownloadableMediaDescriptor
     ) -> [DownloadableMediaDescriptor] {
-        guard pageLayout == .threePerPage,
+        guard pageLayout == .fourPerPage,
               pageLayout.supports(descriptor: descriptor) else {
             return []
         }
 
         var companionDescriptors = [DownloadableMediaDescriptor]()
-        companionDescriptors.reserveCapacity(2)
-        for offset in 1...2 {
+        companionDescriptors.reserveCapacity(3)
+        for offset in 1...3 {
             let coordinate = (horizontalIndex + offset, verticalIndex)
             guard let companionDescriptor = fourDirectionalPlayerDataSource?.downloadableMediaDescriptor(for: coordinate),
                   companionDescriptor.collectionId == descriptor.collectionId,
@@ -2005,10 +2069,10 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         return companionDescriptors
     }
 
-    private var usesThreePerPageLayoutForCurrentCoordinate: Bool {
-        pageLayout == .threePerPage
+    private var usesFourPerPageLayoutForCurrentCoordinate: Bool {
+        pageLayout == .fourPerPage
             && fourDirectionalPlayerDataSource?.supportsPageLayout(
-                .threePerPage,
+                .fourPerPage,
                 for: (horizontalIndex, verticalIndex)
             ) == true
     }
