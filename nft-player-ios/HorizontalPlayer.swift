@@ -892,7 +892,14 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
         guard self.pageLayout != pageLayout else { return }
 
         self.pageLayout = pageLayout
+        if !allowsEdgeTapNavigation {
+            clearEdgeTapHighlights()
+        }
         pagingVC.setPageLayout(pageLayout)
+    }
+
+    private var allowsEdgeTapNavigation: Bool {
+        pageLayout == .onePerPage
     }
 
     private func installTapGestures() {
@@ -947,6 +954,8 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
     }
 
     private func edgeTapSide(at location: CGPoint) -> PlayerEdgeTapSide? {
+        guard allowsEdgeTapNavigation else { return nil }
+
         let edgeWidth = min(MobilePlayerGestureTuning.edgeTapNavigationWidth, view.bounds.width / 2)
         if location.x <= edgeWidth {
             return .left
@@ -962,6 +971,8 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
     }
 
     private func canRecognizeEdgeTap(on side: PlayerEdgeTapSide) -> Bool {
+        guard allowsEdgeTapNavigation else { return false }
+
         let direction = side.navigationDirection
         return pagingVC.canNavigateWithoutAnimation(direction)
             || !pagingVC.hasNavigationDestination(direction)
@@ -1002,6 +1013,11 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
     }
 
     private func handleEdgeTap(on side: PlayerEdgeTapSide) {
+        guard allowsEdgeTapNavigation else {
+            clearEdgeTapHighlights()
+            return
+        }
+
         let direction = side.navigationDirection
         guard pagingVC.canNavigateWithoutAnimation(direction) else {
             endEdgeTapHighlight(on: side)
@@ -1035,6 +1051,15 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
         pendingEdgeTapHighlightSide = nil
         edgeTapHighlightRequestId += 1
         return true
+    }
+
+    private func clearEdgeTapHighlights() {
+        edgeTapHighlightWorkItem?.cancel()
+        edgeTapHighlightWorkItem = nil
+        pendingEdgeTapHighlightSide = nil
+        edgeTapHighlightRequestId += 1
+        leftEdgeTapHighlight.setHighlighted(false)
+        rightEdgeTapHighlight.setHighlighted(false)
     }
 
     private func flashEdgeTapHighlight(on side: PlayerEdgeTapSide) {
