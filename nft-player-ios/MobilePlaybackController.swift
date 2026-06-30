@@ -26,6 +26,10 @@ enum MobilePlayerPageLayout: CaseIterable, Hashable, Identifiable {
     ])
 
     static func initialLayout(for config: MobilePlayerConfig) -> MobilePlayerPageLayout {
+        guard config.widgetTokenInsertion == nil else {
+            return .onePerPage
+        }
+
         guard Self.fourPerPage.supports(descriptor: initialDownloadableMediaDescriptor(for: config)) else {
             return .onePerPage
         }
@@ -34,6 +38,15 @@ enum MobilePlayerPageLayout: CaseIterable, Hashable, Identifiable {
     }
 
     var id: Self { self }
+
+    var pageSize: Int {
+        switch self {
+        case .onePerPage:
+            return 1
+        case .fourPerPage:
+            return 4
+        }
+    }
 
     static func isCardNftCollection(_ collectionId: String) -> Bool {
         collectionId == cardNftCollectionId
@@ -63,13 +76,6 @@ enum MobilePlayerPageLayout: CaseIterable, Hashable, Identifiable {
     }
 
     private static func initialDownloadableMediaDescriptor(for config: MobilePlayerConfig) -> DownloadableMediaDescriptor? {
-        if let widgetTokenInsertion = config.widgetTokenInsertion {
-            return CollectionCatalog.downloadableMediaDescriptor(
-                specificCollectionId: widgetTokenInsertion.collectionId,
-                tokenIndex: widgetTokenInsertion.insertedTokenIndex
-            )
-        }
-
         if let specificToken = config.specificToken {
             return CollectionCatalog.downloadableMediaDescriptor(
                 for: CollectionCatalog.tokenContext(for: specificToken)
@@ -216,6 +222,58 @@ class MobilePlaybackController {
         pageLayout.supports(
             descriptor: downloadableMediaDescriptor(uuid: uuid, pagePosition: pagePosition)
         )
+    }
+
+    func stablePagePosition(
+        uuid: UUID,
+        containing pagePosition: PlayerPagePosition,
+        pageLayout: MobilePlayerPageLayout
+    ) -> PlayerPagePosition {
+        dataSource(uuid: uuid)?.stablePagePosition(
+            containing: pagePosition,
+            pageSize: pageLayout.pageSize
+        ) ?? pagePosition
+    }
+
+    func exitWidgetInsertionForStablePage(
+        uuid: UUID,
+        containing pagePosition: PlayerPagePosition,
+        pageLayout: MobilePlayerPageLayout
+    ) -> PlayerStablePagePositionResult {
+        dataSource(uuid: uuid)?.exitWidgetInsertionForStablePage(
+            containing: pagePosition,
+            pageSize: pageLayout.pageSize
+        ) ?? PlayerStablePagePositionResult(
+            pagePosition: pagePosition,
+            didExitWidgetInsertion: false
+        )
+    }
+
+    func navigationStride(
+        uuid: UUID,
+        from pagePosition: PlayerPagePosition,
+        pageLayout: MobilePlayerPageLayout
+    ) -> Int {
+        guard pageLayout == .fourPerPage,
+              supportsPageLayout(.fourPerPage, uuid: uuid, pagePosition: pagePosition) else {
+            return MobilePlayerPageLayout.onePerPage.pageSize
+        }
+
+        return pageLayout.pageSize
+    }
+
+    func hasNavigationDestination(
+        uuid: UUID,
+        from pagePosition: PlayerPagePosition,
+        pageLayout: MobilePlayerPageLayout,
+        direction: PlaybackNavigationDirection
+    ) -> Bool {
+        guard direction.isPagingDirection else { return false }
+
+        let stride = navigationStride(uuid: uuid, from: pagePosition, pageLayout: pageLayout)
+        guard let targetOffset = direction.pageOffset(forStride: stride) else { return false }
+
+        return canRender(uuid: uuid, pagePosition: pagePosition.advanced(by: targetOffset))
     }
 
     private func downloadableCollectionTokenContext(

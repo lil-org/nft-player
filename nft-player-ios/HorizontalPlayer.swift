@@ -1160,6 +1160,39 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
         MobilePlaybackController.shared.startPagePosition(uuid: initialConfig.id)
     }
 
+    fileprivate func stablePagePosition(
+        containing pagePosition: PlayerPagePosition,
+        for pageLayout: MobilePlayerPageLayout
+    ) -> PlayerPagePosition {
+        MobilePlaybackController.shared.stablePagePosition(
+            uuid: initialConfig.id,
+            containing: pagePosition,
+            pageLayout: pageLayout
+        )
+    }
+
+    fileprivate func exitWidgetInsertionForStablePage(
+        containing pagePosition: PlayerPagePosition,
+        for pageLayout: MobilePlayerPageLayout
+    ) -> PlayerStablePagePositionResult {
+        MobilePlaybackController.shared.exitWidgetInsertionForStablePage(
+            uuid: initialConfig.id,
+            containing: pagePosition,
+            pageLayout: pageLayout
+        )
+    }
+
+    fileprivate func navigationStride(
+        from pagePosition: PlayerPagePosition,
+        for pageLayout: MobilePlayerPageLayout
+    ) -> Int {
+        MobilePlaybackController.shared.navigationStride(
+            uuid: initialConfig.id,
+            from: pagePosition,
+            pageLayout: pageLayout
+        )
+    }
+
     fileprivate func didRenderPagePosition(_ pagePosition: PlayerPagePosition) {
         renderedPagePositionCounts[pagePosition, default: 0] += 1
         didUpdateRenderedPagePositions()
@@ -1182,18 +1215,18 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
         onPaginationAttempt()
     }
 
-    fileprivate func didDisplayPagePosition(_ pagePosition: PlayerPagePosition) {
-        updateDisplayedPagePosition(pagePosition)
+    fileprivate func didDisplayPagePosition(_ pagePosition: PlayerPagePosition, forceUpdate: Bool) {
+        updateDisplayedPagePosition(pagePosition, forceUpdate: forceUpdate)
     }
 
     private func didUpdateRenderedPagePositions() {
         if renderedPagePositionCounts.count == 1, let pagePosition = renderedPagePositionCounts.keys.first {
-            updateDisplayedPagePosition(pagePosition)
+            updateDisplayedPagePosition(pagePosition, forceUpdate: false)
         }
     }
 
-    private func updateDisplayedPagePosition(_ pagePosition: PlayerPagePosition) {
-        guard displayedPagePosition != pagePosition else { return }
+    private func updateDisplayedPagePosition(_ pagePosition: PlayerPagePosition, forceUpdate: Bool) {
+        guard forceUpdate || displayedPagePosition != pagePosition else { return }
         displayedPagePosition = pagePosition
         onPagePositionUpdate(pagePosition)
     }
@@ -1212,11 +1245,23 @@ private protocol HorizontalPlayerDataSource: AnyObject {
     func supportsPageLayout(_ pageLayout: MobilePlayerPageLayout, for pagePosition: PlayerPagePosition) -> Bool
     func canRenderPagePosition(_ pagePosition: PlayerPagePosition) -> Bool
     func startPagePosition() -> PlayerPagePosition
+    func stablePagePosition(
+        containing pagePosition: PlayerPagePosition,
+        for pageLayout: MobilePlayerPageLayout
+    ) -> PlayerPagePosition
+    func exitWidgetInsertionForStablePage(
+        containing pagePosition: PlayerPagePosition,
+        for pageLayout: MobilePlayerPageLayout
+    ) -> PlayerStablePagePositionResult
+    func navigationStride(
+        from pagePosition: PlayerPagePosition,
+        for pageLayout: MobilePlayerPageLayout
+    ) -> Int
     func didRenderPagePosition(_ pagePosition: PlayerPagePosition)
     func didCleanupPagePosition(_ pagePosition: PlayerPagePosition)
     func didAttemptPagination()
     func didAttemptUnavailableHorizontalNavigation()
-    func didDisplayPagePosition(_ pagePosition: PlayerPagePosition)
+    func didDisplayPagePosition(_ pagePosition: PlayerPagePosition, forceUpdate: Bool)
 
 }
 
@@ -2506,20 +2551,28 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
     var onCurrentZoomStateChange: ((Bool) -> Void)?
 
     init(pageLayout: MobilePlayerPageLayout, playerDataSource: HorizontalPlayerDataSource) {
+        let initialPagePosition = playerDataSource.stablePagePosition(
+            containing: .initial,
+            for: pageLayout
+        )
+        let initialNavigationStride = playerDataSource.navigationStride(
+            from: initialPagePosition,
+            for: pageLayout
+        )
         self.playerDataSource = playerDataSource
         self.pageLayout = pageLayout
         pageA = SpecificPageViewController(
-            pagePosition: .initial,
+            pagePosition: initialPagePosition,
             pageLayout: pageLayout,
             playerDataSource: playerDataSource
         )
         pageB = SpecificPageViewController(
-            pagePosition: .initial.advanced(by: 1),
+            pagePosition: initialPagePosition.advanced(by: initialNavigationStride),
             pageLayout: pageLayout,
             playerDataSource: playerDataSource
         )
         pageC = SpecificPageViewController(
-            pagePosition: .initial.advanced(by: -1),
+            pagePosition: initialPagePosition.advanced(by: -initialNavigationStride),
             pageLayout: pageLayout,
             playerDataSource: playerDataSource
         )
@@ -2591,6 +2644,26 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
 
     func setPageLayout(_ pageLayout: MobilePlayerPageLayout) {
         guard self.pageLayout != pageLayout else { return }
+
+        if pageLayout == .fourPerPage,
+           let currentPage {
+            let previousPagePosition = currentPage.pagePosition
+            let stablePageResult = playerDataSource?.exitWidgetInsertionForStablePage(
+                containing: currentPage.pagePosition,
+                for: pageLayout
+            ) ?? PlayerStablePagePositionResult(
+                pagePosition: previousPagePosition,
+                didExitWidgetInsertion: false
+            )
+            let didExitWidgetInsertionWithoutChangingPagePosition = stablePageResult.didExitWidgetInsertion
+                && stablePageResult.pagePosition == previousPagePosition
+            reanchorCurrentPage(
+                to: stablePageResult.pagePosition,
+                pageLayout: pageLayout,
+                forceDisplayUpdate: didExitWidgetInsertionWithoutChangingPagePosition
+            )
+            return
+        }
 
         self.pageLayout = pageLayout
         let visiblePage = currentPage
@@ -2673,8 +2746,8 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
                 && abs(translation.x) > abs(translation.y) * MobilePlayerGestureTuning.pageBoundaryRevealHorizontalIntentRatio
             guard hasHorizontalIntent else { return }
 
-            let targetOffset = translation.x > 0 ? -1 : 1
             let pagePosition = getCurrentPagePosition()
+            let targetOffset = (translation.x > 0 ? -1 : 1) * navigationStride(from: pagePosition)
             guard !canRender(pagePosition.advanced(by: targetOffset)) else {
                 didNotifyPaginationAttemptDuringCurrentPan = true
                 playerDataSource?.didAttemptPagination()
@@ -2741,20 +2814,34 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
         return currentPage.pagePosition
     }
 
+    private func navigationStride(from pagePosition: PlayerPagePosition) -> Int {
+        playerDataSource?.navigationStride(from: pagePosition, for: pageLayout)
+            ?? MobilePlayerPageLayout.onePerPage.pageSize
+    }
+
+    private func navigationOffset(
+        _ direction: PlaybackNavigationDirection,
+        from pagePosition: PlayerPagePosition
+    ) -> Int? {
+        let stride = navigationStride(from: pagePosition)
+        return direction.pageOffset(forStride: stride)
+    }
+
     private func update(currentPagePosition: PlayerPagePosition) {
         guard let currentPage = viewControllers?.first as? SpecificPageViewController else { return }
+        let stride = navigationStride(from: currentPagePosition)
         switch currentPage {
         case pageA:
             pageA.update(pagePosition: currentPagePosition)
-            pageB.update(pagePosition: currentPagePosition.advanced(by: 1))
-            pageC.update(pagePosition: currentPagePosition.advanced(by: -1))
+            pageB.update(pagePosition: currentPagePosition.advanced(by: stride))
+            pageC.update(pagePosition: currentPagePosition.advanced(by: -stride))
         case pageB:
-            pageA.update(pagePosition: currentPagePosition.advanced(by: -1))
+            pageA.update(pagePosition: currentPagePosition.advanced(by: -stride))
             pageB.update(pagePosition: currentPagePosition)
-            pageC.update(pagePosition: currentPagePosition.advanced(by: 1))
+            pageC.update(pagePosition: currentPagePosition.advanced(by: stride))
         case pageC:
-            pageA.update(pagePosition: currentPagePosition.advanced(by: 1))
-            pageB.update(pagePosition: currentPagePosition.advanced(by: -1))
+            pageA.update(pagePosition: currentPagePosition.advanced(by: stride))
+            pageB.update(pagePosition: currentPagePosition.advanced(by: -stride))
             pageC.update(pagePosition: currentPagePosition)
         default:
             break
@@ -2767,7 +2854,8 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
 
     private func reanchorCurrentPage(
         to pagePosition: PlayerPagePosition,
-        pageLayout targetPageLayout: MobilePlayerPageLayout
+        pageLayout targetPageLayout: MobilePlayerPageLayout,
+        forceDisplayUpdate: Bool = false
     ) {
         guard canRender(pagePosition),
               let currentPage else {
@@ -2791,7 +2879,7 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
 
         update(currentPagePosition: pagePosition)
         currentPage.renderCurrentItem()
-        didDisplayRenderablePagePosition(pagePosition)
+        didDisplayRenderablePagePosition(pagePosition, forceUpdate: forceDisplayUpdate)
         updatePagingScrollEnabled()
         reloadPageControllerAfterInPlaceNavigation(pageDirection) { [weak self] in
             self?.performPendingNavigationIfNeeded()
@@ -2806,9 +2894,10 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
         pageA.preferredPrefetchDirection = .forward
         pageB.preferredPrefetchDirection = .forward
         pageC.preferredPrefetchDirection = .forward
+        let stride = navigationStride(from: pagePosition)
         pageA.update(pagePosition: pagePosition)
-        pageB.update(pagePosition: pagePosition.advanced(by: 1))
-        pageC.update(pagePosition: pagePosition.advanced(by: -1))
+        pageB.update(pagePosition: pagePosition.advanced(by: stride))
+        pageC.update(pagePosition: pagePosition.advanced(by: -stride))
 
         setViewControllers([pageA], direction: .forward, animated: false) { [weak self] _ in
             guard let self else { return }
@@ -2834,9 +2923,9 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
         return true
     }
 
-    private func didDisplayRenderablePagePosition(_ pagePosition: PlayerPagePosition) {
+    private func didDisplayRenderablePagePosition(_ pagePosition: PlayerPagePosition, forceUpdate: Bool = false) {
         lastSettledPagePosition = pagePosition
-        playerDataSource?.didDisplayPagePosition(pagePosition)
+        playerDataSource?.didDisplayPagePosition(pagePosition, forceUpdate: forceUpdate)
     }
 
     private func recoverFromInvalidCurrentPage(_ currentPage: SpecificPageViewController) {
@@ -2850,7 +2939,8 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
     }
 
     private func recoveryPagePosition(from pagePosition: PlayerPagePosition) -> PlayerPagePosition? {
-        for candidatePagePosition in [pagePosition.advanced(by: -1), pagePosition.advanced(by: 1)] {
+        let stride = navigationStride(from: pagePosition)
+        for candidatePagePosition in [pagePosition.advanced(by: -stride), pagePosition.advanced(by: stride)] {
             if canRender(candidatePagePosition) {
                 return candidatePagePosition
             }
@@ -2900,7 +2990,8 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
         targetPage: SpecificPageViewController,
         offset: Int
     ) -> UIViewController? {
-        let targetPagePosition = sourcePage.pagePosition.advanced(by: offset)
+        let targetOffset = offset * navigationStride(from: sourcePage.pagePosition)
+        let targetPagePosition = sourcePage.pagePosition.advanced(by: targetOffset)
         guard canRender(targetPagePosition) else { return nil }
         targetPage.preferredPrefetchDirection = offset < 0 ? .backward : .forward
         targetPage.update(pagePosition: targetPagePosition)
@@ -3004,12 +3095,12 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
     }
 
     private func replaceCurrentPageContentWithoutPageControllerTransition(_ direction: PlaybackNavigationDirection) -> Bool {
-        guard direction == .back || direction == .forward,
+        guard direction.isPagingDirection,
               let currentPage = viewControllers?.first as? SpecificPageViewController else {
             return false
         }
 
-        let targetOffset = direction == .back ? -1 : 1
+        guard let targetOffset = navigationOffset(direction, from: currentPage.pagePosition) else { return false }
         let targetPagePosition = currentPage.pagePosition.advanced(by: targetOffset)
 
         let prefetchDirection: DownloadableMediaCache.PrefetchDirection = direction == .back ? .backward : .forward
@@ -3073,17 +3164,17 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
     }
 
     func canNavigateWithoutAnimation(_ direction: PlaybackNavigationDirection) -> Bool {
-        guard direction == .back || direction == .forward else { return false }
+        guard direction.isPagingDirection else { return false }
         guard canStartNavigation else { return false }
 
         return hasNavigationDestination(direction)
     }
 
     func hasNavigationDestination(_ direction: PlaybackNavigationDirection) -> Bool {
-        guard direction == .back || direction == .forward else { return false }
+        guard direction.isPagingDirection else { return false }
         guard let currentPage = viewControllers?.first as? SpecificPageViewController else { return false }
 
-        let targetOffset = direction == .back ? -1 : 1
+        guard let targetOffset = navigationOffset(direction, from: currentPage.pagePosition) else { return false }
         return canRender(currentPage.pagePosition.advanced(by: targetOffset))
     }
 

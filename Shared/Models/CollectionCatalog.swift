@@ -44,6 +44,11 @@ struct PlayerPagePosition: Hashable {
     }
 }
 
+struct PlayerStablePagePositionResult: Hashable {
+    let pagePosition: PlayerPagePosition
+    let didExitWidgetInsertion: Bool
+}
+
 struct PlayerTokenContext: Hashable {
     let collectionId: String
     let tokenIndex: Int
@@ -186,6 +191,21 @@ struct PlayerDownloadableMediaWindow: Hashable {
 
 enum PlaybackNavigationDirection {
     case back, forward, restartCollection
+
+    var isPagingDirection: Bool {
+        self == .back || self == .forward
+    }
+
+    func pageOffset(forStride stride: Int) -> Int? {
+        switch self {
+        case .back:
+            return -stride
+        case .forward:
+            return stride
+        case .restartCollection:
+            return nil
+        }
+    }
 }
 
 final class PlayerTokenPagingDataSource {
@@ -193,12 +213,12 @@ final class PlayerTokenPagingDataSource {
     private let initialCollectionId: String?
     private let specificInitialToken: GeneratedToken?
     private let initialTokenId: String?
-    private let widgetTokenInsertion: PlayerWidgetTokenInsertion?
 
     private var collectionId: String?
     private var collectionBaseTokenIndex: Int?
     private var latestToken: GeneratedToken?
     private var latestPagePosition: PlayerPagePosition?
+    private var activeWidgetTokenInsertion: PlayerWidgetTokenInsertion?
 
     init(
         initialCollectionId: String?,
@@ -209,7 +229,7 @@ final class PlayerTokenPagingDataSource {
         self.initialCollectionId = initialCollectionId
         self.specificInitialToken = specificInitialToken
         self.initialTokenId = initialTokenId
-        self.widgetTokenInsertion = widgetTokenInsertion
+        self.activeWidgetTokenInsertion = widgetTokenInsertion
 
         if let widgetTokenInsertion {
             collectionId = widgetTokenInsertion.collectionId
@@ -262,16 +282,49 @@ final class PlayerTokenPagingDataSource {
     }
 
     func pagePosition(forTokenIndex tokenIndex: Int) -> PlayerPagePosition {
-        if let widgetTokenInsertion {
+        if let widgetTokenInsertion = activeWidgetTokenInsertion {
             return widgetTokenInsertion.pagePosition(forTokenIndex: tokenIndex)
         }
         ensureCollectionLoaded()
         return PlayerPagePosition(position: tokenIndex - (collectionBaseTokenIndex ?? 0))
     }
 
+    func stablePagePosition(
+        containing pagePosition: PlayerPagePosition,
+        pageSize: Int
+    ) -> PlayerPagePosition? {
+        guard pageSize > 1 else { return pagePosition }
+        guard let context = collectionTokenContext(pagePosition: pagePosition) else { return nil }
+
+        let tokenIndex = stableTokenIndex(containing: context.tokenIndex, pageSize: pageSize)
+        return self.pagePosition(forTokenIndex: tokenIndex)
+    }
+
+    func exitWidgetInsertionForStablePage(
+        containing pagePosition: PlayerPagePosition,
+        pageSize: Int
+    ) -> PlayerStablePagePositionResult? {
+        guard pageSize > 1 else {
+            return PlayerStablePagePositionResult(
+                pagePosition: pagePosition,
+                didExitWidgetInsertion: false
+            )
+        }
+        guard let target = stableTokenTarget(containing: pagePosition, pageSize: pageSize) else { return nil }
+
+        let didExitWidgetInsertion = isWidgetPositionSpace
+        if didExitWidgetInsertion {
+            deactivateWidgetInsertion(using: target.context)
+        }
+        return PlayerStablePagePositionResult(
+            pagePosition: self.pagePosition(forTokenIndex: target.tokenIndex),
+            didExitWidgetInsertion: didExitWidgetInsertion
+        )
+    }
+
     func progress(pagePosition: PlayerPagePosition) -> PlayerViewingProgress? {
         if isInsertedWidgetToken(pagePosition: pagePosition),
-           let widgetTokenInsertion {
+           let widgetTokenInsertion = activeWidgetTokenInsertion {
             return widgetTokenInsertion.updatedAnchorProgress()
         }
 
@@ -295,7 +348,7 @@ final class PlayerTokenPagingDataSource {
     }
 
     func isInsertedWidgetToken(pagePosition: PlayerPagePosition) -> Bool {
-        widgetTokenInsertion != nil && pagePosition == .initial
+        activeWidgetTokenInsertion != nil && pagePosition == .initial
     }
 
     func getToken(pagePosition: PlayerPagePosition) -> GeneratedToken {
@@ -304,7 +357,7 @@ final class PlayerTokenPagingDataSource {
         }
 
         if isInsertedWidgetToken(pagePosition: pagePosition),
-           let widgetTokenInsertion {
+           let widgetTokenInsertion = activeWidgetTokenInsertion {
             latestToken = widgetTokenInsertion.insertedToken
             latestPagePosition = pagePosition
             return widgetTokenInsertion.insertedToken
@@ -322,7 +375,7 @@ final class PlayerTokenPagingDataSource {
     }
 
     private func tokenIndex(pagePosition: PlayerPagePosition) -> Int? {
-        if let widgetTokenInsertion {
+        if let widgetTokenInsertion = activeWidgetTokenInsertion {
             return widgetTokenInsertion.tokenIndex(for: pagePosition)
         }
 
@@ -331,7 +384,40 @@ final class PlayerTokenPagingDataSource {
     }
 
     private var isWidgetPositionSpace: Bool {
-        widgetTokenInsertion != nil
+        activeWidgetTokenInsertion != nil
+    }
+
+    private func stableTokenIndex(containing tokenIndex: Int, pageSize: Int) -> Int {
+        guard pageSize > 1 else { return tokenIndex }
+        return (tokenIndex / pageSize) * pageSize
+    }
+
+    private func stableTokenTarget(
+        containing pagePosition: PlayerPagePosition,
+        pageSize: Int
+    ) -> (context: PlayerTokenContext, tokenIndex: Int)? {
+        guard let context = collectionTokenContext(pagePosition: pagePosition) else { return nil }
+
+        let tokenIndex = stableTokenIndex(containing: context.tokenIndex, pageSize: pageSize)
+        guard tokenIndex >= 0,
+              tokenIndex < context.tokenCount,
+              CollectionCatalog.canGenerateToken(
+                specificCollectionId: context.collectionId,
+                tokenIndex: tokenIndex
+              ) else {
+            return nil
+        }
+        return (context, tokenIndex)
+    }
+
+    private func deactivateWidgetInsertion(using context: PlayerTokenContext) {
+        guard isWidgetPositionSpace else { return }
+
+        activeWidgetTokenInsertion = nil
+        collectionId = context.collectionId
+        collectionBaseTokenIndex = context.tokenIndex
+        latestToken = nil
+        latestPagePosition = nil
     }
 
     private func indexedDownloadableMediaWindow(
@@ -460,8 +546,8 @@ final class PlayerTokenPagingDataSource {
         }
 
         let collection = (
-            id: widgetTokenInsertion?.collectionId ?? specificInitialToken?.fullCollectionId ?? initialCollectionId ?? CollectionCatalog.nextShuffledCollectionId(),
-            requestedTokenId: widgetTokenInsertion?.anchorTokenId ?? specificInitialToken?.id ?? initialTokenId
+            id: activeWidgetTokenInsertion?.collectionId ?? specificInitialToken?.fullCollectionId ?? initialCollectionId ?? CollectionCatalog.nextShuffledCollectionId(),
+            requestedTokenId: activeWidgetTokenInsertion?.anchorTokenId ?? specificInitialToken?.id ?? initialTokenId
         )
 
         guard let collectionId = collection.id else { return nil }

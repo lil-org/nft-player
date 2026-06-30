@@ -134,8 +134,7 @@ struct MobilePlayerView: View {
                             if !supportsFourPerPageLayout && self.pageLayout == .fourPerPage {
                                 self.pageLayout = .onePerPage
                             }
-                            self.canGoBack = canRenderAdjacentPagePosition(from: newPagePosition, offset: -1)
-                            self.canGoForward = canRenderAdjacentPagePosition(from: newPagePosition, offset: 1)
+                            self.updateNavigationAvailability(for: newPagePosition)
                             self.updateShareItem(for: newPagePosition)
                             self.updateBookmarkState(for: token)
                             updateExternalDisplayToken(token)
@@ -152,6 +151,7 @@ struct MobilePlayerView: View {
                         guard self.pageLayout != requestedPageLayout else { return }
 
                         self.pageLayout = requestedPageLayout
+                        self.updateNavigationAvailability(for: self.currentPagePosition)
                     },
                     onZoomStateChange: { isZoomed in
                         chrome.setPlayerContentZoomed(isZoomed)
@@ -302,6 +302,7 @@ struct MobilePlayerView: View {
         }
 
         pageLayout = .fourPerPage
+        updateNavigationAvailability(for: currentPagePosition)
     }
 
     private func supportsFourPerPageLayout(for pagePosition: PlayerPagePosition) -> Bool {
@@ -333,10 +334,31 @@ struct MobilePlayerView: View {
         Haptic.selectionChanged()
     }
 
-    private func canRenderAdjacentPagePosition(from pagePosition: PlayerPagePosition, offset: Int) -> Bool {
-        return MobilePlaybackController.shared.canRender(
+    private func updateNavigationAvailability(for pagePosition: PlayerPagePosition?) {
+        guard let pagePosition else {
+            canGoBack = false
+            canGoForward = false
+            return
+        }
+
+        let stablePagePosition = MobilePlaybackController.shared.stablePagePosition(
             uuid: initialConfig.id,
-            pagePosition: pagePosition.advanced(by: offset)
+            containing: pagePosition,
+            pageLayout: pageLayout
+        )
+        canGoBack = hasNavigationDestination(from: stablePagePosition, direction: .back)
+        canGoForward = hasNavigationDestination(from: stablePagePosition, direction: .forward)
+    }
+
+    private func hasNavigationDestination(
+        from pagePosition: PlayerPagePosition,
+        direction: PlaybackNavigationDirection
+    ) -> Bool {
+        MobilePlaybackController.shared.hasNavigationDestination(
+            uuid: initialConfig.id,
+            from: pagePosition,
+            pageLayout: pageLayout,
+            direction: direction
         )
     }
 
