@@ -6,30 +6,6 @@ import WebKit
 import ImageIO
 import AVFoundation
 
-private enum MobilePlayerPageLayoutMetrics {
-    static let spreadCardSpacing: CGFloat = 8
-}
-
-private enum MobilePlayerAspectFitLayout {
-    static func size(for contentSize: CGSize, fitting maximumSize: CGSize) -> CGSize {
-        guard contentSize.width > 0,
-              contentSize.height > 0,
-              maximumSize.width > 0,
-              maximumSize.height > 0 else {
-            return .zero
-        }
-
-        let scale = min(
-            maximumSize.width / contentSize.width,
-            maximumSize.height / contentSize.height
-        )
-        return CGSize(
-            width: contentSize.width * scale,
-            height: contentSize.height * scale
-        )
-    }
-}
-
 enum FullscreenTokenMediaView {
     static func imageView(in containerView: UIView) -> UIImageView {
         let imageView = UIImageView()
@@ -721,6 +697,7 @@ struct HorizontalPlayerContainerView: UIViewControllerRepresentable {
     private let onUnavailableNavigation: (() -> Void)
     private let onToggleChrome: (() -> Void)
     private let onPageLayoutChangeRequest: ((MobilePlayerPageLayout) -> Void)
+    private let onPageLayoutContentReady: ((MobilePlayerPageLayout) -> Void)
     private let onZoomStateChange: ((Bool) -> Void)
 
     init(
@@ -731,6 +708,7 @@ struct HorizontalPlayerContainerView: UIViewControllerRepresentable {
         onUnavailableNavigation: @escaping () -> Void,
         onToggleChrome: @escaping () -> Void,
         onPageLayoutChangeRequest: @escaping (MobilePlayerPageLayout) -> Void,
+        onPageLayoutContentReady: @escaping (MobilePlayerPageLayout) -> Void,
         onZoomStateChange: @escaping (Bool) -> Void
     ) {
         self.initialConfig = initialConfig
@@ -740,6 +718,7 @@ struct HorizontalPlayerContainerView: UIViewControllerRepresentable {
         self.onUnavailableNavigation = onUnavailableNavigation
         self.onToggleChrome = onToggleChrome
         self.onPageLayoutChangeRequest = onPageLayoutChangeRequest
+        self.onPageLayoutContentReady = onPageLayoutContentReady
         self.onZoomStateChange = onZoomStateChange
     }
 
@@ -752,6 +731,7 @@ struct HorizontalPlayerContainerView: UIViewControllerRepresentable {
             onUnavailableNavigation: onUnavailableNavigation,
             onToggleChrome: onToggleChrome,
             onPageLayoutChangeRequest: onPageLayoutChangeRequest,
+            onPageLayoutContentReady: onPageLayoutContentReady,
             onZoomStateChange: onZoomStateChange
         )
     }
@@ -770,6 +750,7 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
     private let onUnavailableNavigation: (() -> Void)
     private let onToggleChrome: (() -> Void)
     private let onPageLayoutChangeRequest: ((MobilePlayerPageLayout) -> Void)
+    private let onPageLayoutContentReady: ((MobilePlayerPageLayout) -> Void)
     private let onZoomStateChange: ((Bool) -> Void)
 
     private lazy var pagingVC = HorizontalPageViewController(
@@ -830,6 +811,7 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
         onUnavailableNavigation: @escaping () -> Void,
         onToggleChrome: @escaping () -> Void,
         onPageLayoutChangeRequest: @escaping (MobilePlayerPageLayout) -> Void,
+        onPageLayoutContentReady: @escaping (MobilePlayerPageLayout) -> Void,
         onZoomStateChange: @escaping (Bool) -> Void
     ) {
         self.initialConfig = initialConfig
@@ -839,6 +821,7 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
         self.onUnavailableNavigation = onUnavailableNavigation
         self.onToggleChrome = onToggleChrome
         self.onPageLayoutChangeRequest = onPageLayoutChangeRequest
+        self.onPageLayoutContentReady = onPageLayoutContentReady
         self.onZoomStateChange = onZoomStateChange
         super.init(nibName: nil, bundle: nil)
     }
@@ -1223,6 +1206,18 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
         didUpdateRenderedPagePositions()
     }
 
+    fileprivate func didRenderPageLayoutContent(
+        _ pageLayout: MobilePlayerPageLayout,
+        pagePosition: PlayerPagePosition
+    ) {
+        guard self.pageLayout == pageLayout,
+              pagingVC.getCurrentPagePosition() == pagePosition else {
+            return
+        }
+
+        onPageLayoutContentReady(pageLayout)
+    }
+
     fileprivate func didCleanupPagePosition(_ pagePosition: PlayerPagePosition) {
         if let count = renderedPagePositionCounts[pagePosition], count > 1 {
             renderedPagePositionCounts[pagePosition] = count - 1
@@ -1283,6 +1278,7 @@ private protocol HorizontalPlayerDataSource: AnyObject {
         for pageLayout: MobilePlayerPageLayout
     ) -> Int
     func didRenderPagePosition(_ pagePosition: PlayerPagePosition)
+    func didRenderPageLayoutContent(_ pageLayout: MobilePlayerPageLayout, pagePosition: PlayerPagePosition)
     func didCleanupPagePosition(_ pagePosition: PlayerPagePosition)
     func didAttemptPagination()
     func didAttemptUnavailableHorizontalNavigation()
@@ -1413,92 +1409,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         let task: Task<Void, Never>
     }
 
-    private struct StaticImageSpreadZoomLayout: Equatable {
-        let imageSizes: [CGSize]
-
-        func contentSize(fitting viewportSize: CGSize) -> CGSize {
-            guard !imageSizes.isEmpty else { return viewportSize }
-
-            if usesGrid {
-                return gridContentSize(fitting: viewportSize)
-            }
-
-            let axis = linearAxis(fitting: viewportSize)
-            let imageCount = CGFloat(imageSizes.count)
-            let totalSpacing = CGFloat(imageSizes.count - 1) * MobilePlayerPageLayoutMetrics.spreadCardSpacing
-            let maximumSlotSize: CGSize
-            switch axis {
-            case .horizontal:
-                maximumSlotSize = CGSize(
-                    width: max((viewportSize.width - totalSpacing) / imageCount, 0),
-                    height: viewportSize.height
-                )
-            case .vertical:
-                maximumSlotSize = CGSize(
-                    width: viewportSize.width,
-                    height: max((viewportSize.height - totalSpacing) / imageCount, 0)
-                )
-            @unknown default:
-                maximumSlotSize = viewportSize
-            }
-
-            let slotSize = imageSlotSize(fitting: maximumSlotSize)
-            switch axis {
-            case .horizontal:
-                return CGSize(
-                    width: slotSize.width * imageCount + totalSpacing,
-                    height: slotSize.height
-                )
-            case .vertical:
-                return CGSize(
-                    width: slotSize.width,
-                    height: slotSize.height * imageCount + totalSpacing
-                )
-            @unknown default:
-                return slotSize
-            }
-        }
-
-        func axis(fitting viewportSize: CGSize) -> NSLayoutConstraint.Axis? {
-            guard !usesGrid else { return nil }
-            return linearAxis(fitting: viewportSize)
-        }
-
-        private var usesGrid: Bool {
-            imageSizes.count == 4
-        }
-
-        private func linearAxis(fitting viewportSize: CGSize) -> NSLayoutConstraint.Axis {
-            viewportSize.width >= viewportSize.height ? .horizontal : .vertical
-        }
-
-        private func gridContentSize(fitting viewportSize: CGSize) -> CGSize {
-            let columnCount: CGFloat = 2
-            let rowCount: CGFloat = 2
-            let horizontalSpacing = (columnCount - 1) * MobilePlayerPageLayoutMetrics.spreadCardSpacing
-            let verticalSpacing = (rowCount - 1) * MobilePlayerPageLayoutMetrics.spreadCardSpacing
-            let maximumSlotSize = CGSize(
-                width: max((viewportSize.width - horizontalSpacing) / columnCount, 0),
-                height: max((viewportSize.height - verticalSpacing) / rowCount, 0)
-            )
-            let slotSize = imageSlotSize(fitting: maximumSlotSize)
-            return CGSize(
-                width: slotSize.width * columnCount + horizontalSpacing,
-                height: slotSize.height * rowCount + verticalSpacing
-            )
-        }
-
-        private func imageSlotSize(fitting maximumSize: CGSize) -> CGSize {
-            imageSizes
-                .map { MobilePlayerAspectFitLayout.size(for: $0, fitting: maximumSize) }
-                .reduce(.zero) { result, slotSize in
-                    CGSize(
-                        width: max(result.width, slotSize.width),
-                        height: max(result.height, slotSize.height)
-                    )
-                }
-        }
-    }
+    private typealias StaticImageSpreadZoomLayout = MobileStaticImageSpreadLayout
 
     private struct StaticImageSpreadRenderKey: Hashable {
         let descriptors: [DownloadableMediaDescriptor]
@@ -2130,7 +2041,9 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
                 self?.renderWebContent(fallbackHTML)
             },
             onLoadedImage: { [weak self] image in
-                self?.setZoomContentLayout(.staticImage(image.size))
+                guard let self else { return }
+                self.setZoomContentLayout(.staticImage(image.size))
+                self.notifyPageLayoutContentReady()
             }
         )
     }
@@ -2163,17 +2076,24 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
 
                 self.setZoomContentLayout(.staticImage(primaryImage.size))
                 self.mediaRenderer.displayLoadedImage(primaryImage, key: descriptor)
+                self.notifyPageLayoutContentReady()
             },
             onLoadedImages: { [weak self] images in
-                self?.setZoomContentLayout(
+                guard let self else { return }
+                self.setZoomContentLayout(
                     .staticImageSpread(
                         StaticImageSpreadZoomLayout(
                             imageSizes: images.map(\.size)
                         )
                     )
                 )
+                self.notifyPageLayoutContentReady()
             }
         )
+    }
+
+    private func notifyPageLayoutContentReady() {
+        playerDataSource?.didRenderPageLayoutContent(pageLayout, pagePosition: pagePosition)
     }
 
     private func companionStaticImageDescriptors(
@@ -2210,6 +2130,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         clearAnimatedRenderContext()
         setZoomContentLayout(.viewport)
         renderAnimatedFallbackWebContent(html)
+        notifyPageLayoutContentReady()
     }
 
     private func renderNativeMetalCard(_ token: GeneratedToken, renderKind: NativeMetalCardRenderKind) {

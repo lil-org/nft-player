@@ -1501,6 +1501,109 @@ private final class PlayerNavigationController: UINavigationController {
 
 }
 
+private final class CardMinimizeUnderlayView: UIView {
+
+    private let descriptors: [DownloadableMediaDescriptor]
+    private let hiddenSlotIndex: Int
+    private let layoutImageSizes: [CGSize]
+    private var imageViews = [UIImageView]()
+    private var imageLoadCancellations = [(() -> Void)?]()
+
+    init(
+        descriptors: [DownloadableMediaDescriptor],
+        hiddenSlotIndex: Int,
+        fallbackImageSize: CGSize
+    ) {
+        let validFallbackImageSize = fallbackImageSize.validOrDefault
+        self.descriptors = descriptors
+        self.hiddenSlotIndex = hiddenSlotIndex
+        self.layoutImageSizes = descriptors.map { descriptor in
+            DownloadableMediaCache.shared.cachedDecodedImage(for: descriptor)?.size.validOrDefault
+                ?? validFallbackImageSize
+        }
+        super.init(frame: .zero)
+        isUserInteractionEnabled = false
+        backgroundColor = .clear
+        installImageViews()
+        loadImages()
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("yo")
+    }
+
+    deinit {
+        imageLoadCancellations.forEach { $0?() }
+    }
+
+    var hiddenSlotFrame: CGRect? {
+        layoutIfNeeded()
+        guard imageViews.indices.contains(hiddenSlotIndex) else { return nil }
+        return imageViews[hiddenSlotIndex].frame
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        applyImageFrames()
+    }
+
+    private func installImageViews() {
+        imageViews = descriptors.indices.map { index in
+            let imageView = UIImageView()
+            imageView.backgroundColor = .black
+            imageView.contentMode = .scaleAspectFit
+            imageView.clipsToBounds = true
+            imageView.isUserInteractionEnabled = false
+            imageView.isHidden = index == hiddenSlotIndex
+            addSubview(imageView)
+            return imageView
+        }
+        imageLoadCancellations = Array(repeating: nil, count: descriptors.count)
+    }
+
+    private func loadImages() {
+        for (index, descriptor) in descriptors.enumerated() {
+            guard index != hiddenSlotIndex else { continue }
+
+            if let cachedImage = DownloadableMediaCache.shared.cachedDecodedImage(for: descriptor) {
+                setImage(cachedImage, at: index)
+                continue
+            }
+
+            imageLoadCancellations[index] = DownloadableMediaCache.shared.loadImage(for: descriptor) { [weak self] image in
+                guard let self, let image else { return }
+                self.setImage(image, at: index)
+            }
+        }
+    }
+
+    private func setImage(_ image: UIImage, at index: Int) {
+        guard imageViews.indices.contains(index) else { return }
+
+        imageViews[index].image = image
+    }
+
+    private func applyImageFrames() {
+        let frames = MobileStaticImageSpreadLayout(imageSizes: layoutImageSizes).itemFrames(fitting: bounds.size)
+        for (imageView, frame) in zip(imageViews, frames) {
+            imageView.frame = frame
+        }
+    }
+
+}
+
+private extension CGSize {
+    var validOrDefault: CGSize {
+        guard width > 0,
+              height > 0,
+              width.isFinite,
+              height.isFinite else {
+            return CGSize(width: 1, height: 1)
+        }
+        return self
+    }
+}
+
 private final class PlayerOverlayViewController: UIViewController, UIGestureRecognizerDelegate {
 
     private static let dismissBackgroundClearPassDelay: TimeInterval = 0.05
@@ -1513,6 +1616,14 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         let isOpaque: Bool
     }
 
+    private struct CardMinimizeTransitionContext {
+        let sourceFrame: CGRect
+        let targetFrame: CGRect?
+        let targetScale: CGFloat
+        let foregroundView: UIView
+        let underlayView: CardMinimizeUnderlayView
+    }
+
     let playerNavigationController: UINavigationController
     let chrome: MobilePlayerChromeController
     var onDismiss: () -> Void
@@ -1523,6 +1634,8 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
     private var configuredScrollPanGestures = Set<ObjectIdentifier>()
     private var isDismissing = false
     private var isDismissPanDrivingPlayerDismiss = false
+    private var isDismissPanDrivingCardMinimize = false
+    private var activeCardMinimizeContext: CardMinimizeTransitionContext?
     private var didControlsPanConflictWithHorizontalScroll = false
     private var dismissBackgroundSnapshots: [PlayerBackgroundSnapshot] = []
 
@@ -1627,7 +1740,17 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         case .began:
             let location = gesture.location(in: playerNavigationController.view)
             let velocity = gesture.velocity(in: view)
-            isDismissPanDrivingPlayerDismiss = hasPlayerDismissIntent(location: location, velocity: velocity)
+            let cardMinimizeState = cardMinimizeStateForIntent(location: location, velocity: velocity)
+            let hasPlayerDismissIntent = hasPlayerDismissIntent(location: location, velocity: velocity)
+            let shouldHideControls = chrome.showControls && hasControlsHideIntent(location: location, velocity: velocity)
+            isDismissPanDrivingPlayerDismiss = false
+            isDismissPanDrivingCardMinimize = false
+
+            if let cardMinimizeState {
+                guard beginCardMinimizeGesture(state: cardMinimizeState) else { return }
+            } else {
+                isDismissPanDrivingPlayerDismiss = hasPlayerDismissIntent
+            }
 
             if isDismissPanDrivingPlayerDismiss {
                 playerNavigationController.view.layer.removeAllAnimations()
@@ -1635,19 +1758,38 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
                 startDismissBackgroundClearing()
                 setDismissStatusBarRevealed(true)
             }
-            chrome.setControlsVisible(false)
+            if !isDismissPanDrivingCardMinimize && (isDismissPanDrivingPlayerDismiss || shouldHideControls) {
+                chrome.setControlsVisible(false)
+            }
 
         case .changed:
+            if isDismissPanDrivingCardMinimize {
+                applyCardMinimizePresentation(translation: translation)
+                return
+            }
             guard isDismissPanDrivingPlayerDismiss else { return }
             let progress = min(clampedY / MobilePlayerGestureTuning.dismissProgressDistance, 1)
             applyDismissPresentation(offsetY: clampedY, progress: progress)
 
         case .ended:
+            if isDismissPanDrivingCardMinimize {
+                isDismissPanDrivingCardMinimize = false
+                finishCardMinimizeGesture(
+                    translation: translation,
+                    velocity: gesture.velocity(in: view)
+                )
+                return
+            }
             guard isDismissPanDrivingPlayerDismiss else { return }
             isDismissPanDrivingPlayerDismiss = false
             finishDismissGesture(translation: translation, velocity: gesture.velocity(in: view))
 
         case .cancelled, .failed:
+            if isDismissPanDrivingCardMinimize {
+                isDismissPanDrivingCardMinimize = false
+                resetCardMinimizeTransform()
+                return
+            }
             guard isDismissPanDrivingPlayerDismiss else { return }
             isDismissPanDrivingPlayerDismiss = false
             resetDismissTransform()
@@ -1707,6 +1849,250 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         } else {
             resetDismissTransform()
         }
+    }
+
+    private var isCardMinimizeTransitionActive: Bool {
+        activeCardMinimizeContext != nil || isDismissPanDrivingCardMinimize
+    }
+
+    private func beginCardMinimizeGesture(state: MobilePlayerLayoutInteractionState) -> Bool {
+        playerNavigationController.view.layer.removeAllAnimations()
+        dimmingView.layer.removeAllAnimations()
+
+        guard let context = makeCardMinimizeTransitionContext(state: state) else {
+            return false
+        }
+
+        activeCardMinimizeContext = context
+        isDismissPanDrivingCardMinimize = true
+        chrome.setPlayerContentHiddenByCardMinimize(true)
+        return true
+    }
+
+    private func finishCardMinimizeGesture(
+        translation: CGPoint,
+        velocity: CGPoint
+    ) {
+        guard activeCardMinimizeContext != nil else {
+            resetCardMinimizeTransform()
+            return
+        }
+
+        let clampedY = max(0, translation.y)
+        let projectedY = clampedY + max(velocity.y, 0) * MobilePlayerGestureTuning.dismissVelocityProjectionDuration
+        let translationThreshold = max(
+            MobilePlayerGestureTuning.cardMinimizeMinimumTranslation,
+            view.bounds.height * MobilePlayerGestureTuning.cardMinimizeTranslationHeightRatio
+        )
+        let shouldMinimize = projectedY > translationThreshold
+            || (velocity.y > MobilePlayerGestureTuning.cardMinimizeFastSwipeVelocity
+                && clampedY > MobilePlayerGestureTuning.cardMinimizeMinimumFastSwipeTranslation)
+
+        guard shouldMinimize else {
+            resetCardMinimizeTransform()
+            return
+        }
+
+        completeCardMinimizeGesture()
+    }
+
+    private func completeCardMinimizeGesture() {
+        guard let context = activeCardMinimizeContext,
+              let targetFrame = context.targetFrame else {
+            Haptic.selectionChanged()
+            chrome.requestPageLayout(.fourPerPage) { [weak self] in
+                self?.cleanupCardMinimizeTransition(revealPlayer: true)
+            }
+            return
+        }
+
+        let foregroundView = context.foregroundView
+        Haptic.selectionChanged()
+
+        UIView.animate(withDuration: 0.22, delay: 0, options: [.curveEaseOut, .beginFromCurrentState], animations: {
+            foregroundView.transform = .identity
+            foregroundView.bounds = CGRect(origin: .zero, size: targetFrame.size)
+            foregroundView.center = CGPoint(x: targetFrame.midX, y: targetFrame.midY)
+            context.underlayView.alpha = 1
+        }, completion: { [weak self] _ in
+            guard let self else { return }
+
+            self.chrome.requestPageLayout(.fourPerPage) { [weak self] in
+                guard let self else { return }
+                self.cleanupCardMinimizeTransition(revealPlayer: true)
+            }
+        })
+    }
+
+    private func applyCardMinimizePresentation(translation: CGPoint) {
+        guard let context = activeCardMinimizeContext else { return }
+
+        let offsetY = max(0, translation.y)
+        let progress = min(offsetY / MobilePlayerGestureTuning.cardMinimizeProgressDistance, 1)
+        let easedProgress = easeOutQuadratic(progress)
+        let scale = 1 - (1 - context.targetScale) * easedProgress
+        let dragOffsetX = translation.x * (1 - 0.18 * easedProgress)
+        let dragOffsetY = offsetY * (1 - 0.32 * easedProgress)
+        let underlayFadeProgress = min(progress / MobilePlayerGestureTuning.dismissUnderlayFadeCompletionProgress, 1)
+
+        context.foregroundView.center = CGPoint(
+            x: context.sourceFrame.midX + dragOffsetX,
+            y: context.sourceFrame.midY + dragOffsetY
+        )
+        context.foregroundView.transform = CGAffineTransform(scaleX: scale, y: scale)
+        context.underlayView.alpha = easeOutQuadratic(underlayFadeProgress)
+    }
+
+    private func resetCardMinimizeTransform() {
+        guard let context = activeCardMinimizeContext else {
+            chrome.setPlayerContentHiddenByCardMinimize(false)
+            playerNavigationController.view.alpha = 1
+            playerNavigationController.view.transform = .identity
+            return
+        }
+
+        UIView.animate(withDuration: 0.28, delay: 0, usingSpringWithDamping: 0.86, initialSpringVelocity: 0, options: [.beginFromCurrentState], animations: {
+            context.foregroundView.transform = .identity
+            context.foregroundView.bounds = CGRect(origin: .zero, size: context.sourceFrame.size)
+            context.foregroundView.center = CGPoint(x: context.sourceFrame.midX, y: context.sourceFrame.midY)
+            context.underlayView.alpha = 0
+        }, completion: { [weak self] _ in
+            self?.cleanupCardMinimizeTransition(revealPlayer: true)
+        })
+    }
+
+    private func makeCardMinimizeTransitionContext(
+        state: MobilePlayerLayoutInteractionState
+    ) -> CardMinimizeTransitionContext? {
+        guard state.canMinimizeCardNftToFourPerPage,
+              let selectedSlot = state.fourPerPageSelectedSlot,
+              state.fourPerPageDescriptors.indices.contains(selectedSlot),
+              let currentDescriptor = state.currentDescriptor else {
+            return nil
+        }
+
+        let fallbackImageSize = cardMinimizeFallbackImageSize(for: state, currentDescriptor: currentDescriptor)
+        let sourceFrame = cardMinimizeSourceFrame(for: fallbackImageSize)
+        guard !sourceFrame.isEmpty else {
+            return nil
+        }
+        let foregroundView = makeCardMinimizeForegroundView(
+            sourceFrame: sourceFrame,
+            descriptor: currentDescriptor
+        )
+
+        let underlayView = CardMinimizeUnderlayView(
+            descriptors: state.fourPerPageDescriptors,
+            hiddenSlotIndex: selectedSlot,
+            fallbackImageSize: fallbackImageSize
+        )
+        underlayView.alpha = 0
+        underlayView.frame = playerNavigationController.view.frame
+        underlayView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        view.insertSubview(underlayView, belowSubview: playerNavigationController.view)
+        view.insertSubview(foregroundView, aboveSubview: underlayView)
+        underlayView.setNeedsLayout()
+        underlayView.layoutIfNeeded()
+        let targetFrame = cardMinimizeTargetFrame(in: underlayView)
+        let targetScale = cardMinimizeTargetScale(sourceFrame: sourceFrame, targetFrame: targetFrame)
+
+        return CardMinimizeTransitionContext(
+            sourceFrame: sourceFrame,
+            targetFrame: targetFrame,
+            targetScale: targetScale,
+            foregroundView: foregroundView,
+            underlayView: underlayView
+        )
+    }
+
+    private func makeCardMinimizeForegroundView(
+        sourceFrame: CGRect,
+        descriptor: DownloadableMediaDescriptor
+    ) -> UIView {
+        if let image = DownloadableMediaCache.shared.cachedDecodedImage(for: descriptor) {
+            let imageView = UIImageView(frame: sourceFrame)
+            imageView.backgroundColor = .black
+            imageView.contentMode = .scaleAspectFit
+            imageView.clipsToBounds = true
+            imageView.image = image
+            return imageView
+        }
+
+        let sourceFrameInPlayer = view.convert(sourceFrame, to: playerNavigationController.view)
+        if let snapshot = playerNavigationController.view.resizableSnapshotView(
+            from: sourceFrameInPlayer,
+            afterScreenUpdates: false,
+            withCapInsets: .zero
+        ) {
+            snapshot.frame = sourceFrame
+            snapshot.clipsToBounds = true
+            return snapshot
+        }
+
+        let placeholderView = UIView(frame: sourceFrame)
+        placeholderView.backgroundColor = .black
+        placeholderView.clipsToBounds = true
+        return placeholderView
+    }
+
+    private func cardMinimizeFallbackImageSize(
+        for state: MobilePlayerLayoutInteractionState,
+        currentDescriptor: DownloadableMediaDescriptor
+    ) -> CGSize {
+        if let image = DownloadableMediaCache.shared.cachedDecodedImage(for: currentDescriptor) {
+            return image.size.validOrDefault
+        }
+
+        for descriptor in state.fourPerPageDescriptors {
+            if let image = DownloadableMediaCache.shared.cachedDecodedImage(for: descriptor) {
+                return image.size.validOrDefault
+            }
+        }
+
+        return CGSize(width: 1, height: 1)
+    }
+
+    private func cardMinimizeSourceFrame(for imageSize: CGSize) -> CGRect {
+        let playerBounds = playerNavigationController.view.bounds
+        let frameInPlayer = MobileStaticImageSpreadLayout.centeredAspectFitRect(
+            for: imageSize.validOrDefault,
+            in: playerBounds
+        )
+        let clippedFrame = frameInPlayer.intersection(playerBounds)
+        guard !clippedFrame.isNull, !clippedFrame.isEmpty else {
+            return playerNavigationController.view.convert(playerBounds, to: view)
+        }
+        return playerNavigationController.view.convert(clippedFrame, to: view)
+    }
+
+    private func cardMinimizeTargetFrame(in underlayView: CardMinimizeUnderlayView) -> CGRect? {
+        guard let targetFrame = underlayView.hiddenSlotFrame else { return nil }
+        return underlayView.convert(targetFrame, to: view)
+    }
+
+    private func cardMinimizeTargetScale(sourceFrame: CGRect, targetFrame: CGRect?) -> CGFloat {
+        guard let targetFrame,
+              sourceFrame.width > 0,
+              sourceFrame.height > 0 else {
+            return 0.5
+        }
+
+        return min(targetFrame.width / sourceFrame.width, targetFrame.height / sourceFrame.height)
+    }
+
+    private func cleanupCardMinimizeTransition(revealPlayer: Bool) {
+        let context = activeCardMinimizeContext
+        activeCardMinimizeContext = nil
+        isDismissPanDrivingCardMinimize = false
+
+        if revealPlayer {
+            chrome.setPlayerContentHiddenByCardMinimize(false)
+            playerNavigationController.view.alpha = 1
+            playerNavigationController.view.transform = .identity
+        }
+
+        context?.foregroundView.removeFromSuperview()
+        context?.underlayView.removeFromSuperview()
     }
 
     private func applyDismissPresentation(offsetY: CGFloat, progress: CGFloat) {
@@ -1817,6 +2203,10 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
 
     func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
         if gestureRecognizer === controlsPan {
+            guard !isCardMinimizeTransitionActive else {
+                return false
+            }
+
             let location = controlsPan.location(in: playerNavigationController.view)
             guard !hasZoomedPlayerContent(at: location) else {
                 return false
@@ -1832,6 +2222,9 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         guard !isDismissing else {
             return false
         }
+        guard !isCardMinimizeTransitionActive else {
+            return false
+        }
 
         let location = dismissPan.location(in: playerNavigationController.view)
         let velocity = dismissPan.velocity(in: view)
@@ -1840,7 +2233,8 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
             return false
         }
 
-        return hasPlayerDismissIntent(location: location, velocity: velocity)
+        return cardMinimizeStateForIntent(location: location, velocity: velocity) != nil
+            || hasPlayerDismissIntent(location: location, velocity: velocity)
             || (chrome.showControls && hasControlsHideIntent(location: location, velocity: velocity))
     }
 
@@ -1854,6 +2248,20 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         return bounds.contains(location)
             && velocity.y > MobilePlayerGestureTuning.dismissInitialVelocity
             && velocity.y > abs(velocity.x) * MobilePlayerGestureTuning.dismissVerticalIntentRatio
+    }
+
+    private func cardMinimizeStateForIntent(
+        location: CGPoint,
+        velocity: CGPoint
+    ) -> MobilePlayerLayoutInteractionState? {
+        let state = chrome.layoutInteractionState
+        guard state.canMinimizeCardNftToFourPerPage,
+              !chrome.isPlayerContentZoomed,
+              hasPlayerDismissIntent(location: location, velocity: velocity) else {
+            return nil
+        }
+
+        return state
     }
 
     private func hasControlsRevealIntent(location: CGPoint, velocity: CGPoint) -> Bool {

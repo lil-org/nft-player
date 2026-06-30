@@ -3,6 +3,192 @@
 import UIKit
 import SwiftUI
 
+enum MobilePlayerPageLayoutMetrics {
+    static let spreadCardSpacing: CGFloat = 8
+}
+
+enum MobilePlayerAspectFitLayout {
+    static func size(for contentSize: CGSize, fitting maximumSize: CGSize) -> CGSize {
+        guard contentSize.width > 0,
+              contentSize.height > 0,
+              maximumSize.width > 0,
+              maximumSize.height > 0 else {
+            return .zero
+        }
+
+        let scale = min(
+            maximumSize.width / contentSize.width,
+            maximumSize.height / contentSize.height
+        )
+        return CGSize(
+            width: contentSize.width * scale,
+            height: contentSize.height * scale
+        )
+    }
+}
+
+struct MobileStaticImageSpreadLayout: Equatable {
+    let imageSizes: [CGSize]
+
+    func contentSize(fitting viewportSize: CGSize) -> CGSize {
+        guard !imageSizes.isEmpty else { return viewportSize }
+
+        if usesGrid {
+            return gridContentSize(fitting: viewportSize)
+        }
+
+        let axis = linearAxis(fitting: viewportSize)
+        let imageCount = CGFloat(imageSizes.count)
+        let totalSpacing = CGFloat(imageSizes.count - 1) * MobilePlayerPageLayoutMetrics.spreadCardSpacing
+        let maximumSlotSize: CGSize
+        switch axis {
+        case .horizontal:
+            maximumSlotSize = CGSize(
+                width: max((viewportSize.width - totalSpacing) / imageCount, 0),
+                height: viewportSize.height
+            )
+        case .vertical:
+            maximumSlotSize = CGSize(
+                width: viewportSize.width,
+                height: max((viewportSize.height - totalSpacing) / imageCount, 0)
+            )
+        @unknown default:
+            maximumSlotSize = viewportSize
+        }
+
+        let slotSize = imageSlotSize(fitting: maximumSlotSize)
+        switch axis {
+        case .horizontal:
+            return CGSize(
+                width: slotSize.width * imageCount + totalSpacing,
+                height: slotSize.height
+            )
+        case .vertical:
+            return CGSize(
+                width: slotSize.width,
+                height: slotSize.height * imageCount + totalSpacing
+            )
+        @unknown default:
+            return slotSize
+        }
+    }
+
+    func axis(fitting viewportSize: CGSize) -> NSLayoutConstraint.Axis? {
+        guard !usesGrid else { return nil }
+        return linearAxis(fitting: viewportSize)
+    }
+
+    func itemFrames(fitting viewportSize: CGSize) -> [CGRect] {
+        guard !imageSizes.isEmpty,
+              viewportSize.width > 0,
+              viewportSize.height > 0 else {
+            return []
+        }
+
+        let contentSize = contentSize(fitting: viewportSize)
+        let contentOrigin = CGPoint(
+            x: (viewportSize.width - contentSize.width) / 2,
+            y: (viewportSize.height - contentSize.height) / 2
+        )
+
+        if usesGrid {
+            let spacing = MobilePlayerPageLayoutMetrics.spreadCardSpacing
+            let slotWidth = max((contentSize.width - spacing) / 2, 0)
+            let slotHeight = max((contentSize.height - spacing) / 2, 0)
+            return imageSizes.indices.map { index in
+                let column = CGFloat(index % 2)
+                let row = CGFloat(index / 2)
+                return CGRect(
+                    x: contentOrigin.x + column * (slotWidth + spacing),
+                    y: contentOrigin.y + row * (slotHeight + spacing),
+                    width: slotWidth,
+                    height: slotHeight
+                )
+            }
+        }
+
+        let axis = linearAxis(fitting: viewportSize)
+        let spacing = MobilePlayerPageLayoutMetrics.spreadCardSpacing
+        switch axis {
+        case .horizontal:
+            let slotWidth = max(
+                (contentSize.width - CGFloat(imageSizes.count - 1) * spacing) / CGFloat(imageSizes.count),
+                0
+            )
+            return imageSizes.indices.map { index in
+                CGRect(
+                    x: contentOrigin.x + CGFloat(index) * (slotWidth + spacing),
+                    y: contentOrigin.y,
+                    width: slotWidth,
+                    height: contentSize.height
+                )
+            }
+        case .vertical:
+            let slotHeight = max(
+                (contentSize.height - CGFloat(imageSizes.count - 1) * spacing) / CGFloat(imageSizes.count),
+                0
+            )
+            return imageSizes.indices.map { index in
+                CGRect(
+                    x: contentOrigin.x,
+                    y: contentOrigin.y + CGFloat(index) * (slotHeight + spacing),
+                    width: contentSize.width,
+                    height: slotHeight
+                )
+            }
+        @unknown default:
+            return [CGRect(origin: contentOrigin, size: contentSize)]
+        }
+    }
+
+    static func centeredAspectFitRect(for contentSize: CGSize, in bounds: CGRect) -> CGRect {
+        let fittedSize = MobilePlayerAspectFitLayout.size(for: contentSize, fitting: bounds.size)
+        guard fittedSize.width > 0, fittedSize.height > 0 else { return bounds }
+
+        return CGRect(
+            x: bounds.midX - fittedSize.width / 2,
+            y: bounds.midY - fittedSize.height / 2,
+            width: fittedSize.width,
+            height: fittedSize.height
+        )
+    }
+
+    private var usesGrid: Bool {
+        imageSizes.count == 4
+    }
+
+    private func linearAxis(fitting viewportSize: CGSize) -> NSLayoutConstraint.Axis {
+        viewportSize.width >= viewportSize.height ? .horizontal : .vertical
+    }
+
+    private func gridContentSize(fitting viewportSize: CGSize) -> CGSize {
+        let columnCount: CGFloat = 2
+        let rowCount: CGFloat = 2
+        let horizontalSpacing = (columnCount - 1) * MobilePlayerPageLayoutMetrics.spreadCardSpacing
+        let verticalSpacing = (rowCount - 1) * MobilePlayerPageLayoutMetrics.spreadCardSpacing
+        let maximumSlotSize = CGSize(
+            width: max((viewportSize.width - horizontalSpacing) / columnCount, 0),
+            height: max((viewportSize.height - verticalSpacing) / rowCount, 0)
+        )
+        let slotSize = imageSlotSize(fitting: maximumSlotSize)
+        return CGSize(
+            width: slotSize.width * columnCount + horizontalSpacing,
+            height: slotSize.height * rowCount + verticalSpacing
+        )
+    }
+
+    private func imageSlotSize(fitting maximumSize: CGSize) -> CGSize {
+        imageSizes
+            .map { MobilePlayerAspectFitLayout.size(for: $0, fitting: maximumSize) }
+            .reduce(.zero) { result, slotSize in
+                CGSize(
+                    width: max(result.width, slotSize.width),
+                    height: max(result.height, slotSize.height)
+                )
+            }
+    }
+}
+
 struct Images {
     
     static let close = Image(systemName: "xmark")
@@ -155,6 +341,11 @@ enum MobilePlayerGestureTuning {
     static let dismissTranslationHeightRatio: CGFloat = 0.28
     static let dismissInitialVelocity: CGFloat = 120
     static let dismissUnderlayFadeCompletionProgress: CGFloat = 0.68
+    static let cardMinimizeProgressDistance: CGFloat = 360
+    static let cardMinimizeMinimumTranslation: CGFloat = 110
+    static let cardMinimizeTranslationHeightRatio: CGFloat = 0.18
+    static let cardMinimizeFastSwipeVelocity: CGFloat = 1150
+    static let cardMinimizeMinimumFastSwipeTranslation: CGFloat = 80
     static let controlsRevealVelocity: CGFloat = 150
     static let controlsRevealMinimumTranslation: CGFloat = 44
     static let controlsRevealVerticalIntentRatio: CGFloat = 1.45
