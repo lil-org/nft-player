@@ -23,6 +23,14 @@ enum MobilePlayerPageLayout: CaseIterable, Hashable, Identifiable {
         "HpGDYGz6aRUs5qbvp1dmWGKTicQctX4PixfcouAQDCHF",
     ])
 
+    static func initialLayout(for config: MobilePlayerConfig) -> MobilePlayerPageLayout {
+        guard Self.fourPerPage.supports(descriptor: initialDownloadableMediaDescriptor(for: config)) else {
+            return .onePerPage
+        }
+
+        return .fourPerPage
+    }
+
     var id: Self { self }
 
     var title: String {
@@ -46,6 +54,41 @@ enum MobilePlayerPageLayout: CaseIterable, Hashable, Identifiable {
             }
             return true
         }
+    }
+
+    private static func initialDownloadableMediaDescriptor(for config: MobilePlayerConfig) -> DownloadableMediaDescriptor? {
+        if let widgetTokenInsertion = config.widgetTokenInsertion {
+            return CollectionCatalog.downloadableMediaDescriptor(
+                specificCollectionId: widgetTokenInsertion.collectionId,
+                tokenIndex: widgetTokenInsertion.insertedTokenIndex
+            )
+        }
+
+        if let specificToken = config.specificToken {
+            return CollectionCatalog.downloadableMediaDescriptor(
+                for: CollectionCatalog.tokenContext(for: specificToken)
+            )
+        }
+
+        guard let collectionId = config.initialItemId else { return nil }
+
+        let tokenIndex: Int
+        if let initialTokenId = config.initialTokenId {
+            guard let requestedTokenIndex = CollectionCatalog.tokenIndex(
+                specificCollectionId: collectionId,
+                tokenId: initialTokenId
+            ) else {
+                return nil
+            }
+            tokenIndex = requestedTokenIndex
+        } else {
+            tokenIndex = 0
+        }
+
+        return CollectionCatalog.downloadableMediaDescriptor(
+            specificCollectionId: collectionId,
+            tokenIndex: tokenIndex
+        )
     }
 }
 

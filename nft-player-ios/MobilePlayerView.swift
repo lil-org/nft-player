@@ -94,13 +94,14 @@ struct MobilePlayerView: View {
     @State private var canGoForward = false
     @State private var shareItem: MobilePlayerFileShareItem?
     @State private var isCurrentTokenBookmarked = false
-    @State private var pageLayout: MobilePlayerPageLayout = .onePerPage
+    @State private var pageLayout: MobilePlayerPageLayout
     @State private var supportsCurrentFourPerPageLayout = false
     
     init(config: MobilePlayerConfig, onDismiss: @escaping () -> Void, chrome: MobilePlayerChromeController) {
         self.initialConfig = config
         self.onDismiss = onDismiss
         self.chrome = chrome
+        _pageLayout = State(initialValue: MobilePlayerPageLayout.initialLayout(for: config))
     }
 
     var body: some View {
