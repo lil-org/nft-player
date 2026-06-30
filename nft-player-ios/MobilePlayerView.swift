@@ -147,6 +147,11 @@ struct MobilePlayerView: View {
                     onToggleChrome: {
                         chrome.toggleControls()
                     },
+                    onPageLayoutChangeRequest: { requestedPageLayout in
+                        guard self.pageLayout != requestedPageLayout else { return }
+
+                        self.pageLayout = requestedPageLayout
+                    },
                     onZoomStateChange: { isZoomed in
                         chrome.setPlayerContentZoomed(isZoomed)
                     }
