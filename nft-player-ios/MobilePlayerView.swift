@@ -276,14 +276,6 @@ struct MobilePlayerView: View {
             if !doNotShowInstructionsTmp, let instructions = currentToken.instructions {
                 Text(instructions)
             }
-            if canChangePageLayout {
-                Picker(Strings.pageLayout, selection: $pageLayout) {
-                    ForEach(MobilePlayerPageLayout.allCases) { layout in
-                        Text(layout.title).tag(layout)
-                    }
-                }
-                Divider()
-            }
             Button(Strings.viewOnBlockExplorer, action: viewOnWeb)
         } label: {
             Images.ellipsis
@@ -299,10 +291,6 @@ struct MobilePlayerView: View {
 
     private var canBookmarkCurrentToken: Bool {
         !currentToken.fullCollectionId.isEmpty && !currentToken.id.isEmpty
-    }
-
-    private var canChangePageLayout: Bool {
-        supportsCurrentFourPerPageLayout
     }
 
     private func handleNavigationBarBack() {
