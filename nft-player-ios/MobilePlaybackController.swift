@@ -19,8 +19,10 @@ enum MobilePlayerPageLayout: CaseIterable, Hashable, Identifiable {
     case onePerPage
     case fourPerPage
 
+    static let cardNftCollectionId = "HpGDYGz6aRUs5qbvp1dmWGKTicQctX4PixfcouAQDCHF"
+
     private static let fourPerPageStaticImageCollectionIds = Set([
-        "HpGDYGz6aRUs5qbvp1dmWGKTicQctX4PixfcouAQDCHF",
+        cardNftCollectionId,
     ])
 
     static func initialLayout(for config: MobilePlayerConfig) -> MobilePlayerPageLayout {
@@ -32,6 +34,10 @@ enum MobilePlayerPageLayout: CaseIterable, Hashable, Identifiable {
     }
 
     var id: Self { self }
+
+    static func isCardNftCollection(_ collectionId: String) -> Bool {
+        collectionId == cardNftCollectionId
+    }
 
     var title: String {
         switch self {

@@ -221,7 +221,7 @@ struct MobilePlayerView: View {
         .statusBar(hidden: shouldHideStatusBar)
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {
-                Button(action: onDismiss) {
+                Button(action: handleNavigationBarBack) {
                     Images.back
                 }
                 .accessibilityLabel(Strings.back)
@@ -303,6 +303,17 @@ struct MobilePlayerView: View {
 
     private var canChangePageLayout: Bool {
         supportsCurrentFourPerPageLayout
+    }
+
+    private func handleNavigationBarBack() {
+        guard MobilePlayerPageLayout.isCardNftCollection(currentToken.fullCollectionId),
+              pageLayout == .onePerPage,
+              supportsCurrentFourPerPageLayout else {
+            onDismiss()
+            return
+        }
+
+        pageLayout = .fourPerPage
     }
 
     private func supportsFourPerPageLayout(for pagePosition: PlayerPagePosition) -> Bool {
