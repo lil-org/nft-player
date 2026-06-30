@@ -79,6 +79,7 @@ final class MobilePlayerChromeController: ObservableObject {
     private(set) var isPlayerContentZoomed = false
     private(set) var layoutInteractionState = MobilePlayerLayoutInteractionState.empty
     var onPlayerBackgroundColorChange: ((UIColor) -> Void)?
+    var onCardNftMinimizeToFourPerPageRequest: (() -> Bool)?
 
     init(playerBackgroundColor: UIColor = MobilePlayerBackgroundColor.defaultColor) {
         self.playerBackgroundColor = playerBackgroundColor
@@ -166,6 +167,13 @@ final class MobilePlayerChromeController: ObservableObject {
 
         guard pageLayoutRequest?.id == request.id else { return }
         pageLayoutRequest = nil
+    }
+
+    @discardableResult
+    func requestCardNftMinimizeToFourPerPage() -> Bool {
+        guard Thread.isMainThread else { return false }
+
+        return onCardNftMinimizeToFourPerPageRequest?() == true
     }
 }
 
@@ -398,6 +406,10 @@ struct MobilePlayerView: View {
     private func handleNavigationBarBack() {
         guard canSwitchCurrentCardNftToFourPerPage else {
             onDismiss()
+            return
+        }
+
+        guard !chrome.requestCardNftMinimizeToFourPerPage() else {
             return
         }
 

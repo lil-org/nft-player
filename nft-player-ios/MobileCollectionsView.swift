@@ -1651,6 +1651,9 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         chrome.onPlayerBackgroundColorChange = { [weak self] color in
             self?.setPlayerBackgroundColor(color)
         }
+        chrome.onCardNftMinimizeToFourPerPageRequest = { [weak self] in
+            self?.beginProgrammaticCardMinimize() ?? false
+        }
     }
 
     required init?(coder: NSCoder) {
@@ -1856,6 +1859,34 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
     }
 
     private func beginCardMinimizeGesture(state: MobilePlayerLayoutInteractionState) -> Bool {
+        beginCardMinimizeTransition(state: state, isDrivenByGesture: true)
+    }
+
+    private func beginProgrammaticCardMinimize() -> Bool {
+        guard !isDismissing,
+              !chrome.isPlayerContentZoomed else {
+            return false
+        }
+
+        guard !isCardMinimizeTransitionActive else {
+            return true
+        }
+
+        guard beginCardMinimizeTransition(
+            state: chrome.layoutInteractionState,
+            isDrivenByGesture: false
+        ) else {
+            return false
+        }
+
+        completeCardMinimizeTransition()
+        return true
+    }
+
+    private func beginCardMinimizeTransition(
+        state: MobilePlayerLayoutInteractionState,
+        isDrivenByGesture: Bool
+    ) -> Bool {
         playerNavigationController.view.layer.removeAllAnimations()
         dimmingView.layer.removeAllAnimations()
 
@@ -1864,7 +1895,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         }
 
         activeCardMinimizeContext = context
-        isDismissPanDrivingCardMinimize = true
+        isDismissPanDrivingCardMinimize = isDrivenByGesture
         chrome.setPlayerContentHiddenByCardMinimize(true)
         return true
     }
@@ -1893,10 +1924,10 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
             return
         }
 
-        completeCardMinimizeGesture()
+        completeCardMinimizeTransition()
     }
 
-    private func completeCardMinimizeGesture() {
+    private func completeCardMinimizeTransition() {
         guard let context = activeCardMinimizeContext,
               let targetFrame = context.targetFrame else {
             Haptic.selectionChanged()
