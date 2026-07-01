@@ -342,6 +342,8 @@ enum MobilePlayerGestureTuning {
     static let dismissInitialVelocity: CGFloat = 120
     static let dismissUnderlayFadeCompletionProgress: CGFloat = 0.68
     static let cardMinimizeProgressDistance: CGFloat = 360
+    static let cardMinimizeInteractiveOtherCardsRevealCompletionProgress: CGFloat = 0.68
+    static let cardMinimizeInteractiveOtherCardsMaximumRevealProgress: CGFloat = 0.42
     static let cardMinimizeMinimumTranslation: CGFloat = 110
     static let cardMinimizeTranslationHeightRatio: CGFloat = 0.18
     static let cardMinimizeFastSwipeVelocity: CGFloat = 1150

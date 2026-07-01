@@ -1503,11 +1503,14 @@ private final class PlayerNavigationController: UINavigationController {
 
 private final class CardMinimizeUnderlayView: UIView {
 
+    private static let lateLoadedImageFadeDuration: TimeInterval = 0.14
+
     private let descriptors: [DownloadableMediaDescriptor]
     private let hiddenSlotIndex: Int
     private let layoutImageSizes: [CGSize]
     private var imageViews = [UIImageView]()
     private var imageLoadCancellations = [(() -> Void)?]()
+    private var otherCardsRevealProgress: CGFloat = 0
 
     init(
         descriptors: [DownloadableMediaDescriptor],
@@ -1523,7 +1526,7 @@ private final class CardMinimizeUnderlayView: UIView {
         }
         super.init(frame: .zero)
         isUserInteractionEnabled = false
-        backgroundColor = .clear
+        makeBackgroundTransparent()
         installImageViews()
         loadImages()
     }
@@ -1547,13 +1550,28 @@ private final class CardMinimizeUnderlayView: UIView {
         applyImageFrames()
     }
 
+    func setOtherCardsRevealProgress(_ progress: CGFloat) {
+        let clampedProgress = min(max(progress, 0), 1)
+        otherCardsRevealProgress = clampedProgress
+        for (index, imageView) in imageViews.enumerated() {
+            if index == hiddenSlotIndex {
+                imageView.alpha = 0
+                imageView.isHidden = true
+            } else {
+                imageView.alpha = clampedProgress
+                imageView.isHidden = false
+            }
+        }
+    }
+
     private func installImageViews() {
         imageViews = descriptors.indices.map { index in
             let imageView = UIImageView()
-            imageView.backgroundColor = .black
+            imageView.makeBackgroundTransparent()
             imageView.contentMode = .scaleAspectFit
             imageView.clipsToBounds = true
             imageView.isUserInteractionEnabled = false
+            imageView.alpha = 0
             imageView.isHidden = index == hiddenSlotIndex
             addSubview(imageView)
             return imageView
@@ -1580,7 +1598,27 @@ private final class CardMinimizeUnderlayView: UIView {
     private func setImage(_ image: UIImage, at index: Int) {
         guard imageViews.indices.contains(index) else { return }
 
-        imageViews[index].image = image
+        let imageView = imageViews[index]
+        let shouldFadeInLateImage = index != hiddenSlotIndex
+            && imageView.image == nil
+            && otherCardsRevealProgress > 0
+
+        if shouldFadeInLateImage {
+            imageView.alpha = 0
+        }
+        imageView.image = image
+
+        if shouldFadeInLateImage {
+            let targetRevealProgress = otherCardsRevealProgress
+            UIView.animate(
+                withDuration: Self.lateLoadedImageFadeDuration,
+                delay: 0,
+                options: [.beginFromCurrentState, .allowUserInteraction],
+                animations: {
+                    imageView.alpha = targetRevealProgress
+                }
+            )
+        }
     }
 
     private func applyImageFrames() {
@@ -1944,7 +1982,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
             foregroundView.transform = .identity
             foregroundView.bounds = CGRect(origin: .zero, size: targetFrame.size)
             foregroundView.center = CGPoint(x: targetFrame.midX, y: targetFrame.midY)
-            context.underlayView.alpha = 1
+            context.underlayView.setOtherCardsRevealProgress(1)
         }, completion: { [weak self] _ in
             guard let self else { return }
 
@@ -1964,14 +2002,19 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         let scale = 1 - (1 - context.targetScale) * easedProgress
         let dragOffsetX = translation.x * (1 - 0.18 * easedProgress)
         let dragOffsetY = offsetY * (1 - 0.32 * easedProgress)
-        let underlayFadeProgress = min(progress / MobilePlayerGestureTuning.dismissUnderlayFadeCompletionProgress, 1)
+        let underlayFadeProgress = min(
+            progress / MobilePlayerGestureTuning.cardMinimizeInteractiveOtherCardsRevealCompletionProgress,
+            1
+        )
 
         context.foregroundView.center = CGPoint(
             x: context.sourceFrame.midX + dragOffsetX,
             y: context.sourceFrame.midY + dragOffsetY
         )
         context.foregroundView.transform = CGAffineTransform(scaleX: scale, y: scale)
-        context.underlayView.alpha = easeOutQuadratic(underlayFadeProgress)
+        let otherCardsRevealProgress = easeOutQuadratic(underlayFadeProgress)
+            * MobilePlayerGestureTuning.cardMinimizeInteractiveOtherCardsMaximumRevealProgress
+        context.underlayView.setOtherCardsRevealProgress(otherCardsRevealProgress)
     }
 
     private func resetCardMinimizeTransform() {
@@ -1986,7 +2029,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
             context.foregroundView.transform = .identity
             context.foregroundView.bounds = CGRect(origin: .zero, size: context.sourceFrame.size)
             context.foregroundView.center = CGPoint(x: context.sourceFrame.midX, y: context.sourceFrame.midY)
-            context.underlayView.alpha = 0
+            context.underlayView.setOtherCardsRevealProgress(0)
         }, completion: { [weak self] _ in
             self?.cleanupCardMinimizeTransition(revealPlayer: true)
         })
@@ -2017,7 +2060,6 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
             hiddenSlotIndex: selectedSlot,
             fallbackImageSize: fallbackImageSize
         )
-        underlayView.alpha = 0
         underlayView.frame = playerNavigationController.view.frame
         underlayView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         view.insertSubview(underlayView, belowSubview: playerNavigationController.view)
@@ -2042,7 +2084,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
     ) -> UIView {
         if let image = DownloadableMediaCache.shared.cachedDecodedImage(for: descriptor) {
             let imageView = UIImageView(frame: sourceFrame)
-            imageView.backgroundColor = .black
+            imageView.makeBackgroundTransparent()
             imageView.contentMode = .scaleAspectFit
             imageView.clipsToBounds = true
             imageView.image = image
@@ -2061,7 +2103,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         }
 
         let placeholderView = UIView(frame: sourceFrame)
-        placeholderView.backgroundColor = .black
+        placeholderView.backgroundColor = MobilePlayerBackgroundColor.defaultColor
         placeholderView.clipsToBounds = true
         return placeholderView
     }
