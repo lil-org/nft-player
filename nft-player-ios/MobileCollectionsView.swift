@@ -1948,6 +1948,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         gesture.oppositeDirectionFailureScale = MobilePlayerGestureTuning.cardMinimizePinchZoomInFailureScale
         gesture.canTrackPinch = { [weak self] gesture in
             guard let self else { return false }
+            self.configurePagingScrollViews()
             return self.canBeginCardMinimizeInteraction(
                 location: gesture.pinchLocation(in: self.playerNavigationController.view)
             )
@@ -1961,6 +1962,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         gesture.oppositeDirectionFailureScale = MobilePlayerGestureTuning.cardExpandPinchZoomOutFailureScale
         gesture.canTrackPinch = { [weak self] gesture in
             guard let self else { return false }
+            self.configurePagingScrollViews()
             return self.canSelectCardExpandPinch(for: gesture)
         }
         gesture.onReset = { [weak self] in
