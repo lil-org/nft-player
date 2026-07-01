@@ -2027,7 +2027,6 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
     private func completeCardMinimizeTransition() {
         guard let context = activeCardMinimizeContext,
               let targetFrame = context.targetFrame else {
-            Haptic.selectionChanged()
             chrome.requestPageLayout(.fourPerPage) { [weak self] in
                 self?.cleanupCardMinimizeTransition(revealPlayer: true)
             }
@@ -2035,7 +2034,6 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         }
 
         let foregroundView = context.foregroundView
-        Haptic.selectionChanged()
 
         UIView.animate(withDuration: 0.22, delay: 0, options: [.curveEaseOut, .beginFromCurrentState], animations: {
             foregroundView.transform = .identity
