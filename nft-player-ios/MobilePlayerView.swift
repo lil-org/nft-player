@@ -24,12 +24,74 @@ private let playerNavigationArrowSpacing: CGFloat = 4
 struct MobilePlayerPageLayoutRequest {
     let id = UUID()
     let pageLayout: MobilePlayerPageLayout
+    let targetPagePosition: PlayerPagePosition?
     let completion: (() -> Void)?
 }
 
+struct MobilePlayerPageLayoutCompletionCancellationRequest {
+    let id = UUID()
+    let pageLayoutRequestID: UUID
+}
+
+enum MobilePlayerCardNftExpandSelectionResult {
+    case started
+    case busy
+    case fallbackToImmediateOpen
+    case rejected
+}
+
 private struct MobilePlayerPendingPageLayoutCompletion {
+    let requestID: UUID
     let pageLayout: MobilePlayerPageLayout
+    let targetPagePosition: PlayerPagePosition?
     let completion: () -> Void
+}
+
+struct MobilePlayerCardNftGridSelection {
+    let pagePosition: PlayerPagePosition
+    let selectedSlotIndex: Int
+    let fourPerPageDescriptors: [DownloadableMediaDescriptor]
+    let fourPerPageImages: [UIImage]
+
+    init?(
+        pagePosition: PlayerPagePosition,
+        selectedSlotIndex: Int,
+        fourPerPageDescriptors: [DownloadableMediaDescriptor],
+        fourPerPageImages: [UIImage]
+    ) {
+        guard fourPerPageDescriptors.indices.contains(selectedSlotIndex),
+              fourPerPageImages.count == fourPerPageDescriptors.count else {
+            return nil
+        }
+
+        let selectedDescriptor = fourPerPageDescriptors[selectedSlotIndex]
+        guard MobilePlayerPageLayout.isCardNftCollection(selectedDescriptor.collectionId),
+              MobilePlayerPageLayout.fourPerPage.supports(descriptor: selectedDescriptor) else {
+            return nil
+        }
+
+        self.pagePosition = pagePosition
+        self.selectedSlotIndex = selectedSlotIndex
+        self.fourPerPageDescriptors = fourPerPageDescriptors
+        self.fourPerPageImages = fourPerPageImages
+    }
+
+    var selectedDescriptor: DownloadableMediaDescriptor {
+        fourPerPageDescriptors[selectedSlotIndex]
+    }
+
+    var selectedImage: UIImage {
+        fourPerPageImages[selectedSlotIndex]
+    }
+
+    var selectedImageSize: CGSize {
+        selectedImage.size
+    }
+
+    var fourPerPageImageSizes: [CGSize] {
+        fourPerPageImages.map(\.size)
+    }
+
 }
 
 struct MobilePlayerLayoutInteractionState: Equatable {
@@ -73,13 +135,15 @@ struct MobilePlayerLayoutInteractionState: Equatable {
 final class MobilePlayerChromeController: ObservableObject {
     @Published private(set) var showControls = false
     @Published private(set) var isStatusBarRevealedByDismiss = false
-    @Published private(set) var isPlayerContentHiddenByCardMinimize = false
+    @Published private(set) var isPlayerContentHiddenForCardTransition = false
     @Published private(set) var pageLayoutRequest: MobilePlayerPageLayoutRequest?
+    @Published private(set) var pageLayoutCompletionCancellationRequest: MobilePlayerPageLayoutCompletionCancellationRequest?
     private(set) var playerBackgroundColor: UIColor
     private(set) var isPlayerContentZoomed = false
     private(set) var layoutInteractionState = MobilePlayerLayoutInteractionState.empty
     var onPlayerBackgroundColorChange: ((UIColor) -> Void)?
     var onCardNftMinimizeToFourPerPageRequest: (() -> Bool)?
+    var onCardNftExpandFromFourPerPageRequest: ((MobilePlayerCardNftGridSelection) -> MobilePlayerCardNftExpandSelectionResult)?
 
     init(playerBackgroundColor: UIColor = MobilePlayerBackgroundColor.defaultColor) {
         self.playerBackgroundColor = playerBackgroundColor
@@ -130,14 +194,14 @@ final class MobilePlayerChromeController: ObservableObject {
         isPlayerContentZoomed = isZoomed
     }
 
-    func setPlayerContentHiddenByCardMinimize(_ isHidden: Bool) {
+    func setPlayerContentHiddenForCardTransition(_ isHidden: Bool) {
         guard Thread.isMainThread else {
-            DispatchQueue.main.async { self.setPlayerContentHiddenByCardMinimize(isHidden) }
+            DispatchQueue.main.async { self.setPlayerContentHiddenForCardTransition(isHidden) }
             return
         }
 
-        guard isPlayerContentHiddenByCardMinimize != isHidden else { return }
-        isPlayerContentHiddenByCardMinimize = isHidden
+        guard isPlayerContentHiddenForCardTransition != isHidden else { return }
+        isPlayerContentHiddenForCardTransition = isHidden
     }
 
     func setLayoutInteractionState(_ state: MobilePlayerLayoutInteractionState) {
@@ -150,13 +214,27 @@ final class MobilePlayerChromeController: ObservableObject {
         layoutInteractionState = state
     }
 
-    func requestPageLayout(_ pageLayout: MobilePlayerPageLayout, completion: (() -> Void)? = nil) {
+    @discardableResult
+    func requestPageLayout(
+        _ pageLayout: MobilePlayerPageLayout,
+        targetPagePosition: PlayerPagePosition? = nil,
+        completion: (() -> Void)? = nil
+    ) -> UUID {
+        let request = MobilePlayerPageLayoutRequest(
+            pageLayout: pageLayout,
+            targetPagePosition: targetPagePosition,
+            completion: completion
+        )
+
         guard Thread.isMainThread else {
-            DispatchQueue.main.async { self.requestPageLayout(pageLayout, completion: completion) }
-            return
+            DispatchQueue.main.async {
+                self.pageLayoutRequest = request
+            }
+            return request.id
         }
 
-        pageLayoutRequest = MobilePlayerPageLayoutRequest(pageLayout: pageLayout, completion: completion)
+        pageLayoutRequest = request
+        return request.id
     }
 
     func clearPageLayoutRequest(_ request: MobilePlayerPageLayoutRequest) {
@@ -169,11 +247,43 @@ final class MobilePlayerChromeController: ObservableObject {
         pageLayoutRequest = nil
     }
 
+    func cancelPageLayoutRequestCompletion(_ pageLayoutRequestID: UUID) {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async {
+                self.cancelPageLayoutRequestCompletion(pageLayoutRequestID)
+            }
+            return
+        }
+
+        pageLayoutCompletionCancellationRequest = MobilePlayerPageLayoutCompletionCancellationRequest(
+            pageLayoutRequestID: pageLayoutRequestID
+        )
+    }
+
+    func clearPageLayoutCompletionCancellationRequest(_ request: MobilePlayerPageLayoutCompletionCancellationRequest) {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { self.clearPageLayoutCompletionCancellationRequest(request) }
+            return
+        }
+
+        guard pageLayoutCompletionCancellationRequest?.id == request.id else { return }
+        pageLayoutCompletionCancellationRequest = nil
+    }
+
     @discardableResult
     func requestCardNftMinimizeToFourPerPage() -> Bool {
         guard Thread.isMainThread else { return false }
 
         return onCardNftMinimizeToFourPerPageRequest?() == true
+    }
+
+    @discardableResult
+    func requestCardNftExpandFromFourPerPage(
+        _ selection: MobilePlayerCardNftGridSelection
+    ) -> MobilePlayerCardNftExpandSelectionResult {
+        guard Thread.isMainThread else { return .rejected }
+
+        return onCardNftExpandFromFourPerPageRequest?(selection) ?? .fallbackToImmediateOpen
     }
 }
 
@@ -194,6 +304,7 @@ struct MobilePlayerView: View {
     @State private var shareItem: MobilePlayerFileShareItem?
     @State private var isCurrentTokenBookmarked = false
     @State private var pageLayout: MobilePlayerPageLayout
+    @State private var pageLayoutTargetPagePosition: PlayerPagePosition?
     @State private var supportsCurrentFourPerPageLayout = false
     @State private var pendingPageLayoutCompletion: MobilePlayerPendingPageLayoutCompletion?
     
@@ -212,6 +323,7 @@ struct MobilePlayerView: View {
                 HorizontalPlayerContainerView(
                     initialConfig: initialConfig,
                     pageLayout: pageLayout,
+                    pageLayoutTargetPagePosition: pageLayoutTargetPagePosition,
                     onPagePositionUpdate: { newPagePosition in
                         DispatchQueue.main.async {
                             let token = MobilePlaybackController.shared.getToken(uuid: initialConfig.id, pagePosition: newPagePosition)
@@ -238,6 +350,9 @@ struct MobilePlayerView: View {
                             self.updateNavigationAvailability(for: newPagePosition)
                             self.updateShareItem(for: newPagePosition)
                             self.updateBookmarkState(for: token)
+                            if self.pageLayoutTargetPagePosition == newPagePosition {
+                                self.pageLayoutTargetPagePosition = nil
+                            }
                             updateExternalDisplayToken(token)
                         }
                     },
@@ -251,8 +366,14 @@ struct MobilePlayerView: View {
                     onPageLayoutChangeRequest: { requestedPageLayout in
                         self.applyPageLayout(requestedPageLayout)
                     },
-                    onPageLayoutContentReady: { readyPageLayout in
-                        self.completePendingPageLayoutRequest(for: readyPageLayout)
+                    handleCardNftExpandSelection: { selection in
+                        chrome.requestCardNftExpandFromFourPerPage(selection)
+                    },
+                    onPageLayoutContentReady: { readyPageLayout, readyPagePosition in
+                        self.completePendingPageLayoutRequest(
+                            for: readyPageLayout,
+                            pagePosition: readyPagePosition
+                        )
                     },
                     onZoomStateChange: { isZoomed in
                         chrome.setPlayerContentZoomed(isZoomed)
@@ -260,8 +381,8 @@ struct MobilePlayerView: View {
                 )
                 .edgesIgnoringSafeArea(.all)
                 .contentShape(Rectangle())
-                .opacity(chrome.isPlayerContentHiddenByCardMinimize ? 0 : 1)
-                .allowsHitTesting(!chrome.isPlayerContentHiddenByCardMinimize)
+                .opacity(chrome.isPlayerContentHiddenForCardTransition ? 0 : 1)
+                .allowsHitTesting(!chrome.isPlayerContentHiddenForCardTransition)
 
                 VStack {
                     Spacer()
@@ -343,8 +464,9 @@ struct MobilePlayerView: View {
         }
         .onDisappear {
             chrome.setLayoutInteractionState(.empty)
-            chrome.setPlayerContentHiddenByCardMinimize(false)
+            chrome.setPlayerContentHiddenForCardTransition(false)
             pendingPageLayoutCompletion = nil
+            pageLayoutTargetPagePosition = nil
             updateExternalDisplayToken(GeneratedToken.empty)
             NativeMetalCardView.resetMotionCalibration()
             MobilePlaybackController.shared.stopAndDisconnect(uuid: initialConfig.id)
@@ -352,6 +474,10 @@ struct MobilePlayerView: View {
         .onReceive(chrome.$pageLayoutRequest) { request in
             guard let request else { return }
             handlePageLayoutRequest(request)
+        }
+        .onReceive(chrome.$pageLayoutCompletionCancellationRequest) { request in
+            guard let request else { return }
+            handlePageLayoutCompletionCancellationRequest(request)
         }
         .onReceive(NotificationCenter.default.publisher(for: .downloadableMediaCacheFileAvailabilityDidChange)) { _ in
             updateShareItem(for: currentPagePosition)
@@ -432,7 +558,12 @@ struct MobilePlayerView: View {
         let didAcceptRequest: Bool
         switch request.pageLayout {
         case .onePerPage:
-            didAcceptRequest = applyPageLayout(.onePerPage)
+            if let targetPagePosition = request.targetPagePosition,
+               !MobilePlaybackController.shared.canRender(uuid: initialConfig.id, pagePosition: targetPagePosition) {
+                request.completion?()
+                return
+            }
+            didAcceptRequest = applyPageLayout(.onePerPage, targetPagePosition: request.targetPagePosition)
         case .fourPerPage:
             guard canSwitchCurrentCardNftToFourPerPage else {
                 request.completion?()
@@ -448,19 +579,44 @@ struct MobilePlayerView: View {
 
         if let completion = request.completion {
             pendingPageLayoutCompletion = MobilePlayerPendingPageLayoutCompletion(
+                requestID: request.id,
                 pageLayout: request.pageLayout,
+                targetPagePosition: request.targetPagePosition,
                 completion: completion
             )
         }
     }
 
-    private func completePendingPageLayoutRequest(for readyPageLayout: MobilePlayerPageLayout) {
+    private func handlePageLayoutCompletionCancellationRequest(_ request: MobilePlayerPageLayoutCompletionCancellationRequest) {
+        defer {
+            chrome.clearPageLayoutCompletionCancellationRequest(request)
+        }
+
+        guard let pendingPageLayoutCompletion,
+              pendingPageLayoutCompletion.requestID == request.pageLayoutRequestID else {
+            return
+        }
+
+        self.pendingPageLayoutCompletion = nil
+    }
+
+    private func completePendingPageLayoutRequest(
+        for readyPageLayout: MobilePlayerPageLayout,
+        pagePosition readyPagePosition: PlayerPagePosition
+    ) {
         guard let pendingPageLayoutCompletion,
               pendingPageLayoutCompletion.pageLayout == readyPageLayout else {
             return
         }
+        if let pendingTargetPagePosition = pendingPageLayoutCompletion.targetPagePosition,
+           pendingTargetPagePosition != readyPagePosition {
+            return
+        }
 
         let completion = pendingPageLayoutCompletion.completion
+        if pageLayoutTargetPagePosition == pendingPageLayoutCompletion.targetPagePosition {
+            pageLayoutTargetPagePosition = nil
+        }
         self.pendingPageLayoutCompletion = nil
         DispatchQueue.main.async {
             completion()
@@ -474,16 +630,45 @@ struct MobilePlayerView: View {
     }
 
     @discardableResult
-    private func applyPageLayout(_ requestedPageLayout: MobilePlayerPageLayout) -> Bool {
-        guard pageLayout != requestedPageLayout else {
+    private func applyPageLayout(
+        _ requestedPageLayout: MobilePlayerPageLayout,
+        targetPagePosition: PlayerPagePosition? = nil
+    ) -> Bool {
+        guard !isPageLayoutRequestAlreadyApplied(
+            requestedPageLayout,
+            targetPagePosition: targetPagePosition
+        ) else {
+            if targetPagePosition != nil {
+                pageLayoutTargetPagePosition = nil
+            }
             updateLayoutInteractionState()
             return false
+        }
+
+        if let targetPagePosition {
+            pageLayoutTargetPagePosition = targetPagePosition
+        } else if pageLayout != requestedPageLayout {
+            pageLayoutTargetPagePosition = nil
+        }
+
+        guard pageLayout != requestedPageLayout else {
+            updateLayoutInteractionState()
+            return targetPagePosition != nil
         }
 
         pageLayout = requestedPageLayout
         updateNavigationAvailability(for: currentPagePosition)
         updateLayoutInteractionState()
         return true
+    }
+
+    private func isPageLayoutRequestAlreadyApplied(
+        _ requestedPageLayout: MobilePlayerPageLayout,
+        targetPagePosition: PlayerPagePosition?
+    ) -> Bool {
+        guard pageLayout == requestedPageLayout else { return false }
+        guard let targetPagePosition else { return true }
+        return currentPagePosition == targetPagePosition
     }
 
     private func updateLayoutInteractionState() {

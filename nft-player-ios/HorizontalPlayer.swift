@@ -135,6 +135,18 @@ final class FullscreenTokenMediaRenderer {
         }?.offset
     }
 
+    func imageSpreadImages() -> [UIImage]? {
+        guard let imageSpreadStackView,
+              !imageSpreadStackView.isHidden,
+              imageSpreadStackView.window != nil else {
+            return nil
+        }
+
+        let images = imageSpreadViews.compactMap(\.image)
+        guard images.count == imageSpreadViews.count else { return nil }
+        return images
+    }
+
     func renderImage<Key: Hashable>(
         key: Key,
         hideImageUntilLoaded: Bool,
@@ -692,32 +704,38 @@ struct HorizontalPlayerContainerView: UIViewControllerRepresentable {
 
     private let initialConfig: MobilePlayerConfig
     private let pageLayout: MobilePlayerPageLayout
+    private let pageLayoutTargetPagePosition: PlayerPagePosition?
     private let onPagePositionUpdate: ((PlayerPagePosition) -> Void)
     private let onPaginationAttempt: (() -> Void)
     private let onUnavailableNavigation: (() -> Void)
     private let onToggleChrome: (() -> Void)
     private let onPageLayoutChangeRequest: ((MobilePlayerPageLayout) -> Void)
-    private let onPageLayoutContentReady: ((MobilePlayerPageLayout) -> Void)
+    private let handleCardNftExpandSelection: ((MobilePlayerCardNftGridSelection) -> MobilePlayerCardNftExpandSelectionResult)
+    private let onPageLayoutContentReady: ((MobilePlayerPageLayout, PlayerPagePosition) -> Void)
     private let onZoomStateChange: ((Bool) -> Void)
 
     init(
         initialConfig: MobilePlayerConfig,
         pageLayout: MobilePlayerPageLayout,
+        pageLayoutTargetPagePosition: PlayerPagePosition?,
         onPagePositionUpdate: @escaping (PlayerPagePosition) -> Void,
         onPaginationAttempt: @escaping () -> Void,
         onUnavailableNavigation: @escaping () -> Void,
         onToggleChrome: @escaping () -> Void,
         onPageLayoutChangeRequest: @escaping (MobilePlayerPageLayout) -> Void,
-        onPageLayoutContentReady: @escaping (MobilePlayerPageLayout) -> Void,
+        handleCardNftExpandSelection: @escaping (MobilePlayerCardNftGridSelection) -> MobilePlayerCardNftExpandSelectionResult,
+        onPageLayoutContentReady: @escaping (MobilePlayerPageLayout, PlayerPagePosition) -> Void,
         onZoomStateChange: @escaping (Bool) -> Void
     ) {
         self.initialConfig = initialConfig
         self.pageLayout = pageLayout
+        self.pageLayoutTargetPagePosition = pageLayoutTargetPagePosition
         self.onPagePositionUpdate = onPagePositionUpdate
         self.onPaginationAttempt = onPaginationAttempt
         self.onUnavailableNavigation = onUnavailableNavigation
         self.onToggleChrome = onToggleChrome
         self.onPageLayoutChangeRequest = onPageLayoutChangeRequest
+        self.handleCardNftExpandSelection = handleCardNftExpandSelection
         self.onPageLayoutContentReady = onPageLayoutContentReady
         self.onZoomStateChange = onZoomStateChange
     }
@@ -731,13 +749,14 @@ struct HorizontalPlayerContainerView: UIViewControllerRepresentable {
             onUnavailableNavigation: onUnavailableNavigation,
             onToggleChrome: onToggleChrome,
             onPageLayoutChangeRequest: onPageLayoutChangeRequest,
+            handleCardNftExpandSelection: handleCardNftExpandSelection,
             onPageLayoutContentReady: onPageLayoutContentReady,
             onZoomStateChange: onZoomStateChange
         )
     }
 
     func updateUIViewController(_ uiViewController: HorizontalPlayerContainer, context: Context) {
-        uiViewController.setPageLayout(pageLayout)
+        uiViewController.setPageLayout(pageLayout, targetPagePosition: pageLayoutTargetPagePosition)
     }
 }
 
@@ -750,7 +769,8 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
     private let onUnavailableNavigation: (() -> Void)
     private let onToggleChrome: (() -> Void)
     private let onPageLayoutChangeRequest: ((MobilePlayerPageLayout) -> Void)
-    private let onPageLayoutContentReady: ((MobilePlayerPageLayout) -> Void)
+    private let handleCardNftExpandSelection: ((MobilePlayerCardNftGridSelection) -> MobilePlayerCardNftExpandSelectionResult)
+    private let onPageLayoutContentReady: ((MobilePlayerPageLayout, PlayerPagePosition) -> Void)
     private let onZoomStateChange: ((Bool) -> Void)
 
     private lazy var pagingVC = HorizontalPageViewController(
@@ -811,7 +831,8 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
         onUnavailableNavigation: @escaping () -> Void,
         onToggleChrome: @escaping () -> Void,
         onPageLayoutChangeRequest: @escaping (MobilePlayerPageLayout) -> Void,
-        onPageLayoutContentReady: @escaping (MobilePlayerPageLayout) -> Void,
+        handleCardNftExpandSelection: @escaping (MobilePlayerCardNftGridSelection) -> MobilePlayerCardNftExpandSelectionResult,
+        onPageLayoutContentReady: @escaping (MobilePlayerPageLayout, PlayerPagePosition) -> Void,
         onZoomStateChange: @escaping (Bool) -> Void
     ) {
         self.initialConfig = initialConfig
@@ -821,6 +842,7 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
         self.onUnavailableNavigation = onUnavailableNavigation
         self.onToggleChrome = onToggleChrome
         self.onPageLayoutChangeRequest = onPageLayoutChangeRequest
+        self.handleCardNftExpandSelection = handleCardNftExpandSelection
         self.onPageLayoutContentReady = onPageLayoutContentReady
         self.onZoomStateChange = onZoomStateChange
         super.init(nibName: nil, bundle: nil)
@@ -871,14 +893,29 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
         pagingVC.navigate(direction)
     }
 
-    func setPageLayout(_ pageLayout: MobilePlayerPageLayout) {
-        guard self.pageLayout != pageLayout else { return }
+    @discardableResult
+    func setPageLayout(_ pageLayout: MobilePlayerPageLayout, targetPagePosition: PlayerPagePosition? = nil) -> Bool {
+        let shouldApplyTargetPagePosition = targetPagePosition.map {
+            self.pageLayout != pageLayout || pagingVC.getCurrentPagePosition() != $0
+        } ?? false
+        guard shouldApplyTargetPagePosition || self.pageLayout != pageLayout else { return false }
 
+        let previousPageLayout = self.pageLayout
         self.pageLayout = pageLayout
         if !allowsEdgeTapNavigation {
             clearEdgeTapHighlights()
         }
-        pagingVC.setPageLayout(pageLayout)
+        let didSetPageLayout: Bool
+        if shouldApplyTargetPagePosition, let targetPagePosition {
+            didSetPageLayout = pagingVC.setPageLayout(pageLayout, targetPagePosition: targetPagePosition)
+        } else {
+            didSetPageLayout = pagingVC.setPageLayout(pageLayout)
+        }
+        guard didSetPageLayout else {
+            self.pageLayout = previousPageLayout
+            return false
+        }
+        return true
     }
 
     private var allowsEdgeTapNavigation: Bool {
@@ -926,10 +963,25 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
 
     private func selectFourPerPageCard(at location: CGPoint) -> Bool {
         guard pageLayout == .fourPerPage,
-              pagingVC.selectFourPerPageCard(at: location, in: view) else {
+              let selection = pagingVC.cardNftGridSelection(at: location, in: view) else {
             return false
         }
 
+        switch handleCardNftExpandSelection(selection) {
+        case .started:
+            Haptic.selectionChanged()
+            return true
+        case .busy:
+            return true
+        case .fallbackToImmediateOpen:
+            break
+        case .rejected:
+            return true
+        }
+
+        guard pagingVC.openCardNftGridSelection(selection) else {
+            return false
+        }
         pageLayout = .onePerPage
         onPageLayoutChangeRequest(.onePerPage)
         Haptic.selectionChanged()
@@ -1215,7 +1267,7 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
             return
         }
 
-        onPageLayoutContentReady(pageLayout)
+        onPageLayoutContentReady(pageLayout, pagePosition)
     }
 
     fileprivate func didCleanupPagePosition(_ pagePosition: PlayerPagePosition) {
@@ -1415,6 +1467,32 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         let descriptors: [DownloadableMediaDescriptor]
     }
 
+    private struct StaticImageSpreadSelection {
+        let index: Int
+        let pagePosition: PlayerPagePosition
+    }
+
+    private struct StaticImageSpreadRenderState {
+        let pagePosition: PlayerPagePosition
+        let descriptors: [DownloadableMediaDescriptor]
+
+        init(pagePosition: PlayerPagePosition, descriptors: [DownloadableMediaDescriptor]) {
+            self.pagePosition = pagePosition
+            self.descriptors = descriptors
+        }
+
+        func selection(at index: Int) -> StaticImageSpreadSelection? {
+            guard descriptors.indices.contains(index) else {
+                return nil
+            }
+
+            return StaticImageSpreadSelection(
+                index: index,
+                pagePosition: pagePosition.advanced(by: index)
+            )
+        }
+    }
+
     private enum ZoomContentLayout: Equatable {
         case viewport
         case staticImage(CGSize)
@@ -1460,7 +1538,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     private var isZoomInteractionActive = false
     private var pageLayout: MobilePlayerPageLayout
     private var needsPageLayoutRender = false
-    private var imageSpreadPagePositions = [PlayerPagePosition]()
+    private var imageSpreadRenderState: StaticImageSpreadRenderState?
     private var zoomContentLayout: ZoomContentLayout = .viewport
     private var zoomAllowedContent: ZoomAllowedContent = .fullContent
     private var laidOutZoomViewportSize: CGSize = .zero
@@ -1530,7 +1608,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         setZoomContentLayout(.viewport)
         clearAnimatedRenderContext()
         mediaRenderer.clearContent()
-        imageSpreadPagePositions.removeAll()
+        imageSpreadRenderState = nil
         if let renderedPagePosition {
             playerDataSource?.didCleanupPagePosition(renderedPagePosition)
         }
@@ -1578,14 +1656,35 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         renderCurrentItem()
     }
 
-    func imageSpreadPagePosition(at location: CGPoint, in coordinateView: UIView) -> PlayerPagePosition? {
+    private func imageSpreadSelection(
+        at location: CGPoint,
+        in coordinateView: UIView
+    ) -> StaticImageSpreadSelection? {
         guard usesFourPerPageLayoutForCurrentPagePosition,
               let spreadIndex = mediaRenderer.imageSpreadIndex(at: location, in: coordinateView),
-              imageSpreadPagePositions.indices.contains(spreadIndex) else {
+              let spreadSelection = imageSpreadRenderState?.selection(at: spreadIndex) else {
             return nil
         }
 
-        return imageSpreadPagePositions[spreadIndex]
+        return spreadSelection
+    }
+
+    func cardNftGridSelection(at location: CGPoint, in coordinateView: UIView) -> MobilePlayerCardNftGridSelection? {
+        guard let spreadSelection = imageSpreadSelection(at: location, in: coordinateView) else {
+            return nil
+        }
+
+        guard let renderState = imageSpreadRenderState,
+              let images = mediaRenderer.imageSpreadImages() else {
+            return nil
+        }
+
+        return MobilePlayerCardNftGridSelection(
+            pagePosition: spreadSelection.pagePosition,
+            selectedSlotIndex: spreadSelection.index,
+            fourPerPageDescriptors: renderState.descriptors,
+            fourPerPageImages: images
+        )
     }
 
     func toggleZoom(at location: CGPoint, in coordinateView: UIView) {
@@ -1902,7 +2001,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             cleanupDisplayedContent()
         }
         beginRenderingPagePosition(pagePosition)
-        imageSpreadPagePositions.removeAll()
+        imageSpreadRenderState = nil
 
         guard let token = playerDataSource?.getToken(pagePosition: pagePosition) else {
             playerDataSource?.clearDownloadableMediaWindow()
@@ -2014,7 +2113,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         self.pagePosition = pagePosition
         resetZoom(animated: false)
         beginRenderingPagePosition(pagePosition)
-        imageSpreadPagePositions.removeAll()
+        imageSpreadRenderState = nil
         clearAnimatedRenderContext()
         setZoomContentLayout(.staticImage(image.size))
         mediaRenderer.displayLoadedImage(image, key: descriptor)
@@ -2054,7 +2153,10 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         fallbackHTML: String
     ) {
         let imageDescriptors = [descriptor] + companionDescriptors
-        imageSpreadPagePositions = imageDescriptors.indices.map { pagePosition.advanced(by: $0) }
+        imageSpreadRenderState = StaticImageSpreadRenderState(
+            pagePosition: pagePosition,
+            descriptors: imageDescriptors
+        )
         clearAnimatedRenderContext()
         mediaRenderer.renderImageSpread(
             key: StaticImageSpreadRenderKey(
@@ -2068,7 +2170,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             fallbackToPrimary: { [weak self] primaryImage in
                 guard let self else { return }
 
-                self.imageSpreadPagePositions.removeAll()
+                self.imageSpreadRenderState = nil
                 guard let primaryImage else {
                     self.renderImage(descriptor, fallbackHTML: fallbackHTML)
                     return
@@ -2575,21 +2677,33 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
         updatePagingScrollEnabled()
     }
 
-    @discardableResult
-    func selectFourPerPageCard(at location: CGPoint, in coordinateView: UIView) -> Bool {
+    func cardNftGridSelection(at location: CGPoint, in coordinateView: UIView) -> MobilePlayerCardNftGridSelection? {
         guard pageLayout == .fourPerPage,
               canStartNavigation,
-              let selectedPagePosition = currentPage?.imageSpreadPagePosition(at: location, in: coordinateView),
-              canRender(selectedPagePosition) else {
-            return false
+              let selection = currentPage?.cardNftGridSelection(at: location, in: coordinateView),
+              canRender(selection.pagePosition) else {
+            return nil
         }
 
-        reanchorCurrentPage(to: selectedPagePosition, pageLayout: .onePerPage)
-        return true
+        return selection
     }
 
-    func setPageLayout(_ pageLayout: MobilePlayerPageLayout) {
-        guard self.pageLayout != pageLayout else { return }
+    @discardableResult
+    func openCardNftGridSelection(_ selection: MobilePlayerCardNftGridSelection) -> Bool {
+        return reanchorCurrentPage(to: selection.pagePosition, pageLayout: .onePerPage)
+    }
+
+    @discardableResult
+    func setPageLayout(_ pageLayout: MobilePlayerPageLayout, targetPagePosition: PlayerPagePosition? = nil) -> Bool {
+        if let targetPagePosition {
+            return reanchorCurrentPage(
+                to: targetPagePosition,
+                pageLayout: pageLayout,
+                forceDisplayUpdate: true
+            )
+        }
+
+        guard self.pageLayout != pageLayout else { return false }
 
         if pageLayout == .fourPerPage,
            let currentPage {
@@ -2603,12 +2717,11 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
             )
             let didExitWidgetInsertionWithoutChangingPagePosition = stablePageResult.didExitWidgetInsertion
                 && stablePageResult.pagePosition == previousPagePosition
-            reanchorCurrentPage(
+            return reanchorCurrentPage(
                 to: stablePageResult.pagePosition,
                 pageLayout: pageLayout,
                 forceDisplayUpdate: didExitWidgetInsertionWithoutChangingPagePosition
             )
-            return
         }
 
         self.pageLayout = pageLayout
@@ -2619,6 +2732,7 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
             page.setPageLayout(pageLayout, shouldRender: shouldRender)
         }
         updatePagingScrollEnabled()
+        return true
     }
 
     private func resetCurrentZoom(animated: Bool) {
@@ -2798,14 +2912,15 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
         jumpToPagePosition(playerDataSource?.startPagePosition() ?? .initial)
     }
 
+    @discardableResult
     private func reanchorCurrentPage(
         to pagePosition: PlayerPagePosition,
         pageLayout targetPageLayout: MobilePlayerPageLayout,
         forceDisplayUpdate: Bool = false
-    ) {
+    ) -> Bool {
         guard canRender(pagePosition),
               let currentPage else {
-            return
+            return false
         }
 
         let previousPagePosition = currentPage.pagePosition
@@ -2830,6 +2945,7 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
         reloadPageControllerAfterInPlaceNavigation(pageDirection) { [weak self] in
             self?.performPendingNavigationIfNeeded()
         }
+        return true
     }
 
     private func jumpToPagePosition(_ pagePosition: PlayerPagePosition) {

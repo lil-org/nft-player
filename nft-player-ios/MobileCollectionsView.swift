@@ -1501,7 +1501,7 @@ private final class PlayerNavigationController: UINavigationController {
 
 }
 
-private final class CardMinimizeUnderlayView: UIView {
+private final class CardTransitionUnderlayView: UIView {
 
     private static let lateLoadedImageFadeDuration: TimeInterval = 0.14
 
@@ -1515,20 +1515,28 @@ private final class CardMinimizeUnderlayView: UIView {
     init(
         descriptors: [DownloadableMediaDescriptor],
         hiddenSlotIndex: Int,
-        fallbackImageSize: CGSize
+        fallbackImageSize: CGSize,
+        layoutImageSizes: [CGSize]? = nil,
+        initialImages: [UIImage]? = nil
     ) {
         let validFallbackImageSize = fallbackImageSize.validOrDefault
         self.descriptors = descriptors
         self.hiddenSlotIndex = hiddenSlotIndex
-        self.layoutImageSizes = descriptors.map { descriptor in
-            DownloadableMediaCache.shared.cachedDecodedImage(for: descriptor)?.size.validOrDefault
-                ?? validFallbackImageSize
+        if let layoutImageSizes,
+           layoutImageSizes.count == descriptors.count {
+            self.layoutImageSizes = layoutImageSizes.map(\.validOrDefault)
+        } else {
+            self.layoutImageSizes = descriptors.map { descriptor in
+                DownloadableMediaCache.shared.cachedDecodedImage(for: descriptor)?.size.validOrDefault
+                    ?? validFallbackImageSize
+            }
         }
         super.init(frame: .zero)
         isUserInteractionEnabled = false
         makeBackgroundTransparent()
         installImageViews()
-        loadImages()
+        let validInitialImages = initialImages?.count == descriptors.count ? initialImages : nil
+        loadImages(initialImages: validInitialImages)
     }
 
     required init?(coder: NSCoder) {
@@ -1579,9 +1587,14 @@ private final class CardMinimizeUnderlayView: UIView {
         imageLoadCancellations = Array(repeating: nil, count: descriptors.count)
     }
 
-    private func loadImages() {
+    private func loadImages(initialImages: [UIImage]?) {
         for (index, descriptor) in descriptors.enumerated() {
             guard index != hiddenSlotIndex else { continue }
+
+            if let initialImage = initialImages?[index] {
+                setImage(initialImage, at: index)
+                continue
+            }
 
             if let cachedImage = DownloadableMediaCache.shared.cachedDecodedImage(for: descriptor) {
                 setImage(cachedImage, at: index)
@@ -1647,6 +1660,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
     private static let dismissBackgroundClearPassDelay: TimeInterval = 0.05
     private static let dismissGestureBackgroundClearPasses = 4
     private static let finalDismissBackgroundClearPasses = 2
+    private static let cardExpandContentReadyFallbackDelay: TimeInterval = 1.0
 
     private struct PlayerBackgroundSnapshot {
         weak var view: UIView?
@@ -1659,7 +1673,14 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         let targetFrame: CGRect?
         let targetScale: CGFloat
         let foregroundView: UIView
-        let underlayView: CardMinimizeUnderlayView
+        let underlayView: CardTransitionUnderlayView
+    }
+
+    private struct CardExpandTransitionContext {
+        let id: UUID
+        let targetFrame: CGRect
+        let foregroundView: UIView
+        let underlayView: CardTransitionUnderlayView
     }
 
     let playerNavigationController: UINavigationController
@@ -1674,6 +1695,10 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
     private var isDismissPanDrivingPlayerDismiss = false
     private var isDismissPanDrivingCardMinimize = false
     private var activeCardMinimizeContext: CardMinimizeTransitionContext?
+    private var activeCardExpandContext: CardExpandTransitionContext?
+    private var isCardExpandAnimationComplete = false
+    private var isCardExpandContentReady = false
+    private var cardExpandContentReadyFallbackWorkItem: DispatchWorkItem?
     private var didControlsPanConflictWithHorizontalScroll = false
     private var dismissBackgroundSnapshots: [PlayerBackgroundSnapshot] = []
 
@@ -1691,6 +1716,9 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         }
         chrome.onCardNftMinimizeToFourPerPageRequest = { [weak self] in
             self?.beginProgrammaticCardMinimize() ?? false
+        }
+        chrome.onCardNftExpandFromFourPerPageRequest = { [weak self] selection in
+            self?.beginProgrammaticCardExpand(selection: selection) ?? .rejected
         }
     }
 
@@ -1896,6 +1924,10 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         activeCardMinimizeContext != nil || isDismissPanDrivingCardMinimize
     }
 
+    private var isCardTransitionActive: Bool {
+        isCardMinimizeTransitionActive || activeCardExpandContext != nil
+    }
+
     private func beginCardMinimizeGesture(state: MobilePlayerLayoutInteractionState) -> Bool {
         beginCardMinimizeTransition(state: state, isDrivenByGesture: true)
     }
@@ -1906,7 +1938,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
             return false
         }
 
-        guard !isCardMinimizeTransitionActive else {
+        guard !isCardTransitionActive else {
             return true
         }
 
@@ -1919,6 +1951,33 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
 
         completeCardMinimizeTransition()
         return true
+    }
+
+    private func beginProgrammaticCardExpand(
+        selection: MobilePlayerCardNftGridSelection
+    ) -> MobilePlayerCardNftExpandSelectionResult {
+        guard !isDismissing,
+              !chrome.isPlayerContentZoomed else {
+            return .rejected
+        }
+
+        guard !isCardTransitionActive else {
+            return .busy
+        }
+
+        playerNavigationController.view.layer.removeAllAnimations()
+        dimmingView.layer.removeAllAnimations()
+
+        guard let context = makeCardExpandTransitionContext(selection: selection) else {
+            return .fallbackToImmediateOpen
+        }
+
+        activeCardExpandContext = context
+        isCardExpandAnimationComplete = false
+        isCardExpandContentReady = false
+        chrome.setPlayerContentHiddenForCardTransition(true)
+        completeCardExpandTransition(selection: selection)
+        return .started
     }
 
     private func beginCardMinimizeTransition(
@@ -1934,7 +1993,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
 
         activeCardMinimizeContext = context
         isDismissPanDrivingCardMinimize = isDrivenByGesture
-        chrome.setPlayerContentHiddenByCardMinimize(true)
+        chrome.setPlayerContentHiddenForCardTransition(true)
         return true
     }
 
@@ -1993,6 +2052,87 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         })
     }
 
+    private func completeCardExpandTransition(selection: MobilePlayerCardNftGridSelection) {
+        guard let context = activeCardExpandContext else { return }
+        let contextID = context.id
+
+        let pageLayoutRequestID = chrome.requestPageLayout(
+            .onePerPage,
+            targetPagePosition: selection.pagePosition
+        ) { [weak self] in
+            guard let self,
+                  self.activeCardExpandContext?.id == contextID else {
+                return
+            }
+
+            self.isCardExpandContentReady = true
+            self.finishCardExpandTransitionIfReady()
+        }
+
+        UIView.animate(withDuration: 0.18, delay: 0, options: [.curveEaseOut, .beginFromCurrentState], animations: {
+            context.foregroundView.transform = .identity
+            context.foregroundView.bounds = CGRect(origin: .zero, size: context.targetFrame.size)
+            context.foregroundView.center = CGPoint(x: context.targetFrame.midX, y: context.targetFrame.midY)
+            context.underlayView.setOtherCardsRevealProgress(0)
+        }, completion: { [weak self] _ in
+            guard let self,
+                  self.activeCardExpandContext?.id == contextID else {
+                return
+            }
+
+            self.isCardExpandAnimationComplete = true
+            self.finishCardExpandTransitionIfReady()
+            self.scheduleCardExpandContentReadyFallbackIfNeeded(
+                for: contextID,
+                pageLayoutRequestID: pageLayoutRequestID
+            )
+        })
+    }
+
+    private func finishCardExpandTransitionIfReady() {
+        guard activeCardExpandContext != nil,
+              isCardExpandAnimationComplete,
+              isCardExpandContentReady else {
+            return
+        }
+
+        cleanupCardExpandTransition(revealPlayer: true)
+    }
+
+    private func scheduleCardExpandContentReadyFallbackIfNeeded(
+        for contextID: UUID,
+        pageLayoutRequestID: UUID
+    ) {
+        guard activeCardExpandContext?.id == contextID,
+              isCardExpandAnimationComplete,
+              !isCardExpandContentReady else {
+            return
+        }
+
+        cancelCardExpandContentReadyFallback()
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self,
+                  self.activeCardExpandContext?.id == contextID,
+                  self.isCardExpandAnimationComplete,
+                  !self.isCardExpandContentReady else {
+                return
+            }
+
+            self.chrome.cancelPageLayoutRequestCompletion(pageLayoutRequestID)
+            self.cleanupCardExpandTransition(revealPlayer: true)
+        }
+        cardExpandContentReadyFallbackWorkItem = workItem
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + Self.cardExpandContentReadyFallbackDelay,
+            execute: workItem
+        )
+    }
+
+    private func cancelCardExpandContentReadyFallback() {
+        cardExpandContentReadyFallbackWorkItem?.cancel()
+        cardExpandContentReadyFallbackWorkItem = nil
+    }
+
     private func applyCardMinimizePresentation(translation: CGPoint) {
         guard let context = activeCardMinimizeContext else { return }
 
@@ -2019,9 +2159,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
 
     private func resetCardMinimizeTransform() {
         guard let context = activeCardMinimizeContext else {
-            chrome.setPlayerContentHiddenByCardMinimize(false)
-            playerNavigationController.view.alpha = 1
-            playerNavigationController.view.transform = .identity
+            revealPlayerAfterCardTransition()
             return
         }
 
@@ -2045,28 +2183,27 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
             return nil
         }
 
-        let fallbackImageSize = cardMinimizeFallbackImageSize(for: state, currentDescriptor: currentDescriptor)
-        let sourceFrame = cardMinimizeSourceFrame(for: fallbackImageSize)
+        let fallbackImageSize = cardTransitionFallbackImageSize(
+            selectedDescriptor: currentDescriptor,
+            descriptors: state.fourPerPageDescriptors
+        )
+        let sourceFrame = onePerPageCardFrame(for: fallbackImageSize)
         guard !sourceFrame.isEmpty else {
             return nil
         }
-        let foregroundView = makeCardMinimizeForegroundView(
+        let foregroundView = makeCardTransitionForegroundView(
             sourceFrame: sourceFrame,
             descriptor: currentDescriptor
         )
 
-        let underlayView = CardMinimizeUnderlayView(
+        let underlayView = makeCardTransitionUnderlayView(
             descriptors: state.fourPerPageDescriptors,
             hiddenSlotIndex: selectedSlot,
-            fallbackImageSize: fallbackImageSize
+            fallbackImageSize: fallbackImageSize,
+            otherCardsRevealProgress: 0
         )
-        underlayView.frame = playerNavigationController.view.frame
-        underlayView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        view.insertSubview(underlayView, belowSubview: playerNavigationController.view)
         view.insertSubview(foregroundView, aboveSubview: underlayView)
-        underlayView.setNeedsLayout()
-        underlayView.layoutIfNeeded()
-        let targetFrame = cardMinimizeTargetFrame(in: underlayView)
+        let targetFrame = gridSlotFrame(in: underlayView)
         let targetScale = cardMinimizeTargetScale(sourceFrame: sourceFrame, targetFrame: targetFrame)
 
         return CardMinimizeTransitionContext(
@@ -2078,11 +2215,76 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         )
     }
 
-    private func makeCardMinimizeForegroundView(
+    private func makeCardExpandTransitionContext(
+        selection: MobilePlayerCardNftGridSelection
+    ) -> CardExpandTransitionContext? {
+        let selectedImageSize = selection.selectedImageSize.validOrDefault
+        let underlayView = makeCardTransitionUnderlayView(
+            descriptors: selection.fourPerPageDescriptors,
+            hiddenSlotIndex: selection.selectedSlotIndex,
+            fallbackImageSize: selectedImageSize,
+            layoutImageSizes: selection.fourPerPageImageSizes,
+            initialImages: selection.fourPerPageImages,
+            otherCardsRevealProgress: 1
+        )
+
+        guard let sourceFrame = gridSlotFrame(in: underlayView),
+              !sourceFrame.isEmpty else {
+            underlayView.removeFromSuperview()
+            return nil
+        }
+
+        let targetFrame = onePerPageCardFrame(for: selectedImageSize)
+        guard !targetFrame.isEmpty else {
+            underlayView.removeFromSuperview()
+            return nil
+        }
+
+        let foregroundView = makeCardTransitionForegroundView(
+            sourceFrame: sourceFrame,
+            descriptor: selection.selectedDescriptor,
+            image: selection.selectedImage
+        )
+        view.insertSubview(foregroundView, aboveSubview: underlayView)
+
+        return CardExpandTransitionContext(
+            id: UUID(),
+            targetFrame: targetFrame,
+            foregroundView: foregroundView,
+            underlayView: underlayView
+        )
+    }
+
+    private func makeCardTransitionUnderlayView(
+        descriptors: [DownloadableMediaDescriptor],
+        hiddenSlotIndex: Int,
+        fallbackImageSize: CGSize,
+        layoutImageSizes: [CGSize]? = nil,
+        initialImages: [UIImage]? = nil,
+        otherCardsRevealProgress: CGFloat
+    ) -> CardTransitionUnderlayView {
+        let underlayView = CardTransitionUnderlayView(
+            descriptors: descriptors,
+            hiddenSlotIndex: hiddenSlotIndex,
+            fallbackImageSize: fallbackImageSize,
+            layoutImageSizes: layoutImageSizes,
+            initialImages: initialImages
+        )
+        underlayView.frame = playerNavigationController.view.frame
+        underlayView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        view.insertSubview(underlayView, belowSubview: playerNavigationController.view)
+        underlayView.setOtherCardsRevealProgress(otherCardsRevealProgress)
+        underlayView.setNeedsLayout()
+        underlayView.layoutIfNeeded()
+        return underlayView
+    }
+
+    private func makeCardTransitionForegroundView(
         sourceFrame: CGRect,
-        descriptor: DownloadableMediaDescriptor
+        descriptor: DownloadableMediaDescriptor,
+        image: UIImage? = nil
     ) -> UIView {
-        if let image = DownloadableMediaCache.shared.cachedDecodedImage(for: descriptor) {
+        if let image = image ?? DownloadableMediaCache.shared.cachedDecodedImage(for: descriptor) {
             let imageView = UIImageView(frame: sourceFrame)
             imageView.makeBackgroundTransparent()
             imageView.contentMode = .scaleAspectFit
@@ -2108,15 +2310,15 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         return placeholderView
     }
 
-    private func cardMinimizeFallbackImageSize(
-        for state: MobilePlayerLayoutInteractionState,
-        currentDescriptor: DownloadableMediaDescriptor
+    private func cardTransitionFallbackImageSize(
+        selectedDescriptor: DownloadableMediaDescriptor,
+        descriptors: [DownloadableMediaDescriptor]
     ) -> CGSize {
-        if let image = DownloadableMediaCache.shared.cachedDecodedImage(for: currentDescriptor) {
+        if let image = DownloadableMediaCache.shared.cachedDecodedImage(for: selectedDescriptor) {
             return image.size.validOrDefault
         }
 
-        for descriptor in state.fourPerPageDescriptors {
+        for descriptor in descriptors {
             if let image = DownloadableMediaCache.shared.cachedDecodedImage(for: descriptor) {
                 return image.size.validOrDefault
             }
@@ -2125,7 +2327,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         return CGSize(width: 1, height: 1)
     }
 
-    private func cardMinimizeSourceFrame(for imageSize: CGSize) -> CGRect {
+    private func onePerPageCardFrame(for imageSize: CGSize) -> CGRect {
         let playerBounds = playerNavigationController.view.bounds
         let frameInPlayer = MobileStaticImageSpreadLayout.centeredAspectFitRect(
             for: imageSize.validOrDefault,
@@ -2138,7 +2340,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         return playerNavigationController.view.convert(clippedFrame, to: view)
     }
 
-    private func cardMinimizeTargetFrame(in underlayView: CardMinimizeUnderlayView) -> CGRect? {
+    private func gridSlotFrame(in underlayView: CardTransitionUnderlayView) -> CGRect? {
         guard let targetFrame = underlayView.hiddenSlotFrame else { return nil }
         return underlayView.convert(targetFrame, to: view)
     }
@@ -2159,13 +2361,32 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         isDismissPanDrivingCardMinimize = false
 
         if revealPlayer {
-            chrome.setPlayerContentHiddenByCardMinimize(false)
-            playerNavigationController.view.alpha = 1
-            playerNavigationController.view.transform = .identity
+            revealPlayerAfterCardTransition()
         }
 
         context?.foregroundView.removeFromSuperview()
         context?.underlayView.removeFromSuperview()
+    }
+
+    private func cleanupCardExpandTransition(revealPlayer: Bool) {
+        let context = activeCardExpandContext
+        activeCardExpandContext = nil
+        isCardExpandAnimationComplete = false
+        isCardExpandContentReady = false
+        cancelCardExpandContentReadyFallback()
+
+        if revealPlayer {
+            revealPlayerAfterCardTransition()
+        }
+
+        context?.foregroundView.removeFromSuperview()
+        context?.underlayView.removeFromSuperview()
+    }
+
+    private func revealPlayerAfterCardTransition() {
+        chrome.setPlayerContentHiddenForCardTransition(false)
+        playerNavigationController.view.alpha = 1
+        playerNavigationController.view.transform = .identity
     }
 
     private func applyDismissPresentation(offsetY: CGFloat, progress: CGFloat) {
@@ -2276,7 +2497,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
 
     func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
         if gestureRecognizer === controlsPan {
-            guard !isCardMinimizeTransitionActive else {
+            guard !isCardTransitionActive else {
                 return false
             }
 
@@ -2295,7 +2516,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         guard !isDismissing else {
             return false
         }
-        guard !isCardMinimizeTransitionActive else {
+        guard !isCardTransitionActive else {
             return false
         }
 
