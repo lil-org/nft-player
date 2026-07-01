@@ -341,6 +341,17 @@ enum MobilePlayerGestureTuning {
     static let dismissTranslationHeightRatio: CGFloat = 0.28
     static let dismissInitialVelocity: CGFloat = 120
     static let dismissUnderlayFadeCompletionProgress: CGFloat = 0.68
+    static let playerDismissPinchActivationScale: CGFloat = 0.96
+    static let playerDismissPinchZoomInFailureScale: CGFloat = 1.01
+    static let playerDismissPinchFullProgressScale: CGFloat = 0.62
+    static let playerDismissPinchMinimumPresentationScaleRatio: CGFloat = 0.72
+    static let playerDismissPinchCompletionProgress: CGFloat = 0.5
+    static let playerDismissPinchMinimumVelocityCommitProgress: CGFloat = 0.18
+    static let playerDismissPinchVelocityProjectionDuration: CGFloat = 0.18
+    static let playerDismissPinchFastVelocity: CGFloat = 1.1
+    static let playerDismissPinchInteractiveMaximumOffsetX: CGFloat = 72
+    static let playerDismissPinchInteractiveMaximumOffsetY: CGFloat = 72
+    static let playerDismissPinchInteractiveMaximumDimmingFade: CGFloat = 0.22
     static let cardMinimizeProgressDistance: CGFloat = 360
     static let cardMinimizeInteractiveOtherCardsRevealCompletionProgress: CGFloat = 0.68
     static let cardMinimizeInteractiveOtherCardsMaximumRevealProgress: CGFloat = 0.42
