@@ -1704,6 +1704,11 @@ private final class CardLayoutPinchGestureRecognizer: UIGestureRecognizer {
     private var initialLocationInView = CGPoint.zero
     private var previousScale: CGFloat = 1
     private var previousTimestamp: TimeInterval = 0
+    private var hasEvaluatedCanTrackPinch = false
+
+    var isFirstPinchTrackingEvaluation: Bool {
+        !hasEvaluatedCanTrackPinch
+    }
 
     var isTrackingPinch: Bool {
         switch state {
@@ -1737,8 +1742,9 @@ private final class CardLayoutPinchGestureRecognizer: UIGestureRecognizer {
         scale = 1
         previousScale = 1
         velocity = 0
+        hasEvaluatedCanTrackPinch = false
 
-        guard canTrackPinch?(self) == true else {
+        guard canTrackCurrentPinch() else {
             state = .failed
             return
         }
@@ -1754,7 +1760,7 @@ private final class CardLayoutPinchGestureRecognizer: UIGestureRecognizer {
 
         switch state {
         case .possible:
-            guard canTrackPinch?(self) == true else {
+            guard canTrackCurrentPinch() else {
                 state = .failed
                 return
             }
@@ -1799,6 +1805,7 @@ private final class CardLayoutPinchGestureRecognizer: UIGestureRecognizer {
         previousTimestamp = 0
         scale = 1
         velocity = 0
+        hasEvaluatedCanTrackPinch = false
         onReset?()
     }
 
@@ -1824,6 +1831,14 @@ private final class CardLayoutPinchGestureRecognizer: UIGestureRecognizer {
         scale = nextScale
         previousScale = nextScale
         previousTimestamp = timestamp
+    }
+
+    private func canTrackCurrentPinch() -> Bool {
+        defer {
+            hasEvaluatedCanTrackPinch = true
+        }
+
+        return canTrackPinch?(self) == true
     }
 
     private func currentPinchLocation(in targetView: UIView?) -> CGPoint {
@@ -1948,7 +1963,9 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         gesture.oppositeDirectionFailureScale = MobilePlayerGestureTuning.cardMinimizePinchZoomInFailureScale
         gesture.canTrackPinch = { [weak self] gesture in
             guard let self else { return false }
-            self.configurePagingScrollViews()
+            if gesture.isFirstPinchTrackingEvaluation {
+                self.configurePagingScrollViews()
+            }
             return self.canBeginCardMinimizeInteraction(
                 location: gesture.pinchLocation(in: self.playerNavigationController.view)
             )
@@ -1962,7 +1979,9 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         gesture.oppositeDirectionFailureScale = MobilePlayerGestureTuning.cardExpandPinchZoomOutFailureScale
         gesture.canTrackPinch = { [weak self] gesture in
             guard let self else { return false }
-            self.configurePagingScrollViews()
+            if gesture.isFirstPinchTrackingEvaluation {
+                self.configurePagingScrollViews()
+            }
             return self.canSelectCardExpandPinch(for: gesture)
         }
         gesture.onReset = { [weak self] in
