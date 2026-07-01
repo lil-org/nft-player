@@ -94,6 +94,11 @@ struct MobilePlayerCardNftGridSelection {
 
 }
 
+protocol MobilePlayerCardNftGridSelectionProviding: AnyObject {
+    func canSelectCardNftGrid(at location: CGPoint, in coordinateView: UIView) -> Bool
+    func cardNftGridSelection(at location: CGPoint, in coordinateView: UIView) -> MobilePlayerCardNftGridSelection?
+}
+
 struct MobilePlayerLayoutInteractionState: Equatable {
     let pageLayout: MobilePlayerPageLayout
     let collectionId: String
@@ -144,9 +149,49 @@ final class MobilePlayerChromeController: ObservableObject {
     var onPlayerBackgroundColorChange: ((UIColor) -> Void)?
     var onCardNftMinimizeToFourPerPageRequest: (() -> Bool)?
     var onCardNftExpandFromFourPerPageRequest: ((MobilePlayerCardNftGridSelection) -> MobilePlayerCardNftExpandSelectionResult)?
+    private weak var cardNftGridSelectionProvider: (any MobilePlayerCardNftGridSelectionProviding)?
 
     init(playerBackgroundColor: UIColor = MobilePlayerBackgroundColor.defaultColor) {
         self.playerBackgroundColor = playerBackgroundColor
+    }
+
+    func setCardNftGridSelectionProvider(_ provider: any MobilePlayerCardNftGridSelectionProviding) {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async {
+                self.setCardNftGridSelectionProvider(provider)
+            }
+            return
+        }
+
+        cardNftGridSelectionProvider = provider
+    }
+
+    func clearCardNftGridSelectionProvider(_ provider: any MobilePlayerCardNftGridSelectionProviding) {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async {
+                self.clearCardNftGridSelectionProvider(provider)
+            }
+            return
+        }
+
+        guard cardNftGridSelectionProvider === provider else { return }
+
+        cardNftGridSelectionProvider = nil
+    }
+
+    func canSelectCardNftGrid(at location: CGPoint, in coordinateView: UIView) -> Bool {
+        guard Thread.isMainThread else { return false }
+
+        return cardNftGridSelectionProvider?.canSelectCardNftGrid(
+            at: location,
+            in: coordinateView
+        ) == true
+    }
+
+    func cardNftGridSelection(at location: CGPoint, in coordinateView: UIView) -> MobilePlayerCardNftGridSelection? {
+        guard Thread.isMainThread else { return nil }
+
+        return cardNftGridSelectionProvider?.cardNftGridSelection(at: location, in: coordinateView)
     }
 
     func toggleControls() {
@@ -308,7 +353,11 @@ struct MobilePlayerView: View {
     @State private var supportsCurrentFourPerPageLayout = false
     @State private var pendingPageLayoutCompletion: MobilePlayerPendingPageLayoutCompletion?
     
-    init(config: MobilePlayerConfig, onDismiss: @escaping () -> Void, chrome: MobilePlayerChromeController) {
+    init(
+        config: MobilePlayerConfig,
+        onDismiss: @escaping () -> Void,
+        chrome: MobilePlayerChromeController
+    ) {
         self.initialConfig = config
         self.onDismiss = onDismiss
         self.chrome = chrome
@@ -322,6 +371,7 @@ struct MobilePlayerView: View {
             ZStack {
                 HorizontalPlayerContainerView(
                     initialConfig: initialConfig,
+                    chrome: chrome,
                     pageLayout: pageLayout,
                     pageLayoutTargetPagePosition: pageLayoutTargetPagePosition,
                     onPagePositionUpdate: { newPagePosition in
@@ -365,9 +415,6 @@ struct MobilePlayerView: View {
                     },
                     onPageLayoutChangeRequest: { requestedPageLayout in
                         self.applyPageLayout(requestedPageLayout)
-                    },
-                    handleCardNftExpandSelection: { selection in
-                        chrome.requestCardNftExpandFromFourPerPage(selection)
                     },
                     onPageLayoutContentReady: { readyPageLayout, readyPagePosition in
                         self.completePendingPageLayoutRequest(

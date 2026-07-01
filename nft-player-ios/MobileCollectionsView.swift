@@ -1447,7 +1447,11 @@ private struct PlayerNavigationOverlay: UIViewControllerRepresentable {
 
     func makeUIViewController(context: Context) -> PlayerOverlayViewController {
         let chrome = MobilePlayerChromeController(playerBackgroundColor: MobilePlayerBackgroundColor.color(for: config))
-        let playerViewController = makeMobilePlayerViewController(config: config, onDismiss: onDismiss, chrome: chrome)
+        let playerViewController = makeMobilePlayerViewController(
+            config: config,
+            onDismiss: onDismiss,
+            chrome: chrome
+        )
         let navigationController = PlayerNavigationController(rootViewController: playerViewController)
         navigationController.view.makeBackgroundTransparent()
         navigationController.navigationBar.isTranslucent = true
@@ -1472,7 +1476,13 @@ private func makeMobilePlayerViewController(
     onDismiss: @escaping () -> Void,
     chrome: MobilePlayerChromeController
 ) -> UIHostingController<MobilePlayerView> {
-    let playerViewController = MobilePlayerHostingController(rootView: MobilePlayerView(config: config, onDismiss: onDismiss, chrome: chrome))
+    let playerViewController = MobilePlayerHostingController(
+        rootView: MobilePlayerView(
+            config: config,
+            onDismiss: onDismiss,
+            chrome: chrome
+        )
+    )
     playerViewController.view.makeBackgroundTransparent()
     return playerViewController
 }
@@ -1655,11 +1665,36 @@ private extension CGSize {
     }
 }
 
-private final class CardMinimizePinchGestureRecognizer: UIGestureRecognizer {
+private enum CardLayoutPinchDirection {
+    case inward
+    case outward
+
+    func hasReachedActivation(scale: CGFloat, activationScale: CGFloat) -> Bool {
+        switch self {
+        case .inward:
+            return scale <= activationScale
+        case .outward:
+            return scale >= activationScale
+        }
+    }
+
+    func hasMovedOppositeDirection(scale: CGFloat, failureScale: CGFloat) -> Bool {
+        switch self {
+        case .inward:
+            return scale > failureScale
+        case .outward:
+            return scale < failureScale
+        }
+    }
+}
+
+private final class CardLayoutPinchGestureRecognizer: UIGestureRecognizer {
 
     var activationScale: CGFloat = 1
-    var zoomInFailureScale: CGFloat = 1
-    var canTrackPinch: ((CardMinimizePinchGestureRecognizer) -> Bool)?
+    var oppositeDirectionFailureScale: CGFloat = 1
+    var direction: CardLayoutPinchDirection = .inward
+    var canTrackPinch: ((CardLayoutPinchGestureRecognizer) -> Bool)?
+    var onReset: (() -> Void)?
 
     private(set) var scale: CGFloat = 1
     private(set) var velocity: CGFloat = 0
@@ -1724,9 +1759,9 @@ private final class CardMinimizePinchGestureRecognizer: UIGestureRecognizer {
                 return
             }
 
-            if scale > zoomInFailureScale {
+            if direction.hasMovedOppositeDirection(scale: scale, failureScale: oppositeDirectionFailureScale) {
                 state = .failed
-            } else if scale <= activationScale {
+            } else if direction.hasReachedActivation(scale: scale, activationScale: activationScale) {
                 state = .began
             }
 
@@ -1764,6 +1799,7 @@ private final class CardMinimizePinchGestureRecognizer: UIGestureRecognizer {
         previousTimestamp = 0
         scale = 1
         velocity = 0
+        onReset?()
     }
 
     func pinchLocation(in targetView: UIView?) -> CGPoint {
@@ -1820,12 +1856,60 @@ private final class CardMinimizePinchGestureRecognizer: UIGestureRecognizer {
 
 }
 
+private final class PendingGesturePresentationUpdate {
+
+    private var isScheduled = false
+    private var generation = 0
+    private let action: () -> Void
+
+    init(action: @escaping () -> Void) {
+        self.action = action
+    }
+
+    func schedule() {
+        assert(Thread.isMainThread)
+        guard !isScheduled else { return }
+
+        isScheduled = true
+        let scheduledGeneration = generation
+        DispatchQueue.main.async { [weak self] in
+            guard let self,
+                  self.isScheduled,
+                  self.generation == scheduledGeneration else {
+                return
+            }
+
+            self.isScheduled = false
+            self.action()
+        }
+    }
+
+    func flush() {
+        assert(Thread.isMainThread)
+        guard isScheduled else { return }
+
+        invalidate()
+        action()
+    }
+
+    func invalidate() {
+        assert(Thread.isMainThread)
+        guard isScheduled else { return }
+
+        isScheduled = false
+        generation += 1
+    }
+
+}
+
 private final class PlayerOverlayViewController: UIViewController, UIGestureRecognizerDelegate {
 
     private static let dismissBackgroundClearPassDelay: TimeInterval = 0.05
     private static let dismissGestureBackgroundClearPasses = 4
     private static let finalDismissBackgroundClearPasses = 2
     private static let cardExpandContentReadyFallbackDelay: TimeInterval = 1.0
+    private static let cardTransitionHorizontalDragDamping: CGFloat = 0.18
+    private static let cardTransitionVerticalDragDamping: CGFloat = 0.32
 
     private struct PlayerBackgroundSnapshot {
         weak var view: UIView?
@@ -1843,7 +1927,10 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
 
     private struct CardExpandTransitionContext {
         let id: UUID
+        let targetPagePosition: PlayerPagePosition
+        let sourceFrame: CGRect
         let targetFrame: CGRect
+        let targetScale: CGFloat
         let foregroundView: UIView
         let underlayView: CardTransitionUnderlayView
     }
@@ -1854,15 +1941,30 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
 
     private lazy var dismissPan = UIPanGestureRecognizer(target: self, action: #selector(handleDismissPan(_:)))
     private lazy var controlsPan = UIPanGestureRecognizer(target: self, action: #selector(handleControlsPan(_:)))
-    private lazy var cardMinimizePinch: CardMinimizePinchGestureRecognizer = {
-        let gesture = CardMinimizePinchGestureRecognizer(target: self, action: #selector(handleCardMinimizePinch(_:)))
+    private lazy var cardMinimizePinch: CardLayoutPinchGestureRecognizer = {
+        let gesture = CardLayoutPinchGestureRecognizer(target: self, action: #selector(handleCardMinimizePinch(_:)))
+        gesture.direction = .inward
         gesture.activationScale = MobilePlayerGestureTuning.cardMinimizePinchActivationScale
-        gesture.zoomInFailureScale = MobilePlayerGestureTuning.cardMinimizePinchZoomInFailureScale
+        gesture.oppositeDirectionFailureScale = MobilePlayerGestureTuning.cardMinimizePinchZoomInFailureScale
         gesture.canTrackPinch = { [weak self] gesture in
             guard let self else { return false }
             return self.canBeginCardMinimizeInteraction(
                 location: gesture.pinchLocation(in: self.playerNavigationController.view)
             )
+        }
+        return gesture
+    }()
+    private lazy var cardExpandPinch: CardLayoutPinchGestureRecognizer = {
+        let gesture = CardLayoutPinchGestureRecognizer(target: self, action: #selector(handleCardExpandPinch(_:)))
+        gesture.direction = .outward
+        gesture.activationScale = MobilePlayerGestureTuning.cardExpandPinchActivationScale
+        gesture.oppositeDirectionFailureScale = MobilePlayerGestureTuning.cardExpandPinchZoomOutFailureScale
+        gesture.canTrackPinch = { [weak self] gesture in
+            guard let self else { return false }
+            return self.canSelectCardExpandPinch(for: gesture)
+        }
+        gesture.onReset = { [weak self] in
+            self?.resetCardExpandPinchState()
         }
         return gesture
     }()
@@ -1877,8 +1979,20 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
     private var cardMinimizePinchStartLocation = CGPoint.zero
     private var cardMinimizePinchStartRotation: CGFloat = 0
     private var cardMinimizePinchRotation: CGFloat = 0
-    private var isCardMinimizePinchPresentationUpdateScheduled = false
-    private var cardMinimizePinchPresentationUpdateGeneration = 0
+    private lazy var cardMinimizePinchPresentationUpdate = PendingGesturePresentationUpdate { [weak self] in
+        guard let self else { return }
+        guard self.isCardMinimizePinchDrivingCardMinimize else { return }
+
+        self.applyCardMinimizePinchPresentation(self.cardMinimizePinch)
+    }
+    private var isCardExpandPinchDrivingCardExpand = false
+    private var cardExpandPinchStartLocation = CGPoint.zero
+    private lazy var cardExpandPinchPresentationUpdate = PendingGesturePresentationUpdate { [weak self] in
+        guard let self else { return }
+        guard self.isCardExpandPinchDrivingCardExpand else { return }
+
+        self.applyCardExpandPinchPresentation(self.cardExpandPinch)
+    }
     private var activeCardMinimizeContext: CardMinimizeTransitionContext?
     private var activeCardExpandContext: CardExpandTransitionContext?
     private var isCardExpandAnimationComplete = false
@@ -1964,6 +2078,10 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         cardMinimizePinch.cancelsTouchesInView = false
         view.addGestureRecognizer(cardMinimizePinch)
 
+        cardExpandPinch.delegate = self
+        cardExpandPinch.cancelsTouchesInView = false
+        view.addGestureRecognizer(cardExpandPinch)
+
         cardMinimizeRotation.delegate = self
         cardMinimizeRotation.cancelsTouchesInView = false
         view.addGestureRecognizer(cardMinimizeRotation)
@@ -1992,6 +2110,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
                     let pinchGestureId = ObjectIdentifier(pinchGesture)
                     if !configuredScrollPinchGestures.contains(pinchGestureId) {
                         pinchGesture.require(toFail: cardMinimizePinch)
+                        pinchGesture.require(toFail: cardExpandPinch)
                         configuredScrollPinchGestures.insert(pinchGestureId)
                     }
                 }
@@ -2090,7 +2209,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         }
     }
 
-    @objc private func handleCardMinimizePinch(_ gesture: CardMinimizePinchGestureRecognizer) {
+    @objc private func handleCardMinimizePinch(_ gesture: CardLayoutPinchGestureRecognizer) {
         guard !isDismissing else { return }
 
         switch gesture.state {
@@ -2127,6 +2246,46 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
                 resetCardMinimizeTransform()
             }
             resetCardMinimizePinchState()
+
+        default:
+            break
+        }
+    }
+
+    @objc private func handleCardExpandPinch(_ gesture: CardLayoutPinchGestureRecognizer) {
+        guard !isDismissing else { return }
+
+        switch gesture.state {
+        case .began:
+            isCardExpandPinchDrivingCardExpand = false
+            cardExpandPinchStartLocation = gesture.initialPinchLocation(in: view)
+
+            guard let selection = cardExpandPinchSelection(for: gesture),
+                  beginCardExpandPinchGesture(selection: selection) else {
+                resetCardExpandPinchState()
+                return
+            }
+
+            applyCardExpandPinchPresentation(gesture)
+
+        case .changed:
+            guard isCardExpandPinchDrivingCardExpand else { return }
+
+            scheduleCardExpandPinchPresentationUpdate()
+
+        case .ended:
+            if isCardExpandPinchDrivingCardExpand {
+                flushPendingCardExpandPinchPresentationUpdate()
+                finishCardExpandPinchGesture(scale: gesture.scale, velocity: gesture.velocity)
+            }
+            resetCardExpandPinchState()
+
+        case .cancelled, .failed:
+            if isCardExpandPinchDrivingCardExpand {
+                flushPendingCardExpandPinchPresentationUpdate()
+                resetCardExpandTransform()
+            }
+            resetCardExpandPinchState()
 
         default:
             break
@@ -2213,6 +2372,15 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         return true
     }
 
+    private func beginCardExpandPinchGesture(selection: MobilePlayerCardNftGridSelection) -> Bool {
+        guard beginCardExpandTransition(selection: selection) else {
+            return false
+        }
+
+        isCardExpandPinchDrivingCardExpand = true
+        return true
+    }
+
     private func beginProgrammaticCardMinimize() -> Bool {
         guard !isDismissing,
               !chrome.isPlayerContentZoomed else {
@@ -2246,18 +2414,11 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
             return .busy
         }
 
-        playerNavigationController.view.layer.removeAllAnimations()
-        dimmingView.layer.removeAllAnimations()
-
-        guard let context = makeCardExpandTransitionContext(selection: selection) else {
+        guard beginCardExpandTransition(selection: selection) else {
             return .fallbackToImmediateOpen
         }
 
-        activeCardExpandContext = context
-        isCardExpandAnimationComplete = false
-        isCardExpandContentReady = false
-        chrome.setPlayerContentHiddenForCardTransition(true)
-        completeCardExpandTransition(selection: selection)
+        completeCardExpandTransition()
         return .started
     }
 
@@ -2275,6 +2436,22 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         activeCardMinimizeContext = context
         isDismissPanDrivingCardMinimize = isDrivenByDismissPan
         chrome.setPlayerContentHiddenForCardTransition(true)
+        return true
+    }
+
+    private func beginCardExpandTransition(selection: MobilePlayerCardNftGridSelection) -> Bool {
+        playerNavigationController.view.layer.removeAllAnimations()
+        dimmingView.layer.removeAllAnimations()
+
+        guard let context = makeCardExpandTransitionContext(selection: selection) else {
+            return false
+        }
+
+        activeCardExpandContext = context
+        isCardExpandAnimationComplete = false
+        isCardExpandContentReady = false
+        chrome.setPlayerContentHiddenForCardTransition(true)
+        applyCardExpandPresentation(progress: 0)
         return true
     }
 
@@ -2331,13 +2508,13 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         })
     }
 
-    private func completeCardExpandTransition(selection: MobilePlayerCardNftGridSelection) {
+    private func completeCardExpandTransition() {
         guard let context = activeCardExpandContext else { return }
         let contextID = context.id
 
         let pageLayoutRequestID = chrome.requestPageLayout(
             .onePerPage,
-            targetPagePosition: selection.pagePosition
+            targetPagePosition: context.targetPagePosition
         ) { [weak self] in
             guard let self,
                   self.activeCardExpandContext?.id == contextID else {
@@ -2349,10 +2526,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         }
 
         UIView.animate(withDuration: 0.18, delay: 0, options: [.curveEaseOut, .beginFromCurrentState], animations: {
-            context.foregroundView.transform = .identity
-            context.foregroundView.bounds = CGRect(origin: .zero, size: context.targetFrame.size)
-            context.foregroundView.center = CGPoint(x: context.targetFrame.midX, y: context.targetFrame.midY)
-            context.underlayView.setOtherCardsRevealProgress(0)
+            self.applyCardExpandPresentation(progress: 1)
         }, completion: { [weak self] _ in
             guard let self,
                   self.activeCardExpandContext?.id == contextID else {
@@ -2412,6 +2586,143 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         cardExpandContentReadyFallbackWorkItem = nil
     }
 
+    private func applyCardExpandPinchPresentation(_ gesture: CardLayoutPinchGestureRecognizer) {
+        let location = gesture.pinchLocation(in: view)
+        let translation = CGPoint(
+            x: location.x - cardExpandPinchStartLocation.x,
+            y: location.y - cardExpandPinchStartLocation.y
+        )
+        applyCardExpandInteractivePresentation(
+            progress: cardExpandPinchProgress(forScale: gesture.scale),
+            translation: translation,
+            pinchScale: gesture.scale
+        )
+    }
+
+    private func scheduleCardExpandPinchPresentationUpdate() {
+        cardExpandPinchPresentationUpdate.schedule()
+    }
+
+    private func flushPendingCardExpandPinchPresentationUpdate() {
+        cardExpandPinchPresentationUpdate.flush()
+    }
+
+    private func invalidatePendingCardExpandPinchPresentationUpdate() {
+        cardExpandPinchPresentationUpdate.invalidate()
+    }
+
+    private func applyCardExpandPresentation(progress: CGFloat) {
+        guard let context = activeCardExpandContext else { return }
+
+        let progress = min(max(progress, 0), 1)
+        let easedProgress = easeOutQuadratic(progress)
+        let foregroundFrame = interpolatedRect(
+            from: context.sourceFrame,
+            to: context.targetFrame,
+            progress: easedProgress
+        )
+
+        context.foregroundView.transform = .identity
+        context.foregroundView.bounds = CGRect(origin: .zero, size: foregroundFrame.size)
+        context.foregroundView.center = CGPoint(x: foregroundFrame.midX, y: foregroundFrame.midY)
+        context.underlayView.setOtherCardsRevealProgress(1 - easedProgress)
+    }
+
+    private func applyCardExpandInteractivePresentation(
+        progress: CGFloat,
+        translation: CGPoint,
+        pinchScale: CGFloat
+    ) {
+        guard let context = activeCardExpandContext else { return }
+
+        let progress = min(max(progress, 0), 1)
+        let easedProgress = easeOutQuadratic(progress)
+        let dragOffset = cardTransitionDragOffset(
+            translation: translation,
+            easedProgress: easedProgress
+        )
+        let scale = cardExpandPresentationScale(
+            forPinchScale: pinchScale,
+            targetScale: context.targetScale
+        )
+        let displayedSize = CGSize(
+            width: context.sourceFrame.width * scale,
+            height: context.sourceFrame.height * scale
+        )
+        let unclampedCenter = CGPoint(
+            x: context.sourceFrame.midX + dragOffset.x,
+            y: context.sourceFrame.midY + dragOffset.y
+        )
+        let targetPullProgress = cardExpandTargetPullProgress(
+            scale: scale,
+            targetScale: context.targetScale
+        )
+        let targetPulledCenter = interpolatedPoint(
+            from: unclampedCenter,
+            to: rubberBandedCardExpandCenter(
+                unclampedCenter,
+                displayedSize: displayedSize,
+                inside: context.targetFrame
+            ),
+            progress: targetPullProgress
+        )
+        let playerBounds = playerNavigationController.view.convert(playerNavigationController.view.bounds, to: view)
+        let rubberBandedCenter = rubberBandedCardExpandCenter(
+            targetPulledCenter,
+            displayedSize: displayedSize,
+            inside: playerBounds
+        )
+
+        context.foregroundView.bounds = CGRect(origin: .zero, size: context.sourceFrame.size)
+        context.foregroundView.center = rubberBandedCenter
+        context.foregroundView.transform = CGAffineTransform(scaleX: scale, y: scale)
+        context.underlayView.setOtherCardsRevealProgress(1 - easedProgress)
+    }
+
+    private func finishCardExpandPinchGesture(scale: CGFloat, velocity: CGFloat) {
+        guard let context = activeCardExpandContext else {
+            resetCardExpandTransform()
+            return
+        }
+
+        let targetScale = max(context.targetScale, 1)
+        let commitScale = targetScale * MobilePlayerGestureTuning.cardExpandPinchCommitScaleMultiplier
+        let velocityCommitMinimumScale = targetScale * MobilePlayerGestureTuning.cardExpandPinchVelocityCommitMinimumScaleMultiplier
+        let projectedScale = scale + max(velocity, 0) * MobilePlayerGestureTuning.cardExpandPinchVelocityProjectionDuration
+        let canVelocityCommit = scale >= velocityCommitMinimumScale
+        let shouldExpand = scale >= commitScale
+            || (canVelocityCommit
+                && (projectedScale >= commitScale
+                    || velocity > MobilePlayerGestureTuning.cardExpandPinchFastVelocity))
+
+        guard shouldExpand else {
+            resetCardExpandTransform()
+            return
+        }
+
+        completeCardExpandTransition()
+    }
+
+    private func cardExpandPinchProgress(forScale scale: CGFloat) -> CGFloat {
+        let activationScale = MobilePlayerGestureTuning.cardExpandPinchActivationScale
+        let fullProgressScale = activeCardExpandContext.map(cardExpandPinchFullProgressScale)
+            ?? MobilePlayerGestureTuning.cardExpandPinchFullProgressScale
+        let progressDistance = fullProgressScale - activationScale
+        guard progressDistance > 0 else { return 0 }
+
+        return min(max((scale - activationScale) / progressDistance, 0), 1)
+    }
+
+    private func cardExpandPinchFullProgressScale(context: CardExpandTransitionContext) -> CGFloat {
+        max(MobilePlayerGestureTuning.cardExpandPinchFullProgressScale, context.targetScale)
+    }
+
+    private func resetCardExpandPinchState() {
+        isCardExpandPinchDrivingCardExpand = false
+        cardExpandPinchStartLocation = .zero
+        invalidatePendingCardExpandPinchPresentationUpdate()
+    }
+
     private func applyCardMinimizePresentation(translation: CGPoint) {
         let offsetY = max(0, translation.y)
         let progress = min(offsetY / MobilePlayerGestureTuning.cardMinimizeProgressDistance, 1)
@@ -2421,7 +2732,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         )
     }
 
-    private func applyCardMinimizePinchPresentation(_ gesture: CardMinimizePinchGestureRecognizer) {
+    private func applyCardMinimizePinchPresentation(_ gesture: CardLayoutPinchGestureRecognizer) {
         let location = gesture.pinchLocation(in: view)
         let translation = CGPoint(
             x: location.x - cardMinimizePinchStartLocation.x,
@@ -2436,38 +2747,15 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
     }
 
     private func scheduleCardMinimizePinchPresentationUpdate() {
-        guard !isCardMinimizePinchPresentationUpdateScheduled else { return }
-
-        isCardMinimizePinchPresentationUpdateScheduled = true
-        let updateGeneration = cardMinimizePinchPresentationUpdateGeneration
-        DispatchQueue.main.async { [weak self] in
-            guard let self,
-                  self.isCardMinimizePinchPresentationUpdateScheduled,
-                  self.cardMinimizePinchPresentationUpdateGeneration == updateGeneration else {
-                return
-            }
-
-            self.isCardMinimizePinchPresentationUpdateScheduled = false
-            guard self.isCardMinimizePinchDrivingCardMinimize else { return }
-
-            self.applyCardMinimizePinchPresentation(self.cardMinimizePinch)
-        }
+        cardMinimizePinchPresentationUpdate.schedule()
     }
 
     private func flushPendingCardMinimizePinchPresentationUpdate() {
-        guard isCardMinimizePinchPresentationUpdateScheduled else { return }
-
-        invalidatePendingCardMinimizePinchPresentationUpdate()
-        guard isCardMinimizePinchDrivingCardMinimize else { return }
-
-        applyCardMinimizePinchPresentation(cardMinimizePinch)
+        cardMinimizePinchPresentationUpdate.flush()
     }
 
     private func invalidatePendingCardMinimizePinchPresentationUpdate() {
-        guard isCardMinimizePinchPresentationUpdateScheduled else { return }
-
-        isCardMinimizePinchPresentationUpdateScheduled = false
-        cardMinimizePinchPresentationUpdateGeneration += 1
+        cardMinimizePinchPresentationUpdate.invalidate()
     }
 
     private func applyCardMinimizePresentation(
@@ -2485,16 +2773,18 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
             easedProgress: easedProgress,
             pinchScale: pinchScale
         )
-        let dragOffsetX = translation.x * (1 - 0.18 * easedProgress)
-        let dragOffsetY = translation.y * (1 - 0.32 * easedProgress)
+        let dragOffset = cardTransitionDragOffset(
+            translation: translation,
+            easedProgress: easedProgress
+        )
         let underlayFadeProgress = min(
             progress / MobilePlayerGestureTuning.cardMinimizeInteractiveOtherCardsRevealCompletionProgress,
             1
         )
 
         context.foregroundView.center = CGPoint(
-            x: context.sourceFrame.midX + dragOffsetX,
-            y: context.sourceFrame.midY + dragOffsetY
+            x: context.sourceFrame.midX + dragOffset.x,
+            y: context.sourceFrame.midY + dragOffset.y
         )
         context.foregroundView.transform = CGAffineTransform(rotationAngle: rotation).scaledBy(x: scale, y: scale)
         let otherCardsRevealProgress = easeOutQuadratic(underlayFadeProgress)
@@ -2581,6 +2871,19 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         })
     }
 
+    private func resetCardExpandTransform() {
+        guard activeCardExpandContext != nil else {
+            revealPlayerAfterCardTransition()
+            return
+        }
+
+        UIView.animate(withDuration: 0.26, delay: 0, usingSpringWithDamping: 0.86, initialSpringVelocity: 0, options: [.beginFromCurrentState], animations: {
+            self.applyCardExpandPresentation(progress: 0)
+        }, completion: { [weak self] _ in
+            self?.cleanupCardExpandTransition(revealPlayer: true)
+        })
+    }
+
     private func makeCardMinimizeTransitionContext(
         state: MobilePlayerLayoutInteractionState
     ) -> CardMinimizeTransitionContext? {
@@ -2657,7 +2960,10 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
 
         return CardExpandTransitionContext(
             id: UUID(),
+            targetPagePosition: selection.pagePosition,
+            sourceFrame: sourceFrame,
             targetFrame: targetFrame,
+            targetScale: cardExpandTargetScale(sourceFrame: sourceFrame, targetFrame: targetFrame),
             foregroundView: foregroundView,
             underlayView: underlayView
         )
@@ -2754,13 +3060,173 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
     }
 
     private func cardMinimizeTargetScale(sourceFrame: CGRect, targetFrame: CGRect?) -> CGFloat {
+        cardTransitionTargetScale(sourceFrame: sourceFrame, targetFrame: targetFrame, fallback: 0.5)
+    }
+
+    private func cardExpandTargetScale(sourceFrame: CGRect, targetFrame: CGRect) -> CGFloat {
+        cardTransitionTargetScale(
+            sourceFrame: sourceFrame,
+            targetFrame: targetFrame,
+            fallback: MobilePlayerGestureTuning.cardExpandPinchFullProgressScale
+        )
+    }
+
+    private func cardTransitionTargetScale(
+        sourceFrame: CGRect,
+        targetFrame: CGRect?,
+        fallback: CGFloat
+    ) -> CGFloat {
         guard let targetFrame,
               sourceFrame.width > 0,
               sourceFrame.height > 0 else {
-            return 0.5
+            return fallback
         }
 
         return min(targetFrame.width / sourceFrame.width, targetFrame.height / sourceFrame.height)
+    }
+
+    private func cardExpandPinchSelection(
+        for gesture: CardLayoutPinchGestureRecognizer
+    ) -> MobilePlayerCardNftGridSelection? {
+        let location = gesture.initialPinchLocation(in: playerNavigationController.view)
+        guard canUseCardExpandPinchSelection(at: location) else {
+            return nil
+        }
+
+        return chrome.cardNftGridSelection(at: location, in: playerNavigationController.view)
+    }
+
+    private func cardTransitionDragOffset(
+        translation: CGPoint,
+        easedProgress: CGFloat
+    ) -> CGPoint {
+        CGPoint(
+            x: translation.x * (1 - Self.cardTransitionHorizontalDragDamping * easedProgress),
+            y: translation.y * (1 - Self.cardTransitionVerticalDragDamping * easedProgress)
+        )
+    }
+
+    private func rubberBandedCardExpandCenter(
+        _ center: CGPoint,
+        displayedSize: CGSize,
+        inside containingRect: CGRect
+    ) -> CGPoint {
+        guard !containingRect.isNull,
+              containingRect.width > 0,
+              containingRect.height > 0 else {
+            return center
+        }
+
+        return CGPoint(
+            x: rubberBandedCardExpandCenterAxis(
+                center.x,
+                contentLength: displayedSize.width,
+                minBound: containingRect.minX,
+                maxBound: containingRect.maxX
+            ),
+            y: rubberBandedCardExpandCenterAxis(
+                center.y,
+                contentLength: displayedSize.height,
+                minBound: containingRect.minY,
+                maxBound: containingRect.maxY
+            )
+        )
+    }
+
+    private func rubberBandedCardExpandCenterAxis(
+        _ value: CGFloat,
+        contentLength: CGFloat,
+        minBound: CGFloat,
+        maxBound: CGFloat
+    ) -> CGFloat {
+        let boundsLength = max(maxBound - minBound, 1)
+        let halfExtent = contentLength / 2
+        let allowedRange: ClosedRange<CGFloat>
+        if contentLength <= boundsLength {
+            allowedRange = (minBound + halfExtent)...(maxBound - halfExtent)
+        } else {
+            allowedRange = (maxBound - halfExtent)...(minBound + halfExtent)
+        }
+
+        if value < allowedRange.lowerBound {
+            return allowedRange.lowerBound - rubberBandedCardExpandOvershoot(
+                allowedRange.lowerBound - value,
+                dimension: boundsLength
+            )
+        }
+        if value > allowedRange.upperBound {
+            return allowedRange.upperBound + rubberBandedCardExpandOvershoot(
+                value - allowedRange.upperBound,
+                dimension: boundsLength
+            )
+        }
+
+        return value
+    }
+
+    private func rubberBandedCardExpandOvershoot(_ overshoot: CGFloat, dimension: CGFloat) -> CGFloat {
+        rubberBandOvershoot(
+            overshoot,
+            dimension: dimension,
+            resistance: MobilePlayerGestureTuning.cardExpandPinchCenterRubberBandResistance
+        )
+    }
+
+    private func cardExpandTargetPullProgress(scale: CGFloat, targetScale: CGFloat) -> CGFloat {
+        let activationScale = MobilePlayerGestureTuning.cardExpandPinchActivationScale
+        let rampDistance = MobilePlayerGestureTuning.cardExpandPinchTargetPullRampScaleDistance
+        let rampProgress = min(max((scale - activationScale) / rampDistance, 0), 1)
+        let targetScale = max(targetScale, activationScale + 0.01)
+        let scaleProgress = min(max((scale - activationScale) / (targetScale - activationScale), 0), 1)
+        let earlyScalePull = pow(1 - scaleProgress, 2)
+        let minimumPullProgress = MobilePlayerGestureTuning.cardExpandPinchMinimumTargetPullProgress
+        let maximumPullProgress = MobilePlayerGestureTuning.cardExpandPinchMaximumTargetPullProgress
+        let pullProgress = minimumPullProgress
+            + (maximumPullProgress - minimumPullProgress) * earlyScalePull
+
+        return rampProgress * pullProgress
+    }
+
+    private func cardExpandPresentationScale(forPinchScale pinchScale: CGFloat, targetScale: CGFloat) -> CGFloat {
+        let scale = max(pinchScale, 1)
+        let targetScale = max(targetScale, 1)
+        guard scale > targetScale else { return scale }
+
+        let overscale = scale - targetScale
+        let rubberBandedOverscale = rubberBandOvershoot(
+            overscale,
+            dimension: targetScale,
+            resistance: MobilePlayerGestureTuning.cardExpandPinchOverscaleResistance
+        )
+        return targetScale + rubberBandedOverscale
+    }
+
+    private func rubberBandOvershoot(
+        _ overshoot: CGFloat,
+        dimension: CGFloat,
+        resistance: CGFloat
+    ) -> CGFloat {
+        let dimension = max(dimension, 1)
+        let scaledOvershoot = abs(overshoot) * resistance / dimension
+        return dimension * (1 - 1 / (scaledOvershoot + 1))
+    }
+
+    private func interpolatedPoint(from sourcePoint: CGPoint, to targetPoint: CGPoint, progress: CGFloat) -> CGPoint {
+        let progress = min(max(progress, 0), 1)
+        return CGPoint(
+            x: sourcePoint.x + (targetPoint.x - sourcePoint.x) * progress,
+            y: sourcePoint.y + (targetPoint.y - sourcePoint.y) * progress
+        )
+    }
+
+    private func interpolatedRect(from sourceFrame: CGRect, to targetFrame: CGRect, progress: CGFloat) -> CGRect {
+        let progress = min(max(progress, 0), 1)
+        return CGRect(
+            x: sourceFrame.minX + (targetFrame.minX - sourceFrame.minX) * progress,
+            y: sourceFrame.minY + (targetFrame.minY - sourceFrame.minY) * progress,
+            width: sourceFrame.width + (targetFrame.width - sourceFrame.width) * progress,
+            height: sourceFrame.height + (targetFrame.height - sourceFrame.height) * progress
+        )
     }
 
     private func cleanupCardMinimizeTransition(revealPlayer: Bool) {
@@ -2782,6 +3248,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         activeCardExpandContext = nil
         isCardExpandAnimationComplete = false
         isCardExpandContentReady = false
+        resetCardExpandPinchState()
         cancelCardExpandContentReadyFallback()
 
         if revealPlayer {
@@ -2923,6 +3390,10 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
             return canBeginCardMinimizePinch()
         }
 
+        if gestureRecognizer === cardExpandPinch {
+            return canBeginCardExpandPinch()
+        }
+
         if gestureRecognizer === cardMinimizeRotation {
             return canBeginCardMinimizeRotation()
         }
@@ -2971,6 +3442,26 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         }
 
         return cardMinimizeStateForPinch(location: location) != nil
+    }
+
+    private func canBeginCardExpandPinch() -> Bool {
+        canSelectCardExpandPinch(for: cardExpandPinch)
+    }
+
+    private func canSelectCardExpandPinch(for gesture: CardLayoutPinchGestureRecognizer) -> Bool {
+        let location = gesture.initialPinchLocation(in: playerNavigationController.view)
+        guard canUseCardExpandPinchSelection(at: location) else {
+            return false
+        }
+
+        return chrome.canSelectCardNftGrid(at: location, in: playerNavigationController.view)
+    }
+
+    private func canUseCardExpandPinchSelection(at location: CGPoint) -> Bool {
+        !isDismissing
+            && !isCardTransitionActive
+            && !chrome.isPlayerContentZoomed
+            && playerNavigationController.view.bounds.contains(location)
     }
 
     private func hasZoomedPlayerContent(at location: CGPoint) -> Bool {
