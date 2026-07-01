@@ -8,6 +8,8 @@ private let initialCollectionItemFadeDuration: TimeInterval = 0.3
 private let initialCollectionItemFadeAnimationKey = "initialGridItemFade"
 private let continueViewingLargeIPadMinimumWidth: CGFloat = 700
 private let continueViewingContentSizedCollectionNameMaxWidth: CGFloat = 250
+private let continueViewingCoverThumbnailSize: CGFloat = 14
+private let continueViewingCoverThumbnailCornerRadius: CGFloat = 3
 private let mobileCollectionsGridScrollPositionKey = "mobileCollectionsGridScrollPosition"
 
 private enum PlayerPresentationTransition {
@@ -227,6 +229,7 @@ struct MobileCollectionsView: View {
                         Spacer()
                         ContinueViewingButton(
                             progress: continueViewingProgress,
+                            coverAssetName: coverAssetName(for: continueViewingProgress.collectionId),
                             usesContentSizedLayout: usesContentSizedContinueViewingButton
                         ) {
                             resumeViewing(continueViewingProgress)
@@ -278,6 +281,10 @@ struct MobileCollectionsView: View {
 
     private func didSelectCollectionItem(_ item: MobileCollectionItem) {
         openCollection(collectionId: item.id)
+    }
+
+    private func coverAssetName(for collectionId: String) -> String {
+        collectionItems.first { $0.id == collectionId }?.coverAssetName ?? collectionId
     }
 
     private func openCollection(
@@ -1389,14 +1396,14 @@ private final class GridTitleLabel: UILabel {
 
 private struct ContinueViewingButton: View {
     let progress: MobileViewingProgress
+    let coverAssetName: String
     var usesContentSizedLayout = false
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             HStack(spacing: 10) {
-                Images.play
-                    .font(.subheadline.weight(.bold))
+                ContinueViewingCoverThumbnail(assetName: coverAssetName)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(Strings.continueViewing)
@@ -1437,6 +1444,82 @@ private struct ContinueViewingButton: View {
         } else {
             text
         }
+    }
+}
+
+private struct ContinueViewingCoverThumbnail: View {
+    let assetName: String
+
+    @Environment(\.displayScale) private var displayScale
+    @State private var loadedImage: LoadedImage?
+    @State private var pendingThumbnailLoadKey: String?
+
+    var body: some View {
+        ZStack {
+            if let image = displayedImage {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                Color.white.opacity(0.18)
+            }
+        }
+        .frame(width: continueViewingCoverThumbnailSize, height: continueViewingCoverThumbnailSize)
+        .clipShape(RoundedRectangle(cornerRadius: continueViewingCoverThumbnailCornerRadius, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: continueViewingCoverThumbnailCornerRadius, style: .continuous)
+                .stroke(.white.opacity(0.22), lineWidth: 0.5)
+        }
+        .accessibilityHidden(true)
+        .task(id: thumbnailLoadKey) {
+            await loadImage(for: thumbnailLoadKey)
+        }
+    }
+
+    private var thumbnailLoadKey: String {
+        "\(assetName)-\(displayScale)"
+    }
+
+    private var displayedImage: UIImage? {
+        guard loadedImage?.loadKey == thumbnailLoadKey else { return nil }
+        return loadedImage?.image
+    }
+
+    private var targetSize: CGSize {
+        CGSize(width: continueViewingCoverThumbnailSize, height: continueViewingCoverThumbnailSize)
+    }
+
+    @MainActor
+    private func loadImage(for loadKey: String) async {
+        let scale = displayScale > 0 ? displayScale : UIScreen.main.scale
+        pendingThumbnailLoadKey = loadKey
+        if let cachedImage = MobileCollectionCoverImageCache.shared.cachedImage(
+            assetName: assetName,
+            targetSize: targetSize,
+            displayScale: scale
+        ) {
+            loadedImage = LoadedImage(loadKey: loadKey, image: cachedImage)
+            return
+        }
+
+        loadedImage = nil
+        let requestedAssetName = assetName
+        MobileCollectionCoverImageCache.shared.loadImage(
+            assetName: requestedAssetName,
+            targetSize: targetSize,
+            displayScale: scale
+        ) { loadedImage in
+            guard pendingThumbnailLoadKey == loadKey,
+                  let loadedImage else {
+                return
+            }
+            self.loadedImage = LoadedImage(loadKey: loadKey, image: loadedImage)
+        }
+    }
+
+    private struct LoadedImage {
+        let loadKey: String
+        let image: UIImage
     }
 }
 
