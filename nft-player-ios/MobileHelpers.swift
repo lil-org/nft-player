@@ -348,6 +348,14 @@ enum MobilePlayerGestureTuning {
     static let cardMinimizeTranslationHeightRatio: CGFloat = 0.18
     static let cardMinimizeFastSwipeVelocity: CGFloat = 1150
     static let cardMinimizeMinimumFastSwipeTranslation: CGFloat = 80
+    static let cardMinimizePinchActivationScale: CGFloat = 0.96
+    static let cardMinimizePinchZoomInFailureScale: CGFloat = 1.01
+    static let cardMinimizePinchFullProgressScale: CGFloat = 0.62
+    static let cardMinimizePinchMinimumPresentationScaleRatio: CGFloat = 0.72
+    static let cardMinimizePinchCompletionProgress: CGFloat = 0.5
+    static let cardMinimizePinchMinimumVelocityCommitProgress: CGFloat = 0.18
+    static let cardMinimizePinchVelocityProjectionDuration: CGFloat = 0.18
+    static let cardMinimizePinchFastVelocity: CGFloat = 1.1
     static let controlsRevealVelocity: CGFloat = 150
     static let controlsRevealMinimumTranslation: CGFloat = 44
     static let controlsRevealVerticalIntentRatio: CGFloat = 1.45
