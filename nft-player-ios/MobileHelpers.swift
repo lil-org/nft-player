@@ -419,3 +419,37 @@ enum MobileBottomChromeSpacing {
     }
 
 }
+
+struct CapsuleButtonBackground: View {
+    var isInteractive = false
+
+    var body: some View {
+        if #available(iOS 26.0, *) {
+            liquidGlassBase
+        } else {
+            fallbackBase
+        }
+    }
+
+    private var fallbackBase: some View {
+        Capsule()
+            .fill(.black.opacity(0.66))
+            .background(.ultraThinMaterial, in: Capsule())
+    }
+
+    @available(iOS 26.0, *)
+    @ViewBuilder
+    private var liquidGlassBase: some View {
+        if isInteractive {
+            Capsule()
+                .fill(.white.opacity(0.08))
+                .glassEffect(.regular.tint(.black.opacity(0.42)).interactive(), in: Capsule())
+                .glassEffectTransition(.materialize)
+        } else {
+            Capsule()
+                .fill(.white.opacity(0.08))
+                .glassEffect(.regular.tint(.black.opacity(0.42)), in: Capsule())
+                .glassEffectTransition(.materialize)
+        }
+    }
+}

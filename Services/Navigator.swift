@@ -178,7 +178,10 @@ class Navigator: NSObject {
     }
 
     private func widgetOpenTrackingMode() -> PlayerViewingSessionTrackingMode {
-        PlayerViewingProgressStore.progressSnapshot().continueViewingProgress == nil
+        let visibleContinueViewingProgress = PlayerViewingProgressStore.progressSnapshot().firstVisibleContinueViewingProgress { collectionId in
+            CollectionCatalog.allItems.contains { $0.id == collectionId }
+        }
+        return visibleContinueViewingProgress == nil
             ? .updateContinueViewing
             : .progressOnly
     }

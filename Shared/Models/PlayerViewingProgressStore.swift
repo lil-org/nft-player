@@ -6,9 +6,89 @@ extension Notification.Name {
     static let playerViewingProgressDidChange = Notification.Name("PlayerViewingProgressDidChange")
 }
 
-struct PlayerContinueViewingState: Codable, Hashable {
-    let collectionId: String?
+struct PlayerContinueViewingEntry: Codable, Hashable {
+    let collectionId: String
     let updatedAt: Date
+    let isRemoved: Bool
+
+    init(collectionId: String, updatedAt: Date, isRemoved: Bool = false) {
+        self.collectionId = collectionId
+        self.updatedAt = updatedAt
+        self.isRemoved = isRemoved
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case collectionId
+        case updatedAt
+        case isRemoved
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        collectionId = try container.decode(String.self, forKey: .collectionId)
+        updatedAt = try container.decode(Date.self, forKey: .updatedAt)
+        isRemoved = try container.decodeIfPresent(Bool.self, forKey: .isRemoved) ?? false
+    }
+}
+
+struct PlayerContinueViewingState: Codable, Hashable {
+    let entries: [PlayerContinueViewingEntry]
+    let updatedAt: Date
+
+    init(collectionId: String?, updatedAt: Date) {
+        entries = Self.entry(collectionId: collectionId, updatedAt: updatedAt).map { [$0] } ?? []
+        self.updatedAt = updatedAt
+    }
+
+    init(entries: [PlayerContinueViewingEntry], updatedAt: Date? = nil) {
+        self.entries = entries
+        self.updatedAt = updatedAt ?? Self.legacyUpdatedAt(for: entries)
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case entries
+        case collectionId
+        case updatedAt
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let decodedUpdatedAt = try container.decodeIfPresent(Date.self, forKey: .updatedAt)
+
+        if let decodedEntries = try container.decodeIfPresent([PlayerContinueViewingEntry].self, forKey: .entries),
+           !decodedEntries.isEmpty {
+            entries = decodedEntries
+            updatedAt = decodedUpdatedAt ?? Self.legacyUpdatedAt(for: decodedEntries)
+            return
+        }
+
+        let updatedAt = decodedUpdatedAt ?? .distantPast
+        let collectionId = try container.decodeIfPresent(String.self, forKey: .collectionId)
+        entries = Self.entry(collectionId: collectionId, updatedAt: updatedAt).map { [$0] } ?? []
+        self.updatedAt = updatedAt
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(entries, forKey: .entries)
+        try container.encodeIfPresent(collectionId, forKey: .collectionId)
+        try container.encode(updatedAt, forKey: .updatedAt)
+    }
+
+    var collectionId: String? {
+        entries.first { !$0.isRemoved }?.collectionId
+    }
+
+    private static func entry(collectionId: String?, updatedAt: Date) -> PlayerContinueViewingEntry? {
+        guard let collectionId, !collectionId.isEmpty else { return nil }
+        return PlayerContinueViewingEntry(collectionId: collectionId, updatedAt: updatedAt)
+    }
+
+    private static func legacyUpdatedAt(for entries: [PlayerContinueViewingEntry]) -> Date {
+        entries.first { !$0.isRemoved }?.updatedAt
+            ?? entries.first?.updatedAt
+            ?? .distantPast
+    }
 }
 
 struct PlayerViewingProgress: Codable, Hashable {
@@ -82,12 +162,25 @@ struct PlayerViewingProgress: Codable, Hashable {
         guard tokenCount > 0 else { return "" }
         return Strings.pagePosition(current: tokenIndex + 1, total: tokenCount)
     }
+
 }
 
 struct PlayerViewingProgressSnapshot: Hashable {
     let percentagesByCollectionId: [String: Int]
     let viewedToEndCollectionIds: Set<String>
-    let continueViewingProgress: PlayerViewingProgress?
+    let recentContinueViewingProgresses: [PlayerViewingProgress]
+
+    var continueViewingProgress: PlayerViewingProgress? {
+        recentContinueViewingProgresses.first
+    }
+
+    func firstVisibleContinueViewingProgress(
+        isVisibleCollection: (String) -> Bool
+    ) -> PlayerViewingProgress? {
+        recentContinueViewingProgresses.first { progress in
+            isVisibleCollection(progress.collectionId)
+        }
+    }
 }
 
 enum PlayerViewingProgressStore {
@@ -95,6 +188,8 @@ enum PlayerViewingProgressStore {
 
     private static let progressSyncDomain = PlayerSyncDomain.viewingProgress
     private static let continueViewingSyncDomain = PlayerSyncDomain.continueViewingState
+    private static let maximumActiveContinueViewingEntryCount = 20
+    private static let maximumRemovedContinueViewingEntryCount = 20
     private static let legacyMobileProgressKey = "mobileViewingProgressByCollectionId"
     private static let continueViewingCollectionIdKey = "playerContinueViewingCollectionId"
     private static let legacyMobileContinueViewingCollectionIdKey = "mobileContinueViewingCollectionId"
@@ -120,10 +215,7 @@ enum PlayerViewingProgressStore {
         guard let state = continueViewingState() else {
             return nil
         }
-        if let collectionId = state.collectionId, collectionId.isEmpty {
-            return nil
-        }
-        return encodeContinueViewingState(state)
+        return encodeContinueViewingState(normalizedContinueViewingState(state))
     }
 
     static func progressSnapshot() -> PlayerViewingProgressSnapshot {
@@ -131,10 +223,11 @@ enum PlayerViewingProgressStore {
         let viewedToEndCollectionIds = Set(progressByCollectionId.compactMap { collectionId, progress in
             progress.hasBeenViewedToEnd ? collectionId : nil
         })
+        let recentContinueViewingProgresses = recentContinueViewingProgresses(in: progressByCollectionId)
         return PlayerViewingProgressSnapshot(
             percentagesByCollectionId: progressByCollectionId.mapValues(\.percent),
             viewedToEndCollectionIds: viewedToEndCollectionIds,
-            continueViewingProgress: continueViewingProgress(in: progressByCollectionId)
+            recentContinueViewingProgresses: recentContinueViewingProgresses
         )
     }
 
@@ -143,25 +236,28 @@ enum PlayerViewingProgressStore {
     }
 
     static func setContinueViewingCollectionId(_ collectionId: String) {
+        let state = continueViewingState() ?? PlayerContinueViewingState(entries: [])
         saveContinueViewingState(
-            PlayerContinueViewingState(collectionId: collectionId, updatedAt: Date())
+            stateByRecordingContinueViewingCollectionId(collectionId, in: state)
         )
     }
 
-    static func clearContinueViewingCollectionId() {
-        guard continueViewingState()?.collectionId != nil else { return }
-        saveClearedContinueViewingState()
-    }
-
-    static func recordContinueViewingClearedForSync() {
-        saveClearedContinueViewingState()
-    }
-
-    static func ensureContinueViewingClearedForSync() {
-        if let state = continueViewingState(), state.collectionId == nil {
+    static func removeContinueViewingCollectionId(_ collectionId: String?) {
+        guard let collectionId,
+              !collectionId.isEmpty else {
             return
         }
-        saveClearedContinueViewingState()
+
+        let state = normalizedContinueViewingState(
+            continueViewingState() ?? PlayerContinueViewingState(entries: [])
+        )
+        if state.entries.first(where: { $0.collectionId == collectionId })?.isRemoved == true {
+            return
+        }
+
+        saveContinueViewingState(
+            stateByRecordingContinueViewingCollectionId(collectionId, in: state, isRemoved: true)
+        )
     }
 
     static func updateContinueViewingCollection(
@@ -170,13 +266,13 @@ enum PlayerViewingProgressStore {
     ) {
         guard let expectedCollectionId,
               progress.collectionId == expectedCollectionId else {
-            ensureContinueViewingClearedForSync()
+            removeContinueViewingCollectionId(expectedCollectionId ?? progress.collectionId)
             return
         }
 
         let savedProgress = allProgressByCollectionId()[progress.collectionId] ?? progress
         guard !savedProgress.hasBeenViewedToEnd else {
-            ensureContinueViewingClearedForSync()
+            removeContinueViewingCollectionId(progress.collectionId)
             return
         }
 
@@ -199,20 +295,11 @@ enum PlayerViewingProgressStore {
     static func mergeSyncedContinueViewingStateData(_ data: Data?) -> PlayerSyncMergeResult {
         let remoteState = decodeContinueViewingState(from: data)
         let localState = continueViewingState()
-        let progressByCollectionId = allProgressByCollectionId()
 
-        guard let mergedState = preferredContinueViewingState(
+        guard let mergedState = mergedContinueViewingState(
             localState: localState,
-            remoteState: remoteState,
-            progressByCollectionId: progressByCollectionId
-        ) else {
-            guard localState?.collectionId != nil else {
-                return .ignored
-            }
-
-            saveClearedContinueViewingState(mirrorToICloud: false)
-            return .localChanged
-        }
+            remoteState: remoteState
+        ) else { return .ignored }
 
         guard mergedState != localState else {
             return remoteState == localState ? .ignored : .remoteWasStale
@@ -233,14 +320,17 @@ enum PlayerViewingProgressStore {
         NotificationCenter.default.post(name: .playerViewingProgressDidChange, object: nil)
     }
 
-    private static func continueViewingProgress(in progressByCollectionId: ProgressByCollectionId) -> PlayerViewingProgress? {
-        let collectionId = continueViewingState()?.collectionId
-        guard let collectionId,
-              let progress = progressByCollectionId[collectionId],
-              !progress.hasBeenViewedToEnd else {
-            return nil
+    private static func recentContinueViewingProgresses(in progressByCollectionId: ProgressByCollectionId) -> [PlayerViewingProgress] {
+        guard let state = continueViewingState() else { return [] }
+        let normalizedState = normalizedContinueViewingState(state)
+        return normalizedState.entries.compactMap { entry -> PlayerViewingProgress? in
+            guard !entry.isRemoved,
+                  let progress = progressByCollectionId[entry.collectionId],
+                  !progress.hasBeenViewedToEnd else {
+                return nil
+            }
+            return progress
         }
-        return progress
     }
 
     private static func allProgressByCollectionId() -> ProgressByCollectionId {
@@ -305,10 +395,11 @@ enum PlayerViewingProgressStore {
         _ state: PlayerContinueViewingState,
         mirrorToICloud: Bool = true
     ) {
-        guard let data = encodeContinueViewingState(state) else { return }
+        let normalizedState = normalizedContinueViewingState(state)
+        guard let data = encodeContinueViewingState(normalizedState) else { return }
 
         userDefaults.set(data, forKey: continueViewingSyncDomain.key)
-        if let collectionId = state.collectionId {
+        if let collectionId = normalizedState.collectionId {
             userDefaults.set(collectionId, forKey: continueViewingCollectionIdKey)
         } else {
             userDefaults.removeObject(forKey: continueViewingCollectionIdKey)
@@ -322,10 +413,74 @@ enum PlayerViewingProgressStore {
 #endif
     }
 
-    private static func saveClearedContinueViewingState(mirrorToICloud: Bool = true) {
-        saveContinueViewingState(
-            PlayerContinueViewingState(collectionId: nil, updatedAt: Date()),
-            mirrorToICloud: mirrorToICloud
+    private static func stateByRecordingContinueViewingCollectionId(
+        _ collectionId: String,
+        in state: PlayerContinueViewingState,
+        updatedAt: Date = Date(),
+        isRemoved: Bool = false
+    ) -> PlayerContinueViewingState {
+        guard !collectionId.isEmpty else { return state }
+
+        let entry = PlayerContinueViewingEntry(
+            collectionId: collectionId,
+            updatedAt: updatedAt,
+            isRemoved: isRemoved
+        )
+        return PlayerContinueViewingState(
+            entries: [entry] + state.entries.filter { $0.collectionId != collectionId }
+        )
+    }
+
+    private static func normalizedContinueViewingState(_ state: PlayerContinueViewingState) -> PlayerContinueViewingState {
+        var latestEntryByCollectionId = [String: (entry: PlayerContinueViewingEntry, order: Int)]()
+        for (order, entry) in state.entries.enumerated() {
+            guard !entry.collectionId.isEmpty else { continue }
+            guard let existing = latestEntryByCollectionId[entry.collectionId] else {
+                latestEntryByCollectionId[entry.collectionId] = (entry, order)
+                continue
+            }
+
+            if entry.updatedAt > existing.entry.updatedAt
+                || (entry.updatedAt == existing.entry.updatedAt && entry.isRemoved && !existing.entry.isRemoved) {
+                latestEntryByCollectionId[entry.collectionId] = (entry, order)
+            }
+        }
+
+        let sortedEntries = latestEntryByCollectionId.values.sorted {
+            if $0.entry.updatedAt != $1.entry.updatedAt {
+                return $0.entry.updatedAt > $1.entry.updatedAt
+            }
+            if $0.entry.isRemoved != $1.entry.isRemoved {
+                return $0.entry.isRemoved && !$1.entry.isRemoved
+            }
+            return $0.order < $1.order
+        }
+        .map { $0.entry }
+
+        if sortedEntries.isEmpty {
+            return PlayerContinueViewingState(entries: [], updatedAt: state.updatedAt)
+        }
+
+        var activeEntryCount = 0
+        var removedEntryCount = 0
+        var cappedEntries = [PlayerContinueViewingEntry]()
+        for entry in sortedEntries {
+            if entry.isRemoved {
+                guard removedEntryCount < maximumRemovedContinueViewingEntryCount else {
+                    continue
+                }
+                removedEntryCount += 1
+            } else {
+                guard activeEntryCount < maximumActiveContinueViewingEntryCount else {
+                    continue
+                }
+                activeEntryCount += 1
+            }
+            cappedEntries.append(entry)
+        }
+
+        return PlayerContinueViewingState(
+            entries: cappedEntries
         )
     }
 
@@ -374,47 +529,71 @@ enum PlayerViewingProgressStore {
         return localEntry
     }
 
-    private static func preferredContinueViewingState(
+    private static func mergedContinueViewingState(
         localState: PlayerContinueViewingState?,
-        remoteState: PlayerContinueViewingState?,
-        progressByCollectionId: ProgressByCollectionId
+        remoteState: PlayerContinueViewingState?
     ) -> PlayerContinueViewingState? {
-        let usefulCandidates = [localState, remoteState].compactMap { state -> PlayerContinueViewingState? in
-            guard let state,
-                  let collectionId = state.collectionId,
-                  let progress = progressByCollectionId[collectionId],
-                  !progress.hasBeenViewedToEnd else {
-                return nil
+        let localEntries = localState?.entries ?? []
+        let remoteEntries = remoteState?.entries ?? []
+        let localClearUpdatedAt = clearUpdatedAt(for: localState)
+        let remoteClearUpdatedAt = clearUpdatedAt(for: remoteState)
+        let filteredRemoteEntries: [PlayerContinueViewingEntry]
+        if let localClearUpdatedAt {
+            filteredRemoteEntries = remoteEntries.filter { $0.updatedAt > localClearUpdatedAt }
+        } else {
+            filteredRemoteEntries = remoteEntries
+        }
+
+        let entries = localEntries + filteredRemoteEntries
+        guard !entries.isEmpty else {
+            if localState == nil, remoteState == nil {
+                return continueViewingStateFromProgress(allProgressByCollectionId())
             }
-            return state
-        }
 
-        if let localState,
-           localState.collectionId == nil {
-            return usefulCandidates
-                .filter { $0.updatedAt > localState.updatedAt }
-                .max { $0.updatedAt < $1.updatedAt }
-        }
+            if let remoteClearUpdatedAt {
+                guard let localClearUpdatedAt else {
+                    return remoteState
+                }
+                return remoteClearUpdatedAt > localClearUpdatedAt ? remoteState : localState
+            }
 
-        if let candidate = usefulCandidates.max(by: { $0.updatedAt < $1.updatedAt }) {
-            return candidate
-        }
+            if let localState,
+               localClearUpdatedAt != nil,
+               !remoteEntries.isEmpty {
+                return normalizedContinueViewingState(localState)
+            }
 
-        if let localState,
-           localState.collectionId == nil {
             return nil
         }
 
-        guard let progress = progressByCollectionId.values
-            .filter({ !$0.hasBeenViewedToEnd })
-            .max(by: { $0.updatedAt < $1.updatedAt }) else {
+        return normalizedContinueViewingState(PlayerContinueViewingState(entries: entries))
+    }
+
+    private static func clearUpdatedAt(for state: PlayerContinueViewingState?) -> Date? {
+        guard let state,
+              state.entries.isEmpty else {
             return nil
         }
+        return state.updatedAt
+    }
 
-        return PlayerContinueViewingState(
-            collectionId: progress.collectionId,
-            updatedAt: progress.updatedAt
-        )
+    private static func continueViewingStateFromProgress(
+        _ progressByCollectionId: ProgressByCollectionId
+    ) -> PlayerContinueViewingState? {
+        let entries = progressByCollectionId.values
+            .filter { !$0.hasBeenViewedToEnd }
+            .map { progress in
+                PlayerContinueViewingEntry(
+                    collectionId: progress.collectionId,
+                    updatedAt: progress.updatedAt
+                )
+            }
+
+        let state = normalizedContinueViewingState(PlayerContinueViewingState(entries: entries))
+        guard state.collectionId != nil else {
+            return nil
+        }
+        return state
     }
 }
 

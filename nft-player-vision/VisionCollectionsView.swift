@@ -55,10 +55,9 @@ struct VisionCollectionsView: View {
         _viewingProgressByCollectionId = State(initialValue: progressSnapshot.percentagesByCollectionId)
         _viewedToEndCollectionIds = State(initialValue: progressSnapshot.viewedToEndCollectionIds)
         _continueViewingProgress = State(
-            initialValue: Self.visibleContinueViewingProgress(
-                progressSnapshot.continueViewingProgress,
-                collectionItems: collectionItems
-            )
+            initialValue: progressSnapshot.firstVisibleContinueViewingProgress { collectionId in
+                collectionItems.contains { $0.id == collectionId }
+            }
         )
     }
 
@@ -501,10 +500,9 @@ struct VisionCollectionsView: View {
         let progressSnapshot = PlayerViewingProgressStore.progressSnapshot()
         viewingProgressByCollectionId = progressSnapshot.percentagesByCollectionId
         viewedToEndCollectionIds = progressSnapshot.viewedToEndCollectionIds
-        continueViewingProgress = Self.visibleContinueViewingProgress(
-            progressSnapshot.continueViewingProgress,
-            collectionItems: collectionItems
-        )
+        continueViewingProgress = progressSnapshot.firstVisibleContinueViewingProgress { collectionId in
+            collectionItems.contains { $0.id == collectionId }
+        }
     }
 
     private func isVisibleCollection(_ collectionId: String) -> Bool {
@@ -512,20 +510,12 @@ struct VisionCollectionsView: View {
     }
 
     private func widgetOpenTrackingMode() -> PlayerViewingSessionTrackingMode {
-        PlayerViewingProgressStore.progressSnapshot().continueViewingProgress == nil
+        let visibleContinueViewingProgress = PlayerViewingProgressStore.progressSnapshot().firstVisibleContinueViewingProgress { collectionId in
+            isVisibleCollection(collectionId)
+        }
+        return visibleContinueViewingProgress == nil
             ? .updateContinueViewing
             : .progressOnly
-    }
-
-    private static func visibleContinueViewingProgress(
-        _ progress: PlayerViewingProgress?,
-        collectionItems: [CollectionCatalogItem]
-    ) -> PlayerViewingProgress? {
-        guard let progress,
-              collectionItems.contains(where: { $0.id == progress.collectionId }) else {
-            return nil
-        }
-        return progress
     }
 
 }
@@ -655,7 +645,7 @@ private struct VisionContinueViewingButton: View {
                 maxHeight: VisionOrnamentMetrics.controlGroupHeight
             )
             .background {
-                VisionProgressCapsuleBackground(progress: progress.fraction)
+                VisionContinueViewingCapsuleBackground()
             }
             .clipShape(Capsule())
             .contentShape(Capsule())
@@ -665,22 +655,10 @@ private struct VisionContinueViewingButton: View {
     }
 }
 
-private struct VisionProgressCapsuleBackground: View {
-    let progress: Double
-
+private struct VisionContinueViewingCapsuleBackground: View {
     var body: some View {
-        GeometryReader { geometry in
-            let clampedProgress = min(max(progress, 0), 1)
-
-            ZStack(alignment: .leading) {
-                Capsule()
-                    .fill(.clear)
-                    .background(.ultraThinMaterial, in: Capsule())
-
-                Capsule()
-                    .fill(.white.opacity(0.18))
-                    .frame(width: geometry.size.width * clampedProgress)
-            }
-        }
+        Capsule()
+            .fill(.clear)
+            .background(.ultraThinMaterial, in: Capsule())
     }
 }

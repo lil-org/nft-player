@@ -31,7 +31,11 @@ struct WalletsListView: View {
         )
         _viewingProgressByCollectionId = State(initialValue: progressSnapshot.percentagesByCollectionId)
         _viewedToEndCollectionIds = State(initialValue: progressSnapshot.viewedToEndCollectionIds)
-        _continueViewingProgress = State(initialValue: progressSnapshot.continueViewingProgress)
+        _continueViewingProgress = State(
+            initialValue: progressSnapshot.firstVisibleContinueViewingProgress { collectionId in
+                collectionItems.contains { $0.id == collectionId }
+            }
+        )
         _hasOpenPlayerWindows = State(initialValue: Window.hasOpenPlayerWindows)
     }
 
@@ -212,7 +216,9 @@ struct WalletsListView: View {
         let progressSnapshot = PlayerViewingProgressStore.progressSnapshot()
         viewingProgressByCollectionId = progressSnapshot.percentagesByCollectionId
         viewedToEndCollectionIds = progressSnapshot.viewedToEndCollectionIds
-        continueViewingProgress = progressSnapshot.continueViewingProgress
+        continueViewingProgress = progressSnapshot.firstVisibleContinueViewingProgress { collectionId in
+            collectionItems.contains { $0.id == collectionId }
+        }
     }
 
     private func refreshPlayerWindowState() {
@@ -352,7 +358,7 @@ private struct ContinueViewingButton: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 12)
             .background {
-                ContinueViewingCapsuleBackground(progress: progress.fraction)
+                ContinueViewingCapsuleBackground()
             }
             .clipShape(Capsule())
             .contentShape(Capsule())
@@ -365,21 +371,8 @@ private struct ContinueViewingButton: View {
 }
 
 private struct ContinueViewingCapsuleBackground: View {
-    let progress: Double
-
     var body: some View {
-        GeometryReader { geometry in
-            let clampedProgress = min(max(progress, 0), 1)
-
-            ZStack(alignment: .leading) {
-                base
-
-                Capsule()
-                    .fill(.white.opacity(0.18))
-                    .frame(width: geometry.size.width * clampedProgress)
-            }
-            .clipShape(Capsule())
-        }
+        base
     }
 
     @ViewBuilder

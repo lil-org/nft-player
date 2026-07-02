@@ -137,10 +137,9 @@ struct TvCollectionsView: View {
     }
 
     private var continueViewingProgress: PlayerViewingProgress? {
-        Self.visibleContinueViewingProgress(
-            progressSnapshot.continueViewingProgress,
-            collectionItems: collectionItems
-        )
+        progressSnapshot.firstVisibleContinueViewingProgress { collectionId in
+            Self.isVisiblePlayableCollection(collectionId, collectionItems: collectionItems)
+        }
     }
 
     @ViewBuilder
@@ -317,17 +316,6 @@ struct TvCollectionsView: View {
 
     private func likelyInitialCollectionIds() -> [String] {
         gridScrollMemoryTracker.initialCollectionIds(limit: 2)
-    }
-
-    private static func visibleContinueViewingProgress(
-        _ progress: PlayerViewingProgress?,
-        collectionItems: [CollectionCatalogItem]
-    ) -> PlayerViewingProgress? {
-        guard let progress,
-              isVisiblePlayableCollection(progress.collectionId, collectionItems: collectionItems) else {
-            return nil
-        }
-        return progress
     }
 
     private static func isVisiblePlayableCollection(

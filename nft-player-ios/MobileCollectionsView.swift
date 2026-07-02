@@ -6,10 +6,12 @@ private let playerStatusBarRevealAnimation = Animation.easeInOut(duration: 0.38)
 private let playerStatusBarRevealDuration: TimeInterval = 0.3
 private let initialCollectionItemFadeDuration: TimeInterval = 0.3
 private let initialCollectionItemFadeAnimationKey = "initialGridItemFade"
-private let continueViewingLargeIPadMinimumWidth: CGFloat = 700
+private let maximumVisibleRecentContinueViewingCount = 10
 private let continueViewingContentSizedCollectionNameMaxWidth: CGFloat = 250
 private let continueViewingCoverThumbnailSize: CGFloat = 14
 private let continueViewingCoverThumbnailCornerRadius: CGFloat = 3
+private let continueViewingPillSpacing: CGFloat = 8
+private let continueViewingPillScrollHorizontalInset: CGFloat = 16
 private let mobileCollectionsGridScrollPositionKey = "mobileCollectionsGridScrollPosition"
 
 private enum PlayerPresentationTransition {
@@ -159,18 +161,25 @@ private enum MobileCollectionsGridScrollPositionStore {
 }
 
 struct MobileCollectionsView: View {
-    private let collectionItems = MobileCollectionCatalog.allItems
+    private let collectionItems: [MobileCollectionItem]
     @State private var playerConfig: MobilePlayerConfig?
     @State private var playerPresentationTransition: PlayerPresentationTransition = .animated
     @State private var viewingProgressByCollectionId: [String: Int]
     @State private var viewedToEndCollectionIds: Set<String>
-    @State private var continueViewingProgress: MobileViewingProgress?
+    @State private var recentContinueViewingProgresses: [MobileViewingProgress]
+    @State private var continueViewingScrollResetID = 0
     
-    init() {
+    init(collectionItems: [MobileCollectionItem] = MobileCollectionCatalog.allItems) {
+        self.collectionItems = collectionItems
         let progressSnapshot = MobileViewingProgressStore.progressSnapshot()
         _viewingProgressByCollectionId = State(initialValue: progressSnapshot.percentagesByCollectionId)
         _viewedToEndCollectionIds = State(initialValue: progressSnapshot.viewedToEndCollectionIds)
-        _continueViewingProgress = State(initialValue: progressSnapshot.continueViewingProgress)
+        _recentContinueViewingProgresses = State(
+            initialValue: Self.visibleRecentContinueViewingProgresses(
+                from: progressSnapshot,
+                collectionItems: collectionItems
+            )
+        )
 
         let appearance = UINavigationBarAppearance()
         appearance.configureWithTransparentBackground()
@@ -220,21 +229,20 @@ struct MobileCollectionsView: View {
                 }
             }
 
-            if playerConfig == nil, let continueViewingProgress {
+            if playerConfig == nil, !recentContinueViewingProgresses.isEmpty {
                 GeometryReader { geometry in
-                    let usesContentSizedContinueViewingButton = UIDevice.current.userInterfaceIdiom == .pad
-                        && geometry.size.width >= continueViewingLargeIPadMinimumWidth
-
                     VStack {
                         Spacer()
-                        ContinueViewingButton(
-                            progress: continueViewingProgress,
-                            coverAssetName: coverAssetName(for: continueViewingProgress.collectionId),
-                            usesContentSizedLayout: usesContentSizedContinueViewingButton
-                        ) {
-                            resumeViewing(continueViewingProgress)
-                        }
-                        .padding(.horizontal, 16)
+                        ContinueViewingPillsScrollView(
+                            progresses: Array(
+                                recentContinueViewingProgresses.prefix(maximumVisibleRecentContinueViewingCount)
+                            ),
+                            availableWidth: geometry.size.width,
+                            horizontalContentInset: continueViewingPillScrollHorizontalInset,
+                            resetID: continueViewingScrollResetID,
+                            coverAssetName: coverAssetName(for:),
+                            onSelect: { progress in resumeViewing(progress) }
+                        )
                         .padding(.bottom, MobileBottomChromeSpacing.continueViewingPadding(forSafeAreaBottom: geometry.safeAreaInsets.bottom))
                     }
                     .frame(width: geometry.size.width, height: geometry.size.height)
@@ -257,11 +265,11 @@ struct MobileCollectionsView: View {
         }
         .persistentSystemOverlays(.hidden)
         .onAppear {
-            refreshViewingProgress()
+            refreshViewingProgressAndResetContinueViewingScrollOffset()
             schedulePlayerPrewarm()
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
-            refreshViewingProgress()
+            refreshViewingProgressAndResetContinueViewingScrollOffset()
             schedulePlayerPrewarm()
         }
         .onReceive(NotificationCenter.default.publisher(for: .playerViewingProgressDidChange)) { _ in
@@ -427,28 +435,62 @@ struct MobileCollectionsView: View {
         playerPresentationTransition = .animated
         withAnimation(playerCrossfadeAnimation) {
             playerConfig = nil
-            refreshViewingProgress()
+            refreshViewingProgressAndResetContinueViewingScrollOffset()
         }
     }
 
-    private func refreshViewingProgress() {
+    private func refreshViewingProgress(resetScrollOnLeadingChange: Bool = true) {
+        let previousLeadingCollectionId = recentContinueViewingProgresses.first?.collectionId
         let progressSnapshot = MobileViewingProgressStore.progressSnapshot()
         viewingProgressByCollectionId = progressSnapshot.percentagesByCollectionId
         viewedToEndCollectionIds = progressSnapshot.viewedToEndCollectionIds
-        continueViewingProgress = progressSnapshot.continueViewingProgress
+        recentContinueViewingProgresses = Self.visibleRecentContinueViewingProgresses(
+            from: progressSnapshot,
+            collectionItems: collectionItems
+        )
+
+        guard resetScrollOnLeadingChange,
+              playerConfig == nil,
+              previousLeadingCollectionId != recentContinueViewingProgresses.first?.collectionId else {
+            return
+        }
+        resetContinueViewingScrollOffset()
+    }
+
+    private func refreshViewingProgressAndResetContinueViewingScrollOffset() {
+        refreshViewingProgress(resetScrollOnLeadingChange: false)
+        resetContinueViewingScrollOffset()
+    }
+
+    private func resetContinueViewingScrollOffset() {
+        continueViewingScrollResetID += 1
     }
 
     private func schedulePlayerPrewarm() {
         MobilePlayerPrewarmer.scheduleAfterLaunch(
-            continueViewingProgress: continueViewingProgress,
+            continueViewingProgress: recentContinueViewingProgresses.first,
             initialCollectionIds: likelyInitialCollectionIds()
         )
     }
 
     private func widgetOpenTrackingMode() -> PlayerViewingSessionTrackingMode {
-        MobileViewingProgressStore.progressSnapshot().continueViewingProgress == nil
+        Self.visibleRecentContinueViewingProgresses(
+            from: MobileViewingProgressStore.progressSnapshot(),
+            collectionItems: collectionItems
+        ).isEmpty
             ? .updateContinueViewing
             : .progressOnly
+    }
+
+    private static func visibleRecentContinueViewingProgresses(
+        from progressSnapshot: PlayerViewingProgressSnapshot,
+        collectionItems: [MobileCollectionItem]
+    ) -> [MobileViewingProgress] {
+        let visibleCollectionIds = Set(collectionItems.map(\.id))
+        return progressSnapshot.recentContinueViewingProgresses.filter { progress in
+            visibleCollectionIds.contains(progress.collectionId)
+                && MobileCollectionCatalog.canOpenCollection(specificCollectionId: progress.collectionId)
+        }
     }
 
     private func likelyInitialCollectionIds() -> [String] {
@@ -1394,10 +1436,40 @@ private final class GridTitleLabel: UILabel {
     }
 }
 
+private struct ContinueViewingPillsScrollView: View {
+    let progresses: [MobileViewingProgress]
+    let availableWidth: CGFloat
+    let horizontalContentInset: CGFloat
+    let resetID: Int
+    let coverAssetName: (String) -> String
+    let onSelect: (MobileViewingProgress) -> Void
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: continueViewingPillSpacing) {
+                ForEach(progresses, id: \.collectionId) { progress in
+                    ContinueViewingButton(
+                        progress: progress,
+                        coverAssetName: coverAssetName(progress.collectionId)
+                    ) {
+                        onSelect(progress)
+                    }
+                }
+            }
+            .padding(.horizontal, horizontalContentInset)
+            .frame(
+                minWidth: availableWidth,
+                alignment: progresses.count == 1 ? .center : .leading
+            )
+        }
+        .frame(width: availableWidth)
+        .id(resetID)
+    }
+}
+
 private struct ContinueViewingButton: View {
     let progress: MobileViewingProgress
     let coverAssetName: String
-    var usesContentSizedLayout = false
     let action: () -> Void
 
     var body: some View {
@@ -1408,42 +1480,36 @@ private struct ContinueViewingButton: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(Strings.continueViewing)
                         .font(.caption.weight(.semibold))
+                        .lineLimit(1)
                     collectionName
-                }
-
-                if !usesContentSizedLayout {
-                    Spacer(minLength: 12)
                 }
 
                 Text(Strings.percent(progress.percent))
                     .font(.subheadline.weight(.bold))
                     .monospacedDigit()
+                    .lineLimit(1)
+                    .fixedSize()
             }
             .foregroundStyle(.white)
             .padding(.horizontal, 14)
             .padding(.vertical, 12)
             .background {
-                ProgressCapsuleBackground(progress: progress.fraction, isInteractive: true)
+                CapsuleButtonBackground(isInteractive: true)
             }
             .clipShape(Capsule())
+            .contentShape(Capsule())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(Text(verbatim: "\(Strings.continueViewing), \(progress.collectionName)"))
     }
 
-    @ViewBuilder
     private var collectionName: some View {
-        let text = Text(progress.collectionName)
+        Text(progress.collectionName)
             .font(.subheadline.weight(.semibold))
             .lineLimit(1)
             .truncationMode(.tail)
-
-        if usesContentSizedLayout {
-            text
-                .frame(maxWidth: continueViewingContentSizedCollectionNameMaxWidth, alignment: .leading)
-                .layoutPriority(1)
-        } else {
-            text
-        }
+            .frame(maxWidth: continueViewingContentSizedCollectionNameMaxWidth, alignment: .leading)
+            .layoutPriority(1)
     }
 }
 

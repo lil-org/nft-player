@@ -5,6 +5,11 @@ import XCTest
 
 final class PlayerSyncMergeTests: XCTestCase {
 
+    private struct LegacyContinueViewingState: Codable {
+        let collectionId: String?
+        let updatedAt: Date
+    }
+
     override func setUp() {
         super.setUp()
         resetStores()
@@ -226,6 +231,479 @@ final class PlayerSyncMergeTests: XCTestCase {
         XCTAssertEqual(state, clearedState)
     }
 
+    func testLegacySingleContinueViewingStateDecodesIntoRecentList() throws {
+        let collectionId = "legacy"
+        writeProgress([
+            collectionId: progress(
+                collectionId: collectionId,
+                tokenId: "token-2",
+                tokenIndex: 2,
+                updatedAt: Date(timeIntervalSinceReferenceDate: 100)
+            )
+        ])
+        writeLegacyContinueViewing(
+            collectionId: collectionId,
+            updatedAt: Date(timeIntervalSinceReferenceDate: 200)
+        )
+
+        XCTAssertEqual(continueViewingCollectionIds(), [collectionId])
+
+        let data = try XCTUnwrap(PlayerViewingProgressStore.syncedContinueViewingStateData)
+        let state = try JSONDecoder().decode(PlayerContinueViewingState.self, from: data)
+        XCTAssertEqual(state.collectionId, collectionId)
+        XCTAssertEqual(state.entries.map(\.collectionId), [collectionId])
+    }
+
+    func testContinueViewingMergeSeedsRecentListFromProgressWhenStateIsMissing() throws {
+        let collectionIds = (0..<25).map { "collection-\($0)" }
+        let progressByCollectionId = Dictionary(
+            uniqueKeysWithValues: collectionIds.enumerated().map { index, collectionId in
+                (
+                    collectionId,
+                    progress(
+                        collectionId: collectionId,
+                        tokenId: "token-\(index)",
+                        tokenIndex: min(index, 8),
+                        updatedAt: Date(timeIntervalSinceReferenceDate: TimeInterval(index)),
+                        hasViewedToEnd: index == 24
+                    )
+                )
+            }
+        )
+        writeProgress(progressByCollectionId)
+
+        let result = PlayerViewingProgressStore.mergeSyncedContinueViewingStateData(nil)
+
+        let expectedCollectionIds = Array((4...23).reversed()).map { "collection-\($0)" }
+        XCTAssertEqual(result, .localChanged)
+        XCTAssertEqual(continueViewingCollectionIds(), expectedCollectionIds)
+
+        let data = try XCTUnwrap(PlayerViewingProgressStore.syncedContinueViewingStateData)
+        let state = try JSONDecoder().decode(PlayerContinueViewingState.self, from: data)
+        XCTAssertEqual(state.entries.filter { !$0.isRemoved }.map(\.collectionId), expectedCollectionIds)
+        XCTAssertEqual(state.collectionId, "collection-23")
+    }
+
+    func testContinueViewingMergeDoesNotSeedFromProgressAfterExplicitLocalClear() {
+        let collectionId = "collection"
+        writeProgress([
+            collectionId: progress(
+                collectionId: collectionId,
+                tokenId: "token-2",
+                tokenIndex: 2,
+                updatedAt: Date(timeIntervalSinceReferenceDate: 100)
+            )
+        ])
+        writeContinueViewing(
+            PlayerContinueViewingState(
+                collectionId: nil,
+                updatedAt: Date(timeIntervalSinceReferenceDate: 200)
+            )
+        )
+
+        let result = PlayerViewingProgressStore.mergeSyncedContinueViewingStateData(nil)
+
+        XCTAssertEqual(result, .ignored)
+        XCTAssertEqual(continueViewingCollectionIds(), [])
+    }
+
+    func testContinueViewingMergeStoresRemoteClearWhenLocalStateIsMissing() throws {
+        let collectionId = "collection"
+        let remoteClearUpdatedAt = Date(timeIntervalSinceReferenceDate: 300)
+        writeProgress([
+            collectionId: progress(
+                collectionId: collectionId,
+                tokenId: "token-2",
+                tokenIndex: 2,
+                updatedAt: Date(timeIntervalSinceReferenceDate: 100)
+            )
+        ])
+
+        let result = PlayerViewingProgressStore.mergeSyncedContinueViewingStateData(
+            try JSONEncoder().encode(
+                PlayerContinueViewingState(collectionId: nil, updatedAt: remoteClearUpdatedAt)
+            )
+        )
+
+        XCTAssertEqual(result, .localChanged)
+        XCTAssertEqual(continueViewingCollectionIds(), [])
+
+        let state = try syncedContinueViewingState()
+        XCTAssertTrue(state.entries.isEmpty)
+        XCTAssertEqual(state.updatedAt, remoteClearUpdatedAt)
+    }
+
+    func testContinueViewingMergeAcceptsNewerRemoteClearOverOlderLocalClear() throws {
+        let localClearUpdatedAt = Date(timeIntervalSinceReferenceDate: 100)
+        let remoteClearUpdatedAt = Date(timeIntervalSinceReferenceDate: 300)
+        writeContinueViewing(
+            PlayerContinueViewingState(collectionId: nil, updatedAt: localClearUpdatedAt)
+        )
+
+        let result = PlayerViewingProgressStore.mergeSyncedContinueViewingStateData(
+            try JSONEncoder().encode(
+                PlayerContinueViewingState(collectionId: nil, updatedAt: remoteClearUpdatedAt)
+            )
+        )
+
+        XCTAssertEqual(result, .localChanged)
+
+        let state = try syncedContinueViewingState()
+        XCTAssertTrue(state.entries.isEmpty)
+        XCTAssertEqual(state.updatedAt, remoteClearUpdatedAt)
+    }
+
+    func testContinueViewingMergeKeepsNewerLocalClearOverStaleRemoteClear() throws {
+        let localClearUpdatedAt = Date(timeIntervalSinceReferenceDate: 300)
+        let remoteClearUpdatedAt = Date(timeIntervalSinceReferenceDate: 100)
+        writeContinueViewing(
+            PlayerContinueViewingState(collectionId: nil, updatedAt: localClearUpdatedAt)
+        )
+
+        let result = PlayerViewingProgressStore.mergeSyncedContinueViewingStateData(
+            try JSONEncoder().encode(
+                PlayerContinueViewingState(collectionId: nil, updatedAt: remoteClearUpdatedAt)
+            )
+        )
+
+        XCTAssertEqual(result, .remoteWasStale)
+
+        let state = try syncedContinueViewingState()
+        XCTAssertTrue(state.entries.isEmpty)
+        XCTAssertEqual(state.updatedAt, localClearUpdatedAt)
+    }
+
+    func testContinueViewingSnapshotReturnsRecentEntriesNewestFirst() {
+        let older = "older"
+        let middle = "middle"
+        let newer = "newer"
+        writeProgress([
+            older: progress(
+                collectionId: older,
+                tokenId: "token-1",
+                tokenIndex: 1,
+                updatedAt: Date(timeIntervalSinceReferenceDate: 100)
+            ),
+            middle: progress(
+                collectionId: middle,
+                tokenId: "token-2",
+                tokenIndex: 2,
+                updatedAt: Date(timeIntervalSinceReferenceDate: 200)
+            ),
+            newer: progress(
+                collectionId: newer,
+                tokenId: "token-3",
+                tokenIndex: 3,
+                updatedAt: Date(timeIntervalSinceReferenceDate: 300)
+            )
+        ])
+        writeContinueViewing(
+            PlayerContinueViewingState(
+                entries: [
+                    PlayerContinueViewingEntry(
+                        collectionId: newer,
+                        updatedAt: Date(timeIntervalSinceReferenceDate: 300)
+                    ),
+                    PlayerContinueViewingEntry(
+                        collectionId: middle,
+                        updatedAt: Date(timeIntervalSinceReferenceDate: 200)
+                    ),
+                    PlayerContinueViewingEntry(
+                        collectionId: older,
+                        updatedAt: Date(timeIntervalSinceReferenceDate: 100)
+                    )
+                ]
+            )
+        )
+
+        XCTAssertEqual(continueViewingCollectionIds(), [newer, middle, older])
+        XCTAssertEqual(
+            PlayerViewingProgressStore.progressSnapshot().continueViewingProgress?.collectionId,
+            newer
+        )
+    }
+
+    func testContinueViewingSnapshotPreservesEntryOrderWhenTimestampsMatch() throws {
+        let expectedCollectionIds = ["z-newest", "m-middle", "a-oldest"]
+        let updatedAt = Date(timeIntervalSinceReferenceDate: 300)
+        writeProgress(
+            Dictionary(
+                uniqueKeysWithValues: expectedCollectionIds.enumerated().map { index, collectionId in
+                    (
+                        collectionId,
+                        progress(
+                            collectionId: collectionId,
+                            tokenId: "token-\(index)",
+                            tokenIndex: index + 1,
+                            updatedAt: updatedAt
+                        )
+                    )
+                }
+            )
+        )
+        writeContinueViewing(
+            PlayerContinueViewingState(
+                entries: expectedCollectionIds.map { collectionId in
+                    PlayerContinueViewingEntry(collectionId: collectionId, updatedAt: updatedAt)
+                }
+            )
+        )
+
+        XCTAssertEqual(continueViewingCollectionIds(), expectedCollectionIds)
+
+        let state = try syncedContinueViewingState()
+        XCTAssertEqual(state.entries.filter { !$0.isRemoved }.map(\.collectionId), expectedCollectionIds)
+    }
+
+    func testSetContinueViewingMovesDuplicateCollectionToFront() {
+        let first = "first"
+        let second = "second"
+        writeProgress([
+            first: progress(
+                collectionId: first,
+                tokenId: "token-1",
+                tokenIndex: 1,
+                updatedAt: Date(timeIntervalSinceReferenceDate: 100)
+            ),
+            second: progress(
+                collectionId: second,
+                tokenId: "token-2",
+                tokenIndex: 2,
+                updatedAt: Date(timeIntervalSinceReferenceDate: 200)
+            )
+        ])
+
+        PlayerViewingProgressStore.setContinueViewingCollectionId(first)
+        PlayerViewingProgressStore.setContinueViewingCollectionId(second)
+        PlayerViewingProgressStore.setContinueViewingCollectionId(first)
+
+        XCTAssertEqual(continueViewingCollectionIds(), [first, second])
+    }
+
+    func testSetContinueViewingCapsActiveRecentListAtTwentyCollections() {
+        let collectionIds = (0..<25).map { "collection-\($0)" }
+        let progressByCollectionId = Dictionary(
+            uniqueKeysWithValues: collectionIds.enumerated().map { index, collectionId in
+                (
+                    collectionId,
+                    progress(
+                        collectionId: collectionId,
+                        tokenId: "token-\(index)",
+                        tokenIndex: min(index, 8),
+                        updatedAt: Date(timeIntervalSinceReferenceDate: TimeInterval(index))
+                    )
+                )
+            }
+        )
+        writeProgress(progressByCollectionId)
+
+        collectionIds.forEach(PlayerViewingProgressStore.setContinueViewingCollectionId)
+
+        let recentCollectionIds = continueViewingCollectionIds()
+        XCTAssertEqual(recentCollectionIds.count, 20)
+        XCTAssertEqual(recentCollectionIds.first, "collection-24")
+        XCTAssertEqual(recentCollectionIds.last, "collection-5")
+        XCTAssertFalse(recentCollectionIds.contains("collection-4"))
+    }
+
+    func testRemovingMostRecentContinueViewingCollectionRevealsOlderCollection() {
+        let recent = "recent"
+        let older = "older"
+        writeProgress([
+            recent: progress(
+                collectionId: recent,
+                tokenId: "token-9",
+                tokenIndex: 9,
+                updatedAt: Date(timeIntervalSinceReferenceDate: 200),
+                hasViewedToEnd: true
+            ),
+            older: progress(
+                collectionId: older,
+                tokenId: "token-2",
+                tokenIndex: 2,
+                updatedAt: Date(timeIntervalSinceReferenceDate: 100)
+            )
+        ])
+        writeContinueViewing(
+            PlayerContinueViewingState(
+                entries: [
+                    PlayerContinueViewingEntry(
+                        collectionId: recent,
+                        updatedAt: Date(timeIntervalSinceReferenceDate: 200)
+                    ),
+                    PlayerContinueViewingEntry(
+                        collectionId: older,
+                        updatedAt: Date(timeIntervalSinceReferenceDate: 100)
+                    )
+                ]
+            )
+        )
+
+        PlayerViewingProgressStore.updateContinueViewingCollection(
+            for: progress(
+                collectionId: recent,
+                tokenId: "token-9",
+                tokenIndex: 9,
+                updatedAt: Date(timeIntervalSinceReferenceDate: 300)
+            ),
+            expectedCollectionId: recent
+        )
+
+        XCTAssertEqual(continueViewingCollectionIds(), [older])
+    }
+
+    func testContinueViewingMergeKeepsNewerLocalRemovalOverStaleRemoteActiveEntry() throws {
+        let collectionId = "collection"
+        writeProgress([
+            collectionId: progress(
+                collectionId: collectionId,
+                tokenId: "token-2",
+                tokenIndex: 2,
+                updatedAt: Date(timeIntervalSinceReferenceDate: 100)
+            )
+        ])
+        writeContinueViewing(
+            PlayerContinueViewingState(
+                entries: [
+                    PlayerContinueViewingEntry(
+                        collectionId: collectionId,
+                        updatedAt: Date(timeIntervalSinceReferenceDate: 300),
+                        isRemoved: true
+                    )
+                ]
+            )
+        )
+        let remoteState = PlayerContinueViewingState(
+            entries: [
+                PlayerContinueViewingEntry(
+                    collectionId: collectionId,
+                    updatedAt: Date(timeIntervalSinceReferenceDate: 100)
+                )
+            ]
+        )
+
+        let result = PlayerViewingProgressStore.mergeSyncedContinueViewingStateData(
+            try JSONEncoder().encode(remoteState)
+        )
+
+        XCTAssertEqual(result, .remoteWasStale)
+        XCTAssertEqual(continueViewingCollectionIds(), [])
+    }
+
+    func testRemovingAlreadyRemovedContinueViewingCollectionDoesNotRefreshTombstone() throws {
+        let collectionId = "collection"
+        let removedAt = Date(timeIntervalSinceReferenceDate: 300)
+        let removedEntry = PlayerContinueViewingEntry(
+            collectionId: collectionId,
+            updatedAt: removedAt,
+            isRemoved: true
+        )
+        writeContinueViewing(
+            PlayerContinueViewingState(entries: [removedEntry])
+        )
+
+        PlayerViewingProgressStore.removeContinueViewingCollectionId(collectionId)
+
+        let data = try XCTUnwrap(PlayerViewingProgressStore.syncedContinueViewingStateData)
+        let state = try JSONDecoder().decode(PlayerContinueViewingState.self, from: data)
+        XCTAssertEqual(state.entries, [removedEntry])
+        XCTAssertEqual(state.updatedAt, removedAt)
+    }
+
+    func testContinueViewingMergeKeepsNewerLocalClearOverStaleRemoteActiveEntry() throws {
+        let collectionId = "collection"
+        let localClearUpdatedAt = Date(timeIntervalSinceReferenceDate: 300)
+        writeProgress([
+            collectionId: progress(
+                collectionId: collectionId,
+                tokenId: "token-2",
+                tokenIndex: 2,
+                updatedAt: Date(timeIntervalSinceReferenceDate: 100)
+            )
+        ])
+        writeContinueViewing(
+            PlayerContinueViewingState(
+                collectionId: nil,
+                updatedAt: localClearUpdatedAt
+            )
+        )
+        let remoteState = PlayerContinueViewingState(
+            entries: [
+                PlayerContinueViewingEntry(
+                    collectionId: collectionId,
+                    updatedAt: Date(timeIntervalSinceReferenceDate: 100)
+                )
+            ]
+        )
+
+        let result = PlayerViewingProgressStore.mergeSyncedContinueViewingStateData(
+            try JSONEncoder().encode(remoteState)
+        )
+
+        XCTAssertEqual(result, .remoteWasStale)
+        XCTAssertEqual(continueViewingCollectionIds(), [])
+
+        let data = try XCTUnwrap(PlayerViewingProgressStore.syncedContinueViewingStateData)
+        let state = try JSONDecoder().decode(PlayerContinueViewingState.self, from: data)
+        XCTAssertTrue(state.entries.isEmpty)
+        XCTAssertEqual(state.updatedAt, localClearUpdatedAt)
+    }
+
+    func testContinueViewingMergeAcceptsRemoteEntryNewerThanLocalClear() throws {
+        let collectionId = "collection"
+        writeProgress([
+            collectionId: progress(
+                collectionId: collectionId,
+                tokenId: "token-2",
+                tokenIndex: 2,
+                updatedAt: Date(timeIntervalSinceReferenceDate: 100)
+            )
+        ])
+        writeContinueViewing(
+            PlayerContinueViewingState(
+                collectionId: nil,
+                updatedAt: Date(timeIntervalSinceReferenceDate: 100)
+            )
+        )
+        let remoteState = PlayerContinueViewingState(
+            entries: [
+                PlayerContinueViewingEntry(
+                    collectionId: collectionId,
+                    updatedAt: Date(timeIntervalSinceReferenceDate: 300)
+                )
+            ]
+        )
+
+        let result = PlayerViewingProgressStore.mergeSyncedContinueViewingStateData(
+            try JSONEncoder().encode(remoteState)
+        )
+
+        XCTAssertEqual(result, .localChanged)
+        XCTAssertEqual(continueViewingCollectionIds(), [collectionId])
+    }
+
+    func testContinueViewingStateCapsRemovedEntriesAtTwentyCollections() throws {
+        let entries = (0..<25).map { index in
+            PlayerContinueViewingEntry(
+                collectionId: "collection-\(index)",
+                updatedAt: Date(timeIntervalSinceReferenceDate: TimeInterval(index)),
+                isRemoved: true
+            )
+        }
+        writeContinueViewing(PlayerContinueViewingState(entries: entries))
+
+        let data = try XCTUnwrap(PlayerViewingProgressStore.syncedContinueViewingStateData)
+        let state = try JSONDecoder().decode(PlayerContinueViewingState.self, from: data)
+
+        XCTAssertNil(state.collectionId)
+        XCTAssertEqual(state.entries.count, 20)
+        XCTAssertEqual(
+            state.entries.map(\.collectionId),
+            Array((5...24).reversed()).map { "collection-\($0)" }
+        )
+        XCTAssertTrue(state.entries.allSatisfy(\.isRemoved))
+    }
+
     func testContinueViewingUpdateKeepsViewedToEndCollectionCleared() throws {
         let collectionId = "collection"
         writeProgress([
@@ -437,9 +915,26 @@ final class PlayerSyncMergeTests: XCTestCase {
     }
 
     private func assertSyncedContinueViewingCleared() throws {
-        let data = try XCTUnwrap(PlayerViewingProgressStore.syncedContinueViewingStateData)
-        let state = try JSONDecoder().decode(PlayerContinueViewingState.self, from: data)
+        let state = try syncedContinueViewingState()
         XCTAssertNil(state.collectionId)
+    }
+
+    private func syncedContinueViewingState(
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) throws -> PlayerContinueViewingState {
+        let data = try XCTUnwrap(
+            PlayerViewingProgressStore.syncedContinueViewingStateData,
+            file: file,
+            line: line
+        )
+        return try JSONDecoder().decode(PlayerContinueViewingState.self, from: data)
+    }
+
+    private func continueViewingCollectionIds() -> [String] {
+        PlayerViewingProgressStore.progressSnapshot()
+            .recentContinueViewingProgresses
+            .map(\.collectionId)
     }
 
     private func progress(
@@ -476,6 +971,15 @@ final class PlayerSyncMergeTests: XCTestCase {
     private func writeContinueViewing(_ state: PlayerContinueViewingState) {
         UserDefaults.standard.set(
             try! JSONEncoder().encode(state),
+            forKey: PlayerSyncDomain.continueViewingState.key
+        )
+    }
+
+    private func writeLegacyContinueViewing(collectionId: String?, updatedAt: Date) {
+        UserDefaults.standard.set(
+            try! JSONEncoder().encode(
+                LegacyContinueViewingState(collectionId: collectionId, updatedAt: updatedAt)
+            ),
             forKey: PlayerSyncDomain.continueViewingState.key
         )
     }

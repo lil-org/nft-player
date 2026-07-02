@@ -41,19 +41,19 @@ struct PlayerViewingSessionTracker {
         }
 
         restartSuppressedCollectionId = collectionId
-        PlayerViewingProgressStore.recordContinueViewingClearedForSync()
+        PlayerViewingProgressStore.removeContinueViewingCollectionId(collectionId)
     }
 
     private mutating func updateContinueViewingCollection(for progress: PlayerViewingProgress) {
         if let suppressedCollectionId = restartSuppressedCollectionId {
             guard progress.collectionId == suppressedCollectionId else {
                 restartSuppressedCollectionId = nil
-                PlayerViewingProgressStore.clearContinueViewingCollectionId()
+                PlayerViewingProgressStore.removeContinueViewingCollectionId(suppressedCollectionId)
                 return
             }
 
             guard progress.tokenIndex > 0 else {
-                PlayerViewingProgressStore.clearContinueViewingCollectionId()
+                PlayerViewingProgressStore.removeContinueViewingCollectionId(suppressedCollectionId)
                 return
             }
 
