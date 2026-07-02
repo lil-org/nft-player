@@ -349,8 +349,6 @@ enum MobilePlayerGestureTuning {
     static let playerDismissPinchMinimumVelocityCommitProgress: CGFloat = 0.18
     static let playerDismissPinchVelocityProjectionDuration: CGFloat = 0.18
     static let playerDismissPinchFastVelocity: CGFloat = 1.1
-    static let playerDismissPinchInteractiveMaximumOffsetX: CGFloat = 72
-    static let playerDismissPinchInteractiveMaximumOffsetY: CGFloat = 72
     static let playerDismissPinchInteractiveMaximumDimmingFade: CGFloat = 0.22
     static let cardMinimizeProgressDistance: CGFloat = 360
     static let cardMinimizeInteractiveOtherCardsRevealCompletionProgress: CGFloat = 0.68

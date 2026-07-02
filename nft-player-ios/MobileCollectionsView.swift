@@ -2867,15 +2867,14 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
             translation: translation,
             easedProgress: easedProgress
         )
-        let offset = clampedPlayerDismissPinchInteractiveOffset(dragOffset)
         let scale = playerDismissPinchPresentationScale(
             easedProgress: easedProgress,
             pinchScale: pinchScale
         )
 
         playerNavigationController.view.transform = CGAffineTransform(
-            translationX: offset.x,
-            y: offset.y
+            translationX: dragOffset.x,
+            y: dragOffset.y
         ).scaledBy(x: scale, y: scale)
         dimmingView.alpha = playerDismissPinchInteractiveDimmingAlpha(progress: progress)
     }
@@ -2891,19 +2890,6 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
             y: view.bounds.height
         ).scaledBy(x: scale, y: scale)
         dimmingView.alpha = 0
-    }
-
-    private func clampedPlayerDismissPinchInteractiveOffset(_ offset: CGPoint) -> CGPoint {
-        CGPoint(
-            x: min(
-                max(offset.x, -MobilePlayerGestureTuning.playerDismissPinchInteractiveMaximumOffsetX),
-                MobilePlayerGestureTuning.playerDismissPinchInteractiveMaximumOffsetX
-            ),
-            y: min(
-                max(offset.y, 0),
-                MobilePlayerGestureTuning.playerDismissPinchInteractiveMaximumOffsetY
-            )
-        )
     }
 
     private func playerDismissPinchInteractiveDimmingAlpha(progress: CGFloat) -> CGFloat {
