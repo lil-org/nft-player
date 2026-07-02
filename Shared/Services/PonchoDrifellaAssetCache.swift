@@ -11,7 +11,7 @@ private let ponchoDrifellaAssetCacheLogger = Logger(
 final class PonchoDrifellaAssetCache {
 
     static let shared = PonchoDrifellaAssetCache()
-    private static let baseURL = URL(string: "https://mons.shop/Poncho_Drifella")!
+    private static let baseURL = URL(string: "https://cdn.lil.org/nft/poncho_drifella")!
 
     private let core: NativeMetalCardAssetCache
 
@@ -30,7 +30,7 @@ final class PonchoDrifellaAssetCache {
                 markCachedFilesAsUsed: false,
                 paths: Self.assetPaths(for:),
                 remoteURL: { asset in
-                    Self.baseURL.appendingPathComponent(asset.relativePath)
+                    Self.remoteURL(for: asset, baseURL: Self.baseURL)
                 }
             ),
             queueLabel: "org.lil.nft-player.poncho-cache"
@@ -93,5 +93,24 @@ final class PonchoDrifellaAssetCache {
             grain: "img/grain.webp",
             glitter: "img/glitter.png"
         )
+    }
+
+    private static func remoteURL(for asset: NativeMetalCardAssetPath, baseURL: URL) -> URL? {
+        let fileName = URL(fileURLWithPath: asset.relativePath).lastPathComponent
+        guard !fileName.isEmpty else { return nil }
+
+        let directory: String
+        switch asset.role {
+        case .face:
+            directory = "fronts"
+        case .foil:
+            directory = "foils"
+        case .textureMask:
+            directory = "textures"
+        case .grain, .glitter:
+            directory = "misc"
+        }
+
+        return baseURL.appendingPathComponent(directory).appendingPathComponent(fileName)
     }
 }

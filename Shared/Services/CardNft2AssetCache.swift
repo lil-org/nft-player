@@ -14,8 +14,7 @@ final class CardNft2AssetCache {
     private static let maxPrefetchFilesPerRequest = 6
     private static let maxCacheBytes: Int64 = 512 * 1024 * 1024
     private static let ipfsGatewayURL = URL(string: "https://silver-real-rhinoceros-781.mypinata.cloud/ipfs")!
-    private static let sharedEffectAssetsBaseURL = URL(string: "https://mons.shop/Poncho_Drifella")!
-    // Mirrors CardNft2AssetKind CIDs from supermetalmons/shop/src/lib/cardNft2Assets.ts.
+    private static let sharedEffectAssetsBaseURL = URL(string: "https://cdn.lil.org/nft/poncho_drifella/misc")!
     private static let imageCID = "bafybeib7tmlzh7tcolyurmbm2p7vcv5pcqdcbiaqyx2c2handx3y2ilpaq"
     private static let foilCID = "bafybeigzyk3qd7brxfd3uinftdywhwao65gdxuleqirv5zje3okftmxczy"
     private static let textureMaskCID = "bafybeiapwcv66aqu2wzh3f5mp4j4j6h7zej3no7paae4qcqxpu3mg436ia"
@@ -142,7 +141,7 @@ final class CardNft2AssetCache {
         case .textureMask:
             cid = Self.textureMaskCID
         case .grain, .glitter:
-            return sharedEffectAssetsBaseURL.appendingPathComponent(asset.relativePath)
+            return sharedEffectAssetsBaseURL.appendingPathComponent(fileName)
         }
 
         guard !fileName.isEmpty else {

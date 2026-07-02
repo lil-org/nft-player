@@ -20,10 +20,6 @@ struct CardNft2CardMetadata {
     }
 
     static func metadata(for tokenID: Int) -> CardNft2CardMetadata {
-#if DEBUG
-        assert(commonTokenIDsAreValid, "Card NFT 2 common metadata must stay aligned with shop")
-        assert(holoMetadataByRemainder.count == 4, "Card NFT 2 holo metadata must stay aligned with shop")
-#endif
         let clampedTokenID = min(max(tokenID, 1), tokenCount)
         if commonTokenIDs.contains(clampedTokenID) {
             return CardNft2CardMetadata(effect: .cardNft2Common, glowKind: 0)
@@ -32,8 +28,6 @@ struct CardNft2CardMetadata {
         return holoMetadataByRemainder[clampedTokenID % holoMetadataByRemainder.count]
     }
 
-    // Mirrors CARD_NFT_2_HOLO_EFFECT_IDS_BY_REMAINDER in supermetalmons/shop/src/lib/interactiveCardPackReveal.ts:
-    // rare holo V, rare holo, supporter, amazing rare.
     private static let holoMetadataByRemainder = [
         CardNft2CardMetadata(effect: .rareHoloV, glowKind: 2),
         CardNft2CardMetadata(effect: .rareHolo, glowKind: 1),
@@ -41,7 +35,6 @@ struct CardNft2CardMetadata {
         CardNft2CardMetadata(effect: .amazingRare, glowKind: 3)
     ]
 
-    // Mirrors supermetalmons/shop/src/lib/cardNft2CommonIds.json used to choose the face-only native effect.
     private static let commonTokenIDs: Set<Int> = [
         4, 10, 12, 15, 17, 20, 21, 22, 23, 24, 27, 29, 31, 32, 35, 46, 49, 50, 52, 54,
         58, 67, 71, 80, 86, 87, 88, 89, 100, 104, 105, 106, 112, 123, 125, 128, 129, 132, 134, 136,
