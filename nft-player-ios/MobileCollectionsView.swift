@@ -2008,6 +2008,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
     private static let cardExpandContentReadyFallbackDelay: TimeInterval = 1.0
     private static let cardTransitionHorizontalDragDamping: CGFloat = 0.18
     private static let cardTransitionVerticalDragDamping: CGFloat = 0.32
+    private static let navigationBarSideControlRegionWidth: CGFloat = 96
 
     private struct PlayerBackgroundSnapshot {
         weak var view: UIView?
@@ -2037,6 +2038,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
     let chrome: MobilePlayerChromeController
     var onDismiss: () -> Void
 
+    private lazy var navigationBarTap = UITapGestureRecognizer(target: self, action: #selector(handleNavigationBarTap(_:)))
     private lazy var dismissPan = UIPanGestureRecognizer(target: self, action: #selector(handleDismissPan(_:)))
     private lazy var playerDismissPinch: CardLayoutPinchGestureRecognizer = {
         let gesture = CardLayoutPinchGestureRecognizer(target: self, action: #selector(handlePlayerDismissPinch(_:)))
@@ -2195,6 +2197,12 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         ])
         playerNavigationController.didMove(toParent: self)
 
+        navigationBarTap.delegate = self
+        navigationBarTap.numberOfTapsRequired = 1
+        navigationBarTap.numberOfTouchesRequired = 1
+        navigationBarTap.cancelsTouchesInView = false
+        playerNavigationController.navigationBar.addGestureRecognizer(navigationBarTap)
+
         dismissPan.delegate = self
         dismissPan.cancelsTouchesInView = false
         dismissPan.maximumNumberOfTouches = 1
@@ -2220,6 +2228,12 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         cardMinimizeRotation.delegate = self
         cardMinimizeRotation.cancelsTouchesInView = false
         view.addGestureRecognizer(cardMinimizeRotation)
+    }
+
+    @objc private func handleNavigationBarTap(_ gesture: UITapGestureRecognizer) {
+        guard gesture.state == .ended else { return }
+
+        chrome.setControlsVisible(false)
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -3721,6 +3735,14 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
     }
 
     func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        if gestureRecognizer === navigationBarTap {
+            guard !isDismissing, !isCardTransitionActive else {
+                return false
+            }
+
+            return chrome.showControls
+        }
+
         if gestureRecognizer === controlsPan {
             guard !isCardTransitionActive else {
                 return false
@@ -3771,6 +3793,63 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         return cardMinimizeStateForIntent(location: location, velocity: velocity) != nil
             || hasPlayerDismissIntent(location: location, velocity: velocity)
             || (chrome.showControls && hasControlsHideIntent(location: location, velocity: velocity))
+    }
+
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+        guard gestureRecognizer === navigationBarTap else {
+            return true
+        }
+
+        return shouldReceiveNavigationBarTap(touch)
+    }
+
+    private func shouldReceiveNavigationBarTap(_ touch: UITouch) -> Bool {
+        let navigationBar = playerNavigationController.navigationBar
+        let location = touch.location(in: navigationBar)
+        guard navigationBar.bounds.contains(location) else {
+            return false
+        }
+
+        return !isTouchInsideSideNavigationBarItem(touch, in: navigationBar)
+    }
+
+    private func isTouchInsideSideNavigationBarItem(
+        _ touch: UITouch,
+        in navigationBar: UINavigationBar
+    ) -> Bool {
+        var currentView = touch.view
+        while let view = currentView, view !== navigationBar {
+            if isSideNavigationBarItemView(view, in: navigationBar) {
+                return true
+            }
+
+            currentView = view.superview
+        }
+
+        return false
+    }
+
+    private func isSideNavigationBarItemView(
+        _ itemView: UIView,
+        in navigationBar: UINavigationBar
+    ) -> Bool {
+        let itemFrame = itemView.convert(itemView.bounds, to: navigationBar)
+        guard !itemFrame.isEmpty else {
+            return false
+        }
+
+        let sideRegionWidth = min(
+            Self.navigationBarSideControlRegionWidth,
+            navigationBar.bounds.width / 3
+        )
+
+        let isInsideSideRegion = itemFrame.midX <= navigationBar.bounds.minX + sideRegionWidth
+            || itemFrame.midX >= navigationBar.bounds.maxX - sideRegionWidth
+        guard isInsideSideRegion else {
+            return false
+        }
+
+        return itemView is UIControl || itemFrame.width <= Self.navigationBarSideControlRegionWidth
     }
 
     private func canBeginCardMinimizePinch() -> Bool {
@@ -3925,6 +4004,10 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         }
         if otherGestureRecognizer === cardMinimizeRotation {
             return isPlayerScrollViewPinchGesture(gestureRecognizer)
+        }
+
+        if gestureRecognizer === navigationBarTap || otherGestureRecognizer === navigationBarTap {
+            return false
         }
 
         return gestureRecognizer === controlsPan || otherGestureRecognizer === controlsPan
