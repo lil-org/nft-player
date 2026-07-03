@@ -21,11 +21,13 @@ enum MobilePlayerPageLayout: CaseIterable, Hashable, Identifiable {
 
     static let cardNftCollectionId = "HpGDYGz6aRUs5qbvp1dmWGKTicQctX4PixfcouAQDCHF"
     static let drifella2CollectionId = "7cHTjqr2S8uUCrG3TVFvFix3vcLjhPiwrtRsAeJtESRj"
+    static let johnCollectionId = "r1pCPYkbbpZWv7RCvuCMtpA3NSQY3fzVFo6HL43A4ot"
     static let miladyAura2AfterDeathCollectionId = "0x30f9efa712dde239a13a5fef1a8c7a6ac530a26d"
 
     private static let fourPerPageStaticImageCollectionIds = Set([
         cardNftCollectionId,
         drifella2CollectionId,
+        johnCollectionId,
         miladyAura2AfterDeathCollectionId,
     ])
 
