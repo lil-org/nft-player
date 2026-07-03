@@ -4,7 +4,12 @@ import Cocoa
 import SwiftUI
 
 private let continueViewingButtonPadding: CGFloat = 16
+private let maximumVisibleRecentContinueViewingCount = 10
 private let continueViewingCollectionNameMaxWidth: CGFloat = 250
+private let continueViewingCoverThumbnailSize: CGFloat = 14
+private let continueViewingCoverThumbnailCornerRadius: CGFloat = 3
+private let continueViewingPillSpacing: CGFloat = 8
+private let continueViewingPillScrollHorizontalInset: CGFloat = 16
 private let collectionsGridMinimumItemWidth: CGFloat = 100
 private let collectionsGridColumnSpacing: CGFloat = 0
 private let collectionsGridRowSpacing: CGFloat = 0
@@ -17,7 +22,8 @@ struct WalletsListView: View {
     @State private var hasRestoredInitialGridScrollPosition: Bool
     @State private var viewingProgressByCollectionId: [String: Int]
     @State private var viewedToEndCollectionIds: Set<String>
-    @State private var continueViewingProgress: PlayerViewingProgress?
+    @State private var recentContinueViewingProgresses: [PlayerViewingProgress]
+    @State private var continueViewingScrollResetID = 0
     @State private var hasOpenPlayerWindows: Bool
 
     init(collectionItems: [CollectionCatalogItem] = CollectionCatalog.allItems) {
@@ -31,10 +37,11 @@ struct WalletsListView: View {
         )
         _viewingProgressByCollectionId = State(initialValue: progressSnapshot.percentagesByCollectionId)
         _viewedToEndCollectionIds = State(initialValue: progressSnapshot.viewedToEndCollectionIds)
-        _continueViewingProgress = State(
-            initialValue: progressSnapshot.firstVisibleContinueViewingProgress { collectionId in
-                collectionItems.contains { $0.id == collectionId }
-            }
+        _recentContinueViewingProgresses = State(
+            initialValue: Self.visibleRecentContinueViewingProgresses(
+                from: progressSnapshot,
+                collectionItems: collectionItems
+            )
         )
         _hasOpenPlayerWindows = State(initialValue: Window.hasOpenPlayerWindows)
     }
@@ -62,13 +69,25 @@ struct WalletsListView: View {
             )
         }
         .overlay(alignment: .bottom) {
-            if shouldShowContinueViewingControl, let continueViewingProgress {
-                ContinueViewingButton(progress: continueViewingProgress) {
-                    resumeViewing(continueViewingProgress)
+            if shouldShowContinueViewingControl {
+                GeometryReader { geometry in
+                    VStack {
+                        Spacer()
+                        ContinueViewingPillsScrollView(
+                            progresses: Array(
+                                recentContinueViewingProgresses.prefix(maximumVisibleRecentContinueViewingCount)
+                            ),
+                            availableWidth: geometry.size.width,
+                            horizontalContentInset: continueViewingPillScrollHorizontalInset,
+                            resetID: continueViewingScrollResetID,
+                            coverAssetName: coverAssetName(for:),
+                            onSelect: { progress in resumeViewing(progress) }
+                        )
+                        .padding(.top, continueViewingButtonPadding / 2)
+                        .padding(.bottom, continueViewingButtonPadding)
+                    }
+                    .frame(width: geometry.size.width, height: geometry.size.height)
                 }
-                .padding(.horizontal, continueViewingButtonPadding)
-                .padding(.top, continueViewingButtonPadding / 2)
-                .padding(.bottom, continueViewingButtonPadding)
             }
         }
         .background(Color(nsColor: .controlBackgroundColor))
@@ -101,7 +120,7 @@ struct WalletsListView: View {
             refreshPlayerWindowState()
         }
         .collectionsGridScrollMemoryLifecycleFlush(tracker: gridScrollMemoryTracker)
-        .animation(continueViewingControlAnimation, value: continueViewingProgress)
+        .animation(continueViewingControlAnimation, value: recentContinueViewingProgresses)
         .animation(continueViewingControlAnimation, value: hasOpenPlayerWindows)
     }
 
@@ -120,7 +139,7 @@ struct WalletsListView: View {
     }
 
     private var shouldShowContinueViewingControl: Bool {
-        continueViewingProgress != nil && !hasOpenPlayerWindows
+        !recentContinueViewingProgresses.isEmpty && !hasOpenPlayerWindows
     }
 
     private var continueViewingControlAnimation: Animation? {
@@ -212,13 +231,24 @@ struct WalletsListView: View {
         )
     }
 
+    private func coverAssetName(for collectionId: String) -> String {
+        collectionItems.first { $0.id == collectionId }?.coverAssetName ?? collectionId
+    }
+
     private func refreshViewingProgress() {
+        let previousLeadingCollectionId = recentContinueViewingProgresses.first?.collectionId
         let progressSnapshot = PlayerViewingProgressStore.progressSnapshot()
         viewingProgressByCollectionId = progressSnapshot.percentagesByCollectionId
         viewedToEndCollectionIds = progressSnapshot.viewedToEndCollectionIds
-        continueViewingProgress = progressSnapshot.firstVisibleContinueViewingProgress { collectionId in
-            collectionItems.contains { $0.id == collectionId }
+        recentContinueViewingProgresses = Self.visibleRecentContinueViewingProgresses(
+            from: progressSnapshot,
+            collectionItems: collectionItems
+        )
+
+        guard previousLeadingCollectionId != recentContinueViewingProgresses.first?.collectionId else {
+            return
         }
+        continueViewingScrollResetID += 1
     }
 
     private func refreshPlayerWindowState() {
@@ -228,9 +258,20 @@ struct WalletsListView: View {
     private func schedulePlayerPrewarm() {
         PlayerWebView.scheduleFirstUsePrewarm()
         PlayerTokenPrewarmer.scheduleAfterLaunch(
-            continueViewingProgress: continueViewingProgress,
+            continueViewingProgress: recentContinueViewingProgresses.first,
             initialCollectionIds: gridScrollMemoryTracker.initialCollectionIds(limit: 2)
         )
+    }
+
+    private static func visibleRecentContinueViewingProgresses(
+        from progressSnapshot: PlayerViewingProgressSnapshot,
+        collectionItems: [CollectionCatalogItem]
+    ) -> [PlayerViewingProgress] {
+        let visibleCollectionIds = Set(collectionItems.map(\.id))
+        return progressSnapshot.recentContinueViewingProgresses.filter { progress in
+            visibleCollectionIds.contains(progress.collectionId)
+                && CollectionCatalog.canOpenCollection(specificCollectionId: progress.collectionId)
+        }
     }
 
     private func open(_ url: URL) {
@@ -326,15 +367,48 @@ private struct CollectionTile: View {
 
 }
 
+private struct ContinueViewingPillsScrollView: View {
+    let progresses: [PlayerViewingProgress]
+    let availableWidth: CGFloat
+    let horizontalContentInset: CGFloat
+    let resetID: Int
+    let coverAssetName: (String) -> String
+    let onSelect: (PlayerViewingProgress) -> Void
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: continueViewingPillSpacing) {
+                ForEach(Array(progresses.enumerated()), id: \.element.collectionId) { index, progress in
+                    ContinueViewingButton(
+                        progress: progress,
+                        coverAssetName: coverAssetName(progress.collectionId),
+                        isDefaultKeyboardShortcut: index == 0
+                    ) {
+                        onSelect(progress)
+                    }
+                }
+            }
+            .padding(.horizontal, horizontalContentInset)
+            .frame(
+                minWidth: availableWidth,
+                alignment: progresses.count == 1 ? .center : .leading
+            )
+        }
+        .frame(width: availableWidth)
+        .id(resetID)
+    }
+}
+
 private struct ContinueViewingButton: View {
     let progress: PlayerViewingProgress
+    let coverAssetName: String
+    let isDefaultKeyboardShortcut: Bool
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             HStack(spacing: 10) {
-                Images.play
-                    .font(.subheadline.weight(.bold))
+                ContinueViewingCoverThumbnail(assetName: coverAssetName)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(Strings.continueViewing)
@@ -365,8 +439,45 @@ private struct ContinueViewingButton: View {
         }
         .buttonStyle(.plain)
         .focusable(false)
-        .keyboardShortcut(.return, modifiers: [])
+        .modifier(DefaultReturnKeyboardShortcut(isEnabled: isDefaultKeyboardShortcut))
         .accessibilityLabel(Text(verbatim: "\(Strings.continueViewing), \(progress.collectionName)"))
+    }
+}
+
+private struct ContinueViewingCoverThumbnail: View {
+    let assetName: String
+
+    var body: some View {
+        Image(assetName)
+            .resizable()
+            .scaledToFill()
+            .frame(width: continueViewingCoverThumbnailSize, height: continueViewingCoverThumbnailSize)
+            .clipShape(
+                RoundedRectangle(
+                    cornerRadius: continueViewingCoverThumbnailCornerRadius,
+                    style: .continuous
+                )
+            )
+            .overlay {
+                RoundedRectangle(
+                    cornerRadius: continueViewingCoverThumbnailCornerRadius,
+                    style: .continuous
+                )
+                .stroke(.white.opacity(0.22), lineWidth: 0.5)
+            }
+            .accessibilityHidden(true)
+    }
+}
+
+private struct DefaultReturnKeyboardShortcut: ViewModifier {
+    let isEnabled: Bool
+
+    func body(content: Content) -> some View {
+        if isEnabled {
+            content.keyboardShortcut(.return, modifiers: [])
+        } else {
+            content
+        }
     }
 }
 
