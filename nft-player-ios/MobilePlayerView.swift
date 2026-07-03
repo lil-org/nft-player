@@ -138,7 +138,7 @@ struct MobilePlayerLayoutInteractionState: Equatable {
 }
 
 final class MobilePlayerChromeController: ObservableObject {
-    @Published private(set) var showControls = true
+    @Published private(set) var showControls = false
     @Published private(set) var isStatusBarRevealedByDismiss = false
     @Published private(set) var isPlayerContentHiddenForCardTransition = false
     @Published private(set) var pageLayoutRequest: MobilePlayerPageLayoutRequest?
