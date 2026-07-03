@@ -352,14 +352,17 @@ struct MobileCollectionsView: View {
             return
         }
 
-        let trackingMode = widgetOpenTrackingMode()
         if let tokenId {
-            openWidgetToken(collectionId: collectionId, tokenId: tokenId, trackingMode: trackingMode)
+            openWidgetToken(
+                collectionId: collectionId,
+                tokenId: tokenId,
+                trackingMode: .updateContinueViewing
+            )
         } else {
             openCollection(
                 collectionId: collectionId,
                 presentationTransition: .instant,
-                trackingMode: trackingMode
+                trackingMode: .updateContinueViewing
             )
         }
     }
@@ -471,15 +474,6 @@ struct MobileCollectionsView: View {
             continueViewingProgress: recentContinueViewingProgresses.first,
             initialCollectionIds: likelyInitialCollectionIds()
         )
-    }
-
-    private func widgetOpenTrackingMode() -> PlayerViewingSessionTrackingMode {
-        Self.visibleRecentContinueViewingProgresses(
-            from: MobileViewingProgressStore.progressSnapshot(),
-            collectionItems: collectionItems
-        ).isEmpty
-            ? .updateContinueViewing
-            : .progressOnly
     }
 
     private static func visibleRecentContinueViewingProgresses(

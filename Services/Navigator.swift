@@ -35,19 +35,17 @@ class Navigator: NSObject {
     }
 
     func showWidgetPlayer(collectionId: String, tokenId: String?, ensureFrontAfterOpening: Bool = false) {
-        let trackingMode = widgetOpenTrackingMode()
         if let tokenId {
             showPlayer(
                 collectionId: collectionId,
                 widgetTokenId: tokenId,
                 ensureFrontAfterOpening: ensureFrontAfterOpening,
-                trackingMode: trackingMode
+                trackingMode: .updateContinueViewing
             )
         } else {
             showPlayer(
                 collectionId: collectionId,
-                ensureFrontAfterOpening: ensureFrontAfterOpening,
-                trackingMode: trackingMode
+                ensureFrontAfterOpening: ensureFrontAfterOpening
             )
         }
     }
@@ -177,13 +175,4 @@ class Navigator: NSObject {
         }
     }
 
-    private func widgetOpenTrackingMode() -> PlayerViewingSessionTrackingMode {
-        let visibleContinueViewingProgress = PlayerViewingProgressStore.progressSnapshot().firstVisibleContinueViewingProgress { collectionId in
-            CollectionCatalog.allItems.contains { $0.id == collectionId }
-        }
-        return visibleContinueViewingProgress == nil
-            ? .updateContinueViewing
-            : .progressOnly
-    }
-    
 }

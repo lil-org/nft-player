@@ -433,11 +433,17 @@ struct VisionCollectionsView: View {
             return
         }
 
-        let trackingMode = widgetOpenTrackingMode()
         if let tokenId {
-            openWidgetToken(collectionId: collectionId, tokenId: tokenId, trackingMode: trackingMode)
+            openWidgetToken(
+                collectionId: collectionId,
+                tokenId: tokenId,
+                trackingMode: .updateContinueViewing
+            )
         } else {
-            openCollection(collectionId: collectionId, trackingMode: trackingMode)
+            openCollection(
+                collectionId: collectionId,
+                trackingMode: .updateContinueViewing
+            )
         }
     }
 
@@ -507,15 +513,6 @@ struct VisionCollectionsView: View {
 
     private func isVisibleCollection(_ collectionId: String) -> Bool {
         collectionItems.contains { $0.id == collectionId }
-    }
-
-    private func widgetOpenTrackingMode() -> PlayerViewingSessionTrackingMode {
-        let visibleContinueViewingProgress = PlayerViewingProgressStore.progressSnapshot().firstVisibleContinueViewingProgress { collectionId in
-            isVisibleCollection(collectionId)
-        }
-        return visibleContinueViewingProgress == nil
-            ? .updateContinueViewing
-            : .progressOnly
     }
 
 }
