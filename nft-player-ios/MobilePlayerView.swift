@@ -33,7 +33,7 @@ struct MobilePlayerPageLayoutCompletionCancellationRequest {
     let pageLayoutRequestID: UUID
 }
 
-enum MobilePlayerCardNftExpandSelectionResult {
+enum MobilePlayerStaticImageGridExpandSelectionResult {
     case started
     case busy
     case fallbackToImmediateOpen
@@ -47,7 +47,7 @@ private struct MobilePlayerPendingPageLayoutCompletion {
     let completion: () -> Void
 }
 
-struct MobilePlayerCardNftGridSelection {
+struct MobilePlayerStaticImageGridSelection {
     let pagePosition: PlayerPagePosition
     let selectedSlotIndex: Int
     let fourPerPageDescriptors: [DownloadableMediaDescriptor]
@@ -65,8 +65,7 @@ struct MobilePlayerCardNftGridSelection {
         }
 
         let selectedDescriptor = fourPerPageDescriptors[selectedSlotIndex]
-        guard MobilePlayerPageLayout.isCardNftCollection(selectedDescriptor.collectionId),
-              MobilePlayerPageLayout.fourPerPage.supports(descriptor: selectedDescriptor) else {
+        guard MobilePlayerPageLayout.fourPerPage.supports(descriptor: selectedDescriptor) else {
             return nil
         }
 
@@ -94,14 +93,13 @@ struct MobilePlayerCardNftGridSelection {
 
 }
 
-protocol MobilePlayerCardNftGridSelectionProviding: AnyObject {
-    func canSelectCardNftGrid(at location: CGPoint, in coordinateView: UIView) -> Bool
-    func cardNftGridSelection(at location: CGPoint, in coordinateView: UIView) -> MobilePlayerCardNftGridSelection?
+protocol MobilePlayerStaticImageGridSelectionProviding: AnyObject {
+    func canSelectStaticImageGrid(at location: CGPoint, in coordinateView: UIView) -> Bool
+    func staticImageGridSelection(at location: CGPoint, in coordinateView: UIView) -> MobilePlayerStaticImageGridSelection?
 }
 
 struct MobilePlayerLayoutInteractionState: Equatable {
     let pageLayout: MobilePlayerPageLayout
-    let collectionId: String
     let tokenIndex: Int?
     let supportsFourPerPage: Bool
     let currentDescriptor: DownloadableMediaDescriptor?
@@ -109,18 +107,16 @@ struct MobilePlayerLayoutInteractionState: Equatable {
 
     static let empty = MobilePlayerLayoutInteractionState(
         pageLayout: .onePerPage,
-        collectionId: "",
         tokenIndex: nil,
         supportsFourPerPage: false,
         currentDescriptor: nil,
         fourPerPageDescriptors: []
     )
 
-    var canMinimizeCardNftToFourPerPage: Bool {
-        MobilePlayerPageLayout.isCardNftCollection(collectionId)
-            && pageLayout == .onePerPage
+    var canMinimizeToStaticImageGrid: Bool {
+        pageLayout == .onePerPage
             && supportsFourPerPage
-            && currentDescriptor != nil
+            && MobilePlayerPageLayout.fourPerPage.supports(descriptor: currentDescriptor)
             && fourPerPageSelectedSlot != nil
     }
 
@@ -147,51 +143,51 @@ final class MobilePlayerChromeController: ObservableObject {
     private(set) var isPlayerContentZoomed = false
     private(set) var layoutInteractionState = MobilePlayerLayoutInteractionState.empty
     var onPlayerBackgroundColorChange: ((UIColor) -> Void)?
-    var onCardNftMinimizeToFourPerPageRequest: (() -> Bool)?
-    var onCardNftExpandFromFourPerPageRequest: ((MobilePlayerCardNftGridSelection) -> MobilePlayerCardNftExpandSelectionResult)?
-    private weak var cardNftGridSelectionProvider: (any MobilePlayerCardNftGridSelectionProviding)?
+    var onStaticImageGridMinimizeRequest: (() -> Bool)?
+    var onStaticImageGridExpandRequest: ((MobilePlayerStaticImageGridSelection) -> MobilePlayerStaticImageGridExpandSelectionResult)?
+    private weak var staticImageGridSelectionProvider: (any MobilePlayerStaticImageGridSelectionProviding)?
 
     init(playerBackgroundColor: UIColor = MobilePlayerBackgroundColor.defaultColor) {
         self.playerBackgroundColor = playerBackgroundColor
     }
 
-    func setCardNftGridSelectionProvider(_ provider: any MobilePlayerCardNftGridSelectionProviding) {
+    func setStaticImageGridSelectionProvider(_ provider: any MobilePlayerStaticImageGridSelectionProviding) {
         guard Thread.isMainThread else {
             DispatchQueue.main.async {
-                self.setCardNftGridSelectionProvider(provider)
+                self.setStaticImageGridSelectionProvider(provider)
             }
             return
         }
 
-        cardNftGridSelectionProvider = provider
+        staticImageGridSelectionProvider = provider
     }
 
-    func clearCardNftGridSelectionProvider(_ provider: any MobilePlayerCardNftGridSelectionProviding) {
+    func clearStaticImageGridSelectionProvider(_ provider: any MobilePlayerStaticImageGridSelectionProviding) {
         guard Thread.isMainThread else {
             DispatchQueue.main.async {
-                self.clearCardNftGridSelectionProvider(provider)
+                self.clearStaticImageGridSelectionProvider(provider)
             }
             return
         }
 
-        guard cardNftGridSelectionProvider === provider else { return }
+        guard staticImageGridSelectionProvider === provider else { return }
 
-        cardNftGridSelectionProvider = nil
+        staticImageGridSelectionProvider = nil
     }
 
-    func canSelectCardNftGrid(at location: CGPoint, in coordinateView: UIView) -> Bool {
+    func canSelectStaticImageGrid(at location: CGPoint, in coordinateView: UIView) -> Bool {
         guard Thread.isMainThread else { return false }
 
-        return cardNftGridSelectionProvider?.canSelectCardNftGrid(
+        return staticImageGridSelectionProvider?.canSelectStaticImageGrid(
             at: location,
             in: coordinateView
         ) == true
     }
 
-    func cardNftGridSelection(at location: CGPoint, in coordinateView: UIView) -> MobilePlayerCardNftGridSelection? {
+    func staticImageGridSelection(at location: CGPoint, in coordinateView: UIView) -> MobilePlayerStaticImageGridSelection? {
         guard Thread.isMainThread else { return nil }
 
-        return cardNftGridSelectionProvider?.cardNftGridSelection(at: location, in: coordinateView)
+        return staticImageGridSelectionProvider?.staticImageGridSelection(at: location, in: coordinateView)
     }
 
     func toggleControls() {
@@ -316,19 +312,19 @@ final class MobilePlayerChromeController: ObservableObject {
     }
 
     @discardableResult
-    func requestCardNftMinimizeToFourPerPage() -> Bool {
+    func requestStaticImageGridMinimize() -> Bool {
         guard Thread.isMainThread else { return false }
 
-        return onCardNftMinimizeToFourPerPageRequest?() == true
+        return onStaticImageGridMinimizeRequest?() == true
     }
 
     @discardableResult
-    func requestCardNftExpandFromFourPerPage(
-        _ selection: MobilePlayerCardNftGridSelection
-    ) -> MobilePlayerCardNftExpandSelectionResult {
+    func requestStaticImageGridExpand(
+        _ selection: MobilePlayerStaticImageGridSelection
+    ) -> MobilePlayerStaticImageGridExpandSelectionResult {
         guard Thread.isMainThread else { return .rejected }
 
-        return onCardNftExpandFromFourPerPageRequest?(selection) ?? .fallbackToImmediateOpen
+        return onStaticImageGridExpandRequest?(selection) ?? .fallbackToImmediateOpen
     }
 }
 
@@ -577,12 +573,12 @@ struct MobilePlayerView: View {
     }
 
     private func handleNavigationBarBack() {
-        guard canSwitchCurrentCardNftToFourPerPage else {
+        guard canSwitchCurrentToStaticImageGrid else {
             onDismiss()
             return
         }
 
-        guard !chrome.requestCardNftMinimizeToFourPerPage() else {
+        guard !chrome.requestStaticImageGridMinimize() else {
             return
         }
 
@@ -612,7 +608,7 @@ struct MobilePlayerView: View {
             }
             didAcceptRequest = applyPageLayout(.onePerPage, targetPagePosition: request.targetPagePosition)
         case .fourPerPage:
-            guard canSwitchCurrentCardNftToFourPerPage else {
+            guard canSwitchCurrentToStaticImageGrid else {
                 request.completion?()
                 return
             }
@@ -670,9 +666,8 @@ struct MobilePlayerView: View {
         }
     }
 
-    private var canSwitchCurrentCardNftToFourPerPage: Bool {
-        MobilePlayerPageLayout.isCardNftCollection(currentToken.fullCollectionId)
-            && pageLayout == .onePerPage
+    private var canSwitchCurrentToStaticImageGrid: Bool {
+        pageLayout == .onePerPage
             && supportsCurrentFourPerPageLayout
     }
 
@@ -719,7 +714,7 @@ struct MobilePlayerView: View {
     }
 
     private func updateLayoutInteractionState() {
-        guard canSwitchCurrentCardNftToFourPerPage else {
+        guard canSwitchCurrentToStaticImageGrid else {
             chrome.setLayoutInteractionState(.empty)
             return
         }
@@ -733,7 +728,6 @@ struct MobilePlayerView: View {
         chrome.setLayoutInteractionState(
             MobilePlayerLayoutInteractionState(
                 pageLayout: pageLayout,
-                collectionId: currentToken.fullCollectionId,
                 tokenIndex: currentDescriptor.tokenIndex,
                 supportsFourPerPage: supportsCurrentFourPerPageLayout,
                 currentDescriptor: currentDescriptor,

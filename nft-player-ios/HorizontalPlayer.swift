@@ -770,7 +770,7 @@ struct HorizontalPlayerContainerView: UIViewControllerRepresentable {
     }
 }
 
-class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, MobilePlaybackControllerDisplay, UIGestureRecognizerDelegate, MobilePlayerCardNftGridSelectionProviding {
+class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, MobilePlaybackControllerDisplay, UIGestureRecognizerDelegate, MobilePlayerStaticImageGridSelectionProviding {
 
     private let initialConfig: MobilePlayerConfig
     private let chrome: MobilePlayerChromeController
@@ -856,7 +856,7 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
         self.onPageLayoutContentReady = onPageLayoutContentReady
         self.onZoomStateChange = onZoomStateChange
         super.init(nibName: nil, bundle: nil)
-        chrome.setCardNftGridSelectionProvider(self)
+        chrome.setStaticImageGridSelectionProvider(self)
     }
 
     required init?(coder: NSCoder) {
@@ -892,7 +892,7 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
     }
 
     deinit {
-        chrome.clearCardNftGridSelectionProvider(self)
+        chrome.clearStaticImageGridSelectionProvider(self)
         edgeTapHighlightWorkItem?.cancel()
         UIApplication.shared.isIdleTimerDisabled = false
     }
@@ -975,11 +975,11 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
 
     private func selectFourPerPageCard(at location: CGPoint) -> Bool {
         guard pageLayout == .fourPerPage,
-              let selection = cardNftGridSelection(at: location, in: view) else {
+              let selection = staticImageGridSelection(at: location, in: view) else {
             return false
         }
 
-        switch chrome.requestCardNftExpandFromFourPerPage(selection) {
+        switch chrome.requestStaticImageGridExpand(selection) {
         case .started:
             Haptic.selectionChanged()
             return true
@@ -991,7 +991,7 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
             return true
         }
 
-        guard pagingVC.openCardNftGridSelection(selection) else {
+        guard pagingVC.openStaticImageGridSelection(selection) else {
             return false
         }
         pageLayout = .onePerPage
@@ -1000,23 +1000,23 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
         return true
     }
 
-    func canSelectCardNftGrid(at location: CGPoint, in coordinateView: UIView) -> Bool {
+    func canSelectStaticImageGrid(at location: CGPoint, in coordinateView: UIView) -> Bool {
         guard pageLayout == .fourPerPage else {
             return false
         }
 
-        return pagingVC.canSelectCardNftGrid(at: location, in: coordinateView)
+        return pagingVC.canSelectStaticImageGrid(at: location, in: coordinateView)
     }
 
-    func cardNftGridSelection(
+    func staticImageGridSelection(
         at location: CGPoint,
         in coordinateView: UIView
-    ) -> MobilePlayerCardNftGridSelection? {
+    ) -> MobilePlayerStaticImageGridSelection? {
         guard pageLayout == .fourPerPage else {
             return nil
         }
 
-        return pagingVC.cardNftGridSelection(at: location, in: coordinateView)
+        return pagingVC.staticImageGridSelection(at: location, in: coordinateView)
     }
 
     private func edgeTapSide(at location: CGPoint) -> PlayerEdgeTapSide? {
@@ -1700,7 +1700,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         return spreadSelection
     }
 
-    func canSelectCardNftGrid(at location: CGPoint, in coordinateView: UIView) -> PlayerPagePosition? {
+    func canSelectStaticImageGrid(at location: CGPoint, in coordinateView: UIView) -> PlayerPagePosition? {
         guard let spreadSelection = imageSpreadSelection(at: location, in: coordinateView),
               mediaRenderer.hasLoadedImageSpreadImages() else {
             return nil
@@ -1709,7 +1709,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         return spreadSelection.pagePosition
     }
 
-    func cardNftGridSelection(at location: CGPoint, in coordinateView: UIView) -> MobilePlayerCardNftGridSelection? {
+    func staticImageGridSelection(at location: CGPoint, in coordinateView: UIView) -> MobilePlayerStaticImageGridSelection? {
         guard let spreadSelection = imageSpreadSelection(at: location, in: coordinateView) else {
             return nil
         }
@@ -1719,7 +1719,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             return nil
         }
 
-        return MobilePlayerCardNftGridSelection(
+        return MobilePlayerStaticImageGridSelection(
             pagePosition: spreadSelection.pagePosition,
             selectedSlotIndex: spreadSelection.index,
             fourPerPageDescriptors: renderState.descriptors,
@@ -2717,10 +2717,10 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
         updatePagingScrollEnabled()
     }
 
-    func cardNftGridSelection(at location: CGPoint, in coordinateView: UIView) -> MobilePlayerCardNftGridSelection? {
+    func staticImageGridSelection(at location: CGPoint, in coordinateView: UIView) -> MobilePlayerStaticImageGridSelection? {
         guard pageLayout == .fourPerPage,
               canStartNavigation,
-              let selection = currentPage?.cardNftGridSelection(at: location, in: coordinateView),
+              let selection = currentPage?.staticImageGridSelection(at: location, in: coordinateView),
               canRender(selection.pagePosition) else {
             return nil
         }
@@ -2728,10 +2728,10 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
         return selection
     }
 
-    func canSelectCardNftGrid(at location: CGPoint, in coordinateView: UIView) -> Bool {
+    func canSelectStaticImageGrid(at location: CGPoint, in coordinateView: UIView) -> Bool {
         guard pageLayout == .fourPerPage,
               canStartNavigation,
-              let pagePosition = currentPage?.canSelectCardNftGrid(at: location, in: coordinateView),
+              let pagePosition = currentPage?.canSelectStaticImageGrid(at: location, in: coordinateView),
               canRender(pagePosition) else {
             return false
         }
@@ -2740,7 +2740,7 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
     }
 
     @discardableResult
-    func openCardNftGridSelection(_ selection: MobilePlayerCardNftGridSelection) -> Bool {
+    func openStaticImageGridSelection(_ selection: MobilePlayerStaticImageGridSelection) -> Bool {
         return reanchorCurrentPage(to: selection.pagePosition, pageLayout: .onePerPage)
     }
 

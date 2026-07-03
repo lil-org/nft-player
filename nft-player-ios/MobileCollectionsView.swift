@@ -2206,10 +2206,10 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         chrome.onPlayerBackgroundColorChange = { [weak self] color in
             self?.setPlayerBackgroundColor(color)
         }
-        chrome.onCardNftMinimizeToFourPerPageRequest = { [weak self] in
+        chrome.onStaticImageGridMinimizeRequest = { [weak self] in
             self?.beginProgrammaticCardMinimize() ?? false
         }
-        chrome.onCardNftExpandFromFourPerPageRequest = { [weak self] selection in
+        chrome.onStaticImageGridExpandRequest = { [weak self] selection in
             self?.beginProgrammaticCardExpand(selection: selection) ?? .rejected
         }
     }
@@ -2677,7 +2677,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         return true
     }
 
-    private func beginCardExpandPinchGesture(selection: MobilePlayerCardNftGridSelection) -> Bool {
+    private func beginCardExpandPinchGesture(selection: MobilePlayerStaticImageGridSelection) -> Bool {
         guard beginCardExpandTransition(selection: selection) else {
             return false
         }
@@ -2708,8 +2708,8 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
     }
 
     private func beginProgrammaticCardExpand(
-        selection: MobilePlayerCardNftGridSelection
-    ) -> MobilePlayerCardNftExpandSelectionResult {
+        selection: MobilePlayerStaticImageGridSelection
+    ) -> MobilePlayerStaticImageGridExpandSelectionResult {
         guard !isDismissing,
               !chrome.isPlayerContentZoomed else {
             return .rejected
@@ -2744,7 +2744,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         return true
     }
 
-    private func beginCardExpandTransition(selection: MobilePlayerCardNftGridSelection) -> Bool {
+    private func beginCardExpandTransition(selection: MobilePlayerStaticImageGridSelection) -> Bool {
         playerNavigationController.view.layer.removeAllAnimations()
         dimmingView.layer.removeAllAnimations()
 
@@ -3291,7 +3291,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
     private func makeCardMinimizeTransitionContext(
         state: MobilePlayerLayoutInteractionState
     ) -> CardMinimizeTransitionContext? {
-        guard state.canMinimizeCardNftToFourPerPage,
+        guard state.canMinimizeToStaticImageGrid,
               let selectedSlot = state.fourPerPageSelectedSlot,
               state.fourPerPageDescriptors.indices.contains(selectedSlot),
               let currentDescriptor = state.currentDescriptor else {
@@ -3331,7 +3331,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
     }
 
     private func makeCardExpandTransitionContext(
-        selection: MobilePlayerCardNftGridSelection
+        selection: MobilePlayerStaticImageGridSelection
     ) -> CardExpandTransitionContext? {
         let selectedImageSize = selection.selectedImageSize.validOrDefault
         let underlayView = makeCardTransitionUnderlayView(
@@ -3437,12 +3437,14 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         }
 
         for descriptor in descriptors {
+            guard descriptor != selectedDescriptor else { continue }
+
             if let image = DownloadableMediaCache.shared.cachedDecodedImage(for: descriptor) {
                 return image.size.validOrDefault
             }
         }
 
-        return CGSize(width: 1, height: 1)
+        return MobilePlayerPageLayout.fourPerPageFallbackImageSize(for: selectedDescriptor)
     }
 
     private func onePerPageCardFrame(for imageSize: CGSize) -> CGRect {
@@ -3491,13 +3493,13 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
 
     private func cardExpandPinchSelection(
         for gesture: CardLayoutPinchGestureRecognizer
-    ) -> MobilePlayerCardNftGridSelection? {
+    ) -> MobilePlayerStaticImageGridSelection? {
         let location = gesture.initialPinchLocation(in: playerNavigationController.view)
         guard canUseCardExpandPinchSelection(at: location) else {
             return nil
         }
 
-        return chrome.cardNftGridSelection(at: location, in: playerNavigationController.view)
+        return chrome.staticImageGridSelection(at: location, in: playerNavigationController.view)
     }
 
     private func cardTransitionDragOffset(
@@ -3947,7 +3949,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
             return false
         }
 
-        return chrome.canSelectCardNftGrid(at: location, in: playerNavigationController.view)
+        return chrome.canSelectStaticImageGrid(at: location, in: playerNavigationController.view)
     }
 
     private func canUseCardExpandPinchSelection(at location: CGPoint) -> Bool {
@@ -3994,7 +3996,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
 
     private func cardMinimizeAvailableState() -> MobilePlayerLayoutInteractionState? {
         let state = chrome.layoutInteractionState
-        guard state.canMinimizeCardNftToFourPerPage,
+        guard state.canMinimizeToStaticImageGrid,
               !chrome.isPlayerContentZoomed else {
             return nil
         }

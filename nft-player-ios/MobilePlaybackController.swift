@@ -20,9 +20,13 @@ enum MobilePlayerPageLayout: CaseIterable, Hashable, Identifiable {
     case fourPerPage
 
     static let cardNftCollectionId = "HpGDYGz6aRUs5qbvp1dmWGKTicQctX4PixfcouAQDCHF"
+    static let drifella2CollectionId = "7cHTjqr2S8uUCrG3TVFvFix3vcLjhPiwrtRsAeJtESRj"
+    static let miladyAura2AfterDeathCollectionId = "0x30f9efa712dde239a13a5fef1a8c7a6ac530a26d"
 
     private static let fourPerPageStaticImageCollectionIds = Set([
         cardNftCollectionId,
+        drifella2CollectionId,
+        miladyAura2AfterDeathCollectionId,
     ])
 
     static func initialLayout(for config: MobilePlayerConfig) -> MobilePlayerPageLayout {
@@ -48,8 +52,17 @@ enum MobilePlayerPageLayout: CaseIterable, Hashable, Identifiable {
         }
     }
 
-    static func isCardNftCollection(_ collectionId: String) -> Bool {
-        collectionId == cardNftCollectionId
+    static func isFourPerPageStaticImageCollection(_ collectionId: String) -> Bool {
+        fourPerPageStaticImageCollectionIds.contains(collectionId)
+    }
+
+    static func fourPerPageFallbackImageSize(for descriptor: DownloadableMediaDescriptor) -> CGSize {
+        switch descriptor.collectionId {
+        case drifella2CollectionId:
+            return CGSize(width: 1200, height: 1295)
+        default:
+            return CGSize(width: 1, height: 1)
+        }
     }
 
     var title: String {
@@ -68,7 +81,7 @@ enum MobilePlayerPageLayout: CaseIterable, Hashable, Identifiable {
         case .fourPerPage:
             guard let descriptor,
                   descriptor.isStaticImage,
-                  Self.fourPerPageStaticImageCollectionIds.contains(descriptor.collectionId) else {
+                  Self.isFourPerPageStaticImageCollection(descriptor.collectionId) else {
                 return false
             }
             return true
