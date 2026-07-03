@@ -2153,7 +2153,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         }
         return gesture
     }()
-    private lazy var cardMinimizeRotation = UIRotationGestureRecognizer(target: self, action: #selector(handleCardMinimizeRotation(_:)))
+    private lazy var pinchRotation = UIRotationGestureRecognizer(target: self, action: #selector(handlePinchRotation(_:)))
     private let dimmingView = UIView()
     private var configuredScrollPanGestures = Set<ObjectIdentifier>()
     private var configuredScrollPinchGestures = Set<ObjectIdentifier>()
@@ -2161,6 +2161,8 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
     private var isDismissPanDrivingPlayerDismiss = false
     private var isPlayerDismissPinchDrivingPlayerDismiss = false
     private var playerDismissPinchStartLocation = CGPoint.zero
+    private var playerDismissPinchStartRotation: CGFloat = 0
+    private var playerDismissPinchRotation: CGFloat = 0
     private lazy var playerDismissPinchPresentationUpdate = PendingGesturePresentationUpdate { [weak self] in
         guard let self else { return }
         guard self.isPlayerDismissPinchDrivingPlayerDismiss else { return }
@@ -2285,9 +2287,9 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         cardExpandPinch.cancelsTouchesInView = false
         view.addGestureRecognizer(cardExpandPinch)
 
-        cardMinimizeRotation.delegate = self
-        cardMinimizeRotation.cancelsTouchesInView = false
-        view.addGestureRecognizer(cardMinimizeRotation)
+        pinchRotation.delegate = self
+        pinchRotation.cancelsTouchesInView = false
+        view.addGestureRecognizer(pinchRotation)
     }
 
     @objc private func handleNavigationBarTap(_ gesture: UITapGestureRecognizer) {
@@ -2423,7 +2425,11 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
             if isPlayerDismissPinchDrivingPlayerDismiss {
                 flushPendingPlayerDismissPinchPresentationUpdate()
                 isPlayerDismissPinchDrivingPlayerDismiss = false
-                finishPlayerDismissPinchGesture(scale: gesture.scale, velocity: gesture.velocity)
+                finishPlayerDismissPinchGesture(
+                    scale: gesture.scale,
+                    velocity: gesture.velocity,
+                    rotation: playerDismissPinchRotation
+                )
             }
             resetPlayerDismissPinchState()
 
@@ -2545,23 +2551,33 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         }
     }
 
-    @objc private func handleCardMinimizeRotation(_ gesture: UIRotationGestureRecognizer) {
+    @objc private func handlePinchRotation(_ gesture: UIRotationGestureRecognizer) {
         guard !isDismissing else { return }
 
         switch gesture.state {
         case .began:
-            guard isCardMinimizePinchDrivingCardMinimize else { return }
-
-            cardMinimizePinchStartRotation = gesture.rotation
-            cardMinimizePinchRotation = 0
+            if isPlayerDismissPinchDrivingPlayerDismiss {
+                playerDismissPinchStartRotation = gesture.rotation
+                playerDismissPinchRotation = 0
+            } else if isCardMinimizePinchDrivingCardMinimize {
+                cardMinimizePinchStartRotation = gesture.rotation
+                cardMinimizePinchRotation = 0
+            }
 
         case .changed:
-            guard isCardMinimizePinchDrivingCardMinimize else { return }
-
-            cardMinimizePinchRotation = gesture.rotation - cardMinimizePinchStartRotation
-            scheduleCardMinimizePinchPresentationUpdate()
+            if isPlayerDismissPinchDrivingPlayerDismiss {
+                playerDismissPinchRotation = gesture.rotation - playerDismissPinchStartRotation
+                schedulePlayerDismissPinchPresentationUpdate()
+            } else if isCardMinimizePinchDrivingCardMinimize {
+                cardMinimizePinchRotation = gesture.rotation - cardMinimizePinchStartRotation
+                scheduleCardMinimizePinchPresentationUpdate()
+            }
 
         case .ended, .cancelled, .failed:
+            if !isPlayerDismissPinchDrivingPlayerDismiss {
+                playerDismissPinchRotation = 0
+                playerDismissPinchStartRotation = 0
+            }
             if !isCardMinimizePinchDrivingCardMinimize {
                 cardMinimizePinchRotation = 0
                 cardMinimizePinchStartRotation = 0
@@ -2579,6 +2595,8 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
 
         playerNavigationController.view.layer.removeAllAnimations()
         dimmingView.layer.removeAllAnimations()
+        playerDismissPinchStartRotation = currentPinchRotationGestureValue()
+        playerDismissPinchRotation = 0
         isPlayerDismissPinchDrivingPlayerDismiss = true
         startDismissBackgroundClearing()
         setDismissStatusBarRevealed(true)
@@ -2616,7 +2634,11 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         }
     }
 
-    private func finishPlayerDismissPinchGesture(scale: CGFloat, velocity: CGFloat) {
+    private func finishPlayerDismissPinchGesture(
+        scale: CGFloat,
+        velocity: CGFloat,
+        rotation: CGFloat
+    ) {
         let currentProgress = playerDismissPinchProgress(forScale: scale)
         let projectedScale = scale + min(velocity, 0) * MobilePlayerGestureTuning.playerDismissPinchVelocityProjectionDuration
         let projectedProgress = max(
@@ -2648,7 +2670,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         let duration = min(max(TimeInterval(velocityDuration), 0.14), 0.24)
 
         UIView.animate(withDuration: duration, delay: 0, options: [.curveEaseOut, .beginFromCurrentState], animations: {
-            self.applyFinalPlayerDismissPinchPresentation()
+            self.applyFinalPlayerDismissPinchPresentation(rotation: rotation)
         }, completion: { _ in
             self.onDismiss()
         })
@@ -2671,7 +2693,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
             return false
         }
 
-        cardMinimizePinchStartRotation = currentCardMinimizeRotationGestureValue()
+        cardMinimizePinchStartRotation = currentPinchRotationGestureValue()
         cardMinimizePinchRotation = 0
         isCardMinimizePinchDrivingCardMinimize = true
         return true
@@ -2900,6 +2922,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         applyPlayerDismissPinchPresentation(
             progress: playerDismissPinchProgress(forScale: gesture.scale),
             translation: translation,
+            rotation: playerDismissPinchRotation,
             pinchScale: gesture.scale
         )
     }
@@ -2919,6 +2942,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
     private func applyPlayerDismissPinchPresentation(
         progress: CGFloat,
         translation: CGPoint,
+        rotation: CGFloat,
         pinchScale: CGFloat
     ) {
         let progress = min(max(progress, 0), 1)
@@ -2935,11 +2959,13 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         playerNavigationController.view.transform = CGAffineTransform(
             translationX: dragOffset.x,
             y: dragOffset.y
-        ).scaledBy(x: scale, y: scale)
+        )
+        .rotated(by: rotation)
+        .scaledBy(x: scale, y: scale)
         dimmingView.alpha = playerDismissPinchInteractiveDimmingAlpha(progress: progress)
     }
 
-    private func applyFinalPlayerDismissPinchPresentation() {
+    private func applyFinalPlayerDismissPinchPresentation(rotation: CGFloat) {
         let scale = playerDismissPinchPresentationScale(
             easedProgress: 1,
             pinchScale: MobilePlayerGestureTuning.playerDismissPinchFullProgressScale
@@ -2948,7 +2974,9 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         playerNavigationController.view.transform = CGAffineTransform(
             translationX: 0,
             y: view.bounds.height
-        ).scaledBy(x: scale, y: scale)
+        )
+        .rotated(by: rotation)
+        .scaledBy(x: scale, y: scale)
         dimmingView.alpha = 0
     }
 
@@ -2987,6 +3015,8 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
     private func resetPlayerDismissPinchState() {
         isPlayerDismissPinchDrivingPlayerDismiss = false
         playerDismissPinchStartLocation = .zero
+        playerDismissPinchStartRotation = 0
+        playerDismissPinchRotation = 0
         invalidatePendingPlayerDismissPinchPresentationUpdate()
     }
 
@@ -3817,8 +3847,8 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
             return canBeginCardExpandPinch()
         }
 
-        if gestureRecognizer === cardMinimizeRotation {
-            return canBeginCardMinimizeRotation()
+        if gestureRecognizer === pinchRotation {
+            return canBeginPinchRotation()
         }
 
         guard gestureRecognizer === dismissPan else {
@@ -3919,15 +3949,22 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         return cardMinimizeStateForPinch(location: location) == nil
     }
 
-    private func canBeginCardMinimizeRotation() -> Bool {
-        if isCardMinimizePinchDrivingCardMinimize {
+    private func canBeginPinchRotation() -> Bool {
+        if isPlayerDismissPinchDrivingPlayerDismiss || isCardMinimizePinchDrivingCardMinimize {
             return true
         }
+
+        let location = pinchRotation.location(in: playerNavigationController.view)
+        if playerDismissPinch.isTrackingPinch,
+           canBeginPlayerDismissPinch(location: location) {
+            return true
+        }
+
         guard cardMinimizePinch.isTrackingPinch else {
             return false
         }
 
-        return canBeginCardMinimizeInteraction(location: cardMinimizeRotation.location(in: playerNavigationController.view))
+        return canBeginCardMinimizeInteraction(location: location)
     }
 
     private func canBeginCardMinimizeInteraction(location: CGPoint) -> Bool {
@@ -4043,14 +4080,14 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
     }
 
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
-        if isCardMinimizePinchAndRotationPair(gestureRecognizer, otherGestureRecognizer) {
+        if isPinchAndRotationPair(gestureRecognizer, otherGestureRecognizer) {
             return true
         }
 
-        if gestureRecognizer === cardMinimizeRotation {
+        if gestureRecognizer === pinchRotation {
             return isPlayerScrollViewPinchGesture(otherGestureRecognizer)
         }
-        if otherGestureRecognizer === cardMinimizeRotation {
+        if otherGestureRecognizer === pinchRotation {
             return isPlayerScrollViewPinchGesture(gestureRecognizer)
         }
 
@@ -4061,18 +4098,22 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         return gestureRecognizer === controlsPan || otherGestureRecognizer === controlsPan
     }
 
-    private func isCardMinimizePinchAndRotationPair(
+    private func isPinchAndRotationPair(
         _ gestureRecognizer: UIGestureRecognizer,
         _ otherGestureRecognizer: UIGestureRecognizer
     ) -> Bool {
-        (gestureRecognizer === cardMinimizePinch && otherGestureRecognizer === cardMinimizeRotation)
-            || (gestureRecognizer === cardMinimizeRotation && otherGestureRecognizer === cardMinimizePinch)
+        (gestureRecognizer === pinchRotation && isRotationEnabledPinch(otherGestureRecognizer))
+            || (otherGestureRecognizer === pinchRotation && isRotationEnabledPinch(gestureRecognizer))
     }
 
-    private func currentCardMinimizeRotationGestureValue() -> CGFloat {
-        switch cardMinimizeRotation.state {
+    private func isRotationEnabledPinch(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        gestureRecognizer === playerDismissPinch || gestureRecognizer === cardMinimizePinch
+    }
+
+    private func currentPinchRotationGestureValue() -> CGFloat {
+        switch pinchRotation.state {
         case .began, .changed:
-            return cardMinimizeRotation.rotation
+            return pinchRotation.rotation
         default:
             return 0
         }
