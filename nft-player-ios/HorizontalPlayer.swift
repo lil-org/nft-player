@@ -27,6 +27,7 @@ enum FullscreenTokenMediaView {
     static func nativeMetalCardView(in containerView: UIView) -> NativeMetalCardView {
         let cardView = NativeMetalCardView()
         cardView.isUserInteractionEnabled = false
+        cardView.isHidden = true
         install(cardView, in: containerView)
         return cardView
     }
@@ -328,7 +329,6 @@ final class FullscreenTokenMediaRenderer {
         imageView?.image = nil
         hideImageSpread()
         hideWebContent()
-        nativeMetalCardView.isHidden = false
         nativeMetalCardView.display(tokenId: tokenId, renderKind: renderKind)
     }
 

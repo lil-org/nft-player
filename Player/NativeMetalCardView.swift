@@ -25,6 +25,9 @@ final class NativeMetalCardView: NSView {
 
     override var isHidden: Bool {
         didSet {
+            if oldValue != isHidden {
+                updateRendererRunningState()
+            }
             updatePointerTrackingTimer()
         }
     }
@@ -50,13 +53,11 @@ final class NativeMetalCardView: NSView {
 
         if window == nil {
             removeWindowFocusObservers()
-            stopPointerTrackingTimer()
-            renderer?.stop()
         } else {
             installWindowFocusObservers()
-            renderer?.start()
-            updatePointerTrackingTimer()
         }
+        updateRendererRunningState()
+        updatePointerTrackingTimer()
     }
 
     override func updateTrackingAreas() {
@@ -88,16 +89,21 @@ final class NativeMetalCardView: NSView {
     }
 
     func display(tokenId: String, renderKind: NativeMetalCardRenderKind) {
-        guard let tokenID = Int(tokenId) else { return }
+        guard let tokenID = Int(tokenId) else {
+            hideUnavailableContent()
+            return
+        }
+
         isDisplayed = true
         renderer?.display(tokenID: tokenID, renderKind: renderKind)
+        revealOrRefreshRenderer()
         updatePointerTrackingTimer()
     }
 
     func stop() {
         isDisplayed = false
-        stopPointerTrackingTimer()
-        renderer?.stop()
+        updateRendererRunningState()
+        updatePointerTrackingTimer()
     }
 
     static func resetMotionCalibration() {
@@ -179,6 +185,36 @@ final class NativeMetalCardView: NSView {
             && !isHidden
             && window?.isKeyWindow == true
             && NSApplication.shared.isActive
+    }
+
+    private var shouldRunRenderer: Bool {
+        isDisplayed && !isHidden && window != nil
+    }
+
+    private func revealOrRefreshRenderer() {
+        if isHidden {
+            isHidden = false
+        } else if shouldRunRenderer {
+            renderer?.start()
+        }
+    }
+
+    private func hideUnavailableContent() {
+        isDisplayed = false
+        if !isHidden {
+            isHidden = true
+        } else {
+            updateRendererRunningState()
+            updatePointerTrackingTimer()
+        }
+    }
+
+    private func updateRendererRunningState() {
+        if shouldRunRenderer {
+            renderer?.start()
+        } else {
+            renderer?.stop()
+        }
     }
 
     private func updatePointerTrackingTimer() {
@@ -290,7 +326,6 @@ private final class NativeMetalCardRenderer: NSObject, MTKViewDelegate {
 
     func display(tokenID: Int, renderKind: NativeMetalCardRenderKind) {
         rendererCore.display(tokenID: tokenID, renderKind: renderKind)
-        start()
     }
 
     func start() {

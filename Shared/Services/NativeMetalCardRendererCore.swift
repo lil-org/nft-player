@@ -274,12 +274,24 @@ final class NativeMetalCardRendererCore {
             return
         }
 
-        guard let textures,
-              let metadata,
-              let renderPassDescriptor = view.currentRenderPassDescriptor,
+        guard let renderPassDescriptor = view.currentRenderPassDescriptor,
               let drawable = view.currentDrawable,
-              let commandBuffer = commandQueue.makeCommandBuffer(),
-              let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor) else {
+              let commandBuffer = commandQueue.makeCommandBuffer() else {
+            return
+        }
+
+        guard let textures,
+              let metadata else {
+            clearAndPresent(
+                renderPassDescriptor: renderPassDescriptor,
+                drawable: drawable,
+                commandBuffer: commandBuffer,
+                clearColor: view.clearColor
+            )
+            return
+        }
+
+        guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor) else {
             return
         }
 
@@ -312,6 +324,24 @@ final class NativeMetalCardRendererCore {
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: NativeMetalCardVertexQuad.vertexCount)
         encoder.endEncoding()
 
+        commandBuffer.present(drawable)
+        commandBuffer.commit()
+    }
+
+    private func clearAndPresent(
+        renderPassDescriptor: MTLRenderPassDescriptor,
+        drawable: MTLDrawable,
+        commandBuffer: MTLCommandBuffer,
+        clearColor: MTLClearColor
+    ) {
+        renderPassDescriptor.colorAttachments[0].loadAction = .clear
+        renderPassDescriptor.colorAttachments[0].clearColor = clearColor
+        renderPassDescriptor.colorAttachments[0].storeAction = .store
+        guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor) else {
+            return
+        }
+
+        encoder.endEncoding()
         commandBuffer.present(drawable)
         commandBuffer.commit()
     }

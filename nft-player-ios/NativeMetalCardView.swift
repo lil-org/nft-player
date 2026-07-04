@@ -20,7 +20,9 @@ final class NativeMetalCardView: UIView {
 
     override var isHidden: Bool {
         didSet {
-            updateRendererRunningState()
+            if oldValue != isHidden {
+                updateRendererRunningState()
+            }
         }
     }
 
@@ -41,10 +43,14 @@ final class NativeMetalCardView: UIView {
     }
 
     func display(tokenId: String, renderKind: NativeMetalCardRenderKind) {
-        guard let tokenID = Int(tokenId) else { return }
+        guard let tokenID = Int(tokenId) else {
+            hideUnavailableContent()
+            return
+        }
+
         isDisplayed = true
         renderer?.display(tokenID: tokenID, renderKind: renderKind)
-        updateRendererRunningState()
+        revealOrRefreshRenderer()
     }
 
     func stop() {
@@ -93,6 +99,23 @@ final class NativeMetalCardView: UIView {
 
     private var shouldRunRenderer: Bool {
         isDisplayed && !isHidden && window != nil
+    }
+
+    private func revealOrRefreshRenderer() {
+        if isHidden {
+            isHidden = false
+        } else if shouldRunRenderer {
+            renderer?.start()
+        }
+    }
+
+    private func hideUnavailableContent() {
+        isDisplayed = false
+        if !isHidden {
+            isHidden = true
+        } else {
+            updateRendererRunningState()
+        }
     }
 
     private func updateRendererRunningState() {

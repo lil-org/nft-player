@@ -653,7 +653,6 @@ final class MacPlayerMediaContainerView: NSView {
         hideImageView()
         hideWebView()
         let cardView = ensureNativeMetalCardView()
-        cardView.isHidden = false
         setZoomContentLayout(.viewport, allowedContent: .nativeMetalCard)
         cardView.display(tokenId: token.id, renderKind: renderKind)
     }
@@ -728,6 +727,7 @@ final class MacPlayerMediaContainerView: NSView {
         }
 
         let cardView = NativeMetalCardView()
+        cardView.isHidden = true
         cardView.translatesAutoresizingMaskIntoConstraints = false
         installPlayerMenuGesture(on: cardView)
         installPlayerZoomGestures(on: cardView)
