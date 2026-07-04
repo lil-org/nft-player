@@ -77,6 +77,8 @@ enum MobilePlayerPageLayout: CaseIterable, Hashable, Identifiable {
 
     static func staticImageGridFallbackImageSize(for descriptor: DownloadableMediaDescriptor) -> CGSize {
         switch descriptor.collectionId {
+        case cardNftCollectionId:
+            return CGSize(width: 776, height: 1098)
         case drifella2CollectionId:
             return CGSize(width: 1200, height: 1295)
         case driladyCollectionId:
