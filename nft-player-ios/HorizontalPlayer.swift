@@ -62,7 +62,7 @@ final class FullscreenTokenMediaRenderer {
 
     private enum ImageSpreadArrangement: Equatable {
         case linear
-        case grid
+        case grid(MobileStaticImageSpreadGrid)
     }
 
     init(containerView: UIView) {
@@ -97,7 +97,11 @@ final class FullscreenTokenMediaRenderer {
         unloadWebContentAfterImageDisplay(imageKey: imageKey)
     }
 
-    func displayLoadedImageSpread<Key: Hashable>(_ images: [UIImage], key: Key) {
+    func displayLoadedImageSpread<Key: Hashable>(
+        _ images: [UIImage],
+        key: Key,
+        pageLayout: MobilePlayerPageLayout
+    ) {
         guard !images.isEmpty else { return }
 
         cancelCurrentImageLoad()
@@ -106,7 +110,7 @@ final class FullscreenTokenMediaRenderer {
         imageView?.image = nil
         let imageKey = AnyHashable(key)
         representedImageKey = imageKey
-        ensureImageSpreadStackView(imageCount: images.count)
+        ensureImageSpreadStackView(imageCount: images.count, pageLayout: pageLayout)
         webView?.isHidden = true
         imageSpreadStackView.isHidden = false
         for (imageView, image) in zip(imageSpreadViews, images) {
@@ -207,6 +211,7 @@ final class FullscreenTokenMediaRenderer {
 
     func renderImageSpread<Key: Hashable>(
         key: Key,
+        pageLayout: MobilePlayerPageLayout,
         loadImages: [(@escaping (UIImage?) -> Void) -> (() -> Void)?],
         fallbackToPrimary: @escaping (UIImage?) -> Void,
         onLoadedImages: (([UIImage]) -> Void)? = nil
@@ -217,7 +222,7 @@ final class FullscreenTokenMediaRenderer {
         }
 
         cancelCurrentImageLoad()
-        ensureImageSpreadStackView(imageCount: loadImages.count)
+        ensureImageSpreadStackView(imageCount: loadImages.count, pageLayout: pageLayout)
         hideWebContent()
         hideNativeMetalCardView()
         imageView?.isHidden = true
@@ -260,7 +265,7 @@ final class FullscreenTokenMediaRenderer {
             renderer.cancelActiveImageLoad = nil
             renderer.activeImageLoadId = nil
             cancellations = Array(repeating: nil, count: loadImages.count)
-            renderer.displayLoadedImageSpread(images, key: key)
+            renderer.displayLoadedImageSpread(images, key: key, pageLayout: pageLayout)
             onLoadedImages?(images)
         }
 
@@ -328,11 +333,36 @@ final class FullscreenTokenMediaRenderer {
     }
 
     func setImageSpreadAxis(_ axis: NSLayoutConstraint.Axis) {
-        guard let imageSpreadStackView,
-              imageSpreadArrangement == .linear else {
+        guard imageSpreadStackView != nil,
+              !imageSpreadViews.isEmpty else {
             return
         }
-        imageSpreadStackView.axis = axis
+
+        if imageSpreadArrangement != .linear {
+            rebuildImageSpreadStackView(
+                imageCount: imageSpreadViews.count,
+                arrangement: .linear,
+                preservedImages: imageSpreadViews.map(\.image),
+                isHidden: imageSpreadStackView?.isHidden ?? true
+            )
+        }
+
+        imageSpreadStackView?.axis = axis
+    }
+
+    func setImageSpreadGrid(_ grid: MobileStaticImageSpreadGrid) {
+        guard imageSpreadStackView != nil,
+              !imageSpreadViews.isEmpty,
+              imageSpreadArrangement != .grid(grid) else {
+            return
+        }
+
+        rebuildImageSpreadStackView(
+            imageCount: imageSpreadViews.count,
+            arrangement: .grid(grid),
+            preservedImages: imageSpreadViews.map(\.image),
+            isHidden: imageSpreadStackView?.isHidden ?? true
+        )
     }
 
     func preloadWebImage(_ imageURL: URL, completion: ((Bool) -> Void)? = nil) {
@@ -407,15 +437,47 @@ final class FullscreenTokenMediaRenderer {
         }
     }
 
-    private func ensureImageSpreadStackView(imageCount: Int) {
+    private func ensureImageSpreadStackView(
+        imageCount: Int,
+        pageLayout: MobilePlayerPageLayout
+    ) {
         guard imageCount > 0 else { return }
-        let arrangement = imageCount == 4 ? ImageSpreadArrangement.grid : .linear
+        let arrangement = imageSpreadArrangement(imageCount: imageCount, pageLayout: pageLayout)
         if imageSpreadStackView != nil,
            imageSpreadViews.count == imageCount,
            imageSpreadArrangement == arrangement {
             return
         }
 
+        rebuildImageSpreadStackView(
+            imageCount: imageCount,
+            arrangement: arrangement,
+            preservedImages: imageSpreadViews.count == imageCount ? imageSpreadViews.map(\.image) : [],
+            isHidden: imageSpreadStackView?.isHidden ?? true
+        )
+    }
+
+    private func imageSpreadArrangement(
+        imageCount: Int,
+        pageLayout: MobilePlayerPageLayout
+    ) -> ImageSpreadArrangement {
+        if let grid = MobileStaticImageSpreadGrid.grid(
+            for: pageLayout,
+            imageCount: imageCount,
+            fitting: containerView.bounds.size
+        ) {
+            return .grid(grid)
+        }
+
+        return .linear
+    }
+
+    private func rebuildImageSpreadStackView(
+        imageCount: Int,
+        arrangement: ImageSpreadArrangement,
+        preservedImages: [UIImage?],
+        isHidden: Bool
+    ) {
         imageSpreadStackView?.removeFromSuperview()
         imageSpreadStackView = nil
         imageSpreadArrangement = nil
@@ -433,18 +495,37 @@ final class FullscreenTokenMediaRenderer {
             return imageView
         }
 
+        if preservedImages.count == imageSpreadViews.count {
+            for (imageView, image) in zip(imageSpreadViews, preservedImages) {
+                imageView.image = image
+            }
+        }
+
         let stackView: UIStackView
         switch arrangement {
         case .linear:
             stackView = makeImageSpreadStackView(arrangedSubviews: imageSpreadViews, axis: .horizontal)
-        case .grid:
-            let topRow = makeImageSpreadStackView(arrangedSubviews: Array(imageSpreadViews[0..<2]), axis: .horizontal)
-            let bottomRow = makeImageSpreadStackView(arrangedSubviews: Array(imageSpreadViews[2..<4]), axis: .horizontal)
-            imageSpreadNestedStackViews = [topRow, bottomRow]
-            stackView = makeImageSpreadStackView(arrangedSubviews: [topRow, bottomRow], axis: .vertical)
+        case .grid(let grid):
+            let rowStackViews = (0..<grid.rowCount).compactMap { row -> UIStackView? in
+                let startIndex = row * grid.columnCount
+                let endIndex = min(startIndex + grid.columnCount, imageSpreadViews.count)
+                guard startIndex < endIndex else { return nil }
+                return makeImageSpreadStackView(
+                    arrangedSubviews: Array(imageSpreadViews[startIndex..<endIndex]),
+                    axis: .horizontal,
+                    spacing: grid.spacing
+                )
+            }
+            imageSpreadNestedStackViews = rowStackViews
+            stackView = makeImageSpreadStackView(
+                arrangedSubviews: rowStackViews,
+                axis: .vertical,
+                spacing: grid.spacing
+            )
         }
 
         stackView.isUserInteractionEnabled = false
+        stackView.isHidden = isHidden
         stackView.translatesAutoresizingMaskIntoConstraints = false
         if usesTransparentPlayerBackground {
             stackView.makeBackgroundTransparent()
@@ -462,12 +543,16 @@ final class FullscreenTokenMediaRenderer {
         imageSpreadArrangement = arrangement
     }
 
-    private func makeImageSpreadStackView(arrangedSubviews: [UIView], axis: NSLayoutConstraint.Axis) -> UIStackView {
+    private func makeImageSpreadStackView(
+        arrangedSubviews: [UIView],
+        axis: NSLayoutConstraint.Axis,
+        spacing: CGFloat = MobilePlayerPageLayoutMetrics.spreadCardSpacing
+    ) -> UIStackView {
         let stackView = UIStackView(arrangedSubviews: arrangedSubviews)
         stackView.axis = axis
         stackView.alignment = .fill
         stackView.distribution = .fillEqually
-        stackView.spacing = MobilePlayerPageLayoutMetrics.spreadCardSpacing
+        stackView.spacing = spacing
         stackView.isUserInteractionEnabled = false
         return stackView
     }
@@ -966,15 +1051,15 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
             return
         }
 
-        if selectFourPerPageCard(at: gesture.location(in: view)) {
+        if selectStaticImageGridCard(at: gesture.location(in: view)) {
             return
         }
 
         onToggleChrome()
     }
 
-    private func selectFourPerPageCard(at location: CGPoint) -> Bool {
-        guard pageLayout == .fourPerPage,
+    private func selectStaticImageGridCard(at location: CGPoint) -> Bool {
+        guard pageLayout.isStaticImageGrid,
               let selection = staticImageGridSelection(at: location, in: view) else {
             return false
         }
@@ -1001,7 +1086,7 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
     }
 
     func canSelectStaticImageGrid(at location: CGPoint, in coordinateView: UIView) -> Bool {
-        guard pageLayout == .fourPerPage else {
+        guard pageLayout.isStaticImageGrid else {
             return false
         }
 
@@ -1012,7 +1097,7 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
         at location: CGPoint,
         in coordinateView: UIView
     ) -> MobilePlayerStaticImageGridSelection? {
-        guard pageLayout == .fourPerPage else {
+        guard pageLayout.isStaticImageGrid else {
             return nil
         }
 
@@ -1163,7 +1248,7 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
 
     @objc private func handleDoubleTap(_ gesture: UITapGestureRecognizer) {
         guard gesture.state == .ended else { return }
-        guard pageLayout != .fourPerPage else { return }
+        guard !pageLayout.isStaticImageGrid else { return }
 
         let location = gesture.location(in: view)
         guard !isEdgeTapLocation(location) else { return }
@@ -1173,13 +1258,13 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
 
     func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
         guard gestureRecognizer === doubleTapRecognizer else { return true }
-        guard pageLayout != .fourPerPage else { return false }
+        guard !pageLayout.isStaticImageGrid else { return false }
 
         return !isEdgeTapLocation(gestureRecognizer.location(in: view))
     }
 
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
-        if gestureRecognizer === doubleTapRecognizer, pageLayout == .fourPerPage {
+        if gestureRecognizer === doubleTapRecognizer, pageLayout.isStaticImageGrid {
             return false
         }
 
@@ -1196,7 +1281,7 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
     ) -> Bool {
         gestureRecognizer === singleTapRecognizer
             && otherGestureRecognizer === doubleTapRecognizer
-            && pageLayout != .fourPerPage
+            && !pageLayout.isStaticImageGrid
     }
 
     func gestureRecognizer(
@@ -1217,7 +1302,8 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
         MobilePlaybackController.shared.prepareDownloadableMediaWindow(
             uuid: initialConfig.id,
             pagePosition: pagePosition,
-            direction: direction
+            direction: direction,
+            pageLayout: pageLayout
         )
     }
 
@@ -1229,6 +1315,17 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
         MobilePlaybackController.shared.downloadableMediaDescriptor(
             uuid: initialConfig.id,
             pagePosition: pagePosition
+        )
+    }
+
+    fileprivate func staticImageGridDescriptors(
+        containing pagePosition: PlayerPagePosition,
+        for pageLayout: MobilePlayerPageLayout
+    ) -> [DownloadableMediaDescriptor] {
+        MobilePlaybackController.shared.staticImageGridDescriptors(
+            uuid: initialConfig.id,
+            containing: pagePosition,
+            pageLayout: pageLayout
         )
     }
 
@@ -1345,6 +1442,10 @@ private protocol HorizontalPlayerDataSource: AnyObject {
     ) -> PlayerDownloadableMediaWindow?
     func clearDownloadableMediaWindow()
     func downloadableMediaDescriptor(for pagePosition: PlayerPagePosition) -> DownloadableMediaDescriptor?
+    func staticImageGridDescriptors(
+        containing pagePosition: PlayerPagePosition,
+        for pageLayout: MobilePlayerPageLayout
+    ) -> [DownloadableMediaDescriptor]
     func supportsPageLayout(_ pageLayout: MobilePlayerPageLayout, for pagePosition: PlayerPagePosition) -> Bool
     func canRenderPagePosition(_ pagePosition: PlayerPagePosition) -> Bool
     func startPagePosition() -> PlayerPagePosition
@@ -1656,12 +1757,14 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     func setPageLayout(_ pageLayout: MobilePlayerPageLayout, shouldRender: Bool) {
         guard self.pageLayout != pageLayout else { return }
 
-        let wasUsingFourPerPageLayout = usesFourPerPageLayoutForCurrentPagePosition
+        let previousPageLayout = self.pageLayout
+        let wasUsingStaticImageGridLayout = usesStaticImageGridLayoutForCurrentPagePosition
         self.pageLayout = pageLayout
-        let isUsingFourPerPageLayout = usesFourPerPageLayoutForCurrentPagePosition
-        let needsRenderForLayoutChange = wasUsingFourPerPageLayout != isUsingFourPerPageLayout
+        let isUsingStaticImageGridLayout = usesStaticImageGridLayoutForCurrentPagePosition
+        let needsRenderForLayoutChange = wasUsingStaticImageGridLayout != isUsingStaticImageGridLayout
+            || (wasUsingStaticImageGridLayout && isUsingStaticImageGridLayout && previousPageLayout != pageLayout)
 
-        if isUsingFourPerPageLayout {
+        if isUsingStaticImageGridLayout {
             resetZoom(animated: false)
         }
 
@@ -1691,7 +1794,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         at location: CGPoint,
         in coordinateView: UIView
     ) -> StaticImageSpreadSelection? {
-        guard usesFourPerPageLayoutForCurrentPagePosition,
+        guard usesStaticImageGridLayoutForCurrentPagePosition,
               let spreadIndex = mediaRenderer.imageSpreadIndex(at: location, in: coordinateView),
               let spreadSelection = imageSpreadRenderState?.selection(at: spreadIndex) else {
             return nil
@@ -1720,16 +1823,17 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         }
 
         return MobilePlayerStaticImageGridSelection(
+            pageLayout: pageLayout,
             pagePosition: spreadSelection.pagePosition,
             selectedSlotIndex: spreadSelection.index,
-            fourPerPageDescriptors: renderState.descriptors,
-            fourPerPageImages: images
+            descriptors: renderState.descriptors,
+            images: images
         )
     }
 
     func toggleZoom(at location: CGPoint, in coordinateView: UIView) {
         guard isViewLoaded else { return }
-        guard !usesFourPerPageLayoutForCurrentPagePosition else { return }
+        guard !usesStaticImageGridLayoutForCurrentPagePosition else { return }
         guard zoomScrollView.bounds.width > 0, zoomScrollView.bounds.height > 0 else { return }
 
         if isZoomed {
@@ -1877,9 +1981,12 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             zoomScrollView.contentSize = contentSize
         }
 
-        if case .staticImageSpread(let layout) = zoomContentLayout,
-           let axis = layout.axis(fitting: viewportSize) {
-            mediaRenderer.setImageSpreadAxis(axis)
+        if case .staticImageSpread(let layout) = zoomContentLayout {
+            if let grid = layout.grid(fitting: viewportSize) {
+                mediaRenderer.setImageSpreadGrid(grid)
+            } else if let axis = layout.axis(fitting: viewportSize) {
+                mediaRenderer.setImageSpreadAxis(axis)
+            }
         }
 
         updateZoomContentInsets()
@@ -2004,7 +2111,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     }
 
     func viewForZooming(in scrollView: UIScrollView) -> UIView? {
-        usesFourPerPageLayoutForCurrentPagePosition ? nil : mediaContentView
+        usesStaticImageGridLayoutForCurrentPagePosition ? nil : mediaContentView
     }
 
     func scrollViewDidZoom(_ scrollView: UIScrollView) {
@@ -2056,13 +2163,10 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             let descriptor = mediaWindow.currentDescriptor
             switch descriptor.media {
             case .staticImage:
-                let companionDescriptors = companionStaticImageDescriptors(
-                    for: descriptor
-                )
-                if usesFourPerPageLayoutForCurrentPagePosition {
+                if usesStaticImageGridLayoutForCurrentPagePosition {
                     renderImageSpread(
                         descriptor,
-                        companionDescriptors: companionDescriptors,
+                        imageDescriptors: staticImageGridImageDescriptors(startingWith: descriptor),
                         fallbackHTML: token.html
                     )
                 } else {
@@ -2099,7 +2203,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     private func prepareCurrentDownloadableMediaWindow() -> PlayerDownloadableMediaWindow? {
         playerDataSource?.prepareDownloadableMediaWindow(
             for: pagePosition,
-            direction: usesFourPerPageLayoutForCurrentPagePosition ? .forward : preferredPrefetchDirection
+            direction: usesStaticImageGridLayoutForCurrentPagePosition ? .forward : preferredPrefetchDirection
         )
     }
 
@@ -2189,10 +2293,10 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
 
     private func renderImageSpread(
         _ descriptor: DownloadableMediaDescriptor,
-        companionDescriptors: [DownloadableMediaDescriptor],
+        imageDescriptors staticImageDescriptors: [DownloadableMediaDescriptor],
         fallbackHTML: String
     ) {
-        let imageDescriptors = [descriptor] + companionDescriptors
+        let imageDescriptors = staticImageDescriptors.isEmpty ? [descriptor] : staticImageDescriptors
         imageSpreadRenderState = StaticImageSpreadRenderState(
             pagePosition: pagePosition,
             descriptors: imageDescriptors
@@ -2202,6 +2306,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             key: StaticImageSpreadRenderKey(
                 descriptors: imageDescriptors
             ),
+            pageLayout: pageLayout,
             loadImages: imageDescriptors.map { imageDescriptor in
                 { completion in
                     DownloadableMediaCache.shared.loadImage(for: imageDescriptor, completion: completion)
@@ -2225,6 +2330,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
                 self.setZoomContentLayout(
                     .staticImageSpread(
                         StaticImageSpreadZoomLayout(
+                            pageLayout: pageLayout,
                             imageSizes: images.map(\.size)
                         )
                     )
@@ -2238,32 +2344,28 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         playerDataSource?.didRenderPageLayoutContent(pageLayout, pagePosition: pagePosition)
     }
 
-    private func companionStaticImageDescriptors(
-        for descriptor: DownloadableMediaDescriptor
+    private func staticImageGridImageDescriptors(
+        startingWith descriptor: DownloadableMediaDescriptor
     ) -> [DownloadableMediaDescriptor] {
-        guard pageLayout == .fourPerPage,
+        guard pageLayout.isStaticImageGrid,
               pageLayout.supports(descriptor: descriptor) else {
-            return []
+            return [descriptor]
         }
 
-        var companionDescriptors = [DownloadableMediaDescriptor]()
-        companionDescriptors.reserveCapacity(3)
-        for offset in 1...3 {
-            let companionPagePosition = pagePosition.advanced(by: offset)
-            guard let companionDescriptor = playerDataSource?.downloadableMediaDescriptor(for: companionPagePosition),
-                  companionDescriptor.collectionId == descriptor.collectionId,
-                  pageLayout.supports(descriptor: companionDescriptor) else {
-                break
-            }
-            companionDescriptors.append(companionDescriptor)
+        let descriptors = playerDataSource?.staticImageGridDescriptors(
+            containing: pagePosition,
+            for: pageLayout
+        ) ?? []
+        guard descriptors.first == descriptor else {
+            return [descriptor]
         }
-        return companionDescriptors
+        return descriptors
     }
 
-    private var usesFourPerPageLayoutForCurrentPagePosition: Bool {
-        pageLayout == .fourPerPage
+    private var usesStaticImageGridLayoutForCurrentPagePosition: Bool {
+        pageLayout.isStaticImageGrid
             && playerDataSource?.supportsPageLayout(
-                .fourPerPage,
+                pageLayout,
                 for: pagePosition
             ) == true
     }
@@ -2718,7 +2820,7 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
     }
 
     func staticImageGridSelection(at location: CGPoint, in coordinateView: UIView) -> MobilePlayerStaticImageGridSelection? {
-        guard pageLayout == .fourPerPage,
+        guard pageLayout.isStaticImageGrid,
               canStartNavigation,
               let selection = currentPage?.staticImageGridSelection(at: location, in: coordinateView),
               canRender(selection.pagePosition) else {
@@ -2729,7 +2831,7 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
     }
 
     func canSelectStaticImageGrid(at location: CGPoint, in coordinateView: UIView) -> Bool {
-        guard pageLayout == .fourPerPage,
+        guard pageLayout.isStaticImageGrid,
               canStartNavigation,
               let pagePosition = currentPage?.canSelectStaticImageGrid(at: location, in: coordinateView),
               canRender(pagePosition) else {
@@ -2756,7 +2858,7 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
 
         guard self.pageLayout != pageLayout else { return false }
 
-        if pageLayout == .fourPerPage,
+        if pageLayout.isStaticImageGrid,
            let currentPage {
             let previousPagePosition = currentPage.pagePosition
             let stablePageResult = playerDataSource?.exitWidgetInsertionForStablePage(

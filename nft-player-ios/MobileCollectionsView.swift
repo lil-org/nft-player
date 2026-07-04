@@ -1658,6 +1658,7 @@ private final class CardTransitionUnderlayView: UIView {
 
     private static let lateLoadedImageFadeDuration: TimeInterval = 0.14
 
+    private let pageLayout: MobilePlayerPageLayout
     private let descriptors: [DownloadableMediaDescriptor]
     private let hiddenSlotIndex: Int
     private let layoutImageSizes: [CGSize]
@@ -1666,6 +1667,7 @@ private final class CardTransitionUnderlayView: UIView {
     private var otherCardsRevealProgress: CGFloat = 0
 
     init(
+        pageLayout: MobilePlayerPageLayout,
         descriptors: [DownloadableMediaDescriptor],
         hiddenSlotIndex: Int,
         fallbackImageSize: CGSize,
@@ -1673,6 +1675,7 @@ private final class CardTransitionUnderlayView: UIView {
         initialImages: [UIImage]? = nil
     ) {
         let validFallbackImageSize = fallbackImageSize.validOrDefault
+        self.pageLayout = pageLayout
         self.descriptors = descriptors
         self.hiddenSlotIndex = hiddenSlotIndex
         if let layoutImageSizes,
@@ -1788,7 +1791,10 @@ private final class CardTransitionUnderlayView: UIView {
     }
 
     private func applyImageFrames() {
-        let frames = MobileStaticImageSpreadLayout(imageSizes: layoutImageSizes).itemFrames(fitting: bounds.size)
+        let frames = MobileStaticImageSpreadLayout(
+            pageLayout: pageLayout,
+            imageSizes: layoutImageSizes
+        ).itemFrames(fitting: bounds.size)
         for (imageView, frame) in zip(imageViews, frames) {
             imageView.frame = frame
         }
@@ -2077,6 +2083,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
     }
 
     private struct CardMinimizeTransitionContext {
+        let pageLayout: MobilePlayerPageLayout
         let sourceFrame: CGRect
         let targetFrame: CGRect?
         let targetScale: CGFloat
@@ -2810,9 +2817,13 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
     }
 
     private func completeCardMinimizeTransition() {
-        guard let context = activeCardMinimizeContext,
-              let targetFrame = context.targetFrame else {
-            chrome.requestPageLayout(.fourPerPage) { [weak self] in
+        guard let context = activeCardMinimizeContext else {
+            cleanupCardMinimizeTransition(revealPlayer: true)
+            return
+        }
+
+        guard let targetFrame = context.targetFrame else {
+            chrome.requestPageLayout(context.pageLayout) { [weak self] in
                 self?.cleanupCardMinimizeTransition(revealPlayer: true)
             }
             return
@@ -2828,7 +2839,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         }, completion: { [weak self] _ in
             guard let self else { return }
 
-            self.chrome.requestPageLayout(.fourPerPage) { [weak self] in
+            self.chrome.requestPageLayout(context.pageLayout) { [weak self] in
                 guard let self else { return }
                 self.cleanupCardMinimizeTransition(revealPlayer: true)
             }
@@ -3322,15 +3333,16 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         state: MobilePlayerLayoutInteractionState
     ) -> CardMinimizeTransitionContext? {
         guard state.canMinimizeToStaticImageGrid,
-              let selectedSlot = state.fourPerPageSelectedSlot,
-              state.fourPerPageDescriptors.indices.contains(selectedSlot),
+              let pageLayout = state.staticImageGridPageLayout,
+              let selectedSlot = state.staticImageGridSelectedSlot,
+              state.staticImageGridDescriptors.indices.contains(selectedSlot),
               let currentDescriptor = state.currentDescriptor else {
             return nil
         }
 
         let fallbackImageSize = cardTransitionFallbackImageSize(
             selectedDescriptor: currentDescriptor,
-            descriptors: state.fourPerPageDescriptors
+            descriptors: state.staticImageGridDescriptors
         )
         let sourceFrame = onePerPageCardFrame(for: fallbackImageSize)
         guard !sourceFrame.isEmpty else {
@@ -3342,7 +3354,8 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         )
 
         let underlayView = makeCardTransitionUnderlayView(
-            descriptors: state.fourPerPageDescriptors,
+            pageLayout: pageLayout,
+            descriptors: state.staticImageGridDescriptors,
             hiddenSlotIndex: selectedSlot,
             fallbackImageSize: fallbackImageSize,
             otherCardsRevealProgress: 0
@@ -3352,6 +3365,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         let targetScale = cardMinimizeTargetScale(sourceFrame: sourceFrame, targetFrame: targetFrame)
 
         return CardMinimizeTransitionContext(
+            pageLayout: pageLayout,
             sourceFrame: sourceFrame,
             targetFrame: targetFrame,
             targetScale: targetScale,
@@ -3365,11 +3379,12 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
     ) -> CardExpandTransitionContext? {
         let selectedImageSize = selection.selectedImageSize.validOrDefault
         let underlayView = makeCardTransitionUnderlayView(
-            descriptors: selection.fourPerPageDescriptors,
+            pageLayout: selection.pageLayout,
+            descriptors: selection.descriptors,
             hiddenSlotIndex: selection.selectedSlotIndex,
             fallbackImageSize: selectedImageSize,
-            layoutImageSizes: selection.fourPerPageImageSizes,
-            initialImages: selection.fourPerPageImages,
+            layoutImageSizes: selection.imageSizes,
+            initialImages: selection.images,
             otherCardsRevealProgress: 1
         )
 
@@ -3404,6 +3419,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
     }
 
     private func makeCardTransitionUnderlayView(
+        pageLayout: MobilePlayerPageLayout,
         descriptors: [DownloadableMediaDescriptor],
         hiddenSlotIndex: Int,
         fallbackImageSize: CGSize,
@@ -3412,6 +3428,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         otherCardsRevealProgress: CGFloat
     ) -> CardTransitionUnderlayView {
         let underlayView = CardTransitionUnderlayView(
+            pageLayout: pageLayout,
             descriptors: descriptors,
             hiddenSlotIndex: hiddenSlotIndex,
             fallbackImageSize: fallbackImageSize,
@@ -3474,7 +3491,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
             }
         }
 
-        return MobilePlayerPageLayout.fourPerPageFallbackImageSize(for: selectedDescriptor)
+        return MobilePlayerPageLayout.staticImageGridFallbackImageSize(for: selectedDescriptor)
     }
 
     private func onePerPageCardFrame(for imageSize: CGSize) -> CGRect {

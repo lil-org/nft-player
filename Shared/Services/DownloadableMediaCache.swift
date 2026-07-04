@@ -315,6 +315,13 @@ final class DownloadableMediaCache {
             let allowedFileNames = Set(descriptors.flatMap(self.fileNames(for:)))
             let allowedKeys = Set(descriptors.map(self.cacheKey(for:)))
             let decodedKeys = Set(decodedDescriptors.map(self.cacheKey(for:)))
+            let decodedCacheCountLimit = max(
+                PlayerDownloadableMediaWindowLayout.decodedWindowCapacity,
+                decodedDescriptors.count
+            )
+            if self.memoryCache.countLimit != decodedCacheCountLimit {
+                self.memoryCache.countLimit = decodedCacheCountLimit
+            }
             let didChangeFileWindow = didChangeCollection || previousWindow?.fileNames != allowedFileNames
             let didChangeDecodedWindow = didChangeCollection || previousWindow?.decodedKeys != decodedKeys
             self.activeWindow = ActiveWindow(

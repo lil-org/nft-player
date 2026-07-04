@@ -18,29 +18,26 @@ struct MobilePlayerFileShareItem {
 enum MobilePlayerPageLayout: CaseIterable, Hashable, Identifiable {
     case onePerPage
     case fourPerPage
+    case sixPerPage
 
     static let cardNftCollectionId = "HpGDYGz6aRUs5qbvp1dmWGKTicQctX4PixfcouAQDCHF"
     static let drifella2CollectionId = "7cHTjqr2S8uUCrG3TVFvFix3vcLjhPiwrtRsAeJtESRj"
     static let johnCollectionId = "r1pCPYkbbpZWv7RCvuCMtpA3NSQY3fzVFo6HL43A4ot"
     static let miladyAura2AfterDeathCollectionId = "0x30f9efa712dde239a13a5fef1a8c7a6ac530a26d"
 
-    private static let fourPerPageStaticImageCollectionIds = Set([
-        cardNftCollectionId,
-        drifella2CollectionId,
-        johnCollectionId,
-        miladyAura2AfterDeathCollectionId,
-    ])
+    private static let staticImageGridLayoutsByCollectionId: [String: MobilePlayerPageLayout] = [
+        cardNftCollectionId: .fourPerPage,
+        drifella2CollectionId: .sixPerPage,
+        johnCollectionId: .sixPerPage,
+        miladyAura2AfterDeathCollectionId: .sixPerPage,
+    ]
 
     static func initialLayout(for config: MobilePlayerConfig) -> MobilePlayerPageLayout {
         guard config.widgetTokenInsertion == nil else {
             return .onePerPage
         }
 
-        guard Self.fourPerPage.supports(descriptor: initialDownloadableMediaDescriptor(for: config)) else {
-            return .onePerPage
-        }
-
-        return .fourPerPage
+        return staticImageGridLayout(for: initialDownloadableMediaDescriptor(for: config)) ?? .onePerPage
     }
 
     var id: Self { self }
@@ -51,14 +48,30 @@ enum MobilePlayerPageLayout: CaseIterable, Hashable, Identifiable {
             return 1
         case .fourPerPage:
             return 4
+        case .sixPerPage:
+            return 6
         }
     }
 
-    static func isFourPerPageStaticImageCollection(_ collectionId: String) -> Bool {
-        fourPerPageStaticImageCollectionIds.contains(collectionId)
+    var isStaticImageGrid: Bool {
+        switch self {
+        case .onePerPage:
+            return false
+        case .fourPerPage, .sixPerPage:
+            return true
+        }
     }
 
-    static func fourPerPageFallbackImageSize(for descriptor: DownloadableMediaDescriptor) -> CGSize {
+    static func staticImageGridLayout(for descriptor: DownloadableMediaDescriptor?) -> MobilePlayerPageLayout? {
+        guard let descriptor,
+              descriptor.isStaticImage else {
+            return nil
+        }
+
+        return staticImageGridLayoutsByCollectionId[descriptor.collectionId]
+    }
+
+    static func staticImageGridFallbackImageSize(for descriptor: DownloadableMediaDescriptor) -> CGSize {
         switch descriptor.collectionId {
         case drifella2CollectionId:
             return CGSize(width: 1200, height: 1295)
@@ -73,6 +86,8 @@ enum MobilePlayerPageLayout: CaseIterable, Hashable, Identifiable {
             return Strings.onePerPage
         case .fourPerPage:
             return Strings.fourPerPage
+        case .sixPerPage:
+            return Strings.sixPerPage
         }
     }
 
@@ -80,13 +95,8 @@ enum MobilePlayerPageLayout: CaseIterable, Hashable, Identifiable {
         switch self {
         case .onePerPage:
             return true
-        case .fourPerPage:
-            guard let descriptor,
-                  descriptor.isStaticImage,
-                  Self.isFourPerPageStaticImageCollection(descriptor.collectionId) else {
-                return false
-            }
-            return true
+        case .fourPerPage, .sixPerPage:
+            return Self.staticImageGridLayout(for: descriptor) == self
         }
     }
 
@@ -208,7 +218,8 @@ class MobilePlaybackController {
     func prepareDownloadableMediaWindow(
         uuid: UUID,
         pagePosition: PlayerPagePosition,
-        direction: DownloadableMediaCache.PrefetchDirection
+        direction: DownloadableMediaCache.PrefetchDirection,
+        pageLayout: MobilePlayerPageLayout = .onePerPage
     ) -> PlayerDownloadableMediaWindow? {
         guard let window = dataSource(uuid: uuid)?.downloadableMediaWindow(
             pagePosition: pagePosition,
@@ -218,8 +229,47 @@ class MobilePlaybackController {
             return nil
         }
 
-        DownloadableMediaCache.shared.prepareWindow(window, ownerId: uuid)
-        return window
+        let preparedWindow = downloadableMediaWindow(
+            window,
+            includingStaticImageGridDescriptorsFor: pageLayout,
+            uuid: uuid,
+            pagePosition: pagePosition
+        )
+        DownloadableMediaCache.shared.prepareWindow(preparedWindow, ownerId: uuid)
+        return preparedWindow
+    }
+
+    private func downloadableMediaWindow(
+        _ window: PlayerDownloadableMediaWindow,
+        includingStaticImageGridDescriptorsFor pageLayout: MobilePlayerPageLayout,
+        uuid: UUID,
+        pagePosition: PlayerPagePosition
+    ) -> PlayerDownloadableMediaWindow {
+        guard pageLayout.isStaticImageGrid,
+              pageLayout.supports(descriptor: window.currentDescriptor) else {
+            return window
+        }
+
+        let gridDescriptors = staticImageGridDescriptors(
+            uuid: uuid,
+            containing: pagePosition,
+            pageLayout: pageLayout,
+            matchingCollectionId: window.currentDescriptor.collectionId,
+            candidateDescriptors: window.descriptors
+        )
+        guard !gridDescriptors.isEmpty else { return window }
+        let decodedDescriptorCapacity = max(
+            PlayerDownloadableMediaWindowLayout.decodedWindowCapacity,
+            gridDescriptors.count
+        )
+
+        return PlayerDownloadableMediaWindow(
+            currentDescriptor: window.currentDescriptor,
+            descriptors: window.descriptors,
+            decodedDescriptors: gridDescriptors + window.decodedDescriptors,
+            adjacentDescriptor: window.adjacentDescriptor,
+            decodedDescriptorCapacity: decodedDescriptorCapacity
+        )
     }
 
     func downloadableMediaDescriptor(uuid: UUID, pagePosition: PlayerPagePosition) -> DownloadableMediaDescriptor? {
@@ -236,6 +286,82 @@ class MobilePlaybackController {
     func supportsPageLayout(_ pageLayout: MobilePlayerPageLayout, uuid: UUID, pagePosition: PlayerPagePosition) -> Bool {
         pageLayout.supports(
             descriptor: downloadableMediaDescriptor(uuid: uuid, pagePosition: pagePosition)
+        )
+    }
+
+    func staticImageGridLayout(uuid: UUID, pagePosition: PlayerPagePosition) -> MobilePlayerPageLayout? {
+        MobilePlayerPageLayout.staticImageGridLayout(
+            for: downloadableMediaDescriptor(uuid: uuid, pagePosition: pagePosition)
+        )
+    }
+
+    func staticImageGridDescriptors(
+        uuid: UUID,
+        containing pagePosition: PlayerPagePosition,
+        pageLayout: MobilePlayerPageLayout
+    ) -> [DownloadableMediaDescriptor] {
+        staticImageGridDescriptors(
+            uuid: uuid,
+            containing: pagePosition,
+            pageLayout: pageLayout,
+            matchingCollectionId: nil,
+            candidateDescriptors: []
+        )
+    }
+
+    private func staticImageGridDescriptors(
+        uuid: UUID,
+        containing pagePosition: PlayerPagePosition,
+        pageLayout: MobilePlayerPageLayout,
+        matchingCollectionId collectionId: String?,
+        candidateDescriptors: [DownloadableMediaDescriptor]
+    ) -> [DownloadableMediaDescriptor] {
+        guard pageLayout.isStaticImageGrid else { return [] }
+
+        let stablePagePosition = stablePagePosition(
+            uuid: uuid,
+            containing: pagePosition,
+            pageLayout: pageLayout
+        )
+        var descriptors = [DownloadableMediaDescriptor]()
+        descriptors.reserveCapacity(pageLayout.pageSize)
+        for offset in 0..<pageLayout.pageSize {
+            let descriptorPagePosition = stablePagePosition.advanced(by: offset)
+            guard let descriptor = downloadableMediaDescriptor(
+                uuid: uuid,
+                pagePosition: descriptorPagePosition,
+                candidateDescriptors: candidateDescriptors
+            ) else {
+                break
+            }
+            let matchesCollection = collectionId.map { descriptor.collectionId == $0 } ?? true
+            guard matchesCollection,
+                  pageLayout.supports(descriptor: descriptor) else {
+                break
+            }
+            descriptors.append(descriptor)
+        }
+        return descriptors
+    }
+
+    private func downloadableMediaDescriptor(
+        uuid: UUID,
+        pagePosition: PlayerPagePosition,
+        candidateDescriptors: [DownloadableMediaDescriptor]
+    ) -> DownloadableMediaDescriptor? {
+        guard let context = downloadableCollectionTokenContext(uuid: uuid, pagePosition: pagePosition) else {
+            return nil
+        }
+
+        if let candidateDescriptor = candidateDescriptors.first(where: {
+            $0.collectionId == context.collectionId && $0.tokenIndex == context.tokenIndex
+        }) {
+            return candidateDescriptor
+        }
+
+        return MobileCollectionCatalog.downloadableMediaDescriptor(
+            specificCollectionId: context.collectionId,
+            tokenIndex: context.tokenIndex
         )
     }
 
@@ -269,8 +395,8 @@ class MobilePlaybackController {
         from pagePosition: PlayerPagePosition,
         pageLayout: MobilePlayerPageLayout
     ) -> Int {
-        guard pageLayout == .fourPerPage,
-              supportsPageLayout(.fourPerPage, uuid: uuid, pagePosition: pagePosition) else {
+        guard pageLayout.isStaticImageGrid,
+              supportsPageLayout(pageLayout, uuid: uuid, pagePosition: pagePosition) else {
             return MobilePlayerPageLayout.onePerPage.pageSize
         }
 

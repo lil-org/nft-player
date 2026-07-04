@@ -153,8 +153,10 @@ struct PlayerDownloadableMediaWindow: Hashable {
         currentDescriptor: CollectionCatalogDownloadableMediaDescriptor,
         descriptors: [CollectionCatalogDownloadableMediaDescriptor],
         decodedDescriptors: [CollectionCatalogDownloadableMediaDescriptor],
-        adjacentDescriptor: CollectionCatalogDownloadableMediaDescriptor?
+        adjacentDescriptor: CollectionCatalogDownloadableMediaDescriptor?,
+        decodedDescriptorCapacity: Int = PlayerDownloadableMediaWindowLayout.decodedWindowCapacity
     ) {
+        let decodedDescriptorCapacity = max(decodedDescriptorCapacity, 1)
         self.currentDescriptor = currentDescriptor
         self.descriptors = Self.uniqueDescriptors(
             currentDescriptor: currentDescriptor,
@@ -166,7 +168,7 @@ struct PlayerDownloadableMediaWindow: Hashable {
                 descriptors: decodedDescriptors
             )
             .filter(\.isStaticImage)
-            .prefix(PlayerDownloadableMediaWindowLayout.decodedWindowCapacity)
+            .prefix(decodedDescriptorCapacity)
         )
         self.adjacentDescriptor = adjacentDescriptor
     }

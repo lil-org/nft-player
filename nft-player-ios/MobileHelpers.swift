@@ -5,6 +5,7 @@ import SwiftUI
 
 enum MobilePlayerPageLayoutMetrics {
     static let spreadCardSpacing: CGFloat = 8
+    static let denseSpreadCardSpacing: CGFloat = 1
 }
 
 enum MobilePlayerAspectFitLayout {
@@ -27,14 +28,47 @@ enum MobilePlayerAspectFitLayout {
     }
 }
 
+struct MobileStaticImageSpreadGrid: Equatable {
+    let columnCount: Int
+    let rowCount: Int
+    let spacing: CGFloat
+
+    static func grid(
+        for pageLayout: MobilePlayerPageLayout,
+        imageCount: Int,
+        fitting viewportSize: CGSize
+    ) -> MobileStaticImageSpreadGrid? {
+        guard imageCount == pageLayout.pageSize else { return nil }
+
+        switch pageLayout {
+        case .fourPerPage:
+            return MobileStaticImageSpreadGrid(
+                columnCount: 2,
+                rowCount: 2,
+                spacing: MobilePlayerPageLayoutMetrics.spreadCardSpacing
+            )
+        case .sixPerPage:
+            let usesHorizontalLayout = viewportSize.width >= viewportSize.height
+            return MobileStaticImageSpreadGrid(
+                columnCount: usesHorizontalLayout ? 3 : 2,
+                rowCount: usesHorizontalLayout ? 2 : 3,
+                spacing: MobilePlayerPageLayoutMetrics.denseSpreadCardSpacing
+            )
+        case .onePerPage:
+            return nil
+        }
+    }
+}
+
 struct MobileStaticImageSpreadLayout: Equatable {
+    let pageLayout: MobilePlayerPageLayout
     let imageSizes: [CGSize]
 
     func contentSize(fitting viewportSize: CGSize) -> CGSize {
         guard !imageSizes.isEmpty else { return viewportSize }
 
-        if usesGrid {
-            return gridContentSize(fitting: viewportSize)
+        if let grid = grid(fitting: viewportSize) {
+            return gridContentSize(fitting: viewportSize, grid: grid)
         }
 
         let axis = linearAxis(fitting: viewportSize)
@@ -74,8 +108,16 @@ struct MobileStaticImageSpreadLayout: Equatable {
     }
 
     func axis(fitting viewportSize: CGSize) -> NSLayoutConstraint.Axis? {
-        guard !usesGrid else { return nil }
+        guard grid(fitting: viewportSize) == nil else { return nil }
         return linearAxis(fitting: viewportSize)
+    }
+
+    func grid(fitting viewportSize: CGSize) -> MobileStaticImageSpreadGrid? {
+        MobileStaticImageSpreadGrid.grid(
+            for: pageLayout,
+            imageCount: imageSizes.count,
+            fitting: viewportSize
+        )
     }
 
     func itemFrames(fitting viewportSize: CGSize) -> [CGRect] {
@@ -91,13 +133,15 @@ struct MobileStaticImageSpreadLayout: Equatable {
             y: (viewportSize.height - contentSize.height) / 2
         )
 
-        if usesGrid {
-            let spacing = MobilePlayerPageLayoutMetrics.spreadCardSpacing
-            let slotWidth = max((contentSize.width - spacing) / 2, 0)
-            let slotHeight = max((contentSize.height - spacing) / 2, 0)
+        if let grid = grid(fitting: viewportSize) {
+            let spacing = grid.spacing
+            let columnCount = CGFloat(grid.columnCount)
+            let rowCount = CGFloat(grid.rowCount)
+            let slotWidth = max((contentSize.width - CGFloat(grid.columnCount - 1) * spacing) / columnCount, 0)
+            let slotHeight = max((contentSize.height - CGFloat(grid.rowCount - 1) * spacing) / rowCount, 0)
             return imageSizes.indices.map { index in
-                let column = CGFloat(index % 2)
-                let row = CGFloat(index / 2)
+                let column = CGFloat(index % grid.columnCount)
+                let row = CGFloat(index / grid.columnCount)
                 return CGRect(
                     x: contentOrigin.x + column * (slotWidth + spacing),
                     y: contentOrigin.y + row * (slotHeight + spacing),
@@ -153,19 +197,15 @@ struct MobileStaticImageSpreadLayout: Equatable {
         )
     }
 
-    private var usesGrid: Bool {
-        imageSizes.count == 4
-    }
-
     private func linearAxis(fitting viewportSize: CGSize) -> NSLayoutConstraint.Axis {
         viewportSize.width >= viewportSize.height ? .horizontal : .vertical
     }
 
-    private func gridContentSize(fitting viewportSize: CGSize) -> CGSize {
-        let columnCount: CGFloat = 2
-        let rowCount: CGFloat = 2
-        let horizontalSpacing = (columnCount - 1) * MobilePlayerPageLayoutMetrics.spreadCardSpacing
-        let verticalSpacing = (rowCount - 1) * MobilePlayerPageLayoutMetrics.spreadCardSpacing
+    private func gridContentSize(fitting viewportSize: CGSize, grid: MobileStaticImageSpreadGrid) -> CGSize {
+        let columnCount = CGFloat(grid.columnCount)
+        let rowCount = CGFloat(grid.rowCount)
+        let horizontalSpacing = CGFloat(grid.columnCount - 1) * grid.spacing
+        let verticalSpacing = CGFloat(grid.rowCount - 1) * grid.spacing
         let maximumSlotSize = CGSize(
             width: max((viewportSize.width - horizontalSpacing) / columnCount, 0),
             height: max((viewportSize.height - verticalSpacing) / rowCount, 0)

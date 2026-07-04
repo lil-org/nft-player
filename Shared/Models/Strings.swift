@@ -25,6 +25,7 @@ struct Strings {
     static let pageLayout = loc("Page Layout")
     static let onePerPage = loc("1 per page")
     static let fourPerPage = loc("4 per page")
+    static let sixPerPage = loc("6 per page")
     static let enterImmersiveMode = loc("Enter Immersive Mode")
     static let exitImmersiveMode = loc("Exit Immersive Mode")
     static let play = loc("Play")

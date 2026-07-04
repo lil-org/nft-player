@@ -48,47 +48,51 @@ private struct MobilePlayerPendingPageLayoutCompletion {
 }
 
 struct MobilePlayerStaticImageGridSelection {
+    let pageLayout: MobilePlayerPageLayout
     let pagePosition: PlayerPagePosition
     let selectedSlotIndex: Int
-    let fourPerPageDescriptors: [DownloadableMediaDescriptor]
-    let fourPerPageImages: [UIImage]
+    let descriptors: [DownloadableMediaDescriptor]
+    let images: [UIImage]
 
     init?(
+        pageLayout: MobilePlayerPageLayout,
         pagePosition: PlayerPagePosition,
         selectedSlotIndex: Int,
-        fourPerPageDescriptors: [DownloadableMediaDescriptor],
-        fourPerPageImages: [UIImage]
+        descriptors: [DownloadableMediaDescriptor],
+        images: [UIImage]
     ) {
-        guard fourPerPageDescriptors.indices.contains(selectedSlotIndex),
-              fourPerPageImages.count == fourPerPageDescriptors.count else {
+        guard pageLayout.isStaticImageGrid,
+              descriptors.indices.contains(selectedSlotIndex),
+              images.count == descriptors.count else {
             return nil
         }
 
-        let selectedDescriptor = fourPerPageDescriptors[selectedSlotIndex]
-        guard MobilePlayerPageLayout.fourPerPage.supports(descriptor: selectedDescriptor) else {
+        let selectedDescriptor = descriptors[selectedSlotIndex]
+        guard pageLayout.supports(descriptor: selectedDescriptor) else {
             return nil
         }
 
+        self.pageLayout = pageLayout
         self.pagePosition = pagePosition
         self.selectedSlotIndex = selectedSlotIndex
-        self.fourPerPageDescriptors = fourPerPageDescriptors
-        self.fourPerPageImages = fourPerPageImages
+        self.descriptors = descriptors
+        self.images = images
     }
 
     var selectedDescriptor: DownloadableMediaDescriptor {
-        fourPerPageDescriptors[selectedSlotIndex]
+        descriptors[selectedSlotIndex]
     }
 
     var selectedImage: UIImage {
-        fourPerPageImages[selectedSlotIndex]
+        images[selectedSlotIndex]
     }
 
     var selectedImageSize: CGSize {
         selectedImage.size
     }
 
-    var fourPerPageImageSizes: [CGSize] {
-        fourPerPageImages.map(\.size)
+    var imageSizes: [CGSize] {
+        images.map(\.size)
     }
 
 }
@@ -101,34 +105,36 @@ protocol MobilePlayerStaticImageGridSelectionProviding: AnyObject {
 struct MobilePlayerLayoutInteractionState: Equatable {
     let pageLayout: MobilePlayerPageLayout
     let tokenIndex: Int?
-    let supportsFourPerPage: Bool
+    let staticImageGridPageLayout: MobilePlayerPageLayout?
     let currentDescriptor: DownloadableMediaDescriptor?
-    let fourPerPageDescriptors: [DownloadableMediaDescriptor]
+    let staticImageGridDescriptors: [DownloadableMediaDescriptor]
 
     static let empty = MobilePlayerLayoutInteractionState(
         pageLayout: .onePerPage,
         tokenIndex: nil,
-        supportsFourPerPage: false,
+        staticImageGridPageLayout: nil,
         currentDescriptor: nil,
-        fourPerPageDescriptors: []
+        staticImageGridDescriptors: []
     )
 
     var canMinimizeToStaticImageGrid: Bool {
-        pageLayout == .onePerPage
-            && supportsFourPerPage
-            && MobilePlayerPageLayout.fourPerPage.supports(descriptor: currentDescriptor)
-            && fourPerPageSelectedSlot != nil
+        guard let staticImageGridPageLayout else { return false }
+
+        return pageLayout == .onePerPage
+            && staticImageGridPageLayout.supports(descriptor: currentDescriptor)
+            && staticImageGridSelectedSlot != nil
     }
 
-    var fourPerPageSelectedSlot: Int? {
+    var staticImageGridSelectedSlot: Int? {
         if let currentDescriptor,
-           let descriptorIndex = fourPerPageDescriptors.firstIndex(of: currentDescriptor) {
+           let descriptorIndex = staticImageGridDescriptors.firstIndex(of: currentDescriptor) {
             return descriptorIndex
         }
 
-        guard let tokenIndex else { return nil }
-        let fallbackSlot = max(tokenIndex, 0) % MobilePlayerPageLayout.fourPerPage.pageSize
-        guard fourPerPageDescriptors.indices.contains(fallbackSlot) else { return nil }
+        guard let tokenIndex,
+              let staticImageGridPageLayout else { return nil }
+        let fallbackSlot = max(tokenIndex, 0) % staticImageGridPageLayout.pageSize
+        guard staticImageGridDescriptors.indices.contains(fallbackSlot) else { return nil }
         return fallbackSlot
     }
 }
@@ -346,7 +352,7 @@ struct MobilePlayerView: View {
     @State private var isCurrentTokenBookmarked = false
     @State private var pageLayout: MobilePlayerPageLayout
     @State private var pageLayoutTargetPagePosition: PlayerPagePosition?
-    @State private var supportsCurrentFourPerPageLayout = false
+    @State private var currentStaticImageGridPageLayout: MobilePlayerPageLayout?
     @State private var pendingPageLayoutCompletion: MobilePlayerPendingPageLayoutCompletion?
     
     init(
@@ -387,9 +393,9 @@ struct MobilePlayerView: View {
                                 uuid: initialConfig.id,
                                 pagePosition: newPagePosition
                             )
-                            let supportsFourPerPageLayout = self.supportsFourPerPageLayout(for: newPagePosition)
-                            self.supportsCurrentFourPerPageLayout = supportsFourPerPageLayout
-                            if !supportsFourPerPageLayout && self.pageLayout == .fourPerPage {
+                            let staticImageGridPageLayout = self.staticImageGridPageLayout(for: newPagePosition)
+                            self.currentStaticImageGridPageLayout = staticImageGridPageLayout
+                            if self.pageLayout.isStaticImageGrid && staticImageGridPageLayout != self.pageLayout {
                                 self.pageLayout = .onePerPage
                             }
                             self.updateLayoutInteractionState()
@@ -573,7 +579,8 @@ struct MobilePlayerView: View {
     }
 
     private func handleNavigationBarBack() {
-        guard canSwitchCurrentToStaticImageGrid else {
+        guard let staticImageGridPageLayout = currentStaticImageGridPageLayout,
+              canSwitchCurrentToStaticImageGrid else {
             onDismiss()
             return
         }
@@ -582,12 +589,11 @@ struct MobilePlayerView: View {
             return
         }
 
-        applyPageLayout(.fourPerPage)
+        applyPageLayout(staticImageGridPageLayout)
     }
 
-    private func supportsFourPerPageLayout(for pagePosition: PlayerPagePosition) -> Bool {
-        return MobilePlaybackController.shared.supportsPageLayout(
-            .fourPerPage,
+    private func staticImageGridPageLayout(for pagePosition: PlayerPagePosition) -> MobilePlayerPageLayout? {
+        return MobilePlaybackController.shared.staticImageGridLayout(
             uuid: initialConfig.id,
             pagePosition: pagePosition
         )
@@ -607,12 +613,13 @@ struct MobilePlayerView: View {
                 return
             }
             didAcceptRequest = applyPageLayout(.onePerPage, targetPagePosition: request.targetPagePosition)
-        case .fourPerPage:
-            guard canSwitchCurrentToStaticImageGrid else {
+        case .fourPerPage, .sixPerPage:
+            guard canSwitchCurrentToStaticImageGrid,
+                  currentStaticImageGridPageLayout == request.pageLayout else {
                 request.completion?()
                 return
             }
-            didAcceptRequest = applyPageLayout(.fourPerPage)
+            didAcceptRequest = applyPageLayout(request.pageLayout)
         }
 
         guard didAcceptRequest else {
@@ -668,7 +675,7 @@ struct MobilePlayerView: View {
 
     private var canSwitchCurrentToStaticImageGrid: Bool {
         pageLayout == .onePerPage
-            && supportsCurrentFourPerPageLayout
+            && currentStaticImageGridPageLayout != nil
     }
 
     @discardableResult
@@ -729,9 +736,9 @@ struct MobilePlayerView: View {
             MobilePlayerLayoutInteractionState(
                 pageLayout: pageLayout,
                 tokenIndex: currentDescriptor.tokenIndex,
-                supportsFourPerPage: supportsCurrentFourPerPageLayout,
+                staticImageGridPageLayout: currentStaticImageGridPageLayout,
                 currentDescriptor: currentDescriptor,
-                fourPerPageDescriptors: fourPerPageDescriptors(containing: currentPagePosition)
+                staticImageGridDescriptors: staticImageGridDescriptors(containing: currentPagePosition)
             )
         )
     }
@@ -744,33 +751,15 @@ struct MobilePlayerView: View {
         )
     }
 
-    private func fourPerPageDescriptors(containing pagePosition: PlayerPagePosition?) -> [DownloadableMediaDescriptor] {
-        guard let pagePosition else { return [] }
+    private func staticImageGridDescriptors(containing pagePosition: PlayerPagePosition?) -> [DownloadableMediaDescriptor] {
+        guard let pagePosition,
+              let staticImageGridPageLayout = currentStaticImageGridPageLayout else { return [] }
 
-        let stablePagePosition = MobilePlaybackController.shared.stablePagePosition(
+        return MobilePlaybackController.shared.staticImageGridDescriptors(
             uuid: initialConfig.id,
             containing: pagePosition,
-            pageLayout: .fourPerPage
+            pageLayout: staticImageGridPageLayout
         )
-
-        var descriptors = [DownloadableMediaDescriptor]()
-        descriptors.reserveCapacity(MobilePlayerPageLayout.fourPerPage.pageSize)
-        for offset in 0..<MobilePlayerPageLayout.fourPerPage.pageSize {
-            let descriptorPagePosition = stablePagePosition.advanced(by: offset)
-            guard let descriptor = MobilePlaybackController.shared.downloadableMediaDescriptor(
-                uuid: initialConfig.id,
-                pagePosition: descriptorPagePosition
-            ) else {
-                break
-            }
-
-            guard MobilePlayerPageLayout.fourPerPage.supports(descriptor: descriptor) else {
-                break
-            }
-
-            descriptors.append(descriptor)
-        }
-        return descriptors
     }
 
     private func goBack() {
