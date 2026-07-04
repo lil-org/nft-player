@@ -22,14 +22,18 @@ enum MobilePlayerPageLayout: CaseIterable, Hashable, Identifiable {
 
     static let cardNftCollectionId = "HpGDYGz6aRUs5qbvp1dmWGKTicQctX4PixfcouAQDCHF"
     static let drifella2CollectionId = "7cHTjqr2S8uUCrG3TVFvFix3vcLjhPiwrtRsAeJtESRj"
+    static let driladyCollectionId = "96THxzqE5yukFxzsqJaR2SrsLL2wJtuapi6827gkUD6T"
     static let johnCollectionId = "r1pCPYkbbpZWv7RCvuCMtpA3NSQY3fzVFo6HL43A4ot"
     static let miladyAura2AfterDeathCollectionId = "0x30f9efa712dde239a13a5fef1a8c7a6ac530a26d"
+    static let miladyAuraPetzCollectionId = "0xc62e3fd5b02618f90dd07d1e478963038fa9089c"
 
     private static let staticImageGridLayoutsByCollectionId: [String: MobilePlayerPageLayout] = [
         cardNftCollectionId: .fourPerPage,
         drifella2CollectionId: .sixPerPage,
+        driladyCollectionId: .sixPerPage,
         johnCollectionId: .sixPerPage,
         miladyAura2AfterDeathCollectionId: .sixPerPage,
+        miladyAuraPetzCollectionId: .sixPerPage,
     ]
 
     static func initialLayout(for config: MobilePlayerConfig) -> MobilePlayerPageLayout {
@@ -75,6 +79,10 @@ enum MobilePlayerPageLayout: CaseIterable, Hashable, Identifiable {
         switch descriptor.collectionId {
         case drifella2CollectionId:
             return CGSize(width: 1200, height: 1295)
+        case driladyCollectionId:
+            return CGSize(width: 932, height: 1006)
+        case miladyAuraPetzCollectionId:
+            return CGSize(width: 1, height: 1)
         default:
             return CGSize(width: 1, height: 1)
         }
