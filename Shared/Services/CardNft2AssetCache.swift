@@ -13,11 +13,10 @@ final class CardNft2AssetCache {
     static let shared = CardNft2AssetCache()
     private static let maxPrefetchFilesPerRequest = 6
     private static let maxCacheBytes: Int64 = 512 * 1024 * 1024
-    private static let ipfsGatewayURL = URL(string: "https://silver-real-rhinoceros-781.mypinata.cloud/ipfs")!
+    private static let faceAssetsBaseURL = URL(string: "https://cdn.lil.org/nft/card_nft_2/fronts_1400")!
+    private static let foilAssetsBaseURL = URL(string: "https://cdn.lil.org/nft/card_nft_2/foils")!
+    private static let textureMaskAssetsBaseURL = URL(string: "https://cdn.lil.org/nft/card_nft_2/masks")!
     private static let sharedEffectAssetsBaseURL = URL(string: "https://cdn.lil.org/nft/poncho_drifella/misc")!
-    private static let imageCID = "bafybeib7tmlzh7tcolyurmbm2p7vcv5pcqdcbiaqyx2c2handx3y2ilpaq"
-    private static let foilCID = "bafybeigzyk3qd7brxfd3uinftdywhwao65gdxuleqirv5zje3okftmxczy"
-    private static let textureMaskCID = "bafybeiapwcv66aqu2wzh3f5mp4j4j6h7zej3no7paae4qcqxpu3mg436ia"
 
     private let core: NativeMetalCardAssetCache
 
@@ -38,7 +37,9 @@ final class CardNft2AssetCache {
                 remoteURL: { asset in
                     Self.remoteURL(
                         for: asset,
-                        ipfsGatewayURL: Self.ipfsGatewayURL,
+                        faceAssetsBaseURL: Self.faceAssetsBaseURL,
+                        foilAssetsBaseURL: Self.foilAssetsBaseURL,
+                        textureMaskAssetsBaseURL: Self.textureMaskAssetsBaseURL,
                         sharedEffectAssetsBaseURL: Self.sharedEffectAssetsBaseURL
                     )
                 }
@@ -128,25 +129,21 @@ final class CardNft2AssetCache {
 
     private static func remoteURL(
         for asset: NativeMetalCardAssetPath,
-        ipfsGatewayURL: URL,
+        faceAssetsBaseURL: URL,
+        foilAssetsBaseURL: URL,
+        textureMaskAssetsBaseURL: URL,
         sharedEffectAssetsBaseURL: URL
     ) -> URL? {
         let fileName = URL(fileURLWithPath: asset.relativePath).lastPathComponent
-        let cid: String
         switch asset.role {
         case .face:
-            cid = Self.imageCID
+            return faceAssetsBaseURL.appendingPathComponent(fileName)
         case .foil:
-            cid = Self.foilCID
+            return foilAssetsBaseURL.appendingPathComponent(fileName)
         case .textureMask:
-            cid = Self.textureMaskCID
+            return textureMaskAssetsBaseURL.appendingPathComponent(fileName)
         case .grain, .glitter:
             return sharedEffectAssetsBaseURL.appendingPathComponent(fileName)
         }
-
-        guard !fileName.isEmpty else {
-            return nil
-        }
-        return ipfsGatewayURL.appendingPathComponent(cid).appendingPathComponent(fileName)
     }
 }
