@@ -47,8 +47,8 @@ struct MobileStaticImageSpreadGrid: Equatable {
             return MobileStaticImageSpreadGrid(
                 columnCount: 2,
                 rowCount: 2,
-                spacing: MobilePlayerPageLayoutMetrics.spreadCardSpacing,
-                screenEdgeInset: 0
+                spacing: MobilePlayerPageLayoutMetrics.denseSpreadCardSpacing,
+                screenEdgeInset: MobilePlayerPageLayoutMetrics.denseSpreadScreenEdgeInset
             )
         case .sixPerPage:
             let usesHorizontalLayout = viewportSize.width >= viewportSize.height
