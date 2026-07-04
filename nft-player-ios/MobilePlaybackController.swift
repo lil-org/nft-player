@@ -319,6 +319,28 @@ class MobilePlaybackController {
         )
     }
 
+    func staticImageGridDescriptorsAfterExitingWidgetInsertion(
+        uuid: UUID,
+        containing pagePosition: PlayerPagePosition,
+        pageLayout: MobilePlayerPageLayout
+    ) -> [DownloadableMediaDescriptor] {
+        guard pageLayout.isStaticImageGrid else { return [] }
+
+        let descriptors = dataSource(uuid: uuid)?
+            .downloadableMediaDescriptorsAfterExitingWidgetInsertion(
+                containing: pagePosition,
+                pageSize: pageLayout.pageSize
+            ) ?? []
+
+        return supportedStaticImageGridDescriptors(
+            pageLayout: pageLayout,
+            matchingCollectionId: nil
+        ) { offset in
+            guard descriptors.indices.contains(offset) else { return nil }
+            return descriptors[offset]
+        }
+    }
+
     private func staticImageGridDescriptors(
         uuid: UUID,
         containing pagePosition: PlayerPagePosition,
@@ -333,15 +355,29 @@ class MobilePlaybackController {
             containing: pagePosition,
             pageLayout: pageLayout
         )
-        var descriptors = [DownloadableMediaDescriptor]()
-        descriptors.reserveCapacity(pageLayout.pageSize)
-        for offset in 0..<pageLayout.pageSize {
+
+        return supportedStaticImageGridDescriptors(
+            pageLayout: pageLayout,
+            matchingCollectionId: collectionId
+        ) { offset in
             let descriptorPagePosition = stablePagePosition.advanced(by: offset)
-            guard let descriptor = downloadableMediaDescriptor(
+            return downloadableMediaDescriptor(
                 uuid: uuid,
                 pagePosition: descriptorPagePosition,
                 candidateDescriptors: candidateDescriptors
-            ) else {
+            )
+        }
+    }
+
+    private func supportedStaticImageGridDescriptors(
+        pageLayout: MobilePlayerPageLayout,
+        matchingCollectionId collectionId: String?,
+        descriptorAtOffset: (Int) -> DownloadableMediaDescriptor?
+    ) -> [DownloadableMediaDescriptor] {
+        var descriptors = [DownloadableMediaDescriptor]()
+        descriptors.reserveCapacity(pageLayout.pageSize)
+        for offset in 0..<pageLayout.pageSize {
+            guard let descriptor = descriptorAtOffset(offset) else {
                 break
             }
             let matchesCollection = collectionId.map { descriptor.collectionId == $0 } ?? true
@@ -390,11 +426,11 @@ class MobilePlaybackController {
         uuid: UUID,
         containing pagePosition: PlayerPagePosition,
         pageLayout: MobilePlayerPageLayout
-    ) -> PlayerStablePagePositionResult {
+    ) -> PlayerStablePagePositionResolution {
         dataSource(uuid: uuid)?.exitWidgetInsertionForStablePage(
             containing: pagePosition,
             pageSize: pageLayout.pageSize
-        ) ?? PlayerStablePagePositionResult(
+        ) ?? .resolved(
             pagePosition: pagePosition,
             didExitWidgetInsertion: false
         )

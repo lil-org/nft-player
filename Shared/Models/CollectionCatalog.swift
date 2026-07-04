@@ -49,6 +49,23 @@ struct PlayerStablePagePositionResult: Hashable {
     let didExitWidgetInsertion: Bool
 }
 
+enum PlayerStablePagePositionResolution: Hashable {
+    case resolved(PlayerStablePagePositionResult)
+    case unavailable
+
+    static func resolved(
+        pagePosition: PlayerPagePosition,
+        didExitWidgetInsertion: Bool
+    ) -> PlayerStablePagePositionResolution {
+        .resolved(
+            PlayerStablePagePositionResult(
+                pagePosition: pagePosition,
+                didExitWidgetInsertion: didExitWidgetInsertion
+            )
+        )
+    }
+}
+
 struct PlayerTokenContext: Hashable {
     let collectionId: String
     let tokenIndex: Int
@@ -305,22 +322,63 @@ final class PlayerTokenPagingDataSource {
     func exitWidgetInsertionForStablePage(
         containing pagePosition: PlayerPagePosition,
         pageSize: Int
-    ) -> PlayerStablePagePositionResult? {
+    ) -> PlayerStablePagePositionResolution {
         guard pageSize > 1 else {
-            return PlayerStablePagePositionResult(
+            return .resolved(
                 pagePosition: pagePosition,
                 didExitWidgetInsertion: false
             )
         }
-        guard let target = stableTokenTarget(containing: pagePosition, pageSize: pageSize) else { return nil }
+
+        if isInsertedWidgetToken(pagePosition: pagePosition) {
+            guard let target = stableWidgetInsertionExitTarget(
+                containing: pagePosition,
+                pageSize: pageSize
+            ) else {
+                return .unavailable
+            }
+
+            deactivateWidgetInsertion(using: target.context)
+            return .resolved(
+                pagePosition: self.pagePosition(forTokenIndex: target.tokenIndex),
+                didExitWidgetInsertion: true
+            )
+        }
+
+        guard let target = stableTokenTarget(containing: pagePosition, pageSize: pageSize) else {
+            return .resolved(
+                pagePosition: pagePosition,
+                didExitWidgetInsertion: false
+            )
+        }
 
         let didExitWidgetInsertion = isWidgetPositionSpace
         if didExitWidgetInsertion {
             deactivateWidgetInsertion(using: target.context)
         }
-        return PlayerStablePagePositionResult(
+        return .resolved(
             pagePosition: self.pagePosition(forTokenIndex: target.tokenIndex),
             didExitWidgetInsertion: didExitWidgetInsertion
+        )
+    }
+
+    func downloadableMediaDescriptorsAfterExitingWidgetInsertion(
+        containing pagePosition: PlayerPagePosition,
+        pageSize: Int
+    ) -> [CollectionCatalogDownloadableMediaDescriptor] {
+        guard pageSize > 1 else { return [] }
+        guard let target = stableWidgetInsertionExitTarget(
+            containing: pagePosition,
+            pageSize: pageSize
+        ) else {
+            return []
+        }
+
+        return contiguousDownloadableMediaDescriptors(
+            collectionId: target.context.collectionId,
+            startTokenIndex: target.tokenIndex,
+            tokenCount: target.context.tokenCount,
+            count: pageSize
         )
     }
 
@@ -412,6 +470,21 @@ final class PlayerTokenPagingDataSource {
         return (context, tokenIndex)
     }
 
+    private func stableWidgetInsertionExitTarget(
+        containing pagePosition: PlayerPagePosition,
+        pageSize: Int
+    ) -> (context: PlayerTokenContext, tokenIndex: Int)? {
+        guard isInsertedWidgetToken(pagePosition: pagePosition),
+              let widgetTokenInsertion = activeWidgetTokenInsertion else {
+            return nil
+        }
+
+        let anchorPagePosition = widgetTokenInsertion.pagePosition(
+            forTokenIndex: widgetTokenInsertion.anchorTokenIndex
+        )
+        return stableTokenTarget(containing: anchorPagePosition, pageSize: pageSize)
+    }
+
     private func deactivateWidgetInsertion(using context: PlayerTokenContext) {
         guard isWidgetPositionSpace else { return }
 
@@ -494,6 +567,26 @@ final class PlayerTokenPagingDataSource {
                 tokenIndex: $0
             )
         }
+    }
+
+    private func contiguousDownloadableMediaDescriptors(
+        collectionId: String,
+        startTokenIndex: Int,
+        tokenCount: Int,
+        count: Int
+    ) -> [CollectionCatalogDownloadableMediaDescriptor] {
+        var descriptors = [CollectionCatalogDownloadableMediaDescriptor]()
+        descriptors.reserveCapacity(count)
+        for tokenIndex in startTokenIndex..<min(startTokenIndex + count, tokenCount) {
+            guard let descriptor = CollectionCatalog.downloadableMediaDescriptor(
+                specificCollectionId: collectionId,
+                tokenIndex: tokenIndex
+            ) else {
+                break
+            }
+            descriptors.append(descriptor)
+        }
+        return descriptors
     }
 
     private func adjacentDownloadableMediaDescriptor(

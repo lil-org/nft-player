@@ -800,12 +800,14 @@ struct HorizontalPlayerContainerView: UIViewControllerRepresentable {
     private let initialConfig: MobilePlayerConfig
     private let chrome: MobilePlayerChromeController
     private let pageLayout: MobilePlayerPageLayout
+    private let pageLayoutChangeID: UUID
     private let pageLayoutTargetPagePosition: PlayerPagePosition?
     private let onPagePositionUpdate: ((PlayerPagePosition) -> Void)
     private let onPaginationAttempt: (() -> Void)
     private let onUnavailableNavigation: (() -> Void)
     private let onToggleChrome: (() -> Void)
     private let onPageLayoutChangeRequest: ((MobilePlayerPageLayout) -> Void)
+    private let onPageLayoutChangeRejected: ((MobilePlayerPageLayoutRejection) -> Void)
     private let onPageLayoutContentReady: ((MobilePlayerPageLayout, PlayerPagePosition) -> Void)
     private let onZoomStateChange: ((Bool) -> Void)
 
@@ -813,24 +815,28 @@ struct HorizontalPlayerContainerView: UIViewControllerRepresentable {
         initialConfig: MobilePlayerConfig,
         chrome: MobilePlayerChromeController,
         pageLayout: MobilePlayerPageLayout,
+        pageLayoutChangeID: UUID,
         pageLayoutTargetPagePosition: PlayerPagePosition?,
         onPagePositionUpdate: @escaping (PlayerPagePosition) -> Void,
         onPaginationAttempt: @escaping () -> Void,
         onUnavailableNavigation: @escaping () -> Void,
         onToggleChrome: @escaping () -> Void,
         onPageLayoutChangeRequest: @escaping (MobilePlayerPageLayout) -> Void,
+        onPageLayoutChangeRejected: @escaping (MobilePlayerPageLayoutRejection) -> Void,
         onPageLayoutContentReady: @escaping (MobilePlayerPageLayout, PlayerPagePosition) -> Void,
         onZoomStateChange: @escaping (Bool) -> Void
     ) {
         self.initialConfig = initialConfig
         self.chrome = chrome
         self.pageLayout = pageLayout
+        self.pageLayoutChangeID = pageLayoutChangeID
         self.pageLayoutTargetPagePosition = pageLayoutTargetPagePosition
         self.onPagePositionUpdate = onPagePositionUpdate
         self.onPaginationAttempt = onPaginationAttempt
         self.onUnavailableNavigation = onUnavailableNavigation
         self.onToggleChrome = onToggleChrome
         self.onPageLayoutChangeRequest = onPageLayoutChangeRequest
+        self.onPageLayoutChangeRejected = onPageLayoutChangeRejected
         self.onPageLayoutContentReady = onPageLayoutContentReady
         self.onZoomStateChange = onZoomStateChange
     }
@@ -851,7 +857,20 @@ struct HorizontalPlayerContainerView: UIViewControllerRepresentable {
     }
 
     func updateUIViewController(_ uiViewController: HorizontalPlayerContainer, context: Context) {
-        uiViewController.setPageLayout(pageLayout, targetPagePosition: pageLayoutTargetPagePosition)
+        let didSetPageLayout = uiViewController.setPageLayout(pageLayout, targetPagePosition: pageLayoutTargetPagePosition)
+        let currentPageLayout = uiViewController.getCurrentPageLayout()
+        guard !didSetPageLayout,
+              currentPageLayout != pageLayout else { return }
+
+        let rejection = MobilePlayerPageLayoutRejection(
+            pageLayoutChangeID: pageLayoutChangeID,
+            requestedPageLayout: pageLayout,
+            targetPagePosition: pageLayoutTargetPagePosition,
+            currentPageLayout: currentPageLayout
+        )
+        DispatchQueue.main.async {
+            self.onPageLayoutChangeRejected(rejection)
+        }
     }
 }
 
@@ -984,6 +1003,10 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
 
     func getCurrentPagePosition() -> PlayerPagePosition {
         return pagingVC.getCurrentPagePosition()
+    }
+
+    func getCurrentPageLayout() -> MobilePlayerPageLayout {
+        return pageLayout
     }
 
     func navigate(_ direction: PlaybackNavigationDirection) {
@@ -1362,7 +1385,7 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
     fileprivate func exitWidgetInsertionForStablePage(
         containing pagePosition: PlayerPagePosition,
         for pageLayout: MobilePlayerPageLayout
-    ) -> PlayerStablePagePositionResult {
+    ) -> PlayerStablePagePositionResolution {
         MobilePlaybackController.shared.exitWidgetInsertionForStablePage(
             uuid: initialConfig.id,
             containing: pagePosition,
@@ -1456,7 +1479,7 @@ private protocol HorizontalPlayerDataSource: AnyObject {
     func exitWidgetInsertionForStablePage(
         containing pagePosition: PlayerPagePosition,
         for pageLayout: MobilePlayerPageLayout
-    ) -> PlayerStablePagePositionResult
+    ) -> PlayerStablePagePositionResolution
     func navigationStride(
         from pagePosition: PlayerPagePosition,
         for pageLayout: MobilePlayerPageLayout
@@ -2861,20 +2884,26 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
         if pageLayout.isStaticImageGrid,
            let currentPage {
             let previousPagePosition = currentPage.pagePosition
-            let stablePageResult = playerDataSource?.exitWidgetInsertionForStablePage(
+            let stablePageResolution = playerDataSource?.exitWidgetInsertionForStablePage(
                 containing: currentPage.pagePosition,
                 for: pageLayout
-            ) ?? PlayerStablePagePositionResult(
+            ) ?? PlayerStablePagePositionResolution.resolved(
                 pagePosition: previousPagePosition,
                 didExitWidgetInsertion: false
             )
-            let didExitWidgetInsertionWithoutChangingPagePosition = stablePageResult.didExitWidgetInsertion
-                && stablePageResult.pagePosition == previousPagePosition
-            return reanchorCurrentPage(
-                to: stablePageResult.pagePosition,
-                pageLayout: pageLayout,
-                forceDisplayUpdate: didExitWidgetInsertionWithoutChangingPagePosition
-            )
+
+            switch stablePageResolution {
+            case .resolved(let stablePageResult):
+                let didExitWidgetInsertionWithoutChangingPagePosition = stablePageResult.didExitWidgetInsertion
+                    && stablePageResult.pagePosition == previousPagePosition
+                return reanchorCurrentPage(
+                    to: stablePageResult.pagePosition,
+                    pageLayout: pageLayout,
+                    forceDisplayUpdate: didExitWidgetInsertionWithoutChangingPagePosition
+                )
+            case .unavailable:
+                return false
+            }
         }
 
         self.pageLayout = pageLayout

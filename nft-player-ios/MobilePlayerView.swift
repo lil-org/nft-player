@@ -33,6 +33,13 @@ struct MobilePlayerPageLayoutCompletionCancellationRequest {
     let pageLayoutRequestID: UUID
 }
 
+struct MobilePlayerPageLayoutRejection {
+    let pageLayoutChangeID: UUID
+    let requestedPageLayout: MobilePlayerPageLayout
+    let targetPagePosition: PlayerPagePosition?
+    let currentPageLayout: MobilePlayerPageLayout
+}
+
 enum MobilePlayerStaticImageGridExpandSelectionResult {
     case started
     case busy
@@ -102,27 +109,49 @@ protocol MobilePlayerStaticImageGridSelectionProviding: AnyObject {
     func staticImageGridSelection(at location: CGPoint, in coordinateView: UIView) -> MobilePlayerStaticImageGridSelection?
 }
 
+enum MobilePlayerStaticImageGridSwitchMode: Equatable {
+    case animated(descriptors: [DownloadableMediaDescriptor])
+    case direct(descriptors: [DownloadableMediaDescriptor])
+}
+
 struct MobilePlayerLayoutInteractionState: Equatable {
     let pageLayout: MobilePlayerPageLayout
     let tokenIndex: Int?
     let staticImageGridPageLayout: MobilePlayerPageLayout?
     let currentDescriptor: DownloadableMediaDescriptor?
-    let staticImageGridDescriptors: [DownloadableMediaDescriptor]
+    let staticImageGridSwitchMode: MobilePlayerStaticImageGridSwitchMode
 
     static let empty = MobilePlayerLayoutInteractionState(
         pageLayout: .onePerPage,
         tokenIndex: nil,
         staticImageGridPageLayout: nil,
         currentDescriptor: nil,
-        staticImageGridDescriptors: []
+        staticImageGridSwitchMode: .animated(descriptors: [])
     )
 
-    var canMinimizeToStaticImageGrid: Bool {
-        guard let staticImageGridPageLayout else { return false }
+    var canSwitchDirectlyToStaticImageGrid: Bool {
+        guard case .direct(let descriptors) = staticImageGridSwitchMode,
+              !descriptors.isEmpty else {
+            return false
+        }
 
-        return pageLayout == .onePerPage
-            && staticImageGridPageLayout.supports(descriptor: currentDescriptor)
+        return canUseCurrentStaticImageGridLayout
+    }
+
+    var canMinimizeToStaticImageGrid: Bool {
+        guard case .animated = staticImageGridSwitchMode else { return false }
+
+        return canUseCurrentStaticImageGridLayout
             && staticImageGridSelectedSlot != nil
+    }
+
+    var staticImageGridDescriptors: [DownloadableMediaDescriptor] {
+        switch staticImageGridSwitchMode {
+        case .animated(let descriptors):
+            return descriptors
+        case .direct(let descriptors):
+            return descriptors
+        }
     }
 
     var staticImageGridSelectedSlot: Int? {
@@ -136,6 +165,13 @@ struct MobilePlayerLayoutInteractionState: Equatable {
         let fallbackSlot = max(tokenIndex, 0) % staticImageGridPageLayout.pageSize
         guard staticImageGridDescriptors.indices.contains(fallbackSlot) else { return nil }
         return fallbackSlot
+    }
+
+    private var canUseCurrentStaticImageGridLayout: Bool {
+        guard let staticImageGridPageLayout else { return false }
+
+        return pageLayout == .onePerPage
+            && staticImageGridPageLayout.supports(descriptor: currentDescriptor)
     }
 }
 
@@ -351,6 +387,7 @@ struct MobilePlayerView: View {
     @State private var shareItem: MobilePlayerFileShareItem?
     @State private var isCurrentTokenBookmarked = false
     @State private var pageLayout: MobilePlayerPageLayout
+    @State private var pageLayoutChangeID = UUID()
     @State private var pageLayoutTargetPagePosition: PlayerPagePosition?
     @State private var currentStaticImageGridPageLayout: MobilePlayerPageLayout?
     @State private var pendingPageLayoutCompletion: MobilePlayerPendingPageLayoutCompletion?
@@ -375,6 +412,7 @@ struct MobilePlayerView: View {
                     initialConfig: initialConfig,
                     chrome: chrome,
                     pageLayout: pageLayout,
+                    pageLayoutChangeID: pageLayoutChangeID,
                     pageLayoutTargetPagePosition: pageLayoutTargetPagePosition,
                     onPagePositionUpdate: { newPagePosition in
                         DispatchQueue.main.async {
@@ -396,6 +434,7 @@ struct MobilePlayerView: View {
                             let staticImageGridPageLayout = self.staticImageGridPageLayout(for: newPagePosition)
                             self.currentStaticImageGridPageLayout = staticImageGridPageLayout
                             if self.pageLayout.isStaticImageGrid && staticImageGridPageLayout != self.pageLayout {
+                                self.pageLayoutChangeID = UUID()
                                 self.pageLayout = .onePerPage
                             }
                             self.updateLayoutInteractionState()
@@ -417,6 +456,9 @@ struct MobilePlayerView: View {
                     },
                     onPageLayoutChangeRequest: { requestedPageLayout in
                         self.applyPageLayout(requestedPageLayout)
+                    },
+                    onPageLayoutChangeRejected: { rejection in
+                        self.handlePageLayoutChangeRejected(rejection)
                     },
                     onPageLayoutContentReady: { readyPageLayout, readyPagePosition in
                         self.completePendingPageLayoutRequest(
@@ -612,14 +654,18 @@ struct MobilePlayerView: View {
                 request.completion?()
                 return
             }
-            didAcceptRequest = applyPageLayout(.onePerPage, targetPagePosition: request.targetPagePosition)
+            didAcceptRequest = applyPageLayout(
+                .onePerPage,
+                targetPagePosition: request.targetPagePosition,
+                changeID: request.id
+            )
         case .fourPerPage, .sixPerPage:
             guard canSwitchCurrentToStaticImageGrid,
                   currentStaticImageGridPageLayout == request.pageLayout else {
                 request.completion?()
                 return
             }
-            didAcceptRequest = applyPageLayout(request.pageLayout)
+            didAcceptRequest = applyPageLayout(request.pageLayout, changeID: request.id)
         }
 
         guard didAcceptRequest else {
@@ -673,6 +719,30 @@ struct MobilePlayerView: View {
         }
     }
 
+    private func handlePageLayoutChangeRejected(
+        _ rejection: MobilePlayerPageLayoutRejection
+    ) {
+        guard pageLayoutChangeID == rejection.pageLayoutChangeID,
+              pageLayout == rejection.requestedPageLayout,
+              pageLayoutTargetPagePosition == rejection.targetPagePosition else { return }
+
+        pageLayout = rejection.currentPageLayout
+        pageLayoutChangeID = UUID()
+        pageLayoutTargetPagePosition = nil
+
+        if let pendingPageLayoutCompletion,
+           pendingPageLayoutCompletion.requestID == rejection.pageLayoutChangeID {
+            let completion = pendingPageLayoutCompletion.completion
+            self.pendingPageLayoutCompletion = nil
+            DispatchQueue.main.async {
+                completion()
+            }
+        }
+
+        updateNavigationAvailability(for: currentPagePosition)
+        updateLayoutInteractionState()
+    }
+
     private var canSwitchCurrentToStaticImageGrid: Bool {
         pageLayout == .onePerPage
             && currentStaticImageGridPageLayout != nil
@@ -681,7 +751,8 @@ struct MobilePlayerView: View {
     @discardableResult
     private func applyPageLayout(
         _ requestedPageLayout: MobilePlayerPageLayout,
-        targetPagePosition: PlayerPagePosition? = nil
+        targetPagePosition: PlayerPagePosition? = nil,
+        changeID: UUID = UUID()
     ) -> Bool {
         guard !isPageLayoutRequestAlreadyApplied(
             requestedPageLayout,
@@ -696,8 +767,10 @@ struct MobilePlayerView: View {
 
         if let targetPagePosition {
             pageLayoutTargetPagePosition = targetPagePosition
+            pageLayoutChangeID = changeID
         } else if pageLayout != requestedPageLayout {
             pageLayoutTargetPagePosition = nil
+            pageLayoutChangeID = changeID
         }
 
         guard pageLayout != requestedPageLayout else {
@@ -738,7 +811,13 @@ struct MobilePlayerView: View {
                 tokenIndex: currentDescriptor.tokenIndex,
                 staticImageGridPageLayout: currentStaticImageGridPageLayout,
                 currentDescriptor: currentDescriptor,
-                staticImageGridDescriptors: staticImageGridDescriptors(containing: currentPagePosition)
+                staticImageGridSwitchMode: isCurrentPagePositionInsertedWidgetToken
+                    ? .direct(
+                        descriptors: staticImageGridDescriptorsAfterExitingWidgetInsertion(
+                            containing: currentPagePosition
+                        )
+                    )
+                    : .animated(descriptors: staticImageGridDescriptors(containing: currentPagePosition))
             )
         )
     }
@@ -756,6 +835,19 @@ struct MobilePlayerView: View {
               let staticImageGridPageLayout = currentStaticImageGridPageLayout else { return [] }
 
         return MobilePlaybackController.shared.staticImageGridDescriptors(
+            uuid: initialConfig.id,
+            containing: pagePosition,
+            pageLayout: staticImageGridPageLayout
+        )
+    }
+
+    private func staticImageGridDescriptorsAfterExitingWidgetInsertion(
+        containing pagePosition: PlayerPagePosition?
+    ) -> [DownloadableMediaDescriptor] {
+        guard let pagePosition,
+              let staticImageGridPageLayout = currentStaticImageGridPageLayout else { return [] }
+
+        return MobilePlaybackController.shared.staticImageGridDescriptorsAfterExitingWidgetInsertion(
             uuid: initialConfig.id,
             containing: pagePosition,
             pageLayout: staticImageGridPageLayout
