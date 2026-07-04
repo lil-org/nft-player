@@ -4,8 +4,9 @@ import UIKit
 import SwiftUI
 
 enum MobilePlayerPageLayoutMetrics {
-    static let spreadCardSpacing: CGFloat = 8
-    static let denseSpreadCardSpacing: CGFloat = 1
+    static let spreadCardSpacing: CGFloat = 4
+    static let denseSpreadCardSpacing: CGFloat = 4
+    static let denseSpreadScreenEdgeInset: CGFloat = 2
 }
 
 enum MobilePlayerAspectFitLayout {
@@ -32,6 +33,7 @@ struct MobileStaticImageSpreadGrid: Equatable {
     let columnCount: Int
     let rowCount: Int
     let spacing: CGFloat
+    let screenEdgeInset: CGFloat
 
     static func grid(
         for pageLayout: MobilePlayerPageLayout,
@@ -45,14 +47,16 @@ struct MobileStaticImageSpreadGrid: Equatable {
             return MobileStaticImageSpreadGrid(
                 columnCount: 2,
                 rowCount: 2,
-                spacing: MobilePlayerPageLayoutMetrics.spreadCardSpacing
+                spacing: MobilePlayerPageLayoutMetrics.spreadCardSpacing,
+                screenEdgeInset: 0
             )
         case .sixPerPage:
             let usesHorizontalLayout = viewportSize.width >= viewportSize.height
             return MobileStaticImageSpreadGrid(
                 columnCount: usesHorizontalLayout ? 3 : 2,
                 rowCount: usesHorizontalLayout ? 2 : 3,
-                spacing: MobilePlayerPageLayoutMetrics.denseSpreadCardSpacing
+                spacing: MobilePlayerPageLayoutMetrics.denseSpreadCardSpacing,
+                screenEdgeInset: MobilePlayerPageLayoutMetrics.denseSpreadScreenEdgeInset
             )
         case .onePerPage:
             return nil
@@ -206,9 +210,13 @@ struct MobileStaticImageSpreadLayout: Equatable {
         let rowCount = CGFloat(grid.rowCount)
         let horizontalSpacing = CGFloat(grid.columnCount - 1) * grid.spacing
         let verticalSpacing = CGFloat(grid.rowCount - 1) * grid.spacing
+        let availableSize = CGSize(
+            width: max(viewportSize.width - grid.screenEdgeInset * 2, 0),
+            height: max(viewportSize.height - grid.screenEdgeInset * 2, 0)
+        )
         let maximumSlotSize = CGSize(
-            width: max((viewportSize.width - horizontalSpacing) / columnCount, 0),
-            height: max((viewportSize.height - verticalSpacing) / rowCount, 0)
+            width: max((availableSize.width - horizontalSpacing) / columnCount, 0),
+            height: max((availableSize.height - verticalSpacing) / rowCount, 0)
         )
         let slotSize = imageSlotSize(fitting: maximumSlotSize)
         return CGSize(
