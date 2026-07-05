@@ -45,6 +45,14 @@ final class PonchoDrifellaAssetCache {
         core.loadFace(for: tokenID, completion: completion)
     }
 
+    func cacheFace(
+        for tokenID: Int,
+        from sourceURL: URL,
+        completion: ((Bool) -> Void)? = nil
+    ) {
+        core.cacheFace(for: tokenID, from: sourceURL, completion: completion)
+    }
+
     func prefetch(around tokenID: Int, radius: Int) {
         guard radius > 0 else { return }
 
@@ -87,7 +95,7 @@ final class PonchoDrifellaAssetCache {
 
     private static func assetPaths(for tokenID: Int) -> NativeMetalCardAssetPaths {
         NativeMetalCardAssetPaths(
-            face: "drifs/\(tokenID).webp",
+            face: NativeMetalCardRenderKind.ponchoDrifella.faceImageRelativePath(tokenID: tokenID),
             foil: "foils/\(tokenID).webp",
             textureMask: "textures/\(tokenID).webp",
             grain: "img/grain.webp",
@@ -102,7 +110,7 @@ final class PonchoDrifellaAssetCache {
         let directory: String
         switch asset.role {
         case .face:
-            directory = "fronts"
+            return NativeMetalCardRenderKind.ponchoDrifella.staticImageURL(fileName: fileName)
         case .foil:
             directory = "foils"
         case .textureMask:

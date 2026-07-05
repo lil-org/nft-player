@@ -8,9 +8,27 @@ enum GeneratedTokenRenderKind: String, Hashable, Codable {
     case cardNft2Metal
 }
 
-enum NativeMetalCardRenderKind: String, Hashable {
+enum NativeMetalCardRenderKind: String, Hashable, CaseIterable {
     case ponchoDrifella
     case cardNft2
+}
+
+extension NativeMetalCardRenderKind {
+    var collectionId: String {
+        switch self {
+        case .cardNft2:
+            return "EAzEpagtyeRAx9npnpVMpygoA8ouX7DRpLTghhPvYTiu"
+        case .ponchoDrifella:
+            return "JCTP3kK3xGtWs5mDHxJBuRro38HftaiCDdKsfkXuK2gH"
+        }
+    }
+
+    init?(collectionId: String) {
+        guard let renderKind = Self.allCases.first(where: { $0.collectionId == collectionId }) else {
+            return nil
+        }
+        self = renderKind
+    }
 }
 
 extension GeneratedTokenRenderKind {

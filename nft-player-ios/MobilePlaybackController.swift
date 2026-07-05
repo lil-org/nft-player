@@ -27,14 +27,20 @@ enum MobilePlayerPageLayout: CaseIterable, Hashable, Identifiable {
     static let miladyAura2AfterDeathCollectionId = "0x30f9efa712dde239a13a5fef1a8c7a6ac530a26d"
     static let miladyAuraPetzCollectionId = "0xc62e3fd5b02618f90dd07d1e478963038fa9089c"
 
-    private static let staticImageGridLayoutsByCollectionId: [String: MobilePlayerPageLayout] = [
-        cardNftCollectionId: .fourPerPage,
-        drifella2CollectionId: .sixPerPage,
-        driladyCollectionId: .sixPerPage,
-        johnCollectionId: .sixPerPage,
-        miladyAura2AfterDeathCollectionId: .sixPerPage,
-        miladyAuraPetzCollectionId: .sixPerPage,
-    ]
+    private static let staticImageGridLayoutsByCollectionId: [String: MobilePlayerPageLayout] = {
+        var layouts: [String: MobilePlayerPageLayout] = [
+            cardNftCollectionId: .fourPerPage,
+            drifella2CollectionId: .sixPerPage,
+            driladyCollectionId: .sixPerPage,
+            johnCollectionId: .sixPerPage,
+            miladyAura2AfterDeathCollectionId: .sixPerPage,
+            miladyAuraPetzCollectionId: .sixPerPage,
+        ]
+        for renderKind in NativeMetalCardRenderKind.allCases {
+            layouts[renderKind.collectionId] = .fourPerPage
+        }
+        return layouts
+    }()
 
     static func initialLayout(for config: MobilePlayerConfig) -> MobilePlayerPageLayout {
         guard config.widgetTokenInsertion == nil else {
@@ -76,6 +82,10 @@ enum MobilePlayerPageLayout: CaseIterable, Hashable, Identifiable {
     }
 
     static func staticImageGridFallbackImageSize(for descriptor: DownloadableMediaDescriptor) -> CGSize {
+        if let renderKind = descriptor.nativeMetalCardRenderKind {
+            return renderKind.staticImageSize
+        }
+
         switch descriptor.collectionId {
         case cardNftCollectionId:
             return CGSize(width: 776, height: 1098)
@@ -249,6 +259,39 @@ class MobilePlaybackController {
         return preparedWindow
     }
 
+    func prepareStaticImageGridMediaWindow(
+        uuid: UUID,
+        pagePosition: PlayerPagePosition,
+        pageLayout: MobilePlayerPageLayout
+    ) -> PlayerDownloadableMediaWindow? {
+        guard pageLayout.isStaticImageGrid,
+              let currentDescriptor = downloadableMediaDescriptor(uuid: uuid, pagePosition: pagePosition),
+              pageLayout.supports(descriptor: currentDescriptor) else {
+            clearDownloadableMediaWindow(uuid: uuid)
+            return nil
+        }
+
+        let gridDescriptors = staticImageGridDescriptors(
+            uuid: uuid,
+            containing: pagePosition,
+            pageLayout: pageLayout
+        )
+        guard !gridDescriptors.isEmpty else {
+            clearDownloadableMediaWindow(uuid: uuid)
+            return nil
+        }
+
+        let preparedWindow = PlayerDownloadableMediaWindow(
+            currentDescriptor: currentDescriptor,
+            descriptors: gridDescriptors,
+            decodedDescriptors: gridDescriptors,
+            adjacentDescriptor: nil,
+            decodedDescriptorCapacity: gridDescriptors.count
+        )
+        DownloadableMediaCache.shared.prepareWindow(preparedWindow, ownerId: uuid)
+        return preparedWindow
+    }
+
     private func downloadableMediaWindow(
         _ window: PlayerDownloadableMediaWindow,
         includingStaticImageGridDescriptorsFor pageLayout: MobilePlayerPageLayout,
@@ -283,7 +326,7 @@ class MobilePlaybackController {
     }
 
     func downloadableMediaDescriptor(uuid: UUID, pagePosition: PlayerPagePosition) -> DownloadableMediaDescriptor? {
-        guard let context = downloadableCollectionTokenContext(uuid: uuid, pagePosition: pagePosition) else {
+        guard let context = downloadableMediaTokenContext(uuid: uuid, pagePosition: pagePosition) else {
             return nil
         }
 
@@ -395,7 +438,7 @@ class MobilePlaybackController {
         pagePosition: PlayerPagePosition,
         candidateDescriptors: [DownloadableMediaDescriptor]
     ) -> DownloadableMediaDescriptor? {
-        guard let context = downloadableCollectionTokenContext(uuid: uuid, pagePosition: pagePosition) else {
+        guard let context = downloadableMediaTokenContext(uuid: uuid, pagePosition: pagePosition) else {
             return nil
         }
 
@@ -463,20 +506,20 @@ class MobilePlaybackController {
         return canRender(uuid: uuid, pagePosition: pagePosition.advanced(by: targetOffset))
     }
 
-    private func downloadableCollectionTokenContext(
+    private func downloadableMediaTokenContext(
         uuid: UUID,
         pagePosition: PlayerPagePosition
     ) -> PlayerTokenContext? {
         guard let dataSource = dataSource(uuid: uuid) else { return nil }
-        return downloadableCollectionTokenContext(dataSource: dataSource, pagePosition: pagePosition)
+        return downloadableMediaTokenContext(dataSource: dataSource, pagePosition: pagePosition)
     }
 
-    private func downloadableCollectionTokenContext(
+    private func downloadableMediaTokenContext(
         dataSource: PlayerTokenPagingDataSource,
         pagePosition: PlayerPagePosition
     ) -> PlayerTokenContext? {
         guard let context = dataSource.collectionTokenContext(pagePosition: pagePosition),
-              MobileCollectionCatalog.isDownloadableCollection(specificCollectionId: context.collectionId) else {
+              MobileCollectionCatalog.hasDownloadableMediaDescriptor(specificCollectionId: context.collectionId) else {
             return nil
         }
         return context
@@ -492,7 +535,7 @@ class MobilePlaybackController {
 
     func downloadedFileShareItem(uuid: UUID, pagePosition: PlayerPagePosition) -> MobilePlayerFileShareItem? {
         guard let dataSource = dataSource(uuid: uuid),
-              let context = downloadableCollectionTokenContext(dataSource: dataSource, pagePosition: pagePosition),
+              let context = downloadableMediaTokenContext(dataSource: dataSource, pagePosition: pagePosition),
               let descriptor = MobileCollectionCatalog.downloadableMediaDescriptor(
                 specificCollectionId: context.collectionId,
                 tokenIndex: context.tokenIndex

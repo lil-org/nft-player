@@ -13,7 +13,6 @@ final class CardNft2AssetCache {
     static let shared = CardNft2AssetCache()
     private static let maxPrefetchFilesPerRequest = 6
     private static let maxCacheBytes: Int64 = 512 * 1024 * 1024
-    private static let faceAssetsBaseURL = URL(string: "https://cdn.lil.org/nft/card_nft_2/fronts_1400")!
     private static let foilAssetsBaseURL = URL(string: "https://cdn.lil.org/nft/card_nft_2/foils")!
     private static let textureMaskAssetsBaseURL = URL(string: "https://cdn.lil.org/nft/card_nft_2/masks")!
     private static let sharedEffectAssetsBaseURL = URL(string: "https://cdn.lil.org/nft/poncho_drifella/misc")!
@@ -37,7 +36,6 @@ final class CardNft2AssetCache {
                 remoteURL: { asset in
                     Self.remoteURL(
                         for: asset,
-                        faceAssetsBaseURL: Self.faceAssetsBaseURL,
                         foilAssetsBaseURL: Self.foilAssetsBaseURL,
                         textureMaskAssetsBaseURL: Self.textureMaskAssetsBaseURL,
                         sharedEffectAssetsBaseURL: Self.sharedEffectAssetsBaseURL
@@ -54,6 +52,14 @@ final class CardNft2AssetCache {
 
     func loadFace(for tokenID: Int, completion: @escaping (URL?) -> Void) {
         core.loadFace(for: tokenID, completion: completion)
+    }
+
+    func cacheFace(
+        for tokenID: Int,
+        from sourceURL: URL,
+        completion: ((Bool) -> Void)? = nil
+    ) {
+        core.cacheFace(for: tokenID, from: sourceURL, completion: completion)
     }
 
     func prefetch(around tokenID: Int, radius: Int) {
@@ -119,7 +125,7 @@ final class CardNft2AssetCache {
     private static func assetPaths(for tokenID: Int) -> NativeMetalCardAssetPaths {
         let formattedTokenID = String(format: "%04d", tokenID)
         return NativeMetalCardAssetPaths(
-            face: "img/\(formattedTokenID).webp",
+            face: NativeMetalCardRenderKind.cardNft2.faceImageRelativePath(tokenID: tokenID),
             foil: "foils/\(formattedTokenID).webp",
             textureMask: "textures/\(formattedTokenID).webp",
             grain: "img/grain.webp",
@@ -129,7 +135,6 @@ final class CardNft2AssetCache {
 
     private static func remoteURL(
         for asset: NativeMetalCardAssetPath,
-        faceAssetsBaseURL: URL,
         foilAssetsBaseURL: URL,
         textureMaskAssetsBaseURL: URL,
         sharedEffectAssetsBaseURL: URL
@@ -137,7 +142,7 @@ final class CardNft2AssetCache {
         let fileName = URL(fileURLWithPath: asset.relativePath).lastPathComponent
         switch asset.role {
         case .face:
-            return faceAssetsBaseURL.appendingPathComponent(fileName)
+            return NativeMetalCardRenderKind.cardNft2.staticImageURL(fileName: fileName)
         case .foil:
             return foilAssetsBaseURL.appendingPathComponent(fileName)
         case .textureMask:

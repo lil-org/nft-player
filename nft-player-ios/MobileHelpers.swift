@@ -29,6 +29,56 @@ enum MobilePlayerAspectFitLayout {
     }
 }
 
+final class NativeMetalCardCornerMaskedImageView: UIImageView {
+
+    private var appliedNativeMetalCardMaskBounds: CGRect?
+
+    var usesNativeMetalCardCornerMask = false {
+        didSet {
+            guard oldValue != usesNativeMetalCardCornerMask else { return }
+            updateNativeMetalCardCornerMask()
+        }
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        updateNativeMetalCardCornerMask()
+    }
+
+    private func updateNativeMetalCardCornerMask() {
+        guard usesNativeMetalCardCornerMask,
+              bounds.width > 0,
+              bounds.height > 0 else {
+            if layer.mask != nil {
+                layer.mask = nil
+            }
+            appliedNativeMetalCardMaskBounds = nil
+            return
+        }
+
+        if appliedNativeMetalCardMaskBounds == bounds,
+           layer.mask is CAShapeLayer {
+            return
+        }
+
+        let maskLayer: CAShapeLayer
+        if let existingMaskLayer = layer.mask as? CAShapeLayer {
+            maskLayer = existingMaskLayer
+        } else {
+            maskLayer = CAShapeLayer()
+            layer.mask = maskLayer
+        }
+
+        maskLayer.frame = bounds
+        maskLayer.path = UIBezierPath(
+            roundedRect: bounds,
+            byRoundingCorners: .allCorners,
+            cornerRadii: NativeMetalCardLayout.cardCornerRadii(in: bounds.size)
+        ).cgPath
+        appliedNativeMetalCardMaskBounds = bounds
+    }
+}
+
 struct MobileStaticImageSpreadGrid: Equatable {
     let columnCount: Int
     let rowCount: Int

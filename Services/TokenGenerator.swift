@@ -9,9 +9,8 @@ struct TokenGenerator {
     private static let collectionDataCacheLock = NSLock()
     private static var scriptCache = [String: ScriptCacheEntry]()
     private static let scriptCacheLock = NSLock()
-    private static let ponchoDrifellaNativeCollectionId = "JCTP3kK3xGtWs5mDHxJBuRro38HftaiCDdKsfkXuK2gH"
     private static let cardNft2NativeCollection = RangedNativeCollection(
-        collectionId: "EAzEpagtyeRAx9npnpVMpygoA8ouX7DRpLTghhPvYTiu",
+        collectionId: NativeMetalCardRenderKind.cardNft2.collectionId,
         tokenCount: { cardNft2RangedTokenCount },
         tokenAtIndex: { cardNft2Token(at: $0) },
         tokenWithID: { cardNft2Token(id: $0) }
@@ -19,11 +18,7 @@ struct TokenGenerator {
     private static let rangedNativeCollectionsById: [String: RangedNativeCollection] = [
         cardNft2NativeCollection.collectionId: cardNft2NativeCollection
     ]
-    private static let nativeRendererCollectionIds: Set<String> = {
-        var ids = Set([ponchoDrifellaNativeCollectionId])
-        ids.formUnion(rangedNativeCollectionsById.keys)
-        return ids
-    }()
+    private static let nativeRendererCollectionIds = Set(NativeMetalCardRenderKind.allCases.map(\.collectionId))
 
     private enum ScriptCacheEntry {
         case found(Script)

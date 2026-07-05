@@ -1732,13 +1732,14 @@ private final class CardTransitionUnderlayView: UIView {
 
     private func installImageViews() {
         imageViews = descriptors.indices.map { index in
-            let imageView = UIImageView()
+            let imageView = NativeMetalCardCornerMaskedImageView()
             imageView.makeBackgroundTransparent()
             imageView.contentMode = .scaleAspectFit
             imageView.clipsToBounds = true
             imageView.isUserInteractionEnabled = false
             imageView.alpha = 0
             imageView.isHidden = isHiddenSlot(index)
+            imageView.usesNativeMetalCardCornerMask = descriptors[index].isNativeMetalCard
             addSubview(imageView)
             return imageView
         }
@@ -3459,7 +3460,10 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
             selectedDescriptor: currentDescriptor,
             descriptors: state.staticImageGridDescriptors
         )
-        let sourceFrame = onePerPageCardFrame(for: fallbackImageSize)
+        let sourceFrame = onePerPageCardFrame(
+            for: currentDescriptor,
+            fallbackImageSize: fallbackImageSize
+        )
         guard !sourceFrame.isEmpty else {
             return nil
         }
@@ -3503,7 +3507,10 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
             selectedDescriptor: currentDescriptor,
             descriptors: state.staticImageGridDescriptors
         )
-        let sourceFrame = onePerPageCardFrame(for: fallbackImageSize)
+        let sourceFrame = onePerPageCardFrame(
+            for: currentDescriptor,
+            fallbackImageSize: fallbackImageSize
+        )
         guard !sourceFrame.isEmpty else {
             return nil
         }
@@ -3551,7 +3558,10 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
             return nil
         }
 
-        let targetFrame = onePerPageCardFrame(for: selectedImageSize)
+        let targetFrame = onePerPageCardFrame(
+            for: selection.selectedDescriptor,
+            fallbackImageSize: selectedImageSize
+        )
         guard !targetFrame.isEmpty else {
             underlayView.removeFromSuperview()
             return nil
@@ -3606,23 +3616,23 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         descriptor: DownloadableMediaDescriptor,
         image: UIImage? = nil
     ) -> UIView {
+        if image == nil,
+           descriptor.isNativeMetalCard,
+           let snapshot = makeCardTransitionSnapshotView(sourceFrame: sourceFrame) {
+            return snapshot
+        }
+
         if let image = image ?? DownloadableMediaCache.shared.cachedDecodedImage(for: descriptor) {
-            let imageView = UIImageView(frame: sourceFrame)
+            let imageView = NativeMetalCardCornerMaskedImageView(frame: sourceFrame)
             imageView.makeBackgroundTransparent()
             imageView.contentMode = .scaleAspectFit
             imageView.clipsToBounds = true
             imageView.image = image
+            imageView.usesNativeMetalCardCornerMask = descriptor.isNativeMetalCard
             return imageView
         }
 
-        let sourceFrameInPlayer = view.convert(sourceFrame, to: playerNavigationController.view)
-        if let snapshot = playerNavigationController.view.resizableSnapshotView(
-            from: sourceFrameInPlayer,
-            afterScreenUpdates: false,
-            withCapInsets: .zero
-        ) {
-            snapshot.frame = sourceFrame
-            snapshot.clipsToBounds = true
+        if let snapshot = makeCardTransitionSnapshotView(sourceFrame: sourceFrame) {
             return snapshot
         }
 
@@ -3630,6 +3640,20 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         placeholderView.backgroundColor = MobilePlayerBackgroundColor.defaultColor
         placeholderView.clipsToBounds = true
         return placeholderView
+    }
+
+    private func makeCardTransitionSnapshotView(sourceFrame: CGRect) -> UIView? {
+        let sourceFrameInPlayer = view.convert(sourceFrame, to: playerNavigationController.view)
+        guard let snapshot = playerNavigationController.view.resizableSnapshotView(
+            from: sourceFrameInPlayer,
+            afterScreenUpdates: false,
+            withCapInsets: .zero
+        ) else {
+            return nil
+        }
+        snapshot.frame = sourceFrame
+        snapshot.clipsToBounds = true
+        return snapshot
     }
 
     private func cardTransitionFallbackImageSize(
@@ -3651,10 +3675,22 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         return MobilePlayerPageLayout.staticImageGridFallbackImageSize(for: selectedDescriptor)
     }
 
-    private func onePerPageCardFrame(for imageSize: CGSize) -> CGRect {
+    private func onePerPageCardFrame(
+        for descriptor: DownloadableMediaDescriptor,
+        fallbackImageSize: CGSize
+    ) -> CGRect {
         let playerBounds = playerNavigationController.view.bounds
+        if descriptor.isNativeMetalCard {
+            let nativeCardFrame = NativeMetalCardLayout.cardContentRect(in: playerBounds.size)
+            let clippedNativeCardFrame = nativeCardFrame.intersection(playerBounds)
+            guard !clippedNativeCardFrame.isNull, !clippedNativeCardFrame.isEmpty else {
+                return playerNavigationController.view.convert(playerBounds, to: view)
+            }
+            return playerNavigationController.view.convert(clippedNativeCardFrame, to: view)
+        }
+
         let frameInPlayer = MobileStaticImageSpreadLayout.centeredAspectFitRect(
-            for: imageSize.validOrDefault,
+            for: fallbackImageSize.validOrDefault,
             in: playerBounds
         )
         let clippedFrame = frameInPlayer.intersection(playerBounds)

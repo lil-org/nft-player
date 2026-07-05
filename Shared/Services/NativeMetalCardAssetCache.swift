@@ -1,5 +1,6 @@
 // ∅ 2026 lil org
 
+import CoreGraphics
 import Foundation
 import os
 
@@ -98,6 +99,23 @@ private struct NativeMetalCardCachedFile {
     let lastUsed: Date
 }
 
+private enum NativeMetalCardStaticImageAsset {
+    static let size = CGSize(width: 1000, height: 1400)
+    static let fileExtension = "webp"
+
+    private static let cardNft2BaseURL = URL(string: "https://cdn.lil.org/nft/card_nft_2/fronts_1400")!
+    private static let ponchoDrifellaBaseURL = URL(string: "https://cdn.lil.org/nft/poncho_drifella/fronts")!
+
+    static func baseURL(for renderKind: NativeMetalCardRenderKind) -> URL {
+        switch renderKind {
+        case .cardNft2:
+            return cardNft2BaseURL
+        case .ponchoDrifella:
+            return ponchoDrifellaBaseURL
+        }
+    }
+}
+
 final class NativeMetalCardAssetCache {
 
     private static let cachedFileUseTouchInterval: TimeInterval = 5 * 60
@@ -140,6 +158,18 @@ final class NativeMetalCardAssetCache {
                 completion(didSucceed ? faceURL : nil)
             }
         }
+    }
+
+    func cacheFace(
+        for tokenID: Int,
+        from sourceURL: URL,
+        completion: ((Bool) -> Void)? = nil
+    ) {
+        importCachedFile(
+            faceAsset(for: tokenID),
+            from: sourceURL,
+            completion: completion
+        )
     }
 
     func cache(
@@ -268,6 +298,51 @@ final class NativeMetalCardAssetCache {
         }
     }
 
+    private func importCachedFile(
+        _ asset: NativeMetalCardAssetPath,
+        from sourceURL: URL,
+        completion: ((Bool) -> Void)?
+    ) {
+        workQueue.async {
+            let relativePath = asset.relativePath
+            let localURL = self.localURL(for: relativePath)
+            if self.hasCachedFile(at: localURL) {
+                if self.configuration.markCachedFilesAsUsed {
+                    self.markCachedFileAsUsed(at: localURL, relativePath: relativePath)
+                }
+                completion?(true)
+                return
+            }
+
+            guard let copiedByteCount = self.copyCachedFile(from: sourceURL, to: localURL) else {
+                completion?(false)
+                return
+            }
+            if self.configuration.markCachedFilesAsUsed {
+                self.markCachedFileAsUsed(at: localURL, relativePath: relativePath)
+            }
+
+            if let pendingDownload = self.pendingDownloads.removeValue(forKey: relativePath) {
+                pendingDownload.task.cancel()
+                let cachedFileUse = self.configuration.markCachedFilesAsUsed && !pendingDownload.isPrefetchOnly
+                    ? NativeMetalCardCachedFileUse(url: localURL, relativePath: relativePath)
+                    : nil
+                let result = NativeMetalCardFileEnsureResult(
+                    didSucceed: true,
+                    downloadedByteCount: 0,
+                    cachedFileUse: cachedFileUse
+                )
+                pendingDownload.completions.forEach { $0(result) }
+            }
+
+            completion?(true)
+            self.trimCacheIfNeeded(
+                protecting: Set([relativePath]),
+                downloadedByteCount: copiedByteCount
+            )
+        }
+    }
+
     private func ensureFileOnWorkQueue(
         _ asset: NativeMetalCardAssetPath,
         taskPriority: Float,
@@ -361,6 +436,26 @@ final class NativeMetalCardAssetCache {
                 "\(self.configuration.logName, privacy: .public) asset cache write failed: \(localURL.path, privacy: .public), error: \(String(describing: error), privacy: .public)"
             )
             try? fileManager.removeItem(at: temporaryURL)
+            return nil
+        }
+    }
+
+    private func copyCachedFile(from sourceURL: URL, to localURL: URL) -> Int64? {
+        guard hasCachedFile(at: sourceURL) else { return nil }
+
+        do {
+            try fileManager.createDirectory(
+                at: localURL.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            try? fileManager.removeItem(at: localURL)
+            try fileManager.copyItem(at: sourceURL, to: localURL)
+            return cachedFileByteCount(at: localURL)
+        } catch {
+            configuration.logger.error(
+                "\(self.configuration.logName, privacy: .public) asset cache import failed: \(localURL.path, privacy: .public), error: \(String(describing: error), privacy: .public)"
+            )
+            try? fileManager.removeItem(at: localURL)
             return nil
         }
     }
@@ -603,6 +698,7 @@ final class NativeMetalCardAssetCache {
 
 private protocol NativeMetalCardAssetCaching: AnyObject {
     func loadFace(for tokenID: Int, completion: @escaping (URL?) -> Void)
+    func cacheFace(for tokenID: Int, from sourceURL: URL, completion: ((Bool) -> Void)?)
     func loadEffectAssets(for tokenID: Int, completion: @escaping (NativeMetalCardAssetURLs?) -> Void)
     func prefetch(around tokenID: Int, radius: Int)
     func invalidate(tokenID: Int)
@@ -616,6 +712,44 @@ extension CardNft2AssetCache: NativeMetalCardAssetCaching {}
 extension PonchoDrifellaAssetCache: NativeMetalCardAssetCaching {}
 
 extension NativeMetalCardRenderKind {
+    var staticImageSize: CGSize {
+        NativeMetalCardStaticImageAsset.size
+    }
+
+    var staticImageFileExtension: String {
+        NativeMetalCardStaticImageAsset.fileExtension
+    }
+
+    func staticImageURL(tokenID: Int) -> URL? {
+        guard tokenID >= 1,
+              tokenID <= tokenCount else {
+            return nil
+        }
+        return staticImageURL(fileName: faceImageFileName(tokenID: tokenID))
+    }
+
+    func staticImageURL(fileName: String) -> URL {
+        NativeMetalCardStaticImageAsset.baseURL(for: self).appendingPathComponent(fileName)
+    }
+
+    func faceImageFileName(tokenID: Int) -> String {
+        switch self {
+        case .cardNft2:
+            return String(format: "%04d.%@", tokenID, staticImageFileExtension)
+        case .ponchoDrifella:
+            return "\(tokenID).\(staticImageFileExtension)"
+        }
+    }
+
+    func faceImageRelativePath(tokenID: Int) -> String {
+        switch self {
+        case .cardNft2:
+            return "img/\(faceImageFileName(tokenID: tokenID))"
+        case .ponchoDrifella:
+            return "drifs/\(faceImageFileName(tokenID: tokenID))"
+        }
+    }
+
     private var assetCache: NativeMetalCardAssetCaching {
         switch self {
         case .cardNft2:
@@ -627,6 +761,14 @@ extension NativeMetalCardRenderKind {
 
     func loadFace(for tokenID: Int, completion: @escaping (URL?) -> Void) {
         assetCache.loadFace(for: tokenID, completion: completion)
+    }
+
+    func cacheFace(
+        for tokenID: Int,
+        from sourceURL: URL,
+        completion: ((Bool) -> Void)? = nil
+    ) {
+        assetCache.cacheFace(for: tokenID, from: sourceURL, completion: completion)
     }
 
     func loadEffectAssets(for tokenID: Int, completion: @escaping (NativeMetalCardAssetURLs?) -> Void) {

@@ -42,14 +42,18 @@ final class NativeMetalCardView: UIView {
         updateRendererRunningState()
     }
 
-    func display(tokenId: String, renderKind: NativeMetalCardRenderKind) {
+    func display(
+        tokenId: String,
+        renderKind: NativeMetalCardRenderKind,
+        onContentReady: (() -> Void)? = nil
+    ) {
         guard let tokenID = Int(tokenId) else {
             hideUnavailableContent()
             return
         }
 
         isDisplayed = true
-        renderer?.display(tokenID: tokenID, renderKind: renderKind)
+        renderer?.display(tokenID: tokenID, renderKind: renderKind, onContentReady: onContentReady)
         revealOrRefreshRenderer()
     }
 
@@ -345,8 +349,12 @@ private final class NativeMetalCardRenderer: NSObject, MTKViewDelegate {
         self.metalView = metalView
     }
 
-    func display(tokenID: Int, renderKind: NativeMetalCardRenderKind) {
-        rendererCore.display(tokenID: tokenID, renderKind: renderKind)
+    func display(
+        tokenID: Int,
+        renderKind: NativeMetalCardRenderKind,
+        onContentReady: (() -> Void)?
+    ) {
+        rendererCore.display(tokenID: tokenID, renderKind: renderKind, onContentReady: onContentReady)
     }
 
     func start() {
@@ -362,6 +370,7 @@ private final class NativeMetalCardRenderer: NSObject, MTKViewDelegate {
 
     func stop() {
         rendererCore.cancelPrefetchDownloads()
+        rendererCore.cancelContentReadyCallbacks()
         guard let motionObserverID else { return }
         motionTracker.removeObserver(id: motionObserverID)
         self.motionObserverID = nil

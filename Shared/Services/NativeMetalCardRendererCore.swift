@@ -10,6 +10,7 @@ import simd
 enum NativeMetalCardLayout {
     static let cardAspectRatio = CGFloat(1000.0 / 1400.0)
     static let cardViewportInset = CGFloat(23)
+    static let cardCornerRadiusScale = CGSize(width: 0.0455, height: 0.035)
 
     static func cardContentRect(in size: CGSize) -> CGRect {
         guard size.width > 0, size.height > 0 else { return .zero }
@@ -20,6 +21,13 @@ enum NativeMetalCardLayout {
         let minX = (size.width - cardWidth) / 2
         let minY = (size.height - cardHeight) / 2
         return CGRect(x: minX, y: minY, width: cardWidth, height: cardHeight)
+    }
+
+    static func cardCornerRadii(in size: CGSize) -> CGSize {
+        CGSize(
+            width: size.width * cardCornerRadiusScale.width,
+            height: size.height * cardCornerRadiusScale.height
+        )
     }
 }
 
@@ -122,6 +130,8 @@ final class NativeMetalCardRendererCore {
     private var currentTokenID: Int?
     private var currentRenderKind: NativeMetalCardRenderKind?
     private var currentLoadKey: NativeMetalCardLoadKey?
+    private var currentContentReadyLoadKey: NativeMetalCardLoadKey?
+    private var currentContentReadyCallbacks = [() -> Void]()
     private(set) var metadata: NativeMetalCardMetadata?
     private(set) var textures: NativeMetalCardLoadedTextures?
 
@@ -172,19 +182,29 @@ final class NativeMetalCardRendererCore {
         self.logger = logger
     }
 
-    func display(tokenID: Int, renderKind: NativeMetalCardRenderKind) {
+    func display(
+        tokenID: Int,
+        renderKind: NativeMetalCardRenderKind,
+        onContentReady: (() -> Void)? = nil
+    ) {
         let clampedTokenID = min(max(tokenID, 1), renderKind.tokenCount)
         let tokenMetadata = renderKind.metadata(for: clampedTokenID)
         let isSameToken = currentTokenID == clampedTokenID && currentRenderKind == renderKind
         if isSameToken,
-           let textures,
-           (!tokenMetadata.requiresEffectAssets || textures.rendersEffect) {
-            return
+           let textures {
+            if let onContentReady {
+                notifyContentReady(onContentReady)
+            }
+            if !tokenMetadata.requiresEffectAssets || textures.rendersEffect {
+                return
+            }
+            if activeLoadKey(tokenID: clampedTokenID, renderKind: renderKind) != nil {
+                return
+            }
         }
         if isSameToken,
-           let currentLoadKey,
-           currentLoadKey.tokenID == clampedTokenID,
-           currentLoadKey.renderKind == renderKind {
+           let loadKey = activeLoadKey(tokenID: clampedTokenID, renderKind: renderKind) {
+            appendContentReadyCallback(onContentReady, for: loadKey)
             return
         }
 
@@ -206,6 +226,7 @@ final class NativeMetalCardRendererCore {
             generation: generation
         )
         currentLoadKey = loadKey
+        resetContentReadyCallbacks(for: loadKey, callback: previewFaceTexture == nil ? onContentReady : nil)
         let needsEffectAssets = tokenMetadata.requiresEffectAssets
         var loadedEffectAssets: NativeMetalCardAssetURLs?
         var loadedFaceTexture = previewFaceTexture
@@ -262,6 +283,11 @@ final class NativeMetalCardRendererCore {
 
     func cancelPrefetchDownloads() {
         currentRenderKind?.cancelPrefetchDownloads()
+    }
+
+    func cancelContentReadyCallbacks() {
+        currentContentReadyLoadKey = nil
+        currentContentReadyCallbacks.removeAll()
     }
 
     func draw(
@@ -390,6 +416,7 @@ final class NativeMetalCardRendererCore {
 
                     self.textures = loadedTextures
                     self.requestDraw?()
+                    self.finishContentReadyCallbacksIfCurrent(loadKey)
                     if !metadata.requiresEffectAssets {
                         self.currentLoadKey = nil
                     }
@@ -469,6 +496,7 @@ final class NativeMetalCardRendererCore {
                     self.textures = loadedTextures
                     self.currentLoadKey = nil
                     self.requestDraw?()
+                    self.finishContentReadyCallbacksIfCurrent(loadKey)
                 }
             } catch {
                 let textureLoadError = error as? NativeMetalCardTextureLoadError
@@ -497,12 +525,25 @@ final class NativeMetalCardRendererCore {
         return DispatchQueue.main.sync(execute: isCurrent)
     }
 
+    private func activeLoadKey(
+        tokenID: Int,
+        renderKind: NativeMetalCardRenderKind
+    ) -> NativeMetalCardLoadKey? {
+        guard let currentLoadKey,
+              currentLoadKey.tokenID == tokenID,
+              currentLoadKey.renderKind == renderKind else {
+            return nil
+        }
+        return currentLoadKey
+    }
+
     private func clearCurrentLoadIfCurrent(_ loadKey: NativeMetalCardLoadKey) {
         let clear = {
             guard self.currentLoadKey == loadKey else {
                 return
             }
             self.currentLoadKey = nil
+            self.clearContentReadyCallbacksIfCurrent(loadKey)
         }
 
         if Thread.isMainThread {
@@ -510,6 +551,45 @@ final class NativeMetalCardRendererCore {
         } else {
             DispatchQueue.main.async(execute: clear)
         }
+    }
+
+    private func resetContentReadyCallbacks(
+        for loadKey: NativeMetalCardLoadKey,
+        callback: (() -> Void)?
+    ) {
+        currentContentReadyLoadKey = loadKey
+        currentContentReadyCallbacks = callback.map { [$0] } ?? []
+    }
+
+    private func appendContentReadyCallback(
+        _ callback: (() -> Void)?,
+        for loadKey: NativeMetalCardLoadKey
+    ) {
+        guard let callback else { return }
+        guard currentContentReadyLoadKey == loadKey else {
+            resetContentReadyCallbacks(for: loadKey, callback: callback)
+            return
+        }
+        currentContentReadyCallbacks.append(callback)
+    }
+
+    private func finishContentReadyCallbacksIfCurrent(_ loadKey: NativeMetalCardLoadKey) {
+        guard currentContentReadyLoadKey == loadKey else { return }
+
+        let callbacks = currentContentReadyCallbacks
+        clearContentReadyCallbacksIfCurrent(loadKey)
+        callbacks.forEach { notifyContentReady($0) }
+    }
+
+    private func clearContentReadyCallbacksIfCurrent(_ loadKey: NativeMetalCardLoadKey) {
+        guard currentContentReadyLoadKey == loadKey else { return }
+
+        currentContentReadyLoadKey = nil
+        currentContentReadyCallbacks.removeAll()
+    }
+
+    private func notifyContentReady(_ callback: @escaping () -> Void) {
+        DispatchQueue.main.async(execute: callback)
     }
 
     private func makeTextureWithAlphaInfo(

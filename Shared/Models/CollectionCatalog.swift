@@ -32,6 +32,14 @@ struct CollectionCatalogDownloadableMediaDescriptor: Hashable {
     var isStaticImage: Bool {
         media.isStaticImage
     }
+
+    var nativeMetalCardRenderKind: NativeMetalCardRenderKind? {
+        NativeMetalCardRenderKind(collectionId: collectionId)
+    }
+
+    var isNativeMetalCard: Bool {
+        nativeMetalCardRenderKind != nil
+    }
 }
 
 struct PlayerPagePosition: Hashable {
@@ -289,7 +297,7 @@ final class PlayerTokenPagingDataSource {
         direction: PlayerMediaPrefetchDirection
     ) -> PlayerDownloadableMediaWindow? {
         guard let context = collectionTokenContext(pagePosition: pagePosition),
-              CollectionCatalog.isDownloadableCollection(specificCollectionId: context.collectionId) else {
+              CollectionCatalog.hasDownloadableMediaDescriptor(specificCollectionId: context.collectionId) else {
             return nil
         }
 
@@ -621,7 +629,7 @@ final class PlayerTokenPagingDataSource {
         pagePosition: PlayerPagePosition
     ) -> CollectionCatalogDownloadableMediaDescriptor? {
         guard let context = collectionTokenContext(pagePosition: pagePosition),
-              CollectionCatalog.isDownloadableCollection(specificCollectionId: context.collectionId) else {
+              CollectionCatalog.hasDownloadableMediaDescriptor(specificCollectionId: context.collectionId) else {
             return nil
         }
 
@@ -702,6 +710,11 @@ enum CollectionCatalog {
 
     static func isDownloadableCollection(specificCollectionId: String) -> Bool {
         DownloadableCollectionService.hasCollection(id: specificCollectionId)
+    }
+
+    static func hasDownloadableMediaDescriptor(specificCollectionId: String) -> Bool {
+        DownloadableCollectionService.hasCollection(id: specificCollectionId)
+            || isDescriptorBackedNativeCollection(specificCollectionId)
     }
 
     static func tokenIndex(specificCollectionId: String, tokenId: String) -> Int? {
@@ -814,8 +827,13 @@ enum CollectionCatalog {
     }
 
     static func downloadableMediaDescriptor(specificCollectionId: String, tokenIndex: Int) -> CollectionCatalogDownloadableMediaDescriptor? {
-        guard DownloadableCollectionService.hasCollection(id: specificCollectionId) else { return nil }
-        return DownloadableCollectionService.mediaDescriptor(collectionId: specificCollectionId, tokenIndex: tokenIndex)
+        if DownloadableCollectionService.hasCollection(id: specificCollectionId) {
+            return DownloadableCollectionService.mediaDescriptor(collectionId: specificCollectionId, tokenIndex: tokenIndex)
+        }
+        return descriptorBackedNativeMediaDescriptor(
+            specificCollectionId: specificCollectionId,
+            tokenIndex: tokenIndex
+        )
     }
 
     static func downloadableMediaDescriptor(for context: PlayerTokenContext?) -> CollectionCatalogDownloadableMediaDescriptor? {
@@ -829,6 +847,51 @@ enum CollectionCatalog {
     static func playerBackgroundColor(specificCollectionId: String) -> String? {
         SuggestedItemsService.item(id: specificCollectionId)?.playerBackgroundColor
     }
+
+    private static func isDescriptorBackedNativeCollection(_ specificCollectionId: String) -> Bool {
+#if os(iOS)
+        return NativeMetalCardRenderKind(collectionId: specificCollectionId) != nil
+#else
+        return false
+#endif
+    }
+
+    private static func descriptorBackedNativeMediaDescriptor(
+        specificCollectionId: String,
+        tokenIndex: Int
+    ) -> CollectionCatalogDownloadableMediaDescriptor? {
+#if os(iOS)
+        guard let renderKind = NativeMetalCardRenderKind(collectionId: specificCollectionId) else {
+            return nil
+        }
+        return nativeMetalCardStaticMediaDescriptor(renderKind: renderKind, tokenIndex: tokenIndex)
+#else
+        return nil
+#endif
+    }
+
+#if os(iOS)
+    private static func nativeMetalCardStaticMediaDescriptor(
+        renderKind: NativeMetalCardRenderKind,
+        tokenIndex: Int
+    ) -> CollectionCatalogDownloadableMediaDescriptor? {
+        guard tokenIndex >= 0,
+              tokenIndex < renderKind.tokenCount else {
+            return nil
+        }
+
+        let tokenID = tokenIndex + 1
+        guard let url = renderKind.staticImageURL(tokenID: tokenID) else {
+            return nil
+        }
+        return CollectionCatalogDownloadableMediaDescriptor(
+            collectionId: renderKind.collectionId,
+            tokenId: String(tokenID),
+            tokenIndex: tokenIndex,
+            media: .staticImage(url: url, fileExtension: renderKind.staticImageFileExtension)
+        )
+    }
+#endif
 
     private static func dedupedItems(_ items: [SuggestedItem]) -> [SuggestedItem] {
         var seenIds = Set<String>()

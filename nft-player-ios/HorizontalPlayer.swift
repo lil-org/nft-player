@@ -54,6 +54,7 @@ final class FullscreenTokenMediaRenderer {
     private var imageSpreadArrangement: ImageSpreadArrangement?
     private var imageSpreadNestedStackViews = [UIStackView]()
     private var imageSpreadViews = [UIImageView]()
+    private var imageSpreadNativeMetalCardCornerMaskIndices = Set<Int>()
     private var nativeMetalCardView: NativeMetalCardView!
     private var representedImageKey: AnyHashable?
     private var activeImageLoadId: UUID?
@@ -101,7 +102,8 @@ final class FullscreenTokenMediaRenderer {
     func displayLoadedImageSpread<Key: Hashable>(
         _ images: [UIImage],
         key: Key,
-        pageLayout: MobilePlayerPageLayout
+        pageLayout: MobilePlayerPageLayout,
+        nativeMetalCardCornerMaskIndices: Set<Int> = []
     ) {
         guard !images.isEmpty else { return }
 
@@ -111,7 +113,9 @@ final class FullscreenTokenMediaRenderer {
         imageView?.image = nil
         let imageKey = AnyHashable(key)
         representedImageKey = imageKey
+        imageSpreadNativeMetalCardCornerMaskIndices = nativeMetalCardCornerMaskIndices
         ensureImageSpreadStackView(imageCount: images.count, pageLayout: pageLayout)
+        configureImageSpreadCornerMasks()
         webView?.isHidden = true
         imageSpreadStackView.isHidden = false
         for (imageView, image) in zip(imageSpreadViews, images) {
@@ -213,6 +217,7 @@ final class FullscreenTokenMediaRenderer {
     func renderImageSpread<Key: Hashable>(
         key: Key,
         pageLayout: MobilePlayerPageLayout,
+        nativeMetalCardCornerMaskIndices: Set<Int> = [],
         loadImages: [(@escaping (UIImage?) -> Void) -> (() -> Void)?],
         fallbackToPrimary: @escaping (UIImage?) -> Void,
         onLoadedImages: (([UIImage]) -> Void)? = nil
@@ -223,7 +228,9 @@ final class FullscreenTokenMediaRenderer {
         }
 
         cancelCurrentImageLoad()
+        imageSpreadNativeMetalCardCornerMaskIndices = nativeMetalCardCornerMaskIndices
         ensureImageSpreadStackView(imageCount: loadImages.count, pageLayout: pageLayout)
+        configureImageSpreadCornerMasks()
         hideWebContent()
         hideNativeMetalCardView()
         imageView?.isHidden = true
@@ -266,7 +273,12 @@ final class FullscreenTokenMediaRenderer {
             renderer.cancelActiveImageLoad = nil
             renderer.activeImageLoadId = nil
             cancellations = Array(repeating: nil, count: loadImages.count)
-            renderer.displayLoadedImageSpread(images, key: key, pageLayout: pageLayout)
+            renderer.displayLoadedImageSpread(
+                images,
+                key: key,
+                pageLayout: pageLayout,
+                nativeMetalCardCornerMaskIndices: nativeMetalCardCornerMaskIndices
+            )
             onLoadedImages?(images)
         }
 
@@ -321,7 +333,11 @@ final class FullscreenTokenMediaRenderer {
         )
     }
 
-    func renderNativeMetalCard(tokenId: String, renderKind: NativeMetalCardRenderKind) {
+    func renderNativeMetalCard(
+        tokenId: String,
+        renderKind: NativeMetalCardRenderKind,
+        onContentReady: (() -> Void)? = nil
+    ) {
         cancelCurrentImageLoad()
         representedImageKey = nil
         ensureNativeMetalCardView()
@@ -329,7 +345,11 @@ final class FullscreenTokenMediaRenderer {
         imageView?.image = nil
         hideImageSpread()
         hideWebContent()
-        nativeMetalCardView.display(tokenId: tokenId, renderKind: renderKind)
+        nativeMetalCardView.display(
+            tokenId: tokenId,
+            renderKind: renderKind,
+            onContentReady: onContentReady
+        )
     }
 
     func setImageSpreadAxis(_ axis: NSLayoutConstraint.Axis) {
@@ -484,7 +504,7 @@ final class FullscreenTokenMediaRenderer {
         imageSpreadNestedStackViews.removeAll()
 
         imageSpreadViews = (0..<imageCount).map { _ in
-            let imageView = UIImageView()
+            let imageView = NativeMetalCardCornerMaskedImageView()
             imageView.backgroundColor = .black
             imageView.contentMode = .scaleAspectFit
             imageView.clipsToBounds = true
@@ -541,6 +561,15 @@ final class FullscreenTokenMediaRenderer {
         ])
         imageSpreadStackView = stackView
         imageSpreadArrangement = arrangement
+        configureImageSpreadCornerMasks()
+    }
+
+    private func configureImageSpreadCornerMasks() {
+        for (index, imageView) in imageSpreadViews.enumerated() {
+            guard let imageView = imageView as? NativeMetalCardCornerMaskedImageView else { continue }
+
+            imageView.usesNativeMetalCardCornerMask = imageSpreadNativeMetalCardCornerMaskIndices.contains(index)
+        }
     }
 
     private func makeImageSpreadStackView(
@@ -1320,12 +1349,24 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
 
     fileprivate func prepareDownloadableMediaWindow(
         for pagePosition: PlayerPagePosition,
-        direction: DownloadableMediaCache.PrefetchDirection
+        direction: DownloadableMediaCache.PrefetchDirection,
+        pageLayout: MobilePlayerPageLayout? = nil
     ) -> PlayerDownloadableMediaWindow? {
         MobilePlaybackController.shared.prepareDownloadableMediaWindow(
             uuid: initialConfig.id,
             pagePosition: pagePosition,
             direction: direction,
+            pageLayout: pageLayout ?? self.pageLayout
+        )
+    }
+
+    fileprivate func prepareStaticImageGridMediaWindow(
+        for pagePosition: PlayerPagePosition,
+        pageLayout: MobilePlayerPageLayout
+    ) -> PlayerDownloadableMediaWindow? {
+        MobilePlaybackController.shared.prepareStaticImageGridMediaWindow(
+            uuid: initialConfig.id,
+            pagePosition: pagePosition,
             pageLayout: pageLayout
         )
     }
@@ -1461,7 +1502,12 @@ private protocol HorizontalPlayerDataSource: AnyObject {
     func getToken(pagePosition: PlayerPagePosition) -> GeneratedToken
     func prepareDownloadableMediaWindow(
         for pagePosition: PlayerPagePosition,
-        direction: DownloadableMediaCache.PrefetchDirection
+        direction: DownloadableMediaCache.PrefetchDirection,
+        pageLayout: MobilePlayerPageLayout?
+    ) -> PlayerDownloadableMediaWindow?
+    func prepareStaticImageGridMediaWindow(
+        for pagePosition: PlayerPagePosition,
+        pageLayout: MobilePlayerPageLayout
     ) -> PlayerDownloadableMediaWindow?
     func clearDownloadableMediaWindow()
     func downloadableMediaDescriptor(for pagePosition: PlayerPagePosition) -> DownloadableMediaDescriptor?
@@ -1491,6 +1537,20 @@ private protocol HorizontalPlayerDataSource: AnyObject {
     func didAttemptUnavailableHorizontalNavigation()
     func didDisplayPagePosition(_ pagePosition: PlayerPagePosition, forceUpdate: Bool)
 
+}
+
+private extension HorizontalPlayerDataSource {
+
+    func prepareDownloadableMediaWindow(
+        for pagePosition: PlayerPagePosition,
+        direction: DownloadableMediaCache.PrefetchDirection
+    ) -> PlayerDownloadableMediaWindow? {
+        prepareDownloadableMediaWindow(
+            for: pagePosition,
+            direction: direction,
+            pageLayout: nil
+        )
+    }
 }
 
 private final class PlayerZoomScrollView: UIScrollView {
@@ -2179,14 +2239,26 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             return
         }
 
-        if let nativeRenderKind = token.nativeMetalCardRenderKind {
-            playerDataSource?.clearDownloadableMediaWindow()
+        let isUsingStaticImageGridLayout = usesStaticImageGridLayoutForCurrentPagePosition
+        if isUsingStaticImageGridLayout,
+           let mediaWindow = prepareCurrentDownloadableMediaWindow(),
+           case .staticImage = mediaWindow.currentDescriptor.media {
+            let descriptor = mediaWindow.currentDescriptor
+            renderImageSpread(
+                descriptor,
+                imageDescriptors: staticImageGridImageDescriptors(startingWith: descriptor),
+                fallbackHTML: token.html
+            )
+        } else if let nativeRenderKind = token.nativeMetalCardRenderKind {
+            if !prepareStaticImageGridMediaWindowIfAvailable() {
+                playerDataSource?.clearDownloadableMediaWindow()
+            }
             renderNativeMetalCard(token, renderKind: nativeRenderKind)
         } else if let mediaWindow = prepareCurrentDownloadableMediaWindow() {
             let descriptor = mediaWindow.currentDescriptor
             switch descriptor.media {
             case .staticImage:
-                if usesStaticImageGridLayoutForCurrentPagePosition {
+                if isUsingStaticImageGridLayout {
                     renderImageSpread(
                         descriptor,
                         imageDescriptors: staticImageGridImageDescriptors(startingWith: descriptor),
@@ -2214,9 +2286,15 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
 
     fileprivate func refreshDownloadableMediaWindow() {
         guard willOrDidAppear else { return }
-        guard let token = playerDataSource?.getToken(pagePosition: pagePosition),
-              token.nativeMetalCardRenderKind == nil else {
+        guard let token = playerDataSource?.getToken(pagePosition: pagePosition) else {
             playerDataSource?.clearDownloadableMediaWindow()
+            return
+        }
+        if token.nativeMetalCardRenderKind != nil,
+           !usesStaticImageGridLayoutForCurrentPagePosition {
+            if !prepareStaticImageGridMediaWindowIfAvailable() {
+                playerDataSource?.clearDownloadableMediaWindow()
+            }
             return
         }
 
@@ -2230,6 +2308,19 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         )
     }
 
+    @discardableResult
+    private func prepareStaticImageGridMediaWindowIfAvailable() -> Bool {
+        guard let descriptor = playerDataSource?.downloadableMediaDescriptor(for: pagePosition),
+              let staticImageGridLayout = MobilePlayerPageLayout.staticImageGridLayout(for: descriptor) else {
+            return false
+        }
+
+        return playerDataSource?.prepareStaticImageGridMediaWindow(
+            for: pagePosition,
+            pageLayout: staticImageGridLayout
+        ) != nil
+    }
+
     fileprivate func replaceVisibleContentIfAvailable(
         targetPagePosition: PlayerPagePosition,
         preferredPrefetchDirection: DownloadableMediaCache.PrefetchDirection
@@ -2241,7 +2332,9 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             return false
         }
 
-        guard let descriptor = playerDataSource?.downloadableMediaDescriptor(for: targetPagePosition),
+        guard let targetToken = playerDataSource?.getToken(pagePosition: targetPagePosition),
+              targetToken.nativeMetalCardRenderKind == nil,
+              let descriptor = playerDataSource?.downloadableMediaDescriptor(for: targetPagePosition),
               descriptor.isStaticImage else {
             return false
         }
@@ -2330,6 +2423,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
                 descriptors: imageDescriptors
             ),
             pageLayout: pageLayout,
+            nativeMetalCardCornerMaskIndices: nativeMetalCardCornerMaskIndices(for: imageDescriptors),
             loadImages: imageDescriptors.map { imageDescriptor in
                 { completion in
                     DownloadableMediaCache.shared.loadImage(for: imageDescriptor, completion: completion)
@@ -2358,12 +2452,44 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
                         )
                     )
                 )
+                self.prewarmNativeMetalCardFaces(for: imageDescriptors)
                 self.notifyPageLayoutContentReady()
             }
         )
     }
 
+    private func nativeMetalCardCornerMaskIndices(for descriptors: [DownloadableMediaDescriptor]) -> Set<Int> {
+        Set(descriptors.enumerated().compactMap { index, descriptor in
+            descriptor.isNativeMetalCard ? index : nil
+        })
+    }
+
+    private func prewarmNativeMetalCardFaces(for descriptors: [DownloadableMediaDescriptor]) {
+        for descriptor in descriptors {
+            guard let renderKind = descriptor.nativeMetalCardRenderKind,
+                  let tokenID = Int(descriptor.tokenId) else {
+                continue
+            }
+            guard let cachedStaticImageURL = DownloadableMediaCache.shared.localFileURL(for: descriptor) else {
+                renderKind.loadFace(for: tokenID) { _ in }
+                continue
+            }
+
+            renderKind.cacheFace(for: tokenID, from: cachedStaticImageURL) { didCacheFace in
+                guard !didCacheFace else { return }
+                renderKind.loadFace(for: tokenID) { _ in }
+            }
+        }
+    }
+
     private func notifyPageLayoutContentReady() {
+        notifyPageLayoutContentReady(pageLayout: pageLayout, pagePosition: pagePosition)
+    }
+
+    private func notifyPageLayoutContentReady(
+        pageLayout: MobilePlayerPageLayout,
+        pagePosition: PlayerPagePosition
+    ) {
         playerDataSource?.didRenderPageLayoutContent(pageLayout, pagePosition: pagePosition)
     }
 
@@ -2403,7 +2529,25 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     private func renderNativeMetalCard(_ token: GeneratedToken, renderKind: NativeMetalCardRenderKind) {
         clearAnimatedRenderContext()
         setZoomContentLayout(.viewport, allowedContent: .nativeMetalCard)
-        mediaRenderer.renderNativeMetalCard(tokenId: token.id, renderKind: renderKind)
+        let renderedPagePosition = pagePosition
+        let renderedPageLayout = pageLayout
+        mediaRenderer.renderNativeMetalCard(
+            tokenId: token.id,
+            renderKind: renderKind,
+            onContentReady: { [weak self] in
+                guard let self,
+                      self.renderedPagePosition == renderedPagePosition,
+                      self.pagePosition == renderedPagePosition,
+                      self.pageLayout == renderedPageLayout else {
+                    return
+                }
+
+                self.notifyPageLayoutContentReady(
+                    pageLayout: renderedPageLayout,
+                    pagePosition: renderedPagePosition
+                )
+            }
+        )
     }
 
     private func renderAnimatedFallbackWebContent(_ html: String) {
