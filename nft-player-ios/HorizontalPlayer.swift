@@ -54,6 +54,7 @@ final class FullscreenTokenMediaRenderer {
     private var imageSpreadArrangement: ImageSpreadArrangement?
     private var imageSpreadNestedStackViews = [UIStackView]()
     private var imageSpreadViews = [UIImageView]()
+    private var imageSpreadVerifiedImages = [Bool]()
     private var imageSpreadNativeMetalCardCornerMaskIndices = Set<Int>()
     private var nativeMetalCardView: NativeMetalCardView!
     private var representedImageKey: AnyHashable?
@@ -61,10 +62,18 @@ final class FullscreenTokenMediaRenderer {
     private var cancelActiveImageLoad: ImageLoadCancellation?
     private var webViewMayContainContent = false
     private var usesTransparentPlayerBackground = false
+    private var representedImageSpreadSlotKeys = [AnyHashable]()
+    private var rememberedImageSpread: RememberedImageSpread?
 
     private enum ImageSpreadArrangement: Equatable {
         case linear
         case grid(MobileStaticImageSpreadGrid)
+    }
+
+    private struct RememberedImageSpread {
+        let key: AnyHashable
+        let slotKeys: [AnyHashable]
+        let images: [UIImage?]
     }
 
     init(containerView: UIView) {
@@ -80,9 +89,11 @@ final class FullscreenTokenMediaRenderer {
         cancelCurrentImageLoad()
         hideNativeMetalCardView()
         representedImageKey = nil
+        representedImageSpreadSlotKeys = []
         unloadWebContentIfNeeded()
         imageView?.image = nil
         clearImageSpread()
+        rememberedImageSpread = nil
     }
 
     func displayLoadedImage<Key: Hashable>(_ image: UIImage, key: Key) {
@@ -91,6 +102,7 @@ final class FullscreenTokenMediaRenderer {
         hideImageSpread()
         let imageKey = AnyHashable(key)
         representedImageKey = imageKey
+        representedImageSpreadSlotKeys = []
         ensureImageView()
         webView?.isHidden = true
         imageView.isHidden = false
@@ -99,44 +111,27 @@ final class FullscreenTokenMediaRenderer {
         unloadWebContentAfterImageDisplay(imageKey: imageKey)
     }
 
-    func displayLoadedImageSpread<Key: Hashable>(
-        _ images: [UIImage],
-        key: Key,
-        pageLayout: MobilePlayerPageLayout,
-        nativeMetalCardCornerMaskIndices: Set<Int> = []
-    ) {
-        guard !images.isEmpty else { return }
-
-        cancelCurrentImageLoad()
-        hideNativeMetalCardView()
-        imageView?.isHidden = true
-        imageView?.image = nil
-        let imageKey = AnyHashable(key)
-        representedImageKey = imageKey
-        imageSpreadNativeMetalCardCornerMaskIndices = nativeMetalCardCornerMaskIndices
-        ensureImageSpreadStackView(imageCount: images.count, pageLayout: pageLayout)
-        configureImageSpreadCornerMasks()
-        webView?.isHidden = true
-        imageSpreadStackView.isHidden = false
-        for (imageView, image) in zip(imageSpreadViews, images) {
-            imageView.image = image
-        }
-
-        unloadWebContentAfterImageDisplay(imageKey: imageKey)
-    }
-
-    func imageSpreadIndex(at location: CGPoint, in coordinateView: UIView) -> Int? {
+    func imageSpreadIndex(
+        at location: CGPoint,
+        in coordinateView: UIView,
+        requiresVerifiedImage: Bool = true
+    ) -> Int? {
         guard let imageSpreadStackView,
               !imageSpreadStackView.isHidden,
               imageSpreadStackView.window != nil else {
             return nil
         }
 
-        return imageSpreadViews.enumerated().first { _, imageView in
+        return imageSpreadViews.enumerated().first { index, imageView in
             guard !imageView.isHidden,
-                  imageView.image != nil,
                   imageView.window != nil else {
                 return false
+            }
+            if requiresVerifiedImage {
+                guard imageView.image != nil,
+                      isImageSpreadImageVerified(at: index) else {
+                    return false
+                }
             }
 
             let locationInImageView = imageView.convert(location, from: coordinateView)
@@ -144,26 +139,18 @@ final class FullscreenTokenMediaRenderer {
         }?.offset
     }
 
-    func imageSpreadImages() -> [UIImage]? {
+    func imageSpreadImages() -> [UIImage?]? {
         guard let imageSpreadStackView,
               !imageSpreadStackView.isHidden,
               imageSpreadStackView.window != nil else {
             return nil
         }
 
-        let images = imageSpreadViews.compactMap(\.image)
-        guard images.count == imageSpreadViews.count else { return nil }
-        return images
-    }
-
-    func hasLoadedImageSpreadImages() -> Bool {
-        guard let imageSpreadStackView,
-              !imageSpreadStackView.isHidden,
-              imageSpreadStackView.window != nil else {
-            return false
+        guard imageSpreadVerifiedImages.count == imageSpreadViews.count else {
+            return Array<UIImage?>(repeating: nil, count: imageSpreadViews.count)
         }
 
-        return !imageSpreadViews.isEmpty && imageSpreadViews.allSatisfy { $0.image != nil }
+        return verifiedImageSpreadImages()
     }
 
     func renderImage<Key: Hashable>(
@@ -217,33 +204,58 @@ final class FullscreenTokenMediaRenderer {
     func renderImageSpread<Key: Hashable>(
         key: Key,
         pageLayout: MobilePlayerPageLayout,
+        viewportSize: CGSize? = nil,
         nativeMetalCardCornerMaskIndices: Set<Int> = [],
+        initialImages: [UIImage?]? = nil,
+        imageSlotKeys: [AnyHashable]? = nil,
         loadImages: [(@escaping (UIImage?) -> Void) -> (() -> Void)?],
         fallbackToPrimary: @escaping (UIImage?) -> Void,
-        onLoadedImages: (([UIImage]) -> Void)? = nil
+        onLoadedImages: (([UIImage?]) -> Void)? = nil
     ) {
         guard !loadImages.isEmpty else {
             fallbackToPrimary(nil)
             return
         }
 
+        rememberCurrentImageSpread()
+        let imageKey = AnyHashable(key)
         cancelCurrentImageLoad()
         imageSpreadNativeMetalCardCornerMaskIndices = nativeMetalCardCornerMaskIndices
-        ensureImageSpreadStackView(imageCount: loadImages.count, pageLayout: pageLayout)
+        ensureImageSpreadStackView(
+            imageCount: loadImages.count,
+            pageLayout: pageLayout,
+            viewportSize: viewportSize
+        )
         configureImageSpreadCornerMasks()
         hideWebContent()
         hideNativeMetalCardView()
         imageView?.isHidden = true
         imageView?.image = nil
-        imageSpreadStackView.isHidden = true
-        imageSpreadViews.forEach { $0.image = nil }
+        imageSpreadStackView.isHidden = false
+        let validInitialImages = initialImages?.count == loadImages.count ? initialImages : nil
+        let validImageSlotKeys = imageSlotKeys?.count == loadImages.count ? imageSlotKeys : nil
+        let rememberedImages = rememberedImageSpreadImages(
+            for: imageKey,
+            slotKeys: validImageSlotKeys,
+            imageCount: loadImages.count
+        )
+        let seedImages = loadImages.indices.map { index in
+            validInitialImages?[index] ?? rememberedImages?[index]
+        }
+        for (index, imageView) in imageSpreadViews.enumerated() {
+            imageView.image = seedImages[index]
+        }
+        imageSpreadVerifiedImages = loadImages.indices.map { index in
+            validInitialImages?[index] != nil || rememberedImages?[index] != nil
+        }
 
-        let imageKey = AnyHashable(key)
         let imageLoadId = UUID()
         representedImageKey = imageKey
+        representedImageSpreadSlotKeys = validImageSlotKeys ?? []
         activeImageLoadId = imageLoadId
 
-        var loadedImages = Array<UIImage?>(repeating: nil, count: loadImages.count)
+        var loadedImages = seedImages
+        var resolvedSlots = seedImages.map { $0 != nil }
         var cancellations = Array<ImageLoadCancellation?>(repeating: nil, count: loadImages.count)
 
         func isCurrentLoad(in renderer: FullscreenTokenMediaRenderer) -> Bool {
@@ -255,42 +267,54 @@ final class FullscreenTokenMediaRenderer {
             cancellations = Array(repeating: nil, count: loadImages.count)
         }
 
-        func failIfCurrent(in renderer: FullscreenTokenMediaRenderer) {
+        func completeWithFallbackIfCurrent(in renderer: FullscreenTokenMediaRenderer) {
             guard isCurrentLoad(in: renderer) else { return }
 
             renderer.cancelActiveImageLoad = nil
             renderer.activeImageLoadId = nil
-            let loadedPrimaryImage = loadedImages.first ?? nil
             cancelSpreadLoads()
-            fallbackToPrimary(loadedPrimaryImage)
+            fallbackToPrimary(nil)
         }
 
         func finishIfReady(in renderer: FullscreenTokenMediaRenderer) {
             guard isCurrentLoad(in: renderer) else { return }
-            let images = loadedImages.compactMap { $0 }
-            guard images.count == loadedImages.count else { return }
+            guard resolvedSlots.allSatisfy({ $0 }) else { return }
+            guard loadedImages.contains(where: { $0 != nil }) else {
+                completeWithFallbackIfCurrent(in: renderer)
+                return
+            }
 
             renderer.cancelActiveImageLoad = nil
             renderer.activeImageLoadId = nil
             cancellations = Array(repeating: nil, count: loadImages.count)
-            renderer.displayLoadedImageSpread(
-                images,
-                key: key,
-                pageLayout: pageLayout,
-                nativeMetalCardCornerMaskIndices: nativeMetalCardCornerMaskIndices
-            )
-            onLoadedImages?(images)
+            renderer.webView?.isHidden = true
+            renderer.imageSpreadStackView?.isHidden = false
+            renderer.unloadWebContentAfterImageDisplay(imageKey: imageKey)
+            onLoadedImages?(loadedImages)
         }
 
+        finishIfReady(in: self)
+        guard isCurrentLoad(in: self) else { return }
+
         for (index, loadImage) in loadImages.enumerated() {
+            guard !resolvedSlots[index] else { continue }
+
             cancellations[index] = loadImage { [weak self] image in
                 guard let self, isCurrentLoad(in: self) else { return }
                 guard let image else {
-                    failIfCurrent(in: self)
+                    resolvedSlots[index] = true
+                    finishIfReady(in: self)
                     return
                 }
 
                 loadedImages[index] = image
+                resolvedSlots[index] = true
+                if self.imageSpreadViews.indices.contains(index) {
+                    self.imageSpreadViews[index].image = image
+                }
+                if self.imageSpreadVerifiedImages.indices.contains(index) {
+                    self.imageSpreadVerifiedImages[index] = true
+                }
                 finishIfReady(in: self)
             }
         }
@@ -335,11 +359,12 @@ final class FullscreenTokenMediaRenderer {
 
     func renderNativeMetalCard(
         tokenId: String,
-        renderKind: NativeMetalCardRenderKind,
-        onContentReady: (() -> Void)? = nil
+        renderKind: NativeMetalCardRenderKind
     ) {
+        rememberCurrentImageSpread()
         cancelCurrentImageLoad()
         representedImageKey = nil
+        representedImageSpreadSlotKeys = []
         ensureNativeMetalCardView()
         imageView?.isHidden = true
         imageView?.image = nil
@@ -347,8 +372,7 @@ final class FullscreenTokenMediaRenderer {
         hideWebContent()
         nativeMetalCardView.display(
             tokenId: tokenId,
-            renderKind: renderKind,
-            onContentReady: onContentReady
+            renderKind: renderKind
         )
     }
 
@@ -363,6 +387,7 @@ final class FullscreenTokenMediaRenderer {
                 imageCount: imageSpreadViews.count,
                 arrangement: .linear,
                 preservedImages: imageSpreadViews.map(\.image),
+                preservedImageVerification: imageSpreadVerifiedImages,
                 isHidden: imageSpreadStackView?.isHidden ?? true
             )
         }
@@ -381,6 +406,7 @@ final class FullscreenTokenMediaRenderer {
             imageCount: imageSpreadViews.count,
             arrangement: .grid(grid),
             preservedImages: imageSpreadViews.map(\.image),
+            preservedImageVerification: imageSpreadVerifiedImages,
             isHidden: imageSpreadStackView?.isHidden ?? true
         )
     }
@@ -428,8 +454,10 @@ final class FullscreenTokenMediaRenderer {
         hidesEmptyWebContent: Bool,
         onBegin: (() -> Void)?
     ) {
+        rememberCurrentImageSpread()
         cancelCurrentImageLoad()
         representedImageKey = nil
+        representedImageSpreadSlotKeys = []
         ensureWebView()
         imageView?.isHidden = true
         imageView?.image = nil
@@ -448,6 +476,55 @@ final class FullscreenTokenMediaRenderer {
         cancellation?()
     }
 
+    private func rememberCurrentImageSpread() {
+        guard let imageSpreadStackView,
+              !imageSpreadStackView.isHidden,
+              let representedImageKey,
+              !imageSpreadViews.isEmpty else {
+            return
+        }
+
+        guard let verifiedImages = verifiedImageSpreadImages(),
+              representedImageSpreadSlotKeys.count == verifiedImages.count else { return }
+
+        guard verifiedImages.contains(where: { $0 != nil }) else { return }
+
+        rememberedImageSpread = RememberedImageSpread(
+            key: representedImageKey,
+            slotKeys: representedImageSpreadSlotKeys,
+            images: verifiedImages
+        )
+    }
+
+    private func rememberedImageSpreadImages(
+        for imageKey: AnyHashable,
+        slotKeys: [AnyHashable]?,
+        imageCount: Int
+    ) -> [UIImage?]? {
+        guard let rememberedImageSpread,
+              rememberedImageSpread.key == imageKey,
+              rememberedImageSpread.images.count == imageCount,
+              let slotKeys,
+              rememberedImageSpread.slotKeys == slotKeys else {
+            self.rememberedImageSpread = nil
+            return nil
+        }
+
+        let images = rememberedImageSpread.images
+        self.rememberedImageSpread = nil
+        return images
+    }
+
+    private func verifiedImageSpreadImages() -> [UIImage?]? {
+        guard imageSpreadVerifiedImages.count == imageSpreadViews.count else {
+            return nil
+        }
+
+        return zip(imageSpreadViews, imageSpreadVerifiedImages).map { imageView, isVerified in
+            isVerified ? imageView.image : nil
+        }
+    }
+
     private func ensureImageView() {
         guard imageView == nil else { return }
 
@@ -459,10 +536,15 @@ final class FullscreenTokenMediaRenderer {
 
     private func ensureImageSpreadStackView(
         imageCount: Int,
-        pageLayout: MobilePlayerPageLayout
+        pageLayout: MobilePlayerPageLayout,
+        viewportSize: CGSize? = nil
     ) {
         guard imageCount > 0 else { return }
-        let arrangement = imageSpreadArrangement(imageCount: imageCount, pageLayout: pageLayout)
+        let arrangement = imageSpreadArrangement(
+            imageCount: imageCount,
+            pageLayout: pageLayout,
+            viewportSize: viewportSize
+        )
         if imageSpreadStackView != nil,
            imageSpreadViews.count == imageCount,
            imageSpreadArrangement == arrangement {
@@ -473,18 +555,21 @@ final class FullscreenTokenMediaRenderer {
             imageCount: imageCount,
             arrangement: arrangement,
             preservedImages: imageSpreadViews.count == imageCount ? imageSpreadViews.map(\.image) : [],
+            preservedImageVerification: imageSpreadViews.count == imageCount ? imageSpreadVerifiedImages : [],
             isHidden: imageSpreadStackView?.isHidden ?? true
         )
     }
 
     private func imageSpreadArrangement(
         imageCount: Int,
-        pageLayout: MobilePlayerPageLayout
+        pageLayout: MobilePlayerPageLayout,
+        viewportSize: CGSize?
     ) -> ImageSpreadArrangement {
+        let fittingSize = viewportSize ?? containerView.bounds.size
         if let grid = MobileStaticImageSpreadGrid.grid(
             for: pageLayout,
             imageCount: imageCount,
-            fitting: containerView.bounds.size
+            fitting: fittingSize
         ) {
             return .grid(grid)
         }
@@ -496,6 +581,7 @@ final class FullscreenTokenMediaRenderer {
         imageCount: Int,
         arrangement: ImageSpreadArrangement,
         preservedImages: [UIImage?],
+        preservedImageVerification: [Bool],
         isHidden: Bool
     ) {
         imageSpreadStackView?.removeFromSuperview()
@@ -519,6 +605,14 @@ final class FullscreenTokenMediaRenderer {
             for (imageView, image) in zip(imageSpreadViews, preservedImages) {
                 imageView.image = image
             }
+        }
+        if preservedImages.count == imageSpreadViews.count,
+           preservedImageVerification.count == imageSpreadViews.count {
+            imageSpreadVerifiedImages = zip(preservedImages, preservedImageVerification).map { image, isVerified in
+                image != nil && isVerified
+            }
+        } else {
+            imageSpreadVerifiedImages = Array(repeating: false, count: imageCount)
         }
 
         let stackView: UIStackView
@@ -629,12 +723,23 @@ final class FullscreenTokenMediaRenderer {
     }
 
     private func hideImageSpread() {
+        rememberCurrentImageSpread()
         imageSpreadStackView?.isHidden = true
         imageSpreadViews.forEach { $0.image = nil }
+        imageSpreadVerifiedImages = Array(repeating: false, count: imageSpreadViews.count)
+        representedImageSpreadSlotKeys = []
+    }
+
+    private func isImageSpreadImageVerified(at index: Int) -> Bool {
+        guard imageSpreadVerifiedImages.indices.contains(index) else { return false }
+        return imageSpreadVerifiedImages[index]
     }
 
     private func clearImageSpread() {
-        hideImageSpread()
+        imageSpreadStackView?.isHidden = true
+        imageSpreadViews.forEach { $0.image = nil }
+        imageSpreadVerifiedImages = Array(repeating: false, count: imageSpreadViews.count)
+        representedImageSpreadSlotKeys = []
     }
 
     private func unloadWebContentIfNeeded() {
@@ -836,8 +941,8 @@ struct HorizontalPlayerContainerView: UIViewControllerRepresentable {
     private let onUnavailableNavigation: (() -> Void)
     private let onToggleChrome: (() -> Void)
     private let onPageLayoutChangeRequest: ((MobilePlayerPageLayout) -> Void)
+    private let onPageLayoutApplied: ((MobilePlayerPageLayoutApplication) -> Void)
     private let onPageLayoutChangeRejected: ((MobilePlayerPageLayoutRejection) -> Void)
-    private let onPageLayoutContentReady: ((MobilePlayerPageLayout, PlayerPagePosition) -> Void)
     private let onZoomStateChange: ((Bool) -> Void)
 
     init(
@@ -851,8 +956,8 @@ struct HorizontalPlayerContainerView: UIViewControllerRepresentable {
         onUnavailableNavigation: @escaping () -> Void,
         onToggleChrome: @escaping () -> Void,
         onPageLayoutChangeRequest: @escaping (MobilePlayerPageLayout) -> Void,
+        onPageLayoutApplied: @escaping (MobilePlayerPageLayoutApplication) -> Void,
         onPageLayoutChangeRejected: @escaping (MobilePlayerPageLayoutRejection) -> Void,
-        onPageLayoutContentReady: @escaping (MobilePlayerPageLayout, PlayerPagePosition) -> Void,
         onZoomStateChange: @escaping (Bool) -> Void
     ) {
         self.initialConfig = initialConfig
@@ -865,8 +970,8 @@ struct HorizontalPlayerContainerView: UIViewControllerRepresentable {
         self.onUnavailableNavigation = onUnavailableNavigation
         self.onToggleChrome = onToggleChrome
         self.onPageLayoutChangeRequest = onPageLayoutChangeRequest
+        self.onPageLayoutApplied = onPageLayoutApplied
         self.onPageLayoutChangeRejected = onPageLayoutChangeRejected
-        self.onPageLayoutContentReady = onPageLayoutContentReady
         self.onZoomStateChange = onZoomStateChange
     }
 
@@ -880,27 +985,42 @@ struct HorizontalPlayerContainerView: UIViewControllerRepresentable {
             onUnavailableNavigation: onUnavailableNavigation,
             onToggleChrome: onToggleChrome,
             onPageLayoutChangeRequest: onPageLayoutChangeRequest,
-            onPageLayoutContentReady: onPageLayoutContentReady,
             onZoomStateChange: onZoomStateChange
         )
     }
 
     func updateUIViewController(_ uiViewController: HorizontalPlayerContainer, context: Context) {
-        let didSetPageLayout = uiViewController.setPageLayout(pageLayout, targetPagePosition: pageLayoutTargetPagePosition)
-        let currentPageLayout = uiViewController.getCurrentPageLayout()
-        guard !didSetPageLayout,
-              currentPageLayout != pageLayout else { return }
+        switch uiViewController.setPageLayout(pageLayout, targetPagePosition: pageLayoutTargetPagePosition) {
+        case .applied:
+            let application = MobilePlayerPageLayoutApplication(
+                pageLayoutChangeID: pageLayoutChangeID,
+                requestedPageLayout: pageLayout,
+                targetPagePosition: pageLayoutTargetPagePosition
+            )
+            DispatchQueue.main.async {
+                self.onPageLayoutApplied(application)
+            }
+        case .unchanged:
+            break
 
-        let rejection = MobilePlayerPageLayoutRejection(
-            pageLayoutChangeID: pageLayoutChangeID,
-            requestedPageLayout: pageLayout,
-            targetPagePosition: pageLayoutTargetPagePosition,
-            currentPageLayout: currentPageLayout
-        )
-        DispatchQueue.main.async {
-            self.onPageLayoutChangeRejected(rejection)
+        case .rejected(let currentPageLayout):
+            let rejection = MobilePlayerPageLayoutRejection(
+                pageLayoutChangeID: pageLayoutChangeID,
+                requestedPageLayout: pageLayout,
+                targetPagePosition: pageLayoutTargetPagePosition,
+                currentPageLayout: currentPageLayout
+            )
+            DispatchQueue.main.async {
+                self.onPageLayoutChangeRejected(rejection)
+            }
         }
     }
+}
+
+fileprivate enum HorizontalPlayerPageLayoutApplicationResult {
+    case applied
+    case unchanged
+    case rejected(currentPageLayout: MobilePlayerPageLayout)
 }
 
 class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, MobilePlaybackControllerDisplay, UIGestureRecognizerDelegate, MobilePlayerStaticImageGridSelectionProviding {
@@ -913,8 +1033,8 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
     private let onUnavailableNavigation: (() -> Void)
     private let onToggleChrome: (() -> Void)
     private let onPageLayoutChangeRequest: ((MobilePlayerPageLayout) -> Void)
-    private let onPageLayoutContentReady: ((MobilePlayerPageLayout, PlayerPagePosition) -> Void)
     private let onZoomStateChange: ((Bool) -> Void)
+    private let liveLayoutInteractionStateProviderID = UUID()
 
     private lazy var pagingVC = HorizontalPageViewController(
         pageLayout: pageLayout,
@@ -975,7 +1095,6 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
         onUnavailableNavigation: @escaping () -> Void,
         onToggleChrome: @escaping () -> Void,
         onPageLayoutChangeRequest: @escaping (MobilePlayerPageLayout) -> Void,
-        onPageLayoutContentReady: @escaping (MobilePlayerPageLayout, PlayerPagePosition) -> Void,
         onZoomStateChange: @escaping (Bool) -> Void
     ) {
         self.initialConfig = initialConfig
@@ -986,7 +1105,6 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
         self.onUnavailableNavigation = onUnavailableNavigation
         self.onToggleChrome = onToggleChrome
         self.onPageLayoutChangeRequest = onPageLayoutChangeRequest
-        self.onPageLayoutContentReady = onPageLayoutContentReady
         self.onZoomStateChange = onZoomStateChange
         super.init(nibName: nil, bundle: nil)
         chrome.setStaticImageGridSelectionProvider(self)
@@ -1000,6 +1118,9 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
         super.viewDidLoad()
         NativeMetalCardView.resetMotionCalibration()
         MobilePlaybackController.shared.subscribe(config: initialConfig, display: self)
+        chrome.setLiveLayoutInteractionStateProvider(id: liveLayoutInteractionStateProviderID) { [weak self] in
+            self?.currentLayoutInteractionState() ?? .empty
+        }
         makePlayerBackgroundTransparent()
         pagingVC.onCurrentZoomStateChange = { [weak self] isZoomed in
             self?.onZoomStateChange(isZoomed)
@@ -1025,6 +1146,7 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
     }
 
     deinit {
+        chrome.clearLiveLayoutInteractionStateProvider(id: liveLayoutInteractionStateProviderID)
         chrome.clearStaticImageGridSelectionProvider(self)
         edgeTapHighlightWorkItem?.cancel()
         UIApplication.shared.isIdleTimerDisabled = false
@@ -1038,16 +1160,28 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
         return pageLayout
     }
 
+    private func currentLayoutInteractionState() -> MobilePlayerLayoutInteractionState {
+        MobilePlaybackController.shared.layoutInteractionState(
+            uuid: initialConfig.id,
+            pageLayout: pageLayout,
+            pagePosition: pagingVC.getCurrentPagePosition()
+        )
+    }
+
     func navigate(_ direction: PlaybackNavigationDirection) {
         pagingVC.navigate(direction)
     }
 
-    @discardableResult
-    func setPageLayout(_ pageLayout: MobilePlayerPageLayout, targetPagePosition: PlayerPagePosition? = nil) -> Bool {
+    fileprivate func setPageLayout(
+        _ pageLayout: MobilePlayerPageLayout,
+        targetPagePosition: PlayerPagePosition? = nil
+    ) -> HorizontalPlayerPageLayoutApplicationResult {
         let shouldApplyTargetPagePosition = targetPagePosition.map {
             self.pageLayout != pageLayout || pagingVC.getCurrentPagePosition() != $0
         } ?? false
-        guard shouldApplyTargetPagePosition || self.pageLayout != pageLayout else { return false }
+        guard shouldApplyTargetPagePosition || self.pageLayout != pageLayout else {
+            return .unchanged
+        }
 
         let previousPageLayout = self.pageLayout
         self.pageLayout = pageLayout
@@ -1062,9 +1196,9 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
         }
         guard didSetPageLayout else {
             self.pageLayout = previousPageLayout
-            return false
+            return .rejected(currentPageLayout: previousPageLayout)
         }
-        return true
+        return .applied
     }
 
     private var allowsEdgeTapNavigation: Bool {
@@ -1112,7 +1246,11 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
 
     private func selectStaticImageGridCard(at location: CGPoint) -> Bool {
         guard pageLayout.isStaticImageGrid,
-              let selection = staticImageGridSelection(at: location, in: view) else {
+              let selection = staticImageGridSelection(
+                at: location,
+                in: view,
+                requiresLoadedImage: false
+              ) else {
             return false
         }
 
@@ -1153,7 +1291,27 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
             return nil
         }
 
-        return pagingVC.staticImageGridSelection(at: location, in: coordinateView)
+        return staticImageGridSelection(
+            at: location,
+            in: coordinateView,
+            requiresLoadedImage: true
+        )
+    }
+
+    private func staticImageGridSelection(
+        at location: CGPoint,
+        in coordinateView: UIView,
+        requiresLoadedImage: Bool
+    ) -> MobilePlayerStaticImageGridSelection? {
+        guard pageLayout.isStaticImageGrid else {
+            return nil
+        }
+
+        return pagingVC.staticImageGridSelection(
+            at: location,
+            in: coordinateView,
+            requiresLoadedImage: requiresLoadedImage
+        )
     }
 
     private func edgeTapSide(at location: CGPoint) -> PlayerEdgeTapSide? {
@@ -1450,18 +1608,6 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
         didUpdateRenderedPagePositions()
     }
 
-    fileprivate func didRenderPageLayoutContent(
-        _ pageLayout: MobilePlayerPageLayout,
-        pagePosition: PlayerPagePosition
-    ) {
-        guard self.pageLayout == pageLayout,
-              pagingVC.getCurrentPagePosition() == pagePosition else {
-            return
-        }
-
-        onPageLayoutContentReady(pageLayout, pagePosition)
-    }
-
     fileprivate func didCleanupPagePosition(_ pagePosition: PlayerPagePosition) {
         if let count = renderedPagePositionCounts[pagePosition], count > 1 {
             renderedPagePositionCounts[pagePosition] = count - 1
@@ -1531,7 +1677,6 @@ private protocol HorizontalPlayerDataSource: AnyObject {
         for pageLayout: MobilePlayerPageLayout
     ) -> Int
     func didRenderPagePosition(_ pagePosition: PlayerPagePosition)
-    func didRenderPageLayoutContent(_ pageLayout: MobilePlayerPageLayout, pagePosition: PlayerPagePosition)
     func didCleanupPagePosition(_ pagePosition: PlayerPagePosition)
     func didAttemptPagination()
     func didAttemptUnavailableHorizontalNavigation()
@@ -1875,10 +2020,15 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
 
     private func imageSpreadSelection(
         at location: CGPoint,
-        in coordinateView: UIView
+        in coordinateView: UIView,
+        requiresLoadedImage: Bool = true
     ) -> StaticImageSpreadSelection? {
         guard usesStaticImageGridLayoutForCurrentPagePosition,
-              let spreadIndex = mediaRenderer.imageSpreadIndex(at: location, in: coordinateView),
+              let spreadIndex = mediaRenderer.imageSpreadIndex(
+                at: location,
+                in: coordinateView,
+                requiresVerifiedImage: requiresLoadedImage
+              ),
               let spreadSelection = imageSpreadRenderState?.selection(at: spreadIndex) else {
             return nil
         }
@@ -1887,8 +2037,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     }
 
     func canSelectStaticImageGrid(at location: CGPoint, in coordinateView: UIView) -> PlayerPagePosition? {
-        guard let spreadSelection = imageSpreadSelection(at: location, in: coordinateView),
-              mediaRenderer.hasLoadedImageSpreadImages() else {
+        guard let spreadSelection = imageSpreadSelection(at: location, in: coordinateView) else {
             return nil
         }
 
@@ -1896,7 +2045,23 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     }
 
     func staticImageGridSelection(at location: CGPoint, in coordinateView: UIView) -> MobilePlayerStaticImageGridSelection? {
-        guard let spreadSelection = imageSpreadSelection(at: location, in: coordinateView) else {
+        staticImageGridSelection(
+            at: location,
+            in: coordinateView,
+            requiresLoadedImage: true
+        )
+    }
+
+    func staticImageGridSelection(
+        at location: CGPoint,
+        in coordinateView: UIView,
+        requiresLoadedImage: Bool
+    ) -> MobilePlayerStaticImageGridSelection? {
+        guard let spreadSelection = imageSpreadSelection(
+            at: location,
+            in: coordinateView,
+            requiresLoadedImage: requiresLoadedImage
+        ) else {
             return nil
         }
 
@@ -2402,7 +2567,6 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             onLoadedImage: { [weak self] image in
                 guard let self else { return }
                 self.setZoomContentLayout(.staticImage(image.size))
-                self.notifyPageLayoutContentReady()
             }
         )
     }
@@ -2413,17 +2577,35 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         fallbackHTML: String
     ) {
         let imageDescriptors = staticImageDescriptors.isEmpty ? [descriptor] : staticImageDescriptors
+        let viewportSize = validViewportSize(zoomScrollView.bounds.size)
+        let initialImages = imageDescriptors.map {
+            DownloadableMediaCache.shared.cachedDecodedImage(for: $0)
+        }
         imageSpreadRenderState = StaticImageSpreadRenderState(
             pagePosition: pagePosition,
             descriptors: imageDescriptors
         )
         clearAnimatedRenderContext()
+        setZoomContentLayout(
+            .staticImageSpread(
+                StaticImageSpreadZoomLayout(
+                    pageLayout: pageLayout,
+                    imageSizes: MobilePlayerPageLayout.staticImageGridImageSizes(
+                        for: imageDescriptors,
+                        images: initialImages
+                    )
+                )
+            )
+        )
         mediaRenderer.renderImageSpread(
             key: StaticImageSpreadRenderKey(
                 descriptors: imageDescriptors
             ),
             pageLayout: pageLayout,
+            viewportSize: viewportSize,
             nativeMetalCardCornerMaskIndices: nativeMetalCardCornerMaskIndices(for: imageDescriptors),
+            initialImages: initialImages,
+            imageSlotKeys: imageDescriptors.map { AnyHashable($0) },
             loadImages: imageDescriptors.map { imageDescriptor in
                 { completion in
                     DownloadableMediaCache.shared.loadImage(for: imageDescriptor, completion: completion)
@@ -2440,7 +2622,6 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
 
                 self.setZoomContentLayout(.staticImage(primaryImage.size))
                 self.mediaRenderer.displayLoadedImage(primaryImage, key: descriptor)
-                self.notifyPageLayoutContentReady()
             },
             onLoadedImages: { [weak self] images in
                 guard let self else { return }
@@ -2448,14 +2629,27 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
                     .staticImageSpread(
                         StaticImageSpreadZoomLayout(
                             pageLayout: pageLayout,
-                            imageSizes: images.map(\.size)
+                            imageSizes: MobilePlayerPageLayout.staticImageGridImageSizes(
+                                for: imageDescriptors,
+                                images: images
+                            )
                         )
                     )
                 )
                 self.prewarmNativeMetalCardFaces(for: imageDescriptors)
-                self.notifyPageLayoutContentReady()
             }
         )
+    }
+
+    private func validViewportSize(_ size: CGSize) -> CGSize? {
+        guard size.width > 0,
+              size.height > 0,
+              size.width.isFinite,
+              size.height.isFinite else {
+            return nil
+        }
+
+        return size
     }
 
     private func nativeMetalCardCornerMaskIndices(for descriptors: [DownloadableMediaDescriptor]) -> Set<Int> {
@@ -2480,17 +2674,6 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
                 renderKind.loadFace(for: tokenID) { _ in }
             }
         }
-    }
-
-    private func notifyPageLayoutContentReady() {
-        notifyPageLayoutContentReady(pageLayout: pageLayout, pagePosition: pagePosition)
-    }
-
-    private func notifyPageLayoutContentReady(
-        pageLayout: MobilePlayerPageLayout,
-        pagePosition: PlayerPagePosition
-    ) {
-        playerDataSource?.didRenderPageLayoutContent(pageLayout, pagePosition: pagePosition)
     }
 
     private func staticImageGridImageDescriptors(
@@ -2523,30 +2706,14 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         clearAnimatedRenderContext()
         setZoomContentLayout(.viewport)
         renderAnimatedFallbackWebContent(html)
-        notifyPageLayoutContentReady()
     }
 
     private func renderNativeMetalCard(_ token: GeneratedToken, renderKind: NativeMetalCardRenderKind) {
         clearAnimatedRenderContext()
         setZoomContentLayout(.viewport, allowedContent: .nativeMetalCard)
-        let renderedPagePosition = pagePosition
-        let renderedPageLayout = pageLayout
         mediaRenderer.renderNativeMetalCard(
             tokenId: token.id,
-            renderKind: renderKind,
-            onContentReady: { [weak self] in
-                guard let self,
-                      self.renderedPagePosition == renderedPagePosition,
-                      self.pagePosition == renderedPagePosition,
-                      self.pageLayout == renderedPageLayout else {
-                    return
-                }
-
-                self.notifyPageLayoutContentReady(
-                    pageLayout: renderedPageLayout,
-                    pagePosition: renderedPagePosition
-                )
-            }
+            renderKind: renderKind
         )
     }
 
@@ -2986,10 +3153,18 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
         updatePagingScrollEnabled()
     }
 
-    func staticImageGridSelection(at location: CGPoint, in coordinateView: UIView) -> MobilePlayerStaticImageGridSelection? {
+    func staticImageGridSelection(
+        at location: CGPoint,
+        in coordinateView: UIView,
+        requiresLoadedImage: Bool = true
+    ) -> MobilePlayerStaticImageGridSelection? {
         guard pageLayout.isStaticImageGrid,
               canStartNavigation,
-              let selection = currentPage?.staticImageGridSelection(at: location, in: coordinateView),
+              let selection = currentPage?.staticImageGridSelection(
+                at: location,
+                in: coordinateView,
+                requiresLoadedImage: requiresLoadedImage
+              ),
               canRender(selection.pagePosition) else {
             return nil
         }

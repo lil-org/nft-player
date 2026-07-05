@@ -100,6 +100,15 @@ enum MobilePlayerPageLayout: CaseIterable, Hashable, Identifiable {
         }
     }
 
+    static func staticImageGridImageSizes(
+        for descriptors: [DownloadableMediaDescriptor],
+        images: [UIImage?]
+    ) -> [CGSize] {
+        zip(descriptors, images).map { descriptor, image in
+            image?.size ?? staticImageGridFallbackImageSize(for: descriptor)
+        }
+    }
+
     var title: String {
         switch self {
         case .onePerPage:
@@ -233,6 +242,46 @@ class MobilePlaybackController {
 
     func isInsertedWidgetToken(uuid: UUID, pagePosition: PlayerPagePosition) -> Bool {
         dataSource(uuid: uuid)?.isInsertedWidgetToken(pagePosition: pagePosition) ?? false
+    }
+
+    func layoutInteractionState(
+        uuid: UUID,
+        pageLayout: MobilePlayerPageLayout,
+        pagePosition: PlayerPagePosition?
+    ) -> MobilePlayerLayoutInteractionState {
+        guard pageLayout == .onePerPage,
+              let pagePosition,
+              let currentDescriptor = downloadableMediaDescriptor(uuid: uuid, pagePosition: pagePosition),
+              let staticImageGridPageLayout = MobilePlayerPageLayout.staticImageGridLayout(for: currentDescriptor) else {
+            return .empty
+        }
+
+        let switchMode: MobilePlayerStaticImageGridSwitchMode = isInsertedWidgetToken(
+            uuid: uuid,
+            pagePosition: pagePosition
+        )
+            ? .direct(
+                descriptors: staticImageGridDescriptorsAfterExitingWidgetInsertion(
+                    uuid: uuid,
+                    containing: pagePosition,
+                    pageLayout: staticImageGridPageLayout
+                )
+            )
+            : .animated(
+                descriptors: staticImageGridDescriptors(
+                    uuid: uuid,
+                    containing: pagePosition,
+                    pageLayout: staticImageGridPageLayout
+                )
+            )
+
+        return MobilePlayerLayoutInteractionState(
+            pageLayout: pageLayout,
+            tokenIndex: currentDescriptor.tokenIndex,
+            staticImageGridPageLayout: staticImageGridPageLayout,
+            currentDescriptor: currentDescriptor,
+            staticImageGridSwitchMode: switchMode
+        )
     }
 
     func prepareDownloadableMediaWindow(

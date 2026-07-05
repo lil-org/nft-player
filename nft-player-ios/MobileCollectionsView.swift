@@ -1672,7 +1672,7 @@ private final class CardTransitionUnderlayView: UIView {
         hiddenSlotIndex: Int?,
         fallbackImageSize: CGSize,
         layoutImageSizes: [CGSize]? = nil,
-        initialImages: [UIImage]? = nil
+        initialImages: [UIImage?]? = nil
     ) {
         let validFallbackImageSize = fallbackImageSize.validOrDefault
         self.pageLayout = pageLayout
@@ -1746,11 +1746,12 @@ private final class CardTransitionUnderlayView: UIView {
         imageLoadCancellations = Array(repeating: nil, count: descriptors.count)
     }
 
-    private func loadImages(initialImages: [UIImage]?) {
+    private func loadImages(initialImages: [UIImage?]?) {
         for (index, descriptor) in descriptors.enumerated() {
             guard !isHiddenSlot(index) else { continue }
 
-            if let initialImage = initialImages?[index] {
+            if let initialImages,
+               let initialImage = initialImages[index] {
                 setImage(initialImage, at: index)
                 continue
             }
@@ -2079,7 +2080,6 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
     private static let dismissBackgroundClearPassDelay: TimeInterval = 0.05
     private static let dismissGestureBackgroundClearPasses = 4
     private static let finalDismissBackgroundClearPasses = 2
-    private static let cardExpandContentReadyFallbackDelay: TimeInterval = 1.0
     private static let cardTransitionHorizontalDragDamping: CGFloat = 0.18
     private static let cardTransitionVerticalDragDamping: CGFloat = 0.32
     private static let navigationBarSideControlRegionWidth: CGFloat = 96
@@ -2097,6 +2097,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
     }
 
     private struct CardMinimizeTransitionContext {
+        let id: UUID
         let pageLayout: MobilePlayerPageLayout
         let sourceFrame: CGRect
         let targetScale: CGFloat
@@ -2211,9 +2212,10 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
     }
     private var activeCardMinimizeContext: CardMinimizeTransitionContext?
     private var activeCardExpandContext: CardExpandTransitionContext?
+    private var isCardMinimizeAnimationComplete = false
+    private var isCardMinimizeLayoutApplied = false
     private var isCardExpandAnimationComplete = false
-    private var isCardExpandContentReady = false
-    private var cardExpandContentReadyFallbackWorkItem: DispatchWorkItem?
+    private var isCardExpandLayoutApplied = false
     private var didControlsPanConflictWithHorizontalScroll = false
     private var dismissBackgroundSnapshots: [PlayerBackgroundSnapshot] = []
 
@@ -2361,19 +2363,17 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         case .began:
             let location = gesture.location(in: playerNavigationController.view)
             let velocity = gesture.velocity(in: view)
-            let cardMinimizeState = cardMinimizeStateForIntent(location: location, velocity: velocity)
-            let directCardMinimizeState = directCardMinimizeStateForIntent(
-                location: location,
-                velocity: velocity
-            )
             let hasPlayerDismissIntent = hasPlayerDismissIntent(location: location, velocity: velocity)
+            let cardMinimizeAvailability = hasPlayerDismissIntent
+                ? cardMinimizeAvailability(at: location)
+                : .empty
             let shouldHideControls = chrome.showControls && hasControlsHideIntent(location: location, velocity: velocity)
             isDismissPanDrivingPlayerDismiss = false
             isDismissPanDrivingCardMinimize = false
 
-            if let cardMinimizeState {
+            if let cardMinimizeState = cardMinimizeAvailability.animated {
                 guard beginCardMinimizeFromDismissPan(state: cardMinimizeState) else { return }
-            } else if let directCardMinimizeState {
+            } else if let directCardMinimizeState = cardMinimizeAvailability.direct {
                 guard beginDirectCardMinimizeFromDismissPan(state: directCardMinimizeState) else { return }
             } else {
                 isDismissPanDrivingPlayerDismiss = hasPlayerDismissIntent
@@ -2506,7 +2506,8 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
             cardMinimizePinchStartLocation = gesture.initialPinchLocation(in: view)
 
             let location = gesture.pinchLocation(in: playerNavigationController.view)
-            if let state = cardMinimizeStateForPinch(location: location) {
+            let availability = cardMinimizeAvailability(at: location)
+            if let state = availability.animated {
                 guard beginCardMinimizePinchGesture(state: state) else {
                     resetCardMinimizePinchState()
                     return
@@ -2516,7 +2517,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
                 return
             }
 
-            guard let state = directCardMinimizeState(at: location),
+            guard let state = availability.direct,
                   beginDirectCardMinimizePinchGesture(state: state) else {
                 resetCardMinimizePinchState()
                 return
@@ -2776,7 +2777,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
             return true
         }
 
-        let state = chrome.layoutInteractionState
+        let state = chrome.currentLayoutInteractionState()
         guard beginCardMinimizeTransition(
             state: state,
             isDrivenByDismissPan: false
@@ -2801,6 +2802,9 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
 
         guard !isCardTransitionActive else {
             return .busy
+        }
+        guard selection.selectedImage != nil else {
+            return .fallbackToImmediateOpen
         }
 
         guard beginCardExpandTransition(selection: selection) else {
@@ -2851,6 +2855,8 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
     ) -> Bool {
         activeCardMinimizeContext = context
         isDismissPanDrivingCardMinimize = isDrivenByDismissPan
+        isCardMinimizeAnimationComplete = false
+        isCardMinimizeLayoutApplied = false
         chrome.setPlayerContentHiddenForCardTransition(true)
         return true
     }
@@ -2865,7 +2871,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
 
         activeCardExpandContext = context
         isCardExpandAnimationComplete = false
-        isCardExpandContentReady = false
+        isCardExpandLayoutApplied = false
         chrome.setPlayerContentHiddenForCardTransition(true)
         applyCardExpandPresentation(progress: 0)
         return true
@@ -2908,15 +2914,25 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
             cleanupCardMinimizeTransition(revealPlayer: true)
             return
         }
+        let contextID = context.id
+
+        chrome.requestPageLayout(context.pageLayout) { [weak self] in
+            guard let self,
+                  self.activeCardMinimizeContext?.id == contextID else {
+                return
+            }
+
+            self.isCardMinimizeLayoutApplied = true
+            self.finishCardMinimizeTransitionIfReady()
+        }
 
         switch context.commitDestination {
         case .offscreen:
             completeOffscreenCardMinimizeTransition(context)
             return
         case .layoutOnly:
-            chrome.requestPageLayout(context.pageLayout) { [weak self] in
-                self?.cleanupCardMinimizeTransition(revealPlayer: true)
-            }
+            isCardMinimizeAnimationComplete = true
+            finishCardMinimizeTransitionIfReady()
             return
         case .gridSlot(let targetFrame):
             let foregroundView = context.foregroundView
@@ -2929,10 +2945,8 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
             }, completion: { [weak self] _ in
                 guard let self else { return }
 
-                self.chrome.requestPageLayout(context.pageLayout) { [weak self] in
-                    guard let self else { return }
-                    self.cleanupCardMinimizeTransition(revealPlayer: true)
-                }
+                self.isCardMinimizeAnimationComplete = true
+                self.finishCardMinimizeTransitionIfReady()
             })
         }
     }
@@ -2950,18 +2964,26 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         }, completion: { [weak self] _ in
             guard let self else { return }
 
-            self.chrome.requestPageLayout(context.pageLayout) { [weak self] in
-                guard let self else { return }
-                self.cleanupCardMinimizeTransition(revealPlayer: true)
-            }
+            self.isCardMinimizeAnimationComplete = true
+            self.finishCardMinimizeTransitionIfReady()
         })
+    }
+
+    private func finishCardMinimizeTransitionIfReady() {
+        guard activeCardMinimizeContext != nil,
+              isCardMinimizeAnimationComplete,
+              isCardMinimizeLayoutApplied else {
+            return
+        }
+
+        cleanupCardMinimizeTransition(revealPlayer: true)
     }
 
     private func completeCardExpandTransition() {
         guard let context = activeCardExpandContext else { return }
         let contextID = context.id
 
-        let pageLayoutRequestID = chrome.requestPageLayout(
+        chrome.requestPageLayout(
             .onePerPage,
             targetPagePosition: context.targetPagePosition
         ) { [weak self] in
@@ -2970,7 +2992,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
                 return
             }
 
-            self.isCardExpandContentReady = true
+            self.isCardExpandLayoutApplied = true
             self.finishCardExpandTransitionIfReady()
         }
 
@@ -2984,55 +3006,17 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
 
             self.isCardExpandAnimationComplete = true
             self.finishCardExpandTransitionIfReady()
-            self.scheduleCardExpandContentReadyFallbackIfNeeded(
-                for: contextID,
-                pageLayoutRequestID: pageLayoutRequestID
-            )
         })
     }
 
     private func finishCardExpandTransitionIfReady() {
         guard activeCardExpandContext != nil,
               isCardExpandAnimationComplete,
-              isCardExpandContentReady else {
+              isCardExpandLayoutApplied else {
             return
         }
 
         cleanupCardExpandTransition(revealPlayer: true)
-    }
-
-    private func scheduleCardExpandContentReadyFallbackIfNeeded(
-        for contextID: UUID,
-        pageLayoutRequestID: UUID
-    ) {
-        guard activeCardExpandContext?.id == contextID,
-              isCardExpandAnimationComplete,
-              !isCardExpandContentReady else {
-            return
-        }
-
-        cancelCardExpandContentReadyFallback()
-        let workItem = DispatchWorkItem { [weak self] in
-            guard let self,
-                  self.activeCardExpandContext?.id == contextID,
-                  self.isCardExpandAnimationComplete,
-                  !self.isCardExpandContentReady else {
-                return
-            }
-
-            self.chrome.cancelPageLayoutRequestCompletion(pageLayoutRequestID)
-            self.cleanupCardExpandTransition(revealPlayer: true)
-        }
-        cardExpandContentReadyFallbackWorkItem = workItem
-        DispatchQueue.main.asyncAfter(
-            deadline: .now() + Self.cardExpandContentReadyFallbackDelay,
-            execute: workItem
-        )
-    }
-
-    private func cancelCardExpandContentReadyFallback() {
-        cardExpandContentReadyFallbackWorkItem?.cancel()
-        cardExpandContentReadyFallbackWorkItem = nil
     }
 
     private func applyPlayerDismissPinchPresentation(_ gesture: CardLayoutPinchGestureRecognizer) {
@@ -3485,6 +3469,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         let targetScale = cardMinimizeTargetScale(sourceFrame: sourceFrame, targetFrame: targetFrame)
 
         return CardMinimizeTransitionContext(
+            id: UUID(),
             pageLayout: pageLayout,
             sourceFrame: sourceFrame,
             targetScale: targetScale,
@@ -3529,6 +3514,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         view.insertSubview(foregroundView, aboveSubview: underlayView)
 
         return CardMinimizeTransitionContext(
+            id: UUID(),
             pageLayout: pageLayout,
             sourceFrame: sourceFrame,
             targetScale: cardMinimizeTargetScale(sourceFrame: sourceFrame, targetFrame: nil),
@@ -3541,6 +3527,10 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
     private func makeCardExpandTransitionContext(
         selection: MobilePlayerStaticImageGridSelection
     ) -> CardExpandTransitionContext? {
+        guard let selectedImage = selection.selectedImage else {
+            return nil
+        }
+
         let selectedImageSize = selection.selectedImageSize.validOrDefault
         let underlayView = makeCardTransitionUnderlayView(
             pageLayout: selection.pageLayout,
@@ -3570,7 +3560,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         let foregroundView = makeCardTransitionForegroundView(
             sourceFrame: sourceFrame,
             descriptor: selection.selectedDescriptor,
-            image: selection.selectedImage
+            image: selectedImage
         )
         view.insertSubview(foregroundView, aboveSubview: underlayView)
 
@@ -3591,7 +3581,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         hiddenSlotIndex: Int?,
         fallbackImageSize: CGSize,
         layoutImageSizes: [CGSize]? = nil,
-        initialImages: [UIImage]? = nil,
+        initialImages: [UIImage?]? = nil,
         otherCardsRevealProgress: CGFloat
     ) -> CardTransitionUnderlayView {
         let underlayView = CardTransitionUnderlayView(
@@ -3879,6 +3869,8 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         let context = activeCardMinimizeContext
         activeCardMinimizeContext = nil
         isDismissPanDrivingCardMinimize = false
+        isCardMinimizeAnimationComplete = false
+        isCardMinimizeLayoutApplied = false
         resetCardMinimizePinchState()
 
         if revealPlayer {
@@ -3893,9 +3885,8 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         let context = activeCardExpandContext
         activeCardExpandContext = nil
         isCardExpandAnimationComplete = false
-        isCardExpandContentReady = false
+        isCardExpandLayoutApplied = false
         resetCardExpandPinchState()
-        cancelCardExpandContentReadyFallback()
 
         if revealPlayer {
             revealPlayerAfterCardTransition()
@@ -4078,8 +4069,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
             return false
         }
 
-        return cardMinimizeStateForIntent(location: location, velocity: velocity) != nil
-            || hasPlayerDismissIntent(location: location, velocity: velocity)
+        return hasPlayerDismissIntent(location: location, velocity: velocity)
             || (chrome.showControls && hasControlsHideIntent(location: location, velocity: velocity))
     }
 
@@ -4156,8 +4146,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
             return false
         }
 
-        return cardMinimizeStateForPinch(location: location) == nil
-            && directCardMinimizeState(at: location) == nil
+        return !cardMinimizeAvailability(at: location).canMinimize
     }
 
     private func canBeginPinchRotation() -> Bool {
@@ -4185,8 +4174,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
             return false
         }
 
-        return cardMinimizeStateForPinch(location: location) != nil
-            || directCardMinimizeState(at: location) != nil
+        return cardMinimizeAvailability(at: location).canMinimize
     }
 
     private func canBeginCardExpandPinch() -> Bool {
@@ -4221,68 +4209,29 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
             && velocity.y > abs(velocity.x) * MobilePlayerGestureTuning.dismissVerticalIntentRatio
     }
 
-    private func cardMinimizeStateForIntent(
-        location: CGPoint,
-        velocity: CGPoint
-    ) -> MobilePlayerLayoutInteractionState? {
-        guard let state = cardMinimizeAvailableState(),
-              hasPlayerDismissIntent(location: location, velocity: velocity) else {
-            return nil
-        }
+    private struct CardMinimizeAvailability {
+        let animated: MobilePlayerLayoutInteractionState?
+        let direct: MobilePlayerLayoutInteractionState?
 
-        return state
+        static let empty = CardMinimizeAvailability(animated: nil, direct: nil)
+
+        var canMinimize: Bool {
+            animated != nil || direct != nil
+        }
     }
 
-    private func directCardMinimizeStateForIntent(
-        location: CGPoint,
-        velocity: CGPoint
-    ) -> MobilePlayerLayoutInteractionState? {
-        guard hasPlayerDismissIntent(location: location, velocity: velocity) else {
-            return nil
-        }
-
-        return directCardMinimizeState(at: location)
-    }
-
-    private func cardMinimizeStateForPinch(
-        location: CGPoint
-    ) -> MobilePlayerLayoutInteractionState? {
-        guard let state = cardMinimizeAvailableState(),
-              playerNavigationController.view.bounds.contains(location) else {
-            return nil
-        }
-
-        return state
-    }
-
-    private func directCardMinimizeState(at location: CGPoint) -> MobilePlayerLayoutInteractionState? {
+    private func cardMinimizeAvailability(at location: CGPoint) -> CardMinimizeAvailability {
         guard playerNavigationController.view.bounds.contains(location),
-              let state = availableDirectCardMinimizeState() else {
-            return nil
-        }
-
-        return state
-    }
-
-    private func cardMinimizeAvailableState() -> MobilePlayerLayoutInteractionState? {
-        let state = chrome.layoutInteractionState
-        guard state.canMinimizeToStaticImageGrid,
-              !chrome.isPlayerContentZoomed else {
-            return nil
-        }
-
-        return state
-    }
-
-    private func availableDirectCardMinimizeState() -> MobilePlayerLayoutInteractionState? {
-        let state = chrome.layoutInteractionState
-        guard state.canSwitchDirectlyToStaticImageGrid,
               !isCardTransitionActive,
               !chrome.isPlayerContentZoomed else {
-            return nil
+            return .empty
         }
 
-        return state
+        let state = chrome.currentLayoutInteractionState()
+        return CardMinimizeAvailability(
+            animated: state.canMinimizeToStaticImageGrid ? state : nil,
+            direct: state.canSwitchDirectlyToStaticImageGrid ? state : nil
+        )
     }
 
     private func hasControlsRevealIntent(location: CGPoint, velocity: CGPoint) -> Bool {

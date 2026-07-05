@@ -28,16 +28,17 @@ struct MobilePlayerPageLayoutRequest {
     let completion: (() -> Void)?
 }
 
-struct MobilePlayerPageLayoutCompletionCancellationRequest {
-    let id = UUID()
-    let pageLayoutRequestID: UUID
-}
-
 struct MobilePlayerPageLayoutRejection {
     let pageLayoutChangeID: UUID
     let requestedPageLayout: MobilePlayerPageLayout
     let targetPagePosition: PlayerPagePosition?
     let currentPageLayout: MobilePlayerPageLayout
+}
+
+struct MobilePlayerPageLayoutApplication {
+    let pageLayoutChangeID: UUID
+    let requestedPageLayout: MobilePlayerPageLayout
+    let targetPagePosition: PlayerPagePosition?
 }
 
 enum MobilePlayerStaticImageGridExpandSelectionResult {
@@ -47,9 +48,8 @@ enum MobilePlayerStaticImageGridExpandSelectionResult {
     case rejected
 }
 
-private struct MobilePlayerPendingPageLayoutCompletion {
-    let requestID: UUID
-    let pageLayout: MobilePlayerPageLayout
+private struct MobilePlayerPendingPageLayoutApplication {
+    let pageLayoutChangeID: UUID
     let targetPagePosition: PlayerPagePosition?
     let completion: () -> Void
 }
@@ -59,14 +59,14 @@ struct MobilePlayerStaticImageGridSelection {
     let pagePosition: PlayerPagePosition
     let selectedSlotIndex: Int
     let descriptors: [DownloadableMediaDescriptor]
-    let images: [UIImage]
+    let images: [UIImage?]
 
     init?(
         pageLayout: MobilePlayerPageLayout,
         pagePosition: PlayerPagePosition,
         selectedSlotIndex: Int,
         descriptors: [DownloadableMediaDescriptor],
-        images: [UIImage]
+        images: [UIImage?]
     ) {
         guard pageLayout.isStaticImageGrid,
               descriptors.indices.contains(selectedSlotIndex),
@@ -90,16 +90,16 @@ struct MobilePlayerStaticImageGridSelection {
         descriptors[selectedSlotIndex]
     }
 
-    var selectedImage: UIImage {
+    var selectedImage: UIImage? {
         images[selectedSlotIndex]
     }
 
     var selectedImageSize: CGSize {
-        selectedImage.size
+        selectedImage?.size ?? MobilePlayerPageLayout.staticImageGridFallbackImageSize(for: selectedDescriptor)
     }
 
     var imageSizes: [CGSize] {
-        images.map(\.size)
+        MobilePlayerPageLayout.staticImageGridImageSizes(for: descriptors, images: images)
     }
 
 }
@@ -180,7 +180,6 @@ final class MobilePlayerChromeController: ObservableObject {
     @Published private(set) var isStatusBarRevealedByDismiss = false
     @Published private(set) var isPlayerContentHiddenForCardTransition = false
     @Published private(set) var pageLayoutRequest: MobilePlayerPageLayoutRequest?
-    @Published private(set) var pageLayoutCompletionCancellationRequest: MobilePlayerPageLayoutCompletionCancellationRequest?
     private(set) var playerBackgroundColor: UIColor
     private(set) var isPlayerContentZoomed = false
     private(set) var layoutInteractionState = MobilePlayerLayoutInteractionState.empty
@@ -188,6 +187,8 @@ final class MobilePlayerChromeController: ObservableObject {
     var onStaticImageGridMinimizeRequest: (() -> Bool)?
     var onStaticImageGridExpandRequest: ((MobilePlayerStaticImageGridSelection) -> MobilePlayerStaticImageGridExpandSelectionResult)?
     private weak var staticImageGridSelectionProvider: (any MobilePlayerStaticImageGridSelectionProviding)?
+    private var liveLayoutInteractionStateProviderID: UUID?
+    private var liveLayoutInteractionStateProvider: (() -> MobilePlayerLayoutInteractionState)?
 
     init(playerBackgroundColor: UIColor = MobilePlayerBackgroundColor.defaultColor) {
         self.playerBackgroundColor = playerBackgroundColor
@@ -215,6 +216,41 @@ final class MobilePlayerChromeController: ObservableObject {
         guard staticImageGridSelectionProvider === provider else { return }
 
         staticImageGridSelectionProvider = nil
+    }
+
+    func setLiveLayoutInteractionStateProvider(
+        id: UUID,
+        _ provider: @escaping () -> MobilePlayerLayoutInteractionState
+    ) {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async {
+                self.setLiveLayoutInteractionStateProvider(id: id, provider)
+            }
+            return
+        }
+
+        liveLayoutInteractionStateProviderID = id
+        liveLayoutInteractionStateProvider = provider
+    }
+
+    func clearLiveLayoutInteractionStateProvider(id: UUID) {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async {
+                self.clearLiveLayoutInteractionStateProvider(id: id)
+            }
+            return
+        }
+
+        guard liveLayoutInteractionStateProviderID == id else { return }
+
+        liveLayoutInteractionStateProviderID = nil
+        liveLayoutInteractionStateProvider = nil
+    }
+
+    func currentLayoutInteractionState() -> MobilePlayerLayoutInteractionState {
+        guard Thread.isMainThread else { return layoutInteractionState }
+
+        return liveLayoutInteractionStateProvider?() ?? layoutInteractionState
     }
 
     func canSelectStaticImageGrid(at location: CGPoint, in coordinateView: UIView) -> Bool {
@@ -330,29 +366,6 @@ final class MobilePlayerChromeController: ObservableObject {
         pageLayoutRequest = nil
     }
 
-    func cancelPageLayoutRequestCompletion(_ pageLayoutRequestID: UUID) {
-        guard Thread.isMainThread else {
-            DispatchQueue.main.async {
-                self.cancelPageLayoutRequestCompletion(pageLayoutRequestID)
-            }
-            return
-        }
-
-        pageLayoutCompletionCancellationRequest = MobilePlayerPageLayoutCompletionCancellationRequest(
-            pageLayoutRequestID: pageLayoutRequestID
-        )
-    }
-
-    func clearPageLayoutCompletionCancellationRequest(_ request: MobilePlayerPageLayoutCompletionCancellationRequest) {
-        guard Thread.isMainThread else {
-            DispatchQueue.main.async { self.clearPageLayoutCompletionCancellationRequest(request) }
-            return
-        }
-
-        guard pageLayoutCompletionCancellationRequest?.id == request.id else { return }
-        pageLayoutCompletionCancellationRequest = nil
-    }
-
     @discardableResult
     func requestStaticImageGridMinimize() -> Bool {
         guard Thread.isMainThread else { return false }
@@ -389,8 +402,7 @@ struct MobilePlayerView: View {
     @State private var pageLayout: MobilePlayerPageLayout
     @State private var pageLayoutChangeID = UUID()
     @State private var pageLayoutTargetPagePosition: PlayerPagePosition?
-    @State private var currentStaticImageGridPageLayout: MobilePlayerPageLayout?
-    @State private var pendingPageLayoutCompletion: MobilePlayerPendingPageLayoutCompletion?
+    @State private var pendingPageLayoutApplication: MobilePlayerPendingPageLayoutApplication?
     
     init(
         config: MobilePlayerConfig,
@@ -432,7 +444,6 @@ struct MobilePlayerView: View {
                                 pagePosition: newPagePosition
                             )
                             let staticImageGridPageLayout = self.staticImageGridPageLayout(for: newPagePosition)
-                            self.currentStaticImageGridPageLayout = staticImageGridPageLayout
                             if self.pageLayout.isStaticImageGrid && staticImageGridPageLayout != self.pageLayout {
                                 self.pageLayoutChangeID = UUID()
                                 self.pageLayout = .onePerPage
@@ -457,14 +468,11 @@ struct MobilePlayerView: View {
                     onPageLayoutChangeRequest: { requestedPageLayout in
                         self.applyPageLayout(requestedPageLayout)
                     },
+                    onPageLayoutApplied: { application in
+                        self.handlePageLayoutApplied(application)
+                    },
                     onPageLayoutChangeRejected: { rejection in
                         self.handlePageLayoutChangeRejected(rejection)
-                    },
-                    onPageLayoutContentReady: { readyPageLayout, readyPagePosition in
-                        self.completePendingPageLayoutRequest(
-                            for: readyPageLayout,
-                            pagePosition: readyPagePosition
-                        )
                     },
                     onZoomStateChange: { isZoomed in
                         chrome.setPlayerContentZoomed(isZoomed)
@@ -556,7 +564,7 @@ struct MobilePlayerView: View {
         .onDisappear {
             chrome.setLayoutInteractionState(.empty)
             chrome.setPlayerContentHiddenForCardTransition(false)
-            pendingPageLayoutCompletion = nil
+            pendingPageLayoutApplication = nil
             pageLayoutTargetPagePosition = nil
             updateExternalDisplayToken(GeneratedToken.empty)
             NativeMetalCardView.resetMotionCalibration()
@@ -565,10 +573,6 @@ struct MobilePlayerView: View {
         .onReceive(chrome.$pageLayoutRequest) { request in
             guard let request else { return }
             handlePageLayoutRequest(request)
-        }
-        .onReceive(chrome.$pageLayoutCompletionCancellationRequest) { request in
-            guard let request else { return }
-            handlePageLayoutCompletionCancellationRequest(request)
         }
         .onReceive(NotificationCenter.default.publisher(for: .downloadableMediaCacheFileAvailabilityDidChange)) { _ in
             updateShareItem(for: currentPagePosition)
@@ -674,46 +678,35 @@ struct MobilePlayerView: View {
         }
 
         if let completion = request.completion {
-            pendingPageLayoutCompletion = MobilePlayerPendingPageLayoutCompletion(
-                requestID: request.id,
-                pageLayout: request.pageLayout,
+            pendingPageLayoutApplication = MobilePlayerPendingPageLayoutApplication(
+                pageLayoutChangeID: request.id,
                 targetPagePosition: request.targetPagePosition,
                 completion: completion
             )
         }
     }
 
-    private func handlePageLayoutCompletionCancellationRequest(_ request: MobilePlayerPageLayoutCompletionCancellationRequest) {
-        defer {
-            chrome.clearPageLayoutCompletionCancellationRequest(request)
-        }
-
-        guard let pendingPageLayoutCompletion,
-              pendingPageLayoutCompletion.requestID == request.pageLayoutRequestID else {
+    private func handlePageLayoutApplied(_ application: MobilePlayerPageLayoutApplication) {
+        guard pageLayoutChangeID == application.pageLayoutChangeID,
+              pageLayout == application.requestedPageLayout else {
             return
         }
 
-        self.pendingPageLayoutCompletion = nil
-    }
-
-    private func completePendingPageLayoutRequest(
-        for readyPageLayout: MobilePlayerPageLayout,
-        pagePosition readyPagePosition: PlayerPagePosition
-    ) {
-        guard let pendingPageLayoutCompletion,
-              pendingPageLayoutCompletion.pageLayout == readyPageLayout else {
-            return
-        }
-        if let pendingTargetPagePosition = pendingPageLayoutCompletion.targetPagePosition,
-           pendingTargetPagePosition != readyPagePosition {
-            return
-        }
-
-        let completion = pendingPageLayoutCompletion.completion
-        if pageLayoutTargetPagePosition == pendingPageLayoutCompletion.targetPagePosition {
+        if pageLayoutTargetPagePosition == application.targetPagePosition {
             pageLayoutTargetPagePosition = nil
         }
-        self.pendingPageLayoutCompletion = nil
+
+        completePendingPageLayoutApplication(application.pageLayoutChangeID)
+    }
+
+    private func completePendingPageLayoutApplication(_ pageLayoutChangeID: UUID) {
+        guard let pendingPageLayoutApplication,
+              pendingPageLayoutApplication.pageLayoutChangeID == pageLayoutChangeID else {
+            return
+        }
+
+        let completion = pendingPageLayoutApplication.completion
+        self.pendingPageLayoutApplication = nil
         DispatchQueue.main.async {
             completion()
         }
@@ -730,14 +723,7 @@ struct MobilePlayerView: View {
         pageLayoutChangeID = UUID()
         pageLayoutTargetPagePosition = nil
 
-        if let pendingPageLayoutCompletion,
-           pendingPageLayoutCompletion.requestID == rejection.pageLayoutChangeID {
-            let completion = pendingPageLayoutCompletion.completion
-            self.pendingPageLayoutCompletion = nil
-            DispatchQueue.main.async {
-                completion()
-            }
-        }
+        completePendingPageLayoutApplication(rejection.pageLayoutChangeID)
 
         updateNavigationAvailability(for: currentPagePosition)
         updateLayoutInteractionState()
@@ -746,6 +732,11 @@ struct MobilePlayerView: View {
     private var canSwitchCurrentToStaticImageGrid: Bool {
         pageLayout == .onePerPage
             && currentStaticImageGridPageLayout != nil
+    }
+
+    private var currentStaticImageGridPageLayout: MobilePlayerPageLayout? {
+        guard let currentPagePosition else { return nil }
+        return staticImageGridPageLayout(for: currentPagePosition)
     }
 
     @discardableResult
@@ -794,63 +785,12 @@ struct MobilePlayerView: View {
     }
 
     private func updateLayoutInteractionState() {
-        guard canSwitchCurrentToStaticImageGrid else {
-            chrome.setLayoutInteractionState(.empty)
-            return
-        }
-
-        let currentDescriptor = currentDownloadableMediaDescriptor()
-        guard let currentDescriptor else {
-            chrome.setLayoutInteractionState(.empty)
-            return
-        }
-
         chrome.setLayoutInteractionState(
-            MobilePlayerLayoutInteractionState(
+            MobilePlaybackController.shared.layoutInteractionState(
+                uuid: initialConfig.id,
                 pageLayout: pageLayout,
-                tokenIndex: currentDescriptor.tokenIndex,
-                staticImageGridPageLayout: currentStaticImageGridPageLayout,
-                currentDescriptor: currentDescriptor,
-                staticImageGridSwitchMode: isCurrentPagePositionInsertedWidgetToken
-                    ? .direct(
-                        descriptors: staticImageGridDescriptorsAfterExitingWidgetInsertion(
-                            containing: currentPagePosition
-                        )
-                    )
-                    : .animated(descriptors: staticImageGridDescriptors(containing: currentPagePosition))
+                pagePosition: currentPagePosition
             )
-        )
-    }
-
-    private func currentDownloadableMediaDescriptor() -> DownloadableMediaDescriptor? {
-        guard let currentPagePosition else { return nil }
-        return MobilePlaybackController.shared.downloadableMediaDescriptor(
-            uuid: initialConfig.id,
-            pagePosition: currentPagePosition
-        )
-    }
-
-    private func staticImageGridDescriptors(containing pagePosition: PlayerPagePosition?) -> [DownloadableMediaDescriptor] {
-        guard let pagePosition,
-              let staticImageGridPageLayout = currentStaticImageGridPageLayout else { return [] }
-
-        return MobilePlaybackController.shared.staticImageGridDescriptors(
-            uuid: initialConfig.id,
-            containing: pagePosition,
-            pageLayout: staticImageGridPageLayout
-        )
-    }
-
-    private func staticImageGridDescriptorsAfterExitingWidgetInsertion(
-        containing pagePosition: PlayerPagePosition?
-    ) -> [DownloadableMediaDescriptor] {
-        guard let pagePosition,
-              let staticImageGridPageLayout = currentStaticImageGridPageLayout else { return [] }
-
-        return MobilePlaybackController.shared.staticImageGridDescriptorsAfterExitingWidgetInsertion(
-            uuid: initialConfig.id,
-            containing: pagePosition,
-            pageLayout: staticImageGridPageLayout
         )
     }
 
