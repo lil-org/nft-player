@@ -990,28 +990,33 @@ struct HorizontalPlayerContainerView: UIViewControllerRepresentable {
     }
 
     func updateUIViewController(_ uiViewController: HorizontalPlayerContainer, context: Context) {
-        switch uiViewController.setPageLayout(pageLayout, targetPagePosition: pageLayoutTargetPagePosition) {
-        case .applied:
-            let application = MobilePlayerPageLayoutApplication(
-                pageLayoutChangeID: pageLayoutChangeID,
-                requestedPageLayout: pageLayout,
-                targetPagePosition: pageLayoutTargetPagePosition
-            )
-            DispatchQueue.main.async {
-                self.onPageLayoutApplied(application)
-            }
-        case .unchanged:
-            break
+        uiViewController.setPageLayout(
+            pageLayout,
+            targetPagePosition: pageLayoutTargetPagePosition
+        ) { result in
+            switch result {
+            case .applied:
+                let application = MobilePlayerPageLayoutApplication(
+                    pageLayoutChangeID: pageLayoutChangeID,
+                    requestedPageLayout: pageLayout,
+                    targetPagePosition: pageLayoutTargetPagePosition
+                )
+                DispatchQueue.main.async {
+                    self.onPageLayoutApplied(application)
+                }
+            case .unchanged:
+                break
 
-        case .rejected(let currentPageLayout):
-            let rejection = MobilePlayerPageLayoutRejection(
-                pageLayoutChangeID: pageLayoutChangeID,
-                requestedPageLayout: pageLayout,
-                targetPagePosition: pageLayoutTargetPagePosition,
-                currentPageLayout: currentPageLayout
-            )
-            DispatchQueue.main.async {
-                self.onPageLayoutChangeRejected(rejection)
+            case .rejected(let currentPageLayout):
+                let rejection = MobilePlayerPageLayoutRejection(
+                    pageLayoutChangeID: pageLayoutChangeID,
+                    requestedPageLayout: pageLayout,
+                    targetPagePosition: pageLayoutTargetPagePosition,
+                    currentPageLayout: currentPageLayout
+                )
+                DispatchQueue.main.async {
+                    self.onPageLayoutChangeRejected(rejection)
+                }
             }
         }
     }
@@ -1174,13 +1179,15 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
 
     fileprivate func setPageLayout(
         _ pageLayout: MobilePlayerPageLayout,
-        targetPagePosition: PlayerPagePosition? = nil
-    ) -> HorizontalPlayerPageLayoutApplicationResult {
+        targetPagePosition: PlayerPagePosition? = nil,
+        completion: @escaping (HorizontalPlayerPageLayoutApplicationResult) -> Void
+    ) {
         let shouldApplyTargetPagePosition = targetPagePosition.map {
             self.pageLayout != pageLayout || pagingVC.getCurrentPagePosition() != $0
         } ?? false
         guard shouldApplyTargetPagePosition || self.pageLayout != pageLayout else {
-            return .unchanged
+            completion(.unchanged)
+            return
         }
 
         let previousPageLayout = self.pageLayout
@@ -1189,16 +1196,26 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
             clearEdgeTapHighlights()
         }
         let didSetPageLayout: Bool
+        let completeApplied = {
+            completion(.applied)
+        }
         if shouldApplyTargetPagePosition, let targetPagePosition {
-            didSetPageLayout = pagingVC.setPageLayout(pageLayout, targetPagePosition: targetPagePosition)
+            didSetPageLayout = pagingVC.setPageLayout(
+                pageLayout,
+                targetPagePosition: targetPagePosition,
+                completion: completeApplied
+            )
         } else {
-            didSetPageLayout = pagingVC.setPageLayout(pageLayout)
+            didSetPageLayout = pagingVC.setPageLayout(
+                pageLayout,
+                completion: completeApplied
+            )
         }
         guard didSetPageLayout else {
             self.pageLayout = previousPageLayout
-            return .rejected(currentPageLayout: previousPageLayout)
+            completion(.rejected(currentPageLayout: previousPageLayout))
+            return
         }
-        return .applied
     }
 
     private var allowsEdgeTapNavigation: Bool {
@@ -3061,6 +3078,8 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
     let pageC: SpecificPageViewController
 
     private var isPageTransitioning = false
+    private var inPlaceReloadGeneration = 0
+    private var activeInPlaceReloadGeneration: Int?
     private var pendingNavigationDirection: PlaybackNavigationDirection?
     private var configuredPagingPanGestures = Set<ObjectIdentifier>()
     private var didNotifyPaginationAttemptDuringCurrentPan = false
@@ -3159,7 +3178,6 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
         requiresLoadedImage: Bool = true
     ) -> MobilePlayerStaticImageGridSelection? {
         guard pageLayout.isStaticImageGrid,
-              canStartNavigation,
               let selection = currentPage?.staticImageGridSelection(
                 at: location,
                 in: coordinateView,
@@ -3174,7 +3192,6 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
 
     func canSelectStaticImageGrid(at location: CGPoint, in coordinateView: UIView) -> Bool {
         guard pageLayout.isStaticImageGrid,
-              canStartNavigation,
               let pagePosition = currentPage?.canSelectStaticImageGrid(at: location, in: coordinateView),
               canRender(pagePosition) else {
             return false
@@ -3189,12 +3206,17 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
     }
 
     @discardableResult
-    func setPageLayout(_ pageLayout: MobilePlayerPageLayout, targetPagePosition: PlayerPagePosition? = nil) -> Bool {
+    func setPageLayout(
+        _ pageLayout: MobilePlayerPageLayout,
+        targetPagePosition: PlayerPagePosition? = nil,
+        completion: @escaping () -> Void = {}
+    ) -> Bool {
         if let targetPagePosition {
             return reanchorCurrentPage(
                 to: targetPagePosition,
                 pageLayout: pageLayout,
-                forceDisplayUpdate: true
+                forceDisplayUpdate: true,
+                completion: completion
             )
         }
 
@@ -3218,7 +3240,8 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
                 return reanchorCurrentPage(
                     to: stablePageResult.pagePosition,
                     pageLayout: pageLayout,
-                    forceDisplayUpdate: didExitWidgetInsertionWithoutChangingPagePosition
+                    forceDisplayUpdate: didExitWidgetInsertionWithoutChangingPagePosition,
+                    completion: completion
                 )
             case .unavailable:
                 return false
@@ -3233,6 +3256,7 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
             page.setPageLayout(pageLayout, shouldRender: shouldRender)
         }
         updatePagingScrollEnabled()
+        completion()
         return true
     }
 
@@ -3417,8 +3441,11 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
     private func reanchorCurrentPage(
         to pagePosition: PlayerPagePosition,
         pageLayout targetPageLayout: MobilePlayerPageLayout,
-        forceDisplayUpdate: Bool = false
+        forceDisplayUpdate: Bool = false,
+        completion: @escaping () -> Void = {}
     ) -> Bool {
+        cancelActiveInPlacePageControllerReload()
+
         guard canRender(pagePosition),
               let currentPage else {
             return false
@@ -3445,6 +3472,7 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
         updatePagingScrollEnabled()
         reloadPageControllerAfterInPlaceNavigation(pageDirection) { [weak self] in
             self?.performPendingNavigationIfNeeded()
+            completion()
         }
         return true
     }
@@ -3694,19 +3722,61 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
     ) {
         guard let currentPage else {
             isPageTransitioning = false
+            dataSource = self
             completion()
             return
         }
 
+        let reloadGeneration = beginInPlacePageControllerReload()
         isPageTransitioning = true
         dataSource = nil
+        let finishReload = { [weak self] in
+            self?.completeInPlacePageControllerReload(
+                generation: reloadGeneration,
+                completion: completion
+            )
+        }
         setViewControllers([currentPage], direction: pageDirection, animated: false) { [weak self] _ in
-            guard let self else { return }
+            guard self != nil else { return }
 
-            self.dataSource = self
-            self.configurePagingScrollViews()
-            self.isPageTransitioning = false
-            completion()
+            finishReload()
+        }
+        DispatchQueue.main.async {
+            finishReload()
+        }
+    }
+
+    private func beginInPlacePageControllerReload() -> Int {
+        inPlaceReloadGeneration += 1
+        activeInPlaceReloadGeneration = inPlaceReloadGeneration
+        return inPlaceReloadGeneration
+    }
+
+    private func completeInPlacePageControllerReload(
+        generation: Int,
+        completion: () -> Void
+    ) {
+        guard activeInPlaceReloadGeneration == generation else { return }
+
+        activeInPlaceReloadGeneration = nil
+        dataSource = self
+        configurePagingScrollViews()
+        isPageTransitioning = false
+        completion()
+    }
+
+    private func cancelActiveInPlacePageControllerReload() {
+        guard activeInPlaceReloadGeneration != nil
+            || dataSource == nil
+            || (isPageTransitioning && transitionCoordinator == nil) else {
+            return
+        }
+
+        activeInPlaceReloadGeneration = nil
+        dataSource = self
+        configurePagingScrollViews()
+        if transitionCoordinator == nil {
+            isPageTransitioning = false
         }
     }
 
