@@ -31,16 +31,16 @@ enum MobilePlayerPageLayout: CaseIterable, Hashable, Identifiable {
 
     private static let staticImageGridLayoutsByCollectionId: [String: MobilePlayerPageLayout] = {
         var layouts: [String: MobilePlayerPageLayout] = [
-            cardNftCollectionId: .fourPerPage,
-            drifella2CollectionId: .sixPerPage,
-            driladyCollectionId: .sixPerPage,
-            johnCollectionId: .sixPerPage,
+            cardNftCollectionId: .twelvePerPage,
+            drifella2CollectionId: .twelvePerPage,
+            driladyCollectionId: .twelvePerPage,
+            johnCollectionId: .twelvePerPage,
             miladyAura2AfterDeathCollectionId: .sixPerPage,
             miladyAuraPetzCollectionId: .sixPerPage,
             superMetalMonsCollectionId: .twelvePerPage,
         ]
         for renderKind in NativeMetalCardRenderKind.allCases {
-            layouts[renderKind.collectionId] = .fourPerPage
+            layouts[renderKind.collectionId] = .twelvePerPage
         }
         return layouts
     }()
