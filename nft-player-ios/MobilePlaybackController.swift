@@ -552,6 +552,10 @@ class MobilePlaybackController {
         return progress
     }
 
+    func progress(uuid: UUID, pagePosition: PlayerPagePosition) -> MobileViewingProgress? {
+        dataSource(uuid: uuid)?.progress(pagePosition: pagePosition)
+    }
+
     func downloadedFileShareItem(uuid: UUID, pagePosition: PlayerPagePosition) -> MobilePlayerFileShareItem? {
         guard let dataSource = dataSource(uuid: uuid),
               let context = downloadableMediaTokenContext(dataSource: dataSource, pagePosition: pagePosition),
