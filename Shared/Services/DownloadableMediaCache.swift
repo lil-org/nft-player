@@ -106,8 +106,8 @@ final class DownloadableMediaCache {
     private let session: URLSession
     private let cacheRoot: URL
     private let stagingRoot: URL
-    private static let defaultDecodedImageMemoryCostLimit = 128 * 1024 * 1024
-    private static let decodedImageMemoryCostLimitPerDescriptor = 16 * 1024 * 1024
+    private static let defaultDecodedImageMemoryCostLimit = 512 * 1024 * 1024
+    private static let decodedImageMemoryCostLimitPerDescriptor = 64 * 1024 * 1024
     private let maximumConcurrentDownloads = 4
 
     private struct OngoingDownload {
