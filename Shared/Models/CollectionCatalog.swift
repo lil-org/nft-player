@@ -937,6 +937,7 @@ struct DownloadableCollectionIndexItem: Codable, Hashable, Identifiable {
     let chain: Chain
     let network: Network
     let tokenCount: Int
+    let webURL: URL?
 
     init?(item: SuggestedItem) {
         guard item.isDownloadableCollection,
@@ -949,6 +950,7 @@ struct DownloadableCollectionIndexItem: Codable, Hashable, Identifiable {
         chain = item.chain
         network = item.network
         self.tokenCount = tokenCount
+        webURL = item.webURL.flatMap(URL.init(string:))
     }
 }
 
@@ -1072,6 +1074,9 @@ private enum DownloadableCollectionService {
     }
 
     private static func webURL(collection: DownloadableCollectionIndexItem, tokenId: String) -> URL? {
+        if collection.chain == .ethereum, let webURL = collection.webURL {
+            return webURL
+        }
         if collection.chain == .solana {
             return URL(string: "https://explorer.solana.com/address/\(tokenId)")
         }

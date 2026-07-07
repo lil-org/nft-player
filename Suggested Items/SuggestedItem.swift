@@ -35,5 +35,6 @@ struct SuggestedItem: Identifiable, Hashable, Codable {
     let tokenCount: Int?
     let iosOnly: Bool?
     let playerBackgroundColor: String?
+    let webURL: String?
     
 }

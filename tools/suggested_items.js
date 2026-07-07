@@ -1,4 +1,4 @@
-const PRESERVED_GENERATED_SUGGESTED_ITEM_FIELDS = ["playerBackgroundColor"];
+const PRESERVED_GENERATED_SUGGESTED_ITEM_FIELDS = ["playerBackgroundColor", "webURL"];
 
 function mergeGeneratedSuggestedItem(existingItem, generatedItem) {
   return {

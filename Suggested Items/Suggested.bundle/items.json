@@ -1028,6 +1028,15 @@
     "address" : "0x17abd4cc1382397ec2b675f98621c3ba809897de",
     "chain" : "ethereum",
     "chainId" : 1,
+    "collectionId" : "smm",
+    "name" : "Super Metal Mons",
+    "tokenCount" : 144,
+    "webURL" : "https://opensea.io/collection/supermetalmons"
+  },
+  {
+    "address" : "0x17abd4cc1382397ec2b675f98621c3ba809897de",
+    "chain" : "ethereum",
+    "chainId" : 1,
     "name" : "Super Metal Mons!!",
     "tokenCount" : 777
   },
