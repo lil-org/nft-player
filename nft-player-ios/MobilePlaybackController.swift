@@ -26,6 +26,7 @@ enum MobilePlayerPageLayout: CaseIterable, Hashable, Identifiable {
     static let johnCollectionId = "r1pCPYkbbpZWv7RCvuCMtpA3NSQY3fzVFo6HL43A4ot"
     static let miladyAura2AfterDeathCollectionId = "0x30f9efa712dde239a13a5fef1a8c7a6ac530a26d"
     static let miladyAuraPetzCollectionId = "0xc62e3fd5b02618f90dd07d1e478963038fa9089c"
+    static let superMetalMonsCollectionId = "0x17abd4cc1382397ec2b675f98621c3ba809897desmm"
 
     private static let staticImageGridLayoutsByCollectionId: [String: MobilePlayerPageLayout] = {
         var layouts: [String: MobilePlayerPageLayout] = [
@@ -35,6 +36,7 @@ enum MobilePlayerPageLayout: CaseIterable, Hashable, Identifiable {
             johnCollectionId: .sixPerPage,
             miladyAura2AfterDeathCollectionId: .sixPerPage,
             miladyAuraPetzCollectionId: .sixPerPage,
+            superMetalMonsCollectionId: .sixPerPage,
         ]
         for renderKind in NativeMetalCardRenderKind.allCases {
             layouts[renderKind.collectionId] = .fourPerPage
@@ -93,7 +95,7 @@ enum MobilePlayerPageLayout: CaseIterable, Hashable, Identifiable {
             return CGSize(width: 1200, height: 1295)
         case driladyCollectionId:
             return CGSize(width: 932, height: 1006)
-        case miladyAuraPetzCollectionId:
+        case miladyAuraPetzCollectionId, superMetalMonsCollectionId:
             return CGSize(width: 1, height: 1)
         default:
             return CGSize(width: 1, height: 1)
