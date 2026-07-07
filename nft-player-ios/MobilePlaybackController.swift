@@ -45,13 +45,7 @@ enum MobilePlayerPageLayout: CaseIterable, Hashable, Identifiable {
         return layouts
     }()
 
-    static func initialLayout(for config: MobilePlayerConfig) -> MobilePlayerPageLayout {
-        guard config.widgetTokenInsertion == nil else {
-            return .onePerPage
-        }
-
-        return staticImageGridLayout(for: initialDownloadableMediaDescriptor(for: config)) ?? .onePerPage
-    }
+    static let initialLayout = MobilePlayerPageLayout.onePerPage
 
     var id: Self { self }
 
@@ -132,33 +126,6 @@ enum MobilePlayerPageLayout: CaseIterable, Hashable, Identifiable {
         return Self.staticImageGridLayout(for: descriptor) == self
     }
 
-    private static func initialDownloadableMediaDescriptor(for config: MobilePlayerConfig) -> DownloadableMediaDescriptor? {
-        if let specificToken = config.specificToken {
-            return CollectionCatalog.downloadableMediaDescriptor(
-                for: CollectionCatalog.tokenContext(for: specificToken)
-            )
-        }
-
-        guard let collectionId = config.initialItemId else { return nil }
-
-        let tokenIndex: Int
-        if let initialTokenId = config.initialTokenId {
-            guard let requestedTokenIndex = CollectionCatalog.tokenIndex(
-                specificCollectionId: collectionId,
-                tokenId: initialTokenId
-            ) else {
-                return nil
-            }
-            tokenIndex = requestedTokenIndex
-        } else {
-            tokenIndex = 0
-        }
-
-        return CollectionCatalog.downloadableMediaDescriptor(
-            specificCollectionId: collectionId,
-            tokenIndex: tokenIndex
-        )
-    }
 }
 
 extension MobilePlayerFileShareItem {

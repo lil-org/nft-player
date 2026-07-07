@@ -412,7 +412,7 @@ struct MobilePlayerView: View {
         self.initialConfig = config
         self.onDismiss = onDismiss
         self.chrome = chrome
-        _pageLayout = State(initialValue: MobilePlayerPageLayout.initialLayout(for: config))
+        _pageLayout = State(initialValue: MobilePlayerPageLayout.initialLayout)
     }
 
     var body: some View {
