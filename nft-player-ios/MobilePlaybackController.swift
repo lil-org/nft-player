@@ -20,6 +20,7 @@ enum MobilePlayerPageLayout: CaseIterable, Hashable, Identifiable {
     case fourPerPage
     case sixPerPage
     case twelvePerPage
+    case fifteenPerPage
 
     static let cardNftCollectionId = "HpGDYGz6aRUs5qbvp1dmWGKTicQctX4PixfcouAQDCHF"
     static let drifella2CollectionId = "7cHTjqr2S8uUCrG3TVFvFix3vcLjhPiwrtRsAeJtESRj"
@@ -32,7 +33,7 @@ enum MobilePlayerPageLayout: CaseIterable, Hashable, Identifiable {
     private static let staticImageGridLayoutsByCollectionId: [String: MobilePlayerPageLayout] = {
         var layouts: [String: MobilePlayerPageLayout] = [
             cardNftCollectionId: .twelvePerPage,
-            drifella2CollectionId: .twelvePerPage,
+            drifella2CollectionId: .fifteenPerPage,
             driladyCollectionId: .twelvePerPage,
             johnCollectionId: .twelvePerPage,
             miladyAura2AfterDeathCollectionId: .sixPerPage,
@@ -59,6 +60,8 @@ enum MobilePlayerPageLayout: CaseIterable, Hashable, Identifiable {
             return 6
         case .twelvePerPage:
             return 12
+        case .fifteenPerPage:
+            return 15
         }
     }
 
@@ -66,7 +69,7 @@ enum MobilePlayerPageLayout: CaseIterable, Hashable, Identifiable {
         switch self {
         case .onePerPage:
             return false
-        case .fourPerPage, .sixPerPage, .twelvePerPage:
+        case .fourPerPage, .sixPerPage, .twelvePerPage, .fifteenPerPage:
             return true
         }
     }
@@ -118,6 +121,8 @@ enum MobilePlayerPageLayout: CaseIterable, Hashable, Identifiable {
             return Strings.sixPerPage
         case .twelvePerPage:
             return Strings.twelvePerPage
+        case .fifteenPerPage:
+            return Strings.fifteenPerPage
         }
     }
 
