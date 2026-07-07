@@ -22,6 +22,7 @@ final class DownloadableMediaCache {
     static let shared = DownloadableMediaCache()
 
     private static let webViewHTMLDirectoryName = "_WebViewHTML"
+    private static let downloadedMediaMetadataFileSuffix = ".metadata.json"
 
     static func orderedWindowIndices(currentIndex: Int, tokenCount: Int, direction: PrefetchDirection) -> [Int] {
         PlayerDownloadableMediaWindowLayout.orderedWindowIndices(
@@ -102,12 +103,28 @@ final class DownloadableMediaCache {
         label: "org.lil.nft-player.downloadable-media-cache.decode.foreground",
         qos: .utility
     )
+#if os(iOS)
+    private let diskPruneQueue = DispatchQueue(label: "org.lil.nft-player.downloadable-media-cache.disk-prune", qos: .utility)
+#endif
     private let memoryCache = NSCache<NSString, DownloadableMediaImage>()
     private let session: URLSession
     private let cacheRoot: URL
     private let stagingRoot: URL
     private static let defaultDecodedImageMemoryCostLimit = 512 * 1024 * 1024
     private static let decodedImageMemoryCostLimitPerDescriptor = 64 * 1024 * 1024
+#if os(iOS)
+    private static let mediaFirstDecodedImageCountLimit = 240
+    private static let minimumMediaFirstDecodedImageMemoryCostLimit: UInt64 = 768 * 1024 * 1024
+    private static let maximumMediaFirstDecodedImageMemoryCostLimit: UInt64 = 2 * 1024 * 1024 * 1024
+    private static let maximumDiskCacheBytes: Int64 = 10 * 1024 * 1024 * 1024
+    private static let targetDiskCacheBytes: Int64 = 8 * 1024 * 1024 * 1024
+    private static let minimumAvailableDiskBytes: Int64 = 1 * 1024 * 1024 * 1024
+    private static let diskPruneCheckDebounceInterval: TimeInterval = 2
+    private static let diskPruneCheckInterval: TimeInterval = 60
+    private static let cachedFileTouchDebounceInterval: TimeInterval = 2
+    private static let cachedFileTouchMinimumInterval: TimeInterval = 30
+    private static let cachedFileTouchHistoryLimit = 4096
+#endif
     private let maximumConcurrentDownloads = 4
 
     private struct OngoingDownload {
@@ -136,6 +153,11 @@ final class DownloadableMediaCache {
         let redownloadOnFailure: Bool
         let priority: ImageDecodePriority
         let workKind: ImageDecodeWorkKind
+    }
+
+    private struct ActiveDecode {
+        let id: UUID
+        let descriptor: CollectionCatalogDownloadableMediaDescriptor
     }
 
     private final class LoadRequest {
@@ -195,12 +217,77 @@ final class DownloadableMediaCache {
         let decodedKeys: Set<String>
     }
 
+#if os(iOS)
+    private struct DiskCacheFileSnapshot {
+        let url: URL
+        let isDirectory: Bool
+        let size: Int64
+        let contentAccessDate: Date?
+        let contentModificationDate: Date?
+
+        init(url: URL) {
+            let values = try? url.resourceValues(forKeys: [
+                .contentAccessDateKey,
+                .contentModificationDateKey,
+                .fileSizeKey,
+                .isDirectoryKey
+            ])
+            self.url = url
+            self.isDirectory = values?.isDirectory == true
+            self.size = Int64(values?.fileSize ?? 0)
+            self.contentAccessDate = values?.contentAccessDate
+            self.contentModificationDate = values?.contentModificationDate
+        }
+    }
+
+    private struct DiskCacheEntry {
+        let mediaURL: URL
+        let metadataURL: URL?
+        let filePaths: Set<String>
+        let mediaSize: Int64
+        let metadataSize: Int64
+        let lastAccessDate: Date
+
+        var size: Int64 {
+            mediaSize + metadataSize
+        }
+    }
+
+    private struct DiskCacheOrphanMetadataEntry {
+        let url: URL
+        let path: String
+        let size: Int64
+    }
+
+    private enum DiskPruneReason {
+        case routine, afterWrite
+    }
+
+    private struct DiskPruneRequest {
+        var bypassRoutineThrottle: Bool
+        var protectedPaths: Set<String>
+
+        mutating func merge(_ other: DiskPruneRequest) {
+            bypassRoutineThrottle = bypassRoutineThrottle || other.bypassRoutineThrottle
+            protectedPaths.formUnion(other.protectedPaths)
+        }
+    }
+
+    private struct DiskPruneResult {
+        let didRemoveItem: Bool
+        let cacheBytesAfterPrune: Int64
+        let availableDiskBytesAfterPrune: Int64?
+    }
+#endif
+
     private var activeWindow: ActiveWindow?
+#if !os(iOS)
     private var memoryKeysByCollection = [String: Set<String>]()
+#endif
     private var pendingDescriptors = [CollectionCatalogDownloadableMediaDescriptor]()
     private var pendingKeys = Set<String>()
     private var ongoingDownloads = [String: OngoingDownload]()
-    private var decodeIdsByKey = [String: UUID]()
+    private var activeDecodesByKey = [String: ActiveDecode]()
     private var foregroundDecodeIdsByKey = [String: UUID]()
     private var freshDownloadDecodeKeys = Set<String>()
     private var redownloadOnDecodeFailureKeys = Set<String>()
@@ -212,6 +299,18 @@ final class DownloadableMediaCache {
     private var retainedFileNameKeys = [RetainedFileNameKey: Int]()
     private var retainedDecodeFailureDescriptors = [String: CollectionCatalogDownloadableMediaDescriptor]()
     private var memoryWarningObserver: NSObjectProtocol?
+#if os(iOS)
+    private var lastRoutineDiskPruneCheckDate: Date?
+    private var pendingDiskPruneRequest: DiskPruneRequest?
+    private var isDiskPruneCheckScheduled = false
+    private var isDiskPruneRunning = false
+    private var estimatedDiskCacheBytes: Int64?
+    private var estimatedAvailableDiskBytes: Int64?
+    private var diskCacheBytesAddedSinceLastEstimate: Int64 = 0
+    private var pendingCachedFileTouchURLs = [String: URL]()
+    private var cachedFileTouchDates = [String: Date]()
+    private var isCachedFileTouchScheduled = false
+#endif
 
     private init() {
         let configuration = URLSessionConfiguration.ephemeral
@@ -234,9 +333,8 @@ final class DownloadableMediaCache {
         try? FileManager.default.removeItem(
             at: cacheRoot.appendingPathComponent(Self.webViewHTMLDirectoryName, isDirectory: true)
         )
-        memoryCache.countLimit = PlayerDownloadableMediaWindowLayout.decodedWindowCapacity
-        memoryCache.totalCostLimit = Self.decodedImageMemoryCostLimit(
-            for: PlayerDownloadableMediaWindowLayout.decodedWindowCapacity
+        configureDecodedImageMemoryCacheLimit(
+            decodedDescriptorCount: PlayerDownloadableMediaWindowLayout.decodedWindowCapacity
         )
 
 #if os(iOS)
@@ -245,7 +343,7 @@ final class DownloadableMediaCache {
             object: nil,
             queue: nil
         ) { [weak self] _ in
-            self?.clearMemoryCache()
+            self?.handleMemoryWarning()
         }
 #endif
     }
@@ -313,25 +411,19 @@ final class DownloadableMediaCache {
             let didChangeCollection = previousWindow?.collectionId != collectionId
             if didChangeCollection {
                 self.cancelDownloadsOutsideActiveCollection(collectionId: collectionId)
+#if !os(iOS)
                 self.evictMemoryOutsideActiveCollection(collectionId: collectionId)
+#endif
             }
 
             let allowedFileNames = Set(descriptors.flatMap(self.fileNames(for:)))
             let allowedKeys = Set(descriptors.map(self.cacheKey(for:)))
             let decodedKeys = Set(decodedDescriptors.map(self.cacheKey(for:)))
-            let decodedCacheCountLimit = max(
-                PlayerDownloadableMediaWindowLayout.decodedWindowCapacity,
-                decodedDescriptors.count
-            )
-            if self.memoryCache.countLimit != decodedCacheCountLimit {
-                self.memoryCache.countLimit = decodedCacheCountLimit
-            }
-            let decodedCacheTotalCostLimit = Self.decodedImageMemoryCostLimit(for: decodedCacheCountLimit)
-            if self.memoryCache.totalCostLimit != decodedCacheTotalCostLimit {
-                self.memoryCache.totalCostLimit = decodedCacheTotalCostLimit
-            }
+            self.configureDecodedImageMemoryCacheLimit(decodedDescriptorCount: decodedDescriptors.count)
             let didChangeFileWindow = didChangeCollection || previousWindow?.fileNames != allowedFileNames
+#if !os(iOS)
             let didChangeDecodedWindow = didChangeCollection || previousWindow?.decodedKeys != decodedKeys
+#endif
             self.activeWindow = ActiveWindow(
                 collectionId: collectionId,
                 ownerId: ownerId,
@@ -340,7 +432,11 @@ final class DownloadableMediaCache {
             )
 
             if didChangeFileWindow {
+#if os(iOS)
+                self.scheduleDiskPruneCheck()
+#else
                 self.evictFilesOutsideWindow(collectionId: collectionId, allowedFileNames: allowedFileNames)
+#endif
                 self.cancelDownloadsOutsideWindow(collectionId: collectionId, allowedKeys: allowedKeys)
             }
             self.pruneForegroundTracking(allowedKeys: allowedKeys)
@@ -348,9 +444,11 @@ final class DownloadableMediaCache {
                 currentDescriptor,
                 requireDecodedStaticImage: currentDescriptor.isStaticImage
             )
+#if !os(iOS)
             if didChangeDecodedWindow {
                 self.evictMemoryOutsideWindow(collectionId: collectionId, allowedKeys: decodedKeys)
             }
+#endif
             self.decodeCachedImagesIfNeeded(decodedDescriptors)
 
             let downloadDescriptors = self.prioritizedDownloadDescriptors(
@@ -379,14 +477,16 @@ final class DownloadableMediaCache {
 
             self.cancelUnretainedDownloadsAndPendingWork()
 
-            self.decodeIdsByKey.removeAll()
+            self.activeDecodesByKey.removeAll()
             self.foregroundDecodeIdsByKey.removeAll()
             self.freshDownloadDecodeKeys.removeAll()
             self.redownloadOnDecodeFailureKeys.removeAll()
             self.foregroundKey = nil
             self.foregroundWorkKeys.removeAll()
             self.memoryCache.removeAllObjects()
+#if !os(iOS)
             self.memoryKeysByCollection.removeAll()
+#endif
             self.activeWindow = nil
             self.updateOngoingDownloadPriorities()
             self.startDownloadsIfNeeded()
@@ -413,6 +513,7 @@ final class DownloadableMediaCache {
             let key = self.cacheKey(for: descriptor)
             let callback = ImageLoadCallback(request: request, completion: completion)
             if let cachedImage = self.cachedDecodedImage(forKey: key) {
+                self.markCachedFileUsed(for: descriptor)
                 self.complete([callback], with: cachedImage)
                 return
             }
@@ -421,7 +522,8 @@ final class DownloadableMediaCache {
             self.completions[key, default: [:]][request.id] = callback
             self.prioritizeForegroundImageIfNeeded(descriptor, requireDecodedStaticImage: true)
             if FileManager.default.fileExists(atPath: fileURL.path) {
-                if self.decodeIdsByKey[key] == nil {
+                self.markCachedFileUsed(for: descriptor)
+                if self.activeDecodesByKey[key] == nil {
                     self.startImageDecode(
                         at: fileURL,
                         descriptor: descriptor,
@@ -486,6 +588,7 @@ final class DownloadableMediaCache {
             let callback = FileLoadCallback(request: request, completion: completion)
             let fileURL = self.fileURL(for: descriptor)
             guard !FileManager.default.fileExists(atPath: fileURL.path) else {
+                self.markCachedFileUsed(for: descriptor)
                 self.completeFile([callback], with: fileURL)
                 return
             }
@@ -559,6 +662,9 @@ final class DownloadableMediaCache {
     func localFileURL(for descriptor: CollectionCatalogDownloadableMediaDescriptor) -> URL? {
         let url = fileURL(for: descriptor)
         guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+        queue.async { [weak self] in
+            self?.markCachedFileUsed(for: descriptor)
+        }
         return url
     }
 
@@ -592,10 +698,14 @@ final class DownloadableMediaCache {
                 if let activeWindow,
                    activeWindow.collectionId == collectionId,
                    !Set(self.fileNames(for: descriptor)).isSubset(of: activeWindow.fileNames) {
+#if os(iOS)
+                    self.scheduleDiskPruneCheck()
+#else
                     self.evictFilesOutsideWindow(
                         collectionId: collectionId,
                         allowedFileNames: activeWindow.fileNames
                     )
+#endif
                 }
                 self.updateOngoingDownloadPriorities()
                 self.startDownloadsIfNeeded()
@@ -612,7 +722,12 @@ final class DownloadableMediaCache {
     }
 
     func cachedDecodedImage(for descriptor: CollectionCatalogDownloadableMediaDescriptor) -> DownloadableMediaImage? {
-        cachedDecodedImage(forKey: cacheKey(for: descriptor))
+        guard let image = cachedDecodedImage(forKey: cacheKey(for: descriptor)) else { return nil }
+
+        queue.async { [weak self] in
+            self?.markCachedFileUsed(for: descriptor)
+        }
+        return image
     }
 
     var webViewHTMLDirectoryURL: URL {
@@ -641,12 +756,428 @@ final class DownloadableMediaCache {
         }
     }
 
-    private func clearMemoryCache() {
+    private func configureDecodedImageMemoryCacheLimit(decodedDescriptorCount: Int) {
+#if os(iOS)
+        if memoryCache.countLimit != Self.mediaFirstDecodedImageCountLimit {
+            memoryCache.countLimit = Self.mediaFirstDecodedImageCountLimit
+        }
+        let totalCostLimit = Self.mediaFirstDecodedImageMemoryCostLimit
+        if memoryCache.totalCostLimit != totalCostLimit {
+            memoryCache.totalCostLimit = totalCostLimit
+        }
+#else
+        let decodedCacheCountLimit = max(
+            PlayerDownloadableMediaWindowLayout.decodedWindowCapacity,
+            decodedDescriptorCount
+        )
+        if memoryCache.countLimit != decodedCacheCountLimit {
+            memoryCache.countLimit = decodedCacheCountLimit
+        }
+        let decodedCacheTotalCostLimit = Self.decodedImageMemoryCostLimit(for: decodedCacheCountLimit)
+        if memoryCache.totalCostLimit != decodedCacheTotalCostLimit {
+            memoryCache.totalCostLimit = decodedCacheTotalCostLimit
+        }
+#endif
+    }
+
+#if os(iOS)
+    private static var mediaFirstDecodedImageMemoryCostLimit: Int {
+        let boundedLimit = min(
+            max(
+                ProcessInfo.processInfo.physicalMemory / 4,
+                minimumMediaFirstDecodedImageMemoryCostLimit
+            ),
+            maximumMediaFirstDecodedImageMemoryCostLimit
+        )
+        return Int(boundedLimit)
+    }
+
+    private func handleMemoryWarning() {
         queue.async { [weak self] in
-            self?.memoryCache.removeAllObjects()
-            self?.memoryKeysByCollection.removeAll()
+            guard let self else { return }
+
+            self.memoryCache.removeAllObjects()
+            self.invalidateUndemandedDecodeWork()
         }
     }
+
+    private func invalidateUndemandedDecodeWork() {
+        let keysToInvalidate = activeDecodesByKey.keys.filter { key in
+            !isForegroundKey(key)
+                && !hasDemandCallbacks(forKey: key)
+        }
+        for key in keysToInvalidate {
+            activeDecodesByKey.removeValue(forKey: key)
+            foregroundDecodeIdsByKey.removeValue(forKey: key)
+            freshDownloadDecodeKeys.remove(key)
+            redownloadOnDecodeFailureKeys.remove(key)
+        }
+    }
+
+    private func scheduleDiskPruneCheck(
+        protecting extraProtectedDescriptors: [CollectionCatalogDownloadableMediaDescriptor] = [],
+        reason: DiskPruneReason = .routine
+    ) {
+        queueDiskPruneRequest(DiskPruneRequest(
+            bypassRoutineThrottle: reason == .afterWrite,
+            protectedPaths: Set(extraProtectedDescriptors.flatMap(diskCachePaths(for:)))
+        ))
+    }
+
+    private func schedulePostWriteDiskPruneCheck(
+        protecting descriptor: CollectionCatalogDownloadableMediaDescriptor,
+        addedBytes: Int64
+    ) {
+        diskCacheBytesAddedSinceLastEstimate += max(addedBytes, 0)
+        guard shouldSchedulePostWriteDiskPruneCheck() else { return }
+
+        scheduleDiskPruneCheck(protecting: [descriptor], reason: .afterWrite)
+    }
+
+    private func shouldSchedulePostWriteDiskPruneCheck() -> Bool {
+        guard let estimatedDiskCacheBytes else { return true }
+
+        let projectedCacheBytes = estimatedDiskCacheBytes + diskCacheBytesAddedSinceLastEstimate
+        if projectedCacheBytes > Self.maximumDiskCacheBytes {
+            return true
+        }
+
+        guard let estimatedAvailableDiskBytes else { return false }
+        return estimatedAvailableDiskBytes - diskCacheBytesAddedSinceLastEstimate < Self.minimumAvailableDiskBytes
+    }
+
+    private func invalidateEstimatedDiskCacheState() {
+        estimatedDiskCacheBytes = nil
+        estimatedAvailableDiskBytes = nil
+        diskCacheBytesAddedSinceLastEstimate = 0
+    }
+
+    private func queueDiskPruneRequest(_ request: DiskPruneRequest) {
+        if var pendingDiskPruneRequest {
+            pendingDiskPruneRequest.merge(request)
+            self.pendingDiskPruneRequest = pendingDiskPruneRequest
+        } else {
+            pendingDiskPruneRequest = request
+        }
+
+        schedulePendingDiskPruneCheckIfNeeded()
+    }
+
+    private func schedulePendingDiskPruneCheckIfNeeded() {
+        guard pendingDiskPruneRequest != nil,
+              !isDiskPruneCheckScheduled,
+              !isDiskPruneRunning else {
+            return
+        }
+
+        isDiskPruneCheckScheduled = true
+        queue.asyncAfter(deadline: .now() + Self.diskPruneCheckDebounceInterval) { [weak self] in
+            guard let self else { return }
+
+            self.isDiskPruneCheckScheduled = false
+            self.startPendingDiskPruneCheckIfNeeded()
+        }
+    }
+
+    private func startPendingDiskPruneCheckIfNeeded() {
+        guard let request = pendingDiskPruneRequest else { return }
+        pendingDiskPruneRequest = nil
+
+        guard consumeDiskPruneThrottle(for: request) else { return }
+
+        diskCacheBytesAddedSinceLastEstimate = 0
+        isDiskPruneRunning = true
+
+        diskPruneQueue.async { [weak self, request] in
+            guard let self else { return }
+
+            let result = self.pruneDiskCacheIfNeeded(protectedPaths: request.protectedPaths)
+            self.queue.async { [weak self] in
+                guard let self else { return }
+
+                self.isDiskPruneRunning = false
+                self.estimatedDiskCacheBytes = result.cacheBytesAfterPrune
+                self.estimatedAvailableDiskBytes = result.availableDiskBytesAfterPrune
+                if result.didRemoveItem {
+                    self.notifyFileAvailabilityChanged()
+                }
+                self.schedulePendingDiskPruneCheckIfNeeded()
+            }
+        }
+    }
+
+    private func consumeDiskPruneThrottle(for request: DiskPruneRequest) -> Bool {
+        guard !request.bypassRoutineThrottle else { return true }
+
+        let now = Date()
+        if let lastRoutineDiskPruneCheckDate,
+           now.timeIntervalSince(lastRoutineDiskPruneCheckDate) < Self.diskPruneCheckInterval {
+            return false
+        }
+
+        lastRoutineDiskPruneCheckDate = now
+        return true
+    }
+
+    private func pruneDiskCacheIfNeeded(protectedPaths requestedProtectedPaths: Set<String>) -> DiskPruneResult {
+        let snapshot = diskCacheSnapshot()
+        let mediaCacheBytes = snapshot.entries.reduce(Int64(0)) { $0 + $1.size }
+        let orphanMetadataBytes = snapshot.orphanMetadataEntries.reduce(Int64(0)) { $0 + $1.size }
+        let totalCacheBytes = mediaCacheBytes + orphanMetadataBytes
+        let availableDiskBytes = availableDiskBytes()
+        let isOverCacheLimit = totalCacheBytes > Self.maximumDiskCacheBytes
+        let isUnderFreeSpaceLimit = availableDiskBytes.map { $0 < Self.minimumAvailableDiskBytes } ?? false
+        guard isOverCacheLimit || isUnderFreeSpaceLimit else {
+            return DiskPruneResult(
+                didRemoveItem: false,
+                cacheBytesAfterPrune: totalCacheBytes,
+                availableDiskBytesAfterPrune: availableDiskBytes
+            )
+        }
+        let protectedPaths = queue.sync {
+            protectedDiskCachePaths(extraProtectedPaths: requestedProtectedPaths)
+        }
+
+        var freedCacheBytes: Int64 = 0
+        var freedDiskBytes: Int64 = 0
+        var didRemoveItem = false
+
+        func didReachPruneTargets() -> Bool {
+            let projectedCacheBytes = totalCacheBytes - freedCacheBytes
+            let projectedAvailableBytes = availableDiskBytes.map { $0 + freedDiskBytes }
+            let didReachCacheTarget = projectedCacheBytes <= Self.targetDiskCacheBytes
+            let didReachFreeSpaceTarget = projectedAvailableBytes.map {
+                $0 >= Self.minimumAvailableDiskBytes
+            } ?? true
+            return didReachCacheTarget && didReachFreeSpaceTarget
+        }
+
+        for entry in snapshot.orphanMetadataEntries {
+            guard !protectedPaths.contains(entry.path),
+                  removeItemIfPresent(at: entry.url) else {
+                continue
+            }
+
+            freedCacheBytes += entry.size
+            freedDiskBytes += entry.size
+            didRemoveItem = true
+        }
+
+        guard !didReachPruneTargets() else {
+            return DiskPruneResult(
+                didRemoveItem: didRemoveItem,
+                cacheBytesAfterPrune: totalCacheBytes - freedCacheBytes,
+                availableDiskBytesAfterPrune: availableDiskBytes.map { $0 + freedDiskBytes }
+            )
+        }
+
+        for entry in snapshot.entries.sorted(by: { $0.lastAccessDate < $1.lastAccessDate }) {
+            guard entry.filePaths.isDisjoint(with: protectedPaths) else { continue }
+
+            let removedMedia = removeItemIfPresent(at: entry.mediaURL)
+            let removedMetadata = entry.metadataURL.map(removeItemIfPresent) ?? false
+            let entryFreedBytes = (removedMedia ? entry.mediaSize : 0)
+                + (removedMetadata ? entry.metadataSize : 0)
+            guard removedMedia || removedMetadata else { continue }
+
+            freedCacheBytes += entryFreedBytes
+            freedDiskBytes += entryFreedBytes
+            didRemoveItem = true
+
+            if didReachPruneTargets() {
+                break
+            }
+        }
+
+        return DiskPruneResult(
+            didRemoveItem: didRemoveItem,
+            cacheBytesAfterPrune: totalCacheBytes - freedCacheBytes,
+            availableDiskBytesAfterPrune: availableDiskBytes.map { $0 + freedDiskBytes }
+        )
+    }
+
+    private func diskCacheSnapshot() -> (entries: [DiskCacheEntry], orphanMetadataEntries: [DiskCacheOrphanMetadataEntry]) {
+        guard let collectionDirectories = try? FileManager.default.contentsOfDirectory(
+            at: cacheRoot,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        ) else {
+            return ([], [])
+        }
+
+        var entries = [DiskCacheEntry]()
+        var orphanMetadataEntries = [DiskCacheOrphanMetadataEntry]()
+        for directoryURL in collectionDirectories where directoryURL.lastPathComponent != Self.webViewHTMLDirectoryName {
+            let directoryValues = try? directoryURL.resourceValues(forKeys: [.isDirectoryKey])
+            guard directoryValues?.isDirectory == true,
+                  let fileURLs = try? FileManager.default.contentsOfDirectory(
+                    at: directoryURL,
+                    includingPropertiesForKeys: [
+                        .contentAccessDateKey,
+                        .contentModificationDateKey,
+                        .fileSizeKey,
+                        .isDirectoryKey
+                    ],
+                    options: [.skipsHiddenFiles]
+                  ) else {
+                continue
+            }
+
+            let fileSnapshotsByName = Dictionary(uniqueKeysWithValues: fileURLs.map {
+                ($0.lastPathComponent, DiskCacheFileSnapshot(url: $0))
+            })
+            let fileNames = Set(fileSnapshotsByName.keys)
+            for fileURL in fileURLs {
+                let fileName = fileURL.lastPathComponent
+                guard let fileSnapshot = fileSnapshotsByName[fileName],
+                      !fileSnapshot.isDirectory else {
+                    continue
+                }
+
+                guard !fileName.hasSuffix(Self.downloadedMediaMetadataFileSuffix) else {
+                    let mediaFileName = String(fileName.dropLast(Self.downloadedMediaMetadataFileSuffix.count))
+                    if !fileNames.contains(mediaFileName) {
+                        orphanMetadataEntries.append(DiskCacheOrphanMetadataEntry(
+                            url: fileSnapshot.url,
+                            path: diskCachePath(for: fileSnapshot.url),
+                            size: fileSnapshot.size
+                        ))
+                    }
+                    continue
+                }
+
+                let metadataFileName = "\(fileName)\(Self.downloadedMediaMetadataFileSuffix)"
+                let metadataSnapshot = fileSnapshotsByName[metadataFileName]
+                let metadataURL = metadataSnapshot?.url
+                var filePaths = Set([diskCachePath(for: fileURL)])
+                if let metadataURL {
+                    filePaths.insert(diskCachePath(for: metadataURL))
+                }
+                entries.append(DiskCacheEntry(
+                    mediaURL: fileURL,
+                    metadataURL: metadataURL,
+                    filePaths: filePaths,
+                    mediaSize: fileSnapshot.size,
+                    metadataSize: metadataSnapshot?.size ?? 0,
+                    lastAccessDate: fileSnapshot.contentAccessDate
+                        ?? fileSnapshot.contentModificationDate
+                        ?? .distantPast
+                ))
+            }
+        }
+        return (entries, orphanMetadataEntries)
+    }
+
+    private func protectedDiskCachePaths(extraProtectedPaths: Set<String> = []) -> Set<String> {
+        var protectedPaths = extraProtectedPaths
+        if let activeWindow {
+            let directory = collectionDirectory(collectionId: activeWindow.collectionId)
+            for fileName in activeWindow.fileNames {
+                protectedPaths.insert(diskCachePath(for: directory.appendingPathComponent(fileName)))
+            }
+        }
+        for fileNameKey in retainedFileNameKeys.keys {
+            let directory = collectionDirectory(collectionId: fileNameKey.collectionId)
+            protectedPaths.insert(diskCachePath(for: directory.appendingPathComponent(fileNameKey.fileName)))
+        }
+        for descriptor in pendingDescriptors {
+            protectedPaths.formUnion(diskCachePaths(for: descriptor))
+        }
+        for download in ongoingDownloads.values {
+            protectedPaths.formUnion(diskCachePaths(for: download.descriptor))
+        }
+        for activeDecode in activeDecodesByKey.values {
+            protectedPaths.formUnion(diskCachePaths(for: activeDecode.descriptor))
+        }
+        for descriptor in retainedDecodeFailureDescriptors.values {
+            protectedPaths.formUnion(diskCachePaths(for: descriptor))
+        }
+        return protectedPaths
+    }
+
+    private func availableDiskBytes() -> Int64? {
+        guard let values = try? cacheRoot.resourceValues(forKeys: [
+            .volumeAvailableCapacityForImportantUsageKey,
+            .volumeAvailableCapacityKey
+        ]) else {
+            return nil
+        }
+
+        if let importantCapacity = values.volumeAvailableCapacityForImportantUsage {
+            return importantCapacity
+        }
+        return values.volumeAvailableCapacity.map(Int64.init)
+    }
+
+    private func fileSize(at url: URL) -> Int64 {
+        Int64((try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
+    }
+
+    private func markCachedFileUsed(for descriptor: CollectionCatalogDownloadableMediaDescriptor) {
+        scheduleCachedFileTouch(at: fileURL(for: descriptor))
+    }
+
+    private func scheduleCachedFileTouch(at url: URL) {
+        let path = diskCachePath(for: url)
+        let now = Date()
+        if let lastTouchDate = cachedFileTouchDates[path],
+           now.timeIntervalSince(lastTouchDate) < Self.cachedFileTouchMinimumInterval {
+            return
+        }
+
+        pendingCachedFileTouchURLs[path] = url
+        guard !isCachedFileTouchScheduled else { return }
+
+        isCachedFileTouchScheduled = true
+        queue.asyncAfter(deadline: .now() + Self.cachedFileTouchDebounceInterval) { [weak self] in
+            self?.flushCachedFileTouches()
+        }
+    }
+
+    private func flushCachedFileTouches() {
+        isCachedFileTouchScheduled = false
+        let urls = Array(pendingCachedFileTouchURLs.values)
+        let paths = Array(pendingCachedFileTouchURLs.keys)
+        pendingCachedFileTouchURLs.removeAll(keepingCapacity: true)
+        guard !urls.isEmpty else { return }
+
+        let now = Date()
+        for path in paths {
+            cachedFileTouchDates[path] = now
+        }
+        pruneCachedFileTouchHistoryIfNeeded()
+
+        diskPruneQueue.async {
+            urls.forEach { Self.touchCachedFile(at: $0) }
+        }
+    }
+
+    private func pruneCachedFileTouchHistoryIfNeeded() {
+        guard cachedFileTouchDates.count > Self.cachedFileTouchHistoryLimit else { return }
+
+        cachedFileTouchDates = Dictionary(uniqueKeysWithValues: cachedFileTouchDates
+            .sorted { $0.value > $1.value }
+            .prefix(Self.cachedFileTouchHistoryLimit)
+            .map { ($0.key, $0.value) })
+    }
+
+    private static func touchCachedFile(at url: URL) {
+        var mutableURL = url
+        var resourceValues = URLResourceValues()
+        resourceValues.contentAccessDate = Date()
+        try? mutableURL.setResourceValues(resourceValues)
+    }
+
+    private func diskCachePaths(for descriptor: CollectionCatalogDownloadableMediaDescriptor) -> [String] {
+        [fileURL(for: descriptor), metadataFileURL(for: descriptor)].map(diskCachePath(for:))
+    }
+
+    private func diskCachePath(for url: URL) -> String {
+        url.standardizedFileURL.path
+    }
+#else
+    private func markCachedFileUsed(for _: CollectionCatalogDownloadableMediaDescriptor) {}
+#endif
 
     private func enqueueDownloadIfNeeded(_ descriptor: CollectionCatalogDownloadableMediaDescriptor, isForegroundRequest: Bool) {
         let key = cacheKey(for: descriptor)
@@ -656,7 +1187,6 @@ final class DownloadableMediaCache {
             }
             return
         }
-        guard !FileManager.default.fileExists(atPath: fileURL(for: descriptor).path) else { return }
 
         if pendingKeys.contains(key) {
             guard isForegroundRequest else { return }
@@ -664,6 +1194,8 @@ final class DownloadableMediaCache {
             pendingDescriptors.insert(descriptor, at: 0)
             return
         }
+
+        guard !FileManager.default.fileExists(atPath: fileURL(for: descriptor).path) else { return }
 
         pendingKeys.insert(key)
         if isForegroundRequest {
@@ -717,6 +1249,12 @@ final class DownloadableMediaCache {
                 continue
             }
 
+            if FileManager.default.fileExists(atPath: fileURL(for: descriptor).path) {
+                pendingDescriptors.remove(at: index)
+                pendingKeys.remove(key)
+                continue
+            }
+
             pendingDescriptors.remove(at: index)
             pendingKeys.remove(key)
             return descriptor
@@ -731,6 +1269,14 @@ final class DownloadableMediaCache {
         response: URLResponse?,
         error: Error?
     ) {
+#if os(iOS)
+        var downloadedCacheBytes: Int64?
+        defer {
+            if let downloadedCacheBytes {
+                schedulePostWriteDiskPruneCheck(protecting: descriptor, addedBytes: downloadedCacheBytes)
+            }
+        }
+#endif
         let key = cacheKey(for: descriptor)
         guard ongoingDownloads[key]?.id == downloadId else {
             if let tmpURL {
@@ -745,22 +1291,32 @@ final class DownloadableMediaCache {
         let fileCallbacks = fileCompletions.removeValue(forKey: key) ?? [:]
         let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
         guard error == nil,
-              (200...299).contains(statusCode),
-              let tmpURL else {
+              (200...299).contains(statusCode) else {
+            completeFile(fileCallbacks, with: nil)
+            finishForegroundWork(forKey: key, callbacks: callbacks)
+            return
+        }
+        guard let tmpURL else {
+#if os(iOS)
+            scheduleDiskPruneCheck(protecting: [descriptor], reason: .afterWrite)
+#endif
             completeFile(fileCallbacks, with: nil)
             finishForegroundWork(forKey: key, callbacks: callbacks)
             return
         }
 
-        guard isDescriptorInActiveWindow(descriptor)
-                || !callbacks.isEmpty
-                || !fileCallbacks.isEmpty
-                || hasRetainedFile(forKey: key) else {
+#if !os(iOS)
+        let shouldStoreDownloadedFile = isDescriptorInActiveWindow(descriptor)
+            || !callbacks.isEmpty
+            || !fileCallbacks.isEmpty
+            || hasRetainedFile(forKey: key)
+        guard shouldStoreDownloadedFile else {
             try? FileManager.default.removeItem(at: tmpURL)
             completeFile(fileCallbacks, with: nil)
             finishForegroundWork(forKey: key, callbacks: callbacks)
             return
         }
+#endif
 
         let fileURL = fileURL(for: descriptor)
         var didRemoveExistingItem = false
@@ -773,12 +1329,24 @@ final class DownloadableMediaCache {
             didRemoveExistingItem = removeItemIfPresent(at: fileURL)
             try FileManager.default.moveItem(at: tmpURL, to: fileURL)
             writeDownloadedMediaMetadata(response: response, for: descriptor)
+#if os(iOS)
+            if didRemoveExistingItem {
+                invalidateEstimatedDiskCacheState()
+            }
+            downloadedCacheBytes = fileSize(at: fileURL) + fileSize(at: metadataFileURL(for: descriptor))
+#endif
             notifyFileAvailabilityChanged()
         } catch {
             if didRemoveExistingItem {
                 try? FileManager.default.removeItem(at: metadataFileURL(for: descriptor))
+#if os(iOS)
+                invalidateEstimatedDiskCacheState()
+#endif
                 notifyFileAvailabilityChanged()
             }
+#if os(iOS)
+            scheduleDiskPruneCheck(protecting: [descriptor], reason: .afterWrite)
+#endif
             try? FileManager.default.removeItem(at: tmpURL)
             completeFile(fileCallbacks, with: nil)
             finishForegroundWork(forKey: key, callbacks: callbacks)
@@ -802,7 +1370,7 @@ final class DownloadableMediaCache {
             completions[key, default: [:]].merge(callbacks) { current, _ in current }
         }
         let decodePriority = imageDecodePriority(forKey: key, hasKnownDemandCallbacks: !callbacks.isEmpty)
-        if decodeIdsByKey[key] == nil {
+        if activeDecodesByKey[key] == nil {
             freshDownloadDecodeKeys.insert(key)
             startImageDecode(
                 at: fileURL,
@@ -838,7 +1406,7 @@ final class DownloadableMediaCache {
         priority: ImageDecodePriority
     ) {
         let decodeId = UUID()
-        decodeIdsByKey[key] = decodeId
+        activeDecodesByKey[key] = ActiveDecode(id: decodeId, descriptor: descriptor)
 
         if redownloadOnFailure {
             redownloadOnDecodeFailureKeys.insert(key)
@@ -866,14 +1434,14 @@ final class DownloadableMediaCache {
         key: String,
         redownloadOnFailure: Bool
     ) {
-        guard let decodeId = decodeIdsByKey[key],
-              foregroundDecodeIdsByKey[key] != decodeId else { return }
+        guard let activeDecode = activeDecodesByKey[key],
+              foregroundDecodeIdsByKey[key] != activeDecode.id else { return }
 
-        foregroundDecodeIdsByKey[key] = decodeId
+        foregroundDecodeIdsByKey[key] = activeDecode.id
 
         // Race the existing prefetch decode on the foreground queue.
         enqueueImageDecodeWork(ImageDecodeJob(
-            decodeId: decodeId,
+            decodeId: activeDecode.id,
             fileURL: fileURL,
             descriptor: descriptor,
             key: key,
@@ -886,13 +1454,24 @@ final class DownloadableMediaCache {
     private func enqueueImageDecodeWork(_ job: ImageDecodeJob) {
         let decodeQueue = job.priority == .foreground ? foregroundImageDecodeQueue : imageDecodeQueue
         decodeQueue.async { [weak self] in
+            guard let self,
+                  self.shouldStartImageDecode(job) else {
+                return
+            }
+
             let image = Self.loadDecodedImage(at: job.fileURL)
-            self?.queue.async { [weak self] in
+            self.queue.async { [weak self] in
                 self?.finishImageDecode(
                     image,
                     job: job
                 )
             }
+        }
+    }
+
+    private func shouldStartImageDecode(_ job: ImageDecodeJob) -> Bool {
+        queue.sync {
+            activeDecodesByKey[job.key]?.id == job.decodeId
         }
     }
 
@@ -904,21 +1483,26 @@ final class DownloadableMediaCache {
            foregroundDecodeIdsByKey[job.key] == job.decodeId {
             foregroundDecodeIdsByKey.removeValue(forKey: job.key)
         }
-        guard decodeIdsByKey[job.key] == job.decodeId else { return }
+        guard activeDecodesByKey[job.key]?.id == job.decodeId else { return }
 
         if job.workKind == .foregroundRace, image == nil {
             guard redownloadOnDecodeFailureKeys.contains(job.key) else {
                 return
             }
         }
-        decodeIdsByKey.removeValue(forKey: job.key)
+        activeDecodesByKey.removeValue(forKey: job.key)
         freshDownloadDecodeKeys.remove(job.key)
         let wasRequestedForRedownloadOnFailure = redownloadOnDecodeFailureKeys.remove(job.key) != nil
         let shouldRedownloadOnFailure = job.redownloadOnFailure || wasRequestedForRedownloadOnFailure
 
         let callbacks = completions.removeValue(forKey: job.key) ?? [:]
         if let image {
-            if shouldKeepDecodedImage(job.descriptor, key: job.key) {
+            if shouldCacheDecodedImage(
+                job.descriptor,
+                key: job.key,
+                priority: job.priority,
+                hasDemandCallbacks: !callbacks.isEmpty
+            ) {
                 cache(image, for: job.descriptor)
             }
             finishForegroundWork(forKey: job.key, callbacks: callbacks, image: image)
@@ -1066,6 +1650,9 @@ final class DownloadableMediaCache {
     ) {
         if removeItemIfPresent(at: fileURL) {
             try? FileManager.default.removeItem(at: metadataFileURL(for: descriptor))
+#if os(iOS)
+            invalidateEstimatedDiskCacheState()
+#endif
             notifyFileAvailabilityChanged()
         }
     }
@@ -1167,7 +1754,7 @@ final class DownloadableMediaCache {
             }
 
             let decodePriority = imageDecodePriority(forKey: key)
-            if decodeIdsByKey[key] == nil {
+            if activeDecodesByKey[key] == nil {
                 startImageDecode(
                     at: fileURL,
                     descriptor: descriptor,
@@ -1407,13 +1994,16 @@ final class DownloadableMediaCache {
         activeWindow = nil
         foregroundKey = nil
         foregroundWorkKeys.removeAll()
+#if !os(iOS)
         memoryCache.removeAllObjects()
         memoryKeysByCollection.removeAll()
+#endif
         cancelPrefetchDownloadsAndPendingWork()
         updateOngoingDownloadPriorities()
         startDownloadsIfNeeded()
     }
 
+#if !os(iOS)
     private func evictFilesOutsideWindow(collectionId: String, allowedFileNames: Set<String>) {
         let directory = collectionDirectory(collectionId: collectionId)
         guard let contents = try? FileManager.default.contentsOfDirectory(
@@ -1447,11 +2037,14 @@ final class DownloadableMediaCache {
         }
         memoryKeysByCollection = memoryKeysByCollection.filter { $0.key == collectionId }
     }
+#endif
 
     private func cache(_ image: DownloadableMediaImage, for descriptor: CollectionCatalogDownloadableMediaDescriptor) {
         let key = cacheKey(for: descriptor)
         memoryCache.setObject(image, forKey: key as NSString, cost: estimatedCost(of: image))
+#if !os(iOS)
         memoryKeysByCollection[descriptor.collectionId, default: []].insert(key)
+#endif
     }
 
     private func writeDownloadedMediaMetadata(response: URLResponse?, for descriptor: CollectionCatalogDownloadableMediaDescriptor) {
@@ -1503,6 +2096,19 @@ final class DownloadableMediaCache {
         activeWindow?.collectionId == descriptor.collectionId && activeWindow?.decodedKeys.contains(key) == true
     }
 
+    private func shouldCacheDecodedImage(
+        _ descriptor: CollectionCatalogDownloadableMediaDescriptor,
+        key: String,
+        priority: ImageDecodePriority,
+        hasDemandCallbacks: Bool
+    ) -> Bool {
+#if os(iOS)
+        hasDemandCallbacks || priority == .foreground || shouldKeepDecodedImage(descriptor, key: key)
+#else
+        shouldKeepDecodedImage(descriptor, key: key)
+#endif
+    }
+
     private func cacheKey(for descriptor: CollectionCatalogDownloadableMediaDescriptor) -> String {
         "\(descriptor.collectionId)|\(descriptor.tokenIndex)|\(descriptor.tokenId)|\(sourceURLHash(for: descriptor))|\(descriptor.fileExtension)"
     }
@@ -1520,7 +2126,8 @@ final class DownloadableMediaCache {
     }
 
     private func fileNames(for descriptor: CollectionCatalogDownloadableMediaDescriptor) -> [String] {
-        [fileName(for: descriptor), metadataFileName(for: descriptor)]
+        let fileName = fileName(for: descriptor)
+        return [fileName, metadataFileName(forFileName: fileName)]
     }
 
     private func fileName(for descriptor: CollectionCatalogDownloadableMediaDescriptor) -> String {
@@ -1529,7 +2136,11 @@ final class DownloadableMediaCache {
     }
 
     private func metadataFileName(for descriptor: CollectionCatalogDownloadableMediaDescriptor) -> String {
-        "\(fileName(for: descriptor)).metadata.json"
+        metadataFileName(forFileName: fileName(for: descriptor))
+    }
+
+    private func metadataFileName(forFileName fileName: String) -> String {
+        "\(fileName)\(Self.downloadedMediaMetadataFileSuffix)"
     }
 
     private func collectionDirectory(collectionId: String) -> URL {

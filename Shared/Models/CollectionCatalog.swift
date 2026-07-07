@@ -94,19 +94,41 @@ enum PlayerMediaPrefetchDirection: Hashable {
 }
 
 enum PlayerDownloadableMediaWindowLayout {
+#if os(iOS)
+    static let windowRadius = 60
+    static let decodedPreferredRadius = 12
+    static let decodedOppositeRadius = 4
+#else
     static let windowRadius = 10
     static let decodedPreferredRadius = 3
     static let decodedOppositeRadius = 1
+#endif
     static let decodedWindowCapacity = decodedPreferredRadius + decodedOppositeRadius + 1
 
     static func orderedWindowOffsets(direction: PlayerMediaPrefetchDirection) -> [Int] {
-        return [0] + preferredOffsets(radius: windowRadius, direction: direction)
-            + oppositeOffsets(radius: windowRadius, direction: direction)
+        orderedOffsets(
+            direction: direction,
+            preferredRadius: windowRadius,
+            oppositeRadius: windowRadius
+        )
     }
 
     static func decodedWindowOffsets(direction: PlayerMediaPrefetchDirection) -> [Int] {
-        return [0] + preferredOffsets(radius: decodedPreferredRadius, direction: direction)
-            + oppositeOffsets(radius: decodedOppositeRadius, direction: direction)
+        orderedOffsets(
+            direction: direction,
+            preferredRadius: decodedPreferredRadius,
+            oppositeRadius: decodedOppositeRadius
+        )
+    }
+
+    static func orderedOffsets(
+        direction: PlayerMediaPrefetchDirection,
+        preferredRadius: Int,
+        oppositeRadius: Int
+    ) -> [Int] {
+        [0]
+            + preferredOffsets(radius: preferredRadius, direction: direction)
+            + oppositeOffsets(radius: oppositeRadius, direction: direction)
     }
 
     static func orderedWindowIndices(

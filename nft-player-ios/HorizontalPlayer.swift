@@ -1537,12 +1537,14 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
 
     fileprivate func prepareStaticImageGridMediaWindow(
         for pagePosition: PlayerPagePosition,
-        pageLayout: MobilePlayerPageLayout
+        pageLayout: MobilePlayerPageLayout,
+        direction: DownloadableMediaCache.PrefetchDirection
     ) -> PlayerDownloadableMediaWindow? {
         MobilePlaybackController.shared.prepareStaticImageGridMediaWindow(
             uuid: initialConfig.id,
             pagePosition: pagePosition,
-            pageLayout: pageLayout
+            pageLayout: pageLayout,
+            direction: direction
         )
     }
 
@@ -1670,7 +1672,8 @@ private protocol HorizontalPlayerDataSource: AnyObject {
     ) -> PlayerDownloadableMediaWindow?
     func prepareStaticImageGridMediaWindow(
         for pagePosition: PlayerPagePosition,
-        pageLayout: MobilePlayerPageLayout
+        pageLayout: MobilePlayerPageLayout,
+        direction: DownloadableMediaCache.PrefetchDirection
     ) -> PlayerDownloadableMediaWindow?
     func clearDownloadableMediaWindow()
     func downloadableMediaDescriptor(for pagePosition: PlayerPagePosition) -> DownloadableMediaDescriptor?
@@ -2486,7 +2489,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     private func prepareCurrentDownloadableMediaWindow() -> PlayerDownloadableMediaWindow? {
         playerDataSource?.prepareDownloadableMediaWindow(
             for: pagePosition,
-            direction: usesStaticImageGridLayoutForCurrentPagePosition ? .forward : preferredPrefetchDirection
+            direction: preferredPrefetchDirection
         )
     }
 
@@ -2499,7 +2502,8 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
 
         return playerDataSource?.prepareStaticImageGridMediaWindow(
             for: pagePosition,
-            pageLayout: staticImageGridLayout
+            pageLayout: staticImageGridLayout,
+            direction: preferredPrefetchDirection
         ) != nil
     }
 
