@@ -106,6 +106,8 @@ final class DownloadableMediaCache {
     private let session: URLSession
     private let cacheRoot: URL
     private let stagingRoot: URL
+    private static let defaultDecodedImageMemoryCostLimit = 128 * 1024 * 1024
+    private static let decodedImageMemoryCostLimitPerDescriptor = 16 * 1024 * 1024
     private let maximumConcurrentDownloads = 4
 
     private struct OngoingDownload {
@@ -233,7 +235,9 @@ final class DownloadableMediaCache {
             at: cacheRoot.appendingPathComponent(Self.webViewHTMLDirectoryName, isDirectory: true)
         )
         memoryCache.countLimit = PlayerDownloadableMediaWindowLayout.decodedWindowCapacity
-        memoryCache.totalCostLimit = 128 * 1024 * 1024
+        memoryCache.totalCostLimit = Self.decodedImageMemoryCostLimit(
+            for: PlayerDownloadableMediaWindowLayout.decodedWindowCapacity
+        )
 
 #if os(iOS)
         memoryWarningObserver = NotificationCenter.default.addObserver(
@@ -321,6 +325,10 @@ final class DownloadableMediaCache {
             )
             if self.memoryCache.countLimit != decodedCacheCountLimit {
                 self.memoryCache.countLimit = decodedCacheCountLimit
+            }
+            let decodedCacheTotalCostLimit = Self.decodedImageMemoryCostLimit(for: decodedCacheCountLimit)
+            if self.memoryCache.totalCostLimit != decodedCacheTotalCostLimit {
+                self.memoryCache.totalCostLimit = decodedCacheTotalCostLimit
             }
             let didChangeFileWindow = didChangeCollection || previousWindow?.fileNames != allowedFileNames
             let didChangeDecodedWindow = didChangeCollection || previousWindow?.decodedKeys != decodedKeys
@@ -1474,6 +1482,13 @@ final class DownloadableMediaCache {
         let height = Int(image.size.height * image.scale)
         return max(width * height * 4, 1)
 #endif
+    }
+
+    private static func decodedImageMemoryCostLimit(for decodedDescriptorCapacity: Int) -> Int {
+        max(
+            defaultDecodedImageMemoryCostLimit,
+            max(decodedDescriptorCapacity, 1) * decodedImageMemoryCostLimitPerDescriptor
+        )
     }
 
     private func isDescriptorInActiveWindow(_ descriptor: CollectionCatalogDownloadableMediaDescriptor) -> Bool {

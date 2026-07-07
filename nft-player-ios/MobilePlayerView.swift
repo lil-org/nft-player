@@ -651,8 +651,7 @@ struct MobilePlayerView: View {
         }
 
         let didAcceptRequest: Bool
-        switch request.pageLayout {
-        case .onePerPage:
+        if request.pageLayout == .onePerPage {
             if let targetPagePosition = request.targetPagePosition,
                !MobilePlaybackController.shared.canRender(uuid: initialConfig.id, pagePosition: targetPagePosition) {
                 request.completion?()
@@ -663,8 +662,9 @@ struct MobilePlayerView: View {
                 targetPagePosition: request.targetPagePosition,
                 changeID: request.id
             )
-        case .fourPerPage, .sixPerPage:
-            guard canSwitchCurrentToStaticImageGrid,
+        } else {
+            guard request.pageLayout.isStaticImageGrid,
+                  canSwitchCurrentToStaticImageGrid,
                   currentStaticImageGridPageLayout == request.pageLayout else {
                 request.completion?()
                 return

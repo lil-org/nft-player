@@ -19,6 +19,7 @@ enum MobilePlayerPageLayout: CaseIterable, Hashable, Identifiable {
     case onePerPage
     case fourPerPage
     case sixPerPage
+    case twelvePerPage
 
     static let cardNftCollectionId = "HpGDYGz6aRUs5qbvp1dmWGKTicQctX4PixfcouAQDCHF"
     static let drifella2CollectionId = "7cHTjqr2S8uUCrG3TVFvFix3vcLjhPiwrtRsAeJtESRj"
@@ -36,7 +37,7 @@ enum MobilePlayerPageLayout: CaseIterable, Hashable, Identifiable {
             johnCollectionId: .sixPerPage,
             miladyAura2AfterDeathCollectionId: .sixPerPage,
             miladyAuraPetzCollectionId: .sixPerPage,
-            superMetalMonsCollectionId: .sixPerPage,
+            superMetalMonsCollectionId: .twelvePerPage,
         ]
         for renderKind in NativeMetalCardRenderKind.allCases {
             layouts[renderKind.collectionId] = .fourPerPage
@@ -62,6 +63,8 @@ enum MobilePlayerPageLayout: CaseIterable, Hashable, Identifiable {
             return 4
         case .sixPerPage:
             return 6
+        case .twelvePerPage:
+            return 12
         }
     }
 
@@ -69,7 +72,7 @@ enum MobilePlayerPageLayout: CaseIterable, Hashable, Identifiable {
         switch self {
         case .onePerPage:
             return false
-        case .fourPerPage, .sixPerPage:
+        case .fourPerPage, .sixPerPage, .twelvePerPage:
             return true
         }
     }
@@ -119,16 +122,14 @@ enum MobilePlayerPageLayout: CaseIterable, Hashable, Identifiable {
             return Strings.fourPerPage
         case .sixPerPage:
             return Strings.sixPerPage
+        case .twelvePerPage:
+            return Strings.twelvePerPage
         }
     }
 
     func supports(descriptor: DownloadableMediaDescriptor?) -> Bool {
-        switch self {
-        case .onePerPage:
-            return true
-        case .fourPerPage, .sixPerPage:
-            return Self.staticImageGridLayout(for: descriptor) == self
-        }
+        guard isStaticImageGrid else { return true }
+        return Self.staticImageGridLayout(for: descriptor) == self
     }
 
     private static func initialDownloadableMediaDescriptor(for config: MobilePlayerConfig) -> DownloadableMediaDescriptor? {
@@ -369,7 +370,7 @@ class MobilePlaybackController {
 
         return PlayerDownloadableMediaWindow(
             currentDescriptor: window.currentDescriptor,
-            descriptors: window.descriptors,
+            descriptors: gridDescriptors + window.descriptors,
             decodedDescriptors: gridDescriptors + window.decodedDescriptors,
             adjacentDescriptor: window.adjacentDescriptor,
             decodedDescriptorCapacity: decodedDescriptorCapacity

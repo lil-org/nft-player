@@ -108,6 +108,14 @@ struct MobileStaticImageSpreadGrid: Equatable {
                 spacing: MobilePlayerPageLayoutMetrics.denseSpreadCardSpacing,
                 screenEdgeInset: MobilePlayerPageLayoutMetrics.denseSpreadScreenEdgeInset
             )
+        case .twelvePerPage:
+            let usesHorizontalLayout = viewportSize.width > viewportSize.height
+            return MobileStaticImageSpreadGrid(
+                columnCount: usesHorizontalLayout ? 4 : 3,
+                rowCount: usesHorizontalLayout ? 3 : 4,
+                spacing: MobilePlayerPageLayoutMetrics.denseSpreadCardSpacing,
+                screenEdgeInset: MobilePlayerPageLayoutMetrics.denseSpreadScreenEdgeInset
+            )
         case .onePerPage:
             return nil
         }
