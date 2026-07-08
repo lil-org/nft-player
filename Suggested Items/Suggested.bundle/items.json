@@ -1738,5 +1738,12 @@
     "name" : "TOMIE",
     "tokenCount" : 2219,
     "iosOnly" : true
+  },
+  {
+    "address" : "9sSCFj6NGEfmDS4QQEVqv17ZANen7pmowqnCiUBRPjd9",
+    "chain" : "solana",
+    "chainId" : 0,
+    "name" : "Horses?7",
+    "tokenCount" : 1777
   }
 ]
