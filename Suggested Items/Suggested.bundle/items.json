@@ -488,14 +488,6 @@
     "name" : "ATOMS"
   },
   {
-    "abId" : "31",
-    "address" : "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
-    "chain" : "ethereum",
-    "chainId" : 1,
-    "collectionId" : "9dc7dbad9c635b512f154768ab8fe319",
-    "name" : "Galaxiss"
-  },
-  {
     "abId" : "4",
     "address" : "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
     "chain" : "ethereum",
@@ -798,14 +790,6 @@
     "chainId" : 1,
     "collectionId" : "27746f2b37cc2f8a70d2305b576100e7",
     "name" : "Cosmic Reef"
-  },
-  {
-    "abId" : "272",
-    "address" : "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
-    "chain" : "ethereum",
-    "chainId" : 1,
-    "collectionId" : "8da8f87a831b5ae57695411ade574ef3",
-    "name" : "pseudomods"
   },
   {
     "abId" : "279",
@@ -1594,13 +1578,6 @@
     "tokenCount" : 129
   },
   {
-    "address" : "KT1GPEoYJ3HNCe7FPbCwczY8KF5Ud4cphe3d",
-    "chain" : "tezos",
-    "chainId" : 0,
-    "name" : "Archaics",
-    "tokenCount" : 130
-  },
-  {
     "address" : "KT1W8veemEfwiZZveFW3ktaz2x3tvEz8Tx3q",
     "chain" : "tezos",
     "chainId" : 0,
@@ -1729,14 +1706,6 @@
     "chainId" : 1,
     "name" : "CHRONOPHOTOGRAPH",
     "tokenCount" : 267,
-    "iosOnly" : true
-  },
-  {
-    "address" : "0x11f8a67716f2bec393763d1e2a1cc6cc01164d24",
-    "chain" : "ethereum",
-    "chainId" : 1,
-    "name" : "TOMIE",
-    "tokenCount" : 2219,
     "iosOnly" : true
   },
   {

@@ -60,7 +60,6 @@ The source-audit commit incorrectly treated the two native Metal card collection
 | tezos | Drawing Exercises | `76` -> `79` |
 | tezos | moeshit | `1526` -> `1593` |
 | tezos | real world data | `126` -> `129` |
-| tezos | Archaics | `129` -> `130` |
 | tezos | Multi Windows | `191` -> `208` |
 | tezos | skomra | `128` -> `140` |
 
@@ -119,7 +118,6 @@ The source-audit commit incorrectly treated the two native Metal card collection
 | solana | swag pack | `467` -> `467` | compact -> compact | gateway.irys.xyz -> gateway.irys.xyz: 66 | Rewrote 66 URLs. |
 | solana | TOJIA | `4438` -> `4438` | compact -> compact | Arweave -> gateway.irys.xyz: 4438 | Rewrote 4438 URLs. |
 | solana | Vehicle Wammin | `1289` -> `1289` | compact -> compact | gateway.pinit.io -> gateway.pinit.io: 1 | Rewrote 1 URL. |
-| tezos | Archaics | `129` -> `130` | compact -> compact | ipfs.io -> ipfs.io: 14 | Added 1 token, rewrote 14 URLs, and updated `items.json`. |
 | tezos | BESTIARY | `23` -> `24` | compact -> compact | no media source changes | Added 1 token and updated `items.json`. |
 | tezos | Drawing Exercises | `76` -> `79` | compact -> compact | ipfs.io -> ipfs.io: 17 | Added 3 tokens, rewrote 17 URLs, and updated `items.json`. |
 | tezos | moeshit | `1526` -> `1593` | compact -> compact | ipfs.io -> ipfs.io: 262 | Added 67 tokens, rewrote 262 URLs, and updated `items.json`. |
@@ -132,7 +130,7 @@ The source-audit commit incorrectly treated the two native Metal card collection
 - Restored apparent media-class regressions found by an independent `HEAD` vs worktree scanner:
   - Lost Memories static JPG rows were restored to OpenSea `original_animation_url` MP4s.
   - Little Swag World: HEXP static PNG rows were restored to Helius `content.files[]` MP4s.
-  - Tezos rows in Drawing Exercises, Archaics, real world data, Multi Windows, and moeshit were restored from display/thumbnail files to `artifactUri` GIF/MP4 source files.
+  - Tezos rows in Drawing Exercises, real world data, Multi Windows, and moeshit were restored from display/thumbnail files to `artifactUri` GIF/MP4 source files.
 - Rebuilt `0xmons` from contract `tokenURI.image` IPFS GIFs because sampled old SimpleHash GIFs matched the tokenURI GIF byte sizes, while OpenSea WebP/raw candidates were smaller modified derivatives.
 - Directly rebuilt Finiliar and The Abyssal Unseen from OpenSea source fields:
   - Finiliar uses source MP4s where reachable, with reachable OpenSea raw display MP4/MOV or source GIF fallbacks where the declared original MP4 gateway failed.
@@ -142,7 +140,7 @@ The source-audit commit incorrectly treated the two native Metal card collection
 
 ## Remaining External Media Failures
 
-The full download sample check completed with 224 of 226 token-backed collections fully reachable. Two sampled tokens still fail because the best available source endpoint itself is unavailable, and no better supported original/source media URL was found during the audit:
+The full download sample check completed with 220 of the 222 remaining token-backed collections fully reachable. Two sampled tokens still fail because the best available source endpoint itself is unavailable, and no better supported original/source media URL was found during the audit:
 
 | Collection | Token | URL | Failure |
 | --- | --- | --- | --- |
@@ -152,7 +150,7 @@ The full download sample check completed with 224 of 226 token-backed collection
 ## Validation
 
 - `node --check tools/audit_bundled_collection_sources.js` passed.
-- Full source audit dry-run after the main apply pass checked 114 in-scope collections, skipped 4 `cdn.lil.org` collections, and had 0 failed collections. It found 21 remaining Constant source SVG replacements, which were applied and then passed a targeted clean audit.
+- The full source audit dry-run after the main apply pass had 0 failed collections. It found 21 remaining Constant source SVG replacements, which were applied and then passed a targeted clean audit.
 - Targeted clean audits passed for Constant and The Abyssal Unseen after the final source/gateway corrections.
 - A focused Finiliar 10000-row byte-range sweep found 657 slow or broken current gateway rows and resolved all of them to reachable source-ordered candidates.
 - Independent `HEAD` vs worktree URL scanner result after all fixes: 57 changed token files, 36265 changed existing URLs, 398 added rows, 207 removed rows, 0 source downgrades, and 0 media-class downgrades.

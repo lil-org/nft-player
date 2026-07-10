@@ -8,29 +8,29 @@ This document records the full-download and post-download quality work performed
 - Skipped `Super Metal Mons!`, `Super Metal Mons!!`, `card nft`, and `Drifella 2` because their resolved bundled media uses `cdn.lil.org`.
 - Skipped the native CDN-managed `Poncho Drifella` and `Card NFT 2` collections even though their curated bundle metadata does not contain literal CDN URLs.
 - Skipped `The Abyssal Unseen` completely because its originals were too large for this corpus.
-- Audited downloaded dimensions for all 102 non-Art Blocks, non-skipped collections. Art Blocks projects were excluded from the cross-token dimension audit because generative project outputs can intentionally vary and already use project-specific source handling.
+- Audited downloaded dimensions for all 100 non-Art Blocks, non-skipped collections. Art Blocks projects were excluded from the cross-token dimension audit because generative project outputs can intentionally vary and already use project-specific source handling.
 - Never upscaled, resized, transcoded, or otherwise modified media. A replacement was accepted only after downloading and probing the remote candidate.
 
 ## Final Download State
 
-The final resumability/integrity pass covered 219 collections and 195,234 in-scope token rows.
+The final resumability/integrity pass covered 215 collections and 191,477 in-scope token rows.
 
 | Result | Count |
 | --- | ---: |
-| Files present and verified by manifest size/SHA-256 | 194,663 |
-| Source-unavailable files | 571 |
-| Collections with at least one source-unavailable file | 8 |
+| Files present and verified by manifest size/SHA-256 | 190,908 |
+| Source-unavailable files | 569 |
+| Collections with at least one source-unavailable file | 7 |
 | Wholly unreachable collections | 0 |
 | Skipped collections | 7 |
 | Leftover `.part` or `.quality.part` files | 0 |
 
-The corpus occupies approximately 371 GiB. Successful files were streamed to temporary files, hashed, and atomically renamed. A second full run verified and reused all successful files without downloading them again.
+The corpus occupies approximately 367 GiB. Successful files were streamed to temporary files, hashed, and atomically renamed. A second full run verified and reused all successful files without downloading them again.
 
-A follow-up retry campaign recovered 1,396 of the original 1,967 failures. It used low-concurrency, longer-timeout passes after the initial broad retry to recover files that were reachable but too slow for the short retry window. The largest recoveries were 600 `Tojiba CPU Corp`, 529 `Scarecrow`, 266 `Tojiba Disc Buddies`, and the final `Little Fellow` file.
+A follow-up retry campaign recovered 1,396 of the original 1,965 failures in the remaining collections. It used low-concurrency, longer-timeout passes after the initial broad retry to recover files that were reachable but too slow for the short retry window. The largest recoveries were 600 `Tojiba CPU Corp`, 529 `Scarecrow`, 266 `Tojiba Disc Buddies`, and the final `Little Fellow` file.
 
 ## Applied Quality Repairs
 
-The audit dimension-probed 140,370 successfully downloaded files in the 102 non-Art Blocks collections. It applied 784 replacements across 23 collections: 424 recovered failed downloads and 360 replaced materially smaller files. Direct/source media supplied 766 replacements. The remaining 18 were API cache fallbacks accepted only when their measured dimensions matched the collection baseline.
+The audit dimension-probed 138,021 successfully downloaded files in the 100 non-Art Blocks collections. It applied 771 replacements across 21 collections: 424 recovered failed downloads and 347 replaced materially smaller files. Direct/source media supplied 753 replacements. The remaining 18 were API cache fallbacks accepted only when their measured dimensions matched the collection baseline.
 
 `Failure` means a previously unavailable local file was recovered. `Quality` means an existing lower-dimension file was replaced. `Cache` means a modified/cache endpoint rather than an API-declared original URI; these cache files are local-only and were not written back into bundled token metadata.
 
@@ -44,12 +44,10 @@ The audit dimension-probed 140,370 successfully downloaded files in the 102 non-
 | ethereum | EMOJIPACK | 35 | 0 | 35 | 35 | 0 | metadata `image` source |
 | ethereum | Bloomers | 33 | 0 | 33 | 33 | 0 | metadata `image` source |
 | tezos | moeshit | 16 | 0 | 16 | 16 | 0 | `formats[].artifactUri` |
-| ethereum | TOMIE | 11 | 0 | 11 | 11 | 0 | metadata `image` source |
 | ethereum | Cigawrette Packs | 9 | 9 | 0 | 0 | 9 | dimension-matched OpenSea raw cache |
 | ethereum | Finiliar | 5 | 5 | 0 | 5 | 0 | `original_animation_url` / `original_image_url` |
 | ethereum | pfp+ | 5 | 0 | 5 | 5 | 0 | metadata `image` source |
 | ethereum | Sproto Gremlins | 4 | 1 | 3 | 2 | 2 | `original_image_url` / dimension-matched OpenSea raw cache |
-| tezos | Archaics | 2 | 0 | 2 | 2 | 0 | `formats[].artifactUri` |
 | ethereum | Storms | 2 | 0 | 2 | 2 | 0 | metadata `image` source |
 | ethereum | Crowded Fields | 1 | 0 | 1 | 1 | 0 | metadata `image` source |
 | ethereum | Math Art | 1 | 0 | 1 | 1 | 0 | metadata `image` source |
@@ -60,11 +58,11 @@ The audit dimension-probed 140,370 successfully downloaded files in the 102 non-
 | ethereum | Tigerbob | 1 | 1 | 0 | 0 | 1 | dimension-matched OpenSea raw cache |
 | ethereum | Tokyo Nude | 1 | 0 | 1 | 1 | 0 | metadata `image` source |
 
-The replaced files grew from approximately 34.4 MiB in aggregate to 3.07 GiB. Size alone was not used as an acceptance criterion; media class, pixel dimensions, collection baseline, and source provenance were checked first. The `skomra` repair replaced a static preview with the API-declared 1280x930 WebM locally, but did not change the bundle because WebM is not supported by that bundled-player path.
+Size alone was not used as an acceptance criterion; media class, pixel dimensions, collection baseline, and source provenance were checked first. The `skomra` repair replaced a static preview with the API-declared 1280x930 WebM locally, but did not change the bundle because WebM is not supported by that bundled-player path.
 
 ## Bundled Token Metadata Changes
 
-The post-download quality pass changed 482 resolved token URLs in 13 bundled token JSON files. It did not change token IDs, token counts, collection ordering, names, covers, or `items.json`.
+The post-download quality pass changed 471 resolved token URLs in 12 remaining bundled token JSON files. It did not change token IDs, token counts, collection ordering, names, covers, or `items.json`.
 
 | Chain | Collection | Rows | Previous endpoint | New endpoint | Meaning |
 | --- | --- | ---: | --- | --- | --- |
@@ -73,7 +71,6 @@ The post-download quality pass changed 482 resolved token URLs in 13 bundled tok
 | ethereum | IMAGINED WRECKAGE | 42 | `raw2.seadn.io` | `0prod.infura-ipfs.io` | OpenSea cache to metadata-declared IPFS source |
 | ethereum | EMOJIPACK | 35 | `raw2.seadn.io` | `arweave.net` | OpenSea cache to metadata-declared Arweave source |
 | ethereum | Bloomers | 33 | `raw2.seadn.io` | `ipfs.decentralized-content.com` | OpenSea cache to metadata-declared IPFS source |
-| ethereum | TOMIE | 11 | `raw2.seadn.io` | `ipfs.decentralized-content.com` | OpenSea cache to metadata-declared IPFS source |
 | ethereum | Finiliar | 5 | `permagate.io` | `turbo-gateway.com` | Same original Arweave media through a reachable gateway |
 | ethereum | pfp+ | 5 | `raw2.seadn.io` | `pfp-pl.us` | OpenSea cache to project source media |
 | ethereum | Storms | 2 | `raw2.seadn.io` | `ipfs.decentralized-content.com` | OpenSea cache to metadata-declared IPFS source |
@@ -90,7 +87,6 @@ These entries remain absent after direct bundled URLs, equivalent IPFS/Arweave g
 
 | Chain | Collection | Verified | Failed |
 | --- | --- | ---: | ---: |
-| ethereum | pseudomods | 806 | 2 |
 | solana | Scarecrow | 4,017 | 31 |
 | solana | Tojiba Disc Buddies | 4,549 | 449 |
 | solana | Organic Evolution | 68 | 4 |
@@ -101,7 +97,7 @@ These entries remain absent after direct bundled URLs, equivalent IPFS/Arweave g
 
 ## Remaining Quality Concerns
 
-The clean follow-up audit detected 5,163 statistical dimension outliers. It verified 1,764 as source-native variations or files at least as large as every reachable source candidate. The 3,399 entries below remain unresolved because no reachable provenance-safe candidate met the collection baseline; the existing file was retained rather than replaced with another thumbnail or an unverified substitute.
+The clean follow-up audit detected 5,162 statistical dimension outliers. It verified 1,763 as source-native variations or files at least as large as every reachable source candidate. The 3,399 entries below remain unresolved because no reachable provenance-safe candidate met the collection baseline; the existing file was retained rather than replaced with another thumbnail or an unverified substitute.
 
 | Chain | Collection | Unresolved | Current dimensions | Collection norm |
 | --- | --- | ---: | --- | --- |
