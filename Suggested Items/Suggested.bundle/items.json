@@ -5,7 +5,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "2dc162ffdcd9a05b1250dd1d69c69be6",
-    "name" : "HyperHash"
+    "name" : "HyperHash",
+    "internal_slug" : "hyperhash"
   },
   {
     "abId" : "17",
@@ -13,7 +14,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "c370ee8ce98875d2e6c8fd7726c263a7",
-    "name" : "Spectron"
+    "name" : "Spectron",
+    "internal_slug" : "spectron"
   },
   {
     "abId" : "9",
@@ -21,7 +23,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "aded45d3a6625cdeefcab7546c7549e5",
-    "name" : "Ignition"
+    "name" : "Ignition",
+    "internal_slug" : "ignition"
   },
   {
     "abId" : "29",
@@ -29,7 +32,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "b40893f9f33124f7e983ba1fdef15c92",
-    "name" : "Inspirals"
+    "name" : "Inspirals",
+    "internal_slug" : "inspirals"
   },
   {
     "abId" : "64",
@@ -37,7 +41,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "b22836540fa4e773a3309425fef939c8",
-    "name" : "AlgoRhythms"
+    "name" : "AlgoRhythms",
+    "internal_slug" : "algorhythms"
   },
   {
     "abId" : "120",
@@ -45,7 +50,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "41c03cf17f1dfe76f8a906e20f694042",
-    "name" : "Endless Nameless"
+    "name" : "Endless Nameless",
+    "internal_slug" : "endless_nameless"
   },
   {
     "abId" : "53",
@@ -53,7 +59,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "f8b5ccc12f09eeb512f5535b560e27cd",
-    "name" : "Subscapes"
+    "name" : "Subscapes",
+    "internal_slug" : "subscapes"
   },
   {
     "abId" : "373",
@@ -61,7 +68,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "64e084408d0f8e0d5d6b1b78d0330a37",
-    "name" : "Intersections"
+    "name" : "Intersections",
+    "internal_slug" : "intersections"
   },
   {
     "abId" : "235",
@@ -69,7 +77,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "30156bbe27266bd963358b0e315258a2",
-    "name" : "Maps for grief"
+    "name" : "Maps for grief",
+    "internal_slug" : "maps_for_grief"
   },
   {
     "abId" : "44",
@@ -77,7 +86,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "29c56e84d2ca065ee7b6a829059b3128",
-    "name" : "CryptoGodKing"
+    "name" : "CryptoGodKing",
+    "internal_slug" : "cryptogodking"
   },
   {
     "abId" : "0",
@@ -85,7 +95,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "33c589d389b53ba90764ae3c120945aa",
-    "name" : "Chromie Squiggle"
+    "name" : "Chromie Squiggle",
+    "internal_slug" : "chromie_squiggle"
   },
   {
     "abId" : "399",
@@ -93,7 +104,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "f96ab5aac5e593523b729b1889bd07b8",
-    "name" : "The Field"
+    "name" : "The Field",
+    "internal_slug" : "the_field"
   },
   {
     "abId" : "264",
@@ -101,7 +113,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "82b70bec3ba2be999edfdbfd8bcb3fd1",
-    "name" : "Thereidoscope"
+    "name" : "Thereidoscope",
+    "internal_slug" : "thereidoscope"
   },
   {
     "abId" : "0",
@@ -109,7 +122,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "bc29c842be8cc6cd5551bd0e2561eaf4",
-    "name" : "Fragmented Perception"
+    "name" : "Fragmented Perception",
+    "internal_slug" : "fragmented_perception"
   },
   {
     "abId" : "117",
@@ -117,7 +131,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "169a7228f7db2ae7c0566e78f85a7866",
-    "name" : "Transitions"
+    "name" : "Transitions",
+    "internal_slug" : "transitions"
   },
   {
     "abId" : "12",
@@ -125,7 +140,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "439c07ef3bbcf98e6de5e562f054d089",
-    "name" : "Renaissance"
+    "name" : "Renaissance",
+    "internal_slug" : "renaissance"
   },
   {
     "abId" : "14",
@@ -133,7 +149,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "354d0e03b3f1005e6eb18251aacd5a84",
-    "name" : "KERNELS"
+    "name" : "KERNELS",
+    "internal_slug" : "kernels"
   },
   {
     "abId" : "12",
@@ -141,7 +158,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "ef2492fb1fc4054a2f76b2ff99575639",
-    "name" : "Passing"
+    "name" : "Passing",
+    "internal_slug" : "passing"
   },
   {
     "abId" : "21",
@@ -149,7 +167,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "f0f83f0e1491f4d6ea875b385059ddb2",
-    "name" : "Infinito"
+    "name" : "Infinito",
+    "internal_slug" : "infinito"
   },
   {
     "abId" : "19",
@@ -157,7 +176,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "ef2492fb1fc4054a2f76b2ff99575639",
-    "name" : "Volume"
+    "name" : "Volume",
+    "internal_slug" : "volume"
   },
   {
     "abId" : "2",
@@ -165,7 +185,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "ef2492fb1fc4054a2f76b2ff99575639",
-    "name" : "Traffic"
+    "name" : "Traffic",
+    "internal_slug" : "traffic"
   },
   {
     "abId" : "287",
@@ -173,7 +194,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "3c81d24374b1a7915144c94da35e48bb",
-    "name" : "Zoologic"
+    "name" : "Zoologic",
+    "internal_slug" : "zoologic"
   },
   {
     "abId" : "20",
@@ -181,7 +203,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "ef2492fb1fc4054a2f76b2ff99575639",
-    "name" : "Radial"
+    "name" : "Radial",
+    "internal_slug" : "radial"
   },
   {
     "abId" : "22",
@@ -189,7 +212,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "ef2492fb1fc4054a2f76b2ff99575639",
-    "name" : "Fiber"
+    "name" : "Fiber",
+    "internal_slug" : "fiber"
   },
   {
     "abId" : "8",
@@ -197,7 +221,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "ef2492fb1fc4054a2f76b2ff99575639",
-    "name" : "Through"
+    "name" : "Through",
+    "internal_slug" : "through"
   },
   {
     "abId" : "293",
@@ -205,7 +230,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "934a910e709523a1d8a300538945e2a0",
-    "name" : "Túnel Dimensional"
+    "name" : "Túnel Dimensional",
+    "internal_slug" : "tunel_dimensional"
   },
   {
     "abId" : "460",
@@ -213,7 +239,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "9c89aafcd0a32cfc3350494109f2432e",
-    "name" : "Exstasis"
+    "name" : "Exstasis",
+    "internal_slug" : "exstasis"
   },
   {
     "abId" : "25",
@@ -221,7 +248,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "ef2492fb1fc4054a2f76b2ff99575639",
-    "name" : "Clash"
+    "name" : "Clash",
+    "internal_slug" : "clash"
   },
   {
     "abId" : "26",
@@ -229,7 +257,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "ef2492fb1fc4054a2f76b2ff99575639",
-    "name" : "Rio"
+    "name" : "Rio",
+    "internal_slug" : "rio"
   },
   {
     "abId" : "123",
@@ -237,7 +266,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "348a7054e0988dfe64d1f8b02453e660",
-    "name" : "Nucleus"
+    "name" : "Nucleus",
+    "internal_slug" : "nucleus"
   },
   {
     "abId" : "323",
@@ -245,7 +275,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "04f3a9cbc997ba32887823aebc5d4f15",
-    "name" : "GHOST IN THE CODE"
+    "name" : "GHOST IN THE CODE",
+    "internal_slug" : "ghost_in_the_code"
   },
   {
     "abId" : "338",
@@ -253,7 +284,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "d04e074fbe4bbf3bd78721fb98228592",
-    "name" : "undead wyverns"
+    "name" : "undead wyverns",
+    "internal_slug" : "undead_wyverns"
   },
   {
     "abId" : "9",
@@ -261,7 +293,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "ef2492fb1fc4054a2f76b2ff99575639",
-    "name" : "Staring"
+    "name" : "Staring",
+    "internal_slug" : "staring"
   },
   {
     "abId" : "490",
@@ -269,7 +302,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "b21d7ada5df674f9f2a460c9eada70f9",
-    "name" : "Twist"
+    "name" : "Twist",
+    "internal_slug" : "twist"
   },
   {
     "abId" : "472",
@@ -277,7 +311,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "34d435a5119aa45c5dc5feef95767e27",
-    "name" : "because unless until"
+    "name" : "because unless until",
+    "internal_slug" : "because_unless_until"
   },
   {
     "abId" : "10",
@@ -285,7 +320,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "ef2492fb1fc4054a2f76b2ff99575639",
-    "name" : "No Idea"
+    "name" : "No Idea",
+    "internal_slug" : "no_idea"
   },
   {
     "abId" : "50",
@@ -293,7 +329,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "318f9219f83baa9b325152049548b57e",
-    "name" : "Nature finds a way"
+    "name" : "Nature finds a way",
+    "internal_slug" : "nature_finds_a_way"
   },
   {
     "abId" : "16",
@@ -301,7 +338,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "ef2492fb1fc4054a2f76b2ff99575639",
-    "name" : "Inner"
+    "name" : "Inner",
+    "internal_slug" : "inner"
   },
   {
     "abId" : "0",
@@ -309,7 +347,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "326c9aa6c3ce551b4225838f932c9e57",
-    "name" : "variaciones del yo"
+    "name" : "variaciones del yo",
+    "internal_slug" : "variaciones_del_yo"
   },
   {
     "abId" : "17",
@@ -317,7 +356,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "ef2492fb1fc4054a2f76b2ff99575639",
-    "name" : "Stripes"
+    "name" : "Stripes",
+    "internal_slug" : "stripes"
   },
   {
     "abId" : "4",
@@ -325,7 +365,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "d715a57affc86cdd0b3a183a78765855",
-    "name" : "Aesthetics of Failure"
+    "name" : "Aesthetics of Failure",
+    "internal_slug" : "aesthetics_of_failure"
   },
   {
     "abId" : "426",
@@ -333,7 +374,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "39df24fe53de1b33fbb3a3fcfe794ee7",
-    "name" : "Cargo"
+    "name" : "Cargo",
+    "internal_slug" : "cargo"
   },
   {
     "abId" : "428",
@@ -341,7 +383,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "9f2164b23df577b76c4196996b85b1cf",
-    "name" : "Memories of Digital Data"
+    "name" : "Memories of Digital Data",
+    "internal_slug" : "memories_of_digital_data"
   },
   {
     "abId" : "151",
@@ -349,7 +392,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "4bb2d4d02830fabd91efd86eb4bdbb0d",
-    "name" : "High Tide"
+    "name" : "High Tide",
+    "internal_slug" : "high_tide"
   },
   {
     "abId" : "158",
@@ -357,7 +401,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "a3b63b3b8fa42245a26f371f5b7234d7",
-    "name" : "a heart and a soul"
+    "name" : "a heart and a soul",
+    "internal_slug" : "a_heart_and_a_soul"
   },
   {
     "abId" : "480",
@@ -365,7 +410,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "fdddfda5096d65de673c9a7f655c845c",
-    "name" : "Axo"
+    "name" : "Axo",
+    "internal_slug" : "axo"
   },
   {
     "abId" : "175",
@@ -373,7 +419,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "268724b7bbfd1c8f86903028efe453d7",
-    "name" : "mono no aware"
+    "name" : "mono no aware",
+    "internal_slug" : "mono_no_aware"
   },
   {
     "abId" : "182",
@@ -381,7 +428,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "cab43901e288f51fcc054959db06fe86",
-    "name" : "Amoeba"
+    "name" : "Amoeba",
+    "internal_slug" : "amoeba"
   },
   {
     "abId" : "3",
@@ -389,7 +437,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "73fd8fe864e01a4a2038b65976bc23a3",
-    "name" : "Inflection"
+    "name" : "Inflection",
+    "internal_slug" : "inflection"
   },
   {
     "abId" : "391",
@@ -397,7 +446,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "7f17b4e6be5195e890b0c774f131e6db",
-    "name" : "Contrast Agent"
+    "name" : "Contrast Agent",
+    "internal_slug" : "contrast_agent"
   },
   {
     "abId" : "181",
@@ -405,7 +455,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "2cbddd7e43c4049ac07db07f3787933e",
-    "name" : "FOCUS"
+    "name" : "FOCUS",
+    "internal_slug" : "focus"
   },
   {
     "abId" : "35",
@@ -413,7 +464,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "1082ac3c45e965b5353114db31d92ef3",
-    "name" : "Cage"
+    "name" : "Cage",
+    "internal_slug" : "cage"
   },
   {
     "abId" : "29",
@@ -421,7 +473,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "ef2492fb1fc4054a2f76b2ff99575639",
-    "name" : "Push"
+    "name" : "Push",
+    "internal_slug" : "push"
   },
   {
     "abId" : "54",
@@ -429,7 +482,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "0b8cfd2706187fc99ea72079591a5f00",
-    "name" : "Square Symphony"
+    "name" : "Square Symphony",
+    "internal_slug" : "square_symphony"
   },
   {
     "abId" : "168",
@@ -437,7 +491,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "39daa9f150ba6adf00b699804a2b9691",
-    "name" : "Bloom"
+    "name" : "Bloom",
+    "internal_slug" : "bloom"
   },
   {
     "abId" : "260",
@@ -445,7 +500,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "eb0f41783e463c22a9f0d1643077d303",
-    "name" : "Non Either"
+    "name" : "Non Either",
+    "internal_slug" : "non_either"
   },
   {
     "abId" : "67",
@@ -453,7 +509,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "8abdedfe1111a2dc2b0eb09092fd871d",
-    "name" : "KARNE"
+    "name" : "KARNE",
+    "internal_slug" : "karne"
   },
   {
     "abId" : "205",
@@ -461,7 +518,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "fa84d8fbbebe8ab9e7711755518789dc",
-    "name" : "Placement"
+    "name" : "Placement",
+    "internal_slug" : "placement"
   },
   {
     "abId" : "85",
@@ -469,7 +527,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "716103a017faaf909a4b843fd8b481e2",
-    "name" : "Bright Empty Rooms"
+    "name" : "Bright Empty Rooms",
+    "internal_slug" : "bright_empty_rooms"
   },
   {
     "abId" : "3",
@@ -477,7 +536,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "c2ff5587dd8c91e48678d6ecbea91219",
-    "name" : "7 Factorial"
+    "name" : "7 Factorial",
+    "internal_slug" : "7_factorial"
   },
   {
     "abId" : "1",
@@ -485,7 +545,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "e2bfa857788ef56380df294d9364d17d",
-    "name" : "ATOMS"
+    "name" : "ATOMS",
+    "internal_slug" : "atoms"
   },
   {
     "abId" : "4",
@@ -493,7 +554,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "dc0fe0481c0f0d8f1fba348eb932919e",
-    "name" : "Kaleidoscope"
+    "name" : "Kaleidoscope",
+    "internal_slug" : "kaleidoscope"
   },
   {
     "abId" : "336",
@@ -501,7 +563,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "f9f91cab7772d260ce62ab969fe49127",
-    "name" : "Polychrome Music"
+    "name" : "Polychrome Music",
+    "internal_slug" : "polychrome_music"
   },
   {
     "abId" : "44",
@@ -509,7 +572,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "8bf7c944dd7da09799809ff8795bd8ff",
-    "name" : "Event Horizon"
+    "name" : "Event Horizon",
+    "internal_slug" : "event_horizon"
   },
   {
     "abId" : "331",
@@ -517,7 +581,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "9b38ee768c447b721cb20cc0c1dda5e0",
-    "name" : "Metropixeland"
+    "name" : "Metropixeland",
+    "internal_slug" : "metropixeland"
   },
   {
     "abId" : "26",
@@ -525,7 +590,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "8bbc3be9fa0713af762c5c23681fa5ce",
-    "name" : "lūmen"
+    "name" : "lūmen",
+    "internal_slug" : "lumen"
   },
   {
     "abId" : "15",
@@ -533,7 +599,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "ef2492fb1fc4054a2f76b2ff99575639",
-    "name" : "Stereo"
+    "name" : "Stereo",
+    "internal_slug" : "stereo"
   },
   {
     "abId" : "280",
@@ -541,7 +608,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "ce6676996eed4a952f252de7cbd65ecf",
-    "name" : "Window"
+    "name" : "Window",
+    "internal_slug" : "window"
   },
   {
     "abId" : "457",
@@ -549,7 +617,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "32a5df5b44aa8f92e54ff2d5f9658798",
-    "name" : "Dopamine Machines"
+    "name" : "Dopamine Machines",
+    "internal_slug" : "dopamine_machines"
   },
   {
     "abId" : "1",
@@ -557,7 +626,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "c3fde49ca065ac7943676224b403b07d",
-    "name" : "Leggenda"
+    "name" : "Leggenda",
+    "internal_slug" : "leggenda"
   },
   {
     "abId" : "233",
@@ -565,7 +635,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "16f7f6da1fd0b5346563f7bb73662061",
-    "name" : "Chimera"
+    "name" : "Chimera",
+    "internal_slug" : "chimera"
   },
   {
     "abId" : "4",
@@ -573,7 +644,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "ef2492fb1fc4054a2f76b2ff99575639",
-    "name" : "Melting"
+    "name" : "Melting",
+    "internal_slug" : "melting"
   },
   {
     "abId" : "356",
@@ -581,7 +653,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "9b7ff2ab2bb537c6ebad7adbb7ca2aee",
-    "name" : "Essenza"
+    "name" : "Essenza",
+    "internal_slug" : "essenza"
   },
   {
     "abId" : "8",
@@ -589,7 +662,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "c2ff5587dd8c91e48678d6ecbea91219",
-    "name" : "WaveShapes"
+    "name" : "WaveShapes",
+    "internal_slug" : "waveshapes"
   },
   {
     "abId" : "5",
@@ -597,7 +671,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "ef2492fb1fc4054a2f76b2ff99575639",
-    "name" : "Implosion"
+    "name" : "Implosion",
+    "internal_slug" : "implosion"
   },
   {
     "abId" : "3",
@@ -605,7 +680,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "a98d925c2ade3926b27258313370e0ca",
-    "name" : "Diatom"
+    "name" : "Diatom",
+    "internal_slug" : "diatom"
   },
   {
     "abId" : "435",
@@ -613,7 +689,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "6ab1d1cc5b3e340753db2932a2cb9b0f",
-    "name" : "Flows"
+    "name" : "Flows",
+    "internal_slug" : "flows"
   },
   {
     "abId" : "57",
@@ -621,7 +698,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "f7aeb07a3cafd0d385cb3c7273c0771c",
-    "name" : "Epiphanies"
+    "name" : "Epiphanies",
+    "internal_slug" : "epiphanies"
   },
   {
     "abId" : "432",
@@ -629,7 +707,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "8d4b676042305a74b08b1843cc728eb7",
-    "name" : "Divergence"
+    "name" : "Divergence",
+    "internal_slug" : "divergence"
   },
   {
     "abId" : "32",
@@ -637,7 +716,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "21327f467415c4679401741d053f2d1a",
-    "name" : "Light Beams"
+    "name" : "Light Beams",
+    "internal_slug" : "light_beams"
   },
   {
     "abId" : "6",
@@ -645,7 +725,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "cd37ae66a52b25d32191114144650f60",
-    "name" : "THIS ART IS ILLEGAL!"
+    "name" : "THIS ART IS ILLEGAL!",
+    "internal_slug" : "this_art_is_illegal"
   },
   {
     "abId" : "6",
@@ -653,7 +734,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "ef2492fb1fc4054a2f76b2ff99575639",
-    "name" : "Quadrant"
+    "name" : "Quadrant",
+    "internal_slug" : "quadrant"
   },
   {
     "abId" : "15",
@@ -661,7 +743,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "f21ac5fd7bdb4006dc867ba982578321",
-    "name" : "Gravity"
+    "name" : "Gravity",
+    "internal_slug" : "gravity"
   },
   {
     "abId" : "479",
@@ -669,7 +752,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "54c9b7ec466f332e58304a1a580266a9",
-    "name" : "Bakhoor Assandal"
+    "name" : "Bakhoor Assandal",
+    "internal_slug" : "bakhoor_assandal"
   },
   {
     "abId" : "18",
@@ -677,7 +761,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "ef2492fb1fc4054a2f76b2ff99575639",
-    "name" : "Overlay"
+    "name" : "Overlay",
+    "internal_slug" : "overlay"
   },
   {
     "abId" : "249",
@@ -685,7 +770,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "c7bef60eb9e0cf81c6b2439ef2b6383d",
-    "name" : "Facets"
+    "name" : "Facets",
+    "internal_slug" : "facets"
   },
   {
     "abId" : "3",
@@ -693,7 +779,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "e815cc32a10e64a529e84f64402ae1b4",
-    "name" : "Contractions"
+    "name" : "Contractions",
+    "internal_slug" : "contractions"
   },
   {
     "abId" : "19",
@@ -701,7 +788,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "43fafd24b529b42ff4c069b78ad3eca3",
-    "name" : "R3sonance"
+    "name" : "R3sonance",
+    "internal_slug" : "r3sonance"
   },
   {
     "abId" : "212",
@@ -709,7 +797,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "91d1b2a2c340b28be530620ff22c5c84",
-    "name" : "Dive"
+    "name" : "Dive",
+    "internal_slug" : "dive"
   },
   {
     "abId" : "26",
@@ -717,7 +806,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "f0f2fe73c86dc262035a8d9ecf06d38a",
-    "name" : "Energy Sculpture"
+    "name" : "Energy Sculpture",
+    "internal_slug" : "energy_sculpture"
   },
   {
     "abId" : "56",
@@ -725,7 +815,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "5411bf000012cd0580c7b9a5a6c6c997",
-    "name" : "Aurora IV"
+    "name" : "Aurora IV",
+    "internal_slug" : "aurora_iv"
   },
   {
     "abId" : "0",
@@ -733,7 +824,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "7ef20a8f1fb7e969fa945b4f04ecaa53",
-    "name" : "One More Day"
+    "name" : "One More Day",
+    "internal_slug" : "one_more_day"
   },
   {
     "abId" : "1",
@@ -741,7 +833,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "32ffc19d2d2fbe376a64ecd65030d07a",
-    "name" : "EMPTY ROOMS"
+    "name" : "EMPTY ROOMS",
+    "internal_slug" : "empty_rooms"
   },
   {
     "abId" : "18",
@@ -749,7 +842,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "d2078caa3efe916caed053652d668dcb",
-    "name" : "JaggedMemories"
+    "name" : "JaggedMemories",
+    "internal_slug" : "jaggedmemories"
   },
   {
     "abId" : "377",
@@ -757,7 +851,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "c3814f0bc9f890c4d32a26f4c2e2f5d7",
-    "name" : "Ingress"
+    "name" : "Ingress",
+    "internal_slug" : "ingress"
   },
   {
     "abId" : "132",
@@ -765,7 +860,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "8da8f87a831b5ae57695411ade574ef3",
-    "name" : "Tangled"
+    "name" : "Tangled",
+    "internal_slug" : "tangled"
   },
   {
     "abId" : "133",
@@ -773,7 +869,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "8da8f87a831b5ae57695411ade574ef3",
-    "name" : "Organized Disruption"
+    "name" : "Organized Disruption",
+    "internal_slug" : "organized_disruption"
   },
   {
     "abId" : "162",
@@ -781,7 +878,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "8da8f87a831b5ae57695411ade574ef3",
-    "name" : "Democracity"
+    "name" : "Democracity",
+    "internal_slug" : "democracity"
   },
   {
     "abId" : "250",
@@ -789,7 +887,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "27746f2b37cc2f8a70d2305b576100e7",
-    "name" : "Cosmic Reef"
+    "name" : "Cosmic Reef",
+    "internal_slug" : "cosmic_reef"
   },
   {
     "abId" : "279",
@@ -797,7 +896,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "8da8f87a831b5ae57695411ade574ef3",
-    "name" : "Neophyte MMXXII"
+    "name" : "Neophyte MMXXII",
+    "internal_slug" : "neophyte_mmxxii"
   },
   {
     "abId" : "300",
@@ -805,7 +905,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "8da8f87a831b5ae57695411ade574ef3",
-    "name" : "Assemblage"
+    "name" : "Assemblage",
+    "internal_slug" : "assemblage"
   },
   {
     "abId" : "314",
@@ -813,7 +914,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "8da8f87a831b5ae57695411ade574ef3",
-    "name" : "Divenire"
+    "name" : "Divenire",
+    "internal_slug" : "divenire"
   },
   {
     "abId" : "369",
@@ -821,7 +923,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "8da8f87a831b5ae57695411ade574ef3",
-    "name" : "CENTURY 2052"
+    "name" : "CENTURY 2052",
+    "internal_slug" : "century_2052"
   },
   {
     "abId" : "371",
@@ -829,7 +932,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "0817750cb3f67f3645eeea2847dc02cb",
-    "name" : "JPEG"
+    "name" : "JPEG",
+    "internal_slug" : "jpeg"
   },
   {
     "abId" : "72",
@@ -837,7 +941,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "426098ee77a965a0e0ed7dd56d8f8dac",
-    "name" : "Frammenti"
+    "name" : "Frammenti",
+    "internal_slug" : "frammenti"
   },
   {
     "abId" : "88",
@@ -845,7 +950,8 @@
     "chain" : "ethereum",
     "chainId" : 1,
     "collectionId" : "8da8f87a831b5ae57695411ade574ef3",
-    "name" : "Orthogone"
+    "name" : "Orthogone",
+    "internal_slug" : "orthogone"
   },
   {
     "address" : "0x5a0121a0a21232ec0d024dab9017314509026480",
@@ -853,7 +959,8 @@
     "chainId" : 1,
     "collectionId" : "001b77228ac834941166157c70965a86",
     "name" : "Finiliar",
-    "tokenCount" : 10000
+    "tokenCount" : 10000,
+    "internal_slug" : "finiliar"
   },
   {
     "abId" : "23",
@@ -862,7 +969,8 @@
     "chainId" : 1,
     "collectionId" : "62fed6de62ee3c66ac30cbab9fd8a77d",
     "name" : "Archetype",
-    "tokenCount" : 600
+    "tokenCount" : 600,
+    "internal_slug" : "archetype"
   },
   {
     "abId" : "78",
@@ -871,7 +979,8 @@
     "chainId" : 1,
     "collectionId" : "0949ae798b3c017f5a4ba28247886220",
     "name" : "Fidenza",
-    "tokenCount" : 999
+    "tokenCount" : 999,
+    "internal_slug" : "fidenza"
   },
   {
     "abId" : "159",
@@ -880,7 +989,8 @@
     "chainId" : 1,
     "collectionId" : "c2ae8375f7ef9579d1004c829f126abf",
     "name" : "Fragments of an Infinite Field",
-    "tokenCount" : 1024
+    "tokenCount" : 1024,
+    "internal_slug" : "fragments_of_an_infinite_field"
   },
   {
     "abId" : "13",
@@ -889,7 +999,8 @@
     "chainId" : 1,
     "collectionId" : "3cbb5aefcaba02af25a1deb7f8c9143a",
     "name" : "Ringers",
-    "tokenCount" : 1000
+    "tokenCount" : 1000,
+    "internal_slug" : "ringers"
   },
   {
     "abId" : "29",
@@ -898,7 +1009,8 @@
     "chainId" : 1,
     "collectionId" : "a95c30fff3197cdaba91445279325cc7",
     "name" : "Flore Perdue",
-    "tokenCount" : 100
+    "tokenCount" : 100,
+    "internal_slug" : "flore_perdue"
   },
   {
     "abId" : "174",
@@ -907,7 +1019,8 @@
     "chainId" : 1,
     "collectionId" : "72ddc3e2981c2b29ba0edf9e6eb7c7ac",
     "name" : "Letters to My Future Self",
-    "tokenCount" : 1000
+    "tokenCount" : 1000,
+    "internal_slug" : "letters_to_my_future_self"
   },
   {
     "abId" : "0",
@@ -916,7 +1029,8 @@
     "chainId" : 1,
     "collectionId" : "9e8ea984c71e50ab0c3b5a679a674f30",
     "name" : "Instructions for Defacement",
-    "tokenCount" : 712
+    "tokenCount" : 712,
+    "internal_slug" : "instructions_for_defacement"
   },
   {
     "abId" : "163",
@@ -925,7 +1039,8 @@
     "chainId" : 1,
     "collectionId" : "d0b6cbef56f42c36e25ff83a81a7d295",
     "name" : "Meridian",
-    "tokenCount" : 1000
+    "tokenCount" : 1000,
+    "internal_slug" : "meridian"
   },
   {
     "abId" : "22",
@@ -934,7 +1049,8 @@
     "chainId" : 1,
     "collectionId" : "fa3e8df7a7bc8c6eaed5c2e64e329884",
     "name" : "The Eternal Pump",
-    "tokenCount" : 50
+    "tokenCount" : 50,
+    "internal_slug" : "the_eternal_pump"
   },
   {
     "address" : "0x46ac8540d698167fcbb9e846511beb8cf8af9bd8",
@@ -942,7 +1058,8 @@
     "chainId" : 1,
     "collectionId" : "f09dc93e48530b0803410a2b32c56cbf",
     "name" : "Math Art",
-    "tokenCount" : 100
+    "tokenCount" : 100,
+    "internal_slug" : "math_art"
   },
   {
     "address" : "0x46ac8540d698167fcbb9e846511beb8cf8af9bd8",
@@ -950,7 +1067,8 @@
     "chainId" : 1,
     "collectionId" : "144c64c061c4ba648713383cf8cc43a7",
     "name" : "Storms",
-    "tokenCount" : 75
+    "tokenCount" : 75,
+    "internal_slug" : "storms"
   },
   {
     "address" : "0x0427743df720801825a5c82e0582b1e915e0f750",
@@ -958,7 +1076,8 @@
     "chainId" : 1,
     "collectionId" : "871b7d328998282360628407aaf03f65",
     "name" : "0xmons",
-    "tokenCount" : 341
+    "tokenCount" : 341,
+    "internal_slug" : "0xmons"
   },
   {
     "address" : "0x46ac8540d698167fcbb9e846511beb8cf8af9bd8",
@@ -966,7 +1085,8 @@
     "chainId" : 1,
     "collectionId" : "3d03a379662061b89758b4d858b967eb",
     "name" : "Landscape Sublime",
-    "tokenCount" : 18
+    "tokenCount" : 18,
+    "internal_slug" : "landscape_sublime"
   },
   {
     "address" : "0x46ac8540d698167fcbb9e846511beb8cf8af9bd8",
@@ -974,7 +1094,8 @@
     "chainId" : 1,
     "collectionId" : "9db3ef33595e1a6439fc9464a28fec83",
     "name" : "Beyond the Veil",
-    "tokenCount" : 24
+    "tokenCount" : 24,
+    "internal_slug" : "beyond_the_veil"
   },
   {
     "address" : "0x46ac8540d698167fcbb9e846511beb8cf8af9bd8",
@@ -982,7 +1103,8 @@
     "chainId" : 1,
     "collectionId" : "2b0b7d3bb471c1e4580baed3a35067cf",
     "name" : "Tokyo Nude",
-    "tokenCount" : 55
+    "tokenCount" : 55,
+    "internal_slug" : "tokyo_nude"
   },
   {
     "address" : "0x72f28b86749cba12bbac8783a67bbc48d80c92e9",
@@ -990,7 +1112,8 @@
     "chainId" : 1,
     "collectionId" : "22c88225c2e244fcfb994a12b654d85b",
     "name" : "Temporals",
-    "tokenCount" : 222
+    "tokenCount" : 222,
+    "internal_slug" : "temporals"
   },
   {
     "address" : "0xBE8E0F43A2CEB7ee944B4FC5F4f54b078223422c",
@@ -998,7 +1121,8 @@
     "chainId" : 1,
     "collectionId" : "418936174274cf2fb348f0458d37b5d5",
     "name" : "COSMOS",
-    "tokenCount" : 60
+    "tokenCount" : 60,
+    "internal_slug" : "cosmos"
   },
   {
     "address" : "0xabfae8a54e6817f57f9de7796044e9a60e61ad67",
@@ -1006,7 +1130,8 @@
     "chainId" : 1,
     "collectionId" : "e43431dc5b6433737504e6ebbbb45089",
     "name" : "Bonkler",
-    "tokenCount" : 150
+    "tokenCount" : 150,
+    "internal_slug" : "bonkler"
   },
   {
     "address" : "0x17abd4cc1382397ec2b675f98621c3ba809897de",
@@ -1015,21 +1140,24 @@
     "collectionId" : "smm",
     "name" : "Super Metal Mons!",
     "tokenCount" : 144,
-    "webURL" : "https://opensea.io/collection/supermetalmons"
+    "webURL" : "https://opensea.io/collection/supermetalmons",
+    "internal_slug" : "super_metal_mons"
   },
   {
     "address" : "0x17abd4cc1382397ec2b675f98621c3ba809897de",
     "chain" : "ethereum",
     "chainId" : 1,
     "name" : "Super Metal Mons!!",
-    "tokenCount" : 777
+    "tokenCount" : 777,
+    "internal_slug" : "super_metal_mons_2"
   },
   {
     "address" : "0x32d6ba9aa1b06fbcaeb3f6c5ff05cd6a77dcf387",
     "chain" : "ethereum",
     "chainId" : 1,
     "name" : "Super Sofubi",
-    "tokenCount" : 300
+    "tokenCount" : 300,
+    "internal_slug" : "super_sofubi"
   },
   {
     "address" : "0xf528e3381372c43f5e8a55b3e6c252e32f1a26e4",
@@ -1037,77 +1165,88 @@
     "chainId" : 1,
     "collectionId" : "80e308cf1a65bcb4fcc194d208ada0c5",
     "name" : "Bibos",
-    "tokenCount" : 1111
+    "tokenCount" : 1111,
+    "internal_slug" : "bibos"
   },
   {
     "address" : "0x0c640779dbd6cda40d54350344dfd37d99aed8aa",
     "chain" : "zora",
     "chainId" : 7777777,
     "name" : "Very Internet Printout",
-    "tokenCount" : 24
+    "tokenCount" : 24,
+    "internal_slug" : "very_internet_printout"
   },
   {
     "address" : "0xc2276a4a03e7c2e2fa122692b07a870eff43cf51",
     "chain" : "ethereum",
     "chainId" : 1,
     "name" : "All My Files",
-    "tokenCount" : 1935
+    "tokenCount" : 1935,
+    "internal_slug" : "all_my_files"
   },
   {
     "address" : "0x160ee826cb805d9109005250e18e5371107c2e1f",
     "chain" : "ethereum",
     "chainId" : 1,
     "name" : "Everything I Own",
-    "tokenCount" : 1026
+    "tokenCount" : 1026,
+    "internal_slug" : "everything_i_own"
   },
   {
     "address" : "0x3ffe880dd25d870e2acf54f4c639c50704fadee8",
     "chain" : "zora",
     "chainId" : 7777777,
     "name" : "Cats: A form study",
-    "tokenCount" : 22
+    "tokenCount" : 22,
+    "internal_slug" : "cats_a_form_study"
   },
   {
     "address" : "0xEC0a7A26456B8451aefc4b00393ce1BefF5eB3e9",
     "chain" : "ethereum",
     "chainId" : 1,
     "name" : "Allstarz",
-    "tokenCount" : 10000
+    "tokenCount" : 10000,
+    "internal_slug" : "allstarz"
   },
   {
     "address" : "0x6120991c423f3566753d3c6c91a5b50d7d2461b4",
     "chain" : "ethereum",
     "chainId" : 1,
     "name" : "Allstarz PSX",
-    "tokenCount" : 2500
+    "tokenCount" : 2500,
+    "internal_slug" : "allstarz_psx"
   },
   {
     "address" : "0x91680cf5f9071cafae21b90ebf2c9cc9e480fb93",
     "chain" : "ethereum",
     "chainId" : 1,
     "name" : "frank",
-    "tokenCount" : 2000
+    "tokenCount" : 2000,
+    "internal_slug" : "frank"
   },
   {
     "address" : "0xc62e3fd5b02618f90dd07d1e478963038fa9089c",
     "chain" : "ethereum",
     "chainId" : 1,
     "name" : "milady aura petz",
-    "tokenCount" : 1884
+    "tokenCount" : 1884,
+    "internal_slug" : "milady_aura_petz"
   },
   {
     "address" : "0x9c8ff314c9bc7f6e59a9d9225fb22946427edc03",
     "chain" : "ethereum",
     "chainId" : 1,
     "name" : "Nouns",
-    "tokenCount" : 1933
+    "tokenCount" : 1933,
+    "internal_slug" : "nouns"
   },
   {
     "address" : "0x1ee3bcc37b747c29a0583352b3d9541f393cea82",
     "chain" : "ethereum",
     "chainId" : 1,
     "name" : "Gushies",
-    "tokenCount" : 545
+    "tokenCount" : 545,
+    "internal_slug" : "gushies"
   },
   {
     "address" : "0xa29798f81ae9c7110091527edd8d869604a2dac8",
@@ -1115,42 +1254,48 @@
     "chainId" : 1,
     "collectionId" : "5dd402105864ca1b290a19037612cd00",
     "name" : "EMOJIPACK",
-    "tokenCount" : 71
+    "tokenCount" : 71,
+    "internal_slug" : "emojipack"
   },
   {
     "address" : "0x44096d6de5d17020ce0c41d75ce27b33c6d28e1a",
     "chain" : "ethereum",
     "chainId" : 1,
     "name" : "tubbypxgan",
-    "tokenCount" : 1335
+    "tokenCount" : 1335,
+    "internal_slug" : "tubbypxgan"
   },
   {
     "address" : "0xf694002c6d990036916013e8562fe6a26d44586d",
     "chain" : "ethereum",
     "chainId" : 1,
     "name" : "Ladies",
-    "tokenCount" : 500
+    "tokenCount" : 500,
+    "internal_slug" : "ladies"
   },
   {
     "address" : "0xeeca64ea9fcf99a22806cd99b3d29cf6e8d54925",
     "chain" : "ethereum",
     "chainId" : 1,
     "name" : "Sproto Gremlins",
-    "tokenCount" : 3333
+    "tokenCount" : 3333,
+    "internal_slug" : "sproto_gremlins"
   },
   {
     "address" : "0x181cde16170fac94c27584492cc9842e2cb3bd54",
     "chain" : "ethereum",
     "chainId" : 1,
     "name" : "pfp+",
-    "tokenCount" : 376
+    "tokenCount" : 376,
+    "internal_slug" : "pfpplus"
   },
   {
     "address" : "0x9d09df7143ed764baa9427c05ca504d4241e2dba",
     "chain" : "ethereum",
     "chainId" : 1,
     "name" : "Bloomers",
-    "tokenCount" : 502
+    "tokenCount" : 502,
+    "internal_slug" : "bloomers"
   },
   {
     "address" : "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -1158,7 +1303,8 @@
     "chainId" : 1,
     "collectionId" : "71f6ddfea755d56de211919de8fc87ec",
     "name" : "Parnassus",
-    "tokenCount" : 100
+    "tokenCount" : 100,
+    "internal_slug" : "parnassus"
   },
   {
     "address" : "0x1d2550d198197df1a10af515cf2ea0d790889b93",
@@ -1166,7 +1312,8 @@
     "chainId" : 8453,
     "collectionId" : "eeb4d062d7c79f1145c10a7d200781b1",
     "name" : "Babes",
-    "tokenCount" : 339
+    "tokenCount" : 339,
+    "internal_slug" : "babes"
   },
   {
     "address" : "0x41c2e39bd5c2cf5a93914545228c90ab904a79d0",
@@ -1174,7 +1321,8 @@
     "chainId" : 1,
     "collectionId" : "60e1b32bbecc294747acd29283997fdb",
     "name" : "Changing Places",
-    "tokenCount" : 500
+    "tokenCount" : 500,
+    "internal_slug" : "changing_places"
   },
   {
     "address" : "0x92e64d1a27f4f42ecaf0ef7f725f119751113a38",
@@ -1182,7 +1330,8 @@
     "chainId" : 1,
     "collectionId" : "a5e40fa144e354b53d60abaaef1732e2",
     "name" : "The Abyssal Unseen",
-    "tokenCount" : 1000
+    "tokenCount" : 1000,
+    "internal_slug" : "the_abyssal_unseen"
   },
   {
     "address" : "0x5198dfdc6efd06db7d3ee7c65e794caadca4296a",
@@ -1190,7 +1339,8 @@
     "chainId" : 1,
     "collectionId" : "8cefcc309feca1168f86592b22c1c24d",
     "name" : "Crowded Fields",
-    "tokenCount" : 41
+    "tokenCount" : 41,
+    "internal_slug" : "crowded_fields"
   },
   {
     "address" : "0x9e7d4a73fe79359733bb2e5dad76ca5efd65ca7e",
@@ -1198,7 +1348,8 @@
     "chainId" : 1,
     "collectionId" : "08d6aaf47dc6b529fb63597a57c26407",
     "name" : "Fifty Ways of Looking at a Poem",
-    "tokenCount" : 44
+    "tokenCount" : 44,
+    "internal_slug" : "fifty_ways_of_looking_at_a_poem"
   },
   {
     "address" : "0x4bef3322005d503f02f9dcda5aca11ec7fb8f7c7",
@@ -1206,7 +1357,8 @@
     "chainId" : 1,
     "collectionId" : "41e5c67c186d3fcfad65bc991cbfd66c",
     "name" : "Vacation",
-    "tokenCount" : 428
+    "tokenCount" : 428,
+    "internal_slug" : "vacation"
   },
   {
     "address" : "0xa80617371a5f511bf4c1ddf822e6040acaa63e71",
@@ -1214,7 +1366,8 @@
     "chainId" : 1,
     "collectionId" : "c645d0e0982854db7d397645efc8bab4",
     "name" : "CAR",
-    "tokenCount" : 999
+    "tokenCount" : 999,
+    "internal_slug" : "car"
   },
   {
     "address" : "0x8713cb7bcf1cab261a30882fdf224cd2246cb711",
@@ -1222,7 +1375,8 @@
     "chainId" : 1,
     "collectionId" : "f470d8cead31b5fb399c238a8e0fb87f",
     "name" : "Red Trucks",
-    "tokenCount" : 50
+    "tokenCount" : 50,
+    "internal_slug" : "red_trucks"
   },
   {
     "address" : "0xf445fe66f1322a12bb4b9364ff4e4549754e0935",
@@ -1230,7 +1384,8 @@
     "chainId" : 1,
     "collectionId" : "814722f021add634f952ac39cf6923ad",
     "name" : "Constant",
-    "tokenCount" : 40
+    "tokenCount" : 40,
+    "internal_slug" : "constant"
   },
   {
     "address" : "0x45e71e4c25ac65c0a553e08c78d1e821103e3efa",
@@ -1238,7 +1393,8 @@
     "chainId" : 1,
     "collectionId" : "20f51f9fc697507118f5215d5e3a2261",
     "name" : "screenshot catalog",
-    "tokenCount" : 331
+    "tokenCount" : 331,
+    "internal_slug" : "screenshot_catalog"
   },
   {
     "address" : "0x74f41f4d43c064f69958c56536381a235be906c4",
@@ -1246,91 +1402,104 @@
     "chainId" : 1,
     "collectionId" : "88555cfa692828b54b413e7cfc3e6bcd",
     "name" : "IMAGINED WRECKAGE",
-    "tokenCount" : 96
+    "tokenCount" : 96,
+    "internal_slug" : "imagined_wreckage"
   },
   {
     "address" : "2A6Rr4fKgDDYrTMJ1aNo4njNkGNyr7Bw298tYXHwGMcu",
     "chain" : "solana",
     "chainId" : 0,
     "name" : "Holes",
-    "tokenCount" : 777
+    "tokenCount" : 777,
+    "internal_slug" : "holes"
   },
   {
     "address" : "2WfuhEW5EAKSoMCjYGGxsPWTvDkZKzQcBJF5ywuB8mhW",
     "chain" : "solana",
     "chainId" : 0,
     "name" : "Horses?2",
-    "tokenCount" : 777
+    "tokenCount" : 777,
+    "internal_slug" : "horses2"
   },
   {
     "address" : "2xF7dq3maFLud8FQUYAyLiWucdF7RePyzHJs7NkurkoD",
     "chain" : "solana",
     "chainId" : 0,
     "name" : "Scarecrow",
-    "tokenCount" : 4048
+    "tokenCount" : 4048,
+    "internal_slug" : "scarecrow"
   },
   {
     "address" : "39cqhoa3HRNUvJiYBm2dRqqDK7YunzNXw9WVDQ34VYNC",
     "chain" : "solana",
     "chainId" : 0,
     "name" : "BUSTA BOUNCA",
-    "tokenCount" : 2434
+    "tokenCount" : 2434,
+    "internal_slug" : "busta_bounca"
   },
   {
     "address" : "3MDqanDmmGqvFQXtjCUcdEmHUXNfpQHcAaBPEoqfK5FE",
     "chain" : "solana",
     "chainId" : 0,
     "name" : "Cloudcastle ☆ 限定版アルファ",
-    "tokenCount" : 204
+    "tokenCount" : 204,
+    "internal_slug" : "cloudcastle"
   },
   {
     "address" : "3dWnCTx5gY3F9hVhiMu7b5we6WSKnyzL9CYdE1rW1HUm",
     "chain" : "solana",
     "chainId" : 0,
     "name" : "Tojiba Disc Buddies",
-    "tokenCount" : 4998
+    "tokenCount" : 4998,
+    "internal_slug" : "tojiba_disc_buddies"
   },
   {
     "address" : "41XXMADUvuP9H9w1QPyYnPAMB7Hvc2NsNugy7668N6R3",
     "chain" : "solana",
     "chainId" : 0,
     "name" : "PRAY4LOWBIE",
-    "tokenCount" : 333
+    "tokenCount" : 333,
+    "internal_slug" : "pray4lowbie"
   },
   {
     "address" : "4rWMqk4PXKrWdmA9QSJB27CYwThYmDvZ9rwcZsQfnJ6K",
     "chain" : "solana",
     "chainId" : 0,
     "name" : "BRICKS",
-    "tokenCount" : 1500
+    "tokenCount" : 1500,
+    "internal_slug" : "bricks"
   },
   {
     "address" : "4sx77DrZ4ia5kVdx3THTv68QgPsSvorNSdwX3F5m75Bs",
     "chain" : "solana",
     "chainId" : 0,
     "name" : "owee",
-    "tokenCount" : 333
+    "tokenCount" : 333,
+    "internal_slug" : "owee"
   },
   {
     "address" : "5AQwfhqDRmrB5RLfyi4S5TPJVxMtc3rKMRd2PKAGqKaV",
     "chain" : "solana",
     "chainId" : 0,
     "name" : "POSTCARDs2",
-    "tokenCount" : 101
+    "tokenCount" : 101,
+    "internal_slug" : "postcards2"
   },
   {
     "address" : "5AVocDEamuwaZf3bXP6tcg52w7cgBvMNJAYvG9rmouCh",
     "chain" : "solana",
     "chainId" : 0,
     "name" : "Little Fellow",
-    "tokenCount" : 2024
+    "tokenCount" : 2024,
+    "internal_slug" : "little_fellow"
   },
   {
     "address" : "5fCjwvmjJ8gCnYbGBVuUhiCFHMtATo19MdBAxNGsirnS",
     "chain" : "solana",
     "chainId" : 0,
     "name" : "hyperwarhaul",
-    "tokenCount" : 143
+    "tokenCount" : 143,
+    "internal_slug" : "hyperwarhaul"
   },
   {
     "address" : "9NmKayqk56p3w8cMThW5H5CkECdLNCmfU8sAfcDXjuu6",
@@ -1338,265 +1507,303 @@
     "chainId" : 0,
     "name" : "Artifact Magazine #2",
     "playerBackgroundColor" : "#FFFFFF",
-    "tokenCount" : 99
+    "tokenCount" : 99,
+    "internal_slug" : "artifact_magazine_2"
   },
   {
     "address" : "BF3jqDHp4sbhcu6pwDH6TWhrYb681a8fusowjRMEYABj",
     "chain" : "solana",
     "chainId" : 0,
     "name" : "CHOMSKY HONKS",
-    "tokenCount" : 1337
+    "tokenCount" : 1337,
+    "internal_slug" : "chomsky_honks"
   },
   {
     "address" : "Bkp4sEpGBgHkjtXpBdZiCxiMhAnx2aY6m3a5E8RdgY6S",
     "chain" : "solana",
     "chainId" : 0,
     "name" : "EDIBLE KAWAII DEMONZ®",
-    "tokenCount" : 3333
+    "tokenCount" : 3333,
+    "internal_slug" : "edible_kawaii_demonz"
   },
   {
     "address" : "BsnjB6xDv2HNenoZiNFDE1uMZVj86ciXwYAX75nUTDSt",
     "chain" : "solana",
     "chainId" : 0,
     "name" : "Shelves",
-    "tokenCount" : 1666
+    "tokenCount" : 1666,
+    "internal_slug" : "shelves"
   },
   {
     "address" : "DxTsszf3urr69ffd7FB5CL3DKhr6es885GuW3eBArMVf",
     "chain" : "solana",
     "chainId" : 0,
     "name" : "imagined",
-    "tokenCount" : 84
+    "tokenCount" : 84,
+    "internal_slug" : "imagined"
   },
   {
     "address" : "HpGDYGz6aRUs5qbvp1dmWGKTicQctX4PixfcouAQDCHF",
     "chain" : "solana",
     "chainId" : 0,
     "name" : "card nft",
-    "tokenCount" : 7777
+    "tokenCount" : 7777,
+    "internal_slug" : "card_nft"
   },
   {
     "address" : "JDmZF2EsfWHcq9evTLDfqqUhAHh3zTYMy2rTeEfhx9hy",
     "chain" : "solana",
     "chainId" : 0,
     "name" : "Heavy Liquid Graphic",
-    "tokenCount" : 999
+    "tokenCount" : 999,
+    "internal_slug" : "heavy_liquid_graphic"
   },
   {
     "address" : "JCTP3kK3xGtWs5mDHxJBuRro38HftaiCDdKsfkXuK2gH",
     "chain" : "solana",
     "chainId" : 0,
-    "name" : "Poncho Drifella"
+    "name" : "Poncho Drifella",
+    "internal_slug" : "poncho_drifella"
   },
   {
     "address" : "r1pCPYkbbpZWv7RCvuCMtpA3NSQY3fzVFo6HL43A4ot",
     "chain" : "solana",
     "chainId" : 0,
     "name" : "John",
-    "tokenCount" : 3210
+    "tokenCount" : 3210,
+    "internal_slug" : "john"
   },
   {
     "address" : "7EwqvvuojMQHAvjE8xsdSJuBkqz692pm6Kg3UjyJocMM",
     "chain" : "solana",
     "chainId" : 0,
     "name" : "Lucky 13 Pixel Fairies",
-    "tokenCount" : 89
+    "tokenCount" : 89,
+    "internal_slug" : "lucky_13_pixel_fairies"
   },
   {
     "address" : "21nXQ4m9zfTsqAHADNjFHRJBxnoynMsL9HRSpdwqKHQH",
     "chain" : "solana",
     "chainId" : 0,
     "name" : "Blume™",
-    "tokenCount" : 368
+    "tokenCount" : 368,
+    "internal_slug" : "blume"
   },
   {
     "address" : "GVQ4Zsd7jLZbVCxq9QsmQySuKekwT1XbMSjGbwt8UtcB",
     "chain" : "solana",
     "chainId" : 0,
     "name" : "Flopawrettes",
-    "tokenCount" : 4439
+    "tokenCount" : 4439,
+    "internal_slug" : "flopawrettes"
   },
   {
     "address" : "C76hNg1GqHKPyG8YF1VFfSNAEDXswYiUUT1rTedbHMFM",
     "chain" : "solana",
     "chainId" : 0,
     "name" : "ICSA",
-    "tokenCount" : 2899
+    "tokenCount" : 2899,
+    "internal_slug" : "icsa"
   },
   {
     "address" : "ArqtvxDZ1nfWgnGiHYCFTLj4FSVuyf7tmkAetQ9SScyQ",
     "chain" : "solana",
     "chainId" : 0,
     "name" : "Drifella III",
-    "tokenCount" : 1263
+    "tokenCount" : 1263,
+    "internal_slug" : "drifella_iii"
   },
   {
     "address" : "7cHTjqr2S8uUCrG3TVFvFix3vcLjhPiwrtRsAeJtESRj",
     "chain" : "solana",
     "chainId" : 0,
     "name" : "Drifella 2",
-    "tokenCount" : 9900
+    "tokenCount" : 9900,
+    "internal_slug" : "drifella_2"
   },
   {
     "address" : "BBkMWyu4RRrNSdjGDV27FGgZZ58o7jfvQY1MrD2iTfs6",
     "chain" : "solana",
     "chainId" : 0,
     "name" : "Vehicle Wammin",
-    "tokenCount" : 1289
+    "tokenCount" : 1289,
+    "internal_slug" : "vehicle_wammin"
   },
   {
     "address" : "HCWQe6eVmzawiQTf58kM795eGTvvqNZSUrbvnEYokd4B",
     "chain" : "solana",
     "chainId" : 0,
     "name" : "FOODIEZ",
-    "tokenCount" : 4424
+    "tokenCount" : 4424,
+    "internal_slug" : "foodiez"
   },
   {
     "address" : "F2nMPDhNSoSDdCVjENSvbxqTvF7e5BV4YsfYNMGv2rqM",
     "chain" : "solana",
     "chainId" : 0,
     "name" : "Tents",
-    "tokenCount" : 1116
+    "tokenCount" : 1116,
+    "internal_slug" : "tents"
   },
   {
     "address" : "6UTLD74x8gefsWqP7oDNm3MM1VJ5CQe31MKdpHo19vcT",
     "chain" : "solana",
     "chainId" : 0,
     "name" : "Record of Hyperwar",
-    "tokenCount" : 549
+    "tokenCount" : 549,
+    "internal_slug" : "record_of_hyperwar"
   },
   {
     "address" : "96THxzqE5yukFxzsqJaR2SrsLL2wJtuapi6827gkUD6T",
     "chain" : "solana",
     "chainId" : 0,
     "name" : "Drilady",
-    "tokenCount" : 2500
+    "tokenCount" : 2500,
+    "internal_slug" : "drilady"
   },
   {
     "address" : "8bP9cNrTrwuMnmUsSHZ9ReTiJhKVmyjXUfUUrjkqEmef",
     "chain" : "solana",
     "chainId" : 0,
     "name" : "Yeche Lunch",
-    "tokenCount" : 32
+    "tokenCount" : 32,
+    "internal_slug" : "yeche_lunch"
   },
   {
     "address" : "CjL5WpAmf4cMEEGwZGTfTDKWok9a92ykq9aLZrEK2D5H",
     "chain" : "solana",
     "chainId" : 0,
     "name" : "little swag world",
-    "tokenCount" : 3327
+    "tokenCount" : 3327,
+    "internal_slug" : "little_swag_world"
   },
   {
     "address" : "2W68ofaUBEQYoFUwEWWHoYq8MBauPbxhZtv71vqZsyhp",
     "chain" : "solana",
     "chainId" : 0,
     "name" : "Organic Evolution",
-    "tokenCount" : 72
+    "tokenCount" : 72,
+    "internal_slug" : "organic_evolution"
   },
   {
     "address" : "9xAjzT43stvxq8fNLtWxYu3sBYWdbZP22fQqzQdNYMzY",
     "chain" : "solana",
     "chainId" : 0,
     "name" : "TOJIA",
-    "tokenCount" : 4438
+    "tokenCount" : 4438,
+    "internal_slug" : "tojia"
   },
   {
     "address" : "AU9F91RsrqQEeN8sshErtQnT8CgYxrg9YD9n4AHHvus7",
     "chain" : "solana",
     "chainId" : 0,
     "name" : "Tojiba CPU Corp",
-    "tokenCount" : 2221
+    "tokenCount" : 2221,
+    "internal_slug" : "tojiba_cpu_corp"
   },
   {
     "address" : "CHuQxKgso7sGagfakRPeii6xQGByJtnMm3V3ho7ZTJBn",
     "chain" : "solana",
     "chainId" : 0,
     "name" : "The Same Old Gag",
-    "tokenCount" : 616
+    "tokenCount" : 616,
+    "internal_slug" : "the_same_old_gag"
   },
   {
     "address" : "CzT9mQJzacH9kiJ9k2qrXVdN3JeRp8rPZH3uJXra1rMC",
     "chain" : "solana",
     "chainId" : 0,
     "name" : "Rêverie",
-    "tokenCount" : 333
+    "tokenCount" : 333,
+    "internal_slug" : "reverie"
   },
   {
     "address" : "8zGqfwinkWmcAeFXnDEWiwYxx8FSaL98tekSXWLdgGj3",
     "chain" : "solana",
     "chainId" : 0,
     "name" : "Mifella Genesis",
-    "tokenCount" : 4381
+    "tokenCount" : 4381,
+    "internal_slug" : "mifella_genesis"
   },
   {
     "address" : "C22esis7kQMbX9JGWsMaKvsh1X5GeBmHPju28jiKDyAP",
     "chain" : "solana",
     "chainId" : 0,
     "name" : "swag pack",
-    "tokenCount" : 467
+    "tokenCount" : 467,
+    "internal_slug" : "swag_pack"
   },
   {
     "address" : "Gzzo24jJSDzXYGnWx6sgesWRVumNayM1vwvKWWruZbzs",
     "chain" : "solana",
     "chainId" : 0,
     "name" : "Little Swag World: HEXP",
-    "tokenCount" : 332
+    "tokenCount" : 332,
+    "internal_slug" : "little_swag_world_hexp"
   },
   {
     "address" : "KT1PkEhFLSvvsw9wwf6mxvVJ7Q633FrYAyX6",
     "chain" : "tezos",
     "chainId" : 0,
     "name" : "BESTIARY",
-    "tokenCount" : 24
+    "tokenCount" : 24,
+    "internal_slug" : "bestiary"
   },
   {
     "address" : "KT1D9bUmPBXK1KgpgaTDjH6yNnBubof1ELzK",
     "chain" : "tezos",
     "chainId" : 0,
     "name" : "Drawing Exercises",
-    "tokenCount" : 79
+    "tokenCount" : 79,
+    "internal_slug" : "drawing_exercises"
   },
   {
     "address" : "KT1W9KTJDVQQtscFgT1wVJXSJWEBFsxxccGB",
     "chain" : "tezos",
     "chainId" : 0,
     "name" : "LAVA STUDIES",
-    "tokenCount" : 9
+    "tokenCount" : 9,
+    "internal_slug" : "lava_studies"
   },
   {
     "address" : "KT1WEmBKKQGMqvdWTpTYF2EXkriM4QBKoKjb",
     "chain" : "tezos",
     "chainId" : 0,
     "name" : "moeshit",
-    "tokenCount" : 1593
+    "tokenCount" : 1593,
+    "internal_slug" : "moeshit"
   },
   {
     "address" : "KT1ReF4XJNvhqiC5ckP4XcH6GZdpDzKHpKc8",
     "chain" : "tezos",
     "chainId" : 0,
     "name" : "real world data",
-    "tokenCount" : 129
+    "tokenCount" : 129,
+    "internal_slug" : "real_world_data"
   },
   {
     "address" : "KT1W8veemEfwiZZveFW3ktaz2x3tvEz8Tx3q",
     "chain" : "tezos",
     "chainId" : 0,
     "name" : "FRATZE",
-    "tokenCount" : 51
+    "tokenCount" : 51,
+    "internal_slug" : "fratze"
   },
   {
     "address" : "KT1UjurJFhKpw7WSmuGfRyUvYXLwTmKWwUDR",
     "chain" : "tezos",
     "chainId" : 0,
     "name" : "Multi Windows",
-    "tokenCount" : 208
+    "tokenCount" : 208,
+    "internal_slug" : "multi_windows"
   },
   {
     "address" : "KT1Aaas4fpfgpdbwopnba9SUhvSsswSTSdo2",
     "chain" : "tezos",
     "chainId" : 0,
     "name" : "skomra",
-    "tokenCount" : 140
+    "tokenCount" : 140,
+    "internal_slug" : "skomra"
   },
   {
     "address" : "0xeed41d06ae195ca8f5cacace4cd691ee75f0683f",
@@ -1604,7 +1811,8 @@
     "chainId" : 1,
     "name" : "Cigawrette Packs",
     "tokenCount" : 9997,
-    "iosOnly" : true
+    "iosOnly" : true,
+    "internal_slug" : "cigawrette_packs"
   },
   {
     "address" : "0x30f9efa712dde239a13a5fef1a8c7a6ac530a26d",
@@ -1612,7 +1820,8 @@
     "chainId" : 1,
     "name" : "MILADY AURA2 AFTER DEATH",
     "tokenCount" : 1369,
-    "iosOnly" : true
+    "iosOnly" : true,
+    "internal_slug" : "milady_aura2_after_death"
   },
   {
     "address" : "0x23b72f7458a204446983f544d655df10f70533e9",
@@ -1620,7 +1829,8 @@
     "chainId" : 1,
     "name" : "Quantizer",
     "tokenCount" : 256,
-    "iosOnly" : true
+    "iosOnly" : true,
+    "internal_slug" : "quantizer"
   },
   {
     "address" : "0x5a4a74fca2e51a57ccd17e2d01a5a84dd7d9e9d9",
@@ -1628,7 +1838,8 @@
     "chainId" : 1,
     "name" : "Lost Memories",
     "tokenCount" : 69,
-    "iosOnly" : true
+    "iosOnly" : true,
+    "internal_slug" : "lost_memories"
   },
   {
     "address" : "0x9a78fc8fa54350c2b5629211b9f8c577408f24a0",
@@ -1636,7 +1847,8 @@
     "chainId" : 1,
     "name" : "IN YOUR DREAMS",
     "tokenCount" : 76,
-    "iosOnly" : true
+    "iosOnly" : true,
+    "internal_slug" : "in_your_dreams"
   },
   {
     "address" : "0xc4bd6aeb9e67502e1564642a1820c8576a6e808b",
@@ -1644,7 +1856,8 @@
     "chainId" : 1,
     "name" : "Safe Haven",
     "tokenCount" : 23,
-    "iosOnly" : true
+    "iosOnly" : true,
+    "internal_slug" : "safe_haven"
   },
   {
     "address" : "0x6dc47d63df19198e87b7c500c6ed9861b0fab7de",
@@ -1652,7 +1865,8 @@
     "chainId" : 1,
     "name" : "BURNT UMBER BROKEN SILVER AMERICAN SPIRIT",
     "tokenCount" : 60,
-    "iosOnly" : true
+    "iosOnly" : true,
+    "internal_slug" : "burnt_umber_broken_silver_american_spirit"
   },
   {
     "address" : "0xc292e3e1160500cb9832b7e40f5585d66c639503",
@@ -1660,7 +1874,8 @@
     "chainId" : 1,
     "name" : "Sketchbook B",
     "tokenCount" : 64,
-    "iosOnly" : true
+    "iosOnly" : true,
+    "internal_slug" : "sketchbook_b"
   },
   {
     "address" : "0x8ffc6bfbce284b508f0e53b8599f8f03ffeb452f",
@@ -1668,13 +1883,15 @@
     "chainId" : 1,
     "name" : "Mi Note 2",
     "tokenCount" : 1114,
-    "iosOnly" : true
+    "iosOnly" : true,
+    "internal_slug" : "mi_note_2"
   },
   {
     "address" : "EAzEpagtyeRAx9npnpVMpygoA8ouX7DRpLTghhPvYTiu",
     "chain" : "solana",
     "chainId" : 0,
-    "name" : "Card NFT 2"
+    "name" : "Card NFT 2",
+    "internal_slug" : "card_nft_2"
   },
   {
     "address" : "0xd497a414bb00803e846b53d07fcb742831b24906",
@@ -1682,7 +1899,8 @@
     "chainId" : 1,
     "name" : "Tigerbob",
     "tokenCount" : 1000,
-    "iosOnly" : true
+    "iosOnly" : true,
+    "internal_slug" : "tigerbob"
   },
   {
     "address" : "0x4e1f41613c9084fdb9e34e11fae9412427480e56",
@@ -1690,7 +1908,8 @@
     "chainId" : 1,
     "name" : "Terraforms",
     "tokenCount" : 9911,
-    "iosOnly" : true
+    "iosOnly" : true,
+    "internal_slug" : "terraforms"
   },
   {
     "address" : "0x6873e99fb85de770cc89fa37bc9c859fc2ebaf60",
@@ -1698,7 +1917,8 @@
     "chainId" : 1,
     "name" : "Shishi",
     "tokenCount" : 3520,
-    "iosOnly" : true
+    "iosOnly" : true,
+    "internal_slug" : "shishi"
   },
   {
     "address" : "0xda1bf9b5de160cecde3f9304b187a2f5f5b83707",
@@ -1706,13 +1926,15 @@
     "chainId" : 1,
     "name" : "CHRONOPHOTOGRAPH",
     "tokenCount" : 267,
-    "iosOnly" : true
+    "iosOnly" : true,
+    "internal_slug" : "chronophotograph"
   },
   {
     "address" : "9sSCFj6NGEfmDS4QQEVqv17ZANen7pmowqnCiUBRPjd9",
     "chain" : "solana",
     "chainId" : 0,
     "name" : "Horses?7",
-    "tokenCount" : 1777
+    "tokenCount" : 1777,
+    "internal_slug" : "horses7"
   }
 ]

@@ -12,7 +12,7 @@ const {
   writeCoverContents,
   writePlaceholderCover,
 } = require("./cover_images");
-const { suggestedItemId } = require("./suggested_items");
+const { assignInternalSlugs, suggestedItemId } = require("./suggested_items");
 
 const DEFAULT_BUNDLE_PATH = path.join("Suggested Items", "Suggested.bundle");
 const DEFAULT_COVERS_PATH = path.join("Suggested Items", "Covers.xcassets");
@@ -1340,7 +1340,7 @@ async function writeBundle(collections, context, failedCollections = []) {
 
   const existingItems = JSON.parse(await fs.readFile(itemsPath, "utf8"));
   assertUniqueCoverAssetIds(collections, { caseInsensitive: true });
-  const updatedItems = mergeSuggestedItems(existingItems, collections);
+  const updatedItems = assignInternalSlugs(mergeSuggestedItems(existingItems, collections));
 
   for (const collection of collections) {
     const outputPath = path.join(tokensPath, `${collection.collectionId}.json`);

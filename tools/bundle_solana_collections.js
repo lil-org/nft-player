@@ -12,7 +12,7 @@ const {
   writeCoverContents,
   writePlaceholderCover,
 } = require("./cover_images");
-const { mergeGeneratedSuggestedItem } = require("./suggested_items");
+const { assignInternalSlugs, mergeGeneratedSuggestedItem } = require("./suggested_items");
 const { isCdnLilManagedCollection } = require("./cdn_lil_managed_collections");
 
 const DEFAULT_BUNDLE_PATH = path.join("Suggested Items", "Suggested.bundle");
@@ -1036,7 +1036,7 @@ async function writeBundle(collections, context) {
   await fs.mkdir(path.dirname(options.reportPath), { recursive: true });
 
   const existingItems = JSON.parse(await fs.readFile(itemsPath, "utf8"));
-  const updatedItems = mergeSuggestedItems(existingItems, collections);
+  const updatedItems = assignInternalSlugs(mergeSuggestedItems(existingItems, collections));
 
   for (const collection of collections) {
     const outputPath = path.join(tokensPath, `${collection.collectionId}.json`);

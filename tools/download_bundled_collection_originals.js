@@ -7,7 +7,11 @@ const crypto = require("node:crypto");
 const { spawn } = require("node:child_process");
 const { Readable, Transform } = require("node:stream");
 const { pipeline } = require("node:stream/promises");
-const { suggestedItemId: collectionIdFor } = require("./suggested_items");
+const {
+  assertValidInternalSlugs,
+  collectionIdentityKey,
+  suggestedItemId: collectionIdFor,
+} = require("./suggested_items");
 const { isCdnLilManagedCollection } = require("./cdn_lil_managed_collections");
 
 const DEFAULT_BUNDLE_PATH = path.join("Suggested Items", "Suggested.bundle");
@@ -44,10 +48,11 @@ Options:
   --output-root <path>    Download root. Default: ${DEFAULT_OUTPUT_ROOT}
   --report <path>         Markdown report path. Default: ${DEFAULT_REPORT_PATH}
   --json-report <path>    JSON report path. Default: ${DEFAULT_JSON_REPORT_PATH}
-  --collection <text>     Optional collection name/id/address filter. Can be repeated.
-  --start-at <text>       Start processing at the first matching collection name/id/address.
+                          Filtered runs use *.filtered.* unless a path is explicit.
+  --collection <text>     Optional collection name/slug/id/address filter. Can be repeated.
+  --start-at <text>       Start processing at the first matching collection name/slug/id/address.
   --skip-collection <text>
-                          Optional collection name/id/address skip filter. Can be repeated.
+                          Optional collection name/slug/id/address skip filter. Can be repeated.
   --include-cdn-lil       Include collections whose resolved media points at cdn.lil.org.
   --concurrency <number>  Simultaneous token downloads/checks. Default: 4
   --retries <number>      Retries for transient failures. Default: 3
@@ -80,6 +85,8 @@ function parseArgs(argv) {
     retryFailures: true,
     keepPartials: false,
     estimateHead: true,
+    reportPathExplicit: false,
+    jsonReportPathExplicit: false,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -105,9 +112,11 @@ function parseArgs(argv) {
         break;
       case "--report":
         options.reportPath = readValue();
+        options.reportPathExplicit = true;
         break;
       case "--json-report":
         options.jsonReportPath = readValue();
+        options.jsonReportPathExplicit = true;
         break;
       case "--collection":
         options.collectionFilters.push(readValue().toLowerCase());
@@ -173,10 +182,36 @@ function nonNegativeInteger(value, optionName) {
   return number;
 }
 
+function hasRunFilters(options) {
+  return options.collectionFilters.length > 0
+    || options.startAtFilter != null
+    || options.skipCollectionFilters.length > 0;
+}
+
+function adjustFilteredReportPaths(options) {
+  if (!hasRunFilters(options)) return;
+  if (!options.reportPathExplicit) {
+    options.reportPath = pathWithSuffix(options.reportPath, "filtered");
+  }
+  if (!options.jsonReportPathExplicit) {
+    options.jsonReportPath = pathWithSuffix(options.jsonReportPath, "filtered");
+  }
+}
+
+function pathWithSuffix(filePath, suffix) {
+  const extension = path.extname(filePath);
+  if (!extension) return `${filePath}.${suffix}`;
+  return `${filePath.slice(0, filePath.length - extension.length)}.${suffix}${extension}`;
+}
+
 async function main() {
   const options = parseArgs(process.argv.slice(2));
+  adjustFilteredReportPaths(options);
   const startedAt = new Date();
   const loaded = await loadCollections(options);
+  if (options.apply) {
+    await assertOutputDirectoryOwnership(loaded);
+  }
   const freeDiskBytes = await availableBytesForPath(path.resolve(options.outputRoot));
 
   const selectedCollections = loaded.collections.filter((collection) => !collection.skipped);
@@ -207,6 +242,10 @@ async function loadCollections(options) {
     readJson(itemsPath),
     fsp.readdir(tokensPath),
   ]);
+  assertValidInternalSlugs(items);
+  const collectionFilters = prepareCollectionFilters(options.collectionFilters, items);
+  const startAtFilters = prepareCollectionFilters(options.startAtFilter == null ? [] : [options.startAtFilter], items);
+  const skipCollectionFilters = prepareCollectionFilters(options.skipCollectionFilters, items);
 
   const tokenFileNameById = new Map(
     tokenFileNames
@@ -224,7 +263,7 @@ async function loadCollections(options) {
     const collectionId = collectionIdFor(item);
     const managedByCdnLil = isCdnLilManagedCollection(item);
     if (!startAtMatched) {
-      if (matchesCollectionFilter(collectionId, item, [options.startAtFilter])) {
+      if (matchesCollectionFilter(collectionId, item, startAtFilters)) {
         startAtMatched = true;
       } else {
         continue;
@@ -232,27 +271,31 @@ async function loadCollections(options) {
     }
 
     if (options.collectionFilters.length > 0) {
-      if (!matchesCollectionFilter(collectionId, item, options.collectionFilters)) {
+      if (!matchesCollectionFilter(collectionId, item, collectionFilters)) {
         continue;
       }
     }
 
+    const skippedByFilter = matchesCollectionFilter(collectionId, item, skipCollectionFilters);
+
     const tokenFileName = tokenFileNameById.get(collectionId) ?? tokenFileNameById.get(collectionId.toLowerCase());
     if (!tokenFileName) {
       if (managedByCdnLil && !options.includeCdnLil) {
-        const safeFolderName = `${safePathComponent(item.name ?? "Untitled Collection", 80)}__${safePathComponent(collectionId, 120)}`;
         collections.push({
           id: collectionId,
           name: item.name ?? null,
+          internalSlug: item.internal_slug,
           address: item.address ?? null,
           chain: item.chain ?? null,
           chainId: item.chainId ?? null,
           projectId: item.abId ?? item.collectionId ?? null,
           tokenFile: null,
           tokenFilePath: null,
-          outputDirectory: path.join(outputRoot, safeFolderName),
+          outputDirectory: path.join(outputRoot, item.internal_slug),
           tokenCount: 0,
           skipped: true,
+          skippedByCdnLil: true,
+          skippedByFilter,
           skipReason: "native collection media is managed by cdn.lil.org",
           tokens: [],
         });
@@ -273,7 +316,6 @@ async function loadCollections(options) {
     const tokens = assignFileNames(normalizeBundledTokenRows(payload, item));
     const hasCdnLil = tokens.some((token) => isCdnLilURL(token.downloadUrl));
     const skippedByCdnLil = (hasCdnLil || managedByCdnLil) && !options.includeCdnLil;
-    const skippedByFilter = matchesCollectionFilter(collectionId, item, options.skipCollectionFilters);
     const skipReasons = [
       skippedByCdnLil
         ? managedByCdnLil
@@ -283,19 +325,21 @@ async function loadCollections(options) {
       skippedByFilter ? "matched --skip-collection filter" : null,
     ].filter(Boolean);
     const skipped = skipReasons.length > 0;
-    const safeFolderName = `${safePathComponent(item.name ?? "Untitled Collection", 80)}__${safePathComponent(collectionId, 120)}`;
     collections.push({
       id: collectionId,
       name: item.name ?? null,
+      internalSlug: item.internal_slug,
       address: item.address ?? null,
       chain: item.chain ?? null,
       chainId: item.chainId ?? null,
       projectId: item.abId ?? item.collectionId ?? null,
       tokenFile: tokenFileName,
       tokenFilePath,
-      outputDirectory: path.join(outputRoot, safeFolderName),
+      outputDirectory: path.join(outputRoot, item.internal_slug),
       tokenCount: tokens.length,
       skipped,
+      skippedByCdnLil,
+      skippedByFilter,
       skipReason: skipped ? skipReasons.join("; ") : null,
       tokens,
     });
@@ -310,6 +354,7 @@ async function loadCollections(options) {
     outputRoot,
     itemsPath,
     tokensPath,
+    items,
     collections,
     missingTokenFiles,
     suggestedItemsMatched: items.length,
@@ -317,12 +362,29 @@ async function loadCollections(options) {
   };
 }
 
+function prepareCollectionFilters(filters, items) {
+  return filters.map((value) => {
+    const normalized = String(value).toLowerCase();
+    const exactIdentity = items.some((item) => collectionFilterIdentities(collectionIdFor(item), item).includes(normalized));
+    return { value: normalized, exactIdentity };
+  });
+}
+
+function collectionFilterIdentities(collectionId, item) {
+  return [collectionId, item.internal_slug, item.address]
+    .filter((value) => value != null)
+    .map((value) => String(value).toLowerCase());
+}
+
 function matchesCollectionFilter(collectionId, item, filters) {
   if (filters.length === 0) {
     return false;
   }
-  const haystack = `${collectionId} ${item.name ?? ""} ${item.address ?? ""}`.toLowerCase();
-  return filters.some((filter) => haystack.includes(filter));
+  const identities = collectionFilterIdentities(collectionId, item);
+  const fuzzyHaystack = `${collectionId} ${item.name ?? ""} ${item.address ?? ""}`.toLowerCase();
+  return filters.some((filter) => filter.exactIdentity
+    ? identities.includes(filter.value)
+    : fuzzyHaystack.includes(filter.value));
 }
 
 function normalizeBundledTokenRows(payload, item) {
@@ -530,6 +592,7 @@ async function runDryRun(loaded, options, startedAt, freeDiskBytes) {
     collectionResults.push({
       id: collection.id,
       name: collection.name,
+      internal_slug: collection.internalSlug,
       chain: collection.chain,
       address: collection.address,
       tokenCount: collection.tokenCount,
@@ -570,12 +633,17 @@ async function runDryRun(loaded, options, startedAt, freeDiskBytes) {
 
 async function runDownload(loaded, options, startedAt, freeDiskBytes) {
   await fsp.mkdir(loaded.outputRoot, { recursive: true });
+  const existingRootManifest = hasRunFilters(options)
+    ? await readOptionalJson(path.join(loaded.outputRoot, "manifest.json"))
+    : null;
+  if (existingRootManifest) validateRootManifestForMerge(existingRootManifest);
 
   const skippedCollections = [];
   const collectionResults = [];
   const failures = [];
   let downloadedFiles = 0;
   let reusedFiles = 0;
+  let sourceRefreshFailures = 0;
   let failedFiles = 0;
   let bytesWritten = 0;
   let totalAttempts = 0;
@@ -597,12 +665,14 @@ async function runDownload(loaded, options, startedAt, freeDiskBytes) {
     collectionResults.push(result);
     downloadedFiles += result.downloadedFiles;
     reusedFiles += result.reusedFiles;
+    sourceRefreshFailures += result.sourceRefreshFailures;
     failedFiles += result.failedFiles;
     bytesWritten += result.bytesWritten;
     totalAttempts += result.totalAttempts;
     failures.push(...result.tokens.filter((token) => token.status === "failed").map((token) => ({
       collectionId: collection.id,
       collectionName: collection.name,
+      internal_slug: collection.internalSlug,
       tokenId: token.tokenId,
       downloadUrl: token.downloadUrl,
       statusCode: token.statusCode,
@@ -617,12 +687,13 @@ async function runDownload(loaded, options, startedAt, freeDiskBytes) {
       failures,
       downloadedFiles,
       reusedFiles,
+      sourceRefreshFailures,
       failedFiles,
       bytesWritten,
       totalAttempts,
       freeDiskBytes,
       partial: true,
-    });
+    }, existingRootManifest);
   }
 
   const elapsedMs = Date.now() - startedAt.getTime();
@@ -640,6 +711,7 @@ async function runDownload(loaded, options, startedAt, freeDiskBytes) {
       skippedTokenRows: skippedCollections.reduce((sum, collection) => sum + collection.tokenCount, 0),
       downloadedFiles,
       reusedFiles,
+      sourceRefreshFailures,
       failedFiles,
       totalAttempts,
       bytesWritten,
@@ -664,12 +736,13 @@ async function runDownload(loaded, options, startedAt, freeDiskBytes) {
     failures,
     downloadedFiles,
     reusedFiles,
+    sourceRefreshFailures,
     failedFiles,
     bytesWritten,
     totalAttempts,
     freeDiskBytes,
     partial: false,
-  });
+  }, existingRootManifest);
 
   return report;
 }
@@ -677,11 +750,15 @@ async function runDownload(loaded, options, startedAt, freeDiskBytes) {
 async function downloadCollection(collection, options) {
   const manifestPath = path.join(collection.outputDirectory, "manifest.json");
   const existingManifest = await readOptionalJson(manifestPath);
+  if (existingManifest) {
+    assertCollectionManifestIdentity(existingManifest, collection, manifestPath);
+  }
   const existingByTokenId = new Map((existingManifest?.tokens ?? []).map((entry) => [String(entry.tokenId), entry]));
   const startedAt = new Date();
   const entries = collection.tokens.map((token) => existingByTokenId.get(token.id) ?? null);
   let downloadedFiles = 0;
   let reusedFiles = 0;
+  let sourceRefreshFailures = 0;
   let bytesWritten = 0;
   let totalAttempts = 0;
   let lastManifestWrite = Date.now();
@@ -692,20 +769,68 @@ async function downloadCollection(collection, options) {
   await runPool(collection.tokens, options.concurrency, async (token, tokenIndex) => {
     const existingEntry = existingByTokenId.get(token.id);
     const existing = !options.overwrite
-      ? await reusableExistingEntry(collection.outputDirectory, existingEntry)
+      ? await verifiedExistingEntry(collection.outputDirectory, existingEntry)
       : null;
+    const reusePolicy = existing ? existingEntryReusePolicy(existing, token) : null;
 
     let entry;
-    if (existing) {
+    if (existing && reusePolicy !== "refresh") {
       entry = {
         ...existing,
         tokenId: token.id,
         reusedExisting: true,
+        ...(reusePolicy === "preserve-quality-repair" ? {
+          sourceOverridePreserved: true,
+          preferredBundledSource: selectedTokenSource(token),
+        } : {}),
         status: "success",
         attempts: 0,
         checkedAt: new Date().toISOString(),
       };
       reusedFiles += 1;
+    } else if (existing) {
+      const replacement = await downloadToken(collection.outputDirectory, token, options);
+      totalAttempts += replacement.attempts ?? 0;
+      if (replacement.status === "success") {
+        if (existing.fileName && existing.fileName !== replacement.fileName) {
+          await fsp.rm(path.join(collection.outputDirectory, existing.fileName), { force: true });
+        }
+        entry = {
+          ...replacement,
+          sourceUpgrade: {
+            upgradedAt: new Date().toISOString(),
+            previousFileName: existing.fileName,
+            previousDownloadUrl: existing.downloadUrl ?? null,
+            previousOriginalBundledURL: existing.originalBundledURL ?? null,
+            previousBytesWritten: existing.bytesWritten ?? null,
+            previousSha256: existing.sha256 ?? null,
+            previousQualityRepair: existing.qualityRepair ?? null,
+          },
+        };
+        downloadedFiles += 1;
+        bytesWritten += replacement.bytesWritten ?? 0;
+      } else {
+        const checkedAt = new Date().toISOString();
+        entry = {
+          ...existing,
+          tokenId: token.id,
+          reusedExisting: true,
+          status: "success",
+          attempts: 0,
+          checkedAt,
+          sourceRefresh: {
+            checkedAt,
+            status: "failed",
+            preferredDownloadUrl: token.downloadUrl,
+            preferredOriginalBundledURL: token.originalBundledURL,
+            attempts: replacement.attempts ?? 0,
+            statusCode: replacement.statusCode ?? null,
+            error: replacement.error ?? "source refresh failed",
+          },
+        };
+        reusedFiles += 1;
+        sourceRefreshFailures += 1;
+      }
     } else if (!options.overwrite && !options.retryFailures && existingEntry?.status === "failed") {
       entry = {
         ...existingEntry,
@@ -752,6 +877,7 @@ async function downloadCollection(collection, options) {
   return {
     id: collection.id,
     name: collection.name,
+    internal_slug: collection.internalSlug,
     chain: collection.chain,
     address: collection.address,
     outputDirectory: collection.outputDirectory,
@@ -760,11 +886,102 @@ async function downloadCollection(collection, options) {
     successfulFiles: entries.filter((entry) => entry.status === "success").length,
     downloadedFiles,
     reusedFiles,
+    sourceRefreshFailures,
     failedFiles: entries.filter((entry) => entry.status === "failed").length,
     bytesWritten,
     totalAttempts,
     tokens: entries,
   };
+}
+
+async function assertOutputDirectoryOwnership(loaded) {
+  const outputRoot = loaded.outputRoot;
+  let entries;
+  try {
+    entries = await fsp.readdir(outputRoot, { withFileTypes: true });
+  } catch (error) {
+    if (error.code === "ENOENT") return;
+    throw error;
+  }
+
+  const legacyDirectories = entries
+    .filter((entry) => entry.isDirectory() && entry.name.includes("__"))
+    .map((entry) => entry.name)
+    .sort();
+  if (legacyDirectories.length > 0) {
+    const preview = legacyDirectories.slice(0, 5).join(", ");
+    const remainder = legacyDirectories.length > 5 ? ` and ${legacyDirectories.length - 5} more` : "";
+    throw new Error(
+      `Legacy collection directories remain in ${outputRoot}: ${preview}${remainder}. `
+      + "Run node tools/migrate_downloaded_collection_slugs.js --apply before downloading.",
+    );
+  }
+
+  const itemByIdentity = new Map();
+  for (const item of loaded.items) {
+    const key = collectionIdentityKey(collectionIdFor(item), item.chain);
+    if (itemByIdentity.has(key)) {
+      throw new Error(`items.json contains duplicate collection identity ${item.chain}:${collectionIdFor(item)}`);
+    }
+    itemByIdentity.set(key, item);
+  }
+  for (const entry of entries) {
+    if (entry.isSymbolicLink()) {
+      throw new Error(`Downloaded collection path must not be a symbolic link: ${path.join(outputRoot, entry.name)}`);
+    }
+    if (!entry.isDirectory()) continue;
+
+    const directory = path.join(outputRoot, entry.name);
+    const manifestPath = path.join(directory, "manifest.json");
+    const manifest = await readOptionalJson(manifestPath);
+    if (!manifest) {
+      throw new Error(`Existing collection directory has no manifest.json and will not be overwritten: ${directory}`);
+    }
+    const manifestCollection = manifest.collection;
+    const key = collectionIdentityKey(manifestCollection?.id, manifestCollection?.chain);
+    const item = itemByIdentity.get(key);
+    if (!item) {
+      throw new Error(`Existing collection directory belongs to a collection not present in items.json: ${directory}`);
+    }
+
+    const expected = {
+      id: collectionIdFor(item),
+      name: item.name ?? null,
+      internalSlug: item.internal_slug,
+      chain: item.chain ?? null,
+      address: item.address ?? null,
+    };
+    assertCollectionManifestIdentity(manifest, expected, manifestPath);
+    if (entry.name !== item.internal_slug) {
+      throw new Error(
+        `Existing collection directory ${directory} should be named ${item.internal_slug}. `
+        + "Run node tools/migrate_downloaded_collection_slugs.js --apply before downloading.",
+      );
+    }
+  }
+}
+
+function assertCollectionManifestIdentity(manifest, collection, manifestPath) {
+  const actual = manifest.collection;
+  if (!actual || typeof actual !== "object") {
+    throw new Error(`Existing manifest has no collection identity: ${manifestPath}`);
+  }
+
+  const mismatches = [];
+  if (collectionIdentityKey(actual.id, actual.chain) !== collectionIdentityKey(collection.id, collection.chain)) {
+    mismatches.push(`id/chain ${JSON.stringify(actual.id)}/${JSON.stringify(actual.chain)}`);
+  }
+  if (collectionIdentityKey(actual.address, actual.chain) !== collectionIdentityKey(collection.address, collection.chain)) {
+    mismatches.push(`address ${JSON.stringify(actual.address)}`);
+  }
+  if (actual.internal_slug != null && actual.internal_slug !== collection.internalSlug) {
+    mismatches.push(`internal_slug ${JSON.stringify(actual.internal_slug)}`);
+  }
+  if (mismatches.length === 0) return;
+
+  throw new Error(
+    `Existing manifest does not match ${collection.name} (${collection.id}) at ${manifestPath}: ${mismatches.join(", ")}`,
+  );
 }
 
 async function removeStalePartials(collectionDirectory, options) {
@@ -789,7 +1006,7 @@ async function removeStalePartials(collectionDirectory, options) {
   );
 }
 
-async function reusableExistingEntry(collectionDirectory, entry) {
+async function verifiedExistingEntry(collectionDirectory, entry) {
   if (!entry || entry.status !== "success" || !entry.fileName) {
     return null;
   }
@@ -814,6 +1031,52 @@ async function reusableExistingEntry(collectionDirectory, entry) {
   }
 
   return entry;
+}
+
+function existingEntryReusePolicy(entry, token) {
+  const currentSource = comparableMediaSource(selectedTokenSource(token));
+  const existingSource = comparableMediaSource(selectedEntrySource(entry));
+  if (currentSource === existingSource) return "reuse";
+  if (shouldPreserveQualityRepair(entry, currentSource)) return "preserve-quality-repair";
+  return "refresh";
+}
+
+function shouldPreserveQualityRepair(entry, currentSource) {
+  const repair = entry.qualityRepair;
+  if (!repair) return false;
+  const previous = repair.previous;
+  if (!previous || previous.status == null) return true;
+
+  const previousSource = comparableMediaSource(previous.downloadUrl ?? previous.originalBundledURL ?? null);
+  if (previousSource != null && currentSource != null && previousSource !== currentSource) {
+    return false;
+  }
+  return previous.status !== "failed";
+}
+
+function selectedTokenSource(token) {
+  return token.downloadUrl ?? token.originalBundledURL ?? null;
+}
+
+function selectedEntrySource(entry) {
+  return entry.downloadUrl ?? entry.originalBundledURL ?? null;
+}
+
+function comparableMediaSource(value) {
+  if (value == null) return null;
+  const source = String(value);
+  if (source.startsWith("data:")) return `data:${shortHash(source)}`;
+  const ipfs = ipfsGatewayURLParts(source);
+  if (ipfs) return `ipfs://${ipfs.cid}${ipfs.pathSuffix}${ipfs.search}`;
+  const arweave = arweaveGatewayURLParts(source);
+  if (arweave) return `ar://${arweave.transactionId}${arweave.pathSuffix}${arweave.search}`;
+  try {
+    const url = new URL(source);
+    url.hash = "";
+    return url.toString();
+  } catch {
+    return source;
+  }
 }
 
 async function downloadToken(collectionDirectory, token, options) {
@@ -1241,6 +1504,7 @@ async function writeCollectionManifest(manifestPath, collection, entries, state)
     collection: {
       id: collection.id,
       name: collection.name,
+      internal_slug: collection.internalSlug,
       chain: collection.chain,
       chainId: collection.chainId,
       address: collection.address,
@@ -1255,6 +1519,7 @@ async function writeCollectionManifest(manifestPath, collection, entries, state)
       successfulFiles: tokens.filter((entry) => entry.status === "success").length,
       failedFiles: tokens.filter((entry) => entry.status === "failed").length,
       reusedFiles: tokens.filter((entry) => entry.reusedExisting).length,
+      sourceRefreshFailures: tokens.filter((entry) => entry.sourceRefresh?.status === "failed").length,
       bytesWritten: tokens.reduce((sum, entry) => sum + (entry.bytesWritten ?? 0), 0),
     },
     startedAt: state.startedAt.toISOString(),
@@ -1264,10 +1529,10 @@ async function writeCollectionManifest(manifestPath, collection, entries, state)
   await writeJsonAtomic(manifestPath, manifest);
 }
 
-async function writeRootManifest(loaded, options, state) {
+async function writeRootManifest(loaded, options, state, existingRootManifest = null) {
   const manifestPath = path.join(loaded.outputRoot, "manifest.json");
   const elapsedMs = Date.now() - state.startedAt.getTime();
-  const manifest = {
+  const currentManifest = {
     generatedAt: new Date().toISOString(),
     partial: state.partial,
     mode: state.mode,
@@ -1282,6 +1547,7 @@ async function writeRootManifest(loaded, options, state) {
       skippedCollections: state.skippedCollections.length,
       downloadedFiles: state.downloadedFiles,
       reusedFiles: state.reusedFiles,
+      sourceRefreshFailures: state.sourceRefreshFailures,
       failedFiles: state.failedFiles,
       totalAttempts: state.totalAttempts,
       bytesWritten: state.bytesWritten,
@@ -1292,13 +1558,105 @@ async function writeRootManifest(loaded, options, state) {
     failures: state.failures,
     collections: state.collectionResults.map((collection) => compactCollectionResult(collection)),
   };
+  const manifest = existingRootManifest
+    ? mergeRootManifest(existingRootManifest, currentManifest, loaded)
+    : currentManifest;
   await writeJsonAtomic(manifestPath, manifest);
+}
+
+function mergeRootManifest(existing, current, loaded) {
+  validateRootManifestForMerge(existing);
+  assertUniqueCollectionRecords(current.collections, "current filtered run");
+  const replaceCollections = loaded.collections.filter((collection) => (
+    !collection.skippedByFilter || collection.skippedByCdnLil
+  ));
+  const replaceKeys = new Set(replaceCollections.map(collectionRecordKey));
+  const collections = mergeCollectionRecords(existing.collections, current.collections, replaceKeys);
+  const currentKeys = new Set(current.collections.map(collectionRecordKey));
+  const failureReplaceCollections = replaceCollections.filter((collection) => currentKeys.has(collectionRecordKey(collection)));
+  const failures = [
+    ...existing.failures.filter((failure) => !failureReplaceCollections.some((collection) => failureBelongsToCollection(failure, collection))),
+    ...current.failures,
+  ];
+  const skippedCollections = collections.filter((collection) => collection.skipped);
+  return {
+    ...current,
+    mergedWithExistingManifest: true,
+    reportPath: existing.reportPath ?? current.reportPath,
+    jsonReportPath: existing.jsonReportPath ?? current.jsonReportPath,
+    options: existing.options ?? current.options,
+    lastFilteredRun: {
+      generatedAt: current.generatedAt,
+      partial: current.partial,
+      options: current.options,
+      reportPath: current.reportPath,
+      jsonReportPath: current.jsonReportPath,
+    },
+    totals: summarizeMergedRootTotals(current.totals, collections),
+    skippedCollections,
+    failures,
+    collections,
+  };
+}
+
+function validateRootManifestForMerge(manifest) {
+  if (!Array.isArray(manifest.collections) || !Array.isArray(manifest.failures)) {
+    throw new Error("Existing root manifest cannot be safely merged because collections or failures is not an array");
+  }
+  assertUniqueCollectionRecords(manifest.collections, "existing root manifest");
+}
+
+function assertUniqueCollectionRecords(records, label) {
+  const seen = new Set();
+  for (const record of records) {
+    const key = collectionRecordKey(record);
+    if (seen.has(key)) throw new Error(`${label} contains duplicate collection ${record.chain}:${record.id}`);
+    seen.add(key);
+  }
+}
+
+function mergeCollectionRecords(existing, current, replaceKeys) {
+  const currentByKey = new Map(current.map((record) => [collectionRecordKey(record), record]));
+  const merged = existing.map((record) => {
+    const key = collectionRecordKey(record);
+    return replaceKeys.has(key) && currentByKey.has(key) ? currentByKey.get(key) : record;
+  });
+  const existingKeys = new Set(existing.map(collectionRecordKey));
+  for (const record of current) {
+    if (!existingKeys.has(collectionRecordKey(record))) merged.push(record);
+  }
+  return merged;
+}
+
+function collectionRecordKey(record) {
+  return collectionIdentityKey(record.id, record.chain);
+}
+
+function failureBelongsToCollection(failure, collection) {
+  return collectionIdentityKey(failure.collectionId, collection.chain) === collectionRecordKey(collection);
+}
+
+function summarizeMergedRootTotals(currentTotals, collections) {
+  const sum = (field) => collections.reduce((total, collection) => total + Number(collection[field] ?? 0), 0);
+  return {
+    ...currentTotals,
+    collectionsMatched: collections.length,
+    collectionsDownloaded: collections.filter((collection) => !collection.skipped).length,
+    skippedCollections: collections.filter((collection) => collection.skipped).length,
+    downloadedFiles: sum("downloadedFiles"),
+    reusedFiles: sum("reusedFiles"),
+    sourceRefreshFailures: sum("sourceRefreshFailures"),
+    failedFiles: sum("failedFiles"),
+    totalAttempts: sum("totalAttempts"),
+    bytesWritten: sum("bytesWritten"),
+  };
 }
 
 function skippedCollectionResult(collection) {
   return {
     id: collection.id,
     name: collection.name,
+    internal_slug: collection.internalSlug,
     chain: collection.chain,
     address: collection.address,
     outputDirectory: collection.outputDirectory,
@@ -1308,6 +1666,7 @@ function skippedCollectionResult(collection) {
     successfulFiles: 0,
     downloadedFiles: 0,
     reusedFiles: 0,
+    sourceRefreshFailures: 0,
     failedFiles: 0,
     bytesWritten: 0,
     totalAttempts: 0,
@@ -1319,6 +1678,7 @@ function compactCollectionResult(collection) {
   return {
     id: collection.id,
     name: collection.name,
+    internal_slug: collection.internal_slug ?? collection.internalSlug,
     chain: collection.chain,
     address: collection.address,
     outputDirectory: collection.outputDirectory,
@@ -1329,6 +1689,7 @@ function compactCollectionResult(collection) {
     successfulFiles: collection.successfulFiles ?? 0,
     downloadedFiles: collection.downloadedFiles ?? 0,
     reusedFiles: collection.reusedFiles ?? 0,
+    sourceRefreshFailures: collection.sourceRefreshFailures ?? 0,
     failedFiles: collection.failedFiles ?? 0,
     bytesWritten: collection.bytesWritten ?? 0,
     totalAttempts: collection.totalAttempts ?? 0,
@@ -1386,12 +1747,28 @@ function renderMarkdownReport(report) {
     }
   }
   lines.push("");
+  lines.push("## Preferred Source Retry Failures");
+  lines.push("");
+  const sourceRefreshFailures = (report.collections ?? []).flatMap((collection) => (collection.tokens ?? [])
+    .filter((token) => token.sourceRefresh?.status === "failed")
+    .map((token) => ({ collection, token })));
+  if (sourceRefreshFailures.length === 0) {
+    lines.push("None.");
+  } else {
+    lines.push("| Collection | Token | Error | Preferred URL |");
+    lines.push("| --- | --- | --- | --- |");
+    for (const { collection, token } of sourceRefreshFailures) {
+      const refresh = token.sourceRefresh;
+      lines.push(`| ${escapeCell(collection.name)} | \`${escapeCell(token.tokenId)}\` | ${escapeCell(refresh.error)} | ${refresh.preferredDownloadUrl ? `[link](${refresh.preferredDownloadUrl})` : ""} |`);
+    }
+  }
+  lines.push("");
   lines.push("## Collections");
   lines.push("");
-  lines.push("| Collection | Chain | Tokens | Success | Reused | Failed | Bytes |");
-  lines.push("| --- | --- | ---: | ---: | ---: | ---: | ---: |");
+  lines.push("| Collection | Chain | Tokens | Success | Reused | Source retry failures | Failed | Bytes |");
+  lines.push("| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |");
   for (const collection of report.collections ?? []) {
-    lines.push(`| ${escapeCell(collection.name)} | ${escapeCell(collection.chain)} | ${collection.tokenCount} | ${collection.successfulFiles ?? 0} | ${collection.reusedFiles ?? 0} | ${collection.failedFiles ?? 0} | ${formatBytes(collection.bytesWritten ?? 0)} |`);
+    lines.push(`| ${escapeCell(collection.name)} | ${escapeCell(collection.chain)} | ${collection.tokenCount} | ${collection.successfulFiles ?? 0} | ${collection.reusedFiles ?? 0} | ${collection.sourceRefreshFailures ?? 0} | ${collection.failedFiles ?? 0} | ${formatBytes(collection.bytesWritten ?? 0)} |`);
   }
   lines.push("");
   return `${lines.join("\n")}\n`;

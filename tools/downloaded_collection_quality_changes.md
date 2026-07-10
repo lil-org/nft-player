@@ -81,6 +81,17 @@ The post-download quality pass changed 471 resolved token URLs in 12 remaining b
 
 All other local repairs either used the already-bundled content-addressed source through another gateway, used a source URL that had already been corrected by the earlier bundle source audit, or used a quality-gated cache fallback that was intentionally kept local. Per-token `qualityRepair.previous`, selected URL, dimensions, byte count, hash, and API source are retained in the collection manifests.
 
+## Resume And Inspection Metadata
+
+Downloader resume now compares the selected manifest source with the current bundled source after normalizing equivalent IPFS and Arweave gateways. The following fields preserve the decision evidence:
+
+- `sourceUpgrade` records the previous filename, URL, byte count, SHA-256, and `qualityRepair` when a newly reachable or newly selected bundled source safely replaces a verified local file.
+- `sourceRefresh` records a failed preferred-source retry. The verified existing file remains successful and untouched; the retry error and status are retained for the next run.
+- `sourceOverridePreserved` and `preferredBundledSource` identify a dimension-based `qualityRepair` intentionally kept instead of reverting to the same previously measured lower-quality source.
+- Collection totals and root totals include `sourceRefreshFailures` so preferred-source retry gaps remain visible without misclassifying retained files as missing.
+
+Filtered downloader runs merge updated collections and failures into the existing root manifest. `mergedWithExistingManifest` identifies that state and `lastFilteredRun` records the filtered options and report paths. Unless explicitly overridden, filtered reports use `originals-download-report.filtered.{md,json}` so the canonical full-corpus reports are not replaced.
+
 ## Remaining Download Failures
 
 These entries remain absent after direct bundled URLs, equivalent IPFS/Arweave gateways, API-declared source candidates, and quality-gated cache fallbacks were exhausted. They are recorded as failures and were not replaced with lower-quality substitutes.
@@ -115,7 +126,7 @@ For the seven unresolved `moeshit` files, the reachable API-declared artifact is
 ## Reports And Verification
 
 - Full corpus manifest: `Originals Downloaded/manifest.json`
-- Per-collection evidence: `Originals Downloaded/<collection>/manifest.json`
+- Per-collection evidence: `Originals Downloaded/<internal_slug>/manifest.json`
 - Download report: `tools/reports/originals-download-report.md` and `.json`
 - Quality report: `tools/reports/downloaded-collection-quality-audit.md` and `.json`
 - Downloader: `tools/download_bundled_collection_originals.js`

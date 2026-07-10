@@ -27,6 +27,7 @@ struct SuggestedItem: Identifiable, Hashable, Codable {
     }
     
     let name: String
+    let internalSlug: String?
     let address: String
     let chainId: Int
     let chain: Chain
@@ -36,5 +37,19 @@ struct SuggestedItem: Identifiable, Hashable, Codable {
     let iosOnly: Bool?
     let playerBackgroundColor: String?
     let webURL: String?
+
+    enum CodingKeys: String, CodingKey {
+        case name
+        case internalSlug = "internal_slug"
+        case address
+        case chainId
+        case chain
+        case collectionId
+        case abId
+        case tokenCount
+        case iosOnly
+        case playerBackgroundColor
+        case webURL
+    }
     
 }
