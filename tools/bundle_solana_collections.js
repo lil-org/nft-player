@@ -13,6 +13,7 @@ const {
   writePlaceholderCover,
 } = require("./cover_images");
 const { mergeGeneratedSuggestedItem } = require("./suggested_items");
+const { isCdnLilManagedCollection } = require("./cdn_lil_managed_collections");
 
 const DEFAULT_BUNDLE_PATH = path.join("Suggested Items", "Suggested.bundle");
 const DEFAULT_COVERS_PATH = path.join("Suggested Items", "Covers.xcassets");
@@ -304,6 +305,7 @@ async function readInputs(options) {
 
 async function fetchCollectionBundle(input, canonicalId, context) {
   let collectionId = canonicalId;
+  assertNotCdnLilManagedCollection(collectionId);
   let firstPage = await getAssetsByGroup(collectionId, 1, context, { includeGrandTotal: true });
   let resolvedFromToken = input === collectionId
     ? null
@@ -321,6 +323,7 @@ async function fetchCollectionBundle(input, canonicalId, context) {
       throw new Error(`No assets found for ${input}, and getAsset did not expose a verified collection grouping.`);
     }
     collectionId = grouping.group_value;
+    assertNotCdnLilManagedCollection(collectionId);
     resolvedFromToken = {
       tokenId: input,
       tokenName: asset.content?.metadata?.name ?? null,
@@ -402,6 +405,12 @@ async function fetchCollectionBundle(input, canonicalId, context) {
       outputPath: path.join(context.options.coversPath, `${collectionId}.imageset`, `${collectionId}.jpg`),
     },
   };
+}
+
+function assertNotCdnLilManagedCollection(collectionId) {
+  if (isCdnLilManagedCollection(collectionId)) {
+    throw new Error(`${collectionId} uses a curated native cdn.lil.org renderer and must not be rebuilt from Helius assets.`);
+  }
 }
 
 function assertCollectionWithinTokenLimit({ collectionId, count, source, options }) {

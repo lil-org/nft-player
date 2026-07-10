@@ -2,10 +2,12 @@
 
 This document records the metadata-facing changes made by the downloadable collection source audit. The generated audit and downloader reports live under `tools/reports/`, but that directory is ignored by git; this file is the tracked summary.
 
+The subsequent full-download dimension audit and its 482 additional token URL corrections are documented in `tools/downloaded_collection_quality_changes.md`.
+
 ## Scope
 
 - Audited downloadable collections in `Suggested Items/Suggested.bundle`.
-- Excluded collections whose currently bundled token media resolves to `cdn.lil.org`.
+- Excluded collections whose bundled token media resolves to `cdn.lil.org` or whose native renderer is explicitly backed by `cdn.lil.org`.
 - Fetched source inventories from OpenSea, Helius, and TzKT, then rewrote only token metadata that was incomplete or pointed at a lower-quality fallback when a supported original/source URL was available.
 - Preserved collection ordering, names, covers, and item metadata except for `tokenCount` updates listed below.
 - Did not add private audit fields to token JSON.
@@ -18,14 +20,12 @@ This document records the metadata-facing changes made by the downloadable colle
   - Rewrote token rows to point at source/original media where reachable and app-supported.
   - Converted many `sh` SimpleHash rows and EVM ID-only Art Blocks fallback rows into compact `urlPrefixes` rows.
   - Kept compact token JSON where possible.
-- `Suggested Items/Suggested.bundle/Tokens/EAzEpagtyeRAx9npnpVMpygoA8ouX7DRpLTghhPvYTiu.json`
-  - Added a new token metadata file for Solana `Card NFT 2`.
 - `tools/audit_bundled_collection_sources.js`
   - Added the reusable dry-run/apply audit and rebundle tool used for these changes.
 
 ## Skipped CDN-Owned Collections
 
-These collections were reported but not audited or changed because their resolved bundled media URLs contain `cdn.lil.org`:
+These collections are excluded because their resolved bundled media URLs contain `cdn.lil.org` or their native renderer is CDN-managed:
 
 | Chain | Collection |
 | --- | --- |
@@ -33,6 +33,17 @@ These collections were reported but not audited or changed because their resolve
 | ethereum | Super Metal Mons!! |
 | solana | card nft |
 | solana | Drifella 2 |
+| solana | Poncho Drifella |
+| solana | Card NFT 2 |
+
+## Native CDN Restoration
+
+The source-audit commit incorrectly treated the two native Metal card collections as ordinary Solana inventories even though their curated renderers load card fronts and effects from `cdn.lil.org`.
+
+- Restored `Poncho Drifella` to its exact pre-audit token file: 207 ordered ID-only rows used by the native renderer.
+- Removed the audit-added 6,896-row `Card NFT 2` token file so the native renderer again supplies its generated collection.
+- Removed the audit-added `tokenCount` values for both items.
+- Added explicit collection-ID guards to the Solana bundler, source audit, originals downloader, and downloaded-quality audit. These collections remain excluded even though their token JSON does not contain a literal CDN URL.
 
 ## `items.json` Token Count Changes
 
@@ -41,12 +52,10 @@ These collections were reported but not audited or changed because their resolve
 | ethereum | Nouns | `1889` -> `1933` |
 | ethereum | Constant | `15` -> `40` |
 | ethereum | screenshot catalog | `319` -> `331` |
-| solana | Poncho Drifella | absent -> `171` |
 | solana | ICSA | `2865` -> `2899` |
 | solana | Record of Hyperwar | `548` -> `549` |
 | solana | little swag world | `3323` -> `3327` |
 | solana | Organic Evolution | `69` -> `72` |
-| solana | Card NFT 2 | absent -> `6896` |
 | tezos | BESTIARY | `23` -> `24` |
 | tezos | Drawing Exercises | `76` -> `79` |
 | tezos | moeshit | `1526` -> `1593` |
@@ -101,12 +110,10 @@ These collections were reported but not audited or changed because their resolve
 | ethereum | The Eternal Pump | `50` -> `50` | ID-only object -> compact | Art Blocks media proxy -> OpenSea raw: 35; Art Blocks media proxy -> Art Blocks media proxy: 15 | Rewrote 50 URLs and replaced ID-only rows. |
 | ethereum | Tokyo Nude | `55` -> `55` | `sh` object -> compact | SimpleHash CDN -> OpenSea raw: 55 | Rewrote 55 URLs. |
 | ethereum | Vacation | `428` -> `428` | URL object / ID-only object -> compact | SimpleHash CDN -> OpenSea raw: 382; Art Blocks media proxy -> OpenSea raw: 40; SimpleHash CDN -> 0prod.infura-ipfs.io: 4; Art Blocks media proxy -> 0prod.infura-ipfs.io: 2 | Rewrote 428 URLs and replaced ID-only rows. |
-| solana | Card NFT 2 | `0` -> `6896` | no token file -> compact | new source inventory | Added token JSON, added 6896 tokens, and updated `items.json`. |
 | solana | ICSA | `2865` -> `2899` | compact -> compact | no media source changes | Added 34 tokens and updated `items.json`. |
 | solana | little swag world | `3323` -> `3327` | compact -> compact | Helius CDN -> Lighthouse IPFS gateway: 3296; ipfs.io -> Lighthouse IPFS gateway: 19; ipfs.filebase.io -> Lighthouse IPFS gateway: 6; dweb.link -> Lighthouse IPFS gateway: 1; Pinata gateway -> Lighthouse IPFS gateway: 1 | Added 4 tokens, rewrote 3323 URLs, and updated `items.json`. |
 | solana | Little Swag World: HEXP | `332` -> `332` | compact -> compact | gateway.irys.xyz -> gateway.irys.xyz: 2 | Rewrote 2 URLs. |
 | solana | Organic Evolution | `69` -> `72` | compact -> compact | no media source changes | Added 3 tokens and updated `items.json`. |
-| solana | Poncho Drifella | `207` -> `171` | ID-only object -> compact | new source inventory | Replaced the old ID-only rows with 171 fetched API tokens and updated `items.json`. |
 | solana | Record of Hyperwar | `548` -> `549` | compact -> compact | gateway.irys.xyz -> gateway.irys.xyz: 548 | Added 1 token, rewrote 548 URLs, and updated `items.json`. |
 | solana | Scarecrow | `4048` -> `4048` | compact -> compact | Permagate -> Arweave: 897; Arweave -> gateway.irys.xyz: 173 | Rewrote 1070 URLs. |
 | solana | swag pack | `467` -> `467` | compact -> compact | gateway.irys.xyz -> gateway.irys.xyz: 66 | Rewrote 66 URLs. |

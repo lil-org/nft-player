@@ -33,6 +33,7 @@ tools/wip/
 .cache
 *.map
 tools/reports/
+Originals Downloaded/
 
 # JS
 node_modules/

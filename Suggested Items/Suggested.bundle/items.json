@@ -1402,8 +1402,7 @@
     "address" : "JCTP3kK3xGtWs5mDHxJBuRro38HftaiCDdKsfkXuK2gH",
     "chain" : "solana",
     "chainId" : 0,
-    "name" : "Poncho Drifella",
-    "tokenCount" : 171
+    "name" : "Poncho Drifella"
   },
   {
     "address" : "r1pCPYkbbpZWv7RCvuCMtpA3NSQY3fzVFo6HL43A4ot",
@@ -1698,8 +1697,7 @@
     "address" : "EAzEpagtyeRAx9npnpVMpygoA8ouX7DRpLTghhPvYTiu",
     "chain" : "solana",
     "chainId" : 0,
-    "name" : "Card NFT 2",
-    "tokenCount" : 6896
+    "name" : "Card NFT 2"
   },
   {
     "address" : "0xd497a414bb00803e846b53d07fcb742831b24906",

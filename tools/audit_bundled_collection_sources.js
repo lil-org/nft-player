@@ -4,6 +4,7 @@ const fs = require("node:fs/promises");
 const path = require("node:path");
 const os = require("node:os");
 const { suggestedItemId } = require("./suggested_items");
+const { isCdnLilManagedCollection } = require("./cdn_lil_managed_collections");
 
 const DEFAULT_BUNDLE_PATH = path.join("Suggested Items", "Suggested.bundle");
 const DEFAULT_REPORT_PATH = path.join("tools", "reports", "bundled-collection-source-audit.md");
@@ -354,7 +355,7 @@ async function loadBundle(options) {
         tokenPath,
         payload: null,
         records: [],
-        containsCdnLil: false,
+        containsCdnLil: isCdnLilManagedCollection(item),
         loadError: error.message,
       });
       continue;
@@ -368,7 +369,7 @@ async function loadBundle(options) {
       tokenPath,
       payload,
       records,
-      containsCdnLil: records.some((record) => isCdnLilURL(record.url)),
+      containsCdnLil: isCdnLilManagedCollection(item) || records.some((record) => isCdnLilURL(record.url)),
       loadError: null,
     });
   }
@@ -2560,9 +2561,36 @@ function escapeMarkdown(value) {
   return String(value ?? "").replace(/\*/gu, "\\*").replace(/_/gu, "\\_");
 }
 
-main().catch((error) => {
-  console.error(error.message);
-  console.error("");
-  console.error(usage());
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((error) => {
+    console.error(error.message);
+    console.error("");
+    console.error(usage());
+    process.exit(1);
+  });
+}
+
+module.exports = {
+  DEFAULT_HELIUS_API_KEY_PATH,
+  DEFAULT_OPENSEA_API_KEY_PATH,
+  TZKT_API_BASE_URL,
+  buildTokenPayload,
+  evmTargetForItem,
+  extensionForContentType,
+  fileExtensionForURL,
+  formatSuggestedItems,
+  getOpenSeaNft,
+  getEvmContractTokens,
+  getEvmSlugScopedTokens,
+  getTezosTokens,
+  heliusRpc,
+  mediaCandidatesForEvmToken,
+  mediaCandidatesForSolanaAsset,
+  mediaCandidatesForTezosToken,
+  maybeReadApiKey,
+  normalizeAssetURL,
+  normalizeComparableURL,
+  normalizeExtension,
+  sourceKindForBundledURL,
+  selectEvmTokensForCollection,
+};
