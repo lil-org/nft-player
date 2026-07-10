@@ -6,6 +6,12 @@ const path = require("node:path");
 const { spawn } = require("node:child_process");
 const { suggestedItemId } = require("./suggested_items");
 const sourceAudit = require("./audit_bundled_collection_sources");
+const {
+  SKIP_REASON: BUNDLED_GENERATIVE_SKIP_REASON,
+  isBundledGenerativeCollectionId,
+  isBundledGenerativeDownloadDirectory,
+  loadBundledGenerativeCollectionIds,
+} = require("./bundled_generative_collections");
 const { isCdnLilManagedCollection } = require("./cdn_lil_managed_collections");
 
 const DEFAULT_BUNDLE_PATH = path.join("Suggested Items", "Suggested.bundle");
@@ -24,6 +30,7 @@ Usage: node tools/audit_downloaded_collection_quality.js [options]
 
 Audits downloaded non-Art Blocks collections for missing files and within-collection
 dimension/quality outliers. Dry-run is the default.
+Collections represented by Suggested.bundle/Scripts/*.json are always skipped.
 
 Options:
   --apply                    Write recovered/replaced files, manifests, and source URL updates.
@@ -32,7 +39,7 @@ Options:
   --bundle <path>            Suggested bundle path. Default: ${DEFAULT_BUNDLE_PATH}
   --download-root <path>     Download root. Default: ${DEFAULT_DOWNLOAD_ROOT}
   --collection <text>        Repeatable collection id/name/address filter.
-  --include-art-blocks       Include items with abId. Default: excluded.
+  --include-art-blocks       Include items with abId that do not have bundled scripts.
   --include-cdn-lil          Include cdn.lil.org collections. Default: excluded.
   --probe-concurrency <n>    Concurrent media probes. Default: 12.
   --download-concurrency <n> Concurrent candidate recoveries. Default: 6.
@@ -113,7 +120,9 @@ async function main() {
   const options = parseArgs(process.argv.slice(2));
   const startedAt = new Date();
   const loaded = await loadCollections(options);
-  if (loaded.collections.length === 0) throw new Error("No eligible downloaded collections matched.");
+  if (loaded.collections.length === 0 && loaded.skipped.length === 0) {
+    throw new Error("No downloaded collections matched.");
+  }
 
   const needsEvm = loaded.collections.some((collection) => isEvm(collection.item.chain));
   const needsSolana = loaded.collections.some((collection) => collection.item.chain === "solana");
@@ -141,8 +150,11 @@ async function loadCollections(options) {
   const downloadRoot = path.resolve(options.downloadRoot);
   const itemsPath = path.join(bundlePath, "items.json");
   const tokensPath = path.join(bundlePath, "Tokens");
-  const items = JSON.parse(await fs.readFile(itemsPath, "utf8"));
-  const manifestPaths = await findManifestPaths(downloadRoot);
+  const [items, manifestPaths, bundledGenerativeCollectionIds] = await Promise.all([
+    fs.readFile(itemsPath, "utf8").then((contents) => JSON.parse(contents)),
+    findManifestPaths(downloadRoot),
+    loadBundledGenerativeCollectionIds(bundlePath),
+  ]);
   const manifestById = new Map();
   for (const manifestPath of manifestPaths) {
     const manifest = JSON.parse(await fs.readFile(manifestPath, "utf8"));
@@ -153,8 +165,13 @@ async function loadCollections(options) {
   const skipped = [];
   for (const item of items) {
     const id = suggestedItemId(item);
+    if (options.collections.length > 0 && !matchesFilter(item, id, options.collections)) continue;
     if (!options.includeCdnLil && isCdnLilManagedCollection(item)) {
       skipped.push({ id, name: item.name, reason: "native collection media is managed by cdn.lil.org" });
+      continue;
+    }
+    if (isBundledGenerativeCollectionId(id, bundledGenerativeCollectionIds)) {
+      skipped.push({ id, name: item.name, reason: BUNDLED_GENERATIVE_SKIP_REASON });
       continue;
     }
     const manifestRecord = manifestById.get(id.toLowerCase());
@@ -166,7 +183,6 @@ async function loadCollections(options) {
       skipped.push({ id, name: item.name, reason: "Art Blocks collection" });
       continue;
     }
-    if (options.collections.length > 0 && !matchesFilter(item, id, options.collections)) continue;
     const containsCdnLil = manifestRecord.manifest.tokens.some((token) => isCdnLil(token.downloadUrl ?? token.originalBundledURL));
     if (!options.includeCdnLil && containsCdnLil) {
       skipped.push({ id, name: item.name, reason: "resolved media contains cdn.lil.org" });
@@ -201,7 +217,7 @@ async function findManifestPaths(root) {
   const entries = await fs.readdir(root, { withFileTypes: true });
   const paths = [];
   for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
+    if (!entry.isDirectory() || isBundledGenerativeDownloadDirectory(entry.name)) continue;
     const manifestPath = path.join(root, entry.name, "manifest.json");
     try {
       await fs.access(manifestPath);

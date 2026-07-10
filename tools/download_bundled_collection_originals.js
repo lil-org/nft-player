@@ -12,6 +12,12 @@ const {
   collectionIdentityKey,
   suggestedItemId: collectionIdFor,
 } = require("./suggested_items");
+const {
+  SKIP_REASON: BUNDLED_GENERATIVE_SKIP_REASON,
+  isBundledGenerativeCollectionId,
+  isBundledGenerativeDownloadDirectory,
+  loadBundledGenerativeCollectionIds,
+} = require("./bundled_generative_collections");
 const { isCdnLilManagedCollection } = require("./cdn_lil_managed_collections");
 
 const DEFAULT_BUNDLE_PATH = path.join("Suggested Items", "Suggested.bundle");
@@ -41,6 +47,8 @@ function usage() {
   return `
 Usage:
   node tools/download_bundled_collection_originals.js [options]
+
+Collections represented by Suggested.bundle/Scripts/*.json are always skipped.
 
 Options:
   --apply                 Write downloaded media and manifests. Default is dry-run preflight.
@@ -238,9 +246,10 @@ async function loadCollections(options) {
   const outputRoot = path.resolve(options.outputRoot);
   const itemsPath = path.join(bundlePath, "items.json");
   const tokensPath = path.join(bundlePath, "Tokens");
-  const [items, tokenFileNames] = await Promise.all([
+  const [items, tokenFileNames, bundledGenerativeCollectionIds] = await Promise.all([
     readJson(itemsPath),
     fsp.readdir(tokensPath),
+    loadBundledGenerativeCollectionIds(bundlePath),
   ]);
   assertValidInternalSlugs(items);
   const collectionFilters = prepareCollectionFilters(options.collectionFilters, items);
@@ -279,6 +288,29 @@ async function loadCollections(options) {
     const skippedByFilter = matchesCollectionFilter(collectionId, item, skipCollectionFilters);
 
     const tokenFileName = tokenFileNameById.get(collectionId) ?? tokenFileNameById.get(collectionId.toLowerCase());
+    if (isBundledGenerativeCollectionId(collectionId, bundledGenerativeCollectionIds)) {
+      collections.push({
+        id: collectionId,
+        name: item.name ?? null,
+        internalSlug: item.internal_slug,
+        address: item.address ?? null,
+        chain: item.chain ?? null,
+        chainId: item.chainId ?? null,
+        projectId: item.abId ?? item.collectionId ?? null,
+        tokenFile: tokenFileName ?? null,
+        tokenFilePath: tokenFileName ? path.join(tokensPath, tokenFileName) : null,
+        outputDirectory: path.join(outputRoot, item.internal_slug),
+        tokenCount: 0,
+        skipped: true,
+        skippedByBundledGenerative: true,
+        skippedByCdnLil: false,
+        skippedByFilter,
+        skipReason: BUNDLED_GENERATIVE_SKIP_REASON,
+        tokens: [],
+      });
+      continue;
+    }
+
     if (!tokenFileName) {
       if (managedByCdnLil && !options.includeCdnLil) {
         collections.push({
@@ -294,6 +326,7 @@ async function loadCollections(options) {
           outputDirectory: path.join(outputRoot, item.internal_slug),
           tokenCount: 0,
           skipped: true,
+          skippedByBundledGenerative: false,
           skippedByCdnLil: true,
           skippedByFilter,
           skipReason: "native collection media is managed by cdn.lil.org",
@@ -338,6 +371,7 @@ async function loadCollections(options) {
       outputDirectory: path.join(outputRoot, item.internal_slug),
       tokenCount: tokens.length,
       skipped,
+      skippedByBundledGenerative: false,
       skippedByCdnLil,
       skippedByFilter,
       skipReason: skipped ? skipReasons.join("; ") : null,
@@ -929,7 +963,7 @@ async function assertOutputDirectoryOwnership(loaded) {
     if (entry.isSymbolicLink()) {
       throw new Error(`Downloaded collection path must not be a symbolic link: ${path.join(outputRoot, entry.name)}`);
     }
-    if (!entry.isDirectory()) continue;
+    if (!entry.isDirectory() || isBundledGenerativeDownloadDirectory(entry.name)) continue;
 
     const directory = path.join(outputRoot, entry.name);
     const manifestPath = path.join(directory, "manifest.json");
@@ -1568,7 +1602,9 @@ function mergeRootManifest(existing, current, loaded) {
   validateRootManifestForMerge(existing);
   assertUniqueCollectionRecords(current.collections, "current filtered run");
   const replaceCollections = loaded.collections.filter((collection) => (
-    !collection.skippedByFilter || collection.skippedByCdnLil
+    !collection.skippedByFilter
+    || collection.skippedByCdnLil
+    || collection.skippedByBundledGenerative
   ));
   const replaceKeys = new Set(replaceCollections.map(collectionRecordKey));
   const collections = mergeCollectionRecords(existing.collections, current.collections, replaceKeys);

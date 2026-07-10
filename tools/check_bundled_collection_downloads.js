@@ -3,6 +3,11 @@
 const fs = require("node:fs/promises");
 const path = require("node:path");
 const { suggestedItemId: collectionIdFor } = require("./suggested_items");
+const {
+  SKIP_REASON: BUNDLED_GENERATIVE_SKIP_REASON,
+  isBundledGenerativeCollectionId,
+  loadBundledGenerativeCollectionIds,
+} = require("./bundled_generative_collections");
 
 const DEFAULT_BUNDLE_PATH = path.join("Suggested Items", "Suggested.bundle");
 const DEFAULT_REPORT_PATH = path.join("tools", "reports", "bundled-collection-download-report.md");
@@ -12,6 +17,8 @@ function usage() {
   return `
 Usage:
   node tools/check_bundled_collection_downloads.js [options]
+
+Collections represented by Suggested.bundle/Scripts/*.json are always skipped.
 
 Options:
   --bundle <path>       Suggested.bundle path. Default: ${DEFAULT_BUNDLE_PATH}
@@ -280,9 +287,10 @@ async function readCollections(options) {
   const bundlePath = path.resolve(options.bundle);
   const itemsPath = path.join(bundlePath, "items.json");
   const tokensPath = path.join(bundlePath, "Tokens");
-  const [items, tokenFileNames] = await Promise.all([
+  const [items, tokenFileNames, bundledGenerativeCollectionIds] = await Promise.all([
     readJson(itemsPath),
     fs.readdir(tokensPath),
+    loadBundledGenerativeCollectionIds(bundlePath),
   ]);
 
   const tokenFileNameById = new Map(
@@ -293,6 +301,7 @@ async function readCollections(options) {
 
   const collections = [];
   const missingTokenFiles = [];
+  const skippedCollections = [];
   let suggestedItemsMatched = 0;
   for (const item of items) {
     const id = collectionIdFor(item);
@@ -304,6 +313,18 @@ async function readCollections(options) {
     }
 
     suggestedItemsMatched += 1;
+    if (isBundledGenerativeCollectionId(id, bundledGenerativeCollectionIds)) {
+      skippedCollections.push({
+        id,
+        name: item.name,
+        address: item.address,
+        projectId: projectIdFor(item),
+        chain: item.chain,
+        chainId: item.chainId,
+        reason: BUNDLED_GENERATIVE_SKIP_REASON,
+      });
+      continue;
+    }
 
     const tokenFileName = tokenFileNameById.get(id) ?? tokenFileNameById.get(id.toLowerCase());
     if (!tokenFileName) {
@@ -339,6 +360,7 @@ async function readCollections(options) {
     bundlePath,
     collections,
     missingTokenFiles,
+    skippedCollections,
     suggestedItemsMatched,
     bundledTokenJsonFiles: tokenFileNameById.size,
   };
@@ -862,6 +884,7 @@ function renderMarkdownReport(report) {
   lines.push(`- Suggested bundle: \`${report.bundlePath}\``);
   lines.push(`- Suggested items matched: ${report.summary.suggestedItemsMatched}`);
   lines.push(`- Bundled token JSON files present: ${report.summary.bundledTokenJsonFiles}`);
+  lines.push(`- Bundled generative collections skipped: ${report.summary.bundledGenerativeCollectionsSkipped}`);
   lines.push(`- Token-backed suggested collections checked: ${report.summary.tokenBackedCollectionsChecked}`);
   lines.push(`- OpenSea fallback collections checked: ${report.summary.openSeaFallbackCollectionsChecked}`);
   lines.push(`- Collections checked: ${report.summary.collectionsChecked}`);
@@ -887,6 +910,18 @@ function renderMarkdownReport(report) {
   lines.push(`- Suggested items without bundled token JSON: ${report.summary.suggestedItemsWithoutTokenJson}`);
   lines.push("");
   lines.push("A collection is marked unreachable when every sampled item failed to return either a successful GET response with bytes or a successful HEAD fallback after repeated GET 429 rate-limit responses.");
+  lines.push("");
+  lines.push("## Skipped Bundled Generative Collections");
+  lines.push("");
+  if (report.skippedCollections.length === 0) {
+    lines.push("None.");
+  } else {
+    lines.push("| Collection | Collection id | Reason |");
+    lines.push("| --- | --- | --- |");
+    for (const collection of report.skippedCollections) {
+      lines.push(`| ${escapeCell(collection.name)} | \`${escapeCell(collection.id)}\` | ${escapeCell(collection.reason)} |`);
+    }
+  }
   lines.push("");
   lines.push("## Unreachable Collections");
   lines.push("");
@@ -946,7 +981,14 @@ function renderMarkdownReport(report) {
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
-  const { bundlePath, collections: bundledCollections, missingTokenFiles, suggestedItemsMatched, bundledTokenJsonFiles } = await readCollections(options);
+  const {
+    bundlePath,
+    collections: bundledCollections,
+    missingTokenFiles,
+    skippedCollections,
+    suggestedItemsMatched,
+    bundledTokenJsonFiles,
+  } = await readCollections(options);
   if (missingTokenFiles.length > 0) {
     console.error(`Loading ${missingTokenFiles.length} suggested item(s) without bundled token JSON through OpenSea fallback...`);
   }
@@ -1001,6 +1043,7 @@ async function main() {
   const summary = {
     suggestedItemsMatched,
     bundledTokenJsonFiles,
+    bundledGenerativeCollectionsSkipped: skippedCollections.length,
     tokenBackedCollectionsChecked: bundledCollections.length,
     openSeaFallbackCollectionsChecked: openSeaCollections.length,
     openSeaFallbackApiFailures: openSeaCollections.filter((collection) => collection.openSeaApiError).length,
@@ -1033,6 +1076,7 @@ async function main() {
     },
     summary,
     missingTokenFiles,
+    skippedCollections,
     collections: summarizedCollections,
   };
 

@@ -5,10 +5,11 @@ This document records the full-download and post-download quality work performed
 ## Scope And Exclusions
 
 - Processed every token-backed collection in `Suggested Items/Suggested.bundle` except the exclusions below.
+- Collections represented by `Suggested.bundle/Scripts/*.json` are generated in-app and are always skipped by the downloader, reachability checker, source audit, quality audit, and slug migration tools. Their archived images belong under `Originals Downloaded/Art Blocks Generative/` and are not revalidated.
 - Skipped `Super Metal Mons!`, `Super Metal Mons!!`, `card nft`, and `Drifella 2` because their resolved bundled media uses `cdn.lil.org`.
 - Skipped the native CDN-managed `Poncho Drifella` and `Card NFT 2` collections even though their curated bundle metadata does not contain literal CDN URLs.
 - Skipped `The Abyssal Unseen` completely because its originals were too large for this corpus.
-- Audited downloaded dimensions for all 100 non-Art Blocks, non-skipped collections. Art Blocks projects were excluded from the cross-token dimension audit because generative project outputs can intentionally vary and already use project-specific source handling.
+- Audited downloaded dimensions for all 100 non-Art Blocks, non-skipped collections. Bundled-script projects are always excluded; other Art Blocks projects remain excluded from the cross-token dimension audit by default because generative project outputs can intentionally vary.
 - Never upscaled, resized, transcoded, or otherwise modified media. A replacement was accepted only after downloading and probing the remote candidate.
 
 ## Final Download State

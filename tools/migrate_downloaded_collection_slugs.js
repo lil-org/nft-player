@@ -8,6 +8,11 @@ const {
   collectionIdentityKey,
   suggestedItemId,
 } = require("./suggested_items");
+const {
+  isBundledGenerativeCollectionId,
+  isBundledGenerativeDownloadDirectory,
+  loadBundledGenerativeCollectionIds,
+} = require("./bundled_generative_collections");
 
 const DEFAULT_BUNDLE_PATH = path.join("Suggested Items", "Suggested.bundle");
 const DEFAULT_DOWNLOAD_ROOT = "Originals Downloaded";
@@ -17,6 +22,8 @@ function usage() {
   return `
 Usage:
   node tools/migrate_downloaded_collection_slugs.js [options]
+
+The Art Blocks Generative subtree and bundled-script collections are always skipped.
 
 Options:
   --apply                 Write internal_slug metadata and rename directories. Default is dry-run.
@@ -72,19 +79,24 @@ async function main() {
   const downloadRoot = path.resolve(options.downloadRoot);
   const itemsPath = path.join(bundlePath, "items.json");
   const rootManifestPath = path.join(downloadRoot, "manifest.json");
-  const [existingItems, rootManifest, directoryEntries] = await Promise.all([
+  const [existingItems, rootManifest, directoryEntries, bundledGenerativeCollectionIds] = await Promise.all([
     readJson(itemsPath),
     readJson(rootManifestPath),
     fs.readdir(downloadRoot, { withFileTypes: true }),
+    loadBundledGenerativeCollectionIds(bundlePath),
   ]);
 
   assertRootManifestShape(rootManifest);
   const items = assignInternalSlugs(existingItems);
   assertValidInternalSlugs(items);
   const itemByKey = uniqueItemMap(items);
-  const directoryRecords = await loadDirectoryRecords(downloadRoot, directoryEntries);
+  const directoryRecords = await loadDirectoryRecords(
+    downloadRoot,
+    directoryEntries,
+    bundledGenerativeCollectionIds,
+  );
   const recordByKey = uniqueRecordMap(directoryRecords);
-  validateManifestCoverage(rootManifest, itemByKey, recordByKey);
+  validateManifestCoverage(rootManifest, itemByKey, recordByKey, bundledGenerativeCollectionIds);
 
   const operations = [];
   for (const record of directoryRecords) {
@@ -107,7 +119,14 @@ async function main() {
     });
   }
 
-  const nextRootManifest = updateRootManifest(rootManifest, itemByKey, recordByKey, downloadRoot, items);
+  const nextRootManifest = updateRootManifest(
+    rootManifest,
+    itemByKey,
+    recordByKey,
+    downloadRoot,
+    items,
+    bundledGenerativeCollectionIds,
+  );
   const itemsChanged = !sameJson(existingItems, items);
   const rootManifestChanged = !sameJson(rootManifest, nextRootManifest);
 
@@ -170,10 +189,10 @@ function uniqueItemMap(items) {
   return result;
 }
 
-async function loadDirectoryRecords(downloadRoot, entries) {
+async function loadDirectoryRecords(downloadRoot, entries, bundledGenerativeCollectionIds) {
   const records = [];
   for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
+    if (!entry.isDirectory() || isBundledGenerativeDownloadDirectory(entry.name)) continue;
 
     const directory = path.join(downloadRoot, entry.name);
     const manifestPath = path.join(directory, "manifest.json");
@@ -189,6 +208,7 @@ async function loadDirectoryRecords(downloadRoot, entries) {
     if (!chain) {
       throw new Error(`Downloaded manifest has no collection.chain: ${manifestPath}`);
     }
+    if (isBundledGenerativeCollectionId(id, bundledGenerativeCollectionIds)) continue;
     records.push({
       id,
       chain,
@@ -221,7 +241,7 @@ function assertRootManifestShape(rootManifest) {
   }
 }
 
-function validateManifestCoverage(rootManifest, itemByKey, recordByKey) {
+function validateManifestCoverage(rootManifest, itemByKey, recordByKey, bundledGenerativeCollectionIds) {
   for (const collection of [...rootManifest.collections, ...rootManifest.skippedCollections]) {
     const key = collectionIdentityKey(collection.id, collection.chain);
     if (!itemByKey.has(key)) {
@@ -229,6 +249,7 @@ function validateManifestCoverage(rootManifest, itemByKey, recordByKey) {
     }
   }
   for (const collection of rootManifest.collections) {
+    if (isBundledGenerativeCollectionId(collection.id, bundledGenerativeCollectionIds)) continue;
     const key = collectionIdentityKey(collection.id, collection.chain);
     if (!collection.skipped && !recordByKey.has(key)) {
       throw new Error(`Root manifest collection ${collection.chain}:${collection.id} has no downloaded directory`);
@@ -256,8 +277,16 @@ function migratedCollectionManifest(manifest, internalSlug, outputDirectory) {
   };
 }
 
-function updateRootManifest(rootManifest, itemByKey, recordByKey, downloadRoot, items) {
+function updateRootManifest(
+  rootManifest,
+  itemByKey,
+  recordByKey,
+  downloadRoot,
+  items,
+  bundledGenerativeCollectionIds,
+) {
   const updateCollection = (collection) => {
+    if (isBundledGenerativeCollectionId(collection.id, bundledGenerativeCollectionIds)) return collection;
     const key = collectionIdentityKey(collection.id, collection.chain);
     const item = itemByKey.get(key);
     if (!item) {
@@ -280,6 +309,7 @@ function updateRootManifest(rootManifest, itemByKey, recordByKey, downloadRoot, 
     ...rootManifest,
     skippedCollections: rootManifest.skippedCollections.map(updateCollection),
     failures: rootManifest.failures.map((failure) => {
+      if (isBundledGenerativeCollectionId(failure.collectionId, bundledGenerativeCollectionIds)) return failure;
       const item = resolveFailureItem(failure.collectionId, items);
       return item ? { ...failure, internal_slug: item.internal_slug } : failure;
     }),

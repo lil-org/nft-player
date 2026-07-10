@@ -4,6 +4,11 @@ const fs = require("node:fs/promises");
 const path = require("node:path");
 const os = require("node:os");
 const { suggestedItemId } = require("./suggested_items");
+const {
+  SKIP_REASON: BUNDLED_GENERATIVE_SKIP_REASON,
+  isBundledGenerativeCollectionId,
+  loadBundledGenerativeCollectionIds,
+} = require("./bundled_generative_collections");
 const { isCdnLilManagedCollection } = require("./cdn_lil_managed_collections");
 
 const DEFAULT_BUNDLE_PATH = path.join("Suggested Items", "Suggested.bundle");
@@ -79,6 +84,8 @@ function usage() {
   return `
 Usage:
   node tools/audit_bundled_collection_sources.js [options]
+
+Collections represented by Suggested.bundle/Scripts/*.json are always skipped.
 
 Options:
   --apply                 Rewrite token JSON and items.json. Default is dry-run.
@@ -266,12 +273,12 @@ async function main() {
   context.openSeaApiKey = await maybeReadApiKey(
     options.openSeaApiKey,
     DEFAULT_OPENSEA_API_KEY_PATH,
-    selected.some((collection) => isEvmChain(collection.item.chain))
+    selected.some((collection) => !collection.bundledGenerative && isEvmChain(collection.item.chain))
   );
   context.heliusApiKey = await maybeReadApiKey(
     options.heliusApiKey,
     DEFAULT_HELIUS_API_KEY_PATH,
-    selected.some((collection) => collection.item.chain === "solana")
+    selected.some((collection) => !collection.bundledGenerative && collection.item.chain === "solana")
   );
 
   const audited = [];
@@ -280,6 +287,15 @@ async function main() {
 
   for (const collection of selected) {
     processed += 1;
+    if (collection.bundledGenerative) {
+      skipped.push({
+        id: collection.id,
+        name: collection.item.name,
+        chain: collection.item.chain,
+        reason: BUNDLED_GENERATIVE_SKIP_REASON,
+      });
+      continue;
+    }
     if (!options.includeCdnLil && collection.containsCdnLil) {
       skipped.push({
         id: collection.id,
@@ -335,14 +351,31 @@ async function loadBundle(options) {
   const bundlePath = path.resolve(options.bundlePath);
   const itemsPath = path.join(bundlePath, "items.json");
   const tokensPath = path.join(bundlePath, "Tokens");
-  const items = JSON.parse(await fs.readFile(itemsPath, "utf8"));
+  const [items, bundledGenerativeCollectionIds] = await Promise.all([
+    fs.readFile(itemsPath, "utf8").then((contents) => JSON.parse(contents)),
+    loadBundledGenerativeCollectionIds(bundlePath),
+  ]);
   const collections = [];
 
   for (const [itemIndex, item] of items.entries()) {
+    const id = suggestedItemId(item);
+    if (isBundledGenerativeCollectionId(id, bundledGenerativeCollectionIds)) {
+      collections.push({
+        item,
+        itemIndex,
+        id,
+        tokenPath: null,
+        payload: null,
+        records: [],
+        containsCdnLil: false,
+        loadError: null,
+        bundledGenerative: true,
+      });
+      continue;
+    }
     if (item.tokenCount == null) {
       continue;
     }
-    const id = suggestedItemId(item);
     const tokenPath = path.join(tokensPath, `${id}.json`);
     let payload;
     try {
@@ -357,6 +390,7 @@ async function loadBundle(options) {
         records: [],
         containsCdnLil: isCdnLilManagedCollection(item),
         loadError: error.message,
+        bundledGenerative: false,
       });
       continue;
     }
@@ -371,6 +405,7 @@ async function loadBundle(options) {
       records,
       containsCdnLil: isCdnLilManagedCollection(item) || records.some((record) => isCdnLilURL(record.url)),
       loadError: null,
+      bundledGenerative: false,
     });
   }
 
@@ -2417,6 +2452,7 @@ function summarize(collections, skipped, options) {
     mode: options.apply ? "apply" : "dry-run",
     auditedCollections: collections.length,
     skippedCollections: skipped.length,
+    bundledGenerativeCollectionsSkipped: skipped.filter((collection) => collection.reason === BUNDLED_GENERATIVE_SKIP_REASON).length,
     changedCollections: collections.filter((collection) => collection.changed).length,
     failedCollections: collections.filter((collection) => collection.failures.length > 0).length,
     warningCollections: collections.filter((collection) => collection.warnings.length > 0).length,
@@ -2494,7 +2530,8 @@ function renderMarkdownReport(report) {
   lines.push("## Summary");
   lines.push("");
   lines.push(`- Audited collections: ${summary.auditedCollections}`);
-  lines.push(`- Skipped cdn.lil.org collections: ${summary.skippedCollections}`);
+  lines.push(`- Skipped collections: ${summary.skippedCollections}`);
+  lines.push(`- Bundled generative collections skipped: ${summary.bundledGenerativeCollectionsSkipped}`);
   lines.push(`- Changed collections: ${summary.changedCollections}`);
   lines.push(`- Failed collections: ${summary.failedCollections}`);
   lines.push(`- Warning collections: ${summary.warningCollections}`);
@@ -2512,7 +2549,7 @@ function renderMarkdownReport(report) {
     lines.push(`| ${escapeCell(collection.item.name)} | ${escapeCell(collection.item.chain)} | ${escapeCell(collection.status)} | ${collection.apiTokenCount} | ${collection.originalTokenCount} -> ${collection.nextTokenCount} | ${collection.missingBundledTokenIds.length} | ${collection.replacedFallbackItems.length} | ${collection.keptFallbackItems.length} | ${escapeCell(collection.failures.join("; "))} |`);
   }
   lines.push("");
-  lines.push("## Skipped cdn.lil.org Collections");
+  lines.push("## Skipped Collections");
   lines.push("");
   if (report.skipped.length === 0) {
     lines.push("None.");

@@ -117,6 +117,44 @@ test("downloader refuses an existing slug directory without a manifest", (t) => 
   assert.match(result.stderr, /has no manifest\.json and will not be overwritten/u);
 });
 
+test("downloader skips bundled generative collections and their reserved directory", (t) => {
+  const fixture = createDownloaderFixture(t);
+  const scriptsPath = path.join(fixture.bundlePath, "Scripts");
+  const generativeRoot = path.join(fixture.outputRoot, "Art Blocks Generative");
+  const preservedMedia = path.join(generativeRoot, "download_test", "0.png");
+  fs.mkdirSync(path.dirname(preservedMedia), { recursive: true });
+  fs.mkdirSync(scriptsPath, { recursive: true });
+  fs.writeFileSync(path.join(scriptsPath, "0xabc.json"), "not read by download tools");
+  fs.writeFileSync(path.join(fixture.tokensPath, "0xabc.json"), "not valid JSON");
+  fs.writeFileSync(preservedMedia, "preserved");
+
+  const result = runScript(DOWNLOADER_SCRIPT, downloaderArgs(fixture));
+  assert.equal(result.status, 0, result.stderr);
+  const summary = JSON.parse(result.stdout);
+  assert.equal(summary.collectionsDownloaded, 0);
+  assert.equal(summary.skippedCollections, 1);
+  assert.equal(summary.downloadedFiles, 0);
+  assert.equal(fs.readFileSync(preservedMedia, "utf8"), "preserved");
+
+  const report = readJson(fixture.jsonReportPath);
+  assert.equal(report.skippedCollections[0].skipReason, "rendered from a bundled generative script");
+});
+
+test("slug migration ignores the bundled generative subtree", (t) => {
+  const fixture = createMigrationFixture(t);
+  const scriptsPath = path.join(fixture.bundlePath, "Scripts");
+  const generativeRoot = path.join(fixture.downloadRoot, "Art Blocks Generative");
+  fs.mkdirSync(scriptsPath, { recursive: true });
+  fs.mkdirSync(generativeRoot, { recursive: true });
+  fs.writeFileSync(path.join(scriptsPath, "0xabc.json"), "not read by migration tools");
+  fs.renameSync(fixture.oldDirectory, path.join(generativeRoot, "active_collection"));
+  fs.rmSync(path.join(generativeRoot, "active_collection", "manifest.json"));
+
+  const result = runScript(MIGRATION_SCRIPT, migrationArgs(fixture));
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(JSON.parse(result.stdout).matchedDirectories, 0);
+});
+
 test("downloader refuses an existing collection directory whose stored slug changed", (t) => {
   const fixture = createDownloaderFixture(t);
   const oldDirectory = path.join(fixture.outputRoot, "old_download_test");
