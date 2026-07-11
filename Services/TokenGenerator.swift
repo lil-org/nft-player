@@ -116,6 +116,26 @@ struct TokenGenerator {
     static func canGenerate(id: String) -> Bool {
         return jsonsNames.contains(id + ".json")
     }
+
+    static func isBundledWebGenerativeCollection(id: String) -> Bool {
+        guard canGenerate(id: id),
+              let script = script(specificCollectionId: id) else {
+            return false
+        }
+        return !script.kind.isNativeRenderer
+    }
+
+    static func bundledWebGenerativeTokenId(
+        specificCollectionId: String,
+        tokenIndex: Int
+    ) -> String? {
+        guard isBundledWebGenerativeCollection(id: specificCollectionId),
+              let collectionData = collectionData(specificCollectionId: specificCollectionId),
+              collectionData.tokens.indices.contains(tokenIndex) else {
+            return nil
+        }
+        return collectionData.tokens[tokenIndex].id
+    }
     
     static func isCollectionDisabledOnCurrentPlatform(id: String) -> Bool {
         if platformDisabledCollectionIds.contains(id) {

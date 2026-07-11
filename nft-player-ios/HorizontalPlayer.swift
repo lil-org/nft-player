@@ -1559,6 +1559,13 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
         )
     }
 
+    fileprivate func staticImageGridMediaDescriptor(for pagePosition: PlayerPagePosition) -> DownloadableMediaDescriptor? {
+        MobilePlaybackController.shared.staticImageGridMediaDescriptor(
+            uuid: initialConfig.id,
+            pagePosition: pagePosition
+        )
+    }
+
     fileprivate func staticImageGridDescriptors(
         containing pagePosition: PlayerPagePosition,
         for pageLayout: MobilePlayerPageLayout
@@ -1677,6 +1684,7 @@ private protocol HorizontalPlayerDataSource: AnyObject {
     ) -> PlayerDownloadableMediaWindow?
     func clearDownloadableMediaWindow()
     func downloadableMediaDescriptor(for pagePosition: PlayerPagePosition) -> DownloadableMediaDescriptor?
+    func staticImageGridMediaDescriptor(for pagePosition: PlayerPagePosition) -> DownloadableMediaDescriptor?
     func staticImageGridDescriptors(
         containing pagePosition: PlayerPagePosition,
         for pageLayout: MobilePlayerPageLayout
@@ -2425,33 +2433,34 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         }
 
         let isUsingStaticImageGridLayout = usesStaticImageGridLayoutForCurrentPagePosition
-        if isUsingStaticImageGridLayout,
-           let mediaWindow = prepareCurrentDownloadableMediaWindow(),
-           case .staticImage = mediaWindow.currentDescriptor.media {
-            let descriptor = mediaWindow.currentDescriptor
-            renderImageSpread(
-                descriptor,
-                imageDescriptors: staticImageGridImageDescriptors(startingWith: descriptor),
-                fallbackHTML: token.html
-            )
+        if isUsingStaticImageGridLayout {
+            if let mediaWindow = prepareStaticImageGridMediaWindowIfAvailable(),
+               case .staticImage = mediaWindow.currentDescriptor.media {
+                let descriptor = mediaWindow.currentDescriptor
+                renderImageSpread(
+                    descriptor,
+                    imageDescriptors: staticImageGridImageDescriptors(startingWith: descriptor),
+                    fallbackHTML: token.html
+                )
+            } else {
+                playerDataSource?.clearDownloadableMediaWindow()
+                renderWebContent(token.html)
+            }
         } else if let nativeRenderKind = token.nativeMetalCardRenderKind {
-            if !prepareStaticImageGridMediaWindowIfAvailable() {
+            if prepareStaticImageGridMediaWindowIfAvailable() == nil {
                 playerDataSource?.clearDownloadableMediaWindow()
             }
             renderNativeMetalCard(token, renderKind: nativeRenderKind)
+        } else if token.media == nil {
+            if prepareStaticImageGridMediaWindowIfAvailable() == nil {
+                playerDataSource?.clearDownloadableMediaWindow()
+            }
+            renderWebContent(token.html)
         } else if let mediaWindow = prepareCurrentDownloadableMediaWindow() {
             let descriptor = mediaWindow.currentDescriptor
             switch descriptor.media {
             case .staticImage:
-                if isUsingStaticImageGridLayout {
-                    renderImageSpread(
-                        descriptor,
-                        imageDescriptors: staticImageGridImageDescriptors(startingWith: descriptor),
-                        fallbackHTML: token.html
-                    )
-                } else {
-                    renderImage(descriptor, fallbackHTML: token.html)
-                }
+                renderImage(descriptor, fallbackHTML: token.html)
             case .animatedImage:
                 renderAnimatedImage(
                     descriptor,
@@ -2475,9 +2484,8 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             playerDataSource?.clearDownloadableMediaWindow()
             return
         }
-        if token.nativeMetalCardRenderKind != nil,
-           !usesStaticImageGridLayoutForCurrentPagePosition {
-            if !prepareStaticImageGridMediaWindowIfAvailable() {
+        if usesStaticImageGridLayoutForCurrentPagePosition || token.media == nil {
+            if prepareStaticImageGridMediaWindowIfAvailable() == nil {
                 playerDataSource?.clearDownloadableMediaWindow()
             }
             return
@@ -2493,18 +2501,17 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         )
     }
 
-    @discardableResult
-    private func prepareStaticImageGridMediaWindowIfAvailable() -> Bool {
-        guard let descriptor = playerDataSource?.downloadableMediaDescriptor(for: pagePosition),
+    private func prepareStaticImageGridMediaWindowIfAvailable() -> PlayerDownloadableMediaWindow? {
+        guard let descriptor = playerDataSource?.staticImageGridMediaDescriptor(for: pagePosition),
               let staticImageGridLayout = MobilePlayerPageLayout.staticImageGridLayout(for: descriptor) else {
-            return false
+            return nil
         }
 
         return playerDataSource?.prepareStaticImageGridMediaWindow(
             for: pagePosition,
             pageLayout: staticImageGridLayout,
             direction: preferredPrefetchDirection
-        ) != nil
+        )
     }
 
     fileprivate func replaceVisibleContentIfAvailable(

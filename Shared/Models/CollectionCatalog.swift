@@ -15,11 +15,31 @@ struct CollectionCatalogItem: Hashable, Identifiable {
     }
 }
 
+enum CollectionCatalogDownloadableMediaPurpose: Hashable {
+    case primary
+    case staticImageGridThumbnail
+}
+
 struct CollectionCatalogDownloadableMediaDescriptor: Hashable {
     let collectionId: String
     let tokenId: String
     let tokenIndex: Int
     let media: GeneratedTokenMedia
+    let purpose: CollectionCatalogDownloadableMediaPurpose
+
+    init(
+        collectionId: String,
+        tokenId: String,
+        tokenIndex: Int,
+        media: GeneratedTokenMedia,
+        purpose: CollectionCatalogDownloadableMediaPurpose = .primary
+    ) {
+        self.collectionId = collectionId
+        self.tokenId = tokenId
+        self.tokenIndex = tokenIndex
+        self.media = media
+        self.purpose = purpose
+    }
 
     var url: URL {
         media.url
@@ -33,8 +53,13 @@ struct CollectionCatalogDownloadableMediaDescriptor: Hashable {
         media.isStaticImage
     }
 
+    var isStaticImageGridThumbnail: Bool {
+        purpose == .staticImageGridThumbnail
+    }
+
     var nativeMetalCardRenderKind: NativeMetalCardRenderKind? {
-        NativeMetalCardRenderKind(collectionId: collectionId)
+        guard purpose == .primary else { return nil }
+        return NativeMetalCardRenderKind(collectionId: collectionId)
     }
 
     var isNativeMetalCard: Bool {
@@ -392,10 +417,10 @@ final class PlayerTokenPagingDataSource {
         )
     }
 
-    func downloadableMediaDescriptorsAfterExitingWidgetInsertion(
+    func tokenContextsAfterExitingWidgetInsertion(
         containing pagePosition: PlayerPagePosition,
         pageSize: Int
-    ) -> [CollectionCatalogDownloadableMediaDescriptor] {
+    ) -> [PlayerTokenContext] {
         guard pageSize > 1 else { return [] }
         guard let target = stableWidgetInsertionExitTarget(
             containing: pagePosition,
@@ -404,12 +429,13 @@ final class PlayerTokenPagingDataSource {
             return []
         }
 
-        return contiguousDownloadableMediaDescriptors(
-            collectionId: target.context.collectionId,
-            startTokenIndex: target.tokenIndex,
-            tokenCount: target.context.tokenCount,
-            count: pageSize
-        )
+        return (target.tokenIndex..<min(target.tokenIndex + pageSize, target.context.tokenCount)).map {
+            PlayerTokenContext(
+                collectionId: target.context.collectionId,
+                tokenIndex: $0,
+                tokenCount: target.context.tokenCount
+            )
+        }
     }
 
     func progress(pagePosition: PlayerPagePosition) -> PlayerViewingProgress? {
@@ -597,26 +623,6 @@ final class PlayerTokenPagingDataSource {
                 tokenIndex: $0
             )
         }
-    }
-
-    private func contiguousDownloadableMediaDescriptors(
-        collectionId: String,
-        startTokenIndex: Int,
-        tokenCount: Int,
-        count: Int
-    ) -> [CollectionCatalogDownloadableMediaDescriptor] {
-        var descriptors = [CollectionCatalogDownloadableMediaDescriptor]()
-        descriptors.reserveCapacity(count)
-        for tokenIndex in startTokenIndex..<min(startTokenIndex + count, tokenCount) {
-            guard let descriptor = CollectionCatalog.downloadableMediaDescriptor(
-                specificCollectionId: collectionId,
-                tokenIndex: tokenIndex
-            ) else {
-                break
-            }
-            descriptors.append(descriptor)
-        }
-        return descriptors
     }
 
     private func adjacentDownloadableMediaDescriptor(

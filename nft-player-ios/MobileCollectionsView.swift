@@ -3607,7 +3607,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         image: UIImage? = nil
     ) -> UIView {
         if image == nil,
-           descriptor.isNativeMetalCard,
+           (descriptor.isNativeMetalCard || descriptor.isStaticImageGridThumbnail),
            let snapshot = makeCardTransitionSnapshotView(sourceFrame: sourceFrame) {
             return snapshot
         }
