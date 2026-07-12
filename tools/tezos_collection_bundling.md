@@ -47,6 +47,8 @@ Token JSON uses the iOS app's compact downloadable collection format:
 
 Rows include a fourth extension field only when a token differs from `defaultFileExtension`.
 
+If an existing token JSON contains a top-level `tmp_files` map, `--apply` preserves entries whose token ID is still present in `items`. It drops and reports stale token IDs, ignores invalid file names, and omits the map when no valid entries remain. This preservation reads only the existing token JSON; rebundling does not require `Originals Downloaded` to exist.
+
 ## Media Policy
 
 - Prefer token `artifactUri` and matching `formats[].uri` over display and thumbnail URLs.

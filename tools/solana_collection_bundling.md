@@ -45,6 +45,8 @@ Token JSON uses the iOS app's compact Solana format:
 
 Rows include a fourth extension field only when a token differs from `defaultFileExtension`.
 
+If an existing token JSON contains a top-level `tmp_files` map, `--apply` preserves entries whose token mint is still present in `items`. It drops and reports stale token mints, ignores invalid file names, and omits the map when no valid entries remain. This preservation reads only the existing token JSON; rebundling does not require `Originals Downloaded` to exist.
+
 ## Media Policy
 
 - Prefer original `content.files[].uri` from Helius over CDN URLs.

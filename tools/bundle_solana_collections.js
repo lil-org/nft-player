@@ -14,6 +14,7 @@ const {
 } = require("./cover_images");
 const { assignInternalSlugs, mergeGeneratedSuggestedItem } = require("./suggested_items");
 const { isCdnLilManagedCollection } = require("./cdn_lil_managed_collections");
+const { preserveTmpFilesFromFile, reportTmpFilesChanges } = require("./tmp_files");
 
 const DEFAULT_BUNDLE_PATH = path.join("Suggested Items", "Suggested.bundle");
 const DEFAULT_COVERS_PATH = path.join("Suggested Items", "Covers.xcassets");
@@ -1040,7 +1041,9 @@ async function writeBundle(collections, context) {
 
   for (const collection of collections) {
     const outputPath = path.join(tokensPath, `${collection.collectionId}.json`);
-    await fs.writeFile(outputPath, `${JSON.stringify(collection.tokenPayload)}\n`);
+    const { payload, report } = await preserveTmpFilesFromFile(outputPath, collection.tokenPayload);
+    reportTmpFilesChanges(collection.collectionId, report);
+    await fs.writeFile(outputPath, `${JSON.stringify(payload)}\n`);
   }
 
   await fs.writeFile(itemsPath, formatSuggestedItems(updatedItems));
