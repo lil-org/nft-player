@@ -57,6 +57,7 @@ Options:
   --report <path>         Markdown report path. Default: ${DEFAULT_REPORT_PATH}
   --json-report <path>    JSON report path. Default: ${DEFAULT_JSON_REPORT_PATH}
                           Filtered runs use *.filtered.* unless a path is explicit.
+  --retry-report <path>   Retry only token IDs listed in a prior JSON report's failures array.
   --collection <text>     Optional collection name/slug/id/address filter. Can be repeated.
   --start-at <text>       Start processing at the first matching collection name/slug/id/address.
   --skip-collection <text>
@@ -81,6 +82,7 @@ function parseArgs(argv) {
     outputRoot: DEFAULT_OUTPUT_ROOT,
     reportPath: DEFAULT_REPORT_PATH,
     jsonReportPath: DEFAULT_JSON_REPORT_PATH,
+    retryReportPath: null,
     collectionFilters: [],
     startAtFilter: null,
     skipCollectionFilters: [],
@@ -125,6 +127,9 @@ function parseArgs(argv) {
       case "--json-report":
         options.jsonReportPath = readValue();
         options.jsonReportPathExplicit = true;
+        break;
+      case "--retry-report":
+        options.retryReportPath = readValue();
         break;
       case "--collection":
         options.collectionFilters.push(readValue().toLowerCase());
@@ -191,7 +196,8 @@ function nonNegativeInteger(value, optionName) {
 }
 
 function hasRunFilters(options) {
-  return options.collectionFilters.length > 0
+  return options.retryReportPath != null
+    || options.collectionFilters.length > 0
     || options.startAtFilter != null
     || options.skipCollectionFilters.length > 0;
 }
@@ -223,7 +229,7 @@ async function main() {
   const freeDiskBytes = await availableBytesForPath(path.resolve(options.outputRoot));
 
   const selectedCollections = loaded.collections.filter((collection) => !collection.skipped);
-  const totalTokens = selectedCollections.reduce((sum, collection) => sum + collection.tokens.length, 0);
+  const totalTokens = selectedCollections.reduce((sum, collection) => sum + tokenCountToProcess(collection), 0);
   const skippedTokens = loaded.collections
     .filter((collection) => collection.skipped)
     .reduce((sum, collection) => sum + collection.tokens.length, 0);
@@ -241,6 +247,10 @@ async function main() {
   console.log(JSON.stringify(result.summary, null, 2));
 }
 
+function tokenCountToProcess(collection) {
+  return collection.retryTokenIds == null ? collection.tokens.length : collection.retryTokenIds.size;
+}
+
 async function loadCollections(options) {
   const bundlePath = path.resolve(options.bundlePath);
   const outputRoot = path.resolve(options.outputRoot);
@@ -251,6 +261,9 @@ async function loadCollections(options) {
     fsp.readdir(tokensPath),
     loadBundledGenerativeCollectionIds(bundlePath),
   ]);
+  const retryTargets = options.retryReportPath == null
+    ? null
+    : await loadRetryTargets(options.retryReportPath);
   assertValidInternalSlugs(items);
   const collectionFilters = prepareCollectionFilters(options.collectionFilters, items);
   const startAtFilters = prepareCollectionFilters(options.startAtFilter == null ? [] : [options.startAtFilter], items);
@@ -383,17 +396,72 @@ async function loadCollections(options) {
     throw new Error(`No collection matched --start-at ${options.startAtFilter}`);
   }
 
+  const selectedForRetry = retryTargets == null
+    ? collections
+    : applyRetryTargets(collections, retryTargets);
+
   return {
     bundlePath,
     outputRoot,
     itemsPath,
     tokensPath,
     items,
-    collections,
+    collections: selectedForRetry,
     missingTokenFiles,
     suggestedItemsMatched: items.length,
     bundledTokenJsonFiles: tokenFileNameById.size / 2,
   };
+}
+
+async function loadRetryTargets(reportPath) {
+  const report = await readJson(path.resolve(reportPath));
+  if (!Array.isArray(report.failures)) {
+    throw new Error(`Retry report must contain a failures array: ${reportPath}`);
+  }
+
+  const byInternalSlug = new Map();
+  const keys = new Set();
+  for (const failure of report.failures) {
+    const internalSlug = typeof failure?.internal_slug === "string" ? failure.internal_slug.toLowerCase() : null;
+    const tokenId = failure?.tokenId == null ? null : String(failure.tokenId);
+    if (!internalSlug || !tokenId) {
+      throw new Error(`Retry report has a failure without internal_slug or tokenId: ${reportPath}`);
+    }
+    const key = retryTargetKey(internalSlug, tokenId);
+    if (keys.has(key)) continue;
+    keys.add(key);
+    const tokenIds = byInternalSlug.get(internalSlug) ?? new Set();
+    tokenIds.add(tokenId);
+    byInternalSlug.set(internalSlug, tokenIds);
+  }
+
+  return { byInternalSlug, keys };
+}
+
+function applyRetryTargets(collections, retryTargets) {
+  const matched = new Set();
+  for (const collection of collections) {
+    const internalSlug = String(collection.internalSlug ?? "").toLowerCase();
+    const requestedTokenIds = retryTargets.byInternalSlug.get(internalSlug) ?? new Set();
+    const tokenIds = new Set();
+    for (const token of collection.tokens) {
+      if (!requestedTokenIds.has(token.id)) continue;
+      tokenIds.add(token.id);
+      matched.add(retryTargetKey(internalSlug, token.id));
+    }
+    collection.retryTokenIds = tokenIds;
+  }
+
+  const unmatched = [...retryTargets.keys].filter((key) => !matched.has(key));
+  if (unmatched.length > 0) {
+    throw new Error(`Retry report contains ${unmatched.length} token(s) not matched by the selected collections: ${unmatched.slice(0, 5).join(", ")}`);
+  }
+
+  return collections.filter((collection) => collection.retryTokenIds.size > 0);
+}
+
+function retryTargetKey(internalSlug, tokenId) {
+  return `${String(internalSlug).toLowerCase()}\u0000${String(tokenId)}`;
 }
 
 function prepareCollectionFilters(filters, items) {
@@ -597,7 +665,9 @@ async function runDryRun(loaded, options, startedAt, freeDiskBytes) {
       continue;
     }
 
-    const tokens = collection.tokens;
+    const tokens = collection.retryTokenIds == null
+      ? collection.tokens
+      : collection.tokens.filter((token) => collection.retryTokenIds.has(token.id));
     const tokenEntries = [];
     if (options.estimateHead) {
       await runPool(tokens, options.concurrency, async (token) => {
@@ -649,7 +719,7 @@ async function runDryRun(loaded, options, startedAt, freeDiskBytes) {
       collectionsMatched: loaded.collections.length,
       collectionsToDownload: activeCollections.length,
       skippedCollections: skippedCollections.length,
-      tokenRowsToDownload: activeCollections.reduce((sum, collection) => sum + collection.tokens.length, 0),
+      tokenRowsToDownload: activeCollections.reduce((sum, collection) => sum + tokenCountToProcess(collection), 0),
       skippedTokenRows: skippedCollections.reduce((sum, collection) => sum + collection.tokenCount, 0),
       estimatedBytes: totalEstimatedBytes,
       estimatedBytesFormatted: formatBytes(totalEstimatedBytes),
@@ -741,7 +811,7 @@ async function runDownload(loaded, options, startedAt, freeDiskBytes) {
       collectionsMatched: loaded.collections.length,
       collectionsDownloaded: activeCollections.length,
       skippedCollections: skippedCollections.length,
-      tokenRowsToDownload: activeCollections.reduce((sum, collection) => sum + collection.tokens.length, 0),
+      tokenRowsToDownload: activeCollections.reduce((sum, collection) => sum + tokenCountToProcess(collection), 0),
       skippedTokenRows: skippedCollections.reduce((sum, collection) => sum + collection.tokenCount, 0),
       downloadedFiles,
       reusedFiles,
@@ -797,10 +867,15 @@ async function downloadCollection(collection, options) {
   let totalAttempts = 0;
   let lastManifestWrite = Date.now();
   let manifestWritePromise = Promise.resolve();
+  const tokensToProcess = collection.retryTokenIds == null
+    ? collection.tokens.map((token, tokenIndex) => ({ token, tokenIndex }))
+    : collection.tokens
+      .map((token, tokenIndex) => ({ token, tokenIndex }))
+      .filter(({ token }) => collection.retryTokenIds.has(token.id));
 
   await removeStalePartials(collection.outputDirectory, options);
 
-  await runPool(collection.tokens, options.concurrency, async (token, tokenIndex) => {
+  await runPool(tokensToProcess, options.concurrency, async ({ token, tokenIndex }) => {
     const existingEntry = existingByTokenId.get(token.id);
     const existing = !options.overwrite
       ? await verifiedExistingEntry(collection.outputDirectory, existingEntry)
@@ -1211,6 +1286,7 @@ function downloadUrlCandidates(urlString) {
   const urls = [];
   const ipfs = ipfsGatewayURLParts(urlString);
   if (ipfs) {
+    urls.push(`https://gateway.pinata.cloud/ipfs/${ipfs.cid}${ipfs.pathSuffix}${ipfs.search}`);
     urls.push(`https://ipfs.io/ipfs/${ipfs.cid}${ipfs.pathSuffix}${ipfs.search}`);
     urls.push(urlString);
     urls.push(`https://ipfs.decentralized-content.com/ipfs/${ipfs.cid}${ipfs.pathSuffix}${ipfs.search}`);
@@ -1814,6 +1890,7 @@ function publicOptions(options) {
   return {
     bundlePath: options.bundlePath,
     outputRoot: options.outputRoot,
+    retryReportPath: options.retryReportPath,
     includeCdnLil: options.includeCdnLil,
     collectionFilters: options.collectionFilters,
     startAtFilter: options.startAtFilter,

@@ -830,6 +830,7 @@ function downloadCandidates(urlString) {
     const url = new URL(urlString);
     const ipfs = /^\/ipfs\/([^/]+)(\/.*)?$/u.exec(url.pathname);
     if (ipfs) {
+      urls.push(`https://gateway.pinata.cloud/ipfs/${ipfs[1]}${ipfs[2] ?? ""}${url.search}`);
       urls.push(`https://ipfs.io/ipfs/${ipfs[1]}${ipfs[2] ?? ""}${url.search}`);
       urls.push(urlString);
       urls.push(`https://ipfs.decentralized-content.com/ipfs/${ipfs[1]}${ipfs[2] ?? ""}${url.search}`);
