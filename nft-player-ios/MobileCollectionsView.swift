@@ -162,6 +162,7 @@ private enum MobileCollectionsGridScrollPositionStore {
 
 struct MobileCollectionsView: View {
     private let collectionItems: [MobileCollectionItem]
+    @ObservedObject private var widgetLaunchPresentationState: WidgetLaunchPresentationState
     @State private var playerConfig: MobilePlayerConfig?
     @State private var playerPresentationTransition: PlayerPresentationTransition = .animated
     @State private var viewingProgressByCollectionId: [String: Int]
@@ -169,8 +170,12 @@ struct MobileCollectionsView: View {
     @State private var recentContinueViewingProgresses: [MobileViewingProgress]
     @State private var continueViewingScrollResetID = 0
     
-    init(collectionItems: [MobileCollectionItem] = MobileCollectionCatalog.allItems) {
+    init(
+        collectionItems: [MobileCollectionItem] = MobileCollectionCatalog.allItems,
+        widgetLaunchPresentationState: WidgetLaunchPresentationState = .shared
+    ) {
         self.collectionItems = collectionItems
+        _widgetLaunchPresentationState = ObservedObject(wrappedValue: widgetLaunchPresentationState)
         let progressSnapshot = MobileViewingProgressStore.progressSnapshot()
         _viewingProgressByCollectionId = State(initialValue: progressSnapshot.percentagesByCollectionId)
         _viewedToEndCollectionIds = State(initialValue: progressSnapshot.viewedToEndCollectionIds)
@@ -229,7 +234,9 @@ struct MobileCollectionsView: View {
                 }
             }
 
-            if playerConfig == nil, !recentContinueViewingProgresses.isEmpty {
+            if !widgetLaunchPresentationState.isSuppressingContinueViewing,
+               playerConfig == nil,
+               !recentContinueViewingProgresses.isEmpty {
                 GeometryReader { geometry in
                     VStack {
                         Spacer()
@@ -346,6 +353,10 @@ struct MobileCollectionsView: View {
     }
 
     private func openWidgetURL(_ url: URL) {
+        defer {
+            widgetLaunchPresentationState.finishWidgetPlayerHandoff(for: url)
+        }
+
         guard let deepLink = WidgetDeepLink(url: url),
               case let .collection(collectionId, tokenId) = deepLink,
               collectionItems.contains(where: { $0.id == collectionId }) else {

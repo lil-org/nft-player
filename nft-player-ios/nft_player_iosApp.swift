@@ -9,8 +9,18 @@ struct nft_player_iosApp: App {
     
     var body: some Scene {
         WindowGroup {
-            MobileCollectionsView()
+            MobileCollectionsSceneRoot()
         }
+    }
+}
+
+private struct MobileCollectionsSceneRoot: View {
+    @EnvironmentObject private var sceneDelegate: SceneDelegate
+
+    var body: some View {
+        MobileCollectionsView(
+            widgetLaunchPresentationState: sceneDelegate.widgetLaunchPresentationState
+        )
     }
 }
 
@@ -73,12 +83,36 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     
 }
 
-class SceneDelegate: UIResponder, UIWindowSceneDelegate {
+@MainActor
+final class SceneDelegate: UIResponder, UIWindowSceneDelegate, ObservableObject {
+
+    private static var hasActivatedApplicationScene = false
+
+    let widgetLaunchPresentationState = WidgetLaunchPresentationState()
     
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
+        if session.role == .windowApplication {
+            widgetLaunchPresentationState.prepareForIncomingURLs(
+                connectionOptions.urlContexts.map(\.url),
+                isApplicationLaunch: !Self.hasActivatedApplicationScene,
+                isSupportedCollection: { collectionId in
+                    MobileCollectionCatalog.allItems.contains { $0.id == collectionId }
+                }
+            )
+        }
+
         if let shortcutItem = connectionOptions.shortcutItem, shortcutItem.type == feedbackShortcutItemType {
             UIApplication.shared.open(.quickFeedbackMail)
         }
+    }
+
+    func sceneDidBecomeActive(_ scene: UIScene) {
+        guard scene.session.role == .windowApplication else { return }
+        Self.hasActivatedApplicationScene = true
+    }
+
+    func sceneDidDisconnect(_ scene: UIScene) {
+        widgetLaunchPresentationState.cancelAllWidgetPlayerHandoffs()
     }
     
     func windowScene(_ windowScene: UIWindowScene, performActionFor shortcutItem: UIApplicationShortcutItem, completionHandler: @escaping (Bool) -> Void) {

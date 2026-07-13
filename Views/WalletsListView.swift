@@ -17,6 +17,7 @@ private let collectionsGridRowSpacing: CGFloat = 0
 struct WalletsListView: View {
 
     private let collectionItems: [CollectionCatalogItem]
+    @ObservedObject private var widgetLaunchPresentationState = WidgetLaunchPresentationState.shared
     @State private var gridPassCount: Int
     @State private var gridScrollMemoryTracker: CollectionsGridScrollMemoryTracker
     @State private var hasRestoredInitialGridScrollPosition: Bool
@@ -122,6 +123,10 @@ struct WalletsListView: View {
         .collectionsGridScrollMemoryLifecycleFlush(tracker: gridScrollMemoryTracker)
         .animation(continueViewingControlAnimation, value: recentContinueViewingProgresses)
         .animation(continueViewingControlAnimation, value: hasOpenPlayerWindows)
+        .animation(
+            continueViewingControlAnimation,
+            value: widgetLaunchPresentationState.isSuppressingContinueViewing
+        )
     }
 
     private var settingsMenu: some View {
@@ -139,7 +144,9 @@ struct WalletsListView: View {
     }
 
     private var shouldShowContinueViewingControl: Bool {
-        !recentContinueViewingProgresses.isEmpty && !hasOpenPlayerWindows
+        !widgetLaunchPresentationState.isSuppressingContinueViewing
+            && !recentContinueViewingProgresses.isEmpty
+            && !hasOpenPlayerWindows
     }
 
     private var continueViewingControlAnimation: Animation? {

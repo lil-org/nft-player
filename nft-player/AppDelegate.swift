@@ -10,6 +10,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private let currentInstanceId = UUID().uuidString
     private var terminateFlushTimeoutWorkItem: DispatchWorkItem?
     private var isReplyingToTerminate = false
+    private var hasFinishedLaunching = false
     
     func applicationDidFinishLaunching(_ aNotification: Notification) {
         PlayerICloudSync.shared.start()
@@ -18,6 +19,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let notificationCenter = DistributedNotificationCenter.default()
         notificationCenter.post(name: .mustTerminate, object: currentInstanceId)
         notificationCenter.addObserver(self, selector: #selector(terminateInstance(_:)), name: .mustTerminate, object: nil, suspensionBehavior: .deliverImmediately)
+        hasFinishedLaunching = true
     }
     
     func applicationWillTerminate(_ aNotification: Notification) {
@@ -74,7 +76,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func application(_ application: NSApplication, open urls: [URL]) {
-        urls.forEach(openWidgetURL)
+        WidgetLaunchPresentationState.shared.prepareForIncomingURLs(
+            urls,
+            isApplicationLaunch: !hasFinishedLaunching,
+            isSupportedCollection: { collectionId in
+                CollectionCatalog.allItems.contains { $0.id == collectionId }
+            }
+        )
+
+        let widgetURLs = urls.filter { WidgetDeepLink(url: $0) != nil }
+        guard !widgetURLs.isEmpty else { return }
+
+        DispatchQueue.main.async { [self] in
+            widgetURLs.forEach(openWidgetURL)
+        }
     }
     
     @IBAction func didClickNewWindowItem(_ sender: Any) {
@@ -82,18 +97,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func openWidgetURL(_ url: URL) {
+        defer {
+            WidgetLaunchPresentationState.shared.finishWidgetPlayerHandoff(for: url)
+        }
+
         guard let deepLink = WidgetDeepLink(url: url),
               case let .collection(collectionId, tokenId) = deepLink else {
             return
         }
 
-        DispatchQueue.main.async {
-            Navigator.shared.showWidgetPlayer(
-                collectionId: collectionId,
-                tokenId: tokenId,
-                ensureFrontAfterOpening: true
-            )
-        }
+        Navigator.shared.showWidgetPlayer(
+            collectionId: collectionId,
+            tokenId: tokenId,
+            ensureFrontAfterOpening: true
+        )
     }
     
 }

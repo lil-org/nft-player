@@ -37,6 +37,141 @@ final class WidgetDeepLinkTests: XCTestCase {
         XCTAssertEqual(WidgetDeepLink(url: url), .collection(id: "collection", tokenId: nil))
     }
 
+    func testInitialWidgetURLSuppressesContinueViewingUntilHandoffFinishes() throws {
+        let state = WidgetLaunchPresentationState()
+        let url = try XCTUnwrap(WidgetDeepLink.collection(id: "collection", tokenId: nil).url)
+
+        state.prepareForIncomingURLs(
+            [url],
+            isApplicationLaunch: true,
+            isSupportedCollection: { $0 == "collection" }
+        )
+
+        XCTAssertTrue(state.isSuppressingContinueViewing)
+
+        state.finishWidgetPlayerHandoff(for: url)
+
+        XCTAssertFalse(state.isSuppressingContinueViewing)
+    }
+
+    func testWarmWidgetURLDoesNotSuppressContinueViewing() throws {
+        let state = WidgetLaunchPresentationState()
+        let url = try XCTUnwrap(WidgetDeepLink.collection(id: "collection", tokenId: nil).url)
+
+        state.prepareForIncomingURLs(
+            [url],
+            isApplicationLaunch: false,
+            isSupportedCollection: { $0 == "collection" }
+        )
+
+        XCTAssertFalse(state.isSuppressingContinueViewing)
+    }
+
+    func testNormalLaunchDoesNotSuppressContinueViewing() {
+        let state = WidgetLaunchPresentationState()
+
+        state.prepareForIncomingURLs(
+            [],
+            isApplicationLaunch: true,
+            isSupportedCollection: { _ in true }
+        )
+
+        XCTAssertFalse(state.isSuppressingContinueViewing)
+    }
+
+    func testMalformedInitialURLDoesNotSuppressContinueViewing() throws {
+        let state = WidgetLaunchPresentationState()
+        let url = try XCTUnwrap(URL(string: "https://example.com/collection?id=collection"))
+
+        state.prepareForIncomingURLs(
+            [url],
+            isApplicationLaunch: true,
+            isSupportedCollection: { _ in true }
+        )
+
+        XCTAssertFalse(state.isSuppressingContinueViewing)
+    }
+
+    func testUnsupportedInitialWidgetURLDoesNotSuppressContinueViewing() throws {
+        let state = WidgetLaunchPresentationState()
+        let url = try XCTUnwrap(WidgetDeepLink.collection(id: "stale-collection", tokenId: nil).url)
+
+        state.prepareForIncomingURLs(
+            [url],
+            isApplicationLaunch: true,
+            isSupportedCollection: { $0 == "collection" }
+        )
+
+        XCTAssertFalse(state.isSuppressingContinueViewing)
+    }
+
+    func testUnrelatedURLDoesNotFinishPendingHandoff() throws {
+        let state = WidgetLaunchPresentationState()
+        let pendingURL = try XCTUnwrap(WidgetDeepLink.collection(id: "collection", tokenId: nil).url)
+        let unrelatedURL = try XCTUnwrap(WidgetDeepLink.collection(id: "other", tokenId: nil).url)
+        state.prepareForIncomingURLs(
+            [pendingURL],
+            isApplicationLaunch: true,
+            isSupportedCollection: { $0 == "collection" }
+        )
+
+        state.finishWidgetPlayerHandoff(for: unrelatedURL)
+
+        XCTAssertTrue(state.isSuppressingContinueViewing)
+    }
+
+    func testMultiplePendingHandoffsFinishIndependently() throws {
+        let state = WidgetLaunchPresentationState()
+        let firstURL = try XCTUnwrap(WidgetDeepLink.collection(id: "first", tokenId: nil).url)
+        let secondURL = try XCTUnwrap(WidgetDeepLink.collection(id: "second", tokenId: nil).url)
+        state.prepareForIncomingURLs(
+            [firstURL, secondURL],
+            isApplicationLaunch: true,
+            isSupportedCollection: { _ in true }
+        )
+
+        state.finishWidgetPlayerHandoff(for: firstURL)
+
+        XCTAssertTrue(state.isSuppressingContinueViewing)
+
+        state.finishWidgetPlayerHandoff(for: secondURL)
+
+        XCTAssertFalse(state.isSuppressingContinueViewing)
+    }
+
+    func testEquivalentURLFinishesPendingHandoff() throws {
+        let state = WidgetLaunchPresentationState()
+        let preparedURL = try XCTUnwrap(
+            URL(string: "nft-folder://collection?id=collection&tokenId=token-10")
+        )
+        let deliveredURL = try XCTUnwrap(
+            URL(string: "nft-folder://collection?tokenId=token-10&id=collection")
+        )
+        state.prepareForIncomingURLs(
+            [preparedURL],
+            isApplicationLaunch: true,
+            isSupportedCollection: { $0 == "collection" }
+        )
+
+        state.finishWidgetPlayerHandoff(for: deliveredURL)
+
+        XCTAssertFalse(state.isSuppressingContinueViewing)
+    }
+
+    func testCancelAllClearsPendingHandoffs() throws {
+        let state = WidgetLaunchPresentationState()
+        let url = try XCTUnwrap(WidgetDeepLink.collection(id: "collection", tokenId: nil).url)
+        state.prepareForIncomingURLs(
+            [url],
+            isApplicationLaunch: true,
+            isSupportedCollection: { $0 == "collection" }
+        )
+
+        state.cancelAllWidgetPlayerHandoffs()
+
+        XCTAssertFalse(state.isSuppressingContinueViewing)
+    }
+
     private func collectionId(in url: URL) -> String? {
         queryValue(named: "id", in: url)
     }

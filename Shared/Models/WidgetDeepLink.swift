@@ -1,5 +1,6 @@
 // ∅ 2026 lil org
 
+import Combine
 import Foundation
 
 enum WidgetDeepLink: Hashable {
@@ -41,5 +42,48 @@ enum WidgetDeepLink: Hashable {
             components.queryItems = queryItems
             return components.url
         }
+    }
+}
+
+final class WidgetLaunchPresentationState: ObservableObject {
+    static let shared = WidgetLaunchPresentationState()
+
+    @Published private var pendingWidgetPlayerHandoffs = Set<WidgetDeepLink>()
+
+    var isSuppressingContinueViewing: Bool {
+        !pendingWidgetPlayerHandoffs.isEmpty
+    }
+
+    func prepareForIncomingURLs(
+        _ urls: [URL],
+        isApplicationLaunch: Bool,
+        isSupportedCollection: (String) -> Bool
+    ) {
+        guard isApplicationLaunch else { return }
+
+        let incomingHandoffs = Set(urls.compactMap { url -> WidgetDeepLink? in
+            guard let deepLink = WidgetDeepLink(url: url),
+                  case let .collection(collectionId, _) = deepLink,
+                  isSupportedCollection(collectionId) else {
+                return nil
+            }
+            return deepLink
+        })
+        let updatedHandoffs = pendingWidgetPlayerHandoffs.union(incomingHandoffs)
+        guard updatedHandoffs != pendingWidgetPlayerHandoffs else { return }
+        pendingWidgetPlayerHandoffs = updatedHandoffs
+    }
+
+    func finishWidgetPlayerHandoff(for url: URL) {
+        guard let deepLink = WidgetDeepLink(url: url),
+              pendingWidgetPlayerHandoffs.contains(deepLink) else {
+            return
+        }
+        pendingWidgetPlayerHandoffs.remove(deepLink)
+    }
+
+    func cancelAllWidgetPlayerHandoffs() {
+        guard !pendingWidgetPlayerHandoffs.isEmpty else { return }
+        pendingWidgetPlayerHandoffs.removeAll()
     }
 }

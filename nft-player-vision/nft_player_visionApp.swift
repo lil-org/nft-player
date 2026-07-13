@@ -10,7 +10,7 @@ struct nft_player_visionApp: App {
 
     var body: some Scene {
         WindowGroup(id: WindowId.collections) {
-            VisionCollectionsView()
+            VisionCollectionsSceneRoot()
                 .environmentObject(immersiveMode)
         }
         .windowResizability(.contentMinSize)
@@ -20,6 +20,16 @@ struct nft_player_visionApp: App {
                 .environmentObject(immersiveMode)
         }
         .immersionStyle(selection: .constant(.mixed), in: .mixed)
+    }
+}
+
+private struct VisionCollectionsSceneRoot: View {
+    @EnvironmentObject private var sceneDelegate: VisionSceneDelegate
+
+    var body: some View {
+        VisionCollectionsView(
+            widgetLaunchPresentationState: sceneDelegate.widgetLaunchPresentationState
+        )
     }
 }
 
@@ -42,6 +52,19 @@ final class VisionAppDelegate: NSObject, UIApplicationDelegate {
 
     func applicationWillTerminate(_ application: UIApplication) {
         flushPendingPlayerSync(application)
+    }
+
+    func application(
+        _ application: UIApplication,
+        configurationForConnecting connectingSceneSession: UISceneSession,
+        options: UIScene.ConnectionOptions
+    ) -> UISceneConfiguration {
+        guard connectingSceneSession.role == .windowApplication else {
+            return connectingSceneSession.configuration
+        }
+        let config = UISceneConfiguration(name: nil, sessionRole: connectingSceneSession.role)
+        config.delegateClass = VisionSceneDelegate.self
+        return config
     }
 
     private func flushPendingPlayerSync(_ application: UIApplication) {
@@ -72,6 +95,39 @@ final class VisionAppDelegate: NSObject, UIApplicationDelegate {
         playerSyncBackgroundTask = .invalid
         playerSyncBackgroundTaskId = nil
         application.endBackgroundTask(task)
+    }
+
+}
+
+@MainActor
+final class VisionSceneDelegate: UIResponder, UIWindowSceneDelegate, ObservableObject {
+
+    private static var hasActivatedApplicationScene = false
+
+    let widgetLaunchPresentationState = WidgetLaunchPresentationState()
+
+    func scene(
+        _ scene: UIScene,
+        willConnectTo session: UISceneSession,
+        options connectionOptions: UIScene.ConnectionOptions
+    ) {
+        guard session.role == .windowApplication else { return }
+        widgetLaunchPresentationState.prepareForIncomingURLs(
+            connectionOptions.urlContexts.map(\.url),
+            isApplicationLaunch: !Self.hasActivatedApplicationScene,
+            isSupportedCollection: { collectionId in
+                CollectionCatalog.allItems.contains { $0.id == collectionId }
+            }
+        )
+    }
+
+    func sceneDidBecomeActive(_ scene: UIScene) {
+        guard scene.session.role == .windowApplication else { return }
+        Self.hasActivatedApplicationScene = true
+    }
+
+    func sceneDidDisconnect(_ scene: UIScene) {
+        widgetLaunchPresentationState.cancelAllWidgetPlayerHandoffs()
     }
 
 }

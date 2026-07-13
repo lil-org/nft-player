@@ -31,6 +31,7 @@ struct VisionCollectionsView: View {
     @Environment(\.openImmersiveSpace) private var openImmersiveSpace
     @Environment(\.dismissImmersiveSpace) private var dismissImmersiveSpace
     @EnvironmentObject private var immersiveMode: VisionImmersiveModeModel
+    @ObservedObject private var widgetLaunchPresentationState: WidgetLaunchPresentationState
     @State private var gridPassCount: Int
     @State private var gridScrollMemoryTracker: CollectionsGridScrollMemoryTracker
     @State private var hasRestoredInitialGridScrollPosition: Bool
@@ -43,8 +44,12 @@ struct VisionCollectionsView: View {
     @State private var viewedToEndCollectionIds: Set<String>
     @State private var continueViewingProgress: PlayerViewingProgress?
 
-    init(collectionItems: [CollectionCatalogItem] = CollectionCatalog.allItems) {
+    init(
+        collectionItems: [CollectionCatalogItem] = CollectionCatalog.allItems,
+        widgetLaunchPresentationState: WidgetLaunchPresentationState = .shared
+    ) {
         self.collectionItems = collectionItems
+        _widgetLaunchPresentationState = ObservedObject(wrappedValue: widgetLaunchPresentationState)
         let progressSnapshot = PlayerViewingProgressStore.progressSnapshot()
         let gridScrollMemoryTracker = CollectionsGridScrollMemoryTracker(items: collectionItems)
         _gridPassCount = State(initialValue: gridScrollMemoryTracker.initialGridPassCount)
@@ -105,7 +110,9 @@ struct VisionCollectionsView: View {
             contentAlignment: .bottom
         ) {
             VisionCollectionsTopOrnament(
-                continueViewingProgress: continueViewingProgress,
+                continueViewingProgress: widgetLaunchPresentationState.isSuppressingContinueViewing
+                    ? nil
+                    : continueViewingProgress,
                 onContinueViewing: { progress in resumeViewing(progress) },
                 onShowRandomPlayer: showRandomPlayer
             )
@@ -427,6 +434,10 @@ struct VisionCollectionsView: View {
     }
 
     private func openWidgetURL(_ url: URL) {
+        defer {
+            widgetLaunchPresentationState.finishWidgetPlayerHandoff(for: url)
+        }
+
         guard let deepLink = WidgetDeepLink(url: url),
               case let .collection(collectionId, tokenId) = deepLink,
               isVisibleCollection(collectionId) else {
