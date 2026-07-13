@@ -43,14 +43,6 @@
     "tokenCount": 55
   },
   {
-    "address": "0x72f28b86749cba12bbac8783a67bbc48d80c92e9",
-    "chain": "ethereum",
-    "chainId": 1,
-    "collectionId": "22c88225c2e244fcfb994a12b654d85b",
-    "name": "Temporals",
-    "tokenCount": 222
-  },
-  {
     "address": "0x17abd4cc1382397ec2b675f98621c3ba809897de",
     "chain": "ethereum",
     "chainId": 1,
@@ -85,14 +77,6 @@
     "collectionId": "eeb4d062d7c79f1145c10a7d200781b1",
     "name": "Babes",
     "tokenCount": 339
-  },
-  {
-    "address": "0x92e64d1a27f4f42ecaf0ef7f725f119751113a38",
-    "chain": "ethereum",
-    "chainId": 1,
-    "collectionId": "a5e40fa144e354b53d60abaaef1732e2",
-    "name": "The Abyssal Unseen",
-    "tokenCount": 1000
   },
   {
     "address": "3dWnCTx5gY3F9hVhiMu7b5we6WSKnyzL9CYdE1rW1HUm",

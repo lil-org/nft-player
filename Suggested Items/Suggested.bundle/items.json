@@ -1107,15 +1107,6 @@
     "internal_slug" : "tokyo_nude"
   },
   {
-    "address" : "0x72f28b86749cba12bbac8783a67bbc48d80c92e9",
-    "chain" : "ethereum",
-    "chainId" : 1,
-    "collectionId" : "22c88225c2e244fcfb994a12b654d85b",
-    "name" : "Temporals",
-    "tokenCount" : 222,
-    "internal_slug" : "temporals"
-  },
-  {
     "address" : "0xBE8E0F43A2CEB7ee944B4FC5F4f54b078223422c",
     "chain" : "ethereum",
     "chainId" : 1,
@@ -1323,15 +1314,6 @@
     "name" : "Changing Places",
     "tokenCount" : 500,
     "internal_slug" : "changing_places"
-  },
-  {
-    "address" : "0x92e64d1a27f4f42ecaf0ef7f725f119751113a38",
-    "chain" : "ethereum",
-    "chainId" : 1,
-    "collectionId" : "a5e40fa144e354b53d60abaaef1732e2",
-    "name" : "The Abyssal Unseen",
-    "tokenCount" : 1000,
-    "internal_slug" : "the_abyssal_unseen"
   },
   {
     "address" : "0x5198dfdc6efd06db7d3ee7c65e794caadca4296a",
@@ -1833,15 +1815,6 @@
     "internal_slug" : "quantizer"
   },
   {
-    "address" : "0x5a4a74fca2e51a57ccd17e2d01a5a84dd7d9e9d9",
-    "chain" : "ethereum",
-    "chainId" : 1,
-    "name" : "Lost Memories",
-    "tokenCount" : 69,
-    "iosOnly" : true,
-    "internal_slug" : "lost_memories"
-  },
-  {
     "address" : "0x9a78fc8fa54350c2b5629211b9f8c577408f24a0",
     "chain" : "ethereum",
     "chainId" : 1,
@@ -1867,15 +1840,6 @@
     "tokenCount" : 60,
     "iosOnly" : true,
     "internal_slug" : "burnt_umber_broken_silver_american_spirit"
-  },
-  {
-    "address" : "0xc292e3e1160500cb9832b7e40f5585d66c639503",
-    "chain" : "ethereum",
-    "chainId" : 1,
-    "name" : "Sketchbook B",
-    "tokenCount" : 64,
-    "iosOnly" : true,
-    "internal_slug" : "sketchbook_b"
   },
   {
     "address" : "0x8ffc6bfbce284b508f0e53b8599f8f03ffeb452f",
