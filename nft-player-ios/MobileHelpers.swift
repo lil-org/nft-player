@@ -90,7 +90,10 @@ struct MobileStaticImageSpreadGrid: Equatable {
         imageCount: Int,
         fitting viewportSize: CGSize
     ) -> MobileStaticImageSpreadGrid? {
-        guard imageCount == pageLayout.pageSize else { return nil }
+        guard imageCount > 0,
+              imageCount <= pageLayout.pageSize else {
+            return nil
+        }
 
         switch pageLayout {
         case .fourPerPage:

@@ -44,6 +44,10 @@ enum FullscreenTokenMediaView {
     }
 }
 
+fileprivate enum DownloadableWebMediaKind: Equatable {
+    case image, video, htmlDocument
+}
+
 final class FullscreenTokenMediaRenderer {
     private typealias ImageLoadCancellation = () -> Void
 
@@ -62,6 +66,7 @@ final class FullscreenTokenMediaRenderer {
     private var activeImageLoadId: UUID?
     private var cancelActiveImageLoad: ImageLoadCancellation?
     private var webViewMayContainContent = false
+    private var activeLocalWebReadinessID: UUID?
     private var usesTransparentPlayerBackground = false
     private var representedImageSpreadSlotKeys = [AnyHashable]()
     private var rememberedImageSpread: RememberedImageSpread?
@@ -88,6 +93,7 @@ final class FullscreenTokenMediaRenderer {
     }
 
     func clearContent() {
+        activeLocalWebReadinessID = nil
         cancelCurrentImageLoad()
         hideNativeMetalCardView()
         representedImageKey = nil
@@ -106,13 +112,24 @@ final class FullscreenTokenMediaRenderer {
         let imageKey = AnyHashable(key)
         representedImageKey = imageKey
         representedImageSpreadSlotKeys = []
-        ensureImageView()
-        imageView.layer.removeAllAnimations()
         webView?.isHidden = true
-        imageView.isHidden = false
-        imageView.image = image
+        displayMainImage(image)
 
         unloadWebContentAfterImageDisplay(imageKey: imageKey)
+    }
+
+    func displayProvisionalImageOverLoadingWebContent(_ image: UIImage) {
+        cancelCurrentImageLoad()
+        representedImageKey = nil
+        representedImageSpreadSlotKeys = []
+        hideNativeMetalCardView()
+        hideImageSpread()
+        displayMainImage(image, bringsToFront: true)
+    }
+
+    func invalidateLocalWebContentLoad() {
+        activeLocalWebReadinessID = nil
+        webView?.invalidateRequestedContent()
     }
 
     func displayedImage() -> UIImage? {
@@ -425,26 +442,57 @@ final class FullscreenTokenMediaRenderer {
         hidesEmptyWebContent: Bool = false,
         onBegin: (() -> Void)? = nil
     ) {
-        prepareWebContent(html, hidesEmptyWebContent: hidesEmptyWebContent, onBegin: onBegin)
+        prepareWebContent(
+            html,
+            hidesEmptyWebContent: hidesEmptyWebContent,
+            provisionalImage: nil,
+            onBegin: onBegin
+        )
         webView.loadHTMLString(html, baseURL: nil)
     }
 
-    func renderLocalWebContent(
+    fileprivate func renderLocalWebContent(
         _ html: String,
+        contentKind: DownloadableWebMediaKind,
         htmlDirectoryURL: URL,
         readAccessURL: URL,
         hidesEmptyWebContent: Bool = false,
+        provisionalImage: UIImage? = nil,
         onBegin: (() -> Void)? = nil,
-        onLoadSuccess: (() -> Void)? = nil,
+        onLoadSuccess: (() -> Bool)? = nil,
         onLoadFailure: (() -> Void)? = nil
     ) {
-        prepareWebContent(html, hidesEmptyWebContent: hidesEmptyWebContent, onBegin: onBegin)
+        prepareWebContent(
+            html,
+            hidesEmptyWebContent: hidesEmptyWebContent,
+            provisionalImage: provisionalImage,
+            onBegin: onBegin
+        )
+        let readinessID = UUID()
+        activeLocalWebReadinessID = readinessID
         webView.loadLocalHTMLString(
             html,
             htmlDirectoryURL: htmlDirectoryURL,
             allowingReadAccessTo: readAccessURL,
-            onSuccess: onLoadSuccess,
-            onFailure: onLoadFailure
+            onSuccess: { [weak self] in
+                self?.revealLocalWebContentWhenReady(
+                    html,
+                    contentKind: contentKind,
+                    hidesEmptyWebContent: hidesEmptyWebContent,
+                    readinessID: readinessID,
+                    onLoadSuccess: onLoadSuccess,
+                    onLoadFailure: onLoadFailure
+                )
+            },
+            onFailure: { [weak self] in
+                guard let self,
+                      self.activeLocalWebReadinessID == readinessID else {
+                    return
+                }
+
+                self.activeLocalWebReadinessID = nil
+                onLoadFailure?()
+            }
         )
     }
 
@@ -542,24 +590,203 @@ final class FullscreenTokenMediaRenderer {
         }
     }
 
+    private func revealLocalWebContentWhenReady(
+        _ html: String,
+        contentKind: DownloadableWebMediaKind,
+        hidesEmptyWebContent: Bool,
+        readinessID: UUID,
+        onLoadSuccess: (() -> Bool)?,
+        onLoadFailure: (() -> Void)?
+    ) {
+        guard activeLocalWebReadinessID == readinessID else { return }
+
+        webView.isHidden = hidesEmptyWebContent && html.isEmpty
+        if let imageView, !imageView.isHidden {
+            containerView.bringSubviewToFront(imageView)
+        }
+        webView.callAsyncJavaScript(
+            Self.localWebMediaReadinessJavaScript(for: contentKind),
+            arguments: [:],
+            in: nil,
+            in: .page
+        ) { [weak self] result in
+            guard let self,
+                  self.activeLocalWebReadinessID == readinessID else {
+                return
+            }
+
+            guard case .success(let value) = result,
+                  (value as? Bool) == true else {
+                self.invalidateLocalWebContentLoad()
+                onLoadFailure?()
+                return
+            }
+
+            DispatchQueue.main.async { [weak self] in
+                guard let self,
+                      self.activeLocalWebReadinessID == readinessID else {
+                    return
+                }
+
+                self.activeLocalWebReadinessID = nil
+                guard onLoadSuccess?() ?? true else { return }
+
+                self.revealLoadedWebContent(
+                    html,
+                    hidesEmptyWebContent: hidesEmptyWebContent
+                )
+            }
+        }
+    }
+
+    private static func localWebMediaReadinessJavaScript(
+        for contentKind: DownloadableWebMediaKind
+    ) -> String {
+        let kind: String
+        let elementID: String
+        switch contentKind {
+        case .image:
+            kind = "image"
+            elementID = DownloadableTokenHTML.imageElementId
+        case .video:
+            kind = "video"
+            elementID = DownloadableTokenHTML.videoElementId
+        case .htmlDocument:
+            kind = "iframe"
+            elementID = DownloadableTokenHTML.htmlDocumentElementId
+        }
+
+        return """
+        const kind = "\(kind)";
+        const element = document.getElementById("\(elementID)");
+
+        if (!element) {
+            return false;
+        }
+
+        function waitForTerminalEvent(successEventNames) {
+            return new Promise((resolve) => {
+                let isSettled = false;
+                const settle = (didLoad) => {
+                    if (!isSettled) {
+                        isSettled = true;
+                        resolve(didLoad);
+                    }
+                };
+                for (const eventName of successEventNames) {
+                    element.addEventListener(eventName, () => settle(true), { once: true });
+                }
+                element.addEventListener("error", () => settle(false), { once: true });
+            });
+        }
+
+        async function waitForMedia() {
+            if (kind === "image") {
+                if (!element.complete && !(await waitForTerminalEvent(["load"]))) {
+                    return false;
+                }
+                if (typeof element.decode === "function") {
+                    try {
+                        await element.decode();
+                    } catch (_) {}
+                }
+                return element.complete
+                    && element.naturalWidth > 0
+                    && element.naturalHeight > 0;
+            }
+
+            if (kind === "video") {
+                if (element.error) {
+                    return false;
+                }
+                if (element.readyState < HTMLMediaElement.HAVE_CURRENT_DATA
+                    && !(await waitForTerminalEvent(["loadeddata", "canplay"]))) {
+                    return false;
+                }
+                if (element.error
+                    || element.readyState < HTMLMediaElement.HAVE_CURRENT_DATA
+                    || element.videoWidth <= 0
+                    || element.videoHeight <= 0) {
+                    return false;
+                }
+                try {
+                    const playPromise = element.play();
+                    if (playPromise && typeof playPromise.catch === "function") {
+                        playPromise.catch(() => {});
+                    }
+                } catch (_) {}
+                if (typeof element.requestVideoFrameCallback === "function") {
+                    await Promise.race([
+                        new Promise((resolve) => element.requestVideoFrameCallback(resolve)),
+                        new Promise((resolve) => setTimeout(resolve, 250)),
+                    ]);
+                }
+                return true;
+            }
+
+            try {
+                if (element.contentDocument?.readyState === "complete") {
+                    return true;
+                }
+            } catch (_) {}
+            return await waitForTerminalEvent(["load"]);
+        }
+
+        const didBecomeReady = await waitForMedia();
+        if (!didBecomeReady) {
+            return false;
+        }
+        await new Promise((resolve) => {
+            requestAnimationFrame(() => requestAnimationFrame(resolve));
+        });
+        return true;
+        """
+    }
+
     private func prepareWebContent(
         _ html: String,
         hidesEmptyWebContent: Bool,
+        provisionalImage: UIImage?,
         onBegin: (() -> Void)?
     ) {
+        activeLocalWebReadinessID = nil
         rememberCurrentImageSpread()
         cancelCurrentImageLoad()
         representedImageKey = nil
         representedImageSpreadSlotKeys = []
         ensureWebView()
-        imageView?.isHidden = true
-        imageView?.image = nil
+        if let provisionalImage {
+            displayMainImage(provisionalImage, bringsToFront: true)
+        } else {
+            imageView?.isHidden = true
+            imageView?.image = nil
+        }
         hideImageSpread()
         hideNativeMetalCardView()
         webView.stopLoading()
         webViewMayContainContent = !html.isEmpty
-        webView.isHidden = hidesEmptyWebContent && html.isEmpty
+        webView.isHidden = provisionalImage != nil || (hidesEmptyWebContent && html.isEmpty)
         onBegin?()
+    }
+
+    private func revealLoadedWebContent(
+        _ html: String,
+        hidesEmptyWebContent: Bool
+    ) {
+        imageView?.layer.removeAllAnimations()
+        imageView?.isHidden = true
+        imageView?.image = nil
+        webView.isHidden = hidesEmptyWebContent && html.isEmpty
+    }
+
+    private func displayMainImage(_ image: UIImage, bringsToFront: Bool = false) {
+        ensureImageView()
+        imageView.layer.removeAllAnimations()
+        imageView.image = image
+        imageView.isHidden = false
+        if bringsToFront {
+            containerView.bringSubviewToFront(imageView)
+        }
     }
 
     private func cancelCurrentImageLoad() {
@@ -741,12 +968,19 @@ final class FullscreenTokenMediaRenderer {
         case .linear:
             stackView = makeImageSpreadStackView(arrangedSubviews: imageSpreadViews, axis: .horizontal)
         case .grid(let grid):
-            let rowStackViews = (0..<grid.rowCount).compactMap { row -> UIStackView? in
+            let slotCount = grid.columnCount * grid.rowCount
+            let placeholderViews = (imageSpreadViews.count..<slotCount).map { _ -> UIView in
+                let placeholderView = UIView()
+                placeholderView.backgroundColor = .clear
+                placeholderView.isUserInteractionEnabled = false
+                return placeholderView
+            }
+            let slotViews: [UIView] = imageSpreadViews.map { $0 as UIView } + placeholderViews
+            let rowStackViews = (0..<grid.rowCount).map { row -> UIStackView in
                 let startIndex = row * grid.columnCount
-                let endIndex = min(startIndex + grid.columnCount, imageSpreadViews.count)
-                guard startIndex < endIndex else { return nil }
+                let endIndex = startIndex + grid.columnCount
                 return makeImageSpreadStackView(
-                    arrangedSubviews: Array(imageSpreadViews[startIndex..<endIndex]),
+                    arrangedSubviews: Array(slotViews[startIndex..<endIndex]),
                     axis: .horizontal,
                     spacing: grid.spacing
                 )
@@ -820,7 +1054,7 @@ final class FullscreenTokenMediaRenderer {
     }
 
     private func hideWebContent() {
-        webView?.invalidateRequestedContent()
+        invalidateLocalWebContentLoad()
         webView?.isHidden = true
     }
 
@@ -830,7 +1064,7 @@ final class FullscreenTokenMediaRenderer {
     }
 
     private func unloadWebContentAfterImageDisplay(imageKey: AnyHashable) {
-        webView?.invalidateRequestedContent()
+        invalidateLocalWebContentLoad()
         guard webViewMayContainContent else { return }
 
         DispatchQueue.main.async { [weak self] in
@@ -865,6 +1099,7 @@ final class FullscreenTokenMediaRenderer {
     }
 
     private func unloadWebContentIfNeeded() {
+        activeLocalWebReadinessID = nil
         guard webViewMayContainContent else {
             webView?.invalidateRequestedContent()
             return
@@ -1956,17 +2191,13 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     private static let maximumCachedVideoSizeCount = 24
 
     private struct AnimatedRenderContext: Equatable {
-        enum MediaKind: Equatable {
-            case image, video, html
-        }
-
         let descriptor: DownloadableMediaDescriptor
         let adjacentDescriptor: DownloadableMediaDescriptor?
         let fallbackHTML: String
-        let mediaKind: MediaKind
+        let mediaKind: DownloadableWebMediaKind
     }
 
-    private struct VideoSizeRequest: Equatable, Hashable {
+    private struct LocalMediaFileVersion: Equatable, Hashable {
         let descriptor: DownloadableMediaDescriptor
         let fileURL: URL
         let fileSize: Int?
@@ -1982,6 +2213,8 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             self.contentModificationDate = resourceValues?.contentModificationDate
         }
     }
+
+    private typealias VideoSizeRequest = LocalMediaFileVersion
 
     private struct VideoSizeLoad {
         let request: VideoSizeRequest
@@ -2057,6 +2290,9 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     private var renderedAnimatedImageURL: URL?
     private var renderedAnimatedNextImageURL: URL?
     private var pendingAnimatedNextImageURL: URL?
+    private var failedAnimatedLocalContentVersion: LocalMediaFileVersion?
+    private var provisionalAnimatedMediaImage: UIImage?
+    private var cancelProvisionalAnimatedMediaImageLoad: (() -> Void)?
     private var downloadableMediaCacheObserver: NSObjectProtocol?
     private var videoSizeLoad: VideoSizeLoad?
     private var cachedVideoSizes = [VideoSizeRequest: CGSize]()
@@ -2094,6 +2330,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
 
     deinit {
         cancelVideoSizeLoad()
+        cancelProvisionalAnimatedMediaImageLoadIfNeeded()
         removeDownloadableMediaCacheObserver()
     }
 
@@ -2189,7 +2426,9 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         if targetPageLayout.isStaticImageGrid {
             guard !usesStaticImageGridLayoutForCurrentPagePosition,
                   let descriptor = playerDataSource?.downloadableMediaDescriptor(for: pagePosition),
-                  descriptor.isStaticImage,
+                  let gridDescriptor = playerDataSource?.staticImageGridMediaDescriptor(for: pagePosition),
+                  gridDescriptor.isStaticImage,
+                  PlayerStaticImageIdentity(gridDescriptor) == PlayerStaticImageIdentity(descriptor),
                   let image = mediaRenderer.displayedImage() else {
                 return nil
             }
@@ -2713,17 +2952,14 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             case .staticImage:
                 renderImage(descriptor, fallbackHTML: token.html)
             case .animatedImage:
-                discardPendingProvisionalStaticImage()
                 renderAnimatedImage(
                     descriptor,
                     adjacentDescriptor: mediaWindow.adjacentDescriptor,
                     fallbackHTML: token.html
                 )
             case .video:
-                discardPendingProvisionalStaticImage()
                 renderVideo(descriptor, fallbackHTML: token.html)
             case .html:
-                discardPendingProvisionalStaticImage()
                 renderHTMLDocument(descriptor, fallbackHTML: token.html)
             }
         } else {
@@ -2836,20 +3072,18 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         renderedPagePosition = pagePosition
     }
 
+    private func standardThumbnailDescriptor(
+        matching descriptor: DownloadableMediaDescriptor
+    ) -> DownloadableMediaDescriptor? {
+        let thumbnailDescriptor = MobileCollectionCatalog.staticImageGridMediaDescriptor(
+            for: descriptor
+        )
+        return thumbnailDescriptor == descriptor ? nil : thumbnailDescriptor
+    }
+
     private func renderImage(_ descriptor: DownloadableMediaDescriptor, fallbackHTML: String) {
         let handoffImage = takePendingProvisionalStaticImage(matching: descriptor)
-        let thumbnailDescriptor: DownloadableMediaDescriptor?
-        if MobileCollectionCatalog.standardThumbsPathsAvailable(
-            specificCollectionId: descriptor.collectionId
-        ),
-           let candidateDescriptor = playerDataSource?.staticImageGridMediaDescriptor(for: pagePosition),
-           candidateDescriptor.isStaticImage,
-           candidateDescriptor != descriptor,
-           PlayerStaticImageIdentity(candidateDescriptor) == PlayerStaticImageIdentity(descriptor) {
-            thumbnailDescriptor = candidateDescriptor
-        } else {
-            thumbnailDescriptor = nil
-        }
+        let thumbnailDescriptor = standardThumbnailDescriptor(matching: descriptor)
         let provisionalImage = handoffImage ?? thumbnailDescriptor.flatMap {
             DownloadableMediaCache.shared.cachedDecodedImage(for: $0)
         }
@@ -3094,25 +3328,68 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     }
 
     private func renderHTMLDocument(_ descriptor: DownloadableMediaDescriptor, fallbackHTML: String) {
-        renderDownloadableWebMedia(descriptor, fallbackHTML: fallbackHTML, mediaKind: .html)
+        renderDownloadableWebMedia(descriptor, fallbackHTML: fallbackHTML, mediaKind: .htmlDocument)
     }
 
     private func renderDownloadableWebMedia(
         _ descriptor: DownloadableMediaDescriptor,
         adjacentDescriptor: DownloadableMediaDescriptor? = nil,
         fallbackHTML: String,
-        mediaKind: AnimatedRenderContext.MediaKind
+        mediaKind: DownloadableWebMediaKind
     ) {
-        setZoomContentLayout(.viewport)
-        setAnimatedRenderContext(
-            AnimatedRenderContext(
-                descriptor: descriptor,
-                adjacentDescriptor: adjacentDescriptor,
-                fallbackHTML: fallbackHTML,
-                mediaKind: mediaKind
-            )
+        let handoffImage = takePendingProvisionalStaticImage(matching: descriptor)
+        let thumbnailDescriptor = standardThumbnailDescriptor(matching: descriptor)
+        let provisionalImage = handoffImage ?? thumbnailDescriptor.flatMap {
+            DownloadableMediaCache.shared.cachedDecodedImage(for: $0)
+        }
+        if let provisionalImage {
+            setZoomContentLayout(.staticImage(provisionalImage.size))
+        } else {
+            setZoomContentLayout(.viewport)
+        }
+        let context = AnimatedRenderContext(
+            descriptor: descriptor,
+            adjacentDescriptor: adjacentDescriptor,
+            fallbackHTML: fallbackHTML,
+            mediaKind: mediaKind
         )
+        setAnimatedRenderContext(context, provisionalImage: provisionalImage)
+        if provisionalImage == nil, let thumbnailDescriptor {
+            loadProvisionalAnimatedMediaImage(
+                thumbnailDescriptor,
+                context: context
+            )
+        }
         renderAvailableAnimatedLocalContent()
+    }
+
+    private func loadProvisionalAnimatedMediaImage(
+        _ thumbnailDescriptor: DownloadableMediaDescriptor,
+        context: AnimatedRenderContext
+    ) {
+        cancelProvisionalAnimatedMediaImageLoadIfNeeded()
+        cancelProvisionalAnimatedMediaImageLoad = DownloadableMediaCache.shared.loadProvisionalImage(
+            for: thumbnailDescriptor
+        ) { [weak self] image in
+            guard let self,
+                  self.animatedRenderContext == context else {
+                return
+            }
+
+            self.cancelProvisionalAnimatedMediaImageLoad = nil
+            guard let image,
+                  self.renderedAnimatedImageURL == nil else {
+                return
+            }
+
+            self.provisionalAnimatedMediaImage = image
+            if DownloadableMediaCache.shared.localFileURL(for: context.descriptor) == nil {
+                self.setZoomContentLayout(.staticImage(image.size))
+                self.mediaRenderer.displayLoadedImage(image, key: context.descriptor)
+            } else {
+                self.mediaRenderer.displayProvisionalImageOverLoadingWebContent(image)
+            }
+        }
     }
 
     private func renderAvailableAnimatedLocalContent() {
@@ -3121,8 +3398,12 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         let imageCache = DownloadableMediaCache.shared
         guard let localFileURL = imageCache.localFileURL(for: context.descriptor) else {
             cancelVideoSizeLoad()
+            failedAnimatedLocalContentVersion = nil
             clearAnimatedImageURLState()
-            mediaRenderer.clearContent()
+            if let provisionalAnimatedMediaImage {
+                setZoomContentLayout(.staticImage(provisionalAnimatedMediaImage.size))
+            }
+            displayProvisionalAnimatedMediaImageOrClearContent(for: context)
             return
         }
 
@@ -3159,11 +3440,21 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             return
         }
 
+        let localContentVersion = LocalMediaFileVersion(
+            fileURL: localFileURL,
+            descriptor: context.descriptor
+        )
+        guard failedAnimatedLocalContentVersion != localContentVersion else { return }
+        failedAnimatedLocalContentVersion = nil
+
         let html: String
         switch context.mediaKind {
         case .image:
             if let imageSize = imageSize(at: localFileURL) {
-                setZoomContentLayout(.staticImage(imageSize))
+                setZoomContentLayout(
+                    .staticImage(imageSize),
+                    preservingZoomForEquivalentStaticImageLayout: true
+                )
             }
             html = DownloadableTokenHTML.createImageHTML(
                 imageURL: localFileURL.absoluteString,
@@ -3172,19 +3463,19 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         case .video:
             loadVideoSizeIfNeeded(at: localFileURL, context: context)
             html = DownloadableTokenHTML.createVideoHTML(videoURL: localFileURL.absoluteString)
-        case .html:
+        case .htmlDocument:
             renderCachedHTMLDocument(
-                fileURL: localFileURL,
                 context: context,
-                imageCache: imageCache
+                imageCache: imageCache,
+                localContentVersion: localContentVersion
             )
             return
         }
 
         renderAnimatedLocalWebContent(
             html,
-            fileURL: localFileURL,
             context: context,
+            localContentVersion: localContentVersion,
             htmlDirectoryURL: imageCache.webViewHTMLDirectoryURL,
             readAccessURL: imageCache.webViewReadAccessURL
         )
@@ -3192,46 +3483,56 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
 
     private func renderAnimatedLocalWebContent(
         _ html: String,
-        fileURL: URL,
         context: AnimatedRenderContext,
+        localContentVersion: LocalMediaFileVersion,
         htmlDirectoryURL: URL,
         readAccessURL: URL
     ) {
+        let fileURL = localContentVersion.fileURL
         pendingAnimatedImageURL = fileURL
         mediaRenderer.renderLocalWebContent(
             html,
+            contentKind: context.mediaKind,
             htmlDirectoryURL: htmlDirectoryURL,
             readAccessURL: readAccessURL,
+            provisionalImage: provisionalAnimatedMediaImage,
             onLoadSuccess: { [weak self] in
                 guard let self,
-                      self.animatedRenderContext == context,
-                      self.pendingAnimatedImageURL == fileURL else {
-                    return
-                }
+                      self.validateAnimatedLocalContentResult(
+                        localContentVersion,
+                        context: context
+                      ) else { return false }
 
+                self.cancelProvisionalAnimatedMediaImageLoadIfNeeded()
+                self.provisionalAnimatedMediaImage = nil
+                self.failedAnimatedLocalContentVersion = nil
                 self.clearAnimatedImageURLState()
                 self.renderedAnimatedImageURL = fileURL
                 self.renderAvailableAnimatedLocalContent()
+                return true
             },
             onLoadFailure: { [weak self] in
                 guard let self,
-                      self.animatedRenderContext == context,
-                      self.pendingAnimatedImageURL == fileURL else {
-                    return
-                }
+                      self.validateAnimatedLocalContentResult(
+                        localContentVersion,
+                        context: context
+                      ) else { return }
 
-                self.clearAnimatedRenderContext()
-                self.renderAnimatedFallbackWebContent(context.fallbackHTML)
+                self.handleAnimatedLocalContentFailure(
+                    context,
+                    localContentVersion: localContentVersion
+                )
             }
         )
     }
 
     private func renderCachedHTMLDocument(
-        fileURL: URL,
         context: AnimatedRenderContext,
-        imageCache: DownloadableMediaCache
+        imageCache: DownloadableMediaCache,
+        localContentVersion: LocalMediaFileVersion
     ) {
-        mediaRenderer.clearContent()
+        let fileURL = localContentVersion.fileURL
+        displayProvisionalAnimatedMediaImageOrClearContent(for: context)
         pendingAnimatedImageURL = fileURL
         htmlDocumentRenderQueue.async {
             let renderedDocument = (try? String(contentsOf: fileURL, encoding: .utf8)).map { documentHTML in
@@ -3246,31 +3547,102 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
 
             DispatchQueue.main.async { [weak self] in
                 guard let self,
-                      self.animatedRenderContext == context,
-                      self.pendingAnimatedImageURL == fileURL else {
-                    return
-                }
+                      self.validateAnimatedLocalContentResult(
+                        localContentVersion,
+                        context: context
+                      ) else { return }
 
                 guard let renderedDocument else {
-                    self.clearAnimatedRenderContext()
-                    self.renderAnimatedFallbackWebContent(context.fallbackHTML)
+                    self.handleAnimatedLocalContentFailure(
+                        context,
+                        localContentVersion: localContentVersion
+                    )
                     return
                 }
 
                 if let viewportSize = renderedDocument.viewportSize {
-                    self.setZoomContentLayout(.staticImage(viewportSize))
+                    self.setZoomContentLayout(
+                        .staticImage(viewportSize),
+                        preservingZoomForEquivalentStaticImageLayout: true
+                    )
                 } else {
                     self.setZoomContentLayout(.viewport)
                 }
                 self.renderAnimatedLocalWebContent(
                     renderedDocument.html,
-                    fileURL: fileURL,
                     context: context,
+                    localContentVersion: localContentVersion,
                     htmlDirectoryURL: imageCache.webViewHTMLDirectoryURL,
                     readAccessURL: imageCache.webViewHTMLDirectoryURL
                 )
             }
         }
+    }
+
+    private func validateAnimatedLocalContentResult(
+        _ localContentVersion: LocalMediaFileVersion,
+        context: AnimatedRenderContext
+    ) -> Bool {
+        guard animatedRenderContext == context,
+              pendingAnimatedImageURL == localContentVersion.fileURL else {
+            return false
+        }
+
+        return !retryAnimatedLocalContentIfFileChanged(
+            from: localContentVersion,
+            context: context
+        )
+    }
+
+    private func displayProvisionalAnimatedMediaImageOrClearContent(
+        for context: AnimatedRenderContext
+    ) {
+        if let provisionalAnimatedMediaImage {
+            mediaRenderer.displayLoadedImage(
+                provisionalAnimatedMediaImage,
+                key: context.descriptor
+            )
+        } else {
+            mediaRenderer.clearContent()
+        }
+    }
+
+    private func retryAnimatedLocalContentIfFileChanged(
+        from attemptedVersion: LocalMediaFileVersion,
+        context: AnimatedRenderContext
+    ) -> Bool {
+        let currentVersion = DownloadableMediaCache.shared
+            .localFileURL(for: context.descriptor)
+            .map {
+                LocalMediaFileVersion(
+                    fileURL: $0,
+                    descriptor: context.descriptor
+                )
+            }
+        guard currentVersion != attemptedVersion else { return false }
+
+        failedAnimatedLocalContentVersion = nil
+        clearAnimatedImageURLState()
+        mediaRenderer.invalidateLocalWebContentLoad()
+        renderAvailableAnimatedLocalContent()
+        return true
+    }
+
+    private func handleAnimatedLocalContentFailure(
+        _ context: AnimatedRenderContext,
+        localContentVersion: LocalMediaFileVersion
+    ) {
+        if let provisionalAnimatedMediaImage {
+            cancelVideoSizeLoad()
+            setZoomContentLayout(.staticImage(provisionalAnimatedMediaImage.size))
+            failedAnimatedLocalContentVersion = localContentVersion
+            clearAnimatedImageURLState()
+            displayProvisionalAnimatedMediaImageOrClearContent(for: context)
+            return
+        }
+
+        clearAnimatedRenderContext()
+        renderAnimatedFallbackWebContent(context.fallbackHTML)
     }
 
     private func imageSize(at fileURL: URL) -> CGSize? {
@@ -3366,16 +3738,30 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         videoSizeLoad = nil
     }
 
-    private func setAnimatedRenderContext(_ context: AnimatedRenderContext) {
+    private func cancelProvisionalAnimatedMediaImageLoadIfNeeded() {
+        cancelProvisionalAnimatedMediaImageLoad?()
+        cancelProvisionalAnimatedMediaImageLoad = nil
+    }
+
+    private func setAnimatedRenderContext(
+        _ context: AnimatedRenderContext,
+        provisionalImage: UIImage?
+    ) {
         cancelVideoSizeLoad()
+        cancelProvisionalAnimatedMediaImageLoadIfNeeded()
         animatedRenderContext = context
+        provisionalAnimatedMediaImage = provisionalImage
+        failedAnimatedLocalContentVersion = nil
         clearAnimatedImageURLState()
         installDownloadableMediaCacheObserverIfNeeded()
     }
 
     private func clearAnimatedRenderContext() {
         cancelVideoSizeLoad()
+        cancelProvisionalAnimatedMediaImageLoadIfNeeded()
         animatedRenderContext = nil
+        provisionalAnimatedMediaImage = nil
+        failedAnimatedLocalContentVersion = nil
         clearAnimatedImageURLState()
         removeDownloadableMediaCacheObserver()
     }

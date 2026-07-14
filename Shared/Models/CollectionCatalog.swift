@@ -219,6 +219,7 @@ struct PlayerDownloadableMediaWindow: Hashable {
     let currentDescriptor: CollectionCatalogDownloadableMediaDescriptor
     let descriptors: [CollectionCatalogDownloadableMediaDescriptor]
     let decodedDescriptors: [CollectionCatalogDownloadableMediaDescriptor]
+    let preferredDownloadDescriptors: [CollectionCatalogDownloadableMediaDescriptor]
     let adjacentDescriptor: CollectionCatalogDownloadableMediaDescriptor?
 
     init(
@@ -226,14 +227,17 @@ struct PlayerDownloadableMediaWindow: Hashable {
         descriptors: [CollectionCatalogDownloadableMediaDescriptor],
         decodedDescriptors: [CollectionCatalogDownloadableMediaDescriptor],
         adjacentDescriptor: CollectionCatalogDownloadableMediaDescriptor?,
+        preferredDownloadDescriptors: [CollectionCatalogDownloadableMediaDescriptor] = [],
         decodedDescriptorCapacity: Int = PlayerDownloadableMediaWindowLayout.decodedWindowCapacity
     ) {
         let decodedDescriptorCapacity = max(decodedDescriptorCapacity, 1)
-        self.currentDescriptor = currentDescriptor
-        self.descriptors = Self.uniqueDescriptors(
+        let descriptors = Self.uniqueDescriptors(
             currentDescriptor: currentDescriptor,
             descriptors: descriptors
         )
+        let descriptorSet = Set(descriptors)
+        self.currentDescriptor = currentDescriptor
+        self.descriptors = descriptors
         self.decodedDescriptors = Array(
             Self.uniqueDescriptors(
                 currentDescriptor: currentDescriptor,
@@ -242,6 +246,7 @@ struct PlayerDownloadableMediaWindow: Hashable {
             .filter(\.isStaticImage)
             .prefix(decodedDescriptorCapacity)
         )
+        self.preferredDownloadDescriptors = preferredDownloadDescriptors.filter(descriptorSet.contains)
         self.adjacentDescriptor = adjacentDescriptor
     }
 
@@ -1371,6 +1376,7 @@ private enum DownloadableMediaFileExtension {
 enum DownloadableTokenHTML {
     static let imageElementId = "tokenImage"
     static let videoElementId = "tokenVideo"
+    static let htmlDocumentElementId = "tokenDocument"
 
     private static let trustedHTMLDocumentSandbox = "allow-scripts allow-same-origin"
 
@@ -1488,7 +1494,7 @@ enum DownloadableTokenHTML {
             iframeSandbox: trustedHTMLDocumentSandbox,
             iframeSourceJavaScript: """
         const documentURL = \(javaScriptStringLiteral(documentURL));
-        document.getElementById("tokenDocument").src = documentURL;
+        document.getElementById(\(javaScriptStringLiteral(htmlDocumentElementId))).src = documentURL;
         """
         )
     }
@@ -1504,7 +1510,7 @@ enum DownloadableTokenHTML {
             contentSize: contentSize,
             iframeSourceJavaScript: """
         const documentHTML = \(javaScriptStringLiteral(documentHTML));
-        document.getElementById("tokenDocument").srcdoc = documentHTML;
+        document.getElementById(\(javaScriptStringLiteral(htmlDocumentElementId))).srcdoc = documentHTML;
         """
         )
     }
@@ -1534,7 +1540,7 @@ enum DownloadableTokenHTML {
             align-items: center;
             justify-content: center;
         }
-        #tokenDocument {
+        #\(htmlDocumentElementId) {
             width: 100%;
             height: 100%;
             border: 0;
@@ -1544,7 +1550,7 @@ enum DownloadableTokenHTML {
         </style>
         </head>
         <body>
-        <iframe id="tokenDocument" sandbox="\(iframeSandbox)" allow="autoplay; fullscreen"></iframe>
+        <iframe id="\(htmlDocumentElementId)" sandbox="\(iframeSandbox)" allow="autoplay; fullscreen"></iframe>
         <script>
         \(htmlDocumentAspectFitJavaScript(contentSize: contentSize))
         \(iframeSourceJavaScript)
@@ -1706,7 +1712,7 @@ enum DownloadableTokenHTML {
         const tokenDocumentAspectWidth = \(javaScriptNumberLiteral(Double(contentSize.width)));
         const tokenDocumentAspectHeight = \(javaScriptNumberLiteral(Double(contentSize.height)));
         const tokenDocumentAspectRatio = tokenDocumentAspectWidth / tokenDocumentAspectHeight;
-        const tokenDocument = document.getElementById("tokenDocument");
+        const tokenDocument = document.getElementById(\(javaScriptStringLiteral(htmlDocumentElementId)));
 
         function layoutTokenDocument() {
             const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;

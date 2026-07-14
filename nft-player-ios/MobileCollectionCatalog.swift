@@ -45,7 +45,6 @@ extension MobileCollectionCatalog {
         for primaryDescriptor: DownloadableMediaDescriptor
     ) -> DownloadableMediaDescriptor? {
         guard primaryDescriptor.purpose == .primary,
-              primaryDescriptor.isStaticImage,
               standardThumbsPathsAvailable(specificCollectionId: primaryDescriptor.collectionId),
               var originalURLComponents = URLComponents(
                 url: primaryDescriptor.url,

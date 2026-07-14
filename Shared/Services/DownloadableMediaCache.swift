@@ -397,7 +397,8 @@ final class DownloadableMediaCache {
             ownerId: ownerId,
             currentDescriptor: window.currentDescriptor,
             descriptors: window.descriptors,
-            decodedDescriptors: window.decodedDescriptors
+            decodedDescriptors: window.decodedDescriptors,
+            preferredDownloadDescriptors: window.preferredDownloadDescriptors
         )
         return window.currentDescriptor
     }
@@ -407,7 +408,8 @@ final class DownloadableMediaCache {
         ownerId: UUID,
         currentDescriptor: CollectionCatalogDownloadableMediaDescriptor,
         descriptors: [CollectionCatalogDownloadableMediaDescriptor],
-        decodedDescriptors: [CollectionCatalogDownloadableMediaDescriptor]
+        decodedDescriptors: [CollectionCatalogDownloadableMediaDescriptor],
+        preferredDownloadDescriptors: [CollectionCatalogDownloadableMediaDescriptor]
     ) {
         queue.async { [weak self] in
             guard let self else { return }
@@ -459,7 +461,8 @@ final class DownloadableMediaCache {
             let downloadDescriptors = self.prioritizedDownloadDescriptors(
                 currentDescriptor: currentDescriptor,
                 descriptors: descriptors,
-                decodedDescriptors: decodedDescriptors
+                decodedDescriptors: decodedDescriptors,
+                preferredDownloadDescriptors: preferredDownloadDescriptors
             )
             for descriptor in downloadDescriptors {
                 self.enqueueDownloadIfNeeded(descriptor, isForegroundRequest: false)
@@ -1810,7 +1813,8 @@ final class DownloadableMediaCache {
     private func prioritizedDownloadDescriptors(
         currentDescriptor: CollectionCatalogDownloadableMediaDescriptor,
         descriptors: [CollectionCatalogDownloadableMediaDescriptor],
-        decodedDescriptors: [CollectionCatalogDownloadableMediaDescriptor]
+        decodedDescriptors: [CollectionCatalogDownloadableMediaDescriptor],
+        preferredDownloadDescriptors: [CollectionCatalogDownloadableMediaDescriptor]
     ) -> [CollectionCatalogDownloadableMediaDescriptor] {
         var orderedDescriptors = [CollectionCatalogDownloadableMediaDescriptor]()
         var usedKeys = Set<String>()
@@ -1821,6 +1825,7 @@ final class DownloadableMediaCache {
         }
 
         appendDescriptor(currentDescriptor)
+        preferredDownloadDescriptors.forEach(appendDescriptor)
         decodedDescriptors.forEach(appendDescriptor)
         descriptors.forEach(appendDescriptor)
         return orderedDescriptors

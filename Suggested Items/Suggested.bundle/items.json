@@ -960,6 +960,7 @@
     "collectionId" : "001b77228ac834941166157c70965a86",
     "name" : "Finiliar",
     "tokenCount" : 10000,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "finiliar"
   },
   {
@@ -970,6 +971,7 @@
     "collectionId" : "62fed6de62ee3c66ac30cbab9fd8a77d",
     "name" : "Archetype",
     "tokenCount" : 600,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "archetype"
   },
   {
@@ -980,6 +982,7 @@
     "collectionId" : "0949ae798b3c017f5a4ba28247886220",
     "name" : "Fidenza",
     "tokenCount" : 999,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "fidenza"
   },
   {
@@ -990,6 +993,7 @@
     "collectionId" : "c2ae8375f7ef9579d1004c829f126abf",
     "name" : "Fragments of an Infinite Field",
     "tokenCount" : 1024,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "fragments_of_an_infinite_field"
   },
   {
@@ -1000,6 +1004,7 @@
     "collectionId" : "3cbb5aefcaba02af25a1deb7f8c9143a",
     "name" : "Ringers",
     "tokenCount" : 1000,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "ringers"
   },
   {
@@ -1010,6 +1015,7 @@
     "collectionId" : "a95c30fff3197cdaba91445279325cc7",
     "name" : "Flore Perdue",
     "tokenCount" : 100,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "flore_perdue"
   },
   {
@@ -1020,6 +1026,7 @@
     "collectionId" : "72ddc3e2981c2b29ba0edf9e6eb7c7ac",
     "name" : "Letters to My Future Self",
     "tokenCount" : 1000,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "letters_to_my_future_self"
   },
   {
@@ -1030,6 +1037,7 @@
     "collectionId" : "9e8ea984c71e50ab0c3b5a679a674f30",
     "name" : "Instructions for Defacement",
     "tokenCount" : 712,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "instructions_for_defacement"
   },
   {
@@ -1040,6 +1048,7 @@
     "collectionId" : "d0b6cbef56f42c36e25ff83a81a7d295",
     "name" : "Meridian",
     "tokenCount" : 1000,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "meridian"
   },
   {
@@ -1050,6 +1059,7 @@
     "collectionId" : "fa3e8df7a7bc8c6eaed5c2e64e329884",
     "name" : "The Eternal Pump",
     "tokenCount" : 50,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "the_eternal_pump"
   },
   {
@@ -1059,6 +1069,7 @@
     "collectionId" : "f09dc93e48530b0803410a2b32c56cbf",
     "name" : "Math Art",
     "tokenCount" : 100,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "math_art"
   },
   {
@@ -1068,6 +1079,7 @@
     "collectionId" : "144c64c061c4ba648713383cf8cc43a7",
     "name" : "Storms",
     "tokenCount" : 75,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "storms"
   },
   {
@@ -1077,6 +1089,7 @@
     "collectionId" : "871b7d328998282360628407aaf03f65",
     "name" : "0xmons",
     "tokenCount" : 341,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "0xmons"
   },
   {
@@ -1086,6 +1099,7 @@
     "collectionId" : "3d03a379662061b89758b4d858b967eb",
     "name" : "Landscape Sublime",
     "tokenCount" : 18,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "landscape_sublime"
   },
   {
@@ -1095,6 +1109,7 @@
     "collectionId" : "9db3ef33595e1a6439fc9464a28fec83",
     "name" : "Beyond the Veil",
     "tokenCount" : 24,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "beyond_the_veil"
   },
   {
@@ -1104,6 +1119,7 @@
     "collectionId" : "2b0b7d3bb471c1e4580baed3a35067cf",
     "name" : "Tokyo Nude",
     "tokenCount" : 55,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "tokyo_nude"
   },
   {
@@ -1113,6 +1129,7 @@
     "collectionId" : "418936174274cf2fb348f0458d37b5d5",
     "name" : "COSMOS",
     "tokenCount" : 60,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "cosmos"
   },
   {
@@ -1122,6 +1139,7 @@
     "collectionId" : "e43431dc5b6433737504e6ebbbb45089",
     "name" : "Bonkler",
     "tokenCount" : 150,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "bonkler"
   },
   {
@@ -1141,6 +1159,7 @@
     "chainId" : 1,
     "name" : "Super Metal Mons!!",
     "tokenCount" : 777,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "super_metal_mons_2"
   },
   {
@@ -1149,6 +1168,7 @@
     "chainId" : 1,
     "name" : "Super Sofubi",
     "tokenCount" : 300,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "super_sofubi"
   },
   {
@@ -1158,6 +1178,7 @@
     "collectionId" : "80e308cf1a65bcb4fcc194d208ada0c5",
     "name" : "Bibos",
     "tokenCount" : 1111,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "bibos"
   },
   {
@@ -1166,6 +1187,7 @@
     "chainId" : 7777777,
     "name" : "Very Internet Printout",
     "tokenCount" : 24,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "very_internet_printout"
   },
   {
@@ -1174,6 +1196,7 @@
     "chainId" : 1,
     "name" : "All My Files",
     "tokenCount" : 1935,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "all_my_files"
   },
   {
@@ -1182,6 +1205,7 @@
     "chainId" : 1,
     "name" : "Everything I Own",
     "tokenCount" : 1026,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "everything_i_own"
   },
   {
@@ -1190,6 +1214,7 @@
     "chainId" : 7777777,
     "name" : "Cats: A form study",
     "tokenCount" : 22,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "cats_a_form_study"
   },
   {
@@ -1198,6 +1223,7 @@
     "chainId" : 1,
     "name" : "Allstarz",
     "tokenCount" : 10000,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "allstarz"
   },
   {
@@ -1206,6 +1232,7 @@
     "chainId" : 1,
     "name" : "Allstarz PSX",
     "tokenCount" : 2500,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "allstarz_psx"
   },
   {
@@ -1214,6 +1241,7 @@
     "chainId" : 1,
     "name" : "frank",
     "tokenCount" : 1957,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "frank"
   },
   {
@@ -1231,6 +1259,7 @@
     "chainId" : 1,
     "name" : "Nouns",
     "tokenCount" : 1933,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "nouns"
   },
   {
@@ -1239,6 +1268,7 @@
     "chainId" : 1,
     "name" : "Gushies",
     "tokenCount" : 545,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "gushies"
   },
   {
@@ -1249,6 +1279,7 @@
     "name" : "EMOJIPACK",
     "tokenCount" : 165,
     "webURL" : "https://eth.blockscout.com/token/0xa29798f81ae9c7110091527edd8d869604a2dac8/instance/1?tab=metadata",
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "emojipack"
   },
   {
@@ -1257,6 +1288,7 @@
     "chainId" : 1,
     "name" : "tubbypxgan",
     "tokenCount" : 1335,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "tubbypxgan"
   },
   {
@@ -1265,6 +1297,7 @@
     "chainId" : 1,
     "name" : "Ladies",
     "tokenCount" : 500,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "ladies"
   },
   {
@@ -1273,6 +1306,7 @@
     "chainId" : 1,
     "name" : "Sproto Gremlins",
     "tokenCount" : 3333,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "sproto_gremlins"
   },
   {
@@ -1281,6 +1315,7 @@
     "chainId" : 1,
     "name" : "pfp+",
     "tokenCount" : 376,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "pfpplus"
   },
   {
@@ -1289,6 +1324,7 @@
     "chainId" : 1,
     "name" : "Bloomers",
     "tokenCount" : 502,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "bloomers"
   },
   {
@@ -1298,6 +1334,7 @@
     "collectionId" : "71f6ddfea755d56de211919de8fc87ec",
     "name" : "Parnassus",
     "tokenCount" : 100,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "parnassus"
   },
   {
@@ -1307,6 +1344,7 @@
     "collectionId" : "eeb4d062d7c79f1145c10a7d200781b1",
     "name" : "Babes",
     "tokenCount" : 339,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "babes"
   },
   {
@@ -1316,6 +1354,7 @@
     "collectionId" : "60e1b32bbecc294747acd29283997fdb",
     "name" : "Changing Places",
     "tokenCount" : 500,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "changing_places"
   },
   {
@@ -1325,6 +1364,7 @@
     "collectionId" : "8cefcc309feca1168f86592b22c1c24d",
     "name" : "Crowded Fields",
     "tokenCount" : 40,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "crowded_fields"
   },
   {
@@ -1334,6 +1374,7 @@
     "collectionId" : "08d6aaf47dc6b529fb63597a57c26407",
     "name" : "Fifty Ways of Looking at a Poem",
     "tokenCount" : 44,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "fifty_ways_of_looking_at_a_poem"
   },
   {
@@ -1343,6 +1384,7 @@
     "collectionId" : "41e5c67c186d3fcfad65bc991cbfd66c",
     "name" : "Vacation",
     "tokenCount" : 428,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "vacation"
   },
   {
@@ -1352,6 +1394,7 @@
     "collectionId" : "c645d0e0982854db7d397645efc8bab4",
     "name" : "CAR",
     "tokenCount" : 999,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "car"
   },
   {
@@ -1361,6 +1404,7 @@
     "collectionId" : "f470d8cead31b5fb399c238a8e0fb87f",
     "name" : "Red Trucks",
     "tokenCount" : 50,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "red_trucks"
   },
   {
@@ -1370,6 +1414,7 @@
     "collectionId" : "814722f021add634f952ac39cf6923ad",
     "name" : "Constant",
     "tokenCount" : 38,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "constant"
   },
   {
@@ -1379,6 +1424,7 @@
     "collectionId" : "20f51f9fc697507118f5215d5e3a2261",
     "name" : "screenshot catalog",
     "tokenCount" : 331,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "screenshot_catalog"
   },
   {
@@ -1388,6 +1434,7 @@
     "collectionId" : "88555cfa692828b54b413e7cfc3e6bcd",
     "name" : "IMAGINED WRECKAGE",
     "tokenCount" : 96,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "imagined_wreckage"
   },
   {
@@ -1396,6 +1443,7 @@
     "chainId" : 0,
     "name" : "Holes",
     "tokenCount" : 777,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "holes"
   },
   {
@@ -1404,6 +1452,7 @@
     "chainId" : 0,
     "name" : "Horses?2",
     "tokenCount" : 777,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "horses2"
   },
   {
@@ -1412,6 +1461,7 @@
     "chainId" : 0,
     "name" : "Scarecrow",
     "tokenCount" : 4048,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "scarecrow"
   },
   {
@@ -1420,6 +1470,7 @@
     "chainId" : 0,
     "name" : "BUSTA BOUNCA",
     "tokenCount" : 2434,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "busta_bounca"
   },
   {
@@ -1428,6 +1479,7 @@
     "chainId" : 0,
     "name" : "Cloudcastle ☆ 限定版アルファ",
     "tokenCount" : 204,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "cloudcastle"
   },
   {
@@ -1436,6 +1488,7 @@
     "chainId" : 0,
     "name" : "Tojiba Disc Buddies",
     "tokenCount" : 4998,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "tojiba_disc_buddies"
   },
   {
@@ -1444,6 +1497,7 @@
     "chainId" : 0,
     "name" : "PRAY4LOWBIE",
     "tokenCount" : 333,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "pray4lowbie"
   },
   {
@@ -1452,6 +1506,7 @@
     "chainId" : 0,
     "name" : "BRICKS",
     "tokenCount" : 1499,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "bricks"
   },
   {
@@ -1460,6 +1515,7 @@
     "chainId" : 0,
     "name" : "owee",
     "tokenCount" : 333,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "owee"
   },
   {
@@ -1468,6 +1524,7 @@
     "chainId" : 0,
     "name" : "POSTCARDs2",
     "tokenCount" : 101,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "postcards2"
   },
   {
@@ -1476,6 +1533,7 @@
     "chainId" : 0,
     "name" : "Little Fellow",
     "tokenCount" : 2024,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "little_fellow"
   },
   {
@@ -1484,6 +1542,7 @@
     "chainId" : 0,
     "name" : "hyperwarhaul",
     "tokenCount" : 143,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "hyperwarhaul"
   },
   {
@@ -1493,6 +1552,7 @@
     "name" : "Artifact Magazine #2",
     "playerBackgroundColor" : "#FFFFFF",
     "tokenCount" : 99,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "artifact_magazine_2"
   },
   {
@@ -1501,6 +1561,7 @@
     "chainId" : 0,
     "name" : "CHOMSKY HONKS",
     "tokenCount" : 1337,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "chomsky_honks"
   },
   {
@@ -1509,6 +1570,7 @@
     "chainId" : 0,
     "name" : "EDIBLE KAWAII DEMONZ®",
     "tokenCount" : 3330,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "edible_kawaii_demonz"
   },
   {
@@ -1517,6 +1579,7 @@
     "chainId" : 0,
     "name" : "Shelves",
     "tokenCount" : 1666,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "shelves"
   },
   {
@@ -1525,6 +1588,7 @@
     "chainId" : 0,
     "name" : "imagined",
     "tokenCount" : 84,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "imagined"
   },
   {
@@ -1541,6 +1605,7 @@
     "chainId" : 0,
     "name" : "Heavy Liquid Graphic",
     "tokenCount" : 999,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "heavy_liquid_graphic"
   },
   {
@@ -1565,6 +1630,7 @@
     "chainId" : 0,
     "name" : "Lucky 13 Pixel Fairies",
     "tokenCount" : 89,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "lucky_13_pixel_fairies"
   },
   {
@@ -1573,6 +1639,7 @@
     "chainId" : 0,
     "name" : "Blume™",
     "tokenCount" : 368,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "blume"
   },
   {
@@ -1581,6 +1648,7 @@
     "chainId" : 0,
     "name" : "Flopawrettes",
     "tokenCount" : 4439,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "flopawrettes"
   },
   {
@@ -1589,6 +1657,7 @@
     "chainId" : 0,
     "name" : "ICSA",
     "tokenCount" : 2899,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "icsa"
   },
   {
@@ -1597,6 +1666,7 @@
     "chainId" : 0,
     "name" : "Drifella III",
     "tokenCount" : 1263,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "drifella_iii"
   },
   {
@@ -1614,6 +1684,7 @@
     "chainId" : 0,
     "name" : "Vehicle Wammin",
     "tokenCount" : 1283,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "vehicle_wammin"
   },
   {
@@ -1622,6 +1693,7 @@
     "chainId" : 0,
     "name" : "FOODIEZ",
     "tokenCount" : 4424,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "foodiez"
   },
   {
@@ -1630,6 +1702,7 @@
     "chainId" : 0,
     "name" : "Tents",
     "tokenCount" : 1116,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "tents"
   },
   {
@@ -1638,6 +1711,7 @@
     "chainId" : 0,
     "name" : "Record of Hyperwar",
     "tokenCount" : 548,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "record_of_hyperwar"
   },
   {
@@ -1655,6 +1729,7 @@
     "chainId" : 0,
     "name" : "Yeche Lunch",
     "tokenCount" : 32,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "yeche_lunch"
   },
   {
@@ -1663,6 +1738,7 @@
     "chainId" : 0,
     "name" : "little swag world",
     "tokenCount" : 3327,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "little_swag_world"
   },
   {
@@ -1671,6 +1747,7 @@
     "chainId" : 0,
     "name" : "Organic Evolution",
     "tokenCount" : 72,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "organic_evolution"
   },
   {
@@ -1679,6 +1756,7 @@
     "chainId" : 0,
     "name" : "TOJIA",
     "tokenCount" : 4438,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "tojia"
   },
   {
@@ -1687,6 +1765,7 @@
     "chainId" : 0,
     "name" : "Tojiba CPU Corp",
     "tokenCount" : 2220,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "tojiba_cpu_corp"
   },
   {
@@ -1695,6 +1774,7 @@
     "chainId" : 0,
     "name" : "The Same Old Gag",
     "tokenCount" : 616,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "the_same_old_gag"
   },
   {
@@ -1703,6 +1783,7 @@
     "chainId" : 0,
     "name" : "Rêverie",
     "tokenCount" : 332,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "reverie"
   },
   {
@@ -1711,6 +1792,7 @@
     "chainId" : 0,
     "name" : "Mifella Genesis",
     "tokenCount" : 4381,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "mifella_genesis"
   },
   {
@@ -1719,6 +1801,7 @@
     "chainId" : 0,
     "name" : "swag pack",
     "tokenCount" : 467,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "swag_pack"
   },
   {
@@ -1727,6 +1810,7 @@
     "chainId" : 0,
     "name" : "Little Swag World: HEXP",
     "tokenCount" : 332,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "little_swag_world_hexp"
   },
   {
@@ -1735,6 +1819,7 @@
     "chainId" : 0,
     "name" : "BESTIARY",
     "tokenCount" : 23,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "bestiary"
   },
   {
@@ -1743,6 +1828,7 @@
     "chainId" : 0,
     "name" : "Drawing Exercises",
     "tokenCount" : 79,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "drawing_exercises"
   },
   {
@@ -1751,6 +1837,7 @@
     "chainId" : 0,
     "name" : "LAVA STUDIES",
     "tokenCount" : 9,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "lava_studies"
   },
   {
@@ -1759,6 +1846,7 @@
     "chainId" : 0,
     "name" : "moeshit",
     "tokenCount" : 1540,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "moeshit"
   },
   {
@@ -1767,6 +1855,7 @@
     "chainId" : 0,
     "name" : "real world data",
     "tokenCount" : 128,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "real_world_data"
   },
   {
@@ -1775,6 +1864,7 @@
     "chainId" : 0,
     "name" : "FRATZE",
     "tokenCount" : 51,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "fratze"
   },
   {
@@ -1783,6 +1873,7 @@
     "chainId" : 0,
     "name" : "Multi Windows",
     "tokenCount" : 200,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "multi_windows"
   },
   {
@@ -1791,6 +1882,7 @@
     "chainId" : 0,
     "name" : "skomra",
     "tokenCount" : 139,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "skomra"
   },
   {
@@ -1800,6 +1892,7 @@
     "name" : "Cigawrette Packs",
     "tokenCount" : 9997,
     "iosOnly" : true,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "cigawrette_packs"
   },
   {
@@ -1809,6 +1902,7 @@
     "name" : "MILADY AURA2 AFTER DEATH",
     "tokenCount" : 1369,
     "iosOnly" : true,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "milady_aura2_after_death"
   },
   {
@@ -1818,6 +1912,7 @@
     "name" : "Quantizer",
     "tokenCount" : 256,
     "iosOnly" : true,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "quantizer"
   },
   {
@@ -1827,6 +1922,7 @@
     "name" : "IN YOUR DREAMS",
     "tokenCount" : 76,
     "iosOnly" : true,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "in_your_dreams"
   },
   {
@@ -1836,6 +1932,7 @@
     "name" : "Safe Haven",
     "tokenCount" : 23,
     "iosOnly" : true,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "safe_haven"
   },
   {
@@ -1845,6 +1942,7 @@
     "name" : "BURNT UMBER BROKEN SILVER AMERICAN SPIRIT",
     "tokenCount" : 60,
     "iosOnly" : true,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "burnt_umber_broken_silver_american_spirit"
   },
   {
@@ -1854,6 +1952,7 @@
     "name" : "Mi Note 2",
     "tokenCount" : 1111,
     "iosOnly" : true,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "mi_note_2"
   },
   {
@@ -1870,6 +1969,7 @@
     "name" : "Tigerbob",
     "tokenCount" : 1000,
     "iosOnly" : true,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "tigerbob"
   },
   {
@@ -1879,6 +1979,7 @@
     "name" : "Terraforms",
     "tokenCount" : 9844,
     "iosOnly" : true,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "terraforms"
   },
   {
@@ -1888,6 +1989,7 @@
     "name" : "Shishi",
     "tokenCount" : 3520,
     "iosOnly" : true,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "shishi"
   },
   {
@@ -1897,6 +1999,7 @@
     "name" : "CHRONOPHOTOGRAPH",
     "tokenCount" : 267,
     "iosOnly" : true,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "chronophotograph"
   },
   {
@@ -1905,6 +2008,7 @@
     "chainId" : 0,
     "name" : "Horses?7",
     "tokenCount" : 1777,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "horses7"
   }
 ]
