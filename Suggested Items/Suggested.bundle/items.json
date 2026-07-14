@@ -1131,6 +1131,7 @@
     "collectionId" : "smm",
     "name" : "Super Metal Mons!",
     "tokenCount" : 144,
+    "standardThumbsPathsAvailable" : true,
     "webURL" : "https://opensea.io/collection/supermetalmons",
     "internal_slug" : "super_metal_mons"
   },
@@ -1604,6 +1605,7 @@
     "chainId" : 0,
     "name" : "Drifella 2",
     "tokenCount" : 9900,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "drifella_2"
   },
   {

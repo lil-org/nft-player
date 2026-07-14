@@ -8,7 +8,7 @@ typealias MobileCollectionCatalog = CollectionCatalog
 
 extension MobileCollectionCatalog {
 
-    private static let thumbnailBaseURL = URL(string: "https://cdn.lil.org/player")!
+    private static let generativeThumbnailBaseURL = URL(string: "https://cdn.lil.org/player")!
 
     static func standardThumbsPathsAvailable(specificCollectionId: String) -> Bool {
         SuggestedItemsService.item(id: specificCollectionId)?.standardThumbsPathsAvailable == true
@@ -46,25 +46,28 @@ extension MobileCollectionCatalog {
     ) -> DownloadableMediaDescriptor? {
         guard primaryDescriptor.purpose == .primary,
               primaryDescriptor.isStaticImage,
-              let suggestedItem = SuggestedItemsService.item(id: primaryDescriptor.collectionId),
-              suggestedItem.standardThumbsPathsAvailable == true,
-              let internalSlug = suggestedItem.internalSlug,
-              !internalSlug.isEmpty,
-              internalSlug != ".",
-              internalSlug != ".." else {
+              standardThumbsPathsAvailable(specificCollectionId: primaryDescriptor.collectionId),
+              var originalURLComponents = URLComponents(
+                url: primaryDescriptor.url,
+                resolvingAgainstBaseURL: false
+              ) else {
             return nil
         }
 
-        let originalStem = primaryDescriptor.url.deletingPathExtension().lastPathComponent
-        guard !primaryDescriptor.url.pathExtension.isEmpty,
+        originalURLComponents.query = nil
+        originalURLComponents.fragment = nil
+        guard let originalURL = originalURLComponents.url else { return nil }
+
+        let originalStem = originalURL.deletingPathExtension().lastPathComponent
+        guard !originalURL.pathExtension.isEmpty,
               !originalStem.isEmpty,
               originalStem != ".",
               originalStem != ".." else {
             return nil
         }
 
-        let thumbnailURL = thumbnailBaseURL
-            .appendingPathComponent(internalSlug, isDirectory: true)
+        let thumbnailURL = originalURL
+            .deletingLastPathComponent()
             .appendingPathComponent("thumbs", isDirectory: true)
             .appendingPathComponent("\(originalStem).webp", isDirectory: false)
         return DownloadableMediaDescriptor(
@@ -89,7 +92,7 @@ extension MobileCollectionCatalog {
             return nil
         }
 
-        let thumbnailURL = thumbnailBaseURL
+        let thumbnailURL = generativeThumbnailBaseURL
             .appendingPathComponent(internalSlug, isDirectory: true)
             .appendingPathComponent("thumbs", isDirectory: true)
             .appendingPathComponent("\(tokenIndex).webp", isDirectory: false)
