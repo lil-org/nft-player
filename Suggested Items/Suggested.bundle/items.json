@@ -1980,6 +1980,7 @@
     "tokenCount" : 9844,
     "iosOnly" : true,
     "standardThumbsPathsAvailable" : true,
+    "standardThumbsBaseURL" : "https://cdn.lil.org/player/terraforms/thumbs/",
     "internal_slug" : "terraforms"
   },
   {

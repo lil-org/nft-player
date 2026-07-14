@@ -45,7 +45,8 @@ extension MobileCollectionCatalog {
         for primaryDescriptor: DownloadableMediaDescriptor
     ) -> DownloadableMediaDescriptor? {
         guard primaryDescriptor.purpose == .primary,
-              standardThumbsPathsAvailable(specificCollectionId: primaryDescriptor.collectionId),
+              let suggestedItem = SuggestedItemsService.item(id: primaryDescriptor.collectionId),
+              suggestedItem.standardThumbsPathsAvailable == true,
               var originalURLComponents = URLComponents(
                 url: primaryDescriptor.url,
                 resolvingAgainstBaseURL: false
@@ -56,6 +57,34 @@ extension MobileCollectionCatalog {
         originalURLComponents.query = nil
         originalURLComponents.fragment = nil
         guard let originalURL = originalURLComponents.url else { return nil }
+
+        if let standardThumbsBaseURL = suggestedItem.standardThumbsBaseURL {
+            guard let thumbnailBaseURLComponents = URLComponents(string: standardThumbsBaseURL),
+                  let scheme = thumbnailBaseURLComponents.scheme?.lowercased(),
+                  scheme == "http" || scheme == "https",
+                  thumbnailBaseURLComponents.host?.isEmpty == false,
+                  let thumbnailBaseURL = thumbnailBaseURLComponents.url else {
+                return nil
+            }
+
+            let originalStem = originalURL.deletingPathExtension().lastPathComponent
+            guard !originalStem.isEmpty,
+                  originalStem != "/",
+                  originalStem != ".",
+                  originalStem != ".." else {
+                return nil
+            }
+
+            let thumbnailURL = thumbnailBaseURL
+                .appendingPathComponent("\(originalStem).webp", isDirectory: false)
+            return DownloadableMediaDescriptor(
+                collectionId: primaryDescriptor.collectionId,
+                tokenId: primaryDescriptor.tokenId,
+                tokenIndex: primaryDescriptor.tokenIndex,
+                media: .staticImage(url: thumbnailURL, fileExtension: "webp"),
+                purpose: .staticImageGridThumbnail
+            )
+        }
 
         let originalStem = originalURL.deletingPathExtension().lastPathComponent
         guard !originalURL.pathExtension.isEmpty,

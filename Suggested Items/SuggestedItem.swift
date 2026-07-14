@@ -38,6 +38,7 @@ struct SuggestedItem: Identifiable, Hashable, Codable {
     let playerBackgroundColor: String?
     let webURL: String?
     let standardThumbsPathsAvailable: Bool?
+    let standardThumbsBaseURL: String?
 
     enum CodingKeys: String, CodingKey {
         case name
@@ -52,6 +53,7 @@ struct SuggestedItem: Identifiable, Hashable, Codable {
         case playerBackgroundColor
         case webURL
         case standardThumbsPathsAvailable
+        case standardThumbsBaseURL
     }
     
 }

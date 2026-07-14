@@ -14,6 +14,7 @@ const PRESERVED_GENERATED_SUGGESTED_ITEM_FIELDS = [
   "webURL",
   "internal_slug",
   "standardThumbsPathsAvailable",
+  "standardThumbsBaseURL",
 ];
 
 function mergeGeneratedSuggestedItem(existingItem, generatedItem) {
