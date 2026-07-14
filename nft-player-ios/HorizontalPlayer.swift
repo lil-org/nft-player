@@ -55,6 +55,7 @@ final class FullscreenTokenMediaRenderer {
     private var imageSpreadNestedStackViews = [UIStackView]()
     private var imageSpreadViews = [UIImageView]()
     private var imageSpreadVerifiedImages = [Bool]()
+    private var imageSpreadResolvedImages = [Bool]()
     private var imageSpreadNativeMetalCardCornerMaskIndices = Set<Int>()
     private var nativeMetalCardView: NativeMetalCardView!
     private var representedImageKey: AnyHashable?
@@ -74,6 +75,7 @@ final class FullscreenTokenMediaRenderer {
         let key: AnyHashable
         let slotKeys: [AnyHashable]
         let images: [UIImage?]
+        let resolvedImages: [Bool]
     }
 
     init(containerView: UIView) {
@@ -91,6 +93,7 @@ final class FullscreenTokenMediaRenderer {
         representedImageKey = nil
         representedImageSpreadSlotKeys = []
         unloadWebContentIfNeeded()
+        imageView?.layer.removeAllAnimations()
         imageView?.image = nil
         clearImageSpread()
         rememberedImageSpread = nil
@@ -104,11 +107,21 @@ final class FullscreenTokenMediaRenderer {
         representedImageKey = imageKey
         representedImageSpreadSlotKeys = []
         ensureImageView()
+        imageView.layer.removeAllAnimations()
         webView?.isHidden = true
         imageView.isHidden = false
         imageView.image = image
 
         unloadWebContentAfterImageDisplay(imageKey: imageKey)
+    }
+
+    func displayedImage() -> UIImage? {
+        guard let imageView,
+              !imageView.isHidden else {
+            return nil
+        }
+
+        return imageView.image
     }
 
     func imageSpreadIndex(
@@ -156,49 +169,117 @@ final class FullscreenTokenMediaRenderer {
     func renderImage<Key: Hashable>(
         key: Key,
         hideImageUntilLoaded: Bool,
+        provisionalImage: UIImage? = nil,
+        loadProvisionalImage: ((@escaping (UIImage?) -> Void) -> (() -> Void)?)? = nil,
         onBegin: (() -> Void)? = nil,
         load: (@escaping (UIImage?) -> Void) -> (() -> Void)?,
         fallbackToWebContent: @escaping () -> Void,
+        onDisplayedProvisionalImage: ((UIImage) -> Void)? = nil,
         onLoadedImage: ((UIImage) -> Void)? = nil,
         onSuccess: (() -> Void)? = nil
     ) {
         cancelCurrentImageLoad()
         ensureImageView()
+        imageView.layer.removeAllAnimations()
         hideWebContent()
         hideNativeMetalCardView()
         hideImageSpread()
-        imageView.isHidden = hideImageUntilLoaded
-        imageView.image = nil
+        imageView.isHidden = hideImageUntilLoaded && provisionalImage == nil
+        imageView.image = provisionalImage
+        if let provisionalImage {
+            onDisplayedProvisionalImage?(provisionalImage)
+        }
         onBegin?()
 
         let imageKey = AnyHashable(key)
         let imageLoadId = UUID()
         representedImageKey = imageKey
         activeImageLoadId = imageLoadId
-        let cancellation = load { [weak self] image in
-            guard let self,
-                  self.representedImageKey == imageKey,
-                  self.activeImageLoadId == imageLoadId else {
+        var primaryImageResolved = false
+        var provisionalImageResolved = provisionalImage != nil || loadProvisionalImage == nil
+        var primaryCancellation: ImageLoadCancellation?
+        var provisionalCancellation: ImageLoadCancellation?
+
+        func isCurrentLoad(in renderer: FullscreenTokenMediaRenderer) -> Bool {
+            renderer.representedImageKey == imageKey && renderer.activeImageLoadId == imageLoadId
+        }
+
+        func cancelLoads() {
+            let cancelPrimary = primaryCancellation
+            let cancelProvisional = provisionalCancellation
+            primaryCancellation = nil
+            provisionalCancellation = nil
+            cancelPrimary?()
+            cancelProvisional?()
+        }
+
+        func finishFailedPrimaryIfReady(in renderer: FullscreenTokenMediaRenderer) {
+            guard isCurrentLoad(in: renderer),
+                  primaryImageResolved,
+                  provisionalImageResolved else {
+                return
+            }
+
+            renderer.cancelActiveImageLoad = nil
+            renderer.activeImageLoadId = nil
+            cancelLoads()
+            if renderer.imageView.image != nil {
+                renderer.imageView.isHidden = false
+                renderer.unloadWebContentAfterImageDisplay(imageKey: imageKey)
+            } else {
+                fallbackToWebContent()
+            }
+        }
+
+        cancelActiveImageLoad = {
+            cancelLoads()
+        }
+
+        primaryCancellation = load { [weak self] image in
+            guard let self, isCurrentLoad(in: self) else { return }
+
+            primaryCancellation = nil
+            primaryImageResolved = true
+            guard let image else {
+                finishFailedPrimaryIfReady(in: self)
                 return
             }
 
             self.cancelActiveImageLoad = nil
             self.activeImageLoadId = nil
-
-            guard let image else {
-                fallbackToWebContent()
-                return
-            }
-
+            cancelLoads()
             onSuccess?()
-            self.displayLoadedImage(image, key: key)
+            self.webView?.isHidden = true
+            self.imageView.isHidden = false
+            self.displayImage(image, in: self.imageView)
+            self.unloadWebContentAfterImageDisplay(imageKey: imageKey)
             onLoadedImage?(image)
         }
-        guard representedImageKey == imageKey, activeImageLoadId == imageLoadId else {
-            cancellation?()
+
+        guard isCurrentLoad(in: self) else {
+            cancelLoads()
             return
         }
-        cancelActiveImageLoad = cancellation
+
+        if provisionalImage == nil, let loadProvisionalImage {
+            provisionalCancellation = loadProvisionalImage { [weak self] image in
+                guard let self, isCurrentLoad(in: self) else { return }
+
+                provisionalCancellation = nil
+                provisionalImageResolved = true
+                if let image {
+                    self.imageView.image = image
+                    self.imageView.isHidden = false
+                    onDisplayedProvisionalImage?(image)
+                }
+                finishFailedPrimaryIfReady(in: self)
+            }
+        }
+
+        guard isCurrentLoad(in: self) else {
+            cancelLoads()
+            return
+        }
     }
 
     func renderImageSpread<Key: Hashable>(
@@ -207,13 +288,14 @@ final class FullscreenTokenMediaRenderer {
         viewportSize: CGSize? = nil,
         nativeMetalCardCornerMaskIndices: Set<Int> = [],
         initialImages: [UIImage?]? = nil,
+        placeholderImages: [UIImage?]? = nil,
         imageSlotKeys: [AnyHashable]? = nil,
         loadImages: [(@escaping (UIImage?) -> Void) -> (() -> Void)?],
-        fallbackToPrimary: @escaping (UIImage?) -> Void,
+        onEmptySpread: @escaping () -> Void,
         onLoadedImages: (([UIImage?]) -> Void)? = nil
     ) {
         guard !loadImages.isEmpty else {
-            fallbackToPrimary(nil)
+            onEmptySpread()
             return
         }
 
@@ -229,25 +311,31 @@ final class FullscreenTokenMediaRenderer {
         configureImageSpreadCornerMasks()
         hideWebContent()
         hideNativeMetalCardView()
+        imageView?.layer.removeAllAnimations()
         imageView?.isHidden = true
         imageView?.image = nil
         imageSpreadStackView.isHidden = false
         let validInitialImages = initialImages?.count == loadImages.count ? initialImages : nil
+        let validPlaceholderImages = placeholderImages?.count == loadImages.count ? placeholderImages : nil
         let validImageSlotKeys = imageSlotKeys?.count == loadImages.count ? imageSlotKeys : nil
-        let rememberedImages = rememberedImageSpreadImages(
+        let rememberedSpread = rememberedImageSpread(
             for: imageKey,
             slotKeys: validImageSlotKeys,
             imageCount: loadImages.count
         )
         let seedImages = loadImages.indices.map { index in
-            validInitialImages?[index] ?? rememberedImages?[index]
+            validInitialImages?[index] ?? rememberedSpread?.images[index] ?? validPlaceholderImages?[index]
+        }
+        let seedImagesResolved = loadImages.indices.map { index in
+            validInitialImages?[index] != nil
+                || (rememberedSpread?.images[index] != nil && rememberedSpread?.resolvedImages[index] == true)
         }
         for (index, imageView) in imageSpreadViews.enumerated() {
+            imageView.layer.removeAllAnimations()
             imageView.image = seedImages[index]
         }
-        imageSpreadVerifiedImages = loadImages.indices.map { index in
-            validInitialImages?[index] != nil || rememberedImages?[index] != nil
-        }
+        imageSpreadVerifiedImages = seedImages.map { $0 != nil }
+        imageSpreadResolvedImages = seedImagesResolved
 
         let imageLoadId = UUID()
         representedImageKey = imageKey
@@ -255,7 +343,7 @@ final class FullscreenTokenMediaRenderer {
         activeImageLoadId = imageLoadId
 
         var loadedImages = seedImages
-        var resolvedSlots = seedImages.map { $0 != nil }
+        var resolvedSlots = seedImagesResolved
         var cancellations = Array<ImageLoadCancellation?>(repeating: nil, count: loadImages.count)
 
         func isCurrentLoad(in renderer: FullscreenTokenMediaRenderer) -> Bool {
@@ -273,7 +361,7 @@ final class FullscreenTokenMediaRenderer {
             renderer.cancelActiveImageLoad = nil
             renderer.activeImageLoadId = nil
             cancelSpreadLoads()
-            fallbackToPrimary(nil)
+            onEmptySpread()
         }
 
         func finishIfReady(in renderer: FullscreenTokenMediaRenderer) {
@@ -310,10 +398,13 @@ final class FullscreenTokenMediaRenderer {
                 loadedImages[index] = image
                 resolvedSlots[index] = true
                 if self.imageSpreadViews.indices.contains(index) {
-                    self.imageSpreadViews[index].image = image
+                    self.displayImage(image, in: self.imageSpreadViews[index])
                 }
                 if self.imageSpreadVerifiedImages.indices.contains(index) {
                     self.imageSpreadVerifiedImages[index] = true
+                }
+                if self.imageSpreadResolvedImages.indices.contains(index) {
+                    self.imageSpreadResolvedImages[index] = true
                 }
                 finishIfReady(in: self)
             }
@@ -388,6 +479,7 @@ final class FullscreenTokenMediaRenderer {
                 arrangement: .linear,
                 preservedImages: imageSpreadViews.map(\.image),
                 preservedImageVerification: imageSpreadVerifiedImages,
+                preservedImageResolution: imageSpreadResolvedImages,
                 isHidden: imageSpreadStackView?.isHidden ?? true
             )
         }
@@ -407,6 +499,7 @@ final class FullscreenTokenMediaRenderer {
             arrangement: .grid(grid),
             preservedImages: imageSpreadViews.map(\.image),
             preservedImageVerification: imageSpreadVerifiedImages,
+            preservedImageResolution: imageSpreadResolvedImages,
             isHidden: imageSpreadStackView?.isHidden ?? true
         )
     }
@@ -485,34 +578,36 @@ final class FullscreenTokenMediaRenderer {
         }
 
         guard let verifiedImages = verifiedImageSpreadImages(),
-              representedImageSpreadSlotKeys.count == verifiedImages.count else { return }
+              representedImageSpreadSlotKeys.count == verifiedImages.count,
+              imageSpreadResolvedImages.count == verifiedImages.count else { return }
 
         guard verifiedImages.contains(where: { $0 != nil }) else { return }
 
         rememberedImageSpread = RememberedImageSpread(
             key: representedImageKey,
             slotKeys: representedImageSpreadSlotKeys,
-            images: verifiedImages
+            images: verifiedImages,
+            resolvedImages: imageSpreadResolvedImages
         )
     }
 
-    private func rememberedImageSpreadImages(
+    private func rememberedImageSpread(
         for imageKey: AnyHashable,
         slotKeys: [AnyHashable]?,
         imageCount: Int
-    ) -> [UIImage?]? {
+    ) -> RememberedImageSpread? {
         guard let rememberedImageSpread,
               rememberedImageSpread.key == imageKey,
               rememberedImageSpread.images.count == imageCount,
+              rememberedImageSpread.resolvedImages.count == imageCount,
               let slotKeys,
               rememberedImageSpread.slotKeys == slotKeys else {
             self.rememberedImageSpread = nil
             return nil
         }
 
-        let images = rememberedImageSpread.images
         self.rememberedImageSpread = nil
-        return images
+        return rememberedImageSpread
     }
 
     private func verifiedImageSpreadImages() -> [UIImage?]? {
@@ -523,6 +618,22 @@ final class FullscreenTokenMediaRenderer {
         return zip(imageSpreadViews, imageSpreadVerifiedImages).map { imageView, isVerified in
             isVerified ? imageView.image : nil
         }
+    }
+
+    private func displayImage(_ image: UIImage, in imageView: UIImageView) {
+        guard imageView.image != nil else {
+            imageView.image = image
+            return
+        }
+
+        UIView.transition(
+            with: imageView,
+            duration: 0.12,
+            options: [.transitionCrossDissolve, .beginFromCurrentState, .allowUserInteraction],
+            animations: {
+                imageView.image = image
+            }
+        )
     }
 
     private func ensureImageView() {
@@ -556,6 +667,7 @@ final class FullscreenTokenMediaRenderer {
             arrangement: arrangement,
             preservedImages: imageSpreadViews.count == imageCount ? imageSpreadViews.map(\.image) : [],
             preservedImageVerification: imageSpreadViews.count == imageCount ? imageSpreadVerifiedImages : [],
+            preservedImageResolution: imageSpreadViews.count == imageCount ? imageSpreadResolvedImages : [],
             isHidden: imageSpreadStackView?.isHidden ?? true
         )
     }
@@ -582,6 +694,7 @@ final class FullscreenTokenMediaRenderer {
         arrangement: ImageSpreadArrangement,
         preservedImages: [UIImage?],
         preservedImageVerification: [Bool],
+        preservedImageResolution: [Bool],
         isHidden: Bool
     ) {
         imageSpreadStackView?.removeFromSuperview()
@@ -613,6 +726,14 @@ final class FullscreenTokenMediaRenderer {
             }
         } else {
             imageSpreadVerifiedImages = Array(repeating: false, count: imageCount)
+        }
+        if preservedImages.count == imageSpreadViews.count,
+           preservedImageResolution.count == imageSpreadViews.count {
+            imageSpreadResolvedImages = zip(preservedImages, preservedImageResolution).map { image, isResolved in
+                image != nil && isResolved
+            }
+        } else {
+            imageSpreadResolvedImages = Array(repeating: false, count: imageCount)
         }
 
         let stackView: UIStackView
@@ -724,10 +845,7 @@ final class FullscreenTokenMediaRenderer {
 
     private func hideImageSpread() {
         rememberCurrentImageSpread()
-        imageSpreadStackView?.isHidden = true
-        imageSpreadViews.forEach { $0.image = nil }
-        imageSpreadVerifiedImages = Array(repeating: false, count: imageSpreadViews.count)
-        representedImageSpreadSlotKeys = []
+        clearImageSpread()
     }
 
     private func isImageSpreadImageVerified(at index: Int) -> Bool {
@@ -737,8 +855,12 @@ final class FullscreenTokenMediaRenderer {
 
     private func clearImageSpread() {
         imageSpreadStackView?.isHidden = true
-        imageSpreadViews.forEach { $0.image = nil }
+        imageSpreadViews.forEach {
+            $0.layer.removeAllAnimations()
+            $0.image = nil
+        }
         imageSpreadVerifiedImages = Array(repeating: false, count: imageSpreadViews.count)
+        imageSpreadResolvedImages = Array(repeating: false, count: imageSpreadViews.count)
         representedImageSpreadSlotKeys = []
     }
 
@@ -1812,6 +1934,23 @@ private enum VideoAssetLayout {
     }
 }
 
+private struct PlayerStaticImageIdentity: Hashable {
+    let collectionId: String
+    let tokenId: String
+    let tokenIndex: Int
+
+    init(_ descriptor: DownloadableMediaDescriptor) {
+        collectionId = descriptor.collectionId
+        tokenId = descriptor.tokenId
+        tokenIndex = descriptor.tokenIndex
+    }
+}
+
+private struct PlayerProvisionalStaticImage {
+    let identity: PlayerStaticImageIdentity
+    let image: UIImage
+}
+
 private class SpecificPageViewController: UIViewController, UIScrollViewDelegate {
 
     private static let maximumCachedVideoSizeCount = 24
@@ -1927,6 +2066,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     private var pageLayout: MobilePlayerPageLayout
     private var needsPageLayoutRender = false
     private var imageSpreadRenderState: StaticImageSpreadRenderState?
+    private var pendingProvisionalStaticImage: PlayerProvisionalStaticImage?
     private var zoomContentLayout: ZoomContentLayout = .viewport
     private var zoomAllowedContent: ZoomAllowedContent = .fullContent
     private var laidOutZoomViewportSize: CGSize = .zero
@@ -2038,6 +2178,80 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
 
         cleanupDisplayedContent()
         renderCurrentItem()
+    }
+
+    fileprivate func provisionalStaticImage(
+        for targetPagePosition: PlayerPagePosition,
+        pageLayout targetPageLayout: MobilePlayerPageLayout
+    ) -> PlayerProvisionalStaticImage? {
+        guard renderedPagePosition != nil else { return nil }
+
+        if targetPageLayout.isStaticImageGrid {
+            guard !usesStaticImageGridLayoutForCurrentPagePosition,
+                  let descriptor = playerDataSource?.downloadableMediaDescriptor(for: pagePosition),
+                  descriptor.isStaticImage,
+                  let image = mediaRenderer.displayedImage() else {
+                return nil
+            }
+
+            return PlayerProvisionalStaticImage(
+                identity: PlayerStaticImageIdentity(descriptor),
+                image: image
+            )
+        }
+
+        guard usesStaticImageGridLayoutForCurrentPagePosition,
+              let targetDescriptor = playerDataSource?.staticImageGridMediaDescriptor(for: targetPagePosition),
+              let renderState = imageSpreadRenderState,
+              let images = mediaRenderer.imageSpreadImages(),
+              images.count == renderState.descriptors.count else {
+            return nil
+        }
+
+        let targetIdentity = PlayerStaticImageIdentity(targetDescriptor)
+        guard let targetIndex = renderState.descriptors.firstIndex(where: {
+            PlayerStaticImageIdentity($0) == targetIdentity
+        }),
+              let image = images[targetIndex] else {
+            return nil
+        }
+
+        return PlayerProvisionalStaticImage(identity: targetIdentity, image: image)
+    }
+
+    fileprivate func setPendingProvisionalStaticImage(_ provisionalImage: PlayerProvisionalStaticImage?) {
+        pendingProvisionalStaticImage = provisionalImage
+    }
+
+    private func takePendingProvisionalStaticImage(
+        matching descriptor: DownloadableMediaDescriptor
+    ) -> UIImage? {
+        defer { pendingProvisionalStaticImage = nil }
+        guard let pendingProvisionalStaticImage,
+              pendingProvisionalStaticImage.identity == PlayerStaticImageIdentity(descriptor) else {
+            return nil
+        }
+
+        return pendingProvisionalStaticImage.image
+    }
+
+    private func takePendingProvisionalStaticImages(
+        matching descriptors: [DownloadableMediaDescriptor]
+    ) -> [UIImage?] {
+        defer { pendingProvisionalStaticImage = nil }
+        guard let pendingProvisionalStaticImage else {
+            return Array(repeating: nil, count: descriptors.count)
+        }
+
+        return descriptors.map { descriptor in
+            PlayerStaticImageIdentity(descriptor) == pendingProvisionalStaticImage.identity
+                ? pendingProvisionalStaticImage.image
+                : nil
+        }
+    }
+
+    private func discardPendingProvisionalStaticImage() {
+        pendingProvisionalStaticImage = nil
     }
 
     func renderCurrentItemIfNeededForPageLayout() {
@@ -2233,8 +2447,22 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
 
     private func setZoomContentLayout(
         _ layout: ZoomContentLayout,
-        allowedContent: ZoomAllowedContent = .fullContent
+        allowedContent: ZoomAllowedContent = .fullContent,
+        preservingZoomForEquivalentStaticImageLayout: Bool = false
     ) {
+        if preservingZoomForEquivalentStaticImageLayout,
+           isZoomed || zoomScrollView.isZooming,
+           zoomAllowedContent == allowedContent,
+           case .staticImage(let currentImageSize) = zoomContentLayout,
+           case .staticImage(let nextImageSize) = layout,
+           staticImageLayoutsAreEquivalent(currentImageSize, nextImageSize) {
+            zoomContentLayout = layout
+            if isZoomed {
+                updateZoomContentFrame(resetOffset: false)
+            }
+            return
+        }
+
         guard zoomContentLayout != layout || zoomAllowedContent != allowedContent else {
             updateZoomContentFrame(resetOffset: false)
             return
@@ -2244,6 +2472,24 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         zoomAllowedContent = allowedContent
         resetZoom(animated: false)
         updateZoomContentFrame(resetOffset: true)
+    }
+
+    private func staticImageLayoutsAreEquivalent(_ lhs: CGSize, _ rhs: CGSize) -> Bool {
+        guard let viewportSize = validViewportSize(zoomScrollView.bounds.size) else { return false }
+
+        let lhsFittedSize = MobilePlayerAspectFitLayout.size(for: lhs, fitting: viewportSize)
+        let rhsFittedSize = MobilePlayerAspectFitLayout.size(for: rhs, fitting: viewportSize)
+        guard lhsFittedSize.width > 0,
+              lhsFittedSize.height > 0,
+              rhsFittedSize.width > 0,
+              rhsFittedSize.height > 0 else {
+            return false
+        }
+
+        let magnitude = max(max(viewportSize.width, viewportSize.height), 1)
+        let tolerance = magnitude * CGFloat.ulpOfOne * 16
+        return abs(lhsFittedSize.width - rhsFittedSize.width) <= tolerance
+            && abs(lhsFittedSize.height - rhsFittedSize.height) <= tolerance
     }
 
     private func updateZoomContentFrame(resetOffset: Bool) {
@@ -2410,6 +2656,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         guard willOrDidAppear else { return }
 
         guard playerDataSource?.canRenderPagePosition(pagePosition) == true else {
+            discardPendingProvisionalStaticImage()
             cleanupDisplayedContent()
             playerDataSource?.clearDownloadableMediaWindow()
             return
@@ -2427,6 +2674,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         imageSpreadRenderState = nil
 
         guard let token = playerDataSource?.getToken(pagePosition: pagePosition) else {
+            discardPendingProvisionalStaticImage()
             playerDataSource?.clearDownloadableMediaWindow()
             playerDataSource?.didRenderPagePosition(pagePosition)
             return
@@ -2443,15 +2691,18 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
                     fallbackHTML: token.html
                 )
             } else {
+                discardPendingProvisionalStaticImage()
                 playerDataSource?.clearDownloadableMediaWindow()
                 renderWebContent(token.html)
             }
         } else if let nativeRenderKind = token.nativeMetalCardRenderKind {
+            discardPendingProvisionalStaticImage()
             if prepareStaticImageGridMediaWindowIfAvailable() == nil {
                 playerDataSource?.clearDownloadableMediaWindow()
             }
             renderNativeMetalCard(token, renderKind: nativeRenderKind)
         } else if token.media == nil {
+            discardPendingProvisionalStaticImage()
             if prepareStaticImageGridMediaWindowIfAvailable() == nil {
                 playerDataSource?.clearDownloadableMediaWindow()
             }
@@ -2462,17 +2713,21 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             case .staticImage:
                 renderImage(descriptor, fallbackHTML: token.html)
             case .animatedImage:
+                discardPendingProvisionalStaticImage()
                 renderAnimatedImage(
                     descriptor,
                     adjacentDescriptor: mediaWindow.adjacentDescriptor,
                     fallbackHTML: token.html
                 )
             case .video:
+                discardPendingProvisionalStaticImage()
                 renderVideo(descriptor, fallbackHTML: token.html)
             case .html:
+                discardPendingProvisionalStaticImage()
                 renderHTMLDocument(descriptor, fallbackHTML: token.html)
             }
         } else {
+            discardPendingProvisionalStaticImage()
             renderWebContent(token.html)
         }
         playerDataSource?.didRenderPagePosition(pagePosition)
@@ -2582,19 +2837,53 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     }
 
     private func renderImage(_ descriptor: DownloadableMediaDescriptor, fallbackHTML: String) {
+        let handoffImage = takePendingProvisionalStaticImage(matching: descriptor)
+        let thumbnailDescriptor: DownloadableMediaDescriptor?
+        if MobileCollectionCatalog.standardThumbsPathsAvailable(
+            specificCollectionId: descriptor.collectionId
+        ),
+           let candidateDescriptor = playerDataSource?.staticImageGridMediaDescriptor(for: pagePosition),
+           candidateDescriptor.isStaticImage,
+           candidateDescriptor != descriptor,
+           PlayerStaticImageIdentity(candidateDescriptor) == PlayerStaticImageIdentity(descriptor) {
+            thumbnailDescriptor = candidateDescriptor
+        } else {
+            thumbnailDescriptor = nil
+        }
+        let provisionalImage = handoffImage ?? thumbnailDescriptor.flatMap {
+            DownloadableMediaCache.shared.cachedDecodedImage(for: $0)
+        }
+        let loadProvisionalImage: ((@escaping (UIImage?) -> Void) -> (() -> Void)?)? = {
+            guard provisionalImage == nil, let thumbnailDescriptor else { return nil }
+            return { completion in
+                DownloadableMediaCache.shared.loadProvisionalImage(
+                    for: thumbnailDescriptor,
+                    completion: completion
+                )
+            }
+        }()
+
         clearAnimatedRenderContext()
         mediaRenderer.renderImage(
             key: descriptor,
             hideImageUntilLoaded: false,
+            provisionalImage: provisionalImage,
+            loadProvisionalImage: loadProvisionalImage,
             load: { completion in
                 DownloadableMediaCache.shared.loadImage(for: descriptor, completion: completion)
             },
             fallbackToWebContent: { [weak self] in
                 self?.renderWebContent(fallbackHTML)
             },
+            onDisplayedProvisionalImage: { [weak self] image in
+                self?.setZoomContentLayout(.staticImage(image.size))
+            },
             onLoadedImage: { [weak self] image in
                 guard let self else { return }
-                self.setZoomContentLayout(.staticImage(image.size))
+                self.setZoomContentLayout(
+                    .staticImage(image.size),
+                    preservingZoomForEquivalentStaticImageLayout: true
+                )
             }
         )
     }
@@ -2602,12 +2891,37 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     private func renderImageSpread(
         _ descriptor: DownloadableMediaDescriptor,
         imageDescriptors staticImageDescriptors: [DownloadableMediaDescriptor],
-        fallbackHTML: String
+        fallbackHTML: String,
+        allowsEmptyStandardThumbnailGridRetry: Bool = true
     ) {
         let imageDescriptors = staticImageDescriptors.isEmpty ? [descriptor] : staticImageDescriptors
         let viewportSize = validViewportSize(zoomScrollView.bounds.size)
         let initialImages = imageDescriptors.map {
             DownloadableMediaCache.shared.cachedDecodedImage(for: $0)
+        }
+        let handoffImages = takePendingProvisionalStaticImages(matching: imageDescriptors)
+        let placeholderImages = imageDescriptors.indices.map { index -> UIImage? in
+            if let handoffImage = handoffImages[index] {
+                return handoffImage
+            }
+
+            let imageDescriptor = imageDescriptors[index]
+            guard imageDescriptor.isStaticImageGridThumbnail,
+                  MobileCollectionCatalog.standardThumbsPathsAvailable(
+                    specificCollectionId: imageDescriptor.collectionId
+                  ),
+                  let primaryDescriptor = playerDataSource?.downloadableMediaDescriptor(
+                    for: pagePosition.advanced(by: index)
+                  ),
+                  primaryDescriptor != imageDescriptor,
+                  PlayerStaticImageIdentity(primaryDescriptor) == PlayerStaticImageIdentity(imageDescriptor) else {
+                return nil
+            }
+
+            return DownloadableMediaCache.shared.cachedDecodedImage(for: primaryDescriptor)
+        }
+        let seedImages = imageDescriptors.indices.map { index in
+            initialImages[index] ?? placeholderImages[index]
         }
         imageSpreadRenderState = StaticImageSpreadRenderState(
             pagePosition: pagePosition,
@@ -2620,11 +2934,17 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
                     pageLayout: pageLayout,
                     imageSizes: MobilePlayerPageLayout.staticImageGridImageSizes(
                         for: imageDescriptors,
-                        images: initialImages
+                        images: seedImages
                     )
                 )
             )
         )
+        let keepsStandardThumbnailGridOnFailure = descriptor.isStaticImageGridThumbnail
+            && MobileCollectionCatalog.standardThumbsPathsAvailable(
+                specificCollectionId: descriptor.collectionId
+            )
+        let canRetryEmptyStandardThumbnailGrid = allowsEmptyStandardThumbnailGridRetry
+            && imageDescriptors.allSatisfy(\.isStaticImageGridThumbnail)
         mediaRenderer.renderImageSpread(
             key: StaticImageSpreadRenderKey(
                 descriptors: imageDescriptors
@@ -2633,23 +2953,29 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             viewportSize: viewportSize,
             nativeMetalCardCornerMaskIndices: nativeMetalCardCornerMaskIndices(for: imageDescriptors),
             initialImages: initialImages,
+            placeholderImages: placeholderImages,
             imageSlotKeys: imageDescriptors.map { AnyHashable($0) },
             loadImages: imageDescriptors.map { imageDescriptor in
                 { completion in
                     DownloadableMediaCache.shared.loadImage(for: imageDescriptor, completion: completion)
                 }
             },
-            fallbackToPrimary: { [weak self] primaryImage in
+            onEmptySpread: { [weak self] in
                 guard let self else { return }
-
-                self.imageSpreadRenderState = nil
-                guard let primaryImage else {
-                    self.renderImage(descriptor, fallbackHTML: fallbackHTML)
+                if keepsStandardThumbnailGridOnFailure {
+                    if canRetryEmptyStandardThumbnailGrid {
+                        self.renderImageSpread(
+                            descriptor,
+                            imageDescriptors: imageDescriptors,
+                            fallbackHTML: fallbackHTML,
+                            allowsEmptyStandardThumbnailGridRetry: false
+                        )
+                    }
                     return
                 }
 
-                self.setZoomContentLayout(.staticImage(primaryImage.size))
-                self.mediaRenderer.displayLoadedImage(primaryImage, key: descriptor)
+                self.imageSpreadRenderState = nil
+                self.renderImage(descriptor, fallbackHTML: fallbackHTML)
             },
             onLoadedImages: { [weak self] images in
                 guard let self else { return }
@@ -3213,7 +3539,15 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
 
     @discardableResult
     func openStaticImageGridSelection(_ selection: MobilePlayerStaticImageGridSelection) -> Bool {
-        return reanchorCurrentPage(to: selection.pagePosition, pageLayout: .onePerPage)
+        let provisionalImage = currentPage?.provisionalStaticImage(
+            for: selection.pagePosition,
+            pageLayout: .onePerPage
+        )
+        return reanchorCurrentPage(
+            to: selection.pagePosition,
+            pageLayout: .onePerPage,
+            provisionalImage: provisionalImage
+        )
     }
 
     @discardableResult
@@ -3223,9 +3557,14 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
         completion: @escaping () -> Void = {}
     ) -> Bool {
         if let targetPagePosition {
+            let provisionalImage = currentPage?.provisionalStaticImage(
+                for: targetPagePosition,
+                pageLayout: pageLayout
+            )
             return reanchorCurrentPage(
                 to: targetPagePosition,
                 pageLayout: pageLayout,
+                provisionalImage: provisionalImage,
                 forceDisplayUpdate: true,
                 completion: completion
             )
@@ -3236,6 +3575,10 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
         if pageLayout.isStaticImageGrid,
            let currentPage {
             let previousPagePosition = currentPage.pagePosition
+            let provisionalImage = currentPage.provisionalStaticImage(
+                for: previousPagePosition,
+                pageLayout: pageLayout
+            )
             let stablePageResolution = playerDataSource?.exitWidgetInsertionForStablePage(
                 containing: currentPage.pagePosition,
                 for: pageLayout
@@ -3251,6 +3594,7 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
                 return reanchorCurrentPage(
                     to: stablePageResult.pagePosition,
                     pageLayout: pageLayout,
+                    provisionalImage: provisionalImage,
                     forceDisplayUpdate: didExitWidgetInsertionWithoutChangingPagePosition,
                     completion: completion
                 )
@@ -3259,11 +3603,16 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
             }
         }
 
+        let provisionalImage = currentPage?.provisionalStaticImage(
+            for: currentPage?.pagePosition ?? .initial,
+            pageLayout: pageLayout
+        )
         self.pageLayout = pageLayout
         let visiblePage = currentPage
         let pages: [SpecificPageViewController] = [pageA, pageB, pageC]
         pages.forEach { page in
             let shouldRender = visiblePage.map { page === $0 } ?? false
+            page.setPendingProvisionalStaticImage(shouldRender ? provisionalImage : nil)
             page.setPageLayout(pageLayout, shouldRender: shouldRender)
         }
         updatePagingScrollEnabled()
@@ -3452,6 +3801,7 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
     private func reanchorCurrentPage(
         to pagePosition: PlayerPagePosition,
         pageLayout targetPageLayout: MobilePlayerPageLayout,
+        provisionalImage: PlayerProvisionalStaticImage?,
         forceDisplayUpdate: Bool = false,
         completion: @escaping () -> Void = {}
     ) -> Bool {
@@ -3478,6 +3828,7 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
         pageC.preferredPrefetchDirection = .forward
 
         update(currentPagePosition: pagePosition)
+        currentPage.setPendingProvisionalStaticImage(provisionalImage)
         currentPage.renderCurrentItem()
         didDisplayRenderablePagePosition(pagePosition, forceUpdate: forceDisplayUpdate)
         updatePagingScrollEnabled()

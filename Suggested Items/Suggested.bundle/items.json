@@ -1221,6 +1221,7 @@
     "chainId" : 1,
     "name" : "milady aura petz",
     "tokenCount" : 1884,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "milady_aura_petz"
   },
   {
@@ -1554,6 +1555,7 @@
     "chainId" : 0,
     "name" : "John",
     "tokenCount" : 3210,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "john"
   },
   {
@@ -1642,6 +1644,7 @@
     "chainId" : 0,
     "name" : "Drilady",
     "tokenCount" : 2500,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "drilady"
   },
   {

@@ -9,7 +9,12 @@ const LATIN_ASCII_REPLACEMENTS = new Map([
   ["Þ", "Th"], ["þ", "th"], ["Đ", "D"], ["đ", "d"], ["Ħ", "H"], ["ħ", "h"],
   ["Ŋ", "N"], ["ŋ", "n"], ["ı", "i"], ["ſ", "s"],
 ]);
-const PRESERVED_GENERATED_SUGGESTED_ITEM_FIELDS = ["playerBackgroundColor", "webURL", "internal_slug"];
+const PRESERVED_GENERATED_SUGGESTED_ITEM_FIELDS = [
+  "playerBackgroundColor",
+  "webURL",
+  "internal_slug",
+  "standardThumbsPathsAvailable",
+];
 
 function mergeGeneratedSuggestedItem(existingItem, generatedItem) {
   return {

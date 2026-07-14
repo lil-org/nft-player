@@ -141,6 +141,11 @@ final class DownloadableMediaCache {
         case foreground, prefetch
     }
 
+    private enum ImageLoadScheduling {
+        case foreground
+        case preservingPrefetch
+    }
+
     private enum ImageDecodeWorkKind: Equatable {
         case primary, foregroundRace
     }
@@ -498,6 +503,30 @@ final class DownloadableMediaCache {
         for descriptor: CollectionCatalogDownloadableMediaDescriptor,
         completion: @escaping (DownloadableMediaImage?) -> Void
     ) -> (() -> Void)? {
+        loadImage(
+            for: descriptor,
+            scheduling: .foreground,
+            completion: completion
+        )
+    }
+
+    @discardableResult
+    func loadProvisionalImage(
+        for descriptor: CollectionCatalogDownloadableMediaDescriptor,
+        completion: @escaping (DownloadableMediaImage?) -> Void
+    ) -> (() -> Void)? {
+        loadImage(
+            for: descriptor,
+            scheduling: .preservingPrefetch,
+            completion: completion
+        )
+    }
+
+    private func loadImage(
+        for descriptor: CollectionCatalogDownloadableMediaDescriptor,
+        scheduling: ImageLoadScheduling,
+        completion: @escaping (DownloadableMediaImage?) -> Void
+    ) -> (() -> Void)? {
         guard descriptor.isStaticImage else {
             DispatchQueue.main.async {
                 completion(nil)
@@ -520,7 +549,12 @@ final class DownloadableMediaCache {
 
             let fileURL = self.fileURL(for: descriptor)
             self.completions[key, default: [:]][request.id] = callback
-            self.prioritizeForegroundImageIfNeeded(descriptor, requireDecodedStaticImage: true)
+            switch scheduling {
+            case .foreground:
+                self.prioritizeForegroundImageIfNeeded(descriptor, requireDecodedStaticImage: true)
+            case .preservingPrefetch:
+                self.enqueueDownloadIfNeeded(descriptor, isForegroundRequest: true)
+            }
             if FileManager.default.fileExists(atPath: fileURL.path) {
                 self.markCachedFileUsed(for: descriptor)
                 if self.activeDecodesByKey[key] == nil {

@@ -406,9 +406,13 @@ class MobilePlaybackController {
         }
 
         let candidateDescriptorLookup = Self.candidateDescriptorLookup(for: window.descriptors)
+        let staticImageGridCurrentDescriptor = MobileCollectionCatalog.staticImageGridMediaDescriptor(
+            for: window.currentDescriptor
+        )
+        let usesStandardThumbnailDescriptors = staticImageGridCurrentDescriptor != window.currentDescriptor
         let gridDescriptors: [DownloadableMediaDescriptor]
         let decodedGridDescriptors: [DownloadableMediaDescriptor]
-        if pageLayout.isStaticImageGrid {
+        if pageLayout.isStaticImageGrid || usesStandardThumbnailDescriptors {
             let mediaWindowDescriptors = staticImageGridMediaWindowDescriptors(
                 uuid: uuid,
                 containing: pagePosition,
@@ -430,15 +434,41 @@ class MobilePlaybackController {
             decodedGridDescriptors = gridDescriptors
         }
         guard !gridDescriptors.isEmpty else { return window }
+
+        if pageLayout.isStaticImageGrid && usesStandardThumbnailDescriptors {
+            return PlayerDownloadableMediaWindow(
+                currentDescriptor: staticImageGridCurrentDescriptor,
+                descriptors: gridDescriptors,
+                decodedDescriptors: decodedGridDescriptors,
+                adjacentDescriptor: nil,
+                decodedDescriptorCapacity: decodedGridDescriptors.count + 1
+            )
+        }
+
         let decodedDescriptorCapacity = max(
             PlayerDownloadableMediaWindowLayout.decodedWindowCapacity,
             decodedGridDescriptors.count + window.decodedDescriptors.count + 1
         )
+        let descriptors: [DownloadableMediaDescriptor]
+        let decodedDescriptors: [DownloadableMediaDescriptor]
+        if usesStandardThumbnailDescriptors {
+            descriptors = [staticImageGridCurrentDescriptor]
+                + window.decodedDescriptors
+                + decodedGridDescriptors
+                + gridDescriptors
+                + window.descriptors
+            decodedDescriptors = [staticImageGridCurrentDescriptor]
+                + window.decodedDescriptors
+                + decodedGridDescriptors
+        } else {
+            descriptors = gridDescriptors + window.descriptors
+            decodedDescriptors = decodedGridDescriptors + window.decodedDescriptors
+        }
 
         return PlayerDownloadableMediaWindow(
             currentDescriptor: window.currentDescriptor,
-            descriptors: gridDescriptors + window.descriptors,
-            decodedDescriptors: decodedGridDescriptors + window.decodedDescriptors,
+            descriptors: descriptors,
+            decodedDescriptors: decodedDescriptors,
             adjacentDescriptor: window.adjacentDescriptor,
             decodedDescriptorCapacity: decodedDescriptorCapacity
         )
@@ -676,7 +706,7 @@ class MobilePlaybackController {
 
         let candidateKey = MobileStaticImageGridCandidateDescriptorKey(context: context)
         if let candidateDescriptor = candidateDescriptorLookup[candidateKey] {
-            return candidateDescriptor
+            return MobileCollectionCatalog.staticImageGridMediaDescriptor(for: candidateDescriptor)
         }
 
         return MobileCollectionCatalog.staticImageGridMediaDescriptor(
