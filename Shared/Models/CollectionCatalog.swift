@@ -1333,7 +1333,7 @@ private struct DownloadableCollectionTokenData {
 }
 
 private enum DownloadableMediaFileExtension {
-    private static let staticImageExtensions = Set(["png", "jpg", "jpeg", "webp", "heic", "heif"])
+    private static let staticImageExtensions = Set(["png", "jpg", "jpeg", "webp", "heic", "heif", "tiff"])
     private static let animatedImageExtensions = Set(["gif", "svg"])
     private static let videoExtensions = Set(["mp4", "mov"])
     private static let htmlExtensions = Set(["html", "htm", "xhtml"])

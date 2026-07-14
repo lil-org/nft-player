@@ -376,7 +376,7 @@ private enum WidgetCollectionChain: Decodable, Hashable {
 }
 
 private enum WidgetMediaFileExtension {
-    private static let staticImageExtensions = Set(["png", "jpg", "jpeg", "webp", "heic", "heif"])
+    private static let staticImageExtensions = Set(["png", "jpg", "jpeg", "webp", "heic", "heif", "tiff"])
 
     static func normalized(_ value: String?) -> String? {
         guard let value else { return nil }
