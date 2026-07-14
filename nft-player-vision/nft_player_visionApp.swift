@@ -59,11 +59,13 @@ final class VisionAppDelegate: NSObject, UIApplicationDelegate {
         configurationForConnecting connectingSceneSession: UISceneSession,
         options: UIScene.ConnectionOptions
     ) -> UISceneConfiguration {
-        guard connectingSceneSession.role == .windowApplication else {
-            return connectingSceneSession.configuration
+        let config = UISceneConfiguration(
+            name: nil,
+            sessionRole: connectingSceneSession.role
+        )
+        if connectingSceneSession.role == .windowApplication {
+            config.delegateClass = VisionSceneDelegate.self
         }
-        let config = UISceneConfiguration(name: nil, sessionRole: connectingSceneSession.role)
-        config.delegateClass = VisionSceneDelegate.self
         return config
     }
 
