@@ -29,6 +29,154 @@ enum MobilePlayerAspectFitLayout {
     }
 }
 
+struct PlayerMediaPlaceholderSpec: Equatable {
+    private static let neutralColor = UIColor(white: 0.65, alpha: 0.18)
+
+    let aspectSize: CGSize
+    let usesNativeMetalCardCornerMask: Bool
+
+    var color: UIColor {
+        Self.neutralColor
+    }
+
+    init(
+        thumbnailAspectRatio: ThumbnailAspectRatio?,
+        usesNativeMetalCardCornerMask: Bool = false
+    ) {
+        aspectSize = thumbnailAspectRatio?.size ?? CGSize(width: 1, height: 1)
+        self.usesNativeMetalCardCornerMask = usesNativeMetalCardCornerMask
+    }
+
+    init(descriptor: CollectionCatalogDownloadableMediaDescriptor) {
+        self.init(
+            thumbnailAspectRatio: descriptor.thumbnailAspectRatio,
+            usesNativeMetalCardCornerMask: descriptor.isNativeMetalCard
+        )
+    }
+}
+
+final class PlayerMediaPlaceholderView: UIView {
+    private static let transitionDuration: TimeInterval = 0.12
+
+    private let shapeLayer = CALayer()
+    private var spec: PlayerMediaPlaceholderSpec?
+    private var appliedNativeMetalCardMaskBounds: CGRect?
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        setUp()
+    }
+
+    convenience init(spec: PlayerMediaPlaceholderSpec) {
+        self.init(frame: .zero)
+        configure(with: spec)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    func configure(with spec: PlayerMediaPlaceholderSpec) {
+        layer.removeAllAnimations()
+        shapeLayer.removeAllAnimations()
+        self.spec = spec
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        shapeLayer.backgroundColor = spec.color.cgColor
+        CATransaction.commit()
+        isHidden = false
+        alpha = 1
+        setNeedsLayout()
+    }
+
+    func setHidden(_ hidden: Bool, animated: Bool) {
+        guard animated else {
+            layer.removeAllAnimations()
+            alpha = hidden ? 0 : 1
+            isHidden = hidden
+            return
+        }
+
+        if hidden {
+            guard !isHidden else { return }
+            UIView.animate(
+                withDuration: Self.transitionDuration,
+                delay: 0,
+                options: [.beginFromCurrentState, .allowUserInteraction]
+            ) {
+                self.alpha = 0
+            } completion: { finished in
+                if finished, self.alpha == 0 {
+                    self.isHidden = true
+                }
+            }
+        } else {
+            guard isHidden || alpha < 1 else { return }
+            isHidden = false
+            UIView.animate(
+                withDuration: Self.transitionDuration,
+                delay: 0,
+                options: [.beginFromCurrentState, .allowUserInteraction]
+            ) {
+                self.alpha = 1
+            }
+        }
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        defer { CATransaction.commit() }
+
+        guard let spec else {
+            shapeLayer.frame = .zero
+            updateNativeMetalCardCornerMask()
+            return
+        }
+
+        shapeLayer.frame = MobileStaticImageSpreadLayout.centeredAspectFitRect(
+            for: spec.aspectSize,
+            in: bounds
+        )
+        updateNativeMetalCardCornerMask()
+    }
+
+    private func setUp() {
+        makeBackgroundTransparent()
+        isUserInteractionEnabled = false
+        isAccessibilityElement = false
+        accessibilityElementsHidden = true
+        layer.addSublayer(shapeLayer)
+    }
+
+    private func updateNativeMetalCardCornerMask() {
+        guard spec?.usesNativeMetalCardCornerMask == true,
+              shapeLayer.bounds.width > 0,
+              shapeLayer.bounds.height > 0 else {
+            shapeLayer.mask = nil
+            appliedNativeMetalCardMaskBounds = nil
+            return
+        }
+
+        if appliedNativeMetalCardMaskBounds == shapeLayer.bounds,
+           shapeLayer.mask is CAShapeLayer {
+            return
+        }
+
+        let maskLayer = (shapeLayer.mask as? CAShapeLayer) ?? CAShapeLayer()
+        maskLayer.frame = shapeLayer.bounds
+        maskLayer.path = UIBezierPath(
+            roundedRect: shapeLayer.bounds,
+            byRoundingCorners: .allCorners,
+            cornerRadii: NativeMetalCardLayout.cardCornerRadii(in: shapeLayer.bounds.size)
+        ).cgPath
+        shapeLayer.mask = maskLayer
+        appliedNativeMetalCardMaskBounds = shapeLayer.bounds
+    }
+}
+
 final class NativeMetalCardCornerMaskedImageView: UIImageView {
 
     private var appliedNativeMetalCardMaskBounds: CGRect?

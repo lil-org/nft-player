@@ -1667,12 +1667,13 @@ private final class PlayerNavigationController: UINavigationController {
 
 private final class CardTransitionUnderlayView: UIView {
 
-    private static let lateLoadedImageFadeDuration: TimeInterval = 0.14
+    private static let lateLoadedImageFadeDuration: TimeInterval = 0.12
 
     private let pageLayout: MobilePlayerPageLayout
     private let descriptors: [DownloadableMediaDescriptor]
     private let hiddenSlotIndex: Int?
     private let layoutImageSizes: [CGSize]
+    private var placeholderViews = [PlayerMediaPlaceholderView]()
     private var imageViews = [UIImageView]()
     private var imageLoadCancellations = [(() -> Void)?]()
     private var otherCardsRevealProgress: CGFloat = 0
@@ -1681,11 +1682,9 @@ private final class CardTransitionUnderlayView: UIView {
         pageLayout: MobilePlayerPageLayout,
         descriptors: [DownloadableMediaDescriptor],
         hiddenSlotIndex: Int?,
-        fallbackImageSize: CGSize,
         layoutImageSizes: [CGSize]? = nil,
         initialImages: [UIImage?]? = nil
     ) {
-        let validFallbackImageSize = fallbackImageSize.validOrDefault
         self.pageLayout = pageLayout
         self.descriptors = descriptors
         self.hiddenSlotIndex = hiddenSlotIndex
@@ -1695,7 +1694,7 @@ private final class CardTransitionUnderlayView: UIView {
         } else {
             self.layoutImageSizes = descriptors.map { descriptor in
                 DownloadableMediaCache.shared.cachedDecodedImage(for: descriptor)?.size.validOrDefault
-                    ?? validFallbackImageSize
+                    ?? MobilePlayerPageLayout.staticImageGridFallbackImageSize(for: descriptor).validOrDefault
             }
         }
         super.init(frame: .zero)
@@ -1731,18 +1730,32 @@ private final class CardTransitionUnderlayView: UIView {
         let clampedProgress = min(max(progress, 0), 1)
         otherCardsRevealProgress = clampedProgress
         for (index, imageView) in imageViews.enumerated() {
+            let placeholderView = placeholderViews[index]
             if isHiddenSlot(index) {
+                placeholderView.alpha = 0
+                placeholderView.isHidden = true
                 imageView.alpha = 0
                 imageView.isHidden = true
             } else {
-                imageView.alpha = clampedProgress
+                let hasImage = imageView.image != nil
+                placeholderView.alpha = hasImage ? 0 : clampedProgress
+                placeholderView.isHidden = false
+                imageView.alpha = hasImage ? clampedProgress : 0
                 imageView.isHidden = false
             }
         }
     }
 
     private func installImageViews() {
-        imageViews = descriptors.indices.map { index in
+        for index in descriptors.indices {
+            let placeholderView = PlayerMediaPlaceholderView(
+                spec: PlayerMediaPlaceholderSpec(descriptor: descriptors[index])
+            )
+            placeholderView.alpha = 0
+            placeholderView.isHidden = isHiddenSlot(index)
+            addSubview(placeholderView)
+            placeholderViews.append(placeholderView)
+
             let imageView = NativeMetalCardCornerMaskedImageView()
             imageView.makeBackgroundTransparent()
             imageView.contentMode = .scaleAspectFit
@@ -1752,7 +1765,7 @@ private final class CardTransitionUnderlayView: UIView {
             imageView.isHidden = isHiddenSlot(index)
             imageView.usesNativeMetalCardCornerMask = descriptors[index].isNativeMetalCard
             addSubview(imageView)
-            return imageView
+            imageViews.append(imageView)
         }
         imageLoadCancellations = Array(repeating: nil, count: descriptors.count)
     }
@@ -1782,6 +1795,7 @@ private final class CardTransitionUnderlayView: UIView {
     private func setImage(_ image: UIImage, at index: Int) {
         guard imageViews.indices.contains(index) else { return }
 
+        let placeholderView = placeholderViews[index]
         let imageView = imageViews[index]
         let shouldFadeInLateImage = !isHiddenSlot(index)
             && imageView.image == nil
@@ -1789,6 +1803,8 @@ private final class CardTransitionUnderlayView: UIView {
 
         if shouldFadeInLateImage {
             imageView.alpha = 0
+        } else {
+            placeholderView.alpha = 0
         }
         imageView.image = image
 
@@ -1799,6 +1815,7 @@ private final class CardTransitionUnderlayView: UIView {
                 delay: 0,
                 options: [.beginFromCurrentState, .allowUserInteraction],
                 animations: {
+                    placeholderView.alpha = 0
                     imageView.alpha = targetRevealProgress
                 }
             )
@@ -1810,8 +1827,9 @@ private final class CardTransitionUnderlayView: UIView {
             pageLayout: pageLayout,
             imageSizes: layoutImageSizes
         ).itemFrames(fitting: bounds.size)
-        for (imageView, frame) in zip(imageViews, frames) {
-            imageView.frame = frame
+        for (index, frame) in frames.enumerated() {
+            placeholderViews[index].frame = frame
+            imageViews[index].frame = frame
         }
     }
 
@@ -3451,10 +3469,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
             return nil
         }
 
-        let fallbackImageSize = cardTransitionFallbackImageSize(
-            selectedDescriptor: currentDescriptor,
-            descriptors: state.staticImageGridDescriptors
-        )
+        let fallbackImageSize = cardTransitionFallbackImageSize(selectedDescriptor: currentDescriptor)
         let sourceFrame = onePerPageCardFrame(
             for: currentDescriptor,
             fallbackImageSize: fallbackImageSize
@@ -3471,7 +3486,6 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
             pageLayout: pageLayout,
             descriptors: state.staticImageGridDescriptors,
             hiddenSlotIndex: selectedSlot,
-            fallbackImageSize: fallbackImageSize,
             otherCardsRevealProgress: 0
         )
         view.insertSubview(foregroundView, aboveSubview: underlayView)
@@ -3499,10 +3513,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
             return nil
         }
 
-        let fallbackImageSize = cardTransitionFallbackImageSize(
-            selectedDescriptor: currentDescriptor,
-            descriptors: state.staticImageGridDescriptors
-        )
+        let fallbackImageSize = cardTransitionFallbackImageSize(selectedDescriptor: currentDescriptor)
         let sourceFrame = onePerPageCardFrame(
             for: currentDescriptor,
             fallbackImageSize: fallbackImageSize
@@ -3519,7 +3530,6 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
             pageLayout: pageLayout,
             descriptors: state.staticImageGridDescriptors,
             hiddenSlotIndex: nil,
-            fallbackImageSize: fallbackImageSize,
             otherCardsRevealProgress: 0
         )
         view.insertSubview(foregroundView, aboveSubview: underlayView)
@@ -3547,7 +3557,6 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
             pageLayout: selection.pageLayout,
             descriptors: selection.descriptors,
             hiddenSlotIndex: selection.selectedSlotIndex,
-            fallbackImageSize: selectedImageSize,
             layoutImageSizes: selection.imageSizes,
             initialImages: selection.images,
             otherCardsRevealProgress: 1
@@ -3590,7 +3599,6 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         pageLayout: MobilePlayerPageLayout,
         descriptors: [DownloadableMediaDescriptor],
         hiddenSlotIndex: Int?,
-        fallbackImageSize: CGSize,
         layoutImageSizes: [CGSize]? = nil,
         initialImages: [UIImage?]? = nil,
         otherCardsRevealProgress: CGFloat
@@ -3599,7 +3607,6 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
             pageLayout: pageLayout,
             descriptors: descriptors,
             hiddenSlotIndex: hiddenSlotIndex,
-            fallbackImageSize: fallbackImageSize,
             layoutImageSizes: layoutImageSizes,
             initialImages: initialImages
         )
@@ -3658,19 +3665,10 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
     }
 
     private func cardTransitionFallbackImageSize(
-        selectedDescriptor: DownloadableMediaDescriptor,
-        descriptors: [DownloadableMediaDescriptor]
+        selectedDescriptor: DownloadableMediaDescriptor
     ) -> CGSize {
         if let image = DownloadableMediaCache.shared.cachedDecodedImage(for: selectedDescriptor) {
             return image.size.validOrDefault
-        }
-
-        for descriptor in descriptors {
-            guard descriptor != selectedDescriptor else { continue }
-
-            if let image = DownloadableMediaCache.shared.cachedDecodedImage(for: descriptor) {
-                return image.size.validOrDefault
-            }
         }
 
         return MobilePlayerPageLayout.staticImageGridFallbackImageSize(for: selectedDescriptor)

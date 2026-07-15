@@ -22,6 +22,9 @@ xcuserdata
 .DS_Store
 tools/wip/
 
+# Local thumbnail corpus used for offline sampling
+/thumbnails/
+
 # Release artifacts
 .asc/artifacts/
 .asc/reports/
