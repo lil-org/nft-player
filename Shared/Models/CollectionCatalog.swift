@@ -26,19 +26,22 @@ struct CollectionCatalogDownloadableMediaDescriptor: Hashable {
     let tokenIndex: Int
     let media: GeneratedTokenMedia
     let purpose: CollectionCatalogDownloadableMediaPurpose
+    let thumbnailAspectRatio: ThumbnailAspectRatio?
 
     init(
         collectionId: String,
         tokenId: String,
         tokenIndex: Int,
         media: GeneratedTokenMedia,
-        purpose: CollectionCatalogDownloadableMediaPurpose = .primary
+        purpose: CollectionCatalogDownloadableMediaPurpose = .primary,
+        thumbnailAspectRatio: ThumbnailAspectRatio? = nil
     ) {
         self.collectionId = collectionId
         self.tokenId = tokenId
         self.tokenIndex = tokenIndex
         self.media = media
         self.purpose = purpose
+        self.thumbnailAspectRatio = thumbnailAspectRatio
     }
 
     var url: URL {
@@ -921,7 +924,11 @@ enum CollectionCatalog {
             collectionId: renderKind.collectionId,
             tokenId: String(tokenID),
             tokenIndex: tokenIndex,
-            media: .staticImage(url: url, fileExtension: renderKind.staticImageFileExtension)
+            media: .staticImage(url: url, fileExtension: renderKind.staticImageFileExtension),
+            thumbnailAspectRatio: ThumbnailAspectRatio(
+                width: Int(renderKind.staticImageSize.width),
+                height: Int(renderKind.staticImageSize.height)
+            )
         )
     }
 #endif
@@ -1091,7 +1098,8 @@ private enum DownloadableCollectionService {
             collectionId: collectionId,
             tokenId: token.id,
             tokenIndex: tokenIndex,
-            media: media
+            media: media,
+            thumbnailAspectRatio: token.thumbnailAspectRatio
         )
     }
 
@@ -1231,6 +1239,8 @@ private struct DownloadableCollectionTokensPayload: Decodable {
     enum CodingKeys: String, CodingKey {
         case defaultFileExtension
         case items
+        case thumbnailAspectRatios
+        case thumbnailAspectRatioOverrides
         case urlPrefixes
     }
 
@@ -1241,26 +1251,54 @@ private struct DownloadableCollectionTokensPayload: Decodable {
         )
         let urlPrefixes = try container.decodeIfPresent([String].self, forKey: .urlPrefixes) ?? []
 
+        let decodedItems: [DownloadableTokenItem]
         if let compactRows = try? container.decode([DownloadableCompactTokenRow].self, forKey: .items) {
-            items = compactRows.map { row in
+            decodedItems = compactRows.map { row in
                 DownloadableTokenItem(
                     id: row.id,
                     name: nil,
                     url: row.url(prefixes: urlPrefixes),
                     sh: nil,
-                    fileExtension: row.fileExtension
+                    fileExtension: row.fileExtension,
+                    thumbnailAspectRatio: nil
                 )
             }
         } else {
-            items = try container.decode([DownloadableTokenItem].self, forKey: .items).map { item in
+            decodedItems = try container.decode([DownloadableTokenItem].self, forKey: .items).map { item in
                 DownloadableTokenItem(
                     id: item.id,
                     name: item.name,
                     url: item.url,
                     sh: item.sh,
-                    fileExtension: Self.normalizedFileExtension(item.fileExtension)
+                    fileExtension: Self.normalizedFileExtension(item.fileExtension),
+                    thumbnailAspectRatio: nil
                 )
             }
+        }
+
+        let thumbnailAspectRatios = try container.decodeIfPresent(
+            [ThumbnailAspectRatio].self,
+            forKey: .thumbnailAspectRatios
+        )
+        let thumbnailAspectRatioOverrides = try container.decodeIfPresent(
+            [ThumbnailAspectRatioOverride].self,
+            forKey: .thumbnailAspectRatioOverrides
+        )
+        let resolvedAspectRatios = try ThumbnailAspectRatioMetadata.resolve(
+            aspectRatios: thumbnailAspectRatios,
+            overrides: thumbnailAspectRatioOverrides,
+            itemCount: decodedItems.count,
+            codingPath: container.codingPath
+        )
+        items = decodedItems.enumerated().map { index, item in
+            DownloadableTokenItem(
+                id: item.id,
+                name: item.name,
+                url: item.url,
+                sh: item.sh,
+                fileExtension: item.fileExtension,
+                thumbnailAspectRatio: resolvedAspectRatios?[index]
+            )
         }
     }
 
@@ -1275,6 +1313,50 @@ private struct DownloadableTokenItem: Codable, Hashable {
     let url: String?
     let sh: String?
     let fileExtension: String?
+    let thumbnailAspectRatio: ThumbnailAspectRatio?
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case name
+        case url
+        case sh
+        case fileExtension
+    }
+
+    init(
+        id: String,
+        name: String?,
+        url: String?,
+        sh: String?,
+        fileExtension: String?,
+        thumbnailAspectRatio: ThumbnailAspectRatio? = nil
+    ) {
+        self.id = id
+        self.name = name
+        self.url = url
+        self.sh = sh
+        self.fileExtension = fileExtension
+        self.thumbnailAspectRatio = thumbnailAspectRatio
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        name = try container.decodeIfPresent(String.self, forKey: .name)
+        url = try container.decodeIfPresent(String.self, forKey: .url)
+        sh = try container.decodeIfPresent(String.self, forKey: .sh)
+        fileExtension = try container.decodeIfPresent(String.self, forKey: .fileExtension)
+        thumbnailAspectRatio = nil
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encodeIfPresent(name, forKey: .name)
+        try container.encodeIfPresent(url, forKey: .url)
+        try container.encodeIfPresent(sh, forKey: .sh)
+        try container.encodeIfPresent(fileExtension, forKey: .fileExtension)
+    }
 
     func resolvedURLString(collection: DownloadableCollectionIndexItem) -> String? {
         if let url {

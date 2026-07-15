@@ -6,11 +6,19 @@ const path = require("node:path");
 const test = require("node:test");
 
 const { suggestedItemId } = require("./suggested_items");
+const {
+  ASPECT_RATIOS_KEY,
+  ASPECT_RATIO_OVERRIDES_KEY,
+  decodeAspectRatioMetadata,
+  encodeAspectRatioMetadata,
+  tokenIdsFromPayload,
+} = require("./thumbnail_aspect_ratios");
 
 const SUGGESTED_BUNDLE_PATH = path.resolve(__dirname, "../Suggested Items/Suggested.bundle");
 const ITEMS_PATH = path.join(SUGGESTED_BUNDLE_PATH, "items.json");
 const SCRIPTS_PATH = path.join(SUGGESTED_BUNDLE_PATH, "Scripts");
 const TOKENS_PATH = path.join(SUGGESTED_BUNDLE_PATH, "Tokens");
+const WIDGET_TOKENS_PATH = path.resolve(__dirname, "../Suggested Items/WidgetSuggested.bundle/Tokens");
 const STANDARD_THUMBNAIL_EXCEPTIONS = new Set([
   "card_nft",
   "card_nft_2",
@@ -244,6 +252,62 @@ test("thumbnail base overrides support extensionless sources and strip source ex
     standardThumbnailURL("https://api.example.com/tokens/42.svg?size=large#frame", thumbsBaseURL).href,
     "https://cdn.lil.org/player/example/thumbs/42.webp"
   );
+});
+
+test("every bundled token has compact thumbnail aspect-ratio metadata", () => {
+  const primaryFileNames = fs.readdirSync(TOKENS_PATH)
+    .filter((fileName) => path.extname(fileName) === ".json")
+    .sort();
+  assert.equal(primaryFileNames.length, 217);
+
+  const primaryByLowercasedFileName = new Map();
+  let primaryTokenCount = 0;
+  for (const fileName of primaryFileNames) {
+    const payload = readJSON(path.join(TOKENS_PATH, fileName));
+    const ratios = decodeAspectRatioMetadata(payload);
+    assert.ok(ratios, `${fileName} has no thumbnail aspect-ratio metadata`);
+    assert.equal(ratios.length, payload.items.length, `${fileName} has incomplete aspect-ratio metadata`);
+    assert.deepEqual(
+      {
+        [ASPECT_RATIOS_KEY]: payload[ASPECT_RATIOS_KEY],
+        ...(payload[ASPECT_RATIO_OVERRIDES_KEY] == null
+          ? {}
+          : { [ASPECT_RATIO_OVERRIDES_KEY]: payload[ASPECT_RATIO_OVERRIDES_KEY] }),
+      },
+      encodeAspectRatioMetadata(ratios),
+      `${fileName} does not use the canonical compact aspect-ratio encoding`
+    );
+    primaryTokenCount += payload.items.length;
+    primaryByLowercasedFileName.set(fileName.toLowerCase(), { payload, ratios });
+  }
+  assert.equal(primaryTokenCount, 209_828);
+
+  const widgetFileNames = fs.readdirSync(WIDGET_TOKENS_PATH)
+    .filter((fileName) => path.extname(fileName) === ".json")
+    .sort();
+  assert.equal(widgetFileNames.length, 32);
+  let widgetTokenCount = 0;
+  for (const fileName of widgetFileNames) {
+    const widgetPayload = readJSON(path.join(WIDGET_TOKENS_PATH, fileName));
+    const widgetRatios = decodeAspectRatioMetadata(widgetPayload);
+    assert.ok(widgetRatios, `${fileName} has no widget thumbnail aspect-ratio metadata`);
+    assert.equal(widgetRatios.length, widgetPayload.items.length);
+
+    const primary = primaryByLowercasedFileName.get(fileName.toLowerCase());
+    assert.ok(primary, `${fileName} has no matching primary token manifest`);
+    const primaryRatioById = new Map(
+      tokenIdsFromPayload(primary.payload).map((id, index) => [id, primary.ratios[index]])
+    );
+    tokenIdsFromPayload(widgetPayload).forEach((id, index) => {
+      assert.deepEqual(
+        widgetRatios[index],
+        primaryRatioById.get(id),
+        `${fileName} token ${id} differs from its primary thumbnail ratio`
+      );
+    });
+    widgetTokenCount += widgetPayload.items.length;
+  }
+  assert.equal(widgetTokenCount, 60_201);
 });
 
 test("Terraforms uses Mathcastles HTML primaries with unchanged CDN thumbnails", () => {

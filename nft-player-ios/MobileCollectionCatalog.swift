@@ -82,7 +82,8 @@ extension MobileCollectionCatalog {
                 tokenId: primaryDescriptor.tokenId,
                 tokenIndex: primaryDescriptor.tokenIndex,
                 media: .staticImage(url: thumbnailURL, fileExtension: "webp"),
-                purpose: .staticImageGridThumbnail
+                purpose: .staticImageGridThumbnail,
+                thumbnailAspectRatio: primaryDescriptor.thumbnailAspectRatio
             )
         }
 
@@ -103,7 +104,8 @@ extension MobileCollectionCatalog {
             tokenId: primaryDescriptor.tokenId,
             tokenIndex: primaryDescriptor.tokenIndex,
             media: .staticImage(url: thumbnailURL, fileExtension: "webp"),
-            purpose: .staticImageGridThumbnail
+            purpose: .staticImageGridThumbnail,
+            thumbnailAspectRatio: primaryDescriptor.thumbnailAspectRatio
         )
     }
 
@@ -111,7 +113,7 @@ extension MobileCollectionCatalog {
         specificCollectionId: String,
         tokenIndex: Int
     ) -> DownloadableMediaDescriptor? {
-        guard let tokenId = TokenGenerator.bundledWebGenerativeTokenId(
+        guard let token = TokenGenerator.bundledWebGenerativeToken(
                 specificCollectionId: specificCollectionId,
                 tokenIndex: tokenIndex
               ),
@@ -126,10 +128,11 @@ extension MobileCollectionCatalog {
             .appendingPathComponent("\(tokenIndex).webp", isDirectory: false)
         return DownloadableMediaDescriptor(
             collectionId: specificCollectionId,
-            tokenId: tokenId,
+            tokenId: token.id,
             tokenIndex: tokenIndex,
             media: .staticImage(url: thumbnailURL, fileExtension: "webp"),
-            purpose: .staticImageGridThumbnail
+            purpose: .staticImageGridThumbnail,
+            thumbnailAspectRatio: token.thumbnailAspectRatio
         )
     }
 }

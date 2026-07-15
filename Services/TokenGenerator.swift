@@ -129,12 +129,22 @@ struct TokenGenerator {
         specificCollectionId: String,
         tokenIndex: Int
     ) -> String? {
+        bundledWebGenerativeToken(
+            specificCollectionId: specificCollectionId,
+            tokenIndex: tokenIndex
+        )?.id
+    }
+
+    static func bundledWebGenerativeToken(
+        specificCollectionId: String,
+        tokenIndex: Int
+    ) -> BundledTokens.Item? {
         guard isBundledWebGenerativeCollection(id: specificCollectionId),
               let collectionData = collectionData(specificCollectionId: specificCollectionId),
               collectionData.tokens.indices.contains(tokenIndex) else {
             return nil
         }
-        return collectionData.tokens[tokenIndex].id
+        return collectionData.tokens[tokenIndex]
     }
     
     static func isCollectionDisabledOnCurrentPlatform(id: String) -> Bool {

@@ -123,6 +123,10 @@ enum MobilePlayerPageLayout: CaseIterable, Hashable, Identifiable {
     }
 
     static func staticImageGridFallbackImageSize(for descriptor: DownloadableMediaDescriptor) -> CGSize {
+        if let thumbnailAspectRatio = descriptor.thumbnailAspectRatio {
+            return thumbnailAspectRatio.size
+        }
+
         if let renderKind = descriptor.nativeMetalCardRenderKind {
             return renderKind.staticImageSize
         }

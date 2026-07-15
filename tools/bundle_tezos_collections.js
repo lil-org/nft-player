@@ -13,6 +13,10 @@ const {
   writePlaceholderCover,
 } = require("./cover_images");
 const { assignInternalSlugs, mergeGeneratedSuggestedItem } = require("./suggested_items");
+const {
+  preserveAspectRatioMetadataFromFile,
+  reportAspectRatioMetadataChanges,
+} = require("./thumbnail_aspect_ratios");
 const { preserveTmpFilesFromFile, reportTmpFilesChanges } = require("./tmp_files");
 
 const DEFAULT_BUNDLE_PATH = path.join("Suggested Items", "Suggested.bundle");
@@ -996,9 +1000,11 @@ async function writeBundle(collections, context) {
 
   for (const collection of collections) {
     const outputPath = path.join(tokensPath, `${collection.collectionId}.json`);
-    const { payload, report } = await preserveTmpFilesFromFile(outputPath, collection.tokenPayload);
-    reportTmpFilesChanges(collection.collectionId, report);
-    await fs.writeFile(outputPath, `${JSON.stringify(payload)}\n`);
+    const tmpFilesResult = await preserveTmpFilesFromFile(outputPath, collection.tokenPayload);
+    reportTmpFilesChanges(collection.collectionId, tmpFilesResult.report);
+    const aspectRatioResult = await preserveAspectRatioMetadataFromFile(outputPath, tmpFilesResult.payload);
+    reportAspectRatioMetadataChanges(collection.collectionId, aspectRatioResult.report);
+    await fs.writeFile(outputPath, `${JSON.stringify(aspectRatioResult.payload)}\n`);
   }
 
   await fs.writeFile(itemsPath, formatSuggestedItems(updatedItems));
