@@ -71,7 +71,13 @@ enum MobilePlayerPageLayout: CaseIterable, Hashable, Identifiable {
         return layouts
     }()
 
-    static let initialLayout = MobilePlayerPageLayout.onePerPage
+    static func initialLayout(for config: MobilePlayerConfig) -> MobilePlayerPageLayout {
+        guard config.widgetTokenInsertion == nil else {
+            return .onePerPage
+        }
+
+        return staticImageGridLayout(for: initialStaticImageGridMediaDescriptor(for: config)) ?? .onePerPage
+    }
 
     var id: Self { self }
 
@@ -162,6 +168,25 @@ enum MobilePlayerPageLayout: CaseIterable, Hashable, Identifiable {
     func supports(descriptor: DownloadableMediaDescriptor?) -> Bool {
         guard isStaticImageGrid else { return true }
         return Self.staticImageGridLayout(for: descriptor) == self
+    }
+
+    private static func initialStaticImageGridMediaDescriptor(
+        for config: MobilePlayerConfig
+    ) -> DownloadableMediaDescriptor? {
+        guard let collectionId = config.specificToken?.fullCollectionId ?? config.initialItemId else { return nil }
+        let tokenId = config.specificToken?.id ?? config.initialTokenId
+
+        let tokenIndex = tokenId.flatMap {
+            CollectionCatalog.tokenIndex(
+                specificCollectionId: collectionId,
+                tokenId: $0
+            )
+        } ?? 0
+
+        return MobileCollectionCatalog.staticImageGridMediaDescriptor(
+            specificCollectionId: collectionId,
+            tokenIndex: tokenIndex
+        )
     }
 
 }
@@ -802,12 +827,39 @@ class MobilePlaybackController {
         return context
     }
 
-    func markViewed(uuid: UUID, pagePosition: PlayerPagePosition) -> MobileViewingProgress? {
-        guard let progress = dataSource(uuid: uuid)?.progress(pagePosition: pagePosition) else { return nil }
+    func markViewed(
+        uuid: UUID,
+        pagePosition: PlayerPagePosition,
+        pageLayout: MobilePlayerPageLayout
+    ) -> MobileViewingProgress? {
+        guard let dataSource = dataSource(uuid: uuid),
+              let progress = displayedPageProgress(
+                dataSource: dataSource,
+                pagePosition: pagePosition,
+                pageLayout: pageLayout
+              ) else {
+            return nil
+        }
         updateViewingSessionTracker(uuid: uuid) { tracker in
             tracker.markViewed(progress)
         }
         return progress
+    }
+
+    private func displayedPageProgress(
+        dataSource: PlayerTokenPagingDataSource,
+        pagePosition: PlayerPagePosition,
+        pageLayout: MobilePlayerPageLayout
+    ) -> MobileViewingProgress? {
+        guard pageLayout.isStaticImageGrid,
+              let context = dataSource.collectionTokenContext(pagePosition: pagePosition),
+              context.tokenIndex + pageLayout.pageSize >= context.tokenCount else {
+            return dataSource.progress(pagePosition: pagePosition)
+        }
+
+        return dataSource.progress(
+            pagePosition: dataSource.pagePosition(forTokenIndex: context.tokenCount - 1)
+        )
     }
 
     func progress(uuid: UUID, pagePosition: PlayerPagePosition) -> MobileViewingProgress? {

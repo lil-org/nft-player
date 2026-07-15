@@ -70,10 +70,8 @@ private struct MobilePlayerStaticGridProgressPriority {
         }
 
         let pageStartIndex = (progress.tokenIndex / currentPageLayout.pageSize) * currentPageLayout.pageSize
-        let pageEndIndex = min(pageStartIndex + currentPageLayout.pageSize, progress.tokenCount)
-        return candidate.tokenIndex == pageStartIndex
-            && progress.tokenIndex >= pageStartIndex
-            && progress.tokenIndex < pageEndIndex
+        let hasFollowingPage = pageStartIndex + currentPageLayout.pageSize < progress.tokenCount
+        return hasFollowingPage && candidate.tokenIndex == pageStartIndex
     }
 }
 
@@ -436,7 +434,7 @@ struct MobilePlayerView: View {
         self.initialConfig = config
         self.onDismiss = onDismiss
         self.chrome = chrome
-        _pageLayout = State(initialValue: MobilePlayerPageLayout.initialLayout)
+        _pageLayout = State(initialValue: MobilePlayerPageLayout.initialLayout(for: config))
     }
 
     var body: some View {
@@ -868,10 +866,13 @@ struct MobilePlayerView: View {
     private func progressForPagePositionUpdate(_ pagePosition: PlayerPagePosition) -> MobileViewingProgress? {
         guard pageLayout.isStaticImageGrid else {
             clearStaticGridProgressPriority()
-            return MobilePlaybackController.shared.markViewed(
-                uuid: initialConfig.id,
-                pagePosition: pagePosition
-            )
+            return markViewed(pagePosition)
+        }
+
+        initializeStaticGridProgressPriorityIfNeeded()
+
+        guard let staticGridProgressPriority else {
+            return markViewed(pagePosition)
         }
 
         guard let candidateProgress = MobilePlaybackController.shared.progress(
@@ -882,22 +883,38 @@ struct MobilePlayerView: View {
             return nil
         }
 
-        guard let staticGridProgressPriority else {
-            return MobilePlaybackController.shared.markViewed(
-                uuid: initialConfig.id,
-                pagePosition: pagePosition
-            )
-        }
-
         guard staticGridProgressPriority.preservesProgress(over: candidateProgress, in: pageLayout) else {
             clearStaticGridProgressPriority()
-            return MobilePlaybackController.shared.markViewed(
-                uuid: initialConfig.id,
-                pagePosition: pagePosition
-            )
+            return markViewed(pagePosition)
         }
 
         return staticGridProgressPriority.progress
+    }
+
+    private func initializeStaticGridProgressPriorityIfNeeded() {
+        guard currentPagePosition == nil,
+              staticGridProgressPriority == nil,
+              let initialTokenId = initialConfig.initialTokenId,
+              let initialProgress = MobilePlaybackController.shared.progress(
+                uuid: initialConfig.id,
+                pagePosition: .initial
+              ),
+              initialProgress.tokenId == initialTokenId else {
+            return
+        }
+
+        staticGridProgressPriority = MobilePlayerStaticGridProgressPriority(
+            pageLayout: pageLayout,
+            progress: initialProgress
+        )
+    }
+
+    private func markViewed(_ pagePosition: PlayerPagePosition) -> MobileViewingProgress? {
+        MobilePlaybackController.shared.markViewed(
+            uuid: initialConfig.id,
+            pagePosition: pagePosition,
+            pageLayout: pageLayout
+        )
     }
 
     private func clearStaticGridProgressPriority() {
