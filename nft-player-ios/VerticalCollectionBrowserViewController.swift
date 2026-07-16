@@ -69,7 +69,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         collectionView.alwaysBounceHorizontal = false
         // Reserve two-touch direct manipulation for the browser-to-page expand pinch.
         collectionView.panGestureRecognizer.maximumNumberOfTouches = 1
-        collectionView.showsVerticalScrollIndicator = true
+        collectionView.showsVerticalScrollIndicator = false
         collectionView.showsHorizontalScrollIndicator = false
         collectionView.keyboardDismissMode = .none
         collectionView.contentInsetAdjustmentBehavior = .never
