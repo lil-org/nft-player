@@ -67,8 +67,6 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         collectionView.isOpaque = false
         collectionView.alwaysBounceVertical = true
         collectionView.alwaysBounceHorizontal = false
-        // Reserve two-touch direct manipulation for the browser-to-page expand pinch.
-        collectionView.panGestureRecognizer.maximumNumberOfTouches = 1
         collectionView.showsVerticalScrollIndicator = false
         collectionView.showsHorizontalScrollIndicator = false
         collectionView.keyboardDismissMode = .none
@@ -221,11 +219,6 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         flushSettledPosition()
-    }
-
-    var isAtTopBoundary: Bool {
-        collectionView.contentOffset.y
-            <= verticalContentOffsetRange.lowerBound + Self.boundaryEpsilon
     }
 
     var currentPagePosition: PlayerPagePosition? {
@@ -396,16 +389,6 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         cancelScheduledScrollUpdate()
         cancelPendingFocusPublication(resetLastPublicationTime: false)
         cancelPreparedTransition()
-    }
-
-    func transitionSelection(
-        at location: CGPoint,
-        in coordinateView: UIView
-    ) -> MobilePlayerBrowserTransitionSelection? {
-        guard isActive else { return nil }
-        let point = collectionView.convert(location, from: coordinateView)
-        guard let indexPath = collectionView.indexPathForItem(at: point) else { return nil }
-        return transitionSelection(tokenIndex: indexPath.item)
     }
 
     func canSelectItem(at location: CGPoint, in coordinateView: UIView) -> Bool {

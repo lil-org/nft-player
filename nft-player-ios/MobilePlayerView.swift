@@ -70,13 +70,7 @@ struct MobilePlayerBrowserTransitionSelection {
 
 protocol MobilePlayerBrowserTransitionProviding: AnyObject {
     var isCollectionBrowserActive: Bool { get }
-    var isCollectionBrowserAtTopBoundary: Bool { get }
 
-    func canSelectCollectionBrowserItem(at location: CGPoint, in coordinateView: UIView) -> Bool
-    func collectionBrowserSelection(
-        at location: CGPoint,
-        in coordinateView: UIView
-    ) -> MobilePlayerBrowserTransitionSelection?
     func prepareCollectionBrowserSelection(
         for pagePosition: PlayerPagePosition
     ) -> MobilePlayerBrowserTransitionSelection?
@@ -152,21 +146,24 @@ struct MobilePlayerLayoutInteractionState: Equatable {
 
 final class MobilePlayerChromeController: ObservableObject {
     @Published private(set) var showControls = false
-    @Published private(set) var isStatusBarRevealedByDismiss = false
     @Published private(set) var isPlayerContentHiddenForCardTransition = false
+    @Published private(set) var allowsNavigationBackSwipe: Bool
     @Published private(set) var displayModeRequest: MobilePlayerDisplayModeRequest?
-    private(set) var playerBackgroundColor: UIColor
+    @Published private(set) var playerBackgroundColor: UIColor
     private(set) var isPlayerContentZoomed = false
     private(set) var layoutInteractionState = MobilePlayerLayoutInteractionState.empty
-    var onPlayerBackgroundColorChange: ((UIColor) -> Void)?
     var onCollectionBrowserMinimizeRequest: (() -> Bool)?
     var onCollectionBrowserExpandRequest: ((MobilePlayerBrowserTransitionSelection) -> MobilePlayerBrowserExpandSelectionResult)?
     private weak var collectionBrowserTransitionProvider: (any MobilePlayerBrowserTransitionProviding)?
     private var liveLayoutInteractionStateProviderID: UUID?
     private var liveLayoutInteractionStateProvider: (() -> MobilePlayerLayoutInteractionState)?
 
-    init(playerBackgroundColor: UIColor = MobilePlayerBackgroundColor.defaultColor) {
+    init(
+        playerBackgroundColor: UIColor = MobilePlayerBackgroundColor.defaultColor,
+        allowsNavigationBackSwipe: Bool
+    ) {
         self.playerBackgroundColor = playerBackgroundColor
+        self.allowsNavigationBackSwipe = allowsNavigationBackSwipe
     }
 
     func setCollectionBrowserTransitionProvider(_ provider: any MobilePlayerBrowserTransitionProviding) {
@@ -194,29 +191,6 @@ final class MobilePlayerChromeController: ObservableObject {
 
     var isCollectionBrowserActive: Bool {
         Thread.isMainThread && collectionBrowserTransitionProvider?.isCollectionBrowserActive == true
-    }
-
-    var isCollectionBrowserAtTopBoundary: Bool {
-        Thread.isMainThread && collectionBrowserTransitionProvider?.isCollectionBrowserAtTopBoundary == true
-    }
-
-    func canSelectCollectionBrowserItem(at location: CGPoint, in coordinateView: UIView) -> Bool {
-        guard Thread.isMainThread else { return false }
-        return collectionBrowserTransitionProvider?.canSelectCollectionBrowserItem(
-            at: location,
-            in: coordinateView
-        ) == true
-    }
-
-    func collectionBrowserSelection(
-        at location: CGPoint,
-        in coordinateView: UIView
-    ) -> MobilePlayerBrowserTransitionSelection? {
-        guard Thread.isMainThread else { return nil }
-        return collectionBrowserTransitionProvider?.collectionBrowserSelection(
-            at: location,
-            in: coordinateView
-        )
     }
 
     func prepareCollectionBrowserSelection(
@@ -284,16 +258,6 @@ final class MobilePlayerChromeController: ObservableObject {
         showControls = isVisible
     }
 
-    func setStatusBarRevealedByDismiss(_ isRevealed: Bool) {
-        guard Thread.isMainThread else {
-            DispatchQueue.main.async { self.setStatusBarRevealedByDismiss(isRevealed) }
-            return
-        }
-
-        guard isStatusBarRevealedByDismiss != isRevealed else { return }
-        isStatusBarRevealedByDismiss = isRevealed
-    }
-
     func setPlayerBackgroundColor(_ color: UIColor) {
         guard Thread.isMainThread else {
             DispatchQueue.main.async { self.setPlayerBackgroundColor(color) }
@@ -302,7 +266,6 @@ final class MobilePlayerChromeController: ObservableObject {
 
         guard !playerBackgroundColor.isVisuallyEqual(to: color) else { return }
         playerBackgroundColor = color
-        onPlayerBackgroundColorChange?(color)
     }
 
     func setPlayerContentZoomed(_ isZoomed: Bool) {
@@ -323,6 +286,16 @@ final class MobilePlayerChromeController: ObservableObject {
 
         guard isPlayerContentHiddenForCardTransition != isHidden else { return }
         isPlayerContentHiddenForCardTransition = isHidden
+    }
+
+    func setNavigationBackSwipeAllowed(_ isAllowed: Bool) {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { self.setNavigationBackSwipeAllowed(isAllowed) }
+            return
+        }
+
+        guard allowsNavigationBackSwipe != isAllowed else { return }
+        allowsNavigationBackSwipe = isAllowed
     }
 
     func setLayoutInteractionState(_ state: MobilePlayerLayoutInteractionState) {
@@ -383,11 +356,37 @@ final class MobilePlayerChromeController: ObservableObject {
     }
 }
 
+final class MobilePlayerCardTransitionCanvas {
+
+    let view: UIView = {
+        let view = UIView()
+        view.backgroundColor = MobilePlayerBackgroundColor.defaultColor
+        view.isOpaque = true
+        view.isHidden = true
+        view.isUserInteractionEnabled = false
+        return view
+    }()
+}
+
+private struct MobilePlayerCardTransitionCanvasRepresentable: UIViewRepresentable {
+
+    let canvas: MobilePlayerCardTransitionCanvas
+
+    func makeUIView(context: Context) -> UIView {
+        canvas.view
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {
+        // PlayerInteractionController owns the canvas contents and visibility.
+    }
+}
+
 struct MobilePlayerView: View {
     
     private let initialConfig: MobilePlayerConfig
     private let onDismiss: () -> Void
     private let browserDensity: MobilePlayerBrowserDensity?
+    let cardTransitionCanvas: MobilePlayerCardTransitionCanvas
     @ObservedObject private var chrome: MobilePlayerChromeController
     
     @State private var isAllowedToHideStatusBar = false
@@ -410,11 +409,13 @@ struct MobilePlayerView: View {
     init(
         config: MobilePlayerConfig,
         onDismiss: @escaping () -> Void,
-        chrome: MobilePlayerChromeController
+        chrome: MobilePlayerChromeController,
+        cardTransitionCanvas: MobilePlayerCardTransitionCanvas
     ) {
         self.initialConfig = config
         self.onDismiss = onDismiss
         self.chrome = chrome
+        self.cardTransitionCanvas = cardTransitionCanvas
         let browserDensity = MobilePlayerBrowserDensity.initialDensity(for: config)
         self.browserDensity = browserDensity
         _displayMode = State(
@@ -430,6 +431,11 @@ struct MobilePlayerView: View {
             let bottomChromePadding = MobileBottomChromeSpacing.padding(forSafeAreaBottom: geometry.safeAreaInsets.bottom)
 
             ZStack {
+                Color(uiColor: chrome.playerBackgroundColor)
+                    .ignoresSafeArea()
+                    .opacity(chrome.isPlayerContentHiddenForCardTransition ? 0 : 1)
+                    .allowsHitTesting(false)
+
                 HorizontalPlayerContainerView(
                     initialConfig: initialConfig,
                     chrome: chrome,
@@ -517,19 +523,35 @@ struct MobilePlayerView: View {
                     .animation(playerChromeToggleAnimation, value: isCurrentTokenBookmarked)
                 }
                 .allowsHitTesting(chrome.showControls && canBookmarkCurrentToken)
+
+                MobilePlayerCardTransitionCanvasRepresentable(
+                    canvas: cardTransitionCanvas
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+                .zIndex(1)
             }
             .ignoresSafeArea(edges: .bottom)
         }
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar(chrome.showControls ? .visible : .hidden, for: .navigationBar)
+        .toolbar(.visible, for: .navigationBar)
         .toolbarBackground(.hidden, for: .navigationBar)
+        .navigationBarBackButtonHidden(
+            !chrome.allowsNavigationBackSwipe
+                || chrome.isPlayerContentHiddenForCardTransition
+        )
         .statusBar(hidden: shouldHideStatusBar)
         .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
-                Button(action: handleNavigationBarBack) {
-                    Images.back
+            if !chrome.allowsNavigationBackSwipe,
+               !chrome.isPlayerContentHiddenForCardTransition {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button(action: handleNavigationBarBack) {
+                        Images.back
+                    }
+                    .accessibilityLabel(Strings.back)
                 }
-                .accessibilityLabel(Strings.back)
             }
             ToolbarItem(placement: .navigationBarTrailing) {
                 infoMenu
@@ -549,9 +571,6 @@ struct MobilePlayerView: View {
             focusedPagePositionUpdateCoordinator.cancelPendingUpdate()
             completePendingDisplayModeApplication(didApply: false)
             displayModeTargetPagePosition = nil
-            updateExternalDisplayToken(GeneratedToken.empty)
-            NativeMetalCardView.resetMotionCalibration()
-            MobilePlaybackController.shared.stopAndDisconnect(uuid: initialConfig.id)
         }
         .onReceive(chrome.$displayModeRequest) { request in
             guard let request else { return }
@@ -582,7 +601,7 @@ struct MobilePlayerView: View {
     }
 
     private var shouldHideStatusBar: Bool {
-        isAllowedToHideStatusBar && !chrome.showControls && !chrome.isStatusBarRevealedByDismiss
+        isAllowedToHideStatusBar && !chrome.showControls
     }
     
     private var infoMenu: some View {
@@ -687,6 +706,10 @@ struct MobilePlayerView: View {
             return
         }
 
+        chrome.setNavigationBackSwipeAllowed(
+            application.requestedDisplayMode == .collectionBrowser
+        )
+
         if displayModeTargetPagePosition == application.targetPagePosition {
             displayModeTargetPagePosition = nil
         }
@@ -736,6 +759,9 @@ struct MobilePlayerView: View {
               displayModeTargetPagePosition == rejection.targetPagePosition else { return }
 
         displayMode = rejection.currentDisplayMode
+        chrome.setNavigationBackSwipeAllowed(
+            rejection.currentDisplayMode == .collectionBrowser
+        )
         displayModeChangeID = UUID()
         displayModeTargetPagePosition = nil
         completePendingDisplayModeApplication(
@@ -768,6 +794,10 @@ struct MobilePlayerView: View {
     ) -> Bool {
         guard requestedDisplayMode != .collectionBrowser || browserDensity != nil else {
             return false
+        }
+
+        if requestedDisplayMode == .onePerPage {
+            chrome.setNavigationBackSwipeAllowed(false)
         }
 
         displayModeTargetPagePosition = targetPagePosition

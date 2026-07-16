@@ -357,12 +357,6 @@ extension UIColor {
             && abs(lhs.alpha - rhs.alpha) <= tolerance
     }
 
-    func isOpaqueAndVisuallyEqual(to otherColor: UIColor, tolerance: CGFloat = 0.01) -> Bool {
-        guard let lhs = rgbaComponents else { return false }
-
-        return lhs.alpha > 0.98 && isVisuallyEqual(to: otherColor, tolerance: tolerance)
-    }
-
     private var rgbaComponents: (red: CGFloat, green: CGFloat, blue: CGFloat, alpha: CGFloat)? {
         var red: CGFloat = 0
         var green: CGFloat = 0
@@ -381,23 +375,8 @@ extension UIColor {
 enum MobilePlayerGestureTuning {
 
     static let dismissVerticalIntentRatio: CGFloat = 1.45
-    static let dismissProgressDistance: CGFloat = 720
     static let dismissVelocityProjectionDuration: CGFloat = 0.07
-    static let dismissFastSwipeVelocity: CGFloat = 1450
-    static let dismissMinimumFastSwipeTranslation: CGFloat = 140
-    static let dismissMinimumTranslation: CGFloat = 180
-    static let dismissTranslationHeightRatio: CGFloat = 0.28
     static let dismissInitialVelocity: CGFloat = 120
-    static let dismissUnderlayFadeCompletionProgress: CGFloat = 0.68
-    static let playerDismissPinchActivationScale: CGFloat = 0.96
-    static let playerDismissPinchZoomInFailureScale: CGFloat = 1.01
-    static let playerDismissPinchFullProgressScale: CGFloat = 0.62
-    static let playerDismissPinchMinimumPresentationScaleRatio: CGFloat = 0.72
-    static let playerDismissPinchCompletionProgress: CGFloat = 0.5
-    static let playerDismissPinchMinimumVelocityCommitProgress: CGFloat = 0.18
-    static let playerDismissPinchVelocityProjectionDuration: CGFloat = 0.18
-    static let playerDismissPinchFastVelocity: CGFloat = 1.1
-    static let playerDismissPinchInteractiveMaximumDimmingFade: CGFloat = 0.22
     static let cardMinimizeProgressDistance: CGFloat = 360
     static let cardMinimizeInteractiveOtherCardsRevealCompletionProgress: CGFloat = 0.68
     static let cardMinimizeInteractiveOtherCardsMaximumRevealProgress: CGFloat = 0.42
@@ -413,18 +392,6 @@ enum MobilePlayerGestureTuning {
     static let cardMinimizePinchMinimumVelocityCommitProgress: CGFloat = 0.18
     static let cardMinimizePinchVelocityProjectionDuration: CGFloat = 0.18
     static let cardMinimizePinchFastVelocity: CGFloat = 1.1
-    static let cardExpandPinchActivationScale: CGFloat = 1.04
-    static let cardExpandPinchZoomOutFailureScale: CGFloat = 0.99
-    static let cardExpandPinchFullProgressScale: CGFloat = 1.9
-    static let cardExpandPinchCommitScaleMultiplier: CGFloat = 0.98
-    static let cardExpandPinchVelocityCommitMinimumScaleMultiplier: CGFloat = 0.9
-    static let cardExpandPinchVelocityProjectionDuration: CGFloat = 0.18
-    static let cardExpandPinchFastVelocity: CGFloat = 0.95
-    static let cardExpandPinchOverscaleResistance: CGFloat = 0.42
-    static let cardExpandPinchCenterRubberBandResistance: CGFloat = 0.55
-    static let cardExpandPinchTargetPullRampScaleDistance: CGFloat = 0.18
-    static let cardExpandPinchMinimumTargetPullProgress: CGFloat = 0.08
-    static let cardExpandPinchMaximumTargetPullProgress: CGFloat = 0.42
     static let controlsRevealVelocity: CGFloat = 150
     static let controlsRevealMinimumTranslation: CGFloat = 44
     static let controlsRevealVerticalIntentRatio: CGFloat = 1.45

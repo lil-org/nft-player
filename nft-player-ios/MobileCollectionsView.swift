@@ -1,9 +1,8 @@
 import SwiftUI
+import Combine
 import UIKit
 
 private let playerCrossfadeAnimation = Animation.easeInOut(duration: 0.18)
-private let playerStatusBarRevealAnimation = Animation.easeInOut(duration: 0.38)
-private let playerStatusBarRevealDuration: TimeInterval = 0.3
 private let initialCollectionItemFadeDuration: TimeInterval = 0.3
 private let initialCollectionItemFadeAnimationKey = "initialGridItemFade"
 private let maximumVisibleRecentContinueViewingCount = 10
@@ -18,12 +17,12 @@ private enum PlayerPresentationTransition {
     case animated
     case instant
 
-    var overlayTransition: AnyTransition {
+    var animatesNavigationTransition: Bool {
         switch self {
         case .animated:
-            return .opacity
+            return true
         case .instant:
-            return .identity
+            return false
         }
     }
 }
@@ -185,51 +184,63 @@ struct MobileCollectionsView: View {
                 collectionItems: collectionItems
             )
         )
-
-        let appearance = UINavigationBarAppearance()
-        appearance.configureWithTransparentBackground()
-        appearance.backgroundColor = .clear
-        appearance.backgroundEffect = nil
-        appearance.shadowColor = .clear
-        UINavigationBar.appearance().standardAppearance = appearance
-        UINavigationBar.appearance().scrollEdgeAppearance = appearance
-        UINavigationBar.appearance().compactAppearance = appearance
-        UINavigationBar.appearance().compactScrollEdgeAppearance = appearance
     }
     
     var body: some View {
+        MobileCollectionsNavigationView(
+            rootView: collectionsRootView,
+            playerConfig: playerConfig,
+            presentationTransition: playerPresentationTransition,
+            onDismissPlayer: dismissPlayer
+        )
+        .ignoresSafeArea()
+        .persistentSystemOverlays(.hidden)
+        .onAppear {
+            refreshViewingProgressAndResetContinueViewingScrollOffset()
+            schedulePlayerPrewarm()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            refreshViewingProgressAndResetContinueViewingScrollOffset()
+            schedulePlayerPrewarm()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .playerViewingProgressDidChange)) { _ in
+            guard playerConfig == nil else { return }
+            refreshViewingProgress()
+        }
+        .onOpenURL(perform: openWidgetURL)
+    }
+
+    private var collectionsRootView: some View {
         ZStack {
-            NavigationStack {
-                InfiniteCollectionsGridView(
-                    items: collectionItems,
-                    progressByCollectionId: viewingProgressByCollectionId,
-                    viewedToEndCollectionIds: viewedToEndCollectionIds,
-                    onSelect: didSelectCollectionItem
-                )
-                .ignoresSafeArea()
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .principal) {}
-                }
-                .toolbar {
-                    ToolbarItem(placement: .navigationBarLeading) {
-                        Menu {
-                            Text(Strings.sendFeedback)
-                            Button(Strings.github) { UIApplication.shared.open(URL.github) }
-                            Button(Strings.mail) { UIApplication.shared.open(URL.mail) }
-                            Button(Strings.x) { UIApplication.shared.open(URL.x) }
-                            Divider()
-                            Button(Strings.rateOnTheAppStore) { UIApplication.shared.open(URL.writeAppStoreReview) }
-                            Divider()
-                            Button(Strings.changeAppIcon) { didClickToggleAppIcon() }
-                        } label: {
-                            Images.preferences
-                        }
+            InfiniteCollectionsGridView(
+                items: collectionItems,
+                progressByCollectionId: viewingProgressByCollectionId,
+                viewedToEndCollectionIds: viewedToEndCollectionIds,
+                onSelect: didSelectCollectionItem
+            )
+            .ignoresSafeArea()
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .principal) {}
+            }
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Menu {
+                        Text(Strings.sendFeedback)
+                        Button(Strings.github) { UIApplication.shared.open(URL.github) }
+                        Button(Strings.mail) { UIApplication.shared.open(URL.mail) }
+                        Button(Strings.x) { UIApplication.shared.open(URL.x) }
+                        Divider()
+                        Button(Strings.rateOnTheAppStore) { UIApplication.shared.open(URL.writeAppStoreReview) }
+                        Divider()
+                        Button(Strings.changeAppIcon) { didClickToggleAppIcon() }
+                    } label: {
+                        Images.preferences
                     }
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Button { showShuffledCollectionPlayer() } label: {
-                            Images.shuffle
-                        }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button { showShuffledCollectionPlayer() } label: {
+                        Images.shuffle
                     }
                 }
             }
@@ -258,32 +269,8 @@ struct MobileCollectionsView: View {
                 .transition(.opacity)
                 .zIndex(0.5)
             }
-
-            if let playerConfig {
-                PlayerNavigationOverlay(config: playerConfig) {
-                    dismissPlayer(playerConfig)
-                }
-                .ignoresSafeArea()
-                .persistentSystemOverlays(.hidden)
-                .zIndex(1)
-                .id(playerConfig.id)
-                .transition(playerPresentationTransition.overlayTransition)
-            }
         }
         .persistentSystemOverlays(.hidden)
-        .onAppear {
-            refreshViewingProgressAndResetContinueViewingScrollOffset()
-            schedulePlayerPrewarm()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
-            refreshViewingProgressAndResetContinueViewingScrollOffset()
-            schedulePlayerPrewarm()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .playerViewingProgressDidChange)) { _ in
-            guard playerConfig == nil else { return }
-            refreshViewingProgress()
-        }
-        .onOpenURL(perform: openWidgetURL)
     }
     
     private func didClickToggleAppIcon() {
@@ -1601,57 +1588,415 @@ private struct ContinueViewingCoverThumbnail: View {
     }
 }
 
-private struct PlayerNavigationOverlay: UIViewControllerRepresentable {
+private struct MobileCollectionsNavigationView<RootView: View>: UIViewControllerRepresentable {
 
-    let config: MobilePlayerConfig
-    let onDismiss: () -> Void
+    let rootView: RootView
+    let playerConfig: MobilePlayerConfig?
+    let presentationTransition: PlayerPresentationTransition
+    let onDismissPlayer: (MobilePlayerConfig) -> Void
 
-    func makeUIViewController(context: Context) -> PlayerOverlayViewController {
-        let chrome = MobilePlayerChromeController(playerBackgroundColor: MobilePlayerBackgroundColor.color(for: config))
-        let playerViewController = makeMobilePlayerViewController(
-            config: config,
-            onDismiss: onDismiss,
-            chrome: chrome
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
+    func makeUIViewController(context: Context) -> PlayerNavigationController {
+        let rootViewController = UIHostingController(rootView: rootView)
+        rootViewController.navigationItem.backButtonDisplayMode = .minimal
+
+        let navigationController = PlayerNavigationController(
+            rootViewController: rootViewController
         )
-        let navigationController = PlayerNavigationController(rootViewController: playerViewController)
-        navigationController.view.makeBackgroundTransparent()
         navigationController.navigationBar.isTranslucent = true
-        navigationController.interactivePopGestureRecognizer?.isEnabled = false
         navigationController.setNavigationBarHidden(false, animated: false)
+        configureNavigationBarAppearance(navigationController.navigationBar)
+        navigationController.delegate = context.coordinator
 
-        return PlayerOverlayViewController(
+        context.coordinator.attach(
             navigationController: navigationController,
-            chrome: chrome,
-            onDismiss: onDismiss
+            rootViewController: rootViewController
+        )
+        context.coordinator.update(
+            playerConfig: playerConfig,
+            presentationTransition: presentationTransition,
+            onDismissPlayer: onDismissPlayer
+        )
+        return navigationController
+    }
+
+    func updateUIViewController(
+        _ navigationController: PlayerNavigationController,
+        context: Context
+    ) {
+        context.coordinator.rootViewController?.rootView = rootView
+        context.coordinator.update(
+            playerConfig: playerConfig,
+            presentationTransition: presentationTransition,
+            onDismissPlayer: onDismissPlayer
         )
     }
 
-    func updateUIViewController(_ overlayViewController: PlayerOverlayViewController, context: Context) {
-        overlayViewController.onDismiss = onDismiss
+    static func dismantleUIViewController(
+        _ navigationController: PlayerNavigationController,
+        coordinator: Coordinator
+    ) {
+        coordinator.invalidate()
     }
 
+    private func configureNavigationBarAppearance(_ navigationBar: UINavigationBar) {
+        let appearance = UINavigationBarAppearance()
+        appearance.configureWithTransparentBackground()
+        appearance.backgroundColor = .clear
+        appearance.backgroundEffect = nil
+        appearance.shadowColor = .clear
+        navigationBar.standardAppearance = appearance
+        navigationBar.scrollEdgeAppearance = appearance
+        navigationBar.compactAppearance = appearance
+        navigationBar.compactScrollEdgeAppearance = appearance
+    }
+
+    final class Coordinator: NSObject, UINavigationControllerDelegate {
+
+        private final class PlayerSession {
+            let config: MobilePlayerConfig
+            let viewController: MobilePlayerHostingController
+            let interactionController: PlayerInteractionController
+
+            init(
+                config: MobilePlayerConfig,
+                viewController: MobilePlayerHostingController,
+                interactionController: PlayerInteractionController
+            ) {
+                self.config = config
+                self.viewController = viewController
+                self.interactionController = interactionController
+            }
+
+            func invalidate() {
+                viewController.finalizePlayerSession()
+                interactionController.invalidate()
+            }
+        }
+
+        weak var rootViewController: UIHostingController<RootView>?
+        private weak var navigationController: PlayerNavigationController?
+        private var activeSession: PlayerSession?
+        private var desiredPlayerConfig: MobilePlayerConfig?
+        private var desiredPresentationTransition: PlayerPresentationTransition = .animated
+        private var onDismissPlayer: ((MobilePlayerConfig) -> Void)?
+        private var dismissedConfigIDAwaitingStateUpdate: UUID?
+        private var isReconcileScheduled = false
+        private var isAwaitingNavigationTransition = false
+
+        func attach(
+            navigationController: PlayerNavigationController,
+            rootViewController: UIHostingController<RootView>
+        ) {
+            self.navigationController = navigationController
+            self.rootViewController = rootViewController
+        }
+
+        func update(
+            playerConfig: MobilePlayerConfig?,
+            presentationTransition: PlayerPresentationTransition,
+            onDismissPlayer: @escaping (MobilePlayerConfig) -> Void
+        ) {
+            desiredPlayerConfig = playerConfig
+            desiredPresentationTransition = presentationTransition
+            self.onDismissPlayer = onDismissPlayer
+            if dismissedConfigIDAwaitingStateUpdate != playerConfig?.id {
+                dismissedConfigIDAwaitingStateUpdate = nil
+            }
+            if playerConfig != nil,
+               !presentationTransition.animatesNavigationTransition {
+                reconcileNavigationState()
+            } else {
+                scheduleReconcile()
+            }
+        }
+
+        func invalidate() {
+            isReconcileScheduled = false
+            isAwaitingNavigationTransition = false
+            activeSession?.invalidate()
+            activeSession = nil
+            navigationController?.delegate = nil
+            navigationController = nil
+            rootViewController = nil
+        }
+
+        private func scheduleReconcile() {
+            guard !isReconcileScheduled else { return }
+            isReconcileScheduled = true
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                self.isReconcileScheduled = false
+                self.reconcileNavigationState()
+            }
+        }
+
+        private func reconcileNavigationState() {
+            guard let navigationController,
+                  let rootViewController else {
+                return
+            }
+
+            if let transitionCoordinator = navigationController.transitionCoordinator {
+                awaitNavigationTransition(transitionCoordinator)
+                return
+            }
+
+            guard let desiredPlayerConfig else {
+                guard let activeSession,
+                      navigationController.topViewController === activeSession.viewController else {
+                    return
+                }
+                navigationController.popViewController(animated: true)
+                return
+            }
+
+            guard dismissedConfigIDAwaitingStateUpdate != desiredPlayerConfig.id else {
+                return
+            }
+            if activeSession?.config.id == desiredPlayerConfig.id {
+                return
+            }
+
+            if activeSession == nil,
+               navigationController.topViewController === rootViewController {
+                let session = makePlayerSession(
+                    config: desiredPlayerConfig,
+                    navigationController: navigationController
+                )
+                activeSession = session
+                navigationController.navigationBar.layer.removeAllAnimations()
+                navigationController.navigationBar.alpha = 1
+                navigationController.pushViewController(
+                    session.viewController,
+                    animated: desiredPresentationTransition.animatesNavigationTransition
+                )
+                session.interactionController.prepareForPlayerPresentation(
+                    using: navigationController.transitionCoordinator
+                )
+                return
+            }
+
+            replaceActivePlayer(
+                with: desiredPlayerConfig,
+                navigationController: navigationController,
+                rootViewController: rootViewController
+            )
+        }
+
+        private func awaitNavigationTransition(
+            _ transitionCoordinator: any UIViewControllerTransitionCoordinator
+        ) {
+            guard !isAwaitingNavigationTransition else { return }
+            isAwaitingNavigationTransition = true
+            let didRegisterCompletion = transitionCoordinator.animate(
+                alongsideTransition: nil
+            ) { [weak self] _ in
+                guard let self else { return }
+                self.isAwaitingNavigationTransition = false
+                self.scheduleReconcile()
+            }
+            if !didRegisterCompletion {
+                isAwaitingNavigationTransition = false
+                scheduleReconcile()
+            }
+        }
+
+        private func makePlayerSession(
+            config: MobilePlayerConfig,
+            navigationController: PlayerNavigationController
+        ) -> PlayerSession {
+            let browserDensity = MobilePlayerBrowserDensity.initialDensity(for: config)
+            let initialDisplayMode = MobilePlayerDisplayMode.initialMode(
+                for: config,
+                browserDensity: browserDensity
+            )
+            let chrome = MobilePlayerChromeController(
+                playerBackgroundColor: MobilePlayerBackgroundColor.color(for: config),
+                allowsNavigationBackSwipe: initialDisplayMode == .collectionBrowser
+            )
+            let playerViewController = makeMobilePlayerViewController(
+                config: config,
+                onDismiss: { [weak self] in
+                    self?.requestPop(configID: config.id)
+                },
+                chrome: chrome
+            )
+            let interactionController = PlayerInteractionController(
+                navigationController: navigationController,
+                playerViewController: playerViewController,
+                chrome: chrome
+            )
+            interactionController.install()
+            return PlayerSession(
+                config: config,
+                viewController: playerViewController,
+                interactionController: interactionController
+            )
+        }
+
+        private func replaceActivePlayer(
+            with config: MobilePlayerConfig,
+            navigationController: PlayerNavigationController,
+            rootViewController: UIHostingController<RootView>
+        ) {
+            activeSession?.invalidate()
+
+            let session = makePlayerSession(
+                config: config,
+                navigationController: navigationController
+            )
+            activeSession = session
+            navigationController.setViewControllers(
+                [rootViewController, session.viewController],
+                animated: desiredPresentationTransition.animatesNavigationTransition
+            )
+            session.interactionController.prepareForPlayerPresentation(
+                using: navigationController.transitionCoordinator
+            )
+        }
+
+        private func requestPop(configID: UUID) {
+            guard let navigationController,
+                  let activeSession,
+                  activeSession.config.id == configID,
+                  navigationController.topViewController === activeSession.viewController,
+                  navigationController.transitionCoordinator == nil else {
+                return
+            }
+            navigationController.popViewController(animated: true)
+        }
+
+        func navigationController(
+            _ navigationController: UINavigationController,
+            willShow viewController: UIViewController,
+            animated: Bool
+        ) {
+            guard viewController === rootViewController else { return }
+            activeSession?.interactionController.prepareForNavigationPopTransition(
+                using: navigationController.transitionCoordinator
+            )
+        }
+
+        func navigationController(
+            _ navigationController: UINavigationController,
+            didShow viewController: UIViewController,
+            animated: Bool
+        ) {
+            if let activeSession,
+               viewController === activeSession.viewController {
+                activeSession.interactionController.didShowPlayerAfterNavigationTransition()
+                scheduleReconcile()
+                return
+            }
+
+            guard viewController === rootViewController,
+                  let completedSession = activeSession else {
+                restoreRootNavigationState(navigationController)
+                scheduleReconcile()
+                return
+            }
+
+            activeSession = nil
+            dismissedConfigIDAwaitingStateUpdate = completedSession.config.id
+            completedSession.invalidate()
+            restoreRootNavigationState(navigationController)
+            let completedConfig = completedSession.config
+            DispatchQueue.main.async { [weak self] in
+                self?.onDismissPlayer?(completedConfig)
+            }
+            scheduleReconcile()
+        }
+
+        private func restoreRootNavigationState(_ navigationController: UINavigationController) {
+            navigationController.navigationBar.layer.removeAllAnimations()
+            navigationController.navigationBar.alpha = 1
+            navigationController.interactivePopGestureRecognizer?.isEnabled = false
+            navigationController.setNeedsStatusBarAppearanceUpdate()
+            rootViewController?.setNeedsStatusBarAppearanceUpdate()
+        }
+    }
 }
 
 private func makeMobilePlayerViewController(
     config: MobilePlayerConfig,
     onDismiss: @escaping () -> Void,
     chrome: MobilePlayerChromeController
-) -> UIHostingController<MobilePlayerView> {
+) -> MobilePlayerHostingController {
+    let cardTransitionCanvas = MobilePlayerCardTransitionCanvas()
     let playerViewController = MobilePlayerHostingController(
         rootView: MobilePlayerView(
             config: config,
             onDismiss: onDismiss,
-            chrome: chrome
+            chrome: chrome,
+            cardTransitionCanvas: cardTransitionCanvas
         )
     )
-    playerViewController.view.makeBackgroundTransparent()
+    playerViewController.onPermanentRemoval = {
+        updateExternalDisplayToken(GeneratedToken.empty)
+        NativeMetalCardView.resetMotionCalibration()
+        MobilePlaybackController.shared.stopAndDisconnect(uuid: config.id)
+    }
     return playerViewController
 }
 
 private final class MobilePlayerHostingController: UIHostingController<MobilePlayerView> {
 
+    private var playerPageBackgroundColor = MobilePlayerBackgroundColor.defaultColor
+    private var didFinalizePlayerSession = false
+    var cardTransitionCanvasView: UIView {
+        rootView.cardTransitionCanvas.view
+    }
+    var onPlayerLayout: (() -> Void)?
+    var onPermanentRemoval: (() -> Void)?
+
     override var preferredStatusBarUpdateAnimation: UIStatusBarAnimation {
         .fade
+    }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        applyPlayerPageBackground()
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        applyPlayerPageBackground()
+        onPlayerLayout?()
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        applyPlayerPageBackground()
+    }
+
+    func setPlayerPageBackground(color: UIColor) {
+        playerPageBackgroundColor = color
+        cardTransitionCanvasView.backgroundColor = color
+
+        guard isViewLoaded else { return }
+        applyPlayerPageBackground()
+    }
+
+    func setCardTransitionCanvasActive(_ isActive: Bool) {
+        loadViewIfNeeded()
+        cardTransitionCanvasView.isHidden = !isActive
+    }
+
+    func finalizePlayerSession() {
+        guard !didFinalizePlayerSession else { return }
+        didFinalizePlayerSession = true
+        let finalizer = onPermanentRemoval
+        onPermanentRemoval = nil
+        finalizer?()
+    }
+
+    private func applyPlayerPageBackground() {
+        view.backgroundColor = playerPageBackgroundColor
+        view.isOpaque = true
     }
 
 }
@@ -1807,36 +2152,11 @@ private final class CardTransitionUnderlayView: UIView {
 
 }
 
-private enum CardLayoutPinchDirection {
-    case inward
-    case outward
-
-    func hasReachedActivation(scale: CGFloat, activationScale: CGFloat) -> Bool {
-        switch self {
-        case .inward:
-            return scale <= activationScale
-        case .outward:
-            return scale >= activationScale
-        }
-    }
-
-    func hasMovedOppositeDirection(scale: CGFloat, failureScale: CGFloat) -> Bool {
-        switch self {
-        case .inward:
-            return scale > failureScale
-        case .outward:
-            return scale < failureScale
-        }
-    }
-}
-
 private final class CardLayoutPinchGestureRecognizer: UIGestureRecognizer {
 
     var activationScale: CGFloat = 1
     var oppositeDirectionFailureScale: CGFloat = 1
-    var direction: CardLayoutPinchDirection = .inward
     var canTrackPinch: ((CardLayoutPinchGestureRecognizer) -> Bool)?
-    var onReset: (() -> Void)?
 
     private(set) var scale: CGFloat = 1
     private(set) var velocity: CGFloat = 0
@@ -1907,9 +2227,9 @@ private final class CardLayoutPinchGestureRecognizer: UIGestureRecognizer {
                 return
             }
 
-            if direction.hasMovedOppositeDirection(scale: scale, failureScale: oppositeDirectionFailureScale) {
+            if scale > oppositeDirectionFailureScale {
                 state = .failed
-            } else if direction.hasReachedActivation(scale: scale, activationScale: activationScale) {
+            } else if scale <= activationScale {
                 state = .began
             }
 
@@ -1948,7 +2268,6 @@ private final class CardLayoutPinchGestureRecognizer: UIGestureRecognizer {
         scale = 1
         velocity = 0
         hasEvaluatedCanTrackPinch = false
-        onReset?()
     }
 
     func pinchLocation(in targetView: UIView?) -> CGPoint {
@@ -2059,20 +2378,13 @@ private final class PendingGesturePresentationUpdate {
 
 }
 
-private final class PlayerOverlayViewController: UIViewController, UIGestureRecognizerDelegate {
+private final class PlayerInteractionController: NSObject, UIGestureRecognizerDelegate {
 
-    private static let dismissBackgroundClearPassDelay: TimeInterval = 0.05
-    private static let dismissGestureBackgroundClearPasses = 4
-    private static let finalDismissBackgroundClearPasses = 2
+    private static let navigationBarShowDuration: TimeInterval = 0.12
+    private static let navigationBarHideDuration: TimeInterval = 0.23
     private static let cardTransitionHorizontalDragDamping: CGFloat = 0.18
     private static let cardTransitionVerticalDragDamping: CGFloat = 0.32
     private static let navigationBarSideControlRegionWidth: CGFloat = 96
-
-    private struct PlayerBackgroundSnapshot {
-        weak var view: UIView?
-        let backgroundColor: UIColor?
-        let isOpaque: Bool
-    }
 
     private enum CardMinimizeCommitDestination {
         case browserCell(CGRect)
@@ -2095,40 +2407,27 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         let targetPagePosition: PlayerPagePosition
         let sourceFrame: CGRect
         let targetFrame: CGRect
-        let targetScale: CGFloat
         let foregroundView: UIView
         let underlayView: CardTransitionUnderlayView
     }
 
     let playerNavigationController: UINavigationController
+    let playerViewController: MobilePlayerHostingController
     let chrome: MobilePlayerChromeController
-    var onDismiss: () -> Void
+
+    private var view: UIView {
+        playerViewController.view
+    }
+
+    private var cardTransitionCanvasView: UIView {
+        playerViewController.cardTransitionCanvasView
+    }
 
     private lazy var navigationBarTap = UITapGestureRecognizer(target: self, action: #selector(handleNavigationBarTap(_:)))
     private lazy var dismissPan = UIPanGestureRecognizer(target: self, action: #selector(handleDismissPan(_:)))
-    private lazy var playerDismissPinch: CardLayoutPinchGestureRecognizer = {
-        let gesture = CardLayoutPinchGestureRecognizer(target: self, action: #selector(handlePlayerDismissPinch(_:)))
-        gesture.direction = .inward
-        gesture.activationScale = MobilePlayerGestureTuning.playerDismissPinchActivationScale
-        gesture.oppositeDirectionFailureScale = MobilePlayerGestureTuning.playerDismissPinchZoomInFailureScale
-        gesture.canTrackPinch = { [weak self] gesture in
-            guard let self else { return false }
-            if gesture.isFirstPinchTrackingEvaluation {
-                self.configurePagingScrollViews()
-            }
-            return self.canBeginPlayerDismissPinch(
-                location: gesture.pinchLocation(in: self.playerNavigationController.view)
-            )
-        }
-        gesture.onReset = { [weak self] in
-            self?.resetPlayerDismissPinchState()
-        }
-        return gesture
-    }()
     private lazy var controlsPan = UIPanGestureRecognizer(target: self, action: #selector(handleControlsPan(_:)))
     private lazy var cardMinimizePinch: CardLayoutPinchGestureRecognizer = {
         let gesture = CardLayoutPinchGestureRecognizer(target: self, action: #selector(handleCardMinimizePinch(_:)))
-        gesture.direction = .inward
         gesture.activationScale = MobilePlayerGestureTuning.cardMinimizePinchActivationScale
         gesture.oppositeDirectionFailureScale = MobilePlayerGestureTuning.cardMinimizePinchZoomInFailureScale
         gesture.canTrackPinch = { [weak self] gesture in
@@ -2137,44 +2436,15 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
                 self.configurePagingScrollViews()
             }
             return self.canBeginCardMinimizeInteraction(
-                location: gesture.pinchLocation(in: self.playerNavigationController.view)
+                location: gesture.pinchLocation(in: self.view)
             )
         }
         return gesture
     }()
-    private lazy var cardExpandPinch: CardLayoutPinchGestureRecognizer = {
-        let gesture = CardLayoutPinchGestureRecognizer(target: self, action: #selector(handleCardExpandPinch(_:)))
-        gesture.direction = .outward
-        gesture.activationScale = MobilePlayerGestureTuning.cardExpandPinchActivationScale
-        gesture.oppositeDirectionFailureScale = MobilePlayerGestureTuning.cardExpandPinchZoomOutFailureScale
-        gesture.canTrackPinch = { [weak self] gesture in
-            guard let self else { return false }
-            if gesture.isFirstPinchTrackingEvaluation {
-                self.configurePagingScrollViews()
-            }
-            return self.canSelectCardExpandPinch(for: gesture)
-        }
-        gesture.onReset = { [weak self] in
-            self?.resetCardExpandPinchState()
-        }
-        return gesture
-    }()
     private lazy var pinchRotation = UIRotationGestureRecognizer(target: self, action: #selector(handlePinchRotation(_:)))
-    private let dimmingView = UIView()
     private var configuredScrollPanGestures = Set<ObjectIdentifier>()
     private var configuredScrollPinchGestures = Set<ObjectIdentifier>()
-    private var isDismissing = false
-    private var isDismissPanDrivingPlayerDismiss = false
-    private var isPlayerDismissPinchDrivingPlayerDismiss = false
-    private var playerDismissPinchStartLocation = CGPoint.zero
-    private var playerDismissPinchStartRotation: CGFloat = 0
-    private var playerDismissPinchRotation: CGFloat = 0
-    private lazy var playerDismissPinchPresentationUpdate = PendingGesturePresentationUpdate { [weak self] in
-        guard let self else { return }
-        guard self.isPlayerDismissPinchDrivingPlayerDismiss else { return }
-
-        self.applyPlayerDismissPinchPresentation(self.playerDismissPinch)
-    }
+    private var isInstalled = false
     private var isDismissPanDrivingCardMinimize = false
     private var isCardMinimizePinchDrivingCardMinimize = false
     private var cardMinimizePinchStartLocation = CGPoint.zero
@@ -2186,14 +2456,6 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
 
         self.applyCardMinimizePinchPresentation(self.cardMinimizePinch)
     }
-    private var isCardExpandPinchDrivingCardExpand = false
-    private var cardExpandPinchStartLocation = CGPoint.zero
-    private lazy var cardExpandPinchPresentationUpdate = PendingGesturePresentationUpdate { [weak self] in
-        guard let self else { return }
-        guard self.isCardExpandPinchDrivingCardExpand else { return }
-
-        self.applyCardExpandPinchPresentation(self.cardExpandPinch)
-    }
     private var activeCardMinimizeContext: CardMinimizeTransitionContext?
     private var activeCardExpandContext: CardExpandTransitionContext?
     private var isCardMinimizeAnimationComplete = false
@@ -2201,70 +2463,36 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
     private var isCardExpandAnimationComplete = false
     private var isCardExpandLayoutApplied = false
     private var didControlsPanConflictWithHorizontalScroll = false
-    private var dismissBackgroundSnapshots: [PlayerBackgroundSnapshot] = []
+    private var chromeCancellables = Set<AnyCancellable>()
 
     init(
         navigationController: UINavigationController,
-        chrome: MobilePlayerChromeController,
-        onDismiss: @escaping () -> Void
+        playerViewController: MobilePlayerHostingController,
+        chrome: MobilePlayerChromeController
     ) {
         self.playerNavigationController = navigationController
+        self.playerViewController = playerViewController
         self.chrome = chrome
-        self.onDismiss = onDismiss
-        super.init(nibName: nil, bundle: nil)
-        chrome.onPlayerBackgroundColorChange = { [weak self] color in
-            self?.setPlayerBackgroundColor(color)
-        }
+        super.init()
         chrome.onCollectionBrowserMinimizeRequest = { [weak self] in
             self?.beginProgrammaticCardMinimize() ?? false
         }
         chrome.onCollectionBrowserExpandRequest = { [weak self] selection in
             self?.beginProgrammaticCardExpand(selection: selection) ?? .rejected
         }
+        playerNavigationController.navigationBar.alpha = chrome.showControls ? 1 : 0
+        observePlayerBackgroundColor()
+        observeNavigationBackSwipeAvailability()
+        observeNavigationBarChromeVisibility()
     }
 
-    required init?(coder: NSCoder) {
-        fatalError("yo")
-    }
-
-    override var childForStatusBarHidden: UIViewController? {
-        playerNavigationController
-    }
-
-    override var childForStatusBarStyle: UIViewController? {
-        playerNavigationController
-    }
-
-    override var preferredStatusBarUpdateAnimation: UIStatusBarAnimation {
-        .fade
-    }
-
-    override func viewDidLoad() {
-        super.viewDidLoad()
-
-        view.makeBackgroundTransparent()
-
-        dimmingView.backgroundColor = chrome.playerBackgroundColor
-        dimmingView.alpha = 1
-        view.addSubview(dimmingView)
-        dimmingView.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            dimmingView.topAnchor.constraint(equalTo: view.topAnchor),
-            dimmingView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            dimmingView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            dimmingView.trailingAnchor.constraint(equalTo: view.trailingAnchor)
-        ])
-
-        addChild(playerNavigationController)
-        view.addSubview(playerNavigationController.view)
-        playerNavigationController.view.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            playerNavigationController.view.topAnchor.constraint(equalTo: view.topAnchor),
-            playerNavigationController.view.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            playerNavigationController.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            playerNavigationController.view.trailingAnchor.constraint(equalTo: view.trailingAnchor)
-        ])
-        playerNavigationController.didMove(toParent: self)
+    func install() {
+        guard !isInstalled else { return }
+        isInstalled = true
+        playerViewController.onPlayerLayout = { [weak self] in
+            self?.configurePagingScrollViews()
+        }
+        playerViewController.loadViewIfNeeded()
 
         navigationBarTap.delegate = self
         navigationBarTap.numberOfTapsRequired = 1
@@ -2277,26 +2505,57 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         dismissPan.maximumNumberOfTouches = 1
         view.addGestureRecognizer(dismissPan)
 
-        playerDismissPinch.delegate = self
-        playerDismissPinch.cancelsTouchesInView = false
-        view.addGestureRecognizer(playerDismissPinch)
-
         controlsPan.delegate = self
         controlsPan.cancelsTouchesInView = false
         controlsPan.maximumNumberOfTouches = 1
         view.addGestureRecognizer(controlsPan)
 
+        configureNavigationBackSwipeGesturePriority()
+
         cardMinimizePinch.delegate = self
         cardMinimizePinch.cancelsTouchesInView = false
         view.addGestureRecognizer(cardMinimizePinch)
 
-        cardExpandPinch.delegate = self
-        cardExpandPinch.cancelsTouchesInView = false
-        view.addGestureRecognizer(cardExpandPinch)
-
         pinchRotation.delegate = self
         pinchRotation.cancelsTouchesInView = false
         view.addGestureRecognizer(pinchRotation)
+
+        configurePagingScrollViews()
+        updateNavigationBackSwipeAvailability()
+    }
+
+    func invalidate() {
+        guard isInstalled else { return }
+        isInstalled = false
+        cardMinimizePinchPresentationUpdate.invalidate()
+        chromeCancellables.removeAll()
+        playerViewController.onPlayerLayout = nil
+
+        playerNavigationController.navigationBar.removeGestureRecognizer(navigationBarTap)
+        view.removeGestureRecognizer(dismissPan)
+        view.removeGestureRecognizer(controlsPan)
+        view.removeGestureRecognizer(cardMinimizePinch)
+        view.removeGestureRecognizer(pinchRotation)
+
+        cleanupCardMinimizeTransition(
+            revealPlayer: false,
+            cancelPreparedBrowserSelection: true
+        )
+        cleanupCardExpandTransition(revealPlayer: false)
+        cardTransitionCanvasView.subviews.forEach { $0.removeFromSuperview() }
+        playerViewController.setCardTransitionCanvasActive(false)
+
+        chrome.onCollectionBrowserMinimizeRequest = nil
+        chrome.onCollectionBrowserExpandRequest = nil
+        chrome.setPlayerContentHiddenForCardTransition(false)
+
+        view.layer.removeAllAnimations()
+        view.alpha = 1
+        view.transform = .identity
+        playerNavigationController.navigationBar.layer.removeAllAnimations()
+        playerNavigationController.navigationBar.alpha = 1
+        playerNavigationController.interactivePopGestureRecognizer?.isEnabled = false
+        playerNavigationController.setNeedsStatusBarAppearanceUpdate()
     }
 
     @objc private func handleNavigationBarTap(_ gesture: UITapGestureRecognizer) {
@@ -2305,31 +2564,152 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         chrome.setControlsVisible(false)
     }
 
-    override func viewDidAppear(_ animated: Bool) {
-        super.viewDidAppear(animated)
+    func didShowPlayerAfterNavigationTransition() {
+        guard isInstalled else { return }
+        setNavigationBarChromeVisible(chrome.showControls, animated: false)
         configurePagingScrollViews()
+        updateNavigationBackSwipeAvailability()
+        playerNavigationController.setNeedsStatusBarAppearanceUpdate()
+        playerNavigationController.topViewController?.setNeedsStatusBarAppearanceUpdate()
     }
 
-    override func viewDidLayoutSubviews() {
-        super.viewDidLayoutSubviews()
-        configurePagingScrollViews()
+    func prepareForNavigationPopTransition(
+        using transitionCoordinator: (any UIViewControllerTransitionCoordinator)?
+    ) {
+        let navigationBar = playerNavigationController.navigationBar
+        navigationBar.layer.removeAllAnimations()
+        guard let transitionCoordinator else {
+            navigationBar.alpha = 1
+            return
+        }
+
+        transitionCoordinator.animate { _ in
+            navigationBar.alpha = 1
+        } completion: { [weak self] context in
+            if context.isCancelled, let self {
+                self.setNavigationBarChromeVisible(self.chrome.showControls, animated: false)
+            }
+        }
+    }
+
+    func prepareForPlayerPresentation(
+        using transitionCoordinator: (any UIViewControllerTransitionCoordinator)?
+    ) {
+        let navigationBar = playerNavigationController.navigationBar
+        let targetAlpha: CGFloat = chrome.showControls ? 1 : 0
+        navigationBar.layer.removeAllAnimations()
+        guard let transitionCoordinator else {
+            navigationBar.alpha = targetAlpha
+            return
+        }
+
+        transitionCoordinator.animate { _ in
+            navigationBar.alpha = targetAlpha
+        }
+    }
+
+    private func observePlayerBackgroundColor() {
+        chrome.$playerBackgroundColor
+            .sink { [weak self] color in
+                self?.playerViewController.setPlayerPageBackground(color: color)
+            }
+            .store(in: &chromeCancellables)
+    }
+
+    private func observeNavigationBackSwipeAvailability() {
+        chrome.$allowsNavigationBackSwipe
+            .combineLatest(chrome.$isPlayerContentHiddenForCardTransition)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] allowsNavigationBackSwipe, isContentHiddenForCardTransition in
+                self?.updateNavigationBackSwipeAvailability(
+                    allowsNavigationBackSwipe: allowsNavigationBackSwipe,
+                    isContentHiddenForCardTransition: isContentHiddenForCardTransition
+                )
+            }
+            .store(in: &chromeCancellables)
+    }
+
+    private func observeNavigationBarChromeVisibility() {
+        chrome.$showControls
+            .removeDuplicates()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] isVisible in
+                guard let self else { return }
+                self.setNavigationBarChromeVisible(isVisible, animated: true)
+            }
+            .store(in: &chromeCancellables)
+    }
+
+    private func setNavigationBarChromeVisible(_ isVisible: Bool, animated: Bool) {
+        let navigationBar = playerNavigationController.navigationBar
+        let targetAlpha: CGFloat = isVisible ? 1 : 0
+        guard navigationBar.alpha != targetAlpha else { return }
+
+        let changes = {
+            navigationBar.alpha = targetAlpha
+        }
+        guard animated, view.window != nil else {
+            changes()
+            return
+        }
+
+        UIView.animate(
+            withDuration: isVisible
+                ? Self.navigationBarShowDuration
+                : Self.navigationBarHideDuration,
+            delay: 0,
+            options: [.beginFromCurrentState, .allowUserInteraction, .curveEaseInOut],
+            animations: changes
+        )
+    }
+
+    private func updateNavigationBackSwipeAvailability() {
+        updateNavigationBackSwipeAvailability(
+            allowsNavigationBackSwipe: chrome.allowsNavigationBackSwipe,
+            isContentHiddenForCardTransition: chrome.isPlayerContentHiddenForCardTransition
+        )
+    }
+
+    private func updateNavigationBackSwipeAvailability(
+        allowsNavigationBackSwipe: Bool,
+        isContentHiddenForCardTransition: Bool
+    ) {
+        let isEnabled = playerNavigationController.viewControllers.count > 1
+            && allowsNavigationBackSwipe
+            && !isContentHiddenForCardTransition
+            && !isCardTransitionActive
+
+        guard playerNavigationController.interactivePopGestureRecognizer?.isEnabled != isEnabled else {
+            return
+        }
+        playerNavigationController.interactivePopGestureRecognizer?.isEnabled = isEnabled
+    }
+
+    private func configureNavigationBackSwipeGesturePriority() {
+        guard let navigationBackSwipe = playerNavigationController.interactivePopGestureRecognizer else {
+            return
+        }
+
+        dismissPan.require(toFail: navigationBackSwipe)
+        controlsPan.require(toFail: navigationBackSwipe)
     }
 
     private func configurePagingScrollViews() {
-        playerNavigationController.view
+        playerViewController.view
             .allSubviews(ofType: UIScrollView.self)
             .forEach { scrollView in
                 let panGestureId = ObjectIdentifier(scrollView.panGestureRecognizer)
                 if !configuredScrollPanGestures.contains(panGestureId) {
                     scrollView.panGestureRecognizer.require(toFail: dismissPan)
+                    if let navigationBackSwipe = playerNavigationController.interactivePopGestureRecognizer {
+                        scrollView.panGestureRecognizer.require(toFail: navigationBackSwipe)
+                    }
                     configuredScrollPanGestures.insert(panGestureId)
                 }
                 if let pinchGesture = scrollView.pinchGestureRecognizer {
                     let pinchGestureId = ObjectIdentifier(pinchGesture)
                     if !configuredScrollPinchGestures.contains(pinchGestureId) {
-                        pinchGesture.require(toFail: playerDismissPinch)
                         pinchGesture.require(toFail: cardMinimizePinch)
-                        pinchGesture.require(toFail: cardExpandPinch)
                         configuredScrollPinchGestures.insert(pinchGestureId)
                     }
                 }
@@ -2338,121 +2718,45 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
     }
 
     @objc private func handleDismissPan(_ gesture: UIPanGestureRecognizer) {
-        guard !isDismissing else { return }
-
         let translation = gesture.translation(in: view)
-        let clampedY = max(0, translation.y)
 
         switch gesture.state {
         case .began:
-            let location = gesture.location(in: playerNavigationController.view)
+            let location = gesture.location(in: view)
             let velocity = gesture.velocity(in: view)
             let hasPlayerDismissIntent = hasPlayerDismissIntent(location: location, velocity: velocity)
             let cardMinimizeAvailability = hasPlayerDismissIntent
                 ? cardMinimizeAvailability(at: location)
                 : .empty
             let shouldHideControls = chrome.showControls && hasControlsHideIntent(location: location, velocity: velocity)
-            isDismissPanDrivingPlayerDismiss = false
             isDismissPanDrivingCardMinimize = false
 
             if let cardMinimizeState = cardMinimizeAvailability.animated {
                 guard beginCardMinimizeFromDismissPan(state: cardMinimizeState) else { return }
             } else if let directCardMinimizeState = cardMinimizeAvailability.direct {
                 guard beginDirectCardMinimizeFromDismissPan(state: directCardMinimizeState) else { return }
-            } else {
-                isDismissPanDrivingPlayerDismiss = hasPlayerDismissIntent
             }
 
-            if isDismissPanDrivingPlayerDismiss {
-                playerNavigationController.view.layer.removeAllAnimations()
-                dimmingView.layer.removeAllAnimations()
-                startDismissBackgroundClearing()
-                setDismissStatusBarRevealed(true)
-            }
-            let shouldHideControlsForActiveDismissPan = !isDismissPanDrivingCardMinimize
-                && (isDismissPanDrivingPlayerDismiss || shouldHideControls)
-            if shouldHideControlsForActiveDismissPan {
+            if !isDismissPanDrivingCardMinimize, shouldHideControls {
                 chrome.setControlsVisible(false)
             }
 
         case .changed:
-            if isDismissPanDrivingCardMinimize {
-                applyCardMinimizePresentation(translation: translation)
-                return
-            }
-            guard isDismissPanDrivingPlayerDismiss else { return }
-            let progress = min(clampedY / MobilePlayerGestureTuning.dismissProgressDistance, 1)
-            applyDismissPresentation(offsetY: clampedY, progress: progress)
+            guard isDismissPanDrivingCardMinimize else { return }
+            applyCardMinimizePresentation(translation: translation)
 
         case .ended:
-            if isDismissPanDrivingCardMinimize {
-                isDismissPanDrivingCardMinimize = false
-                finishCardMinimizeGesture(
-                    translation: translation,
-                    velocity: gesture.velocity(in: view)
-                )
-                return
-            }
-            guard isDismissPanDrivingPlayerDismiss else { return }
-            isDismissPanDrivingPlayerDismiss = false
-            finishDismissGesture(translation: translation, velocity: gesture.velocity(in: view))
+            guard isDismissPanDrivingCardMinimize else { return }
+            isDismissPanDrivingCardMinimize = false
+            finishCardMinimizeGesture(
+                translation: translation,
+                velocity: gesture.velocity(in: view)
+            )
 
         case .cancelled, .failed:
-            if isDismissPanDrivingCardMinimize {
-                isDismissPanDrivingCardMinimize = false
-                resetCardMinimizeTransform()
-                return
-            }
-            guard isDismissPanDrivingPlayerDismiss else { return }
-            isDismissPanDrivingPlayerDismiss = false
-            resetDismissTransform()
-
-        default:
-            break
-        }
-    }
-
-    @objc private func handlePlayerDismissPinch(_ gesture: CardLayoutPinchGestureRecognizer) {
-        guard !isDismissing else { return }
-
-        switch gesture.state {
-        case .began:
-            isPlayerDismissPinchDrivingPlayerDismiss = false
-            playerDismissPinchStartLocation = gesture.initialPinchLocation(in: view)
-
-            guard beginPlayerDismissPinchGesture(
-                location: gesture.pinchLocation(in: playerNavigationController.view)
-            ) else {
-                resetPlayerDismissPinchState()
-                return
-            }
-
-            applyPlayerDismissPinchPresentation(gesture)
-
-        case .changed:
-            guard isPlayerDismissPinchDrivingPlayerDismiss else { return }
-
-            schedulePlayerDismissPinchPresentationUpdate()
-
-        case .ended:
-            if isPlayerDismissPinchDrivingPlayerDismiss {
-                flushPendingPlayerDismissPinchPresentationUpdate()
-                isPlayerDismissPinchDrivingPlayerDismiss = false
-                finishPlayerDismissPinchGesture(
-                    scale: gesture.scale,
-                    velocity: gesture.velocity,
-                    rotation: playerDismissPinchRotation
-                )
-            }
-            resetPlayerDismissPinchState()
-
-        case .cancelled, .failed:
-            if isPlayerDismissPinchDrivingPlayerDismiss {
-                flushPendingPlayerDismissPinchPresentationUpdate()
-                isPlayerDismissPinchDrivingPlayerDismiss = false
-                resetDismissTransform()
-            }
-            resetPlayerDismissPinchState()
+            guard isDismissPanDrivingCardMinimize else { return }
+            isDismissPanDrivingCardMinimize = false
+            resetCardMinimizeTransform()
 
         default:
             break
@@ -2460,8 +2764,6 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
     }
 
     @objc private func handleControlsPan(_ gesture: UIPanGestureRecognizer) {
-        guard !isDismissing else { return }
-
         switch gesture.state {
         case .began:
             didControlsPanConflictWithHorizontalScroll = isHorizontalPlayerScrollActive()
@@ -2482,14 +2784,12 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
     }
 
     @objc private func handleCardMinimizePinch(_ gesture: CardLayoutPinchGestureRecognizer) {
-        guard !isDismissing else { return }
-
         switch gesture.state {
         case .began:
             isCardMinimizePinchDrivingCardMinimize = false
             cardMinimizePinchStartLocation = gesture.initialPinchLocation(in: view)
 
-            let location = gesture.pinchLocation(in: playerNavigationController.view)
+            let location = gesture.pinchLocation(in: view)
             let availability = cardMinimizeAvailability(at: location)
             if let state = availability.animated {
                 guard beginCardMinimizePinchGesture(state: state) else {
@@ -2535,73 +2835,21 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         }
     }
 
-    @objc private func handleCardExpandPinch(_ gesture: CardLayoutPinchGestureRecognizer) {
-        guard !isDismissing else { return }
-
-        switch gesture.state {
-        case .began:
-            isCardExpandPinchDrivingCardExpand = false
-            cardExpandPinchStartLocation = gesture.initialPinchLocation(in: view)
-
-            guard let selection = cardExpandPinchSelection(for: gesture),
-                  beginCardExpandPinchGesture(selection: selection) else {
-                resetCardExpandPinchState()
-                return
-            }
-
-            applyCardExpandPinchPresentation(gesture)
-
-        case .changed:
-            guard isCardExpandPinchDrivingCardExpand else { return }
-
-            scheduleCardExpandPinchPresentationUpdate()
-
-        case .ended:
-            if isCardExpandPinchDrivingCardExpand {
-                flushPendingCardExpandPinchPresentationUpdate()
-                finishCardExpandPinchGesture(scale: gesture.scale, velocity: gesture.velocity)
-            }
-            resetCardExpandPinchState()
-
-        case .cancelled, .failed:
-            if isCardExpandPinchDrivingCardExpand {
-                flushPendingCardExpandPinchPresentationUpdate()
-                resetCardExpandTransform()
-            }
-            resetCardExpandPinchState()
-
-        default:
-            break
-        }
-    }
-
     @objc private func handlePinchRotation(_ gesture: UIRotationGestureRecognizer) {
-        guard !isDismissing else { return }
-
         switch gesture.state {
         case .began:
-            if isPlayerDismissPinchDrivingPlayerDismiss {
-                playerDismissPinchStartRotation = gesture.rotation
-                playerDismissPinchRotation = 0
-            } else if isCardMinimizePinchDrivingCardMinimize {
+            if isCardMinimizePinchDrivingCardMinimize {
                 cardMinimizePinchStartRotation = gesture.rotation
                 cardMinimizePinchRotation = 0
             }
 
         case .changed:
-            if isPlayerDismissPinchDrivingPlayerDismiss {
-                playerDismissPinchRotation = gesture.rotation - playerDismissPinchStartRotation
-                schedulePlayerDismissPinchPresentationUpdate()
-            } else if isCardMinimizePinchDrivingCardMinimize {
+            if isCardMinimizePinchDrivingCardMinimize {
                 cardMinimizePinchRotation = gesture.rotation - cardMinimizePinchStartRotation
                 scheduleCardMinimizePinchPresentationUpdate()
             }
 
         case .ended, .cancelled, .failed:
-            if !isPlayerDismissPinchDrivingPlayerDismiss {
-                playerDismissPinchRotation = 0
-                playerDismissPinchStartRotation = 0
-            }
             if !isCardMinimizePinchDrivingCardMinimize {
                 cardMinimizePinchRotation = 0
                 cardMinimizePinchStartRotation = 0
@@ -2610,94 +2858,6 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         default:
             break
         }
-    }
-
-    private func beginPlayerDismissPinchGesture(location: CGPoint) -> Bool {
-        guard canBeginPlayerDismissPinch(location: location) else {
-            return false
-        }
-
-        playerNavigationController.view.layer.removeAllAnimations()
-        dimmingView.layer.removeAllAnimations()
-        playerDismissPinchStartRotation = currentPinchRotationGestureValue()
-        playerDismissPinchRotation = 0
-        isPlayerDismissPinchDrivingPlayerDismiss = true
-        startDismissBackgroundClearing()
-        setDismissStatusBarRevealed(true)
-        chrome.setControlsVisible(false)
-        return true
-    }
-
-    private func finishDismissGesture(translation: CGPoint, velocity: CGPoint) {
-        let clampedY = max(0, translation.y)
-        let projectedY = clampedY + max(velocity.y, 0) * MobilePlayerGestureTuning.dismissVelocityProjectionDuration
-        let translationThreshold = max(
-            MobilePlayerGestureTuning.dismissMinimumTranslation,
-            view.bounds.height * MobilePlayerGestureTuning.dismissTranslationHeightRatio
-        )
-        let shouldDismiss = projectedY > translationThreshold
-            || (velocity.y > MobilePlayerGestureTuning.dismissFastSwipeVelocity
-                && clampedY > MobilePlayerGestureTuning.dismissMinimumFastSwipeTranslation)
-
-        if shouldDismiss {
-            isDismissing = true
-            view.isUserInteractionEnabled = false
-            setDismissStatusBarRevealed(true)
-            makePlayerDismissBackgroundsTransparent()
-            scheduleDismissBackgroundClearPasses(Self.finalDismissBackgroundClearPasses)
-            let remainingDistance = max(view.bounds.height - clampedY, 0)
-            let velocityDuration = velocity.y > 0 ? remainingDistance / velocity.y : 0.24
-            let duration = min(max(TimeInterval(velocityDuration), 0.14), 0.24)
-            UIView.animate(withDuration: duration, delay: 0, options: [.curveEaseOut, .beginFromCurrentState], animations: {
-                self.applyDismissPresentation(offsetY: self.view.bounds.height, progress: 1)
-            }, completion: { _ in
-                self.onDismiss()
-            })
-        } else {
-            resetDismissTransform()
-        }
-    }
-
-    private func finishPlayerDismissPinchGesture(
-        scale: CGFloat,
-        velocity: CGFloat,
-        rotation: CGFloat
-    ) {
-        let currentProgress = playerDismissPinchProgress(forScale: scale)
-        let projectedScale = scale + min(velocity, 0) * MobilePlayerGestureTuning.playerDismissPinchVelocityProjectionDuration
-        let projectedProgress = max(
-            currentProgress,
-            playerDismissPinchProgress(forScale: projectedScale)
-        )
-        let hasEnoughProgressForVelocityCommit = currentProgress >= MobilePlayerGestureTuning.playerDismissPinchMinimumVelocityCommitProgress
-        let shouldDismiss = currentProgress >= MobilePlayerGestureTuning.playerDismissPinchCompletionProgress
-            || (hasEnoughProgressForVelocityCommit
-                && (projectedProgress >= MobilePlayerGestureTuning.playerDismissPinchCompletionProgress
-                    || velocity < -MobilePlayerGestureTuning.playerDismissPinchFastVelocity))
-
-        guard shouldDismiss else {
-            resetDismissTransform()
-            return
-        }
-
-        isDismissing = true
-        view.isUserInteractionEnabled = false
-        setDismissStatusBarRevealed(true)
-        makePlayerDismissBackgroundsTransparent()
-        scheduleDismissBackgroundClearPasses(Self.finalDismissBackgroundClearPasses)
-
-        let remainingScaleDistance = max(
-            scale - MobilePlayerGestureTuning.playerDismissPinchFullProgressScale,
-            0
-        )
-        let velocityDuration = velocity < 0 ? remainingScaleDistance / abs(velocity) : 0.22
-        let duration = min(max(TimeInterval(velocityDuration), 0.14), 0.24)
-
-        UIView.animate(withDuration: duration, delay: 0, options: [.curveEaseOut, .beginFromCurrentState], animations: {
-            self.applyFinalPlayerDismissPinchPresentation(rotation: rotation)
-        }, completion: { _ in
-            self.onDismiss()
-        })
     }
 
     private var isCardMinimizeTransitionActive: Bool {
@@ -2742,21 +2902,8 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         isCardMinimizePinchDrivingCardMinimize = true
     }
 
-    private func beginCardExpandPinchGesture(selection: MobilePlayerBrowserTransitionSelection) -> Bool {
-        guard beginCardExpandTransition(
-            selection: selection,
-            allowsPlaceholderSnapshot: true
-        ) else {
-            return false
-        }
-
-        isCardExpandPinchDrivingCardExpand = true
-        return true
-    }
-
     private func beginProgrammaticCardMinimize() -> Bool {
-        guard !isDismissing,
-              !chrome.isPlayerContentZoomed else {
+        guard !chrome.isPlayerContentZoomed else {
             return false
         }
 
@@ -2782,8 +2929,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
     private func beginProgrammaticCardExpand(
         selection: MobilePlayerBrowserTransitionSelection
     ) -> MobilePlayerBrowserExpandSelectionResult {
-        guard !isDismissing,
-              !chrome.isPlayerContentZoomed else {
+        guard !chrome.isPlayerContentZoomed else {
             return .rejected
         }
 
@@ -2802,8 +2948,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         state: MobilePlayerLayoutInteractionState,
         isDrivenByDismissPan: Bool
     ) -> Bool {
-        playerNavigationController.view.layer.removeAllAnimations()
-        dimmingView.layer.removeAllAnimations()
+        view.layer.removeAllAnimations()
 
         guard let context = makeCardMinimizeTransitionContext(state: state) else {
             return false
@@ -2819,8 +2964,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         state: MobilePlayerLayoutInteractionState,
         isDrivenByDismissPan: Bool
     ) -> Bool {
-        playerNavigationController.view.layer.removeAllAnimations()
-        dimmingView.layer.removeAllAnimations()
+        view.layer.removeAllAnimations()
 
         guard let context = makeDirectCardMinimizeTransitionContext(state: state) else {
             return false
@@ -2845,16 +2989,11 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
     }
 
     private func beginCardExpandTransition(
-        selection: MobilePlayerBrowserTransitionSelection,
-        allowsPlaceholderSnapshot: Bool = false
+        selection: MobilePlayerBrowserTransitionSelection
     ) -> Bool {
-        playerNavigationController.view.layer.removeAllAnimations()
-        dimmingView.layer.removeAllAnimations()
+        view.layer.removeAllAnimations()
 
-        guard let context = makeCardExpandTransitionContext(
-            selection: selection,
-            allowsPlaceholderSnapshot: allowsPlaceholderSnapshot
-        ) else {
+        guard let context = makeCardExpandTransitionContext(selection: selection) else {
             return false
         }
 
@@ -3037,138 +3176,6 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         cleanupCardExpandTransition(revealPlayer: true)
     }
 
-    private func applyPlayerDismissPinchPresentation(_ gesture: CardLayoutPinchGestureRecognizer) {
-        let location = gesture.pinchLocation(in: view)
-        let translation = CGPoint(
-            x: location.x - playerDismissPinchStartLocation.x,
-            y: location.y - playerDismissPinchStartLocation.y
-        )
-        applyPlayerDismissPinchPresentation(
-            progress: playerDismissPinchProgress(forScale: gesture.scale),
-            translation: translation,
-            rotation: playerDismissPinchRotation,
-            pinchScale: gesture.scale
-        )
-    }
-
-    private func schedulePlayerDismissPinchPresentationUpdate() {
-        playerDismissPinchPresentationUpdate.schedule()
-    }
-
-    private func flushPendingPlayerDismissPinchPresentationUpdate() {
-        playerDismissPinchPresentationUpdate.flush()
-    }
-
-    private func invalidatePendingPlayerDismissPinchPresentationUpdate() {
-        playerDismissPinchPresentationUpdate.invalidate()
-    }
-
-    private func applyPlayerDismissPinchPresentation(
-        progress: CGFloat,
-        translation: CGPoint,
-        rotation: CGFloat,
-        pinchScale: CGFloat
-    ) {
-        let progress = min(max(progress, 0), 1)
-        let easedProgress = easeOutQuadratic(progress)
-        let dragOffset = cardTransitionDragOffset(
-            translation: translation,
-            easedProgress: easedProgress
-        )
-        let scale = playerDismissPinchPresentationScale(
-            easedProgress: easedProgress,
-            pinchScale: pinchScale
-        )
-
-        playerNavigationController.view.transform = CGAffineTransform(
-            translationX: dragOffset.x,
-            y: dragOffset.y
-        )
-        .rotated(by: rotation)
-        .scaledBy(x: scale, y: scale)
-        dimmingView.alpha = playerDismissPinchInteractiveDimmingAlpha(progress: progress)
-    }
-
-    private func applyFinalPlayerDismissPinchPresentation(rotation: CGFloat) {
-        let scale = playerDismissPinchPresentationScale(
-            easedProgress: 1,
-            pinchScale: MobilePlayerGestureTuning.playerDismissPinchFullProgressScale
-        )
-
-        playerNavigationController.view.transform = CGAffineTransform(
-            translationX: 0,
-            y: view.bounds.height
-        )
-        .rotated(by: rotation)
-        .scaledBy(x: scale, y: scale)
-        dimmingView.alpha = 0
-    }
-
-    private func playerDismissPinchInteractiveDimmingAlpha(progress: CGFloat) -> CGFloat {
-        let clampedProgress = min(max(progress, 0), 1)
-        let fade = easeOutQuadratic(clampedProgress)
-            * MobilePlayerGestureTuning.playerDismissPinchInteractiveMaximumDimmingFade
-        return 1 - fade
-    }
-
-    private func playerDismissPinchPresentationScale(
-        easedProgress: CGFloat,
-        pinchScale: CGFloat
-    ) -> CGFloat {
-        let fullProgressScale = MobilePlayerGestureTuning.playerDismissPinchFullProgressScale
-        let normalScale = 1 - (1 - fullProgressScale) * easedProgress
-        guard pinchScale < fullProgressScale,
-              fullProgressScale > 0 else {
-            return normalScale
-        }
-
-        let minimumScaleRatio = MobilePlayerGestureTuning.playerDismissPinchMinimumPresentationScaleRatio
-        let scaleRatio = max(pinchScale / fullProgressScale, minimumScaleRatio)
-        return fullProgressScale * scaleRatio
-    }
-
-    private func playerDismissPinchProgress(forScale scale: CGFloat) -> CGFloat {
-        let activationScale = MobilePlayerGestureTuning.playerDismissPinchActivationScale
-        let fullProgressScale = MobilePlayerGestureTuning.playerDismissPinchFullProgressScale
-        let progressDistance = activationScale - fullProgressScale
-        guard progressDistance > 0 else { return 0 }
-
-        return min(max((activationScale - scale) / progressDistance, 0), 1)
-    }
-
-    private func resetPlayerDismissPinchState() {
-        isPlayerDismissPinchDrivingPlayerDismiss = false
-        playerDismissPinchStartLocation = .zero
-        playerDismissPinchStartRotation = 0
-        playerDismissPinchRotation = 0
-        invalidatePendingPlayerDismissPinchPresentationUpdate()
-    }
-
-    private func applyCardExpandPinchPresentation(_ gesture: CardLayoutPinchGestureRecognizer) {
-        let location = gesture.pinchLocation(in: view)
-        let translation = CGPoint(
-            x: location.x - cardExpandPinchStartLocation.x,
-            y: location.y - cardExpandPinchStartLocation.y
-        )
-        applyCardExpandInteractivePresentation(
-            progress: cardExpandPinchProgress(forScale: gesture.scale),
-            translation: translation,
-            pinchScale: gesture.scale
-        )
-    }
-
-    private func scheduleCardExpandPinchPresentationUpdate() {
-        cardExpandPinchPresentationUpdate.schedule()
-    }
-
-    private func flushPendingCardExpandPinchPresentationUpdate() {
-        cardExpandPinchPresentationUpdate.flush()
-    }
-
-    private func invalidatePendingCardExpandPinchPresentationUpdate() {
-        cardExpandPinchPresentationUpdate.invalidate()
-    }
-
     private func applyCardExpandPresentation(progress: CGFloat) {
         guard let context = activeCardExpandContext else { return }
 
@@ -3184,101 +3191,6 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         context.foregroundView.bounds = CGRect(origin: .zero, size: foregroundFrame.size)
         context.foregroundView.center = CGPoint(x: foregroundFrame.midX, y: foregroundFrame.midY)
         context.underlayView.setOtherCardsRevealProgress(1 - easedProgress)
-    }
-
-    private func applyCardExpandInteractivePresentation(
-        progress: CGFloat,
-        translation: CGPoint,
-        pinchScale: CGFloat
-    ) {
-        guard let context = activeCardExpandContext else { return }
-
-        let progress = min(max(progress, 0), 1)
-        let easedProgress = easeOutQuadratic(progress)
-        let dragOffset = cardTransitionDragOffset(
-            translation: translation,
-            easedProgress: easedProgress
-        )
-        let scale = cardExpandPresentationScale(
-            forPinchScale: pinchScale,
-            targetScale: context.targetScale
-        )
-        let displayedSize = CGSize(
-            width: context.sourceFrame.width * scale,
-            height: context.sourceFrame.height * scale
-        )
-        let unclampedCenter = CGPoint(
-            x: context.sourceFrame.midX + dragOffset.x,
-            y: context.sourceFrame.midY + dragOffset.y
-        )
-        let targetPullProgress = cardExpandTargetPullProgress(
-            scale: scale,
-            targetScale: context.targetScale
-        )
-        let targetPulledCenter = interpolatedPoint(
-            from: unclampedCenter,
-            to: rubberBandedCardExpandCenter(
-                unclampedCenter,
-                displayedSize: displayedSize,
-                inside: context.targetFrame
-            ),
-            progress: targetPullProgress
-        )
-        let playerBounds = playerNavigationController.view.convert(playerNavigationController.view.bounds, to: view)
-        let rubberBandedCenter = rubberBandedCardExpandCenter(
-            targetPulledCenter,
-            displayedSize: displayedSize,
-            inside: playerBounds
-        )
-
-        context.foregroundView.bounds = CGRect(origin: .zero, size: context.sourceFrame.size)
-        context.foregroundView.center = rubberBandedCenter
-        context.foregroundView.transform = CGAffineTransform(scaleX: scale, y: scale)
-        context.underlayView.setOtherCardsRevealProgress(1 - easedProgress)
-    }
-
-    private func finishCardExpandPinchGesture(scale: CGFloat, velocity: CGFloat) {
-        guard let context = activeCardExpandContext else {
-            resetCardExpandTransform()
-            return
-        }
-
-        let targetScale = max(context.targetScale, 1)
-        let commitScale = targetScale * MobilePlayerGestureTuning.cardExpandPinchCommitScaleMultiplier
-        let velocityCommitMinimumScale = targetScale * MobilePlayerGestureTuning.cardExpandPinchVelocityCommitMinimumScaleMultiplier
-        let projectedScale = scale + max(velocity, 0) * MobilePlayerGestureTuning.cardExpandPinchVelocityProjectionDuration
-        let canVelocityCommit = scale >= velocityCommitMinimumScale
-        let shouldExpand = scale >= commitScale
-            || (canVelocityCommit
-                && (projectedScale >= commitScale
-                    || velocity > MobilePlayerGestureTuning.cardExpandPinchFastVelocity))
-
-        guard shouldExpand else {
-            resetCardExpandTransform()
-            return
-        }
-
-        completeCardExpandTransition()
-    }
-
-    private func cardExpandPinchProgress(forScale scale: CGFloat) -> CGFloat {
-        let activationScale = MobilePlayerGestureTuning.cardExpandPinchActivationScale
-        let fullProgressScale = activeCardExpandContext.map(cardExpandPinchFullProgressScale)
-            ?? MobilePlayerGestureTuning.cardExpandPinchFullProgressScale
-        let progressDistance = fullProgressScale - activationScale
-        guard progressDistance > 0 else { return 0 }
-
-        return min(max((scale - activationScale) / progressDistance, 0), 1)
-    }
-
-    private func cardExpandPinchFullProgressScale(context: CardExpandTransitionContext) -> CGFloat {
-        max(MobilePlayerGestureTuning.cardExpandPinchFullProgressScale, context.targetScale)
-    }
-
-    private func resetCardExpandPinchState() {
-        isCardExpandPinchDrivingCardExpand = false
-        cardExpandPinchStartLocation = .zero
-        invalidatePendingCardExpandPinchPresentationUpdate()
     }
 
     private func applyCardMinimizePresentation(translation: CGPoint) {
@@ -3499,7 +3411,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
             itemSnapshots: underlayItemSnapshots,
             otherCardsRevealProgress: 0
         )
-        view.insertSubview(foregroundView, aboveSubview: underlayView)
+        cardTransitionCanvasView.insertSubview(foregroundView, aboveSubview: underlayView)
         let targetScale = cardMinimizeTargetScale(
             sourceFrame: sourceFrame,
             targetFrame: usesCellHero ? targetFrame : nil
@@ -3560,7 +3472,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
             itemSnapshots: underlayItemSnapshots,
             otherCardsRevealProgress: 0
         )
-        view.insertSubview(foregroundView, aboveSubview: underlayView)
+        cardTransitionCanvasView.insertSubview(foregroundView, aboveSubview: underlayView)
         shouldCancelPreparedSelection = false
 
         return CardMinimizeTransitionContext(
@@ -3576,11 +3488,10 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
     }
 
     private func makeCardExpandTransitionContext(
-        selection: MobilePlayerBrowserTransitionSelection,
-        allowsPlaceholderSnapshot: Bool
+        selection: MobilePlayerBrowserTransitionSelection
     ) -> CardExpandTransitionContext? {
         let selectedSnapshot = selection.selectedSnapshot
-        guard selectedSnapshot.hasLoadedImage || allowsPlaceholderSnapshot else {
+        guard selectedSnapshot.hasLoadedImage else {
             return nil
         }
         guard let sourceFrame = browserItemFrameInOverlay(selectedSnapshot) else {
@@ -3598,6 +3509,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         )
         guard !targetFrame.isEmpty else {
             underlayView.removeFromSuperview()
+            updateCardTransitionCanvasVisibility()
             return nil
         }
 
@@ -3609,14 +3521,13 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         foregroundView.alpha = 1
         foregroundView.isHidden = false
         foregroundView.isUserInteractionEnabled = false
-        view.insertSubview(foregroundView, aboveSubview: underlayView)
+        cardTransitionCanvasView.insertSubview(foregroundView, aboveSubview: underlayView)
 
         return CardExpandTransitionContext(
             id: UUID(),
             targetPagePosition: selectedSnapshot.pagePosition,
             sourceFrame: sourceFrame,
             targetFrame: targetFrame,
-            targetScale: cardExpandTargetScale(sourceFrame: sourceFrame, targetFrame: targetFrame),
             foregroundView: foregroundView,
             underlayView: underlayView
         )
@@ -3626,10 +3537,12 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         itemSnapshots: [MobilePlayerBrowserItemSnapshot],
         otherCardsRevealProgress: CGFloat
     ) -> CardTransitionUnderlayView {
+        playerViewController.setCardTransitionCanvasActive(true)
+        playerViewController.view.layoutIfNeeded()
         let underlayView = CardTransitionUnderlayView(itemSnapshots: itemSnapshots)
-        underlayView.frame = view.bounds
+        underlayView.frame = cardTransitionCanvasView.bounds
         underlayView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        view.insertSubview(underlayView, belowSubview: playerNavigationController.view)
+        cardTransitionCanvasView.addSubview(underlayView)
         underlayView.setOtherCardsRevealProgress(otherCardsRevealProgress)
         underlayView.setNeedsLayout()
         underlayView.layoutIfNeeded()
@@ -3668,8 +3581,8 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
     }
 
     private func makeCardTransitionSnapshotView(sourceFrame: CGRect) -> UIView? {
-        let sourceFrameInPlayer = view.convert(sourceFrame, to: playerNavigationController.view)
-        guard let snapshot = playerNavigationController.view.resizableSnapshotView(
+        let sourceFrameInPlayer = cardTransitionCanvasView.convert(sourceFrame, to: view)
+        guard let snapshot = view.resizableSnapshotView(
             from: sourceFrameInPlayer,
             afterScreenUpdates: false,
             withCapInsets: .zero
@@ -3695,14 +3608,14 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         for descriptor: DownloadableMediaDescriptor?,
         fallbackImageSize: CGSize
     ) -> CGRect {
-        let playerBounds = playerNavigationController.view.bounds
+        let playerBounds = view.bounds
         if descriptor?.isNativeMetalCard == true {
             let nativeCardFrame = NativeMetalCardLayout.cardContentRect(in: playerBounds.size)
             let clippedNativeCardFrame = nativeCardFrame.intersection(playerBounds)
             guard !clippedNativeCardFrame.isNull, !clippedNativeCardFrame.isEmpty else {
-                return playerNavigationController.view.convert(playerBounds, to: view)
+                return view.convert(playerBounds, to: cardTransitionCanvasView)
             }
-            return playerNavigationController.view.convert(clippedNativeCardFrame, to: view)
+            return view.convert(clippedNativeCardFrame, to: cardTransitionCanvasView)
         }
 
         let frameInPlayer = MobilePlayerAspectFitLayout.centeredRect(
@@ -3711,13 +3624,13 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         )
         let clippedFrame = frameInPlayer.intersection(playerBounds)
         guard !clippedFrame.isNull, !clippedFrame.isEmpty else {
-            return playerNavigationController.view.convert(playerBounds, to: view)
+            return view.convert(playerBounds, to: cardTransitionCanvasView)
         }
-        return playerNavigationController.view.convert(clippedFrame, to: view)
+        return view.convert(clippedFrame, to: cardTransitionCanvasView)
     }
 
     private func browserItemFrameInOverlay(_ snapshot: MobilePlayerBrowserItemSnapshot) -> CGRect? {
-        let frame = view.convert(snapshot.frameInWindow, from: nil)
+        let frame = cardTransitionCanvasView.convert(snapshot.frameInWindow, from: nil)
         guard !frame.isNull,
               !frame.isInfinite,
               !frame.isEmpty,
@@ -3735,14 +3648,6 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         cardTransitionTargetScale(sourceFrame: sourceFrame, targetFrame: targetFrame, fallback: 0.5)
     }
 
-    private func cardExpandTargetScale(sourceFrame: CGRect, targetFrame: CGRect) -> CGFloat {
-        cardTransitionTargetScale(
-            sourceFrame: sourceFrame,
-            targetFrame: targetFrame,
-            fallback: MobilePlayerGestureTuning.cardExpandPinchFullProgressScale
-        )
-    }
-
     private func cardTransitionTargetScale(
         sourceFrame: CGRect,
         targetFrame: CGRect?,
@@ -3757,17 +3662,6 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         return min(targetFrame.width / sourceFrame.width, targetFrame.height / sourceFrame.height)
     }
 
-    private func cardExpandPinchSelection(
-        for gesture: CardLayoutPinchGestureRecognizer
-    ) -> MobilePlayerBrowserTransitionSelection? {
-        let location = gesture.initialPinchLocation(in: playerNavigationController.view)
-        guard canUseCardExpandPinchSelection(at: location) else {
-            return nil
-        }
-
-        return chrome.collectionBrowserSelection(at: location, in: playerNavigationController.view)
-    }
-
     private func cardTransitionDragOffset(
         translation: CGPoint,
         easedProgress: CGFloat
@@ -3775,119 +3669,6 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         CGPoint(
             x: translation.x * (1 - Self.cardTransitionHorizontalDragDamping * easedProgress),
             y: translation.y * (1 - Self.cardTransitionVerticalDragDamping * easedProgress)
-        )
-    }
-
-    private func rubberBandedCardExpandCenter(
-        _ center: CGPoint,
-        displayedSize: CGSize,
-        inside containingRect: CGRect
-    ) -> CGPoint {
-        guard !containingRect.isNull,
-              containingRect.width > 0,
-              containingRect.height > 0 else {
-            return center
-        }
-
-        return CGPoint(
-            x: rubberBandedCardExpandCenterAxis(
-                center.x,
-                contentLength: displayedSize.width,
-                minBound: containingRect.minX,
-                maxBound: containingRect.maxX
-            ),
-            y: rubberBandedCardExpandCenterAxis(
-                center.y,
-                contentLength: displayedSize.height,
-                minBound: containingRect.minY,
-                maxBound: containingRect.maxY
-            )
-        )
-    }
-
-    private func rubberBandedCardExpandCenterAxis(
-        _ value: CGFloat,
-        contentLength: CGFloat,
-        minBound: CGFloat,
-        maxBound: CGFloat
-    ) -> CGFloat {
-        let boundsLength = max(maxBound - minBound, 1)
-        let halfExtent = contentLength / 2
-        let allowedRange: ClosedRange<CGFloat>
-        if contentLength <= boundsLength {
-            allowedRange = (minBound + halfExtent)...(maxBound - halfExtent)
-        } else {
-            allowedRange = (maxBound - halfExtent)...(minBound + halfExtent)
-        }
-
-        if value < allowedRange.lowerBound {
-            return allowedRange.lowerBound - rubberBandedCardExpandOvershoot(
-                allowedRange.lowerBound - value,
-                dimension: boundsLength
-            )
-        }
-        if value > allowedRange.upperBound {
-            return allowedRange.upperBound + rubberBandedCardExpandOvershoot(
-                value - allowedRange.upperBound,
-                dimension: boundsLength
-            )
-        }
-
-        return value
-    }
-
-    private func rubberBandedCardExpandOvershoot(_ overshoot: CGFloat, dimension: CGFloat) -> CGFloat {
-        rubberBandOvershoot(
-            overshoot,
-            dimension: dimension,
-            resistance: MobilePlayerGestureTuning.cardExpandPinchCenterRubberBandResistance
-        )
-    }
-
-    private func cardExpandTargetPullProgress(scale: CGFloat, targetScale: CGFloat) -> CGFloat {
-        let activationScale = MobilePlayerGestureTuning.cardExpandPinchActivationScale
-        let rampDistance = MobilePlayerGestureTuning.cardExpandPinchTargetPullRampScaleDistance
-        let rampProgress = min(max((scale - activationScale) / rampDistance, 0), 1)
-        let targetScale = max(targetScale, activationScale + 0.01)
-        let scaleProgress = min(max((scale - activationScale) / (targetScale - activationScale), 0), 1)
-        let earlyScalePull = pow(1 - scaleProgress, 2)
-        let minimumPullProgress = MobilePlayerGestureTuning.cardExpandPinchMinimumTargetPullProgress
-        let maximumPullProgress = MobilePlayerGestureTuning.cardExpandPinchMaximumTargetPullProgress
-        let pullProgress = minimumPullProgress
-            + (maximumPullProgress - minimumPullProgress) * earlyScalePull
-
-        return rampProgress * pullProgress
-    }
-
-    private func cardExpandPresentationScale(forPinchScale pinchScale: CGFloat, targetScale: CGFloat) -> CGFloat {
-        let scale = max(pinchScale, 1)
-        let targetScale = max(targetScale, 1)
-        guard scale > targetScale else { return scale }
-
-        let overscale = scale - targetScale
-        let rubberBandedOverscale = rubberBandOvershoot(
-            overscale,
-            dimension: targetScale,
-            resistance: MobilePlayerGestureTuning.cardExpandPinchOverscaleResistance
-        )
-        return targetScale + rubberBandedOverscale
-    }
-
-    private func rubberBandOvershoot(
-        _ overshoot: CGFloat,
-        dimension: CGFloat,
-        resistance: CGFloat
-    ) -> CGFloat {
-        let dimension = max(dimension, 1)
-        let scaledOvershoot = abs(overshoot) * resistance / dimension
-        return dimension * (1 - 1 / (scaledOvershoot + 1))
-    }
-
-    private func interpolatedPoint(from sourcePoint: CGPoint, to targetPoint: CGPoint, progress: CGFloat) -> CGPoint {
-        let progress = min(max(progress, 0), 1)
-        return CGPoint(
-            x: sourcePoint.x + (targetPoint.x - sourcePoint.x) * progress,
-            y: sourcePoint.y + (targetPoint.y - sourcePoint.y) * progress
         )
     }
 
@@ -3923,6 +3704,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
 
         context?.foregroundView.removeFromSuperview()
         context?.underlayView.removeFromSuperview()
+        updateCardTransitionCanvasVisibility()
     }
 
     private func cleanupCardExpandTransition(revealPlayer: Bool) {
@@ -3930,7 +3712,6 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         activeCardExpandContext = nil
         isCardExpandAnimationComplete = false
         isCardExpandLayoutApplied = false
-        resetCardExpandPinchState()
 
         if revealPlayer {
             revealPlayerAfterCardTransition()
@@ -3938,101 +3719,19 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
 
         context?.foregroundView.removeFromSuperview()
         context?.underlayView.removeFromSuperview()
+        updateCardTransitionCanvasVisibility()
     }
 
     private func revealPlayerAfterCardTransition() {
         chrome.setPlayerContentHiddenForCardTransition(false)
-        playerNavigationController.view.alpha = 1
-        playerNavigationController.view.transform = .identity
+        view.alpha = 1
+        view.transform = .identity
     }
 
-    private func applyDismissPresentation(offsetY: CGFloat, progress: CGFloat) {
-        let clampedProgress = min(max(progress, 0), 1)
-        let underlayFadeProgress = min(clampedProgress / MobilePlayerGestureTuning.dismissUnderlayFadeCompletionProgress, 1)
-
-        playerNavigationController.view.transform = CGAffineTransform(translationX: 0, y: offsetY)
-        dimmingView.alpha = 1 - easeOutQuadratic(underlayFadeProgress)
-    }
-
-    private func resetDismissTransform() {
-        setDismissStatusBarRevealed(false)
-        UIView.animate(withDuration: 0.3, delay: 0, usingSpringWithDamping: 0.85, initialSpringVelocity: 0, options: [.beginFromCurrentState], animations: {
-            self.playerNavigationController.view.transform = .identity
-            self.dimmingView.alpha = 1
-        }, completion: { _ in
-            guard !self.isPlayerDismissGestureActive,
-                  !self.isDismissing else { return }
-            self.restorePlayerDismissBackgrounds()
-        })
-    }
-
-    private func setPlayerBackgroundColor(_ color: UIColor) {
-        guard isViewLoaded else { return }
-
-        dimmingView.backgroundColor = color
-    }
-
-    private func startDismissBackgroundClearing() {
-        makePlayerDismissBackgroundsTransparent()
-        scheduleDismissBackgroundClearPasses(Self.dismissGestureBackgroundClearPasses)
-    }
-
-    private func scheduleDismissBackgroundClearPasses(_ remainingPasses: Int) {
-        guard remainingPasses > 0, isPlayerDismissGestureActive || isDismissing else { return }
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + Self.dismissBackgroundClearPassDelay) { [weak self] in
-            guard let self else { return }
-            guard self.isPlayerDismissGestureActive || self.isDismissing else { return }
-
-            self.makePlayerDismissBackgroundsTransparent()
-            self.scheduleDismissBackgroundClearPasses(remainingPasses - 1)
-        }
-    }
-
-    private func makePlayerDismissBackgroundsTransparent() {
-        guard let rootView = playerNavigationController.view else { return }
-
-        ([rootView] + rootView.allSubviews(ofType: UIView.self)).forEach { view in
-            guard shouldClearDismissBackground(view, relativeTo: rootView) else { return }
-            if !hasDismissBackgroundSnapshot(for: view) {
-                dismissBackgroundSnapshots.append(
-                    PlayerBackgroundSnapshot(
-                        view: view,
-                        backgroundColor: view.backgroundColor,
-                        isOpaque: view.isOpaque
-                    )
-                )
-            }
-            view.makeBackgroundTransparent()
-        }
-    }
-
-    private func shouldClearDismissBackground(_ view: UIView, relativeTo rootView: UIView) -> Bool {
-        guard isOpaquePlayerBackground(view.backgroundColor) else { return false }
-        guard view === rootView || !rootView.bounds.isEmpty else { return view === rootView }
-
-        let boundsInRoot = view.convert(view.bounds, to: rootView)
-        return boundsInRoot.width >= rootView.bounds.width * 0.85
-            && boundsInRoot.height >= rootView.bounds.height * 0.85
-    }
-
-    private func hasDismissBackgroundSnapshot(for view: UIView) -> Bool {
-        dismissBackgroundSnapshots.contains { $0.view === view }
-    }
-
-    private func restorePlayerDismissBackgrounds() {
-        dismissBackgroundSnapshots.forEach { snapshot in
-            snapshot.view?.backgroundColor = snapshot.backgroundColor
-            snapshot.view?.isOpaque = snapshot.isOpaque
-        }
-        dismissBackgroundSnapshots.removeAll()
-    }
-
-    private func isOpaquePlayerBackground(_ color: UIColor?) -> Bool {
-        guard let color else { return false }
-
-        return color.isOpaqueAndVisuallyEqual(to: chrome.playerBackgroundColor)
-            || color.isOpaqueAndVisuallyEqual(to: MobilePlayerBackgroundColor.defaultColor)
+    private func updateCardTransitionCanvasVisibility() {
+        playerViewController.setCardTransitionCanvasActive(
+            activeCardMinimizeContext != nil || activeCardExpandContext != nil
+        )
     }
 
     private func easeOutQuadratic(_ progress: CGFloat) -> CGFloat {
@@ -4040,26 +3739,9 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         return 1 - pow(1 - clampedProgress, 2)
     }
 
-    private var isPlayerDismissGestureActive: Bool {
-        isDismissPanDrivingPlayerDismiss || isPlayerDismissPinchDrivingPlayerDismiss
-    }
-
-    private func setDismissStatusBarRevealed(_ isRevealed: Bool) {
-        guard chrome.isStatusBarRevealedByDismiss != isRevealed else { return }
-
-        UIView.animate(withDuration: playerStatusBarRevealDuration, delay: 0, options: [.beginFromCurrentState, .allowUserInteraction]) {
-            withAnimation(playerStatusBarRevealAnimation) {
-                self.chrome.setStatusBarRevealedByDismiss(isRevealed)
-            }
-            self.setNeedsStatusBarAppearanceUpdate()
-            self.playerNavigationController.setNeedsStatusBarAppearanceUpdate()
-            self.playerNavigationController.topViewController?.setNeedsStatusBarAppearanceUpdate()
-        }
-    }
-
     func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
         if gestureRecognizer === navigationBarTap {
-            guard !isDismissing, !isCardTransitionActive else {
+            guard !isCardTransitionActive else {
                 return false
             }
 
@@ -4072,7 +3754,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
                 return false
             }
 
-            let location = controlsPan.location(in: playerNavigationController.view)
+            let location = controlsPan.location(in: view)
             guard !hasZoomedPlayerContent(at: location) else {
                 return false
             }
@@ -4085,14 +3767,6 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
             return canBeginCardMinimizePinch()
         }
 
-        if gestureRecognizer === playerDismissPinch {
-            return canBeginPlayerDismissPinch()
-        }
-
-        if gestureRecognizer === cardExpandPinch {
-            return canBeginCardExpandPinch()
-        }
-
         if gestureRecognizer === pinchRotation {
             return canBeginPinchRotation()
         }
@@ -4100,26 +3774,26 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
         guard gestureRecognizer === dismissPan else {
             return true
         }
-        guard !isDismissing else {
-            return false
-        }
-        guard !isCardTransitionActive else {
+        guard playerNavigationController.topViewController === playerViewController,
+              playerNavigationController.transitionCoordinator == nil,
+              !isCardTransitionActive,
+              !chrome.isCollectionBrowserActive else {
             return false
         }
 
-        let location = dismissPan.location(in: playerNavigationController.view)
+        let location = dismissPan.location(in: view)
         let velocity = dismissPan.velocity(in: view)
 
         guard !hasZoomedPlayerContent(at: location) else {
             return false
         }
 
-        if chrome.isCollectionBrowserActive {
-            return chrome.isCollectionBrowserAtTopBoundary
-                && hasPlayerDismissIntent(location: location, velocity: velocity)
-        }
+        let canMinimizeToCollectionBrowser = hasPlayerDismissIntent(
+            location: location,
+            velocity: velocity
+        ) && cardMinimizeAvailability(at: location).canMinimize
 
-        return hasPlayerDismissIntent(location: location, velocity: velocity)
+        return canMinimizeToCollectionBrowser
             || (chrome.showControls && hasControlsHideIntent(location: location, velocity: velocity))
     }
 
@@ -4181,36 +3855,15 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
     }
 
     private func canBeginCardMinimizePinch() -> Bool {
-        canBeginCardMinimizeInteraction(location: cardMinimizePinch.pinchLocation(in: playerNavigationController.view))
-    }
-
-    private func canBeginPlayerDismissPinch() -> Bool {
-        canBeginPlayerDismissPinch(location: playerDismissPinch.pinchLocation(in: playerNavigationController.view))
-    }
-
-    private func canBeginPlayerDismissPinch(location: CGPoint) -> Bool {
-        guard !isDismissing,
-              !isCardTransitionActive,
-              !chrome.isPlayerContentZoomed,
-              playerNavigationController.view.bounds.contains(location) else {
-            return false
-        }
-
-        return !cardMinimizeAvailability(at: location).canMinimize
+        canBeginCardMinimizeInteraction(location: cardMinimizePinch.pinchLocation(in: view))
     }
 
     private func canBeginPinchRotation() -> Bool {
-        if isPlayerDismissPinchDrivingPlayerDismiss
-            || isCardMinimizePinchDrivingCardMinimize {
+        if isCardMinimizePinchDrivingCardMinimize {
             return true
         }
 
-        let location = pinchRotation.location(in: playerNavigationController.view)
-        if playerDismissPinch.isTrackingPinch,
-           canBeginPlayerDismissPinch(location: location) {
-            return true
-        }
-
+        let location = pinchRotation.location(in: view)
         guard cardMinimizePinch.isTrackingPinch else {
             return false
         }
@@ -4219,40 +3872,19 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
     }
 
     private func canBeginCardMinimizeInteraction(location: CGPoint) -> Bool {
-        guard !isDismissing,
-              !isCardTransitionActive else {
+        guard !isCardTransitionActive else {
             return false
         }
 
         return cardMinimizeAvailability(at: location).canMinimize
     }
 
-    private func canBeginCardExpandPinch() -> Bool {
-        canSelectCardExpandPinch(for: cardExpandPinch)
-    }
-
-    private func canSelectCardExpandPinch(for gesture: CardLayoutPinchGestureRecognizer) -> Bool {
-        let location = gesture.initialPinchLocation(in: playerNavigationController.view)
-        guard canUseCardExpandPinchSelection(at: location) else {
-            return false
-        }
-
-        return chrome.canSelectCollectionBrowserItem(at: location, in: playerNavigationController.view)
-    }
-
-    private func canUseCardExpandPinchSelection(at location: CGPoint) -> Bool {
-        !isDismissing
-            && !isCardTransitionActive
-            && !chrome.isPlayerContentZoomed
-            && playerNavigationController.view.bounds.contains(location)
-    }
-
     private func hasZoomedPlayerContent(at location: CGPoint) -> Bool {
-        chrome.isPlayerContentZoomed && playerNavigationController.view.bounds.contains(location)
+        chrome.isPlayerContentZoomed && view.bounds.contains(location)
     }
 
     private func hasPlayerDismissIntent(location: CGPoint, velocity: CGPoint) -> Bool {
-        let bounds = playerNavigationController.view.bounds
+        let bounds = view.bounds
 
         return bounds.contains(location)
             && velocity.y > MobilePlayerGestureTuning.dismissInitialVelocity
@@ -4271,7 +3903,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
     }
 
     private func cardMinimizeAvailability(at location: CGPoint) -> CardMinimizeAvailability {
-        guard playerNavigationController.view.bounds.contains(location),
+        guard view.bounds.contains(location),
               !isCardTransitionActive,
               !chrome.isPlayerContentZoomed else {
             return .empty
@@ -4285,7 +3917,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
     }
 
     private func hasControlsRevealIntent(location: CGPoint, velocity: CGPoint) -> Bool {
-        playerNavigationController.view.bounds.contains(location)
+        view.bounds.contains(location)
             && velocity.y < -MobilePlayerGestureTuning.controlsRevealVelocity
             && abs(velocity.y) > abs(velocity.x) * MobilePlayerGestureTuning.controlsRevealVerticalIntentRatio
     }
@@ -4308,7 +3940,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
     }
 
     private func isHorizontalPlayerScrollActive() -> Bool {
-        playerNavigationController.view
+        playerViewController.view
             .allSubviews(ofType: UIScrollView.self)
             .contains { scrollView in
                 let panGesture = scrollView.panGestureRecognizer
@@ -4320,7 +3952,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
     }
 
     private func hasControlsHideIntent(location: CGPoint, velocity: CGPoint) -> Bool {
-        playerNavigationController.view.bounds.contains(location)
+        view.bounds.contains(location)
             && velocity.y > 0
             && velocity.y > abs(velocity.x)
     }
@@ -4353,7 +3985,7 @@ private final class PlayerOverlayViewController: UIViewController, UIGestureReco
     }
 
     private func isRotationEnabledPinch(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
-        gestureRecognizer === playerDismissPinch || gestureRecognizer === cardMinimizePinch
+        gestureRecognizer === cardMinimizePinch
     }
 
     private func currentPinchRotationGestureValue() -> CGFloat {

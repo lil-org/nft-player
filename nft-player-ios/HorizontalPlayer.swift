@@ -1551,23 +1551,6 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
             && collectionBrowserVC?.view.alpha == 1
     }
 
-    var isCollectionBrowserAtTopBoundary: Bool {
-        isCollectionBrowserActive && collectionBrowserVC?.isAtTopBoundary == true
-    }
-
-    func canSelectCollectionBrowserItem(at location: CGPoint, in coordinateView: UIView) -> Bool {
-        guard displayMode == .collectionBrowser else { return false }
-        return collectionBrowserVC?.canSelectItem(at: location, in: coordinateView) == true
-    }
-
-    func collectionBrowserSelection(
-        at location: CGPoint,
-        in coordinateView: UIView
-    ) -> MobilePlayerBrowserTransitionSelection? {
-        guard displayMode == .collectionBrowser else { return nil }
-        return collectionBrowserVC?.transitionSelection(at: location, in: coordinateView)
-    }
-
     func prepareCollectionBrowserSelection(
         for pagePosition: PlayerPagePosition
     ) -> MobilePlayerBrowserTransitionSelection? {
