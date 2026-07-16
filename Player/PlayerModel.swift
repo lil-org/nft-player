@@ -189,7 +189,7 @@ class PlayerModel: ObservableObject {
     var currentProgress: PlayerViewingProgress? {
         if isCurrentTokenInsertedWidgetToken,
            let widgetTokenInsertion {
-            return widgetTokenInsertion.updatedAnchorProgress()
+            return widgetTokenInsertion.automaticAnchorProgress()
         }
         return progress(for: currentToken)
     }
@@ -246,7 +246,7 @@ class PlayerModel: ObservableObject {
     @discardableResult
     func markTokenViewed(_ token: GeneratedToken) -> PlayerViewingProgress? {
         let progress = shouldRecordAnchorProgress(for: token)
-            ? widgetTokenInsertion?.updatedAnchorProgress()
+            ? widgetTokenInsertion?.automaticAnchorProgress()
             : progress(for: token)
         guard let progress else { return nil }
         viewingSessionTracker.markViewed(progress)
@@ -295,8 +295,10 @@ class PlayerModel: ObservableObject {
     private func adjacentToken(offset: Int) -> GeneratedToken? {
         if isCurrentTokenInsertedWidgetToken,
            let widgetTokenInsertion {
-            let targetIndex = widgetTokenInsertion.tokenIndex(adjacentToInsertedTokenBy: offset)
-            guard targetIndex >= 0,
+            guard let targetIndex = widgetTokenInsertion.tokenIndex(
+                adjacentToInsertedTokenBy: offset
+            ),
+                  targetIndex >= 0,
                   targetIndex < widgetTokenInsertion.anchorProgress.tokenCount else {
                 return nil
             }

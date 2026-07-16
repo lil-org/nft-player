@@ -271,10 +271,12 @@ struct VisionCollectionsView: View {
         guard let item = randomCollectionItemPreferringUnfinishedCollections() else { return }
         let progress = PlayerViewingProgressStore.progress(collectionId: item.id)
         let initialTokenId = progress?.isComplete == false ? progress?.tokenId : nil
+        let initialTokenIndex = progress?.isComplete == false ? progress?.tokenIndex : nil
 
         openPlayer(
             initialItemId: item.id,
             initialTokenId: initialTokenId,
+            initialTokenIndex: initialTokenIndex,
             continueViewingCollectionId: item.id
         )
     }
@@ -428,6 +430,7 @@ struct VisionCollectionsView: View {
         openPlayer(
             initialItemId: progress.collectionId,
             initialTokenId: progress.tokenId,
+            initialTokenIndex: progress.tokenIndex,
             continueViewingCollectionId: progress.collectionId,
             trackingMode: trackingMode
         )
@@ -478,12 +481,15 @@ struct VisionCollectionsView: View {
             trackingMode: trackingMode,
             widgetTokenInsertion: widgetTokenInsertion
         )
-        PlayerViewingProgressStore.save(widgetTokenInsertion.updatedAnchorProgress())
+        if let anchorProgress = widgetTokenInsertion.automaticAnchorProgress() {
+            PlayerViewingProgressStore.save(anchorProgress)
+        }
     }
 
     private func openPlayer(
         initialItemId: String?,
         initialTokenId: String? = nil,
+        initialTokenIndex: Int? = nil,
         continueViewingCollectionId: String,
         trackingMode: PlayerViewingSessionTrackingMode = .updateContinueViewing,
         widgetTokenInsertion: PlayerWidgetTokenInsertion? = nil
@@ -497,6 +503,7 @@ struct VisionCollectionsView: View {
         let config = VisionPlayerPrewarmer.preparedConfig(
             initialItemId: initialItemId,
             initialTokenId: initialTokenId,
+            initialTokenIndex: initialTokenIndex,
             continueViewingCollectionId: continueViewingCollectionId,
             trackingMode: trackingMode,
             widgetTokenInsertion: widgetTokenInsertion

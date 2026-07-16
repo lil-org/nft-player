@@ -3,10 +3,9 @@
 import UIKit
 import SwiftUI
 
-enum MobilePlayerPageLayoutMetrics {
-    static let spreadCardSpacing: CGFloat = 4
-    static let denseSpreadCardSpacing: CGFloat = 4
-    static let denseSpreadScreenEdgeInset: CGFloat = 2
+enum MobilePlayerBrowserLayoutMetrics {
+    static let itemSpacing: CGFloat = 4
+    static let screenEdgeInset: CGFloat = 2
 }
 
 enum MobilePlayerAspectFitLayout {
@@ -27,6 +26,30 @@ enum MobilePlayerAspectFitLayout {
             height: contentSize.height * scale
         )
     }
+
+    static func centeredRect(for contentSize: CGSize, in bounds: CGRect) -> CGRect {
+        let fittedSize = size(for: contentSize, fitting: bounds.size)
+        guard fittedSize.width > 0, fittedSize.height > 0 else { return bounds }
+
+        return CGRect(
+            x: bounds.midX - fittedSize.width / 2,
+            y: bounds.midY - fittedSize.height / 2,
+            width: fittedSize.width,
+            height: fittedSize.height
+        )
+    }
+}
+
+extension CGSize {
+    var validOrDefault: CGSize {
+        guard width.isFinite,
+              height.isFinite,
+              width > 0,
+              height > 0 else {
+            return CGSize(width: 1, height: 1)
+        }
+        return self
+    }
 }
 
 struct PlayerMediaPlaceholderSpec: Equatable {
@@ -43,15 +66,47 @@ struct PlayerMediaPlaceholderSpec: Equatable {
         thumbnailAspectRatio: ThumbnailAspectRatio?,
         usesNativeMetalCardCornerMask: Bool = false
     ) {
-        aspectSize = thumbnailAspectRatio?.size ?? CGSize(width: 1, height: 1)
-        self.usesNativeMetalCardCornerMask = usesNativeMetalCardCornerMask
+        self.init(
+            aspectSize: thumbnailAspectRatio?.size ?? CGSize(width: 1, height: 1),
+            usesNativeMetalCardCornerMask: usesNativeMetalCardCornerMask
+        )
     }
 
-    init(descriptor: CollectionCatalogDownloadableMediaDescriptor) {
-        self.init(
-            thumbnailAspectRatio: descriptor.thumbnailAspectRatio,
-            usesNativeMetalCardCornerMask: descriptor.isNativeMetalCard
-        )
+    init(
+        aspectSize: CGSize,
+        usesNativeMetalCardCornerMask: Bool = false
+    ) {
+        self.aspectSize = aspectSize.validOrDefault
+        self.usesNativeMetalCardCornerMask = usesNativeMetalCardCornerMask
+    }
+}
+
+private enum NativeMetalCardCornerMask {
+    static func update(
+        layer: CALayer,
+        bounds: CGRect,
+        isEnabled: Bool,
+        appliedBounds: inout CGRect?
+    ) {
+        guard isEnabled,
+              bounds.width > 0,
+              bounds.height > 0 else {
+            layer.mask = nil
+            appliedBounds = nil
+            return
+        }
+
+        guard appliedBounds != bounds || !(layer.mask is CAShapeLayer) else { return }
+
+        let maskLayer = (layer.mask as? CAShapeLayer) ?? CAShapeLayer()
+        maskLayer.frame = bounds
+        maskLayer.path = UIBezierPath(
+            roundedRect: bounds,
+            byRoundingCorners: .allCorners,
+            cornerRadii: NativeMetalCardLayout.cardCornerRadii(in: bounds.size)
+        ).cgPath
+        layer.mask = maskLayer
+        appliedBounds = bounds
     }
 }
 
@@ -65,11 +120,6 @@ final class PlayerMediaPlaceholderView: UIView {
     override init(frame: CGRect) {
         super.init(frame: frame)
         setUp()
-    }
-
-    convenience init(spec: PlayerMediaPlaceholderSpec) {
-        self.init(frame: .zero)
-        configure(with: spec)
     }
 
     @available(*, unavailable)
@@ -136,7 +186,7 @@ final class PlayerMediaPlaceholderView: UIView {
             return
         }
 
-        shapeLayer.frame = MobileStaticImageSpreadLayout.centeredAspectFitRect(
+        shapeLayer.frame = MobilePlayerAspectFitLayout.centeredRect(
             for: spec.aspectSize,
             in: bounds
         )
@@ -152,28 +202,12 @@ final class PlayerMediaPlaceholderView: UIView {
     }
 
     private func updateNativeMetalCardCornerMask() {
-        guard spec?.usesNativeMetalCardCornerMask == true,
-              shapeLayer.bounds.width > 0,
-              shapeLayer.bounds.height > 0 else {
-            shapeLayer.mask = nil
-            appliedNativeMetalCardMaskBounds = nil
-            return
-        }
-
-        if appliedNativeMetalCardMaskBounds == shapeLayer.bounds,
-           shapeLayer.mask is CAShapeLayer {
-            return
-        }
-
-        let maskLayer = (shapeLayer.mask as? CAShapeLayer) ?? CAShapeLayer()
-        maskLayer.frame = shapeLayer.bounds
-        maskLayer.path = UIBezierPath(
-            roundedRect: shapeLayer.bounds,
-            byRoundingCorners: .allCorners,
-            cornerRadii: NativeMetalCardLayout.cardCornerRadii(in: shapeLayer.bounds.size)
-        ).cgPath
-        shapeLayer.mask = maskLayer
-        appliedNativeMetalCardMaskBounds = shapeLayer.bounds
+        NativeMetalCardCornerMask.update(
+            layer: shapeLayer,
+            bounds: shapeLayer.bounds,
+            isEnabled: spec?.usesNativeMetalCardCornerMask == true,
+            appliedBounds: &appliedNativeMetalCardMaskBounds
+        )
     }
 }
 
@@ -194,263 +228,12 @@ final class NativeMetalCardCornerMaskedImageView: UIImageView {
     }
 
     private func updateNativeMetalCardCornerMask() {
-        guard usesNativeMetalCardCornerMask,
-              bounds.width > 0,
-              bounds.height > 0 else {
-            if layer.mask != nil {
-                layer.mask = nil
-            }
-            appliedNativeMetalCardMaskBounds = nil
-            return
-        }
-
-        if appliedNativeMetalCardMaskBounds == bounds,
-           layer.mask is CAShapeLayer {
-            return
-        }
-
-        let maskLayer: CAShapeLayer
-        if let existingMaskLayer = layer.mask as? CAShapeLayer {
-            maskLayer = existingMaskLayer
-        } else {
-            maskLayer = CAShapeLayer()
-            layer.mask = maskLayer
-        }
-
-        maskLayer.frame = bounds
-        maskLayer.path = UIBezierPath(
-            roundedRect: bounds,
-            byRoundingCorners: .allCorners,
-            cornerRadii: NativeMetalCardLayout.cardCornerRadii(in: bounds.size)
-        ).cgPath
-        appliedNativeMetalCardMaskBounds = bounds
-    }
-}
-
-struct MobileStaticImageSpreadGrid: Equatable {
-    let columnCount: Int
-    let rowCount: Int
-    let spacing: CGFloat
-    let screenEdgeInset: CGFloat
-
-    static func grid(
-        for pageLayout: MobilePlayerPageLayout,
-        imageCount: Int,
-        fitting viewportSize: CGSize
-    ) -> MobileStaticImageSpreadGrid? {
-        guard imageCount > 0,
-              imageCount <= pageLayout.pageSize else {
-            return nil
-        }
-
-        switch pageLayout {
-        case .fourPerPage:
-            return MobileStaticImageSpreadGrid(
-                columnCount: 2,
-                rowCount: 2,
-                spacing: MobilePlayerPageLayoutMetrics.denseSpreadCardSpacing,
-                screenEdgeInset: MobilePlayerPageLayoutMetrics.denseSpreadScreenEdgeInset
-            )
-        case .sixPerPage:
-            let usesHorizontalLayout = viewportSize.width >= viewportSize.height
-            return MobileStaticImageSpreadGrid(
-                columnCount: usesHorizontalLayout ? 3 : 2,
-                rowCount: usesHorizontalLayout ? 2 : 3,
-                spacing: MobilePlayerPageLayoutMetrics.denseSpreadCardSpacing,
-                screenEdgeInset: MobilePlayerPageLayoutMetrics.denseSpreadScreenEdgeInset
-            )
-        case .twelvePerPage:
-            let usesHorizontalLayout = viewportSize.width > viewportSize.height
-            return MobileStaticImageSpreadGrid(
-                columnCount: usesHorizontalLayout ? 4 : 3,
-                rowCount: usesHorizontalLayout ? 3 : 4,
-                spacing: MobilePlayerPageLayoutMetrics.denseSpreadCardSpacing,
-                screenEdgeInset: MobilePlayerPageLayoutMetrics.denseSpreadScreenEdgeInset
-            )
-        case .fifteenPerPage:
-            let usesHorizontalLayout = viewportSize.width > viewportSize.height
-            return MobileStaticImageSpreadGrid(
-                columnCount: usesHorizontalLayout ? 5 : 3,
-                rowCount: usesHorizontalLayout ? 3 : 5,
-                spacing: MobilePlayerPageLayoutMetrics.denseSpreadCardSpacing,
-                screenEdgeInset: MobilePlayerPageLayoutMetrics.denseSpreadScreenEdgeInset
-            )
-        case .onePerPage:
-            return nil
-        }
-    }
-}
-
-struct MobileStaticImageSpreadLayout: Equatable {
-    let pageLayout: MobilePlayerPageLayout
-    let imageSizes: [CGSize]
-
-    func contentSize(fitting viewportSize: CGSize) -> CGSize {
-        guard !imageSizes.isEmpty else { return viewportSize }
-
-        if let grid = grid(fitting: viewportSize) {
-            return gridContentSize(fitting: viewportSize, grid: grid)
-        }
-
-        let axis = linearAxis(fitting: viewportSize)
-        let imageCount = CGFloat(imageSizes.count)
-        let totalSpacing = CGFloat(imageSizes.count - 1) * MobilePlayerPageLayoutMetrics.spreadCardSpacing
-        let maximumSlotSize: CGSize
-        switch axis {
-        case .horizontal:
-            maximumSlotSize = CGSize(
-                width: max((viewportSize.width - totalSpacing) / imageCount, 0),
-                height: viewportSize.height
-            )
-        case .vertical:
-            maximumSlotSize = CGSize(
-                width: viewportSize.width,
-                height: max((viewportSize.height - totalSpacing) / imageCount, 0)
-            )
-        @unknown default:
-            maximumSlotSize = viewportSize
-        }
-
-        let slotSize = imageSlotSize(fitting: maximumSlotSize)
-        switch axis {
-        case .horizontal:
-            return CGSize(
-                width: slotSize.width * imageCount + totalSpacing,
-                height: slotSize.height
-            )
-        case .vertical:
-            return CGSize(
-                width: slotSize.width,
-                height: slotSize.height * imageCount + totalSpacing
-            )
-        @unknown default:
-            return slotSize
-        }
-    }
-
-    func axis(fitting viewportSize: CGSize) -> NSLayoutConstraint.Axis? {
-        guard grid(fitting: viewportSize) == nil else { return nil }
-        return linearAxis(fitting: viewportSize)
-    }
-
-    func grid(fitting viewportSize: CGSize) -> MobileStaticImageSpreadGrid? {
-        MobileStaticImageSpreadGrid.grid(
-            for: pageLayout,
-            imageCount: imageSizes.count,
-            fitting: viewportSize
+        NativeMetalCardCornerMask.update(
+            layer: layer,
+            bounds: bounds,
+            isEnabled: usesNativeMetalCardCornerMask,
+            appliedBounds: &appliedNativeMetalCardMaskBounds
         )
-    }
-
-    func itemFrames(fitting viewportSize: CGSize) -> [CGRect] {
-        guard !imageSizes.isEmpty,
-              viewportSize.width > 0,
-              viewportSize.height > 0 else {
-            return []
-        }
-
-        let contentSize = contentSize(fitting: viewportSize)
-        let contentOrigin = CGPoint(
-            x: (viewportSize.width - contentSize.width) / 2,
-            y: (viewportSize.height - contentSize.height) / 2
-        )
-
-        if let grid = grid(fitting: viewportSize) {
-            let spacing = grid.spacing
-            let columnCount = CGFloat(grid.columnCount)
-            let rowCount = CGFloat(grid.rowCount)
-            let slotWidth = max((contentSize.width - CGFloat(grid.columnCount - 1) * spacing) / columnCount, 0)
-            let slotHeight = max((contentSize.height - CGFloat(grid.rowCount - 1) * spacing) / rowCount, 0)
-            return imageSizes.indices.map { index in
-                let column = CGFloat(index % grid.columnCount)
-                let row = CGFloat(index / grid.columnCount)
-                return CGRect(
-                    x: contentOrigin.x + column * (slotWidth + spacing),
-                    y: contentOrigin.y + row * (slotHeight + spacing),
-                    width: slotWidth,
-                    height: slotHeight
-                )
-            }
-        }
-
-        let axis = linearAxis(fitting: viewportSize)
-        let spacing = MobilePlayerPageLayoutMetrics.spreadCardSpacing
-        switch axis {
-        case .horizontal:
-            let slotWidth = max(
-                (contentSize.width - CGFloat(imageSizes.count - 1) * spacing) / CGFloat(imageSizes.count),
-                0
-            )
-            return imageSizes.indices.map { index in
-                CGRect(
-                    x: contentOrigin.x + CGFloat(index) * (slotWidth + spacing),
-                    y: contentOrigin.y,
-                    width: slotWidth,
-                    height: contentSize.height
-                )
-            }
-        case .vertical:
-            let slotHeight = max(
-                (contentSize.height - CGFloat(imageSizes.count - 1) * spacing) / CGFloat(imageSizes.count),
-                0
-            )
-            return imageSizes.indices.map { index in
-                CGRect(
-                    x: contentOrigin.x,
-                    y: contentOrigin.y + CGFloat(index) * (slotHeight + spacing),
-                    width: contentSize.width,
-                    height: slotHeight
-                )
-            }
-        @unknown default:
-            return [CGRect(origin: contentOrigin, size: contentSize)]
-        }
-    }
-
-    static func centeredAspectFitRect(for contentSize: CGSize, in bounds: CGRect) -> CGRect {
-        let fittedSize = MobilePlayerAspectFitLayout.size(for: contentSize, fitting: bounds.size)
-        guard fittedSize.width > 0, fittedSize.height > 0 else { return bounds }
-
-        return CGRect(
-            x: bounds.midX - fittedSize.width / 2,
-            y: bounds.midY - fittedSize.height / 2,
-            width: fittedSize.width,
-            height: fittedSize.height
-        )
-    }
-
-    private func linearAxis(fitting viewportSize: CGSize) -> NSLayoutConstraint.Axis {
-        viewportSize.width >= viewportSize.height ? .horizontal : .vertical
-    }
-
-    private func gridContentSize(fitting viewportSize: CGSize, grid: MobileStaticImageSpreadGrid) -> CGSize {
-        let columnCount = CGFloat(grid.columnCount)
-        let rowCount = CGFloat(grid.rowCount)
-        let horizontalSpacing = CGFloat(grid.columnCount - 1) * grid.spacing
-        let verticalSpacing = CGFloat(grid.rowCount - 1) * grid.spacing
-        let availableSize = CGSize(
-            width: max(viewportSize.width - grid.screenEdgeInset * 2, 0),
-            height: max(viewportSize.height - grid.screenEdgeInset * 2, 0)
-        )
-        let maximumSlotSize = CGSize(
-            width: max((availableSize.width - horizontalSpacing) / columnCount, 0),
-            height: max((availableSize.height - verticalSpacing) / rowCount, 0)
-        )
-        let slotSize = imageSlotSize(fitting: maximumSlotSize)
-        return CGSize(
-            width: slotSize.width * columnCount + horizontalSpacing,
-            height: slotSize.height * rowCount + verticalSpacing
-        )
-    }
-
-    private func imageSlotSize(fitting maximumSize: CGSize) -> CGSize {
-        imageSizes
-            .map { MobilePlayerAspectFitLayout.size(for: $0, fitting: maximumSize) }
-            .reduce(.zero) { result, slotSize in
-                CGSize(
-                    width: max(result.width, slotSize.width),
-                    height: max(result.height, slotSize.height)
-                )
-            }
     }
 }
 

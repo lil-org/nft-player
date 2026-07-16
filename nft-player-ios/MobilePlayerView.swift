@@ -9,6 +9,7 @@ struct MobilePlayerConfig: Hashable, Codable, Identifiable {
     var initialItemId: String?
     var specificToken: GeneratedToken?
     var initialTokenId: String?
+    var initialTokenIndex: Int?
     var continueViewingCollectionId: String?
     var trackingMode: PlayerViewingSessionTrackingMode = .updateContinueViewing
     var widgetTokenInsertion: PlayerWidgetTokenInsertion?
@@ -21,178 +22,131 @@ private let playerNavigationBarControlSize: CGFloat = 44
 private let playerProgressControlSize: CGFloat = 34
 private let playerNavigationArrowSpacing: CGFloat = 4
 
-struct MobilePlayerPageLayoutRequest {
+struct MobilePlayerDisplayModeRequest {
     let id = UUID()
-    let pageLayout: MobilePlayerPageLayout
+    let displayMode: MobilePlayerDisplayMode
     let targetPagePosition: PlayerPagePosition?
-    let completion: (() -> Void)?
+    let completion: ((Bool) -> Void)?
 }
 
-struct MobilePlayerPageLayoutRejection {
-    let pageLayoutChangeID: UUID
-    let requestedPageLayout: MobilePlayerPageLayout
+struct MobilePlayerDisplayModeRejection {
+    let displayModeChangeID: UUID
+    let requestedDisplayMode: MobilePlayerDisplayMode
     let targetPagePosition: PlayerPagePosition?
-    let currentPageLayout: MobilePlayerPageLayout
+    let currentDisplayMode: MobilePlayerDisplayMode
 }
 
-struct MobilePlayerPageLayoutApplication {
-    let pageLayoutChangeID: UUID
-    let requestedPageLayout: MobilePlayerPageLayout
+struct MobilePlayerDisplayModeApplication {
+    let displayModeChangeID: UUID
+    let requestedDisplayMode: MobilePlayerDisplayMode
     let targetPagePosition: PlayerPagePosition?
 }
 
-enum MobilePlayerStaticImageGridExpandSelectionResult {
+struct MobilePlayerDisplayModeSupersession {
+    let displayModeChangeID: UUID
+}
+
+enum MobilePlayerBrowserExpandSelectionResult {
     case started
     case busy
     case fallbackToImmediateOpen
     case rejected
 }
 
-private struct MobilePlayerPendingPageLayoutApplication {
-    let pageLayoutChangeID: UUID
-    let targetPagePosition: PlayerPagePosition?
-    let completion: () -> Void
-}
-
-private struct MobilePlayerStaticGridProgressPriority {
-    let pageLayout: MobilePlayerPageLayout
-    let progress: MobileViewingProgress
-
-    func preservesProgress(over candidate: MobileViewingProgress, in currentPageLayout: MobilePlayerPageLayout) -> Bool {
-        guard currentPageLayout == pageLayout,
-              currentPageLayout.isStaticImageGrid,
-              currentPageLayout.pageSize > 1,
-              candidate.collectionId == progress.collectionId,
-              candidate.tokenCount == progress.tokenCount,
-              candidate.tokenIndex >= 0,
-              progress.tokenIndex >= 0 else {
-            return false
-        }
-
-        let pageStartIndex = (progress.tokenIndex / currentPageLayout.pageSize) * currentPageLayout.pageSize
-        let hasFollowingPage = pageStartIndex + currentPageLayout.pageSize < progress.tokenCount
-        return hasFollowingPage && candidate.tokenIndex == pageStartIndex
-    }
-}
-
-struct MobilePlayerStaticImageGridSelection {
-    let pageLayout: MobilePlayerPageLayout
+struct MobilePlayerBrowserItemSnapshot {
+    let tokenIndex: Int
     let pagePosition: PlayerPagePosition
-    let selectedSlotIndex: Int
-    let descriptors: [DownloadableMediaDescriptor]
-    let images: [UIImage?]
-
-    init?(
-        pageLayout: MobilePlayerPageLayout,
-        pagePosition: PlayerPagePosition,
-        selectedSlotIndex: Int,
-        descriptors: [DownloadableMediaDescriptor],
-        images: [UIImage?]
-    ) {
-        guard pageLayout.isStaticImageGrid,
-              descriptors.indices.contains(selectedSlotIndex),
-              images.count == descriptors.count else {
-            return nil
-        }
-
-        let selectedDescriptor = descriptors[selectedSlotIndex]
-        guard pageLayout.supports(descriptor: selectedDescriptor) else {
-            return nil
-        }
-
-        self.pageLayout = pageLayout
-        self.pagePosition = pagePosition
-        self.selectedSlotIndex = selectedSlotIndex
-        self.descriptors = descriptors
-        self.images = images
-    }
-
-    var selectedDescriptor: DownloadableMediaDescriptor {
-        descriptors[selectedSlotIndex]
-    }
-
-    var selectedImage: UIImage? {
-        images[selectedSlotIndex]
-    }
-
-    var selectedImageSize: CGSize {
-        selectedImage?.size ?? MobilePlayerPageLayout.staticImageGridFallbackImageSize(for: selectedDescriptor)
-    }
-
-    var imageSizes: [CGSize] {
-        MobilePlayerPageLayout.staticImageGridImageSizes(for: descriptors, images: images)
-    }
-
+    let descriptor: DownloadableMediaDescriptor?
+    let fallbackImageSize: CGSize
+    let hasLoadedImage: Bool
+    let frameInWindow: CGRect
+    let snapshotView: UIView
 }
 
-protocol MobilePlayerStaticImageGridSelectionProviding: AnyObject {
-    func canSelectStaticImageGrid(at location: CGPoint, in coordinateView: UIView) -> Bool
-    func staticImageGridSelection(at location: CGPoint, in coordinateView: UIView) -> MobilePlayerStaticImageGridSelection?
+struct MobilePlayerBrowserTransitionSelection {
+    let selectedSnapshot: MobilePlayerBrowserItemSnapshot
+    let visibleNeighborSnapshots: [MobilePlayerBrowserItemSnapshot]
 }
 
-enum MobilePlayerStaticImageGridSwitchMode: Equatable {
-    case animated(descriptors: [DownloadableMediaDescriptor])
-    case direct(descriptors: [DownloadableMediaDescriptor])
+protocol MobilePlayerBrowserTransitionProviding: AnyObject {
+    var isCollectionBrowserActive: Bool { get }
+    var isCollectionBrowserAtTopBoundary: Bool { get }
+
+    func canSelectCollectionBrowserItem(at location: CGPoint, in coordinateView: UIView) -> Bool
+    func collectionBrowserSelection(
+        at location: CGPoint,
+        in coordinateView: UIView
+    ) -> MobilePlayerBrowserTransitionSelection?
+    func prepareCollectionBrowserSelection(
+        for pagePosition: PlayerPagePosition
+    ) -> MobilePlayerBrowserTransitionSelection?
+    func cancelPreparedCollectionBrowserSelection()
+}
+
+private struct MobilePlayerPendingDisplayModeApplication {
+    let displayModeChangeID: UUID
+    let requestedDisplayMode: MobilePlayerDisplayMode
+    let targetPagePosition: PlayerPagePosition?
+    let completion: (Bool) -> Void
+
+    func matches(
+        displayMode: MobilePlayerDisplayMode,
+        targetPagePosition: PlayerPagePosition?
+    ) -> Bool {
+        requestedDisplayMode == displayMode
+            && self.targetPagePosition == targetPagePosition
+    }
+}
+
+private final class MobilePlayerFocusedPagePositionUpdateCoordinator {
+    private var generation: UInt = 0
+
+    func beginUpdate() -> UInt {
+        generation &+= 1
+        return generation
+    }
+
+    func isCurrent(_ generation: UInt) -> Bool {
+        self.generation == generation
+    }
+
+    func cancelPendingUpdate() {
+        generation &+= 1
+    }
+}
+
+enum MobilePlayerBrowserSwitchMode: Equatable {
+    case animated
+    case offscreenInsertion
 }
 
 struct MobilePlayerLayoutInteractionState: Equatable {
-    let pageLayout: MobilePlayerPageLayout
-    let tokenIndex: Int?
-    let staticImageGridPageLayout: MobilePlayerPageLayout?
+    let displayMode: MobilePlayerDisplayMode
+    let pagePosition: PlayerPagePosition?
+    let browserDensity: MobilePlayerBrowserDensity?
     let currentDescriptor: DownloadableMediaDescriptor?
-    let staticImageGridSwitchMode: MobilePlayerStaticImageGridSwitchMode
+    let browserSwitchMode: MobilePlayerBrowserSwitchMode
 
     static let empty = MobilePlayerLayoutInteractionState(
-        pageLayout: .onePerPage,
-        tokenIndex: nil,
-        staticImageGridPageLayout: nil,
+        displayMode: .onePerPage,
+        pagePosition: nil,
+        browserDensity: nil,
         currentDescriptor: nil,
-        staticImageGridSwitchMode: .animated(descriptors: [])
+        browserSwitchMode: .animated
     )
 
-    var canSwitchDirectlyToStaticImageGrid: Bool {
-        guard case .direct(let descriptors) = staticImageGridSwitchMode,
-              !descriptors.isEmpty else {
-            return false
-        }
-
-        return canUseCurrentStaticImageGridLayout
+    var canSwitchDirectlyToCollectionBrowser: Bool {
+        browserSwitchMode == .offscreenInsertion && canUseCurrentCollectionBrowser
     }
 
-    var canMinimizeToStaticImageGrid: Bool {
-        guard case .animated = staticImageGridSwitchMode else { return false }
-
-        return canUseCurrentStaticImageGridLayout
-            && staticImageGridSelectedSlot != nil
+    var canMinimizeToCollectionBrowser: Bool {
+        browserSwitchMode == .animated && canUseCurrentCollectionBrowser
     }
 
-    var staticImageGridDescriptors: [DownloadableMediaDescriptor] {
-        switch staticImageGridSwitchMode {
-        case .animated(let descriptors):
-            return descriptors
-        case .direct(let descriptors):
-            return descriptors
-        }
-    }
-
-    var staticImageGridSelectedSlot: Int? {
-        if let currentDescriptor,
-           let descriptorIndex = staticImageGridDescriptors.firstIndex(of: currentDescriptor) {
-            return descriptorIndex
-        }
-
-        guard let tokenIndex,
-              let staticImageGridPageLayout else { return nil }
-        let fallbackSlot = max(tokenIndex, 0) % staticImageGridPageLayout.pageSize
-        guard staticImageGridDescriptors.indices.contains(fallbackSlot) else { return nil }
-        return fallbackSlot
-    }
-
-    private var canUseCurrentStaticImageGridLayout: Bool {
-        guard let staticImageGridPageLayout else { return false }
-
-        return pageLayout == .onePerPage
-            && staticImageGridPageLayout.supports(descriptor: currentDescriptor)
+    private var canUseCurrentCollectionBrowser: Bool {
+        displayMode == .onePerPage
+            && pagePosition != nil
+            && browserDensity != nil
     }
 }
 
@@ -200,14 +154,14 @@ final class MobilePlayerChromeController: ObservableObject {
     @Published private(set) var showControls = false
     @Published private(set) var isStatusBarRevealedByDismiss = false
     @Published private(set) var isPlayerContentHiddenForCardTransition = false
-    @Published private(set) var pageLayoutRequest: MobilePlayerPageLayoutRequest?
+    @Published private(set) var displayModeRequest: MobilePlayerDisplayModeRequest?
     private(set) var playerBackgroundColor: UIColor
     private(set) var isPlayerContentZoomed = false
     private(set) var layoutInteractionState = MobilePlayerLayoutInteractionState.empty
     var onPlayerBackgroundColorChange: ((UIColor) -> Void)?
-    var onStaticImageGridMinimizeRequest: (() -> Bool)?
-    var onStaticImageGridExpandRequest: ((MobilePlayerStaticImageGridSelection) -> MobilePlayerStaticImageGridExpandSelectionResult)?
-    private weak var staticImageGridSelectionProvider: (any MobilePlayerStaticImageGridSelectionProviding)?
+    var onCollectionBrowserMinimizeRequest: (() -> Bool)?
+    var onCollectionBrowserExpandRequest: ((MobilePlayerBrowserTransitionSelection) -> MobilePlayerBrowserExpandSelectionResult)?
+    private weak var collectionBrowserTransitionProvider: (any MobilePlayerBrowserTransitionProviding)?
     private var liveLayoutInteractionStateProviderID: UUID?
     private var liveLayoutInteractionStateProvider: (() -> MobilePlayerLayoutInteractionState)?
 
@@ -215,28 +169,70 @@ final class MobilePlayerChromeController: ObservableObject {
         self.playerBackgroundColor = playerBackgroundColor
     }
 
-    func setStaticImageGridSelectionProvider(_ provider: any MobilePlayerStaticImageGridSelectionProviding) {
+    func setCollectionBrowserTransitionProvider(_ provider: any MobilePlayerBrowserTransitionProviding) {
         guard Thread.isMainThread else {
             DispatchQueue.main.async {
-                self.setStaticImageGridSelectionProvider(provider)
+                self.setCollectionBrowserTransitionProvider(provider)
             }
             return
         }
 
-        staticImageGridSelectionProvider = provider
+        collectionBrowserTransitionProvider = provider
     }
 
-    func clearStaticImageGridSelectionProvider(_ provider: any MobilePlayerStaticImageGridSelectionProviding) {
+    func clearCollectionBrowserTransitionProvider(_ provider: any MobilePlayerBrowserTransitionProviding) {
         guard Thread.isMainThread else {
             DispatchQueue.main.async {
-                self.clearStaticImageGridSelectionProvider(provider)
+                self.clearCollectionBrowserTransitionProvider(provider)
             }
             return
         }
 
-        guard staticImageGridSelectionProvider === provider else { return }
+        guard collectionBrowserTransitionProvider === provider else { return }
+        collectionBrowserTransitionProvider = nil
+    }
 
-        staticImageGridSelectionProvider = nil
+    var isCollectionBrowserActive: Bool {
+        Thread.isMainThread && collectionBrowserTransitionProvider?.isCollectionBrowserActive == true
+    }
+
+    var isCollectionBrowserAtTopBoundary: Bool {
+        Thread.isMainThread && collectionBrowserTransitionProvider?.isCollectionBrowserAtTopBoundary == true
+    }
+
+    func canSelectCollectionBrowserItem(at location: CGPoint, in coordinateView: UIView) -> Bool {
+        guard Thread.isMainThread else { return false }
+        return collectionBrowserTransitionProvider?.canSelectCollectionBrowserItem(
+            at: location,
+            in: coordinateView
+        ) == true
+    }
+
+    func collectionBrowserSelection(
+        at location: CGPoint,
+        in coordinateView: UIView
+    ) -> MobilePlayerBrowserTransitionSelection? {
+        guard Thread.isMainThread else { return nil }
+        return collectionBrowserTransitionProvider?.collectionBrowserSelection(
+            at: location,
+            in: coordinateView
+        )
+    }
+
+    func prepareCollectionBrowserSelection(
+        for pagePosition: PlayerPagePosition
+    ) -> MobilePlayerBrowserTransitionSelection? {
+        guard Thread.isMainThread else { return nil }
+        return collectionBrowserTransitionProvider?.prepareCollectionBrowserSelection(for: pagePosition)
+    }
+
+    func cancelPreparedCollectionBrowserSelection() {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { self.cancelPreparedCollectionBrowserSelection() }
+            return
+        }
+
+        collectionBrowserTransitionProvider?.cancelPreparedCollectionBrowserSelection()
     }
 
     func setLiveLayoutInteractionStateProvider(
@@ -272,21 +268,6 @@ final class MobilePlayerChromeController: ObservableObject {
         guard Thread.isMainThread else { return layoutInteractionState }
 
         return liveLayoutInteractionStateProvider?() ?? layoutInteractionState
-    }
-
-    func canSelectStaticImageGrid(at location: CGPoint, in coordinateView: UIView) -> Bool {
-        guard Thread.isMainThread else { return false }
-
-        return staticImageGridSelectionProvider?.canSelectStaticImageGrid(
-            at: location,
-            in: coordinateView
-        ) == true
-    }
-
-    func staticImageGridSelection(at location: CGPoint, in coordinateView: UIView) -> MobilePlayerStaticImageGridSelection? {
-        guard Thread.isMainThread else { return nil }
-
-        return staticImageGridSelectionProvider?.staticImageGridSelection(at: location, in: coordinateView)
     }
 
     func toggleControls() {
@@ -355,52 +336,50 @@ final class MobilePlayerChromeController: ObservableObject {
     }
 
     @discardableResult
-    func requestPageLayout(
-        _ pageLayout: MobilePlayerPageLayout,
+    func requestDisplayMode(
+        _ displayMode: MobilePlayerDisplayMode,
         targetPagePosition: PlayerPagePosition? = nil,
-        completion: (() -> Void)? = nil
+        completion: ((Bool) -> Void)? = nil
     ) -> UUID {
-        let request = MobilePlayerPageLayoutRequest(
-            pageLayout: pageLayout,
+        let request = MobilePlayerDisplayModeRequest(
+            displayMode: displayMode,
             targetPagePosition: targetPagePosition,
             completion: completion
         )
 
         guard Thread.isMainThread else {
             DispatchQueue.main.async {
-                self.pageLayoutRequest = request
+                self.displayModeRequest = request
             }
             return request.id
         }
 
-        pageLayoutRequest = request
+        displayModeRequest = request
         return request.id
     }
 
-    func clearPageLayoutRequest(_ request: MobilePlayerPageLayoutRequest) {
+    func clearDisplayModeRequest(_ request: MobilePlayerDisplayModeRequest) {
         guard Thread.isMainThread else {
-            DispatchQueue.main.async { self.clearPageLayoutRequest(request) }
+            DispatchQueue.main.async { self.clearDisplayModeRequest(request) }
             return
         }
 
-        guard pageLayoutRequest?.id == request.id else { return }
-        pageLayoutRequest = nil
+        guard displayModeRequest?.id == request.id else { return }
+        displayModeRequest = nil
     }
 
     @discardableResult
-    func requestStaticImageGridMinimize() -> Bool {
+    func requestCollectionBrowserMinimize() -> Bool {
         guard Thread.isMainThread else { return false }
-
-        return onStaticImageGridMinimizeRequest?() == true
+        return onCollectionBrowserMinimizeRequest?() == true
     }
 
     @discardableResult
-    func requestStaticImageGridExpand(
-        _ selection: MobilePlayerStaticImageGridSelection
-    ) -> MobilePlayerStaticImageGridExpandSelectionResult {
+    func requestCollectionBrowserExpand(
+        _ selection: MobilePlayerBrowserTransitionSelection
+    ) -> MobilePlayerBrowserExpandSelectionResult {
         guard Thread.isMainThread else { return .rejected }
-
-        return onStaticImageGridExpandRequest?(selection) ?? .fallbackToImmediateOpen
+        return onCollectionBrowserExpandRequest?(selection) ?? .fallbackToImmediateOpen
     }
 }
 
@@ -408,6 +387,7 @@ struct MobilePlayerView: View {
     
     private let initialConfig: MobilePlayerConfig
     private let onDismiss: () -> Void
+    private let browserDensity: MobilePlayerBrowserDensity?
     @ObservedObject private var chrome: MobilePlayerChromeController
     
     @State private var isAllowedToHideStatusBar = false
@@ -420,11 +400,12 @@ struct MobilePlayerView: View {
     @State private var canGoForward = false
     @State private var shareItem: MobilePlayerFileShareItem?
     @State private var isCurrentTokenBookmarked = false
-    @State private var pageLayout: MobilePlayerPageLayout
-    @State private var pageLayoutChangeID = UUID()
-    @State private var pageLayoutTargetPagePosition: PlayerPagePosition?
-    @State private var pendingPageLayoutApplication: MobilePlayerPendingPageLayoutApplication?
-    @State private var staticGridProgressPriority: MobilePlayerStaticGridProgressPriority?
+    @State private var displayMode: MobilePlayerDisplayMode
+    @State private var displayModeChangeID = UUID()
+    @State private var displayModeTargetPagePosition: PlayerPagePosition?
+    @State private var pendingDisplayModeApplication: MobilePlayerPendingDisplayModeApplication?
+    @State private var focusedPagePositionUpdateCoordinator =
+        MobilePlayerFocusedPagePositionUpdateCoordinator()
     
     init(
         config: MobilePlayerConfig,
@@ -434,7 +415,14 @@ struct MobilePlayerView: View {
         self.initialConfig = config
         self.onDismiss = onDismiss
         self.chrome = chrome
-        _pageLayout = State(initialValue: MobilePlayerPageLayout.initialLayout(for: config))
+        let browserDensity = MobilePlayerBrowserDensity.initialDensity(for: config)
+        self.browserDensity = browserDensity
+        _displayMode = State(
+            initialValue: MobilePlayerDisplayMode.initialMode(
+                for: config,
+                browserDensity: browserDensity
+            )
+        )
     }
 
     var body: some View {
@@ -445,43 +433,12 @@ struct MobilePlayerView: View {
                 HorizontalPlayerContainerView(
                     initialConfig: initialConfig,
                     chrome: chrome,
-                    pageLayout: pageLayout,
-                    pageLayoutChangeID: pageLayoutChangeID,
-                    pageLayoutTargetPagePosition: pageLayoutTargetPagePosition,
-                    onPagePositionUpdate: { newPagePosition in
-                        DispatchQueue.main.async {
-                            let token = MobilePlaybackController.shared.getToken(uuid: initialConfig.id, pagePosition: newPagePosition)
-                            chrome.setPlayerBackgroundColor(MobilePlayerBackgroundColor.color(for: token))
-
-                            let staticImageGridPageLayout = self.staticImageGridPageLayout(for: newPagePosition)
-                            if self.pageLayout.isStaticImageGrid && staticImageGridPageLayout != self.pageLayout {
-                                self.clearStaticGridProgressPriority()
-                                self.pageLayoutChangeID = UUID()
-                                self.pageLayout = .onePerPage
-                            }
-
-                            let progress = self.progressForPagePositionUpdate(newPagePosition)
-                            self.currentPagePosition = newPagePosition
-                            self.currentToken = token
-                            self.currentProgress = progress
-                            self.currentPageLabel = MobilePlaybackController.shared.pageLabel(
-                                uuid: initialConfig.id,
-                                pagePosition: newPagePosition
-                            ) ?? ""
-                            self.isCurrentPagePositionInsertedWidgetToken = MobilePlaybackController.shared.isInsertedWidgetToken(
-                                uuid: initialConfig.id,
-                                pagePosition: newPagePosition
-                            )
-                            self.updateLayoutInteractionState()
-                            self.updateNavigationAvailability(for: newPagePosition)
-                            self.updateShareItem(for: newPagePosition)
-                            self.updateBookmarkState(for: token)
-                            if self.pageLayoutTargetPagePosition == newPagePosition {
-                                self.pageLayoutTargetPagePosition = nil
-                            }
-                            updateExternalDisplayToken(token)
-                        }
-                    },
+                    displayMode: displayMode,
+                    browserDensity: browserDensity,
+                    displayModeChangeID: displayModeChangeID,
+                    displayModeTargetPagePosition: displayModeTargetPagePosition,
+                    onFocusedPagePositionUpdate: handleFocusedPagePositionUpdate,
+                    onSettledPagePositionUpdate: handleSettledPagePositionUpdate,
                     onPaginationAttempt: {},
                     onUnavailableNavigation: {
                         chrome.setControlsVisible(true)
@@ -489,14 +446,14 @@ struct MobilePlayerView: View {
                     onToggleChrome: {
                         chrome.toggleControls()
                     },
-                    onPageLayoutChangeRequest: { requestedPageLayout in
-                        self.applyPageLayout(requestedPageLayout)
+                    onDisplayModeApplied: { application in
+                        self.handleDisplayModeApplied(application)
                     },
-                    onPageLayoutApplied: { application in
-                        self.handlePageLayoutApplied(application)
+                    onDisplayModeChangeRejected: { rejection in
+                        self.handleDisplayModeChangeRejected(rejection)
                     },
-                    onPageLayoutChangeRejected: { rejection in
-                        self.handlePageLayoutChangeRejected(rejection)
+                    onDisplayModeChangeSuperseded: { supersession in
+                        self.handleDisplayModeChangeSuperseded(supersession)
                     },
                     onZoomStateChange: { isZoomed in
                         chrome.setPlayerContentZoomed(isZoomed)
@@ -512,6 +469,7 @@ struct MobilePlayerView: View {
                     PlayerBottomControls(
                         isVisible: chrome.showControls,
                         progress: isCurrentPagePositionInsertedWidgetToken ? nil : currentProgress,
+                        showsNavigationArrows: displayMode == .onePerPage,
                         canGoBack: canGoBack,
                         canGoForward: canGoForward,
                         onBack: goBack,
@@ -588,16 +546,16 @@ struct MobilePlayerView: View {
         .onDisappear {
             chrome.setLayoutInteractionState(.empty)
             chrome.setPlayerContentHiddenForCardTransition(false)
-            pendingPageLayoutApplication = nil
-            pageLayoutTargetPagePosition = nil
-            clearStaticGridProgressPriority()
+            focusedPagePositionUpdateCoordinator.cancelPendingUpdate()
+            completePendingDisplayModeApplication(didApply: false)
+            displayModeTargetPagePosition = nil
             updateExternalDisplayToken(GeneratedToken.empty)
             NativeMetalCardView.resetMotionCalibration()
             MobilePlaybackController.shared.stopAndDisconnect(uuid: initialConfig.id)
         }
-        .onReceive(chrome.$pageLayoutRequest) { request in
+        .onReceive(chrome.$displayModeRequest) { request in
             guard let request else { return }
-            handlePageLayoutRequest(request)
+            handleDisplayModeRequest(request)
         }
         .onReceive(NotificationCenter.default.publisher(for: .downloadableMediaCacheFileAvailabilityDidChange)) { _ in
             updateShareItem(for: currentPagePosition)
@@ -650,275 +608,249 @@ struct MobilePlayerView: View {
     }
 
     private func handleNavigationBarBack() {
-        guard let staticImageGridPageLayout = currentStaticImageGridPageLayout,
-              canSwitchCurrentToStaticImageGrid else {
+        guard canSwitchCurrentToCollectionBrowser else {
             onDismiss()
             return
         }
 
-        guard !chrome.requestStaticImageGridMinimize() else {
+        guard !chrome.requestCollectionBrowserMinimize() else {
             return
         }
 
-        applyPageLayout(staticImageGridPageLayout)
-    }
-
-    private func staticImageGridPageLayout(for pagePosition: PlayerPagePosition) -> MobilePlayerPageLayout? {
-        return MobilePlaybackController.shared.staticImageGridLayout(
-            uuid: initialConfig.id,
-            pagePosition: pagePosition
+        applyDisplayMode(
+            .collectionBrowser,
+            targetPagePosition: currentPagePosition
         )
     }
 
-    private func handlePageLayoutRequest(_ request: MobilePlayerPageLayoutRequest) {
+    private func handleDisplayModeRequest(_ request: MobilePlayerDisplayModeRequest) {
         defer {
-            chrome.clearPageLayoutRequest(request)
+            chrome.clearDisplayModeRequest(request)
         }
 
-        let didAcceptRequest: Bool
-        if request.pageLayout == .onePerPage {
+        let targetPagePosition: PlayerPagePosition?
+        if request.displayMode == .onePerPage {
             if let targetPagePosition = request.targetPagePosition,
                !MobilePlaybackController.shared.canRender(uuid: initialConfig.id, pagePosition: targetPagePosition) {
-                request.completion?()
+                request.completion?(false)
                 return
             }
-            didAcceptRequest = applyPageLayout(
-                .onePerPage,
-                targetPagePosition: request.targetPagePosition,
-                changeID: request.id
-            )
+            targetPagePosition = request.targetPagePosition
         } else {
-            guard request.pageLayout.isStaticImageGrid,
-                  canSwitchCurrentToStaticImageGrid,
-                  currentStaticImageGridPageLayout == request.pageLayout else {
-                request.completion?()
+            guard request.displayMode == .collectionBrowser,
+                  browserDensity != nil,
+                  let sourcePagePosition = request.targetPagePosition ?? currentPagePosition,
+                  MobilePlaybackController.shared.canRender(
+                    uuid: initialConfig.id,
+                    pagePosition: sourcePagePosition
+                  ) else {
+                request.completion?(false)
                 return
             }
-            didAcceptRequest = applyPageLayout(request.pageLayout, changeID: request.id)
+            targetPagePosition = sourcePagePosition
         }
 
-        guard didAcceptRequest else {
-            request.completion?()
+        if pendingDisplayModeApplication?.matches(
+            displayMode: request.displayMode,
+            targetPagePosition: targetPagePosition
+        ) == true {
+            request.completion?(false)
             return
         }
 
+        completePendingDisplayModeApplication(didApply: false)
         if let completion = request.completion {
-            pendingPageLayoutApplication = MobilePlayerPendingPageLayoutApplication(
-                pageLayoutChangeID: request.id,
-                targetPagePosition: request.targetPagePosition,
+            pendingDisplayModeApplication = MobilePlayerPendingDisplayModeApplication(
+                displayModeChangeID: request.id,
+                requestedDisplayMode: request.displayMode,
+                targetPagePosition: targetPagePosition,
                 completion: completion
             )
         }
+
+        let didAcceptRequest = applyDisplayMode(
+            request.displayMode,
+            targetPagePosition: targetPagePosition,
+            changeID: request.id
+        )
+        if !didAcceptRequest {
+            completePendingDisplayModeApplication(
+                request.id,
+                didApply: false
+            )
+        }
     }
 
-    private func handlePageLayoutApplied(_ application: MobilePlayerPageLayoutApplication) {
-        guard pageLayoutChangeID == application.pageLayoutChangeID,
-              pageLayout == application.requestedPageLayout else {
+    private func handleDisplayModeApplied(_ application: MobilePlayerDisplayModeApplication) {
+        guard displayModeChangeID == application.displayModeChangeID,
+              displayMode == application.requestedDisplayMode else {
             return
         }
 
-        if pageLayoutTargetPagePosition == application.targetPagePosition {
-            pageLayoutTargetPagePosition = nil
+        if displayModeTargetPagePosition == application.targetPagePosition {
+            displayModeTargetPagePosition = nil
         }
 
-        completePendingPageLayoutApplication(application.pageLayoutChangeID)
+        completePendingDisplayModeApplication(
+            application.displayModeChangeID,
+            didApply: true
+        )
     }
 
-    private func completePendingPageLayoutApplication(_ pageLayoutChangeID: UUID) {
-        guard let pendingPageLayoutApplication,
-              pendingPageLayoutApplication.pageLayoutChangeID == pageLayoutChangeID else {
-            return
-        }
-
-        let completion = pendingPageLayoutApplication.completion
-        self.pendingPageLayoutApplication = nil
-        DispatchQueue.main.async {
-            completion()
-        }
-    }
-
-    private func handlePageLayoutChangeRejected(
-        _ rejection: MobilePlayerPageLayoutRejection
+    private func completePendingDisplayModeApplication(
+        _ displayModeChangeID: UUID,
+        didApply: Bool
     ) {
-        guard pageLayoutChangeID == rejection.pageLayoutChangeID,
-              pageLayout == rejection.requestedPageLayout,
-              pageLayoutTargetPagePosition == rejection.targetPagePosition else { return }
+        guard let pendingDisplayModeApplication,
+              pendingDisplayModeApplication.displayModeChangeID == displayModeChangeID else {
+            return
+        }
 
-        pageLayout = rejection.currentPageLayout
-        pageLayoutChangeID = UUID()
-        pageLayoutTargetPagePosition = nil
-        clearStaticGridProgressPriority()
+        let completion = pendingDisplayModeApplication.completion
+        self.pendingDisplayModeApplication = nil
+        completion(didApply)
+    }
 
-        completePendingPageLayoutApplication(rejection.pageLayoutChangeID)
+    private func completePendingDisplayModeApplication(didApply: Bool) {
+        guard let pendingDisplayModeApplication else { return }
+        completePendingDisplayModeApplication(
+            pendingDisplayModeApplication.displayModeChangeID,
+            didApply: didApply
+        )
+    }
+
+    private func handleDisplayModeChangeSuperseded(
+        _ supersession: MobilePlayerDisplayModeSupersession
+    ) {
+        completePendingDisplayModeApplication(
+            supersession.displayModeChangeID,
+            didApply: false
+        )
+    }
+
+    private func handleDisplayModeChangeRejected(
+        _ rejection: MobilePlayerDisplayModeRejection
+    ) {
+        guard displayModeChangeID == rejection.displayModeChangeID,
+              displayMode == rejection.requestedDisplayMode,
+              displayModeTargetPagePosition == rejection.targetPagePosition else { return }
+
+        displayMode = rejection.currentDisplayMode
+        displayModeChangeID = UUID()
+        displayModeTargetPagePosition = nil
+        completePendingDisplayModeApplication(
+            rejection.displayModeChangeID,
+            didApply: false
+        )
 
         updateNavigationAvailability(for: currentPagePosition)
         updateLayoutInteractionState()
     }
 
-    private var canSwitchCurrentToStaticImageGrid: Bool {
-        pageLayout == .onePerPage
-            && currentStaticImageGridPageLayout != nil
-    }
-
-    private var currentStaticImageGridPageLayout: MobilePlayerPageLayout? {
-        guard let currentPagePosition else { return nil }
-        return staticImageGridPageLayout(for: currentPagePosition)
-    }
-
-    @discardableResult
-    private func applyPageLayout(
-        _ requestedPageLayout: MobilePlayerPageLayout,
-        targetPagePosition: PlayerPagePosition? = nil,
-        changeID: UUID = UUID()
-    ) -> Bool {
-        if requestedPageLayout == .onePerPage {
-            clearStaticGridProgressPriority()
-        }
-
-        guard !isPageLayoutRequestAlreadyApplied(
-            requestedPageLayout,
-            targetPagePosition: targetPagePosition
-        ) else {
-            if targetPagePosition != nil {
-                pageLayoutTargetPagePosition = nil
-            }
-            updateLayoutInteractionState()
+    private var canSwitchCurrentToCollectionBrowser: Bool {
+        guard displayMode == .onePerPage,
+              browserDensity != nil,
+              let currentPagePosition else {
             return false
         }
 
-        updateStaticGridProgressPriority(
-            for: requestedPageLayout,
-            targetPagePosition: targetPagePosition
+        return MobilePlaybackController.shared.canRender(
+            uuid: initialConfig.id,
+            pagePosition: currentPagePosition
         )
+    }
 
-        if let targetPagePosition {
-            pageLayoutTargetPagePosition = targetPagePosition
-            pageLayoutChangeID = changeID
-        } else if pageLayout != requestedPageLayout {
-            pageLayoutTargetPagePosition = nil
-            pageLayoutChangeID = changeID
+    @discardableResult
+    private func applyDisplayMode(
+        _ requestedDisplayMode: MobilePlayerDisplayMode,
+        targetPagePosition: PlayerPagePosition? = nil,
+        changeID: UUID = UUID()
+    ) -> Bool {
+        guard requestedDisplayMode != .collectionBrowser || browserDensity != nil else {
+            return false
         }
 
-        guard pageLayout != requestedPageLayout else {
-            updateLayoutInteractionState()
-            return targetPagePosition != nil
-        }
-
-        pageLayout = requestedPageLayout
+        displayModeTargetPagePosition = targetPagePosition
+        displayModeChangeID = changeID
+        displayMode = requestedDisplayMode
         updateNavigationAvailability(for: currentPagePosition)
         updateLayoutInteractionState()
         return true
-    }
-
-    private func isPageLayoutRequestAlreadyApplied(
-        _ requestedPageLayout: MobilePlayerPageLayout,
-        targetPagePosition: PlayerPagePosition?
-    ) -> Bool {
-        guard pageLayout == requestedPageLayout else { return false }
-        guard let targetPagePosition else { return true }
-        return currentPagePosition == targetPagePosition
     }
 
     private func updateLayoutInteractionState() {
         chrome.setLayoutInteractionState(
             MobilePlaybackController.shared.layoutInteractionState(
                 uuid: initialConfig.id,
-                pageLayout: pageLayout,
-                pagePosition: currentPagePosition
+                displayMode: displayMode,
+                pagePosition: currentPagePosition,
+                browserDensity: browserDensity
             )
         )
     }
 
-    private func updateStaticGridProgressPriority(
-        for requestedPageLayout: MobilePlayerPageLayout,
-        targetPagePosition: PlayerPagePosition?
-    ) {
-        guard requestedPageLayout.isStaticImageGrid else {
-            clearStaticGridProgressPriority()
-            return
-        }
+    private func handleFocusedPagePositionUpdate(_ pagePosition: PlayerPagePosition) {
+        let generation = focusedPagePositionUpdateCoordinator.beginUpdate()
 
-        guard targetPagePosition == nil,
-              pageLayout == .onePerPage,
-              let progress = currentProgressForStaticGridPriority() else {
-            clearStaticGridProgressPriority()
-            return
-        }
+        DispatchQueue.main.async {
+            guard self.focusedPagePositionUpdateCoordinator.isCurrent(generation) else { return }
 
-        staticGridProgressPriority = MobilePlayerStaticGridProgressPriority(
-            pageLayout: requestedPageLayout,
-            progress: progress
-        )
-    }
-
-    private func currentProgressForStaticGridPriority() -> MobileViewingProgress? {
-        if let currentProgress {
-            return currentProgress
-        }
-
-        guard let currentPagePosition else { return nil }
-        return MobilePlaybackController.shared.progress(
-            uuid: initialConfig.id,
-            pagePosition: currentPagePosition
-        )
-    }
-
-    private func progressForPagePositionUpdate(_ pagePosition: PlayerPagePosition) -> MobileViewingProgress? {
-        guard pageLayout.isStaticImageGrid else {
-            clearStaticGridProgressPriority()
-            return markViewed(pagePosition)
-        }
-
-        initializeStaticGridProgressPriorityIfNeeded()
-
-        guard let staticGridProgressPriority else {
-            return markViewed(pagePosition)
-        }
-
-        guard let candidateProgress = MobilePlaybackController.shared.progress(
-            uuid: initialConfig.id,
-            pagePosition: pagePosition
-        ) else {
-            clearStaticGridProgressPriority()
-            return nil
-        }
-
-        guard staticGridProgressPriority.preservesProgress(over: candidateProgress, in: pageLayout) else {
-            clearStaticGridProgressPriority()
-            return markViewed(pagePosition)
-        }
-
-        return staticGridProgressPriority.progress
-    }
-
-    private func initializeStaticGridProgressPriorityIfNeeded() {
-        guard currentPagePosition == nil,
-              staticGridProgressPriority == nil,
-              let initialTokenId = initialConfig.initialTokenId,
-              let initialProgress = MobilePlaybackController.shared.progress(
+            let token = MobilePlaybackController.shared.getToken(
                 uuid: initialConfig.id,
-                pagePosition: .initial
-              ),
-              initialProgress.tokenId == initialTokenId else {
-            return
-        }
+                pagePosition: pagePosition
+            )
+            let pageLabel = MobilePlaybackController.shared.pageLabel(
+                uuid: initialConfig.id,
+                pagePosition: pagePosition
+            ) ?? ""
+            let isInsertedWidgetToken = MobilePlaybackController.shared.isInsertedWidgetToken(
+                uuid: initialConfig.id,
+                pagePosition: pagePosition
+            )
+            let progress = MobilePlaybackController.shared.progress(
+                uuid: initialConfig.id,
+                pagePosition: pagePosition,
+                resolvedToken: token
+            )
+            chrome.setPlayerBackgroundColor(MobilePlayerBackgroundColor.color(for: token))
 
-        staticGridProgressPriority = MobilePlayerStaticGridProgressPriority(
-            pageLayout: pageLayout,
-            progress: initialProgress
-        )
+            self.currentPagePosition = pagePosition
+            self.currentToken = token
+            self.currentProgress = progress
+            self.currentPageLabel = pageLabel
+            self.isCurrentPagePositionInsertedWidgetToken = isInsertedWidgetToken
+            self.updateLayoutInteractionState()
+            self.updateNavigationAvailability(for: pagePosition)
+            self.updateShareItem(for: pagePosition)
+            self.updateBookmarkState(for: token)
+            updateExternalDisplayToken(token)
+        }
     }
 
-    private func markViewed(_ pagePosition: PlayerPagePosition) -> MobileViewingProgress? {
+    private func handleSettledPagePositionUpdate(
+        _ pagePosition: PlayerPagePosition,
+        hasViewedToEnd: Bool
+    ) -> Bool {
+        let progress = markViewed(
+            pagePosition,
+            hasViewedToEnd: hasViewedToEnd
+        )
+        DispatchQueue.main.async {
+            guard self.currentPagePosition == pagePosition else { return }
+            self.currentProgress = progress
+        }
+        return progress != nil
+    }
+
+    private func markViewed(
+        _ pagePosition: PlayerPagePosition,
+        hasViewedToEnd: Bool
+    ) -> MobileViewingProgress? {
         MobilePlaybackController.shared.markViewed(
             uuid: initialConfig.id,
             pagePosition: pagePosition,
-            pageLayout: pageLayout
+            hasViewedToEnd: hasViewedToEnd
         )
-    }
-
-    private func clearStaticGridProgressPriority() {
-        staticGridProgressPriority = nil
     }
 
     private func goBack() {
@@ -943,19 +875,15 @@ struct MobilePlayerView: View {
     }
 
     private func updateNavigationAvailability(for pagePosition: PlayerPagePosition?) {
-        guard let pagePosition else {
+        guard displayMode == .onePerPage,
+              let pagePosition else {
             canGoBack = false
             canGoForward = false
             return
         }
 
-        let stablePagePosition = MobilePlaybackController.shared.stablePagePosition(
-            uuid: initialConfig.id,
-            containing: pagePosition,
-            pageLayout: pageLayout
-        )
-        canGoBack = hasNavigationDestination(from: stablePagePosition, direction: .back)
-        canGoForward = hasNavigationDestination(from: stablePagePosition, direction: .forward)
+        canGoBack = hasNavigationDestination(from: pagePosition, direction: .back)
+        canGoForward = hasNavigationDestination(from: pagePosition, direction: .forward)
     }
 
     private func hasNavigationDestination(
@@ -965,13 +893,11 @@ struct MobilePlayerView: View {
         MobilePlaybackController.shared.hasNavigationDestination(
             uuid: initialConfig.id,
             from: pagePosition,
-            pageLayout: pageLayout,
             direction: direction
         )
     }
 
     private func viewAgain() {
-        clearStaticGridProgressPriority()
         MobilePlaybackController.shared.restartCollection(uuid: initialConfig.id)
     }
 
@@ -1053,6 +979,7 @@ private struct PlayerCollectionTitlePill: View {
 private struct PlayerBottomControls: View {
     let isVisible: Bool
     let progress: MobileViewingProgress?
+    let showsNavigationArrows: Bool
     let canGoBack: Bool
     let canGoForward: Bool
     let onBack: () -> Void
@@ -1066,10 +993,12 @@ private struct PlayerBottomControls: View {
 
     private var controlsStack: some View {
         VStack(spacing: 12) {
-            if progress?.isComplete == true {
+            if progress?.hasBeenViewedToEnd == true {
                 completionActions
             }
-            progressNavigationControls
+            if showsNavigationArrows {
+                progressNavigationControls
+            }
         }
     }
 

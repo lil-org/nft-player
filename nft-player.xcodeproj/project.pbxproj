@@ -228,6 +228,11 @@
 		2D9000052FB0000000000001 /* CollectionsGridScrollViewHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D9000042FB0000000000001 /* CollectionsGridScrollViewHelpers.swift */; };
 		2D9000062FB0000000000001 /* CollectionsGridScrollViewHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D9000042FB0000000000001 /* CollectionsGridScrollViewHelpers.swift */; };
 		2D9000072FB0000000000001 /* CollectionsGridScrollViewHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D9000042FB0000000000001 /* CollectionsGridScrollViewHelpers.swift */; };
+		2DA100012FC0000000000001 /* PlayerCollectionScrollPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA100002FC0000000000001 /* PlayerCollectionScrollPolicy.swift */; };
+		2DA100032FC0000000000001 /* VerticalCollectionBrowserViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA100022FC0000000000001 /* VerticalCollectionBrowserViewController.swift */; };
+		2DA100042FC0000000000001 /* PlayerCollectionScrollPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA100002FC0000000000001 /* PlayerCollectionScrollPolicy.swift */; };
+		2DA100052FC0000000000001 /* PlayerCollectionScrollPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA100002FC0000000000001 /* PlayerCollectionScrollPolicy.swift */; };
+		2DA100062FC0000000000001 /* PlayerCollectionScrollPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA100002FC0000000000001 /* PlayerCollectionScrollPolicy.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -415,6 +420,8 @@
 		2D8000022FA0000000000001 /* nft_player_tvos.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = nft_player_tvos.entitlements; sourceTree = "<group>"; };
 		2D9000002FB0000000000001 /* CollectionsGridScrollMemory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionsGridScrollMemory.swift; sourceTree = "<group>"; };
 		2D9000042FB0000000000001 /* CollectionsGridScrollViewHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionsGridScrollViewHelpers.swift; sourceTree = "<group>"; };
+		2DA100002FC0000000000001 /* PlayerCollectionScrollPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerCollectionScrollPolicy.swift; sourceTree = "<group>"; };
+		2DA100022FC0000000000001 /* VerticalCollectionBrowserViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VerticalCollectionBrowserViewController.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -484,6 +491,7 @@
 				2CB01A022F01000000000001 /* PlayerBookmarksStore.swift */,
 				2CB01A032F01000000000001 /* PlayerViewingProgressStore.swift */,
 				2D9000002FB0000000000001 /* CollectionsGridScrollMemory.swift */,
+				2DA100002FC0000000000001 /* PlayerCollectionScrollPolicy.swift */,
 				2D4000042F50000000000001 /* PlayerViewingSessionTracker.swift */,
 				2CF100042F20000000000001 /* PlayerSyncTypes.swift */,
 				2CDF00062F10000000000001 /* PonchoDrifellaCardMetadata.swift */,
@@ -720,6 +728,7 @@
 				2CFA90002EB0000000000001 /* MobileCollectionCatalog.swift */,
 				2CF08AA82D2A937400D82ACA /* MobilePlayerView.swift */,
 				2CC971622D2F4214005A8C4C /* HorizontalPlayer.swift */,
+				2DA100022FC0000000000001 /* VerticalCollectionBrowserViewController.swift */,
 				2C7134D52D304609001E33DC /* MobilePlaybackController.swift */,
 				2CC93C662DB2B13A00C5801A /* ExternalDisplayViewController.swift */,
 				2CFA91002EB1000000000001 /* NativeMetalCardView.swift */,
@@ -1166,6 +1175,8 @@
 				2CFA91032EB1000000000001 /* PonchoDrifellaShaders.metal in Sources */,
 				2CF08AAC2D2A937400D82ACA /* MobilePlayerView.swift in Sources */,
 				2CC971632D2F4219005A8C4C /* HorizontalPlayer.swift in Sources */,
+				2DA100012FC0000000000001 /* PlayerCollectionScrollPolicy.swift in Sources */,
+				2DA100032FC0000000000001 /* VerticalCollectionBrowserViewController.swift in Sources */,
 				2C460ECE2D2985A90083124E /* Consts.swift in Sources */,
 				2C460ED02D2985A90083124E /* NftGallery.swift in Sources */,
 				2C460ED22D2985A90083124E /* Chain.swift in Sources */,
@@ -1195,6 +1206,7 @@
 				2D5000132F60000000000001 /* WidgetDeepLink.swift in Sources */,
 				2D1000332F30000000000001 /* PlayerWidgetTokenInsertion.swift in Sources */,
 				2D3000002F40000000000001 /* CollectionCatalog.swift in Sources */,
+				2DA100042FC0000000000001 /* PlayerCollectionScrollPolicy.swift in Sources */,
 				2D3000012F40000000000001 /* DownloadableMediaCache.swift in Sources */,
 				2D3000022F40000000000001 /* PlayerTokenPrewarmer.swift in Sources */,
 				2D3000032F40000000000001 /* PlayerWebContentLoadCoordinator.swift in Sources */,
@@ -1240,6 +1252,7 @@
 				2CF100082F20000000000001 /* PlayerSyncTypes.swift in Sources */,
 				2D8000012FA0000000000001 /* PlayerICloudSync.swift in Sources */,
 				2D6000002F70000000000001 /* CollectionCatalog.swift in Sources */,
+				2DA100052FC0000000000001 /* PlayerCollectionScrollPolicy.swift in Sources */,
 				2D7000032F70000100000001 /* DownloadableMediaCache.swift in Sources */,
 				2D7000042F70000100000001 /* PlayerTokenPrewarmer.swift in Sources */,
 				2D9000022FB0000000000001 /* CollectionsGridScrollMemory.swift in Sources */,
@@ -1261,6 +1274,7 @@
 				2C424F462B9775E6007868F8 /* RightClickActivatingWindow.swift in Sources */,
 				2D1000322F30000000000001 /* PlayerWidgetTokenInsertion.swift in Sources */,
 				2CFA92022EB2000000000001 /* CollectionCatalog.swift in Sources */,
+				2DA100062FC0000000000001 /* PlayerCollectionScrollPolicy.swift in Sources */,
 				2C1B60BD2B7D3505009949C2 /* Strings.swift in Sources */,
 				2CA34B3D2B082BDF00DAB623 /* WalletsListView.swift in Sources */,
 				2C6359542D29C07F00E40241 /* Links.swift in Sources */,

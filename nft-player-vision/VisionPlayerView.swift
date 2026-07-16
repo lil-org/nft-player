@@ -13,6 +13,7 @@ struct VisionPlayerConfig: Hashable, Identifiable {
     var initialItemId: String?
     var specificToken: GeneratedToken?
     var initialTokenId: String?
+    var initialTokenIndex: Int?
     var continueViewingCollectionId: String?
     var trackingMode: PlayerViewingSessionTrackingMode = .updateContinueViewing
     var widgetTokenInsertion: PlayerWidgetTokenInsertion?
@@ -259,6 +260,7 @@ private final class VisionPlayerModel: ObservableObject {
             initialCollectionId: config.initialItemId,
             specificInitialToken: config.specificToken,
             initialTokenId: config.initialTokenId,
+            initialTokenIndex: config.initialTokenIndex,
             widgetTokenInsertion: config.widgetTokenInsertion
         )
         id = config.id
@@ -333,13 +335,19 @@ private final class VisionPlayerModel: ObservableObject {
     ) {
         guard dataSource.canRender(pagePosition: pagePosition) else { return }
 
+        dataSource.acknowledgeIntentionalViewingPosition()
         displayState = makeDisplayState(pagePosition: pagePosition, direction: direction)
         refreshBookmarkState()
     }
 
     func restartCollection() {
-        guard let currentProgress else { return }
-        viewingSessionTracker.beginRestart(collectionId: currentProgress.collectionId)
+        guard let context = dataSource.collectionTokenContext(
+            pagePosition: currentPagePosition
+        ) else {
+            return
+        }
+        dataSource.acknowledgeIntentionalViewingPosition()
+        viewingSessionTracker.beginRestart(collectionId: context.collectionId)
         display(pagePosition: dataSource.pagePosition(forTokenIndex: 0), direction: .backward)
     }
 
@@ -2633,6 +2641,7 @@ enum VisionPlayerPrewarmer {
     static func preparedConfig(
         initialItemId: String?,
         initialTokenId: String? = nil,
+        initialTokenIndex: Int? = nil,
         continueViewingCollectionId: String?,
         trackingMode: PlayerViewingSessionTrackingMode = .updateContinueViewing,
         widgetTokenInsertion: PlayerWidgetTokenInsertion? = nil
@@ -2648,6 +2657,7 @@ enum VisionPlayerPrewarmer {
             initialItemId: initialItemId,
             specificToken: specificToken,
             initialTokenId: initialTokenId,
+            initialTokenIndex: initialTokenIndex,
             continueViewingCollectionId: continueViewingCollectionId,
             trackingMode: trackingMode,
             widgetTokenInsertion: widgetTokenInsertion

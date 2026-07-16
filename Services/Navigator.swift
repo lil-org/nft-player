@@ -69,7 +69,9 @@ class Navigator: NSObject {
             return
         }
 
-        PlayerViewingProgressStore.save(widgetTokenInsertion.updatedAnchorProgress())
+        if let anchorProgress = widgetTokenInsertion.automaticAnchorProgress() {
+            PlayerViewingProgressStore.save(anchorProgress)
+        }
         if trackingMode.updatesContinueViewing {
             PlayerViewingProgressStore.setContinueViewingCollectionId(collectionId)
         }

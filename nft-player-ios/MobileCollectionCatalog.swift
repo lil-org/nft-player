@@ -14,7 +14,7 @@ extension MobileCollectionCatalog {
         SuggestedItemsService.item(id: specificCollectionId)?.standardThumbsPathsAvailable == true
     }
 
-    static func staticImageGridMediaDescriptor(
+    static func collectionBrowseThumbnailDescriptor(
         specificCollectionId: String,
         tokenIndex: Int
     ) -> DownloadableMediaDescriptor? {
@@ -35,7 +35,7 @@ extension MobileCollectionCatalog {
         return standardThumbnailDescriptor(for: primaryDescriptor) ?? primaryDescriptor
     }
 
-    static func staticImageGridMediaDescriptor(
+    static func collectionBrowseThumbnailDescriptor(
         for primaryDescriptor: DownloadableMediaDescriptor
     ) -> DownloadableMediaDescriptor {
         return standardThumbnailDescriptor(for: primaryDescriptor) ?? primaryDescriptor
@@ -82,7 +82,7 @@ extension MobileCollectionCatalog {
                 tokenId: primaryDescriptor.tokenId,
                 tokenIndex: primaryDescriptor.tokenIndex,
                 media: .staticImage(url: thumbnailURL, fileExtension: "webp"),
-                purpose: .staticImageGridThumbnail,
+                purpose: .collectionBrowserThumbnail,
                 thumbnailAspectRatio: primaryDescriptor.thumbnailAspectRatio
             )
         }
@@ -104,7 +104,7 @@ extension MobileCollectionCatalog {
             tokenId: primaryDescriptor.tokenId,
             tokenIndex: primaryDescriptor.tokenIndex,
             media: .staticImage(url: thumbnailURL, fileExtension: "webp"),
-            purpose: .staticImageGridThumbnail,
+            purpose: .collectionBrowserThumbnail,
             thumbnailAspectRatio: primaryDescriptor.thumbnailAspectRatio
         )
     }
@@ -131,7 +131,7 @@ extension MobileCollectionCatalog {
             tokenId: token.id,
             tokenIndex: tokenIndex,
             media: .staticImage(url: thumbnailURL, fileExtension: "webp"),
-            purpose: .staticImageGridThumbnail,
+            purpose: .collectionBrowserThumbnail,
             thumbnailAspectRatio: token.thumbnailAspectRatio
         )
     }

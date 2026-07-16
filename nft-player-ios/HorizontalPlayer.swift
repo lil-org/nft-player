@@ -54,15 +54,6 @@ final class FullscreenTokenMediaRenderer {
     private let containerView: UIView
     private var webView: AutoReloadingWebView!
     private var imageView: UIImageView!
-    private var imageSpreadStackView: UIStackView!
-    private var imageSpreadArrangement: ImageSpreadArrangement?
-    private var imageSpreadNestedStackViews = [UIStackView]()
-    private var imageSpreadViews = [UIImageView]()
-    private var imageSpreadPlaceholderViews = [PlayerMediaPlaceholderView]()
-    private var imageSpreadPlaceholderSpecs = [PlayerMediaPlaceholderSpec]()
-    private var imageSpreadVerifiedImages = [Bool]()
-    private var imageSpreadResolvedImages = [Bool]()
-    private var imageSpreadNativeMetalCardCornerMaskIndices = Set<Int>()
     private var nativeMetalCardView: NativeMetalCardView!
     private var representedImageKey: AnyHashable?
     private var activeImageLoadId: UUID?
@@ -70,20 +61,6 @@ final class FullscreenTokenMediaRenderer {
     private var webViewMayContainContent = false
     private var activeLocalWebReadinessID: UUID?
     private var usesTransparentPlayerBackground = false
-    private var representedImageSpreadSlotKeys = [AnyHashable]()
-    private var rememberedImageSpread: RememberedImageSpread?
-
-    private enum ImageSpreadArrangement: Equatable {
-        case linear
-        case grid(MobileStaticImageSpreadGrid)
-    }
-
-    private struct RememberedImageSpread {
-        let key: AnyHashable
-        let slotKeys: [AnyHashable]
-        let images: [UIImage?]
-        let resolvedImages: [Bool]
-    }
 
     init(containerView: UIView) {
         self.containerView = containerView
@@ -99,21 +76,16 @@ final class FullscreenTokenMediaRenderer {
         cancelCurrentImageLoad()
         hideNativeMetalCardView()
         representedImageKey = nil
-        representedImageSpreadSlotKeys = []
         unloadWebContentIfNeeded()
         imageView?.layer.removeAllAnimations()
         imageView?.image = nil
-        clearImageSpread()
-        rememberedImageSpread = nil
     }
 
     func displayLoadedImage<Key: Hashable>(_ image: UIImage, key: Key) {
         cancelCurrentImageLoad()
         hideNativeMetalCardView()
-        hideImageSpread()
         let imageKey = AnyHashable(key)
         representedImageKey = imageKey
-        representedImageSpreadSlotKeys = []
         webView?.isHidden = true
         displayMainImage(image)
 
@@ -123,94 +95,13 @@ final class FullscreenTokenMediaRenderer {
     func displayProvisionalImageOverLoadingWebContent(_ image: UIImage) {
         cancelCurrentImageLoad()
         representedImageKey = nil
-        representedImageSpreadSlotKeys = []
         hideNativeMetalCardView()
-        hideImageSpread()
         displayMainImage(image, bringsToFront: true)
     }
 
     func invalidateLocalWebContentLoad() {
         activeLocalWebReadinessID = nil
         webView?.invalidateRequestedContent()
-    }
-
-    func displayedImage() -> UIImage? {
-        guard let imageView,
-              !imageView.isHidden else {
-            return nil
-        }
-
-        return imageView.image
-    }
-
-    func imageSpreadIndex(
-        at location: CGPoint,
-        in coordinateView: UIView,
-        requiresVerifiedImage: Bool = true
-    ) -> Int? {
-        guard let imageSpreadStackView,
-              !imageSpreadStackView.isHidden,
-              imageSpreadStackView.window != nil else {
-            return nil
-        }
-
-        return imageSpreadViews.enumerated().first { index, imageView in
-            guard !imageView.isHidden,
-                  imageView.window != nil else {
-                return false
-            }
-            if requiresVerifiedImage {
-                guard imageView.image != nil,
-                      isImageSpreadImageVerified(at: index) else {
-                    return false
-                }
-            }
-
-            let locationInImageView = imageView.convert(location, from: coordinateView)
-            return imageView.bounds.contains(locationInImageView)
-        }?.offset
-    }
-
-    func imageSpreadImages() -> [UIImage?]? {
-        guard let imageSpreadStackView,
-              !imageSpreadStackView.isHidden,
-              imageSpreadStackView.window != nil else {
-            return nil
-        }
-
-        guard imageSpreadVerifiedImages.count == imageSpreadViews.count else {
-            return Array<UIImage?>(repeating: nil, count: imageSpreadViews.count)
-        }
-
-        return verifiedImageSpreadImages()
-    }
-
-    @discardableResult
-    func displayRecoveredImage<SpreadKey: Hashable, SlotKey: Hashable>(
-        _ image: UIImage,
-        at index: Int,
-        spreadKey: SpreadKey,
-        slotKey: SlotKey
-    ) -> Bool {
-        let imageKey = AnyHashable(spreadKey)
-        guard representedImageKey == imageKey,
-              representedImageSpreadSlotKeys.indices.contains(index),
-              representedImageSpreadSlotKeys[index] == AnyHashable(slotKey),
-              imageSpreadViews.indices.contains(index),
-              imageSpreadVerifiedImages.indices.contains(index),
-              imageSpreadResolvedImages.indices.contains(index),
-              imageSpreadPlaceholderViews.indices.contains(index),
-              let imageSpreadStackView,
-              !imageSpreadStackView.isHidden else {
-            return false
-        }
-
-        displayImage(image, in: imageSpreadViews[index])
-        imageSpreadVerifiedImages[index] = true
-        imageSpreadResolvedImages[index] = true
-        hideImageSpreadPlaceholder(at: index, animated: true)
-        unloadWebContentAfterImageDisplay(imageKey: imageKey)
-        return true
     }
 
     func renderImage<Key: Hashable>(
@@ -230,7 +121,6 @@ final class FullscreenTokenMediaRenderer {
         imageView.layer.removeAllAnimations()
         hideWebContent()
         hideNativeMetalCardView()
-        hideImageSpread()
         imageView.isHidden = hideImageUntilLoaded && provisionalImage == nil
         imageView.image = provisionalImage
         if let provisionalImage {
@@ -329,152 +219,6 @@ final class FullscreenTokenMediaRenderer {
         }
     }
 
-    func renderImageSpread<Key: Hashable>(
-        key: Key,
-        pageLayout: MobilePlayerPageLayout,
-        viewportSize: CGSize? = nil,
-        nativeMetalCardCornerMaskIndices: Set<Int> = [],
-        mediaPlaceholderSpecs: [PlayerMediaPlaceholderSpec]? = nil,
-        initialImages: [UIImage?]? = nil,
-        placeholderImages: [UIImage?]? = nil,
-        imageSlotKeys: [AnyHashable]? = nil,
-        loadImages: [(@escaping (UIImage?) -> Void) -> (() -> Void)?],
-        onEmptySpread: @escaping () -> Void,
-        onImageLoadFailure: ((Int) -> Void)? = nil,
-        onLoadedImages: (([UIImage?]) -> Void)? = nil
-    ) {
-        guard !loadImages.isEmpty else {
-            onEmptySpread()
-            return
-        }
-
-        rememberCurrentImageSpread()
-        let imageKey = AnyHashable(key)
-        cancelCurrentImageLoad()
-        imageSpreadNativeMetalCardCornerMaskIndices = nativeMetalCardCornerMaskIndices
-        imageSpreadPlaceholderSpecs = mediaPlaceholderSpecs?.count == loadImages.count
-            ? mediaPlaceholderSpecs ?? []
-            : []
-        ensureImageSpreadStackView(
-            imageCount: loadImages.count,
-            pageLayout: pageLayout,
-            viewportSize: viewportSize
-        )
-        configureImageSpreadCornerMasks()
-        hideWebContent()
-        hideNativeMetalCardView()
-        imageView?.layer.removeAllAnimations()
-        imageView?.isHidden = true
-        imageView?.image = nil
-        imageSpreadStackView.isHidden = false
-        let validInitialImages = initialImages?.count == loadImages.count ? initialImages : nil
-        let validPlaceholderImages = placeholderImages?.count == loadImages.count ? placeholderImages : nil
-        let validImageSlotKeys = imageSlotKeys?.count == loadImages.count ? imageSlotKeys : nil
-        let rememberedSpread = rememberedImageSpread(
-            for: imageKey,
-            slotKeys: validImageSlotKeys,
-            imageCount: loadImages.count
-        )
-        let seedImages = loadImages.indices.map { index in
-            validInitialImages?[index] ?? rememberedSpread?.images[index] ?? validPlaceholderImages?[index]
-        }
-        let seedImagesResolved = loadImages.indices.map { index in
-            validInitialImages?[index] != nil
-                || (rememberedSpread?.images[index] != nil && rememberedSpread?.resolvedImages[index] == true)
-        }
-        for (index, imageView) in imageSpreadViews.enumerated() {
-            imageView.layer.removeAllAnimations()
-            imageView.image = seedImages[index]
-        }
-        configureImageSpreadPlaceholders(seedImages: seedImages)
-        imageSpreadVerifiedImages = seedImages.map { $0 != nil }
-        imageSpreadResolvedImages = seedImagesResolved
-
-        let imageLoadId = UUID()
-        representedImageKey = imageKey
-        representedImageSpreadSlotKeys = validImageSlotKeys ?? []
-        activeImageLoadId = imageLoadId
-
-        var loadedImages = seedImages
-        var resolvedSlots = seedImagesResolved
-        var cancellations = Array<ImageLoadCancellation?>(repeating: nil, count: loadImages.count)
-
-        func isCurrentLoad(in renderer: FullscreenTokenMediaRenderer) -> Bool {
-            renderer.representedImageKey == imageKey && renderer.activeImageLoadId == imageLoadId
-        }
-
-        func cancelSpreadLoads() {
-            cancellations.forEach { $0?() }
-            cancellations = Array(repeating: nil, count: loadImages.count)
-        }
-
-        func completeWithFallbackIfCurrent(in renderer: FullscreenTokenMediaRenderer) {
-            guard isCurrentLoad(in: renderer) else { return }
-
-            renderer.cancelActiveImageLoad = nil
-            renderer.activeImageLoadId = nil
-            cancelSpreadLoads()
-            onEmptySpread()
-        }
-
-        func finishIfReady(in renderer: FullscreenTokenMediaRenderer) {
-            guard isCurrentLoad(in: renderer) else { return }
-            guard resolvedSlots.allSatisfy({ $0 }) else { return }
-            guard loadedImages.contains(where: { $0 != nil }) else {
-                completeWithFallbackIfCurrent(in: renderer)
-                return
-            }
-
-            renderer.cancelActiveImageLoad = nil
-            renderer.activeImageLoadId = nil
-            cancellations = Array(repeating: nil, count: loadImages.count)
-            renderer.webView?.isHidden = true
-            renderer.imageSpreadStackView?.isHidden = false
-            renderer.unloadWebContentAfterImageDisplay(imageKey: imageKey)
-            onLoadedImages?(loadedImages)
-        }
-
-        finishIfReady(in: self)
-        guard isCurrentLoad(in: self) else { return }
-
-        for (index, loadImage) in loadImages.enumerated() {
-            guard !resolvedSlots[index] else { continue }
-
-            cancellations[index] = loadImage { [weak self] image in
-                guard let self, isCurrentLoad(in: self) else { return }
-                guard let image else {
-                    resolvedSlots[index] = true
-                    onImageLoadFailure?(index)
-                    finishIfReady(in: self)
-                    return
-                }
-
-                loadedImages[index] = image
-                resolvedSlots[index] = true
-                if self.imageSpreadViews.indices.contains(index) {
-                    self.displayImage(image, in: self.imageSpreadViews[index])
-                    self.hideImageSpreadPlaceholder(at: index, animated: true)
-                }
-                if self.imageSpreadVerifiedImages.indices.contains(index) {
-                    self.imageSpreadVerifiedImages[index] = true
-                }
-                if self.imageSpreadResolvedImages.indices.contains(index) {
-                    self.imageSpreadResolvedImages[index] = true
-                }
-                finishIfReady(in: self)
-            }
-        }
-
-        guard isCurrentLoad(in: self) else {
-            cancelSpreadLoads()
-            return
-        }
-
-        cancelActiveImageLoad = {
-            cancelSpreadLoads()
-        }
-    }
-
     func renderWebContent(
         _ html: String,
         hidesEmptyWebContent: Bool = false,
@@ -538,55 +282,15 @@ final class FullscreenTokenMediaRenderer {
         tokenId: String,
         renderKind: NativeMetalCardRenderKind
     ) {
-        rememberCurrentImageSpread()
         cancelCurrentImageLoad()
         representedImageKey = nil
-        representedImageSpreadSlotKeys = []
         ensureNativeMetalCardView()
         imageView?.isHidden = true
         imageView?.image = nil
-        hideImageSpread()
         hideWebContent()
         nativeMetalCardView.display(
             tokenId: tokenId,
             renderKind: renderKind
-        )
-    }
-
-    func setImageSpreadAxis(_ axis: NSLayoutConstraint.Axis) {
-        guard imageSpreadStackView != nil,
-              !imageSpreadViews.isEmpty else {
-            return
-        }
-
-        if imageSpreadArrangement != .linear {
-            rebuildImageSpreadStackView(
-                imageCount: imageSpreadViews.count,
-                arrangement: .linear,
-                preservedImages: imageSpreadViews.map(\.image),
-                preservedImageVerification: imageSpreadVerifiedImages,
-                preservedImageResolution: imageSpreadResolvedImages,
-                isHidden: imageSpreadStackView?.isHidden ?? true
-            )
-        }
-
-        imageSpreadStackView?.axis = axis
-    }
-
-    func setImageSpreadGrid(_ grid: MobileStaticImageSpreadGrid) {
-        guard imageSpreadStackView != nil,
-              !imageSpreadViews.isEmpty,
-              imageSpreadArrangement != .grid(grid) else {
-            return
-        }
-
-        rebuildImageSpreadStackView(
-            imageCount: imageSpreadViews.count,
-            arrangement: .grid(grid),
-            preservedImages: imageSpreadViews.map(\.image),
-            preservedImageVerification: imageSpreadVerifiedImages,
-            preservedImageResolution: imageSpreadResolvedImages,
-            isHidden: imageSpreadStackView?.isHidden ?? true
         )
     }
 
@@ -616,11 +320,6 @@ final class FullscreenTokenMediaRenderer {
         containerView.makeBackgroundTransparent()
         if let imageView = imageView {
             imageView.makeBackgroundTransparent()
-        }
-        if let imageSpreadStackView {
-            imageSpreadStackView.makeBackgroundTransparent()
-            imageSpreadNestedStackViews.forEach { $0.makeBackgroundTransparent() }
-            imageSpreadViews.forEach { $0.makeBackgroundTransparent() }
         }
         webView?.makePlayerBackgroundTransparent()
         if let nativeMetalCardView = nativeMetalCardView {
@@ -788,10 +487,8 @@ final class FullscreenTokenMediaRenderer {
         onBegin: (() -> Void)?
     ) {
         activeLocalWebReadinessID = nil
-        rememberCurrentImageSpread()
         cancelCurrentImageLoad()
         representedImageKey = nil
-        representedImageSpreadSlotKeys = []
         ensureWebView()
         if let provisionalImage {
             displayMainImage(provisionalImage, bringsToFront: true)
@@ -799,7 +496,6 @@ final class FullscreenTokenMediaRenderer {
             imageView?.isHidden = true
             imageView?.image = nil
         }
-        hideImageSpread()
         hideNativeMetalCardView()
         webView.stopLoading()
         webViewMayContainContent = !html.isEmpty
@@ -834,57 +530,6 @@ final class FullscreenTokenMediaRenderer {
         cancellation?()
     }
 
-    private func rememberCurrentImageSpread() {
-        guard let imageSpreadStackView,
-              !imageSpreadStackView.isHidden,
-              let representedImageKey,
-              !imageSpreadViews.isEmpty else {
-            return
-        }
-
-        guard let verifiedImages = verifiedImageSpreadImages(),
-              representedImageSpreadSlotKeys.count == verifiedImages.count,
-              imageSpreadResolvedImages.count == verifiedImages.count else { return }
-
-        guard verifiedImages.contains(where: { $0 != nil }) else { return }
-
-        rememberedImageSpread = RememberedImageSpread(
-            key: representedImageKey,
-            slotKeys: representedImageSpreadSlotKeys,
-            images: verifiedImages,
-            resolvedImages: imageSpreadResolvedImages
-        )
-    }
-
-    private func rememberedImageSpread(
-        for imageKey: AnyHashable,
-        slotKeys: [AnyHashable]?,
-        imageCount: Int
-    ) -> RememberedImageSpread? {
-        guard let rememberedImageSpread,
-              rememberedImageSpread.key == imageKey,
-              rememberedImageSpread.images.count == imageCount,
-              rememberedImageSpread.resolvedImages.count == imageCount,
-              let slotKeys,
-              rememberedImageSpread.slotKeys == slotKeys else {
-            self.rememberedImageSpread = nil
-            return nil
-        }
-
-        self.rememberedImageSpread = nil
-        return rememberedImageSpread
-    }
-
-    private func verifiedImageSpreadImages() -> [UIImage?]? {
-        guard imageSpreadVerifiedImages.count == imageSpreadViews.count else {
-            return nil
-        }
-
-        return zip(imageSpreadViews, imageSpreadVerifiedImages).map { imageView, isVerified in
-            isVerified ? imageView.image : nil
-        }
-    }
-
     private func displayImage(_ image: UIImage, in imageView: UIImageView) {
         guard imageView.image != nil else {
             imageView.image = image
@@ -908,216 +553,6 @@ final class FullscreenTokenMediaRenderer {
         if usesTransparentPlayerBackground {
             imageView.makeBackgroundTransparent()
         }
-    }
-
-    private func ensureImageSpreadStackView(
-        imageCount: Int,
-        pageLayout: MobilePlayerPageLayout,
-        viewportSize: CGSize? = nil
-    ) {
-        guard imageCount > 0 else { return }
-        let arrangement = imageSpreadArrangement(
-            imageCount: imageCount,
-            pageLayout: pageLayout,
-            viewportSize: viewportSize
-        )
-        if imageSpreadStackView != nil,
-           imageSpreadViews.count == imageCount,
-           imageSpreadArrangement == arrangement {
-            return
-        }
-
-        rebuildImageSpreadStackView(
-            imageCount: imageCount,
-            arrangement: arrangement,
-            preservedImages: imageSpreadViews.count == imageCount ? imageSpreadViews.map(\.image) : [],
-            preservedImageVerification: imageSpreadViews.count == imageCount ? imageSpreadVerifiedImages : [],
-            preservedImageResolution: imageSpreadViews.count == imageCount ? imageSpreadResolvedImages : [],
-            isHidden: imageSpreadStackView?.isHidden ?? true
-        )
-    }
-
-    private func imageSpreadArrangement(
-        imageCount: Int,
-        pageLayout: MobilePlayerPageLayout,
-        viewportSize: CGSize?
-    ) -> ImageSpreadArrangement {
-        let fittingSize = viewportSize ?? containerView.bounds.size
-        if let grid = MobileStaticImageSpreadGrid.grid(
-            for: pageLayout,
-            imageCount: imageCount,
-            fitting: fittingSize
-        ) {
-            return .grid(grid)
-        }
-
-        return .linear
-    }
-
-    private func rebuildImageSpreadStackView(
-        imageCount: Int,
-        arrangement: ImageSpreadArrangement,
-        preservedImages: [UIImage?],
-        preservedImageVerification: [Bool],
-        preservedImageResolution: [Bool],
-        isHidden: Bool
-    ) {
-        imageSpreadStackView?.removeFromSuperview()
-        imageSpreadStackView = nil
-        imageSpreadArrangement = nil
-        imageSpreadNestedStackViews.removeAll()
-        imageSpreadPlaceholderViews.removeAll()
-
-        imageSpreadViews = (0..<imageCount).map { _ in
-            let imageView = NativeMetalCardCornerMaskedImageView()
-            imageView.backgroundColor = .black
-            imageView.contentMode = .scaleAspectFit
-            imageView.clipsToBounds = true
-            imageView.isUserInteractionEnabled = false
-            if usesTransparentPlayerBackground {
-                imageView.makeBackgroundTransparent()
-            }
-            return imageView
-        }
-        imageSpreadPlaceholderViews = (0..<imageCount).map { _ in
-            PlayerMediaPlaceholderView()
-        }
-
-        let populatedSlotViews = zip(imageSpreadPlaceholderViews, imageSpreadViews).map { placeholderView, imageView in
-            let slotView = UIView()
-            slotView.backgroundColor = .clear
-            slotView.isUserInteractionEnabled = false
-            placeholderView.translatesAutoresizingMaskIntoConstraints = false
-            imageView.translatesAutoresizingMaskIntoConstraints = false
-            slotView.addSubview(imageView)
-            slotView.addSubview(placeholderView)
-            NSLayoutConstraint.activate([
-                placeholderView.leadingAnchor.constraint(equalTo: slotView.leadingAnchor),
-                placeholderView.trailingAnchor.constraint(equalTo: slotView.trailingAnchor),
-                placeholderView.topAnchor.constraint(equalTo: slotView.topAnchor),
-                placeholderView.bottomAnchor.constraint(equalTo: slotView.bottomAnchor),
-                imageView.leadingAnchor.constraint(equalTo: slotView.leadingAnchor),
-                imageView.trailingAnchor.constraint(equalTo: slotView.trailingAnchor),
-                imageView.topAnchor.constraint(equalTo: slotView.topAnchor),
-                imageView.bottomAnchor.constraint(equalTo: slotView.bottomAnchor),
-            ])
-            return slotView
-        }
-
-        if preservedImages.count == imageSpreadViews.count {
-            for (imageView, image) in zip(imageSpreadViews, preservedImages) {
-                imageView.image = image
-            }
-        }
-        if preservedImages.count == imageSpreadViews.count,
-           preservedImageVerification.count == imageSpreadViews.count {
-            imageSpreadVerifiedImages = zip(preservedImages, preservedImageVerification).map { image, isVerified in
-                image != nil && isVerified
-            }
-        } else {
-            imageSpreadVerifiedImages = Array(repeating: false, count: imageCount)
-        }
-        if preservedImages.count == imageSpreadViews.count,
-           preservedImageResolution.count == imageSpreadViews.count {
-            imageSpreadResolvedImages = zip(preservedImages, preservedImageResolution).map { image, isResolved in
-                image != nil && isResolved
-            }
-        } else {
-            imageSpreadResolvedImages = Array(repeating: false, count: imageCount)
-        }
-        configureImageSpreadPlaceholders(
-            seedImages: preservedImages.count == imageCount
-                ? preservedImages
-                : Array(repeating: nil, count: imageCount)
-        )
-
-        let stackView: UIStackView
-        switch arrangement {
-        case .linear:
-            stackView = makeImageSpreadStackView(arrangedSubviews: populatedSlotViews, axis: .horizontal)
-        case .grid(let grid):
-            let slotCount = grid.columnCount * grid.rowCount
-            let emptySlotViews = (imageSpreadViews.count..<slotCount).map { _ -> UIView in
-                let emptySlotView = UIView()
-                emptySlotView.backgroundColor = .clear
-                emptySlotView.isUserInteractionEnabled = false
-                return emptySlotView
-            }
-            let slotViews = populatedSlotViews + emptySlotViews
-            let rowStackViews = (0..<grid.rowCount).map { row -> UIStackView in
-                let startIndex = row * grid.columnCount
-                let endIndex = startIndex + grid.columnCount
-                return makeImageSpreadStackView(
-                    arrangedSubviews: Array(slotViews[startIndex..<endIndex]),
-                    axis: .horizontal,
-                    spacing: grid.spacing
-                )
-            }
-            imageSpreadNestedStackViews = rowStackViews
-            stackView = makeImageSpreadStackView(
-                arrangedSubviews: rowStackViews,
-                axis: .vertical,
-                spacing: grid.spacing
-            )
-        }
-
-        stackView.isUserInteractionEnabled = false
-        stackView.isHidden = isHidden
-        stackView.translatesAutoresizingMaskIntoConstraints = false
-        if usesTransparentPlayerBackground {
-            stackView.makeBackgroundTransparent()
-            imageSpreadNestedStackViews.forEach { $0.makeBackgroundTransparent() }
-        }
-
-        containerView.addSubview(stackView)
-        NSLayoutConstraint.activate([
-            stackView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
-            stackView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
-            stackView.topAnchor.constraint(equalTo: containerView.topAnchor),
-            stackView.bottomAnchor.constraint(equalTo: containerView.bottomAnchor)
-        ])
-        imageSpreadStackView = stackView
-        imageSpreadArrangement = arrangement
-        configureImageSpreadCornerMasks()
-    }
-
-    private func configureImageSpreadCornerMasks() {
-        for (index, imageView) in imageSpreadViews.enumerated() {
-            guard let imageView = imageView as? NativeMetalCardCornerMaskedImageView else { continue }
-
-            imageView.usesNativeMetalCardCornerMask = imageSpreadNativeMetalCardCornerMaskIndices.contains(index)
-        }
-    }
-
-    private func configureImageSpreadPlaceholders(seedImages: [UIImage?]) {
-        for (index, placeholderView) in imageSpreadPlaceholderViews.enumerated() {
-            guard imageSpreadPlaceholderSpecs.indices.contains(index) else {
-                placeholderView.setHidden(true, animated: false)
-                continue
-            }
-
-            placeholderView.configure(with: imageSpreadPlaceholderSpecs[index])
-            placeholderView.setHidden(seedImages.indices.contains(index) && seedImages[index] != nil, animated: false)
-        }
-    }
-
-    private func hideImageSpreadPlaceholder(at index: Int, animated: Bool) {
-        guard imageSpreadPlaceholderViews.indices.contains(index) else { return }
-        imageSpreadPlaceholderViews[index].setHidden(true, animated: animated)
-    }
-
-    private func makeImageSpreadStackView(
-        arrangedSubviews: [UIView],
-        axis: NSLayoutConstraint.Axis,
-        spacing: CGFloat = MobilePlayerPageLayoutMetrics.spreadCardSpacing
-    ) -> UIStackView {
-        let stackView = UIStackView(arrangedSubviews: arrangedSubviews)
-        stackView.axis = axis
-        stackView.alignment = .fill
-        stackView.distribution = .fillEqually
-        stackView.spacing = spacing
-        stackView.isUserInteractionEnabled = false
-        return stackView
     }
 
     private func ensureWebView() {
@@ -1160,27 +595,6 @@ final class FullscreenTokenMediaRenderer {
 
             self.unloadWebContentIfNeeded()
         }
-    }
-
-    private func hideImageSpread() {
-        rememberCurrentImageSpread()
-        clearImageSpread()
-    }
-
-    private func isImageSpreadImageVerified(at index: Int) -> Bool {
-        guard imageSpreadVerifiedImages.indices.contains(index) else { return false }
-        return imageSpreadVerifiedImages[index]
-    }
-
-    private func clearImageSpread() {
-        imageSpreadStackView?.isHidden = true
-        imageSpreadViews.forEach {
-            $0.layer.removeAllAnimations()
-            $0.image = nil
-        }
-        imageSpreadVerifiedImages = Array(repeating: false, count: imageSpreadViews.count)
-        imageSpreadResolvedImages = Array(repeating: false, count: imageSpreadViews.count)
-        representedImageSpreadSlotKeys = []
     }
 
     private func unloadWebContentIfNeeded() {
@@ -1373,120 +787,210 @@ private final class PlayerEdgeTapHighlightView: UIView {
 
 struct HorizontalPlayerContainerView: UIViewControllerRepresentable {
 
+    final class Coordinator {
+        private struct Update: Equatable {
+            let displayModeChangeID: UUID
+            let displayMode: MobilePlayerDisplayMode
+            let targetPagePosition: PlayerPagePosition?
+        }
+
+        private var lastUpdate: Update?
+
+        func beginUpdate(
+            displayModeChangeID: UUID,
+            displayMode: MobilePlayerDisplayMode,
+            targetPagePosition: PlayerPagePosition?
+        ) -> Bool {
+            let update = Update(
+                displayModeChangeID: displayModeChangeID,
+                displayMode: displayMode,
+                targetPagePosition: targetPagePosition
+            )
+            guard lastUpdate != update else { return false }
+            lastUpdate = update
+            return true
+        }
+    }
+
     private let initialConfig: MobilePlayerConfig
     private let chrome: MobilePlayerChromeController
-    private let pageLayout: MobilePlayerPageLayout
-    private let pageLayoutChangeID: UUID
-    private let pageLayoutTargetPagePosition: PlayerPagePosition?
-    private let onPagePositionUpdate: ((PlayerPagePosition) -> Void)
+    private let displayMode: MobilePlayerDisplayMode
+    private let browserDensity: MobilePlayerBrowserDensity?
+    private let displayModeChangeID: UUID
+    private let displayModeTargetPagePosition: PlayerPagePosition?
+    private let onFocusedPagePositionUpdate: ((PlayerPagePosition) -> Void)
+    private let onSettledPagePositionUpdate: ((PlayerPagePosition, Bool) -> Bool)
     private let onPaginationAttempt: (() -> Void)
     private let onUnavailableNavigation: (() -> Void)
     private let onToggleChrome: (() -> Void)
-    private let onPageLayoutChangeRequest: ((MobilePlayerPageLayout) -> Void)
-    private let onPageLayoutApplied: ((MobilePlayerPageLayoutApplication) -> Void)
-    private let onPageLayoutChangeRejected: ((MobilePlayerPageLayoutRejection) -> Void)
+    private let onDisplayModeApplied: ((MobilePlayerDisplayModeApplication) -> Void)
+    private let onDisplayModeChangeRejected: ((MobilePlayerDisplayModeRejection) -> Void)
+    private let onDisplayModeChangeSuperseded: ((MobilePlayerDisplayModeSupersession) -> Void)
     private let onZoomStateChange: ((Bool) -> Void)
 
     init(
         initialConfig: MobilePlayerConfig,
         chrome: MobilePlayerChromeController,
-        pageLayout: MobilePlayerPageLayout,
-        pageLayoutChangeID: UUID,
-        pageLayoutTargetPagePosition: PlayerPagePosition?,
-        onPagePositionUpdate: @escaping (PlayerPagePosition) -> Void,
+        displayMode: MobilePlayerDisplayMode,
+        browserDensity: MobilePlayerBrowserDensity?,
+        displayModeChangeID: UUID,
+        displayModeTargetPagePosition: PlayerPagePosition?,
+        onFocusedPagePositionUpdate: @escaping (PlayerPagePosition) -> Void,
+        onSettledPagePositionUpdate: @escaping (PlayerPagePosition, Bool) -> Bool,
         onPaginationAttempt: @escaping () -> Void,
         onUnavailableNavigation: @escaping () -> Void,
         onToggleChrome: @escaping () -> Void,
-        onPageLayoutChangeRequest: @escaping (MobilePlayerPageLayout) -> Void,
-        onPageLayoutApplied: @escaping (MobilePlayerPageLayoutApplication) -> Void,
-        onPageLayoutChangeRejected: @escaping (MobilePlayerPageLayoutRejection) -> Void,
+        onDisplayModeApplied: @escaping (MobilePlayerDisplayModeApplication) -> Void,
+        onDisplayModeChangeRejected: @escaping (MobilePlayerDisplayModeRejection) -> Void,
+        onDisplayModeChangeSuperseded: @escaping (MobilePlayerDisplayModeSupersession) -> Void,
         onZoomStateChange: @escaping (Bool) -> Void
     ) {
         self.initialConfig = initialConfig
         self.chrome = chrome
-        self.pageLayout = pageLayout
-        self.pageLayoutChangeID = pageLayoutChangeID
-        self.pageLayoutTargetPagePosition = pageLayoutTargetPagePosition
-        self.onPagePositionUpdate = onPagePositionUpdate
+        self.displayMode = displayMode
+        self.browserDensity = browserDensity
+        self.displayModeChangeID = displayModeChangeID
+        self.displayModeTargetPagePosition = displayModeTargetPagePosition
+        self.onFocusedPagePositionUpdate = onFocusedPagePositionUpdate
+        self.onSettledPagePositionUpdate = onSettledPagePositionUpdate
         self.onPaginationAttempt = onPaginationAttempt
         self.onUnavailableNavigation = onUnavailableNavigation
         self.onToggleChrome = onToggleChrome
-        self.onPageLayoutChangeRequest = onPageLayoutChangeRequest
-        self.onPageLayoutApplied = onPageLayoutApplied
-        self.onPageLayoutChangeRejected = onPageLayoutChangeRejected
+        self.onDisplayModeApplied = onDisplayModeApplied
+        self.onDisplayModeChangeRejected = onDisplayModeChangeRejected
+        self.onDisplayModeChangeSuperseded = onDisplayModeChangeSuperseded
         self.onZoomStateChange = onZoomStateChange
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
     }
 
     func makeUIViewController(context: Context) -> HorizontalPlayerContainer {
         return HorizontalPlayerContainer(
             initialConfig: initialConfig,
             chrome: chrome,
-            pageLayout: pageLayout,
-            onPagePositionUpdate: onPagePositionUpdate,
+            displayMode: displayMode,
+            browserDensity: browserDensity,
+            onFocusedPagePositionUpdate: onFocusedPagePositionUpdate,
+            onSettledPagePositionUpdate: onSettledPagePositionUpdate,
             onPaginationAttempt: onPaginationAttempt,
             onUnavailableNavigation: onUnavailableNavigation,
             onToggleChrome: onToggleChrome,
-            onPageLayoutChangeRequest: onPageLayoutChangeRequest,
             onZoomStateChange: onZoomStateChange
         )
     }
 
     func updateUIViewController(_ uiViewController: HorizontalPlayerContainer, context: Context) {
-        uiViewController.setPageLayout(
-            pageLayout,
-            targetPagePosition: pageLayoutTargetPagePosition
+        guard context.coordinator.beginUpdate(
+            displayModeChangeID: displayModeChangeID,
+            displayMode: displayMode,
+            targetPagePosition: displayModeTargetPagePosition
+        ) else {
+            return
+        }
+
+        uiViewController.setDisplayMode(
+            displayMode,
+            displayModeChangeID: displayModeChangeID,
+            targetPagePosition: displayModeTargetPagePosition
         ) { result in
             switch result {
-            case .applied:
-                let application = MobilePlayerPageLayoutApplication(
-                    pageLayoutChangeID: pageLayoutChangeID,
-                    requestedPageLayout: pageLayout,
-                    targetPagePosition: pageLayoutTargetPagePosition
+            case .applied, .unchanged:
+                let application = MobilePlayerDisplayModeApplication(
+                    displayModeChangeID: displayModeChangeID,
+                    requestedDisplayMode: displayMode,
+                    targetPagePosition: displayModeTargetPagePosition
                 )
                 DispatchQueue.main.async {
-                    self.onPageLayoutApplied(application)
+                    self.onDisplayModeApplied(application)
                 }
-            case .unchanged:
-                break
-
-            case .rejected(let currentPageLayout):
-                let rejection = MobilePlayerPageLayoutRejection(
-                    pageLayoutChangeID: pageLayoutChangeID,
-                    requestedPageLayout: pageLayout,
-                    targetPagePosition: pageLayoutTargetPagePosition,
-                    currentPageLayout: currentPageLayout
+            case .rejected(let currentDisplayMode):
+                let rejection = MobilePlayerDisplayModeRejection(
+                    displayModeChangeID: displayModeChangeID,
+                    requestedDisplayMode: displayMode,
+                    targetPagePosition: displayModeTargetPagePosition,
+                    currentDisplayMode: currentDisplayMode
                 )
                 DispatchQueue.main.async {
-                    self.onPageLayoutChangeRejected(rejection)
+                    self.onDisplayModeChangeRejected(rejection)
+                }
+
+            case .superseded:
+                let supersession = MobilePlayerDisplayModeSupersession(
+                    displayModeChangeID: displayModeChangeID
+                )
+                DispatchQueue.main.async {
+                    self.onDisplayModeChangeSuperseded(supersession)
                 }
             }
         }
     }
 }
 
-fileprivate enum HorizontalPlayerPageLayoutApplicationResult {
+fileprivate enum HorizontalPlayerDisplayModeApplicationResult {
     case applied
     case unchanged
-    case rejected(currentPageLayout: MobilePlayerPageLayout)
+    case superseded
+    case rejected(currentDisplayMode: MobilePlayerDisplayMode)
 }
 
-class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, MobilePlaybackControllerDisplay, UIGestureRecognizerDelegate, MobilePlayerStaticImageGridSelectionProviding {
+class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, MobilePlaybackControllerDisplay, UIGestureRecognizerDelegate, MobilePlayerBrowserTransitionProviding {
+
+    private static let completedDisplayModeOperationLimit = 32
+
+    private struct DisplayModeOperationIdentity: Equatable {
+        let id: UUID
+        let displayMode: MobilePlayerDisplayMode
+        let targetPagePosition: PlayerPagePosition?
+    }
+
+    private struct PendingDisplayModeOperation {
+        let identity: DisplayModeOperationIdentity
+        let generation: UInt
+        var completions: [(HorizontalPlayerDisplayModeApplicationResult) -> Void]
+    }
+
+    private struct CompletedDisplayModeOperation {
+        let identity: DisplayModeOperationIdentity
+        let result: HorizontalPlayerDisplayModeApplicationResult
+    }
 
     private let initialConfig: MobilePlayerConfig
     private let chrome: MobilePlayerChromeController
-    private var pageLayout: MobilePlayerPageLayout
-    private let onPagePositionUpdate: ((PlayerPagePosition) -> Void)
+    private var displayMode: MobilePlayerDisplayMode
+    private let browserDensity: MobilePlayerBrowserDensity?
+    private let onFocusedPagePositionUpdate: ((PlayerPagePosition) -> Void)
+    private let onSettledPagePositionUpdate: ((PlayerPagePosition, Bool) -> Bool)
     private let onPaginationAttempt: (() -> Void)
     private let onUnavailableNavigation: (() -> Void)
     private let onToggleChrome: (() -> Void)
-    private let onPageLayoutChangeRequest: ((MobilePlayerPageLayout) -> Void)
     private let onZoomStateChange: ((Bool) -> Void)
     private let liveLayoutInteractionStateProviderID = UUID()
 
-    private lazy var pagingVC = HorizontalPageViewController(
-        pageLayout: pageLayout,
-        playerDataSource: self
-    )
+    private lazy var pagingVC = HorizontalPageViewController(playerDataSource: self)
+    private lazy var collectionBrowserVC: VerticalCollectionBrowserViewController? = {
+        guard let browserDensity else { return nil }
+
+        let controller = VerticalCollectionBrowserViewController(
+            uuid: initialConfig.id,
+            density: browserDensity
+        )
+        controller.onFocusedPagePosition = { [weak self] pagePosition in
+            guard let self,
+                  self.displayMode == .collectionBrowser else { return }
+            self.onFocusedPagePositionUpdate(pagePosition)
+        }
+        controller.onSettledPagePosition = { [weak self] pagePosition, hasViewedToEnd in
+            guard let self,
+                  self.displayMode == .collectionBrowser else { return false }
+            return self.onSettledPagePositionUpdate(pagePosition, hasViewedToEnd)
+        }
+        controller.onSelection = { [weak self] selection in
+            self?.openCollectionBrowserSelection(selection) == true
+        }
+        return controller
+    }()
     private let leftEdgeTapHighlight = PlayerEdgeTapHighlightView(side: .left)
     private let rightEdgeTapHighlight = PlayerEdgeTapHighlightView(side: .right)
     private lazy var singleTapRecognizer: UITapGestureRecognizer = {
@@ -1529,6 +1033,11 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
     }()
     private var renderedPagePositionCounts = [PlayerPagePosition: Int]()
     private var displayedPagePosition: PlayerPagePosition?
+    private var persistedPagePosition: PlayerPagePosition?
+    private var displayModeOperationGeneration: UInt = 0
+    private var pendingDisplayModeOperation: PendingDisplayModeOperation?
+    private var completedDisplayModeOperations = [UUID: CompletedDisplayModeOperation]()
+    private var completedDisplayModeOperationIDs = [UUID]()
     private var pendingEdgeTapHighlightSide: PlayerEdgeTapSide?
     private var edgeTapHighlightWorkItem: DispatchWorkItem?
     private var edgeTapHighlightRequestId = 0
@@ -1536,25 +1045,27 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
     init(
         initialConfig: MobilePlayerConfig,
         chrome: MobilePlayerChromeController,
-        pageLayout: MobilePlayerPageLayout,
-        onPagePositionUpdate: @escaping (PlayerPagePosition) -> Void,
+        displayMode: MobilePlayerDisplayMode,
+        browserDensity: MobilePlayerBrowserDensity?,
+        onFocusedPagePositionUpdate: @escaping (PlayerPagePosition) -> Void,
+        onSettledPagePositionUpdate: @escaping (PlayerPagePosition, Bool) -> Bool,
         onPaginationAttempt: @escaping () -> Void,
         onUnavailableNavigation: @escaping () -> Void,
         onToggleChrome: @escaping () -> Void,
-        onPageLayoutChangeRequest: @escaping (MobilePlayerPageLayout) -> Void,
         onZoomStateChange: @escaping (Bool) -> Void
     ) {
         self.initialConfig = initialConfig
         self.chrome = chrome
-        self.pageLayout = pageLayout
-        self.onPagePositionUpdate = onPagePositionUpdate
+        self.displayMode = displayMode
+        self.browserDensity = browserDensity
+        self.onFocusedPagePositionUpdate = onFocusedPagePositionUpdate
+        self.onSettledPagePositionUpdate = onSettledPagePositionUpdate
         self.onPaginationAttempt = onPaginationAttempt
         self.onUnavailableNavigation = onUnavailableNavigation
         self.onToggleChrome = onToggleChrome
-        self.onPageLayoutChangeRequest = onPageLayoutChangeRequest
         self.onZoomStateChange = onZoomStateChange
         super.init(nibName: nil, bundle: nil)
-        chrome.setStaticImageGridSelectionProvider(self)
+        chrome.setCollectionBrowserTransitionProvider(self)
     }
 
     required init?(coder: NSCoder) {
@@ -1572,96 +1083,432 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
         pagingVC.onCurrentZoomStateChange = { [weak self] isZoomed in
             self?.onZoomStateChange(isZoomed)
         }
-        addChild(pagingVC)
-        view.addSubview(pagingVC.view)
-        pagingVC.didMove(toParent: self)
-        pagingVC.view.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            pagingVC.view.topAnchor.constraint(equalTo: view.topAnchor),
-            pagingVC.view.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            pagingVC.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            pagingVC.view.trailingAnchor.constraint(equalTo: view.trailingAnchor)
-        ])
+        installContentController(pagingVC)
+        if let collectionBrowserVC {
+            installContentController(collectionBrowserVC)
+            collectionBrowserVC.view.alpha = displayMode == .collectionBrowser ? 1 : 0
+            collectionBrowserVC.setActive(displayMode == .collectionBrowser)
+        }
+        pagingVC.view.isHidden = displayMode != .onePerPage
+        pagingVC.setActive(displayMode == .onePerPage)
         installEdgeTapHighlights()
         installTapGestures()
         UIApplication.shared.isIdleTimerDisabled = true
     }
 
+    override func viewWillDisappear(_ animated: Bool) {
+        flushPendingViewingProgress()
+        super.viewWillDisappear(animated)
+    }
+
+    private func installContentController(_ controller: UIViewController) {
+        addChild(controller)
+        view.addSubview(controller.view)
+        controller.didMove(toParent: self)
+        controller.view.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            controller.view.topAnchor.constraint(equalTo: view.topAnchor),
+            controller.view.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            controller.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            controller.view.trailingAnchor.constraint(equalTo: view.trailingAnchor)
+        ])
+    }
+
     private func makePlayerBackgroundTransparent() {
         view.makeBackgroundTransparent()
         pagingVC.makePlayerBackgroundTransparent()
+        collectionBrowserVC?.view.makeBackgroundTransparent()
     }
 
     deinit {
         chrome.clearLiveLayoutInteractionStateProvider(id: liveLayoutInteractionStateProviderID)
-        chrome.clearStaticImageGridSelectionProvider(self)
+        chrome.clearCollectionBrowserTransitionProvider(self)
         edgeTapHighlightWorkItem?.cancel()
         UIApplication.shared.isIdleTimerDisabled = false
     }
 
     func getCurrentPagePosition() -> PlayerPagePosition {
+        if displayMode == .collectionBrowser,
+           let pagePosition = collectionBrowserVC?.currentPagePosition {
+            return pagePosition
+        }
         return pagingVC.getCurrentPagePosition()
     }
 
-    func getCurrentPageLayout() -> MobilePlayerPageLayout {
-        return pageLayout
+    func flushPendingViewingProgress() {
+        if displayMode == .collectionBrowser {
+            collectionBrowserVC?.flushSettledPosition()
+            return
+        }
+
+        _ = persistPagePositionIfNeeded(
+            pagingVC.getCurrentPagePosition(),
+            forceUpdate: false
+        )
     }
 
     private func currentLayoutInteractionState() -> MobilePlayerLayoutInteractionState {
         MobilePlaybackController.shared.layoutInteractionState(
             uuid: initialConfig.id,
-            pageLayout: pageLayout,
-            pagePosition: pagingVC.getCurrentPagePosition()
+            displayMode: displayMode,
+            pagePosition: getCurrentPagePosition(),
+            browserDensity: browserDensity
         )
     }
 
     func navigate(_ direction: PlaybackNavigationDirection) {
-        pagingVC.navigate(direction)
+        guard displayMode == .collectionBrowser else {
+            pagingVC.navigate(direction)
+            return
+        }
+
+        if direction == .restartCollection {
+            collectionBrowserVC?.scrollToFirstItemAndPublish()
+        }
     }
 
-    fileprivate func setPageLayout(
-        _ pageLayout: MobilePlayerPageLayout,
+    fileprivate func setDisplayMode(
+        _ requestedDisplayMode: MobilePlayerDisplayMode,
+        displayModeChangeID: UUID,
         targetPagePosition: PlayerPagePosition? = nil,
-        completion: @escaping (HorizontalPlayerPageLayoutApplicationResult) -> Void
+        completion: @escaping (HorizontalPlayerDisplayModeApplicationResult) -> Void
     ) {
-        let shouldApplyTargetPagePosition = targetPagePosition.map {
-            self.pageLayout != pageLayout || pagingVC.getCurrentPagePosition() != $0
-        } ?? false
-        guard shouldApplyTargetPagePosition || self.pageLayout != pageLayout else {
+        let identity = DisplayModeOperationIdentity(
+            id: displayModeChangeID,
+            displayMode: requestedDisplayMode,
+            targetPagePosition: targetPagePosition
+        )
+
+        if var pendingDisplayModeOperation,
+           pendingDisplayModeOperation.identity.id == identity.id {
+            guard isCompatibleRepeatedDisplayModeOperation(
+                identity,
+                originalIdentity: pendingDisplayModeOperation.identity
+            ) else {
+                completion(.rejected(currentDisplayMode: displayMode))
+                return
+            }
+            pendingDisplayModeOperation.completions.append(completion)
+            self.pendingDisplayModeOperation = pendingDisplayModeOperation
+            return
+        }
+        if let completedDisplayModeOperation = completedDisplayModeOperations[identity.id] {
+            guard isCompatibleRepeatedDisplayModeOperation(
+                identity,
+                originalIdentity: completedDisplayModeOperation.identity
+            ) else {
+                completion(.rejected(currentDisplayMode: displayMode))
+                return
+            }
+            completion(completedDisplayModeOperation.result)
+            return
+        }
+
+        collectionBrowserVC?.cancelPendingDisplayPreparation()
+        if let pendingDisplayModeOperation {
+            finishDisplayModeOperation(
+                pendingDisplayModeOperation.identity,
+                generation: pendingDisplayModeOperation.generation,
+                result: .superseded
+            )
+        }
+
+        guard !isDisplayModePresented(
+            requestedDisplayMode,
+            targetPagePosition: targetPagePosition
+        ) else {
+            recordCompletedDisplayModeOperation(identity, result: .unchanged)
             completion(.unchanged)
             return
         }
 
-        let previousPageLayout = self.pageLayout
-        self.pageLayout = pageLayout
-        if !allowsEdgeTapNavigation {
-            clearEdgeTapHighlights()
-        }
-        let didSetPageLayout: Bool
-        let completeApplied = {
-            completion(.applied)
-        }
-        if shouldApplyTargetPagePosition, let targetPagePosition {
-            didSetPageLayout = pagingVC.setPageLayout(
-                pageLayout,
-                targetPagePosition: targetPagePosition,
-                completion: completeApplied
+        displayModeOperationGeneration &+= 1
+        let generation = displayModeOperationGeneration
+        pendingDisplayModeOperation = PendingDisplayModeOperation(
+            identity: identity,
+            generation: generation,
+            completions: [completion]
+        )
+
+        switch requestedDisplayMode {
+        case .onePerPage:
+            applyOnePerPageDisplayMode(
+                identity: identity,
+                generation: generation
             )
-        } else {
-            didSetPageLayout = pagingVC.setPageLayout(
-                pageLayout,
-                completion: completeApplied
+
+        case .collectionBrowser:
+            applyCollectionBrowserDisplayMode(
+                identity: identity,
+                generation: generation
             )
         }
-        guard didSetPageLayout else {
-            self.pageLayout = previousPageLayout
-            completion(.rejected(currentPageLayout: previousPageLayout))
+    }
+
+    private func isDisplayModePresented(
+        _ requestedDisplayMode: MobilePlayerDisplayMode,
+        targetPagePosition: PlayerPagePosition?
+    ) -> Bool {
+        guard displayMode == requestedDisplayMode else { return false }
+        guard requestedDisplayMode == .onePerPage,
+              let targetPagePosition else {
+            return true
+        }
+        return pagingVC.getCurrentPagePosition() == targetPagePosition
+    }
+
+    private func isCompatibleRepeatedDisplayModeOperation(
+        _ identity: DisplayModeOperationIdentity,
+        originalIdentity: DisplayModeOperationIdentity
+    ) -> Bool {
+        identity == originalIdentity
+            || (identity.displayMode == originalIdentity.displayMode
+                && identity.targetPagePosition == nil)
+    }
+
+    private func recordCompletedDisplayModeOperation(
+        _ identity: DisplayModeOperationIdentity,
+        result: HorizontalPlayerDisplayModeApplicationResult
+    ) {
+        if completedDisplayModeOperations[identity.id] == nil {
+            completedDisplayModeOperationIDs.append(identity.id)
+        }
+        completedDisplayModeOperations[identity.id] = CompletedDisplayModeOperation(
+            identity: identity,
+            result: result
+        )
+
+        while completedDisplayModeOperationIDs.count > Self.completedDisplayModeOperationLimit {
+            let expiredID = completedDisplayModeOperationIDs.removeFirst()
+            completedDisplayModeOperations.removeValue(forKey: expiredID)
+        }
+    }
+
+    private func applyOnePerPageDisplayMode(
+        identity: DisplayModeOperationIdentity,
+        generation: UInt
+    ) {
+        let wasCollectionBrowser = displayMode == .collectionBrowser
+        if wasCollectionBrowser {
+            collectionBrowserVC?.flushSettledPosition()
+        }
+        let destination = identity.targetPagePosition
+            ?? collectionBrowserVC?.currentPagePosition
+            ?? pagingVC.getCurrentPagePosition()
+
+        if wasCollectionBrowser {
+            pagingVC.setActive(false)
+        }
+
+        let didReanchor = pagingVC.setPagePosition(destination) { [weak self] in
+            guard let self,
+                  self.isCurrentDisplayModeOperation(identity, generation: generation) else {
+                return
+            }
+            guard self.pagingVC.getCurrentPagePosition() == destination else {
+                self.finishDisplayModeOperation(
+                    identity,
+                    generation: generation,
+                    result: .rejected(currentDisplayMode: self.displayMode)
+                )
+                return
+            }
+
+            if wasCollectionBrowser {
+                self.collectionBrowserVC?.setActive(false)
+                self.collectionBrowserVC?.view.alpha = 0
+                self.pagingVC.view.isHidden = false
+                self.pagingVC.setActive(true)
+                self.displayMode = .onePerPage
+                MobilePlaybackController.shared.acknowledgeIntentionalViewingPosition(
+                    uuid: self.initialConfig.id
+                )
+                self.displayedPagePosition = nil
+                if !self.pagingVC.publishCurrentPagePosition(
+                    forceUpdate: true
+                ) {
+                    self.updateDisplayedPagePosition(destination, forceUpdate: true)
+                }
+            }
+
+            self.clearEdgeTapHighlights()
+            self.finishDisplayModeOperation(
+                identity,
+                generation: generation,
+                result: .applied
+            )
+        }
+
+        guard didReanchor else {
+            finishDisplayModeOperation(
+                identity,
+                generation: generation,
+                result: .rejected(currentDisplayMode: displayMode)
+            )
             return
         }
     }
 
+    private func applyCollectionBrowserDisplayMode(
+        identity: DisplayModeOperationIdentity,
+        generation: UInt
+    ) {
+        guard displayMode == .onePerPage,
+              let collectionBrowserVC else {
+            finishDisplayModeOperation(
+                identity,
+                generation: generation,
+                result: .rejected(currentDisplayMode: displayMode)
+            )
+            return
+        }
+
+        let sourcePagePosition = identity.targetPagePosition ?? pagingVC.getCurrentPagePosition()
+        guard let preparation = MobilePlaybackController.shared.prepareCollectionBrowse(
+            uuid: initialConfig.id,
+            containing: sourcePagePosition
+        ) else {
+            finishDisplayModeOperation(
+                identity,
+                generation: generation,
+                result: .rejected(currentDisplayMode: displayMode)
+            )
+            return
+        }
+
+        view.layoutIfNeeded()
+        collectionBrowserVC.prepareForDisplay(
+            using: preparation,
+            publishWhenStable: false
+        ) { [weak self, weak collectionBrowserVC] preparationResult in
+            guard let self,
+                  let collectionBrowserVC,
+                  self.isCurrentDisplayModeOperation(identity, generation: generation) else {
+                return
+            }
+
+            func rejectOperation() {
+                collectionBrowserVC.cancelPendingDisplayPreparation()
+                self.finishDisplayModeOperation(
+                    identity,
+                    generation: generation,
+                    result: .rejected(currentDisplayMode: self.displayMode)
+                )
+            }
+
+            guard preparationResult == .prepared else {
+                rejectOperation()
+                return
+            }
+
+            guard self.displayMode == .onePerPage,
+                  self.pagingVC.getCurrentPagePosition() == preparation.sourcePagePosition else {
+                rejectOperation()
+                return
+            }
+
+            let resolution = MobilePlaybackController.shared.commitCollectionBrowse(
+                uuid: self.initialConfig.id,
+                preparation: preparation
+            )
+            guard case .resolved(let resolvedPagePosition) = resolution else {
+                rejectOperation()
+                return
+            }
+
+            guard resolvedPagePosition == preparation.snapshot.pagePosition(
+                forTokenIndex: preparation.focusedTokenIndex
+            ),
+                  collectionBrowserVC.finalizePreparedDisplay(preparation) else {
+                collectionBrowserVC.cancelPendingDisplayPreparation()
+                self.recoverOnePerPageAfterCollectionBrowseCommit(
+                    identity: identity,
+                    generation: generation,
+                    pagePosition: resolvedPagePosition
+                )
+                return
+            }
+
+            self.displayMode = .collectionBrowser
+            self.clearEdgeTapHighlights()
+            self.onZoomStateChange(false)
+            collectionBrowserVC.setActive(true)
+            collectionBrowserVC.view.alpha = 1
+            self.pagingVC.setActive(false)
+            self.pagingVC.view.isHidden = true
+            self.finishDisplayModeOperation(
+                identity,
+                generation: generation,
+                result: .applied
+            )
+        }
+    }
+
+    private func recoverOnePerPageAfterCollectionBrowseCommit(
+        identity: DisplayModeOperationIdentity,
+        generation: UInt,
+        pagePosition: PlayerPagePosition
+    ) {
+        displayMode = .onePerPage
+        pagingVC.view.isHidden = false
+        pagingVC.setActive(true)
+        displayedPagePosition = nil
+
+        let didReanchor = pagingVC.setPagePosition(pagePosition) { [weak self] in
+            guard let self,
+                  self.isCurrentDisplayModeOperation(identity, generation: generation) else {
+                return
+            }
+
+            if self.displayedPagePosition != pagePosition,
+               !self.pagingVC.publishCurrentPagePosition(forceUpdate: true) {
+                self.updateDisplayedPagePosition(pagePosition, forceUpdate: true)
+            }
+            self.finishDisplayModeOperation(
+                identity,
+                generation: generation,
+                result: .rejected(currentDisplayMode: .onePerPage)
+            )
+        }
+
+        guard didReanchor else {
+            finishDisplayModeOperation(
+                identity,
+                generation: generation,
+                result: .rejected(currentDisplayMode: .onePerPage)
+            )
+            return
+        }
+    }
+
+    private func isCurrentDisplayModeOperation(
+        _ identity: DisplayModeOperationIdentity,
+        generation: UInt
+    ) -> Bool {
+        pendingDisplayModeOperation?.identity == identity
+            && pendingDisplayModeOperation?.generation == generation
+    }
+
+    private func finishDisplayModeOperation(
+        _ identity: DisplayModeOperationIdentity,
+        generation: UInt,
+        result: HorizontalPlayerDisplayModeApplicationResult
+    ) {
+        guard let pendingDisplayModeOperation,
+              pendingDisplayModeOperation.identity == identity,
+              pendingDisplayModeOperation.generation == generation else {
+            return
+        }
+
+        self.pendingDisplayModeOperation = nil
+        recordCompletedDisplayModeOperation(identity, result: result)
+        pendingDisplayModeOperation.completions.forEach { completion in
+            completion(result)
+        }
+    }
+
     private var allowsEdgeTapNavigation: Bool {
-        pageLayout == .onePerPage
+        displayMode == .onePerPage
     }
 
     private func installTapGestures() {
@@ -1696,81 +1543,62 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
             return
         }
 
-        if selectStaticImageGridCard(at: gesture.location(in: view)) {
-            return
-        }
-
         onToggleChrome()
     }
 
-    private func selectStaticImageGridCard(at location: CGPoint) -> Bool {
-        guard pageLayout.isStaticImageGrid,
-              let selection = staticImageGridSelection(
-                at: location,
-                in: view,
-                requiresLoadedImage: false
-              ) else {
-            return false
-        }
+    var isCollectionBrowserActive: Bool {
+        displayMode == .collectionBrowser
+            && collectionBrowserVC?.view.alpha == 1
+    }
 
-        switch chrome.requestStaticImageGridExpand(selection) {
+    var isCollectionBrowserAtTopBoundary: Bool {
+        isCollectionBrowserActive && collectionBrowserVC?.isAtTopBoundary == true
+    }
+
+    func canSelectCollectionBrowserItem(at location: CGPoint, in coordinateView: UIView) -> Bool {
+        guard displayMode == .collectionBrowser else { return false }
+        return collectionBrowserVC?.canSelectItem(at: location, in: coordinateView) == true
+    }
+
+    func collectionBrowserSelection(
+        at location: CGPoint,
+        in coordinateView: UIView
+    ) -> MobilePlayerBrowserTransitionSelection? {
+        guard displayMode == .collectionBrowser else { return nil }
+        return collectionBrowserVC?.transitionSelection(at: location, in: coordinateView)
+    }
+
+    func prepareCollectionBrowserSelection(
+        for pagePosition: PlayerPagePosition
+    ) -> MobilePlayerBrowserTransitionSelection? {
+        collectionBrowserVC?.preparedTransitionSelection(for: pagePosition)
+    }
+
+    func cancelPreparedCollectionBrowserSelection() {
+        collectionBrowserVC?.cancelPreparedTransition()
+    }
+
+    private func openCollectionBrowserSelection(
+        _ selection: MobilePlayerBrowserTransitionSelection
+    ) -> Bool {
+        guard displayMode == .collectionBrowser else { return false }
+
+        switch chrome.requestCollectionBrowserExpand(selection) {
         case .started:
             Haptic.selectionChanged()
             return true
         case .busy:
-            return true
+            return false
         case .fallbackToImmediateOpen:
-            break
-        case .rejected:
+            chrome.requestDisplayMode(
+                .onePerPage,
+                targetPagePosition: selection.selectedSnapshot.pagePosition
+            )
+            Haptic.selectionChanged()
             return true
-        }
-
-        guard pagingVC.openStaticImageGridSelection(selection) else {
+        case .rejected:
             return false
         }
-        pageLayout = .onePerPage
-        onPageLayoutChangeRequest(.onePerPage)
-        Haptic.selectionChanged()
-        return true
-    }
-
-    func canSelectStaticImageGrid(at location: CGPoint, in coordinateView: UIView) -> Bool {
-        guard pageLayout.isStaticImageGrid else {
-            return false
-        }
-
-        return pagingVC.canSelectStaticImageGrid(at: location, in: coordinateView)
-    }
-
-    func staticImageGridSelection(
-        at location: CGPoint,
-        in coordinateView: UIView
-    ) -> MobilePlayerStaticImageGridSelection? {
-        guard pageLayout.isStaticImageGrid else {
-            return nil
-        }
-
-        return staticImageGridSelection(
-            at: location,
-            in: coordinateView,
-            requiresLoadedImage: true
-        )
-    }
-
-    private func staticImageGridSelection(
-        at location: CGPoint,
-        in coordinateView: UIView,
-        requiresLoadedImage: Bool
-    ) -> MobilePlayerStaticImageGridSelection? {
-        guard pageLayout.isStaticImageGrid else {
-            return nil
-        }
-
-        return pagingVC.staticImageGridSelection(
-            at: location,
-            in: coordinateView,
-            requiresLoadedImage: requiresLoadedImage
-        )
     }
 
     private func edgeTapSide(at location: CGPoint) -> PlayerEdgeTapSide? {
@@ -1916,8 +1744,8 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
     }
 
     @objc private func handleDoubleTap(_ gesture: UITapGestureRecognizer) {
-        guard gesture.state == .ended else { return }
-        guard !pageLayout.isStaticImageGrid else { return }
+        guard displayMode == .onePerPage,
+              gesture.state == .ended else { return }
 
         let location = gesture.location(in: view)
         guard !isEdgeTapLocation(location) else { return }
@@ -1926,17 +1754,31 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
     }
 
     func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        if displayMode == .collectionBrowser {
+            if gestureRecognizer === doubleTapRecognizer
+                || gestureRecognizer === edgeTapRecognizer {
+                return false
+            }
+            if gestureRecognizer === singleTapRecognizer {
+                return true
+            }
+        }
         guard gestureRecognizer === doubleTapRecognizer else { return true }
-        guard !pageLayout.isStaticImageGrid else { return false }
 
         return !isEdgeTapLocation(gestureRecognizer.location(in: view))
     }
 
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
-        if gestureRecognizer === doubleTapRecognizer, pageLayout.isStaticImageGrid {
-            return false
+        if displayMode == .collectionBrowser {
+            if gestureRecognizer === doubleTapRecognizer
+                || gestureRecognizer === edgeTapRecognizer {
+                return false
+            }
+            if gestureRecognizer === singleTapRecognizer {
+                let location = touch.location(in: view)
+                return collectionBrowserVC?.canSelectItem(at: location, in: view) != true
+            }
         }
-
         guard gestureRecognizer === singleTapRecognizer || gestureRecognizer === doubleTapRecognizer else {
             return true
         }
@@ -1948,9 +1790,9 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
         _ gestureRecognizer: UIGestureRecognizer,
         shouldRequireFailureOf otherGestureRecognizer: UIGestureRecognizer
     ) -> Bool {
-        gestureRecognizer === singleTapRecognizer
+        displayMode == .onePerPage
+            && gestureRecognizer === singleTapRecognizer
             && otherGestureRecognizer === doubleTapRecognizer
-            && !pageLayout.isStaticImageGrid
     }
 
     func gestureRecognizer(
@@ -1966,26 +1808,11 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
 
     fileprivate func prepareDownloadableMediaWindow(
         for pagePosition: PlayerPagePosition,
-        direction: DownloadableMediaCache.PrefetchDirection,
-        pageLayout: MobilePlayerPageLayout? = nil
+        direction: DownloadableMediaCache.PrefetchDirection
     ) -> PlayerDownloadableMediaWindow? {
         MobilePlaybackController.shared.prepareDownloadableMediaWindow(
             uuid: initialConfig.id,
             pagePosition: pagePosition,
-            direction: direction,
-            pageLayout: pageLayout ?? self.pageLayout
-        )
-    }
-
-    fileprivate func prepareStaticImageGridMediaWindow(
-        for pagePosition: PlayerPagePosition,
-        pageLayout: MobilePlayerPageLayout,
-        direction: DownloadableMediaCache.PrefetchDirection
-    ) -> PlayerDownloadableMediaWindow? {
-        MobilePlaybackController.shared.prepareStaticImageGridMediaWindow(
-            uuid: initialConfig.id,
-            pagePosition: pagePosition,
-            pageLayout: pageLayout,
             direction: direction
         )
     }
@@ -2001,32 +1828,6 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
         )
     }
 
-    fileprivate func staticImageGridMediaDescriptor(for pagePosition: PlayerPagePosition) -> DownloadableMediaDescriptor? {
-        MobilePlaybackController.shared.staticImageGridMediaDescriptor(
-            uuid: initialConfig.id,
-            pagePosition: pagePosition
-        )
-    }
-
-    fileprivate func staticImageGridDescriptors(
-        containing pagePosition: PlayerPagePosition,
-        for pageLayout: MobilePlayerPageLayout
-    ) -> [DownloadableMediaDescriptor] {
-        MobilePlaybackController.shared.staticImageGridDescriptors(
-            uuid: initialConfig.id,
-            containing: pagePosition,
-            pageLayout: pageLayout
-        )
-    }
-
-    fileprivate func supportsPageLayout(_ pageLayout: MobilePlayerPageLayout, for pagePosition: PlayerPagePosition) -> Bool {
-        MobilePlaybackController.shared.supportsPageLayout(
-            pageLayout,
-            uuid: initialConfig.id,
-            pagePosition: pagePosition
-        )
-    }
-
     fileprivate func canRenderPagePosition(_ pagePosition: PlayerPagePosition) -> Bool {
         MobilePlaybackController.shared.canRender(
             uuid: initialConfig.id,
@@ -2036,39 +1837,6 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
 
     fileprivate func startPagePosition() -> PlayerPagePosition {
         MobilePlaybackController.shared.startPagePosition(uuid: initialConfig.id)
-    }
-
-    fileprivate func stablePagePosition(
-        containing pagePosition: PlayerPagePosition,
-        for pageLayout: MobilePlayerPageLayout
-    ) -> PlayerPagePosition {
-        MobilePlaybackController.shared.stablePagePosition(
-            uuid: initialConfig.id,
-            containing: pagePosition,
-            pageLayout: pageLayout
-        )
-    }
-
-    fileprivate func exitWidgetInsertionForStablePage(
-        containing pagePosition: PlayerPagePosition,
-        for pageLayout: MobilePlayerPageLayout
-    ) -> PlayerStablePagePositionResolution {
-        MobilePlaybackController.shared.exitWidgetInsertionForStablePage(
-            uuid: initialConfig.id,
-            containing: pagePosition,
-            pageLayout: pageLayout
-        )
-    }
-
-    fileprivate func navigationStride(
-        from pagePosition: PlayerPagePosition,
-        for pageLayout: MobilePlayerPageLayout
-    ) -> Int {
-        MobilePlaybackController.shared.navigationStride(
-            uuid: initialConfig.id,
-            from: pagePosition,
-            pageLayout: pageLayout
-        )
     }
 
     fileprivate func didRenderPagePosition(_ pagePosition: PlayerPagePosition) {
@@ -2104,9 +1872,29 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
     }
 
     private func updateDisplayedPagePosition(_ pagePosition: PlayerPagePosition, forceUpdate: Bool) {
-        guard forceUpdate || displayedPagePosition != pagePosition else { return }
-        displayedPagePosition = pagePosition
-        onPagePositionUpdate(pagePosition)
+        guard displayMode == .onePerPage else { return }
+        let shouldUpdateDisplay = forceUpdate || displayedPagePosition != pagePosition
+        let shouldPersist = forceUpdate || persistedPagePosition != pagePosition
+        guard shouldUpdateDisplay || shouldPersist else { return }
+
+        if shouldUpdateDisplay {
+            displayedPagePosition = pagePosition
+            onFocusedPagePositionUpdate(pagePosition)
+        }
+        if shouldPersist {
+            _ = persistPagePositionIfNeeded(pagePosition, forceUpdate: forceUpdate)
+        }
+    }
+
+    @discardableResult
+    private func persistPagePositionIfNeeded(
+        _ pagePosition: PlayerPagePosition,
+        forceUpdate: Bool
+    ) -> Bool {
+        guard forceUpdate || persistedPagePosition != pagePosition else { return true }
+        guard onSettledPagePositionUpdate(pagePosition, false) else { return false }
+        persistedPagePosition = pagePosition
+        return true
     }
 
 }
@@ -2116,56 +1904,18 @@ private protocol HorizontalPlayerDataSource: AnyObject {
     func getToken(pagePosition: PlayerPagePosition) -> GeneratedToken
     func prepareDownloadableMediaWindow(
         for pagePosition: PlayerPagePosition,
-        direction: DownloadableMediaCache.PrefetchDirection,
-        pageLayout: MobilePlayerPageLayout?
-    ) -> PlayerDownloadableMediaWindow?
-    func prepareStaticImageGridMediaWindow(
-        for pagePosition: PlayerPagePosition,
-        pageLayout: MobilePlayerPageLayout,
         direction: DownloadableMediaCache.PrefetchDirection
     ) -> PlayerDownloadableMediaWindow?
     func clearDownloadableMediaWindow()
     func downloadableMediaDescriptor(for pagePosition: PlayerPagePosition) -> DownloadableMediaDescriptor?
-    func staticImageGridMediaDescriptor(for pagePosition: PlayerPagePosition) -> DownloadableMediaDescriptor?
-    func staticImageGridDescriptors(
-        containing pagePosition: PlayerPagePosition,
-        for pageLayout: MobilePlayerPageLayout
-    ) -> [DownloadableMediaDescriptor]
-    func supportsPageLayout(_ pageLayout: MobilePlayerPageLayout, for pagePosition: PlayerPagePosition) -> Bool
     func canRenderPagePosition(_ pagePosition: PlayerPagePosition) -> Bool
     func startPagePosition() -> PlayerPagePosition
-    func stablePagePosition(
-        containing pagePosition: PlayerPagePosition,
-        for pageLayout: MobilePlayerPageLayout
-    ) -> PlayerPagePosition
-    func exitWidgetInsertionForStablePage(
-        containing pagePosition: PlayerPagePosition,
-        for pageLayout: MobilePlayerPageLayout
-    ) -> PlayerStablePagePositionResolution
-    func navigationStride(
-        from pagePosition: PlayerPagePosition,
-        for pageLayout: MobilePlayerPageLayout
-    ) -> Int
     func didRenderPagePosition(_ pagePosition: PlayerPagePosition)
     func didCleanupPagePosition(_ pagePosition: PlayerPagePosition)
     func didAttemptPagination()
     func didAttemptUnavailableHorizontalNavigation()
     func didDisplayPagePosition(_ pagePosition: PlayerPagePosition, forceUpdate: Bool)
 
-}
-
-private extension HorizontalPlayerDataSource {
-
-    func prepareDownloadableMediaWindow(
-        for pagePosition: PlayerPagePosition,
-        direction: DownloadableMediaCache.PrefetchDirection
-    ) -> PlayerDownloadableMediaWindow? {
-        prepareDownloadableMediaWindow(
-            for: pagePosition,
-            direction: direction,
-            pageLayout: nil
-        )
-    }
 }
 
 private final class PlayerZoomScrollView: UIScrollView {
@@ -2254,23 +2004,6 @@ private enum VideoAssetLayout {
     }
 }
 
-private struct PlayerStaticImageIdentity: Hashable {
-    let collectionId: String
-    let tokenId: String
-    let tokenIndex: Int
-
-    init(_ descriptor: DownloadableMediaDescriptor) {
-        collectionId = descriptor.collectionId
-        tokenId = descriptor.tokenId
-        tokenIndex = descriptor.tokenIndex
-    }
-}
-
-private struct PlayerProvisionalStaticImage {
-    let identity: PlayerStaticImageIdentity
-    let image: UIImage
-}
-
 private class SpecificPageViewController: UIViewController, UIScrollViewDelegate {
 
     private static let maximumCachedVideoSizeCount = 24
@@ -2306,57 +2039,9 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         let task: Task<Void, Never>
     }
 
-    private typealias StaticImageSpreadZoomLayout = MobileStaticImageSpreadLayout
-
-    private struct StaticImageSpreadRenderKey: Hashable {
-        let descriptors: [DownloadableMediaDescriptor]
-    }
-
-    private struct StaticImageSpreadSelection {
-        let index: Int
-        let pagePosition: PlayerPagePosition
-    }
-
-    private final class StaticImageSpreadRenderState {
-        let renderGeneration: UInt64?
-        let pagePosition: PlayerPagePosition
-        let pageLayout: MobilePlayerPageLayout
-        let descriptors: [DownloadableMediaDescriptor]
-        let renderKey: StaticImageSpreadRenderKey
-        var failedIndices = IndexSet()
-        var recoveryAttemptIDs = [Int: UUID]()
-        var recoveryCancellations = [Int: () -> Void]()
-        var cacheObserver: NSObjectProtocol?
-
-        init(
-            renderGeneration: UInt64?,
-            pagePosition: PlayerPagePosition,
-            pageLayout: MobilePlayerPageLayout,
-            descriptors: [DownloadableMediaDescriptor]
-        ) {
-            self.renderGeneration = renderGeneration
-            self.pagePosition = pagePosition
-            self.pageLayout = pageLayout
-            self.descriptors = descriptors
-            self.renderKey = StaticImageSpreadRenderKey(descriptors: descriptors)
-        }
-
-        func selection(at index: Int) -> StaticImageSpreadSelection? {
-            guard descriptors.indices.contains(index) else {
-                return nil
-            }
-
-            return StaticImageSpreadSelection(
-                index: index,
-                pagePosition: pagePosition.advanced(by: index)
-            )
-        }
-    }
-
     private enum ZoomContentLayout: Equatable {
         case viewport
         case staticImage(CGSize)
-        case staticImageSpread(StaticImageSpreadZoomLayout)
     }
 
     private enum ZoomAllowedContent: Equatable {
@@ -2400,11 +2085,8 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     private var cachedVideoSizes = [VideoSizeRequest: CGSize]()
     private var cachedVideoSizeRequests = [VideoSizeRequest]()
     private var willOrDidAppear = false
+    private var isPlaybackActive = true
     private var isZoomInteractionActive = false
-    private var pageLayout: MobilePlayerPageLayout
-    private var needsPageLayoutRender = false
-    private var imageSpreadRenderState: StaticImageSpreadRenderState?
-    private var pendingProvisionalStaticImage: PlayerProvisionalStaticImage?
     private var zoomContentLayout: ZoomContentLayout = .viewport
     private var zoomAllowedContent: ZoomAllowedContent = .fullContent
     private var laidOutZoomViewportSize: CGSize = .zero
@@ -2416,12 +2098,10 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
 
     init(
         pagePosition: PlayerPagePosition,
-        pageLayout: MobilePlayerPageLayout,
         playerDataSource: HorizontalPlayerDataSource?
     ) {
         self.playerDataSource = playerDataSource
         self.pagePosition = pagePosition
-        self.pageLayout = pageLayout
         super.init(nibName: nil, bundle: nil)
         renderCurrentItem()
     }
@@ -2434,7 +2114,6 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         cancelVideoSizeLoad()
         cancelProvisionalAnimatedMediaImageLoadIfNeeded()
         removeDownloadableMediaCacheObserver()
-        clearImageSpreadRenderState()
     }
 
     override func viewDidLoad() {
@@ -2451,6 +2130,23 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         super.viewWillAppear(animated)
         willOrDidAppear = true
         renderCurrentItem()
+    }
+
+    func setPlaybackActive(_ active: Bool, renderIfNeeded: Bool = true) {
+        guard isPlaybackActive != active else {
+            if active, renderIfNeeded {
+                renderCurrentItem()
+            }
+            return
+        }
+        isPlaybackActive = active
+        if active {
+            if renderIfNeeded {
+                renderCurrentItem()
+            }
+        } else {
+            cleanupDisplayedContent()
+        }
     }
 
     override func viewDidLayoutSubviews() {
@@ -2476,13 +2172,11 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         resetZoom(animated: false)
         setZoomContentLayout(.viewport)
         clearAnimatedRenderContext()
-        clearImageSpreadRenderState()
         mediaRenderer.clearContent()
         if let renderedPagePosition {
             playerDataSource?.didCleanupPagePosition(renderedPagePosition)
         }
         renderedPagePosition = nil
-        needsPageLayoutRender = false
     }
 
     func update(pagePosition: PlayerPagePosition) {
@@ -2491,182 +2185,8 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         self.pagePosition = pagePosition
     }
 
-    func setPageLayout(_ pageLayout: MobilePlayerPageLayout, shouldRender: Bool) {
-        guard self.pageLayout != pageLayout else { return }
-
-        let previousPageLayout = self.pageLayout
-        let wasUsingStaticImageGridLayout = usesStaticImageGridLayoutForCurrentPagePosition
-        self.pageLayout = pageLayout
-        let isUsingStaticImageGridLayout = usesStaticImageGridLayoutForCurrentPagePosition
-        let needsRenderForLayoutChange = wasUsingStaticImageGridLayout != isUsingStaticImageGridLayout
-            || (wasUsingStaticImageGridLayout && isUsingStaticImageGridLayout && previousPageLayout != pageLayout)
-
-        if isUsingStaticImageGridLayout {
-            resetZoom(animated: false)
-        }
-
-        guard shouldRender else {
-            if needsRenderForLayoutChange {
-                needsPageLayoutRender = renderedPagePosition != nil
-            }
-            return
-        }
-
-        guard needsRenderForLayoutChange else {
-            return
-        }
-        guard willOrDidAppear else { return }
-
-        cleanupDisplayedContent()
-        renderCurrentItem()
-    }
-
-    fileprivate func provisionalStaticImage(
-        for targetPagePosition: PlayerPagePosition,
-        pageLayout targetPageLayout: MobilePlayerPageLayout
-    ) -> PlayerProvisionalStaticImage? {
-        guard renderedPagePosition != nil else { return nil }
-
-        if targetPageLayout.isStaticImageGrid {
-            guard !usesStaticImageGridLayoutForCurrentPagePosition,
-                  let descriptor = playerDataSource?.downloadableMediaDescriptor(for: pagePosition),
-                  let gridDescriptor = playerDataSource?.staticImageGridMediaDescriptor(for: pagePosition),
-                  gridDescriptor.isStaticImage,
-                  PlayerStaticImageIdentity(gridDescriptor) == PlayerStaticImageIdentity(descriptor),
-                  let image = mediaRenderer.displayedImage() else {
-                return nil
-            }
-
-            return PlayerProvisionalStaticImage(
-                identity: PlayerStaticImageIdentity(descriptor),
-                image: image
-            )
-        }
-
-        guard usesStaticImageGridLayoutForCurrentPagePosition,
-              let targetDescriptor = playerDataSource?.staticImageGridMediaDescriptor(for: targetPagePosition),
-              let renderState = imageSpreadRenderState,
-              let images = mediaRenderer.imageSpreadImages(),
-              images.count == renderState.descriptors.count else {
-            return nil
-        }
-
-        let targetIdentity = PlayerStaticImageIdentity(targetDescriptor)
-        guard let targetIndex = renderState.descriptors.firstIndex(where: {
-            PlayerStaticImageIdentity($0) == targetIdentity
-        }),
-              let image = images[targetIndex] else {
-            return nil
-        }
-
-        return PlayerProvisionalStaticImage(identity: targetIdentity, image: image)
-    }
-
-    fileprivate func setPendingProvisionalStaticImage(_ provisionalImage: PlayerProvisionalStaticImage?) {
-        pendingProvisionalStaticImage = provisionalImage
-    }
-
-    private func takePendingProvisionalStaticImage(
-        matching descriptor: DownloadableMediaDescriptor
-    ) -> UIImage? {
-        defer { pendingProvisionalStaticImage = nil }
-        guard let pendingProvisionalStaticImage,
-              pendingProvisionalStaticImage.identity == PlayerStaticImageIdentity(descriptor) else {
-            return nil
-        }
-
-        return pendingProvisionalStaticImage.image
-    }
-
-    private func takePendingProvisionalStaticImages(
-        matching descriptors: [DownloadableMediaDescriptor]
-    ) -> [UIImage?] {
-        defer { pendingProvisionalStaticImage = nil }
-        guard let pendingProvisionalStaticImage else {
-            return Array(repeating: nil, count: descriptors.count)
-        }
-
-        return descriptors.map { descriptor in
-            PlayerStaticImageIdentity(descriptor) == pendingProvisionalStaticImage.identity
-                ? pendingProvisionalStaticImage.image
-                : nil
-        }
-    }
-
-    private func discardPendingProvisionalStaticImage() {
-        pendingProvisionalStaticImage = nil
-    }
-
-    func renderCurrentItemIfNeededForPageLayout() {
-        guard needsPageLayoutRender else { return }
-
-        renderCurrentItem()
-    }
-
-    private func imageSpreadSelection(
-        at location: CGPoint,
-        in coordinateView: UIView,
-        requiresLoadedImage: Bool = true
-    ) -> StaticImageSpreadSelection? {
-        guard usesStaticImageGridLayoutForCurrentPagePosition,
-              let spreadIndex = mediaRenderer.imageSpreadIndex(
-                at: location,
-                in: coordinateView,
-                requiresVerifiedImage: requiresLoadedImage
-              ),
-              let spreadSelection = imageSpreadRenderState?.selection(at: spreadIndex) else {
-            return nil
-        }
-
-        return spreadSelection
-    }
-
-    func canSelectStaticImageGrid(at location: CGPoint, in coordinateView: UIView) -> PlayerPagePosition? {
-        guard let spreadSelection = imageSpreadSelection(at: location, in: coordinateView) else {
-            return nil
-        }
-
-        return spreadSelection.pagePosition
-    }
-
-    func staticImageGridSelection(at location: CGPoint, in coordinateView: UIView) -> MobilePlayerStaticImageGridSelection? {
-        staticImageGridSelection(
-            at: location,
-            in: coordinateView,
-            requiresLoadedImage: true
-        )
-    }
-
-    func staticImageGridSelection(
-        at location: CGPoint,
-        in coordinateView: UIView,
-        requiresLoadedImage: Bool
-    ) -> MobilePlayerStaticImageGridSelection? {
-        guard let spreadSelection = imageSpreadSelection(
-            at: location,
-            in: coordinateView,
-            requiresLoadedImage: requiresLoadedImage
-        ) else {
-            return nil
-        }
-
-        guard let renderState = imageSpreadRenderState,
-              let images = mediaRenderer.imageSpreadImages() else {
-            return nil
-        }
-
-        return MobilePlayerStaticImageGridSelection(
-            pageLayout: pageLayout,
-            pagePosition: spreadSelection.pagePosition,
-            selectedSlotIndex: spreadSelection.index,
-            descriptors: renderState.descriptors,
-            images: images
-        )
-    }
-
     func toggleZoom(at location: CGPoint, in coordinateView: UIView) {
         guard isViewLoaded else { return }
-        guard !usesStaticImageGridLayoutForCurrentPagePosition else { return }
         guard zoomScrollView.bounds.width > 0, zoomScrollView.bounds.height > 0 else { return }
 
         if isZoomed {
@@ -2835,6 +2355,17 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             && abs(lhsFittedSize.height - rhsFittedSize.height) <= tolerance
     }
 
+    private func validViewportSize(_ size: CGSize) -> CGSize? {
+        guard size.width > 0,
+              size.height > 0,
+              size.width.isFinite,
+              size.height.isFinite else {
+            return nil
+        }
+
+        return size
+    }
+
     private func updateZoomContentFrame(resetOffset: Bool) {
         let viewportSize = zoomScrollView.bounds.size
         guard viewportSize.width > 0, viewportSize.height > 0 else { return }
@@ -2844,14 +2375,6 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             mediaContentView.transform = .identity
             mediaContentView.frame = CGRect(origin: .zero, size: contentSize)
             zoomScrollView.contentSize = contentSize
-        }
-
-        if case .staticImageSpread(let layout) = zoomContentLayout {
-            if let grid = layout.grid(fitting: viewportSize) {
-                mediaRenderer.setImageSpreadGrid(grid)
-            } else if let axis = layout.axis(fitting: viewportSize) {
-                mediaRenderer.setImageSpreadAxis(axis)
-            }
         }
 
         updateZoomContentInsets()
@@ -2872,8 +2395,6 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
 
             return MobilePlayerAspectFitLayout.size(for: imageSize, fitting: viewportSize)
 
-        case .staticImageSpread(let layout):
-            return layout.contentSize(fitting: viewportSize)
         }
     }
 
@@ -2976,7 +2497,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     }
 
     func viewForZooming(in scrollView: UIScrollView) -> UIView? {
-        usesStaticImageGridLayoutForCurrentPagePosition ? nil : mediaContentView
+        mediaContentView
     }
 
     func scrollViewDidZoom(_ scrollView: UIScrollView) {
@@ -2996,58 +2517,30 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     }
 
     func renderCurrentItem() {
-        guard willOrDidAppear else { return }
+        guard willOrDidAppear,
+              isPlaybackActive else { return }
 
         guard playerDataSource?.canRenderPagePosition(pagePosition) == true else {
-            discardPendingProvisionalStaticImage()
             cleanupDisplayedContent()
             playerDataSource?.clearDownloadableMediaWindow()
             return
         }
-        if let renderedPagePosition,
-           renderedPagePosition == pagePosition,
-           !needsPageLayoutRender {
+        if renderedPagePosition == pagePosition {
             return
         }
-
-        if needsPageLayoutRender {
-            cleanupDisplayedContent()
-        }
         beginRenderingPagePosition(pagePosition)
-        clearImageSpreadRenderState()
 
         guard let token = playerDataSource?.getToken(pagePosition: pagePosition) else {
-            discardPendingProvisionalStaticImage()
             playerDataSource?.clearDownloadableMediaWindow()
             playerDataSource?.didRenderPagePosition(pagePosition)
             return
         }
 
-        let isUsingStaticImageGridLayout = usesStaticImageGridLayoutForCurrentPagePosition
-        if isUsingStaticImageGridLayout {
-            if let mediaWindow = prepareStaticImageGridMediaWindowIfAvailable(),
-               case .staticImage = mediaWindow.currentDescriptor.media {
-                let descriptor = mediaWindow.currentDescriptor
-                renderImageSpread(
-                    descriptor,
-                    imageDescriptors: staticImageGridImageDescriptors(startingWith: descriptor)
-                )
-            } else {
-                discardPendingProvisionalStaticImage()
-                playerDataSource?.clearDownloadableMediaWindow()
-                renderWebContent(token.html)
-            }
-        } else if let nativeRenderKind = token.nativeMetalCardRenderKind {
-            discardPendingProvisionalStaticImage()
-            if prepareStaticImageGridMediaWindowIfAvailable() == nil {
-                playerDataSource?.clearDownloadableMediaWindow()
-            }
+        if let nativeRenderKind = token.nativeMetalCardRenderKind {
+            playerDataSource?.clearDownloadableMediaWindow()
             renderNativeMetalCard(token, renderKind: nativeRenderKind)
         } else if token.media == nil {
-            discardPendingProvisionalStaticImage()
-            if prepareStaticImageGridMediaWindowIfAvailable() == nil {
-                playerDataSource?.clearDownloadableMediaWindow()
-            }
+            playerDataSource?.clearDownloadableMediaWindow()
             renderWebContent(token.html)
         } else if let mediaWindow = prepareCurrentDownloadableMediaWindow() {
             let descriptor = mediaWindow.currentDescriptor
@@ -3066,25 +2559,20 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
                 renderHTMLDocument(descriptor, fallbackHTML: token.html)
             }
         } else {
-            discardPendingProvisionalStaticImage()
             renderWebContent(token.html)
         }
         playerDataSource?.didRenderPagePosition(pagePosition)
     }
 
     fileprivate func refreshDownloadableMediaWindow() {
-        guard willOrDidAppear else { return }
+        guard willOrDidAppear,
+              isPlaybackActive else { return }
         guard let token = playerDataSource?.getToken(pagePosition: pagePosition) else {
             playerDataSource?.clearDownloadableMediaWindow()
             return
         }
-        if usesStaticImageGridLayoutForCurrentPagePosition || token.media == nil {
-            if prepareStaticImageGridMediaWindowIfAvailable() == nil {
-                playerDataSource?.clearDownloadableMediaWindow()
-            }
-            if let imageSpreadRenderState {
-                recoverAvailableImageSpreadSlots(in: imageSpreadRenderState)
-            }
+        guard token.media != nil else {
+            playerDataSource?.clearDownloadableMediaWindow()
             return
         }
 
@@ -3098,24 +2586,10 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         )
     }
 
-    private func prepareStaticImageGridMediaWindowIfAvailable() -> PlayerDownloadableMediaWindow? {
-        guard let descriptor = playerDataSource?.staticImageGridMediaDescriptor(for: pagePosition),
-              let staticImageGridLayout = MobilePlayerPageLayout.staticImageGridLayout(for: descriptor) else {
-            return nil
-        }
-
-        return playerDataSource?.prepareStaticImageGridMediaWindow(
-            for: pagePosition,
-            pageLayout: staticImageGridLayout,
-            direction: preferredPrefetchDirection
-        )
-    }
-
     fileprivate func replaceVisibleContentIfAvailable(
         targetPagePosition: PlayerPagePosition,
         preferredPrefetchDirection: DownloadableMediaCache.PrefetchDirection
     ) -> Bool {
-        guard pageLayout == .onePerPage else { return false }
         guard canReplaceVisibleContent else { return false }
 
         if let renderedPagePosition, renderedPagePosition == targetPagePosition {
@@ -3143,7 +2617,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     }
 
     private var canReplaceVisibleContent: Bool {
-        willOrDidAppear && isViewLoaded && view.window != nil
+        willOrDidAppear && isPlaybackActive && isViewLoaded && view.window != nil
     }
 
     private func commitStaticImageReplacement(
@@ -3163,7 +2637,6 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         self.pagePosition = pagePosition
         resetZoom(animated: false)
         beginRenderingPagePosition(pagePosition)
-        clearImageSpreadRenderState()
         clearAnimatedRenderContext()
         setZoomContentLayout(.staticImage(image.size))
         mediaRenderer.displayLoadedImage(image, key: descriptor)
@@ -3188,16 +2661,15 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     private func standardThumbnailDescriptor(
         matching descriptor: DownloadableMediaDescriptor
     ) -> DownloadableMediaDescriptor? {
-        let thumbnailDescriptor = MobileCollectionCatalog.staticImageGridMediaDescriptor(
+        let thumbnailDescriptor = MobileCollectionCatalog.collectionBrowseThumbnailDescriptor(
             for: descriptor
         )
         return thumbnailDescriptor == descriptor ? nil : thumbnailDescriptor
     }
 
     private func renderImage(_ descriptor: DownloadableMediaDescriptor, fallbackHTML: String) {
-        let handoffImage = takePendingProvisionalStaticImage(matching: descriptor)
         let thumbnailDescriptor = standardThumbnailDescriptor(matching: descriptor)
-        let provisionalImage = handoffImage ?? thumbnailDescriptor.flatMap {
+        let provisionalImage = thumbnailDescriptor.flatMap {
             DownloadableMediaCache.shared.cachedDecodedImage(for: $0)
         }
         let loadProvisionalImage: ((@escaping (UIImage?) -> Void) -> (() -> Void)?)? = {
@@ -3233,340 +2705,6 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
                 )
             }
         )
-    }
-
-    private func renderImageSpread(
-        _ descriptor: DownloadableMediaDescriptor,
-        imageDescriptors staticImageDescriptors: [DownloadableMediaDescriptor]
-    ) {
-        let imageDescriptors = staticImageDescriptors.isEmpty ? [descriptor] : staticImageDescriptors
-        clearImageSpreadRenderState()
-        let renderState = StaticImageSpreadRenderState(
-            renderGeneration: activeRenderGeneration,
-            pagePosition: pagePosition,
-            pageLayout: pageLayout,
-            descriptors: imageDescriptors
-        )
-        imageSpreadRenderState = renderState
-        let viewportSize = validViewportSize(zoomScrollView.bounds.size)
-        let initialImages = imageDescriptors.map {
-            DownloadableMediaCache.shared.cachedDecodedImage(for: $0)
-        }
-        let handoffImages = takePendingProvisionalStaticImages(matching: imageDescriptors)
-        let placeholderImages = imageDescriptors.indices.map { index -> UIImage? in
-            if let handoffImage = handoffImages[index] {
-                return handoffImage
-            }
-
-            let imageDescriptor = imageDescriptors[index]
-            guard imageDescriptor.isStaticImageGridThumbnail,
-                  MobileCollectionCatalog.standardThumbsPathsAvailable(
-                    specificCollectionId: imageDescriptor.collectionId
-                  ),
-                  let primaryDescriptor = playerDataSource?.downloadableMediaDescriptor(
-                    for: pagePosition.advanced(by: index)
-                  ),
-                  primaryDescriptor != imageDescriptor,
-                  PlayerStaticImageIdentity(primaryDescriptor) == PlayerStaticImageIdentity(imageDescriptor) else {
-                return nil
-            }
-
-            return DownloadableMediaCache.shared.cachedDecodedImage(for: primaryDescriptor)
-        }
-        let seedImages = imageDescriptors.indices.map { index in
-            initialImages[index] ?? placeholderImages[index]
-        }
-        clearAnimatedRenderContext()
-        setZoomContentLayout(
-            .staticImageSpread(
-                StaticImageSpreadZoomLayout(
-                    pageLayout: pageLayout,
-                    imageSizes: MobilePlayerPageLayout.staticImageGridImageSizes(
-                        for: imageDescriptors,
-                        images: seedImages
-                    )
-                )
-            )
-        )
-        mediaRenderer.renderImageSpread(
-            key: renderState.renderKey,
-            pageLayout: renderState.pageLayout,
-            viewportSize: viewportSize,
-            nativeMetalCardCornerMaskIndices: nativeMetalCardCornerMaskIndices(for: imageDescriptors),
-            mediaPlaceholderSpecs: imageDescriptors.map(PlayerMediaPlaceholderSpec.init(descriptor:)),
-            initialImages: initialImages,
-            placeholderImages: placeholderImages,
-            imageSlotKeys: imageDescriptors.map { AnyHashable($0) },
-            loadImages: imageDescriptors.map { imageDescriptor in
-                { completion in
-                    DownloadableMediaCache.shared.loadImage(for: imageDescriptor, completion: completion)
-                }
-            },
-            onEmptySpread: {},
-            onImageLoadFailure: { [weak self, weak renderState] index in
-                guard let self, let renderState else { return }
-                self.handleImageSpreadLoadFailure(at: index, in: renderState)
-            },
-            onLoadedImages: { [weak self, weak renderState] images in
-                guard let self,
-                      let renderState,
-                      self.isCurrentImageSpreadRenderState(renderState) else {
-                    return
-                }
-                self.setZoomContentLayout(
-                    .staticImageSpread(
-                        StaticImageSpreadZoomLayout(
-                            pageLayout: renderState.pageLayout,
-                            imageSizes: MobilePlayerPageLayout.staticImageGridImageSizes(
-                                for: imageDescriptors,
-                                images: images
-                            )
-                        )
-                    )
-                )
-                self.prewarmNativeMetalCardFaces(for: imageDescriptors)
-            }
-        )
-    }
-
-    private func isCurrentImageSpreadRenderState(_ state: StaticImageSpreadRenderState) -> Bool {
-        guard imageSpreadRenderState === state,
-              let renderGeneration = state.renderGeneration,
-              activeRenderGeneration == renderGeneration,
-              renderedPagePosition == state.pagePosition,
-              pagePosition == state.pagePosition,
-              pageLayout == state.pageLayout else {
-            return false
-        }
-
-        return true
-    }
-
-    private func handleImageSpreadLoadFailure(
-        at index: Int,
-        in state: StaticImageSpreadRenderState
-    ) {
-        guard isCurrentImageSpreadRenderState(state),
-              state.descriptors.indices.contains(index) else {
-            return
-        }
-
-        let isFirstFailure = !state.failedIndices.contains(index)
-        state.failedIndices.insert(index)
-        installImageSpreadCacheObserverIfNeeded(for: state)
-        recoverImageSpreadSlot(
-            at: index,
-            in: state,
-            allowsNetworkRetry: isFirstFailure
-        )
-    }
-
-    private func installImageSpreadCacheObserverIfNeeded(
-        for state: StaticImageSpreadRenderState
-    ) {
-        guard state.cacheObserver == nil else { return }
-
-        state.cacheObserver = NotificationCenter.default.addObserver(
-            forName: .downloadableMediaCacheFileAvailabilityDidChange,
-            object: nil,
-            queue: .main
-        ) { [weak self, weak state] _ in
-            guard let self, let state else { return }
-            self.recoverAvailableImageSpreadSlots(in: state)
-        }
-    }
-
-    private func recoverAvailableImageSpreadSlots(
-        in state: StaticImageSpreadRenderState
-    ) {
-        guard isCurrentImageSpreadRenderState(state) else { return }
-
-        for index in Array(state.failedIndices) {
-            recoverImageSpreadSlot(
-                at: index,
-                in: state,
-                allowsNetworkRetry: false
-            )
-        }
-    }
-
-    private func recoverImageSpreadSlot(
-        at index: Int,
-        in state: StaticImageSpreadRenderState,
-        allowsNetworkRetry: Bool
-    ) {
-        guard isCurrentImageSpreadRenderState(state),
-              state.failedIndices.contains(index),
-              state.recoveryAttemptIDs[index] == nil,
-              state.descriptors.indices.contains(index) else {
-            return
-        }
-
-        let mediaCache = DownloadableMediaCache.shared
-        let descriptor = state.descriptors[index]
-        if let image = mediaCache.cachedDecodedImage(for: descriptor) {
-            displayRecoveredImageSpreadImage(
-                image,
-                at: index,
-                descriptor: descriptor,
-                in: state
-            )
-            return
-        }
-
-        // Cache notifications are shared across descriptors. Only the initial bounded retry may
-        // start a new download; notification-driven recovery waits until this slot has a local file.
-        guard allowsNetworkRetry || mediaCache.localFileURL(for: descriptor) != nil else { return }
-
-        let attemptID = UUID()
-        state.recoveryAttemptIDs[index] = attemptID
-        let cancellation = mediaCache.loadImage(for: descriptor) { [weak self, weak state] image in
-            guard let self,
-                  let state,
-                  self.isCurrentImageSpreadRenderState(state),
-                  state.recoveryAttemptIDs[index] == attemptID else {
-                return
-            }
-
-            state.recoveryAttemptIDs.removeValue(forKey: index)
-            state.recoveryCancellations.removeValue(forKey: index)
-            guard let image else { return }
-
-            self.displayRecoveredImageSpreadImage(
-                image,
-                at: index,
-                descriptor: descriptor,
-                in: state
-            )
-        }
-
-        guard isCurrentImageSpreadRenderState(state),
-              state.recoveryAttemptIDs[index] == attemptID else {
-            cancellation?()
-            return
-        }
-        if let cancellation {
-            state.recoveryCancellations[index] = cancellation
-        }
-    }
-
-    private func displayRecoveredImageSpreadImage(
-        _ image: UIImage,
-        at index: Int,
-        descriptor: DownloadableMediaDescriptor,
-        in state: StaticImageSpreadRenderState
-    ) {
-        guard isCurrentImageSpreadRenderState(state),
-              state.failedIndices.contains(index),
-              mediaRenderer.displayRecoveredImage(
-                image,
-                at: index,
-                spreadKey: state.renderKey,
-                slotKey: descriptor
-              ) else {
-            return
-        }
-
-        state.failedIndices.remove(index)
-        if state.failedIndices.isEmpty {
-            removeImageSpreadCacheObserver(from: state)
-        }
-
-        if let images = mediaRenderer.imageSpreadImages() {
-            setZoomContentLayout(
-                .staticImageSpread(
-                    StaticImageSpreadZoomLayout(
-                        pageLayout: state.pageLayout,
-                        imageSizes: MobilePlayerPageLayout.staticImageGridImageSizes(
-                            for: state.descriptors,
-                            images: images
-                        )
-                    )
-                )
-            )
-        }
-        prewarmNativeMetalCardFaces(for: [descriptor])
-    }
-
-    private func removeImageSpreadCacheObserver(
-        from state: StaticImageSpreadRenderState
-    ) {
-        guard let cacheObserver = state.cacheObserver else { return }
-
-        NotificationCenter.default.removeObserver(cacheObserver)
-        state.cacheObserver = nil
-    }
-
-    private func clearImageSpreadRenderState() {
-        guard let state = imageSpreadRenderState else { return }
-
-        imageSpreadRenderState = nil
-        removeImageSpreadCacheObserver(from: state)
-        let cancellations = Array(state.recoveryCancellations.values)
-        state.recoveryAttemptIDs.removeAll()
-        state.recoveryCancellations.removeAll()
-        cancellations.forEach { $0() }
-    }
-
-    private func validViewportSize(_ size: CGSize) -> CGSize? {
-        guard size.width > 0,
-              size.height > 0,
-              size.width.isFinite,
-              size.height.isFinite else {
-            return nil
-        }
-
-        return size
-    }
-
-    private func nativeMetalCardCornerMaskIndices(for descriptors: [DownloadableMediaDescriptor]) -> Set<Int> {
-        Set(descriptors.enumerated().compactMap { index, descriptor in
-            descriptor.isNativeMetalCard ? index : nil
-        })
-    }
-
-    private func prewarmNativeMetalCardFaces(for descriptors: [DownloadableMediaDescriptor]) {
-        for descriptor in descriptors {
-            guard let renderKind = descriptor.nativeMetalCardRenderKind,
-                  let tokenID = Int(descriptor.tokenId) else {
-                continue
-            }
-            guard let cachedStaticImageURL = DownloadableMediaCache.shared.localFileURL(for: descriptor) else {
-                renderKind.loadFace(for: tokenID) { _ in }
-                continue
-            }
-
-            renderKind.cacheFace(for: tokenID, from: cachedStaticImageURL) { didCacheFace in
-                guard !didCacheFace else { return }
-                renderKind.loadFace(for: tokenID) { _ in }
-            }
-        }
-    }
-
-    private func staticImageGridImageDescriptors(
-        startingWith descriptor: DownloadableMediaDescriptor
-    ) -> [DownloadableMediaDescriptor] {
-        guard pageLayout.isStaticImageGrid,
-              pageLayout.supports(descriptor: descriptor) else {
-            return [descriptor]
-        }
-
-        let descriptors = playerDataSource?.staticImageGridDescriptors(
-            containing: pagePosition,
-            for: pageLayout
-        ) ?? []
-        guard descriptors.first == descriptor else {
-            return [descriptor]
-        }
-        return descriptors
-    }
-
-    private var usesStaticImageGridLayoutForCurrentPagePosition: Bool {
-        pageLayout.isStaticImageGrid
-            && playerDataSource?.supportsPageLayout(
-                pageLayout,
-                for: pagePosition
-            ) == true
     }
 
     private func renderWebContent(_ html: String) {
@@ -3616,9 +2754,8 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         fallbackHTML: String,
         mediaKind: DownloadableWebMediaKind
     ) {
-        let handoffImage = takePendingProvisionalStaticImage(matching: descriptor)
         let thumbnailDescriptor = standardThumbnailDescriptor(matching: descriptor)
-        let provisionalImage = handoffImage ?? thumbnailDescriptor.flatMap {
+        let provisionalImage = thumbnailDescriptor.flatMap {
             DownloadableMediaCache.shared.cachedDecodedImage(for: $0)
         }
         if let provisionalImage {
@@ -4087,38 +3224,27 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
     private var didNotifyPaginationAttemptDuringCurrentPan = false
     private var didNotifyUnavailableNavigationDuringCurrentPan = false
     private var isPagingScrollEnabled = true
+    private var isPlaybackActive = true
     private var isCurrentPageZoomed = false
     private var lastSettledPagePosition: PlayerPagePosition?
     private var zoomedPagingPanRestingOffsets = [ObjectIdentifier: CGFloat]()
     private var unlockedZoomedPagingPanGestures = Set<ObjectIdentifier>()
     private weak var playerDataSource: HorizontalPlayerDataSource?
-    private var pageLayout: MobilePlayerPageLayout
     var onCurrentZoomStateChange: ((Bool) -> Void)?
 
-    init(pageLayout: MobilePlayerPageLayout, playerDataSource: HorizontalPlayerDataSource) {
-        let initialPagePosition = playerDataSource.stablePagePosition(
-            containing: .initial,
-            for: pageLayout
-        )
-        let initialNavigationStride = playerDataSource.navigationStride(
-            from: initialPagePosition,
-            for: pageLayout
-        )
+    init(playerDataSource: HorizontalPlayerDataSource) {
+        let initialPagePosition = PlayerPagePosition.initial
         self.playerDataSource = playerDataSource
-        self.pageLayout = pageLayout
         pageA = SpecificPageViewController(
             pagePosition: initialPagePosition,
-            pageLayout: pageLayout,
             playerDataSource: playerDataSource
         )
         pageB = SpecificPageViewController(
-            pagePosition: initialPagePosition.advanced(by: initialNavigationStride),
-            pageLayout: pageLayout,
+            pagePosition: initialPagePosition.advanced(by: 1),
             playerDataSource: playerDataSource
         )
         pageC = SpecificPageViewController(
-            pagePosition: initialPagePosition.advanced(by: -initialNavigationStride),
-            pageLayout: pageLayout,
+            pagePosition: initialPagePosition.advanced(by: -1),
             playerDataSource: playerDataSource
         )
         super.init(
@@ -4169,120 +3295,50 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
         pageC.makePlayerBackgroundTransparent()
     }
 
+    func setActive(_ active: Bool) {
+        guard isPlaybackActive != active else { return }
+        isPlaybackActive = active
+        let currentPage = self.currentPage
+        let pages: [SpecificPageViewController] = [pageA, pageB, pageC]
+        pages.forEach { page in
+            page.setPlaybackActive(
+                active,
+                renderIfNeeded: active && page === currentPage
+            )
+        }
+        view.isUserInteractionEnabled = active
+    }
+
+    @discardableResult
+    func publishCurrentPagePosition(forceUpdate: Bool) -> Bool {
+        guard isPlaybackActive,
+              let currentPage,
+              canRender(currentPage.pagePosition) else {
+            return false
+        }
+
+        didDisplayRenderablePagePosition(
+            currentPage.pagePosition,
+            forceUpdate: forceUpdate
+        )
+        return true
+    }
+
     func toggleZoom(at location: CGPoint, in coordinateView: UIView) {
         currentPage?.toggleZoom(at: location, in: coordinateView)
         updatePagingScrollEnabled()
     }
 
-    func staticImageGridSelection(
-        at location: CGPoint,
-        in coordinateView: UIView,
-        requiresLoadedImage: Bool = true
-    ) -> MobilePlayerStaticImageGridSelection? {
-        guard pageLayout.isStaticImageGrid,
-              let selection = currentPage?.staticImageGridSelection(
-                at: location,
-                in: coordinateView,
-                requiresLoadedImage: requiresLoadedImage
-              ),
-              canRender(selection.pagePosition) else {
-            return nil
-        }
-
-        return selection
-    }
-
-    func canSelectStaticImageGrid(at location: CGPoint, in coordinateView: UIView) -> Bool {
-        guard pageLayout.isStaticImageGrid,
-              let pagePosition = currentPage?.canSelectStaticImageGrid(at: location, in: coordinateView),
-              canRender(pagePosition) else {
-            return false
-        }
-
-        return true
-    }
-
     @discardableResult
-    func openStaticImageGridSelection(_ selection: MobilePlayerStaticImageGridSelection) -> Bool {
-        let provisionalImage = currentPage?.provisionalStaticImage(
-            for: selection.pagePosition,
-            pageLayout: .onePerPage
-        )
-        return reanchorCurrentPage(
-            to: selection.pagePosition,
-            pageLayout: .onePerPage,
-            provisionalImage: provisionalImage
-        )
-    }
-
-    @discardableResult
-    func setPageLayout(
-        _ pageLayout: MobilePlayerPageLayout,
-        targetPagePosition: PlayerPagePosition? = nil,
+    func setPagePosition(
+        _ targetPagePosition: PlayerPagePosition,
         completion: @escaping () -> Void = {}
     ) -> Bool {
-        if let targetPagePosition {
-            let provisionalImage = currentPage?.provisionalStaticImage(
-                for: targetPagePosition,
-                pageLayout: pageLayout
-            )
-            return reanchorCurrentPage(
-                to: targetPagePosition,
-                pageLayout: pageLayout,
-                provisionalImage: provisionalImage,
-                forceDisplayUpdate: true,
-                completion: completion
-            )
-        }
-
-        guard self.pageLayout != pageLayout else { return false }
-
-        if pageLayout.isStaticImageGrid,
-           let currentPage {
-            let previousPagePosition = currentPage.pagePosition
-            let provisionalImage = currentPage.provisionalStaticImage(
-                for: previousPagePosition,
-                pageLayout: pageLayout
-            )
-            let stablePageResolution = playerDataSource?.exitWidgetInsertionForStablePage(
-                containing: currentPage.pagePosition,
-                for: pageLayout
-            ) ?? PlayerStablePagePositionResolution.resolved(
-                pagePosition: previousPagePosition,
-                didExitWidgetInsertion: false
-            )
-
-            switch stablePageResolution {
-            case .resolved(let stablePageResult):
-                let didExitWidgetInsertionWithoutChangingPagePosition = stablePageResult.didExitWidgetInsertion
-                    && stablePageResult.pagePosition == previousPagePosition
-                return reanchorCurrentPage(
-                    to: stablePageResult.pagePosition,
-                    pageLayout: pageLayout,
-                    provisionalImage: provisionalImage,
-                    forceDisplayUpdate: didExitWidgetInsertionWithoutChangingPagePosition,
-                    completion: completion
-                )
-            case .unavailable:
-                return false
-            }
-        }
-
-        let provisionalImage = currentPage?.provisionalStaticImage(
-            for: currentPage?.pagePosition ?? .initial,
-            pageLayout: pageLayout
+        reanchorCurrentPage(
+            to: targetPagePosition,
+            forceDisplayUpdate: true,
+            completion: completion
         )
-        self.pageLayout = pageLayout
-        let visiblePage = currentPage
-        let pages: [SpecificPageViewController] = [pageA, pageB, pageC]
-        pages.forEach { page in
-            let shouldRender = visiblePage.map { page === $0 } ?? false
-            page.setPendingProvisionalStaticImage(shouldRender ? provisionalImage : nil)
-            page.setPageLayout(pageLayout, shouldRender: shouldRender)
-        }
-        updatePagingScrollEnabled()
-        completion()
-        return true
     }
 
     private func resetCurrentZoom(animated: Bool) {
@@ -4357,7 +3413,7 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
             guard hasHorizontalIntent else { return }
 
             let pagePosition = getCurrentPagePosition()
-            let targetOffset = (translation.x > 0 ? -1 : 1) * navigationStride(from: pagePosition)
+            let targetOffset = translation.x > 0 ? -1 : 1
             guard !canRender(pagePosition.advanced(by: targetOffset)) else {
                 didNotifyPaginationAttemptDuringCurrentPan = true
                 playerDataSource?.didAttemptPagination()
@@ -4424,34 +3480,20 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
         return currentPage.pagePosition
     }
 
-    private func navigationStride(from pagePosition: PlayerPagePosition) -> Int {
-        playerDataSource?.navigationStride(from: pagePosition, for: pageLayout)
-            ?? MobilePlayerPageLayout.onePerPage.pageSize
-    }
-
-    private func navigationOffset(
-        _ direction: PlaybackNavigationDirection,
-        from pagePosition: PlayerPagePosition
-    ) -> Int? {
-        let stride = navigationStride(from: pagePosition)
-        return direction.pageOffset(forStride: stride)
-    }
-
     private func update(currentPagePosition: PlayerPagePosition) {
         guard let currentPage = viewControllers?.first as? SpecificPageViewController else { return }
-        let stride = navigationStride(from: currentPagePosition)
         switch currentPage {
         case pageA:
             pageA.update(pagePosition: currentPagePosition)
-            pageB.update(pagePosition: currentPagePosition.advanced(by: stride))
-            pageC.update(pagePosition: currentPagePosition.advanced(by: -stride))
+            pageB.update(pagePosition: currentPagePosition.advanced(by: 1))
+            pageC.update(pagePosition: currentPagePosition.advanced(by: -1))
         case pageB:
-            pageA.update(pagePosition: currentPagePosition.advanced(by: -stride))
+            pageA.update(pagePosition: currentPagePosition.advanced(by: -1))
             pageB.update(pagePosition: currentPagePosition)
-            pageC.update(pagePosition: currentPagePosition.advanced(by: stride))
+            pageC.update(pagePosition: currentPagePosition.advanced(by: 1))
         case pageC:
-            pageA.update(pagePosition: currentPagePosition.advanced(by: stride))
-            pageB.update(pagePosition: currentPagePosition.advanced(by: -stride))
+            pageA.update(pagePosition: currentPagePosition.advanced(by: 1))
+            pageB.update(pagePosition: currentPagePosition.advanced(by: -1))
             pageC.update(pagePosition: currentPagePosition)
         default:
             break
@@ -4465,8 +3507,6 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
     @discardableResult
     private func reanchorCurrentPage(
         to pagePosition: PlayerPagePosition,
-        pageLayout targetPageLayout: MobilePlayerPageLayout,
-        provisionalImage: PlayerProvisionalStaticImage?,
         forceDisplayUpdate: Bool = false,
         completion: @escaping () -> Void = {}
     ) -> Bool {
@@ -4484,18 +3524,15 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
 
         isPageTransitioning = true
         resetAllZoom(animated: false)
-        pageLayout = targetPageLayout
-        pageA.setPageLayout(targetPageLayout, shouldRender: false)
-        pageB.setPageLayout(targetPageLayout, shouldRender: false)
-        pageC.setPageLayout(targetPageLayout, shouldRender: false)
         pageA.preferredPrefetchDirection = .forward
         pageB.preferredPrefetchDirection = .forward
         pageC.preferredPrefetchDirection = .forward
 
         update(currentPagePosition: pagePosition)
-        currentPage.setPendingProvisionalStaticImage(provisionalImage)
-        currentPage.renderCurrentItem()
-        didDisplayRenderablePagePosition(pagePosition, forceUpdate: forceDisplayUpdate)
+        if isPlaybackActive {
+            currentPage.renderCurrentItem()
+            didDisplayRenderablePagePosition(pagePosition, forceUpdate: forceDisplayUpdate)
+        }
         updatePagingScrollEnabled()
         reloadPageControllerAfterInPlaceNavigation(pageDirection) { [weak self] in
             self?.performPendingNavigationIfNeeded()
@@ -4512,10 +3549,9 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
         pageA.preferredPrefetchDirection = .forward
         pageB.preferredPrefetchDirection = .forward
         pageC.preferredPrefetchDirection = .forward
-        let stride = navigationStride(from: pagePosition)
         pageA.update(pagePosition: pagePosition)
-        pageB.update(pagePosition: pagePosition.advanced(by: stride))
-        pageC.update(pagePosition: pagePosition.advanced(by: -stride))
+        pageB.update(pagePosition: pagePosition.advanced(by: 1))
+        pageC.update(pagePosition: pagePosition.advanced(by: -1))
 
         setViewControllers([pageA], direction: .forward, animated: false) { [weak self] _ in
             guard let self else { return }
@@ -4535,7 +3571,6 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
         }
 
         update(currentPagePosition: currentPage.pagePosition)
-        currentPage.renderCurrentItemIfNeededForPageLayout()
         updatePagingScrollEnabled()
         didDisplayRenderablePagePosition(currentPage.pagePosition)
         return true
@@ -4557,8 +3592,7 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
     }
 
     private func recoveryPagePosition(from pagePosition: PlayerPagePosition) -> PlayerPagePosition? {
-        let stride = navigationStride(from: pagePosition)
-        for candidatePagePosition in [pagePosition.advanced(by: -stride), pagePosition.advanced(by: stride)] {
+        for candidatePagePosition in [pagePosition.advanced(by: -1), pagePosition.advanced(by: 1)] {
             if canRender(candidatePagePosition) {
                 return candidatePagePosition
             }
@@ -4608,8 +3642,7 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
         targetPage: SpecificPageViewController,
         offset: Int
     ) -> UIViewController? {
-        let targetOffset = offset * navigationStride(from: sourcePage.pagePosition)
-        let targetPagePosition = sourcePage.pagePosition.advanced(by: targetOffset)
+        let targetPagePosition = sourcePage.pagePosition.advanced(by: offset)
         guard canRender(targetPagePosition) else { return nil }
         targetPage.preferredPrefetchDirection = offset < 0 ? .backward : .forward
         targetPage.update(pagePosition: targetPagePosition)
@@ -4718,7 +3751,7 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
             return false
         }
 
-        guard let targetOffset = navigationOffset(direction, from: currentPage.pagePosition) else { return false }
+        guard let targetOffset = direction.pageOffset else { return false }
         let targetPagePosition = currentPage.pagePosition.advanced(by: targetOffset)
 
         let prefetchDirection: DownloadableMediaCache.PrefetchDirection = direction == .back ? .backward : .forward
@@ -4834,7 +3867,7 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
         guard direction.isPagingDirection else { return false }
         guard let currentPage = viewControllers?.first as? SpecificPageViewController else { return false }
 
-        guard let targetOffset = navigationOffset(direction, from: currentPage.pagePosition) else { return false }
+        guard let targetOffset = direction.pageOffset else { return false }
         return canRender(currentPage.pagePosition.advanced(by: targetOffset))
     }
 
