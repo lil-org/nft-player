@@ -931,6 +931,15 @@ struct HorizontalPlayerContainerView: UIViewControllerRepresentable {
         }
 
         private var lastUpdate: Update?
+        private var lastBundledGenerativePresentationMode: MobileBundledGenerativePresentationMode?
+
+        func shouldApplyBundledGenerativePresentationMode(
+            _ mode: MobileBundledGenerativePresentationMode
+        ) -> Bool {
+            guard lastBundledGenerativePresentationMode != mode else { return false }
+            lastBundledGenerativePresentationMode = mode
+            return true
+        }
 
         func beginUpdate(
             displayModeChangeID: UUID,
@@ -951,6 +960,7 @@ struct HorizontalPlayerContainerView: UIViewControllerRepresentable {
     private let initialConfig: MobilePlayerConfig
     private let chrome: MobilePlayerChromeController
     private let displayMode: MobilePlayerDisplayMode
+    private let bundledGenerativePresentationMode: MobileBundledGenerativePresentationMode
     private let browserDensity: MobilePlayerBrowserDensity?
     private let displayModeChangeID: UUID
     private let displayModeTargetPagePosition: PlayerPagePosition?
@@ -968,6 +978,7 @@ struct HorizontalPlayerContainerView: UIViewControllerRepresentable {
         initialConfig: MobilePlayerConfig,
         chrome: MobilePlayerChromeController,
         displayMode: MobilePlayerDisplayMode,
+        bundledGenerativePresentationMode: MobileBundledGenerativePresentationMode,
         browserDensity: MobilePlayerBrowserDensity?,
         displayModeChangeID: UUID,
         displayModeTargetPagePosition: PlayerPagePosition?,
@@ -984,6 +995,7 @@ struct HorizontalPlayerContainerView: UIViewControllerRepresentable {
         self.initialConfig = initialConfig
         self.chrome = chrome
         self.displayMode = displayMode
+        self.bundledGenerativePresentationMode = bundledGenerativePresentationMode
         self.browserDensity = browserDensity
         self.displayModeChangeID = displayModeChangeID
         self.displayModeTargetPagePosition = displayModeTargetPagePosition
@@ -1007,6 +1019,7 @@ struct HorizontalPlayerContainerView: UIViewControllerRepresentable {
             initialConfig: initialConfig,
             chrome: chrome,
             displayMode: displayMode,
+            bundledGenerativePresentationMode: bundledGenerativePresentationMode,
             browserDensity: browserDensity,
             onFocusedPagePositionUpdate: onFocusedPagePositionUpdate,
             onSettledPagePositionUpdate: onSettledPagePositionUpdate,
@@ -1018,6 +1031,14 @@ struct HorizontalPlayerContainerView: UIViewControllerRepresentable {
     }
 
     func updateUIViewController(_ uiViewController: HorizontalPlayerContainer, context: Context) {
+        if context.coordinator.shouldApplyBundledGenerativePresentationMode(
+            bundledGenerativePresentationMode
+        ) {
+            uiViewController.setBundledGenerativePresentationMode(
+                bundledGenerativePresentationMode
+            )
+        }
+
         guard context.coordinator.beginUpdate(
             displayModeChangeID: displayModeChangeID,
             displayMode: displayMode,
@@ -1095,6 +1116,7 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
     private let initialConfig: MobilePlayerConfig
     private let chrome: MobilePlayerChromeController
     private var displayMode: MobilePlayerDisplayMode
+    private var bundledGenerativePresentationMode: MobileBundledGenerativePresentationMode
     private let browserDensity: MobilePlayerBrowserDensity?
     private let onFocusedPagePositionUpdate: ((PlayerPagePosition) -> Void)
     private let onSettledPagePositionUpdate: ((PlayerPagePosition, Bool) -> Bool)
@@ -1182,6 +1204,7 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
         initialConfig: MobilePlayerConfig,
         chrome: MobilePlayerChromeController,
         displayMode: MobilePlayerDisplayMode,
+        bundledGenerativePresentationMode: MobileBundledGenerativePresentationMode,
         browserDensity: MobilePlayerBrowserDensity?,
         onFocusedPagePositionUpdate: @escaping (PlayerPagePosition) -> Void,
         onSettledPagePositionUpdate: @escaping (PlayerPagePosition, Bool) -> Bool,
@@ -1193,6 +1216,7 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
         self.initialConfig = initialConfig
         self.chrome = chrome
         self.displayMode = displayMode
+        self.bundledGenerativePresentationMode = bundledGenerativePresentationMode
         self.browserDensity = browserDensity
         self.onFocusedPagePositionUpdate = onFocusedPagePositionUpdate
         self.onSettledPagePositionUpdate = onSettledPagePositionUpdate
@@ -1301,6 +1325,15 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
         if direction == .restartCollection {
             collectionBrowserVC?.scrollToFirstItemAndPublish()
         }
+    }
+
+    fileprivate func setBundledGenerativePresentationMode(
+        _ presentationMode: MobileBundledGenerativePresentationMode
+    ) {
+        guard bundledGenerativePresentationMode != presentationMode else { return }
+
+        bundledGenerativePresentationMode = presentationMode
+        pagingVC.reloadRenderedBundledGenerativeWebContent()
     }
 
     fileprivate func setDisplayMode(
@@ -1947,6 +1980,37 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
         )
     }
 
+    fileprivate func currentBundledGenerativePresentationMode()
+        -> MobileBundledGenerativePresentationMode {
+        bundledGenerativePresentationMode
+    }
+
+    fileprivate func bundledGenerativeThumbnailAspectRatio(
+        for pagePosition: PlayerPagePosition
+    ) -> ThumbnailAspectRatio? {
+        let token = getToken(pagePosition: pagePosition)
+        guard token.media == nil,
+              token.nativeMetalCardRenderKind == nil,
+              TokenGenerator.isBundledWebGenerativeCollection(
+                id: token.fullCollectionId
+              ) else {
+            return nil
+        }
+
+        guard let descriptor = MobilePlaybackController.shared.collectionBrowseThumbnailDescriptor(
+            uuid: initialConfig.id,
+            pagePosition: pagePosition
+        ) else {
+            return nil
+        }
+
+        guard descriptor.collectionId == token.fullCollectionId,
+              descriptor.tokenId == token.id else {
+            return nil
+        }
+        return descriptor.thumbnailAspectRatio
+    }
+
     fileprivate func canRenderPagePosition(_ pagePosition: PlayerPagePosition) -> Bool {
         MobilePlaybackController.shared.canRender(
             uuid: initialConfig.id,
@@ -2027,6 +2091,11 @@ private protocol HorizontalPlayerDataSource: AnyObject {
     ) -> PlayerDownloadableMediaWindow?
     func clearDownloadableMediaWindow()
     func downloadableMediaDescriptor(for pagePosition: PlayerPagePosition) -> DownloadableMediaDescriptor?
+    func currentBundledGenerativePresentationMode()
+        -> MobileBundledGenerativePresentationMode
+    func bundledGenerativeThumbnailAspectRatio(
+        for pagePosition: PlayerPagePosition
+    ) -> ThumbnailAspectRatio?
     func canRenderPagePosition(_ pagePosition: PlayerPagePosition) -> Bool
     func startPagePosition() -> PlayerPagePosition
     func didRenderPagePosition(_ pagePosition: PlayerPagePosition)
@@ -2161,6 +2230,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     private enum ZoomContentLayout: Equatable {
         case viewport
         case staticImage(CGSize)
+        case fittedWebContent(CGSize)
     }
 
     private enum ZoomAllowedContent: Equatable {
@@ -2509,10 +2579,11 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         case .viewport:
             return viewportSize
 
-        case .staticImage(let imageSize):
-            guard imageSize.width > 0, imageSize.height > 0 else { return viewportSize }
+        case .staticImage(let contentSize),
+             .fittedWebContent(let contentSize):
+            guard contentSize.width > 0, contentSize.height > 0 else { return viewportSize }
 
-            return MobilePlayerAspectFitLayout.size(for: imageSize, fitting: viewportSize)
+            return MobilePlayerAspectFitLayout.size(for: contentSize, fitting: viewportSize)
 
         }
     }
@@ -2660,7 +2731,13 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             renderNativeMetalCard(token, renderKind: nativeRenderKind)
         } else if token.media == nil {
             playerDataSource?.clearDownloadableMediaWindow()
-            renderWebContent(token.html)
+            if TokenGenerator.isBundledWebGenerativeCollection(
+                id: token.fullCollectionId
+            ) {
+                renderBundledGenerativeWebContent(token.html)
+            } else {
+                renderWebContent(token.html)
+            }
         } else if let mediaWindow = prepareCurrentDownloadableMediaWindow() {
             let descriptor = mediaWindow.currentDescriptor
             switch descriptor.media {
@@ -2681,6 +2758,27 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             renderWebContent(token.html)
         }
         playerDataSource?.didRenderPagePosition(pagePosition)
+    }
+
+    fileprivate func reloadRenderedBundledGenerativeWebContentIfNeeded() {
+        guard renderedPagePosition == pagePosition,
+              willOrDidAppear,
+              isPlaybackActive,
+              let token = playerDataSource?.getToken(pagePosition: pagePosition),
+              token.media == nil,
+              token.nativeMetalCardRenderKind == nil,
+              TokenGenerator.isBundledWebGenerativeCollection(
+                id: token.fullCollectionId
+              ) else {
+            return
+        }
+
+        renderGeneration &+= 1
+        activeRenderGeneration = renderGeneration
+        resetZoom(animated: false)
+        clearAnimatedRenderContext()
+        mediaRenderer.clearContent()
+        renderBundledGenerativeWebContent(token.html)
     }
 
     fileprivate func refreshDownloadableMediaWindow() {
@@ -2830,6 +2928,31 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         clearAnimatedRenderContext()
         setZoomContentLayout(.viewport)
         renderAnimatedFallbackWebContent(html)
+    }
+
+    private func renderBundledGenerativeWebContent(_ html: String) {
+        clearAnimatedRenderContext()
+        if isViewLoaded {
+            view.layoutIfNeeded()
+        }
+        setZoomContentLayout(bundledGenerativeWebContentLayout)
+        mediaRenderer.renderWebContent(
+            html,
+            onBegin: { [weak self] in
+                self?.mediaContentView.layoutIfNeeded()
+            }
+        )
+    }
+
+    private var bundledGenerativeWebContentLayout: ZoomContentLayout {
+        guard playerDataSource?.currentBundledGenerativePresentationMode()
+                == .thumbnailAspectFit,
+              let thumbnailAspectRatio = playerDataSource?
+                .bundledGenerativeThumbnailAspectRatio(for: pagePosition) else {
+            return .viewport
+        }
+
+        return .fittedWebContent(thumbnailAspectRatio.size)
     }
 
     private func renderNativeMetalCard(_ token: GeneratedToken, renderKind: NativeMetalCardRenderKind) {
@@ -3444,6 +3567,13 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
             )
         }
         view.isUserInteractionEnabled = active
+    }
+
+    func reloadRenderedBundledGenerativeWebContent() {
+        [pageA, pageB, pageC].forEach {
+            $0.reloadRenderedBundledGenerativeWebContentIfNeeded()
+        }
+        updatePagingScrollEnabled()
     }
 
     @discardableResult

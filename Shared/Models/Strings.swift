@@ -5,6 +5,7 @@ import Foundation
 struct Strings {
 
     static let viewOnBlockExplorer = loc("View on block explorer")
+    static let viewFullscreen = loc("View fullscreen")
     static let ok = loc("OK")
     static let nftPlayer = loc("NFT Player")
     static let back = loc("Back")

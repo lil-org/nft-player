@@ -46,6 +46,11 @@ struct MobilePlayerDisplayModeSupersession {
     let displayModeChangeID: UUID
 }
 
+enum MobileBundledGenerativePresentationMode: Equatable {
+    case thumbnailAspectFit
+    case fullscreen
+}
+
 enum MobilePlayerBrowserExpandSelectionResult {
     case started
     case busy
@@ -399,6 +404,8 @@ struct MobilePlayerView: View {
     @State private var canGoForward = false
     @State private var shareItem: MobilePlayerFileShareItem?
     @State private var isCurrentTokenBookmarked = false
+    @State private var bundledGenerativePresentationMode:
+        MobileBundledGenerativePresentationMode = .thumbnailAspectFit
     @State private var displayMode: MobilePlayerDisplayMode
     @State private var displayModeChangeID = UUID()
     @State private var displayModeTargetPagePosition: PlayerPagePosition?
@@ -440,6 +447,7 @@ struct MobilePlayerView: View {
                     initialConfig: initialConfig,
                     chrome: chrome,
                     displayMode: displayMode,
+                    bundledGenerativePresentationMode: bundledGenerativePresentationMode,
                     browserDensity: browserDensity,
                     displayModeChangeID: displayModeChangeID,
                     displayModeTargetPagePosition: displayModeTargetPagePosition,
@@ -618,6 +626,12 @@ struct MobilePlayerView: View {
     
     private var infoMenu: some View {
         Menu {
+            if canToggleBundledGenerativeFullscreen {
+                Toggle(
+                    Strings.viewFullscreen,
+                    isOn: bundledGenerativeFullscreenBinding
+                )
+            }
             if !doNotShowInstructionsTmp, let instructions = currentToken.instructions {
                 Text(instructions)
             }
@@ -626,6 +640,41 @@ struct MobilePlayerView: View {
             Images.ellipsis
         }
         .accessibilityLabel(Strings.more)
+    }
+
+    private var canToggleBundledGenerativeFullscreen: Bool {
+        guard let currentPagePosition,
+              currentToken.media == nil,
+              currentToken.nativeMetalCardRenderKind == nil,
+              TokenGenerator.isBundledWebGenerativeCollection(
+                id: currentToken.fullCollectionId
+              ) else {
+            return false
+        }
+
+        guard let descriptor = MobilePlaybackController.shared.collectionBrowseThumbnailDescriptor(
+            uuid: initialConfig.id,
+            pagePosition: currentPagePosition
+        ) else {
+            return false
+        }
+
+        return descriptor.collectionId == currentToken.fullCollectionId
+            && descriptor.tokenId == currentToken.id
+            && descriptor.thumbnailAspectRatio != nil
+    }
+
+    private var bundledGenerativeFullscreenBinding: Binding<Bool> {
+        Binding(
+            get: {
+                bundledGenerativePresentationMode == .fullscreen
+            },
+            set: { isFullscreen in
+                bundledGenerativePresentationMode = isFullscreen
+                    ? .fullscreen
+                    : .thumbnailAspectFit
+            }
+        )
     }
     
     private func viewOnWeb() {
@@ -721,6 +770,10 @@ struct MobilePlayerView: View {
         chrome.setNavigationBackSwipeAllowed(
             application.requestedDisplayMode == .collectionBrowser
         )
+
+        if application.requestedDisplayMode == .collectionBrowser {
+            bundledGenerativePresentationMode = .thumbnailAspectFit
+        }
 
         if displayModeTargetPagePosition == application.targetPagePosition {
             displayModeTargetPagePosition = nil
