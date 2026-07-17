@@ -294,7 +294,8 @@ final class NativeMetalCardRendererCore {
         in view: MTKView,
         cardRect: CGRect,
         cardScale: CGSize,
-        interactionState: NativeMetalCardInteractionState
+        interactionState: NativeMetalCardInteractionState,
+        onContentFramePresented: (() -> Void)? = nil
     ) {
         guard var vertices = NativeMetalCardVertexQuad.cardVertices(in: view.bounds.size, cardRect: cardRect) else {
             return
@@ -350,6 +351,12 @@ final class NativeMetalCardRendererCore {
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: NativeMetalCardVertexQuad.vertexCount)
         encoder.endEncoding()
 
+        if let onContentFramePresented {
+            commandBuffer.addCompletedHandler { completedCommandBuffer in
+                guard completedCommandBuffer.status == .completed else { return }
+                onContentFramePresented()
+            }
+        }
         commandBuffer.present(drawable)
         commandBuffer.commit()
     }

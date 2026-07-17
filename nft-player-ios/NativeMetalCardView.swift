@@ -126,7 +126,7 @@ final class NativeMetalCardView: UIView {
         if shouldRunRenderer {
             renderer?.start()
         } else {
-            renderer?.stop()
+            renderer?.stop(discardPendingContentReady: !isDisplayed)
         }
     }
 }
@@ -327,6 +327,8 @@ private final class NativeMetalCardRenderer: NSObject, MTKViewDelegate {
     private let motionTracker = NativeMetalCardMotionTracker.shared
 
     private var motionObserverID: UUID?
+    private var activeContentPresentationID: UUID?
+    private var pendingContentReadyCallback: (() -> Void)?
 
     init?(device: MTLDevice) {
         guard let rendererCore = NativeMetalCardRendererCore(device: device, logger: nativeMetalCardLogger) else {
@@ -354,7 +356,12 @@ private final class NativeMetalCardRenderer: NSObject, MTKViewDelegate {
         renderKind: NativeMetalCardRenderKind,
         onContentReady: (() -> Void)?
     ) {
-        rendererCore.display(tokenID: tokenID, renderKind: renderKind, onContentReady: onContentReady)
+        invalidatePendingContentReadyCallback()
+        if let onContentReady {
+            activeContentPresentationID = UUID()
+            pendingContentReadyCallback = onContentReady
+        }
+        rendererCore.display(tokenID: tokenID, renderKind: renderKind)
     }
 
     func start() {
@@ -368,9 +375,12 @@ private final class NativeMetalCardRenderer: NSObject, MTKViewDelegate {
         metalView?.draw()
     }
 
-    func stop() {
+    func stop(discardPendingContentReady: Bool = true) {
         rendererCore.cancelPrefetchDownloads()
         rendererCore.cancelContentReadyCallbacks()
+        if discardPendingContentReady {
+            invalidatePendingContentReadyCallback()
+        }
         guard let motionObserverID else { return }
         motionTracker.removeObserver(id: motionObserverID)
         self.motionObserverID = nil
@@ -391,12 +401,37 @@ private final class NativeMetalCardRenderer: NSObject, MTKViewDelegate {
             pointerFromCenter: motionState.pointerFromCenter,
             effectOpacity: motionState.effectOpacity
         )
+        let onContentFramePresented: (() -> Void)?
+        if pendingContentReadyCallback != nil,
+           let presentationID = activeContentPresentationID {
+            onContentFramePresented = { [weak self] in
+                DispatchQueue.main.async {
+                    guard let self,
+                          self.activeContentPresentationID == presentationID,
+                          let callback = self.pendingContentReadyCallback else {
+                        return
+                    }
+
+                    self.activeContentPresentationID = nil
+                    self.pendingContentReadyCallback = nil
+                    callback()
+                }
+            }
+        } else {
+            onContentFramePresented = nil
+        }
         rendererCore.draw(
             in: view,
             cardRect: cardRect,
             cardScale: CGSize(width: scaleX, height: scaleY),
-            interactionState: interactionState
+            interactionState: interactionState,
+            onContentFramePresented: onContentFramePresented
         )
+    }
+
+    private func invalidatePendingContentReadyCallback() {
+        activeContentPresentationID = nil
+        pendingContentReadyCallback = nil
     }
 
     private func cardRect(in size: CGSize) -> CGRect {

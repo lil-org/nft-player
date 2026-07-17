@@ -784,7 +784,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
                   size.height > 0 else {
                 return nil
             }
-            return (tokenIndex, size, descriptor.isNativeMetalCard)
+            return (tokenIndex, size, descriptor.usesNativeMetalCardPresentation)
         }
 
         sampledImageSizes = samples.isEmpty ? [defaultSize] : samples.map { $0.size }
@@ -1484,7 +1484,7 @@ private final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
         representedTokenIndex = tokenIndex
         self.descriptor = descriptor
         imageView.image = nil
-        let usesNativeMetalCardCornerMask = descriptor?.isNativeMetalCard
+        let usesNativeMetalCardCornerMask = descriptor?.usesNativeMetalCardPresentation
             ?? missingDescriptorFallbackSpec.usesNativeMetalCardCornerMask
         imageView.usesNativeMetalCardCornerMask = usesNativeMetalCardCornerMask
 

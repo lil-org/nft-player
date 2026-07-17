@@ -1597,6 +1597,7 @@
     "chainId" : 0,
     "name" : "card nft",
     "tokenCount" : 7777,
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "card_nft"
   },
   {
@@ -1613,6 +1614,7 @@
     "chain" : "solana",
     "chainId" : 0,
     "name" : "Poncho Drifella",
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "poncho_drifella"
   },
   {
@@ -1960,6 +1962,7 @@
     "chain" : "solana",
     "chainId" : 0,
     "name" : "Card NFT 2",
+    "standardThumbsPathsAvailable" : true,
     "internal_slug" : "card_nft_2"
   },
   {

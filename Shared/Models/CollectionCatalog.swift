@@ -68,6 +68,10 @@ struct CollectionCatalogDownloadableMediaDescriptor: Hashable {
     var isNativeMetalCard: Bool {
         nativeMetalCardRenderKind != nil
     }
+
+    var usesNativeMetalCardPresentation: Bool {
+        NativeMetalCardRenderKind(collectionId: collectionId) != nil
+    }
 }
 
 struct PlayerPagePosition: Hashable {

@@ -6,6 +6,71 @@ import WebKit
 import ImageIO
 import AVFoundation
 
+fileprivate final class NativeMetalCardProvisionalOverlayView: UIView {
+    private let imageView = NativeMetalCardCornerMaskedImageView()
+
+    var hasImage: Bool {
+        imageView.image != nil
+    }
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        makeBackgroundTransparent()
+        isUserInteractionEnabled = false
+
+        imageView.makeBackgroundTransparent()
+        imageView.contentMode = .scaleAspectFit
+        imageView.clipsToBounds = true
+        imageView.usesNativeMetalCardCornerMask = true
+        addSubview(imageView)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        imageView.frame = NativeMetalCardLayout.cardContentRect(in: bounds.size)
+    }
+
+    func display(_ image: UIImage) {
+        layer.removeAllAnimations()
+        imageView.layer.removeAllAnimations()
+        imageView.image = image
+        alpha = 1
+        isHidden = false
+        setNeedsLayout()
+    }
+
+    func hide(animated: Bool) {
+        layer.removeAllAnimations()
+        guard animated, !isHidden, hasImage else {
+            clear()
+            return
+        }
+
+        UIView.animate(
+            withDuration: 0.12,
+            delay: 0,
+            options: [.beginFromCurrentState, .allowUserInteraction]
+        ) {
+            self.alpha = 0
+        } completion: { [weak self] finished in
+            guard finished, self?.alpha == 0 else { return }
+            self?.clear()
+        }
+    }
+
+    func clear() {
+        layer.removeAllAnimations()
+        imageView.layer.removeAllAnimations()
+        imageView.image = nil
+        alpha = 1
+        isHidden = true
+    }
+}
+
 enum FullscreenTokenMediaView {
     static func imageView(in containerView: UIView) -> UIImageView {
         let imageView = UIImageView()
@@ -32,6 +97,15 @@ enum FullscreenTokenMediaView {
         return cardView
     }
 
+    fileprivate static func nativeMetalCardProvisionalOverlayView(
+        in containerView: UIView
+    ) -> NativeMetalCardProvisionalOverlayView {
+        let overlayView = NativeMetalCardProvisionalOverlayView()
+        overlayView.isHidden = true
+        install(overlayView, in: containerView)
+        return overlayView
+    }
+
     private static func install(_ view: UIView, in containerView: UIView) {
         view.translatesAutoresizingMaskIntoConstraints = false
         containerView.addSubview(view)
@@ -55,9 +129,12 @@ final class FullscreenTokenMediaRenderer {
     private var webView: AutoReloadingWebView!
     private var imageView: UIImageView!
     private var nativeMetalCardView: NativeMetalCardView!
+    private var nativeMetalCardProvisionalOverlayView: NativeMetalCardProvisionalOverlayView!
     private var representedImageKey: AnyHashable?
     private var activeImageLoadId: UUID?
     private var cancelActiveImageLoad: ImageLoadCancellation?
+    private var activeNativeMetalCardPresentationID: UUID?
+    private var cancelNativeMetalCardProvisionalImageLoad: ImageLoadCancellation?
     private var webViewMayContainContent = false
     private var activeLocalWebReadinessID: UUID?
     private var usesTransparentPlayerBackground = false
@@ -68,6 +145,7 @@ final class FullscreenTokenMediaRenderer {
 
     deinit {
         cancelCurrentImageLoad()
+        cancelNativeMetalCardProvisionalImageLoad?()
         nativeMetalCardView?.stop()
     }
 
@@ -280,17 +358,55 @@ final class FullscreenTokenMediaRenderer {
 
     func renderNativeMetalCard(
         tokenId: String,
-        renderKind: NativeMetalCardRenderKind
+        renderKind: NativeMetalCardRenderKind,
+        provisionalImage: UIImage? = nil,
+        loadProvisionalImage: ((@escaping (UIImage?) -> Void) -> (() -> Void)?)? = nil
     ) {
+        resetNativeMetalCardPresentation()
         cancelCurrentImageLoad()
         representedImageKey = nil
         ensureNativeMetalCardView()
+        ensureNativeMetalCardProvisionalOverlayView()
         imageView?.isHidden = true
         imageView?.image = nil
         hideWebContent()
+
+        let presentationID = UUID()
+        activeNativeMetalCardPresentationID = presentationID
+        if let provisionalImage {
+            displayNativeMetalCardProvisionalImage(provisionalImage)
+        }
+        if provisionalImage == nil, let loadProvisionalImage {
+            cancelNativeMetalCardProvisionalImageLoad = loadProvisionalImage { [weak self] image in
+                DispatchQueue.main.async {
+                    guard let self,
+                          self.activeNativeMetalCardPresentationID == presentationID,
+                          let image else {
+                        return
+                    }
+
+                    self.cancelNativeMetalCardProvisionalImageLoad = nil
+                    self.displayNativeMetalCardProvisionalImage(image)
+                }
+            }
+        }
+
         nativeMetalCardView.display(
             tokenId: tokenId,
-            renderKind: renderKind
+            renderKind: renderKind,
+            onContentReady: { [weak self] in
+                guard let self,
+                      self.activeNativeMetalCardPresentationID == presentationID else {
+                    return
+                }
+
+                self.activeNativeMetalCardPresentationID = nil
+                self.cancelNativeMetalCardProvisionalImageLoad?()
+                self.cancelNativeMetalCardProvisionalImageLoad = nil
+                self.nativeMetalCardProvisionalOverlayView.hide(
+                    animated: self.nativeMetalCardProvisionalOverlayView.hasImage
+                )
+            }
         )
     }
 
@@ -573,14 +689,34 @@ final class FullscreenTokenMediaRenderer {
         }
     }
 
+    private func ensureNativeMetalCardProvisionalOverlayView() {
+        guard nativeMetalCardProvisionalOverlayView == nil else { return }
+
+        nativeMetalCardProvisionalOverlayView =
+            FullscreenTokenMediaView.nativeMetalCardProvisionalOverlayView(in: containerView)
+    }
+
+    private func displayNativeMetalCardProvisionalImage(_ image: UIImage) {
+        nativeMetalCardProvisionalOverlayView.display(image)
+        containerView.bringSubviewToFront(nativeMetalCardProvisionalOverlayView)
+    }
+
     private func hideWebContent() {
         invalidateLocalWebContentLoad()
         webView?.isHidden = true
     }
 
     private func hideNativeMetalCardView() {
+        resetNativeMetalCardPresentation()
         nativeMetalCardView?.stop()
         nativeMetalCardView?.isHidden = true
+    }
+
+    private func resetNativeMetalCardPresentation() {
+        activeNativeMetalCardPresentationID = nil
+        cancelNativeMetalCardProvisionalImageLoad?()
+        cancelNativeMetalCardProvisionalImageLoad = nil
+        nativeMetalCardProvisionalOverlayView?.clear()
     }
 
     private func unloadWebContentAfterImageDisplay(imageKey: AnyHashable) {
@@ -2699,9 +2835,27 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     private func renderNativeMetalCard(_ token: GeneratedToken, renderKind: NativeMetalCardRenderKind) {
         clearAnimatedRenderContext()
         setZoomContentLayout(.viewport, allowedContent: .nativeMetalCard)
+        let thumbnailDescriptor = playerDataSource?
+            .downloadableMediaDescriptor(for: pagePosition)
+            .flatMap(standardThumbnailDescriptor(matching:))
+        let provisionalImage = thumbnailDescriptor.flatMap {
+            DownloadableMediaCache.shared.cachedDecodedImage(for: $0)
+        }
+        let loadProvisionalImage: ((@escaping (UIImage?) -> Void) -> (() -> Void)?)? = {
+            guard provisionalImage == nil, let thumbnailDescriptor else { return nil }
+            return { completion in
+                DownloadableMediaCache.shared.loadProvisionalImage(
+                    for: thumbnailDescriptor,
+                    completion: completion
+                )
+            }
+        }()
+
         mediaRenderer.renderNativeMetalCard(
             tokenId: token.id,
-            renderKind: renderKind
+            renderKind: renderKind,
+            provisionalImage: provisionalImage,
+            loadProvisionalImage: loadProvisionalImage
         )
     }
 

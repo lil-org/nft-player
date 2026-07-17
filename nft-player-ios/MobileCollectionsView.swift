@@ -2104,7 +2104,7 @@ private final class CardTransitionUnderlayView: UIView {
             entry.imageView.contentMode = .scaleAspectFit
             entry.imageView.clipsToBounds = true
             entry.imageView.isUserInteractionEnabled = false
-            entry.imageView.usesNativeMetalCardCornerMask = descriptor.isNativeMetalCard
+            entry.imageView.usesNativeMetalCardCornerMask = descriptor.usesNativeMetalCardPresentation
             entry.imageView.alpha = 0
             addSubview(entry.imageView)
             lateImageEntries.append(entry)
@@ -3569,7 +3569,7 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
         descriptor: DownloadableMediaDescriptor?
     ) -> UIView {
         if let descriptor,
-           (descriptor.isNativeMetalCard || descriptor.isCollectionBrowserThumbnail),
+           (descriptor.usesNativeMetalCardPresentation || descriptor.isCollectionBrowserThumbnail),
            let snapshot = makeCardTransitionSnapshotView(sourceFrame: sourceFrame) {
             return snapshot
         }
@@ -3581,7 +3581,7 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
             imageView.contentMode = .scaleAspectFit
             imageView.clipsToBounds = true
             imageView.image = image
-            imageView.usesNativeMetalCardCornerMask = descriptor.isNativeMetalCard
+            imageView.usesNativeMetalCardCornerMask = descriptor.usesNativeMetalCardPresentation
             return imageView
         }
 
@@ -3624,7 +3624,7 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
         fallbackImageSize: CGSize
     ) -> CGRect {
         let playerBounds = view.bounds
-        if descriptor?.isNativeMetalCard == true {
+        if descriptor?.usesNativeMetalCardPresentation == true {
             let nativeCardFrame = NativeMetalCardLayout.cardContentRect(in: playerBounds.size)
             let clippedNativeCardFrame = nativeCardFrame.intersection(playerBounds)
             guard !clippedNativeCardFrame.isNull, !clippedNativeCardFrame.isEmpty else {
