@@ -1768,7 +1768,7 @@ private struct MobileCollectionsNavigationView<RootView: View>: UIViewController
                 )
                 activeSession = session
                 navigationController.navigationBar.layer.removeAllAnimations()
-                navigationController.navigationBar.alpha = 1
+                session.interactionController.prepareForPlayerPresentation(using: nil)
                 navigationController.pushViewController(
                     session.viewController,
                     animated: desiredPresentationTransition.animatesNavigationTransition
@@ -1874,6 +1874,14 @@ private struct MobileCollectionsNavigationView<RootView: View>: UIViewController
             willShow viewController: UIViewController,
             animated: Bool
         ) {
+            if let activeSession,
+               viewController === activeSession.viewController {
+                activeSession.interactionController.prepareForPlayerPresentation(
+                    using: navigationController.transitionCoordinator
+                )
+                return
+            }
+
             guard viewController === rootViewController else { return }
             activeSession?.interactionController.prepareForNavigationPopTransition(
                 using: navigationController.transitionCoordinator
@@ -2382,6 +2390,8 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
     private static let cardTransitionHorizontalDragDamping: CGFloat = 0.18
     private static let cardTransitionVerticalDragDamping: CGFloat = 0.32
     private static let navigationBarSideControlRegionWidth: CGFloat = 96
+    private static let navigationBarShowDuration: TimeInterval = 0.12
+    private static let navigationBarHideDuration: TimeInterval = 0.23
 
     private enum CardMinimizeCommitDestination {
         case browserCell(CGRect)
@@ -2477,9 +2487,10 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
         chrome.onCollectionBrowserExpandRequest = { [weak self] selection in
             self?.beginProgrammaticCardExpand(selection: selection) ?? .rejected
         }
-        playerNavigationController.navigationBar.alpha = 1
+        playerNavigationController.navigationBar.alpha = shouldShowNavigationBarChrome ? 1 : 0
         observePlayerBackgroundColor()
         observeNavigationBackSwipeAvailability()
+        observeNavigationBarChromeVisibility()
     }
 
     func install() {
@@ -2562,7 +2573,7 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
 
     func didShowPlayerAfterNavigationTransition() {
         guard isInstalled else { return }
-        playerNavigationController.navigationBar.alpha = 1
+        setNavigationBarChromeVisible(shouldShowNavigationBarChrome, animated: false)
         configurePagingScrollViews()
         updateNavigationBackSwipeAvailability()
         playerNavigationController.setNeedsStatusBarAppearanceUpdate()
@@ -2583,7 +2594,10 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
             navigationBar.alpha = 1
         } completion: { [weak self] context in
             if context.isCancelled, let self {
-                self.playerNavigationController.navigationBar.alpha = 1
+                self.setNavigationBarChromeVisible(
+                    self.shouldShowNavigationBarChrome,
+                    animated: false
+                )
             }
         }
     }
@@ -2593,13 +2607,14 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
     ) {
         let navigationBar = playerNavigationController.navigationBar
         navigationBar.layer.removeAllAnimations()
+        let targetAlpha: CGFloat = shouldShowNavigationBarChrome ? 1 : 0
+        navigationBar.alpha = targetAlpha
         guard let transitionCoordinator else {
-            navigationBar.alpha = 1
             return
         }
 
         transitionCoordinator.animate { _ in
-            navigationBar.alpha = 1
+            navigationBar.alpha = targetAlpha
         }
     }
 
@@ -2622,6 +2637,45 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
                 )
             }
             .store(in: &chromeCancellables)
+    }
+
+    private func observeNavigationBarChromeVisibility() {
+        chrome.$showControls
+            .combineLatest(chrome.$allowsNavigationBackSwipe)
+            .map { showControls, allowsNavigationBackSwipe in
+                showControls || allowsNavigationBackSwipe
+            }
+            .removeDuplicates()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] isVisible in
+                self?.setNavigationBarChromeVisible(isVisible, animated: true)
+            }
+            .store(in: &chromeCancellables)
+    }
+
+    private var shouldShowNavigationBarChrome: Bool {
+        chrome.showControls || chrome.allowsNavigationBackSwipe
+    }
+
+    private func setNavigationBarChromeVisible(_ isVisible: Bool, animated: Bool) {
+        let navigationBar = playerNavigationController.navigationBar
+        navigationBar.layer.removeAllAnimations()
+
+        let targetAlpha: CGFloat = isVisible ? 1 : 0
+        guard animated else {
+            navigationBar.alpha = targetAlpha
+            return
+        }
+
+        UIView.animate(
+            withDuration: isVisible
+                ? Self.navigationBarShowDuration
+                : Self.navigationBarHideDuration,
+            delay: 0,
+            options: [.beginFromCurrentState, .allowUserInteraction]
+        ) {
+            navigationBar.alpha = targetAlpha
+        }
     }
 
     private func updateNavigationBackSwipeAvailability() {

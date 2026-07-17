@@ -538,7 +538,12 @@ struct MobilePlayerView: View {
             .ignoresSafeArea(edges: .bottom)
         }
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar(.visible, for: .navigationBar)
+        .toolbar(
+            chrome.showControls || chrome.allowsNavigationBackSwipe
+                ? .visible
+                : .hidden,
+            for: .navigationBar
+        )
         .toolbarBackground(.hidden, for: .navigationBar)
         .navigationBarBackButtonHidden(
             !chrome.allowsNavigationBackSwipe
@@ -555,7 +560,8 @@ struct MobilePlayerView: View {
                     .accessibilityLabel(Strings.back)
                 }
             }
-            if displayMode == .onePerPage {
+            if displayMode == .onePerPage,
+               !chrome.isPlayerContentHiddenForCardTransition {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     infoMenu
                 }
