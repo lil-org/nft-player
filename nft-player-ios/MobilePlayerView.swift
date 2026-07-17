@@ -470,59 +470,61 @@ struct MobilePlayerView: View {
                 .opacity(chrome.isPlayerContentHiddenForCardTransition ? 0 : 1)
                 .allowsHitTesting(!chrome.isPlayerContentHiddenForCardTransition)
 
-                VStack {
-                    Spacer()
-                    PlayerBottomControls(
-                        isVisible: chrome.showControls,
-                        progress: isCurrentPagePositionInsertedWidgetToken ? nil : currentProgress,
-                        showsNavigationArrows: displayMode == .onePerPage,
-                        canGoBack: canGoBack,
-                        canGoForward: canGoForward,
-                        onBack: goBack,
-                        onForward: goForward,
-                        onViewAgain: viewAgain,
-                        onFinish: onDismiss
-                    )
-                    .padding(.horizontal, 18)
-                    .padding(.bottom, bottomChromePadding)
-                    .animation(chrome.showControls ? playerChromeToggleAnimation : playerManualGlassHideAnimation, value: chrome.showControls)
-                }
-                .allowsHitTesting(chrome.showControls)
+                if displayMode == .onePerPage {
+                    VStack {
+                        Spacer()
+                        PlayerBottomControls(
+                            isVisible: chrome.showControls,
+                            progress: isCurrentPagePositionInsertedWidgetToken ? nil : currentProgress,
+                            showsNavigationArrows: true,
+                            canGoBack: canGoBack,
+                            canGoForward: canGoForward,
+                            onBack: goBack,
+                            onForward: goForward,
+                            onViewAgain: viewAgain,
+                            onFinish: onDismiss
+                        )
+                        .padding(.horizontal, 18)
+                        .padding(.bottom, bottomChromePadding)
+                        .animation(chrome.showControls ? playerChromeToggleAnimation : playerManualGlassHideAnimation, value: chrome.showControls)
+                    }
+                    .allowsHitTesting(chrome.showControls)
 
-                VStack {
-                    Spacer()
-                    HStack {
-                        if chrome.showControls, let shareItem {
-                            PlayerShareButton(shareItem: shareItem)
+                    VStack {
+                        Spacer()
+                        HStack {
+                            if chrome.showControls, let shareItem {
+                                PlayerShareButton(shareItem: shareItem)
+                                    .transition(.opacity)
+                            }
+                            Spacer()
+                        }
+                        .padding(.leading, 18)
+                        .padding(.bottom, bottomChromePadding)
+                        .animation(chrome.showControls ? playerChromeToggleAnimation : playerManualGlassHideAnimation, value: chrome.showControls)
+                        .animation(playerChromeToggleAnimation, value: shareItem?.fileURL)
+                    }
+                    .allowsHitTesting(chrome.showControls && shareItem != nil)
+
+                    VStack {
+                        Spacer()
+                        HStack {
+                            Spacer()
+                            if chrome.showControls, canBookmarkCurrentToken {
+                                PlayerBookmarkButton(
+                                    isBookmarked: isCurrentTokenBookmarked,
+                                    action: toggleCurrentTokenBookmark
+                                )
                                 .transition(.opacity)
+                            }
                         }
-                        Spacer()
+                        .padding(.trailing, 18)
+                        .padding(.bottom, bottomChromePadding)
+                        .animation(chrome.showControls ? playerChromeToggleAnimation : playerManualGlassHideAnimation, value: chrome.showControls)
+                        .animation(playerChromeToggleAnimation, value: isCurrentTokenBookmarked)
                     }
-                    .padding(.leading, 18)
-                    .padding(.bottom, bottomChromePadding)
-                    .animation(chrome.showControls ? playerChromeToggleAnimation : playerManualGlassHideAnimation, value: chrome.showControls)
-                    .animation(playerChromeToggleAnimation, value: shareItem?.fileURL)
+                    .allowsHitTesting(chrome.showControls && canBookmarkCurrentToken)
                 }
-                .allowsHitTesting(chrome.showControls && shareItem != nil)
-
-                VStack {
-                    Spacer()
-                    HStack {
-                        Spacer()
-                        if chrome.showControls, canBookmarkCurrentToken {
-                            PlayerBookmarkButton(
-                                isBookmarked: isCurrentTokenBookmarked,
-                                action: toggleCurrentTokenBookmark
-                            )
-                            .transition(.opacity)
-                        }
-                    }
-                    .padding(.trailing, 18)
-                    .padding(.bottom, bottomChromePadding)
-                    .animation(chrome.showControls ? playerChromeToggleAnimation : playerManualGlassHideAnimation, value: chrome.showControls)
-                    .animation(playerChromeToggleAnimation, value: isCurrentTokenBookmarked)
-                }
-                .allowsHitTesting(chrome.showControls && canBookmarkCurrentToken)
 
                 MobilePlayerCardTransitionCanvasRepresentable(
                     canvas: cardTransitionCanvas
@@ -553,15 +555,17 @@ struct MobilePlayerView: View {
                     .accessibilityLabel(Strings.back)
                 }
             }
-            ToolbarItem(placement: .navigationBarTrailing) {
-                infoMenu
-            }
-            ToolbarItem(placement: .principal) {
-                if chrome.showControls {
-                    PlayerCollectionTitlePill(
-                        title: currentToken.collectionName,
-                        progressText: currentPageLabel
-                    )
+            if displayMode == .onePerPage {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    infoMenu
+                }
+                ToolbarItem(placement: .principal) {
+                    if chrome.showControls {
+                        PlayerCollectionTitlePill(
+                            title: currentToken.collectionName,
+                            progressText: currentPageLabel
+                        )
+                    }
                 }
             }
         }
@@ -601,7 +605,9 @@ struct MobilePlayerView: View {
     }
 
     private var shouldHideStatusBar: Bool {
-        isAllowedToHideStatusBar && !chrome.showControls
+        displayMode == .onePerPage
+            && isAllowedToHideStatusBar
+            && !chrome.showControls
     }
     
     private var infoMenu: some View {
