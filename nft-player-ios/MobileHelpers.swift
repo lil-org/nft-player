@@ -4,8 +4,8 @@ import UIKit
 import SwiftUI
 
 enum MobilePlayerBrowserLayoutMetrics {
-    static let itemSpacing: CGFloat = 4
-    static let screenEdgeInset: CGFloat = 2
+    static let itemSpacing: CGFloat = 1
+    static let screenEdgeInset: CGFloat = 0
 }
 
 enum MobilePlayerAspectFitLayout {

@@ -49,7 +49,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
 
     private static let cellReuseIdentifier = "MobilePlayerCollectionBrowserCell"
     private static let boundaryEpsilon: CGFloat = 0.75
-    private static let verticalContentMargin: CGFloat = 16
+    private static let verticalContentMargin: CGFloat = 0
     private static let maximumPrefetchLoadCount = 96
     private static let continuousFocusPublicationInterval: CFTimeInterval = 1 / 12
 

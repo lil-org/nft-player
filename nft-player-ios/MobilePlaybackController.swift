@@ -98,25 +98,18 @@ enum MobilePlayerBrowserDensity: Int, Hashable {
         rawValue
     }
 
-    func grid(fitting viewportSize: CGSize) -> MobilePlayerBrowserGrid {
-        let columnCount: Int
+    func grid(fitting _: CGSize) -> MobilePlayerBrowserGrid {
+        let columnCount = 3
         let visibleRowCount: Int
         switch self {
         case .four:
-            columnCount = 2
             visibleRowCount = 2
         case .six:
-            let usesHorizontalLayout = viewportSize.width >= viewportSize.height
-            columnCount = usesHorizontalLayout ? 3 : 2
-            visibleRowCount = usesHorizontalLayout ? 2 : 3
+            visibleRowCount = 2
         case .twelve:
-            let usesHorizontalLayout = viewportSize.width > viewportSize.height
-            columnCount = usesHorizontalLayout ? 4 : 3
-            visibleRowCount = usesHorizontalLayout ? 3 : 4
+            visibleRowCount = 4
         case .fifteen:
-            let usesHorizontalLayout = viewportSize.width > viewportSize.height
-            columnCount = usesHorizontalLayout ? 5 : 3
-            visibleRowCount = usesHorizontalLayout ? 3 : 5
+            visibleRowCount = 5
         }
 
         return MobilePlayerBrowserGrid(
