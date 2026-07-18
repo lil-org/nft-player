@@ -40,6 +40,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     private struct ThumbnailWindowRequest: Equatable {
         let tokenIndex: Int
         let direction: DownloadableMediaCache.PrefetchDirection
+        let prefetchStride: Int
     }
 
     private enum FocusPublicationCadence {
@@ -54,7 +55,6 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     private static let continuousFocusPublicationInterval: CFTimeInterval = 1 / 12
 
     let uuid: UUID
-    private let density: MobilePlayerBrowserDensity
 
     var onFocusedPagePosition: ((PlayerPagePosition) -> Void)?
     var onSettledPagePosition: ((PlayerPagePosition, Bool) -> Bool)?
@@ -91,6 +91,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     private var positioningGeneration: UInt = 0
     private var lastLayoutSize = CGSize.zero
     private var configuredColumnCount = 0
+    private var configuredPrefetchStride = MobilePlayerBrowserLayout.columnCount
     private var focusedTokenIndex: Int?
     private var forcedFocusedTokenIndex: Int?
     private var retainedFocusFocalBias: PlayerCollectionScrollFocalBias?
@@ -117,9 +118,8 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     private var backgroundObserver: NSObjectProtocol?
     private var cacheFileAvailabilityObserver: NSObjectProtocol?
 
-    init(uuid: UUID, density: MobilePlayerBrowserDensity) {
+    init(uuid: UUID) {
         self.uuid = uuid
-        self.density = density
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -178,9 +178,11 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         let needsWindowSafeAreaCapture = !hasCapturedLayoutWindowSafeAreaInsets
             && windowSafeAreaInsets != nil
         let layoutGeometryChanged = sizeChanged || needsWindowSafeAreaCapture
-        let retainedFocus = layoutGeometryChanged
-            ? forcedFocusedTokenIndex ?? focusedTokenIndex
-            : nil
+        let retainedFocus = MobilePlayerBrowserLayout.retainedFocusTokenIndex(
+            geometryChanged: layoutGeometryChanged,
+            forcedTokenIndex: forcedFocusedTokenIndex,
+            focusedTokenIndex: focusedTokenIndex
+        )
         let wasApplyingPosition = isApplyingPosition
         if needsInitialLayout || layoutGeometryChanged {
             isApplyingPosition = true
@@ -567,7 +569,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             forcesThumbnailWindow: false
         )
         guard let publication = publicationState?.finalFlush(
-            hasViewedToEnd: isFinalCollectionItemFullyVisible
+            hasViewedToEnd: hasViewedToEnd
         ) else {
             return
         }
@@ -763,7 +765,10 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             return
         }
 
-        let sampleCount = min(snapshot.itemCount, density.itemCountPerViewport)
+        let sampleCount = min(
+            snapshot.itemCount,
+            MobilePlayerBrowserLayout.maximumAspectSampleCount
+        )
         let focus = min(max(focusedTokenIndex ?? snapshot.initialTokenIndex, 0), snapshot.itemCount - 1)
         let firstIndex = min(
             max(focus - sampleCount / 2, 0),
@@ -777,7 +782,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             ) else {
                 return nil
             }
-            let size = MobilePlayerBrowserDensity.fallbackImageSize(for: descriptor)
+            let size = MobilePlayerCollectionBrowserSupport.fallbackImageSize(for: descriptor)
             guard size.width.isFinite,
                   size.height.isFinite,
                   size.width > 0,
@@ -855,49 +860,32 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         let viewportSize = collectionView.bounds.size
         guard viewportSize.width > 0, viewportSize.height > 0 else { return }
 
-        let grid = density.grid(fitting: viewportSize)
-        configuredColumnCount = grid.columnCount
-        let horizontalSpacing = CGFloat(max(grid.columnCount - 1, 0)) * grid.spacing
-        let verticalSpacing = CGFloat(max(grid.visibleRowCount - 1, 0)) * grid.spacing
         let topInset = Self.verticalContentMargin + layoutWindowSafeAreaInsets.top
         let bottomInset = Self.verticalContentMargin + layoutWindowSafeAreaInsets.bottom
-        let availableWidth = max(viewportSize.width - grid.screenEdgeInset * 2 - horizontalSpacing, 1)
-        let availableHeight = max(
-            viewportSize.height - topInset - bottomInset - verticalSpacing,
-            1
-        )
-        let maximumItemSize = CGSize(
-            width: floor(availableWidth / CGFloat(max(grid.columnCount, 1))),
-            height: floor(availableHeight / CGFloat(max(grid.visibleRowCount, 1)))
-        )
-        let fittedSampleSizes = sampledImageSizes.map {
-            MobilePlayerAspectFitLayout.size(for: $0, fitting: maximumItemSize)
+        guard let browserLayout = MobilePlayerBrowserLayout(
+            viewportSize: viewportSize,
+            topContentInset: topInset,
+            bottomContentInset: bottomInset,
+            sampledImageSizes: sampledImageSizes
+        ) else {
+            return
         }
-        let commonFittedSize = fittedSampleSizes.reduce(.zero) { result, size in
-            CGSize(
-                width: max(result.width, size.width),
-                height: max(result.height, size.height)
-            )
+
+        configuredColumnCount = MobilePlayerBrowserLayout.columnCount
+        if configuredPrefetchStride != browserLayout.prefetchStride {
+            configuredPrefetchStride = browserLayout.prefetchStride
+            lastThumbnailWindowRequest = nil
         }
-        let itemSize = CGSize(
-            width: max(floor(commonFittedSize.width), 1),
-            height: max(floor(commonFittedSize.height), 1)
-        )
-        let gridContentWidth = itemSize.width * CGFloat(grid.columnCount) + horizontalSpacing
-        let horizontalCenteringInset = max(
-            grid.screenEdgeInset,
-            (viewportSize.width - gridContentWidth) / 2
-        )
         flowLayout.scrollDirection = .vertical
-        flowLayout.minimumInteritemSpacing = grid.spacing
-        flowLayout.minimumLineSpacing = grid.spacing
+        flowLayout.minimumInteritemSpacing = MobilePlayerBrowserLayout.itemSpacing
+        flowLayout.minimumLineSpacing = MobilePlayerBrowserLayout.itemSpacing
         flowLayout.sectionInset = UIEdgeInsets(
             top: topInset,
-            left: horizontalCenteringInset,
+            left: 0,
             bottom: bottomInset,
-            right: horizontalCenteringInset
+            right: 0
         )
-        flowLayout.itemSize = itemSize
+        flowLayout.itemSize = browserLayout.itemSize
         collectionView.scrollIndicatorInsets = UIEdgeInsets(
             top: layoutWindowSafeAreaInsets.top,
             left: 0,
@@ -970,12 +958,20 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         return minimumOffsetY...maximumOffsetY
     }
 
-    private var isFinalCollectionItemFullyVisible: Bool {
+    private var hasViewedToEnd: Bool {
         guard let browseSnapshot,
-              browseSnapshot.itemCount > 0 else {
+              browseSnapshot.itemCount > 0,
+              let attributes = collectionView.collectionViewLayout.layoutAttributesForItem(
+                at: IndexPath(item: browseSnapshot.itemCount - 1, section: 0)
+              ) else {
             return false
         }
-        return isTokenFullyVisible(browseSnapshot.itemCount - 1)
+        return PlayerCollectionScrollPolicy.hasViewedToEnd(
+            finalItemFrame: attributes.frame,
+            viewport: collectionView.bounds,
+            maximumContentOffsetY: verticalContentOffsetRange.upperBound,
+            epsilon: Self.boundaryEpsilon
+        )
     }
 
     private func isTokenFullyVisible(_ tokenIndex: Int) -> Bool {
@@ -1286,7 +1282,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
 
     private func publishSettledTokenIfNeeded() {
         guard let publication = publicationState?.settle(
-            hasViewedToEnd: isFinalCollectionItemFullyVisible
+            hasViewedToEnd: hasViewedToEnd
         ) else {
             return
         }
@@ -1316,21 +1312,26 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         force: Bool
     ) {
         guard isActive else { return }
-        let request = ThumbnailWindowRequest(tokenIndex: tokenIndex, direction: direction)
+        let request = ThumbnailWindowRequest(
+            tokenIndex: tokenIndex,
+            direction: direction,
+            prefetchStride: configuredPrefetchStride
+        )
         if !force, lastThumbnailWindowRequest == request {
             return
         }
         if !force,
            let lastThumbnailWindowRequest,
            lastThumbnailWindowRequest.direction == direction,
-           abs(lastThumbnailWindowRequest.tokenIndex - tokenIndex) < density.itemCountPerViewport {
+           lastThumbnailWindowRequest.prefetchStride == configuredPrefetchStride,
+           abs(lastThumbnailWindowRequest.tokenIndex - tokenIndex) < configuredPrefetchStride {
             return
         }
         _ = MobilePlaybackController.shared.prepareCollectionBrowseThumbnailWindow(
             uuid: uuid,
             centeredAt: tokenIndex,
             direction: direction,
-            density: density
+            prefetchStride: configuredPrefetchStride
         )
         // Remember empty attempts too. Missing descriptors are a valid browser state,
         // and forced settle/activation requests still retry late availability.
@@ -1489,7 +1490,9 @@ private final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
         imageView.usesNativeMetalCardCornerMask = usesNativeMetalCardCornerMask
 
         if let descriptor {
-            displayedImageSize = MobilePlayerBrowserDensity.fallbackImageSize(for: descriptor)
+            displayedImageSize = MobilePlayerCollectionBrowserSupport.fallbackImageSize(
+                for: descriptor
+            )
         } else {
             displayedImageSize = missingDescriptorFallbackSpec.aspectSize
         }

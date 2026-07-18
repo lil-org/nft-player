@@ -3,11 +3,6 @@
 import UIKit
 import SwiftUI
 
-enum MobilePlayerBrowserLayoutMetrics {
-    static let itemSpacing: CGFloat = 1
-    static let screenEdgeInset: CGFloat = 0
-}
-
 enum MobilePlayerAspectFitLayout {
     static func size(for contentSize: CGSize, fitting maximumSize: CGSize) -> CGSize {
         guard contentSize.width > 0,

@@ -961,7 +961,7 @@ struct HorizontalPlayerContainerView: UIViewControllerRepresentable {
     private let chrome: MobilePlayerChromeController
     private let displayMode: MobilePlayerDisplayMode
     private let bundledGenerativePresentationMode: MobileBundledGenerativePresentationMode
-    private let browserDensity: MobilePlayerBrowserDensity?
+    private let collectionBrowserAvailable: Bool
     private let displayModeChangeID: UUID
     private let displayModeTargetPagePosition: PlayerPagePosition?
     private let onFocusedPagePositionUpdate: ((PlayerPagePosition) -> Void)
@@ -979,7 +979,7 @@ struct HorizontalPlayerContainerView: UIViewControllerRepresentable {
         chrome: MobilePlayerChromeController,
         displayMode: MobilePlayerDisplayMode,
         bundledGenerativePresentationMode: MobileBundledGenerativePresentationMode,
-        browserDensity: MobilePlayerBrowserDensity?,
+        collectionBrowserAvailable: Bool,
         displayModeChangeID: UUID,
         displayModeTargetPagePosition: PlayerPagePosition?,
         onFocusedPagePositionUpdate: @escaping (PlayerPagePosition) -> Void,
@@ -996,7 +996,7 @@ struct HorizontalPlayerContainerView: UIViewControllerRepresentable {
         self.chrome = chrome
         self.displayMode = displayMode
         self.bundledGenerativePresentationMode = bundledGenerativePresentationMode
-        self.browserDensity = browserDensity
+        self.collectionBrowserAvailable = collectionBrowserAvailable
         self.displayModeChangeID = displayModeChangeID
         self.displayModeTargetPagePosition = displayModeTargetPagePosition
         self.onFocusedPagePositionUpdate = onFocusedPagePositionUpdate
@@ -1020,7 +1020,7 @@ struct HorizontalPlayerContainerView: UIViewControllerRepresentable {
             chrome: chrome,
             displayMode: displayMode,
             bundledGenerativePresentationMode: bundledGenerativePresentationMode,
-            browserDensity: browserDensity,
+            collectionBrowserAvailable: collectionBrowserAvailable,
             onFocusedPagePositionUpdate: onFocusedPagePositionUpdate,
             onSettledPagePositionUpdate: onSettledPagePositionUpdate,
             onPaginationAttempt: onPaginationAttempt,
@@ -1117,7 +1117,7 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
     private let chrome: MobilePlayerChromeController
     private var displayMode: MobilePlayerDisplayMode
     private var bundledGenerativePresentationMode: MobileBundledGenerativePresentationMode
-    private let browserDensity: MobilePlayerBrowserDensity?
+    private let collectionBrowserAvailable: Bool
     private let onFocusedPagePositionUpdate: ((PlayerPagePosition) -> Void)
     private let onSettledPagePositionUpdate: ((PlayerPagePosition, Bool) -> Bool)
     private let onPaginationAttempt: (() -> Void)
@@ -1128,12 +1128,9 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
 
     private lazy var pagingVC = HorizontalPageViewController(playerDataSource: self)
     private lazy var collectionBrowserVC: VerticalCollectionBrowserViewController? = {
-        guard let browserDensity else { return nil }
+        guard collectionBrowserAvailable else { return nil }
 
-        let controller = VerticalCollectionBrowserViewController(
-            uuid: initialConfig.id,
-            density: browserDensity
-        )
+        let controller = VerticalCollectionBrowserViewController(uuid: initialConfig.id)
         controller.onFocusedPagePosition = { [weak self] pagePosition in
             guard let self,
                   self.displayMode == .collectionBrowser else { return }
@@ -1205,7 +1202,7 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
         chrome: MobilePlayerChromeController,
         displayMode: MobilePlayerDisplayMode,
         bundledGenerativePresentationMode: MobileBundledGenerativePresentationMode,
-        browserDensity: MobilePlayerBrowserDensity?,
+        collectionBrowserAvailable: Bool,
         onFocusedPagePositionUpdate: @escaping (PlayerPagePosition) -> Void,
         onSettledPagePositionUpdate: @escaping (PlayerPagePosition, Bool) -> Bool,
         onPaginationAttempt: @escaping () -> Void,
@@ -1217,7 +1214,7 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
         self.chrome = chrome
         self.displayMode = displayMode
         self.bundledGenerativePresentationMode = bundledGenerativePresentationMode
-        self.browserDensity = browserDensity
+        self.collectionBrowserAvailable = collectionBrowserAvailable
         self.onFocusedPagePositionUpdate = onFocusedPagePositionUpdate
         self.onSettledPagePositionUpdate = onSettledPagePositionUpdate
         self.onPaginationAttempt = onPaginationAttempt
@@ -1312,7 +1309,7 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
             uuid: initialConfig.id,
             displayMode: displayMode,
             pagePosition: getCurrentPagePosition(),
-            browserDensity: browserDensity
+            collectionBrowserAvailable: collectionBrowserAvailable
         )
     }
 

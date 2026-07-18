@@ -1795,10 +1795,12 @@ private struct MobileCollectionsNavigationView<RootView: View>: UIViewController
             config: MobilePlayerConfig,
             navigationController: PlayerNavigationController
         ) -> PlayerSession {
-            let browserDensity = MobilePlayerBrowserDensity.initialDensity(for: config)
+            let collectionBrowserAvailable = MobilePlayerCollectionBrowserSupport.isAvailable(
+                for: config
+            )
             let initialDisplayMode = MobilePlayerDisplayMode.initialMode(
                 for: config,
-                browserDensity: browserDensity
+                collectionBrowserAvailable: collectionBrowserAvailable
             )
             let chrome = MobilePlayerChromeController(
                 playerBackgroundColor: MobilePlayerBackgroundColor.color(for: config),
@@ -3603,7 +3605,7 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
             return image.size.validOrDefault
         }
 
-        return MobilePlayerBrowserDensity.fallbackImageSize(for: selectedDescriptor)
+        return MobilePlayerCollectionBrowserSupport.fallbackImageSize(for: selectedDescriptor)
     }
 
     private func onePerPageCardFrame(

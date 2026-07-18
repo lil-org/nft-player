@@ -230,6 +230,7 @@
 		2DA100042FC0000000000001 /* PlayerCollectionScrollPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA100002FC0000000000001 /* PlayerCollectionScrollPolicy.swift */; };
 		2DA100052FC0000000000001 /* PlayerCollectionScrollPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA100002FC0000000000001 /* PlayerCollectionScrollPolicy.swift */; };
 		2DA100062FC0000000000001 /* PlayerCollectionScrollPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA100002FC0000000000001 /* PlayerCollectionScrollPolicy.swift */; };
+		2DB100022FD0000000000001 /* MobilePlayerBrowserLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DB100012FD0000000000001 /* MobilePlayerBrowserLayout.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -410,6 +411,7 @@
 		2D9000042FB0000000000001 /* CollectionsGridScrollViewHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionsGridScrollViewHelpers.swift; sourceTree = "<group>"; };
 		2DA100002FC0000000000001 /* PlayerCollectionScrollPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerCollectionScrollPolicy.swift; sourceTree = "<group>"; };
 		2DA100022FC0000000000001 /* VerticalCollectionBrowserViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VerticalCollectionBrowserViewController.swift; sourceTree = "<group>"; };
+		2DB100012FD0000000000001 /* MobilePlayerBrowserLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobilePlayerBrowserLayout.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -480,6 +482,7 @@
 				2CB01A032F01000000000001 /* PlayerViewingProgressStore.swift */,
 				2D9000002FB0000000000001 /* CollectionsGridScrollMemory.swift */,
 				2DA100002FC0000000000001 /* PlayerCollectionScrollPolicy.swift */,
+				2DB100012FD0000000000001 /* MobilePlayerBrowserLayout.swift */,
 				2D4000042F50000000000001 /* PlayerViewingSessionTracker.swift */,
 				2CF100042F20000000000001 /* PlayerSyncTypes.swift */,
 				2CDF00062F10000000000001 /* PonchoDrifellaCardMetadata.swift */,
@@ -1163,6 +1166,7 @@
 				2CF08AAC2D2A937400D82ACA /* MobilePlayerView.swift in Sources */,
 				2CC971632D2F4219005A8C4C /* HorizontalPlayer.swift in Sources */,
 				2DA100012FC0000000000001 /* PlayerCollectionScrollPolicy.swift in Sources */,
+				2DB100022FD0000000000001 /* MobilePlayerBrowserLayout.swift in Sources */,
 				2DA100032FC0000000000001 /* VerticalCollectionBrowserViewController.swift in Sources */,
 				2C460ED02D2985A90083124E /* NftGallery.swift in Sources */,
 				2C460ED22D2985A90083124E /* Chain.swift in Sources */,

@@ -47,29 +47,17 @@ enum MobilePlayerDisplayMode: Hashable {
 
     static func initialMode(
         for config: MobilePlayerConfig,
-        browserDensity: MobilePlayerBrowserDensity?
+        collectionBrowserAvailable: Bool
     ) -> MobilePlayerDisplayMode {
         guard config.widgetTokenInsertion == nil,
-              browserDensity != nil else {
+              collectionBrowserAvailable else {
             return .onePerPage
         }
         return .collectionBrowser
     }
 }
 
-struct MobilePlayerBrowserGrid: Hashable {
-    let columnCount: Int
-    let visibleRowCount: Int
-    let spacing: CGFloat
-    let screenEdgeInset: CGFloat
-}
-
-enum MobilePlayerBrowserDensity: Int, Hashable {
-    case four = 4
-    case six = 6
-    case twelve = 12
-    case fifteen = 15
-
+enum MobilePlayerCollectionBrowserSupport {
     static let cardNftCollectionId = "HpGDYGz6aRUs5qbvp1dmWGKTicQctX4PixfcouAQDCHF"
     static let drifella2CollectionId = "7cHTjqr2S8uUCrG3TVFvFix3vcLjhPiwrtRsAeJtESRj"
     static let driladyCollectionId = "96THxzqE5yukFxzsqJaR2SrsLL2wJtuapi6827gkUD6T"
@@ -78,84 +66,54 @@ enum MobilePlayerBrowserDensity: Int, Hashable {
     static let miladyAuraPetzCollectionId = "0xc62e3fd5b02618f90dd07d1e478963038fa9089c"
     static let superMetalMonsCollectionId = "0x17abd4cc1382397ec2b675f98621c3ba809897desmm"
 
-    private static let densitiesByCollectionId: [String: MobilePlayerBrowserDensity] = {
-        var densities: [String: MobilePlayerBrowserDensity] = [
-            cardNftCollectionId: .twelve,
-            drifella2CollectionId: .fifteen,
-            driladyCollectionId: .twelve,
-            johnCollectionId: .twelve,
-            miladyAura2AfterDeathCollectionId: .six,
-            miladyAuraPetzCollectionId: .six,
-            superMetalMonsCollectionId: .twelve,
+    private static let explicitlySupportedCollectionIds: Set<String> = {
+        var collectionIds: Set<String> = [
+            cardNftCollectionId,
+            drifella2CollectionId,
+            driladyCollectionId,
+            johnCollectionId,
+            miladyAura2AfterDeathCollectionId,
+            miladyAuraPetzCollectionId,
+            superMetalMonsCollectionId,
         ]
         for renderKind in NativeMetalCardRenderKind.allCases {
-            densities[renderKind.collectionId] = .twelve
+            collectionIds.insert(renderKind.collectionId)
         }
-        return densities
+        return collectionIds
     }()
 
-    var itemCountPerViewport: Int {
-        rawValue
-    }
-
-    func grid(fitting _: CGSize) -> MobilePlayerBrowserGrid {
-        let columnCount = 3
-        let visibleRowCount: Int
-        switch self {
-        case .four:
-            visibleRowCount = 2
-        case .six:
-            visibleRowCount = 2
-        case .twelve:
-            visibleRowCount = 4
-        case .fifteen:
-            visibleRowCount = 5
+    static func isAvailable(for descriptor: DownloadableMediaDescriptor?) -> Bool {
+        guard let descriptor,
+              descriptor.isStaticImage else {
+            return false
         }
 
-        return MobilePlayerBrowserGrid(
-            columnCount: columnCount,
-            visibleRowCount: visibleRowCount,
-            spacing: MobilePlayerBrowserLayoutMetrics.itemSpacing,
-            screenEdgeInset: MobilePlayerBrowserLayoutMetrics.screenEdgeInset
+        if isAvailable(forCollectionId: descriptor.collectionId) {
+            return true
+        }
+
+        return descriptor.isCollectionBrowserThumbnail
+    }
+
+    static func isAvailable(forCollectionId collectionId: String) -> Bool {
+        if TokenGenerator.isBundledWebGenerativeCollection(id: collectionId) {
+            return true
+        }
+
+        if explicitlySupportedCollectionIds.contains(collectionId) {
+            return true
+        }
+
+        return MobileCollectionCatalog.standardThumbsPathsAvailable(
+            specificCollectionId: collectionId
         )
     }
 
-    static func density(for descriptor: DownloadableMediaDescriptor?) -> MobilePlayerBrowserDensity? {
-        guard let descriptor,
-              descriptor.isStaticImage else {
-            return nil
-        }
-
-        if let density = density(forCollectionId: descriptor.collectionId) {
-            return density
-        }
-
-        return descriptor.isCollectionBrowserThumbnail ? .twelve : nil
-    }
-
-    static func density(forCollectionId collectionId: String) -> MobilePlayerBrowserDensity? {
-        if TokenGenerator.isBundledWebGenerativeCollection(id: collectionId) {
-            return .fifteen
-        }
-
-        if let density = densitiesByCollectionId[collectionId] {
-            return density
-        }
-
-        if MobileCollectionCatalog.standardThumbsPathsAvailable(
-            specificCollectionId: collectionId
-        ) {
-            return .twelve
-        }
-
-        return nil
-    }
-
-    static func initialDensity(for config: MobilePlayerConfig) -> MobilePlayerBrowserDensity? {
+    static func isAvailable(for config: MobilePlayerConfig) -> Bool {
         guard let collectionId = config.specificToken?.fullCollectionId ?? config.initialItemId else {
-            return nil
+            return false
         }
-        return density(forCollectionId: collectionId)
+        return isAvailable(forCollectionId: collectionId)
     }
 
     static func fallbackImageSize(for descriptor: DownloadableMediaDescriptor) -> CGSize {
@@ -178,10 +136,6 @@ enum MobilePlayerBrowserDensity: Int, Hashable {
             return CGSize(width: 1, height: 1)
         }
     }
-
-    func supports(descriptor: DownloadableMediaDescriptor?) -> Bool {
-        Self.density(for: descriptor) == self
-    }
 }
 
 extension MobilePlayerFileShareItem {
@@ -202,18 +156,17 @@ extension MobilePlayerFileShareItem {
 }
 
 private enum MobileCollectionBrowseMediaWindowLayout {
-    private static let maximumItemsPerViewport = 15
     private static let decodedPreferredViewportRadius = 2
     private static let decodedOppositeViewportRadius = 1
     private static let filePreferredViewportRadius = 6
     private static let fileOppositeViewportRadius = 2
 
     static func fileOffsets(
-        density: MobilePlayerBrowserDensity,
+        prefetchStride: Int,
         direction: DownloadableMediaCache.PrefetchDirection
     ) -> [Int] {
         offsets(
-            density: density,
+            prefetchStride: prefetchStride,
             direction: direction,
             preferredViewportRadius: filePreferredViewportRadius,
             oppositeViewportRadius: fileOppositeViewportRadius
@@ -221,11 +174,11 @@ private enum MobileCollectionBrowseMediaWindowLayout {
     }
 
     static func decodedOffsets(
-        density: MobilePlayerBrowserDensity,
+        prefetchStride: Int,
         direction: DownloadableMediaCache.PrefetchDirection
     ) -> [Int] {
         offsets(
-            density: density,
+            prefetchStride: prefetchStride,
             direction: direction,
             preferredViewportRadius: decodedPreferredViewportRadius,
             oppositeViewportRadius: decodedOppositeViewportRadius
@@ -233,21 +186,19 @@ private enum MobileCollectionBrowseMediaWindowLayout {
     }
 
     private static func offsets(
-        density: MobilePlayerBrowserDensity,
+        prefetchStride: Int,
         direction: DownloadableMediaCache.PrefetchDirection,
         preferredViewportRadius: Int,
         oppositeViewportRadius: Int
     ) -> [Int] {
-        PlayerDownloadableMediaWindowLayout.orderedOffsets(
+        let cappedPrefetchStride = min(
+            max(prefetchStride, 1),
+            MobilePlayerBrowserLayout.maximumPrefetchStride
+        )
+        return PlayerDownloadableMediaWindowLayout.orderedOffsets(
             direction: direction,
-            preferredRadius: min(
-                density.itemCountPerViewport * preferredViewportRadius,
-                maximumItemsPerViewport * preferredViewportRadius
-            ),
-            oppositeRadius: min(
-                density.itemCountPerViewport * oppositeViewportRadius,
-                maximumItemsPerViewport * oppositeViewportRadius
-            )
+            preferredRadius: cappedPrefetchStride * preferredViewportRadius,
+            oppositeRadius: cappedPrefetchStride * oppositeViewportRadius
         )
     }
 }
@@ -370,24 +321,24 @@ class MobilePlaybackController {
         uuid: UUID,
         displayMode: MobilePlayerDisplayMode,
         pagePosition: PlayerPagePosition?,
-        browserDensity expectedBrowserDensity: MobilePlayerBrowserDensity? = nil
+        collectionBrowserAvailable expectedCollectionBrowserAvailability: Bool? = nil
     ) -> MobilePlayerLayoutInteractionState {
         let currentDescriptor = pagePosition.flatMap {
             collectionBrowseThumbnailDescriptor(uuid: uuid, pagePosition: $0)
                 ?? downloadableMediaDescriptor(uuid: uuid, pagePosition: $0)
         }
-        let browserDensity = expectedBrowserDensity
-            ?? MobilePlayerBrowserDensity.density(for: currentDescriptor)
+        let collectionBrowserAvailable = expectedCollectionBrowserAvailability
+            ?? MobilePlayerCollectionBrowserSupport.isAvailable(for: currentDescriptor)
         guard let pagePosition,
               collectionTokenContext(
                 uuid: uuid,
                 pagePosition: pagePosition
               ) != nil,
-              let browserDensity else {
+              collectionBrowserAvailable else {
             return MobilePlayerLayoutInteractionState(
                 displayMode: displayMode,
                 pagePosition: pagePosition,
-                browserDensity: nil,
+                collectionBrowserAvailable: false,
                 currentDescriptor: nil,
                 browserSwitchMode: .animated
             )
@@ -396,7 +347,7 @@ class MobilePlaybackController {
         return MobilePlayerLayoutInteractionState(
             displayMode: displayMode,
             pagePosition: pagePosition,
-            browserDensity: browserDensity,
+            collectionBrowserAvailable: true,
             currentDescriptor: currentDescriptor,
             browserSwitchMode: isInsertedWidgetToken(uuid: uuid, pagePosition: pagePosition)
                 ? .offscreenInsertion
@@ -425,7 +376,7 @@ class MobilePlaybackController {
         uuid: UUID,
         centeredAt tokenIndex: Int,
         direction: DownloadableMediaCache.PrefetchDirection,
-        density: MobilePlayerBrowserDensity
+        prefetchStride: Int
     ) -> PlayerDownloadableMediaWindow? {
         guard let snapshot = collectionBrowseSnapshot(uuid: uuid),
               tokenIndex >= 0,
@@ -435,11 +386,11 @@ class MobilePlaybackController {
         }
 
         let fileOffsets = MobileCollectionBrowseMediaWindowLayout.fileOffsets(
-            density: density,
+            prefetchStride: prefetchStride,
             direction: direction
         )
         let decodedOffsets = MobileCollectionBrowseMediaWindowLayout.decodedOffsets(
-            density: density,
+            prefetchStride: prefetchStride,
             direction: direction
         )
         let fileTokenIndices = PlayerDownloadableMediaWindowLayout.indices(
@@ -459,8 +410,7 @@ class MobilePlaybackController {
         ).first
         let descriptorLookup = collectionBrowseThumbnailDescriptorLookup(
             snapshot: snapshot,
-            tokenIndices: fileTokenIndices,
-            density: density
+            tokenIndices: fileTokenIndices
         )
         let descriptors = fileTokenIndices.compactMap { descriptorLookup[$0] }
         let centeredDescriptor = descriptorLookup[tokenIndex]
@@ -489,8 +439,7 @@ class MobilePlaybackController {
 
     private func collectionBrowseThumbnailDescriptorLookup(
         snapshot: PlayerCollectionBrowseSnapshot,
-        tokenIndices: [Int],
-        density: MobilePlayerBrowserDensity
+        tokenIndices: [Int]
     ) -> [Int: DownloadableMediaDescriptor] {
         var descriptorLookup = [Int: DownloadableMediaDescriptor]()
         descriptorLookup.reserveCapacity(tokenIndices.count)
@@ -498,7 +447,7 @@ class MobilePlaybackController {
             guard let descriptor = collectionBrowseThumbnailDescriptor(
                 snapshot: snapshot,
                 tokenIndex: tokenIndex
-            ), density.supports(descriptor: descriptor) else {
+            ), MobilePlayerCollectionBrowserSupport.isAvailable(for: descriptor) else {
                 continue
             }
             descriptorLookup[tokenIndex] = descriptor

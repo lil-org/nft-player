@@ -120,14 +120,14 @@ enum MobilePlayerBrowserSwitchMode: Equatable {
 struct MobilePlayerLayoutInteractionState: Equatable {
     let displayMode: MobilePlayerDisplayMode
     let pagePosition: PlayerPagePosition?
-    let browserDensity: MobilePlayerBrowserDensity?
+    let collectionBrowserAvailable: Bool
     let currentDescriptor: DownloadableMediaDescriptor?
     let browserSwitchMode: MobilePlayerBrowserSwitchMode
 
     static let empty = MobilePlayerLayoutInteractionState(
         displayMode: .onePerPage,
         pagePosition: nil,
-        browserDensity: nil,
+        collectionBrowserAvailable: false,
         currentDescriptor: nil,
         browserSwitchMode: .animated
     )
@@ -143,7 +143,7 @@ struct MobilePlayerLayoutInteractionState: Equatable {
     private var canUseCurrentCollectionBrowser: Bool {
         displayMode == .onePerPage
             && pagePosition != nil
-            && browserDensity != nil
+            && collectionBrowserAvailable
     }
 }
 
@@ -388,7 +388,7 @@ struct MobilePlayerView: View {
     
     private let initialConfig: MobilePlayerConfig
     private let onDismiss: () -> Void
-    private let browserDensity: MobilePlayerBrowserDensity?
+    private let collectionBrowserAvailable: Bool
     let cardTransitionCanvas: MobilePlayerCardTransitionCanvas
     @ObservedObject private var chrome: MobilePlayerChromeController
     
@@ -421,12 +421,14 @@ struct MobilePlayerView: View {
         self.onDismiss = onDismiss
         self.chrome = chrome
         self.cardTransitionCanvas = cardTransitionCanvas
-        let browserDensity = MobilePlayerBrowserDensity.initialDensity(for: config)
-        self.browserDensity = browserDensity
+        let collectionBrowserAvailable = MobilePlayerCollectionBrowserSupport.isAvailable(
+            for: config
+        )
+        self.collectionBrowserAvailable = collectionBrowserAvailable
         _displayMode = State(
             initialValue: MobilePlayerDisplayMode.initialMode(
                 for: config,
-                browserDensity: browserDensity
+                collectionBrowserAvailable: collectionBrowserAvailable
             )
         )
     }
@@ -446,7 +448,7 @@ struct MobilePlayerView: View {
                     chrome: chrome,
                     displayMode: displayMode,
                     bundledGenerativePresentationMode: bundledGenerativePresentationMode,
-                    browserDensity: browserDensity,
+                    collectionBrowserAvailable: collectionBrowserAvailable,
                     displayModeChangeID: displayModeChangeID,
                     displayModeTargetPagePosition: displayModeTargetPagePosition,
                     onFocusedPagePositionUpdate: handleFocusedPagePositionUpdate,
@@ -713,7 +715,7 @@ struct MobilePlayerView: View {
             targetPagePosition = request.targetPagePosition
         } else {
             guard request.displayMode == .collectionBrowser,
-                  browserDensity != nil,
+                  collectionBrowserAvailable,
                   let sourcePagePosition = request.targetPagePosition ?? currentPagePosition,
                   MobilePlaybackController.shared.canRender(
                     uuid: initialConfig.id,
@@ -835,7 +837,7 @@ struct MobilePlayerView: View {
 
     private var canSwitchCurrentToCollectionBrowser: Bool {
         guard displayMode == .onePerPage,
-              browserDensity != nil,
+              collectionBrowserAvailable,
               let currentPagePosition else {
             return false
         }
@@ -852,7 +854,7 @@ struct MobilePlayerView: View {
         targetPagePosition: PlayerPagePosition? = nil,
         changeID: UUID = UUID()
     ) -> Bool {
-        guard requestedDisplayMode != .collectionBrowser || browserDensity != nil else {
+        guard requestedDisplayMode != .collectionBrowser || collectionBrowserAvailable else {
             return false
         }
 
@@ -874,7 +876,7 @@ struct MobilePlayerView: View {
                 uuid: initialConfig.id,
                 displayMode: displayMode,
                 pagePosition: currentPagePosition,
-                browserDensity: browserDensity
+                collectionBrowserAvailable: collectionBrowserAvailable
             )
         )
     }

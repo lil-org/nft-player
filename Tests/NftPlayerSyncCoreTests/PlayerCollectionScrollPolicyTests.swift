@@ -399,6 +399,60 @@ final class PlayerCollectionScrollPolicyTests: XCTestCase {
         )
     }
 
+    func testViewedToEndAcceptsFullyVisibleFinalItemBeforeBottom() {
+        XCTAssertTrue(
+            PlayerCollectionScrollPolicy.hasViewedToEnd(
+                finalItemFrame: CGRect(x: 10, y: 110, width: 80, height: 80),
+                viewport: CGRect(x: 0, y: 100, width: 100, height: 100),
+                maximumContentOffsetY: 200,
+                epsilon: 0.75
+            )
+        )
+    }
+
+    func testViewedToEndAcceptsOversizedFinalItemOnlyAtBottom() {
+        let finalItemFrame = CGRect(x: 0, y: 50, width: 100, height: 150)
+
+        XCTAssertFalse(
+            PlayerCollectionScrollPolicy.hasViewedToEnd(
+                finalItemFrame: finalItemFrame,
+                viewport: CGRect(x: 0, y: 80, width: 100, height: 100),
+                maximumContentOffsetY: 100,
+                epsilon: 0.75
+            )
+        )
+        XCTAssertTrue(
+            PlayerCollectionScrollPolicy.hasViewedToEnd(
+                finalItemFrame: finalItemFrame,
+                viewport: CGRect(x: 0, y: 100, width: 100, height: 100),
+                maximumContentOffsetY: 100,
+                epsilon: 0.75
+            )
+        )
+    }
+
+    func testViewedToEndRejectsOrdinaryClippedItemAtBottom() {
+        XCTAssertFalse(
+            PlayerCollectionScrollPolicy.hasViewedToEnd(
+                finalItemFrame: CGRect(x: 0, y: 80, width: 100, height: 80),
+                viewport: CGRect(x: 0, y: 100, width: 100, height: 100),
+                maximumContentOffsetY: 100,
+                epsilon: 0.75
+            )
+        )
+    }
+
+    func testViewedToEndRejectsOversizedItemWhoseBottomIsNotVisible() {
+        XCTAssertFalse(
+            PlayerCollectionScrollPolicy.hasViewedToEnd(
+                finalItemFrame: CGRect(x: 0, y: 75, width: 100, height: 150),
+                viewport: CGRect(x: 0, y: 100, width: 100, height: 100),
+                maximumContentOffsetY: 100,
+                epsilon: 0.75
+            )
+        )
+    }
+
     func testRestorationKeepsExactValidSavedIndex() {
         XCTAssertEqual(
             PlayerCollectionScrollPolicy.restorationIndex(savedIndex: 7, itemCount: 12),

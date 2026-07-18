@@ -381,6 +381,52 @@ enum PlayerCollectionScrollPolicy {
         return viewport.insetBy(dx: -epsilon, dy: -epsilon).contains(frame)
     }
 
+    static func hasViewedToEnd(
+        finalItemFrame: CGRect,
+        viewport: CGRect,
+        maximumContentOffsetY: CGFloat,
+        epsilon: CGFloat
+    ) -> Bool {
+        if isItemFullyVisible(
+            frame: finalItemFrame,
+            viewport: viewport,
+            epsilon: epsilon
+        ) {
+            return true
+        }
+
+        // Full containment is impossible for an item taller than the viewport.
+        // Count it only when the user has reached the bottom and its bottom edge is visible.
+        guard !finalItemFrame.isNull,
+              !finalItemFrame.isInfinite,
+              !finalItemFrame.isEmpty,
+              !viewport.isNull,
+              !viewport.isInfinite,
+              !viewport.isEmpty,
+              finalItemFrame.minX.isFinite,
+              finalItemFrame.maxX.isFinite,
+              finalItemFrame.maxY.isFinite,
+              finalItemFrame.height.isFinite,
+              viewport.minX.isFinite,
+              viewport.minY.isFinite,
+              viewport.maxX.isFinite,
+              viewport.maxY.isFinite,
+              viewport.height.isFinite,
+              maximumContentOffsetY.isFinite,
+              epsilon.isFinite,
+              epsilon >= 0,
+              finalItemFrame.height > viewport.height + epsilon,
+              viewport.minY >= maximumContentOffsetY - epsilon else {
+            return false
+        }
+
+        let expandedViewport = viewport.insetBy(dx: -epsilon, dy: -epsilon)
+        return finalItemFrame.minX >= expandedViewport.minX
+            && finalItemFrame.maxX <= expandedViewport.maxX
+            && finalItemFrame.maxY >= expandedViewport.minY
+            && finalItemFrame.maxY <= expandedViewport.maxY
+    }
+
     static func anchorIndex(
         visibleItems: [PlayerCollectionVisibleItem],
         focalPoint: CGPoint,

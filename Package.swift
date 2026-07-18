@@ -35,6 +35,7 @@ let package = Package(
                 "Services/PonchoDrifellaAssetCache.swift"
             ],
             sources: [
+                "Models/MobilePlayerBrowserLayout.swift",
                 "Models/PlayerCollectionScrollPolicy.swift",
                 "Models/PlayerSyncTypes.swift",
                 "Models/PlayerViewingProgressStore.swift",
