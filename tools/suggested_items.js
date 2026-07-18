@@ -1,7 +1,13 @@
 const crypto = require("node:crypto");
 
+const {
+  COLLECTION_BROWSER_DEFAULT_COLUMN_COUNT,
+  COLLECTION_BROWSER_LANDSCAPE_COLUMN_COUNT,
+} = require("./thumbnail_aspect_ratios");
+
 const INTERNAL_SLUG_PATTERN = /^[a-z0-9]+(?:_[a-z0-9]+)*$/u;
 const MAX_INTERNAL_SLUG_LENGTH = 120;
+const IOS_COLLECTION_BROWSER_COLUMN_COUNT_KEY = "iosCollectionBrowserColumnCount";
 const CASE_INSENSITIVE_ID_CHAINS = new Set(["base", "ethereum", "optimism", "zora"]);
 const LATIN_ASCII_REPLACEMENTS = new Map([
   ["Æ", "AE"], ["æ", "ae"], ["Œ", "OE"], ["œ", "oe"], ["ß", "ss"],
@@ -22,6 +28,47 @@ function mergeGeneratedSuggestedItem(existingItem, generatedItem) {
     ...pickExistingFields(existingItem, PRESERVED_GENERATED_SUGGESTED_ITEM_FIELDS),
     ...generatedItem,
   };
+}
+
+function withIOSCollectionBrowserColumnCount(item, columnCount) {
+  if (item == null || typeof item !== "object" || Array.isArray(item)) {
+    throw new TypeError("Suggested item must be an object");
+  }
+  if (
+    columnCount !== null
+    && columnCount !== COLLECTION_BROWSER_LANDSCAPE_COLUMN_COUNT
+    && columnCount !== COLLECTION_BROWSER_DEFAULT_COLUMN_COUNT
+  ) {
+    throw new TypeError(
+      `iOS collection browser column count must be ${COLLECTION_BROWSER_LANDSCAPE_COLUMN_COUNT}, ${COLLECTION_BROWSER_DEFAULT_COLUMN_COUNT}, or null`
+    );
+  }
+
+  const result = { ...item };
+  delete result[IOS_COLLECTION_BROWSER_COLUMN_COUNT_KEY];
+  if (columnCount === COLLECTION_BROWSER_LANDSCAPE_COLUMN_COUNT) {
+    result[IOS_COLLECTION_BROWSER_COLUMN_COUNT_KEY] = columnCount;
+  }
+  return result;
+}
+
+function applyIOSCollectionBrowserColumnCounts(items, columnCountsByCollectionId) {
+  if (!Array.isArray(items)) {
+    throw new TypeError("Suggested items must be an array");
+  }
+  if (!(columnCountsByCollectionId instanceof Map)) {
+    throw new TypeError("Collection browser column counts must be a Map");
+  }
+
+  return items.map((item) => {
+    const collectionId = suggestedItemId(item);
+    return columnCountsByCollectionId.has(collectionId)
+      ? withIOSCollectionBrowserColumnCount(
+        item,
+        columnCountsByCollectionId.get(collectionId)
+      )
+      : item;
+  });
 }
 
 function suggestedItemId(item) {
@@ -170,7 +217,9 @@ function pickExistingFields(item, fields) {
 
 module.exports = {
   INTERNAL_SLUG_PATTERN,
+  IOS_COLLECTION_BROWSER_COLUMN_COUNT_KEY,
   MAX_INTERNAL_SLUG_LENGTH,
+  applyIOSCollectionBrowserColumnCounts,
   assignInternalSlugs,
   assertValidInternalSlugs,
   collectionIdentityKey,
@@ -178,4 +227,5 @@ module.exports = {
   slugifyCollectionName,
   suggestedItemId,
   suggestedItemIdentityKey,
+  withIOSCollectionBrowserColumnCount,
 };

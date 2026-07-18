@@ -9,6 +9,7 @@ struct MobilePlayerBrowserAspectProfile: Equatable {
     }
 
     let itemCount: Int
+    let columnCount: Int
     private let storage: Storage
 
     var usesUniformAspectRatio: Bool {
@@ -18,19 +19,32 @@ struct MobilePlayerBrowserAspectProfile: Equatable {
         return false
     }
 
-    init(itemCount: Int, uniformImageSize: CGSize) {
+    init(
+        itemCount: Int,
+        uniformImageSize: CGSize,
+        columnCount: Int = MobilePlayerBrowserLayout.defaultColumnCount
+    ) {
         self.itemCount = max(itemCount, 0)
+        self.columnCount = Self.sanitizedColumnCount(columnCount)
         self.storage = .uniform(Self.heightToWidthRatio(for: uniformImageSize))
     }
 
-    init(itemImageSizes: [CGSize]) {
+    init(
+        itemImageSizes: [CGSize],
+        columnCount: Int = MobilePlayerBrowserLayout.defaultColumnCount
+    ) {
         self.init(
-            heightToWidthRatios: itemImageSizes.map(Self.heightToWidthRatio(for:))
+            heightToWidthRatios: itemImageSizes.map(Self.heightToWidthRatio(for:)),
+            columnCount: columnCount
         )
     }
 
-    init(heightToWidthRatios: [CGFloat]) {
+    init(
+        heightToWidthRatios: [CGFloat],
+        columnCount: Int = MobilePlayerBrowserLayout.defaultColumnCount
+    ) {
         itemCount = heightToWidthRatios.count
+        self.columnCount = Self.sanitizedColumnCount(columnCount)
         guard let firstRatio = heightToWidthRatios.first.map(
             Self.sanitizedHeightToWidthRatio
         ) else {
@@ -43,17 +57,17 @@ struct MobilePlayerBrowserAspectProfile: Equatable {
         let rowCount = heightToWidthRatios.isEmpty
             ? 0
             : (heightToWidthRatios.count - 1)
-                / MobilePlayerBrowserLayout.columnCount + 1
+                / self.columnCount + 1
         rowMaximumRatios.reserveCapacity(
             rowCount
         )
         for rowStartIndex in stride(
             from: 0,
             to: heightToWidthRatios.count,
-            by: MobilePlayerBrowserLayout.columnCount
+            by: self.columnCount
         ) {
             let rowEndIndex = min(
-                rowStartIndex + MobilePlayerBrowserLayout.columnCount,
+                rowStartIndex + self.columnCount,
                 heightToWidthRatios.count
             )
             var rowMaximumRatio: CGFloat = 0
@@ -76,7 +90,7 @@ struct MobilePlayerBrowserAspectProfile: Equatable {
 
     fileprivate func heightToWidthRatio(atRow rowIndex: Int) -> CGFloat? {
         let rowCount = itemCount > 0
-            ? (itemCount - 1) / MobilePlayerBrowserLayout.columnCount + 1
+            ? (itemCount - 1) / columnCount + 1
             : 0
         guard (0..<rowCount).contains(rowIndex) else { return nil }
         switch storage {
@@ -106,6 +120,23 @@ struct MobilePlayerBrowserAspectProfile: Equatable {
         guard ratio.isFinite, ratio > 0 else { return 1 }
         return ratio
     }
+
+    private static func sanitizedColumnCount(_ columnCount: Int) -> Int {
+        columnCount > 0
+            ? columnCount
+            : MobilePlayerBrowserLayout.defaultColumnCount
+    }
+}
+
+struct MobilePlayerBrowserViewportTransition {
+    let needsInitialLayout: Bool
+    let geometryChanged: Bool
+    let retainedFocusTokenIndex: Int?
+    let layout: MobilePlayerBrowserLayout?
+
+    var needsLayout: Bool {
+        needsInitialLayout || geometryChanged
+    }
 }
 
 struct MobilePlayerBrowserLayout: Equatable {
@@ -114,13 +145,14 @@ struct MobilePlayerBrowserLayout: Equatable {
         case variable(starts: [CGFloat], heights: [CGFloat])
     }
 
-    static let columnCount = 3
+    static let defaultColumnCount = 3
     static let itemSpacing: CGFloat = 1
     static let maximumAspectSampleCount = 15
     static let maximumPrefetchStride = 15
 
     let itemWidth: CGFloat
     let itemCount: Int
+    let columnCount: Int
     let rowCount: Int
     let contentSize: CGSize
     let visibleRowCount: Int
@@ -148,13 +180,37 @@ struct MobilePlayerBrowserLayout: Equatable {
         return CGSize(width: itemWidth, height: height)
     }
 
-    static func retainedFocusTokenIndex(
-        geometryChanged: Bool,
+    static func viewportTransition(
+        previousViewportSize: CGSize,
+        viewportSize: CGSize,
+        needsSafeAreaRefresh: Bool,
+        topContentInset: CGFloat = 0,
+        bottomContentInset: CGFloat = 0,
+        aspectProfile: MobilePlayerBrowserAspectProfile,
         forcedTokenIndex: Int?,
         focusedTokenIndex: Int?
-    ) -> Int? {
-        guard geometryChanged else { return nil }
-        return forcedTokenIndex ?? focusedTokenIndex
+    ) -> MobilePlayerBrowserViewportTransition {
+        let needsInitialLayout = previousViewportSize == .zero
+        let sizeChanged = !needsInitialLayout
+            && previousViewportSize != viewportSize
+        let geometryChanged = sizeChanged || needsSafeAreaRefresh
+        let needsLayout = needsInitialLayout || geometryChanged
+
+        return MobilePlayerBrowserViewportTransition(
+            needsInitialLayout: needsInitialLayout,
+            geometryChanged: geometryChanged,
+            retainedFocusTokenIndex: geometryChanged
+                ? forcedTokenIndex ?? focusedTokenIndex
+                : nil,
+            layout: needsLayout
+                ? MobilePlayerBrowserLayout(
+                    viewportSize: viewportSize,
+                    topContentInset: topContentInset,
+                    bottomContentInset: bottomContentInset,
+                    aspectProfile: aspectProfile
+                )
+                : nil
+        )
     }
 
     init?(
@@ -163,20 +219,21 @@ struct MobilePlayerBrowserLayout: Equatable {
         bottomContentInset: CGFloat = 0,
         aspectProfile: MobilePlayerBrowserAspectProfile
     ) {
+        let columnCount = aspectProfile.columnCount
         guard viewportSize.width.isFinite,
               viewportSize.height.isFinite,
-              viewportSize.width > Self.itemSpacing * CGFloat(Self.columnCount - 1),
+              viewportSize.width > Self.itemSpacing * CGFloat(columnCount - 1),
               viewportSize.height > 0 else {
             return nil
         }
 
         let sanitizedTopInset = topContentInset.isFinite ? max(topContentInset, 0) : 0
         let sanitizedBottomInset = bottomContentInset.isFinite ? max(bottomContentInset, 0) : 0
-        let horizontalSpacing = Self.itemSpacing * CGFloat(Self.columnCount - 1)
-        let itemWidth = (viewportSize.width - horizontalSpacing) / CGFloat(Self.columnCount)
+        let horizontalSpacing = Self.itemSpacing * CGFloat(columnCount - 1)
+        let itemWidth = (viewportSize.width - horizontalSpacing) / CGFloat(columnCount)
         let itemCount = aspectProfile.itemCount
         let rowCount = itemCount > 0
-            ? (itemCount - 1) / Self.columnCount + 1
+            ? (itemCount - 1) / columnCount + 1
             : 0
 
         let rowStorage: RowStorage
@@ -227,11 +284,12 @@ struct MobilePlayerBrowserLayout: Equatable {
             ? max(Int(visibleRowEstimate), 1)
             : Int.max
         let maximumPrefetchRowCount = (
-            Self.maximumPrefetchStride + Self.columnCount - 1
-        ) / Self.columnCount
+            Self.maximumPrefetchStride + columnCount - 1
+        ) / columnCount
 
         self.itemWidth = itemWidth
         self.itemCount = itemCount
+        self.columnCount = columnCount
         self.rowCount = rowCount
         self.contentSize = CGSize(
             width: viewportSize.width,
@@ -239,7 +297,7 @@ struct MobilePlayerBrowserLayout: Equatable {
         )
         self.visibleRowCount = visibleRowCount
         self.prefetchStride = min(
-            min(visibleRowCount, maximumPrefetchRowCount) * Self.columnCount,
+            min(visibleRowCount, maximumPrefetchRowCount) * columnCount,
             Self.maximumPrefetchStride
         )
         self.topContentInset = sanitizedTopInset
@@ -253,8 +311,8 @@ struct MobilePlayerBrowserLayout: Equatable {
 
     func itemFrame(at itemIndex: Int) -> CGRect? {
         guard (0..<itemCount).contains(itemIndex) else { return nil }
-        let rowIndex = itemIndex / Self.columnCount
-        let columnIndex = itemIndex % Self.columnCount
+        let rowIndex = itemIndex / columnCount
+        let columnIndex = itemIndex % columnCount
         guard let rowStart = rowStart(at: rowIndex),
               let rowHeight = rowHeight(at: rowIndex) else {
             return nil
@@ -330,7 +388,7 @@ struct MobilePlayerBrowserLayout: Equatable {
 
     func minimumAdjacentRowCenterDistance(containingItemAt itemIndex: Int) -> CGFloat? {
         guard (0..<itemCount).contains(itemIndex) else { return nil }
-        let rowIndex = itemIndex / Self.columnCount
+        let rowIndex = itemIndex / columnCount
         guard let center = rowCenter(at: rowIndex) else { return nil }
 
         var minimumDistance: CGFloat?
@@ -348,7 +406,7 @@ struct MobilePlayerBrowserLayout: Equatable {
 
     private func rowHeight(containingItemAt itemIndex: Int) -> CGFloat? {
         guard (0..<itemCount).contains(itemIndex) else { return nil }
-        return rowHeight(at: itemIndex / Self.columnCount)
+        return rowHeight(at: itemIndex / columnCount)
     }
 
     private func rowHeight(at rowIndex: Int) -> CGFloat? {
@@ -383,7 +441,7 @@ struct MobilePlayerBrowserLayout: Equatable {
         guard rowBoundary > 0 else { return 0 }
         guard rowBoundary < rowCount else { return itemCount }
         let (itemIndex, overflowed) = rowBoundary.multipliedReportingOverflow(
-            by: Self.columnCount
+            by: columnCount
         )
         return overflowed ? itemCount : min(itemIndex, itemCount)
     }

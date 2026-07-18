@@ -50,7 +50,8 @@
     "name": "Tokyo Nude",
     "tokenCount": 55,
     "standardThumbsPathsAvailable": true,
-    "internal_slug": "tokyo_nude"
+    "internal_slug": "tokyo_nude",
+    "iosCollectionBrowserColumnCount": 2
   },
   {
     "address": "0x17abd4cc1382397ec2b675f98621c3ba809897de",
@@ -59,7 +60,8 @@
     "name": "Super Metal Mons!!",
     "tokenCount": 777,
     "standardThumbsPathsAvailable": true,
-    "internal_slug": "super_metal_mons_2"
+    "internal_slug": "super_metal_mons_2",
+    "iosCollectionBrowserColumnCount": 2
   },
   {
     "address": "0x32d6ba9aa1b06fbcaeb3f6c5ff05cd6a77dcf387",
@@ -123,7 +125,8 @@
     "name": "Little Fellow",
     "tokenCount": 2024,
     "standardThumbsPathsAvailable": true,
-    "internal_slug": "little_fellow"
+    "internal_slug": "little_fellow",
+    "iosCollectionBrowserColumnCount": 2
   },
   {
     "address": "JDmZF2EsfWHcq9evTLDfqqUhAHh3zTYMy2rTeEfhx9hy",
@@ -159,7 +162,8 @@
     "name": "Blume™",
     "tokenCount": 368,
     "standardThumbsPathsAvailable": true,
-    "internal_slug": "blume"
+    "internal_slug": "blume",
+    "iosCollectionBrowserColumnCount": 2
   },
   {
     "address": "GVQ4Zsd7jLZbVCxq9QsmQySuKekwT1XbMSjGbwt8UtcB",

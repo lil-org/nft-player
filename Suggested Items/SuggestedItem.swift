@@ -35,6 +35,7 @@ struct SuggestedItem: Identifiable, Hashable, Codable {
     let abId: String?
     let tokenCount: Int?
     let iosOnly: Bool?
+    let iosCollectionBrowserColumnCount: Int?
     let playerBackgroundColor: String?
     let webURL: String?
     let standardThumbsPathsAvailable: Bool?
@@ -50,6 +51,7 @@ struct SuggestedItem: Identifiable, Hashable, Codable {
         case abId
         case tokenCount
         case iosOnly
+        case iosCollectionBrowserColumnCount
         case playerBackgroundColor
         case webURL
         case standardThumbsPathsAvailable

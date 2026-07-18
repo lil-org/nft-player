@@ -277,6 +277,14 @@ class MobilePlaybackController {
         dataSource(uuid: uuid)?.collectionBrowseSnapshot()
     }
 
+    func collectionBrowseColumnCount(
+        snapshot: PlayerCollectionBrowseSnapshot
+    ) -> Int {
+        MobileCollectionCatalog.collectionBrowseColumnCount(
+            specificCollectionId: snapshot.collectionId
+        )
+    }
+
     func prepareCollectionBrowse(
         uuid: UUID,
         containing pagePosition: PlayerPagePosition

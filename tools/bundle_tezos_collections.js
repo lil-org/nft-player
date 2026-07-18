@@ -12,7 +12,11 @@ const {
   writeCoverContents,
   writePlaceholderCover,
 } = require("./cover_images");
-const { assignInternalSlugs, mergeGeneratedSuggestedItem } = require("./suggested_items");
+const {
+  applyIOSCollectionBrowserColumnCounts,
+  assignInternalSlugs,
+  mergeGeneratedSuggestedItem,
+} = require("./suggested_items");
 const {
   preserveAspectRatioMetadataFromFile,
   reportAspectRatioMetadataChanges,
@@ -998,16 +1002,26 @@ async function writeBundle(collections, context) {
   const existingItems = JSON.parse(await fs.readFile(itemsPath, "utf8"));
   const updatedItems = assignInternalSlugs(mergeSuggestedItems(existingItems, collections));
 
+  const collectionBrowserColumnCounts = new Map();
   for (const collection of collections) {
     const outputPath = path.join(tokensPath, `${collection.collectionId}.json`);
     const tmpFilesResult = await preserveTmpFilesFromFile(outputPath, collection.tokenPayload);
     reportTmpFilesChanges(collection.collectionId, tmpFilesResult.report);
     const aspectRatioResult = await preserveAspectRatioMetadataFromFile(outputPath, tmpFilesResult.payload);
     reportAspectRatioMetadataChanges(collection.collectionId, aspectRatioResult.report);
+    collectionBrowserColumnCounts.set(
+      collection.collectionId,
+      aspectRatioResult.collectionBrowserColumnCount
+    );
     await fs.writeFile(outputPath, `${JSON.stringify(aspectRatioResult.payload)}\n`);
   }
 
-  await fs.writeFile(itemsPath, formatSuggestedItems(updatedItems));
+  await fs.writeFile(
+    itemsPath,
+    formatSuggestedItems(
+      applyIOSCollectionBrowserColumnCounts(updatedItems, collectionBrowserColumnCounts)
+    )
+  );
 
   if (!options.skipCovers) {
     await writeCovers(collections, context);

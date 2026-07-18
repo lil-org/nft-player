@@ -4,6 +4,8 @@ const fs = require("node:fs/promises");
 
 const ASPECT_RATIOS_KEY = "thumbnailAspectRatios";
 const ASPECT_RATIO_OVERRIDES_KEY = "thumbnailAspectRatioOverrides";
+const COLLECTION_BROWSER_DEFAULT_COLUMN_COUNT = 3;
+const COLLECTION_BROWSER_LANDSCAPE_COLUMN_COUNT = 2;
 
 function greatestCommonDivisor(left, right) {
   let a = left;
@@ -149,6 +151,30 @@ function encodeAspectRatioMetadata(values) {
   };
 }
 
+function collectionBrowserColumnCountFromAspectRatios(values) {
+  if (!Array.isArray(values) || values.length === 0) {
+    throw new TypeError("Thumbnail aspect ratios must be a non-empty array");
+  }
+
+  let landscapeCount = 0;
+  let portraitCount = 0;
+  values.forEach((value, index) => {
+    const [width, height] = normalizedRatio(
+      value,
+      `Thumbnail aspect ratio ${index}`
+    );
+    if (width > height) {
+      landscapeCount += 1;
+    } else if (width < height) {
+      portraitCount += 1;
+    }
+  });
+
+  return landscapeCount > portraitCount
+    ? COLLECTION_BROWSER_LANDSCAPE_COLUMN_COUNT
+    : COLLECTION_BROWSER_DEFAULT_COLUMN_COUNT;
+}
+
 function withoutAspectRatioMetadata(payload) {
   const result = { ...payload };
   delete result[ASPECT_RATIOS_KEY];
@@ -180,7 +206,7 @@ function preserveAspectRatioMetadata(existingPayload, nextPayload) {
 
   const existingRatios = decodeAspectRatioMetadata(existingPayload);
   if (existingRatios == null) {
-    return { payload, report };
+    return { payload, report, collectionBrowserColumnCount: null };
   }
   report.metadataExists = true;
 
@@ -194,15 +220,21 @@ function preserveAspectRatioMetadata(existingPayload, nextPayload) {
   );
   report.missingIds = nextIds.filter((id) => !ratioById.has(id));
   if (report.missingIds.length > 0 || nextIds.length === 0) {
-    return { payload, report };
+    return { payload, report, collectionBrowserColumnCount: null };
   }
 
   report.preservedIds = [...nextIds];
+  const preservedRatios = nextIds.map((id) => ratioById.get(id));
   Object.assign(
     payload,
-    encodeAspectRatioMetadata(nextIds.map((id) => ratioById.get(id)))
+    encodeAspectRatioMetadata(preservedRatios)
   );
-  return { payload, report };
+  return {
+    payload,
+    report,
+    collectionBrowserColumnCount:
+      collectionBrowserColumnCountFromAspectRatios(preservedRatios),
+  };
 }
 
 async function preserveAspectRatioMetadataFromFile(filePath, nextPayload) {
@@ -220,6 +252,7 @@ async function preserveAspectRatioMetadataFromFile(filePath, nextPayload) {
           staleIds: [],
           missingIds: [],
         },
+        collectionBrowserColumnCount: null,
       };
       return result;
     }
@@ -261,6 +294,9 @@ function reportAspectRatioMetadataChanges(collectionId, report, logger = console
 module.exports = {
   ASPECT_RATIOS_KEY,
   ASPECT_RATIO_OVERRIDES_KEY,
+  COLLECTION_BROWSER_DEFAULT_COLUMN_COUNT,
+  COLLECTION_BROWSER_LANDSCAPE_COLUMN_COUNT,
+  collectionBrowserColumnCountFromAspectRatios,
   decodeAspectRatioMetadata,
   encodeAspectRatioMetadata,
   preserveAspectRatioMetadataFromFile,

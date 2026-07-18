@@ -307,6 +307,27 @@ final class PlayerCollectionScrollPolicyTests: XCTestCase {
         )
     }
 
+    func testResolvedAnchorUsesConfiguredTwoColumnRows() {
+        XCTAssertEqual(
+            PlayerCollectionScrollPolicy.resolvedAnchorIndex(
+                retainedIndex: 1,
+                candidateIndex: 0,
+                itemCount: 8,
+                configuredColumnCount: 2
+            ),
+            1
+        )
+        XCTAssertEqual(
+            PlayerCollectionScrollPolicy.resolvedAnchorIndex(
+                retainedIndex: 1,
+                candidateIndex: 2,
+                itemCount: 8,
+                configuredColumnCount: 2
+            ),
+            2
+        )
+    }
+
     func testResolvedAnchorHandlesUnavailableAndInvalidInputs() {
         XCTAssertEqual(
             PlayerCollectionScrollPolicy.resolvedAnchorIndex(

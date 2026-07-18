@@ -5,10 +5,15 @@ const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
 
-const { suggestedItemId } = require("./suggested_items");
+const {
+  IOS_COLLECTION_BROWSER_COLUMN_COUNT_KEY,
+  suggestedItemId,
+} = require("./suggested_items");
 const {
   ASPECT_RATIOS_KEY,
   ASPECT_RATIO_OVERRIDES_KEY,
+  COLLECTION_BROWSER_LANDSCAPE_COLUMN_COUNT,
+  collectionBrowserColumnCountFromAspectRatios,
   decodeAspectRatioMetadata,
   encodeAspectRatioMetadata,
   tokenIdsFromPayload,
@@ -303,14 +308,22 @@ test("thumbnail base overrides support extensionless sources and strip source ex
   );
 });
 
-test("every bundled token has compact thumbnail aspect-ratio metadata", () => {
+test("bundled tokens have compact aspect ratios and matching iOS layouts", () => {
   const primaryFileNames = fs.readdirSync(TOKENS_PATH)
     .filter((fileName) => path.extname(fileName) === ".json")
     .sort();
   assert.equal(primaryFileNames.length, 217);
 
+  const catalogItems = readJSON(ITEMS_PATH);
+  const catalogItemByLowercasedFileName = new Map(
+    catalogItems.map((item) => [
+      `${suggestedItemId(item)}.json`.toLowerCase(),
+      item,
+    ])
+  );
   const primaryByLowercasedFileName = new Map();
   let primaryTokenCount = 0;
+  let twoColumnCollectionCount = 0;
   for (const fileName of primaryFileNames) {
     const payload = readJSON(path.join(TOKENS_PATH, fileName));
     const ratios = decodeAspectRatioMetadata(payload);
@@ -326,10 +339,40 @@ test("every bundled token has compact thumbnail aspect-ratio metadata", () => {
       encodeAspectRatioMetadata(ratios),
       `${fileName} does not use the canonical compact aspect-ratio encoding`
     );
+
+    const item = catalogItemByLowercasedFileName.get(fileName.toLowerCase());
+    assert.ok(item, `${fileName} has no suggested catalog item`);
+    const derivedColumnCount =
+      collectionBrowserColumnCountFromAspectRatios(ratios);
+    const expectedCatalogValue =
+      derivedColumnCount === COLLECTION_BROWSER_LANDSCAPE_COLUMN_COUNT
+        ? COLLECTION_BROWSER_LANDSCAPE_COLUMN_COUNT
+        : undefined;
+    assert.equal(
+      item[IOS_COLLECTION_BROWSER_COLUMN_COUNT_KEY],
+      expectedCatalogValue,
+      `${item.internal_slug} has stale iOS collection browser layout metadata`
+    );
+    if (expectedCatalogValue != null) {
+      twoColumnCollectionCount += 1;
+    }
+
     primaryTokenCount += payload.items.length;
     primaryByLowercasedFileName.set(fileName.toLowerCase(), { payload, ratios });
   }
   assert.equal(primaryTokenCount, 209_828);
+  assert.equal(twoColumnCollectionCount, 47);
+
+  for (const item of catalogItems) {
+    const fileName = `${suggestedItemId(item)}.json`.toLowerCase();
+    if (!primaryByLowercasedFileName.has(fileName)) {
+      assert.equal(
+        item[IOS_COLLECTION_BROWSER_COLUMN_COUNT_KEY],
+        undefined,
+        `${item.internal_slug} has layout metadata without a token manifest`
+      );
+    }
+  }
 
   const widgetFileNames = fs.readdirSync(WIDGET_TOKENS_PATH)
     .filter((fileName) => path.extname(fileName) === ".json")

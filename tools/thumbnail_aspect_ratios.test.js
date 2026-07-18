@@ -9,6 +9,7 @@ const test = require("node:test");
 const {
   ASPECT_RATIOS_KEY,
   ASPECT_RATIO_OVERRIDES_KEY,
+  collectionBrowserColumnCountFromAspectRatios,
   decodeAspectRatioMetadata,
   encodeAspectRatioMetadata,
   preserveAspectRatioMetadataFromFile,
@@ -55,6 +56,65 @@ test("decodes normalized defaults and overrides", () => {
     [[16, 9], [4, 3], [16, 9]]
   );
   assert.equal(decodeAspectRatioMetadata({ items: [["a"]] }), null);
+});
+
+test("uses two columns when landscape ratios strictly outnumber portrait ratios", () => {
+  assert.equal(
+    collectionBrowserColumnCountFromAspectRatios([
+      [16, 9],
+      [4, 3],
+      [3, 4],
+    ]),
+    2
+  );
+});
+
+test("uses three columns for portrait dominance and orientation ties", () => {
+  assert.equal(
+    collectionBrowserColumnCountFromAspectRatios([
+      [16, 9],
+      [3, 4],
+      [2, 3],
+    ]),
+    3
+  );
+  assert.equal(
+    collectionBrowserColumnCountFromAspectRatios([
+      [16, 9],
+      [3, 4],
+    ]),
+    3
+  );
+});
+
+test("ignores square ratios when classifying the collection browser layout", () => {
+  assert.equal(
+    collectionBrowserColumnCountFromAspectRatios([
+      [1, 1],
+      [400, 400],
+      [16, 9],
+    ]),
+    2
+  );
+  assert.equal(
+    collectionBrowserColumnCountFromAspectRatios([
+      [1, 1],
+      [400, 400],
+    ]),
+    3
+  );
+});
+
+test("rejects malformed ratios while classifying browser columns", () => {
+  for (const values of [
+    null,
+    [],
+    [[0, 1]],
+    [[1.5, 1]],
+    [["16", 9]],
+  ]) {
+    assert.throws(() => collectionBrowserColumnCountFromAspectRatios(values));
+  }
 });
 
 test("rejects malformed aspect-ratio metadata", () => {
@@ -137,6 +197,7 @@ test("preserves ratios by token ID across reorder and removal", async () => {
       staleIds: ["a"],
       missingIds: [],
     });
+    assert.equal(result.collectionBrowserColumnCount, 2);
   } finally {
     await fs.rm(directory, { recursive: true, force: true });
   }
@@ -161,6 +222,7 @@ test("omits metadata when a new token has no preserved ratio", async () => {
     assert.deepEqual(result.payload, { items: [["a"], ["new"]] });
     assert.deepEqual(result.report.missingIds, ["new"]);
     assert.deepEqual(result.report.preservedIds, []);
+    assert.equal(result.collectionBrowserColumnCount, null);
   } finally {
     await fs.rm(directory, { recursive: true, force: true });
   }
@@ -179,6 +241,7 @@ test("missing source leaves the next payload without stale metadata", async () =
     assert.deepEqual(result.payload, { items: [["a"]] });
     assert.equal(result.report.sourceExists, false);
     assert.equal(result.report.metadataExists, false);
+    assert.equal(result.collectionBrowserColumnCount, null);
   } finally {
     await fs.rm(directory, { recursive: true, force: true });
   }

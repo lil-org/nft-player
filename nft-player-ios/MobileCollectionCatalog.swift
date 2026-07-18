@@ -14,6 +14,13 @@ extension MobileCollectionCatalog {
         SuggestedItemsService.item(id: specificCollectionId)?.standardThumbsPathsAvailable == true
     }
 
+    static func collectionBrowseColumnCount(specificCollectionId: String) -> Int {
+        SuggestedItemsService.item(id: specificCollectionId)?
+            .iosCollectionBrowserColumnCount == 2
+            ? 2
+            : MobilePlayerBrowserLayout.defaultColumnCount
+    }
+
     static func collectionBrowseThumbnailDescriptor(
         specificCollectionId: String,
         tokenIndex: Int

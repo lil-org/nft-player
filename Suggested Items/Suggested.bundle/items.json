@@ -15,7 +15,8 @@
     "chainId" : 1,
     "collectionId" : "c370ee8ce98875d2e6c8fd7726c263a7",
     "name" : "Spectron",
-    "internal_slug" : "spectron"
+    "internal_slug" : "spectron",
+    "iosCollectionBrowserColumnCount" : 2
   },
   {
     "abId" : "9",
@@ -78,7 +79,8 @@
     "chainId" : 1,
     "collectionId" : "30156bbe27266bd963358b0e315258a2",
     "name" : "Maps for grief",
-    "internal_slug" : "maps_for_grief"
+    "internal_slug" : "maps_for_grief",
+    "iosCollectionBrowserColumnCount" : 2
   },
   {
     "abId" : "44",
@@ -96,7 +98,8 @@
     "chainId" : 1,
     "collectionId" : "33c589d389b53ba90764ae3c120945aa",
     "name" : "Chromie Squiggle",
-    "internal_slug" : "chromie_squiggle"
+    "internal_slug" : "chromie_squiggle",
+    "iosCollectionBrowserColumnCount" : 2
   },
   {
     "abId" : "399",
@@ -123,7 +126,8 @@
     "chainId" : 1,
     "collectionId" : "bc29c842be8cc6cd5551bd0e2561eaf4",
     "name" : "Fragmented Perception",
-    "internal_slug" : "fragmented_perception"
+    "internal_slug" : "fragmented_perception",
+    "iosCollectionBrowserColumnCount" : 2
   },
   {
     "abId" : "117",
@@ -141,7 +145,8 @@
     "chainId" : 1,
     "collectionId" : "439c07ef3bbcf98e6de5e562f054d089",
     "name" : "Renaissance",
-    "internal_slug" : "renaissance"
+    "internal_slug" : "renaissance",
+    "iosCollectionBrowserColumnCount" : 2
   },
   {
     "abId" : "14",
@@ -168,7 +173,8 @@
     "chainId" : 1,
     "collectionId" : "f0f83f0e1491f4d6ea875b385059ddb2",
     "name" : "Infinito",
-    "internal_slug" : "infinito"
+    "internal_slug" : "infinito",
+    "iosCollectionBrowserColumnCount" : 2
   },
   {
     "abId" : "19",
@@ -240,7 +246,8 @@
     "chainId" : 1,
     "collectionId" : "9c89aafcd0a32cfc3350494109f2432e",
     "name" : "Exstasis",
-    "internal_slug" : "exstasis"
+    "internal_slug" : "exstasis",
+    "iosCollectionBrowserColumnCount" : 2
   },
   {
     "abId" : "25",
@@ -312,7 +319,8 @@
     "chainId" : 1,
     "collectionId" : "34d435a5119aa45c5dc5feef95767e27",
     "name" : "because unless until",
-    "internal_slug" : "because_unless_until"
+    "internal_slug" : "because_unless_until",
+    "iosCollectionBrowserColumnCount" : 2
   },
   {
     "abId" : "10",
@@ -348,7 +356,8 @@
     "chainId" : 1,
     "collectionId" : "326c9aa6c3ce551b4225838f932c9e57",
     "name" : "variaciones del yo",
-    "internal_slug" : "variaciones_del_yo"
+    "internal_slug" : "variaciones_del_yo",
+    "iosCollectionBrowserColumnCount" : 2
   },
   {
     "abId" : "17",
@@ -366,7 +375,8 @@
     "chainId" : 1,
     "collectionId" : "d715a57affc86cdd0b3a183a78765855",
     "name" : "Aesthetics of Failure",
-    "internal_slug" : "aesthetics_of_failure"
+    "internal_slug" : "aesthetics_of_failure",
+    "iosCollectionBrowserColumnCount" : 2
   },
   {
     "abId" : "426",
@@ -384,7 +394,8 @@
     "chainId" : 1,
     "collectionId" : "9f2164b23df577b76c4196996b85b1cf",
     "name" : "Memories of Digital Data",
-    "internal_slug" : "memories_of_digital_data"
+    "internal_slug" : "memories_of_digital_data",
+    "iosCollectionBrowserColumnCount" : 2
   },
   {
     "abId" : "151",
@@ -456,7 +467,8 @@
     "chainId" : 1,
     "collectionId" : "2cbddd7e43c4049ac07db07f3787933e",
     "name" : "FOCUS",
-    "internal_slug" : "focus"
+    "internal_slug" : "focus",
+    "iosCollectionBrowserColumnCount" : 2
   },
   {
     "abId" : "35",
@@ -528,7 +540,8 @@
     "chainId" : 1,
     "collectionId" : "716103a017faaf909a4b843fd8b481e2",
     "name" : "Bright Empty Rooms",
-    "internal_slug" : "bright_empty_rooms"
+    "internal_slug" : "bright_empty_rooms",
+    "iosCollectionBrowserColumnCount" : 2
   },
   {
     "abId" : "3",
@@ -546,7 +559,8 @@
     "chainId" : 1,
     "collectionId" : "e2bfa857788ef56380df294d9364d17d",
     "name" : "ATOMS",
-    "internal_slug" : "atoms"
+    "internal_slug" : "atoms",
+    "iosCollectionBrowserColumnCount" : 2
   },
   {
     "abId" : "4",
@@ -618,7 +632,8 @@
     "chainId" : 1,
     "collectionId" : "32a5df5b44aa8f92e54ff2d5f9658798",
     "name" : "Dopamine Machines",
-    "internal_slug" : "dopamine_machines"
+    "internal_slug" : "dopamine_machines",
+    "iosCollectionBrowserColumnCount" : 2
   },
   {
     "abId" : "1",
@@ -663,7 +678,8 @@
     "chainId" : 1,
     "collectionId" : "c2ff5587dd8c91e48678d6ecbea91219",
     "name" : "WaveShapes",
-    "internal_slug" : "waveshapes"
+    "internal_slug" : "waveshapes",
+    "iosCollectionBrowserColumnCount" : 2
   },
   {
     "abId" : "5",
@@ -690,7 +706,8 @@
     "chainId" : 1,
     "collectionId" : "6ab1d1cc5b3e340753db2932a2cb9b0f",
     "name" : "Flows",
-    "internal_slug" : "flows"
+    "internal_slug" : "flows",
+    "iosCollectionBrowserColumnCount" : 2
   },
   {
     "abId" : "57",
@@ -726,7 +743,8 @@
     "chainId" : 1,
     "collectionId" : "cd37ae66a52b25d32191114144650f60",
     "name" : "THIS ART IS ILLEGAL!",
-    "internal_slug" : "this_art_is_illegal"
+    "internal_slug" : "this_art_is_illegal",
+    "iosCollectionBrowserColumnCount" : 2
   },
   {
     "abId" : "6",
@@ -825,7 +843,8 @@
     "chainId" : 1,
     "collectionId" : "7ef20a8f1fb7e969fa945b4f04ecaa53",
     "name" : "One More Day",
-    "internal_slug" : "one_more_day"
+    "internal_slug" : "one_more_day",
+    "iosCollectionBrowserColumnCount" : 2
   },
   {
     "abId" : "1",
@@ -951,7 +970,8 @@
     "chainId" : 1,
     "collectionId" : "8da8f87a831b5ae57695411ade574ef3",
     "name" : "Orthogone",
-    "internal_slug" : "orthogone"
+    "internal_slug" : "orthogone",
+    "iosCollectionBrowserColumnCount" : 2
   },
   {
     "address" : "0x5a0121a0a21232ec0d024dab9017314509026480",
@@ -1038,7 +1058,8 @@
     "name" : "Instructions for Defacement",
     "tokenCount" : 712,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "instructions_for_defacement"
+    "internal_slug" : "instructions_for_defacement",
+    "iosCollectionBrowserColumnCount" : 2
   },
   {
     "abId" : "163",
@@ -1080,7 +1101,8 @@
     "name" : "Storms",
     "tokenCount" : 75,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "storms"
+    "internal_slug" : "storms",
+    "iosCollectionBrowserColumnCount" : 2
   },
   {
     "address" : "0x0427743df720801825a5c82e0582b1e915e0f750",
@@ -1100,7 +1122,8 @@
     "name" : "Landscape Sublime",
     "tokenCount" : 18,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "landscape_sublime"
+    "internal_slug" : "landscape_sublime",
+    "iosCollectionBrowserColumnCount" : 2
   },
   {
     "address" : "0x46ac8540d698167fcbb9e846511beb8cf8af9bd8",
@@ -1120,7 +1143,8 @@
     "name" : "Tokyo Nude",
     "tokenCount" : 55,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "tokyo_nude"
+    "internal_slug" : "tokyo_nude",
+    "iosCollectionBrowserColumnCount" : 2
   },
   {
     "address" : "0xBE8E0F43A2CEB7ee944B4FC5F4f54b078223422c",
@@ -1160,7 +1184,8 @@
     "name" : "Super Metal Mons!!",
     "tokenCount" : 777,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "super_metal_mons_2"
+    "internal_slug" : "super_metal_mons_2",
+    "iosCollectionBrowserColumnCount" : 2
   },
   {
     "address" : "0x32d6ba9aa1b06fbcaeb3f6c5ff05cd6a77dcf387",
@@ -1215,7 +1240,8 @@
     "name" : "Cats: A form study",
     "tokenCount" : 22,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "cats_a_form_study"
+    "internal_slug" : "cats_a_form_study",
+    "iosCollectionBrowserColumnCount" : 2
   },
   {
     "address" : "0xEC0a7A26456B8451aefc4b00393ce1BefF5eB3e9",
@@ -1355,7 +1381,8 @@
     "name" : "Changing Places",
     "tokenCount" : 500,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "changing_places"
+    "internal_slug" : "changing_places",
+    "iosCollectionBrowserColumnCount" : 2
   },
   {
     "address" : "0x5198dfdc6efd06db7d3ee7c65e794caadca4296a",
@@ -1365,7 +1392,8 @@
     "name" : "Crowded Fields",
     "tokenCount" : 40,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "crowded_fields"
+    "internal_slug" : "crowded_fields",
+    "iosCollectionBrowserColumnCount" : 2
   },
   {
     "address" : "0x9e7d4a73fe79359733bb2e5dad76ca5efd65ca7e",
@@ -1385,7 +1413,8 @@
     "name" : "Vacation",
     "tokenCount" : 428,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "vacation"
+    "internal_slug" : "vacation",
+    "iosCollectionBrowserColumnCount" : 2
   },
   {
     "address" : "0xa80617371a5f511bf4c1ddf822e6040acaa63e71",
@@ -1395,7 +1424,8 @@
     "name" : "CAR",
     "tokenCount" : 999,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "car"
+    "internal_slug" : "car",
+    "iosCollectionBrowserColumnCount" : 2
   },
   {
     "address" : "0x8713cb7bcf1cab261a30882fdf224cd2246cb711",
@@ -1425,7 +1455,8 @@
     "name" : "screenshot catalog",
     "tokenCount" : 331,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "screenshot_catalog"
+    "internal_slug" : "screenshot_catalog",
+    "iosCollectionBrowserColumnCount" : 2
   },
   {
     "address" : "0x74f41f4d43c064f69958c56536381a235be906c4",
@@ -1498,7 +1529,8 @@
     "name" : "PRAY4LOWBIE",
     "tokenCount" : 333,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "pray4lowbie"
+    "internal_slug" : "pray4lowbie",
+    "iosCollectionBrowserColumnCount" : 2
   },
   {
     "address" : "4rWMqk4PXKrWdmA9QSJB27CYwThYmDvZ9rwcZsQfnJ6K",
@@ -1525,7 +1557,8 @@
     "name" : "POSTCARDs2",
     "tokenCount" : 101,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "postcards2"
+    "internal_slug" : "postcards2",
+    "iosCollectionBrowserColumnCount" : 2
   },
   {
     "address" : "5AVocDEamuwaZf3bXP6tcg52w7cgBvMNJAYvG9rmouCh",
@@ -1534,7 +1567,8 @@
     "name" : "Little Fellow",
     "tokenCount" : 2024,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "little_fellow"
+    "internal_slug" : "little_fellow",
+    "iosCollectionBrowserColumnCount" : 2
   },
   {
     "address" : "5fCjwvmjJ8gCnYbGBVuUhiCFHMtATo19MdBAxNGsirnS",
@@ -1642,7 +1676,8 @@
     "name" : "Blume™",
     "tokenCount" : 368,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "blume"
+    "internal_slug" : "blume",
+    "iosCollectionBrowserColumnCount" : 2
   },
   {
     "address" : "GVQ4Zsd7jLZbVCxq9QsmQySuKekwT1XbMSjGbwt8UtcB",
@@ -1669,7 +1704,8 @@
     "name" : "Drifella III",
     "tokenCount" : 1263,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "drifella_iii"
+    "internal_slug" : "drifella_iii",
+    "iosCollectionBrowserColumnCount" : 2
   },
   {
     "address" : "7cHTjqr2S8uUCrG3TVFvFix3vcLjhPiwrtRsAeJtESRj",
@@ -1705,7 +1741,8 @@
     "name" : "Tents",
     "tokenCount" : 1116,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "tents"
+    "internal_slug" : "tents",
+    "iosCollectionBrowserColumnCount" : 2
   },
   {
     "address" : "6UTLD74x8gefsWqP7oDNm3MM1VJ5CQe31MKdpHo19vcT",
@@ -1831,7 +1868,8 @@
     "name" : "Drawing Exercises",
     "tokenCount" : 79,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "drawing_exercises"
+    "internal_slug" : "drawing_exercises",
+    "iosCollectionBrowserColumnCount" : 2
   },
   {
     "address" : "KT1W9KTJDVQQtscFgT1wVJXSJWEBFsxxccGB",
@@ -1840,7 +1878,8 @@
     "name" : "LAVA STUDIES",
     "tokenCount" : 9,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "lava_studies"
+    "internal_slug" : "lava_studies",
+    "iosCollectionBrowserColumnCount" : 2
   },
   {
     "address" : "KT1WEmBKKQGMqvdWTpTYF2EXkriM4QBKoKjb",
@@ -1849,7 +1888,8 @@
     "name" : "moeshit",
     "tokenCount" : 1540,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "moeshit"
+    "internal_slug" : "moeshit",
+    "iosCollectionBrowserColumnCount" : 2
   },
   {
     "address" : "KT1ReF4XJNvhqiC5ckP4XcH6GZdpDzKHpKc8",
@@ -1876,7 +1916,8 @@
     "name" : "Multi Windows",
     "tokenCount" : 200,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "multi_windows"
+    "internal_slug" : "multi_windows",
+    "iosCollectionBrowserColumnCount" : 2
   },
   {
     "address" : "KT1Aaas4fpfgpdbwopnba9SUhvSsswSTSdo2",
@@ -1885,7 +1926,8 @@
     "name" : "skomra",
     "tokenCount" : 139,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "skomra"
+    "internal_slug" : "skomra",
+    "iosCollectionBrowserColumnCount" : 2
   },
   {
     "address" : "0xeed41d06ae195ca8f5cacace4cd691ee75f0683f",
@@ -1925,7 +1967,8 @@
     "tokenCount" : 76,
     "iosOnly" : true,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "in_your_dreams"
+    "internal_slug" : "in_your_dreams",
+    "iosCollectionBrowserColumnCount" : 2
   },
   {
     "address" : "0xc4bd6aeb9e67502e1564642a1820c8576a6e808b",
@@ -1935,7 +1978,8 @@
     "tokenCount" : 23,
     "iosOnly" : true,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "safe_haven"
+    "internal_slug" : "safe_haven",
+    "iosCollectionBrowserColumnCount" : 2
   },
   {
     "address" : "0x6dc47d63df19198e87b7c500c6ed9861b0fab7de",
@@ -1945,7 +1989,8 @@
     "tokenCount" : 60,
     "iosOnly" : true,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "burnt_umber_broken_silver_american_spirit"
+    "internal_slug" : "burnt_umber_broken_silver_american_spirit",
+    "iosCollectionBrowserColumnCount" : 2
   },
   {
     "address" : "0x8ffc6bfbce284b508f0e53b8599f8f03ffeb452f",
@@ -2004,7 +2049,8 @@
     "tokenCount" : 267,
     "iosOnly" : true,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "chronophotograph"
+    "internal_slug" : "chronophotograph",
+    "iosCollectionBrowserColumnCount" : 2
   },
   {
     "address" : "9sSCFj6NGEfmDS4QQEVqv17ZANen7pmowqnCiUBRPjd9",
@@ -2013,6 +2059,7 @@
     "name" : "Horses?7",
     "tokenCount" : 1777,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "horses7"
+    "internal_slug" : "horses7",
+    "iosCollectionBrowserColumnCount" : 2
   }
 ]

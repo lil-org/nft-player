@@ -93,8 +93,6 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     private var isApplyingPosition = false
     private var positioningGeneration: UInt = 0
     private var lastLayoutSize = CGSize.zero
-    private var configuredColumnCount = 0
-    private var configuredPrefetchStride = MobilePlayerBrowserLayout.columnCount
     private var focusedTokenIndex: Int?
     private var forcedFocusedTokenIndex: Int?
     private var retainedFocusFocalBias: PlayerCollectionScrollFocalBias?
@@ -115,7 +113,6 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         itemCount: 0,
         uniformImageSize: CGSize(width: 1, height: 1)
     )
-    private var configuredBrowserLayout: MobilePlayerBrowserLayout?
     private var sampledCollectionFallbackSpec = PlayerMediaPlaceholderSpec(
         aspectSize: CGSize(width: 1, height: 1)
     )
@@ -124,6 +121,15 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     private var prefetchLoads = [Int: PrefetchLoad]()
     private var backgroundObserver: NSObjectProtocol?
     private var cacheFileAvailabilityObserver: NSObjectProtocol?
+
+    private var configuredColumnCount: Int {
+        browserCollectionLayout.browserLayout?.columnCount ?? 0
+    }
+
+    private var configuredPrefetchStride: Int {
+        browserCollectionLayout.browserLayout?.prefetchStride
+            ?? MobilePlayerBrowserLayout.defaultColumnCount
+    }
 
     init(uuid: UUID) {
         self.uuid = uuid
@@ -179,36 +185,44 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
 
-        let sizeChanged = lastLayoutSize != .zero && lastLayoutSize != collectionView.bounds.size
-        let needsInitialLayout = lastLayoutSize == .zero
+        let viewportSize = collectionView.bounds.size
+        let sizeChanged = lastLayoutSize != .zero && lastLayoutSize != viewportSize
         let windowSafeAreaInsets = collectionView.window?.safeAreaInsets
         let needsWindowSafeAreaCapture = !hasCapturedLayoutWindowSafeAreaInsets
             && windowSafeAreaInsets != nil
-        let layoutGeometryChanged = sizeChanged || needsWindowSafeAreaCapture
-        let retainedFocus = MobilePlayerBrowserLayout.retainedFocusTokenIndex(
-            geometryChanged: layoutGeometryChanged,
+        if let windowSafeAreaInsets,
+           sizeChanged || needsWindowSafeAreaCapture {
+            captureLayoutWindowSafeAreaInsets(windowSafeAreaInsets)
+        }
+        let transition = MobilePlayerBrowserLayout.viewportTransition(
+            previousViewportSize: lastLayoutSize,
+            viewportSize: viewportSize,
+            needsSafeAreaRefresh: needsWindowSafeAreaCapture,
+            topContentInset:
+                Self.verticalContentMargin + layoutWindowSafeAreaInsets.top,
+            bottomContentInset:
+                Self.verticalContentMargin + layoutWindowSafeAreaInsets.bottom,
+            aspectProfile: layoutAspectProfile,
             forcedTokenIndex: forcedFocusedTokenIndex,
             focusedTokenIndex: focusedTokenIndex
         )
         let wasApplyingPosition = isApplyingPosition
-        if needsInitialLayout || layoutGeometryChanged {
+        if transition.needsLayout {
             isApplyingPosition = true
-            if let windowSafeAreaInsets,
-               sizeChanged || needsWindowSafeAreaCapture {
-                captureLayoutWindowSafeAreaInsets(windowSafeAreaInsets)
+            if let browserLayout = transition.layout {
+                installCollectionLayout(browserLayout)
             }
-            configureCollectionLayout()
             collectionView.layoutIfNeeded()
         }
 
-        if layoutGeometryChanged,
-           !needsInitialLayout,
-           let retainedFocus {
+        if transition.geometryChanged,
+           !transition.needsInitialLayout,
+           let retainedFocus = transition.retainedFocusTokenIndex {
             centerContent(on: retainedFocus)
             retainFocusedTokenIndex(retainedFocus)
             focusedTokenIndex = retainedFocus
         }
-        if needsInitialLayout || layoutGeometryChanged {
+        if transition.needsLayout {
             lastScrollOffsetY = collectionView.contentOffset.y
         }
         isApplyingPosition = wasApplyingPosition
@@ -218,7 +232,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         let hadFinishedInitialPositioning = hasFinishedInitialPositioning
         performInitialPositioningIfNeeded()
         if hadFinishedInitialPositioning,
-           layoutGeometryChanged,
+           transition.geometryChanged,
            !isApplyingPosition {
             settleCurrentPosition()
         }
@@ -772,6 +786,10 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             return
         }
 
+        let columnCount =
+            MobilePlaybackController.shared.collectionBrowseColumnCount(
+                snapshot: snapshot
+            )
         let sampleCount = min(
             snapshot.itemCount,
             MobilePlayerBrowserLayout.maximumAspectSampleCount
@@ -810,13 +828,15 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             case let .uniform(aspectRatio):
                 layoutAspectProfile = MobilePlayerBrowserAspectProfile(
                     itemCount: snapshot.itemCount,
-                    uniformImageSize: aspectRatio.size
+                    uniformImageSize: aspectRatio.size,
+                    columnCount: columnCount
                 )
             case let .variable(aspectRatios):
                 layoutAspectProfile = MobilePlayerBrowserAspectProfile(
                     heightToWidthRatios: aspectRatios.map {
                         CGFloat($0.height) / CGFloat($0.width)
-                    }
+                    },
+                    columnCount: columnCount
                 )
             }
             nearestSample = sampleRange
@@ -840,7 +860,8 @@ final class VerticalCollectionBrowserViewController: UIViewController,
                 ?? defaultSize
             layoutAspectProfile = MobilePlayerBrowserAspectProfile(
                 itemCount: snapshot.itemCount,
-                uniformImageSize: layoutFallbackSize
+                uniformImageSize: layoutFallbackSize,
+                columnCount: columnCount
             )
             nearestSample = samples.min { lhs, rhs in
                 let lhsDistance = abs(lhs.index - focus)
@@ -922,11 +943,16 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             return
         }
 
-        configuredBrowserLayout = browserLayout
+        installCollectionLayout(browserLayout)
+    }
+
+    private func installCollectionLayout(
+        _ browserLayout: MobilePlayerBrowserLayout
+    ) {
+        let prefetchStrideChanged =
+            configuredPrefetchStride != browserLayout.prefetchStride
         browserCollectionLayout.browserLayout = browserLayout
-        configuredColumnCount = MobilePlayerBrowserLayout.columnCount
-        if configuredPrefetchStride != browserLayout.prefetchStride {
-            configuredPrefetchStride = browserLayout.prefetchStride
+        if prefetchStrideChanged {
             lastThumbnailWindowRequest = nil
         }
         collectionView.scrollIndicatorInsets = UIEdgeInsets(
@@ -1183,9 +1209,10 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         let standardFocalPoint = focalGeometry.focalPoint(at: contentOffsetY)
         let targetCenterY = attributes.frame.midY
         let rowTravel = max(
-            configuredBrowserLayout?.minimumAdjacentRowCenterDistance(
-                containingItemAt: tokenIndex
-            ) ?? attributes.frame.height + MobilePlayerBrowserLayout.itemSpacing,
+            browserCollectionLayout.browserLayout?
+                .minimumAdjacentRowCenterDistance(
+                    containingItemAt: tokenIndex
+                ) ?? attributes.frame.height + MobilePlayerBrowserLayout.itemSpacing,
             1
         )
         return PlayerCollectionScrollFocalBias(

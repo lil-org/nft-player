@@ -19,6 +19,7 @@ final class MobilePlayerBrowserLayoutTests: XCTestCase {
         ))
         let itemSize = try XCTUnwrap(layout.uniformItemSize)
 
+        XCTAssertEqual(layout.columnCount, MobilePlayerBrowserLayout.defaultColumnCount)
         XCTAssertEqual(
             itemSize.width * 3 + MobilePlayerBrowserLayout.itemSpacing * 2,
             viewportWidth,
@@ -149,7 +150,7 @@ final class MobilePlayerBrowserLayoutTests: XCTestCase {
         for (rowIndex, expectedRatio) in expectedRowRatios.enumerated() {
             XCTAssertEqual(
                 try XCTUnwrap(
-                    layout.itemSize(at: rowIndex * MobilePlayerBrowserLayout.columnCount)
+                    layout.itemSize(at: rowIndex * layout.columnCount)
                 ).height,
                 layout.itemWidth * expectedRatio,
                 accuracy: 0.000_001
@@ -371,36 +372,40 @@ final class MobilePlayerBrowserLayoutTests: XCTestCase {
     }
 
     func testRotationRecalculatesGeometryAndPrefetchStride() throws {
+        let portraitViewportSize = CGSize(width: 430, height: 932)
+        let landscapeViewportSize = CGSize(width: 932, height: 430)
         let aspectProfile = MobilePlayerBrowserAspectProfile(
             itemCount: 12,
             uniformImageSize: CGSize(width: 210, height: 373)
         )
-        let landscapeViewportSize = CGSize(width: 932, height: 430)
-        let portrait = try XCTUnwrap(MobilePlayerBrowserLayout(
-            viewportSize: CGSize(width: 430, height: 932),
+        let portraitTransition = MobilePlayerBrowserLayout.viewportTransition(
+            previousViewportSize: .zero,
+            viewportSize: portraitViewportSize,
+            needsSafeAreaRefresh: true,
             topContentInset: 59,
             bottomContentInset: 34,
-            aspectProfile: aspectProfile
-        ))
-        let landscape = try XCTUnwrap(MobilePlayerBrowserLayout(
+            aspectProfile: aspectProfile,
+            forcedTokenIndex: nil,
+            focusedTokenIndex: 7
+        )
+        let rotationTransition = MobilePlayerBrowserLayout.viewportTransition(
+            previousViewportSize: portraitViewportSize,
             viewportSize: landscapeViewportSize,
+            needsSafeAreaRefresh: false,
             bottomContentInset: 21,
-            aspectProfile: aspectProfile
-        ))
+            aspectProfile: aspectProfile,
+            forcedTokenIndex: nil,
+            focusedTokenIndex: 7
+        )
+        let portrait = try XCTUnwrap(portraitTransition.layout)
+        let landscape = try XCTUnwrap(rotationTransition.layout)
         let portraitItemSize = try XCTUnwrap(portrait.uniformItemSize)
         let landscapeItemSize = try XCTUnwrap(landscape.uniformItemSize)
 
         XCTAssertNotEqual(portraitItemSize, landscapeItemSize)
         XCTAssertEqual(portrait.prefetchStride, 12)
         XCTAssertEqual(landscape.prefetchStride, 3)
-        XCTAssertEqual(
-            MobilePlayerBrowserLayout.retainedFocusTokenIndex(
-                geometryChanged: portraitItemSize != landscapeItemSize,
-                forcedTokenIndex: nil,
-                focusedTokenIndex: 37
-            ),
-            37
-        )
+        XCTAssertEqual(rotationTransition.retainedFocusTokenIndex, 7)
         XCTAssertGreaterThan(landscapeItemSize.height, landscapeViewportSize.height)
 
         let maximumContentOffsetY = landscapeItemSize.height
@@ -426,22 +431,220 @@ final class MobilePlayerBrowserLayoutTests: XCTestCase {
         )
     }
 
-    func testLayoutFocusRetentionPrefersForcedFocusAndRequiresGeometryChange() {
+    func testTwoColumnUniformGeometryUsesFullWidthAndFindsPartialFinalRow() throws {
+        let viewportWidth: CGFloat = 390
+        let aspectProfile = MobilePlayerBrowserAspectProfile(
+            itemCount: 5,
+            uniformImageSize: CGSize(width: 1, height: 1),
+            columnCount: 2
+        )
+        let layout = try XCTUnwrap(MobilePlayerBrowserLayout(
+            viewportSize: CGSize(width: viewportWidth, height: 844),
+            topContentInset: 47,
+            bottomContentInset: 34,
+            aspectProfile: aspectProfile
+        ))
+        let itemSize = try XCTUnwrap(layout.uniformItemSize)
+        let finalItemFrame = try XCTUnwrap(layout.itemFrame(at: 4))
+
+        XCTAssertEqual(aspectProfile.columnCount, 2)
+        XCTAssertEqual(layout.columnCount, 2)
+        XCTAssertEqual(layout.rowCount, 3)
         XCTAssertEqual(
-            MobilePlayerBrowserLayout.retainedFocusTokenIndex(
-                geometryChanged: true,
-                forcedTokenIndex: 12,
-                focusedTokenIndex: 37
-            ),
+            itemSize.width * 2 + MobilePlayerBrowserLayout.itemSpacing,
+            viewportWidth,
+            accuracy: 0.000_001
+        )
+        XCTAssertEqual(
+            try XCTUnwrap(layout.itemFrame(at: 1)).maxX,
+            viewportWidth,
+            accuracy: 0.000_001
+        )
+        XCTAssertEqual(finalItemFrame.minX, 0, accuracy: 0.000_001)
+        XCTAssertEqual(layout.visibleRowCount, 4)
+        XCTAssertEqual(layout.prefetchStride, 8)
+
+        let finalRowQuery = CGRect(
+            x: 0,
+            y: finalItemFrame.minY + 1,
+            width: layout.contentSize.width,
+            height: finalItemFrame.height - 2
+        )
+        let visibleItemIndices = layout
+            .candidateItemIndices(intersecting: finalRowQuery)
+            .filter {
+                layout.itemFrame(at: $0)?.intersects(finalRowQuery) == true
+            }
+        XCTAssertEqual(visibleItemIndices, [4])
+    }
+
+    func testTwoColumnVariableRowsGroupPairsAndPackFrames() throws {
+        let topInset: CGFloat = 10
+        let bottomInset: CGFloat = 20
+        let layout = try XCTUnwrap(MobilePlayerBrowserLayout(
+            viewportSize: CGSize(width: 390, height: 844),
+            topContentInset: topInset,
+            bottomContentInset: bottomInset,
+            aspectProfile: MobilePlayerBrowserAspectProfile(
+                itemImageSizes: [
+                    CGSize(width: 2, height: 1),
+                    CGSize(width: 1, height: 1),
+                    CGSize(width: 1, height: 2),
+                    CGSize(width: 2, height: 1),
+                    CGSize(width: 4, height: 1),
+                ],
+                columnCount: 2
+            )
+        ))
+        let firstRowFrame = try XCTUnwrap(layout.itemFrame(at: 0))
+        let secondRowFrame = try XCTUnwrap(layout.itemFrame(at: 2))
+        let finalRowFrame = try XCTUnwrap(layout.itemFrame(at: 4))
+
+        XCTAssertEqual(layout.columnCount, 2)
+        XCTAssertEqual(layout.rowCount, 3)
+        XCTAssertFalse(layout.usesUniformRowHeights)
+        XCTAssertEqual(layout.cachedVariableRowCount, 3)
+        XCTAssertEqual(firstRowFrame.height, layout.itemWidth, accuracy: 0.000_001)
+        XCTAssertEqual(
+            secondRowFrame.height,
+            layout.itemWidth * 2,
+            accuracy: 0.000_001
+        )
+        XCTAssertEqual(
+            finalRowFrame.height,
+            layout.itemWidth * 0.25,
+            accuracy: 0.000_001
+        )
+        XCTAssertEqual(
+            secondRowFrame.minY,
+            firstRowFrame.maxY + MobilePlayerBrowserLayout.itemSpacing,
+            accuracy: 0.000_001
+        )
+        XCTAssertEqual(
+            finalRowFrame.minY,
+            secondRowFrame.maxY + MobilePlayerBrowserLayout.itemSpacing,
+            accuracy: 0.000_001
+        )
+        XCTAssertEqual(
+            try XCTUnwrap(layout.itemFrame(at: 3)).maxX,
+            layout.contentSize.width,
+            accuracy: 0.000_001
+        )
+        XCTAssertEqual(
+            layout.contentSize.height,
+            finalRowFrame.maxY + bottomInset,
+            accuracy: 0.000_001
+        )
+
+        let secondRowQuery = CGRect(
+            x: 0,
+            y: secondRowFrame.minY + 1,
+            width: layout.contentSize.width,
+            height: secondRowFrame.height - 2
+        )
+        let visibleItemIndices = layout
+            .candidateItemIndices(intersecting: secondRowQuery)
+            .filter {
+                layout.itemFrame(at: $0)?.intersects(secondRowQuery) == true
+            }
+        XCTAssertEqual(visibleItemIndices, [2, 3])
+    }
+
+    func testTwoColumnRotationKeepsColumnCountAndRetainsFocus() throws {
+        let portraitSize = CGSize(width: 430, height: 932)
+        let landscapeSize = CGSize(width: 932, height: 430)
+        let aspectProfile = MobilePlayerBrowserAspectProfile(
+            itemCount: 12,
+            uniformImageSize: CGSize(width: 210, height: 373),
+            columnCount: 2
+        )
+        let portraitTransition = MobilePlayerBrowserLayout.viewportTransition(
+            previousViewportSize: .zero,
+            viewportSize: portraitSize,
+            needsSafeAreaRefresh: true,
+            topContentInset: 59,
+            bottomContentInset: 34,
+            aspectProfile: aspectProfile,
+            forcedTokenIndex: nil,
+            focusedTokenIndex: 7
+        )
+        let rotationTransition = MobilePlayerBrowserLayout.viewportTransition(
+            previousViewportSize: portraitSize,
+            viewportSize: landscapeSize,
+            needsSafeAreaRefresh: false,
+            bottomContentInset: 21,
+            aspectProfile: aspectProfile,
+            forcedTokenIndex: nil,
+            focusedTokenIndex: 7
+        )
+        let portrait = try XCTUnwrap(portraitTransition.layout)
+        let landscape = try XCTUnwrap(rotationTransition.layout)
+
+        XCTAssertTrue(portraitTransition.needsInitialLayout)
+        XCTAssertTrue(rotationTransition.geometryChanged)
+        XCTAssertFalse(rotationTransition.needsInitialLayout)
+        XCTAssertEqual(rotationTransition.retainedFocusTokenIndex, 7)
+        XCTAssertEqual(portrait.columnCount, 2)
+        XCTAssertEqual(landscape.columnCount, 2)
+        XCTAssertNotEqual(portrait.uniformItemSize, landscape.uniformItemSize)
+        XCTAssertEqual(portrait.prefetchStride, 6)
+        XCTAssertEqual(landscape.prefetchStride, 2)
+    }
+
+    func testNonPositiveColumnCountFallsBackToThreeColumns() throws {
+        let aspectProfile = MobilePlayerBrowserAspectProfile(
+            itemCount: 4,
+            uniformImageSize: CGSize(width: 1, height: 1),
+            columnCount: 0
+        )
+        let layout = try XCTUnwrap(MobilePlayerBrowserLayout(
+            viewportSize: CGSize(width: 390, height: 844),
+            aspectProfile: aspectProfile
+        ))
+
+        XCTAssertEqual(
+            aspectProfile.columnCount,
+            MobilePlayerBrowserLayout.defaultColumnCount
+        )
+        XCTAssertEqual(
+            layout.columnCount,
+            MobilePlayerBrowserLayout.defaultColumnCount
+        )
+        XCTAssertEqual(layout.rowCount, 2)
+    }
+
+    func testViewportTransitionPrefersForcedFocusAndRequiresGeometryChange() {
+        let viewportSize = CGSize(width: 430, height: 932)
+        let aspectProfile = MobilePlayerBrowserAspectProfile(
+            itemCount: 40,
+            uniformImageSize: CGSize(width: 1, height: 1)
+        )
+        let safeAreaTransition = MobilePlayerBrowserLayout.viewportTransition(
+            previousViewportSize: viewportSize,
+            viewportSize: viewportSize,
+            needsSafeAreaRefresh: true,
+            aspectProfile: aspectProfile,
+            forcedTokenIndex: 12,
+            focusedTokenIndex: 37
+        )
+        let unchangedTransition = MobilePlayerBrowserLayout.viewportTransition(
+            previousViewportSize: viewportSize,
+            viewportSize: viewportSize,
+            needsSafeAreaRefresh: false,
+            aspectProfile: aspectProfile,
+            forcedTokenIndex: 12,
+            focusedTokenIndex: 37
+        )
+
+        XCTAssertEqual(
+            safeAreaTransition.retainedFocusTokenIndex,
             12
         )
-        XCTAssertNil(
-            MobilePlayerBrowserLayout.retainedFocusTokenIndex(
-                geometryChanged: false,
-                forcedTokenIndex: 12,
-                focusedTokenIndex: 37
-            )
-        )
+        XCTAssertTrue(safeAreaTransition.geometryChanged)
+        XCTAssertNotNil(safeAreaTransition.layout)
+        XCTAssertNil(unchangedTransition.retainedFocusTokenIndex)
+        XCTAssertFalse(unchangedTransition.geometryChanged)
+        XCTAssertNil(unchangedTransition.layout)
     }
 
     func testMissingAspectMetadataFallsBackToSquare() throws {

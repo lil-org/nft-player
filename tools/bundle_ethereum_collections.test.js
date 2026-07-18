@@ -148,6 +148,7 @@ test("keeps the catalog's checksum casing and preserves manifest metadata", (t) 
 
   const [item] = JSON.parse(fs.readFileSync(fixture.itemsPath, "utf8"));
   assert.equal(item.address, CHECKSUM_ID);
+  assert.equal(item.iosCollectionBrowserColumnCount, 2);
 });
 
 test("creates a missing manifest with the catalog's checksum casing", (t) => {
@@ -160,6 +161,11 @@ test("creates a missing manifest with the catalog's checksum casing", (t) => {
     [`${CHECKSUM_ID}.json`]
   );
   assert.ok(fs.existsSync(fixture.tokenPath));
+  const [item] = JSON.parse(fs.readFileSync(fixture.itemsPath, "utf8"));
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(item, "iosCollectionBrowserColumnCount"),
+    false
+  );
 });
 
 test("rejects case-colliding manifests before modifying the bundle", (t) => {
