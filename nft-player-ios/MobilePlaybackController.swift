@@ -303,6 +303,19 @@ class MobilePlaybackController {
         )
     }
 
+    func collectionBrowseThumbnailAspectRatioProfile(
+        snapshot: PlayerCollectionBrowseSnapshot
+    ) -> ThumbnailAspectRatioProfile? {
+        guard snapshot.itemCount > 0,
+              let profile = MobileCollectionCatalog.collectionBrowseThumbnailAspectRatioProfile(
+                specificCollectionId: snapshot.collectionId
+              ),
+              profile.isCompatible(withItemCount: snapshot.itemCount) else {
+            return nil
+        }
+        return profile
+    }
+
     func collectionBrowseThumbnailDescriptor(
         uuid: UUID,
         pagePosition: PlayerPagePosition

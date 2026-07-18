@@ -28,7 +28,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         let lastThumbnailWindowRequest: ThumbnailWindowRequest?
         let lastPrefetchDirection: DownloadableMediaCache.PrefetchDirection
         let lastScrollOffsetY: CGFloat?
-        let sampledImageSizes: [CGSize]
+        let layoutAspectProfile: MobilePlayerBrowserAspectProfile
         let sampledCollectionFallbackSpec: PlayerMediaPlaceholderSpec
     }
 
@@ -60,9 +60,12 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     var onSettledPagePosition: ((PlayerPagePosition, Bool) -> Bool)?
     var onSelection: ((MobilePlayerBrowserTransitionSelection) -> Bool)?
 
-    private let flowLayout = UICollectionViewFlowLayout()
+    private let browserCollectionLayout = MobilePlayerCollectionBrowserLayout()
     private lazy var collectionView: UICollectionView = {
-        let collectionView = UICollectionView(frame: .zero, collectionViewLayout: flowLayout)
+        let collectionView = UICollectionView(
+            frame: .zero,
+            collectionViewLayout: browserCollectionLayout
+        )
         collectionView.backgroundColor = .clear
         collectionView.isOpaque = false
         collectionView.alwaysBounceVertical = true
@@ -108,7 +111,11 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     private var scrollUpdateGeneration: UInt = 0
     private var isScrollUpdateScheduled = false
     private var preparedTransition: PreparedTransition?
-    private var sampledImageSizes = [CGSize(width: 1, height: 1)]
+    private var layoutAspectProfile = MobilePlayerBrowserAspectProfile(
+        itemCount: 0,
+        uniformImageSize: CGSize(width: 1, height: 1)
+    )
+    private var configuredBrowserLayout: MobilePlayerBrowserLayout?
     private var sampledCollectionFallbackSpec = PlayerMediaPlaceholderSpec(
         aspectSize: CGSize(width: 1, height: 1)
     )
@@ -190,8 +197,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
                sizeChanged || needsWindowSafeAreaCapture {
                 captureLayoutWindowSafeAreaInsets(windowSafeAreaInsets)
             }
-            configureFlowLayout()
-            collectionView.collectionViewLayout.invalidateLayout()
+            configureCollectionLayout()
             collectionView.layoutIfNeeded()
         }
 
@@ -487,7 +493,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             lastThumbnailWindowRequest: lastThumbnailWindowRequest,
             lastPrefetchDirection: lastPrefetchDirection,
             lastScrollOffsetY: lastScrollOffsetY,
-            sampledImageSizes: sampledImageSizes,
+            layoutAspectProfile: layoutAspectProfile,
             sampledCollectionFallbackSpec: sampledCollectionFallbackSpec
         )
     }
@@ -501,13 +507,12 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         browseSnapshot = preparedTransition.browseSnapshot
         publicationState = preparedTransition.publicationState
         hasFinishedInitialPositioning = preparedTransition.hasFinishedInitialPositioning
-        sampledImageSizes = preparedTransition.sampledImageSizes
+        layoutAspectProfile = preparedTransition.layoutAspectProfile
         sampledCollectionFallbackSpec = preparedTransition.sampledCollectionFallbackSpec
         cancelAllPrefetchLoads()
         visibleBrowserCells.forEach { $0.cancelImageLoad() }
         collectionView.reloadData()
-        configureFlowLayout()
-        collectionView.collectionViewLayout.invalidateLayout()
+        configureCollectionLayout()
         collectionView.layoutIfNeeded()
 
         if preparedTransition.layoutSize == collectionView.bounds.size {
@@ -739,26 +744,28 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         sampledAround focusedTokenIndex: Int?
     ) {
         browseSnapshot = snapshot
-        updateLayoutAspectSample(
+        updateLayoutAspectProfile(
             snapshot: snapshot,
             focusedTokenIndex: focusedTokenIndex
         )
         cancelAllPrefetchLoads()
         visibleBrowserCells.forEach { $0.cancelImageLoad() }
         collectionView.reloadData()
-        configureFlowLayout()
-        collectionView.collectionViewLayout.invalidateLayout()
+        configureCollectionLayout()
         collectionView.layoutIfNeeded()
     }
 
-    private func updateLayoutAspectSample(
+    private func updateLayoutAspectProfile(
         snapshot: PlayerCollectionBrowseSnapshot?,
         focusedTokenIndex: Int?
     ) {
         let defaultSize = CGSize(width: 1, height: 1)
         guard let snapshot,
               snapshot.itemCount > 0 else {
-            sampledImageSizes = [defaultSize]
+            layoutAspectProfile = MobilePlayerBrowserAspectProfile(
+                itemCount: 0,
+                uniformImageSize: defaultSize
+            )
             sampledCollectionFallbackSpec = PlayerMediaPlaceholderSpec(
                 aspectSize: defaultSize
             )
@@ -774,7 +781,8 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             max(focus - sampleCount / 2, 0),
             snapshot.itemCount - sampleCount
         )
-        let samples = (firstIndex..<(firstIndex + sampleCount)).compactMap {
+        let sampleRange = firstIndex..<(firstIndex + sampleCount)
+        let makeSample = {
             tokenIndex -> (index: Int, size: CGSize, usesNativeMetalCardCornerMask: Bool)? in
             guard let descriptor = MobilePlaybackController.shared.collectionBrowseThumbnailDescriptor(
                 snapshot: snapshot,
@@ -792,14 +800,57 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             return (tokenIndex, size, descriptor.usesNativeMetalCardPresentation)
         }
 
-        sampledImageSizes = samples.isEmpty ? [defaultSize] : samples.map { $0.size }
-        let nearestSample = samples.min { lhs, rhs in
-            let lhsDistance = abs(lhs.index - focus)
-            let rhsDistance = abs(rhs.index - focus)
-            return lhsDistance == rhsDistance
-                ? lhs.index < rhs.index
-                : lhsDistance < rhsDistance
+        let nearestSample:
+            (index: Int, size: CGSize, usesNativeMetalCardCornerMask: Bool)?
+        if let aspectRatioProfile =
+            MobilePlaybackController.shared.collectionBrowseThumbnailAspectRatioProfile(
+                snapshot: snapshot
+            ) {
+            switch aspectRatioProfile {
+            case let .uniform(aspectRatio):
+                layoutAspectProfile = MobilePlayerBrowserAspectProfile(
+                    itemCount: snapshot.itemCount,
+                    uniformImageSize: aspectRatio.size
+                )
+            case let .variable(aspectRatios):
+                layoutAspectProfile = MobilePlayerBrowserAspectProfile(
+                    heightToWidthRatios: aspectRatios.map {
+                        CGFloat($0.height) / CGFloat($0.width)
+                    }
+                )
+            }
+            nearestSample = sampleRange
+                .sorted {
+                    let lhsDistance = abs($0 - focus)
+                    let rhsDistance = abs($1 - focus)
+                    return lhsDistance == rhsDistance
+                        ? $0 < $1
+                        : lhsDistance < rhsDistance
+                }
+                .lazy
+                .compactMap(makeSample)
+                .first
+        } else {
+            let samples = sampleRange.compactMap(makeSample)
+            let layoutFallbackSize = samples
+                .map { $0.size }
+                .max {
+                    $0.height / $0.width < $1.height / $1.width
+                }
+                ?? defaultSize
+            layoutAspectProfile = MobilePlayerBrowserAspectProfile(
+                itemCount: snapshot.itemCount,
+                uniformImageSize: layoutFallbackSize
+            )
+            nearestSample = samples.min { lhs, rhs in
+                let lhsDistance = abs(lhs.index - focus)
+                let rhsDistance = abs(rhs.index - focus)
+                return lhsDistance == rhsDistance
+                    ? lhs.index < rhs.index
+                    : lhsDistance < rhsDistance
+            }
         }
+
         sampledCollectionFallbackSpec = PlayerMediaPlaceholderSpec(
             aspectSize: nearestSample?.size ?? defaultSize,
             usesNativeMetalCardCornerMask:
@@ -856,7 +907,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         prepareThumbnailWindow(around: targetTokenIndex, direction: .forward, force: true)
     }
 
-    private func configureFlowLayout() {
+    private func configureCollectionLayout() {
         let viewportSize = collectionView.bounds.size
         guard viewportSize.width > 0, viewportSize.height > 0 else { return }
 
@@ -866,26 +917,18 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             viewportSize: viewportSize,
             topContentInset: topInset,
             bottomContentInset: bottomInset,
-            sampledImageSizes: sampledImageSizes
+            aspectProfile: layoutAspectProfile
         ) else {
             return
         }
 
+        configuredBrowserLayout = browserLayout
+        browserCollectionLayout.browserLayout = browserLayout
         configuredColumnCount = MobilePlayerBrowserLayout.columnCount
         if configuredPrefetchStride != browserLayout.prefetchStride {
             configuredPrefetchStride = browserLayout.prefetchStride
             lastThumbnailWindowRequest = nil
         }
-        flowLayout.scrollDirection = .vertical
-        flowLayout.minimumInteritemSpacing = MobilePlayerBrowserLayout.itemSpacing
-        flowLayout.minimumLineSpacing = MobilePlayerBrowserLayout.itemSpacing
-        flowLayout.sectionInset = UIEdgeInsets(
-            top: topInset,
-            left: 0,
-            bottom: bottomInset,
-            right: 0
-        )
-        flowLayout.itemSize = browserLayout.itemSize
         collectionView.scrollIndicatorInsets = UIEdgeInsets(
             top: layoutWindowSafeAreaInsets.top,
             left: 0,
@@ -1094,10 +1137,21 @@ final class VerticalCollectionBrowserViewController: UIViewController,
 
         let lastRowFirstIndex = ((browseSnapshot.itemCount - 1) / configuredColumnCount)
             * configuredColumnCount
-        let rowTravel = flowLayout.itemSize.height + flowLayout.minimumLineSpacing
-        let lastRowFocalEntryY = lastRowFirstIndex > 0
-            ? lastAttributes.frame.midY - rowTravel / 2
-            : firstAttributes.frame.midY
+        let lastRowFocalEntryY: CGFloat
+        if lastRowFirstIndex > 0,
+           let previousRowAttributes =
+            collectionView.collectionViewLayout.layoutAttributesForItem(
+                at: IndexPath(
+                    item: lastRowFirstIndex - configuredColumnCount,
+                    section: 0
+                )
+            ) {
+            lastRowFocalEntryY = (
+                previousRowAttributes.frame.midY + lastAttributes.frame.midY
+            ) / 2
+        } else {
+            lastRowFocalEntryY = firstAttributes.frame.midY
+        }
 
         let verticalRange = verticalContentOffsetRange
         return PlayerCollectionScrollFocalGeometry(
@@ -1129,7 +1183,9 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         let standardFocalPoint = focalGeometry.focalPoint(at: contentOffsetY)
         let targetCenterY = attributes.frame.midY
         let rowTravel = max(
-            flowLayout.itemSize.height + flowLayout.minimumLineSpacing,
+            configuredBrowserLayout?.minimumAdjacentRowCenterDistance(
+                containingItemAt: tokenIndex
+            ) ?? attributes.frame.height + MobilePlayerBrowserLayout.itemSpacing,
             1
         )
         return PlayerCollectionScrollFocalBias(
@@ -1416,6 +1472,58 @@ final class VerticalCollectionBrowserViewController: UIViewController,
 
     private var visibleBrowserCells: [MobilePlayerCollectionBrowserCell] {
         collectionView.visibleCells.compactMap { $0 as? MobilePlayerCollectionBrowserCell }
+    }
+}
+
+private final class MobilePlayerCollectionBrowserLayout: UICollectionViewLayout {
+    override var developmentLayoutDirection: UIUserInterfaceLayoutDirection {
+        .leftToRight
+    }
+
+    override var flipsHorizontallyInOppositeLayoutDirection: Bool {
+        true
+    }
+
+    var browserLayout: MobilePlayerBrowserLayout? {
+        didSet {
+            invalidateLayout()
+        }
+    }
+
+    override var collectionViewContentSize: CGSize {
+        browserLayout?.contentSize ?? .zero
+    }
+
+    override func layoutAttributesForElements(
+        in rect: CGRect
+    ) -> [UICollectionViewLayoutAttributes]? {
+        guard let browserLayout else { return [] }
+        return browserLayout
+            .candidateItemIndices(intersecting: rect)
+            .compactMap { itemIndex in
+                let indexPath = IndexPath(item: itemIndex, section: 0)
+                guard let attributes = layoutAttributesForItem(at: indexPath),
+                      attributes.frame.intersects(rect) else {
+                    return nil
+                }
+                return attributes
+            }
+    }
+
+    override func layoutAttributesForItem(
+        at indexPath: IndexPath
+    ) -> UICollectionViewLayoutAttributes? {
+        guard indexPath.section == 0,
+              let frame = browserLayout?.itemFrame(at: indexPath.item) else {
+            return nil
+        }
+        let attributes = UICollectionViewLayoutAttributes(forCellWith: indexPath)
+        attributes.frame = frame
+        return attributes
+    }
+
+    override func shouldInvalidateLayout(forBoundsChange newBounds: CGRect) -> Bool {
+        collectionView?.bounds.size != newBounds.size
     }
 }
 

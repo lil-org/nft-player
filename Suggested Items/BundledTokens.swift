@@ -74,6 +74,61 @@ struct ThumbnailAspectRatioOverride: Codable {
     }
 }
 
+enum ThumbnailAspectRatioProfile: Hashable {
+    case uniform(ThumbnailAspectRatio)
+    case variable([ThumbnailAspectRatio])
+
+    func isCompatible(withItemCount itemCount: Int) -> Bool {
+        guard itemCount > 0 else { return false }
+        switch self {
+        case .uniform:
+            return true
+        case let .variable(aspectRatios):
+            return aspectRatios.count == itemCount
+        }
+    }
+}
+
+struct ThumbnailAspectRatioProfileBuilder {
+    private var itemCount = 0
+    private var firstAspectRatio: ThumbnailAspectRatio?
+    private var variableAspectRatios: [ThumbnailAspectRatio]?
+    private var hasMissingAspectRatio = false
+
+    mutating func append(_ aspectRatio: ThumbnailAspectRatio?) {
+        defer { itemCount += 1 }
+        guard !hasMissingAspectRatio,
+              let aspectRatio else {
+            hasMissingAspectRatio = true
+            variableAspectRatios = nil
+            return
+        }
+
+        guard let firstAspectRatio else {
+            self.firstAspectRatio = aspectRatio
+            return
+        }
+        if variableAspectRatios != nil {
+            variableAspectRatios?.append(aspectRatio)
+        } else if aspectRatio != firstAspectRatio {
+            variableAspectRatios = Array(repeating: firstAspectRatio, count: itemCount)
+            variableAspectRatios?.append(aspectRatio)
+        }
+    }
+
+    var profile: ThumbnailAspectRatioProfile? {
+        guard itemCount > 0,
+              !hasMissingAspectRatio,
+              let firstAspectRatio else {
+            return nil
+        }
+        if let variableAspectRatios {
+            return .variable(variableAspectRatios)
+        }
+        return .uniform(firstAspectRatio)
+    }
+}
+
 enum ThumbnailAspectRatioMetadata {
     static func resolve(
         aspectRatios: [ThumbnailAspectRatio]?,

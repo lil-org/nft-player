@@ -136,6 +136,15 @@ struct TokenGenerator {
         }
         return collectionData.tokens[tokenIndex]
     }
+
+    static func thumbnailAspectRatioProfile(
+        specificCollectionId: String
+    ) -> ThumbnailAspectRatioProfile? {
+        guard !isRangedNativeCollection(specificCollectionId) else { return nil }
+        return collectionData(
+            specificCollectionId: specificCollectionId
+        )?.thumbnailAspectRatioProfile
+    }
     
     static func isCollectionDisabledOnCurrentPlatform(id: String) -> Bool {
         if platformDisabledCollectionIds.contains(id) {
@@ -309,15 +318,21 @@ private struct CollectionTokenData {
     let script: Script
     let tokens: [BundledTokens.Item]
     let tokenIndicesById: [String: Int]
+    let thumbnailAspectRatioProfile: ThumbnailAspectRatioProfile?
 
     init(script: Script, tokens: [BundledTokens.Item]) {
         self.script = script
         self.tokens = tokens
 
         var tokenIndicesById = [String: Int]()
-        for (index, token) in tokens.enumerated() where tokenIndicesById[token.id] == nil {
-            tokenIndicesById[token.id] = index
+        var aspectRatioProfileBuilder = ThumbnailAspectRatioProfileBuilder()
+        for (index, token) in tokens.enumerated() {
+            aspectRatioProfileBuilder.append(token.thumbnailAspectRatio)
+            if tokenIndicesById[token.id] == nil {
+                tokenIndicesById[token.id] = index
+            }
         }
         self.tokenIndicesById = tokenIndicesById
+        self.thumbnailAspectRatioProfile = aspectRatioProfileBuilder.profile
     }
 }

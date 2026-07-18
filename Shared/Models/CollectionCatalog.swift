@@ -933,6 +933,30 @@ enum CollectionCatalog {
         )
     }
 
+    static func collectionBrowseThumbnailAspectRatioProfile(
+        specificCollectionId: String
+    ) -> ThumbnailAspectRatioProfile? {
+        if DownloadableCollectionService.hasCollection(id: specificCollectionId) {
+            return DownloadableCollectionService.thumbnailAspectRatioProfile(
+                collectionId: specificCollectionId
+            )
+        }
+        if let profile = TokenGenerator.thumbnailAspectRatioProfile(
+            specificCollectionId: specificCollectionId
+        ) {
+            return profile
+        }
+#if os(iOS)
+        if let renderKind = NativeMetalCardRenderKind(collectionId: specificCollectionId) {
+            return .uniform(ThumbnailAspectRatio(
+                width: Int(renderKind.staticImageSize.width),
+                height: Int(renderKind.staticImageSize.height)
+            ))
+        }
+#endif
+        return nil
+    }
+
     static func downloadableMediaDescriptor(for context: PlayerTokenContext?) -> CollectionCatalogDownloadableMediaDescriptor? {
         guard let context else { return nil }
         return downloadableMediaDescriptor(
@@ -1160,6 +1184,12 @@ private enum DownloadableCollectionService {
             media: media,
             thumbnailAspectRatio: token.thumbnailAspectRatio
         )
+    }
+
+    static func thumbnailAspectRatioProfile(
+        collectionId: String
+    ) -> ThumbnailAspectRatioProfile? {
+        tokenData(collectionId: collectionId)?.thumbnailAspectRatioProfile
     }
 
     private static func displayTokenId(
@@ -1465,16 +1495,22 @@ private struct DownloadableCollectionTokenData {
     let defaultFileExtension: String?
     let tokens: [DownloadableTokenItem]
     let tokenIndicesById: [String: Int]
+    let thumbnailAspectRatioProfile: ThumbnailAspectRatioProfile?
 
     init(defaultFileExtension: String?, tokens: [DownloadableTokenItem]) {
         self.defaultFileExtension = defaultFileExtension
         self.tokens = tokens
 
         var tokenIndicesById = [String: Int]()
-        for (index, token) in tokens.enumerated() where tokenIndicesById[token.id] == nil {
-            tokenIndicesById[token.id] = index
+        var aspectRatioProfileBuilder = ThumbnailAspectRatioProfileBuilder()
+        for (index, token) in tokens.enumerated() {
+            aspectRatioProfileBuilder.append(token.thumbnailAspectRatio)
+            if tokenIndicesById[token.id] == nil {
+                tokenIndicesById[token.id] = index
+            }
         }
         self.tokenIndicesById = tokenIndicesById
+        self.thumbnailAspectRatioProfile = aspectRatioProfileBuilder.profile
     }
 }
 
