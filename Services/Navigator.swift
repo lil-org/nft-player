@@ -10,8 +10,7 @@ class Navigator: NSObject {
 
     func showPlayer(
         collectionId: String,
-        ensureFrontAfterOpening: Bool = false,
-        trackingMode: PlayerViewingSessionTrackingMode = .updateContinueViewing
+        ensureFrontAfterOpening: Bool = false
     ) {
         guard CollectionCatalog.allItems.contains(where: { $0.id == collectionId }) else { return }
 
@@ -20,8 +19,7 @@ class Navigator: NSObject {
                 collectionId: progress.collectionId,
                 initialTokenId: progress.tokenId,
                 continueViewingCollectionId: progress.collectionId,
-                ensureFrontAfterOpening: ensureFrontAfterOpening,
-                trackingMode: trackingMode
+                ensureFrontAfterOpening: ensureFrontAfterOpening
             )
             return
         }
@@ -29,8 +27,7 @@ class Navigator: NSObject {
         showPlayer(
             collectionId: collectionId,
             continueViewingCollectionId: collectionId,
-            ensureFrontAfterOpening: ensureFrontAfterOpening,
-            trackingMode: trackingMode
+            ensureFrontAfterOpening: ensureFrontAfterOpening
         )
     }
 
@@ -39,8 +36,7 @@ class Navigator: NSObject {
             showPlayer(
                 collectionId: collectionId,
                 widgetTokenId: tokenId,
-                ensureFrontAfterOpening: ensureFrontAfterOpening,
-                trackingMode: .updateContinueViewing
+                ensureFrontAfterOpening: ensureFrontAfterOpening
             )
         } else {
             showPlayer(
@@ -53,8 +49,7 @@ class Navigator: NSObject {
     private func showPlayer(
         collectionId: String,
         widgetTokenId: String,
-        ensureFrontAfterOpening: Bool,
-        trackingMode: PlayerViewingSessionTrackingMode
+        ensureFrontAfterOpening: Bool
     ) {
         guard let widgetTokenInsertion = CollectionCatalog.widgetTokenInsertion(
             collectionId: collectionId,
@@ -63,8 +58,7 @@ class Navigator: NSObject {
         ) else {
             showPlayer(
                 collectionId: collectionId,
-                ensureFrontAfterOpening: ensureFrontAfterOpening,
-                trackingMode: trackingMode
+                ensureFrontAfterOpening: ensureFrontAfterOpening
             )
             return
         }
@@ -72,11 +66,9 @@ class Navigator: NSObject {
         if let anchorProgress = widgetTokenInsertion.automaticAnchorProgress() {
             PlayerViewingProgressStore.save(anchorProgress)
         }
-        if trackingMode.updatesContinueViewing {
-            PlayerViewingProgressStore.setContinueViewingCollectionId(collectionId)
-        }
+        PlayerViewingProgressStore.setContinueViewingCollectionId(collectionId)
         showPlayer(
-            model: PlayerModel(widgetTokenInsertion: widgetTokenInsertion, trackingMode: trackingMode),
+            model: PlayerModel(widgetTokenInsertion: widgetTokenInsertion),
             ensureFrontAfterOpening: ensureFrontAfterOpening
         )
     }
@@ -85,23 +77,19 @@ class Navigator: NSObject {
         collectionId: String,
         initialTokenId: String? = nil,
         continueViewingCollectionId: String,
-        ensureFrontAfterOpening: Bool = false,
-        trackingMode: PlayerViewingSessionTrackingMode = .updateContinueViewing
+        ensureFrontAfterOpening: Bool = false
     ) {
-        if trackingMode.updatesContinueViewing {
-            PlayerViewingProgressStore.setContinueViewingCollectionId(continueViewingCollectionId)
-        }
+        PlayerViewingProgressStore.setContinueViewingCollectionId(continueViewingCollectionId)
         let preparedToken = PlayerTokenPrewarmer.preparedToken(
             initialCollectionId: collectionId,
             initialTokenId: initialTokenId
         )
         let model = preparedToken.map {
-            PlayerModel(token: $0, trackingMode: trackingMode)
+            PlayerModel(token: $0)
         } ?? PlayerModel(
             collectionId: collectionId,
             initialTokenId: initialTokenId,
-            continueViewingCollectionId: continueViewingCollectionId,
-            trackingMode: trackingMode
+            continueViewingCollectionId: continueViewingCollectionId
         )
         showPlayer(model: model, ensureFrontAfterOpening: ensureFrontAfterOpening)
     }

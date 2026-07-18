@@ -1341,14 +1341,34 @@ async function writeBundle(collections, context, failedCollections = []) {
   const bundlePath = path.resolve(options.bundlePath);
   const tokensPath = path.join(bundlePath, "Tokens");
   const itemsPath = path.join(bundlePath, "items.json");
-  await fs.mkdir(tokensPath, { recursive: true });
 
   const existingItems = JSON.parse(await fs.readFile(itemsPath, "utf8"));
-  assertUniqueCoverAssetIds(collections, { caseInsensitive: true });
   const updatedItems = assignInternalSlugs(mergeSuggestedItems(existingItems, collections));
+  const persistedCollectionIds = new Map(collections.map((collection) => [
+    collection,
+    canonicalPersistedCollectionId(collection, updatedItems),
+  ]));
+  for (const [collection, persistedCollectionId] of persistedCollectionIds) {
+    collection.cover.assetId = persistedCollectionId;
+  }
+  assertUniqueCoverAssetIds(collections, { caseInsensitive: true });
+  const existingTokenManifestNames = await directoryNamesIfExists(tokensPath);
+  const tokenManifestPaths = new Map(collections.map((collection) => [
+    collection,
+    tokenManifestPathForCollection(
+      tokensPath,
+      collection,
+      persistedCollectionIds.get(collection),
+      existingTokenManifestNames
+    ),
+  ]));
+  const coverArtifacts = options.skipCovers
+    ? null
+    : await coverArtifactsForCollections(collections, options.coversPath);
 
+  await fs.mkdir(tokensPath, { recursive: true });
   for (const collection of collections) {
-    const outputPath = path.join(tokensPath, `${collection.collectionId}.json`);
+    const outputPath = tokenManifestPaths.get(collection);
     const tmpFilesResult = await preserveTmpFilesFromFile(outputPath, collection.tokenPayload);
     reportTmpFilesChanges(collection.collectionId, tmpFilesResult.report);
     const aspectRatioResult = await preserveAspectRatioMetadataFromFile(outputPath, tmpFilesResult.payload);
@@ -1359,11 +1379,59 @@ async function writeBundle(collections, context, failedCollections = []) {
   await fs.writeFile(itemsPath, formatSuggestedItems(updatedItems));
 
   if (!options.skipCovers) {
-    await writeCovers(collections, context);
+    await writeCovers(collections, context, coverArtifacts);
   }
 
   await writeReports(collections, options, false, failedCollections);
   console.log(`Wrote ${collections.length} Ethereum/EVM collection bundle(s).`);
+}
+
+function tokenManifestPathForCollection(
+  tokensPath,
+  collection,
+  persistedCollectionId,
+  existingFileNames
+) {
+  const fileName = `${persistedCollectionId}.json`;
+  assertCaseExactArtifactName(
+    fileName,
+    existingFileNames,
+    `token manifest for ${collection.collectionId}`
+  );
+
+  return path.join(tokensPath, fileName);
+}
+
+function assertCaseExactArtifactName(expectedName, existingNames, label) {
+  const caseInsensitiveMatches = existingNames.filter(
+    (candidate) => candidate.toLowerCase() === expectedName.toLowerCase()
+  );
+
+  if (caseInsensitiveMatches.length > 1) {
+    throw new Error(`Ambiguous ${label}: ${caseInsensitiveMatches.join(", ")}`);
+  }
+  if (caseInsensitiveMatches.length === 1 && caseInsensitiveMatches[0] !== expectedName) {
+    throw new Error(
+      `Filename casing mismatch for ${label}: expected ${expectedName}, `
+      + `but found ${caseInsensitiveMatches[0]}`
+    );
+  }
+}
+
+function canonicalPersistedCollectionId(collection, items) {
+  const identity = collection.collectionId.toLowerCase();
+  const chain = collection.appChain.toLowerCase();
+  const matches = items
+    .filter((item) => String(item.chain).toLowerCase() === chain)
+    .map((item) => suggestedItemId(item))
+    .filter((collectionId) => collectionId.toLowerCase() === identity);
+
+  if (matches.length !== 1) {
+    throw new Error(
+      `Expected exactly one items.json entry for ${collection.collectionId}; found ${matches.length}`
+    );
+  }
+  return matches[0];
 }
 
 function mergeSuggestedItems(existingItems, collections) {
@@ -1436,10 +1504,11 @@ function formatSuggestedItems(items) {
   return `${JSON.stringify(items, null, 2).replace(/"([^"]+)":/gu, "\"$1\" :")}\n`;
 }
 
-async function writeCovers(collections, context) {
+async function writeCovers(collections, context, coverArtifacts) {
   const coverTools = await resolveCoverTools();
+
   for (const collection of collections) {
-    const coverAssetId = coverAssetIdForCollection(collection);
+    const { coverAssetId, imagesetPath, outputPath } = coverArtifacts.get(collection);
     const coverCandidates = uniqueCoverCandidates([
       {
         url: collection.cover.sourceUrl,
@@ -1460,8 +1529,6 @@ async function writeCovers(collections, context) {
       continue;
     }
 
-    const imagesetPath = path.join(context.options.coversPath, `${coverAssetId}.imageset`);
-    const outputPath = path.join(imagesetPath, `${coverAssetId}.jpg`);
     await fs.mkdir(imagesetPath, { recursive: true });
 
     let lastError = null;
@@ -1506,6 +1573,54 @@ async function writeCovers(collections, context) {
   }
 
   await assertCoverCatalogIsAssetCatalogCompatible(context.options.coversPath);
+}
+
+async function coverArtifactsForCollections(collections, coversPath) {
+  const existingImagesetNames = await directoryNamesIfExists(coversPath);
+  const artifacts = new Map();
+
+  for (const collection of collections) {
+    const coverAssetId = coverAssetIdForCollection(collection);
+    const imagesetName = `${coverAssetId}.imageset`;
+    assertCaseExactArtifactName(
+      imagesetName,
+      existingImagesetNames,
+      `cover asset for ${collection.collectionId}`
+    );
+
+    const imagesetPath = path.join(coversPath, imagesetName);
+    const existingImagesetFileNames = existingImagesetNames.includes(imagesetName)
+      ? await fs.readdir(imagesetPath)
+      : [];
+    assertCaseExactArtifactName(
+      `${coverAssetId}.jpg`,
+      existingImagesetFileNames,
+      `cover image for ${collection.collectionId}`
+    );
+    assertCaseExactArtifactName(
+      "Contents.json",
+      existingImagesetFileNames,
+      `cover Contents.json for ${collection.collectionId}`
+    );
+    artifacts.set(collection, {
+      coverAssetId,
+      imagesetPath,
+      outputPath: path.join(imagesetPath, `${coverAssetId}.jpg`),
+    });
+  }
+
+  return artifacts;
+}
+
+async function directoryNamesIfExists(directoryPath) {
+  try {
+    return await fs.readdir(directoryPath);
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return [];
+    }
+    throw error;
+  }
 }
 
 async function reachableCoverCandidates(candidates, timeoutMs, concurrency) {

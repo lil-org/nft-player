@@ -35,56 +35,30 @@ struct PlayerContinueViewingState: Codable, Hashable {
     let entries: [PlayerContinueViewingEntry]
     let updatedAt: Date
 
-    init(collectionId: String?, updatedAt: Date) {
-        entries = Self.entry(collectionId: collectionId, updatedAt: updatedAt).map { [$0] } ?? []
-        self.updatedAt = updatedAt
-    }
-
     init(entries: [PlayerContinueViewingEntry], updatedAt: Date? = nil) {
         self.entries = entries
-        self.updatedAt = updatedAt ?? Self.legacyUpdatedAt(for: entries)
+        self.updatedAt = updatedAt ?? Self.fallbackUpdatedAt(for: entries)
     }
 
     enum CodingKeys: String, CodingKey {
         case entries
-        case collectionId
         case updatedAt
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        entries = try container.decode([PlayerContinueViewingEntry].self, forKey: .entries)
         let decodedUpdatedAt = try container.decodeIfPresent(Date.self, forKey: .updatedAt)
-
-        if let decodedEntries = try container.decodeIfPresent([PlayerContinueViewingEntry].self, forKey: .entries),
-           !decodedEntries.isEmpty {
-            entries = decodedEntries
-            updatedAt = decodedUpdatedAt ?? Self.legacyUpdatedAt(for: decodedEntries)
-            return
-        }
-
-        let updatedAt = decodedUpdatedAt ?? .distantPast
-        let collectionId = try container.decodeIfPresent(String.self, forKey: .collectionId)
-        entries = Self.entry(collectionId: collectionId, updatedAt: updatedAt).map { [$0] } ?? []
-        self.updatedAt = updatedAt
+        updatedAt = decodedUpdatedAt ?? Self.fallbackUpdatedAt(for: entries)
     }
 
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(entries, forKey: .entries)
-        try container.encodeIfPresent(collectionId, forKey: .collectionId)
         try container.encode(updatedAt, forKey: .updatedAt)
     }
 
-    var collectionId: String? {
-        entries.first { !$0.isRemoved }?.collectionId
-    }
-
-    private static func entry(collectionId: String?, updatedAt: Date) -> PlayerContinueViewingEntry? {
-        guard let collectionId, !collectionId.isEmpty else { return nil }
-        return PlayerContinueViewingEntry(collectionId: collectionId, updatedAt: updatedAt)
-    }
-
-    private static func legacyUpdatedAt(for entries: [PlayerContinueViewingEntry]) -> Date {
+    private static func fallbackUpdatedAt(for entries: [PlayerContinueViewingEntry]) -> Date {
         entries.first { !$0.isRemoved }?.updatedAt
             ?? entries.first?.updatedAt
             ?? .distantPast
@@ -170,10 +144,6 @@ struct PlayerViewingProgressSnapshot: Hashable {
     let viewedToEndCollectionIds: Set<String>
     let recentContinueViewingProgresses: [PlayerViewingProgress]
 
-    var continueViewingProgress: PlayerViewingProgress? {
-        recentContinueViewingProgresses.first
-    }
-
     func firstVisibleContinueViewingProgress(
         isVisibleCollection: (String) -> Bool
     ) -> PlayerViewingProgress? {
@@ -190,9 +160,6 @@ enum PlayerViewingProgressStore {
     private static let continueViewingSyncDomain = PlayerSyncDomain.continueViewingState
     private static let maximumActiveContinueViewingEntryCount = 20
     private static let maximumRemovedContinueViewingEntryCount = 20
-    private static let legacyMobileProgressKey = "mobileViewingProgressByCollectionId"
-    private static let continueViewingCollectionIdKey = "playerContinueViewingCollectionId"
-    private static let legacyMobileContinueViewingCollectionIdKey = "mobileContinueViewingCollectionId"
     private static let userDefaults = UserDefaults.standard
     private static var cachedProgressByCollectionId: ProgressByCollectionId?
     private static var cachedProgressData: Data?
@@ -309,16 +276,15 @@ enum PlayerViewingProgressStore {
         return .localChanged
     }
 
-    static func clearLocalSyncedData() {
+#if SWIFT_PACKAGE
+    static func resetForTesting() {
         cachedProgressByCollectionId = [:]
         cachedProgressData = nil
         userDefaults.removeObject(forKey: progressSyncDomain.key)
-        userDefaults.removeObject(forKey: legacyMobileProgressKey)
         userDefaults.removeObject(forKey: continueViewingSyncDomain.key)
-        userDefaults.removeObject(forKey: continueViewingCollectionIdKey)
-        userDefaults.removeObject(forKey: legacyMobileContinueViewingCollectionIdKey)
         NotificationCenter.default.post(name: .playerViewingProgressDidChange, object: nil)
     }
+#endif
 
     private static func recentContinueViewingProgresses(in progressByCollectionId: ProgressByCollectionId) -> [PlayerViewingProgress] {
         guard let state = continueViewingState() else { return [] }
@@ -342,12 +308,6 @@ enum PlayerViewingProgressStore {
         if let progress = decodeProgress(from: storedData) {
             cachedProgressByCollectionId = progress
             cachedProgressData = storedData
-            return progress
-        }
-
-        if let legacyData = userDefaults.data(forKey: legacyMobileProgressKey),
-           let progress = decodeProgress(from: legacyData) {
-            save(progress)
             return progress
         }
 
@@ -379,16 +339,9 @@ enum PlayerViewingProgressStore {
     }
 
     private static func continueViewingState() -> PlayerContinueViewingState? {
-        if let data = userDefaults.data(forKey: continueViewingSyncDomain.key),
-           let state = decodeContinueViewingState(from: data) {
-            return state
-        }
-
-        let legacyCollectionId = userDefaults.string(forKey: continueViewingCollectionIdKey)
-            ?? userDefaults.string(forKey: legacyMobileContinueViewingCollectionIdKey)
-        guard let legacyCollectionId else { return nil }
-
-        return PlayerContinueViewingState(collectionId: legacyCollectionId, updatedAt: .distantPast)
+        decodeContinueViewingState(
+            from: userDefaults.data(forKey: continueViewingSyncDomain.key)
+        )
     }
 
     private static func saveContinueViewingState(
@@ -399,12 +352,6 @@ enum PlayerViewingProgressStore {
         guard let data = encodeContinueViewingState(normalizedState) else { return }
 
         userDefaults.set(data, forKey: continueViewingSyncDomain.key)
-        if let collectionId = normalizedState.collectionId {
-            userDefaults.set(collectionId, forKey: continueViewingCollectionIdKey)
-        } else {
-            userDefaults.removeObject(forKey: continueViewingCollectionIdKey)
-        }
-        userDefaults.removeObject(forKey: legacyMobileContinueViewingCollectionIdKey)
         NotificationCenter.default.post(name: .playerViewingProgressDidChange, object: nil)
 #if os(macOS) || os(iOS) || os(visionOS) || os(tvOS)
         if mirrorToICloud {
@@ -590,7 +537,7 @@ enum PlayerViewingProgressStore {
             }
 
         let state = normalizedContinueViewingState(PlayerContinueViewingState(entries: entries))
-        guard state.collectionId != nil else {
+        guard state.entries.contains(where: { !$0.isRemoved }) else {
             return nil
         }
         return state

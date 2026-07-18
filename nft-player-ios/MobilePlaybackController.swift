@@ -285,8 +285,7 @@ class MobilePlaybackController {
         displays[config.id] = display
         initialConfigs[config.id] = config
         viewingSessionTrackers[config.id] = PlayerViewingSessionTracker(
-            continueViewingCollectionId: config.continueViewingCollectionId,
-            trackingMode: config.trackingMode
+            continueViewingCollectionId: config.continueViewingCollectionId
         )
     }
     
@@ -576,10 +575,6 @@ class MobilePlaybackController {
         dataSource(uuid: uuid)?.acknowledgeIntentionalViewingPosition()
     }
 
-    func progress(uuid: UUID, pagePosition: PlayerPagePosition) -> MobileViewingProgress? {
-        dataSource(uuid: uuid)?.progress(pagePosition: pagePosition)
-    }
-
     func progress(
         uuid: UUID,
         pagePosition: PlayerPagePosition,
@@ -660,8 +655,7 @@ class MobilePlaybackController {
         }
 
         let tracker = PlayerViewingSessionTracker(
-            continueViewingCollectionId: initialConfigs[uuid]?.continueViewingCollectionId,
-            trackingMode: initialConfigs[uuid]?.trackingMode ?? .updateContinueViewing
+            continueViewingCollectionId: initialConfigs[uuid]?.continueViewingCollectionId
         )
         viewingSessionTrackers[uuid] = tracker
         return tracker
@@ -694,7 +688,6 @@ enum MobilePlayerPrewarmer {
         initialTokenId: String? = nil,
         initialTokenIndex: Int? = nil,
         continueViewingCollectionId: String?,
-        trackingMode: PlayerViewingSessionTrackingMode = .updateContinueViewing,
         widgetTokenInsertion: PlayerWidgetTokenInsertion? = nil
     ) -> MobilePlayerConfig {
         var config = MobilePlayerConfig(
@@ -702,7 +695,6 @@ enum MobilePlayerPrewarmer {
             initialTokenId: initialTokenId,
             initialTokenIndex: initialTokenIndex,
             continueViewingCollectionId: continueViewingCollectionId,
-            trackingMode: trackingMode,
             widgetTokenInsertion: widgetTokenInsertion
         )
         if widgetTokenInsertion == nil {

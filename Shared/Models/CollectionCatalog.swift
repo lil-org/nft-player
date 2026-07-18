@@ -65,10 +65,6 @@ struct CollectionCatalogDownloadableMediaDescriptor: Hashable {
         return NativeMetalCardRenderKind(collectionId: collectionId)
     }
 
-    var isNativeMetalCard: Bool {
-        nativeMetalCardRenderKind != nil
-    }
-
     var usesNativeMetalCardPresentation: Bool {
         NativeMetalCardRenderKind(collectionId: collectionId) != nil
     }
@@ -1137,8 +1133,6 @@ private enum DownloadableCollectionService {
             displayName: token.name ?? "\(collection.name) \(displayTokenId)",
             displayTokenId: displayTokenId,
             url: webURL,
-            instructions: nil,
-            screensaver: nil,
             media: media
         )
     }

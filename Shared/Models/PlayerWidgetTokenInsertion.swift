@@ -2,7 +2,7 @@
 
 import Foundation
 
-struct PlayerWidgetTokenInsertion: Hashable, Codable {
+struct PlayerWidgetTokenInsertion: Hashable {
     let insertedToken: GeneratedToken
     let insertedTokenIndex: Int
     let anchorProgress: PlayerViewingProgress
@@ -18,25 +18,6 @@ struct PlayerWidgetTokenInsertion: Hashable, Codable {
         self.insertedTokenIndex = insertedTokenIndex
         self.anchorProgress = anchorProgress
         self.isAnchorProgressResolved = isAnchorProgressResolved
-    }
-
-    private enum CodingKeys: String, CodingKey {
-        case insertedToken
-        case insertedTokenIndex
-        case anchorProgress
-        case isAnchorProgressResolved
-    }
-
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        insertedToken = try container.decode(GeneratedToken.self, forKey: .insertedToken)
-        insertedTokenIndex = try container.decode(Int.self, forKey: .insertedTokenIndex)
-        anchorProgress = try container.decode(PlayerViewingProgress.self, forKey: .anchorProgress)
-        // Legacy payloads cannot prove that a synthesized zero anchor was valid.
-        isAnchorProgressResolved = try container.decodeIfPresent(
-            Bool.self,
-            forKey: .isAnchorProgressResolved
-        ) ?? false
     }
 
     var collectionId: String {

@@ -6,9 +6,6 @@ extension Images {
     
     static let shuffle = Image(systemName: "shuffle")
     static let gearshape = Image(systemName: "gearshape")
-#if os(macOS)
-    static let play = Image(systemName: "play")
-#endif
     static let ellipsis = Image(systemName: "ellipsis")
     static let back = Image(systemName: "chevron.backward")
     static let forward = Image(systemName: "chevron.forward")

@@ -47,6 +47,8 @@ Rows include a fourth extension field only when a token differs from `defaultFil
 
 If an existing token JSON contains a top-level `tmp_files` map, `--apply` preserves entries whose token mint is still present in `items`. It drops and reports stale token mints, ignores invalid file names, and omits the map when no valid entries remain. This preservation reads only the existing token JSON; rebundling does not require `Originals Downloaded` to exist.
 
+The bundler also preserves compact `thumbnailAspectRatios` metadata by token mint, so reordering or removing tokens cannot attach a ratio to the wrong asset. If a newly discovered mint has no existing ratio, the bundler omits the incomplete metadata and reports the missing mint; regenerate the ratios before shipping.
+
 ## Media Policy
 
 - Prefer original `content.files[].uri` from Helius over CDN URLs.
@@ -64,13 +66,12 @@ If an existing token JSON contains a top-level `tmp_files` map, `--apply` preser
 After applying a bundle, run:
 
 ```sh
-node tools/check_bundled_collection_downloads.js --samples 5 --retries 3 --full --collection "<collection id or name>"
+node --test tools/*.test.js
+node scripts/generate-widget-resources.mjs --check
 sips -g format -g pixelWidth -g pixelHeight -g hasAlpha -g samplesPerPixel -g profile "Suggested Items/Covers.xcassets/<coverAssetId>.imageset/<coverAssetId>.jpg"
 magick identify -format "%m %[colorspace] %[channels] %w %h %[profiles]\n" "Suggested Items/Covers.xcassets/<coverAssetId>.imageset/<coverAssetId>.jpg"
 xcodebuild -project nft-player.xcodeproj -scheme nft-player-ios -destination 'generic/platform=iOS' build
 ```
-
-For a full batch, omit `--collection` from the download checker if you want it to sample every bundled collection.
 
 Before shipping, do a highest-resolution source audit against the Helius response data:
 

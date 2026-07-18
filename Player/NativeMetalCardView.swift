@@ -15,7 +15,6 @@ final class NativeMetalCardView: NSView {
 
     private static let pointerTrackingInterval: TimeInterval = 1.0 / 30.0
 
-    private var metalView: MTKView?
     private var renderer: NativeMetalCardRenderer?
     private var trackingArea: NSTrackingArea?
     private var windowFocusObservers = [NSObjectProtocol]()
@@ -140,7 +139,6 @@ final class NativeMetalCardView: NSView {
         ])
 
         renderer.attach(to: metalView)
-        self.metalView = metalView
         self.renderer = renderer
     }
 

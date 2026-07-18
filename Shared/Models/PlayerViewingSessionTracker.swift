@@ -2,39 +2,21 @@
 
 import Foundation
 
-enum PlayerViewingSessionTrackingMode: Hashable, Codable {
-    case updateContinueViewing
-    case progressOnly
-
-    var updatesContinueViewing: Bool {
-        self == .updateContinueViewing
-    }
-}
-
 struct PlayerViewingSessionTracker {
 
     private let continueViewingCollectionId: String?
-    private let trackingMode: PlayerViewingSessionTrackingMode
     private var restartSuppressedCollectionId: String?
 
-    init(
-        continueViewingCollectionId: String?,
-        trackingMode: PlayerViewingSessionTrackingMode = .updateContinueViewing
-    ) {
+    init(continueViewingCollectionId: String?) {
         self.continueViewingCollectionId = continueViewingCollectionId
-        self.trackingMode = trackingMode
     }
 
     mutating func markViewed(_ progress: PlayerViewingProgress) {
         PlayerViewingProgressStore.save(progress)
-        guard trackingMode.updatesContinueViewing else { return }
-
         updateContinueViewingCollection(for: progress)
     }
 
     mutating func beginRestart(collectionId: String?) {
-        guard trackingMode.updatesContinueViewing else { return }
-
         guard let collectionId, !collectionId.isEmpty else {
             restartSuppressedCollectionId = nil
             return

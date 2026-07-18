@@ -210,10 +210,6 @@ final class NativeMetalCardAssetCache {
         cancelStalePrefetchDownloads(keeping: [])
     }
 
-    func invalidateTokenSpecificAssets(for tokenID: Int) {
-        invalidateAssets(tokenSpecificAssets(for: tokenID))
-    }
-
     func invalidateFaceAsset(for tokenID: Int) {
         invalidateAssets([faceAsset(for: tokenID)])
     }
@@ -701,7 +697,6 @@ private protocol NativeMetalCardAssetCaching: AnyObject {
     func cacheFace(for tokenID: Int, from sourceURL: URL, completion: ((Bool) -> Void)?)
     func loadEffectAssets(for tokenID: Int, completion: @escaping (NativeMetalCardAssetURLs?) -> Void)
     func prefetch(around tokenID: Int, radius: Int)
-    func invalidate(tokenID: Int)
     func invalidateFaceAsset(for tokenID: Int)
     func invalidateEffectAssets(for tokenID: Int)
     func invalidate(_ asset: NativeMetalCardAssetPath)
@@ -777,10 +772,6 @@ extension NativeMetalCardRenderKind {
 
     func prefetch(around tokenID: Int, radius: Int) {
         assetCache.prefetch(around: tokenID, radius: radius)
-    }
-
-    func invalidate(tokenID: Int) {
-        assetCache.invalidate(tokenID: tokenID)
     }
 
     func invalidateFaceAsset(for tokenID: Int) {

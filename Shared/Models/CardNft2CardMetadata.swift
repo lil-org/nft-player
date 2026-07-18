@@ -9,8 +9,6 @@ struct CardNft2CardMetadata {
     }
 
     static let tokenCount = 11_133
-    static let commonTokenCount = 4_983
-    private static let expectedCommonTokenIDsChecksum: UInt64 = 0xc917638ff3f8990c
 
     var nativeMetalMetadata: NativeMetalCardMetadata {
         NativeMetalCardMetadata(
@@ -287,23 +285,4 @@ struct CardNft2CardMetadata {
         6946, 6947, 6948, 6974, 6975, 6976, 6977, 6978, 6979, 6980, 6981, 6982, 6983, 6986, 6987, 6989, 6990, 6992, 6993, 6994,
         6995, 6996, 6997
     ]
-
-    private static let commonTokenIDsAreValid: Bool = {
-        commonTokenIDs.count == commonTokenCount
-            && checksum(for: commonTokenIDs) == expectedCommonTokenIDsChecksum
-    }()
-
-    // FNV-1a over sorted common token IDs encoded as little-endian UInt32 values.
-    private static func checksum(for tokenIDs: Set<Int>) -> UInt64 {
-        var hash: UInt64 = 0xcbf29ce484222325
-        for tokenID in tokenIDs.sorted() {
-            var value = UInt64(tokenID)
-            for _ in 0..<4 {
-                hash ^= value & 0xff
-                hash = hash &* 0x100000001b3
-                value >>= 8
-            }
-        }
-        return hash
-    }
 }

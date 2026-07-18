@@ -2,7 +2,7 @@
 
 import Foundation
 
-enum GeneratedTokenRenderKind: String, Hashable, Codable {
+enum GeneratedTokenRenderKind: String, Hashable {
     case html
     case ponchoDrifellaMetal
     case cardNft2Metal
@@ -44,7 +44,7 @@ extension GeneratedTokenRenderKind {
     }
 }
 
-enum GeneratedTokenMedia: Hashable, Codable {
+enum GeneratedTokenMedia: Hashable {
     case staticImage(url: URL, fileExtension: String)
     case animatedImage(url: URL, fileExtension: String)
     case video(url: URL, fileExtension: String)
@@ -73,7 +73,7 @@ enum GeneratedTokenMedia: Hashable, Codable {
 
 }
 
-struct GeneratedToken: Hashable, Codable, Identifiable {
+struct GeneratedToken: Hashable, Identifiable {
     let fullCollectionId: String
     let collectionName: String
     let address: String
@@ -82,8 +82,6 @@ struct GeneratedToken: Hashable, Codable, Identifiable {
     let displayName: String
     let displayTokenId: String
     let url: URL?
-    let instructions: String?
-    let screensaver: URL?
     let media: GeneratedTokenMedia?
     let renderKind: GeneratedTokenRenderKind?
 
@@ -100,8 +98,6 @@ struct GeneratedToken: Hashable, Codable, Identifiable {
         displayName: String,
         displayTokenId: String,
         url: URL?,
-        instructions: String?,
-        screensaver: URL?,
         media: GeneratedTokenMedia? = nil,
         renderKind: GeneratedTokenRenderKind? = nil
     ) {
@@ -113,11 +109,18 @@ struct GeneratedToken: Hashable, Codable, Identifiable {
         self.displayName = displayName
         self.displayTokenId = displayTokenId
         self.url = url
-        self.instructions = instructions
-        self.screensaver = screensaver
         self.media = media
         self.renderKind = renderKind
     }
-    
-    static let empty = GeneratedToken(fullCollectionId: "", collectionName: "", address: "", id: "", html: "", displayName: "", displayTokenId: "", url: nil, instructions: nil, screensaver: nil)
+
+    static let empty = GeneratedToken(
+        fullCollectionId: "",
+        collectionName: "",
+        address: "",
+        id: "",
+        html: "",
+        displayName: "",
+        displayTokenId: "",
+        url: nil
+    )
 }

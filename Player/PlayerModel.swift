@@ -14,7 +14,6 @@ class PlayerModel: ObservableObject {
     }
     @Published var history: [GeneratedToken]
     @Published var currentIndex: Int = 0
-    @Published var showingInfoPopover = false
     @Published private(set) var isCurrentTokenInsertedWidgetToken = false
     @Published private(set) var isCurrentTokenBookmarked = false
     private static let historyTrimThreshold = 23
@@ -37,45 +36,35 @@ class PlayerModel: ObservableObject {
     init(
         collectionId: String,
         initialTokenId: String? = nil,
-        continueViewingCollectionId: String? = nil,
-        trackingMode: PlayerViewingSessionTrackingMode = .updateContinueViewing
+        continueViewingCollectionId: String? = nil
     ) {
         let token = Self.initialToken(collectionId: collectionId, initialTokenId: initialTokenId) ?? GeneratedToken.empty
         self.currentToken = token
         self.history = [token]
         self.widgetTokenInsertion = nil
         self.viewingSessionTracker = PlayerViewingSessionTracker(
-            continueViewingCollectionId: continueViewingCollectionId ?? collectionId,
-            trackingMode: trackingMode
+            continueViewingCollectionId: continueViewingCollectionId ?? collectionId
         )
         configureBookmarkState(for: token)
     }
     
-    init(
-        token: GeneratedToken,
-        trackingMode: PlayerViewingSessionTrackingMode = .updateContinueViewing
-    ) {
+    init(token: GeneratedToken) {
         self.currentToken = token
         self.history = [token]
         self.widgetTokenInsertion = nil
         self.viewingSessionTracker = PlayerViewingSessionTracker(
-            continueViewingCollectionId: token.fullCollectionId,
-            trackingMode: trackingMode
+            continueViewingCollectionId: token.fullCollectionId
         )
         configureBookmarkState(for: token)
     }
 
-    init(
-        widgetTokenInsertion: PlayerWidgetTokenInsertion,
-        trackingMode: PlayerViewingSessionTrackingMode = .updateContinueViewing
-    ) {
+    init(widgetTokenInsertion: PlayerWidgetTokenInsertion) {
         self.currentToken = widgetTokenInsertion.insertedToken
         self.history = [widgetTokenInsertion.insertedToken]
         self.widgetTokenInsertion = widgetTokenInsertion
         self.isCurrentTokenInsertedWidgetToken = true
         self.viewingSessionTracker = PlayerViewingSessionTracker(
-            continueViewingCollectionId: widgetTokenInsertion.collectionId,
-            trackingMode: trackingMode
+            continueViewingCollectionId: widgetTokenInsertion.collectionId
         )
         configureBookmarkState(for: widgetTokenInsertion.insertedToken)
     }
@@ -127,7 +116,6 @@ class PlayerModel: ObservableObject {
             currentToken = history[currentIndex]
         }
 #endif
-        showingInfoPopover = false
     }
 
     func goForward() {
@@ -156,7 +144,6 @@ class PlayerModel: ObservableObject {
             trimHistoryBeforeCurrentIfNeeded()
         }
 #endif
-        showingInfoPopover = false
     }
     
     func showPagedToken(_ token: GeneratedToken, isInsertedWidgetToken: Bool = false) {
@@ -164,7 +151,6 @@ class PlayerModel: ObservableObject {
 
         if currentToken == token {
             setCurrentTokenInsertedWidgetToken(isInsertedWidgetToken)
-            showingInfoPopover = false
             return
         }
 
@@ -183,7 +169,6 @@ class PlayerModel: ObservableObject {
 
         setCurrentTokenInsertedWidgetToken(isInsertedWidgetToken)
         currentToken = token
-        showingInfoPopover = false
     }
 
     var currentProgress: PlayerViewingProgress? {
@@ -264,7 +249,6 @@ class PlayerModel: ObservableObject {
         history = [firstToken]
         currentIndex = 0
         currentToken = firstToken
-        showingInfoPopover = false
     }
     
     private func trimHistoryBeforeCurrentIfNeeded() {

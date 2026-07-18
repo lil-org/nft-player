@@ -46,15 +46,9 @@ enum PlayerBookmarksStore {
     private typealias BookmarkRecordsByCollectionId = [String: [String: PlayerBookmark]]
 
     private static let bookmarksSyncDomain = PlayerSyncDomain.bookmarks
-    private static let legacyMobileBookmarksKey = "mobileBookmarksByCollectionId"
     private static let userDefaults = UserDefaults.standard
     private static var cachedBookmarkRecordsByCollectionId: BookmarkRecordsByCollectionId?
     private static var cachedBookmarksData: Data?
-
-    private struct LegacyPlayerBookmark: Codable {
-        let tokenId: String
-        let bookmarkedAt: Date
-    }
 
     static func isBookmarked(collectionId: String, tokenId: String) -> Bool {
         guard !collectionId.isEmpty, !tokenId.isEmpty else { return false }
@@ -99,7 +93,7 @@ enum PlayerBookmarksStore {
     }
 
     static func mergeSyncedBookmarksData(_ data: Data?) -> PlayerSyncMergeResult {
-        guard let remoteBookmarkRecords = decodeBookmarkRecordsPayload(from: data)?.records else {
+        guard let remoteBookmarkRecords = decodeBookmarkRecords(from: data) else {
             return .ignored
         }
 
@@ -124,9 +118,9 @@ enum PlayerBookmarksStore {
             return cachedBookmarkRecordsByCollectionId
         }
 
-        if let decodedPayload = decodeBookmarkRecordsPayload(from: storedData) {
-            let compactedRecords = compactBookmarkRecords(decodedPayload.records)
-            if decodedPayload.needsMigration || compactedRecords != decodedPayload.records {
+        if let decodedRecords = decodeBookmarkRecords(from: storedData) {
+            let compactedRecords = compactBookmarkRecords(decodedRecords)
+            if compactedRecords != decodedRecords {
                 save(compactedRecords)
                 return compactedRecords
             }
@@ -136,30 +130,9 @@ enum PlayerBookmarksStore {
             return compactedRecords
         }
 
-        if let legacyData = userDefaults.data(forKey: legacyMobileBookmarksKey),
-           let decodedPayload = decodeBookmarkRecordsPayload(from: legacyData) {
-            let compactedRecords = compactBookmarkRecords(decodedPayload.records)
-            save(compactedRecords)
-            return compactedRecords
-        }
-
         cachedBookmarkRecordsByCollectionId = [:]
         cachedBookmarksData = storedData
         return [:]
-    }
-
-    private static func decodeBookmarkRecordsPayload(
-        from data: Data?
-    ) -> (records: BookmarkRecordsByCollectionId, needsMigration: Bool)? {
-        if let records = decodeBookmarkRecords(from: data) {
-            return (records, false)
-        }
-
-        if let records = decodeLegacyBookmarkRecords(from: data) {
-            return (records, true)
-        }
-
-        return nil
     }
 
     private static func decodeBookmarkRecords(from data: Data?) -> BookmarkRecordsByCollectionId? {
@@ -171,25 +144,14 @@ enum PlayerBookmarksStore {
         try? JSONEncoder().encode(bookmarkRecords)
     }
 
-    private static func decodeLegacyBookmarkRecords(from data: Data?) -> BookmarkRecordsByCollectionId? {
-        guard let data,
-              let legacyBookmarks = try? JSONDecoder().decode([String: LegacyPlayerBookmark].self, from: data) else {
-            return nil
-        }
-
-        return legacyBookmarks.reduce(into: BookmarkRecordsByCollectionId()) { result, entry in
-            guard !entry.value.tokenId.isEmpty else { return }
-            result[entry.key, default: [:]][entry.value.tokenId] = PlayerBookmark(bookmarkedAt: entry.value.bookmarkedAt)
-        }
-    }
-
-    static func clearLocalSyncedData() {
+#if SWIFT_PACKAGE
+    static func resetForTesting() {
         cachedBookmarkRecordsByCollectionId = [:]
         cachedBookmarksData = nil
         userDefaults.removeObject(forKey: bookmarksSyncDomain.key)
-        userDefaults.removeObject(forKey: legacyMobileBookmarksKey)
         NotificationCenter.default.post(name: .playerBookmarksDidChange, object: nil)
     }
+#endif
 
     private static func compactBookmarkRecords(
         _ bookmarkRecords: BookmarkRecordsByCollectionId

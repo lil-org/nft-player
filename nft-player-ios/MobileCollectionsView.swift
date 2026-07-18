@@ -290,19 +290,17 @@ struct MobileCollectionsView: View {
 
     private func openCollection(
         collectionId: String,
-        presentationTransition: PlayerPresentationTransition = .animated,
-        trackingMode: PlayerViewingSessionTrackingMode = .updateContinueViewing
+        presentationTransition: PlayerPresentationTransition = .animated
     ) {
         if let progress = MobileViewingProgressStore.progress(collectionId: collectionId) {
-            resumeViewing(progress, presentationTransition: presentationTransition, trackingMode: trackingMode)
+            resumeViewing(progress, presentationTransition: presentationTransition)
             return
         }
 
         openPlayer(
             initialItemId: collectionId,
             continueViewingCollectionId: collectionId,
-            presentationTransition: presentationTransition,
-            trackingMode: trackingMode
+            presentationTransition: presentationTransition
         )
     }
     
@@ -328,16 +326,14 @@ struct MobileCollectionsView: View {
 
     private func resumeViewing(
         _ progress: MobileViewingProgress,
-        presentationTransition: PlayerPresentationTransition = .animated,
-        trackingMode: PlayerViewingSessionTrackingMode = .updateContinueViewing
+        presentationTransition: PlayerPresentationTransition = .animated
     ) {
         openPlayer(
             initialItemId: progress.collectionId,
             initialTokenId: progress.tokenId,
             initialTokenIndex: progress.tokenIndex,
             continueViewingCollectionId: progress.collectionId,
-            presentationTransition: presentationTransition,
-            trackingMode: trackingMode
+            presentationTransition: presentationTransition
         )
     }
 
@@ -355,22 +351,19 @@ struct MobileCollectionsView: View {
         if let tokenId {
             openWidgetToken(
                 collectionId: collectionId,
-                tokenId: tokenId,
-                trackingMode: .updateContinueViewing
+                tokenId: tokenId
             )
         } else {
             openCollection(
                 collectionId: collectionId,
-                presentationTransition: .instant,
-                trackingMode: .updateContinueViewing
+                presentationTransition: .instant
             )
         }
     }
 
     private func openWidgetToken(
         collectionId: String,
-        tokenId: String,
-        trackingMode: PlayerViewingSessionTrackingMode
+        tokenId: String
     ) {
         guard let widgetTokenInsertion = MobileCollectionCatalog.widgetTokenInsertion(
             collectionId: collectionId,
@@ -379,8 +372,7 @@ struct MobileCollectionsView: View {
         ) else {
             openCollection(
                 collectionId: collectionId,
-                presentationTransition: .instant,
-                trackingMode: trackingMode
+                presentationTransition: .instant
             )
             return
         }
@@ -392,8 +384,7 @@ struct MobileCollectionsView: View {
             initialItemId: collectionId,
             continueViewingCollectionId: collectionId,
             widgetTokenInsertion: widgetTokenInsertion,
-            presentationTransition: .instant,
-            trackingMode: trackingMode
+            presentationTransition: .instant
         )
     }
 
@@ -403,24 +394,20 @@ struct MobileCollectionsView: View {
         initialTokenIndex: Int? = nil,
         continueViewingCollectionId: String,
         widgetTokenInsertion: PlayerWidgetTokenInsertion? = nil,
-        presentationTransition: PlayerPresentationTransition = .animated,
-        trackingMode: PlayerViewingSessionTrackingMode = .updateContinueViewing
+        presentationTransition: PlayerPresentationTransition = .animated
     ) {
         let config = MobilePlayerPrewarmer.preparedConfig(
             initialItemId: initialItemId,
             initialTokenId: initialTokenId,
             initialTokenIndex: initialTokenIndex,
             continueViewingCollectionId: continueViewingCollectionId,
-            trackingMode: trackingMode,
             widgetTokenInsertion: widgetTokenInsertion
         )
 
         let presentPlayer = {
             playerPresentationTransition = presentationTransition
             playerConfig = config
-            if trackingMode.updatesContinueViewing {
-                MobileViewingProgressStore.setContinueViewingCollectionId(continueViewingCollectionId)
-            }
+            MobileViewingProgressStore.setContinueViewingCollectionId(continueViewingCollectionId)
         }
         switch presentationTransition {
         case .animated:

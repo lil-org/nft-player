@@ -400,28 +400,21 @@ struct VisionCollectionsView: View {
         gridScrollMemoryTracker.initialCollectionIds(limit: 2)
     }
 
-    private func openCollection(
-        collectionId: String,
-        trackingMode: PlayerViewingSessionTrackingMode = .updateContinueViewing
-    ) {
+    private func openCollection(collectionId: String) {
         guard isVisibleCollection(collectionId) else { return }
 
         if let progress = PlayerViewingProgressStore.progress(collectionId: collectionId) {
-            resumeViewing(progress, trackingMode: trackingMode)
+            resumeViewing(progress)
             return
         }
 
         openPlayer(
             initialItemId: collectionId,
-            continueViewingCollectionId: collectionId,
-            trackingMode: trackingMode
+            continueViewingCollectionId: collectionId
         )
     }
 
-    private func resumeViewing(
-        _ progress: PlayerViewingProgress,
-        trackingMode: PlayerViewingSessionTrackingMode = .updateContinueViewing
-    ) {
+    private func resumeViewing(_ progress: PlayerViewingProgress) {
         guard isVisibleCollection(progress.collectionId) else {
             refreshViewingProgress()
             return
@@ -431,8 +424,7 @@ struct VisionCollectionsView: View {
             initialItemId: progress.collectionId,
             initialTokenId: progress.tokenId,
             initialTokenIndex: progress.tokenIndex,
-            continueViewingCollectionId: progress.collectionId,
-            trackingMode: trackingMode
+            continueViewingCollectionId: progress.collectionId
         )
     }
 
@@ -450,35 +442,29 @@ struct VisionCollectionsView: View {
         if let tokenId {
             openWidgetToken(
                 collectionId: collectionId,
-                tokenId: tokenId,
-                trackingMode: .updateContinueViewing
+                tokenId: tokenId
             )
         } else {
-            openCollection(
-                collectionId: collectionId,
-                trackingMode: .updateContinueViewing
-            )
+            openCollection(collectionId: collectionId)
         }
     }
 
     private func openWidgetToken(
         collectionId: String,
-        tokenId: String,
-        trackingMode: PlayerViewingSessionTrackingMode
+        tokenId: String
     ) {
         guard let widgetTokenInsertion = CollectionCatalog.widgetTokenInsertion(
             collectionId: collectionId,
             widgetTokenId: tokenId,
             progress: PlayerViewingProgressStore.progress(collectionId: collectionId)
         ) else {
-            openCollection(collectionId: collectionId, trackingMode: trackingMode)
+            openCollection(collectionId: collectionId)
             return
         }
 
         openPlayer(
             initialItemId: collectionId,
             continueViewingCollectionId: collectionId,
-            trackingMode: trackingMode,
             widgetTokenInsertion: widgetTokenInsertion
         )
         if let anchorProgress = widgetTokenInsertion.automaticAnchorProgress() {
@@ -491,7 +477,6 @@ struct VisionCollectionsView: View {
         initialTokenId: String? = nil,
         initialTokenIndex: Int? = nil,
         continueViewingCollectionId: String,
-        trackingMode: PlayerViewingSessionTrackingMode = .updateContinueViewing,
         widgetTokenInsertion: PlayerWidgetTokenInsertion? = nil
     ) {
         guard isVisibleCollection(continueViewingCollectionId),
@@ -505,13 +490,10 @@ struct VisionCollectionsView: View {
             initialTokenId: initialTokenId,
             initialTokenIndex: initialTokenIndex,
             continueViewingCollectionId: continueViewingCollectionId,
-            trackingMode: trackingMode,
             widgetTokenInsertion: widgetTokenInsertion
         )
         playerConfig = config
-        if trackingMode.updatesContinueViewing {
-            PlayerViewingProgressStore.setContinueViewingCollectionId(continueViewingCollectionId)
-        }
+        PlayerViewingProgressStore.setContinueViewingCollectionId(continueViewingCollectionId)
     }
 
     private func randomCollectionItemPreferringUnfinishedCollections() -> CollectionCatalogItem? {

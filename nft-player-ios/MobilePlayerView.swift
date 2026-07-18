@@ -4,18 +4,16 @@ import SwiftUI
 import UIKit
 import LinkPresentation
 
-struct MobilePlayerConfig: Hashable, Codable, Identifiable {
+struct MobilePlayerConfig: Hashable, Identifiable {
     var id = UUID()
     var initialItemId: String?
     var specificToken: GeneratedToken?
     var initialTokenId: String?
     var initialTokenIndex: Int?
     var continueViewingCollectionId: String?
-    var trackingMode: PlayerViewingSessionTrackingMode = .updateContinueViewing
     var widgetTokenInsertion: PlayerWidgetTokenInsertion?
 }
 
-private let doNotShowInstructionsTmp = true
 private let playerChromeToggleAnimation = Animation.easeInOut(duration: 0.12)
 private let playerManualGlassHideAnimation = Animation.smooth(duration: 0.23)
 private let playerNavigationBarControlSize: CGFloat = 44
@@ -631,9 +629,6 @@ struct MobilePlayerView: View {
                     Strings.viewFullscreen,
                     isOn: bundledGenerativeFullscreenBinding
                 )
-            }
-            if !doNotShowInstructionsTmp, let instructions = currentToken.instructions {
-                Text(instructions)
             }
             Button(Strings.viewOnBlockExplorer, action: viewOnWeb)
         } label: {

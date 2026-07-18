@@ -13,7 +13,6 @@ const {
   writePlaceholderCover,
 } = require("./cover_images");
 const { assignInternalSlugs, mergeGeneratedSuggestedItem } = require("./suggested_items");
-const { isCdnLilManagedCollection } = require("./cdn_lil_managed_collections");
 const {
   preserveAspectRatioMetadataFromFile,
   reportAspectRatioMetadataChanges,
@@ -45,6 +44,10 @@ const EXTENSION_BY_MIME = new Map([
   ["video/quicktime", "mov"],
   ["video/x-quicktime", "mov"],
   ["video/webm", "webm"],
+]);
+const NATIVE_RENDERER_COLLECTION_IDS = new Set([
+  "EAzEpagtyeRAx9npnpVMpygoA8ouX7DRpLTghhPvYTiu", // Card NFT 2
+  "JCTP3kK3xGtWs5mDHxJBuRro38HftaiCDdKsfkXuK2gH", // Poncho Drifella
 ]);
 
 const CANONICAL_COLLECTION_IDS = new Map([
@@ -310,7 +313,7 @@ async function readInputs(options) {
 
 async function fetchCollectionBundle(input, canonicalId, context) {
   let collectionId = canonicalId;
-  assertNotCdnLilManagedCollection(collectionId);
+  assertNotNativeRendererCollection(collectionId);
   let firstPage = await getAssetsByGroup(collectionId, 1, context, { includeGrandTotal: true });
   let resolvedFromToken = input === collectionId
     ? null
@@ -328,7 +331,7 @@ async function fetchCollectionBundle(input, canonicalId, context) {
       throw new Error(`No assets found for ${input}, and getAsset did not expose a verified collection grouping.`);
     }
     collectionId = grouping.group_value;
-    assertNotCdnLilManagedCollection(collectionId);
+    assertNotNativeRendererCollection(collectionId);
     resolvedFromToken = {
       tokenId: input,
       tokenName: asset.content?.metadata?.name ?? null,
@@ -412,8 +415,8 @@ async function fetchCollectionBundle(input, canonicalId, context) {
   };
 }
 
-function assertNotCdnLilManagedCollection(collectionId) {
-  if (isCdnLilManagedCollection(collectionId)) {
+function assertNotNativeRendererCollection(collectionId) {
+  if (NATIVE_RENDERER_COLLECTION_IDS.has(collectionId)) {
     throw new Error(`${collectionId} uses a curated native cdn.lil.org renderer and must not be rebuilt from Helius assets.`);
   }
 }

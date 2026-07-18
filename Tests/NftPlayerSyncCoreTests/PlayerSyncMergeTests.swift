@@ -5,11 +5,6 @@ import XCTest
 
 final class PlayerSyncMergeTests: XCTestCase {
 
-    private struct LegacyContinueViewingState: Codable {
-        let collectionId: String?
-        let updatedAt: Date
-    }
-
     override func setUp() {
         super.setUp()
         resetStores()
@@ -187,6 +182,41 @@ final class PlayerSyncMergeTests: XCTestCase {
         XCTAssertEqual(bookmarks[collectionId]?[tokenId], deletedBookmark)
     }
 
+    func testCurrentCompactRecordsDecodeMissingOptionalFields() throws {
+        let bookmarkData = Data(#"{"bookmarkedAt":100}"#.utf8)
+        let bookmark = try JSONDecoder().decode(PlayerBookmark.self, from: bookmarkData)
+        XCTAssertEqual(bookmark.updatedAt, bookmark.bookmarkedAt)
+        XCTAssertFalse(bookmark.isDeleted)
+
+        let stateData = Data(
+            #"{"entries":[{"collectionId":"collection","updatedAt":200}]}"#.utf8
+        )
+        let state = try JSONDecoder().decode(PlayerContinueViewingState.self, from: stateData)
+        XCTAssertEqual(state.entries.map(\.collectionId), ["collection"])
+        XCTAssertFalse(try XCTUnwrap(state.entries.first).isRemoved)
+        XCTAssertEqual(state.updatedAt, Date(timeIntervalSinceReferenceDate: 200))
+        let encodedState = try JSONEncoder().encode(state)
+        let stateObject = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: encodedState) as? [String: Any]
+        )
+        XCTAssertNil(stateObject["collectionId"])
+
+        let progressData = Data(
+            #"{"collectionId":"collection","collectionName":"Collection","tokenId":"token","tokenIndex":2,"tokenCount":10,"updatedAt":300}"#.utf8
+        )
+        let decodedProgress = try JSONDecoder().decode(PlayerViewingProgress.self, from: progressData)
+        XCTAssertFalse(decodedProgress.hasViewedToEnd)
+    }
+
+    func testLegacyBookmarkRootPayloadIsIgnored() {
+        let legacyData = Data(
+            #"{"collection":{"tokenId":"token","bookmarkedAt":100}}"#.utf8
+        )
+
+        XCTAssertEqual(PlayerBookmarksStore.mergeSyncedBookmarksData(legacyData), .ignored)
+        XCTAssertFalse(PlayerBookmarksStore.isBookmarked(collectionId: "collection", tokenId: "token"))
+    }
+
     func testContinueViewingIgnoresRemoteClearWhenLocalProgressIsUseful() throws {
         let collectionId = "collection"
         writeProgress([
@@ -199,13 +229,17 @@ final class PlayerSyncMergeTests: XCTestCase {
         ])
         writeContinueViewing(
             PlayerContinueViewingState(
-                collectionId: collectionId,
-                updatedAt: Date(timeIntervalSinceReferenceDate: 100)
+                entries: [
+                    PlayerContinueViewingEntry(
+                        collectionId: collectionId,
+                        updatedAt: Date(timeIntervalSinceReferenceDate: 100)
+                    )
+                ]
             )
         )
 
         let remoteClear = PlayerContinueViewingState(
-            collectionId: nil,
+            entries: [],
             updatedAt: Date(timeIntervalSinceReferenceDate: 300)
         )
         let result = PlayerViewingProgressStore.mergeSyncedContinueViewingStateData(
@@ -214,14 +248,14 @@ final class PlayerSyncMergeTests: XCTestCase {
 
         XCTAssertEqual(result, .remoteWasStale)
         XCTAssertEqual(
-            PlayerViewingProgressStore.progressSnapshot().continueViewingProgress?.collectionId,
+            PlayerViewingProgressStore.progressSnapshot().recentContinueViewingProgresses.first?.collectionId,
             collectionId
         )
     }
 
     func testClearedContinueViewingStateIsEncodedForSync() throws {
         let clearedState = PlayerContinueViewingState(
-            collectionId: nil,
+            entries: [],
             updatedAt: Date(timeIntervalSinceReferenceDate: 100)
         )
         writeContinueViewing(clearedState)
@@ -231,27 +265,51 @@ final class PlayerSyncMergeTests: XCTestCase {
         XCTAssertEqual(state, clearedState)
     }
 
-    func testLegacySingleContinueViewingStateDecodesIntoRecentList() throws {
-        let collectionId = "legacy"
-        writeProgress([
-            collectionId: progress(
-                collectionId: collectionId,
-                tokenId: "token-2",
-                tokenIndex: 2,
-                updatedAt: Date(timeIntervalSinceReferenceDate: 100)
-            )
-        ])
-        writeLegacyContinueViewing(
-            collectionId: collectionId,
-            updatedAt: Date(timeIntervalSinceReferenceDate: 200)
+    func testLegacySingleContinueViewingPayloadIsIgnored() {
+        let legacyData = Data(
+            #"{"collectionId":"legacy","updatedAt":200}"#.utf8
         )
 
-        XCTAssertEqual(continueViewingCollectionIds(), [collectionId])
+        XCTAssertEqual(
+            PlayerViewingProgressStore.mergeSyncedContinueViewingStateData(legacyData),
+            .ignored
+        )
+        XCTAssertTrue(continueViewingCollectionIds().isEmpty)
+    }
 
-        let data = try XCTUnwrap(PlayerViewingProgressStore.syncedContinueViewingStateData)
-        let state = try JSONDecoder().decode(PlayerContinueViewingState.self, from: data)
-        XCTAssertEqual(state.collectionId, collectionId)
-        XCTAssertEqual(state.entries.map(\.collectionId), [collectionId])
+    func testLegacyUserDefaultsKeysAreIgnored() throws {
+        let userDefaults = UserDefaults.standard
+        let legacyKeys = [
+            "mobileViewingProgressByCollectionId",
+            "playerContinueViewingCollectionId",
+            "mobileContinueViewingCollectionId",
+            "mobileBookmarksByCollectionId"
+        ]
+        defer {
+            legacyKeys.forEach(userDefaults.removeObject(forKey:))
+            resetStores()
+        }
+
+        let legacyProgress = progress(
+            collectionId: "legacy",
+            tokenId: "token",
+            tokenIndex: 2,
+            updatedAt: Date(timeIntervalSinceReferenceDate: 100)
+        )
+        userDefaults.set(Data(), forKey: PlayerSyncDomain.viewingProgress.key)
+        userDefaults.set(
+            try encodedProgress(["legacy": legacyProgress]),
+            forKey: legacyKeys[0]
+        )
+        userDefaults.set(Data(), forKey: PlayerSyncDomain.continueViewingState.key)
+        userDefaults.set("legacy", forKey: legacyKeys[1])
+        userDefaults.set("legacy", forKey: legacyKeys[2])
+        userDefaults.set(Data(#"{"legacy":{"tokenId":"token","bookmarkedAt":100}}"#.utf8), forKey: legacyKeys[3])
+        userDefaults.set(Data(), forKey: PlayerSyncDomain.bookmarks.key)
+
+        XCTAssertNil(PlayerViewingProgressStore.progress(collectionId: "legacy"))
+        XCTAssertTrue(continueViewingCollectionIds().isEmpty)
+        XCTAssertFalse(PlayerBookmarksStore.isBookmarked(collectionId: "legacy", tokenId: "token"))
     }
 
     func testContinueViewingMergeSeedsRecentListFromProgressWhenStateIsMissing() throws {
@@ -281,7 +339,7 @@ final class PlayerSyncMergeTests: XCTestCase {
         let data = try XCTUnwrap(PlayerViewingProgressStore.syncedContinueViewingStateData)
         let state = try JSONDecoder().decode(PlayerContinueViewingState.self, from: data)
         XCTAssertEqual(state.entries.filter { !$0.isRemoved }.map(\.collectionId), expectedCollectionIds)
-        XCTAssertEqual(state.collectionId, "collection-23")
+        XCTAssertEqual(state.entries.first(where: { !$0.isRemoved })?.collectionId, "collection-23")
     }
 
     func testContinueViewingMergeDoesNotSeedFromProgressAfterExplicitLocalClear() {
@@ -296,7 +354,7 @@ final class PlayerSyncMergeTests: XCTestCase {
         ])
         writeContinueViewing(
             PlayerContinueViewingState(
-                collectionId: nil,
+                entries: [],
                 updatedAt: Date(timeIntervalSinceReferenceDate: 200)
             )
         )
@@ -321,7 +379,7 @@ final class PlayerSyncMergeTests: XCTestCase {
 
         let result = PlayerViewingProgressStore.mergeSyncedContinueViewingStateData(
             try JSONEncoder().encode(
-                PlayerContinueViewingState(collectionId: nil, updatedAt: remoteClearUpdatedAt)
+                PlayerContinueViewingState(entries: [], updatedAt: remoteClearUpdatedAt)
             )
         )
 
@@ -337,12 +395,12 @@ final class PlayerSyncMergeTests: XCTestCase {
         let localClearUpdatedAt = Date(timeIntervalSinceReferenceDate: 100)
         let remoteClearUpdatedAt = Date(timeIntervalSinceReferenceDate: 300)
         writeContinueViewing(
-            PlayerContinueViewingState(collectionId: nil, updatedAt: localClearUpdatedAt)
+            PlayerContinueViewingState(entries: [], updatedAt: localClearUpdatedAt)
         )
 
         let result = PlayerViewingProgressStore.mergeSyncedContinueViewingStateData(
             try JSONEncoder().encode(
-                PlayerContinueViewingState(collectionId: nil, updatedAt: remoteClearUpdatedAt)
+                PlayerContinueViewingState(entries: [], updatedAt: remoteClearUpdatedAt)
             )
         )
 
@@ -357,12 +415,12 @@ final class PlayerSyncMergeTests: XCTestCase {
         let localClearUpdatedAt = Date(timeIntervalSinceReferenceDate: 300)
         let remoteClearUpdatedAt = Date(timeIntervalSinceReferenceDate: 100)
         writeContinueViewing(
-            PlayerContinueViewingState(collectionId: nil, updatedAt: localClearUpdatedAt)
+            PlayerContinueViewingState(entries: [], updatedAt: localClearUpdatedAt)
         )
 
         let result = PlayerViewingProgressStore.mergeSyncedContinueViewingStateData(
             try JSONEncoder().encode(
-                PlayerContinueViewingState(collectionId: nil, updatedAt: remoteClearUpdatedAt)
+                PlayerContinueViewingState(entries: [], updatedAt: remoteClearUpdatedAt)
             )
         )
 
@@ -418,7 +476,7 @@ final class PlayerSyncMergeTests: XCTestCase {
 
         XCTAssertEqual(continueViewingCollectionIds(), [newer, middle, older])
         XCTAssertEqual(
-            PlayerViewingProgressStore.progressSnapshot().continueViewingProgress?.collectionId,
+            PlayerViewingProgressStore.progressSnapshot().recentContinueViewingProgresses.first?.collectionId,
             newer
         )
     }
@@ -623,7 +681,7 @@ final class PlayerSyncMergeTests: XCTestCase {
         ])
         writeContinueViewing(
             PlayerContinueViewingState(
-                collectionId: nil,
+                entries: [],
                 updatedAt: localClearUpdatedAt
             )
         )
@@ -661,7 +719,7 @@ final class PlayerSyncMergeTests: XCTestCase {
         ])
         writeContinueViewing(
             PlayerContinueViewingState(
-                collectionId: nil,
+                entries: [],
                 updatedAt: Date(timeIntervalSinceReferenceDate: 100)
             )
         )
@@ -695,7 +753,7 @@ final class PlayerSyncMergeTests: XCTestCase {
         let data = try XCTUnwrap(PlayerViewingProgressStore.syncedContinueViewingStateData)
         let state = try JSONDecoder().decode(PlayerContinueViewingState.self, from: data)
 
-        XCTAssertNil(state.collectionId)
+        XCTAssertFalse(state.entries.contains { !$0.isRemoved })
         XCTAssertEqual(state.entries.count, 20)
         XCTAssertEqual(
             state.entries.map(\.collectionId),
@@ -726,7 +784,7 @@ final class PlayerSyncMergeTests: XCTestCase {
             expectedCollectionId: collectionId
         )
 
-        XCTAssertNil(PlayerViewingProgressStore.progressSnapshot().continueViewingProgress)
+        XCTAssertNil(PlayerViewingProgressStore.progressSnapshot().recentContinueViewingProgresses.first)
         try assertSyncedContinueViewingCleared()
     }
 
@@ -743,7 +801,7 @@ final class PlayerSyncMergeTests: XCTestCase {
         tracker.markViewed(viewedProgress)
         XCTAssertEqual(PlayerViewingProgressStore.progress(collectionId: collectionId), viewedProgress)
         XCTAssertEqual(
-            PlayerViewingProgressStore.progressSnapshot().continueViewingProgress?.collectionId,
+            PlayerViewingProgressStore.progressSnapshot().recentContinueViewingProgresses.first?.collectionId,
             collectionId
         )
     }
@@ -760,7 +818,7 @@ final class PlayerSyncMergeTests: XCTestCase {
             )
         )
 
-        XCTAssertNil(PlayerViewingProgressStore.progressSnapshot().continueViewingProgress)
+        XCTAssertNil(PlayerViewingProgressStore.progressSnapshot().recentContinueViewingProgresses.first)
         try assertSyncedContinueViewingCleared()
     }
 
@@ -777,7 +835,7 @@ final class PlayerSyncMergeTests: XCTestCase {
             )
         )
 
-        XCTAssertNil(PlayerViewingProgressStore.progressSnapshot().continueViewingProgress)
+        XCTAssertNil(PlayerViewingProgressStore.progressSnapshot().recentContinueViewingProgresses.first)
         try assertSyncedContinueViewingCleared()
     }
 
@@ -802,85 +860,13 @@ final class PlayerSyncMergeTests: XCTestCase {
             )
         )
 
-        XCTAssertNil(PlayerViewingProgressStore.progressSnapshot().continueViewingProgress)
+        XCTAssertNil(PlayerViewingProgressStore.progressSnapshot().recentContinueViewingProgresses.first)
         try assertSyncedContinueViewingCleared()
-    }
-
-    func testProgressOnlySessionTrackerDoesNotClearContinueViewingForMismatchedProgress() {
-        let continueViewingCollectionId = "continue"
-        let continueViewingProgress = progress(
-            collectionId: continueViewingCollectionId,
-            tokenId: "token-2",
-            tokenIndex: 2,
-            updatedAt: Date(timeIntervalSinceReferenceDate: 100)
-        )
-        writeProgress([continueViewingCollectionId: continueViewingProgress])
-        writeContinueViewing(
-            PlayerContinueViewingState(
-                collectionId: continueViewingCollectionId,
-                updatedAt: Date(timeIntervalSinceReferenceDate: 100)
-            )
-        )
-
-        var tracker = PlayerViewingSessionTracker(
-            continueViewingCollectionId: "expected-widget",
-            trackingMode: .progressOnly
-        )
-        tracker.markViewed(
-            progress(
-                collectionId: "other-widget",
-                tokenId: "token-4",
-                tokenIndex: 4,
-                updatedAt: Date(timeIntervalSinceReferenceDate: 200)
-            )
-        )
-
-        XCTAssertEqual(
-            PlayerViewingProgressStore.progressSnapshot().continueViewingProgress?.collectionId,
-            continueViewingCollectionId
-        )
-    }
-
-    func testProgressOnlySessionTrackerDoesNotClearContinueViewingDuringRestart() {
-        let continueViewingCollectionId = "continue"
-        let widgetCollectionId = "widget"
-        let continueViewingProgress = progress(
-            collectionId: continueViewingCollectionId,
-            tokenId: "token-2",
-            tokenIndex: 2,
-            updatedAt: Date(timeIntervalSinceReferenceDate: 100)
-        )
-        writeProgress([continueViewingCollectionId: continueViewingProgress])
-        writeContinueViewing(
-            PlayerContinueViewingState(
-                collectionId: continueViewingCollectionId,
-                updatedAt: Date(timeIntervalSinceReferenceDate: 100)
-            )
-        )
-
-        var tracker = PlayerViewingSessionTracker(
-            continueViewingCollectionId: widgetCollectionId,
-            trackingMode: .progressOnly
-        )
-        tracker.beginRestart(collectionId: widgetCollectionId)
-        tracker.markViewed(
-            progress(
-                collectionId: widgetCollectionId,
-                tokenId: "token-0",
-                tokenIndex: 0,
-                updatedAt: Date(timeIntervalSinceReferenceDate: 200)
-            )
-        )
-
-        XCTAssertEqual(
-            PlayerViewingProgressStore.progressSnapshot().continueViewingProgress?.collectionId,
-            continueViewingCollectionId
-        )
     }
 
     private func assertSyncedContinueViewingCleared() throws {
         let state = try syncedContinueViewingState()
-        XCTAssertNil(state.collectionId)
+        XCTAssertFalse(state.entries.contains { !$0.isRemoved })
     }
 
     private func syncedContinueViewingState(
@@ -920,8 +906,8 @@ final class PlayerSyncMergeTests: XCTestCase {
     }
 
     private func resetStores() {
-        PlayerViewingProgressStore.clearLocalSyncedData()
-        PlayerBookmarksStore.clearLocalSyncedData()
+        PlayerViewingProgressStore.resetForTesting()
+        PlayerBookmarksStore.resetForTesting()
     }
 
     private func writeProgress(_ progress: [String: PlayerViewingProgress]) {
@@ -935,15 +921,6 @@ final class PlayerSyncMergeTests: XCTestCase {
     private func writeContinueViewing(_ state: PlayerContinueViewingState) {
         UserDefaults.standard.set(
             try! JSONEncoder().encode(state),
-            forKey: PlayerSyncDomain.continueViewingState.key
-        )
-    }
-
-    private func writeLegacyContinueViewing(collectionId: String?, updatedAt: Date) {
-        UserDefaults.standard.set(
-            try! JSONEncoder().encode(
-                LegacyContinueViewingState(collectionId: collectionId, updatedAt: updatedAt)
-            ),
             forKey: PlayerSyncDomain.continueViewingState.key
         )
     }

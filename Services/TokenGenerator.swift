@@ -125,16 +125,6 @@ struct TokenGenerator {
         return !script.kind.isNativeRenderer
     }
 
-    static func bundledWebGenerativeTokenId(
-        specificCollectionId: String,
-        tokenIndex: Int
-    ) -> String? {
-        bundledWebGenerativeToken(
-            specificCollectionId: specificCollectionId,
-            tokenIndex: tokenIndex
-        )?.id
-    }
-
     static func bundledWebGenerativeToken(
         specificCollectionId: String,
         tokenIndex: Int
@@ -301,8 +291,6 @@ struct TokenGenerator {
                                             displayName: name,
                                             displayTokenId: displayTokenId,
                                             url: webURL,
-                                            instructions: script.instructions,
-                                            screensaver: script.screensaverUrl,
                                             renderKind: renderKind)
         return generatedToken
     }

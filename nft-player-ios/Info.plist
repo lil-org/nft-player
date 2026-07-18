@@ -13,8 +13,6 @@
 			</array>
 		</dict>
 	</array>
-	<key>ITSAppUsesNonExemptEncryption</key>
-	<false/>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>
@@ -22,8 +20,6 @@
 	</dict>
 	<key>NSMotionUsageDescription</key>
 	<string>Animate interactive cards based on how you tilt your device.</string>
-	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>Save images from NFT Player to your photo library.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

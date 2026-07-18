@@ -13,11 +13,13 @@ let package = Package(
             name: "NftPlayerSyncCore",
             path: "Shared",
             exclude: [
+                "Extensions/CollectionsGridScrollViewHelpers.swift",
                 "Extensions/Links.swift",
                 "Extensions/Notification.swift",
                 "Models/Chain.swift",
                 "Models/CardNft2CardMetadata.swift",
                 "Models/CollectionCatalog.swift",
+                "Models/CollectionsGridScrollMemory.swift",
                 "Models/Consts.swift",
                 "Models/Images.swift",
                 "Models/NftGallery.swift",

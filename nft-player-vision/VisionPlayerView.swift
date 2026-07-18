@@ -15,7 +15,6 @@ struct VisionPlayerConfig: Hashable, Identifiable {
     var initialTokenId: String?
     var initialTokenIndex: Int?
     var continueViewingCollectionId: String?
-    var trackingMode: PlayerViewingSessionTrackingMode = .updateContinueViewing
     var widgetTokenInsertion: PlayerWidgetTokenInsertion?
 }
 
@@ -266,8 +265,7 @@ private final class VisionPlayerModel: ObservableObject {
         id = config.id
         self.dataSource = dataSource
         var tracker = PlayerViewingSessionTracker(
-            continueViewingCollectionId: config.continueViewingCollectionId,
-            trackingMode: config.trackingMode
+            continueViewingCollectionId: config.continueViewingCollectionId
         )
         let token = dataSource.getToken(pagePosition: initialPagePosition)
         let progress = dataSource.progress(pagePosition: initialPagePosition)
@@ -2643,7 +2641,6 @@ enum VisionPlayerPrewarmer {
         initialTokenId: String? = nil,
         initialTokenIndex: Int? = nil,
         continueViewingCollectionId: String?,
-        trackingMode: PlayerViewingSessionTrackingMode = .updateContinueViewing,
         widgetTokenInsertion: PlayerWidgetTokenInsertion? = nil
     ) -> VisionPlayerConfig {
         let specificToken = widgetTokenInsertion == nil
@@ -2659,7 +2656,6 @@ enum VisionPlayerPrewarmer {
             initialTokenId: initialTokenId,
             initialTokenIndex: initialTokenIndex,
             continueViewingCollectionId: continueViewingCollectionId,
-            trackingMode: trackingMode,
             widgetTokenInsertion: widgetTokenInsertion
         )
     }

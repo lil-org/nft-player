@@ -95,10 +95,6 @@ final class CardNft2AssetCache {
         )
     }
 
-    func invalidate(tokenID: Int) {
-        core.invalidateTokenSpecificAssets(for: tokenID)
-    }
-
     func invalidateFaceAsset(for tokenID: Int) {
         core.invalidateFaceAsset(for: tokenID)
     }

@@ -78,7 +78,6 @@ extension View {
 struct WindowId {
     
     static let collections = "collections"
-    static let player = "player"
     static let blackImmersiveBackdrop = "blackImmersiveBackdrop"
     
 }

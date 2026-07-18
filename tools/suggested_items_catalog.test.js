@@ -18,16 +18,12 @@ const SUGGESTED_BUNDLE_PATH = path.resolve(__dirname, "../Suggested Items/Sugges
 const ITEMS_PATH = path.join(SUGGESTED_BUNDLE_PATH, "items.json");
 const SCRIPTS_PATH = path.join(SUGGESTED_BUNDLE_PATH, "Scripts");
 const TOKENS_PATH = path.join(SUGGESTED_BUNDLE_PATH, "Tokens");
+const COVERS_PATH = path.resolve(__dirname, "../Suggested Items/Covers.xcassets");
 const WIDGET_TOKENS_PATH = path.resolve(__dirname, "../Suggested Items/WidgetSuggested.bundle/Tokens");
-const STANDARD_THUMBNAIL_EXCEPTIONS = new Set([
-  "card_nft",
+const NATIVE_SCRIPT_THUMBNAIL_COLLECTIONS = new Set([
   "card_nft_2",
   "poncho_drifella",
 ]);
-const NATIVE_SCRIPT_THUMBNAIL_EXCEPTIONS = [
-  "card_nft_2",
-  "poncho_drifella",
-];
 const SUPPORTED_MEDIA_EXTENSIONS = new Set([
   "gif", "heic", "heif", "htm", "html", "jpeg", "jpg", "mov", "mp4",
   "png", "svg", "tiff", "webp", "xhtml",
@@ -53,9 +49,7 @@ function scriptCollectionKinds() {
 }
 
 function eligibleItems(items, scriptIds) {
-  return items.filter((item) => (
-    !scriptIds.has(suggestedItemId(item)) && item.internal_slug !== "card_nft"
-  ));
+  return items.filter((item) => !scriptIds.has(suggestedItemId(item)));
 }
 
 function tokenSourceURL(payload, row) {
@@ -105,11 +99,66 @@ function standardThumbnailURL(sourceURL, thumbsBaseURL) {
   return url;
 }
 
-test("standard thumbnail availability covers every non-script collection except card_nft", () => {
+function entriesByLowercasedName(names) {
+  const entries = new Map();
+  for (const name of names) {
+    const normalizedName = name.toLowerCase();
+    const matches = entries.get(normalizedName) ?? [];
+    matches.push(name);
+    entries.set(normalizedName, matches);
+  }
+  return entries;
+}
+
+test("catalog IDs exactly match token manifest and cover asset casing", () => {
+  const items = readJSON(ITEMS_PATH);
+  const scriptIds = scriptCollectionIds();
+  const tokenFileNames = fs.readdirSync(TOKENS_PATH)
+    .filter((fileName) => path.extname(fileName) === ".json");
+  const coverImagesetNames = fs.readdirSync(COVERS_PATH, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && entry.name.endsWith(".imageset"))
+    .map((entry) => entry.name);
+  const tokenFilesByLowercasedName = entriesByLowercasedName(tokenFileNames);
+  const coverImagesetsByLowercasedName = entriesByLowercasedName(coverImagesetNames);
+
+  for (const [normalizedName, matches] of tokenFilesByLowercasedName) {
+    assert.equal(matches.length, 1, `Token manifests collide by case for ${normalizedName}: ${matches.join(", ")}`);
+  }
+  for (const [normalizedName, matches] of coverImagesetsByLowercasedName) {
+    assert.equal(matches.length, 1, `Cover assets collide by case for ${normalizedName}: ${matches.join(", ")}`);
+  }
+
+  for (const item of items) {
+    const collectionId = suggestedItemId(item);
+    const expectedTokenFileName = `${collectionId}.json`;
+    const tokenMatches = tokenFilesByLowercasedName.get(expectedTokenFileName.toLowerCase()) ?? [];
+    if (!scriptIds.has(collectionId) || tokenMatches.length > 0) {
+      assert.deepEqual(
+        tokenMatches,
+        [expectedTokenFileName],
+        `${item.internal_slug} token manifest casing does not exactly match its catalog ID`
+      );
+    }
+
+    const expectedCoverImagesetName = `${collectionId}.imageset`;
+    assert.deepEqual(
+      coverImagesetsByLowercasedName.get(expectedCoverImagesetName.toLowerCase()) ?? [],
+      [expectedCoverImagesetName],
+      `${item.internal_slug} cover asset casing does not exactly match its catalog ID`
+    );
+  }
+});
+
+test("standard thumbnail availability covers downloadable and native-script collections", () => {
   const items = readJSON(ITEMS_PATH);
   const scriptKinds = scriptCollectionKinds();
   const scriptIds = new Set(scriptKinds.keys());
-  const expectedEnabledItems = eligibleItems(items, scriptIds);
+  const expectedEnabledItems = [
+    ...eligibleItems(items, scriptIds),
+    ...items.filter((item) =>
+      NATIVE_SCRIPT_THUMBNAIL_COLLECTIONS.has(item.internal_slug)
+    ),
+  ];
   const expectedEnabledIds = new Set(expectedEnabledItems.map(suggestedItemId));
 
   for (const [collectionId, kind] of scriptKinds) {
@@ -123,7 +172,7 @@ test("standard thumbnail availability covers every non-script collection except 
     .filter((item) => String(scriptKinds.get(suggestedItemId(item)) ?? "").startsWith("native."))
     .map((item) => item.internal_slug)
     .sort();
-  assert.deepEqual(nativeScriptSlugs, [...NATIVE_SCRIPT_THUMBNAIL_EXCEPTIONS].sort());
+  assert.deepEqual(nativeScriptSlugs, [...NATIVE_SCRIPT_THUMBNAIL_COLLECTIONS].sort());
 
   for (const item of items) {
     const expectedValue = expectedEnabledIds.has(suggestedItemId(item)) ? true : undefined;
@@ -133,13 +182,6 @@ test("standard thumbnail availability covers every non-script collection except 
       `${item.internal_slug} has an unexpected standard thumbnail availability value`
     );
   }
-
-  for (const internalSlug of STANDARD_THUMBNAIL_EXCEPTIONS) {
-    const item = items.find((candidate) => candidate.internal_slug === internalSlug);
-    assert.ok(item, `Expected ${internalSlug} to be present in the suggested catalog`);
-    assert.equal(item.standardThumbsPathsAvailable, undefined);
-  }
-
   assert.equal(
     items.filter((item) => item.standardThumbsPathsAvailable === true).length,
     expectedEnabledItems.length
@@ -169,11 +211,18 @@ test("media extension resolution prefers URL, then row, then manifest defaults",
 test("eligible token manifests derive unique standard webp thumbnail URLs", () => {
   const items = readJSON(ITEMS_PATH);
   const scriptIds = scriptCollectionIds();
+  const tokenFileNames = new Set(
+    fs.readdirSync(TOKENS_PATH)
+      .filter((fileName) => path.extname(fileName) === ".json")
+  );
 
   for (const item of eligibleItems(items, scriptIds)) {
     const collectionId = suggestedItemId(item);
     const tokensPath = path.join(TOKENS_PATH, `${collectionId}.json`);
-    assert.ok(fs.existsSync(tokensPath), `${item.internal_slug} is missing its token manifest`);
+    assert.ok(
+      tokenFileNames.has(`${collectionId}.json`),
+      `${item.internal_slug} is missing an exact-case token manifest`
+    );
 
     const payload = readJSON(tokensPath);
     assert.ok(Array.isArray(payload.items), `${item.internal_slug} has no token items array`);

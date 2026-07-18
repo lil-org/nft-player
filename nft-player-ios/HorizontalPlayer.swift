@@ -2259,8 +2259,6 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     private(set) var pagePosition: PlayerPagePosition
 
     private var renderedPagePosition: PlayerPagePosition?
-    private var renderGeneration: UInt64 = 0
-    private var activeRenderGeneration: UInt64?
     private var animatedRenderContext: AnimatedRenderContext?
     private var pendingAnimatedImageURL: URL?
     private var renderedAnimatedImageURL: URL?
@@ -2357,7 +2355,6 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     }
 
     private func cleanupDisplayedContent() {
-        invalidateRenderGeneration()
         resetZoom(animated: false)
         setZoomContentLayout(.viewport)
         clearAnimatedRenderContext()
@@ -2773,8 +2770,6 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             return
         }
 
-        renderGeneration &+= 1
-        activeRenderGeneration = renderGeneration
         resetZoom(animated: false)
         clearAnimatedRenderContext()
         mediaRenderer.clearContent()
@@ -2865,14 +2860,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         if let renderedPagePosition {
             playerDataSource?.didCleanupPagePosition(renderedPagePosition)
         }
-        renderGeneration &+= 1
-        activeRenderGeneration = renderGeneration
         renderedPagePosition = pagePosition
-    }
-
-    private func invalidateRenderGeneration() {
-        renderGeneration &+= 1
-        activeRenderGeneration = nil
     }
 
     private func standardThumbnailDescriptor(

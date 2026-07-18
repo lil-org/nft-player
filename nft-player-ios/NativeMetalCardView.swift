@@ -14,7 +14,6 @@ private let nativeMetalCardLogger = Logger(
 
 final class NativeMetalCardView: UIView {
 
-    private var metalView: MTKView?
     private var renderer: NativeMetalCardRenderer?
     private var isDisplayed = false
 
@@ -97,7 +96,6 @@ final class NativeMetalCardView: UIView {
         ])
 
         renderer.attach(to: metalView)
-        self.metalView = metalView
         self.renderer = renderer
     }
 

@@ -19,7 +19,7 @@ struct RawHtmlGenerator {
                 return Bundle.main.url(forResource: kind.rawValue, withExtension: "js")
             }
         }()
-        guard let url = url, let libScript = try? String(contentsOf: url) else { return "" }
+        guard let url = url, let libScript = try? String(contentsOf: url, encoding: .utf8) else { return "" }
 
         return libScriptsLock.withLock {
             if let cachedLibScript = libScriptsDict[kind.rawValue] {
