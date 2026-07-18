@@ -190,6 +190,7 @@ final class FullscreenTokenMediaRenderer {
         onBegin: (() -> Void)? = nil,
         load: (@escaping (UIImage?) -> Void) -> (() -> Void)?,
         fallbackToWebContent: @escaping () -> Void,
+        shouldAnimateLoadedImageReplacement: @escaping () -> Bool = { true },
         onDisplayedProvisionalImage: ((UIImage) -> Void)? = nil,
         onLoadedImage: ((UIImage) -> Void)? = nil,
         onSuccess: (() -> Void)? = nil
@@ -266,7 +267,11 @@ final class FullscreenTokenMediaRenderer {
             onSuccess?()
             self.webView?.isHidden = true
             self.imageView.isHidden = false
-            self.displayImage(image, in: self.imageView)
+            self.displayImage(
+                image,
+                in: self.imageView,
+                animated: shouldAnimateLoadedImageReplacement()
+            )
             self.unloadWebContentAfterImageDisplay(imageKey: imageKey)
             onLoadedImage?(image)
         }
@@ -646,8 +651,12 @@ final class FullscreenTokenMediaRenderer {
         cancellation?()
     }
 
-    private func displayImage(_ image: UIImage, in imageView: UIImageView) {
-        guard imageView.image != nil else {
+    private func displayImage(
+        _ image: UIImage,
+        in imageView: UIImageView,
+        animated: Bool
+    ) {
+        guard animated, imageView.image != nil else {
             imageView.image = image
             return
         }
@@ -2279,6 +2288,9 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     var isZoomed: Bool {
         zoomScrollView.zoomScale > zoomScrollView.minimumZoomScale + MobilePlayerGestureTuning.playerZoomResetTolerance
     }
+    private var hasActiveZoomTransform: Bool {
+        zoomScrollView.zoomScale != zoomScrollView.minimumZoomScale || zoomScrollView.isZooming
+    }
 
     init(
         pagePosition: PlayerPagePosition,
@@ -2431,14 +2443,14 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     func resetZoom(animated: Bool) {
         guard isViewLoaded else { return }
         guard zoomScrollView.zoomScale != zoomScrollView.minimumZoomScale else {
+            updateZoomContentFrame(resetOffset: true)
             updateZoomInteraction()
             return
         }
 
         zoomScrollView.setZoomScale(zoomScrollView.minimumZoomScale, animated: animated)
         if !animated {
-            updateZoomContentInsets()
-            zoomScrollView.contentOffset = centeredZoomContentOffset
+            updateZoomContentFrame(resetOffset: true)
             updateZoomInteraction()
         }
     }
@@ -2494,18 +2506,15 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     private func setZoomContentLayout(
         _ layout: ZoomContentLayout,
         allowedContent: ZoomAllowedContent = .fullContent,
-        preservingZoomForEquivalentStaticImageLayout: Bool = false
+        preservingActiveZoomDuringMediaReplacement: Bool = false
     ) {
-        if preservingZoomForEquivalentStaticImageLayout,
-           isZoomed || zoomScrollView.isZooming,
-           zoomAllowedContent == allowedContent,
-           case .staticImage(let currentImageSize) = zoomContentLayout,
-           case .staticImage(let nextImageSize) = layout,
-           staticImageLayoutsAreEquivalent(currentImageSize, nextImageSize) {
+        if preservingActiveZoomDuringMediaReplacement,
+           hasActiveZoomTransform {
+            // The renderer has already replaced the provisional image. Keep the
+            // scroll view's live transform and gesture anchor completely intact;
+            // the new geometry will take effect the next time zoom returns to 1×.
             zoomContentLayout = layout
-            if isZoomed {
-                updateZoomContentFrame(resetOffset: false)
-            }
+            zoomAllowedContent = allowedContent
             return
         }
 
@@ -2518,35 +2527,6 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         zoomAllowedContent = allowedContent
         resetZoom(animated: false)
         updateZoomContentFrame(resetOffset: true)
-    }
-
-    private func staticImageLayoutsAreEquivalent(_ lhs: CGSize, _ rhs: CGSize) -> Bool {
-        guard let viewportSize = validViewportSize(zoomScrollView.bounds.size) else { return false }
-
-        let lhsFittedSize = MobilePlayerAspectFitLayout.size(for: lhs, fitting: viewportSize)
-        let rhsFittedSize = MobilePlayerAspectFitLayout.size(for: rhs, fitting: viewportSize)
-        guard lhsFittedSize.width > 0,
-              lhsFittedSize.height > 0,
-              rhsFittedSize.width > 0,
-              rhsFittedSize.height > 0 else {
-            return false
-        }
-
-        let magnitude = max(max(viewportSize.width, viewportSize.height), 1)
-        let tolerance = magnitude * CGFloat.ulpOfOne * 16
-        return abs(lhsFittedSize.width - rhsFittedSize.width) <= tolerance
-            && abs(lhsFittedSize.height - rhsFittedSize.height) <= tolerance
-    }
-
-    private func validViewportSize(_ size: CGSize) -> CGSize? {
-        guard size.width > 0,
-              size.height > 0,
-              size.width.isFinite,
-              size.height.isFinite else {
-            return nil
-        }
-
-        return size
     }
 
     private func updateZoomContentFrame(resetOffset: Bool) {
@@ -2896,6 +2876,10 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             fallbackToWebContent: { [weak self] in
                 self?.renderWebContent(fallbackHTML)
             },
+            shouldAnimateLoadedImageReplacement: { [weak self] in
+                guard let self else { return false }
+                return !self.hasActiveZoomTransform
+            },
             onDisplayedProvisionalImage: { [weak self] image in
                 self?.setZoomContentLayout(.staticImage(image.size))
             },
@@ -2903,7 +2887,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
                 guard let self else { return }
                 self.setZoomContentLayout(
                     .staticImage(image.size),
-                    preservingZoomForEquivalentStaticImageLayout: true
+                    preservingActiveZoomDuringMediaReplacement: true
                 )
             }
         )
@@ -3114,7 +3098,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             if let imageSize = imageSize(at: localFileURL) {
                 setZoomContentLayout(
                     .staticImage(imageSize),
-                    preservingZoomForEquivalentStaticImageLayout: true
+                    preservingActiveZoomDuringMediaReplacement: true
                 )
             }
             html = DownloadableTokenHTML.createImageHTML(
@@ -3224,7 +3208,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
                 if let viewportSize = renderedDocument.viewportSize {
                     self.setZoomContentLayout(
                         .staticImage(viewportSize),
-                        preservingZoomForEquivalentStaticImageLayout: true
+                        preservingActiveZoomDuringMediaReplacement: true
                     )
                 } else {
                     self.setZoomContentLayout(.viewport)
