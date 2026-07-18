@@ -926,6 +926,11 @@
 					};
 					2C5A59AD2C51400100788870 = {
 						CreatedOnToolsVersion = 15.4;
+						SystemCapabilities = {
+							com.apple.Push = {
+								enabled = 1;
+							};
+						};
 					};
 					2CA4CF502B07F75E00CC75F4 = {
 						CreatedOnToolsVersion = 15.0.1;
