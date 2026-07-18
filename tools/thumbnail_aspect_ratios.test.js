@@ -58,7 +58,7 @@ test("decodes normalized defaults and overrides", () => {
   assert.equal(decodeAspectRatioMetadata({ items: [["a"]] }), null);
 });
 
-test("uses two columns when landscape ratios strictly outnumber portrait ratios", () => {
+test("uses two columns when landscape ratios strictly outnumber vertical ratios", () => {
   assert.equal(
     collectionBrowserColumnCountFromAspectRatios([
       [16, 9],
@@ -69,7 +69,7 @@ test("uses two columns when landscape ratios strictly outnumber portrait ratios"
   );
 });
 
-test("uses three columns for portrait dominance and orientation ties", () => {
+test("uses three columns for vertical dominance and orientation ties", () => {
   assert.equal(
     collectionBrowserColumnCountFromAspectRatios([
       [16, 9],
@@ -87,21 +87,22 @@ test("uses three columns for portrait dominance and orientation ties", () => {
   );
 });
 
-test("ignores square ratios when classifying the collection browser layout", () => {
+test("counts square ratios as vertical when classifying the collection browser layout", () => {
   assert.equal(
     collectionBrowserColumnCountFromAspectRatios([
       [1, 1],
       [400, 400],
       [16, 9],
     ]),
-    2
+    3
   );
   assert.equal(
     collectionBrowserColumnCountFromAspectRatios([
       [1, 1],
-      [400, 400],
+      [16, 9],
+      [4, 3],
     ]),
-    3
+    2
   );
 });
 

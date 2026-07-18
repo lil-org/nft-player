@@ -14,6 +14,7 @@ test("preserves standard thumbnail metadata when regenerating a suggested item",
     address: "collection-id",
     chain: "solana",
     internal_slug: "example_collection",
+    iosCollectionBrowserColumnCount: 3,
     standardThumbsPathsAvailable: true,
     standardThumbsBaseURL: "https://cdn.lil.org/player/example_collection/thumbs/",
   };
@@ -26,6 +27,7 @@ test("preserves standard thumbnail metadata when regenerating a suggested item",
 
   assert.deepEqual(mergeGeneratedSuggestedItem(existingItem, generatedItem), {
     internal_slug: "example_collection",
+    iosCollectionBrowserColumnCount: 3,
     standardThumbsPathsAvailable: true,
     standardThumbsBaseURL: "https://cdn.lil.org/player/example_collection/thumbs/",
     address: "collection-id",
@@ -35,11 +37,16 @@ test("preserves standard thumbnail metadata when regenerating a suggested item",
   });
 });
 
-test("encodes only the two-column iOS collection browser exception", () => {
+test("encodes automatic two-column decisions and preserves manual three-column overrides", () => {
   const item = {
     address: "collection-id",
     chain: "solana",
     iosCollectionBrowserColumnCount: 7,
+  };
+  const manualDefaultItem = {
+    address: "manual-default",
+    chain: "solana",
+    iosCollectionBrowserColumnCount: 3,
   };
 
   assert.deepEqual(withIOSCollectionBrowserColumnCount(item, 2), {
@@ -55,6 +62,21 @@ test("encodes only the two-column iOS collection browser exception", () => {
     address: "collection-id",
     chain: "solana",
   });
+  assert.deepEqual(withIOSCollectionBrowserColumnCount(manualDefaultItem, 2), {
+    address: "manual-default",
+    chain: "solana",
+    iosCollectionBrowserColumnCount: 3,
+  });
+  assert.deepEqual(withIOSCollectionBrowserColumnCount(manualDefaultItem, 3), {
+    address: "manual-default",
+    chain: "solana",
+    iosCollectionBrowserColumnCount: 3,
+  });
+  assert.deepEqual(withIOSCollectionBrowserColumnCount(manualDefaultItem, null), {
+    address: "manual-default",
+    chain: "solana",
+    iosCollectionBrowserColumnCount: 3,
+  });
 });
 
 test("updates only catalog entries selected by collection id", () => {
@@ -65,6 +87,11 @@ test("updates only catalog entries selected by collection id", () => {
       chain: "solana",
       iosCollectionBrowserColumnCount: 2,
     },
+    {
+      address: "manual-default",
+      chain: "solana",
+      iosCollectionBrowserColumnCount: 3,
+    },
     { address: "untouched", chain: "solana", custom: true },
   ];
 
@@ -72,6 +99,7 @@ test("updates only catalog entries selected by collection id", () => {
     applyIOSCollectionBrowserColumnCounts(items, new Map([
       ["wide", 2],
       ["default", 3],
+      ["manual-default", 2],
     ])),
     [
       {
@@ -80,6 +108,11 @@ test("updates only catalog entries selected by collection id", () => {
         iosCollectionBrowserColumnCount: 2,
       },
       { address: "default", chain: "solana" },
+      {
+        address: "manual-default",
+        chain: "solana",
+        iosCollectionBrowserColumnCount: 3,
+      },
       { address: "untouched", chain: "solana", custom: true },
     ]
   );

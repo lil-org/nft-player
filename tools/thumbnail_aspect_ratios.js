@@ -157,7 +157,7 @@ function collectionBrowserColumnCountFromAspectRatios(values) {
   }
 
   let landscapeCount = 0;
-  let portraitCount = 0;
+  let verticalCount = 0;
   values.forEach((value, index) => {
     const [width, height] = normalizedRatio(
       value,
@@ -165,12 +165,12 @@ function collectionBrowserColumnCountFromAspectRatios(values) {
     );
     if (width > height) {
       landscapeCount += 1;
-    } else if (width < height) {
-      portraitCount += 1;
+    } else {
+      verticalCount += 1;
     }
   });
 
-  return landscapeCount > portraitCount
+  return landscapeCount > verticalCount
     ? COLLECTION_BROWSER_LANDSCAPE_COLUMN_COUNT
     : COLLECTION_BROWSER_DEFAULT_COLUMN_COUNT;
 }

@@ -8,10 +8,12 @@ const test = require("node:test");
 const {
   IOS_COLLECTION_BROWSER_COLUMN_COUNT_KEY,
   suggestedItemId,
+  withIOSCollectionBrowserColumnCount,
 } = require("./suggested_items");
 const {
   ASPECT_RATIOS_KEY,
   ASPECT_RATIO_OVERRIDES_KEY,
+  COLLECTION_BROWSER_DEFAULT_COLUMN_COUNT,
   COLLECTION_BROWSER_LANDSCAPE_COLUMN_COUNT,
   collectionBrowserColumnCountFromAspectRatios,
   decodeAspectRatioMetadata,
@@ -25,6 +27,13 @@ const SCRIPTS_PATH = path.join(SUGGESTED_BUNDLE_PATH, "Scripts");
 const TOKENS_PATH = path.join(SUGGESTED_BUNDLE_PATH, "Tokens");
 const COVERS_PATH = path.resolve(__dirname, "../Suggested Items/Covers.xcassets");
 const WIDGET_TOKENS_PATH = path.resolve(__dirname, "../Suggested Items/WidgetSuggested.bundle/Tokens");
+const MANUAL_THREE_COLUMN_COLLECTION_SLUGS = [
+  "blume",
+  "moeshit",
+  "screenshot_catalog",
+  "skomra",
+  "super_metal_mons_2",
+];
 const NATIVE_SCRIPT_THUMBNAIL_COLLECTIONS = new Set([
   "card_nft_2",
   "poncho_drifella",
@@ -324,6 +333,7 @@ test("bundled tokens have compact aspect ratios and matching iOS layouts", () =>
   const primaryByLowercasedFileName = new Map();
   let primaryTokenCount = 0;
   let twoColumnCollectionCount = 0;
+  let manualThreeColumnCollectionCount = 0;
   for (const fileName of primaryFileNames) {
     const payload = readJSON(path.join(TOKENS_PATH, fileName));
     const ratios = decodeAspectRatioMetadata(payload);
@@ -344,24 +354,40 @@ test("bundled tokens have compact aspect ratios and matching iOS layouts", () =>
     assert.ok(item, `${fileName} has no suggested catalog item`);
     const derivedColumnCount =
       collectionBrowserColumnCountFromAspectRatios(ratios);
-    const expectedCatalogValue =
-      derivedColumnCount === COLLECTION_BROWSER_LANDSCAPE_COLUMN_COUNT
-        ? COLLECTION_BROWSER_LANDSCAPE_COLUMN_COUNT
-        : undefined;
+    const expectedCatalogValue = withIOSCollectionBrowserColumnCount(
+      item,
+      derivedColumnCount
+    )[IOS_COLLECTION_BROWSER_COLUMN_COUNT_KEY];
     assert.equal(
       item[IOS_COLLECTION_BROWSER_COLUMN_COUNT_KEY],
       expectedCatalogValue,
       `${item.internal_slug} has stale iOS collection browser layout metadata`
     );
-    if (expectedCatalogValue != null) {
+    if (expectedCatalogValue === COLLECTION_BROWSER_LANDSCAPE_COLUMN_COUNT) {
       twoColumnCollectionCount += 1;
+    } else if (expectedCatalogValue === COLLECTION_BROWSER_DEFAULT_COLUMN_COUNT) {
+      manualThreeColumnCollectionCount += 1;
     }
 
     primaryTokenCount += payload.items.length;
     primaryByLowercasedFileName.set(fileName.toLowerCase(), { payload, ratios });
   }
   assert.equal(primaryTokenCount, 209_828);
-  assert.equal(twoColumnCollectionCount, 47);
+  assert.equal(twoColumnCollectionCount, 39);
+  assert.equal(
+    manualThreeColumnCollectionCount,
+    MANUAL_THREE_COLUMN_COLLECTION_SLUGS.length
+  );
+  assert.deepEqual(
+    catalogItems
+      .filter((item) =>
+        item[IOS_COLLECTION_BROWSER_COLUMN_COUNT_KEY]
+          === COLLECTION_BROWSER_DEFAULT_COLUMN_COUNT
+      )
+      .map((item) => item.internal_slug)
+      .sort(),
+    MANUAL_THREE_COLUMN_COLLECTION_SLUGS
+  );
 
   for (const item of catalogItems) {
     const fileName = `${suggestedItemId(item)}.json`.toLowerCase();

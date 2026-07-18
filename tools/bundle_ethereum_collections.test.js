@@ -16,7 +16,10 @@ const BUNDLER_PATH = path.resolve(__dirname, "bundle_ethereum_collections.js");
 const LOWERCASE_ID = "0xec0a7a26456b8451aefc4b00393ce1beff5eb3e9";
 const CHECKSUM_ID = "0xEC0a7A26456B8451aefc4b00393ce1BefF5eB3e9";
 
-function createFixture(t, { includeTokenManifest = true } = {}) {
+function createFixture(t, {
+  catalogColumnCount,
+  includeTokenManifest = true,
+} = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "nft-player-ethereum-bundler-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
 
@@ -37,6 +40,9 @@ function createFixture(t, { includeTokenManifest = true } = {}) {
     name: "Allstarz",
     tokenCount: 2,
     internal_slug: "allstarz",
+    ...(catalogColumnCount == null
+      ? {}
+      : { iosCollectionBrowserColumnCount: catalogColumnCount }),
   }], null, 2)}\n`;
   const tokenText = `${JSON.stringify({
     defaultFileExtension: "png",
@@ -149,6 +155,15 @@ test("keeps the catalog's checksum casing and preserves manifest metadata", (t) 
   const [item] = JSON.parse(fs.readFileSync(fixture.itemsPath, "utf8"));
   assert.equal(item.address, CHECKSUM_ID);
   assert.equal(item.iosCollectionBrowserColumnCount, 2);
+});
+
+test("preserves an explicit three-column override for a landscape collection", (t) => {
+  const fixture = createFixture(t, { catalogColumnCount: 3 });
+  const result = runBundler(fixture);
+
+  assert.equal(result.status, 0, result.stderr);
+  const [item] = JSON.parse(fs.readFileSync(fixture.itemsPath, "utf8"));
+  assert.equal(item.iosCollectionBrowserColumnCount, 3);
 });
 
 test("creates a missing manifest with the catalog's checksum casing", (t) => {

@@ -19,6 +19,7 @@ const PRESERVED_GENERATED_SUGGESTED_ITEM_FIELDS = [
   "playerBackgroundColor",
   "webURL",
   "internal_slug",
+  IOS_COLLECTION_BROWSER_COLUMN_COUNT_KEY,
   "standardThumbsPathsAvailable",
   "standardThumbsBaseURL",
 ];
@@ -44,9 +45,18 @@ function withIOSCollectionBrowserColumnCount(item, columnCount) {
     );
   }
 
+  // An explicit default count is a sticky manual override. Automatic default
+  // decisions remain omitted, while automatic two-column decisions are
+  // recalculated whenever a collection is bundled.
+  const hasManualDefaultOverride =
+    item[IOS_COLLECTION_BROWSER_COLUMN_COUNT_KEY]
+      === COLLECTION_BROWSER_DEFAULT_COLUMN_COUNT;
   const result = { ...item };
   delete result[IOS_COLLECTION_BROWSER_COLUMN_COUNT_KEY];
-  if (columnCount === COLLECTION_BROWSER_LANDSCAPE_COLUMN_COUNT) {
+  if (hasManualDefaultOverride) {
+    result[IOS_COLLECTION_BROWSER_COLUMN_COUNT_KEY] =
+      COLLECTION_BROWSER_DEFAULT_COLUMN_COUNT;
+  } else if (columnCount === COLLECTION_BROWSER_LANDSCAPE_COLUMN_COUNT) {
     result[IOS_COLLECTION_BROWSER_COLUMN_COUNT_KEY] = columnCount;
   }
   return result;
