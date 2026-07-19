@@ -224,6 +224,60 @@ struct MobilePlayerBrowserLayout: Equatable {
         )
     }
 
+    // A top-inset change translates every row by the same amount. Compensate
+    // interior offsets exactly, while keeping either scroll boundary sticky.
+    static func contentOffsetYAfterSafeAreaChange(
+        previousContentOffsetY: CGFloat,
+        previousRange: ClosedRange<CGFloat>,
+        updatedRange: ClosedRange<CGFloat>,
+        topContentInsetDelta: CGFloat,
+        boundaryEpsilon: CGFloat
+    ) -> CGFloat {
+        guard updatedRange.lowerBound.isFinite,
+              updatedRange.upperBound.isFinite else {
+            return 0
+        }
+        guard previousContentOffsetY.isFinite,
+              previousRange.lowerBound.isFinite,
+              previousRange.upperBound.isFinite,
+              previousRange.lowerBound <= previousRange.upperBound,
+              updatedRange.lowerBound <= updatedRange.upperBound else {
+            return updatedRange.lowerBound
+        }
+
+        let epsilon = boundaryEpsilon.isFinite
+            ? max(boundaryEpsilon, 0)
+            : 0
+        let clampedPreviousContentOffsetY = min(
+            max(previousContentOffsetY, previousRange.lowerBound),
+            previousRange.upperBound
+        )
+        let distanceToLowerBound =
+            clampedPreviousContentOffsetY - previousRange.lowerBound
+        let distanceToUpperBound =
+            previousRange.upperBound - clampedPreviousContentOffsetY
+        if min(distanceToLowerBound, distanceToUpperBound) <= epsilon {
+            return distanceToUpperBound < distanceToLowerBound
+                ? updatedRange.upperBound
+                : updatedRange.lowerBound
+        }
+
+        let insetDelta = topContentInsetDelta.isFinite
+            ? topContentInsetDelta
+            : 0
+        let proposedContentOffsetY =
+            clampedPreviousContentOffsetY + insetDelta
+        guard proposedContentOffsetY.isFinite else {
+            return insetDelta > 0
+                ? updatedRange.upperBound
+                : updatedRange.lowerBound
+        }
+        return min(
+            max(proposedContentOffsetY, updatedRange.lowerBound),
+            updatedRange.upperBound
+        )
+    }
+
     init?(
         viewportSize: CGSize,
         topContentInset: CGFloat = 0,

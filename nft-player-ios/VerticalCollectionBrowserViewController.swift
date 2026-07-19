@@ -18,6 +18,8 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         let preparation: PlayerCollectionBrowsePreparation
         let contentOffset: CGPoint
         let layoutSize: CGSize
+        let layoutWindowSafeAreaInsets: UIEdgeInsets
+        let verticalContentOffsetRange: ClosedRange<CGFloat>
         let browseSnapshot: PlayerCollectionBrowseSnapshot?
         let publicationState: PlayerCollectionScrollPublicationState?
         let hasFinishedInitialPositioning: Bool
@@ -43,6 +45,17 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         let prefetchStride: Int
     }
 
+    private struct WindowSafeAreaState {
+        let insets: UIEdgeInsets
+        let isStatusBarHidden: Bool
+    }
+
+    private struct WindowSafeAreaLayoutUpdate {
+        let insetsToCapture: UIEdgeInsets?
+        let clearsPendingRefresh: Bool
+        let requiresLayoutRefresh: Bool
+    }
+
     private enum FocusPublicationCadence {
         case immediate
         case continuous
@@ -50,17 +63,18 @@ final class VerticalCollectionBrowserViewController: UIViewController,
 
     private static let cellReuseIdentifier = "MobilePlayerCollectionBrowserCell"
     private static let boundaryEpsilon: CGFloat = 0.75
-    private static let navigationBarDragThreshold: CGFloat = 8
+    private static let focusedModeDragThreshold: CGFloat = 8
     private static let verticalContentMargin: CGFloat = 0
     private static let maximumPrefetchLoadCount = 96
     private static let continuousFocusPublicationInterval: CFTimeInterval = 1 / 12
+    private static let scrollToTopAnimationTimeout: TimeInterval = 2
 
     let uuid: UUID
 
     var onFocusedPagePosition: ((PlayerPagePosition) -> Void)?
     var onSettledPagePosition: ((PlayerPagePosition, Bool) -> Bool)?
     var onSelection: ((MobilePlayerBrowserTransitionSelection) -> Bool)?
-    var onNavigationBarMinimizationChange: ((Bool) -> Void)?
+    var onFocusedModeChange: ((Bool) -> Bool)?
 
     private let browserCollectionLayout = MobilePlayerCollectionBrowserLayout()
     private lazy var collectionView: UICollectionView = {
@@ -106,11 +120,16 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     private var lastScrollOffsetY: CGFloat?
     private var dragStartContentOffsetY: CGFloat?
     private var hasAcknowledgedCurrentDrag = false
-    private var navigationBarDragDisplacement: CGFloat = 0
+    private var isFocusedModeActive = false
+    private var focusedModeDragDisplacement: CGFloat = 0
+    private var needsWindowSafeAreaRefresh = false
+    private var isScrollToTopAnimationActive = false
+    private var scrollToTopAnimationTimeoutGeneration: UInt = 0
     private var lastThumbnailWindowRequest: ThumbnailWindowRequest?
     private var lastPrefetchDirection: DownloadableMediaCache.PrefetchDirection = .forward
     private var scrollUpdateGeneration: UInt = 0
     private var isScrollUpdateScheduled = false
+    private var positionSettlementGeneration: UInt = 0
     private var preparedTransition: PreparedTransition?
     private var layoutAspectProfile = MobilePlayerBrowserAspectProfile(
         itemCount: 0,
@@ -174,6 +193,8 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             object: nil,
             queue: .main
         ) { [weak self] _ in
+            self?.cancelScrollToTopAnimationState()
+            self?.finishCurrentDrag()
             self?.flushSettledPosition()
         }
         cacheFileAvailabilityObserver = NotificationCenter.default.addObserver(
@@ -190,17 +211,25 @@ final class VerticalCollectionBrowserViewController: UIViewController,
 
         let viewportSize = collectionView.bounds.size
         let sizeChanged = lastLayoutSize != .zero && lastLayoutSize != viewportSize
-        let windowSafeAreaInsets = collectionView.window?.safeAreaInsets
-        let needsWindowSafeAreaCapture = !hasCapturedLayoutWindowSafeAreaInsets
-            && windowSafeAreaInsets != nil
-        if let windowSafeAreaInsets,
-           sizeChanged || needsWindowSafeAreaCapture {
-            captureLayoutWindowSafeAreaInsets(windowSafeAreaInsets)
+        let windowSafeAreaLayoutUpdate = resolveWindowSafeAreaLayoutUpdate(
+            state: currentWindowSafeAreaState,
+            sizeChanged: sizeChanged
+        )
+        let previousLayoutWindowSafeAreaInsets = layoutWindowSafeAreaInsets
+        let previousContentOffset = collectionView.contentOffset
+        let previousVerticalContentOffsetRange = verticalContentOffsetRange
+
+        if let insets = windowSafeAreaLayoutUpdate.insetsToCapture {
+            captureLayoutWindowSafeAreaInsets(insets)
+        }
+        if windowSafeAreaLayoutUpdate.clearsPendingRefresh {
+            needsWindowSafeAreaRefresh = false
         }
         let transition = MobilePlayerBrowserLayout.viewportTransition(
             previousViewportSize: lastLayoutSize,
             viewportSize: viewportSize,
-            needsSafeAreaRefresh: needsWindowSafeAreaCapture,
+            needsSafeAreaRefresh:
+                windowSafeAreaLayoutUpdate.requiresLayoutRefresh,
             topContentInset:
                 Self.verticalContentMargin + layoutWindowSafeAreaInsets.top,
             bottomContentInset:
@@ -219,11 +248,23 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         }
 
         if transition.geometryChanged,
-           !transition.needsInitialLayout,
-           let retainedFocus = transition.retainedFocusTokenIndex {
-            centerContent(on: retainedFocus)
-            retainFocusedTokenIndex(retainedFocus)
-            focusedTokenIndex = retainedFocus
+           !transition.needsInitialLayout {
+            if sizeChanged,
+               let retainedFocus = transition.retainedFocusTokenIndex {
+                centerContent(on: retainedFocus)
+                retainFocusedTokenIndex(retainedFocus)
+                focusedTokenIndex = retainedFocus
+            } else if windowSafeAreaLayoutUpdate.requiresLayoutRefresh {
+                restoreContentPositionAfterSafeAreaChange(
+                    previousContentOffset: previousContentOffset,
+                    previousTopContentInset:
+                        previousLayoutWindowSafeAreaInsets.top,
+                    previousVerticalContentOffsetRange:
+                        previousVerticalContentOffsetRange,
+                    retainedFocusTokenIndex:
+                        transition.retainedFocusTokenIndex
+                )
+            }
         }
         if transition.needsLayout {
             lastScrollOffsetY = collectionView.contentOffset.y
@@ -241,8 +282,16 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         }
     }
 
+    override func viewSafeAreaInsetsDidChange() {
+        super.viewSafeAreaInsetsDidChange()
+        needsWindowSafeAreaRefresh = true
+        view.setNeedsLayout()
+    }
+
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
+        cancelScrollToTopAnimationState()
+        finishCurrentDrag()
         flushSettledPosition()
     }
 
@@ -268,8 +317,9 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             return
         }
 
-        onNavigationBarMinimizationChange?(false)
+        setFocusedModeActive(false)
         if !active {
+            cancelScrollToTopAnimationState()
             flushSettledPosition()
             finishCurrentDrag()
             cancelScheduledScrollUpdate()
@@ -501,6 +551,8 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             preparation: preparation,
             contentOffset: collectionView.contentOffset,
             layoutSize: collectionView.bounds.size,
+            layoutWindowSafeAreaInsets: layoutWindowSafeAreaInsets,
+            verticalContentOffsetRange: verticalContentOffsetRange,
             browseSnapshot: browseSnapshot,
             publicationState: publicationState,
             hasFinishedInitialPositioning: hasFinishedInitialPositioning,
@@ -533,8 +585,28 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         configureCollectionLayout()
         collectionView.layoutIfNeeded()
 
-        if preparedTransition.layoutSize == collectionView.bounds.size {
-            collectionView.setContentOffset(preparedTransition.contentOffset, animated: false)
+        let layoutSizeUnchanged =
+            preparedTransition.layoutSize == collectionView.bounds.size
+        let canRestoreExactGeometry =
+            layoutSizeUnchanged
+            && preparedTransition.layoutWindowSafeAreaInsets
+                == layoutWindowSafeAreaInsets
+            && preparedTransition.verticalContentOffsetRange
+                == verticalContentOffsetRange
+        if layoutSizeUnchanged {
+            let restoredContentOffset = canRestoreExactGeometry
+                ? preparedTransition.contentOffset
+                : contentOffsetAfterSafeAreaChange(
+                    previousContentOffset: preparedTransition.contentOffset,
+                    previousTopContentInset:
+                        preparedTransition.layoutWindowSafeAreaInsets.top,
+                    previousVerticalContentOffsetRange:
+                        preparedTransition.verticalContentOffsetRange
+                )
+            collectionView.setContentOffset(
+                restoredContentOffset,
+                animated: false
+            )
         } else if let focusedTokenIndex = preparedTransition.forcedFocusedTokenIndex
             ?? preparedTransition.focusedTokenIndex {
             centerContent(on: focusedTokenIndex)
@@ -546,7 +618,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         focusedTokenIndex = preparedTransition.focusedTokenIndex
         if let forcedFocusedTokenIndex = preparedTransition.forcedFocusedTokenIndex {
             self.forcedFocusedTokenIndex = forcedFocusedTokenIndex
-            if preparedTransition.layoutSize == collectionView.bounds.size {
+            if canRestoreExactGeometry {
                 retainedFocusFocalBias = preparedTransition.retainedFocusFocalBias
                     ?? makeFocalBias(for: forcedFocusedTokenIndex)
             } else {
@@ -554,14 +626,14 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             }
         } else {
             forcedFocusedTokenIndex = nil
-            retainedFocusFocalBias = preparedTransition.layoutSize == collectionView.bounds.size
+            retainedFocusFocalBias = canRestoreExactGeometry
                 ? preparedTransition.retainedFocusFocalBias
                 : nil
         }
         lastEmittedFocusedTokenIndex = preparedTransition.lastEmittedFocusedTokenIndex
         lastThumbnailWindowRequest = preparedTransition.lastThumbnailWindowRequest
         lastPrefetchDirection = preparedTransition.lastPrefetchDirection
-        lastScrollOffsetY = preparedTransition.layoutSize == collectionView.bounds.size
+        lastScrollOffsetY = canRestoreExactGeometry
             ? preparedTransition.lastScrollOffsetY
             : collectionView.contentOffset.y
         isApplyingPosition = false
@@ -576,6 +648,9 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             return
         }
 
+        cancelScrollToTopAnimationState()
+        finishCurrentDrag()
+        setFocusedModeActive(false)
         prepareForDisplay(
             using: preparation,
             forcePosition: true,
@@ -701,10 +776,11 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     }
 
     func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+        cancelScrollToTopAnimationState()
         lastScrollOffsetY = scrollView.contentOffset.y
         dragStartContentOffsetY = clampedVerticalContentOffsetY(scrollView.contentOffset.y)
         hasAcknowledgedCurrentDrag = false
-        resetNavigationBarDragIntent()
+        resetFocusedModeDragIntent()
         let verticalRange = verticalContentOffsetRange
         if verticalRange.upperBound - verticalRange.lowerBound <= Self.boundaryEpsilon {
             hasAcknowledgedCurrentDrag = true
@@ -725,7 +801,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         if let previousOffsetY {
             let offsetDelta = scrollView.contentOffset.y - previousOffsetY
             if scrollView.isDragging {
-                updateNavigationBarMinimization(for: offsetDelta)
+                updateFocusedMode(for: offsetDelta)
             }
             if abs(offsetDelta) > Self.boundaryEpsilon {
                 lastPrefetchDirection = offsetDelta > 0 ? .forward : .backward
@@ -736,29 +812,41 @@ final class VerticalCollectionBrowserViewController: UIViewController,
 
     func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
         guard !decelerate else { return }
-        settleCurrentPosition()
         finishCurrentDrag()
+        settleAfterApplyingPendingWindowSafeAreaRefresh()
     }
 
     func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
-        settleCurrentPosition()
         finishCurrentDrag()
+        settleAfterApplyingPendingWindowSafeAreaRefresh()
     }
 
     func scrollViewDidEndScrollingAnimation(_ scrollView: UIScrollView) {
-        settleCurrentPosition()
+        cancelScrollToTopAnimationState()
+        settleAfterApplyingPendingWindowSafeAreaRefresh()
     }
 
     func scrollViewShouldScrollToTop(_ scrollView: UIScrollView) -> Bool {
         guard isActive else { return false }
+        finishCurrentDrag()
+        cancelScrollToTopAnimationState()
+        isScrollToTopAnimationActive =
+            scrollView.contentOffset.y
+                > verticalContentOffsetRange.lowerBound + Self.boundaryEpsilon
+        if isScrollToTopAnimationActive {
+            scheduleScrollToTopAnimationTimeout()
+        }
         retainFocusedTokenIndex(nil)
         cancelScheduledScrollUpdate()
         lastScrollOffsetY = scrollView.contentOffset.y
+        setFocusedModeActive(false)
         return true
     }
 
     func scrollViewDidScrollToTop(_ scrollView: UIScrollView) {
-        settleCurrentPosition()
+        cancelScrollToTopAnimationState()
+        setFocusedModeActive(false)
+        settleAfterApplyingPendingWindowSafeAreaRefresh()
     }
 
     private func applyBrowseSnapshot(
@@ -981,6 +1069,138 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         hasCapturedLayoutWindowSafeAreaInsets = true
     }
 
+    private func resolveWindowSafeAreaLayoutUpdate(
+        state: WindowSafeAreaState?,
+        sizeChanged: Bool
+    ) -> WindowSafeAreaLayoutUpdate {
+        guard let state else {
+            return WindowSafeAreaLayoutUpdate(
+                insetsToCapture: nil,
+                clearsPendingRefresh: false,
+                requiresLayoutRefresh: false
+            )
+        }
+
+        let needsInitialCapture = !hasCapturedLayoutWindowSafeAreaInsets
+        let isScrollInteractionActive =
+            dragStartContentOffsetY != nil || isScrollToTopAnimationActive
+        let canEvaluatePendingRefresh =
+            needsWindowSafeAreaRefresh
+            && !isScrollInteractionActive
+        let hasStableVisibleStatusBar =
+            !isFocusedModeActive && !state.isStatusBarHidden
+
+        let refreshInsets: UIEdgeInsets?
+        if !canEvaluatePendingRefresh {
+            refreshInsets = nil
+        } else if hasStableVisibleStatusBar {
+            refreshInsets = state.insets
+        } else {
+            // Status-bar visibility is the only top-edge change intentionally
+            // frozen for smooth focused scrolling. Keep other edges current.
+            refreshInsets = UIEdgeInsets(
+                top: layoutWindowSafeAreaInsets.top,
+                left: 0,
+                bottom: state.insets.bottom,
+                right: 0
+            )
+        }
+        let changedRefreshInsets = refreshInsets.flatMap {
+            $0 == layoutWindowSafeAreaInsets ? nil : $0
+        }
+
+        return WindowSafeAreaLayoutUpdate(
+            insetsToCapture:
+                sizeChanged || needsInitialCapture
+                    ? state.insets
+                    : changedRefreshInsets,
+            clearsPendingRefresh:
+                hasStableVisibleStatusBar
+                    && (sizeChanged
+                        || needsInitialCapture
+                        || canEvaluatePendingRefresh),
+            requiresLayoutRefresh:
+                needsInitialCapture
+                    || (!sizeChanged && changedRefreshInsets != nil)
+        )
+    }
+
+    private var currentWindowSafeAreaState: WindowSafeAreaState? {
+        guard let window = collectionView.window else { return nil }
+
+        let statusBarManager = window.windowScene?.statusBarManager
+        let isStatusBarHidden = statusBarManager?.isStatusBarHidden == true
+        let safeAreaInsets = window.safeAreaInsets
+
+        let displayScale = window.screen.scale
+        func pixelAligned(_ value: CGFloat) -> CGFloat {
+            let sanitizedValue = value.isFinite ? max(value, 0) : 0
+            guard displayScale.isFinite, displayScale > 0 else {
+                return sanitizedValue
+            }
+            return (sanitizedValue * displayScale).rounded() / displayScale
+        }
+
+        return WindowSafeAreaState(
+            insets: UIEdgeInsets(
+                top: pixelAligned(safeAreaInsets.top),
+                left: 0,
+                bottom: pixelAligned(safeAreaInsets.bottom),
+                right: 0
+            ),
+            isStatusBarHidden: isStatusBarHidden
+        )
+    }
+
+    private func restoreContentPositionAfterSafeAreaChange(
+        previousContentOffset: CGPoint,
+        previousTopContentInset: CGFloat,
+        previousVerticalContentOffsetRange: ClosedRange<CGFloat>,
+        retainedFocusTokenIndex: Int?
+    ) {
+        let restoredContentOffset = contentOffsetAfterSafeAreaChange(
+            previousContentOffset: previousContentOffset,
+            previousTopContentInset: previousTopContentInset,
+            previousVerticalContentOffsetRange:
+                previousVerticalContentOffsetRange
+        )
+        let appliedOffsetDeltaY =
+            restoredContentOffset.y - previousContentOffset.y
+        collectionView.setContentOffset(restoredContentOffset, animated: false)
+        if let dragStartContentOffsetY {
+            self.dragStartContentOffsetY =
+                dragStartContentOffsetY + appliedOffsetDeltaY
+        }
+
+        retainFocusedTokenIndex(retainedFocusTokenIndex)
+        if let retainedFocusTokenIndex {
+            focusedTokenIndex = retainedFocusTokenIndex
+        }
+    }
+
+    private func contentOffsetAfterSafeAreaChange(
+        previousContentOffset: CGPoint,
+        previousTopContentInset: CGFloat,
+        previousVerticalContentOffsetRange: ClosedRange<CGFloat>
+    ) -> CGPoint {
+        let restoredContentOffsetY =
+            MobilePlayerBrowserLayout.contentOffsetYAfterSafeAreaChange(
+                previousContentOffsetY: previousContentOffset.y,
+                previousRange: previousVerticalContentOffsetRange,
+                updatedRange: verticalContentOffsetRange,
+                topContentInsetDelta:
+                    layoutWindowSafeAreaInsets.top
+                        - previousTopContentInset,
+                boundaryEpsilon: Self.boundaryEpsilon
+            )
+        return clampedContentOffset(
+            CGPoint(
+                x: previousContentOffset.x,
+                y: restoredContentOffsetY
+            )
+        )
+    }
+
     private func centerContent(on tokenIndex: Int) {
         guard let browseSnapshot,
               (0..<browseSnapshot.itemCount).contains(tokenIndex) else {
@@ -1094,22 +1314,76 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     private func finishCurrentDrag() {
         dragStartContentOffsetY = nil
         hasAcknowledgedCurrentDrag = false
-        resetNavigationBarDragIntent()
+        resetFocusedModeDragIntent()
+        if needsWindowSafeAreaRefresh {
+            view.setNeedsLayout()
+        }
     }
 
-    private func updateNavigationBarMinimization(for offsetDelta: CGFloat) {
-        navigationBarDragDisplacement += offsetDelta
-        guard abs(navigationBarDragDisplacement) >= Self.navigationBarDragThreshold else {
+    private func cancelScrollToTopAnimationState() {
+        scrollToTopAnimationTimeoutGeneration &+= 1
+        guard isScrollToTopAnimationActive else { return }
+        isScrollToTopAnimationActive = false
+        if needsWindowSafeAreaRefresh {
+            view.setNeedsLayout()
+        }
+    }
+
+    private func scheduleScrollToTopAnimationTimeout() {
+        scrollToTopAnimationTimeoutGeneration &+= 1
+        let generation = scrollToTopAnimationTimeoutGeneration
+        // UIKit has no cancellation callback for an interrupted status-bar scroll.
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + Self.scrollToTopAnimationTimeout
+        ) { [weak self] in
+            guard let self,
+                  self.isScrollToTopAnimationActive,
+                  self.scrollToTopAnimationTimeoutGeneration == generation else {
+                return
+            }
+            self.cancelScrollToTopAnimationState()
+            self.settleAfterApplyingPendingWindowSafeAreaRefresh()
+        }
+    }
+
+    private func settleAfterApplyingPendingWindowSafeAreaRefresh() {
+        if needsWindowSafeAreaRefresh,
+           let currentAnchorTokenIndex = currentAnchorTokenIndex() {
+            focusedTokenIndex = currentAnchorTokenIndex
+        }
+        let previousSettlementGeneration = positionSettlementGeneration
+        if needsWindowSafeAreaRefresh {
+            view.setNeedsLayout()
+        }
+        view.layoutIfNeeded()
+        if positionSettlementGeneration == previousSettlementGeneration {
+            settleCurrentPosition()
+        }
+    }
+
+    private func updateFocusedMode(for offsetDelta: CGFloat) {
+        focusedModeDragDisplacement += offsetDelta
+        guard abs(focusedModeDragDisplacement) >= Self.focusedModeDragThreshold else {
             return
         }
 
-        let shouldMinimize = navigationBarDragDisplacement > 0
-        navigationBarDragDisplacement = 0
-        onNavigationBarMinimizationChange?(shouldMinimize)
+        setFocusedModeActive(focusedModeDragDisplacement > 0)
     }
 
-    private func resetNavigationBarDragIntent() {
-        navigationBarDragDisplacement = 0
+    private func setFocusedModeActive(_ isActive: Bool) {
+        resetFocusedModeDragIntent()
+        guard isFocusedModeActive != isActive else { return }
+        guard onFocusedModeChange?(isActive) ?? true else { return }
+
+        isFocusedModeActive = isActive
+        if !isActive {
+            needsWindowSafeAreaRefresh = true
+            view.setNeedsLayout()
+        }
+    }
+
+    private func resetFocusedModeDragIntent() {
+        focusedModeDragDisplacement = 0
     }
 
     private func currentAnchorTokenIndex() -> Int? {
@@ -1268,6 +1542,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
 
     private func settleCurrentPosition() {
         guard isActive else { return }
+        positionSettlementGeneration &+= 1
         cancelScheduledScrollUpdate()
         observeCurrentAnchor(
             focusCadence: .immediate,

@@ -151,11 +151,24 @@ final class MobilePlayerChromeController: ObservableObject {
     @Published private(set) var showControls = false
     @Published private(set) var isPlayerContentHiddenForCardTransition = false
     @Published private(set) var allowsNavigationBackSwipe: Bool
-    @Published private(set) var isCollectionBrowserNavigationBarMinimized = false
+    @Published private(set) var isCollectionBrowserFocusedModeActive = false
     @Published private(set) var displayModeRequest: MobilePlayerDisplayModeRequest?
     @Published private(set) var playerBackgroundColor: UIColor
     private(set) var isPlayerContentZoomed = false
     private(set) var layoutInteractionState = MobilePlayerLayoutInteractionState.empty
+    private var desiredCollectionBrowserFocusedModeActive = false
+    // Defer UIScrollView-driven publication until SwiftUI's current update
+    // unwinds, coalescing rapid direction changes to the latest request.
+    private lazy var collectionBrowserFocusedModePublicationUpdate =
+        PendingMainQueueUpdate { [weak self] in
+            guard let self,
+                  self.isCollectionBrowserFocusedModeActive
+                    != self.desiredCollectionBrowserFocusedModeActive else {
+                return
+            }
+            self.isCollectionBrowserFocusedModeActive =
+                self.desiredCollectionBrowserFocusedModeActive
+        }
     var onCollectionBrowserMinimizeRequest: (() -> Bool)?
     var onCollectionBrowserExpandRequest: ((MobilePlayerBrowserTransitionSelection) -> MobilePlayerBrowserExpandSelectionResult)?
     private weak var collectionBrowserTransitionProvider: (any MobilePlayerBrowserTransitionProviding)?
@@ -168,6 +181,25 @@ final class MobilePlayerChromeController: ObservableObject {
     ) {
         self.playerBackgroundColor = playerBackgroundColor
         self.allowsNavigationBackSwipe = allowsNavigationBackSwipe
+    }
+
+    static func shouldShowPlayerChrome(
+        showControls: Bool,
+        allowsNavigationBackSwipe: Bool,
+        isCollectionBrowserFocusedModeActive: Bool
+    ) -> Bool {
+        allowsNavigationBackSwipe
+            ? !isCollectionBrowserFocusedModeActive
+            : showControls
+    }
+
+    var isPlayerChromeVisible: Bool {
+        Self.shouldShowPlayerChrome(
+            showControls: showControls,
+            allowsNavigationBackSwipe: allowsNavigationBackSwipe,
+            isCollectionBrowserFocusedModeActive:
+                isCollectionBrowserFocusedModeActive
+        )
     }
 
     func setCollectionBrowserTransitionProvider(_ provider: any MobilePlayerBrowserTransitionProviding) {
@@ -302,19 +334,20 @@ final class MobilePlayerChromeController: ObservableObject {
         allowsNavigationBackSwipe = isAllowed
     }
 
-    func setCollectionBrowserNavigationBarMinimized(_ isMinimized: Bool) {
-        guard Thread.isMainThread else {
-            DispatchQueue.main.async {
-                self.setCollectionBrowserNavigationBarMinimized(isMinimized)
-            }
-            return
+    @discardableResult
+    func setCollectionBrowserFocusedModeActive(_ isActive: Bool) -> Bool {
+        guard Thread.isMainThread else { return false }
+
+        guard !isActive || allowsNavigationBackSwipe else {
+            return false
+        }
+        guard desiredCollectionBrowserFocusedModeActive != isActive else {
+            return true
         }
 
-        guard (!isMinimized || allowsNavigationBackSwipe),
-              isCollectionBrowserNavigationBarMinimized != isMinimized else {
-            return
-        }
-        isCollectionBrowserNavigationBarMinimized = isMinimized
+        desiredCollectionBrowserFocusedModeActive = isActive
+        collectionBrowserFocusedModePublicationUpdate.schedule()
+        return true
     }
 
     func setLayoutInteractionState(_ state: MobilePlayerLayoutInteractionState) {
@@ -635,9 +668,7 @@ struct MobilePlayerView: View {
     }
 
     private var shouldHideStatusBar: Bool {
-        displayMode == .onePerPage
-            && isAllowedToHideStatusBar
-            && !chrome.showControls
+        isAllowedToHideStatusBar && !chrome.isPlayerChromeVisible
     }
     
     private var infoMenu: some View {

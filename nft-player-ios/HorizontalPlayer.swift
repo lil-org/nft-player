@@ -1153,8 +1153,9 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
         controller.onSelection = { [weak self] selection in
             self?.openCollectionBrowserSelection(selection) == true
         }
-        controller.onNavigationBarMinimizationChange = { [weak self] isMinimized in
-            self?.chrome.setCollectionBrowserNavigationBarMinimized(isMinimized)
+        controller.onFocusedModeChange = { [weak self] isActive in
+            guard let self else { return false }
+            return self.chrome.setCollectionBrowserFocusedModeActive(isActive)
         }
         return controller
     }()

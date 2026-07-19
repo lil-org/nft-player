@@ -422,6 +422,163 @@ final class MobilePlayerBrowserLayoutTests: XCTestCase {
         )
     }
 
+    func testSafeAreaOnlyRelayoutPreservesInteriorRowsAndScrollBoundaries() throws {
+        let viewportSize = CGSize(width: 430, height: 932)
+        let aspectProfile = MobilePlayerBrowserAspectProfile(
+            itemCount: 24,
+            uniformImageSize: CGSize(width: 210, height: 373)
+        )
+        let hiddenStatusBarLayout = try XCTUnwrap(MobilePlayerBrowserLayout(
+            viewportSize: viewportSize,
+            topContentInset: 0,
+            bottomContentInset: 34,
+            aspectProfile: aspectProfile
+        ))
+        let visibleStatusBarLayout = try XCTUnwrap(MobilePlayerBrowserLayout(
+            viewportSize: viewportSize,
+            topContentInset: 59,
+            bottomContentInset: 34,
+            aspectProfile: aspectProfile
+        ))
+        let previousContentOffsetY: CGFloat = 320
+        let topInsetDelta: CGFloat = 59
+        let hiddenStatusBarRange: ClosedRange<CGFloat> = 0...max(
+            hiddenStatusBarLayout.contentSize.height - viewportSize.height,
+            0
+        )
+        let visibleStatusBarRange: ClosedRange<CGFloat> = 0...max(
+            visibleStatusBarLayout.contentSize.height - viewportSize.height,
+            0
+        )
+        let compensatedContentOffsetY =
+            MobilePlayerBrowserLayout.contentOffsetYAfterSafeAreaChange(
+                previousContentOffsetY: previousContentOffsetY,
+                previousRange: hiddenStatusBarRange,
+                updatedRange: visibleStatusBarRange,
+                topContentInsetDelta: topInsetDelta,
+                boundaryEpsilon: 0.75
+            )
+
+        XCTAssertEqual(
+            visibleStatusBarLayout.contentSize.height
+                - hiddenStatusBarLayout.contentSize.height,
+            topInsetDelta,
+            accuracy: 0.000_001
+        )
+        for itemIndex in [0, 7, 23] {
+            let hiddenFrame = try XCTUnwrap(
+                hiddenStatusBarLayout.itemFrame(at: itemIndex)
+            )
+            let visibleFrame = try XCTUnwrap(
+                visibleStatusBarLayout.itemFrame(at: itemIndex)
+            )
+            XCTAssertEqual(
+                visibleFrame.minY - hiddenFrame.minY,
+                topInsetDelta,
+                accuracy: 0.000_001
+            )
+            XCTAssertEqual(visibleFrame.size, hiddenFrame.size)
+            XCTAssertEqual(
+                visibleFrame.midY - compensatedContentOffsetY,
+                hiddenFrame.midY - previousContentOffsetY,
+                accuracy: 0.000_001
+            )
+        }
+        XCTAssertEqual(
+            MobilePlayerBrowserLayout.contentOffsetYAfterSafeAreaChange(
+                previousContentOffsetY: hiddenStatusBarRange.lowerBound,
+                previousRange: hiddenStatusBarRange,
+                updatedRange: visibleStatusBarRange,
+                topContentInsetDelta: topInsetDelta,
+                boundaryEpsilon: 0.75
+            ),
+            visibleStatusBarRange.lowerBound
+        )
+        XCTAssertEqual(
+            MobilePlayerBrowserLayout.contentOffsetYAfterSafeAreaChange(
+                previousContentOffsetY: hiddenStatusBarRange.upperBound,
+                previousRange: hiddenStatusBarRange,
+                updatedRange: visibleStatusBarRange,
+                topContentInsetDelta: topInsetDelta,
+                boundaryEpsilon: 0.75
+            ),
+            visibleStatusBarRange.upperBound
+        )
+        XCTAssertEqual(
+            MobilePlayerBrowserLayout.contentOffsetYAfterSafeAreaChange(
+                previousContentOffsetY: 0.5,
+                previousRange: 0...0.5,
+                updatedRange: 0...10,
+                topContentInsetDelta: topInsetDelta,
+                boundaryEpsilon: 0.75
+            ),
+            10
+        )
+        XCTAssertEqual(
+            MobilePlayerBrowserLayout.contentOffsetYAfterSafeAreaChange(
+                previousContentOffsetY: compensatedContentOffsetY,
+                previousRange: visibleStatusBarRange,
+                updatedRange: hiddenStatusBarRange,
+                topContentInsetDelta: -topInsetDelta,
+                boundaryEpsilon: 0.75
+            ),
+            previousContentOffsetY,
+            accuracy: 0.000_001
+        )
+    }
+
+    func testSafeAreaOffsetClampsFiniteAdditionOverflowTowardUpdatedBoundary() {
+        let extreme = CGFloat.greatestFiniteMagnitude
+        let interiorMagnitude = extreme * 0.75
+
+        XCTAssertEqual(
+            MobilePlayerBrowserLayout.contentOffsetYAfterSafeAreaChange(
+                previousContentOffsetY: interiorMagnitude,
+                previousRange: 0...extreme,
+                updatedRange: 0...extreme,
+                topContentInsetDelta: interiorMagnitude,
+                boundaryEpsilon: 0
+            ),
+            extreme
+        )
+        XCTAssertEqual(
+            MobilePlayerBrowserLayout.contentOffsetYAfterSafeAreaChange(
+                previousContentOffsetY: -interiorMagnitude,
+                previousRange: (-extreme)...0,
+                updatedRange: (-extreme)...0,
+                topContentInsetDelta: -interiorMagnitude,
+                boundaryEpsilon: 0
+            ),
+            -extreme
+        )
+    }
+
+    func testSafeAreaOffsetKeepsInteriorAndBottomStickyForBottomOnlyChange() {
+        let previousRange: ClosedRange<CGFloat> = 0...100
+        let updatedRange: ClosedRange<CGFloat> = 0...140
+
+        XCTAssertEqual(
+            MobilePlayerBrowserLayout.contentOffsetYAfterSafeAreaChange(
+                previousContentOffsetY: 40,
+                previousRange: previousRange,
+                updatedRange: updatedRange,
+                topContentInsetDelta: 0,
+                boundaryEpsilon: 0.75
+            ),
+            40
+        )
+        XCTAssertEqual(
+            MobilePlayerBrowserLayout.contentOffsetYAfterSafeAreaChange(
+                previousContentOffsetY: previousRange.upperBound,
+                previousRange: previousRange,
+                updatedRange: updatedRange,
+                topContentInsetDelta: 0,
+                boundaryEpsilon: 0.75
+            ),
+            updatedRange.upperBound
+        )
+    }
+
     func testInitialLandscapeLayoutDoublesBaseColumnCount() throws {
         let viewportSize = CGSize(width: 844, height: 390)
         let aspectProfile = MobilePlayerBrowserAspectProfile(

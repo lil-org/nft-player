@@ -2328,7 +2328,7 @@ private final class CardLayoutPinchGestureRecognizer: UIGestureRecognizer {
 
 }
 
-private final class PendingGesturePresentationUpdate {
+final class PendingMainQueueUpdate {
 
     private var isScheduled = false
     private var generation = 0
@@ -2446,7 +2446,7 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
     private var cardMinimizePinchStartLocation = CGPoint.zero
     private var cardMinimizePinchStartRotation: CGFloat = 0
     private var cardMinimizePinchRotation: CGFloat = 0
-    private lazy var cardMinimizePinchPresentationUpdate = PendingGesturePresentationUpdate { [weak self] in
+    private lazy var cardMinimizePinchPresentationUpdate = PendingMainQueueUpdate { [weak self] in
         guard let self else { return }
         guard self.isCardMinimizePinchDrivingCardMinimize else { return }
 
@@ -2641,10 +2641,14 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
         chrome.$showControls
             .combineLatest(
                 chrome.$allowsNavigationBackSwipe,
-                chrome.$isCollectionBrowserNavigationBarMinimized
+                chrome.$isCollectionBrowserFocusedModeActive
             )
-            .map { showControls, allowsNavigationBackSwipe, isMinimized in
-                allowsNavigationBackSwipe ? !isMinimized : showControls
+            .map { showControls, allowsNavigationBackSwipe, isFocusedModeActive in
+                MobilePlayerChromeController.shouldShowPlayerChrome(
+                    showControls: showControls,
+                    allowsNavigationBackSwipe: allowsNavigationBackSwipe,
+                    isCollectionBrowserFocusedModeActive: isFocusedModeActive
+                )
             }
             .removeDuplicates()
             .receive(on: DispatchQueue.main)
@@ -2655,9 +2659,7 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
     }
 
     private var shouldShowNavigationBarChrome: Bool {
-        chrome.allowsNavigationBackSwipe
-            ? !chrome.isCollectionBrowserNavigationBarMinimized
-            : chrome.showControls
+        chrome.isPlayerChromeVisible
     }
 
     private func setNavigationBarChromeVisible(_ isVisible: Bool, animated: Bool) {
