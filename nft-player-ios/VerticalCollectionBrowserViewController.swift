@@ -317,8 +317,8 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             return
         }
 
-        setFocusedModeActive(false)
         if !active {
+            setFocusedModeActive(false)
             cancelScrollToTopAnimationState()
             flushSettledPosition()
             finishCurrentDrag()
@@ -346,6 +346,10 @@ final class VerticalCollectionBrowserViewController: UIViewController,
                 publishSettledTokenIfNeeded()
             }
         }
+    }
+
+    func setFocusedModeActiveForDisplayTransition(_ isActive: Bool) {
+        setFocusedModeActive(isActive)
     }
 
     func prepareForDisplay(

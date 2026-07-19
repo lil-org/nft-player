@@ -1542,6 +1542,7 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
             return
         }
 
+        let shouldActivateCollectionBrowserFocusedMode = !chrome.isPlayerChromeVisible
         let sourcePagePosition = identity.targetPagePosition ?? pagingVC.getCurrentPagePosition()
         guard let preparation = MobilePlaybackController.shared.prepareCollectionBrowse(
             uuid: initialConfig.id,
@@ -1612,6 +1613,9 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
             self.clearEdgeTapHighlights()
             self.onZoomStateChange(false)
             collectionBrowserVC.setActive(true)
+            collectionBrowserVC.setFocusedModeActiveForDisplayTransition(
+                shouldActivateCollectionBrowserFocusedMode
+            )
             collectionBrowserVC.view.alpha = 1
             self.pagingVC.setActive(false)
             self.pagingVC.view.isHidden = true

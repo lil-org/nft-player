@@ -1999,6 +1999,8 @@ private final class MobilePlayerHostingController: UIHostingController<MobilePla
 
 private final class PlayerNavigationController: UINavigationController {
 
+    var navigationBarChromeVisibilityProvider: (() -> Bool?)?
+
     override var childForStatusBarHidden: UIViewController? {
         topViewController
     }
@@ -2009,6 +2011,21 @@ private final class PlayerNavigationController: UINavigationController {
 
     override var preferredStatusBarUpdateAnimation: UIStatusBarAnimation {
         .fade
+    }
+
+    override func setNavigationBarHidden(_ hidden: Bool, animated: Bool) {
+        super.setNavigationBarHidden(hidden, animated: animated)
+
+        guard !hidden,
+              navigationBarChromeVisibilityProvider?() == false else {
+            return
+        }
+
+        // SwiftUI unhides the shared navigation bar before installing the
+        // browser back item. Keep an already-hidden player chrome state hidden
+        // synchronously so the bare back arrow never reaches a rendered frame.
+        navigationBar.layer.removeAllAnimations()
+        navigationBar.alpha = 0
     }
 
 }
@@ -2470,6 +2487,19 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
         self.playerViewController = playerViewController
         self.chrome = chrome
         super.init()
+        if let navigationController = playerNavigationController as? PlayerNavigationController {
+            navigationController.navigationBarChromeVisibilityProvider = {
+                [weak navigationController, weak playerViewController, weak chrome] in
+                guard let navigationController,
+                      let playerViewController,
+                      navigationController.topViewController === playerViewController,
+                      navigationController.transitionCoordinator == nil else {
+                    return nil
+                }
+
+                return chrome?.isPlayerChromeVisible
+            }
+        }
         chrome.onCollectionBrowserMinimizeRequest = { [weak self] in
             self?.beginProgrammaticCardMinimize() ?? false
         }
@@ -2527,6 +2557,9 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
         chromeCancellables.removeAll()
         playerViewController.onPlayerLayout = nil
 
+        if let navigationController = playerNavigationController as? PlayerNavigationController {
+            navigationController.navigationBarChromeVisibilityProvider = nil
+        }
         playerNavigationController.navigationBar.removeGestureRecognizer(navigationBarTap)
         view.removeGestureRecognizer(dismissPan)
         view.removeGestureRecognizer(controlsPan)
@@ -2629,12 +2662,35 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
             .combineLatest(chrome.$isPlayerContentHiddenForCardTransition)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] allowsNavigationBackSwipe, isContentHiddenForCardTransition in
-                self?.updateNavigationBackSwipeAvailability(
+                guard let self else { return }
+
+                self.updateNavigationBackSwipeAvailability(
                     allowsNavigationBackSwipe: allowsNavigationBackSwipe,
                     isContentHiddenForCardTransition: isContentHiddenForCardTransition
                 )
+                if !isContentHiddenForCardTransition {
+                    self.synchronizeNavigationBarChromeAfterToolbarUpdate()
+                }
             }
             .store(in: &chromeCancellables)
+    }
+
+    private func synchronizeNavigationBarChromeAfterToolbarUpdate() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self,
+                  self.isInstalled,
+                  !self.chrome.isPlayerContentHiddenForCardTransition else {
+                return
+            }
+
+            // SwiftUI can restore the navigation bar's alpha while installing
+            // the browser back button. Reapply the already-decided chrome state
+            // after that toolbar update without introducing another animation.
+            self.setNavigationBarChromeVisible(
+                self.shouldShowNavigationBarChrome,
+                animated: false
+            )
+        }
     }
 
     private func observeNavigationBarChromeVisibility() {

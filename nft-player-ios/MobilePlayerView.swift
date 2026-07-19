@@ -330,6 +330,11 @@ final class MobilePlayerChromeController: ObservableObject {
             return
         }
 
+        if isAllowed {
+            // Publish the vertical browser's prepared chrome state before
+            // switching visibility rules from one-per-page to browser mode.
+            collectionBrowserFocusedModePublicationUpdate.flush()
+        }
         guard allowsNavigationBackSwipe != isAllowed else { return }
         allowsNavigationBackSwipe = isAllowed
     }
@@ -338,13 +343,12 @@ final class MobilePlayerChromeController: ObservableObject {
     func setCollectionBrowserFocusedModeActive(_ isActive: Bool) -> Bool {
         guard Thread.isMainThread else { return false }
 
-        guard !isActive || allowsNavigationBackSwipe else {
-            return false
-        }
         guard desiredCollectionBrowserFocusedModeActive != isActive else {
             return true
         }
 
+        // Focused mode is prepared while one-per-page is still active, where it
+        // has no visual effect, then becomes authoritative when the browser returns.
         desiredCollectionBrowserFocusedModeActive = isActive
         collectionBrowserFocusedModePublicationUpdate.schedule()
         return true
