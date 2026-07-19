@@ -2562,7 +2562,7 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
 
     func didShowPlayerAfterNavigationTransition() {
         guard isInstalled else { return }
-        setNavigationBarChromeVisible(shouldShowNavigationBarChrome, animated: false)
+        setNavigationBarChromeVisible(shouldShowNavigationBarChrome, animated: true)
         configurePagingScrollViews()
         updateNavigationBackSwipeAvailability()
         playerNavigationController.setNeedsStatusBarAppearanceUpdate()
@@ -2573,21 +2573,30 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
         using transitionCoordinator: (any UIViewControllerTransitionCoordinator)?
     ) {
         let navigationBar = playerNavigationController.navigationBar
+        // Hand the pop transition the opacity currently visible on screen.
+        let presentedAlpha = navigationBar.layer.presentation()
+            .map { CGFloat($0.opacity) }
         navigationBar.layer.removeAllAnimations()
+        if let presentedAlpha {
+            navigationBar.alpha = presentedAlpha
+        }
         guard let transitionCoordinator else {
             navigationBar.alpha = 1
             return
         }
 
-        transitionCoordinator.animate { _ in
+        let didRegisterAnimation = transitionCoordinator.animate { _ in
             navigationBar.alpha = 1
         } completion: { [weak self] context in
             if context.isCancelled, let self {
                 self.setNavigationBarChromeVisible(
                     self.shouldShowNavigationBarChrome,
-                    animated: false
+                    animated: true
                 )
             }
+        }
+        if !didRegisterAnimation {
+            navigationBar.alpha = 1
         }
     }
 
@@ -2630,9 +2639,12 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
 
     private func observeNavigationBarChromeVisibility() {
         chrome.$showControls
-            .combineLatest(chrome.$allowsNavigationBackSwipe)
-            .map { showControls, allowsNavigationBackSwipe in
-                showControls || allowsNavigationBackSwipe
+            .combineLatest(
+                chrome.$allowsNavigationBackSwipe,
+                chrome.$isCollectionBrowserNavigationBarMinimized
+            )
+            .map { showControls, allowsNavigationBackSwipe, isMinimized in
+                allowsNavigationBackSwipe ? !isMinimized : showControls
             }
             .removeDuplicates()
             .receive(on: DispatchQueue.main)
@@ -2643,15 +2655,17 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
     }
 
     private var shouldShowNavigationBarChrome: Bool {
-        chrome.showControls || chrome.allowsNavigationBackSwipe
+        chrome.allowsNavigationBackSwipe
+            ? !chrome.isCollectionBrowserNavigationBarMinimized
+            : chrome.showControls
     }
 
     private func setNavigationBarChromeVisible(_ isVisible: Bool, animated: Bool) {
         let navigationBar = playerNavigationController.navigationBar
-        navigationBar.layer.removeAllAnimations()
 
         let targetAlpha: CGFloat = isVisible ? 1 : 0
         guard animated else {
+            navigationBar.layer.removeAllAnimations()
             navigationBar.alpha = targetAlpha
             return
         }

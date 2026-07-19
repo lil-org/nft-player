@@ -151,6 +151,7 @@ final class MobilePlayerChromeController: ObservableObject {
     @Published private(set) var showControls = false
     @Published private(set) var isPlayerContentHiddenForCardTransition = false
     @Published private(set) var allowsNavigationBackSwipe: Bool
+    @Published private(set) var isCollectionBrowserNavigationBarMinimized = false
     @Published private(set) var displayModeRequest: MobilePlayerDisplayModeRequest?
     @Published private(set) var playerBackgroundColor: UIColor
     private(set) var isPlayerContentZoomed = false
@@ -299,6 +300,21 @@ final class MobilePlayerChromeController: ObservableObject {
 
         guard allowsNavigationBackSwipe != isAllowed else { return }
         allowsNavigationBackSwipe = isAllowed
+    }
+
+    func setCollectionBrowserNavigationBarMinimized(_ isMinimized: Bool) {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async {
+                self.setCollectionBrowserNavigationBarMinimized(isMinimized)
+            }
+            return
+        }
+
+        guard (!isMinimized || allowsNavigationBackSwipe),
+              isCollectionBrowserNavigationBarMinimized != isMinimized else {
+            return
+        }
+        isCollectionBrowserNavigationBarMinimized = isMinimized
     }
 
     func setLayoutInteractionState(_ state: MobilePlayerLayoutInteractionState) {

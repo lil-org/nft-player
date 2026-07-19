@@ -50,6 +50,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
 
     private static let cellReuseIdentifier = "MobilePlayerCollectionBrowserCell"
     private static let boundaryEpsilon: CGFloat = 0.75
+    private static let navigationBarDragThreshold: CGFloat = 8
     private static let verticalContentMargin: CGFloat = 0
     private static let maximumPrefetchLoadCount = 96
     private static let continuousFocusPublicationInterval: CFTimeInterval = 1 / 12
@@ -59,6 +60,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     var onFocusedPagePosition: ((PlayerPagePosition) -> Void)?
     var onSettledPagePosition: ((PlayerPagePosition, Bool) -> Bool)?
     var onSelection: ((MobilePlayerBrowserTransitionSelection) -> Bool)?
+    var onNavigationBarMinimizationChange: ((Bool) -> Void)?
 
     private let browserCollectionLayout = MobilePlayerCollectionBrowserLayout()
     private lazy var collectionView: UICollectionView = {
@@ -104,6 +106,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     private var lastScrollOffsetY: CGFloat?
     private var dragStartContentOffsetY: CGFloat?
     private var hasAcknowledgedCurrentDrag = false
+    private var navigationBarDragDisplacement: CGFloat = 0
     private var lastThumbnailWindowRequest: ThumbnailWindowRequest?
     private var lastPrefetchDirection: DownloadableMediaCache.PrefetchDirection = .forward
     private var scrollUpdateGeneration: UInt = 0
@@ -265,6 +268,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             return
         }
 
+        onNavigationBarMinimizationChange?(false)
         if !active {
             flushSettledPosition()
             finishCurrentDrag()
@@ -700,6 +704,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         lastScrollOffsetY = scrollView.contentOffset.y
         dragStartContentOffsetY = clampedVerticalContentOffsetY(scrollView.contentOffset.y)
         hasAcknowledgedCurrentDrag = false
+        resetNavigationBarDragIntent()
         let verticalRange = verticalContentOffsetRange
         if verticalRange.upperBound - verticalRange.lowerBound <= Self.boundaryEpsilon {
             hasAcknowledgedCurrentDrag = true
@@ -719,6 +724,9 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         acknowledgeIntentionalScrollIfNeeded(scrollView)
         if let previousOffsetY {
             let offsetDelta = scrollView.contentOffset.y - previousOffsetY
+            if scrollView.isDragging {
+                updateNavigationBarMinimization(for: offsetDelta)
+            }
             if abs(offsetDelta) > Self.boundaryEpsilon {
                 lastPrefetchDirection = offsetDelta > 0 ? .forward : .backward
             }
@@ -1086,6 +1094,22 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     private func finishCurrentDrag() {
         dragStartContentOffsetY = nil
         hasAcknowledgedCurrentDrag = false
+        resetNavigationBarDragIntent()
+    }
+
+    private func updateNavigationBarMinimization(for offsetDelta: CGFloat) {
+        navigationBarDragDisplacement += offsetDelta
+        guard abs(navigationBarDragDisplacement) >= Self.navigationBarDragThreshold else {
+            return
+        }
+
+        let shouldMinimize = navigationBarDragDisplacement > 0
+        navigationBarDragDisplacement = 0
+        onNavigationBarMinimizationChange?(shouldMinimize)
+    }
+
+    private func resetNavigationBarDragIntent() {
+        navigationBarDragDisplacement = 0
     }
 
     private func currentAnchorTokenIndex() -> Int? {

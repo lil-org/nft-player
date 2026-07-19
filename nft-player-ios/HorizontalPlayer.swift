@@ -1153,6 +1153,9 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
         controller.onSelection = { [weak self] selection in
             self?.openCollectionBrowserSelection(selection) == true
         }
+        controller.onNavigationBarMinimizationChange = { [weak self] isMinimized in
+            self?.chrome.setCollectionBrowserNavigationBarMinimized(isMinimized)
+        }
         return controller
     }()
     private let leftEdgeTapHighlight = PlayerEdgeTapHighlightView(side: .left)
