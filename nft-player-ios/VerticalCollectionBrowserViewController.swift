@@ -3,6 +3,8 @@
 import QuartzCore
 import UIKit
 
+final class MobilePlayerCollectionBrowserCollectionView: UICollectionView {}
+
 enum MobilePlayerCollectionBrowserDisplayPreparationResult: Equatable {
     case prepared
     case superseded
@@ -77,8 +79,8 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     var onFocusedModeChange: ((Bool) -> Bool)?
 
     private let browserCollectionLayout = MobilePlayerCollectionBrowserLayout()
-    private lazy var collectionView: UICollectionView = {
-        let collectionView = UICollectionView(
+    private lazy var collectionView: MobilePlayerCollectionBrowserCollectionView = {
+        let collectionView = MobilePlayerCollectionBrowserCollectionView(
             frame: .zero,
             collectionViewLayout: browserCollectionLayout
         )

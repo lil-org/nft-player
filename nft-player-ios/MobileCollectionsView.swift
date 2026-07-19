@@ -1,6 +1,7 @@
 import SwiftUI
 import Combine
 import UIKit
+import UIKit.UIGestureRecognizerSubclass
 
 private let playerCrossfadeAnimation = Animation.easeInOut(duration: 0.18)
 private let initialCollectionItemFadeDuration: TimeInterval = 0.3
@@ -1806,17 +1807,19 @@ private struct MobileCollectionsNavigationView<RootView: View>: UIViewController
                 playerBackgroundColor: MobilePlayerBackgroundColor.color(for: config),
                 allowsNavigationBackSwipe: initialDisplayMode == .collectionBrowser
             )
+            let onDismiss: () -> Void = { [weak self] in
+                self?.requestPop(configID: config.id)
+            }
             let playerViewController = makeMobilePlayerViewController(
                 config: config,
-                onDismiss: { [weak self] in
-                    self?.requestPop(configID: config.id)
-                },
+                onDismiss: onDismiss,
                 chrome: chrome
             )
             let interactionController = PlayerInteractionController(
                 navigationController: navigationController,
                 playerViewController: playerViewController,
-                chrome: chrome
+                chrome: chrome,
+                onDismiss: onDismiss
             )
             interactionController.install()
             return PlayerSession(
@@ -1910,7 +1913,6 @@ private struct MobileCollectionsNavigationView<RootView: View>: UIViewController
         private func restoreRootNavigationState(_ navigationController: UINavigationController) {
             navigationController.navigationBar.layer.removeAllAnimations()
             navigationController.navigationBar.alpha = 1
-            navigationController.interactivePopGestureRecognizer?.isEnabled = false
             navigationController.setNeedsStatusBarAppearanceUpdate()
             rootViewController?.setNeedsStatusBarAppearanceUpdate()
         }
@@ -1946,6 +1948,7 @@ private final class MobilePlayerHostingController: UIHostingController<MobilePla
     var cardTransitionCanvasView: UIView {
         rootView.cardTransitionCanvas.view
     }
+    var onAccessibilityEscape: (() -> Bool)?
     var onPlayerLayout: (() -> Void)?
     var onPermanentRemoval: (() -> Void)?
 
@@ -1967,6 +1970,14 @@ private final class MobilePlayerHostingController: UIHostingController<MobilePla
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         applyPlayerPageBackground()
+    }
+
+    override func accessibilityPerformEscape() -> Bool {
+        if onAccessibilityEscape?() == true {
+            return true
+        }
+
+        return super.accessibilityPerformEscape()
     }
 
     func setPlayerPageBackground(color: UIColor) {
@@ -1997,9 +2008,249 @@ private final class MobilePlayerHostingController: UIHostingController<MobilePla
 
 }
 
+private final class GestureFailureRequirementRegistry {
+
+    private final class RequirementSet {
+        weak var gestureRecognizer: UIGestureRecognizer?
+        let requiredGestureRecognizers =
+            NSHashTable<UIGestureRecognizer>(
+                options: [.weakMemory, .objectPointerPersonality]
+            )
+
+        init(gestureRecognizer: UIGestureRecognizer) {
+            self.gestureRecognizer = gestureRecognizer
+        }
+    }
+
+    private var requirementSetsByGestureRecognizer =
+        [ObjectIdentifier: RequirementSet]()
+
+    func require(
+        _ gestureRecognizer: UIGestureRecognizer,
+        toFail requiredToFailGestureRecognizer: UIGestureRecognizer
+    ) {
+        let requirementSet = requirementSet(for: gestureRecognizer)
+        let requiredGestureRecognizers =
+            requirementSet.requiredGestureRecognizers
+        guard !requiredGestureRecognizers.contains(
+            requiredToFailGestureRecognizer
+        ) else {
+            return
+        }
+
+        gestureRecognizer.require(toFail: requiredToFailGestureRecognizer)
+        requiredGestureRecognizers.add(requiredToFailGestureRecognizer)
+    }
+
+    func contains(
+        _ gestureRecognizer: UIGestureRecognizer,
+        requiringFailureOf requiredToFailGestureRecognizer: UIGestureRecognizer
+    ) -> Bool {
+        let identifier = ObjectIdentifier(gestureRecognizer)
+        guard let requirementSet = requirementSetsByGestureRecognizer[identifier],
+              requirementSet.gestureRecognizer === gestureRecognizer else {
+            return false
+        }
+
+        return requirementSet.requiredGestureRecognizers.contains(
+            requiredToFailGestureRecognizer
+        )
+    }
+
+    func removeInvalidRequirements() {
+        requirementSetsByGestureRecognizer =
+            requirementSetsByGestureRecognizer.filter {
+                $0.value.gestureRecognizer != nil
+            }
+    }
+
+    private func requirementSet(
+        for gestureRecognizer: UIGestureRecognizer
+    ) -> RequirementSet {
+        let identifier = ObjectIdentifier(gestureRecognizer)
+        if let requirementSet = requirementSetsByGestureRecognizer[identifier],
+           requirementSet.gestureRecognizer === gestureRecognizer {
+            return requirementSet
+        }
+
+        let requirementSet = RequirementSet(
+            gestureRecognizer: gestureRecognizer
+        )
+        requirementSetsByGestureRecognizer[identifier] = requirementSet
+        return requirementSet
+    }
+}
+
+private final class NavigationBackGestureGate:
+    UIPanGestureRecognizer,
+    UIGestureRecognizerDelegate {
+
+    var shouldBlockNavigationBack: () -> Bool = { false }
+
+    override init(target: Any?, action: Selector?) {
+        super.init(target: target, action: action)
+
+        delegate = self
+        cancelsTouchesInView = false
+        delaysTouchesBegan = false
+        delaysTouchesEnded = false
+        maximumNumberOfTouches = 1
+        allowedScrollTypesMask = .all
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) is unavailable")
+    }
+
+    func gestureRecognizerShouldBegin(
+        _ gestureRecognizer: UIGestureRecognizer
+    ) -> Bool {
+        shouldBlockNavigationBack()
+    }
+
+    override func canPrevent(
+        _ preventedGestureRecognizer: UIGestureRecognizer
+    ) -> Bool {
+        false
+    }
+
+    override func canBePrevented(
+        by preventingGestureRecognizer: UIGestureRecognizer
+    ) -> Bool {
+        false
+    }
+}
+
+private final class NavigationBackDirectTouchGate: UIGestureRecognizer {
+
+    var shouldBlockNavigationBack: () -> Bool = { false }
+
+    override init(target: Any?, action: Selector?) {
+        super.init(target: target, action: action)
+
+        cancelsTouchesInView = false
+        delaysTouchesBegan = false
+        delaysTouchesEnded = false
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) is unavailable")
+    }
+
+    override func shouldReceive(_ event: UIEvent) -> Bool {
+        guard super.shouldReceive(event) else { return false }
+        return event.type == .touches
+    }
+
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent) {
+        super.touchesBegan(touches, with: event)
+        guard state == .possible else { return }
+
+        // UIKit reserves leading-edge touches for native pop before a pan gate
+        // has enough movement to resolve. Decide on touch-down so pager swipes
+        // that begin at the physical edge remain as permissive as other pages.
+        state = shouldBlockNavigationBack() ? .recognized : .failed
+    }
+
+    override func canPrevent(
+        _ preventedGestureRecognizer: UIGestureRecognizer
+    ) -> Bool {
+        false
+    }
+
+    override func canBePrevented(
+        by preventingGestureRecognizer: UIGestureRecognizer
+    ) -> Bool {
+        false
+    }
+}
+
 private final class PlayerNavigationController: UINavigationController {
 
     var navigationBarChromeVisibilityProvider: (() -> Bool?)?
+    private weak var navigationBackGestureBlockingProviderOwner: AnyObject?
+    private var navigationBackGestureBlockingProvider: (() -> Bool)?
+    private let navigationBackGestureFailureRequirements =
+        GestureFailureRequirementRegistry()
+    private lazy var navigationBackDirectTouchGate:
+        NavigationBackDirectTouchGate = {
+            let gestureRecognizer = NavigationBackDirectTouchGate(
+                target: nil,
+                action: nil
+            )
+            gestureRecognizer.shouldBlockNavigationBack = { [weak self] in
+                self?.navigationBackGestureBlockingProvider?() ?? false
+            }
+            return gestureRecognizer
+        }()
+    private lazy var navigationBackGestureGate: NavigationBackGestureGate = {
+        let gestureRecognizer = NavigationBackGestureGate(
+            target: nil,
+            action: nil
+        )
+        gestureRecognizer.shouldBlockNavigationBack = { [weak self] in
+            self?.navigationBackGestureBlockingProvider?() ?? false
+        }
+        return gestureRecognizer
+    }()
+
+    var interactiveBackGestureRecognizers: [UIGestureRecognizer] {
+        var gestureRecognizers = [UIGestureRecognizer]()
+        if let interactivePopGestureRecognizer {
+            gestureRecognizers.append(interactivePopGestureRecognizer)
+        }
+        if #available(iOS 26.0, *),
+           let interactiveContentPopGestureRecognizer {
+            gestureRecognizers.append(interactiveContentPopGestureRecognizer)
+        }
+        return gestureRecognizers
+    }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+
+        view.addGestureRecognizer(navigationBackDirectTouchGate)
+        view.addGestureRecognizer(navigationBackGestureGate)
+        configureNavigationBackGestureBlocking()
+    }
+
+    func setNavigationBackGestureBlockingProvider(
+        owner: AnyObject,
+        provider: @escaping () -> Bool
+    ) {
+        navigationBackGestureBlockingProviderOwner = owner
+        navigationBackGestureBlockingProvider = provider
+        configureNavigationBackGestureBlocking()
+    }
+
+    func clearNavigationBackGestureBlockingProvider(owner: AnyObject) {
+        guard navigationBackGestureBlockingProviderOwner === owner else {
+            return
+        }
+
+        navigationBackGestureBlockingProviderOwner = nil
+        navigationBackGestureBlockingProvider = nil
+    }
+
+    func configureNavigationBackGestureBlocking() {
+        loadViewIfNeeded()
+        navigationBackGestureFailureRequirements.removeInvalidRequirements()
+        interactiveBackGestureRecognizers.forEach { gestureRecognizer in
+            // On iOS 26 the content-pop recognizer can cover a direct touch
+            // after the leading-edge recognizer declines it, so both native
+            // back recognizers must resolve through the touch-down gate.
+            navigationBackGestureFailureRequirements.require(
+                gestureRecognizer,
+                toFail: navigationBackDirectTouchGate
+            )
+            navigationBackGestureFailureRequirements.require(
+                gestureRecognizer,
+                toFail: navigationBackGestureGate
+            )
+        }
+    }
 
     override var childForStatusBarHidden: UIViewController? {
         topViewController
@@ -2021,9 +2272,9 @@ private final class PlayerNavigationController: UINavigationController {
             return
         }
 
-        // SwiftUI unhides the shared navigation bar before installing the
-        // browser back item. Keep an already-hidden player chrome state hidden
-        // synchronously so the bare back arrow never reaches a rendered frame.
+        // SwiftUI can unhide the shared navigation bar while updating the
+        // player's toolbar items. Keep an already-hidden chrome state hidden
+        // synchronously so the toolbar never reaches a rendered frame.
         navigationBar.layer.removeAllAnimations()
         navigationBar.alpha = 0
     }
@@ -2424,9 +2675,10 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
         let underlayView: CardTransitionUnderlayView
     }
 
-    let playerNavigationController: UINavigationController
+    let playerNavigationController: PlayerNavigationController
     let playerViewController: MobilePlayerHostingController
     let chrome: MobilePlayerChromeController
+    let onDismiss: () -> Void
 
     private var view: UIView {
         playerViewController.view
@@ -2437,6 +2689,11 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
     }
 
     private lazy var navigationBarTap = UITapGestureRecognizer(target: self, action: #selector(handleNavigationBarTap(_:)))
+    private lazy var navigationBackAction = UIAction(
+        title: Strings.back
+    ) { [weak self] _ in
+        _ = self?.handleNavigationBackAction()
+    }
     private lazy var dismissPan = UIPanGestureRecognizer(target: self, action: #selector(handleDismissPan(_:)))
     private lazy var controlsPan = UIPanGestureRecognizer(target: self, action: #selector(handleControlsPan(_:)))
     private lazy var cardMinimizePinch: CardLayoutPinchGestureRecognizer = {
@@ -2455,8 +2712,8 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
         return gesture
     }()
     private lazy var pinchRotation = UIRotationGestureRecognizer(target: self, action: #selector(handlePinchRotation(_:)))
-    private var configuredScrollPanGestures = Set<ObjectIdentifier>()
-    private var configuredScrollPinchGestures = Set<ObjectIdentifier>()
+    private let gestureFailureRequirements =
+        GestureFailureRequirementRegistry()
     private var isInstalled = false
     private var isDismissPanDrivingCardMinimize = false
     private var isCardMinimizePinchDrivingCardMinimize = false
@@ -2476,49 +2733,61 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
     private var isCardExpandAnimationComplete = false
     private var isCardExpandLayoutApplied = false
     private var didControlsPanConflictWithHorizontalScroll = false
+    private var isNavigationBackDisplayModeRequestPending = false
     private var chromeCancellables = Set<AnyCancellable>()
 
     init(
-        navigationController: UINavigationController,
+        navigationController: PlayerNavigationController,
         playerViewController: MobilePlayerHostingController,
-        chrome: MobilePlayerChromeController
+        chrome: MobilePlayerChromeController,
+        onDismiss: @escaping () -> Void
     ) {
         self.playerNavigationController = navigationController
         self.playerViewController = playerViewController
         self.chrome = chrome
+        self.onDismiss = onDismiss
         super.init()
-        if let navigationController = playerNavigationController as? PlayerNavigationController {
-            navigationController.navigationBarChromeVisibilityProvider = {
-                [weak navigationController, weak playerViewController, weak chrome] in
-                guard let navigationController,
-                      let playerViewController,
-                      navigationController.topViewController === playerViewController,
-                      navigationController.transitionCoordinator == nil else {
-                    return nil
-                }
-
-                return chrome?.isPlayerChromeVisible
+        playerNavigationController.navigationBarChromeVisibilityProvider = {
+            [weak navigationController, weak playerViewController, weak chrome] in
+            guard let navigationController,
+                  let playerViewController,
+                  navigationController.topViewController === playerViewController,
+                  navigationController.transitionCoordinator == nil else {
+                return nil
             }
-        }
-        chrome.onCollectionBrowserMinimizeRequest = { [weak self] in
-            self?.beginProgrammaticCardMinimize() ?? false
+
+            return chrome?.isPlayerChromeVisible
         }
         chrome.onCollectionBrowserExpandRequest = { [weak self] selection in
             self?.beginProgrammaticCardExpand(selection: selection) ?? .rejected
         }
         playerNavigationController.navigationBar.alpha = shouldShowNavigationBarChrome ? 1 : 0
         observePlayerBackgroundColor()
-        observeNavigationBackSwipeAvailability()
+        observeNavigationToolbarUpdates()
         observeNavigationBarChromeVisibility()
     }
 
     func install() {
         guard !isInstalled else { return }
         isInstalled = true
+        installNavigationBackAction()
+        playerViewController.onAccessibilityEscape = { [weak self] in
+            self?.handleNavigationBackAction() ?? false
+        }
         playerViewController.onPlayerLayout = { [weak self] in
-            self?.configurePagingScrollViews()
+            guard let self else { return }
+
+            self.installNavigationBackAction()
+            self.playerNavigationController
+                .configureNavigationBackGestureBlocking()
+            self.configurePagingScrollViews()
         }
         playerViewController.loadViewIfNeeded()
+        playerNavigationController.setNavigationBackGestureBlockingProvider(
+            owner: self
+        ) { [weak self] in
+            self?.shouldBlockNavigationBackGesture ?? false
+        }
 
         navigationBarTap.delegate = self
         navigationBarTap.numberOfTapsRequired = 1
@@ -2536,7 +2805,7 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
         controlsPan.maximumNumberOfTouches = 1
         view.addGestureRecognizer(controlsPan)
 
-        configureNavigationBackSwipeGesturePriority()
+        playerNavigationController.configureNavigationBackGestureBlocking()
 
         cardMinimizePinch.delegate = self
         cardMinimizePinch.cancelsTouchesInView = false
@@ -2547,19 +2816,25 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
         view.addGestureRecognizer(pinchRotation)
 
         configurePagingScrollViews()
-        updateNavigationBackSwipeAvailability()
     }
 
     func invalidate() {
         guard isInstalled else { return }
         isInstalled = false
+        isNavigationBackDisplayModeRequestPending = false
         cardMinimizePinchPresentationUpdate.invalidate()
         chromeCancellables.removeAll()
+        playerViewController.onAccessibilityEscape = nil
         playerViewController.onPlayerLayout = nil
 
-        if let navigationController = playerNavigationController as? PlayerNavigationController {
-            navigationController.navigationBarChromeVisibilityProvider = nil
+        if playerViewController.navigationItem.backAction?.identifier
+            == navigationBackAction.identifier {
+            playerViewController.navigationItem.backAction = nil
         }
+        playerNavigationController.clearNavigationBackGestureBlockingProvider(
+            owner: self
+        )
+        playerNavigationController.navigationBarChromeVisibilityProvider = nil
         playerNavigationController.navigationBar.removeGestureRecognizer(navigationBarTap)
         view.removeGestureRecognizer(dismissPan)
         view.removeGestureRecognizer(controlsPan)
@@ -2574,7 +2849,6 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
         cardTransitionCanvasView.subviews.forEach { $0.removeFromSuperview() }
         playerViewController.setCardTransitionCanvasActive(false)
 
-        chrome.onCollectionBrowserMinimizeRequest = nil
         chrome.onCollectionBrowserExpandRequest = nil
         chrome.setPlayerContentHiddenForCardTransition(false)
 
@@ -2583,7 +2857,6 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
         view.transform = .identity
         playerNavigationController.navigationBar.layer.removeAllAnimations()
         playerNavigationController.navigationBar.alpha = 1
-        playerNavigationController.interactivePopGestureRecognizer?.isEnabled = false
         playerNavigationController.setNeedsStatusBarAppearanceUpdate()
     }
 
@@ -2595,9 +2868,10 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
 
     func didShowPlayerAfterNavigationTransition() {
         guard isInstalled else { return }
+        installNavigationBackAction()
         setNavigationBarChromeVisible(shouldShowNavigationBarChrome, animated: true)
+        playerNavigationController.configureNavigationBackGestureBlocking()
         configurePagingScrollViews()
-        updateNavigationBackSwipeAvailability()
         playerNavigationController.setNeedsStatusBarAppearanceUpdate()
         playerNavigationController.topViewController?.setNeedsStatusBarAppearanceUpdate()
     }
@@ -2636,6 +2910,8 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
     func prepareForPlayerPresentation(
         using transitionCoordinator: (any UIViewControllerTransitionCoordinator)?
     ) {
+        installNavigationBackAction()
+        playerNavigationController.configureNavigationBackGestureBlocking()
         let navigationBar = playerNavigationController.navigationBar
         navigationBar.layer.removeAllAnimations()
         let targetAlpha: CGFloat = shouldShowNavigationBarChrome ? 1 : 0
@@ -2657,39 +2933,44 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
             .store(in: &chromeCancellables)
     }
 
-    private func observeNavigationBackSwipeAvailability() {
+    private func observeNavigationToolbarUpdates() {
         chrome.$allowsNavigationBackSwipe
             .combineLatest(chrome.$isPlayerContentHiddenForCardTransition)
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] allowsNavigationBackSwipe, isContentHiddenForCardTransition in
-                guard let self else { return }
-
-                self.updateNavigationBackSwipeAvailability(
-                    allowsNavigationBackSwipe: allowsNavigationBackSwipe,
-                    isContentHiddenForCardTransition: isContentHiddenForCardTransition
+            .sink { [weak self] _, _ in
+                self?.synchronizeNavigationBarAfterToolbarUpdate(
+                    reapplyChromeVisibility: true
                 )
-                if !isContentHiddenForCardTransition {
-                    self.synchronizeNavigationBarChromeAfterToolbarUpdate()
-                }
             }
             .store(in: &chromeCancellables)
     }
 
-    private func synchronizeNavigationBarChromeAfterToolbarUpdate() {
+    private func synchronizeNavigationBarAfterToolbarUpdate(
+        reapplyChromeVisibility: Bool
+    ) {
         DispatchQueue.main.async { [weak self] in
             guard let self,
                   self.isInstalled,
-                  !self.chrome.isPlayerContentHiddenForCardTransition else {
+                  self.playerNavigationController.topViewController
+                    === self.playerViewController,
+                  self.playerNavigationController.transitionCoordinator
+                    == nil else {
                 return
             }
 
-            // SwiftUI can restore the navigation bar's alpha while installing
-            // the browser back button. Reapply the already-decided chrome state
-            // after that toolbar update without introducing another animation.
-            self.setNavigationBarChromeVisible(
-                self.shouldShowNavigationBarChrome,
-                animated: false
-            )
+            // SwiftUI can update the navigation item's toolbar contents and
+            // restore the navigation bar's alpha. Reassert the native back
+            // button's action and chrome state without replacing the button.
+            self.installNavigationBackAction()
+            self.playerNavigationController
+                .configureNavigationBackGestureBlocking()
+            self.configurePagingScrollViews()
+            if reapplyChromeVisibility {
+                self.setNavigationBarChromeVisible(
+                    self.shouldShowNavigationBarChrome,
+                    animated: false
+                )
+            }
         }
     }
 
@@ -2709,7 +2990,12 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
             .removeDuplicates()
             .receive(on: DispatchQueue.main)
             .sink { [weak self] isVisible in
-                self?.setNavigationBarChromeVisible(isVisible, animated: true)
+                guard let self else { return }
+
+                self.setNavigationBarChromeVisible(isVisible, animated: true)
+                self.synchronizeNavigationBarAfterToolbarUpdate(
+                    reapplyChromeVisibility: false
+                )
             }
             .store(in: &chromeCancellables)
     }
@@ -2718,11 +3004,75 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
         chrome.isPlayerChromeVisible
     }
 
+    private func installNavigationBackAction() {
+        guard playerNavigationController.viewControllers
+            .dropFirst()
+            .contains(where: { $0 === playerViewController }) else {
+            return
+        }
+
+        let navigationItem = playerViewController.navigationItem
+        guard navigationItem.backAction?.identifier
+            != navigationBackAction.identifier else {
+            return
+        }
+
+        // Keep UIKit's native back button mounted so browser-mode interactive
+        // pop gestures stay fully native. Only replace its primary action:
+        // pager taps minimize to the browser, while browser taps dismiss.
+        navigationItem.backAction = navigationBackAction
+    }
+
+    @discardableResult
+    private func handleNavigationBackAction() -> Bool {
+        guard isInstalled,
+              playerNavigationController.topViewController
+                === playerViewController else {
+            return false
+        }
+
+        guard playerNavigationController.transitionCoordinator == nil,
+              !isCardTransitionActive,
+              !chrome.isPlayerContentHiddenForCardTransition else {
+            return true
+        }
+        guard !isNavigationBackDisplayModeRequestPending else {
+            return true
+        }
+
+        let state = chrome.currentLayoutInteractionState()
+        guard state.canSwitchToCollectionBrowser,
+              let pagePosition = state.pagePosition else {
+            onDismiss()
+            return true
+        }
+
+        guard !beginProgrammaticCardMinimize() else {
+            return true
+        }
+
+        isNavigationBackDisplayModeRequestPending = true
+        chrome.requestDisplayMode(
+            .collectionBrowser,
+            targetPagePosition: pagePosition
+        ) { [weak self] _ in
+            self?.isNavigationBackDisplayModeRequestPending = false
+        }
+        return true
+    }
+
     private func setNavigationBarChromeVisible(_ isVisible: Bool, animated: Bool) {
         let navigationBar = playerNavigationController.navigationBar
 
         let targetAlpha: CGFloat = isVisible ? 1 : 0
         guard animated else {
+            // UIView animations set the model alpha to their destination
+            // immediately. Preserve an in-flight chrome fade unless a toolbar
+            // update actually changed that destination.
+            guard navigationBar.alpha != targetAlpha else {
+                return
+            }
+
             navigationBar.layer.removeAllAnimations()
             navigationBar.alpha = targetAlpha
             return
@@ -2739,55 +3089,54 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
         }
     }
 
-    private func updateNavigationBackSwipeAvailability() {
-        updateNavigationBackSwipeAvailability(
-            allowsNavigationBackSwipe: chrome.allowsNavigationBackSwipe,
-            isContentHiddenForCardTransition: chrome.isPlayerContentHiddenForCardTransition
-        )
+    private var shouldBlockNavigationBackGesture: Bool {
+        guard isInstalled,
+              playerNavigationController.topViewController
+                === playerViewController else {
+            return false
+        }
+
+        return playerNavigationController.transitionCoordinator != nil
+            || !chrome.allowsNavigationBackSwipe
+            || chrome.isPlayerContentHiddenForCardTransition
+            || isCardTransitionActive
     }
 
-    private func updateNavigationBackSwipeAvailability(
-        allowsNavigationBackSwipe: Bool,
-        isContentHiddenForCardTransition: Bool
+    private func requireNavigationBackGesturesToTakePriority(
+        over gestureRecognizer: UIGestureRecognizer
     ) {
-        let isEnabled = playerNavigationController.viewControllers.count > 1
-            && allowsNavigationBackSwipe
-            && !isContentHiddenForCardTransition
-            && !isCardTransitionActive
-
-        guard playerNavigationController.interactivePopGestureRecognizer?.isEnabled != isEnabled else {
-            return
+        playerNavigationController.interactiveBackGestureRecognizers.forEach {
+            navigationBackGestureRecognizer in
+            gestureFailureRequirements.require(
+                gestureRecognizer,
+                toFail: navigationBackGestureRecognizer
+            )
         }
-        playerNavigationController.interactivePopGestureRecognizer?.isEnabled = isEnabled
-    }
-
-    private func configureNavigationBackSwipeGesturePriority() {
-        guard let navigationBackSwipe = playerNavigationController.interactivePopGestureRecognizer else {
-            return
-        }
-
-        dismissPan.require(toFail: navigationBackSwipe)
-        controlsPan.require(toFail: navigationBackSwipe)
     }
 
     private func configurePagingScrollViews() {
+        gestureFailureRequirements.removeInvalidRequirements()
         playerViewController.view
             .allSubviews(ofType: UIScrollView.self)
             .forEach { scrollView in
-                let panGestureId = ObjectIdentifier(scrollView.panGestureRecognizer)
-                if !configuredScrollPanGestures.contains(panGestureId) {
-                    scrollView.panGestureRecognizer.require(toFail: dismissPan)
-                    if let navigationBackSwipe = playerNavigationController.interactivePopGestureRecognizer {
-                        scrollView.panGestureRecognizer.require(toFail: navigationBackSwipe)
-                    }
-                    configuredScrollPanGestures.insert(panGestureId)
+                gestureFailureRequirements.require(
+                    scrollView.panGestureRecognizer,
+                    toFail: dismissPan
+                )
+                // Native pop is available only in the vertical browser. Pager
+                // scroll views must not wait for iOS 26's full-content pop
+                // recognizer, or a reverse page swipe can be starved whenever
+                // the navigation chrome is visible.
+                if scrollView is MobilePlayerCollectionBrowserCollectionView {
+                    requireNavigationBackGesturesToTakePriority(
+                        over: scrollView.panGestureRecognizer
+                    )
                 }
                 if let pinchGesture = scrollView.pinchGestureRecognizer {
-                    let pinchGestureId = ObjectIdentifier(pinchGesture)
-                    if !configuredScrollPinchGestures.contains(pinchGestureId) {
-                        pinchGesture.require(toFail: cardMinimizePinch)
-                        configuredScrollPinchGestures.insert(pinchGestureId)
-                    }
+                    gestureFailureRequirements.require(
+                        pinchGesture,
+                        toFail: cardMinimizePinch
+                    )
                 }
                 scrollView.hideAutomaticScrollEdgeEffects()
             }
@@ -4074,7 +4423,10 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
     }
 
     private func isPlayerScrollViewPinchGesture(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
-        configuredScrollPinchGestures.contains(ObjectIdentifier(gestureRecognizer))
+        gestureFailureRequirements.contains(
+            gestureRecognizer,
+            requiringFailureOf: cardMinimizePinch
+        )
     }
 
 }

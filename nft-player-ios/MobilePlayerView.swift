@@ -133,14 +133,14 @@ struct MobilePlayerLayoutInteractionState: Equatable {
     )
 
     var canSwitchDirectlyToCollectionBrowser: Bool {
-        browserSwitchMode == .offscreenInsertion && canUseCurrentCollectionBrowser
+        browserSwitchMode == .offscreenInsertion && canSwitchToCollectionBrowser
     }
 
     var canMinimizeToCollectionBrowser: Bool {
-        browserSwitchMode == .animated && canUseCurrentCollectionBrowser
+        browserSwitchMode == .animated && canSwitchToCollectionBrowser
     }
 
-    private var canUseCurrentCollectionBrowser: Bool {
+    var canSwitchToCollectionBrowser: Bool {
         displayMode == .onePerPage
             && pagePosition != nil
             && collectionBrowserAvailable
@@ -169,7 +169,6 @@ final class MobilePlayerChromeController: ObservableObject {
             self.isCollectionBrowserFocusedModeActive =
                 self.desiredCollectionBrowserFocusedModeActive
         }
-    var onCollectionBrowserMinimizeRequest: (() -> Bool)?
     var onCollectionBrowserExpandRequest: ((MobilePlayerBrowserTransitionSelection) -> MobilePlayerBrowserExpandSelectionResult)?
     private weak var collectionBrowserTransitionProvider: (any MobilePlayerBrowserTransitionProviding)?
     private var liveLayoutInteractionStateProviderID: UUID?
@@ -405,12 +404,6 @@ final class MobilePlayerChromeController: ObservableObject {
     }
 
     @discardableResult
-    func requestCollectionBrowserMinimize() -> Bool {
-        guard Thread.isMainThread else { return false }
-        return onCollectionBrowserMinimizeRequest?() == true
-    }
-
-    @discardableResult
     func requestCollectionBrowserExpand(
         _ selection: MobilePlayerBrowserTransitionSelection
     ) -> MobilePlayerBrowserExpandSelectionResult {
@@ -613,21 +606,9 @@ struct MobilePlayerView: View {
             for: .navigationBar
         )
         .toolbarBackground(.hidden, for: .navigationBar)
-        .navigationBarBackButtonHidden(
-            !chrome.allowsNavigationBackSwipe
-                || chrome.isPlayerContentHiddenForCardTransition
-        )
+        .navigationBarBackButtonHidden(false)
         .statusBar(hidden: shouldHideStatusBar)
         .toolbar {
-            if !chrome.allowsNavigationBackSwipe,
-               !chrome.isPlayerContentHiddenForCardTransition {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button(action: handleNavigationBarBack) {
-                        Images.back
-                    }
-                    .accessibilityLabel(Strings.back)
-                }
-            }
             if displayMode == .onePerPage,
                !chrome.isPlayerContentHiddenForCardTransition {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -740,22 +721,6 @@ struct MobilePlayerView: View {
 
     private var canBookmarkCurrentToken: Bool {
         !currentToken.fullCollectionId.isEmpty && !currentToken.id.isEmpty
-    }
-
-    private func handleNavigationBarBack() {
-        guard canSwitchCurrentToCollectionBrowser else {
-            onDismiss()
-            return
-        }
-
-        guard !chrome.requestCollectionBrowserMinimize() else {
-            return
-        }
-
-        applyDisplayMode(
-            .collectionBrowser,
-            targetPagePosition: currentPagePosition
-        )
     }
 
     private func handleDisplayModeRequest(_ request: MobilePlayerDisplayModeRequest) {
@@ -891,19 +856,6 @@ struct MobilePlayerView: View {
 
         updateNavigationAvailability(for: currentPagePosition)
         updateLayoutInteractionState()
-    }
-
-    private var canSwitchCurrentToCollectionBrowser: Bool {
-        guard displayMode == .onePerPage,
-              collectionBrowserAvailable,
-              let currentPagePosition else {
-            return false
-        }
-
-        return MobilePlaybackController.shared.canRender(
-            uuid: initialConfig.id,
-            pagePosition: currentPagePosition
-        )
     }
 
     @discardableResult
