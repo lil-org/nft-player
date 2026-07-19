@@ -328,6 +328,102 @@ final class PlayerCollectionScrollPolicyTests: XCTestCase {
         )
     }
 
+    func testRotationTransitionsRetainFocusAndResolveEffectiveRows() throws {
+        let portraitSize = CGSize(width: 430, height: 932)
+        let landscapeSize = CGSize(width: 932, height: 430)
+
+        for portraitColumnCount in [2, 3] {
+            let aspectProfile = MobilePlayerBrowserAspectProfile(
+                itemCount: 37,
+                uniformImageSize: CGSize(width: 1, height: 1),
+                columnCount: portraitColumnCount
+            )
+            let retainedIndex = portraitColumnCount + 1
+            let candidateIndex = 0
+            let portraitTransition = MobilePlayerBrowserLayout.viewportTransition(
+                previousViewportSize: .zero,
+                viewportSize: portraitSize,
+                needsSafeAreaRefresh: true,
+                topContentInset: 59,
+                bottomContentInset: 34,
+                aspectProfile: aspectProfile,
+                forcedTokenIndex: nil,
+                focusedTokenIndex: retainedIndex
+            )
+            let landscapeTransition = MobilePlayerBrowserLayout.viewportTransition(
+                previousViewportSize: portraitSize,
+                viewportSize: landscapeSize,
+                needsSafeAreaRefresh: false,
+                bottomContentInset: 21,
+                aspectProfile: aspectProfile,
+                forcedTokenIndex: nil,
+                focusedTokenIndex: retainedIndex
+            )
+            let returnedPortraitTransition = MobilePlayerBrowserLayout.viewportTransition(
+                previousViewportSize: landscapeSize,
+                viewportSize: portraitSize,
+                needsSafeAreaRefresh: false,
+                topContentInset: 59,
+                bottomContentInset: 34,
+                aspectProfile: aspectProfile,
+                forcedTokenIndex: retainedIndex,
+                focusedTokenIndex: candidateIndex
+            )
+            let portraitLayout = try XCTUnwrap(portraitTransition.layout)
+            let landscapeLayout = try XCTUnwrap(landscapeTransition.layout)
+            let returnedPortraitLayout = try XCTUnwrap(
+                returnedPortraitTransition.layout
+            )
+
+            XCTAssertTrue(portraitTransition.needsInitialLayout)
+            XCTAssertTrue(landscapeTransition.geometryChanged)
+            XCTAssertTrue(returnedPortraitTransition.geometryChanged)
+            XCTAssertEqual(
+                landscapeTransition.retainedFocusTokenIndex,
+                retainedIndex
+            )
+            XCTAssertEqual(
+                returnedPortraitTransition.retainedFocusTokenIndex,
+                retainedIndex
+            )
+            XCTAssertEqual(
+                [
+                    portraitLayout.columnCount,
+                    landscapeLayout.columnCount,
+                    returnedPortraitLayout.columnCount,
+                ],
+                [portraitColumnCount, portraitColumnCount * 2, portraitColumnCount]
+            )
+
+            XCTAssertNotEqual(
+                retainedIndex / portraitLayout.columnCount,
+                candidateIndex / portraitLayout.columnCount
+            )
+            XCTAssertEqual(
+                retainedIndex / landscapeLayout.columnCount,
+                candidateIndex / landscapeLayout.columnCount
+            )
+            XCTAssertEqual(
+                PlayerCollectionScrollPolicy.resolvedAnchorIndex(
+                    retainedIndex: retainedIndex,
+                    candidateIndex: candidateIndex,
+                    itemCount: aspectProfile.itemCount,
+                    configuredColumnCount: landscapeLayout.columnCount
+                ),
+                retainedIndex
+            )
+            XCTAssertEqual(
+                PlayerCollectionScrollPolicy.resolvedAnchorIndex(
+                    retainedIndex: retainedIndex,
+                    candidateIndex: candidateIndex,
+                    itemCount: aspectProfile.itemCount,
+                    configuredColumnCount: returnedPortraitLayout.columnCount
+                ),
+                candidateIndex
+            )
+        }
+    }
+
     func testResolvedAnchorHandlesUnavailableAndInvalidInputs() {
         XCTAssertEqual(
             PlayerCollectionScrollPolicy.resolvedAnchorIndex(

@@ -88,16 +88,27 @@ struct MobilePlayerBrowserAspectProfile: Equatable {
         }
     }
 
-    fileprivate func heightToWidthRatio(atRow rowIndex: Int) -> CGFloat? {
+    fileprivate func heightToWidthRatio(
+        atRow rowIndex: Int,
+        effectiveColumnCount: Int
+    ) -> CGFloat? {
         let rowCount = itemCount > 0
-            ? (itemCount - 1) / columnCount + 1
+            ? (itemCount - 1) / effectiveColumnCount + 1
             : 0
         guard (0..<rowCount).contains(rowIndex) else { return nil }
         switch storage {
         case let .uniform(ratio):
             return ratio
         case let .variableRows(ratios):
-            return ratios[rowIndex]
+            let profileRowsPerLayoutRow = effectiveColumnCount / columnCount
+            guard profileRowsPerLayoutRow > 0 else { return nil }
+            let firstProfileRow = rowIndex * profileRowsPerLayoutRow
+            let lastProfileRow = min(
+                firstProfileRow + profileRowsPerLayoutRow,
+                ratios.count
+            )
+            guard firstProfileRow < lastProfileRow else { return nil }
+            return ratios[firstProfileRow..<lastProfileRow].max()
         }
     }
 
@@ -219,21 +230,29 @@ struct MobilePlayerBrowserLayout: Equatable {
         bottomContentInset: CGFloat = 0,
         aspectProfile: MobilePlayerBrowserAspectProfile
     ) {
-        let columnCount = aspectProfile.columnCount
-        guard viewportSize.width.isFinite,
+        let columnMultiplier = viewportSize.width > viewportSize.height ? 2 : 1
+        let (effectiveColumnCount, effectiveColumnCountOverflowed) =
+            aspectProfile.columnCount.multipliedReportingOverflow(
+                by: columnMultiplier
+            )
+        guard !effectiveColumnCountOverflowed,
+              viewportSize.width.isFinite,
               viewportSize.height.isFinite,
-              viewportSize.width > Self.itemSpacing * CGFloat(columnCount - 1),
+              viewportSize.width
+                > Self.itemSpacing * CGFloat(effectiveColumnCount - 1),
               viewportSize.height > 0 else {
             return nil
         }
 
         let sanitizedTopInset = topContentInset.isFinite ? max(topContentInset, 0) : 0
         let sanitizedBottomInset = bottomContentInset.isFinite ? max(bottomContentInset, 0) : 0
-        let horizontalSpacing = Self.itemSpacing * CGFloat(columnCount - 1)
-        let itemWidth = (viewportSize.width - horizontalSpacing) / CGFloat(columnCount)
+        let horizontalSpacing =
+            Self.itemSpacing * CGFloat(effectiveColumnCount - 1)
+        let itemWidth =
+            (viewportSize.width - horizontalSpacing) / CGFloat(effectiveColumnCount)
         let itemCount = aspectProfile.itemCount
         let rowCount = itemCount > 0
-            ? (itemCount - 1) / columnCount + 1
+            ? (itemCount - 1) / effectiveColumnCount + 1
             : 0
 
         let rowStorage: RowStorage
@@ -249,7 +268,10 @@ struct MobilePlayerBrowserLayout: Equatable {
             var rowHeights = [CGFloat]()
             rowHeights.reserveCapacity(rowCount)
             for rowIndex in 0..<rowCount {
-                let rowRatio = aspectProfile.heightToWidthRatio(atRow: rowIndex) ?? 1
+                let rowRatio = aspectProfile.heightToWidthRatio(
+                    atRow: rowIndex,
+                    effectiveColumnCount: effectiveColumnCount
+                ) ?? 1
                 rowHeights.append(itemWidth * rowRatio)
             }
 
@@ -283,13 +305,12 @@ struct MobilePlayerBrowserLayout: Equatable {
             && visibleRowEstimate < CGFloat(Int.max)
             ? max(Int(visibleRowEstimate), 1)
             : Int.max
-        let maximumPrefetchRowCount = (
-            Self.maximumPrefetchStride + columnCount - 1
-        ) / columnCount
+        let maximumPrefetchRowCount =
+            (Self.maximumPrefetchStride - 1) / effectiveColumnCount + 1
 
         self.itemWidth = itemWidth
         self.itemCount = itemCount
-        self.columnCount = columnCount
+        self.columnCount = effectiveColumnCount
         self.rowCount = rowCount
         self.contentSize = CGSize(
             width: viewportSize.width,
@@ -297,7 +318,7 @@ struct MobilePlayerBrowserLayout: Equatable {
         )
         self.visibleRowCount = visibleRowCount
         self.prefetchStride = min(
-            min(visibleRowCount, maximumPrefetchRowCount) * columnCount,
+            min(visibleRowCount, maximumPrefetchRowCount) * effectiveColumnCount,
             Self.maximumPrefetchStride
         )
         self.topContentInset = sanitizedTopInset

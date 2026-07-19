@@ -194,18 +194,10 @@ final class MobilePlayerBrowserLayoutTests: XCTestCase {
             layout.contentSize.height,
             accuracy: 0.000_001
         )
-        let finalRowQuery = CGRect(
-            x: 0,
-            y: finalItemFrame.minY + 1,
-            width: layout.contentSize.width,
-            height: finalItemFrame.height - 2
+        XCTAssertEqual(
+            visibleItemIndices(inInteriorOf: finalItemFrame, layout: layout),
+            [9_999]
         )
-        let finalVisibleItemIndices = layout
-            .candidateItemIndices(intersecting: finalRowQuery)
-            .filter {
-                layout.itemFrame(at: $0)?.intersects(finalRowQuery) == true
-            }
-        XCTAssertEqual(finalVisibleItemIndices, [9_999])
     }
 
     func testUniformVisibleLookupSafelyHandlesExtremeFiniteRectangles() throws {
@@ -357,18 +349,10 @@ final class MobilePlayerBrowserLayoutTests: XCTestCase {
             accuracy: 0.000_001
         )
 
-        let secondRowQuery = CGRect(
-            x: 0,
-            y: secondRowFrame.minY + 1,
-            width: layout.contentSize.width,
-            height: secondRowFrame.height - 2
+        XCTAssertEqual(
+            visibleItemIndices(inInteriorOf: secondRowFrame, layout: layout),
+            [3, 4, 5]
         )
-        let visibleItemIndices = layout
-            .candidateItemIndices(intersecting: secondRowQuery)
-            .filter {
-                layout.itemFrame(at: $0)?.intersects(secondRowQuery) == true
-            }
-        XCTAssertEqual(visibleItemIndices, [3, 4, 5])
     }
 
     func testRotationRecalculatesGeometryAndPrefetchStride() throws {
@@ -402,23 +386,30 @@ final class MobilePlayerBrowserLayoutTests: XCTestCase {
         let portraitItemSize = try XCTUnwrap(portrait.uniformItemSize)
         let landscapeItemSize = try XCTUnwrap(landscape.uniformItemSize)
 
+        XCTAssertEqual(aspectProfile.columnCount, 3)
+        XCTAssertEqual(portrait.columnCount, 3)
+        XCTAssertEqual(landscape.columnCount, 6)
+        XCTAssertEqual(portrait.rowCount, 4)
+        XCTAssertEqual(landscape.rowCount, 2)
         XCTAssertNotEqual(portraitItemSize, landscapeItemSize)
         XCTAssertEqual(portrait.prefetchStride, 12)
-        XCTAssertEqual(landscape.prefetchStride, 3)
+        XCTAssertEqual(landscape.prefetchStride, 12)
         XCTAssertEqual(rotationTransition.retainedFocusTokenIndex, 7)
-        XCTAssertGreaterThan(landscapeItemSize.height, landscapeViewportSize.height)
+        XCTAssertLessThan(landscapeItemSize.height, landscapeViewportSize.height)
+        XCTAssertEqual(
+            try XCTUnwrap(landscape.itemFrame(at: 5)).maxX,
+            landscapeViewportSize.width,
+            accuracy: 0.000_001
+        )
 
-        let maximumContentOffsetY = landscapeItemSize.height
-            + 21
-            - landscapeViewportSize.height
+        let finalItemFrame = try XCTUnwrap(landscape.itemFrame(at: 11))
+        let maximumContentOffsetY = max(
+            landscape.contentSize.height - landscapeViewportSize.height,
+            0
+        )
         XCTAssertTrue(
             PlayerCollectionScrollPolicy.hasViewedToEnd(
-                finalItemFrame: CGRect(
-                    x: (landscapeItemSize.width + MobilePlayerBrowserLayout.itemSpacing) * 2,
-                    y: 0,
-                    width: landscapeItemSize.width,
-                    height: landscapeItemSize.height
-                ),
+                finalItemFrame: finalItemFrame,
                 viewport: CGRect(
                     x: 0,
                     y: maximumContentOffsetY,
@@ -429,6 +420,54 @@ final class MobilePlayerBrowserLayoutTests: XCTestCase {
                 epsilon: 0.75
             )
         )
+    }
+
+    func testInitialLandscapeLayoutDoublesBaseColumnCount() throws {
+        let viewportSize = CGSize(width: 844, height: 390)
+        let aspectProfile = MobilePlayerBrowserAspectProfile(
+            itemCount: 7,
+            uniformImageSize: CGSize(width: 1, height: 1)
+        )
+        let transition = MobilePlayerBrowserLayout.viewportTransition(
+            previousViewportSize: .zero,
+            viewportSize: viewportSize,
+            needsSafeAreaRefresh: false,
+            aspectProfile: aspectProfile,
+            forcedTokenIndex: nil,
+            focusedTokenIndex: 4
+        )
+        let layout = try XCTUnwrap(transition.layout)
+
+        XCTAssertTrue(transition.needsInitialLayout)
+        XCTAssertEqual(aspectProfile.columnCount, 3)
+        XCTAssertEqual(layout.columnCount, 6)
+        XCTAssertEqual(layout.rowCount, 2)
+        XCTAssertEqual(layout.prefetchStride, 15)
+        XCTAssertEqual(
+            try XCTUnwrap(layout.itemFrame(at: 5)).maxX,
+            viewportSize.width,
+            accuracy: 0.000_001
+        )
+        XCTAssertEqual(
+            try XCTUnwrap(layout.itemFrame(at: 6)).minX,
+            0,
+            accuracy: 0.000_001
+        )
+    }
+
+    func testSquareViewportKeepsPortraitColumnCount() throws {
+        let aspectProfile = MobilePlayerBrowserAspectProfile(
+            itemCount: 8,
+            uniformImageSize: CGSize(width: 1, height: 1),
+            columnCount: 2
+        )
+        let layout = try XCTUnwrap(MobilePlayerBrowserLayout(
+            viewportSize: CGSize(width: 430, height: 430),
+            aspectProfile: aspectProfile
+        ))
+
+        XCTAssertEqual(aspectProfile.columnCount, 2)
+        XCTAssertEqual(layout.columnCount, 2)
     }
 
     func testTwoColumnUniformGeometryUsesFullWidthAndFindsPartialFinalRow() throws {
@@ -464,18 +503,10 @@ final class MobilePlayerBrowserLayoutTests: XCTestCase {
         XCTAssertEqual(layout.visibleRowCount, 4)
         XCTAssertEqual(layout.prefetchStride, 8)
 
-        let finalRowQuery = CGRect(
-            x: 0,
-            y: finalItemFrame.minY + 1,
-            width: layout.contentSize.width,
-            height: finalItemFrame.height - 2
+        XCTAssertEqual(
+            visibleItemIndices(inInteriorOf: finalItemFrame, layout: layout),
+            [4]
         )
-        let visibleItemIndices = layout
-            .candidateItemIndices(intersecting: finalRowQuery)
-            .filter {
-                layout.itemFrame(at: $0)?.intersects(finalRowQuery) == true
-            }
-        XCTAssertEqual(visibleItemIndices, [4])
     }
 
     func testTwoColumnVariableRowsGroupPairsAndPackFrames() throws {
@@ -536,21 +567,43 @@ final class MobilePlayerBrowserLayoutTests: XCTestCase {
             accuracy: 0.000_001
         )
 
-        let secondRowQuery = CGRect(
-            x: 0,
-            y: secondRowFrame.minY + 1,
-            width: layout.contentSize.width,
-            height: secondRowFrame.height - 2
+        XCTAssertEqual(
+            visibleItemIndices(inInteriorOf: secondRowFrame, layout: layout),
+            [2, 3]
         )
-        let visibleItemIndices = layout
-            .candidateItemIndices(intersecting: secondRowQuery)
-            .filter {
-                layout.itemFrame(at: $0)?.intersects(secondRowQuery) == true
-            }
-        XCTAssertEqual(visibleItemIndices, [2, 3])
     }
 
-    func testTwoColumnRotationKeepsColumnCountAndRetainsFocus() throws {
+    func testTwoColumnLandscapeVariableRowsMergeCachedPortraitRowPairs() throws {
+        try assertLandscapeVariableRows(
+            itemImageSizes: [
+                CGSize(width: 2, height: 1),
+                CGSize(width: 1, height: 1),
+                CGSize(width: 1, height: 2),
+                CGSize(width: 2, height: 1),
+                CGSize(width: 1, height: 3),
+            ],
+            baseColumnCount: 2,
+            expectedRowRatios: [2, 3]
+        )
+    }
+
+    func testLandscapeVariableRowsMergePortraitRowsAndFindPartialFinalRow() throws {
+        try assertLandscapeVariableRows(
+            itemImageSizes: [
+                CGSize(width: 2, height: 1),
+                CGSize(width: 1, height: 1),
+                CGSize(width: 4, height: 3),
+                CGSize(width: 1, height: 2),
+                CGSize(width: 2, height: 1),
+                CGSize(width: 2, height: 1),
+                CGSize(width: 1, height: 3),
+            ],
+            baseColumnCount: MobilePlayerBrowserLayout.defaultColumnCount,
+            expectedRowRatios: [2, 3]
+        )
+    }
+
+    func testTwoColumnRotationDoublesColumnsAndRetainsFocus() throws {
         let portraitSize = CGSize(width: 430, height: 932)
         let landscapeSize = CGSize(width: 932, height: 430)
         let aspectProfile = MobilePlayerBrowserAspectProfile(
@@ -577,18 +630,42 @@ final class MobilePlayerBrowserLayoutTests: XCTestCase {
             forcedTokenIndex: nil,
             focusedTokenIndex: 7
         )
+        let returnTransition = MobilePlayerBrowserLayout.viewportTransition(
+            previousViewportSize: landscapeSize,
+            viewportSize: portraitSize,
+            needsSafeAreaRefresh: false,
+            topContentInset: 59,
+            bottomContentInset: 34,
+            aspectProfile: aspectProfile,
+            forcedTokenIndex: nil,
+            focusedTokenIndex: 7
+        )
         let portrait = try XCTUnwrap(portraitTransition.layout)
         let landscape = try XCTUnwrap(rotationTransition.layout)
+        let returnedPortrait = try XCTUnwrap(returnTransition.layout)
 
         XCTAssertTrue(portraitTransition.needsInitialLayout)
         XCTAssertTrue(rotationTransition.geometryChanged)
         XCTAssertFalse(rotationTransition.needsInitialLayout)
         XCTAssertEqual(rotationTransition.retainedFocusTokenIndex, 7)
+        XCTAssertTrue(returnTransition.geometryChanged)
+        XCTAssertEqual(returnTransition.retainedFocusTokenIndex, 7)
+        XCTAssertEqual(aspectProfile.columnCount, 2)
         XCTAssertEqual(portrait.columnCount, 2)
-        XCTAssertEqual(landscape.columnCount, 2)
+        XCTAssertEqual(landscape.columnCount, 4)
+        XCTAssertEqual(returnedPortrait.columnCount, 2)
+        XCTAssertEqual(portrait.rowCount, 6)
+        XCTAssertEqual(landscape.rowCount, 3)
+        XCTAssertEqual(returnedPortrait.rowCount, 6)
         XCTAssertNotEqual(portrait.uniformItemSize, landscape.uniformItemSize)
         XCTAssertEqual(portrait.prefetchStride, 6)
-        XCTAssertEqual(landscape.prefetchStride, 2)
+        XCTAssertEqual(landscape.prefetchStride, 4)
+        XCTAssertEqual(returnedPortrait.prefetchStride, 6)
+        XCTAssertEqual(
+            try XCTUnwrap(landscape.itemFrame(at: 3)).maxX,
+            landscapeSize.width,
+            accuracy: 0.000_001
+        )
     }
 
     func testNonPositiveColumnCountFallsBackToThreeColumns() throws {
@@ -611,6 +688,40 @@ final class MobilePlayerBrowserLayoutTests: XCTestCase {
             MobilePlayerBrowserLayout.defaultColumnCount
         )
         XCTAssertEqual(layout.rowCount, 2)
+    }
+
+    func testOverflowingLandscapeColumnCountReturnsNil() {
+        let aspectProfile = MobilePlayerBrowserAspectProfile(
+            itemCount: 1,
+            uniformImageSize: CGSize(width: 1, height: 1),
+            columnCount: Int.max
+        )
+
+        XCTAssertNil(MobilePlayerBrowserLayout(
+            viewportSize: CGSize(width: 2, height: 1),
+            aspectProfile: aspectProfile
+        ))
+    }
+
+    func testLargeLandscapeColumnCountKeepsPrefetchArithmeticBounded() throws {
+        let portraitColumnCount = Int.max / 2
+        let layout = try XCTUnwrap(MobilePlayerBrowserLayout(
+            viewportSize: CGSize(
+                width: CGFloat.greatestFiniteMagnitude,
+                height: 1
+            ),
+            aspectProfile: MobilePlayerBrowserAspectProfile(
+                itemCount: 1,
+                uniformImageSize: CGSize(width: 1, height: 1),
+                columnCount: portraitColumnCount
+            )
+        ))
+
+        XCTAssertEqual(layout.columnCount, portraitColumnCount * 2)
+        XCTAssertEqual(
+            layout.prefetchStride,
+            MobilePlayerBrowserLayout.maximumPrefetchStride
+        )
     }
 
     func testViewportTransitionPrefersForcedFocusAndRequiresGeometryChange() {
@@ -661,5 +772,90 @@ final class MobilePlayerBrowserLayoutTests: XCTestCase {
             layout.itemWidth,
             accuracy: 0.000_001
         )
+    }
+
+    private func assertLandscapeVariableRows(
+        itemImageSizes: [CGSize],
+        baseColumnCount: Int,
+        expectedRowRatios: [CGFloat]
+    ) throws {
+        let viewportSize = CGSize(width: 844, height: 390)
+        let bottomInset: CGFloat = 20
+        let layout = try XCTUnwrap(MobilePlayerBrowserLayout(
+            viewportSize: viewportSize,
+            topContentInset: 10,
+            bottomContentInset: bottomInset,
+            aspectProfile: MobilePlayerBrowserAspectProfile(
+                itemImageSizes: itemImageSizes,
+                columnCount: baseColumnCount
+            )
+        ))
+        let rowFrames = try expectedRowRatios.indices.map { rowIndex in
+            try XCTUnwrap(
+                layout.itemFrame(at: rowIndex * layout.columnCount)
+            )
+        }
+        let finalItemIndex = itemImageSizes.count - 1
+        let finalRowFrame = try XCTUnwrap(layout.itemFrame(at: finalItemIndex))
+
+        XCTAssertEqual(layout.columnCount, baseColumnCount * 2)
+        XCTAssertEqual(layout.rowCount, expectedRowRatios.count)
+        XCTAssertFalse(layout.usesUniformRowHeights)
+        XCTAssertEqual(
+            layout.cachedVariableRowCount,
+            expectedRowRatios.count
+        )
+        for (rowFrame, expectedRatio) in zip(rowFrames, expectedRowRatios) {
+            XCTAssertEqual(
+                rowFrame.height,
+                layout.itemWidth * expectedRatio,
+                accuracy: 0.000_001
+            )
+        }
+        for rowIndex in rowFrames.indices.dropFirst() {
+            XCTAssertEqual(
+                rowFrames[rowIndex].minY,
+                rowFrames[rowIndex - 1].maxY
+                    + MobilePlayerBrowserLayout.itemSpacing,
+                accuracy: 0.000_001
+            )
+        }
+        XCTAssertEqual(
+            try XCTUnwrap(
+                layout.itemFrame(at: layout.columnCount - 1)
+            ).maxX,
+            viewportSize.width,
+            accuracy: 0.000_001
+        )
+        XCTAssertEqual(finalRowFrame.minX, 0, accuracy: 0.000_001)
+        XCTAssertEqual(
+            layout.contentSize.height,
+            finalRowFrame.maxY + bottomInset,
+            accuracy: 0.000_001
+        )
+        XCTAssertEqual(
+            visibleItemIndices(
+                inInteriorOf: finalRowFrame,
+                layout: layout
+            ),
+            [finalItemIndex]
+        )
+    }
+
+    private func visibleItemIndices(
+        inInteriorOf rowFrame: CGRect,
+        layout: MobilePlayerBrowserLayout
+    ) -> [Int] {
+        let rowInterior = CGRect(
+            x: 0,
+            y: rowFrame.minY + 1,
+            width: layout.contentSize.width,
+            height: rowFrame.height - 2
+        )
+        return layout
+            .candidateItemIndices(intersecting: rowInterior)
+            .filter {
+                layout.itemFrame(at: $0)?.intersects(rowInterior) == true
+            }
     }
 }
