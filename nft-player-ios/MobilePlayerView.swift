@@ -181,6 +181,8 @@ final class MobilePlayerChromeController: ObservableObject {
     ) {
         self.playerBackgroundColor = playerBackgroundColor
         self.allowsNavigationBackSwipe = allowsNavigationBackSwipe
+        self.isCollectionBrowserFocusedModeActive = allowsNavigationBackSwipe
+        self.desiredCollectionBrowserFocusedModeActive = allowsNavigationBackSwipe
     }
 
     static func shouldShowPlayerChrome(
@@ -334,6 +336,11 @@ final class MobilePlayerChromeController: ObservableObject {
             // Publish the vertical browser's prepared chrome state before
             // switching visibility rules from one-per-page to browser mode.
             collectionBrowserFocusedModePublicationUpdate.flush()
+        } else if allowsNavigationBackSwipe {
+            // Carry the browser's current chrome visibility into one-per-page
+            // before switching back to the persistent player controls state.
+            collectionBrowserFocusedModePublicationUpdate.flush()
+            setControlsVisible(isPlayerChromeVisible)
         }
         guard allowsNavigationBackSwipe != isAllowed else { return }
         allowsNavigationBackSwipe = isAllowed

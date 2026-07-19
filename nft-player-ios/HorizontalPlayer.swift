@@ -1256,8 +1256,14 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
         installContentController(pagingVC)
         if let collectionBrowserVC {
             installContentController(collectionBrowserVC)
-            collectionBrowserVC.view.alpha = displayMode == .collectionBrowser ? 1 : 0
-            collectionBrowserVC.setActive(displayMode == .collectionBrowser)
+            let isCollectionBrowserActive = displayMode == .collectionBrowser
+            collectionBrowserVC.view.alpha = isCollectionBrowserActive ? 1 : 0
+            collectionBrowserVC.setActive(isCollectionBrowserActive)
+            if isCollectionBrowserActive {
+                collectionBrowserVC.setFocusedModeActiveForDisplayTransition(
+                    !chrome.isPlayerChromeVisible
+                )
+            }
         }
         pagingVC.view.isHidden = displayMode != .onePerPage
         pagingVC.setActive(displayMode == .onePerPage)
