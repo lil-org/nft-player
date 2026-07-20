@@ -2169,7 +2169,9 @@ private final class NavigationBackDirectTouchGate: UIGestureRecognizer {
 
 private final class PlayerNavigationController: UINavigationController {
 
-    var navigationBarChromeVisibilityProvider: (() -> Bool?)?
+    var canEnforceNavigationBarChromeVisibility: (() -> Bool)?
+    private var navigationBarChromeTargetAlpha: CGFloat?
+    private var isNavigationBarChromeVisibilityEnforcementSuspended = false
     private weak var navigationBackGestureBlockingProviderOwner: AnyObject?
     private var navigationBackGestureBlockingProvider: (() -> Bool)?
     private let navigationBackGestureFailureRequirements =
@@ -2264,19 +2266,80 @@ private final class PlayerNavigationController: UINavigationController {
         .fade
     }
 
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+
+        synchronizeNavigationBarChromeVisibility()
+    }
+
     override func setNavigationBarHidden(_ hidden: Bool, animated: Bool) {
         super.setNavigationBarHidden(hidden, animated: animated)
 
-        guard !hidden,
-              navigationBarChromeVisibilityProvider?() == false else {
+        guard !hidden else { return }
+        synchronizeNavigationBarChromeVisibility()
+    }
+
+    func setNavigationBarChromeVisible(
+        _ isVisible: Bool,
+        animationDuration: TimeInterval?
+    ) {
+        let targetAlpha: CGFloat = isVisible ? 1 : 0
+        navigationBarChromeTargetAlpha = targetAlpha
+
+        // The root transition owns the shared navigation bar while the player
+        // is being popped. Keep the latest player target for cancellation, but
+        // do not compete with the transition's alpha animation.
+        guard !isNavigationBarChromeVisibilityEnforcementSuspended else {
             return
         }
 
-        // SwiftUI can unhide the shared navigation bar while updating the
-        // player's toolbar items. Keep an already-hidden chrome state hidden
-        // synchronously so the toolbar never reaches a rendered frame.
+        guard let animationDuration else {
+            // UIView animations commit their destination to the model alpha
+            // immediately. Preserve an in-flight fade while it still matches;
+            // only an external model-alpha change needs correction.
+            guard navigationBar.alpha != targetAlpha else { return }
+
+            navigationBar.layer.removeAllAnimations()
+            navigationBar.alpha = targetAlpha
+            return
+        }
+
+        UIView.animate(
+            withDuration: animationDuration,
+            delay: 0,
+            options: [.beginFromCurrentState, .allowUserInteraction]
+        ) {
+            self.navigationBar.alpha = targetAlpha
+        } completion: { [weak self] _ in
+            self?.synchronizeNavigationBarChromeVisibility()
+        }
+    }
+
+    func setNavigationBarChromeVisibilityEnforcementSuspended(
+        _ isSuspended: Bool
+    ) {
+        isNavigationBarChromeVisibilityEnforcementSuspended = isSuspended
+    }
+
+    func resetNavigationBarChromeVisibilityState() {
+        navigationBarChromeTargetAlpha = nil
+        isNavigationBarChromeVisibilityEnforcementSuspended = false
+    }
+
+    func synchronizeNavigationBarChromeVisibility() {
+        guard !isNavigationBarChromeVisibilityEnforcementSuspended,
+              canEnforceNavigationBarChromeVisibility?() == true,
+              let targetAlpha = navigationBarChromeTargetAlpha else {
+            return
+        }
+
+        guard navigationBar.alpha != targetAlpha else { return }
+
+        // SwiftUI can restore the shared navigation bar's alpha while updating
+        // toolbar or status-bar state. Reapply only the target already committed
+        // to UIKit so a model update cannot bypass the intended fade animation.
         navigationBar.layer.removeAllAnimations()
-        navigationBar.alpha = 0
+        navigationBar.alpha = targetAlpha
     }
 
 }
@@ -2726,7 +2789,6 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
 
         self.applyCardMinimizePinchPresentation(self.cardMinimizePinch)
     }
-    private var shouldReapplyChromeVisibilityAfterToolbarUpdate = false
     private lazy var navigationToolbarUpdate = PendingMainQueueUpdate { [weak self] in
         self?.synchronizeNavigationBarAfterToolbarUpdate()
     }
@@ -2751,21 +2813,24 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
         self.chrome = chrome
         self.onDismiss = onDismiss
         super.init()
-        playerNavigationController.navigationBarChromeVisibilityProvider = {
-            [weak navigationController, weak playerViewController, weak chrome] in
+        playerNavigationController.canEnforceNavigationBarChromeVisibility = {
+            [weak navigationController, weak playerViewController] in
             guard let navigationController,
                   let playerViewController,
                   navigationController.topViewController === playerViewController,
                   navigationController.transitionCoordinator == nil else {
-                return nil
+                return false
             }
 
-            return chrome?.isPlayerChromeVisible
+            return true
         }
         chrome.onCollectionBrowserExpandRequest = { [weak self] selection in
             self?.beginProgrammaticCardExpand(selection: selection) ?? .rejected
         }
-        playerNavigationController.navigationBar.alpha = shouldShowNavigationBarChrome ? 1 : 0
+        setNavigationBarChromeVisible(
+            shouldShowNavigationBarChrome,
+            animated: false
+        )
         observePlayerBackgroundColor()
         observeNavigationToolbarUpdates()
         observeNavigationBarChromeVisibility()
@@ -2828,7 +2893,6 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
         isNavigationBackDisplayModeRequestPending = false
         cardMinimizePinchPresentationUpdate.invalidate()
         navigationToolbarUpdate.invalidate()
-        shouldReapplyChromeVisibilityAfterToolbarUpdate = false
         chromeCancellables.removeAll()
         playerViewController.onAccessibilityEscape = nil
         playerViewController.onPlayerLayout = nil
@@ -2840,7 +2904,8 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
         playerNavigationController.clearNavigationBackGestureBlockingProvider(
             owner: self
         )
-        playerNavigationController.navigationBarChromeVisibilityProvider = nil
+        playerNavigationController.canEnforceNavigationBarChromeVisibility = nil
+        playerNavigationController.resetNavigationBarChromeVisibilityState()
         playerNavigationController.navigationBar.removeGestureRecognizer(navigationBarTap)
         view.removeGestureRecognizer(dismissPan)
         view.removeGestureRecognizer(controlsPan)
@@ -2874,6 +2939,8 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
 
     func didShowPlayerAfterNavigationTransition() {
         guard isInstalled else { return }
+        playerNavigationController
+            .setNavigationBarChromeVisibilityEnforcementSuspended(false)
         installNavigationBackAction()
         setNavigationBarChromeVisible(shouldShowNavigationBarChrome, animated: true)
         playerNavigationController.configureNavigationBackGestureBlocking()
@@ -2885,6 +2952,8 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
     func prepareForNavigationPopTransition(
         using transitionCoordinator: (any UIViewControllerTransitionCoordinator)?
     ) {
+        playerNavigationController
+            .setNavigationBarChromeVisibilityEnforcementSuspended(true)
         let navigationBar = playerNavigationController.navigationBar
         // Hand the pop transition the opacity currently visible on screen.
         let presentedAlpha = navigationBar.layer.presentation()
@@ -2900,13 +2969,6 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
 
         let didRegisterAnimation = transitionCoordinator.animate { _ in
             navigationBar.alpha = 1
-        } completion: { [weak self] context in
-            if context.isCancelled, let self {
-                self.setNavigationBarChromeVisible(
-                    self.shouldShowNavigationBarChrome,
-                    animated: true
-                )
-            }
         }
         if !didRegisterAnimation {
             navigationBar.alpha = 1
@@ -2916,12 +2978,17 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
     func prepareForPlayerPresentation(
         using transitionCoordinator: (any UIViewControllerTransitionCoordinator)?
     ) {
+        playerNavigationController
+            .setNavigationBarChromeVisibilityEnforcementSuspended(false)
         installNavigationBackAction()
         playerNavigationController.configureNavigationBackGestureBlocking()
         let navigationBar = playerNavigationController.navigationBar
         navigationBar.layer.removeAllAnimations()
         let targetAlpha: CGFloat = shouldShowNavigationBarChrome ? 1 : 0
-        navigationBar.alpha = targetAlpha
+        setNavigationBarChromeVisible(
+            shouldShowNavigationBarChrome,
+            animated: false
+        )
         guard let transitionCoordinator else {
             return
         }
@@ -2944,28 +3011,17 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
             .combineLatest(chrome.$isPlayerContentHiddenForCardTransition)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _, _ in
-                self?.scheduleNavigationBarSynchronization(
-                    reapplyChromeVisibility: true
-                )
+                self?.scheduleNavigationBarSynchronization()
             }
             .store(in: &chromeCancellables)
     }
 
-    private func scheduleNavigationBarSynchronization(
-        reapplyChromeVisibility: Bool
-    ) {
-        shouldReapplyChromeVisibilityAfterToolbarUpdate =
-            shouldReapplyChromeVisibilityAfterToolbarUpdate
-            || reapplyChromeVisibility
+    private func scheduleNavigationBarSynchronization() {
         navigationToolbarUpdate.invalidate()
         navigationToolbarUpdate.schedule()
     }
 
     private func synchronizeNavigationBarAfterToolbarUpdate() {
-        let reapplyChromeVisibility =
-            shouldReapplyChromeVisibilityAfterToolbarUpdate
-        shouldReapplyChromeVisibilityAfterToolbarUpdate = false
-
         guard isInstalled,
               playerNavigationController.topViewController
                 === playerViewController,
@@ -2979,12 +3035,7 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
         installNavigationBackAction()
         playerNavigationController.configureNavigationBackGestureBlocking()
         configurePagingScrollViews()
-        if reapplyChromeVisibility {
-            setNavigationBarChromeVisible(
-                shouldShowNavigationBarChrome,
-                animated: false
-            )
-        }
+        playerNavigationController.synchronizeNavigationBarChromeVisibility()
     }
 
     private func observeNavigationBarChromeVisibility() {
@@ -3006,9 +3057,7 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
                 guard let self else { return }
 
                 self.setNavigationBarChromeVisible(isVisible, animated: true)
-                self.scheduleNavigationBarSynchronization(
-                    reapplyChromeVisibility: false
-                )
+                self.scheduleNavigationBarSynchronization()
             }
             .store(in: &chromeCancellables)
     }
@@ -3075,31 +3124,19 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
     }
 
     private func setNavigationBarChromeVisible(_ isVisible: Bool, animated: Bool) {
-        let navigationBar = playerNavigationController.navigationBar
-
-        let targetAlpha: CGFloat = isVisible ? 1 : 0
-        guard animated else {
-            // UIView animations set the model alpha to their destination
-            // immediately. Preserve an in-flight chrome fade unless a toolbar
-            // update actually changed that destination.
-            guard navigationBar.alpha != targetAlpha else {
-                return
-            }
-
-            navigationBar.layer.removeAllAnimations()
-            navigationBar.alpha = targetAlpha
-            return
-        }
-
-        UIView.animate(
-            withDuration: isVisible
+        let animationDuration: TimeInterval?
+        if animated {
+            animationDuration = isVisible
                 ? Self.navigationBarShowDuration
-                : Self.navigationBarHideDuration,
-            delay: 0,
-            options: [.beginFromCurrentState, .allowUserInteraction]
-        ) {
-            navigationBar.alpha = targetAlpha
+                : Self.navigationBarHideDuration
+        } else {
+            animationDuration = nil
         }
+
+        playerNavigationController.setNavigationBarChromeVisible(
+            isVisible,
+            animationDuration: animationDuration
+        )
     }
 
     private var shouldBlockNavigationBackGesture: Bool {
