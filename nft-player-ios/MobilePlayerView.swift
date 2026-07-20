@@ -599,12 +599,10 @@ struct MobilePlayerView: View {
             .ignoresSafeArea(edges: .bottom)
         }
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar(
-            chrome.showControls || chrome.allowsNavigationBackSwipe
-                ? .visible
-                : .hidden,
-            for: .navigationBar
-        )
+        // Keep the native bar mounted and let PlayerNavigationController own
+        // its opacity. Structural hide/show transitions can snapshot the back
+        // item, allowing it to outlive a quickly completed chrome fade.
+        .toolbar(.visible, for: .navigationBar)
         .toolbarBackground(.hidden, for: .navigationBar)
         .navigationBarBackButtonHidden(false)
         .statusBar(hidden: shouldHideStatusBar)

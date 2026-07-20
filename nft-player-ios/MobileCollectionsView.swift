@@ -1913,6 +1913,7 @@ private struct MobileCollectionsNavigationView<RootView: View>: UIViewController
         private func restoreRootNavigationState(_ navigationController: UINavigationController) {
             navigationController.navigationBar.layer.removeAllAnimations()
             navigationController.navigationBar.alpha = 1
+            navigationController.navigationBar.accessibilityElementsHidden = false
             navigationController.setNeedsStatusBarAppearanceUpdate()
             rootViewController?.setNeedsStatusBarAppearanceUpdate()
         }
@@ -2293,6 +2294,8 @@ private final class PlayerNavigationController: UINavigationController {
             return
         }
 
+        navigationBar.accessibilityElementsHidden = !isVisible
+
         guard let animationDuration else {
             // UIView animations commit their destination to the model alpha
             // immediately. Preserve an in-flight fade while it still matches;
@@ -2315,6 +2318,21 @@ private final class PlayerNavigationController: UINavigationController {
         }
     }
 
+    func finishNavigationBarChromeHideAnimation() {
+        navigationBarChromeTargetAlpha = 0
+
+        guard !isNavigationBarChromeVisibilityEnforcementSuspended,
+              canEnforceNavigationBarChromeVisibility?() == true else {
+            return
+        }
+
+        navigationBar.accessibilityElementsHidden = true
+        removeNavigationBarOpacityAnimations()
+        UIView.performWithoutAnimation {
+            navigationBar.alpha = 0
+        }
+    }
+
     func setNavigationBarChromeVisibilityEnforcementSuspended(
         _ isSuspended: Bool
     ) {
@@ -2324,6 +2342,7 @@ private final class PlayerNavigationController: UINavigationController {
     func resetNavigationBarChromeVisibilityState() {
         navigationBarChromeTargetAlpha = nil
         isNavigationBarChromeVisibilityEnforcementSuspended = false
+        navigationBar.accessibilityElementsHidden = false
     }
 
     func synchronizeNavigationBarChromeVisibility() {
@@ -2333,6 +2352,7 @@ private final class PlayerNavigationController: UINavigationController {
             return
         }
 
+        navigationBar.accessibilityElementsHidden = targetAlpha == 0
         guard navigationBar.alpha != targetAlpha else { return }
 
         // SwiftUI can restore the shared navigation bar's alpha while updating
@@ -2340,6 +2360,31 @@ private final class PlayerNavigationController: UINavigationController {
         // to UIKit so a model update cannot bypass the intended fade animation.
         navigationBar.layer.removeAllAnimations()
         navigationBar.alpha = targetAlpha
+    }
+
+    private func removeNavigationBarOpacityAnimations() {
+        let layer = navigationBar.layer
+        // UIView owns the registration keys for its implicit animations.
+        // Inspect their key paths so unrelated navigation-bar motion survives.
+        (layer.animationKeys() ?? []).forEach { key in
+            guard let animation = layer.animation(forKey: key),
+                  Self.affectsOpacity(animation) else {
+                return
+            }
+
+            layer.removeAnimation(forKey: key)
+        }
+    }
+
+    private static func affectsOpacity(_ animation: CAAnimation) -> Bool {
+        if let propertyAnimation = animation as? CAPropertyAnimation,
+           propertyAnimation.keyPath == "opacity" {
+            return true
+        }
+
+        return (animation as? CAAnimationGroup)?
+            .animations?
+            .contains(where: affectsOpacity) == true
     }
 
 }
@@ -2955,6 +3000,7 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
         playerNavigationController
             .setNavigationBarChromeVisibilityEnforcementSuspended(true)
         let navigationBar = playerNavigationController.navigationBar
+        navigationBar.accessibilityElementsHidden = false
         // Hand the pop transition the opacity currently visible on screen.
         let presentedAlpha = navigationBar.layer.presentation()
             .map { CGFloat($0.opacity) }
@@ -3052,7 +3098,6 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
                 )
             }
             .removeDuplicates()
-            .receive(on: DispatchQueue.main)
             .sink { [weak self] isVisible in
                 guard let self else { return }
 
@@ -3455,6 +3500,10 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
         context: CardMinimizeTransitionContext,
         isDrivenByDismissPan: Bool
     ) -> Bool {
+        if !shouldShowNavigationBarChrome {
+            playerNavigationController.finishNavigationBarChromeHideAnimation()
+        }
+
         activeCardMinimizeContext = context
         isDismissPanDrivingCardMinimize = isDrivenByDismissPan
         isCardMinimizeAnimationComplete = false
