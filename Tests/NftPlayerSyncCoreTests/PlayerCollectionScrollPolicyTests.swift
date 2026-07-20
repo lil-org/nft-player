@@ -6,6 +6,51 @@ import XCTest
 
 final class PlayerCollectionScrollPolicyTests: XCTestCase {
 
+    func testBoundedContentOffsetDeltaIgnoresTopAndBottomBounceRecovery() {
+        let validRange: ClosedRange<CGFloat> = 0...100
+
+        XCTAssertEqual(PlayerCollectionScrollPolicy.boundedContentOffsetDelta(
+            previousOffsetY: -30,
+            currentOffsetY: -12,
+            validRange: validRange
+        ), 0)
+        XCTAssertEqual(PlayerCollectionScrollPolicy.boundedContentOffsetDelta(
+            previousOffsetY: -12,
+            currentOffsetY: 0,
+            validRange: validRange
+        ), 0)
+        XCTAssertEqual(PlayerCollectionScrollPolicy.boundedContentOffsetDelta(
+            previousOffsetY: 130,
+            currentOffsetY: 112,
+            validRange: validRange
+        ), 0)
+        XCTAssertEqual(PlayerCollectionScrollPolicy.boundedContentOffsetDelta(
+            previousOffsetY: 112,
+            currentOffsetY: 100,
+            validRange: validRange
+        ), 0)
+    }
+
+    func testBoundedContentOffsetDeltaKeepsOnlyRealScrollableMovement() {
+        let validRange: ClosedRange<CGFloat> = 0...100
+
+        XCTAssertEqual(PlayerCollectionScrollPolicy.boundedContentOffsetDelta(
+            previousOffsetY: -20,
+            currentOffsetY: 12,
+            validRange: validRange
+        ), 12)
+        XCTAssertEqual(PlayerCollectionScrollPolicy.boundedContentOffsetDelta(
+            previousOffsetY: 80,
+            currentOffsetY: 120,
+            validRange: validRange
+        ), 20)
+        XCTAssertEqual(PlayerCollectionScrollPolicy.boundedContentOffsetDelta(
+            previousOffsetY: 70,
+            currentOffsetY: 45,
+            validRange: validRange
+        ), -25)
+    }
+
     func testFocalGeometryMovesContinuouslyFromEdgeItemsToViewportCenter() throws {
         let geometry = try makeTallFocalGeometry()
 

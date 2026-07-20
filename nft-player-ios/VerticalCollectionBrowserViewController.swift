@@ -805,7 +805,13 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         releaseRetainedFocusForOutwardPullIfNeeded(scrollView)
         acknowledgeIntentionalScrollIfNeeded(scrollView)
         if let previousOffsetY {
-            let offsetDelta = scrollView.contentOffset.y - previousOffsetY
+            // Rubber-band recovery moves contentOffset in the same direction
+            // that hides chrome. Only count movement through scrollable content.
+            let offsetDelta = PlayerCollectionScrollPolicy.boundedContentOffsetDelta(
+                previousOffsetY: previousOffsetY,
+                currentOffsetY: scrollView.contentOffset.y,
+                validRange: verticalContentOffsetRange
+            )
             if scrollView.isDragging {
                 updateFocusedMode(for: offsetDelta)
             }

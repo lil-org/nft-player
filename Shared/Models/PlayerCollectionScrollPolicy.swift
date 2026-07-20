@@ -277,6 +277,30 @@ struct PlayerCollectionRestorationResolution: Equatable {
 
 enum PlayerCollectionScrollPolicy {
 
+    static func boundedContentOffsetDelta(
+        previousOffsetY: CGFloat,
+        currentOffsetY: CGFloat,
+        validRange: ClosedRange<CGFloat>
+    ) -> CGFloat {
+        guard previousOffsetY.isFinite,
+              currentOffsetY.isFinite,
+              validRange.lowerBound.isFinite,
+              validRange.upperBound.isFinite else {
+            return 0
+        }
+
+        let boundedPreviousOffsetY = min(
+            max(previousOffsetY, validRange.lowerBound),
+            validRange.upperBound
+        )
+        let boundedCurrentOffsetY = min(
+            max(currentOffsetY, validRange.lowerBound),
+            validRange.upperBound
+        )
+        let delta = boundedCurrentOffsetY - boundedPreviousOffsetY
+        return delta.isFinite ? delta : 0
+    }
+
     static func restorationResolution(
         savedIndex: Int?,
         tokenIdIndex: Int?,
