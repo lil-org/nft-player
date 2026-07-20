@@ -180,8 +180,8 @@ final class MobilePlayerChromeController: ObservableObject {
     ) {
         self.playerBackgroundColor = playerBackgroundColor
         self.allowsNavigationBackSwipe = allowsNavigationBackSwipe
-        self.isCollectionBrowserFocusedModeActive = allowsNavigationBackSwipe
-        self.desiredCollectionBrowserFocusedModeActive = allowsNavigationBackSwipe
+        self.isCollectionBrowserFocusedModeActive = false
+        self.desiredCollectionBrowserFocusedModeActive = false
     }
 
     static func shouldShowPlayerChrome(
