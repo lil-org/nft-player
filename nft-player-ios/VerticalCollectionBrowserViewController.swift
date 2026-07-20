@@ -1136,7 +1136,11 @@ final class VerticalCollectionBrowserViewController: UIViewController,
 
         let statusBarManager = window.windowScene?.statusBarManager
         let isStatusBarHidden = statusBarManager?.isStatusBarHidden == true
-        let safeAreaInsets = window.safeAreaInsets
+        // The window only accounts for physical screen obstructions. The
+        // collection view's safe area also includes bars imposed by its
+        // containing view-controller hierarchy, such as the translucent
+        // navigation bar.
+        let safeAreaInsets = collectionView.safeAreaInsets
 
         let displayScale = window.screen.scale
         func pixelAligned(_ value: CGFloat) -> CGFloat {
