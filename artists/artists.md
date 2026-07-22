@@ -2,8 +2,6 @@
 
 Creator credits for collections bundled in the app (`Suggested Items/Suggested.bundle`). Collections are grouped by artist.
 
-Each collection name links to a marketplace page: **OpenSea** (EVM), **Magic Eden** (Solana), **Objkt** (Tezos), or **Art Blocks** when that is the clearest public page. 192 collections · 115 artist groups.
-
 ## 0xDEAFBEEF
 
 [X](https://x.com/_deafbeef) · [Bluesky](https://bsky.app/profile/deafbeef.bsky.social)
