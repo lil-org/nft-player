@@ -14,7 +14,7 @@ Collections:
 
 ## 0xDEAFBEEF
 
-[X](https://x.com/chronophotobot) · [Website](https://deafbeef.com/chronophotograph)
+[X](https://x.com/chronophotobot) · [Website](https://deafbeef.com/chronophotograph) · [Bluesky](https://bsky.app/profile/deafbeef.bsky.social)
 
 Collections:
 
@@ -38,7 +38,7 @@ Collections:
 
 ## Aaron Penne
 
-[X](https://x.com/aaronpenne) · [Website](https://www.aaronpenne.io/)
+[X](https://x.com/aaronpenne) · [Website](https://www.aaronpenne.io/) · [Bluesky](https://bsky.app/profile/aaronpenne.io)
 
 Collections:
 
@@ -54,7 +54,7 @@ Collections:
 
 ## Alejandro Cartagena
 
-[X](https://x.com/halecar2) · [Website](https://alejandrocartagena.com/)
+[X](https://x.com/halecar2) · [Website](https://alejandrocartagena.com/) · [Bluesky](https://bsky.app/profile/halecar2.bsky.social)
 
 Collections:
 
@@ -71,7 +71,7 @@ Collections:
 
 ## Ana María Caballero
 
-[X](https://x.com/CaballeroAnaMa) · [Website](https://anamariacaballero.com/)
+[X](https://x.com/CaballeroAnaMa) · [Website](https://anamariacaballero.com/) · [Bluesky](https://bsky.app/profile/anamariacaballero.bsky.social)
 
 Collections:
 
@@ -111,7 +111,7 @@ Collections:
 
 ## Beervangeer
 
-[X](https://x.com/beervangeer) · [Website](https://beervangeer.nl/)
+[X](https://x.com/beervangeer) · [Website](https://beervangeer.nl/) · [Bluesky](https://bsky.app/profile/beervangeer.bsky.social)
 
 Collections:
 
@@ -194,7 +194,7 @@ Collections:
 
 ## Chuck Anderson
 
-[X](https://x.com/NoPattern) · [Website](https://nopattern.com/)
+[X](https://x.com/NoPattern) · [Website](https://nopattern.com/) · [Bluesky](https://bsky.app/profile/nopattern.bsky.social)
 
 Collections:
 
@@ -218,7 +218,7 @@ Collections:
 
 ## Daïm Aggott-Hönsch
 
-[X](https://x.com/DaimAlYad) · [Website](https://daim.art/)
+[X](https://x.com/DaimAlYad) · [Website](https://daim.art/) · [Bluesky](https://bsky.app/profile/daimalyad.bsky.social)
 
 Collections:
 
@@ -235,7 +235,7 @@ Collections:
 
 ## Dmitri Cherniak
 
-[X](https://x.com/dmitricherniak) · [Website](https://cherniak.co/)
+[X](https://x.com/dmitricherniak) · [Website](https://cherniak.co/) · [Bluesky](https://bsky.app/profile/cherniak.bsky.social)
 
 Collections:
 
@@ -464,7 +464,7 @@ Collections:
 
 ## ixnayokay
 
-[X](https://x.com/ixnayokay) · [Website](https://www.ixnayokay.art/post/about-zoologic)
+[X](https://x.com/ixnayokay) · [Website](https://www.ixnayokay.art/post/about-zoologic) · [Bluesky](https://bsky.app/profile/ixnayokay.bsky.social)
 
 Collections:
 
@@ -474,7 +474,7 @@ Collections:
 
 ## Jan Robert Leegte
 
-[X](https://x.com/JanRobertLeegte) · [Website](https://window.leegte.org)
+[X](https://x.com/JanRobertLeegte) · [Website](https://window.leegte.org) · [Bluesky](https://bsky.app/profile/leegte.org)
 
 Collections:
 
@@ -531,7 +531,7 @@ Collections:
 
 ## Jimena Buena Vida
 
-[X](https://x.com/JimenaBuenaVida) · [Website](https://www.buenavidaart.com/)
+[X](https://x.com/JimenaBuenaVida) · [Website](https://www.buenavidaart.com/) · [Bluesky](https://bsky.app/profile/jimenabuenavida.bsky.social)
 
 Collections:
 
@@ -555,7 +555,7 @@ Collections:
 
 ## Jonathan Chomko
 
-[X](https://x.com/jtchomko) · [Website](https://constant.jonathanchomko.com)
+[X](https://x.com/jtchomko) · [Website](https://constant.jonathanchomko.com) · [Bluesky](https://bsky.app/profile/chomko.bsky.social)
 
 Collections:
 
@@ -563,7 +563,7 @@ Collections:
 
 ## Joshua Davis / PrayStation
 
-[X](https://x.com/joshuadavis) · [Website](https://joshuadavis.com/)
+[X](https://x.com/joshuadavis) · [Website](https://joshuadavis.com/) · [Bluesky](https://bsky.app/profile/joshuadavis.bsky.social)
 
 Collections:
 
@@ -604,7 +604,7 @@ Collections:
 
 ## Kim Asendorf
 
-[X](https://x.com/kimasendorf) · [Website](https://cargo.cx)
+[X](https://x.com/kimasendorf) · [Website](https://cargo.cx) · [Bluesky](https://bsky.app/profile/kimasendorf.com)
 
 Collections:
 
@@ -613,7 +613,7 @@ Collections:
 
 ## Kirill Semenovich
 
-[X](https://x.com/palekirill) · [Website](https://palekirill.xyz/)
+[X](https://x.com/palekirill) · [Website](https://palekirill.xyz/) · [Bluesky](https://bsky.app/profile/palekirill.bsky.social)
 
 Collections:
 
@@ -621,7 +621,7 @@ Collections:
 
 ## Kjetil Golid
 
-[X](https://x.com/kGolid) · [Website](https://generated.space)
+[X](https://x.com/kGolid) · [Website](https://generated.space) · [Bluesky](https://bsky.app/profile/kgolid.bsky.social)
 
 Collections:
 
@@ -629,7 +629,7 @@ Collections:
 
 ## Lars Wander
 
-[X](https://x.com/larswander) · [Website](https://larswander.com)
+[X](https://x.com/larswander) · [Website](https://larswander.com) · [Bluesky](https://bsky.app/profile/lars.computer)
 
 Collections:
 
@@ -653,7 +653,7 @@ Collections:
 
 ## Linda Dounia
 
-[X](https://x.com/lindadouniar) · [Website](https://lindarebeiz.com/)
+[X](https://x.com/lindadouniar) · [Website](https://lindarebeiz.com/) · [Bluesky](https://bsky.app/profile/lindadounia.bsky.social)
 
 Collections:
 
@@ -686,7 +686,7 @@ Collections:
 
 ## Louis-André Labadie
 
-[X](https://x.com/lalabadie) · [Website](https://louis-andre.net/)
+[X](https://x.com/lalabadie) · [Website](https://louis-andre.net/) · [Bluesky](https://bsky.app/profile/louis-andre.net)
 
 Collections:
 
@@ -743,7 +743,7 @@ Collections:
 
 ## Matt DesLauriers
 
-[X](https://x.com/mattdesl) · [Website](https://www.mattdesl.com/)
+[X](https://x.com/mattdesl) · [Website](https://www.mattdesl.com/) · [Bluesky](https://bsky.app/profile/mattdesl.bsky.social)
 
 Collections:
 
@@ -766,7 +766,7 @@ Collections:
 
 ## Melissa Wiederrecht
 
-[X](https://x.com/mwiederrecht) · [Website](https://curealz.org/news-and-events/digital-art-auction-to-benefit-our-research/)
+[X](https://x.com/mwiederrecht) · [Website](https://curealz.org/news-and-events/digital-art-auction-to-benefit-our-research/) · [Bluesky](https://bsky.app/profile/mwiederrecht.bsky.social)
 
 Collections:
 
@@ -818,7 +818,7 @@ Collections:
 
 ## Motus Art
 
-[X](https://x.com/motus_art) · [Website](https://motus.art/)
+[X](https://x.com/motus_art) · [Website](https://motus.art/) · [Bluesky](https://bsky.app/profile/motus.art)
 
 Collections:
 
@@ -834,7 +834,7 @@ Collections:
 
 ## Nicolas Sassoon
 
-[X](https://x.com/Nicolas_Sassoon) · [Website](http://www.nicolassassoon.com/)
+[X](https://x.com/Nicolas_Sassoon) · [Website](http://www.nicolassassoon.com/) · [Bluesky](https://bsky.app/profile/nicolassassoon.bsky.social)
 
 Collections:
 
@@ -850,7 +850,7 @@ Collections:
 
 ## Okazz
 
-[X](https://x.com/Okazz) · [Website](https://kumaleon.com/)
+[X](https://x.com/Okazz) · [Website](https://kumaleon.com/) · [Bluesky](https://bsky.app/profile/okazzthehedgehog.bsky.social)
 
 Collections:
 
@@ -858,7 +858,7 @@ Collections:
 
 ## Owen Moore
 
-[X](https://x.com/owenmoore_xyz) · [Website](https://www.owenmoore.xyz/artwork/waveshapes/)
+[X](https://x.com/owenmoore_xyz) · [Website](https://www.owenmoore.xyz/artwork/waveshapes/) · [Bluesky](https://bsky.app/profile/owmo-studio.bsky.social)
 
 Collections:
 
@@ -916,7 +916,7 @@ Collections:
 
 ## Pelle Cass
 
-[X](https://x.com/PelleCass) · [Website](https://pellecass.com/)
+[X](https://x.com/PelleCass) · [Website](https://pellecass.com/) · [Bluesky](https://bsky.app/profile/pellecass.bsky.social)
 
 Collections:
 
@@ -932,7 +932,7 @@ Collections:
 
 ## Petra Voice
 
-[X](https://x.com/petravoice) · [Website](https://babes.foundation.app/)
+[X](https://x.com/petravoice) · [Website](https://babes.foundation.app/) · [Bluesky](https://bsky.app/profile/petravoice.bsky.social)
 
 Collections:
 
@@ -1033,7 +1033,7 @@ Collections:
 
 ## Roope Rainisto
 
-[X](https://x.com/rainisto) · [Website](https://www.rooperainisto.com/)
+[X](https://x.com/rainisto) · [Website](https://www.rooperainisto.com/) · [Bluesky](https://bsky.app/profile/rainisto.bsky.social)
 
 Collections:
 
@@ -1049,7 +1049,7 @@ Collections:
 
 ## Ryan Struhl
 
-[X](https://x.com/keisans) · [Website](https://www.fiercepixel.com)
+[X](https://x.com/keisans) · [Website](https://www.fiercepixel.com) · [Bluesky](https://bsky.app/profile/rwstruhl.bsky.social)
 
 Collections:
 
@@ -1111,7 +1111,7 @@ Collections:
 
 ## Simon De Mai
 
-[X](https://x.com/simondemai) · [Website](https://simondemai.xyz/)
+[X](https://x.com/simondemai) · [Website](https://simondemai.xyz/) · [Bluesky](https://bsky.app/profile/simondemai.bsky.social)
 
 Collections:
 
@@ -1160,7 +1160,7 @@ Collections:
 
 ## Stefano Contiero
 
-[X](https://x.com/stefan_contiero) · [Website](https://stefanocontiero.com/)
+[X](https://x.com/stefan_contiero) · [Website](https://stefanocontiero.com/) · [Bluesky](https://bsky.app/profile/stefancontiero.bsky.social)
 
 Collections:
 
@@ -1171,7 +1171,7 @@ Collections:
 
 ## Sterling Crispin
 
-[X](https://x.com/sterlingcrispin) · [Website](https://sterlingcrispin.com/)
+[X](https://x.com/sterlingcrispin) · [Website](https://sterlingcrispin.com/) · [Bluesky](https://bsky.app/profile/sterlingcrispin.bsky.social)
 
 Collections:
 
@@ -1179,7 +1179,7 @@ Collections:
 
 ## Steve Pikelny
 
-[X](https://x.com/steviepxyz) · [Website](https://steviep.xyz/cryptogodking)
+[X](https://x.com/steviepxyz) · [Website](https://steviep.xyz/cryptogodking) · [Bluesky](https://bsky.app/profile/steviep.xyz)
 
 Collections:
 
@@ -1260,7 +1260,7 @@ Collections:
 
 ## Tyler Hobbs
 
-[X](https://x.com/tylerxhobbs) · [Website](https://tylerxhobbs.com/)
+[X](https://x.com/tylerxhobbs) · [Website](https://tylerxhobbs.com/) · [Bluesky](https://bsky.app/profile/tylerxhobbs.bsky.social)
 
 Collections:
 
@@ -1268,7 +1268,7 @@ Collections:
 
 ## uczine
 
-[X](https://x.com/uczine) · [Website](https://uczine.net/)
+[X](https://x.com/uczine) · [Website](https://uczine.net/) · [Bluesky](https://bsky.app/profile/uczine.bsky.social)
 
 Collections:
 
