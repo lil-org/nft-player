@@ -198,7 +198,7 @@ Collections:
 
 ## Evil Biscuit
 
-[X](https://x.com/bis__cut) · [Website](https://verse.works/evil-biscuit)
+[X](https://x.com/bis__cut)
 
 Collections:
 
@@ -558,9 +558,17 @@ Collections:
 
 - **[Multi Windows](https://objkt.com/collections/KT1UjurJFhKpw7WSmuGfRyUvYXLwTmKWwUDR)** (tezos)
 
-## Mathcastles
+## 0x113d
 
-[xaltgeist](https://x.com/xaltgeist) · [0x113d](https://x.com/0x113d)
+[0x113d](https://x.com/0x113d)
+
+Collections:
+
+- **[Terraforms](https://opensea.io/collection/terraforms)** (ethereum)
+
+## xaltgeist
+
+[xaltgeist](https://x.com/xaltgeist)
 
 Collections:
 
@@ -584,6 +592,8 @@ Collections:
 - **[FOCUS](https://opensea.io/collection/focus-by-matto)** (ethereum)
 
 ## Maya Man
+
+[X](https://x.com/mayaonthenet)
 
 Collections:
 
@@ -923,7 +933,7 @@ Collections:
 
 ## Supermetal Bosch
 
-[X](https://x.com/supermetalx) · [Website](https://www.supermetalmons.com/)
+[X](https://x.com/supermetalx)
 
 Collections:
 
