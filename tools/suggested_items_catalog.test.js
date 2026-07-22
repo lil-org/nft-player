@@ -6,6 +6,7 @@ const path = require("node:path");
 const test = require("node:test");
 
 const {
+  INTERNAL_SLUG_PATTERN,
   IOS_COLLECTION_BROWSER_COLUMN_COUNT_KEY,
   suggestedItemId,
   withIOSCollectionBrowserColumnCount,
@@ -22,6 +23,7 @@ const {
 } = require("./thumbnail_aspect_ratios");
 
 const SUGGESTED_BUNDLE_PATH = path.resolve(__dirname, "../Suggested Items/Suggested.bundle");
+const ARTISTS_PATH = path.join(SUGGESTED_BUNDLE_PATH, "artists.json");
 const ITEMS_PATH = path.join(SUGGESTED_BUNDLE_PATH, "items.json");
 const SCRIPTS_PATH = path.join(SUGGESTED_BUNDLE_PATH, "Scripts");
 const TOKENS_PATH = path.join(SUGGESTED_BUNDLE_PATH, "Tokens");
@@ -123,6 +125,116 @@ function entriesByLowercasedName(names) {
   }
   return entries;
 }
+
+test("artist catalog is a slug-keyed dictionary with valid records", () => {
+  const artists = readJSON(ARTISTS_PATH);
+  assert.ok(
+    artists != null && typeof artists === "object" && !Array.isArray(artists),
+    "artists.json must contain an object keyed by artist slug"
+  );
+  assert.ok(Object.keys(artists).length > 0, "artists.json must not be empty");
+
+  const allowedFields = new Set(["name", "x", "website", "bluesky", "collections"]);
+  for (const [artistSlug, artist] of Object.entries(artists)) {
+    assert.match(artistSlug, INTERNAL_SLUG_PATTERN, `Invalid artist slug ${artistSlug}`);
+    assert.ok(
+      artist != null && typeof artist === "object" && !Array.isArray(artist),
+      `${artistSlug} must map to an artist object`
+    );
+    assert.deepEqual(
+      Object.keys(artist).filter((field) => !allowedFields.has(field)),
+      [],
+      `${artistSlug} has unexpected fields`
+    );
+    assert.ok(
+      typeof artist.name === "string" && artist.name.trim() !== "",
+      `${artistSlug} has no valid name`
+    );
+
+    for (const linkField of ["x", "website", "bluesky"]) {
+      if (Object.prototype.hasOwnProperty.call(artist, linkField)) {
+        assert.ok(
+          typeof artist[linkField] === "string" && artist[linkField].trim() !== "",
+          `${artistSlug}.${linkField} must be a non-empty string when present`
+        );
+      }
+    }
+
+    assert.ok(Array.isArray(artist.collections), `${artistSlug}.collections must be an array`);
+    assert.equal(
+      new Set(artist.collections).size,
+      artist.collections.length,
+      `${artistSlug}.collections contains duplicate slugs`
+    );
+    for (const collectionSlug of artist.collections) {
+      assert.equal(
+        typeof collectionSlug,
+        "string",
+        `${artistSlug}.collections contains a non-string slug`
+      );
+      assert.match(
+        collectionSlug,
+        INTERNAL_SLUG_PATTERN,
+        `${artistSlug}.collections contains invalid slug ${collectionSlug}`
+      );
+    }
+  }
+});
+
+test("collection and artist catalogs have exact bidirectional links", () => {
+  const items = readJSON(ITEMS_PATH);
+  const artists = readJSON(ARTISTS_PATH);
+  const itemsBySlug = new Map();
+
+  for (const item of items) {
+    assert.match(
+      item.internal_slug,
+      INTERNAL_SLUG_PATTERN,
+      `${item.name ?? suggestedItemId(item)} has no valid internal_slug`
+    );
+    assert.equal(
+      itemsBySlug.has(item.internal_slug),
+      false,
+      `Duplicate collection slug ${item.internal_slug}`
+    );
+    itemsBySlug.set(item.internal_slug, item);
+
+    assert.ok(Array.isArray(item.artists), `${item.internal_slug}.artists must be an array`);
+    assert.equal(
+      new Set(item.artists).size,
+      item.artists.length,
+      `${item.internal_slug}.artists contains duplicate slugs`
+    );
+    for (const artistSlug of item.artists) {
+      assert.equal(typeof artistSlug, "string", `${item.internal_slug}.artists contains a non-string slug`);
+      assert.match(
+        artistSlug,
+        INTERNAL_SLUG_PATTERN,
+        `${item.internal_slug}.artists contains invalid slug ${artistSlug}`
+      );
+      assert.ok(
+        Object.prototype.hasOwnProperty.call(artists, artistSlug),
+        `${item.internal_slug} references unknown artist ${artistSlug}`
+      );
+      assert.ok(
+        artists[artistSlug].collections.includes(item.internal_slug),
+        `${item.internal_slug} -> ${artistSlug} is missing the reverse artist link`
+      );
+    }
+  }
+
+  for (const [artistSlug, artist] of Object.entries(artists)) {
+    assert.ok(Array.isArray(artist.collections), `${artistSlug}.collections must be an array`);
+    for (const collectionSlug of artist.collections) {
+      const item = itemsBySlug.get(collectionSlug);
+      assert.ok(item, `${artistSlug} references unknown collection ${collectionSlug}`);
+      assert.ok(
+        item.artists.includes(artistSlug),
+        `${artistSlug} -> ${collectionSlug} is missing the reverse collection link`
+      );
+    }
+  }
+});
 
 test("catalog IDs exactly match token manifest and cover asset casing", () => {
   const items = readJSON(ITEMS_PATH);

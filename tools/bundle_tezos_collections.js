@@ -1054,7 +1054,10 @@ function mergeSuggestedItems(existingItems, collections) {
 
   for (const collection of collections) {
     if (!existingIds.has(collection.collectionId)) {
-      updated.push(updatesById.get(collection.collectionId));
+      updated.push({
+        ...updatesById.get(collection.collectionId),
+        artists: [],
+      });
     }
   }
 

@@ -19,6 +19,7 @@ const PRESERVED_GENERATED_SUGGESTED_ITEM_FIELDS = [
   "playerBackgroundColor",
   "webURL",
   "internal_slug",
+  "artists",
   IOS_COLLECTION_BROWSER_COLUMN_COUNT_KEY,
   "standardThumbsPathsAvailable",
   "standardThumbsBaseURL",

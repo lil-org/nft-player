@@ -1,5 +1,12 @@
-[
-  {
+{
+  "0x113d": {
+    "name": "0x113d",
+    "x": "https://x.com/0x113d",
+    "collections": [
+      "terraforms"
+    ]
+  },
+  "0xdeafbeef": {
     "name": "0xDEAFBEEF",
     "x": "https://x.com/_deafbeef",
     "bluesky": "https://bsky.app/profile/deafbeef.bsky.social",
@@ -7,21 +14,21 @@
       "chronophotograph"
     ]
   },
-  {
+  "0xmons": {
     "name": "0xmons",
     "x": "https://x.com/0xmons",
     "collections": [
       "0xmons"
     ]
   },
-  {
+  "13_33_covenant": {
     "name": "13 <33 Covenant",
     "x": "https://x.com/the1333covenant",
     "collections": [
       "lucky_13_pixel_fairies"
     ]
   },
-  {
+  "aaron_penne": {
     "name": "Aaron Penne",
     "x": "https://x.com/aaronpenne",
     "website": "https://www.aaronpenne.io/",
@@ -30,7 +37,7 @@
       "one_more_day"
     ]
   },
-  {
+  "alejandro_cartagena": {
     "name": "Alejandro Cartagena",
     "x": "https://x.com/halecar2",
     "website": "https://alejandrocartagena.com/",
@@ -39,7 +46,7 @@
       "red_trucks"
     ]
   },
-  {
+  "allstarz": {
     "name": "ALLSTARZ",
     "x": "https://x.com/ALLSTARZLUV",
     "collections": [
@@ -47,7 +54,7 @@
       "allstarz_psx"
     ]
   },
-  {
+  "ana_maria_caballero": {
     "name": "Ana María Caballero",
     "x": "https://x.com/CaballeroAnaMa",
     "website": "https://anamariacaballero.com/",
@@ -56,28 +63,28 @@
       "fifty_ways_of_looking_at_a_poem"
     ]
   },
-  {
+  "anastasia_samoylova": {
     "name": "Anastasia Samoylova",
     "website": "https://www.anasamoylova.com/",
     "collections": [
       "landscape_sublime"
     ]
   },
-  {
+  "andrei_antonescu": {
     "name": "Andrei Antonescu",
     "x": "https://x.com/andreitonescu",
     "collections": [
       "tangled"
     ]
   },
-  {
+  "ann_hirsch": {
     "name": "Ann Hirsch",
     "x": "https://x.com/nnHirsch",
     "collections": [
       "ladies"
     ]
   },
-  {
+  "beervangeer": {
     "name": "Beervangeer",
     "website": "https://beervangeer.nl/",
     "collections": [
@@ -86,21 +93,21 @@
       "the_field"
     ]
   },
-  {
+  "blume_garden": {
     "name": "Blume Garden",
     "x": "https://x.com/blumegarden",
     "collections": [
       "blume"
     ]
   },
-  {
+  "boredcactus": {
     "name": "boredcactus",
     "x": "https://x.com/_boredcactus",
     "collections": [
       "flopawrettes"
     ]
   },
-  {
+  "casey_reas": {
     "name": "Casey Reas",
     "x": "https://x.com/REAS",
     "collections": [
@@ -110,14 +117,14 @@
       "empty_rooms"
     ]
   },
-  {
+  "chuck_anderson": {
     "name": "Chuck Anderson",
     "x": "https://x.com/NoPattern",
     "collections": [
       "imagined_wreckage"
     ]
   },
-  {
+  "conundrumer": {
     "name": "conundrumer",
     "x": "https://x.com/conundrumer",
     "website": "https://conundrumer.com/",
@@ -125,14 +132,14 @@
       "facets"
     ]
   },
-  {
+  "cooper_jamieson": {
     "name": "Cooper Jamieson",
     "x": "https://x.com/CooperSJamieson",
     "collections": [
       "placement"
     ]
   },
-  {
+  "daim_aggott_honsch": {
     "name": "Daïm Aggott-Hönsch",
     "x": "https://x.com/DaimAlYad",
     "website": "https://daim.art/",
@@ -142,7 +149,7 @@
       "this_art_is_illegal"
     ]
   },
-  {
+  "dmitri_cherniak": {
     "name": "Dmitri Cherniak",
     "x": "https://x.com/dmitricherniak",
     "collections": [
@@ -150,21 +157,21 @@
       "the_eternal_pump"
     ]
   },
-  {
+  "e9mund": {
     "name": "e9mund",
     "x": "https://x.com/egfreid",
     "collections": [
       "john"
     ]
   },
-  {
+  "ella_barnes": {
     "name": "Ella Barnes",
     "website": "https://www.ellabarnesart.com/",
     "collections": [
       "beyond_the_veil"
     ]
   },
-  {
+  "elle": {
     "name": "elle",
     "website": "https://ellesho.me",
     "bluesky": "https://bsky.app/profile/elle.email",
@@ -172,7 +179,7 @@
       "very_internet_printout"
     ]
   },
-  {
+  "emanuele_pasin": {
     "name": "Emanuele Pasin",
     "x": "https://x.com/em_pasin",
     "website": "https://www.pasin.io/",
@@ -180,7 +187,7 @@
       "divenire"
     ]
   },
-  {
+  "evil_biscuit": {
     "name": "Evil Biscuit",
     "x": "https://x.com/bis__cut",
     "collections": [
@@ -193,14 +200,14 @@
       "poncho_drifella"
     ]
   },
-  {
+  "fairybaby420": {
     "name": "fairybaby420",
     "x": "https://x.com/fairybaby420",
     "collections": [
       "chomsky_honks"
     ]
   },
-  {
+  "fernando_jerez": {
     "name": "Fernando Jerez",
     "x": "https://x.com/ferjerez3d",
     "website": "https://www.fernandojerez.com/",
@@ -209,7 +216,7 @@
       "renaissance"
     ]
   },
-  {
+  "g_oo_f": {
     "name": "g_oo_f",
     "x": "https://x.com/_goof_foog_",
     "collections": [
@@ -217,7 +224,7 @@
       "shelves"
     ]
   },
-  {
+  "gossamer_rozen": {
     "name": "Gossamer Rozen",
     "x": "https://x.com/grelysian",
     "website": "https://tigerbob.io",
@@ -225,21 +232,21 @@
       "tigerbob"
     ]
   },
-  {
+  "grant_oesterling": {
     "name": "Grant Oesterling",
     "x": "https://x.com/_granto",
     "collections": [
       "exstasis"
     ]
   },
-  {
+  "grotto_labs": {
     "name": "Grotto Labs",
     "x": "https://x.com/GROTTO_LABS",
     "collections": [
       "foodiez"
     ]
   },
-  {
+  "gucci4mycat": {
     "name": "gucci4mycat",
     "x": "https://x.com/gucci4mycat",
     "collections": [
@@ -247,14 +254,14 @@
       "reverie"
     ]
   },
-  {
+  "harm_van_den_dorpel": {
     "name": "Harm van den Dorpel",
     "website": "https://harm.work/",
     "collections": [
       "quantizer"
     ]
   },
-  {
+  "heavenly_daze": {
     "name": "Heavenly Daze",
     "x": "https://x.com/DDSBM",
     "collections": [
@@ -262,28 +269,28 @@
       "shelves"
     ]
   },
-  {
+  "herbert_w_franke": {
     "name": "Herbert W. Franke",
     "x": "https://x.com/HerbertWFranke",
     "collections": [
       "math_art"
     ]
   },
-  {
+  "hideo": {
     "name": "hideo",
     "x": "https://x.com/hideogenart",
     "collections": [
       "undead_wyverns"
     ]
   },
-  {
+  "hjalmar_astrom": {
     "name": "Hjalmar Åström",
     "x": "https://x.com/HjalmarAstrom",
     "collections": [
       "nucleus"
     ]
   },
-  {
+  "ixnayokay": {
     "name": "ixnayokay",
     "x": "https://x.com/ixnayokay",
     "collections": [
@@ -292,7 +299,7 @@
       "zoologic"
     ]
   },
-  {
+  "jan_robert_leegte": {
     "name": "Jan Robert Leegte",
     "x": "https://x.com/JanRobertLeegte",
     "website": "https://www.leegte.org",
@@ -302,13 +309,13 @@
       "window"
     ]
   },
-  {
+  "jared_madere": {
     "name": "Jared Madere",
     "collections": [
       "tents"
     ]
   },
-  {
+  "jason_ting": {
     "name": "Jason Ting",
     "x": "https://x.com/_jzlabs",
     "collections": [
@@ -316,21 +323,21 @@
       "transitions"
     ]
   },
-  {
+  "jeff_davis": {
     "name": "Jeff Davis",
     "x": "https://x.com/jeffgdavis",
     "collections": [
       "inflection"
     ]
   },
-  {
+  "jen_stark": {
     "name": "Jen Stark",
     "x": "https://x.com/jen_stark",
     "collections": [
       "cosmos"
     ]
   },
-  {
+  "jim_spindle": {
     "name": "Jim Spindle",
     "x": "https://x.com/jimspindle",
     "collections": [
@@ -338,35 +345,35 @@
       "scarecrow"
     ]
   },
-  {
+  "jimena_buena_vida": {
     "name": "Jimena Buena Vida",
     "x": "https://x.com/JimenaBuenaVida",
     "collections": [
       "epiphanies"
     ]
   },
-  {
+  "jiwa": {
     "name": "jiwa",
     "x": "https://x.com/dotjiwa",
     "collections": [
       "axo"
     ]
   },
-  {
+  "john_provencher": {
     "name": "John Provencher",
     "x": "https://x.com/hahajohnx",
     "collections": [
       "cage"
     ]
   },
-  {
+  "jonathan_chomko": {
     "name": "Jonathan Chomko",
     "x": "https://x.com/jtchomko",
     "collections": [
       "constant"
     ]
   },
-  {
+  "joshua_davis": {
     "name": "Joshua Davis",
     "x": "https://x.com/joshuadavis",
     "website": "https://joshuadavis.com/",
@@ -374,7 +381,7 @@
       "organized_disruption"
     ]
   },
-  {
+  "julian_hespenheide": {
     "name": "Julian Hespenheide",
     "x": "https://x.com/julihespenheide",
     "website": "https://www.julian-h.de/",
@@ -382,7 +389,7 @@
       "kernels"
     ]
   },
-  {
+  "kazuhiro_tanimoto": {
     "name": "Kazuhiro Tanimoto",
     "x": "https://x.com/KZ_LAB_E",
     "collections": [
@@ -390,14 +397,14 @@
       "memories_of_digital_data"
     ]
   },
-  {
+  "kikillo": {
     "name": "Kikillo",
     "x": "https://x.com/kikillo",
     "collections": [
       "edible_kawaii_demonz"
     ]
   },
-  {
+  "kim_asendorf": {
     "name": "Kim Asendorf",
     "x": "https://x.com/kimasendorf",
     "bluesky": "https://bsky.app/profile/kimasendorf.com",
@@ -407,7 +414,7 @@
       "fratze"
     ]
   },
-  {
+  "kirill_semenovich": {
     "name": "Kirill Semenovich",
     "x": "https://x.com/palekirill",
     "website": "https://palekirill.xyz/",
@@ -415,14 +422,14 @@
       "safe_haven"
     ]
   },
-  {
+  "kjetil_golid": {
     "name": "Kjetil Golid",
     "x": "https://x.com/kGolid",
     "collections": [
       "archetype"
     ]
   },
-  {
+  "lars_wander": {
     "name": "Lars Wander",
     "x": "https://x.com/larswander",
     "website": "https://larswander.com",
@@ -430,7 +437,7 @@
       "7_factorial"
     ]
   },
-  {
+  "leo_villareal": {
     "name": "Leo Villareal",
     "x": "https://x.com/VillarealStudio",
     "website": "http://villareal.net",
@@ -438,7 +445,7 @@
       "cosmic_reef"
     ]
   },
-  {
+  "linda_dounia": {
     "name": "Linda Dounia",
     "x": "https://x.com/lindadouniar",
     "website": "https://lindarebeiz.com/",
@@ -446,14 +453,14 @@
       "flore_perdue"
     ]
   },
-  {
+  "loie_hollowell": {
     "name": "Loie Hollowell",
     "website": "https://www.loiehollowell.com/",
     "collections": [
       "contractions"
     ]
   },
-  {
+  "lolo_armdz": {
     "name": "Lolo Armdz",
     "x": "https://x.com/loloarmdz",
     "website": "http://armdz.com",
@@ -461,7 +468,7 @@
       "karne"
     ]
   },
-  {
+  "loren_bednar": {
     "name": "Loren Bednar",
     "x": "https://x.com/LorenBednar",
     "collections": [
@@ -469,7 +476,7 @@
       "kaleidoscope"
     ]
   },
-  {
+  "louis_andre_labadie": {
     "name": "Louis-André Labadie",
     "website": "https://louis-andre.net/",
     "bluesky": "https://bsky.app/profile/louis-andre.net",
@@ -477,7 +484,7 @@
       "maps_for_grief"
     ]
   },
-  {
+  "lowbie": {
     "name": "Lowbie",
     "x": "https://x.com/archivepilled",
     "website": "https://archivepilled.com/",
@@ -486,49 +493,35 @@
       "pray4lowbie"
     ]
   },
-  {
+  "macbeth": {
     "name": "Macbeth",
     "x": "https://x.com/macbethAI",
     "collections": [
       "in_your_dreams"
     ]
   },
-  {
+  "marcelo_pinel": {
     "name": "Marcelo Pinel",
     "x": "https://x.com/cybermistic",
     "collections": [
       "bestiary"
     ]
   },
-  {
+  "marcelo_soria_rodriguez": {
     "name": "Marcelo Soria-Rodríguez",
     "x": "https://x.com/msoriaro",
     "collections": [
       "variaciones_del_yo"
     ]
   },
-  {
+  "martnbruc": {
     "name": "martnbruc",
     "x": "https://x.com/martnbruc",
     "collections": [
       "multi_windows"
     ]
   },
-  {
-    "name": "0x113d",
-    "x": "https://x.com/0x113d",
-    "collections": [
-      "terraforms"
-    ]
-  },
-  {
-    "name": "xaltgeist",
-    "x": "https://x.com/xaltgeist",
-    "collections": [
-      "terraforms"
-    ]
-  },
-  {
+  "matt_deslauriers": {
     "name": "Matt DesLauriers",
     "x": "https://x.com/mattdesl",
     "website": "https://www.mattdesl.com/",
@@ -538,7 +531,7 @@
       "subscapes"
     ]
   },
-  {
+  "matto": {
     "name": "Matto",
     "x": "https://x.com/MonkMatto",
     "website": "https://matto.xyz/project/focus/",
@@ -546,14 +539,14 @@
       "focus"
     ]
   },
-  {
+  "maya_man": {
     "name": "Maya Man",
     "x": "https://x.com/mayaonthenet",
     "collections": [
       "ladies"
     ]
   },
-  {
+  "meinong": {
     "name": "meinong",
     "x": "https://x.com/urmeinong",
     "collections": [
@@ -561,42 +554,42 @@
       "record_of_hyperwar"
     ]
   },
-  {
+  "melissa_wiederrecht": {
     "name": "Melissa Wiederrecht",
     "x": "https://x.com/mwiederrecht",
     "collections": [
       "bakhoor_assandal"
     ]
   },
-  {
+  "mifella": {
     "name": "MiFella",
     "x": "https://x.com/MMifella",
     "collections": [
       "mifella_genesis"
     ]
   },
-  {
+  "mitch_dobrowner": {
     "name": "Mitch Dobrowner",
     "website": "http://mitchdobrowner.com/",
     "collections": [
       "storms"
     ]
   },
-  {
+  "moesh1t": {
     "name": "moesh1t",
     "x": "https://x.com/moesh1t",
     "collections": [
       "moeshit"
     ]
   },
-  {
+  "monica_rizzolli": {
     "name": "Monica Rizzolli",
     "x": "https://x.com/MonicaRizzolli",
     "collections": [
       "fragments_of_an_infinite_field"
     ]
   },
-  {
+  "mpkoz": {
     "name": "mpkoz",
     "x": "https://x.com/mpkoz",
     "website": "https://mpkoz.com",
@@ -605,7 +598,7 @@
       "parnassus"
     ]
   },
-  {
+  "nicolas_sassoon": {
     "name": "Nicolas Sassoon",
     "x": "https://x.com/Nicolas_Sassoon",
     "website": "http://www.nicolassassoon.com/",
@@ -613,7 +606,7 @@
       "lava_studies"
     ]
   },
-  {
+  "owen_mcateer": {
     "name": "Owen McAteer",
     "x": "https://x.com/motus_art",
     "website": "https://motus.art/",
@@ -622,28 +615,28 @@
       "fragmented_perception"
     ]
   },
-  {
+  "owen_moore": {
     "name": "Owen Moore",
     "bluesky": "https://bsky.app/profile/owmo-studio.bsky.social",
     "collections": [
       "waveshapes"
     ]
   },
-  {
+  "p1xelfool": {
     "name": "p1xelfool",
     "x": "https://x.com/p1xelfool",
     "collections": [
       "lumen"
     ]
   },
-  {
+  "pandelune": {
     "name": "Pandelune",
     "x": "https://x.com/PandeluneA",
     "collections": [
       "orthogone"
     ]
   },
-  {
+  "parker_ito": {
     "name": "Parker Ito",
     "x": "https://x.com/CreamyDreamy",
     "website": "https://parker.sex/",
@@ -654,7 +647,7 @@
       "horses7"
     ]
   },
-  {
+  "patrician": {
     "name": "Patrician",
     "x": "https://x.com/SAlgotrader",
     "collections": [
@@ -662,7 +655,7 @@
       "yeche_lunch"
     ]
   },
-  {
+  "pawel_dudko": {
     "name": "Paweł Dudko",
     "x": "https://x.com/PawelDudko",
     "collections": [
@@ -670,14 +663,14 @@
       "ingress"
     ]
   },
-  {
+  "pelle_cass": {
     "name": "Pelle Cass",
     "x": "https://x.com/PelleCass",
     "collections": [
       "crowded_fields"
     ]
   },
-  {
+  "petra_cortright": {
     "name": "Petra Cortright",
     "x": "https://x.com/petcortright",
     "website": "https://www.petracortright.com/",
@@ -685,21 +678,21 @@
       "burnt_umber_broken_silver_american_spirit"
     ]
   },
-  {
+  "petra_voice": {
     "name": "Petra Voice",
     "x": "https://x.com/petravoice",
     "collections": [
       "babes"
     ]
   },
-  {
+  "radix": {
     "name": "Radix",
     "x": "https://x.com/robdixon",
     "collections": [
       "inspirals"
     ]
   },
-  {
+  "rafael_rozendaal": {
     "name": "Rafaël Rozendaal",
     "x": "https://x.com/newrafael",
     "collections": [
@@ -729,7 +722,7 @@
       "volume"
     ]
   },
-  {
+  "ranxdeer": {
     "name": "Ranxdeer",
     "x": "https://x.com/ranxdeer",
     "website": "https://ranxd.online",
@@ -737,14 +730,14 @@
       "imagined"
     ]
   },
-  {
+  "roman_janajev": {
     "name": "Roman Janajev",
     "x": "https://x.com/sirdiekblak",
     "collections": [
       "a_heart_and_a_soul"
     ]
   },
-  {
+  "roope_rainisto": {
     "name": "Roope Rainisto",
     "x": "https://x.com/rainisto",
     "website": "https://www.rooperainisto.com/",
@@ -753,77 +746,77 @@
       "vacation"
     ]
   },
-  {
+  "rumi_ando": {
     "name": "Rumi Ando",
     "website": "http://rumiando.com/",
     "collections": [
       "tokyo_nude"
     ]
   },
-  {
+  "ryan_struhl": {
     "name": "Ryan Struhl",
     "x": "https://x.com/keisans",
     "collections": [
       "letters_to_my_future_self"
     ]
   },
-  {
+  "sabato": {
     "name": "Sabato",
     "x": "https://x.com/sabatobox",
     "collections": [
       "drawing_exercises"
     ]
   },
-  {
+  "samer_dabra": {
     "name": "Samer Dabra",
     "x": "https://x.com/Spongenuity",
     "collections": [
       "nature_finds_a_way"
     ]
   },
-  {
+  "shiro": {
     "name": "Shiro",
     "x": "https://x.com/shiro57102",
     "collections": [
       "shishi"
     ]
   },
-  {
+  "shl0ms": {
     "name": "SHL0MS",
     "x": "https://x.com/SHL0MS",
     "collections": [
       "car"
     ]
   },
-  {
+  "shunsuke_takawo": {
     "name": "Shunsuke Takawo",
     "x": "https://x.com/takawo",
     "collections": [
       "jaggedmemories"
     ]
   },
-  {
+  "simon_de_mai": {
     "name": "Simon De Mai",
     "x": "https://x.com/simondemai",
     "collections": [
       "spectron"
     ]
   },
-  {
+  "skomra": {
     "name": "skomra",
     "x": "https://x.com/skomra",
     "collections": [
       "skomra"
     ]
   },
-  {
+  "snowfro": {
     "name": "Snowfro",
     "x": "https://x.com/ArtOnBlockchain",
     "collections": [
       "chromie_squiggle"
     ]
   },
-  {
+  "stardrop": {
     "name": "stardrop",
     "x": "https://x.com/0xSTARDROP",
     "website": "https://www.stardrop.art/",
@@ -832,7 +825,7 @@
       "everything_i_own"
     ]
   },
-  {
+  "stefano_contiero": {
     "name": "Stefano Contiero",
     "x": "https://x.com/stefan_contiero",
     "website": "https://stefanocontiero.com/",
@@ -843,7 +836,7 @@
       "leggenda"
     ]
   },
-  {
+  "sterling_crispin": {
     "name": "Sterling Crispin",
     "x": "https://x.com/sterlingcrispin",
     "website": "https://sterlingcrispin.com/",
@@ -851,7 +844,7 @@
       "neophyte_mmxxii"
     ]
   },
-  {
+  "steve_pikelny": {
     "name": "Steve Pikelny",
     "x": "https://x.com/steviepxyz",
     "collections": [
@@ -860,7 +853,7 @@
       "instructions_for_defacement"
     ]
   },
-  {
+  "supermetal_bosch": {
     "name": "Supermetal Bosch",
     "x": "https://x.com/supermetalx",
     "collections": [
@@ -875,14 +868,14 @@
       "tubbypxgan"
     ]
   },
-  {
+  "terrorism": {
     "name": "terrorism______",
     "x": "https://x.com/terrorism______",
     "collections": [
       "cloudcastle"
     ]
   },
-  {
+  "tojiba": {
     "name": "Tojiba",
     "x": "https://x.com/m_m_____m____mm",
     "collections": [
@@ -892,7 +885,7 @@
       "tojiba_disc_buddies"
     ]
   },
-  {
+  "turtletimezone": {
     "name": "turtletimezone",
     "x": "https://x.com/turtletimezone",
     "collections": [
@@ -900,7 +893,7 @@
       "owee"
     ]
   },
-  {
+  "tyler_hobbs": {
     "name": "Tyler Hobbs",
     "x": "https://x.com/tylerxhobbs",
     "website": "https://tylerxhobbs.com/",
@@ -908,14 +901,14 @@
       "fidenza"
     ]
   },
-  {
+  "uczine": {
     "name": "uczine",
     "x": "https://x.com/uczine",
     "collections": [
       "real_world_data"
     ]
   },
-  {
+  "worm_emoji": {
     "name": "worm_emoji",
     "x": "https://x.com/worm_emoji",
     "website": "https://mint.luke.cat",
@@ -923,11 +916,18 @@
       "screenshot_catalog"
     ]
   },
-  {
+  "xaltgeist": {
+    "name": "xaltgeist",
+    "x": "https://x.com/xaltgeist",
+    "collections": [
+      "terraforms"
+    ]
+  },
+  "yomme": {
     "name": "yomme",
     "x": "https://x.com/yomme639",
     "collections": [
       "mi_note_2"
     ]
   }
-]
+}

@@ -6,7 +6,10 @@
     "chainId" : 1,
     "collectionId" : "2dc162ffdcd9a05b1250dd1d69c69be6",
     "name" : "HyperHash",
-    "internal_slug" : "hyperhash"
+    "internal_slug" : "hyperhash",
+    "artists" : [
+      "beervangeer"
+    ]
   },
   {
     "abId" : "17",
@@ -16,6 +19,9 @@
     "collectionId" : "c370ee8ce98875d2e6c8fd7726c263a7",
     "name" : "Spectron",
     "internal_slug" : "spectron",
+    "artists" : [
+      "simon_de_mai"
+    ],
     "iosCollectionBrowserColumnCount" : 2
   },
   {
@@ -25,7 +31,8 @@
     "chainId" : 1,
     "collectionId" : "aded45d3a6625cdeefcab7546c7549e5",
     "name" : "Ignition",
-    "internal_slug" : "ignition"
+    "internal_slug" : "ignition",
+    "artists" : []
   },
   {
     "abId" : "29",
@@ -34,7 +41,10 @@
     "chainId" : 1,
     "collectionId" : "b40893f9f33124f7e983ba1fdef15c92",
     "name" : "Inspirals",
-    "internal_slug" : "inspirals"
+    "internal_slug" : "inspirals",
+    "artists" : [
+      "radix"
+    ]
   },
   {
     "abId" : "64",
@@ -43,7 +53,8 @@
     "chainId" : 1,
     "collectionId" : "b22836540fa4e773a3309425fef939c8",
     "name" : "AlgoRhythms",
-    "internal_slug" : "algorhythms"
+    "internal_slug" : "algorhythms",
+    "artists" : []
   },
   {
     "abId" : "120",
@@ -52,7 +63,10 @@
     "chainId" : 1,
     "collectionId" : "41c03cf17f1dfe76f8a906e20f694042",
     "name" : "Endless Nameless",
-    "internal_slug" : "endless_nameless"
+    "internal_slug" : "endless_nameless",
+    "artists" : [
+      "rafael_rozendaal"
+    ]
   },
   {
     "abId" : "53",
@@ -61,7 +75,10 @@
     "chainId" : 1,
     "collectionId" : "f8b5ccc12f09eeb512f5535b560e27cd",
     "name" : "Subscapes",
-    "internal_slug" : "subscapes"
+    "internal_slug" : "subscapes",
+    "artists" : [
+      "matt_deslauriers"
+    ]
   },
   {
     "abId" : "373",
@@ -70,7 +87,10 @@
     "chainId" : 1,
     "collectionId" : "64e084408d0f8e0d5d6b1b78d0330a37",
     "name" : "Intersections",
-    "internal_slug" : "intersections"
+    "internal_slug" : "intersections",
+    "artists" : [
+      "rafael_rozendaal"
+    ]
   },
   {
     "abId" : "235",
@@ -80,6 +100,9 @@
     "collectionId" : "30156bbe27266bd963358b0e315258a2",
     "name" : "Maps for grief",
     "internal_slug" : "maps_for_grief",
+    "artists" : [
+      "louis_andre_labadie"
+    ],
     "iosCollectionBrowserColumnCount" : 2
   },
   {
@@ -89,7 +112,10 @@
     "chainId" : 1,
     "collectionId" : "29c56e84d2ca065ee7b6a829059b3128",
     "name" : "CryptoGodKing",
-    "internal_slug" : "cryptogodking"
+    "internal_slug" : "cryptogodking",
+    "artists" : [
+      "steve_pikelny"
+    ]
   },
   {
     "abId" : "0",
@@ -99,6 +125,9 @@
     "collectionId" : "33c589d389b53ba90764ae3c120945aa",
     "name" : "Chromie Squiggle",
     "internal_slug" : "chromie_squiggle",
+    "artists" : [
+      "snowfro"
+    ],
     "iosCollectionBrowserColumnCount" : 2
   },
   {
@@ -108,7 +137,10 @@
     "chainId" : 1,
     "collectionId" : "f96ab5aac5e593523b729b1889bd07b8",
     "name" : "The Field",
-    "internal_slug" : "the_field"
+    "internal_slug" : "the_field",
+    "artists" : [
+      "beervangeer"
+    ]
   },
   {
     "abId" : "264",
@@ -117,7 +149,10 @@
     "chainId" : 1,
     "collectionId" : "82b70bec3ba2be999edfdbfd8bcb3fd1",
     "name" : "Thereidoscope",
-    "internal_slug" : "thereidoscope"
+    "internal_slug" : "thereidoscope",
+    "artists" : [
+      "daim_aggott_honsch"
+    ]
   },
   {
     "abId" : "0",
@@ -127,6 +162,9 @@
     "collectionId" : "bc29c842be8cc6cd5551bd0e2561eaf4",
     "name" : "Fragmented Perception",
     "internal_slug" : "fragmented_perception",
+    "artists" : [
+      "owen_mcateer"
+    ],
     "iosCollectionBrowserColumnCount" : 2
   },
   {
@@ -136,7 +174,10 @@
     "chainId" : 1,
     "collectionId" : "169a7228f7db2ae7c0566e78f85a7866",
     "name" : "Transitions",
-    "internal_slug" : "transitions"
+    "internal_slug" : "transitions",
+    "artists" : [
+      "jason_ting"
+    ]
   },
   {
     "abId" : "12",
@@ -146,6 +187,9 @@
     "collectionId" : "439c07ef3bbcf98e6de5e562f054d089",
     "name" : "Renaissance",
     "internal_slug" : "renaissance",
+    "artists" : [
+      "fernando_jerez"
+    ],
     "iosCollectionBrowserColumnCount" : 2
   },
   {
@@ -155,7 +199,10 @@
     "chainId" : 1,
     "collectionId" : "354d0e03b3f1005e6eb18251aacd5a84",
     "name" : "KERNELS",
-    "internal_slug" : "kernels"
+    "internal_slug" : "kernels",
+    "artists" : [
+      "julian_hespenheide"
+    ]
   },
   {
     "abId" : "12",
@@ -164,7 +211,10 @@
     "chainId" : 1,
     "collectionId" : "ef2492fb1fc4054a2f76b2ff99575639",
     "name" : "Passing",
-    "internal_slug" : "passing"
+    "internal_slug" : "passing",
+    "artists" : [
+      "rafael_rozendaal"
+    ]
   },
   {
     "abId" : "21",
@@ -174,6 +224,9 @@
     "collectionId" : "f0f83f0e1491f4d6ea875b385059ddb2",
     "name" : "Infinito",
     "internal_slug" : "infinito",
+    "artists" : [
+      "stefano_contiero"
+    ],
     "iosCollectionBrowserColumnCount" : 2
   },
   {
@@ -183,7 +236,10 @@
     "chainId" : 1,
     "collectionId" : "ef2492fb1fc4054a2f76b2ff99575639",
     "name" : "Volume",
-    "internal_slug" : "volume"
+    "internal_slug" : "volume",
+    "artists" : [
+      "rafael_rozendaal"
+    ]
   },
   {
     "abId" : "2",
@@ -192,7 +248,10 @@
     "chainId" : 1,
     "collectionId" : "ef2492fb1fc4054a2f76b2ff99575639",
     "name" : "Traffic",
-    "internal_slug" : "traffic"
+    "internal_slug" : "traffic",
+    "artists" : [
+      "rafael_rozendaal"
+    ]
   },
   {
     "abId" : "287",
@@ -201,7 +260,10 @@
     "chainId" : 1,
     "collectionId" : "3c81d24374b1a7915144c94da35e48bb",
     "name" : "Zoologic",
-    "internal_slug" : "zoologic"
+    "internal_slug" : "zoologic",
+    "artists" : [
+      "ixnayokay"
+    ]
   },
   {
     "abId" : "20",
@@ -210,7 +272,10 @@
     "chainId" : 1,
     "collectionId" : "ef2492fb1fc4054a2f76b2ff99575639",
     "name" : "Radial",
-    "internal_slug" : "radial"
+    "internal_slug" : "radial",
+    "artists" : [
+      "rafael_rozendaal"
+    ]
   },
   {
     "abId" : "22",
@@ -219,7 +284,10 @@
     "chainId" : 1,
     "collectionId" : "ef2492fb1fc4054a2f76b2ff99575639",
     "name" : "Fiber",
-    "internal_slug" : "fiber"
+    "internal_slug" : "fiber",
+    "artists" : [
+      "rafael_rozendaal"
+    ]
   },
   {
     "abId" : "8",
@@ -228,7 +296,10 @@
     "chainId" : 1,
     "collectionId" : "ef2492fb1fc4054a2f76b2ff99575639",
     "name" : "Through",
-    "internal_slug" : "through"
+    "internal_slug" : "through",
+    "artists" : [
+      "rafael_rozendaal"
+    ]
   },
   {
     "abId" : "293",
@@ -237,7 +308,8 @@
     "chainId" : 1,
     "collectionId" : "934a910e709523a1d8a300538945e2a0",
     "name" : "Túnel Dimensional",
-    "internal_slug" : "tunel_dimensional"
+    "internal_slug" : "tunel_dimensional",
+    "artists" : []
   },
   {
     "abId" : "460",
@@ -247,6 +319,9 @@
     "collectionId" : "9c89aafcd0a32cfc3350494109f2432e",
     "name" : "Exstasis",
     "internal_slug" : "exstasis",
+    "artists" : [
+      "grant_oesterling"
+    ],
     "iosCollectionBrowserColumnCount" : 2
   },
   {
@@ -256,7 +331,10 @@
     "chainId" : 1,
     "collectionId" : "ef2492fb1fc4054a2f76b2ff99575639",
     "name" : "Clash",
-    "internal_slug" : "clash"
+    "internal_slug" : "clash",
+    "artists" : [
+      "rafael_rozendaal"
+    ]
   },
   {
     "abId" : "26",
@@ -265,7 +343,10 @@
     "chainId" : 1,
     "collectionId" : "ef2492fb1fc4054a2f76b2ff99575639",
     "name" : "Rio",
-    "internal_slug" : "rio"
+    "internal_slug" : "rio",
+    "artists" : [
+      "rafael_rozendaal"
+    ]
   },
   {
     "abId" : "123",
@@ -274,7 +355,10 @@
     "chainId" : 1,
     "collectionId" : "348a7054e0988dfe64d1f8b02453e660",
     "name" : "Nucleus",
-    "internal_slug" : "nucleus"
+    "internal_slug" : "nucleus",
+    "artists" : [
+      "hjalmar_astrom"
+    ]
   },
   {
     "abId" : "323",
@@ -283,7 +367,10 @@
     "chainId" : 1,
     "collectionId" : "04f3a9cbc997ba32887823aebc5d4f15",
     "name" : "GHOST IN THE CODE",
-    "internal_slug" : "ghost_in_the_code"
+    "internal_slug" : "ghost_in_the_code",
+    "artists" : [
+      "kazuhiro_tanimoto"
+    ]
   },
   {
     "abId" : "338",
@@ -292,7 +379,10 @@
     "chainId" : 1,
     "collectionId" : "d04e074fbe4bbf3bd78721fb98228592",
     "name" : "undead wyverns",
-    "internal_slug" : "undead_wyverns"
+    "internal_slug" : "undead_wyverns",
+    "artists" : [
+      "hideo"
+    ]
   },
   {
     "abId" : "9",
@@ -301,7 +391,10 @@
     "chainId" : 1,
     "collectionId" : "ef2492fb1fc4054a2f76b2ff99575639",
     "name" : "Staring",
-    "internal_slug" : "staring"
+    "internal_slug" : "staring",
+    "artists" : [
+      "rafael_rozendaal"
+    ]
   },
   {
     "abId" : "490",
@@ -310,7 +403,10 @@
     "chainId" : 1,
     "collectionId" : "b21d7ada5df674f9f2a460c9eada70f9",
     "name" : "Twist",
-    "internal_slug" : "twist"
+    "internal_slug" : "twist",
+    "artists" : [
+      "rafael_rozendaal"
+    ]
   },
   {
     "abId" : "472",
@@ -320,6 +416,9 @@
     "collectionId" : "34d435a5119aa45c5dc5feef95767e27",
     "name" : "because unless until",
     "internal_slug" : "because_unless_until",
+    "artists" : [
+      "ixnayokay"
+    ],
     "iosCollectionBrowserColumnCount" : 2
   },
   {
@@ -329,7 +428,10 @@
     "chainId" : 1,
     "collectionId" : "ef2492fb1fc4054a2f76b2ff99575639",
     "name" : "No Idea",
-    "internal_slug" : "no_idea"
+    "internal_slug" : "no_idea",
+    "artists" : [
+      "rafael_rozendaal"
+    ]
   },
   {
     "abId" : "50",
@@ -338,7 +440,10 @@
     "chainId" : 1,
     "collectionId" : "318f9219f83baa9b325152049548b57e",
     "name" : "Nature finds a way",
-    "internal_slug" : "nature_finds_a_way"
+    "internal_slug" : "nature_finds_a_way",
+    "artists" : [
+      "samer_dabra"
+    ]
   },
   {
     "abId" : "16",
@@ -347,7 +452,10 @@
     "chainId" : 1,
     "collectionId" : "ef2492fb1fc4054a2f76b2ff99575639",
     "name" : "Inner",
-    "internal_slug" : "inner"
+    "internal_slug" : "inner",
+    "artists" : [
+      "rafael_rozendaal"
+    ]
   },
   {
     "abId" : "0",
@@ -357,6 +465,9 @@
     "collectionId" : "326c9aa6c3ce551b4225838f932c9e57",
     "name" : "variaciones del yo",
     "internal_slug" : "variaciones_del_yo",
+    "artists" : [
+      "marcelo_soria_rodriguez"
+    ],
     "iosCollectionBrowserColumnCount" : 2
   },
   {
@@ -366,7 +477,10 @@
     "chainId" : 1,
     "collectionId" : "ef2492fb1fc4054a2f76b2ff99575639",
     "name" : "Stripes",
-    "internal_slug" : "stripes"
+    "internal_slug" : "stripes",
+    "artists" : [
+      "rafael_rozendaal"
+    ]
   },
   {
     "abId" : "4",
@@ -376,6 +490,7 @@
     "collectionId" : "d715a57affc86cdd0b3a183a78765855",
     "name" : "Aesthetics of Failure",
     "internal_slug" : "aesthetics_of_failure",
+    "artists" : [],
     "iosCollectionBrowserColumnCount" : 2
   },
   {
@@ -385,7 +500,10 @@
     "chainId" : 1,
     "collectionId" : "39df24fe53de1b33fbb3a3fcfe794ee7",
     "name" : "Cargo",
-    "internal_slug" : "cargo"
+    "internal_slug" : "cargo",
+    "artists" : [
+      "kim_asendorf"
+    ]
   },
   {
     "abId" : "428",
@@ -395,6 +513,9 @@
     "collectionId" : "9f2164b23df577b76c4196996b85b1cf",
     "name" : "Memories of Digital Data",
     "internal_slug" : "memories_of_digital_data",
+    "artists" : [
+      "kazuhiro_tanimoto"
+    ],
     "iosCollectionBrowserColumnCount" : 2
   },
   {
@@ -404,7 +525,8 @@
     "chainId" : 1,
     "collectionId" : "4bb2d4d02830fabd91efd86eb4bdbb0d",
     "name" : "High Tide",
-    "internal_slug" : "high_tide"
+    "internal_slug" : "high_tide",
+    "artists" : []
   },
   {
     "abId" : "158",
@@ -413,7 +535,10 @@
     "chainId" : 1,
     "collectionId" : "a3b63b3b8fa42245a26f371f5b7234d7",
     "name" : "a heart and a soul",
-    "internal_slug" : "a_heart_and_a_soul"
+    "internal_slug" : "a_heart_and_a_soul",
+    "artists" : [
+      "roman_janajev"
+    ]
   },
   {
     "abId" : "480",
@@ -422,7 +547,10 @@
     "chainId" : 1,
     "collectionId" : "fdddfda5096d65de673c9a7f655c845c",
     "name" : "Axo",
-    "internal_slug" : "axo"
+    "internal_slug" : "axo",
+    "artists" : [
+      "jiwa"
+    ]
   },
   {
     "abId" : "175",
@@ -431,7 +559,10 @@
     "chainId" : 1,
     "collectionId" : "268724b7bbfd1c8f86903028efe453d7",
     "name" : "mono no aware",
-    "internal_slug" : "mono_no_aware"
+    "internal_slug" : "mono_no_aware",
+    "artists" : [
+      "ixnayokay"
+    ]
   },
   {
     "abId" : "182",
@@ -440,7 +571,8 @@
     "chainId" : 1,
     "collectionId" : "cab43901e288f51fcc054959db06fe86",
     "name" : "Amoeba",
-    "internal_slug" : "amoeba"
+    "internal_slug" : "amoeba",
+    "artists" : []
   },
   {
     "abId" : "3",
@@ -449,7 +581,10 @@
     "chainId" : 1,
     "collectionId" : "73fd8fe864e01a4a2038b65976bc23a3",
     "name" : "Inflection",
-    "internal_slug" : "inflection"
+    "internal_slug" : "inflection",
+    "artists" : [
+      "jeff_davis"
+    ]
   },
   {
     "abId" : "391",
@@ -458,7 +593,8 @@
     "chainId" : 1,
     "collectionId" : "7f17b4e6be5195e890b0c774f131e6db",
     "name" : "Contrast Agent",
-    "internal_slug" : "contrast_agent"
+    "internal_slug" : "contrast_agent",
+    "artists" : []
   },
   {
     "abId" : "181",
@@ -467,7 +603,10 @@
     "chainId" : 1,
     "collectionId" : "2cbddd7e43c4049ac07db07f3787933e",
     "name" : "FOCUS",
-    "internal_slug" : "focus"
+    "internal_slug" : "focus",
+    "artists" : [
+      "matto"
+    ]
   },
   {
     "abId" : "35",
@@ -476,7 +615,10 @@
     "chainId" : 1,
     "collectionId" : "1082ac3c45e965b5353114db31d92ef3",
     "name" : "Cage",
-    "internal_slug" : "cage"
+    "internal_slug" : "cage",
+    "artists" : [
+      "john_provencher"
+    ]
   },
   {
     "abId" : "29",
@@ -485,7 +627,10 @@
     "chainId" : 1,
     "collectionId" : "ef2492fb1fc4054a2f76b2ff99575639",
     "name" : "Push",
-    "internal_slug" : "push"
+    "internal_slug" : "push",
+    "artists" : [
+      "rafael_rozendaal"
+    ]
   },
   {
     "abId" : "54",
@@ -494,7 +639,8 @@
     "chainId" : 1,
     "collectionId" : "0b8cfd2706187fc99ea72079591a5f00",
     "name" : "Square Symphony",
-    "internal_slug" : "square_symphony"
+    "internal_slug" : "square_symphony",
+    "artists" : []
   },
   {
     "abId" : "168",
@@ -503,7 +649,8 @@
     "chainId" : 1,
     "collectionId" : "39daa9f150ba6adf00b699804a2b9691",
     "name" : "Bloom",
-    "internal_slug" : "bloom"
+    "internal_slug" : "bloom",
+    "artists" : []
   },
   {
     "abId" : "260",
@@ -512,7 +659,10 @@
     "chainId" : 1,
     "collectionId" : "eb0f41783e463c22a9f0d1643077d303",
     "name" : "Non Either",
-    "internal_slug" : "non_either"
+    "internal_slug" : "non_either",
+    "artists" : [
+      "rafael_rozendaal"
+    ]
   },
   {
     "abId" : "67",
@@ -521,7 +671,10 @@
     "chainId" : 1,
     "collectionId" : "8abdedfe1111a2dc2b0eb09092fd871d",
     "name" : "KARNE",
-    "internal_slug" : "karne"
+    "internal_slug" : "karne",
+    "artists" : [
+      "lolo_armdz"
+    ]
   },
   {
     "abId" : "205",
@@ -530,7 +683,10 @@
     "chainId" : 1,
     "collectionId" : "fa84d8fbbebe8ab9e7711755518789dc",
     "name" : "Placement",
-    "internal_slug" : "placement"
+    "internal_slug" : "placement",
+    "artists" : [
+      "cooper_jamieson"
+    ]
   },
   {
     "abId" : "85",
@@ -540,6 +696,9 @@
     "collectionId" : "716103a017faaf909a4b843fd8b481e2",
     "name" : "Bright Empty Rooms",
     "internal_slug" : "bright_empty_rooms",
+    "artists" : [
+      "casey_reas"
+    ],
     "iosCollectionBrowserColumnCount" : 2
   },
   {
@@ -549,7 +708,10 @@
     "chainId" : 1,
     "collectionId" : "c2ff5587dd8c91e48678d6ecbea91219",
     "name" : "7 Factorial",
-    "internal_slug" : "7_factorial"
+    "internal_slug" : "7_factorial",
+    "artists" : [
+      "lars_wander"
+    ]
   },
   {
     "abId" : "1",
@@ -559,6 +721,9 @@
     "collectionId" : "e2bfa857788ef56380df294d9364d17d",
     "name" : "ATOMS",
     "internal_slug" : "atoms",
+    "artists" : [
+      "casey_reas"
+    ],
     "iosCollectionBrowserColumnCount" : 2
   },
   {
@@ -568,7 +733,10 @@
     "chainId" : 1,
     "collectionId" : "dc0fe0481c0f0d8f1fba348eb932919e",
     "name" : "Kaleidoscope",
-    "internal_slug" : "kaleidoscope"
+    "internal_slug" : "kaleidoscope",
+    "artists" : [
+      "loren_bednar"
+    ]
   },
   {
     "abId" : "336",
@@ -577,7 +745,10 @@
     "chainId" : 1,
     "collectionId" : "f9f91cab7772d260ce62ab969fe49127",
     "name" : "Polychrome Music",
-    "internal_slug" : "polychrome_music"
+    "internal_slug" : "polychrome_music",
+    "artists" : [
+      "rafael_rozendaal"
+    ]
   },
   {
     "abId" : "44",
@@ -586,7 +757,10 @@
     "chainId" : 1,
     "collectionId" : "8bf7c944dd7da09799809ff8795bd8ff",
     "name" : "Event Horizon",
-    "internal_slug" : "event_horizon"
+    "internal_slug" : "event_horizon",
+    "artists" : [
+      "kim_asendorf"
+    ]
   },
   {
     "abId" : "331",
@@ -595,7 +769,10 @@
     "chainId" : 1,
     "collectionId" : "9b38ee768c447b721cb20cc0c1dda5e0",
     "name" : "Metropixeland",
-    "internal_slug" : "metropixeland"
+    "internal_slug" : "metropixeland",
+    "artists" : [
+      "fernando_jerez"
+    ]
   },
   {
     "abId" : "26",
@@ -604,7 +781,10 @@
     "chainId" : 1,
     "collectionId" : "8bbc3be9fa0713af762c5c23681fa5ce",
     "name" : "lūmen",
-    "internal_slug" : "lumen"
+    "internal_slug" : "lumen",
+    "artists" : [
+      "p1xelfool"
+    ]
   },
   {
     "abId" : "15",
@@ -613,7 +793,10 @@
     "chainId" : 1,
     "collectionId" : "ef2492fb1fc4054a2f76b2ff99575639",
     "name" : "Stereo",
-    "internal_slug" : "stereo"
+    "internal_slug" : "stereo",
+    "artists" : [
+      "rafael_rozendaal"
+    ]
   },
   {
     "abId" : "280",
@@ -622,7 +805,10 @@
     "chainId" : 1,
     "collectionId" : "ce6676996eed4a952f252de7cbd65ecf",
     "name" : "Window",
-    "internal_slug" : "window"
+    "internal_slug" : "window",
+    "artists" : [
+      "jan_robert_leegte"
+    ]
   },
   {
     "abId" : "457",
@@ -632,6 +818,9 @@
     "collectionId" : "32a5df5b44aa8f92e54ff2d5f9658798",
     "name" : "Dopamine Machines",
     "internal_slug" : "dopamine_machines",
+    "artists" : [
+      "steve_pikelny"
+    ],
     "iosCollectionBrowserColumnCount" : 2
   },
   {
@@ -641,7 +830,10 @@
     "chainId" : 1,
     "collectionId" : "c3fde49ca065ac7943676224b403b07d",
     "name" : "Leggenda",
-    "internal_slug" : "leggenda"
+    "internal_slug" : "leggenda",
+    "artists" : [
+      "stefano_contiero"
+    ]
   },
   {
     "abId" : "233",
@@ -650,7 +842,10 @@
     "chainId" : 1,
     "collectionId" : "16f7f6da1fd0b5346563f7bb73662061",
     "name" : "Chimera",
-    "internal_slug" : "chimera"
+    "internal_slug" : "chimera",
+    "artists" : [
+      "mpkoz"
+    ]
   },
   {
     "abId" : "4",
@@ -659,7 +854,10 @@
     "chainId" : 1,
     "collectionId" : "ef2492fb1fc4054a2f76b2ff99575639",
     "name" : "Melting",
-    "internal_slug" : "melting"
+    "internal_slug" : "melting",
+    "artists" : [
+      "rafael_rozendaal"
+    ]
   },
   {
     "abId" : "356",
@@ -668,7 +866,10 @@
     "chainId" : 1,
     "collectionId" : "9b7ff2ab2bb537c6ebad7adbb7ca2aee",
     "name" : "Essenza",
-    "internal_slug" : "essenza"
+    "internal_slug" : "essenza",
+    "artists" : [
+      "stefano_contiero"
+    ]
   },
   {
     "abId" : "8",
@@ -678,6 +879,9 @@
     "collectionId" : "c2ff5587dd8c91e48678d6ecbea91219",
     "name" : "WaveShapes",
     "internal_slug" : "waveshapes",
+    "artists" : [
+      "owen_moore"
+    ],
     "iosCollectionBrowserColumnCount" : 2
   },
   {
@@ -687,7 +891,10 @@
     "chainId" : 1,
     "collectionId" : "ef2492fb1fc4054a2f76b2ff99575639",
     "name" : "Implosion",
-    "internal_slug" : "implosion"
+    "internal_slug" : "implosion",
+    "artists" : [
+      "rafael_rozendaal"
+    ]
   },
   {
     "abId" : "3",
@@ -696,7 +903,8 @@
     "chainId" : 1,
     "collectionId" : "a98d925c2ade3926b27258313370e0ca",
     "name" : "Diatom",
-    "internal_slug" : "diatom"
+    "internal_slug" : "diatom",
+    "artists" : []
   },
   {
     "abId" : "435",
@@ -706,6 +914,7 @@
     "collectionId" : "6ab1d1cc5b3e340753db2932a2cb9b0f",
     "name" : "Flows",
     "internal_slug" : "flows",
+    "artists" : [],
     "iosCollectionBrowserColumnCount" : 2
   },
   {
@@ -715,7 +924,10 @@
     "chainId" : 1,
     "collectionId" : "f7aeb07a3cafd0d385cb3c7273c0771c",
     "name" : "Epiphanies",
-    "internal_slug" : "epiphanies"
+    "internal_slug" : "epiphanies",
+    "artists" : [
+      "jimena_buena_vida"
+    ]
   },
   {
     "abId" : "432",
@@ -724,7 +936,10 @@
     "chainId" : 1,
     "collectionId" : "8d4b676042305a74b08b1843cc728eb7",
     "name" : "Divergence",
-    "internal_slug" : "divergence"
+    "internal_slug" : "divergence",
+    "artists" : [
+      "loren_bednar"
+    ]
   },
   {
     "abId" : "32",
@@ -733,7 +948,10 @@
     "chainId" : 1,
     "collectionId" : "21327f467415c4679401741d053f2d1a",
     "name" : "Light Beams",
-    "internal_slug" : "light_beams"
+    "internal_slug" : "light_beams",
+    "artists" : [
+      "jason_ting"
+    ]
   },
   {
     "abId" : "6",
@@ -743,6 +961,9 @@
     "collectionId" : "cd37ae66a52b25d32191114144650f60",
     "name" : "THIS ART IS ILLEGAL!",
     "internal_slug" : "this_art_is_illegal",
+    "artists" : [
+      "daim_aggott_honsch"
+    ],
     "iosCollectionBrowserColumnCount" : 2
   },
   {
@@ -752,7 +973,10 @@
     "chainId" : 1,
     "collectionId" : "ef2492fb1fc4054a2f76b2ff99575639",
     "name" : "Quadrant",
-    "internal_slug" : "quadrant"
+    "internal_slug" : "quadrant",
+    "artists" : [
+      "rafael_rozendaal"
+    ]
   },
   {
     "abId" : "15",
@@ -761,7 +985,10 @@
     "chainId" : 1,
     "collectionId" : "f21ac5fd7bdb4006dc867ba982578321",
     "name" : "Gravity",
-    "internal_slug" : "gravity"
+    "internal_slug" : "gravity",
+    "artists" : [
+      "pawel_dudko"
+    ]
   },
   {
     "abId" : "479",
@@ -770,7 +997,10 @@
     "chainId" : 1,
     "collectionId" : "54c9b7ec466f332e58304a1a580266a9",
     "name" : "Bakhoor Assandal",
-    "internal_slug" : "bakhoor_assandal"
+    "internal_slug" : "bakhoor_assandal",
+    "artists" : [
+      "melissa_wiederrecht"
+    ]
   },
   {
     "abId" : "18",
@@ -779,7 +1009,10 @@
     "chainId" : 1,
     "collectionId" : "ef2492fb1fc4054a2f76b2ff99575639",
     "name" : "Overlay",
-    "internal_slug" : "overlay"
+    "internal_slug" : "overlay",
+    "artists" : [
+      "rafael_rozendaal"
+    ]
   },
   {
     "abId" : "249",
@@ -788,7 +1021,10 @@
     "chainId" : 1,
     "collectionId" : "c7bef60eb9e0cf81c6b2439ef2b6383d",
     "name" : "Facets",
-    "internal_slug" : "facets"
+    "internal_slug" : "facets",
+    "artists" : [
+      "conundrumer"
+    ]
   },
   {
     "abId" : "3",
@@ -797,7 +1033,10 @@
     "chainId" : 1,
     "collectionId" : "e815cc32a10e64a529e84f64402ae1b4",
     "name" : "Contractions",
-    "internal_slug" : "contractions"
+    "internal_slug" : "contractions",
+    "artists" : [
+      "loie_hollowell"
+    ]
   },
   {
     "abId" : "19",
@@ -806,7 +1045,8 @@
     "chainId" : 1,
     "collectionId" : "43fafd24b529b42ff4c069b78ad3eca3",
     "name" : "R3sonance",
-    "internal_slug" : "r3sonance"
+    "internal_slug" : "r3sonance",
+    "artists" : []
   },
   {
     "abId" : "212",
@@ -815,7 +1055,10 @@
     "chainId" : 1,
     "collectionId" : "91d1b2a2c340b28be530620ff22c5c84",
     "name" : "Dive",
-    "internal_slug" : "dive"
+    "internal_slug" : "dive",
+    "artists" : [
+      "rafael_rozendaal"
+    ]
   },
   {
     "abId" : "26",
@@ -824,7 +1067,10 @@
     "chainId" : 1,
     "collectionId" : "f0f2fe73c86dc262035a8d9ecf06d38a",
     "name" : "Energy Sculpture",
-    "internal_slug" : "energy_sculpture"
+    "internal_slug" : "energy_sculpture",
+    "artists" : [
+      "beervangeer"
+    ]
   },
   {
     "abId" : "56",
@@ -833,7 +1079,8 @@
     "chainId" : 1,
     "collectionId" : "5411bf000012cd0580c7b9a5a6c6c997",
     "name" : "Aurora IV",
-    "internal_slug" : "aurora_iv"
+    "internal_slug" : "aurora_iv",
+    "artists" : []
   },
   {
     "abId" : "0",
@@ -843,6 +1090,9 @@
     "collectionId" : "7ef20a8f1fb7e969fa945b4f04ecaa53",
     "name" : "One More Day",
     "internal_slug" : "one_more_day",
+    "artists" : [
+      "aaron_penne"
+    ],
     "iosCollectionBrowserColumnCount" : 2
   },
   {
@@ -852,7 +1102,10 @@
     "chainId" : 1,
     "collectionId" : "32ffc19d2d2fbe376a64ecd65030d07a",
     "name" : "EMPTY ROOMS",
-    "internal_slug" : "empty_rooms"
+    "internal_slug" : "empty_rooms",
+    "artists" : [
+      "casey_reas"
+    ]
   },
   {
     "abId" : "18",
@@ -861,7 +1114,10 @@
     "chainId" : 1,
     "collectionId" : "d2078caa3efe916caed053652d668dcb",
     "name" : "JaggedMemories",
-    "internal_slug" : "jaggedmemories"
+    "internal_slug" : "jaggedmemories",
+    "artists" : [
+      "shunsuke_takawo"
+    ]
   },
   {
     "abId" : "377",
@@ -870,7 +1126,10 @@
     "chainId" : 1,
     "collectionId" : "c3814f0bc9f890c4d32a26f4c2e2f5d7",
     "name" : "Ingress",
-    "internal_slug" : "ingress"
+    "internal_slug" : "ingress",
+    "artists" : [
+      "pawel_dudko"
+    ]
   },
   {
     "abId" : "132",
@@ -879,7 +1138,10 @@
     "chainId" : 1,
     "collectionId" : "8da8f87a831b5ae57695411ade574ef3",
     "name" : "Tangled",
-    "internal_slug" : "tangled"
+    "internal_slug" : "tangled",
+    "artists" : [
+      "andrei_antonescu"
+    ]
   },
   {
     "abId" : "133",
@@ -888,7 +1150,10 @@
     "chainId" : 1,
     "collectionId" : "8da8f87a831b5ae57695411ade574ef3",
     "name" : "Organized Disruption",
-    "internal_slug" : "organized_disruption"
+    "internal_slug" : "organized_disruption",
+    "artists" : [
+      "joshua_davis"
+    ]
   },
   {
     "abId" : "162",
@@ -897,7 +1162,8 @@
     "chainId" : 1,
     "collectionId" : "8da8f87a831b5ae57695411ade574ef3",
     "name" : "Democracity",
-    "internal_slug" : "democracity"
+    "internal_slug" : "democracity",
+    "artists" : []
   },
   {
     "abId" : "250",
@@ -906,7 +1172,10 @@
     "chainId" : 1,
     "collectionId" : "27746f2b37cc2f8a70d2305b576100e7",
     "name" : "Cosmic Reef",
-    "internal_slug" : "cosmic_reef"
+    "internal_slug" : "cosmic_reef",
+    "artists" : [
+      "leo_villareal"
+    ]
   },
   {
     "abId" : "279",
@@ -915,7 +1184,10 @@
     "chainId" : 1,
     "collectionId" : "8da8f87a831b5ae57695411ade574ef3",
     "name" : "Neophyte MMXXII",
-    "internal_slug" : "neophyte_mmxxii"
+    "internal_slug" : "neophyte_mmxxii",
+    "artists" : [
+      "sterling_crispin"
+    ]
   },
   {
     "abId" : "300",
@@ -924,7 +1196,8 @@
     "chainId" : 1,
     "collectionId" : "8da8f87a831b5ae57695411ade574ef3",
     "name" : "Assemblage",
-    "internal_slug" : "assemblage"
+    "internal_slug" : "assemblage",
+    "artists" : []
   },
   {
     "abId" : "314",
@@ -933,7 +1206,10 @@
     "chainId" : 1,
     "collectionId" : "8da8f87a831b5ae57695411ade574ef3",
     "name" : "Divenire",
-    "internal_slug" : "divenire"
+    "internal_slug" : "divenire",
+    "artists" : [
+      "emanuele_pasin"
+    ]
   },
   {
     "abId" : "369",
@@ -942,7 +1218,10 @@
     "chainId" : 1,
     "collectionId" : "8da8f87a831b5ae57695411ade574ef3",
     "name" : "CENTURY 2052",
-    "internal_slug" : "century_2052"
+    "internal_slug" : "century_2052",
+    "artists" : [
+      "casey_reas"
+    ]
   },
   {
     "abId" : "371",
@@ -951,7 +1230,10 @@
     "chainId" : 1,
     "collectionId" : "0817750cb3f67f3645eeea2847dc02cb",
     "name" : "JPEG",
-    "internal_slug" : "jpeg"
+    "internal_slug" : "jpeg",
+    "artists" : [
+      "jan_robert_leegte"
+    ]
   },
   {
     "abId" : "72",
@@ -960,7 +1242,10 @@
     "chainId" : 1,
     "collectionId" : "426098ee77a965a0e0ed7dd56d8f8dac",
     "name" : "Frammenti",
-    "internal_slug" : "frammenti"
+    "internal_slug" : "frammenti",
+    "artists" : [
+      "stefano_contiero"
+    ]
   },
   {
     "abId" : "88",
@@ -970,6 +1255,9 @@
     "collectionId" : "8da8f87a831b5ae57695411ade574ef3",
     "name" : "Orthogone",
     "internal_slug" : "orthogone",
+    "artists" : [
+      "pandelune"
+    ],
     "iosCollectionBrowserColumnCount" : 2
   },
   {
@@ -980,7 +1268,8 @@
     "name" : "Finiliar",
     "tokenCount" : 10000,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "finiliar"
+    "internal_slug" : "finiliar",
+    "artists" : []
   },
   {
     "abId" : "23",
@@ -991,7 +1280,10 @@
     "name" : "Archetype",
     "tokenCount" : 600,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "archetype"
+    "internal_slug" : "archetype",
+    "artists" : [
+      "kjetil_golid"
+    ]
   },
   {
     "abId" : "78",
@@ -1002,7 +1294,10 @@
     "name" : "Fidenza",
     "tokenCount" : 999,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "fidenza"
+    "internal_slug" : "fidenza",
+    "artists" : [
+      "tyler_hobbs"
+    ]
   },
   {
     "abId" : "159",
@@ -1013,7 +1308,10 @@
     "name" : "Fragments of an Infinite Field",
     "tokenCount" : 1024,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "fragments_of_an_infinite_field"
+    "internal_slug" : "fragments_of_an_infinite_field",
+    "artists" : [
+      "monica_rizzolli"
+    ]
   },
   {
     "abId" : "13",
@@ -1024,7 +1322,10 @@
     "name" : "Ringers",
     "tokenCount" : 1000,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "ringers"
+    "internal_slug" : "ringers",
+    "artists" : [
+      "dmitri_cherniak"
+    ]
   },
   {
     "abId" : "29",
@@ -1035,7 +1336,10 @@
     "name" : "Flore Perdue",
     "tokenCount" : 100,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "flore_perdue"
+    "internal_slug" : "flore_perdue",
+    "artists" : [
+      "linda_dounia"
+    ]
   },
   {
     "abId" : "174",
@@ -1046,7 +1350,10 @@
     "name" : "Letters to My Future Self",
     "tokenCount" : 1000,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "letters_to_my_future_self"
+    "internal_slug" : "letters_to_my_future_self",
+    "artists" : [
+      "ryan_struhl"
+    ]
   },
   {
     "abId" : "0",
@@ -1058,6 +1365,9 @@
     "tokenCount" : 712,
     "standardThumbsPathsAvailable" : true,
     "internal_slug" : "instructions_for_defacement",
+    "artists" : [
+      "steve_pikelny"
+    ],
     "iosCollectionBrowserColumnCount" : 2
   },
   {
@@ -1069,7 +1379,10 @@
     "name" : "Meridian",
     "tokenCount" : 1000,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "meridian"
+    "internal_slug" : "meridian",
+    "artists" : [
+      "matt_deslauriers"
+    ]
   },
   {
     "abId" : "22",
@@ -1080,7 +1393,10 @@
     "name" : "The Eternal Pump",
     "tokenCount" : 50,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "the_eternal_pump"
+    "internal_slug" : "the_eternal_pump",
+    "artists" : [
+      "dmitri_cherniak"
+    ]
   },
   {
     "address" : "0x46ac8540d698167fcbb9e846511beb8cf8af9bd8",
@@ -1090,7 +1406,10 @@
     "name" : "Math Art",
     "tokenCount" : 100,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "math_art"
+    "internal_slug" : "math_art",
+    "artists" : [
+      "herbert_w_franke"
+    ]
   },
   {
     "address" : "0x46ac8540d698167fcbb9e846511beb8cf8af9bd8",
@@ -1101,6 +1420,9 @@
     "tokenCount" : 75,
     "standardThumbsPathsAvailable" : true,
     "internal_slug" : "storms",
+    "artists" : [
+      "mitch_dobrowner"
+    ],
     "iosCollectionBrowserColumnCount" : 2
   },
   {
@@ -1111,7 +1433,10 @@
     "name" : "0xmons",
     "tokenCount" : 341,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "0xmons"
+    "internal_slug" : "0xmons",
+    "artists" : [
+      "0xmons"
+    ]
   },
   {
     "address" : "0x46ac8540d698167fcbb9e846511beb8cf8af9bd8",
@@ -1122,6 +1447,9 @@
     "tokenCount" : 18,
     "standardThumbsPathsAvailable" : true,
     "internal_slug" : "landscape_sublime",
+    "artists" : [
+      "anastasia_samoylova"
+    ],
     "iosCollectionBrowserColumnCount" : 2
   },
   {
@@ -1132,7 +1460,10 @@
     "name" : "Beyond the Veil",
     "tokenCount" : 24,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "beyond_the_veil"
+    "internal_slug" : "beyond_the_veil",
+    "artists" : [
+      "ella_barnes"
+    ]
   },
   {
     "address" : "0x46ac8540d698167fcbb9e846511beb8cf8af9bd8",
@@ -1143,6 +1474,9 @@
     "tokenCount" : 55,
     "standardThumbsPathsAvailable" : true,
     "internal_slug" : "tokyo_nude",
+    "artists" : [
+      "rumi_ando"
+    ],
     "iosCollectionBrowserColumnCount" : 2
   },
   {
@@ -1153,7 +1487,10 @@
     "name" : "COSMOS",
     "tokenCount" : 60,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "cosmos"
+    "internal_slug" : "cosmos",
+    "artists" : [
+      "jen_stark"
+    ]
   },
   {
     "address" : "0xabfae8a54e6817f57f9de7796044e9a60e61ad67",
@@ -1163,7 +1500,8 @@
     "name" : "Bonkler",
     "tokenCount" : 150,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "bonkler"
+    "internal_slug" : "bonkler",
+    "artists" : []
   },
   {
     "address" : "0x17abd4cc1382397ec2b675f98621c3ba809897de",
@@ -1174,7 +1512,10 @@
     "tokenCount" : 144,
     "standardThumbsPathsAvailable" : true,
     "webURL" : "https://opensea.io/collection/supermetalmons",
-    "internal_slug" : "super_metal_mons"
+    "internal_slug" : "super_metal_mons",
+    "artists" : [
+      "supermetal_bosch"
+    ]
   },
   {
     "address" : "0x17abd4cc1382397ec2b675f98621c3ba809897de",
@@ -1184,6 +1525,9 @@
     "tokenCount" : 777,
     "standardThumbsPathsAvailable" : true,
     "internal_slug" : "super_metal_mons_2",
+    "artists" : [
+      "supermetal_bosch"
+    ],
     "iosCollectionBrowserColumnCount" : 3
   },
   {
@@ -1193,7 +1537,10 @@
     "name" : "Super Sofubi",
     "tokenCount" : 300,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "super_sofubi"
+    "internal_slug" : "super_sofubi",
+    "artists" : [
+      "supermetal_bosch"
+    ]
   },
   {
     "address" : "0xf528e3381372c43f5e8a55b3e6c252e32f1a26e4",
@@ -1203,7 +1550,8 @@
     "name" : "Bibos",
     "tokenCount" : 1111,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "bibos"
+    "internal_slug" : "bibos",
+    "artists" : []
   },
   {
     "address" : "0x0c640779dbd6cda40d54350344dfd37d99aed8aa",
@@ -1212,7 +1560,10 @@
     "name" : "Very Internet Printout",
     "tokenCount" : 24,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "very_internet_printout"
+    "internal_slug" : "very_internet_printout",
+    "artists" : [
+      "elle"
+    ]
   },
   {
     "address" : "0xc2276a4a03e7c2e2fa122692b07a870eff43cf51",
@@ -1221,7 +1572,10 @@
     "name" : "All My Files",
     "tokenCount" : 1935,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "all_my_files"
+    "internal_slug" : "all_my_files",
+    "artists" : [
+      "stardrop"
+    ]
   },
   {
     "address" : "0x160ee826cb805d9109005250e18e5371107c2e1f",
@@ -1230,7 +1584,10 @@
     "name" : "Everything I Own",
     "tokenCount" : 1026,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "everything_i_own"
+    "internal_slug" : "everything_i_own",
+    "artists" : [
+      "stardrop"
+    ]
   },
   {
     "address" : "0x3ffe880dd25d870e2acf54f4c639c50704fadee8",
@@ -1239,7 +1596,8 @@
     "name" : "Cats: A form study",
     "tokenCount" : 22,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "cats_a_form_study"
+    "internal_slug" : "cats_a_form_study",
+    "artists" : []
   },
   {
     "address" : "0xEC0a7A26456B8451aefc4b00393ce1BefF5eB3e9",
@@ -1248,7 +1606,10 @@
     "name" : "Allstarz",
     "tokenCount" : 10000,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "allstarz"
+    "internal_slug" : "allstarz",
+    "artists" : [
+      "allstarz"
+    ]
   },
   {
     "address" : "0x6120991c423f3566753d3c6c91a5b50d7d2461b4",
@@ -1257,7 +1618,10 @@
     "name" : "Allstarz PSX",
     "tokenCount" : 2500,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "allstarz_psx"
+    "internal_slug" : "allstarz_psx",
+    "artists" : [
+      "allstarz"
+    ]
   },
   {
     "address" : "0x91680cf5f9071cafae21b90ebf2c9cc9e480fb93",
@@ -1266,7 +1630,8 @@
     "name" : "frank",
     "tokenCount" : 1957,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "frank"
+    "internal_slug" : "frank",
+    "artists" : []
   },
   {
     "address" : "0xc62e3fd5b02618f90dd07d1e478963038fa9089c",
@@ -1275,7 +1640,8 @@
     "name" : "milady aura petz",
     "tokenCount" : 1884,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "milady_aura_petz"
+    "internal_slug" : "milady_aura_petz",
+    "artists" : []
   },
   {
     "address" : "0x9c8ff314c9bc7f6e59a9d9225fb22946427edc03",
@@ -1284,7 +1650,8 @@
     "name" : "Nouns",
     "tokenCount" : 1933,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "nouns"
+    "internal_slug" : "nouns",
+    "artists" : []
   },
   {
     "address" : "0x1ee3bcc37b747c29a0583352b3d9541f393cea82",
@@ -1293,7 +1660,8 @@
     "name" : "Gushies",
     "tokenCount" : 545,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "gushies"
+    "internal_slug" : "gushies",
+    "artists" : []
   },
   {
     "address" : "0xa29798f81ae9c7110091527edd8d869604a2dac8",
@@ -1304,7 +1672,10 @@
     "tokenCount" : 165,
     "webURL" : "https://eth.blockscout.com/token/0xa29798f81ae9c7110091527edd8d869604a2dac8/instance/1?tab=metadata",
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "emojipack"
+    "internal_slug" : "emojipack",
+    "artists" : [
+      "supermetal_bosch"
+    ]
   },
   {
     "address" : "0x44096d6de5d17020ce0c41d75ce27b33c6d28e1a",
@@ -1313,7 +1684,10 @@
     "name" : "tubbypxgan",
     "tokenCount" : 1335,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "tubbypxgan"
+    "internal_slug" : "tubbypxgan",
+    "artists" : [
+      "supermetal_bosch"
+    ]
   },
   {
     "address" : "0xf694002c6d990036916013e8562fe6a26d44586d",
@@ -1322,7 +1696,11 @@
     "name" : "Ladies",
     "tokenCount" : 500,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "ladies"
+    "internal_slug" : "ladies",
+    "artists" : [
+      "ann_hirsch",
+      "maya_man"
+    ]
   },
   {
     "address" : "0xeeca64ea9fcf99a22806cd99b3d29cf6e8d54925",
@@ -1331,7 +1709,8 @@
     "name" : "Sproto Gremlins",
     "tokenCount" : 3333,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "sproto_gremlins"
+    "internal_slug" : "sproto_gremlins",
+    "artists" : []
   },
   {
     "address" : "0x181cde16170fac94c27584492cc9842e2cb3bd54",
@@ -1340,7 +1719,8 @@
     "name" : "pfp+",
     "tokenCount" : 376,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "pfpplus"
+    "internal_slug" : "pfpplus",
+    "artists" : []
   },
   {
     "address" : "0x9d09df7143ed764baa9427c05ca504d4241e2dba",
@@ -1349,7 +1729,8 @@
     "name" : "Bloomers",
     "tokenCount" : 502,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "bloomers"
+    "internal_slug" : "bloomers",
+    "artists" : []
   },
   {
     "address" : "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -1359,7 +1740,10 @@
     "name" : "Parnassus",
     "tokenCount" : 100,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "parnassus"
+    "internal_slug" : "parnassus",
+    "artists" : [
+      "mpkoz"
+    ]
   },
   {
     "address" : "0x1d2550d198197df1a10af515cf2ea0d790889b93",
@@ -1369,7 +1753,10 @@
     "name" : "Babes",
     "tokenCount" : 339,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "babes"
+    "internal_slug" : "babes",
+    "artists" : [
+      "petra_voice"
+    ]
   },
   {
     "address" : "0x41c2e39bd5c2cf5a93914545228c90ab904a79d0",
@@ -1380,6 +1767,7 @@
     "tokenCount" : 500,
     "standardThumbsPathsAvailable" : true,
     "internal_slug" : "changing_places",
+    "artists" : [],
     "iosCollectionBrowserColumnCount" : 2
   },
   {
@@ -1391,6 +1779,9 @@
     "tokenCount" : 40,
     "standardThumbsPathsAvailable" : true,
     "internal_slug" : "crowded_fields",
+    "artists" : [
+      "pelle_cass"
+    ],
     "iosCollectionBrowserColumnCount" : 2
   },
   {
@@ -1401,7 +1792,10 @@
     "name" : "Fifty Ways of Looking at a Poem",
     "tokenCount" : 44,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "fifty_ways_of_looking_at_a_poem"
+    "internal_slug" : "fifty_ways_of_looking_at_a_poem",
+    "artists" : [
+      "ana_maria_caballero"
+    ]
   },
   {
     "address" : "0x4bef3322005d503f02f9dcda5aca11ec7fb8f7c7",
@@ -1412,6 +1806,9 @@
     "tokenCount" : 428,
     "standardThumbsPathsAvailable" : true,
     "internal_slug" : "vacation",
+    "artists" : [
+      "roope_rainisto"
+    ],
     "iosCollectionBrowserColumnCount" : 2
   },
   {
@@ -1423,6 +1820,9 @@
     "tokenCount" : 999,
     "standardThumbsPathsAvailable" : true,
     "internal_slug" : "car",
+    "artists" : [
+      "shl0ms"
+    ],
     "iosCollectionBrowserColumnCount" : 2
   },
   {
@@ -1433,7 +1833,10 @@
     "name" : "Red Trucks",
     "tokenCount" : 50,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "red_trucks"
+    "internal_slug" : "red_trucks",
+    "artists" : [
+      "alejandro_cartagena"
+    ]
   },
   {
     "address" : "0xf445fe66f1322a12bb4b9364ff4e4549754e0935",
@@ -1443,7 +1846,10 @@
     "name" : "Constant",
     "tokenCount" : 38,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "constant"
+    "internal_slug" : "constant",
+    "artists" : [
+      "jonathan_chomko"
+    ]
   },
   {
     "address" : "0x45e71e4c25ac65c0a553e08c78d1e821103e3efa",
@@ -1454,6 +1860,9 @@
     "tokenCount" : 331,
     "standardThumbsPathsAvailable" : true,
     "internal_slug" : "screenshot_catalog",
+    "artists" : [
+      "worm_emoji"
+    ],
     "iosCollectionBrowserColumnCount" : 3
   },
   {
@@ -1464,7 +1873,10 @@
     "name" : "IMAGINED WRECKAGE",
     "tokenCount" : 96,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "imagined_wreckage"
+    "internal_slug" : "imagined_wreckage",
+    "artists" : [
+      "chuck_anderson"
+    ]
   },
   {
     "address" : "2A6Rr4fKgDDYrTMJ1aNo4njNkGNyr7Bw298tYXHwGMcu",
@@ -1473,7 +1885,11 @@
     "name" : "Holes",
     "tokenCount" : 777,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "holes"
+    "internal_slug" : "holes",
+    "artists" : [
+      "g_oo_f",
+      "heavenly_daze"
+    ]
   },
   {
     "address" : "2WfuhEW5EAKSoMCjYGGxsPWTvDkZKzQcBJF5ywuB8mhW",
@@ -1482,7 +1898,10 @@
     "name" : "Horses?2",
     "tokenCount" : 777,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "horses2"
+    "internal_slug" : "horses2",
+    "artists" : [
+      "parker_ito"
+    ]
   },
   {
     "address" : "2xF7dq3maFLud8FQUYAyLiWucdF7RePyzHJs7NkurkoD",
@@ -1491,7 +1910,10 @@
     "name" : "Scarecrow",
     "tokenCount" : 4048,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "scarecrow"
+    "internal_slug" : "scarecrow",
+    "artists" : [
+      "jim_spindle"
+    ]
   },
   {
     "address" : "39cqhoa3HRNUvJiYBm2dRqqDK7YunzNXw9WVDQ34VYNC",
@@ -1500,7 +1922,10 @@
     "name" : "BUSTA BOUNCA",
     "tokenCount" : 2434,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "busta_bounca"
+    "internal_slug" : "busta_bounca",
+    "artists" : [
+      "turtletimezone"
+    ]
   },
   {
     "address" : "3MDqanDmmGqvFQXtjCUcdEmHUXNfpQHcAaBPEoqfK5FE",
@@ -1509,7 +1934,10 @@
     "name" : "Cloudcastle ☆ 限定版アルファ",
     "tokenCount" : 204,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "cloudcastle"
+    "internal_slug" : "cloudcastle",
+    "artists" : [
+      "terrorism"
+    ]
   },
   {
     "address" : "3dWnCTx5gY3F9hVhiMu7b5we6WSKnyzL9CYdE1rW1HUm",
@@ -1518,7 +1946,10 @@
     "name" : "Tojiba Disc Buddies",
     "tokenCount" : 4998,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "tojiba_disc_buddies"
+    "internal_slug" : "tojiba_disc_buddies",
+    "artists" : [
+      "tojiba"
+    ]
   },
   {
     "address" : "41XXMADUvuP9H9w1QPyYnPAMB7Hvc2NsNugy7668N6R3",
@@ -1528,6 +1959,9 @@
     "tokenCount" : 333,
     "standardThumbsPathsAvailable" : true,
     "internal_slug" : "pray4lowbie",
+    "artists" : [
+      "lowbie"
+    ],
     "iosCollectionBrowserColumnCount" : 2
   },
   {
@@ -1537,7 +1971,8 @@
     "name" : "BRICKS",
     "tokenCount" : 1499,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "bricks"
+    "internal_slug" : "bricks",
+    "artists" : []
   },
   {
     "address" : "4sx77DrZ4ia5kVdx3THTv68QgPsSvorNSdwX3F5m75Bs",
@@ -1546,7 +1981,10 @@
     "name" : "owee",
     "tokenCount" : 333,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "owee"
+    "internal_slug" : "owee",
+    "artists" : [
+      "turtletimezone"
+    ]
   },
   {
     "address" : "5AQwfhqDRmrB5RLfyi4S5TPJVxMtc3rKMRd2PKAGqKaV",
@@ -1556,6 +1994,9 @@
     "tokenCount" : 101,
     "standardThumbsPathsAvailable" : true,
     "internal_slug" : "postcards2",
+    "artists" : [
+      "lowbie"
+    ],
     "iosCollectionBrowserColumnCount" : 2
   },
   {
@@ -1566,6 +2007,9 @@
     "tokenCount" : 2024,
     "standardThumbsPathsAvailable" : true,
     "internal_slug" : "little_fellow",
+    "artists" : [
+      "jim_spindle"
+    ],
     "iosCollectionBrowserColumnCount" : 2
   },
   {
@@ -1575,7 +2019,10 @@
     "name" : "hyperwarhaul",
     "tokenCount" : 143,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "hyperwarhaul"
+    "internal_slug" : "hyperwarhaul",
+    "artists" : [
+      "meinong"
+    ]
   },
   {
     "address" : "9NmKayqk56p3w8cMThW5H5CkECdLNCmfU8sAfcDXjuu6",
@@ -1585,7 +2032,10 @@
     "playerBackgroundColor" : "#FFFFFF",
     "tokenCount" : 99,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "artifact_magazine_2"
+    "internal_slug" : "artifact_magazine_2",
+    "artists" : [
+      "gucci4mycat"
+    ]
   },
   {
     "address" : "BF3jqDHp4sbhcu6pwDH6TWhrYb681a8fusowjRMEYABj",
@@ -1594,7 +2044,10 @@
     "name" : "CHOMSKY HONKS",
     "tokenCount" : 1337,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "chomsky_honks"
+    "internal_slug" : "chomsky_honks",
+    "artists" : [
+      "fairybaby420"
+    ]
   },
   {
     "address" : "Bkp4sEpGBgHkjtXpBdZiCxiMhAnx2aY6m3a5E8RdgY6S",
@@ -1603,7 +2056,10 @@
     "name" : "EDIBLE KAWAII DEMONZ®",
     "tokenCount" : 3330,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "edible_kawaii_demonz"
+    "internal_slug" : "edible_kawaii_demonz",
+    "artists" : [
+      "kikillo"
+    ]
   },
   {
     "address" : "BsnjB6xDv2HNenoZiNFDE1uMZVj86ciXwYAX75nUTDSt",
@@ -1612,7 +2068,11 @@
     "name" : "Shelves",
     "tokenCount" : 1666,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "shelves"
+    "internal_slug" : "shelves",
+    "artists" : [
+      "g_oo_f",
+      "heavenly_daze"
+    ]
   },
   {
     "address" : "DxTsszf3urr69ffd7FB5CL3DKhr6es885GuW3eBArMVf",
@@ -1621,7 +2081,10 @@
     "name" : "imagined",
     "tokenCount" : 84,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "imagined"
+    "internal_slug" : "imagined",
+    "artists" : [
+      "ranxdeer"
+    ]
   },
   {
     "address" : "HpGDYGz6aRUs5qbvp1dmWGKTicQctX4PixfcouAQDCHF",
@@ -1630,7 +2093,10 @@
     "name" : "card nft",
     "tokenCount" : 7777,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "card_nft"
+    "internal_slug" : "card_nft",
+    "artists" : [
+      "evil_biscuit"
+    ]
   },
   {
     "address" : "JDmZF2EsfWHcq9evTLDfqqUhAHh3zTYMy2rTeEfhx9hy",
@@ -1639,7 +2105,11 @@
     "name" : "Heavy Liquid Graphic",
     "tokenCount" : 999,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "heavy_liquid_graphic"
+    "internal_slug" : "heavy_liquid_graphic",
+    "artists" : [
+      "evil_biscuit",
+      "parker_ito"
+    ]
   },
   {
     "address" : "JCTP3kK3xGtWs5mDHxJBuRro38HftaiCDdKsfkXuK2gH",
@@ -1647,7 +2117,10 @@
     "chainId" : 0,
     "name" : "Poncho Drifella",
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "poncho_drifella"
+    "internal_slug" : "poncho_drifella",
+    "artists" : [
+      "evil_biscuit"
+    ]
   },
   {
     "address" : "r1pCPYkbbpZWv7RCvuCMtpA3NSQY3fzVFo6HL43A4ot",
@@ -1656,7 +2129,10 @@
     "name" : "John",
     "tokenCount" : 3210,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "john"
+    "internal_slug" : "john",
+    "artists" : [
+      "e9mund"
+    ]
   },
   {
     "address" : "7EwqvvuojMQHAvjE8xsdSJuBkqz692pm6Kg3UjyJocMM",
@@ -1665,7 +2141,10 @@
     "name" : "Lucky 13 Pixel Fairies",
     "tokenCount" : 89,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "lucky_13_pixel_fairies"
+    "internal_slug" : "lucky_13_pixel_fairies",
+    "artists" : [
+      "13_33_covenant"
+    ]
   },
   {
     "address" : "21nXQ4m9zfTsqAHADNjFHRJBxnoynMsL9HRSpdwqKHQH",
@@ -1675,6 +2154,9 @@
     "tokenCount" : 368,
     "standardThumbsPathsAvailable" : true,
     "internal_slug" : "blume",
+    "artists" : [
+      "blume_garden"
+    ],
     "iosCollectionBrowserColumnCount" : 3
   },
   {
@@ -1684,7 +2166,10 @@
     "name" : "Flopawrettes",
     "tokenCount" : 4439,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "flopawrettes"
+    "internal_slug" : "flopawrettes",
+    "artists" : [
+      "boredcactus"
+    ]
   },
   {
     "address" : "C76hNg1GqHKPyG8YF1VFfSNAEDXswYiUUT1rTedbHMFM",
@@ -1693,7 +2178,8 @@
     "name" : "ICSA",
     "tokenCount" : 2899,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "icsa"
+    "internal_slug" : "icsa",
+    "artists" : []
   },
   {
     "address" : "ArqtvxDZ1nfWgnGiHYCFTLj4FSVuyf7tmkAetQ9SScyQ",
@@ -1703,6 +2189,9 @@
     "tokenCount" : 1263,
     "standardThumbsPathsAvailable" : true,
     "internal_slug" : "drifella_iii",
+    "artists" : [
+      "evil_biscuit"
+    ],
     "iosCollectionBrowserColumnCount" : 2
   },
   {
@@ -1712,7 +2201,10 @@
     "name" : "Drifella 2",
     "tokenCount" : 9900,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "drifella_2"
+    "internal_slug" : "drifella_2",
+    "artists" : [
+      "evil_biscuit"
+    ]
   },
   {
     "address" : "BBkMWyu4RRrNSdjGDV27FGgZZ58o7jfvQY1MrD2iTfs6",
@@ -1721,7 +2213,10 @@
     "name" : "Vehicle Wammin",
     "tokenCount" : 1283,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "vehicle_wammin"
+    "internal_slug" : "vehicle_wammin",
+    "artists" : [
+      "patrician"
+    ]
   },
   {
     "address" : "HCWQe6eVmzawiQTf58kM795eGTvvqNZSUrbvnEYokd4B",
@@ -1730,7 +2225,10 @@
     "name" : "FOODIEZ",
     "tokenCount" : 4424,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "foodiez"
+    "internal_slug" : "foodiez",
+    "artists" : [
+      "grotto_labs"
+    ]
   },
   {
     "address" : "F2nMPDhNSoSDdCVjENSvbxqTvF7e5BV4YsfYNMGv2rqM",
@@ -1740,6 +2238,9 @@
     "tokenCount" : 1116,
     "standardThumbsPathsAvailable" : true,
     "internal_slug" : "tents",
+    "artists" : [
+      "jared_madere"
+    ],
     "iosCollectionBrowserColumnCount" : 2
   },
   {
@@ -1749,7 +2250,10 @@
     "name" : "Record of Hyperwar",
     "tokenCount" : 548,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "record_of_hyperwar"
+    "internal_slug" : "record_of_hyperwar",
+    "artists" : [
+      "meinong"
+    ]
   },
   {
     "address" : "96THxzqE5yukFxzsqJaR2SrsLL2wJtuapi6827gkUD6T",
@@ -1758,7 +2262,10 @@
     "name" : "Drilady",
     "tokenCount" : 2500,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "drilady"
+    "internal_slug" : "drilady",
+    "artists" : [
+      "parker_ito"
+    ]
   },
   {
     "address" : "8bP9cNrTrwuMnmUsSHZ9ReTiJhKVmyjXUfUUrjkqEmef",
@@ -1767,7 +2274,10 @@
     "name" : "Yeche Lunch",
     "tokenCount" : 32,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "yeche_lunch"
+    "internal_slug" : "yeche_lunch",
+    "artists" : [
+      "patrician"
+    ]
   },
   {
     "address" : "CjL5WpAmf4cMEEGwZGTfTDKWok9a92ykq9aLZrEK2D5H",
@@ -1776,7 +2286,10 @@
     "name" : "little swag world",
     "tokenCount" : 3327,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "little_swag_world"
+    "internal_slug" : "little_swag_world",
+    "artists" : [
+      "supermetal_bosch"
+    ]
   },
   {
     "address" : "2W68ofaUBEQYoFUwEWWHoYq8MBauPbxhZtv71vqZsyhp",
@@ -1785,7 +2298,10 @@
     "name" : "Organic Evolution",
     "tokenCount" : 72,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "organic_evolution"
+    "internal_slug" : "organic_evolution",
+    "artists" : [
+      "supermetal_bosch"
+    ]
   },
   {
     "address" : "9xAjzT43stvxq8fNLtWxYu3sBYWdbZP22fQqzQdNYMzY",
@@ -1794,7 +2310,10 @@
     "name" : "TOJIA",
     "tokenCount" : 4438,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "tojia"
+    "internal_slug" : "tojia",
+    "artists" : [
+      "tojiba"
+    ]
   },
   {
     "address" : "AU9F91RsrqQEeN8sshErtQnT8CgYxrg9YD9n4AHHvus7",
@@ -1803,7 +2322,10 @@
     "name" : "Tojiba CPU Corp",
     "tokenCount" : 2220,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "tojiba_cpu_corp"
+    "internal_slug" : "tojiba_cpu_corp",
+    "artists" : [
+      "tojiba"
+    ]
   },
   {
     "address" : "CHuQxKgso7sGagfakRPeii6xQGByJtnMm3V3ho7ZTJBn",
@@ -1812,7 +2334,10 @@
     "name" : "The Same Old Gag",
     "tokenCount" : 616,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "the_same_old_gag"
+    "internal_slug" : "the_same_old_gag",
+    "artists" : [
+      "tojiba"
+    ]
   },
   {
     "address" : "CzT9mQJzacH9kiJ9k2qrXVdN3JeRp8rPZH3uJXra1rMC",
@@ -1821,7 +2346,10 @@
     "name" : "Rêverie",
     "tokenCount" : 332,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "reverie"
+    "internal_slug" : "reverie",
+    "artists" : [
+      "gucci4mycat"
+    ]
   },
   {
     "address" : "8zGqfwinkWmcAeFXnDEWiwYxx8FSaL98tekSXWLdgGj3",
@@ -1830,7 +2358,10 @@
     "name" : "Mifella Genesis",
     "tokenCount" : 4381,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "mifella_genesis"
+    "internal_slug" : "mifella_genesis",
+    "artists" : [
+      "mifella"
+    ]
   },
   {
     "address" : "C22esis7kQMbX9JGWsMaKvsh1X5GeBmHPju28jiKDyAP",
@@ -1839,7 +2370,10 @@
     "name" : "swag pack",
     "tokenCount" : 467,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "swag_pack"
+    "internal_slug" : "swag_pack",
+    "artists" : [
+      "supermetal_bosch"
+    ]
   },
   {
     "address" : "Gzzo24jJSDzXYGnWx6sgesWRVumNayM1vwvKWWruZbzs",
@@ -1848,7 +2382,10 @@
     "name" : "Little Swag World: HEXP",
     "tokenCount" : 332,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "little_swag_world_hexp"
+    "internal_slug" : "little_swag_world_hexp",
+    "artists" : [
+      "supermetal_bosch"
+    ]
   },
   {
     "address" : "KT1PkEhFLSvvsw9wwf6mxvVJ7Q633FrYAyX6",
@@ -1857,7 +2394,10 @@
     "name" : "BESTIARY",
     "tokenCount" : 23,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "bestiary"
+    "internal_slug" : "bestiary",
+    "artists" : [
+      "marcelo_pinel"
+    ]
   },
   {
     "address" : "KT1D9bUmPBXK1KgpgaTDjH6yNnBubof1ELzK",
@@ -1867,6 +2407,9 @@
     "tokenCount" : 79,
     "standardThumbsPathsAvailable" : true,
     "internal_slug" : "drawing_exercises",
+    "artists" : [
+      "sabato"
+    ],
     "iosCollectionBrowserColumnCount" : 2
   },
   {
@@ -1877,6 +2420,9 @@
     "tokenCount" : 9,
     "standardThumbsPathsAvailable" : true,
     "internal_slug" : "lava_studies",
+    "artists" : [
+      "nicolas_sassoon"
+    ],
     "iosCollectionBrowserColumnCount" : 2
   },
   {
@@ -1887,6 +2433,9 @@
     "tokenCount" : 1540,
     "standardThumbsPathsAvailable" : true,
     "internal_slug" : "moeshit",
+    "artists" : [
+      "moesh1t"
+    ],
     "iosCollectionBrowserColumnCount" : 3
   },
   {
@@ -1896,7 +2445,10 @@
     "name" : "real world data",
     "tokenCount" : 128,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "real_world_data"
+    "internal_slug" : "real_world_data",
+    "artists" : [
+      "uczine"
+    ]
   },
   {
     "address" : "KT1W8veemEfwiZZveFW3ktaz2x3tvEz8Tx3q",
@@ -1905,7 +2457,10 @@
     "name" : "FRATZE",
     "tokenCount" : 51,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "fratze"
+    "internal_slug" : "fratze",
+    "artists" : [
+      "kim_asendorf"
+    ]
   },
   {
     "address" : "KT1UjurJFhKpw7WSmuGfRyUvYXLwTmKWwUDR",
@@ -1915,6 +2470,9 @@
     "tokenCount" : 200,
     "standardThumbsPathsAvailable" : true,
     "internal_slug" : "multi_windows",
+    "artists" : [
+      "martnbruc"
+    ],
     "iosCollectionBrowserColumnCount" : 2
   },
   {
@@ -1925,6 +2483,9 @@
     "tokenCount" : 139,
     "standardThumbsPathsAvailable" : true,
     "internal_slug" : "skomra",
+    "artists" : [
+      "skomra"
+    ],
     "iosCollectionBrowserColumnCount" : 3
   },
   {
@@ -1935,7 +2496,8 @@
     "tokenCount" : 9997,
     "iosOnly" : true,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "cigawrette_packs"
+    "internal_slug" : "cigawrette_packs",
+    "artists" : []
   },
   {
     "address" : "0x30f9efa712dde239a13a5fef1a8c7a6ac530a26d",
@@ -1945,7 +2507,10 @@
     "tokenCount" : 1369,
     "iosOnly" : true,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "milady_aura2_after_death"
+    "internal_slug" : "milady_aura2_after_death",
+    "artists" : [
+      "evil_biscuit"
+    ]
   },
   {
     "address" : "0x23b72f7458a204446983f544d655df10f70533e9",
@@ -1955,7 +2520,10 @@
     "tokenCount" : 256,
     "iosOnly" : true,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "quantizer"
+    "internal_slug" : "quantizer",
+    "artists" : [
+      "harm_van_den_dorpel"
+    ]
   },
   {
     "address" : "0x9a78fc8fa54350c2b5629211b9f8c577408f24a0",
@@ -1965,7 +2533,10 @@
     "tokenCount" : 76,
     "iosOnly" : true,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "in_your_dreams"
+    "internal_slug" : "in_your_dreams",
+    "artists" : [
+      "macbeth"
+    ]
   },
   {
     "address" : "0xc4bd6aeb9e67502e1564642a1820c8576a6e808b",
@@ -1976,6 +2547,9 @@
     "iosOnly" : true,
     "standardThumbsPathsAvailable" : true,
     "internal_slug" : "safe_haven",
+    "artists" : [
+      "kirill_semenovich"
+    ],
     "iosCollectionBrowserColumnCount" : 2
   },
   {
@@ -1987,6 +2561,9 @@
     "iosOnly" : true,
     "standardThumbsPathsAvailable" : true,
     "internal_slug" : "burnt_umber_broken_silver_american_spirit",
+    "artists" : [
+      "petra_cortright"
+    ],
     "iosCollectionBrowserColumnCount" : 2
   },
   {
@@ -1997,7 +2574,10 @@
     "tokenCount" : 1111,
     "iosOnly" : true,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "mi_note_2"
+    "internal_slug" : "mi_note_2",
+    "artists" : [
+      "yomme"
+    ]
   },
   {
     "address" : "EAzEpagtyeRAx9npnpVMpygoA8ouX7DRpLTghhPvYTiu",
@@ -2005,7 +2585,10 @@
     "chainId" : 0,
     "name" : "Card NFT 2",
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "card_nft_2"
+    "internal_slug" : "card_nft_2",
+    "artists" : [
+      "evil_biscuit"
+    ]
   },
   {
     "address" : "0xd497a414bb00803e846b53d07fcb742831b24906",
@@ -2015,7 +2598,10 @@
     "tokenCount" : 1000,
     "iosOnly" : true,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "tigerbob"
+    "internal_slug" : "tigerbob",
+    "artists" : [
+      "gossamer_rozen"
+    ]
   },
   {
     "address" : "0x4e1f41613c9084fdb9e34e11fae9412427480e56",
@@ -2026,7 +2612,11 @@
     "iosOnly" : true,
     "standardThumbsPathsAvailable" : true,
     "standardThumbsBaseURL" : "https://cdn.lil.org/player/terraforms/thumbs/",
-    "internal_slug" : "terraforms"
+    "internal_slug" : "terraforms",
+    "artists" : [
+      "0x113d",
+      "xaltgeist"
+    ]
   },
   {
     "address" : "0x6873e99fb85de770cc89fa37bc9c859fc2ebaf60",
@@ -2036,7 +2626,10 @@
     "tokenCount" : 3520,
     "iosOnly" : true,
     "standardThumbsPathsAvailable" : true,
-    "internal_slug" : "shishi"
+    "internal_slug" : "shishi",
+    "artists" : [
+      "shiro"
+    ]
   },
   {
     "address" : "0xda1bf9b5de160cecde3f9304b187a2f5f5b83707",
@@ -2047,6 +2640,9 @@
     "iosOnly" : true,
     "standardThumbsPathsAvailable" : true,
     "internal_slug" : "chronophotograph",
+    "artists" : [
+      "0xdeafbeef"
+    ],
     "iosCollectionBrowserColumnCount" : 2
   },
   {
@@ -2057,6 +2653,9 @@
     "tokenCount" : 1777,
     "standardThumbsPathsAvailable" : true,
     "internal_slug" : "horses7",
+    "artists" : [
+      "parker_ito"
+    ],
     "iosCollectionBrowserColumnCount" : 2
   }
 ]

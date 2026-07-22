@@ -1509,6 +1509,7 @@ function newSuggestedItem(collection) {
     chainId: collection.chainId,
     ...(collection.collectionIdSuffix ? { collectionId: collection.collectionIdSuffix } : {}),
     name: collection.name,
+    artists: [],
     tokenCount: collection.tokens.length,
     iosOnly: true,
   };

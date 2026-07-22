@@ -8,7 +8,10 @@
     "name": "Archetype",
     "tokenCount": 600,
     "standardThumbsPathsAvailable": true,
-    "internal_slug": "archetype"
+    "internal_slug": "archetype",
+    "artists": [
+      "kjetil_golid"
+    ]
   },
   {
     "abId": "159",
@@ -19,7 +22,10 @@
     "name": "Fragments of an Infinite Field",
     "tokenCount": 1024,
     "standardThumbsPathsAvailable": true,
-    "internal_slug": "fragments_of_an_infinite_field"
+    "internal_slug": "fragments_of_an_infinite_field",
+    "artists": [
+      "monica_rizzolli"
+    ]
   },
   {
     "abId": "22",
@@ -30,7 +36,10 @@
     "name": "The Eternal Pump",
     "tokenCount": 50,
     "standardThumbsPathsAvailable": true,
-    "internal_slug": "the_eternal_pump"
+    "internal_slug": "the_eternal_pump",
+    "artists": [
+      "dmitri_cherniak"
+    ]
   },
   {
     "address": "0x46ac8540d698167fcbb9e846511beb8cf8af9bd8",
@@ -40,7 +49,10 @@
     "name": "Math Art",
     "tokenCount": 100,
     "standardThumbsPathsAvailable": true,
-    "internal_slug": "math_art"
+    "internal_slug": "math_art",
+    "artists": [
+      "herbert_w_franke"
+    ]
   },
   {
     "address": "0x46ac8540d698167fcbb9e846511beb8cf8af9bd8",
@@ -51,6 +63,9 @@
     "tokenCount": 55,
     "standardThumbsPathsAvailable": true,
     "internal_slug": "tokyo_nude",
+    "artists": [
+      "rumi_ando"
+    ],
     "iosCollectionBrowserColumnCount": 2
   },
   {
@@ -61,6 +76,9 @@
     "tokenCount": 777,
     "standardThumbsPathsAvailable": true,
     "internal_slug": "super_metal_mons_2",
+    "artists": [
+      "supermetal_bosch"
+    ],
     "iosCollectionBrowserColumnCount": 3
   },
   {
@@ -70,7 +88,10 @@
     "name": "Super Sofubi",
     "tokenCount": 300,
     "standardThumbsPathsAvailable": true,
-    "internal_slug": "super_sofubi"
+    "internal_slug": "super_sofubi",
+    "artists": [
+      "supermetal_bosch"
+    ]
   },
   {
     "address": "0x0c640779dbd6cda40d54350344dfd37d99aed8aa",
@@ -79,7 +100,10 @@
     "name": "Very Internet Printout",
     "tokenCount": 24,
     "standardThumbsPathsAvailable": true,
-    "internal_slug": "very_internet_printout"
+    "internal_slug": "very_internet_printout",
+    "artists": [
+      "elle"
+    ]
   },
   {
     "address": "0x1ee3bcc37b747c29a0583352b3d9541f393cea82",
@@ -88,7 +112,8 @@
     "name": "Gushies",
     "tokenCount": 545,
     "standardThumbsPathsAvailable": true,
-    "internal_slug": "gushies"
+    "internal_slug": "gushies",
+    "artists": []
   },
   {
     "address": "0x1d2550d198197df1a10af515cf2ea0d790889b93",
@@ -98,7 +123,10 @@
     "name": "Babes",
     "tokenCount": 339,
     "standardThumbsPathsAvailable": true,
-    "internal_slug": "babes"
+    "internal_slug": "babes",
+    "artists": [
+      "petra_voice"
+    ]
   },
   {
     "address": "3dWnCTx5gY3F9hVhiMu7b5we6WSKnyzL9CYdE1rW1HUm",
@@ -107,7 +135,10 @@
     "name": "Tojiba Disc Buddies",
     "tokenCount": 4998,
     "standardThumbsPathsAvailable": true,
-    "internal_slug": "tojiba_disc_buddies"
+    "internal_slug": "tojiba_disc_buddies",
+    "artists": [
+      "tojiba"
+    ]
   },
   {
     "address": "4rWMqk4PXKrWdmA9QSJB27CYwThYmDvZ9rwcZsQfnJ6K",
@@ -116,7 +147,8 @@
     "name": "BRICKS",
     "tokenCount": 1499,
     "standardThumbsPathsAvailable": true,
-    "internal_slug": "bricks"
+    "internal_slug": "bricks",
+    "artists": []
   },
   {
     "address": "5AVocDEamuwaZf3bXP6tcg52w7cgBvMNJAYvG9rmouCh",
@@ -126,6 +158,9 @@
     "tokenCount": 2024,
     "standardThumbsPathsAvailable": true,
     "internal_slug": "little_fellow",
+    "artists": [
+      "jim_spindle"
+    ],
     "iosCollectionBrowserColumnCount": 2
   },
   {
@@ -135,7 +170,11 @@
     "name": "Heavy Liquid Graphic",
     "tokenCount": 999,
     "standardThumbsPathsAvailable": true,
-    "internal_slug": "heavy_liquid_graphic"
+    "internal_slug": "heavy_liquid_graphic",
+    "artists": [
+      "evil_biscuit",
+      "parker_ito"
+    ]
   },
   {
     "address": "Bkp4sEpGBgHkjtXpBdZiCxiMhAnx2aY6m3a5E8RdgY6S",
@@ -144,7 +183,10 @@
     "name": "EDIBLE KAWAII DEMONZ®",
     "tokenCount": 3330,
     "standardThumbsPathsAvailable": true,
-    "internal_slug": "edible_kawaii_demonz"
+    "internal_slug": "edible_kawaii_demonz",
+    "artists": [
+      "kikillo"
+    ]
   },
   {
     "address": "r1pCPYkbbpZWv7RCvuCMtpA3NSQY3fzVFo6HL43A4ot",
@@ -153,7 +195,10 @@
     "name": "John",
     "tokenCount": 3210,
     "standardThumbsPathsAvailable": true,
-    "internal_slug": "john"
+    "internal_slug": "john",
+    "artists": [
+      "e9mund"
+    ]
   },
   {
     "address": "21nXQ4m9zfTsqAHADNjFHRJBxnoynMsL9HRSpdwqKHQH",
@@ -163,6 +208,9 @@
     "tokenCount": 368,
     "standardThumbsPathsAvailable": true,
     "internal_slug": "blume",
+    "artists": [
+      "blume_garden"
+    ],
     "iosCollectionBrowserColumnCount": 3
   },
   {
@@ -172,7 +220,10 @@
     "name": "Flopawrettes",
     "tokenCount": 4439,
     "standardThumbsPathsAvailable": true,
-    "internal_slug": "flopawrettes"
+    "internal_slug": "flopawrettes",
+    "artists": [
+      "boredcactus"
+    ]
   },
   {
     "address": "BBkMWyu4RRrNSdjGDV27FGgZZ58o7jfvQY1MrD2iTfs6",
@@ -181,7 +232,10 @@
     "name": "Vehicle Wammin",
     "tokenCount": 1283,
     "standardThumbsPathsAvailable": true,
-    "internal_slug": "vehicle_wammin"
+    "internal_slug": "vehicle_wammin",
+    "artists": [
+      "patrician"
+    ]
   },
   {
     "address": "HCWQe6eVmzawiQTf58kM795eGTvvqNZSUrbvnEYokd4B",
@@ -190,7 +244,10 @@
     "name": "FOODIEZ",
     "tokenCount": 4424,
     "standardThumbsPathsAvailable": true,
-    "internal_slug": "foodiez"
+    "internal_slug": "foodiez",
+    "artists": [
+      "grotto_labs"
+    ]
   },
   {
     "address": "8bP9cNrTrwuMnmUsSHZ9ReTiJhKVmyjXUfUUrjkqEmef",
@@ -199,7 +256,10 @@
     "name": "Yeche Lunch",
     "tokenCount": 32,
     "standardThumbsPathsAvailable": true,
-    "internal_slug": "yeche_lunch"
+    "internal_slug": "yeche_lunch",
+    "artists": [
+      "patrician"
+    ]
   },
   {
     "address": "CjL5WpAmf4cMEEGwZGTfTDKWok9a92ykq9aLZrEK2D5H",
@@ -208,7 +268,10 @@
     "name": "little swag world",
     "tokenCount": 3327,
     "standardThumbsPathsAvailable": true,
-    "internal_slug": "little_swag_world"
+    "internal_slug": "little_swag_world",
+    "artists": [
+      "supermetal_bosch"
+    ]
   },
   {
     "address": "2W68ofaUBEQYoFUwEWWHoYq8MBauPbxhZtv71vqZsyhp",
@@ -217,7 +280,10 @@
     "name": "Organic Evolution",
     "tokenCount": 72,
     "standardThumbsPathsAvailable": true,
-    "internal_slug": "organic_evolution"
+    "internal_slug": "organic_evolution",
+    "artists": [
+      "supermetal_bosch"
+    ]
   },
   {
     "address": "9xAjzT43stvxq8fNLtWxYu3sBYWdbZP22fQqzQdNYMzY",
@@ -226,7 +292,10 @@
     "name": "TOJIA",
     "tokenCount": 4438,
     "standardThumbsPathsAvailable": true,
-    "internal_slug": "tojia"
+    "internal_slug": "tojia",
+    "artists": [
+      "tojiba"
+    ]
   },
   {
     "address": "AU9F91RsrqQEeN8sshErtQnT8CgYxrg9YD9n4AHHvus7",
@@ -235,7 +304,10 @@
     "name": "Tojiba CPU Corp",
     "tokenCount": 2220,
     "standardThumbsPathsAvailable": true,
-    "internal_slug": "tojiba_cpu_corp"
+    "internal_slug": "tojiba_cpu_corp",
+    "artists": [
+      "tojiba"
+    ]
   },
   {
     "address": "CHuQxKgso7sGagfakRPeii6xQGByJtnMm3V3ho7ZTJBn",
@@ -244,7 +316,10 @@
     "name": "The Same Old Gag",
     "tokenCount": 616,
     "standardThumbsPathsAvailable": true,
-    "internal_slug": "the_same_old_gag"
+    "internal_slug": "the_same_old_gag",
+    "artists": [
+      "tojiba"
+    ]
   },
   {
     "address": "0x30f9efa712dde239a13a5fef1a8c7a6ac530a26d",
@@ -254,7 +329,10 @@
     "tokenCount": 1369,
     "iosOnly": true,
     "standardThumbsPathsAvailable": true,
-    "internal_slug": "milady_aura2_after_death"
+    "internal_slug": "milady_aura2_after_death",
+    "artists": [
+      "evil_biscuit"
+    ]
   },
   {
     "address": "0xd497a414bb00803e846b53d07fcb742831b24906",
@@ -264,7 +342,10 @@
     "tokenCount": 1000,
     "iosOnly": true,
     "standardThumbsPathsAvailable": true,
-    "internal_slug": "tigerbob"
+    "internal_slug": "tigerbob",
+    "artists": [
+      "gossamer_rozen"
+    ]
   },
   {
     "address": "0x6873e99fb85de770cc89fa37bc9c859fc2ebaf60",
@@ -274,7 +355,10 @@
     "tokenCount": 3520,
     "iosOnly": true,
     "standardThumbsPathsAvailable": true,
-    "internal_slug": "shishi"
+    "internal_slug": "shishi",
+    "artists": [
+      "shiro"
+    ]
   },
   {
     "address": "0xEC0a7A26456B8451aefc4b00393ce1BefF5eB3e9",
@@ -283,7 +367,10 @@
     "name": "Allstarz",
     "tokenCount": 10000,
     "standardThumbsPathsAvailable": true,
-    "internal_slug": "allstarz"
+    "internal_slug": "allstarz",
+    "artists": [
+      "allstarz"
+    ]
   },
   {
     "address": "0xc62e3fd5b02618f90dd07d1e478963038fa9089c",
@@ -292,7 +379,8 @@
     "name": "milady aura petz",
     "tokenCount": 1884,
     "standardThumbsPathsAvailable": true,
-    "internal_slug": "milady_aura_petz"
+    "internal_slug": "milady_aura_petz",
+    "artists": []
   },
   {
     "address": "0x44096d6de5d17020ce0c41d75ce27b33c6d28e1a",
@@ -301,6 +389,9 @@
     "name": "tubbypxgan",
     "tokenCount": 1335,
     "standardThumbsPathsAvailable": true,
-    "internal_slug": "tubbypxgan"
+    "internal_slug": "tubbypxgan",
+    "artists": [
+      "supermetal_bosch"
+    ]
   }
 ]
