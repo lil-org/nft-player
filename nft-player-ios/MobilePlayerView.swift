@@ -662,7 +662,50 @@ struct MobilePlayerView: View {
     }
     
     private var infoMenu: some View {
-        Menu {
+        let artists = SuggestedItemsService.artists(
+            forCollectionId: currentToken.fullCollectionId
+        )
+        let hasArtistLinks = artists.contains {
+            $0.website != nil || $0.x != nil || $0.bluesky != nil
+        }
+
+        return Menu {
+            ForEach(artists) { artist in
+                if let website = artist.website {
+                    Link(destination: website) {
+                        Label {
+                            Text(verbatim: websiteAddress(from: website))
+                        } icon: {
+                            Images.website
+                        }
+                    }
+                }
+
+                if let x = artist.x {
+                    Link(destination: x) {
+                        Label {
+                            Text(verbatim: socialHandle(from: x))
+                        } icon: {
+                            Images.xLogo
+                        }
+                    }
+                }
+
+                if let bluesky = artist.bluesky {
+                    Link(destination: bluesky) {
+                        Label {
+                            Text(verbatim: socialHandle(from: bluesky))
+                        } icon: {
+                            Images.blueskyLogo
+                        }
+                    }
+                }
+            }
+
+            if hasArtistLinks {
+                Divider()
+            }
+
             if canToggleBundledGenerativeFullscreen {
                 Toggle(
                     Strings.viewFullscreen,
@@ -673,6 +716,7 @@ struct MobilePlayerView: View {
         } label: {
             Images.ellipsis
         }
+        .menuOrder(.fixed)
         .accessibilityLabel(Strings.more)
     }
 
@@ -715,6 +759,24 @@ struct MobilePlayerView: View {
         if let url = currentToken.url {
             UIApplication.shared.open(url)
         }
+    }
+
+    private func websiteAddress(from url: URL) -> String {
+        let address = url.absoluteString
+        let secureScheme = "https://"
+        let withoutScheme = address.hasPrefix(secureScheme)
+            ? String(address.dropFirst(secureScheme.count))
+            : address
+        return withoutScheme.hasSuffix("/")
+            ? String(withoutScheme.dropLast())
+            : withoutScheme
+    }
+
+    private func socialHandle(from url: URL) -> String {
+        let pathComponent = url.lastPathComponent.removingPercentEncoding
+            ?? url.lastPathComponent
+        guard !pathComponent.isEmpty else { return url.absoluteString }
+        return pathComponent.hasPrefix("@") ? pathComponent : "@" + pathComponent
     }
 
     private var canBookmarkCurrentToken: Bool {

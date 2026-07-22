@@ -40,6 +40,7 @@ struct SuggestedItem: Identifiable, Hashable, Codable {
     let webURL: String?
     let standardThumbsPathsAvailable: Bool?
     let standardThumbsBaseURL: String?
+    let artists: [String]
 
     enum CodingKeys: String, CodingKey {
         case name
@@ -56,6 +57,17 @@ struct SuggestedItem: Identifiable, Hashable, Codable {
         case webURL
         case standardThumbsPathsAvailable
         case standardThumbsBaseURL
+        case artists
     }
     
+}
+
+struct SuggestedArtist: Identifiable, Hashable {
+
+    let id: String
+    let name: String
+    let website: URL?
+    let x: URL?
+    let bluesky: URL?
+
 }
