@@ -1084,11 +1084,25 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             && !isScrollInteractionActive
         let shouldCaptureInsets =
             sizeChanged || needsInitialCapture || canEvaluatePendingRefresh
+        let resolvedInsets = shouldCaptureInsets
+            ? UIEdgeInsets(
+                // The browser remains mounted behind the focused player.
+                // Preserve its visible-chrome top inset while that player
+                // temporarily hides or reveals the status/navigation bars.
+                // A viewport resize still captures the new orientation.
+                top: sizeChanged || needsInitialCapture
+                    ? state.insets.top
+                    : layoutWindowSafeAreaInsets.top,
+                left: 0,
+                bottom: state.insets.bottom,
+                right: 0
+            )
+            : nil
         let insetsChanged =
-            shouldCaptureInsets && state.insets != layoutWindowSafeAreaInsets
+            resolvedInsets.map { $0 != layoutWindowSafeAreaInsets } == true
 
         return WindowSafeAreaLayoutUpdate(
-            insetsToCapture: shouldCaptureInsets ? state.insets : nil,
+            insetsToCapture: resolvedInsets,
             clearsPendingRefresh: shouldCaptureInsets,
             requiresLayoutRefresh:
                 needsInitialCapture

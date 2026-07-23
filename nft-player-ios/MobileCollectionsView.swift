@@ -1912,6 +1912,7 @@ private struct MobileCollectionsNavigationView<RootView: View>: UIViewController
 
         private func restoreRootNavigationState(_ navigationController: UINavigationController) {
             navigationController.navigationBar.layer.removeAllAnimations()
+            navigationController.navigationBar.layer.isHidden = false
             navigationController.navigationBar.alpha = 1
             navigationController.navigationBar.accessibilityElementsHidden = false
             navigationController.setNeedsStatusBarAppearanceUpdate()
@@ -2173,6 +2174,7 @@ private final class PlayerNavigationController: UINavigationController {
     var canEnforceNavigationBarChromeVisibility: (() -> Bool)?
     private var navigationBarChromeTargetAlpha: CGFloat?
     private var isNavigationBarChromeVisibilityEnforcementSuspended = false
+    private var forcesStatusBarVisibleForCollectionBrowserTransition = false
     private weak var navigationBackGestureBlockingProviderOwner: AnyObject?
     private var navigationBackGestureBlockingProvider: (() -> Bool)?
     private let navigationBackGestureFailureRequirements =
@@ -2256,7 +2258,15 @@ private final class PlayerNavigationController: UINavigationController {
     }
 
     override var childForStatusBarHidden: UIViewController? {
-        topViewController
+        forcesStatusBarVisibleForCollectionBrowserTransition
+            ? nil
+            : topViewController
+    }
+
+    override var prefersStatusBarHidden: Bool {
+        forcesStatusBarVisibleForCollectionBrowserTransition
+            ? false
+            : super.prefersStatusBarHidden
     }
 
     override var childForStatusBarStyle: UIViewController? {
@@ -2270,6 +2280,7 @@ private final class PlayerNavigationController: UINavigationController {
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
 
+        alignNavigationBarBelowForcedStatusBar()
         synchronizeNavigationBarChromeVisibility()
     }
 
@@ -2278,6 +2289,51 @@ private final class PlayerNavigationController: UINavigationController {
 
         guard !hidden else { return }
         synchronizeNavigationBarChromeVisibility()
+    }
+
+    func setCollectionBrowserTransitionStatusBarVisible(_ isVisible: Bool) {
+        guard forcesStatusBarVisibleForCollectionBrowserTransition != isVisible else {
+            return
+        }
+
+        // Let the navigation controller that owns the bar also own this
+        // transient status-bar decision. On iPad, UIKit can reveal the status
+        // bar before restoring the collapsed top safe area, so keep the
+        // navigation bar below the already-visible status-bar frame.
+        forcesStatusBarVisibleForCollectionBrowserTransition = isVisible
+        setNeedsStatusBarAppearanceUpdate()
+        alignNavigationBarBelowForcedStatusBar()
+    }
+
+    private func alignNavigationBarBelowForcedStatusBar() {
+        guard forcesStatusBarVisibleForCollectionBrowserTransition,
+              let window = view.window,
+              let statusBarManager = window.windowScene?.statusBarManager,
+              !statusBarManager.isStatusBarHidden else {
+            return
+        }
+
+        let statusBarFrameInWindow = window.convert(
+            statusBarManager.statusBarFrame,
+            from: window.screen.coordinateSpace
+        )
+        let statusBarFrameInView = view.convert(
+            statusBarFrameInWindow,
+            from: window
+        )
+        let navigationBarMinY = max(
+            view.safeAreaInsets.top,
+            statusBarFrameInView.maxY
+        )
+        guard navigationBarMinY.isFinite,
+              abs(navigationBar.frame.minY - navigationBarMinY)
+                > 1 / window.screen.scale else {
+            return
+        }
+
+        var frame = navigationBar.frame
+        frame.origin.y = navigationBarMinY
+        navigationBar.frame = frame
     }
 
     func setNavigationBarChromeVisible(
@@ -2295,18 +2351,32 @@ private final class PlayerNavigationController: UINavigationController {
         }
 
         navigationBar.accessibilityElementsHidden = !isVisible
+        if !isVisible {
+            navigationBar.layer.isHidden = true
+        }
 
         guard let animationDuration else {
             // UIView animations commit their destination to the model alpha
             // immediately. Preserve an in-flight fade while it still matches;
             // only an external model-alpha change needs correction.
-            guard navigationBar.alpha != targetAlpha else { return }
+            guard navigationBar.alpha != targetAlpha else {
+                if isVisible {
+                    navigationBar.layer.isHidden = false
+                }
+                return
+            }
 
             navigationBar.layer.removeAllAnimations()
             navigationBar.alpha = targetAlpha
+            if isVisible {
+                navigationBar.layer.isHidden = false
+            }
             return
         }
 
+        if isVisible {
+            navigationBar.layer.isHidden = false
+        }
         UIView.animate(
             withDuration: animationDuration,
             delay: 0,
@@ -2327,6 +2397,7 @@ private final class PlayerNavigationController: UINavigationController {
         }
 
         navigationBar.accessibilityElementsHidden = true
+        navigationBar.layer.isHidden = true
         removeNavigationBarOpacityAnimations()
         UIView.performWithoutAnimation {
             navigationBar.alpha = 0
@@ -2343,6 +2414,7 @@ private final class PlayerNavigationController: UINavigationController {
         navigationBarChromeTargetAlpha = nil
         isNavigationBarChromeVisibilityEnforcementSuspended = false
         navigationBar.accessibilityElementsHidden = false
+        navigationBar.layer.isHidden = false
     }
 
     func synchronizeNavigationBarChromeVisibility() {
@@ -2353,13 +2425,26 @@ private final class PlayerNavigationController: UINavigationController {
         }
 
         navigationBar.accessibilityElementsHidden = targetAlpha == 0
-        guard navigationBar.alpha != targetAlpha else { return }
+        if targetAlpha == 0 {
+            // Keep the native bar mounted, but prevent transient UIKit or
+            // SwiftUI alpha writes from flashing it during status-bar layout.
+            navigationBar.layer.isHidden = true
+        }
+        guard navigationBar.alpha != targetAlpha else {
+            if targetAlpha != 0 {
+                navigationBar.layer.isHidden = false
+            }
+            return
+        }
 
         // SwiftUI can restore the shared navigation bar's alpha while updating
         // toolbar or status-bar state. Reapply only the target already committed
         // to UIKit so a model update cannot bypass the intended transition.
         navigationBar.layer.removeAllAnimations()
         navigationBar.alpha = targetAlpha
+        if targetAlpha != 0 {
+            navigationBar.layer.isHidden = false
+        }
     }
 
     private func removeNavigationBarOpacityAnimations() {
@@ -3002,6 +3087,7 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
             .setNavigationBarChromeVisibilityEnforcementSuspended(true)
         let navigationBar = playerNavigationController.navigationBar
         navigationBar.accessibilityElementsHidden = false
+        navigationBar.layer.isHidden = false
         navigationBar.layer.removeAllAnimations()
         UIView.performWithoutAnimation {
             navigationBar.alpha = 1
@@ -3500,6 +3586,8 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
         isDismissPanDrivingCardMinimize = isDrivenByDismissPan
         isCardMinimizeAnimationComplete = false
         isCardMinimizeLayoutApplied = false
+        playerNavigationController
+            .setCollectionBrowserTransitionStatusBarVisible(true)
         chrome.setPlayerContentHiddenForCardTransition(true)
         return true
     }
@@ -4212,6 +4300,8 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
         isCardMinimizeAnimationComplete = false
         isCardMinimizeLayoutApplied = false
         resetCardMinimizePinchState()
+        playerNavigationController
+            .setCollectionBrowserTransitionStatusBarVisible(false)
 
         if cancelPreparedBrowserSelection,
            context?.hasPreparedBrowserSelection == true {
