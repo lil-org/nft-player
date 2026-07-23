@@ -2978,6 +2978,7 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
 
     @objc private func handleNavigationBarTap(_ gesture: UITapGestureRecognizer) {
         guard gesture.state == .ended else { return }
+        guard !chrome.isCollectionBrowserActive else { return }
 
         chrome.setControlsVisible(false)
     }
@@ -3081,15 +3082,11 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
 
     private func observeNavigationBarChromeVisibility() {
         chrome.$showControls
-            .combineLatest(
-                chrome.$allowsNavigationBackSwipe,
-                chrome.$isCollectionBrowserFocusedModeActive
-            )
-            .map { showControls, allowsNavigationBackSwipe, isFocusedModeActive in
+            .combineLatest(chrome.$allowsNavigationBackSwipe)
+            .map { showControls, allowsNavigationBackSwipe in
                 MobilePlayerChromeController.shouldShowPlayerChrome(
                     showControls: showControls,
-                    allowsNavigationBackSwipe: allowsNavigationBackSwipe,
-                    isCollectionBrowserFocusedModeActive: isFocusedModeActive
+                    allowsNavigationBackSwipe: allowsNavigationBackSwipe
                 )
             }
             .removeDuplicates()
@@ -4264,7 +4261,8 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
 
     func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
         if gestureRecognizer === navigationBarTap {
-            guard !isCardTransitionActive else {
+            guard !isCardTransitionActive,
+                  !chrome.isCollectionBrowserActive else {
                 return false
             }
 

@@ -1153,10 +1153,6 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
         controller.onSelection = { [weak self] selection in
             self?.openCollectionBrowserSelection(selection) == true
         }
-        controller.onFocusedModeChange = { [weak self] isActive in
-            guard let self else { return false }
-            return self.chrome.setCollectionBrowserFocusedModeActive(isActive)
-        }
         return controller
     }()
     private let leftEdgeTapHighlight = PlayerEdgeTapHighlightView(side: .left)
@@ -1259,11 +1255,6 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
             let isCollectionBrowserActive = displayMode == .collectionBrowser
             collectionBrowserVC.view.alpha = isCollectionBrowserActive ? 1 : 0
             collectionBrowserVC.setActive(isCollectionBrowserActive)
-            if isCollectionBrowserActive {
-                collectionBrowserVC.setFocusedModeActiveForDisplayTransition(
-                    !chrome.isPlayerChromeVisible
-                )
-            }
         }
         pagingVC.view.isHidden = displayMode != .onePerPage
         pagingVC.setActive(displayMode == .onePerPage)
@@ -1548,7 +1539,6 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
             return
         }
 
-        let shouldActivateCollectionBrowserFocusedMode = !chrome.isPlayerChromeVisible
         let sourcePagePosition = identity.targetPagePosition ?? pagingVC.getCurrentPagePosition()
         guard let preparation = MobilePlaybackController.shared.prepareCollectionBrowse(
             uuid: initialConfig.id,
@@ -1619,9 +1609,6 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
             self.clearEdgeTapHighlights()
             self.onZoomStateChange(false)
             collectionBrowserVC.setActive(true)
-            collectionBrowserVC.setFocusedModeActiveForDisplayTransition(
-                shouldActivateCollectionBrowserFocusedMode
-            )
             collectionBrowserVC.view.alpha = 1
             self.pagingVC.setActive(false)
             self.pagingVC.view.isHidden = true
@@ -1727,6 +1714,7 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
 
     @objc private func handleSingleTap(_ gesture: UITapGestureRecognizer) {
         guard gesture.state == .ended else { return }
+        guard displayMode == .onePerPage else { return }
 
         if isEdgeTapLocation(gesture.location(in: view)) {
             return

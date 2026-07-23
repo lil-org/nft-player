@@ -152,27 +152,13 @@ struct MobilePlayerLayoutInteractionState: Equatable {
 }
 
 final class MobilePlayerChromeController: ObservableObject {
-    @Published private(set) var showControls = false
+    @Published private(set) var showControls = true
     @Published private(set) var isPlayerContentHiddenForCardTransition = false
     @Published private(set) var allowsNavigationBackSwipe: Bool
-    @Published private(set) var isCollectionBrowserFocusedModeActive = false
     @Published private(set) var displayModeRequest: MobilePlayerDisplayModeRequest?
     @Published private(set) var playerBackgroundColor: UIColor
     private(set) var isPlayerContentZoomed = false
     private(set) var layoutInteractionState = MobilePlayerLayoutInteractionState.empty
-    private var desiredCollectionBrowserFocusedModeActive = false
-    // Defer UIScrollView-driven publication until SwiftUI's current update
-    // unwinds, coalescing rapid direction changes to the latest request.
-    private lazy var collectionBrowserFocusedModePublicationUpdate =
-        PendingMainQueueUpdate { [weak self] in
-            guard let self,
-                  self.isCollectionBrowserFocusedModeActive
-                    != self.desiredCollectionBrowserFocusedModeActive else {
-                return
-            }
-            self.isCollectionBrowserFocusedModeActive =
-                self.desiredCollectionBrowserFocusedModeActive
-        }
     var onCollectionBrowserExpandRequest: ((MobilePlayerBrowserTransitionSelection) -> MobilePlayerBrowserExpandSelectionResult)?
     private weak var collectionBrowserTransitionProvider: (any MobilePlayerBrowserTransitionProviding)?
     private var liveLayoutInteractionStateProviderID: UUID?
@@ -184,26 +170,19 @@ final class MobilePlayerChromeController: ObservableObject {
     ) {
         self.playerBackgroundColor = playerBackgroundColor
         self.allowsNavigationBackSwipe = allowsNavigationBackSwipe
-        self.isCollectionBrowserFocusedModeActive = false
-        self.desiredCollectionBrowserFocusedModeActive = false
     }
 
     static func shouldShowPlayerChrome(
         showControls: Bool,
-        allowsNavigationBackSwipe: Bool,
-        isCollectionBrowserFocusedModeActive: Bool
+        allowsNavigationBackSwipe: Bool
     ) -> Bool {
-        allowsNavigationBackSwipe
-            ? !isCollectionBrowserFocusedModeActive
-            : showControls
+        allowsNavigationBackSwipe || showControls
     }
 
     var isPlayerChromeVisible: Bool {
         Self.shouldShowPlayerChrome(
             showControls: showControls,
-            allowsNavigationBackSwipe: allowsNavigationBackSwipe,
-            isCollectionBrowserFocusedModeActive:
-                isCollectionBrowserFocusedModeActive
+            allowsNavigationBackSwipe: allowsNavigationBackSwipe
         )
     }
 
@@ -347,33 +326,8 @@ final class MobilePlayerChromeController: ObservableObject {
             return
         }
 
-        if isAllowed {
-            // Publish the vertical browser's prepared chrome state before
-            // switching visibility rules from one-per-page to browser mode.
-            collectionBrowserFocusedModePublicationUpdate.flush()
-        } else if allowsNavigationBackSwipe {
-            // Carry the browser's current chrome visibility into one-per-page
-            // before switching back to the persistent player controls state.
-            collectionBrowserFocusedModePublicationUpdate.flush()
-            setControlsVisible(isPlayerChromeVisible)
-        }
         guard allowsNavigationBackSwipe != isAllowed else { return }
         allowsNavigationBackSwipe = isAllowed
-    }
-
-    @discardableResult
-    func setCollectionBrowserFocusedModeActive(_ isActive: Bool) -> Bool {
-        guard Thread.isMainThread else { return false }
-
-        guard desiredCollectionBrowserFocusedModeActive != isActive else {
-            return true
-        }
-
-        // Focused mode is prepared while one-per-page is still active, where it
-        // has no visual effect, then becomes authoritative when the browser returns.
-        desiredCollectionBrowserFocusedModeActive = isActive
-        collectionBrowserFocusedModePublicationUpdate.schedule()
-        return true
     }
 
     func setLayoutInteractionState(_ state: MobilePlayerLayoutInteractionState) {
@@ -669,7 +623,12 @@ struct MobilePlayerView: View {
     }
 
     private var shouldHideStatusBar: Bool {
-        isAllowedToHideStatusBar && !chrome.isPlayerChromeVisible
+        switch displayMode {
+        case .collectionBrowser:
+            false
+        case .onePerPage:
+            isAllowedToHideStatusBar && !chrome.isPlayerChromeVisible
+        }
     }
     
     private var infoMenu: some View {
@@ -940,6 +899,11 @@ struct MobilePlayerView: View {
         }
 
         if requestedDisplayMode == .onePerPage {
+            // Restore the player-owned chrome before browser mode stops
+            // pinning the navigation bar visible. This keeps the navbar
+            // continuous through expansion and starts every player visit
+            // with its bottom controls visible.
+            chrome.setControlsVisible(true)
             chrome.setNavigationBackSwipeAllowed(false)
         }
 
