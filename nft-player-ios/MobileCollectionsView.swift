@@ -1589,6 +1589,8 @@ private struct MobileCollectionsNavigationView<RootView: View>: UIViewController
     func makeUIViewController(context: Context) -> PlayerNavigationController {
         let rootViewController = UIHostingController(rootView: rootView)
         rootViewController.navigationItem.backButtonDisplayMode = .minimal
+        // Names the collections-grid entry in the back button's long-press menu.
+        rootViewController.navigationItem.backButtonTitle = Strings.nftPlayer
 
         let navigationController = PlayerNavigationController(
             rootViewController: rootViewController
@@ -1645,22 +1647,42 @@ private struct MobileCollectionsNavigationView<RootView: View>: UIViewController
 
         private final class PlayerSession {
             let config: MobilePlayerConfig
-            let viewController: MobilePlayerHostingController
+            let chrome: MobilePlayerChromeController
+            let pagerViewController: MobilePlayerHostingController
+            let browserViewController: MobilePlayerBrowserPageViewController?
+            let modeController: MobilePlayerSessionModeController
             let interactionController: PlayerInteractionController
+            let initialStack: [UIViewController]
 
             init(
                 config: MobilePlayerConfig,
-                viewController: MobilePlayerHostingController,
-                interactionController: PlayerInteractionController
+                chrome: MobilePlayerChromeController,
+                pagerViewController: MobilePlayerHostingController,
+                browserViewController: MobilePlayerBrowserPageViewController?,
+                modeController: MobilePlayerSessionModeController,
+                interactionController: PlayerInteractionController,
+                initialStack: [UIViewController]
             ) {
                 self.config = config
-                self.viewController = viewController
+                self.chrome = chrome
+                self.pagerViewController = pagerViewController
+                self.browserViewController = browserViewController
+                self.modeController = modeController
                 self.interactionController = interactionController
+                self.initialStack = initialStack
+            }
+
+            func owns(_ viewController: UIViewController?) -> Bool {
+                guard let viewController else { return false }
+                return viewController === pagerViewController
+                    || viewController === browserViewController
             }
 
             func invalidate() {
-                viewController.finalizePlayerSession()
+                pagerViewController.finalizePlayerSession()
                 interactionController.invalidate()
+                modeController.invalidate()
+                UIApplication.shared.isIdleTimerDisabled = false
             }
         }
 
@@ -1734,10 +1756,10 @@ private struct MobileCollectionsNavigationView<RootView: View>: UIViewController
 
             guard let desiredPlayerConfig else {
                 guard let activeSession,
-                      navigationController.topViewController === activeSession.viewController else {
+                      activeSession.owns(navigationController.topViewController) else {
                     return
                 }
-                navigationController.popViewController(animated: true)
+                navigationController.popToRootViewController(animated: true)
                 return
             }
 
@@ -1757,10 +1779,21 @@ private struct MobileCollectionsNavigationView<RootView: View>: UIViewController
                 activeSession = session
                 navigationController.navigationBar.layer.removeAllAnimations()
                 session.interactionController.prepareForPlayerPresentation(using: nil)
-                navigationController.pushViewController(
-                    session.viewController,
-                    animated: desiredPresentationTransition.animatesNavigationTransition
-                )
+                if session.initialStack.count == 1,
+                   let playerViewController = session.initialStack.first {
+                    navigationController.pushViewController(
+                        playerViewController,
+                        animated: desiredPresentationTransition.animatesNavigationTransition
+                    )
+                } else {
+                    // Widget launches open the pager with the browser beneath
+                    // it so back returns to the browser and the back menu
+                    // lists both destinations. These launches are instant.
+                    navigationController.setViewControllers(
+                        [rootViewController] + session.initialStack,
+                        animated: false
+                    )
+                }
                 session.interactionController.prepareForPlayerPresentation(
                     using: navigationController.transitionCoordinator
                 )
@@ -1810,22 +1843,70 @@ private struct MobileCollectionsNavigationView<RootView: View>: UIViewController
             let onDismiss: () -> Void = { [weak self] in
                 self?.requestPop(configID: config.id)
             }
+            let browserViewController = collectionBrowserAvailable
+                ? MobilePlayerBrowserPageViewController(uuid: config.id, chrome: chrome)
+                : nil
             let playerViewController = makeMobilePlayerViewController(
                 config: config,
                 onDismiss: onDismiss,
                 chrome: chrome
             )
+            let modeController = MobilePlayerSessionModeController(
+                config: config,
+                chrome: chrome,
+                navigationController: navigationController,
+                browserViewController: browserViewController,
+                pagerViewController: playerViewController,
+                initialMode: initialDisplayMode
+            )
+            browserViewController?.modeController = modeController
+            NativeMetalCardView.resetMotionCalibration()
+            UIApplication.shared.isIdleTimerDisabled = true
+
+            // Preload both mode view controllers so the first morph measures
+            // laid-out geometry, matching the always-mounted previous design.
+            navigationController.loadViewIfNeeded()
+            let navigationBounds = navigationController.view.bounds
+            playerViewController.loadViewIfNeeded()
+            playerViewController.view.frame = navigationBounds
+            playerViewController.view.layoutIfNeeded()
+            if let browserViewController {
+                browserViewController.loadViewIfNeeded()
+                browserViewController.view.frame = navigationBounds
+                browserViewController.view.layoutIfNeeded()
+                browserViewController.seedNavigationTitles()
+            }
+            if initialDisplayMode == .collectionBrowser {
+                chrome.pagerProvider?.deactivatePagerForCollectionBrowser()
+                browserViewController?.setBrowserActive(true)
+            }
+
             let interactionController = PlayerInteractionController(
                 navigationController: navigationController,
                 playerViewController: playerViewController,
+                browserViewController: browserViewController,
+                modeController: modeController,
                 chrome: chrome,
                 onDismiss: onDismiss
             )
             interactionController.install()
+
+            let initialStack: [UIViewController]
+            if let browserViewController {
+                initialStack = initialDisplayMode == .collectionBrowser
+                    ? [browserViewController]
+                    : [browserViewController, playerViewController]
+            } else {
+                initialStack = [playerViewController]
+            }
             return PlayerSession(
                 config: config,
-                viewController: playerViewController,
-                interactionController: interactionController
+                chrome: chrome,
+                pagerViewController: playerViewController,
+                browserViewController: browserViewController,
+                modeController: modeController,
+                interactionController: interactionController,
+                initialStack: initialStack
             )
         }
 
@@ -1842,8 +1923,9 @@ private struct MobileCollectionsNavigationView<RootView: View>: UIViewController
             )
             activeSession = session
             navigationController.setViewControllers(
-                [rootViewController, session.viewController],
+                [rootViewController] + session.initialStack,
                 animated: desiredPresentationTransition.animatesNavigationTransition
+                    && session.initialStack.count == 1
             )
             session.interactionController.prepareForPlayerPresentation(
                 using: navigationController.transitionCoordinator
@@ -1854,11 +1936,11 @@ private struct MobileCollectionsNavigationView<RootView: View>: UIViewController
             guard let navigationController,
                   let activeSession,
                   activeSession.config.id == configID,
-                  navigationController.topViewController === activeSession.viewController,
+                  activeSession.owns(navigationController.topViewController),
                   navigationController.transitionCoordinator == nil else {
                 return
             }
-            navigationController.popViewController(animated: true)
+            navigationController.popToRootViewController(animated: true)
         }
 
         func navigationController(
@@ -1867,7 +1949,8 @@ private struct MobileCollectionsNavigationView<RootView: View>: UIViewController
             animated: Bool
         ) {
             if let activeSession,
-               viewController === activeSession.viewController {
+               activeSession.owns(viewController) {
+                activeSession.modeController.noteNavigationWillShow(viewController)
                 activeSession.interactionController.prepareForPlayerPresentation(
                     using: navigationController.transitionCoordinator
                 )
@@ -1886,7 +1969,8 @@ private struct MobileCollectionsNavigationView<RootView: View>: UIViewController
             animated: Bool
         ) {
             if let activeSession,
-               viewController === activeSession.viewController {
+               activeSession.owns(viewController) {
+                activeSession.modeController.noteNavigationDidShow(viewController)
                 activeSession.interactionController.didShowPlayerAfterNavigationTransition()
                 scheduleReconcile()
                 return
@@ -1926,13 +2010,11 @@ private func makeMobilePlayerViewController(
     onDismiss: @escaping () -> Void,
     chrome: MobilePlayerChromeController
 ) -> MobilePlayerHostingController {
-    let cardTransitionCanvas = MobilePlayerCardTransitionCanvas()
     let playerViewController = MobilePlayerHostingController(
         rootView: MobilePlayerView(
             config: config,
             onDismiss: onDismiss,
-            chrome: chrome,
-            cardTransitionCanvas: cardTransitionCanvas
+            chrome: chrome
         )
     )
     playerViewController.onPermanentRemoval = {
@@ -1947,9 +2029,6 @@ private final class MobilePlayerHostingController: UIHostingController<MobilePla
 
     private var playerPageBackgroundColor = MobilePlayerBackgroundColor.defaultColor
     private var didFinalizePlayerSession = false
-    var cardTransitionCanvasView: UIView {
-        rootView.cardTransitionCanvas.view
-    }
     var onAccessibilityEscape: (() -> Bool)?
     var onPlayerLayout: (() -> Void)?
     var onPermanentRemoval: (() -> Void)?
@@ -1984,15 +2063,9 @@ private final class MobilePlayerHostingController: UIHostingController<MobilePla
 
     func setPlayerPageBackground(color: UIColor) {
         playerPageBackgroundColor = color
-        cardTransitionCanvasView.backgroundColor = color
 
         guard isViewLoaded else { return }
         applyPlayerPageBackground()
-    }
-
-    func setCardTransitionCanvasActive(_ isActive: Bool) {
-        loadViewIfNeeded()
-        cardTransitionCanvasView.isHidden = !isActive
     }
 
     func finalizePlayerSession() {
@@ -2172,6 +2245,7 @@ private final class NavigationBackDirectTouchGate: UIGestureRecognizer {
 private final class PlayerNavigationController: UINavigationController {
 
     var canEnforceNavigationBarChromeVisibility: (() -> Bool)?
+    weak var cardTransitionOverlayView: UIView?
     private var navigationBarChromeTargetAlpha: CGFloat?
     private var isNavigationBarChromeVisibilityEnforcementSuspended = false
     private var forcesStatusBarVisibleForCollectionBrowserTransition = false
@@ -2282,6 +2356,20 @@ private final class PlayerNavigationController: UINavigationController {
 
         alignNavigationBarBelowForcedStatusBar()
         synchronizeNavigationBarChromeVisibility()
+        keepCardTransitionOverlayBelowNavigationBar()
+    }
+
+    private func keepCardTransitionOverlayBelowNavigationBar() {
+        guard let cardTransitionOverlayView,
+              cardTransitionOverlayView.superview === view else {
+            return
+        }
+
+        cardTransitionOverlayView.frame = view.bounds
+        // UIKit can append transition wrappers above the overlay; keep the
+        // canvas directly beneath the navigation bar so morphs cover both
+        // player view controllers.
+        view.insertSubview(cardTransitionOverlayView, belowSubview: navigationBar)
     }
 
     override func setNavigationBarHidden(_ hidden: Bool, animated: Bool) {
@@ -2870,15 +2958,25 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
 
     let playerNavigationController: PlayerNavigationController
     let playerViewController: MobilePlayerHostingController
+    let browserViewController: MobilePlayerBrowserPageViewController?
+    let modeController: MobilePlayerSessionModeController
     let chrome: MobilePlayerChromeController
     let onDismiss: () -> Void
+
+    private let cardTransitionCanvas = MobilePlayerCardTransitionCanvas()
 
     private var view: UIView {
         playerViewController.view
     }
 
     private var cardTransitionCanvasView: UIView {
-        playerViewController.cardTransitionCanvasView
+        cardTransitionCanvas.view
+    }
+
+    private func isSessionViewController(_ viewController: UIViewController?) -> Bool {
+        guard let viewController else { return false }
+        return viewController === playerViewController
+            || viewController === browserViewController
     }
 
     private lazy var navigationBarTap = UITapGestureRecognizer(target: self, action: #selector(handleNavigationBarTap(_:)))
@@ -2887,6 +2985,20 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
     ) { [weak self] _ in
         _ = self?.handleNavigationBackAction()
     }
+    // The pager cannot use `navigationItem.backAction`: replacing the back
+    // button's primary action suppresses UIKit's long-press stack menu. A
+    // custom item restores the Safari pattern — tap minimizes to the browser
+    // while a long press lists every stack destination.
+    private lazy var pagerBackBarButtonItem: UIBarButtonItem = {
+        let item = UIBarButtonItem(
+            title: nil,
+            image: UIImage(systemName: "chevron.backward"),
+            primaryAction: navigationBackAction,
+            menu: makePagerBackMenu()
+        )
+        item.accessibilityLabel = Strings.back
+        return item
+    }()
     private lazy var dismissPan = UIPanGestureRecognizer(target: self, action: #selector(handleDismissPan(_:)))
     private lazy var controlsPan = UIPanGestureRecognizer(target: self, action: #selector(handleControlsPan(_:)))
     private lazy var cardMinimizePinch: CardLayoutPinchGestureRecognizer = {
@@ -2896,7 +3008,7 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
         gesture.canTrackPinch = { [weak self] gesture in
             guard let self else { return false }
             if gesture.isFirstPinchTrackingEvaluation {
-                self.configurePagingScrollViews()
+                self.configurePagerScrollViews()
             }
             return self.canBeginCardMinimizeInteraction(
                 location: gesture.pinchLocation(in: self.view)
@@ -2935,19 +3047,24 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
     init(
         navigationController: PlayerNavigationController,
         playerViewController: MobilePlayerHostingController,
+        browserViewController: MobilePlayerBrowserPageViewController?,
+        modeController: MobilePlayerSessionModeController,
         chrome: MobilePlayerChromeController,
         onDismiss: @escaping () -> Void
     ) {
         self.playerNavigationController = navigationController
         self.playerViewController = playerViewController
+        self.browserViewController = browserViewController
+        self.modeController = modeController
         self.chrome = chrome
         self.onDismiss = onDismiss
         super.init()
         playerNavigationController.canEnforceNavigationBarChromeVisibility = {
-            [weak navigationController, weak playerViewController] in
+            [weak navigationController, weak playerViewController, weak browserViewController] in
             guard let navigationController,
-                  let playerViewController,
-                  navigationController.topViewController === playerViewController,
+                  let topViewController = navigationController.topViewController,
+                  topViewController === playerViewController
+                    || (browserViewController != nil && topViewController === browserViewController),
                   navigationController.transitionCoordinator == nil else {
                 return false
             }
@@ -2979,9 +3096,33 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
             self.installNavigationBackAction()
             self.playerNavigationController
                 .configureNavigationBackGestureBlocking()
-            self.configurePagingScrollViews()
+            self.configurePagerScrollViews()
+        }
+        browserViewController?.onAccessibilityEscape = { [weak self] in
+            self?.handleNavigationBackAction() ?? false
+        }
+        browserViewController?.onPlayerLayout = { [weak self] in
+            guard let self else { return }
+
+            self.installNavigationBackAction()
+            self.playerNavigationController
+                .configureNavigationBackGestureBlocking()
+            self.configureBrowserScrollViews()
         }
         playerViewController.loadViewIfNeeded()
+        browserViewController?.loadViewIfNeeded()
+
+        // The morph canvas spans both mode view controllers from the
+        // navigation controller's view, directly beneath the navigation bar.
+        playerNavigationController.loadViewIfNeeded()
+        cardTransitionCanvasView.frame = playerNavigationController.view.bounds
+        cardTransitionCanvasView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        playerNavigationController.view.insertSubview(
+            cardTransitionCanvasView,
+            belowSubview: playerNavigationController.navigationBar
+        )
+        playerNavigationController.cardTransitionOverlayView = cardTransitionCanvasView
+
         playerNavigationController.setNavigationBackGestureBlockingProvider(
             owner: self
         ) { [weak self] in
@@ -3026,10 +3167,16 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
         chromeCancellables.removeAll()
         playerViewController.onAccessibilityEscape = nil
         playerViewController.onPlayerLayout = nil
+        browserViewController?.onAccessibilityEscape = nil
+        browserViewController?.onPlayerLayout = nil
 
-        if playerViewController.navigationItem.backAction?.identifier
+        if playerViewController.navigationItem.leftBarButtonItem === pagerBackBarButtonItem {
+            playerViewController.navigationItem.leftBarButtonItem = nil
+        }
+        if let browserViewController,
+           browserViewController.navigationItem.backAction?.identifier
             == navigationBackAction.identifier {
-            playerViewController.navigationItem.backAction = nil
+            browserViewController.navigationItem.backAction = nil
         }
         playerNavigationController.clearNavigationBackGestureBlockingProvider(
             owner: self
@@ -3048,7 +3195,11 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
         )
         cleanupCardExpandTransition(revealPlayer: false)
         cardTransitionCanvasView.subviews.forEach { $0.removeFromSuperview() }
-        playerViewController.setCardTransitionCanvasActive(false)
+        setCardTransitionCanvasActive(false)
+        cardTransitionCanvasView.removeFromSuperview()
+        if playerNavigationController.cardTransitionOverlayView === cardTransitionCanvasView {
+            playerNavigationController.cardTransitionOverlayView = nil
+        }
 
         chrome.onCollectionBrowserExpandRequest = nil
         chrome.setPlayerContentHiddenForCardTransition(false)
@@ -3129,7 +3280,10 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
     private func observePlayerBackgroundColor() {
         chrome.$playerBackgroundColor
             .sink { [weak self] color in
-                self?.playerViewController.setPlayerPageBackground(color: color)
+                guard let self else { return }
+                self.playerViewController.setPlayerPageBackground(color: color)
+                self.browserViewController?.setPlayerPageBackground(color: color)
+                self.cardTransitionCanvasView.backgroundColor = color
             }
             .store(in: &chromeCancellables)
     }
@@ -3151,8 +3305,7 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
 
     private func synchronizeNavigationBarAfterToolbarUpdate() {
         guard isInstalled,
-              playerNavigationController.topViewController
-                === playerViewController,
+              isSessionViewController(playerNavigationController.topViewController),
               playerNavigationController.transitionCoordinator == nil else {
             return
         }
@@ -3190,35 +3343,102 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
     }
 
     private func installNavigationBackAction() {
-        guard playerNavigationController.viewControllers
-            .dropFirst()
-            .contains(where: { $0 === playerViewController }) else {
+        let stackedViewControllers = playerNavigationController.viewControllers.dropFirst()
+
+        if let browserViewController,
+           stackedViewControllers.contains(where: { $0 === browserViewController }) {
+            let navigationItem = browserViewController.navigationItem
+            if navigationItem.backAction?.identifier != navigationBackAction.identifier {
+                // Keep UIKit's native back button mounted so browser-mode
+                // interactive pop gestures stay fully native. Only replace its
+                // primary action so mid-morph taps stay swallowed.
+                navigationItem.backAction = navigationBackAction
+            }
+        }
+
+        if stackedViewControllers.contains(where: { $0 === playerViewController }) {
+            let navigationItem = playerViewController.navigationItem
+            if navigationItem.leftBarButtonItem !== pagerBackBarButtonItem {
+                navigationItem.leftBarButtonItem = pagerBackBarButtonItem
+            }
+        }
+    }
+
+    private func makePagerBackMenu() -> UIMenu {
+        UIMenu(children: [
+            UIDeferredMenuElement.uncached { [weak self] completion in
+                guard let self else {
+                    completion([])
+                    return
+                }
+
+                var actions = [UIAction]()
+                if let browserViewController = self.browserViewController,
+                   self.playerNavigationController.viewControllers
+                    .contains(where: { $0 === browserViewController }) {
+                    let title = browserViewController.navigationItem.backButtonTitle
+                        ?? Strings.back
+                    actions.append(
+                        UIAction(title: title) { [weak self] _ in
+                            self?.popExternallyToBrowser()
+                        }
+                    )
+                }
+                actions.append(
+                    UIAction(title: Strings.nftPlayer) { [weak self] _ in
+                        self?.popExternallyToRoot()
+                    }
+                )
+                completion(actions)
+            }
+        ])
+    }
+
+    private func popExternallyToBrowser() {
+        guard isInstalled,
+              let browserViewController,
+              playerNavigationController.transitionCoordinator == nil,
+              playerNavigationController.topViewController === playerViewController,
+              playerNavigationController.viewControllers
+                .contains(where: { $0 === browserViewController }),
+              !isCardTransitionActive,
+              !chrome.isPlayerContentHiddenForCardTransition else {
             return
         }
 
-        let navigationItem = playerViewController.navigationItem
-        guard navigationItem.backAction?.identifier
-            != navigationBackAction.identifier else {
+        playerNavigationController.popToViewController(
+            browserViewController,
+            animated: true
+        )
+    }
+
+    private func popExternallyToRoot() {
+        guard isInstalled,
+              playerNavigationController.transitionCoordinator == nil,
+              !isCardTransitionActive,
+              !chrome.isPlayerContentHiddenForCardTransition else {
             return
         }
 
-        // Keep UIKit's native back button mounted so browser-mode interactive
-        // pop gestures stay fully native. Only replace its primary action:
-        // pager taps minimize to the browser, while browser taps dismiss.
-        navigationItem.backAction = navigationBackAction
+        onDismiss()
     }
 
     @discardableResult
     private func handleNavigationBackAction() -> Bool {
         guard isInstalled,
-              playerNavigationController.topViewController
-                === playerViewController else {
+              let topViewController = playerNavigationController.topViewController,
+              isSessionViewController(topViewController) else {
             return false
         }
 
         guard playerNavigationController.transitionCoordinator == nil,
               !isCardTransitionActive,
               !chrome.isPlayerContentHiddenForCardTransition else {
+            return true
+        }
+        guard topViewController === playerViewController else {
+            // Browser back dismisses the whole player back to the grid.
+            onDismiss()
             return true
         }
         guard !isNavigationBackDisplayModeRequestPending else {
@@ -3237,8 +3457,7 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
         }
 
         isNavigationBackDisplayModeRequestPending = true
-        chrome.requestDisplayMode(
-            .collectionBrowser,
+        modeController.switchToCollectionBrowser(
             targetPagePosition: pagePosition
         ) { [weak self] _ in
             self?.isNavigationBackDisplayModeRequestPending = false
@@ -3264,13 +3483,15 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
 
     private var shouldBlockNavigationBackGesture: Bool {
         guard isInstalled,
-              playerNavigationController.topViewController
-                === playerViewController else {
+              let topViewController = playerNavigationController.topViewController,
+              isSessionViewController(topViewController) else {
             return false
         }
 
+        // Native pop stays blocked on the pager, where horizontal swipes page
+        // between items; the browser keeps fully native back gestures.
         return playerNavigationController.transitionCoordinator != nil
-            || !chrome.allowsNavigationBackSwipe
+            || topViewController === playerViewController
             || chrome.isPlayerContentHiddenForCardTransition
             || isCardTransitionActive
     }
@@ -3288,6 +3509,11 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
     }
 
     private func configurePagingScrollViews() {
+        configurePagerScrollViews()
+        configureBrowserScrollViews()
+    }
+
+    private func configurePagerScrollViews() {
         gestureFailureRequirements.removeInvalidRequirements()
         playerViewController.view
             .allSubviews(ofType: UIScrollView.self)
@@ -3296,6 +3522,23 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
                     scrollView.panGestureRecognizer,
                     toFail: dismissPan
                 )
+                if let pinchGesture = scrollView.pinchGestureRecognizer {
+                    gestureFailureRequirements.require(
+                        pinchGesture,
+                        toFail: cardMinimizePinch
+                    )
+                }
+                scrollView.hideAutomaticScrollEdgeEffects()
+            }
+    }
+
+    private func configureBrowserScrollViews() {
+        guard let browserViewController else { return }
+
+        gestureFailureRequirements.removeInvalidRequirements()
+        browserViewController.view
+            .allSubviews(ofType: UIScrollView.self)
+            .forEach { scrollView in
                 // Native pop is available only in the vertical browser. Pager
                 // scroll views must not wait for iOS 26's full-content pop
                 // recognizer, or a reverse page swipe can be starved whenever
@@ -3303,12 +3546,6 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
                 if scrollView is MobilePlayerCollectionBrowserCollectionView {
                     requireNavigationBackGesturesToTakePriority(
                         over: scrollView.panGestureRecognizer
-                    )
-                }
-                if let pinchGesture = scrollView.pinchGestureRecognizer {
-                    gestureFailureRequirements.require(
-                        pinchGesture,
-                        toFail: cardMinimizePinch
                     )
                 }
                 scrollView.hideAutomaticScrollEdgeEffects()
@@ -3597,7 +3834,12 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
     ) -> Bool {
         view.layer.removeAllAnimations()
 
+        // The destination card frame is measured against the pager's view,
+        // which must be attached and laid out before it is pushed.
+        modeController.stagePagerViewForTransition()
+
         guard let context = makeCardExpandTransitionContext(selection: selection) else {
+            modeController.unstagePagerViewIfNeeded()
             return false
         }
 
@@ -3650,8 +3892,7 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
         var requestReturned = false
         var wasRejectedSynchronously = false
 
-        chrome.requestDisplayMode(
-            .collectionBrowser,
+        modeController.switchToCollectionBrowser(
             targetPagePosition: context.sourcePagePosition
         ) { [weak self] didApply in
             guard let self,
@@ -3731,8 +3972,7 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
         var requestReturned = false
         var wasRejectedSynchronously = false
 
-        chrome.requestDisplayMode(
-            .onePerPage,
+        modeController.switchToOnePerPage(
             targetPagePosition: context.targetPagePosition
         ) { [weak self] didApply in
             guard let self,
@@ -4141,8 +4381,8 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
         itemSnapshots: [MobilePlayerBrowserItemSnapshot],
         otherCardsRevealProgress: CGFloat
     ) -> CardTransitionUnderlayView {
-        playerViewController.setCardTransitionCanvasActive(true)
-        playerViewController.view.layoutIfNeeded()
+        setCardTransitionCanvasActive(true)
+        playerNavigationController.view.layoutIfNeeded()
         let underlayView = CardTransitionUnderlayView(itemSnapshots: itemSnapshots)
         underlayView.frame = cardTransitionCanvasView.bounds
         underlayView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
@@ -4322,6 +4562,7 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
         activeCardExpandContext = nil
         isCardExpandAnimationComplete = false
         isCardExpandLayoutApplied = false
+        modeController.unstagePagerViewIfNeeded()
 
         if revealPlayer {
             revealPlayerAfterCardTransition()
@@ -4339,9 +4580,13 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
     }
 
     private func updateCardTransitionCanvasVisibility() {
-        playerViewController.setCardTransitionCanvasActive(
+        setCardTransitionCanvasActive(
             activeCardMinimizeContext != nil || activeCardExpandContext != nil
         )
+    }
+
+    private func setCardTransitionCanvasActive(_ isActive: Bool) {
+        cardTransitionCanvasView.isHidden = !isActive
     }
 
     private func easeOutQuadratic(_ progress: CGFloat) -> CGFloat {

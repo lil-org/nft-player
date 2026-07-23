@@ -933,13 +933,6 @@ private final class PlayerEdgeTapHighlightView: UIView {
 struct HorizontalPlayerContainerView: UIViewControllerRepresentable {
 
     final class Coordinator {
-        private struct Update: Equatable {
-            let displayModeChangeID: UUID
-            let displayMode: MobilePlayerDisplayMode
-            let targetPagePosition: PlayerPagePosition?
-        }
-
-        private var lastUpdate: Update?
         private var lastBundledGenerativePresentationMode: MobileBundledGenerativePresentationMode?
 
         func shouldApplyBundledGenerativePresentationMode(
@@ -949,73 +942,37 @@ struct HorizontalPlayerContainerView: UIViewControllerRepresentable {
             lastBundledGenerativePresentationMode = mode
             return true
         }
-
-        func beginUpdate(
-            displayModeChangeID: UUID,
-            displayMode: MobilePlayerDisplayMode,
-            targetPagePosition: PlayerPagePosition?
-        ) -> Bool {
-            let update = Update(
-                displayModeChangeID: displayModeChangeID,
-                displayMode: displayMode,
-                targetPagePosition: targetPagePosition
-            )
-            guard lastUpdate != update else { return false }
-            lastUpdate = update
-            return true
-        }
     }
 
     private let initialConfig: MobilePlayerConfig
     private let chrome: MobilePlayerChromeController
-    private let displayMode: MobilePlayerDisplayMode
     private let bundledGenerativePresentationMode: MobileBundledGenerativePresentationMode
-    private let collectionBrowserAvailable: Bool
-    private let displayModeChangeID: UUID
-    private let displayModeTargetPagePosition: PlayerPagePosition?
     private let onFocusedPagePositionUpdate: ((PlayerPagePosition) -> Void)
     private let onSettledPagePositionUpdate: ((PlayerPagePosition, Bool) -> Bool)
     private let onPaginationAttempt: (() -> Void)
     private let onUnavailableNavigation: (() -> Void)
     private let onToggleChrome: (() -> Void)
-    private let onDisplayModeApplied: ((MobilePlayerDisplayModeApplication) -> Void)
-    private let onDisplayModeChangeRejected: ((MobilePlayerDisplayModeRejection) -> Void)
-    private let onDisplayModeChangeSuperseded: ((MobilePlayerDisplayModeSupersession) -> Void)
     private let onZoomStateChange: ((Bool) -> Void)
 
     init(
         initialConfig: MobilePlayerConfig,
         chrome: MobilePlayerChromeController,
-        displayMode: MobilePlayerDisplayMode,
         bundledGenerativePresentationMode: MobileBundledGenerativePresentationMode,
-        collectionBrowserAvailable: Bool,
-        displayModeChangeID: UUID,
-        displayModeTargetPagePosition: PlayerPagePosition?,
         onFocusedPagePositionUpdate: @escaping (PlayerPagePosition) -> Void,
         onSettledPagePositionUpdate: @escaping (PlayerPagePosition, Bool) -> Bool,
         onPaginationAttempt: @escaping () -> Void,
         onUnavailableNavigation: @escaping () -> Void,
         onToggleChrome: @escaping () -> Void,
-        onDisplayModeApplied: @escaping (MobilePlayerDisplayModeApplication) -> Void,
-        onDisplayModeChangeRejected: @escaping (MobilePlayerDisplayModeRejection) -> Void,
-        onDisplayModeChangeSuperseded: @escaping (MobilePlayerDisplayModeSupersession) -> Void,
         onZoomStateChange: @escaping (Bool) -> Void
     ) {
         self.initialConfig = initialConfig
         self.chrome = chrome
-        self.displayMode = displayMode
         self.bundledGenerativePresentationMode = bundledGenerativePresentationMode
-        self.collectionBrowserAvailable = collectionBrowserAvailable
-        self.displayModeChangeID = displayModeChangeID
-        self.displayModeTargetPagePosition = displayModeTargetPagePosition
         self.onFocusedPagePositionUpdate = onFocusedPagePositionUpdate
         self.onSettledPagePositionUpdate = onSettledPagePositionUpdate
         self.onPaginationAttempt = onPaginationAttempt
         self.onUnavailableNavigation = onUnavailableNavigation
         self.onToggleChrome = onToggleChrome
-        self.onDisplayModeApplied = onDisplayModeApplied
-        self.onDisplayModeChangeRejected = onDisplayModeChangeRejected
-        self.onDisplayModeChangeSuperseded = onDisplayModeChangeSuperseded
         self.onZoomStateChange = onZoomStateChange
     }
 
@@ -1027,9 +984,7 @@ struct HorizontalPlayerContainerView: UIViewControllerRepresentable {
         return HorizontalPlayerContainer(
             initialConfig: initialConfig,
             chrome: chrome,
-            displayMode: displayMode,
             bundledGenerativePresentationMode: bundledGenerativePresentationMode,
-            collectionBrowserAvailable: collectionBrowserAvailable,
             onFocusedPagePositionUpdate: onFocusedPagePositionUpdate,
             onSettledPagePositionUpdate: onSettledPagePositionUpdate,
             onPaginationAttempt: onPaginationAttempt,
@@ -1047,114 +1002,22 @@ struct HorizontalPlayerContainerView: UIViewControllerRepresentable {
                 bundledGenerativePresentationMode
             )
         }
-
-        guard context.coordinator.beginUpdate(
-            displayModeChangeID: displayModeChangeID,
-            displayMode: displayMode,
-            targetPagePosition: displayModeTargetPagePosition
-        ) else {
-            return
-        }
-
-        uiViewController.setDisplayMode(
-            displayMode,
-            displayModeChangeID: displayModeChangeID,
-            targetPagePosition: displayModeTargetPagePosition
-        ) { result in
-            switch result {
-            case .applied, .unchanged:
-                let application = MobilePlayerDisplayModeApplication(
-                    displayModeChangeID: displayModeChangeID,
-                    requestedDisplayMode: displayMode,
-                    targetPagePosition: displayModeTargetPagePosition
-                )
-                DispatchQueue.main.async {
-                    self.onDisplayModeApplied(application)
-                }
-            case .rejected(let currentDisplayMode):
-                let rejection = MobilePlayerDisplayModeRejection(
-                    displayModeChangeID: displayModeChangeID,
-                    requestedDisplayMode: displayMode,
-                    targetPagePosition: displayModeTargetPagePosition,
-                    currentDisplayMode: currentDisplayMode
-                )
-                DispatchQueue.main.async {
-                    self.onDisplayModeChangeRejected(rejection)
-                }
-
-            case .superseded:
-                let supersession = MobilePlayerDisplayModeSupersession(
-                    displayModeChangeID: displayModeChangeID
-                )
-                DispatchQueue.main.async {
-                    self.onDisplayModeChangeSuperseded(supersession)
-                }
-            }
-        }
     }
 }
 
-fileprivate enum HorizontalPlayerDisplayModeApplicationResult {
-    case applied
-    case unchanged
-    case superseded
-    case rejected(currentDisplayMode: MobilePlayerDisplayMode)
-}
-
-class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, MobilePlaybackControllerDisplay, UIGestureRecognizerDelegate, MobilePlayerBrowserTransitionProviding {
-
-    private static let completedDisplayModeOperationLimit = 32
-
-    private struct DisplayModeOperationIdentity: Equatable {
-        let id: UUID
-        let displayMode: MobilePlayerDisplayMode
-        let targetPagePosition: PlayerPagePosition?
-    }
-
-    private struct PendingDisplayModeOperation {
-        let identity: DisplayModeOperationIdentity
-        let generation: UInt
-        var completions: [(HorizontalPlayerDisplayModeApplicationResult) -> Void]
-    }
-
-    private struct CompletedDisplayModeOperation {
-        let identity: DisplayModeOperationIdentity
-        let result: HorizontalPlayerDisplayModeApplicationResult
-    }
+class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, UIGestureRecognizerDelegate, MobilePlayerPagerProviding {
 
     private let initialConfig: MobilePlayerConfig
     private let chrome: MobilePlayerChromeController
-    private var displayMode: MobilePlayerDisplayMode
     private var bundledGenerativePresentationMode: MobileBundledGenerativePresentationMode
-    private let collectionBrowserAvailable: Bool
     private let onFocusedPagePositionUpdate: ((PlayerPagePosition) -> Void)
     private let onSettledPagePositionUpdate: ((PlayerPagePosition, Bool) -> Bool)
     private let onPaginationAttempt: (() -> Void)
     private let onUnavailableNavigation: (() -> Void)
     private let onToggleChrome: (() -> Void)
     private let onZoomStateChange: ((Bool) -> Void)
-    private let liveLayoutInteractionStateProviderID = UUID()
 
     private lazy var pagingVC = HorizontalPageViewController(playerDataSource: self)
-    private lazy var collectionBrowserVC: VerticalCollectionBrowserViewController? = {
-        guard collectionBrowserAvailable else { return nil }
-
-        let controller = VerticalCollectionBrowserViewController(uuid: initialConfig.id)
-        controller.onFocusedPagePosition = { [weak self] pagePosition in
-            guard let self,
-                  self.displayMode == .collectionBrowser else { return }
-            self.onFocusedPagePositionUpdate(pagePosition)
-        }
-        controller.onSettledPagePosition = { [weak self] pagePosition, hasViewedToEnd in
-            guard let self,
-                  self.displayMode == .collectionBrowser else { return false }
-            return self.onSettledPagePositionUpdate(pagePosition, hasViewedToEnd)
-        }
-        controller.onSelection = { [weak self] selection in
-            self?.openCollectionBrowserSelection(selection) == true
-        }
-        return controller
-    }()
     private let leftEdgeTapHighlight = PlayerEdgeTapHighlightView(side: .left)
     private let rightEdgeTapHighlight = PlayerEdgeTapHighlightView(side: .right)
     private lazy var singleTapRecognizer: UITapGestureRecognizer = {
@@ -1198,10 +1061,6 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
     private var renderedPagePositionCounts = [PlayerPagePosition: Int]()
     private var displayedPagePosition: PlayerPagePosition?
     private var persistedPagePosition: PlayerPagePosition?
-    private var displayModeOperationGeneration: UInt = 0
-    private var pendingDisplayModeOperation: PendingDisplayModeOperation?
-    private var completedDisplayModeOperations = [UUID: CompletedDisplayModeOperation]()
-    private var completedDisplayModeOperationIDs = [UUID]()
     private var pendingEdgeTapHighlightSide: PlayerEdgeTapSide?
     private var edgeTapHighlightWorkItem: DispatchWorkItem?
     private var edgeTapHighlightRequestId = 0
@@ -1209,9 +1068,7 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
     init(
         initialConfig: MobilePlayerConfig,
         chrome: MobilePlayerChromeController,
-        displayMode: MobilePlayerDisplayMode,
         bundledGenerativePresentationMode: MobileBundledGenerativePresentationMode,
-        collectionBrowserAvailable: Bool,
         onFocusedPagePositionUpdate: @escaping (PlayerPagePosition) -> Void,
         onSettledPagePositionUpdate: @escaping (PlayerPagePosition, Bool) -> Bool,
         onPaginationAttempt: @escaping () -> Void,
@@ -1221,9 +1078,7 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
     ) {
         self.initialConfig = initialConfig
         self.chrome = chrome
-        self.displayMode = displayMode
         self.bundledGenerativePresentationMode = bundledGenerativePresentationMode
-        self.collectionBrowserAvailable = collectionBrowserAvailable
         self.onFocusedPagePositionUpdate = onFocusedPagePositionUpdate
         self.onSettledPagePositionUpdate = onSettledPagePositionUpdate
         self.onPaginationAttempt = onPaginationAttempt
@@ -1231,7 +1086,7 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
         self.onToggleChrome = onToggleChrome
         self.onZoomStateChange = onZoomStateChange
         super.init(nibName: nil, bundle: nil)
-        chrome.setCollectionBrowserTransitionProvider(self)
+        chrome.setPagerProvider(self)
     }
 
     required init?(coder: NSCoder) {
@@ -1240,31 +1095,17 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        NativeMetalCardView.resetMotionCalibration()
-        MobilePlaybackController.shared.subscribe(config: initialConfig, display: self)
-        chrome.setLiveLayoutInteractionStateProvider(id: liveLayoutInteractionStateProviderID) { [weak self] in
-            self?.currentLayoutInteractionState() ?? .empty
-        }
         makePlayerBackgroundTransparent()
         pagingVC.onCurrentZoomStateChange = { [weak self] isZoomed in
             self?.onZoomStateChange(isZoomed)
         }
         installContentController(pagingVC)
-        if let collectionBrowserVC {
-            installContentController(collectionBrowserVC)
-            let isCollectionBrowserActive = displayMode == .collectionBrowser
-            collectionBrowserVC.view.alpha = isCollectionBrowserActive ? 1 : 0
-            collectionBrowserVC.setActive(isCollectionBrowserActive)
-        }
-        pagingVC.view.isHidden = displayMode != .onePerPage
-        pagingVC.setActive(displayMode == .onePerPage)
         installEdgeTapHighlights()
         installTapGestures()
-        UIApplication.shared.isIdleTimerDisabled = true
     }
 
     override func viewWillDisappear(_ animated: Bool) {
-        flushPendingViewingProgress()
+        flushPagerViewingProgress()
         super.viewWillDisappear(animated)
     }
 
@@ -1284,54 +1125,73 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
     private func makePlayerBackgroundTransparent() {
         view.makeBackgroundTransparent()
         pagingVC.makePlayerBackgroundTransparent()
-        collectionBrowserVC?.view.makeBackgroundTransparent()
     }
 
     deinit {
-        chrome.clearLiveLayoutInteractionStateProvider(id: liveLayoutInteractionStateProviderID)
-        chrome.clearCollectionBrowserTransitionProvider(self)
+        chrome.clearPagerProvider(self)
         edgeTapHighlightWorkItem?.cancel()
-        UIApplication.shared.isIdleTimerDisabled = false
     }
 
-    func getCurrentPagePosition() -> PlayerPagePosition {
-        if displayMode == .collectionBrowser,
-           let pagePosition = collectionBrowserVC?.currentPagePosition {
-            return pagePosition
-        }
-        return pagingVC.getCurrentPagePosition()
+    // MARK: - MobilePlayerPagerProviding
+
+    func pagerCurrentPagePosition() -> PlayerPagePosition {
+        pagingVC.getCurrentPagePosition()
     }
 
-    func flushPendingViewingProgress() {
-        if displayMode == .collectionBrowser {
-            collectionBrowserVC?.flushSettledPosition()
-            return
-        }
+    @discardableResult
+    func reanchorPager(
+        to pagePosition: PlayerPagePosition,
+        completion: @escaping () -> Void
+    ) -> Bool {
+        pagingVC.setPagePosition(pagePosition, completion: completion)
+    }
 
+    func activatePagerAfterModeSwitch(destination: PlayerPagePosition) {
+        pagingVC.setActive(true)
+        displayedPagePosition = nil
+        if !pagingVC.publishCurrentPagePosition(forceUpdate: true) {
+            updateDisplayedPagePosition(destination, forceUpdate: true)
+        }
+        clearEdgeTapHighlights()
+    }
+
+    func deactivatePagerForCollectionBrowser() {
+        clearEdgeTapHighlights()
+        onZoomStateChange(false)
+        pagingVC.setActive(false)
+    }
+
+    func recoverPagerAfterFailedBrowseCommit(at pagePosition: PlayerPagePosition) {
+        displayedPagePosition = nil
+        _ = pagingVC.setPagePosition(pagePosition) { [weak self] in
+            guard let self else { return }
+
+            if self.displayedPagePosition != pagePosition,
+               !self.pagingVC.publishCurrentPagePosition(forceUpdate: true) {
+                self.updateDisplayedPagePosition(pagePosition, forceUpdate: true)
+            }
+        }
+    }
+
+    func navigatePager(_ direction: PlaybackNavigationDirection) {
+        pagingVC.navigate(direction)
+    }
+
+    func makePagerTransitionSnapshot(
+        from sourceFrame: CGRect,
+        in coordinateView: UIView
+    ) -> UIView? {
+        pagingVC.makeCurrentPageTransitionSnapshot(
+            from: sourceFrame,
+            in: coordinateView
+        )
+    }
+
+    func flushPagerViewingProgress() {
         _ = persistPagePositionIfNeeded(
             pagingVC.getCurrentPagePosition(),
             forceUpdate: false
         )
-    }
-
-    private func currentLayoutInteractionState() -> MobilePlayerLayoutInteractionState {
-        MobilePlaybackController.shared.layoutInteractionState(
-            uuid: initialConfig.id,
-            displayMode: displayMode,
-            pagePosition: getCurrentPagePosition(),
-            collectionBrowserAvailable: collectionBrowserAvailable
-        )
-    }
-
-    func navigate(_ direction: PlaybackNavigationDirection) {
-        guard displayMode == .collectionBrowser else {
-            pagingVC.navigate(direction)
-            return
-        }
-
-        if direction == .restartCollection {
-            collectionBrowserVC?.scrollToFirstItemAndPublish()
-        }
     }
 
     fileprivate func setBundledGenerativePresentationMode(
@@ -1343,348 +1203,8 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
         pagingVC.reloadRenderedBundledGenerativeWebContent()
     }
 
-    fileprivate func setDisplayMode(
-        _ requestedDisplayMode: MobilePlayerDisplayMode,
-        displayModeChangeID: UUID,
-        targetPagePosition: PlayerPagePosition? = nil,
-        completion: @escaping (HorizontalPlayerDisplayModeApplicationResult) -> Void
-    ) {
-        let identity = DisplayModeOperationIdentity(
-            id: displayModeChangeID,
-            displayMode: requestedDisplayMode,
-            targetPagePosition: targetPagePosition
-        )
-
-        if var pendingDisplayModeOperation,
-           pendingDisplayModeOperation.identity.id == identity.id {
-            guard isCompatibleRepeatedDisplayModeOperation(
-                identity,
-                originalIdentity: pendingDisplayModeOperation.identity
-            ) else {
-                completion(.rejected(currentDisplayMode: displayMode))
-                return
-            }
-            pendingDisplayModeOperation.completions.append(completion)
-            self.pendingDisplayModeOperation = pendingDisplayModeOperation
-            return
-        }
-        if let completedDisplayModeOperation = completedDisplayModeOperations[identity.id] {
-            guard isCompatibleRepeatedDisplayModeOperation(
-                identity,
-                originalIdentity: completedDisplayModeOperation.identity
-            ) else {
-                completion(.rejected(currentDisplayMode: displayMode))
-                return
-            }
-            completion(completedDisplayModeOperation.result)
-            return
-        }
-
-        collectionBrowserVC?.cancelPendingDisplayPreparation()
-        if let pendingDisplayModeOperation {
-            finishDisplayModeOperation(
-                pendingDisplayModeOperation.identity,
-                generation: pendingDisplayModeOperation.generation,
-                result: .superseded
-            )
-        }
-
-        guard !isDisplayModePresented(
-            requestedDisplayMode,
-            targetPagePosition: targetPagePosition
-        ) else {
-            recordCompletedDisplayModeOperation(identity, result: .unchanged)
-            completion(.unchanged)
-            return
-        }
-
-        displayModeOperationGeneration &+= 1
-        let generation = displayModeOperationGeneration
-        pendingDisplayModeOperation = PendingDisplayModeOperation(
-            identity: identity,
-            generation: generation,
-            completions: [completion]
-        )
-
-        switch requestedDisplayMode {
-        case .onePerPage:
-            applyOnePerPageDisplayMode(
-                identity: identity,
-                generation: generation
-            )
-
-        case .collectionBrowser:
-            applyCollectionBrowserDisplayMode(
-                identity: identity,
-                generation: generation
-            )
-        }
-    }
-
-    private func isDisplayModePresented(
-        _ requestedDisplayMode: MobilePlayerDisplayMode,
-        targetPagePosition: PlayerPagePosition?
-    ) -> Bool {
-        guard displayMode == requestedDisplayMode else { return false }
-        guard requestedDisplayMode == .onePerPage,
-              let targetPagePosition else {
-            return true
-        }
-        return pagingVC.getCurrentPagePosition() == targetPagePosition
-    }
-
-    private func isCompatibleRepeatedDisplayModeOperation(
-        _ identity: DisplayModeOperationIdentity,
-        originalIdentity: DisplayModeOperationIdentity
-    ) -> Bool {
-        identity == originalIdentity
-            || (identity.displayMode == originalIdentity.displayMode
-                && identity.targetPagePosition == nil)
-    }
-
-    private func recordCompletedDisplayModeOperation(
-        _ identity: DisplayModeOperationIdentity,
-        result: HorizontalPlayerDisplayModeApplicationResult
-    ) {
-        if completedDisplayModeOperations[identity.id] == nil {
-            completedDisplayModeOperationIDs.append(identity.id)
-        }
-        completedDisplayModeOperations[identity.id] = CompletedDisplayModeOperation(
-            identity: identity,
-            result: result
-        )
-
-        while completedDisplayModeOperationIDs.count > Self.completedDisplayModeOperationLimit {
-            let expiredID = completedDisplayModeOperationIDs.removeFirst()
-            completedDisplayModeOperations.removeValue(forKey: expiredID)
-        }
-    }
-
-    private func applyOnePerPageDisplayMode(
-        identity: DisplayModeOperationIdentity,
-        generation: UInt
-    ) {
-        let wasCollectionBrowser = displayMode == .collectionBrowser
-        if wasCollectionBrowser {
-            collectionBrowserVC?.flushSettledPosition()
-        }
-        let destination = identity.targetPagePosition
-            ?? collectionBrowserVC?.currentPagePosition
-            ?? pagingVC.getCurrentPagePosition()
-
-        if wasCollectionBrowser {
-            pagingVC.setActive(false)
-        }
-
-        let didReanchor = pagingVC.setPagePosition(destination) { [weak self] in
-            guard let self,
-                  self.isCurrentDisplayModeOperation(identity, generation: generation) else {
-                return
-            }
-            guard self.pagingVC.getCurrentPagePosition() == destination else {
-                self.finishDisplayModeOperation(
-                    identity,
-                    generation: generation,
-                    result: .rejected(currentDisplayMode: self.displayMode)
-                )
-                return
-            }
-
-            if wasCollectionBrowser {
-                self.collectionBrowserVC?.setActive(false)
-                self.collectionBrowserVC?.view.alpha = 0
-                self.pagingVC.view.isHidden = false
-                self.pagingVC.setActive(true)
-                self.displayMode = .onePerPage
-                MobilePlaybackController.shared.acknowledgeIntentionalViewingPosition(
-                    uuid: self.initialConfig.id
-                )
-                self.displayedPagePosition = nil
-                if !self.pagingVC.publishCurrentPagePosition(
-                    forceUpdate: true
-                ) {
-                    self.updateDisplayedPagePosition(destination, forceUpdate: true)
-                }
-            }
-
-            self.clearEdgeTapHighlights()
-            self.finishDisplayModeOperation(
-                identity,
-                generation: generation,
-                result: .applied
-            )
-        }
-
-        guard didReanchor else {
-            finishDisplayModeOperation(
-                identity,
-                generation: generation,
-                result: .rejected(currentDisplayMode: displayMode)
-            )
-            return
-        }
-    }
-
-    private func applyCollectionBrowserDisplayMode(
-        identity: DisplayModeOperationIdentity,
-        generation: UInt
-    ) {
-        guard displayMode == .onePerPage,
-              let collectionBrowserVC else {
-            finishDisplayModeOperation(
-                identity,
-                generation: generation,
-                result: .rejected(currentDisplayMode: displayMode)
-            )
-            return
-        }
-
-        let sourcePagePosition = identity.targetPagePosition ?? pagingVC.getCurrentPagePosition()
-        guard let preparation = MobilePlaybackController.shared.prepareCollectionBrowse(
-            uuid: initialConfig.id,
-            containing: sourcePagePosition
-        ) else {
-            finishDisplayModeOperation(
-                identity,
-                generation: generation,
-                result: .rejected(currentDisplayMode: displayMode)
-            )
-            return
-        }
-
-        view.layoutIfNeeded()
-        collectionBrowserVC.prepareForDisplay(
-            using: preparation,
-            publishWhenStable: false
-        ) { [weak self, weak collectionBrowserVC] preparationResult in
-            guard let self,
-                  let collectionBrowserVC,
-                  self.isCurrentDisplayModeOperation(identity, generation: generation) else {
-                return
-            }
-
-            func rejectOperation() {
-                collectionBrowserVC.cancelPendingDisplayPreparation()
-                self.finishDisplayModeOperation(
-                    identity,
-                    generation: generation,
-                    result: .rejected(currentDisplayMode: self.displayMode)
-                )
-            }
-
-            guard preparationResult == .prepared else {
-                rejectOperation()
-                return
-            }
-
-            guard self.displayMode == .onePerPage,
-                  self.pagingVC.getCurrentPagePosition() == preparation.sourcePagePosition else {
-                rejectOperation()
-                return
-            }
-
-            let resolution = MobilePlaybackController.shared.commitCollectionBrowse(
-                uuid: self.initialConfig.id,
-                preparation: preparation
-            )
-            guard case .resolved(let resolvedPagePosition) = resolution else {
-                rejectOperation()
-                return
-            }
-
-            guard resolvedPagePosition == preparation.snapshot.pagePosition(
-                forTokenIndex: preparation.focusedTokenIndex
-            ),
-                  collectionBrowserVC.finalizePreparedDisplay(preparation) else {
-                collectionBrowserVC.cancelPendingDisplayPreparation()
-                self.recoverOnePerPageAfterCollectionBrowseCommit(
-                    identity: identity,
-                    generation: generation,
-                    pagePosition: resolvedPagePosition
-                )
-                return
-            }
-
-            self.displayMode = .collectionBrowser
-            self.clearEdgeTapHighlights()
-            self.onZoomStateChange(false)
-            collectionBrowserVC.setActive(true)
-            collectionBrowserVC.view.alpha = 1
-            self.pagingVC.setActive(false)
-            self.pagingVC.view.isHidden = true
-            self.finishDisplayModeOperation(
-                identity,
-                generation: generation,
-                result: .applied
-            )
-        }
-    }
-
-    private func recoverOnePerPageAfterCollectionBrowseCommit(
-        identity: DisplayModeOperationIdentity,
-        generation: UInt,
-        pagePosition: PlayerPagePosition
-    ) {
-        displayMode = .onePerPage
-        pagingVC.view.isHidden = false
-        pagingVC.setActive(true)
-        displayedPagePosition = nil
-
-        let didReanchor = pagingVC.setPagePosition(pagePosition) { [weak self] in
-            guard let self,
-                  self.isCurrentDisplayModeOperation(identity, generation: generation) else {
-                return
-            }
-
-            if self.displayedPagePosition != pagePosition,
-               !self.pagingVC.publishCurrentPagePosition(forceUpdate: true) {
-                self.updateDisplayedPagePosition(pagePosition, forceUpdate: true)
-            }
-            self.finishDisplayModeOperation(
-                identity,
-                generation: generation,
-                result: .rejected(currentDisplayMode: .onePerPage)
-            )
-        }
-
-        guard didReanchor else {
-            finishDisplayModeOperation(
-                identity,
-                generation: generation,
-                result: .rejected(currentDisplayMode: .onePerPage)
-            )
-            return
-        }
-    }
-
-    private func isCurrentDisplayModeOperation(
-        _ identity: DisplayModeOperationIdentity,
-        generation: UInt
-    ) -> Bool {
-        pendingDisplayModeOperation?.identity == identity
-            && pendingDisplayModeOperation?.generation == generation
-    }
-
-    private func finishDisplayModeOperation(
-        _ identity: DisplayModeOperationIdentity,
-        generation: UInt,
-        result: HorizontalPlayerDisplayModeApplicationResult
-    ) {
-        guard let pendingDisplayModeOperation,
-              pendingDisplayModeOperation.identity == identity,
-              pendingDisplayModeOperation.generation == generation else {
-            return
-        }
-
-        self.pendingDisplayModeOperation = nil
-        recordCompletedDisplayModeOperation(identity, result: result)
-        pendingDisplayModeOperation.completions.forEach { completion in
-            completion(result)
-        }
-    }
-
     private var allowsEdgeTapNavigation: Bool {
-        displayMode == .onePerPage
+        pagingVC.isActive
     }
 
     private func installTapGestures() {
@@ -1714,62 +1234,13 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
 
     @objc private func handleSingleTap(_ gesture: UITapGestureRecognizer) {
         guard gesture.state == .ended else { return }
-        guard displayMode == .onePerPage else { return }
+        guard pagingVC.isActive else { return }
 
         if isEdgeTapLocation(gesture.location(in: view)) {
             return
         }
 
         onToggleChrome()
-    }
-
-    var isCollectionBrowserActive: Bool {
-        displayMode == .collectionBrowser
-            && collectionBrowserVC?.view.alpha == 1
-    }
-
-    func makeOnePerPageTransitionSnapshot(
-        from sourceFrame: CGRect,
-        in coordinateView: UIView
-    ) -> UIView? {
-        guard displayMode == .onePerPage else { return nil }
-        return pagingVC.makeCurrentPageTransitionSnapshot(
-            from: sourceFrame,
-            in: coordinateView
-        )
-    }
-
-    func prepareCollectionBrowserSelection(
-        for pagePosition: PlayerPagePosition
-    ) -> MobilePlayerBrowserTransitionSelection? {
-        collectionBrowserVC?.preparedTransitionSelection(for: pagePosition)
-    }
-
-    func cancelPreparedCollectionBrowserSelection() {
-        collectionBrowserVC?.cancelPreparedTransition()
-    }
-
-    private func openCollectionBrowserSelection(
-        _ selection: MobilePlayerBrowserTransitionSelection
-    ) -> Bool {
-        guard displayMode == .collectionBrowser else { return false }
-
-        switch chrome.requestCollectionBrowserExpand(selection) {
-        case .started:
-            Haptic.selectionChanged()
-            return true
-        case .busy:
-            return false
-        case .fallbackToImmediateOpen:
-            chrome.requestDisplayMode(
-                .onePerPage,
-                targetPagePosition: selection.selectedSnapshot.pagePosition
-            )
-            Haptic.selectionChanged()
-            return true
-        case .rejected:
-            return false
-        }
     }
 
     private func edgeTapSide(at location: CGPoint) -> PlayerEdgeTapSide? {
@@ -1915,7 +1386,7 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
     }
 
     @objc private func handleDoubleTap(_ gesture: UITapGestureRecognizer) {
-        guard displayMode == .onePerPage,
+        guard pagingVC.isActive,
               gesture.state == .ended else { return }
 
         let location = gesture.location(in: view)
@@ -1925,31 +1396,12 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
     }
 
     func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
-        if displayMode == .collectionBrowser {
-            if gestureRecognizer === doubleTapRecognizer
-                || gestureRecognizer === edgeTapRecognizer {
-                return false
-            }
-            if gestureRecognizer === singleTapRecognizer {
-                return true
-            }
-        }
         guard gestureRecognizer === doubleTapRecognizer else { return true }
 
         return !isEdgeTapLocation(gestureRecognizer.location(in: view))
     }
 
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
-        if displayMode == .collectionBrowser {
-            if gestureRecognizer === doubleTapRecognizer
-                || gestureRecognizer === edgeTapRecognizer {
-                return false
-            }
-            if gestureRecognizer === singleTapRecognizer {
-                let location = touch.location(in: view)
-                return collectionBrowserVC?.canSelectItem(at: location, in: view) != true
-            }
-        }
         guard gestureRecognizer === singleTapRecognizer || gestureRecognizer === doubleTapRecognizer else {
             return true
         }
@@ -1961,8 +1413,7 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
         _ gestureRecognizer: UIGestureRecognizer,
         shouldRequireFailureOf otherGestureRecognizer: UIGestureRecognizer
     ) -> Bool {
-        displayMode == .onePerPage
-            && gestureRecognizer === singleTapRecognizer
+        gestureRecognizer === singleTapRecognizer
             && otherGestureRecognizer === doubleTapRecognizer
     }
 
@@ -2074,7 +1525,7 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
     }
 
     private func updateDisplayedPagePosition(_ pagePosition: PlayerPagePosition, forceUpdate: Bool) {
-        guard displayMode == .onePerPage else { return }
+        guard pagingVC.isActive else { return }
         let shouldUpdateDisplay = forceUpdate || displayedPagePosition != pagePosition
         let shouldPersist = forceUpdate || persistedPagePosition != pagePosition
         guard shouldUpdateDisplay || shouldPersist else { return }
@@ -3574,6 +3025,10 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
         pageA.makePlayerBackgroundTransparent()
         pageB.makePlayerBackgroundTransparent()
         pageC.makePlayerBackgroundTransparent()
+    }
+
+    var isActive: Bool {
+        isPlaybackActive
     }
 
     func setActive(_ active: Bool) {

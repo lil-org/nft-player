@@ -20,30 +20,6 @@ private let playerNavigationBarControlSize: CGFloat = 44
 private let playerProgressControlSize: CGFloat = 34
 private let playerNavigationArrowSpacing: CGFloat = 4
 
-struct MobilePlayerDisplayModeRequest {
-    let id = UUID()
-    let displayMode: MobilePlayerDisplayMode
-    let targetPagePosition: PlayerPagePosition?
-    let completion: ((Bool) -> Void)?
-}
-
-struct MobilePlayerDisplayModeRejection {
-    let displayModeChangeID: UUID
-    let requestedDisplayMode: MobilePlayerDisplayMode
-    let targetPagePosition: PlayerPagePosition?
-    let currentDisplayMode: MobilePlayerDisplayMode
-}
-
-struct MobilePlayerDisplayModeApplication {
-    let displayModeChangeID: UUID
-    let requestedDisplayMode: MobilePlayerDisplayMode
-    let targetPagePosition: PlayerPagePosition?
-}
-
-struct MobilePlayerDisplayModeSupersession {
-    let displayModeChangeID: UUID
-}
-
 enum MobileBundledGenerativePresentationMode: Equatable {
     case thumbnailAspectFit
     case fullscreen
@@ -82,21 +58,6 @@ protocol MobilePlayerBrowserTransitionProviding: AnyObject {
         for pagePosition: PlayerPagePosition
     ) -> MobilePlayerBrowserTransitionSelection?
     func cancelPreparedCollectionBrowserSelection()
-}
-
-private struct MobilePlayerPendingDisplayModeApplication {
-    let displayModeChangeID: UUID
-    let requestedDisplayMode: MobilePlayerDisplayMode
-    let targetPagePosition: PlayerPagePosition?
-    let completion: (Bool) -> Void
-
-    func matches(
-        displayMode: MobilePlayerDisplayMode,
-        targetPagePosition: PlayerPagePosition?
-    ) -> Bool {
-        requestedDisplayMode == displayMode
-            && self.targetPagePosition == targetPagePosition
-    }
 }
 
 private final class MobilePlayerFocusedPagePositionUpdateCoordinator {
@@ -155,12 +116,12 @@ final class MobilePlayerChromeController: ObservableObject {
     @Published private(set) var showControls = true
     @Published private(set) var isPlayerContentHiddenForCardTransition = false
     @Published private(set) var allowsNavigationBackSwipe: Bool
-    @Published private(set) var displayModeRequest: MobilePlayerDisplayModeRequest?
     @Published private(set) var playerBackgroundColor: UIColor
     private(set) var isPlayerContentZoomed = false
     private(set) var layoutInteractionState = MobilePlayerLayoutInteractionState.empty
     var onCollectionBrowserExpandRequest: ((MobilePlayerBrowserTransitionSelection) -> MobilePlayerBrowserExpandSelectionResult)?
     private weak var collectionBrowserTransitionProvider: (any MobilePlayerBrowserTransitionProviding)?
+    private weak var registeredPagerProvider: (any MobilePlayerPagerProviding)?
     private var liveLayoutInteractionStateProviderID: UUID?
     private var liveLayoutInteractionStateProvider: (() -> MobilePlayerLayoutInteractionState)?
 
@@ -211,6 +172,33 @@ final class MobilePlayerChromeController: ObservableObject {
 
     var isCollectionBrowserActive: Bool {
         Thread.isMainThread && collectionBrowserTransitionProvider?.isCollectionBrowserActive == true
+    }
+
+    var pagerProvider: (any MobilePlayerPagerProviding)? {
+        Thread.isMainThread ? registeredPagerProvider : nil
+    }
+
+    func setPagerProvider(_ provider: any MobilePlayerPagerProviding) {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async {
+                self.setPagerProvider(provider)
+            }
+            return
+        }
+
+        registeredPagerProvider = provider
+    }
+
+    func clearPagerProvider(_ provider: any MobilePlayerPagerProviding) {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async {
+                self.clearPagerProvider(provider)
+            }
+            return
+        }
+
+        guard registeredPagerProvider === provider else { return }
+        registeredPagerProvider = nil
     }
 
     func prepareCollectionBrowserSelection(
@@ -341,39 +329,6 @@ final class MobilePlayerChromeController: ObservableObject {
     }
 
     @discardableResult
-    func requestDisplayMode(
-        _ displayMode: MobilePlayerDisplayMode,
-        targetPagePosition: PlayerPagePosition? = nil,
-        completion: ((Bool) -> Void)? = nil
-    ) -> UUID {
-        let request = MobilePlayerDisplayModeRequest(
-            displayMode: displayMode,
-            targetPagePosition: targetPagePosition,
-            completion: completion
-        )
-
-        guard Thread.isMainThread else {
-            DispatchQueue.main.async {
-                self.displayModeRequest = request
-            }
-            return request.id
-        }
-
-        displayModeRequest = request
-        return request.id
-    }
-
-    func clearDisplayModeRequest(_ request: MobilePlayerDisplayModeRequest) {
-        guard Thread.isMainThread else {
-            DispatchQueue.main.async { self.clearDisplayModeRequest(request) }
-            return
-        }
-
-        guard displayModeRequest?.id == request.id else { return }
-        displayModeRequest = nil
-    }
-
-    @discardableResult
     func requestCollectionBrowserExpand(
         _ selection: MobilePlayerBrowserTransitionSelection
     ) -> MobilePlayerBrowserExpandSelectionResult {
@@ -394,27 +349,13 @@ final class MobilePlayerCardTransitionCanvas {
     }()
 }
 
-private struct MobilePlayerCardTransitionCanvasRepresentable: UIViewRepresentable {
-
-    let canvas: MobilePlayerCardTransitionCanvas
-
-    func makeUIView(context: Context) -> UIView {
-        canvas.view
-    }
-
-    func updateUIView(_ uiView: UIView, context: Context) {
-        // PlayerInteractionController owns the canvas contents and visibility.
-    }
-}
-
 struct MobilePlayerView: View {
-    
+
     private let initialConfig: MobilePlayerConfig
     private let onDismiss: () -> Void
     private let collectionBrowserAvailable: Bool
-    let cardTransitionCanvas: MobilePlayerCardTransitionCanvas
     @ObservedObject private var chrome: MobilePlayerChromeController
-    
+
     @State private var isAllowedToHideStatusBar = false
     @State private var currentToken = GeneratedToken.empty
     @State private var currentProgress: MobileViewingProgress?
@@ -426,32 +367,19 @@ struct MobilePlayerView: View {
     @State private var isCurrentTokenBookmarked = false
     @State private var bundledGenerativePresentationMode:
         MobileBundledGenerativePresentationMode = .thumbnailAspectFit
-    @State private var displayMode: MobilePlayerDisplayMode
-    @State private var displayModeChangeID = UUID()
-    @State private var displayModeTargetPagePosition: PlayerPagePosition?
-    @State private var pendingDisplayModeApplication: MobilePlayerPendingDisplayModeApplication?
     @State private var focusedPagePositionUpdateCoordinator =
         MobilePlayerFocusedPagePositionUpdateCoordinator()
-    
+
     init(
         config: MobilePlayerConfig,
         onDismiss: @escaping () -> Void,
-        chrome: MobilePlayerChromeController,
-        cardTransitionCanvas: MobilePlayerCardTransitionCanvas
+        chrome: MobilePlayerChromeController
     ) {
         self.initialConfig = config
         self.onDismiss = onDismiss
         self.chrome = chrome
-        self.cardTransitionCanvas = cardTransitionCanvas
-        let collectionBrowserAvailable = MobilePlayerCollectionBrowserSupport.isAvailable(
+        self.collectionBrowserAvailable = MobilePlayerCollectionBrowserSupport.isAvailable(
             for: config
-        )
-        self.collectionBrowserAvailable = collectionBrowserAvailable
-        _displayMode = State(
-            initialValue: MobilePlayerDisplayMode.initialMode(
-                for: config,
-                collectionBrowserAvailable: collectionBrowserAvailable
-            )
         )
     }
 
@@ -468,11 +396,7 @@ struct MobilePlayerView: View {
                 HorizontalPlayerContainerView(
                     initialConfig: initialConfig,
                     chrome: chrome,
-                    displayMode: displayMode,
                     bundledGenerativePresentationMode: bundledGenerativePresentationMode,
-                    collectionBrowserAvailable: collectionBrowserAvailable,
-                    displayModeChangeID: displayModeChangeID,
-                    displayModeTargetPagePosition: displayModeTargetPagePosition,
                     onFocusedPagePositionUpdate: handleFocusedPagePositionUpdate,
                     onSettledPagePositionUpdate: handleSettledPagePositionUpdate,
                     onPaginationAttempt: {},
@@ -481,15 +405,6 @@ struct MobilePlayerView: View {
                     },
                     onToggleChrome: {
                         chrome.toggleControls()
-                    },
-                    onDisplayModeApplied: { application in
-                        self.handleDisplayModeApplied(application)
-                    },
-                    onDisplayModeChangeRejected: { rejection in
-                        self.handleDisplayModeChangeRejected(rejection)
-                    },
-                    onDisplayModeChangeSuperseded: { supersession in
-                        self.handleDisplayModeChangeSuperseded(supersession)
                     },
                     onZoomStateChange: { isZoomed in
                         chrome.setPlayerContentZoomed(isZoomed)
@@ -500,71 +415,60 @@ struct MobilePlayerView: View {
                 .opacity(chrome.isPlayerContentHiddenForCardTransition ? 0 : 1)
                 .allowsHitTesting(!chrome.isPlayerContentHiddenForCardTransition)
 
-                if displayMode == .onePerPage {
-                    VStack {
-                        Spacer()
-                        PlayerBottomControls(
-                            isVisible: chrome.showControls,
-                            progress: isCurrentPagePositionInsertedWidgetToken ? nil : currentProgress,
-                            showsNavigationArrows: true,
-                            canGoBack: canGoBack,
-                            canGoForward: canGoForward,
-                            onBack: goBack,
-                            onForward: goForward,
-                            onViewAgain: viewAgain,
-                            onFinish: onDismiss
-                        )
-                        .padding(.horizontal, 18)
-                        .padding(.bottom, bottomChromePadding)
-                        .animation(chrome.showControls ? playerChromeToggleAnimation : playerManualGlassHideAnimation, value: chrome.showControls)
-                    }
-                    .allowsHitTesting(chrome.showControls)
-
-                    VStack {
-                        Spacer()
-                        HStack {
-                            // Keep cache-driven share availability in a leaf so
-                            // prefetch completions cannot rebuild the toolbar.
-                            PlayerShareControl(
-                                playerID: initialConfig.id,
-                                pagePosition: currentPagePosition,
-                                isVisible: chrome.showControls
-                            )
-                            Spacer()
-                        }
-                        .padding(.leading, 18)
-                        .padding(.bottom, bottomChromePadding)
-                    }
-                    .allowsHitTesting(chrome.showControls)
-
-                    VStack {
-                        Spacer()
-                        HStack {
-                            Spacer()
-                            if chrome.showControls, canBookmarkCurrentToken {
-                                PlayerBookmarkButton(
-                                    isBookmarked: isCurrentTokenBookmarked,
-                                    action: toggleCurrentTokenBookmark
-                                )
-                                .transition(.opacity)
-                            }
-                        }
-                        .padding(.trailing, 18)
-                        .padding(.bottom, bottomChromePadding)
-                        .animation(chrome.showControls ? playerChromeToggleAnimation : playerManualGlassHideAnimation, value: chrome.showControls)
-                        .animation(playerChromeToggleAnimation, value: isCurrentTokenBookmarked)
-                    }
-                    .allowsHitTesting(chrome.showControls && canBookmarkCurrentToken)
+                VStack {
+                    Spacer()
+                    PlayerBottomControls(
+                        isVisible: chrome.showControls,
+                        progress: isCurrentPagePositionInsertedWidgetToken ? nil : currentProgress,
+                        showsNavigationArrows: true,
+                        canGoBack: canGoBack,
+                        canGoForward: canGoForward,
+                        onBack: goBack,
+                        onForward: goForward,
+                        onViewAgain: viewAgain,
+                        onFinish: onDismiss
+                    )
+                    .padding(.horizontal, 18)
+                    .padding(.bottom, bottomChromePadding)
+                    .animation(chrome.showControls ? playerChromeToggleAnimation : playerManualGlassHideAnimation, value: chrome.showControls)
                 }
+                .allowsHitTesting(chrome.showControls)
 
-                MobilePlayerCardTransitionCanvasRepresentable(
-                    canvas: cardTransitionCanvas
-                )
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .ignoresSafeArea()
-                .allowsHitTesting(false)
-                .accessibilityHidden(true)
-                .zIndex(1)
+                VStack {
+                    Spacer()
+                    HStack {
+                        // Keep cache-driven share availability in a leaf so
+                        // prefetch completions cannot rebuild the toolbar.
+                        PlayerShareControl(
+                            playerID: initialConfig.id,
+                            pagePosition: currentPagePosition,
+                            isVisible: chrome.showControls
+                        )
+                        Spacer()
+                    }
+                    .padding(.leading, 18)
+                    .padding(.bottom, bottomChromePadding)
+                }
+                .allowsHitTesting(chrome.showControls)
+
+                VStack {
+                    Spacer()
+                    HStack {
+                        Spacer()
+                        if chrome.showControls, canBookmarkCurrentToken {
+                            PlayerBookmarkButton(
+                                isBookmarked: isCurrentTokenBookmarked,
+                                action: toggleCurrentTokenBookmark
+                            )
+                            .transition(.opacity)
+                        }
+                    }
+                    .padding(.trailing, 18)
+                    .padding(.bottom, bottomChromePadding)
+                    .animation(chrome.showControls ? playerChromeToggleAnimation : playerManualGlassHideAnimation, value: chrome.showControls)
+                    .animation(playerChromeToggleAnimation, value: isCurrentTokenBookmarked)
+                }
+                .allowsHitTesting(chrome.showControls && canBookmarkCurrentToken)
             }
             .ignoresSafeArea(edges: .bottom)
         }
@@ -574,11 +478,13 @@ struct MobilePlayerView: View {
         // item, allowing it to outlive a chrome visibility update.
         .toolbar(.visible, for: .navigationBar)
         .toolbarBackground(.hidden, for: .navigationBar)
-        .navigationBarBackButtonHidden(false)
+        // The pager replaces the native back button with a custom item whose
+        // long press lists every navigation destination; hide the native one
+        // so both cannot appear side by side.
+        .navigationBarBackButtonHidden(true)
         .statusBar(hidden: shouldHideStatusBar)
         .toolbar {
-            if displayMode == .onePerPage,
-               !chrome.isPlayerContentHiddenForCardTransition {
+            if !chrome.isPlayerContentHiddenForCardTransition {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     infoMenu
                 }
@@ -593,15 +499,11 @@ struct MobilePlayerView: View {
             }
         }
         .onDisappear {
-            chrome.setLayoutInteractionState(.empty)
-            chrome.setPlayerContentHiddenForCardTransition(false)
+            // The pager now pops on every switch to the browser; only reset
+            // per-visit state here. Session-wide chrome resets happen when
+            // the whole player session is invalidated.
             focusedPagePositionUpdateCoordinator.cancelPendingUpdate()
-            completePendingDisplayModeApplication(didApply: false)
-            displayModeTargetPagePosition = nil
-        }
-        .onReceive(chrome.$displayModeRequest) { request in
-            guard let request else { return }
-            handleDisplayModeRequest(request)
+            bundledGenerativePresentationMode = .thumbnailAspectFit
         }
         .onReceive(NotificationCenter.default.publisher(for: .playerBookmarksDidChange)) { _ in
             updateBookmarkState(for: currentToken)
@@ -623,12 +525,7 @@ struct MobilePlayerView: View {
     }
 
     private var shouldHideStatusBar: Bool {
-        switch displayMode {
-        case .collectionBrowser:
-            false
-        case .onePerPage:
-            isAllowedToHideStatusBar && !chrome.isPlayerChromeVisible
-        }
+        isAllowedToHideStatusBar && !chrome.isPlayerChromeVisible
     }
     
     private var infoMenu: some View {
@@ -753,173 +650,11 @@ struct MobilePlayerView: View {
         !currentToken.fullCollectionId.isEmpty && !currentToken.id.isEmpty
     }
 
-    private func handleDisplayModeRequest(_ request: MobilePlayerDisplayModeRequest) {
-        defer {
-            chrome.clearDisplayModeRequest(request)
-        }
-
-        let targetPagePosition: PlayerPagePosition?
-        if request.displayMode == .onePerPage {
-            if let targetPagePosition = request.targetPagePosition,
-               !MobilePlaybackController.shared.canRender(uuid: initialConfig.id, pagePosition: targetPagePosition) {
-                request.completion?(false)
-                return
-            }
-            targetPagePosition = request.targetPagePosition
-        } else {
-            guard request.displayMode == .collectionBrowser,
-                  collectionBrowserAvailable,
-                  let sourcePagePosition = request.targetPagePosition ?? currentPagePosition,
-                  MobilePlaybackController.shared.canRender(
-                    uuid: initialConfig.id,
-                    pagePosition: sourcePagePosition
-                  ) else {
-                request.completion?(false)
-                return
-            }
-            targetPagePosition = sourcePagePosition
-        }
-
-        if pendingDisplayModeApplication?.matches(
-            displayMode: request.displayMode,
-            targetPagePosition: targetPagePosition
-        ) == true {
-            request.completion?(false)
-            return
-        }
-
-        completePendingDisplayModeApplication(didApply: false)
-        if let completion = request.completion {
-            pendingDisplayModeApplication = MobilePlayerPendingDisplayModeApplication(
-                displayModeChangeID: request.id,
-                requestedDisplayMode: request.displayMode,
-                targetPagePosition: targetPagePosition,
-                completion: completion
-            )
-        }
-
-        let didAcceptRequest = applyDisplayMode(
-            request.displayMode,
-            targetPagePosition: targetPagePosition,
-            changeID: request.id
-        )
-        if !didAcceptRequest {
-            completePendingDisplayModeApplication(
-                request.id,
-                didApply: false
-            )
-        }
-    }
-
-    private func handleDisplayModeApplied(_ application: MobilePlayerDisplayModeApplication) {
-        guard displayModeChangeID == application.displayModeChangeID,
-              displayMode == application.requestedDisplayMode else {
-            return
-        }
-
-        chrome.setNavigationBackSwipeAllowed(
-            application.requestedDisplayMode == .collectionBrowser
-        )
-
-        if application.requestedDisplayMode == .collectionBrowser {
-            bundledGenerativePresentationMode = .thumbnailAspectFit
-        }
-
-        if displayModeTargetPagePosition == application.targetPagePosition {
-            displayModeTargetPagePosition = nil
-        }
-
-        completePendingDisplayModeApplication(
-            application.displayModeChangeID,
-            didApply: true
-        )
-    }
-
-    private func completePendingDisplayModeApplication(
-        _ displayModeChangeID: UUID,
-        didApply: Bool
-    ) {
-        guard let pendingDisplayModeApplication,
-              pendingDisplayModeApplication.displayModeChangeID == displayModeChangeID else {
-            return
-        }
-
-        let completion = pendingDisplayModeApplication.completion
-        self.pendingDisplayModeApplication = nil
-        completion(didApply)
-    }
-
-    private func completePendingDisplayModeApplication(didApply: Bool) {
-        guard let pendingDisplayModeApplication else { return }
-        completePendingDisplayModeApplication(
-            pendingDisplayModeApplication.displayModeChangeID,
-            didApply: didApply
-        )
-    }
-
-    private func handleDisplayModeChangeSuperseded(
-        _ supersession: MobilePlayerDisplayModeSupersession
-    ) {
-        completePendingDisplayModeApplication(
-            supersession.displayModeChangeID,
-            didApply: false
-        )
-    }
-
-    private func handleDisplayModeChangeRejected(
-        _ rejection: MobilePlayerDisplayModeRejection
-    ) {
-        guard displayModeChangeID == rejection.displayModeChangeID,
-              displayMode == rejection.requestedDisplayMode,
-              displayModeTargetPagePosition == rejection.targetPagePosition else { return }
-
-        displayMode = rejection.currentDisplayMode
-        chrome.setNavigationBackSwipeAllowed(
-            rejection.currentDisplayMode == .collectionBrowser
-        )
-        displayModeChangeID = UUID()
-        displayModeTargetPagePosition = nil
-        completePendingDisplayModeApplication(
-            rejection.displayModeChangeID,
-            didApply: false
-        )
-
-        updateNavigationAvailability(for: currentPagePosition)
-        updateLayoutInteractionState()
-    }
-
-    @discardableResult
-    private func applyDisplayMode(
-        _ requestedDisplayMode: MobilePlayerDisplayMode,
-        targetPagePosition: PlayerPagePosition? = nil,
-        changeID: UUID = UUID()
-    ) -> Bool {
-        guard requestedDisplayMode != .collectionBrowser || collectionBrowserAvailable else {
-            return false
-        }
-
-        if requestedDisplayMode == .onePerPage {
-            // Restore the player-owned chrome before browser mode stops
-            // pinning the navigation bar visible. This keeps the navbar
-            // continuous through expansion and starts every player visit
-            // with its bottom controls visible.
-            chrome.setControlsVisible(true)
-            chrome.setNavigationBackSwipeAllowed(false)
-        }
-
-        displayModeTargetPagePosition = targetPagePosition
-        displayModeChangeID = changeID
-        displayMode = requestedDisplayMode
-        updateNavigationAvailability(for: currentPagePosition)
-        updateLayoutInteractionState()
-        return true
-    }
-
     private func updateLayoutInteractionState() {
         chrome.setLayoutInteractionState(
             MobilePlaybackController.shared.layoutInteractionState(
                 uuid: initialConfig.id,
-                displayMode: displayMode,
+                displayMode: .onePerPage,
                 pagePosition: currentPagePosition,
                 collectionBrowserAvailable: collectionBrowserAvailable
             )
@@ -1011,8 +746,7 @@ struct MobilePlayerView: View {
     }
 
     private func updateNavigationAvailability(for pagePosition: PlayerPagePosition?) {
-        guard displayMode == .onePerPage,
-              let pagePosition else {
+        guard let pagePosition else {
             canGoBack = false
             canGoForward = false
             return
