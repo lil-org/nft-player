@@ -617,7 +617,7 @@ struct MobilePlayerView: View {
         .navigationBarTitleDisplayMode(.inline)
         // Keep the native bar mounted and let PlayerNavigationController own
         // its opacity. Structural hide/show transitions can snapshot the back
-        // item, allowing it to outlive a quickly completed chrome fade.
+        // item, allowing it to outlive a chrome visibility update.
         .toolbar(.visible, for: .navigationBar)
         .toolbarBackground(.hidden, for: .navigationBar)
         .navigationBarBackButtonHidden(false)
@@ -660,9 +660,7 @@ struct MobilePlayerView: View {
             let topSafeArea = window?.safeAreaInsets.top ?? 0
             if topSafeArea < 44 {
                 DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(200)) {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        isAllowedToHideStatusBar = true
-                    }
+                    isAllowedToHideStatusBar = true
                 }
             } else {
                 isAllowedToHideStatusBar = true

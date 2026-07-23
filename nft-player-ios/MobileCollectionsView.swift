@@ -1954,7 +1954,7 @@ private final class MobilePlayerHostingController: UIHostingController<MobilePla
     var onPermanentRemoval: (() -> Void)?
 
     override var preferredStatusBarUpdateAnimation: UIStatusBarAnimation {
-        .fade
+        .none
     }
 
     override func viewDidLoad() {
@@ -2264,7 +2264,7 @@ private final class PlayerNavigationController: UINavigationController {
     }
 
     override var preferredStatusBarUpdateAnimation: UIStatusBarAnimation {
-        .fade
+        .none
     }
 
     override func viewDidLayoutSubviews() {
@@ -2357,7 +2357,7 @@ private final class PlayerNavigationController: UINavigationController {
 
         // SwiftUI can restore the shared navigation bar's alpha while updating
         // toolbar or status-bar state. Reapply only the target already committed
-        // to UIKit so a model update cannot bypass the intended fade animation.
+        // to UIKit so a model update cannot bypass the intended transition.
         navigationBar.layer.removeAllAnimations()
         navigationBar.alpha = targetAlpha
     }
@@ -2755,8 +2755,8 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
     private static let cardTransitionHorizontalDragDamping: CGFloat = 0.18
     private static let cardTransitionVerticalDragDamping: CGFloat = 0.32
     private static let navigationBarSideControlRegionWidth: CGFloat = 96
-    private static let navigationBarShowDuration: TimeInterval = 0.12
-    private static let navigationBarHideDuration: TimeInterval = 0.23
+    private static let navigationBarShowDuration: TimeInterval = 0
+    private static let navigationBarHideDuration: TimeInterval = 0
 
     private enum CardMinimizeCommitDestination {
         case browserCell(CGRect)
@@ -3001,23 +3001,16 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
             .setNavigationBarChromeVisibilityEnforcementSuspended(true)
         let navigationBar = playerNavigationController.navigationBar
         navigationBar.accessibilityElementsHidden = false
-        // Hand the pop transition the opacity currently visible on screen.
-        let presentedAlpha = navigationBar.layer.presentation()
-            .map { CGFloat($0.opacity) }
         navigationBar.layer.removeAllAnimations()
-        if let presentedAlpha {
-            navigationBar.alpha = presentedAlpha
-        }
-        guard let transitionCoordinator else {
+        UIView.performWithoutAnimation {
             navigationBar.alpha = 1
-            return
         }
+        guard let transitionCoordinator else { return }
 
-        let didRegisterAnimation = transitionCoordinator.animate { _ in
-            navigationBar.alpha = 1
-        }
-        if !didRegisterAnimation {
-            navigationBar.alpha = 1
+        transitionCoordinator.animate { _ in
+            UIView.performWithoutAnimation {
+                navigationBar.alpha = 1
+            }
         }
     }
 
@@ -3040,7 +3033,9 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
         }
 
         transitionCoordinator.animate { _ in
-            navigationBar.alpha = targetAlpha
+            UIView.performWithoutAnimation {
+                navigationBar.alpha = targetAlpha
+            }
         }
     }
 
