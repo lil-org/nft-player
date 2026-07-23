@@ -469,7 +469,6 @@ struct MobilePlayerView: View {
     @State private var isCurrentPagePositionInsertedWidgetToken = false
     @State private var canGoBack = false
     @State private var canGoForward = false
-    @State private var shareItem: MobilePlayerFileShareItem?
     @State private var isCurrentTokenBookmarked = false
     @State private var bundledGenerativePresentationMode:
         MobileBundledGenerativePresentationMode = .thumbnailAspectFit
@@ -570,18 +569,19 @@ struct MobilePlayerView: View {
                     VStack {
                         Spacer()
                         HStack {
-                            if chrome.showControls, let shareItem {
-                                PlayerShareButton(shareItem: shareItem)
-                                    .transition(.opacity)
-                            }
+                            // Keep cache-driven share availability in a leaf so
+                            // prefetch completions cannot rebuild the toolbar.
+                            PlayerShareControl(
+                                playerID: initialConfig.id,
+                                pagePosition: currentPagePosition,
+                                isVisible: chrome.showControls
+                            )
                             Spacer()
                         }
                         .padding(.leading, 18)
                         .padding(.bottom, bottomChromePadding)
-                        .animation(chrome.showControls ? playerChromeToggleAnimation : playerManualGlassHideAnimation, value: chrome.showControls)
-                        .animation(playerChromeToggleAnimation, value: shareItem?.fileURL)
                     }
-                    .allowsHitTesting(chrome.showControls && shareItem != nil)
+                    .allowsHitTesting(chrome.showControls)
 
                     VStack {
                         Spacer()
@@ -648,9 +648,6 @@ struct MobilePlayerView: View {
         .onReceive(chrome.$displayModeRequest) { request in
             guard let request else { return }
             handleDisplayModeRequest(request)
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .downloadableMediaCacheFileAvailabilityDidChange)) { _ in
-            updateShareItem(for: currentPagePosition)
         }
         .onReceive(NotificationCenter.default.publisher(for: .playerBookmarksDidChange)) { _ in
             updateBookmarkState(for: currentToken)
@@ -999,7 +996,6 @@ struct MobilePlayerView: View {
             self.isCurrentPagePositionInsertedWidgetToken = isInsertedWidgetToken
             self.updateLayoutInteractionState()
             self.updateNavigationAvailability(for: pagePosition)
-            self.updateShareItem(for: pagePosition)
             self.updateBookmarkState(for: token)
             updateExternalDisplayToken(token)
         }
@@ -1098,18 +1094,6 @@ struct MobilePlayerView: View {
         isCurrentTokenBookmarked = PlayerBookmarksStore.isBookmarked(
             collectionId: token.fullCollectionId,
             tokenId: token.id
-        )
-    }
-
-    private func updateShareItem(for pagePosition: PlayerPagePosition?) {
-        guard let pagePosition else {
-            shareItem = nil
-            return
-        }
-
-        shareItem = MobilePlaybackController.shared.downloadedFileShareItem(
-            uuid: initialConfig.id,
-            pagePosition: pagePosition
         )
     }
 
@@ -1306,6 +1290,67 @@ private struct PlayerProgressArrowButton: View {
                 .buttonStyle(.plain)
                 .background(.ultraThinMaterial, in: Circle())
         }
+    }
+}
+
+private struct PlayerShareControl: View {
+    let playerID: UUID
+    let pagePosition: PlayerPagePosition?
+    let isVisible: Bool
+
+    @State private var shareItem: MobilePlayerFileShareItem?
+
+    var body: some View {
+        ZStack {
+            Color.clear
+                .frame(width: 0, height: 0)
+                .allowsHitTesting(false)
+
+            if isVisible, let shareItem {
+                PlayerShareButton(shareItem: shareItem)
+                    .transition(.opacity)
+            }
+        }
+        .animation(
+            isVisible
+                ? playerChromeToggleAnimation
+                : playerManualGlassHideAnimation,
+            value: isVisible
+        )
+        .animation(playerChromeToggleAnimation, value: shareItem?.fileURL)
+        .onChange(of: pagePosition, initial: true) { _, pagePosition in
+            updateShareItem(for: pagePosition)
+        }
+        .onReceive(
+            NotificationCenter.default.publisher(
+                for: .downloadableMediaCacheFileAvailabilityDidChange
+            )
+        ) { notification in
+            // New prefetch files cannot affect an already-retained share item.
+            // Removal events still need revalidation because a disk prune may
+            // have captured its protected-file snapshot before the retain.
+            let availabilityChange = notification.object
+                as? DownloadableMediaCacheFileAvailabilityChange
+            if shareItem != nil,
+               availabilityChange == .becameAvailable {
+                return
+            }
+            updateShareItem(for: pagePosition)
+        }
+    }
+
+    private func updateShareItem(for pagePosition: PlayerPagePosition?) {
+        let updatedShareItem = pagePosition.flatMap {
+            MobilePlaybackController.shared.downloadedFileShareItem(
+                uuid: playerID,
+                pagePosition: $0
+            )
+        }
+        guard shareItem?.fileURL != updatedShareItem?.fileURL
+            || shareItem?.previewTitle != updatedShareItem?.previewTitle else {
+            return
+        }
+        shareItem = updatedShareItem
     }
 }
 

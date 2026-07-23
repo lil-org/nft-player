@@ -15,6 +15,11 @@ extension Notification.Name {
     static let downloadableMediaCacheFileAvailabilityDidChange = Notification.Name("DownloadableMediaCacheFileAvailabilityDidChange")
 }
 
+enum DownloadableMediaCacheFileAvailabilityChange: Equatable {
+    case becameAvailable
+    case becameUnavailable
+}
+
 final class DownloadableMediaCache {
 
     typealias PrefetchDirection = PlayerMediaPrefetchDirection
@@ -775,9 +780,14 @@ final class DownloadableMediaCache {
         cacheRoot
     }
 
-    private func notifyFileAvailabilityChanged() {
+    private func notifyFileAvailabilityChanged(
+        _ change: DownloadableMediaCacheFileAvailabilityChange
+    ) {
         DispatchQueue.main.async {
-            NotificationCenter.default.post(name: .downloadableMediaCacheFileAvailabilityDidChange, object: nil)
+            NotificationCenter.default.post(
+                name: .downloadableMediaCacheFileAvailabilityDidChange,
+                object: change
+            )
         }
     }
 
@@ -936,7 +946,7 @@ final class DownloadableMediaCache {
                 self.estimatedDiskCacheBytes = result.cacheBytesAfterPrune
                 self.estimatedAvailableDiskBytes = result.availableDiskBytesAfterPrune
                 if result.didRemoveItem {
-                    self.notifyFileAvailabilityChanged()
+                    self.notifyFileAvailabilityChanged(.becameUnavailable)
                 }
                 self.schedulePendingDiskPruneCheckIfNeeded()
             }
@@ -1372,14 +1382,14 @@ final class DownloadableMediaCache {
             }
             downloadedCacheBytes = fileSize(at: fileURL) + fileSize(at: metadataFileURL(for: descriptor))
 #endif
-            notifyFileAvailabilityChanged()
+            notifyFileAvailabilityChanged(.becameAvailable)
         } catch {
             if didRemoveExistingItem {
                 try? FileManager.default.removeItem(at: metadataFileURL(for: descriptor))
 #if os(iOS)
                 invalidateEstimatedDiskCacheState()
 #endif
-                notifyFileAvailabilityChanged()
+                notifyFileAvailabilityChanged(.becameUnavailable)
             }
 #if os(iOS)
             scheduleDiskPruneCheck(protecting: [descriptor], reason: .afterWrite)
@@ -1690,7 +1700,7 @@ final class DownloadableMediaCache {
 #if os(iOS)
             invalidateEstimatedDiskCacheState()
 #endif
-            notifyFileAvailabilityChanged()
+            notifyFileAvailabilityChanged(.becameUnavailable)
         }
     }
 
@@ -2058,7 +2068,7 @@ final class DownloadableMediaCache {
             didRemoveItem = removeItemIfPresent(at: url) || didRemoveItem
         }
         if didRemoveItem {
-            notifyFileAvailabilityChanged()
+            notifyFileAvailabilityChanged(.becameUnavailable)
         }
     }
 
