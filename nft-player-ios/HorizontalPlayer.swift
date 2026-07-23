@@ -1740,6 +1740,17 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, M
             && collectionBrowserVC?.view.alpha == 1
     }
 
+    func makeOnePerPageTransitionSnapshot(
+        from sourceFrame: CGRect,
+        in coordinateView: UIView
+    ) -> UIView? {
+        guard displayMode == .onePerPage else { return nil }
+        return pagingVC.makeCurrentPageTransitionSnapshot(
+            from: sourceFrame,
+            in: coordinateView
+        )
+    }
+
     func prepareCollectionBrowserSelection(
         for pagePosition: PlayerPagePosition
     ) -> MobilePlayerBrowserTransitionSelection? {
@@ -2437,6 +2448,45 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         )
 
         zoomScrollView.zoom(to: zoomRect, animated: true)
+    }
+
+    func makeTransitionSnapshot(
+        from sourceFrame: CGRect,
+        in coordinateView: UIView
+    ) -> UIView? {
+        guard isViewLoaded,
+              view.window != nil else {
+            return nil
+        }
+
+        mediaContentView.layoutIfNeeded()
+        let requestedFrameInContent = mediaContentView
+            .convert(sourceFrame, from: coordinateView)
+            .standardized
+        let containmentTolerance = 1 / max(view.window?.screen.scale ?? 1, 1)
+        let toleratedContentBounds = mediaContentView.bounds.insetBy(
+            dx: -containmentTolerance,
+            dy: -containmentTolerance
+        )
+        guard !requestedFrameInContent.isNull,
+              !requestedFrameInContent.isInfinite,
+              !requestedFrameInContent.isEmpty,
+              toleratedContentBounds.contains(requestedFrameInContent) else {
+            return nil
+        }
+
+        let snapshotFrameInContent = requestedFrameInContent
+            .intersection(mediaContentView.bounds)
+        guard !snapshotFrameInContent.isNull,
+              !snapshotFrameInContent.isEmpty else {
+            return nil
+        }
+
+        return mediaContentView.resizableSnapshotView(
+            from: snapshotFrameInContent,
+            afterScreenUpdates: false,
+            withCapInsets: .zero
+        )
     }
 
     private func boundedZoomOrigin(
@@ -3577,6 +3627,17 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
     func toggleZoom(at location: CGPoint, in coordinateView: UIView) {
         currentPage?.toggleZoom(at: location, in: coordinateView)
         updatePagingScrollEnabled()
+    }
+
+    func makeCurrentPageTransitionSnapshot(
+        from sourceFrame: CGRect,
+        in coordinateView: UIView
+    ) -> UIView? {
+        guard canStartNavigation else { return nil }
+        return currentPage?.makeTransitionSnapshot(
+            from: sourceFrame,
+            in: coordinateView
+        )
     }
 
     @discardableResult

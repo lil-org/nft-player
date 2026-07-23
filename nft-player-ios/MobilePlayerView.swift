@@ -74,6 +74,10 @@ struct MobilePlayerBrowserTransitionSelection {
 protocol MobilePlayerBrowserTransitionProviding: AnyObject {
     var isCollectionBrowserActive: Bool { get }
 
+    func makeOnePerPageTransitionSnapshot(
+        from sourceFrame: CGRect,
+        in coordinateView: UIView
+    ) -> UIView?
     func prepareCollectionBrowserSelection(
         for pagePosition: PlayerPagePosition
     ) -> MobilePlayerBrowserTransitionSelection?
@@ -235,6 +239,18 @@ final class MobilePlayerChromeController: ObservableObject {
     ) -> MobilePlayerBrowserTransitionSelection? {
         guard Thread.isMainThread else { return nil }
         return collectionBrowserTransitionProvider?.prepareCollectionBrowserSelection(for: pagePosition)
+    }
+
+    func makeOnePerPageTransitionSnapshot(
+        from sourceFrame: CGRect,
+        in coordinateView: UIView
+    ) -> UIView? {
+        guard Thread.isMainThread else { return nil }
+        return collectionBrowserTransitionProvider?
+            .makeOnePerPageTransitionSnapshot(
+                from: sourceFrame,
+                in: coordinateView
+            )
     }
 
     func cancelPreparedCollectionBrowserSelection() {

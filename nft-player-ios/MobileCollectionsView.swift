@@ -4106,11 +4106,15 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
 
     private func makeCardTransitionSnapshotView(sourceFrame: CGRect) -> UIView? {
         let sourceFrameInPlayer = cardTransitionCanvasView.convert(sourceFrame, to: view)
-        guard let snapshot = view.resizableSnapshotView(
+        let snapshot = chrome.makeOnePerPageTransitionSnapshot(
+            from: sourceFrameInPlayer,
+            in: view
+        ) ?? view.resizableSnapshotView(
             from: sourceFrameInPlayer,
             afterScreenUpdates: false,
             withCapInsets: .zero
-        ) else {
+        )
+        guard let snapshot else {
             return nil
         }
         snapshot.frame = sourceFrame
