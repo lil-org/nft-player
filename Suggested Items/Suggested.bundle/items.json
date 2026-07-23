@@ -2368,6 +2368,7 @@
     "chain" : "solana",
     "chainId" : 0,
     "name" : "swag pack",
+    "playerBackgroundColor" : "#FFFFFF",
     "tokenCount" : 467,
     "standardThumbsPathsAvailable" : true,
     "internal_slug" : "swag_pack",
