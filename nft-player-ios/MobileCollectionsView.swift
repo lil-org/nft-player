@@ -894,6 +894,8 @@ private final class InfiniteCollectionsGridContainerView: UIView {
         collectionView.contentInsetAdjustmentBehavior = .never
         collectionView.alwaysBounceVertical = true
         collectionView.isPrefetchingEnabled = true
+        // The shared PlayerTopEdgeTintView replaces the system edge tinting.
+        collectionView.hideAutomaticScrollEdgeEffects()
         collectionView.register(CollectionGridCell.self, forCellWithReuseIdentifier: CollectionGridCell.reuseIdentifier)
         addSubview(collectionView)
 
@@ -1778,7 +1780,10 @@ private struct MobileCollectionsNavigationView<RootView: View>: UIViewController
                 )
                 activeSession = session
                 navigationController.navigationBar.layer.removeAllAnimations()
-                session.interactionController.prepareForPlayerPresentation(using: nil)
+                session.interactionController.prepareForPlayerPresentation(
+                    for: session.initialStack.last,
+                    using: nil
+                )
                 if session.initialStack.count == 1,
                    let playerViewController = session.initialStack.first {
                     navigationController.pushViewController(
@@ -1795,6 +1800,7 @@ private struct MobileCollectionsNavigationView<RootView: View>: UIViewController
                     )
                 }
                 session.interactionController.prepareForPlayerPresentation(
+                    for: session.initialStack.last,
                     using: navigationController.transitionCoordinator
                 )
                 return
@@ -1928,6 +1934,7 @@ private struct MobileCollectionsNavigationView<RootView: View>: UIViewController
                     && session.initialStack.count == 1
             )
             session.interactionController.prepareForPlayerPresentation(
+                for: session.initialStack.last,
                 using: navigationController.transitionCoordinator
             )
         }
@@ -1952,6 +1959,7 @@ private struct MobileCollectionsNavigationView<RootView: View>: UIViewController
                activeSession.owns(viewController) {
                 activeSession.modeController.noteNavigationWillShow(viewController)
                 activeSession.interactionController.prepareForPlayerPresentation(
+                    for: viewController,
                     using: navigationController.transitionCoordinator
                 )
                 return
@@ -2242,10 +2250,51 @@ private final class NavigationBackDirectTouchGate: UIGestureRecognizer {
     }
 }
 
+/// Replaces the system top scroll edge tinting on the collections grid and
+/// the collection browser. The system effect samples content luminance and
+/// latches stale values across the player's masked mode switches; a fixed
+/// gradient owned by the navigation controller can never flicker, and a
+/// single shared instance keeps the grid ↔ browser transition seamless.
+private final class PlayerTopEdgeTintView: UIView {
+
+    private let gradientLayer = CAGradientLayer()
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        isUserInteractionEnabled = false
+        gradientLayer.colors = [
+            UIColor.black.withAlphaComponent(0.68).cgColor,
+            UIColor.black.withAlphaComponent(0.50).cgColor,
+            UIColor.black.withAlphaComponent(0.32).cgColor,
+            UIColor.black.withAlphaComponent(0.17).cgColor,
+            UIColor.black.withAlphaComponent(0.06).cgColor,
+            UIColor.black.withAlphaComponent(0).cgColor,
+        ]
+        gradientLayer.locations = [0, 0.2, 0.4, 0.6, 0.8, 1]
+        gradientLayer.startPoint = CGPoint(x: 0.5, y: 0)
+        gradientLayer.endPoint = CGPoint(x: 0.5, y: 1)
+        layer.addSublayer(gradientLayer)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("yo")
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        gradientLayer.frame = bounds
+        CATransaction.commit()
+    }
+}
+
 private final class PlayerNavigationController: UINavigationController {
 
     var canEnforceNavigationBarChromeVisibility: (() -> Bool)?
     weak var cardTransitionOverlayView: UIView?
+    private let topEdgeTintView = PlayerTopEdgeTintView()
     private var navigationBarChromeTargetAlpha: CGFloat?
     private var isNavigationBarChromeVisibilityEnforcementSuspended = false
     private var forcesStatusBarVisibleForCollectionBrowserTransition = false
@@ -2290,6 +2339,7 @@ private final class PlayerNavigationController: UINavigationController {
     override func viewDidLoad() {
         super.viewDidLoad()
 
+        view.insertSubview(topEdgeTintView, belowSubview: navigationBar)
         view.addGestureRecognizer(navigationBackDirectTouchGate)
         view.addGestureRecognizer(navigationBackGestureGate)
         configureNavigationBackGestureBlocking()
@@ -2357,6 +2407,7 @@ private final class PlayerNavigationController: UINavigationController {
         alignNavigationBarBelowForcedStatusBar()
         synchronizeNavigationBarChromeVisibility()
         keepCardTransitionOverlayBelowNavigationBar()
+        layoutTopEdgeTint()
     }
 
     private func keepCardTransitionOverlayBelowNavigationBar() {
@@ -2370,6 +2421,33 @@ private final class PlayerNavigationController: UINavigationController {
         // canvas directly beneath the navigation bar so morphs cover both
         // player view controllers.
         view.insertSubview(cardTransitionOverlayView, belowSubview: navigationBar)
+    }
+
+    /// Keeps the shared tint stretched over the top edge and directly
+    /// beneath the navigation bar — above pushed content, the transition
+    /// container, and the morph canvas, so grid ↔ browser transitions and
+    /// card morphs all render beneath one continuous tint.
+    func assertTopEdgeTintPlacement() {
+        layoutTopEdgeTint()
+    }
+
+    private func layoutTopEdgeTint() {
+        let tintHeight = max(view.safeAreaInsets.top, 20) + 112
+        topEdgeTintView.frame = CGRect(
+            x: 0,
+            y: 0,
+            width: view.bounds.width,
+            height: tintHeight
+        )
+        view.insertSubview(topEdgeTintView, belowSubview: navigationBar)
+    }
+
+    func setTopEdgeTintAlpha(_ alpha: CGFloat) {
+        topEdgeTintView.alpha = min(max(alpha, 0), 1)
+    }
+
+    var topEdgeTintAlpha: CGFloat {
+        topEdgeTintView.alpha
     }
 
     override func setNavigationBarHidden(_ hidden: Bool, animated: Bool) {
@@ -3040,6 +3118,8 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
     private var isCardMinimizeLayoutApplied = false
     private var isCardExpandAnimationComplete = false
     private var isCardExpandLayoutApplied = false
+    private var topEdgeTintAnimator: UIViewPropertyAnimator?
+    private var pendingTopEdgeTintWorkItem: DispatchWorkItem?
     private var didControlsPanConflictWithHorizontalScroll = false
     private var isNavigationBackDisplayModeRequestPending = false
     private var chromeCancellables = Set<AnyCancellable>()
@@ -3209,6 +3289,7 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
         view.transform = .identity
         playerNavigationController.navigationBar.layer.removeAllAnimations()
         playerNavigationController.navigationBar.alpha = 1
+        setTopEdgeTintAlphaDirectly(1)
         playerNavigationController.setNeedsStatusBarAppearanceUpdate()
     }
 
@@ -3225,6 +3306,10 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
             .setNavigationBarChromeVisibilityEnforcementSuspended(false)
         installNavigationBackAction()
         setNavigationBarChromeVisible(shouldShowNavigationBarChrome, animated: true)
+        updateTopEdgeTint(
+            forPagerTarget: playerNavigationController.topViewController === playerViewController,
+            using: nil
+        )
         playerNavigationController.configureNavigationBackGestureBlocking()
         configurePagingScrollViews()
         playerNavigationController.setNeedsStatusBarAppearanceUpdate()
@@ -3243,6 +3328,7 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
         UIView.performWithoutAnimation {
             navigationBar.alpha = 1
         }
+        updateTopEdgeTint(forPagerTarget: false, using: transitionCoordinator)
         guard let transitionCoordinator else { return }
 
         transitionCoordinator.animate { _ in
@@ -3253,6 +3339,7 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
     }
 
     func prepareForPlayerPresentation(
+        for targetViewController: UIViewController?,
         using transitionCoordinator: (any UIViewControllerTransitionCoordinator)?
     ) {
         playerNavigationController
@@ -3266,6 +3353,10 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
             shouldShowNavigationBarChrome,
             animated: false
         )
+        updateTopEdgeTint(
+            forPagerTarget: targetViewController === playerViewController,
+            using: transitionCoordinator
+        )
         guard let transitionCoordinator else {
             return
         }
@@ -3275,6 +3366,70 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
                 navigationBar.alpha = targetAlpha
             }
         }
+    }
+
+    /// The shared top edge tint shows over the collections grid and the
+    /// browser, and hides for the one-per-page player. Card morphs own it
+    /// while they run; navigation transitions fade it alongside their
+    /// animation.
+    private func updateTopEdgeTint(
+        forPagerTarget isPagerTarget: Bool,
+        using transitionCoordinator: (any UIViewControllerTransitionCoordinator)?
+    ) {
+        guard !isCardTransitionActive else { return }
+
+        let targetAlpha: CGFloat = isPagerTarget ? 0 : 1
+        guard playerNavigationController.topEdgeTintAlpha != targetAlpha else {
+            cancelScheduledTopEdgeTintChanges()
+            return
+        }
+        guard let transitionCoordinator else {
+            setTopEdgeTintAlphaDirectly(targetAlpha)
+            return
+        }
+
+        cancelScheduledTopEdgeTintChanges()
+        transitionCoordinator.animate { [weak self] _ in
+            self?.playerNavigationController.setTopEdgeTintAlpha(targetAlpha)
+        }
+    }
+
+    // Every tint change supersedes anything still scheduled: a leftover
+    // delayed fade from one transition must never fire into the next one
+    // and knock the tint out over visible browser content.
+    private func cancelScheduledTopEdgeTintChanges() {
+        pendingTopEdgeTintWorkItem?.cancel()
+        pendingTopEdgeTintWorkItem = nil
+        if let topEdgeTintAnimator, topEdgeTintAnimator.state != .inactive {
+            topEdgeTintAnimator.stopAnimation(true)
+        }
+        topEdgeTintAnimator = nil
+    }
+
+    private func setTopEdgeTintAlphaDirectly(_ alpha: CGFloat) {
+        cancelScheduledTopEdgeTintChanges()
+        playerNavigationController.setTopEdgeTintAlpha(alpha)
+    }
+
+    private func animateTopEdgeTint(to alpha: CGFloat, delay: TimeInterval = 0) {
+        cancelScheduledTopEdgeTintChanges()
+
+        let startAnimation = { [weak self] in
+            guard let self else { return }
+            let animator = UIViewPropertyAnimator(duration: 0.06, curve: .linear) {
+                self.playerNavigationController.setTopEdgeTintAlpha(alpha)
+            }
+            self.topEdgeTintAnimator = animator
+            animator.startAnimation()
+        }
+        guard delay > 0 else {
+            startAnimation()
+            return
+        }
+
+        let workItem = DispatchWorkItem(block: startAnimation)
+        pendingTopEdgeTintWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: workItem)
     }
 
     private func observePlayerBackgroundColor() {
@@ -3826,6 +3981,10 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
         playerNavigationController
             .setCollectionBrowserTransitionStatusBarVisible(true)
         chrome.setPlayerContentHiddenForCardTransition(true)
+        // The browser tint arrives at full strength instantly: a fast gesture
+        // can reveal the cells within a frame, so even a short ramp would let
+        // them show through an intermediate, lighter tint.
+        setTopEdgeTintAlphaDirectly(1)
         return true
     }
 
@@ -3935,6 +4094,7 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
                 self.isCardMinimizeAnimationComplete = true
                 self.finishCardMinimizeTransitionIfReady()
             })
+            animateTopEdgeTint(to: 1)
         }
     }
 
@@ -3954,6 +4114,7 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
             self.isCardMinimizeAnimationComplete = true
             self.finishCardMinimizeTransitionIfReady()
         })
+        animateTopEdgeTint(to: 1)
     }
 
     private func finishCardMinimizeTransitionIfReady() {
@@ -4008,6 +4169,9 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
             self.isCardExpandAnimationComplete = true
             self.finishCardExpandTransitionIfReady()
         })
+        // The underlay cells must stay fully tinted for as long as they are
+        // visible; clear the tint in the last stretch of the expansion.
+        animateTopEdgeTint(to: 0, delay: 0.12)
     }
 
     private func finishCardExpandTransitionIfReady() {
@@ -4104,6 +4268,7 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
         let otherCardsRevealProgress = easeOutQuadratic(underlayFadeProgress)
             * MobilePlayerGestureTuning.cardMinimizeInteractiveOtherCardsMaximumRevealProgress
         context.underlayView.setOtherCardsRevealProgress(otherCardsRevealProgress)
+        setTopEdgeTintAlphaDirectly(1)
     }
 
     private func cardMinimizeForegroundScale(
@@ -4191,6 +4356,7 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
                 cancelPreparedBrowserSelection: true
             )
         })
+        animateTopEdgeTint(to: 0, delay: 0.22)
     }
 
     private func resetCardExpandTransform() {
@@ -4204,6 +4370,7 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
         }, completion: { [weak self] _ in
             self?.cleanupCardExpandTransition(revealPlayer: true)
         })
+        animateTopEdgeTint(to: 1)
     }
 
     private func makeCardMinimizeTransitionContext(
@@ -4383,6 +4550,7 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
     ) -> CardTransitionUnderlayView {
         setCardTransitionCanvasActive(true)
         playerNavigationController.view.layoutIfNeeded()
+        playerNavigationController.assertTopEdgeTintPlacement()
         let underlayView = CardTransitionUnderlayView(itemSnapshots: itemSnapshots)
         underlayView.frame = cardTransitionCanvasView.bounds
         underlayView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
