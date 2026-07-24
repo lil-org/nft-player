@@ -2432,12 +2432,18 @@ private final class PlayerNavigationController: UINavigationController {
     }
 
     private func layoutTopEdgeTint() {
-        let tintHeight = max(view.safeAreaInsets.top, 20) + 112
+        // The tint's only purpose is backing the status bar: its depth scales
+        // with the status bar inset (larger on iPhone's sensor housing,
+        // shallow on iPad), and without a status bar region — like landscape
+        // iPhone — it disappears entirely.
+        let statusBarInset = view.safeAreaInsets.top
+        let hasStatusBarRegion = statusBarInset >= 20
+        topEdgeTintView.isHidden = !hasStatusBarRegion
         topEdgeTintView.frame = CGRect(
             x: 0,
             y: 0,
             width: view.bounds.width,
-            height: tintHeight
+            height: statusBarInset * 2.9
         )
         view.insertSubview(topEdgeTintView, belowSubview: navigationBar)
     }
