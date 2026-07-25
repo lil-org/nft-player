@@ -1,0 +1,165 @@
+name: Export CDN token URLs
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Build CDN token URL JSON
+        shell: bash
+        run: |
+          python3 <<'PY'
+          import json
+          import re
+          from collections import defaultdict
+          from pathlib import Path
+          from urllib.parse import urlparse
+
+          bundle = Path("Suggested Items/Suggested.bundle")
+          items_path = bundle / "items.json"
+          tokens_dir = bundle / "Tokens"
+          output_path = Path("cdn-lil-org-token-urls.json")
+
+          def slugify(value):
+              value = re.sub(r"[^a-z0-9]+", "-", str(value).lower()).strip("-")
+              return value or "collection"
+
+          def collection_id(item):
+              suffix = item.get("abId")
+              if suffix is None:
+                  suffix = item.get("collectionId")
+              if suffix is None:
+                  suffix = ""
+              return f"{item.get('address', '')}{suffix}"
+
+          items = json.loads(items_path.read_text(encoding="utf-8"))
+          exact_slugs = defaultdict(list)
+          ethereum_slugs = defaultdict(list)
+
+          for item in items:
+              cid = collection_id(item)
+              slug = item.get("internal_slug") or slugify(item.get("name") or cid)
+              if slug not in exact_slugs[cid]:
+                  exact_slugs[cid].append(slug)
+              if str(item.get("chain", "")).lower() == "ethereum":
+                  lowered = cid.lower()
+                  if slug not in ethereum_slugs[lowered]:
+                      ethereum_slugs[lowered].append(slug)
+
+          def resolve_url(row, prefixes):
+              if isinstance(row, list) and len(row) >= 3:
+                  prefix_index = row[1]
+                  suffix = row[2]
+                  if not isinstance(suffix, str):
+                      return None
+                  if isinstance(prefix_index, int) and 0 <= prefix_index < len(prefixes):
+                      prefix = prefixes[prefix_index]
+                      if isinstance(prefix, str):
+                          return prefix + suffix
+                  return suffix
+              if isinstance(row, dict):
+                  value = row.get("url")
+                  return value if isinstance(value, str) else None
+              return None
+
+          def fallback_slug_from_urls(urls, manifest_stem):
+              for url in urls:
+                  parsed = urlparse(url)
+                  parts = [part for part in parsed.path.split("/") if part]
+                  if "player" in parts:
+                      index = parts.index("player")
+                      if index + 1 < len(parts):
+                          return slugify(parts[index + 1])
+                  if parts:
+                      return slugify(parts[0])
+              return slugify(manifest_stem)
+
+          result = defaultdict(list)
+          cdn_rows = 0
+          excluded_thumb_rows = 0
+          unmatched_manifests = []
+          malformed_manifests = []
+
+          for manifest_path in sorted(tokens_dir.glob("*.json"), key=lambda path: path.name.lower()):
+              try:
+                  payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+              except Exception as error:
+                  malformed_manifests.append(f"{manifest_path.name}: {error}")
+                  continue
+
+              prefixes = payload.get("urlPrefixes") or []
+              rows = payload.get("items") or []
+              urls = []
+
+              for row in rows:
+                  url = resolve_url(row, prefixes)
+                  if not url:
+                      continue
+                  parsed = urlparse(url)
+                  if (parsed.hostname or "").lower() != "cdn.lil.org":
+                      continue
+                  if "thumb" in url.lower():
+                      excluded_thumb_rows += 1
+                      continue
+                  urls.append(url)
+                  cdn_rows += 1
+
+              if not urls:
+                  continue
+
+              manifest_stem = manifest_path.stem
+              slugs = exact_slugs.get(manifest_stem)
+              if not slugs and manifest_stem.lower().startswith("0x"):
+                  slugs = ethereum_slugs.get(manifest_stem.lower())
+              if not slugs:
+                  slugs = [fallback_slug_from_urls(urls, manifest_stem)]
+                  unmatched_manifests.append(manifest_path.name)
+
+              for slug in slugs:
+                  result[slug].extend(urls)
+
+          if malformed_manifests:
+              raise RuntimeError("Malformed token manifests:\n" + "\n".join(malformed_manifests))
+
+          ordered = {slug: result[slug] for slug in sorted(result)}
+
+          for slug, urls in ordered.items():
+              for url in urls:
+                  parsed = urlparse(url)
+                  if (parsed.hostname or "").lower() != "cdn.lil.org":
+                      raise RuntimeError(f"Non-CDN URL in {slug}: {url}")
+                  if "thumb" in url.lower():
+                      raise RuntimeError(f"Thumbnail URL in {slug}: {url}")
+
+          output_path.write_text(
+              json.dumps(ordered, indent=2, ensure_ascii=False) + "\n",
+              encoding="utf-8",
+          )
+
+          print(f"collections={len(ordered)}")
+          print(f"token_urls={sum(len(urls) for urls in ordered.values())}")
+          print(f"cdn_manifest_rows={cdn_rows}")
+          print(f"excluded_thumb_rows={excluded_thumb_rows}")
+          print(f"fallback_slug_manifests={len(unmatched_manifests)}")
+          print(f"output_bytes={output_path.stat().st_size}")
+          if unmatched_manifests:
+              print("fallback_manifest_names=" + ",".join(unmatched_manifests))
+          PY
+
+      - name: Upload JSON
+        uses: actions/upload-artifact@v4
+        with:
+          name: cdn-lil-org-token-urls
+          path: cdn-lil-org-token-urls.json
+          if-no-files-found: error
+          retention-days: 1
