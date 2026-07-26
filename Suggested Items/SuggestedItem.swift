@@ -70,4 +70,72 @@ struct SuggestedArtist: Identifiable, Hashable {
     let x: URL?
     let bluesky: URL?
 
+    var links: [SuggestedArtistLink] {
+        [
+            website.map {
+                SuggestedArtistLink(
+                    kind: .website,
+                    destination: $0
+                )
+            },
+            x.map {
+                SuggestedArtistLink(
+                    kind: .x,
+                    destination: $0
+                )
+            },
+            bluesky.map {
+                SuggestedArtistLink(
+                    kind: .bluesky,
+                    destination: $0
+                )
+            },
+        ]
+        .compactMap { $0 }
+    }
+
+}
+
+struct SuggestedArtistLink: Identifiable, Hashable {
+
+    enum Kind: Hashable {
+        case website
+        case x
+        case bluesky
+    }
+
+    var id: Kind { kind }
+
+    let kind: Kind
+    let destination: URL
+
+    var title: String {
+        switch kind {
+        case .website:
+            return Self.websiteAddress(from: destination)
+        case .x, .bluesky:
+            return Self.socialHandle(from: destination)
+        }
+    }
+
+    private static func websiteAddress(from url: URL) -> String {
+        var address = url.absoluteString
+        if let scheme = url.scheme {
+            let schemePrefix = scheme + "://"
+            if address.lowercased().hasPrefix(schemePrefix.lowercased()) {
+                address.removeFirst(schemePrefix.count)
+            }
+        }
+        return address.hasSuffix("/")
+            ? String(address.dropLast())
+            : address
+    }
+
+    private static func socialHandle(from url: URL) -> String {
+        let pathComponent = url.lastPathComponent.removingPercentEncoding
+            ?? url.lastPathComponent
+        guard !pathComponent.isEmpty else { return url.absoluteString }
+        return pathComponent.hasPrefix("@") ? pathComponent : "@" + pathComponent
+    }
+
 }

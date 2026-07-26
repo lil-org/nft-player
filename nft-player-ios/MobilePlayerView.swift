@@ -532,38 +532,16 @@ struct MobilePlayerView: View {
         let artists = SuggestedItemsService.artists(
             forCollectionId: currentToken.fullCollectionId
         )
-        let hasArtistLinks = artists.contains {
-            $0.website != nil || $0.x != nil || $0.bluesky != nil
-        }
+        let hasArtistLinks = artists.contains { !$0.links.isEmpty }
 
         return Menu {
             ForEach(artists) { artist in
-                if let website = artist.website {
-                    Link(destination: website) {
+                ForEach(artist.links) { link in
+                    Link(destination: link.destination) {
                         Label {
-                            Text(verbatim: websiteAddress(from: website))
+                            Text(verbatim: link.title)
                         } icon: {
-                            Images.website
-                        }
-                    }
-                }
-
-                if let x = artist.x {
-                    Link(destination: x) {
-                        Label {
-                            Text(verbatim: socialHandle(from: x))
-                        } icon: {
-                            Images.xLogo
-                        }
-                    }
-                }
-
-                if let bluesky = artist.bluesky {
-                    Link(destination: bluesky) {
-                        Label {
-                            Text(verbatim: socialHandle(from: bluesky))
-                        } icon: {
-                            Images.blueskyLogo
+                            artistLinkIcon(for: link.kind)
                         }
                     }
                 }
@@ -628,22 +606,16 @@ struct MobilePlayerView: View {
         }
     }
 
-    private func websiteAddress(from url: URL) -> String {
-        let address = url.absoluteString
-        let secureScheme = "https://"
-        let withoutScheme = address.hasPrefix(secureScheme)
-            ? String(address.dropFirst(secureScheme.count))
-            : address
-        return withoutScheme.hasSuffix("/")
-            ? String(withoutScheme.dropLast())
-            : withoutScheme
-    }
-
-    private func socialHandle(from url: URL) -> String {
-        let pathComponent = url.lastPathComponent.removingPercentEncoding
-            ?? url.lastPathComponent
-        guard !pathComponent.isEmpty else { return url.absoluteString }
-        return pathComponent.hasPrefix("@") ? pathComponent : "@" + pathComponent
+    @ViewBuilder
+    private func artistLinkIcon(for kind: SuggestedArtistLink.Kind) -> some View {
+        switch kind {
+        case .website:
+            Images.website
+        case .x:
+            Images.xLogo
+        case .bluesky:
+            Images.blueskyLogo
+        }
     }
 
     private var canBookmarkCurrentToken: Bool {

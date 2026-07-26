@@ -594,7 +594,37 @@ private struct InfiniteCollectionsGridView: UIViewRepresentable {
                 let playAction = UIAction(title: Strings.play, image: UIImage(systemName: "play")) { _ in
                     self?.onSelect(item)
                 }
-                return UIMenu(title: item.name, children: [playAction])
+                let artistLinkMenus = Self.artistLinkMenus(forCollectionId: item.id)
+                let children: [UIMenuElement] = [playAction] + artistLinkMenus
+
+                return UIMenu(title: item.name, children: children)
+            }
+        }
+
+        private static func artistLinkMenus(forCollectionId collectionId: String) -> [UIMenu] {
+            SuggestedItemsService.artists(forCollectionId: collectionId).compactMap { artist in
+                let actions = artist.links.map { link in
+                    UIAction(
+                        title: link.title,
+                        image: artistLinkImage(for: link.kind)
+                    ) { _ in
+                        UIApplication.shared.open(link.destination)
+                    }
+                }
+
+                guard !actions.isEmpty else { return nil }
+                return UIMenu(options: .displayInline, children: actions)
+            }
+        }
+
+        private static func artistLinkImage(for kind: SuggestedArtistLink.Kind) -> UIImage? {
+            switch kind {
+            case .website:
+                UIImage(systemName: "globe")
+            case .x:
+                UIImage(named: "XLogo")
+            case .bluesky:
+                UIImage(named: "BlueskyLogo")
             }
         }
 
