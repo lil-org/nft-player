@@ -236,6 +236,27 @@ test("collection and artist catalogs have exact bidirectional links", () => {
   }
 });
 
+test("catalog web URL overrides are absolute HTTP URLs", () => {
+  const items = readJSON(ITEMS_PATH);
+
+  for (const item of items) {
+    for (const field of ["webURL", "collectionWebURL"]) {
+      if (item[field] == null) continue;
+
+      const url = new URL(item[field]);
+      assert.ok(
+        url.protocol === "http:" || url.protocol === "https:",
+        `${item.internal_slug}.${field} must use HTTP or HTTPS`
+      );
+      assert.notEqual(
+        url.hostname,
+        "",
+        `${item.internal_slug}.${field} must have a hostname`
+      );
+    }
+  }
+});
+
 test("catalog IDs exactly match token manifest and cover asset casing", () => {
   const items = readJSON(ITEMS_PATH);
   const scriptIds = scriptCollectionIds();

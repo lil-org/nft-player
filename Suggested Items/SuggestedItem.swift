@@ -37,7 +37,10 @@ struct SuggestedItem: Identifiable, Hashable, Codable {
     let iosOnly: Bool?
     let iosCollectionBrowserColumnCount: Int?
     let playerBackgroundColor: String?
+    /// Optional destination override used for each token in the collection.
     let webURL: String?
+    /// Optional collection-level destination, including curated marketplace pages.
+    let collectionWebURL: String?
     let standardThumbsPathsAvailable: Bool?
     let standardThumbsBaseURL: String?
     let artists: [String]
@@ -55,6 +58,7 @@ struct SuggestedItem: Identifiable, Hashable, Codable {
         case iosCollectionBrowserColumnCount
         case playerBackgroundColor
         case webURL
+        case collectionWebURL
         case standardThumbsPathsAvailable
         case standardThumbsBaseURL
         case artists

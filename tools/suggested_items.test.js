@@ -39,6 +39,30 @@ test("preserves standard thumbnail metadata when regenerating a suggested item",
   });
 });
 
+test("preserves token and collection web URL overrides when regenerating a suggested item", () => {
+  const existingItem = {
+    address: "collection-id",
+    chain: "ethereum",
+    webURL: "https://explorer.example/token/collection-id/instance/1",
+    collectionWebURL: "https://marketplace.example/collection/example",
+  };
+  const generatedItem = {
+    address: "collection-id",
+    chain: "ethereum",
+    name: "Example Collection",
+    tokenCount: 100,
+  };
+
+  assert.deepEqual(mergeGeneratedSuggestedItem(existingItem, generatedItem), {
+    webURL: "https://explorer.example/token/collection-id/instance/1",
+    collectionWebURL: "https://marketplace.example/collection/example",
+    address: "collection-id",
+    chain: "ethereum",
+    name: "Example Collection",
+    tokenCount: 100,
+  });
+});
+
 test("encodes automatic two-column decisions and preserves manual three-column overrides", () => {
   const item = {
     address: "collection-id",

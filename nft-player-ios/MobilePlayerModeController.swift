@@ -26,8 +26,8 @@ protocol MobilePlayerPagerProviding: AnyObject {
 }
 
 /// Navigation-stack entry hosting the in-player collection browser.
-/// Contributes no toolbar items and never hides the status bar, matching the
-/// browser display mode of the previous single-controller player.
+/// Contributes the browser's more menu and never hides the status bar,
+/// matching the browser display mode of the previous single-controller player.
 final class MobilePlayerBrowserPageViewController: UIViewController {
 
     weak var modeController: MobilePlayerSessionModeController?
@@ -39,6 +39,8 @@ final class MobilePlayerBrowserPageViewController: UIViewController {
     private let contentViewController: VerticalCollectionBrowserViewController
     private var playerPageBackgroundColor = MobilePlayerBackgroundColor.defaultColor
     private var chromeCancellables = Set<AnyCancellable>()
+    private lazy var moreMenu = makeMoreMenu()
+    private lazy var moreBarButtonItem = makeMoreBarButtonItem()
 
     var currentPagePosition: PlayerPagePosition? {
         contentViewController.currentPagePosition
@@ -53,6 +55,7 @@ final class MobilePlayerBrowserPageViewController: UIViewController {
         // Keep the pager's visible back button chevron-only while its
         // long-press menu still lists this entry by collection name.
         navigationItem.backButtonDisplayMode = .minimal
+        navigationItem.rightBarButtonItem = moreBarButtonItem
 
         contentViewController.onFocusedPagePosition = { [weak self] pagePosition in
             guard let self,
@@ -103,6 +106,7 @@ final class MobilePlayerBrowserPageViewController: UIViewController {
                 guard let self else { return }
                 self.contentViewController.view.alpha = isHidden ? 0 : 1
                 self.contentViewController.view.isUserInteractionEnabled = !isHidden
+                self.moreBarButtonItem.menu = isHidden ? nil : self.moreMenu
             }
             .store(in: &chromeCancellables)
     }
@@ -195,6 +199,87 @@ final class MobilePlayerBrowserPageViewController: UIViewController {
     private func applyPlayerPageBackground() {
         view.backgroundColor = playerPageBackgroundColor
         view.isOpaque = true
+    }
+
+    /// Mirrors the one-per-page player's more menu — artist links plus the
+    /// block explorer entry — except the explorer opens the collection
+    /// address instead of a specific token.
+    private func makeMoreMenu() -> UIMenu {
+        let deferredElement = UIDeferredMenuElement.uncached { [weak self] completion in
+            completion(self?.moreMenuElements() ?? [])
+        }
+        return UIMenu(children: [deferredElement])
+    }
+
+    private func makeMoreBarButtonItem() -> UIBarButtonItem {
+        let item = UIBarButtonItem(
+            image: UIImage(systemName: "ellipsis"),
+            menu: moreMenu
+        )
+        item.preferredMenuElementOrder = .fixed
+        item.accessibilityLabel = Strings.more
+        return item
+    }
+
+    private func moreMenuElements() -> [UIMenuElement] {
+        guard !chrome.isPlayerContentHiddenForCardTransition else { return [] }
+
+        let collectionId = currentMenuCollectionId
+        var elements: [UIMenuElement] = artistLinkMenus(forCollectionId: collectionId)
+
+        if let collectionURL = CollectionCatalog.collectionWebURL(
+            specificCollectionId: collectionId
+        ) {
+            let blockExplorerAction = UIAction(
+                title: Strings.viewOnBlockExplorer
+            ) { [weak self] _ in
+                self?.openMoreMenuURL(collectionURL)
+            }
+            elements.append(UIMenu(options: .displayInline, children: [blockExplorerAction]))
+        }
+
+        return elements
+    }
+
+    private var currentMenuCollectionId: String {
+        let pagePosition = contentViewController.currentPagePosition
+            ?? MobilePlaybackController.shared.startPagePosition(uuid: configID)
+        return MobilePlaybackController.shared.getToken(
+            uuid: configID,
+            pagePosition: pagePosition
+        ).fullCollectionId
+    }
+
+    private func artistLinkMenus(forCollectionId collectionId: String) -> [UIMenu] {
+        SuggestedItemsService.artists(forCollectionId: collectionId).compactMap { artist in
+            let actions = artist.links.map { link in
+                UIAction(
+                    title: link.title,
+                    image: Self.artistLinkImage(for: link.kind)
+                ) { [weak self] _ in
+                    self?.openMoreMenuURL(link.destination)
+                }
+            }
+
+            guard !actions.isEmpty else { return nil }
+            return UIMenu(options: .displayInline, children: actions)
+        }
+    }
+
+    private func openMoreMenuURL(_ url: URL) {
+        guard !chrome.isPlayerContentHiddenForCardTransition else { return }
+        UIApplication.shared.open(url)
+    }
+
+    private static func artistLinkImage(for kind: SuggestedArtistLink.Kind) -> UIImage? {
+        switch kind {
+        case .website:
+            UIImage(systemName: "globe")
+        case .x:
+            UIImage(named: "XLogo")
+        case .bluesky:
+            UIImage(named: "BlueskyLogo")
+        }
     }
 
     private func handleFocusedPagePosition(_ pagePosition: PlayerPagePosition) {

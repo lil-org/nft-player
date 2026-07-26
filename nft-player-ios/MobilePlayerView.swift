@@ -484,10 +484,14 @@ struct MobilePlayerView: View {
         .navigationBarBackButtonHidden(true)
         .statusBar(hidden: shouldHideStatusBar)
         .toolbar {
+            // The more button stays mounted across the card transition so it
+            // survives the browser ↔ pager swap the way the back item does.
+            ToolbarItem(placement: .navigationBarTrailing) {
+                infoMenu
+                    .allowsHitTesting(!chrome.isPlayerContentHiddenForCardTransition)
+                    .accessibilityHidden(chrome.isPlayerContentHiddenForCardTransition)
+            }
             if !chrome.isPlayerContentHiddenForCardTransition {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    infoMenu
-                }
                 ToolbarItem(placement: .principal) {
                     if chrome.showControls {
                         PlayerCollectionTitlePill(
@@ -537,13 +541,16 @@ struct MobilePlayerView: View {
         return Menu {
             ForEach(artists) { artist in
                 ForEach(artist.links) { link in
-                    Link(destination: link.destination) {
+                    Button {
+                        openMoreMenuURL(link.destination)
+                    } label: {
                         Label {
                             Text(verbatim: link.title)
                         } icon: {
                             artistLinkIcon(for: link.kind)
                         }
                     }
+                    .disabled(chrome.isPlayerContentHiddenForCardTransition)
                 }
             }
 
@@ -556,8 +563,10 @@ struct MobilePlayerView: View {
                     Strings.viewFullscreen,
                     isOn: bundledGenerativeFullscreenBinding
                 )
+                .disabled(chrome.isPlayerContentHiddenForCardTransition)
             }
             Button(Strings.viewOnBlockExplorer, action: viewOnWeb)
+                .disabled(chrome.isPlayerContentHiddenForCardTransition)
         } label: {
             Images.ellipsis
         }
@@ -593,6 +602,7 @@ struct MobilePlayerView: View {
                 bundledGenerativePresentationMode == .fullscreen
             },
             set: { isFullscreen in
+                guard !chrome.isPlayerContentHiddenForCardTransition else { return }
                 bundledGenerativePresentationMode = isFullscreen
                     ? .fullscreen
                     : .thumbnailAspectFit
@@ -601,9 +611,13 @@ struct MobilePlayerView: View {
     }
     
     private func viewOnWeb() {
-        if let url = currentToken.url {
-            UIApplication.shared.open(url)
-        }
+        guard let url = currentToken.url else { return }
+        openMoreMenuURL(url)
+    }
+
+    private func openMoreMenuURL(_ url: URL) {
+        guard !chrome.isPlayerContentHiddenForCardTransition else { return }
+        UIApplication.shared.open(url)
     }
 
     @ViewBuilder

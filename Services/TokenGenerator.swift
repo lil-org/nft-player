@@ -206,6 +206,14 @@ struct TokenGenerator {
         return generateToken(randomToken, script: collectionData.script)
     }
 
+    static func collectionWebURL(specificCollectionId: String) -> URL? {
+        guard let script = script(specificCollectionId: specificCollectionId) else { return nil }
+        if script.chain == .solana {
+            return URL(string: "https://explorer.solana.com/address/\(script.address)")
+        }
+        return NftGallery.blockExplorer.url(network: .mainnet, chain: .ethereum, collectionAddress: script.address, tokenId: nil)
+    }
+
     private static func collectionData(specificCollectionId: String) -> CollectionTokenData? {
         collectionData(jsonName: specificCollectionId + ".json")
     }

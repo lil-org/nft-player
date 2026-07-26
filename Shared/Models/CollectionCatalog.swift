@@ -915,6 +915,19 @@ enum CollectionCatalog {
         return TokenGenerator.generateToken(specificCollectionId: specificCollectionId, tokenIndex: tokenIndex)
     }
 
+    static func collectionWebURL(specificCollectionId: String) -> URL? {
+        if let collectionWebURLString = SuggestedItemsService.item(
+            id: specificCollectionId
+        )?.collectionWebURL,
+           let collectionWebURL = URL(string: collectionWebURLString) {
+            return collectionWebURL
+        }
+        if DownloadableCollectionService.hasCollection(id: specificCollectionId) {
+            return DownloadableCollectionService.collectionWebURL(collectionId: specificCollectionId)
+        }
+        return TokenGenerator.collectionWebURL(specificCollectionId: specificCollectionId)
+    }
+
     static func canGenerateToken(specificCollectionId: String, tokenIndex: Int) -> Bool {
         guard tokenIndex >= 0 else { return false }
         if DownloadableCollectionService.hasCollection(id: specificCollectionId) {
@@ -1201,6 +1214,19 @@ private enum DownloadableCollectionService {
             return "#\(tokenIndex + 1)"
         }
         return "#\(token.id)"
+    }
+
+    static func collectionWebURL(collectionId: String) -> URL? {
+        guard let collection = index.collectionById[collectionId] else { return nil }
+        if collection.chain == .solana {
+            return URL(string: "https://explorer.solana.com/address/\(collection.address)")
+        }
+        return NftGallery.blockExplorer.url(
+            network: collection.network,
+            chain: collection.chain,
+            collectionAddress: collection.address,
+            tokenId: nil
+        )
     }
 
     private static func webURL(collection: DownloadableCollectionIndexItem, tokenId: String) -> URL? {

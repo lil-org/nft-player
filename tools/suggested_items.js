@@ -18,6 +18,7 @@ const LATIN_ASCII_REPLACEMENTS = new Map([
 const PRESERVED_GENERATED_SUGGESTED_ITEM_FIELDS = [
   "playerBackgroundColor",
   "webURL",
+  "collectionWebURL",
   "internal_slug",
   "artists",
   IOS_COLLECTION_BROWSER_COLUMN_COUNT_KEY,
