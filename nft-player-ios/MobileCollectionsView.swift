@@ -3041,6 +3041,7 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
 
     private static let cardTransitionHorizontalDragDamping: CGFloat = 0.18
     private static let cardTransitionVerticalDragDamping: CGFloat = 0.32
+    private static let cardMinimizeAnimationDuration: TimeInterval = 0.22
     private static let navigationBarSideControlRegionWidth: CGFloat = 96
     private static let navigationBarShowDuration: TimeInterval = 0
     private static let navigationBarHideDuration: TimeInterval = 0
@@ -3050,6 +3051,11 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
         case offscreen
     }
 
+    private struct ZoomedCardMinimizeForeground {
+        let view: UIView
+        let sourceFrame: CGRect
+    }
+
     private struct CardMinimizeTransitionContext {
         let id: UUID
         let sourcePagePosition: PlayerPagePosition
@@ -3057,6 +3063,7 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
         let targetScale: CGFloat
         let commitDestination: CardMinimizeCommitDestination
         let foregroundView: UIView
+        let zoomedForeground: ZoomedCardMinimizeForeground?
         let underlayView: CardTransitionUnderlayView
         let hasPreparedBrowserSelection: Bool
     }
@@ -3154,6 +3161,7 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
     private var isCardMinimizeLayoutApplied = false
     private var isCardExpandAnimationComplete = false
     private var isCardExpandLayoutApplied = false
+    private var playerInteractionEnabledBeforeLivePagerFade: Bool?
     private var topEdgeTintAnimator: UIViewPropertyAnimator?
     private var pendingTopEdgeTintWorkItem: DispatchWorkItem?
     private var didControlsPanConflictWithHorizontalScroll = false
@@ -3929,10 +3937,6 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
     }
 
     private func beginProgrammaticCardMinimize() -> Bool {
-        guard !chrome.isPlayerContentZoomed else {
-            return false
-        }
-
         guard !isCardTransitionActive else {
             return true
         }
@@ -4119,17 +4123,21 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
         case .browserCell(let targetFrame):
             let foregroundView = context.foregroundView
 
-            UIView.animate(withDuration: 0.22, delay: 0, options: [.curveEaseOut, .beginFromCurrentState], animations: {
+            animateCardMinimizeTransition(
+                context: context,
+                options: [.curveEaseOut, .beginFromCurrentState]
+            ) {
                 foregroundView.transform = .identity
                 foregroundView.bounds = CGRect(origin: .zero, size: targetFrame.size)
                 foregroundView.center = CGPoint(x: targetFrame.midX, y: targetFrame.midY)
+                if let zoomedForeground = context.zoomedForeground {
+                    self.applyZoomedCardMinimizePresentation(
+                        zoomedForeground,
+                        frame: targetFrame
+                    )
+                }
                 context.underlayView.setOtherCardsRevealProgress(1)
-            }, completion: { [weak self] _ in
-                guard let self else { return }
-
-                self.isCardMinimizeAnimationComplete = true
-                self.finishCardMinimizeTransitionIfReady()
-            })
+            }
             animateTopEdgeTint(to: 1)
         }
     }
@@ -4141,16 +4149,61 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
             y: view.bounds.maxY + max(foregroundView.bounds.height, context.sourceFrame.height)
         )
 
-        UIView.animate(withDuration: 0.22, delay: 0, options: [.curveEaseIn, .beginFromCurrentState], animations: {
+        animateCardMinimizeTransition(
+            context: context,
+            options: [.curveEaseIn, .beginFromCurrentState]
+        ) {
             foregroundView.center = finalCenter
+            if let zoomedForeground = context.zoomedForeground {
+                let targetFrame = CGRect(
+                    x: finalCenter.x - context.sourceFrame.width / 2,
+                    y: finalCenter.y - context.sourceFrame.height / 2,
+                    width: context.sourceFrame.width,
+                    height: context.sourceFrame.height
+                )
+                self.applyZoomedCardMinimizePresentation(
+                    zoomedForeground,
+                    frame: targetFrame
+                )
+            }
             context.underlayView.setOtherCardsRevealProgress(1)
-        }, completion: { [weak self] _ in
-            guard let self else { return }
-
-            self.isCardMinimizeAnimationComplete = true
-            self.finishCardMinimizeTransitionIfReady()
-        })
+        }
         animateTopEdgeTint(to: 1)
+    }
+
+    private func animateCardMinimizeTransition(
+        context: CardMinimizeTransitionContext,
+        options: UIView.AnimationOptions,
+        animations: @escaping () -> Void
+    ) {
+        UIView.animate(
+            withDuration: Self.cardMinimizeAnimationDuration,
+            delay: 0,
+            options: options,
+            animations: animations,
+            completion: { [weak self] _ in
+                guard let self else { return }
+
+                self.isCardMinimizeAnimationComplete = true
+                self.finishCardMinimizeTransitionIfReady()
+            }
+        )
+
+        // Only a loaded browser cell provides a stable crossfade endpoint.
+        // Offscreen transitions keep the zoomed viewport until it clears the screen.
+        guard let zoomedForeground = context.zoomedForeground,
+              case .browserCell = context.commitDestination else {
+            return
+        }
+
+        UIView.animate(
+            withDuration: Self.cardMinimizeAnimationDuration * 0.4,
+            delay: Self.cardMinimizeAnimationDuration * 0.55,
+            options: [.curveEaseOut, .beginFromCurrentState]
+        ) {
+            context.foregroundView.alpha = 1
+            zoomedForeground.view.alpha = 0
+        }
     }
 
     private func finishCardMinimizeTransitionIfReady() {
@@ -4381,10 +4434,27 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
             return
         }
 
+        if context.zoomedForeground != nil,
+           !chrome.isPlayerContentZoomed {
+            crossfadeCardMinimizeTransitionToLivePager()
+            return
+        }
+
+        let shouldRestoreZoomedForeground = context.zoomedForeground != nil
+            && chrome.isPlayerContentZoomed
+
         UIView.animate(withDuration: 0.28, delay: 0, usingSpringWithDamping: 0.86, initialSpringVelocity: 0, options: [.beginFromCurrentState], animations: {
             context.foregroundView.transform = .identity
             context.foregroundView.bounds = CGRect(origin: .zero, size: context.sourceFrame.size)
             context.foregroundView.center = CGPoint(x: context.sourceFrame.midX, y: context.sourceFrame.midY)
+            context.foregroundView.alpha = shouldRestoreZoomedForeground ? 0 : 1
+            if let zoomedForeground = context.zoomedForeground {
+                self.applyZoomedCardMinimizePresentation(
+                    zoomedForeground,
+                    frame: zoomedForeground.sourceFrame
+                )
+                zoomedForeground.view.alpha = shouldRestoreZoomedForeground ? 1 : 0
+            }
             context.underlayView.setOtherCardsRevealProgress(0)
         }, completion: { [weak self] _ in
             self?.cleanupCardMinimizeTransition(
@@ -4392,7 +4462,36 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
                 cancelPreparedBrowserSelection: true
             )
         })
-        animateTopEdgeTint(to: 0, delay: 0.22)
+        animateTopEdgeTint(to: 0, delay: Self.cardMinimizeAnimationDuration)
+    }
+
+    private func crossfadeCardMinimizeTransitionToLivePager() {
+        // The live pager can differ from both captured foregrounds after its
+        // zoom resets. Crossfade the whole transition back to that authority.
+        if playerInteractionEnabledBeforeLivePagerFade == nil {
+            playerInteractionEnabledBeforeLivePagerFade = view.isUserInteractionEnabled
+        }
+        view.isUserInteractionEnabled = false
+        playerNavigationController
+            .setCollectionBrowserTransitionStatusBarVisible(false)
+        playerNavigationController.view.setNeedsLayout()
+        playerNavigationController.view.layoutIfNeeded()
+        revealPlayerAfterCardTransition()
+        playerNavigationController.view.layoutIfNeeded()
+
+        UIView.animate(
+            withDuration: Self.cardMinimizeAnimationDuration,
+            delay: 0,
+            options: [.curveEaseOut, .beginFromCurrentState]
+        ) {
+            self.cardTransitionCanvasView.alpha = 0
+        } completion: { [weak self] _ in
+            self?.cleanupCardMinimizeTransition(
+                revealPlayer: false,
+                cancelPreparedBrowserSelection: true
+            )
+        }
+        animateTopEdgeTint(to: 0)
     }
 
     private func resetCardExpandTransform() {
@@ -4443,12 +4542,24 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
         guard !sourceFrame.isEmpty else {
             return nil
         }
-        let foregroundView = makeCardTransitionForegroundView(
-            sourceFrame: sourceFrame,
-            descriptor: currentDescriptor
-        )
-
         let usesCellHero = selectedSnapshot.hasLoadedImage
+        let zoomedForeground = makeZoomedCardMinimizeForeground()
+        guard !chrome.isPlayerContentZoomed || zoomedForeground != nil else {
+            return nil
+        }
+        let foregroundView: UIView
+        if zoomedForeground != nil, usesCellHero {
+            foregroundView = makeBrowserCardTransitionForegroundView(
+                selectedSnapshot,
+                sourceFrame: sourceFrame
+            )
+        } else {
+            foregroundView = makeCardTransitionForegroundView(
+                sourceFrame: sourceFrame,
+                descriptor: currentDescriptor
+            )
+        }
+
         var underlayItemSnapshots = selection.visibleNeighborSnapshots
         if !usesCellHero {
             underlayItemSnapshots.removeAll { $0.tokenIndex == selectedSnapshot.tokenIndex }
@@ -4458,7 +4569,11 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
             itemSnapshots: underlayItemSnapshots,
             otherCardsRevealProgress: 0
         )
-        cardTransitionCanvasView.insertSubview(foregroundView, aboveSubview: underlayView)
+        installCardMinimizeForeground(
+            foregroundView,
+            zoomedForeground: zoomedForeground,
+            above: underlayView
+        )
         let targetScale = cardMinimizeTargetScale(
             sourceFrame: sourceFrame,
             targetFrame: usesCellHero ? targetFrame : nil
@@ -4472,6 +4587,7 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
             targetScale: targetScale,
             commitDestination: usesCellHero ? .browserCell(targetFrame) : .offscreen,
             foregroundView: foregroundView,
+            zoomedForeground: zoomedForeground,
             underlayView: underlayView,
             hasPreparedBrowserSelection: true
         )
@@ -4510,6 +4626,10 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
             sourceFrame: sourceFrame,
             descriptor: currentDescriptor
         )
+        let zoomedForeground = makeZoomedCardMinimizeForeground()
+        guard !chrome.isPlayerContentZoomed || zoomedForeground != nil else {
+            return nil
+        }
         var underlayItemSnapshots = preparedSelection?.visibleNeighborSnapshots ?? []
         if let selectedSnapshot = preparedSelection?.selectedSnapshot {
             underlayItemSnapshots.removeAll { $0.tokenIndex == selectedSnapshot.tokenIndex }
@@ -4519,7 +4639,11 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
             itemSnapshots: underlayItemSnapshots,
             otherCardsRevealProgress: 0
         )
-        cardTransitionCanvasView.insertSubview(foregroundView, aboveSubview: underlayView)
+        installCardMinimizeForeground(
+            foregroundView,
+            zoomedForeground: zoomedForeground,
+            above: underlayView
+        )
         shouldCancelPreparedSelection = false
 
         return CardMinimizeTransitionContext(
@@ -4529,8 +4653,24 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
             targetScale: cardMinimizeTargetScale(sourceFrame: sourceFrame, targetFrame: nil),
             commitDestination: .offscreen,
             foregroundView: foregroundView,
+            zoomedForeground: zoomedForeground,
             underlayView: underlayView,
             hasPreparedBrowserSelection: preparedSelection != nil
+        )
+    }
+
+    private func installCardMinimizeForeground(
+        _ foregroundView: UIView,
+        zoomedForeground: ZoomedCardMinimizeForeground?,
+        above underlayView: CardTransitionUnderlayView
+    ) {
+        cardTransitionCanvasView.insertSubview(foregroundView, aboveSubview: underlayView)
+        guard let zoomedForeground else { return }
+
+        foregroundView.alpha = 0
+        cardTransitionCanvasView.insertSubview(
+            zoomedForeground.view,
+            aboveSubview: foregroundView
         )
     }
 
@@ -4560,14 +4700,10 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
             return nil
         }
 
-        let foregroundView = selectedSnapshot.snapshotView
-        foregroundView.removeFromSuperview()
-        foregroundView.layer.removeAllAnimations()
-        foregroundView.transform = .identity
-        foregroundView.frame = sourceFrame
-        foregroundView.alpha = 1
-        foregroundView.isHidden = false
-        foregroundView.isUserInteractionEnabled = false
+        let foregroundView = makeBrowserCardTransitionForegroundView(
+            selectedSnapshot,
+            sourceFrame: sourceFrame
+        )
         cardTransitionCanvasView.insertSubview(foregroundView, aboveSubview: underlayView)
 
         return CardExpandTransitionContext(
@@ -4626,6 +4762,79 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
         placeholderView.backgroundColor = MobilePlayerBackgroundColor.defaultColor
         placeholderView.clipsToBounds = true
         return placeholderView
+    }
+
+    private func makeBrowserCardTransitionForegroundView(
+        _ itemSnapshot: MobilePlayerBrowserItemSnapshot,
+        sourceFrame: CGRect
+    ) -> UIView {
+        let foregroundView = itemSnapshot.snapshotView
+        foregroundView.removeFromSuperview()
+        foregroundView.layer.removeAllAnimations()
+        foregroundView.transform = .identity
+        foregroundView.frame = sourceFrame
+        foregroundView.alpha = 1
+        foregroundView.isHidden = false
+        foregroundView.isUserInteractionEnabled = false
+        return foregroundView
+    }
+
+    private func makeZoomedCardMinimizeForeground() -> ZoomedCardMinimizeForeground? {
+        guard chrome.isPlayerContentZoomed else { return nil }
+
+        // Preserve the exact zoomed viewport while the regular destination
+        // card underneath follows the normal minimize path.
+        let sourceFrame = view.convert(view.bounds, to: cardTransitionCanvasView)
+        guard !sourceFrame.isEmpty,
+              let snapshot = chrome.makeOnePerPageTransitionSnapshot(
+                from: view.bounds,
+                in: view
+              ) else {
+            return nil
+        }
+
+        let containerView = UIView(frame: sourceFrame)
+        containerView.backgroundColor = chrome.playerBackgroundColor
+        containerView.isOpaque = true
+        containerView.clipsToBounds = true
+        containerView.isUserInteractionEnabled = false
+
+        snapshot.frame = containerView.bounds
+        snapshot.isUserInteractionEnabled = false
+        containerView.addSubview(snapshot)
+        return ZoomedCardMinimizeForeground(
+            view: containerView,
+            sourceFrame: sourceFrame
+        )
+    }
+
+    private func applyZoomedCardMinimizePresentation(
+        _ foreground: ZoomedCardMinimizeForeground,
+        frame: CGRect
+    ) {
+        let sourceSize = foreground.sourceFrame.size
+        guard sourceSize.width.isFinite,
+              sourceSize.height.isFinite,
+              frame.width.isFinite,
+              frame.height.isFinite,
+              sourceSize.width > 0,
+              sourceSize.height > 0,
+              frame.width > 0,
+              frame.height > 0 else {
+            return
+        }
+
+        foreground.view.bounds = CGRect(origin: .zero, size: sourceSize)
+        foreground.view.center = CGPoint(x: frame.midX, y: frame.midY)
+
+        let scale = min(
+            frame.width / sourceSize.width,
+            frame.height / sourceSize.height
+        )
+        foreground.view.transform = CGAffineTransform(
+            scaleX: scale,
+            y: scale
+        )
     }
 
     private func makeCardTransitionSnapshotView(sourceFrame: CGRect) -> UIView? {
@@ -4738,6 +4947,9 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
         revealPlayer: Bool,
         cancelPreparedBrowserSelection: Bool = false
     ) {
+        cardTransitionCanvasView.layer.removeAllAnimations()
+        cardTransitionCanvasView.alpha = 1
+
         let context = activeCardMinimizeContext
         activeCardMinimizeContext = nil
         isDismissPanDrivingCardMinimize = false
@@ -4757,8 +4969,14 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
         }
 
         context?.foregroundView.removeFromSuperview()
+        context?.zoomedForeground?.view.removeFromSuperview()
         context?.underlayView.removeFromSuperview()
         updateCardTransitionCanvasVisibility()
+
+        if let wasInteractionEnabled = playerInteractionEnabledBeforeLivePagerFade {
+            playerInteractionEnabledBeforeLivePagerFade = nil
+            view.isUserInteractionEnabled = wasInteractionEnabled
+        }
     }
 
     private func cleanupCardExpandTransition(revealPlayer: Bool) {

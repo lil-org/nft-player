@@ -16,7 +16,6 @@ protocol MobilePlayerPagerProviding: AnyObject {
     ) -> Bool
     func activatePagerAfterModeSwitch(destination: PlayerPagePosition)
     func deactivatePagerForCollectionBrowser()
-    func recoverPagerAfterFailedBrowseCommit(at pagePosition: PlayerPagePosition)
     func navigatePager(_ direction: PlaybackNavigationDirection)
     func makePagerTransitionSnapshot(
         from sourceFrame: CGRect,
@@ -165,6 +164,18 @@ final class MobilePlayerBrowserPageViewController: UIViewController {
         _ preparation: PlayerCollectionBrowsePreparation
     ) -> Bool {
         contentViewController.finalizePreparedDisplay(preparation)
+    }
+
+    func canCommitPreparedDisplay(
+        _ preparation: PlayerCollectionBrowsePreparation
+    ) -> Bool {
+        contentViewController.canCommitPreparedDisplay(preparation)
+    }
+
+    func commitPreparedDisplay(
+        _ preparation: PlayerCollectionBrowsePreparation
+    ) {
+        contentViewController.commitPreparedDisplay(preparation)
     }
 
     func cancelPendingDisplayPreparation() {
@@ -354,6 +365,14 @@ final class MobilePlayerSessionModeController {
                 return
             }
 
+            guard let expectedPagePosition = preparation.snapshot.pagePosition(
+                forTokenIndex: preparation.focusedTokenIndex
+            ),
+                  browserViewController.canCommitPreparedDisplay(preparation) else {
+                rejectOperation()
+                return
+            }
+
             let resolution = MobilePlaybackController.shared.commitCollectionBrowse(
                 uuid: self.config.id,
                 preparation: preparation
@@ -363,22 +382,16 @@ final class MobilePlayerSessionModeController {
                 return
             }
 
-            guard resolvedPagePosition == preparation.snapshot.pagePosition(
-                forTokenIndex: preparation.focusedTokenIndex
-            ),
-                  browserViewController.finalizePreparedDisplay(preparation) else {
-                // The pager was never popped, so recovery only needs to
-                // re-anchor it onto the committed position.
-                browserViewController.cancelPendingDisplayPreparation()
-                self.unstageBrowserViewIfNeeded()
-                self.chrome.pagerProvider?.recoverPagerAfterFailedBrowseCommit(
-                    at: resolvedPagePosition
-                )
-                self.finishOperation(generation)
-                completion?(false)
-                return
-            }
-
+            // A resolved commit may have exited widget position space. From
+            // here onward, consume the already-validated browser transition
+            // without running a cancellation path against the mutated model.
+            assert(resolvedPagePosition == expectedPagePosition)
+            assert(
+                MobilePlaybackController.shared.collectionBrowseSnapshot(
+                    uuid: self.config.id
+                ) == preparation.snapshot
+            )
+            browserViewController.commitPreparedDisplay(preparation)
             self.commitCollectionBrowserPresentation(performsPop: true)
             self.finishOperation(generation)
             completion?(true)

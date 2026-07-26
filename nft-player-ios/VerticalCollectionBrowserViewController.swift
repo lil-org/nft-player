@@ -441,6 +441,22 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         }
     }
 
+    func canCommitPreparedDisplay(
+        _ preparation: PlayerCollectionBrowsePreparation
+    ) -> Bool {
+        !isActive
+            && !isApplyingPosition
+            && browseSnapshot == preparation.snapshot
+            && preparedTransition?.preparation == preparation
+    }
+
+    func commitPreparedDisplay(
+        _ preparation: PlayerCollectionBrowsePreparation
+    ) {
+        assert(canCommitPreparedDisplay(preparation))
+        preparedTransition = nil
+    }
+
     @discardableResult
     func finalizePreparedDisplay(
         _ preparation: PlayerCollectionBrowsePreparation

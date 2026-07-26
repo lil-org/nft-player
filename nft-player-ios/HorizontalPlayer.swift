@@ -1161,18 +1161,6 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, U
         pagingVC.setActive(false)
     }
 
-    func recoverPagerAfterFailedBrowseCommit(at pagePosition: PlayerPagePosition) {
-        displayedPagePosition = nil
-        _ = pagingVC.setPagePosition(pagePosition) { [weak self] in
-            guard let self else { return }
-
-            if self.displayedPagePosition != pagePosition,
-               !self.pagingVC.publishCurrentPagePosition(forceUpdate: true) {
-                self.updateDisplayedPagePosition(pagePosition, forceUpdate: true)
-            }
-        }
-    }
-
     func navigatePager(_ direction: PlaybackNavigationDirection) {
         pagingVC.navigate(direction)
     }
@@ -1898,31 +1886,54 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             return nil
         }
 
-        mediaContentView.layoutIfNeeded()
-        let requestedFrameInContent = mediaContentView
+        view.layoutIfNeeded()
+        let viewportContainmentTolerance = 1 / max(
+            view.window?.screen.scale ?? 1,
+            1
+        )
+        return makeTransitionSnapshot(
+            snapshotting: mediaContentView,
+            from: sourceFrame,
+            in: coordinateView,
+            // Overflow here is real letterboxing, magnified by the media
+            // transform, so fall back to the viewport instead of cropping it.
+            containmentTolerance: 0
+        ) ?? makeTransitionSnapshot(
+            snapshotting: zoomScrollView,
+            from: sourceFrame,
+            in: coordinateView,
+            containmentTolerance: viewportContainmentTolerance
+        )
+    }
+
+    private func makeTransitionSnapshot(
+        snapshotting sourceView: UIView,
+        from sourceFrame: CGRect,
+        in coordinateView: UIView,
+        containmentTolerance: CGFloat
+    ) -> UIView? {
+        let requestedFrame = sourceView
             .convert(sourceFrame, from: coordinateView)
             .standardized
-        let containmentTolerance = 1 / max(view.window?.screen.scale ?? 1, 1)
-        let toleratedContentBounds = mediaContentView.bounds.insetBy(
+        let toleratedBounds = sourceView.bounds.insetBy(
             dx: -containmentTolerance,
             dy: -containmentTolerance
         )
-        guard !requestedFrameInContent.isNull,
-              !requestedFrameInContent.isInfinite,
-              !requestedFrameInContent.isEmpty,
-              toleratedContentBounds.contains(requestedFrameInContent) else {
+        guard !requestedFrame.isNull,
+              !requestedFrame.isInfinite,
+              !requestedFrame.isEmpty,
+              toleratedBounds.contains(requestedFrame) else {
             return nil
         }
 
-        let snapshotFrameInContent = requestedFrameInContent
-            .intersection(mediaContentView.bounds)
-        guard !snapshotFrameInContent.isNull,
-              !snapshotFrameInContent.isEmpty else {
+        let snapshotFrame = requestedFrame.intersection(sourceView.bounds)
+        guard !snapshotFrame.isNull,
+              !snapshotFrame.isEmpty else {
             return nil
         }
 
-        return mediaContentView.resizableSnapshotView(
-            from: snapshotFrameInContent,
+        return sourceView.resizableSnapshotView(
+            from: snapshotFrame,
             afterScreenUpdates: false,
             withCapInsets: .zero
         )
