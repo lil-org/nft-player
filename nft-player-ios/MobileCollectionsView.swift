@@ -2055,6 +2055,7 @@ private func makeMobilePlayerViewController(
             chrome: chrome
         )
     )
+    playerViewController.installNavigationTitle(chrome: chrome)
     playerViewController.onPermanentRemoval = {
         updateExternalDisplayToken(GeneratedToken.empty)
         NativeMetalCardView.resetMotionCalibration()
@@ -2067,6 +2068,7 @@ private final class MobilePlayerHostingController: UIHostingController<MobilePla
 
     private var playerPageBackgroundColor = MobilePlayerBackgroundColor.defaultColor
     private var didFinalizePlayerSession = false
+    private var playerNavigationTitleView: UIView?
     var onAccessibilityEscape: (() -> Bool)?
     var onPlayerLayout: (() -> Void)?
     var onPermanentRemoval: (() -> Void)?
@@ -2078,6 +2080,12 @@ private final class MobilePlayerHostingController: UIHostingController<MobilePla
     override func viewDidLoad() {
         super.viewDidLoad()
         applyPlayerPageBackground()
+        restoreNavigationTitleIfNeeded()
+    }
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        restoreNavigationTitleIfNeeded()
     }
 
     override func viewDidLayoutSubviews() {
@@ -2104,6 +2112,29 @@ private final class MobilePlayerHostingController: UIHostingController<MobilePla
 
         guard isViewLoaded else { return }
         applyPlayerPageBackground()
+    }
+
+    func installNavigationTitle(chrome: MobilePlayerChromeController) {
+        guard playerNavigationTitleView == nil else {
+            restoreNavigationTitleIfNeeded()
+            return
+        }
+
+        let titleView = UIHostingConfiguration {
+            PlayerNavigationTitleView(chrome: chrome)
+        }
+        .margins(.all, 0)
+        .makeContentView()
+        playerNavigationTitleView = titleView
+        navigationItem.titleView = titleView
+    }
+
+    func restoreNavigationTitleIfNeeded() {
+        guard let playerNavigationTitleView,
+              navigationItem.titleView !== playerNavigationTitleView else {
+            return
+        }
+        navigationItem.titleView = playerNavigationTitleView
     }
 
     func finalizePlayerSession() {
@@ -3218,6 +3249,7 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
             guard let self else { return }
 
             self.installNavigationBackAction()
+            self.playerViewController.restoreNavigationTitleIfNeeded()
             self.playerNavigationController
                 .configureNavigationBackGestureBlocking()
             self.configurePagerScrollViews()
@@ -3511,8 +3543,9 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
 
         // SwiftUI can update the navigation item's toolbar contents and
         // restore the navigation bar's alpha. Reassert the native back
-        // button's action and chrome state without replacing the button.
+        // button, title view, and chrome state without replacing the button.
         installNavigationBackAction()
+        playerViewController.restoreNavigationTitleIfNeeded()
         playerNavigationController.configureNavigationBackGestureBlocking()
         configurePagingScrollViews()
         playerNavigationController.synchronizeNavigationBarChromeVisibility()

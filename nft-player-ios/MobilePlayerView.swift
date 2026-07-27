@@ -17,6 +17,7 @@ struct MobilePlayerConfig: Hashable, Identifiable {
 private let playerChromeToggleAnimation = Animation.easeInOut(duration: 0.12)
 private let playerManualGlassHideAnimation = Animation.smooth(duration: 0.23)
 private let playerNavigationBarControlSize: CGFloat = 44
+private let playerNavigationTitleMinimumWidth: CGFloat = 112
 private let playerProgressControlSize: CGFloat = 34
 private let playerNavigationArrowSpacing: CGFloat = 4
 
@@ -112,11 +113,57 @@ struct MobilePlayerLayoutInteractionState: Equatable {
     }
 }
 
+struct MobilePlayerNavigationTitleState: Equatable {
+    var collectionTitle = ""
+    var pageLabel = ""
+}
+
+final class MobilePlayerNavigationTitleController: ObservableObject {
+    @Published private(set) var title = MobilePlayerNavigationTitleState()
+    @Published private(set) var isModeTransitionActive = false
+
+    func setTitle(
+        collectionTitle: String,
+        pageLabel: String
+    ) {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async {
+                self.setTitle(
+                    collectionTitle: collectionTitle,
+                    pageLabel: pageLabel
+                )
+            }
+            return
+        }
+
+        let title = MobilePlayerNavigationTitleState(
+            collectionTitle: collectionTitle,
+            pageLabel: pageLabel
+        )
+        guard !collectionTitle.isEmpty,
+              self.title != title else {
+            return
+        }
+        self.title = title
+    }
+
+    func setModeTransitionActive(_ isActive: Bool) {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { self.setModeTransitionActive(isActive) }
+            return
+        }
+
+        guard isModeTransitionActive != isActive else { return }
+        isModeTransitionActive = isActive
+    }
+}
+
 final class MobilePlayerChromeController: ObservableObject {
     @Published private(set) var showControls = true
     @Published private(set) var isPlayerContentHiddenForCardTransition = false
     @Published private(set) var allowsNavigationBackSwipe: Bool
     @Published private(set) var playerBackgroundColor: UIColor
+    let playerNavigationTitleController = MobilePlayerNavigationTitleController()
     private(set) var isPlayerContentZoomed = false
     private(set) var layoutInteractionState = MobilePlayerLayoutInteractionState.empty
     var onCollectionBrowserExpandRequest: ((MobilePlayerBrowserTransitionSelection) -> MobilePlayerBrowserExpandSelectionResult)?
@@ -288,6 +335,16 @@ final class MobilePlayerChromeController: ObservableObject {
         playerBackgroundColor = color
     }
 
+    func setPlayerNavigationTitle(
+        collectionTitle: String,
+        pageLabel: String
+    ) {
+        playerNavigationTitleController.setTitle(
+            collectionTitle: collectionTitle,
+            pageLabel: pageLabel
+        )
+    }
+
     func setPlayerContentZoomed(_ isZoomed: Bool) {
         guard Thread.isMainThread else {
             DispatchQueue.main.async { self.setPlayerContentZoomed(isZoomed) }
@@ -306,6 +363,10 @@ final class MobilePlayerChromeController: ObservableObject {
 
         guard isPlayerContentHiddenForCardTransition != isHidden else { return }
         isPlayerContentHiddenForCardTransition = isHidden
+    }
+
+    func setPlayerModeTitleTransitionActive(_ isActive: Bool) {
+        playerNavigationTitleController.setModeTransitionActive(isActive)
     }
 
     func setNavigationBackSwipeAllowed(_ isAllowed: Bool) {
@@ -359,7 +420,6 @@ struct MobilePlayerView: View {
     @State private var isAllowedToHideStatusBar = false
     @State private var currentToken = GeneratedToken.empty
     @State private var currentProgress: MobileViewingProgress?
-    @State private var currentPageLabel = ""
     @State private var currentPagePosition: PlayerPagePosition?
     @State private var isCurrentPagePositionInsertedWidgetToken = false
     @State private var canGoBack = false
@@ -491,16 +551,6 @@ struct MobilePlayerView: View {
                     .allowsHitTesting(!chrome.isPlayerContentHiddenForCardTransition)
                     .accessibilityHidden(chrome.isPlayerContentHiddenForCardTransition)
             }
-            if !chrome.isPlayerContentHiddenForCardTransition {
-                ToolbarItem(placement: .principal) {
-                    if chrome.showControls {
-                        PlayerCollectionTitlePill(
-                            title: currentToken.collectionName,
-                            progressText: currentPageLabel
-                        )
-                    }
-                }
-            }
         }
         .onDisappear {
             // The pager now pops on every switch to the browser; only reset
@@ -531,7 +581,7 @@ struct MobilePlayerView: View {
     private var shouldHideStatusBar: Bool {
         isAllowedToHideStatusBar && !chrome.isPlayerChromeVisible
     }
-    
+
     private var infoMenu: some View {
         let artists = SuggestedItemsService.artists(
             forCollectionId: currentToken.fullCollectionId
@@ -670,12 +720,15 @@ struct MobilePlayerView: View {
                 pagePosition: pagePosition,
                 resolvedToken: token
             )
+            chrome.setPlayerNavigationTitle(
+                collectionTitle: token.collectionName,
+                pageLabel: pageLabel
+            )
             chrome.setPlayerBackgroundColor(MobilePlayerBackgroundColor.color(for: token))
 
             self.currentPagePosition = pagePosition
             self.currentToken = token
             self.currentProgress = progress
-            self.currentPageLabel = pageLabel
             self.isCurrentPagePositionInsertedWidgetToken = isInsertedWidgetToken
             self.updateLayoutInteractionState()
             self.updateNavigationAvailability(for: pagePosition)
@@ -781,7 +834,34 @@ struct MobilePlayerView: View {
 
 }
 
-private struct PlayerCollectionTitlePill: View {
+let playerCollectionTitleProgressAnimationDuration: TimeInterval = 0.12
+
+struct PlayerNavigationTitleView: View {
+    @ObservedObject var chrome: MobilePlayerChromeController
+    @ObservedObject private var titleController: MobilePlayerNavigationTitleController
+
+    init(chrome: MobilePlayerChromeController) {
+        self.chrome = chrome
+        self.titleController = chrome.playerNavigationTitleController
+    }
+
+    var body: some View {
+        let hidesPageLabel = chrome.isPlayerContentHiddenForCardTransition
+            || titleController.isModeTransitionActive
+        let title = titleController.title
+
+        PlayerCollectionTitlePill(
+            title: title.collectionTitle,
+            progressText: hidesPageLabel ? "" : title.pageLabel
+        )
+        // The navigation bar owns normal chrome visibility. During a mode
+        // handoff the pill remains ready while UIKit swaps navigation items.
+        .opacity(chrome.showControls || hidesPageLabel ? 1 : 0)
+        .accessibilityHidden(!chrome.showControls)
+    }
+}
+
+struct PlayerCollectionTitlePill: View {
     let title: String
     let progressText: String
 
@@ -791,6 +871,9 @@ private struct PlayerCollectionTitlePill: View {
 
     @ViewBuilder
     private var titleLabel: some View {
+        let counterVisibilityAnimation = Animation.easeInOut(
+            duration: playerCollectionTitleProgressAnimationDuration
+        )
         let label = VStack(spacing: 1) {
             Text(title)
                 .font(.caption.weight(.semibold))
@@ -804,18 +887,21 @@ private struct PlayerCollectionTitlePill: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
+                    .transition(.opacity)
             }
         }
             .padding(.horizontal, 14)
-            .frame(maxWidth: 220)
+            .frame(minWidth: playerNavigationTitleMinimumWidth, maxWidth: 220)
             .frame(height: playerNavigationBarControlSize)
 
         if #available(iOS 26.0, *) {
             label
                 .glassEffect(.regular, in: Capsule())
+                .animation(counterVisibilityAnimation, value: progressText.isEmpty)
         } else {
             label
                 .background(.ultraThinMaterial, in: Capsule())
+                .animation(counterVisibilityAnimation, value: progressText.isEmpty)
         }
     }
 }
