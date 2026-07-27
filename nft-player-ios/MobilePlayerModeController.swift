@@ -138,6 +138,7 @@ final class MobilePlayerBrowserPageViewController: UIViewController {
             pagePosition: MobilePlaybackController.shared.startPagePosition(uuid: configID)
         )
         refreshBackButtonTitle(with: token)
+        refreshMoreMenu(with: token)
     }
 
     func setBrowserActive(_ active: Bool) {
@@ -201,14 +202,16 @@ final class MobilePlayerBrowserPageViewController: UIViewController {
         view.isOpaque = true
     }
 
-    /// Mirrors the one-per-page player's more menu — artist links plus the
-    /// block explorer entry — except the explorer opens the collection
-    /// address instead of a specific token.
-    private func makeMoreMenu() -> UIMenu {
+    /// Mirrors the collection grid's context menu: collection name, primary
+    /// action, then artist links. The browser's primary action opens the
+    /// collection address in the block explorer instead of playing an item.
+    private func makeMoreMenu(for token: GeneratedToken? = nil) -> UIMenu {
+        let token = token ?? currentMenuToken
+        let collectionId = token.fullCollectionId
         let deferredElement = UIDeferredMenuElement.uncached { [weak self] completion in
-            completion(self?.moreMenuElements() ?? [])
+            completion(self?.moreMenuElements(forCollectionId: collectionId) ?? [])
         }
-        return UIMenu(children: [deferredElement])
+        return UIMenu(title: token.collectionName, children: [deferredElement])
     }
 
     private func makeMoreBarButtonItem() -> UIBarButtonItem {
@@ -221,11 +224,10 @@ final class MobilePlayerBrowserPageViewController: UIViewController {
         return item
     }
 
-    private func moreMenuElements() -> [UIMenuElement] {
+    private func moreMenuElements(forCollectionId collectionId: String) -> [UIMenuElement] {
         guard !chrome.isPlayerContentHiddenForCardTransition else { return [] }
 
-        let collectionId = currentMenuCollectionId
-        var elements: [UIMenuElement] = artistLinkMenus(forCollectionId: collectionId)
+        var elements: [UIMenuElement] = []
 
         if let collectionURL = CollectionCatalog.collectionWebURL(
             specificCollectionId: collectionId
@@ -235,19 +237,20 @@ final class MobilePlayerBrowserPageViewController: UIViewController {
             ) { [weak self] _ in
                 self?.openMoreMenuURL(collectionURL)
             }
-            elements.append(UIMenu(options: .displayInline, children: [blockExplorerAction]))
+            elements.append(blockExplorerAction)
         }
 
+        elements.append(contentsOf: artistLinkMenus(forCollectionId: collectionId))
         return elements
     }
 
-    private var currentMenuCollectionId: String {
+    private var currentMenuToken: GeneratedToken {
         let pagePosition = contentViewController.currentPagePosition
             ?? MobilePlaybackController.shared.startPagePosition(uuid: configID)
         return MobilePlaybackController.shared.getToken(
             uuid: configID,
             pagePosition: pagePosition
-        ).fullCollectionId
+        )
     }
 
     private func artistLinkMenus(forCollectionId collectionId: String) -> [UIMenu] {
@@ -297,6 +300,7 @@ final class MobilePlayerBrowserPageViewController: UIViewController {
             )
         )
         refreshBackButtonTitle(with: token)
+        refreshMoreMenu(with: token)
         updateExternalDisplayToken(token)
     }
 
@@ -307,6 +311,13 @@ final class MobilePlayerBrowserPageViewController: UIViewController {
             return
         }
         navigationItem.backButtonTitle = title
+    }
+
+    private func refreshMoreMenu(with token: GeneratedToken) {
+        moreMenu = makeMoreMenu(for: token)
+        if !chrome.isPlayerContentHiddenForCardTransition {
+            moreBarButtonItem.menu = moreMenu
+        }
     }
 
     private func openSelection(
