@@ -69,6 +69,9 @@ final class MobilePlayerBrowserPageViewController: UIViewController {
         contentViewController.onSelection = { [weak self] selection in
             self?.openSelection(selection) == true
         }
+        contentViewController.onImmediateSelection = { [weak self] pagePosition, onFailure in
+            self?.openImmediateSelection(pagePosition, onFailure: onFailure) == true
+        }
     }
 
     @available(*, unavailable)
@@ -394,6 +397,29 @@ final class MobilePlayerBrowserPageViewController: UIViewController {
         case .rejected:
             return false
         }
+    }
+
+    private func openImmediateSelection(
+        _ pagePosition: PlayerPagePosition,
+        onFailure: @escaping () -> Void
+    ) -> Bool {
+        guard let modeController, modeController.activeMode == .collectionBrowser else { return false }
+
+        var requestReturned = false
+        var didFailSynchronously = false
+        modeController.switchToOnePerPage(targetPagePosition: pagePosition) { didSwitch in
+            guard !didSwitch else { return }
+            if requestReturned {
+                onFailure()
+            } else {
+                didFailSynchronously = true
+            }
+        }
+        requestReturned = true
+        guard !didFailSynchronously else { return false }
+
+        Haptic.selectionChanged()
+        return true
     }
 
 }

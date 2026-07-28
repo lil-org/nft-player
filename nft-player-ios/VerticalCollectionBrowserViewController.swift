@@ -74,6 +74,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     var onFocusedPagePosition: ((PlayerPagePosition) -> Void)?
     var onSettledPagePosition: ((PlayerPagePosition, Bool) -> Bool)?
     var onSelection: ((MobilePlayerBrowserTransitionSelection) -> Bool)?
+    var onImmediateSelection: ((PlayerPagePosition, @escaping () -> Void) -> Bool)?
 
     private let browserCollectionLayout = MobilePlayerCollectionBrowserLayout()
     private lazy var collectionView: MobilePlayerCollectionBrowserCollectionView = {
@@ -727,11 +728,103 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     }
 
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-        guard let selection = transitionSelection(tokenIndex: indexPath.item),
-              onSelection?(selection) == true else {
+        performSelection(at: indexPath.item)
+    }
+
+    func collectionView(
+        _ collectionView: UICollectionView,
+        contextMenuConfigurationForItemAt indexPath: IndexPath,
+        point: CGPoint
+    ) -> UIContextMenuConfiguration? {
+        guard isActive,
+              let snapshot = browseSnapshot,
+              let descriptor = MobilePlaybackController.shared.collectionBrowseThumbnailDescriptor(
+                snapshot: snapshot,
+                tokenIndex: indexPath.item
+              ),
+              !descriptor.collectionId.isEmpty,
+              !descriptor.tokenId.isEmpty else {
+            return nil
+        }
+
+        return UIContextMenuConfiguration(identifier: indexPath as NSIndexPath, previewProvider: nil) { _ in
+            let token = MobileCollectionCatalog.generateToken(
+                specificCollectionId: descriptor.collectionId,
+                tokenIndex: descriptor.tokenIndex
+            )
+
+            var children = [UIMenuElement]()
+            let isBookmarked = PlayerBookmarksStore.isBookmarked(
+                collectionId: descriptor.collectionId,
+                tokenId: descriptor.tokenId
+            )
+            children.append(
+                UIAction(
+                    title: isBookmarked ? Strings.removeBookmark : Strings.bookmark,
+                    image: UIImage(systemName: isBookmarked ? "bookmark.fill" : "bookmark")
+                ) { _ in
+                    PlayerBookmarksStore.toggleBookmark(
+                        collectionId: descriptor.collectionId,
+                        tokenId: descriptor.tokenId
+                    )
+                    Haptic.selectionChanged()
+                }
+            )
+            if let url = token?.url {
+                children.append(
+                    UIAction(title: Strings.viewOnBlockExplorer, image: UIImage(systemName: "globe")) { _ in
+                        UIApplication.shared.open(url)
+                    }
+                )
+            }
+
+            return UIMenu(title: token?.displayName ?? "", children: children)
+        }
+    }
+
+    func collectionView(
+        _ collectionView: UICollectionView,
+        willPerformPreviewActionForMenuWith configuration: UIContextMenuConfiguration,
+        animator: UIContextMenuInteractionCommitAnimating
+    ) {
+        guard let indexPath = configuration.identifier as? IndexPath else { return }
+        let tokenIndex = indexPath.item
+        guard let pagePosition = browseSnapshot?.pagePosition(forTokenIndex: tokenIndex) else {
+            animator.preferredCommitStyle = .dismiss
+            animator.addCompletion { [weak self] in
+                self?.performSelection(at: tokenIndex)
+            }
             return
         }
-        settleSelection(at: indexPath.item)
+
+        var didFinishCommitAnimation = false
+        var didFailSwitch = false
+        var didRunFallback = false
+        let runFallbackIfReady = { [weak self] in
+            guard didFinishCommitAnimation,
+                  didFailSwitch,
+                  !didRunFallback else {
+                return
+            }
+            didRunFallback = true
+            self?.performSelection(at: tokenIndex)
+        }
+        guard onImmediateSelection?(pagePosition, {
+            didFailSwitch = true
+            runFallbackIfReady()
+        }) == true else {
+            animator.preferredCommitStyle = .dismiss
+            animator.addCompletion { [weak self] in
+                self?.performSelection(at: tokenIndex)
+            }
+            return
+        }
+
+        animator.preferredCommitStyle = .pop
+        animator.addCompletion {
+            didFinishCommitAnimation = true
+            runFallbackIfReady()
+        }
     }
 
     func collectionView(
@@ -1514,6 +1607,14 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             forcesThumbnailWindow: true
         )
         publishSettledTokenIfNeeded()
+    }
+
+    private func performSelection(at tokenIndex: Int) {
+        guard let selection = transitionSelection(tokenIndex: tokenIndex),
+              onSelection?(selection) == true else {
+            return
+        }
+        settleSelection(at: tokenIndex)
     }
 
     private func settleSelection(at tokenIndex: Int) {
