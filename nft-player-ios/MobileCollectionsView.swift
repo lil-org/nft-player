@@ -1876,6 +1876,15 @@ private struct MobileCollectionsNavigationView<RootView: View>: UIViewController
                 playerBackgroundColor: MobilePlayerBackgroundColor.color(for: config),
                 allowsNavigationBackSwipe: initialDisplayMode == .collectionBrowser
             )
+            if let widgetTokenInsertion = config.widgetTokenInsertion {
+                chrome.setPlayerNavigationTitle(
+                    collectionTitle: widgetTokenInsertion.insertedToken.collectionName,
+                    pageLabel: Strings.pagePosition(
+                        current: widgetTokenInsertion.insertedTokenIndex + 1,
+                        total: widgetTokenInsertion.anchorProgress.tokenCount
+                    )
+                )
+            }
             let onDismiss: () -> Void = { [weak self] in
                 self?.requestPop(configID: config.id)
             }
