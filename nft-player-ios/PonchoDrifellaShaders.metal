@@ -25,7 +25,6 @@ struct NativeMetalCardUniforms {
     float padding;
 };
 
-// Raw values must match NativeMetalCardEffect in NativeMetalCardMetadata.swift.
 enum NativeMetalCardEffect : int {
     nativeMetalCardEffectRareHoloV = 0,
     nativeMetalCardEffectSupporter = 1,
@@ -888,7 +887,6 @@ fragment float4 nativeMetalCardFragment(
 
     switch (uniforms.effectKind) {
     case nativeMetalCardEffectSupporter: {
-        // rare ultra supporter
         float3 foilSharp = foilTexture.sample(clampSampler, uv).rgb;
         PonchoCssLayer shineGroup = supporterFoilLayer(uv, pointer, background, cardSize, foilSharp, false);
         shineGroup.color = filterColor(shineGroup.color, pfc * 0.05 + 0.80, 1.75, 1.20);
@@ -940,7 +938,6 @@ fragment float4 nativeMetalCardFragment(
         break;
     }
     case nativeMetalCardEffectAmazingRare: {
-        // amazing rare
         float2 glitterTileSize = cardSize * 0.25;
         float3 glitterA = glitterTexture.sample(
             repeatSampler,
@@ -994,7 +991,6 @@ fragment float4 nativeMetalCardFragment(
         break;
     }
     case nativeMetalCardEffectRareHolo: {
-        // rare holo
         float3 rainbow = rareHoloRainbowLayer(uv, background, cardSize);
         float3 lines = rareHoloScanlinesLayer(uv, cardSize);
         float3 shine = overlayBlend(lines, rainbow);
@@ -1043,7 +1039,6 @@ fragment float4 nativeMetalCardFragment(
         break;
     }
     default: {
-        // rare holo v
         float3 grain = grainTexture.sample(
             repeatMipSampler,
             cssBackgroundImageUV(uv, cardSize, float2(500.0, cardSize.y), float2(0.5))

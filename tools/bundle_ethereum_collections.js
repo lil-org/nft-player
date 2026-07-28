@@ -325,7 +325,6 @@ async function readApiKey(options) {
       return trimmed;
     }
   } catch {
-    // Fall through to a clear error.
   }
 
   throw new Error(`Missing OpenSea API key. Set OPENSEA_API_KEY, pass --api-key, or create ${DEFAULT_API_KEY_PATH}.`);
@@ -600,7 +599,6 @@ function formatOpenSeaErrorText(text) {
       return body.message;
     }
   } catch {
-    // Return the trimmed raw response below.
   }
   return text.trim().slice(0, 300);
 }

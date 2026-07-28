@@ -175,7 +175,6 @@ enum CollectionOfTheDayWidgetData {
             return
         }
 
-        // Clear first so a failed partial cache refresh cannot pair a new image with an old token id.
         guard clearCachedTokenId(at: tokenIdURL) else { return }
 
         do {

@@ -276,7 +276,6 @@ async function inspectSourceColorProfile(coverTools, inputPath) {
       const sourceInspection = await inspectSourceWithImageMagick(coverTools, inputPath);
       return { hasIccProfile: hasImageMagickIccProfile(sourceInspection.profiles) };
     } catch {
-      // If profile inspection fails, let conversion and structural validation decide the cover.
     }
   }
 
@@ -348,7 +347,6 @@ async function firstExistingFile(filePaths) {
       await fs.access(filePath);
       return filePath;
     } catch {
-      // Keep looking for a usable profile path.
     }
   }
   return null;

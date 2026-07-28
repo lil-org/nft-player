@@ -156,7 +156,6 @@ struct TvCollectionsView: View {
         preferredFocusDisplayedIndex = displayedIndex
         DispatchQueue.main.async {
             resetFocus(in: gridFocusNamespace)
-            // Clear after the focus update has consumed the temporary default-focus preference.
             DispatchQueue.main.async {
                 guard preferredFocusDisplayedIndex == displayedIndex else { return }
                 preferredFocusDisplayedIndex = nil

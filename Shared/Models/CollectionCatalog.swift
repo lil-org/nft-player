@@ -746,8 +746,6 @@ final class PlayerTokenPagingDataSource {
             }
         )
 
-        // An unresolved resume may display the collection start, but that automatic
-        // fallback must not replace the saved record until the user chooses a position.
         suppressesUnresolvedInitialProgress = !hasAcknowledgedIntentionalViewingPosition
             && hasRequestedPosition
             && !resolution.didResolveRequestedPosition

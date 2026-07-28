@@ -47,9 +47,6 @@ function withIOSCollectionBrowserColumnCount(item, columnCount) {
     );
   }
 
-  // An explicit default count is a sticky manual override. Automatic default
-  // decisions remain omitted, while automatic two-column decisions are
-  // recalculated whenever a collection is bundled.
   const hasManualDefaultOverride =
     item[IOS_COLLECTION_BROWSER_COLUMN_COUNT_KEY]
       === COLLECTION_BROWSER_DEFAULT_COLUMN_COUNT;

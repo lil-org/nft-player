@@ -924,7 +924,6 @@ private final class InfiniteCollectionsGridContainerView: UIView {
         collectionView.contentInsetAdjustmentBehavior = .never
         collectionView.alwaysBounceVertical = true
         collectionView.isPrefetchingEnabled = true
-        // The shared PlayerTopEdgeTintView replaces the system edge tinting.
         collectionView.hideAutomaticScrollEdgeEffects()
         collectionView.register(CollectionGridCell.self, forCellWithReuseIdentifier: CollectionGridCell.reuseIdentifier)
         addSubview(collectionView)
@@ -1621,7 +1620,6 @@ private struct MobileCollectionsNavigationView<RootView: View>: UIViewController
     func makeUIViewController(context: Context) -> PlayerNavigationController {
         let rootViewController = UIHostingController(rootView: rootView)
         rootViewController.navigationItem.backButtonDisplayMode = .minimal
-        // Names the collections-grid entry in the back button's long-press menu.
         rootViewController.navigationItem.backButtonTitle = Strings.nftPlayer
 
         let navigationController = PlayerNavigationController(
@@ -1821,9 +1819,6 @@ private struct MobileCollectionsNavigationView<RootView: View>: UIViewController
                         animated: desiredPresentationTransition.animatesNavigationTransition
                     )
                 } else {
-                    // Widget launches open the pager with the browser beneath
-                    // it so back returns to the browser and the back menu
-                    // lists both destinations. These launches are instant.
                     navigationController.setViewControllers(
                         [rootViewController] + session.initialStack,
                         animated: false
@@ -1908,8 +1903,6 @@ private struct MobileCollectionsNavigationView<RootView: View>: UIViewController
             NativeMetalCardView.resetMotionCalibration()
             UIApplication.shared.isIdleTimerDisabled = true
 
-            // Preload both mode view controllers so the first morph measures
-            // laid-out geometry, matching the always-mounted previous design.
             navigationController.loadViewIfNeeded()
             let navigationBounds = navigationController.view.bounds
             playerViewController.loadViewIfNeeded()
@@ -2301,9 +2294,6 @@ private final class NavigationBackDirectTouchGate: UIGestureRecognizer {
         super.touchesBegan(touches, with: event)
         guard state == .possible else { return }
 
-        // UIKit reserves leading-edge touches for native pop before a pan gate
-        // has enough movement to resolve. Decide on touch-down so pager swipes
-        // that begin at the physical edge remain as permissive as other pages.
         state = shouldBlockNavigationBack() ? .recognized : .failed
     }
 
@@ -2320,11 +2310,6 @@ private final class NavigationBackDirectTouchGate: UIGestureRecognizer {
     }
 }
 
-/// Replaces the system top scroll edge tinting on the collections grid and
-/// the collection browser. The system effect samples content luminance and
-/// latches stale values across the player's masked mode switches; a fixed
-/// gradient owned by the navigation controller can never flicker, and a
-/// single shared instance keeps the grid ↔ browser transition seamless.
 private final class PlayerTopEdgeTintView: UIView {
 
     private let gradientLayer = CAGradientLayer()
@@ -2437,9 +2422,6 @@ private final class PlayerNavigationController: UINavigationController {
         loadViewIfNeeded()
         navigationBackGestureFailureRequirements.removeInvalidRequirements()
         interactiveBackGestureRecognizers.forEach { gestureRecognizer in
-            // On iOS 26 the content-pop recognizer can cover a direct touch
-            // after the leading-edge recognizer declines it, so both native
-            // back recognizers must resolve through the touch-down gate.
             navigationBackGestureFailureRequirements.require(
                 gestureRecognizer,
                 toFail: navigationBackDirectTouchGate
@@ -2487,25 +2469,14 @@ private final class PlayerNavigationController: UINavigationController {
         }
 
         cardTransitionOverlayView.frame = view.bounds
-        // UIKit can append transition wrappers above the overlay; keep the
-        // canvas directly beneath the navigation bar so morphs cover both
-        // player view controllers.
         view.insertSubview(cardTransitionOverlayView, belowSubview: navigationBar)
     }
 
-    /// Keeps the shared tint stretched over the top edge and directly
-    /// beneath the navigation bar — above pushed content, the transition
-    /// container, and the morph canvas, so grid ↔ browser transitions and
-    /// card morphs all render beneath one continuous tint.
     func assertTopEdgeTintPlacement() {
         layoutTopEdgeTint()
     }
 
     private func layoutTopEdgeTint() {
-        // The tint's only purpose is backing the status bar: its depth scales
-        // with the status bar inset (larger on iPhone's sensor housing,
-        // shallow on iPad), and without a status bar region — like landscape
-        // iPhone — it disappears entirely.
         let statusBarInset = view.safeAreaInsets.top
         let hasStatusBarRegion = statusBarInset >= 20
         topEdgeTintView.isHidden = !hasStatusBarRegion
@@ -2538,10 +2509,6 @@ private final class PlayerNavigationController: UINavigationController {
             return
         }
 
-        // Let the navigation controller that owns the bar also own this
-        // transient status-bar decision. On iPad, UIKit can reveal the status
-        // bar before restoring the collapsed top safe area, so keep the
-        // navigation bar below the already-visible status-bar frame.
         forcesStatusBarVisibleForCollectionBrowserTransition = isVisible
         setNeedsStatusBarAppearanceUpdate()
         alignNavigationBarBelowForcedStatusBar()
@@ -2585,9 +2552,6 @@ private final class PlayerNavigationController: UINavigationController {
         let targetAlpha: CGFloat = isVisible ? 1 : 0
         navigationBarChromeTargetAlpha = targetAlpha
 
-        // The root transition owns the shared navigation bar while the player
-        // is being popped. Keep the latest player target for cancellation, but
-        // do not compete with the transition's alpha animation.
         guard !isNavigationBarChromeVisibilityEnforcementSuspended else {
             return
         }
@@ -2598,9 +2562,6 @@ private final class PlayerNavigationController: UINavigationController {
         }
 
         guard let animationDuration else {
-            // UIView animations commit their destination to the model alpha
-            // immediately. Preserve an in-flight fade while it still matches;
-            // only an external model-alpha change needs correction.
             guard navigationBar.alpha != targetAlpha else {
                 if isVisible {
                     navigationBar.layer.isHidden = false
@@ -2668,8 +2629,6 @@ private final class PlayerNavigationController: UINavigationController {
 
         navigationBar.accessibilityElementsHidden = targetAlpha == 0
         if targetAlpha == 0 {
-            // Keep the native bar mounted, but prevent transient UIKit or
-            // SwiftUI alpha writes from flashing it during status-bar layout.
             navigationBar.layer.isHidden = true
         }
         guard navigationBar.alpha != targetAlpha else {
@@ -2679,9 +2638,6 @@ private final class PlayerNavigationController: UINavigationController {
             return
         }
 
-        // SwiftUI can restore the shared navigation bar's alpha while updating
-        // toolbar or status-bar state. Reapply only the target already committed
-        // to UIKit so a model update cannot bypass the intended transition.
         navigationBar.layer.removeAllAnimations()
         navigationBar.alpha = targetAlpha
         if targetAlpha != 0 {
@@ -2691,8 +2647,6 @@ private final class PlayerNavigationController: UINavigationController {
 
     private func removeNavigationBarOpacityAnimations() {
         let layer = navigationBar.layer
-        // UIView owns the registration keys for its implicit animations.
-        // Inspect their key paths so unrelated navigation-bar motion survives.
         (layer.animationKeys() ?? []).forEach { key in
             guard let animation = layer.animation(forKey: key),
                   Self.affectsOpacity(animation) else {
@@ -3146,10 +3100,6 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
     ) { [weak self] _ in
         _ = self?.handleNavigationBackAction()
     }
-    // The pager cannot use `navigationItem.backAction`: replacing the back
-    // button's primary action suppresses UIKit's long-press stack menu. A
-    // custom item restores the Safari pattern — tap minimizes to the browser
-    // while a long press lists every stack destination.
     private lazy var pagerBackBarButtonItem: UIBarButtonItem = {
         let item = UIBarButtonItem(
             title: nil,
@@ -3277,8 +3227,6 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
         playerViewController.loadViewIfNeeded()
         browserViewController?.loadViewIfNeeded()
 
-        // The morph canvas spans both mode view controllers from the
-        // navigation controller's view, directly beneath the navigation bar.
         playerNavigationController.loadViewIfNeeded()
         cardTransitionCanvasView.frame = playerNavigationController.view.bounds
         cardTransitionCanvasView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
@@ -3453,10 +3401,6 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
         }
     }
 
-    /// The shared top edge tint shows over the collections grid and the
-    /// browser, and hides for the one-per-page player. Card morphs own it
-    /// while they run; navigation transitions fade it alongside their
-    /// animation.
     private func updateTopEdgeTint(
         forPagerTarget isPagerTarget: Bool,
         using transitionCoordinator: (any UIViewControllerTransitionCoordinator)?
@@ -3479,9 +3423,6 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
         }
     }
 
-    // Every tint change supersedes anything still scheduled: a leftover
-    // delayed fade from one transition must never fire into the next one
-    // and knock the tint out over visible browser content.
     private func cancelScheduledTopEdgeTintChanges() {
         pendingTopEdgeTintWorkItem?.cancel()
         pendingTopEdgeTintWorkItem = nil
@@ -3550,9 +3491,6 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
             return
         }
 
-        // SwiftUI can update the navigation item's toolbar contents and
-        // restore the navigation bar's alpha. Reassert the native back
-        // button, title view, and chrome state without replacing the button.
         installNavigationBackAction()
         playerViewController.restoreNavigationTitleIfNeeded()
         playerNavigationController.configureNavigationBackGestureBlocking()
@@ -3590,9 +3528,6 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
            stackedViewControllers.contains(where: { $0 === browserViewController }) {
             let navigationItem = browserViewController.navigationItem
             if navigationItem.backAction?.identifier != navigationBackAction.identifier {
-                // Keep UIKit's native back button mounted so browser-mode
-                // interactive pop gestures stay fully native. Only replace its
-                // primary action so mid-morph taps stay swallowed.
                 navigationItem.backAction = navigationBackAction
             }
         }
@@ -3678,7 +3613,6 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
             return true
         }
         guard topViewController === playerViewController else {
-            // Browser back dismisses the whole player back to the grid.
             onDismiss()
             return true
         }
@@ -3729,8 +3663,6 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
             return false
         }
 
-        // Native pop stays blocked on the pager, where horizontal swipes page
-        // between items; the browser keeps fully native back gestures.
         return playerNavigationController.transitionCoordinator != nil
             || topViewController === playerViewController
             || chrome.isPlayerContentHiddenForCardTransition
@@ -3780,10 +3712,6 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
         browserViewController.view
             .allSubviews(ofType: UIScrollView.self)
             .forEach { scrollView in
-                // Native pop is available only in the vertical browser. Pager
-                // scroll views must not wait for iOS 26's full-content pop
-                // recognizer, or a reverse page swipe can be starved whenever
-                // the navigation chrome is visible.
                 if scrollView is MobilePlayerCollectionBrowserCollectionView {
                     requireNavigationBackGesturesToTakePriority(
                         over: scrollView.panGestureRecognizer
@@ -4063,9 +3991,6 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
         playerNavigationController
             .setCollectionBrowserTransitionStatusBarVisible(true)
         chrome.setPlayerContentHiddenForCardTransition(true)
-        // The browser tint arrives at full strength instantly: a fast gesture
-        // can reveal the cells within a frame, so even a short ramp would let
-        // them show through an intermediate, lighter tint.
         setTopEdgeTintAlphaDirectly(1)
         return true
     }
@@ -4075,8 +4000,6 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
     ) -> Bool {
         view.layer.removeAllAnimations()
 
-        // The destination card frame is measured against the pager's view,
-        // which must be attached and laid out before it is pushed.
         modeController.stagePagerViewForTransition()
 
         guard let context = makeCardExpandTransitionContext(selection: selection) else {
@@ -4231,8 +4154,6 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
             }
         )
 
-        // Only a loaded browser cell provides a stable crossfade endpoint.
-        // Offscreen transitions keep the zoomed viewport until it clears the screen.
         guard let zoomedForeground = context.zoomedForeground,
               case .browserCell = context.commitDestination else {
             return
@@ -4300,8 +4221,6 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
             self.isCardExpandAnimationComplete = true
             self.finishCardExpandTransitionIfReady()
         })
-        // The underlay cells must stay fully tinted for as long as they are
-        // visible; clear the tint in the last stretch of the expansion.
         animateTopEdgeTint(to: 0, delay: 0.12)
     }
 
@@ -4508,8 +4427,6 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
     }
 
     private func crossfadeCardMinimizeTransitionToLivePager() {
-        // The live pager can differ from both captured foregrounds after its
-        // zoom resets. Crossfade the whole transition back to that authority.
         if playerInteractionEnabledBeforeLivePagerFade == nil {
             playerInteractionEnabledBeforeLivePagerFade = view.isUserInteractionEnabled
         }
@@ -4824,8 +4741,6 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
     private func makeZoomedCardMinimizeForeground() -> ZoomedCardMinimizeForeground? {
         guard chrome.isPlayerContentZoomed else { return nil }
 
-        // Preserve the exact zoomed viewport while the regular destination
-        // card underneath follows the normal minimize path.
         let sourceFrame = view.convert(view.bounds, to: cardTransitionCanvasView)
         guard !sourceFrame.isEmpty,
               let snapshot = chrome.makeOnePerPageTransitionSnapshot(

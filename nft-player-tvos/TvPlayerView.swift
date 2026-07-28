@@ -196,7 +196,6 @@ private struct TvPlayerMediaIdentity: Hashable {
     init(token: GeneratedToken, context: PlayerTokenContext?) {
         self.collectionId = context?.collectionId ?? token.fullCollectionId
         self.media = token.media
-        // Reuse the legacy tvOS web view while paging generated HTML within one collection.
         self.tokenId = token.media == nil ? nil : token.id
     }
 }

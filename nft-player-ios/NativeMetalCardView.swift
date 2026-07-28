@@ -276,7 +276,6 @@ private final class NativeMetalCardMotionTracker {
         let cardOffset = cardTilt * Self.pointerTravel
         let backgroundOffset = cardTilt * Self.backgroundTravel
 
-        // Keep the light fixed in screen space; tilt moves the card surface under it.
         let targetPointer = Self.clamped(
             Self.fixedLightPosition - cardOffset,
             lowerBound: 0.04,

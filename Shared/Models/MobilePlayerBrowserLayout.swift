@@ -224,8 +224,6 @@ struct MobilePlayerBrowserLayout: Equatable {
         )
     }
 
-    // A top-inset change translates every row by the same amount. Compensate
-    // interior offsets exactly, while keeping either scroll boundary sticky.
     static func contentOffsetYAfterSafeAreaChange(
         previousContentOffsetY: CGFloat,
         previousRange: ClosedRange<CGFloat>,

@@ -4,9 +4,6 @@ import Combine
 import SwiftUI
 import UIKit
 
-/// Pager-side operations the session mode controller drives on the
-/// one-per-page player. Implemented by `HorizontalPlayerContainer` and
-/// registered on the shared `MobilePlayerChromeController`.
 protocol MobilePlayerPagerProviding: AnyObject {
 
     func pagerCurrentPagePosition() -> PlayerPagePosition
@@ -26,9 +23,6 @@ protocol MobilePlayerPagerProviding: AnyObject {
 
 }
 
-/// Navigation-stack entry hosting the in-player collection browser.
-/// Contributes the browser's more menu and never hides the status bar,
-/// matching the browser display mode of the previous single-controller player.
 final class MobilePlayerBrowserPageViewController: UIViewController {
 
     weak var modeController: MobilePlayerSessionModeController?
@@ -55,8 +49,6 @@ final class MobilePlayerBrowserPageViewController: UIViewController {
         self.contentViewController = VerticalCollectionBrowserViewController(uuid: uuid)
         super.init(nibName: nil, bundle: nil)
 
-        // Keep the pager's visible back button chevron-only while its
-        // long-press menu still lists this entry by collection name.
         navigationItem.backButtonDisplayMode = .minimal
         navigationItem.rightBarButtonItem = moreBarButtonItem
 
@@ -223,9 +215,6 @@ final class MobilePlayerBrowserPageViewController: UIViewController {
         view.isOpaque = true
     }
 
-    /// Mirrors the collection grid's context menu: collection name, primary
-    /// action, then artist links. The browser's primary action opens the
-    /// collection address in the block explorer instead of playing an item.
     private func makeMoreMenu(for token: GeneratedToken? = nil) -> UIMenu {
         let token = token ?? currentMenuToken
         let collectionId = token.fullCollectionId
@@ -409,10 +398,6 @@ final class MobilePlayerBrowserPageViewController: UIViewController {
 
 }
 
-/// Session-scoped authority over which display mode owns the top of the
-/// navigation stack. Replaces the old in-place child swap inside
-/// `HorizontalPlayerContainer` with non-animated pushes/pops of the browser
-/// and pager view controllers, keeping every visible transition identical.
 final class MobilePlayerSessionModeController {
 
     private(set) var activeMode: MobilePlayerDisplayMode
@@ -459,11 +444,6 @@ final class MobilePlayerSessionModeController {
         unstagePagerViewIfNeeded()
     }
 
-    // MARK: - Mode switches
-
-    /// Commits the pager → browser switch: prepares and centers the browser
-    /// offscreen, commits the browse position, then pops the pager without
-    /// animation. Mirrors the old `applyCollectionBrowserDisplayMode` flow.
     func switchToCollectionBrowser(
         targetPagePosition: PlayerPagePosition?,
         completion: ((Bool) -> Void)? = nil
@@ -508,8 +488,6 @@ final class MobilePlayerSessionModeController {
 
             func rejectOperation() {
                 browserViewController.cancelPendingDisplayPreparation()
-                // The morph-driven flows unstage through their prepared-selection
-                // cleanup; the direct-switch flows have no other unstage point.
                 self.unstageBrowserViewIfNeeded()
                 self.finishOperation(generation)
                 completion?(false)
@@ -520,9 +498,6 @@ final class MobilePlayerSessionModeController {
                 return
             }
 
-            // Browser preparation can occupy the main thread, preventing
-            // SwiftUI from starting the counter fade. Reserve the animation
-            // time after preparation; card morphs already hide the counter.
             let titleProgressTransitionDelay = shouldWaitForTitleProgressTransition
                 ? playerCollectionTitleProgressAnimationDuration
                 : 0
@@ -564,9 +539,6 @@ final class MobilePlayerSessionModeController {
                     return
                 }
 
-                // A resolved commit may have exited widget position space. From
-                // here onward, consume the already-validated browser transition
-                // without running a cancellation path against the mutated model.
                 assert(resolvedPagePosition == expectedPagePosition)
                 assert(
                     MobilePlaybackController.shared.collectionBrowseSnapshot(
@@ -581,9 +553,6 @@ final class MobilePlayerSessionModeController {
         }
     }
 
-    /// Commits the browser → pager switch: re-anchors the pager offscreen,
-    /// then pushes it without animation. Mirrors the old
-    /// `applyOnePerPageDisplayMode` flow.
     func switchToOnePerPage(
         targetPagePosition: PlayerPagePosition?,
         completion: ((Bool) -> Void)? = nil
@@ -611,10 +580,6 @@ final class MobilePlayerSessionModeController {
             ?? browserViewController.currentPagePosition
             ?? pagerProvider.pagerCurrentPagePosition()
 
-        // Restore the player-owned chrome before browser mode stops
-        // pinning the navigation bar visible. This keeps the navbar
-        // continuous through expansion and starts every player visit
-        // with its bottom controls visible.
         chrome.setControlsVisible(true)
         chrome.setNavigationBackSwipeAllowed(false)
 
@@ -659,8 +624,6 @@ final class MobilePlayerSessionModeController {
         }
     }
 
-    // MARK: - External navigation reconciliation
-
     func noteNavigationWillShow(_ viewController: UIViewController) {
         reconcileBrowserPresentationIfNeeded(shownViewController: viewController)
     }
@@ -669,9 +632,6 @@ final class MobilePlayerSessionModeController {
         reconcileBrowserPresentationIfNeeded(shownViewController: viewController)
     }
 
-    /// A pop landed on the browser without the minimize flow — e.g. the
-    /// back button's long-press menu. Re-align mode state immediately and
-    /// re-center the browser on the pager's current item best-effort.
     private func reconcileBrowserPresentationIfNeeded(
         shownViewController: UIViewController
     ) {
@@ -748,13 +708,6 @@ final class MobilePlayerSessionModeController {
         )
     }
 
-    // MARK: - Offscreen staging
-
-    /// The vertical browser assumes it stays window-mounted (safe-area
-    /// capture and cell snapshots resolve against the window). While the
-    /// pager owns the top of the stack, transitions temporarily attach the
-    /// browser's view beneath the navigation controller's content; it is
-    /// detached again right before UIKit re-hosts it during the pop.
     private func stageBrowserViewForTransition() {
         guard let navigationController,
               let browserViewController else {
@@ -777,8 +730,6 @@ final class MobilePlayerSessionModeController {
         browserView.removeFromSuperview()
     }
 
-    /// The expand morph measures the destination card frame against the
-    /// pager's laid-out view before the pager is pushed.
     func stagePagerViewForTransition() {
         guard let navigationController else { return }
         let pagerView: UIView = pagerViewController.view
@@ -797,8 +748,6 @@ final class MobilePlayerSessionModeController {
         }
         pagerView.removeFromSuperview()
     }
-
-    // MARK: - Operations
 
     private func beginOperation() -> UInt {
         if activeOperationGeneration != nil {

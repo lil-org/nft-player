@@ -50,8 +50,8 @@ const EXTENSION_BY_MIME = new Map([
   ["video/webm", "webm"],
 ]);
 const NATIVE_RENDERER_COLLECTION_IDS = new Set([
-  "EAzEpagtyeRAx9npnpVMpygoA8ouX7DRpLTghhPvYTiu", // Card NFT 2
-  "JCTP3kK3xGtWs5mDHxJBuRro38HftaiCDdKsfkXuK2gH", // Poncho Drifella
+  "EAzEpagtyeRAx9npnpVMpygoA8ouX7DRpLTghhPvYTiu",
+  "JCTP3kK3xGtWs5mDHxJBuRro38HftaiCDdKsfkXuK2gH",
 ]);
 
 const CANONICAL_COLLECTION_IDS = new Map([

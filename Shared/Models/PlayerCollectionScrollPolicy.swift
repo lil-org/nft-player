@@ -99,7 +99,6 @@ struct PlayerCollectionScrollFocalGeometry: Equatable {
            distanceFromBottom < bottomSpan {
             let focalY = lastItemCenter.y - distanceFromBottom * 2
             let bottomEdgeStartY = lastItemCenter.y - bottomSpan * 2
-            // Align horizontally only after the final row becomes vertically current.
             let horizontalTransitionStartY = max(
                 bottomEdgeStartY,
                 lastRowFocalEntryY
@@ -419,8 +418,6 @@ enum PlayerCollectionScrollPolicy {
             return true
         }
 
-        // Full containment is impossible for an item taller than the viewport.
-        // Count it only when the user has reached the bottom and its bottom edge is visible.
         guard !finalItemFrame.isNull,
               !finalItemFrame.isInfinite,
               !finalItemFrame.isEmpty,

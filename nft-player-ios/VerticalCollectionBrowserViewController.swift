@@ -809,8 +809,6 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         releaseRetainedFocusForOutwardPullIfNeeded(scrollView)
         acknowledgeIntentionalScrollIfNeeded(scrollView)
         if let previousOffsetY {
-            // Rubber-band recovery moves contentOffset in the same direction
-            // that hides chrome. Only count movement through scrollable content.
             let offsetDelta = PlayerCollectionScrollPolicy.boundedContentOffsetDelta(
                 previousOffsetY: previousOffsetY,
                 currentOffsetY: scrollView.contentOffset.y,
@@ -1102,10 +1100,6 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             sizeChanged || needsInitialCapture || canEvaluatePendingRefresh
         let resolvedInsets = shouldCaptureInsets
             ? UIEdgeInsets(
-                // The browser remains mounted behind the focused player.
-                // Preserve its visible-chrome top inset while that player
-                // temporarily hides or reveals the status/navigation bars.
-                // A viewport resize still captures the new orientation.
                 top: sizeChanged || needsInitialCapture
                     ? state.insets.top
                     : layoutWindowSafeAreaInsets.top,
@@ -1291,7 +1285,6 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         let isOutwardPull = contentOffsetY < verticalRange.lowerBound - Self.boundaryEpsilon
             || contentOffsetY > verticalRange.upperBound + Self.boundaryEpsilon
         guard isOutwardPull else { return }
-        // Keep a transition target stable until the user deliberately pulls past the edge.
         retainFocusedTokenIndex(nil)
     }
 
@@ -1329,7 +1322,6 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     private func scheduleScrollToTopAnimationTimeout() {
         scrollToTopAnimationTimeoutGeneration &+= 1
         let generation = scrollToTopAnimationTimeoutGeneration
-        // UIKit has no cancellation callback for an interrupted status-bar scroll.
         DispatchQueue.main.asyncAfter(
             deadline: .now() + Self.scrollToTopAnimationTimeout
         ) { [weak self] in
@@ -1687,8 +1679,6 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             direction: direction,
             prefetchStride: configuredPrefetchStride
         )
-        // Remember empty attempts too. Missing descriptors are a valid browser state,
-        // and forced settle/activation requests still retry late availability.
         lastThumbnailWindowRequest = request
     }
 

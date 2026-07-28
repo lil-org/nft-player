@@ -1,6 +1,5 @@
 // ∅ 2026 lil org
 
-// Raw values must match NativeMetalCardEffect in PonchoDrifellaShaders.metal.
 enum NativeMetalCardEffect: UInt8 {
     case rareHoloV = 0
     case supporter = 1

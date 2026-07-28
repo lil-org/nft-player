@@ -1132,8 +1132,6 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, U
         edgeTapHighlightWorkItem?.cancel()
     }
 
-    // MARK: - MobilePlayerPagerProviding
-
     func pagerCurrentPagePosition() -> PlayerPagePosition {
         pagingVC.getCurrentPagePosition()
     }
@@ -1895,8 +1893,6 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             snapshotting: mediaContentView,
             from: sourceFrame,
             in: coordinateView,
-            // Overflow here is real letterboxing, magnified by the media
-            // transform, so fall back to the viewport instead of cropping it.
             containmentTolerance: 0
         ) ?? makeTransitionSnapshot(
             snapshotting: zoomScrollView,
@@ -2024,9 +2020,6 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     ) {
         if preservingActiveZoomDuringMediaReplacement,
            hasActiveZoomTransform {
-            // The renderer has already replaced the provisional image. Keep the
-            // scroll view's live transform and gesture anchor completely intact;
-            // the new geometry will take effect the next time zoom returns to 1×.
             zoomContentLayout = layout
             zoomAllowedContent = allowedContent
             return

@@ -1486,7 +1486,6 @@ final class DownloadableMediaCache {
 
         foregroundDecodeIdsByKey[key] = activeDecode.id
 
-        // Race the existing prefetch decode on the foreground queue.
         enqueueImageDecodeWork(ImageDecodeJob(
             decodeId: activeDecode.id,
             fileURL: fileURL,

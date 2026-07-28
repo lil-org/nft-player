@@ -497,8 +497,6 @@ struct MobilePlayerView: View {
                 VStack {
                     Spacer()
                     HStack {
-                        // Keep cache-driven share availability in a leaf so
-                        // prefetch completions cannot rebuild the toolbar.
                         PlayerShareControl(
                             playerID: initialConfig.id,
                             pagePosition: currentPagePosition,
@@ -533,19 +531,11 @@ struct MobilePlayerView: View {
             .ignoresSafeArea(edges: .bottom)
         }
         .navigationBarTitleDisplayMode(.inline)
-        // Keep the native bar mounted and let PlayerNavigationController own
-        // its opacity. Structural hide/show transitions can snapshot the back
-        // item, allowing it to outlive a chrome visibility update.
         .toolbar(.visible, for: .navigationBar)
         .toolbarBackground(.hidden, for: .navigationBar)
-        // The pager replaces the native back button with a custom item whose
-        // long press lists every navigation destination; hide the native one
-        // so both cannot appear side by side.
         .navigationBarBackButtonHidden(true)
         .statusBar(hidden: shouldHideStatusBar)
         .toolbar {
-            // The more button stays mounted across the card transition so it
-            // survives the browser ↔ pager swap the way the back item does.
             ToolbarItem(placement: .navigationBarTrailing) {
                 infoMenu
                     .allowsHitTesting(!chrome.isPlayerContentHiddenForCardTransition)
@@ -553,9 +543,6 @@ struct MobilePlayerView: View {
             }
         }
         .onDisappear {
-            // The pager now pops on every switch to the browser; only reset
-            // per-visit state here. Session-wide chrome resets happen when
-            // the whole player session is invalidated.
             focusedPagePositionUpdateCoordinator.cancelPendingUpdate()
             bundledGenerativePresentationMode = .thumbnailAspectFit
         }
@@ -854,8 +841,6 @@ struct PlayerNavigationTitleView: View {
             title: title.collectionTitle,
             progressText: hidesPageLabel ? "" : title.pageLabel
         )
-        // The navigation bar owns normal chrome visibility. During a mode
-        // handoff the pill remains ready while UIKit swaps navigation items.
         .opacity(chrome.showControls || hidesPageLabel ? 1 : 0)
         .accessibilityHidden(!chrome.showControls)
     }
@@ -1094,9 +1079,6 @@ private struct PlayerShareControl: View {
                 for: .downloadableMediaCacheFileAvailabilityDidChange
             )
         ) { notification in
-            // New prefetch files cannot affect an already-retained share item.
-            // Removal events still need revalidation because a disk prune may
-            // have captured its protected-file snapshot before the retain.
             let availabilityChange = notification.object
                 as? DownloadableMediaCacheFileAvailabilityChange
             if shareItem != nil,
