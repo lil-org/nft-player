@@ -1,1 +1,1 @@
-No code comments except TODOs.
+Avoid code comments except TODOs and essential context.
