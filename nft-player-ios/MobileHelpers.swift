@@ -235,6 +235,8 @@ final class NativeMetalCardCornerMaskedImageView: UIImageView {
 struct Images {
     
     static let preferences = Image(systemName: "gearshape")
+    static let search = Image(systemName: "magnifyingglass")
+    static let clearText = Image(systemName: "xmark.circle.fill")
     static let share = Image(systemName: "square.and.arrow.up")
     static let bookmark = Image(systemName: "bookmark")
     static let bookmarkFill = Image(systemName: "bookmark.fill")
