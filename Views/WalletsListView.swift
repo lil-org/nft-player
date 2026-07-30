@@ -25,7 +25,6 @@ struct WalletsListView: View {
     @State private var viewedToEndCollectionIds: Set<String>
     @State private var recentContinueViewingProgresses: [PlayerViewingProgress]
     @State private var continueViewingScrollResetID = 0
-    @State private var hasOpenPlayerWindows: Bool
 
     init(collectionItems: [CollectionCatalogItem] = CollectionCatalog.allItems) {
         self.collectionItems = collectionItems
@@ -44,7 +43,6 @@ struct WalletsListView: View {
                 collectionItems: collectionItems
             )
         )
-        _hasOpenPlayerWindows = State(initialValue: Window.hasOpenPlayerWindows)
     }
 
     var body: some View {
@@ -91,62 +89,27 @@ struct WalletsListView: View {
                 }
             }
         }
-        .background(Color(nsColor: .controlBackgroundColor))
-        .toolbar {
-            ToolbarItemGroup {
-                Spacer()
-                ControlGroup {
-                    settingsMenu
-                    Button(action: {
-                        showShuffledCollectionPlayer()
-                    }) {
-                        Images.shuffle
-                    }
-                }
-            }
-        }
         .onAppear {
             refreshViewingProgress()
-            refreshPlayerWindowState()
             schedulePlayerPrewarm()
         }
         .onReceive(NotificationCenter.default.publisher(for: .playerViewingProgressDidChange)) { _ in
             refreshViewingProgress()
         }
-        .onReceive(NotificationCenter.default.publisher(for: .playerWindowsDidChange)) { _ in
-            refreshPlayerWindowState()
-        }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             refreshViewingProgress()
-            refreshPlayerWindowState()
         }
         .collectionsGridScrollMemoryLifecycleFlush(tracker: gridScrollMemoryTracker)
         .animation(continueViewingControlAnimation, value: recentContinueViewingProgresses)
-        .animation(continueViewingControlAnimation, value: hasOpenPlayerWindows)
         .animation(
             continueViewingControlAnimation,
             value: widgetLaunchPresentationState.isSuppressingContinueViewing
         )
     }
 
-    private var settingsMenu: some View {
-        Menu {
-            Text(Strings.sendFeedback)
-            Button(Strings.github, action: { open(URL.github) })
-            Button(Strings.mail, action: { open(URL.mail) })
-            Button(Strings.x, action: { open(URL.x) })
-            Divider()
-            Button(Strings.rateOnTheAppStore) { open(URL.writeAppStoreReview) }
-        } label: {
-            Images.gearshape
-        }
-        .menuIndicator(.hidden)
-    }
-
     private var shouldShowContinueViewingControl: Bool {
         !widgetLaunchPresentationState.isSuppressingContinueViewing
             && !recentContinueViewingProgresses.isEmpty
-            && !hasOpenPlayerWindows
     }
 
     private var continueViewingControlAnimation: Animation? {
@@ -212,24 +175,6 @@ struct WalletsListView: View {
         Navigator.shared.showPlayer(collectionId: item.id, continueViewingCollectionId: item.id)
     }
 
-    private func showShuffledCollectionPlayer() {
-        guard let item = randomCollectionItemPreferringUnfinishedCollections() else { return }
-        let progress = PlayerViewingProgressStore.progress(collectionId: item.id)
-        let initialTokenId = progress?.isComplete == false ? progress?.tokenId : nil
-
-        Navigator.shared.showPlayer(
-            collectionId: item.id,
-            initialTokenId: initialTokenId,
-            continueViewingCollectionId: item.id
-        )
-    }
-
-    private func randomCollectionItemPreferringUnfinishedCollections() -> CollectionCatalogItem? {
-        let progressSnapshot = PlayerViewingProgressStore.progressSnapshot()
-        let unfinishedItems = collectionItems.filter { !progressSnapshot.viewedToEndCollectionIds.contains($0.id) }
-        return (unfinishedItems.isEmpty ? collectionItems : unfinishedItems).randomElement()
-    }
-
     private func resumeViewing(_ progress: PlayerViewingProgress) {
         Navigator.shared.showPlayer(
             collectionId: progress.collectionId,
@@ -258,10 +203,6 @@ struct WalletsListView: View {
         continueViewingScrollResetID += 1
     }
 
-    private func refreshPlayerWindowState() {
-        hasOpenPlayerWindows = Window.hasOpenPlayerWindows
-    }
-
     private func schedulePlayerPrewarm() {
         PlayerWebView.scheduleFirstUsePrewarm()
         PlayerTokenPrewarmer.scheduleAfterLaunch(
@@ -279,10 +220,6 @@ struct WalletsListView: View {
             visibleCollectionIds.contains(progress.collectionId)
                 && CollectionCatalog.canOpenCollection(specificCollectionId: progress.collectionId)
         }
-    }
-
-    private func open(_ url: URL) {
-        NSWorkspace.shared.open(url)
     }
 
 }

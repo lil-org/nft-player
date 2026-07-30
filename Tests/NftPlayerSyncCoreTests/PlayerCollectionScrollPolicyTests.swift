@@ -6,6 +6,96 @@ import XCTest
 
 final class PlayerCollectionScrollPolicyTests: XCTestCase {
 
+    func testVerticalNavigationPreservesColumnsAtGridEdges() {
+        XCTAssertEqual(
+            PlayerCollectionScrollPolicy.verticalNavigationIndex(
+                currentIndex: 1,
+                itemCount: 8,
+                columnCount: 3,
+                rowOffset: -1
+            ),
+            1
+        )
+        XCTAssertEqual(
+            PlayerCollectionScrollPolicy.verticalNavigationIndex(
+                currentIndex: 4,
+                itemCount: 8,
+                columnCount: 3,
+                rowOffset: -1
+            ),
+            1
+        )
+        XCTAssertEqual(
+            PlayerCollectionScrollPolicy.verticalNavigationIndex(
+                currentIndex: 4,
+                itemCount: 8,
+                columnCount: 3,
+                rowOffset: 1
+            ),
+            7
+        )
+        XCTAssertEqual(
+            PlayerCollectionScrollPolicy.verticalNavigationIndex(
+                currentIndex: 5,
+                itemCount: 8,
+                columnCount: 3,
+                rowOffset: 1
+            ),
+            5
+        )
+    }
+
+    func testVerticalPageNavigationClampsToReachableRowsInTheSameColumn() {
+        XCTAssertEqual(
+            PlayerCollectionScrollPolicy.verticalNavigationIndex(
+                currentIndex: 2,
+                itemCount: 20,
+                columnCount: 3,
+                rowOffset: Int.max
+            ),
+            17
+        )
+        XCTAssertEqual(
+            PlayerCollectionScrollPolicy.verticalNavigationIndex(
+                currentIndex: 1,
+                itemCount: 20,
+                columnCount: 3,
+                rowOffset: Int.max
+            ),
+            19
+        )
+        XCTAssertEqual(
+            PlayerCollectionScrollPolicy.verticalNavigationIndex(
+                currentIndex: 17,
+                itemCount: 20,
+                columnCount: 3,
+                rowOffset: Int.min
+            ),
+            2
+        )
+    }
+
+    func testVerticalNavigationRejectsInvalidGridState() {
+        XCTAssertNil(PlayerCollectionScrollPolicy.verticalNavigationIndex(
+            currentIndex: 0,
+            itemCount: 0,
+            columnCount: 3,
+            rowOffset: 1
+        ))
+        XCTAssertNil(PlayerCollectionScrollPolicy.verticalNavigationIndex(
+            currentIndex: 8,
+            itemCount: 8,
+            columnCount: 3,
+            rowOffset: 1
+        ))
+        XCTAssertNil(PlayerCollectionScrollPolicy.verticalNavigationIndex(
+            currentIndex: 0,
+            itemCount: 8,
+            columnCount: 0,
+            rowOffset: 1
+        ))
+    }
+
     func testBoundedContentOffsetDeltaIgnoresTopAndBottomBounceRecovery() {
         let validRange: ClosedRange<CGFloat> = 0...100
 

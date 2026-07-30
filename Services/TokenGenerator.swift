@@ -175,17 +175,29 @@ struct TokenGenerator {
         return collectionData(specificCollectionId: specificCollectionId)?.tokenIndicesById[tokenId]
     }
 
-    static func generateToken(specificCollectionId: String, tokenIndex: Int) -> GeneratedToken? {
-        if isRangedNativeCollection(specificCollectionId) {
-            guard let collection = activeRangedNativeCollection(specificCollectionId: specificCollectionId) else { return nil }
-            guard let script = script(specificCollectionId: specificCollectionId),
-                  let token = collection.token(at: tokenIndex) else { return nil }
-            return generateToken(token, script: script)
+#if os(macOS)
+    static func tokenIdentity(
+        specificCollectionId: String,
+        tokenIndex: Int
+    ) -> (collectionName: String, tokenId: String)? {
+        guard let source = tokenSource(
+            specificCollectionId: specificCollectionId,
+            tokenIndex: tokenIndex
+        ) else {
+            return nil
         }
+        return (source.script.name, source.token.id)
+    }
+#endif
 
-        guard let collectionData = collectionData(specificCollectionId: specificCollectionId),
-              collectionData.tokens.indices.contains(tokenIndex) else { return nil }
-        return generateToken(collectionData.tokens[tokenIndex], script: collectionData.script)
+    static func generateToken(specificCollectionId: String, tokenIndex: Int) -> GeneratedToken? {
+        guard let source = tokenSource(
+            specificCollectionId: specificCollectionId,
+            tokenIndex: tokenIndex
+        ) else {
+            return nil
+        }
+        return generateToken(source.token, script: source.script)
     }
     
     static func generateRandomToken(specificCollectionId: String, notTokenId: String?) -> GeneratedToken? {
@@ -227,6 +239,30 @@ struct TokenGenerator {
               collection.count > 0,
               jsonsNames.contains(specificCollectionId + ".json") else { return nil }
         return collection
+    }
+
+    private static func tokenSource(
+        specificCollectionId: String,
+        tokenIndex: Int
+    ) -> (token: BundledTokens.Item, script: Script)? {
+        if isRangedNativeCollection(specificCollectionId) {
+            guard let collection = activeRangedNativeCollection(
+                specificCollectionId: specificCollectionId
+            ),
+                  let script = script(specificCollectionId: specificCollectionId),
+                  let token = collection.token(at: tokenIndex) else {
+                return nil
+            }
+            return (token, script)
+        }
+
+        guard let collectionData = collectionData(
+            specificCollectionId: specificCollectionId
+        ),
+              collectionData.tokens.indices.contains(tokenIndex) else {
+            return nil
+        }
+        return (collectionData.tokens[tokenIndex], collectionData.script)
     }
 
     private static var cardNft2RangedTokenCount: Int {

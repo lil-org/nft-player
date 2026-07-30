@@ -438,7 +438,7 @@ struct MobilePlayerView: View {
         self.initialConfig = config
         self.onDismiss = onDismiss
         self.chrome = chrome
-        self.collectionBrowserAvailable = MobilePlayerCollectionBrowserSupport.isAvailable(
+        self.collectionBrowserAvailable = PlayerCollectionBrowserSupport.isAvailable(
             for: config
         )
     }

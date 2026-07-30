@@ -1920,7 +1920,7 @@ private struct MobileCollectionsNavigationView<RootView: View>: UIViewController
             config: MobilePlayerConfig,
             navigationController: PlayerNavigationController
         ) -> PlayerSession {
-            let collectionBrowserAvailable = MobilePlayerCollectionBrowserSupport.isAvailable(
+            let collectionBrowserAvailable = PlayerCollectionBrowserSupport.isAvailable(
                 for: config
             )
             let initialDisplayMode = MobilePlayerDisplayMode.initialMode(
@@ -4419,26 +4419,14 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
         scale: CGFloat,
         velocity: CGFloat
     ) -> Bool {
-        let currentProgress = cardMinimizePinchProgress(forScale: scale)
-        let projectedScale = scale + min(velocity, 0) * MobilePlayerGestureTuning.cardMinimizePinchVelocityProjectionDuration
-        let projectedProgress = max(
-            currentProgress,
-            cardMinimizePinchProgress(forScale: projectedScale)
+        PlayerCardMinimizePinchPolicy.shouldComplete(
+            scale: scale,
+            velocity: velocity
         )
-        let hasEnoughProgressForVelocityCommit = currentProgress >= MobilePlayerGestureTuning.cardMinimizePinchMinimumVelocityCommitProgress
-        return currentProgress >= MobilePlayerGestureTuning.cardMinimizePinchCompletionProgress
-            || (hasEnoughProgressForVelocityCommit
-                && (projectedProgress >= MobilePlayerGestureTuning.cardMinimizePinchCompletionProgress
-                    || velocity < -MobilePlayerGestureTuning.cardMinimizePinchFastVelocity))
     }
 
     private func cardMinimizePinchProgress(forScale scale: CGFloat) -> CGFloat {
-        let activationScale = MobilePlayerGestureTuning.cardMinimizePinchActivationScale
-        let fullProgressScale = MobilePlayerGestureTuning.cardMinimizePinchFullProgressScale
-        let progressDistance = activationScale - fullProgressScale
-        guard progressDistance > 0 else { return 0 }
-
-        return min(max((activationScale - scale) / progressDistance, 0), 1)
+        PlayerCardMinimizePinchPolicy.progress(forScale: scale)
     }
 
     private func resetCardMinimizePinchState() {
@@ -4879,7 +4867,7 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
             return image.size.validOrDefault
         }
 
-        return MobilePlayerCollectionBrowserSupport.fallbackImageSize(for: selectedDescriptor)
+        return PlayerCollectionBrowserSupport.fallbackImageSize(for: selectedDescriptor)
     }
 
     private func onePerPageCardFrame(
@@ -4896,7 +4884,7 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
             return view.convert(clippedNativeCardFrame, to: cardTransitionCanvasView)
         }
 
-        let frameInPlayer = MobilePlayerAspectFitLayout.centeredRect(
+        let frameInPlayer = PlayerAspectFitLayout.centeredRect(
             for: fallbackImageSize.validOrDefault,
             in: playerBounds
         )

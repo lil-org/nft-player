@@ -14,7 +14,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     func applicationDidFinishLaunching(_ aNotification: Notification) {
         PlayerICloudSync.shared.start()
-        Navigator.shared.showControlCenter()
+        Navigator.shared.showMainWindow()
         
         let notificationCenter = DistributedNotificationCenter.default()
         notificationCenter.post(name: .mustTerminate, object: currentInstanceId)
@@ -71,7 +71,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        Navigator.shared.showControlCenter()
+        Navigator.shared.showMainWindow()
         return true
     }
 
@@ -93,7 +93,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     @IBAction func didClickNewWindowItem(_ sender: Any) {
-        Navigator.shared.showControlCenter()
+        Navigator.shared.showCollections()
     }
 
     private func openWidgetURL(_ url: URL) {

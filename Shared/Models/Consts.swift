@@ -3,8 +3,8 @@
 import Foundation
 
 struct Consts {
-    
-    static let playerFrameAutosaveName = "local html player"
-    static let controlCenterFrameAutosaveName = "control center"
-    
+
+    /// Kept as "control center" so windows saved by earlier versions still restore.
+    static let mainWindowFrameAutosaveName = "control center"
+
 }

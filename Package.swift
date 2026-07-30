@@ -18,6 +18,7 @@ let package = Package(
                 "Extensions/Notification.swift",
                 "Models/Chain.swift",
                 "Models/CardNft2CardMetadata.swift",
+                "Models/CollectionBrowseThumbnails.swift",
                 "Models/CollectionCatalog.swift",
                 "Models/CollectionsGridScrollMemory.swift",
                 "Models/Consts.swift",
@@ -25,6 +26,7 @@ let package = Package(
                 "Models/NftGallery.swift",
                 "Models/NativeMetalCardMetadata.swift",
                 "Models/PonchoDrifellaCardMetadata.swift",
+                "Models/PlayerCollectionBrowserSupport.swift",
                 "Models/PlayerWidgetTokenInsertion.swift",
                 "Services/DownloadableMediaCache.swift",
                 "Services/CardNft2AssetCache.swift",
@@ -36,6 +38,7 @@ let package = Package(
             ],
             sources: [
                 "Models/MobilePlayerBrowserLayout.swift",
+                "Models/PlayerCardMinimizePinchPolicy.swift",
                 "Models/PlayerCollectionScrollPolicy.swift",
                 "Models/PlayerSyncTypes.swift",
                 "Models/PlayerViewingProgressStore.swift",

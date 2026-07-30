@@ -1,90 +1,7 @@
 // ∅ 2026 lil org
 
-import SwiftUI
 import AppKit
-
-struct LocalHtmlView: View {
-    
-    private var windowNumber = 0
-    private weak var playerMenuDelegate: PlayerMenuDelegate?
-    private let navigationBridge: MacPlayerNavigationBridge
-    private let onViewAgain: () -> Void
-    private let onFinish: () -> Void
-    
-    @ObservedObject var playerModel: PlayerModel
-    
-    init(
-        playerModel: PlayerModel,
-        windowNumber: Int,
-        playerMenuDelegate: PlayerMenuDelegate,
-        navigationBridge: MacPlayerNavigationBridge,
-        onViewAgain: @escaping () -> Void,
-        onFinish: @escaping () -> Void
-    ) {
-        self.playerModel = playerModel
-        self.windowNumber = windowNumber
-        self.playerMenuDelegate = playerMenuDelegate
-        self.navigationBridge = navigationBridge
-        self.onViewAgain = onViewAgain
-        self.onFinish = onFinish
-    }
-    
-    var body: some View {
-        let isCollectionComplete = playerModel.currentProgress?.isComplete == true
-            && !playerModel.isCurrentTokenInsertedWidgetToken
-
-        ZStack(alignment: .bottom) {
-            MacPlayerPageControllerView(
-                playerModel: playerModel,
-                playerMenuDelegate: playerMenuDelegate,
-                navigationBridge: navigationBridge
-            )
-                .onAppear {
-                    hideCursorIfFullscreen()
-                }
-                .frame(minWidth: 200, maxWidth: .infinity, minHeight: 200, maxHeight: .infinity)
-                .background(.black)
-                .onReceive(NotificationCenter.default.publisher(for: NSWindow.didEnterFullScreenNotification)) { notification in
-                    if (notification.object as? NSWindow)?.windowNumber == windowNumber {
-                        NSCursor.setHiddenUntilMouseMoves(true)
-                    }
-                }
-
-            if isCollectionComplete {
-                MacPlayerCompletionControls(
-                    onViewAgain: onViewAgain,
-                    onFinish: onFinish
-                )
-                .padding(.bottom, 18)
-                .transition(.opacity.combined(with: .move(edge: .bottom)))
-            }
-        }
-        .animation(.easeInOut(duration: 0.16), value: isCollectionComplete)
-    }
-    
-    private func hideCursorIfFullscreen() {
-        if let window = NSApplication.shared.windows.first(where: { $0.windowNumber == windowNumber }) {
-            if window.styleMask.contains(.fullScreen) {
-                NSCursor.setHiddenUntilMouseMoves(true)
-            }
-        }
-    }
-    
-}
-
-final class MacPlayerNavigationBridge {
-    fileprivate weak var pageController: MacPlayerPageController?
-
-    @discardableResult
-    func goBack(animation: MacPlayerNavigationAnimation) -> Bool {
-        pageController?.navigateBackFromChrome(animation: animation) ?? false
-    }
-
-    @discardableResult
-    func goForward(animation: MacPlayerNavigationAnimation) -> Bool {
-        pageController?.navigateForwardFromChrome(animation: animation) ?? false
-    }
-}
+import SwiftUI
 
 enum MacPlayerNavigationAnimation {
     case animated
@@ -115,41 +32,21 @@ private enum MacPlayerEdgeClickSide {
     }
 }
 
-private struct MacPlayerPageControllerView: NSViewControllerRepresentable {
-
-    @ObservedObject var playerModel: PlayerModel
-    weak var playerMenuDelegate: PlayerMenuDelegate?
-    let navigationBridge: MacPlayerNavigationBridge
-
-    func makeNSViewController(context: Context) -> MacPlayerPageController {
-        let pageController = MacPlayerPageController(
-            playerModel: playerModel,
-            playerMenuDelegate: playerMenuDelegate
-        )
-        navigationBridge.pageController = pageController
-        return pageController
-    }
-
-    func updateNSViewController(_ nsViewController: MacPlayerPageController, context: Context) {
-        navigationBridge.pageController = nsViewController
-        nsViewController.update(playerMenuDelegate: playerMenuDelegate)
-    }
-
-    static func dismantleNSViewController(_ nsViewController: MacPlayerPageController, coordinator: ()) {
-        nsViewController.cleanup()
-    }
-}
-
 final class MacPlayerPageController: NSPageController, NSPageControllerDelegate {
 
-    private static let fallbackPageIdentifier = NSPageController.ObjectIdentifier("MacPlayerPage")
+    private static let pageIdentifier = NSPageController.ObjectIdentifier("MacPlayerPage")
     private static let pageObjectWindowThreshold = 1_000
     private static let pageObjectWindowRadius = 300
 
     private let playerModel: PlayerModel
     private weak var playerMenuDelegate: PlayerMenuDelegate?
+    var isPagingInteractionAllowed: (() -> Bool)?
+    var onNavigationStateChange: (() -> Void)?
     private lazy var edgeClickNavigationView: MacPlayerEdgeClickNavigationView = {
         let view = MacPlayerEdgeClickNavigationView()
+        view.isInteractionBlocked = { [weak self] in
+            self?.allowsPagingInteraction == false
+        }
         view.canNavigate = { [weak self] side in
             self?.canNavigateFromChrome(offset: side.navigationOffset) == true
         }
@@ -164,17 +61,19 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
     private var tokenPagingDataSource: PlayerTokenPagingDataSource?
     private var pageObjects = [MacPlayerPageObject]()
     private var pageObjectIndices = [MacPlayerPageObjectKey: Int]()
-    private var usesWindowedPageObjects = false
     private var displayedPageObjectWindow: ClosedRange<Int>?
     private let pageViewControllers = NSHashTable<MacPlayerPageViewController>.weakObjects()
     private var isSyncingSelectionFromModel = false
     private var shouldSyncSelectionAfterTransition = false
+    private var shouldRebuildCollectionAfterWidgetInsertionExit = false
+    private var shouldActivateContentAfterTransition = false
     private var isTransitioning = false
     private var isLiveTransitioning = false
+    private var isContentActive = true
     private var transitionSourceIndex: Int?
     private var transitionDestinationIndex: Int?
     private var lastActivePrefetchDirection: DownloadableMediaCache.PrefetchDirection = .forward
-    private var queuedNavigationRequests = [QueuedNavigationRequest]()
+    private var pendingNavigationRequest: NavigationRequest?
     private weak var liveTransitionSourceViewController: MacPlayerPageViewController?
     private var liveTransitionSourcePageObject: MacPlayerPageObject?
 
@@ -193,7 +92,7 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
         delegate = self
         transitionStyle = .horizontalStrip
         view.wantsLayer = true
-        view.layer?.backgroundColor = NSColor.black.cgColor
+        view.layer?.backgroundColor = NSColor.clear.cgColor
         syncSelectionWithModel()
         installEdgeClickNavigationOverlay()
     }
@@ -207,13 +106,59 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
 
     func update(playerMenuDelegate: PlayerMenuDelegate?) {
         self.playerMenuDelegate = playerMenuDelegate
-        (selectedViewController as? MacPlayerPageViewController)?.updatePlayerMenuDelegate(playerMenuDelegate)
+        pageViewControllers.allObjects.forEach {
+            $0.updatePlayerMenuDelegate(playerMenuDelegate)
+        }
         syncSelectionWithModel()
     }
 
+    /// Pulls the displayed page back in line with `playerModel.currentToken` after
+    /// something other than the pager moved it — a browser selection, a restart, a
+    /// widget hand-off. A no-op when the page already matches.
+    func syncSelection() {
+        guard isContentActive else { return }
+        syncSelectionWithModel()
+    }
+
+    func activateContent() {
+        isContentActive = true
+        syncSelectionWithModel()
+        guard !isTransitioning else {
+            shouldActivateContentAfterTransition = true
+            return
+        }
+        shouldActivateContentAfterTransition = false
+        renderCurrentPageViewController(mode: .active)
+    }
+
+    func deactivateContent() {
+        guard isContentActive else { return }
+        isContentActive = false
+        shouldActivateContentAfterTransition = false
+        pendingNavigationRequest = nil
+        edgeClickNavigationView.cancelActivePressAndHighlights()
+        pageViewControllers.allObjects.forEach { $0.suspendContent() }
+    }
+
+    func rebuildCollectionAfterWidgetInsertionExit() {
+        guard isViewLoaded else { return }
+        guard !isTransitioning else {
+            shouldRebuildCollectionAfterWidgetInsertionExit = true
+            return
+        }
+        rebuildCollectionFromModel()
+    }
+
     func cleanup() {
+        isContentActive = false
+        shouldActivateContentAfterTransition = false
+        pendingNavigationRequest = nil
         edgeClickNavigationView.cancelActivePressAndHighlights()
         pageViewControllers.allObjects.forEach { $0.cleanup() }
+    }
+
+    var isTransitionInFlight: Bool {
+        isTransitioning
     }
 
     @discardableResult
@@ -224,6 +169,43 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
     @discardableResult
     func navigateForwardFromChrome(animation: MacPlayerNavigationAnimation) -> Bool {
         navigateFromChrome(offset: 1, animation: animation)
+    }
+
+    /// Where the current page's media sits on screen, in window coordinates.
+    func currentMediaFrameInWindow() -> CGRect? {
+        currentPageViewController?.mediaContainerView?.displayedMediaFrameInWindow
+    }
+
+    var isCurrentPageZoomed: Bool {
+        currentPageViewController?.mediaContainerView?.isZoomedIn == true
+    }
+
+    func resetCurrentPageZoom(completion: @escaping () -> Void) {
+        guard let mediaView = currentPageViewController?.mediaContainerView else {
+            completion()
+            return
+        }
+        mediaView.resetZoomAnimated(completion: completion)
+    }
+
+    func relinquishCurrentPageNativeMagnifyGesture() {
+        currentPageViewController?.mediaContainerView?.relinquishNativeMagnifyGesture()
+    }
+
+    private var currentPageViewController: MacPlayerPageViewController? {
+        selectedViewController as? MacPlayerPageViewController
+    }
+
+    private var allowsPagingInteraction: Bool {
+        isContentActive && (isPagingInteractionAllowed?() ?? true)
+    }
+
+    var canNavigateBackFromChrome: Bool {
+        canNavigateFromChrome(offset: -1)
+    }
+
+    var canNavigateForwardFromChrome: Bool {
+        canNavigateFromChrome(offset: 1)
     }
 
     private func installEdgeClickNavigationOverlay() {
@@ -285,7 +267,7 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
         ) != true {
             let previousTokenIndex = currentPageObject?.tokenIndex
             let targetIndex: Int?
-            if usesWindowedPageObjects {
+            if displayedPageObjectWindow != nil {
                 targetIndex = setWindowedPageObjects(
                     around: tokenContext.tokenIndex,
                     collectionId: tokenContext.collectionId,
@@ -302,7 +284,7 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
                 displayFallbackToken(token)
                 return
             }
-            queuedNavigationRequests.removeAll()
+            pendingNavigationRequest = nil
             if let previousTokenIndex {
                 lastActivePrefetchDirection = tokenContext.tokenIndex < previousTokenIndex ? .backward : .forward
             } else {
@@ -311,7 +293,7 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
             transitionSourceIndex = nil
             transitionDestinationIndex = nil
             withoutImplicitAnimation {
-                if usesWindowedPageObjects {
+                if displayedPageObjectWindow != nil {
                     arrangedObjects = pageObjects
                 }
                 selectedIndex = targetIndex
@@ -322,7 +304,7 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
     private func displayCollection(_ context: PlayerTokenContext) {
         displayedCollectionId = context.collectionId
         displayedCollectionTokenCount = context.tokenCount
-        queuedNavigationRequests.removeAll()
+        pendingNavigationRequest = nil
         transitionSourceIndex = nil
         transitionDestinationIndex = nil
         lastActivePrefetchDirection = .forward
@@ -336,13 +318,12 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
         let requiresRenderabilityFilter = CollectionCatalog.isDownloadableCollection(
             specificCollectionId: context.collectionId
         )
-        usesWindowedPageObjects = shouldUseWindowedPageObjects(
-            for: context,
-            requiresRenderabilityFilter: requiresRenderabilityFilter
-        )
         displayedPageObjectWindow = nil
 
-        if usesWindowedPageObjects {
+        if shouldUseWindowedPageObjects(
+            for: context,
+            requiresRenderabilityFilter: requiresRenderabilityFilter
+        ) {
             guard let targetIndex = setWindowedPageObjects(
                 around: context.tokenIndex,
                 collectionId: context.collectionId,
@@ -408,9 +389,8 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
         displayedCollectionId = nil
         displayedCollectionTokenCount = nil
         tokenPagingDataSource = nil
-        usesWindowedPageObjects = false
         displayedPageObjectWindow = nil
-        queuedNavigationRequests.removeAll()
+        pendingNavigationRequest = nil
         transitionSourceIndex = nil
         transitionDestinationIndex = nil
         setPageObjects([MacPlayerPageObject(fallbackToken: token)])
@@ -433,11 +413,18 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
         return token
     }
 
+    private func canRender(_ pageObject: MacPlayerPageObject) -> Bool {
+        if pageObject.fallbackToken != nil {
+            return true
+        }
+        return tokenPagingDataSource?.canRender(pagePosition: pageObject.pagePosition) == true
+    }
+
     func pageController(
         _ pageController: NSPageController,
         identifierFor object: Any
     ) -> NSPageController.ObjectIdentifier {
-        Self.pageIdentifier(for: object)
+        Self.pageIdentifier
     }
 
     func pageController(
@@ -464,6 +451,11 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
             return
         }
 
+        guard isContentActive else {
+            viewController.suspendContent()
+            return
+        }
+
         viewController.resizeContent(to: view.bounds.size)
         guard let token = token(for: pageObject) else {
             viewController.cleanup()
@@ -472,7 +464,6 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
 
         viewController.render(
             token,
-            playerMenuDelegate: playerMenuDelegate,
             mode: renderMode(for: pageObject),
             downloadableMediaWindow: downloadableMediaWindow(for: pageObject)
         )
@@ -484,13 +475,8 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
     ) {
         guard !isSyncingSelectionFromModel else { return }
         guard let pageObject = object as? MacPlayerPageObject else { return }
-
-        guard let token = token(for: pageObject) else {
-            if !isLiveTransitioning {
-                DispatchQueue.main.async { [weak self] in
-                    self?.finishTransition()
-                }
-            }
+        guard isContentActive, let token = token(for: pageObject) else {
+            scheduleTransitionFinish()
             return
         }
 
@@ -499,11 +485,7 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
             resetZoomInPageViewControllers()
         }
         playerModel.showPagedToken(token, isInsertedWidgetToken: pageObject.isInsertedWidgetToken)
-        if !isLiveTransitioning {
-            DispatchQueue.main.async { [weak self] in
-                self?.finishTransition()
-            }
-        }
+        scheduleTransitionFinish()
     }
 
     func pageControllerDidEndLiveTransition(_ pageController: NSPageController) {
@@ -524,7 +506,7 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
     }
 
     func pageControllerWillStartLiveTransition(_ pageController: NSPageController) {
-        isTransitioning = true
+        beginTransition()
         isLiveTransitioning = true
         transitionSourceIndex = selectedIndex
         transitionDestinationIndex = nil
@@ -532,24 +514,57 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
         liveTransitionSourcePageObject = currentPageObject
     }
 
+    private func scheduleTransitionFinish() {
+        guard !isLiveTransitioning else { return }
+        DispatchQueue.main.async { [weak self] in
+            self?.finishTransition()
+        }
+    }
+
     private func finishTransition() {
         isTransitioning = false
         transitionSourceIndex = nil
         transitionDestinationIndex = nil
         resizePageViewControllersToCurrentBounds()
-        if shouldSyncSelectionAfterTransition {
+        if shouldRebuildCollectionAfterWidgetInsertionExit {
+            shouldRebuildCollectionAfterWidgetInsertionExit = false
+            shouldSyncSelectionAfterTransition = false
+            rebuildCollectionFromModel()
+        } else if shouldSyncSelectionAfterTransition {
             shouldSyncSelectionAfterTransition = false
             syncSelectionWithModel()
         }
+        if shouldActivateContentAfterTransition, isContentActive {
+            shouldActivateContentAfterTransition = false
+            renderCurrentPageViewController(mode: .active)
+        }
         recenterWindowIfNeeded()
-        startQueuedNavigationIfNeeded()
+        startPendingNavigationIfNeeded()
+        onNavigationStateChange?()
+    }
+
+    private func beginTransition() {
+        isTransitioning = true
+        onNavigationStateChange?()
+    }
+
+    private func rebuildCollectionFromModel() {
+        isSyncingSelectionFromModel = true
+        defer { isSyncingSelectionFromModel = false }
+
+        guard let context = CollectionCatalog.tokenContext(for: playerModel.currentToken) else {
+            displayFallbackToken(playerModel.currentToken)
+            return
+        }
+        displayCollection(context)
     }
 
     private func navigateFromChrome(offset: Int, animation: MacPlayerNavigationAnimation) -> Bool {
+        guard allowsPagingInteraction else { return false }
         guard canNavigateWithinCollection(offset: offset) else { return false }
 
         if isTransitioning {
-            queueNavigation(offset: offset, animation: animation)
+            pendingNavigationRequest = NavigationRequest(offset: offset, animation: animation)
             return true
         }
 
@@ -557,6 +572,7 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
     }
 
     private func canNavigateFromChrome(offset: Int) -> Bool {
+        guard allowsPagingInteraction else { return false }
         guard !isTransitioning else { return false }
         return canNavigateWithinCollection(offset: offset)
     }
@@ -565,10 +581,10 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
         guard offset != 0, pageObjects.count > 1 else { return false }
         let targetIndex = selectedIndex + offset
         if pageObjects.indices.contains(targetIndex) {
-            return token(for: pageObjects[targetIndex]) != nil
+            return canRender(pageObjects[targetIndex])
         }
 
-        guard usesWindowedPageObjects,
+        guard displayedPageObjectWindow != nil,
               let pageObject = currentPageObject,
               pageObject.fallbackToken == nil,
               let tokenCount = displayedCollectionTokenCount else {
@@ -576,11 +592,10 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
         }
 
         let targetTokenIndex = pageObject.tokenIndex + offset
-        return targetTokenIndex >= 0 && targetTokenIndex < tokenCount
-    }
-
-    private func queueNavigation(offset: Int, animation: MacPlayerNavigationAnimation) {
-        queuedNavigationRequests = [QueuedNavigationRequest(offset: offset, animation: animation)]
+        guard targetTokenIndex >= 0, targetTokenIndex < tokenCount else { return false }
+        return tokenPagingDataSource?.canRender(
+            pagePosition: pageObject.pagePosition.advanced(by: offset)
+        ) == true
     }
 
     @discardableResult
@@ -604,13 +619,13 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
             transitionSourceIndex = selectedIndex
             transitionDestinationIndex = selectedIndex + offset
             lastActivePrefetchDirection = .backward
-            isTransitioning = true
+            beginTransition()
             navigateBack(nil)
         case 1...:
             transitionSourceIndex = selectedIndex
             transitionDestinationIndex = selectedIndex + offset
             lastActivePrefetchDirection = .forward
-            isTransitioning = true
+            beginTransition()
             navigateForward(nil)
         default:
             transitionSourceIndex = nil
@@ -646,12 +661,12 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
     }
 
     private func renderSelectedViewController(_ token: GeneratedToken, mode: MacPlayerMediaRenderMode) {
-        guard let viewController = selectedViewController as? MacPlayerPageViewController,
+        guard isContentActive,
+              let viewController = selectedViewController as? MacPlayerPageViewController,
               let pageObject = currentPageObject else { return }
         viewController.resizeContent(to: view.bounds.size)
         viewController.render(
             token,
-            playerMenuDelegate: playerMenuDelegate,
             mode: mode,
             downloadableMediaWindow: downloadableMediaWindow(for: pageObject)
         )
@@ -665,19 +680,11 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
         renderSelectedViewController(token, mode: mode)
     }
 
-    private func startQueuedNavigationIfNeeded() {
-        guard !queuedNavigationRequests.isEmpty, !isTransitioning else { return }
-
-        while !queuedNavigationRequests.isEmpty, !isTransitioning {
-            let request = queuedNavigationRequests.removeFirst()
-            guard startNavigation(offset: request.offset, animation: request.animation) else {
-                continue
-            }
-
-            if request.animation == .animated {
-                return
-            }
-        }
+    private func startPendingNavigationIfNeeded() {
+        guard !isTransitioning, let request = pendingNavigationRequest else { return }
+        pendingNavigationRequest = nil
+        guard allowsPagingInteraction else { return }
+        startNavigation(offset: request.offset, animation: request.animation)
     }
 
     private func resizePageViewControllersToCurrentBounds() {
@@ -737,10 +744,10 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
     private func prepareWindowForNavigation(offset: Int) -> Bool {
         let targetIndex = selectedIndex + offset
         if pageObjects.indices.contains(targetIndex) {
-            return token(for: pageObjects[targetIndex]) != nil
+            return canRender(pageObjects[targetIndex])
         }
 
-        guard usesWindowedPageObjects,
+        guard displayedPageObjectWindow != nil,
               let pageObject = currentPageObject,
               pageObject.fallbackToken == nil,
               let tokenCount = displayedCollectionTokenCount else {
@@ -749,6 +756,11 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
 
         let targetTokenIndex = pageObject.tokenIndex + offset
         guard targetTokenIndex >= 0 && targetTokenIndex < tokenCount else { return false }
+        guard tokenPagingDataSource?.canRender(
+            pagePosition: pageObject.pagePosition.advanced(by: offset)
+        ) == true else {
+            return false
+        }
         guard offset >= -Self.pageObjectWindowRadius,
               offset <= Self.pageObjectWindowRadius else {
             return false
@@ -775,8 +787,7 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
     }
 
     private func recenterWindowIfNeeded() {
-        guard usesWindowedPageObjects,
-              let window = displayedPageObjectWindow,
+        guard let window = displayedPageObjectWindow,
               let pageObject = currentPageObject,
               pageObject.fallbackToken == nil,
               let tokenCount = displayedCollectionTokenCount else {
@@ -890,24 +901,16 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
         }
     }
 
-    private struct QueuedNavigationRequest {
+    private struct NavigationRequest {
         let offset: Int
         let animation: MacPlayerNavigationAnimation
     }
 
-    private static func pageIdentifier(for object: Any) -> NSPageController.ObjectIdentifier {
-        guard let pageObject = object as? MacPlayerPageObject else {
-            return fallbackPageIdentifier
-        }
-
-        return NSPageController.ObjectIdentifier(
-            "MacPlayerPage:\(pageObject.collectionId):\(pageObject.tokenIndex):\(pageObject.isInsertedWidgetToken):\(pageObject.fallbackToken?.id ?? "")"
-        )
-    }
 }
 
 private final class MacPlayerEdgeClickNavigationView: NSView {
 
+    var isInteractionBlocked: (() -> Bool)?
     var canNavigate: ((MacPlayerEdgeClickSide) -> Bool)?
     var navigate: ((MacPlayerEdgeClickSide) -> Bool)?
 
@@ -936,6 +939,9 @@ private final class MacPlayerEdgeClickNavigationView: NSView {
     }
 
     override func hitTest(_ point: NSPoint) -> NSView? {
+        if isInteractionBlocked?() == true {
+            return self
+        }
         guard shouldReceiveCurrentMouseDownEvent,
               navigableEdgeClickSide(at: point) != nil else {
             return nil
@@ -944,6 +950,7 @@ private final class MacPlayerEdgeClickNavigationView: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
+        guard isInteractionBlocked?() != true else { return }
         let location = convert(event.locationInWindow, from: nil)
         guard let side = navigableEdgeClickSide(at: location) else { return }
 
@@ -951,6 +958,21 @@ private final class MacPlayerEdgeClickNavigationView: NSView {
         initialLocation = location
         didMoveEnoughToCancelHighlight = false
         beginHighlight(on: side)
+    }
+
+    override func scrollWheel(with event: NSEvent) {
+        guard isInteractionBlocked?() != true else { return }
+        nextResponder?.scrollWheel(with: event)
+    }
+
+    override func magnify(with event: NSEvent) {
+        guard isInteractionBlocked?() != true else { return }
+        nextResponder?.magnify(with: event)
+    }
+
+    override func swipe(with event: NSEvent) {
+        guard isInteractionBlocked?() != true else { return }
+        nextResponder?.swipe(with: event)
     }
 
     override func mouseDragged(with event: NSEvent) {
@@ -1287,6 +1309,10 @@ private final class MacPlayerPageViewController: NSViewController {
     private weak var playerMenuDelegate: PlayerMenuDelegate?
     private var mediaView: MacPlayerMediaContainerView?
 
+    var mediaContainerView: MacPlayerMediaContainerView? {
+        mediaView
+    }
+
     init(playerMenuDelegate: PlayerMenuDelegate?) {
         self.playerMenuDelegate = playerMenuDelegate
         super.init(nibName: nil, bundle: nil)
@@ -1303,7 +1329,7 @@ private final class MacPlayerPageViewController: NSViewController {
     override func loadView() {
         let view = NSView()
         view.wantsLayer = true
-        view.layer?.backgroundColor = NSColor.black.cgColor
+        view.layer?.backgroundColor = NSColor.clear.cgColor
         self.view = view
     }
 
@@ -1314,17 +1340,19 @@ private final class MacPlayerPageViewController: NSViewController {
 
     func render(
         _ token: GeneratedToken,
-        playerMenuDelegate: PlayerMenuDelegate?,
         mode: MacPlayerMediaRenderMode,
         downloadableMediaWindow: PlayerDownloadableMediaWindow?
     ) {
-        updatePlayerMenuDelegate(playerMenuDelegate)
         let mediaView = ensureMediaView()
         mediaView.render(token, mode: mode, downloadableMediaWindow: downloadableMediaWindow)
     }
 
     func cleanup() {
         mediaView?.cleanup()
+    }
+
+    func suspendContent() {
+        mediaView?.suspendContent()
     }
 
     func resetZoomForReuse() {
@@ -1359,7 +1387,7 @@ private final class MacPlayerPageViewController: NSViewController {
     }
 }
 
-private struct MacPlayerCompletionControls: View {
+struct MacPlayerCompletionControls: View {
     let onViewAgain: () -> Void
     let onFinish: () -> Void
 

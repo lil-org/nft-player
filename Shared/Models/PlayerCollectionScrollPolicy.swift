@@ -377,6 +377,35 @@ enum PlayerCollectionScrollPolicy {
             : candidateIndex
     }
 
+    static func verticalNavigationIndex(
+        currentIndex: Int,
+        itemCount: Int,
+        columnCount: Int,
+        rowOffset: Int
+    ) -> Int? {
+        guard itemCount > 0,
+              columnCount > 0,
+              (0..<itemCount).contains(currentIndex) else {
+            return nil
+        }
+
+        let column = currentIndex % columnCount
+        let currentRow = currentIndex / columnCount
+        let maximumReachableRow = (itemCount - 1 - column) / columnCount
+        let targetRow: Int
+        if rowOffset < 0 {
+            targetRow = rowOffset <= -currentRow
+                ? 0
+                : currentRow + rowOffset
+        } else {
+            let availableRows = maximumReachableRow - currentRow
+            targetRow = rowOffset >= availableRows
+                ? maximumReachableRow
+                : currentRow + rowOffset
+        }
+        return targetRow * columnCount + column
+    }
+
     static func isItemFullyVisible(
         frame: CGRect,
         viewport: CGRect,

@@ -3,6 +3,53 @@
 import CoreGraphics
 import Foundation
 
+struct PlayerBackgroundColorComponents {
+    let red: CGFloat
+    let green: CGFloat
+    let blue: CGFloat
+
+    private init(red: CGFloat, green: CGFloat, blue: CGFloat) {
+        self.red = red
+        self.green = green
+        self.blue = blue
+    }
+
+    init?(string: String) {
+        let normalized = string.trimmingCharacters(in: .whitespacesAndNewlines)
+        switch normalized.lowercased() {
+        case "black":
+            self.init(red: 0, green: 0, blue: 0)
+            return
+        case "white":
+            self.init(red: 1, green: 1, blue: 1)
+            return
+        default:
+            break
+        }
+
+        var hex = normalized
+        if hex.hasPrefix("#") {
+            hex.removeFirst()
+        } else if hex.lowercased().hasPrefix("0x") {
+            hex.removeFirst(2)
+        }
+
+        if hex.count == 3 {
+            hex = hex.map { "\($0)\($0)" }.joined()
+        }
+
+        guard hex.count == 6, let value = UInt32(hex, radix: 16) else {
+            return nil
+        }
+
+        self.init(
+            red: CGFloat((value >> 16) & 0xFF) / 255,
+            green: CGFloat((value >> 8) & 0xFF) / 255,
+            blue: CGFloat(value & 0xFF) / 255
+        )
+    }
+}
+
 struct CollectionCatalogItem: Hashable, Identifiable {
     let id: String
     let name: String
@@ -934,6 +981,30 @@ enum CollectionCatalog {
         return tokenIndex < TokenGenerator.tokenCount(specificCollectionId: specificCollectionId)
     }
 
+#if os(macOS)
+    static func tokenIdentity(
+        specificCollectionId: String,
+        tokenIndex: Int
+    ) -> (collectionName: String, tokenId: String)? {
+        guard canGenerateToken(
+            specificCollectionId: specificCollectionId,
+            tokenIndex: tokenIndex
+        ) else {
+            return nil
+        }
+        if DownloadableCollectionService.hasCollection(id: specificCollectionId) {
+            return DownloadableCollectionService.tokenIdentity(
+                collectionId: specificCollectionId,
+                tokenIndex: tokenIndex
+            )
+        }
+        return TokenGenerator.tokenIdentity(
+            specificCollectionId: specificCollectionId,
+            tokenIndex: tokenIndex
+        )
+    }
+#endif
+
     static func downloadableMediaDescriptor(specificCollectionId: String, tokenIndex: Int) -> CollectionCatalogDownloadableMediaDescriptor? {
         if DownloadableCollectionService.hasCollection(id: specificCollectionId) {
             return DownloadableCollectionService.mediaDescriptor(collectionId: specificCollectionId, tokenIndex: tokenIndex)
@@ -957,7 +1028,7 @@ enum CollectionCatalog {
         ) {
             return profile
         }
-#if os(iOS)
+#if os(iOS) || os(macOS)
         if let renderKind = NativeMetalCardRenderKind(collectionId: specificCollectionId) {
             return .uniform(ThumbnailAspectRatio(
                 width: Int(renderKind.staticImageSize.width),
@@ -1002,8 +1073,8 @@ enum CollectionCatalog {
 #endif
     }
 
-#if os(iOS)
-    private static func nativeMetalCardStaticMediaDescriptor(
+#if os(iOS) || os(macOS)
+    static func nativeMetalCardStaticMediaDescriptor(
         renderKind: NativeMetalCardRenderKind,
         tokenIndex: Int
     ) -> CollectionCatalogDownloadableMediaDescriptor? {
@@ -1116,14 +1187,48 @@ private enum DownloadableCollectionService {
         tokenData(collectionId: collectionId)?.tokenIndicesById[tokenId]
     }
 
-    static func generateToken(collectionId: String, tokenIndex: Int) -> GeneratedToken? {
+    private static func tokenSource(
+        collectionId: String,
+        tokenIndex: Int
+    ) -> (
+        collection: DownloadableCollectionIndexItem,
+        tokenData: DownloadableCollectionTokenData,
+        token: DownloadableTokenItem
+    )? {
         guard let collection = index.collectionById[collectionId],
               let tokenData = tokenData(collectionId: collectionId),
               tokenData.tokens.indices.contains(tokenIndex) else {
             return nil
         }
+        return (collection, tokenData, tokenData.tokens[tokenIndex])
+    }
 
-        let token = tokenData.tokens[tokenIndex]
+#if os(macOS)
+    static func tokenIdentity(
+        collectionId: String,
+        tokenIndex: Int
+    ) -> (collectionName: String, tokenId: String)? {
+        guard let source = tokenSource(
+            collectionId: collectionId,
+            tokenIndex: tokenIndex
+        ) else {
+            return nil
+        }
+        return (source.collection.name, source.token.id)
+    }
+#endif
+
+    static func generateToken(collectionId: String, tokenIndex: Int) -> GeneratedToken? {
+        guard let source = tokenSource(
+            collectionId: collectionId,
+            tokenIndex: tokenIndex
+        ) else {
+            return nil
+        }
+        let collection = source.collection
+        let tokenData = source.tokenData
+        let token = source.token
+
         guard let media = resolvedMedia(
             for: token,
             collection: collection,
@@ -1173,13 +1278,16 @@ private enum DownloadableCollectionService {
     }
 
     static func mediaDescriptor(collectionId: String, tokenIndex: Int) -> CollectionCatalogDownloadableMediaDescriptor? {
-        guard let collection = index.collectionById[collectionId],
-              let tokenData = tokenData(collectionId: collectionId),
-              tokenData.tokens.indices.contains(tokenIndex) else {
+        guard let source = tokenSource(
+            collectionId: collectionId,
+            tokenIndex: tokenIndex
+        ) else {
             return nil
         }
+        let collection = source.collection
+        let tokenData = source.tokenData
+        let token = source.token
 
-        let token = tokenData.tokens[tokenIndex]
         guard let media = resolvedMedia(
             for: token,
             collection: collection,

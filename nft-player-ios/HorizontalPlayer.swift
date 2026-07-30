@@ -2064,7 +2064,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
              .fittedWebContent(let contentSize):
             guard contentSize.width > 0, contentSize.height > 0 else { return viewportSize }
 
-            return MobilePlayerAspectFitLayout.size(for: contentSize, fitting: viewportSize)
+            return PlayerAspectFitLayout.size(for: contentSize, fitting: viewportSize)
 
         }
     }

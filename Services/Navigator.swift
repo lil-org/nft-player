@@ -3,14 +3,22 @@
 import Cocoa
 import SwiftUI
 
-class Navigator: NSObject {
-    
+class Navigator: NSObject, NSWindowDelegate {
+
     private override init() { super.init() }
     static let shared = Navigator()
 
+    private var mainWindow: NSWindow?
+
+    func showCollections() {
+        MacNavigationModel.shared.resetToCollections()
+        showMainWindow()
+    }
+
     func showPlayer(
         collectionId: String,
-        ensureFrontAfterOpening: Bool = false
+        ensureFrontAfterOpening: Bool = false,
+        transition: MacRouteTransition = .slide
     ) {
         guard CollectionCatalog.allItems.contains(where: { $0.id == collectionId }) else { return }
 
@@ -19,7 +27,8 @@ class Navigator: NSObject {
                 collectionId: progress.collectionId,
                 initialTokenId: progress.tokenId,
                 continueViewingCollectionId: progress.collectionId,
-                ensureFrontAfterOpening: ensureFrontAfterOpening
+                ensureFrontAfterOpening: ensureFrontAfterOpening,
+                transition: transition
             )
             return
         }
@@ -27,10 +36,13 @@ class Navigator: NSObject {
         showPlayer(
             collectionId: collectionId,
             continueViewingCollectionId: collectionId,
-            ensureFrontAfterOpening: ensureFrontAfterOpening
+            ensureFrontAfterOpening: ensureFrontAfterOpening,
+            transition: transition
         )
     }
 
+    /// Widget launches present instantly, as on iOS — the point of the widget is
+    /// "click the art, get the art", not a staged grid animating itself away.
     func showWidgetPlayer(collectionId: String, tokenId: String?, ensureFrontAfterOpening: Bool = false) {
         if let tokenId {
             showPlayer(
@@ -41,7 +53,8 @@ class Navigator: NSObject {
         } else {
             showPlayer(
                 collectionId: collectionId,
-                ensureFrontAfterOpening: ensureFrontAfterOpening
+                ensureFrontAfterOpening: ensureFrontAfterOpening,
+                transition: .none
             )
         }
     }
@@ -58,7 +71,8 @@ class Navigator: NSObject {
         ) else {
             showPlayer(
                 collectionId: collectionId,
-                ensureFrontAfterOpening: ensureFrontAfterOpening
+                ensureFrontAfterOpening: ensureFrontAfterOpening,
+                transition: .none
             )
             return
         }
@@ -69,7 +83,8 @@ class Navigator: NSObject {
         PlayerViewingProgressStore.setContinueViewingCollectionId(collectionId)
         showPlayer(
             model: PlayerModel(widgetTokenInsertion: widgetTokenInsertion),
-            ensureFrontAfterOpening: ensureFrontAfterOpening
+            ensureFrontAfterOpening: ensureFrontAfterOpening,
+            transition: .none
         )
     }
 
@@ -77,7 +92,8 @@ class Navigator: NSObject {
         collectionId: String,
         initialTokenId: String? = nil,
         continueViewingCollectionId: String,
-        ensureFrontAfterOpening: Bool = false
+        ensureFrontAfterOpening: Bool = false,
+        transition: MacRouteTransition = .slide
     ) {
         PlayerViewingProgressStore.setContinueViewingCollectionId(continueViewingCollectionId)
         let preparedToken = PlayerTokenPrewarmer.preparedToken(
@@ -91,77 +107,94 @@ class Navigator: NSObject {
             initialTokenId: initialTokenId,
             continueViewingCollectionId: continueViewingCollectionId
         )
-        showPlayer(model: model, ensureFrontAfterOpening: ensureFrontAfterOpening)
+        showPlayer(model: model, ensureFrontAfterOpening: ensureFrontAfterOpening, transition: transition)
     }
 
-    func showPlayer(model: PlayerModel, ensureFrontAfterOpening: Bool = false) {
-        Window.closeOtherPlayers()
-        let window = LocalHtmlWindow(
-            playerModel: model,
-            contentRect: CGRect(origin: .zero, size: CGSize(width: 420, height: 420)),
-            styleMask: [.closable, .fullSizeContentView, .titled, .resizable, .miniaturizable],
-            backing: .buffered, defer: false)
-        
-        window.titleVisibility = .hidden
-        window.titlebarAppearsTransparent = true
-        window.isMovableByWindowBackground = true
-        window.backgroundColor = .black
-        window.isOpaque = false
-        window.hasShadow = true
-        window.isRestorable = true
-        window.setFrameAutosaveName(Consts.playerFrameAutosaveName)
-        window.isReleasedWhenClosed = false
-        
-        orderPlayerWindowToFront(window, regardless: ensureFrontAfterOpening)
-        if window.frame.origin == .zero || !window.isOnActiveSpace || !window.isVisible {
-            window.center()
-            orderPlayerWindowToFront(window, regardless: ensureFrontAfterOpening)
-        }
+    func showPlayer(
+        model: PlayerModel,
+        ensureFrontAfterOpening: Bool = false,
+        transition: MacRouteTransition = .slide
+    ) {
+        MacNavigationModel.shared.present(playerModel: model, transition: transition)
+        let presentedSessionId = MacNavigationModel.shared.session?.id
+        let presentedWindow = showMainWindow(activating: true)
 
         guard ensureFrontAfterOpening else { return }
 
-        DispatchQueue.main.async { [weak self, weak window] in
-            guard let self, let window, window.isVisible else { return }
-            self.orderPlayerWindowToFront(window, regardless: true)
+        let bringPresentedWindowToFront = { [weak self, weak presentedWindow] in
+            guard let self,
+                  let presentedWindow,
+                  presentedWindow === self.mainWindow,
+                  presentedWindow.isVisible,
+                  MacNavigationModel.shared.session?.id == presentedSessionId else {
+                return
+            }
+            self.orderMainWindowToFront(regardless: true)
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(150)) { [weak self, weak window] in
-            guard let self, let window, window.isVisible else { return }
-            self.orderPlayerWindowToFront(window, regardless: true)
-        }
+        DispatchQueue.main.async(execute: bringPresentedWindowToFront)
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + .milliseconds(150),
+            execute: bringPresentedWindowToFront
+        )
     }
-    
-    func showControlCenter() {
-        Window.closeAllControlCenters()
-        let contentView = WalletsListView()
+
+    @discardableResult
+    func showMainWindow(activating: Bool = true) -> NSWindow {
+        if let mainWindow {
+            if activating {
+                orderMainWindowToFront()
+            }
+            return mainWindow
+        }
+
         let window = RightClickActivatingWindow(
             contentRect: CGRect(origin: .zero, size: CGSize(width: 777, height: 593)),
             styleMask: [.closable, .fullSizeContentView, .titled, .resizable, .miniaturizable],
-            backing: .buffered, defer: false)
-        window.titleVisibility = .hidden
+            backing: .buffered,
+            defer: false
+        )
+        window.titleVisibility = .visible
         window.titlebarAppearsTransparent = false
         window.isMovableByWindowBackground = false
         window.backgroundColor = .windowBackgroundColor
         window.isOpaque = false
         window.hasShadow = true
         window.isRestorable = true
-        window.setFrameAutosaveName(Consts.controlCenterFrameAutosaveName)
+        window.setFrameAutosaveName(Consts.mainWindowFrameAutosaveName)
         window.isReleasedWhenClosed = false
-        window.contentView = NSHostingView(rootView: contentView.frame(minWidth: 251, minHeight: 130))
-        NSApp.activate(ignoringOtherApps: true)
-        window.makeKeyAndOrderFront(nil)
-        window.makeMain()
-        
+        window.delegate = self
+        window.contentViewController = NSHostingController(
+            rootView: MacRootView(model: MacNavigationModel.shared)
+        )
+        window.contentMinSize = CGSize(width: 320, height: 240)
+        window.toolbarStyle = .unified
+        mainWindow = window
+
+        if activating {
+            orderMainWindowToFront()
+        }
+
         if window.frame.origin == .zero || !window.isOnActiveSpace || !window.isVisible {
             window.center()
         }
+        return window
     }
 
-    private func orderPlayerWindowToFront(_ window: NSWindow, regardless: Bool = false) {
+    func windowWillClose(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow,
+              window === mainWindow else {
+            return
+        }
+        MacNavigationModel.shared.handleMainWindowWillClose()
+    }
+
+    private func orderMainWindowToFront(regardless: Bool = false) {
+        guard let mainWindow else { return }
         NSApp.activate(ignoringOtherApps: true)
-        window.makeKeyAndOrderFront(nil)
-        window.makeMain()
+        mainWindow.makeKeyAndOrderFront(nil)
+        mainWindow.makeMain()
         if regardless {
-            window.orderFrontRegardless()
+            mainWindow.orderFrontRegardless()
         }
     }
 

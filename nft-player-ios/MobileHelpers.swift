@@ -3,38 +3,6 @@
 import UIKit
 import SwiftUI
 
-enum MobilePlayerAspectFitLayout {
-    static func size(for contentSize: CGSize, fitting maximumSize: CGSize) -> CGSize {
-        guard contentSize.width > 0,
-              contentSize.height > 0,
-              maximumSize.width > 0,
-              maximumSize.height > 0 else {
-            return .zero
-        }
-
-        let scale = min(
-            maximumSize.width / contentSize.width,
-            maximumSize.height / contentSize.height
-        )
-        return CGSize(
-            width: contentSize.width * scale,
-            height: contentSize.height * scale
-        )
-    }
-
-    static func centeredRect(for contentSize: CGSize, in bounds: CGRect) -> CGRect {
-        let fittedSize = size(for: contentSize, fitting: bounds.size)
-        guard fittedSize.width > 0, fittedSize.height > 0 else { return bounds }
-
-        return CGRect(
-            x: bounds.midX - fittedSize.width / 2,
-            y: bounds.midY - fittedSize.height / 2,
-            width: fittedSize.width,
-            height: fittedSize.height
-        )
-    }
-}
-
 extension CGSize {
     var validOrDefault: CGSize {
         guard width.isFinite,
@@ -181,7 +149,7 @@ final class PlayerMediaPlaceholderView: UIView {
             return
         }
 
-        shapeLayer.frame = MobilePlayerAspectFitLayout.centeredRect(
+        shapeLayer.frame = PlayerAspectFitLayout.centeredRect(
             for: spec.aspectSize,
             in: bounds
         )
@@ -307,38 +275,11 @@ extension UIView {
 extension UIColor {
 
     convenience init?(playerBackgroundColorString string: String) {
-        let normalized = string.trimmingCharacters(in: .whitespacesAndNewlines)
-        switch normalized.lowercased() {
-        case "black":
-            self.init(red: 0, green: 0, blue: 0, alpha: 1)
-            return
-        case "white":
-            self.init(red: 1, green: 1, blue: 1, alpha: 1)
-            return
-        default:
-            break
-        }
-
-        var hex = normalized
-        if hex.hasPrefix("#") {
-            hex.removeFirst()
-        } else if hex.lowercased().hasPrefix("0x") {
-            hex.removeFirst(2)
-        }
-
-        if hex.count == 3 {
-            hex = hex.map { "\($0)\($0)" }.joined()
-        }
-
-        guard hex.count == 6,
-              let value = UInt32(hex, radix: 16) else {
-            return nil
-        }
-
+        guard let components = PlayerBackgroundColorComponents(string: string) else { return nil }
         self.init(
-            red: CGFloat((value >> 16) & 0xFF) / 255,
-            green: CGFloat((value >> 8) & 0xFF) / 255,
-            blue: CGFloat(value & 0xFF) / 255,
+            red: components.red,
+            green: components.green,
+            blue: components.blue,
             alpha: 1
         )
     }
@@ -382,14 +323,11 @@ enum MobilePlayerGestureTuning {
     static let cardMinimizeTranslationHeightRatio: CGFloat = 0.18
     static let cardMinimizeFastSwipeVelocity: CGFloat = 1150
     static let cardMinimizeMinimumFastSwipeTranslation: CGFloat = 80
-    static let cardMinimizePinchActivationScale: CGFloat = 0.96
-    static let cardMinimizePinchZoomInFailureScale: CGFloat = 1.01
-    static let cardMinimizePinchFullProgressScale: CGFloat = 0.62
-    static let cardMinimizePinchMinimumPresentationScaleRatio: CGFloat = 0.72
-    static let cardMinimizePinchCompletionProgress: CGFloat = 0.5
-    static let cardMinimizePinchMinimumVelocityCommitProgress: CGFloat = 0.18
-    static let cardMinimizePinchVelocityProjectionDuration: CGFloat = 0.18
-    static let cardMinimizePinchFastVelocity: CGFloat = 1.1
+    static let cardMinimizePinchActivationScale = PlayerCardMinimizePinchPolicy.activationScale
+    static let cardMinimizePinchZoomInFailureScale = PlayerCardMinimizePinchPolicy.zoomInFailureScale
+    static let cardMinimizePinchFullProgressScale = PlayerCardMinimizePinchPolicy.fullProgressScale
+    static let cardMinimizePinchMinimumPresentationScaleRatio =
+        PlayerCardMinimizePinchPolicy.minimumPresentationScaleRatio
     static let controlsRevealVelocity: CGFloat = 150
     static let controlsRevealMinimumTranslation: CGFloat = 44
     static let controlsRevealVerticalIntentRatio: CGFloat = 1.45

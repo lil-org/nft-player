@@ -39,8 +39,7 @@
 		2C1B60BD2B7D3505009949C2 /* Strings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C1B60BC2B7D3505009949C2 /* Strings.swift */; };
 		2C1B60C42B7D41D1009949C2 /* HostAppImages.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C1B60C32B7D41D1009949C2 /* HostAppImages.swift */; };
 		2C1B60CB2B7E2481009949C2 /* Images.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C1B60CA2B7E2481009949C2 /* Images.swift */; };
-		2C3B775F2C3D6DEC000A9B52 /* LocalHtmlView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C3B775E2C3D6DEC000A9B52 /* LocalHtmlView.swift */; };
-		2C3B77612C3D6F82000A9B52 /* LocalHtmlWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C3B77602C3D6F82000A9B52 /* LocalHtmlWindow.swift */; };
+		2C3B775F2C3D6DEC000A9B52 /* MacPlayerPageController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C3B775E2C3D6DEC000A9B52 /* MacPlayerPageController.swift */; };
 		2C424F462B9775E6007868F8 /* RightClickActivatingWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C424F452B9775E6007868F8 /* RightClickActivatingWindow.swift */; };
 		2C460ECA2D29855A0083124E /* AutoReloadingWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C9442952C5186530078C051 /* AutoReloadingWebView.swift */; };
 		2C460ECD2D2985910083124E /* Strings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C1B60BC2B7D3505009949C2 /* Strings.swift */; };
@@ -83,7 +82,6 @@
 		2C5A59D12C5152B000788870 /* VisionHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C5A59D02C5152B000788870 /* VisionHelpers.swift */; };
 		2C5A59D22C5153E500788870 /* Strings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C1B60BC2B7D3505009949C2 /* Strings.swift */; };
 		2C5A59D32C5153EF00788870 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 2CE9A7702BAD8ECD00579BF7 /* Localizable.xcstrings */; };
-		2C60AAD12B8A4DE200F2C143 /* Window.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C60AAD02B8A4DE200F2C143 /* Window.swift */; };
 		2C6359542D29C07F00E40241 /* Links.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C6359522D29C07D00E40241 /* Links.swift */; };
 		2C6359552D29C0E400E40241 /* Links.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C6359522D29C07D00E40241 /* Links.swift */; };
 		2C6359562D29C5A400E40241 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 2CE9A7702BAD8ECD00579BF7 /* Localizable.xcstrings */; };
@@ -232,6 +230,22 @@
 		2DA100052FC0000000000001 /* PlayerCollectionScrollPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA100002FC0000000000001 /* PlayerCollectionScrollPolicy.swift */; };
 		2DA100062FC0000000000001 /* PlayerCollectionScrollPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA100002FC0000000000001 /* PlayerCollectionScrollPolicy.swift */; };
 		2DB100022FD0000000000001 /* MobilePlayerBrowserLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DB100012FD0000000000001 /* MobilePlayerBrowserLayout.swift */; };
+		2E00000000001560866B927A /* CollectionBrowseThumbnails.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E0000000000B7378DF1FB9C /* CollectionBrowseThumbnails.swift */; };
+		2E000000000054461808C409 /* CollectionBrowseThumbnails.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E0000000000B7378DF1FB9C /* CollectionBrowseThumbnails.swift */; };
+		2E0000000000D2B73DC9D6E7 /* PlayerCollectionBrowserSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E0000000000053BA7B2B190 /* PlayerCollectionBrowserSupport.swift */; };
+		2E0000000000C1363F795421 /* PlayerCollectionBrowserSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E0000000000053BA7B2B190 /* PlayerCollectionBrowserSupport.swift */; };
+		2E0000000000780508B16E95 /* MobilePlayerBrowserLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DB100012FD0000000000001 /* MobilePlayerBrowserLayout.swift */; };
+		2E00000000005DBED73564BC /* MacPlayerMediaActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E000000000027324C8583BE /* MacPlayerMediaActions.swift */; };
+		2E0000000000B0E867F321F6 /* MacPlayerPagerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E0000000000FDA18AF301DD /* MacPlayerPagerViewController.swift */; };
+		2E00000000008EF78D7B4701 /* MacNavigationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E00000000000EAAC81FB836 /* MacNavigationController.swift */; };
+		2E0000000000EF81A18E1100 /* MacCollectionBrowserViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E00000000000936BF21406E /* MacCollectionBrowserViewController.swift */; };
+		2E000000000086B634D63AC9 /* MacPlayerCardTransition.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E00000000009E633AE2D7FA /* MacPlayerCardTransition.swift */; };
+		2E00000000007047702507A9 /* MacPlayerModeController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E0000000000E352FE71A57C /* MacPlayerModeController.swift */; };
+		2E00000000000985D59A57F6 /* MacNavigationModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E0000000000F1587DB442CB /* MacNavigationModel.swift */; };
+		2E0000000000FFB1B1FF523B /* MacRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E000000000026004882ECD8 /* MacRootView.swift */; };
+		2E0000000000EA0CD30D04B9 /* MacPlayerBackgroundColor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E00000000007A7290DA4BA6 /* MacPlayerBackgroundColor.swift */; };
+		2E1100000000000000000002 /* PlayerCardMinimizePinchPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E1100000000000000000001 /* PlayerCardMinimizePinchPolicy.swift */; };
+		2E1100000000000000000003 /* PlayerCardMinimizePinchPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E1100000000000000000001 /* PlayerCardMinimizePinchPolicy.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -302,8 +316,7 @@
 		2C1B60C32B7D41D1009949C2 /* HostAppImages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostAppImages.swift; sourceTree = "<group>"; };
 		2C1B60CA2B7E2481009949C2 /* Images.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Images.swift; sourceTree = "<group>"; };
 		2C2CB47C2D29545F00042E74 /* nft-player-ios.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "nft-player-ios.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		2C3B775E2C3D6DEC000A9B52 /* LocalHtmlView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalHtmlView.swift; sourceTree = "<group>"; };
-		2C3B77602C3D6F82000A9B52 /* LocalHtmlWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalHtmlWindow.swift; sourceTree = "<group>"; };
+		2C3B775E2C3D6DEC000A9B52 /* MacPlayerPageController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacPlayerPageController.swift; sourceTree = "<group>"; };
 		2C424F452B9775E6007868F8 /* RightClickActivatingWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RightClickActivatingWindow.swift; sourceTree = "<group>"; };
 		2C4659932C308B44008CF97F /* Covers.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Covers.xcassets; sourceTree = "<group>"; };
 		2C4D315E2C56AC7F00C586D1 /* TvPlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TvPlayerView.swift; sourceTree = "<group>"; };
@@ -321,7 +334,6 @@
 		2C5A59CC2C51529800788870 /* VisionCollectionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisionCollectionsView.swift; sourceTree = "<group>"; };
 		2C5A59CE2C5152A600788870 /* VisionPlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisionPlayerView.swift; sourceTree = "<group>"; };
 		2C5A59D02C5152B000788870 /* VisionHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisionHelpers.swift; sourceTree = "<group>"; };
-		2C60AAD02B8A4DE200F2C143 /* Window.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Window.swift; sourceTree = "<group>"; };
 		2C6359522D29C07D00E40241 /* Links.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Links.swift; sourceTree = "<group>"; };
 		2C7134D52D304609001E33DC /* MobilePlaybackController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobilePlaybackController.swift; sourceTree = "<group>"; };
 		2C8A42E92B1A272600BE4166 /* Network.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Network.swift; sourceTree = "<group>"; };
@@ -414,6 +426,18 @@
 		2DA100002FC0000000000001 /* PlayerCollectionScrollPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerCollectionScrollPolicy.swift; sourceTree = "<group>"; };
 		2DA100022FC0000000000001 /* VerticalCollectionBrowserViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VerticalCollectionBrowserViewController.swift; sourceTree = "<group>"; };
 		2DB100012FD0000000000001 /* MobilePlayerBrowserLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobilePlayerBrowserLayout.swift; sourceTree = "<group>"; };
+		2E0000000000B7378DF1FB9C /* CollectionBrowseThumbnails.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionBrowseThumbnails.swift; sourceTree = "<group>"; };
+		2E0000000000053BA7B2B190 /* PlayerCollectionBrowserSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerCollectionBrowserSupport.swift; sourceTree = "<group>"; };
+		2E000000000027324C8583BE /* MacPlayerMediaActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacPlayerMediaActions.swift; sourceTree = "<group>"; };
+		2E0000000000FDA18AF301DD /* MacPlayerPagerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacPlayerPagerViewController.swift; sourceTree = "<group>"; };
+		2E00000000000EAAC81FB836 /* MacNavigationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacNavigationController.swift; sourceTree = "<group>"; };
+		2E00000000000936BF21406E /* MacCollectionBrowserViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacCollectionBrowserViewController.swift; sourceTree = "<group>"; };
+		2E00000000009E633AE2D7FA /* MacPlayerCardTransition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacPlayerCardTransition.swift; sourceTree = "<group>"; };
+		2E0000000000E352FE71A57C /* MacPlayerModeController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacPlayerModeController.swift; sourceTree = "<group>"; };
+		2E0000000000F1587DB442CB /* MacNavigationModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacNavigationModel.swift; sourceTree = "<group>"; };
+		2E000000000026004882ECD8 /* MacRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacRootView.swift; sourceTree = "<group>"; };
+		2E00000000007A7290DA4BA6 /* MacPlayerBackgroundColor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacPlayerBackgroundColor.swift; sourceTree = "<group>"; };
+		2E1100000000000000000001 /* PlayerCardMinimizePinchPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerCardMinimizePinchPolicy.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -484,12 +508,15 @@
 				2CB01A032F01000000000001 /* PlayerViewingProgressStore.swift */,
 				2D9000002FB0000000000001 /* CollectionsGridScrollMemory.swift */,
 				2DA100002FC0000000000001 /* PlayerCollectionScrollPolicy.swift */,
+				2E1100000000000000000001 /* PlayerCardMinimizePinchPolicy.swift */,
 				2DB100012FD0000000000001 /* MobilePlayerBrowserLayout.swift */,
 				2D4000042F50000000000001 /* PlayerViewingSessionTracker.swift */,
 				2CF100042F20000000000001 /* PlayerSyncTypes.swift */,
 				2CDF00062F10000000000001 /* PonchoDrifellaCardMetadata.swift */,
 				2CDF00092F10000000000001 /* CardNft2CardMetadata.swift */,
 				2CDF000B2F10000000000001 /* NativeMetalCardMetadata.swift */,
+				2E0000000000B7378DF1FB9C /* CollectionBrowseThumbnails.swift */,
+				2E0000000000053BA7B2B190 /* PlayerCollectionBrowserSupport.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -512,6 +539,7 @@
 		2C4D840F2B18869400952BF5 /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				2E0000000000F1587DB442CB /* MacNavigationModel.swift */,
 				2CF4C49A2B7F567B000AB4A6 /* Navigator.swift */,
 				2CE9A5752C3DA9FB009AEAF4 /* TokenGenerator.swift */,
 				2CEF35AC2C413AE700388574 /* RawHtmlGenerator.swift */,
@@ -561,12 +589,18 @@
 		2C8ADAA62C46F3D5008BC560 /* Player */ = {
 			isa = PBXGroup;
 			children = (
-				2C3B77602C3D6F82000A9B52 /* LocalHtmlWindow.swift */,
 				2C9973FF2C4AF12400C058E2 /* PlayerMenuDelegate.swift */,
-				2C3B775E2C3D6DEC000A9B52 /* LocalHtmlView.swift */,
+				2C3B775E2C3D6DEC000A9B52 /* MacPlayerPageController.swift */,
 				2CDF00042F10000000000001 /* MacPlayerMediaContainerView.swift */,
 				2CDF00052F10000000000001 /* NativeMetalCardView.swift */,
 				2C8ADAA72C46F3FC008BC560 /* PlayerModel.swift */,
+				2E000000000027324C8583BE /* MacPlayerMediaActions.swift */,
+				2E0000000000FDA18AF301DD /* MacPlayerPagerViewController.swift */,
+				2E00000000000EAAC81FB836 /* MacNavigationController.swift */,
+				2E00000000000936BF21406E /* MacCollectionBrowserViewController.swift */,
+				2E00000000009E633AE2D7FA /* MacPlayerCardTransition.swift */,
+				2E0000000000E352FE71A57C /* MacPlayerModeController.swift */,
+				2E00000000007A7290DA4BA6 /* MacPlayerBackgroundColor.swift */,
 			);
 			path = Player;
 			sourceTree = "<group>";
@@ -577,6 +611,7 @@
 				2CDF00032F10000000000001 /* PlayerWebView.swift */,
 				2C9973FD2C4AEAAB00C058E2 /* WebViewWithMenu.swift */,
 				2CCFED972B08246800D98A2E /* WalletsListView.swift */,
+				2E000000000026004882ECD8 /* MacRootView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -585,7 +620,6 @@
 			isa = PBXGroup;
 			children = (
 				2C424F452B9775E6007868F8 /* RightClickActivatingWindow.swift */,
-				2C60AAD02B8A4DE200F2C143 /* Window.swift */,
 			);
 			path = Helpers;
 			sourceTree = "<group>";
@@ -1183,11 +1217,14 @@
 				2CC971632D2F4219005A8C4C /* HorizontalPlayer.swift in Sources */,
 				2CC971662E88410100000001 /* MobilePlayerModeController.swift in Sources */,
 				2DA100012FC0000000000001 /* PlayerCollectionScrollPolicy.swift in Sources */,
+				2E1100000000000000000002 /* PlayerCardMinimizePinchPolicy.swift in Sources */,
 				2DB100022FD0000000000001 /* MobilePlayerBrowserLayout.swift in Sources */,
 				2DA100032FC0000000000001 /* VerticalCollectionBrowserViewController.swift in Sources */,
 				2C460ED02D2985A90083124E /* NftGallery.swift in Sources */,
 				2C460ED22D2985A90083124E /* Chain.swift in Sources */,
 				2C460ECD2D2985910083124E /* Strings.swift in Sources */,
+				2E00000000001560866B927A /* CollectionBrowseThumbnails.swift in Sources */,
+				2E0000000000D2B73DC9D6E7 /* PlayerCollectionBrowserSupport.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1283,12 +1320,11 @@
 				2C1B60BD2B7D3505009949C2 /* Strings.swift in Sources */,
 				2CA34B3D2B082BDF00DAB623 /* WalletsListView.swift in Sources */,
 				2C6359542D29C07F00E40241 /* Links.swift in Sources */,
-				2C3B775F2C3D6DEC000A9B52 /* LocalHtmlView.swift in Sources */,
+				2C3B775F2C3D6DEC000A9B52 /* MacPlayerPageController.swift in Sources */,
 				2C9973FE2C4AEAAB00C058E2 /* WebViewWithMenu.swift in Sources */,
 				2CEF35AD2C413AE700388574 /* RawHtmlGenerator.swift in Sources */,
 				2CF4C49B2B7F567B000AB4A6 /* Navigator.swift in Sources */,
 				2D10001B2F30000000000001 /* WidgetDeepLink.swift in Sources */,
-				2C3B77612C3D6F82000A9B52 /* LocalHtmlWindow.swift in Sources */,
 				2CDF00112F10000000000001 /* DownloadableMediaCache.swift in Sources */,
 				2CDF001B2F10000000000001 /* PonchoDrifellaAssetCache.swift in Sources */,
 				2CDF00212F10000000000001 /* CardNft2AssetCache.swift in Sources */,
@@ -1322,7 +1358,19 @@
 				2C8C8DE92C3C890B00BC83E9 /* Script.swift in Sources */,
 				2CE9A5782C3DAB03009AEAF4 /* GeneratedToken.swift in Sources */,
 				2CDF00172F10000000000001 /* PonchoDrifellaShaders.metal in Sources */,
-				2C60AAD12B8A4DE200F2C143 /* Window.swift in Sources */,
+				2E000000000054461808C409 /* CollectionBrowseThumbnails.swift in Sources */,
+				2E0000000000C1363F795421 /* PlayerCollectionBrowserSupport.swift in Sources */,
+				2E0000000000780508B16E95 /* MobilePlayerBrowserLayout.swift in Sources */,
+				2E00000000005DBED73564BC /* MacPlayerMediaActions.swift in Sources */,
+				2E0000000000B0E867F321F6 /* MacPlayerPagerViewController.swift in Sources */,
+				2E1100000000000000000003 /* PlayerCardMinimizePinchPolicy.swift in Sources */,
+				2E00000000008EF78D7B4701 /* MacNavigationController.swift in Sources */,
+				2E0000000000EF81A18E1100 /* MacCollectionBrowserViewController.swift in Sources */,
+				2E000000000086B634D63AC9 /* MacPlayerCardTransition.swift in Sources */,
+				2E00000000007047702507A9 /* MacPlayerModeController.swift in Sources */,
+				2E00000000000985D59A57F6 /* MacNavigationModel.swift in Sources */,
+				2E0000000000FFB1B1FF523B /* MacRootView.swift in Sources */,
+				2E0000000000EA0CD30D04B9 /* MacPlayerBackgroundColor.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

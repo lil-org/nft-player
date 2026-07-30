@@ -238,6 +238,36 @@ class PlayerModel: ObservableObject {
         return progress
     }
 
+#if os(macOS)
+    /// Records progress for a token the collection browser settled on, without
+    /// disturbing what the pager is currently showing.
+    @discardableResult
+    func markViewed(collectionId: String, tokenIndex: Int, hasViewedToEnd: Bool) -> PlayerViewingProgress? {
+        guard !collectionId.isEmpty else { return nil }
+        let tokenCount = Self.tokenCount(specificCollectionId: collectionId)
+        guard tokenCount > 0,
+              (0..<tokenCount).contains(tokenIndex),
+              let identity = CollectionCatalog.tokenIdentity(
+                specificCollectionId: collectionId,
+                tokenIndex: tokenIndex
+              ) else {
+            return nil
+        }
+
+        let progress = PlayerViewingProgress(
+            collectionId: collectionId,
+            collectionName: identity.collectionName,
+            tokenId: identity.tokenId,
+            tokenIndex: tokenIndex,
+            tokenCount: tokenCount,
+            updatedAt: Date(),
+            hasViewedToEnd: hasViewedToEnd
+        )
+        viewingSessionTracker.markViewed(progress)
+        return progress
+    }
+#endif
+
     func restartCollection() {
         guard !currentToken.fullCollectionId.isEmpty,
               let firstToken = Self.generateToken(specificCollectionId: currentToken.fullCollectionId, tokenIndex: 0) else {
@@ -249,6 +279,23 @@ class PlayerModel: ObservableObject {
         history = [firstToken]
         currentIndex = 0
         currentToken = firstToken
+    }
+
+    @discardableResult
+    func exitWidgetTokenInsertion(selectingTokenAt tokenIndex: Int) -> Bool {
+        guard let widgetTokenInsertion else { return false }
+        let tokenCount = Self.tokenCount(specificCollectionId: widgetTokenInsertion.collectionId)
+        guard (0..<tokenCount).contains(tokenIndex),
+              let token = Self.generateToken(
+                specificCollectionId: widgetTokenInsertion.collectionId,
+                tokenIndex: tokenIndex
+              ) else {
+            return false
+        }
+
+        clearWidgetTokenInsertion()
+        showPagedToken(token)
+        return true
     }
     
     private func trimHistoryBeforeCurrentIfNeeded() {

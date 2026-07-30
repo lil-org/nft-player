@@ -1006,7 +1006,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             ) else {
                 return nil
             }
-            let size = MobilePlayerCollectionBrowserSupport.fallbackImageSize(for: descriptor)
+            let size = PlayerCollectionBrowserSupport.fallbackImageSize(for: descriptor)
             guard size.width.isFinite,
                   size.height.isFinite,
                   size.width > 0,
@@ -1987,7 +1987,7 @@ private final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
         imageView.usesNativeMetalCardCornerMask = usesNativeMetalCardCornerMask
 
         if let descriptor {
-            displayedImageSize = MobilePlayerCollectionBrowserSupport.fallbackImageSize(
+            displayedImageSize = PlayerCollectionBrowserSupport.fallbackImageSize(
                 for: descriptor
             )
         } else {
@@ -2084,7 +2084,7 @@ private final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
 
     func transitionSnapshot(afterScreenUpdates: Bool) -> TransitionSnapshot? {
         layoutIfNeeded()
-        let mediaFrame = MobilePlayerAspectFitLayout.centeredRect(
+        let mediaFrame = PlayerAspectFitLayout.centeredRect(
             for: displayedImageSize,
             in: contentView.bounds
         )

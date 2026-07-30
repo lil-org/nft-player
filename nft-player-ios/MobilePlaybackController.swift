@@ -41,100 +41,26 @@ private final class MobilePlayerFileShareRetainedFile {
     }
 }
 
-enum MobilePlayerDisplayMode: Hashable {
-    case collectionBrowser
-    case onePerPage
+typealias MobilePlayerDisplayMode = PlayerDisplayMode
 
+extension PlayerDisplayMode {
     static func initialMode(
         for config: MobilePlayerConfig,
         collectionBrowserAvailable: Bool
-    ) -> MobilePlayerDisplayMode {
-        guard config.widgetTokenInsertion == nil,
-              collectionBrowserAvailable else {
-            return .onePerPage
-        }
-        return .collectionBrowser
+    ) -> PlayerDisplayMode {
+        initialMode(
+            hasWidgetTokenInsertion: config.widgetTokenInsertion != nil,
+            collectionBrowserAvailable: collectionBrowserAvailable
+        )
     }
 }
 
-enum MobilePlayerCollectionBrowserSupport {
-    static let cardNftCollectionId = "HpGDYGz6aRUs5qbvp1dmWGKTicQctX4PixfcouAQDCHF"
-    static let drifella2CollectionId = "7cHTjqr2S8uUCrG3TVFvFix3vcLjhPiwrtRsAeJtESRj"
-    static let driladyCollectionId = "96THxzqE5yukFxzsqJaR2SrsLL2wJtuapi6827gkUD6T"
-    static let johnCollectionId = "r1pCPYkbbpZWv7RCvuCMtpA3NSQY3fzVFo6HL43A4ot"
-    static let miladyAura2AfterDeathCollectionId = "0x30f9efa712dde239a13a5fef1a8c7a6ac530a26d"
-    static let miladyAuraPetzCollectionId = "0xc62e3fd5b02618f90dd07d1e478963038fa9089c"
-    static let superMetalMonsCollectionId = "0x17abd4cc1382397ec2b675f98621c3ba809897desmm"
-
-    private static let explicitlySupportedCollectionIds: Set<String> = {
-        var collectionIds: Set<String> = [
-            cardNftCollectionId,
-            drifella2CollectionId,
-            driladyCollectionId,
-            johnCollectionId,
-            miladyAura2AfterDeathCollectionId,
-            miladyAuraPetzCollectionId,
-            superMetalMonsCollectionId,
-        ]
-        for renderKind in NativeMetalCardRenderKind.allCases {
-            collectionIds.insert(renderKind.collectionId)
-        }
-        return collectionIds
-    }()
-
-    static func isAvailable(for descriptor: DownloadableMediaDescriptor?) -> Bool {
-        guard let descriptor,
-              descriptor.isStaticImage else {
-            return false
-        }
-
-        if isAvailable(forCollectionId: descriptor.collectionId) {
-            return true
-        }
-
-        return descriptor.isCollectionBrowserThumbnail
-    }
-
-    static func isAvailable(forCollectionId collectionId: String) -> Bool {
-        if TokenGenerator.isBundledWebGenerativeCollection(id: collectionId) {
-            return true
-        }
-
-        if explicitlySupportedCollectionIds.contains(collectionId) {
-            return true
-        }
-
-        return MobileCollectionCatalog.standardThumbsPathsAvailable(
-            specificCollectionId: collectionId
-        )
-    }
-
+extension PlayerCollectionBrowserSupport {
     static func isAvailable(for config: MobilePlayerConfig) -> Bool {
         guard let collectionId = config.specificToken?.fullCollectionId ?? config.initialItemId else {
             return false
         }
         return isAvailable(forCollectionId: collectionId)
-    }
-
-    static func fallbackImageSize(for descriptor: DownloadableMediaDescriptor) -> CGSize {
-        if let thumbnailAspectRatio = descriptor.thumbnailAspectRatio {
-            return thumbnailAspectRatio.size
-        }
-
-        if let renderKind = descriptor.nativeMetalCardRenderKind {
-            return renderKind.staticImageSize
-        }
-
-        switch descriptor.collectionId {
-        case cardNftCollectionId:
-            return CGSize(width: 776, height: 1098)
-        case drifella2CollectionId:
-            return CGSize(width: 1200, height: 1295)
-        case driladyCollectionId:
-            return CGSize(width: 932, height: 1006)
-        default:
-            return CGSize(width: 1, height: 1)
-        }
     }
 }
 
@@ -152,54 +78,6 @@ extension MobilePlayerFileShareItem {
         }
         let trimmedProgressText = progressText.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmedProgressText.isEmpty ? baseTitle : "\(baseTitle) \(trimmedProgressText)"
-    }
-}
-
-private enum MobileCollectionBrowseMediaWindowLayout {
-    private static let decodedPreferredViewportRadius = 2
-    private static let decodedOppositeViewportRadius = 1
-    private static let filePreferredViewportRadius = 6
-    private static let fileOppositeViewportRadius = 2
-
-    static func fileOffsets(
-        prefetchStride: Int,
-        direction: DownloadableMediaCache.PrefetchDirection
-    ) -> [Int] {
-        offsets(
-            prefetchStride: prefetchStride,
-            direction: direction,
-            preferredViewportRadius: filePreferredViewportRadius,
-            oppositeViewportRadius: fileOppositeViewportRadius
-        )
-    }
-
-    static func decodedOffsets(
-        prefetchStride: Int,
-        direction: DownloadableMediaCache.PrefetchDirection
-    ) -> [Int] {
-        offsets(
-            prefetchStride: prefetchStride,
-            direction: direction,
-            preferredViewportRadius: decodedPreferredViewportRadius,
-            oppositeViewportRadius: decodedOppositeViewportRadius
-        )
-    }
-
-    private static func offsets(
-        prefetchStride: Int,
-        direction: DownloadableMediaCache.PrefetchDirection,
-        preferredViewportRadius: Int,
-        oppositeViewportRadius: Int
-    ) -> [Int] {
-        let cappedPrefetchStride = min(
-            max(prefetchStride, 1),
-            MobilePlayerBrowserLayout.maximumPrefetchStride
-        )
-        return PlayerDownloadableMediaWindowLayout.orderedOffsets(
-            direction: direction,
-            preferredRadius: cappedPrefetchStride * preferredViewportRadius,
-            oppositeRadius: cappedPrefetchStride * oppositeViewportRadius
-        )
     }
 }
 
@@ -349,7 +227,7 @@ class MobilePlaybackController {
                 ?? downloadableMediaDescriptor(uuid: uuid, pagePosition: $0)
         }
         let collectionBrowserAvailable = expectedCollectionBrowserAvailability
-            ?? MobilePlayerCollectionBrowserSupport.isAvailable(for: currentDescriptor)
+            ?? PlayerCollectionBrowserSupport.isAvailable(for: currentDescriptor)
         guard let pagePosition,
               collectionTokenContext(
                 uuid: uuid,
@@ -400,80 +278,23 @@ class MobilePlaybackController {
         prefetchStride: Int
     ) -> PlayerDownloadableMediaWindow? {
         guard let snapshot = collectionBrowseSnapshot(uuid: uuid),
-              tokenIndex >= 0,
-              tokenIndex < snapshot.itemCount else {
+              let preparedWindow = PlayerCollectionBrowseMediaWindowLayout.makeWindow(
+                centeredAt: tokenIndex,
+                itemCount: snapshot.itemCount,
+                direction: direction,
+                prefetchStride: prefetchStride,
+                descriptorForTokenIndex: {
+                    collectionBrowseThumbnailDescriptor(
+                        snapshot: snapshot,
+                        tokenIndex: $0
+                    )
+                }
+              ) else {
             clearDownloadableMediaWindow(uuid: uuid)
             return nil
         }
-
-        let fileOffsets = MobileCollectionBrowseMediaWindowLayout.fileOffsets(
-            prefetchStride: prefetchStride,
-            direction: direction
-        )
-        let decodedOffsets = MobileCollectionBrowseMediaWindowLayout.decodedOffsets(
-            prefetchStride: prefetchStride,
-            direction: direction
-        )
-        let fileTokenIndices = PlayerDownloadableMediaWindowLayout.indices(
-            currentIndex: tokenIndex,
-            tokenCount: snapshot.itemCount,
-            offsets: fileOffsets
-        )
-        let decodedTokenIndices = PlayerDownloadableMediaWindowLayout.indices(
-            currentIndex: tokenIndex,
-            tokenCount: snapshot.itemCount,
-            offsets: decodedOffsets
-        )
-        let adjacentTokenIndex = PlayerDownloadableMediaWindowLayout.indices(
-            currentIndex: tokenIndex,
-            tokenCount: snapshot.itemCount,
-            offsets: [direction.adjacentOffset]
-        ).first
-        let descriptorLookup = collectionBrowseThumbnailDescriptorLookup(
-            snapshot: snapshot,
-            tokenIndices: fileTokenIndices
-        )
-        let descriptors = fileTokenIndices.compactMap { descriptorLookup[$0] }
-        let centeredDescriptor = descriptorLookup[tokenIndex]
-        guard let currentDescriptor = centeredDescriptor ?? descriptors.min(by: { lhs, rhs in
-            let lhsDistance = abs(lhs.tokenIndex - tokenIndex)
-            let rhsDistance = abs(rhs.tokenIndex - tokenIndex)
-            return lhsDistance == rhsDistance
-                ? lhs.tokenIndex < rhs.tokenIndex
-                : lhsDistance < rhsDistance
-        }) else {
-            clearDownloadableMediaWindow(uuid: uuid)
-            return nil
-        }
-        let decodedDescriptors = decodedTokenIndices.compactMap { descriptorLookup[$0] }
-        let adjacentDescriptor = adjacentTokenIndex.flatMap { descriptorLookup[$0] }
-        let preparedWindow = PlayerDownloadableMediaWindow(
-            currentDescriptor: currentDescriptor,
-            descriptors: descriptors,
-            decodedDescriptors: decodedDescriptors,
-            adjacentDescriptor: adjacentDescriptor,
-            decodedDescriptorCapacity: max(decodedDescriptors.count, 1)
-        )
         DownloadableMediaCache.shared.prepareWindow(preparedWindow, ownerId: uuid)
         return preparedWindow
-    }
-
-    private func collectionBrowseThumbnailDescriptorLookup(
-        snapshot: PlayerCollectionBrowseSnapshot,
-        tokenIndices: [Int]
-    ) -> [Int: DownloadableMediaDescriptor] {
-        var descriptorLookup = [Int: DownloadableMediaDescriptor]()
-        descriptorLookup.reserveCapacity(tokenIndices.count)
-        for tokenIndex in tokenIndices {
-            guard let descriptor = collectionBrowseThumbnailDescriptor(
-                snapshot: snapshot,
-                tokenIndex: tokenIndex
-            ), MobilePlayerCollectionBrowserSupport.isAvailable(for: descriptor) else {
-                continue
-            }
-            descriptorLookup[tokenIndex] = descriptor
-        }
-        return descriptorLookup
     }
 
     func downloadableMediaDescriptor(uuid: UUID, pagePosition: PlayerPagePosition) -> DownloadableMediaDescriptor? {

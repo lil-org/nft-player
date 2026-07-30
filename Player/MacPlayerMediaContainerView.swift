@@ -37,6 +37,10 @@ final class MacPlayerMediaContainerView: NSView {
     private enum ZoomContentLayout: Equatable {
         case viewport
         case staticImage(CGSize)
+        /// A web page composed at a fixed aspect ratio and letterboxed, rather than
+        /// stretched to the viewport. Bundled generative pieces are authored for a
+        /// specific shape, so this is how iOS presents them.
+        case fittedWebContent(CGSize)
     }
 
     private enum ZoomAllowedContent: Equatable {
@@ -44,7 +48,7 @@ final class MacPlayerMediaContainerView: NSView {
         case nativeMetalCard
     }
 
-    private struct VideoSizeRequest: Equatable, Hashable {
+    private struct LocalMediaFileVersion: Equatable, Hashable {
         let descriptor: CollectionCatalogDownloadableMediaDescriptor
         let fileURL: URL
         let fileSize: Int?
@@ -60,6 +64,8 @@ final class MacPlayerMediaContainerView: NSView {
             self.contentModificationDate = resourceValues?.contentModificationDate
         }
     }
+
+    private typealias VideoSizeRequest = LocalMediaFileVersion
 
     private struct VideoSizeLoad {
         let request: VideoSizeRequest
@@ -80,6 +86,8 @@ final class MacPlayerMediaContainerView: NSView {
     private let zoomContentView = MacPlayerZoomContentView()
     private var imageView: AspectFitImageView?
     private var webView: PlayerWebView?
+    private var webViewWidthConstraint: NSLayoutConstraint?
+    private var webViewHeightConstraint: NSLayoutConstraint?
     private var nativeMetalCardView: NativeMetalCardView?
     private var currentToken: GeneratedToken?
     private var currentTokenContext: PlayerTokenContext?
@@ -92,16 +100,17 @@ final class MacPlayerMediaContainerView: NSView {
     private var cancelActiveFileLoad: (() -> Void)?
     private var webMediaContext: WebMediaContext?
     private var downloadableMediaCacheObserver: NSObjectProtocol?
-    private var pendingLocalWebURL: URL?
-    private var renderedLocalWebURL: URL?
-    private var renderedNextLocalWebURL: URL?
-    private var pendingNextLocalWebURL: URL?
+    private var pendingLocalWebVersion: LocalMediaFileVersion?
+    private var renderedLocalWebVersion: LocalMediaFileVersion?
+    private var renderedNextLocalWebVersion: LocalMediaFileVersion?
+    private var pendingNextLocalWebVersion: LocalMediaFileVersion?
     private var webViewMayContainContent = false
     private var laidOutZoomViewportSize: CGSize = .zero
     private var videoSizeLoad: VideoSizeLoad?
     private var cachedVideoSizes = [VideoSizeRequest: CGSize]()
     private var cachedVideoSizeRequests = [VideoSizeRequest]()
     private var isNativeMagnifyGestureActive = false
+    private var isContentSuspended = false
     private var activeZoomAnimationCount = 0
     private var zoomContentLayout: ZoomContentLayout = .viewport
     private var zoomAllowedContent: ZoomAllowedContent = .fullContent
@@ -117,7 +126,7 @@ final class MacPlayerMediaContainerView: NSView {
         self.playerMenuDelegate = playerMenuDelegate
         super.init(frame: .zero)
         wantsLayer = true
-        layer?.backgroundColor = NSColor.black.cgColor
+        layer?.backgroundColor = NSColor.clear.cgColor
         layer?.masksToBounds = true
         zoomScrollView.eventDelegate = self
         zoomScrollView.constrainVisibleRect = { [weak self] proposedRect in
@@ -134,7 +143,7 @@ final class MacPlayerMediaContainerView: NSView {
         zoomScrollView.minMagnification = ZoomTuning.minimumScale
         zoomScrollView.maxMagnification = ZoomTuning.maximumScale
         zoomContentView.wantsLayer = true
-        zoomContentView.layer?.backgroundColor = NSColor.black.cgColor
+        zoomContentView.layer?.backgroundColor = NSColor.clear.cgColor
         zoomScrollView.documentView = zoomContentView
         addSubview(zoomScrollView)
         installPlayerMenuGesture(on: self)
@@ -196,6 +205,7 @@ final class MacPlayerMediaContainerView: NSView {
         mode: MacPlayerMediaRenderMode = .active,
         downloadableMediaWindow: PlayerDownloadableMediaWindow? = nil
     ) {
+        isContentSuspended = false
         let tokenChanged = currentToken != token
         let modeChanged = renderMode != mode
         let mediaWindowChanged = currentDownloadableMediaWindow != downloadableMediaWindow
@@ -246,7 +256,10 @@ final class MacPlayerMediaContainerView: NSView {
                 clearVisibleContentForPendingDownload()
                 return
             }
-            renderWebContent(token.html)
+            renderWebContent(
+                token.html,
+                layout: bundledGenerativeWebContentLayout(for: token, context: tokenContext)
+            )
             return
         }
 
@@ -266,7 +279,10 @@ final class MacPlayerMediaContainerView: NSView {
             renderDownloadableWebMedia(
                 descriptor,
                 adjacentDescriptor: downloadableMediaWindow?.adjacentDescriptor
-                    ?? adjacentDownloadableMediaDescriptor(for: tokenContext, direction: direction),
+                    ?? DownloadableMediaCache.adjacentDescriptor(
+                        for: tokenContext,
+                        direction: direction
+                    ),
                 fallbackHTML: token.html,
                 mediaKind: .image,
                 mode: mode
@@ -278,9 +294,25 @@ final class MacPlayerMediaContainerView: NSView {
         }
     }
 
+    func suspendContent() {
+        guard !isContentSuspended else { return }
+        isContentSuspended = true
+        tearDownRenderedContent()
+        DownloadableMediaCache.shared.suspendActiveWindow(ownerId: downloadableMediaWindowOwnerId)
+    }
+
     func cleanup() {
+        if !isContentSuspended {
+            tearDownRenderedContent()
+        }
+        isContentSuspended = true
+        clearManagedDownloadableMediaWindow()
+    }
+
+    private func tearDownRenderedContent() {
         cancelActiveImageLoad?()
         cancelActiveImageLoad = nil
+        activeImageLoadId = nil
         cancelActiveFileLoad?()
         cancelActiveFileLoad = nil
         activeFileLoadId = nil
@@ -288,21 +320,70 @@ final class MacPlayerMediaContainerView: NSView {
         isNativeMagnifyGestureActive = false
         activeZoomAnimationCount = 0
         clearWebMediaContext()
-        clearManagedDownloadableMediaWindow()
         nativeMetalCardView?.stop()
         NativeMetalCardView.resetMotionCalibration()
         unloadWebContentIfNeeded()
         webView?.isHidden = true
         imageView?.image = nil
+        representedImageKey = nil
         clearZoomContentLayout()
         currentToken = nil
         renderMode = nil
         currentDownloadableMediaWindow = nil
-        cancelDownloadsIfNoPlayerWindows()
     }
 
     func resetZoomForReuse() {
         resetZoom(animated: false)
+    }
+
+    /// Animates back to fit. Used before a chrome-driven minimize, since the hero has
+    /// to fly from the artwork's fitted rect, not from a magnified one hanging off
+    /// the edges of the window.
+    func resetZoomAnimated(completion: @escaping () -> Void) {
+        guard isZoomed else {
+            completion()
+            return
+        }
+        resetZoom(animated: true, completion: completion)
+    }
+
+    /// True while the page is magnified, so the browser card gestures stay out of the way.
+    var isZoomedIn: Bool {
+        isZoomed
+    }
+
+    func relinquishNativeMagnifyGesture() {
+        isNativeMagnifyGestureActive = false
+    }
+
+    /// The rect the media currently occupies on screen, in window coordinates —
+    /// the macOS twin of iOS's `onePerPageCardFrame`. The hero card starts and lands
+    /// here, so it has to be the artwork's rect, not the whole page.
+    var displayedMediaFrameInWindow: CGRect? {
+        guard window != nil else { return nil }
+        if let imageView, !imageView.isHidden, let imageFrame = imageView.displayedImageFrame {
+            return imageView.convert(imageFrame, to: nil)
+        }
+
+        guard bounds.width > 0, bounds.height > 0 else { return convert(bounds, to: nil) }
+
+        let mediaRect: CGRect
+        switch zoomAllowedContent {
+        case .nativeMetalCard:
+            // The card is drawn inset inside its viewport.
+            mediaRect = NativeMetalCardLayout.cardContentRect(in: bounds.size)
+        case .fullContent:
+            switch zoomContentLayout {
+            case .viewport:
+                mediaRect = bounds
+            case let .staticImage(size), let .fittedWebContent(size):
+                mediaRect = MacPlayerCardGeometry.expandedFrame(for: size, in: bounds)
+            }
+        }
+
+        let clamped = mediaRect.intersection(bounds)
+        guard !clamped.isNull, !clamped.isEmpty else { return convert(bounds, to: nil) }
+        return convert(clamped, to: nil)
     }
 
     private func renderImage(
@@ -319,8 +400,15 @@ final class MacPlayerMediaContainerView: NSView {
         hideWebView()
         hideNativeMetalCardView()
         let imageView = ensureImageView()
-        if representedImageKey != imageKey {
+        if representedImageKey != imageKey || imageView.image == nil {
             imageView.image = nil
+            let provisionalSize = PlayerCollectionBrowserSupport.fallbackImageSize(for: descriptor)
+            if provisionalSize.width > 0,
+               provisionalSize.height > 0,
+               provisionalSize.width.isFinite,
+               provisionalSize.height.isFinite {
+                setZoomContentLayout(.staticImage(provisionalSize))
+            }
         }
         imageView.isHidden = false
 
@@ -397,49 +485,64 @@ final class MacPlayerMediaContainerView: NSView {
         guard let context = webMediaContext else { return }
 
         let imageCache = DownloadableMediaCache.shared
-        guard let localFileURL = imageCache.localFileURL(for: context.descriptor) else {
+        guard let localContentVersion = localMediaFileVersion(for: context.descriptor) else {
             cancelVideoSizeLoad()
-            clearLocalWebURLState()
+            clearLocalWebLoadState()
             clearVisibleContentForPendingDownload()
             return
         }
+        let localFileURL = localContentVersion.fileURL
         cancelActiveFileLoad?()
         cancelActiveFileLoad = nil
         activeFileLoadId = nil
 
-        let nextLocalFileURL = context.adjacentDescriptor.flatMap {
-            imageCache.localFileURL(for: $0)
+        let nextLocalContentVersion = context.adjacentDescriptor.flatMap {
+            localMediaFileVersion(for: $0)
         }
+        let nextLocalFileURL = nextLocalContentVersion?.fileURL
 
-        if pendingLocalWebURL == localFileURL {
+        if pendingLocalWebVersion == localContentVersion {
             return
         }
 
-        if renderedLocalWebURL == localFileURL {
-            guard renderedNextLocalWebURL != nextLocalFileURL else { return }
-            guard pendingNextLocalWebURL != nextLocalFileURL else { return }
-            guard let nextLocalFileURL else {
-                pendingNextLocalWebURL = nil
-                renderedNextLocalWebURL = nil
+        if renderedLocalWebVersion == localContentVersion {
+            guard let nextLocalContentVersion else {
+                pendingNextLocalWebVersion = nil
+                renderedNextLocalWebVersion = nil
                 return
             }
+            guard renderedNextLocalWebVersion != nextLocalContentVersion else { return }
+            guard pendingNextLocalWebVersion != nextLocalContentVersion else { return }
 
-            pendingNextLocalWebURL = nextLocalFileURL
-            preloadWebImage(nextLocalFileURL) { [weak self] didPreload in
+            pendingNextLocalWebVersion = nextLocalContentVersion
+            preloadWebImage(nextLocalContentVersion.fileURL) { [weak self] didPreload in
                 guard let self,
                       self.webMediaContext == context,
-                      self.renderedLocalWebURL == localFileURL else {
+                      self.renderedLocalWebVersion == localContentVersion,
+                      self.pendingNextLocalWebVersion == nextLocalContentVersion else {
                     return
                 }
 
-                if self.pendingNextLocalWebURL == nextLocalFileURL {
-                    self.pendingNextLocalWebURL = nil
+                let currentNextLocalContentVersion = self.localMediaFileVersion(
+                    for: nextLocalContentVersion.descriptor
+                )
+                guard currentNextLocalContentVersion == nextLocalContentVersion else {
+                    self.pendingNextLocalWebVersion = nil
+                    self.renderAvailableLocalWebContent()
+                    return
                 }
+
+                self.pendingNextLocalWebVersion = nil
                 guard didPreload else { return }
 
-                self.renderedNextLocalWebURL = nextLocalFileURL
+                self.renderedNextLocalWebVersion = nextLocalContentVersion
             }
             return
+        }
+
+        if pendingLocalWebVersion != nil || renderedLocalWebVersion != nil {
+            clearLocalWebLoadState()
+            webView?.invalidateRequestedContent()
         }
 
         let html: String
@@ -458,26 +561,31 @@ final class MacPlayerMediaContainerView: NSView {
             loadVideoSizeIfNeeded(at: localFileURL, context: context)
             html = DownloadableTokenHTML.createVideoHTML(videoURL: localFileURL.absoluteString)
         case .html:
-            renderCachedHTMLDocument(fileURL: localFileURL, context: context, imageCache: imageCache)
+            renderCachedHTMLDocument(
+                context: context,
+                imageCache: imageCache,
+                localContentVersion: localContentVersion
+            )
             return
         }
 
         renderLocalWebContent(
             html,
-            fileURL: localFileURL,
             context: context,
+            localContentVersion: localContentVersion,
             htmlDirectoryURL: imageCache.webViewHTMLDirectoryURL,
             readAccessURL: imageCache.webViewReadAccessURL
         )
     }
 
     private func renderCachedHTMLDocument(
-        fileURL: URL,
         context: WebMediaContext,
-        imageCache: DownloadableMediaCache
+        imageCache: DownloadableMediaCache,
+        localContentVersion: LocalMediaFileVersion
     ) {
+        let fileURL = localContentVersion.fileURL
         clearVisibleContentForPendingDownload()
-        pendingLocalWebURL = fileURL
+        pendingLocalWebVersion = localContentVersion
         htmlDocumentRenderQueue.async {
             let renderedDocument = (try? String(contentsOf: fileURL, encoding: .utf8)).map { documentHTML in
                 let viewportSize = DownloadableTokenHTMLLayout.rootSVGViewBoxSize(in: documentHTML)
@@ -493,10 +601,10 @@ final class MacPlayerMediaContainerView: NSView {
 
             DispatchQueue.main.async { [weak self] in
                 guard let self,
-                      self.webMediaContext == context,
-                      self.pendingLocalWebURL == fileURL else {
-                    return
-                }
+                      self.validateLocalWebContentResult(
+                        localContentVersion,
+                        context: context
+                      ) else { return }
 
                 guard let renderedDocument else {
                     self.clearWebMediaContext()
@@ -511,8 +619,8 @@ final class MacPlayerMediaContainerView: NSView {
                 }
                 self.renderLocalWebContent(
                     renderedDocument.html,
-                    fileURL: fileURL,
                     context: context,
+                    localContentVersion: localContentVersion,
                     htmlDirectoryURL: imageCache.webViewHTMLDirectoryURL,
                     readAccessURL: imageCache.webViewHTMLDirectoryURL
                 )
@@ -522,33 +630,33 @@ final class MacPlayerMediaContainerView: NSView {
 
     private func renderLocalWebContent(
         _ html: String,
-        fileURL: URL,
         context: WebMediaContext,
+        localContentVersion: LocalMediaFileVersion,
         htmlDirectoryURL: URL,
         readAccessURL: URL
     ) {
-        pendingLocalWebURL = fileURL
+        pendingLocalWebVersion = localContentVersion
         displayWebHTML(
             html,
             htmlDirectoryURL: htmlDirectoryURL,
             readAccessURL: readAccessURL,
             onSuccess: { [weak self] in
                 guard let self,
-                      self.webMediaContext == context,
-                      self.pendingLocalWebURL == fileURL else {
-                    return
-                }
+                      self.validateLocalWebContentResult(
+                        localContentVersion,
+                        context: context
+                      ) else { return }
 
-                self.clearLocalWebURLState()
-                self.renderedLocalWebURL = fileURL
+                self.clearLocalWebLoadState()
+                self.renderedLocalWebVersion = localContentVersion
                 self.renderAvailableLocalWebContent()
             },
             onFailure: { [weak self] in
                 guard let self,
-                      self.webMediaContext == context,
-                      self.pendingLocalWebURL == fileURL else {
-                    return
-                }
+                      self.validateLocalWebContentResult(
+                        localContentVersion,
+                        context: context
+                      ) else { return }
 
                 self.clearWebMediaContext()
                 self.renderWebContent(context.fallbackHTML)
@@ -556,9 +664,56 @@ final class MacPlayerMediaContainerView: NSView {
         )
     }
 
+    private func localMediaFileVersion(
+        for descriptor: CollectionCatalogDownloadableMediaDescriptor
+    ) -> LocalMediaFileVersion? {
+        DownloadableMediaCache.shared
+            .localFileURL(for: descriptor)
+            .map {
+                LocalMediaFileVersion(
+                    fileURL: $0,
+                    descriptor: descriptor
+                )
+            }
+    }
+
+    private func validateLocalWebContentResult(
+        _ localContentVersion: LocalMediaFileVersion,
+        context: WebMediaContext
+    ) -> Bool {
+        guard webMediaContext == context,
+              pendingLocalWebVersion == localContentVersion else {
+            return false
+        }
+
+        return !retryLocalWebContentIfFileChanged(
+            from: localContentVersion,
+            context: context
+        )
+    }
+
+    private func retryLocalWebContentIfFileChanged(
+        from attemptedVersion: LocalMediaFileVersion,
+        context: WebMediaContext
+    ) -> Bool {
+        let currentVersion = localMediaFileVersion(for: context.descriptor)
+        guard currentVersion != attemptedVersion else { return false }
+
+        clearLocalWebLoadState()
+        webView?.invalidateRequestedContent()
+        renderAvailableLocalWebContent()
+        if renderMode?.canDemandLoad == true {
+            requestLocalWebContentIfNeeded()
+        }
+        return true
+    }
+
     private func requestLocalWebContentIfNeeded() {
-        guard let context = webMediaContext,
-              DownloadableMediaCache.shared.localFileURL(for: context.descriptor) == nil else {
+        guard let context = webMediaContext else {
+            return
+        }
+        if DownloadableMediaCache.shared.localFileURL(for: context.descriptor) != nil {
+            renderAvailableLocalWebContent()
             return
         }
         guard activeFileLoadId == nil else { return }
@@ -611,10 +766,35 @@ final class MacPlayerMediaContainerView: NSView {
         }
     }
 
-    private func renderWebContent(_ html: String) {
+    private func renderWebContent(_ html: String, layout: ZoomContentLayout = .viewport) {
         clearWebMediaContext()
-        setZoomContentLayout(.viewport)
+        setZoomContentLayout(layout)
         displayWebHTML(html)
+    }
+
+    /// Bundled generative pieces are authored for a specific aspect ratio; iOS
+    /// letterboxes them rather than stretching them to the viewport. Everything else —
+    /// including the fallback HTML a downloadable token falls back to — fills the
+    /// viewport as before.
+    private func bundledGenerativeWebContentLayout(
+        for token: GeneratedToken,
+        context: PlayerTokenContext?
+    ) -> ZoomContentLayout {
+        guard let context,
+              token.nativeMetalCardRenderKind == nil,
+              TokenGenerator.isBundledWebGenerativeCollection(id: context.collectionId),
+              let thumbnailAspectRatio = CollectionCatalog.collectionBrowseThumbnailDescriptor(
+                specificCollectionId: context.collectionId,
+                tokenIndex: context.tokenIndex
+              )?.thumbnailAspectRatio else {
+            return .viewport
+        }
+
+        let size = thumbnailAspectRatio.size
+        guard size.width > 0, size.height > 0, size.width.isFinite, size.height.isFinite else {
+            return .viewport
+        }
+        return .fittedWebContent(size)
     }
 
     private func displayWebHTML(
@@ -666,29 +846,21 @@ final class MacPlayerMediaContainerView: NSView {
         DownloadableMediaCache.shared.prepareWindow(
             for: context,
             ownerId: downloadableMediaWindowOwnerId,
-            direction: direction
+            direction: direction,
+            ownership: .cooperative(.macPlayerPager)
         )
     }
 
     private func prepareDownloadableMediaWindow(_ window: PlayerDownloadableMediaWindow) {
         DownloadableMediaCache.shared.prepareWindow(
             window,
-            ownerId: downloadableMediaWindowOwnerId
+            ownerId: downloadableMediaWindowOwnerId,
+            ownership: .cooperative(.macPlayerPager)
         )
     }
 
     private func clearManagedDownloadableMediaWindow() {
         DownloadableMediaCache.shared.clearActiveWindow(ownerId: downloadableMediaWindowOwnerId)
-    }
-
-    private func adjacentDownloadableMediaDescriptor(
-        for context: PlayerTokenContext?,
-        direction: DownloadableMediaCache.PrefetchDirection
-    ) -> CollectionCatalogDownloadableMediaDescriptor? {
-        DownloadableMediaCache.adjacentDescriptor(
-            for: context,
-            direction: direction
-        )
     }
 
     private func ensureImageView() -> AspectFitImageView {
@@ -698,7 +870,7 @@ final class MacPlayerMediaContainerView: NSView {
 
         let imageView = AspectFitImageView()
         imageView.wantsLayer = true
-        imageView.layer?.backgroundColor = NSColor.black.cgColor
+        imageView.layer?.backgroundColor = NSColor.clear.cgColor
         imageView.translatesAutoresizingMaskIntoConstraints = false
         installPlayerMenuGesture(on: imageView)
         installPlayerZoomGestures(on: imageView)
@@ -709,6 +881,7 @@ final class MacPlayerMediaContainerView: NSView {
 
     private func ensureWebView() -> PlayerWebView {
         if let webView {
+            updateZoomViewportLayoutIfNeeded()
             return webView
         }
 
@@ -716,8 +889,19 @@ final class MacPlayerMediaContainerView: NSView {
         webView.passesPlayerGesturesThrough = true
         webView.translatesAutoresizingMaskIntoConstraints = false
         installPlayerZoomGestures(on: webView)
-        addSubviewFillingZoomContent(webView)
+        zoomContentView.addSubview(webView)
+        let widthConstraint = webView.widthAnchor.constraint(equalToConstant: 0)
+        let heightConstraint = webView.heightAnchor.constraint(equalToConstant: 0)
+        NSLayoutConstraint.activate([
+            webView.centerXAnchor.constraint(equalTo: zoomContentView.centerXAnchor),
+            webView.centerYAnchor.constraint(equalTo: zoomContentView.centerYAnchor),
+            widthConstraint,
+            heightConstraint
+        ])
+        webViewWidthConstraint = widthConstraint
+        webViewHeightConstraint = heightConstraint
         self.webView = webView
+        updateZoomViewportLayoutIfNeeded()
         return webView
     }
 
@@ -795,23 +979,15 @@ final class MacPlayerMediaContainerView: NSView {
         activeFileLoadId = nil
         cancelVideoSizeLoad()
         webMediaContext = nil
-        clearLocalWebURLState()
+        clearLocalWebLoadState()
         removeDownloadableMediaCacheObserver()
     }
 
-    private func cancelDownloadsIfNoPlayerWindows() {
-        guard !Window.hasOpenPlayerWindows else { return }
-        DispatchQueue.main.async {
-            guard !Window.hasOpenPlayerWindows else { return }
-            DownloadableMediaCache.shared.cancelAllDownloads()
-        }
-    }
-
-    private func clearLocalWebURLState() {
-        pendingLocalWebURL = nil
-        renderedLocalWebURL = nil
-        renderedNextLocalWebURL = nil
-        pendingNextLocalWebURL = nil
+    private func clearLocalWebLoadState() {
+        pendingLocalWebVersion = nil
+        renderedLocalWebVersion = nil
+        renderedNextLocalWebVersion = nil
+        pendingNextLocalWebVersion = nil
     }
 
     private func clearVisibleContentForPendingDownload() {
@@ -842,8 +1018,18 @@ final class MacPlayerMediaContainerView: NSView {
             forName: .downloadableMediaCacheFileAvailabilityDidChange,
             object: nil,
             queue: .main
-        ) { [weak self] _ in
-            self?.renderAvailableLocalWebContent()
+        ) { [weak self] notification in
+            guard let self, let context = self.webMediaContext else { return }
+            let descriptors = [context.descriptor, context.adjacentDescriptor].compactMap { $0 }
+            guard descriptors.contains(where: {
+                DownloadableMediaCache.shared.fileAvailabilityChange(
+                    notification,
+                    affects: $0
+                )
+            }) else {
+                return
+            }
+            self.renderAvailableLocalWebContent()
         }
     }
 
@@ -1018,14 +1204,20 @@ final class MacPlayerMediaContainerView: NSView {
         }
 
         let documentFrame = CGRect(origin: .zero, size: viewportSize)
-        guard zoomContentView.frame != documentFrame || zoomContentView.bounds.size != viewportSize else { return }
-
+        let documentLayoutChanged = zoomContentView.frame != documentFrame
+            || zoomContentView.bounds.size != viewportSize
         withoutLayerAnimations {
-            zoomContentView.frame = documentFrame
-            zoomContentView.bounds = documentFrame
-            zoomContentView.layoutSubtreeIfNeeded()
+            if documentLayoutChanged {
+                zoomContentView.frame = documentFrame
+                zoomContentView.bounds = documentFrame
+            }
+            if updateWebViewLayoutIfNeeded() || documentLayoutChanged {
+                zoomContentView.layoutSubtreeIfNeeded()
+            }
         }
-        scrollDocumentToOrigin()
+        if documentLayoutChanged {
+            scrollDocumentToOrigin()
+        }
     }
 
     private func setZoomContentLayout(
@@ -1041,6 +1233,35 @@ final class MacPlayerMediaContainerView: NSView {
         zoomAllowedContent = allowedContent
         resetZoom(animated: false)
         updateZoomViewportLayoutIfNeeded()
+    }
+
+    private func updateWebViewLayoutIfNeeded() -> Bool {
+        guard webView != nil,
+              let webViewWidthConstraint,
+              let webViewHeightConstraint else {
+            return false
+        }
+
+        let viewportSize = zoomContentView.bounds.size
+        guard viewportSize.width > 0, viewportSize.height > 0 else { return false }
+
+        let contentSize: CGSize
+        if case let .fittedWebContent(sourceSize) = zoomContentLayout {
+            contentSize = MacPlayerCardGeometry.expandedFrame(
+                for: sourceSize,
+                in: CGRect(origin: .zero, size: viewportSize)
+            ).size
+        } else {
+            contentSize = viewportSize
+        }
+
+        guard webViewWidthConstraint.constant != contentSize.width
+                || webViewHeightConstraint.constant != contentSize.height else {
+            return false
+        }
+        webViewWidthConstraint.constant = contentSize.width
+        webViewHeightConstraint.constant = contentSize.height
+        return true
     }
 
     private func clearZoomContentLayout() {
@@ -1063,10 +1284,11 @@ final class MacPlayerMediaContainerView: NSView {
         setZoomMagnification(targetScale, centeredAt: documentPoint, animated: animated)
     }
 
-    private func resetZoom(animated: Bool) {
+    private func resetZoom(animated: Bool, completion: (() -> Void)? = nil) {
         guard animated else {
             setZoomMagnification(ZoomTuning.minimumScale, centeredAt: .zero, animated: false)
             scrollDocumentToOrigin()
+            completion?()
             return
         }
 
@@ -1076,6 +1298,7 @@ final class MacPlayerMediaContainerView: NSView {
             animated: animated
         ) { [weak self] in
             self?.scrollDocumentToOrigin()
+            completion?()
         }
     }
 
@@ -1301,8 +1524,8 @@ final class MacPlayerMediaContainerView: NSView {
         switch zoomContentLayout {
         case .viewport:
             layoutRect = contentBounds
-        case .staticImage(let imageSize):
-            layoutRect = aspectFitRect(for: imageSize, in: contentBounds)
+        case let .staticImage(imageSize), let .fittedWebContent(imageSize):
+            layoutRect = MacPlayerCardGeometry.expandedFrame(for: imageSize, in: contentBounds)
         }
 
         let allowedRect: CGRect
@@ -1316,24 +1539,6 @@ final class MacPlayerMediaContainerView: NSView {
         let clippedRect = allowedRect.intersection(contentBounds)
         guard !clippedRect.isNull, !clippedRect.isEmpty else { return contentBounds }
         return clippedRect
-    }
-
-    private func aspectFitRect(for sourceSize: CGSize, in bounds: CGRect) -> CGRect {
-        guard sourceSize.width > 0,
-              sourceSize.height > 0,
-              bounds.width > 0,
-              bounds.height > 0 else {
-            return bounds
-        }
-
-        let scale = min(bounds.width / sourceSize.width, bounds.height / sourceSize.height)
-        let scaledSize = CGSize(width: sourceSize.width * scale, height: sourceSize.height * scale)
-        return CGRect(
-            x: bounds.midX - scaledSize.width / 2,
-            y: bounds.midY - scaledSize.height / 2,
-            width: scaledSize.width,
-            height: scaledSize.height
-        )
     }
 
     private func withoutLayerAnimations(_ updates: () -> Void) {
@@ -1531,7 +1736,7 @@ private final class AspectFitImageView: NSView {
 
     override func makeBackingLayer() -> CALayer {
         let layer = CALayer()
-        layer.backgroundColor = NSColor.black.cgColor
+        layer.backgroundColor = NSColor.clear.cgColor
         layer.masksToBounds = true
         imageLayer.contentsGravity = .resize
         imageLayer.masksToBounds = true
@@ -1602,6 +1807,21 @@ private final class AspectFitImageView: NSView {
         imageLayer.contents = cgImage
     }
 
+    /// Where the image actually sits inside this view once aspect fit is applied.
+    var displayedImageFrame: CGRect? {
+        guard let imageSize,
+              imageSize.width > 0,
+              imageSize.height > 0,
+              bounds.width > 0,
+              bounds.height > 0 else {
+            return nil
+        }
+        return MacPlayerCardGeometry.expandedFrame(
+            for: imageSize,
+            in: CGRect(origin: .zero, size: bounds.size)
+        )
+    }
+
     private func updateImageLayerFrame() {
         guard let imageSize,
               imageSize.width > 0,
@@ -1612,20 +1832,9 @@ private final class AspectFitImageView: NSView {
             return
         }
 
-        imageLayer.frame = aspectFitRect(
+        imageLayer.frame = MacPlayerCardGeometry.expandedFrame(
             for: imageSize,
             in: CGRect(origin: .zero, size: bounds.size)
-        )
-    }
-
-    private func aspectFitRect(for imageSize: CGSize, in bounds: CGRect) -> CGRect {
-        let scale = min(bounds.width / imageSize.width, bounds.height / imageSize.height)
-        let scaledSize = CGSize(width: imageSize.width * scale, height: imageSize.height * scale)
-        return CGRect(
-            x: bounds.midX - scaledSize.width / 2,
-            y: bounds.midY - scaledSize.height / 2,
-            width: scaledSize.width,
-            height: scaledSize.height
         )
     }
 
