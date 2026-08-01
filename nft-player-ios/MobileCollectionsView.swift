@@ -256,11 +256,6 @@ struct MobileCollectionsView: View {
                             Images.search
                         }
                     }
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Button { showShuffledCollectionPlayer() } label: {
-                            Images.shuffle
-                        }
-                    }
                 }
             }
 
@@ -356,26 +351,6 @@ struct MobileCollectionsView: View {
         )
     }
     
-    private func showShuffledCollectionPlayer() {
-        guard let item = randomCollectionItemPreferringUnfinishedCollections() else { return }
-        let progress = MobileViewingProgressStore.progress(collectionId: item.id)
-        let initialTokenId = progress?.isComplete == false ? progress?.tokenId : nil
-        let initialTokenIndex = progress?.isComplete == false ? progress?.tokenIndex : nil
-
-        openPlayer(
-            initialItemId: item.id,
-            initialTokenId: initialTokenId,
-            initialTokenIndex: initialTokenIndex,
-            continueViewingCollectionId: item.id
-        )
-    }
-
-    private func randomCollectionItemPreferringUnfinishedCollections() -> MobileCollectionItem? {
-        let progressSnapshot = MobileViewingProgressStore.progressSnapshot()
-        let unfinishedItems = collectionItems.filter { !progressSnapshot.viewedToEndCollectionIds.contains($0.id) }
-        return (unfinishedItems.isEmpty ? collectionItems : unfinishedItems).randomElement()
-    }
-
     private func resumeViewing(
         _ progress: MobileViewingProgress,
         presentationTransition: PlayerPresentationTransition = .animated
