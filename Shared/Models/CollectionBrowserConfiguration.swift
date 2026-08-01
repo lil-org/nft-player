@@ -36,6 +36,7 @@ enum MobileCollectionBrowserGridMode: Int, CaseIterable, Hashable {
     case large = 1
     case twoColumns = 2
     case threeColumns = 3
+    case fourColumns = 4
 
     var columnCount: Int {
         rawValue

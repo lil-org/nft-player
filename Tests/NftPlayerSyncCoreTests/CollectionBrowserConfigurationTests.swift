@@ -9,14 +9,16 @@ final class CollectionBrowserConfigurationTests: XCTestCase {
     func testGridModesExposeSupportedColumnCountsAndImageRequirements() {
         XCTAssertEqual(
             MobileCollectionBrowserGridMode.allCases,
-            [.large, .twoColumns, .threeColumns]
+            [.large, .twoColumns, .threeColumns, .fourColumns]
         )
         XCTAssertEqual(MobileCollectionBrowserGridMode.large.columnCount, 1)
         XCTAssertEqual(MobileCollectionBrowserGridMode.twoColumns.columnCount, 2)
         XCTAssertEqual(MobileCollectionBrowserGridMode.threeColumns.columnCount, 3)
+        XCTAssertEqual(MobileCollectionBrowserGridMode.fourColumns.columnCount, 4)
         XCTAssertFalse(MobileCollectionBrowserGridMode.twoColumns.requiresLargeImage)
         XCTAssertTrue(MobileCollectionBrowserGridMode.large.requiresLargeImage)
         XCTAssertFalse(MobileCollectionBrowserGridMode.threeColumns.requiresLargeImage)
+        XCTAssertFalse(MobileCollectionBrowserGridMode.fourColumns.requiresLargeImage)
     }
 
     func testGridModeImageQualityUsesLargeImagesWhenThreeColumnCollectionsUseTwoColumns() {
@@ -43,6 +45,18 @@ final class CollectionBrowserConfigurationTests: XCTestCase {
                 defaultGridMode: .twoColumns
             ),
             .large
+        )
+        XCTAssertEqual(
+            MobileCollectionBrowserGridMode.fourColumns.requiredImageQuality(
+                defaultGridMode: .threeColumns
+            ),
+            .thumbnail
+        )
+        XCTAssertEqual(
+            MobileCollectionBrowserGridMode.fourColumns.requiredImageQuality(
+                defaultGridMode: .twoColumns
+            ),
+            .thumbnail
         )
     }
 
@@ -101,6 +115,19 @@ final class CollectionBrowserConfigurationTests: XCTestCase {
                 defaultGridMode: .threeColumns
             ),
             .large
+        )
+        MobileCollectionBrowserGridModePreferences.save(
+            gridMode: .fourColumns,
+            userDefaults: userDefaults,
+            internalSlug: "terraforms"
+        )
+        XCTAssertEqual(
+            MobileCollectionBrowserGridModePreferences.gridMode(
+                userDefaults: userDefaults,
+                internalSlug: "terraforms",
+                defaultGridMode: .twoColumns
+            ),
+            .fourColumns
         )
         XCTAssertNil(
             MobileCollectionBrowserGridModePreferences.userDefaultsKey(

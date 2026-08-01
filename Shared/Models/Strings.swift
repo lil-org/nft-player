@@ -15,6 +15,7 @@ struct Strings {
     static let largeGrid = loc("Large grid: 1 column in portrait, 2 in landscape")
     static let twoColumns = loc("2 columns")
     static let threeColumns = loc("3 columns")
+    static let fourColumns = loc("4 columns")
     static let finish = loc("Finish")
     static let share = loc("Share")
     static let copyMedia = loc("Copy Media")

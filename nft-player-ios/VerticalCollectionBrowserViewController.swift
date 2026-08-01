@@ -335,7 +335,12 @@ final class VerticalCollectionBrowserViewController: UIViewController,
 
     func makeGridModeMenu() -> UIMenu {
         let currentGridMode = gridMode
-        let gridModes: [MobileCollectionBrowserGridMode] = [.threeColumns, .twoColumns, .large]
+        let gridModes: [MobileCollectionBrowserGridMode] = [
+            .fourColumns,
+            .threeColumns,
+            .twoColumns,
+            .large,
+        ]
         let actions = gridModes.map { gridMode in
             UIAction(
                 title: gridMode.menuTitle,
@@ -2026,6 +2031,8 @@ private extension MobileCollectionBrowserGridMode {
             Strings.twoColumns
         case .threeColumns:
             Strings.threeColumns
+        case .fourColumns:
+            Strings.fourColumns
         }
     }
 
@@ -2037,6 +2044,8 @@ private extension MobileCollectionBrowserGridMode {
             "square.grid.2x2"
         case .threeColumns:
             "square.grid.3x2"
+        case .fourColumns:
+            "square.grid.4x3.fill"
         }
     }
 }
