@@ -335,7 +335,8 @@ final class VerticalCollectionBrowserViewController: UIViewController,
 
     func makeGridModeMenu() -> UIMenu {
         let currentGridMode = gridMode
-        let actions = MobileCollectionBrowserGridMode.allCases.map { gridMode in
+        let gridModes: [MobileCollectionBrowserGridMode] = [.threeColumns, .twoColumns, .large]
+        let actions = gridModes.map { gridMode in
             UIAction(
                 title: gridMode.menuTitle,
                 image: UIImage(systemName: gridMode.menuSystemImageName),
@@ -346,8 +347,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             }
         }
         return UIMenu(
-            title: Strings.gridLayout,
-            options: [.displayInline, .singleSelection],
+            options: [.displayInline, .singleSelection, .displayAsPalette],
             children: actions
         )
     }
@@ -854,7 +854,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
                 tokenIndex: descriptor.tokenIndex
             )
 
-            var children: [UIMenuElement] = [self.makeGridModeMenu()]
+            var children = [UIMenuElement]()
             let isBookmarked = PlayerBookmarksStore.isBookmarked(
                 collectionId: descriptor.collectionId,
                 tokenId: descriptor.tokenId
