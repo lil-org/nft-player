@@ -66,6 +66,16 @@ enum MobileCollectionBrowserGridMode: Int, CaseIterable, Hashable {
     var requiresLargeImage: Bool {
         self == .large
     }
+
+    func requiredImageQuality(
+        defaultGridMode: MobileCollectionBrowserGridMode
+    ) -> CollectionBrowseImageQuality {
+        if requiresLargeImage
+            || self == .twoColumns && defaultGridMode == .threeColumns {
+            return .large
+        }
+        return .thumbnail
+    }
 }
 
 enum MobileCollectionBrowserGridModePreferences {

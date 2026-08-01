@@ -27,6 +27,33 @@ final class CollectionBrowserConfigurationTests: XCTestCase {
         XCTAssertFalse(MobileCollectionBrowserGridMode.threeColumns.requiresLargeImage)
     }
 
+    func testGridModeImageQualityUsesLargeImagesWhenThreeColumnCollectionsUseTwoColumns() {
+        XCTAssertEqual(
+            MobileCollectionBrowserGridMode.twoColumns.requiredImageQuality(
+                defaultGridMode: .threeColumns
+            ),
+            .large
+        )
+        XCTAssertEqual(
+            MobileCollectionBrowserGridMode.twoColumns.requiredImageQuality(
+                defaultGridMode: .twoColumns
+            ),
+            .thumbnail
+        )
+        XCTAssertEqual(
+            MobileCollectionBrowserGridMode.threeColumns.requiredImageQuality(
+                defaultGridMode: .threeColumns
+            ),
+            .thumbnail
+        )
+        XCTAssertEqual(
+            MobileCollectionBrowserGridMode.large.requiredImageQuality(
+                defaultGridMode: .twoColumns
+            ),
+            .large
+        )
+    }
+
     func testGridModePreferencesPreserveLegacyOverridesPerInternalSlug() throws {
         let suiteName = "CollectionBrowserConfigurationTests.\(UUID().uuidString)"
         let userDefaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))

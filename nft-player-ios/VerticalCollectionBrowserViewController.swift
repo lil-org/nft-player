@@ -171,7 +171,16 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     }
 
     private var requiredImageQuality: CollectionBrowseImageQuality {
-        gridMode.requiresLargeImage ? .large : .thumbnail
+        guard let browseSnapshot else {
+            return gridMode.requiresLargeImage ? .large : .thumbnail
+        }
+        let defaultColumnCount = MobileCollectionCatalog.collectionBrowseColumnCount(
+            specificCollectionId: browseSnapshot.collectionId
+        )
+        let defaultGridMode = MobileCollectionBrowserGridMode(
+            rawValue: defaultColumnCount
+        ) ?? .threeColumns
+        return gridMode.requiredImageQuality(defaultGridMode: defaultGridMode)
     }
 
     init(uuid: UUID) {
