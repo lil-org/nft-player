@@ -247,9 +247,15 @@ final class DownloadableMediaCache {
     }
     private typealias FileLoadCompletions = [UUID: FileLoadCallback]
 
+    private struct ExclusiveWindowRegistration {
+        let ownerId: UUID
+        let mediaWindow: PlayerDownloadableMediaWindow
+        var isSuspended: Bool
+    }
+
     private struct ManagedWindow {
         let mediaWindow: PlayerDownloadableMediaWindow
-        let ownership: WindowOwnership
+        let cooperativeGroup: WindowOwnership.CooperativeGroup
         let fileNames: Set<String>
         let allowedKeys: Set<String>
         let decodedKeys: Set<String>
@@ -358,6 +364,7 @@ final class DownloadableMediaCache {
 #endif
 
     private var activeWindow: ActiveWindow?
+    private var exclusiveWindowRegistration: ExclusiveWindowRegistration?
     private var managedWindowsByOwnerId = [UUID: ManagedWindow]()
     private var windowPreparationSequence: UInt64 = 0
 #if !os(iOS)
@@ -487,22 +494,39 @@ final class DownloadableMediaCache {
             guard let self else { return }
 
             let previousWindow = self.activeWindow
-            self.prepareManagedWindowRegistration(
-                window,
-                ownerId: ownerId,
-                ownership: ownership
-            )
-            self.reconcileManagedWindows(previousWindow: previousWindow)
+            switch ownership {
+            case .exclusive:
+                self.managedWindowsByOwnerId.removeAll()
+                self.windowPreparationSequence = 0
+                self.exclusiveWindowRegistration = ExclusiveWindowRegistration(
+                    ownerId: ownerId,
+                    mediaWindow: window,
+                    isSuspended: false
+                )
+                self.reconcileExclusiveWindow(previousWindow: previousWindow)
+            case let .cooperative(group):
+                self.exclusiveWindowRegistration = nil
+                self.prepareManagedWindowRegistration(
+                    window,
+                    ownerId: ownerId,
+                    cooperativeGroup: group
+                )
+                self.reconcileManagedWindows(previousWindow: previousWindow)
+            }
         }
         return window.currentDescriptor
     }
 
     func clearActiveWindow(ownerId: UUID) {
         queue.async { [weak self] in
-            guard let self,
-                  self.managedWindowsByOwnerId.removeValue(forKey: ownerId) != nil else {
+            guard let self else { return }
+            if self.exclusiveWindowRegistration?.ownerId == ownerId {
+                let previousWindow = self.activeWindow
+                self.exclusiveWindowRegistration = nil
+                self.reconcileExclusiveWindow(previousWindow: previousWindow)
                 return
             }
+            guard self.managedWindowsByOwnerId.removeValue(forKey: ownerId) != nil else { return }
             let previousWindow = self.activeWindow
             self.reconcileManagedWindows(previousWindow: previousWindow)
         }
@@ -510,11 +534,18 @@ final class DownloadableMediaCache {
 
     func suspendActiveWindow(ownerId: UUID) {
         queue.async { [weak self] in
-            guard let self,
-                  var window = self.managedWindowsByOwnerId[ownerId],
-                  !window.isSuspended else {
+            guard let self else { return }
+            if var registration = self.exclusiveWindowRegistration,
+               registration.ownerId == ownerId,
+               !registration.isSuspended {
+                let previousWindow = self.activeWindow
+                registration.isSuspended = true
+                self.exclusiveWindowRegistration = registration
+                self.reconcileExclusiveWindow(previousWindow: previousWindow)
                 return
             }
+            guard var window = self.managedWindowsByOwnerId[ownerId],
+                  !window.isSuspended else { return }
             let previousWindow = self.activeWindow
             window.isSuspended = true
             self.managedWindowsByOwnerId[ownerId] = window
@@ -525,40 +556,30 @@ final class DownloadableMediaCache {
     private func prepareManagedWindowRegistration(
         _ window: PlayerDownloadableMediaWindow,
         ownerId: UUID,
-        ownership: WindowOwnership
+        cooperativeGroup: WindowOwnership.CooperativeGroup
     ) {
         let collectionId = window.currentDescriptor.collectionId
-        switch ownership {
-        case .exclusive:
+        let canJoinExistingWindows = managedWindowsByOwnerId.values.allSatisfy {
+            $0.collectionId == collectionId
+        }
+        if !canJoinExistingWindows {
             managedWindowsByOwnerId.removeAll()
-        case let .cooperative(group):
-            let canJoinExistingWindows = managedWindowsByOwnerId.values.allSatisfy {
-                guard $0.collectionId == collectionId else { return false }
-                if case .cooperative = $0.ownership {
-                    return true
+        } else {
+            let replacedOwnerIds = managedWindowsByOwnerId.compactMap { existingOwnerId, window -> UUID? in
+                guard window.cooperativeGroup == cooperativeGroup else {
+                    return nil
                 }
-                return false
+                return existingOwnerId
             }
-            if !canJoinExistingWindows {
-                managedWindowsByOwnerId.removeAll()
-            } else {
-                let replacedOwnerIds = managedWindowsByOwnerId.compactMap { existingOwnerId, window -> UUID? in
-                    guard case let .cooperative(existingGroup) = window.ownership,
-                          existingGroup == group else {
-                        return nil
-                    }
-                    return existingOwnerId
-                }
-                replacedOwnerIds.forEach {
-                    managedWindowsByOwnerId.removeValue(forKey: $0)
-                }
+            replacedOwnerIds.forEach {
+                managedWindowsByOwnerId.removeValue(forKey: $0)
             }
         }
 
         windowPreparationSequence &+= 1
         managedWindowsByOwnerId[ownerId] = ManagedWindow(
             mediaWindow: window,
-            ownership: ownership,
+            cooperativeGroup: cooperativeGroup,
             fileNames: Set(window.descriptors.flatMap(self.fileNames(for:))),
             allowedKeys: Set(window.descriptors.map(self.cacheKey(for:))),
             decodedKeys: Set(window.decodedDescriptors.map(self.cacheKey(for:))),
@@ -567,12 +588,52 @@ final class DownloadableMediaCache {
         )
     }
 
+    private func reconcileExclusiveWindow(previousWindow: ActiveWindow?) {
+        guard let registration = exclusiveWindowRegistration else {
+            clearActiveWindowState()
+            return
+        }
+
+        let mediaWindow = registration.mediaWindow
+        let decodedKeys: Set<String>
+        let allowedKeys: Set<String>
+        if registration.isSuspended {
+            allowedKeys = []
+            if mediaWindow.currentDescriptor.isStaticImage {
+                decodedKeys = [cacheKey(for: mediaWindow.currentDescriptor)]
+            } else {
+                decodedKeys = []
+            }
+        } else {
+            allowedKeys = Set(mediaWindow.descriptors.map(self.cacheKey(for:)))
+            decodedKeys = Set(mediaWindow.decodedDescriptors.map(self.cacheKey(for:)))
+        }
+        let nextWindow = ActiveWindow(
+            collectionId: mediaWindow.currentDescriptor.collectionId,
+            fileNames: Set(mediaWindow.descriptors.flatMap(self.fileNames(for:))),
+            allowedKeys: allowedKeys,
+            decodedKeys: decodedKeys
+        )
+        reconcileActiveWindow(nextWindow, previousWindow: previousWindow)
+
+        if registration.isSuspended {
+            reconcileInactiveWindowWork()
+        } else {
+            reconcileExclusiveWindowWork(mediaWindow)
+        }
+    }
+
     private func reconcileManagedWindows(previousWindow: ActiveWindow?) {
         guard let nextWindow = makeActiveWindow() else {
             clearActiveWindowState()
             return
         }
 
+        reconcileActiveWindow(nextWindow, previousWindow: previousWindow)
+        reconcileManagedWindowWork()
+    }
+
+    private func reconcileActiveWindow(_ nextWindow: ActiveWindow, previousWindow: ActiveWindow?) {
         let didChangeCollection = previousWindow?.collectionId != nextWindow.collectionId
         if didChangeCollection {
             cancelDownloadsOutsideActiveCollection(collectionId: nextWindow.collectionId)
@@ -614,7 +675,6 @@ final class DownloadableMediaCache {
             )
         }
 #endif
-        reconcileManagedWindowWork()
     }
 
     private func makeActiveWindow() -> ActiveWindow? {
@@ -649,10 +709,7 @@ final class DownloadableMediaCache {
             .sorted { $0.preparationSequence > $1.preparationSequence }
 
         guard let foregroundWindow = activeWindows.first else {
-            foregroundKey = nil
-            foregroundWorkKeys.removeAll()
-            updateOngoingDownloadPriorities()
-            startDownloadsIfNeeded()
+            reconcileInactiveWindowWork()
             return
         }
         prioritizeForegroundImageIfNeeded(
@@ -679,6 +736,28 @@ final class DownloadableMediaCache {
         startDownloadsIfNeeded()
     }
 
+    private func reconcileExclusiveWindowWork(_ mediaWindow: PlayerDownloadableMediaWindow) {
+        prioritizeForegroundImageIfNeeded(
+            mediaWindow.currentDescriptor,
+            requireDecodedStaticImage: mediaWindow.currentDescriptor.isStaticImage
+        )
+        decodeCachedImagesIfNeeded(mediaWindow.decodedDescriptors)
+
+        let downloadDescriptors = prioritizedDownloadDescriptors(for: mediaWindow)
+        for descriptor in downloadDescriptors {
+            enqueueDownloadIfNeeded(descriptor, isForegroundRequest: false)
+        }
+        reorderPendingDownloads(preferredDescriptors: downloadDescriptors)
+        startDownloadsIfNeeded()
+    }
+
+    private func reconcileInactiveWindowWork() {
+        foregroundKey = nil
+        foregroundWorkKeys.removeAll()
+        updateOngoingDownloadPriorities()
+        startDownloadsIfNeeded()
+    }
+
     func cancelAllDownloads() {
         queue.async { [weak self] in
             guard let self else { return }
@@ -696,6 +775,7 @@ final class DownloadableMediaCache {
             self.memoryKeysByCollection.removeAll()
 #endif
             self.activeWindow = nil
+            self.exclusiveWindowRegistration = nil
             self.managedWindowsByOwnerId.removeAll()
             self.windowPreparationSequence = 0
             self.updateOngoingDownloadPriorities()
@@ -2453,6 +2533,21 @@ final class DownloadableMediaCache {
     }
 
     private func prioritizedDownloadDescriptors(
+        for mediaWindow: PlayerDownloadableMediaWindow
+    ) -> [CollectionCatalogDownloadableMediaDescriptor] {
+        var orderedDescriptors = [CollectionCatalogDownloadableMediaDescriptor]()
+        var usedKeys = Set<String>()
+
+        func appendDescriptor(_ descriptor: CollectionCatalogDownloadableMediaDescriptor) {
+            guard usedKeys.insert(cacheKey(for: descriptor)).inserted else { return }
+            orderedDescriptors.append(descriptor)
+        }
+
+        appendPrioritizedDownloadDescriptors(from: mediaWindow, using: appendDescriptor)
+        return orderedDescriptors
+    }
+
+    private func prioritizedDownloadDescriptors(
         for windows: [ManagedWindow]
     ) -> [CollectionCatalogDownloadableMediaDescriptor] {
         var orderedDescriptors = [CollectionCatalogDownloadableMediaDescriptor]()
@@ -2464,13 +2559,19 @@ final class DownloadableMediaCache {
         }
 
         for window in windows {
-            let mediaWindow = window.mediaWindow
-            appendDescriptor(mediaWindow.currentDescriptor)
-            mediaWindow.preferredDownloadDescriptors.forEach(appendDescriptor)
-            mediaWindow.decodedDescriptors.forEach(appendDescriptor)
-            mediaWindow.descriptors.forEach(appendDescriptor)
+            appendPrioritizedDownloadDescriptors(from: window.mediaWindow, using: appendDescriptor)
         }
         return orderedDescriptors
+    }
+
+    private func appendPrioritizedDownloadDescriptors(
+        from mediaWindow: PlayerDownloadableMediaWindow,
+        using appendDescriptor: (CollectionCatalogDownloadableMediaDescriptor) -> Void
+    ) {
+        appendDescriptor(mediaWindow.currentDescriptor)
+        mediaWindow.preferredDownloadDescriptors.forEach(appendDescriptor)
+        mediaWindow.decodedDescriptors.forEach(appendDescriptor)
+        mediaWindow.descriptors.forEach(appendDescriptor)
     }
 
     private func reorderPendingDownloads(preferredDescriptors: [CollectionCatalogDownloadableMediaDescriptor]) {
@@ -2673,6 +2774,7 @@ final class DownloadableMediaCache {
 
     private func clearActiveWindowState() {
         activeWindow = nil
+        exclusiveWindowRegistration = nil
         managedWindowsByOwnerId.removeAll()
         windowPreparationSequence = 0
         foregroundKey = nil
