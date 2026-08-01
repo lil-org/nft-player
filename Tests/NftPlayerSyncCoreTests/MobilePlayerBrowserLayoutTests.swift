@@ -893,9 +893,26 @@ final class MobilePlayerBrowserLayoutTests: XCTestCase {
         XCTAssertEqual(aspectProfile.columnCount, 1)
         XCTAssertEqual(portrait.columnCount, 1)
         XCTAssertEqual(landscape.columnCount, 2)
+        XCTAssertEqual(
+            portrait.interItemSpacing,
+            MobilePlayerBrowserLayout.itemSpacing * 2
+        )
+        XCTAssertEqual(landscape.interItemSpacing, portrait.interItemSpacing)
         XCTAssertEqual(portrait.rowCount, 7)
         XCTAssertEqual(landscape.rowCount, 4)
         XCTAssertEqual(rotationTransition.retainedFocusTokenIndex, 4)
+        XCTAssertEqual(
+            try XCTUnwrap(portrait.itemFrame(at: 1)).minY,
+            try XCTUnwrap(portrait.itemFrame(at: 0)).maxY
+                + portrait.interItemSpacing,
+            accuracy: 0.000_001
+        )
+        XCTAssertEqual(
+            try XCTUnwrap(landscape.itemFrame(at: 1)).minX,
+            try XCTUnwrap(landscape.itemFrame(at: 0)).maxX
+                + landscape.interItemSpacing,
+            accuracy: 0.000_001
+        )
         XCTAssertEqual(
             try XCTUnwrap(landscape.itemFrame(at: 1)).maxX,
             landscapeSize.width,

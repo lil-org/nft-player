@@ -1675,7 +1675,10 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             browserCollectionLayout.browserLayout?
                 .minimumAdjacentRowCenterDistance(
                     containingItemAt: tokenIndex
-                ) ?? attributes.frame.height + MobilePlayerBrowserLayout.itemSpacing,
+                ) ?? attributes.frame.height + (
+                    browserCollectionLayout.browserLayout?.interItemSpacing
+                        ?? MobilePlayerBrowserLayout.itemSpacing
+                ),
             1
         )
         return PlayerCollectionScrollFocalBias(

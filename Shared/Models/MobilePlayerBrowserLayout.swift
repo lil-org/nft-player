@@ -164,6 +164,7 @@ struct MobilePlayerBrowserLayout: Equatable {
     let itemWidth: CGFloat
     let itemCount: Int
     let columnCount: Int
+    let interItemSpacing: CGFloat
     let rowCount: Int
     let contentSize: CGSize
     let visibleRowCount: Int
@@ -287,11 +288,14 @@ struct MobilePlayerBrowserLayout: Equatable {
             aspectProfile.columnCount.multipliedReportingOverflow(
                 by: columnMultiplier
             )
+        let interItemSpacing = aspectProfile.columnCount == 1
+            ? Self.itemSpacing * 2
+            : Self.itemSpacing
         guard !effectiveColumnCountOverflowed,
               viewportSize.width.isFinite,
               viewportSize.height.isFinite,
               viewportSize.width
-                > Self.itemSpacing * CGFloat(effectiveColumnCount - 1),
+                > interItemSpacing * CGFloat(effectiveColumnCount - 1),
               viewportSize.height > 0 else {
             return nil
         }
@@ -299,7 +303,7 @@ struct MobilePlayerBrowserLayout: Equatable {
         let sanitizedTopInset = topContentInset.isFinite ? max(topContentInset, 0) : 0
         let sanitizedBottomInset = bottomContentInset.isFinite ? max(bottomContentInset, 0) : 0
         let horizontalSpacing =
-            Self.itemSpacing * CGFloat(effectiveColumnCount - 1)
+            interItemSpacing * CGFloat(effectiveColumnCount - 1)
         let itemWidth =
             (viewportSize.width - horizontalSpacing) / CGFloat(effectiveColumnCount)
         let itemCount = aspectProfile.itemCount
@@ -314,7 +318,7 @@ struct MobilePlayerBrowserLayout: Equatable {
             let rowHeight = itemWidth * uniformRatio
             rowStorage = .uniform(height: rowHeight)
             rowsHeight = rowHeight * CGFloat(rowCount)
-                + Self.itemSpacing * CGFloat(max(rowCount - 1, 0))
+                + interItemSpacing * CGFloat(max(rowCount - 1, 0))
             shortestRowHeight = rowHeight
         } else {
             var rowHeights = [CGFloat]()
@@ -336,12 +340,12 @@ struct MobilePlayerBrowserLayout: Equatable {
                 var nextStart = sanitizedTopInset
                 for height in rowHeights {
                     starts.append(nextStart)
-                    nextStart += height + Self.itemSpacing
+                    nextStart += height + interItemSpacing
                 }
                 rowStorage = .variable(starts: starts, heights: rowHeights)
             }
             rowsHeight = rowHeights.reduce(0, +)
-                + Self.itemSpacing * CGFloat(max(rowCount - 1, 0))
+                + interItemSpacing * CGFloat(max(rowCount - 1, 0))
             shortestRowHeight = rowHeights.min() ?? itemWidth
         }
 
@@ -350,8 +354,8 @@ struct MobilePlayerBrowserLayout: Equatable {
             0
         )
         let visibleRowEstimate = ceil(
-            (visibleHeight + Self.itemSpacing)
-                / (shortestRowHeight + Self.itemSpacing)
+            (visibleHeight + interItemSpacing)
+                / (shortestRowHeight + interItemSpacing)
         )
         let visibleRowCount = visibleRowEstimate.isFinite
             && visibleRowEstimate < CGFloat(Int.max)
@@ -363,6 +367,7 @@ struct MobilePlayerBrowserLayout: Equatable {
         self.itemWidth = itemWidth
         self.itemCount = itemCount
         self.columnCount = effectiveColumnCount
+        self.interItemSpacing = interItemSpacing
         self.rowCount = rowCount
         self.contentSize = CGSize(
             width: viewportSize.width,
@@ -391,7 +396,7 @@ struct MobilePlayerBrowserLayout: Equatable {
             return nil
         }
         return CGRect(
-            x: CGFloat(columnIndex) * (itemWidth + Self.itemSpacing),
+            x: CGFloat(columnIndex) * (itemWidth + interItemSpacing),
             y: rowStart,
             width: itemWidth,
             height: rowHeight
@@ -418,7 +423,7 @@ struct MobilePlayerBrowserLayout: Equatable {
         let rowRange: Range<Int>
         switch rowStorage {
         case let .uniform(height):
-            let travel = height + Self.itemSpacing
+            let travel = height + interItemSpacing
             let firstRowEstimate = floor((rect.minY - topContentInset) / travel)
             let lastRowEstimate = floor((rect.maxY - topContentInset) / travel)
             guard !firstRowEstimate.isNaN,
@@ -474,7 +479,7 @@ struct MobilePlayerBrowserLayout: Equatable {
                 ?? nextDistance
         }
         return minimumDistance
-            ?? rowHeight(at: rowIndex).map { $0 + Self.itemSpacing }
+            ?? rowHeight(at: rowIndex).map { $0 + interItemSpacing }
     }
 
     private func rowHeight(containingItemAt itemIndex: Int) -> CGFloat? {
@@ -496,7 +501,7 @@ struct MobilePlayerBrowserLayout: Equatable {
         guard (0..<rowCount).contains(rowIndex) else { return nil }
         switch rowStorage {
         case let .uniform(height):
-            return topContentInset + CGFloat(rowIndex) * (height + Self.itemSpacing)
+            return topContentInset + CGFloat(rowIndex) * (height + interItemSpacing)
         case let .variable(starts, _):
             return starts[rowIndex]
         }
