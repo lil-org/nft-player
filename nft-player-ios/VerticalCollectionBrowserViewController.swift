@@ -848,7 +848,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             identifier: indexPath as NSIndexPath,
             previewProvider: nil
         ) { [weak self] _ in
-            guard let self else { return nil }
+            guard self != nil else { return nil }
             let token = MobileCollectionCatalog.generateToken(
                 specificCollectionId: descriptor.collectionId,
                 tokenIndex: descriptor.tokenIndex
