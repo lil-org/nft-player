@@ -6,22 +6,14 @@ import XCTest
 
 final class CollectionBrowserConfigurationTests: XCTestCase {
 
-    func testGridModeCycleAndDestinationImages() {
-        XCTAssertEqual(MobileCollectionBrowserGridMode.twoColumns.next, .large)
+    func testGridModesExposeSupportedColumnCountsAndImageRequirements() {
         XCTAssertEqual(
-            MobileCollectionBrowserGridMode.twoColumns.nextSystemImageName,
-            "rectangle.grid.1x2"
+            MobileCollectionBrowserGridMode.allCases,
+            [.large, .twoColumns, .threeColumns]
         )
-        XCTAssertEqual(MobileCollectionBrowserGridMode.large.next, .threeColumns)
-        XCTAssertEqual(
-            MobileCollectionBrowserGridMode.large.nextSystemImageName,
-            "square.grid.3x2"
-        )
-        XCTAssertEqual(MobileCollectionBrowserGridMode.threeColumns.next, .twoColumns)
-        XCTAssertEqual(
-            MobileCollectionBrowserGridMode.threeColumns.nextSystemImageName,
-            "square.grid.2x2"
-        )
+        XCTAssertEqual(MobileCollectionBrowserGridMode.large.columnCount, 1)
+        XCTAssertEqual(MobileCollectionBrowserGridMode.twoColumns.columnCount, 2)
+        XCTAssertEqual(MobileCollectionBrowserGridMode.threeColumns.columnCount, 3)
         XCTAssertFalse(MobileCollectionBrowserGridMode.twoColumns.requiresLargeImage)
         XCTAssertTrue(MobileCollectionBrowserGridMode.large.requiresLargeImage)
         XCTAssertFalse(MobileCollectionBrowserGridMode.threeColumns.requiresLargeImage)

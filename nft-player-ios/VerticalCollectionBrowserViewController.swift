@@ -88,7 +88,6 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     var onSettledPagePosition: ((PlayerPagePosition, Bool) -> Bool)?
     var onSelection: ((MobilePlayerBrowserTransitionSelection) -> Bool)?
     var onImmediateSelection: ((PlayerPagePosition, @escaping () -> Void) -> Bool)?
-    var onGridModeChange: ((MobileCollectionBrowserGridMode) -> Void)?
 
     private let browserCollectionLayout = MobilePlayerCollectionBrowserLayout()
     private lazy var collectionView: MobilePlayerCollectionBrowserCollectionView = {
@@ -146,12 +145,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     private var layoutAspectProfile = MobilePlayerBrowserAspectProfile(
         itemCount: 0,
         uniformImageSize: CGSize(width: 1, height: 1)
-    ) {
-        didSet {
-            guard layoutAspectProfile.columnCount != oldValue.columnCount else { return }
-            onGridModeChange?(gridMode)
-        }
-    }
+    )
     private var sampledCollectionFallbackSpec = PlayerMediaPlaceholderSpec(
         aspectSize: CGSize(width: 1, height: 1)
     )
@@ -339,16 +333,35 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         ) ?? .threeColumns
     }
 
+    func makeGridModeMenu() -> UIMenu {
+        let currentGridMode = gridMode
+        let actions = MobileCollectionBrowserGridMode.allCases.map { gridMode in
+            UIAction(
+                title: gridMode.menuTitle,
+                image: UIImage(systemName: gridMode.menuSystemImageName),
+                state: gridMode == currentGridMode ? .on : .off
+            ) { [weak self] _ in
+                guard self?.setGridMode(gridMode) == true else { return }
+                Haptic.selectionChanged()
+            }
+        }
+        return UIMenu(
+            title: Strings.gridLayout,
+            options: [.displayInline, .singleSelection],
+            children: actions
+        )
+    }
+
     @discardableResult
-    func toggleGridMode() -> Bool {
-        guard isActive,
+    func setGridMode(_ gridMode: MobileCollectionBrowserGridMode) -> Bool {
+        guard gridMode != self.gridMode,
+              isActive,
               !isApplyingPosition,
               preparedTransition == nil,
               let browseSnapshot else {
             return false
         }
 
-        let nextGridMode = gridMode.next
         let retainedTokenIndex = currentAnchorTokenIndex()
             ?? forcedFocusedTokenIndex
             ?? focusedTokenIndex
@@ -363,7 +376,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         visibleBrowserCells.forEach { $0.cancelImageLoad() }
         lastThumbnailWindowRequest = nil
         MobilePlaybackController.shared.saveCollectionBrowseGridMode(
-            nextGridMode,
+            gridMode,
             snapshot: browseSnapshot
         )
 
@@ -831,13 +844,17 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             return nil
         }
 
-        return UIContextMenuConfiguration(identifier: indexPath as NSIndexPath, previewProvider: nil) { _ in
+        let configuration = UIContextMenuConfiguration(
+            identifier: indexPath as NSIndexPath,
+            previewProvider: nil
+        ) { [weak self] _ in
+            guard let self else { return nil }
             let token = MobileCollectionCatalog.generateToken(
                 specificCollectionId: descriptor.collectionId,
                 tokenIndex: descriptor.tokenIndex
             )
 
-            var children = [UIMenuElement]()
+            var children: [UIMenuElement] = [self.makeGridModeMenu()]
             let isBookmarked = PlayerBookmarksStore.isBookmarked(
                 collectionId: descriptor.collectionId,
                 tokenId: descriptor.tokenId
@@ -864,6 +881,8 @@ final class VerticalCollectionBrowserViewController: UIViewController,
 
             return UIMenu(title: token?.displayName ?? "", children: children)
         }
+        configuration.preferredMenuElementOrder = .fixed
+        return configuration
     }
 
     func collectionView(
@@ -1994,6 +2013,31 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             tokenIndices: tokenIndices,
             locallyAvailableTokenIndices: locallyAvailableTokenIndices
         )
+    }
+}
+
+private extension MobileCollectionBrowserGridMode {
+
+    var menuTitle: String {
+        switch self {
+        case .large:
+            Strings.largeGrid
+        case .twoColumns:
+            Strings.twoColumns
+        case .threeColumns:
+            Strings.threeColumns
+        }
+    }
+
+    var menuSystemImageName: String {
+        switch self {
+        case .large:
+            "rectangle.grid.1x2"
+        case .twoColumns:
+            "square.grid.2x2"
+        case .threeColumns:
+            "square.grid.3x2"
+        }
     }
 }
 

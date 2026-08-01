@@ -36,7 +36,6 @@ final class MobilePlayerBrowserPageViewController: UIViewController {
     private var chromeCancellables = Set<AnyCancellable>()
     private lazy var moreMenu = makeMoreMenu()
     private lazy var moreBarButtonItem = makeMoreBarButtonItem()
-    private lazy var gridModeBarButtonItem = makeGridModeBarButtonItem()
     private lazy var titleContentView = makeTitleContentView()
     private var displayedTitle: String?
 
@@ -51,10 +50,7 @@ final class MobilePlayerBrowserPageViewController: UIViewController {
         super.init(nibName: nil, bundle: nil)
 
         navigationItem.backButtonDisplayMode = .minimal
-        navigationItem.rightBarButtonItems = [
-            moreBarButtonItem,
-            gridModeBarButtonItem,
-        ]
+        navigationItem.rightBarButtonItem = moreBarButtonItem
 
         contentViewController.onFocusedPagePosition = { [weak self] pagePosition in
             guard let self,
@@ -75,9 +71,6 @@ final class MobilePlayerBrowserPageViewController: UIViewController {
         }
         contentViewController.onImmediateSelection = { [weak self] pagePosition, onFailure in
             self?.openImmediateSelection(pagePosition, onFailure: onFailure) == true
-        }
-        contentViewController.onGridModeChange = { [weak self] gridMode in
-            self?.updateGridModeBarButtonItem(gridMode: gridMode)
         }
     }
 
@@ -113,7 +106,6 @@ final class MobilePlayerBrowserPageViewController: UIViewController {
                 self.contentViewController.view.alpha = isHidden ? 0 : 1
                 self.contentViewController.view.isUserInteractionEnabled = !isHidden
                 self.moreBarButtonItem.menu = isHidden ? nil : self.moreMenu
-                self.gridModeBarButtonItem.isEnabled = !isHidden
             }
             .store(in: &chromeCancellables)
     }
@@ -245,55 +237,10 @@ final class MobilePlayerBrowserPageViewController: UIViewController {
         return item
     }
 
-    private func makeGridModeBarButtonItem() -> UIBarButtonItem {
-        let item = UIBarButtonItem(
-            image: gridModeImage(currentGridMode: contentViewController.gridMode),
-            style: .plain,
-            target: self,
-            action: #selector(toggleGridMode)
-        )
-        item.accessibilityLabel = Strings.gridLayout
-        item.accessibilityValue = gridModeAccessibilityValue(
-            currentGridMode: contentViewController.gridMode
-        )
-        return item
-    }
-
-    @objc private func toggleGridMode() {
-        guard contentViewController.toggleGridMode() else { return }
-        Haptic.selectionChanged()
-    }
-
-    private func updateGridModeBarButtonItem(gridMode: MobileCollectionBrowserGridMode) {
-        gridModeBarButtonItem.image = gridModeImage(currentGridMode: gridMode)
-        gridModeBarButtonItem.accessibilityValue = gridModeAccessibilityValue(
-            currentGridMode: gridMode
-        )
-    }
-
-    private func gridModeImage(
-        currentGridMode: MobileCollectionBrowserGridMode
-    ) -> UIImage? {
-        UIImage(systemName: currentGridMode.nextSystemImageName)
-    }
-
-    private func gridModeAccessibilityValue(
-        currentGridMode: MobileCollectionBrowserGridMode
-    ) -> String {
-        switch currentGridMode.next {
-        case .large:
-            return Strings.largeGrid
-        case .twoColumns:
-            return Strings.twoColumns
-        case .threeColumns:
-            return Strings.threeColumns
-        }
-    }
-
     private func moreMenuElements(forCollectionId collectionId: String) -> [UIMenuElement] {
         guard !chrome.isPlayerContentHiddenForCardTransition else { return [] }
 
-        var elements: [UIMenuElement] = []
+        var elements: [UIMenuElement] = [contentViewController.makeGridModeMenu()]
 
         if let collectionURL = CollectionCatalog.collectionWebURL(
             specificCollectionId: collectionId

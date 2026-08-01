@@ -41,28 +41,6 @@ enum MobileCollectionBrowserGridMode: Int, CaseIterable, Hashable {
         rawValue
     }
 
-    var next: Self {
-        switch self {
-        case .large:
-            return .threeColumns
-        case .twoColumns:
-            return .large
-        case .threeColumns:
-            return .twoColumns
-        }
-    }
-
-    var nextSystemImageName: String {
-        switch next {
-        case .large:
-            return "rectangle.grid.1x2"
-        case .twoColumns:
-            return "square.grid.2x2"
-        case .threeColumns:
-            return "square.grid.3x2"
-        }
-    }
-
     var requiresLargeImage: Bool {
         self == .large
     }
