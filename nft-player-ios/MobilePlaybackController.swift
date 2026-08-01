@@ -158,7 +158,21 @@ class MobilePlaybackController {
     func collectionBrowseColumnCount(
         snapshot: PlayerCollectionBrowseSnapshot
     ) -> Int {
-        MobileCollectionCatalog.collectionBrowseColumnCount(
+        let defaultColumnCount = MobileCollectionCatalog.collectionBrowseColumnCount(
+            specificCollectionId: snapshot.collectionId
+        )
+        return MobileCollectionBrowserGridModeStore.columnCount(
+            specificCollectionId: snapshot.collectionId,
+            defaultColumnCount: defaultColumnCount
+        )
+    }
+
+    func saveCollectionBrowseColumnCount(
+        _ columnCount: Int,
+        snapshot: PlayerCollectionBrowseSnapshot
+    ) {
+        MobileCollectionBrowserGridModeStore.save(
+            columnCount: columnCount,
             specificCollectionId: snapshot.collectionId
         )
     }

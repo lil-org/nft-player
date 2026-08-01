@@ -36,6 +36,7 @@ final class MobilePlayerBrowserPageViewController: UIViewController {
     private var chromeCancellables = Set<AnyCancellable>()
     private lazy var moreMenu = makeMoreMenu()
     private lazy var moreBarButtonItem = makeMoreBarButtonItem()
+    private lazy var gridModeBarButtonItem = makeGridModeBarButtonItem()
     private lazy var titleContentView = makeTitleContentView()
     private var displayedTitle: String?
 
@@ -50,7 +51,10 @@ final class MobilePlayerBrowserPageViewController: UIViewController {
         super.init(nibName: nil, bundle: nil)
 
         navigationItem.backButtonDisplayMode = .minimal
-        navigationItem.rightBarButtonItem = moreBarButtonItem
+        navigationItem.rightBarButtonItems = [
+            moreBarButtonItem,
+            gridModeBarButtonItem,
+        ]
 
         contentViewController.onFocusedPagePosition = { [weak self] pagePosition in
             guard let self,
@@ -71,6 +75,9 @@ final class MobilePlayerBrowserPageViewController: UIViewController {
         }
         contentViewController.onImmediateSelection = { [weak self] pagePosition, onFailure in
             self?.openImmediateSelection(pagePosition, onFailure: onFailure) == true
+        }
+        contentViewController.onColumnCountChange = { [weak self] columnCount in
+            self?.updateGridModeBarButtonItem(columnCount: columnCount)
         }
     }
 
@@ -106,6 +113,7 @@ final class MobilePlayerBrowserPageViewController: UIViewController {
                 self.contentViewController.view.alpha = isHidden ? 0 : 1
                 self.contentViewController.view.isUserInteractionEnabled = !isHidden
                 self.moreBarButtonItem.menu = isHidden ? nil : self.moreMenu
+                self.gridModeBarButtonItem.isEnabled = !isHidden
             }
             .store(in: &chromeCancellables)
     }
@@ -235,6 +243,44 @@ final class MobilePlayerBrowserPageViewController: UIViewController {
         item.preferredMenuElementOrder = .fixed
         item.accessibilityLabel = Strings.more
         return item
+    }
+
+    private func makeGridModeBarButtonItem() -> UIBarButtonItem {
+        let item = UIBarButtonItem(
+            image: gridModeImage(currentColumnCount: contentViewController.columnCount),
+            style: .plain,
+            target: self,
+            action: #selector(toggleGridMode)
+        )
+        item.accessibilityLabel = Strings.gridLayout
+        item.accessibilityValue = gridModeAccessibilityValue(
+            currentColumnCount: contentViewController.columnCount
+        )
+        return item
+    }
+
+    @objc private func toggleGridMode() {
+        guard contentViewController.toggleColumnCount() else { return }
+        Haptic.selectionChanged()
+    }
+
+    private func updateGridModeBarButtonItem(columnCount: Int) {
+        gridModeBarButtonItem.image = gridModeImage(currentColumnCount: columnCount)
+        gridModeBarButtonItem.accessibilityValue = gridModeAccessibilityValue(
+            currentColumnCount: columnCount
+        )
+    }
+
+    private func gridModeImage(currentColumnCount: Int) -> UIImage? {
+        UIImage(
+            systemName: currentColumnCount == 2
+                ? "square.grid.3x2"
+                : "square.grid.2x2"
+        )
+    }
+
+    private func gridModeAccessibilityValue(currentColumnCount: Int) -> String {
+        currentColumnCount == 2 ? Strings.threeColumns : Strings.twoColumns
     }
 
     private func moreMenuElements(forCollectionId collectionId: String) -> [UIMenuElement] {

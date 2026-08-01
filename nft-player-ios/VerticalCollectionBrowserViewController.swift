@@ -75,6 +75,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     var onSettledPagePosition: ((PlayerPagePosition, Bool) -> Bool)?
     var onSelection: ((MobilePlayerBrowserTransitionSelection) -> Bool)?
     var onImmediateSelection: ((PlayerPagePosition, @escaping () -> Void) -> Bool)?
+    var onColumnCountChange: ((Int) -> Void)?
 
     private let browserCollectionLayout = MobilePlayerCollectionBrowserLayout()
     private lazy var collectionView: MobilePlayerCollectionBrowserCollectionView = {
@@ -132,7 +133,12 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     private var layoutAspectProfile = MobilePlayerBrowserAspectProfile(
         itemCount: 0,
         uniformImageSize: CGSize(width: 1, height: 1)
-    )
+    ) {
+        didSet {
+            guard layoutAspectProfile.columnCount != oldValue.columnCount else { return }
+            onColumnCountChange?(layoutAspectProfile.columnCount)
+        }
+    }
     private var sampledCollectionFallbackSpec = PlayerMediaPlaceholderSpec(
         aspectSize: CGSize(width: 1, height: 1)
     )
@@ -299,6 +305,52 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             return nil
         }
         return browseSnapshot.pagePosition(forTokenIndex: tokenIndex)
+    }
+
+    var columnCount: Int {
+        layoutAspectProfile.columnCount
+    }
+
+    @discardableResult
+    func toggleColumnCount() -> Bool {
+        guard isActive,
+              !isApplyingPosition,
+              preparedTransition == nil,
+              let browseSnapshot else {
+            return false
+        }
+
+        let nextColumnCount = columnCount == 2 ? 3 : 2
+        let retainedTokenIndex = currentAnchorTokenIndex()
+            ?? forcedFocusedTokenIndex
+            ?? focusedTokenIndex
+            ?? browseSnapshot.initialTokenIndex
+
+        collectionView.setContentOffset(collectionView.contentOffset, animated: false)
+        cancelScrollToTopAnimationState()
+        finishCurrentDrag()
+        cancelScheduledScrollUpdate()
+        cancelPendingFocusPublication(resetLastPublicationTime: false)
+        MobilePlaybackController.shared.saveCollectionBrowseColumnCount(
+            nextColumnCount,
+            snapshot: browseSnapshot
+        )
+
+        isApplyingPosition = true
+        updateLayoutAspectProfile(
+            snapshot: browseSnapshot,
+            focusedTokenIndex: retainedTokenIndex
+        )
+        configureCollectionLayout()
+        centerContent(on: retainedTokenIndex)
+        retainFocusedTokenIndex(retainedTokenIndex)
+        focusedTokenIndex = retainedTokenIndex
+        lastScrollOffsetY = collectionView.contentOffset.y
+        collectionView.layoutIfNeeded()
+        isApplyingPosition = false
+
+        settleCurrentPosition()
+        return true
     }
 
     func setActive(_ active: Bool) {

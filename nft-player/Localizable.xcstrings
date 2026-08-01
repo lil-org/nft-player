@@ -611,6 +611,12 @@
         }
       }
     },
+    "2 columns" : {
+      "comment" : "The accessibility value for the collection browser grid button when activating it will switch to the two-column mode."
+    },
+    "3 columns" : {
+      "comment" : "The accessibility value for the collection browser grid button when activating it will switch to the three-column mode."
+    },
     "Back" : {
       "comment" : "1821392793776213918",
       "localizations" : {
@@ -4278,6 +4284,9 @@
           }
         }
       }
+    },
+    "Grid layout" : {
+      "comment" : "The accessibility label for the button that switches the collection browser between grid layouts."
     },
     "Mail" : {
       "comment" : "2512422763239232452",
