@@ -120,7 +120,6 @@ struct MobilePlayerNavigationTitleState: Equatable {
 
 final class MobilePlayerNavigationTitleController: ObservableObject {
     @Published private(set) var title = MobilePlayerNavigationTitleState()
-    @Published private(set) var isModeTransitionActive = false
 
     func setTitle(
         collectionTitle: String,
@@ -145,16 +144,6 @@ final class MobilePlayerNavigationTitleController: ObservableObject {
             return
         }
         self.title = title
-    }
-
-    func setModeTransitionActive(_ isActive: Bool) {
-        guard Thread.isMainThread else {
-            DispatchQueue.main.async { self.setModeTransitionActive(isActive) }
-            return
-        }
-
-        guard isModeTransitionActive != isActive else { return }
-        isModeTransitionActive = isActive
     }
 }
 
@@ -363,10 +352,6 @@ final class MobilePlayerChromeController: ObservableObject {
 
         guard isPlayerContentHiddenForCardTransition != isHidden else { return }
         isPlayerContentHiddenForCardTransition = isHidden
-    }
-
-    func setPlayerModeTitleTransitionActive(_ isActive: Bool) {
-        playerNavigationTitleController.setModeTransitionActive(isActive)
     }
 
     func setNavigationBackSwipeAllowed(_ isAllowed: Bool) {
@@ -821,8 +806,6 @@ struct MobilePlayerView: View {
 
 }
 
-let playerCollectionTitleProgressAnimationDuration: TimeInterval = 0.12
-
 struct PlayerNavigationTitleView: View {
     @ObservedObject var chrome: MobilePlayerChromeController
     @ObservedObject private var titleController: MobilePlayerNavigationTitleController
@@ -833,16 +816,18 @@ struct PlayerNavigationTitleView: View {
     }
 
     var body: some View {
-        let hidesPageLabel = chrome.isPlayerContentHiddenForCardTransition
-            || titleController.isModeTransitionActive
         let title = titleController.title
 
         PlayerCollectionTitlePill(
             title: title.collectionTitle,
-            progressText: hidesPageLabel ? "" : title.pageLabel
+            progressText: title.pageLabel
         )
-        .opacity(chrome.showControls || hidesPageLabel ? 1 : 0)
-        .accessibilityHidden(!chrome.showControls)
+        .opacity(
+            chrome.showControls && !chrome.isPlayerContentHiddenForCardTransition ? 1 : 0
+        )
+        .accessibilityHidden(
+            !chrome.showControls || chrome.isPlayerContentHiddenForCardTransition
+        )
     }
 }
 
@@ -856,9 +841,6 @@ struct PlayerCollectionTitlePill: View {
 
     @ViewBuilder
     private var titleLabel: some View {
-        let counterVisibilityAnimation = Animation.easeInOut(
-            duration: playerCollectionTitleProgressAnimationDuration
-        )
         let label = VStack(spacing: 1) {
             Text(title)
                 .font(.caption.weight(.semibold))
@@ -872,7 +854,6 @@ struct PlayerCollectionTitlePill: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
-                    .transition(.opacity)
             }
         }
             .padding(.horizontal, 14)
@@ -882,11 +863,9 @@ struct PlayerCollectionTitlePill: View {
         if #available(iOS 26.0, *) {
             label
                 .glassEffect(.regular, in: Capsule())
-                .animation(counterVisibilityAnimation, value: progressText.isEmpty)
         } else {
             label
                 .background(.ultraThinMaterial, in: Capsule())
-                .animation(counterVisibilityAnimation, value: progressText.isEmpty)
         }
     }
 }

@@ -1,7 +1,6 @@
 // ∅ 2026 lil org
 
 import Combine
-import SwiftUI
 import UIKit
 
 protocol MobilePlayerPagerProviding: AnyObject {
@@ -36,8 +35,6 @@ final class MobilePlayerBrowserPageViewController: UIViewController {
     private var chromeCancellables = Set<AnyCancellable>()
     private lazy var moreMenu = makeMoreMenu()
     private lazy var moreBarButtonItem = makeMoreBarButtonItem()
-    private lazy var titleContentView = makeTitleContentView()
-    private var displayedTitle: String?
 
     var currentPagePosition: PlayerPagePosition? {
         contentViewController.currentPagePosition
@@ -86,7 +83,6 @@ final class MobilePlayerBrowserPageViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         applyPlayerPageBackground()
-        navigationItem.titleView = titleContentView
 
         addChild(contentViewController)
         view.addSubview(contentViewController.view)
@@ -333,32 +329,9 @@ final class MobilePlayerBrowserPageViewController: UIViewController {
         )
     }
 
-    private func makeTitleContentView() -> any UIView & UIContentView {
-        UIHostingConfiguration {
-            PlayerCollectionTitlePill(title: "", progressText: "")
-        }
-        .margins(.all, 0)
-        .makeContentView()
-    }
-
     private func refreshNavigationTitles(with token: GeneratedToken) {
-        refreshCollectionTitle(with: token)
         refreshBackButtonTitle(with: token)
         refreshMoreMenu(with: token)
-    }
-
-    private func refreshCollectionTitle(with token: GeneratedToken) {
-        let title = token.collectionName
-        guard !title.isEmpty,
-              displayedTitle != title else {
-            return
-        }
-
-        displayedTitle = title
-        titleContentView.configuration = UIHostingConfiguration {
-            PlayerCollectionTitlePill(title: title, progressText: "")
-        }
-        .margins(.all, 0)
     }
 
     private func refreshBackButtonTitle(with token: GeneratedToken) {
@@ -497,8 +470,6 @@ final class MobilePlayerSessionModeController {
             return
         }
 
-        let shouldWaitForTitleProgressTransition =
-            !chrome.isPlayerContentHiddenForCardTransition
         let generation = beginOperation()
         stageBrowserViewForTransition()
         browserViewController.prepareForDisplay(
@@ -524,58 +495,43 @@ final class MobilePlayerSessionModeController {
                 return
             }
 
-            let titleProgressTransitionDelay = shouldWaitForTitleProgressTransition
-                ? playerCollectionTitleProgressAnimationDuration
-                : 0
-            DispatchQueue.main.asyncAfter(
-                deadline: .now() + titleProgressTransitionDelay
-            ) {
-                [weak self, weak browserViewController] in
-                guard let self,
-                      let browserViewController,
-                      self.isCurrentOperation(generation) else {
-                    completion?(false)
-                    return
-                }
-
-                guard self.activeMode == .onePerPage,
-                      let navigationController = self.navigationController,
-                      navigationController.transitionCoordinator == nil,
-                      navigationController.topViewController === self.pagerViewController,
-                      self.chrome.pagerProvider?.pagerCurrentPagePosition()
-                        == preparation.sourcePagePosition else {
-                    rejectOperation()
-                    return
-                }
-
-                guard let expectedPagePosition = preparation.snapshot.pagePosition(
-                    forTokenIndex: preparation.focusedTokenIndex
-                ),
-                      browserViewController.canCommitPreparedDisplay(preparation) else {
-                    rejectOperation()
-                    return
-                }
-
-                let resolution = MobilePlaybackController.shared.commitCollectionBrowse(
-                    uuid: self.config.id,
-                    preparation: preparation
-                )
-                guard case .resolved(let resolvedPagePosition) = resolution else {
-                    rejectOperation()
-                    return
-                }
-
-                assert(resolvedPagePosition == expectedPagePosition)
-                assert(
-                    MobilePlaybackController.shared.collectionBrowseSnapshot(
-                        uuid: self.config.id
-                    ) == preparation.snapshot
-                )
-                browserViewController.commitPreparedDisplay(preparation)
-                self.commitCollectionBrowserPresentation(performsPop: true)
-                self.finishOperation(generation)
-                completion?(true)
+            guard self.activeMode == .onePerPage,
+                  let navigationController = self.navigationController,
+                  navigationController.transitionCoordinator == nil,
+                  navigationController.topViewController === self.pagerViewController,
+                  self.chrome.pagerProvider?.pagerCurrentPagePosition()
+                    == preparation.sourcePagePosition else {
+                rejectOperation()
+                return
             }
+
+            guard let expectedPagePosition = preparation.snapshot.pagePosition(
+                forTokenIndex: preparation.focusedTokenIndex
+            ),
+                  browserViewController.canCommitPreparedDisplay(preparation) else {
+                rejectOperation()
+                return
+            }
+
+            let resolution = MobilePlaybackController.shared.commitCollectionBrowse(
+                uuid: self.config.id,
+                preparation: preparation
+            )
+            guard case .resolved(let resolvedPagePosition) = resolution else {
+                rejectOperation()
+                return
+            }
+
+            assert(resolvedPagePosition == expectedPagePosition)
+            assert(
+                MobilePlaybackController.shared.collectionBrowseSnapshot(
+                    uuid: self.config.id
+                ) == preparation.snapshot
+            )
+            browserViewController.commitPreparedDisplay(preparation)
+            self.commitCollectionBrowserPresentation(performsPop: true)
+            self.finishOperation(generation)
+            completion?(true)
         }
     }
 
@@ -781,7 +737,6 @@ final class MobilePlayerSessionModeController {
         }
         operationGeneration &+= 1
         activeOperationGeneration = operationGeneration
-        chrome.setPlayerModeTitleTransitionActive(true)
         return operationGeneration
     }
 
@@ -792,18 +747,13 @@ final class MobilePlayerSessionModeController {
     private func finishOperation(_ generation: UInt) {
         guard activeOperationGeneration == generation else { return }
         activeOperationGeneration = nil
-        chrome.setPlayerModeTitleTransitionActive(false)
     }
 
     private func supersedeActiveOperation() {
-        guard activeOperationGeneration != nil else {
-            chrome.setPlayerModeTitleTransitionActive(false)
-            return
-        }
+        guard activeOperationGeneration != nil else { return }
         activeOperationGeneration = nil
         operationGeneration &+= 1
         browserViewController?.cancelPendingDisplayPreparation()
-        chrome.setPlayerModeTitleTransitionActive(false)
     }
 
     private func currentLayoutInteractionState() -> MobilePlayerLayoutInteractionState {
