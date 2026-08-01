@@ -2,6 +2,40 @@
 
 import Foundation
 
+struct CollectionBrowseImageSources: Hashable {
+    let thumbnailDescriptor: CollectionCatalogDownloadableMediaDescriptor
+    let largeDescriptor: CollectionCatalogDownloadableMediaDescriptor
+
+    func descriptor(
+        for quality: CollectionBrowseImageQuality
+    ) -> CollectionCatalogDownloadableMediaDescriptor {
+        switch quality {
+        case .thumbnail:
+            return thumbnailDescriptor
+        case .large:
+            return largeDescriptor
+        }
+    }
+
+    func quality(
+        of descriptor: CollectionCatalogDownloadableMediaDescriptor
+    ) -> CollectionBrowseImageQuality? {
+        if descriptor == largeDescriptor {
+            return .large
+        }
+        if descriptor == thumbnailDescriptor {
+            return .thumbnail
+        }
+        return nil
+    }
+
+    var descriptorsByDescendingQuality: [CollectionCatalogDownloadableMediaDescriptor] {
+        largeDescriptor == thumbnailDescriptor
+            ? [largeDescriptor]
+            : [largeDescriptor, thumbnailDescriptor]
+    }
+}
+
 extension CollectionCatalog {
 
     private static let generativeThumbnailBaseURL = URL(string: "https://cdn.lil.org/player")!
@@ -49,6 +83,44 @@ extension CollectionCatalog {
         for primaryDescriptor: CollectionCatalogDownloadableMediaDescriptor
     ) -> CollectionCatalogDownloadableMediaDescriptor {
         return standardThumbnailDescriptor(for: primaryDescriptor) ?? primaryDescriptor
+    }
+
+    static func collectionBrowseImageSources(
+        specificCollectionId: String,
+        tokenIndex: Int
+    ) -> CollectionBrowseImageSources? {
+        guard let thumbnailDescriptor = collectionBrowseThumbnailDescriptor(
+            specificCollectionId: specificCollectionId,
+            tokenIndex: tokenIndex
+        ) else {
+            return nil
+        }
+
+        let largeDescriptor: CollectionCatalogDownloadableMediaDescriptor
+#if os(iOS) || os(macOS)
+        if let renderKind = NativeMetalCardRenderKind(
+            collectionId: specificCollectionId
+        ) {
+            switch renderKind {
+            case .cardNft2, .ponchoDrifella:
+                largeDescriptor = nativeMetalCardStaticMediaDescriptor(
+                    renderKind: renderKind,
+                    tokenIndex: tokenIndex
+                ) ?? thumbnailDescriptor
+            }
+        } else {
+            largeDescriptor = midDescriptor(for: thumbnailDescriptor)
+                ?? thumbnailDescriptor
+        }
+#else
+        largeDescriptor = midDescriptor(for: thumbnailDescriptor)
+            ?? thumbnailDescriptor
+#endif
+
+        return CollectionBrowseImageSources(
+            thumbnailDescriptor: thumbnailDescriptor,
+            largeDescriptor: largeDescriptor
+        )
     }
 
     private static func standardThumbnailDescriptor(
@@ -110,6 +182,26 @@ extension CollectionCatalog {
             media: .staticImage(url: thumbnailURL, fileExtension: "webp"),
             purpose: .collectionBrowserThumbnail,
             thumbnailAspectRatio: primaryDescriptor.thumbnailAspectRatio
+        )
+    }
+
+    private static func midDescriptor(
+        for thumbnailDescriptor: CollectionCatalogDownloadableMediaDescriptor
+    ) -> CollectionCatalogDownloadableMediaDescriptor? {
+        guard thumbnailDescriptor.isCollectionBrowserThumbnail,
+              let midURL = CollectionBrowseImageURLMapping.midURL(
+                for: thumbnailDescriptor.url
+              ) else {
+            return nil
+        }
+
+        return CollectionCatalogDownloadableMediaDescriptor(
+            collectionId: thumbnailDescriptor.collectionId,
+            tokenId: thumbnailDescriptor.tokenId,
+            tokenIndex: thumbnailDescriptor.tokenIndex,
+            media: .staticImage(url: midURL, fileExtension: "webp"),
+            purpose: .collectionBrowserMid,
+            thumbnailAspectRatio: thumbnailDescriptor.thumbnailAspectRatio
         )
     }
 

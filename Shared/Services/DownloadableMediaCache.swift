@@ -1066,7 +1066,7 @@ final class DownloadableMediaCache {
         scope: FileAvailabilityScope = .all
     ) {
         DispatchQueue.main.async {
-#if os(macOS)
+#if os(iOS) || os(macOS)
             NotificationCenter.default.post(
                 name: .downloadableMediaCacheFileAvailabilityDidChange,
                 object: change,

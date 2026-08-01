@@ -4288,6 +4288,9 @@
     "Grid layout" : {
       "comment" : "The accessibility label for the button that switches the collection browser between grid layouts."
     },
+    "Large grid: 1 column in portrait, 2 in landscape" : {
+      "comment" : "The accessibility value for the collection browser grid button when activating it will switch to the large mode."
+    },
     "Mail" : {
       "comment" : "2512422763239232452",
       "localizations" : {

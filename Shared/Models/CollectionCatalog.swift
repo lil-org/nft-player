@@ -65,6 +65,7 @@ struct CollectionCatalogItem: Hashable, Identifiable {
 enum CollectionCatalogDownloadableMediaPurpose: Hashable {
     case primary
     case collectionBrowserThumbnail
+    case collectionBrowserMid
 }
 
 struct CollectionCatalogDownloadableMediaDescriptor: Hashable {
@@ -105,6 +106,15 @@ struct CollectionCatalogDownloadableMediaDescriptor: Hashable {
 
     var isCollectionBrowserThumbnail: Bool {
         purpose == .collectionBrowserThumbnail
+    }
+
+    var isCollectionBrowserImage: Bool {
+        switch purpose {
+        case .collectionBrowserThumbnail, .collectionBrowserMid:
+            return true
+        case .primary:
+            return false
+        }
     }
 
     var nativeMetalCardRenderKind: NativeMetalCardRenderKind? {

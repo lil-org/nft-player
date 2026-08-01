@@ -4745,7 +4745,7 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
         descriptor: DownloadableMediaDescriptor?
     ) -> UIView {
         if let descriptor,
-           (descriptor.usesNativeMetalCardPresentation || descriptor.isCollectionBrowserThumbnail),
+           (descriptor.usesNativeMetalCardPresentation || descriptor.isCollectionBrowserImage),
            let snapshot = makeCardTransitionSnapshotView(sourceFrame: sourceFrame) {
             return snapshot
         }

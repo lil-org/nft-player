@@ -7,39 +7,48 @@ typealias DownloadableMediaDescriptor = CollectionCatalogDownloadableMediaDescri
 typealias MobileCollectionCatalog = CollectionCatalog
 
 enum MobileCollectionBrowserGridModeStore {
-    private static let supportedColumnCounts = Set([2, 3])
-    private static let userDefaultsKeyPrefix = "iosCollectionBrowserColumnCountOverride."
-
-    static func columnCount(
+    static func gridMode(
         specificCollectionId: String,
         defaultColumnCount: Int
-    ) -> Int {
-        guard let key = userDefaultsKey(specificCollectionId: specificCollectionId),
-              let storedColumnCount = UserDefaults.standard.object(forKey: key) as? Int,
-              supportedColumnCounts.contains(storedColumnCount) else {
-            return defaultColumnCount
+    ) -> MobileCollectionBrowserGridMode {
+        let defaultGridMode = MobileCollectionBrowserGridMode(
+            rawValue: defaultColumnCount
+        ) ?? .threeColumns
+        guard let internalSlug = internalSlug(
+            specificCollectionId: specificCollectionId
+        ) else {
+            return defaultGridMode
         }
-        return storedColumnCount
+        return MobileCollectionBrowserGridModePreferences.gridMode(
+            userDefaults: .standard,
+            internalSlug: internalSlug,
+            defaultGridMode: defaultGridMode
+        )
     }
 
     static func save(
-        columnCount: Int,
+        gridMode: MobileCollectionBrowserGridMode,
         specificCollectionId: String
     ) {
-        guard supportedColumnCounts.contains(columnCount),
-              let key = userDefaultsKey(specificCollectionId: specificCollectionId) else {
+        guard let internalSlug = internalSlug(
+            specificCollectionId: specificCollectionId
+        ) else {
             return
         }
-        UserDefaults.standard.set(columnCount, forKey: key)
+        MobileCollectionBrowserGridModePreferences.save(
+            gridMode: gridMode,
+            userDefaults: .standard,
+            internalSlug: internalSlug
+        )
     }
 
-    private static func userDefaultsKey(specificCollectionId: String) -> String? {
+    private static func internalSlug(specificCollectionId: String) -> String? {
         guard let internalSlug = SuggestedItemsService.item(
             id: specificCollectionId
         )?.internalSlug,
               !internalSlug.isEmpty else {
             return nil
         }
-        return userDefaultsKeyPrefix + internalSlug
+        return internalSlug
     }
 }

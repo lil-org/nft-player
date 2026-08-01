@@ -76,8 +76,8 @@ final class MobilePlayerBrowserPageViewController: UIViewController {
         contentViewController.onImmediateSelection = { [weak self] pagePosition, onFailure in
             self?.openImmediateSelection(pagePosition, onFailure: onFailure) == true
         }
-        contentViewController.onColumnCountChange = { [weak self] columnCount in
-            self?.updateGridModeBarButtonItem(columnCount: columnCount)
+        contentViewController.onGridModeChange = { [weak self] gridMode in
+            self?.updateGridModeBarButtonItem(gridMode: gridMode)
         }
     }
 
@@ -247,40 +247,47 @@ final class MobilePlayerBrowserPageViewController: UIViewController {
 
     private func makeGridModeBarButtonItem() -> UIBarButtonItem {
         let item = UIBarButtonItem(
-            image: gridModeImage(currentColumnCount: contentViewController.columnCount),
+            image: gridModeImage(currentGridMode: contentViewController.gridMode),
             style: .plain,
             target: self,
             action: #selector(toggleGridMode)
         )
         item.accessibilityLabel = Strings.gridLayout
         item.accessibilityValue = gridModeAccessibilityValue(
-            currentColumnCount: contentViewController.columnCount
+            currentGridMode: contentViewController.gridMode
         )
         return item
     }
 
     @objc private func toggleGridMode() {
-        guard contentViewController.toggleColumnCount() else { return }
+        guard contentViewController.toggleGridMode() else { return }
         Haptic.selectionChanged()
     }
 
-    private func updateGridModeBarButtonItem(columnCount: Int) {
-        gridModeBarButtonItem.image = gridModeImage(currentColumnCount: columnCount)
+    private func updateGridModeBarButtonItem(gridMode: MobileCollectionBrowserGridMode) {
+        gridModeBarButtonItem.image = gridModeImage(currentGridMode: gridMode)
         gridModeBarButtonItem.accessibilityValue = gridModeAccessibilityValue(
-            currentColumnCount: columnCount
+            currentGridMode: gridMode
         )
     }
 
-    private func gridModeImage(currentColumnCount: Int) -> UIImage? {
-        UIImage(
-            systemName: currentColumnCount == 2
-                ? "square.grid.3x2"
-                : "square.grid.2x2"
-        )
+    private func gridModeImage(
+        currentGridMode: MobileCollectionBrowserGridMode
+    ) -> UIImage? {
+        UIImage(systemName: currentGridMode.nextSystemImageName)
     }
 
-    private func gridModeAccessibilityValue(currentColumnCount: Int) -> String {
-        currentColumnCount == 2 ? Strings.threeColumns : Strings.twoColumns
+    private func gridModeAccessibilityValue(
+        currentGridMode: MobileCollectionBrowserGridMode
+    ) -> String {
+        switch currentGridMode.next {
+        case .large:
+            return Strings.largeGrid
+        case .twoColumns:
+            return Strings.twoColumns
+        case .threeColumns:
+            return Strings.threeColumns
+        }
     }
 
     private func moreMenuElements(forCollectionId collectionId: String) -> [UIMenuElement] {

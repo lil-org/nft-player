@@ -12,6 +12,7 @@ struct Strings {
     static let forward = loc("Forward")
     static let more = loc("More")
     static let gridLayout = loc("Grid layout")
+    static let largeGrid = loc("Large grid: 1 column in portrait, 2 in landscape")
     static let twoColumns = loc("2 columns")
     static let threeColumns = loc("3 columns")
     static let finish = loc("Finish")

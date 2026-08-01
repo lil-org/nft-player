@@ -45,6 +45,19 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         let tokenIndex: Int
         let direction: DownloadableMediaCache.PrefetchDirection
         let prefetchStride: Int
+        let quality: CollectionBrowseImageQuality
+        let displayedLargeTokenIndices: Set<Int>
+        let locallyAvailableLargeTokenIndices: Set<Int>
+    }
+
+    private struct DisplayedLargeImageWindowState {
+        let tokenIndices: Set<Int>
+        let locallyAvailableTokenIndices: Set<Int>
+
+        static let empty = Self(
+            tokenIndices: [],
+            locallyAvailableTokenIndices: []
+        )
     }
 
     private struct WindowSafeAreaState {
@@ -75,7 +88,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     var onSettledPagePosition: ((PlayerPagePosition, Bool) -> Bool)?
     var onSelection: ((MobilePlayerBrowserTransitionSelection) -> Bool)?
     var onImmediateSelection: ((PlayerPagePosition, @escaping () -> Void) -> Bool)?
-    var onColumnCountChange: ((Int) -> Void)?
+    var onGridModeChange: ((MobileCollectionBrowserGridMode) -> Void)?
 
     private let browserCollectionLayout = MobilePlayerCollectionBrowserLayout()
     private lazy var collectionView: MobilePlayerCollectionBrowserCollectionView = {
@@ -136,7 +149,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     ) {
         didSet {
             guard layoutAspectProfile.columnCount != oldValue.columnCount else { return }
-            onColumnCountChange?(layoutAspectProfile.columnCount)
+            onGridModeChange?(gridMode)
         }
     }
     private var sampledCollectionFallbackSpec = PlayerMediaPlaceholderSpec(
@@ -155,6 +168,10 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     private var configuredPrefetchStride: Int {
         browserCollectionLayout.browserLayout?.prefetchStride
             ?? MobilePlayerBrowserLayout.defaultColumnCount
+    }
+
+    private var requiredImageQuality: CollectionBrowseImageQuality {
+        gridMode.requiresLargeImage ? .large : .thumbnail
     }
 
     init(uuid: UUID) {
@@ -205,8 +222,8 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             forName: .downloadableMediaCacheFileAvailabilityDidChange,
             object: nil,
             queue: .main
-        ) { [weak self] _ in
-            self?.refreshVisibleCachedImagesIfNeeded()
+        ) { [weak self] notification in
+            self?.refreshVisibleCachedImagesIfNeeded(notification: notification)
         }
     }
 
@@ -307,12 +324,14 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         return browseSnapshot.pagePosition(forTokenIndex: tokenIndex)
     }
 
-    var columnCount: Int {
-        layoutAspectProfile.columnCount
+    var gridMode: MobileCollectionBrowserGridMode {
+        MobileCollectionBrowserGridMode(
+            rawValue: layoutAspectProfile.columnCount
+        ) ?? .threeColumns
     }
 
     @discardableResult
-    func toggleColumnCount() -> Bool {
+    func toggleGridMode() -> Bool {
         guard isActive,
               !isApplyingPosition,
               preparedTransition == nil,
@@ -320,7 +339,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             return false
         }
 
-        let nextColumnCount = columnCount == 2 ? 3 : 2
+        let nextGridMode = gridMode.next
         let retainedTokenIndex = currentAnchorTokenIndex()
             ?? forcedFocusedTokenIndex
             ?? focusedTokenIndex
@@ -331,8 +350,11 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         finishCurrentDrag()
         cancelScheduledScrollUpdate()
         cancelPendingFocusPublication(resetLastPublicationTime: false)
-        MobilePlaybackController.shared.saveCollectionBrowseColumnCount(
-            nextColumnCount,
+        cancelAllPrefetchLoads()
+        visibleBrowserCells.forEach { $0.cancelImageLoad() }
+        lastThumbnailWindowRequest = nil
+        MobilePlaybackController.shared.saveCollectionBrowseGridMode(
+            nextGridMode,
             snapshot: browseSnapshot
         )
 
@@ -347,6 +369,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         focusedTokenIndex = retainedTokenIndex
         lastScrollOffsetY = collectionView.contentOffset.y
         collectionView.layoutIfNeeded()
+        reloadVisibleCells()
         isApplyingPosition = false
 
         settleCurrentPosition()
@@ -899,9 +922,10 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             guard prefetchLoads.count < Self.maximumPrefetchLoadCount,
                   prefetchLoads[tokenIndex] == nil,
                   let browseSnapshot,
-                  let descriptor = MobilePlaybackController.shared.collectionBrowseThumbnailDescriptor(
+                  let descriptor = MobilePlaybackController.shared.collectionBrowseImageDescriptor(
                     snapshot: browseSnapshot,
-                    tokenIndex: tokenIndex
+                    tokenIndex: tokenIndex,
+                    quality: requiredImageQuality
                   ),
                   DownloadableMediaCache.shared.cachedDecodedImage(for: descriptor) == nil else {
                 continue
@@ -1036,10 +1060,9 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             return
         }
 
-        let columnCount =
-            MobilePlaybackController.shared.collectionBrowseColumnCount(
-                snapshot: snapshot
-            )
+        let columnCount = MobilePlaybackController.shared
+            .collectionBrowseGridMode(snapshot: snapshot)
+            .columnCount
         let sampleCount = min(
             snapshot.itemCount,
             MobilePlayerBrowserLayout.maximumAspectSampleCount
@@ -1811,10 +1834,17 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         force: Bool
     ) {
         guard isActive else { return }
+        let displayedLargeImages = requiredImageQuality == .thumbnail
+            ? displayedLargeImageWindowState()
+            : .empty
         let request = ThumbnailWindowRequest(
             tokenIndex: tokenIndex,
             direction: direction,
-            prefetchStride: configuredPrefetchStride
+            prefetchStride: configuredPrefetchStride,
+            quality: requiredImageQuality,
+            displayedLargeTokenIndices: displayedLargeImages.tokenIndices,
+            locallyAvailableLargeTokenIndices:
+                displayedLargeImages.locallyAvailableTokenIndices
         )
         if !force, lastThumbnailWindowRequest == request {
             return
@@ -1823,6 +1853,11 @@ final class VerticalCollectionBrowserViewController: UIViewController,
            let lastThumbnailWindowRequest,
            lastThumbnailWindowRequest.direction == direction,
            lastThumbnailWindowRequest.prefetchStride == configuredPrefetchStride,
+           lastThumbnailWindowRequest.quality == requiredImageQuality,
+           lastThumbnailWindowRequest.displayedLargeTokenIndices
+                == displayedLargeImages.tokenIndices,
+           lastThumbnailWindowRequest.locallyAvailableLargeTokenIndices
+                == displayedLargeImages.locallyAvailableTokenIndices,
            abs(lastThumbnailWindowRequest.tokenIndex - tokenIndex) < configuredPrefetchStride {
             return
         }
@@ -1830,7 +1865,11 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             uuid: uuid,
             centeredAt: tokenIndex,
             direction: direction,
-            prefetchStride: configuredPrefetchStride
+            prefetchStride: configuredPrefetchStride,
+            quality: requiredImageQuality,
+            displayedLargeTokenIndices: displayedLargeImages.tokenIndices,
+            locallyAvailableLargeTokenIndices:
+                displayedLargeImages.locallyAvailableTokenIndices
         )
         lastThumbnailWindowRequest = request
     }
@@ -1882,8 +1921,8 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         _ cell: MobilePlayerCollectionBrowserCell,
         at indexPath: IndexPath
     ) {
-        let descriptor = browseSnapshot.flatMap {
-            MobilePlaybackController.shared.collectionBrowseThumbnailDescriptor(
+        let imageSources = browseSnapshot.flatMap {
+            MobilePlaybackController.shared.collectionBrowseImageSources(
                 snapshot: $0,
                 tokenIndex: indexPath.item
             )
@@ -1891,7 +1930,8 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         cell.configure(
             tokenIndex: indexPath.item,
             itemCount: browseSnapshot?.itemCount ?? 0,
-            descriptor: descriptor,
+            imageSources: imageSources,
+            requiredImageQuality: requiredImageQuality,
             missingDescriptorFallbackSpec: sampledCollectionFallbackSpec,
             allowsImageLoading: isActive || preparedTransition != nil
         )
@@ -1906,13 +1946,45 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         }
     }
 
-    private func refreshVisibleCachedImagesIfNeeded() {
-        guard isActive || preparedTransition != nil else { return }
-        visibleBrowserCells.forEach { $0.refreshAvailableImageIfNeeded() }
+    private func refreshVisibleCachedImagesIfNeeded(notification: Notification) {
+        guard isActive || preparedTransition != nil,
+              let change = notification.object
+                as? DownloadableMediaCacheFileAvailabilityChange else {
+            return
+        }
+        let visibleBrowserCells = visibleBrowserCells
+        visibleBrowserCells.forEach {
+            $0.updateLocalFileAvailability(
+                notification: notification,
+                isAvailable: change == .becameAvailable
+            )
+        }
+        if change == .becameUnavailable {
+            return
+        }
+        visibleBrowserCells.forEach {
+            $0.refreshAvailableImageIfNeeded(notification: notification)
+        }
     }
 
     private var visibleBrowserCells: [MobilePlayerCollectionBrowserCell] {
         collectionView.visibleCells.compactMap { $0 as? MobilePlayerCollectionBrowserCell }
+    }
+
+    private func displayedLargeImageWindowState() -> DisplayedLargeImageWindowState {
+        var tokenIndices = Set<Int>()
+        var locallyAvailableTokenIndices = Set<Int>()
+        for cell in visibleBrowserCells {
+            guard let entry = cell.displayedLargeImageWindowEntry else { continue }
+            tokenIndices.insert(entry.tokenIndex)
+            if entry.isLocallyAvailable {
+                locallyAvailableTokenIndices.insert(entry.tokenIndex)
+            }
+        }
+        return DisplayedLargeImageWindowState(
+            tokenIndices: tokenIndices,
+            locallyAvailableTokenIndices: locallyAvailableTokenIndices
+        )
     }
 }
 
@@ -1975,13 +2047,34 @@ private final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
         let view: UIView
     }
 
+    private struct ImageLoad {
+        let id: UUID
+        let cancellation: (() -> Void)?
+    }
+
     private let placeholderView = PlayerMediaPlaceholderView()
     private let imageView = NativeMetalCardCornerMaskedImageView()
     private(set) var descriptor: DownloadableMediaDescriptor?
     private(set) var displayedImageSize = CGSize(width: 1, height: 1)
     private var representedTokenIndex: Int?
-    private var imageLoadID: UUID?
-    private var imageLoadCancellation: (() -> Void)?
+    private var imageSources: CollectionBrowseImageSources?
+    private var requiredImageQuality = CollectionBrowseImageQuality.thumbnail
+    private var displayedImageDescriptor: DownloadableMediaDescriptor?
+    private var displayedImageQuality: CollectionBrowseImageQuality?
+    private var displayedImageHasLocalFile = false
+    private var imageLoads = [CollectionBrowseImageQuality: ImageLoad]()
+
+    var displayedLargeImageWindowEntry: (
+        tokenIndex: Int,
+        isLocallyAvailable: Bool
+    )? {
+        guard imageView.image != nil,
+              displayedImageQuality == .large,
+              let representedTokenIndex else {
+            return nil
+        }
+        return (representedTokenIndex, displayedImageHasLocalFile)
+    }
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -2015,7 +2108,11 @@ private final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
         super.prepareForReuse()
         cancelImageLoad()
         representedTokenIndex = nil
+        imageSources = nil
         descriptor = nil
+        displayedImageDescriptor = nil
+        displayedImageQuality = nil
+        displayedImageHasLocalFile = false
         displayedImageSize = CGSize(width: 1, height: 1)
         imageView.image = nil
         imageView.usesNativeMetalCardCornerMask = false
@@ -2026,23 +2123,50 @@ private final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
     func configure(
         tokenIndex: Int,
         itemCount: Int,
-        descriptor: DownloadableMediaDescriptor?,
+        imageSources: CollectionBrowseImageSources?,
+        requiredImageQuality: CollectionBrowseImageQuality,
         missingDescriptorFallbackSpec: PlayerMediaPlaceholderSpec,
         allowsImageLoading: Bool
     ) {
+        let retainedDescriptor = displayedImageDescriptor.flatMap { descriptor in
+            representedTokenIndex == tokenIndex
+                && imageView.image != nil
+                && imageSources?.quality(of: descriptor) != nil
+                ? descriptor
+                : nil
+        }
+        let retainedImageQuality = retainedDescriptor.flatMap {
+            imageSources?.quality(of: $0)
+        }
+        let retainedImageHasLocalFile = retainedImageQuality == .large
+            && retainedDescriptor.flatMap {
+                DownloadableMediaCache.shared.localFileURL(for: $0)
+            } != nil
         cancelImageLoad()
         representedTokenIndex = tokenIndex
-        self.descriptor = descriptor
-        imageView.image = nil
-        let usesNativeMetalCardCornerMask = descriptor?.usesNativeMetalCardPresentation
+        self.imageSources = imageSources
+        self.requiredImageQuality = requiredImageQuality
+        displayedImageDescriptor = retainedDescriptor
+        displayedImageQuality = retainedImageQuality
+        displayedImageHasLocalFile = retainedImageHasLocalFile
+
+        let requiredDescriptor = imageSources?.descriptor(
+            for: requiredImageQuality
+        )
+        descriptor = retainedDescriptor ?? requiredDescriptor
+        if retainedDescriptor == nil {
+            imageView.image = nil
+        }
+        let usesNativeMetalCardCornerMask = (retainedDescriptor ?? requiredDescriptor)?
+            .usesNativeMetalCardPresentation
             ?? missingDescriptorFallbackSpec.usesNativeMetalCardCornerMask
         imageView.usesNativeMetalCardCornerMask = usesNativeMetalCardCornerMask
 
-        if let descriptor {
+        if retainedDescriptor == nil, let requiredDescriptor {
             displayedImageSize = PlayerCollectionBrowserSupport.fallbackImageSize(
-                for: descriptor
+                for: requiredDescriptor
             )
-        } else {
+        } else if retainedDescriptor == nil {
             displayedImageSize = missingDescriptorFallbackSpec.aspectSize
         }
         placeholderView.configure(
@@ -2051,7 +2175,7 @@ private final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
                 usesNativeMetalCardCornerMask: usesNativeMetalCardCornerMask
             )
         )
-        placeholderView.setHidden(false, animated: false)
+        placeholderView.setHidden(retainedDescriptor != nil, animated: false)
         accessibilityLabel = Strings.pagePosition(
             current: tokenIndex + 1,
             total: max(itemCount, tokenIndex + 1)
@@ -2081,56 +2205,115 @@ private final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
     }
 
     func cancelImageLoad() {
-        imageLoadID = nil
-        let cancellation = imageLoadCancellation
-        imageLoadCancellation = nil
-        cancellation?()
+        let cancellations = imageLoads.values.compactMap(\.cancellation)
+        imageLoads.removeAll()
+        cancellations.forEach { $0() }
     }
 
     private func startImageLoadIfNeeded(animatedWhenLoaded: Bool) {
-        guard imageView.image == nil,
-              let tokenIndex = representedTokenIndex,
-              let descriptor else {
+        guard let tokenIndex = representedTokenIndex,
+              let imageSources else {
             return
         }
-        if let cachedImage = DownloadableMediaCache.shared.cachedDecodedImage(for: descriptor) {
-            cancelImageLoad()
-            setImage(
-                cachedImage,
-                descriptor: descriptor,
-                tokenIndex: tokenIndex,
-                animated: false
+
+        let cache = DownloadableMediaCache.shared
+        for candidate in imageSources.descriptorsByDescendingQuality {
+            guard let quality = imageSources.quality(of: candidate),
+                  let cachedImage = cache.cachedDecodedImage(for: candidate) else {
+                continue
+            }
+            if displayedImageDescriptor != candidate || imageView.image == nil {
+                setImage(
+                    cachedImage,
+                    descriptor: candidate,
+                    quality: quality,
+                    tokenIndex: tokenIndex,
+                    animated: false
+                )
+            }
+            break
+        }
+
+        if requiredImageQuality == .thumbnail,
+           displayedImageQuality != .large,
+           imageSources.largeDescriptor != imageSources.thumbnailDescriptor,
+           cache.localFileURL(for: imageSources.largeDescriptor) != nil {
+            startImageLoad(
+                quality: .large,
+                animatedWhenLoaded: animatedWhenLoaded,
+                fallbackQualityOnFailure: imageView.image == nil ? .thumbnail : nil
             )
             return
         }
-        guard imageLoadID == nil else { return }
 
+        if let displayedImageQuality,
+           displayedImageQuality.rawValue >= requiredImageQuality.rawValue {
+            return
+        }
+
+        if requiredImageQuality == .large,
+           imageView.image == nil,
+           imageSources.thumbnailDescriptor != imageSources.largeDescriptor,
+           cache.localFileURL(for: imageSources.thumbnailDescriptor) != nil {
+            startImageLoad(
+                quality: .thumbnail,
+                animatedWhenLoaded: animatedWhenLoaded
+            )
+        }
+        startImageLoad(
+            quality: requiredImageQuality,
+            animatedWhenLoaded: animatedWhenLoaded
+        )
+    }
+
+    private func startImageLoad(
+        quality: CollectionBrowseImageQuality,
+        animatedWhenLoaded: Bool,
+        fallbackQualityOnFailure: CollectionBrowseImageQuality? = nil
+    ) {
+        guard imageLoads[quality] == nil,
+              let tokenIndex = representedTokenIndex,
+              let imageSources else {
+            return
+        }
+
+        let descriptor = imageSources.descriptor(for: quality)
         let loadID = UUID()
-        imageLoadID = loadID
         let cancellation = DownloadableMediaCache.shared.loadImage(for: descriptor) { [weak self] image in
             DispatchQueue.main.async {
                 guard let self,
-                      self.imageLoadID == loadID else {
+                      self.imageLoads[quality]?.id == loadID else {
                     return
                 }
-                self.imageLoadID = nil
-                self.imageLoadCancellation = nil
-                guard
-                      self.representedTokenIndex == tokenIndex,
-                      self.descriptor == descriptor,
-                      let image else {
+                self.imageLoads.removeValue(forKey: quality)
+                guard self.representedTokenIndex == tokenIndex,
+                      self.imageSources?.descriptor(for: quality) == descriptor else {
+                    return
+                }
+                guard let image else {
+                    if let fallbackQualityOnFailure,
+                       self.imageView.image == nil {
+                        self.startImageLoad(
+                            quality: fallbackQualityOnFailure,
+                            animatedWhenLoaded: animatedWhenLoaded
+                        )
+                    }
                     return
                 }
                 self.setImage(
                     image,
                     descriptor: descriptor,
+                    quality: quality,
                     tokenIndex: tokenIndex,
                     animated: animatedWhenLoaded
                 )
             }
         }
-        if imageLoadID == loadID {
-            imageLoadCancellation = cancellation
+        if imageLoads[quality] == nil {
+            imageLoads[quality] = ImageLoad(
+                id: loadID,
+                cancellation: cancellation
+            )
         }
     }
 
@@ -2188,55 +2371,95 @@ private final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
         return fallbackPlaceholder
     }
 
-    func refreshAvailableImageIfNeeded() {
-        guard imageView.image == nil,
-              let tokenIndex = representedTokenIndex,
-              let descriptor,
-              descriptor.isStaticImage else {
+    func refreshAvailableImageIfNeeded(notification: Notification) {
+        guard representedTokenIndex != nil,
+              let imageSources else {
             return
         }
+        if imageView.image != nil, displayedImageQuality == .large { return }
 
         let cache = DownloadableMediaCache.shared
-        if let image = cache.cachedDecodedImage(for: descriptor) {
-            cancelImageLoad()
-            setImage(
-                image,
-                descriptor: descriptor,
-                tokenIndex: tokenIndex,
-                animated: true
-            )
+        let descriptorsWorthLoading = imageSources.descriptorsByDescendingQuality.filter {
+            guard imageView.image != nil,
+                  let displayedImageQuality,
+                  let quality = imageSources.quality(of: $0) else {
+                return true
+            }
+            return quality.rawValue > displayedImageQuality.rawValue
+        }
+        guard descriptorsWorthLoading.contains(where: {
+            cache.fileAvailabilityChange(notification, affects: $0)
+        }) else {
             return
         }
 
-        guard imageLoadID == nil,
-              cache.localFileURL(for: descriptor) != nil else {
+        startImageLoadIfNeeded(animatedWhenLoaded: true)
+    }
+
+    func updateLocalFileAvailability(
+        notification: Notification,
+        isAvailable: Bool
+    ) {
+        guard let displayedImageDescriptor,
+              imageSources?.largeDescriptor == displayedImageDescriptor,
+              DownloadableMediaCache.shared.fileAvailabilityChange(
+                notification,
+                affects: displayedImageDescriptor
+              ) else {
             return
         }
-        startImageLoadIfNeeded(animatedWhenLoaded: true)
+        displayedImageHasLocalFile = isAvailable
     }
 
     private func setImage(
         _ image: UIImage,
         descriptor: DownloadableMediaDescriptor,
+        quality: CollectionBrowseImageQuality,
         tokenIndex: Int,
         animated: Bool
     ) {
         guard representedTokenIndex == tokenIndex,
-              self.descriptor == descriptor else {
+              imageSources?.descriptor(for: quality) == descriptor else {
             return
         }
+        guard quality.canReplace(displayedImageQuality) else {
+            return
+        }
+        if let matchingLoad = imageLoads.removeValue(forKey: quality) {
+            matchingLoad.cancellation?()
+        }
+        if quality == .large,
+           let thumbnailLoad = imageLoads.removeValue(forKey: .thumbnail) {
+            thumbnailLoad.cancellation?()
+        }
+        self.descriptor = descriptor
+        displayedImageDescriptor = descriptor
+        displayedImageQuality = quality
+        let descriptorCanSatisfyLarge = imageSources?.largeDescriptor == descriptor
+        let cachedStaticImageURL = descriptorCanSatisfyLarge
+            ? DownloadableMediaCache.shared.localFileURL(for: descriptor)
+            : nil
+        displayedImageHasLocalFile = descriptorCanSatisfyLarge
+            && cachedStaticImageURL != nil
         displayedImageSize = image.size
+        imageView.usesNativeMetalCardCornerMask = descriptor.usesNativeMetalCardPresentation
         imageView.image = image
         placeholderView.setHidden(true, animated: animated)
-        prewarmNativeMetalCardFaceIfNeeded(for: descriptor)
+        prewarmNativeMetalCardFaceIfNeeded(
+            for: descriptor,
+            cachedStaticImageURL: cachedStaticImageURL
+        )
     }
 
-    private func prewarmNativeMetalCardFaceIfNeeded(for descriptor: DownloadableMediaDescriptor) {
+    private func prewarmNativeMetalCardFaceIfNeeded(
+        for descriptor: DownloadableMediaDescriptor,
+        cachedStaticImageURL: URL?
+    ) {
         guard let renderKind = descriptor.nativeMetalCardRenderKind,
               let tokenID = Int(descriptor.tokenId) else {
             return
         }
-        guard let cachedStaticImageURL = DownloadableMediaCache.shared.localFileURL(for: descriptor) else {
+        guard let cachedStaticImageURL else {
             renderKind.loadFace(for: tokenID) { _ in }
             return
         }

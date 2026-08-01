@@ -155,24 +155,24 @@ class MobilePlaybackController {
         dataSource(uuid: uuid)?.collectionBrowseSnapshot()
     }
 
-    func collectionBrowseColumnCount(
+    func collectionBrowseGridMode(
         snapshot: PlayerCollectionBrowseSnapshot
-    ) -> Int {
+    ) -> MobileCollectionBrowserGridMode {
         let defaultColumnCount = MobileCollectionCatalog.collectionBrowseColumnCount(
             specificCollectionId: snapshot.collectionId
         )
-        return MobileCollectionBrowserGridModeStore.columnCount(
+        return MobileCollectionBrowserGridModeStore.gridMode(
             specificCollectionId: snapshot.collectionId,
             defaultColumnCount: defaultColumnCount
         )
     }
 
-    func saveCollectionBrowseColumnCount(
-        _ columnCount: Int,
+    func saveCollectionBrowseGridMode(
+        _ gridMode: MobileCollectionBrowserGridMode,
         snapshot: PlayerCollectionBrowseSnapshot
     ) {
         MobileCollectionBrowserGridModeStore.save(
-            columnCount: columnCount,
+            gridMode: gridMode,
             specificCollectionId: snapshot.collectionId
         )
     }
@@ -201,6 +201,37 @@ class MobilePlaybackController {
             specificCollectionId: snapshot.collectionId,
             tokenIndex: tokenIndex
         )
+    }
+
+    func collectionBrowseImageSources(
+        snapshot: PlayerCollectionBrowseSnapshot,
+        tokenIndex: Int
+    ) -> CollectionBrowseImageSources? {
+        guard snapshot.pagePosition(forTokenIndex: tokenIndex) != nil else { return nil }
+
+        return MobileCollectionCatalog.collectionBrowseImageSources(
+            specificCollectionId: snapshot.collectionId,
+            tokenIndex: tokenIndex
+        )
+    }
+
+    func collectionBrowseImageDescriptor(
+        snapshot: PlayerCollectionBrowseSnapshot,
+        tokenIndex: Int,
+        quality: CollectionBrowseImageQuality
+    ) -> DownloadableMediaDescriptor? {
+        switch quality {
+        case .thumbnail:
+            return collectionBrowseThumbnailDescriptor(
+                snapshot: snapshot,
+                tokenIndex: tokenIndex
+            )
+        case .large:
+            return collectionBrowseImageSources(
+                snapshot: snapshot,
+                tokenIndex: tokenIndex
+            )?.largeDescriptor
+        }
     }
 
     func collectionBrowseThumbnailAspectRatioProfile(
@@ -289,7 +320,10 @@ class MobilePlaybackController {
         uuid: UUID,
         centeredAt tokenIndex: Int,
         direction: DownloadableMediaCache.PrefetchDirection,
-        prefetchStride: Int
+        prefetchStride: Int,
+        quality: CollectionBrowseImageQuality,
+        displayedLargeTokenIndices: Set<Int>,
+        locallyAvailableLargeTokenIndices: Set<Int>
     ) -> PlayerDownloadableMediaWindow? {
         guard let snapshot = collectionBrowseSnapshot(uuid: uuid),
               let preparedWindow = PlayerCollectionBrowseMediaWindowLayout.makeWindow(
@@ -298,10 +332,29 @@ class MobilePlaybackController {
                 direction: direction,
                 prefetchStride: prefetchStride,
                 descriptorForTokenIndex: {
-                    collectionBrowseThumbnailDescriptor(
-                        snapshot: snapshot,
-                        tokenIndex: $0
+                    let selection = CollectionBrowseImageWindowSelection.resolve(
+                        requiredQuality: quality,
+                        isDisplayingLargeImage:
+                            displayedLargeTokenIndices.contains($0),
+                        largeImageIsLocallyAvailable:
+                            locallyAvailableLargeTokenIndices.contains($0)
                     )
+                    switch selection {
+                    case .requestedQuality:
+                        return collectionBrowseImageDescriptor(
+                            snapshot: snapshot,
+                            tokenIndex: $0,
+                            quality: quality
+                        )
+                    case .locallyAvailableLarge:
+                        return collectionBrowseImageDescriptor(
+                            snapshot: snapshot,
+                            tokenIndex: $0,
+                            quality: .large
+                        )
+                    case .omitSatisfiedToken:
+                        return nil
+                    }
                 }
               ) else {
             clearDownloadableMediaWindow(uuid: uuid)

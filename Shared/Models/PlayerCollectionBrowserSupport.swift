@@ -81,7 +81,7 @@ enum PlayerCollectionBrowserSupport {
             return false
         }
         return isAvailable(forCollectionId: descriptor.collectionId)
-            || descriptor.isCollectionBrowserThumbnail
+            || descriptor.isCollectionBrowserImage
     }
 
     static func isAvailable(forCollectionId collectionId: String) -> Bool {

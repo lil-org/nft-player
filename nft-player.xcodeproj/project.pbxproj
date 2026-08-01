@@ -235,6 +235,8 @@
 		2E0000000000D2B73DC9D6E7 /* PlayerCollectionBrowserSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E0000000000053BA7B2B190 /* PlayerCollectionBrowserSupport.swift */; };
 		2E0000000000C1363F795421 /* PlayerCollectionBrowserSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E0000000000053BA7B2B190 /* PlayerCollectionBrowserSupport.swift */; };
 		2E0000000000780508B16E95 /* MobilePlayerBrowserLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DB100012FD0000000000001 /* MobilePlayerBrowserLayout.swift */; };
+		2E1200000000000000000002 /* CollectionBrowserConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E1200000000000000000001 /* CollectionBrowserConfiguration.swift */; };
+		2E1200000000000000000003 /* CollectionBrowserConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E1200000000000000000001 /* CollectionBrowserConfiguration.swift */; };
 		2E00000000005DBED73564BC /* MacPlayerMediaActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E000000000027324C8583BE /* MacPlayerMediaActions.swift */; };
 		2E0000000000B0E867F321F6 /* MacPlayerPagerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E0000000000FDA18AF301DD /* MacPlayerPagerViewController.swift */; };
 		2E00000000008EF78D7B4701 /* MacNavigationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E00000000000EAAC81FB836 /* MacNavigationController.swift */; };
@@ -428,6 +430,7 @@
 		2DB100012FD0000000000001 /* MobilePlayerBrowserLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobilePlayerBrowserLayout.swift; sourceTree = "<group>"; };
 		2E0000000000B7378DF1FB9C /* CollectionBrowseThumbnails.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionBrowseThumbnails.swift; sourceTree = "<group>"; };
 		2E0000000000053BA7B2B190 /* PlayerCollectionBrowserSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerCollectionBrowserSupport.swift; sourceTree = "<group>"; };
+		2E1200000000000000000001 /* CollectionBrowserConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionBrowserConfiguration.swift; sourceTree = "<group>"; };
 		2E000000000027324C8583BE /* MacPlayerMediaActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacPlayerMediaActions.swift; sourceTree = "<group>"; };
 		2E0000000000FDA18AF301DD /* MacPlayerPagerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacPlayerPagerViewController.swift; sourceTree = "<group>"; };
 		2E00000000000EAAC81FB836 /* MacNavigationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacNavigationController.swift; sourceTree = "<group>"; };
@@ -510,6 +513,7 @@
 				2DA100002FC0000000000001 /* PlayerCollectionScrollPolicy.swift */,
 				2E1100000000000000000001 /* PlayerCardMinimizePinchPolicy.swift */,
 				2DB100012FD0000000000001 /* MobilePlayerBrowserLayout.swift */,
+				2E1200000000000000000001 /* CollectionBrowserConfiguration.swift */,
 				2D4000042F50000000000001 /* PlayerViewingSessionTracker.swift */,
 				2CF100042F20000000000001 /* PlayerSyncTypes.swift */,
 				2CDF00062F10000000000001 /* PonchoDrifellaCardMetadata.swift */,
@@ -1219,6 +1223,7 @@
 				2DA100012FC0000000000001 /* PlayerCollectionScrollPolicy.swift in Sources */,
 				2E1100000000000000000002 /* PlayerCardMinimizePinchPolicy.swift in Sources */,
 				2DB100022FD0000000000001 /* MobilePlayerBrowserLayout.swift in Sources */,
+				2E1200000000000000000002 /* CollectionBrowserConfiguration.swift in Sources */,
 				2DA100032FC0000000000001 /* VerticalCollectionBrowserViewController.swift in Sources */,
 				2C460ED02D2985A90083124E /* NftGallery.swift in Sources */,
 				2C460ED22D2985A90083124E /* Chain.swift in Sources */,
@@ -1361,6 +1366,7 @@
 				2E000000000054461808C409 /* CollectionBrowseThumbnails.swift in Sources */,
 				2E0000000000C1363F795421 /* PlayerCollectionBrowserSupport.swift in Sources */,
 				2E0000000000780508B16E95 /* MobilePlayerBrowserLayout.swift in Sources */,
+				2E1200000000000000000003 /* CollectionBrowserConfiguration.swift in Sources */,
 				2E00000000005DBED73564BC /* MacPlayerMediaActions.swift in Sources */,
 				2E0000000000B0E867F321F6 /* MacPlayerPagerViewController.swift in Sources */,
 				2E1100000000000000000003 /* PlayerCardMinimizePinchPolicy.swift in Sources */,

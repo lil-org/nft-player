@@ -825,6 +825,46 @@ final class MobilePlayerBrowserLayoutTests: XCTestCase {
         )
     }
 
+    func testLargeModeRotationUsesOneAndTwoColumnsAndRetainsFocus() throws {
+        let portraitSize = CGSize(width: 430, height: 932)
+        let landscapeSize = CGSize(width: 932, height: 430)
+        let aspectProfile = MobilePlayerBrowserAspectProfile(
+            itemCount: 7,
+            uniformImageSize: CGSize(width: 210, height: 373),
+            columnCount: 1
+        )
+        let portraitTransition = MobilePlayerBrowserLayout.viewportTransition(
+            previousViewportSize: .zero,
+            viewportSize: portraitSize,
+            needsSafeAreaRefresh: true,
+            aspectProfile: aspectProfile,
+            forcedTokenIndex: nil,
+            focusedTokenIndex: 4
+        )
+        let rotationTransition = MobilePlayerBrowserLayout.viewportTransition(
+            previousViewportSize: portraitSize,
+            viewportSize: landscapeSize,
+            needsSafeAreaRefresh: false,
+            aspectProfile: aspectProfile,
+            forcedTokenIndex: nil,
+            focusedTokenIndex: 4
+        )
+        let portrait = try XCTUnwrap(portraitTransition.layout)
+        let landscape = try XCTUnwrap(rotationTransition.layout)
+
+        XCTAssertEqual(aspectProfile.columnCount, 1)
+        XCTAssertEqual(portrait.columnCount, 1)
+        XCTAssertEqual(landscape.columnCount, 2)
+        XCTAssertEqual(portrait.rowCount, 7)
+        XCTAssertEqual(landscape.rowCount, 4)
+        XCTAssertEqual(rotationTransition.retainedFocusTokenIndex, 4)
+        XCTAssertEqual(
+            try XCTUnwrap(landscape.itemFrame(at: 1)).maxX,
+            landscapeSize.width,
+            accuracy: 0.000_001
+        )
+    }
+
     func testNonPositiveColumnCountFallsBackToThreeColumns() throws {
         let aspectProfile = MobilePlayerBrowserAspectProfile(
             itemCount: 4,
