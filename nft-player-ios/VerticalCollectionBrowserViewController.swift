@@ -178,6 +178,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     private var publicationState: PlayerCollectionScrollPublicationState?
     private var hasFinishedInitialPositioning = false
     private var isActive = false
+    private var isViewVisible = false
     private var isApplyingPosition = false
     private var positioningGeneration: UInt = 0
     private var lastLayoutSize = CGSize.zero
@@ -213,7 +214,8 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     private var layoutWindowSafeAreaInsets = UIEdgeInsets.zero
     private var hasCapturedLayoutWindowSafeAreaInsets = false
     private var prefetchLoads = [Int: PrefetchLoad]()
-    private var backgroundObserver: NSObjectProtocol?
+    private var sceneDidEnterBackgroundObserver: NSObjectProtocol?
+    private var sceneDidActivateObserver: NSObjectProtocol?
     private var cacheFileAvailabilityObserver: NSObjectProtocol?
     private var gridModeInteractionCoordinator =
         PlayerBrowserGridInteractionCoordinator()
@@ -290,8 +292,13 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     }
 
     deinit {
-        if let backgroundObserver {
-            NotificationCenter.default.removeObserver(backgroundObserver)
+        if let sceneDidEnterBackgroundObserver {
+            NotificationCenter.default.removeObserver(
+                sceneDidEnterBackgroundObserver
+            )
+        }
+        if let sceneDidActivateObserver {
+            NotificationCenter.default.removeObserver(sceneDidActivateObserver)
         }
         if let cacheFileAvailabilityObserver {
             NotificationCenter.default.removeObserver(cacheFileAvailabilityObserver)
@@ -316,15 +323,35 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         collectionView.addGestureRecognizer(gridModePinchRecognizer)
 
         reloadBrowseSnapshot(resetPublicationState: true)
-        backgroundObserver = NotificationCenter.default.addObserver(
-            forName: UIApplication.didEnterBackgroundNotification,
+        sceneDidEnterBackgroundObserver = NotificationCenter.default.addObserver(
+            forName: UIScene.didEnterBackgroundNotification,
             object: nil,
             queue: .main
-        ) { [weak self] _ in
-            self?.finalizeGridModeInteractionIfNeeded()
-            self?.cancelScrollToTopAnimationState()
-            self?.finishCurrentDrag()
-            self?.flushSettledPosition()
+        ) { [weak self] notification in
+            guard let self,
+                  let windowScene = notification.object as? UIWindowScene,
+                  let currentWindowScene = collectionView.window?.windowScene,
+                  windowScene === currentWindowScene else {
+                return
+            }
+            finalizeGridModeInteractionIfNeeded()
+            cancelScrollToTopAnimationState()
+            finishCurrentDrag()
+            flushSettledPosition()
+            cancelGridModeGeometryPrewarming()
+        }
+        sceneDidActivateObserver = NotificationCenter.default.addObserver(
+            forName: UIScene.didActivateNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let self,
+                  let windowScene = notification.object as? UIWindowScene,
+                  let currentWindowScene = collectionView.window?.windowScene,
+                  windowScene === currentWindowScene else {
+                return
+            }
+            scheduleGridModeGeometryPrewarmIfPossible()
         }
         cacheFileAvailabilityObserver = NotificationCenter.default.addObserver(
             forName: .downloadableMediaCacheFileAvailabilityDidChange,
@@ -344,8 +371,11 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             state: currentWindowSafeAreaState,
             sizeChanged: sizeChanged
         )
+        var interruptedGridModeAnchorTokenIndex: Int?
         if hasGridModeInteractionState,
            sizeChanged || windowSafeAreaLayoutUpdate.requiresLayoutRefresh {
+            interruptedGridModeAnchorTokenIndex =
+                gridModeTransition?.anchorTokenIndex
             finalizeGridModeInteractionIfNeeded()
             guard !hasGridModeInteractionState else {
                 view.setNeedsLayout()
@@ -379,6 +409,8 @@ final class VerticalCollectionBrowserViewController: UIViewController,
                 Self.verticalContentMargin + layoutWindowSafeAreaInsets.bottom,
             aspectProfile: layoutAspectState.aspectProfile,
             forcedTokenIndex: forcedFocusedTokenIndex,
+            interactionAnchorTokenIndex:
+                interruptedGridModeAnchorTokenIndex,
             focusedTokenIndex: focusedTokenIndex
         )
         let wasApplyingPosition = isApplyingPosition
@@ -434,12 +466,20 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         view.setNeedsLayout()
     }
 
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        isViewVisible = true
+        scheduleGridModeGeometryPrewarmIfPossible()
+    }
+
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
+        isViewVisible = false
         finalizeGridModeInteractionIfNeeded()
         cancelScrollToTopAnimationState()
         finishCurrentDrag()
         flushSettledPosition()
+        cancelGridModeGeometryPrewarming()
     }
 
     var currentPagePosition: PlayerPagePosition? {
@@ -780,6 +820,9 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         aspectRatioProfile: ThumbnailAspectRatioProfile
     )? {
         guard isActive,
+              isViewVisible,
+              let windowScene = collectionView.window?.windowScene,
+              windowScene.activationState == .foregroundActive,
               !hasGridModeInteractionState,
               !isApplyingPosition,
               !needsWindowSafeAreaRefresh,
@@ -3504,7 +3547,7 @@ private final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
     }
 
     private func startImageLoad(
-        quality: CollectionBrowseImageQuality,
+        quality requestedQuality: CollectionBrowseImageQuality,
         animatedWhenLoaded: Bool,
         fallbackQualityOnFailure: CollectionBrowseImageQuality? = nil
     ) {
@@ -3513,26 +3556,27 @@ private final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
             return
         }
 
-        let descriptor = imageSources.descriptor(for: quality)
-        guard let quality = imageSources.quality(of: descriptor) else {
+        let descriptor = imageSources.descriptor(for: requestedQuality)
+        guard let resolvedQuality = imageSources.quality(of: descriptor) else {
             return
         }
-        if var imageLoad = imageLoads[quality] {
+        if var imageLoad = imageLoads[resolvedQuality] {
             imageLoad.fallbackQualityOnFailure = fallbackQualityOnFailure
-            imageLoads[quality] = imageLoad
+            imageLoads[resolvedQuality] = imageLoad
             return
         }
         let loadID = UUID()
         let cancellation = DownloadableMediaCache.shared.loadImage(for: descriptor) { [weak self] image in
             DispatchQueue.main.async {
                 guard let self,
-                      let imageLoad = self.imageLoads[quality],
+                      let imageLoad = self.imageLoads[resolvedQuality],
                       imageLoad.id == loadID else {
                     return
                 }
-                self.imageLoads.removeValue(forKey: quality)
+                self.imageLoads.removeValue(forKey: resolvedQuality)
                 guard self.representedTokenIndex == tokenIndex,
-                      self.imageSources?.descriptor(for: quality) == descriptor else {
+                      self.imageSources?.descriptor(for: resolvedQuality)
+                        == descriptor else {
                     return
                 }
                 guard let image else {
@@ -3548,14 +3592,14 @@ private final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
                 self.setImage(
                     image,
                     descriptor: descriptor,
-                    quality: quality,
+                    quality: resolvedQuality,
                     tokenIndex: tokenIndex,
                     animated: animatedWhenLoaded
                 )
             }
         }
-        if imageLoads[quality] == nil {
-            imageLoads[quality] = ImageLoad(
+        if imageLoads[resolvedQuality] == nil {
+            imageLoads[resolvedQuality] = ImageLoad(
                 id: loadID,
                 cancellation: cancellation,
                 fallbackQualityOnFailure: fallbackQualityOnFailure

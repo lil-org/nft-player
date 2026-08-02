@@ -216,6 +216,7 @@ struct MobilePlayerBrowserLayout: Equatable {
         bottomContentInset: CGFloat = 0,
         aspectProfile: MobilePlayerBrowserAspectProfile,
         forcedTokenIndex: Int?,
+        interactionAnchorTokenIndex: Int? = nil,
         focusedTokenIndex: Int?
     ) -> MobilePlayerBrowserViewportTransition {
         let needsInitialLayout = previousViewportSize == .zero
@@ -228,7 +229,9 @@ struct MobilePlayerBrowserLayout: Equatable {
             needsInitialLayout: needsInitialLayout,
             geometryChanged: geometryChanged,
             retainedFocusTokenIndex: geometryChanged
-                ? forcedTokenIndex ?? focusedTokenIndex
+                ? interactionAnchorTokenIndex
+                    ?? forcedTokenIndex
+                    ?? focusedTokenIndex
                 : nil,
             layout: needsLayout
                 ? MobilePlayerBrowserLayout(

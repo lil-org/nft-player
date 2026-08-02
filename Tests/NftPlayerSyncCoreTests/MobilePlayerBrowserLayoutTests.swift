@@ -1023,18 +1023,35 @@ final class MobilePlayerBrowserLayoutTests: XCTestCase {
         )
     }
 
-    func testViewportTransitionPrefersForcedFocusAndRequiresGeometryChange() {
+    func testViewportTransitionUsesFocusPrecedenceAndRequiresGeometryChange() {
         let viewportSize = CGSize(width: 430, height: 932)
         let aspectProfile = MobilePlayerBrowserAspectProfile(
             itemCount: 40,
             uniformImageSize: CGSize(width: 1, height: 1)
         )
-        let safeAreaTransition = MobilePlayerBrowserLayout.viewportTransition(
+        let interactionTransition = MobilePlayerBrowserLayout.viewportTransition(
             previousViewportSize: viewportSize,
             viewportSize: viewportSize,
             needsSafeAreaRefresh: true,
             aspectProfile: aspectProfile,
             forcedTokenIndex: 12,
+            interactionAnchorTokenIndex: 24,
+            focusedTokenIndex: 37
+        )
+        let forcedTransition = MobilePlayerBrowserLayout.viewportTransition(
+            previousViewportSize: viewportSize,
+            viewportSize: viewportSize,
+            needsSafeAreaRefresh: true,
+            aspectProfile: aspectProfile,
+            forcedTokenIndex: 12,
+            focusedTokenIndex: 37
+        )
+        let focusedTransition = MobilePlayerBrowserLayout.viewportTransition(
+            previousViewportSize: viewportSize,
+            viewportSize: viewportSize,
+            needsSafeAreaRefresh: true,
+            aspectProfile: aspectProfile,
+            forcedTokenIndex: nil,
             focusedTokenIndex: 37
         )
         let unchangedTransition = MobilePlayerBrowserLayout.viewportTransition(
@@ -1043,15 +1060,24 @@ final class MobilePlayerBrowserLayoutTests: XCTestCase {
             needsSafeAreaRefresh: false,
             aspectProfile: aspectProfile,
             forcedTokenIndex: 12,
+            interactionAnchorTokenIndex: 24,
             focusedTokenIndex: 37
         )
 
         XCTAssertEqual(
-            safeAreaTransition.retainedFocusTokenIndex,
+            interactionTransition.retainedFocusTokenIndex,
+            24
+        )
+        XCTAssertEqual(
+            forcedTransition.retainedFocusTokenIndex,
             12
         )
-        XCTAssertTrue(safeAreaTransition.geometryChanged)
-        XCTAssertNotNil(safeAreaTransition.layout)
+        XCTAssertEqual(
+            focusedTransition.retainedFocusTokenIndex,
+            37
+        )
+        XCTAssertTrue(interactionTransition.geometryChanged)
+        XCTAssertNotNil(interactionTransition.layout)
         XCTAssertNil(unchangedTransition.retainedFocusTokenIndex)
         XCTAssertFalse(unchangedTransition.geometryChanged)
         XCTAssertNil(unchangedTransition.layout)
