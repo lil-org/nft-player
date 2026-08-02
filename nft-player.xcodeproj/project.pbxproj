@@ -248,6 +248,10 @@
 		2E0000000000EA0CD30D04B9 /* MacPlayerBackgroundColor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E00000000007A7290DA4BA6 /* MacPlayerBackgroundColor.swift */; };
 		2E1100000000000000000002 /* PlayerCardMinimizePinchPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E1100000000000000000001 /* PlayerCardMinimizePinchPolicy.swift */; };
 		2E1100000000000000000003 /* PlayerCardMinimizePinchPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E1100000000000000000001 /* PlayerCardMinimizePinchPolicy.swift */; };
+		2E1300000000000000000002 /* PlayerBrowserGridPinchPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E1300000000000000000001 /* PlayerBrowserGridPinchPolicy.swift */; };
+		2E1300000000000000000003 /* PlayerBrowserGridPinchPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E1300000000000000000001 /* PlayerBrowserGridPinchPolicy.swift */; };
+		2E1400000000000000000002 /* PlayerBrowserGridInteractionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E1400000000000000000001 /* PlayerBrowserGridInteractionCoordinator.swift */; };
+		2E1400000000000000000003 /* PlayerBrowserGridInteractionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E1400000000000000000001 /* PlayerBrowserGridInteractionCoordinator.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -441,6 +445,8 @@
 		2E000000000026004882ECD8 /* MacRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacRootView.swift; sourceTree = "<group>"; };
 		2E00000000007A7290DA4BA6 /* MacPlayerBackgroundColor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacPlayerBackgroundColor.swift; sourceTree = "<group>"; };
 		2E1100000000000000000001 /* PlayerCardMinimizePinchPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerCardMinimizePinchPolicy.swift; sourceTree = "<group>"; };
+		2E1300000000000000000001 /* PlayerBrowserGridPinchPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerBrowserGridPinchPolicy.swift; sourceTree = "<group>"; };
+		2E1400000000000000000001 /* PlayerBrowserGridInteractionCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerBrowserGridInteractionCoordinator.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -512,6 +518,8 @@
 				2D9000002FB0000000000001 /* CollectionsGridScrollMemory.swift */,
 				2DA100002FC0000000000001 /* PlayerCollectionScrollPolicy.swift */,
 				2E1100000000000000000001 /* PlayerCardMinimizePinchPolicy.swift */,
+				2E1300000000000000000001 /* PlayerBrowserGridPinchPolicy.swift */,
+				2E1400000000000000000001 /* PlayerBrowserGridInteractionCoordinator.swift */,
 				2DB100012FD0000000000001 /* MobilePlayerBrowserLayout.swift */,
 				2E1200000000000000000001 /* CollectionBrowserConfiguration.swift */,
 				2D4000042F50000000000001 /* PlayerViewingSessionTracker.swift */,
@@ -1222,6 +1230,8 @@
 				2CC971662E88410100000001 /* MobilePlayerModeController.swift in Sources */,
 				2DA100012FC0000000000001 /* PlayerCollectionScrollPolicy.swift in Sources */,
 				2E1100000000000000000002 /* PlayerCardMinimizePinchPolicy.swift in Sources */,
+				2E1300000000000000000002 /* PlayerBrowserGridPinchPolicy.swift in Sources */,
+				2E1400000000000000000002 /* PlayerBrowserGridInteractionCoordinator.swift in Sources */,
 				2DB100022FD0000000000001 /* MobilePlayerBrowserLayout.swift in Sources */,
 				2E1200000000000000000002 /* CollectionBrowserConfiguration.swift in Sources */,
 				2DA100032FC0000000000001 /* VerticalCollectionBrowserViewController.swift in Sources */,
@@ -1370,6 +1380,8 @@
 				2E00000000005DBED73564BC /* MacPlayerMediaActions.swift in Sources */,
 				2E0000000000B0E867F321F6 /* MacPlayerPagerViewController.swift in Sources */,
 				2E1100000000000000000003 /* PlayerCardMinimizePinchPolicy.swift in Sources */,
+				2E1300000000000000000003 /* PlayerBrowserGridPinchPolicy.swift in Sources */,
+				2E1400000000000000000003 /* PlayerBrowserGridInteractionCoordinator.swift in Sources */,
 				2E00000000008EF78D7B4701 /* MacNavigationController.swift in Sources */,
 				2E0000000000EF81A18E1100 /* MacCollectionBrowserViewController.swift in Sources */,
 				2E000000000086B634D63AC9 /* MacPlayerCardTransition.swift in Sources */,

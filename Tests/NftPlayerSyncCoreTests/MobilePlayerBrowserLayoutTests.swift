@@ -6,6 +6,53 @@ import XCTest
 
 final class MobilePlayerBrowserLayoutTests: XCTestCase {
 
+    func testAllGridModesBuildBoundedVariableGeometryForTenThousandItems() throws {
+        let itemCount = 10_000
+        let ratios = (0..<itemCount).map {
+            CGFloat(($0 * 37) % 113 + 50) / 100
+        }
+        let viewportSizes = [
+            CGSize(width: 390, height: 844),
+            CGSize(width: 844, height: 390),
+        ]
+
+        for viewportSize in viewportSizes {
+            let columnMultiplier = viewportSize.width > viewportSize.height
+                ? 2
+                : 1
+            for mode in MobileCollectionBrowserGridMode.allCases {
+                let layout = try XCTUnwrap(MobilePlayerBrowserLayout(
+                    viewportSize: viewportSize,
+                    topContentInset: 47,
+                    bottomContentInset: 34,
+                    aspectProfile: MobilePlayerBrowserAspectProfile(
+                        heightToWidthRatios: ratios,
+                        columnCount: mode.columnCount
+                    )
+                ))
+                let expectedColumnCount = mode.columnCount * columnMultiplier
+                let expectedRowCount = (itemCount - 1)
+                    / expectedColumnCount + 1
+                let firstFrame = try XCTUnwrap(layout.itemFrame(at: 0))
+                let lastFrame = try XCTUnwrap(
+                    layout.itemFrame(at: itemCount - 1)
+                )
+
+                XCTAssertEqual(layout.itemCount, itemCount)
+                XCTAssertEqual(layout.columnCount, expectedColumnCount)
+                XCTAssertEqual(layout.rowCount, expectedRowCount)
+                XCTAssertEqual(layout.cachedVariableRowCount, expectedRowCount)
+                XCTAssertTrue(layout.contentSize.width.isFinite)
+                XCTAssertTrue(layout.contentSize.height.isFinite)
+                XCTAssertGreaterThan(layout.contentSize.height, 0)
+                XCTAssertTrue(firstFrame.minX.isFinite)
+                XCTAssertTrue(firstFrame.minY.isFinite)
+                XCTAssertTrue(lastFrame.maxX.isFinite)
+                XCTAssertTrue(lastFrame.maxY.isFinite)
+            }
+        }
+    }
+
     func testBustaBouncaUsesFullWidthAndWidthDerivedRowHeight() throws {
         let viewportWidth: CGFloat = 430
         let layout = try XCTUnwrap(MobilePlayerBrowserLayout(

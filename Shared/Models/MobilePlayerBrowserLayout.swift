@@ -156,6 +156,12 @@ struct MobilePlayerBrowserLayout: Equatable {
         case variable(starts: [CGFloat], heights: [CGFloat])
     }
 
+    private struct HorizontalMetrics {
+        let itemWidth: CGFloat
+        let columnCount: Int
+        let interItemSpacing: CGFloat
+    }
+
     static let defaultColumnCount = 3
     static let itemSpacing: CGFloat = 1
     static let maximumAspectSampleCount = 15
@@ -190,6 +196,16 @@ struct MobilePlayerBrowserLayout: Equatable {
     var uniformItemSize: CGSize? {
         guard case let .uniform(height) = rowStorage else { return nil }
         return CGSize(width: itemWidth, height: height)
+    }
+
+    static func itemWidth(
+        viewportSize: CGSize,
+        columnCount: Int
+    ) -> CGFloat? {
+        horizontalMetrics(
+            viewportSize: viewportSize,
+            columnCount: columnCount
+        )?.itemWidth
     }
 
     static func viewportTransition(
@@ -283,29 +299,18 @@ struct MobilePlayerBrowserLayout: Equatable {
         bottomContentInset: CGFloat = 0,
         aspectProfile: MobilePlayerBrowserAspectProfile
     ) {
-        let columnMultiplier = viewportSize.width > viewportSize.height ? 2 : 1
-        let (effectiveColumnCount, effectiveColumnCountOverflowed) =
-            aspectProfile.columnCount.multipliedReportingOverflow(
-                by: columnMultiplier
-            )
-        let interItemSpacing = aspectProfile.columnCount == 1
-            ? Self.itemSpacing * 2
-            : Self.itemSpacing
-        guard !effectiveColumnCountOverflowed,
-              viewportSize.width.isFinite,
-              viewportSize.height.isFinite,
-              viewportSize.width
-                > interItemSpacing * CGFloat(effectiveColumnCount - 1),
-              viewportSize.height > 0 else {
+        guard let horizontalMetrics = Self.horizontalMetrics(
+            viewportSize: viewportSize,
+            columnCount: aspectProfile.columnCount
+        ) else {
             return nil
         }
 
+        let effectiveColumnCount = horizontalMetrics.columnCount
+        let interItemSpacing = horizontalMetrics.interItemSpacing
+        let itemWidth = horizontalMetrics.itemWidth
         let sanitizedTopInset = topContentInset.isFinite ? max(topContentInset, 0) : 0
         let sanitizedBottomInset = bottomContentInset.isFinite ? max(bottomContentInset, 0) : 0
-        let horizontalSpacing =
-            interItemSpacing * CGFloat(effectiveColumnCount - 1)
-        let itemWidth =
-            (viewportSize.width - horizontalSpacing) / CGFloat(effectiveColumnCount)
         let itemCount = aspectProfile.itemCount
         let rowCount = itemCount > 0
             ? (itemCount - 1) / effectiveColumnCount + 1
@@ -544,6 +549,196 @@ struct MobilePlayerBrowserLayout: Equatable {
                 lowerBound = middle + 1
             } else {
                 upperBound = middle
+            }
+        }
+        return lowerBound
+    }
+
+    private static func horizontalMetrics(
+        viewportSize: CGSize,
+        columnCount: Int
+    ) -> HorizontalMetrics? {
+        guard columnCount > 0,
+              viewportSize.width.isFinite,
+              viewportSize.height.isFinite,
+              viewportSize.height > 0 else {
+            return nil
+        }
+
+        let columnMultiplier = viewportSize.width > viewportSize.height ? 2 : 1
+        let (effectiveColumnCount, overflowed) =
+            columnCount.multipliedReportingOverflow(by: columnMultiplier)
+        let interItemSpacing = columnCount == 1
+            ? itemSpacing * 2
+            : itemSpacing
+        guard !overflowed,
+              viewportSize.width
+                > interItemSpacing * CGFloat(effectiveColumnCount - 1) else {
+            return nil
+        }
+
+        let horizontalSpacing =
+            interItemSpacing * CGFloat(effectiveColumnCount - 1)
+        return HorizontalMetrics(
+            itemWidth: (viewportSize.width - horizontalSpacing)
+                / CGFloat(effectiveColumnCount),
+            columnCount: effectiveColumnCount,
+            interItemSpacing: interItemSpacing
+        )
+    }
+}
+
+struct MobilePlayerBrowserGridTransition {
+    let fromLayout: MobilePlayerBrowserLayout
+    let toLayout: MobilePlayerBrowserLayout
+    private(set) var progress: CGFloat
+
+    init?(
+        fromLayout: MobilePlayerBrowserLayout,
+        toLayout: MobilePlayerBrowserLayout
+    ) {
+        guard fromLayout.itemWidth > 0,
+              toLayout.itemWidth > 0,
+              fromLayout.itemCount == toLayout.itemCount,
+              fromLayout.itemWidth != toLayout.itemWidth else {
+            return nil
+        }
+        self.fromLayout = fromLayout
+        self.toLayout = toLayout
+        self.progress = 0
+    }
+
+    var itemCount: Int {
+        fromLayout.itemCount
+    }
+
+    var itemWidthRatio: CGFloat {
+        toLayout.itemWidth / fromLayout.itemWidth
+    }
+
+    var contentSize: CGSize {
+        CGSize(
+            width: interpolated(fromLayout.contentSize.width, toLayout.contentSize.width),
+            height: interpolated(fromLayout.contentSize.height, toLayout.contentSize.height)
+        )
+    }
+
+    mutating func setProgress(_ progress: CGFloat) {
+        guard progress.isFinite else { return }
+        self.progress = min(max(progress, 0), 1)
+    }
+
+    func itemFrame(at itemIndex: Int) -> CGRect? {
+        guard itemIndex < itemCount,
+              let fromFrame = fromLayout.itemFrame(at: itemIndex),
+              let toFrame = toLayout.itemFrame(at: itemIndex) else {
+            return nil
+        }
+        return CGRect(
+            x: interpolated(fromFrame.minX, toFrame.minX),
+            y: interpolated(fromFrame.minY, toFrame.minY),
+            width: interpolated(fromFrame.width, toFrame.width),
+            height: interpolated(fromFrame.height, toFrame.height)
+        )
+    }
+
+    func candidateItemIndices(intersecting rect: CGRect) -> Range<Int> {
+        guard itemCount > 0,
+              rect.minY.isFinite,
+              rect.maxY.isFinite,
+              rect.minY <= rect.maxY else {
+            return 0..<0
+        }
+
+        let firstIndex = lowestItemIndex { $0.maxY >= rect.minY }
+        let endIndex = lowestItemIndex { $0.minY > rect.maxY }
+        guard firstIndex < endIndex else { return 0..<0 }
+        return firstIndex..<endIndex
+    }
+
+    func contentOffsetY(
+        fromContentOffsetY: CGFloat,
+        toContentOffsetY: CGFloat,
+        panDeltaY: CGFloat,
+        viewportHeight: CGFloat
+    ) -> CGFloat {
+        let sanitizedPanDeltaY = panDeltaY.isFinite ? panDeltaY : 0
+        let proposedOffsetY = interpolated(fromContentOffsetY, toContentOffsetY)
+            - sanitizedPanDeltaY
+        return Self.clampedContentOffsetY(
+            proposedOffsetY,
+            contentHeight: contentSize.height,
+            viewportHeight: viewportHeight
+        )
+    }
+
+    static func anchorRelativeY(
+        contentY: CGFloat,
+        itemFrame: CGRect
+    ) -> CGFloat {
+        guard contentY.isFinite,
+              itemFrame.minY.isFinite,
+              itemFrame.height.isFinite,
+              itemFrame.height > 0 else {
+            return 0.5
+        }
+        return min(max((contentY - itemFrame.minY) / itemFrame.height, 0), 1)
+    }
+
+    static func anchorY(
+        itemFrame: CGRect,
+        relativeY: CGFloat
+    ) -> CGFloat {
+        guard itemFrame.minY.isFinite,
+              itemFrame.height.isFinite,
+              itemFrame.height > 0 else {
+            return itemFrame.midY.isFinite ? itemFrame.midY : 0
+        }
+        let sanitizedRelativeY = relativeY.isFinite
+            ? min(max(relativeY, 0), 1)
+            : 0.5
+        return itemFrame.minY + itemFrame.height * sanitizedRelativeY
+    }
+
+    static func targetContentOffsetY(
+        anchorFrame: CGRect,
+        anchorRelativeY: CGFloat,
+        anchorViewportY: CGFloat
+    ) -> CGFloat {
+        anchorY(
+            itemFrame: anchorFrame,
+            relativeY: anchorRelativeY
+        ) - anchorViewportY
+    }
+
+    static func clampedContentOffsetY(
+        _ contentOffsetY: CGFloat,
+        contentHeight: CGFloat,
+        viewportHeight: CGFloat
+    ) -> CGFloat {
+        guard contentOffsetY.isFinite else { return 0 }
+        let maximumOffsetY = max(contentHeight - viewportHeight, 0)
+        return min(max(contentOffsetY, 0), maximumOffsetY)
+    }
+
+    private func interpolated(_ fromValue: CGFloat, _ toValue: CGFloat) -> CGFloat {
+        fromValue + (toValue - fromValue) * progress
+    }
+
+    private func lowestItemIndex(
+        where predicate: (CGRect) -> Bool
+    ) -> Int {
+        var lowerBound = 0
+        var upperBound = itemCount
+        while lowerBound < upperBound {
+            let middle = lowerBound + (upperBound - lowerBound) / 2
+            guard let frame = itemFrame(at: middle) else {
+                return itemCount
+            }
+            if predicate(frame) {
+                upperBound = middle
+            } else {
+                lowerBound = middle + 1
             }
         }
         return lowerBound

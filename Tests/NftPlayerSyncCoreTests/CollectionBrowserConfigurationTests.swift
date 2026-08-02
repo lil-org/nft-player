@@ -60,6 +60,46 @@ final class CollectionBrowserConfigurationTests: XCTestCase {
         )
     }
 
+    func testGridInteractionUsesTheLowestRequiredImageQuality() {
+        typealias Mode = MobileCollectionBrowserGridMode
+        let cases: [(
+            defaultMode: Mode,
+            baselineMode: Mode,
+            currentMode: Mode,
+            targetMode: Mode?,
+            expectedQuality: CollectionBrowseImageQuality
+        )] = [
+            (.threeColumns, .large, .large, .fourColumns, .thumbnail),
+            (.threeColumns, .large, .large, .twoColumns, .large),
+            (.threeColumns, .fourColumns, .fourColumns, .large, .thumbnail),
+            (.threeColumns, .twoColumns, .twoColumns, .threeColumns, .thumbnail),
+            (.threeColumns, .fourColumns, .twoColumns, .large, .thumbnail),
+            (.twoColumns, .large, .large, .twoColumns, .thumbnail),
+            (.twoColumns, .threeColumns, .threeColumns, .fourColumns, .thumbnail),
+            (.threeColumns, .large, .large, nil, .large),
+        ]
+
+        for testCase in cases {
+            let baseline = testCase.baselineMode.requiredImageQuality(
+                defaultGridMode: testCase.defaultMode
+            )
+            let current = testCase.currentMode.requiredImageQuality(
+                defaultGridMode: testCase.defaultMode
+            )
+            let target = testCase.targetMode.map {
+                $0.requiredImageQuality(defaultGridMode: testCase.defaultMode)
+            }
+            XCTAssertEqual(
+                CollectionBrowseImageQuality.conservativeInteractionQuality(
+                    baseline: baseline,
+                    current: current,
+                    target: target
+                ),
+                testCase.expectedQuality
+            )
+        }
+    }
+
     func testGridModePreferencesPreserveLegacyOverridesPerInternalSlug() throws {
         let suiteName = "CollectionBrowserConfigurationTests.\(UUID().uuidString)"
         let userDefaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))

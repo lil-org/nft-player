@@ -39,6 +39,8 @@ let package = Package(
             sources: [
                 "Models/CollectionBrowserConfiguration.swift",
                 "Models/MobilePlayerBrowserLayout.swift",
+                "Models/PlayerBrowserGridInteractionCoordinator.swift",
+                "Models/PlayerBrowserGridPinchPolicy.swift",
                 "Models/PlayerCardMinimizePinchPolicy.swift",
                 "Models/PlayerCollectionScrollPolicy.swift",
                 "Models/PlayerSyncTypes.swift",

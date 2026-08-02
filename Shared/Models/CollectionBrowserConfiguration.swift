@@ -6,6 +6,19 @@ enum CollectionBrowseImageQuality: Int, Hashable {
     case thumbnail
     case large
 
+    static func conservativeInteractionQuality(
+        baseline: Self,
+        current: Self,
+        target: Self?
+    ) -> Self {
+        if baseline == .thumbnail
+            || current == .thumbnail
+            || target == .thumbnail {
+            return .thumbnail
+        }
+        return .large
+    }
+
     func canReplace(_ displayedQuality: Self?) -> Bool {
         guard let displayedQuality else { return true }
         return rawValue >= displayedQuality.rawValue
@@ -40,6 +53,14 @@ enum MobileCollectionBrowserGridMode: Int, CaseIterable, Hashable {
 
     var columnCount: Int {
         rawValue
+    }
+
+    var modeWithLargerItems: MobileCollectionBrowserGridMode? {
+        MobileCollectionBrowserGridMode(rawValue: rawValue - 1)
+    }
+
+    var modeWithSmallerItems: MobileCollectionBrowserGridMode? {
+        MobileCollectionBrowserGridMode(rawValue: rawValue + 1)
     }
 
     var requiresLargeImage: Bool {
