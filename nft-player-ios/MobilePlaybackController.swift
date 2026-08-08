@@ -158,12 +158,8 @@ class MobilePlaybackController {
     func collectionBrowseGridMode(
         snapshot: PlayerCollectionBrowseSnapshot
     ) -> MobileCollectionBrowserGridMode {
-        let defaultColumnCount = MobileCollectionCatalog.collectionBrowseColumnCount(
+        MobileCollectionBrowserGridModeStore.gridMode(
             specificCollectionId: snapshot.collectionId
-        )
-        return MobileCollectionBrowserGridModeStore.gridMode(
-            specificCollectionId: snapshot.collectionId,
-            defaultColumnCount: defaultColumnCount
         )
     }
 

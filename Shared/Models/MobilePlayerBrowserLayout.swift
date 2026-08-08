@@ -150,6 +150,44 @@ struct MobilePlayerBrowserViewportTransition {
     }
 }
 
+enum PlayerCollectionBrowseMediaWindowPolicy {
+    struct Radii: Equatable {
+        let preferred: Int
+        let opposite: Int
+    }
+
+    static func decodedRadii(prefetchStride: Int) -> Radii {
+        radii(
+            prefetchStride: prefetchStride,
+            preferredStrideCount: 2,
+            oppositeStrideCount: 1
+        )
+    }
+
+    static func fileRadii(prefetchStride: Int) -> Radii {
+        radii(
+            prefetchStride: prefetchStride,
+            preferredStrideCount: 6,
+            oppositeStrideCount: 2
+        )
+    }
+
+    private static func radii(
+        prefetchStride: Int,
+        preferredStrideCount: Int,
+        oppositeStrideCount: Int
+    ) -> Radii {
+        let stride = min(
+            max(prefetchStride, 1),
+            MobilePlayerBrowserLayout.maximumPrefetchStride
+        )
+        return Radii(
+            preferred: stride * preferredStrideCount,
+            opposite: stride * oppositeStrideCount
+        )
+    }
+}
+
 struct MobilePlayerBrowserLayout: Equatable {
     private enum RowStorage: Equatable {
         case uniform(height: CGFloat)
@@ -165,7 +203,10 @@ struct MobilePlayerBrowserLayout: Equatable {
     static let defaultColumnCount = 3
     static let itemSpacing: CGFloat = 1
     static let maximumAspectSampleCount = 15
-    static let maximumPrefetchStride = 15
+    static let prefetchItemBudget = 15
+    static let preferredPrefetchRowCount = 5
+    static let maximumPrefetchStride = 25
+    private static let pointLookupProbeSize: CGFloat = 0.001
 
     let itemWidth: CGFloat
     let itemCount: Int
@@ -369,8 +410,14 @@ struct MobilePlayerBrowserLayout: Equatable {
             && visibleRowEstimate < CGFloat(Int.max)
             ? max(Int(visibleRowEstimate), 1)
             : Int.max
-        let maximumPrefetchRowCount =
-            (Self.maximumPrefetchStride - 1) / effectiveColumnCount + 1
+        let preferredPrefetchRowCount = max(
+            (Self.prefetchItemBudget - 1) / effectiveColumnCount + 1,
+            Self.preferredPrefetchRowCount
+        )
+        let prefetchRowCount = min(
+            visibleRowCount,
+            preferredPrefetchRowCount
+        )
 
         self.itemWidth = itemWidth
         self.itemCount = itemCount
@@ -382,10 +429,10 @@ struct MobilePlayerBrowserLayout: Equatable {
             height: sanitizedTopInset + rowsHeight + sanitizedBottomInset
         )
         self.visibleRowCount = visibleRowCount
-        self.prefetchStride = min(
-            min(visibleRowCount, maximumPrefetchRowCount) * effectiveColumnCount,
-            Self.maximumPrefetchStride
-        )
+        self.prefetchStride = prefetchRowCount
+            > Self.maximumPrefetchStride / effectiveColumnCount
+            ? Self.maximumPrefetchStride
+            : prefetchRowCount * effectiveColumnCount
         self.topContentInset = sanitizedTopInset
         self.rowStorage = rowStorage
     }
@@ -409,6 +456,65 @@ struct MobilePlayerBrowserLayout: Equatable {
             width: itemWidth,
             height: rowHeight
         )
+    }
+
+    func itemIndices(inRow rowIndex: Int) -> Range<Int> {
+        guard (0..<rowCount).contains(rowIndex) else { return 0..<0 }
+        return itemIndex(atRowBoundary: rowIndex)..<itemIndex(
+            atRowBoundary: rowIndex + 1
+        )
+    }
+
+    func itemIndex(at point: CGPoint) -> Int? {
+        guard point.x.isFinite, point.y.isFinite else { return nil }
+        let probe = CGRect(
+            x: point.x,
+            y: point.y,
+            width: Self.pointLookupProbeSize,
+            height: Self.pointLookupProbeSize
+        )
+        for itemIndex in candidateItemIndices(intersecting: probe)
+        where itemFrame(at: itemIndex)?.contains(point) == true {
+            return itemIndex
+        }
+        return nil
+    }
+
+    /// Like `itemIndex(at:)`, but a point that lands inside an inter-item gap
+    /// or barely outside a frame still resolves to the closest item within
+    /// `tolerance`. Grid-transition endpoint mapping uses this: a mapped cell
+    /// center may drift into a seam by a fraction of the spacing.
+    func nearestItemIndex(
+        to point: CGPoint,
+        tolerance: CGFloat
+    ) -> Int? {
+        if let exact = itemIndex(at: point) { return exact }
+        guard point.x.isFinite,
+              point.y.isFinite,
+              tolerance.isFinite,
+              tolerance > 0 else {
+            return nil
+        }
+        let candidateTolerance = tolerance + Self.pointLookupProbeSize
+        let probe = CGRect(
+            x: point.x - candidateTolerance,
+            y: point.y - candidateTolerance,
+            width: candidateTolerance * 2,
+            height: candidateTolerance * 2
+        )
+        var nearestIndex: Int?
+        var nearestDistance = CGFloat.infinity
+        for itemIndex in candidateItemIndices(intersecting: probe) {
+            guard let frame = itemFrame(at: itemIndex) else { continue }
+            let dx = max(frame.minX - point.x, point.x - frame.maxX, 0)
+            let dy = max(frame.minY - point.y, point.y - frame.maxY, 0)
+            let distance = max(dx, dy)
+            if distance <= tolerance, distance < nearestDistance {
+                nearestDistance = distance
+                nearestIndex = itemIndex
+            }
+        }
+        return nearestIndex
     }
 
     func candidateItemIndices(intersecting rect: CGRect) -> Range<Int> {
@@ -591,10 +697,59 @@ struct MobilePlayerBrowserLayout: Equatable {
     }
 }
 
+struct MobilePlayerBrowserVisualLayoutGeometry {
+    let layout: MobilePlayerBrowserLayout
+    let mirrorsHorizontally: Bool
+
+    func itemFrame(at itemIndex: Int) -> CGRect? {
+        guard let frame = layout.itemFrame(at: itemIndex) else { return nil }
+        guard mirrorsHorizontally else { return frame }
+        return CGRect(
+            x: layout.contentSize.width - frame.maxX,
+            y: frame.minY,
+            width: frame.width,
+            height: frame.height
+        )
+    }
+
+    func itemIndex(at point: CGPoint) -> Int? {
+        layout.itemIndex(at: mirroredPoint(point))
+    }
+
+    /// Grid-transition endpoint mapping's seam tolerance: one spacing of
+    /// drift plus a point of rounding.
+    func nearestItemIndex(to point: CGPoint) -> Int? {
+        nearestItemIndex(
+            to: point,
+            tolerance: layout.interItemSpacing + 1
+        )
+    }
+
+    func nearestItemIndex(
+        to point: CGPoint,
+        tolerance: CGFloat
+    ) -> Int? {
+        layout.nearestItemIndex(
+            to: mirroredPoint(point),
+            tolerance: tolerance
+        )
+    }
+
+    /// Converts between the layout's model space and the mirrored space the
+    /// views are drawn in. The mirror is its own inverse, so this maps either
+    /// way.
+    func mirroredPoint(_ point: CGPoint) -> CGPoint {
+        guard mirrorsHorizontally else { return point }
+        return CGPoint(
+            x: layout.contentSize.width - point.x,
+            y: point.y
+        )
+    }
+}
+
 struct MobilePlayerBrowserGridTransition {
     let fromLayout: MobilePlayerBrowserLayout
     let toLayout: MobilePlayerBrowserLayout
-    private(set) var progress: CGFloat
 
     init?(
         fromLayout: MobilePlayerBrowserLayout,
@@ -608,70 +763,81 @@ struct MobilePlayerBrowserGridTransition {
         }
         self.fromLayout = fromLayout
         self.toLayout = toLayout
-        self.progress = 0
-    }
-
-    var itemCount: Int {
-        fromLayout.itemCount
     }
 
     var itemWidthRatio: CGFloat {
         toLayout.itemWidth / fromLayout.itemWidth
     }
 
-    var contentSize: CGSize {
-        CGSize(
-            width: interpolated(fromLayout.contentSize.width, toLayout.contentSize.width),
-            height: interpolated(fromLayout.contentSize.height, toLayout.contentSize.height)
+    /// Lattice pitch ratios. Inter-item spacing does not scale with the item
+    /// width across grid modes, so the ratio the plane must LAND on — for
+    /// seams to line up exactly at commit — is the pitch ratio per axis, not
+    /// the item-width ratio. On a uniform lattice the two differ by well under
+    /// a percent; the per-cell content crossfade absorbs that.
+    var columnPitchRatio: CGFloat {
+        let fromPitch = fromLayout.itemWidth + fromLayout.interItemSpacing
+        let toPitch = toLayout.itemWidth + toLayout.interItemSpacing
+        guard fromPitch > 0, toPitch > 0 else { return itemWidthRatio }
+        return toPitch / fromPitch
+    }
+
+    /// Variable-aspect collections have no single row pitch: a row's height is
+    /// the maximum ratio over that row, and the two modes group different items
+    /// into a row, so a sampled pitch is not the lattice pitch. Scale the plane
+    /// isotropically there rather than on an unrepresentative ratio.
+    var rowPitchRatio: CGFloat {
+        guard let fromPitch = Self.rowPitch(of: fromLayout),
+              let toPitch = Self.rowPitch(of: toLayout) else {
+            return itemWidthRatio
+        }
+        return toPitch / fromPitch
+    }
+
+    /// Pins the two lattices together at the anchor item while capturing their
+    /// pitch ratios once for endpoint mapping.
+    func latticeMap(
+        fromAnchorContentPoint: CGPoint,
+        toAnchorContentPoint: CGPoint
+    ) -> MobilePlayerBrowserGridLatticeMap {
+        MobilePlayerBrowserGridLatticeMap(
+            columnPitchRatio: columnPitchRatio,
+            rowPitchRatio: rowPitchRatio,
+            fromAnchorContentPoint: fromAnchorContentPoint,
+            toAnchorContentPoint: toAnchorContentPoint
         )
     }
 
-    mutating func setProgress(_ progress: CGFloat) {
-        guard progress.isFinite else { return }
-        self.progress = min(max(progress, 0), 1)
-    }
-
-    func itemFrame(at itemIndex: Int) -> CGRect? {
-        guard itemIndex < itemCount,
-              let fromFrame = fromLayout.itemFrame(at: itemIndex),
-              let toFrame = toLayout.itemFrame(at: itemIndex) else {
+    private static func rowPitch(
+        of layout: MobilePlayerBrowserLayout
+    ) -> CGFloat? {
+        guard layout.itemCount > layout.columnCount,
+              let itemSize = layout.uniformItemSize else {
             return nil
         }
-        return CGRect(
-            x: interpolated(fromFrame.minX, toFrame.minX),
-            y: interpolated(fromFrame.minY, toFrame.minY),
-            width: interpolated(fromFrame.width, toFrame.width),
-            height: interpolated(fromFrame.height, toFrame.height)
+        let pitch = itemSize.height + layout.interItemSpacing
+        return pitch.isFinite && pitch > 0 ? pitch : nil
+    }
+
+    static func anchorRelativeX(
+        contentX: CGFloat,
+        itemFrame: CGRect
+    ) -> CGFloat {
+        anchorRelative(
+            coordinate: contentX,
+            origin: itemFrame.minX,
+            extent: itemFrame.width
         )
     }
 
-    func candidateItemIndices(intersecting rect: CGRect) -> Range<Int> {
-        guard itemCount > 0,
-              rect.minY.isFinite,
-              rect.maxY.isFinite,
-              rect.minY <= rect.maxY else {
-            return 0..<0
-        }
-
-        let firstIndex = lowestItemIndex { $0.maxY >= rect.minY }
-        let endIndex = lowestItemIndex { $0.minY > rect.maxY }
-        guard firstIndex < endIndex else { return 0..<0 }
-        return firstIndex..<endIndex
-    }
-
-    func contentOffsetY(
-        fromContentOffsetY: CGFloat,
-        toContentOffsetY: CGFloat,
-        panDeltaY: CGFloat,
-        viewportHeight: CGFloat
+    static func anchorX(
+        itemFrame: CGRect,
+        relativeX: CGFloat
     ) -> CGFloat {
-        let sanitizedPanDeltaY = panDeltaY.isFinite ? panDeltaY : 0
-        let proposedOffsetY = interpolated(fromContentOffsetY, toContentOffsetY)
-            - sanitizedPanDeltaY
-        return Self.clampedContentOffsetY(
-            proposedOffsetY,
-            contentHeight: contentSize.height,
-            viewportHeight: viewportHeight
+        anchor(
+            origin: itemFrame.minX,
+            extent: itemFrame.width,
+            center: itemFrame.midX,
+            relative: relativeX
         )
     }
 
@@ -679,28 +845,52 @@ struct MobilePlayerBrowserGridTransition {
         contentY: CGFloat,
         itemFrame: CGRect
     ) -> CGFloat {
-        guard contentY.isFinite,
-              itemFrame.minY.isFinite,
-              itemFrame.height.isFinite,
-              itemFrame.height > 0 else {
-            return 0.5
-        }
-        return min(max((contentY - itemFrame.minY) / itemFrame.height, 0), 1)
+        anchorRelative(
+            coordinate: contentY,
+            origin: itemFrame.minY,
+            extent: itemFrame.height
+        )
     }
 
     static func anchorY(
         itemFrame: CGRect,
         relativeY: CGFloat
     ) -> CGFloat {
-        guard itemFrame.minY.isFinite,
-              itemFrame.height.isFinite,
-              itemFrame.height > 0 else {
-            return itemFrame.midY.isFinite ? itemFrame.midY : 0
+        anchor(
+            origin: itemFrame.minY,
+            extent: itemFrame.height,
+            center: itemFrame.midY,
+            relative: relativeY
+        )
+    }
+
+    private static func anchorRelative(
+        coordinate: CGFloat,
+        origin: CGFloat,
+        extent: CGFloat
+    ) -> CGFloat {
+        guard coordinate.isFinite,
+              origin.isFinite,
+              extent.isFinite,
+              extent > 0 else {
+            return 0.5
         }
-        let sanitizedRelativeY = relativeY.isFinite
-            ? min(max(relativeY, 0), 1)
+        return min(max((coordinate - origin) / extent, 0), 1)
+    }
+
+    private static func anchor(
+        origin: CGFloat,
+        extent: CGFloat,
+        center: CGFloat,
+        relative: CGFloat
+    ) -> CGFloat {
+        guard origin.isFinite, extent.isFinite, extent > 0 else {
+            return center.isFinite ? center : 0
+        }
+        let sanitizedRelative = relative.isFinite
+            ? min(max(relative, 0), 1)
             : 0.5
-        return itemFrame.minY + itemFrame.height * sanitizedRelativeY
+        return origin + extent * sanitizedRelative
     }
 
     static func targetContentOffsetY(
@@ -723,27 +913,51 @@ struct MobilePlayerBrowserGridTransition {
         let maximumOffsetY = max(contentHeight - viewportHeight, 0)
         return min(max(contentOffsetY, 0), maximumOffsetY)
     }
+}
 
-    private func interpolated(_ fromValue: CGFloat, _ toValue: CGFloat) -> CGFloat {
-        fromValue + (toValue - fromValue) * progress
+/// The correspondence between a grid transition's source and destination
+/// lattices in content space, pinned at the anchor item. Every endpoint
+/// mapping the transition needs — which destination item a live cell becomes,
+/// where a phantom for a destination item sits in source space, which source
+/// item supplies carryover art — is one of these three lookups.
+struct MobilePlayerBrowserGridLatticeMap: Equatable {
+    static let identity = MobilePlayerBrowserGridLatticeMap(
+        columnPitchRatio: 1,
+        rowPitchRatio: 1,
+        fromAnchorContentPoint: .zero,
+        toAnchorContentPoint: .zero
+    )
+
+    let columnPitchRatio: CGFloat
+    let rowPitchRatio: CGFloat
+    let fromAnchorContentPoint: CGPoint
+    let toAnchorContentPoint: CGPoint
+
+    func destinationPoint(fromSource point: CGPoint) -> CGPoint {
+        CGPoint(
+            x: toAnchorContentPoint.x
+                + (point.x - fromAnchorContentPoint.x) * columnPitchRatio,
+            y: toAnchorContentPoint.y
+                + (point.y - fromAnchorContentPoint.y) * rowPitchRatio
+        )
     }
 
-    private func lowestItemIndex(
-        where predicate: (CGRect) -> Bool
-    ) -> Int {
-        var lowerBound = 0
-        var upperBound = itemCount
-        while lowerBound < upperBound {
-            let middle = lowerBound + (upperBound - lowerBound) / 2
-            guard let frame = itemFrame(at: middle) else {
-                return itemCount
-            }
-            if predicate(frame) {
-                upperBound = middle
-            } else {
-                lowerBound = middle + 1
-            }
-        }
-        return lowerBound
+    func sourcePoint(fromDestination point: CGPoint) -> CGPoint {
+        CGPoint(
+            x: fromAnchorContentPoint.x
+                + (point.x - toAnchorContentPoint.x) / columnPitchRatio,
+            y: fromAnchorContentPoint.y
+                + (point.y - toAnchorContentPoint.y) / rowPitchRatio
+        )
+    }
+
+    func sourceRect(fromDestination rect: CGRect) -> CGRect {
+        CGRect(
+            origin: sourcePoint(fromDestination: rect.origin),
+            size: CGSize(
+                width: rect.width / columnPitchRatio,
+                height: rect.height / rowPitchRatio
+            )
+        )
     }
 }

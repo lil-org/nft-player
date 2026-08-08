@@ -942,6 +942,7 @@ final class PlayerCollectionScrollPolicyTests: XCTestCase {
 
     func testFailedPublicationCanBeRetriedByFinalFlush() {
         var state = PlayerCollectionScrollPublicationState(initialIndex: 4)
+        XCTAssertNil(state.lastPublishedTokenIndex)
         state.finishInitialPositioning()
 
         let publication = PlayerCollectionScrollPublication(
@@ -949,9 +950,30 @@ final class PlayerCollectionScrollPolicyTests: XCTestCase {
             hasViewedToEnd: false
         )
         XCTAssertEqual(state.settle(), publication)
+        XCTAssertEqual(state.lastPublishedTokenIndex, 4)
         state.retryPublication(of: publication)
+        XCTAssertNil(state.lastPublishedTokenIndex)
         XCTAssertEqual(state.finalFlush(), publication)
+        XCTAssertEqual(state.lastPublishedTokenIndex, 4)
         XCTAssertNil(state.finalFlush())
+    }
+
+    func testFailedPublicationRestoresPreviousHistoryAndCanBeRetried() {
+        var state = PlayerCollectionScrollPublicationState(initialIndex: 4)
+        state.finishInitialPositioning()
+
+        XCTAssertEqual(state.settle()?.tokenIndex, 4)
+        state.observeCandidate(7)
+        let failedPublication = PlayerCollectionScrollPublication(
+            tokenIndex: 7,
+            hasViewedToEnd: false
+        )
+
+        XCTAssertEqual(state.settle(), failedPublication)
+        state.retryPublication(of: failedPublication)
+        XCTAssertEqual(state.lastPublishedTokenIndex, 4)
+        XCTAssertEqual(state.finalFlush(), failedPublication)
+        XCTAssertEqual(state.lastPublishedTokenIndex, 7)
     }
 
     func testCompletionPublishesWhenItChangesAtTheSameIndex() {

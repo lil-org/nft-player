@@ -15,9 +15,15 @@ struct PlayerBrowserGridInteractionCoordinator {
     struct PinchSample: Equatable {
         let scale: CGFloat
         let centroidY: CGFloat
+        let timestamp: TimeInterval
     }
 
-    struct Transition: Equatable {
+    struct ModeRatio: Equatable {
+        let mode: MobileCollectionBrowserGridMode
+        let itemWidthRatio: CGFloat
+    }
+
+    struct Plane: Equatable {
         let id: UUID
         let fromMode: MobileCollectionBrowserGridMode
         let toMode: MobileCollectionBrowserGridMode
@@ -29,12 +35,11 @@ struct PlayerBrowserGridInteractionCoordinator {
             toMode: MobileCollectionBrowserGridMode,
             itemWidthRatio: CGFloat
         ) {
-            guard fromMode != toMode,
-                  itemWidthRatio.isFinite,
-                  itemWidthRatio > 0,
-                  itemWidthRatio != 1,
-                  (itemWidthRatio > 1)
-                    == (toMode.columnCount < fromMode.columnCount) else {
+            guard Self.supportsTransition(
+                fromMode: fromMode,
+                toMode: toMode,
+                itemWidthRatio: itemWidthRatio
+            ) else {
                 return nil
             }
             self.id = id
@@ -43,60 +48,29 @@ struct PlayerBrowserGridInteractionCoordinator {
             self.itemWidthRatio = itemWidthRatio
         }
 
-        func matches(
+        static func supportsTransition(
             fromMode: MobileCollectionBrowserGridMode,
-            toMode: MobileCollectionBrowserGridMode
+            toMode: MobileCollectionBrowserGridMode,
+            itemWidthRatio: CGFloat
         ) -> Bool {
-            self.fromMode == fromMode && self.toMode == toMode
+            fromMode != toMode
+                && itemWidthRatio.isFinite
+                && itemWidthRatio > 0
+                && itemWidthRatio != 1
+                && (itemWidthRatio > 1)
+                    == (toMode.columnCount < fromMode.columnCount)
         }
-    }
-
-    enum SettleOutcome: Equatable {
-        case commit
-        case cancel
-
-        var targetProgress: CGFloat {
-            self == .commit ? 1 : 0
-        }
-    }
-
-    enum AnimationCurve: Equatable {
-        case easeOutCubic
-        case easeInOutCubic
-
-        func value(at fraction: CGFloat) -> CGFloat {
-            let clamped = min(max(fraction, 0), 1)
-            switch self {
-            case .easeOutCubic:
-                let inverse = 1 - clamped
-                return 1 - inverse * inverse * inverse
-            case .easeInOutCubic:
-                if clamped < 0.5 {
-                    return 4 * clamped * clamped * clamped
-                }
-                let inverse = 2 - 2 * clamped
-                return 1 - inverse * inverse * inverse / 2
-            }
-        }
-    }
-
-    struct MediaReconciliation: Equatable {
-        let finalMode: MobileCollectionBrowserGridMode
-        let cancelsPrefetchLoads: Bool
     }
 
     enum Event: Equatable {
         case menuSelected(
             fromMode: MobileCollectionBrowserGridMode,
             toMode: MobileCollectionBrowserGridMode,
-            defaultMode: MobileCollectionBrowserGridMode,
             reduceMotion: Bool
         )
         case pinchBegan(
             sample: PinchSample,
-            currentMode: MobileCollectionBrowserGridMode,
-            defaultMode: MobileCollectionBrowserGridMode,
-            adoptedTransitionWasReanchored: Bool
+            currentMode: MobileCollectionBrowserGridMode
         )
         case pinchChanged(sample: PinchSample)
         case pinchEnded(
@@ -104,10 +78,7 @@ struct PlayerBrowserGridInteractionCoordinator {
             timestamp: TimeInterval,
             reduceMotion: Bool
         )
-        case pinchCancelled(
-            timestamp: TimeInterval,
-            reduceMotion: Bool
-        )
+        case pinchCancelled(reduceMotion: Bool)
         case settleStarted(timestamp: TimeInterval)
         case settleTick(timestamp: TimeInterval)
         case rendererSucceeded
@@ -117,127 +88,238 @@ struct PlayerBrowserGridInteractionCoordinator {
 
     enum Effect: Equatable {
         case beginInteraction
-        case installTransition(Transition)
-        case renderTransition(id: UUID, progress: CGFloat, panDeltaY: CGFloat)
-        case commitTransition(id: UUID, mode: MobileCollectionBrowserGridMode)
-        case discardTransition(id: UUID)
+        case installPlane(Plane)
+        case renderZoom(planeId: UUID?, scale: CGFloat, panDeltaY: CGFloat)
+        case renderSettle(
+            id: UUID,
+            scale: CGFloat,
+            settleProgress: CGFloat,
+            panDeltaY: CGFloat
+        )
+        case commitPlane(id: UUID, mode: MobileCollectionBrowserGridMode)
+        case discardPlane(id: UUID)
         case applyMode(MobileCollectionBrowserGridMode)
-        case applyOvershoot(scale: CGFloat)
-        case resetOvershoot(animated: Bool)
         case selectionHaptic
         case startDisplayLink
         case stopDisplayLink
         case persistMode(MobileCollectionBrowserGridMode)
-        case reconcileMedia(MediaReconciliation)
+        case reconcileMedia(cancelsPrefetchLoads: Bool)
         case finishInteraction(settlesPosition: Bool)
-        case continuePinch(PinchSample)
         case resetRenderer
     }
 
-    typealias TransitionProvider = (
-        MobileCollectionBrowserGridMode,
-        MobileCollectionBrowserGridMode
-    ) -> Transition?
+    typealias RatioProvider = (MobileCollectionBrowserGridMode) -> [ModeRatio]
 
     private struct Session: Equatable {
         let initialMode: MobileCollectionBrowserGridMode
-        var currentMode: MobileCollectionBrowserGridMode
-        let defaultMode: MobileCollectionBrowserGridMode
-        var didCommitGeometry: Bool
+        let modeRatios: [ModeRatio]
+
+        var minimumRatio: CGFloat {
+            modeRatios.first?.itemWidthRatio ?? 1
+        }
+
+        var maximumRatio: CGFloat {
+            modeRatios.last?.itemWidthRatio ?? 1
+        }
+
+        func ratio(for mode: MobileCollectionBrowserGridMode) -> CGFloat? {
+            modeRatios.first { $0.mode == mode }?.itemWidthRatio
+        }
+
+        /// The rendered scale a settle onto `mode` comes to rest at.
+        /// `makeModeRatios` pins `initialMode` to exactly 1, so the fallback
+        /// only covers a mode that never entered the session.
+        func scale(landingOn mode: MobileCollectionBrowserGridMode) -> CGFloat {
+            ratio(for: mode) ?? 1
+        }
     }
 
-    private struct TrackingState: Equatable {
-        var session: Session
-        let referenceScale: CGFloat
-        let referenceCentroidY: CGFloat
-    }
-
-    private struct AdoptedSettleIntent: Equatable {
-        let outcome: SettleOutcome
+    private struct AdoptedSettleContext: Equatable {
+        let targetMode: MobileCollectionBrowserGridMode
+        let usesMenuFallback: Bool
+        let planeIdAtAdoption: UUID?
+        let scaleAtAdoption: CGFloat
+        /// How far the adopted settle had already crossfaded. The hold keeps
+        /// rendering at this progress and the release resumes from it, so
+        /// grabbing a running settle never replays the fade from zero.
         let progressAtAdoption: CGFloat
-        let usesMenuFallback: Bool
-        var hasAdjustedProgress: Bool
     }
 
-    private struct InteractionState: Equatable {
-        var session: Session
-        var referenceScale: CGFloat
-        var referenceCentroidY: CGFloat
-        var basePanDeltaY: CGFloat
-        var panDeltaY: CGFloat
-        var transition: Transition?
-        var progress: CGFloat
-        var adoptedSettleIntent: AdoptedSettleIntent?
-    }
+    private enum AdoptedSettlePhase: Equatable {
+        struct Resolution {
+            let context: AdoptedSettleContext?
+            let heldContext: AdoptedSettleContext?
+            let preservedPlaneProgress: CGFloat?
 
-    private struct SettleState: Equatable {
-        var session: Session
-        let transition: Transition
-        let panDeltaY: CGFloat
-        let fromProgress: CGFloat
-        var currentProgress: CGFloat
-        let outcome: SettleOutcome
-        var startTime: TimeInterval?
-        let duration: TimeInterval
-        let curve: AnimationCurve
-        let usesMenuFallback: Bool
-    }
+            var releaseContext: AdoptedSettleContext? {
+                if let heldContext { return heldContext }
+                guard preservedPlaneProgress.map({ $0 > 0 }) == true else {
+                    return nil
+                }
+                return context
+            }
 
-    private enum PendingRendererAction: Equatable {
-        case boundaryCommit(
-            sample: PinchSample,
-            transition: Transition,
-            emitsHaptic: Bool
-        )
-        case reversalDiscard(
-            sample: PinchSample,
-            transition: Transition
-        )
-        case terminalTransition(
-            session: Session,
-            transition: Transition,
-            outcome: SettleOutcome,
-            settlesPosition: Bool,
-            resetsOvershoot: Bool,
-            usesMenuFallback: Bool,
-            stopsDisplayLink: Bool
-        )
-        case directMode(
-            session: Session,
-            mode: MobileCollectionBrowserGridMode,
-            settlesPosition: Bool
-        )
-    }
+            var pinsPlane: Bool {
+                heldContext != nil
+                    || preservedPlaneProgress.map({ $0 > 0 }) == true
+            }
+        }
 
-    private enum State: Equatable {
-        case idle
-        case tracking(TrackingState)
-        case interacting(InteractionState)
-        case settling(SettleState)
-        case applying(Session)
+        case none
+        case holding(AdoptedSettleContext)
+        case adjusted(AdoptedSettleContext)
 
-        var session: Session? {
+        mutating func registerScale(_ scale: CGFloat) {
+            guard case let .holding(context) = self,
+                  abs(scale / context.scaleAtAdoption - 1)
+                    > PlayerBrowserGridInteractionCoordinator
+                        .adjustmentScaleDeviationDeadZone else {
+                return
+            }
+            self = .adjusted(context)
+        }
+
+        func resolve(
+            scale: CGFloat,
+            plane: Plane?
+        ) -> Resolution {
             switch self {
-            case .idle:
-                return nil
-            case let .tracking(tracking):
-                return tracking.session
-            case let .interacting(interaction):
-                return interaction.session
-            case let .settling(settle):
-                return settle.session
-            case let .applying(session):
-                return session
+            case .none:
+                return Resolution(
+                    context: nil,
+                    heldContext: nil,
+                    preservedPlaneProgress: nil
+                )
+
+            case let .holding(context):
+                return Resolution(
+                    context: context,
+                    heldContext: context,
+                    preservedPlaneProgress: plane.flatMap {
+                        $0.id == context.planeIdAtAdoption
+                            ? context.progressAtAdoption
+                            : nil
+                    }
+                )
+
+            case let .adjusted(context):
+                guard let plane,
+                      plane.id == context.planeIdAtAdoption else {
+                    return Resolution(
+                        context: context,
+                        heldContext: nil,
+                        preservedPlaneProgress: nil
+                    )
+                }
+                let scaleDeviation = abs(scale / context.scaleAtAdoption - 1)
+                guard scaleDeviation.isFinite else {
+                    return Resolution(
+                        context: context,
+                        heldContext: nil,
+                        preservedPlaneProgress: 0
+                    )
+                }
+                let handoffProgress = max(
+                    scaleDeviation
+                        - PlayerBrowserGridInteractionCoordinator
+                            .adjustmentScaleDeviationDeadZone,
+                    0
+                ) / (
+                    PlayerBrowserGridPinchPolicy.activationScaleDeviation
+                        - PlayerBrowserGridInteractionCoordinator
+                            .adjustmentScaleDeviationDeadZone
+                )
+                let retainedProgress = 1 - min(handoffProgress, 1)
+                return Resolution(
+                    context: context,
+                    heldContext: nil,
+                    preservedPlaneProgress:
+                        context.progressAtAdoption * retainedProgress
+                )
             }
         }
     }
 
-    private static let menuTransitionDuration: TimeInterval = 0.36
-    private static let adjustmentDeadZone: CGFloat = 0.001
+    private struct InteractionState: Equatable {
+        let session: Session
+        let referenceScale: CGFloat
+        let referenceCentroidY: CGFloat
+        let basePanDeltaY: CGFloat
+        var panDeltaY: CGFloat
+        var scale: CGFloat
+        /// What the activation trim divided out of the rendered scale. The
+        /// release multiplies it back so the settle target is chosen from the
+        /// physical pinch ratio, not the trimmed render scale.
+        let activationAdjustment: CGFloat
+        var latestSampleTimestamp: TimeInterval
+        var plane: Plane?
+        var adoptedSettlePhase: AdoptedSettlePhase
+    }
+
+    private enum PlaneDecision {
+        case keep
+        case replace(ModeRatio)
+        case discard
+    }
+
+    private struct SettleState: Equatable {
+        let session: Session
+        let plane: Plane?
+        let targetMode: MobileCollectionBrowserGridMode
+        let initialLogDistance: CGFloat
+        let initialProgress: CGFloat
+        let panDeltaY: CGFloat
+        var logOffset: CGFloat
+        var logVelocity: CGFloat
+        var lastTickTime: TimeInterval?
+        let usesMenuFallback: Bool
+
+        var commits: Bool {
+            targetMode != session.initialMode
+        }
+
+        var targetScale: CGFloat {
+            session.scale(landingOn: targetMode)
+        }
+
+        var currentScale: CGFloat {
+            targetScale * exp(logOffset)
+        }
+
+        var currentProgress: CGFloat {
+            guard initialLogDistance > 0 else { return commits ? 1 : 0 }
+            let travelProgress = min(
+                max(1 - abs(logOffset) / initialLogDistance, 0),
+                1
+            )
+            return commits
+                ? initialProgress + (1 - initialProgress) * travelProgress
+                : initialProgress * (1 - travelProgress)
+        }
+    }
+
+    private struct PendingRendererAction: Equatable {
+        let session: Session
+        let mode: MobileCollectionBrowserGridMode
+        let settlesPosition: Bool
+        /// A menu selection has no gesture to fall back to, so a renderer
+        /// failure re-applies its mode directly. A direct-mode application is
+        /// already that fallback and must not retry itself.
+        let retriesWithDirectMode: Bool
+        var wasInterrupted = false
+    }
+
+    private enum State: Equatable {
+        case idle
+        case tracking(Session)
+        case interacting(InteractionState)
+        case settling(SettleState)
+        case awaitingRenderer(PendingRendererAction)
+    }
+
+    private static let adjustmentScaleDeviationDeadZone: CGFloat = 0.001
 
     private var state = State.idle
-    private var pendingRendererAction: PendingRendererAction?
-    private var hasPendingInterrupt = false
 
     var phase: Phase {
         switch state {
@@ -247,39 +329,33 @@ struct PlayerBrowserGridInteractionCoordinator {
             return .tracking
         case .interacting:
             return .interacting
-        case .settling:
-            return .settling
-        case .applying:
+        case .settling, .awaitingRenderer:
             return .settling
         }
     }
 
-    var currentMode: MobileCollectionBrowserGridMode? {
-        state.session?.currentMode
-    }
-
-    var didCommitGeometry: Bool {
-        state.session?.didCommitGeometry ?? false
+    var canBeginPinch: Bool {
+        switch state {
+        case .idle, .settling:
+            return true
+        case .tracking, .interacting, .awaitingRenderer:
+            return false
+        }
     }
 
     mutating func handle(
         _ event: Event,
-        transitionProvider: TransitionProvider = { _, _ in nil }
+        ratioProvider: RatioProvider = { _ in [] }
     ) -> [Effect] {
-        if pendingRendererAction != nil {
+        if case var .awaitingRenderer(action) = state {
             switch event {
             case .rendererSucceeded:
-                let wasInterrupted = hasPendingInterrupt
-                hasPendingInterrupt = false
-                return handleRendererSuccess(
-                    wasInterrupted: wasInterrupted
-                )
+                return handleRendererSuccess(action)
             case .rendererFailed:
-                return handleRendererFailure(
-                    wasInterrupted: hasPendingInterrupt
-                )
+                return handleRendererFailure(action)
             case .interrupt:
-                hasPendingInterrupt = true
+                action.wasInterrupted = true
+                state = .awaitingRenderer(action)
                 return []
             default:
                 return []
@@ -287,39 +363,23 @@ struct PlayerBrowserGridInteractionCoordinator {
         }
 
         switch event {
-        case let .menuSelected(
-            fromMode,
-            toMode,
-            defaultMode,
-            reduceMotion
-        ):
+        case let .menuSelected(fromMode, toMode, reduceMotion):
             return handleMenuSelection(
                 fromMode: fromMode,
                 toMode: toMode,
-                defaultMode: defaultMode,
                 reduceMotion: reduceMotion,
-                transitionProvider: transitionProvider
+                ratioProvider: ratioProvider
             )
 
-        case let .pinchBegan(
-            sample,
-            currentMode,
-            defaultMode,
-            adoptedTransitionWasReanchored
-        ):
+        case let .pinchBegan(sample, currentMode):
             return handlePinchBegan(
                 sample: sample,
                 currentMode: currentMode,
-                defaultMode: defaultMode,
-                adoptedTransitionWasReanchored:
-                    adoptedTransitionWasReanchored
+                ratioProvider: ratioProvider
             )
 
         case let .pinchChanged(sample):
-            return handlePinchChanged(
-                sample,
-                transitionProvider: transitionProvider
-            )
+            return handlePinchChanged(sample)
 
         case let .pinchEnded(velocity, timestamp, reduceMotion):
             return handlePinchEnded(
@@ -328,11 +388,8 @@ struct PlayerBrowserGridInteractionCoordinator {
                 reduceMotion: reduceMotion
             )
 
-        case let .pinchCancelled(timestamp, reduceMotion):
-            return handlePinchCancelled(
-                timestamp: timestamp,
-                reduceMotion: reduceMotion
-            )
+        case let .pinchCancelled(reduceMotion):
+            return handlePinchCancelled(reduceMotion: reduceMotion)
 
         case let .settleStarted(timestamp):
             return handleSettleStarted(timestamp: timestamp)
@@ -347,16 +404,43 @@ struct PlayerBrowserGridInteractionCoordinator {
             return handleInterrupt()
 
         case .rendererFailed:
-            return handleRendererFailure(wasInterrupted: false)
+            return handleRendererFailure()
         }
+    }
+
+    private static func makeModeRatios(
+        fromMode: MobileCollectionBrowserGridMode,
+        provided: [ModeRatio]
+    ) -> [ModeRatio] {
+        var ratios = provided
+            .filter { candidate in
+                guard candidate.itemWidthRatio.isFinite,
+                      candidate.itemWidthRatio > 0 else {
+                    return false
+                }
+                if candidate.mode == fromMode {
+                    return candidate.itemWidthRatio == 1
+                }
+                return Plane.supportsTransition(
+                    fromMode: fromMode,
+                    toMode: candidate.mode,
+                    itemWidthRatio: candidate.itemWidthRatio
+                )
+            }
+        if !ratios.contains(where: { $0.mode == fromMode }) {
+            ratios.append(ModeRatio(mode: fromMode, itemWidthRatio: 1))
+        }
+        var seenModes = Set<MobileCollectionBrowserGridMode>()
+        return ratios
+            .filter { seenModes.insert($0.mode).inserted }
+            .sorted { $0.itemWidthRatio < $1.itemWidthRatio }
     }
 
     private mutating func handleMenuSelection(
         fromMode: MobileCollectionBrowserGridMode,
         toMode: MobileCollectionBrowserGridMode,
-        defaultMode: MobileCollectionBrowserGridMode,
         reduceMotion: Bool,
-        transitionProvider: TransitionProvider
+        ratioProvider: RatioProvider
     ) -> [Effect] {
         guard case .idle = state,
               fromMode != toMode else {
@@ -365,75 +449,78 @@ struct PlayerBrowserGridInteractionCoordinator {
 
         let session = Session(
             initialMode: fromMode,
-            currentMode: fromMode,
-            defaultMode: defaultMode,
-            didCommitGeometry: false
+            modeRatios: Self.makeModeRatios(
+                fromMode: fromMode,
+                provided: ratioProvider(fromMode)
+            )
         )
         guard !reduceMotion,
-              let transition = transitionProvider(fromMode, toMode),
-              transition.matches(fromMode: fromMode, toMode: toMode) else {
-            state = .applying(session)
-            pendingRendererAction = .directMode(
+              let targetRatio = session.ratio(for: toMode),
+              let plane = Plane(
+                  fromMode: fromMode,
+                  toMode: toMode,
+                  itemWidthRatio: targetRatio
+              ) else {
+            return [.beginInteraction, beginDirectModeApplication(
                 session: session,
                 mode: toMode,
                 settlesPosition: true
-            )
-            return [.beginInteraction, .applyMode(toMode)]
+            )]
         }
 
-        let effects: [Effect] = [
-            .beginInteraction,
-            .installTransition(transition),
-            .renderTransition(
-                id: transition.id,
-                progress: 0,
-                panDeltaY: 0
-            )
-        ]
         state = .settling(SettleState(
             session: session,
-            transition: transition,
+            plane: plane,
+            targetMode: toMode,
+            initialLogDistance: abs(log(targetRatio)),
+            initialProgress: 0,
             panDeltaY: 0,
-            fromProgress: 0,
-            currentProgress: 0,
-            outcome: .commit,
-            startTime: nil,
-            duration: Self.menuTransitionDuration,
-            curve: .easeInOutCubic,
+            logOffset: -log(targetRatio),
+            logVelocity: 0,
+            lastTickTime: nil,
             usesMenuFallback: true
         ))
-        return effects + [.startDisplayLink]
+        return [
+            .beginInteraction,
+            .installPlane(plane),
+            .renderSettle(
+                id: plane.id,
+                scale: 1,
+                settleProgress: 0,
+                panDeltaY: 0
+            ),
+            .startDisplayLink
+        ]
     }
 
     private mutating func handlePinchBegan(
         sample: PinchSample,
         currentMode: MobileCollectionBrowserGridMode,
-        defaultMode: MobileCollectionBrowserGridMode,
-        adoptedTransitionWasReanchored: Bool
+        ratioProvider: RatioProvider
     ) -> [Effect] {
         guard isValid(sample: sample) else { return [] }
 
         switch state {
         case .idle:
-            state = .tracking(TrackingState(
-                session: Session(
-                    initialMode: currentMode,
-                    currentMode: currentMode,
-                    defaultMode: defaultMode,
-                    didCommitGeometry: false
-                ),
-                referenceScale: sample.scale,
-                referenceCentroidY: sample.centroidY
+            // The recognizer's scale is cumulative from the initial touch
+            // separation, so by the time it begins it already carries the
+            // movement that made it recognize. That travel is real finger
+            // movement and must count toward the pinch — rebasing here made
+            // every gesture read ~15% shallower than the physical pinch and
+            // borderline releases settle back where Photos commits.
+            state = .tracking(Session(
+                initialMode: currentMode,
+                modeRatios: Self.makeModeRatios(
+                    fromMode: currentMode,
+                    provided: ratioProvider(currentMode)
+                )
             ))
             return []
 
         case let .settling(settle):
-            let effectiveScale = 1
-                + (settle.transition.itemWidthRatio - 1)
-                    * settle.currentProgress
-            let referenceScale = sample.scale / effectiveScale
-            guard effectiveScale.isFinite,
-                  effectiveScale > 0,
+            let referenceScale = sample.scale / settle.currentScale
+            guard settle.currentScale.isFinite,
+                  settle.currentScale > 0,
                   referenceScale.isFinite,
                   referenceScale > 0 else {
                 return []
@@ -442,37 +529,35 @@ struct PlayerBrowserGridInteractionCoordinator {
                 session: settle.session,
                 referenceScale: referenceScale,
                 referenceCentroidY: sample.centroidY,
-                basePanDeltaY: adoptedTransitionWasReanchored
-                    ? 0
-                    : settle.panDeltaY,
-                panDeltaY: adoptedTransitionWasReanchored
-                    ? 0
-                    : settle.panDeltaY,
-                transition: settle.transition,
-                progress: settle.currentProgress,
-                adoptedSettleIntent: AdoptedSettleIntent(
-                    outcome: settle.outcome,
-                    progressAtAdoption: settle.currentProgress,
+                basePanDeltaY: settle.panDeltaY,
+                panDeltaY: settle.panDeltaY,
+                scale: settle.currentScale,
+                activationAdjustment: 1,
+                latestSampleTimestamp: sample.timestamp,
+                plane: settle.plane,
+                adoptedSettlePhase: .holding(AdoptedSettleContext(
+                    targetMode: settle.targetMode,
                     usesMenuFallback: settle.usesMenuFallback,
-                    hasAdjustedProgress: false
-                )
+                    planeIdAtAdoption: settle.plane?.id,
+                    scaleAtAdoption: settle.currentScale,
+                    progressAtAdoption: settle.currentProgress
+                ))
             ))
             return [.stopDisplayLink]
 
-        case .tracking, .interacting, .applying:
+        case .tracking, .interacting, .awaitingRenderer:
             return []
         }
     }
 
-    private mutating func handlePinchChanged(
-        _ sample: PinchSample,
-        transitionProvider: TransitionProvider
-    ) -> [Effect] {
+    private mutating func handlePinchChanged(_ sample: PinchSample) -> [Effect] {
         guard isValid(sample: sample) else { return [] }
 
         switch state {
-        case let .tracking(tracking):
-            let rawEffectiveScale = sample.scale / tracking.referenceScale
+        case let .tracking(session):
+            // The tracking scale is the recognizer's own cumulative ratio —
+            // `handlePinchBegan` deliberately does not rebase it.
+            let rawEffectiveScale = sample.scale
             guard rawEffectiveScale.isFinite,
                   rawEffectiveScale > 0,
                   abs(rawEffectiveScale - 1)
@@ -482,185 +567,195 @@ struct PlayerBrowserGridInteractionCoordinator {
             let effectiveScale = PlayerBrowserGridPinchPolicy
                 .effectiveScaleAfterActivation(rawEffectiveScale)
             var interaction = InteractionState(
-                session: tracking.session,
+                session: session,
                 referenceScale: sample.scale / effectiveScale,
                 referenceCentroidY: sample.centroidY,
                 basePanDeltaY: 0,
                 panDeltaY: 0,
-                transition: nil,
-                progress: 0,
-                adoptedSettleIntent: nil
+                scale: effectiveScale,
+                activationAdjustment: PlayerBrowserGridPinchPolicy
+                    .activationTrimDivisor(rawEffectiveScale),
+                latestSampleTimestamp: sample.timestamp,
+                plane: nil,
+                adoptedSettlePhase: .none
             )
             var effects = [Effect.beginInteraction]
-            effects += processPinchChanged(
-                sample,
-                interaction: &interaction,
-                transitionProvider: transitionProvider
-            )
+            effects += zoomEffects(interaction: &interaction)
             state = .interacting(interaction)
             return effects
 
         case var .interacting(interaction):
-            let effects = processPinchChanged(
-                sample,
-                interaction: &interaction,
-                transitionProvider: transitionProvider
-            )
+            let effectiveScale = sample.scale / interaction.referenceScale
+            guard effectiveScale.isFinite, effectiveScale > 0 else { return [] }
+            interaction.latestSampleTimestamp = sample.timestamp
+            interaction.scale = effectiveScale
+            interaction.panDeltaY = interaction.basePanDeltaY
+                + sample.centroidY
+                - interaction.referenceCentroidY
+            interaction.adoptedSettlePhase.registerScale(effectiveScale)
+            let effects = zoomEffects(interaction: &interaction)
             state = .interacting(interaction)
             return effects
 
-        case .idle, .settling, .applying:
+        case .idle, .settling, .awaitingRenderer:
             return []
         }
     }
 
-    private mutating func processPinchChanged(
-        _ sample: PinchSample,
-        interaction: inout InteractionState,
-        transitionProvider: TransitionProvider
-    ) -> [Effect] {
-        let effectiveScale = sample.scale / interaction.referenceScale
-        guard effectiveScale.isFinite, effectiveScale > 0 else { return [] }
-
-        interaction.panDeltaY = interaction.basePanDeltaY
-            + sample.centroidY
-            - interaction.referenceCentroidY
+    private func zoomEffects(interaction: inout InteractionState) -> [Effect] {
         var effects = [Effect]()
+        let adoptedSettle = interaction.adoptedSettlePhase.resolve(
+            scale: interaction.scale,
+            plane: interaction.plane
+        )
 
-        if let transition = interaction.transition {
-            let progress = PlayerBrowserGridPinchPolicy.progress(
-                effectiveScale: effectiveScale,
-                itemWidthRatio: transition.itemWidthRatio
+        // A held adopted settle owns the plane until the pinch actually
+        // moves: the release still commits its target, so retargeting
+        // under it renders a frame on a lattice nothing will land on and costs
+        // two extra grid rebuilds.
+        let decision = adoptedSettle.pinsPlane
+            ? PlaneDecision.keep
+            : planeDecision(
+                scale: interaction.scale,
+                session: interaction.session,
+                installedPlane: interaction.plane
             )
-            if var intent = interaction.adoptedSettleIntent,
-               !intent.hasAdjustedProgress,
-               abs(progress - intent.progressAtAdoption)
-                    > Self.adjustmentDeadZone {
-                intent.hasAdjustedProgress = true
-                interaction.adoptedSettleIntent = intent
-            }
-            if let intent = interaction.adoptedSettleIntent,
-               !intent.hasAdjustedProgress {
-                interaction.progress = min(max(progress, 0), 1)
-                effects.append(.renderTransition(
-                    id: transition.id,
-                    progress: interaction.progress,
-                    panDeltaY: interaction.panDeltaY
-                ))
-                return effects
-            }
-            if progress >= 1 {
-                let emitsHaptic = interaction.adoptedSettleIntent.map {
-                    $0.outcome != .commit
-                } ?? true
-                return effects + boundaryCommitEffects(
-                    sample: sample,
-                    transition: transition,
-                    panDeltaY: interaction.panDeltaY,
-                    emitsHaptic: emitsHaptic
-                )
-            }
-            if progress > 0 {
-                interaction.progress = progress
-                effects.append(.renderTransition(
-                    id: transition.id,
-                    progress: progress,
-                    panDeltaY: interaction.panDeltaY
-                ))
-                return effects
+
+        switch decision {
+        case .keep:
+            break
+
+        case let .replace(target):
+            if interaction.plane?.toMode != target.mode,
+               let plane = Plane(
+                   fromMode: interaction.session.initialMode,
+                   toMode: target.mode,
+                   itemWidthRatio: target.itemWidthRatio
+               ) {
+                interaction.plane = plane
+                effects.append(.installPlane(plane))
             }
 
-            interaction.progress = 0
-            effects.append(.renderTransition(
-                id: transition.id,
-                progress: 0,
+        case .discard:
+            if let plane = interaction.plane {
+                interaction.plane = nil
+                effects.append(.discardPlane(id: plane.id))
+            }
+        }
+
+        let renderScale = PlayerBrowserGridPinchPolicy.rubberBandedScale(
+            interaction.scale,
+            minimumRatio: interaction.session.minimumRatio,
+            maximumRatio: interaction.session.maximumRatio
+        )
+        // The exact adopted plane hands its crossfade back to direct
+        // manipulation over the same travel used to activate a fresh pinch.
+        // That keeps the first adjusted frame continuous without leaving stale
+        // destination content behind after the user changes direction.
+        if let preservedProgress = adoptedSettle.preservedPlaneProgress,
+           preservedProgress > 0,
+           let plane = interaction.plane {
+            effects.append(.renderSettle(
+                id: plane.id,
+                scale: renderScale,
+                settleProgress: preservedProgress,
                 panDeltaY: interaction.panDeltaY
             ))
-            effects.append(.discardTransition(id: transition.id))
-            pendingRendererAction = .reversalDiscard(
-                sample: sample,
-                transition: transition
-            )
             return effects
         }
-
-        guard abs(effectiveScale - 1) > Self.adjustmentDeadZone else {
-            interaction.panDeltaY = 0
-            effects.append(.resetOvershoot(animated: false))
-            return effects
-        }
-
-        let targetMode = effectiveScale > 1
-            ? interaction.session.currentMode.modeWithLargerItems
-            : interaction.session.currentMode.modeWithSmallerItems
-        guard let targetMode else {
-            effects.append(.applyOvershoot(
-                scale: PlayerBrowserGridPinchPolicy.overshootScale(
-                    forEffectiveScale: effectiveScale
-                )
-            ))
-            return effects
-        }
-
-        interaction.referenceCentroidY = sample.centroidY
-        interaction.basePanDeltaY = 0
-        interaction.panDeltaY = 0
-        effects.append(.resetOvershoot(animated: false))
-        let currentMode = interaction.session.currentMode
-        guard let transition = transitionProvider(currentMode, targetMode),
-              transition.matches(
-                  fromMode: currentMode,
-                  toMode: targetMode
-              ) else {
-            return effects
-        }
-
-        interaction.transition = transition
-        effects.append(.installTransition(transition))
-        let progress = PlayerBrowserGridPinchPolicy.progress(
-            effectiveScale: effectiveScale,
-            itemWidthRatio: transition.itemWidthRatio
-        )
-        if progress >= 1 {
-            return effects + boundaryCommitEffects(
-                sample: sample,
-                transition: transition,
-                panDeltaY: 0,
-                emitsHaptic: true
-            )
-        }
-
-        interaction.progress = max(progress, 0)
-        effects.append(.renderTransition(
-            id: transition.id,
-            progress: interaction.progress,
-            panDeltaY: 0
+        effects.append(.renderZoom(
+            planeId: interaction.plane?.id,
+            scale: renderScale,
+            panDeltaY: interaction.panDeltaY
         ))
         return effects
     }
 
-    private mutating func boundaryCommitEffects(
-        sample: PinchSample,
-        transition: Transition,
-        panDeltaY: CGFloat,
-        emitsHaptic: Bool
-    ) -> [Effect] {
-        pendingRendererAction = .boundaryCommit(
-            sample: sample,
-            transition: transition,
-            emitsHaptic: emitsHaptic
-        )
-        return [
-            .renderTransition(
-                id: transition.id,
-                progress: 1,
-                panDeltaY: panDeltaY
-            ),
-            .commitTransition(
-                id: transition.id,
-                mode: transition.toMode
-            )
-        ]
+    /// Hysteresis prevents synchronous plane rebuilds from churning near a
+    /// target threshold.
+    private func planeDecision(
+        scale: CGFloat,
+        session: Session,
+        installedPlane: Plane?
+    ) -> PlaneDecision {
+        let logScale = log(max(scale, 0.000_1))
+
+        let wantsDenser: Bool
+        if let installedPlane {
+            let planeIsDenser = installedPlane.itemWidthRatio < 1
+            let reversesBeyondDiscard = planeIsDenser
+                ? scale > PlayerBrowserGridPinchPolicy.underPlaneDiscardScale
+                : scale < PlayerBrowserGridPinchPolicy.overPlaneDiscardScale
+            guard reversesBeyondDiscard else {
+                guard let target = sameDirectionTarget(
+                    logScale: logScale,
+                    session: session,
+                    installedPlane: installedPlane,
+                    denser: planeIsDenser
+                ) else {
+                    return .keep
+                }
+                return .replace(target)
+            }
+            wantsDenser = !planeIsDenser
+        } else if scale < PlayerBrowserGridPinchPolicy.underPlaneInstallScale {
+            wantsDenser = true
+        } else if scale > PlayerBrowserGridPinchPolicy.overPlaneInstallScale {
+            wantsDenser = false
+        } else {
+            return .keep
+        }
+
+        guard let target = nearestTarget(
+            logScale: logScale,
+            session: session,
+            denser: wantsDenser
+        ) else {
+            return installedPlane == nil ? .keep : .discard
+        }
+        return .replace(target)
+    }
+
+    /// A continuous pinch that sails past its plane's target re-aims the
+    /// plane at the next mode in the same direction, so a deep zoom
+    /// crossfades toward the lattice the release will actually land on. The
+    /// gesture must clear the midpoint between the two targets by the
+    /// hysteresis margin — a bare nearest-target comparison would rebuild
+    /// the plane every frame while the fingers hover on the boundary.
+    private func sameDirectionTarget(
+        logScale: CGFloat,
+        session: Session,
+        installedPlane: Plane,
+        denser: Bool
+    ) -> ModeRatio? {
+        guard let target = nearestTarget(
+            logScale: logScale,
+            session: session,
+            denser: denser
+        ), target.mode != installedPlane.toMode else {
+            return nil
+        }
+        let installedDistance = abs(logScale - log(installedPlane.itemWidthRatio))
+        let replacementDistance = abs(logScale - log(target.itemWidthRatio))
+        guard installedDistance - replacementDistance
+            > PlayerBrowserGridPinchPolicy.planeRetargetHysteresis else {
+            return nil
+        }
+        return target
+    }
+
+    private func nearestTarget(
+        logScale: CGFloat,
+        session: Session,
+        denser: Bool
+    ) -> ModeRatio? {
+        session.modeRatios
+            .lazy
+            .filter { denser ? $0.itemWidthRatio < 1 : $0.itemWidthRatio > 1 }
+            .min { lhs, rhs in
+                abs(logScale - log(lhs.itemWidthRatio))
+                    < abs(logScale - log(rhs.itemWidthRatio))
+            }
     }
 
     private mutating func handlePinchEnded(
@@ -669,7 +764,7 @@ struct PlayerBrowserGridInteractionCoordinator {
         reduceMotion: Bool
     ) -> [Effect] {
         switch state {
-        case .idle, .applying:
+        case .idle, .awaitingRenderer:
             return []
 
         case .tracking:
@@ -677,56 +772,57 @@ struct PlayerBrowserGridInteractionCoordinator {
             return []
 
         case let .settling(settle):
-            return settleSynchronously(
-                settle,
-                settlesPosition: true
-            )
+            return settleSynchronously(settle, settlesPosition: true)
 
         case let .interacting(interaction):
-            guard let transition = interaction.transition else {
-                state = .idle
-                return [.resetOvershoot(animated: !reduceMotion)]
-                    + terminalEffects(
-                        for: interaction.session,
-                        settlesPosition: true
-                    )
-            }
-
-            let effectiveVelocity = velocity.isFinite
+            let adoptedSettle = interaction.adoptedSettlePhase.resolve(
+                scale: interaction.scale,
+                plane: interaction.plane
+            )
+            // The recognizer's velocity freezes at its last touch sample, so
+            // after a still hold it reports the speed from before the hold.
+            // A release with no recent sample is a still release.
+            let sampleAge = timestamp - interaction.latestSampleTimestamp
+            let velocityIsFresh = sampleAge.isFinite
+                && sampleAge >= 0
+                && sampleAge
+                    <= PlayerBrowserGridPinchPolicy.velocityHoldTimeout
+            let effectiveVelocity = velocityIsFresh
+                && velocity.isFinite
+                && interaction.referenceScale > 0
                 ? velocity / interaction.referenceScale
                 : 0
-            let velocityTowardTarget = transition.itemWidthRatio > 1
-                ? effectiveVelocity
-                : -effectiveVelocity
-            let adoptedIntent = interaction.adoptedSettleIntent
-            let outcome: SettleOutcome
-            if let adoptedIntent,
-               !adoptedIntent.hasAdjustedProgress {
-                outcome = adoptedIntent.outcome
+            let releaseContext = adoptedSettle.releaseContext
+            let targetMode: MobileCollectionBrowserGridMode
+            // Do not replace a plane while its adopted cell corrections are
+            // still visibly handing off to direct manipulation.
+            if let releaseContext {
+                targetMode = releaseContext.targetMode
+            } else if let targetIndex = PlayerBrowserGridPinchPolicy.settleTargetIndex(
+                scale: interaction.scale * interaction.activationAdjustment,
+                velocity: effectiveVelocity * interaction.activationAdjustment,
+                itemWidthRatios: interaction.session.modeRatios.map(\.itemWidthRatio)
+            ) {
+                targetMode = interaction.session.modeRatios[targetIndex].mode
             } else {
-                outcome = PlayerBrowserGridPinchPolicy.shouldComplete(
-                    progress: interaction.progress,
-                    velocityTowardTarget: velocityTowardTarget
-                ) ? .commit : .cancel
+                targetMode = interaction.session.initialMode
             }
-            let emitsHaptic = outcome == .commit
-                && adoptedIntent?.outcome != .commit
             return beginSettle(
                 interaction: interaction,
-                outcome: outcome,
-                timestamp: timestamp,
+                targetMode: targetMode,
+                effectiveVelocity: effectiveVelocity,
                 reduceMotion: reduceMotion,
-                emitsHaptic: emitsHaptic
+                usesMenuFallback: releaseContext?.usesMenuFallback ?? false,
+                adoptedSettle: adoptedSettle
             )
         }
     }
 
     private mutating func handlePinchCancelled(
-        timestamp: TimeInterval,
         reduceMotion: Bool
     ) -> [Effect] {
         switch state {
-        case .idle, .applying:
+        case .idle, .awaitingRenderer:
             return []
 
         case .tracking:
@@ -734,120 +830,185 @@ struct PlayerBrowserGridInteractionCoordinator {
             return []
 
         case let .settling(settle):
-            return settleSynchronously(
-                settle,
-                settlesPosition: true
-            )
+            return settleSynchronously(settle, settlesPosition: true)
 
         case let .interacting(interaction):
-            guard interaction.transition != nil else {
-                state = .idle
-                return [.resetOvershoot(animated: !reduceMotion)]
-                    + terminalEffects(
-                        for: interaction.session,
-                        settlesPosition: true
-                    )
-            }
-            let outcome = interaction.adoptedSettleIntent?.outcome ?? .cancel
+            let adoptedSettle = interaction.adoptedSettlePhase.resolve(
+                scale: interaction.scale,
+                plane: interaction.plane
+            )
+            let cancellationContext = adoptedSettle.heldContext
             return beginSettle(
                 interaction: interaction,
-                outcome: outcome,
-                timestamp: timestamp,
+                targetMode: cancellationContext?.targetMode
+                    ?? interaction.session.initialMode,
+                effectiveVelocity: 0,
                 reduceMotion: reduceMotion,
-                emitsHaptic: false
+                usesMenuFallback: cancellationContext?.usesMenuFallback ?? false,
+                adoptedSettle: adoptedSettle
             )
         }
     }
 
     private mutating func beginSettle(
         interaction: InteractionState,
-        outcome: SettleOutcome,
-        timestamp: TimeInterval,
+        targetMode: MobileCollectionBrowserGridMode,
+        effectiveVelocity: CGFloat,
         reduceMotion: Bool,
-        emitsHaptic: Bool
+        usesMenuFallback: Bool,
+        adoptedSettle: AdoptedSettlePhase.Resolution
     ) -> [Effect] {
-        guard let transition = interaction.transition else { return [] }
+        let session = interaction.session
+        let commits = targetMode != session.initialMode
+        let emitsHaptic = commits
+            && adoptedSettle.context?.targetMode != targetMode
         var effects = emitsHaptic ? [Effect.selectionHaptic] : []
-        let usesMenuFallback = outcome == .commit
-            && interaction.adoptedSettleIntent?.usesMenuFallback == true
-        let duration = PlayerBrowserGridPinchPolicy.settleDuration(
-            remainingProgress: outcome.targetProgress - interaction.progress
+        var plane = interaction.plane
+        let fromScale = PlayerBrowserGridPinchPolicy.rubberBandedScale(
+            interaction.scale,
+            minimumRatio: session.minimumRatio,
+            maximumRatio: session.maximumRatio
         )
+
+        // A plane already aimed at `targetMode` was built from that mode's
+        // ratio, so reaching it here means the lookup below cannot fail.
+        if commits, plane?.toMode != targetMode {
+            guard let targetRatio = session.ratio(for: targetMode),
+                  let installedPlane = Plane(
+                      fromMode: session.initialMode,
+                      toMode: targetMode,
+                      itemWidthRatio: targetRatio
+                  ) else {
+                return effects + [beginDirectModeApplication(
+                    session: session,
+                    mode: targetMode,
+                    settlesPosition: true
+                )]
+            }
+            plane = installedPlane
+            effects.append(.installPlane(installedPlane))
+            effects.append(.renderSettle(
+                id: installedPlane.id,
+                scale: fromScale,
+                settleProgress: 0,
+                panDeltaY: interaction.panDeltaY
+            ))
+        }
+        let logOffset = log(fromScale / session.scale(landingOn: targetMode))
         if reduceMotion
-            || duration <= 0
-            || abs(outcome.targetProgress - interaction.progress) <= 0.000_1 {
-            return effects + terminalTransitionEffects(
-                session: interaction.session,
-                transition: transition,
-                outcome: outcome,
+            || abs(logOffset)
+                <= PlayerBrowserGridPinchPolicy.settleRestLogDistance {
+            return effects + terminalSettleEffects(
+                session: session,
+                plane: plane,
+                targetMode: targetMode,
                 panDeltaY: interaction.panDeltaY,
                 settlesPosition: true,
-                resetsOvershoot: true,
                 usesMenuFallback: usesMenuFallback,
                 stopsDisplayLink: false
             )
         }
 
+        let initialProgress: CGFloat
+        if let context = adoptedSettle.context,
+           plane?.id == context.planeIdAtAdoption {
+            initialProgress = adoptedSettle.preservedPlaneProgress ?? 0
+        } else {
+            initialProgress = 0
+        }
+
         state = .settling(SettleState(
-            session: interaction.session,
-            transition: transition,
+            session: session,
+            plane: plane,
+            targetMode: targetMode,
+            initialLogDistance: abs(logOffset),
+            initialProgress: initialProgress,
             panDeltaY: interaction.panDeltaY,
-            fromProgress: interaction.progress,
-            currentProgress: interaction.progress,
-            outcome: outcome,
-            startTime: sanitizedTimestamp(timestamp),
-            duration: duration,
-            curve: .easeOutCubic,
+            logOffset: logOffset,
+            logVelocity: PlayerBrowserGridPinchPolicy.settleSeedVelocity(
+                forLogOffset: logOffset,
+                effectiveVelocity: effectiveVelocity,
+                scale: fromScale
+            ),
+            // The clock starts at the first display-link tick — anchoring it
+            // to the release event would integrate the event-delivery latency
+            // as a visible first-frame jump.
+            lastTickTime: nil,
             usesMenuFallback: usesMenuFallback
         ))
         effects.append(.startDisplayLink)
         return effects
     }
 
-    private mutating func terminalTransitionEffects(
+    private mutating func terminalSettleEffects(
         session: Session,
-        transition: Transition,
-        outcome: SettleOutcome,
+        plane: Plane?,
+        targetMode: MobileCollectionBrowserGridMode,
         panDeltaY: CGFloat,
         settlesPosition: Bool,
-        resetsOvershoot: Bool,
         usesMenuFallback: Bool,
         stopsDisplayLink: Bool
     ) -> [Effect] {
-        pendingRendererAction = .terminalTransition(
-            session: session,
-            transition: transition,
-            outcome: outcome,
-            settlesPosition: settlesPosition,
-            resetsOvershoot: resetsOvershoot,
-            usesMenuFallback: usesMenuFallback,
-            stopsDisplayLink: stopsDisplayLink
-        )
-        var effects = [Effect.renderTransition(
-            id: transition.id,
-            progress: outcome.targetProgress,
-            panDeltaY: panDeltaY
-        )]
-        switch outcome {
-        case .commit:
-            effects.append(.commitTransition(
-                id: transition.id,
-                mode: transition.toMode
+        let commits = targetMode != session.initialMode
+        var effects = stopsDisplayLink ? [Effect.stopDisplayLink] : []
+
+        if commits, let plane, plane.toMode == targetMode {
+            state = .awaitingRenderer(PendingRendererAction(
+                session: session,
+                mode: targetMode,
+                settlesPosition: settlesPosition,
+                retriesWithDirectMode: usesMenuFallback
             ))
-        case .cancel:
-            effects.append(.discardTransition(id: transition.id))
+            effects.append(.renderSettle(
+                id: plane.id,
+                scale: session.scale(landingOn: targetMode),
+                settleProgress: 1,
+                panDeltaY: panDeltaY
+            ))
+            effects.append(.commitPlane(id: plane.id, mode: targetMode))
+            return effects
         }
-        return effects
+
+        if commits {
+            effects.append(beginDirectModeApplication(
+                session: session,
+                mode: targetMode,
+                settlesPosition: settlesPosition
+            ))
+            return effects
+        }
+
+        effects.append(.renderZoom(
+            planeId: plane?.id,
+            scale: 1,
+            panDeltaY: panDeltaY
+        ))
+        if let plane {
+            state = .awaitingRenderer(PendingRendererAction(
+                session: session,
+                mode: targetMode,
+                settlesPosition: settlesPosition,
+                retriesWithDirectMode: usesMenuFallback
+            ))
+            effects.append(.discardPlane(id: plane.id))
+            return effects
+        }
+
+        state = .idle
+        return effects + terminalEffects(
+            for: session,
+            settlesPosition: settlesPosition
+        )
     }
 
     private mutating func handleSettleStarted(
         timestamp: TimeInterval
     ) -> [Effect] {
         guard case var .settling(settle) = state,
-              settle.startTime == nil else {
+              settle.lastTickTime == nil else {
             return []
         }
-        settle.startTime = sanitizedTimestamp(timestamp)
+        settle.lastTickTime = sanitizedTimestamp(timestamp)
         state = .settling(settle)
         return []
     }
@@ -857,40 +1018,52 @@ struct PlayerBrowserGridInteractionCoordinator {
     ) -> [Effect] {
         guard case var .settling(settle) = state else { return [] }
         let tickTime = sanitizedTimestamp(timestamp)
-        if settle.startTime == nil {
-            settle.startTime = tickTime
-        }
-        let elapsed = max(tickTime - (settle.startTime ?? tickTime), 0)
-        let fraction = min(max(elapsed / settle.duration, 0), 1)
-        let easedFraction = settle.curve.value(at: CGFloat(fraction))
-        let progress = settle.fromProgress
-            + (settle.outcome.targetProgress - settle.fromProgress)
-                * easedFraction
-        if fraction >= 1 {
-            return terminalTransitionEffects(
+        let deltaTime = CGFloat(
+            max(tickTime - (settle.lastTickTime ?? tickTime), 0)
+        )
+        settle.lastTickTime = tickTime
+        let stepped = PlayerBrowserGridPinchPolicy.settleSpringStep(
+            logOffset: settle.logOffset,
+            logVelocity: settle.logVelocity,
+            deltaTime: deltaTime
+        )
+        settle.logOffset = stepped.logOffset
+        settle.logVelocity = stepped.logVelocity
+        if PlayerBrowserGridPinchPolicy.isSettleSpringAtRest(
+            logOffset: settle.logOffset,
+            logVelocity: settle.logVelocity
+        ) {
+            return terminalSettleEffects(
                 session: settle.session,
-                transition: settle.transition,
-                outcome: settle.outcome,
+                plane: settle.plane,
+                targetMode: settle.targetMode,
                 panDeltaY: settle.panDeltaY,
                 settlesPosition: true,
-                resetsOvershoot: false,
                 usesMenuFallback: settle.usesMenuFallback,
                 stopsDisplayLink: true
             )
         }
 
-        settle.currentProgress = progress
         state = .settling(settle)
-        return [.renderTransition(
-            id: settle.transition.id,
-            progress: progress,
+        if let plane = settle.plane,
+           settle.commits || settle.currentProgress > 0 {
+            return [.renderSettle(
+                id: plane.id,
+                scale: settle.currentScale,
+                settleProgress: settle.currentProgress,
+                panDeltaY: settle.panDeltaY
+            )]
+        }
+        return [.renderZoom(
+            planeId: settle.plane?.id,
+            scale: settle.currentScale,
             panDeltaY: settle.panDeltaY
         )]
     }
 
     private mutating func handleInterrupt() -> [Effect] {
         switch state {
-        case .idle, .applying:
+        case .idle, .awaitingRenderer:
             return []
 
         case .tracking:
@@ -898,33 +1071,29 @@ struct PlayerBrowserGridInteractionCoordinator {
             return []
 
         case let .interacting(interaction):
-            guard let transition = interaction.transition else {
-                state = .idle
-                return [.resetOvershoot(animated: false)]
-                    + terminalEffects(
-                        for: interaction.session,
-                        settlesPosition: false
-                    )
+            let adoptedSettle = interaction.adoptedSettlePhase.resolve(
+                scale: interaction.scale,
+                plane: interaction.plane
+            )
+            var targetMode = interaction.session.initialMode
+            if let heldContext = adoptedSettle.heldContext,
+               interaction.plane?.toMode == heldContext.targetMode
+                || heldContext.targetMode == interaction.session.initialMode {
+                targetMode = heldContext.targetMode
             }
-            let outcome = interaction.adoptedSettleIntent?.outcome ?? .cancel
-            let usesMenuFallback = outcome == .commit
-                && interaction.adoptedSettleIntent?.usesMenuFallback == true
-            return terminalTransitionEffects(
+            return terminalSettleEffects(
                 session: interaction.session,
-                transition: transition,
-                outcome: outcome,
+                plane: interaction.plane,
+                targetMode: targetMode,
                 panDeltaY: interaction.panDeltaY,
                 settlesPosition: false,
-                resetsOvershoot: true,
-                usesMenuFallback: usesMenuFallback,
+                usesMenuFallback: adoptedSettle.context?.usesMenuFallback
+                    ?? false,
                 stopsDisplayLink: false
             )
 
         case let .settling(settle):
-            return settleSynchronously(
-                settle,
-                settlesPosition: false
-            )
+            return settleSynchronously(settle, settlesPosition: false)
         }
     }
 
@@ -932,227 +1101,52 @@ struct PlayerBrowserGridInteractionCoordinator {
         _ settle: SettleState,
         settlesPosition: Bool
     ) -> [Effect] {
-        terminalTransitionEffects(
+        terminalSettleEffects(
             session: settle.session,
-            transition: settle.transition,
-            outcome: settle.outcome,
+            plane: settle.plane,
+            targetMode: settle.targetMode,
             panDeltaY: settle.panDeltaY,
             settlesPosition: settlesPosition,
-            resetsOvershoot: true,
             usesMenuFallback: settle.usesMenuFallback,
             stopsDisplayLink: true
         )
     }
 
     private mutating func handleRendererSuccess(
-        wasInterrupted: Bool
+        _ action: PendingRendererAction
     ) -> [Effect] {
-        guard let pendingRendererAction else { return [] }
-        self.pendingRendererAction = nil
-
-        switch pendingRendererAction {
-        case let .boundaryCommit(sample, transition, emitsHaptic):
-            guard case var .interacting(interaction) = state,
-                  interaction.transition?.id == transition.id else {
-                return rendererInvariantFailureEffects()
-            }
-            interaction.session.currentMode = transition.toMode
-            interaction.session.didCommitGeometry = true
-            interaction.referenceScale *= transition.itemWidthRatio
-            interaction.referenceCentroidY = sample.centroidY
-            interaction.basePanDeltaY = 0
-            interaction.panDeltaY = 0
-            interaction.transition = nil
-            interaction.progress = 0
-            interaction.adoptedSettleIntent = nil
-            var effects = emitsHaptic ? [Effect.selectionHaptic] : []
-            if wasInterrupted {
-                state = .idle
-                effects.append(.resetOvershoot(animated: false))
-                return effects + terminalEffects(
-                    for: interaction.session,
-                    settlesPosition: false
-                )
-            }
-            state = .interacting(interaction)
-            effects.append(.continuePinch(sample))
-            return effects
-
-        case let .reversalDiscard(sample, transition):
-            guard case var .interacting(interaction) = state,
-                  interaction.transition?.id == transition.id else {
-                return rendererInvariantFailureEffects()
-            }
-            interaction.transition = nil
-            interaction.progress = 0
-            interaction.adoptedSettleIntent = nil
-            if wasInterrupted {
-                state = .idle
-                return [.resetOvershoot(animated: false)]
-                    + terminalEffects(
-                        for: interaction.session,
-                        settlesPosition: false
-                    )
-            }
-            state = .interacting(interaction)
-            return [.continuePinch(sample)]
-
-        case let .terminalTransition(
-            session,
-            transition,
-            outcome,
-            settlesPosition,
-            resetsOvershoot,
-            _,
-            stopsDisplayLink
-        ):
-            var acknowledgedSession = session
-            if outcome == .commit {
-                acknowledgedSession.currentMode = transition.toMode
-                acknowledgedSession.didCommitGeometry = true
-            }
-            state = .idle
-            var effects = [Effect]()
-            if stopsDisplayLink {
-                effects.append(.stopDisplayLink)
-            }
-            if resetsOvershoot || wasInterrupted {
-                effects.append(.resetOvershoot(animated: false))
-            }
-            return effects + terminalEffects(
-                for: acknowledgedSession,
-                settlesPosition: settlesPosition && !wasInterrupted
-            )
-
-        case let .directMode(pendingSession, mode, settlesPosition):
-            var session = pendingSession
-            session.currentMode = mode
-            session.didCommitGeometry = true
-            state = .idle
-            return terminalEffects(
-                for: session,
-                settlesPosition: settlesPosition && !wasInterrupted
-            )
-        }
-    }
-
-    private mutating func rendererInvariantFailureEffects() -> [Effect] {
-        let session = state.session
-        let stopsDisplayLink: Bool
-        if case .settling = state {
-            stopsDisplayLink = true
-        } else {
-            stopsDisplayLink = false
-        }
-        hasPendingInterrupt = false
         state = .idle
-        var effects = stopsDisplayLink
-            ? [Effect.stopDisplayLink, .resetRenderer]
-            : [.resetRenderer]
-        guard let session else {
-            effects.append(.finishInteraction(settlesPosition: false))
-            return effects
-        }
-        return effects + terminalEffects(
-            for: session,
-            settlesPosition: false
+        return terminalEffects(
+            for: action.session,
+            committedMode: action.mode,
+            settlesPosition: action.settlesPosition
+                && !action.wasInterrupted
         )
     }
 
     private mutating func handleRendererFailure(
-        wasInterrupted: Bool
+        _ action: PendingRendererAction
     ) -> [Effect] {
-        if let pendingRendererAction {
-            self.pendingRendererAction = nil
-            switch pendingRendererAction {
-            case let .boundaryCommit(_, transition, _):
-                guard case let .interacting(interaction) = state,
-                      interaction.transition?.id == transition.id else {
-                    return rendererInvariantFailureEffects()
-                }
-                if interaction.adoptedSettleIntent?.outcome == .commit,
-                   interaction.adoptedSettleIntent?.usesMenuFallback == true {
-                    let settlesPosition = !wasInterrupted
-                    state = .applying(interaction.session)
-                    self.pendingRendererAction = .directMode(
-                        session: interaction.session,
-                        mode: transition.toMode,
-                        settlesPosition: settlesPosition
-                    )
-                    hasPendingInterrupt = wasInterrupted
-                    return [
-                        .resetRenderer,
-                        .applyMode(transition.toMode)
-                    ]
-                }
-                hasPendingInterrupt = false
-                state = .idle
-                return [.resetRenderer] + terminalEffects(
-                    for: interaction.session,
-                    settlesPosition: !wasInterrupted
-                )
-
-            case .reversalDiscard:
-                guard case let .interacting(interaction) = state else {
-                    return rendererInvariantFailureEffects()
-                }
-                hasPendingInterrupt = false
-                state = .idle
-                return [.resetRenderer] + terminalEffects(
-                    for: interaction.session,
-                    settlesPosition: !wasInterrupted
-                )
-
-            case let .terminalTransition(
-                session,
-                transition,
-                outcome,
-                settlesPosition,
-                _,
-                usesMenuFallback,
-                stopsDisplayLink
-            ):
-                let effectiveSettlesPosition =
-                    settlesPosition && !wasInterrupted
-                if usesMenuFallback, outcome == .commit {
-                    state = .applying(session)
-                    self.pendingRendererAction = .directMode(
-                        session: session,
-                        mode: transition.toMode,
-                        settlesPosition: effectiveSettlesPosition
-                    )
-                    hasPendingInterrupt = wasInterrupted
-                    var effects = [Effect]()
-                    if stopsDisplayLink {
-                        effects.append(.stopDisplayLink)
-                    }
-                    effects.append(.resetRenderer)
-                    effects.append(.applyMode(transition.toMode))
-                    return effects
-                }
-                hasPendingInterrupt = false
-                state = .idle
-                var effects = stopsDisplayLink
-                    ? [Effect.stopDisplayLink]
-                    : []
-                effects.append(.resetRenderer)
-                return effects + terminalEffects(
-                    for: session,
-                    settlesPosition: effectiveSettlesPosition
-                )
-
-            case let .directMode(session, _, settlesPosition):
-                hasPendingInterrupt = false
-                state = .idle
-                return [.resetRenderer] + terminalEffects(
-                    for: session,
-                    settlesPosition: settlesPosition && !wasInterrupted
-                )
-            }
+        let effectiveSettlesPosition = action.settlesPosition
+            && !action.wasInterrupted
+        if action.retriesWithDirectMode,
+           action.mode != action.session.initialMode {
+            let applyMode = beginDirectModeApplication(
+                session: action.session,
+                mode: action.mode,
+                settlesPosition: action.settlesPosition,
+                wasInterrupted: action.wasInterrupted
+            )
+            return [.resetRenderer, applyMode]
         }
+        state = .idle
+        return [.resetRenderer] + terminalEffects(
+            for: action.session,
+            settlesPosition: effectiveSettlesPosition
+        )
+    }
 
-        hasPendingInterrupt = false
-
+    private mutating func handleRendererFailure() -> [Effect] {
         switch state {
         case .idle:
             return []
@@ -1162,19 +1156,21 @@ struct PlayerBrowserGridInteractionCoordinator {
             return []
 
         case let .interacting(interaction):
-            if let transition = interaction.transition,
-               interaction.adoptedSettleIntent?.outcome == .commit,
-               interaction.adoptedSettleIntent?.usesMenuFallback == true {
-                state = .applying(interaction.session)
-                pendingRendererAction = .directMode(
+            let adoptedSettle = interaction.adoptedSettlePhase.resolve(
+                scale: interaction.scale,
+                plane: interaction.plane
+            )
+            // The adopted menu selection still owns the visual handoff while
+            // its plane retains progress, so renderer recovery must preserve
+            // the same target as a normal release.
+            if let context = adoptedSettle.releaseContext,
+               context.usesMenuFallback,
+               context.targetMode != interaction.session.initialMode {
+                return [.resetRenderer, beginDirectModeApplication(
                     session: interaction.session,
-                    mode: transition.toMode,
+                    mode: context.targetMode,
                     settlesPosition: true
-                )
-                return [
-                    .resetRenderer,
-                    .applyMode(transition.toMode)
-                ]
+                )]
             }
             state = .idle
             return [.resetRenderer] + terminalEffects(
@@ -1183,17 +1179,15 @@ struct PlayerBrowserGridInteractionCoordinator {
             )
 
         case let .settling(settle):
-            if settle.usesMenuFallback, settle.outcome == .commit {
-                state = .applying(settle.session)
-                pendingRendererAction = .directMode(
-                    session: settle.session,
-                    mode: settle.transition.toMode,
-                    settlesPosition: true
-                )
+            if settle.usesMenuFallback, settle.commits {
                 return [
                     .stopDisplayLink,
                     .resetRenderer,
-                    .applyMode(settle.transition.toMode)
+                    beginDirectModeApplication(
+                        session: settle.session,
+                        mode: settle.targetMode,
+                        settlesPosition: true
+                    )
                 ]
             }
             state = .idle
@@ -1205,34 +1199,43 @@ struct PlayerBrowserGridInteractionCoordinator {
                 settlesPosition: true
             )
 
-        case let .applying(session):
-            state = .idle
-            return [.resetRenderer] + terminalEffects(
-                for: session,
-                settlesPosition: true
-            )
+        case .awaitingRenderer:
+            preconditionFailure("Awaiting renderer failures are handled before event dispatch")
         }
     }
 
+    private mutating func beginDirectModeApplication(
+        session: Session,
+        mode: MobileCollectionBrowserGridMode,
+        settlesPosition: Bool,
+        wasInterrupted: Bool = false
+    ) -> Effect {
+        state = .awaitingRenderer(PendingRendererAction(
+            session: session,
+            mode: mode,
+            settlesPosition: settlesPosition,
+            retriesWithDirectMode: false,
+            wasInterrupted: wasInterrupted
+        ))
+        return .applyMode(mode)
+    }
+
+    /// `committedMode` is the mode the renderer acknowledged; it is nil or
+    /// `session.initialMode` on paths that end the interaction where it
+    /// started.
     private func terminalEffects(
         for session: Session,
+        committedMode: MobileCollectionBrowserGridMode? = nil,
         settlesPosition: Bool
     ) -> [Effect] {
         var effects = [Effect]()
-        if session.currentMode != session.initialMode {
-            effects.append(.persistMode(session.currentMode))
-        }
-        if session.didCommitGeometry {
-            let initialQuality = session.initialMode.requiredImageQuality(
-                defaultGridMode: session.defaultMode
-            )
-            let finalQuality = session.currentMode.requiredImageQuality(
-                defaultGridMode: session.defaultMode
-            )
-            effects.append(.reconcileMedia(MediaReconciliation(
-                finalMode: session.currentMode,
-                cancelsPrefetchLoads: initialQuality != finalQuality
-            )))
+        if let committedMode, committedMode != session.initialMode {
+            effects.append(.persistMode(committedMode))
+            effects.append(.reconcileMedia(
+                cancelsPrefetchLoads:
+                    session.initialMode.requiredImageQuality
+                        != committedMode.requiredImageQuality
+            ))
         }
         effects.append(.finishInteraction(
             settlesPosition: settlesPosition

@@ -39,12 +39,13 @@ struct CollectionBrowseImageSources: Hashable {
 extension CollectionCatalog {
 
     private static let generativeThumbnailBaseURL = URL(string: "https://cdn.lil.org/player")!
-
     static func standardThumbsPathsAvailable(specificCollectionId: String) -> Bool {
         SuggestedItemsService.item(id: specificCollectionId)?.standardThumbsPathsAvailable == true
     }
 
-    static func collectionBrowseColumnCount(specificCollectionId: String) -> Int {
+    static func desktopCollectionBrowseColumnCount(
+        specificCollectionId: String
+    ) -> Int {
         SuggestedItemsService.item(id: specificCollectionId)?
             .iosCollectionBrowserColumnCount == 2
             ? 2

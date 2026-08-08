@@ -226,6 +226,15 @@
 		2D9000072FB0000000000001 /* CollectionsGridScrollViewHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D9000042FB0000000000001 /* CollectionsGridScrollViewHelpers.swift */; };
 		2DA100012FC0000000000001 /* PlayerCollectionScrollPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA100002FC0000000000001 /* PlayerCollectionScrollPolicy.swift */; };
 		2DA100032FC0000000000001 /* VerticalCollectionBrowserViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA100022FC0000000000001 /* VerticalCollectionBrowserViewController.swift */; };
+		2DA100092FC0000000000001 /* MobilePlayerCollectionBrowserCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA100072FC0000000000001 /* MobilePlayerCollectionBrowserCell.swift */; };
+		2DA1000A2FC0000000000001 /* MobilePlayerCollectionBrowserTransitionPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA100082FC0000000000001 /* MobilePlayerCollectionBrowserTransitionPresentation.swift */; };
+		2DA1000B2FC0000000000001 /* MobilePlayerCollectionBrowserGridRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA1000D2FC0000000000001 /* MobilePlayerCollectionBrowserGridRenderer.swift */; };
+		2DA1000C2FC0000000000001 /* PlayerBrowserGridSourceCoverage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA1000E2FC0000000000001 /* PlayerBrowserGridSourceCoverage.swift */; };
+		2DA300012FE0000000000001 /* MobilePlayerCollectionBrowserTransitionSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA300022FE0000000000001 /* MobilePlayerCollectionBrowserTransitionSupport.swift */; };
+		2DA200012FD0000000000001 /* MobilePlayerCollectionBrowserTransitionPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA200072FD0000000000001 /* MobilePlayerCollectionBrowserTransitionPresentationTests.swift */; };
+		2DA200022FD0000000000001 /* MobilePlayerCollectionBrowserCachedImagePolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA200082FD0000000000001 /* MobilePlayerCollectionBrowserCachedImagePolicyTests.swift */; };
+		2DA200032FD0000000000001 /* MobileCollectionBrowserGridModeStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA200092FD0000000000001 /* MobileCollectionBrowserGridModeStoreTests.swift */; };
+		2DA200042FD0000000000001 /* MobilePlayerCollectionBrowserGridRendererTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA2000A2FD0000000000001 /* MobilePlayerCollectionBrowserGridRendererTests.swift */; };
 		2DA100042FC0000000000001 /* PlayerCollectionScrollPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA100002FC0000000000001 /* PlayerCollectionScrollPolicy.swift */; };
 		2DA100052FC0000000000001 /* PlayerCollectionScrollPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA100002FC0000000000001 /* PlayerCollectionScrollPolicy.swift */; };
 		2DA100062FC0000000000001 /* PlayerCollectionScrollPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA100002FC0000000000001 /* PlayerCollectionScrollPolicy.swift */; };
@@ -252,9 +261,18 @@
 		2E1300000000000000000003 /* PlayerBrowserGridPinchPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E1300000000000000000001 /* PlayerBrowserGridPinchPolicy.swift */; };
 		2E1400000000000000000002 /* PlayerBrowserGridInteractionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E1400000000000000000001 /* PlayerBrowserGridInteractionCoordinator.swift */; };
 		2E1400000000000000000003 /* PlayerBrowserGridInteractionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E1400000000000000000001 /* PlayerBrowserGridInteractionCoordinator.swift */; };
+		2E1500000000000000000002 /* PlayerBrowserGridCrossfade.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E1500000000000000000001 /* PlayerBrowserGridCrossfade.swift */; };
+		2E1500000000000000000003 /* PlayerBrowserGridCrossfade.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E1500000000000000000001 /* PlayerBrowserGridCrossfade.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		2DA200052FD0000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2CA4CF492B07F75E00CC75F4 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2C2CB47B2D29545F00042E74;
+			remoteInfo = "nft-player-ios";
+		};
 		2D1000292F30000000000001 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 2CA4CF492B07F75E00CC75F4 /* Project object */;
@@ -431,6 +449,16 @@
 		2D9000042FB0000000000001 /* CollectionsGridScrollViewHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionsGridScrollViewHelpers.swift; sourceTree = "<group>"; };
 		2DA100002FC0000000000001 /* PlayerCollectionScrollPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerCollectionScrollPolicy.swift; sourceTree = "<group>"; };
 		2DA100022FC0000000000001 /* VerticalCollectionBrowserViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VerticalCollectionBrowserViewController.swift; sourceTree = "<group>"; };
+		2DA100072FC0000000000001 /* MobilePlayerCollectionBrowserCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobilePlayerCollectionBrowserCell.swift; sourceTree = "<group>"; };
+		2DA100082FC0000000000001 /* MobilePlayerCollectionBrowserTransitionPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobilePlayerCollectionBrowserTransitionPresentation.swift; sourceTree = "<group>"; };
+		2DA1000D2FC0000000000001 /* MobilePlayerCollectionBrowserGridRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobilePlayerCollectionBrowserGridRenderer.swift; sourceTree = "<group>"; };
+		2DA1000E2FC0000000000001 /* PlayerBrowserGridSourceCoverage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerBrowserGridSourceCoverage.swift; sourceTree = "<group>"; };
+		2DA300022FE0000000000001 /* MobilePlayerCollectionBrowserTransitionSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobilePlayerCollectionBrowserTransitionSupport.swift; sourceTree = "<group>"; };
+		2DA200062FD0000000000001 /* nft-player-iosTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "nft-player-iosTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		2DA200072FD0000000000001 /* MobilePlayerCollectionBrowserTransitionPresentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobilePlayerCollectionBrowserTransitionPresentationTests.swift; sourceTree = "<group>"; };
+		2DA200082FD0000000000001 /* MobilePlayerCollectionBrowserCachedImagePolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobilePlayerCollectionBrowserCachedImagePolicyTests.swift; sourceTree = "<group>"; };
+		2DA200092FD0000000000001 /* MobileCollectionBrowserGridModeStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileCollectionBrowserGridModeStoreTests.swift; sourceTree = "<group>"; };
+		2DA2000A2FD0000000000001 /* MobilePlayerCollectionBrowserGridRendererTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobilePlayerCollectionBrowserGridRendererTests.swift; sourceTree = "<group>"; };
 		2DB100012FD0000000000001 /* MobilePlayerBrowserLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobilePlayerBrowserLayout.swift; sourceTree = "<group>"; };
 		2E0000000000B7378DF1FB9C /* CollectionBrowseThumbnails.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionBrowseThumbnails.swift; sourceTree = "<group>"; };
 		2E0000000000053BA7B2B190 /* PlayerCollectionBrowserSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerCollectionBrowserSupport.swift; sourceTree = "<group>"; };
@@ -447,9 +475,17 @@
 		2E1100000000000000000001 /* PlayerCardMinimizePinchPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerCardMinimizePinchPolicy.swift; sourceTree = "<group>"; };
 		2E1300000000000000000001 /* PlayerBrowserGridPinchPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerBrowserGridPinchPolicy.swift; sourceTree = "<group>"; };
 		2E1400000000000000000001 /* PlayerBrowserGridInteractionCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerBrowserGridInteractionCoordinator.swift; sourceTree = "<group>"; };
+		2E1500000000000000000001 /* PlayerBrowserGridCrossfade.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerBrowserGridCrossfade.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		2DA2000B2FD0000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		2C2CB4792D29545F00042E74 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -520,6 +556,8 @@
 				2E1100000000000000000001 /* PlayerCardMinimizePinchPolicy.swift */,
 				2E1300000000000000000001 /* PlayerBrowserGridPinchPolicy.swift */,
 				2E1400000000000000000001 /* PlayerBrowserGridInteractionCoordinator.swift */,
+				2E1500000000000000000001 /* PlayerBrowserGridCrossfade.swift */,
+				2DA1000E2FC0000000000001 /* PlayerBrowserGridSourceCoverage.swift */,
 				2DB100012FD0000000000001 /* MobilePlayerBrowserLayout.swift */,
 				2E1200000000000000000001 /* CollectionBrowserConfiguration.swift */,
 				2D4000042F50000000000001 /* PlayerViewingSessionTracker.swift */,
@@ -696,6 +734,7 @@
 				2CA7EE8C2C1C746900C7AEB5 /* app_store */,
 				2CD488FD2B10C6B000A53950 /* Supporting Files */,
 				2CF08AB12D2A958B00D82ACA /* nft-player-ios */,
+				2DA2000C2FD0000000000001 /* nft-player-iosTests */,
 				2D10000A2F30000000000001 /* nft-player-ios-widget */,
 				2D10000B2F30000000000001 /* nft-player-widget */,
 				2C5A59982C51073F00788870 /* nft-player-vision */,
@@ -715,6 +754,7 @@
 				2D1000072F30000000000001 /* nft-player-ios-widget.appex */,
 				2D1000082F30000000000001 /* nft-player-widget.appex */,
 				2D5000092F60000000000001 /* nft-player-vision-widget.appex */,
+				2DA200062FD0000000000001 /* nft-player-iosTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -777,6 +817,10 @@
 				2CC971622D2F4214005A8C4C /* HorizontalPlayer.swift */,
 				2CC971652E88410100000001 /* MobilePlayerModeController.swift */,
 				2DA100022FC0000000000001 /* VerticalCollectionBrowserViewController.swift */,
+				2DA100072FC0000000000001 /* MobilePlayerCollectionBrowserCell.swift */,
+				2DA100082FC0000000000001 /* MobilePlayerCollectionBrowserTransitionPresentation.swift */,
+				2DA300022FE0000000000001 /* MobilePlayerCollectionBrowserTransitionSupport.swift */,
+				2DA1000D2FC0000000000001 /* MobilePlayerCollectionBrowserGridRenderer.swift */,
 				2C7134D52D304609001E33DC /* MobilePlaybackController.swift */,
 				2CC93C662DB2B13A00C5801A /* ExternalDisplayViewController.swift */,
 				2CFA91002EB1000000000001 /* NativeMetalCardView.swift */,
@@ -789,6 +833,17 @@
 				2CF100032F20000000000001 /* nft_player_ios.entitlements */,
 			);
 			path = "nft-player-ios";
+			sourceTree = "<group>";
+		};
+		2DA2000C2FD0000000000001 /* nft-player-iosTests */ = {
+			isa = PBXGroup;
+			children = (
+				2DA200072FD0000000000001 /* MobilePlayerCollectionBrowserTransitionPresentationTests.swift */,
+				2DA200082FD0000000000001 /* MobilePlayerCollectionBrowserCachedImagePolicyTests.swift */,
+				2DA200092FD0000000000001 /* MobileCollectionBrowserGridModeStoreTests.swift */,
+				2DA2000A2FD0000000000001 /* MobilePlayerCollectionBrowserGridRendererTests.swift */,
+			);
+			path = "nft-player-iosTests";
 			sourceTree = "<group>";
 		};
 		2D1000092F30000000000001 /* Widgets */ = {
@@ -848,6 +903,25 @@
 			productName = "nft-player-ios";
 			productReference = 2C2CB47C2D29545F00042E74 /* nft-player-ios.app */;
 			productType = "com.apple.product-type.application";
+		};
+		2DA2000D2FD0000000000001 /* nft-player-iosTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2DA200122FD0000000000001 /* Build configuration list for PBXNativeTarget "nft-player-iosTests" */;
+			buildPhases = (
+				2DA2000E2FD0000000000001 /* Sources */,
+				2DA2000B2FD0000000000001 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				2DA2000F2FD0000000000001 /* PBXTargetDependency */,
+			);
+			name = "nft-player-iosTests";
+			packageProductDependencies = (
+			);
+			productName = "nft-player-iosTests";
+			productReference = 2DA200062FD0000000000001 /* nft-player-iosTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
 		};
 		2C5A59962C51073F00788870 /* nft-player-vision */ = {
 			isa = PBXNativeTarget;
@@ -978,6 +1052,10 @@
 					2C2CB47B2D29545F00042E74 = {
 						CreatedOnToolsVersion = 16.2;
 					};
+					2DA2000D2FD0000000000001 = {
+						CreatedOnToolsVersion = 26.0;
+						TestTargetID = 2C2CB47B2D29545F00042E74;
+					};
 					2C5A59962C51073F00788870 = {
 						CreatedOnToolsVersion = 15.4;
 					};
@@ -1071,6 +1149,7 @@
 				2C5A59962C51073F00788870 /* nft-player-vision */,
 				2C5A59AD2C51400100788870 /* nft-player-tvos */,
 				2C2CB47B2D29545F00042E74 /* nft-player-ios */,
+				2DA2000D2FD0000000000001 /* nft-player-iosTests */,
 				2D1000122F30000000000001 /* nft-player-ios-widget */,
 				2D1000132F30000000000001 /* nft-player-widget */,
 				2D50000C2F60000000000001 /* nft-player-vision-widget */,
@@ -1184,6 +1263,17 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		2DA2000E2FD0000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2DA200012FD0000000000001 /* MobilePlayerCollectionBrowserTransitionPresentationTests.swift in Sources */,
+				2DA200022FD0000000000001 /* MobilePlayerCollectionBrowserCachedImagePolicyTests.swift in Sources */,
+				2DA200032FD0000000000001 /* MobileCollectionBrowserGridModeStoreTests.swift in Sources */,
+				2DA200042FD0000000000001 /* MobilePlayerCollectionBrowserGridRendererTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		2C2CB4782D29545F00042E74 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1232,9 +1322,15 @@
 				2E1100000000000000000002 /* PlayerCardMinimizePinchPolicy.swift in Sources */,
 				2E1300000000000000000002 /* PlayerBrowserGridPinchPolicy.swift in Sources */,
 				2E1400000000000000000002 /* PlayerBrowserGridInteractionCoordinator.swift in Sources */,
+				2E1500000000000000000002 /* PlayerBrowserGridCrossfade.swift in Sources */,
 				2DB100022FD0000000000001 /* MobilePlayerBrowserLayout.swift in Sources */,
 				2E1200000000000000000002 /* CollectionBrowserConfiguration.swift in Sources */,
 				2DA100032FC0000000000001 /* VerticalCollectionBrowserViewController.swift in Sources */,
+				2DA100092FC0000000000001 /* MobilePlayerCollectionBrowserCell.swift in Sources */,
+				2DA1000A2FC0000000000001 /* MobilePlayerCollectionBrowserTransitionPresentation.swift in Sources */,
+				2DA300012FE0000000000001 /* MobilePlayerCollectionBrowserTransitionSupport.swift in Sources */,
+				2DA1000B2FC0000000000001 /* MobilePlayerCollectionBrowserGridRenderer.swift in Sources */,
+				2DA1000C2FC0000000000001 /* PlayerBrowserGridSourceCoverage.swift in Sources */,
 				2C460ED02D2985A90083124E /* NftGallery.swift in Sources */,
 				2C460ED22D2985A90083124E /* Chain.swift in Sources */,
 				2C460ECD2D2985910083124E /* Strings.swift in Sources */,
@@ -1382,6 +1478,7 @@
 				2E1100000000000000000003 /* PlayerCardMinimizePinchPolicy.swift in Sources */,
 				2E1300000000000000000003 /* PlayerBrowserGridPinchPolicy.swift in Sources */,
 				2E1400000000000000000003 /* PlayerBrowserGridInteractionCoordinator.swift in Sources */,
+				2E1500000000000000000003 /* PlayerBrowserGridCrossfade.swift in Sources */,
 				2E00000000008EF78D7B4701 /* MacNavigationController.swift in Sources */,
 				2E0000000000EF81A18E1100 /* MacCollectionBrowserViewController.swift in Sources */,
 				2E000000000086B634D63AC9 /* MacPlayerCardTransition.swift in Sources */,
@@ -1425,6 +1522,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		2DA2000F2FD0000000000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2C2CB47B2D29545F00042E74 /* nft-player-ios */;
+			targetProxy = 2DA200052FD0000000000001 /* PBXContainerItemProxy */;
+		};
 		2D10002B2F30000000000001 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 2D1000122F30000000000001 /* nft-player-ios-widget */;
@@ -1502,6 +1604,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 315;
 				DEVELOPMENT_TEAM = 8DXC3N7E7P;
+				"ENABLE_TESTABILITY[sdk=iphonesimulator*]" = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "nft-player-ios/Info.plist";
@@ -2086,6 +2189,53 @@
 			};
 			name = Release;
 		};
+		2DA200102FD0000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 8DXC3N7E7P;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "org.lil.nft-folder.tests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/nft-player-ios.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/nft-player-ios";
+			};
+			name = Debug;
+		};
+		2DA200112FD0000000000001 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 8DXC3N7E7P;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "org.lil.nft-folder.tests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/nft-player-ios.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/nft-player-ios";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -2094,6 +2244,15 @@
 			buildConfigurations = (
 				2C2CB4872D29546000042E74 /* Debug */,
 				2C2CB4882D29546000042E74 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		2DA200122FD0000000000001 /* Build configuration list for PBXNativeTarget "nft-player-iosTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2DA200102FD0000000000001 /* Debug */,
+				2DA200112FD0000000000001 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

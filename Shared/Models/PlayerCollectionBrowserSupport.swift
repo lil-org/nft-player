@@ -117,20 +117,15 @@ enum PlayerCollectionBrowserSupport {
 }
 
 enum PlayerCollectionBrowseMediaWindowLayout {
-    private static let decodedPreferredViewportRadius = 2
-    private static let decodedOppositeViewportRadius = 1
-    private static let filePreferredViewportRadius = 6
-    private static let fileOppositeViewportRadius = 2
-
     static func fileOffsets(
         prefetchStride: Int,
         direction: DownloadableMediaCache.PrefetchDirection
     ) -> [Int] {
         offsets(
-            prefetchStride: prefetchStride,
             direction: direction,
-            preferredViewportRadius: filePreferredViewportRadius,
-            oppositeViewportRadius: fileOppositeViewportRadius
+            radii: PlayerCollectionBrowseMediaWindowPolicy.fileRadii(
+                prefetchStride: prefetchStride
+            )
         )
     }
 
@@ -139,10 +134,10 @@ enum PlayerCollectionBrowseMediaWindowLayout {
         direction: DownloadableMediaCache.PrefetchDirection
     ) -> [Int] {
         offsets(
-            prefetchStride: prefetchStride,
             direction: direction,
-            preferredViewportRadius: decodedPreferredViewportRadius,
-            oppositeViewportRadius: decodedOppositeViewportRadius
+            radii: PlayerCollectionBrowseMediaWindowPolicy.decodedRadii(
+                prefetchStride: prefetchStride
+            )
         )
     }
 
@@ -202,19 +197,13 @@ enum PlayerCollectionBrowseMediaWindowLayout {
     }
 
     private static func offsets(
-        prefetchStride: Int,
         direction: DownloadableMediaCache.PrefetchDirection,
-        preferredViewportRadius: Int,
-        oppositeViewportRadius: Int
+        radii: PlayerCollectionBrowseMediaWindowPolicy.Radii
     ) -> [Int] {
-        let cappedPrefetchStride = min(
-            max(prefetchStride, 1),
-            MobilePlayerBrowserLayout.maximumPrefetchStride
-        )
         return PlayerDownloadableMediaWindowLayout.orderedOffsets(
             direction: direction,
-            preferredRadius: cappedPrefetchStride * preferredViewportRadius,
-            oppositeRadius: cappedPrefetchStride * oppositeViewportRadius
+            preferredRadius: radii.preferred,
+            oppositeRadius: radii.opposite
         )
     }
 }

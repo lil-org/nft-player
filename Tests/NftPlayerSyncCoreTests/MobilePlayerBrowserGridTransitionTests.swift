@@ -26,91 +26,19 @@ final class MobilePlayerBrowserGridTransitionTests: XCTestCase {
         ))
     }
 
-    private func makeTransition(
-        fromColumnCount: Int,
-        toColumnCount: Int,
-        itemCount: Int = 500,
-        progress: CGFloat
-    ) throws -> MobilePlayerBrowserGridTransition {
-        var transition = try XCTUnwrap(MobilePlayerBrowserGridTransition(
-            fromLayout: makeUniformLayout(
-                itemCount: itemCount,
-                columnCount: fromColumnCount
-            ),
-            toLayout: makeUniformLayout(
-                itemCount: itemCount,
-                columnCount: toColumnCount
+    private func makeVariableLayout(
+        ratios: [CGFloat],
+        columnCount: Int
+    ) throws -> MobilePlayerBrowserLayout {
+        try XCTUnwrap(MobilePlayerBrowserLayout(
+            viewportSize: Self.viewportSize,
+            topContentInset: 47,
+            bottomContentInset: 34,
+            aspectProfile: MobilePlayerBrowserAspectProfile(
+                heightToWidthRatios: ratios,
+                columnCount: columnCount
             )
         ))
-        transition.setProgress(progress)
-        return transition
-    }
-
-    private func assertFrame(
-        _ frame: CGRect,
-        matches expectedFrame: CGRect,
-        file: StaticString = #filePath,
-        line: UInt = #line
-    ) {
-        XCTAssertEqual(frame.minX, expectedFrame.minX, accuracy: 0.000_001, file: file, line: line)
-        XCTAssertEqual(frame.minY, expectedFrame.minY, accuracy: 0.000_001, file: file, line: line)
-        XCTAssertEqual(frame.width, expectedFrame.width, accuracy: 0.000_001, file: file, line: line)
-        XCTAssertEqual(frame.height, expectedFrame.height, accuracy: 0.000_001, file: file, line: line)
-    }
-
-    private func assertCandidateItemIndices(
-        _ transition: MobilePlayerBrowserGridTransition,
-        intersecting rect: CGRect,
-        message: String,
-        file: StaticString = #filePath,
-        line: UInt = #line
-    ) {
-        let expectedIndices = (0..<transition.itemCount).filter {
-            guard let frame = transition.itemFrame(at: $0) else { return false }
-            return frame.maxY >= rect.minY && frame.minY <= rect.maxY
-        }
-        XCTAssertEqual(
-            Array(transition.candidateItemIndices(intersecting: rect)),
-            expectedIndices,
-            message,
-            file: file,
-            line: line
-        )
-    }
-
-    func testEndpointFramesAndContentSizeMatchSourceLayouts() throws {
-        let fromLayout = try makeUniformLayout(itemCount: 60, columnCount: 3)
-        let toLayout = try makeUniformLayout(itemCount: 60, columnCount: 2)
-        var transition = try XCTUnwrap(MobilePlayerBrowserGridTransition(
-            fromLayout: fromLayout,
-            toLayout: toLayout
-        ))
-
-        for itemIndex in [0, 1, 29, 59] {
-            XCTAssertEqual(
-                try XCTUnwrap(transition.itemFrame(at: itemIndex)),
-                try XCTUnwrap(fromLayout.itemFrame(at: itemIndex))
-            )
-        }
-        XCTAssertEqual(transition.contentSize, fromLayout.contentSize)
-
-        transition.setProgress(1)
-        for itemIndex in [0, 1, 29, 59] {
-            assertFrame(
-                try XCTUnwrap(transition.itemFrame(at: itemIndex)),
-                matches: try XCTUnwrap(toLayout.itemFrame(at: itemIndex))
-            )
-        }
-        XCTAssertEqual(
-            transition.contentSize.width,
-            toLayout.contentSize.width,
-            accuracy: 0.000_001
-        )
-        XCTAssertEqual(
-            transition.contentSize.height,
-            toLayout.contentSize.height,
-            accuracy: 0.000_001
-        )
     }
 
     func testItemWidthRatioComesFromTheConcreteLayouts() throws {
@@ -149,42 +77,6 @@ final class MobilePlayerBrowserGridTransitionTests: XCTestCase {
         }
     }
 
-    func testMidpointFramesAverageSourceFrames() throws {
-        let fromLayout = try makeUniformLayout(itemCount: 40, columnCount: 4)
-        let toLayout = try makeUniformLayout(itemCount: 40, columnCount: 3)
-        var transition = try XCTUnwrap(MobilePlayerBrowserGridTransition(
-            fromLayout: fromLayout,
-            toLayout: toLayout
-        ))
-        transition.setProgress(0.5)
-
-        for itemIndex in [0, 7, 39] {
-            let fromFrame = try XCTUnwrap(fromLayout.itemFrame(at: itemIndex))
-            let toFrame = try XCTUnwrap(toLayout.itemFrame(at: itemIndex))
-            let interpolatedFrame = try XCTUnwrap(transition.itemFrame(at: itemIndex))
-            XCTAssertEqual(
-                interpolatedFrame.minX,
-                (fromFrame.minX + toFrame.minX) / 2,
-                accuracy: 0.000_001
-            )
-            XCTAssertEqual(
-                interpolatedFrame.minY,
-                (fromFrame.minY + toFrame.minY) / 2,
-                accuracy: 0.000_001
-            )
-            XCTAssertEqual(
-                interpolatedFrame.width,
-                (fromFrame.width + toFrame.width) / 2,
-                accuracy: 0.000_001
-            )
-        }
-        XCTAssertEqual(
-            transition.contentSize.height,
-            (fromLayout.contentSize.height + toLayout.contentSize.height) / 2,
-            accuracy: 0.000_001
-        )
-    }
-
     func testTransitionRequiresDistinctItemWidths() throws {
         let layout = try makeUniformLayout(itemCount: 12, columnCount: 3)
         XCTAssertNil(MobilePlayerBrowserGridTransition(
@@ -198,122 +90,6 @@ final class MobilePlayerBrowserGridTransitionTests: XCTestCase {
             fromLayout: try makeUniformLayout(itemCount: 12, columnCount: 3),
             toLayout: try makeUniformLayout(itemCount: 11, columnCount: 2)
         ))
-    }
-
-    func testCandidateItemIndicesMatchBruteForceForUniformLayouts() throws {
-        for progress in [CGFloat(0), 0.25, 0.5, 0.75, 1] {
-            let transition = try makeTransition(
-                fromColumnCount: 3,
-                toColumnCount: 1,
-                itemCount: 300,
-                progress: progress
-            )
-            let queryRects = [
-                CGRect(x: 0, y: -200, width: 390, height: 400),
-                CGRect(x: 0, y: 500, width: 390, height: 844),
-                CGRect(x: 0, y: 5_000, width: 390, height: 844),
-                CGRect(x: 0, y: 100_000, width: 390, height: 844),
-                CGRect(x: 0, y: -5_000, width: 390, height: 800)
-            ]
-            for rect in queryRects {
-                assertCandidateItemIndices(
-                    transition,
-                    intersecting: rect,
-                    message: "progress \(progress) rect \(rect)"
-                )
-            }
-        }
-    }
-
-    func testCandidateItemIndicesMatchBruteForceForVariableRowLayouts() throws {
-        let heightToWidthRatios = (0..<91).map { itemIndex -> CGFloat in
-            1 + CGFloat(itemIndex % 5) / 3
-        }
-        let fromLayout = try XCTUnwrap(MobilePlayerBrowserLayout(
-            viewportSize: Self.viewportSize,
-            topContentInset: 47,
-            bottomContentInset: 34,
-            aspectProfile: MobilePlayerBrowserAspectProfile(
-                heightToWidthRatios: heightToWidthRatios,
-                columnCount: 3
-            )
-        ))
-        let toLayout = try XCTUnwrap(MobilePlayerBrowserLayout(
-            viewportSize: Self.viewportSize,
-            topContentInset: 47,
-            bottomContentInset: 34,
-            aspectProfile: MobilePlayerBrowserAspectProfile(
-                heightToWidthRatios: heightToWidthRatios,
-                columnCount: 2
-            )
-        ))
-        var transition = try XCTUnwrap(MobilePlayerBrowserGridTransition(
-            fromLayout: fromLayout,
-            toLayout: toLayout
-        ))
-
-        for progress in [CGFloat(0), 0.3, 0.7, 1] {
-            transition.setProgress(progress)
-            for originY in stride(from: CGFloat(-400), through: 8_000, by: 700) {
-                let rect = CGRect(x: 0, y: originY, width: 390, height: 844)
-                assertCandidateItemIndices(
-                    transition,
-                    intersecting: rect,
-                    message: "progress \(progress) originY \(originY)"
-                )
-            }
-        }
-    }
-
-    func testContentOffsetInterpolationFollowsPanAndClamps() throws {
-        var transition = try makeTransition(
-            fromColumnCount: 3,
-            toColumnCount: 2,
-            itemCount: 120,
-            progress: 0.5
-        )
-
-        let midOffsetY = transition.contentOffsetY(
-            fromContentOffsetY: 400,
-            toContentOffsetY: 800,
-            panDeltaY: 0,
-            viewportHeight: 844
-        )
-        XCTAssertEqual(midOffsetY, 600, accuracy: 0.000_001)
-
-        let pannedOffsetY = transition.contentOffsetY(
-            fromContentOffsetY: 400,
-            toContentOffsetY: 800,
-            panDeltaY: 50,
-            viewportHeight: 844
-        )
-        XCTAssertEqual(pannedOffsetY, 550, accuracy: 0.000_001)
-
-        XCTAssertEqual(
-            transition.contentOffsetY(
-                fromContentOffsetY: -900,
-                toContentOffsetY: -900,
-                panDeltaY: 0,
-                viewportHeight: 844
-            ),
-            0
-        )
-
-        transition.setProgress(1)
-        let maximumOffsetY = max(
-            transition.contentSize.height - 844,
-            0
-        )
-        XCTAssertEqual(
-            transition.contentOffsetY(
-                fromContentOffsetY: 1_000_000,
-                toContentOffsetY: 1_000_000,
-                panDeltaY: 0,
-                viewportHeight: 844
-            ),
-            maximumOffsetY,
-            accuracy: 0.000_001
-        )
     }
 
     func testTargetContentOffsetPreservesAnchorViewportPosition() {
@@ -414,174 +190,201 @@ final class MobilePlayerBrowserGridTransitionTests: XCTestCase {
         )
     }
 
-    func testRelativeItemAnchorStaysAtTheSameViewportPositionDuringTransition() throws {
-        let fromLayout = try makeUniformLayout(
-            itemCount: 80,
-            columnCount: 3,
-            imageSize: CGSize(width: 2, height: 5)
-        )
-        let toLayout = try makeUniformLayout(
-            itemCount: 80,
-            columnCount: 1,
-            imageSize: CGSize(width: 2, height: 5)
-        )
-        let itemIndex = 30
-        let relativeItemY: CGFloat = 0.8
-        let viewportY: CGFloat = 237
-        let fromFrame = try XCTUnwrap(fromLayout.itemFrame(at: itemIndex))
-        let toFrame = try XCTUnwrap(toLayout.itemFrame(at: itemIndex))
-        let fromContentOffsetY = MobilePlayerBrowserGridTransition.anchorY(
-            itemFrame: fromFrame,
-            relativeY: relativeItemY
-        ) - viewportY
-        let toContentOffsetY = MobilePlayerBrowserGridTransition
-            .targetContentOffsetY(
-                anchorFrame: toFrame,
-                anchorRelativeY: relativeItemY,
-                anchorViewportY: viewportY
-            )
-        var transition = try XCTUnwrap(MobilePlayerBrowserGridTransition(
-            fromLayout: fromLayout,
-            toLayout: toLayout
-        ))
+    func testHorizontalAnchorGeometryMirrorsVerticalBehavior() {
+        let frame = CGRect(x: 130, y: 1_000, width: 200, height: 400)
 
-        for progress in [CGFloat(0), 0.25, 0.5, 0.75, 1] {
-            transition.setProgress(progress)
-            let frame = try XCTUnwrap(transition.itemFrame(at: itemIndex))
-            let contentOffsetY = transition.contentOffsetY(
-                fromContentOffsetY: fromContentOffsetY,
-                toContentOffsetY: toContentOffsetY,
-                panDeltaY: 0,
-                viewportHeight: Self.viewportSize.height
-            )
-            XCTAssertEqual(
-                MobilePlayerBrowserGridTransition.anchorY(
-                    itemFrame: frame,
-                    relativeY: relativeItemY
-                ) - contentOffsetY,
-                viewportY,
-                accuracy: 0.000_001
-            )
-        }
-    }
-
-    func testRawEndpointDefersBoundaryClampUntilItIsNeeded() throws {
-        let fromLayout = try makeUniformLayout(
-            itemCount: 80,
-            columnCount: 1,
-            imageSize: CGSize(width: 2, height: 5)
-        )
-        let toLayout = try makeUniformLayout(
-            itemCount: 80,
-            columnCount: 4,
-            imageSize: CGSize(width: 2, height: 5)
-        )
-        let itemIndex = 0
-        let relativeItemY: CGFloat = 0.8
-        let viewportY: CGFloat = 300
-        let fromFrame = try XCTUnwrap(fromLayout.itemFrame(at: itemIndex))
-        let toFrame = try XCTUnwrap(toLayout.itemFrame(at: itemIndex))
-        let fromContentOffsetY = MobilePlayerBrowserGridTransition.anchorY(
-            itemFrame: fromFrame,
-            relativeY: relativeItemY
-        ) - viewportY
-        let toContentOffsetY = MobilePlayerBrowserGridTransition
-            .targetContentOffsetY(
-                anchorFrame: toFrame,
-                anchorRelativeY: relativeItemY,
-                anchorViewportY: viewportY
-            )
-        XCTAssertLessThan(toContentOffsetY, 0)
-
-        var transition = try XCTUnwrap(MobilePlayerBrowserGridTransition(
-            fromLayout: fromLayout,
-            toLayout: toLayout
-        ))
-        transition.setProgress(0.5)
-        let frame = try XCTUnwrap(transition.itemFrame(at: itemIndex))
-        let contentOffsetY = transition.contentOffsetY(
-            fromContentOffsetY: fromContentOffsetY,
-            toContentOffsetY: toContentOffsetY,
-            panDeltaY: 0,
-            viewportHeight: Self.viewportSize.height
-        )
-        XCTAssertGreaterThan(contentOffsetY, 0)
         XCTAssertEqual(
-            MobilePlayerBrowserGridTransition.anchorY(
-                itemFrame: frame,
-                relativeY: relativeItemY
-            ) - contentOffsetY,
-            viewportY,
-            accuracy: 0.000_001
-        )
-    }
-
-    func testPinchPolicyMapsEffectiveScaleToProgressForBothDirections() {
-        XCTAssertEqual(
-            PlayerBrowserGridPinchPolicy.progress(
-                effectiveScale: 1.25,
-                itemWidthRatio: 1.5
+            MobilePlayerBrowserGridTransition.anchorRelativeX(
+                contentX: 180,
+                itemFrame: frame
             ),
-            0.5,
+            0.25,
             accuracy: 0.000_001
         )
         XCTAssertEqual(
-            PlayerBrowserGridPinchPolicy.progress(
-                effectiveScale: 1.5,
-                itemWidthRatio: 1.5
+            MobilePlayerBrowserGridTransition.anchorRelativeX(
+                contentX: 0,
+                itemFrame: frame
+            ),
+            0
+        )
+        XCTAssertEqual(
+            MobilePlayerBrowserGridTransition.anchorRelativeX(
+                contentX: 500,
+                itemFrame: frame
+            ),
+            1
+        )
+        XCTAssertEqual(
+            MobilePlayerBrowserGridTransition.anchorRelativeX(
+                contentX: .nan,
+                itemFrame: frame
+            ),
+            0.5
+        )
+        XCTAssertEqual(
+            MobilePlayerBrowserGridTransition.anchorX(
+                itemFrame: frame,
+                relativeX: 0.25
+            ),
+            180,
+            accuracy: 0.000_001
+        )
+        XCTAssertEqual(
+            MobilePlayerBrowserGridTransition.anchorX(
+                itemFrame: frame,
+                relativeX: .nan
+            ),
+            230,
+            accuracy: 0.000_001
+        )
+        XCTAssertEqual(
+            MobilePlayerBrowserGridTransition.anchorX(
+                itemFrame: CGRect(x: 40, y: 0, width: 0, height: 10),
+                relativeX: 0.7
+            ),
+            40
+        )
+    }
+
+    func testPinchPolicySettleTargetPicksTheNearestModeInLogSpace() {
+        let ratios: [CGFloat] = [0.6, 1, 3]
+
+        XCTAssertEqual(
+            PlayerBrowserGridPinchPolicy.settleTargetIndex(
+                scale: 1.05,
+                velocity: 0,
+                itemWidthRatios: ratios
+            ),
+            1
+        )
+        XCTAssertEqual(
+            PlayerBrowserGridPinchPolicy.settleTargetIndex(
+                scale: 2.0,
+                velocity: 0,
+                itemWidthRatios: ratios
+            ),
+            2
+        )
+        XCTAssertEqual(
+            PlayerBrowserGridPinchPolicy.settleTargetIndex(
+                scale: 2.6,
+                velocity: 0,
+                itemWidthRatios: ratios
+            ),
+            2
+        )
+        XCTAssertEqual(
+            PlayerBrowserGridPinchPolicy.settleTargetIndex(
+                scale: 0.7,
+                velocity: 0,
+                itemWidthRatios: ratios
+            ),
+            0
+        )
+        XCTAssertNil(
+            PlayerBrowserGridPinchPolicy.settleTargetIndex(
+                scale: .nan,
+                velocity: 0,
+                itemWidthRatios: ratios
+            )
+        )
+        XCTAssertNil(
+            PlayerBrowserGridPinchPolicy.settleTargetIndex(
+                scale: 1.2,
+                velocity: 0,
+                itemWidthRatios: []
+            )
+        )
+    }
+
+    func testPinchPolicySettleTargetProjectsTheReleaseVelocity() {
+        let ratios: [CGFloat] = [0.6, 1, 3]
+
+        XCTAssertEqual(
+            PlayerBrowserGridPinchPolicy.settleTargetIndex(
+                scale: 1.66,
+                velocity: 0,
+                itemWidthRatios: ratios
             ),
             1,
-            accuracy: 0.000_001
+            "a still release short of the midpoint settles back by position"
         )
         XCTAssertEqual(
-            PlayerBrowserGridPinchPolicy.progress(
-                effectiveScale: 0.875,
-                itemWidthRatio: 0.75
+            PlayerBrowserGridPinchPolicy.settleTargetIndex(
+                scale: 1.66,
+                velocity: 0.8,
+                itemWidthRatios: ratios
             ),
-            0.5,
-            accuracy: 0.000_001
-        )
-        XCTAssertLessThan(
-            PlayerBrowserGridPinchPolicy.progress(
-                effectiveScale: 0.9,
-                itemWidthRatio: 1.5
-            ),
-            0
+            2,
+            "a release still moving outward commits from short of the midpoint"
         )
         XCTAssertEqual(
-            PlayerBrowserGridPinchPolicy.progress(
-                effectiveScale: 1.2,
-                itemWidthRatio: 1
+            PlayerBrowserGridPinchPolicy.settleTargetIndex(
+                scale: 1.9,
+                velocity: -1.5,
+                itemWidthRatios: ratios
             ),
-            0
+            1,
+            "a release moving back toward the current grid settles back"
+        )
+        XCTAssertEqual(
+            PlayerBrowserGridPinchPolicy.settleTargetIndex(
+                scale: 0.95,
+                velocity: -8,
+                itemWidthRatios: [0.2, 0.333, 1]
+            ),
+            0,
+            "a violent flick projects across more than one grid"
+        )
+        XCTAssertEqual(
+            PlayerBrowserGridPinchPolicy.settleTargetIndex(
+                scale: 0.95,
+                velocity: -1_000_000,
+                itemWidthRatios: [0.2, 0.333, 1]
+            ),
+            0,
+            "the projection cap keeps a glitched velocity on the ladder"
         )
     }
 
-    func testPinchPolicyCompletionRespectsProgressAndVelocity() {
-        XCTAssertTrue(PlayerBrowserGridPinchPolicy.shouldComplete(
-            progress: 0.6,
-            velocityTowardTarget: 0
-        ))
-        XCTAssertFalse(PlayerBrowserGridPinchPolicy.shouldComplete(
-            progress: 0.4,
-            velocityTowardTarget: 0
-        ))
-        XCTAssertTrue(PlayerBrowserGridPinchPolicy.shouldComplete(
-            progress: 0.2,
-            velocityTowardTarget: PlayerBrowserGridPinchPolicy.commitVelocity
-        ))
-        XCTAssertFalse(PlayerBrowserGridPinchPolicy.shouldComplete(
-            progress: 0.05,
-            velocityTowardTarget: PlayerBrowserGridPinchPolicy.commitVelocity
-        ))
-        XCTAssertFalse(PlayerBrowserGridPinchPolicy.shouldComplete(
-            progress: 0.8,
-            velocityTowardTarget: -PlayerBrowserGridPinchPolicy.commitVelocity
-        ))
-        XCTAssertFalse(PlayerBrowserGridPinchPolicy.shouldComplete(
-            progress: 0,
-            velocityTowardTarget: 10
-        ))
+    func testPinchPolicyRubberBandsOnlyBeyondTheOutermostRatios() {
+        XCTAssertEqual(
+            PlayerBrowserGridPinchPolicy.rubberBandedScale(
+                1.4,
+                minimumRatio: 0.75,
+                maximumRatio: 3
+            ),
+            1.4
+        )
+        let beyondMaximum = PlayerBrowserGridPinchPolicy.rubberBandedScale(
+            6,
+            minimumRatio: 0.75,
+            maximumRatio: 3
+        )
+        XCTAssertGreaterThan(beyondMaximum, 3)
+        XCTAssertLessThan(
+            beyondMaximum,
+            3 * (1 + PlayerBrowserGridPinchPolicy.overshootMaximumDeviation)
+        )
+        let beyondMinimum = PlayerBrowserGridPinchPolicy.rubberBandedScale(
+            0.4,
+            minimumRatio: 0.75,
+            maximumRatio: 3
+        )
+        XCTAssertLessThan(beyondMinimum, 0.75)
+        XCTAssertGreaterThan(
+            beyondMinimum,
+            0.75 * (1 - PlayerBrowserGridPinchPolicy.overshootMaximumDeviation)
+        )
+        XCTAssertEqual(
+            PlayerBrowserGridPinchPolicy.rubberBandedScale(
+                .nan,
+                minimumRatio: 0.75,
+                maximumRatio: 3
+            ),
+            1
+        )
     }
 
     func testPinchPolicyActivationDeviationStaysBelowAdjacentModeRatioDeviations() throws {
@@ -597,9 +400,9 @@ final class MobilePlayerBrowserGridTransitionTests: XCTestCase {
                 height: Self.viewportSize.width
             )
         ]
+        let allModes = MobileCollectionBrowserGridMode.allCases
         for viewportSize in viewportSizes {
-            for fromMode in MobileCollectionBrowserGridMode.allCases {
-                guard let toMode = fromMode.modeWithSmallerItems else { continue }
+            for (fromMode, toMode) in zip(allModes, allModes.dropFirst()) {
                 let fromLayout = try makeUniformLayout(
                     itemCount: 1,
                     columnCount: fromMode.columnCount,
@@ -679,58 +482,306 @@ final class MobilePlayerBrowserGridTransitionTests: XCTestCase {
         )
     }
 
-    func testPinchPolicySettleDurationScalesWithRemainingProgress() {
+    func testPinchPolicySettleSpringConvergesWithASoftTail() {
+        var logOffset = log(CGFloat(1.5))
+        var logVelocity: CGFloat = 0
+        var elapsed: CGFloat = 0
+        var timeToRest: CGFloat?
+        while elapsed < 3 {
+            let stepped = PlayerBrowserGridPinchPolicy.settleSpringStep(
+                logOffset: logOffset,
+                logVelocity: logVelocity,
+                deltaTime: 1.0 / 60
+            )
+            XCTAssertLessThanOrEqual(
+                abs(stepped.logOffset),
+                abs(logOffset) + 0.000_001,
+                "a critically damped spring never overshoots from rest"
+            )
+            logOffset = stepped.logOffset
+            logVelocity = stepped.logVelocity
+            elapsed += 1.0 / 60
+            if timeToRest == nil,
+               PlayerBrowserGridPinchPolicy.isSettleSpringAtRest(
+                   logOffset: logOffset,
+                   logVelocity: logVelocity
+               ) {
+                timeToRest = elapsed
+            }
+        }
+        let restTime = timeToRest ?? 3
+        XCTAssertGreaterThan(restTime, 0.4, "the settle keeps a soft tail")
+        XCTAssertLessThan(restTime, 1.6, "the settle still finishes promptly")
+    }
+
+    func testPinchPolicySettleSeedVelocityBlendsGestureSpeedWithoutOvershoot() {
+        let omega = PlayerBrowserGridPinchPolicy.settleAngularFrequency
+
         XCTAssertEqual(
-            PlayerBrowserGridPinchPolicy.settleDuration(remainingProgress: 0),
-            PlayerBrowserGridPinchPolicy.minimumSettleDuration
+            PlayerBrowserGridPinchPolicy.settleSeedVelocity(
+                forLogOffset: log(1.5),
+                effectiveVelocity: -8,
+                scale: 1
+            ),
+            -omega * log(1.5),
+            accuracy: 0.000_001
         )
         XCTAssertEqual(
-            PlayerBrowserGridPinchPolicy.settleDuration(remainingProgress: 1),
-            PlayerBrowserGridPinchPolicy.maximumSettleDuration
+            PlayerBrowserGridPinchPolicy.settleSeedVelocity(
+                forLogOffset: -0.05,
+                effectiveVelocity: -8,
+                scale: 0.5
+            ),
+            omega * 0.05,
+            accuracy: 0.000_001
+        )
+
+        XCTAssertEqual(
+            PlayerBrowserGridPinchPolicy.settleSeedVelocity(
+                forLogOffset: log(1.5),
+                effectiveVelocity: 0,
+                scale: 1
+            ),
+            0
+        )
+
+        XCTAssertEqual(
+            PlayerBrowserGridPinchPolicy.settleSeedVelocity(
+                forLogOffset: 0.5,
+                effectiveVelocity: 1,
+                scale: 1
+            ),
+            -1,
+            accuracy: 0.000_001
+        )
+
+        XCTAssertEqual(
+            PlayerBrowserGridPinchPolicy.settleSeedVelocity(
+                forLogOffset: .nan,
+                effectiveVelocity: 1,
+                scale: 1
+            ),
+            0
         )
         XCTAssertEqual(
-            PlayerBrowserGridPinchPolicy.settleDuration(remainingProgress: -1),
-            PlayerBrowserGridPinchPolicy.maximumSettleDuration
+            PlayerBrowserGridPinchPolicy.settleSeedVelocity(
+                forLogOffset: 0.3,
+                effectiveVelocity: .nan,
+                scale: 1
+            ),
+            -omega * 0.3,
+            accuracy: 0.000_001
         )
-        let halfwayDuration = PlayerBrowserGridPinchPolicy.settleDuration(
-            remainingProgress: 0.5
+
+        for (initialOffset, velocity) in [
+            (log(CGFloat(1.5)), CGFloat(-8)),
+            (log(CGFloat(0.5)), CGFloat(8)),
+            (CGFloat(0.06), CGFloat(0)),
+            (CGFloat(-0.3), CGFloat(-1)),
+        ] {
+            var logOffset = initialOffset
+            var logVelocity = PlayerBrowserGridPinchPolicy.settleSeedVelocity(
+                forLogOffset: initialOffset,
+                effectiveVelocity: velocity,
+                scale: 1
+            )
+            var elapsed: CGFloat = 0
+            while elapsed < 3 {
+                let stepped = PlayerBrowserGridPinchPolicy.settleSpringStep(
+                    logOffset: logOffset,
+                    logVelocity: logVelocity,
+                    deltaTime: 1.0 / 60
+                )
+                XCTAssertLessThanOrEqual(
+                    abs(stepped.logOffset),
+                    abs(logOffset) + 0.000_001,
+                    "the settle never overshoots the target"
+                )
+                XCTAssertEqual(
+                    stepped.logOffset < 0,
+                    initialOffset < 0,
+                    "the settle never crosses to the far side of the target"
+                )
+                logOffset = stepped.logOffset
+                logVelocity = stepped.logVelocity
+                elapsed += 1.0 / 60
+            }
+            XCTAssertTrue(PlayerBrowserGridPinchPolicy.isSettleSpringAtRest(
+                logOffset: logOffset,
+                logVelocity: logVelocity
+            ))
+        }
+    }
+
+    func testPitchRatiosLandSeamsExactly() throws {
+        let fiveColumns = try makeUniformLayout(
+            itemCount: 120,
+            columnCount: 5,
+            imageSize: CGSize(width: 500, height: 600)
         )
-        XCTAssertGreaterThan(
-            halfwayDuration,
-            PlayerBrowserGridPinchPolicy.minimumSettleDuration
+        let oneColumn = try makeUniformLayout(
+            itemCount: 120,
+            columnCount: 1,
+            imageSize: CGSize(width: 500, height: 600)
         )
-        XCTAssertLessThan(
-            halfwayDuration,
-            PlayerBrowserGridPinchPolicy.maximumSettleDuration
+        let transition = try XCTUnwrap(MobilePlayerBrowserGridTransition(
+            fromLayout: fiveColumns,
+            toLayout: oneColumn
+        ))
+
+        let fromRowPitch = try XCTUnwrap(fiveColumns.itemFrame(at: 5)).minY
+            - (try XCTUnwrap(fiveColumns.itemFrame(at: 0))).minY
+        let toRowPitch = try XCTUnwrap(oneColumn.itemFrame(at: 1)).minY
+            - (try XCTUnwrap(oneColumn.itemFrame(at: 0))).minY
+        XCTAssertEqual(
+            fromRowPitch * transition.rowPitchRatio,
+            toRowPitch,
+            accuracy: 0.000_1
+        )
+
+        let fromColumnPitch = try XCTUnwrap(fiveColumns.itemFrame(at: 1)).minX
+            - (try XCTUnwrap(fiveColumns.itemFrame(at: 0))).minX
+        XCTAssertEqual(
+            fromColumnPitch,
+            fiveColumns.itemWidth + fiveColumns.interItemSpacing,
+            accuracy: 0.000_1
+        )
+        // The one-column lattice has no second column to sample, so the pitch
+        // it must land on is the item width plus its own inter-item spacing.
+        let toColumnPitch = oneColumn.itemWidth + oneColumn.interItemSpacing
+        XCTAssertEqual(
+            fromColumnPitch * transition.columnPitchRatio,
+            toColumnPitch,
+            accuracy: 0.000_1
+        )
+        // The whole point of the pitch ratio: spacing does not scale with the
+        // item width, so landing on the item-width ratio misses the seam.
+        XCTAssertNotEqual(
+            transition.columnPitchRatio,
+            transition.itemWidthRatio,
+            accuracy: 0.001
         )
     }
 
-    func testGridModeNeighborSteppingCoversAllModes() {
-        XCTAssertNil(MobileCollectionBrowserGridMode.large.modeWithLargerItems)
+    func testColumnPitchRatioLandsSeamsBetweenAdjacentLadderModes() throws {
+        let fiveColumns = try makeUniformLayout(itemCount: 120, columnCount: 5)
+        let threeColumns = try makeUniformLayout(itemCount: 120, columnCount: 3)
+        let transition = try XCTUnwrap(MobilePlayerBrowserGridTransition(
+            fromLayout: fiveColumns,
+            toLayout: threeColumns
+        ))
+
+        let fromColumnPitch = try XCTUnwrap(fiveColumns.itemFrame(at: 1)).minX
+            - (try XCTUnwrap(fiveColumns.itemFrame(at: 0))).minX
+        let toColumnPitch = try XCTUnwrap(threeColumns.itemFrame(at: 1)).minX
+            - (try XCTUnwrap(threeColumns.itemFrame(at: 0))).minX
         XCTAssertEqual(
-            MobileCollectionBrowserGridMode.large.modeWithSmallerItems,
-            .twoColumns
+            fromColumnPitch * transition.columnPitchRatio,
+            toColumnPitch,
+            accuracy: 0.000_1
+        )
+        XCTAssertNotEqual(
+            transition.columnPitchRatio,
+            transition.itemWidthRatio,
+            accuracy: 0.001
+        )
+    }
+
+    func testLatticeMapPinsTheAnchorAndScalesEachAxisOnItsOwnPitch() throws {
+        let fiveColumns = try makeUniformLayout(
+            itemCount: 120,
+            columnCount: 5,
+            imageSize: CGSize(width: 500, height: 600)
+        )
+        let threeColumns = try makeUniformLayout(
+            itemCount: 120,
+            columnCount: 3,
+            imageSize: CGSize(width: 500, height: 600)
+        )
+        let transition = try XCTUnwrap(MobilePlayerBrowserGridTransition(
+            fromLayout: fiveColumns,
+            toLayout: threeColumns
+        ))
+        // Unequal on purpose: a map that used one ratio for both axes, or
+        // swapped them, has to fail here.
+        XCTAssertNotEqual(
+            transition.columnPitchRatio,
+            transition.rowPitchRatio,
+            accuracy: 0.001
+        )
+
+        let fromAnchor = CGPoint(x: 120, y: 1_400)
+        let toAnchor = CGPoint(x: 210, y: 2_050)
+        let map = transition.latticeMap(
+            fromAnchorContentPoint: fromAnchor,
+            toAnchorContentPoint: toAnchor
+        )
+
+        XCTAssertEqual(map.destinationPoint(fromSource: fromAnchor).x, toAnchor.x, accuracy: 0.000_1)
+        XCTAssertEqual(map.destinationPoint(fromSource: fromAnchor).y, toAnchor.y, accuracy: 0.000_1)
+        XCTAssertEqual(map.sourcePoint(fromDestination: toAnchor).x, fromAnchor.x, accuracy: 0.000_1)
+        XCTAssertEqual(map.sourcePoint(fromDestination: toAnchor).y, fromAnchor.y, accuracy: 0.000_1)
+
+        let offAnchor = CGPoint(x: 300, y: 900)
+        XCTAssertEqual(
+            map.destinationPoint(fromSource: offAnchor).x,
+            toAnchor.x + (offAnchor.x - fromAnchor.x) * transition.columnPitchRatio,
+            accuracy: 0.000_1
         )
         XCTAssertEqual(
-            MobileCollectionBrowserGridMode.twoColumns.modeWithLargerItems,
-            .large
+            map.destinationPoint(fromSource: offAnchor).y,
+            toAnchor.y + (offAnchor.y - fromAnchor.y) * transition.rowPitchRatio,
+            accuracy: 0.000_1
+        )
+        let roundTripped = map.sourcePoint(
+            fromDestination: map.destinationPoint(fromSource: offAnchor)
+        )
+        XCTAssertEqual(roundTripped.x, offAnchor.x, accuracy: 0.000_1)
+        XCTAssertEqual(roundTripped.y, offAnchor.y, accuracy: 0.000_1)
+
+        let destinationRect = CGRect(x: 240, y: 1_800, width: 90, height: 108)
+        let sourceRect = map.sourceRect(fromDestination: destinationRect)
+        XCTAssertEqual(
+            sourceRect.origin.x,
+            map.sourcePoint(fromDestination: destinationRect.origin).x,
+            accuracy: 0.000_1
         )
         XCTAssertEqual(
-            MobileCollectionBrowserGridMode.twoColumns.modeWithSmallerItems,
-            .threeColumns
+            sourceRect.width,
+            destinationRect.width / transition.columnPitchRatio,
+            accuracy: 0.000_1
         )
         XCTAssertEqual(
-            MobileCollectionBrowserGridMode.threeColumns.modeWithLargerItems,
-            .twoColumns
+            sourceRect.height,
+            destinationRect.height / transition.rowPitchRatio,
+            accuracy: 0.000_1
         )
-        XCTAssertEqual(
-            MobileCollectionBrowserGridMode.threeColumns.modeWithSmallerItems,
-            .fourColumns
+    }
+
+    func testRowPitchRatioStaysIsotropicOnVariableRowHeights() throws {
+        // One tall item lands in row 0 at five columns but row 1 at three, so
+        // a row-0 pitch sample describes neither lattice.
+        var ratios = [CGFloat](repeating: 1, count: 120)
+        ratios[3] = 3
+        let threeColumns = try makeVariableLayout(ratios: ratios, columnCount: 3)
+        let fiveColumns = try makeVariableLayout(ratios: ratios, columnCount: 5)
+        XCTAssertFalse(threeColumns.usesUniformRowHeights)
+        XCTAssertFalse(fiveColumns.usesUniformRowHeights)
+
+        let transition = try XCTUnwrap(MobilePlayerBrowserGridTransition(
+            fromLayout: threeColumns,
+            toLayout: fiveColumns
+        ))
+        XCTAssertEqual(transition.rowPitchRatio, transition.itemWidthRatio)
+
+        let sampledFromPitch = try XCTUnwrap(threeColumns.itemFrame(at: 3)).minY
+            - (try XCTUnwrap(threeColumns.itemFrame(at: 0))).minY
+        let sampledToPitch = try XCTUnwrap(fiveColumns.itemFrame(at: 5)).minY
+            - (try XCTUnwrap(fiveColumns.itemFrame(at: 0))).minY
+        XCTAssertGreaterThan(
+            abs(sampledToPitch / sampledFromPitch - transition.itemWidthRatio),
+            0.5,
+            "the sampled pitch is wildly unrepresentative, so the fallback matters"
         )
-        XCTAssertEqual(
-            MobileCollectionBrowserGridMode.fourColumns.modeWithLargerItems,
-            .threeColumns
-        )
-        XCTAssertNil(MobileCollectionBrowserGridMode.fourColumns.modeWithSmallerItems)
     }
 }

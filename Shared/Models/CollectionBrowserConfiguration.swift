@@ -6,19 +6,6 @@ enum CollectionBrowseImageQuality: Int, Hashable {
     case thumbnail
     case large
 
-    static func conservativeInteractionQuality(
-        baseline: Self,
-        current: Self,
-        target: Self?
-    ) -> Self {
-        if baseline == .thumbnail
-            || current == .thumbnail
-            || target == .thumbnail {
-            return .thumbnail
-        }
-        return .large
-    }
-
     func canReplace(_ displayedQuality: Self?) -> Bool {
         guard let displayedQuality else { return true }
         return rawValue >= displayedQuality.rawValue
@@ -45,36 +32,71 @@ enum CollectionBrowseImageWindowSelection: Hashable {
     }
 }
 
+enum CollectionBrowseImageLoadPolicy {
+    /// `largeImageIsLocallyAvailable` is evaluated last and only when the
+    /// cheap terms already pass — resolving it stats the cache file and
+    /// touches its LRU entry, which must not happen on cells that can never
+    /// promote.
+    static func allowsLocalLargeImagePromotion(
+        requiredQuality: CollectionBrowseImageQuality,
+        hasDistinctLargeImage: Bool,
+        largeImageIsLocallyAvailable: @autoclosure () -> Bool,
+        allowsPromotion: Bool
+    ) -> Bool {
+        requiredQuality == .thumbnail
+            && hasDistinctLargeImage
+            && allowsPromotion
+            && largeImageIsLocallyAvailable()
+    }
+
+    static func allowsLargeImageLoad(
+        requiredQuality: CollectionBrowseImageQuality,
+        hasDistinctLargeImage: Bool,
+        largeImageIsLocallyAvailable: @autoclosure () -> Bool,
+        allowsLocalPromotion: Bool
+    ) -> Bool {
+        guard hasDistinctLargeImage else { return true }
+        return requiredQuality == .large
+            || allowsLocalLargeImagePromotion(
+                requiredQuality: requiredQuality,
+                hasDistinctLargeImage: hasDistinctLargeImage,
+                largeImageIsLocallyAvailable: largeImageIsLocallyAvailable(),
+                allowsPromotion: allowsLocalPromotion
+            )
+    }
+}
+
+enum CollectionBrowseSnapshotUpdatePolicy {
+    static func isSettledPositionEcho(
+        currentCollectionId: String,
+        currentItemCount: Int,
+        updatedCollectionId: String,
+        updatedItemCount: Int,
+        updatedInitialTokenIndex: Int,
+        lastPublishedTokenIndex: Int?
+    ) -> Bool {
+        updatedCollectionId == currentCollectionId
+            && updatedItemCount == currentItemCount
+            && updatedInitialTokenIndex == lastPublishedTokenIndex
+    }
+}
+
+/// The 5-3-1 column ladder of the Photos app. Odd counts keep a center
+/// column, so zoom transitions reveal content symmetrically at both sides
+/// instead of forcing one-sided column shifts.
 enum MobileCollectionBrowserGridMode: Int, CaseIterable, Hashable {
     case large = 1
-    case twoColumns = 2
     case threeColumns = 3
-    case fourColumns = 4
+    case fiveColumns = 5
+
+    static let defaultMode = MobileCollectionBrowserGridMode.threeColumns
 
     var columnCount: Int {
         rawValue
     }
 
-    var modeWithLargerItems: MobileCollectionBrowserGridMode? {
-        MobileCollectionBrowserGridMode(rawValue: rawValue - 1)
-    }
-
-    var modeWithSmallerItems: MobileCollectionBrowserGridMode? {
-        MobileCollectionBrowserGridMode(rawValue: rawValue + 1)
-    }
-
-    var requiresLargeImage: Bool {
-        self == .large
-    }
-
-    func requiredImageQuality(
-        defaultGridMode: MobileCollectionBrowserGridMode
-    ) -> CollectionBrowseImageQuality {
-        if requiresLargeImage
-            || self == .twoColumns && defaultGridMode == .threeColumns {
-            return .large
-        }
-        return .thumbnail
+    var requiredImageQuality: CollectionBrowseImageQuality {
+        self == .large ? .large : .thumbnail
     }
 }
 
@@ -83,17 +105,30 @@ enum MobileCollectionBrowserGridModePreferences {
 
     static func gridMode(
         userDefaults: UserDefaults,
-        internalSlug: String,
-        defaultGridMode: MobileCollectionBrowserGridMode
+        internalSlug: String
     ) -> MobileCollectionBrowserGridMode {
         guard let key = userDefaultsKey(internalSlug: internalSlug),
-              let storedColumnCount = userDefaults.object(forKey: key) as? Int,
-              let storedGridMode = MobileCollectionBrowserGridMode(
-                rawValue: storedColumnCount
-              ) else {
-            return defaultGridMode
+              let storedNumber = userDefaults.object(forKey: key) as? NSNumber,
+              CFGetTypeID(storedNumber) != CFBooleanGetTypeID(),
+              let storedColumnCount = Int(exactly: storedNumber.doubleValue) else {
+            return .defaultMode
         }
-        return storedGridMode
+        if let storedGridMode = MobileCollectionBrowserGridMode(
+            rawValue: storedColumnCount
+        ) {
+            return storedGridMode
+        }
+        // Overrides persisted before the 5-3-1 ladder stored 2 or 4 column
+        // counts; keep the user's density intent by mapping to the nearest
+        // surviving mode.
+        switch storedColumnCount {
+        case 2:
+            return .threeColumns
+        case 4:
+            return .fiveColumns
+        default:
+            return .defaultMode
+        }
     }
 
     static func save(

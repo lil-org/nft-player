@@ -1,0 +1,986 @@
+// ∅ 2026 lil org
+
+import QuartzCore
+import UIKit
+import XCTest
+@testable import nft_player_ios
+
+@MainActor
+final class MobilePlayerCollectionBrowserTransitionPresentationTests: XCTestCase {
+
+    private final class TransitionSupportDataSource: NSObject,
+        UICollectionViewDataSource {
+        func collectionView(
+            _: UICollectionView,
+            numberOfItemsInSection _: Int
+        ) -> Int {
+            1
+        }
+
+        func collectionView(
+            _ collectionView: UICollectionView,
+            cellForItemAt indexPath: IndexPath
+        ) -> UICollectionViewCell {
+            collectionView.dequeueReusableCell(
+                withReuseIdentifier: "cell",
+                for: indexPath
+            )
+        }
+    }
+
+    private final class ControlledFadeAnimator {
+        private var completions = [((Bool) -> Void)]()
+
+        var pendingCompletionCount: Int {
+            completions.count
+        }
+
+        func animate(
+            _ animations: @escaping () -> Void,
+            completion: ((Bool) -> Void)?
+        ) {
+            animations()
+            if let completion {
+                completions.append(completion)
+            }
+        }
+
+        func completeNext() {
+            completions.removeFirst()(true)
+        }
+    }
+
+    private func makeImage(_ color: UIColor) -> UIImage {
+        UIGraphicsImageRenderer(size: CGSize(width: 2, height: 2)).image {
+            color.setFill()
+            $0.fill(CGRect(x: 0, y: 0, width: 2, height: 2))
+        }
+    }
+
+    private func makePresentation(
+        contentFadeAnimator: MobilePlayerCollectionBrowserTransitionPresentation
+            .ContentFadeAnimator? = nil
+    ) -> (
+        UIView,
+        MobilePlayerCollectionBrowserTransitionPresentation
+    ) {
+        let contentView = UIView(frame: CGRect(x: 0, y: 0, width: 120, height: 80))
+        return (
+            contentView,
+            MobilePlayerCollectionBrowserTransitionPresentation(
+                contentView: contentView,
+                contentFadeAnimator: contentFadeAnimator
+            )
+        )
+    }
+
+    private func incomingContentContainer(in contentView: UIView) -> UIView? {
+        contentView.subviews.first { subview in
+            subview.subviews.contains {
+                $0 is NativeMetalCardCornerMaskedImageView
+            }
+        }
+    }
+
+    private func makeImageSources() -> CollectionBrowseImageSources {
+        let descriptor = CollectionCatalogDownloadableMediaDescriptor(
+            collectionId: "collection",
+            tokenId: "0",
+            tokenIndex: 0,
+            media: .staticImage(
+                url: URL(fileURLWithPath: "/thumbnail.webp"),
+                fileExtension: "webp"
+            ),
+            purpose: .collectionBrowserThumbnail
+        )
+        return CollectionBrowseImageSources(
+            thumbnailDescriptor: descriptor,
+            largeDescriptor: descriptor
+        )
+    }
+
+    private func waitForNextMainQueueTurn() async {
+        await withCheckedContinuation { continuation in
+            DispatchQueue.main.async {
+                continuation.resume()
+            }
+        }
+    }
+
+    private func installBaseImage(
+        _ image: UIImage,
+        in cell: MobilePlayerCollectionBrowserCell
+    ) {
+        guard let imageView = cell.contentView.subviews.first(where: {
+            $0 is NativeMetalCardCornerMaskedImageView
+        }) as? NativeMetalCardCornerMaskedImageView else {
+            XCTFail("Missing base image view")
+            return
+        }
+        imageView.image = image
+    }
+
+    private func makeTransitionSupportFixture() -> (
+        viewportView: UIView,
+        collectionView: UICollectionView,
+        dataSource: TransitionSupportDataSource,
+        cell: MobilePlayerCollectionBrowserCell
+    ) {
+        let viewportView = UIView(frame: CGRect(
+            x: 37,
+            y: 83,
+            width: 100,
+            height: 100
+        ))
+        let layout = UICollectionViewFlowLayout()
+        layout.itemSize = viewportView.bounds.size
+        layout.minimumLineSpacing = 0
+        layout.minimumInteritemSpacing = 0
+        let collectionView = UICollectionView(
+            frame: viewportView.bounds,
+            collectionViewLayout: layout
+        )
+        collectionView.register(
+            MobilePlayerCollectionBrowserCell.self,
+            forCellWithReuseIdentifier: "cell"
+        )
+        let dataSource = TransitionSupportDataSource()
+        collectionView.dataSource = dataSource
+        viewportView.addSubview(collectionView)
+        collectionView.reloadData()
+        collectionView.layoutIfNeeded()
+        let cell = collectionView.cellForItem(
+            at: IndexPath(item: 0, section: 0)
+        ) as! MobilePlayerCollectionBrowserCell
+        return (viewportView, collectionView, dataSource, cell)
+    }
+
+    func testIncomingContentCanBeReplacedAndCleared() {
+        let (_, presentation) = makePresentation()
+        let identity = MobilePlayerBrowserContentIdentity(
+            collectionId: "collection",
+            tokenIndex: 7
+        )
+
+        presentation.installIncoming(
+            image: makeImage(.red),
+            usesNativeMetalCardCornerMask: false,
+            targetAlpha: 0.4,
+            animated: false,
+            identity: identity
+        )
+        XCTAssertEqual(
+            presentation.presentationState,
+            .incoming(identity: identity)
+        )
+        XCTAssertEqual(
+            presentation.destinationOverlayOpacity ?? -1,
+            0.4,
+            accuracy: 0.0001
+        )
+
+        let replacementImage = makeImage(.blue)
+        presentation.installIncoming(
+            image: replacementImage,
+            usesNativeMetalCardCornerMask: true,
+            targetAlpha: 0.8,
+            animated: false,
+            identity: identity
+        )
+        XCTAssertEqual(
+            presentation.presentationState,
+            .incoming(identity: identity)
+        )
+        XCTAssertEqual(presentation.upgradeState, .none)
+        XCTAssertEqual(
+            presentation.destinationOverlayOpacity ?? -1,
+            0.8,
+            accuracy: 0.0001
+        )
+        let sourceContent = presentation.sourceContent(
+            baseImageView: NativeMetalCardCornerMaskedImageView(frame: .zero),
+            baseIdentity: nil
+        )
+        XCTAssertTrue(sourceContent?.primary.image === replacementImage)
+        XCTAssertEqual(
+            sourceContent?.primary.usesNativeMetalCardCornerMask,
+            true
+        )
+
+        presentation.clear()
+        XCTAssertEqual(presentation.presentationState, .empty)
+        XCTAssertNil(presentation.destinationOverlayOpacity)
+    }
+
+    func testIncomingAlphaInterruptsOnlyOpacityWhenRequested() throws {
+        let (contentView, presentation) = makePresentation()
+        presentation.installIncoming(
+            image: makeImage(.red),
+            usesNativeMetalCardCornerMask: false,
+            targetAlpha: 1,
+            animated: false,
+            identity: MobilePlayerBrowserContentIdentity(
+                collectionId: "collection",
+                tokenIndex: 8
+            )
+        )
+        let container = try XCTUnwrap(
+            incomingContentContainer(in: contentView)
+        )
+        let opacity = CABasicAnimation(keyPath: "opacity")
+        opacity.duration = 10
+        let transform = CABasicAnimation(keyPath: "transform.scale")
+        transform.duration = 10
+        container.layer.add(opacity, forKey: "opacity")
+        container.layer.add(transform, forKey: "transform")
+
+        presentation.setIncomingAlpha(0.4)
+
+        XCTAssertNotNil(container.layer.animation(forKey: "opacity"))
+        XCTAssertNotNil(container.layer.animation(forKey: "transform"))
+
+        presentation.setIncomingAlpha(0.7, interruptingAnimation: true)
+
+        XCTAssertNil(container.layer.animation(forKey: "opacity"))
+        XCTAssertNotNil(container.layer.animation(forKey: "transform"))
+        XCTAssertEqual(container.alpha, 0.7, accuracy: 0.0001)
+    }
+
+    func testPreservingClearRetainsOnlyCarryover() {
+        let (_, presentation) = makePresentation()
+        let identity = MobilePlayerBrowserContentIdentity(
+            collectionId: "collection",
+            tokenIndex: 9
+        )
+        presentation.installCarryover(MobilePlayerBrowserCarryoverContent(
+            identity: identity,
+            image: makeImage(.green),
+            usesNativeMetalCardCornerMask: false
+        ))
+
+        presentation.clear(preservingCarryover: true)
+        XCTAssertEqual(
+            presentation.presentationState,
+            .carryover(identity: identity, phase: .held)
+        )
+        XCTAssertTrue(presentation.hasCarryoverContent)
+
+        presentation.clear()
+        XCTAssertEqual(presentation.presentationState, .empty)
+        XCTAssertFalse(presentation.hasCarryoverContent)
+    }
+
+    func testClearingInvalidatesScheduledCarryoverFade() async {
+        let (_, presentation) = makePresentation()
+        let carryoverIdentity = MobilePlayerBrowserContentIdentity(
+            collectionId: "collection",
+            tokenIndex: 11
+        )
+        presentation.installCarryover(MobilePlayerBrowserCarryoverContent(
+            identity: carryoverIdentity,
+            image: makeImage(.yellow),
+            usesNativeMetalCardCornerMask: false
+        ))
+
+        let animationsWereEnabled = UIView.areAnimationsEnabled
+        UIView.setAnimationsEnabled(false)
+        defer { UIView.setAnimationsEnabled(animationsWereEnabled) }
+        presentation.fadeCarryoverIfNeeded()
+        XCTAssertEqual(
+            presentation.presentationState,
+            .carryover(identity: carryoverIdentity, phase: .fading)
+        )
+        presentation.clear()
+        let replacementIdentity = MobilePlayerBrowserContentIdentity(
+            collectionId: "collection",
+            tokenIndex: 12
+        )
+        presentation.installIncoming(
+            image: makeImage(.blue),
+            usesNativeMetalCardCornerMask: false,
+            targetAlpha: 0.7,
+            animated: false,
+            identity: replacementIdentity
+        )
+        await withCheckedContinuation { continuation in
+            DispatchQueue.main.async {
+                continuation.resume()
+            }
+        }
+
+        XCTAssertEqual(
+            presentation.presentationState,
+            .incoming(identity: replacementIdentity)
+        )
+        XCTAssertFalse(presentation.hasCarryoverContent)
+        XCTAssertEqual(
+            presentation.destinationOverlayOpacity ?? -1,
+            0.7,
+            accuracy: 0.0001
+        )
+    }
+
+    func testRetargetReholdsScheduledCarryoverFade() async {
+        let animator = ControlledFadeAnimator()
+        let (_, presentation) = makePresentation {
+            animator.animate($0, completion: $1)
+        }
+        let identity = MobilePlayerBrowserContentIdentity(
+            collectionId: "collection",
+            tokenIndex: 20
+        )
+        presentation.installCarryover(MobilePlayerBrowserCarryoverContent(
+            identity: identity,
+            image: makeImage(.red),
+            usesNativeMetalCardCornerMask: false
+        ))
+
+        presentation.fadeCarryoverIfNeeded()
+        presentation.holdCarryoverForRetarget()
+        await waitForNextMainQueueTurn()
+
+        XCTAssertEqual(animator.pendingCompletionCount, 0)
+        XCTAssertEqual(
+            presentation.presentationState,
+            .carryover(identity: identity, phase: .held)
+        )
+        XCTAssertTrue(presentation.hasCarryoverContent)
+        XCTAssertEqual(
+            presentation.sourceContent(
+                baseImageView: NativeMetalCardCornerMaskedImageView(frame: .zero),
+                baseIdentity: nil
+            )?.identity,
+            identity
+        )
+    }
+
+    func testRetargetRejectsRunningCarryoverFadeCompletion() async {
+        let animator = ControlledFadeAnimator()
+        let (_, presentation) = makePresentation {
+            animator.animate($0, completion: $1)
+        }
+        let identity = MobilePlayerBrowserContentIdentity(
+            collectionId: "collection",
+            tokenIndex: 21
+        )
+        presentation.installCarryover(MobilePlayerBrowserCarryoverContent(
+            identity: identity,
+            image: makeImage(.blue),
+            usesNativeMetalCardCornerMask: false
+        ))
+
+        presentation.fadeCarryoverIfNeeded()
+        await waitForNextMainQueueTurn()
+        XCTAssertEqual(animator.pendingCompletionCount, 1)
+
+        presentation.holdCarryoverForRetarget()
+        animator.completeNext()
+
+        XCTAssertEqual(
+            presentation.presentationState,
+            .carryover(identity: identity, phase: .held)
+        )
+        XCTAssertTrue(presentation.hasCarryoverContent)
+        XCTAssertEqual(
+            presentation.sourceContent(
+                baseImageView: NativeMetalCardCornerMaskedImageView(frame: .zero),
+                baseIdentity: nil
+            )?.identity,
+            identity
+        )
+    }
+
+    func testCellRetargetReholdsFadingCarryover() async {
+        let cell = MobilePlayerCollectionBrowserCell(frame: CGRect(
+            x: 0,
+            y: 0,
+            width: 120,
+            height: 80
+        ))
+        let originalIdentity = MobilePlayerBrowserContentIdentity(
+            collectionId: "collection",
+            tokenIndex: 22
+        )
+        let replacementIdentity = MobilePlayerBrowserContentIdentity(
+            collectionId: "collection",
+            tokenIndex: 23
+        )
+        let imageSources = makeImageSources()
+        cell.configure(
+            contentIdentity: originalIdentity,
+            itemCount: 24,
+            imageSources: imageSources,
+            requiredImageQuality: .thumbnail,
+            missingDescriptorFallbackSpec: PlayerMediaPlaceholderSpec(
+                thumbnailAspectRatio: nil
+            ),
+            imageLoadPolicy: .disabled
+        )
+        installBaseImage(makeImage(.red), in: cell)
+        cell.setCarryoverContent(MobilePlayerBrowserCarryoverContent(
+            identity: originalIdentity,
+            image: makeImage(.blue),
+            usesNativeMetalCardCornerMask: false
+        ))
+
+        let animationsWereEnabled = UIView.areAnimationsEnabled
+        UIView.setAnimationsEnabled(false)
+        defer { UIView.setAnimationsEnabled(animationsWereEnabled) }
+        cell.fadeOutCarryoverContentIfBaseReady()
+        cell.configure(
+            contentIdentity: replacementIdentity,
+            itemCount: 24,
+            imageSources: imageSources,
+            requiredImageQuality: .thumbnail,
+            missingDescriptorFallbackSpec: PlayerMediaPlaceholderSpec(
+                thumbnailAspectRatio: nil
+            ),
+            imageLoadPolicy: .disabled
+        )
+        await waitForNextMainQueueTurn()
+
+        XCTAssertEqual(
+            cell.carryoverSourceContent?.identity,
+            originalIdentity
+        )
+        XCTAssertFalse(cell.canSelect(representing: replacementIdentity))
+    }
+
+    func testSameIdentityConfigureDoesNotReholdFadingCarryover() async {
+        let cell = MobilePlayerCollectionBrowserCell(frame: CGRect(
+            x: 0,
+            y: 0,
+            width: 120,
+            height: 80
+        ))
+        let identity = MobilePlayerBrowserContentIdentity(
+            collectionId: "collection",
+            tokenIndex: 24
+        )
+        let imageSources = makeImageSources()
+        let configure = {
+            cell.configure(
+                contentIdentity: identity,
+                itemCount: 25,
+                imageSources: imageSources,
+                requiredImageQuality: .thumbnail,
+                missingDescriptorFallbackSpec: PlayerMediaPlaceholderSpec(
+                    thumbnailAspectRatio: nil
+                ),
+                imageLoadPolicy: .disabled
+            )
+        }
+        configure()
+        installBaseImage(makeImage(.red), in: cell)
+        cell.setCarryoverContent(MobilePlayerBrowserCarryoverContent(
+            identity: identity,
+            image: makeImage(.blue),
+            usesNativeMetalCardCornerMask: false
+        ))
+
+        let animationsWereEnabled = UIView.areAnimationsEnabled
+        UIView.setAnimationsEnabled(false)
+        defer { UIView.setAnimationsEnabled(animationsWereEnabled) }
+        cell.fadeOutCarryoverContentIfBaseReady()
+        configure()
+        await waitForNextMainQueueTurn()
+
+        XCTAssertNil(cell.carryoverSourceContent)
+    }
+
+    func testToneStateIsExplicitAndResettable() {
+        let (_, presentation) = makePresentation()
+
+        XCTAssertEqual(presentation.toneState, .hidden)
+        presentation.holdTone()
+        XCTAssertEqual(presentation.toneState, .heldForBaseLoad)
+        XCTAssertTrue(presentation.holdsToneForBaseLoad)
+
+        presentation.clearTone(animated: false)
+        XCTAssertEqual(presentation.toneState, .hidden)
+        XCTAssertFalse(presentation.holdsToneForBaseLoad)
+    }
+
+    func testToneFadeAndStaleCompletionAreDeterministic() {
+        let animator = ControlledFadeAnimator()
+        let (_, presentation) = makePresentation {
+            animator.animate($0, completion: $1)
+        }
+
+        presentation.holdTone()
+        presentation.clearTone(animated: true)
+
+        XCTAssertEqual(presentation.toneState, .fading)
+        XCTAssertEqual(animator.pendingCompletionCount, 1)
+
+        presentation.holdTone()
+        animator.completeNext()
+
+        XCTAssertEqual(presentation.toneState, .heldForBaseLoad)
+        XCTAssertTrue(presentation.holdsToneForBaseLoad)
+
+        presentation.clearTone(animated: true)
+        XCTAssertEqual(presentation.toneState, .fading)
+        animator.completeNext()
+
+        XCTAssertEqual(presentation.toneState, .hidden)
+        XCTAssertFalse(presentation.holdsToneForBaseLoad)
+    }
+
+    func testCarryoverUpgradeIsInstalledWithItsPresentationAlpha() {
+        let (_, presentation) = makePresentation()
+        let identity = MobilePlayerBrowserContentIdentity(
+            collectionId: "collection",
+            tokenIndex: 13
+        )
+        let primaryImage = makeImage(.red)
+        let upgradeImage = makeImage(.blue)
+        presentation.installCarryover(MobilePlayerBrowserCarryoverContent(
+            identity: identity,
+            primary: MobilePlayerBrowserCarryoverLayer(
+                image: primaryImage,
+                usesNativeMetalCardCornerMask: false,
+                alpha: 1
+            ),
+            qualityUpgrade: MobilePlayerBrowserCarryoverLayer(
+                image: upgradeImage,
+                usesNativeMetalCardCornerMask: true,
+                alpha: 0.35
+            )
+        ))
+
+        XCTAssertEqual(presentation.upgradeState, .installed)
+        let content = presentation.sourceContent(
+            baseImageView: NativeMetalCardCornerMaskedImageView(frame: .zero),
+            baseIdentity: nil
+        )
+        XCTAssertTrue(content?.primary.image === primaryImage)
+        XCTAssertTrue(content?.qualityUpgrade?.image === upgradeImage)
+        XCTAssertEqual(
+            content?.qualityUpgrade?.alpha ?? -1,
+            0.35,
+            accuracy: 0.0001
+        )
+    }
+
+    func testUpgradeFadeRejectsStaleCompletionAndCommitsCurrentCompletion() {
+        let animator = ControlledFadeAnimator()
+        let (_, presentation) = makePresentation {
+            animator.animate($0, completion: $1)
+        }
+        let identity = MobilePlayerBrowserContentIdentity(
+            collectionId: "collection",
+            tokenIndex: 14
+        )
+        let initialImage = makeImage(.red)
+        presentation.installIncoming(
+            image: initialImage,
+            usesNativeMetalCardCornerMask: false,
+            targetAlpha: 1,
+            animated: false,
+            identity: identity
+        )
+
+        presentation.installIncoming(
+            image: makeImage(.blue),
+            usesNativeMetalCardCornerMask: true,
+            targetAlpha: 0.8,
+            animated: true,
+            identity: identity
+        )
+
+        XCTAssertEqual(presentation.upgradeState, .fading)
+        XCTAssertEqual(animator.pendingCompletionCount, 1)
+
+        let replacementImage = makeImage(.green)
+        presentation.installIncoming(
+            image: replacementImage,
+            usesNativeMetalCardCornerMask: false,
+            targetAlpha: 0.6,
+            animated: false,
+            identity: identity
+        )
+        animator.completeNext()
+
+        XCTAssertEqual(presentation.upgradeState, .none)
+        var content = presentation.sourceContent(
+            baseImageView: NativeMetalCardCornerMaskedImageView(frame: .zero),
+            baseIdentity: nil
+        )
+        XCTAssertTrue(content?.primary.image === replacementImage)
+
+        let committedImage = makeImage(.yellow)
+        presentation.installIncoming(
+            image: committedImage,
+            usesNativeMetalCardCornerMask: true,
+            targetAlpha: 1,
+            animated: true,
+            identity: identity
+        )
+
+        XCTAssertEqual(presentation.upgradeState, .fading)
+        animator.completeNext()
+
+        XCTAssertEqual(presentation.upgradeState, .none)
+        content = presentation.sourceContent(
+            baseImageView: NativeMetalCardCornerMaskedImageView(frame: .zero),
+            baseIdentity: nil
+        )
+        XCTAssertTrue(content?.primary.image === committedImage)
+        XCTAssertTrue(
+            content?.primary.usesNativeMetalCardCornerMask == true
+        )
+    }
+
+    func testReplacementInvalidatesCarryoverAnimationCompletion() async {
+        let animator = ControlledFadeAnimator()
+        let (_, presentation) = makePresentation {
+            animator.animate($0, completion: $1)
+        }
+        let carryoverIdentity = MobilePlayerBrowserContentIdentity(
+            collectionId: "collection",
+            tokenIndex: 15
+        )
+        presentation.installCarryover(MobilePlayerBrowserCarryoverContent(
+            identity: carryoverIdentity,
+            image: makeImage(.red),
+            usesNativeMetalCardCornerMask: false
+        ))
+        presentation.fadeCarryoverIfNeeded()
+        await withCheckedContinuation { continuation in
+            DispatchQueue.main.async {
+                continuation.resume()
+            }
+        }
+
+        XCTAssertEqual(animator.pendingCompletionCount, 1)
+
+        let replacementIdentity = MobilePlayerBrowserContentIdentity(
+            collectionId: "collection",
+            tokenIndex: 16
+        )
+        let replacementImage = makeImage(.blue)
+        presentation.installIncoming(
+            image: replacementImage,
+            usesNativeMetalCardCornerMask: false,
+            targetAlpha: 0.7,
+            animated: false,
+            identity: replacementIdentity
+        )
+        animator.completeNext()
+
+        XCTAssertEqual(
+            presentation.presentationState,
+            .incoming(identity: replacementIdentity)
+        )
+        let content = presentation.sourceContent(
+            baseImageView: NativeMetalCardCornerMaskedImageView(frame: .zero),
+            baseIdentity: nil
+        )
+        XCTAssertTrue(content?.primary.image === replacementImage)
+    }
+
+    func testCarryoverIdentityControlsSelection() {
+        let (_, presentation) = makePresentation()
+        let previousIdentity = MobilePlayerBrowserContentIdentity(
+            collectionId: "collection",
+            tokenIndex: 3
+        )
+        let currentIdentity = MobilePlayerBrowserContentIdentity(
+            collectionId: "collection",
+            tokenIndex: 4
+        )
+        presentation.installCarryover(MobilePlayerBrowserCarryoverContent(
+            identity: previousIdentity,
+            image: makeImage(.purple),
+            usesNativeMetalCardCornerMask: false
+        ))
+
+        XCTAssertTrue(presentation.allowsSelection(
+            representing: previousIdentity
+        ))
+        XCTAssertFalse(presentation.allowsSelection(
+            representing: currentIdentity
+        ))
+    }
+
+    func testCellRetargetConvertsIncomingOverlayIntoCarryover() {
+        let cell = MobilePlayerCollectionBrowserCell(frame: CGRect(
+            x: 0,
+            y: 0,
+            width: 120,
+            height: 80
+        ))
+        let sources = makeImageSources()
+        let originalIdentity = MobilePlayerBrowserContentIdentity(
+            collectionId: "collection",
+            tokenIndex: 0
+        )
+        cell.configure(
+            contentIdentity: originalIdentity,
+            itemCount: 3,
+            imageSources: sources,
+            requiredImageQuality: .thumbnail,
+            missingDescriptorFallbackSpec: PlayerMediaPlaceholderSpec(
+                thumbnailAspectRatio: nil
+            ),
+            imageLoadPolicy: .disabled
+        )
+        let overlayIdentity = MobilePlayerBrowserContentIdentity(
+            collectionId: "collection",
+            tokenIndex: 1
+        )
+        cell.installTransitionContent(
+            image: makeImage(.red),
+            descriptor: sources.thumbnailDescriptor,
+            usesNativeMetalCardCornerMask: false,
+            targetAlpha: 1,
+            animated: false,
+            identity: overlayIdentity
+        )
+        let replacementIdentity = MobilePlayerBrowserContentIdentity(
+            collectionId: "collection",
+            tokenIndex: 2
+        )
+
+        cell.configure(
+            contentIdentity: replacementIdentity,
+            itemCount: 3,
+            imageSources: sources,
+            requiredImageQuality: .thumbnail,
+            missingDescriptorFallbackSpec: PlayerMediaPlaceholderSpec(
+                thumbnailAspectRatio: nil
+            ),
+            imageLoadPolicy: .disabled
+        )
+
+        XCTAssertEqual(
+            cell.carryoverSourceContent?.identity,
+            overlayIdentity
+        )
+        XCTAssertFalse(cell.canSelect(representing: replacementIdentity))
+    }
+
+    func testCellReuseClearsPresentationIdentityToneAndContent() {
+        let cell = MobilePlayerCollectionBrowserCell(frame: CGRect(
+            x: 0,
+            y: 0,
+            width: 120,
+            height: 80
+        ))
+        let originalIdentity = MobilePlayerBrowserContentIdentity(
+            collectionId: "collection",
+            tokenIndex: 17
+        )
+        cell.configure(
+            contentIdentity: originalIdentity,
+            itemCount: 20,
+            imageSources: makeImageSources(),
+            requiredImageQuality: .thumbnail,
+            missingDescriptorFallbackSpec: PlayerMediaPlaceholderSpec(
+                thumbnailAspectRatio: nil
+            ),
+            imageLoadPolicy: .disabled
+        )
+        cell.installTransitionContent(
+            image: makeImage(.purple),
+            descriptor: makeImageSources().thumbnailDescriptor,
+            usesNativeMetalCardCornerMask: false,
+            targetAlpha: 1,
+            animated: false,
+            identity: originalIdentity
+        )
+        cell.setTransitionPlaceholderTone(true)
+        let opacity = CABasicAnimation(keyPath: "opacity")
+        opacity.duration = 10
+        cell.layer.add(opacity, forKey: "opacity")
+        cell.alpha = 0.2
+
+        XCTAssertEqual(
+            cell.carryoverSourceContent?.identity,
+            originalIdentity
+        )
+
+        cell.prepareForGridModePhantomReuse()
+
+        XCTAssertNil(cell.carryoverSourceContent)
+        XCTAssertFalse(cell.keepsTransitionPlaceholderToneForPendingLoad)
+        XCTAssertFalse(cell.canSelect(representing: originalIdentity))
+        XCTAssertNil(cell.layer.animation(forKey: "opacity"))
+        XCTAssertEqual(cell.alpha, 1)
+
+        let replacementIdentity = MobilePlayerBrowserContentIdentity(
+            collectionId: "collection",
+            tokenIndex: 18
+        )
+        cell.configure(
+            contentIdentity: replacementIdentity,
+            itemCount: 20,
+            imageSources: makeImageSources(),
+            requiredImageQuality: .thumbnail,
+            missingDescriptorFallbackSpec: PlayerMediaPlaceholderSpec(
+                thumbnailAspectRatio: nil
+            ),
+            imageLoadPolicy: .disabled
+        )
+
+        XCTAssertTrue(cell.canSelect(representing: replacementIdentity))
+        XCTAssertNil(cell.carryoverSourceContent)
+    }
+
+    func testSameIdentityThumbnailPolicyRejectsDistinctLargeDescriptor() {
+        let thumbnail = CollectionCatalogDownloadableMediaDescriptor(
+            collectionId: "collection",
+            tokenId: "19",
+            tokenIndex: 19,
+            media: .staticImage(
+                url: URL(fileURLWithPath: "/thumbnail-19.webp"),
+                fileExtension: "webp"
+            ),
+            purpose: .collectionBrowserThumbnail
+        )
+        let large = CollectionCatalogDownloadableMediaDescriptor(
+            collectionId: "collection",
+            tokenId: "19",
+            tokenIndex: 19,
+            media: .staticImage(
+                url: URL(fileURLWithPath: "/large-19.webp"),
+                fileExtension: "webp"
+            ),
+            purpose: .collectionBrowserMid
+        )
+        let sources = CollectionBrowseImageSources(
+            thumbnailDescriptor: thumbnail,
+            largeDescriptor: large
+        )
+        let identity = MobilePlayerBrowserContentIdentity(
+            collectionId: "collection",
+            tokenIndex: 19
+        )
+
+        let rejected = cachedImageDescriptorRetention(
+            displayedDescriptor: large,
+            displayedImageIsPresent: true,
+            representedContentIdentity: identity,
+            targetContentIdentity: identity,
+            imageSources: sources,
+            selectionPolicy: .base(
+                requiredQuality: .thumbnail,
+                allowsLocalLargeUpgrade: false
+            )
+        )
+
+        XCTAssertNil(rejected.descriptor)
+        XCTAssertTrue(rejected.rejectsDisplayedImage)
+
+        let retained = cachedImageDescriptorRetention(
+            displayedDescriptor: large,
+            displayedImageIsPresent: true,
+            representedContentIdentity: identity,
+            targetContentIdentity: identity,
+            imageSources: sources,
+            selectionPolicy: .base(
+                requiredQuality: .thumbnail,
+                allowsLocalLargeUpgrade: true
+            )
+        )
+
+        XCTAssertEqual(retained.descriptor, large)
+        XCTAssertFalse(retained.rejectsDisplayedImage)
+    }
+
+    func testTransitionSupportUsesAttachedCellThenLayoutForViewportIntersection() {
+        let fixture = makeTransitionSupportFixture()
+        let indexPath = IndexPath(item: 0, section: 0)
+        fixture.cell.frame.origin.x = fixture.viewportView.bounds.maxX
+
+        XCTAssertFalse(
+            MobilePlayerCollectionBrowserTransitionSupport
+                .itemIntersectsViewport(
+                    at: indexPath,
+                    cell: fixture.cell,
+                    collectionView: fixture.collectionView,
+                    viewportView: fixture.viewportView
+                )
+        )
+        XCTAssertTrue(
+            MobilePlayerCollectionBrowserTransitionSupport
+                .itemIntersectsViewport(
+                    at: indexPath,
+                    cell: nil,
+                    collectionView: fixture.collectionView,
+                    viewportView: fixture.viewportView
+                )
+        )
+    }
+
+    func testTransitionSupportCapturesInViewportCoordinates() {
+        let fixture = makeTransitionSupportFixture()
+        fixture.collectionView.frame.origin = CGPoint(x: 9, y: 13)
+        let content = MobilePlayerBrowserCarryoverContent(
+            identity: MobilePlayerBrowserContentIdentity(
+                collectionId: "collection",
+                tokenIndex: 7
+            ),
+            image: makeImage(.red),
+            usesNativeMetalCardCornerMask: false
+        )
+        fixture.cell.setCarryoverContent(content)
+
+        let sources = MobilePlayerCollectionBrowserTransitionSupport
+            .captureSources(from: [fixture.cell], in: fixture.viewportView)
+
+        XCTAssertEqual(sources.count, 1)
+        XCTAssertEqual(sources[0].viewportRect.origin, CGPoint(x: 9, y: 13))
+        XCTAssertEqual(sources[0].content?.identity, content.identity)
+    }
+
+    func testTransitionSupportMatchesAgainstClippedDestinationArea() {
+        let fixture = makeTransitionSupportFixture()
+        fixture.cell.frame = CGRect(x: -80, y: 0, width: 100, height: 100)
+        let content = MobilePlayerBrowserCarryoverContent(
+            identity: MobilePlayerBrowserContentIdentity(
+                collectionId: "collection",
+                tokenIndex: 8
+            ),
+            image: makeImage(.blue),
+            usesNativeMetalCardCornerMask: false
+        )
+        let source = MobilePlayerBrowserGridCarryoverSource(
+            viewportRect: CGRect(x: 0, y: 0, width: 11, height: 100),
+            content: content
+        )
+
+        let result = MobilePlayerCollectionBrowserTransitionSupport
+            .installCarryover(
+                sources: [source],
+                in: fixture.collectionView,
+                viewportView: fixture.viewportView,
+                anchorItemIndex: 0,
+                hasImageSources: { _ in true },
+                resolveContent: { source, _, _ in source?.content }
+            )
+
+        XCTAssertFalse(result)
+        XCTAssertEqual(
+            fixture.cell.carryoverSourceContent?.identity,
+            content.identity
+        )
+    }
+
+    func testTransitionSupportReportsHeldPlaceholderTone() {
+        let fixture = makeTransitionSupportFixture()
+
+        let result = MobilePlayerCollectionBrowserTransitionSupport
+            .installCarryover(
+                sources: [],
+                in: fixture.collectionView,
+                viewportView: fixture.viewportView,
+                anchorItemIndex: 0,
+                hasImageSources: { _ in true },
+                resolveContent: { _, _, _ in nil }
+            )
+
+        XCTAssertTrue(result)
+    }
+}

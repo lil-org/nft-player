@@ -6,128 +6,52 @@ import XCTest
 
 final class CollectionBrowserConfigurationTests: XCTestCase {
 
-    func testGridModesExposeSupportedColumnCountsAndImageRequirements() {
+    func testGridModesExposeSupportedColumnCounts() {
         XCTAssertEqual(
             MobileCollectionBrowserGridMode.allCases,
-            [.large, .twoColumns, .threeColumns, .fourColumns]
+            [.large, .threeColumns, .fiveColumns]
         )
         XCTAssertEqual(MobileCollectionBrowserGridMode.large.columnCount, 1)
-        XCTAssertEqual(MobileCollectionBrowserGridMode.twoColumns.columnCount, 2)
         XCTAssertEqual(MobileCollectionBrowserGridMode.threeColumns.columnCount, 3)
-        XCTAssertEqual(MobileCollectionBrowserGridMode.fourColumns.columnCount, 4)
-        XCTAssertFalse(MobileCollectionBrowserGridMode.twoColumns.requiresLargeImage)
-        XCTAssertTrue(MobileCollectionBrowserGridMode.large.requiresLargeImage)
-        XCTAssertFalse(MobileCollectionBrowserGridMode.threeColumns.requiresLargeImage)
-        XCTAssertFalse(MobileCollectionBrowserGridMode.fourColumns.requiresLargeImage)
+        XCTAssertEqual(MobileCollectionBrowserGridMode.fiveColumns.columnCount, 5)
+        XCTAssertEqual(MobileCollectionBrowserGridMode.defaultMode, .threeColumns)
     }
 
-    func testGridModeImageQualityUsesLargeImagesWhenThreeColumnCollectionsUseTwoColumns() {
+    func testGridModeImageQualityRequiresLargeImagesOnlyForTheLargeGrid() {
         XCTAssertEqual(
-            MobileCollectionBrowserGridMode.twoColumns.requiredImageQuality(
-                defaultGridMode: .threeColumns
-            ),
+            MobileCollectionBrowserGridMode.large.requiredImageQuality,
             .large
         )
         XCTAssertEqual(
-            MobileCollectionBrowserGridMode.twoColumns.requiredImageQuality(
-                defaultGridMode: .twoColumns
-            ),
+            MobileCollectionBrowserGridMode.threeColumns.requiredImageQuality,
             .thumbnail
         )
         XCTAssertEqual(
-            MobileCollectionBrowserGridMode.threeColumns.requiredImageQuality(
-                defaultGridMode: .threeColumns
-            ),
-            .thumbnail
-        )
-        XCTAssertEqual(
-            MobileCollectionBrowserGridMode.large.requiredImageQuality(
-                defaultGridMode: .twoColumns
-            ),
-            .large
-        )
-        XCTAssertEqual(
-            MobileCollectionBrowserGridMode.fourColumns.requiredImageQuality(
-                defaultGridMode: .threeColumns
-            ),
-            .thumbnail
-        )
-        XCTAssertEqual(
-            MobileCollectionBrowserGridMode.fourColumns.requiredImageQuality(
-                defaultGridMode: .twoColumns
-            ),
+            MobileCollectionBrowserGridMode.fiveColumns.requiredImageQuality,
             .thumbnail
         )
     }
 
-    func testGridInteractionUsesTheLowestRequiredImageQuality() {
-        typealias Mode = MobileCollectionBrowserGridMode
-        let cases: [(
-            defaultMode: Mode,
-            baselineMode: Mode,
-            currentMode: Mode,
-            targetMode: Mode?,
-            expectedQuality: CollectionBrowseImageQuality
-        )] = [
-            (.threeColumns, .large, .large, .fourColumns, .thumbnail),
-            (.threeColumns, .large, .large, .twoColumns, .large),
-            (.threeColumns, .fourColumns, .fourColumns, .large, .thumbnail),
-            (.threeColumns, .twoColumns, .twoColumns, .threeColumns, .thumbnail),
-            (.threeColumns, .fourColumns, .twoColumns, .large, .thumbnail),
-            (.twoColumns, .large, .large, .twoColumns, .thumbnail),
-            (.twoColumns, .threeColumns, .threeColumns, .fourColumns, .thumbnail),
-            (.threeColumns, .large, .large, nil, .large),
-        ]
-
-        for testCase in cases {
-            let baseline = testCase.baselineMode.requiredImageQuality(
-                defaultGridMode: testCase.defaultMode
-            )
-            let current = testCase.currentMode.requiredImageQuality(
-                defaultGridMode: testCase.defaultMode
-            )
-            let target = testCase.targetMode.map {
-                $0.requiredImageQuality(defaultGridMode: testCase.defaultMode)
-            }
-            XCTAssertEqual(
-                CollectionBrowseImageQuality.conservativeInteractionQuality(
-                    baseline: baseline,
-                    current: current,
-                    target: target
-                ),
-                testCase.expectedQuality
-            )
-        }
-    }
-
-    func testGridModePreferencesPreserveLegacyOverridesPerInternalSlug() throws {
+    func testGridModePreferencesUseThreeColumnsForMissingAndInvalidValues() throws {
         let suiteName = "CollectionBrowserConfigurationTests.\(UUID().uuidString)"
         let userDefaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
         defer { userDefaults.removePersistentDomain(forName: suiteName) }
 
-        let terraformsKey = try XCTUnwrap(
-            MobileCollectionBrowserGridModePreferences.userDefaultsKey(
-                internalSlug: "terraforms"
-            )
-        )
-        userDefaults.set(2, forKey: terraformsKey)
-
         XCTAssertEqual(
             MobileCollectionBrowserGridModePreferences.gridMode(
                 userDefaults: userDefaults,
-                internalSlug: "terraforms",
-                defaultGridMode: .threeColumns
-            ),
-            .twoColumns
-        )
-        XCTAssertEqual(
-            MobileCollectionBrowserGridModePreferences.gridMode(
-                userDefaults: userDefaults,
-                internalSlug: "another-collection",
-                defaultGridMode: .threeColumns
+                internalSlug: "missing"
             ),
             .threeColumns
         )
+        XCTAssertEqual(
+            MobileCollectionBrowserGridModePreferences.gridMode(
+                userDefaults: userDefaults,
+                internalSlug: ""
+            ),
+            .threeColumns
+        )
+
         let invalidOverrideKey = try XCTUnwrap(
             MobileCollectionBrowserGridModePreferences.userDefaultsKey(
                 internalSlug: "invalid-override"
@@ -137,43 +61,80 @@ final class CollectionBrowserConfigurationTests: XCTestCase {
         XCTAssertEqual(
             MobileCollectionBrowserGridModePreferences.gridMode(
                 userDefaults: userDefaults,
-                internalSlug: "invalid-override",
-                defaultGridMode: .twoColumns
+                internalSlug: "invalid-override"
             ),
-            .twoColumns
+            .threeColumns
         )
-
-        MobileCollectionBrowserGridModePreferences.save(
-            gridMode: .large,
-            userDefaults: userDefaults,
-            internalSlug: "terraforms"
-        )
+        userDefaults.set(true, forKey: invalidOverrideKey)
         XCTAssertEqual(
             MobileCollectionBrowserGridModePreferences.gridMode(
                 userDefaults: userDefaults,
-                internalSlug: "terraforms",
-                defaultGridMode: .threeColumns
+                internalSlug: "invalid-override"
             ),
-            .large
+            .threeColumns
         )
-        MobileCollectionBrowserGridModePreferences.save(
-            gridMode: .fourColumns,
-            userDefaults: userDefaults,
-            internalSlug: "terraforms"
-        )
+        userDefaults.set(3.5, forKey: invalidOverrideKey)
         XCTAssertEqual(
             MobileCollectionBrowserGridModePreferences.gridMode(
                 userDefaults: userDefaults,
-                internalSlug: "terraforms",
-                defaultGridMode: .twoColumns
+                internalSlug: "invalid-override"
             ),
-            .fourColumns
+            .threeColumns
         )
         XCTAssertNil(
             MobileCollectionBrowserGridModePreferences.userDefaultsKey(
                 internalSlug: ""
             )
         )
+    }
+
+    func testGridModePreferencesPreserveSupportedAndLegacyOverrides() throws {
+        let suiteName = "CollectionBrowserConfigurationTests.\(UUID().uuidString)"
+        let userDefaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { userDefaults.removePersistentDomain(forName: suiteName) }
+
+        let terraformsKey = try XCTUnwrap(
+            MobileCollectionBrowserGridModePreferences.userDefaultsKey(
+                internalSlug: "terraforms"
+            )
+        )
+        XCTAssertEqual(
+            terraformsKey,
+            "iosCollectionBrowserColumnCountOverride.terraforms"
+        )
+
+        let storedCases: [(Int, MobileCollectionBrowserGridMode)] = [
+            (1, .large),
+            (2, .threeColumns),
+            (3, .threeColumns),
+            (4, .fiveColumns),
+            (5, .fiveColumns)
+        ]
+        for (storedColumnCount, expectedMode) in storedCases {
+            userDefaults.set(storedColumnCount, forKey: terraformsKey)
+            XCTAssertEqual(
+                MobileCollectionBrowserGridModePreferences.gridMode(
+                    userDefaults: userDefaults,
+                    internalSlug: "terraforms"
+                ),
+                expectedMode
+            )
+        }
+
+        for mode in MobileCollectionBrowserGridMode.allCases {
+            MobileCollectionBrowserGridModePreferences.save(
+                gridMode: mode,
+                userDefaults: userDefaults,
+                internalSlug: "terraforms"
+            )
+            XCTAssertEqual(
+                MobileCollectionBrowserGridModePreferences.gridMode(
+                    userDefaults: userDefaults,
+                    internalSlug: "terraforms"
+                ),
+                mode
+            )
+        }
     }
 
     func testMidImageURLMappingUsesFinalThumbsDirectory() throws {
@@ -257,6 +218,113 @@ final class CollectionBrowserConfigurationTests: XCTestCase {
                 largeImageIsLocallyAvailable: false
             ),
             .requestedQuality
+        )
+    }
+
+    func testLargeImageLoadPolicyOnlyPromotesLocalLargeImagesWhenAllowed() {
+        XCTAssertFalse(
+            CollectionBrowseImageLoadPolicy.allowsLocalLargeImagePromotion(
+                requiredQuality: .thumbnail,
+                hasDistinctLargeImage: true,
+                largeImageIsLocallyAvailable: true,
+                allowsPromotion: false
+            )
+        )
+        XCTAssertTrue(
+            CollectionBrowseImageLoadPolicy.allowsLocalLargeImagePromotion(
+                requiredQuality: .thumbnail,
+                hasDistinctLargeImage: true,
+                largeImageIsLocallyAvailable: true,
+                allowsPromotion: true
+            )
+        )
+        XCTAssertFalse(
+            CollectionBrowseImageLoadPolicy.allowsLargeImageLoad(
+                requiredQuality: .thumbnail,
+                hasDistinctLargeImage: true,
+                largeImageIsLocallyAvailable: true,
+                allowsLocalPromotion: false
+            )
+        )
+        XCTAssertTrue(
+            CollectionBrowseImageLoadPolicy.allowsLargeImageLoad(
+                requiredQuality: .thumbnail,
+                hasDistinctLargeImage: true,
+                largeImageIsLocallyAvailable: true,
+                allowsLocalPromotion: true
+            )
+        )
+        XCTAssertFalse(
+            CollectionBrowseImageLoadPolicy.allowsLargeImageLoad(
+                requiredQuality: .thumbnail,
+                hasDistinctLargeImage: true,
+                largeImageIsLocallyAvailable: false,
+                allowsLocalPromotion: true
+            )
+        )
+        XCTAssertTrue(
+            CollectionBrowseImageLoadPolicy.allowsLargeImageLoad(
+                requiredQuality: .large,
+                hasDistinctLargeImage: true,
+                largeImageIsLocallyAvailable: false,
+                allowsLocalPromotion: false
+            )
+        )
+        XCTAssertTrue(
+            CollectionBrowseImageLoadPolicy.allowsLargeImageLoad(
+                requiredQuality: .thumbnail,
+                hasDistinctLargeImage: false,
+                largeImageIsLocallyAvailable: false,
+                allowsLocalPromotion: false
+            )
+        )
+
+        var checkedLocalAvailability = false
+        func localAvailability() -> Bool {
+            checkedLocalAvailability = true
+            return true
+        }
+        XCTAssertFalse(
+            CollectionBrowseImageLoadPolicy.allowsLargeImageLoad(
+                requiredQuality: .thumbnail,
+                hasDistinctLargeImage: true,
+                largeImageIsLocallyAvailable: localAvailability(),
+                allowsLocalPromotion: false
+            )
+        )
+        XCTAssertFalse(checkedLocalAvailability)
+    }
+
+    func testSnapshotUpdateRecognizesOnlyThePublishedSettledTokenAsAnEcho() {
+        XCTAssertTrue(
+            CollectionBrowseSnapshotUpdatePolicy.isSettledPositionEcho(
+                currentCollectionId: "collection",
+                currentItemCount: 100,
+                updatedCollectionId: "collection",
+                updatedItemCount: 100,
+                updatedInitialTokenIndex: 42,
+                lastPublishedTokenIndex: 42
+            )
+        )
+        XCTAssertFalse(
+            CollectionBrowseSnapshotUpdatePolicy.isSettledPositionEcho(
+                currentCollectionId: "collection",
+                currentItemCount: 100,
+                updatedCollectionId: "collection",
+                updatedItemCount: 100,
+                updatedInitialTokenIndex: 43,
+                lastPublishedTokenIndex: 42
+            )
+        )
+        XCTAssertFalse(
+            CollectionBrowseSnapshotUpdatePolicy.isSettledPositionEcho(
+                currentCollectionId: "collection",
+                currentItemCount: 100,
+                updatedCollectionId: "other-collection",
+                updatedItemCount: 100,
+                updatedInitialTokenIndex: 42,
+                lastPublishedTokenIndex: 42
+            )
         )
     }
 }

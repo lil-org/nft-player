@@ -6,6 +6,59 @@ import XCTest
 
 final class MobilePlayerBrowserLayoutTests: XCTestCase {
 
+    func testSharedLayoutDefaultRemainsThreeColumns() {
+        XCTAssertEqual(MobilePlayerBrowserLayout.defaultColumnCount, 3)
+    }
+
+    func testVisualGeometryMirrorsFramesAndLookupForEveryGridMode() throws {
+        let viewportSize = CGSize(width: 390, height: 844)
+        for mode in MobileCollectionBrowserGridMode.allCases {
+            let layout = try XCTUnwrap(MobilePlayerBrowserLayout(
+                viewportSize: viewportSize,
+                aspectProfile: MobilePlayerBrowserAspectProfile(
+                    itemCount: 40,
+                    uniformImageSize: CGSize(width: 1, height: 1),
+                    columnCount: mode.columnCount
+                )
+            ))
+            let geometry = MobilePlayerBrowserVisualLayoutGeometry(
+                layout: layout,
+                mirrorsHorizontally: true
+            )
+
+            for itemIndex in 0..<layout.columnCount {
+                let modelFrame = try XCTUnwrap(
+                    layout.itemFrame(at: itemIndex)
+                )
+                let visualFrame = try XCTUnwrap(
+                    geometry.itemFrame(at: itemIndex)
+                )
+                XCTAssertEqual(
+                    visualFrame.minX,
+                    layout.contentSize.width - modelFrame.maxX,
+                    accuracy: 0.000_001
+                )
+                XCTAssertEqual(
+                    geometry.itemIndex(at: CGPoint(
+                        x: visualFrame.midX,
+                        y: visualFrame.midY
+                    )),
+                    itemIndex
+                )
+                XCTAssertEqual(
+                    geometry.nearestItemIndex(
+                        to: CGPoint(
+                            x: visualFrame.maxX + 0.25,
+                            y: visualFrame.midY
+                        ),
+                        tolerance: 1
+                    ),
+                    itemIndex
+                )
+            }
+        }
+    }
+
     func testAllGridModesBuildBoundedVariableGeometryForTenThousandItems() throws {
         let itemCount = 10_000
         let ratios = (0..<itemCount).map {
@@ -101,7 +154,70 @@ final class MobilePlayerBrowserLayoutTests: XCTestCase {
         )
         XCTAssertEqual(itemSize.height, itemSize.width, accuracy: 0.000_001)
         XCTAssertEqual(layout.visibleRowCount, 6)
-        XCTAssertEqual(layout.prefetchStride, 15)
+        XCTAssertEqual(
+            layout.prefetchStride,
+            MobilePlayerBrowserLayout.preferredPrefetchRowCount * 3,
+            "the row lookahead binds before the six visible rows do"
+        )
+    }
+
+    func testDensePortraitGridUsesPreferredRowsWithinTheItemCeiling() throws {
+        let layout = try XCTUnwrap(MobilePlayerBrowserLayout(
+            viewportSize: CGSize(width: 390, height: 844),
+            topContentInset: 47,
+            bottomContentInset: 34,
+            aspectProfile: MobilePlayerBrowserAspectProfile(
+                itemCount: 500,
+                uniformImageSize: CGSize(width: 512, height: 512),
+                columnCount: 5
+            )
+        ))
+        XCTAssertEqual(layout.columnCount, 5)
+        XCTAssertGreaterThan(
+            layout.visibleRowCount,
+            MobilePlayerBrowserLayout.preferredPrefetchRowCount
+        )
+        XCTAssertEqual(
+            layout.prefetchStride,
+            MobilePlayerBrowserLayout.preferredPrefetchRowCount * 5
+        )
+        XCTAssertGreaterThan(
+            layout.prefetchStride,
+            ((MobilePlayerBrowserLayout.prefetchItemBudget - 1) / 5 + 1) * 5,
+            "the item budget on its own would lead by only three rows here"
+        )
+    }
+
+    func testDenseLandscapePrefetchCapPreservesDecodedFiveRowCoverage() throws {
+        let layout = try XCTUnwrap(MobilePlayerBrowserLayout(
+            viewportSize: CGSize(width: 844, height: 390),
+            aspectProfile: MobilePlayerBrowserAspectProfile(
+                itemCount: 500,
+                uniformImageSize: CGSize(width: 512, height: 512),
+                columnCount: 5
+            )
+        ))
+        XCTAssertEqual(layout.columnCount, 10)
+        XCTAssertEqual(
+            layout.prefetchStride,
+            MobilePlayerBrowserLayout.maximumPrefetchStride
+        )
+
+        let decodedRadii = PlayerCollectionBrowseMediaWindowPolicy.decodedRadii(
+            prefetchStride: layout.prefetchStride
+        )
+        XCTAssertEqual(decodedRadii.preferred, 50)
+        XCTAssertEqual(decodedRadii.opposite, 25)
+        XCTAssertEqual(
+            decodedRadii.preferred / layout.columnCount,
+            MobilePlayerBrowserLayout.preferredPrefetchRowCount,
+            "two capped strides still keep five complete landscape rows decoded ahead"
+        )
+        let fileRadii = PlayerCollectionBrowseMediaWindowPolicy.fileRadii(
+            prefetchStride: layout.prefetchStride
+        )
+        XCTAssertEqual(fileRadii.preferred, 150)
+        XCTAssertEqual(fileRadii.opposite, 50)
     }
 
     func testMixedAspectItemsUseTallestAspectOnlyWithinTheirRow() throws {
@@ -646,7 +762,8 @@ final class MobilePlayerBrowserLayoutTests: XCTestCase {
         XCTAssertEqual(aspectProfile.columnCount, 3)
         XCTAssertEqual(layout.columnCount, 6)
         XCTAssertEqual(layout.rowCount, 2)
-        XCTAssertEqual(layout.prefetchStride, 15)
+        // Three visible rows at six columns, under the 25-item ceiling.
+        XCTAssertEqual(layout.prefetchStride, 18)
         XCTAssertEqual(
             try XCTUnwrap(layout.itemFrame(at: 5)).maxX,
             viewportSize.width,
@@ -659,13 +776,13 @@ final class MobilePlayerBrowserLayoutTests: XCTestCase {
         )
     }
 
-    func testFourColumnModeUsesFourPortraitAndEightLandscapeColumns() throws {
+    func testFiveColumnModeUsesFivePortraitAndTenLandscapeColumns() throws {
         let portraitSize = CGSize(width: 390, height: 844)
         let landscapeSize = CGSize(width: 844, height: 390)
         let aspectProfile = MobilePlayerBrowserAspectProfile(
-            itemCount: 17,
+            itemCount: 21,
             uniformImageSize: CGSize(width: 1, height: 1),
-            columnCount: 4
+            columnCount: 5
         )
         let portrait = try XCTUnwrap(MobilePlayerBrowserLayout(
             viewportSize: portraitSize,
@@ -676,22 +793,22 @@ final class MobilePlayerBrowserLayoutTests: XCTestCase {
             aspectProfile: aspectProfile
         ))
 
-        XCTAssertEqual(portrait.columnCount, 4)
+        XCTAssertEqual(portrait.columnCount, 5)
         XCTAssertEqual(portrait.rowCount, 5)
-        XCTAssertEqual(landscape.columnCount, 8)
+        XCTAssertEqual(landscape.columnCount, 10)
         XCTAssertEqual(landscape.rowCount, 3)
         XCTAssertEqual(
-            try XCTUnwrap(portrait.itemFrame(at: 3)).maxX,
+            try XCTUnwrap(portrait.itemFrame(at: 4)).maxX,
             portraitSize.width,
             accuracy: 0.000_001
         )
         XCTAssertEqual(
-            try XCTUnwrap(landscape.itemFrame(at: 7)).maxX,
+            try XCTUnwrap(landscape.itemFrame(at: 9)).maxX,
             landscapeSize.width,
             accuracy: 0.000_001
         )
         XCTAssertEqual(
-            try XCTUnwrap(landscape.itemFrame(at: 8)).minX,
+            try XCTUnwrap(landscape.itemFrame(at: 10)).minX,
             0,
             accuracy: 0.000_001
         )
@@ -1023,6 +1140,32 @@ final class MobilePlayerBrowserLayoutTests: XCTestCase {
         )
     }
 
+    func testHugeFiniteViewportSaturatesBeforePrefetchMultiplicationCanOverflow() throws {
+        let columnCount = Int.max / 2
+        let viewportSize = CGSize(
+            width: CGFloat.greatestFiniteMagnitude,
+            height: CGFloat.greatestFiniteMagnitude
+        )
+        let layout = try XCTUnwrap(MobilePlayerBrowserLayout(
+            viewportSize: viewportSize,
+            aspectProfile: MobilePlayerBrowserAspectProfile(
+                itemCount: 1,
+                uniformImageSize: CGSize(width: 1, height: 1),
+                columnCount: columnCount
+            )
+        ))
+
+        XCTAssertEqual(layout.columnCount, columnCount)
+        XCTAssertGreaterThan(
+            layout.visibleRowCount,
+            MobilePlayerBrowserLayout.preferredPrefetchRowCount
+        )
+        XCTAssertEqual(
+            layout.prefetchStride,
+            MobilePlayerBrowserLayout.maximumPrefetchStride
+        )
+    }
+
     func testViewportTransitionUsesFocusPrecedenceAndRequiresGeometryChange() {
         let viewportSize = CGSize(width: 430, height: 932)
         let aspectProfile = MobilePlayerBrowserAspectProfile(
@@ -1165,6 +1308,104 @@ final class MobilePlayerBrowserLayoutTests: XCTestCase {
             ),
             [finalItemIndex]
         )
+    }
+
+    func testItemLookupByPointMatchesItemFrames() throws {
+        let layout = try XCTUnwrap(MobilePlayerBrowserLayout(
+            viewportSize: CGSize(width: 390, height: 844),
+            topContentInset: 47,
+            bottomContentInset: 34,
+            aspectProfile: MobilePlayerBrowserAspectProfile(
+                itemCount: 120,
+                uniformImageSize: CGSize(width: 512, height: 640),
+                columnCount: 3
+            )
+        ))
+
+        for itemIndex in [0, 1, 2, 3, 50, 119] {
+            let frame = try XCTUnwrap(layout.itemFrame(at: itemIndex))
+            XCTAssertEqual(
+                layout.itemIndex(at: CGPoint(x: frame.midX, y: frame.midY)),
+                itemIndex
+            )
+        }
+        XCTAssertNil(layout.itemIndex(at: CGPoint(x: 100, y: -50)))
+        XCTAssertNil(layout.itemIndex(at: CGPoint(x: 100, y: 1_000_000)))
+        XCTAssertNil(layout.itemIndex(at: CGPoint(x: CGFloat.nan, y: 100)))
+    }
+
+    func testNearestItemLookupRejectsPointsBeyondTheTolerance() throws {
+        let layout = try XCTUnwrap(MobilePlayerBrowserLayout(
+            viewportSize: CGSize(width: 390, height: 844),
+            topContentInset: 47,
+            bottomContentInset: 34,
+            aspectProfile: MobilePlayerBrowserAspectProfile(
+                itemCount: 120,
+                uniformImageSize: CGSize(width: 512, height: 640),
+                columnCount: 3
+            )
+        ))
+        let lastInRow = try XCTUnwrap(layout.itemFrame(at: 2))
+
+        XCTAssertEqual(
+            layout.nearestItemIndex(
+                to: CGPoint(x: lastInRow.maxX + 0.5, y: lastInRow.midY),
+                tolerance: 1
+            ),
+            2,
+            "a point inside the tolerance still resolves"
+        )
+        // `candidateItemIndices` returns whole rows, so nothing bounds the
+        // horizontal distance except the tolerance itself.
+        XCTAssertNil(layout.nearestItemIndex(
+            to: CGPoint(x: lastInRow.maxX + 40, y: lastInRow.midY),
+            tolerance: 1
+        ))
+        // The vertical term has to decide this one: the x lands inside item 0's
+        // column, but the point sits far above the first row.
+        XCTAssertNil(layout.nearestItemIndex(
+            to: CGPoint(x: lastInRow.midX, y: -50),
+            tolerance: 1
+        ))
+    }
+
+    func testNearestItemLookupIncludesExactVerticalToleranceBoundaries() throws {
+        let layout = try XCTUnwrap(MobilePlayerBrowserLayout(
+            viewportSize: CGSize(width: 390, height: 844),
+            topContentInset: 47,
+            bottomContentInset: 34,
+            aspectProfile: MobilePlayerBrowserAspectProfile(
+                itemCount: 120,
+                uniformImageSize: CGSize(width: 512, height: 640),
+                columnCount: 3
+            )
+        ))
+        let firstFrame = try XCTUnwrap(layout.itemFrame(at: 0))
+        let lastItemIndex = layout.itemCount - 1
+        let lastFrame = try XCTUnwrap(layout.itemFrame(at: lastItemIndex))
+
+        XCTAssertEqual(
+            layout.nearestItemIndex(
+                to: CGPoint(x: firstFrame.midX, y: firstFrame.minY - 1),
+                tolerance: 1
+            ),
+            0
+        )
+        XCTAssertEqual(
+            layout.nearestItemIndex(
+                to: CGPoint(x: lastFrame.midX, y: lastFrame.maxY + 1),
+                tolerance: 1
+            ),
+            lastItemIndex
+        )
+        XCTAssertNil(layout.nearestItemIndex(
+            to: CGPoint(x: firstFrame.midX, y: firstFrame.minY - 1.0005),
+            tolerance: 1
+        ))
+        XCTAssertNil(layout.nearestItemIndex(
+            to: CGPoint(x: lastFrame.midX, y: lastFrame.maxY + 1.0005),
+            tolerance: 1
+        ))
     }
 
     private func visibleItemIndices(

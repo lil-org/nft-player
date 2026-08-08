@@ -9,26 +9,23 @@ typealias MobileCollectionCatalog = CollectionCatalog
 enum MobileCollectionBrowserGridModeStore {
     static func gridMode(
         specificCollectionId: String,
-        defaultColumnCount: Int
+        userDefaults: UserDefaults = .standard
     ) -> MobileCollectionBrowserGridMode {
-        let defaultGridMode = MobileCollectionBrowserGridMode(
-            rawValue: defaultColumnCount
-        ) ?? .threeColumns
         guard let internalSlug = internalSlug(
             specificCollectionId: specificCollectionId
         ) else {
-            return defaultGridMode
+            return .defaultMode
         }
         return MobileCollectionBrowserGridModePreferences.gridMode(
-            userDefaults: .standard,
-            internalSlug: internalSlug,
-            defaultGridMode: defaultGridMode
+            userDefaults: userDefaults,
+            internalSlug: internalSlug
         )
     }
 
     static func save(
         gridMode: MobileCollectionBrowserGridMode,
-        specificCollectionId: String
+        specificCollectionId: String,
+        userDefaults: UserDefaults = .standard
     ) {
         guard let internalSlug = internalSlug(
             specificCollectionId: specificCollectionId
@@ -37,7 +34,7 @@ enum MobileCollectionBrowserGridModeStore {
         }
         MobileCollectionBrowserGridModePreferences.save(
             gridMode: gridMode,
-            userDefaults: .standard,
+            userDefaults: userDefaults,
             internalSlug: internalSlug
         )
     }

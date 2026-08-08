@@ -453,7 +453,7 @@ final class MacCollectionBrowserViewController: NSViewController,
             return
         }
 
-        let columnCount = CollectionCatalog.collectionBrowseColumnCount(
+        let columnCount = CollectionCatalog.desktopCollectionBrowseColumnCount(
             specificCollectionId: snapshot.collectionId
         )
         if let profile = CollectionCatalog.collectionBrowseThumbnailAspectRatioProfile(

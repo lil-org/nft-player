@@ -546,6 +546,11 @@ struct PlayerCollectionScrollPublicationState {
     private var pendingIndex: Int
     private var pendingHasViewedToEnd = false
     private var lastPublishedValue: PlayerCollectionScrollPublication?
+    private var previousPublishedValue: PlayerCollectionScrollPublication?
+
+    var lastPublishedTokenIndex: Int? {
+        lastPublishedValue?.tokenIndex
+    }
 
     init(initialIndex: Int) {
         pendingIndex = max(initialIndex, 0)
@@ -594,7 +599,8 @@ struct PlayerCollectionScrollPublicationState {
         of value: PlayerCollectionScrollPublication
     ) {
         guard lastPublishedValue == value else { return }
-        lastPublishedValue = nil
+        lastPublishedValue = previousPublishedValue
+        previousPublishedValue = nil
     }
 
     private mutating func publishPendingValueIfNeeded() -> PlayerCollectionScrollPublication? {
@@ -603,6 +609,7 @@ struct PlayerCollectionScrollPublicationState {
             hasViewedToEnd: pendingHasViewedToEnd
         )
         guard value != lastPublishedValue else { return nil }
+        previousPublishedValue = lastPublishedValue
         lastPublishedValue = value
         return value
     }
