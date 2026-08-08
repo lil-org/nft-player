@@ -806,6 +806,65 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
         XCTAssertNil(fixture.renderer.reset())
     }
 
+    func testFinishPreservesBaseContentOffsetWithoutPan() throws {
+        let fixture = try makeFixture()
+        let baseContentOffsetY: CGFloat = 320
+        begin(
+            fixture,
+            gestureAnchor: GridModeGestureAnchor(
+                tokenIndex: fixture.planeRequest.anchorTokenIndex,
+                viewportPoint: CGPoint(x: 160, y: 320),
+                relativeItemPoint: CGPoint(x: 0.5, y: 0.5),
+                baseContentOffsetY: baseContentOffsetY
+            )
+        )
+        XCTAssertTrue(fixture.renderer.renderZoom(
+            planeID: nil,
+            scale: 1.1,
+            panDeltaY: 0,
+            sourceLayout: fixture.sourceLayout
+        ))
+
+        let finishState = try XCTUnwrap(
+            fixture.renderer.finish(preservingCarryover: false)
+        )
+
+        XCTAssertEqual(
+            finishState.pannedContentOffsetY,
+            baseContentOffsetY
+        )
+    }
+
+    func testFinishRetainsIntentionalPinchPan() throws {
+        let fixture = try makeFixture()
+        let baseContentOffsetY: CGFloat = 320
+        let panDeltaY: CGFloat = 60
+        begin(
+            fixture,
+            gestureAnchor: GridModeGestureAnchor(
+                tokenIndex: fixture.planeRequest.anchorTokenIndex,
+                viewportPoint: CGPoint(x: 160, y: 320),
+                relativeItemPoint: CGPoint(x: 0.5, y: 0.5),
+                baseContentOffsetY: baseContentOffsetY
+            )
+        )
+        XCTAssertTrue(fixture.renderer.renderZoom(
+            planeID: nil,
+            scale: 1.1,
+            panDeltaY: panDeltaY,
+            sourceLayout: fixture.sourceLayout
+        ))
+
+        let finishState = try XCTUnwrap(
+            fixture.renderer.finish(preservingCarryover: false)
+        )
+
+        XCTAssertEqual(
+            finishState.pannedContentOffsetY,
+            baseContentOffsetY - panDeltaY
+        )
+    }
+
     func testFinishClearsAllTransitionSessionState() throws {
         let image = makeImage()
         let fixture = try makeFixture(
@@ -3764,5 +3823,79 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
         ))
         XCTAssertEqual(fixture.renderer.lifecycleName, .committing)
         _ = fixture.renderer.finish(preservingCarryover: false)
+    }
+}
+
+@MainActor
+final class MobilePlayerCollectionBrowserPinchFrameCoalescerTests: XCTestCase {
+    private func makeFrame(
+        scale: CGFloat,
+        location: CGPoint,
+        timestamp: TimeInterval
+    ) -> GridModePinchFrame {
+        GridModePinchFrame(
+            scale: scale,
+            viewLocation: location,
+            timestamp: timestamp
+        )
+    }
+
+    func testTerminationFlushAppliesLatestChangedFrameOnce() {
+        var appliedFrames = [GridModePinchFrame]()
+        let coalescer = GridModePinchFrameCoalescer {
+            appliedFrames.append($0)
+        }
+        coalescer.seed(makeFrame(
+            scale: 1.2,
+            location: CGPoint(x: 160, y: 320),
+            timestamp: 1
+        ))
+        let latestFrame = makeFrame(
+            scale: 1.01,
+            location: CGPoint(x: 160, y: 320),
+            timestamp: 2
+        )
+        coalescer.stage(latestFrame)
+
+        coalescer.flush()
+        coalescer.flush()
+
+        XCTAssertEqual(appliedFrames, [latestFrame])
+        XCTAssertEqual(latestFrame.sample.centroidY, latestFrame.viewLocation.y)
+    }
+
+    func testTerminationFlushAppliesBeganFrameWithoutChangedFrame() {
+        var appliedFrames = [GridModePinchFrame]()
+        let coalescer = GridModePinchFrameCoalescer {
+            appliedFrames.append($0)
+        }
+        let beganFrame = makeFrame(
+            scale: 1.2,
+            location: CGPoint(x: 160, y: 320),
+            timestamp: 1
+        )
+        coalescer.seed(beganFrame)
+
+        coalescer.flush()
+        coalescer.flush()
+
+        XCTAssertEqual(appliedFrames, [beganFrame])
+    }
+
+    func testInvalidationDropsPendingFrame() {
+        var appliedFrames = [GridModePinchFrame]()
+        let coalescer = GridModePinchFrameCoalescer {
+            appliedFrames.append($0)
+        }
+        coalescer.stage(makeFrame(
+            scale: 1.2,
+            location: CGPoint(x: 160, y: 320),
+            timestamp: 1
+        ))
+
+        coalescer.invalidate()
+        coalescer.flush()
+
+        XCTAssertTrue(appliedFrames.isEmpty)
     }
 }

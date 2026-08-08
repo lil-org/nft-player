@@ -21,6 +21,61 @@ enum MobilePlayerCollectionBrowserDisplayPreparationResult: Equatable {
     case unavailable
 }
 
+struct GridModePinchFrame: Equatable {
+    let sample: PlayerBrowserGridInteractionCoordinator.PinchSample
+    let viewLocation: CGPoint
+
+    init(
+        scale: CGFloat,
+        viewLocation: CGPoint,
+        timestamp: TimeInterval
+    ) {
+        self.sample = PlayerBrowserGridInteractionCoordinator.PinchSample(
+            scale: scale,
+            centroidY: viewLocation.y,
+            timestamp: timestamp
+        )
+        self.viewLocation = viewLocation
+    }
+}
+
+final class GridModePinchFrameCoalescer {
+    private var pendingFrame: GridModePinchFrame?
+    private let apply: (GridModePinchFrame) -> Void
+    private lazy var update = PendingMainQueueUpdate { [weak self] in
+        self?.applyPendingFrame()
+    }
+
+    init(apply: @escaping (GridModePinchFrame) -> Void) {
+        self.apply = apply
+    }
+
+    func seed(_ frame: GridModePinchFrame) {
+        pendingFrame = frame
+    }
+
+    func stage(_ frame: GridModePinchFrame) {
+        pendingFrame = frame
+        update.schedule()
+    }
+
+    func flush() {
+        update.invalidate()
+        applyPendingFrame()
+    }
+
+    func invalidate() {
+        update.invalidate()
+        pendingFrame = nil
+    }
+
+    private func applyPendingFrame() {
+        guard let pendingFrame else { return }
+        self.pendingFrame = nil
+        apply(pendingFrame)
+    }
+}
+
 final class VerticalCollectionBrowserViewController: UIViewController,
     UICollectionViewDataSource,
     UICollectionViewDelegate,
@@ -214,7 +269,6 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     /// first image in because an instant install reads as a pop at rest.
     private var gridModeCommitFadeDeadline: TimeInterval = 0
     private var gridModeSettleDisplayLink: CADisplayLink?
-    private var gridModeLastPinchChangeTimestamp: TimeInterval?
     private var gridModeGeometryCache: GridModeGeometryCache?
     private var gridModeGeometryPrewarmPlan: GridModeGeometryPrewarmPlan?
     private var gridModeDestinationCache = [
@@ -228,9 +282,9 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         recognizer.delegate = self
         return recognizer
     }()
-    private lazy var gridModePinchUpdate = PendingMainQueueUpdate { [weak self] in
-        guard let self else { return }
-        updateGridModePinch(gridModePinchRecognizer)
+    private lazy var gridModePinchFrameCoalescer = GridModePinchFrameCoalescer {
+        [weak self] frame in
+        self?.applyGridModePinchFrame(frame)
     }
     private lazy var gridModeGeometryPrewarmUpdate = PendingMainQueueUpdate {
         [weak self] in
@@ -946,7 +1000,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         ) else {
             return
         }
-        gridModePinchUpdate.invalidate()
+        gridModePinchFrameCoalescer.invalidate()
         stopGridModeSettleDisplayLink()
         let pannedContentOffsetY = finishState.pannedContentOffsetY.map {
             MobilePlayerBrowserGridTransition.clampedContentOffsetY(
@@ -1148,21 +1202,21 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         }
     }
 
-    private func gridModePinchSample(
+    private func gridModePinchFrame(
         _ recognizer: UIPinchGestureRecognizer,
         timestamp: TimeInterval
-    ) -> PlayerBrowserGridInteractionCoordinator.PinchSample {
-        PlayerBrowserGridInteractionCoordinator.PinchSample(
+    ) -> GridModePinchFrame {
+        let viewLocation = recognizer.location(in: view)
+        return GridModePinchFrame(
             scale: recognizer.scale,
-            centroidY: recognizer.location(in: view).y,
+            viewLocation: viewLocation,
             timestamp: timestamp
         )
     }
 
     private func finalizeGridModeInteractionIfNeeded() {
         guard hasGridModeInteractionState else { return }
-        gridModePinchUpdate.invalidate()
-        gridModeLastPinchChangeTimestamp = nil
+        gridModePinchFrameCoalescer.invalidate()
         let effects = gridModeInteractionCoordinator.handle(.interrupt)
         applyGridModeInteractionEffects(effects, transitionAnchor: nil)
         if gridModeInteractionCoordinator.phase == .idle {
@@ -1196,17 +1250,18 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     @objc private func handleGridModePinch(_ recognizer: UIPinchGestureRecognizer) {
         switch recognizer.state {
         case .began:
-            gridModePinchUpdate.invalidate()
+            gridModePinchFrameCoalescer.invalidate()
             cancelGridModeGeometryPrewarming()
             let wasSettling = gridModeInteractionCoordinator.phase == .settling
             let timestamp = CACurrentMediaTime()
-            gridModeLastPinchChangeTimestamp = timestamp
+            let frame = gridModePinchFrame(
+                recognizer,
+                timestamp: timestamp
+            )
+            gridModePinchFrameCoalescer.seed(frame)
             let effects = gridModeInteractionCoordinator.handle(
                 .pinchBegan(
-                    sample: gridModePinchSample(
-                        recognizer,
-                        timestamp: timestamp
-                    ),
+                    sample: frame.sample,
                     currentMode: gridMode
                 ),
                 ratioProvider: { [weak self] fromMode in
@@ -1215,32 +1270,35 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             )
             if wasSettling, effects.contains(.stopDisplayLink) {
                 reanchorSettlingGridModeRendering(
-                    at: recognizer.location(in: view)
+                    at: frame.viewLocation
                 )
             }
             applyGridModeInteractionEffects(
                 effects,
-                transitionAnchor: gridModePinchAnchorProvider(recognizer)
+                transitionAnchor: gridModePinchAnchorProvider(
+                    viewLocation: frame.viewLocation
+                )
             )
             if gridModeInteractionCoordinator.phase == .idle {
                 scheduleGridModeGeometryPrewarmIfPossible()
             }
 
         case .changed:
-            gridModeLastPinchChangeTimestamp = CACurrentMediaTime()
-            gridModePinchUpdate.schedule()
+            gridModePinchFrameCoalescer.stage(gridModePinchFrame(
+                recognizer,
+                timestamp: CACurrentMediaTime()
+            ))
 
         case .ended:
-            gridModePinchUpdate.invalidate()
-            updateGridModePinch(recognizer)
-            finishGridModePinch(recognizer, isCancelled: false)
-            gridModeLastPinchChangeTimestamp = nil
+            gridModePinchFrameCoalescer.flush()
+            finishGridModePinch(
+                velocity: recognizer.velocity,
+                isCancelled: false
+            )
 
         case .cancelled, .failed:
-            gridModePinchUpdate.invalidate()
-            updateGridModePinch(recognizer)
-            finishGridModePinch(recognizer, isCancelled: true)
-            gridModeLastPinchChangeTimestamp = nil
+            gridModePinchFrameCoalescer.flush()
+            finishGridModePinch(velocity: 0, isCancelled: true)
 
         default:
             break
@@ -1251,37 +1309,33 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         gridModeRenderer.reanchorSettlingRendering(at: screenPoint)
     }
 
-    private func updateGridModePinch(
-        _ recognizer: UIPinchGestureRecognizer
-    ) {
-        guard let timestamp = gridModeLastPinchChangeTimestamp else { return }
+    private func applyGridModePinchFrame(_ frame: GridModePinchFrame) {
         let effects = gridModeInteractionCoordinator.handle(
-            .pinchChanged(sample: gridModePinchSample(
-                recognizer,
-                timestamp: timestamp
-            ))
+            .pinchChanged(sample: frame.sample)
         )
         applyGridModeInteractionEffects(
             effects,
-            transitionAnchor: gridModePinchAnchorProvider(recognizer)
+            transitionAnchor: gridModePinchAnchorProvider(
+                viewLocation: frame.viewLocation
+            )
         )
     }
 
     private func finishGridModePinch(
-        _ recognizer: UIPinchGestureRecognizer,
+        velocity: CGFloat,
         isCancelled: Bool
     ) {
         let event: PlayerBrowserGridInteractionCoordinator.Event = isCancelled
             ? .pinchCancelled(reduceMotion: UIAccessibility.isReduceMotionEnabled)
             : .pinchEnded(
-                velocity: recognizer.velocity,
+                velocity: velocity,
                 timestamp: CACurrentMediaTime(),
                 reduceMotion: UIAccessibility.isReduceMotionEnabled
             )
         let effects = gridModeInteractionCoordinator.handle(event)
         applyGridModeInteractionEffects(
             effects,
-            transitionAnchor: gridModePinchAnchorProvider(recognizer)
+            transitionAnchor: nil
         )
         if gridModeInteractionCoordinator.phase == .idle {
             scheduleGridModeGeometryPrewarmIfPossible()
@@ -1532,18 +1586,17 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     }
 
     private func gridModePinchAnchorProvider(
-        _ recognizer: UIPinchGestureRecognizer
+        viewLocation: CGPoint
     ) -> () -> GridModeGestureAnchor? {
-        { [weak self, weak recognizer] in
-            guard let self, let recognizer else { return nil }
-            return pinchGridModeGestureAnchor(recognizer)
+        { [weak self] in
+            self?.pinchGridModeGestureAnchor(viewLocation: viewLocation)
         }
     }
 
     private func pinchGridModeGestureAnchor(
-        _ recognizer: UIPinchGestureRecognizer
+        viewLocation: CGPoint
     ) -> GridModeGestureAnchor? {
-        let contentPoint = recognizer.location(in: collectionView)
+        let contentPoint = collectionView.convert(viewLocation, from: view)
         if let indexPath = collectionView.indexPathForItem(
             at: contentPoint
         ) {
