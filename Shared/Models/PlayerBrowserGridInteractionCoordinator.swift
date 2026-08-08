@@ -102,7 +102,6 @@ struct PlayerBrowserGridInteractionCoordinator {
         case selectionHaptic
         case startDisplayLink
         case stopDisplayLink
-        case persistMode(MobileCollectionBrowserGridMode)
         case reconcileMedia(cancelsPrefetchLoads: Bool)
         case finishInteraction(settlesPosition: Bool)
         case resetRenderer
@@ -1230,7 +1229,6 @@ struct PlayerBrowserGridInteractionCoordinator {
     ) -> [Effect] {
         var effects = [Effect]()
         if let committedMode, committedMode != session.initialMode {
-            effects.append(.persistMode(committedMode))
             effects.append(.reconcileMedia(
                 cancelsPrefetchLoads:
                     session.initialMode.requiredImageQuality

@@ -233,8 +233,8 @@
 		2DA300012FE0000000000001 /* MobilePlayerCollectionBrowserTransitionSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA300022FE0000000000001 /* MobilePlayerCollectionBrowserTransitionSupport.swift */; };
 		2DA200012FD0000000000001 /* MobilePlayerCollectionBrowserTransitionPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA200072FD0000000000001 /* MobilePlayerCollectionBrowserTransitionPresentationTests.swift */; };
 		2DA200022FD0000000000001 /* MobilePlayerCollectionBrowserCachedImagePolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA200082FD0000000000001 /* MobilePlayerCollectionBrowserCachedImagePolicyTests.swift */; };
-		2DA200032FD0000000000001 /* MobileCollectionBrowserGridModeStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA200092FD0000000000001 /* MobileCollectionBrowserGridModeStoreTests.swift */; };
 		2DA200042FD0000000000001 /* MobilePlayerCollectionBrowserGridRendererTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA2000A2FD0000000000001 /* MobilePlayerCollectionBrowserGridRendererTests.swift */; };
+		2DA400012FF0000000000001 /* MobileCollectionBrowserGridModePresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA400022FF0000000000001 /* MobileCollectionBrowserGridModePresentationTests.swift */; };
 		2DA100042FC0000000000001 /* PlayerCollectionScrollPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA100002FC0000000000001 /* PlayerCollectionScrollPolicy.swift */; };
 		2DA100052FC0000000000001 /* PlayerCollectionScrollPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA100002FC0000000000001 /* PlayerCollectionScrollPolicy.swift */; };
 		2DA100062FC0000000000001 /* PlayerCollectionScrollPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA100002FC0000000000001 /* PlayerCollectionScrollPolicy.swift */; };
@@ -457,8 +457,8 @@
 		2DA200062FD0000000000001 /* nft-player-iosTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "nft-player-iosTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		2DA200072FD0000000000001 /* MobilePlayerCollectionBrowserTransitionPresentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobilePlayerCollectionBrowserTransitionPresentationTests.swift; sourceTree = "<group>"; };
 		2DA200082FD0000000000001 /* MobilePlayerCollectionBrowserCachedImagePolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobilePlayerCollectionBrowserCachedImagePolicyTests.swift; sourceTree = "<group>"; };
-		2DA200092FD0000000000001 /* MobileCollectionBrowserGridModeStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileCollectionBrowserGridModeStoreTests.swift; sourceTree = "<group>"; };
 		2DA2000A2FD0000000000001 /* MobilePlayerCollectionBrowserGridRendererTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobilePlayerCollectionBrowserGridRendererTests.swift; sourceTree = "<group>"; };
+		2DA400022FF0000000000001 /* MobileCollectionBrowserGridModePresentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileCollectionBrowserGridModePresentationTests.swift; sourceTree = "<group>"; };
 		2DB100012FD0000000000001 /* MobilePlayerBrowserLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobilePlayerBrowserLayout.swift; sourceTree = "<group>"; };
 		2E0000000000B7378DF1FB9C /* CollectionBrowseThumbnails.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionBrowseThumbnails.swift; sourceTree = "<group>"; };
 		2E0000000000053BA7B2B190 /* PlayerCollectionBrowserSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerCollectionBrowserSupport.swift; sourceTree = "<group>"; };
@@ -838,9 +838,9 @@
 		2DA2000C2FD0000000000001 /* nft-player-iosTests */ = {
 			isa = PBXGroup;
 			children = (
+				2DA400022FF0000000000001 /* MobileCollectionBrowserGridModePresentationTests.swift */,
 				2DA200072FD0000000000001 /* MobilePlayerCollectionBrowserTransitionPresentationTests.swift */,
 				2DA200082FD0000000000001 /* MobilePlayerCollectionBrowserCachedImagePolicyTests.swift */,
-				2DA200092FD0000000000001 /* MobileCollectionBrowserGridModeStoreTests.swift */,
 				2DA2000A2FD0000000000001 /* MobilePlayerCollectionBrowserGridRendererTests.swift */,
 			);
 			path = "nft-player-iosTests";
@@ -1267,9 +1267,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2DA400012FF0000000000001 /* MobileCollectionBrowserGridModePresentationTests.swift in Sources */,
 				2DA200012FD0000000000001 /* MobilePlayerCollectionBrowserTransitionPresentationTests.swift in Sources */,
 				2DA200022FD0000000000001 /* MobilePlayerCollectionBrowserCachedImagePolicyTests.swift in Sources */,
-				2DA200032FD0000000000001 /* MobileCollectionBrowserGridModeStoreTests.swift in Sources */,
 				2DA200042FD0000000000001 /* MobilePlayerCollectionBrowserGridRendererTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

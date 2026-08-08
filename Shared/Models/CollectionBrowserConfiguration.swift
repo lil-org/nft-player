@@ -100,52 +100,6 @@ enum MobileCollectionBrowserGridMode: Int, CaseIterable, Hashable {
     }
 }
 
-enum MobileCollectionBrowserGridModePreferences {
-    private static let userDefaultsKeyPrefix = "iosCollectionBrowserColumnCountOverride."
-
-    static func gridMode(
-        userDefaults: UserDefaults,
-        internalSlug: String
-    ) -> MobileCollectionBrowserGridMode {
-        guard let key = userDefaultsKey(internalSlug: internalSlug),
-              let storedNumber = userDefaults.object(forKey: key) as? NSNumber,
-              CFGetTypeID(storedNumber) != CFBooleanGetTypeID(),
-              let storedColumnCount = Int(exactly: storedNumber.doubleValue) else {
-            return .defaultMode
-        }
-        if let storedGridMode = MobileCollectionBrowserGridMode(
-            rawValue: storedColumnCount
-        ) {
-            return storedGridMode
-        }
-        // Overrides persisted before the 5-3-1 ladder stored 2 or 4 column
-        // counts; keep the user's density intent by mapping to the nearest
-        // surviving mode.
-        switch storedColumnCount {
-        case 2:
-            return .threeColumns
-        case 4:
-            return .fiveColumns
-        default:
-            return .defaultMode
-        }
-    }
-
-    static func save(
-        gridMode: MobileCollectionBrowserGridMode,
-        userDefaults: UserDefaults,
-        internalSlug: String
-    ) {
-        guard let key = userDefaultsKey(internalSlug: internalSlug) else { return }
-        userDefaults.set(gridMode.rawValue, forKey: key)
-    }
-
-    static func userDefaultsKey(internalSlug: String) -> String? {
-        guard !internalSlug.isEmpty else { return nil }
-        return userDefaultsKeyPrefix + internalSlug
-    }
-}
-
 enum CollectionBrowseImageURLMapping {
     static func midURL(for thumbnailURL: URL) -> URL? {
         guard let thumbnailURLComponents = URLComponents(

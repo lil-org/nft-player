@@ -1492,14 +1492,6 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             case .stopDisplayLink:
                 stopGridModeSettleDisplayLink()
 
-            case let .persistMode(mode):
-                if let browseSnapshot {
-                    MobilePlaybackController.shared.saveCollectionBrowseGridMode(
-                        mode,
-                        snapshot: browseSnapshot
-                    )
-                }
-
             case let .reconcileMedia(cancelsPrefetchLoads):
                 if cancelsPrefetchLoads {
                     cancelAllPrefetchLoads()
@@ -1663,7 +1655,9 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         collectionView.isUserInteractionEnabled = active
         collectionView.scrollsToTop = active
         if active {
-            reloadBrowseSnapshot(resetPublicationState: browseSnapshot == nil)
+            reloadBrowseSnapshot(
+                resetPublicationState: browseSnapshot == nil
+            )
             reloadVisibleCells()
             performInitialPositioningIfNeeded()
             if hasFinishedInitialPositioning {
@@ -1705,14 +1699,11 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             preparedTransition = makePreparedTransition(for: preparation)
         }
 
-        let snapshotChanged = browseSnapshot != preparation.snapshot
         isApplyingPosition = true
-        if snapshotChanged {
-            applyBrowseSnapshot(
-                preparation.snapshot,
-                sampledAround: preparation.focusedTokenIndex
-            )
-        }
+        let snapshotChanged = applyBrowseSnapshotIfNeeded(
+            preparation.snapshot,
+            sampledAround: preparation.focusedTokenIndex
+        )
 
         if hasFinishedInitialPositioning, !snapshotChanged {
             if publicationState == nil {
@@ -1866,13 +1857,10 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         cancelScheduledScrollUpdate()
         cancelPendingFocusPublication(resetLastPublicationTime: false)
         isApplyingPosition = true
-        let snapshotChanged = browseSnapshot != preparation.snapshot
-        if snapshotChanged {
-            applyBrowseSnapshot(
-                preparation.snapshot,
-                sampledAround: preparation.focusedTokenIndex
-            )
-        }
+        let snapshotChanged = applyBrowseSnapshotIfNeeded(
+            preparation.snapshot,
+            sampledAround: preparation.focusedTokenIndex
+        )
         publicationState = PlayerCollectionScrollPublicationState(
             initialIndex: preparation.focusedTokenIndex
         )
@@ -2349,17 +2337,51 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         settleAfterApplyingPendingWindowSafeAreaRefresh()
     }
 
-    private func applyBrowseSnapshot(
+    private func applyBrowseSnapshotIfNeeded(
         _ snapshot: PlayerCollectionBrowseSnapshot?,
         sampledAround focusedTokenIndex: Int?
+    ) -> Bool {
+        let snapshotChanged = browseSnapshot != snapshot
+        if snapshotChanged {
+            applyBrowseSnapshot(
+                snapshot,
+                sampledAround: focusedTokenIndex,
+                gridMode: gridMode
+            )
+        }
+        return snapshotChanged
+    }
+
+    private func applyBrowseSnapshot(
+        _ snapshot: PlayerCollectionBrowseSnapshot?,
+        sampledAround focusedTokenIndex: Int?,
+        gridMode: MobileCollectionBrowserGridMode
     ) {
         cancelGridModeGeometryPrewarming()
-        gridModeGeometryCache = nil
+        let cachedGeometry: CachedGridModeGeometry?
+        if let snapshot {
+            ensureGridModeGeometryCache(snapshot: snapshot)
+            cachedGeometry = gridModeGeometryCache?.geometries[gridMode]
+        } else {
+            gridModeGeometryCache = nil
+            cachedGeometry = nil
+        }
         browseSnapshot = snapshot
-        updateLayoutAspectProfile(
-            snapshot: snapshot,
-            focusedTokenIndex: focusedTokenIndex
-        )
+        if let snapshot, let cachedGeometry {
+            layoutAspectState = MobilePlayerCollectionBrowserLayoutAspectState(
+                aspectProfile: cachedGeometry.aspectProfile,
+                fallbackSpec: makeLayoutFallbackSpec(
+                    snapshot: snapshot,
+                    focusedTokenIndex: focusedTokenIndex
+                )
+            )
+        } else {
+            updateLayoutAspectProfile(
+                snapshot: snapshot,
+                focusedTokenIndex: focusedTokenIndex,
+                columnCount: gridMode.columnCount
+            )
+        }
         cancelAllPrefetchLoads()
         visibleBrowserCells.forEach { $0.cancelImageLoad() }
         // An in-place reload recreates every cell; anchor-nearest regions keep
@@ -2375,7 +2397,11 @@ final class VerticalCollectionBrowserViewController: UIViewController,
                 + Self.gridModeCommitFadeWindow
         }
         collectionView.reloadData()
-        configureCollectionLayout()
+        if let cachedGeometry {
+            installCollectionLayout(cachedGeometry.layout)
+        } else {
+            configureCollectionLayout()
+        }
         collectionView.layoutIfNeeded()
         if !carryoverSources.isEmpty {
             installGridModeCarryoverContent(
@@ -2387,7 +2413,8 @@ final class VerticalCollectionBrowserViewController: UIViewController,
 
     private func updateLayoutAspectProfile(
         snapshot: PlayerCollectionBrowseSnapshot?,
-        focusedTokenIndex: Int?
+        focusedTokenIndex: Int?,
+        columnCount: Int
     ) {
         let defaultSize = CGSize(width: 1, height: 1)
         guard let snapshot,
@@ -2395,7 +2422,8 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             layoutAspectState = MobilePlayerCollectionBrowserLayoutAspectState(
                 aspectProfile: MobilePlayerBrowserAspectProfile(
                     itemCount: 0,
-                    uniformImageSize: defaultSize
+                    uniformImageSize: defaultSize,
+                    columnCount: columnCount
                 ),
                 fallbackSpec: PlayerMediaPlaceholderSpec(
                     aspectSize: defaultSize
@@ -2404,9 +2432,6 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             return
         }
 
-        let columnCount = MobilePlaybackController.shared
-            .collectionBrowseGridMode(snapshot: snapshot)
-            .columnCount
         let aspectRatioProfile = MobilePlaybackController.shared
             .collectionBrowseThumbnailAspectRatioProfile(snapshot: snapshot)
         let aspectState = makeLayoutAspectState(
@@ -2555,10 +2580,11 @@ final class VerticalCollectionBrowserViewController: UIViewController,
 
     private func reloadBrowseSnapshot(resetPublicationState: Bool) {
         let newSnapshot = MobilePlaybackController.shared.collectionBrowseSnapshot(uuid: uuid)
-        let changed = newSnapshot != browseSnapshot
-        guard changed || resetPublicationState else { return }
+        let snapshotChanged = newSnapshot != browseSnapshot
+        guard snapshotChanged || resetPublicationState else { return }
 
         if !resetPublicationState,
+           snapshotChanged,
            let newSnapshot,
            let currentSnapshot = browseSnapshot,
            CollectionBrowseSnapshotUpdatePolicy.isSettledPositionEcho(
@@ -2578,7 +2604,11 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             savedIndex: newSnapshot?.initialTokenIndex,
             itemCount: newSnapshot?.itemCount ?? 0
         )
-        applyBrowseSnapshot(newSnapshot, sampledAround: restorationIndex)
+        applyBrowseSnapshot(
+            newSnapshot,
+            sampledAround: restorationIndex,
+            gridMode: gridMode
+        )
 
         publicationState = restorationIndex.map {
             PlayerCollectionScrollPublicationState(initialIndex: $0)

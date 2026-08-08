@@ -155,24 +155,6 @@ class MobilePlaybackController {
         dataSource(uuid: uuid)?.collectionBrowseSnapshot()
     }
 
-    func collectionBrowseGridMode(
-        snapshot: PlayerCollectionBrowseSnapshot
-    ) -> MobileCollectionBrowserGridMode {
-        MobileCollectionBrowserGridModeStore.gridMode(
-            specificCollectionId: snapshot.collectionId
-        )
-    }
-
-    func saveCollectionBrowseGridMode(
-        _ gridMode: MobileCollectionBrowserGridMode,
-        snapshot: PlayerCollectionBrowseSnapshot
-    ) {
-        MobileCollectionBrowserGridModeStore.save(
-            gridMode: gridMode,
-            specificCollectionId: snapshot.collectionId
-        )
-    }
-
     func prepareCollectionBrowse(
         uuid: UUID,
         containing pagePosition: PlayerPagePosition

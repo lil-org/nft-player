@@ -477,7 +477,6 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
         ))
         assertDiscards(settle, planeId: plane?.id)
         XCTAssertFalse(settle.contains { effect in
-            if case .persistMode = effect { return true }
             if case .reconcileMedia = effect { return true }
             if case .renderSettle = effect { return true }
             if case .commitPlane = effect { return true }
@@ -521,7 +520,6 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
 
         let wrapUp = coordinator.handle(.rendererSucceeded)
         XCTAssertEqual(coordinator.phase, .idle)
-        XCTAssertTrue(wrapUp.contains(.persistMode(.large)))
         XCTAssertTrue(wrapUp.contains(.finishInteraction(settlesPosition: true)))
         XCTAssertTrue(
             wrapUp.contains(.reconcileMedia(cancelsPrefetchLoads: true))
@@ -727,7 +725,9 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
         let settle = drainSettle(&coordinator, startTime: 101)
         assertCommits(settle, planeId: plane?.id, mode: .large)
         let wrapUp = coordinator.handle(.rendererSucceeded)
-        XCTAssertTrue(wrapUp.contains(.persistMode(.large)))
+        XCTAssertTrue(
+            wrapUp.contains(.reconcileMedia(cancelsPrefetchLoads: true))
+        )
         XCTAssertEqual(coordinator.phase, .idle)
     }
 
@@ -762,7 +762,7 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
         assertDiscards(cancelled + settle, planeId: plane?.id)
         let wrapUp = coordinator.handle(.rendererSucceeded)
         XCTAssertFalse(wrapUp.contains { effect in
-            if case .persistMode = effect { return true }
+            if case .reconcileMedia = effect { return true }
             return false
         })
         XCTAssertEqual(coordinator.phase, .idle)
@@ -1021,7 +1021,9 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
         let settle = drainSettle(&coordinator, stepDuration: 0.05)
         assertCommits(settle, planeId: plane?.id, mode: .large)
         let wrapUp = coordinator.handle(.rendererSucceeded)
-        XCTAssertTrue(wrapUp.contains(.persistMode(.large)))
+        XCTAssertTrue(
+            wrapUp.contains(.reconcileMedia(cancelsPrefetchLoads: true))
+        )
         XCTAssertEqual(coordinator.phase, .idle)
     }
 
@@ -1038,7 +1040,9 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
         XCTAssertEqual(effects, [.beginInteraction, .applyMode(.fiveColumns)])
 
         let wrapUp = coordinator.handle(.rendererSucceeded)
-        XCTAssertTrue(wrapUp.contains(.persistMode(.fiveColumns)))
+        XCTAssertTrue(
+            wrapUp.contains(.reconcileMedia(cancelsPrefetchLoads: false))
+        )
         XCTAssertTrue(wrapUp.contains(.finishInteraction(settlesPosition: true)))
         XCTAssertEqual(coordinator.phase, .idle)
     }
@@ -1060,7 +1064,9 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
         XCTAssertTrue(failure.contains(.applyMode(.large)))
 
         let wrapUp = coordinator.handle(.rendererSucceeded)
-        XCTAssertTrue(wrapUp.contains(.persistMode(.large)))
+        XCTAssertTrue(
+            wrapUp.contains(.reconcileMedia(cancelsPrefetchLoads: true))
+        )
         XCTAssertEqual(coordinator.phase, .idle)
     }
 
@@ -1093,7 +1099,9 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
         XCTAssertTrue(interrupt.contains(.stopDisplayLink))
         assertCommits(interrupt, planeId: plane?.id, mode: .large)
         let wrapUp = coordinator.handle(.rendererSucceeded)
-        XCTAssertTrue(wrapUp.contains(.persistMode(.large)))
+        XCTAssertTrue(
+            wrapUp.contains(.reconcileMedia(cancelsPrefetchLoads: true))
+        )
         XCTAssertTrue(wrapUp.contains(.finishInteraction(settlesPosition: false)))
         XCTAssertEqual(coordinator.phase, .idle)
     }
@@ -1120,7 +1128,7 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
         XCTAssertTrue(failure.contains(.resetRenderer))
         XCTAssertTrue(failure.contains(.finishInteraction(settlesPosition: true)))
         XCTAssertFalse(failure.contains { effect in
-            if case .persistMode = effect { return true }
+            if case .reconcileMedia = effect { return true }
             return false
         })
         XCTAssertEqual(coordinator.phase, .idle)
@@ -1133,7 +1141,6 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
         _ = drainSettle(&coordinator)
         let wrapUp = coordinator.handle(.rendererSucceeded)
 
-        XCTAssertTrue(wrapUp.contains(.persistMode(.large)))
         XCTAssertTrue(
             wrapUp.contains(.reconcileMedia(cancelsPrefetchLoads: true)),
             "three columns uses thumbnails while the large grid needs large images"
@@ -1173,7 +1180,9 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
         XCTAssertEqual(coordinator.handle(.interrupt), [])
 
         let wrapUp = coordinator.handle(.rendererSucceeded)
-        XCTAssertTrue(wrapUp.contains(.persistMode(.large)))
+        XCTAssertTrue(
+            wrapUp.contains(.reconcileMedia(cancelsPrefetchLoads: true))
+        )
         XCTAssertTrue(
             wrapUp.contains(.finishInteraction(settlesPosition: false)),
             "the interrupted host must not be scrolled to a re-anchored offset"
@@ -1204,7 +1213,9 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
         )
 
         let wrapUp = coordinator.handle(.rendererSucceeded)
-        XCTAssertTrue(wrapUp.contains(.persistMode(.large)))
+        XCTAssertTrue(
+            wrapUp.contains(.reconcileMedia(cancelsPrefetchLoads: true))
+        )
         XCTAssertEqual(coordinator.phase, .idle)
     }
 
@@ -1292,7 +1303,9 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
         XCTAssertEqual(failure, [.resetRenderer, .applyMode(.large)])
 
         let wrapUp = coordinator.handle(.rendererSucceeded)
-        XCTAssertTrue(wrapUp.contains(.persistMode(.large)))
+        XCTAssertTrue(
+            wrapUp.contains(.reconcileMedia(cancelsPrefetchLoads: true))
+        )
         XCTAssertEqual(coordinator.phase, .idle)
     }
 
@@ -1325,7 +1338,9 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
         let failure = coordinator.handle(.rendererFailed)
         XCTAssertEqual(failure, [.resetRenderer, .applyMode(.large)])
         let wrapUp = coordinator.handle(.rendererSucceeded)
-        XCTAssertTrue(wrapUp.contains(.persistMode(.large)))
+        XCTAssertTrue(
+            wrapUp.contains(.reconcileMedia(cancelsPrefetchLoads: true))
+        )
         XCTAssertEqual(coordinator.phase, .idle)
     }
 
@@ -1357,7 +1372,9 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
         XCTAssertTrue(failure.contains(.resetRenderer))
         XCTAssertTrue(failure.contains(.applyMode(.large)))
         let wrapUp = coordinator.handle(.rendererSucceeded)
-        XCTAssertTrue(wrapUp.contains(.persistMode(.large)))
+        XCTAssertTrue(
+            wrapUp.contains(.reconcileMedia(cancelsPrefetchLoads: true))
+        )
         XCTAssertEqual(coordinator.phase, .idle)
     }
 
@@ -1395,7 +1412,9 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
         XCTAssertTrue(failure.contains(.resetRenderer))
         XCTAssertTrue(failure.contains(.applyMode(.large)))
         let wrapUp = coordinator.handle(.rendererSucceeded)
-        XCTAssertTrue(wrapUp.contains(.persistMode(.large)))
+        XCTAssertTrue(
+            wrapUp.contains(.reconcileMedia(cancelsPrefetchLoads: true))
+        )
         XCTAssertEqual(coordinator.phase, .idle)
     }
 
@@ -1462,12 +1481,14 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
         XCTAssertTrue(failure.contains(.applyMode(.large)))
 
         let wrapUp = coordinator.handle(.rendererSucceeded)
-        XCTAssertTrue(wrapUp.contains(.persistMode(.large)))
+        XCTAssertTrue(
+            wrapUp.contains(.reconcileMedia(cancelsPrefetchLoads: true))
+        )
         XCTAssertTrue(wrapUp.contains(.finishInteraction(settlesPosition: false)))
         XCTAssertEqual(coordinator.phase, .idle)
     }
 
-    func testInterruptDuringCancelSettleDiscardsWithoutPersisting() {
+    func testInterruptDuringCancelSettleDiscardsWithoutReconcilingMedia() {
         var coordinator = Coordinator()
         let activation = activatePinch(&coordinator, scale: 1.1)
         let plane = installedPlane(activation)
@@ -1489,14 +1510,13 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
         let wrapUp = coordinator.handle(.rendererSucceeded)
         XCTAssertTrue(wrapUp.contains(.finishInteraction(settlesPosition: false)))
         XCTAssertFalse(wrapUp.contains { effect in
-            if case .persistMode = effect { return true }
             if case .reconcileMedia = effect { return true }
             return false
         })
         XCTAssertEqual(coordinator.phase, .idle)
     }
 
-    func testFailedDirectApplyFallbackTerminatesWithoutRetryingOrPersisting() {
+    func testFailedDirectApplyFallbackTerminatesWithoutRetrying() {
         var coordinator = Coordinator()
         _ = coordinator.handle(
             .menuSelected(
@@ -1520,7 +1540,7 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
         )
         XCTAssertFalse(secondFailure.contains { effect in
             if case .applyMode = effect { return true }
-            if case .persistMode = effect { return true }
+            if case .reconcileMedia = effect { return true }
             return false
         })
         XCTAssertEqual(coordinator.phase, .idle)
@@ -1711,7 +1731,6 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
         XCTAssertEqual(
             coordinator.handle(.rendererSucceeded),
             [
-                .persistMode(.large),
                 .reconcileMedia(cancelsPrefetchLoads: true),
                 .finishInteraction(settlesPosition: true)
             ]
