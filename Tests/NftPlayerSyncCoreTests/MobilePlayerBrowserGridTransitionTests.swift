@@ -247,13 +247,12 @@ final class MobilePlayerBrowserGridTransitionTests: XCTestCase {
         )
     }
 
-    func testPinchPolicySettleTargetPicksTheNearestModeInLogSpace() {
+    func testPinchPolicySettleTargetUsesDirectionalLogThresholds() {
         let ratios: [CGFloat] = [0.6, 1, 3]
 
         XCTAssertEqual(
             PlayerBrowserGridPinchPolicy.settleTargetIndex(
                 scale: 1.05,
-                velocity: 0,
                 itemWidthRatios: ratios
             ),
             1
@@ -261,7 +260,6 @@ final class MobilePlayerBrowserGridTransitionTests: XCTestCase {
         XCTAssertEqual(
             PlayerBrowserGridPinchPolicy.settleTargetIndex(
                 scale: 2.0,
-                velocity: 0,
                 itemWidthRatios: ratios
             ),
             2
@@ -269,7 +267,6 @@ final class MobilePlayerBrowserGridTransitionTests: XCTestCase {
         XCTAssertEqual(
             PlayerBrowserGridPinchPolicy.settleTargetIndex(
                 scale: 2.6,
-                velocity: 0,
                 itemWidthRatios: ratios
             ),
             2
@@ -277,7 +274,6 @@ final class MobilePlayerBrowserGridTransitionTests: XCTestCase {
         XCTAssertEqual(
             PlayerBrowserGridPinchPolicy.settleTargetIndex(
                 scale: 0.7,
-                velocity: 0,
                 itemWidthRatios: ratios
             ),
             0
@@ -285,66 +281,67 @@ final class MobilePlayerBrowserGridTransitionTests: XCTestCase {
         XCTAssertNil(
             PlayerBrowserGridPinchPolicy.settleTargetIndex(
                 scale: .nan,
-                velocity: 0,
                 itemWidthRatios: ratios
             )
         )
         XCTAssertNil(
             PlayerBrowserGridPinchPolicy.settleTargetIndex(
                 scale: 1.2,
-                velocity: 0,
                 itemWidthRatios: []
             )
         )
     }
 
-    func testPinchPolicySettleTargetProjectsTheReleaseVelocity() {
+    func testPinchPolicySettleTargetMatchesMeasuredPositionThreshold() {
         let ratios: [CGFloat] = [0.6, 1, 3]
 
         XCTAssertEqual(
             PlayerBrowserGridPinchPolicy.settleTargetIndex(
-                scale: 1.66,
-                velocity: 0,
+                scale: 1.169,
                 itemWidthRatios: ratios
             ),
             1,
-            "a still release short of the midpoint settles back by position"
+            "the measured short release holds the current mode"
         )
         XCTAssertEqual(
             PlayerBrowserGridPinchPolicy.settleTargetIndex(
-                scale: 1.66,
-                velocity: 0.8,
+                scale: 1.25,
                 itemWidthRatios: ratios
             ),
             2,
-            "a release still moving outward commits from short of the midpoint"
+            "one fifth of the log interval commits the adjacent mode"
         )
         XCTAssertEqual(
             PlayerBrowserGridPinchPolicy.settleTargetIndex(
-                scale: 1.9,
-                velocity: -1.5,
-                itemWidthRatios: ratios
+                scale: 0.95,
+                itemWidthRatios: [0.2, 0.333, 1]
+            ),
+            2,
+            "a shallow release never skips the grid it was next to"
+        )
+        XCTAssertEqual(
+            PlayerBrowserGridPinchPolicy.settleTargetIndex(
+                scale: 0.5,
+                itemWidthRatios: [0.2, 0.333, 1]
             ),
             1,
-            "a release moving back toward the current grid settles back"
+            "crossing the first threshold advances only to its adjacent mode"
         )
         XCTAssertEqual(
             PlayerBrowserGridPinchPolicy.settleTargetIndex(
-                scale: 0.95,
-                velocity: -8,
+                scale: 0.2,
                 itemWidthRatios: [0.2, 0.333, 1]
             ),
             0,
-            "a violent flick projects across more than one grid"
+            "deep physical travel may cross successive adjacent thresholds"
         )
-        XCTAssertEqual(
-            PlayerBrowserGridPinchPolicy.settleTargetIndex(
-                scale: 0.95,
-                velocity: -1_000_000,
-                itemWidthRatios: [0.2, 0.333, 1]
-            ),
-            0,
-            "the projection cap keeps a glitched velocity on the ladder"
+    }
+
+    func testPinchPolicyDiscardsSparsePlaneBeforeReverseScaleShrinks() {
+        XCTAssertEqual(PlayerBrowserGridPinchPolicy.overPlaneDiscardScale, 1)
+        XCTAssertGreaterThan(
+            PlayerBrowserGridPinchPolicy.overPlaneInstallScale,
+            PlayerBrowserGridPinchPolicy.overPlaneDiscardScale
         )
     }
 
@@ -367,16 +364,20 @@ final class MobilePlayerBrowserGridTransitionTests: XCTestCase {
             beyondMaximum,
             3 * (1 + PlayerBrowserGridPinchPolicy.overshootMaximumDeviation)
         )
-        let beyondMinimum = PlayerBrowserGridPinchPolicy.rubberBandedScale(
-            0.4,
-            minimumRatio: 0.75,
-            maximumRatio: 3
-        )
-        XCTAssertLessThan(beyondMinimum, 0.75)
-        XCTAssertGreaterThan(
-            beyondMinimum,
-            0.75 * (1 - PlayerBrowserGridPinchPolicy.overshootMaximumDeviation)
-        )
+        // The densest lattice exactly fills the viewport, so it is a hard
+        // floor: rubber-banding below it would uncover the background at both
+        // screen edges, and Photos shows 0px there however hard you pinch.
+        for scale in [CGFloat(0.74), 0.4, 0.01] {
+            XCTAssertEqual(
+                PlayerBrowserGridPinchPolicy.rubberBandedScale(
+                    scale,
+                    minimumRatio: 0.75,
+                    maximumRatio: 3
+                ),
+                0.75,
+                "pinching out past the densest grid must not shrink it"
+            )
+        }
         XCTAssertEqual(
             PlayerBrowserGridPinchPolicy.rubberBandedScale(
                 .nan,
@@ -514,77 +515,15 @@ final class MobilePlayerBrowserGridTransitionTests: XCTestCase {
         XCTAssertLessThan(restTime, 1.6, "the settle still finishes promptly")
     }
 
-    func testPinchPolicySettleSeedVelocityBlendsGestureSpeedWithoutOvershoot() {
-        let omega = PlayerBrowserGridPinchPolicy.settleAngularFrequency
-
-        XCTAssertEqual(
-            PlayerBrowserGridPinchPolicy.settleSeedVelocity(
-                forLogOffset: log(1.5),
-                effectiveVelocity: -8,
-                scale: 1
-            ),
-            -omega * log(1.5),
-            accuracy: 0.000_001
-        )
-        XCTAssertEqual(
-            PlayerBrowserGridPinchPolicy.settleSeedVelocity(
-                forLogOffset: -0.05,
-                effectiveVelocity: -8,
-                scale: 0.5
-            ),
-            omega * 0.05,
-            accuracy: 0.000_001
-        )
-
-        XCTAssertEqual(
-            PlayerBrowserGridPinchPolicy.settleSeedVelocity(
-                forLogOffset: log(1.5),
-                effectiveVelocity: 0,
-                scale: 1
-            ),
-            0
-        )
-
-        XCTAssertEqual(
-            PlayerBrowserGridPinchPolicy.settleSeedVelocity(
-                forLogOffset: 0.5,
-                effectiveVelocity: 1,
-                scale: 1
-            ),
-            -1,
-            accuracy: 0.000_001
-        )
-
-        XCTAssertEqual(
-            PlayerBrowserGridPinchPolicy.settleSeedVelocity(
-                forLogOffset: .nan,
-                effectiveVelocity: 1,
-                scale: 1
-            ),
-            0
-        )
-        XCTAssertEqual(
-            PlayerBrowserGridPinchPolicy.settleSeedVelocity(
-                forLogOffset: 0.3,
-                effectiveVelocity: .nan,
-                scale: 1
-            ),
-            -omega * 0.3,
-            accuracy: 0.000_001
-        )
-
-        for (initialOffset, velocity) in [
-            (log(CGFloat(1.5)), CGFloat(-8)),
-            (log(CGFloat(0.5)), CGFloat(8)),
-            (CGFloat(0.06), CGFloat(0)),
-            (CGFloat(-0.3), CGFloat(-1)),
+    func testPinchPolicySettleSpringStartsFromRestAndNeverOvershoots() {
+        for initialOffset in [
+            log(CGFloat(1.5)),
+            log(CGFloat(0.5)),
+            CGFloat(0.06),
+            CGFloat(-0.3),
         ] {
             var logOffset = initialOffset
-            var logVelocity = PlayerBrowserGridPinchPolicy.settleSeedVelocity(
-                forLogOffset: initialOffset,
-                effectiveVelocity: velocity,
-                scale: 1
-            )
+            var logVelocity: CGFloat = 0
             var elapsed: CGFloat = 0
             while elapsed < 3 {
                 let stepped = PlayerBrowserGridPinchPolicy.settleSpringStep(
@@ -611,6 +550,42 @@ final class MobilePlayerBrowserGridTransitionTests: XCTestCase {
                 logVelocity: logVelocity
             ))
         }
+    }
+
+    /// Photos settles a released pinch on `springDuration: 0.5, bounce: 0`,
+    /// i.e. the critically damped `1 - (1 + wt)e^-wt` with w = 2pi/0.5.
+    func testPinchPolicySettleSpringMatchesPhotosHalfSecondSpring() {
+        let omega = PlayerBrowserGridPinchPolicy.settleAngularFrequency
+        XCTAssertEqual(omega, 2 * .pi / 0.5, accuracy: 0.000_001)
+
+        let initialOffset = log(CGFloat(1.5))
+        var logOffset = initialOffset
+        var logVelocity: CGFloat = 0
+        var elapsed: CGFloat = 0
+        let samples: [CGFloat] = [0.05, 0.133, 0.3, 0.5]
+        var nextSample = 0
+        while elapsed < 0.55, nextSample < samples.count {
+            let stepped = PlayerBrowserGridPinchPolicy.settleSpringStep(
+                logOffset: logOffset,
+                logVelocity: logVelocity,
+                deltaTime: 1.0 / 240
+            )
+            logOffset = stepped.logOffset
+            logVelocity = stepped.logVelocity
+            elapsed += 1.0 / 240
+            guard elapsed >= samples[nextSample] else { continue }
+            let progress = 1 - logOffset / initialOffset
+            let t = elapsed
+            let expected = 1 - (1 + omega * t) * exp(-omega * t)
+            XCTAssertEqual(
+                progress,
+                expected,
+                accuracy: 0.01,
+                "settle progress at \(t)s"
+            )
+            nextSample += 1
+        }
+        XCTAssertEqual(nextSample, samples.count)
     }
 
     func testPitchRatiosLandSeamsExactly() throws {

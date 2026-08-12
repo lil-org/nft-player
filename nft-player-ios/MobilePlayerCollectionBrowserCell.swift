@@ -73,7 +73,7 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
         MobilePlayerCollectionBrowserTransitionPresentation(
             contentView: contentView
         )
-    private var hasCarryoverContent: Bool {
+    var hasCarryoverContent: Bool {
         transitionPresentation.hasCarryoverContent
     }
     private var fadesFirstImage = false

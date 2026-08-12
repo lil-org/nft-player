@@ -154,6 +154,68 @@ final class PlayerBrowserGridCrossfadeTests: XCTestCase {
         )
     }
 
+    /// The anchor-driven horizontal slide must never walk a content edge in off
+    /// a screen edge, and must still deliver the plane to its landing. The slide
+    /// term is zero only for a pinch at the exact horizontal centre, so
+    /// off-centre anchors are the case that matters.
+    func testPlaneCoversTheViewportAndLandsForOffCentreAnchors() throws {
+        let width = Self.viewportSize.width
+        let ratios: [CGFloat] = [3.0, 1.6667, 1.5, 0.6, 0.3333, 0.2]
+        for ratio in ratios {
+            for anchorX in [CGFloat(0), 12, 60, 195, 330, 378, 390] {
+                for incomingAnchorX in [CGFloat(0), 40, 195, 350, 390] {
+                    let crossfade = try XCTUnwrap(
+                        makeCrossfade(
+                            itemWidthRatio: ratio,
+                            outgoingAnchor: CGPoint(x: anchorX, y: 400),
+                            incomingAnchor: CGPoint(x: incomingAnchorX, y: 430)
+                        ),
+                        "r\(ratio) a\(anchorX) i\(incomingAnchorX)"
+                    )
+                    for step in 0...10 {
+                        let progress = CGFloat(step) / 10
+                        let scale = pow(ratio, progress)
+                        let plane = crossfade.outgoingPlane(
+                            scale: scale,
+                            panDeltaY: 0
+                        )
+                        let k = plane.scaleX / crossfade.terminalScaleX
+                        let left = min(
+                            anchorX * (1 - plane.scaleX),
+                            anchorX - k * incomingAnchorX
+                        ) + plane.translation.x
+                        let right = max(
+                            anchorX + plane.scaleX * (width - anchorX),
+                            anchorX + k * (width - incomingAnchorX)
+                        ) + plane.translation.x
+                        XCTAssertLessThanOrEqual(
+                            left,
+                            0.001,
+                            "left uncovered r\(ratio) a\(anchorX) i\(incomingAnchorX) p\(progress)"
+                        )
+                        XCTAssertGreaterThanOrEqual(
+                            right,
+                            width - 0.001,
+                            "right uncovered r\(ratio) a\(anchorX) i\(incomingAnchorX) p\(progress)"
+                        )
+                    }
+                    // The landing must be exact: at the terminal the bound has
+                    // to admit the full anchor drift, or the grid commits offset.
+                    let terminal = crossfade.outgoingPlane(
+                        scale: ratio,
+                        panDeltaY: 0
+                    )
+                    XCTAssertEqual(
+                        terminal.translation.x,
+                        incomingAnchorX - anchorX,
+                        accuracy: 0.001,
+                        "landing deficit r\(ratio) a\(anchorX) i\(incomingAnchorX)"
+                    )
+                }
+            }
+        }
+    }
+
     func testReanchoringPreservesBothEndpointTransforms() throws {
         let crossfade = try XCTUnwrap(makeCrossfade(
             itemWidthRatio: 1.5,

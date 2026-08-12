@@ -27,16 +27,9 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
 
     private func makeSample(
         scale: CGFloat,
-        centroidY: CGFloat = 400,
-        timestamp: TimeInterval = 99.99
+        centroidY: CGFloat = 400
     ) -> Coordinator.PinchSample {
-        // Tests release at timestamp 100; samples default to just before it
-        // so the release velocity is fresh, not held-stale.
-        Coordinator.PinchSample(
-            scale: scale,
-            centroidY: centroidY,
-            timestamp: timestamp
-        )
+        Coordinator.PinchSample(scale: scale, centroidY: centroidY)
     }
 
     /// Starts a pinch and crosses the activation dead zone at the given scale.
@@ -67,10 +60,47 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
         PlayerBrowserGridPinchPolicy.effectiveScaleAfterActivation(rawScale)
     }
 
-    private func renderedZoomScale(_ effects: [Effect]) -> CGFloat? {
+    private func renderedScale(_ effects: [Effect]) -> CGFloat? {
         for effect in effects.reversed() {
-            if case let .renderZoom(_, scale, _) = effect {
+            switch effect {
+            case let .renderZoom(_, scale, _):
                 return scale
+            case let .renderSettle(_, scale, _, _, _):
+                return scale
+            default:
+                continue
+            }
+        }
+        return nil
+    }
+
+    private func settleProgress(_ effects: [Effect]) -> CGFloat? {
+        for effect in effects.reversed() {
+            if case let .renderSettle(_, _, progress, _, _) = effect {
+                return progress
+            }
+        }
+        return nil
+    }
+
+    private func presentationProgress(_ effects: [Effect]) -> CGFloat? {
+        for effect in effects.reversed() {
+            if case let .renderSettle(_, _, _, progress, _) = effect {
+                return progress
+            }
+        }
+        return nil
+    }
+
+    private func renderedPanDeltaY(_ effects: [Effect]) -> CGFloat? {
+        for effect in effects.reversed() {
+            switch effect {
+            case let .renderZoom(_, _, panDeltaY):
+                return panDeltaY
+            case let .renderSettle(_, _, _, _, panDeltaY):
+                return panDeltaY
+            default:
+                continue
             }
         }
         return nil
@@ -78,7 +108,7 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
 
     private func settleScale(_ effects: [Effect]) -> CGFloat? {
         for effect in effects.reversed() {
-            if case let .renderSettle(_, scale, _, _) = effect {
+            if case let .renderSettle(_, scale, _, _, _) = effect {
                 return scale
             }
         }
@@ -105,15 +135,28 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
         }
     }
 
-    private func assertLastRenderZoomPlaneId(
+    private func assertLastRenderedPlaneId(
         _ effects: [Effect],
         _ expected: UUID?,
         file: StaticString = #filePath,
         line: UInt = #line
     ) {
-        guard case let .renderZoom(planeId, _, _)? = effects.last else {
+        guard let effect = effects.last else {
             return XCTFail(
-                "expected renderZoom, got \(effects)",
+                "expected a render effect, got \(effects)",
+                file: file,
+                line: line
+            )
+        }
+        let planeId: UUID?
+        switch effect {
+        case let .renderZoom(id, _, _):
+            planeId = id
+        case let .renderSettle(id, _, _, _, _):
+            planeId = id
+        default:
+            return XCTFail(
+                "expected a render effect, got \(effects)",
                 file: file,
                 line: line
             )
@@ -157,17 +200,9 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
     @discardableResult
     private func endPinch(
         _ coordinator: inout Coordinator,
-        velocity: CGFloat = 0,
-        timestamp: TimeInterval = 100,
         reduceMotion: Bool = false
     ) -> [Effect] {
-        coordinator.handle(
-            .pinchEnded(
-                velocity: velocity,
-                timestamp: timestamp,
-                reduceMotion: reduceMotion
-            )
-        )
+        coordinator.handle(.pinchEnded(reduceMotion: reduceMotion))
     }
 
     /// Releases into a settle and advances it partway, leaving `.settling`.
@@ -275,14 +310,9 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
             .large,
             "the heading grid preloads beneath the plane from the start"
         )
-        XCTAssertEqual(
-            effects.last,
-            .renderZoom(
-                planeId: plane?.id,
-                scale: activatedScale(1.2),
-                panDeltaY: 0
-            )
-        )
+        assertLastRenderedPlaneId(effects, plane?.id)
+        XCTAssertEqual(renderedScale(effects), activatedScale(1.2))
+        XCTAssertEqual(renderedPanDeltaY(effects), 0)
     }
 
     func testZoomTracksScaleAndPanWithoutReinstallingTheSameTarget() {
@@ -295,14 +325,49 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
             .pinchChanged(sample: makeSample(scale: 1.8, centroidY: 460))
         )
         XCTAssertNil(installedPlane(effects))
-        XCTAssertEqual(
-            effects,
-            [.renderZoom(
-                planeId: plane?.id,
-                scale: activatedScale(1.8),
-                panDeltaY: 60
-            )]
+        XCTAssertEqual(effects.count, 1)
+        assertLastRenderedPlaneId(effects, plane?.id)
+        XCTAssertEqual(renderedScale(effects), activatedScale(1.8))
+        XCTAssertEqual(renderedPanDeltaY(effects), 60)
+    }
+
+    func testZoomCrossfadesTheDestinationWhileTheFingersAreDown() throws {
+        var coordinator = Coordinator()
+        let activation = activatePinch(&coordinator, scale: 1.2)
+        let plane = try XCTUnwrap(installedPlane(activation))
+
+        var progresses: [CGFloat] = []
+        for scale in [CGFloat(1.2), 1.5, 1.9, 2.4] {
+            let effects = coordinator.handle(
+                .pinchChanged(sample: makeSample(scale: scale))
+            )
+            let rendered = try XCTUnwrap(settleProgress(effects))
+            XCTAssertEqual(
+                rendered,
+                log(activatedScale(scale)) / log(plane.itemWidthRatio),
+                accuracy: 0.000_1
+            )
+            progresses.append(rendered)
+        }
+        XCTAssertEqual(progresses, progresses.sorted())
+        XCTAssertGreaterThan(try XCTUnwrap(progresses.last), 0.5)
+
+        // The release resumes the fade rather than restarting it.
+        _ = endPinch(&coordinator)
+        let settle = drainSettle(&coordinator)
+        let firstSettleProgress = try XCTUnwrap(
+            settle.compactMap { effect -> CGFloat? in
+                if case let .renderSettle(_, _, progress, _, _) = effect {
+                    return progress
+                }
+                return nil
+            }.first
         )
+        XCTAssertGreaterThanOrEqual(
+            firstSettleProgress,
+            try XCTUnwrap(progresses.last) - 0.05
+        )
+        assertCommits(settle, planeId: plane.id, mode: .large)
     }
 
     func testZoomRubberBandsBeyondTheOutermostGrids() {
@@ -312,7 +377,7 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
         let effects = coordinator.handle(
             .pinchChanged(sample: makeSample(scale: 8))
         )
-        let scale = renderedZoomScale(effects)
+        let scale = renderedScale(effects)
         XCTAssertNotNil(scale)
         XCTAssertGreaterThan(scale ?? 0, 3)
         XCTAssertLessThan(
@@ -330,7 +395,7 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
         let firstPlane = installedPlane(activation)
         XCTAssertEqual(firstPlane?.toMode, .fiveColumns)
         XCTAssertEqual(firstPlane?.itemWidthRatio, 0.6)
-        assertLastRenderZoomPlaneId(activation, firstPlane?.id)
+        assertLastRenderedPlaneId(activation, firstPlane?.id)
 
         let noReinstall = coordinator.handle(
             .pinchChanged(sample: makeSample(scale: 0.8))
@@ -351,7 +416,7 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
             installedPlane(jitter),
             "finger jitter across the original scale keeps the current plane"
         )
-        assertLastRenderZoomPlaneId(jitter, plane?.id)
+        assertLastRenderedPlaneId(jitter, plane?.id)
 
         let reversal = coordinator.handle(
             .pinchChanged(sample: makeSample(scale: 1.152))
@@ -362,7 +427,7 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
             .large,
             "a decisive reversal swaps the plane for the new heading"
         )
-        assertLastRenderZoomPlaneId(reversal, replacement?.id)
+        assertLastRenderedPlaneId(reversal, replacement?.id)
     }
 
     func testReversingAtTheDenseBoundaryDiscardsTheStalePlane() {
@@ -379,7 +444,7 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
             .pinchChanged(sample: makeSample(scale: 0.9))
         )
         assertDiscards(reversal, planeId: plane?.id)
-        assertLastRenderZoomPlaneId(reversal, nil)
+        assertLastRenderedPlaneId(reversal, nil)
     }
 
     func testReversingAtTheSparseBoundaryDiscardsTheStalePlane() {
@@ -396,10 +461,119 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
             .pinchChanged(sample: makeSample(scale: 1.1))
         )
         assertDiscards(reversal, planeId: plane?.id)
-        assertLastRenderZoomPlaneId(reversal, nil)
+        assertLastRenderedPlaneId(reversal, nil)
     }
 
-    func testMidpointJitterDoesNotChurnThePlane() {
+    func testReversingBelowUnityNeverRendersTheSparsePlane() throws {
+        var coordinator = Coordinator()
+        let activation = activatePinch(&coordinator, scale: 1.2)
+        let sparsePlane = try XCTUnwrap(installedPlane(activation))
+        XCTAssertGreaterThan(sparsePlane.itemWidthRatio, 1)
+
+        let reversal = coordinator.handle(
+            .pinchChanged(sample: makeSample(scale: 1))
+        )
+        let replacement = installedPlane(reversal)
+        let discarded = reversal.contains(.discardPlane(id: sparsePlane.id))
+
+        XCTAssertLessThan(try XCTUnwrap(renderedScale(reversal)), 1)
+        XCTAssertTrue(
+            replacement != nil || discarded,
+            "the sparse plane must leave before a sub-unity render"
+        )
+        XCTAssertNotEqual(replacement?.id, sparsePlane.id)
+        if let replacement {
+            XCTAssertLessThan(replacement.itemWidthRatio, 1)
+        }
+        assertLastRenderedPlaneId(reversal, replacement?.id)
+    }
+
+    func testAdoptedSparsePlaneYieldsToCoverageSafetyBelowUnity() throws {
+        var coordinator = Coordinator()
+        let menu = coordinator.handle(
+            .menuSelected(
+                fromMode: .threeColumns,
+                toMode: .large,
+                reduceMotion: false
+            ),
+            ratioProvider: Self.ratioProvider
+        )
+        let sparsePlane = try XCTUnwrap(installedPlane(menu))
+        _ = coordinator.handle(.settleStarted(timestamp: 100))
+        _ = coordinator.handle(.settleTick(timestamp: 100 + 1.0 / 60))
+        _ = coordinator.handle(
+            .pinchBegan(
+                sample: makeSample(scale: 1),
+                currentMode: .threeColumns
+            ),
+            ratioProvider: Self.ratioProvider
+        )
+
+        let reversal = coordinator.handle(
+            .pinchChanged(sample: makeSample(scale: 0.97))
+        )
+        let replacement = try XCTUnwrap(installedPlane(reversal))
+        let scale = try XCTUnwrap(renderedScale(reversal))
+
+        XCTAssertGreaterThan(sparsePlane.itemWidthRatio, 1)
+        XCTAssertLessThan(scale, 1)
+        XCTAssertNotEqual(replacement.id, sparsePlane.id)
+        XCTAssertLessThan(replacement.itemWidthRatio, 1)
+        assertLastRenderedPlaneId(reversal, replacement.id)
+        XCTAssertEqual(
+            try XCTUnwrap(settleProgress(reversal)),
+            PlayerBrowserGridCrossfade.driftProgress(
+                forScale: scale,
+                itemWidthRatio: replacement.itemWidthRatio
+            ),
+            accuracy: 0.000_1,
+            "adopted progress from the sparse plane must not transfer to its replacement"
+        )
+    }
+
+    func testAdoptedDensePlaneYieldsToCoverageSafetyBelowItsRatio() throws {
+        var coordinator = Coordinator()
+        let menu = coordinator.handle(
+            .menuSelected(
+                fromMode: .large,
+                toMode: .threeColumns,
+                reduceMotion: false
+            ),
+            ratioProvider: Self.ratioProvider
+        )
+        let densePlane = try XCTUnwrap(installedPlane(menu))
+        var tickTime: TimeInterval = 100
+        var runningScale: CGFloat = 1
+        _ = coordinator.handle(.settleStarted(timestamp: tickTime))
+        advanceSettle(
+            &coordinator,
+            tickTime: &tickTime,
+            runningScale: &runningScale,
+            untilAtMost: 0.34
+        )
+        XCTAssertGreaterThan(runningScale, densePlane.itemWidthRatio)
+        _ = coordinator.handle(
+            .pinchBegan(
+                sample: makeSample(scale: 1),
+                currentMode: .large
+            ),
+            ratioProvider: Self.ratioProvider
+        )
+
+        let reversal = coordinator.handle(
+            .pinchChanged(sample: makeSample(scale: 0.97))
+        )
+        let replacement = try XCTUnwrap(installedPlane(reversal))
+        let scale = try XCTUnwrap(renderedScale(reversal))
+
+        XCTAssertLessThan(scale, densePlane.itemWidthRatio)
+        XCTAssertNotEqual(replacement.id, densePlane.id)
+        XCTAssertLessThan(replacement.itemWidthRatio, densePlane.itemWidthRatio)
+        XCTAssertLessThanOrEqual(replacement.itemWidthRatio, scale)
+        assertLastRenderedPlaneId(reversal, replacement.id)
+    }
+
+    func testMidpointJitterPerformsOneCoverageRetargetWithoutChurn() {
         var coordinator = Coordinator()
         _ = activatePinch(
             &coordinator,
@@ -407,20 +581,795 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
             fromMode: .large
         )
         var installCount = 0
+        var replacement: Coordinator.Plane?
         let midpointScales: [CGFloat] = [0.245, 0.252, 0.246, 0.251, 0.247, 0.25]
         for scale in midpointScales {
             let effects = coordinator.handle(
                 .pinchChanged(sample: makeSample(scale: scale))
             )
-            if installedPlane(effects) != nil {
+            if let plane = installedPlane(effects) {
                 installCount += 1
+                replacement = plane
             }
         }
         XCTAssertEqual(
             installCount,
-            0,
-            "oscillating around the five/three-column midpoint must not reinstall planes"
+            1,
+            "coverage requires one retarget, then midpoint jitter must not churn it"
         )
+        XCTAssertEqual(replacement?.toMode, .fiveColumns)
+    }
+
+    func testCoverageBoundaryJitterRetargetsOnceWithoutChurn() {
+        var coordinator = Coordinator()
+        let activation = activatePinch(
+            &coordinator,
+            scale: 0.5,
+            fromMode: .large
+        )
+        XCTAssertEqual(installedPlane(activation)?.toMode, .threeColumns)
+
+        let underfill = coordinator.handle(
+            .pinchChanged(sample: makeSample(scale: 0.319))
+        )
+        XCTAssertEqual(installedPlane(underfill)?.toMode, .fiveColumns)
+
+        for scale in [0.321, 0.319, 0.321, 0.319, 0.321] as [CGFloat] {
+            let effects = coordinator.handle(
+                .pinchChanged(sample: makeSample(scale: scale))
+            )
+            XCTAssertNil(
+                installedPlane(effects),
+                "coverage-boundary jitter must keep the safe plane"
+            )
+        }
+
+        let decisiveReturn = coordinator.handle(
+            .pinchChanged(sample: makeSample(scale: 0.34))
+        )
+        XCTAssertEqual(installedPlane(decisiveReturn)?.toMode, .threeColumns)
+    }
+
+    func testDensePlaneRetargetsBeforeItUnderfillsAndReleaseReusesIt() throws {
+        var coordinator = Coordinator()
+        let activation = activatePinch(
+            &coordinator,
+            scale: 0.5,
+            fromMode: .large
+        )
+        let livePlane = try XCTUnwrap(installedPlane(activation))
+        XCTAssertEqual(livePlane.toMode, .threeColumns)
+
+        let held = coordinator.handle(
+            .pinchChanged(sample: makeSample(scale: 0.29))
+        )
+        let replacement = try XCTUnwrap(installedPlane(held))
+        XCTAssertEqual(replacement.toMode, .fiveColumns)
+        XCTAssertNotEqual(replacement.id, livePlane.id)
+        let heldScale = try XCTUnwrap(renderedScale(held))
+        XCTAssertLessThanOrEqual(replacement.itemWidthRatio, heldScale)
+        let heldProgress = try XCTUnwrap(settleProgress(held))
+        XCTAssertEqual(
+            heldProgress,
+            PlayerBrowserGridCrossfade.driftProgress(
+                forScale: heldScale,
+                itemWidthRatio: replacement.itemWidthRatio
+            ),
+            accuracy: 0.000_1
+        )
+        let policyRatios = Self.ratios(from: .large)
+        let policyTarget = try XCTUnwrap(
+            PlayerBrowserGridPinchPolicy.settleTargetIndex(
+                scale: 0.29,
+                itemWidthRatios: policyRatios.map(\.itemWidthRatio)
+            )
+        )
+        XCTAssertEqual(policyRatios[policyTarget].mode, .fiveColumns)
+
+        let release = endPinch(&coordinator)
+        XCTAssertNil(
+            installedPlane(release),
+            "release must reuse the coverage-safe live plane"
+        )
+        let settle = drainSettle(&coordinator)
+        let progresses = settle.compactMap { effect -> CGFloat? in
+            guard case let .renderSettle(_, _, progress, _, _) = effect else {
+                return nil
+            }
+            return progress
+        }
+        XCTAssertFalse(progresses.isEmpty)
+        XCTAssertTrue(progresses.allSatisfy {
+            $0 >= heldProgress - 0.000_1
+        })
+        assertCommits(settle, planeId: replacement.id, mode: .fiveColumns)
+    }
+
+    func testDensePlaneRetargetPreservesPresentationWithoutRewindingGeometry() throws {
+        var coordinator = Coordinator()
+        let activationScale: CGFloat = 0.5
+        let activation = activatePinch(
+            &coordinator,
+            scale: activationScale,
+            fromMode: .large
+        )
+        let firstPlane = try XCTUnwrap(installedPlane(activation))
+        XCTAssertEqual(firstPlane.toMode, .threeColumns)
+        let referenceScale = activationScale / activatedScale(activationScale)
+        let aboveBoundaryScale = firstPlane.itemWidthRatio
+
+        let aboveBoundary = coordinator.handle(
+            .pinchChanged(sample: makeSample(
+                scale: aboveBoundaryScale * referenceScale
+            ))
+        )
+        XCTAssertNil(installedPlane(aboveBoundary))
+        let priorGeometryProgress = try XCTUnwrap(
+            settleProgress(aboveBoundary)
+        )
+        let priorPresentationProgress = try XCTUnwrap(
+            presentationProgress(aboveBoundary)
+        )
+        XCTAssertEqual(
+            try XCTUnwrap(renderedScale(aboveBoundary)),
+            aboveBoundaryScale,
+            accuracy: 0.000_1
+        )
+
+        let belowBoundary = coordinator.handle(
+            .pinchChanged(sample: makeSample(scale: 0.332 * referenceScale))
+        )
+        let replacement = try XCTUnwrap(installedPlane(belowBoundary))
+        XCTAssertEqual(replacement.toMode, .fiveColumns)
+        let replacementGeometryProgress = try XCTUnwrap(
+            settleProgress(belowBoundary)
+        )
+        let replacementPresentationProgress = try XCTUnwrap(
+            presentationProgress(belowBoundary)
+        )
+        XCTAssertLessThan(replacementGeometryProgress, priorGeometryProgress)
+        XCTAssertEqual(
+            replacementGeometryProgress,
+            PlayerBrowserGridCrossfade.driftProgress(
+                forScale: 0.332,
+                itemWidthRatio: replacement.itemWidthRatio
+            ),
+            accuracy: 0.000_1
+        )
+        XCTAssertEqual(
+            replacementPresentationProgress,
+            priorPresentationProgress,
+            accuracy: 0.000_1
+        )
+        XCTAssertEqual(
+            PlayerBrowserGridCrossfade.incomingContentAlpha(
+                settleProgress: replacementPresentationProgress
+            ),
+            PlayerBrowserGridCrossfade.incomingContentAlpha(
+                settleProgress: priorPresentationProgress
+            ),
+            accuracy: 0.000_1
+        )
+
+        _ = endPinch(&coordinator)
+        _ = coordinator.handle(.settleStarted(timestamp: 100))
+        let firstTick = coordinator.handle(.settleTick(timestamp: 100))
+        XCTAssertEqual(
+            try XCTUnwrap(settleProgress(firstTick)),
+            replacementGeometryProgress,
+            accuracy: 0.000_1
+        )
+        XCTAssertEqual(
+            try XCTUnwrap(presentationProgress(firstTick)),
+            replacementPresentationProgress,
+            accuracy: 0.000_1
+        )
+    }
+
+    func testJumpRetargetAtDestinationEndpointUsesEndpointPresentation() throws {
+        var coordinator = Coordinator()
+        let activationScale: CGFloat = 0.5
+        let activation = activatePinch(
+            &coordinator,
+            scale: activationScale,
+            fromMode: .large
+        )
+        XCTAssertEqual(installedPlane(activation)?.toMode, .threeColumns)
+        XCTAssertLessThan(
+            try XCTUnwrap(presentationProgress(activation)),
+            1
+        )
+        let referenceScale = activationScale / activatedScale(activationScale)
+
+        let jump = coordinator.handle(
+            .pinchChanged(sample: makeSample(scale: 0.2 * referenceScale))
+        )
+        let replacement = try XCTUnwrap(installedPlane(jump))
+        XCTAssertEqual(replacement.toMode, .fiveColumns)
+        XCTAssertEqual(
+            try XCTUnwrap(settleProgress(jump)),
+            1,
+            accuracy: 0.000_1
+        )
+        XCTAssertEqual(
+            try XCTUnwrap(presentationProgress(jump)),
+            1,
+            accuracy: 0.000_1
+        )
+    }
+
+    func testReleaseCannotReinstallADensePlaneThatWouldUnderfill() throws {
+        var coordinator = Coordinator()
+        let activation = activatePinch(
+            &coordinator,
+            scale: 0.5,
+            fromMode: .large
+        )
+        let firstPlane = try XCTUnwrap(installedPlane(activation))
+        XCTAssertEqual(firstPlane.toMode, .threeColumns)
+
+        let retarget = coordinator.handle(
+            .pinchChanged(sample: makeSample(scale: 0.31))
+        )
+        let coveragePlane = try XCTUnwrap(installedPlane(retarget))
+        let scale = try XCTUnwrap(renderedScale(retarget))
+        XCTAssertEqual(coveragePlane.toMode, .fiveColumns)
+        XCTAssertLessThan(scale, firstPlane.itemWidthRatio)
+        XCTAssertLessThanOrEqual(coveragePlane.itemWidthRatio, scale)
+        let policyRatios = Self.ratios(from: .large)
+        let policyTarget = try XCTUnwrap(
+            PlayerBrowserGridPinchPolicy.settleTargetIndex(
+                scale: 0.31,
+                itemWidthRatios: policyRatios.map(\.itemWidthRatio)
+            )
+        )
+        XCTAssertEqual(policyRatios[policyTarget].mode, .threeColumns)
+
+        let release = endPinch(&coordinator)
+        XCTAssertNil(
+            installedPlane(release),
+            "release must not reinstall a plane whose ratio exceeds its scale"
+        )
+        let settle = drainSettle(&coordinator)
+        assertCommits(
+            settle,
+            planeId: coveragePlane.id,
+            mode: .fiveColumns
+        )
+    }
+
+    func testSparseReleaseInsideRetargetHysteresisKeepsVisiblePlane() throws {
+        var coordinator = Coordinator()
+        let activation = activatePinch(
+            &coordinator,
+            scale: 1.2,
+            fromMode: .fiveColumns
+        )
+        let livePlane = try XCTUnwrap(installedPlane(activation))
+        XCTAssertEqual(livePlane.toMode, .threeColumns)
+
+        let held = coordinator.handle(
+            .pinchChanged(sample: makeSample(scale: 2.1))
+        )
+        XCTAssertNil(installedPlane(held))
+        let heldProgress = try XCTUnwrap(settleProgress(held))
+        XCTAssertEqual(heldProgress, 1, accuracy: 0.000_1)
+        let policyRatios = Self.ratios(from: .fiveColumns)
+        let policyTarget = try XCTUnwrap(
+            PlayerBrowserGridPinchPolicy.settleTargetIndex(
+                scale: 2.1,
+                itemWidthRatios: policyRatios.map(\.itemWidthRatio)
+            )
+        )
+        XCTAssertEqual(policyRatios[policyTarget].mode, .large)
+
+        let release = endPinch(&coordinator)
+        XCTAssertNil(
+            installedPlane(release),
+            "release must not swap lattices after fully revealing the live plane"
+        )
+        let settle = drainSettle(&coordinator)
+        let progresses = settle.compactMap { effect -> CGFloat? in
+            guard case let .renderSettle(_, _, progress, _, _) = effect else {
+                return nil
+            }
+            return progress
+        }
+        XCTAssertFalse(progresses.isEmpty)
+        XCTAssertTrue(progresses.allSatisfy {
+            $0 >= heldProgress - 0.000_1
+        })
+        assertCommits(settle, planeId: livePlane.id, mode: .threeColumns)
+    }
+
+    func testDeepSparseZoomRetargetsAtTheReleaseLadderBoundary() throws {
+        var coordinator = Coordinator()
+        let activation = activatePinch(
+            &coordinator,
+            scale: 1.2,
+            fromMode: .fiveColumns
+        )
+        let livePlane = try XCTUnwrap(installedPlane(activation))
+        XCTAssertEqual(livePlane.toMode, .threeColumns)
+
+        let retargeted = coordinator.handle(
+            .pinchChanged(sample: makeSample(scale: 2.5))
+        )
+        let deepPlane = try XCTUnwrap(installedPlane(retargeted))
+        XCTAssertEqual(
+            deepPlane.toMode,
+            .large,
+            "past the ladder boundary the plane shows the lattice a release lands on"
+        )
+
+        _ = endPinch(&coordinator)
+        let settle = drainSettle(&coordinator)
+        assertCommits(settle, planeId: deepPlane.id, mode: .large)
+    }
+
+    func testReleaseMayRetreatFromADeeperPlaneInsideHysteresis() throws {
+        var coordinator = Coordinator()
+        let ratios = [
+            Coordinator.ModeRatio(mode: .large, itemWidthRatio: 1),
+            Coordinator.ModeRatio(mode: .threeColumns, itemWidthRatio: 0.5),
+            Coordinator.ModeRatio(mode: .fiveColumns, itemWidthRatio: 0.48)
+        ]
+        let activation = activatePinch(
+            &coordinator,
+            scale: 0.46,
+            fromMode: .large,
+            ratios: ratios
+        )
+        let deepPlane = try XCTUnwrap(installedPlane(activation))
+        XCTAssertEqual(deepPlane.toMode, .fiveColumns)
+
+        let retreated = coordinator.handle(
+            .pinchChanged(sample: makeSample(scale: 0.5))
+        )
+        XCTAssertNil(installedPlane(retreated))
+        let liveProgress = try XCTUnwrap(settleProgress(retreated))
+
+        let release = endPinch(&coordinator)
+        let replacement = try XCTUnwrap(installedPlane(release))
+        XCTAssertEqual(replacement.toMode, .threeColumns)
+        let releaseScale = try XCTUnwrap(renderedScale(release))
+        let releaseProgress = try XCTUnwrap(settleProgress(release))
+        XCTAssertEqual(
+            releaseProgress,
+            PlayerBrowserGridCrossfade.driftProgress(
+                forScale: releaseScale,
+                itemWidthRatio: replacement.itemWidthRatio
+            ),
+            accuracy: 0.000_1
+        )
+        XCTAssertGreaterThanOrEqual(
+            releaseProgress,
+            liveProgress,
+            "retreating to a sourceward target may replace the deeper plane when it does not rewind"
+        )
+        _ = coordinator.handle(.settleStarted(timestamp: 100))
+        let firstTick = coordinator.handle(.settleTick(timestamp: 100.01))
+        XCTAssertGreaterThanOrEqual(
+            try XCTUnwrap(settleProgress(firstTick)),
+            releaseProgress
+        )
+    }
+
+    func testRegrabbingEndpointReplacementPreservesPresentationThroughHandoff() throws {
+        var coordinator = Coordinator()
+        let ratios = [
+            Coordinator.ModeRatio(mode: .fiveColumns, itemWidthRatio: 1),
+            Coordinator.ModeRatio(mode: .threeColumns, itemWidthRatio: 1.05),
+            Coordinator.ModeRatio(mode: .large, itemWidthRatio: 1.11)
+        ]
+        let menu = coordinator.handle(
+            .menuSelected(
+                fromMode: .fiveColumns,
+                toMode: .large,
+                reduceMotion: false
+            ),
+            ratioProvider: { _ in ratios }
+        )
+        let deepPlane = try XCTUnwrap(installedPlane(menu))
+        XCTAssertEqual(deepPlane.toMode, .large)
+        _ = coordinator.handle(.settleStarted(timestamp: 100))
+
+        XCTAssertEqual(
+            coordinator.handle(
+                .pinchBegan(
+                    sample: makeSample(scale: 1),
+                    currentMode: .fiveColumns
+                ),
+                ratioProvider: { _ in ratios }
+            ),
+            [.stopDisplayLink, .beginInteraction]
+        )
+        let adjusted = coordinator.handle(
+            .pinchChanged(sample: makeSample(scale: 1.052))
+        )
+        assertLastRenderedPlaneId(adjusted, deepPlane.id)
+        let carriedPresentation = try XCTUnwrap(
+            presentationProgress(adjusted)
+        )
+        XCTAssertEqual(
+            carriedPresentation,
+            PlayerBrowserGridCrossfade.driftProgress(
+                forScale: 1.052,
+                itemWidthRatio: deepPlane.itemWidthRatio
+            ),
+            accuracy: 0.000_1
+        )
+        let carriedAlpha = PlayerBrowserGridCrossfade.incomingContentAlpha(
+            settleProgress: carriedPresentation
+        )
+        XCTAssertGreaterThan(carriedAlpha, 0)
+        XCTAssertLessThan(carriedAlpha, 1)
+
+        let released = endPinch(&coordinator)
+        let replacement = try XCTUnwrap(installedPlane(released))
+        XCTAssertEqual(replacement.toMode, .threeColumns)
+        XCTAssertEqual(
+            try XCTUnwrap(settleProgress(released)),
+            1,
+            accuracy: 0.000_1
+        )
+        XCTAssertEqual(
+            try XCTUnwrap(presentationProgress(released)),
+            carriedPresentation,
+            accuracy: 0.000_1
+        )
+        XCTAssertTrue(released.contains(.startDisplayLink))
+        _ = coordinator.handle(.settleStarted(timestamp: 101))
+
+        XCTAssertEqual(
+            coordinator.handle(
+                .pinchBegan(
+                    sample: makeSample(scale: 1),
+                    currentMode: .fiveColumns
+                ),
+                ratioProvider: { _ in ratios }
+            ),
+            [.stopDisplayLink, .beginInteraction]
+        )
+        let held = coordinator.handle(
+            .pinchChanged(sample: makeSample(scale: 1))
+        )
+        XCTAssertEqual(
+            try XCTUnwrap(settleProgress(held)),
+            1,
+            accuracy: 0.000_1
+        )
+        let heldPresentation = try XCTUnwrap(presentationProgress(held))
+        XCTAssertEqual(
+            heldPresentation,
+            carriedPresentation,
+            accuracy: 0.000_1
+        )
+        XCTAssertEqual(
+            PlayerBrowserGridCrossfade.incomingContentAlpha(
+                settleProgress: heldPresentation
+            ),
+            carriedAlpha,
+            accuracy: 0.000_1
+        )
+
+        let sourceward = coordinator.handle(
+            .pinchChanged(sample: makeSample(scale: 0.997))
+        )
+        XCTAssertLessThanOrEqual(
+            try XCTUnwrap(presentationProgress(sourceward)),
+            heldPresentation + 0.000_1,
+            "moving toward the source must not advance destination content"
+        )
+
+        _ = coordinator.handle(
+            .pinchChanged(sample: makeSample(scale: 1))
+        )
+
+        let handingOff = coordinator.handle(
+            .pinchChanged(sample: makeSample(scale: 1.02))
+        )
+        let handoffPresentation = try XCTUnwrap(
+            presentationProgress(handingOff)
+        )
+        XCTAssertGreaterThan(handoffPresentation, heldPresentation)
+        XCTAssertLessThan(handoffPresentation, 1)
+
+        let handedOff = coordinator.handle(
+            .pinchChanged(sample: makeSample(scale: 1.05))
+        )
+        XCTAssertEqual(
+            try XCTUnwrap(settleProgress(handedOff)),
+            1,
+            accuracy: 0.000_1
+        )
+        XCTAssertEqual(
+            try XCTUnwrap(presentationProgress(handedOff)),
+            1,
+            accuracy: 0.000_1
+        )
+    }
+
+    func testRegrabRetargetAtGeometryEndpointPreservesPartialPresentation()
+        throws {
+        var coordinator = Coordinator()
+        let menu = coordinator.handle(
+            .menuSelected(
+                fromMode: .fiveColumns,
+                toMode: .large,
+                reduceMotion: false
+            ),
+            ratioProvider: Self.ratioProvider
+        )
+        let largePlane = try XCTUnwrap(installedPlane(menu))
+        _ = coordinator.handle(.settleStarted(timestamp: 100))
+        var tickTime: TimeInterval = 100
+        var latestAdoptedScale: CGFloat?
+        for _ in 0 ..< 7 {
+            tickTime += 1 / 60
+            let tick = coordinator.handle(.settleTick(timestamp: tickTime))
+            latestAdoptedScale = renderedScale(tick)
+        }
+        let adoptedScale = try XCTUnwrap(latestAdoptedScale)
+        XCTAssertEqual(
+            coordinator.handle(
+                .pinchBegan(
+                    sample: makeSample(scale: 1),
+                    currentMode: .fiveColumns
+                ),
+                ratioProvider: Self.ratioProvider
+            ),
+            [.stopDisplayLink, .beginInteraction]
+        )
+
+        var previousPresentation: CGFloat?
+        for scale in [1, 0.99, 0.98, 0.97] as [CGFloat] {
+            let effects = coordinator.handle(
+                .pinchChanged(sample: makeSample(scale: scale))
+            )
+            previousPresentation = presentationProgress(effects)
+        }
+        let retarget = coordinator.handle(
+            .pinchChanged(sample: makeSample(scale: 0.96))
+        )
+        let replacement = try XCTUnwrap(installedPlane(retarget))
+        XCTAssertEqual(replacement.toMode, .threeColumns)
+        XCTAssertEqual(
+            try XCTUnwrap(settleProgress(retarget)),
+            1,
+            accuracy: 0.000_1
+        )
+        let retargetPresentation = try XCTUnwrap(
+            presentationProgress(retarget)
+        )
+        let priorPresentation = try XCTUnwrap(previousPresentation)
+        XCTAssertGreaterThan(retargetPresentation, 0)
+        XCTAssertLessThan(retargetPresentation, 1)
+        XCTAssertLessThan(
+            abs(retargetPresentation - priorPresentation),
+            0.02
+        )
+        XCTAssertEqual(
+            retargetPresentation,
+            PlayerBrowserGridCrossfade.driftProgress(
+                forScale: try XCTUnwrap(renderedScale(retarget)),
+                itemWidthRatio: largePlane.itemWidthRatio
+            ),
+            accuracy: 0.000_1
+        )
+
+        let sourceward = coordinator.handle(
+            .pinchChanged(sample: makeSample(scale: 0.955))
+        )
+        XCTAssertLessThanOrEqual(
+            try XCTUnwrap(presentationProgress(sourceward)),
+            retargetPresentation + 0.000_1
+        )
+
+        let atTarget = coordinator.handle(.pinchChanged(sample: makeSample(
+            scale: replacement.itemWidthRatio / adoptedScale
+        )))
+        XCTAssertEqual(
+            try XCTUnwrap(renderedScale(atTarget)),
+            replacement.itemWidthRatio,
+            accuracy: 0.000_1
+        )
+        XCTAssertEqual(
+            try XCTUnwrap(settleProgress(atTarget)),
+            1,
+            accuracy: 0.000_1
+        )
+        let presentationAtTarget = try XCTUnwrap(
+            presentationProgress(atTarget)
+        )
+        XCTAssertEqual(
+            presentationAtTarget,
+            retargetPresentation,
+            accuracy: 0.000_1
+        )
+
+        let nearTarget = coordinator.handle(.pinchChanged(sample: makeSample(
+            scale: replacement.itemWidthRatio
+                * exp(
+                    PlayerBrowserGridPinchPolicy.settleRestLogDistance
+                        * 1.005
+                ) / adoptedScale
+        )))
+        XCTAssertEqual(
+            try XCTUnwrap(settleProgress(nearTarget)),
+            1,
+            accuracy: 0.000_1
+        )
+        XCTAssertEqual(
+            try XCTUnwrap(presentationProgress(nearTarget)),
+            presentationAtTarget,
+            accuracy: 0.000_1
+        )
+
+        let release = endPinch(&coordinator)
+        XCTAssertTrue(release.contains(.startDisplayLink))
+        XCTAssertNil(presentationProgress(release))
+        XCTAssertFalse(release.contains {
+            if case .commitPlane = $0 { return true }
+            return false
+        })
+
+        let settleStart = tickTime + 0.01
+        XCTAssertEqual(
+            coordinator.handle(.settleStarted(timestamp: settleStart)),
+            []
+        )
+        let firstTick = coordinator.handle(.settleTick(
+            timestamp: settleStart
+        ))
+        XCTAssertEqual(
+            try XCTUnwrap(settleProgress(firstTick)),
+            1,
+            accuracy: 0.000_1
+        )
+        XCTAssertEqual(
+            try XCTUnwrap(presentationProgress(firstTick)),
+            presentationAtTarget,
+            accuracy: 0.000_1
+        )
+        let nextTickTime = settleStart + 1 / 60
+        let nextTick = coordinator.handle(.settleTick(
+            timestamp: nextTickTime
+        ))
+        let nextPresentation = try XCTUnwrap(
+            presentationProgress(nextTick)
+        )
+        XCTAssertGreaterThan(nextPresentation, presentationAtTarget)
+        XCTAssertLessThan(nextPresentation, 1)
+        XCTAssertEqual(
+            try XCTUnwrap(settleProgress(nextTick)),
+            1,
+            accuracy: 0.000_1
+        )
+
+        let settle = drainSettle(&coordinator, startTime: nextTickTime)
+        XCTAssertEqual(
+            try XCTUnwrap(presentationProgress(settle)),
+            1,
+            accuracy: 0.000_1
+        )
+        assertCommits(
+            settle,
+            planeId: replacement.id,
+            mode: .threeColumns
+        )
+    }
+
+    func testExactTargetReleasePreservesPartialAdoptedSettleGeometry()
+        throws {
+        let ratios = [
+            Coordinator.ModeRatio(
+                mode: .fiveColumns,
+                itemWidthRatio: 1
+            ),
+            Coordinator.ModeRatio(
+                mode: .threeColumns,
+                itemWidthRatio: 1.01
+            ),
+            Coordinator.ModeRatio(
+                mode: .large,
+                itemWidthRatio: 1.02
+            )
+        ]
+        var coordinator = Coordinator()
+        let menu = coordinator.handle(
+            .menuSelected(
+                fromMode: .fiveColumns,
+                toMode: .large,
+                reduceMotion: false
+            ),
+            ratioProvider: { _ in ratios }
+        )
+        let plane = try XCTUnwrap(installedPlane(menu))
+        _ = coordinator.handle(.settleStarted(timestamp: 100))
+        var adoptedScale: CGFloat?
+        for step in 1 ... 3 {
+            adoptedScale = renderedScale(coordinator.handle(
+                .settleTick(timestamp: 100 + Double(step) / 60)
+            ))
+        }
+        XCTAssertEqual(
+            coordinator.handle(
+                .pinchBegan(
+                    sample: makeSample(scale: 1),
+                    currentMode: .fiveColumns
+                ),
+                ratioProvider: { _ in ratios }
+            ),
+            [.stopDisplayLink, .beginInteraction]
+        )
+        let resolvedAdoptedScale = try XCTUnwrap(adoptedScale)
+        let atTarget = coordinator.handle(.pinchChanged(sample: makeSample(
+            scale: plane.itemWidthRatio / resolvedAdoptedScale
+        )))
+        XCTAssertEqual(
+            try XCTUnwrap(renderedScale(atTarget)),
+            plane.itemWidthRatio,
+            accuracy: 0.000_1
+        )
+        let progressAtTarget = try XCTUnwrap(settleProgress(atTarget))
+        let presentationAtTarget = try XCTUnwrap(
+            presentationProgress(atTarget)
+        )
+        XCTAssertGreaterThan(progressAtTarget, 0)
+        XCTAssertLessThan(progressAtTarget, 1)
+        XCTAssertEqual(
+            presentationAtTarget,
+            progressAtTarget,
+            accuracy: 0.000_1
+        )
+
+        XCTAssertEqual(endPinch(&coordinator), [.startDisplayLink])
+        XCTAssertEqual(
+            coordinator.handle(.settleStarted(timestamp: 200)),
+            []
+        )
+        let firstTick = coordinator.handle(.settleTick(timestamp: 200))
+        XCTAssertEqual(
+            try XCTUnwrap(renderedScale(firstTick)),
+            plane.itemWidthRatio,
+            accuracy: 0.000_1
+        )
+        XCTAssertEqual(
+            try XCTUnwrap(settleProgress(firstTick)),
+            progressAtTarget,
+            accuracy: 0.000_1
+        )
+        XCTAssertEqual(
+            try XCTUnwrap(presentationProgress(firstTick)),
+            presentationAtTarget,
+            accuracy: 0.000_1
+        )
+
+        let nextTickTime: TimeInterval = 200 + 1.0 / 60
+        let nextTick = coordinator.handle(.settleTick(
+            timestamp: nextTickTime
+        ))
+        let nextProgress = try XCTUnwrap(settleProgress(nextTick))
+        let nextPresentation = try XCTUnwrap(
+            presentationProgress(nextTick)
+        )
+        XCTAssertGreaterThan(nextProgress, progressAtTarget)
+        XCTAssertLessThan(nextProgress, 1)
+        XCTAssertEqual(nextPresentation, nextProgress, accuracy: 0.000_1)
+
+        let settle = drainSettle(&coordinator, startTime: nextTickTime)
+        XCTAssertEqual(
+            try XCTUnwrap(settleProgress(settle)),
+            1,
+            accuracy: 0.000_1
+        )
+        XCTAssertEqual(
+            try XCTUnwrap(presentationProgress(settle)),
+            1,
+            accuracy: 0.000_1
+        )
+        assertCommits(settle, planeId: plane.id, mode: .large)
     }
 
     func testContinuousDeepZoomRetargetsThePlanePastTheIntermediateMode() {
@@ -478,10 +1427,24 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
         assertDiscards(settle, planeId: plane?.id)
         XCTAssertFalse(settle.contains { effect in
             if case .reconcileMedia = effect { return true }
-            if case .renderSettle = effect { return true }
             if case .commitPlane = effect { return true }
             return false
         })
+        // The pinch had already crossfaded part way in, so the cancel walks
+        // that fade back out instead of snapping it away.
+        var progresses: [CGFloat] = []
+        for effect in settle {
+            if case let .renderSettle(_, _, progress, _, _) = effect {
+                progresses.append(progress)
+            }
+        }
+        XCTAssertFalse(progresses.isEmpty)
+        XCTAssertEqual(
+            progresses,
+            progresses.sorted(by: >),
+            "the crossfade only ever recedes on a cancel"
+        )
+        XCTAssertEqual(progresses.last ?? 1, 0, accuracy: 0.01)
 
         let wrapUp = coordinator.handle(.rendererSucceeded)
         XCTAssertEqual(coordinator.phase, .idle)
@@ -506,7 +1469,7 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
         var sawIntermediateSettleFrame = false
         let settle = drainSettle(&coordinator)
         for effect in settle {
-            if case let .renderSettle(_, _, settleProgress, _) = effect,
+            if case let .renderSettle(_, _, settleProgress, _, _) = effect,
                settleProgress > 0,
                settleProgress < 1 {
                 sawIntermediateSettleFrame = true
@@ -545,25 +1508,11 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
         assertCommits(settle, planeId: plane?.id, mode: .fiveColumns)
     }
 
-    func testStrongFlickExtendsTheTargetOneStepFurther() {
+    func testReleaseAtMeasuredHoldScaleReturnsToOriginalMode() {
         var coordinator = Coordinator()
-        let activation = activatePinch(&coordinator, scale: 1.3)
-        let plane = installedPlane(activation)
+        _ = activatePinch(&coordinator, scale: 1.169)
 
-        _ = coordinator.handle(
-            .pinchChanged(sample: makeSample(scale: 1.3))
-        )
-
-        _ = endPinch(&coordinator, velocity: 3.2)
-        let settle = drainSettle(&coordinator)
-        assertCommits(settle, planeId: plane?.id, mode: .large)
-    }
-
-    func testStrongReverseFlickCancelsInsteadOfCommitting() {
-        var coordinator = Coordinator()
-        _ = activatePinch(&coordinator, scale: 1.4)
-
-        let release = endPinch(&coordinator, velocity: -3.2)
+        let release = endPinch(&coordinator)
         XCTAssertNil(installedPlane(release))
         XCTAssertFalse(release.contains(.selectionHaptic))
         let settle = drainSettle(&coordinator)
@@ -573,67 +1522,15 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
         XCTAssertEqual(coordinator.phase, .idle)
     }
 
-    func testHeldReleaseIgnoresStaleFlickVelocityAndSnapsToNearest() {
+    func testReleaseAtMeasuredCommitScaleAdvancesToLargeMode() {
         var coordinator = Coordinator()
-        let activation = activatePinch(&coordinator, scale: 2.0)
+        let activation = activatePinch(&coordinator, scale: 1.25)
         let plane = installedPlane(activation)
 
-        _ = coordinator.handle(
-            .pinchChanged(sample: makeSample(scale: 2.0))
-        )
-
-        _ = endPinch(&coordinator, velocity: -3.2, timestamp: 100.49)
-        let settle = drainSettle(&coordinator)
-        assertCommits(settle, planeId: plane?.id, mode: .large)
-    }
-
-    func testReleaseIgnoresVelocityWhenTimestampMovesBackward() {
-        var coordinator = Coordinator()
-        let activation = activatePinch(&coordinator, scale: 2.0)
-        let plane = installedPlane(activation)
-
-        _ = endPinch(&coordinator, velocity: -3.2, timestamp: 99)
+        _ = endPinch(&coordinator)
         let settle = drainSettle(&coordinator)
 
         assertCommits(settle, planeId: plane?.id, mode: .large)
-    }
-
-    func testReleaseIgnoresVelocityWhenTimestampIsNonfinite() {
-        let timestampPairs: [(sample: TimeInterval, release: TimeInterval)] = [
-            (.nan, 100),
-            (.infinity, 100),
-            (-.infinity, 100),
-            (99.99, .nan),
-            (99.99, .infinity),
-            (99.99, -.infinity)
-        ]
-
-        for timestamps in timestampPairs {
-            var coordinator = Coordinator()
-            _ = coordinator.handle(
-                .pinchBegan(
-                    sample: makeSample(scale: 1, timestamp: 99.98),
-                    currentMode: .threeColumns
-                ),
-                ratioProvider: Self.ratioProvider
-            )
-            let activation = coordinator.handle(
-                .pinchChanged(sample: makeSample(
-                    scale: 2,
-                    timestamp: timestamps.sample
-                ))
-            )
-            let plane = installedPlane(activation)
-
-            _ = endPinch(
-                &coordinator,
-                velocity: -3.2,
-                timestamp: timestamps.release
-            )
-            let settle = drainSettle(&coordinator)
-
-            assertCommits(settle, planeId: plane?.id, mode: .large)
-        }
     }
 
     func testReleaseTargetsThePhysicalPinchScaleNotTheTrimmedRenderScale() {
@@ -653,7 +1550,7 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
         )
         let plane = installedPlane(activation)
 
-        _ = endPinch(&coordinator, velocity: 0.47)
+        _ = endPinch(&coordinator)
         let settle = drainSettle(&coordinator)
         assertCommits(settle, planeId: plane?.id, mode: .large)
     }
@@ -670,6 +1567,33 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
 
         let settle = drainSettle(&coordinator)
         assertCommits(settle, planeId: plane?.id, mode: .fiveColumns)
+    }
+
+    func testDirectProgressDoesNotExtendOrdinarySettleTiming() {
+        var coordinator = Coordinator()
+        let activation = activatePinch(&coordinator, scale: 0.72)
+        let plane = installedPlane(activation)
+        XCTAssertEqual(plane?.toMode, .fiveColumns)
+        XCTAssertTrue(endPinch(&coordinator).contains(.startDisplayLink))
+        XCTAssertEqual(
+            coordinator.handle(.settleStarted(timestamp: 100)),
+            []
+        )
+
+        var terminalTick: Int?
+        for tick in 1 ... 60 where coordinator.phase == .settling {
+            let effects = coordinator.handle(.settleTick(
+                timestamp: 100 + Double(tick) / 60
+            ))
+            if effects.contains(where: {
+                if case .commitPlane = $0 { return true }
+                return false
+            }) {
+                terminalTick = tick
+            }
+        }
+
+        XCTAssertEqual(terminalTick, 45)
     }
 
     func testReduceMotionReleaseCommitsWithoutAnimation() {
@@ -713,7 +1637,7 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
         settlePartway(&coordinator)
         _ = coordinator.handle(
             .pinchBegan(
-                sample: makeSample(scale: 1, timestamp: 100.06),
+                sample: makeSample(scale: 1),
                 currentMode: .threeColumns
             ),
             ratioProvider: Self.ratioProvider
@@ -745,13 +1669,13 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
         settlePartway(&coordinator)
         _ = coordinator.handle(
             .pinchBegan(
-                sample: makeSample(scale: 1, timestamp: 100.06),
+                sample: makeSample(scale: 1),
                 currentMode: .threeColumns
             ),
             ratioProvider: Self.ratioProvider
         )
         _ = coordinator.handle(
-            .pinchChanged(sample: makeSample(scale: 2, timestamp: 100.07))
+            .pinchChanged(sample: makeSample(scale: 2))
         )
 
         // Once the user has taken the gesture over, a cancellation abandons
@@ -788,11 +1712,15 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
             ),
             ratioProvider: Self.ratioProvider
         )
-        XCTAssertEqual(adoption, [.stopDisplayLink])
+        XCTAssertEqual(
+            adoption,
+            [.stopDisplayLink, .beginInteraction],
+            "adoption must reclaim what the settle handed back"
+        )
         XCTAssertEqual(coordinator.phase, .interacting)
         XCTAssertFalse(coordinator.canBeginPinch)
 
-        let resumed = endPinch(&coordinator, timestamp: 101)
+        let resumed = endPinch(&coordinator)
         XCTAssertFalse(
             resumed.contains(.selectionHaptic),
             "resuming the adopted commit does not repeat the haptic"
@@ -816,7 +1744,7 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
         )
 
         _ = coordinator.handle(.pinchChanged(sample: makeSample(scale: 0.6)))
-        let release = endPinch(&coordinator, timestamp: 101)
+        let release = endPinch(&coordinator)
         let settle = drainSettle(&coordinator, startTime: 101)
         XCTAssertFalse(
             committedModes(release + settle).contains(.large),
@@ -838,23 +1766,28 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
         settlePartway(&coordinator)
         _ = coordinator.handle(
             .pinchBegan(
-                sample: makeSample(scale: 1, timestamp: 100.06),
+                sample: makeSample(scale: 1),
                 currentMode: .threeColumns
             ),
             ratioProvider: Self.ratioProvider
         )
 
-        let held = coordinator.handle(
-            .pinchChanged(sample: makeSample(
-                scale: 1.000_5,
-                timestamp: 100.07
-            ))
+        let baseline = coordinator.handle(
+            .pinchChanged(sample: makeSample(scale: 1))
         )
-        guard case let .renderSettle(id, _, progress, _)? = held.last else {
+        let held = coordinator.handle(
+            .pinchChanged(sample: makeSample(scale: 1.000_5))
+        )
+        guard case let .renderSettle(id, _, progress, _, _)? = held.last else {
             return XCTFail("expected held settle render, got \(held)")
         }
         XCTAssertEqual(id, plane.id)
-        XCTAssertGreaterThan(progress, 0)
+        XCTAssertEqual(
+            progress,
+            try XCTUnwrap(settleProgress(baseline)),
+            accuracy: 0.000_1,
+            "movement inside the adjustment dead zone must hold the exact frame"
+        )
 
         _ = coordinator.handle(.pinchCancelled(reduceMotion: false))
         let settle = drainSettle(&coordinator, startTime: 100.08)
@@ -875,18 +1808,18 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
         settlePartway(&coordinator)
         _ = coordinator.handle(
             .pinchBegan(
-                sample: makeSample(scale: 1, timestamp: 100.06),
+                sample: makeSample(scale: 1),
                 currentMode: .threeColumns
             ),
             ratioProvider: Self.ratioProvider
         )
         _ = coordinator.handle(
-            .pinchChanged(sample: makeSample(scale: 1.01, timestamp: 100.07))
+            .pinchChanged(sample: makeSample(scale: 1.01))
         )
         let returned = coordinator.handle(
-            .pinchChanged(sample: makeSample(scale: 1, timestamp: 100.08))
+            .pinchChanged(sample: makeSample(scale: 1))
         )
-        guard case let .renderSettle(id, _, progress, _)? = returned.last else {
+        guard case let .renderSettle(id, _, progress, _, _)? = returned.last else {
             return XCTFail("expected recovered settle render, got \(returned)")
         }
         XCTAssertEqual(id, plane.id)
@@ -912,28 +1845,28 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
         settlePartway(&coordinator)
         _ = coordinator.handle(
             .pinchBegan(
-                sample: makeSample(scale: 1, timestamp: 100.06),
+                sample: makeSample(scale: 1),
                 currentMode: .threeColumns
             ),
             ratioProvider: Self.ratioProvider
         )
 
         let expired = coordinator.handle(
-            .pinchChanged(sample: makeSample(scale: 1.05, timestamp: 100.07))
+            .pinchChanged(sample: makeSample(scale: 1.05))
         )
-        assertLastRenderZoomPlaneId(expired, plane.id)
+        assertLastRenderedPlaneId(expired, plane.id)
         XCTAssertNil(installedPlane(expired))
 
         let recovered = coordinator.handle(
-            .pinchChanged(sample: makeSample(scale: 1.01, timestamp: 100.08))
+            .pinchChanged(sample: makeSample(scale: 1.01))
         )
-        guard case let .renderSettle(id, _, progress, _)? = recovered.last else {
+        guard case let .renderSettle(id, _, progress, _, _)? = recovered.last else {
             return XCTFail("expected recovered settle render, got \(recovered)")
         }
         XCTAssertEqual(id, plane.id)
         XCTAssertGreaterThan(progress, 0)
 
-        let release = endPinch(&coordinator, timestamp: 100.09)
+        let release = endPinch(&coordinator)
         XCTAssertFalse(release.contains(.selectionHaptic))
         XCTAssertNil(installedPlane(release))
         let settle = drainSettle(&coordinator, startTime: 100.09)
@@ -966,26 +1899,20 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
         )
         _ = coordinator.handle(
             .pinchBegan(
-                sample: makeSample(scale: 1, timestamp: tickTime + 0.01),
+                sample: makeSample(scale: 1),
                 currentMode: .large
             ),
             ratioProvider: Self.ratioProvider
         )
 
         let adjusted = coordinator.handle(
-            .pinchChanged(sample: makeSample(
-                scale: 1.05,
-                timestamp: tickTime + 0.02
-            ))
+            .pinchChanged(sample: makeSample(scale: 1.05))
         )
         let replacement = try XCTUnwrap(installedPlane(adjusted))
         XCTAssertNotEqual(replacement.id, adoptedPlane.id)
         XCTAssertEqual(replacement.toMode, .threeColumns)
 
-        let release = endPinch(
-            &coordinator,
-            timestamp: tickTime + 0.03
-        )
+        let release = endPinch(&coordinator)
         XCTAssertTrue(release.contains(.selectionHaptic))
         let settle = drainSettle(
             &coordinator,
@@ -1254,7 +2181,7 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
                 ),
                 ratioProvider: Self.ratioProvider
             ),
-            [.stopDisplayLink]
+            [.stopDisplayLink, .beginInteraction]
         )
 
         // The host always delivers one pinchChanged before the release.
@@ -1268,7 +2195,7 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
             return false
         })
 
-        let release = endPinch(&coordinator, timestamp: tickTime + 0.01)
+        let release = endPinch(&coordinator)
         XCTAssertNil(
             installedPlane(release),
             "and releases onto it without reinstalling"
@@ -1290,7 +2217,7 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
         settlePartway(&coordinator)
         _ = coordinator.handle(
             .pinchBegan(
-                sample: makeSample(scale: 1, timestamp: 100.06),
+                sample: makeSample(scale: 1),
                 currentMode: .threeColumns
             ),
             ratioProvider: Self.ratioProvider
@@ -1322,15 +2249,15 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
         settlePartway(&coordinator)
         _ = coordinator.handle(
             .pinchBegan(
-                sample: makeSample(scale: 1, timestamp: 100.06),
+                sample: makeSample(scale: 1),
                 currentMode: .threeColumns
             ),
             ratioProvider: Self.ratioProvider
         )
         let adjusted = coordinator.handle(
-            .pinchChanged(sample: makeSample(scale: 1.01, timestamp: 100.07))
+            .pinchChanged(sample: makeSample(scale: 1.01))
         )
-        guard case let .renderSettle(_, _, progress, _)? = adjusted.last else {
+        guard case let .renderSettle(_, _, progress, _, _)? = adjusted.last else {
             return XCTFail("expected retained handoff render, got \(adjusted)")
         }
         XCTAssertGreaterThan(progress, 0)
@@ -1357,12 +2284,12 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
         settlePartway(&coordinator)
         _ = coordinator.handle(
             .pinchBegan(
-                sample: makeSample(scale: 1, timestamp: 100.06),
+                sample: makeSample(scale: 1),
                 currentMode: .threeColumns
             ),
             ratioProvider: Self.ratioProvider
         )
-        _ = endPinch(&coordinator, timestamp: 101)
+        _ = endPinch(&coordinator)
         let settle = drainSettle(&coordinator, startTime: 101)
         XCTAssertEqual(committedModes(settle), [.large])
 
@@ -1391,20 +2318,20 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
         settlePartway(&coordinator)
         _ = coordinator.handle(
             .pinchBegan(
-                sample: makeSample(scale: 1, timestamp: 100.06),
+                sample: makeSample(scale: 1),
                 currentMode: .threeColumns
             ),
             ratioProvider: Self.ratioProvider
         )
         let adjusted = coordinator.handle(
-            .pinchChanged(sample: makeSample(scale: 1.01, timestamp: 100.07))
+            .pinchChanged(sample: makeSample(scale: 1.01))
         )
-        guard case let .renderSettle(_, _, progress, _)? = adjusted.last else {
+        guard case let .renderSettle(_, _, progress, _, _)? = adjusted.last else {
             return XCTFail("expected retained handoff render, got \(adjusted)")
         }
         XCTAssertGreaterThan(progress, 0)
 
-        _ = endPinch(&coordinator, timestamp: 100.08)
+        _ = endPinch(&coordinator)
         let settle = drainSettle(&coordinator, startTime: 100.08)
         XCTAssertEqual(committedModes(settle), [.large])
 
@@ -1434,7 +2361,7 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
         ) ?? 1
         _ = coordinator.handle(
             .pinchBegan(
-                sample: makeSample(scale: 1, timestamp: 100.06),
+                sample: makeSample(scale: 1),
                 currentMode: .threeColumns
             ),
             ratioProvider: Self.ratioProvider
@@ -1443,10 +2370,10 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
         // selection, so the release cancels in place.
         _ = coordinator.handle(
             .pinchChanged(
-                sample: makeSample(scale: 1 / runningScale, timestamp: 100.07)
+                sample: makeSample(scale: 1 / runningScale)
             )
         )
-        let release = endPinch(&coordinator, timestamp: 100.08)
+        let release = endPinch(&coordinator)
         let settle = drainSettle(&coordinator, startTime: 100.08)
         XCTAssertTrue(committedModes(release + settle).isEmpty)
 
@@ -1562,14 +2489,14 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
             ratios: descending
         )
         XCTAssertEqual(
-            try XCTUnwrap(renderedZoomScale(activation)),
+            try XCTUnwrap(renderedScale(activation)),
             activatedScale(2.0),
             accuracy: 0.000_1,
             "an in-range scale is rendered untouched, not banded toward 1"
         )
 
         let beyond = coordinator.handle(.pinchChanged(sample: makeSample(scale: 8)))
-        let banded = try XCTUnwrap(renderedZoomScale(beyond))
+        let banded = try XCTUnwrap(renderedScale(beyond))
         XCTAssertGreaterThan(banded, 3)
         XCTAssertLessThan(
             banded,
@@ -1623,7 +2550,7 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
         var coordinator = Coordinator()
         let activation = activatePinch(&coordinator, scale: 1.5, centroidY: 400)
         XCTAssertEqual(
-            try XCTUnwrap(renderedZoomScale(activation)),
+            try XCTUnwrap(renderedScale(activation)),
             activatedScale(1.5),
             accuracy: 0.000_1
         )
@@ -1660,9 +2587,9 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
             installedPlane(changed),
             "the plane aimed at large is already installed and still valid"
         )
-        assertLastRenderZoomPlaneId(changed, plane.id)
-        guard case let .renderZoom(_, _, panDeltaY)? = changed.last else {
-            return XCTFail("expected renderZoom, got \(changed)")
+        assertLastRenderedPlaneId(changed, plane.id)
+        guard let panDeltaY = renderedPanDeltaY(changed) else {
+            return XCTFail("expected a render effect, got \(changed)")
         }
         XCTAssertEqual(
             panDeltaY,
@@ -1675,7 +2602,7 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
     func testEveryTrackingExitReturnsToIdleWithoutEffects() {
         let exits: [Coordinator.Event] = [
             .interrupt,
-            .pinchEnded(velocity: 4, timestamp: 100, reduceMotion: false),
+            .pinchEnded(reduceMotion: false),
             .pinchCancelled(reduceMotion: false)
         ]
         for exit in exits {
@@ -1746,7 +2673,7 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
             .pinchChanged(sample: makeSample(scale: 1.5, centroidY: 460))
         )
         _ = coordinator.handle(
-            .pinchEnded(velocity: 0, timestamp: 100, reduceMotion: false)
+            .pinchEnded(reduceMotion: false)
         )
         XCTAssertEqual(coordinator.phase, .settling)
         _ = coordinator.handle(.settleStarted(timestamp: 100))
@@ -1757,8 +2684,7 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
             .pinchBegan(
                 sample: makeSample(
                     scale: 1,
-                    centroidY: 460,
-                    timestamp: 100.05
+                    centroidY: 460
                 ),
                 currentMode: .threeColumns
             ),
@@ -1767,14 +2693,14 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
         XCTAssertEqual(coordinator.phase, .interacting)
         let dragged = coordinator.handle(
             .pinchChanged(
-                sample: makeSample(scale: 1, centroidY: 500, timestamp: 100.1)
+                sample: makeSample(scale: 1, centroidY: 500)
             )
         )
         let panDeltaY: CGFloat
         switch dragged.last {
         case let .renderZoom(_, _, delta)?:
             panDeltaY = delta
-        case let .renderSettle(_, _, _, delta)?:
+        case let .renderSettle(_, _, _, _, delta)?:
             panDeltaY = delta
         default:
             return XCTFail("expected a render effect, got \(dragged)")
@@ -1800,7 +2726,7 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
             let ticked = coordinator.handle(
                 .settleTick(timestamp: 100 + Double(step) * 1.0 / 60)
             )
-            if case let .renderSettle(_, _, progress, _)? = ticked.last {
+            if case let .renderSettle(_, _, progress, _, _)? = ticked.last {
                 settleProgress = progress
             }
         }
@@ -1813,15 +2739,15 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
         // Grab it and hold still: the render must not rewind to progress 0.
         _ = coordinator.handle(
             .pinchBegan(
-                sample: makeSample(scale: 1, timestamp: 100.3),
+                sample: makeSample(scale: 1),
                 currentMode: .threeColumns
             ),
             ratioProvider: Self.ratioProvider
         )
         let held = coordinator.handle(
-            .pinchChanged(sample: makeSample(scale: 1, timestamp: 100.35))
+            .pinchChanged(sample: makeSample(scale: 1))
         )
-        guard case let .renderSettle(id, _, heldProgress, _)? = held.last else {
+        guard case let .renderSettle(id, _, heldProgress, _, _)? = held.last else {
             return XCTFail("expected renderSettle while holding, got \(held)")
         }
         XCTAssertEqual(id, plane.id)
@@ -1829,13 +2755,13 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
 
         // Releasing resumes from there rather than replaying the fade.
         let released = coordinator.handle(
-            .pinchEnded(velocity: 0, timestamp: 100.36, reduceMotion: false)
+            .pinchEnded(reduceMotion: false)
         )
         _ = coordinator.handle(.settleStarted(timestamp: 100.36))
         let resumed = coordinator.handle(
             .settleTick(timestamp: 100.36 + 1.0 / 60)
         )
-        guard case let .renderSettle(_, _, resumedProgress, _)? = resumed.last else {
+        guard case let .renderSettle(_, _, resumedProgress, _, _)? = resumed.last else {
             return XCTFail("expected renderSettle after release, got \(resumed)")
         }
         XCTAssertGreaterThanOrEqual(
@@ -1869,7 +2795,7 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
             let ticked = coordinator.handle(
                 .settleTick(timestamp: 100 + Double(step) / 60)
             )
-            if case let .renderSettle(_, _, progress, _)? = ticked.last {
+            if case let .renderSettle(_, _, progress, _, _)? = ticked.last {
                 settleProgress = progress
             }
         }
@@ -1880,21 +2806,26 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
 
         _ = coordinator.handle(
             .pinchBegan(
-                sample: makeSample(scale: 1, timestamp: 100.3),
+                sample: makeSample(scale: 1),
                 currentMode: .threeColumns
             ),
             ratioProvider: Self.ratioProvider
         )
         let adjusted = coordinator.handle(
-            .pinchChanged(sample: makeSample(scale: 1.01, timestamp: 100.35))
+            .pinchChanged(sample: makeSample(scale: 1.01))
         )
 
-        guard case let .renderSettle(id, _, adjustedProgress, _)? = adjusted.last else {
+        guard case let .renderSettle(id, _, adjustedProgress, _, _)? = adjusted.last else {
             return XCTFail("expected preserved settle render, got \(adjusted)")
         }
         XCTAssertEqual(id, plane.id)
-        XCTAssertLessThan(adjustedProgress, settleProgress)
-        XCTAssertGreaterThan(adjustedProgress, settleProgress * 0.7)
+        XCTAssertEqual(
+            adjustedProgress,
+            settleProgress,
+            accuracy: 0.05,
+            "the handoff blends the adopted progress into the live pinch "
+                + "instead of dropping it and snapping back"
+        )
         XCTAssertNil(installedPlane(adjusted))
         XCTAssertFalse(adjusted.contains { effect in
             if case .discardPlane = effect { return true }
@@ -1902,17 +2833,108 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
         })
 
         let released = coordinator.handle(
-            .pinchEnded(velocity: 0, timestamp: 100.36, reduceMotion: false)
+            .pinchEnded(reduceMotion: false)
         )
         XCTAssertNil(installedPlane(released))
         _ = coordinator.handle(.settleStarted(timestamp: 100.36))
         let resumed = coordinator.handle(
             .settleTick(timestamp: 100.36 + 1.0 / 60)
         )
-        guard case let .renderSettle(_, _, resumedProgress, _)? = resumed.last else {
+        guard case let .renderSettle(_, _, resumedProgress, _, _)? = resumed.last else {
             return XCTFail("expected resumed settle render, got \(resumed)")
         }
         XCTAssertGreaterThanOrEqual(resumedProgress, adjustedProgress)
+    }
+
+    /// Grabbing a running settle hands its crossfade over to the live pinch
+    /// across the activation travel. Rendered progress must stay monotone and
+    /// step-free the whole way through, including the frame the handoff
+    /// completes and the release that follows — a reversal or a jump there is
+    /// visible as the whole grid's imagery blinking.
+    func testAdoptedSettleHandoffIsMonotoneAndStepFree() throws {
+        var coordinator = Coordinator()
+        let menu = coordinator.handle(
+            .menuSelected(
+                fromMode: .threeColumns,
+                toMode: .large,
+                reduceMotion: false
+            ),
+            ratioProvider: Self.ratioProvider
+        )
+        let plane = try XCTUnwrap(installedPlane(menu))
+        _ = coordinator.handle(.settleStarted(timestamp: 100))
+        for step in 1...12 {
+            _ = coordinator.handle(
+                .settleTick(timestamp: 100 + Double(step) / 60)
+            )
+        }
+        _ = coordinator.handle(
+            .pinchBegan(
+                sample: makeSample(scale: 1),
+                currentMode: .threeColumns
+            ),
+            ratioProvider: Self.ratioProvider
+        )
+
+        // Sweep well past the 4% activation travel where the handoff finishes.
+        var progresses = [CGFloat]()
+        for step in 0...40 {
+            let scale = 1 + CGFloat(step) * 0.005
+            let effects = coordinator.handle(
+                .pinchChanged(sample: makeSample(scale: scale))
+            )
+            if let progress = settleProgress(effects) {
+                progresses.append(progress)
+            }
+        }
+        XCTAssertGreaterThan(progresses.count, 20)
+
+        let steps = zip(progresses, progresses.dropFirst()).map { $1 - $0 }
+        let moving = steps.filter { abs($0) > 0.000_1 }
+        XCTAssertFalse(moving.isEmpty)
+        for (index, step) in steps.enumerated() {
+            XCTAssertGreaterThanOrEqual(
+                step,
+                -0.000_1,
+                "progress reversed at sample \(index): \(progresses)"
+            )
+        }
+        let typical = moving.map { abs($0) }.reduce(0, +)
+            / CGFloat(moving.count)
+        for (index, step) in steps.enumerated() {
+            XCTAssertLessThan(
+                abs(step),
+                typical * 8,
+                "progress stepped at sample \(index): \(progresses)"
+            )
+        }
+
+        let completedHandoff = coordinator.handle(
+            .pinchChanged(sample: makeSample(scale: 1.2))
+        )
+        let completedScale = try XCTUnwrap(renderedScale(completedHandoff))
+        XCTAssertEqual(
+            try XCTUnwrap(settleProgress(completedHandoff)),
+            PlayerBrowserGridCrossfade.driftProgress(
+                forScale: completedScale,
+                itemWidthRatio: plane.itemWidthRatio
+            ),
+            accuracy: 0.000_1,
+            "the destinationward handoff must finish at direct progress"
+        )
+
+        // The release must resume from the last rendered frame, not zero.
+        let released = coordinator.handle(.pinchEnded(reduceMotion: false))
+        _ = coordinator.handle(.settleStarted(timestamp: 200))
+        let resumed = coordinator.handle(.settleTick(timestamp: 200 + 1.0 / 60))
+        let resumedProgress = try XCTUnwrap(
+            settleProgress(resumed) ?? settleProgress(released)
+        )
+        XCTAssertGreaterThanOrEqual(
+            resumedProgress,
+            try XCTUnwrap(progresses.last) - 0.05,
+            "the settle restarted the crossfade instead of resuming it"
+        )
     }
 
     func testAdoptedProgressDoesNotTransferToAReplacementPlane() throws {
@@ -1938,22 +2960,19 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
 
         _ = coordinator.handle(
             .pinchBegan(
-                sample: makeSample(scale: 1, timestamp: tickTime + 0.01),
+                sample: makeSample(scale: 1),
                 currentMode: .large
             ),
             ratioProvider: Self.ratioProvider
         )
         let adjusted = coordinator.handle(
-            .pinchChanged(sample: makeSample(
-                scale: 1.05,
-                timestamp: tickTime + 0.02
-            ))
+            .pinchChanged(sample: makeSample(scale: 1.05))
         )
         let replacement = try XCTUnwrap(installedPlane(adjusted))
 
         XCTAssertNotEqual(replacement.id, adoptedPlane.id)
         XCTAssertEqual(replacement.toMode, .threeColumns)
-        assertLastRenderZoomPlaneId(adjusted, replacement.id)
+        assertLastRenderedPlaneId(adjusted, replacement.id)
     }
 
     func testReleaseWaitsForTheAdoptedVisualHandoffBeforeRetargeting() throws {
@@ -1978,27 +2997,21 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
         )
         _ = coordinator.handle(
             .pinchBegan(
-                sample: makeSample(scale: 1, timestamp: tickTime + 0.01),
+                sample: makeSample(scale: 1),
                 currentMode: .large
             ),
             ratioProvider: Self.ratioProvider
         )
         let adjusted = coordinator.handle(
-            .pinchChanged(sample: makeSample(
-                scale: 1.01,
-                timestamp: tickTime + 0.02
-            ))
+            .pinchChanged(sample: makeSample(scale: 1.01))
         )
-        guard case let .renderSettle(id, _, progress, _)? = adjusted.last else {
+        guard case let .renderSettle(id, _, progress, _, _)? = adjusted.last else {
             return XCTFail("expected visual handoff render, got \(adjusted)")
         }
         XCTAssertEqual(id, adoptedPlane.id)
         XCTAssertGreaterThan(progress, 0)
 
-        let released = endPinch(
-            &coordinator,
-            timestamp: tickTime + 0.03
-        )
+        let released = endPinch(&coordinator)
         XCTAssertNil(installedPlane(released))
         let settle = drainSettle(
             &coordinator,
@@ -2025,15 +3038,15 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
         }
         _ = coordinator.handle(
             .pinchBegan(
-                sample: makeSample(scale: 1, timestamp: 100.3),
+                sample: makeSample(scale: 1),
                 currentMode: .threeColumns
             ),
             ratioProvider: Self.ratioProvider
         )
         let adjusted = coordinator.handle(
-            .pinchChanged(sample: makeSample(scale: 1.01, timestamp: 100.35))
+            .pinchChanged(sample: makeSample(scale: 1.01))
         )
-        guard case let .renderSettle(_, _, adjustedProgress, _)? = adjusted.last else {
+        guard case let .renderSettle(_, _, adjustedProgress, _, _)? = adjusted.last else {
             return XCTFail("expected preserved settle render, got \(adjusted)")
         }
 
@@ -2042,7 +3055,7 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
         let settlingBack = coordinator.handle(
             .settleTick(timestamp: 100.36 + 1.0 / 60)
         )
-        guard case let .renderSettle(_, _, returnedProgress, _)? = settlingBack.last else {
+        guard case let .renderSettle(_, _, returnedProgress, _, _)? = settlingBack.last else {
             return XCTFail("expected a continuous return render, got \(settlingBack)")
         }
         XCTAssertGreaterThan(returnedProgress, 0)
@@ -2050,27 +3063,121 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
 
         _ = coordinator.handle(
             .pinchBegan(
-                sample: makeSample(scale: 1, timestamp: 100.39),
+                sample: makeSample(scale: 1),
                 currentMode: .threeColumns
             ),
             ratioProvider: Self.ratioProvider
         )
         let heldReturn = coordinator.handle(
-            .pinchChanged(sample: makeSample(scale: 1, timestamp: 100.4))
+            .pinchChanged(sample: makeSample(scale: 1))
         )
-        guard case let .renderSettle(_, _, heldProgress, _)? = heldReturn.last else {
+        guard case let .renderSettle(_, _, heldProgress, _, _)? = heldReturn.last else {
             return XCTFail("expected held return progress, got \(heldReturn)")
         }
         XCTAssertEqual(heldProgress, returnedProgress, accuracy: 0.000_1)
 
-        _ = endPinch(&coordinator, timestamp: 100.41)
+        _ = endPinch(&coordinator)
         _ = coordinator.handle(.settleStarted(timestamp: 100.41))
         let resumedReturn = coordinator.handle(
             .settleTick(timestamp: 100.41 + 1.0 / 60)
         )
-        guard case let .renderSettle(_, _, resumedProgress, _)? = resumedReturn.last else {
+        guard case let .renderSettle(_, _, resumedProgress, _, _)? = resumedReturn.last else {
             return XCTFail("expected resumed return progress, got \(resumedReturn)")
         }
         XCTAssertLessThanOrEqual(resumedProgress, heldProgress)
+    }
+
+    func testSourcewardAdjustmentAfterReadoptingReturnDoesNotAdvanceFade() throws {
+        var coordinator = Coordinator()
+        let menu = coordinator.handle(
+            .menuSelected(
+                fromMode: .threeColumns,
+                toMode: .large,
+                reduceMotion: false
+            ),
+            ratioProvider: Self.ratioProvider
+        )
+        let plane = try XCTUnwrap(installedPlane(menu))
+        _ = coordinator.handle(.settleStarted(timestamp: 100))
+        for step in 1...12 {
+            _ = coordinator.handle(
+                .settleTick(timestamp: 100 + Double(step) / 60)
+            )
+        }
+
+        _ = coordinator.handle(
+            .pinchBegan(
+                sample: makeSample(scale: 1),
+                currentMode: .threeColumns
+            ),
+            ratioProvider: Self.ratioProvider
+        )
+        _ = coordinator.handle(
+            .pinchChanged(sample: makeSample(scale: 1.02))
+        )
+        _ = coordinator.handle(.pinchCancelled(reduceMotion: false))
+        _ = coordinator.handle(.settleStarted(timestamp: 101))
+        _ = coordinator.handle(.settleTick(timestamp: 101 + 1.0 / 60))
+
+        _ = coordinator.handle(
+            .pinchBegan(
+                sample: makeSample(scale: 1),
+                currentMode: .threeColumns
+            ),
+            ratioProvider: Self.ratioProvider
+        )
+        let held = coordinator.handle(
+            .pinchChanged(sample: makeSample(scale: 1))
+        )
+        let destinationward = coordinator.handle(
+            .pinchChanged(sample: makeSample(scale: 1.005))
+        )
+        let returned = coordinator.handle(
+            .pinchChanged(sample: makeSample(scale: 1))
+        )
+        let sourceward = coordinator.handle(
+            .pinchChanged(sample: makeSample(scale: 0.995))
+        )
+        let heldScale = try XCTUnwrap(renderedScale(held))
+        let destinationwardScale = try XCTUnwrap(renderedScale(destinationward))
+        let sourcewardScale = try XCTUnwrap(renderedScale(sourceward))
+        let heldProgress = try XCTUnwrap(settleProgress(held))
+        let destinationwardProgress = try XCTUnwrap(
+            settleProgress(destinationward)
+        )
+        let sourcewardProgress = try XCTUnwrap(settleProgress(sourceward))
+
+        XCTAssertGreaterThan(destinationwardScale, heldScale)
+        XCTAssertGreaterThanOrEqual(
+            destinationwardProgress,
+            heldProgress - 0.000_1,
+            "moving toward the destination must not reverse its fade"
+        )
+        XCTAssertEqual(
+            try XCTUnwrap(settleProgress(returned)),
+            heldProgress,
+            accuracy: 0.000_1,
+            "returning to the adoption scale must restore the held frame"
+        )
+        XCTAssertLessThan(sourcewardScale, heldScale)
+        XCTAssertLessThanOrEqual(
+            sourcewardProgress,
+            heldProgress + 0.000_1,
+            "moving toward the source must not advance destination content"
+        )
+
+        let handedOff = coordinator.handle(
+            .pinchChanged(sample: makeSample(scale: 0.96))
+        )
+        let handoffScale = try XCTUnwrap(renderedScale(handedOff))
+        XCTAssertEqual(
+            try XCTUnwrap(settleProgress(handedOff)),
+            PlayerBrowserGridCrossfade.driftProgress(
+                forScale: handoffScale,
+                itemWidthRatio: plane.itemWidthRatio
+            ),
+            accuracy: 0.000_1,
+            "a completed handoff must use direct progress"
+        )
     }
 }

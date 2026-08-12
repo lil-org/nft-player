@@ -7,17 +7,15 @@ enum PlayerBrowserGridPinchPolicy {
 
     static let activationScaleDeviation: CGFloat = 0.04
     static let overshootMaximumDeviation: CGFloat = 0.05
-    static let velocityProjectionInterval: CGFloat = 0.18
-    static let velocityProjectionMaximumTravel: CGFloat = 1.7
     static let underPlaneInstallScale: CGFloat = 0.995
     static let underPlaneDiscardScale: CGFloat = 1.08
     static let overPlaneInstallScale: CGFloat = 1.005
-    static let overPlaneDiscardScale: CGFloat = 0.925
+    static let overPlaneDiscardScale: CGFloat = 1
     static let planeRetargetHysteresis: CGFloat = 0.06
-    /// A release whose last pinch sample is older than this held still first —
-    /// its recognizer velocity is stale and must not flick or seed the settle.
-    static let velocityHoldTimeout: TimeInterval = 0.1
-    static let settleAngularFrequency: CGFloat = 9.5
+    static let settleCommitIntervalProgress: CGFloat = 0.2
+    /// Photos settles a released pinch on a critically damped spring whose
+    /// period is 0.5s — `UIView.animate(springDuration: 0.5, bounce: 0)`.
+    static let settleAngularFrequency: CGFloat = 2 * .pi / 0.5
     /// Terminal render snaps the residual offset, so rest must be genuinely
     /// sub-pixel even for one-column cells (~800 device pixels wide):
     /// 0.0002 in log scale is under a fifth of a pixel there.
@@ -62,12 +60,12 @@ enum PlayerBrowserGridPinchPolicy {
                 forEffectiveScale: scale / sanitizedMaximum
             )
         }
-        if scale < sanitizedMinimum {
-            return sanitizedMinimum * overshootScale(
-                forEffectiveScale: scale / sanitizedMinimum
-            )
-        }
-        return scale
+        // The densest lattice exactly fills the viewport, so any overshoot
+        // below it renders a grid narrower than the screen and uncovers the
+        // background at both edges. Photos clamps here — pinching hard past
+        // its densest level still shows 0px of background — so we do too.
+        // The zoom-in end has no such floor: that tile already overflows.
+        return max(scale, sanitizedMinimum)
     }
 
     static func overshootScale(forEffectiveScale effectiveScale: CGFloat) -> CGFloat {
@@ -75,9 +73,11 @@ enum PlayerBrowserGridPinchPolicy {
         return 1 + overshootMaximumDeviation * tanh(log(effectiveScale) * 2)
     }
 
+    /// Release velocity is deliberately unused. Each adjacent ladder boundary
+    /// commits after one fifth of its log-distance, so deep physical travel can
+    /// cross modes while a flick cannot project across them.
     static func settleTargetIndex(
         scale: CGFloat,
-        velocity: CGFloat,
         itemWidthRatios: [CGFloat]
     ) -> Int? {
         guard scale.isFinite, scale > 0 else { return nil }
@@ -89,19 +89,32 @@ enum PlayerBrowserGridPinchPolicy {
             return nil
         }
 
-        let sanitizedVelocity = velocity.isFinite ? velocity : 0
-        let projectionTravel = min(
-            max(
-                sanitizedVelocity / scale * velocityProjectionInterval,
-                -velocityProjectionMaximumTravel
-            ),
-            velocityProjectionMaximumTravel
-        )
-        let projectedLogScale = log(scale) + projectionTravel
-        return logRatios.indices.min { lhs, rhs in
-            abs(projectedLogScale - logRatios[lhs])
-                < abs(projectedLogScale - logRatios[rhs])
+        let orderedIndices = logRatios.indices.sorted {
+            logRatios[$0] < logRatios[$1]
         }
+        guard let initialPosition = orderedIndices.firstIndex(where: {
+            logRatios[$0] == 0
+        }) else {
+            return nil
+        }
+
+        let logScale = log(scale)
+        guard logScale != 0 else { return orderedIndices[initialPosition] }
+        let step = logScale > 0 ? 1 : -1
+        var position = initialPosition
+        while orderedIndices.indices.contains(position + step) {
+            let nextPosition = position + step
+            let fromLogRatio = logRatios[orderedIndices[position]]
+            let toLogRatio = logRatios[orderedIndices[nextPosition]]
+            let threshold = fromLogRatio
+                + (toLogRatio - fromLogRatio) * settleCommitIntervalProgress
+            let crossesThreshold = step > 0
+                ? logScale >= threshold
+                : logScale <= threshold
+            guard crossesThreshold else { break }
+            position = nextPosition
+        }
+        return orderedIndices[position]
     }
 
     /// One critically damped spring step in symmetric log-scale space.
@@ -132,18 +145,4 @@ enum PlayerBrowserGridPinchPolicy {
             && abs(logVelocity) < settleRestLogVelocity
     }
 
-    /// Caps the velocity toward the target at the spring's no-overshoot bound.
-    static func settleSeedVelocity(
-        forLogOffset logOffset: CGFloat,
-        effectiveVelocity: CGFloat,
-        scale: CGFloat
-    ) -> CGFloat {
-        guard logOffset.isFinite, logOffset != 0 else { return 0 }
-        let limit = settleAngularFrequency * abs(logOffset)
-        guard effectiveVelocity.isFinite, scale.isFinite, scale > 0 else {
-            return logOffset > 0 ? -limit : limit
-        }
-        let speed = min(abs(effectiveVelocity / scale), limit)
-        return logOffset > 0 ? -speed : speed
-    }
 }

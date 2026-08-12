@@ -770,6 +770,11 @@ struct PlayerBrowserGridCrossfade: Equatable {
 
     static let contentFadeStartSettleProgress: CGFloat = 0.25
     static let contentFadeEndSettleProgress: CGFloat = 0.85
+    /// Rearm fires below the fade start, never at it, so presentation
+    /// hovering at that threshold cannot alternate rearm and relock,
+    /// churning image work every frame. 0.2 is the reversal depth the
+    /// fade-reversal retry behavior is calibrated against.
+    static let contentFadeRearmSettleProgress: CGFloat = 0.2
 
     let itemWidthRatio: CGFloat
     let terminalScaleX: CGFloat
@@ -780,6 +785,7 @@ struct PlayerBrowserGridCrossfade: Equatable {
     let incomingRestContentOffsetY: CGFloat
     private let outgoingMaximumContentOffsetY: CGFloat
     private let incomingMaximumContentOffsetY: CGFloat
+    private let viewportWidth: CGFloat
 
     private init(
         reanchoring crossfade: PlayerBrowserGridCrossfade,
@@ -797,6 +803,7 @@ struct PlayerBrowserGridCrossfade: Equatable {
             crossfade.outgoingMaximumContentOffsetY
         incomingMaximumContentOffsetY =
             crossfade.incomingMaximumContentOffsetY
+        viewportWidth = crossfade.viewportWidth
     }
 
     init?(
@@ -833,6 +840,7 @@ struct PlayerBrowserGridCrossfade: Equatable {
             return nil
         }
         self.itemWidthRatio = itemWidthRatio
+        viewportWidth = viewportSize.width
         self.terminalScaleX = terminalScaleX
         self.terminalScaleY = terminalScaleY
         self.outgoingAnchor = outgoingAnchor
@@ -923,7 +931,10 @@ struct PlayerBrowserGridCrossfade: Equatable {
             scaleX: scaleX,
             scaleY: scaleY,
             translation: CGPoint(
-                x: (incomingAnchor.x - outgoingAnchor.x) * driftProgress,
+                x: coveringTranslationX(
+                    (incomingAnchor.x - outgoingAnchor.x) * driftProgress,
+                    scaleX: scaleX
+                ),
                 y: (incomingAnchor.y - outgoingAnchor.y) * driftProgress
                     + translationPanDeltaY
             ),
@@ -948,6 +959,33 @@ struct PlayerBrowserGridCrossfade: Equatable {
             ),
             viewCenter: viewCenter
         )
+    }
+
+    /// Clamps the anchored slide so painted content never leaves a viewport edge
+    /// uncovered. The source grid spans `[A(1-s), A + s(W-A)]` on screen and the
+    /// destination lattice, laid out about its own anchor, spans
+    /// `[A - kI, A + k(W-I)]` for `k = s / terminalScaleX`; bounding on their
+    /// union is exact at both endpoints, so the landing is unchanged. It holds
+    /// at every scale in both directions — when neither span reaches across,
+    /// `lower > upper` and the raw drift stands rather than being clamped to
+    /// something arbitrary.
+    private func coveringTranslationX(
+        _ translationX: CGFloat,
+        scaleX: CGFloat
+    ) -> CGFloat {
+        guard translationX.isFinite else { return 0 }
+        guard scaleX.isFinite, scaleX > 0 else { return translationX }
+        let anchorX = outgoingAnchor.x
+        let k = scaleX / terminalScaleX
+        let sourceLeft = anchorX * (1 - scaleX)
+        let sourceRight = anchorX + scaleX * (viewportWidth - anchorX)
+        let destinationLeft = anchorX - k * incomingAnchor.x
+        let destinationRight = anchorX
+            + k * (viewportWidth - incomingAnchor.x)
+        let upper = -min(sourceLeft, destinationLeft)
+        let lower = viewportWidth - max(sourceRight, destinationRight)
+        guard lower <= upper else { return translationX }
+        return min(max(translationX, lower), upper)
     }
 
     static func anchoredScaleTransform(
@@ -983,10 +1021,16 @@ struct PlayerBrowserGridCrossfade: Equatable {
     }
 
     func driftProgress(forScale scale: CGFloat) -> CGFloat {
-        let scale = Self.sanitizedScale(scale)
+        Self.driftProgress(forScale: scale, itemWidthRatio: itemWidthRatio)
+    }
+
+    static func driftProgress(
+        forScale scale: CGFloat,
+        itemWidthRatio: CGFloat
+    ) -> CGFloat {
         let logRatio = log(itemWidthRatio)
         guard logRatio != 0 else { return 0 }
-        return Self.sanitizedProgress(log(scale) / logRatio)
+        return sanitizedProgress(log(sanitizedScale(scale)) / logRatio)
     }
 
     private func anisotropyFactor(

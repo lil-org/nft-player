@@ -15,7 +15,6 @@ struct PlayerBrowserGridInteractionCoordinator {
     struct PinchSample: Equatable {
         let scale: CGFloat
         let centroidY: CGFloat
-        let timestamp: TimeInterval
     }
 
     struct ModeRatio: Equatable {
@@ -73,11 +72,7 @@ struct PlayerBrowserGridInteractionCoordinator {
             currentMode: MobileCollectionBrowserGridMode
         )
         case pinchChanged(sample: PinchSample)
-        case pinchEnded(
-            velocity: CGFloat,
-            timestamp: TimeInterval,
-            reduceMotion: Bool
-        )
+        case pinchEnded(reduceMotion: Bool)
         case pinchCancelled(reduceMotion: Bool)
         case settleStarted(timestamp: TimeInterval)
         case settleTick(timestamp: TimeInterval)
@@ -94,6 +89,7 @@ struct PlayerBrowserGridInteractionCoordinator {
             id: UUID,
             scale: CGFloat,
             settleProgress: CGFloat,
+            presentationProgress: CGFloat,
             panDeltaY: CGFloat
         )
         case commitPlane(id: UUID, mode: MobileCollectionBrowserGridMode)
@@ -125,6 +121,25 @@ struct PlayerBrowserGridInteractionCoordinator {
             modeRatios.first { $0.mode == mode }?.itemWidthRatio
         }
 
+        func nearestTarget(
+            logScale: CGFloat,
+            renderScale: CGFloat,
+            denser: Bool
+        ) -> ModeRatio? {
+            modeRatios
+                .lazy
+                .filter {
+                    denser
+                        ? $0.itemWidthRatio < 1
+                            && $0.itemWidthRatio <= renderScale
+                        : $0.itemWidthRatio > 1
+                }
+                .min { lhs, rhs in
+                    abs(logScale - log(lhs.itemWidthRatio))
+                        < abs(logScale - log(rhs.itemWidthRatio))
+                }
+        }
+
         /// The rendered scale a settle onto `mode` comes to rest at.
         /// `makeModeRatios` pins `initialMode` to exactly 1, so the fallback
         /// only covers a mode that never entered the session.
@@ -148,19 +163,41 @@ struct PlayerBrowserGridInteractionCoordinator {
         struct Resolution {
             let context: AdoptedSettleContext?
             let heldContext: AdoptedSettleContext?
-            let preservedPlaneProgress: CGFloat?
+            let preservesAdoptedProgress: Bool
+            var handoffTargetProgress: CGFloat? = nil
+            var handoffProgress: CGFloat = 0
+
+            /// Holds the adopted frame through the dead zone, then blends it
+            /// toward the direct endpoint for the current adjustment direction.
+            func renderedProgress(direct: CGFloat) -> CGFloat {
+                guard preservesAdoptedProgress, let context else {
+                    return direct
+                }
+                guard handoffProgress < 1 else { return direct }
+                guard let handoffTargetProgress else {
+                    return context.progressAtAdoption
+                }
+                return PlayerBrowserGridCrossfade.sanitizedProgress(
+                    context.progressAtAdoption
+                        + (handoffTargetProgress - context.progressAtAdoption)
+                            * handoffProgress
+                )
+            }
 
             var releaseContext: AdoptedSettleContext? {
                 if let heldContext { return heldContext }
-                guard preservedPlaneProgress.map({ $0 > 0 }) == true else {
-                    return nil
-                }
-                return context
+                return retainsPlane ? context : nil
             }
 
             var pinsPlane: Bool {
-                heldContext != nil
-                    || preservedPlaneProgress.map({ $0 > 0 }) == true
+                heldContext != nil || retainsPlane
+            }
+
+            private var retainsPlane: Bool {
+                guard preservesAdoptedProgress, let context else {
+                    return false
+                }
+                return context.progressAtAdoption * (1 - handoffProgress) > 0
             }
         }
 
@@ -187,18 +224,15 @@ struct PlayerBrowserGridInteractionCoordinator {
                 return Resolution(
                     context: nil,
                     heldContext: nil,
-                    preservedPlaneProgress: nil
+                    preservesAdoptedProgress: false
                 )
 
             case let .holding(context):
                 return Resolution(
                     context: context,
                     heldContext: context,
-                    preservedPlaneProgress: plane.flatMap {
-                        $0.id == context.planeIdAtAdoption
-                            ? context.progressAtAdoption
-                            : nil
-                    }
+                    preservesAdoptedProgress:
+                        plane?.id == context.planeIdAtAdoption
                 )
 
             case let .adjusted(context):
@@ -207,7 +241,7 @@ struct PlayerBrowserGridInteractionCoordinator {
                     return Resolution(
                         context: context,
                         heldContext: nil,
-                        preservedPlaneProgress: nil
+                        preservesAdoptedProgress: false
                     )
                 }
                 let scaleDeviation = abs(scale / context.scaleAtAdoption - 1)
@@ -215,7 +249,7 @@ struct PlayerBrowserGridInteractionCoordinator {
                     return Resolution(
                         context: context,
                         heldContext: nil,
-                        preservedPlaneProgress: 0
+                        preservesAdoptedProgress: false
                     )
                 }
                 let handoffProgress = max(
@@ -228,12 +262,25 @@ struct PlayerBrowserGridInteractionCoordinator {
                         - PlayerBrowserGridInteractionCoordinator
                             .adjustmentScaleDeviationDeadZone
                 )
-                let retainedProgress = 1 - min(handoffProgress, 1)
+                let handedOff = min(handoffProgress, 1)
+                let endpointScale = context.scaleAtAdoption * (
+                    scale < context.scaleAtAdoption
+                        ? 1 - PlayerBrowserGridPinchPolicy
+                            .activationScaleDeviation
+                        : 1 + PlayerBrowserGridPinchPolicy
+                            .activationScaleDeviation
+                )
                 return Resolution(
                     context: context,
                     heldContext: nil,
-                    preservedPlaneProgress:
-                        context.progressAtAdoption * retainedProgress
+                    preservesAdoptedProgress: true,
+                    handoffTargetProgress:
+                        PlayerBrowserGridInteractionCoordinator
+                            .crossfadeProgress(
+                                scale: endpointScale,
+                                plane: plane
+                            ),
+                    handoffProgress: handedOff
                 )
             }
         }
@@ -250,9 +297,129 @@ struct PlayerBrowserGridInteractionCoordinator {
         /// release multiplies it back so the settle target is chosen from the
         /// physical pinch ratio, not the trimmed render scale.
         let activationAdjustment: CGFloat
-        var latestSampleTimestamp: TimeInterval
         var plane: Plane?
         var adoptedSettlePhase: AdoptedSettlePhase
+        var presentationProgressMap: PresentationProgressMap?
+        var lastPresentationProgress: CGFloat
+
+        func presentationProgress(
+            for geometryProgress: CGFloat,
+            handoffProgress: CGFloat
+        ) -> CGFloat {
+            presentationProgressMap?.progress(
+                for: geometryProgress,
+                handoffProgress: handoffProgress
+            ) ?? PlayerBrowserGridCrossfade.sanitizedProgress(
+                geometryProgress
+            )
+        }
+    }
+
+    private struct PresentationProgressMap: Equatable {
+        private enum EndpointBehavior: Equatable {
+            case preserveAnchor
+            case normalizeThroughHandoff
+        }
+
+        private let anchorGeometryProgress: CGFloat
+        private let anchorPresentationProgress: CGFloat
+        private let endpointBehavior: EndpointBehavior
+
+        private init(
+            geometryProgress: CGFloat,
+            presentationProgress: CGFloat,
+            endpointBehavior: EndpointBehavior
+        ) {
+            let geometryProgress = PlayerBrowserGridCrossfade
+                .sanitizedProgress(geometryProgress)
+            anchorGeometryProgress = geometryProgress
+            self.endpointBehavior = endpointBehavior
+            anchorPresentationProgress = PlayerBrowserGridCrossfade
+                .sanitizedProgress(presentationProgress)
+        }
+
+        static func liveRetarget(
+            geometryProgress: CGFloat,
+            presentationProgress: CGFloat
+        ) -> Self {
+            Self(
+                geometryProgress: geometryProgress,
+                presentationProgress: presentationProgress,
+                endpointBehavior: .preserveAnchor
+            )
+        }
+
+        static func adoptingSettle(
+            geometryProgress: CGFloat,
+            presentationProgress: CGFloat
+        ) -> Self {
+            Self(
+                geometryProgress: geometryProgress,
+                presentationProgress: presentationProgress,
+                endpointBehavior: .normalizeThroughHandoff
+            )
+        }
+
+        func progress(
+            for geometryProgress: CGFloat,
+            handoffProgress: CGFloat
+        ) -> CGFloat {
+            let geometryProgress = PlayerBrowserGridCrossfade
+                .sanitizedProgress(geometryProgress)
+            let preservedProgress = mappedProgress(
+                for: geometryProgress,
+                anchorPresentationProgress: anchorPresentationProgress
+            )
+            guard endpointBehavior == .normalizeThroughHandoff else {
+                return preservedProgress
+            }
+            let normalizedAnchorProgress: CGFloat
+            if anchorGeometryProgress <= 0 {
+                normalizedAnchorProgress = 0
+            } else if anchorGeometryProgress >= 1 {
+                normalizedAnchorProgress = 1
+            } else {
+                return preservedProgress
+            }
+            guard normalizedAnchorProgress != anchorPresentationProgress else {
+                return preservedProgress
+            }
+            let normalizedProgress = mappedProgress(
+                for: geometryProgress,
+                anchorPresentationProgress: normalizedAnchorProgress
+            )
+            let handoffProgress = PlayerBrowserGridCrossfade
+                .sanitizedProgress(handoffProgress)
+            let blendedProgress = PlayerBrowserGridCrossfade.sanitizedProgress(
+                preservedProgress
+                    + (normalizedProgress - preservedProgress)
+                        * handoffProgress
+            )
+            guard geometryProgress < anchorGeometryProgress else {
+                return blendedProgress
+            }
+            return min(blendedProgress, anchorPresentationProgress)
+        }
+
+        private func mappedProgress(
+            for geometryProgress: CGFloat,
+            anchorPresentationProgress: CGFloat
+        ) -> CGFloat {
+            if geometryProgress <= anchorGeometryProgress {
+                guard anchorGeometryProgress > 0 else {
+                    return anchorPresentationProgress
+                }
+                return anchorPresentationProgress
+                    * geometryProgress / anchorGeometryProgress
+            }
+            guard anchorGeometryProgress < 1 else {
+                return anchorPresentationProgress
+            }
+            return anchorPresentationProgress
+                + (1 - anchorPresentationProgress)
+                    * (geometryProgress - anchorGeometryProgress)
+                    / (1 - anchorGeometryProgress)
+        }
     }
 
     private enum PlaneDecision {
@@ -261,15 +428,46 @@ struct PlayerBrowserGridInteractionCoordinator {
         case discard
     }
 
+    private struct SettleProgressSpring: Equatable {
+        var offset: CGFloat
+        var velocity: CGFloat = 0
+
+        var isAtRest: Bool {
+            PlayerBrowserGridPinchPolicy.isSettleSpringAtRest(
+                logOffset: offset,
+                logVelocity: velocity
+            )
+        }
+
+        mutating func advance(deltaTime: CGFloat) {
+            let stepped = PlayerBrowserGridPinchPolicy.settleSpringStep(
+                logOffset: offset,
+                logVelocity: velocity,
+                deltaTime: deltaTime
+            )
+            offset = stepped.logOffset
+            velocity = stepped.logVelocity
+        }
+
+        func progress(commits: Bool) -> CGFloat {
+            PlayerBrowserGridCrossfade.sanitizedProgress(
+                (commits ? 1 : 0) + offset
+            )
+        }
+    }
+
     private struct SettleState: Equatable {
         let session: Session
         let plane: Plane?
         let targetMode: MobileCollectionBrowserGridMode
         let initialLogDistance: CGFloat
         let initialProgress: CGFloat
+        let initialPresentationProgress: CGFloat
         let panDeltaY: CGFloat
         var logOffset: CGFloat
         var logVelocity: CGFloat
+        var settleProgressSpring: SettleProgressSpring? = nil
+        var presentationSpring: SettleProgressSpring? = nil
         var lastTickTime: TimeInterval?
         let usesMenuFallback: Bool
 
@@ -286,14 +484,36 @@ struct PlayerBrowserGridInteractionCoordinator {
         }
 
         var currentProgress: CGFloat {
+            if let settleProgressSpring {
+                return settleProgressSpring.progress(commits: commits)
+            }
+            return advancedProgress(from: initialProgress)
+        }
+
+        var currentPresentationProgress: CGFloat {
+            if let presentationSpring {
+                return presentationSpring.progress(commits: commits)
+            }
+            return advancedProgress(from: initialPresentationProgress)
+        }
+
+        var presentationSpringIsAtRest: Bool {
+            presentationSpring?.isAtRest ?? true
+        }
+
+        var settleProgressSpringIsAtRest: Bool {
+            settleProgressSpring?.isAtRest ?? true
+        }
+
+        private func advancedProgress(from initial: CGFloat) -> CGFloat {
             guard initialLogDistance > 0 else { return commits ? 1 : 0 }
-            let travelProgress = min(
-                max(1 - abs(logOffset) / initialLogDistance, 0),
-                1
-            )
             return commits
-                ? initialProgress + (1 - initialProgress) * travelProgress
-                : initialProgress * (1 - travelProgress)
+                ? initial + (1 - initial) * travelProgress
+                : initial * (1 - travelProgress)
+        }
+
+        private var travelProgress: CGFloat {
+            min(max(1 - abs(logOffset) / initialLogDistance, 0), 1)
         }
     }
 
@@ -380,12 +600,8 @@ struct PlayerBrowserGridInteractionCoordinator {
         case let .pinchChanged(sample):
             return handlePinchChanged(sample)
 
-        case let .pinchEnded(velocity, timestamp, reduceMotion):
-            return handlePinchEnded(
-                velocity: velocity,
-                timestamp: timestamp,
-                reduceMotion: reduceMotion
-            )
+        case let .pinchEnded(reduceMotion):
+            return handlePinchEnded(reduceMotion: reduceMotion)
 
         case let .pinchCancelled(reduceMotion):
             return handlePinchCancelled(reduceMotion: reduceMotion)
@@ -473,6 +689,7 @@ struct PlayerBrowserGridInteractionCoordinator {
             targetMode: toMode,
             initialLogDistance: abs(log(targetRatio)),
             initialProgress: 0,
+            initialPresentationProgress: 0,
             panDeltaY: 0,
             logOffset: -log(targetRatio),
             logVelocity: 0,
@@ -486,6 +703,7 @@ struct PlayerBrowserGridInteractionCoordinator {
                 id: plane.id,
                 scale: 1,
                 settleProgress: 0,
+                presentationProgress: 0,
                 panDeltaY: 0
             ),
             .startDisplayLink
@@ -532,7 +750,6 @@ struct PlayerBrowserGridInteractionCoordinator {
                 panDeltaY: settle.panDeltaY,
                 scale: settle.currentScale,
                 activationAdjustment: 1,
-                latestSampleTimestamp: sample.timestamp,
                 plane: settle.plane,
                 adoptedSettlePhase: .holding(AdoptedSettleContext(
                     targetMode: settle.targetMode,
@@ -540,9 +757,17 @@ struct PlayerBrowserGridInteractionCoordinator {
                     planeIdAtAdoption: settle.plane?.id,
                     scaleAtAdoption: settle.currentScale,
                     progressAtAdoption: settle.currentProgress
-                ))
+                )),
+                presentationProgressMap: PresentationProgressMap.adoptingSettle(
+                    geometryProgress: settle.currentProgress,
+                    presentationProgress: settle.currentPresentationProgress
+                ),
+                lastPresentationProgress: settle.currentPresentationProgress
             ))
-            return [.stopDisplayLink]
+            // `beginInteraction` states that the pinch owns the grid again.
+            // The renderer session is already live, but the settle handed
+            // scrolling back and only this reclaims it.
+            return [.stopDisplayLink, .beginInteraction]
 
         case .tracking, .interacting, .awaitingRenderer:
             return []
@@ -574,9 +799,10 @@ struct PlayerBrowserGridInteractionCoordinator {
                 scale: effectiveScale,
                 activationAdjustment: PlayerBrowserGridPinchPolicy
                     .activationTrimDivisor(rawEffectiveScale),
-                latestSampleTimestamp: sample.timestamp,
                 plane: nil,
-                adoptedSettlePhase: .none
+                adoptedSettlePhase: .none,
+                presentationProgressMap: nil,
+                lastPresentationProgress: 0
             )
             var effects = [Effect.beginInteraction]
             effects += zoomEffects(interaction: &interaction)
@@ -586,7 +812,6 @@ struct PlayerBrowserGridInteractionCoordinator {
         case var .interacting(interaction):
             let effectiveScale = sample.scale / interaction.referenceScale
             guard effectiveScale.isFinite, effectiveScale > 0 else { return [] }
-            interaction.latestSampleTimestamp = sample.timestamp
             interaction.scale = effectiveScale
             interaction.panDeltaY = interaction.basePanDeltaY
                 + sample.centroidY
@@ -603,19 +828,31 @@ struct PlayerBrowserGridInteractionCoordinator {
 
     private func zoomEffects(interaction: inout InteractionState) -> [Effect] {
         var effects = [Effect]()
+        var replacedLivePlane = false
+        let renderScale = PlayerBrowserGridPinchPolicy.rubberBandedScale(
+            interaction.scale,
+            minimumRatio: interaction.session.minimumRatio,
+            maximumRatio: interaction.session.maximumRatio
+        )
+        let previousPlane = interaction.plane
         let adoptedSettle = interaction.adoptedSettlePhase.resolve(
             scale: interaction.scale,
-            plane: interaction.plane
+            plane: previousPlane
         )
-
+        let planeWouldUnderfillViewport = previousPlane.map {
+            renderScale < min($0.itemWidthRatio, 1)
+        } ?? false
         // A held adopted settle owns the plane until the pinch actually
         // moves: the release still commits its target, so retargeting
         // under it renders a frame on a lattice nothing will land on and costs
-        // two extra grid rebuilds.
+        // two extra grid rebuilds. A plane that would underfill the viewport
+        // loses that pin: coverage outranks the adopted settle.
         let decision = adoptedSettle.pinsPlane
+            && !planeWouldUnderfillViewport
             ? PlaneDecision.keep
             : planeDecision(
                 scale: interaction.scale,
+                renderScale: renderScale,
                 session: interaction.session,
                 installedPlane: interaction.plane
             )
@@ -631,49 +868,91 @@ struct PlayerBrowserGridInteractionCoordinator {
                    toMode: target.mode,
                    itemWidthRatio: target.itemWidthRatio
                ) {
+                replacedLivePlane = interaction.plane != nil
                 interaction.plane = plane
+                interaction.adoptedSettlePhase = .none
                 effects.append(.installPlane(plane))
             }
 
         case .discard:
             if let plane = interaction.plane {
                 interaction.plane = nil
+                interaction.adoptedSettlePhase = .none
+                interaction.presentationProgressMap = nil
+                interaction.lastPresentationProgress = 0
                 effects.append(.discardPlane(id: plane.id))
             }
         }
 
-        let renderScale = PlayerBrowserGridPinchPolicy.rubberBandedScale(
-            interaction.scale,
-            minimumRatio: interaction.session.minimumRatio,
-            maximumRatio: interaction.session.maximumRatio
-        )
-        // The exact adopted plane hands its crossfade back to direct
-        // manipulation over the same travel used to activate a fresh pinch.
-        // That keeps the first adjusted frame continuous without leaving stale
-        // destination content behind after the user changes direction.
-        if let preservedProgress = adoptedSettle.preservedPlaneProgress,
-           preservedProgress > 0,
-           let plane = interaction.plane {
+        // The destination crossfades in during the pinch, not on release. An
+        // adopted settle hands its progress over to the live pinch across the
+        // activation travel, so grabbing a running settle neither replays the
+        // fade from zero nor snaps when the handoff completes.
+        if let plane = interaction.plane {
+            let renderingSettle = interaction.adoptedSettlePhase.resolve(
+                scale: interaction.scale,
+                plane: plane
+            )
+            let settleProgress = renderingSettle.renderedProgress(
+                direct: Self.crossfadeProgress(
+                    scale: renderScale,
+                    plane: plane
+                )
+            )
+            if replacedLivePlane {
+                let outgoingPresentationProgress = interaction
+                    .presentationProgress(
+                        for: adoptedSettle.renderedProgress(
+                            direct: Self.crossfadeProgress(
+                                scale: renderScale,
+                                plane: previousPlane
+                            )
+                        ),
+                        handoffProgress: adoptedSettle.handoffProgress
+                    )
+                interaction.presentationProgressMap = .liveRetarget(
+                    geometryProgress: settleProgress,
+                    presentationProgress: outgoingPresentationProgress
+                )
+            }
+            let presentationProgress = interaction.presentationProgress(
+                for: settleProgress,
+                handoffProgress: renderingSettle.handoffProgress
+            )
+            interaction.lastPresentationProgress = presentationProgress
             effects.append(.renderSettle(
                 id: plane.id,
                 scale: renderScale,
-                settleProgress: preservedProgress,
+                settleProgress: settleProgress,
+                presentationProgress: presentationProgress,
                 panDeltaY: interaction.panDeltaY
             ))
             return effects
         }
         effects.append(.renderZoom(
-            planeId: interaction.plane?.id,
+            planeId: nil,
             scale: renderScale,
             panDeltaY: interaction.panDeltaY
         ))
         return effects
     }
 
+    private static func crossfadeProgress(
+        scale: CGFloat,
+        plane: Plane?
+    ) -> CGFloat {
+        guard let plane else { return 0 }
+        return PlayerBrowserGridCrossfade.driftProgress(
+            forScale: scale,
+            itemWidthRatio: plane.itemWidthRatio
+        )
+    }
+
     /// Hysteresis prevents synchronous plane rebuilds from churning near a
     /// target threshold.
     private func planeDecision(
         scale: CGFloat,
+        renderScale: CGFloat,
         session: Session,
         installedPlane: Plane?
     ) -> PlaneDecision {
@@ -682,12 +961,22 @@ struct PlayerBrowserGridInteractionCoordinator {
         let wantsDenser: Bool
         if let installedPlane {
             let planeIsDenser = installedPlane.itemWidthRatio < 1
+            if planeIsDenser,
+               renderScale < installedPlane.itemWidthRatio,
+               let target = session.nearestTarget(
+                   logScale: logScale,
+                   renderScale: renderScale,
+                   denser: true
+               ) {
+                return .replace(target)
+            }
             let reversesBeyondDiscard = planeIsDenser
                 ? scale > PlayerBrowserGridPinchPolicy.underPlaneDiscardScale
                 : scale < PlayerBrowserGridPinchPolicy.overPlaneDiscardScale
             guard reversesBeyondDiscard else {
                 guard let target = sameDirectionTarget(
                     logScale: logScale,
+                    renderScale: renderScale,
                     session: session,
                     installedPlane: installedPlane,
                     denser: planeIsDenser
@@ -705,9 +994,9 @@ struct PlayerBrowserGridInteractionCoordinator {
             return .keep
         }
 
-        guard let target = nearestTarget(
+        guard let target = session.nearestTarget(
             logScale: logScale,
-            session: session,
+            renderScale: renderScale,
             denser: wantsDenser
         ) else {
             return installedPlane == nil ? .keep : .discard
@@ -717,21 +1006,38 @@ struct PlayerBrowserGridInteractionCoordinator {
 
     /// A continuous pinch that sails past its plane's target re-aims the
     /// plane at the next mode in the same direction, so a deep zoom
-    /// crossfades toward the lattice the release will actually land on. The
-    /// gesture must clear the midpoint between the two targets by the
-    /// hysteresis margin — a bare nearest-target comparison would rebuild
-    /// the plane every frame while the fingers hover on the boundary.
+    /// crossfades toward the lattice the release will actually land on.
+    /// Sparse re-aims where the release ladder commits, so the lattice on
+    /// screen is the lattice a release lands on; the scale is biased toward
+    /// the installed target by the hysteresis margin so fingers hovering a
+    /// boundary cannot churn planes. Dense keeps the nearest coverage-safe
+    /// target — a plane must never aim wider than the rendered scale.
     private func sameDirectionTarget(
         logScale: CGFloat,
+        renderScale: CGFloat,
         session: Session,
         installedPlane: Plane,
         denser: Bool
     ) -> ModeRatio? {
-        guard let target = nearestTarget(
+        guard denser else {
+            return ladderTarget(
+                logScale: logScale,
+                session: session,
+                installedPlane: installedPlane
+            )
+        }
+        guard let target = session.nearestTarget(
             logScale: logScale,
-            session: session,
+            renderScale: renderScale,
             denser: denser
         ), target.mode != installedPlane.toMode else {
+            return nil
+        }
+        let movesTowardLargerDenseCells =
+            target.itemWidthRatio > installedPlane.itemWidthRatio
+        if movesTowardLargerDenseCells,
+           log(renderScale / target.itemWidthRatio)
+            <= PlayerBrowserGridPinchPolicy.planeRetargetHysteresis {
             return nil
         }
         let installedDistance = abs(logScale - log(installedPlane.itemWidthRatio))
@@ -743,23 +1049,38 @@ struct PlayerBrowserGridInteractionCoordinator {
         return target
     }
 
-    private func nearestTarget(
+    private func ladderTarget(
         logScale: CGFloat,
         session: Session,
-        denser: Bool
+        installedPlane: Plane
     ) -> ModeRatio? {
-        session.modeRatios
-            .lazy
-            .filter { denser ? $0.itemWidthRatio < 1 : $0.itemWidthRatio > 1 }
-            .min { lhs, rhs in
-                abs(logScale - log(lhs.itemWidthRatio))
-                    < abs(logScale - log(rhs.itemWidthRatio))
-            }
+        let installedLogRatio = log(installedPlane.itemWidthRatio)
+        let biasedLogScale = logScale > installedLogRatio
+            ? max(
+                logScale
+                    - PlayerBrowserGridPinchPolicy.planeRetargetHysteresis,
+                installedLogRatio
+            )
+            : min(
+                logScale
+                    + PlayerBrowserGridPinchPolicy.planeRetargetHysteresis,
+                installedLogRatio
+            )
+        guard let targetIndex = PlayerBrowserGridPinchPolicy.settleTargetIndex(
+            scale: exp(biasedLogScale),
+            itemWidthRatios: session.modeRatios.map(\.itemWidthRatio)
+        ) else {
+            return nil
+        }
+        let target = session.modeRatios[targetIndex]
+        guard target.itemWidthRatio > 1,
+              target.mode != installedPlane.toMode else {
+            return nil
+        }
+        return target
     }
 
     private mutating func handlePinchEnded(
-        velocity: CGFloat,
-        timestamp: TimeInterval,
         reduceMotion: Bool
     ) -> [Effect] {
         switch state {
@@ -778,43 +1099,76 @@ struct PlayerBrowserGridInteractionCoordinator {
                 scale: interaction.scale,
                 plane: interaction.plane
             )
-            // The recognizer's velocity freezes at its last touch sample, so
-            // after a still hold it reports the speed from before the hold.
-            // A release with no recent sample is a still release.
-            let sampleAge = timestamp - interaction.latestSampleTimestamp
-            let velocityIsFresh = sampleAge.isFinite
-                && sampleAge >= 0
-                && sampleAge
-                    <= PlayerBrowserGridPinchPolicy.velocityHoldTimeout
-            let effectiveVelocity = velocityIsFresh
-                && velocity.isFinite
-                && interaction.referenceScale > 0
-                ? velocity / interaction.referenceScale
-                : 0
             let releaseContext = adoptedSettle.releaseContext
-            let targetMode: MobileCollectionBrowserGridMode
+            let selectedTargetMode: MobileCollectionBrowserGridMode
             // Do not replace a plane while its adopted cell corrections are
             // still visibly handing off to direct manipulation.
             if let releaseContext {
-                targetMode = releaseContext.targetMode
-            } else if let targetIndex = PlayerBrowserGridPinchPolicy.settleTargetIndex(
-                scale: interaction.scale * interaction.activationAdjustment,
-                velocity: effectiveVelocity * interaction.activationAdjustment,
-                itemWidthRatios: interaction.session.modeRatios.map(\.itemWidthRatio)
-            ) {
-                targetMode = interaction.session.modeRatios[targetIndex].mode
+                selectedTargetMode = releaseContext.targetMode
+            } else if let targetIndex = PlayerBrowserGridPinchPolicy
+                .settleTargetIndex(
+                    scale: interaction.scale
+                        * interaction.activationAdjustment,
+                    itemWidthRatios: interaction.session.modeRatios.map(
+                        \.itemWidthRatio
+                    )
+                ) {
+                selectedTargetMode = interaction.session
+                    .modeRatios[targetIndex].mode
             } else {
-                targetMode = interaction.session.initialMode
+                selectedTargetMode = interaction.session.initialMode
             }
+            let targetMode = releaseTargetMode(
+                selectedTargetMode,
+                interaction: interaction,
+                adoptedSettle: adoptedSettle
+            )
             return beginSettle(
                 interaction: interaction,
                 targetMode: targetMode,
-                effectiveVelocity: effectiveVelocity,
                 reduceMotion: reduceMotion,
                 usesMenuFallback: releaseContext?.usesMenuFallback ?? false,
                 adoptedSettle: adoptedSettle
             )
         }
+    }
+
+    private func releaseTargetMode(
+        _ selectedTargetMode: MobileCollectionBrowserGridMode,
+        interaction: InteractionState,
+        adoptedSettle: AdoptedSettlePhase.Resolution
+    ) -> MobileCollectionBrowserGridMode {
+        guard selectedTargetMode != interaction.session.initialMode,
+              var selectedRatio = interaction.session.ratio(
+                  for: selectedTargetMode
+              ) else {
+            return selectedTargetMode
+        }
+        let renderScale = PlayerBrowserGridPinchPolicy.rubberBandedScale(
+            interaction.scale,
+            minimumRatio: interaction.session.minimumRatio,
+            maximumRatio: interaction.session.maximumRatio
+        )
+        var coverageSafeTargetMode = selectedTargetMode
+        if selectedRatio < 1, selectedRatio > renderScale,
+           let coverageSafeTarget = interaction.session.nearestTarget(
+               logScale: log(interaction.scale),
+               renderScale: renderScale,
+               denser: true
+           ) {
+            coverageSafeTargetMode = coverageSafeTarget.mode
+            selectedRatio = coverageSafeTarget.itemWidthRatio
+        }
+        guard let plane = interaction.plane,
+              plane.toMode != coverageSafeTargetMode,
+              (selectedRatio > 1) == (plane.itemWidthRatio > 1),
+              abs(log(selectedRatio)) > abs(log(plane.itemWidthRatio)) else {
+            return coverageSafeTargetMode
+        }
+        let renderedProgress = adoptedSettle.renderedProgress(
+            direct: Self.crossfadeProgress(scale: renderScale, plane: plane)
+        )
+        return renderedProgress > 0 ? plane.toMode : coverageSafeTargetMode
     }
 
     private mutating func handlePinchCancelled(
@@ -841,7 +1195,6 @@ struct PlayerBrowserGridInteractionCoordinator {
                 interaction: interaction,
                 targetMode: cancellationContext?.targetMode
                     ?? interaction.session.initialMode,
-                effectiveVelocity: 0,
                 reduceMotion: reduceMotion,
                 usesMenuFallback: cancellationContext?.usesMenuFallback ?? false,
                 adoptedSettle: adoptedSettle
@@ -852,7 +1205,6 @@ struct PlayerBrowserGridInteractionCoordinator {
     private mutating func beginSettle(
         interaction: InteractionState,
         targetMode: MobileCollectionBrowserGridMode,
-        effectiveVelocity: CGFloat,
         reduceMotion: Bool,
         usesMenuFallback: Bool,
         adoptedSettle: AdoptedSettlePhase.Resolution
@@ -863,6 +1215,8 @@ struct PlayerBrowserGridInteractionCoordinator {
             && adoptedSettle.context?.targetMode != targetMode
         var effects = emitsHaptic ? [Effect.selectionHaptic] : []
         var plane = interaction.plane
+        var replacementInitialProgress: CGFloat?
+        let initialPresentationProgress = interaction.lastPresentationProgress
         let fromScale = PlayerBrowserGridPinchPolicy.rubberBandedScale(
             interaction.scale,
             minimumRatio: session.minimumRatio,
@@ -885,18 +1239,61 @@ struct PlayerBrowserGridInteractionCoordinator {
                 )]
             }
             plane = installedPlane
+            let initialProgress = Self.crossfadeProgress(
+                scale: fromScale,
+                plane: installedPlane
+            )
+            replacementInitialProgress = initialProgress
             effects.append(.installPlane(installedPlane))
             effects.append(.renderSettle(
                 id: installedPlane.id,
                 scale: fromScale,
-                settleProgress: 0,
+                settleProgress: initialProgress,
+                presentationProgress: initialPresentationProgress,
                 panDeltaY: interaction.panDeltaY
             ))
         }
         let logOffset = log(fromScale / session.scale(landingOn: targetMode))
-        if reduceMotion
-            || abs(logOffset)
-                <= PlayerBrowserGridPinchPolicy.settleRestLogDistance {
+        let geometryIsAtRest = abs(logOffset)
+            <= PlayerBrowserGridPinchPolicy.settleRestLogDistance
+        // Resume whatever the last pinch frame rendered, never replay from
+        // zero: the same adopted-settle blend, over the same plane.
+        let initialProgress: CGFloat
+        if let replacementInitialProgress {
+            initialProgress = replacementInitialProgress
+        } else if plane?.id == interaction.plane?.id
+            || plane?.id == adoptedSettle.context?.planeIdAtAdoption {
+            initialProgress = adoptedSettle.renderedProgress(
+                direct: Self.crossfadeProgress(scale: fromScale, plane: plane)
+            )
+        } else {
+            initialProgress = 0
+        }
+        let terminalSettleProgress: CGFloat = commits ? 1 : 0
+        let settleProgressSpringOffset = initialProgress
+            - terminalSettleProgress
+        let terminalPresentationProgress: CGFloat = commits ? 1 : 0
+        let presentationSpringOffset = initialPresentationProgress
+            - terminalPresentationProgress
+        let directProgress = Self.crossfadeProgress(
+            scale: fromScale,
+            plane: plane
+        )
+        let progressRestDistance = PlayerBrowserGridPinchPolicy
+            .settleRestLogDistance
+        let needsSettleProgressSpring = plane != nil
+            && abs(settleProgressSpringOffset) > progressRestDistance
+            && (geometryIsAtRest
+                || abs(initialProgress - directProgress)
+                    > progressRestDistance)
+        let needsPresentationSpring = plane != nil
+            && abs(presentationSpringOffset) > progressRestDistance
+            && (geometryIsAtRest
+                || abs(initialPresentationProgress - directProgress)
+                    > progressRestDistance)
+        let needsEndpointProgressSettle = needsSettleProgressSpring
+            || needsPresentationSpring
+        if reduceMotion || (geometryIsAtRest && !needsEndpointProgressSettle) {
             return effects + terminalSettleEffects(
                 session: session,
                 plane: plane,
@@ -908,27 +1305,22 @@ struct PlayerBrowserGridInteractionCoordinator {
             )
         }
 
-        let initialProgress: CGFloat
-        if let context = adoptedSettle.context,
-           plane?.id == context.planeIdAtAdoption {
-            initialProgress = adoptedSettle.preservedPlaneProgress ?? 0
-        } else {
-            initialProgress = 0
-        }
-
         state = .settling(SettleState(
             session: session,
             plane: plane,
             targetMode: targetMode,
-            initialLogDistance: abs(logOffset),
+            initialLogDistance: geometryIsAtRest ? 0 : abs(logOffset),
             initialProgress: initialProgress,
+            initialPresentationProgress: initialPresentationProgress,
             panDeltaY: interaction.panDeltaY,
-            logOffset: logOffset,
-            logVelocity: PlayerBrowserGridPinchPolicy.settleSeedVelocity(
-                forLogOffset: logOffset,
-                effectiveVelocity: effectiveVelocity,
-                scale: fromScale
-            ),
+            logOffset: geometryIsAtRest ? 0 : logOffset,
+            logVelocity: 0,
+            settleProgressSpring: needsSettleProgressSpring
+                ? SettleProgressSpring(offset: settleProgressSpringOffset)
+                : nil,
+            presentationSpring: needsPresentationSpring
+                ? SettleProgressSpring(offset: presentationSpringOffset)
+                : nil,
             // The clock starts at the first display-link tick — anchoring it
             // to the release event would integrate the event-delivery latency
             // as a visible first-frame jump.
@@ -962,6 +1354,7 @@ struct PlayerBrowserGridInteractionCoordinator {
                 id: plane.id,
                 scale: session.scale(landingOn: targetMode),
                 settleProgress: 1,
+                presentationProgress: 1,
                 panDeltaY: panDeltaY
             ))
             effects.append(.commitPlane(id: plane.id, mode: targetMode))
@@ -1028,10 +1421,13 @@ struct PlayerBrowserGridInteractionCoordinator {
         )
         settle.logOffset = stepped.logOffset
         settle.logVelocity = stepped.logVelocity
+        settle.settleProgressSpring?.advance(deltaTime: deltaTime)
+        settle.presentationSpring?.advance(deltaTime: deltaTime)
         if PlayerBrowserGridPinchPolicy.isSettleSpringAtRest(
             logOffset: settle.logOffset,
             logVelocity: settle.logVelocity
-        ) {
+        ) && settle.settleProgressSpringIsAtRest
+            && settle.presentationSpringIsAtRest {
             return terminalSettleEffects(
                 session: settle.session,
                 plane: settle.plane,
@@ -1045,11 +1441,13 @@ struct PlayerBrowserGridInteractionCoordinator {
 
         state = .settling(settle)
         if let plane = settle.plane,
-           settle.commits || settle.currentProgress > 0 {
+           settle.commits || settle.currentProgress > 0
+               || settle.currentPresentationProgress > 0 {
             return [.renderSettle(
                 id: plane.id,
                 scale: settle.currentScale,
                 settleProgress: settle.currentProgress,
+                presentationProgress: settle.currentPresentationProgress,
                 panDeltaY: settle.panDeltaY
             )]
         }

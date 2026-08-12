@@ -214,6 +214,7 @@ final class MobilePlayerCollectionBrowserTransitionPresentation {
         if interruptingAnimation {
             contentContainerView?.layer.removeAnimation(forKey: "opacity")
         }
+        guard contentContainerView?.alpha != alpha else { return }
         contentContainerView?.alpha = alpha
     }
 
