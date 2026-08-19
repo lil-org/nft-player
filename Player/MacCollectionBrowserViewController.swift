@@ -44,6 +44,7 @@ final class MacCollectionBrowserViewController: NSViewController,
     private var pendingFocusedTokenIndex: Int?
     private var isFocusPublicationScheduled = false
     private var lastViewportSize = CGSize.zero
+    private var lastDisplayScale: CGFloat = 0
     private var isApplyingPosition = false
     private var lastScrollOffsetY: CGFloat?
     private var lastPrefetchDirection: DownloadableMediaCache.PrefetchDirection = .forward
@@ -52,6 +53,7 @@ final class MacCollectionBrowserViewController: NSViewController,
     private var settleWorkItem: DispatchWorkItem?
     private var settleRequestId: UUID?
     private var boundsObserver: NSObjectProtocol?
+    private var backingPropertiesObserver: NSObjectProtocol?
     private var cacheAvailabilityObserver: NSObjectProtocol?
     private var isActive = false
     private var isPreparedForIncomingTransition = false
@@ -105,6 +107,9 @@ final class MacCollectionBrowserViewController: NSViewController,
     deinit {
         if let boundsObserver {
             NotificationCenter.default.removeObserver(boundsObserver)
+        }
+        if let backingPropertiesObserver {
+            NotificationCenter.default.removeObserver(backingPropertiesObserver)
         }
         if let cacheAvailabilityObserver {
             NotificationCenter.default.removeObserver(cacheAvailabilityObserver)
@@ -163,6 +168,18 @@ final class MacCollectionBrowserViewController: NSViewController,
             queue: .main
         ) { [weak self] _ in
             self?.handleScroll()
+        }
+        backingPropertiesObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.didChangeBackingPropertiesNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let self,
+                  let window = notification.object as? NSWindow,
+                  window === self.view.window else {
+                return
+            }
+            self.configureLayoutIfNeeded()
         }
         cacheAvailabilityObserver = NotificationCenter.default.addObserver(
             forName: .downloadableMediaCacheFileAvailabilityDidChange,
@@ -331,11 +348,15 @@ final class MacCollectionBrowserViewController: NSViewController,
     private func configureLayoutIfNeeded() {
         let viewportSize = scrollView.contentView.bounds.size
         guard viewportSize.width > 0, viewportSize.height > 0 else { return }
+        let displayScale = currentLayoutDisplayScale
+        let displayScaleChanged = lastDisplayScale > 0
+            && lastDisplayScale != displayScale
 
         let transition = MobilePlayerBrowserLayout.viewportTransition(
             previousViewportSize: lastViewportSize,
             viewportSize: viewportSize,
-            needsSafeAreaRefresh: false,
+            needsGeometryRefresh: displayScaleChanged,
+            displayScale: displayScale,
             aspectProfile: layoutAspectProfile,
             forcedTokenIndex: pendingInitialTokenIndex,
             focusedTokenIndex: focusedTokenIndex
@@ -346,6 +367,7 @@ final class MacCollectionBrowserViewController: NSViewController,
         let wasApplyingPosition = isApplyingPosition
         isApplyingPosition = true
         lastViewportSize = viewportSize
+        lastDisplayScale = displayScale
         browserLayout.browserLayout = layout
         collectionView.frame = CGRect(origin: .zero, size: layout.contentSize)
         if isFirstLayout {
@@ -366,6 +388,13 @@ final class MacCollectionBrowserViewController: NSViewController,
             publishFocus(force: false)
             scheduleSettle()
         }
+    }
+
+    private var currentLayoutDisplayScale: CGFloat {
+        let scale = view.window?.backingScaleFactor
+            ?? parent?.view.window?.backingScaleFactor
+            ?? 2
+        return scale.isFinite && scale > 0 ? scale : 2
     }
 
     private func applyPendingInitialPositionIfNeeded() {

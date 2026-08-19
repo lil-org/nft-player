@@ -8,13 +8,29 @@ import XCTest
 @MainActor
 final class MobilePlayerCollectionBrowserTransitionPresentationTests: XCTestCase {
 
+    private final class TransitionSupportCollectionView: UICollectionView {
+        var reversesVisibleItemOrder = false
+
+        override var indexPathsForVisibleItems: [IndexPath] {
+            let indexPaths = super.indexPathsForVisibleItems
+            guard reversesVisibleItemOrder else { return indexPaths }
+            return indexPaths.sorted { $0.item > $1.item }
+        }
+    }
+
     private final class TransitionSupportDataSource: NSObject,
         UICollectionViewDataSource {
+        let itemCount: Int
+
+        init(itemCount: Int = 1) {
+            self.itemCount = itemCount
+        }
+
         func collectionView(
             _: UICollectionView,
             numberOfItemsInSection _: Int
         ) -> Int {
-            1
+            itemCount
         }
 
         func collectionView(
@@ -99,6 +115,33 @@ final class MobilePlayerCollectionBrowserTransitionPresentationTests: XCTestCase
         )
     }
 
+    private func makeDistinctImageSources() -> CollectionBrowseImageSources {
+        let thumbnail = CollectionCatalogDownloadableMediaDescriptor(
+            collectionId: "collection",
+            tokenId: "0",
+            tokenIndex: 0,
+            media: .staticImage(
+                url: URL(fileURLWithPath: "/thumbnail.webp"),
+                fileExtension: "webp"
+            ),
+            purpose: .collectionBrowserThumbnail
+        )
+        let large = CollectionCatalogDownloadableMediaDescriptor(
+            collectionId: "collection",
+            tokenId: "0",
+            tokenIndex: 0,
+            media: .staticImage(
+                url: URL(fileURLWithPath: "/large.webp"),
+                fileExtension: "webp"
+            ),
+            purpose: .collectionBrowserMid
+        )
+        return CollectionBrowseImageSources(
+            thumbnailDescriptor: thumbnail,
+            largeDescriptor: large
+        )
+    }
+
     private func waitForNextMainQueueTurn() async {
         await withCheckedContinuation { continuation in
             DispatchQueue.main.async {
@@ -120,9 +163,12 @@ final class MobilePlayerCollectionBrowserTransitionPresentationTests: XCTestCase
         imageView.image = image
     }
 
-    private func makeTransitionSupportFixture() -> (
+    private func makeTransitionSupportFixture(
+        itemCount: Int = 1,
+        itemSize: CGSize? = nil
+    ) -> (
         viewportView: UIView,
-        collectionView: UICollectionView,
+        collectionView: TransitionSupportCollectionView,
         dataSource: TransitionSupportDataSource,
         cell: MobilePlayerCollectionBrowserCell
     ) {
@@ -133,10 +179,10 @@ final class MobilePlayerCollectionBrowserTransitionPresentationTests: XCTestCase
             height: 100
         ))
         let layout = UICollectionViewFlowLayout()
-        layout.itemSize = viewportView.bounds.size
+        layout.itemSize = itemSize ?? viewportView.bounds.size
         layout.minimumLineSpacing = 0
         layout.minimumInteritemSpacing = 0
-        let collectionView = UICollectionView(
+        let collectionView = TransitionSupportCollectionView(
             frame: viewportView.bounds,
             collectionViewLayout: layout
         )
@@ -144,7 +190,7 @@ final class MobilePlayerCollectionBrowserTransitionPresentationTests: XCTestCase
             MobilePlayerCollectionBrowserCell.self,
             forCellWithReuseIdentifier: "cell"
         )
-        let dataSource = TransitionSupportDataSource()
+        let dataSource = TransitionSupportDataSource(itemCount: itemCount)
         collectionView.dataSource = dataSource
         viewportView.addSubview(collectionView)
         collectionView.reloadData()
@@ -761,6 +807,377 @@ final class MobilePlayerCollectionBrowserTransitionPresentationTests: XCTestCase
         XCTAssertFalse(cell.canSelect(representing: replacementIdentity))
     }
 
+    func testCellQualityUpgradeUsesCapturableCarryover() throws {
+        let cell = MobilePlayerCollectionBrowserCell(frame: CGRect(
+            x: 0,
+            y: 0,
+            width: 120,
+            height: 80
+        ))
+        let identity = MobilePlayerBrowserContentIdentity(
+            collectionId: "collection",
+            tokenIndex: 0
+        )
+        let sources = makeDistinctImageSources()
+        let thumbnail = makeImage(.red)
+        let large = makeImage(.blue)
+        cell.configure(
+            contentIdentity: identity,
+            itemCount: 1,
+            imageSources: sources,
+            requiredImageQuality: .large,
+            missingDescriptorFallbackSpec: PlayerMediaPlaceholderSpec(
+                thumbnailAspectRatio: nil
+            ),
+            imageLoadPolicy: .disabled
+        )
+        cell.setImage(
+            thumbnail,
+            descriptor: sources.thumbnailDescriptor,
+            quality: .thumbnail,
+            tokenIndex: 0,
+            animated: false,
+            tracksLocalFileAvailability: false,
+            prewarmsNativeMetalCardFace: false
+        )
+
+        cell.setImage(
+            large,
+            descriptor: sources.largeDescriptor,
+            quality: .large,
+            tokenIndex: 0,
+            animated: true,
+            tracksLocalFileAvailability: false,
+            prewarmsNativeMetalCardFace: false
+        )
+
+        let carryover = try XCTUnwrap(cell.carryoverSourceContent)
+        XCTAssertTrue(carryover.primary.image === thumbnail)
+        let baseImageView = try XCTUnwrap(
+            cell.contentView.subviews.first {
+                $0 is NativeMetalCardCornerMaskedImageView
+            } as? NativeMetalCardCornerMaskedImageView
+        )
+        XCTAssertTrue(baseImageView.image === large)
+    }
+
+    func testCellQualityUpgradeWaitsForPartialOverlayToClear() throws {
+        let cell = MobilePlayerCollectionBrowserCell(frame: CGRect(
+            x: 0,
+            y: 0,
+            width: 120,
+            height: 80
+        ))
+        let identity = MobilePlayerBrowserContentIdentity(
+            collectionId: "collection",
+            tokenIndex: 0
+        )
+        let sources = makeDistinctImageSources()
+        let thumbnail = makeImage(.red)
+        let large = makeImage(.blue)
+        cell.configure(
+            contentIdentity: identity,
+            itemCount: 1,
+            imageSources: sources,
+            requiredImageQuality: .large,
+            missingDescriptorFallbackSpec: PlayerMediaPlaceholderSpec(
+                thumbnailAspectRatio: nil
+            ),
+            imageLoadPolicy: .disabled
+        )
+        cell.setImage(
+            thumbnail,
+            descriptor: sources.thumbnailDescriptor,
+            quality: .thumbnail,
+            tokenIndex: 0,
+            animated: false,
+            tracksLocalFileAvailability: false,
+            prewarmsNativeMetalCardFace: false
+        )
+        cell.installTransitionContent(
+            image: makeImage(.green),
+            descriptor: sources.largeDescriptor,
+            usesNativeMetalCardCornerMask: false,
+            targetAlpha: 0.25,
+            animated: false,
+            identity: identity
+        )
+
+        cell.setImage(
+            large,
+            descriptor: sources.largeDescriptor,
+            quality: .large,
+            tokenIndex: 0,
+            animated: true,
+            tracksLocalFileAvailability: false,
+            prewarmsNativeMetalCardFace: false
+        )
+
+        let baseImageView = try XCTUnwrap(
+            cell.contentView.subviews.first {
+                $0 is NativeMetalCardCornerMaskedImageView
+            } as? NativeMetalCardCornerMaskedImageView
+        )
+        XCTAssertTrue(baseImageView.image === thumbnail)
+        XCTAssertNil(baseImageView.layer.animationKeys())
+        XCTAssertTrue(cell.carryoverSourceContent?.primary.image === thumbnail)
+
+        cell.clearTransitionContent()
+
+        XCTAssertTrue(baseImageView.image === thumbnail)
+        XCTAssertFalse(cell.hasCarryoverContent)
+
+        cell.installDeferredBaseImageIfNoIncomingOverlay()
+
+        XCTAssertTrue(baseImageView.image === large)
+        XCTAssertNil(baseImageView.layer.animationKeys())
+        XCTAssertTrue(cell.hasCarryoverContent)
+        XCTAssertTrue(cell.carryoverSourceContent?.primary.image === thumbnail)
+    }
+
+    func testDeferredQualityUpgradeSurvivesRepeatedOverlayReplacement() throws {
+        let cell = MobilePlayerCollectionBrowserCell(frame: CGRect(
+            x: 0,
+            y: 0,
+            width: 120,
+            height: 80
+        ))
+        let identity = MobilePlayerBrowserContentIdentity(
+            collectionId: "collection",
+            tokenIndex: 0
+        )
+        let sources = makeDistinctImageSources()
+        let thumbnail = makeImage(.red)
+        let large = makeImage(.blue)
+        cell.configure(
+            contentIdentity: identity,
+            itemCount: 1,
+            imageSources: sources,
+            requiredImageQuality: .large,
+            missingDescriptorFallbackSpec: PlayerMediaPlaceholderSpec(
+                thumbnailAspectRatio: nil
+            ),
+            imageLoadPolicy: .disabled
+        )
+        cell.setImage(
+            thumbnail,
+            descriptor: sources.thumbnailDescriptor,
+            quality: .thumbnail,
+            tokenIndex: 0,
+            animated: false,
+            tracksLocalFileAvailability: false,
+            prewarmsNativeMetalCardFace: false
+        )
+        let baseImageView = try XCTUnwrap(
+            cell.contentView.subviews.first {
+                $0 is NativeMetalCardCornerMaskedImageView
+            } as? NativeMetalCardCornerMaskedImageView
+        )
+
+        cell.installTransitionContent(
+            image: makeImage(.green),
+            descriptor: sources.largeDescriptor,
+            usesNativeMetalCardCornerMask: false,
+            targetAlpha: 0.25,
+            animated: false,
+            identity: identity
+        )
+        cell.setImage(
+            large,
+            descriptor: sources.largeDescriptor,
+            quality: .large,
+            tokenIndex: 0,
+            animated: true,
+            tracksLocalFileAvailability: false,
+            prewarmsNativeMetalCardFace: false
+        )
+
+        for color in [UIColor.purple, .green] {
+            cell.clearTransitionContent()
+            XCTAssertTrue(baseImageView.image === thumbnail)
+            XCTAssertFalse(cell.hasCarryoverContent)
+            cell.installTransitionContent(
+                image: makeImage(color),
+                descriptor: sources.largeDescriptor,
+                usesNativeMetalCardCornerMask: false,
+                targetAlpha: 0.25,
+                animated: false,
+                identity: identity
+            )
+        }
+
+        cell.finishTransitionContent()
+
+        XCTAssertTrue(baseImageView.image === large)
+        XCTAssertTrue(cell.hasCarryoverContent)
+        XCTAssertTrue(cell.carryoverSourceContent?.primary.image === thumbnail)
+    }
+
+    func testDeferredQualityUpgradeDoesNotSurviveIdentityChanges() {
+        let cell = MobilePlayerCollectionBrowserCell(frame: CGRect(
+            x: 0,
+            y: 0,
+            width: 120,
+            height: 80
+        ))
+        let identity = MobilePlayerBrowserContentIdentity(
+            collectionId: "collection",
+            tokenIndex: 0
+        )
+        let replacementIdentity = MobilePlayerBrowserContentIdentity(
+            collectionId: "collection",
+            tokenIndex: 1
+        )
+        let sources = makeDistinctImageSources()
+        let configure = { (contentIdentity: MobilePlayerBrowserContentIdentity) in
+            cell.configure(
+                contentIdentity: contentIdentity,
+                itemCount: 2,
+                imageSources: sources,
+                requiredImageQuality: .large,
+                missingDescriptorFallbackSpec: PlayerMediaPlaceholderSpec(
+                    thumbnailAspectRatio: nil
+                ),
+                imageLoadPolicy: .disabled
+            )
+        }
+        configure(identity)
+        cell.setImage(
+            makeImage(.red),
+            descriptor: sources.thumbnailDescriptor,
+            quality: .thumbnail,
+            tokenIndex: 0,
+            animated: false,
+            tracksLocalFileAvailability: false,
+            prewarmsNativeMetalCardFace: false
+        )
+        cell.installTransitionContent(
+            image: makeImage(.green),
+            descriptor: sources.largeDescriptor,
+            usesNativeMetalCardCornerMask: false,
+            targetAlpha: 0.25,
+            animated: false,
+            identity: identity
+        )
+        cell.setImage(
+            makeImage(.blue),
+            descriptor: sources.largeDescriptor,
+            quality: .large,
+            tokenIndex: 0,
+            animated: true,
+            tracksLocalFileAvailability: false,
+            prewarmsNativeMetalCardFace: false
+        )
+
+        configure(replacementIdentity)
+        configure(identity)
+        cell.clearTransitionContent()
+        cell.installDeferredBaseImageIfNoIncomingOverlay()
+
+        XCTAssertTrue(cell.needsCarryoverContent)
+        XCTAssertFalse(cell.hasCarryoverContent)
+    }
+
+    func testDeferredQualityUpgradeDoesNotSurviveReuse() {
+        let cell = MobilePlayerCollectionBrowserCell(frame: CGRect(
+            x: 0,
+            y: 0,
+            width: 120,
+            height: 80
+        ))
+        let identity = MobilePlayerBrowserContentIdentity(
+            collectionId: "collection",
+            tokenIndex: 0
+        )
+        let sources = makeDistinctImageSources()
+        cell.configure(
+            contentIdentity: identity,
+            itemCount: 1,
+            imageSources: sources,
+            requiredImageQuality: .large,
+            missingDescriptorFallbackSpec: PlayerMediaPlaceholderSpec(
+                thumbnailAspectRatio: nil
+            ),
+            imageLoadPolicy: .disabled
+        )
+        cell.setImage(
+            makeImage(.red),
+            descriptor: sources.thumbnailDescriptor,
+            quality: .thumbnail,
+            tokenIndex: 0,
+            animated: false,
+            tracksLocalFileAvailability: false,
+            prewarmsNativeMetalCardFace: false
+        )
+        cell.installTransitionContent(
+            image: makeImage(.green),
+            descriptor: sources.largeDescriptor,
+            usesNativeMetalCardCornerMask: false,
+            targetAlpha: 0.25,
+            animated: false,
+            identity: identity
+        )
+        cell.setImage(
+            makeImage(.blue),
+            descriptor: sources.largeDescriptor,
+            quality: .large,
+            tokenIndex: 0,
+            animated: true,
+            tracksLocalFileAvailability: false,
+            prewarmsNativeMetalCardFace: false
+        )
+
+        cell.prepareForGridModePhantomReuse()
+
+        XCTAssertTrue(cell.needsCarryoverContent)
+        XCTAssertFalse(cell.hasCarryoverContent)
+    }
+
+    func testNonanimatedImageInstallClearsCarryoverSynchronously() throws {
+        let cell = MobilePlayerCollectionBrowserCell(frame: CGRect(
+            x: 0,
+            y: 0,
+            width: 120,
+            height: 80
+        ))
+        let identity = MobilePlayerBrowserContentIdentity(
+            collectionId: "collection",
+            tokenIndex: 0
+        )
+        let sources = makeImageSources()
+        let previousImage = makeImage(.red)
+        let image = makeImage(.blue)
+        cell.configure(
+            contentIdentity: identity,
+            itemCount: 1,
+            imageSources: sources,
+            requiredImageQuality: .thumbnail,
+            missingDescriptorFallbackSpec: PlayerMediaPlaceholderSpec(
+                thumbnailAspectRatio: nil
+            ),
+            imageLoadPolicy: .disabled
+        )
+        cell.setCarryoverContent(MobilePlayerBrowserCarryoverContent(
+            identity: identity,
+            image: previousImage,
+            usesNativeMetalCardCornerMask: false
+        ))
+
+        cell.setImage(
+            image,
+            descriptor: sources.thumbnailDescriptor,
+            quality: .thumbnail,
+            tokenIndex: 0,
+            animated: false,
+            tracksLocalFileAvailability: false,
+            prewarmsNativeMetalCardFace: false
+        )
+
+        XCTAssertFalse(cell.hasCarryoverContent)
+        let source = try XCTUnwrap(cell.carryoverSourceContent)
+        XCTAssertTrue(source.primary.image === image)
+    }
+
     func testCellReuseClearsPresentationIdentityToneAndContent() {
         let cell = MobilePlayerCollectionBrowserCell(frame: CGRect(
             x: 0,
@@ -957,14 +1374,381 @@ final class MobilePlayerCollectionBrowserTransitionPresentationTests: XCTestCase
                 in: fixture.collectionView,
                 viewportView: fixture.viewportView,
                 anchorItemIndex: 0,
-                hasImageSources: { _ in true },
-                resolveContent: { source, _, _ in source?.content }
+                hasImageSources: { _ in true }
             )
 
         XCTAssertFalse(result)
         XCTAssertEqual(
             fixture.cell.carryoverSourceContent?.identity,
             content.identity
+        )
+    }
+
+    func testTransitionSupportConsumesCapturedCarryoverSource() throws {
+        let fixture = makeTransitionSupportFixture(
+            itemCount: 2,
+            itemSize: CGSize(width: 100, height: 50)
+        )
+        fixture.collectionView.reversesVisibleItemOrder = true
+        let content = MobilePlayerBrowserCarryoverContent(
+            identity: MobilePlayerBrowserContentIdentity(
+                collectionId: "collection",
+                tokenIndex: 8
+            ),
+            image: makeImage(.blue),
+            usesNativeMetalCardCornerMask: false
+        )
+        let source = MobilePlayerBrowserGridCarryoverSource(
+            viewportRect: fixture.viewportView.bounds,
+            content: content
+        )
+
+        let holdsTone = MobilePlayerCollectionBrowserTransitionSupport
+            .installCarryover(
+                sources: [source],
+                in: fixture.collectionView,
+                viewportView: fixture.viewportView,
+                anchorItemIndex: 0,
+                hasImageSources: { _ in true }
+            )
+        let installedCount = fixture.collectionView.visibleCells.compactMap {
+            ($0 as? MobilePlayerCollectionBrowserCell)?
+                .carryoverSourceContent
+        }.count
+        let anchorCell = try XCTUnwrap(fixture.collectionView.cellForItem(
+            at: IndexPath(item: 0, section: 0)
+        ) as? MobilePlayerCollectionBrowserCell)
+        let neighborCell = try XCTUnwrap(fixture.collectionView.cellForItem(
+            at: IndexPath(item: 1, section: 0)
+        ) as? MobilePlayerCollectionBrowserCell)
+
+        XCTAssertTrue(holdsTone)
+        XCTAssertEqual(installedCount, 1)
+        XCTAssertEqual(
+            anchorCell.carryoverSourceContent?.identity,
+            content.identity
+        )
+        XCTAssertNil(neighborCell.carryoverSourceContent)
+    }
+
+    func testTransitionSupportPreservesMaximumWildcardCoverage() throws {
+        let fixture = makeTransitionSupportFixture(
+            itemCount: 2,
+            itemSize: CGSize(width: 100, height: 50)
+        )
+        let flexibleContent = MobilePlayerBrowserCarryoverContent(
+            identity: MobilePlayerBrowserContentIdentity(
+                collectionId: "collection",
+                tokenIndex: 8
+            ),
+            image: makeImage(.blue),
+            usesNativeMetalCardCornerMask: false
+        )
+        let constrainedContent = MobilePlayerBrowserCarryoverContent(
+            identity: MobilePlayerBrowserContentIdentity(
+                collectionId: "collection",
+                tokenIndex: 9
+            ),
+            image: makeImage(.red),
+            usesNativeMetalCardCornerMask: false
+        )
+        let sources = [
+            MobilePlayerBrowserGridCarryoverSource(
+                viewportRect: fixture.viewportView.bounds,
+                content: flexibleContent
+            ),
+            MobilePlayerBrowserGridCarryoverSource(
+                viewportRect: CGRect(x: 0, y: 0, width: 100, height: 45),
+                content: constrainedContent
+            ),
+        ]
+
+        let holdsTone = MobilePlayerCollectionBrowserTransitionSupport
+            .installCarryover(
+                sources: sources,
+                in: fixture.collectionView,
+                viewportView: fixture.viewportView,
+                anchorItemIndex: 0,
+                hasImageSources: { _ in true }
+            )
+        let firstCell = try XCTUnwrap(fixture.collectionView.cellForItem(
+            at: IndexPath(item: 0, section: 0)
+        ) as? MobilePlayerCollectionBrowserCell)
+        let secondCell = try XCTUnwrap(fixture.collectionView.cellForItem(
+            at: IndexPath(item: 1, section: 0)
+        ) as? MobilePlayerCollectionBrowserCell)
+
+        XCTAssertFalse(holdsTone)
+        XCTAssertEqual(
+            firstCell.carryoverSourceContent?.identity,
+            constrainedContent.identity
+        )
+        XCTAssertEqual(
+            secondCell.carryoverSourceContent?.identity,
+            flexibleContent.identity
+        )
+    }
+
+    func testTransitionSupportPrefersAssignedSourceOverWildcard() throws {
+        let fixture = makeTransitionSupportFixture(
+            itemCount: 2,
+            itemSize: CGSize(width: 100, height: 50)
+        )
+        let wildcardContent = MobilePlayerBrowserCarryoverContent(
+            identity: MobilePlayerBrowserContentIdentity(
+                collectionId: "collection",
+                tokenIndex: 8
+            ),
+            image: makeImage(.blue),
+            usesNativeMetalCardCornerMask: false
+        )
+        let assignedContent = MobilePlayerBrowserCarryoverContent(
+            identity: MobilePlayerBrowserContentIdentity(
+                collectionId: "collection",
+                tokenIndex: 9
+            ),
+            image: makeImage(.red),
+            usesNativeMetalCardCornerMask: false
+        )
+        let sources = [
+            MobilePlayerBrowserGridCarryoverSource(
+                destinationItem: 0,
+                viewportRect: fixture.viewportView.bounds,
+                content: nil
+            ),
+            MobilePlayerBrowserGridCarryoverSource(
+                viewportRect: fixture.viewportView.bounds,
+                content: wildcardContent
+            ),
+            MobilePlayerBrowserGridCarryoverSource(
+                destinationItem: 0,
+                viewportRect: CGRect(x: 0, y: 0, width: 100, height: 50),
+                content: assignedContent
+            ),
+        ]
+
+        _ = MobilePlayerCollectionBrowserTransitionSupport.installCarryover(
+            sources: sources,
+            in: fixture.collectionView,
+            viewportView: fixture.viewportView,
+            anchorItemIndex: 0,
+            hasImageSources: { _ in true }
+        )
+        let assignedCell = try XCTUnwrap(fixture.collectionView.cellForItem(
+            at: IndexPath(item: 0, section: 0)
+        ) as? MobilePlayerCollectionBrowserCell)
+        let wildcardCell = try XCTUnwrap(fixture.collectionView.cellForItem(
+            at: IndexPath(item: 1, section: 0)
+        ) as? MobilePlayerCollectionBrowserCell)
+
+        XCTAssertEqual(
+            assignedCell.carryoverSourceContent?.identity,
+            assignedContent.identity
+        )
+        XCTAssertEqual(
+            wildcardCell.carryoverSourceContent?.identity,
+            wildcardContent.identity
+        )
+    }
+
+    func testTransitionSupportUsesWildcardWhenAssignmentDoesNotOverlap() {
+        let fixture = makeTransitionSupportFixture()
+        let assignedContent = MobilePlayerBrowserCarryoverContent(
+            identity: MobilePlayerBrowserContentIdentity(
+                collectionId: "collection",
+                tokenIndex: 8
+            ),
+            image: makeImage(.blue),
+            usesNativeMetalCardCornerMask: false
+        )
+        let wildcardContent = MobilePlayerBrowserCarryoverContent(
+            identity: MobilePlayerBrowserContentIdentity(
+                collectionId: "collection",
+                tokenIndex: 9
+            ),
+            image: makeImage(.red),
+            usesNativeMetalCardCornerMask: false
+        )
+        let sources = [
+            MobilePlayerBrowserGridCarryoverSource(
+                destinationItem: 0,
+                viewportRect: CGRect(x: 200, y: 0, width: 100, height: 100),
+                content: assignedContent
+            ),
+            MobilePlayerBrowserGridCarryoverSource(
+                viewportRect: fixture.viewportView.bounds,
+                content: nil
+            ),
+            MobilePlayerBrowserGridCarryoverSource(
+                viewportRect: fixture.viewportView.bounds,
+                content: wildcardContent
+            ),
+        ]
+
+        let holdsTone = MobilePlayerCollectionBrowserTransitionSupport
+            .installCarryover(
+                sources: sources,
+                in: fixture.collectionView,
+                viewportView: fixture.viewportView,
+                anchorItemIndex: 0,
+                hasImageSources: { _ in true }
+            )
+
+        XCTAssertFalse(holdsTone)
+        XCTAssertEqual(
+            fixture.cell.carryoverSourceContent?.identity,
+            wildcardContent.identity
+        )
+    }
+
+    func testTransitionSupportUsesWildcardWhenAssignmentHasNoContent() {
+        let fixture = makeTransitionSupportFixture()
+        let wildcardContent = MobilePlayerBrowserCarryoverContent(
+            identity: MobilePlayerBrowserContentIdentity(
+                collectionId: "collection",
+                tokenIndex: 9
+            ),
+            image: makeImage(.red),
+            usesNativeMetalCardCornerMask: false
+        )
+        let sources = [
+            MobilePlayerBrowserGridCarryoverSource(
+                destinationItem: 0,
+                viewportRect: fixture.viewportView.bounds,
+                content: nil
+            ),
+            MobilePlayerBrowserGridCarryoverSource(
+                viewportRect: fixture.viewportView.bounds,
+                content: wildcardContent
+            ),
+        ]
+
+        let holdsTone = MobilePlayerCollectionBrowserTransitionSupport
+            .installCarryover(
+                sources: sources,
+                in: fixture.collectionView,
+                viewportView: fixture.viewportView,
+                anchorItemIndex: 0,
+                hasImageSources: { _ in true }
+            )
+
+        XCTAssertFalse(holdsTone)
+        XCTAssertEqual(
+            fixture.cell.carryoverSourceContent?.identity,
+            wildcardContent.identity
+        )
+    }
+
+    func testTransitionSupportHonorsCapturedDestinationAssignment() throws {
+        let fixture = makeTransitionSupportFixture(
+            itemCount: 2,
+            itemSize: CGSize(width: 100, height: 50)
+        )
+        let content = MobilePlayerBrowserCarryoverContent(
+            identity: MobilePlayerBrowserContentIdentity(
+                collectionId: "collection",
+                tokenIndex: 8
+            ),
+            image: makeImage(.blue),
+            usesNativeMetalCardCornerMask: false
+        )
+        let source = MobilePlayerBrowserGridCarryoverSource(
+            destinationItem: 1,
+            viewportRect: fixture.viewportView.bounds,
+            content: content
+        )
+
+        _ = MobilePlayerCollectionBrowserTransitionSupport.installCarryover(
+            sources: [source],
+            in: fixture.collectionView,
+            viewportView: fixture.viewportView,
+            anchorItemIndex: 0,
+            hasImageSources: { _ in true }
+        )
+        let firstCell = try XCTUnwrap(fixture.collectionView.cellForItem(
+            at: IndexPath(item: 0, section: 0)
+        ) as? MobilePlayerCollectionBrowserCell)
+        let secondCell = try XCTUnwrap(fixture.collectionView.cellForItem(
+            at: IndexPath(item: 1, section: 0)
+        ) as? MobilePlayerCollectionBrowserCell)
+
+        XCTAssertNil(firstCell.carryoverSourceContent)
+        XCTAssertEqual(secondCell.carryoverSourceContent?.identity, content.identity)
+    }
+
+    func testTransitionSupportRequiresMoreThanHalfWildcardCoverage() {
+        func installsSource(width: CGFloat) -> Bool {
+            let fixture = makeTransitionSupportFixture()
+            let content = MobilePlayerBrowserCarryoverContent(
+                identity: MobilePlayerBrowserContentIdentity(
+                    collectionId: "collection",
+                    tokenIndex: 8
+                ),
+                image: makeImage(.blue),
+                usesNativeMetalCardCornerMask: false
+            )
+            _ = MobilePlayerCollectionBrowserTransitionSupport.installCarryover(
+                sources: [MobilePlayerBrowserGridCarryoverSource(
+                    viewportRect: CGRect(
+                        x: 0,
+                        y: 0,
+                        width: width,
+                        height: 100
+                    ),
+                    content: content
+                )],
+                in: fixture.collectionView,
+                viewportView: fixture.viewportView,
+                anchorItemIndex: 0,
+                hasImageSources: { _ in true }
+            )
+            return fixture.cell.carryoverSourceContent != nil
+        }
+
+        XCTAssertFalse(installsSource(width: 50))
+        XCTAssertTrue(installsSource(width: 50.01))
+    }
+
+    func testTransitionSupportBreaksEqualWildcardOverlapBySourceOrder() throws {
+        let fixture = makeTransitionSupportFixture()
+        let firstContent = MobilePlayerBrowserCarryoverContent(
+            identity: MobilePlayerBrowserContentIdentity(
+                collectionId: "collection",
+                tokenIndex: 8
+            ),
+            image: makeImage(.blue),
+            usesNativeMetalCardCornerMask: false
+        )
+        let secondContent = MobilePlayerBrowserCarryoverContent(
+            identity: MobilePlayerBrowserContentIdentity(
+                collectionId: "collection",
+                tokenIndex: 9
+            ),
+            image: makeImage(.red),
+            usesNativeMetalCardCornerMask: false
+        )
+        let sources = [
+            MobilePlayerBrowserGridCarryoverSource(
+                viewportRect: CGRect(x: 0, y: 0, width: 60, height: 100),
+                content: firstContent
+            ),
+            MobilePlayerBrowserGridCarryoverSource(
+                viewportRect: CGRect(x: 40, y: 0, width: 60, height: 100),
+                content: secondContent
+            ),
+        ]
+
+        _ = MobilePlayerCollectionBrowserTransitionSupport.installCarryover(
+            sources: sources,
+            in: fixture.collectionView,
+            viewportView: fixture.viewportView,
+            anchorItemIndex: 0,
+            hasImageSources: { _ in true }
+        )
+
+        XCTAssertEqual(
+            try XCTUnwrap(fixture.cell.carryoverSourceContent).identity,
+            firstContent.identity
         )
     }
 
@@ -977,8 +1761,7 @@ final class MobilePlayerCollectionBrowserTransitionPresentationTests: XCTestCase
                 in: fixture.collectionView,
                 viewportView: fixture.viewportView,
                 anchorItemIndex: 0,
-                hasImageSources: { _ in true },
-                resolveContent: { _, _, _ in nil }
+                hasImageSources: { _ in true }
             )
 
         XCTAssertTrue(result)

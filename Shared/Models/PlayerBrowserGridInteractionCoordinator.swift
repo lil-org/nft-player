@@ -15,6 +15,85 @@ struct PlayerBrowserGridInteractionCoordinator {
     struct PinchSample: Equatable {
         let scale: CGFloat
         let centroidY: CGFloat
+        /// Monotonic recognizer time used to distinguish motion from a dwell.
+        let timestamp: TimeInterval
+    }
+
+    private struct ScaleSample: Equatable {
+        let logScale: CGFloat
+        let timestamp: TimeInterval
+    }
+
+    private struct ReleaseMotionSamples: Equatable {
+        var values: [ScaleSample] = []
+        var lastObservedTimestamp: TimeInterval?
+
+        mutating func record(scale: CGFloat, timestamp: TimeInterval) {
+            guard scale.isFinite, scale > 0, timestamp.isFinite else { return }
+            if let lastObservedTimestamp {
+                guard timestamp >= lastObservedTimestamp else { return }
+                if timestamp == lastObservedTimestamp,
+                   values.last?.timestamp == timestamp {
+                    values.removeLast()
+                } else if timestamp > lastObservedTimestamp {
+                    compactValues()
+                }
+            }
+            lastObservedTimestamp = timestamp
+            let value = ScaleSample(
+                logScale: log(max(scale, 0.000_1)),
+                timestamp: timestamp
+            )
+            guard values.last.map({
+                abs(value.logScale - $0.logScale)
+                    > PlayerBrowserGridPinchPolicy
+                        .releaseMotionLogScaleNoiseFloor
+            }) ?? true else { return }
+            values.append(value)
+        }
+
+        private mutating func compactValues() {
+            guard let newest = values.last else { return }
+            let horizon = newest.timestamp
+                - PlayerBrowserGridPinchPolicy.releaseMotionRateWindow * 1.5
+            values.removeAll { $0.timestamp < horizon }
+            if values.count > 12 {
+                values.removeFirst(values.count - 12)
+            }
+        }
+
+        func logScaleRate(at releaseTime: TimeInterval) -> CGFloat {
+            guard let lastObservedTimestamp,
+                  releaseTime >= lastObservedTimestamp,
+                  let newest = values.last else { return 0 }
+            let newestAge = releaseTime - newest.timestamp
+            guard newestAge.isFinite,
+                  (0...PlayerBrowserGridPinchPolicy.releaseMotionHoldTimeout)
+                    .contains(newestAge),
+                  let firstIndex = values.firstIndex(where: {
+                      newest.timestamp - $0.timestamp
+                          <= PlayerBrowserGridPinchPolicy.releaseMotionRateWindow
+                  }),
+                  firstIndex < values.count - 1 else {
+                return 0
+            }
+
+            var direction: FloatingPointSign?
+            var reference = values[firstIndex]
+            var previous = reference
+            for sample in values[(firstIndex + 1)...] {
+                let delta = sample.logScale - previous.logScale
+                if direction != delta.sign {
+                    reference = previous
+                    direction = delta.sign
+                }
+                previous = sample
+            }
+
+            let deltaTime = CGFloat(newest.timestamp - reference.timestamp)
+            guard deltaTime > 0.000_5 else { return 0 }
+            return (newest.logScale - reference.logScale) / deltaTime
+        }
     }
 
     struct ModeRatio: Equatable {
@@ -72,9 +151,14 @@ struct PlayerBrowserGridInteractionCoordinator {
             currentMode: MobileCollectionBrowserGridMode
         )
         case pinchChanged(sample: PinchSample)
-        case pinchEnded(reduceMotion: Bool)
+        case pinchEnded(
+            scale: CGFloat,
+            reduceMotion: Bool,
+            timestamp: TimeInterval
+        )
         case pinchCancelled(reduceMotion: Bool)
         case settleStarted(timestamp: TimeInterval)
+        case interactionFadeTick(timestamp: TimeInterval)
         case settleTick(timestamp: TimeInterval)
         case rendererSucceeded
         case interrupt
@@ -83,6 +167,7 @@ struct PlayerBrowserGridInteractionCoordinator {
 
     enum Effect: Equatable {
         case beginInteraction
+        case coverPlaneChange
         case installPlane(Plane)
         case renderZoom(planeId: UUID?, scale: CGFloat, panDeltaY: CGFloat)
         case renderSettle(
@@ -92,12 +177,15 @@ struct PlayerBrowserGridInteractionCoordinator {
             presentationProgress: CGFloat,
             panDeltaY: CGFloat
         )
+        case renderInteractionFade(id: UUID, presentationProgress: CGFloat)
         case commitPlane(id: UUID, mode: MobileCollectionBrowserGridMode)
         case discardPlane(id: UUID)
         case applyMode(MobileCollectionBrowserGridMode)
         case selectionHaptic
         case startDisplayLink
         case stopDisplayLink
+        case startInteractionFadeTicks
+        case stopInteractionFadeTicks
         case reconcileMedia(cancelsPrefetchLoads: Bool)
         case finishInteraction(settlesPosition: Bool)
         case resetRenderer
@@ -146,6 +234,12 @@ struct PlayerBrowserGridInteractionCoordinator {
         func scale(landingOn mode: MobileCollectionBrowserGridMode) -> CGFloat {
             ratio(for: mode) ?? 1
         }
+    }
+
+    private struct TrackingState: Equatable {
+        let session: Session
+        var centroidY: CGFloat
+        var releaseMotionSamples = ReleaseMotionSamples()
     }
 
     private struct AdoptedSettleContext: Equatable {
@@ -301,6 +395,11 @@ struct PlayerBrowserGridInteractionCoordinator {
         var adoptedSettlePhase: AdoptedSettlePhase
         var presentationProgressMap: PresentationProgressMap?
         var lastPresentationProgress: CGFloat
+        /// Seconds the current plane has been alive, advanced by interaction
+        /// fade ticks; drives the Photos time channel of the crossfade.
+        var fadeClockElapsed: CGFloat = 0
+        var lastFadeTickTime: TimeInterval?
+        var releaseMotionSamples = ReleaseMotionSamples()
 
         func presentationProgress(
             for geometryProgress: CGFloat,
@@ -468,6 +567,7 @@ struct PlayerBrowserGridInteractionCoordinator {
         var logVelocity: CGFloat
         var settleProgressSpring: SettleProgressSpring? = nil
         var presentationSpring: SettleProgressSpring? = nil
+        var fadeClockElapsed: CGFloat = 0
         var lastTickTime: TimeInterval?
         let usesMenuFallback: Bool
 
@@ -530,7 +630,7 @@ struct PlayerBrowserGridInteractionCoordinator {
 
     private enum State: Equatable {
         case idle
-        case tracking(Session)
+        case tracking(TrackingState)
         case interacting(InteractionState)
         case settling(SettleState)
         case awaitingRenderer(PendingRendererAction)
@@ -600,14 +700,21 @@ struct PlayerBrowserGridInteractionCoordinator {
         case let .pinchChanged(sample):
             return handlePinchChanged(sample)
 
-        case let .pinchEnded(reduceMotion):
-            return handlePinchEnded(reduceMotion: reduceMotion)
+        case let .pinchEnded(scale, reduceMotion, timestamp):
+            return handlePinchEnded(
+                scale: scale,
+                reduceMotion: reduceMotion,
+                timestamp: timestamp
+            )
 
         case let .pinchCancelled(reduceMotion):
             return handlePinchCancelled(reduceMotion: reduceMotion)
 
         case let .settleStarted(timestamp):
             return handleSettleStarted(timestamp: timestamp)
+
+        case let .interactionFadeTick(timestamp):
+            return handleInteractionFadeTick(timestamp: timestamp)
 
         case let .settleTick(timestamp):
             return handleSettleTick(timestamp: timestamp)
@@ -725,16 +832,25 @@ struct PlayerBrowserGridInteractionCoordinator {
             // movement and must count toward the pinch — rebasing here made
             // every gesture read ~15% shallower than the physical pinch and
             // borderline releases settle back where Photos commits.
-            state = .tracking(Session(
-                initialMode: currentMode,
-                modeRatios: Self.makeModeRatios(
-                    fromMode: currentMode,
-                    provided: ratioProvider(currentMode)
-                )
-            ))
+            var tracking = TrackingState(
+                session: Session(
+                    initialMode: currentMode,
+                    modeRatios: Self.makeModeRatios(
+                        fromMode: currentMode,
+                        provided: ratioProvider(currentMode)
+                    )
+                ),
+                centroidY: sample.centroidY
+            )
+            tracking.releaseMotionSamples.record(
+                scale: sample.scale,
+                timestamp: sample.timestamp
+            )
+            state = .tracking(tracking)
             return []
 
         case let .settling(settle):
+            let presentationProgress = settle.currentPresentationProgress
             let referenceScale = sample.scale / settle.currentScale
             guard settle.currentScale.isFinite,
                   settle.currentScale > 0,
@@ -742,7 +858,7 @@ struct PlayerBrowserGridInteractionCoordinator {
                   referenceScale > 0 else {
                 return []
             }
-            state = .interacting(InteractionState(
+            var interaction = InteractionState(
                 session: settle.session,
                 referenceScale: referenceScale,
                 referenceCentroidY: sample.centroidY,
@@ -760,14 +876,32 @@ struct PlayerBrowserGridInteractionCoordinator {
                 )),
                 presentationProgressMap: PresentationProgressMap.adoptingSettle(
                     geometryProgress: settle.currentProgress,
-                    presentationProgress: settle.currentPresentationProgress
+                    presentationProgress: presentationProgress
                 ),
-                lastPresentationProgress: settle.currentPresentationProgress
-            ))
+                lastPresentationProgress: presentationProgress,
+                fadeClockElapsed: min(
+                    settle.fadeClockElapsed,
+                    PlayerBrowserGridPinchPolicy.interactionFadeElapsed(
+                        matchingProgress: presentationProgress
+                    )
+                )
+            )
+            interaction.releaseMotionSamples.record(
+                scale: sample.scale,
+                timestamp: sample.timestamp
+            )
+            state = .interacting(interaction)
             // `beginInteraction` states that the pinch owns the grid again.
             // The renderer session is already live, but the settle handed
             // scrolling back and only this reclaims it.
-            return [.stopDisplayLink, .beginInteraction]
+            guard settle.plane != nil else {
+                return [.stopDisplayLink, .beginInteraction]
+            }
+            return [
+                .stopDisplayLink,
+                .beginInteraction,
+                .startInteractionFadeTicks
+            ]
 
         case .tracking, .interacting, .awaitingRenderer:
             return []
@@ -778,32 +912,21 @@ struct PlayerBrowserGridInteractionCoordinator {
         guard isValid(sample: sample) else { return [] }
 
         switch state {
-        case let .tracking(session):
+        case var .tracking(tracking):
             // The tracking scale is the recognizer's own cumulative ratio —
             // `handlePinchBegan` deliberately does not rebase it.
-            let rawEffectiveScale = sample.scale
-            guard rawEffectiveScale.isFinite,
-                  rawEffectiveScale > 0,
-                  abs(rawEffectiveScale - 1)
-                    > PlayerBrowserGridPinchPolicy.activationScaleDeviation else {
+            tracking.centroidY = sample.centroidY
+            tracking.releaseMotionSamples.record(
+                scale: sample.scale,
+                timestamp: sample.timestamp
+            )
+            guard var interaction = interaction(
+                activating: tracking,
+                scale: sample.scale
+            ) else {
+                state = .tracking(tracking)
                 return []
             }
-            let effectiveScale = PlayerBrowserGridPinchPolicy
-                .effectiveScaleAfterActivation(rawEffectiveScale)
-            var interaction = InteractionState(
-                session: session,
-                referenceScale: sample.scale / effectiveScale,
-                referenceCentroidY: sample.centroidY,
-                basePanDeltaY: 0,
-                panDeltaY: 0,
-                scale: effectiveScale,
-                activationAdjustment: PlayerBrowserGridPinchPolicy
-                    .activationTrimDivisor(rawEffectiveScale),
-                plane: nil,
-                adoptedSettlePhase: .none,
-                presentationProgressMap: nil,
-                lastPresentationProgress: 0
-            )
             var effects = [Effect.beginInteraction]
             effects += zoomEffects(interaction: &interaction)
             state = .interacting(interaction)
@@ -817,6 +940,10 @@ struct PlayerBrowserGridInteractionCoordinator {
                 + sample.centroidY
                 - interaction.referenceCentroidY
             interaction.adoptedSettlePhase.registerScale(effectiveScale)
+            interaction.releaseMotionSamples.record(
+                scale: sample.scale,
+                timestamp: sample.timestamp
+            )
             let effects = zoomEffects(interaction: &interaction)
             state = .interacting(interaction)
             return effects
@@ -826,9 +953,39 @@ struct PlayerBrowserGridInteractionCoordinator {
         }
     }
 
+    private func interaction(
+        activating tracking: TrackingState,
+        scale: CGFloat
+    ) -> InteractionState? {
+        guard scale.isFinite,
+              scale > 0,
+              abs(scale - 1)
+                > PlayerBrowserGridPinchPolicy.activationScaleDeviation else {
+            return nil
+        }
+        let effectiveScale = PlayerBrowserGridPinchPolicy
+            .effectiveScaleAfterActivation(scale)
+        var interaction = InteractionState(
+            session: tracking.session,
+            referenceScale: scale / effectiveScale,
+            referenceCentroidY: tracking.centroidY,
+            basePanDeltaY: 0,
+            panDeltaY: 0,
+            scale: effectiveScale,
+            activationAdjustment: PlayerBrowserGridPinchPolicy
+                .activationTrimDivisor(scale),
+            plane: nil,
+            adoptedSettlePhase: .none,
+            presentationProgressMap: nil,
+            lastPresentationProgress: 0
+        )
+        interaction.releaseMotionSamples = tracking.releaseMotionSamples
+        return interaction
+    }
+
     private func zoomEffects(interaction: inout InteractionState) -> [Effect] {
         var effects = [Effect]()
-        var replacedLivePlane = false
+        var geometryPresentationBeforePlaneChanges: CGFloat?
         let renderScale = PlayerBrowserGridPinchPolicy.rubberBandedScale(
             interaction.scale,
             minimumRatio: interaction.session.minimumRatio,
@@ -868,19 +1025,38 @@ struct PlayerBrowserGridInteractionCoordinator {
                    toMode: target.mode,
                    itemWidthRatio: target.itemWidthRatio
                ) {
-                replacedLivePlane = interaction.plane != nil
+                if previousPlane != nil {
+                    geometryPresentationBeforePlaneChanges = interaction
+                        .presentationProgress(
+                            for: adoptedSettle.renderedProgress(
+                                direct: Self.crossfadeProgress(
+                                    scale: renderScale,
+                                    plane: previousPlane
+                                )
+                            ),
+                            handoffProgress: adoptedSettle.handoffProgress
+                        )
+                    effects.append(.coverPlaneChange)
+                }
                 interaction.plane = plane
                 interaction.adoptedSettlePhase = .none
+                interaction.fadeClockElapsed = 0
+                interaction.lastFadeTickTime = nil
                 effects.append(.installPlane(plane))
+                effects.append(.startInteractionFadeTicks)
             }
 
         case .discard:
             if let plane = interaction.plane {
+                effects.append(.coverPlaneChange)
                 interaction.plane = nil
                 interaction.adoptedSettlePhase = .none
                 interaction.presentationProgressMap = nil
                 interaction.lastPresentationProgress = 0
+                interaction.fadeClockElapsed = 0
+                interaction.lastFadeTickTime = nil
                 effects.append(.discardPlane(id: plane.id))
+                effects.append(.stopInteractionFadeTicks)
             }
         }
 
@@ -899,25 +1075,21 @@ struct PlayerBrowserGridInteractionCoordinator {
                     plane: plane
                 )
             )
-            if replacedLivePlane {
-                let outgoingPresentationProgress = interaction
-                    .presentationProgress(
-                        for: adoptedSettle.renderedProgress(
-                            direct: Self.crossfadeProgress(
-                                scale: renderScale,
-                                plane: previousPlane
-                            )
-                        ),
-                        handoffProgress: adoptedSettle.handoffProgress
-                    )
+            if let geometryPresentationBeforePlaneChanges {
                 interaction.presentationProgressMap = .liveRetarget(
                     geometryProgress: settleProgress,
-                    presentationProgress: outgoingPresentationProgress
+                    presentationProgress:
+                        geometryPresentationBeforePlaneChanges
                 )
             }
-            let presentationProgress = interaction.presentationProgress(
-                for: settleProgress,
-                handoffProgress: renderingSettle.handoffProgress
+            let presentationProgress = max(
+                interaction.presentationProgress(
+                    for: settleProgress,
+                    handoffProgress: renderingSettle.handoffProgress
+                ),
+                PlayerBrowserGridPinchPolicy.interactionFadeTimeProgress(
+                    elapsed: interaction.fadeClockElapsed
+                )
             )
             interaction.lastPresentationProgress = presentationProgress
             effects.append(.renderSettle(
@@ -1081,56 +1253,109 @@ struct PlayerBrowserGridInteractionCoordinator {
     }
 
     private mutating func handlePinchEnded(
-        reduceMotion: Bool
+        scale: CGFloat,
+        reduceMotion: Bool,
+        timestamp: TimeInterval
     ) -> [Effect] {
         switch state {
         case .idle, .awaitingRenderer:
             return []
 
-        case .tracking:
-            state = .idle
-            return []
+        case var .tracking(tracking):
+            tracking.releaseMotionSamples.record(
+                scale: scale,
+                timestamp: timestamp
+            )
+            guard var interaction = interaction(
+                activating: tracking,
+                scale: scale
+            ) else {
+                state = .idle
+                return []
+            }
+            var effects = [Effect.beginInteraction]
+            effects += zoomEffects(interaction: &interaction)
+            return effects + release(
+                interaction: interaction,
+                reduceMotion: reduceMotion,
+                timestamp: timestamp
+            )
 
         case let .settling(settle):
             return settleSynchronously(settle, settlesPosition: true)
 
-        case let .interacting(interaction):
-            let adoptedSettle = interaction.adoptedSettlePhase.resolve(
-                scale: interaction.scale,
-                plane: interaction.plane
+        case var .interacting(interaction):
+            var scaleChanged = false
+            if scale.isFinite, scale > 0 {
+                let effectiveScale = scale / interaction.referenceScale
+                if effectiveScale.isFinite, effectiveScale > 0 {
+                    scaleChanged = effectiveScale != interaction.scale
+                    interaction.scale = effectiveScale
+                    interaction.adoptedSettlePhase.registerScale(effectiveScale)
+                }
+            }
+            interaction.releaseMotionSamples.record(
+                scale: scale,
+                timestamp: timestamp
             )
-            let releaseContext = adoptedSettle.releaseContext
-            let selectedTargetMode: MobileCollectionBrowserGridMode
-            // Do not replace a plane while its adopted cell corrections are
-            // still visibly handing off to direct manipulation.
-            if let releaseContext {
-                selectedTargetMode = releaseContext.targetMode
-            } else if let targetIndex = PlayerBrowserGridPinchPolicy
-                .settleTargetIndex(
+            let effects = scaleChanged
+                ? zoomEffects(interaction: &interaction)
+                : []
+            return effects + release(
+                interaction: interaction,
+                reduceMotion: reduceMotion,
+                timestamp: timestamp
+            )
+        }
+    }
+
+    private mutating func release(
+        interaction: InteractionState,
+        reduceMotion: Bool,
+        timestamp: TimeInterval
+    ) -> [Effect] {
+        let adoptedSettle = interaction.adoptedSettlePhase.resolve(
+            scale: interaction.scale,
+            plane: interaction.plane
+        )
+        let releaseContext = adoptedSettle.releaseContext
+        let selectedTargetMode: MobileCollectionBrowserGridMode
+        // Do not replace a plane while its adopted cell corrections are
+        // still visibly handing off to direct manipulation.
+        if let releaseContext {
+            selectedTargetMode = releaseContext.targetMode
+        } else if let targetIndex = PlayerBrowserGridPinchPolicy
+            .settleTargetIndex(
+                scale: PlayerBrowserGridPinchPolicy.projectedReleaseScale(
                     scale: interaction.scale
                         * interaction.activationAdjustment,
+                    logScaleRate: interaction.releaseMotionSamples
+                        .logScaleRate(at: timestamp),
                     itemWidthRatios: interaction.session.modeRatios.map(
                         \.itemWidthRatio
                     )
-                ) {
-                selectedTargetMode = interaction.session
-                    .modeRatios[targetIndex].mode
-            } else {
-                selectedTargetMode = interaction.session.initialMode
-            }
-            let targetMode = releaseTargetMode(
-                selectedTargetMode,
-                interaction: interaction,
-                adoptedSettle: adoptedSettle
-            )
-            return beginSettle(
-                interaction: interaction,
-                targetMode: targetMode,
-                reduceMotion: reduceMotion,
-                usesMenuFallback: releaseContext?.usesMenuFallback ?? false,
-                adoptedSettle: adoptedSettle
-            )
+                ),
+                itemWidthRatios: interaction.session.modeRatios.map(
+                    \.itemWidthRatio
+                )
+            ) {
+            selectedTargetMode = interaction.session
+                .modeRatios[targetIndex].mode
+        } else {
+            selectedTargetMode = interaction.session.initialMode
         }
+        let targetMode = releaseTargetMode(
+            selectedTargetMode,
+            interaction: interaction,
+            adoptedSettle: adoptedSettle
+        )
+        return beginSettle(
+            interaction: interaction,
+            targetMode: targetMode,
+            reduceMotion: reduceMotion,
+            usesMenuFallback: releaseContext?.usesMenuFallback ?? false,
+            adoptedSettle: adoptedSettle
+        )
     }
 
     private func releaseTargetMode(
@@ -1150,6 +1375,9 @@ struct PlayerBrowserGridInteractionCoordinator {
             maximumRatio: interaction.session.maximumRatio
         )
         var coverageSafeTargetMode = selectedTargetMode
+        if selectedRatio > 1, renderScale < 1 {
+            return interaction.session.initialMode
+        }
         if selectedRatio < 1, selectedRatio > renderScale,
            let coverageSafeTarget = interaction.session.nearestTarget(
                logScale: log(interaction.scale),
@@ -1215,6 +1443,7 @@ struct PlayerBrowserGridInteractionCoordinator {
             && adoptedSettle.context?.targetMode != targetMode
         var effects = emitsHaptic ? [Effect.selectionHaptic] : []
         var plane = interaction.plane
+        var fadeClockElapsed = interaction.fadeClockElapsed
         var replacementInitialProgress: CGFloat?
         let initialPresentationProgress = interaction.lastPresentationProgress
         let fromScale = PlayerBrowserGridPinchPolicy.rubberBandedScale(
@@ -1226,6 +1455,7 @@ struct PlayerBrowserGridInteractionCoordinator {
         // A plane already aimed at `targetMode` was built from that mode's
         // ratio, so reaching it here means the lookup below cannot fail.
         if commits, plane?.toMode != targetMode {
+            let replacesLivePlane = plane != nil
             guard let targetRatio = session.ratio(for: targetMode),
                   let installedPlane = Plane(
                       fromMode: session.initialMode,
@@ -1239,11 +1469,15 @@ struct PlayerBrowserGridInteractionCoordinator {
                 )]
             }
             plane = installedPlane
+            fadeClockElapsed = 0
             let initialProgress = Self.crossfadeProgress(
                 scale: fromScale,
                 plane: installedPlane
             )
             replacementInitialProgress = initialProgress
+            if replacesLivePlane {
+                effects.append(.coverPlaneChange)
+            }
             effects.append(.installPlane(installedPlane))
             effects.append(.renderSettle(
                 id: installedPlane.id,
@@ -1321,6 +1555,7 @@ struct PlayerBrowserGridInteractionCoordinator {
             presentationSpring: needsPresentationSpring
                 ? SettleProgressSpring(offset: presentationSpringOffset)
                 : nil,
+            fadeClockElapsed: fadeClockElapsed,
             // The clock starts at the first display-link tick — anchoring it
             // to the release event would integrate the event-delivery latency
             // as a visible first-frame jump.
@@ -1370,6 +1605,9 @@ struct PlayerBrowserGridInteractionCoordinator {
             return effects
         }
 
+        if plane != nil {
+            effects.append(.coverPlaneChange)
+        }
         effects.append(.renderZoom(
             planeId: plane?.id,
             scale: 1,
@@ -1405,6 +1643,46 @@ struct PlayerBrowserGridInteractionCoordinator {
         return []
     }
 
+    private mutating func handleInteractionFadeTick(
+        timestamp: TimeInterval
+    ) -> [Effect] {
+        guard case var .interacting(interaction) = state else { return [] }
+        guard interaction.plane != nil else {
+            interaction.lastFadeTickTime = nil
+            state = .interacting(interaction)
+            return [.stopInteractionFadeTicks]
+        }
+        let tickTime = sanitizedTimestamp(timestamp)
+        let deltaTime = CGFloat(
+            max(tickTime - (interaction.lastFadeTickTime ?? tickTime), 0)
+        )
+        interaction.lastFadeTickTime = tickTime
+        guard PlayerBrowserGridPinchPolicy.interactionFadeTimeProgress(
+            elapsed: interaction.fadeClockElapsed
+        ) < 1 else {
+            state = .interacting(interaction)
+            return [.stopInteractionFadeTicks]
+        }
+        interaction.fadeClockElapsed += deltaTime
+        let presentationProgress = max(
+            interaction.lastPresentationProgress,
+            PlayerBrowserGridPinchPolicy.interactionFadeTimeProgress(
+                elapsed: interaction.fadeClockElapsed
+            )
+        )
+        let previousPresentationProgress = interaction.lastPresentationProgress
+        interaction.lastPresentationProgress = presentationProgress
+        state = .interacting(interaction)
+        guard presentationProgress != previousPresentationProgress,
+              let plane = interaction.plane else {
+            return []
+        }
+        return [.renderInteractionFade(
+            id: plane.id,
+            presentationProgress: presentationProgress
+        )]
+    }
+
     private mutating func handleSettleTick(
         timestamp: TimeInterval
     ) -> [Effect] {
@@ -1414,6 +1692,10 @@ struct PlayerBrowserGridInteractionCoordinator {
             max(tickTime - (settle.lastTickTime ?? tickTime), 0)
         )
         settle.lastTickTime = tickTime
+        settle.fadeClockElapsed = min(
+            settle.fadeClockElapsed + deltaTime,
+            PlayerBrowserGridPinchPolicy.interactionFadeDuration
+        )
         let stepped = PlayerBrowserGridPinchPolicy.settleSpringStep(
             logOffset: settle.logOffset,
             logVelocity: settle.logVelocity,
@@ -1643,6 +1925,7 @@ struct PlayerBrowserGridInteractionCoordinator {
         sample.scale.isFinite
             && sample.scale > 0
             && sample.centroidY.isFinite
+            && sample.timestamp.isFinite
     }
 
     private func sanitizedTimestamp(_ timestamp: TimeInterval) -> TimeInterval {

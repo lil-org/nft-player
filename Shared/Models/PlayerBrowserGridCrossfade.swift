@@ -86,6 +86,33 @@ enum PlayerBrowserGridPhantomShapeCoverage: Equatable {
     }
 }
 
+private func playerBrowserGridItemPrecedes(
+    _ lhs: Int,
+    _ rhs: Int,
+    anchor: Int
+) -> Bool {
+    let lhsDistance = lhs >= anchor ? lhs - anchor : anchor - lhs
+    let rhsDistance = rhs >= anchor ? rhs - anchor : anchor - rhs
+    if lhsDistance == rhsDistance {
+        return lhs < rhs
+    }
+    return lhsDistance < rhsDistance
+}
+
+private func playerBrowserGridPrioritizedItemIndices(
+    candidateItemIndices: [Int],
+    anchorItemIndex: Int?,
+    maximumCount: Int
+) -> [Int] {
+    let candidates = Set(candidateItemIndices.filter { $0 >= 0 }).sorted()
+    guard maximumCount > 0, !candidates.isEmpty else { return [] }
+    let anchor = anchorItemIndex.flatMap { $0 >= 0 ? $0 : nil }
+        ?? candidates[candidates.count / 2]
+    return Array(candidates.sorted { lhs, rhs in
+        playerBrowserGridItemPrecedes(lhs, rhs, anchor: anchor)
+    }.prefix(maximumCount))
+}
+
 struct PlayerBrowserGridDetailPlan: Equatable {
     let itemIndices: [Int]
 
@@ -94,21 +121,11 @@ struct PlayerBrowserGridDetailPlan: Equatable {
         anchorItemIndex: Int?,
         maximumCount: Int
     ) {
-        let candidates = Set(candidateItemIndices.filter { $0 >= 0 }).sorted()
-        guard maximumCount > 0, candidates.count > maximumCount else {
-            itemIndices = maximumCount > 0 ? candidates : []
-            return
-        }
-        let anchor = anchorItemIndex.flatMap { $0 >= 0 ? $0 : nil }
-            ?? candidates[candidates.count / 2]
-        itemIndices = Array(candidates.sorted { lhs, rhs in
-            let lhsDistance = lhs >= anchor ? lhs - anchor : anchor - lhs
-            let rhsDistance = rhs >= anchor ? rhs - anchor : anchor - rhs
-            if lhsDistance == rhsDistance {
-                return lhs < rhs
-            }
-            return lhsDistance < rhsDistance
-        }.prefix(maximumCount)).sorted()
+        itemIndices = playerBrowserGridPrioritizedItemIndices(
+            candidateItemIndices: candidateItemIndices,
+            anchorItemIndex: anchorItemIndex,
+            maximumCount: maximumCount
+        ).sorted()
     }
 }
 
@@ -118,8 +135,19 @@ enum PlayerBrowserGridRenderBudget {
 }
 
 struct PlayerBrowserGridCarryoverSource<Content> {
+    let destinationItem: Int?
     let viewportRect: CGRect
     let content: Content?
+
+    init(
+        destinationItem: Int? = nil,
+        viewportRect: CGRect,
+        content: Content?
+    ) {
+        self.destinationItem = destinationItem
+        self.viewportRect = viewportRect
+        self.content = content
+    }
 }
 
 enum PlayerBrowserGridGeometry {
@@ -157,6 +185,18 @@ enum PlayerBrowserGridCarryoverSelection {
             anchorItemIndex: anchorItemIndex,
             maximumCount: PlayerBrowserGridRenderBudget.maximumVisualCellCount
         ).itemIndices)
+    }
+
+    static func prioritizedItemIndices(
+        candidateItemIndices: [Int],
+        anchorItemIndex: Int?
+    ) -> [Int] {
+        playerBrowserGridPrioritizedItemIndices(
+            candidateItemIndices: candidateItemIndices,
+            anchorItemIndex: anchorItemIndex,
+            maximumCount:
+                PlayerBrowserGridRenderBudget.maximumVisualCellCount
+        )
     }
 
     static func bestSource<Content>(
@@ -207,6 +247,7 @@ struct PlayerBrowserGridPhantomPlan: Equatable {
     let shapeCoverage: PlayerBrowserGridPhantomShapeCoverage?
 
     static let renderingComplexityLimit = 512
+    static let repeatedRowInstanceLimit = 512
     private static let repeatedShapeCandidateThreshold =
         renderingComplexityLimit
     private static let repeatedShapeExclusionLimit =
@@ -251,7 +292,7 @@ struct PlayerBrowserGridPhantomPlan: Equatable {
             self.cellCandidates = cellCandidates
             shapeCandidates = []
             if let repeatedRows = Self.repeatedShapeRows(context: context),
-               repeatedRows.rowCount <= Self.renderingComplexityLimit {
+               repeatedRows.rowCount <= Self.repeatedRowInstanceLimit {
                 shapeCoverage = .repeatedRows(
                     PlayerBrowserGridRepeatedPhantomRows(
                         firstRowFrames: repeatedRows.firstRowFrames,

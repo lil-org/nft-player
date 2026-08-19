@@ -73,9 +73,83 @@ enum PlayerBrowserGridPinchPolicy {
         return 1 + overshootMaximumDeviation * tanh(log(effectiveScale) * 2)
     }
 
-    /// Release velocity is deliberately unused. Each adjacent ladder boundary
-    /// commits after one fifth of its log-distance, so deep physical travel can
-    /// cross modes while a flick cannot project across them.
+    /// Photos completes the crossfade on a clock even when the fingers stop
+    /// moving mid-transition: measured alpha follows
+    /// `max(scale-progress, time-progress)`, the time channel finishing in
+    /// ~713ms of plane lifetime with an ease-in shape. A fast pinch's scale
+    /// channel outruns this; the clock only shows when the pinch stalls.
+    static let interactionFadeDuration: CGFloat = 0.713
+
+    static func interactionFadeTimeProgress(elapsed: CGFloat) -> CGFloat {
+        guard elapsed.isFinite, elapsed > 0, interactionFadeDuration > 0 else {
+            return 0
+        }
+        let linearProgress = min(elapsed / interactionFadeDuration, 1)
+        return linearProgress * linearProgress
+    }
+
+    static func interactionFadeElapsed(
+        matchingProgress progress: CGFloat
+    ) -> CGFloat {
+        guard progress.isFinite, progress > 0, interactionFadeDuration > 0 else {
+            return 0
+        }
+        return interactionFadeDuration * sqrt(min(progress, 1))
+    }
+
+    /// Photos ignores flick magnitude — a violent flick never slams across
+    /// distant modes — but a release that is STILL MOVING toward the next
+    /// mode commits across its boundary (measured: an out-then-back pinch
+    /// released at ~1.05 with inward motion commits one step outward).
+    /// The projection is capped at the adjacent mode beyond the current
+    /// positional target, so motion direction seals at most one boundary.
+    static let releaseProjectionInterval: CGFloat = 0.18
+    /// The recognizer's last movement can be long before the lift: a
+    /// stationary tail must release positionally, not on stale motion.
+    static let releaseMotionHoldTimeout: TimeInterval = 0.1
+    /// The release rate spans this much recent sample history, so a brief
+    /// decelerating tail cannot mask an otherwise-moving release.
+    static let releaseMotionRateWindow: TimeInterval = 0.1
+    static let releaseMotionLogScaleNoiseFloor: CGFloat = 0.000_2
+
+    static func projectedReleaseScale(
+        scale: CGFloat,
+        logScaleRate: CGFloat,
+        itemWidthRatios: [CGFloat]
+    ) -> CGFloat {
+        guard scale.isFinite, scale > 0,
+              logScaleRate.isFinite, logScaleRate != 0 else {
+            return scale
+        }
+        let logScale = log(scale)
+        var projected = logScale
+            + logScaleRate * releaseProjectionInterval
+        guard let currentTargetIndex = settleTargetIndex(
+            scale: scale,
+            itemWidthRatios: itemWidthRatios
+        ) else {
+            return scale
+        }
+        let orderedIndices = itemWidthRatios.indices.sorted {
+            itemWidthRatios[$0] < itemWidthRatios[$1]
+        }
+        guard let currentPosition = orderedIndices.firstIndex(
+            of: currentTargetIndex
+        ) else {
+            return scale
+        }
+        let targetPosition = currentPosition + (logScaleRate > 0 ? 1 : -1)
+        guard orderedIndices.indices.contains(targetPosition) else { return scale }
+        let boundaryCap = log(itemWidthRatios[orderedIndices[targetPosition]])
+        projected = logScaleRate > 0
+            ? min(projected, boundaryCap)
+            : max(projected, boundaryCap)
+        return exp(projected)
+    }
+
+    /// Positional ladder walk. Each adjacent boundary commits after one fifth
+    /// of its log-distance, so deep physical travel can cross modes while
+    /// flick magnitude cannot project across them.
     static func settleTargetIndex(
         scale: CGFloat,
         itemWidthRatios: [CGFloat]

@@ -201,7 +201,9 @@ struct MobilePlayerBrowserLayout: Equatable {
     }
 
     static let defaultColumnCount = 3
-    static let itemSpacing: CGFloat = 1
+    /// Photos' grid seam, measured at 5 device pixels on 3x at every zoom
+    /// level and held constant through transitions.
+    static let itemSpacing: CGFloat = 5.0 / 3.0
     static let maximumAspectSampleCount = 15
     static let prefetchItemBudget = 15
     static let preferredPrefetchRowCount = 5
@@ -241,18 +243,21 @@ struct MobilePlayerBrowserLayout: Equatable {
 
     static func itemWidth(
         viewportSize: CGSize,
-        columnCount: Int
+        columnCount: Int,
+        displayScale: CGFloat = 3
     ) -> CGFloat? {
         horizontalMetrics(
             viewportSize: viewportSize,
-            columnCount: columnCount
+            columnCount: columnCount,
+            displayScale: displayScale
         )?.itemWidth
     }
 
     static func viewportTransition(
         previousViewportSize: CGSize,
         viewportSize: CGSize,
-        needsSafeAreaRefresh: Bool,
+        needsGeometryRefresh: Bool,
+        displayScale: CGFloat = 3,
         topContentInset: CGFloat = 0,
         bottomContentInset: CGFloat = 0,
         aspectProfile: MobilePlayerBrowserAspectProfile,
@@ -263,7 +268,7 @@ struct MobilePlayerBrowserLayout: Equatable {
         let needsInitialLayout = previousViewportSize == .zero
         let sizeChanged = !needsInitialLayout
             && previousViewportSize != viewportSize
-        let geometryChanged = sizeChanged || needsSafeAreaRefresh
+        let geometryChanged = sizeChanged || needsGeometryRefresh
         let needsLayout = needsInitialLayout || geometryChanged
 
         return MobilePlayerBrowserViewportTransition(
@@ -277,6 +282,7 @@ struct MobilePlayerBrowserLayout: Equatable {
             layout: needsLayout
                 ? MobilePlayerBrowserLayout(
                     viewportSize: viewportSize,
+                    displayScale: displayScale,
                     topContentInset: topContentInset,
                     bottomContentInset: bottomContentInset,
                     aspectProfile: aspectProfile
@@ -339,13 +345,15 @@ struct MobilePlayerBrowserLayout: Equatable {
 
     init?(
         viewportSize: CGSize,
+        displayScale: CGFloat = 3,
         topContentInset: CGFloat = 0,
         bottomContentInset: CGFloat = 0,
         aspectProfile: MobilePlayerBrowserAspectProfile
     ) {
         guard let horizontalMetrics = Self.horizontalMetrics(
             viewportSize: viewportSize,
-            columnCount: aspectProfile.columnCount
+            columnCount: aspectProfile.columnCount,
+            displayScale: displayScale
         ) else {
             return nil
         }
@@ -665,7 +673,8 @@ struct MobilePlayerBrowserLayout: Equatable {
 
     private static func horizontalMetrics(
         viewportSize: CGSize,
-        columnCount: Int
+        columnCount: Int,
+        displayScale: CGFloat
     ) -> HorizontalMetrics? {
         guard columnCount > 0,
               viewportSize.width.isFinite,
@@ -677,9 +686,9 @@ struct MobilePlayerBrowserLayout: Equatable {
         let columnMultiplier = viewportSize.width > viewportSize.height ? 2 : 1
         let (effectiveColumnCount, overflowed) =
             columnCount.multipliedReportingOverflow(by: columnMultiplier)
-        let interItemSpacing = columnCount == 1
-            ? itemSpacing * 2
-            : itemSpacing
+        let interItemSpacing = integralPixelItemSpacing(
+            displayScale: displayScale
+        )
         guard !overflowed,
               viewportSize.width
                 > interItemSpacing * CGFloat(effectiveColumnCount - 1) else {
@@ -694,6 +703,19 @@ struct MobilePlayerBrowserLayout: Equatable {
             columnCount: effectiveColumnCount,
             interItemSpacing: interItemSpacing
         )
+    }
+
+    /// Rounds the gap length, not individual cell edges. A single uniform
+    /// pitch is required by grid transitions, so some edges remain fractional.
+    private static func integralPixelItemSpacing(
+        displayScale: CGFloat
+    ) -> CGFloat {
+        guard displayScale.isFinite, displayScale > 0 else {
+            return itemSpacing
+        }
+        let pixelSpacing = itemSpacing * displayScale
+        guard pixelSpacing.isFinite else { return itemSpacing }
+        return max(pixelSpacing.rounded(), 1) / displayScale
     }
 }
 
@@ -791,6 +813,81 @@ struct MobilePlayerBrowserGridTransition {
             return itemWidthRatio
         }
         return toPitch / fromPitch
+    }
+
+    /// The horizontal fixed point of a boundary-preserving column transform,
+    /// nearest to the pinch. The only affine maps that carry every source
+    /// column boundary onto a destination column boundary for the whole
+    /// transition are `x' = r·x + m·p_dest` for integer column shifts `m`;
+    /// their fixed points `m·p_dest / (1 − r)` quantize to roughly the left
+    /// edge, center, and right edge of the viewport. Photos scales about the
+    /// one nearest the fingers (measured: a left-edge pinch keeps seam
+    /// positions at exact multiples of the growing pitch from x = 0), which
+    /// is what keeps seams from widening and columns from sliding in from
+    /// the screen edges.
+    static func boundaryPreservingPivotX(
+        anchorX: CGFloat,
+        columnPitchRatio: CGFloat,
+        destinationColumnPitch: CGFloat,
+        viewportWidth: CGFloat
+    ) -> CGFloat {
+        guard anchorX.isFinite,
+              columnPitchRatio.isFinite,
+              destinationColumnPitch.isFinite,
+              destinationColumnPitch > 0,
+              viewportWidth.isFinite,
+              viewportWidth >= 0,
+              abs(1 - columnPitchRatio) > 0.000_1 else {
+            return anchorX.isFinite ? anchorX : 0
+        }
+        let fixedPointSpacing = destinationColumnPitch
+            / (1 - columnPitchRatio)
+        let boundedAnchorX = min(max(anchorX, 0), viewportWidth)
+        let nearestShift = (boundedAnchorX / fixedPointSpacing).rounded()
+        let pivotX = nearestShift * fixedPointSpacing
+        guard pivotX.isFinite else { return anchorX }
+        return pivotX
+    }
+
+    /// The integer lattice shift a pinned transition applies to item
+    /// coordinates: destination column = source column + `columns`,
+    /// destination row = source row + `rows`. Photos assigns transition
+    /// content by exactly this shift — a bijection on the visible cells —
+    /// never by proximity, which aliases two neighbors onto one item at the
+    /// lattice edges. `mappedLogicalCenterOfItemZero` is item 0's frame
+    /// center pushed through the pinned lattice map (and un-mirrored back
+    /// into logical layout space). A mapped center that lands away from
+    /// every destination item center means the lattices are not pinned
+    /// boundary-to-boundary, and the arithmetic shift would be coherent but
+    /// wrong — callers fall back to per-cell matching there.
+    static func latticeItemShift(
+        fromLayout: MobilePlayerBrowserLayout,
+        toLayout: MobilePlayerBrowserLayout,
+        mappedLogicalCenterOfItemZero point: CGPoint
+    ) -> (columns: Int, rows: Int)? {
+        guard fromLayout.uniformItemSize != nil,
+              let toItemSize = toLayout.uniformItemSize,
+              fromLayout.itemCount > fromLayout.columnCount,
+              toLayout.itemCount > toLayout.columnCount,
+              let referenceFrame = toLayout.itemFrame(at: 0),
+              point.x.isFinite,
+              point.y.isFinite else {
+            return nil
+        }
+        let columnPitch = toItemSize.width + toLayout.interItemSpacing
+        let rowPitch = toItemSize.height + toLayout.interItemSpacing
+        guard columnPitch > 0, rowPitch > 0 else { return nil }
+        let columnOffset = (point.x - referenceFrame.midX) / columnPitch
+        let rowOffset = (point.y - referenceFrame.midY) / rowPitch
+        let columns = columnOffset.rounded()
+        let rows = rowOffset.rounded()
+        guard abs(columnOffset - columns) < 0.35,
+              abs(rowOffset - rows) < 0.35,
+              let columnShift = Int(exactly: columns),
+              let rowShift = Int(exactly: rows) else {
+            return nil
+        }
+        return (columnShift, rowShift)
     }
 
     /// Pins the two lattices together at the anchor item while capturing their

@@ -10,6 +10,77 @@ final class MobilePlayerBrowserLayoutTests: XCTestCase {
         XCTAssertEqual(MobilePlayerBrowserLayout.defaultColumnCount, 3)
     }
 
+    func testItemSpacingHasIntegralDevicePixelLength() throws {
+        for (displayScale, expectedSpacing) in [
+            (CGFloat(1), CGFloat(2)),
+            (CGFloat(2), CGFloat(1.5)),
+            (CGFloat(3), CGFloat(5.0 / 3.0)),
+        ] {
+            let layout = try XCTUnwrap(MobilePlayerBrowserLayout(
+                viewportSize: CGSize(width: 390, height: 844),
+                displayScale: displayScale,
+                aspectProfile: MobilePlayerBrowserAspectProfile(
+                    itemCount: 12,
+                    uniformImageSize: CGSize(width: 1, height: 1)
+                )
+            ))
+
+            XCTAssertEqual(
+                layout.interItemSpacing,
+                expectedSpacing,
+                accuracy: 0.000_001
+            )
+            XCTAssertEqual(
+                layout.interItemSpacing * displayScale,
+                (layout.interItemSpacing * displayScale).rounded(),
+                accuracy: 0.000_001
+            )
+        }
+    }
+
+    func testFractionalPixelCellWidthsKeepUniformPitchAndFillViewport() throws {
+        let displayScale = CGFloat(2)
+        let viewportSize = CGSize(width: 390, height: 844)
+        let layout = try XCTUnwrap(MobilePlayerBrowserLayout(
+            viewportSize: viewportSize,
+            displayScale: displayScale,
+            aspectProfile: MobilePlayerBrowserAspectProfile(
+                itemCount: 10,
+                uniformImageSize: CGSize(width: 1, height: 1),
+                columnCount: 5
+            )
+        ))
+        let frames = try (0..<layout.columnCount).map {
+            try XCTUnwrap(layout.itemFrame(at: $0))
+        }
+        let firstFrame = try XCTUnwrap(frames.first)
+        let lastFrame = try XCTUnwrap(frames.last)
+        let pitch = layout.itemWidth + layout.interItemSpacing
+
+        XCTAssertNotEqual(
+            layout.itemWidth * displayScale,
+            (layout.itemWidth * displayScale).rounded()
+        )
+        for column in 1..<frames.count {
+            XCTAssertEqual(
+                frames[column].minX - frames[column - 1].minX,
+                pitch,
+                accuracy: 0.000_001
+            )
+            XCTAssertEqual(
+                frames[column].minX - frames[column - 1].maxX,
+                layout.interItemSpacing,
+                accuracy: 0.000_001
+            )
+        }
+        XCTAssertEqual(firstFrame.minX, 0)
+        XCTAssertEqual(
+            lastFrame.maxX,
+            viewportSize.width,
+            accuracy: 0.000_001
+        )
+    }
+
     func testVisualGeometryMirrorsFramesAndLookupForEveryGridMode() throws {
         let viewportSize = CGSize(width: 390, height: 844)
         for mode in MobileCollectionBrowserGridMode.allCases {
@@ -528,7 +599,7 @@ final class MobilePlayerBrowserLayoutTests: XCTestCase {
         let portraitTransition = MobilePlayerBrowserLayout.viewportTransition(
             previousViewportSize: .zero,
             viewportSize: portraitViewportSize,
-            needsSafeAreaRefresh: true,
+            needsGeometryRefresh: true,
             topContentInset: 59,
             bottomContentInset: 34,
             aspectProfile: aspectProfile,
@@ -538,7 +609,7 @@ final class MobilePlayerBrowserLayoutTests: XCTestCase {
         let rotationTransition = MobilePlayerBrowserLayout.viewportTransition(
             previousViewportSize: portraitViewportSize,
             viewportSize: landscapeViewportSize,
-            needsSafeAreaRefresh: false,
+            needsGeometryRefresh: false,
             bottomContentInset: 21,
             aspectProfile: aspectProfile,
             forcedTokenIndex: nil,
@@ -751,7 +822,7 @@ final class MobilePlayerBrowserLayoutTests: XCTestCase {
         let transition = MobilePlayerBrowserLayout.viewportTransition(
             previousViewportSize: .zero,
             viewportSize: viewportSize,
-            needsSafeAreaRefresh: false,
+            needsGeometryRefresh: false,
             aspectProfile: aspectProfile,
             forcedTokenIndex: nil,
             focusedTokenIndex: 4
@@ -973,7 +1044,7 @@ final class MobilePlayerBrowserLayoutTests: XCTestCase {
         let portraitTransition = MobilePlayerBrowserLayout.viewportTransition(
             previousViewportSize: .zero,
             viewportSize: portraitSize,
-            needsSafeAreaRefresh: true,
+            needsGeometryRefresh: true,
             topContentInset: 59,
             bottomContentInset: 34,
             aspectProfile: aspectProfile,
@@ -983,7 +1054,7 @@ final class MobilePlayerBrowserLayoutTests: XCTestCase {
         let rotationTransition = MobilePlayerBrowserLayout.viewportTransition(
             previousViewportSize: portraitSize,
             viewportSize: landscapeSize,
-            needsSafeAreaRefresh: false,
+            needsGeometryRefresh: false,
             bottomContentInset: 21,
             aspectProfile: aspectProfile,
             forcedTokenIndex: nil,
@@ -992,7 +1063,7 @@ final class MobilePlayerBrowserLayoutTests: XCTestCase {
         let returnTransition = MobilePlayerBrowserLayout.viewportTransition(
             previousViewportSize: landscapeSize,
             viewportSize: portraitSize,
-            needsSafeAreaRefresh: false,
+            needsGeometryRefresh: false,
             topContentInset: 59,
             bottomContentInset: 34,
             aspectProfile: aspectProfile,
@@ -1038,7 +1109,7 @@ final class MobilePlayerBrowserLayoutTests: XCTestCase {
         let portraitTransition = MobilePlayerBrowserLayout.viewportTransition(
             previousViewportSize: .zero,
             viewportSize: portraitSize,
-            needsSafeAreaRefresh: true,
+            needsGeometryRefresh: true,
             aspectProfile: aspectProfile,
             forcedTokenIndex: nil,
             focusedTokenIndex: 4
@@ -1046,7 +1117,7 @@ final class MobilePlayerBrowserLayoutTests: XCTestCase {
         let rotationTransition = MobilePlayerBrowserLayout.viewportTransition(
             previousViewportSize: portraitSize,
             viewportSize: landscapeSize,
-            needsSafeAreaRefresh: false,
+            needsGeometryRefresh: false,
             aspectProfile: aspectProfile,
             forcedTokenIndex: nil,
             focusedTokenIndex: 4
@@ -1059,7 +1130,7 @@ final class MobilePlayerBrowserLayoutTests: XCTestCase {
         XCTAssertEqual(landscape.columnCount, 2)
         XCTAssertEqual(
             portrait.interItemSpacing,
-            MobilePlayerBrowserLayout.itemSpacing * 2
+            MobilePlayerBrowserLayout.itemSpacing
         )
         XCTAssertEqual(landscape.interItemSpacing, portrait.interItemSpacing)
         XCTAssertEqual(portrait.rowCount, 7)
@@ -1175,7 +1246,7 @@ final class MobilePlayerBrowserLayoutTests: XCTestCase {
         let interactionTransition = MobilePlayerBrowserLayout.viewportTransition(
             previousViewportSize: viewportSize,
             viewportSize: viewportSize,
-            needsSafeAreaRefresh: true,
+            needsGeometryRefresh: true,
             aspectProfile: aspectProfile,
             forcedTokenIndex: 12,
             interactionAnchorTokenIndex: 24,
@@ -1184,7 +1255,7 @@ final class MobilePlayerBrowserLayoutTests: XCTestCase {
         let forcedTransition = MobilePlayerBrowserLayout.viewportTransition(
             previousViewportSize: viewportSize,
             viewportSize: viewportSize,
-            needsSafeAreaRefresh: true,
+            needsGeometryRefresh: true,
             aspectProfile: aspectProfile,
             forcedTokenIndex: 12,
             focusedTokenIndex: 37
@@ -1192,7 +1263,7 @@ final class MobilePlayerBrowserLayoutTests: XCTestCase {
         let focusedTransition = MobilePlayerBrowserLayout.viewportTransition(
             previousViewportSize: viewportSize,
             viewportSize: viewportSize,
-            needsSafeAreaRefresh: true,
+            needsGeometryRefresh: true,
             aspectProfile: aspectProfile,
             forcedTokenIndex: nil,
             focusedTokenIndex: 37
@@ -1200,7 +1271,7 @@ final class MobilePlayerBrowserLayoutTests: XCTestCase {
         let unchangedTransition = MobilePlayerBrowserLayout.viewportTransition(
             previousViewportSize: viewportSize,
             viewportSize: viewportSize,
-            needsSafeAreaRefresh: false,
+            needsGeometryRefresh: false,
             aspectProfile: aspectProfile,
             forcedTokenIndex: 12,
             interactionAnchorTokenIndex: 24,
@@ -1423,5 +1494,166 @@ final class MobilePlayerBrowserLayoutTests: XCTestCase {
             .filter {
                 layout.itemFrame(at: $0)?.intersects(rowInterior) == true
             }
+    }
+
+    func testBoundaryPreservingPivotKeepsRealLayoutRightEdgeAligned() throws {
+        let viewportSize = CGSize(width: 402, height: 874)
+        func layout(columns: Int) throws -> MobilePlayerBrowserLayout {
+            try XCTUnwrap(MobilePlayerBrowserLayout(
+                viewportSize: viewportSize,
+                aspectProfile: MobilePlayerBrowserAspectProfile(
+                    itemCount: 100,
+                    uniformImageSize: CGSize(width: 1, height: 1),
+                    columnCount: columns
+                )
+            ))
+        }
+        let fiveColumnLayout = try layout(columns: 5)
+        let oneColumnLayout = try layout(columns: 1)
+        let rightLatticeEdge = viewportSize.width
+            + MobilePlayerBrowserLayout.itemSpacing
+
+        for (fromLayout, toLayout) in [
+            (fiveColumnLayout, oneColumnLayout),
+            (oneColumnLayout, fiveColumnLayout),
+        ] {
+            let transition = try XCTUnwrap(MobilePlayerBrowserGridTransition(
+                fromLayout: fromLayout,
+                toLayout: toLayout
+            ))
+            let destinationPitch = toLayout.itemWidth
+                + toLayout.interItemSpacing
+            let pivot = MobilePlayerBrowserGridTransition
+                .boundaryPreservingPivotX(
+                    anchorX: viewportSize.width - 1,
+                    columnPitchRatio: transition.columnPitchRatio,
+                    destinationColumnPitch: destinationPitch,
+                    viewportWidth: viewportSize.width
+                )
+
+            XCTAssertEqual(pivot, rightLatticeEdge, accuracy: 0.000_1)
+            XCTAssertGreaterThan(pivot, viewportSize.width)
+
+            let sourcePitch = fromLayout.itemWidth
+                + fromLayout.interItemSpacing
+            for boundary in 0...fromLayout.columnCount {
+                let sourceX = CGFloat(boundary) * sourcePitch
+                let mappedX = pivot
+                    + (sourceX - pivot) * transition.columnPitchRatio
+                let destinationBoundary = mappedX / destinationPitch
+                XCTAssertEqual(
+                    destinationBoundary,
+                    destinationBoundary.rounded(),
+                    accuracy: 0.000_1
+                )
+            }
+        }
+
+        XCTAssertEqual(
+            MobilePlayerBrowserGridTransition.boundaryPreservingPivotX(
+                anchorX: 123,
+                columnPitchRatio: 1,
+                destinationColumnPitch: oneColumnLayout.itemWidth
+                    + oneColumnLayout.interItemSpacing,
+                viewportWidth: viewportSize.width
+            ),
+            123
+        )
+    }
+
+    func testLatticeItemShiftIsIntegerAndMatchesPinnedLattices() throws {
+        // 3→5 zoom-out on a 402pt viewport with a center pinch, pinned the
+        // way the browser pins it: quantized x pivot on both sides, y pinned
+        // item-to-item at the anchor. The shift must be the exact integer
+        // column/row offset — the bijective Photos assignment.
+        let viewportSize = CGSize(width: 402, height: 874)
+        let fromLayout = try XCTUnwrap(MobilePlayerBrowserLayout(
+            viewportSize: viewportSize,
+            aspectProfile: MobilePlayerBrowserAspectProfile(
+                itemCount: 60,
+                uniformImageSize: CGSize(width: 1, height: 1),
+                columnCount: 3
+            )
+        ))
+        let toLayout = try XCTUnwrap(MobilePlayerBrowserLayout(
+            viewportSize: viewportSize,
+            aspectProfile: MobilePlayerBrowserAspectProfile(
+                itemCount: 60,
+                uniformImageSize: CGSize(width: 1, height: 1),
+                columnCount: 5
+            )
+        ))
+        let transition = try XCTUnwrap(MobilePlayerBrowserGridTransition(
+            fromLayout: fromLayout,
+            toLayout: toLayout
+        ))
+        let pivotX = MobilePlayerBrowserGridTransition
+            .boundaryPreservingPivotX(
+                anchorX: 201,
+                columnPitchRatio: transition.columnPitchRatio,
+                destinationColumnPitch: toLayout.itemWidth
+                    + toLayout.interItemSpacing,
+                viewportWidth: viewportSize.width
+            )
+        let anchorItem = 10
+        let fromAnchorFrame = try XCTUnwrap(
+            fromLayout.itemFrame(at: anchorItem)
+        )
+        let toAnchorFrame = try XCTUnwrap(toLayout.itemFrame(at: anchorItem))
+        let latticeMap = transition.latticeMap(
+            fromAnchorContentPoint: CGPoint(
+                x: pivotX,
+                y: fromAnchorFrame.midY
+            ),
+            toAnchorContentPoint: CGPoint(x: pivotX, y: toAnchorFrame.midY)
+        )
+        let fromFrameZero = try XCTUnwrap(fromLayout.itemFrame(at: 0))
+        let shift = try XCTUnwrap(
+            MobilePlayerBrowserGridTransition.latticeItemShift(
+                fromLayout: fromLayout,
+                toLayout: toLayout,
+                mappedLogicalCenterOfItemZero: latticeMap.destinationPoint(
+                    fromSource: CGPoint(
+                        x: fromFrameZero.midX,
+                        y: fromFrameZero.midY
+                    )
+                )
+            )
+        )
+        // Anchor item 10 sits at (row 3, col 1) in 3 columns and
+        // (row 2, col 0) in 5 columns; a center pivot shifts columns by +1.
+        XCTAssertEqual(shift.columns, 1)
+        XCTAssertEqual(shift.rows, -1)
+        // The shift reproduces the lattice map cell-for-cell: every source
+        // item's mapped center lands inside its shifted destination item.
+        for sourceItem in [3, 4, 5, 9, 14, 20, 28] {
+            let sourceFrame = try XCTUnwrap(
+                fromLayout.itemFrame(at: sourceItem)
+            )
+            let mapped = latticeMap.destinationPoint(
+                fromSource: CGPoint(
+                    x: sourceFrame.midX,
+                    y: sourceFrame.midY
+                )
+            )
+            let shifted = (sourceItem / 3 + shift.rows) * 5
+                + sourceItem % 3 + shift.columns
+            XCTAssertEqual(toLayout.itemIndex(at: mapped), shifted)
+        }
+        // A mapped center that misses the destination lattice (broken pin)
+        // yields no shift.
+        XCTAssertNil(
+            MobilePlayerBrowserGridTransition.latticeItemShift(
+                fromLayout: fromLayout,
+                toLayout: toLayout,
+                mappedLogicalCenterOfItemZero: latticeMap.destinationPoint(
+                    fromSource: CGPoint(
+                        x: fromFrameZero.midX
+                            + fromLayout.itemWidth / 2,
+                        y: fromFrameZero.midY
+                    )
+                )
+            )
+        )
     }
 }

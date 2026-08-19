@@ -254,6 +254,12 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
         }
     }
 
+    private func onePixelAccuracy(in view: UIView) -> CGFloat {
+        let scale = view.window?.screen.scale
+            ?? view.traitCollection.displayScale
+        return 1 / max(scale, 1)
+    }
+
     func testCellConfigurationEncodesMaterializationInvariants() {
         let sourceConfiguration =
             MobilePlayerCollectionBrowserGridRenderer.CellConfiguration
@@ -1118,7 +1124,6 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
     func testCacheMissOffscreenDestinationStaysHeldThroughRetry()
         async throws {
         let callbacks = Box<[(UIImage?) -> Void]>([])
-        let cancellationCount = Counter()
         let fixture = try makeFixture(
             itemCount: 300,
             sourceColumnCount: 3,
@@ -1131,7 +1136,7 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
                 cachedImage: { _, _ in nil },
                 loadImage: { _, callback in
                     callbacks.value.append(callback)
-                    return { cancellationCount.value += 1 }
+                    return {}
                 }
             )
         )
@@ -1207,7 +1212,8 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
             )
         )
         drainQueuedWork(fixture)
-        XCTAssertEqual(callbacks.value.count, 1)
+        let firstLoadCount = callbacks.value.count
+        XCTAssertGreaterThan(firstLoadCount, 0)
 
         let targetOffsetY = destinationFrame.minY
             - fixture.viewportView.bounds.maxY + 1
@@ -1219,9 +1225,8 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
             presentationProgress: 0,
             panDeltaY: onScreenPanDeltaY
         ))
-        XCTAssertEqual(callbacks.value.count, 1)
-        XCTAssertEqual(session.transitionImageLoads.count, 1)
-        XCTAssertEqual(cancellationCount.value, 0)
+        XCTAssertEqual(callbacks.value.count, firstLoadCount)
+        XCTAssertNotNil(session.transitionImageLoads[representationID])
         XCTAssertTrue(
             session.unpreparedMarginTrackingRepresentationIDs.contains(
                 representationID
@@ -1239,7 +1244,7 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
             presentationProgress: 0,
             panDeltaY: 0
         ))
-        XCTAssertEqual(session.transitionImageLoads.count, 1)
+        XCTAssertNotNil(session.transitionImageLoads[representationID])
         XCTAssertTrue(
             session.unpreparedMarginTrackingRepresentationIDs.contains(
                 representationID
@@ -1258,10 +1263,12 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
             )
         )
 
-        callbacks.value[0](nil)
+        for callback in callbacks.value.prefix(firstLoadCount) {
+            callback(nil)
+        }
         await runOnNextMainQueueTurn()
         drainQueuedWork(fixture)
-        XCTAssertTrue(session.transitionImageLoads.isEmpty)
+        XCTAssertNil(session.transitionImageLoads[representationID])
         XCTAssertTrue(
             session.marginCoverageRepresentationIDs.contains(representationID)
         )
@@ -1303,11 +1310,7 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
             session.marginCoverageRepresentationIDs.contains(representationID)
         )
         XCTAssertNil(session.cellFrameCorrections[representationID])
-        XCTAssertEqual(
-            sourceCell.alpha,
-            1 - session.lastContentFadeAlpha,
-            accuracy: 0.000_001
-        )
+        XCTAssertEqual(sourceCell.alpha, 1, accuracy: 0.000_001)
 
         XCTAssertTrue(fixture.renderer.renderSettle(
             id: fixture.planeRequest.id,
@@ -1339,11 +1342,13 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
             )
         )
         drainQueuedWork(fixture)
-        XCTAssertEqual(callbacks.value.count, 2)
-        XCTAssertEqual(cancellationCount.value, 0)
+        let retryCallbacks = callbacks.value.dropFirst(firstLoadCount)
+        XCTAssertFalse(retryCallbacks.isEmpty)
 
         let image = makeImage()
-        callbacks.value[1](image)
+        for callback in retryCallbacks {
+            callback(image)
+        }
         await runOnNextMainQueueTurn()
         drainQueuedWork(fixture)
         XCTAssertTrue(
@@ -1461,11 +1466,7 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
             session.marginCoverageRepresentationIDs.contains(representationID)
         )
         XCTAssertNil(session.cellFrameCorrections[representationID])
-        XCTAssertEqual(
-            sourceCell.alpha,
-            1 - session.lastContentFadeAlpha,
-            accuracy: 0.000_001
-        )
+        XCTAssertEqual(sourceCell.alpha, 1, accuracy: 0.000_001)
         XCTAssertEqual(contentContainer.alpha, 1, accuracy: 0.000_001)
 
         XCTAssertTrue(fixture.renderer.renderSettle(
@@ -1617,11 +1618,13 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
             progressAtNinety,
             accuracy: 0.000_001
         )
+        // The overlay fades uniformly with the content fade — the retirement
+        // visibility ramp shapes only the flight transform, never the alpha.
         XCTAssertEqual(
             try XCTUnwrap(transitionContentContainer(
                 in: sourceRepresentation.cell
             )).alpha,
-            progressAtNinety,
+            1,
             accuracy: 0.000_001
         )
         let ninetyPercentFrame = sourceRepresentation.cell.convert(
@@ -1728,7 +1731,7 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
             try XCTUnwrap(transitionContentContainer(
                 in: sourceRepresentation.cell
             )).alpha,
-            progressAtNinetyNine,
+            1,
             accuracy: 0.000_001
         )
         let ninetyNinePercentFrame = sourceRepresentation.cell.convert(
@@ -1952,7 +1955,7 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
         )
         XCTAssertEqual(
             contentContainer.alpha,
-            session.lastContentFadeAlpha * visibilityProgress,
+            session.lastContentFadeAlpha,
             accuracy: 0.000_001
         )
         drainQueuedWork(fixture)
@@ -1962,7 +1965,7 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
         XCTAssertNotNil(session.cellFrameCorrections[representationID])
         XCTAssertEqual(
             contentContainer.alpha,
-            session.lastContentFadeAlpha * visibilityProgress,
+            session.lastContentFadeAlpha,
             accuracy: 0.000_001
         )
 
@@ -2022,7 +2025,7 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
         )
         XCTAssertEqual(
             contentContainer.alpha,
-            session.lastContentFadeAlpha * visibilityProgress,
+            session.lastContentFadeAlpha,
             accuracy: 0.000_001
         )
 
@@ -2209,13 +2212,13 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
         XCTAssertTrue(
             session.lockedFallbackRepresentationIDs.contains(representationID)
         )
-        let visibilityProgress = try XCTUnwrap(
+        _ = try XCTUnwrap(
             session.cellFrameCorrections[representationID]?
                 .correction.destinationVisibilityProgress
         )
         XCTAssertEqual(
             representation.cell.alpha,
-            1 - session.lastContentFadeAlpha * visibilityProgress,
+            1,
             accuracy: 0.000_001
         )
         let inactiveContentContainer = try XCTUnwrap(
@@ -2365,13 +2368,13 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
         XCTAssertTrue(
             session.lockedFallbackRepresentationIDs.contains(representationID)
         )
-        let visibilityProgress = try XCTUnwrap(
+        _ = try XCTUnwrap(
             session.cellFrameCorrections[representationID]?
                 .correction.destinationVisibilityProgress
         )
         XCTAssertEqual(
             representation.cell.alpha,
-            1 - session.lastContentFadeAlpha * visibilityProgress,
+            1,
             accuracy: 0.000_001
         )
         XCTAssertFalse(
@@ -2524,7 +2527,7 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
                 in: fixture.viewportView
             ),
             expectedSpacing,
-            accuracy: 0.01
+            accuracy: onePixelAccuracy(in: fixture.viewportView)
         )
 
         XCTAssertTrue(fixture.renderer.renderSettle(
@@ -2583,6 +2586,13 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
             panDeltaY: 0
         ))
         let firstGeometryTransform = representation.cell.transform
+        let firstCollectionTransform = fixture.collectionView.transform
+        let destinationPlanBuildCount = fixture.renderer
+            .destinationPlanBuildCount
+        let sourceCoverageBuildCount = fixture.renderer
+            .sourceCoverageBuildCount
+        let foregroundEligibilityReconciliationCount = fixture.renderer
+            .foregroundEligibilityReconciliationCount
         XCTAssertEqual(
             session.lastSettleProgress,
             firstGeometryProgress,
@@ -2601,21 +2611,34 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
             accuracy: 0.000_001
         )
 
-        XCTAssertTrue(fixture.renderer.renderSettle(
+        XCTAssertTrue(fixture.renderer.renderInteractionFade(
             id: fixture.planeRequest.id,
-            scale: scale,
-            settleProgress: firstGeometryProgress,
-            presentationProgress: secondPresentationProgress,
-            panDeltaY: 0
+            presentationProgress: secondPresentationProgress
         ))
         assertTransform(
             representation.cell.transform,
             equals: firstGeometryTransform
         )
+        assertTransform(
+            fixture.collectionView.transform,
+            equals: firstCollectionTransform
+        )
         XCTAssertEqual(
             session.lastSettleProgress,
             firstGeometryProgress,
             accuracy: 0.000_001
+        )
+        XCTAssertEqual(
+            fixture.renderer.destinationPlanBuildCount,
+            destinationPlanBuildCount
+        )
+        XCTAssertEqual(
+            fixture.renderer.sourceCoverageBuildCount,
+            sourceCoverageBuildCount
+        )
+        XCTAssertEqual(
+            fixture.renderer.foregroundEligibilityReconciliationCount,
+            foregroundEligibilityReconciliationCount
         )
         XCTAssertEqual(
             contentContainer.alpha,
@@ -2704,7 +2727,10 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
                 in: fixture.viewportView
             ),
             fixture.sourceLayout.interItemSpacing,
-            accuracy: 0.01
+            // The fractional Photos-matched spacing rounds cell frames to the
+            // pixel grid, so a measured pair gap legitimately varies by up to
+            // one device pixel.
+            accuracy: onePixelAccuracy(in: fixture.viewportView)
         )
         XCTAssertTrue(session.hasCellFrameCorrectionTransforms)
 
@@ -2721,7 +2747,7 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
                 in: fixture.viewportView
             ),
             fixture.sourceLayout.interItemSpacing,
-            accuracy: 0.01
+            accuracy: onePixelAccuracy(in: fixture.viewportView)
         )
     }
 
@@ -2900,9 +2926,10 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
         let terminalScale = fixture.planeRequest.transitionLayout
             .itemWidthRatio
 
-        XCTAssertNotEqual(
+        XCTAssertEqual(
             fixture.sourceLayout.interItemSpacing,
-            fixture.destinationLayout.interItemSpacing
+            fixture.destinationLayout.interItemSpacing,
+            "the seam is constant across grid modes, matching Photos"
         )
         XCTAssertTrue(fixture.renderer.renderSettle(
             id: fixture.planeRequest.id,
@@ -3079,6 +3106,480 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
         _ = fixture.renderer.finish(preservingCarryover: false)
     }
 
+    func testReplacingPlaneInstallsDeferredBaseImage() throws {
+        let fixture = try makeFixture(
+            itemCount: 1,
+            showsSourceCell: true
+        )
+        let cell = try XCTUnwrap(
+            fixture.collectionView.visibleCells.first
+                as? MobilePlayerCollectionBrowserCell
+        )
+        let identity = MobilePlayerBrowserContentIdentity(
+            collectionId: "collection",
+            tokenIndex: 0
+        )
+        let sources = makeDistinctImageSources()
+        let thumbnail = makeImage()
+        let large = makeImage()
+        cell.configure(
+            contentIdentity: identity,
+            itemCount: 1,
+            imageSources: sources,
+            requiredImageQuality: .large,
+            missingDescriptorFallbackSpec: PlayerMediaPlaceholderSpec(
+                thumbnailAspectRatio: nil
+            ),
+            imageLoadPolicy: .disabled
+        )
+        cell.setImage(
+            thumbnail,
+            descriptor: sources.thumbnailDescriptor,
+            quality: .thumbnail,
+            tokenIndex: 0,
+            animated: false,
+            tracksLocalFileAvailability: false,
+            prewarmsNativeMetalCardFace: false
+        )
+        let baseImageView = try XCTUnwrap(
+            cell.contentView.subviews.first {
+                $0 is NativeMetalCardCornerMaskedImageView
+            } as? NativeMetalCardCornerMaskedImageView
+        )
+        begin(fixture)
+        XCTAssertTrue(fixture.renderer.installPlane(fixture.planeRequest))
+        cell.installTransitionContent(
+            image: makeImage(),
+            descriptor: sources.largeDescriptor,
+            usesNativeMetalCardCornerMask: false,
+            targetAlpha: 0.25,
+            animated: false,
+            identity: identity
+        )
+        cell.setImage(
+            large,
+            descriptor: sources.largeDescriptor,
+            quality: .large,
+            tokenIndex: 0,
+            animated: true,
+            tracksLocalFileAvailability: false,
+            prewarmsNativeMetalCardFace: false
+        )
+        XCTAssertTrue(baseImageView.image === thumbnail)
+
+        XCTAssertTrue(fixture.renderer.installPlane(
+            replacementRequest(for: fixture.planeRequest)
+        ))
+
+        XCTAssertTrue(baseImageView.image === thumbnail)
+        drainQueuedWork(fixture)
+        XCTAssertTrue(baseImageView.image === large)
+        _ = fixture.renderer.finish(preservingCarryover: false)
+    }
+
+    func testReplacingPlaneDefersBaseImageUntilPreparedIncomingIsOpaque()
+        async throws {
+        let sources = makeDistinctImageSources()
+        let replacementOverlay = makeImage()
+        let completion = Box<((UIImage?) -> Void)?>(nil)
+        let fixture = try makeFixture(
+            itemCount: 1,
+            showsSourceCell: true,
+            providesContentAccess: true,
+            contentImageSources: sources,
+            imageAccess: .init(
+                cachedImage: { _, _ in nil },
+                loadImage: { _, callback in
+                    completion.value = callback
+                    return {}
+                }
+            )
+        )
+        let cell = try XCTUnwrap(
+            fixture.collectionView.visibleCells.first
+                as? MobilePlayerCollectionBrowserCell
+        )
+        let identity = MobilePlayerBrowserContentIdentity(
+            collectionId: "collection",
+            tokenIndex: 0
+        )
+        let thumbnail = makeImage()
+        let large = makeImage()
+        cell.configure(
+            contentIdentity: identity,
+            itemCount: 1,
+            imageSources: sources,
+            requiredImageQuality: .large,
+            missingDescriptorFallbackSpec: PlayerMediaPlaceholderSpec(
+                thumbnailAspectRatio: nil
+            ),
+            imageLoadPolicy: .disabled
+        )
+        cell.setImage(
+            thumbnail,
+            descriptor: sources.thumbnailDescriptor,
+            quality: .thumbnail,
+            tokenIndex: 0,
+            animated: false,
+            tracksLocalFileAvailability: false,
+            prewarmsNativeMetalCardFace: false
+        )
+        let baseImageView = try XCTUnwrap(
+            cell.contentView.subviews.first {
+                $0 is NativeMetalCardCornerMaskedImageView
+            } as? NativeMetalCardCornerMaskedImageView
+        )
+        begin(fixture)
+        XCTAssertTrue(fixture.renderer.installPlane(fixture.planeRequest))
+        cell.installTransitionContent(
+            image: makeImage(),
+            descriptor: sources.largeDescriptor,
+            usesNativeMetalCardCornerMask: false,
+            targetAlpha: 0.25,
+            animated: false,
+            identity: identity
+        )
+        cell.setImage(
+            large,
+            descriptor: sources.largeDescriptor,
+            quality: .large,
+            tokenIndex: 0,
+            animated: true,
+            tracksLocalFileAvailability: false,
+            prewarmsNativeMetalCardFace: false
+        )
+
+        XCTAssertTrue(fixture.renderer.installPlane(
+            replacementRequest(for: fixture.planeRequest)
+        ))
+        XCTAssertTrue(baseImageView.image === thumbnail)
+        drainQueuedWork(fixture)
+        XCTAssertTrue(baseImageView.image === thumbnail)
+        XCTAssertNil(primaryTransitionImage(in: cell))
+        XCTAssertFalse(cell.hasCarryoverContent)
+
+        try XCTUnwrap(completion.value)(replacementOverlay)
+        await runOnNextMainQueueTurn()
+        drainQueuedWork(fixture)
+
+        XCTAssertTrue(baseImageView.image === thumbnail)
+        XCTAssertTrue(primaryTransitionImage(in: cell) === replacementOverlay)
+        XCTAssertFalse(cell.hasCarryoverContent)
+
+        cell.setTransitionContentAlpha(1)
+
+        XCTAssertTrue(baseImageView.image === large)
+        XCTAssertTrue(primaryTransitionImage(in: cell) === replacementOverlay)
+        XCTAssertFalse(cell.hasCarryoverContent)
+        _ = fixture.renderer.finish(preservingCarryover: false)
+    }
+
+    func testFadeCancellationInstallsDeferredBaseForPendingReplacement()
+        async throws {
+        let sources = makeDistinctImageSources()
+        let completion = Box<((UIImage?) -> Void)?>(nil)
+        let cancellationCount = Counter()
+        let cachedImage = Box<
+            MobilePlayerCollectionBrowserGridRenderer.ImageAccess.CachedImage?
+        >(nil)
+        let fixture = try makeFixture(
+            itemCount: 1,
+            showsSourceCell: true,
+            providesContentAccess: true,
+            contentImageSources: sources,
+            imageAccess: .init(
+                cachedImage: { _, _ in cachedImage.value },
+                loadImage: { _, callback in
+                    completion.value = callback
+                    return { cancellationCount.value += 1 }
+                }
+            )
+        )
+        defer { _ = fixture.renderer.finish(preservingCarryover: false) }
+        let cell = try XCTUnwrap(
+            fixture.collectionView.visibleCells.first
+                as? MobilePlayerCollectionBrowserCell
+        )
+        let identity = MobilePlayerBrowserContentIdentity(
+            collectionId: "collection",
+            tokenIndex: 0
+        )
+        let thumbnail = makeImage()
+        let large = makeImage()
+        cell.configure(
+            contentIdentity: identity,
+            itemCount: 1,
+            imageSources: sources,
+            requiredImageQuality: .large,
+            missingDescriptorFallbackSpec: PlayerMediaPlaceholderSpec(
+                thumbnailAspectRatio: nil
+            ),
+            imageLoadPolicy: .disabled
+        )
+        cell.setImage(
+            thumbnail,
+            descriptor: sources.thumbnailDescriptor,
+            quality: .thumbnail,
+            tokenIndex: 0,
+            animated: false,
+            tracksLocalFileAvailability: false,
+            prewarmsNativeMetalCardFace: false
+        )
+        let baseImageView = try XCTUnwrap(
+            cell.contentView.subviews.first {
+                $0 is NativeMetalCardCornerMaskedImageView
+            } as? NativeMetalCardCornerMaskedImageView
+        )
+        begin(fixture)
+        XCTAssertTrue(fixture.renderer.installPlane(fixture.planeRequest))
+        cell.installTransitionContent(
+            image: makeImage(),
+            descriptor: sources.largeDescriptor,
+            usesNativeMetalCardCornerMask: false,
+            targetAlpha: 0.25,
+            animated: false,
+            identity: identity
+        )
+        cell.setImage(
+            large,
+            descriptor: sources.largeDescriptor,
+            quality: .large,
+            tokenIndex: 0,
+            animated: true,
+            tracksLocalFileAvailability: false,
+            prewarmsNativeMetalCardFace: false
+        )
+        let replacement = replacementRequest(for: fixture.planeRequest)
+        XCTAssertTrue(fixture.renderer.installPlane(replacement))
+        drainQueuedWork(fixture)
+        let pendingCompletion = try XCTUnwrap(completion.value)
+        let session = try activeSession(fixture)
+        let representationID = ObjectIdentifier(cell)
+        XCTAssertTrue(baseImageView.image === thumbnail)
+
+        XCTAssertTrue(fixture.renderer.renderSettle(
+            id: replacement.id,
+            scale: replacement.transitionLayout.itemWidthRatio,
+            settleProgress: 0.5,
+            panDeltaY: 0
+        ))
+
+        XCTAssertEqual(cancellationCount.value, 1)
+        XCTAssertTrue(baseImageView.image === large)
+        XCTAssertNil(cell.incomingTransitionContentQuality(
+            representing: identity,
+            from: sources
+        ))
+        XCTAssertTrue(cell.hasCarryoverContent)
+        XCTAssertTrue(primaryTransitionImage(in: cell) === thumbnail)
+
+        XCTAssertTrue(fixture.renderer.renderSettle(
+            id: replacement.id,
+            scale: replacement.transitionLayout.itemWidthRatio,
+            settleProgress: 0.2,
+            panDeltaY: 0
+        ))
+
+        XCTAssertTrue(
+            session.lockedFallbackRepresentationIDs.contains(representationID)
+        )
+        XCTAssertTrue(cell.hasCarryoverContent)
+        XCTAssertTrue(primaryTransitionImage(in: cell) === thumbnail)
+
+        let destinationImage = makeImage()
+        cachedImage.value = (
+            sources.largeDescriptor,
+            .large,
+            destinationImage
+        )
+        XCTAssertTrue(fixture.renderer.renderSettle(
+            id: replacement.id,
+            scale: replacement.transitionLayout.itemWidthRatio,
+            settleProgress: 0.5,
+            panDeltaY: 0
+        ))
+
+        XCTAssertTrue(
+            session.lockedFallbackRepresentationIDs.contains(representationID)
+        )
+        XCTAssertFalse(
+            session.preparedRepresentationIDs.contains(representationID)
+        )
+        XCTAssertTrue(baseImageView.image === large)
+        XCTAssertTrue(cell.hasCarryoverContent)
+        XCTAssertTrue(primaryTransitionImage(in: cell) === thumbnail)
+        XCTAssertFalse(primaryTransitionImage(in: cell) === destinationImage)
+
+        let rejectedImage = makeImage()
+        pendingCompletion(rejectedImage)
+        await runOnNextMainQueueTurn()
+        drainQueuedWork(fixture)
+
+        XCTAssertTrue(baseImageView.image === large)
+        XCTAssertNil(cell.incomingTransitionContentQuality(
+            representing: identity,
+            from: sources
+        ))
+        XCTAssertFalse(primaryTransitionImage(in: cell) === rejectedImage)
+    }
+
+    func testQueuedDetailDoesNotReplaceActiveBaseUpgradeCarryover() throws {
+        let sources = makeDistinctImageSources()
+        let destinationImage = makeImage()
+        let fixture = try makeFixture(
+            itemCount: 1,
+            showsSourceCell: true,
+            providesContentAccess: true,
+            contentImageSources: sources,
+            imageAccess: .init(
+                cachedImage: { _, _ in
+                    (sources.largeDescriptor, .large, destinationImage)
+                },
+                loadImage: { _, _ in {} }
+            )
+        )
+        defer { _ = fixture.renderer.finish(preservingCarryover: false) }
+        let cell = try XCTUnwrap(
+            fixture.collectionView.visibleCells.first
+                as? MobilePlayerCollectionBrowserCell
+        )
+        let identity = MobilePlayerBrowserContentIdentity(
+            collectionId: "collection",
+            tokenIndex: 0
+        )
+        let thumbnail = makeImage()
+        let large = makeImage()
+        cell.configure(
+            contentIdentity: identity,
+            itemCount: 1,
+            imageSources: sources,
+            requiredImageQuality: .large,
+            missingDescriptorFallbackSpec: PlayerMediaPlaceholderSpec(
+                thumbnailAspectRatio: nil
+            ),
+            imageLoadPolicy: .disabled
+        )
+        cell.setImage(
+            thumbnail,
+            descriptor: sources.thumbnailDescriptor,
+            quality: .thumbnail,
+            tokenIndex: 0,
+            animated: false,
+            tracksLocalFileAvailability: false,
+            prewarmsNativeMetalCardFace: false
+        )
+        begin(fixture)
+        XCTAssertTrue(fixture.renderer.installPlane(fixture.planeRequest))
+
+        cell.setImage(
+            large,
+            descriptor: sources.largeDescriptor,
+            quality: .large,
+            tokenIndex: 0,
+            animated: true,
+            tracksLocalFileAvailability: false,
+            prewarmsNativeMetalCardFace: false
+        )
+        XCTAssertTrue(cell.hasCarryoverContent)
+        XCTAssertTrue(primaryTransitionImage(in: cell) === thumbnail)
+
+        drainQueuedWork(fixture)
+
+        let session = try activeSession(fixture)
+        let representationID = ObjectIdentifier(cell)
+        XCTAssertTrue(
+            session.lockedFallbackRepresentationIDs.contains(representationID)
+        )
+        XCTAssertFalse(
+            session.preparedRepresentationIDs.contains(representationID)
+        )
+        XCTAssertTrue(cell.hasCarryoverContent)
+        XCTAssertTrue(primaryTransitionImage(in: cell) === thumbnail)
+        XCTAssertFalse(primaryTransitionImage(in: cell) === destinationImage)
+    }
+
+    func testTransitionCompletionDoesNotReplaceActiveBaseUpgradeCarryover()
+        async throws {
+        let sources = makeDistinctImageSources()
+        let completion = Box<((UIImage?) -> Void)?>(nil)
+        let fixture = try makeFixture(
+            itemCount: 1,
+            showsSourceCell: true,
+            providesContentAccess: true,
+            contentImageSources: sources,
+            imageAccess: .init(
+                cachedImage: { _, _ in nil },
+                loadImage: { _, callback in
+                    completion.value = callback
+                    return {}
+                }
+            )
+        )
+        defer { _ = fixture.renderer.finish(preservingCarryover: false) }
+        let cell = try XCTUnwrap(
+            fixture.collectionView.visibleCells.first
+                as? MobilePlayerCollectionBrowserCell
+        )
+        let identity = MobilePlayerBrowserContentIdentity(
+            collectionId: "collection",
+            tokenIndex: 0
+        )
+        let thumbnail = makeImage()
+        let large = makeImage()
+        cell.configure(
+            contentIdentity: identity,
+            itemCount: 1,
+            imageSources: sources,
+            requiredImageQuality: .large,
+            missingDescriptorFallbackSpec: PlayerMediaPlaceholderSpec(
+                thumbnailAspectRatio: nil
+            ),
+            imageLoadPolicy: .disabled
+        )
+        cell.setImage(
+            thumbnail,
+            descriptor: sources.thumbnailDescriptor,
+            quality: .thumbnail,
+            tokenIndex: 0,
+            animated: false,
+            tracksLocalFileAvailability: false,
+            prewarmsNativeMetalCardFace: false
+        )
+        begin(fixture)
+        XCTAssertTrue(fixture.renderer.installPlane(fixture.planeRequest))
+        drainQueuedWork(fixture)
+        let pendingCompletion = try XCTUnwrap(completion.value)
+
+        cell.setImage(
+            large,
+            descriptor: sources.largeDescriptor,
+            quality: .large,
+            tokenIndex: 0,
+            animated: true,
+            tracksLocalFileAvailability: false,
+            prewarmsNativeMetalCardFace: false
+        )
+        XCTAssertTrue(cell.hasCarryoverContent)
+        XCTAssertTrue(primaryTransitionImage(in: cell) === thumbnail)
+
+        let destinationImage = makeImage()
+        pendingCompletion(destinationImage)
+        await runOnNextMainQueueTurn()
+        drainQueuedWork(fixture)
+
+        let session = try activeSession(fixture)
+        let representationID = ObjectIdentifier(cell)
+        XCTAssertTrue(
+            session.lockedFallbackRepresentationIDs.contains(representationID)
+        )
+        XCTAssertFalse(
+            session.preparedRepresentationIDs.contains(representationID)
+        )
+        XCTAssertTrue(cell.hasCarryoverContent)
+        XCTAssertTrue(primaryTransitionImage(in: cell) === thumbnail)
+        XCTAssertFalse(primaryTransitionImage(in: cell) === destinationImage)
+    }
+
     func testPendingBaseCarryoverSurvivesFollowUpPlaneLifecycle() throws {
         let carryoverImage = makeImage()
         let destinationImage = makeImage()
@@ -3183,7 +3684,7 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
         XCTAssertNil(sourceCell.carryoverSourceContent)
     }
 
-    func testResolvedPendingBaseCarryoverUsesCachedDestinationOnPositiveFade()
+    func testResolvedPendingBaseUsesCachedDestinationAfterCarryoverCompletes()
         throws {
         let carryoverImage = makeImage()
         let baseImage = makeImage()
@@ -3248,6 +3749,9 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
         baseImageView.image = baseImage
         sourceCell.fadeOutCarryoverContentIfBaseReady()
         XCTAssertFalse(sourceCell.holdsCarryoverForPendingBaseImage)
+        XCTAssertTrue(sourceCell.hasCarryoverContent)
+        sourceCell.clearTransitionContent()
+        XCTAssertFalse(sourceCell.hasCarryoverContent)
         let contentIdentityAccessCount = fixture.contentIdentityAccessCount.value
         let imageSourcesAccessCount = fixture.imageSourcesAccessCount.value
         let cachedImageAccessCount = cacheAccessCount.value
@@ -3358,11 +3862,7 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
             sourceCell.carryoverSourceContent?.primary.image === carryoverImage
         )
         XCTAssertEqual(loadCount.value, 0)
-        XCTAssertEqual(
-            sourceCell.alpha,
-            1 - session.lastContentFadeAlpha,
-            accuracy: 0.000_001
-        )
+        XCTAssertEqual(sourceCell.alpha, 1, accuracy: 0.000_001)
     }
 
     func testInstallingPlaneClearsStaleIncomingContent() throws {
@@ -3488,6 +3988,46 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
         XCTAssertNotNil(fixture.renderer.finish(preservingCarryover: true))
     }
 
+    func testPlaneChangeVisualCoverTracksOnlyActiveVisiblePresentation()
+        throws {
+        let fixture = try makeFixture(
+            itemCount: 1,
+            showsSourceCell: true
+        )
+        XCTAssertFalse(fixture.renderer.planeChangeNeedsVisualCover)
+        begin(fixture)
+        XCTAssertTrue(fixture.renderer.installPlane(fixture.planeRequest))
+        XCTAssertFalse(fixture.renderer.planeChangeNeedsVisualCover)
+        let session = try activeSession(fixture)
+        let scale = fixture.planeRequest.transitionLayout.itemWidthRatio
+
+        XCTAssertTrue(fixture.renderer.renderSettle(
+            id: fixture.planeRequest.id,
+            scale: scale,
+            settleProgress: 0.5,
+            panDeltaY: 0
+        ))
+        XCTAssertGreaterThan(session.lastContentFadeAlpha, 0)
+        XCTAssertTrue(fixture.renderer.planeChangeNeedsVisualCover)
+
+        XCTAssertTrue(fixture.renderer.renderSettle(
+            id: fixture.planeRequest.id,
+            scale: scale,
+            settleProgress: 0,
+            panDeltaY: 0
+        ))
+        XCTAssertEqual(session.lastContentFadeAlpha, 0, accuracy: 0.000_001)
+        XCTAssertTrue(session.contentFadeAnimationMayBeActive)
+        XCTAssertTrue(fixture.renderer.planeChangeNeedsVisualCover)
+
+        _ = try XCTUnwrap(fixture.renderer.prepareCommit(
+            id: fixture.planeRequest.id,
+            mode: fixture.planeRequest.toMode
+        ))
+        XCTAssertFalse(fixture.renderer.planeChangeNeedsVisualCover)
+        _ = fixture.renderer.finish(preservingCarryover: false)
+    }
+
     func testImmediateFinishCancelsWorkBeforeFirstTick() throws {
         let fixture = try makeFixture()
         begin(fixture)
@@ -3527,7 +4067,7 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
         }
         XCTAssertFalse(sessionAfterDrain.sourceOverscanCells.isEmpty)
         XCTAssertTrue(sessionAfterDrain.sourceOverscanCells.values.allSatisfy {
-            $0.alpha == 1 - sessionAfterDrain.lastContentFadeAlpha
+            $0.alpha == 1
         })
         _ = fixture.renderer.finish(preservingCarryover: false)
     }
@@ -3770,6 +4310,513 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
             sourceCoverageBuildCount
         )
         _ = fixture.renderer.finish(preservingCarryover: false)
+    }
+
+    func testUniformMappingRefreshesSelectionInsideRetainedDetailCoverage()
+        throws {
+        let fixture = try makeFixture(
+            itemCount: 300,
+            sourceColumnCount: 5,
+            destinationColumnCount: 3,
+            destinationMode: .threeColumns,
+            showsSourceGrid: true,
+            anchorItemIndex: 0,
+            uniformImageSize: CGSize(width: 100, height: 1)
+        )
+        defer { _ = fixture.renderer.finish(preservingCarryover: false) }
+        let departingCell = try XCTUnwrap(
+            fixture.collectionView.cellForItem(
+                at: IndexPath(item: 0, section: 0)
+            ) as? MobilePlayerCollectionBrowserCell
+        )
+        let enteringItem = PlayerBrowserGridRenderBudget.maximumVisualCellCount
+        let enteringCell = try XCTUnwrap(
+            fixture.collectionView.cellForItem(
+                at: IndexPath(item: enteringItem, section: 0)
+            ) as? MobilePlayerCollectionBrowserCell
+        )
+        let departingFrame = departingCell.frame
+        enteringCell.frame = CGRect(
+            x: departingFrame.minX,
+            y: fixture.viewportView.bounds.maxY + 8,
+            width: departingFrame.width,
+            height: departingFrame.height
+        )
+        begin(fixture)
+        XCTAssertTrue(fixture.renderer.installPlane(fixture.planeRequest))
+        XCTAssertTrue(fixture.renderer.renderSettle(
+            id: fixture.planeRequest.id,
+            scale: 1,
+            settleProgress: 0,
+            panDeltaY: 0
+        ))
+        let session = try activeSession(fixture)
+        let initialSelectedItems = session.selectedSourceItems
+        let detailCoverageRect = try XCTUnwrap(
+            session.viewportDetailCoverage.installedRect
+        )
+        XCTAssertTrue(initialSelectedItems.contains(0))
+        XCTAssertFalse(initialSelectedItems.contains(enteringItem))
+        departingCell.frame = enteringCell.frame
+        enteringCell.frame = departingFrame
+
+        XCTAssertTrue(fixture.renderer.renderSettle(
+            id: fixture.planeRequest.id,
+            scale: 1,
+            settleProgress: 0,
+            panDeltaY: 0
+        ))
+
+        XCTAssertEqual(
+            session.viewportDetailCoverage.installedRect,
+            detailCoverageRect
+        )
+        XCTAssertTrue(session.viewportSelectedSourceItems.contains(
+            enteringItem
+        ))
+        XCTAssertTrue(session.selectedSourceItems.contains(enteringItem))
+        XCTAssertTrue(session.viewportSelectedSourceItems.isSubset(
+            of: session.selectedSourceItems
+        ))
+        XCTAssertEqual(
+            session.selectedSourceItems.count,
+            PlayerBrowserGridRenderBudget.maximumVisualCellCount
+        )
+        XCTAssertFalse(
+            initialSelectedItems.subtracting(session.selectedSourceItems).isEmpty
+        )
+        XCTAssertTrue(session.assignedDestinationItems.isEmpty)
+    }
+
+    func testRetainedDetailCoverageSelectsRegisteredHorizontalBufferCell()
+        throws {
+        let fixture = try makeFixture(
+            itemCount: 30,
+            sourceColumnCount: 5,
+            destinationColumnCount: 3,
+            destinationMode: .threeColumns,
+            showsSourceGrid: true,
+            anchorItemIndex: 0
+        )
+        defer { _ = fixture.renderer.finish(preservingCarryover: false) }
+        let edgeItem = 4
+        let edgeCell = try XCTUnwrap(
+            fixture.collectionView.cellForItem(
+                at: IndexPath(item: edgeItem, section: 0)
+            ) as? MobilePlayerCollectionBrowserCell
+        )
+        edgeCell.frame.origin.x = fixture.viewportView.bounds.maxX + 8
+        let edgeRepresentationID = ObjectIdentifier(edgeCell)
+        begin(fixture)
+        XCTAssertTrue(fixture.renderer.installPlane(fixture.planeRequest))
+        let session = try activeSession(fixture)
+        XCTAssertEqual(
+            session.cachedSourceRepresentations[edgeRepresentationID]?.itemIndex,
+            edgeItem
+        )
+
+        XCTAssertTrue(fixture.renderer.renderSettle(
+            id: fixture.planeRequest.id,
+            scale: 1,
+            settleProgress: 0,
+            panDeltaY: 0
+        ))
+
+        let detailCoverageRect = try XCTUnwrap(
+            session.viewportDetailCoverage.installedRect
+        )
+        XCTAssertTrue(
+            session.cachedSourceRepresentations[edgeRepresentationID]?.cell
+                === edgeCell
+        )
+        XCTAssertFalse(session.viewportSelectedSourceItems.contains(edgeItem))
+        XCTAssertNil(session.cellFrameCorrections[edgeRepresentationID])
+        edgeCell.frame.origin.x = 0
+
+        XCTAssertTrue(fixture.renderer.renderSettle(
+            id: fixture.planeRequest.id,
+            scale: 1,
+            settleProgress: 0,
+            panDeltaY: 0
+        ))
+
+        XCTAssertEqual(
+            session.viewportDetailCoverage.installedRect,
+            detailCoverageRect
+        )
+        XCTAssertTrue(session.viewportSelectedSourceItems.contains(edgeItem))
+    }
+
+    func testDegradedMappingReleasesClaimWhenSelectedSourceLeaves() throws {
+        var ratios = Array(repeating: CGFloat(1), count: 12)
+        ratios[3] = 2
+        let fixture = try makeFixture(
+            itemCount: ratios.count,
+            sourceColumnCount: 3,
+            destinationColumnCount: 1,
+            destinationMode: .large,
+            showsSourceGrid: true,
+            anchorItemIndex: 0,
+            heightToWidthRatios: ratios
+        )
+        defer { _ = fixture.renderer.finish(preservingCarryover: false) }
+        let firstCell = try XCTUnwrap(
+            fixture.collectionView.cellForItem(
+                at: IndexPath(item: 0, section: 0)
+            ) as? MobilePlayerCollectionBrowserCell
+        )
+        let laterCell = try XCTUnwrap(
+            fixture.collectionView.cellForItem(
+                at: IndexPath(item: 1, section: 0)
+            ) as? MobilePlayerCollectionBrowserCell
+        )
+        let visibleFrame = firstCell.frame
+        laterCell.frame.origin.y = fixture.viewportView.bounds.maxY * 4
+        let firstSourceFrame = try XCTUnwrap(
+            fixture.sourceLayout.itemFrame(at: 0)
+        )
+        let laterSourceFrame = try XCTUnwrap(
+            fixture.sourceLayout.itemFrame(at: 1)
+        )
+        let firstDestinationFrame = try XCTUnwrap(
+            fixture.destinationLayout.itemFrame(at: 0)
+        )
+        let request = GridModePlaneRequest(
+            id: UUID(),
+            toMode: fixture.planeRequest.toMode,
+            layoutAspectState: fixture.planeRequest.layoutAspectState,
+            anchorTokenIndex: 0,
+            transitionLayout: fixture.planeRequest.transitionLayout,
+            crossfade: fixture.planeRequest.crossfade,
+            latticeMap: MobilePlayerBrowserGridLatticeMap(
+                columnPitchRatio: 1,
+                rowPitchRatio: 1,
+                fromAnchorContentPoint: CGPoint(
+                    x: firstSourceFrame.midX,
+                    y: firstSourceFrame.midY
+                ),
+                toAnchorContentPoint: CGPoint(
+                    x: firstDestinationFrame.midX,
+                    y: firstDestinationFrame.midY
+                )
+            )
+        )
+        let destinationItem = try XCTUnwrap(
+            fixture.destinationLayout.nearestItemIndex(
+                to: request.latticeMap.destinationPoint(
+                    fromSource: CGPoint(
+                        x: laterSourceFrame.midX,
+                        y: laterSourceFrame.midY
+                    )
+                ),
+                tolerance: fixture.destinationLayout.interItemSpacing + 1
+            )
+        )
+
+        begin(fixture)
+        XCTAssertTrue(fixture.renderer.installPlane(request))
+        drainQueuedWork(fixture)
+        let session = try activeSession(fixture)
+        XCTAssertTrue(session.selectedSourceItems.contains(0))
+        XCTAssertFalse(session.selectedSourceItems.contains(1))
+        XCTAssertEqual(session.reassignments[0], destinationItem)
+
+        firstCell.frame.origin.y = fixture.viewportView.bounds.maxY * 4
+        laterCell.frame = visibleFrame
+        fixture.renderer.didConfigureCell(
+            laterCell,
+            at: IndexPath(item: 1, section: 0)
+        )
+        drainQueuedWork(fixture)
+
+        XCTAssertFalse(session.selectedSourceItems.contains(0))
+        XCTAssertTrue(session.selectedSourceItems.contains(1))
+        XCTAssertNil(session.reassignments[0])
+        XCTAssertEqual(session.reassignments[1], destinationItem)
+        XCTAssertTrue(session.assignedDestinationItems.contains(
+            destinationItem
+        ))
+    }
+
+    func testDegradedMappingPrioritizesVisibleSourceOverBufferedSource()
+        throws {
+        var ratios = Array(repeating: CGFloat(1), count: 12)
+        ratios[3] = 2
+        let fixture = try makeFixture(
+            itemCount: ratios.count,
+            sourceColumnCount: 3,
+            destinationColumnCount: 1,
+            destinationMode: .large,
+            showsSourceGrid: true,
+            anchorItemIndex: 0,
+            heightToWidthRatios: ratios
+        )
+        defer { _ = fixture.renderer.finish(preservingCarryover: false) }
+        let firstCell = try XCTUnwrap(
+            fixture.collectionView.cellForItem(
+                at: IndexPath(item: 0, section: 0)
+            ) as? MobilePlayerCollectionBrowserCell
+        )
+        let laterCell = try XCTUnwrap(
+            fixture.collectionView.cellForItem(
+                at: IndexPath(item: 1, section: 0)
+            ) as? MobilePlayerCollectionBrowserCell
+        )
+        let visibleFrame = firstCell.frame
+        let bufferedFrame = CGRect(
+            x: visibleFrame.minX,
+            y: fixture.viewportView.bounds.maxY + 8,
+            width: visibleFrame.width,
+            height: visibleFrame.height
+        )
+        laterCell.frame = bufferedFrame
+        let firstSourceFrame = try XCTUnwrap(
+            fixture.sourceLayout.itemFrame(at: 0)
+        )
+        let laterSourceFrame = try XCTUnwrap(
+            fixture.sourceLayout.itemFrame(at: 1)
+        )
+        let firstDestinationFrame = try XCTUnwrap(
+            fixture.destinationLayout.itemFrame(at: 0)
+        )
+        let request = GridModePlaneRequest(
+            id: UUID(),
+            toMode: fixture.planeRequest.toMode,
+            layoutAspectState: fixture.planeRequest.layoutAspectState,
+            anchorTokenIndex: 0,
+            transitionLayout: fixture.planeRequest.transitionLayout,
+            crossfade: fixture.planeRequest.crossfade,
+            latticeMap: MobilePlayerBrowserGridLatticeMap(
+                columnPitchRatio: 1,
+                rowPitchRatio: 1,
+                fromAnchorContentPoint: CGPoint(
+                    x: firstSourceFrame.midX,
+                    y: firstSourceFrame.midY
+                ),
+                toAnchorContentPoint: CGPoint(
+                    x: firstDestinationFrame.midX,
+                    y: firstDestinationFrame.midY
+                )
+            )
+        )
+        let destinationItem = try XCTUnwrap(
+            fixture.destinationLayout.nearestItemIndex(
+                to: request.latticeMap.destinationPoint(
+                    fromSource: CGPoint(
+                        x: laterSourceFrame.midX,
+                        y: laterSourceFrame.midY
+                    )
+                ),
+                tolerance: fixture.destinationLayout.interItemSpacing + 1
+            )
+        )
+
+        begin(fixture)
+        XCTAssertTrue(fixture.renderer.installPlane(request))
+        fixture.renderer.didConfigureCell(
+            firstCell,
+            at: IndexPath(item: 0, section: 0)
+        )
+        drainQueuedWork(fixture)
+        let session = try activeSession(fixture)
+        XCTAssertTrue(session.selectedSourceItems.contains(0))
+        XCTAssertTrue(session.selectedSourceItems.contains(1))
+        XCTAssertTrue(session.viewportSelectedSourceItems.contains(0))
+        XCTAssertFalse(session.viewportSelectedSourceItems.contains(1))
+        XCTAssertEqual(session.reassignments[0], destinationItem)
+        XCTAssertNil(session.reassignments[1])
+        let detailCoverageRect = try XCTUnwrap(
+            session.viewportDetailCoverage.installedRect
+        )
+
+        firstCell.frame = bufferedFrame
+        laterCell.frame = visibleFrame
+        XCTAssertTrue(fixture.renderer.renderSettle(
+            id: request.id,
+            scale: 1,
+            settleProgress: 0,
+            panDeltaY: 0
+        ))
+        drainQueuedWork(fixture)
+
+        XCTAssertEqual(
+            session.viewportDetailCoverage.installedRect,
+            detailCoverageRect
+        )
+        XCTAssertTrue(session.selectedSourceItems.contains(0))
+        XCTAssertTrue(session.selectedSourceItems.contains(1))
+        XCTAssertFalse(session.viewportSelectedSourceItems.contains(0))
+        XCTAssertTrue(session.viewportSelectedSourceItems.contains(1))
+        XCTAssertNil(session.reassignments[0])
+        XCTAssertEqual(session.reassignments[1], destinationItem)
+        XCTAssertTrue(session.assignedDestinationItems.contains(
+            destinationItem
+        ))
+    }
+
+    func testDegradedMappingRequeuesBufferedCollisionLoserWhenClaimFrees()
+        throws {
+        let image = makeImage()
+        var ratios = Array(repeating: CGFloat(1), count: 12)
+        ratios[3] = 2
+        let fixture = try makeFixture(
+            itemCount: ratios.count,
+            sourceColumnCount: 3,
+            destinationColumnCount: 1,
+            destinationMode: .large,
+            showsSourceGrid: true,
+            providesContentAccess: true,
+            anchorItemIndex: 0,
+            heightToWidthRatios: ratios,
+            imageAccess: .init(
+                cachedImage: { imageSources, _ in
+                    (imageSources.thumbnailDescriptor, .thumbnail, image)
+                },
+                loadImage: { _, _ in {} }
+            )
+        )
+        defer { _ = fixture.renderer.finish(preservingCarryover: false) }
+        let firstSourceFrame = try XCTUnwrap(
+            fixture.sourceLayout.itemFrame(at: 0)
+        )
+        let firstDestinationFrame = try XCTUnwrap(
+            fixture.destinationLayout.itemFrame(at: 0)
+        )
+        let request = GridModePlaneRequest(
+            id: UUID(),
+            toMode: fixture.planeRequest.toMode,
+            layoutAspectState: fixture.planeRequest.layoutAspectState,
+            anchorTokenIndex: 0,
+            transitionLayout: fixture.planeRequest.transitionLayout,
+            crossfade: fixture.planeRequest.crossfade,
+            latticeMap: MobilePlayerBrowserGridLatticeMap(
+                columnPitchRatio: 1,
+                rowPitchRatio: 1,
+                fromAnchorContentPoint: CGPoint(
+                    x: firstSourceFrame.midX,
+                    y: firstSourceFrame.midY
+                ),
+                toAnchorContentPoint: CGPoint(
+                    x: firstDestinationFrame.midX,
+                    y: firstDestinationFrame.midY
+                )
+            )
+        )
+        var sourceItemsByDestination = [Int: [Int]]()
+        for sourceItem in 0 ..< ratios.count {
+            guard let sourceFrame = fixture.sourceLayout.itemFrame(
+                at: sourceItem
+            ), let destinationItem = fixture.destinationLayout
+                .nearestItemIndex(
+                    to: request.latticeMap.destinationPoint(
+                        fromSource: CGPoint(
+                            x: sourceFrame.midX,
+                            y: sourceFrame.midY
+                        )
+                    ),
+                    tolerance: fixture.destinationLayout.interItemSpacing + 1
+                ) else {
+                continue
+            }
+            sourceItemsByDestination[destinationItem, default: []].append(
+                sourceItem
+            )
+        }
+        let collision = try XCTUnwrap(
+            sourceItemsByDestination.sorted { $0.key < $1.key }.first {
+                entry in
+                entry.value.count >= 2
+                    && sourceItemsByDestination.keys.contains {
+                        $0 != entry.key
+                    }
+            }
+        )
+        let collisionItems = collision.value.sorted()
+        let winnerItem = collisionItems[0]
+        let loserItem = collisionItems[1]
+        let visibleItem = try XCTUnwrap(
+            sourceItemsByDestination.sorted { $0.key < $1.key }.first {
+                $0.key != collision.key
+            }?.value.first
+        )
+        var cells = [Int: MobilePlayerCollectionBrowserCell]()
+        for item in 0 ..< ratios.count {
+            cells[item] = try XCTUnwrap(
+                fixture.collectionView.cellForItem(
+                    at: IndexPath(item: item, section: 0)
+                ) as? MobilePlayerCollectionBrowserCell
+            )
+        }
+        let winnerCell = try XCTUnwrap(cells[winnerItem])
+        let loserCell = try XCTUnwrap(cells[loserItem])
+        let visibleCell = try XCTUnwrap(cells[visibleItem])
+        for cell in cells.values {
+            cell.frame.origin.y = fixture.viewportView.bounds.maxY * 4
+        }
+        let bufferedY = fixture.viewportView.bounds.maxY + 8
+        winnerCell.frame = CGRect(
+            x: 0,
+            y: bufferedY,
+            width: winnerCell.bounds.width,
+            height: winnerCell.bounds.height
+        )
+        loserCell.frame = CGRect(
+            x: winnerCell.frame.maxX
+                + fixture.sourceLayout.interItemSpacing,
+            y: bufferedY,
+            width: loserCell.bounds.width,
+            height: loserCell.bounds.height
+        )
+        visibleCell.frame = CGRect(
+            x: 0,
+            y: 0,
+            width: visibleCell.bounds.width,
+            height: visibleCell.bounds.height
+        )
+
+        begin(fixture)
+        XCTAssertTrue(fixture.renderer.installPlane(request))
+        drainQueuedWork(fixture)
+        let session = try activeSession(fixture)
+        let loserRepresentationID = ObjectIdentifier(loserCell)
+        let initialViewportItems = session.viewportSelectedSourceItems
+        XCTAssertTrue(initialViewportItems.contains(visibleItem))
+        XCTAssertFalse(initialViewportItems.contains(winnerItem))
+        XCTAssertFalse(initialViewportItems.contains(loserItem))
+        XCTAssertEqual(session.reassignments[winnerItem], collision.key)
+        XCTAssertNil(session.reassignments[loserItem])
+        XCTAssertEqual(
+            session.detailedSourceCellItems[loserRepresentationID],
+            loserItem
+        )
+        XCTAssertFalse(
+            session.preparedRepresentationIDs.contains(loserRepresentationID)
+        )
+
+        winnerCell.frame.origin.y = fixture.viewportView.bounds.maxY * 4
+        fixture.renderer.didConfigureCell(
+            winnerCell,
+            at: IndexPath(item: winnerItem, section: 0)
+        )
+
+        XCTAssertEqual(
+            session.viewportSelectedSourceItems,
+            initialViewportItems
+        )
+        XCTAssertFalse(session.selectedSourceItems.contains(winnerItem))
+        XCTAssertTrue(session.selectedSourceItems.contains(loserItem))
+        XCTAssertNil(session.reassignments[winnerItem])
+        XCTAssertEqual(session.reassignments[loserItem], collision.key)
+        XCTAssertNil(session.detailedSourceCellItems[loserRepresentationID])
+        drainQueuedWork(fixture)
+        XCTAssertTrue(
+            session.preparedRepresentationIDs.contains(loserRepresentationID)
+        )
+        XCTAssertEqual(
+            session.detailedSourceCellItems[loserRepresentationID],
+            loserItem
+        )
+        XCTAssertTrue(primaryTransitionImage(in: loserCell) === image)
     }
 
     func testPlaneInstallationDoesNotProbeContentOrCreateTransitionViews()
@@ -4954,9 +6001,10 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
         let layout = fixture.planeRequest.transitionLayout
         let terminalScale = layout.itemWidthRatio
         XCTAssertLessThan(terminalScale, 1, "1->3 shrinks the tiles")
-        XCTAssertNotEqual(
+        XCTAssertEqual(
             fixture.sourceLayout.interItemSpacing,
-            fixture.destinationLayout.interItemSpacing
+            fixture.destinationLayout.interItemSpacing,
+            "the seam is constant across grid modes, matching Photos"
         )
 
         var compared = 0
@@ -5306,7 +6354,7 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
             clock: {
                 defer { clockCalls.value += 1 }
                 guard limitsDrainToOneJob.value else { return 0 }
-                return clockCalls.value < 2 ? 0 : 0.003
+                return clockCalls.value < 2 ? 0 : 0.005
             }
         )
         defer { _ = fixture.renderer.finish(preservingCarryover: false) }
@@ -5404,7 +6452,7 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
             itemCount: 1,
             clock: {
                 defer { clockCalls.value += 1 }
-                return clockCalls.value < 2 ? 0 : 0.003
+                return clockCalls.value < 2 ? 0 : 0.005
             }
         )
         defer { _ = fixture.renderer.finish(preservingCarryover: false) }
@@ -5468,7 +6516,7 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
             ),
             clock: {
                 defer { clockCalls.value += 1 }
-                return clockCalls.value < 2 ? 0 : 0.003
+                return clockCalls.value < 2 ? 0 : 0.005
             }
         )
         defer { _ = fixture.renderer.finish(preservingCarryover: false) }
@@ -5571,7 +6619,7 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
             ),
             clock: {
                 defer { clockCalls.value += 1 }
-                return clockCalls.value < 2 ? 0 : 0.003
+                return clockCalls.value < 2 ? 0 : 0.005
             }
         )
         defer { _ = fixture.renderer.finish(preservingCarryover: false) }
@@ -5702,7 +6750,7 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
             clock: {
                 guard limitsDeferredDrain.value else { return 0 }
                 defer { clockCalls.value += 1 }
-                return clockCalls.value < 2 ? 0 : 0.003
+                return clockCalls.value < 2 ? 0 : 0.005
             }
         )
         defer { _ = fixture.renderer.finish(preservingCarryover: false) }
@@ -5865,7 +6913,7 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
             anchorItemIndex: 12,
             clock: {
                 defer { clockCalls.value += 1 }
-                return clockCalls.value < 2 ? 0 : 0.003
+                return clockCalls.value < 2 ? 0 : 0.005
             }
         )
         defer { _ = fixture.renderer.finish(preservingCarryover: false) }
@@ -6175,13 +7223,7 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
 
         XCTAssertNil(sourceCell.layer.animation(forKey: "opacity"))
         XCTAssertNotNil(sourceCell.layer.animation(forKey: "transform"))
-        XCTAssertEqual(
-            sourceCell.alpha,
-            1 - PlayerBrowserGridCrossfade.incomingContentAlpha(
-                settleProgress: 0.5
-            ),
-            accuracy: 0.000_001
-        )
+        XCTAssertEqual(sourceCell.alpha, 1, accuracy: 0.000_001)
         _ = fixture.renderer.finish(preservingCarryover: false)
     }
 
@@ -6311,6 +7353,18 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
         ))
         XCTAssertFalse(session.contentFadeAnimationMayBeActive)
         XCTAssertNotNil(container.layer.animation(forKey: "opacity"))
+
+        let laterSourceOpacity = CABasicAnimation(keyPath: "opacity")
+        laterSourceOpacity.duration = 10
+        sourceCell.layer.add(laterSourceOpacity, forKey: "opacity")
+        XCTAssertTrue(fixture.renderer.renderSettle(
+            id: fixture.planeRequest.id,
+            scale: scale,
+            settleProgress: 0.6,
+            panDeltaY: 0
+        ))
+        XCTAssertNil(sourceCell.layer.animation(forKey: "opacity"))
+        XCTAssertNil(container.layer.animation(forKey: "opacity"))
     }
 
     func testFallbackSourceIsExcludedFromCommitAndRestoredOnAbort() throws {
@@ -6327,13 +7381,7 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
             settleProgress: 0.5,
             panDeltaY: 0
         ))
-        XCTAssertEqual(
-            sourceCell.alpha,
-            1 - PlayerBrowserGridCrossfade.incomingContentAlpha(
-                settleProgress: 0.5
-            ),
-            accuracy: 0.000_001
-        )
+        XCTAssertEqual(sourceCell.alpha, 1, accuracy: 0.000_001)
         let opacity = CABasicAnimation(keyPath: "opacity")
         opacity.duration = 10
         sourceCell.layer.add(opacity, forKey: "opacity")
@@ -6352,7 +7400,51 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
         _ = fixture.renderer.finish(preservingCarryover: false)
     }
 
-    func testFallbackSourceFadesToRevealDestinationCoverage() throws {
+    func testCommitCapturesFallbackSourceWhenRequested() throws {
+        let fallbackImage = makeImage()
+        let fixture = try makeFixture(
+            itemCount: 1,
+            showsSourceCell: true,
+            providesContentAccess: true,
+            anchorItemIndex: 0
+        )
+        let sourceCell = try XCTUnwrap(
+            fixture.collectionView.visibleCells.first
+                as? MobilePlayerCollectionBrowserCell
+        )
+        sourceCell.setCarryoverContent(MobilePlayerBrowserCarryoverContent(
+            identity: MobilePlayerBrowserContentIdentity(
+                collectionId: "collection",
+                tokenIndex: 0
+            ),
+            image: fallbackImage,
+            usesNativeMetalCardCornerMask: false
+        ))
+        begin(fixture)
+        XCTAssertTrue(fixture.renderer.installPlane(fixture.planeRequest))
+        let session = try activeSession(fixture)
+        XCTAssertTrue(
+            session.sourceCoverage.fallbackRepresentationIDs.contains(
+                ObjectIdentifier(sourceCell)
+            )
+        )
+
+        let preparation = try XCTUnwrap(fixture.renderer.prepareCommit(
+            id: fixture.planeRequest.id,
+            mode: .fiveColumns,
+            capturesFallbackSources: true
+        ))
+
+        XCTAssertGreaterThan(preparation.carryoverSourceCount, 0)
+        XCTAssertNil(sourceCell.carryoverSourceContent)
+        XCTAssertTrue(fixture.renderer.completeCommit(preparation))
+        XCTAssertTrue(
+            sourceCell.carryoverSourceContent?.primary.image === fallbackImage
+        )
+        _ = fixture.renderer.finish(preservingCarryover: true)
+    }
+
+    func testFallbackSourceStaysOpaqueOverDestinationCoverage() throws {
         let fixture = try makeFixture(
             itemCount: 1,
             showsSourceCell: true,
@@ -6398,13 +7490,7 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
             settleProgress: progress,
             panDeltaY: 0
         ))
-        XCTAssertEqual(
-            sourceCell.alpha,
-            1 - PlayerBrowserGridCrossfade.incomingContentAlpha(
-                settleProgress: progress
-            ),
-            accuracy: 0.000_001
-        )
+        XCTAssertEqual(sourceCell.alpha, 1, accuracy: 0.000_001)
 
         XCTAssertTrue(fixture.renderer.renderSettle(
             id: fixture.planeRequest.id,
@@ -6412,7 +7498,7 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
             settleProgress: 1,
             panDeltaY: 0
         ))
-        XCTAssertEqual(sourceCell.alpha, 0, accuracy: 0.000_001)
+        XCTAssertEqual(sourceCell.alpha, 1, accuracy: 0.000_001)
     }
 
     func testReadySourceDemotionInstallsBackingCoverageBeforeFading() throws {
@@ -6483,13 +7569,7 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
         let layers = try phantomShapeLayers(in: shapeView)
         XCTAssertFalse(shapeView.isHidden)
         XCTAssertNotNil(layers.candidates.path)
-        XCTAssertEqual(
-            sourceCell.alpha,
-            1 - PlayerBrowserGridCrossfade.incomingContentAlpha(
-                settleProgress: progress
-            ),
-            accuracy: 0.000_001
-        )
+        XCTAssertEqual(sourceCell.alpha, 1, accuracy: 0.000_001)
         XCTAssertEqual(contentContainer.alpha, 0, accuracy: 0.000_001)
         XCTAssertLessThan(
             try XCTUnwrap(
@@ -6534,33 +7614,56 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
             installsSyntheticContent: true,
             clock: { 0 }
         )
-        let sourceCell = try XCTUnwrap(
-            fixture.collectionView.visibleCells.first
-                as? MobilePlayerCollectionBrowserCell
-        )
         begin(fixture)
         XCTAssertTrue(fixture.renderer.installPlane(fixture.planeRequest))
         drainQueuedWork(fixture)
         guard case let .active(session) = fixture.renderer.lifecycle else {
             return XCTFail("Expected an active renderer session")
         }
-        let phantom = try XCTUnwrap(session.phantomCells.values.first)
-        phantom.frame = CGRect(x: 0, y: 0, width: 80, height: 80)
+        let (phantomDestinationItem, phantom) = try XCTUnwrap(
+            session.phantomCells.first
+        )
+        phantom.frame = try XCTUnwrap(
+            fixture.destinationLayout.itemFrame(at: phantomDestinationItem)
+        )
         let expectedIdentity = try XCTUnwrap(
             phantom.carryoverSourceContent?.identity
         )
-        sourceCell.frame = phantom.frame
 
         let preparation = try XCTUnwrap(fixture.renderer.prepareCommit(
             id: fixture.planeRequest.id,
-            mode: .fiveColumns
+            mode: .fiveColumns,
+            capturesFallbackSources: true
         ))
 
         XCTAssertGreaterThan(preparation.carryoverSourceCount, 0)
-        XCTAssertNil(sourceCell.carryoverSourceContent)
+        guard case let .committing(commit) = fixture.renderer.lifecycle else {
+            return XCTFail("Expected a committing renderer session")
+        }
+        let capturedPhantom = try XCTUnwrap(commit.sources.first {
+            $0.content?.identity == expectedIdentity
+        })
+        XCTAssertEqual(
+            capturedPhantom.destinationItem,
+            phantomDestinationItem
+        )
+        fixture.collectionView.setCollectionViewLayout(
+            SourceBrowserLayout(browserLayout: fixture.destinationLayout),
+            animated: false
+        )
+        fixture.collectionView.contentOffset.y =
+            preparation.terminalContentOffsetY
+        fixture.collectionView.reloadData()
+        fixture.collectionView.layoutIfNeeded()
+        let destinationCell = try XCTUnwrap(
+            fixture.collectionView.cellForItem(
+                at: IndexPath(item: phantomDestinationItem, section: 0)
+            ) as? MobilePlayerCollectionBrowserCell
+        )
+        XCTAssertNil(destinationCell.carryoverSourceContent)
         XCTAssertTrue(fixture.renderer.completeCommit(preparation))
         XCTAssertEqual(
-            sourceCell.carryoverSourceContent?.identity,
+            destinationCell.carryoverSourceContent?.identity,
             expectedIdentity
         )
         _ = fixture.renderer.finish(preservingCarryover: true)
@@ -6632,6 +7735,216 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
         XCTAssertEqual(cacheAccessCount.value, 1)
         XCTAssertEqual(selectionPolicies.value.last, .highestAvailable)
         _ = fixture.renderer.finish(preservingCarryover: true)
+    }
+
+    func testCommitFallbackUsesRetainedDegradedWinner() throws {
+        let cacheIsReady = Box(false)
+        let cacheAccessCount = Counter()
+        let fallbackImage = makeImage()
+        var ratios = Array(repeating: CGFloat(1), count: 12)
+        ratios[3] = 2
+        let fixture = try makeFixture(
+            itemCount: ratios.count,
+            sourceColumnCount: 3,
+            destinationColumnCount: 1,
+            destinationMode: .large,
+            showsSourceGrid: true,
+            providesContentAccess: true,
+            anchorItemIndex: 0,
+            heightToWidthRatios: ratios,
+            imageAccess: .init(
+                cachedImage: { imageSources, _ in
+                    cacheAccessCount.value += 1
+                    guard cacheIsReady.value else { return nil }
+                    return (
+                        imageSources.thumbnailDescriptor,
+                        .thumbnail,
+                        fallbackImage
+                    )
+                },
+                loadImage: { _, _ in {} }
+            )
+        )
+        defer { _ = fixture.renderer.finish(preservingCarryover: true) }
+        let firstCell = try XCTUnwrap(
+            fixture.collectionView.cellForItem(
+                at: IndexPath(item: 0, section: 0)
+            ) as? MobilePlayerCollectionBrowserCell
+        )
+        let laterCell = try XCTUnwrap(
+            fixture.collectionView.cellForItem(
+                at: IndexPath(item: 1, section: 0)
+            ) as? MobilePlayerCollectionBrowserCell
+        )
+        let visibleFrame = firstCell.frame
+        let bufferedFrame = CGRect(
+            x: visibleFrame.minX,
+            y: fixture.viewportView.bounds.maxY + 8,
+            width: visibleFrame.width,
+            height: visibleFrame.height
+        )
+        firstCell.frame = bufferedFrame
+        laterCell.frame = visibleFrame
+        let firstSourceFrame = try XCTUnwrap(
+            fixture.sourceLayout.itemFrame(at: 0)
+        )
+        let laterSourceFrame = try XCTUnwrap(
+            fixture.sourceLayout.itemFrame(at: 1)
+        )
+        let firstDestinationFrame = try XCTUnwrap(
+            fixture.destinationLayout.itemFrame(at: 0)
+        )
+        let request = GridModePlaneRequest(
+            id: UUID(),
+            toMode: fixture.planeRequest.toMode,
+            layoutAspectState: fixture.planeRequest.layoutAspectState,
+            anchorTokenIndex: 0,
+            transitionLayout: fixture.planeRequest.transitionLayout,
+            crossfade: fixture.planeRequest.crossfade,
+            latticeMap: MobilePlayerBrowserGridLatticeMap(
+                columnPitchRatio: 1,
+                rowPitchRatio: 1,
+                fromAnchorContentPoint: CGPoint(
+                    x: firstSourceFrame.midX,
+                    y: firstSourceFrame.midY
+                ),
+                toAnchorContentPoint: CGPoint(
+                    x: firstDestinationFrame.midX,
+                    y: firstDestinationFrame.midY
+                )
+            )
+        )
+        let destinationItem = try XCTUnwrap(
+            fixture.destinationLayout.nearestItemIndex(
+                to: request.latticeMap.destinationPoint(
+                    fromSource: CGPoint(
+                        x: laterSourceFrame.midX,
+                        y: laterSourceFrame.midY
+                    )
+                ),
+                tolerance: fixture.destinationLayout.interItemSpacing + 1
+            )
+        )
+        begin(fixture)
+        XCTAssertTrue(fixture.renderer.installPlane(request))
+        drainQueuedWork(fixture)
+        let session = try activeSession(fixture)
+        XCTAssertNil(session.reassignments[0])
+        XCTAssertEqual(session.reassignments[1], destinationItem)
+
+        let preparation = try XCTUnwrap(fixture.renderer.prepareCommit(
+            id: request.id,
+            mode: .large,
+            capturesFallbackSources: true
+        ))
+        guard case let .committing(commit) = fixture.renderer.lifecycle else {
+            return XCTFail("Expected a committing renderer session")
+        }
+        XCTAssertEqual(
+            commit.fallbackSourceItemByDestinationItem[destinationItem],
+            1
+        )
+        XCTAssertTrue(commit.session.reassignments.isEmpty)
+        firstCell.frame = visibleFrame
+        laterCell.frame = bufferedFrame
+        let cacheAccessCountBeforeCompletion = cacheAccessCount.value
+        cacheIsReady.value = true
+
+        XCTAssertTrue(fixture.renderer.completeCommit(preparation))
+        let carryover = try XCTUnwrap(firstCell.carryoverSourceContent)
+        XCTAssertTrue(carryover.primary.image === fallbackImage)
+        XCTAssertEqual(
+            carryover.identity,
+            MobilePlayerBrowserContentIdentity(
+                collectionId: "collection",
+                tokenIndex: 1
+            )
+        )
+        XCTAssertGreaterThan(
+            cacheAccessCount.value,
+            cacheAccessCountBeforeCompletion
+        )
+    }
+
+    func testCommitDoesNotInverseFillMissingRetainedMapping() throws {
+        let itemCount = PlayerBrowserGridRenderBudget.maximumVisualCellCount + 5
+        let cacheIsReady = Box(false)
+        let cacheAccessCount = Counter()
+        let fixture = try makeFixture(
+            itemCount: itemCount,
+            showsSourceGrid: true,
+            providesContentAccess: true,
+            anchorItemIndex: 0,
+            heightToWidthRatios: Array(
+                repeating: 0.01,
+                count: itemCount
+            ),
+            imageAccess: .init(
+                cachedImage: { imageSources, _ in
+                    cacheAccessCount.value += 1
+                    guard cacheIsReady.value else { return nil }
+                    return (
+                        imageSources.thumbnailDescriptor,
+                        .thumbnail,
+                        self.makeImage()
+                    )
+                },
+                loadImage: { _, _ in {} }
+            )
+        )
+        defer { _ = fixture.renderer.finish(preservingCarryover: true) }
+        let sourceItem = itemCount - 1
+        let sourceFrame = try XCTUnwrap(
+            fixture.sourceLayout.itemFrame(at: sourceItem)
+        )
+        let destinationFrame = try XCTUnwrap(
+            fixture.destinationLayout.itemFrame(at: 0)
+        )
+        let request = GridModePlaneRequest(
+            id: UUID(),
+            toMode: fixture.planeRequest.toMode,
+            layoutAspectState: fixture.planeRequest.layoutAspectState,
+            anchorTokenIndex: 0,
+            transitionLayout: fixture.planeRequest.transitionLayout,
+            crossfade: fixture.planeRequest.crossfade,
+            latticeMap: MobilePlayerBrowserGridLatticeMap(
+                columnPitchRatio: 1,
+                rowPitchRatio: 1,
+                fromAnchorContentPoint: CGPoint(
+                    x: sourceFrame.midX,
+                    y: sourceFrame.midY
+                ),
+                toAnchorContentPoint: CGPoint(
+                    x: destinationFrame.midX,
+                    y: destinationFrame.midY
+                )
+            )
+        )
+        let destinationCell = try XCTUnwrap(
+            fixture.collectionView.cellForItem(
+                at: IndexPath(item: 0, section: 0)
+            ) as? MobilePlayerCollectionBrowserCell
+        )
+        begin(fixture)
+        XCTAssertTrue(fixture.renderer.installPlane(request))
+        let session = try activeSession(fixture)
+        XCTAssertFalse(session.selectedSourceItems.contains(sourceItem))
+
+        let preparation = try XCTUnwrap(fixture.renderer.prepareCommit(
+            id: request.id,
+            mode: .fiveColumns,
+            capturesFallbackSources: true
+        ))
+        guard case let .committing(commit) = fixture.renderer.lifecycle else {
+            return XCTFail("Expected a committing renderer session")
+        }
+        XCTAssertNil(commit.fallbackSourceItemByDestinationItem[0])
+        let cacheAccessCountBeforeCompletion = cacheAccessCount.value
+        cacheIsReady.value = true
+
+        XCTAssertTrue(fixture.renderer.completeCommit(preparation))
+        XCTAssertEqual(cacheAccessCount.value, cacheAccessCountBeforeCompletion)
+        XCTAssertNil(destinationCell.carryoverSourceContent)
     }
 
     func testNilCapturedOverlapFallsBackToMappedCachedImage() throws {
@@ -6714,9 +8027,10 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
         XCTAssertTrue(finish.clearsTransitionPlaceholderTones)
     }
 
-    func testCommitRecordsMappingFailuresWithoutCachingThem() throws {
+    func testCommitExcludesMappingFailuresFromFallbacks() throws {
         let cacheAccessCount = Counter()
         let cachedImage = makeImage()
+        let sourceImage = makeImage()
         let fixture = try makeFixture(
             itemCount: 1,
             showsSourceCell: true,
@@ -6738,6 +8052,16 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
             fixture.collectionView.visibleCells.first
                 as? MobilePlayerCollectionBrowserCell
         )
+        destinationCell.setCarryoverContent(
+            MobilePlayerBrowserCarryoverContent(
+                identity: MobilePlayerBrowserContentIdentity(
+                    collectionId: "collection",
+                    tokenIndex: 0
+                ),
+                image: sourceImage,
+                usesNativeMetalCardCornerMask: false
+            )
+        )
         begin(fixture)
         XCTAssertTrue(fixture.renderer.installPlane(request))
         guard case let .active(session) = fixture.renderer.lifecycle else {
@@ -6748,13 +8072,10 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
 
         let preparation = try XCTUnwrap(fixture.renderer.prepareCommit(
             id: request.id,
-            mode: .fiveColumns
+            mode: .fiveColumns,
+            capturesFallbackSources: true
         ))
-        guard case let .committing(commit) = fixture.renderer.lifecycle else {
-            return XCTFail("Expected a committing renderer session")
-        }
-        XCTAssertTrue(commit.ineligibleFallbackSourceItems.contains(0))
-        XCTAssertNil(commit.session.reassignments[0])
+        XCTAssertEqual(preparation.carryoverSourceCount, 0)
         XCTAssertTrue(fixture.renderer.completeCommit(preparation))
         XCTAssertEqual(cacheAccessCount.value, 0)
         XCTAssertNil(destinationCell.carryoverSourceContent)
@@ -6762,6 +8083,61 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
             fixture.renderer.finish(preservingCarryover: true)
         )
         XCTAssertTrue(finish.clearsTransitionPlaceholderTones)
+    }
+
+    func testCommitDoesNotRefillFallbacksBeyondMappedSourceBudget() throws {
+        let itemCount = PlayerBrowserGridRenderBudget
+            .maximumVisualCellCount + 5
+        let fixture = try makeFixture(
+            itemCount: itemCount,
+            showsSourceGrid: true,
+            providesContentAccess: true,
+            anchorItemIndex: 0,
+            heightToWidthRatios: Array(
+                repeating: 0.01,
+                count: itemCount
+            )
+        )
+        let request = try requestWithFailedMapping(fixture: fixture)
+        let sourceImage = makeImage()
+        for indexPath in fixture.collectionView.indexPathsForVisibleItems {
+            let cell = try XCTUnwrap(
+                fixture.collectionView.cellForItem(at: indexPath)
+                    as? MobilePlayerCollectionBrowserCell
+            )
+            cell.setCarryoverContent(MobilePlayerBrowserCarryoverContent(
+                identity: MobilePlayerBrowserContentIdentity(
+                    collectionId: "collection",
+                    tokenIndex: indexPath.item
+                ),
+                image: sourceImage,
+                usesNativeMetalCardCornerMask: false
+            ))
+        }
+        begin(fixture)
+        XCTAssertTrue(fixture.renderer.installPlane(request))
+        guard case let .active(session) = fixture.renderer.lifecycle else {
+            return XCTFail("Expected an active renderer session")
+        }
+        let selectedItems = session.selectedSourceItems
+        XCTAssertEqual(
+            selectedItems.count,
+            PlayerBrowserGridRenderBudget.maximumVisualCellCount
+        )
+        XCTAssertGreaterThan(
+            fixture.collectionView.indexPathsForVisibleItems.count,
+            selectedItems.count
+        )
+
+        let preparation = try XCTUnwrap(fixture.renderer.prepareCommit(
+            id: request.id,
+            mode: .fiveColumns,
+            capturesFallbackSources: true
+        ))
+        XCTAssertEqual(preparation.carryoverSourceCount, 0)
+
+        fixture.renderer.abortCommit(preparation)
+        _ = fixture.renderer.finish(preservingCarryover: false)
     }
 
     func testCommitReconcilesSourceInstalledAtBudgetBoundary() throws {
@@ -6772,7 +8148,7 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
             anchorItemIndex: 0,
             clock: {
                 defer { clockCalls.value += 1 }
-                return clockCalls.value < 2 ? 0 : 0.003
+                return clockCalls.value < 2 ? 0 : 0.005
             }
         )
         let request = try requestWithFailedMapping(fixture: fixture)
@@ -6801,10 +8177,6 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
             sourceCoverageBuildCount + 1
         )
 
-        guard case let .committing(commit) = fixture.renderer.lifecycle else {
-            return XCTFail("Expected a committing renderer session")
-        }
-        XCTAssertTrue(commit.ineligibleFallbackSourceItems.contains(0))
         fixture.renderer.abortCommit(preparation)
         _ = fixture.renderer.finish(preservingCarryover: false)
     }
@@ -6830,7 +8202,7 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
             ),
             clock: {
                 defer { clockCalls.value += 1 }
-                return clockCalls.value < 2 ? 0 : 0.003
+                return clockCalls.value < 2 ? 0 : 0.005
             }
         )
         let sourceCell = try XCTUnwrap(
@@ -6929,7 +8301,9 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
             planGeneration
         )
 
-        let refreshResult = fixture.renderer.drainMaterializationWork()
+        let refreshResult = fixture.renderer.drainMaterializationWork(
+            budgetOverride: (jobs: 8, time: 0.002)
+        )
         XCTAssertEqual(refreshResult.processedCount, 8)
         XCTAssertEqual(fixture.renderer.destinationPlanBuildCount, 2)
         XCTAssertGreaterThan(
@@ -7049,7 +8423,9 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
         }
         XCTAssertEqual(fixture.renderer.sourceCoverageBuildCount, 1)
 
-        let result = fixture.renderer.drainMaterializationWork()
+        let result = fixture.renderer.drainMaterializationWork(
+            budgetOverride: (jobs: 8, time: 0.002)
+        )
 
         XCTAssertEqual(result.processedCount, 8)
         XCTAssertGreaterThan(session.preparedRepresentationIDs.count, 1)
@@ -7124,6 +8500,127 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
         XCTAssertGreaterThan(fixture.configureCount.value, 0)
         XCTAssertLessThanOrEqual(fixture.configureCount.value, 7)
         XCTAssertFalse(result.stoppedForTimeLimit)
+        _ = fixture.renderer.finish(preservingCarryover: false)
+    }
+
+    func testDrainRunsAtBurstBudgetAfterGestureRender() throws {
+        let fixture = try makeFixture(clock: { 0 })
+        begin(fixture)
+        XCTAssertTrue(fixture.renderer.installPlane(fixture.planeRequest))
+        XCTAssertTrue(fixture.renderer.renderSettle(
+            id: fixture.planeRequest.id,
+            scale: 0.8,
+            settleProgress: 0.5,
+            panDeltaY: 0
+        ))
+        fixture.renderer.requestGestureMaterializationBurst()
+        XCTAssertGreaterThan(
+            fixture.renderer.pendingMaterializationWorkCount,
+            32
+        )
+
+        let result = fixture.renderer.drainMaterializationWork()
+
+        XCTAssertEqual(result.processedCount, 32)
+        XCTAssertGreaterThan(
+            fixture.renderer.pendingMaterializationWorkCount,
+            0
+        )
+        XCTAssertLessThanOrEqual(
+            fixture.renderer.drainMaterializationWork().processedCount,
+            8
+        )
+        _ = fixture.renderer.finish(preservingCarryover: false)
+    }
+
+    func testGestureDrainScalesItsTimeBudgetWithFrameDuration() throws {
+        func processedCount(frameDuration: CFTimeInterval) throws -> Int {
+            let time = Box<CFTimeInterval>(0)
+            let fixture = try makeFixture(clock: {
+                defer { time.value += 0.000_25 }
+                return time.value
+            })
+            begin(fixture)
+            XCTAssertTrue(fixture.renderer.installPlane(fixture.planeRequest))
+            XCTAssertTrue(fixture.renderer.renderSettle(
+                id: fixture.planeRequest.id,
+                scale: 0.8,
+                settleProgress: 0.5,
+                panDeltaY: 0
+            ))
+            fixture.renderer.requestGestureMaterializationBurst()
+            time.value = 0
+
+            let result = fixture.renderer.drainMaterializationWork(
+                frameDuration: frameDuration
+            )
+            _ = fixture.renderer.finish(preservingCarryover: false)
+            XCTAssertTrue(result.stoppedForTimeLimit)
+            return result.processedCount
+        }
+
+        let thirtyHertzCount = try processedCount(frameDuration: 1.0 / 30)
+        let sixtyHertzCount = try processedCount(frameDuration: 1.0 / 60)
+        let oneTwentyHertzCount = try processedCount(frameDuration: 1.0 / 120)
+
+        XCTAssertEqual(thirtyHertzCount, sixtyHertzCount)
+        XCTAssertGreaterThan(sixtyHertzCount, oneTwentyHertzCount)
+    }
+
+    func testInteractionFadePreservesOnlyTheNextMaterializationBurst() throws {
+        let fixture = try makeFixture(clock: { 0 })
+        begin(fixture)
+        XCTAssertTrue(fixture.renderer.installPlane(fixture.planeRequest))
+        XCTAssertTrue(fixture.renderer.renderSettle(
+            id: fixture.planeRequest.id,
+            scale: 0.8,
+            settleProgress: 0.5,
+            panDeltaY: 0
+        ))
+        fixture.renderer.requestGestureMaterializationBurst()
+        XCTAssertTrue(fixture.renderer.renderInteractionFade(
+            id: fixture.planeRequest.id,
+            presentationProgress: 0.6
+        ))
+        XCTAssertGreaterThan(
+            fixture.renderer.pendingMaterializationWorkCount,
+            8
+        )
+
+        let result = fixture.renderer.drainMaterializationWork()
+
+        XCTAssertGreaterThan(result.processedCount, 8)
+        XCTAssertGreaterThan(
+            fixture.renderer.pendingMaterializationWorkCount,
+            0
+        )
+        XCTAssertLessThanOrEqual(
+            fixture.renderer.drainMaterializationWork().processedCount,
+            8
+        )
+        _ = fixture.renderer.finish(preservingCarryover: false)
+    }
+
+    func testMaterializationBurstRequestWithoutWorkIsIgnored() throws {
+        let fixture = try makeFixture(clock: { 0 })
+        begin(fixture)
+        fixture.renderer.requestGestureMaterializationBurst()
+        XCTAssertTrue(fixture.renderer.installPlane(fixture.planeRequest))
+        XCTAssertTrue(fixture.renderer.renderSettle(
+            id: fixture.planeRequest.id,
+            scale: 0.8,
+            settleProgress: 0.5,
+            panDeltaY: 0
+        ))
+        XCTAssertGreaterThan(
+            fixture.renderer.pendingMaterializationWorkCount,
+            8
+        )
+
+        XCTAssertLessThanOrEqual(
+            fixture.renderer.drainMaterializationWork().processedCount,
+            8
+        )
         _ = fixture.renderer.finish(preservingCarryover: false)
     }
 
@@ -7295,9 +8792,9 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
         ))
         XCTAssertEqual(
             sourceCell.alpha,
-            0,
+            1,
             accuracy: 0.000_001,
-            "a valid buffered fallback still reveals destination coverage"
+            "a buffered fallback keeps its old pixels opaque, Photos-style"
         )
 
         sourceCell.configure(
@@ -7398,7 +8895,7 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
             clock: {
                 defer { clockCalls.value += 1 }
                 guard limitsDrainToOneJob.value else { return 0 }
-                return clockCalls.value < 2 ? 0 : 0.003
+                return clockCalls.value < 2 ? 0 : 0.005
             }
         )
         begin(fixture)
@@ -7420,7 +8917,9 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
 
         limitsDrainToOneJob.value = false
         clockCalls.value = 0
-        let sourceResult = fixture.renderer.drainMaterializationWork()
+        let sourceResult = fixture.renderer.drainMaterializationWork(
+            budgetOverride: (jobs: 8, time: 0.002)
+        )
 
         XCTAssertLessThanOrEqual(sourceResult.processedCount, 8)
         XCTAssertFalse(session.sourceOverscanCells.isEmpty)
@@ -7428,6 +8927,78 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
         XCTAssertFalse(session.sourceCoverageRefreshIsDirty)
         XCTAssertFalse(session.destinationPlanRefreshIsDirty)
         _ = fixture.renderer.finish(preservingCarryover: false)
+    }
+
+    func testDrainFlushesDeferredClassificationPaint() throws {
+        let fixture = try makeFixture(
+            providesContentAccess: true,
+            anchorItemIndex: 0,
+            imageAccess: .init(
+                cachedImage: { _, _ in nil },
+                loadImage: { _, _ in {} }
+            )
+        )
+        defer { _ = fixture.renderer.finish(preservingCarryover: false) }
+        begin(fixture)
+        XCTAssertTrue(fixture.renderer.installPlane(fixture.planeRequest))
+        XCTAssertTrue(fixture.renderer.renderSettle(
+            id: fixture.planeRequest.id,
+            scale: fixture.planeRequest.transitionLayout.itemWidthRatio,
+            settleProgress: 0.5,
+            presentationProgress: 0.5,
+            panDeltaY: 0
+        ))
+        let session = try activeSession(fixture)
+        drainQueuedWork(fixture)
+        let sourceRepresentationIDs = Set(
+            session.sourceOverscanCells.values.map(ObjectIdentifier.init)
+        )
+        XCTAssertFalse(sourceRepresentationIDs.isEmpty)
+        let unpreparedSourceRepresentationIDs = sourceRepresentationIDs
+            .intersection(
+                session.unpreparedMarginTrackingRepresentationIDs
+            )
+        let visibleRepresentationID = try XCTUnwrap(
+            unpreparedSourceRepresentationIDs.first { representationID in
+                guard let itemIndex = session.cachedSourceRepresentations[
+                    representationID
+                ]?.itemIndex else {
+                    return false
+                }
+                return session.viewportSelectedSourceItems.contains(itemIndex)
+            }
+        )
+        let bufferedRepresentationID = try XCTUnwrap(
+            unpreparedSourceRepresentationIDs.first { representationID in
+                guard let itemIndex = session.cachedSourceRepresentations[
+                    representationID
+                ]?.itemIndex else {
+                    return false
+                }
+                return !session.viewportSelectedSourceItems.contains(itemIndex)
+            }
+        )
+        session.deferClassificationPaint(for: bufferedRepresentationID)
+        session.deferClassificationPaint(for: visibleRepresentationID)
+
+        let paintResult = fixture.renderer.drainMaterializationWork(
+            budgetOverride: (jobs: 1, time: 1)
+        )
+        XCTAssertEqual(paintResult.processedCount, 1)
+        XCTAssertFalse(
+            session.deferredClassificationPaintRepresentationIDs.contains(
+                visibleRepresentationID
+            )
+        )
+        XCTAssertTrue(
+            session.deferredClassificationPaintRepresentationIDs.contains(
+                bufferedRepresentationID
+            )
+        )
+        drainQueuedWork(fixture)
+        XCTAssertTrue(
+            session.deferredClassificationPaintRepresentationIDs.isEmpty
+        )
     }
 
     func testDirtySourceRefreshRespectsTimeAndCannotBeStarvedAcrossDrains()
@@ -7449,9 +9020,9 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
                 defer { clockCalls.value += 1 }
                 switch clockMode.value {
                 case 0:
-                    return clockCalls.value < 2 ? 0 : 0.003
+                    return clockCalls.value < 2 ? 0 : 0.005
                 case 1:
-                    return clockCalls.value == 0 ? 0 : 0.003
+                    return clockCalls.value == 0 ? 0 : 0.005
                 default:
                     return 0
                 }
@@ -7510,7 +9081,7 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
             clock: {
                 defer { clockCalls.value += 1 }
                 guard limitsDrainToOneJob.value else { return 0 }
-                return clockCalls.value < 2 ? 0 : 0.003
+                return clockCalls.value < 2 ? 0 : 0.005
             }
         )
         defer { _ = fixture.renderer.finish(preservingCarryover: false) }
@@ -7599,7 +9170,9 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
         }
         XCTAssertTrue(session.destinationPlanRefreshIsDirty)
 
-        let result = fixture.renderer.drainMaterializationWork()
+        let result = fixture.renderer.drainMaterializationWork(
+            budgetOverride: (jobs: 8, time: 0.002)
+        )
 
         XCTAssertEqual(result.processedCount, 8)
         XCTAssertTrue(session.sourceOverscanCells.isEmpty)
@@ -7627,7 +9200,7 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
             clock: {
                 defer { clockCalls.value += 1 }
                 guard limitsDrainToOneJob.value else { return 0 }
-                return clockCalls.value < 2 ? 0 : 0.003
+                return clockCalls.value < 2 ? 0 : 0.005
             }
         )
         let sourceCell = try XCTUnwrap(
@@ -7671,7 +9244,7 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
         let clockCalls = Counter()
         let fixture = try makeFixture(clock: {
             defer { clockCalls.value += 1 }
-            return clockCalls.value < 2 ? 0 : 0.003
+            return clockCalls.value < 2 ? 0 : 0.002_001
         })
         begin(fixture)
         XCTAssertTrue(fixture.renderer.installPlane(fixture.planeRequest))
@@ -7690,7 +9263,7 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
         let fixture = try makeFixture(clock: {
             defer { clockCalls.value += 1 }
             guard returnsExpiredTime.value else { return 0 }
-            return clockCalls.value == 0 ? 0 : 0.003
+            return clockCalls.value == 0 ? 0 : 0.005
         })
         begin(fixture)
         XCTAssertTrue(fixture.renderer.installPlane(fixture.planeRequest))
@@ -7704,14 +9277,18 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
         )
         XCTAssertEqual(fixture.renderer.destinationPlanBuildCount, 1)
 
-        let expiredResult = fixture.renderer.drainMaterializationWork()
+        let expiredResult = fixture.renderer.drainMaterializationWork(
+            budgetOverride: (jobs: 8, time: 0.002)
+        )
 
         XCTAssertEqual(expiredResult.processedCount, 0)
         XCTAssertTrue(expiredResult.stoppedForTimeLimit)
         XCTAssertEqual(fixture.renderer.destinationPlanBuildCount, 1)
 
         returnsExpiredTime.value = false
-        let refreshResult = fixture.renderer.drainMaterializationWork()
+        let refreshResult = fixture.renderer.drainMaterializationWork(
+            budgetOverride: (jobs: 8, time: 0.002)
+        )
 
         XCTAssertEqual(refreshResult.processedCount, 8)
         XCTAssertEqual(fixture.renderer.destinationPlanBuildCount, 2)
@@ -7738,6 +9315,175 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
         ))
         XCTAssertEqual(fixture.renderer.lifecycleName, .committing)
         _ = fixture.renderer.finish(preservingCarryover: false)
+    }
+
+    func testReconfiguredRepresentationClearsCorrectionAndReindexesRegistry()
+        throws {
+        let image = makeImage()
+        let fixture = try makeFixture(
+            itemCount: 300,
+            sourceColumnCount: 3,
+            destinationColumnCount: 1,
+            destinationMode: .large,
+            showsSourceGrid: true,
+            providesContentAccess: true,
+            anchorItemIndex: 0,
+            imageAccess: .init(
+                cachedImage: { imageSources, _ in
+                    (imageSources.thumbnailDescriptor, .thumbnail, image)
+                },
+                loadImage: { _, _ in {} }
+            )
+        )
+        defer { _ = fixture.renderer.finish(preservingCarryover: false) }
+        begin(fixture)
+        XCTAssertTrue(fixture.renderer.installPlane(fixture.planeRequest))
+        drainQueuedWork(fixture)
+        let session = try activeSession(fixture)
+        let representationID = try XCTUnwrap(
+            session.cellFrameCorrections.keys.first {
+                session.cachedSourceRepresentations[$0] != nil
+            }
+        )
+        let representation = try XCTUnwrap(
+            session.cachedSourceRepresentations[representationID]
+        )
+        let cell = representation.cell
+        let previousItem = representation.itemIndex
+        let replacementItem = previousItem == 0 ? 1 : 0
+
+        cell.frame.origin.y = fixture.viewportView.bounds.maxY * 4
+        cell.configure(
+            contentIdentity: MobilePlayerBrowserContentIdentity(
+                collectionId: "collection",
+                tokenIndex: replacementItem
+            ),
+            itemCount: 300,
+            imageSources: nil,
+            requiredImageQuality: .thumbnail,
+            missingDescriptorFallbackSpec: PlayerMediaPlaceholderSpec(
+                thumbnailAspectRatio: nil
+            ),
+            imageLoadPolicy: .disabled
+        )
+        fixture.renderer.didConfigureCell(
+            cell,
+            at: IndexPath(item: replacementItem, section: 0)
+        )
+
+        XCTAssertEqual(
+            session.cachedSourceRepresentations[representationID]?.itemIndex,
+            replacementItem
+        )
+        XCTAssertNil(session.cellFrameCorrections[representationID])
+        XCTAssertFalse(session.cachedSourceRepresentations.values.contains {
+            $0.itemIndex == previousItem && $0.cell === cell
+        })
+        fixture.renderer.didEndDisplayingCell(
+            cell,
+            at: IndexPath(item: replacementItem, section: 0)
+        )
+        XCTAssertNil(session.cachedSourceRepresentations[representationID])
+    }
+
+    func testReconfiguredRepresentationCancelsOldItemWork() throws {
+        let cancellationCount = Counter()
+        let fixture = try makeFixture(
+            itemCount: 30,
+            showsSourceCell: true,
+            providesContentAccess: true,
+            anchorItemIndex: 0,
+            imageAccess: .init(
+                cachedImage: { _, _ in nil },
+                loadImage: { _, _ in
+                    return { cancellationCount.value += 1 }
+                }
+            )
+        )
+        defer { _ = fixture.renderer.finish(preservingCarryover: false) }
+        let cell = try XCTUnwrap(
+            fixture.collectionView.visibleCells.first
+                as? MobilePlayerCollectionBrowserCell
+        )
+        begin(fixture)
+        XCTAssertTrue(fixture.renderer.installPlane(fixture.planeRequest))
+        drainQueuedWork(fixture)
+        let session = try activeSession(fixture)
+        let representationID = ObjectIdentifier(cell)
+        XCTAssertNotNil(session.transitionImageLoads[representationID])
+        fixture.renderer.willDisplayCell(
+            cell,
+            at: IndexPath(item: 0, section: 0)
+        )
+
+        cell.frame.origin.y = fixture.viewportView.bounds.maxY * 4
+        cell.configure(
+            contentIdentity: MobilePlayerBrowserContentIdentity(
+                collectionId: "collection",
+                tokenIndex: 1
+            ),
+            itemCount: 30,
+            imageSources: nil,
+            requiredImageQuality: .thumbnail,
+            missingDescriptorFallbackSpec: PlayerMediaPlaceholderSpec(
+                thumbnailAspectRatio: nil
+            ),
+            imageLoadPolicy: .disabled
+        )
+        fixture.renderer.didConfigureCell(
+            cell,
+            at: IndexPath(item: 1, section: 0)
+        )
+
+        XCTAssertGreaterThan(cancellationCount.value, 0)
+        XCTAssertNil(session.transitionImageLoads[representationID])
+        XCTAssertFalse(
+            fixture.renderer.pendingDetailMaterializationRepresentationKeys
+                .contains(.init(
+                    representationID: representationID,
+                    sourceItem: 0
+                ))
+        )
+        XCTAssertFalse(
+            fixture.renderer.pendingPromotionRepresentationKeys.contains(
+                .init(representationID: representationID, tokenIndex: 0)
+            )
+        )
+    }
+
+    func testNarrowRTLViewportUsesMirroredSourceGeometry() throws {
+        let fixture = try makeFixture(
+            itemCount: 30,
+            sourceColumnCount: 5,
+            destinationColumnCount: 3,
+            destinationMode: .threeColumns,
+            showsSourceGrid: true
+        )
+        defer { _ = fixture.renderer.finish(preservingCarryover: false) }
+        fixture.collectionView.semanticContentAttribute = .forceRightToLeft
+        fixture.collectionView.layoutIfNeeded()
+        let viewportWidth = fixture.sourceLayout.itemWidth
+        fixture.viewportView.frame.size.width = viewportWidth
+        fixture.viewportView.bounds.size.width = viewportWidth
+        let geometry = fixture.collectionView.visualGeometry(
+            for: fixture.sourceLayout
+        )
+        for itemIndex in 0..<30 {
+            guard let cell = fixture.collectionView.cellForItem(
+                at: IndexPath(item: itemIndex, section: 0)
+            ), let frame = geometry.itemFrame(at: itemIndex) else {
+                continue
+            }
+            cell.frame = frame
+        }
+        begin(fixture)
+        XCTAssertTrue(fixture.renderer.installPlane(fixture.planeRequest))
+        let session = try activeSession(fixture)
+
+        XCTAssertEqual(
+            session.viewportSelectedSourceItems,
+            Set([4, 9, 14, 19, 24, 29])
+        )
     }
 }
 

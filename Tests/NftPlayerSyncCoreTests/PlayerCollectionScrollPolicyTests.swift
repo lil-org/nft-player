@@ -478,7 +478,7 @@ final class PlayerCollectionScrollPolicyTests: XCTestCase {
             let portraitTransition = MobilePlayerBrowserLayout.viewportTransition(
                 previousViewportSize: .zero,
                 viewportSize: portraitSize,
-                needsSafeAreaRefresh: true,
+                needsGeometryRefresh: true,
                 topContentInset: 59,
                 bottomContentInset: 34,
                 aspectProfile: aspectProfile,
@@ -488,7 +488,7 @@ final class PlayerCollectionScrollPolicyTests: XCTestCase {
             let landscapeTransition = MobilePlayerBrowserLayout.viewportTransition(
                 previousViewportSize: portraitSize,
                 viewportSize: landscapeSize,
-                needsSafeAreaRefresh: false,
+                needsGeometryRefresh: false,
                 bottomContentInset: 21,
                 aspectProfile: aspectProfile,
                 forcedTokenIndex: nil,
@@ -497,7 +497,7 @@ final class PlayerCollectionScrollPolicyTests: XCTestCase {
             let returnedPortraitTransition = MobilePlayerBrowserLayout.viewportTransition(
                 previousViewportSize: landscapeSize,
                 viewportSize: portraitSize,
-                needsSafeAreaRefresh: false,
+                needsGeometryRefresh: false,
                 topContentInset: 59,
                 bottomContentInset: 34,
                 aspectProfile: aspectProfile,

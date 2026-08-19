@@ -118,6 +118,11 @@ final class MobilePlayerCollectionBrowserTransitionPresentation {
     private(set) var presentationState: PresentationState = .empty
     private(set) var upgradeState: UpgradeState = .none
     private(set) var toneState: ToneState = .hidden
+    /// When the current tone hold began. A cell whose tone went up within
+    /// the last frame or two has never been seen without it — its first
+    /// image may install instantly, Photos-style. Tone the user has already
+    /// watched for a while must crossfade to content instead.
+    private(set) var toneHeldSince: CFTimeInterval?
 
     var hasCarryoverContent: Bool {
         if case .carryover = presentationState {
@@ -211,7 +216,8 @@ final class MobilePlayerCollectionBrowserTransitionPresentation {
         _ alpha: CGFloat,
         interruptingAnimation: Bool = false
     ) {
-        if interruptingAnimation {
+        if interruptingAnimation,
+           contentContainerView?.layer.animation(forKey: "opacity") != nil {
             contentContainerView?.layer.removeAnimation(forKey: "opacity")
         }
         guard contentContainerView?.alpha != alpha else { return }
@@ -243,6 +249,9 @@ final class MobilePlayerCollectionBrowserTransitionPresentation {
     func holdTone() {
         invalidate(.toneFade)
         toneView.layer.removeAllAnimations()
+        if toneState != .heldForBaseLoad {
+            toneHeldSince = CACurrentMediaTime()
+        }
         toneState = .heldForBaseLoad
         toneView.isHidden = false
         toneView.alpha = 1
@@ -250,6 +259,7 @@ final class MobilePlayerCollectionBrowserTransitionPresentation {
 
     func clearTone(animated: Bool) {
         let wasHeld = toneState == .heldForBaseLoad
+        toneHeldSince = nil
         invalidate(.toneFade)
         guard animated, wasHeld else {
             toneState = .hidden

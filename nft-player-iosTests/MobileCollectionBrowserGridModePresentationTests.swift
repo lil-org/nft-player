@@ -1,5 +1,6 @@
 // ∅ 2026 lil org
 
+import CoreImage
 import UIKit
 import XCTest
 @testable import nft_player_ios
@@ -17,13 +18,29 @@ final class MobileCollectionBrowserGridModePresentationTests: XCTestCase {
         func flushPendingViewingProgress() {}
     }
 
+    private final class TestPinchGestureRecognizer: UIPinchGestureRecognizer {
+        var reportedState: UIGestureRecognizer.State = .possible
+        var reportedLocation = CGPoint.zero
+
+        override var state: UIGestureRecognizer.State {
+            get { reportedState }
+            set { reportedState = newValue }
+        }
+
+        override func location(in view: UIView?) -> CGPoint {
+            reportedLocation
+        }
+    }
+
     private struct Fixture {
         let uuid: UUID
         let controller: VerticalCollectionBrowserViewController
         let window: UIWindow
     }
 
-    private func collectionMetadata() throws -> (
+    private func collectionMetadata(
+        minimumTokenCount: Int = 4
+    ) throws -> (
         id: String,
         internalSlug: String
     ) {
@@ -39,7 +56,7 @@ final class MobileCollectionBrowserGridModePresentationTests: XCTestCase {
                 let tokenCount = CollectionCatalog.tokenCount(
                     specificCollectionId: item.id
                 )
-                return tokenCount >= 4 && tokenCount <= 512
+                return tokenCount >= minimumTokenCount && tokenCount <= 512
                     && CollectionCatalog.canGenerateToken(
                         specificCollectionId: item.id,
                         tokenIndex: 0
@@ -49,7 +66,10 @@ final class MobileCollectionBrowserGridModePresentationTests: XCTestCase {
         return (item.id, try XCTUnwrap(item.internalSlug))
     }
 
-    private func makeFixture(collectionId: String) throws -> Fixture {
+    private func makeFixture(
+        collectionId: String,
+        gridModeCommitSnapshotFactory: ((UIView) -> UIView?)? = nil
+    ) throws -> Fixture {
         let uuid = UUID()
         let display = PlaybackDisplay()
         MobilePlaybackController.shared.subscribe(
@@ -61,7 +81,15 @@ final class MobileCollectionBrowserGridModePresentationTests: XCTestCase {
             display: display
         )
 
-        let controller = VerticalCollectionBrowserViewController(uuid: uuid)
+        let controller: VerticalCollectionBrowserViewController
+        if let gridModeCommitSnapshotFactory {
+            controller = VerticalCollectionBrowserViewController(
+                uuid: uuid,
+                gridModeCommitSnapshotFactory: gridModeCommitSnapshotFactory
+            )
+        } else {
+            controller = VerticalCollectionBrowserViewController(uuid: uuid)
+        }
         let window = UIWindow(frame: CGRect(
             x: 0,
             y: 0,
@@ -103,11 +131,13 @@ final class MobileCollectionBrowserGridModePresentationTests: XCTestCase {
 
     private func prepare(
         _ controller: VerticalCollectionBrowserViewController,
-        using preparation: PlayerCollectionBrowsePreparation
+        using preparation: PlayerCollectionBrowsePreparation,
+        forcePosition: Bool = false
     ) async -> MobilePlayerCollectionBrowserDisplayPreparationResult {
         await withCheckedContinuation { continuation in
             controller.prepareForDisplay(
                 using: preparation,
+                forcePosition: forcePosition,
                 publishWhenStable: false
             ) {
                 continuation.resume(returning: $0)
@@ -123,11 +153,102 @@ final class MobileCollectionBrowserGridModePresentationTests: XCTestCase {
         }
     }
 
+    private func waitUntil(
+        _ description: String,
+        condition: () -> Bool
+    ) async throws {
+        for _ in 0..<200 {
+            if condition() {
+                return
+            }
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+        XCTFail(description)
+    }
+
+    private func sendPinch(
+        _ recognizer: UIPinchGestureRecognizer,
+        to controller: VerticalCollectionBrowserViewController
+    ) {
+        let selector = NSSelectorFromString("handleGridModePinch:")
+        XCTAssertTrue(controller.responds(to: selector))
+        controller.perform(selector, with: recognizer)
+    }
+
     private func skipIfReduceMotionEnabled() throws {
         try XCTSkipIf(
             UIAccessibility.isReduceMotionEnabled,
             "Reduce Motion applies grid modes directly without a settle"
         )
+    }
+
+    private func centerPixelRGBA(
+        in image: UIImage
+    ) throws -> (red: UInt8, green: UInt8, blue: UInt8, alpha: UInt8) {
+        let cgImage = try XCTUnwrap(image.cgImage)
+        let ciImage = CIImage(cgImage: cgImage)
+        let sampleBounds = CGRect(
+            x: floor(ciImage.extent.midX),
+            y: floor(ciImage.extent.midY),
+            width: 1,
+            height: 1
+        )
+        var pixel = [UInt8](repeating: 0, count: 4)
+        pixel.withUnsafeMutableBytes { bytes in
+            CIContext().render(
+                ciImage,
+                toBitmap: bytes.baseAddress!,
+                rowBytes: 4,
+                bounds: sampleBounds,
+                format: .RGBA8,
+                colorSpace: CGColorSpaceCreateDeviceRGB()
+            )
+        }
+        return (pixel[0], pixel[1], pixel[2], pixel[3])
+    }
+
+    func testControllerDeallocatesWithActiveInteractionFadeDisplayLink()
+        async throws {
+        let metadata = try collectionMetadata()
+        let uuid = UUID()
+        let display = PlaybackDisplay()
+        MobilePlaybackController.shared.subscribe(
+            config: MobilePlayerConfig(
+                id: uuid,
+                initialItemId: metadata.id,
+                initialTokenIndex: 0
+            ),
+            display: display
+        )
+        var candidate: VerticalCollectionBrowserViewController? =
+            VerticalCollectionBrowserViewController(uuid: uuid)
+        candidate?.loadViewIfNeeded()
+        candidate?.view.frame = CGRect(x: 0, y: 0, width: 390, height: 844)
+        candidate?.setActive(true)
+        candidate?.view.layoutIfNeeded()
+        let recognizer = TestPinchGestureRecognizer()
+        recognizer.reportedLocation = CGPoint(x: 195, y: 422)
+        recognizer.reportedState = .began
+        recognizer.scale = 1
+        sendPinch(recognizer, to: try XCTUnwrap(candidate))
+        recognizer.reportedState = .changed
+        recognizer.scale = 0.8
+        sendPinch(recognizer, to: try XCTUnwrap(candidate))
+        await waitForNextMainQueueTurn()
+        let collectionView = try XCTUnwrap(
+            candidate?.view.subviews.first {
+                $0 is MobilePlayerCollectionBrowserCollectionView
+            } as? MobilePlayerCollectionBrowserCollectionView
+        )
+        XCTAssertFalse(collectionView.isScrollEnabled)
+        weak var controller: VerticalCollectionBrowserViewController?
+        controller = candidate
+
+        candidate = nil
+        MobilePlaybackController.shared.stopAndDisconnect(uuid: uuid)
+        await waitForNextMainQueueTurn()
+
+        XCTAssertNil(controller)
     }
 
     func testRestartCollectionPreservesTemporaryGridMode() async throws {
@@ -144,6 +265,438 @@ final class MobileCollectionBrowserGridModePresentationTests: XCTestCase {
         await waitForNextMainQueueTurn()
 
         XCTAssertEqual(fixture.controller.gridMode, .fiveColumns)
+    }
+
+    func testCommitSnapshotBlocksSelectionUntilItDissolves() async throws {
+        try skipIfReduceMotionEnabled()
+        let metadata = try collectionMetadata()
+        let fixture = try makeFixture(
+            collectionId: metadata.id,
+            gridModeCommitSnapshotFactory: {
+                UIView(frame: $0.bounds)
+            }
+        )
+        defer { tearDownFixture(fixture) }
+        let collectionView = try XCTUnwrap(
+            fixture.controller.view.subviews.first {
+                $0 is MobilePlayerCollectionBrowserCollectionView
+            } as? MobilePlayerCollectionBrowserCollectionView
+        )
+
+        try await selectGridMode(
+            .fiveColumns,
+            controller: fixture.controller
+        )
+
+        let indexPath = try XCTUnwrap(
+            collectionView.indexPathsForVisibleItems.sorted().first {
+                guard let cell = collectionView.cellForItem(at: $0)
+                    as? MobilePlayerCollectionBrowserCell else {
+                    return false
+                }
+                return cell.canSelect(representing: .init(
+                    collectionId: metadata.id,
+                    tokenIndex: $0.item
+                ))
+            }
+        )
+        let cell = try XCTUnwrap(collectionView.cellForItem(at: indexPath))
+
+        XCTAssertTrue(collectionView.isScrollEnabled)
+        XCTAssertFalse(fixture.controller.canSelectItem(
+            at: cell.center,
+            in: collectionView
+        ))
+        XCTAssertFalse(fixture.controller.collectionView(
+            collectionView,
+            shouldSelectItemAt: indexPath
+        ))
+
+        try await waitUntil("Snapshot did not finish dissolving") {
+            fixture.controller.collectionView(
+                collectionView,
+                shouldSelectItemAt: indexPath
+            )
+        }
+
+        XCTAssertTrue(fixture.controller.canSelectItem(
+            at: cell.center,
+            in: collectionView
+        ))
+        XCTAssertTrue(fixture.controller.collectionView(
+            collectionView,
+            shouldSelectItemAt: indexPath
+        ))
+    }
+
+    func testNilPlaneChangeSnapshotUsesBitmapCoverWithoutCancelingPinch()
+        async throws {
+        let metadata = try collectionMetadata()
+        var snapshotRequestCount = 0
+        let fixture = try makeFixture(
+            collectionId: metadata.id,
+            gridModeCommitSnapshotFactory: { _ in
+                snapshotRequestCount += 1
+                return nil
+            }
+        )
+        defer { tearDownFixture(fixture) }
+        let controller = fixture.controller
+        let collectionView = try XCTUnwrap(
+            controller.view.subviews.first {
+                $0 is MobilePlayerCollectionBrowserCollectionView
+            } as? MobilePlayerCollectionBrowserCollectionView
+        )
+        let recognizer = TestPinchGestureRecognizer()
+        recognizer.reportedLocation = CGPoint(
+            x: controller.view.bounds.midX,
+            y: controller.view.bounds.midY
+        )
+        recognizer.reportedState = .began
+        recognizer.scale = 1
+        sendPinch(recognizer, to: controller)
+        recognizer.reportedState = .changed
+        recognizer.scale = 1.5
+        sendPinch(recognizer, to: controller)
+        await waitForNextMainQueueTurn()
+
+        XCTAssertFalse(collectionView.isScrollEnabled)
+
+        recognizer.scale = 0.9
+        sendPinch(recognizer, to: controller)
+        await waitForNextMainQueueTurn()
+
+        XCTAssertGreaterThan(snapshotRequestCount, 0)
+        let fallbackCover = try XCTUnwrap(
+            controller.view.subviews.first { $0 is UIImageView }
+                as? UIImageView
+        )
+        let fallbackImage = try XCTUnwrap(fallbackCover.image)
+        XCTAssertEqual(fallbackImage.scale, 1)
+        XCTAssertEqual(fallbackCover.frame, controller.view.bounds)
+        XCTAssertFalse(fallbackCover.isUserInteractionEnabled)
+        XCTAssertTrue(fallbackCover.superview === controller.view)
+        XCTAssertFalse(collectionView.isScrollEnabled)
+    }
+
+    func testBitmapFallbackCapturesAnimatedPresentationPixels() async throws {
+        let metadata = try collectionMetadata()
+        var snapshotRequestCount = 0
+        let fixture = try makeFixture(
+            collectionId: metadata.id,
+            gridModeCommitSnapshotFactory: { _ in
+                snapshotRequestCount += 1
+                return nil
+            }
+        )
+        defer { tearDownFixture(fixture) }
+        let controller = fixture.controller
+        let foregroundScene = try XCTUnwrap(
+            UIApplication.shared.connectedScenes
+                .compactMap { $0 as? UIWindowScene }
+                .filter { $0.activationState == .foregroundActive }
+                .sorted {
+                    $0.session.persistentIdentifier
+                        < $1.session.persistentIdentifier
+                }
+                .first
+        )
+        let previousKeyWindow = try XCTUnwrap(
+            foregroundScene.windows.first { $0.isKeyWindow }
+        )
+        fixture.window.windowScene = foregroundScene
+        fixture.window.makeKeyAndVisible()
+        let overlay = UIView(frame: controller.view.bounds)
+        overlay.backgroundColor = .magenta
+        controller.view.addSubview(overlay)
+        defer {
+            overlay.layer.removeAllAnimations()
+            overlay.removeFromSuperview()
+            previousKeyWindow.makeKey()
+        }
+        controller.view.layoutIfNeeded()
+        await waitForNextMainQueueTurn()
+        UIView.animate(
+            withDuration: 100,
+            delay: 0,
+            options: .curveLinear
+        ) {
+            overlay.alpha = 0
+        }
+        CATransaction.flush()
+        try await waitUntil("Overlay presentation did not become visible") {
+            overlay.layer.presentation()?.opacity ?? 0 > 0.9
+        }
+        XCTAssertEqual(overlay.layer.opacity, 0)
+
+        let recognizer = TestPinchGestureRecognizer()
+        recognizer.reportedLocation = CGPoint(
+            x: controller.view.bounds.midX,
+            y: controller.view.bounds.midY
+        )
+        recognizer.reportedState = .began
+        recognizer.scale = 1
+        sendPinch(recognizer, to: controller)
+        recognizer.reportedState = .changed
+        recognizer.scale = 1.5
+        sendPinch(recognizer, to: controller)
+        await waitForNextMainQueueTurn()
+
+        recognizer.scale = 0.9
+        sendPinch(recognizer, to: controller)
+        await waitForNextMainQueueTurn()
+
+        XCTAssertGreaterThan(snapshotRequestCount, 0)
+        let fallbackCover = try XCTUnwrap(
+            controller.view.subviews.first { $0 is UIImageView }
+                as? UIImageView
+        )
+        let fallbackImage = try XCTUnwrap(fallbackCover.image)
+        XCTAssertEqual(fallbackImage.scale, 1)
+        let pixel = try centerPixelRGBA(
+            in: fallbackImage
+        )
+        XCTAssertGreaterThan(pixel.red, 200)
+        XCTAssertLessThan(pixel.green, 60)
+        XCTAssertGreaterThan(pixel.blue, 200)
+        XCTAssertGreaterThan(pixel.alpha, 200)
+    }
+
+    func testNilRapidReplacementRetiresPreviousCoverAndKeepsFallback()
+        async throws {
+        let metadata = try collectionMetadata()
+        var snapshots = [UIView]()
+        var snapshotRequestCount = 0
+        let fixture = try makeFixture(
+            collectionId: metadata.id,
+            gridModeCommitSnapshotFactory: { view in
+                snapshotRequestCount += 1
+                guard snapshotRequestCount == 1 else { return nil }
+                let snapshot = UIView(frame: view.bounds)
+                snapshots.append(snapshot)
+                return snapshot
+            }
+        )
+        defer { tearDownFixture(fixture) }
+        let controller = fixture.controller
+        let collectionView = try XCTUnwrap(
+            controller.view.subviews.first {
+                $0 is MobilePlayerCollectionBrowserCollectionView
+            } as? MobilePlayerCollectionBrowserCollectionView
+        )
+        let recognizer = TestPinchGestureRecognizer()
+        recognizer.reportedLocation = CGPoint(
+            x: controller.view.bounds.midX,
+            y: controller.view.bounds.midY
+        )
+        recognizer.reportedState = .began
+        recognizer.scale = 1
+        sendPinch(recognizer, to: controller)
+        recognizer.reportedState = .changed
+        recognizer.scale = 1.5
+        sendPinch(recognizer, to: controller)
+        await waitForNextMainQueueTurn()
+
+        XCTAssertEqual(snapshotRequestCount, 0)
+
+        recognizer.scale = 0.9
+        sendPinch(recognizer, to: controller)
+        await waitForNextMainQueueTurn()
+
+        let firstSnapshot = try XCTUnwrap(snapshots.first)
+        XCTAssertEqual(snapshotRequestCount, 1)
+        XCTAssertTrue(firstSnapshot.superview === controller.view)
+
+        recognizer.scale = 0.5
+        sendPinch(recognizer, to: controller)
+        await waitForNextMainQueueTurn()
+
+        XCTAssertEqual(snapshotRequestCount, 1)
+        XCTAssertTrue(firstSnapshot.superview === controller.view)
+
+        recognizer.scale = 1.5
+        sendPinch(recognizer, to: controller)
+        await waitForNextMainQueueTurn()
+
+        XCTAssertEqual(snapshotRequestCount, 2)
+        XCTAssertNil(firstSnapshot.superview)
+        let fallbackCover = try XCTUnwrap(
+            controller.view.subviews.first { $0 is UIImageView }
+                as? UIImageView
+        )
+        XCTAssertEqual(try XCTUnwrap(fallbackCover.image).scale, 1)
+        XCTAssertTrue(fallbackCover.superview === controller.view)
+        XCTAssertFalse(collectionView.isScrollEnabled)
+    }
+
+    func testZeroAlphaPlaneReversalSkipsSnapshotAndKeepsPinchActive()
+        async throws {
+        let metadata = try collectionMetadata()
+        var snapshotRequestCount = 0
+        let fixture = try makeFixture(
+            collectionId: metadata.id,
+            gridModeCommitSnapshotFactory: { view in
+                snapshotRequestCount += 1
+                return UIView(frame: view.bounds)
+            }
+        )
+        defer { tearDownFixture(fixture) }
+        let controller = fixture.controller
+        let collectionView = try XCTUnwrap(
+            controller.view.subviews.first {
+                $0 is MobilePlayerCollectionBrowserCollectionView
+            } as? MobilePlayerCollectionBrowserCollectionView
+        )
+        let recognizer = TestPinchGestureRecognizer()
+        recognizer.reportedLocation = CGPoint(
+            x: controller.view.bounds.midX,
+            y: controller.view.bounds.midY
+        )
+        recognizer.reportedState = .began
+        recognizer.scale = 1
+        sendPinch(recognizer, to: controller)
+
+        recognizer.reportedState = .changed
+        recognizer.scale = 1.05
+        sendPinch(recognizer, to: controller)
+        await waitForNextMainQueueTurn()
+
+        recognizer.scale = 1.03
+        sendPinch(recognizer, to: controller)
+        await waitForNextMainQueueTurn()
+
+        XCTAssertEqual(snapshotRequestCount, 0)
+        XCTAssertFalse(collectionView.isScrollEnabled)
+
+        recognizer.scale = 1.05
+        sendPinch(recognizer, to: controller)
+        await waitForNextMainQueueTurn()
+
+        XCTAssertEqual(snapshotRequestCount, 0)
+        XCTAssertFalse(collectionView.isScrollEnabled)
+    }
+
+    func testPinchEndAppliesTerminalScaleWithoutTerminalCentroid() async throws {
+        let metadata = try collectionMetadata()
+        let fixture = try makeFixture(collectionId: metadata.id)
+        defer { tearDownFixture(fixture) }
+        let controller = fixture.controller
+        let recognizer = TestPinchGestureRecognizer()
+        recognizer.reportedLocation = CGPoint(
+            x: controller.view.bounds.midX,
+            y: controller.view.bounds.midY
+        )
+        recognizer.reportedState = .began
+        recognizer.scale = 1
+        sendPinch(recognizer, to: controller)
+
+        recognizer.reportedState = .ended
+        recognizer.scale = 0.5
+        recognizer.reportedLocation.y -= 200
+        sendPinch(recognizer, to: controller)
+
+        for _ in 0..<200 {
+            if controller.gridMode == .fiveColumns {
+                break
+            }
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+        XCTAssertEqual(controller.gridMode, .fiveColumns)
+    }
+
+    func testDisplayScaleChangeRelayoutsSameSizeViewport() async throws {
+        let metadata = try collectionMetadata()
+        let fixture = try makeFixture(collectionId: metadata.id)
+        defer { tearDownFixture(fixture) }
+        let controller = fixture.controller
+        let collectionView = try XCTUnwrap(
+            controller.view.subviews.first {
+                $0 is MobilePlayerCollectionBrowserCollectionView
+            } as? MobilePlayerCollectionBrowserCollectionView
+        )
+        let viewportSize = controller.view.bounds.size
+
+        func itemSpacing(at displayScale: CGFloat) async throws -> CGFloat {
+            controller.traitOverrides.displayScale = displayScale
+            await waitForNextMainQueueTurn()
+            controller.view.layoutIfNeeded()
+            let first = try XCTUnwrap(
+                collectionView.collectionViewLayout.layoutAttributesForItem(
+                    at: IndexPath(item: 0, section: 0)
+                )
+            )
+            let second = try XCTUnwrap(
+                collectionView.collectionViewLayout.layoutAttributesForItem(
+                    at: IndexPath(item: 1, section: 0)
+                )
+            )
+            return second.frame.minX - first.frame.maxX
+        }
+
+        let threeTimesSpacing = try await itemSpacing(at: 3)
+        let twoTimesSpacing = try await itemSpacing(at: 2)
+
+        XCTAssertEqual(controller.view.bounds.size, viewportSize)
+        XCTAssertEqual(threeTimesSpacing, 5.0 / 3.0, accuracy: 0.000_1)
+        XCTAssertEqual(twoTimesSpacing, 1.5, accuracy: 0.000_1)
+    }
+
+    func testDisplayScaleChangeRecentersRetainedDeepFocus() async throws {
+        let metadata = try collectionMetadata(minimumTokenCount: 300)
+        let fixture = try makeFixture(collectionId: metadata.id)
+        defer { tearDownFixture(fixture) }
+        let controller = fixture.controller
+        let collectionView = try XCTUnwrap(
+            controller.view.subviews.first {
+                $0 is MobilePlayerCollectionBrowserCollectionView
+            } as? MobilePlayerCollectionBrowserCollectionView
+        )
+        controller.traitOverrides.displayScale = 3
+        await waitForNextMainQueueTurn()
+        controller.view.layoutIfNeeded()
+        let tokenCount = CollectionCatalog.tokenCount(
+            specificCollectionId: metadata.id
+        )
+        let targetTokenIndex = tokenCount / 2
+        let targetPagePosition = PlayerPagePosition(
+            position: targetTokenIndex
+        )
+        let preparation = try XCTUnwrap(
+            MobilePlaybackController.shared.prepareCollectionBrowse(
+                uuid: fixture.uuid,
+                containing: targetPagePosition
+            )
+        )
+        let preparationResult = await prepare(
+            controller,
+            using: preparation,
+            forcePosition: true
+        )
+        XCTAssertEqual(preparationResult, .prepared)
+
+        func targetViewportCenterY() throws -> CGFloat {
+            let attributes = try XCTUnwrap(
+                collectionView.collectionViewLayout.layoutAttributesForItem(
+                    at: IndexPath(item: targetTokenIndex, section: 0)
+                )
+            )
+            return collectionView.convert(
+                CGPoint(x: attributes.frame.midX, y: attributes.frame.midY),
+                to: controller.view
+            ).y
+        }
+
+        let centerYAtThreeTimes = try targetViewportCenterY()
+        controller.traitOverrides.displayScale = 2
+        await waitForNextMainQueueTurn()
+        controller.view.layoutIfNeeded()
+
+        XCTAssertEqual(controller.currentPagePosition, targetPagePosition)
+        XCTAssertEqual(
+            try targetViewportCenterY(),
+            centerYAtThreeTimes,
+            accuracy: 0.5
+        )
     }
 
     func testSettleReservesCollectionPanForOneFingerAndRestoresIt() throws {
@@ -1048,6 +1601,83 @@ final class MobileCollectionBrowserGridModePresentationTests: XCTestCase {
         XCTAssertEqual(result, .superseded)
         XCTAssertEqual(fixture.controller.gridMode, .large)
         XCTAssertEqual(fixture.controller.currentPagePosition, originalPosition)
+    }
+
+    func testCancelledPreparationPreservesFocusAcrossDisplayScaleChange() async throws {
+        let metadata = try collectionMetadata(minimumTokenCount: 300)
+        let fixture = try makeFixture(collectionId: metadata.id)
+        defer { tearDownFixture(fixture) }
+        let controller = fixture.controller
+        let collectionView = try XCTUnwrap(
+            controller.view.subviews.first {
+                $0 is MobilePlayerCollectionBrowserCollectionView
+            } as? MobilePlayerCollectionBrowserCollectionView
+        )
+        controller.traitOverrides.displayScale = 3
+        await waitForNextMainQueueTurn()
+        controller.view.layoutIfNeeded()
+        try await selectGridMode(.large, controller: controller)
+
+        let tokenCount = CollectionCatalog.tokenCount(
+            specificCollectionId: metadata.id
+        )
+        let originalTokenIndex = tokenCount / 2
+        let originalPosition = PlayerPagePosition(position: originalTokenIndex)
+        let originalPreparation = try XCTUnwrap(
+            MobilePlaybackController.shared.prepareCollectionBrowse(
+                uuid: fixture.uuid,
+                containing: originalPosition
+            )
+        )
+        let originalPreparationResult = await prepare(
+            controller,
+            using: originalPreparation,
+            forcePosition: true
+        )
+        XCTAssertEqual(originalPreparationResult, .prepared)
+
+        func viewportCenterY(of tokenIndex: Int) throws -> CGFloat {
+            let attributes = try XCTUnwrap(
+                collectionView.collectionViewLayout.layoutAttributesForItem(
+                    at: IndexPath(item: tokenIndex, section: 0)
+                )
+            )
+            return collectionView.convert(
+                CGPoint(x: attributes.frame.midX, y: attributes.frame.midY),
+                to: controller.view
+            ).y
+        }
+
+        let originalBounds = controller.view.bounds
+        let originalCenterY = try viewportCenterY(of: originalTokenIndex)
+        controller.setActive(false)
+        let replacementPreparation = try XCTUnwrap(
+            MobilePlaybackController.shared.prepareCollectionBrowse(
+                uuid: fixture.uuid,
+                containing: .initial
+            )
+        )
+        let replacementPreparationResult = await prepare(
+            controller,
+            using: replacementPreparation
+        )
+        XCTAssertEqual(replacementPreparationResult, .prepared)
+
+        controller.traitOverrides.displayScale = 1
+        await waitForNextMainQueueTurn()
+        controller.view.layoutIfNeeded()
+        XCTAssertEqual(controller.view.bounds, originalBounds)
+
+        controller.cancelPendingDisplayPreparation()
+        controller.view.layoutIfNeeded()
+
+        XCTAssertEqual(controller.currentPagePosition, originalPosition)
+        XCTAssertEqual(controller.gridMode, .large)
+        XCTAssertEqual(
+            try viewportCenterY(of: originalTokenIndex),
+            originalCenterY,
+            accuracy: 0.5
+        )
     }
 
     func testPreparationPreservesTemporaryModeAndRetainsTargetFocus() async throws {

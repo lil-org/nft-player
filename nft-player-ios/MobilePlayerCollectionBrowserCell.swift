@@ -66,6 +66,13 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
         var fallbackQualityOnFailure: CollectionBrowseImageQuality?
     }
 
+    private struct DeferredImageInstall {
+        let image: UIImage
+        let descriptor: DownloadableMediaDescriptor
+        let quality: CollectionBrowseImageQuality
+        let contentIdentity: MobilePlayerBrowserContentIdentity
+    }
+
     private let placeholderView = PlayerMediaPlaceholderView()
     private let imageView = MobilePlayerCollectionBrowserCell
         .makeContentImageView(frame: .zero)
@@ -102,6 +109,7 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
     }
     private var displayedImageHasLocalFile = false
     private var imageLoads = [CollectionBrowseImageQuality: ImageLoad]()
+    private var deferredImageInstall: DeferredImageInstall?
     private var installedIncomingTransitionContentDescriptor:
         DownloadableMediaDescriptor?
 
@@ -185,10 +193,12 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
         _ alpha: CGFloat,
         interruptingAnimation: Bool = false
     ) {
+        applyDeferredImageInstallIfPossible(requiresOpaqueOverlay: true)
         transitionPresentation.setIncomingAlpha(
             alpha,
             interruptingAnimation: interruptingAnimation
         )
+        applyDeferredImageInstallIfPossible(requiresOpaqueOverlay: true)
     }
 
     func represents(tokenIndex: Int) -> Bool {
@@ -221,11 +231,24 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
         )
     }
 
-    func clearTransitionContent(preservingCarryover: Bool = false) {
+    func clearTransitionContent(
+        preservingCarryover: Bool = false
+    ) {
         transitionPresentation.clear(
             preservingCarryover: preservingCarryover
         )
         installedIncomingTransitionContentDescriptor = nil
+    }
+
+    func finishTransitionContent(
+        preservingCarryover: Bool = false
+    ) {
+        clearTransitionContent(preservingCarryover: preservingCarryover)
+        installDeferredBaseImageIfNoIncomingOverlay()
+    }
+
+    func installDeferredBaseImageIfNoIncomingOverlay() {
+        applyDeferredImageInstallIfPossible()
     }
 
     var needsCarryoverContent: Bool {
@@ -293,6 +316,7 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
 
     private func resetForReuse() {
         cancelImageLoad()
+        deferredImageInstall = nil
         clearTransitionContent()
         representedContentIdentity = nil
         imageSources = nil
@@ -349,6 +373,15 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
             requiredQuality: requiredImageQuality,
             allowsLocalLargeUpgrade: allowsLocalLargeImageUpgrade
         )
+        if let deferredImageInstall,
+           deferredImageInstall.contentIdentity != contentIdentity
+            || imageSources?.descriptor(for: deferredImageInstall.quality)
+                != deferredImageInstall.descriptor
+            || imageSources?.cachedImageCandidateDescriptors(
+                selectionPolicy: cachedImageSelectionPolicy
+            ).contains(deferredImageInstall.descriptor) != true {
+            self.deferredImageInstall = nil
+        }
         let descriptorRetention = cachedImageDescriptorRetention(
             displayedDescriptor: displayedImageDescriptor,
             displayedImageIsPresent: imageView.image != nil,
@@ -386,7 +419,7 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
         descriptor = retainedDescriptor ?? requiredDescriptor
         if retainedDescriptor == nil {
             if rejectsDisplayedImageForSelectionPolicy {
-                clearTransitionContent()
+                finishTransitionContent()
             } else if imageSources != nil,
                let previousVisualContent {
                 setCarryoverContent(previousVisualContent)
@@ -407,7 +440,9 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
             } else if changesContentIdentity, !hasCarryoverContent {
                 clearTransitionContent()
             }
-            imageView.image = nil
+            if displayedImageDescriptor == nil {
+                imageView.image = nil
+            }
         }
         if imageSources == nil {
             clearTransitionContent()
@@ -416,16 +451,17 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
         if previousContentIdentity != contentIdentity {
             configuredMediaTime = CACurrentMediaTime()
         }
-        let usesNativeMetalCardCornerMask = (retainedDescriptor ?? requiredDescriptor)?
+        let usesNativeMetalCardCornerMask = (displayedImageDescriptor
+            ?? requiredDescriptor)?
             .usesNativeMetalCardPresentation
             ?? missingDescriptorFallbackSpec.usesNativeMetalCardCornerMask
         imageView.usesNativeMetalCardCornerMask = usesNativeMetalCardCornerMask
 
-        if retainedDescriptor == nil, let requiredDescriptor {
+        if displayedImageDescriptor == nil, let requiredDescriptor {
             displayedImageSize = PlayerCollectionBrowserSupport.fallbackImageSize(
                 for: requiredDescriptor
             )
-        } else if retainedDescriptor == nil {
+        } else if displayedImageDescriptor == nil {
             displayedImageSize = missingDescriptorFallbackSpec.aspectSize
         }
         placeholderView.configure(
@@ -435,7 +471,7 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
             )
         )
         placeholderView.setHidden(
-            retainedDescriptor != nil
+            displayedImageDescriptor != nil
                 || transitionPresentation.holdsToneForBaseLoad,
             animated: false
         )
@@ -569,6 +605,10 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
             tracksLocalFileAvailability: true,
             prewarmsNativeMetalCardFace: true
         )
+        if deferredImageInstall?.quality.canReplace(requiredImageQuality)
+            == true {
+            return
+        }
 
         if displayedImageQuality != .large,
            CollectionBrowseImageLoadPolicy.allowsLocalLargeImagePromotion(
@@ -643,6 +683,10 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
                 || imageView.image == nil else {
             return
         }
+        let toneRequiresFade = transitionPresentation.holdsToneForBaseLoad
+            && (transitionPresentation.toneHeldSince.map {
+                CACurrentMediaTime() - $0 > Self.configureFrameInstallGrace
+            } ?? true)
         setImage(
             cachedImage.image,
             descriptor: cachedImage.descriptor,
@@ -650,8 +694,9 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
             tokenIndex: tokenIndex,
             animated: animatedWhenLoaded
                 && (imageView.image != nil
+                    || hasCarryoverContent
                     || fadesFirstImage
-                    || transitionPresentation.holdsToneForBaseLoad
+                    || toneRequiresFade
                     || CACurrentMediaTime() - configuredMediaTime
                         > Self.configureFrameInstallGrace),
             tracksLocalFileAvailability: tracksLocalFileAvailability,
@@ -858,7 +903,7 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
         displayedImageHasLocalFile = isAvailable
     }
 
-    private func setImage(
+    func setImage(
         _ image: UIImage,
         descriptor: DownloadableMediaDescriptor,
         quality: CollectionBrowseImageQuality,
@@ -881,6 +926,26 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
            let thumbnailLoad = imageLoads.removeValue(forKey: .thumbnail) {
             thumbnailLoad.cancellation?()
         }
+        if let deferredImageInstall,
+           !quality.canReplace(deferredImageInstall.quality) {
+            return
+        }
+        let previousImage = imageView.image
+        let destinationOverlayOpacity =
+            transitionPresentation.destinationOverlayOpacity
+        if animated,
+           previousImage.map({ $0 !== image }) == true,
+           destinationOverlayOpacity.map({ $0 < 1 }) == true,
+           let representedContentIdentity {
+            deferredImageInstall = DeferredImageInstall(
+                image: image,
+                descriptor: descriptor,
+                quality: quality,
+                contentIdentity: representedContentIdentity
+            )
+            return
+        }
+        deferredImageInstall = nil
         self.descriptor = descriptor
         displayedImageDescriptor = descriptor
         let descriptorCanSatisfyLarge = imageSources?.largeDescriptor == descriptor
@@ -892,33 +957,10 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
             && descriptorCanSatisfyLarge
             && cachedStaticImageURL != nil
         displayedImageSize = image.size
-        let previousImage = imageView.image
         let previousMask = imageView.usesNativeMetalCardCornerMask
-        let destinationOverlayOpacity =
-            transitionPresentation.destinationOverlayOpacity
-        let crossfadesBaseImage = animated
-            && previousImage.map { $0 !== image } == true
-            && destinationOverlayOpacity.map { $0 < 0.99 } == true
-            && imageView.layer.animation(forKey: "opacity") == nil
-        let applyBaseImage = {
-            self.imageView.usesNativeMetalCardCornerMask =
-                descriptor.usesNativeMetalCardPresentation
-            self.imageView.image = image
-        }
-        if crossfadesBaseImage {
-            UIView.transition(
-                with: imageView,
-                duration: Self.contentFadeDuration,
-                options: [
-                    .transitionCrossDissolve,
-                    .beginFromCurrentState,
-                    .curveLinear,
-                ],
-                animations: applyBaseImage
-            )
-        } else {
-            applyBaseImage()
-        }
+        imageView.usesNativeMetalCardCornerMask =
+            descriptor.usesNativeMetalCardPresentation
+        imageView.image = image
         placeholderView.setHidden(true, animated: animated)
         if previousImage == nil {
             clearTransitionPlaceholderTone(animated: animated)
@@ -943,27 +985,50 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
            destinationOverlayOpacity == nil,
            !hasCarryoverContent,
            imageView.layer.animation(forKey: "opacity") == nil {
-            // A quality upgrade over an already-displayed image resolves as a
-            // crossfade, not a hard swap. An active carryover stays put — its
-            // fade is already revealing this cell's (now sharper) content,
-            // and replacing its bitmap would itself be a hard swap. A base
-            // still fading in keeps its running fade — the carryover copy
-            // would paint the barely-visible art at full opacity in one
-            // frame, which is exactly the pop the crossfade exists to
-            // prevent.
             setCarryoverContent(MobilePlayerBrowserCarryoverContent(
                 identity: representedContentIdentity,
                 image: previousImage,
                 usesNativeMetalCardCornerMask: previousMask
             ))
         }
-        fadeOutCarryoverContentIfNeeded()
+        if animated {
+            fadeOutCarryoverContentIfNeeded()
+        } else if hasCarryoverContent {
+            clearTransitionContent()
+        }
         if prewarmsNativeMetalCardFace {
             prewarmNativeMetalCardFaceIfNeeded(
                 for: descriptor,
                 cachedStaticImageURL: cachedStaticImageURL
             )
         }
+    }
+
+    private func applyDeferredImageInstallIfPossible(
+        requiresOpaqueOverlay: Bool = false
+    ) {
+        guard let deferredImageInstall else { return }
+        let overlayOpacity = transitionPresentation.destinationOverlayOpacity
+        let canInstall = requiresOpaqueOverlay
+            ? overlayOpacity.map { $0 >= 1 } == true
+            : overlayOpacity == nil
+        guard canInstall else { return }
+        self.deferredImageInstall = nil
+        guard representedContentIdentity
+                == deferredImageInstall.contentIdentity else {
+            return
+        }
+        let usesForegroundImageLoading =
+            configuredImageLoadPolicy == .foreground
+        setImage(
+            deferredImageInstall.image,
+            descriptor: deferredImageInstall.descriptor,
+            quality: deferredImageInstall.quality,
+            tokenIndex: deferredImageInstall.contentIdentity.tokenIndex,
+            animated: true,
+            tracksLocalFileAvailability: usesForegroundImageLoading,
+            prewarmsNativeMetalCardFace: usesForegroundImageLoading
+        )
     }
 
     private func prewarmNativeMetalCardFaceIfNeeded(

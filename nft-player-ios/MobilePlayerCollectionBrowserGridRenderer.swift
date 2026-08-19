@@ -222,6 +222,12 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
         let stoppedForTimeLimit: Bool
     }
 
+    fileprivate enum LatticeItemShiftResolution {
+        case unresolved
+        case unavailable
+        case shift(columns: Int, rows: Int)
+    }
+
     final class Session {
         let id = UUID()
         let wasCollectionViewPrefetchingEnabled: Bool
@@ -233,6 +239,7 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
         fileprivate(set) var lastPanDeltaY: CGFloat = 0
         fileprivate(set) var lastRenderedScale: CGFloat = 1
         fileprivate(set) var lastSettleProgress: CGFloat = 0
+        fileprivate(set) var pendingGestureMaterializationBurst = false
         fileprivate(set) var lastContentFadeAlpha: CGFloat = 0
         /// The alpha the in-flight render frame will commit. Cell
         /// classification reads it mid-frame, before `applyContentFade`
@@ -241,7 +248,14 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
         fileprivate(set) var contentFadeAnimationMayBeActive = false
         fileprivate(set) var contentFadeAnimationGeneration: UInt = 0
         fileprivate(set) var reassignments = [Int: Int]()
+        /// Destination items already claimed by the degraded (non-uniform
+        /// lattice) per-cell matching path; a second cell resolving to a
+        /// claimed item stays a source fallback instead of duplicating art.
+        fileprivate(set) var assignedDestinationItems = Set<Int>()
+        fileprivate var latticeItemShiftResolution =
+            LatticeItemShiftResolution.unresolved
         fileprivate(set) var selectedSourceItems = Set<Int>()
+        fileprivate(set) var viewportSelectedSourceItems = Set<Int>()
         fileprivate(set) var preparedRepresentationIDs = Set<ObjectIdentifier>()
         fileprivate(set) var lockedFallbackRepresentationIDs = Set<ObjectIdentifier>()
         fileprivate(set) var sourceCoverage =
@@ -285,6 +299,8 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
         ]()
         fileprivate(set) var unpreparedMarginTrackingRepresentationIDs =
             Set<ObjectIdentifier>()
+        fileprivate(set) var deferredClassificationPaintRepresentationIDs =
+            Set<ObjectIdentifier>()
         /// Source cells whose destination lands off screen; they hold their
         /// source position and content to keep the viewport margins covered.
         fileprivate(set) var marginCoverageRepresentationIDs =
@@ -311,6 +327,21 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
         fileprivate(set) var destinationPlanRefreshIsDirty = false
         fileprivate(set) var managedCellPlanRefreshIsPending = false
 
+        func deferClassificationPaint(for representationID: ObjectIdentifier) {
+            deferredClassificationPaintRepresentationIDs.insert(
+                representationID
+            )
+        }
+
+        fileprivate func sourceItemPrecedes(_ lhs: Int, _ rhs: Int) -> Bool {
+            let lhsIsVisible = viewportSelectedSourceItems.contains(lhs)
+            let rhsIsVisible = viewportSelectedSourceItems.contains(rhs)
+            if lhsIsVisible != rhsIsVisible {
+                return lhsIsVisible
+            }
+            return lhs < rhs
+        }
+
         fileprivate func removeForegroundEligibility(
             for representationIDs: Set<ObjectIdentifier>
         ) {
@@ -334,9 +365,28 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
             unpreparedMarginTrackingRepresentationIDs.remove(
                 representationID
             )
+            deferredClassificationPaintRepresentationIDs.remove(
+                representationID
+            )
             marginCoverageRepresentationIDs.remove(representationID)
             removeForegroundEligibility(for: representationID)
             detailedSourceCellItems.removeValue(forKey: representationID)
+        }
+
+        fileprivate func registerSourceRepresentation(
+            _ cell: MobilePlayerCollectionBrowserCell,
+            itemIndex: Int
+        ) {
+            let representationID = ObjectIdentifier(cell)
+            if let registeredItem = cachedSourceRepresentations[
+                representationID
+            ]?.itemIndex, registeredItem != itemIndex {
+                unregisterSourceRepresentation(representationID)
+            }
+            cachedSourceRepresentations[representationID] = (
+                itemIndex: itemIndex,
+                cell: cell
+            )
         }
 
         fileprivate func addCellFrameCorrection(
@@ -365,6 +415,9 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
                 cellFrameCorrections.removeValue(forKey: representationID)
             }
             unpreparedMarginTrackingRepresentationIDs.subtract(
+                representationIDs
+            )
+            deferredClassificationPaintRepresentationIDs.subtract(
                 representationIDs
             )
             marginCoverageRepresentationIDs.subtract(representationIDs)
@@ -414,7 +467,10 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
 
         fileprivate func resetTransitionState() {
             reassignments.removeAll(keepingCapacity: true)
+            assignedDestinationItems.removeAll(keepingCapacity: true)
+            latticeItemShiftResolution = .unresolved
             selectedSourceItems.removeAll(keepingCapacity: true)
+            viewportSelectedSourceItems.removeAll(keepingCapacity: true)
             preparedRepresentationIDs.removeAll(keepingCapacity: true)
             lockedFallbackRepresentationIDs.removeAll(keepingCapacity: true)
             sourceCoverage = .empty
@@ -427,6 +483,9 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
             transitionImageLoads.removeAll(keepingCapacity: true)
             cellFrameCorrections.removeAll(keepingCapacity: true)
             unpreparedMarginTrackingRepresentationIDs.removeAll(
+                keepingCapacity: true
+            )
+            deferredClassificationPaintRepresentationIDs.removeAll(
                 keepingCapacity: true
             )
             marginCoverageRepresentationIDs.removeAll(keepingCapacity: true)
@@ -471,20 +530,20 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
         let session: Session
         fileprivate let plane: GridModePlaneContext?
         let sources: [MobilePlayerBrowserGridCarryoverSource]
-        let ineligibleFallbackSourceItems: Set<Int>
+        let fallbackSourceItemByDestinationItem: [Int: Int]
         fileprivate(set) var isComplete = false
 
         fileprivate init(
             session: Session,
             plane: GridModePlaneContext?,
             sources: [MobilePlayerBrowserGridCarryoverSource],
-            ineligibleFallbackSourceItems: Set<Int>
+            fallbackSourceItemByDestinationItem: [Int: Int]
         ) {
             self.session = session
             self.plane = plane
             self.sources = sources
-            self.ineligibleFallbackSourceItems =
-                ineligibleFallbackSourceItems
+            self.fallbackSourceItemByDestinationItem =
+                fallbackSourceItemByDestinationItem
         }
     }
 
@@ -574,6 +633,11 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
         let tokenIndex: Int
     }
 
+    struct PendingDetailRepresentationKey: Hashable {
+        let representationID: ObjectIdentifier
+        let sourceItem: Int
+    }
+
     struct GridModeCellFrameCorrection {
         let centerDelta: CGPoint
         let sizeDelta: CGSize
@@ -596,6 +660,12 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
         let contentIdentity: MobilePlayerBrowserContentIdentity
         let imageSources: CollectionBrowseImageSources
         let cachedImage: ImageAccess.CachedImage?
+    }
+
+    private enum TransitionContentPreparation {
+        case ready
+        case pending
+        case unavailable
     }
 
     private enum DetailedSourceMaterializationCandidates {
@@ -773,6 +843,24 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
             where transform: (MaterializationJob) -> ObjectIdentifier?
         ) -> Set<ObjectIdentifier> {
             Set(jobsByKey.values.compactMap(transform))
+        }
+
+        func pendingDetailRepresentationKeys()
+            -> Set<PendingDetailRepresentationKey> {
+            Set(jobsByKey.values.compactMap { job in
+                guard case let .detail(
+                    _,
+                    _,
+                    representationID,
+                    sourceItem
+                ) = job.kind else {
+                    return nil
+                }
+                return PendingDetailRepresentationKey(
+                    representationID: representationID,
+                    sourceItem: sourceItem
+                )
+            })
         }
 
         func promotionRepresentationKeys() -> Set<PromotionRepresentationKey> {
@@ -1207,6 +1295,15 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
 
     private static let materializationJobLimit = 8
     private static let materializationTimeLimit: CFTimeInterval = 0.002
+    /// Gesture renders may expose many cells at once, so they admit more cheap
+    /// jobs while keeping materialization within a fixed fraction of the frame.
+    private static let transitionMaterializationJobLimit = 32
+    private static let transitionMaterializationMaximumTimeLimit:
+        CFTimeInterval = 0.004
+    private static let transitionMaterializationFrameFraction: CFTimeInterval =
+        0.24
+    private static let defaultMaterializationFrameDuration: CFTimeInterval =
+        1.0 / 60
     private static let minimumSourceBatchCapacity = 4
     private static let contentFadeOutDuration: TimeInterval = 0.12
     private static let edgeHandoffDistance: CGFloat = 128
@@ -1278,6 +1375,12 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
         }
     }
 
+    var planeChangeNeedsVisualCover: Bool {
+        guard case let .active(session) = lifecycle else { return false }
+        return session.lastContentFadeAlpha > 0
+            || session.contentFadeAnimationMayBeActive
+    }
+
     var pendingMaterializationWorkCount: Int {
         materializationQueue.count
     }
@@ -1298,6 +1401,11 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
             }
             return representationID
         }
+    }
+
+    var pendingDetailMaterializationRepresentationKeys:
+        Set<PendingDetailRepresentationKey> {
+        materializationQueue.pendingDetailRepresentationKeys()
     }
 
     var pendingVisibleDetailMaterializationRepresentationIDs:
@@ -1399,17 +1507,42 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
         wasCollectionViewPrefetchingEnabled: Bool
     ) -> Bool {
         guard case .idle = lifecycle else { return false }
-        lifecycle = .active(Session(
+        let session = Session(
             gestureAnchor: gestureAnchor,
             sourceLayout: sourceLayout,
             wasCollectionViewPrefetchingEnabled:
                 wasCollectionViewPrefetchingEnabled
-        ))
+        )
+        lifecycle = .active(session)
+        if let collectionView {
+            for indexPath in collectionView.indexPathsForVisibleItems {
+                guard let cell = collectionView.cellForItem(at: indexPath)
+                    as? MobilePlayerCollectionBrowserCell else {
+                    continue
+                }
+                registerSourceRepresentation(
+                    session: session,
+                    cell: cell,
+                    itemIndex: indexPath.item
+                )
+            }
+        }
         return true
     }
 
     func updateGestureAnchor(_ gestureAnchor: GridModeGestureAnchor?) {
         currentSession?.gestureAnchor = gestureAnchor
+    }
+
+    func requestGestureMaterializationBurst() {
+        guard !materializationQueue.isEmpty || hasDeferredRenderRefresh else {
+            return
+        }
+        currentSession?.pendingGestureMaterializationBurst = true
+    }
+
+    func cancelGestureMaterializationBurst() {
+        currentSession?.pendingGestureMaterializationBurst = false
     }
 
     @discardableResult
@@ -1551,6 +1684,27 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
         return true
     }
 
+    @discardableResult
+    func renderInteractionFade(
+        id: UUID,
+        presentationProgress: CGFloat
+    ) -> Bool {
+        guard case let .active(session) = lifecycle,
+              session.plane?.id == id,
+              presentationProgress.isFinite else {
+            return false
+        }
+        let contentFadeAlpha = PlayerBrowserGridCrossfade.incomingContentAlpha(
+            settleProgress: presentationProgress
+        )
+        applyContentFade(
+            session: session,
+            alpha: contentFadeAlpha,
+            animated: false
+        )
+        return true
+    }
+
     func installZoomRebase(
         currentTransform: CGAffineTransform,
         scale: CGFloat,
@@ -1663,7 +1817,8 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
 
     func prepareCommit(
         id: UUID,
-        mode: MobileCollectionBrowserGridMode
+        mode: MobileCollectionBrowserGridMode,
+        capturesFallbackSources: Bool = false
     ) -> CommitPreparation? {
         guard case let .active(session) = lifecycle,
               let plane = session.plane,
@@ -1677,18 +1832,30 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
                 plane: plane
             )
         }
+        var ineligibleFallbackSourceItems = Set<Int>()
+        var fallbackSourceItemByDestinationItem = [Int: Int]()
+        for sourceItem in prioritizedSourceItems(
+            session.selectedSourceItems,
+            session: session
+        ) {
+            if let destinationItem = destinationItem(
+                    session: session,
+                    sourceItem: sourceItem,
+                    plane: plane
+            ) {
+                if fallbackSourceItemByDestinationItem[destinationItem] == nil {
+                    fallbackSourceItemByDestinationItem[destinationItem] =
+                        sourceItem
+                }
+            } else {
+                ineligibleFallbackSourceItems.insert(sourceItem)
+            }
+        }
         let sources = captureVisibleCarryoverSources(
             session: session,
-            anchorTokenIndex: plane.anchorTokenIndex
-        )
-        let ineligibleFallbackSourceItems = Set(
-            session.selectedSourceItems.filter {
-                destinationItem(
-                    session: session,
-                    sourceItem: $0,
-                    plane: plane
-                ) == nil
-            }
+            anchorTokenIndex: plane.anchorTokenIndex,
+            capturesFallbackSources: capturesFallbackSources,
+            ineligibleFallbackSourceItems: ineligibleFallbackSourceItems
         )
         let terminalContentOffsetY = plane.terminalOutgoingPlane(
             panDeltaY: session.lastPanDeltaY
@@ -1698,8 +1865,8 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
             session: session,
             plane: plane,
             sources: sources,
-            ineligibleFallbackSourceItems:
-                ineligibleFallbackSourceItems
+            fallbackSourceItemByDestinationItem:
+                fallbackSourceItemByDestinationItem
         )
         lifecycle = .committing(commit)
         session.plane = nil
@@ -1726,8 +1893,8 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
             session: commit.session,
             plane: plane,
             sources: commit.sources,
-            ineligibleFallbackSourceItems:
-                commit.ineligibleFallbackSourceItems
+            fallbackSourceItemByDestinationItem:
+                commit.fallbackSourceItemByDestinationItem
         )
         commit.isComplete = true
         return true
@@ -1740,7 +1907,7 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
             session: session,
             plane: nil,
             sources: [],
-            ineligibleFallbackSourceItems: []
+            fallbackSourceItemByDestinationItem: [:]
         )
         lifecycle = .committing(commit)
         tearDownPlaneRendering(session: session)
@@ -1802,7 +1969,8 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
         session.plane = nil
         clearTransitionContent(
             session: session,
-            carryoverRetention: .pendingBase
+            carryoverRetention: .pendingBase,
+            installsDeferredBaseImages: true
         )
         return true
     }
@@ -1979,6 +2147,9 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
                 appliedScale: appliedScale
             )
         }
+        session.deferredClassificationPaintRepresentationIDs.removeAll(
+            keepingCapacity: true
+        )
         enqueueViewportPromotions(session: session)
         reconcileForegroundDestinationEligibility(
             session: session,
@@ -2331,25 +2502,6 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
         refreshPhantomShapeStructure(session: session)
     }
 
-    private func sourceCellsForSeamCompensation(
-        session: Session
-    ) -> [ObjectIdentifier: MobilePlayerCollectionBrowserCell] {
-        var cells = [ObjectIdentifier: MobilePlayerCollectionBrowserCell]()
-        for (representationID, representation) in
-            session.cachedSourceRepresentations
-        where representation.cell.superview != nil {
-            cells[representationID] = representation.cell
-        }
-        for cell in session.sourceOverscanCells.values
-        where cell.superview != nil {
-            cells[ObjectIdentifier(cell)] = cell
-        }
-        for cell in visibleBrowserCells where cell.superview != nil {
-            cells[ObjectIdentifier(cell)] = cell
-        }
-        return cells
-    }
-
     private func applySourceSeamCompensations(
         session: Session,
         naturalSpacing: CGFloat,
@@ -2365,11 +2517,15 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
             return
         }
         var hasTransforms = false
-        for (representationID, cell) in sourceCellsForSeamCompensation(
-            session: session
-        ) where session.cellFrameCorrections[representationID] == nil {
+        for (representationID, representation) in
+            session.cachedSourceRepresentations
+        where session.cellFrameCorrections[representationID] == nil
+            && representation.cell.superview != nil
+            && representation.cell.represents(
+                tokenIndex: representation.itemIndex
+            ) {
             hasTransforms = applySeamCompensation(
-                to: cell,
+                to: representation.cell,
                 compensation: compensation
             ) || hasTransforms
         }
@@ -2442,10 +2598,14 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
     private func clearSourceSeamCompensation(session: Session) {
         guard session.hasSourceSeamCompensationTransforms else { return }
         session.hasSourceSeamCompensationTransforms = false
-        for (representationID, cell) in sourceCellsForSeamCompensation(
-            session: session
-        ) where session.cellFrameCorrections[representationID] == nil {
-            setTransform(.identity, on: cell)
+        for (representationID, representation) in
+            session.cachedSourceRepresentations
+        where session.cellFrameCorrections[representationID] == nil
+            && representation.cell.superview != nil
+            && representation.cell.represents(
+                tokenIndex: representation.itemIndex
+            ) {
+            setTransform(.identity, on: representation.cell)
         }
     }
 
@@ -2454,6 +2614,11 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
         to cell: UICollectionViewCell,
         context: CellFrameCorrectionTransformContext
     ) -> Bool {
+        // The visibility factor stays in the TRANSFORM (unlike the overlay
+        // alpha, where it painted a half-faded margin ring): correction
+        // classification can flap between drain and settle frames, and the
+        // damping keeps the corrected and uncorrected transforms close
+        // enough that a flap never reads as a whole-grid flip.
         let progress = context.settleProgress
             * correction.destinationVisibilityProgress
         let screenWidth = cell.bounds.width * context.appliedScale.x
@@ -2867,17 +3032,34 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
         CGSize(width: rect.width / 4, height: rect.height / 4)
     }
 
+    private func detailItemSet<Items: Sequence>(
+        _ candidateItemIndices: Items,
+        anchorItemIndex: Int?,
+        maximumCount: Int
+    ) -> Set<Int> where Items.Element == Int {
+        guard maximumCount > 0 else { return [] }
+        let candidates = Set(candidateItemIndices.filter { $0 >= 0 })
+        guard candidates.count > maximumCount else { return candidates }
+        return Set(PlayerBrowserGridDetailPlan(
+            candidateItemIndices: Array(candidates),
+            anchorItemIndex: anchorItemIndex,
+            maximumCount: maximumCount
+        ).itemIndices)
+    }
+
     private func classifyDetailedSourceRepresentations(
         session: Session,
         plane: GridModePlaneContext
     ) {
         let sourceCells = viewportSourceCells(session: session)
-        session.selectedSourceItems = Set(PlayerBrowserGridDetailPlan(
+        let selectedItems = Set(PlayerBrowserGridDetailPlan(
             candidateItemIndices: sourceCells.map { $0.indexPath.item },
             anchorItemIndex: plane.anchorTokenIndex,
             maximumCount:
                 PlayerBrowserGridRenderBudget.maximumVisualCellCount
         ).itemIndices)
+        session.selectedSourceItems = selectedItems
+        session.viewportSelectedSourceItems = selectedItems
         session.preparedRepresentationIDs = session
             .preparedRepresentationIDs.filter { representationID in
                 sourceCells.contains {
@@ -2899,47 +3081,136 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
             viewportView.bounds,
             from: viewportView
         )
-        guard let detailRect = session.viewportDetailCoverage.replacementRect(
+        let replacementRect = session.viewportDetailCoverage.replacementRect(
             requiredRect: viewportRect,
             buffer: priorityCoverageBuffer(for: viewportRect)
-        ) else {
-            return false
-        }
-        let detailCells = sourceCells(
-            session: session,
-            intersecting: detailRect
         )
-        let viewportCells = detailCells.filter {
-            cell($0.cell, intersects: viewportRect)
+        let detailCells: [SourceCellEntry]?
+        let viewportCells: [SourceCellEntry]
+        if let replacementRect {
+            let replacementCells = sourceCells(
+                session: session,
+                intersecting: replacementRect
+            )
+            detailCells = replacementCells
+            viewportCells = registeredSourceCells(
+                session: session,
+                intersecting: viewportRect
+            )
+        } else {
+            detailCells = nil
+            viewportCells = registeredSourceCells(
+                session: session,
+                intersecting: viewportRect
+            )
         }
-        let viewportItems = PlayerBrowserGridDetailPlan(
-            candidateItemIndices: viewportCells.map { $0.indexPath.item },
+        let hasUniformLattice = latticeItemShift(
+            session: session,
+            plane: plane
+        ) != nil
+        let correctedSourceItems: [Int]
+        if hasUniformLattice {
+            correctedSourceItems = session.cellFrameCorrections.keys.compactMap {
+                representationID in
+                session.detailedSourceCellItems[representationID]
+                    ?? session.cachedSourceRepresentations[representationID]?
+                        .itemIndex
+            }
+        } else {
+            correctedSourceItems = []
+        }
+        let retainedCorrectionItems = detailItemSet(
+            correctedSourceItems,
             anchorItemIndex: plane.anchorTokenIndex,
             maximumCount:
                 PlayerBrowserGridRenderBudget.maximumVisualCellCount
-        ).itemIndices
-        let viewportItemSet = Set(viewportItems)
-        let marginItems = PlayerBrowserGridDetailPlan(
-            candidateItemIndices: detailCells.compactMap {
-                viewportItemSet.contains($0.indexPath.item)
+        )
+        let viewportItems = detailItemSet(
+            viewportCells.compactMap {
+                retainedCorrectionItems.contains($0.indexPath.item)
                     ? nil
                     : $0.indexPath.item
             },
             anchorItemIndex: plane.anchorTokenIndex,
             maximumCount: max(
                 PlayerBrowserGridRenderBudget.maximumVisualCellCount
-                    - viewportItems.count,
+                    - retainedCorrectionItems.count,
                 0
             )
-        ).itemIndices
+        )
+        let viewportItemSet = retainedCorrectionItems.union(viewportItems)
+        let viewportSelectionChanged = viewportItemSet
+            != session.viewportSelectedSourceItems
+        if detailCells == nil,
+           hasUniformLattice,
+           viewportItemSet.isSubset(of: session.selectedSourceItems) {
+            guard viewportSelectionChanged else { return false }
+            session.viewportSelectedSourceItems = viewportItemSet
+            return true
+        }
+        let marginCandidateItems = detailCells?.compactMap {
+            viewportItemSet.contains($0.indexPath.item)
+                ? nil
+                : $0.indexPath.item
+        } ?? session.selectedSourceItems.filter {
+            !viewportItemSet.contains($0)
+        }
+        let marginItems = detailItemSet(
+            marginCandidateItems,
+            anchorItemIndex: plane.anchorTokenIndex,
+            maximumCount: max(
+                PlayerBrowserGridRenderBudget.maximumVisualCellCount
+                    - viewportItemSet.count,
+                0
+            )
+        )
         let selectedItems = viewportItemSet.union(marginItems)
-        guard selectedItems != session.selectedSourceItems else { return false }
+        let selectionChanged = selectedItems != session.selectedSourceItems
+        guard selectionChanged || viewportSelectionChanged else { return false }
         let removedItems = session.selectedSourceItems.subtracting(
             selectedItems
         )
         session.selectedSourceItems = selectedItems
-        clearDetailedSourceItems(session: session, itemIndices: removedItems)
+        session.viewportSelectedSourceItems = viewportItemSet
+        let remappedItems = rebuildDegradedDestinationClaims(
+            session: session,
+            plane: plane
+        )
+        clearDetailedSourceItems(
+            session: session,
+            itemIndices: removedItems.union(remappedItems)
+        )
         return true
+    }
+
+    private func rebuildDegradedDestinationClaims(
+        session: Session,
+        plane: GridModePlaneContext
+    ) -> Set<Int> {
+        guard case .unavailable = session.latticeItemShiftResolution else {
+            return []
+        }
+        let previousReassignments = session.reassignments
+        session.reassignments.removeAll(keepingCapacity: true)
+        session.assignedDestinationItems.removeAll(keepingCapacity: true)
+        for sourceItem in prioritizedSourceItems(
+            session.selectedSourceItems,
+            session: session
+        ) {
+            guard let destinationItem = degradedDestinationItem(
+                sourceItem: sourceItem,
+                plane: plane
+            ), session.assignedDestinationItems.insert(destinationItem)
+                .inserted else {
+                continue
+            }
+            session.reassignments[sourceItem] = destinationItem
+        }
+        return Set(previousReassignments.keys)
+            .union(session.reassignments.keys)
+            .filter {
+                previousReassignments[$0] != session.reassignments[$0]
+            }
     }
 
     private func refreshDetailedSourceRepresentations(
@@ -2984,23 +3255,104 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
         if let destinationItem = session.reassignments[sourceItem] {
             return destinationItem
         }
+        let fromLayout = plane.transitionLayout.fromLayout
+        let toLayout = plane.transitionLayout.toLayout
+        // Photos assigns transition content by an integer lattice shift — a
+        // bijection. Proximity matching aliases neighboring cells onto the
+        // same destination item at the lattice edges, drawing the same art
+        // twice side by side mid-flight.
+        if let shift = latticeItemShift(session: session, plane: plane) {
+            let fromColumns = fromLayout.columnCount
+            let toColumns = toLayout.columnCount
+            guard fromColumns > 0, toColumns > 0 else { return nil }
+            let destinationColumn = sourceItem % fromColumns + shift.columns
+            let destinationRow = sourceItem / fromColumns + shift.rows
+            guard destinationColumn >= 0,
+                  destinationColumn < toColumns,
+                  destinationRow >= 0 else {
+                return nil
+            }
+            let destinationItem = destinationRow * toColumns
+                + destinationColumn
+            guard destinationItem < toLayout.itemCount else { return nil }
+            session.reassignments[sourceItem] = destinationItem
+            return destinationItem
+        }
+        guard let destinationItem = degradedDestinationItem(
+            sourceItem: sourceItem,
+            plane: plane
+        ),
+              !session.assignedDestinationItems.contains(destinationItem)
+        else {
+            return nil
+        }
+        session.reassignments[sourceItem] = destinationItem
+        session.assignedDestinationItems.insert(destinationItem)
+        return destinationItem
+    }
+
+    private func degradedDestinationItem(
+        sourceItem: Int,
+        plane: GridModePlaneContext
+    ) -> Int? {
         let fromGeometry = visualGeometry(
             for: plane.transitionLayout.fromLayout
         )
         let toGeometry = visualGeometry(for: plane.transitionLayout.toLayout)
-        guard let fromFrame = fromGeometry.itemFrame(at: sourceItem),
-              let destinationItem = toGeometry.nearestItemIndex(
-                  to: plane.latticeMap.destinationPoint(
-                      fromSource: CGPoint(
-                          x: fromFrame.midX,
-                          y: fromFrame.midY
+        guard let fromFrame = fromGeometry.itemFrame(at: sourceItem) else {
+            return nil
+        }
+        return toGeometry.nearestItemIndex(
+            to: plane.latticeMap.destinationPoint(
+                fromSource: CGPoint(x: fromFrame.midX, y: fromFrame.midY)
+            )
+        )
+    }
+
+    private func prioritizedSourceItems<S: Sequence>(
+        _ sourceItems: S,
+        session: Session
+    ) -> [Int] where S.Element == Int {
+        sourceItems.sorted { session.sourceItemPrecedes($0, $1) }
+    }
+
+    private func latticeItemShift(
+        session: Session,
+        plane: GridModePlaneContext
+    ) -> (columns: Int, rows: Int)? {
+        switch session.latticeItemShiftResolution {
+        case let .shift(columns, rows):
+            return (columns, rows)
+        case .unavailable:
+            return nil
+        case .unresolved:
+            break
+        }
+        let fromGeometry = visualGeometry(
+            for: plane.transitionLayout.fromLayout
+        )
+        let toGeometry = visualGeometry(for: plane.transitionLayout.toLayout)
+        guard let referenceFrame = fromGeometry.itemFrame(at: 0),
+              let shift = MobilePlayerBrowserGridTransition.latticeItemShift(
+                  fromLayout: plane.transitionLayout.fromLayout,
+                  toLayout: plane.transitionLayout.toLayout,
+                  mappedLogicalCenterOfItemZero: toGeometry.mirroredPoint(
+                      plane.latticeMap.destinationPoint(
+                          fromSource: CGPoint(
+                              x: referenceFrame.midX,
+                              y: referenceFrame.midY
+                          )
                       )
                   )
               ) else {
+            session.latticeItemShiftResolution = .unavailable
             return nil
         }
-        session.reassignments[sourceItem] = destinationItem
-        return destinationItem
+        session.latticeItemShiftResolution = .shift(
+            columns: shift.columns,
+            rows: shift.rows
+        )
+        return shift
     }
 
     @discardableResult
@@ -3015,17 +3367,11 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
             session: session,
             intersecting: sourceRect
         )
-        session.cachedSourceRepresentations = session
-            .cachedSourceRepresentations.filter { _, representation in
-                representation.cell.superview != nil
-                    && representation.cell.represents(
-                        tokenIndex: representation.itemIndex
-                    )
-        }
-        for entry in sourceCellEntries {
-            session.cachedSourceRepresentations[
-                ObjectIdentifier(entry.cell)
-            ] = (itemIndex: entry.indexPath.item, cell: entry.cell)
+        sourceCellEntries.sort {
+            session.sourceItemPrecedes(
+                $0.indexPath.item,
+                $1.indexPath.item
+            )
         }
         session.pruneMarginCoverageToSourceRepresentations()
         for entry in sourceCellEntries where
@@ -3105,6 +3451,10 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
                 ),
                 removePendingDetails: true
             )
+            installDeferredBaseImages(
+                session: session,
+                for: newlyLockedRepresentationIDs
+            )
             if !newlyLockedRepresentationIDs.isEmpty {
                 plan = makePlan()
             }
@@ -3112,6 +3462,18 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
         let lostCoveredDestinationItems = session.sourceCoverage
             .coveredDestinationItems.subtracting(plan.coveredDestinationItems)
         session.sourceCoverage = plan
+        let phantomCollisionItems = plan.coveredDestinationItems.filter {
+            session.phantomCells[$0] != nil
+        }
+        if !phantomCollisionItems.isEmpty {
+            // A live overlay now owns these items; leaving their phantoms up
+            // draws the same art twice side by side until the next replan.
+            recyclePhantomCells(
+                session: session,
+                retaining: Set(session.phantomCells.keys)
+                    .subtracting(phantomCollisionItems)
+            )
+        }
         let installedImmediateDestinationCoverage =
             session.lastContentFadeAlpha > 0
             && !lostCoveredDestinationItems.isEmpty
@@ -3273,8 +3635,8 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
         )
         removeCellFrameCorrections(session: session, for: cells)
         for cell in cells {
-            cell.clearTransitionContent(
-                preservingCarryover: cell.holdsCarryoverForPendingBaseImage
+            cell.finishTransitionContent(
+                preservingCarryover: cell.hasCarryoverContent
             )
             applySourceContentFade(
                 session: session,
@@ -3902,6 +4264,11 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
             session.hasSourceSeamCompensationTransforms = true
         }
         session.sourceOverscanCells[itemIndex] = cell
+        registerSourceRepresentation(
+            session: session,
+            cell: cell,
+            itemIndex: itemIndex
+        )
         invalidateViewportPromotion(session: session)
         if session.plane == nil {
             session.phantomShapeRefreshIsDirty = true
@@ -4559,25 +4926,165 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
             && intersection.height > 0
     }
 
+    private func registerSourceRepresentation(
+        session: Session,
+        cell: MobilePlayerCollectionBrowserCell,
+        itemIndex: Int
+    ) {
+        let representationID = ObjectIdentifier(cell)
+        if let registeredItem = session.cachedSourceRepresentations[
+            representationID
+        ]?.itemIndex, registeredItem != itemIndex {
+            materializationQueue.removePromotion(
+                sessionID: session.id,
+                contentGeneration: session.transitionContentGeneration,
+                representationID: representationID,
+                tokenIndex: registeredItem
+            )
+            invalidateTransitionWork(
+                session: session,
+                scope: .representationKeys([TransitionRepresentationKey(
+                    representationID: representationID,
+                    sourceItem: registeredItem
+                )]),
+                removePendingDetails: true
+            )
+            removeCellFrameCorrection(session: session, for: cell)
+        }
+        session.registerSourceRepresentation(cell, itemIndex: itemIndex)
+    }
+
     private func sourceCells(
         session: Session,
         intersecting rect: CGRect
     ) -> [SourceCellEntry] {
-        let sourceLayout = session.plane?.transitionLayout.fromLayout
-            ?? session.sourceLayout
-        var itemIndices = existingManagedSourceItemIndices(
-            intersecting: rect,
-            layout: sourceLayout
+        let itemIndices = sourceItemIndices(
+            session: session,
+            intersecting: rect
         )
-        itemIndices.formUnion(session.sourceOverscanCells.keys)
-        return itemIndices.sorted().flatMap { itemIndex in
-            let indexPath = IndexPath(item: itemIndex, section: 0)
-            return sourceCells(session: session, at: itemIndex).compactMap {
-                sourceCell -> SourceCellEntry? in
-                guard cell(sourceCell, intersects: rect) else { return nil }
-                return SourceCellEntry(indexPath: indexPath, cell: sourceCell)
+        for itemIndex in itemIndices {
+            for cell in sourceCells(session: session, at: itemIndex)
+            where cell.superview != nil
+                && cell.represents(tokenIndex: itemIndex) {
+                registerSourceRepresentation(
+                    session: session,
+                    cell: cell,
+                    itemIndex: itemIndex
+                )
             }
         }
+        return registeredSourceCells(
+            session: session,
+            itemIndices: itemIndices,
+            intersecting: rect
+        )
+    }
+
+    private func sourceItemIndices(
+        session: Session,
+        intersecting rect: CGRect
+    ) -> Set<Int> {
+        let layout = session.plane?.transitionLayout.fromLayout
+            ?? session.sourceLayout
+        let geometry = visualGeometry(for: layout)
+        let layoutRect = geometry.mirrorsHorizontally
+            ? CGRect(
+                x: layout.contentSize.width - rect.maxX,
+                y: rect.minY,
+                width: rect.width,
+                height: rect.height
+            )
+            : rect
+        return Set(layout.candidateItemIndices(intersecting: layoutRect).filter {
+            layout.itemFrame(at: $0)?.intersects(layoutRect) == true
+        })
+    }
+
+    private func registeredSourceCells(
+        session: Session,
+        intersecting rect: CGRect
+    ) -> [SourceCellEntry] {
+        registeredSourceCells(
+            session: session,
+            itemIndices: sourceItemIndices(
+                session: session,
+                intersecting: rect
+            ),
+            intersecting: rect
+        )
+    }
+
+    private func registeredSourceCells(
+        session: Session,
+        itemIndices: Set<Int>,
+        intersecting rect: CGRect
+    ) -> [SourceCellEntry] {
+        var entries = [SourceCellEntry]()
+        let layout = session.plane?.transitionLayout.fromLayout
+            ?? session.sourceLayout
+        let geometry = visualGeometry(for: layout)
+        for (representationID, representation) in
+            session.cachedSourceRepresentations {
+            guard representation.cell.superview != nil,
+                  representation.cell.represents(
+                      tokenIndex: representation.itemIndex
+                  ) else {
+                continue
+            }
+            let needsLiveIntersection = session.frameTrackedRepresentationIDs
+                .contains(representationID)
+                || !sourceRepresentationMatchesLayout(
+                    representation,
+                    geometry: geometry
+                )
+            let isVisible = needsLiveIntersection
+                ? cell(representation.cell, intersects: rect)
+                : itemIndices.contains(representation.itemIndex)
+            guard isVisible else { continue }
+            entries.append(SourceCellEntry(
+                indexPath: IndexPath(
+                    item: representation.itemIndex,
+                    section: 0
+                ),
+                cell: representation.cell
+            ))
+        }
+        return entries.sorted {
+            $0.indexPath.item < $1.indexPath.item
+        }
+    }
+
+    private func sourceRepresentationMatchesLayout(
+        _ representation: (
+            itemIndex: Int,
+            cell: MobilePlayerCollectionBrowserCell
+        ),
+        geometry: MobilePlayerBrowserVisualLayoutGeometry
+    ) -> Bool {
+        guard let collectionView,
+              let superview = representation.cell.superview else {
+            return false
+        }
+        guard let expectedFrame = geometry.itemFrame(
+            at: representation.itemIndex
+        ) else {
+            return false
+        }
+        let cell = representation.cell
+        let untransformedFrame = CGRect(
+            x: cell.center.x - cell.bounds.width / 2,
+            y: cell.center.y - cell.bounds.height / 2,
+            width: cell.bounds.width,
+            height: cell.bounds.height
+        )
+        let actualFrame = superview === collectionView
+            ? untransformedFrame
+            : superview.convert(untransformedFrame, to: collectionView)
+        let epsilon: CGFloat = 0.001
+        return abs(actualFrame.minX - expectedFrame.minX) <= epsilon
+            && abs(actualFrame.minY - expectedFrame.minY) <= epsilon
+            && abs(actualFrame.width - expectedFrame.width) <= epsilon
+            && abs(actualFrame.height - expectedFrame.height) <= epsilon
     }
 
     private func sourceRepresentation(
@@ -4624,7 +5131,10 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
         session.viewportPromotionCoverage.reset()
     }
 
-    private func enqueueViewportPromotions(session: Session) {
+    private func enqueueViewportPromotions(
+        session: Session,
+        reconcilesDetails: Bool = true
+    ) {
         guard let collectionView, let viewportView else { return }
         let viewportRect = collectionView.convert(
             viewportView.bounds,
@@ -4634,7 +5144,8 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
             requiredRect: viewportRect,
             buffer: priorityCoverageBuffer(for: viewportRect)
         )
-        if let plane = session.plane,
+        if reconcilesDetails,
+           let plane = session.plane,
            reconcileDetailedSourceRepresentationsIfNeeded(
                 session: session,
                 plane: plane
@@ -4646,12 +5157,16 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
             session: session,
             intersecting: promotionRect
         )
+        let viewportRepresentationIDs = Set(registeredSourceCells(
+            session: session,
+            intersecting: viewportRect
+        ).map { ObjectIdentifier($0.cell) })
         for representation in sourceRepresentations {
             enqueueMaterialization(
                 session: session,
-                priority: cell(representation.cell, intersects: viewportRect)
-                    ? .visibleRepresentation
-                    : .deferred,
+                priority: viewportRepresentationIDs.contains(
+                    ObjectIdentifier(representation.cell)
+                ) ? .visibleRepresentation : .deferred,
                 kind: .promotion(
                     contentGeneration: session.transitionContentGeneration,
                     representationID: ObjectIdentifier(representation.cell),
@@ -4689,6 +5204,11 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
     ) {
         guard case let .active(session) = lifecycle else { return }
         recycleSourceOverscanCell(session: session, at: indexPath.item)
+        registerSourceRepresentation(
+            session: session,
+            cell: cell,
+            itemIndex: indexPath.item
+        )
         invalidateManagedCellPlans(session: session)
         guard let plane = session.plane else {
             applyNoPlaneSourceSeamCompensation(session: session, to: cell)
@@ -4719,6 +5239,11 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
             removeCellFrameCorrection(session: session, for: cell)
             return
         }
+        registerSourceRepresentation(
+            session: session,
+            cell: browserCell,
+            itemIndex: indexPath.item
+        )
         if let plane = session.plane {
             let cellID = ObjectIdentifier(browserCell)
             if session.lastContentFadeAlpha > 0 {
@@ -4770,7 +5295,7 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
             )]),
             removePendingDetails: true
         )
-        browserCell.clearTransitionContent()
+        browserCell.finishTransitionContent()
         browserCell.alpha = 1
         browserCell.transform = .identity
         markSourceCoverageRefreshDirty(session: session)
@@ -4813,7 +5338,7 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
         }
         let cellID = ObjectIdentifier(cell)
         var changesSourceCoverage = false
-        if cell.holdsCarryoverForPendingBaseImage {
+        if cell.hasCarryoverContent {
             changesSourceCoverage = session.lockedFallbackRepresentationIDs
                 .insert(cellID).inserted
         }
@@ -4849,7 +5374,7 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
             removeCellFrameCorrection(session: session, for: cell)
             changesSourceCoverage = session.preparedRepresentationIDs
                 .remove(cellID) != nil || changesSourceCoverage
-            cell.clearTransitionContent()
+            cell.finishTransitionContent()
         }
         session.detailedSourceCellItems[cellID] = sourceItem
         guard let destinationItem = destinationItem(
@@ -4857,6 +5382,7 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
             sourceItem: sourceItem,
             plane: plane
         ) else {
+            cell.installDeferredBaseImageIfNoIncomingOverlay()
             changesSourceCoverage = session.preparedRepresentationIDs
                 .remove(cellID) != nil || changesSourceCoverage
             if session.unpreparedMarginTrackingRepresentationIDs.remove(
@@ -4876,7 +5402,7 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
             }
             return
         }
-        let isReady = loadTransitionContent(
+        let preparation = loadTransitionContent(
             session: session,
             fromItem: sourceItem,
             toItem: destinationItem,
@@ -4885,7 +5411,8 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
             plane: plane,
             resolvedContent: resolvedContent
         )
-        if isReady {
+        switch preparation {
+        case .ready:
             changesSourceCoverage = session
                 .unpreparedMarginTrackingRepresentationIDs.remove(cellID)
                 != nil || changesSourceCoverage
@@ -4897,7 +5424,10 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
                 destinationItem: destinationItem,
                 plane: plane
             )
-        } else {
+        case .pending, .unavailable:
+            if case .unavailable = preparation {
+                cell.installDeferredBaseImageIfNoIncomingOverlay()
+            }
             changesSourceCoverage = session.preparedRepresentationIDs
                 .remove(cellID) != nil || changesSourceCoverage
             changesSourceCoverage = classifyUnpreparedSourceRepresentation(
@@ -4945,6 +5475,17 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
         }
         let inserted = session.unpreparedMarginTrackingRepresentationIDs
             .insert(representationID).inserted
+        // A drain tick landing between settle frames must not paint a
+        // classification the next settle frame may reverse: two near-identical
+        // rasterizations alternating per frame read as a whole-grid shimmer.
+        // The settle frame's correction sweep is the authoritative painter;
+        // register the correction and let that sweep show it.
+        let defersToSettleFrame = isDrainingMaterialization
+            && session.lastSettleProgress > 0
+        if defersToSettleFrame {
+            session.deferClassificationPaint(for: representationID)
+            return inserted
+        }
         registerCellFrameCorrection(
             session: session,
             cell: cell,
@@ -4963,15 +5504,17 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
         into cell: MobilePlayerCollectionBrowserCell,
         plane: GridModePlaneContext,
         resolvedContent: ResolvedTransitionContent? = nil
-    ) -> Bool {
-        guard cell.represents(tokenIndex: fromItem) else { return false }
+    ) -> TransitionContentPreparation {
+        guard cell.represents(tokenIndex: fromItem) else {
+            return .unavailable
+        }
         let cellID = ObjectIdentifier(cell)
         guard !session.lockedFallbackRepresentationIDs.contains(cellID),
               let resolvedContent = resolvedContent?.destinationItem == toItem
                 ? resolvedContent
                 : resolveTransitionContent(destinationItem: toItem) else {
             cancelTransitionImageLoad(session: session, for: cell)
-            return false
+            return .unavailable
         }
         let contentIdentity = resolvedContent.contentIdentity
         let imageSources = resolvedContent.imageSources
@@ -5005,13 +5548,13 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
             }
             if satisfiesRequiredQuality {
                 cancelTransitionImageLoad(session: session, for: cell)
-                return true
+                return .ready
             }
         }
         if let retainedTransitionContentQuality,
            retainedTransitionContentQuality.canReplace(requiredQuality) {
             cancelTransitionImageLoad(session: session, for: cell)
-            return true
+            return .ready
         }
         let generation = session.transitionContentGeneration
         let sessionID = session.id
@@ -5036,6 +5579,8 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
                loadEligibility != nil {
                 return installedCachedContent
                     || retainedTransitionContentQuality != nil
+                    ? .ready
+                    : .pending
             }
             cancelTransitionImageLoad(session: session, for: cell)
         }
@@ -5043,6 +5588,8 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
               session.lastContentFadeAlpha <= 0 else {
             return installedCachedContent
                 || retainedTransitionContentQuality != nil
+                ? .ready
+                : .unavailable
         }
         let loadID = UUID()
         let cancellation = imageAccess.loadImage(descriptor) {
@@ -5118,6 +5665,8 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
                 cancellation()
                 return installedCachedContent
                     || retainedTransitionContentQuality != nil
+                    ? .ready
+                    : .unavailable
             }
             session.transitionImageLoads[cellID] = GridModeTransitionImageLoad(
                 id: loadID,
@@ -5130,9 +5679,15 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
                 descriptor: descriptor,
                 cancellation: cancellation
             )
+            return installedCachedContent
+                || retainedTransitionContentQuality != nil
+                ? .ready
+                : .pending
         }
         return installedCachedContent
             || retainedTransitionContentQuality != nil
+            ? .ready
+            : .unavailable
     }
 
     private func resolveTransitionContent(
@@ -5212,7 +5767,12 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
                 interruptingAnimation: interruptingAnimation
             )
         case .sourceFallback:
-            setSourceCellAlpha(1 - visibleAlpha, on: cell)
+            // Photos never fades the outgoing plane: a cell whose destination
+            // content has not arrived keeps its old pixels at full opacity
+            // until the arrival crossfades in or the commit carries them over.
+            // Fading it out uncovers the background wherever nothing else
+            // paints that region — the flanks of a zoom-in most visibly.
+            setSourceCellAlpha(1, on: cell)
             if cell.holdsCarryoverForPendingBaseImage {
                 cell.setTransitionContentAlpha(
                     1,
@@ -5232,15 +5792,16 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
         representationID: ObjectIdentifier,
         alpha: CGFloat
     ) -> CGFloat {
+        // Photos fades the whole outgoing plane uniformly. Scaling the
+        // incoming overlay down by edge visibility left a ring of half-faded
+        // cells at the viewport margins — old art ghosting through new — for
+        // the entire flight.
         guard !session.marginCoverageRepresentationIDs.contains(
             representationID
         ) else {
             return 0
         }
-        let visibilityProgress = session.cellFrameCorrections[
-            representationID
-        ]?.correction.destinationVisibilityProgress ?? 1
-        return alpha * visibilityProgress
+        return alpha
     }
 
     private func sourceRepresentationOwnsTransitionVisual(
@@ -5254,6 +5815,23 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
             && (session.sourceCoverage.readyDestinationByRepresentation[
                 representationID
             ] != nil || session.cellFrameCorrections[representationID] != nil)
+    }
+
+    private func installDeferredBaseImages(
+        session: Session,
+        for representationIDs: Set<ObjectIdentifier>
+    ) {
+        for representationID in representationIDs {
+            guard let representation = session
+                .cachedSourceRepresentations[representationID],
+                  representation.cell.superview != nil,
+                  representation.cell.represents(
+                      tokenIndex: representation.itemIndex
+                  ) else {
+                continue
+            }
+            representation.cell.installDeferredBaseImageIfNoIncomingOverlay()
+        }
     }
 
     private func setSourceCellAlpha(
@@ -5323,7 +5901,7 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
         }
         let retainedRepresentationIDs = Set(
             currentCells.compactMap { representationID, cell in
-                cell.holdsCarryoverForPendingBaseImage
+                cell.hasCarryoverContent
                     ? representationID
                     : nil
             }
@@ -5353,7 +5931,7 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
                 removePendingDetails: true
             )
             for cell in rearmedCells {
-                cell.clearTransitionContent()
+                cell.finishTransitionContent()
             }
         }
         let droppedGeometryRepresentationIDs = dropsUnpreparedGeometry
@@ -5400,7 +5978,7 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
             representation.cell.superview != nil,
             representation.cell.represents(
                 tokenIndex: representation.itemIndex
-            ), !representation.cell.holdsCarryoverForPendingBaseImage,
+            ), !representation.cell.hasCarryoverContent,
             let destinationItem = destinationItem(
                 session: session,
                 sourceItem: representation.itemIndex,
@@ -5459,8 +6037,10 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
                let plane = session.plane {
                 refreshDestinationPlan(session: session, plane: plane)
             }
+            let fallbackRepresentationIDs = session.sourceCoverage
+                .fallbackRepresentationIDs
             session.lockedFallbackRepresentationIDs.formUnion(
-                session.sourceCoverage.fallbackRepresentationIDs
+                fallbackRepresentationIDs
             )
             session.removeForegroundEligibility(
                 for: session.lockedFallbackRepresentationIDs
@@ -5471,6 +6051,10 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
                     session.lockedFallbackRepresentationIDs
                 ),
                 removePendingDetails: true
+            )
+            installDeferredBaseImages(
+                session: session,
+                for: fallbackRepresentationIDs
             )
         }
         if changesAlpha {
@@ -5488,7 +6072,8 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
                 && representation.cell.represents(
                     tokenIndex: representation.itemIndex
                 ) {
-                if !animated {
+                if !animated,
+                   representation.cell.layer.animation(forKey: "opacity") != nil {
                     representation.cell.layer.removeAnimation(
                         forKey: "opacity"
                     )
@@ -5667,7 +6252,8 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
 
     private func clearTransitionContent(
         session: Session,
-        carryoverRetention: CarryoverRetention = .none
+        carryoverRetention: CarryoverRetention = .none,
+        installsDeferredBaseImages: Bool = false
     ) {
         session.transitionContentGeneration &+= 1
         cancelTransitionImageLoads(session: session)
@@ -5685,9 +6271,15 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
             case .all:
                 preservesCarryover = true
             }
-            cell.clearTransitionContent(
-                preservingCarryover: preservesCarryover
-            )
+            if installsDeferredBaseImages {
+                cell.finishTransitionContent(
+                    preservingCarryover: preservesCarryover
+                )
+            } else {
+                cell.clearTransitionContent(
+                    preservingCarryover: preservesCarryover
+                )
+            }
             cell.layer.removeAnimation(forKey: "opacity")
             cell.alpha = 1
             if cell.transform != .identity {
@@ -5706,7 +6298,8 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
         session.zoomRebase = nil
         clearTransitionContent(
             session: session,
-            carryoverRetention: carryoverRetention
+            carryoverRetention: carryoverRetention,
+            installsDeferredBaseImages: true
         )
         collectionView?.transform = .identity
         session.lastRenderedScale = 1
@@ -5716,10 +6309,12 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
 
     private func captureVisibleCarryoverSources(
         session: Session,
-        anchorTokenIndex: Int?
+        anchorTokenIndex: Int?,
+        capturesFallbackSources: Bool,
+        ineligibleFallbackSourceItems: Set<Int>
     ) -> [MobilePlayerBrowserGridCarryoverSource] {
         guard let collectionView, let viewportView else { return [] }
-        let readySourceCells = viewportSourceCells(session: session)
+        let eligibleSourceCells = viewportSourceCells(session: session)
             .sorted { lhs, rhs in
                 if lhs.indexPath.item == rhs.indexPath.item {
                     return ObjectIdentifier(lhs.cell).hashValue
@@ -5727,39 +6322,68 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
                 }
                 return lhs.indexPath.item < rhs.indexPath.item
             }.filter {
-                session.sourceCoverage.readyDestinationByRepresentation[
-                    ObjectIdentifier($0.cell)
-                ] != nil
+                let representationID = ObjectIdentifier($0.cell)
+                let hasReadyDestination = session.sourceCoverage
+                    .readyDestinationByRepresentation[representationID] != nil
+                let capturesFallback = capturesFallbackSources
+                    && session.selectedSourceItems.contains(
+                        $0.indexPath.item
+                    )
+                    && !ineligibleFallbackSourceItems.contains(
+                        $0.indexPath.item
+                    )
+                    && session.sourceCoverage.fallbackRepresentationIDs
+                        .contains(representationID)
+                    && $0.cell.carryoverSourceContent != nil
+                return hasReadyDestination || capturesFallback
             }
         let selectedItems = PlayerBrowserGridCarryoverSelection
             .selectedItemIndices(
-                candidateItemIndices: readySourceCells.map {
+                candidateItemIndices: eligibleSourceCells.map {
                     $0.indexPath.item
                 },
                 anchorItemIndex: anchorTokenIndex
             )
-        let sourceCells = readySourceCells.compactMap {
-            selectedItems.contains($0.indexPath.item) ? $0.cell : nil
+        let selectedSourceCells = eligibleSourceCells.filter {
+            selectedItems.contains($0.indexPath.item)
+        }
+        var destinationItemByRepresentationID = [ObjectIdentifier: Int]()
+        for source in selectedSourceCells {
+            let representationID = ObjectIdentifier(source.cell)
+            if let destinationItem = session.sourceCoverage
+                .readyDestinationByRepresentation[representationID]
+                ?? session.reassignments[source.indexPath.item] {
+                destinationItemByRepresentationID[representationID] =
+                    destinationItem
+            }
         }
         let phantomCells = session.phantomCells.sorted {
             $0.key < $1.key
-        }.compactMap { itemIndex, cell in
-            MobilePlayerCollectionBrowserTransitionSupport
+        }.compactMap { itemIndex, cell -> MobilePlayerCollectionBrowserCell? in
+            guard MobilePlayerCollectionBrowserTransitionSupport
                 .itemIntersectsViewport(
                     at: IndexPath(item: itemIndex, section: 0),
                     cell: cell,
                     collectionView: collectionView,
                     viewportView: viewportView
-                ) ? cell : nil
+            ) else {
+                return nil
+            }
+            destinationItemByRepresentationID[ObjectIdentifier(cell)] =
+                itemIndex
+            return cell
         }
-        let carryoverCells = (sourceCells + phantomCells.prefix(
+        let carryoverCells = (selectedSourceCells.map(\.cell) + phantomCells.prefix(
             PlayerBrowserGridRenderBudget.maximumVisualCellCount
         )).prefix(
             PlayerBrowserGridRenderBudget.maximumCarryoverSourceCount
         )
         return MobilePlayerCollectionBrowserTransitionSupport.captureSources(
             from: Array(carryoverCells),
-            in: viewportView
+            in: viewportView,
+            destinationItem: {
+                destinationItemByRepresentationID[ObjectIdentifier($0)]
+            }
         )
     }
 
@@ -5767,7 +6391,7 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
         session: Session,
         plane: GridModePlaneContext,
         sources: [MobilePlayerBrowserGridCarryoverSource],
-        ineligibleFallbackSourceItems: Set<Int>
+        fallbackSourceItemByDestinationItem: [Int: Int]
     ) {
         guard let collectionView, let viewportView else { return }
         let holdsPlaceholderTone =
@@ -5779,12 +6403,12 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
                 hasImageSources: { itemIndex in
                     contentAccess.imageSources(itemIndex) != nil
                 },
-                resolveContent: { source, itemIndex, cell in
-                    source?.content ?? fallbackCarryoverSource(
-                        plane: plane,
+                fallbackContent: { itemIndex, cell in
+                    fallbackCarryoverSource(
                         destinationItem: itemIndex,
                         isNeeded: cell.needsCarryoverContent,
-                        ineligibleSourceItems: ineligibleFallbackSourceItems
+                        sourceItemByDestinationItem:
+                            fallbackSourceItemByDestinationItem
                     )
                 }
             )
@@ -5794,29 +6418,12 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
     }
 
     private func fallbackCarryoverSource(
-        plane: GridModePlaneContext,
         destinationItem: Int,
         isNeeded: Bool,
-        ineligibleSourceItems: Set<Int>
+        sourceItemByDestinationItem: [Int: Int]
     ) -> MobilePlayerBrowserCarryoverContent? {
         guard isNeeded,
-              let destinationFrame = visualGeometry(
-                  for: plane.transitionLayout.toLayout
-              ).itemFrame(at: destinationItem) else {
-            return nil
-        }
-        let sourceGeometry = visualGeometry(
-            for: plane.transitionLayout.fromLayout
-        )
-        guard let sourceItem = sourceGeometry.nearestItemIndex(
-            to: plane.latticeMap.sourcePoint(
-                fromDestination: CGPoint(
-                    x: destinationFrame.midX,
-                    y: destinationFrame.midY
-                )
-            )
-        ),
-              !ineligibleSourceItems.contains(sourceItem),
+              let sourceItem = sourceItemByDestinationItem[destinationItem],
               let contentIdentity = contentAccess.contentIdentity(sourceItem),
               let imageSources = contentAccess.imageSources(sourceItem),
               let cachedImage = imageAccess.cachedImage(
@@ -5888,6 +6495,13 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
 
     private var hasDeferredRenderRefresh: Bool {
         guard case let .active(session) = lifecycle else { return false }
+        return !session.deferredClassificationPaintRepresentationIDs.isEmpty
+            || hasNonClassificationDeferredRenderRefresh(session: session)
+    }
+
+    private func hasNonClassificationDeferredRenderRefresh(
+        session: Session
+    ) -> Bool {
         let needsNoPlaneManagedCellPlanRefresh = session.plane == nil
             && session.managedCellPlanRefreshIsPending
             && session.currentPhantomPlan != nil
@@ -5897,21 +6511,113 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
             || needsNoPlaneManagedCellPlanRefresh
     }
 
-    private func handleMaterializationTick(_: CADisplayLink) {
-        _ = drainMaterializationWork()
+    private func handleMaterializationTick(_ displayLink: CADisplayLink) {
+        _ = drainMaterializationWork(
+            frameDuration: displayLink.targetTimestamp - displayLink.timestamp
+        )
+    }
+
+    private func nextDeferredClassificationRepresentationID(
+        session: Session
+    ) -> ObjectIdentifier? {
+        session.deferredClassificationPaintRepresentationIDs.min { lhs, rhs in
+            let lhsItem = session.cachedSourceRepresentations[lhs]?.itemIndex
+                ?? Int.max
+            let rhsItem = session.cachedSourceRepresentations[rhs]?.itemIndex
+                ?? Int.max
+            return session.sourceItemPrecedes(lhsItem, rhsItem)
+        }
+    }
+
+    private func deferredClassificationIsVisible(
+        _ representationID: ObjectIdentifier,
+        session: Session
+    ) -> Bool {
+        guard let itemIndex = session.cachedSourceRepresentations[
+            representationID
+        ]?.itemIndex else {
+            return false
+        }
+        return session.viewportSelectedSourceItems.contains(itemIndex)
+    }
+
+    private func paintDeferredClassification(
+        _ representationID: ObjectIdentifier,
+        session: Session
+    ) -> Bool {
+        guard let plane = session.plane,
+              let geometry = cellFrameCorrectionGeometry(
+                  session: session,
+                  plane: plane
+              ) else {
+            return false
+        }
+        session.deferredClassificationPaintRepresentationIDs.remove(
+            representationID
+        )
+        guard let representation = session.cachedSourceRepresentations[
+            representationID
+        ],
+              session.unpreparedMarginTrackingRepresentationIDs.contains(
+                  representationID
+              ),
+              representation.cell.superview != nil,
+              representation.cell.represents(
+                  tokenIndex: representation.itemIndex
+              ),
+              let destinationItem = destinationItem(
+                  session: session,
+                  sourceItem: representation.itemIndex,
+                  plane: plane
+              ) else {
+            return true
+        }
+        registerCellFrameCorrection(
+            session: session,
+            cell: representation.cell,
+            destinationItem: destinationItem,
+            plane: plane,
+            geometry: geometry
+        )
+        return true
     }
 
     @discardableResult
-    func drainMaterializationWork() -> MaterializationDrainResult {
+    func drainMaterializationWork(
+        budgetOverride: (jobs: Int, time: CFTimeInterval)? = nil,
+        frameDuration: CFTimeInterval? = nil
+    ) -> MaterializationDrainResult {
         let start = clock()
         var processedCount = 0
         var canBatchDirtySource = false
         isDrainingMaterialization = true
         defer { isDrainingMaterialization = false }
-        while processedCount < Self.materializationJobLimit,
-              clock() - start < Self.materializationTimeLimit {
+        let usesGestureBudget: Bool
+        if case let .active(session) = lifecycle {
+            let requestedBurst = session.pendingGestureMaterializationBurst
+            session.pendingGestureMaterializationBurst = false
+            usesGestureBudget = requestedBurst && session.plane != nil
+        } else {
+            usesGestureBudget = false
+        }
+        let jobLimit = budgetOverride?.jobs ?? (usesGestureBudget
+            ? Self.transitionMaterializationJobLimit
+            : Self.materializationJobLimit)
+        let effectiveFrameDuration = frameDuration.flatMap {
+            $0.isFinite && $0 > 0 ? $0 : nil
+        } ?? Self.defaultMaterializationFrameDuration
+        let transitionTimeLimit = min(
+            Self.transitionMaterializationMaximumTimeLimit,
+            effectiveFrameDuration
+                * Self.transitionMaterializationFrameFraction
+        )
+        let timeLimit = budgetOverride?.time ?? (usesGestureBudget
+            ? transitionTimeLimit
+            : Self.materializationTimeLimit)
+        while processedCount < jobLimit,
+              clock() - start < timeLimit {
             guard case let .active(session) = lifecycle else { break }
-            let remainingCount = Self.materializationJobLimit - processedCount
+            let remainingCount = jobLimit - processedCount
             if session.sourceCoverageRefreshIsDirty {
                 if canBatchDirtySource,
                    let nextJob = materializationQueue.first,
@@ -5929,16 +6635,62 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
                 canBatchDirtySource = false
                 continue
             }
-            if hasDeferredRenderRefresh,
+            if let deferredRepresentationID =
+                nextDeferredClassificationRepresentationID(session: session),
+               deferredClassificationIsVisible(
+                   deferredRepresentationID,
+                   session: session
+               ), materializationQueue.first?.priority
+                    != .visibleRepresentation {
+                guard paintDeferredClassification(
+                    deferredRepresentationID,
+                    session: session
+                ) else {
+                    break
+                }
+                processedCount += 1
+                canBatchDirtySource = false
+                continue
+            }
+            let hasNonClassificationRefresh =
+                hasNonClassificationDeferredRenderRefresh(session: session)
+            if hasNonClassificationRefresh,
                materializationQueue.isEmpty || remainingCount == 1 {
                 guard flushDeferredRenderRefresh() else { break }
                 processedCount += 1
                 continue
             }
-            guard let nextJob = materializationQueue.first else { break }
+            guard let nextJob = materializationQueue.first else {
+                guard let representationID =
+                    nextDeferredClassificationRepresentationID(
+                        session: session
+                    ), paintDeferredClassification(
+                        representationID,
+                        session: session
+                    ) else {
+                    break
+                }
+                processedCount += 1
+                canBatchDirtySource = false
+                continue
+            }
             if case .source = nextJob.kind,
                remainingCount < Self.minimumSourceBatchCapacity {
-                if hasDeferredRenderRefresh {
+                if let representationID =
+                    nextDeferredClassificationRepresentationID(
+                        session: session
+                    ) {
+                    guard paintDeferredClassification(
+                        representationID,
+                        session: session
+                    ) else {
+                        break
+                    }
+                    processedCount += 1
+                    canBatchDirtySource = false
+                    continue
+                }
+                if hasNonClassificationRefresh {
                     guard flushDeferredRenderRefresh() else { break }
                     processedCount += 1
                     continue
@@ -5963,7 +6715,7 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
         let stoppedForTimeLimit = (
             !materializationQueue.isEmpty || hasDeferredRenderRefresh
         )
-            && elapsed >= Self.materializationTimeLimit
+            && elapsed >= timeLimit
         if materializationQueue.isEmpty && !hasDeferredRenderRefresh {
             materializationDisplayLink?.invalidate()
             materializationDisplayLink = nil
@@ -6126,8 +6878,18 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
               contentAccess.imageSources(
                   completion.destinationItem
               )?.descriptor(for: completion.requiredImageQuality)
-                == completion.descriptor,
-              let image = completion.image else {
+                == completion.descriptor else {
+            return
+        }
+        guard let image = completion.image else {
+            cell.installDeferredBaseImageIfNoIncomingOverlay()
+            return
+        }
+        guard !cell.hasCarryoverContent else {
+            lockSourceFallbackRepresentation(
+                session: session,
+                representationID: completion.representationID
+            )
             return
         }
         if session.lastContentFadeAlpha > 0 {
@@ -6140,14 +6902,11 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
                     completion.representationID
                 )
             guard isReady else {
-                if session.lockedFallbackRepresentationIDs.insert(
-                    completion.representationID
-                ).inserted {
-                    session.removeForegroundEligibility(
-                        for: completion.representationID
-                    )
-                    markSourceCoverageRefreshDirty(session: session)
-                }
+                cell.installDeferredBaseImageIfNoIncomingOverlay()
+                lockSourceFallbackRepresentation(
+                    session: session,
+                    representationID: completion.representationID
+                )
                 return
             }
             cell.installTransitionContent(
@@ -6197,6 +6956,19 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
         if changesSourceCoverage {
             markSourceCoverageRefreshDirty(session: session)
         }
+    }
+
+    private func lockSourceFallbackRepresentation(
+        session: Session,
+        representationID: ObjectIdentifier
+    ) {
+        guard session.lockedFallbackRepresentationIDs.insert(
+            representationID
+        ).inserted else {
+            return
+        }
+        session.removeForegroundEligibility(for: representationID)
+        markSourceCoverageRefreshDirty(session: session)
     }
 
     private func flushDeferredRenderRefresh() -> Bool {
@@ -6253,7 +7025,10 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
             session: session,
             plane: plane
         )
-        enqueueViewportPromotions(session: session)
+        enqueueViewportPromotions(
+            session: session,
+            reconcilesDetails: false
+        )
     }
 
     private func managedCell(

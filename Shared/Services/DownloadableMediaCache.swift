@@ -132,6 +132,10 @@ final class DownloadableMediaCache {
     private let diskPruneQueue = DispatchQueue(label: "org.lil.nft-player.downloadable-media-cache.disk-prune", qos: .utility)
 #endif
     private let memoryCache = NSCache<NSString, DownloadableMediaImage>()
+#if DEBUG && os(iOS)
+    private let testingDecodedImagesLock = NSLock()
+    private var testingDecodedImages = [String: DownloadableMediaImage]()
+#endif
     private let session: URLSession
     private let cacheRoot: URL
     private let stagingRoot: URL
@@ -770,7 +774,7 @@ final class DownloadableMediaCache {
             self.redownloadOnDecodeFailureKeys.removeAll()
             self.foregroundKey = nil
             self.foregroundWorkKeys.removeAll()
-            self.memoryCache.removeAllObjects()
+            self.clearDecodedImageMemory()
 #if !os(iOS)
             self.memoryKeysByCollection.removeAll()
 #endif
@@ -826,8 +830,11 @@ final class DownloadableMediaCache {
 
             let key = self.cacheKey(for: descriptor)
             let callback = ImageLoadCallback(request: request, completion: completion)
-            if let cachedImage = self.cachedDecodedImage(forKey: key) {
-                self.markCachedFileUsed(for: descriptor)
+            let cachedImageLookup = self.cachedDecodedImageLookup(forKey: key)
+            if let cachedImage = cachedImageLookup.image {
+                if cachedImageLookup.recordsDiskAccess {
+                    self.markCachedFileUsed(for: descriptor)
+                }
                 self.complete([callback], with: cachedImage)
                 return
             }
@@ -1043,14 +1050,60 @@ final class DownloadableMediaCache {
     }
 
     func cachedDecodedImage(for descriptor: CollectionCatalogDownloadableMediaDescriptor) -> DownloadableMediaImage? {
-        guard let image = cachedDecodedImage(forKey: cacheKey(for: descriptor)) else { return nil }
+        let key = cacheKey(for: descriptor)
+        let lookup = cachedDecodedImageLookup(forKey: key)
+        guard let image = lookup.image else { return nil }
 
 #if os(iOS) || os(macOS)
-        queue.async { [weak self] in
-            self?.markCachedFileUsed(for: descriptor)
+        if lookup.recordsDiskAccess {
+            queue.async { [weak self] in
+                self?.markCachedFileUsed(for: descriptor)
+            }
         }
 #endif
         return image
+    }
+
+#if DEBUG && os(iOS)
+    func installDecodedImageForTesting(
+        _ image: DownloadableMediaImage,
+        for descriptor: CollectionCatalogDownloadableMediaDescriptor
+    ) {
+        let key = cacheKey(for: descriptor)
+        queue.sync {
+            testingDecodedImagesLock.withLock {
+                testingDecodedImages[key] = image
+            }
+        }
+    }
+
+    func removeDecodedImageForTesting(
+        for descriptor: CollectionCatalogDownloadableMediaDescriptor
+    ) {
+        let key = cacheKey(for: descriptor)
+        queue.sync {
+            testingDecodedImagesLock.withLock {
+                _ = testingDecodedImages.removeValue(forKey: key)
+            }
+        }
+    }
+
+    func resetDecodedImagesForTesting() {
+        queue.sync {
+            clearDecodedImageMemory()
+        }
+    }
+#endif
+
+    private func clearDecodedImageMemory() {
+#if DEBUG && os(iOS)
+        testingDecodedImagesLock.withLock {
+            testingDecodedImages.removeAll(keepingCapacity: false)
+            memoryCache.removeAllObjects()
+        }
+#else
+        memoryCache.removeAllObjects()
+#endif
     }
 
     var webViewHTMLDirectoryURL: URL {
@@ -1193,7 +1246,7 @@ final class DownloadableMediaCache {
         queue.async { [weak self] in
             guard let self else { return }
 
-            self.memoryCache.removeAllObjects()
+            self.clearDecodedImageMemory()
             self.invalidateUndemandedDecodeWork()
         }
     }
@@ -2780,7 +2833,7 @@ final class DownloadableMediaCache {
         foregroundKey = nil
         foregroundWorkKeys.removeAll()
 #if !os(iOS)
-        memoryCache.removeAllObjects()
+        clearDecodedImageMemory()
         memoryKeysByCollection.removeAll()
 #endif
         cancelPrefetchDownloadsAndPendingWork()
@@ -2904,7 +2957,20 @@ final class DownloadableMediaCache {
     }
 
     private func cachedDecodedImage(forKey key: String) -> DownloadableMediaImage? {
-        memoryCache.object(forKey: key as NSString)
+        cachedDecodedImageLookup(forKey: key).image
+    }
+
+    private func cachedDecodedImageLookup(
+        forKey key: String
+    ) -> (image: DownloadableMediaImage?, recordsDiskAccess: Bool) {
+#if DEBUG && os(iOS)
+        if let testingImage = testingDecodedImagesLock.withLock({
+            testingDecodedImages[key]
+        }) {
+            return (testingImage, false)
+        }
+#endif
+        return (memoryCache.object(forKey: key as NSString), true)
     }
 
     private func fileURL(for descriptor: CollectionCatalogDownloadableMediaDescriptor) -> URL {

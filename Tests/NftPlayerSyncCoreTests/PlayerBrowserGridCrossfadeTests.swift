@@ -217,10 +217,14 @@ final class PlayerBrowserGridCrossfadeTests: XCTestCase {
     }
 
     func testReanchoringPreservesBothEndpointTransforms() throws {
+        // Production pins both lattices at the fingers: the anchors always
+        // share x (the Photos law), and the reanchoring invariance holds on
+        // that shape.
         let crossfade = try XCTUnwrap(makeCrossfade(
             itemWidthRatio: 1.5,
             terminalScaleX: 1.42,
-            terminalScaleY: 1.47
+            terminalScaleY: 1.47,
+            incomingAnchor: CGPoint(x: 325, y: 430)
         ))
         let reanchored = try XCTUnwrap(crossfade.reanchored(
             outgoingAnchor: CGPoint(x: 80, y: 650)
@@ -712,6 +716,13 @@ final class PlayerBrowserGridCrossfadeTests: XCTestCase {
             ).itemIndices,
             [1, 3, 5]
         )
+        XCTAssertEqual(
+            PlayerBrowserGridCarryoverSelection.prioritizedItemIndices(
+                candidateItemIndices: [5, 1, 5, -1, 3],
+                anchorItemIndex: 3
+            ),
+            [3, 1, 5]
+        )
         XCTAssertTrue(PlayerBrowserGridDetailPlan(
             candidateItemIndices: [1, 2, 3],
             anchorItemIndex: 2,
@@ -738,6 +749,16 @@ final class PlayerBrowserGridCrossfadeTests: XCTestCase {
                 anchorItemIndex: 500
             ),
             Set(440..<560)
+        )
+        let prioritizedItems = PlayerBrowserGridCarryoverSelection
+            .prioritizedItemIndices(
+                candidateItemIndices: Array(0..<4_000),
+                anchorItemIndex: 500
+            )
+        XCTAssertEqual(Set(prioritizedItems), Set(440..<560))
+        XCTAssertEqual(
+            Array(prioritizedItems.prefix(5)),
+            [500, 499, 501, 498, 502]
         )
     }
 
@@ -906,7 +927,7 @@ final class PlayerBrowserGridCrossfadeTests: XCTestCase {
         ))
     }
 
-    func testPhantomPlanUsesSolidCoverageWhenTheViewportExceedsTheRenderingBudget() throws {
+    func testPhantomPlanUsesSolidCoverageWhenTheBufferExceedsTheRenderingBudget() throws {
         let layout = try XCTUnwrap(MobilePlayerBrowserLayout(
             viewportSize: Self.viewportSize,
             aspectProfile: MobilePlayerBrowserAspectProfile(
@@ -919,24 +940,30 @@ final class PlayerBrowserGridCrossfadeTests: XCTestCase {
             layout: layout,
             mirrorsHorizontally: false
         )
+        let coverageRect = CGRect(
+            x: 0,
+            y: Self.viewportSize.height * 2,
+            width: Self.viewportSize.width,
+            height: Self.viewportSize.height * 3
+        )
         let priorityRect = CGRect(
             x: 0,
-            y: layout.contentSize.height / 2 - Self.viewportSize.height / 2,
+            y: coverageRect.midY - Self.viewportSize.height / 2,
             width: Self.viewportSize.width,
             height: Self.viewportSize.height
         )
         let latticeMap = MobilePlayerBrowserGridLatticeMap.identity
         let expectedItems = Set(layout.candidateItemIndices(
-            intersecting: priorityRect
+            intersecting: coverageRect
         ).filter { itemIndex in
             geometry.itemFrame(at: itemIndex).map {
-                priorityRect.intersects($0)
+                coverageRect.intersects($0)
             } == true
         })
         let plan = PlayerBrowserGridPhantomPlan(
             destinationGeometry: geometry,
             latticeMap: latticeMap,
-            coverageRect: priorityRect,
+            coverageRect: coverageRect,
             priorityRect: priorityRect,
             coveredDestinationItems: [],
             maximumCellCount: 120
@@ -964,14 +991,14 @@ final class PlayerBrowserGridCrossfadeTests: XCTestCase {
         XCTAssertGreaterThan(expectedItems.count, 120)
         XCTAssertGreaterThan(
             expectedRowCount,
-            PlayerBrowserGridPhantomPlan.renderingComplexityLimit
+            PlayerBrowserGridPhantomPlan.repeatedRowInstanceLimit
         )
         XCTAssertEqual(cellItems.count, 120)
         XCTAssertEqual(cellItems, expectedCenterItems)
         XCTAssertTrue(plan.shapeCandidates.isEmpty)
         XCTAssertEqual(
             solidCoverage.frame,
-            priorityRect
+            coverageRect
         )
         XCTAssertEqual(
             solidCoverage.excludedFrames,
@@ -981,7 +1008,7 @@ final class PlayerBrowserGridCrossfadeTests: XCTestCase {
         let shapeOnlyPlan = PlayerBrowserGridPhantomPlan(
             destinationGeometry: geometry,
             latticeMap: latticeMap,
-            coverageRect: priorityRect,
+            coverageRect: coverageRect,
             priorityRect: priorityRect,
             coveredDestinationItems: [],
             maximumCellCount: 0
@@ -994,7 +1021,7 @@ final class PlayerBrowserGridCrossfadeTests: XCTestCase {
         let partiallyCoveredPlan = PlayerBrowserGridPhantomPlan(
             destinationGeometry: geometry,
             latticeMap: latticeMap,
-            coverageRect: priorityRect,
+            coverageRect: coverageRect,
             priorityRect: priorityRect,
             coveredDestinationItems: repeatedCoveredItems,
             maximumCellCount: 0
@@ -1010,14 +1037,16 @@ final class PlayerBrowserGridCrossfadeTests: XCTestCase {
         let boundedExclusionPlan = PlayerBrowserGridPhantomPlan(
             destinationGeometry: geometry,
             latticeMap: latticeMap,
-            coverageRect: priorityRect,
+            coverageRect: coverageRect,
             priorityRect: priorityRect,
             coveredDestinationItems: manyCoveredItems,
             maximumCellCount: 0
         )
         XCTAssertEqual(
             boundedExclusionPlan.shapeCoverage?.excludedFrames,
-            manyCoveredItems.sorted().prefix(512).compactMap {
+            manyCoveredItems.sorted().prefix(
+                PlayerBrowserGridPhantomPlan.renderingComplexityLimit
+            ).compactMap {
                 geometry.itemFrame(at: $0)
             }
         )
@@ -1025,7 +1054,7 @@ final class PlayerBrowserGridCrossfadeTests: XCTestCase {
         let coveredPlan = PlayerBrowserGridPhantomPlan(
             destinationGeometry: geometry,
             latticeMap: latticeMap,
-            coverageRect: priorityRect,
+            coverageRect: coverageRect,
             priorityRect: priorityRect,
             coveredDestinationItems: expectedItems,
             maximumCellCount: 120
@@ -1105,14 +1134,57 @@ final class PlayerBrowserGridCrossfadeTests: XCTestCase {
         let coveredSolidCoverage = try XCTUnwrap(
             coveredPlan.shapeCoverage?.solidCoverage
         )
-        XCTAssertEqual(coveredSolidCoverage.excludedFrames.count, 512)
+        XCTAssertEqual(
+            coveredSolidCoverage.excludedFrames.count,
+            PlayerBrowserGridPhantomPlan.renderingComplexityLimit
+        )
+    }
+
+    func testVariableHeightPhantomPlanKeepsBoundedTileShapes() throws {
+        let itemCount = 400
+        let columnCount = 5
+        let ratios = (0..<itemCount).map { itemIndex in
+            (itemIndex / columnCount).isMultiple(of: 2)
+                ? CGFloat(0.9)
+                : CGFloat(1.1)
+        }
+        let layout = try XCTUnwrap(MobilePlayerBrowserLayout(
+            viewportSize: Self.viewportSize,
+            aspectProfile: MobilePlayerBrowserAspectProfile(
+                heightToWidthRatios: ratios,
+                columnCount: columnCount
+            )
+        ))
+        let geometry = MobilePlayerBrowserVisualLayoutGeometry(
+            layout: layout,
+            mirrorsHorizontally: false
+        )
+        let coverageRect = CGRect(origin: .zero, size: layout.contentSize)
+        let plan = PlayerBrowserGridPhantomPlan(
+            destinationGeometry: geometry,
+            latticeMap: .identity,
+            coverageRect: coverageRect,
+            priorityRect: coverageRect,
+            coveredDestinationItems: [],
+            maximumCellCount: 0
+        )
+
+        XCTAssertFalse(layout.usesUniformRowHeights)
+        XCTAssertGreaterThan(itemCount, 300)
+        XCTAssertLessThanOrEqual(
+            itemCount,
+            PlayerBrowserGridPhantomPlan.renderingComplexityLimit
+        )
+        XCTAssertTrue(plan.cellCandidates.isEmpty)
+        XCTAssertEqual(plan.shapeCandidates.count, itemCount)
+        XCTAssertNil(plan.shapeCoverage)
     }
 
     func testRepeatedPhantomRowsBoundCellCandidatesToPriorityNeighborhood() throws {
         let layout = try XCTUnwrap(MobilePlayerBrowserLayout(
             viewportSize: Self.viewportSize,
             aspectProfile: MobilePlayerBrowserAspectProfile(
-                itemCount: 2_000,
+                itemCount: 1_500,
                 uniformImageSize: CGSize(width: 1_000, height: 1),
                 columnCount: 5
             )
@@ -1121,7 +1193,7 @@ final class PlayerBrowserGridCrossfadeTests: XCTestCase {
             layout: layout,
             mirrorsHorizontally: false
         )
-        let priorityFrame = try XCTUnwrap(geometry.itemFrame(at: 1_000))
+        let priorityFrame = try XCTUnwrap(geometry.itemFrame(at: 750))
         let priorityRect = CGRect(
             x: 0,
             y: priorityFrame.minY + priorityFrame.height / 4,
@@ -1133,7 +1205,7 @@ final class PlayerBrowserGridCrossfadeTests: XCTestCase {
             latticeMap: .identity,
             coverageRect: CGRect(origin: .zero, size: layout.contentSize),
             priorityRect: priorityRect,
-            coveredDestinationItems: Set(400..<1_600),
+            coveredDestinationItems: Set(300..<1_200),
             maximumCellCount: 120
         )
 
@@ -1179,12 +1251,60 @@ final class PlayerBrowserGridCrossfadeTests: XCTestCase {
         )
     }
 
+    func testIPadBufferedCoverageRetainsRepeatedRowsAboveThreeHundred() throws {
+        let viewportSize = CGSize(width: 1_024, height: 1_366)
+        let layout = try XCTUnwrap(MobilePlayerBrowserLayout(
+            viewportSize: viewportSize,
+            aspectProfile: MobilePlayerBrowserAspectProfile(
+                itemCount: 10_000,
+                uniformImageSize: CGSize(width: 100, height: 4),
+                columnCount: 5
+            )
+        ))
+        let geometry = MobilePlayerBrowserVisualLayoutGeometry(
+            layout: layout,
+            mirrorsHorizontally: false
+        )
+        let priorityRect = CGRect(
+            x: 0,
+            y: layout.contentSize.height / 2 - viewportSize.height / 2,
+            width: viewportSize.width,
+            height: viewportSize.height
+        )
+        let coverageRect = priorityRect.insetBy(
+            dx: 0,
+            dy: -viewportSize.height
+        )
+        let plan = PlayerBrowserGridPhantomPlan(
+            destinationGeometry: geometry,
+            latticeMap: .identity,
+            coverageRect: coverageRect,
+            priorityRect: priorityRect,
+            coveredDestinationItems: [],
+            maximumCellCount: 0
+        )
+        let repeatedRows = try XCTUnwrap(plan.shapeCoverage?.repeatedRows)
+
+        XCTAssertGreaterThan(repeatedRows.rowCount, 300)
+        XCTAssertLessThanOrEqual(
+            repeatedRows.rowCount,
+            PlayerBrowserGridPhantomPlan.repeatedRowInstanceLimit
+        )
+        XCTAssertEqual(repeatedRows.firstRowFrames.count, 5)
+        XCTAssertEqual(
+            repeatedRows.rowPitch - repeatedRows.firstRowFrames[0].height,
+            MobilePlayerBrowserLayout.itemSpacing,
+            accuracy: 0.000_001
+        )
+        XCTAssertNil(plan.shapeCoverage?.solidCoverage)
+    }
+
     func testRepeatedPhantomRowsPreserveThePartialFinalRow() throws {
         let layout = try XCTUnwrap(MobilePlayerBrowserLayout(
             viewportSize: Self.viewportSize,
             aspectProfile: MobilePlayerBrowserAspectProfile(
                 itemCount: 20_003,
-                uniformImageSize: CGSize(width: 100, height: 1),
+                uniformImageSize: CGSize(width: 100, height: 3),
                 columnCount: 5
             )
         ))
@@ -1214,7 +1334,7 @@ final class PlayerBrowserGridCrossfadeTests: XCTestCase {
 
         XCTAssertLessThanOrEqual(
             repeatedRows.rowCount,
-            PlayerBrowserGridPhantomPlan.renderingComplexityLimit
+            PlayerBrowserGridPhantomPlan.repeatedRowInstanceLimit
         )
         XCTAssertEqual(repeatedRows.finalRowFrames, expectedFinalFrames)
         XCTAssertTrue(plan.shapeCandidates.isEmpty)
@@ -1222,7 +1342,7 @@ final class PlayerBrowserGridCrossfadeTests: XCTestCase {
 
     func testRepeatedPhantomRowsUseInclusiveRenderingComplexityBoundary() throws {
         let maximumRowCount =
-            PlayerBrowserGridPhantomPlan.renderingComplexityLimit
+            PlayerBrowserGridPhantomPlan.repeatedRowInstanceLimit
         let columnCount = 3
         let repeatedLayout = try XCTUnwrap(MobilePlayerBrowserLayout(
             viewportSize: Self.viewportSize,
