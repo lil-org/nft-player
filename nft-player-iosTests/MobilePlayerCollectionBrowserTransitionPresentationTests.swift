@@ -6,7 +6,21 @@ import XCTest
 @testable import nft_player_ios
 
 @MainActor
-final class MobilePlayerCollectionBrowserTransitionPresentationTests: XCTestCase {
+private func runTransitionTrackingRunLoop(
+    until condition: () -> Bool,
+    timeout: TimeInterval = 0.25
+) -> Bool {
+    let deadline = Date().addingTimeInterval(timeout)
+    while !condition(), deadline.timeIntervalSinceNow > 0 {
+        _ = RunLoop.main.run(mode: .tracking, before: deadline)
+    }
+    return condition()
+}
+
+nonisolated final class MobilePlayerCollectionBrowserTransitionPresentationTests: XCTestCase {}
+
+@MainActor
+extension MobilePlayerCollectionBrowserTransitionPresentationTests {
 
     private final class TransitionSupportCollectionView: UICollectionView {
         var reversesVisibleItemOrder = false
@@ -364,6 +378,30 @@ final class MobilePlayerCollectionBrowserTransitionPresentationTests: XCTestCase
             0.7,
             accuracy: 0.0001
         )
+    }
+
+    func testCarryoverFadeStartsDuringTrackingRunLoopMode() {
+        let animator = ControlledFadeAnimator()
+        let (_, presentation) = makePresentation {
+            animator.animate($0, completion: $1)
+        }
+        let identity = MobilePlayerBrowserContentIdentity(
+            collectionId: "collection",
+            tokenIndex: 13
+        )
+        presentation.installCarryover(MobilePlayerBrowserCarryoverContent(
+            identity: identity,
+            image: makeImage(.yellow),
+            usesNativeMetalCardCornerMask: false
+        ))
+
+        presentation.fadeCarryoverIfNeeded()
+
+        XCTAssertTrue(runTransitionTrackingRunLoop {
+            animator.pendingCompletionCount == 1
+        })
+        animator.completeNext()
+        XCTAssertEqual(presentation.presentationState, .empty)
     }
 
     func testRetargetReholdsScheduledCarryoverFade() async {

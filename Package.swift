@@ -1,4 +1,4 @@
-// swift-tools-version: 5.9
+// swift-tools-version: 6.2
 
 import PackageDescription
 
@@ -13,6 +13,7 @@ let package = Package(
             name: "NftPlayerSyncCore",
             path: "Shared",
             exclude: [
+                "Assets",
                 "Extensions/CollectionsGridScrollViewHelpers.swift",
                 "Extensions/Links.swift",
                 "Extensions/Notification.swift",
@@ -52,12 +53,21 @@ let package = Package(
                 "Models/Strings.swift",
                 "Models/WidgetDeepLink.swift",
                 "Services/PlayerICloudSync.swift"
+            ],
+            swiftSettings: [
+                .enableUpcomingFeature("InferIsolatedConformances"),
+                .enableUpcomingFeature("NonisolatedNonsendingByDefault")
             ]
         ),
         .testTarget(
             name: "NftPlayerSyncCoreTests",
             dependencies: ["NftPlayerSyncCore"],
-            path: "Tests/NftPlayerSyncCoreTests"
+            path: "Tests/NftPlayerSyncCoreTests",
+            swiftSettings: [
+                .enableUpcomingFeature("InferIsolatedConformances"),
+                .enableUpcomingFeature("NonisolatedNonsendingByDefault")
+            ]
         )
-    ]
+    ],
+    swiftLanguageModes: [.v6]
 )

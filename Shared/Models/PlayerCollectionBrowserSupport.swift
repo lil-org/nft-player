@@ -3,7 +3,7 @@
 import CoreGraphics
 import Foundation
 
-enum PlayerAspectFitLayout {
+nonisolated enum PlayerAspectFitLayout {
     static func size(for contentSize: CGSize, fitting maximumSize: CGSize) -> CGSize {
         guard contentSize.width > 0,
               contentSize.height > 0,
@@ -35,7 +35,7 @@ enum PlayerAspectFitLayout {
     }
 }
 
-enum PlayerDisplayMode: Hashable {
+nonisolated enum PlayerDisplayMode: Hashable, Sendable {
     case collectionBrowser
     case onePerPage
 
@@ -50,7 +50,7 @@ enum PlayerDisplayMode: Hashable {
     }
 }
 
-enum PlayerCollectionBrowserSupport {
+nonisolated enum PlayerCollectionBrowserSupport {
     static let cardNftCollectionId = "HpGDYGz6aRUs5qbvp1dmWGKTicQctX4PixfcouAQDCHF"
     static let drifella2CollectionId = "7cHTjqr2S8uUCrG3TVFvFix3vcLjhPiwrtRsAeJtESRj"
     static let driladyCollectionId = "96THxzqE5yukFxzsqJaR2SrsLL2wJtuapi6827gkUD6T"
@@ -116,7 +116,7 @@ enum PlayerCollectionBrowserSupport {
     }
 }
 
-enum PlayerCollectionBrowseMediaWindowLayout {
+nonisolated enum PlayerCollectionBrowseMediaWindowLayout {
     static func fileOffsets(
         prefetchStride: Int,
         direction: DownloadableMediaCache.PrefetchDirection

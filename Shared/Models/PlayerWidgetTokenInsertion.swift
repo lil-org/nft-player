@@ -2,7 +2,7 @@
 
 import Foundation
 
-struct PlayerWidgetTokenInsertion: Hashable {
+nonisolated struct PlayerWidgetTokenInsertion: Hashable, Sendable {
     let insertedToken: GeneratedToken
     let insertedTokenIndex: Int
     let anchorProgress: PlayerViewingProgress
@@ -61,7 +61,7 @@ struct PlayerWidgetTokenInsertion: Hashable {
             tokenId: anchorProgress.tokenId,
             tokenIndex: anchorProgress.tokenIndex,
             tokenCount: anchorProgress.tokenCount,
-            updatedAt: Date(),
+            updatedAt: PlayerSyncLogicalClock.next(for: .viewingProgress),
             hasViewedToEnd: anchorProgress.hasViewedToEnd
         )
     }

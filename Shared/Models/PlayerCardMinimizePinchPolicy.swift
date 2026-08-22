@@ -3,7 +3,7 @@
 import CoreGraphics
 import Foundation
 
-enum PlayerCardMinimizePinchPolicy {
+nonisolated enum PlayerCardMinimizePinchPolicy: Sendable {
 
     static let activationScale: CGFloat = 0.96
     static let zoomInFailureScale: CGFloat = 1.01
@@ -37,7 +37,7 @@ enum PlayerCardMinimizePinchPolicy {
     }
 }
 
-struct PlayerCardMagnificationSample {
+nonisolated struct PlayerCardMagnificationSample: Sendable {
 
     private(set) var scale: CGFloat
     private(set) var velocity: CGFloat

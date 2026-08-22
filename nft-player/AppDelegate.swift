@@ -3,13 +3,10 @@
 import Cocoa
 
 @main
-class AppDelegate: NSObject, NSApplicationDelegate {
-    
-    private static let terminationSyncGracePeriod: DispatchTimeInterval = .milliseconds(250)
+@MainActor
+final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private let currentInstanceId = UUID().uuidString
-    private var terminateFlushTimeoutWorkItem: DispatchWorkItem?
-    private var isReplyingToTerminate = false
     private var hasFinishedLaunching = false
     
     func applicationDidFinishLaunching(_ aNotification: Notification) {
@@ -23,40 +20,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     func applicationWillTerminate(_ aNotification: Notification) {
-        terminateFlushTimeoutWorkItem?.cancel()
-        terminateFlushTimeoutWorkItem = nil
         DistributedNotificationCenter.default().removeObserver(self)
-    }
-
-    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        guard !isReplyingToTerminate else { return .terminateNow }
-
-        let hasPendingSyncWork = PlayerICloudSync.shared.flushPendingWorkBeforeTermination { [weak self, weak sender] in
-            DispatchQueue.main.async {
-                guard let self, let sender else { return }
-                self.finishTerminationFlush(sender)
-            }
-        }
-
-        guard hasPendingSyncWork else { return .terminateNow }
-
-        let timeoutWorkItem = DispatchWorkItem { [weak self, weak sender] in
-            guard let self, let sender else { return }
-            self.finishTerminationFlush(sender)
-        }
-        terminateFlushTimeoutWorkItem = timeoutWorkItem
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + Self.terminationSyncGracePeriod, execute: timeoutWorkItem)
-        return .terminateLater
-    }
-
-    private func finishTerminationFlush(_ sender: NSApplication) {
-        guard !isReplyingToTerminate else { return }
-
-        isReplyingToTerminate = true
-        terminateFlushTimeoutWorkItem?.cancel()
-        terminateFlushTimeoutWorkItem = nil
-        sender.reply(toApplicationShouldTerminate: true)
     }
     
     @objc private func terminateInstance(_ notification: Notification) {
@@ -87,9 +51,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let widgetURLs = urls.filter { WidgetDeepLink(url: $0) != nil }
         guard !widgetURLs.isEmpty else { return }
 
-        DispatchQueue.main.async { [self] in
-            widgetURLs.forEach(openWidgetURL)
-        }
+        widgetURLs.forEach(openWidgetURL)
     }
     
     @IBAction func didClickNewWindowItem(_ sender: Any) {
@@ -97,20 +59,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func openWidgetURL(_ url: URL) {
-        defer {
-            WidgetLaunchPresentationState.shared.finishWidgetPlayerHandoff(for: url)
-        }
-
         guard let deepLink = WidgetDeepLink(url: url),
-              case let .collection(collectionId, tokenId) = deepLink else {
+              let target = deepLink.collectionTarget(ifSupported: { collectionId in
+                CollectionCatalog.allItems.contains { $0.id == collectionId }
+              }) else {
+            WidgetLaunchPresentationState.shared.finishWidgetPlayerHandoff(for: url)
             return
         }
+        let handoffRequest = WidgetLaunchPresentationState.shared
+            .beginWidgetPlayerHandoff(for: url)
 
-        Navigator.shared.showWidgetPlayer(
-            collectionId: collectionId,
-            tokenId: tokenId,
+        Navigator.shared.requestWidgetPlayer(
+            collectionId: target.collectionId,
+            tokenId: target.tokenId,
             ensureFrontAfterOpening: true
-        )
+        ) {
+            WidgetLaunchPresentationState.shared.finishWidgetPlayerHandoff(handoffRequest)
+        }
     }
     
 }

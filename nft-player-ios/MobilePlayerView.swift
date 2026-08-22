@@ -3,6 +3,7 @@
 import SwiftUI
 import UIKit
 import LinkPresentation
+import Observation
 
 struct MobilePlayerConfig: Hashable, Identifiable {
     var id = UUID()
@@ -118,23 +119,15 @@ struct MobilePlayerNavigationTitleState: Equatable {
     var pageLabel = ""
 }
 
-final class MobilePlayerNavigationTitleController: ObservableObject {
-    @Published private(set) var title = MobilePlayerNavigationTitleState()
+@MainActor
+@Observable
+final class MobilePlayerNavigationTitleController {
+    private(set) var title = MobilePlayerNavigationTitleState()
 
     func setTitle(
         collectionTitle: String,
         pageLabel: String
     ) {
-        guard Thread.isMainThread else {
-            DispatchQueue.main.async {
-                self.setTitle(
-                    collectionTitle: collectionTitle,
-                    pageLabel: pageLabel
-                )
-            }
-            return
-        }
-
         let title = MobilePlayerNavigationTitleState(
             collectionTitle: collectionTitle,
             pageLabel: pageLabel
@@ -147,11 +140,13 @@ final class MobilePlayerNavigationTitleController: ObservableObject {
     }
 }
 
-final class MobilePlayerChromeController: ObservableObject {
-    @Published private(set) var showControls = true
-    @Published private(set) var isPlayerContentHiddenForCardTransition = false
-    @Published private(set) var allowsNavigationBackSwipe: Bool
-    @Published private(set) var playerBackgroundColor: UIColor
+@MainActor
+@Observable
+final class MobilePlayerChromeController {
+    private(set) var showControls = true
+    private(set) var isPlayerContentHiddenForCardTransition = false
+    private(set) var allowsNavigationBackSwipe: Bool
+    private(set) var playerBackgroundColor: UIColor
     let playerNavigationTitleController = MobilePlayerNavigationTitleController()
     private(set) var isPlayerContentZoomed = false
     private(set) var layoutInteractionState = MobilePlayerLayoutInteractionState.empty
@@ -184,55 +179,27 @@ final class MobilePlayerChromeController: ObservableObject {
     }
 
     func setCollectionBrowserTransitionProvider(_ provider: any MobilePlayerBrowserTransitionProviding) {
-        guard Thread.isMainThread else {
-            DispatchQueue.main.async {
-                self.setCollectionBrowserTransitionProvider(provider)
-            }
-            return
-        }
-
         collectionBrowserTransitionProvider = provider
     }
 
     func clearCollectionBrowserTransitionProvider(_ provider: any MobilePlayerBrowserTransitionProviding) {
-        guard Thread.isMainThread else {
-            DispatchQueue.main.async {
-                self.clearCollectionBrowserTransitionProvider(provider)
-            }
-            return
-        }
-
         guard collectionBrowserTransitionProvider === provider else { return }
         collectionBrowserTransitionProvider = nil
     }
 
     var isCollectionBrowserActive: Bool {
-        Thread.isMainThread && collectionBrowserTransitionProvider?.isCollectionBrowserActive == true
+        collectionBrowserTransitionProvider?.isCollectionBrowserActive == true
     }
 
     var pagerProvider: (any MobilePlayerPagerProviding)? {
-        Thread.isMainThread ? registeredPagerProvider : nil
+        registeredPagerProvider
     }
 
     func setPagerProvider(_ provider: any MobilePlayerPagerProviding) {
-        guard Thread.isMainThread else {
-            DispatchQueue.main.async {
-                self.setPagerProvider(provider)
-            }
-            return
-        }
-
         registeredPagerProvider = provider
     }
 
     func clearPagerProvider(_ provider: any MobilePlayerPagerProviding) {
-        guard Thread.isMainThread else {
-            DispatchQueue.main.async {
-                self.clearPagerProvider(provider)
-            }
-            return
-        }
-
         guard registeredPagerProvider === provider else { return }
         registeredPagerProvider = nil
     }
@@ -240,7 +207,6 @@ final class MobilePlayerChromeController: ObservableObject {
     func prepareCollectionBrowserSelection(
         for pagePosition: PlayerPagePosition
     ) -> MobilePlayerBrowserTransitionSelection? {
-        guard Thread.isMainThread else { return nil }
         return collectionBrowserTransitionProvider?.prepareCollectionBrowserSelection(for: pagePosition)
     }
 
@@ -248,7 +214,6 @@ final class MobilePlayerChromeController: ObservableObject {
         from sourceFrame: CGRect,
         in coordinateView: UIView
     ) -> UIView? {
-        guard Thread.isMainThread else { return nil }
         return collectionBrowserTransitionProvider?
             .makeOnePerPageTransitionSnapshot(
                 from: sourceFrame,
@@ -257,11 +222,6 @@ final class MobilePlayerChromeController: ObservableObject {
     }
 
     func cancelPreparedCollectionBrowserSelection() {
-        guard Thread.isMainThread else {
-            DispatchQueue.main.async { self.cancelPreparedCollectionBrowserSelection() }
-            return
-        }
-
         collectionBrowserTransitionProvider?.cancelPreparedCollectionBrowserSelection()
     }
 
@@ -269,25 +229,11 @@ final class MobilePlayerChromeController: ObservableObject {
         id: UUID,
         _ provider: @escaping () -> MobilePlayerLayoutInteractionState
     ) {
-        guard Thread.isMainThread else {
-            DispatchQueue.main.async {
-                self.setLiveLayoutInteractionStateProvider(id: id, provider)
-            }
-            return
-        }
-
         liveLayoutInteractionStateProviderID = id
         liveLayoutInteractionStateProvider = provider
     }
 
     func clearLiveLayoutInteractionStateProvider(id: UUID) {
-        guard Thread.isMainThread else {
-            DispatchQueue.main.async {
-                self.clearLiveLayoutInteractionStateProvider(id: id)
-            }
-            return
-        }
-
         guard liveLayoutInteractionStateProviderID == id else { return }
 
         liveLayoutInteractionStateProviderID = nil
@@ -295,8 +241,6 @@ final class MobilePlayerChromeController: ObservableObject {
     }
 
     func currentLayoutInteractionState() -> MobilePlayerLayoutInteractionState {
-        guard Thread.isMainThread else { return layoutInteractionState }
-
         return liveLayoutInteractionStateProvider?() ?? layoutInteractionState
     }
 
@@ -305,21 +249,11 @@ final class MobilePlayerChromeController: ObservableObject {
     }
 
     func setControlsVisible(_ isVisible: Bool) {
-        guard Thread.isMainThread else {
-            DispatchQueue.main.async { self.setControlsVisible(isVisible) }
-            return
-        }
-
         guard showControls != isVisible else { return }
         showControls = isVisible
     }
 
     func setPlayerBackgroundColor(_ color: UIColor) {
-        guard Thread.isMainThread else {
-            DispatchQueue.main.async { self.setPlayerBackgroundColor(color) }
-            return
-        }
-
         guard !playerBackgroundColor.isVisuallyEqual(to: color) else { return }
         playerBackgroundColor = color
     }
@@ -335,41 +269,21 @@ final class MobilePlayerChromeController: ObservableObject {
     }
 
     func setPlayerContentZoomed(_ isZoomed: Bool) {
-        guard Thread.isMainThread else {
-            DispatchQueue.main.async { self.setPlayerContentZoomed(isZoomed) }
-            return
-        }
-
         guard isPlayerContentZoomed != isZoomed else { return }
         isPlayerContentZoomed = isZoomed
     }
 
     func setPlayerContentHiddenForCardTransition(_ isHidden: Bool) {
-        guard Thread.isMainThread else {
-            DispatchQueue.main.async { self.setPlayerContentHiddenForCardTransition(isHidden) }
-            return
-        }
-
         guard isPlayerContentHiddenForCardTransition != isHidden else { return }
         isPlayerContentHiddenForCardTransition = isHidden
     }
 
     func setNavigationBackSwipeAllowed(_ isAllowed: Bool) {
-        guard Thread.isMainThread else {
-            DispatchQueue.main.async { self.setNavigationBackSwipeAllowed(isAllowed) }
-            return
-        }
-
         guard allowsNavigationBackSwipe != isAllowed else { return }
         allowsNavigationBackSwipe = isAllowed
     }
 
     func setLayoutInteractionState(_ state: MobilePlayerLayoutInteractionState) {
-        guard Thread.isMainThread else {
-            DispatchQueue.main.async { self.setLayoutInteractionState(state) }
-            return
-        }
-
         guard layoutInteractionState != state else { return }
         layoutInteractionState = state
     }
@@ -378,7 +292,6 @@ final class MobilePlayerChromeController: ObservableObject {
     func requestCollectionBrowserExpand(
         _ selection: MobilePlayerBrowserTransitionSelection
     ) -> MobilePlayerBrowserExpandSelectionResult {
-        guard Thread.isMainThread else { return .rejected }
         return onCollectionBrowserExpandRequest?(selection) ?? .fallbackToImmediateOpen
     }
 }
@@ -400,7 +313,7 @@ struct MobilePlayerView: View {
     private let initialConfig: MobilePlayerConfig
     private let onDismiss: () -> Void
     private let collectionBrowserAvailable: Bool
-    @ObservedObject private var chrome: MobilePlayerChromeController
+    private let chrome: MobilePlayerChromeController
 
     @State private var isAllowedToHideStatusBar = false
     @State private var currentToken = GeneratedToken.empty
@@ -409,7 +322,8 @@ struct MobilePlayerView: View {
     @State private var isCurrentPagePositionInsertedWidgetToken = false
     @State private var canGoBack = false
     @State private var canGoForward = false
-    @State private var isCurrentTokenBookmarked = false
+    @State private var bookmarkPresentationState = PlayerBookmarkPresentationState()
+    @State private var bookmarkStateTask: Task<Void, Never>?
     @State private var bundledGenerativePresentationMode:
         MobileBundledGenerativePresentationMode = .thumbnailAspectFit
     @State private var focusedPagePositionUpdateCoordinator =
@@ -444,7 +358,11 @@ struct MobilePlayerView: View {
                     bundledGenerativePresentationMode: bundledGenerativePresentationMode,
                     onFocusedPagePositionUpdate: handleFocusedPagePositionUpdate,
                     onSettledPagePositionUpdate: handleSettledPagePositionUpdate,
-                    onPaginationAttempt: {},
+                    onPaginationAttempt: {
+                        MobilePlaybackController.shared.acknowledgeIntentionalViewingPosition(
+                            uuid: initialConfig.id
+                        )
+                    },
                     onUnavailableNavigation: {
                         chrome.setControlsVisible(true)
                     },
@@ -501,6 +419,7 @@ struct MobilePlayerView: View {
                         if chrome.showControls, canBookmarkCurrentToken {
                             PlayerBookmarkButton(
                                 isBookmarked: isCurrentTokenBookmarked,
+                                isEnabled: canToggleCurrentTokenBookmark,
                                 action: toggleCurrentTokenBookmark
                             )
                             .transition(.opacity)
@@ -511,7 +430,7 @@ struct MobilePlayerView: View {
                     .animation(chrome.showControls ? playerChromeToggleAnimation : playerManualGlassHideAnimation, value: chrome.showControls)
                     .animation(playerChromeToggleAnimation, value: isCurrentTokenBookmarked)
                 }
-                .allowsHitTesting(chrome.showControls && canBookmarkCurrentToken)
+                .allowsHitTesting(chrome.showControls && canToggleCurrentTokenBookmark)
             }
             .ignoresSafeArea(edges: .bottom)
         }
@@ -529,24 +448,31 @@ struct MobilePlayerView: View {
         }
         .onDisappear {
             focusedPagePositionUpdateCoordinator.cancelPendingUpdate()
+            bookmarkStateTask?.cancel()
+            bookmarkStateTask = nil
             bundledGenerativePresentationMode = .thumbnailAspectFit
         }
-        .onReceive(NotificationCenter.default.publisher(for: .playerBookmarksDidChange)) { _ in
+        .onReceive(
+            NotificationCenter.default.publisher(for: .playerBookmarksDidChange)
+                .receive(on: RunLoop.main)
+        ) { _ in
             updateBookmarkState(for: currentToken)
         }
-        .onAppear {
+        .task {
             guard !isAllowedToHideStatusBar else { return }
 
             let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene
             let window = scene?.windows.first
             let topSafeArea = window?.safeAreaInsets.top ?? 0
             if topSafeArea < 44 {
-                DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(200)) {
-                    isAllowedToHideStatusBar = true
+                do {
+                    try await Task.sleep(for: .milliseconds(200))
+                } catch {
+                    return
                 }
-            } else {
-                isAllowedToHideStatusBar = true
             }
+            guard !Task.isCancelled else { return }
+            isAllowedToHideStatusBar = true
         }
     }
 
@@ -658,6 +584,14 @@ struct MobilePlayerView: View {
         !currentToken.fullCollectionId.isEmpty && !currentToken.id.isEmpty
     }
 
+    private var canToggleCurrentTokenBookmark: Bool {
+        canBookmarkCurrentToken && bookmarkPresentationState.canToggle
+    }
+
+    private var isCurrentTokenBookmarked: Bool {
+        bookmarkPresentationState.isBookmarked
+    }
+
     private func updateLayoutInteractionState() {
         chrome.setLayoutInteractionState(
             MobilePlaybackController.shared.layoutInteractionState(
@@ -672,7 +606,8 @@ struct MobilePlayerView: View {
     private func handleFocusedPagePositionUpdate(_ pagePosition: PlayerPagePosition) {
         let generation = focusedPagePositionUpdateCoordinator.beginUpdate()
 
-        DispatchQueue.main.async {
+        Task { @MainActor in
+            await Task.yield()
             guard self.focusedPagePositionUpdateCoordinator.isCurrent(generation) else { return }
 
             let token = MobilePlaybackController.shared.getToken(
@@ -717,7 +652,8 @@ struct MobilePlayerView: View {
             pagePosition,
             hasViewedToEnd: hasViewedToEnd
         )
-        DispatchQueue.main.async {
+        Task { @MainActor in
+            await Task.yield()
             guard self.currentPagePosition == pagePosition else { return }
             self.currentProgress = progress
         }
@@ -783,32 +719,75 @@ struct MobilePlayerView: View {
     }
 
     private func toggleCurrentTokenBookmark() {
-        guard canBookmarkCurrentToken else { return }
+        guard let request = bookmarkPresentationState.beginToggle() else { return }
 
-        isCurrentTokenBookmarked = PlayerBookmarksStore.toggleBookmark(
-            collectionId: currentToken.fullCollectionId,
-            tokenId: currentToken.id
-        )
-        Haptic.selectionChanged()
+        bookmarkStateTask?.cancel()
+        bookmarkStateTask = nil
+        let didBeginToggle = PlayerBookmarksStore.enqueueBookmarkUpdate(
+            collectionId: request.target.collectionId,
+            tokenId: request.target.tokenId,
+            isBookmarked: request.isBookmarked
+        ) { isBookmarked in
+            let storedState = PlayerBookmarksStore.storedBookmarkState(
+                collectionId: request.target.collectionId,
+                tokenId: request.target.tokenId
+            )
+            bookmarkPresentationState.applyToggleCompletion(
+                isBookmarked: isBookmarked,
+                for: request.target,
+                isTogglePending: storedState.isTogglePending
+            )
+        }
+        if didBeginToggle {
+            Haptic.selectionChanged()
+        }
     }
 
     private func updateBookmarkState(for token: GeneratedToken) {
-        guard !token.fullCollectionId.isEmpty, !token.id.isEmpty else {
-            isCurrentTokenBookmarked = false
-            return
+        bookmarkStateTask?.cancel()
+        bookmarkStateTask = nil
+        let target: PlayerBookmarkPresentationState.Target? = if token.fullCollectionId.isEmpty
+            || token.id.isEmpty {
+            nil
+        } else {
+            PlayerBookmarkPresentationState.Target(
+                collectionId: token.fullCollectionId,
+                tokenId: token.id
+            )
         }
-
-        isCurrentTokenBookmarked = PlayerBookmarksStore.isBookmarked(
-            collectionId: token.fullCollectionId,
-            tokenId: token.id
+        let storedState = target.map {
+            PlayerBookmarksStore.storedBookmarkState(
+                collectionId: $0.collectionId,
+                tokenId: $0.tokenId
+            )
+        } ?? PlayerStoredBookmarkState(
+            isBookmarked: false,
+            isTogglePending: false,
+            isReady: true
         )
+        guard let request = bookmarkPresentationState.beginLoading(
+            target: target,
+            storedState: storedState
+        ) else { return }
+
+        bookmarkStateTask = Task {
+            let isBookmarked = await PlayerBookmarksStore.shared.isBookmarked(
+                collectionId: request.target.collectionId,
+                tokenId: request.target.tokenId
+            )
+            guard !Task.isCancelled else { return }
+            bookmarkPresentationState.applyLoadedState(
+                isBookmarked: isBookmarked,
+                for: request
+            )
+        }
     }
 
 }
 
 struct PlayerNavigationTitleView: View {
-    @ObservedObject var chrome: MobilePlayerChromeController
-    @ObservedObject private var titleController: MobilePlayerNavigationTitleController
+    let chrome: MobilePlayerChromeController
+    private let titleController: MobilePlayerNavigationTitleController
 
     init(chrome: MobilePlayerChromeController) {
         self.chrome = chrome
@@ -1171,6 +1150,7 @@ private final class PlayerFileActivityItemSource: NSObject, UIActivityItemSource
 
 private struct PlayerBookmarkButton: View {
     let isBookmarked: Bool
+    let isEnabled: Bool
     let action: () -> Void
 
     @ViewBuilder
@@ -1183,6 +1163,7 @@ private struct PlayerBookmarkButton: View {
                 .contentShape(Circle())
         }
         .accessibilityLabel(isBookmarked ? Strings.removeBookmark : Strings.bookmark)
+        .disabled(!isEnabled)
 
         if #available(iOS 26.0, *) {
             button

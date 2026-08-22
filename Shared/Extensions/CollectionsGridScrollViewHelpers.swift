@@ -10,6 +10,7 @@ import UIKit
 
 private let collectionsGridScrollCoordinateSpaceName = "CollectionsGridScrollCoordinateSpace"
 
+@MainActor
 enum CollectionsGridScrollViewRestorer {
     private static let maximumRestoreAttempts = 6
 
@@ -17,7 +18,7 @@ enum CollectionsGridScrollViewRestorer {
         using scrollProxy: ScrollViewProxy,
         tracker: CollectionsGridScrollMemoryTracker,
         hasRestored: Binding<Bool>,
-        onRestored: ((Int) -> Void)? = nil
+        onRestored: (@MainActor @Sendable (Int) -> Void)? = nil
     ) {
         guard !hasRestored.wrappedValue,
               let initialDisplayedIndex = tracker.initialDisplayedIndex else {
@@ -42,9 +43,9 @@ enum CollectionsGridScrollViewRestorer {
     private static func restore(
         displayedIndex: Int,
         using scrollProxy: ScrollViewProxy,
-        isTargetReady: @escaping () -> Bool,
-        setRestored: @escaping () -> Void,
-        onRestored: ((Int) -> Void)? = nil
+        isTargetReady: @MainActor @Sendable @escaping () -> Bool,
+        setRestored: @MainActor @Sendable @escaping () -> Void,
+        onRestored: (@MainActor @Sendable (Int) -> Void)? = nil
     ) {
         restore(
             displayedIndex: displayedIndex,
@@ -59,31 +60,39 @@ enum CollectionsGridScrollViewRestorer {
     private static func restore(
         displayedIndex: Int,
         using scrollProxy: ScrollViewProxy,
-        isTargetReady: @escaping () -> Bool,
-        setRestored: @escaping () -> Void,
-        onRestored: ((Int) -> Void)?,
+        isTargetReady: @MainActor @Sendable @escaping () -> Bool,
+        setRestored: @MainActor @Sendable @escaping () -> Void,
+        onRestored: (@MainActor @Sendable (Int) -> Void)?,
         attempt: Int
     ) {
-        DispatchQueue.main.async {
+        Task { @MainActor in
+            await nextMainRunLoopTurn()
             withoutAnimation {
                 scrollProxy.scrollTo(displayedIndex, anchor: .top)
             }
-            DispatchQueue.main.async {
-                guard isTargetReady() || attempt >= maximumRestoreAttempts else {
-                    restore(
-                        displayedIndex: displayedIndex,
-                        using: scrollProxy,
-                        isTargetReady: isTargetReady,
-                        setRestored: setRestored,
-                        onRestored: onRestored,
-                        attempt: attempt + 1
-                    )
-                    return
-                }
-                withoutAnimation {
-                    setRestored()
-                }
-                onRestored?(displayedIndex)
+            await nextMainRunLoopTurn()
+            guard isTargetReady() || attempt >= maximumRestoreAttempts else {
+                restore(
+                    displayedIndex: displayedIndex,
+                    using: scrollProxy,
+                    isTargetReady: isTargetReady,
+                    setRestored: setRestored,
+                    onRestored: onRestored,
+                    attempt: attempt + 1
+                )
+                return
+            }
+            withoutAnimation {
+                setRestored()
+            }
+            onRestored?(displayedIndex)
+        }
+    }
+
+    private static func nextMainRunLoopTurn() async {
+        await withCheckedContinuation { continuation in
+            RunLoop.main.perform {
+                continuation.resume()
             }
         }
     }
@@ -149,7 +158,7 @@ extension View {
         using scrollProxy: ScrollViewProxy,
         tracker: CollectionsGridScrollMemoryTracker,
         hasRestored: Binding<Bool>,
-        onRestored: ((Int) -> Void)? = nil
+        onRestored: (@MainActor @Sendable (Int) -> Void)? = nil
     ) -> some View {
         onAppear {
             CollectionsGridScrollViewRestorer.restoreIfNeeded(
@@ -174,10 +183,18 @@ private struct CollectionsGridScrollMemoryLifecycleFlushModifier: ViewModifier {
     func body(content: Content) -> some View {
 #if os(macOS)
         content
-            .onReceive(NotificationCenter.default.publisher(for: NSApplication.willResignActiveNotification)) { _ in
+            .onReceive(
+                NotificationCenter.default.publisher(
+                    for: NSApplication.willResignActiveNotification
+                )
+            ) { _ in
                 tracker.flush()
             }
-            .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
+            .onReceive(
+                NotificationCenter.default.publisher(
+                    for: NSApplication.willTerminateNotification
+                )
+            ) { _ in
                 tracker.flush()
             }
             .onDisappear {
@@ -185,10 +202,18 @@ private struct CollectionsGridScrollMemoryLifecycleFlushModifier: ViewModifier {
             }
 #elseif os(iOS) || os(tvOS) || os(visionOS)
         content
-            .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
+            .onReceive(
+                NotificationCenter.default.publisher(
+                    for: UIApplication.willResignActiveNotification
+                )
+            ) { _ in
                 tracker.flush()
             }
-            .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
+            .onReceive(
+                NotificationCenter.default.publisher(
+                    for: UIApplication.didEnterBackgroundNotification
+                )
+            ) { _ in
                 tracker.flush()
             }
             .onDisappear {

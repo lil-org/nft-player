@@ -30,8 +30,8 @@ struct VisionCollectionsView: View {
     private let collectionItems: [CollectionCatalogItem]
     @Environment(\.openImmersiveSpace) private var openImmersiveSpace
     @Environment(\.dismissImmersiveSpace) private var dismissImmersiveSpace
-    @EnvironmentObject private var immersiveMode: VisionImmersiveModeModel
-    @ObservedObject private var widgetLaunchPresentationState: WidgetLaunchPresentationState
+    @Environment(VisionImmersiveModeModel.self) private var immersiveMode
+    private let widgetLaunchPresentationState: WidgetLaunchPresentationState
     @State private var gridPassCount: Int
     @State private var gridScrollMemoryTracker: CollectionsGridScrollMemoryTracker
     @State private var hasRestoredInitialGridScrollPosition: Bool
@@ -39,31 +39,39 @@ struct VisionCollectionsView: View {
     @State private var immersiveSpaceState = VisionImmersiveSpaceState.closed
     @State private var immersiveModeRequestID = 0
     @State private var shouldEnableImmersiveModeWhenReady = false
+    @State private var playerPresentationGate = PlayerPresentationRequestGate()
+    @State private var hasLoadedViewingProgress = false
+    @State private var viewingProgressRefreshID = 0
+    @State private var shouldPrewarmAfterViewingProgressRefresh = true
 
-    @State private var viewingProgressByCollectionId: [String: Int]
-    @State private var viewedToEndCollectionIds: Set<String>
-    @State private var continueViewingProgress: PlayerViewingProgress?
+    @State private var viewingProgressSnapshot = PlayerViewingProgressSnapshot.empty
 
     init(
         collectionItems: [CollectionCatalogItem] = CollectionCatalog.allItems,
         widgetLaunchPresentationState: WidgetLaunchPresentationState = .shared
     ) {
         self.collectionItems = collectionItems
-        _widgetLaunchPresentationState = ObservedObject(wrappedValue: widgetLaunchPresentationState)
-        let progressSnapshot = PlayerViewingProgressStore.progressSnapshot()
+        self.widgetLaunchPresentationState = widgetLaunchPresentationState
         let gridScrollMemoryTracker = CollectionsGridScrollMemoryTracker(items: collectionItems)
         _gridPassCount = State(initialValue: gridScrollMemoryTracker.initialGridPassCount)
         _gridScrollMemoryTracker = State(initialValue: gridScrollMemoryTracker)
         _hasRestoredInitialGridScrollPosition = State(
             initialValue: gridScrollMemoryTracker.initialDisplayedIndex == nil
         )
-        _viewingProgressByCollectionId = State(initialValue: progressSnapshot.percentagesByCollectionId)
-        _viewedToEndCollectionIds = State(initialValue: progressSnapshot.viewedToEndCollectionIds)
-        _continueViewingProgress = State(
-            initialValue: progressSnapshot.firstVisibleContinueViewingProgress { collectionId in
-                collectionItems.contains { $0.id == collectionId }
-            }
-        )
+    }
+
+    private var viewingProgressByCollectionId: [String: Int] {
+        viewingProgressSnapshot.percentagesByCollectionId
+    }
+
+    private var viewedToEndCollectionIds: Set<String> {
+        viewingProgressSnapshot.viewedToEndCollectionIds
+    }
+
+    private var continueViewingProgress: PlayerViewingProgress? {
+        viewingProgressSnapshot.firstVisibleContinueViewingProgress { collectionId in
+            collectionItems.contains { $0.id == collectionId }
+        }
     }
 
     var body: some View {
@@ -81,8 +89,14 @@ struct VisionCollectionsView: View {
                     rowSpacing: visionCollectionsGridRowSpacing,
                     visibleItemCount: visibleItemCount
                 )
-                .opacity(hasRestoredInitialGridScrollPosition ? 1 : 0)
-                .allowsHitTesting(hasRestoredInitialGridScrollPosition)
+                .opacity(
+                    hasRestoredInitialGridScrollPosition && hasLoadedViewingProgress
+                        ? 1
+                        : 0
+                )
+                .allowsHitTesting(
+                    hasRestoredInitialGridScrollPosition && hasLoadedViewingProgress
+                )
                 .collectionsGridScrollMemoryRestoration(
                     using: scrollProxy,
                     tracker: gridScrollMemoryTracker,
@@ -136,26 +150,28 @@ struct VisionCollectionsView: View {
             .padding(.trailing, VisionOrnamentMetrics.horizontalPadding)
             .padding(.bottom, VisionOrnamentMetrics.bottomPadding)
         }
-        .onAppear {
-            refreshViewingProgress()
-            schedulePlayerPrewarm()
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            requestViewingProgressRefresh(prewarm: true)
         }
-        .onChange(of: immersiveMode.isSpaceVisible) {
+        .onChange(of: immersiveMode.isSpaceVisible) { _, _ in
             reconcileImmersiveSpaceVisibility()
         }
-        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
-            refreshViewingProgress()
-            schedulePlayerPrewarm()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .playerViewingProgressDidChange)) { _ in
+        .onReceive(
+            NotificationCenter.default.publisher(for: .playerViewingProgressDidChange)
+                .receive(on: RunLoop.main)
+        ) { _ in
             guard playerConfig == nil else { return }
-            refreshViewingProgress()
+            requestViewingProgressRefresh()
+        }
+        .task(id: viewingProgressRefreshID) {
+            await performViewingProgressRefresh(id: viewingProgressRefreshID)
         }
         .collectionsGridScrollMemoryLifecycleFlush(tracker: gridScrollMemoryTracker)
         .onDisappear {
+            cancelPendingPlayerPresentation()
             dismissImmersiveSpaceIfNeeded()
         }
-        .onOpenURL(perform: openWidgetURL)
+        .onOpenURL(perform: requestWidgetURL)
     }
     
     private func createGrid() -> some View {
@@ -268,23 +284,32 @@ struct VisionCollectionsView: View {
     }
 
     private func showRandomPlayer() {
-        guard let item = randomCollectionItemPreferringUnfinishedCollections() else { return }
-        let progress = PlayerViewingProgressStore.progress(collectionId: item.id)
-        let initialTokenId = progress?.isComplete == false ? progress?.tokenId : nil
-        let initialTokenIndex = progress?.isComplete == false ? progress?.tokenIndex : nil
+        let request = playerPresentationGate.begin()
+        Task {
+            await PlayerPersistenceUpdates.flush()
+            guard playerPresentationGate.isPending(request) else { return }
+            guard let item = await randomCollectionItemPreferringUnfinishedCollections() else { return }
+            guard playerPresentationGate.isPending(request) else { return }
+            let progress = await PlayerViewingProgressStore.shared.progress(collectionId: item.id)
+            guard playerPresentationGate.isPending(request) else { return }
+            let initialTokenId = progress?.isComplete == false ? progress?.tokenId : nil
+            let initialTokenIndex = progress?.isComplete == false ? progress?.tokenIndex : nil
 
-        openPlayer(
-            initialItemId: item.id,
-            initialTokenId: initialTokenId,
-            initialTokenIndex: initialTokenIndex,
-            continueViewingCollectionId: item.id
-        )
+            await openPlayer(
+                initialItemId: item.id,
+                initialTokenId: initialTokenId,
+                initialTokenIndex: initialTokenIndex,
+                continueViewingCollectionId: item.id,
+                request: request
+            )
+        }
     }
 
     private func dismissPlayer(_ config: VisionPlayerConfig) {
         guard playerConfig?.id == config.id else { return }
+        cancelPendingPlayerPresentation()
         playerConfig = nil
-        refreshViewingProgress()
+        requestViewingProgressRefresh()
     }
 
     private func toggleImmersiveMode() {
@@ -403,73 +428,125 @@ struct VisionCollectionsView: View {
     private func openCollection(collectionId: String) {
         guard isVisibleCollection(collectionId) else { return }
 
-        if let progress = PlayerViewingProgressStore.progress(collectionId: collectionId) {
-            resumeViewing(progress)
+        let request = playerPresentationGate.begin()
+        Task {
+            await openCollection(
+                collectionId: collectionId,
+                request: request
+            )
+        }
+    }
+
+    private func openCollection(
+        collectionId: String,
+        request: PlayerPresentationRequestGate.Request
+    ) async {
+        guard playerPresentationGate.isPending(request) else { return }
+        guard isVisibleCollection(collectionId) else { return }
+
+        await PlayerPersistenceUpdates.flush()
+        guard playerPresentationGate.isPending(request) else { return }
+        if let progress = await PlayerViewingProgressStore.shared.progress(collectionId: collectionId) {
+            guard playerPresentationGate.isPending(request) else { return }
+            await resumeViewing(progress, request: request)
             return
         }
 
-        openPlayer(
+        guard playerPresentationGate.isPending(request) else { return }
+        await openPlayer(
             initialItemId: collectionId,
-            continueViewingCollectionId: collectionId
+            continueViewingCollectionId: collectionId,
+            request: request
         )
     }
 
     private func resumeViewing(_ progress: PlayerViewingProgress) {
+        let request = playerPresentationGate.begin()
+        Task {
+            await openCollection(
+                collectionId: progress.collectionId,
+                request: request
+            )
+        }
+    }
+
+    private func resumeViewing(
+        _ progress: PlayerViewingProgress,
+        request: PlayerPresentationRequestGate.Request
+    ) async {
+        guard playerPresentationGate.isPending(request) else { return }
         guard isVisibleCollection(progress.collectionId) else {
-            refreshViewingProgress()
+            requestViewingProgressRefresh()
             return
         }
 
-        openPlayer(
+        await openPlayer(
             initialItemId: progress.collectionId,
             initialTokenId: progress.tokenId,
             initialTokenIndex: progress.tokenIndex,
-            continueViewingCollectionId: progress.collectionId
+            continueViewingCollectionId: progress.collectionId,
+            request: request
         )
     }
 
-    private func openWidgetURL(_ url: URL) {
-        defer {
-            widgetLaunchPresentationState.finishWidgetPlayerHandoff(for: url)
-        }
-
+    private func requestWidgetURL(_ url: URL) {
         guard let deepLink = WidgetDeepLink(url: url),
               case let .collection(collectionId, tokenId) = deepLink,
               isVisibleCollection(collectionId) else {
+            widgetLaunchPresentationState.finishWidgetPlayerHandoff(for: url)
             return
         }
 
-        if let tokenId {
-            openWidgetToken(
-                collectionId: collectionId,
-                tokenId: tokenId
-            )
-        } else {
-            openCollection(collectionId: collectionId)
+        let request = playerPresentationGate.begin()
+        let handoffRequest = widgetLaunchPresentationState.beginWidgetPlayerHandoff(for: url)
+        Task {
+            defer {
+                widgetLaunchPresentationState.finishWidgetPlayerHandoff(handoffRequest)
+            }
+            if let tokenId {
+                await openWidgetToken(
+                    collectionId: collectionId,
+                    tokenId: tokenId,
+                    request: request
+                )
+            } else {
+                await openCollection(
+                    collectionId: collectionId,
+                    request: request
+                )
+            }
         }
     }
 
     private func openWidgetToken(
         collectionId: String,
-        tokenId: String
-    ) {
+        tokenId: String,
+        request: PlayerPresentationRequestGate.Request
+    ) async {
+        await PlayerPersistenceUpdates.flush()
+        guard playerPresentationGate.isPending(request) else { return }
+        let progress = await PlayerViewingProgressStore.shared.progress(collectionId: collectionId)
+        guard playerPresentationGate.isPending(request) else { return }
         guard let widgetTokenInsertion = CollectionCatalog.widgetTokenInsertion(
             collectionId: collectionId,
             widgetTokenId: tokenId,
-            progress: PlayerViewingProgressStore.progress(collectionId: collectionId)
+            progress: progress
         ) else {
-            openCollection(collectionId: collectionId)
+            await openCollection(
+                collectionId: collectionId,
+                request: request
+            )
             return
         }
 
-        openPlayer(
+        guard playerPresentationGate.isPending(request) else { return }
+        await openPlayer(
             initialItemId: collectionId,
             continueViewingCollectionId: collectionId,
-            widgetTokenInsertion: widgetTokenInsertion
+            widgetTokenInsertion: widgetTokenInsertion,
+            anchorProgress: widgetTokenInsertion.automaticAnchorProgress(),
+            request: request
         )
-        if let anchorProgress = widgetTokenInsertion.automaticAnchorProgress() {
-            PlayerViewingProgressStore.save(anchorProgress)
-        }
     }
 
     private func openPlayer(
@@ -477,11 +554,19 @@ struct VisionCollectionsView: View {
         initialTokenId: String? = nil,
         initialTokenIndex: Int? = nil,
         continueViewingCollectionId: String,
-        widgetTokenInsertion: PlayerWidgetTokenInsertion? = nil
-    ) {
+        widgetTokenInsertion: PlayerWidgetTokenInsertion? = nil,
+        anchorProgress: PlayerViewingProgress? = nil,
+        request: PlayerPresentationRequestGate.Request
+    ) async {
+        guard playerPresentationGate.isPending(request) else { return }
         guard isVisibleCollection(continueViewingCollectionId),
               initialItemId.map({ isVisibleCollection($0) }) ?? true else {
-            refreshViewingProgress()
+            requestViewingProgressRefresh()
+            return
+        }
+        guard let continueViewingUpdate = await PlayerViewingProgressStore.shared
+            .prepareContinueViewingUpdate(collectionId: continueViewingCollectionId),
+              playerPresentationGate.isPending(request) else {
             return
         }
 
@@ -492,22 +577,50 @@ struct VisionCollectionsView: View {
             continueViewingCollectionId: continueViewingCollectionId,
             widgetTokenInsertion: widgetTokenInsertion
         )
-        playerConfig = config
-        PlayerViewingProgressStore.setContinueViewingCollectionId(continueViewingCollectionId)
+        playerPresentationGate.commit(
+            request,
+            present: {
+                playerConfig = config
+            },
+            persist: {
+                if let anchorProgress {
+                    await PlayerViewingProgressStore.shared.save(anchorProgress)
+                }
+                await PlayerViewingProgressStore.shared.applyContinueViewingUpdate(
+                    continueViewingUpdate
+                )
+            }
+        )
     }
 
-    private func randomCollectionItemPreferringUnfinishedCollections() -> CollectionCatalogItem? {
-        let progressSnapshot = PlayerViewingProgressStore.progressSnapshot()
+    private func cancelPendingPlayerPresentation() {
+        playerPresentationGate.cancel()
+    }
+
+    private func randomCollectionItemPreferringUnfinishedCollections() async -> CollectionCatalogItem? {
+        let progressSnapshot = await PlayerViewingProgressStore.shared.progressSnapshot()
         let unfinishedItems = collectionItems.filter { !progressSnapshot.viewedToEndCollectionIds.contains($0.id) }
         return (unfinishedItems.isEmpty ? collectionItems : unfinishedItems).randomElement()
     }
 
-    private func refreshViewingProgress() {
-        let progressSnapshot = PlayerViewingProgressStore.progressSnapshot()
-        viewingProgressByCollectionId = progressSnapshot.percentagesByCollectionId
-        viewedToEndCollectionIds = progressSnapshot.viewedToEndCollectionIds
-        continueViewingProgress = progressSnapshot.firstVisibleContinueViewingProgress { collectionId in
-            collectionItems.contains { $0.id == collectionId }
+    private func requestViewingProgressRefresh(prewarm: Bool = false) {
+        shouldPrewarmAfterViewingProgressRefresh =
+            shouldPrewarmAfterViewingProgressRefresh || prewarm
+        viewingProgressRefreshID &+= 1
+    }
+
+    private func performViewingProgressRefresh(id refreshID: Int) async {
+        let shouldPrewarm = shouldPrewarmAfterViewingProgressRefresh
+        let snapshot = await PlayerViewingProgressStore.shared.progressSnapshot()
+        guard !Task.isCancelled, refreshID == viewingProgressRefreshID else { return }
+
+        viewingProgressSnapshot = snapshot
+        shouldPrewarmAfterViewingProgressRefresh = false
+        if !hasLoadedViewingProgress {
+            hasLoadedViewingProgress = true
+        }
+        if shouldPrewarm {
+            schedulePlayerPrewarm()
         }
     }
 

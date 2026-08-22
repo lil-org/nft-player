@@ -1,7 +1,6 @@
 // ∅ 2026 lil org
 
 import AppKit
-import AVFoundation
 import ImageIO
 import WebKit
 
@@ -99,7 +98,7 @@ final class MacPlayerMediaContainerView: NSView {
     private var activeFileLoadId: UUID?
     private var cancelActiveFileLoad: (() -> Void)?
     private var webMediaContext: WebMediaContext?
-    private var downloadableMediaCacheObserver: NSObjectProtocol?
+    private var isDownloadableMediaCacheObserverInstalled = false
     private var pendingLocalWebVersion: LocalMediaFileVersion?
     private var renderedLocalWebVersion: LocalMediaFileVersion?
     private var renderedNextLocalWebVersion: LocalMediaFileVersion?
@@ -117,11 +116,6 @@ final class MacPlayerMediaContainerView: NSView {
     private var lastPlayerMenuEventNumber: Int?
     private var lastZoomToggleEventNumber: Int?
     private let downloadableMediaWindowOwnerId = UUID()
-    private let htmlDocumentRenderQueue = DispatchQueue(
-        label: "org.lil.nft-player.mac-html-document-render",
-        qos: .userInitiated
-    )
-
     init(playerMenuDelegate: PlayerMenuDelegate?) {
         self.playerMenuDelegate = playerMenuDelegate
         super.init(frame: .zero)
@@ -158,7 +152,7 @@ final class MacPlayerMediaContainerView: NSView {
         fatalError("yo")
     }
 
-    deinit {
+    isolated deinit {
         cleanup()
     }
 
@@ -339,7 +333,7 @@ final class MacPlayerMediaContainerView: NSView {
     /// Animates back to fit. Used before a chrome-driven minimize, since the hero has
     /// to fly from the artwork's fitted rect, not from a magnified one hanging off
     /// the edges of the window.
-    func resetZoomAnimated(completion: @escaping () -> Void) {
+    func resetZoomAnimated(completion: @MainActor @Sendable @escaping () -> Void) {
         guard isZoomed else {
             completion()
             return
@@ -584,47 +578,39 @@ final class MacPlayerMediaContainerView: NSView {
         localContentVersion: LocalMediaFileVersion
     ) {
         let fileURL = localContentVersion.fileURL
+        let baseURL = imageCache.downloadedSourceURL(for: context.descriptor).absoluteString
+        let htmlDirectoryURL = imageCache.webViewHTMLDirectoryURL
         clearVisibleContentForPendingDownload()
         pendingLocalWebVersion = localContentVersion
-        htmlDocumentRenderQueue.async {
-            let renderedDocument = (try? String(contentsOf: fileURL, encoding: .utf8)).map { documentHTML in
-                let viewportSize = DownloadableTokenHTMLLayout.rootSVGViewBoxSize(in: documentHTML)
-                return (
-                    html: DownloadableTokenHTML.createInlineHTMLDocumentHTML(
-                        documentHTML: documentHTML,
-                        baseURL: imageCache.downloadedSourceURL(for: context.descriptor).absoluteString,
-                        contentSize: viewportSize
-                    ),
-                    viewportSize: viewportSize
-                )
+        Task { @MainActor [weak self] in
+            let renderedDocument = await DownloadableTokenHTML.renderDocument(
+                at: fileURL,
+                baseURL: baseURL
+            )
+            guard let self,
+                  self.validateLocalWebContentResult(
+                    localContentVersion,
+                    context: context
+                  ) else { return }
+
+            guard let renderedDocument else {
+                self.clearWebMediaContext()
+                self.renderWebContent(context.fallbackHTML)
+                return
             }
 
-            DispatchQueue.main.async { [weak self] in
-                guard let self,
-                      self.validateLocalWebContentResult(
-                        localContentVersion,
-                        context: context
-                      ) else { return }
-
-                guard let renderedDocument else {
-                    self.clearWebMediaContext()
-                    self.renderWebContent(context.fallbackHTML)
-                    return
-                }
-
-                if let viewportSize = renderedDocument.viewportSize {
-                    self.setZoomContentLayout(.staticImage(viewportSize))
-                } else {
-                    self.setZoomContentLayout(.viewport)
-                }
-                self.renderLocalWebContent(
-                    renderedDocument.html,
-                    context: context,
-                    localContentVersion: localContentVersion,
-                    htmlDirectoryURL: imageCache.webViewHTMLDirectoryURL,
-                    readAccessURL: imageCache.webViewHTMLDirectoryURL
-                )
+            if let viewportSize = renderedDocument.viewportSize {
+                self.setZoomContentLayout(.staticImage(viewportSize))
+            } else {
+                self.setZoomContentLayout(.viewport)
             }
+            self.renderLocalWebContent(
+                renderedDocument.html,
+                context: context,
+                localContentVersion: localContentVersion,
+                htmlDirectoryURL: htmlDirectoryURL,
+                readAccessURL: htmlDirectoryURL
+            )
         }
     }
 
@@ -1012,32 +998,40 @@ final class MacPlayerMediaContainerView: NSView {
     }
 
     private func installDownloadableMediaCacheObserverIfNeeded() {
-        guard downloadableMediaCacheObserver == nil else { return }
+        guard !isDownloadableMediaCacheObserverInstalled else { return }
 
-        downloadableMediaCacheObserver = NotificationCenter.default.addObserver(
-            forName: .downloadableMediaCacheFileAvailabilityDidChange,
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(downloadableMediaCacheFileAvailabilityDidChange(_:)),
+            name: .downloadableMediaCacheFileAvailabilityDidChange,
             object: nil,
-            queue: .main
-        ) { [weak self] notification in
-            guard let self, let context = self.webMediaContext else { return }
-            let descriptors = [context.descriptor, context.adjacentDescriptor].compactMap { $0 }
-            guard descriptors.contains(where: {
-                DownloadableMediaCache.shared.fileAvailabilityChange(
-                    notification,
-                    affects: $0
-                )
-            }) else {
-                return
-            }
-            self.renderAvailableLocalWebContent()
+        )
+        isDownloadableMediaCacheObserverInstalled = true
+    }
+
+    @objc private func downloadableMediaCacheFileAvailabilityDidChange(_ notification: Notification) {
+        guard let context = webMediaContext else { return }
+        let descriptors = [context.descriptor, context.adjacentDescriptor].compactMap { $0 }
+        guard descriptors.contains(where: {
+            DownloadableMediaCache.shared.fileAvailabilityChange(
+                notification,
+                affects: $0
+            )
+        }) else {
+            return
         }
+        renderAvailableLocalWebContent()
     }
 
     private func removeDownloadableMediaCacheObserver() {
-        guard let downloadableMediaCacheObserver else { return }
+        guard isDownloadableMediaCacheObserverInstalled else { return }
 
-        NotificationCenter.default.removeObserver(downloadableMediaCacheObserver)
-        self.downloadableMediaCacheObserver = nil
+        NotificationCenter.default.removeObserver(
+            self,
+            name: .downloadableMediaCacheFileAvailabilityDidChange,
+            object: nil
+        )
+        isDownloadableMediaCacheObserverInstalled = false
     }
 
     private static func prefetchDirection(
@@ -1100,23 +1094,19 @@ final class MacPlayerMediaContainerView: NSView {
         setZoomContentLayout(.viewport)
         guard videoSizeLoad == nil else { return }
 
-        let task = Task.detached(priority: .utility) { [fileURL, request] in
-            let size = await VideoAssetLayout.displaySize(at: fileURL)
-            guard !Task.isCancelled else { return }
-
-            await MainActor.run { [weak self] in
-                guard !Task.isCancelled,
-                      let self,
-                      self.videoSizeLoad?.request == request else {
-                    return
-                }
-
-                self.videoSizeLoad = nil
-                guard let size else { return }
-
-                self.cacheVideoSize(size, for: request)
-                self.applyVideoSizeIfCurrent(size, for: request)
+        let task = Task(priority: .utility) { @MainActor [weak self, fileURL, request] in
+            let size = await DownloadableMediaVideoLayout.displaySize(at: fileURL)
+            guard !Task.isCancelled,
+                  let self,
+                  self.videoSizeLoad?.request == request else {
+                return
             }
+
+            self.videoSizeLoad = nil
+            guard let size else { return }
+
+            self.cacheVideoSize(size, for: request)
+            self.applyVideoSizeIfCurrent(size, for: request)
         }
 
         videoSizeLoad = VideoSizeLoad(request: request, task: task)
@@ -1284,7 +1274,10 @@ final class MacPlayerMediaContainerView: NSView {
         setZoomMagnification(targetScale, centeredAt: documentPoint, animated: animated)
     }
 
-    private func resetZoom(animated: Bool, completion: (() -> Void)? = nil) {
+    private func resetZoom(
+        animated: Bool,
+        completion: (@MainActor @Sendable () -> Void)? = nil
+    ) {
         guard animated else {
             setZoomMagnification(ZoomTuning.minimumScale, centeredAt: .zero, animated: false)
             scrollDocumentToOrigin()
@@ -1314,7 +1307,7 @@ final class MacPlayerMediaContainerView: NSView {
         )
         let centeredAt = clampedZoomCenter(for: clampedMagnification, centeredAt: documentPoint)
 
-        let finish = { [weak self] in
+        let finish: @MainActor @Sendable () -> Void = { [weak self] in
             self?.clampZoomDocumentOffsetIfNeeded()
             completion?()
         }
@@ -1326,10 +1319,12 @@ final class MacPlayerMediaContainerView: NSView {
                 context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
                 zoomScrollView.animator().setMagnification(clampedMagnification, centeredAt: centeredAt)
             } completionHandler: { [weak self] in
-                if let self = self {
-                    self.activeZoomAnimationCount = max(0, self.activeZoomAnimationCount - 1)
+                Task { @MainActor in
+                    if let self {
+                        self.activeZoomAnimationCount = max(0, self.activeZoomAnimationCount - 1)
+                    }
+                    finish()
                 }
-                finish()
             }
         } else {
             withoutLayerAnimations {
@@ -1546,25 +1541,6 @@ final class MacPlayerMediaContainerView: NSView {
         CATransaction.setDisableActions(true)
         updates()
         CATransaction.commit()
-    }
-}
-
-private enum VideoAssetLayout {
-    static func displaySize(at fileURL: URL) async -> CGSize? {
-        let asset = AVURLAsset(url: fileURL)
-        guard let track = try? await asset.loadTracks(withMediaType: .video).first else { return nil }
-
-        async let naturalSize = track.load(.naturalSize)
-        async let preferredTransform = track.load(.preferredTransform)
-
-        guard let (loadedNaturalSize, loadedPreferredTransform) = try? await (naturalSize, preferredTransform) else {
-            return nil
-        }
-
-        let transformedSize = loadedNaturalSize.applying(loadedPreferredTransform)
-        let size = CGSize(width: abs(transformedSize.width), height: abs(transformedSize.height))
-        guard size.width > 0, size.height > 0 else { return nil }
-        return size
     }
 }
 

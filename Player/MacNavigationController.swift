@@ -365,10 +365,12 @@ final class MacNavigationContainerViewController: NSViewController {
             to: viewController,
             options: slidesForward ? NSViewController.TransitionOptions.slideForward : .slideBackward
         ) { [weak self] in
-            guard let self else { return }
-            self.isTransitioning = false
-            self.finishShow(viewController, outgoing: previousChild)
-            self.reconcileModelRouteAfterTransition()
+            Task { @MainActor in
+                guard let self else { return }
+                self.isTransitioning = false
+                self.finishShow(viewController, outgoing: previousChild)
+                self.reconcileModelRouteAfterTransition()
+            }
         }
     }
 
@@ -569,7 +571,7 @@ extension MacNavigationContainerViewController: MacNavigationCommands {
 
 struct MacNavigationContainerView: NSViewControllerRepresentable {
 
-    @ObservedObject var model: MacNavigationModel
+    let model: MacNavigationModel
 
     func makeNSViewController(context: Context) -> MacNavigationContainerViewController {
         MacNavigationContainerViewController(model: model)

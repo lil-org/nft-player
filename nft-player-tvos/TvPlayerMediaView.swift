@@ -6,11 +6,6 @@ import UIKit
 
 struct TvPlayerMediaView: View {
 
-    private static let htmlDocumentRenderQueue = DispatchQueue(
-        label: "org.lil.nft-player.tvos-html-document-render",
-        qos: .userInitiated
-    )
-
     let token: GeneratedToken
     let context: PlayerTokenContext?
     let preferredPrefetchDirection: DownloadableMediaCache.PrefetchDirection
@@ -22,16 +17,22 @@ struct TvPlayerMediaView: View {
     @State private var localWebContentDescriptor: CollectionCatalogDownloadableMediaDescriptor?
     @State private var fallbackHTMLDescriptor: CollectionCatalogDownloadableMediaDescriptor?
     @State private var pendingHTMLDocumentRender: TvHTMLDocumentRenderRequest?
+    @State private var htmlDocumentRenderTask: Task<Void, Never>?
     @State private var cancelActiveLoad: (() -> Void)?
 
     var body: some View {
         content
             .onAppear(perform: renderCurrentContent)
-            .onChange(of: renderKey) { _ in
+            .onChange(of: renderKey) { _, _ in
                 renderCurrentContent()
             }
-            .onReceive(NotificationCenter.default.publisher(for: .downloadableMediaCacheFileAvailabilityDidChange)) { _ in
-                renderAvailableContent()
+            .task {
+                for await _ in NotificationCenter.default.notifications(
+                    named: .downloadableMediaCacheFileAvailabilityDidChange
+                ) {
+                    guard !Task.isCancelled else { return }
+                    renderAvailableContent()
+                }
             }
             .onDisappear(perform: cleanup)
     }
@@ -253,35 +254,32 @@ struct TvPlayerMediaView: View {
         localWebContent = nil
         clearDownloadableMediaFallback()
 
-        Self.htmlDocumentRenderQueue.async {
-            let baseURL = DownloadableMediaCache.shared.downloadedSourceURL(for: descriptor).absoluteString
-            let renderedContent = (try? String(contentsOf: fileURL, encoding: .utf8)).map { documentHTML in
-                DownloadableTokenHTML.createInlineHTMLDocumentHTML(
-                    documentHTML: documentHTML,
-                    baseURL: baseURL,
-                    contentSize: DownloadableTokenHTMLLayout.rootSVGViewBoxSize(in: documentHTML)
-                )
+        htmlDocumentRenderTask?.cancel()
+        let baseURL = DownloadableMediaCache.shared.downloadedSourceURL(for: descriptor).absoluteString
+        htmlDocumentRenderTask = Task {
+            let renderedDocument = await DownloadableTokenHTML.renderDocument(
+                at: fileURL,
+                baseURL: baseURL
+            )
+            guard !Task.isCancelled,
+                  pendingHTMLDocumentRender == request,
+                  localWebContentDescriptor == descriptor else {
+                return
             }
 
-            DispatchQueue.main.async {
-                guard pendingHTMLDocumentRender == request,
-                      localWebContentDescriptor == descriptor else {
-                    return
-                }
-
-                pendingHTMLDocumentRender = nil
-                guard let renderedContent else {
-                    localWebContent = nil
-                    renderDownloadableMediaFallback(for: descriptor)
-                    return
-                }
-
-                clearDownloadableMediaFallback()
-                localWebContent = .localHTML(
-                    string: renderedContent,
-                    directoryURL: DownloadableMediaCache.shared.webViewHTMLDirectoryURL
-                )
+            htmlDocumentRenderTask = nil
+            pendingHTMLDocumentRender = nil
+            guard let renderedDocument else {
+                localWebContent = nil
+                renderDownloadableMediaFallback(for: descriptor)
+                return
             }
+
+            clearDownloadableMediaFallback()
+            localWebContent = .localHTML(
+                string: renderedDocument.html,
+                directoryURL: DownloadableMediaCache.shared.webViewHTMLDirectoryURL
+            )
         }
     }
 
@@ -388,6 +386,8 @@ struct TvPlayerMediaView: View {
 
     private func cleanup() {
         cancelActiveLoadIfNeeded()
+        htmlDocumentRenderTask?.cancel()
+        htmlDocumentRenderTask = nil
         DownloadableMediaCache.shared.clearActiveWindow(ownerId: ownerId)
         staticImage = nil
         staticImageDescriptor = nil

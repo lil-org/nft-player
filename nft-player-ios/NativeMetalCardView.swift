@@ -44,7 +44,7 @@ final class NativeMetalCardView: UIView {
     func display(
         tokenId: String,
         renderKind: NativeMetalCardRenderKind,
-        onContentReady: (() -> Void)? = nil
+        onContentReady: (@MainActor @Sendable () -> Void)? = nil
     ) {
         guard let tokenID = Int(tokenId) else {
             hideUnavailableContent()
@@ -154,8 +154,10 @@ private final class NativeMetalCardMotionTracker {
         installApplicationLifecycleObservers()
     }
 
-    deinit {
-        applicationLifecycleObservers.forEach(NotificationCenter.default.removeObserver)
+    isolated deinit {
+        applicationLifecycleObservers.forEach(
+            NotificationCenter.default.removeObserver
+        )
     }
 
     func addObserver(_ observer: @escaping () -> Void) -> UUID {
@@ -218,7 +220,9 @@ private final class NativeMetalCardMotionTracker {
 
         applicationLifecycleObservers = inactiveNotifications.map { name in
             notificationCenter.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
-                self?.suspendForApplicationLifecycle()
+                MainActor.assumeIsolated {
+                    self?.suspendForApplicationLifecycle()
+                }
             }
         }
         applicationLifecycleObservers.append(
@@ -227,7 +231,9 @@ private final class NativeMetalCardMotionTracker {
                 object: nil,
                 queue: .main
             ) { [weak self] _ in
-                self?.resumeFromApplicationLifecycle()
+                MainActor.assumeIsolated {
+                    self?.resumeFromApplicationLifecycle()
+                }
             }
         )
     }
@@ -325,7 +331,7 @@ private final class NativeMetalCardRenderer: NSObject, MTKViewDelegate {
 
     private var motionObserverID: UUID?
     private var activeContentPresentationID: UUID?
-    private var pendingContentReadyCallback: (() -> Void)?
+    private var pendingContentReadyCallback: (@MainActor @Sendable () -> Void)?
 
     init?(device: MTLDevice) {
         guard let rendererCore = NativeMetalCardRendererCore(device: device, logger: nativeMetalCardLogger) else {
@@ -340,7 +346,7 @@ private final class NativeMetalCardRenderer: NSObject, MTKViewDelegate {
         }
     }
 
-    deinit {
+    isolated deinit {
         stop()
     }
 
@@ -351,7 +357,7 @@ private final class NativeMetalCardRenderer: NSObject, MTKViewDelegate {
     func display(
         tokenID: Int,
         renderKind: NativeMetalCardRenderKind,
-        onContentReady: (() -> Void)?
+        onContentReady: (@MainActor @Sendable () -> Void)?
     ) {
         invalidatePendingContentReadyCallback()
         if let onContentReady {
@@ -398,21 +404,19 @@ private final class NativeMetalCardRenderer: NSObject, MTKViewDelegate {
             pointerFromCenter: motionState.pointerFromCenter,
             effectOpacity: motionState.effectOpacity
         )
-        let onContentFramePresented: (() -> Void)?
+        let onContentFramePresented: (@MainActor @Sendable () -> Void)?
         if pendingContentReadyCallback != nil,
            let presentationID = activeContentPresentationID {
             onContentFramePresented = { [weak self] in
-                DispatchQueue.main.async {
-                    guard let self,
-                          self.activeContentPresentationID == presentationID,
-                          let callback = self.pendingContentReadyCallback else {
-                        return
-                    }
-
-                    self.activeContentPresentationID = nil
-                    self.pendingContentReadyCallback = nil
-                    callback()
+                guard let self,
+                      self.activeContentPresentationID == presentationID,
+                      let callback = self.pendingContentReadyCallback else {
+                    return
                 }
+
+                self.activeContentPresentationID = nil
+                self.pendingContentReadyCallback = nil
+                callback()
             }
         } else {
             onContentFramePresented = nil

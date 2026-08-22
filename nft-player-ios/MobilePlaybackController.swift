@@ -19,7 +19,7 @@ struct MobilePlayerFileShareItem {
     init(
         fileURL: URL,
         previewTitle: String,
-        releaseFile: @escaping () -> Void,
+        releaseFile: @escaping @Sendable () -> Void,
         previewImage: @escaping () -> UIImage?
     ) {
         self.fileURL = fileURL
@@ -30,9 +30,9 @@ struct MobilePlayerFileShareItem {
 }
 
 private final class MobilePlayerFileShareRetainedFile {
-    private let releaseFile: () -> Void
+    private let releaseFile: @Sendable () -> Void
 
-    init(releaseFile: @escaping () -> Void) {
+    init(releaseFile: @escaping @Sendable () -> Void) {
         self.releaseFile = releaseFile
     }
 
@@ -91,28 +91,60 @@ class MobilePlaybackController {
     private var initialConfigs = [UUID: MobilePlayerConfig]()
     private var tokensDataSources = [UUID: PlayerTokenPagingDataSource]()
     private var viewingSessionTrackers = [UUID: PlayerViewingSessionTracker]()
+    private var navigationRequestGenerations = [UUID: UInt]()
     
     func goForward(uuid: UUID) {
+        advanceNavigationRequestGeneration(uuid: uuid)
         navigate(.forward, uuid: uuid)
     }
     
     func goBack(uuid: UUID) {
+        advanceNavigationRequestGeneration(uuid: uuid)
         navigate(.back, uuid: uuid)
     }
 
     func restartCollection(uuid: UUID) {
+        guard let display = displays[uuid] else { return }
+        let requestGeneration = advanceNavigationRequestGeneration(uuid: uuid)
+        let startingPagePosition = display.getCurrentPagePosition()
         dataSource(uuid: uuid)?.acknowledgeIntentionalViewingPosition()
-        suppressContinueViewingUntilMovementAfterRestart(uuid: uuid)
-        navigate(.restartCollection, uuid: uuid)
+        let collectionId = dataSource(uuid: uuid)?
+            .collectionTokenContext(pagePosition: startingPagePosition)?.collectionId
+        let tracker = viewingSessionTracker(uuid: uuid)
+        Task {
+            let update = await tracker.prepareRestartUpdate(collectionId: collectionId)
+            guard navigationRequestGenerations[uuid] == requestGeneration,
+                  viewingSessionTrackers[uuid] === tracker,
+                  let currentDisplay = displays[uuid],
+                  currentDisplay.getCurrentPagePosition() == startingPagePosition else {
+                return
+            }
+            PlayerPersistenceUpdates.enqueue {
+                await tracker.beginRestart(update: update)
+            }
+            navigate(.restartCollection, uuid: uuid)
+        }
     }
 
     private func navigate(_ direction: PlaybackNavigationDirection, uuid: UUID) {
         displays[uuid]?.navigate(direction)
     }
+
+    func cancelPendingCollectionRestart(uuid: UUID) {
+        advanceNavigationRequestGeneration(uuid: uuid)
+    }
+
+    @discardableResult
+    private func advanceNavigationRequestGeneration(uuid: UUID) -> UInt {
+        let generation = (navigationRequestGenerations[uuid] ?? 0) &+ 1
+        navigationRequestGenerations[uuid] = generation
+        return generation
+    }
     
     func subscribe(config: MobilePlayerConfig, display: MobilePlaybackControllerDisplay) {
         displays[config.id] = display
         initialConfigs[config.id] = config
+        navigationRequestGenerations[config.id] = 0
         viewingSessionTrackers[config.id] = PlayerViewingSessionTracker(
             continueViewingCollectionId: config.continueViewingCollectionId
         )
@@ -124,6 +156,7 @@ class MobilePlaybackController {
         initialConfigs.removeValue(forKey: uuid)
         tokensDataSources.removeValue(forKey: uuid)
         viewingSessionTrackers.removeValue(forKey: uuid)
+        navigationRequestGenerations.removeValue(forKey: uuid)
         if displays.isEmpty {
             DownloadableMediaCache.shared.cancelAllDownloads()
         } else {
@@ -401,13 +434,15 @@ class MobilePlaybackController {
               ) else {
             return nil
         }
-        updateViewingSessionTracker(uuid: uuid) { tracker in
-            tracker.markViewed(progress)
+        let tracker = viewingSessionTracker(uuid: uuid)
+        PlayerPersistenceUpdates.enqueue {
+            await tracker.markViewed(progress)
         }
         return progress
     }
 
     func acknowledgeIntentionalViewingPosition(uuid: UUID) {
+        advanceNavigationRequestGeneration(uuid: uuid)
         dataSource(uuid: uuid)?.acknowledgeIntentionalViewingPosition()
     }
 
@@ -451,19 +486,6 @@ class MobilePlaybackController {
         }
     }
 
-    private func suppressContinueViewingUntilMovementAfterRestart(uuid: UUID) {
-        let collectionId: String?
-        if let pagePosition = displays[uuid]?.getCurrentPagePosition() {
-            collectionId = dataSource(uuid: uuid)?.collectionTokenContext(pagePosition: pagePosition)?.collectionId
-        } else {
-            collectionId = nil
-        }
-
-        updateViewingSessionTracker(uuid: uuid) { tracker in
-            tracker.beginRestart(collectionId: collectionId)
-        }
-    }
-
     func startPagePosition(uuid: UUID) -> PlayerPagePosition {
         dataSource(uuid: uuid)?.pagePosition(forTokenIndex: 0) ?? .initial
     }
@@ -495,16 +517,6 @@ class MobilePlaybackController {
         )
         viewingSessionTrackers[uuid] = tracker
         return tracker
-    }
-
-    private func updateViewingSessionTracker<T>(
-        uuid: UUID,
-        _ update: (inout PlayerViewingSessionTracker) -> T
-    ) -> T {
-        var tracker = viewingSessionTracker(uuid: uuid)
-        let result = update(&tracker)
-        viewingSessionTrackers[uuid] = tracker
-        return result
     }
 
 }

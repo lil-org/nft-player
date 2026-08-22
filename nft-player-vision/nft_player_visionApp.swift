@@ -6,18 +6,18 @@ import UIKit
 @main
 struct nft_player_visionApp: App {
     @UIApplicationDelegateAdaptor(VisionAppDelegate.self) var appDelegate
-    @StateObject private var immersiveMode = VisionImmersiveModeModel()
+    @State private var immersiveMode = VisionImmersiveModeModel()
 
     var body: some Scene {
         WindowGroup(id: WindowId.collections) {
             VisionCollectionsSceneRoot()
-                .environmentObject(immersiveMode)
+                .environment(immersiveMode)
         }
         .windowResizability(.contentMinSize)
 
         ImmersiveSpace(id: WindowId.blackImmersiveBackdrop) {
             VisionBlackImmersiveBackdropView()
-                .environmentObject(immersiveMode)
+                .environment(immersiveMode)
         }
         .immersionStyle(selection: .constant(.mixed), in: .mixed)
     }
@@ -77,9 +77,11 @@ final class VisionAppDelegate: NSObject, UIApplicationDelegate {
             guard let application else { return }
             self?.endPlayerSyncBackgroundTask(id: backgroundTaskId, application: application)
         }
-        PlayerICloudSync.shared.flushPendingChanges { [weak self, weak application] in
-            guard let application else { return }
-            self?.endPlayerSyncBackgroundTask(id: backgroundTaskId, application: application)
+        Task { @MainActor [weak self, weak application] in
+            await PlayerICloudSync.shared.flushPendingPersistenceAndChanges { [weak self, weak application] in
+                guard let application else { return }
+                self?.endPlayerSyncBackgroundTask(id: backgroundTaskId, application: application)
+            }
         }
     }
 

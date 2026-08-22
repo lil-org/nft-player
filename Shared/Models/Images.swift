@@ -2,7 +2,7 @@
 
 import SwiftUI
 
-struct Images {
+nonisolated enum Images {
 
     static let bookmark = Image(systemName: "bookmark")
     static let bookmarkFill = Image(systemName: "bookmark.fill")

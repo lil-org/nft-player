@@ -4,6 +4,7 @@
 import Foundation
 import WebKit
 
+@MainActor
 final class PlayerWebContentLoadCoordinator {
 
     private enum WebContentLoad: Equatable {
@@ -224,7 +225,8 @@ final class PlayerWebContentLoadCoordinator {
         guard content.requiresSuccessfulNavigation else { return true }
 
         if successfullyLoadedContent == content {
-            DispatchQueue.main.async {
+            Task { @MainActor in
+                await Task.yield()
                 onSuccess?()
             }
             return true

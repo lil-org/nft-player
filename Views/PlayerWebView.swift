@@ -38,27 +38,20 @@ final class PlayerWebView: WebViewWithMenu, WKNavigationDelegate {
     }
 
     static func scheduleFirstUsePrewarm() {
-        guard Thread.isMainThread else {
-            DispatchQueue.main.async { scheduleFirstUsePrewarm() }
-            return
-        }
-
         guard !didSchedulePrewarm, prewarmedWebView == nil else { return }
         didSchedulePrewarm = true
 
         let timer = Timer(timeInterval: 1.15, repeats: false) { _ in
-            prewarmTimer = nil
-            prewarmForFirstUseIfNeeded()
+            MainActor.assumeIsolated {
+                prewarmTimer = nil
+                prewarmForFirstUseIfNeeded()
+            }
         }
         prewarmTimer = timer
         RunLoop.main.add(timer, forMode: .default)
     }
 
     private static func prewarmForFirstUseIfNeeded() {
-        guard Thread.isMainThread else {
-            DispatchQueue.main.async { prewarmForFirstUseIfNeeded() }
-            return
-        }
         guard prewarmedWebView == nil else { return }
         guard NSApplication.shared.isActive else {
             didSchedulePrewarm = false

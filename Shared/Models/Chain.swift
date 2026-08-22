@@ -2,6 +2,6 @@
 
 import Foundation
 
-enum Chain: String, Codable {
+nonisolated enum Chain: String, Codable, Sendable {
     case ethereum, base, zora, optimism, solana, tezos
 }

@@ -2,7 +2,6 @@
 
 import Foundation
 import SwiftUI
-import Combine
 import UIKit
 
 private let tvContinueViewingButtonMaxWidth: CGFloat = 500
@@ -18,9 +17,8 @@ private let tvCollectionGridFocusRingWidth: CGFloat = 4
 
 struct TvCollectionsView: View {
     
-    @Environment(\.resetFocus) private var resetFocus
     private let collectionItems: [CollectionCatalogItem]
-    @Namespace private var gridFocusNamespace
+    @FocusState private var focusedGridDisplayedIndex: Int?
     @State private var gridPassCount: Int
     @State private var gridScrollMemoryTracker: CollectionsGridScrollMemoryTracker
     @State private var hasRestoredInitialGridScrollPosition: Bool
@@ -28,7 +26,12 @@ struct TvCollectionsView: View {
     @State private var isNavigatingToPlayer = false
     @State private var showPreferencesAlert = false
     @State private var progressSnapshot: PlayerViewingProgressSnapshot
-    @State private var preferredFocusDisplayedIndex: Int?
+    @State private var pendingRestoredFocusDisplayedIndex: Int?
+    @State private var restoredFocusTask: Task<Void, Never>?
+    @State private var playerPresentationGate = PlayerPresentationRequestGate()
+    @State private var hasLoadedViewingProgress = false
+    @State private var viewingProgressRefreshID = 0
+    @State private var shouldPrewarmAfterViewingProgressRefresh = true
 
     init(collectionItems: [CollectionCatalogItem] = CollectionCatalog.allItems) {
         self.collectionItems = collectionItems
@@ -38,11 +41,13 @@ struct TvCollectionsView: View {
         _hasRestoredInitialGridScrollPosition = State(
             initialValue: gridScrollMemoryTracker.initialDisplayedIndex == nil
         )
-        _progressSnapshot = State(initialValue: PlayerViewingProgressStore.progressSnapshot())
+        _progressSnapshot = State(
+            initialValue: .empty
+        )
     }
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ScrollViewReader { scrollProxy in
                 ScrollView {
                     createGrid()
@@ -54,14 +59,21 @@ struct TvCollectionsView: View {
                     rowSpacing: tvCollectionGridRowSpacing,
                     visibleItemCount: visibleItemCount
                 )
-                .opacity(hasRestoredInitialGridScrollPosition ? 1 : 0)
-                .disabled(!hasRestoredInitialGridScrollPosition)
+                .opacity(
+                    hasRestoredInitialGridScrollPosition && hasLoadedViewingProgress
+                        ? 1
+                        : 0
+                )
+                .disabled(
+                    !hasRestoredInitialGridScrollPosition || !hasLoadedViewingProgress
+                )
                 .collectionsGridScrollMemoryRestoration(
                     using: scrollProxy,
                     tracker: gridScrollMemoryTracker,
                     hasRestored: $hasRestoredInitialGridScrollPosition,
                     onRestored: { displayedIndex in
-                        resetGridFocus(to: displayedIndex)
+                        pendingRestoredFocusDisplayedIndex = displayedIndex
+                        scheduleInitialGridFocusIfReady()
                     }
                 )
             }
@@ -89,32 +101,34 @@ struct TvCollectionsView: View {
                     shuffleButton
                 }
             )
-            .background(
-                NavigationLink(
-                    destination: playerDestination,
-                    isActive: $isNavigatingToPlayer
-                ) {
-                    EmptyView().hidden()
-                }.hidden()
-            )
-            .onAppear {
-                refreshViewingProgress()
-                schedulePlayerPrewarm()
+            .navigationDestination(isPresented: $isNavigatingToPlayer) {
+                playerDestination
             }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
                 guard !isNavigatingToPlayer else { return }
-                refreshViewingProgress()
-                schedulePlayerPrewarm()
+                requestViewingProgressRefresh(prewarm: true)
             }
-            .onReceive(NotificationCenter.default.publisher(for: .playerViewingProgressDidChange)) { _ in
+            .onReceive(
+                NotificationCenter.default.publisher(for: .playerViewingProgressDidChange)
+                    .receive(on: RunLoop.main)
+            ) { _ in
                 guard !isNavigatingToPlayer else { return }
-                refreshViewingProgress()
+                requestViewingProgressRefresh()
+            }
+            .task(id: viewingProgressRefreshID) {
+                await performViewingProgressRefresh(id: viewingProgressRefreshID)
             }
             .collectionsGridScrollMemoryLifecycleFlush(tracker: gridScrollMemoryTracker)
-            .onChange(of: isNavigatingToPlayer) { isNavigatingToPlayer in
-                guard !isNavigatingToPlayer else { return }
-                refreshViewingProgress()
-                schedulePlayerPrewarm()
+            .onChange(of: isNavigatingToPlayer) { _, isNavigatingToPlayer in
+                if isNavigatingToPlayer {
+                    cancelRestoredGridFocus()
+                    return
+                }
+                requestViewingProgressRefresh(prewarm: true)
+            }
+            .onDisappear {
+                playerPresentationGate.cancel()
+                cancelRestoredGridFocus()
             }
             .animation(.easeInOut(duration: 0.16), value: continueViewingProgress)
         }
@@ -153,12 +167,39 @@ struct TvCollectionsView: View {
     }
 
     private func resetGridFocus(to displayedIndex: Int) {
-        preferredFocusDisplayedIndex = displayedIndex
-        DispatchQueue.main.async {
-            resetFocus(in: gridFocusNamespace)
-            DispatchQueue.main.async {
-                guard preferredFocusDisplayedIndex == displayedIndex else { return }
-                preferredFocusDisplayedIndex = nil
+        restoredFocusTask?.cancel()
+        restoredFocusTask = Task { @MainActor in
+            await nextMainRunLoopTurn()
+            guard !Task.isCancelled,
+                  !isNavigatingToPlayer else {
+                return
+            }
+            focusedGridDisplayedIndex = displayedIndex
+            restoredFocusTask = nil
+        }
+    }
+
+    private func scheduleInitialGridFocusIfReady() {
+        guard hasLoadedViewingProgress,
+              hasRestoredInitialGridScrollPosition,
+              visibleItemCount > 0 else {
+            return
+        }
+        let displayedIndex = pendingRestoredFocusDisplayedIndex ?? 0
+        pendingRestoredFocusDisplayedIndex = nil
+        resetGridFocus(to: displayedIndex)
+    }
+
+    private func cancelRestoredGridFocus() {
+        restoredFocusTask?.cancel()
+        restoredFocusTask = nil
+        pendingRestoredFocusDisplayedIndex = nil
+    }
+
+    private func nextMainRunLoopTurn() async {
+        await withCheckedContinuation { continuation in
+            RunLoop.main.perform {
+                continuation.resume()
             }
         }
     }
@@ -178,8 +219,8 @@ struct TvCollectionsView: View {
                     item: item,
                     progressPercent: progressSnapshot.percentagesByCollectionId[item.id],
                     hasViewedToEnd: progressSnapshot.viewedToEndCollectionIds.contains(item.id),
-                    prefersDefaultFocus: preferredFocusDisplayedIndex == index,
-                    focusNamespace: gridFocusNamespace
+                    displayedIndex: index,
+                    focusedDisplayedIndex: $focusedGridDisplayedIndex
                 ) {
                     didSelectCollectionItem(item)
                 }
@@ -234,28 +275,42 @@ struct TvCollectionsView: View {
     private func didSelectCollectionItem(_ item: CollectionCatalogItem) {
         guard isPlayableCollectionItem(item) else { return }
 
-        if let progress = PlayerViewingProgressStore.progress(collectionId: item.id) {
-            resumeViewing(progress)
-            return
+        let request = playerPresentationGate.begin()
+        Task {
+            await PlayerPersistenceUpdates.flush()
+            guard playerPresentationGate.isPending(request) else { return }
+            let progress = await PlayerViewingProgressStore.shared.progress(collectionId: item.id)
+            guard playerPresentationGate.isPending(request) else { return }
+            await openPlayer(
+                initialItemId: item.id,
+                initialTokenId: progress?.tokenId,
+                continueViewingCollectionId: item.id,
+                request: request
+            )
         }
-
-        openPlayer(
-            initialItemId: item.id,
-            continueViewingCollectionId: item.id
-        )
     }
     
     private func showRandomPlayer() {
-        guard let item = randomCollectionItemPreferringUnfinishedCollections() else { return }
+        let request = playerPresentationGate.begin()
+        Task {
+            await PlayerPersistenceUpdates.flush()
+            guard playerPresentationGate.isPending(request) else { return }
+            let progressSnapshot = await PlayerViewingProgressStore.shared.progressSnapshot()
+            guard playerPresentationGate.isPending(request) else { return }
+            guard let item = randomCollectionItemPreferringUnfinishedCollections(
+                progressSnapshot: progressSnapshot
+            ) else { return }
+            let progress = await PlayerViewingProgressStore.shared.progress(collectionId: item.id)
+            guard playerPresentationGate.isPending(request) else { return }
+            let initialTokenId = progress?.isComplete == false ? progress?.tokenId : nil
 
-        let progress = PlayerViewingProgressStore.progress(collectionId: item.id)
-        let initialTokenId = progress?.isComplete == false ? progress?.tokenId : nil
-
-        openPlayer(
-            initialItemId: item.id,
-            initialTokenId: initialTokenId,
-            continueViewingCollectionId: item.id
-        )
+            await openPlayer(
+                initialItemId: item.id,
+                initialTokenId: initialTokenId,
+                continueViewingCollectionId: item.id,
+                request: request
+            )
+        }
     }
 
     private func isPlayableCollectionItem(_ item: CollectionCatalogItem) -> Bool {
@@ -263,38 +318,72 @@ struct TvCollectionsView: View {
     }
 
     private func resumeViewing(_ progress: PlayerViewingProgress) {
+        let request = playerPresentationGate.begin()
+        Task { await resumeViewing(progress, request: request) }
+    }
+
+    private func resumeViewing(
+        _ progress: PlayerViewingProgress,
+        request: PlayerPresentationRequestGate.Request
+    ) async {
+        await PlayerPersistenceUpdates.flush()
+        guard playerPresentationGate.isPending(request) else { return }
         guard Self.isVisiblePlayableCollection(
             progress.collectionId,
             collectionItems: collectionItems
         ) else {
-            refreshViewingProgress()
+            requestViewingProgressRefresh()
             return
         }
 
-        openPlayer(
+        let latestProgress = await PlayerViewingProgressStore.shared.progress(
+            collectionId: progress.collectionId
+        )
+        guard playerPresentationGate.isPending(request) else { return }
+        await openPlayer(
             initialItemId: progress.collectionId,
-            initialTokenId: progress.tokenId,
-            continueViewingCollectionId: progress.collectionId
+            initialTokenId: latestProgress?.tokenId,
+            continueViewingCollectionId: progress.collectionId,
+            request: request
         )
     }
 
     private func openPlayer(
         initialItemId: String,
         initialTokenId: String? = nil,
-        continueViewingCollectionId: String
-    ) {
+        continueViewingCollectionId: String,
+        request: PlayerPresentationRequestGate.Request
+    ) async {
         guard CollectionCatalog.canOpenCollection(specificCollectionId: initialItemId) else { return }
 
-        PlayerViewingProgressStore.setContinueViewingCollectionId(continueViewingCollectionId)
-        playerNavigationRequest = TvPlayerNavigationRequest(
+        guard playerPresentationGate.isPending(request) else { return }
+        guard let continueViewingUpdate = await PlayerViewingProgressStore.shared
+            .prepareContinueViewingUpdate(collectionId: continueViewingCollectionId),
+              playerPresentationGate.isPending(request) else {
+            return
+        }
+        let navigationRequest = TvPlayerNavigationRequest(
             initialItemId: initialItemId,
             initialTokenId: initialTokenId,
             continueViewingCollectionId: continueViewingCollectionId
         )
-        isNavigatingToPlayer = true
+        playerPresentationGate.commit(
+            request,
+            present: {
+                playerNavigationRequest = navigationRequest
+                isNavigatingToPlayer = true
+            },
+            persist: {
+                await PlayerViewingProgressStore.shared.applyContinueViewingUpdate(
+                    continueViewingUpdate
+                )
+            }
+        )
     }
 
-    private func randomCollectionItemPreferringUnfinishedCollections() -> CollectionCatalogItem? {
+    private func randomCollectionItemPreferringUnfinishedCollections(
+        progressSnapshot: PlayerViewingProgressSnapshot
+    ) -> CollectionCatalogItem? {
         let playableItems = collectionItems.filter(isPlayableCollectionItem)
         guard !playableItems.isEmpty else { return nil }
 
@@ -302,8 +391,26 @@ struct TvCollectionsView: View {
         return (unfinishedItems.isEmpty ? playableItems : unfinishedItems).randomElement()
     }
 
-    private func refreshViewingProgress() {
-        progressSnapshot = PlayerViewingProgressStore.progressSnapshot()
+    private func requestViewingProgressRefresh(prewarm: Bool = false) {
+        shouldPrewarmAfterViewingProgressRefresh =
+            shouldPrewarmAfterViewingProgressRefresh || prewarm
+        viewingProgressRefreshID &+= 1
+    }
+
+    private func performViewingProgressRefresh(id refreshID: Int) async {
+        let shouldPrewarm = shouldPrewarmAfterViewingProgressRefresh
+        let snapshot = await PlayerViewingProgressStore.shared.progressSnapshot()
+        guard !Task.isCancelled, refreshID == viewingProgressRefreshID else { return }
+
+        progressSnapshot = snapshot
+        shouldPrewarmAfterViewingProgressRefresh = false
+        if !hasLoadedViewingProgress {
+            hasLoadedViewingProgress = true
+            scheduleInitialGridFocusIfReady()
+        }
+        if shouldPrewarm {
+            schedulePlayerPrewarm()
+        }
     }
 
     private func schedulePlayerPrewarm() {
@@ -338,10 +445,13 @@ private struct TvCollectionGridItemButton: View {
     let item: CollectionCatalogItem
     let progressPercent: Int?
     let hasViewedToEnd: Bool
-    let prefersDefaultFocus: Bool
-    let focusNamespace: Namespace.ID
+    let displayedIndex: Int
+    let focusedDisplayedIndex: FocusState<Int?>.Binding
     let action: () -> Void
-    @FocusState private var isFocused: Bool
+
+    private var isFocused: Bool {
+        focusedDisplayedIndex.wrappedValue == displayedIndex
+    }
 
     var body: some View {
         Button(action: action) {
@@ -377,8 +487,7 @@ private struct TvCollectionGridItemButton: View {
             .scaleEffect(isFocused ? tvCollectionGridFocusedScale : 1)
         }
         .buttonStyle(TvCollectionGridButtonStyle())
-        .focused($isFocused)
-        .prefersDefaultFocus(prefersDefaultFocus, in: focusNamespace)
+        .focused(focusedDisplayedIndex, equals: displayedIndex)
         .tvCollectionGridFocusEffectDisabled()
         .zIndex(isFocused ? 1 : 0)
         .animation(.easeInOut(duration: 0.12), value: isFocused)

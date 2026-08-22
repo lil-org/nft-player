@@ -20,7 +20,7 @@ protocol MacNavigationCommands: AnyObject {
 
 struct MacRootView: View {
 
-    @ObservedObject var model: MacNavigationModel
+    let model: MacNavigationModel
 
     var body: some View {
         MacNavigationContainerView(model: model)
@@ -48,7 +48,7 @@ struct MacRootView: View {
             ControlGroup {
                 settingsMenu
                 Button {
-                    model.showShuffledCollection()
+                    Navigator.shared.requestShuffledPlayer()
                 } label: {
                     Images.shuffle
                 }
@@ -104,6 +104,7 @@ struct MacRootView: View {
                     .accessibilityLabel(
                         model.isCurrentTokenBookmarked ? Strings.removeBookmark : Strings.bookmark
                     )
+                    .disabled(!model.canToggleCurrentTokenBookmark)
                 }
             }
             moreMenu

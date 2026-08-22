@@ -3,6 +3,7 @@
 import XCTest
 @testable import NftPlayerSyncCore
 
+@MainActor
 final class WidgetDeepLinkTests: XCTestCase {
 
     func testCollectionOnlyLinkRoundTrips() throws {
@@ -37,6 +38,25 @@ final class WidgetDeepLinkTests: XCTestCase {
         XCTAssertEqual(WidgetDeepLink(url: url), .collection(id: "collection", tokenId: nil))
     }
 
+    func testCollectionTargetRequiresSupportedCollection() throws {
+        let deepLink = try XCTUnwrap(
+            WidgetDeepLink(
+                url: try XCTUnwrap(
+                    URL(string: "nft-folder://collection?id=collection&tokenId=token-10")
+                )
+            )
+        )
+
+        XCTAssertNil(deepLink.collectionTarget(ifSupported: { _ in false }))
+        XCTAssertEqual(
+            deepLink.collectionTarget(ifSupported: { $0 == "collection" }),
+            WidgetCollectionDeepLinkTarget(
+                collectionId: "collection",
+                tokenId: "token-10"
+            )
+        )
+    }
+
     func testInitialWidgetURLSuppressesContinueViewingUntilHandoffFinishes() throws {
         let state = WidgetLaunchPresentationState()
         let url = try XCTUnwrap(WidgetDeepLink.collection(id: "collection", tokenId: nil).url)
@@ -49,7 +69,28 @@ final class WidgetDeepLinkTests: XCTestCase {
 
         XCTAssertTrue(state.isSuppressingContinueViewing)
 
-        state.finishWidgetPlayerHandoff(for: url)
+        let request = state.beginWidgetPlayerHandoff(for: url)
+        state.finishWidgetPlayerHandoff(request)
+
+        XCTAssertFalse(state.isSuppressingContinueViewing)
+    }
+
+    func testSupersededDuplicateHandoffCannotClearSuppression() throws {
+        let state = WidgetLaunchPresentationState()
+        let url = try XCTUnwrap(WidgetDeepLink.collection(id: "collection", tokenId: nil).url)
+        state.prepareForIncomingURLs(
+            [url],
+            isApplicationLaunch: true,
+            isSupportedCollection: { $0 == "collection" }
+        )
+        let firstRequest = state.beginWidgetPlayerHandoff(for: url)
+        let replacementRequest = state.beginWidgetPlayerHandoff(for: url)
+
+        state.finishWidgetPlayerHandoff(firstRequest)
+
+        XCTAssertTrue(state.isSuppressingContinueViewing)
+
+        state.finishWidgetPlayerHandoff(replacementRequest)
 
         XCTAssertFalse(state.isSuppressingContinueViewing)
     }

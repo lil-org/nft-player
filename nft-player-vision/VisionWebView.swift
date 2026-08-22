@@ -43,16 +43,14 @@ struct VisionWebView: UIViewRepresentable {
     private func deferred(_ callback: (() -> Void)?) -> (() -> Void)? {
         guard let callback else { return nil }
         return {
-            DispatchQueue.main.async {
-                callback()
-            }
+            Task { @MainActor in callback() }
         }
     }
 }
 
 final class VisionPlayerWebView: WKWebView, WKNavigationDelegate {
 
-    private static var prewarmTimer: Timer?
+    private static var prewarmTask: Task<Void, Never>?
     private static var prewarmedWebView: VisionPlayerWebView?
     private static var didSchedulePrewarm = false
 
@@ -77,27 +75,22 @@ final class VisionPlayerWebView: WKWebView, WKNavigationDelegate {
     }
 
     static func scheduleFirstUsePrewarm() {
-        guard Thread.isMainThread else {
-            DispatchQueue.main.async { scheduleFirstUsePrewarm() }
-            return
-        }
-
         guard !didSchedulePrewarm, prewarmedWebView == nil else { return }
         didSchedulePrewarm = true
 
-        let timer = Timer(timeInterval: 1.15, repeats: false) { _ in
-            prewarmTimer = nil
+        prewarmTask = Task {
+            do {
+                try await Task.sleep(for: .seconds(1.15))
+                try Task.checkCancellation()
+            } catch {
+                return
+            }
+            prewarmTask = nil
             prewarmForFirstUseIfNeeded()
         }
-        prewarmTimer = timer
-        RunLoop.main.add(timer, forMode: .default)
     }
 
     private static func prewarmForFirstUseIfNeeded() {
-        guard Thread.isMainThread else {
-            DispatchQueue.main.async { prewarmForFirstUseIfNeeded() }
-            return
-        }
         guard prewarmedWebView == nil else { return }
         guard UIApplication.shared.applicationState == .active else {
             didSchedulePrewarm = false
@@ -118,8 +111,8 @@ final class VisionPlayerWebView: WKWebView, WKNavigationDelegate {
         guard Thread.isMainThread else { return nil }
         let webView = prewarmedWebView
         prewarmedWebView = nil
-        prewarmTimer?.invalidate()
-        prewarmTimer = nil
+        prewarmTask?.cancel()
+        prewarmTask = nil
         return webView
     }
 

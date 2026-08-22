@@ -5,8 +5,10 @@ import UIKit
 import XCTest
 @testable import nft_player_ios
 
+nonisolated final class MobileCollectionBrowserGridModePresentationTests: XCTestCase {}
+
 @MainActor
-final class MobileCollectionBrowserGridModePresentationTests: XCTestCase {
+extension MobileCollectionBrowserGridModePresentationTests {
 
     private final class PlaybackDisplay: MobilePlaybackControllerDisplay {
         func navigate(_ direction: PlaybackNavigationDirection) {}
@@ -32,10 +34,26 @@ final class MobileCollectionBrowserGridModePresentationTests: XCTestCase {
         }
     }
 
-    private struct Fixture {
+    @MainActor
+    private final class Fixture {
         let uuid: UUID
         let controller: VerticalCollectionBrowserViewController
         let window: UIWindow
+
+        init(
+            uuid: UUID,
+            controller: VerticalCollectionBrowserViewController,
+            window: UIWindow
+        ) {
+            self.uuid = uuid
+            self.controller = controller
+            self.window = window
+        }
+    }
+
+    @MainActor
+    private final class ReentryState {
+        var didReenter = false
     }
 
     private func collectionMetadata(
@@ -758,21 +776,21 @@ final class MobileCollectionBrowserGridModePresentationTests: XCTestCase {
         pendingBounds.size.height -= 1
         fixture.controller.view.bounds = pendingBounds
         fixture.controller.view.setNeedsLayout()
-        var didReenterScrollEnd = false
+        let reentryState = ReentryState()
         let observation = collectionView.observe(
             \.isScrollEnabled,
             options: [.new]
         ) { _, change in
             guard change.newValue == false else { return }
             MainActor.assumeIsolated {
-                didReenterScrollEnd = true
+                reentryState.didReenter = true
                 fixture.controller.scrollViewDidEndDecelerating(collectionView)
             }
         }
 
         XCTAssertTrue(fixture.controller.setGridMode(.fiveColumns))
         withExtendedLifetime(observation) {}
-        XCTAssertTrue(didReenterScrollEnd)
+        XCTAssertTrue(reentryState.didReenter)
         XCTAssertEqual(panGestureRecognizer.maximumNumberOfTouches, 1)
 
         fixture.controller.setActive(false)
@@ -804,14 +822,15 @@ final class MobileCollectionBrowserGridModePresentationTests: XCTestCase {
         let configuredMaximumNumberOfTouches = 4
         panGestureRecognizer.maximumNumberOfTouches =
             configuredMaximumNumberOfTouches
-        var didReenterDrag = false
+        let reentryState = ReentryState()
         let observation = collectionView.observe(
             \.isScrollEnabled,
             options: [.new]
         ) { _, change in
-            guard change.newValue == true, !didReenterDrag else { return }
+            guard change.newValue == true else { return }
             MainActor.assumeIsolated {
-                didReenterDrag = true
+                guard !reentryState.didReenter else { return }
+                reentryState.didReenter = true
                 fixture.controller.scrollViewWillBeginDragging(collectionView)
             }
         }
@@ -819,7 +838,7 @@ final class MobileCollectionBrowserGridModePresentationTests: XCTestCase {
         XCTAssertTrue(fixture.controller.setGridMode(.fiveColumns))
         withExtendedLifetime(observation) {}
 
-        XCTAssertTrue(didReenterDrag)
+        XCTAssertTrue(reentryState.didReenter)
         XCTAssertEqual(fixture.controller.gridMode, .threeColumns)
         XCTAssertEqual(panGestureRecognizer.maximumNumberOfTouches, 1)
 
@@ -860,17 +879,17 @@ final class MobileCollectionBrowserGridModePresentationTests: XCTestCase {
             settledPagePositions.append(pagePosition)
             return true
         }
-        var didReenterDrag = false
+        let reentryState = ReentryState()
         let observation = collectionView.observe(
             \.contentOffset,
             options: [.new]
         ) { _, _ in
             MainActor.assumeIsolated {
                 guard fixture.controller.gridMode == .fiveColumns,
-                      !didReenterDrag else {
+                      !reentryState.didReenter else {
                     return
                 }
-                didReenterDrag = true
+                reentryState.didReenter = true
                 fixture.controller.scrollViewWillBeginDragging(collectionView)
             }
         }
@@ -884,7 +903,7 @@ final class MobileCollectionBrowserGridModePresentationTests: XCTestCase {
         }
         withExtendedLifetime(observation) {}
 
-        XCTAssertTrue(didReenterDrag)
+        XCTAssertTrue(reentryState.didReenter)
         XCTAssertEqual(fixture.controller.gridMode, .fiveColumns)
         XCTAssertTrue(collectionView.isScrollEnabled)
         XCTAssertTrue(settledPagePositions.isEmpty)

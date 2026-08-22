@@ -4,7 +4,7 @@ import CoreGraphics
 import Foundation
 import os
 
-struct NativeMetalCardAssetURLs {
+nonisolated struct NativeMetalCardAssetURLs: Sendable {
     let renderKind: NativeMetalCardRenderKind
     let tokenID: Int
     let foil: NativeMetalCardAssetURL
@@ -13,12 +13,13 @@ struct NativeMetalCardAssetURLs {
     let glitter: NativeMetalCardAssetURL
 }
 
-struct NativeMetalCardAssetURL {
+nonisolated struct NativeMetalCardAssetURL: Sendable {
     let asset: NativeMetalCardAssetPath
     let url: URL
+    let generationID: UUID
 }
 
-enum NativeMetalCardAssetRole: Hashable {
+nonisolated enum NativeMetalCardAssetRole: Hashable, Sendable {
     case face
     case foil
     case textureMask
@@ -26,12 +27,12 @@ enum NativeMetalCardAssetRole: Hashable {
     case glitter
 }
 
-struct NativeMetalCardAssetPath: Hashable {
+nonisolated struct NativeMetalCardAssetPath: Hashable, Sendable {
     let role: NativeMetalCardAssetRole
     let relativePath: String
 }
 
-struct NativeMetalCardAssetPaths {
+nonisolated struct NativeMetalCardAssetPaths: Sendable {
     let face: NativeMetalCardAssetPath
     let foil: NativeMetalCardAssetPath
     let textureMask: NativeMetalCardAssetPath
@@ -63,43 +64,130 @@ struct NativeMetalCardAssetPaths {
     }
 }
 
-struct NativeMetalCardAssetCacheConfiguration {
+nonisolated struct NativeMetalCardAssetCacheConfiguration: Sendable {
     let renderKind: NativeMetalCardRenderKind
     let rootURL: URL
     let logger: Logger
     let logName: String
     let maxCacheBytes: Int64?
     let markCachedFilesAsUsed: Bool
-    let paths: (Int) -> NativeMetalCardAssetPaths
-    let remoteURL: (NativeMetalCardAssetPath) -> URL?
+    let paths: @Sendable (Int) -> NativeMetalCardAssetPaths
+    let remoteURL: @Sendable (NativeMetalCardAssetPath) -> URL?
 }
 
-private struct NativeMetalCardFileEnsureResult {
+private nonisolated struct NativeMetalCardFileEnsureResult: Sendable {
     let didSucceed: Bool
     let downloadedByteCount: Int64
     let cachedFileUse: NativeMetalCardCachedFileUse?
 }
 
-private struct NativeMetalCardCachedFileUse {
+private nonisolated struct NativeMetalCardCachedFileUse: Sendable {
     let url: URL
     let relativePath: String
 }
 
-private struct PendingNativeMetalCardDownload {
+private nonisolated struct NativeMetalCardDownloadTransfer: Sendable {
+    let temporaryURL: URL?
+    let statusCode: Int?
+    let errorDescription: String?
+}
+
+private nonisolated final class NativeMetalCardDownloadOperation: @unchecked Sendable {
+    private let task: URLSessionDownloadTask
+    private let resultTask: Task<NativeMetalCardDownloadTransfer, Never>
+
+    init(
+        remoteURL: URL,
+        downloadID: UUID,
+        relativePath: String,
+        priority: Float,
+        logger: Logger
+    ) {
+        let (stream, continuation) = AsyncStream.makeStream(
+            of: NativeMetalCardDownloadTransfer.self
+        )
+        resultTask = Task {
+            for await transfer in stream {
+                return transfer
+            }
+            return NativeMetalCardDownloadTransfer(
+                temporaryURL: nil,
+                statusCode: nil,
+                errorDescription: "Download ended without a result"
+            )
+        }
+
+        let handoffDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("NativeMetalCardDownloads", isDirectory: true)
+        let handoffURL = handoffDirectory
+            .appendingPathComponent(downloadID.uuidString)
+            .appendingPathExtension(
+                URL(fileURLWithPath: relativePath).pathExtension
+            )
+        task = URLSession.shared.downloadTask(with: remoteURL) {
+            temporaryURL,
+            response,
+            error in
+            let persistedURL = temporaryURL.flatMap { temporaryURL -> URL? in
+                do {
+                    try FileManager.default.createDirectory(
+                        at: handoffDirectory,
+                        withIntermediateDirectories: true
+                    )
+                    try? FileManager.default.removeItem(at: handoffURL)
+                    try FileManager.default.moveItem(
+                        at: temporaryURL,
+                        to: handoffURL
+                    )
+                    return handoffURL
+                } catch {
+                    logger.error(
+                        "Native card download handoff failed for \(relativePath, privacy: .public): \(String(describing: error), privacy: .public)"
+                    )
+                    return nil
+                }
+            }
+            continuation.yield(NativeMetalCardDownloadTransfer(
+                temporaryURL: persistedURL,
+                statusCode: (response as? HTTPURLResponse)?.statusCode,
+                errorDescription: error.map(String.init(describing:))
+                    ?? (temporaryURL != nil && persistedURL == nil
+                        ? "Unable to persist temporary download"
+                        : nil)
+            ))
+            continuation.finish()
+        }
+        task.priority = priority
+        task.resume()
+    }
+
+    func value() async -> NativeMetalCardDownloadTransfer {
+        await resultTask.value
+    }
+
+    func promote(to priority: Float) {
+        task.priority = max(task.priority, priority)
+    }
+
+    func cancel() {
+        task.cancel()
+    }
+}
+
+private nonisolated struct PendingNativeMetalCardDownload: Sendable {
     let id: UUID
-    let task: URLSessionDownloadTask
-    var completions: [(NativeMetalCardFileEnsureResult) -> Void]
+    let operation: NativeMetalCardDownloadOperation
     var isPrefetchOnly: Bool
 }
 
-private struct NativeMetalCardCachedFile {
+private nonisolated struct NativeMetalCardCachedFile: Sendable {
     let url: URL
     let relativePath: String
     let byteCount: Int64
     let lastUsed: Date
 }
 
-private enum NativeMetalCardStaticImageAsset {
+private nonisolated enum NativeMetalCardStaticImageAsset {
     static let size = CGSize(width: 1000, height: 1400)
     static let fileExtension = "webp"
 
@@ -116,23 +204,20 @@ private enum NativeMetalCardStaticImageAsset {
     }
 }
 
-final class NativeMetalCardAssetCache {
+actor NativeMetalCardAssetCache {
 
     private static let cachedFileUseTouchInterval: TimeInterval = 5 * 60
 
     private let fileManager = FileManager.default
     private let configuration: NativeMetalCardAssetCacheConfiguration
-    private let workQueue: DispatchQueue
-    private let workQueueSpecificKey = DispatchSpecificKey<Void>()
     private var pendingDownloads = [String: PendingNativeMetalCardDownload]()
     private var downloadedBytesSinceLastTrimScan: Int64 = 0
     private var hasCompletedCacheTrimScan = false
     private var cachedFileUseTouchDates = [String: Date]()
+    private var fileGenerationIDs = [String: UUID]()
 
-    init(configuration: NativeMetalCardAssetCacheConfiguration, queueLabel: String) {
+    init(configuration: NativeMetalCardAssetCacheConfiguration) {
         self.configuration = configuration
-        self.workQueue = DispatchQueue(label: queueLabel, qos: .utility)
-        self.workQueue.setSpecific(key: workQueueSpecificKey, value: ())
 
         try? fileManager.createDirectory(at: configuration.rootURL, withIntermediateDirectories: true)
         var resourceURL = configuration.rootURL
@@ -141,68 +226,52 @@ final class NativeMetalCardAssetCache {
         try? resourceURL.setResourceValues(resourceValues)
     }
 
-    func loadEffectAssets(for tokenID: Int, completion: @escaping (NativeMetalCardAssetURLs?) -> Void) {
-        let assetURLs = urls(for: tokenID)
-        ensureFiles(effectAssets(for: tokenID)) { didSucceed in
-            DispatchQueue.main.async {
-                completion(didSucceed ? assetURLs : nil)
-            }
+    func loadEffectAssets(for tokenID: Int) async -> NativeMetalCardAssetURLs? {
+        let assets = effectAssets(for: tokenID)
+        guard await ensureFiles(assets),
+              !Task.isCancelled,
+              assets.allSatisfy({ hasCachedFile(at: localURL(for: $0.relativePath)) }) else {
+            return nil
         }
+        return urls(for: tokenID)
     }
 
-    func loadFace(for tokenID: Int, completion: @escaping (URL?) -> Void) {
+    func loadFace(for tokenID: Int) async -> NativeMetalCardAssetURL? {
         let faceAsset = assetPaths(for: tokenID).face
-        let faceURL = localURL(for: faceAsset.relativePath)
-        ensureFiles([faceAsset]) { didSucceed in
-            DispatchQueue.main.async {
-                completion(didSucceed ? faceURL : nil)
-            }
+        guard await ensureFiles([faceAsset]),
+              !Task.isCancelled,
+              hasCachedFile(at: localURL(for: faceAsset.relativePath)) else {
+            return nil
         }
+        return assetURL(for: faceAsset)
     }
 
-    func cacheFace(
-        for tokenID: Int,
-        from sourceURL: URL,
-        completion: ((Bool) -> Void)? = nil
-    ) {
-        importCachedFile(
-            faceAsset(for: tokenID),
-            from: sourceURL,
-            completion: completion
-        )
+    func cacheFace(for tokenID: Int, from sourceURL: URL) -> Bool {
+        importCachedFile(faceAsset(for: tokenID), from: sourceURL)
     }
 
+    @discardableResult
     func cache(
         assets: [NativeMetalCardAssetPath],
         taskPriority: Float = URLSessionTask.defaultPriority,
-        isPrefetch: Bool = false,
-        completion: ((Bool) -> Void)? = nil
-    ) {
-        ensureFiles(
+        isPrefetch: Bool = false
+    ) async -> Bool {
+        guard !Task.isCancelled else { return false }
+        return await ensureFiles(
             assets,
             taskPriority: taskPriority,
-            isPrefetch: isPrefetch,
-            completion: completion
+            isPrefetch: isPrefetch
         )
     }
 
     func cancelStalePrefetchDownloads(keeping relativePathsToKeep: Set<String>) {
-        workQueue.async {
-            let stalePrefetchDownloads = self.pendingDownloads.filter { relativePath, pendingDownload in
-                pendingDownload.isPrefetchOnly && !relativePathsToKeep.contains(relativePath)
-            }
+        let stalePrefetchDownloads = pendingDownloads.filter { relativePath, pendingDownload in
+            pendingDownload.isPrefetchOnly && !relativePathsToKeep.contains(relativePath)
+        }
 
-            for (relativePath, pendingDownload) in stalePrefetchDownloads {
-                self.pendingDownloads.removeValue(forKey: relativePath)
-                pendingDownload.task.cancel()
-                pendingDownload.completions.forEach {
-                    $0(NativeMetalCardFileEnsureResult(
-                        didSucceed: false,
-                        downloadedByteCount: 0,
-                        cachedFileUse: nil
-                    ))
-                }
-            }
+        for (relativePath, pendingDownload) in stalePrefetchDownloads {
+            pendingDownloads.removeValue(forKey: relativePath)
+            pendingDownload.operation.cancel()
         }
     }
 
@@ -210,25 +279,12 @@ final class NativeMetalCardAssetCache {
         cancelStalePrefetchDownloads(keeping: [])
     }
 
-    func invalidateFaceAsset(for tokenID: Int) {
-        invalidateAssets([faceAsset(for: tokenID)])
-    }
-
-    func invalidateEffectAssets(for tokenID: Int) {
-        invalidateAssets(tokenSpecificEffectAssets(for: tokenID))
-    }
-
-    func invalidate(_ asset: NativeMetalCardAssetPath) {
-        invalidateAssets([asset])
-    }
-
-    func invalidateAssets(_ assets: [NativeMetalCardAssetPath]) {
-        workQueue.async {
-            for asset in assets {
-                self.cachedFileUseTouchDates[asset.relativePath] = nil
-                try? self.fileManager.removeItem(at: self.localURL(for: asset.relativePath))
-            }
-        }
+    func invalidate(_ assetURL: NativeMetalCardAssetURL) {
+        let relativePath = assetURL.asset.relativePath
+        guard fileGenerationIDs[relativePath] == assetURL.generationID else { return }
+        fileGenerationIDs[relativePath] = nil
+        cachedFileUseTouchDates[relativePath] = nil
+        try? fileManager.removeItem(at: localURL(for: relativePath))
     }
 
     func tokenSpecificAssets(for tokenID: Int) -> [NativeMetalCardAssetPath] {
@@ -246,180 +302,200 @@ final class NativeMetalCardAssetCache {
     private func ensureFiles(
         _ assets: [NativeMetalCardAssetPath],
         taskPriority: Float = URLSessionTask.defaultPriority,
-        isPrefetch: Bool = false,
-        completion: ((Bool) -> Void)?
-    ) {
-        let group = DispatchGroup()
-        var didSucceed = true
-        var downloadedByteCount: Int64 = 0
-        var cachedFileUses = [NativeMetalCardCachedFileUse]()
-
-        for asset in assets {
-            group.enter()
-            ensureFile(asset, taskPriority: taskPriority, isPrefetch: isPrefetch) { result in
-                didSucceed = didSucceed && result.didSucceed
-                downloadedByteCount += result.downloadedByteCount
-                if let cachedFileUse = result.cachedFileUse {
-                    cachedFileUses.append(cachedFileUse)
+        isPrefetch: Bool = false
+    ) async -> Bool {
+        guard !Task.isCancelled else { return false }
+        let results = await withTaskGroup(
+            of: NativeMetalCardFileEnsureResult.self,
+            returning: [NativeMetalCardFileEnsureResult].self
+        ) { group in
+            for asset in assets {
+                group.addTask {
+                    await self.ensureFile(asset, taskPriority: taskPriority, isPrefetch: isPrefetch)
                 }
-                group.leave()
             }
+
+            var results = [NativeMetalCardFileEnsureResult]()
+            results.reserveCapacity(assets.count)
+            for await result in group {
+                results.append(result)
+            }
+            return results
         }
 
-        group.notify(queue: workQueue) {
-            completion?(didSucceed)
-            self.markCachedFilesAsUsed(cachedFileUses)
-            if downloadedByteCount > 0 {
-                self.trimCacheIfNeeded(
-                    protecting: Set(assets.map(\.relativePath)),
+        let cachedFileUses = results.compactMap(\.cachedFileUse)
+        markCachedFilesAsUsed(cachedFileUses)
+
+        let downloadedByteCount = results.reduce(Int64(0)) { $0 + $1.downloadedByteCount }
+        if downloadedByteCount > 0 {
+            let protectedRelativePaths = Set(assets.map(\.relativePath))
+            Task {
+                trimCacheIfNeeded(
+                    protecting: protectedRelativePaths,
                     downloadedByteCount: downloadedByteCount
                 )
             }
         }
+        return results.allSatisfy(\.didSucceed)
     }
 
     private func ensureFile(
         _ asset: NativeMetalCardAssetPath,
         taskPriority: Float,
-        isPrefetch: Bool,
-        completion: @escaping (NativeMetalCardFileEnsureResult) -> Void
-    ) {
-        workQueue.async {
-            self.ensureFileOnWorkQueue(
-                asset,
-                taskPriority: taskPriority,
-                isPrefetch: isPrefetch,
-                completion: completion
-            )
-        }
-    }
-
-    private func importCachedFile(
-        _ asset: NativeMetalCardAssetPath,
-        from sourceURL: URL,
-        completion: ((Bool) -> Void)?
-    ) {
-        workQueue.async {
-            let relativePath = asset.relativePath
-            let localURL = self.localURL(for: relativePath)
-            if self.hasCachedFile(at: localURL) {
-                if self.configuration.markCachedFilesAsUsed {
-                    self.markCachedFileAsUsed(at: localURL, relativePath: relativePath)
-                }
-                completion?(true)
-                return
-            }
-
-            guard let copiedByteCount = self.copyCachedFile(from: sourceURL, to: localURL) else {
-                completion?(false)
-                return
-            }
-            if self.configuration.markCachedFilesAsUsed {
-                self.markCachedFileAsUsed(at: localURL, relativePath: relativePath)
-            }
-
-            if let pendingDownload = self.pendingDownloads.removeValue(forKey: relativePath) {
-                pendingDownload.task.cancel()
-                let cachedFileUse = self.configuration.markCachedFilesAsUsed && !pendingDownload.isPrefetchOnly
-                    ? NativeMetalCardCachedFileUse(url: localURL, relativePath: relativePath)
-                    : nil
-                let result = NativeMetalCardFileEnsureResult(
-                    didSucceed: true,
-                    downloadedByteCount: 0,
-                    cachedFileUse: cachedFileUse
-                )
-                pendingDownload.completions.forEach { $0(result) }
-            }
-
-            completion?(true)
-            self.trimCacheIfNeeded(
-                protecting: Set([relativePath]),
-                downloadedByteCount: copiedByteCount
-            )
-        }
-    }
-
-    private func ensureFileOnWorkQueue(
-        _ asset: NativeMetalCardAssetPath,
-        taskPriority: Float,
-        isPrefetch: Bool,
-        completion: @escaping (NativeMetalCardFileEnsureResult) -> Void
-    ) {
+        isPrefetch: Bool
+    ) async -> NativeMetalCardFileEnsureResult {
+        guard !Task.isCancelled else { return failedEnsureResult }
         let relativePath = asset.relativePath
-        let localURL = self.localURL(for: relativePath)
-        if self.hasCachedFile(at: localURL) {
-            let cachedFileUse = configuration.markCachedFilesAsUsed && !isPrefetch
+        let localURL = localURL(for: relativePath)
+        if hasCachedFile(at: localURL) {
+            return cachedResult(localURL: localURL, relativePath: relativePath, isPrefetch: isPrefetch)
+        }
+
+        let pendingDownload: PendingNativeMetalCardDownload
+        if var existingDownload = pendingDownloads[relativePath] {
+            existingDownload.isPrefetchOnly = existingDownload.isPrefetchOnly && isPrefetch
+            existingDownload.operation.promote(to: taskPriority)
+            pendingDownloads[relativePath] = existingDownload
+            pendingDownload = existingDownload
+        } else {
+            guard let remoteURL = configuration.remoteURL(asset) else {
+                configuration.logger.error(
+                    "Unknown \(self.configuration.logName, privacy: .public) asset path: \(relativePath, privacy: .public)"
+                )
+                return failedEnsureResult
+            }
+
+            let downloadID = UUID()
+            let downloadOperation = makeDownloadOperation(
+                remoteURL: remoteURL,
+                downloadID: downloadID,
+                relativePath: relativePath,
+                priority: taskPriority
+            )
+            let newDownload = PendingNativeMetalCardDownload(
+                id: downloadID,
+                operation: downloadOperation,
+                isPrefetchOnly: isPrefetch
+            )
+            pendingDownloads[relativePath] = newDownload
+            pendingDownload = newDownload
+        }
+
+        let transfer = await pendingDownload.operation.value()
+        guard pendingDownloads[relativePath]?.id == pendingDownload.id else {
+            if let temporaryURL = transfer.temporaryURL {
+                try? fileManager.removeItem(at: temporaryURL)
+            }
+            if hasCachedFile(at: localURL) {
+                return cachedResult(localURL: localURL, relativePath: relativePath, isPrefetch: isPrefetch)
+            }
+            return failedEnsureResult
+        }
+
+        pendingDownloads.removeValue(forKey: relativePath)
+        guard let downloadedByteCount = storeDownloadedFile(
+            transfer,
+            remoteURL: configuration.remoteURL(asset),
+            localURL: localURL,
+            relativePath: relativePath
+        ) else {
+            return failedEnsureResult
+        }
+
+        return NativeMetalCardFileEnsureResult(
+            didSucceed: true,
+            downloadedByteCount: downloadedByteCount,
+            cachedFileUse: configuration.markCachedFilesAsUsed && !isPrefetch
                 ? NativeMetalCardCachedFileUse(url: localURL, relativePath: relativePath)
                 : nil
-            completion(NativeMetalCardFileEnsureResult(
-                didSucceed: true,
-                downloadedByteCount: 0,
-                cachedFileUse: cachedFileUse
-            ))
-            return
-        }
-
-        if var pendingDownload = self.pendingDownloads[relativePath] {
-            pendingDownload.completions.append(completion)
-            pendingDownload.isPrefetchOnly = pendingDownload.isPrefetchOnly && isPrefetch
-            pendingDownload.task.priority = max(pendingDownload.task.priority, taskPriority)
-            self.pendingDownloads[relativePath] = pendingDownload
-            return
-        }
-
-        guard let remoteURL = configuration.remoteURL(asset) else {
-            configuration.logger.error("Unknown \(self.configuration.logName, privacy: .public) asset path: \(relativePath, privacy: .public)")
-            completion(NativeMetalCardFileEnsureResult(
-                didSucceed: false,
-                downloadedByteCount: 0,
-                cachedFileUse: nil
-            ))
-            return
-        }
-
-        let downloadID = UUID()
-        let task = URLSession.shared.downloadTask(with: remoteURL) { temporaryURL, response, error in
-            self.completeDownload(
-                relativePath: relativePath,
-                downloadID: downloadID,
-                from: temporaryURL,
-                response: response,
-                error: error,
-                remoteURL: remoteURL,
-                localURL: localURL
-            )
-        }
-        task.priority = taskPriority
-        self.pendingDownloads[relativePath] = PendingNativeMetalCardDownload(
-            id: downloadID,
-            task: task,
-            completions: [completion],
-            isPrefetchOnly: isPrefetch
         )
-        task.resume()
+    }
+
+    private var failedEnsureResult: NativeMetalCardFileEnsureResult {
+        NativeMetalCardFileEnsureResult(
+            didSucceed: false,
+            downloadedByteCount: 0,
+            cachedFileUse: nil
+        )
+    }
+
+    private func cachedResult(
+        localURL: URL,
+        relativePath: String,
+        isPrefetch: Bool
+    ) -> NativeMetalCardFileEnsureResult {
+        NativeMetalCardFileEnsureResult(
+            didSucceed: true,
+            downloadedByteCount: 0,
+            cachedFileUse: configuration.markCachedFilesAsUsed && !isPrefetch
+                ? NativeMetalCardCachedFileUse(url: localURL, relativePath: relativePath)
+                : nil
+        )
+    }
+
+    private func makeDownloadOperation(
+        remoteURL: URL,
+        downloadID: UUID,
+        relativePath: String,
+        priority: Float
+    ) -> NativeMetalCardDownloadOperation {
+        NativeMetalCardDownloadOperation(
+            remoteURL: remoteURL,
+            downloadID: downloadID,
+            relativePath: relativePath,
+            priority: priority,
+            logger: configuration.logger
+        )
+    }
+
+    private func importCachedFile(_ asset: NativeMetalCardAssetPath, from sourceURL: URL) -> Bool {
+        let relativePath = asset.relativePath
+        let localURL = localURL(for: relativePath)
+        if hasCachedFile(at: localURL) {
+            if configuration.markCachedFilesAsUsed {
+                markCachedFileAsUsed(at: localURL, relativePath: relativePath)
+            }
+            return true
+        }
+
+        guard let copiedByteCount = copyCachedFile(from: sourceURL, to: localURL) else {
+            return false
+        }
+        fileGenerationIDs[relativePath] = nil
+        if configuration.markCachedFilesAsUsed {
+            markCachedFileAsUsed(at: localURL, relativePath: relativePath)
+        }
+
+        if let pendingDownload = pendingDownloads.removeValue(forKey: relativePath) {
+            pendingDownload.operation.cancel()
+        }
+        trimCacheIfNeeded(
+            protecting: Set([relativePath]),
+            downloadedByteCount: copiedByteCount
+        )
+        return true
     }
 
     private func storeDownloadedFile(
-        from temporaryURL: URL?,
-        response: URLResponse?,
-        error: Error?,
-        remoteURL: URL,
-        localURL: URL
+        _ transfer: NativeMetalCardDownloadTransfer,
+        remoteURL: URL?,
+        localURL: URL,
+        relativePath: String
     ) -> Int64? {
-        guard error == nil,
-              let temporaryURL,
-              (response as? HTTPURLResponse).map({ 200..<300 ~= $0.statusCode }) != false else {
-            let statusCode = (response as? HTTPURLResponse)?.statusCode ?? -1
+        guard let temporaryURL = transfer.temporaryURL,
+              transfer.statusCode.map({ 200..<300 ~= $0 }) != false,
+              transfer.errorDescription == nil else {
             configuration.logger.error(
-                "\(self.configuration.logName, privacy: .public) asset download failed: \(remoteURL.absoluteString, privacy: .public), status: \(statusCode, privacy: .public), error: \(String(describing: error), privacy: .public)"
+                "\(self.configuration.logName, privacy: .public) asset download failed: \(remoteURL?.absoluteString ?? "unknown", privacy: .public), status: \(transfer.statusCode ?? -1, privacy: .public), error: \(transfer.errorDescription ?? "unknown", privacy: .public)"
             )
-            if let temporaryURL {
+            if let temporaryURL = transfer.temporaryURL {
                 try? fileManager.removeItem(at: temporaryURL)
             }
             return nil
         }
 
         do {
+            fileGenerationIDs[relativePath] = nil
             try fileManager.createDirectory(
                 at: localURL.deletingLastPathComponent(),
                 withIntermediateDirectories: true
@@ -456,125 +532,30 @@ final class NativeMetalCardAssetCache {
         }
     }
 
-    private func completeDownload(
-        relativePath: String,
-        downloadID: UUID,
-        from temporaryURL: URL?,
-        response: URLResponse?,
-        error: Error?,
-        remoteURL: URL,
-        localURL: URL
-    ) {
-        if DispatchQueue.getSpecific(key: workQueueSpecificKey) != nil {
-            completeDownloadOnWorkQueue(
-                relativePath: relativePath,
-                downloadID: downloadID,
-                from: temporaryURL,
-                response: response,
-                error: error,
-                remoteURL: remoteURL,
-                localURL: localURL
-            )
-        } else {
-            let persistedTemporaryURL = persistTemporaryDownloadFile(
-                temporaryURL,
-                downloadID: downloadID,
-                relativePath: relativePath
-            )
-            workQueue.async {
-                self.completeDownloadOnWorkQueue(
-                    relativePath: relativePath,
-                    downloadID: downloadID,
-                    from: persistedTemporaryURL,
-                    response: response,
-                    error: error,
-                    remoteURL: remoteURL,
-                    localURL: localURL
-                )
-            }
-        }
-    }
-
-    private func persistTemporaryDownloadFile(
-        _ temporaryURL: URL?,
-        downloadID: UUID,
-        relativePath: String
-    ) -> URL? {
-        guard let temporaryURL else { return nil }
-
-        let handoffDirectory = fileManager.temporaryDirectory.appendingPathComponent(
-            "NativeMetalCardDownloads",
-            isDirectory: true
-        )
-        let handoffURL = handoffDirectory
-            .appendingPathComponent(downloadID.uuidString)
-            .appendingPathExtension(URL(fileURLWithPath: relativePath).pathExtension)
-
-        do {
-            try fileManager.createDirectory(at: handoffDirectory, withIntermediateDirectories: true)
-            try? fileManager.removeItem(at: handoffURL)
-            try fileManager.moveItem(at: temporaryURL, to: handoffURL)
-            return handoffURL
-        } catch {
-            configuration.logger.error(
-                "\(self.configuration.logName, privacy: .public) download handoff failed for \(relativePath, privacy: .public): \(String(describing: error), privacy: .public)"
-            )
-            return nil
-        }
-    }
-
-    private func completeDownloadOnWorkQueue(
-        relativePath: String,
-        downloadID: UUID,
-        from temporaryURL: URL?,
-        response: URLResponse?,
-        error: Error?,
-        remoteURL: URL,
-        localURL: URL
-    ) {
-        guard pendingDownloads[relativePath]?.id == downloadID else {
-            if let temporaryURL {
-                try? fileManager.removeItem(at: temporaryURL)
-            }
-            return
-        }
-        let downloadedByteCount = storeDownloadedFile(
-            from: temporaryURL,
-            response: response,
-            error: error,
-            remoteURL: remoteURL,
-            localURL: localURL
-        )
-        let completions = pendingDownloads.removeValue(forKey: relativePath)?.completions ?? []
-        let result = NativeMetalCardFileEnsureResult(
-            didSucceed: downloadedByteCount != nil,
-            downloadedByteCount: downloadedByteCount ?? 0,
-            cachedFileUse: nil
-        )
-        completions.forEach { $0(result) }
-    }
-
     private func urls(for tokenID: Int) -> NativeMetalCardAssetURLs {
         let paths = assetPaths(for: tokenID)
         return NativeMetalCardAssetURLs(
             renderKind: configuration.renderKind,
             tokenID: tokenID,
-            foil: NativeMetalCardAssetURL(asset: paths.foil, url: localURL(for: paths.foil.relativePath)),
-            textureMask: NativeMetalCardAssetURL(
-                asset: paths.textureMask,
-                url: localURL(for: paths.textureMask.relativePath)
-            ),
-            grain: NativeMetalCardAssetURL(asset: paths.grain, url: localURL(for: paths.grain.relativePath)),
-            glitter: NativeMetalCardAssetURL(asset: paths.glitter, url: localURL(for: paths.glitter.relativePath))
+            foil: assetURL(for: paths.foil),
+            textureMask: assetURL(for: paths.textureMask),
+            grain: assetURL(for: paths.grain),
+            glitter: assetURL(for: paths.glitter)
+        )
+    }
+
+    private func assetURL(for asset: NativeMetalCardAssetPath) -> NativeMetalCardAssetURL {
+        let generationID = fileGenerationIDs[asset.relativePath] ?? UUID()
+        fileGenerationIDs[asset.relativePath] = generationID
+        return NativeMetalCardAssetURL(
+            asset: asset,
+            url: localURL(for: asset.relativePath),
+            generationID: generationID
         )
     }
 
     private func effectAssets(for tokenID: Int) -> [NativeMetalCardAssetPath] {
         assetPaths(for: tokenID).effectAssets
-    }
-
-    private func tokenSpecificEffectAssets(for tokenID: Int) -> [NativeMetalCardAssetPath] {
-        assetPaths(for: tokenID).tokenSpecificEffectAssets
     }
 
     private func assetPaths(for tokenID: Int) -> NativeMetalCardAssetPaths {
@@ -609,6 +590,7 @@ final class NativeMetalCardAssetCache {
             guard !protectedPaths.contains(file.relativePath) else { continue }
             do {
                 try fileManager.removeItem(at: file.url)
+                fileGenerationIDs[file.relativePath] = nil
                 cachedFileUseTouchDates[file.relativePath] = nil
                 totalBytes -= file.byteCount
                 if totalBytes <= maxCacheBytes {
@@ -692,21 +674,19 @@ final class NativeMetalCardAssetCache {
     }
 }
 
-private protocol NativeMetalCardAssetCaching: AnyObject {
-    func loadFace(for tokenID: Int, completion: @escaping (URL?) -> Void)
-    func cacheFace(for tokenID: Int, from sourceURL: URL, completion: ((Bool) -> Void)?)
-    func loadEffectAssets(for tokenID: Int, completion: @escaping (NativeMetalCardAssetURLs?) -> Void)
-    func prefetch(around tokenID: Int, radius: Int)
-    func invalidateFaceAsset(for tokenID: Int)
-    func invalidateEffectAssets(for tokenID: Int)
-    func invalidate(_ asset: NativeMetalCardAssetPath)
-    func cancelPrefetchDownloads()
+nonisolated private protocol NativeMetalCardAssetCaching: Sendable {
+    func loadFace(for tokenID: Int) async -> NativeMetalCardAssetURL?
+    func cacheFace(for tokenID: Int, from sourceURL: URL) async -> Bool
+    func loadEffectAssets(for tokenID: Int) async -> NativeMetalCardAssetURLs?
+    func prefetch(around tokenID: Int, radius: Int) async
+    func invalidate(_ assetURL: NativeMetalCardAssetURL) async
+    func cancelPrefetchDownloads() async
 }
 
-extension CardNft2AssetCache: NativeMetalCardAssetCaching {}
-extension PonchoDrifellaAssetCache: NativeMetalCardAssetCaching {}
+nonisolated extension CardNft2AssetCache: NativeMetalCardAssetCaching {}
+nonisolated extension PonchoDrifellaAssetCache: NativeMetalCardAssetCaching {}
 
-extension NativeMetalCardRenderKind {
+nonisolated extension NativeMetalCardRenderKind {
     var staticImageSize: CGSize {
         NativeMetalCardStaticImageAsset.size
     }
@@ -745,48 +725,36 @@ extension NativeMetalCardRenderKind {
         }
     }
 
-    private var assetCache: NativeMetalCardAssetCaching {
+    private var assetCache: any NativeMetalCardAssetCaching {
         switch self {
         case .cardNft2:
-            return CardNft2AssetCache.shared
+            CardNft2AssetCache.shared
         case .ponchoDrifella:
-            return PonchoDrifellaAssetCache.shared
+            PonchoDrifellaAssetCache.shared
         }
     }
 
-    func loadFace(for tokenID: Int, completion: @escaping (URL?) -> Void) {
-        assetCache.loadFace(for: tokenID, completion: completion)
+    func loadFace(for tokenID: Int) async -> NativeMetalCardAssetURL? {
+        await assetCache.loadFace(for: tokenID)
     }
 
-    func cacheFace(
-        for tokenID: Int,
-        from sourceURL: URL,
-        completion: ((Bool) -> Void)? = nil
-    ) {
-        assetCache.cacheFace(for: tokenID, from: sourceURL, completion: completion)
+    func cacheFace(for tokenID: Int, from sourceURL: URL) async -> Bool {
+        await assetCache.cacheFace(for: tokenID, from: sourceURL)
     }
 
-    func loadEffectAssets(for tokenID: Int, completion: @escaping (NativeMetalCardAssetURLs?) -> Void) {
-        assetCache.loadEffectAssets(for: tokenID, completion: completion)
+    func loadEffectAssets(for tokenID: Int) async -> NativeMetalCardAssetURLs? {
+        await assetCache.loadEffectAssets(for: tokenID)
     }
 
-    func prefetch(around tokenID: Int, radius: Int) {
-        assetCache.prefetch(around: tokenID, radius: radius)
+    func prefetch(around tokenID: Int, radius: Int) async {
+        await assetCache.prefetch(around: tokenID, radius: radius)
     }
 
-    func invalidateFaceAsset(for tokenID: Int) {
-        assetCache.invalidateFaceAsset(for: tokenID)
+    func invalidate(_ assetURL: NativeMetalCardAssetURL) async {
+        await assetCache.invalidate(assetURL)
     }
 
-    func invalidateEffectAssets(for tokenID: Int) {
-        assetCache.invalidateEffectAssets(for: tokenID)
-    }
-
-    func invalidate(_ asset: NativeMetalCardAssetPath) {
-        assetCache.invalidate(asset)
-    }
-
-    func cancelPrefetchDownloads() {
-        assetCache.cancelPrefetchDownloads()
+    func cancelPrefetchDownloads() async {
+        await assetCache.cancelPrefetchDownloads()
     }
 }

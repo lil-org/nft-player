@@ -1,6 +1,6 @@
 // ∅ 2026 lil org
 
-struct CardNft2CardMetadata {
+nonisolated struct CardNft2CardMetadata: Sendable {
     let effect: NativeMetalCardEffect
     let glowKind: UInt8
 

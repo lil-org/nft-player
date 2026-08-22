@@ -2,7 +2,7 @@
 
 import Foundation
 
-struct Consts {
+nonisolated enum Consts {
 
     /// Kept as "control center" so windows saved by earlier versions still restore.
     static let mainWindowFrameAutosaveName = "control center"

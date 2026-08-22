@@ -14,34 +14,35 @@ private let collectionsGridMinimumItemWidth: CGFloat = 100
 private let collectionsGridColumnSpacing: CGFloat = 0
 private let collectionsGridRowSpacing: CGFloat = 0
 
+private struct WalletViewingProgressState {
+    let snapshot: PlayerViewingProgressSnapshot
+    let recentContinueViewingProgresses: [PlayerViewingProgress]
+
+    static let empty = WalletViewingProgressState(
+        snapshot: .empty,
+        recentContinueViewingProgresses: []
+    )
+}
+
 struct WalletsListView: View {
 
     private let collectionItems: [CollectionCatalogItem]
-    @ObservedObject private var widgetLaunchPresentationState = WidgetLaunchPresentationState.shared
+    @State private var widgetLaunchPresentationState = WidgetLaunchPresentationState.shared
     @State private var gridPassCount: Int
     @State private var gridScrollMemoryTracker: CollectionsGridScrollMemoryTracker
     @State private var hasRestoredInitialGridScrollPosition: Bool
-    @State private var viewingProgressByCollectionId: [String: Int]
-    @State private var viewedToEndCollectionIds: Set<String>
-    @State private var recentContinueViewingProgresses: [PlayerViewingProgress]
+    @State private var viewingProgressState = WalletViewingProgressState.empty
     @State private var continueViewingScrollResetID = 0
+    @State private var hasLoadedViewingProgress = false
+    @State private var viewingProgressRefreshID = 0
 
     init(collectionItems: [CollectionCatalogItem] = CollectionCatalog.allItems) {
         self.collectionItems = collectionItems
-        let progressSnapshot = PlayerViewingProgressStore.progressSnapshot()
         let gridScrollMemoryTracker = CollectionsGridScrollMemoryTracker(items: collectionItems)
         _gridPassCount = State(initialValue: gridScrollMemoryTracker.initialGridPassCount)
         _gridScrollMemoryTracker = State(initialValue: gridScrollMemoryTracker)
         _hasRestoredInitialGridScrollPosition = State(
             initialValue: gridScrollMemoryTracker.initialDisplayedIndex == nil
-        )
-        _viewingProgressByCollectionId = State(initialValue: progressSnapshot.percentagesByCollectionId)
-        _viewedToEndCollectionIds = State(initialValue: progressSnapshot.viewedToEndCollectionIds)
-        _recentContinueViewingProgresses = State(
-            initialValue: Self.visibleRecentContinueViewingProgresses(
-                from: progressSnapshot,
-                collectionItems: collectionItems
-            )
         )
     }
 
@@ -59,8 +60,14 @@ struct WalletsListView: View {
                 rowSpacing: collectionsGridRowSpacing,
                 visibleItemCount: visibleItemCount
             )
-            .opacity(hasRestoredInitialGridScrollPosition ? 1 : 0)
-            .allowsHitTesting(hasRestoredInitialGridScrollPosition)
+            .opacity(
+                hasRestoredInitialGridScrollPosition && hasLoadedViewingProgress
+                    ? 1
+                    : 0
+            )
+            .allowsHitTesting(
+                hasRestoredInitialGridScrollPosition && hasLoadedViewingProgress
+            )
             .collectionsGridScrollMemoryRestoration(
                 using: scrollProxy,
                 tracker: gridScrollMemoryTracker,
@@ -80,7 +87,7 @@ struct WalletsListView: View {
                             horizontalContentInset: continueViewingPillScrollHorizontalInset,
                             resetID: continueViewingScrollResetID,
                             coverAssetName: coverAssetName(for:),
-                            onSelect: { progress in resumeViewing(progress) }
+                            onSelect: resumeViewing
                         )
                         .padding(.top, continueViewingButtonPadding / 2)
                         .padding(.bottom, continueViewingButtonPadding)
@@ -89,15 +96,22 @@ struct WalletsListView: View {
                 }
             }
         }
-        .onAppear {
-            refreshViewingProgress()
-            schedulePlayerPrewarm()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .playerViewingProgressDidChange)) { _ in
-            refreshViewingProgress()
+        .onReceive(
+            NotificationCenter.default.publisher(for: .playerViewingProgressDidChange)
+                .receive(on: RunLoop.main)
+        ) { _ in
+            requestViewingProgressRefresh()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-            refreshViewingProgress()
+            requestViewingProgressRefresh()
+        }
+        .task(id: viewingProgressRefreshID) {
+            let refreshID = viewingProgressRefreshID
+            guard await refreshViewingProgress(ifCurrent: refreshID) else { return }
+            if !hasLoadedViewingProgress {
+                hasLoadedViewingProgress = true
+                schedulePlayerPrewarm()
+            }
         }
         .collectionsGridScrollMemoryLifecycleFlush(tracker: gridScrollMemoryTracker)
         .animation(continueViewingControlAnimation, value: recentContinueViewingProgresses)
@@ -110,6 +124,18 @@ struct WalletsListView: View {
     private var shouldShowContinueViewingControl: Bool {
         !widgetLaunchPresentationState.isSuppressingContinueViewing
             && !recentContinueViewingProgresses.isEmpty
+    }
+
+    private var viewingProgressByCollectionId: [String: Int] {
+        viewingProgressState.snapshot.percentagesByCollectionId
+    }
+
+    private var viewedToEndCollectionIds: Set<String> {
+        viewingProgressState.snapshot.viewedToEndCollectionIds
+    }
+
+    private var recentContinueViewingProgresses: [PlayerViewingProgress] {
+        viewingProgressState.recentContinueViewingProgresses
     }
 
     private var continueViewingControlAnimation: Animation? {
@@ -167,16 +193,11 @@ struct WalletsListView: View {
     }
 
     private func didSelectCollectionItem(_ item: CollectionCatalogItem) {
-        if let progress = PlayerViewingProgressStore.progress(collectionId: item.id) {
-            resumeViewing(progress)
-            return
-        }
-
-        Navigator.shared.showPlayer(collectionId: item.id, continueViewingCollectionId: item.id)
+        Navigator.shared.requestPlayer(collectionId: item.id)
     }
 
     private func resumeViewing(_ progress: PlayerViewingProgress) {
-        Navigator.shared.showPlayer(
+        Navigator.shared.requestPlayer(
             collectionId: progress.collectionId,
             initialTokenId: progress.tokenId,
             continueViewingCollectionId: progress.collectionId
@@ -187,20 +208,28 @@ struct WalletsListView: View {
         collectionItems.first { $0.id == collectionId }?.coverAssetName ?? collectionId
     }
 
-    private func refreshViewingProgress() {
+    private func requestViewingProgressRefresh() {
+        viewingProgressRefreshID &+= 1
+    }
+
+    private func refreshViewingProgress(ifCurrent refreshID: Int) async -> Bool {
+        let progressSnapshot = await PlayerViewingProgressStore.shared.progressSnapshot()
+        guard !Task.isCancelled, refreshID == viewingProgressRefreshID else { return false }
+
         let previousLeadingCollectionId = recentContinueViewingProgresses.first?.collectionId
-        let progressSnapshot = PlayerViewingProgressStore.progressSnapshot()
-        viewingProgressByCollectionId = progressSnapshot.percentagesByCollectionId
-        viewedToEndCollectionIds = progressSnapshot.viewedToEndCollectionIds
-        recentContinueViewingProgresses = Self.visibleRecentContinueViewingProgresses(
-            from: progressSnapshot,
-            collectionItems: collectionItems
+        viewingProgressState = WalletViewingProgressState(
+            snapshot: progressSnapshot,
+            recentContinueViewingProgresses: Self.visibleRecentContinueViewingProgresses(
+                from: progressSnapshot,
+                collectionItems: collectionItems
+            )
         )
 
         guard previousLeadingCollectionId != recentContinueViewingProgresses.first?.collectionId else {
-            return
+            return true
         }
         continueViewingScrollResetID += 1
+        return true
     }
 
     private func schedulePlayerPrewarm() {

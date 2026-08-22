@@ -2,12 +2,12 @@
 
 import Foundation
 
-struct PlayerBrowserGridSourceRepresentation<ID: Hashable>: Hashable {
+nonisolated struct PlayerBrowserGridSourceRepresentation<ID: Hashable>: Hashable {
     let id: ID
     let sourceItem: Int
 }
 
-struct PlayerBrowserGridSourceCoveragePlan<ID: Hashable>: Equatable {
+nonisolated struct PlayerBrowserGridSourceCoveragePlan<ID: Hashable>: Equatable {
     let readyDestinationByRepresentation: [ID: Int]
     let fallbackRepresentationIDs: Set<ID>
     let coveredDestinationItems: Set<Int>
@@ -49,3 +49,7 @@ struct PlayerBrowserGridSourceCoveragePlan<ID: Hashable>: Equatable {
         self.coveredDestinationItems = coveredDestinationItems
     }
 }
+
+extension PlayerBrowserGridSourceRepresentation: Sendable where ID: Sendable {}
+
+extension PlayerBrowserGridSourceCoveragePlan: Sendable where ID: Sendable {}

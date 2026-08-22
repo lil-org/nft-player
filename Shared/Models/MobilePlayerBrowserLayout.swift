@@ -2,8 +2,8 @@
 
 import CoreGraphics
 
-struct MobilePlayerBrowserAspectProfile: Equatable {
-    private enum Storage: Equatable {
+nonisolated struct MobilePlayerBrowserAspectProfile: Equatable, Sendable {
+    private enum Storage: Equatable, Sendable {
         case uniform(CGFloat)
         case variableRows([CGFloat])
     }
@@ -139,7 +139,7 @@ struct MobilePlayerBrowserAspectProfile: Equatable {
     }
 }
 
-struct MobilePlayerBrowserViewportTransition {
+nonisolated struct MobilePlayerBrowserViewportTransition: Sendable {
     let needsInitialLayout: Bool
     let geometryChanged: Bool
     let retainedFocusTokenIndex: Int?
@@ -150,8 +150,8 @@ struct MobilePlayerBrowserViewportTransition {
     }
 }
 
-enum PlayerCollectionBrowseMediaWindowPolicy {
-    struct Radii: Equatable {
+nonisolated enum PlayerCollectionBrowseMediaWindowPolicy: Sendable {
+    struct Radii: Equatable, Sendable {
         let preferred: Int
         let opposite: Int
     }
@@ -188,13 +188,13 @@ enum PlayerCollectionBrowseMediaWindowPolicy {
     }
 }
 
-struct MobilePlayerBrowserLayout: Equatable {
-    private enum RowStorage: Equatable {
+nonisolated struct MobilePlayerBrowserLayout: Equatable, Sendable {
+    private enum RowStorage: Equatable, Sendable {
         case uniform(height: CGFloat)
         case variable(starts: [CGFloat], heights: [CGFloat])
     }
 
-    private struct HorizontalMetrics {
+    private struct HorizontalMetrics: Sendable {
         let itemWidth: CGFloat
         let columnCount: Int
         let interItemSpacing: CGFloat
@@ -719,7 +719,7 @@ struct MobilePlayerBrowserLayout: Equatable {
     }
 }
 
-struct MobilePlayerBrowserVisualLayoutGeometry {
+nonisolated struct MobilePlayerBrowserVisualLayoutGeometry: Sendable {
     let layout: MobilePlayerBrowserLayout
     let mirrorsHorizontally: Bool
 
@@ -769,7 +769,7 @@ struct MobilePlayerBrowserVisualLayoutGeometry {
     }
 }
 
-struct MobilePlayerBrowserGridTransition {
+nonisolated struct MobilePlayerBrowserGridTransition: Sendable {
     let fromLayout: MobilePlayerBrowserLayout
     let toLayout: MobilePlayerBrowserLayout
 
@@ -1017,7 +1017,7 @@ struct MobilePlayerBrowserGridTransition {
 /// mapping the transition needs — which destination item a live cell becomes,
 /// where a phantom for a destination item sits in source space, which source
 /// item supplies carryover art — is one of these three lookups.
-struct MobilePlayerBrowserGridLatticeMap: Equatable {
+nonisolated struct MobilePlayerBrowserGridLatticeMap: Equatable, Sendable {
     static let identity = MobilePlayerBrowserGridLatticeMap(
         columnPitchRatio: 1,
         rowPitchRatio: 1,

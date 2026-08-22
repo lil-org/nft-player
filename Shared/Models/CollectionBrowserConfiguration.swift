@@ -2,7 +2,7 @@
 
 import Foundation
 
-enum CollectionBrowseImageQuality: Int, Hashable {
+nonisolated enum CollectionBrowseImageQuality: Int, Hashable, Sendable {
     case thumbnail
     case large
 
@@ -12,7 +12,7 @@ enum CollectionBrowseImageQuality: Int, Hashable {
     }
 }
 
-enum CollectionBrowseImageWindowSelection: Hashable {
+nonisolated enum CollectionBrowseImageWindowSelection: Hashable, Sendable {
     case requestedQuality
     case locallyAvailableLarge
     case omitSatisfiedToken
@@ -32,7 +32,7 @@ enum CollectionBrowseImageWindowSelection: Hashable {
     }
 }
 
-enum CollectionBrowseImageLoadPolicy {
+nonisolated enum CollectionBrowseImageLoadPolicy: Sendable {
     /// `largeImageIsLocallyAvailable` is evaluated last and only when the
     /// cheap terms already pass — resolving it stats the cache file and
     /// touches its LRU entry, which must not happen on cells that can never
@@ -66,7 +66,7 @@ enum CollectionBrowseImageLoadPolicy {
     }
 }
 
-enum CollectionBrowseSnapshotUpdatePolicy {
+nonisolated enum CollectionBrowseSnapshotUpdatePolicy: Sendable {
     static func isSettledPositionEcho(
         currentCollectionId: String,
         currentItemCount: Int,
@@ -84,7 +84,7 @@ enum CollectionBrowseSnapshotUpdatePolicy {
 /// The 5-3-1 column ladder of the Photos app. Odd counts keep a center
 /// column, so zoom transitions reveal content symmetrically at both sides
 /// instead of forcing one-sided column shifts.
-enum MobileCollectionBrowserGridMode: Int, CaseIterable, Hashable {
+nonisolated enum MobileCollectionBrowserGridMode: Int, CaseIterable, Hashable, Sendable {
     case large = 1
     case threeColumns = 3
     case fiveColumns = 5
@@ -100,7 +100,7 @@ enum MobileCollectionBrowserGridMode: Int, CaseIterable, Hashable {
     }
 }
 
-enum CollectionBrowseImageURLMapping {
+nonisolated enum CollectionBrowseImageURLMapping: Sendable {
     static func midURL(for thumbnailURL: URL) -> URL? {
         guard let thumbnailURLComponents = URLComponents(
             url: thumbnailURL,

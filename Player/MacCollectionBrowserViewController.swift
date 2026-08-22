@@ -43,6 +43,7 @@ final class MacCollectionBrowserViewController: NSViewController,
     private var lastEmittedFocusedTokenIndex: Int?
     private var pendingFocusedTokenIndex: Int?
     private var isFocusPublicationScheduled = false
+    private var focusPublicationTask: Task<Void, Never>?
     private var lastViewportSize = CGSize.zero
     private var lastDisplayScale: CGFloat = 0
     private var isApplyingPosition = false
@@ -50,11 +51,8 @@ final class MacCollectionBrowserViewController: NSViewController,
     private var lastPrefetchDirection: DownloadableMediaCache.PrefetchDirection = .forward
     private var lastThumbnailWindowRequest: ThumbnailWindowRequest?
     private var pendingInitialTokenIndex: Int?
-    private var settleWorkItem: DispatchWorkItem?
+    private var settleTask: Task<Void, Never>?
     private var settleRequestId: UUID?
-    private var boundsObserver: NSObjectProtocol?
-    private var backingPropertiesObserver: NSObjectProtocol?
-    private var cacheAvailabilityObserver: NSObjectProtocol?
     private var isActive = false
     private var isPreparedForIncomingTransition = false
 
@@ -104,17 +102,10 @@ final class MacCollectionBrowserViewController: NSViewController,
         fatalError("yo")
     }
 
-    deinit {
-        if let boundsObserver {
-            NotificationCenter.default.removeObserver(boundsObserver)
-        }
-        if let backingPropertiesObserver {
-            NotificationCenter.default.removeObserver(backingPropertiesObserver)
-        }
-        if let cacheAvailabilityObserver {
-            NotificationCenter.default.removeObserver(cacheAvailabilityObserver)
-        }
-        settleWorkItem?.cancel()
+    isolated deinit {
+        NotificationCenter.default.removeObserver(self)
+        focusPublicationTask?.cancel()
+        settleTask?.cancel()
         DownloadableMediaCache.shared.clearActiveWindow(ownerId: ownerId)
     }
 
@@ -162,39 +153,24 @@ final class MacCollectionBrowserViewController: NSViewController,
         ])
 
         scrollView.contentView.postsBoundsChangedNotifications = true
-        boundsObserver = NotificationCenter.default.addObserver(
-            forName: NSView.boundsDidChangeNotification,
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(scrollViewBoundsDidChange),
+            name: NSView.boundsDidChangeNotification,
             object: scrollView.contentView,
-            queue: .main
-        ) { [weak self] _ in
-            self?.handleScroll()
-        }
-        backingPropertiesObserver = NotificationCenter.default.addObserver(
-            forName: NSWindow.didChangeBackingPropertiesNotification,
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(windowBackingPropertiesDidChange(_:)),
+            name: NSWindow.didChangeBackingPropertiesNotification,
             object: nil,
-            queue: .main
-        ) { [weak self] notification in
-            guard let self,
-                  let window = notification.object as? NSWindow,
-                  window === self.view.window else {
-                return
-            }
-            self.configureLayoutIfNeeded()
-        }
-        cacheAvailabilityObserver = NotificationCenter.default.addObserver(
-            forName: .downloadableMediaCacheFileAvailabilityDidChange,
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(downloadableMediaCacheFileAvailabilityDidChange(_:)),
+            name: .downloadableMediaCacheFileAvailabilityDidChange,
             object: nil,
-            queue: .main
-        ) { [weak self] notification in
-            guard let self, self.allowsThumbnailDemand else { return }
-            guard DownloadableMediaCache.shared.fileAvailabilityChange(
-                notification,
-                affectsCollection: self.snapshot.collectionId
-            ) else {
-                return
-            }
-            self.refreshVisibleThumbnails(affectedBy: notification)
-        }
+        )
 
         let restorationIndex = PlayerCollectionScrollPolicy.restorationIndex(
             savedIndex: snapshot.initialTokenIndex,
@@ -207,6 +183,29 @@ final class MacCollectionBrowserViewController: NSViewController,
         pendingInitialTokenIndex = restorationIndex
         updateLayoutAspectProfile(sampledAround: restorationIndex)
         collectionView.reloadData()
+    }
+
+    @objc private func scrollViewBoundsDidChange() {
+        handleScroll()
+    }
+
+    @objc private func windowBackingPropertiesDidChange(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow,
+              window === view.window else {
+            return
+        }
+        configureLayoutIfNeeded()
+    }
+
+    @objc private func downloadableMediaCacheFileAvailabilityDidChange(_ notification: Notification) {
+        guard allowsThumbnailDemand else { return }
+        guard DownloadableMediaCache.shared.fileAvailabilityChange(
+            notification,
+            affectsCollection: snapshot.collectionId
+        ) else {
+            return
+        }
+        refreshVisibleThumbnails(affectedBy: notification)
     }
 
     override func viewDidLayout() {
@@ -231,7 +230,8 @@ final class MacCollectionBrowserViewController: NSViewController,
         refreshVisibleThumbnails()
         scheduleSettle()
         view.window?.makeFirstResponder(collectionView)
-        DispatchQueue.main.async { [weak self] in
+        Task { @MainActor [weak self] in
+            await Task.yield()
             guard self?.isActive == true else { return }
             self?.updateScrollerInteractionAvailability()
         }
@@ -243,8 +243,8 @@ final class MacCollectionBrowserViewController: NSViewController,
         updateScrollerInteractionAvailability()
         view.setAccessibilityHidden(true)
         settleRequestId = nil
-        settleWorkItem?.cancel()
-        settleWorkItem = nil
+        settleTask?.cancel()
+        settleTask = nil
         pendingFocusedTokenIndex = nil
         flushSettledPosition()
     }
@@ -606,9 +606,15 @@ final class MacCollectionBrowserViewController: NSViewController,
         pendingFocusedTokenIndex = tokenIndex
         guard !isFocusPublicationScheduled else { return }
         isFocusPublicationScheduled = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + max(delay, 0)) { [weak self] in
+        focusPublicationTask = Task { @MainActor [weak self] in
+            do {
+                try await Task.sleep(for: .seconds(max(delay, 0)))
+            } catch {
+                return
+            }
             guard let self else { return }
             self.isFocusPublicationScheduled = false
+            self.focusPublicationTask = nil
             guard let pendingFocusedTokenIndex = self.pendingFocusedTokenIndex else { return }
             self.pendingFocusedTokenIndex = nil
             guard pendingFocusedTokenIndex != self.lastEmittedFocusedTokenIndex else { return }
@@ -624,21 +630,24 @@ final class MacCollectionBrowserViewController: NSViewController,
     }
 
     private func scheduleSettle() {
-        settleWorkItem?.cancel()
+        settleTask?.cancel()
         let requestId = UUID()
         settleRequestId = requestId
-        let workItem = DispatchWorkItem { [weak self] in
+        settleTask = Task { @MainActor [weak self] in
+            do {
+                try await Task.sleep(for: .seconds(Self.settleDelay))
+            } catch {
+                return
+            }
             guard let self,
                   self.isActive,
                   self.settleRequestId == requestId else {
                 return
             }
             self.settleRequestId = nil
-            self.settleWorkItem = nil
+            self.settleTask = nil
             self.flushSettledPosition()
         }
-        settleWorkItem = workItem
-        DispatchQueue.main.asyncAfter(deadline: .now() + Self.settleDelay, execute: workItem)
     }
 
     private func flushSettledPosition() {
@@ -663,11 +672,18 @@ final class MacCollectionBrowserViewController: NSViewController,
         let publication = publicationState.settle(hasViewedToEnd: hasViewedToEnd)
         self.publicationState = publicationState
         guard let publication else { return }
-        session.playerModel.markViewed(
-            collectionId: snapshot.collectionId,
+        let playerModel = session.playerModel
+        let collectionId = snapshot.collectionId
+        guard let progress = playerModel.viewingProgress(
+            collectionId: collectionId,
             tokenIndex: publication.tokenIndex,
             hasViewedToEnd: publication.hasViewedToEnd
-        )
+        ) else {
+            return
+        }
+        PlayerPersistenceUpdates.enqueue {
+            await playerModel.markViewed(progress)
+        }
     }
 
     // MARK: - Thumbnails
@@ -938,17 +954,21 @@ final class MacCollectionBrowserViewController: NSViewController,
         let menu = NSMenu(title: token.displayName)
         menu.autoenablesItems = false
 
-        let isBookmarked = PlayerBookmarksStore.isBookmarked(
+        let bookmarkState = PlayerBookmarksStore.storedBookmarkState(
             collectionId: token.fullCollectionId,
             tokenId: token.id
         )
         let bookmarkItem = NSMenuItem(
-            title: isBookmarked ? Strings.removeBookmark : Strings.bookmark,
+            title: bookmarkState.isBookmarked ? Strings.removeBookmark : Strings.bookmark,
             action: #selector(toggleBookmarkForMenuItem(_:)),
             keyEquivalent: ""
         )
         bookmarkItem.target = self
-        bookmarkItem.representedObject = tokenIndex
+        bookmarkItem.representedObject = MacCollectionBrowserBookmarkAction(
+            tokenIndex: tokenIndex,
+            isBookmarked: !bookmarkState.isBookmarked
+        )
+        bookmarkItem.isEnabled = bookmarkState.isReady && !bookmarkState.isTogglePending
         menu.addItem(bookmarkItem)
 
         if token.url != nil {
@@ -967,18 +987,19 @@ final class MacCollectionBrowserViewController: NSViewController,
 
     @objc private func toggleBookmarkForMenuItem(_ sender: NSMenuItem) {
         guard allowsUserInteraction,
-              let tokenIndex = sender.representedObject as? Int,
+              let action = sender.representedObject as? MacCollectionBrowserBookmarkAction,
               let token = CollectionCatalog.generateToken(
                 specificCollectionId: snapshot.collectionId,
-                tokenIndex: tokenIndex
+                tokenIndex: action.tokenIndex
               ),
               !token.fullCollectionId.isEmpty,
               !token.id.isEmpty else {
             return
         }
-        PlayerBookmarksStore.toggleBookmark(
+        PlayerBookmarksStore.enqueueBookmarkUpdate(
             collectionId: token.fullCollectionId,
-            tokenId: token.id
+            tokenId: token.id,
+            isBookmarked: action.isBookmarked
         )
     }
 
@@ -994,6 +1015,11 @@ final class MacCollectionBrowserViewController: NSViewController,
         NSWorkspace.shared.open(url)
     }
 
+}
+
+private struct MacCollectionBrowserBookmarkAction {
+    let tokenIndex: Int
+    let isBookmarked: Bool
 }
 
 private final class MacCollectionBrowserScrollView: NSScrollView {
@@ -1193,7 +1219,7 @@ private final class MacCollectionBrowserItem: NSCollectionViewItem {
         isFocused = false
     }
 
-    deinit {
+    isolated deinit {
         cancelImageLoad()
     }
 

@@ -59,9 +59,11 @@ class AppDelegate: NSObject, UIApplicationDelegate {
             guard let application else { return }
             self?.endPlayerSyncBackgroundTask(id: backgroundTaskId, application: application)
         }
-        PlayerICloudSync.shared.flushPendingChanges { [weak self, weak application] in
-            guard let application else { return }
-            self?.endPlayerSyncBackgroundTask(id: backgroundTaskId, application: application)
+        Task { @MainActor [weak self, weak application] in
+            await PlayerICloudSync.shared.flushPendingPersistenceAndChanges { [weak self, weak application] in
+                guard let application else { return }
+                self?.endPlayerSyncBackgroundTask(id: backgroundTaskId, application: application)
+            }
         }
     }
 

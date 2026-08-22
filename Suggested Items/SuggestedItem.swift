@@ -2,7 +2,7 @@
 
 import Foundation
 
-struct SuggestedItem: Identifiable, Hashable, Codable {
+nonisolated struct SuggestedItem: Identifiable, Hashable, Codable, Sendable {
     
     var id: String { address + (abId ?? collectionId ?? "") }
 
@@ -64,7 +64,7 @@ struct SuggestedItem: Identifiable, Hashable, Codable {
     
 }
 
-struct SuggestedArtist: Identifiable, Hashable {
+nonisolated struct SuggestedArtist: Identifiable, Hashable, Sendable {
 
     let id: String
     let name: String
@@ -98,9 +98,9 @@ struct SuggestedArtist: Identifiable, Hashable {
 
 }
 
-struct SuggestedArtistLink: Identifiable, Hashable {
+nonisolated struct SuggestedArtistLink: Identifiable, Hashable, Sendable {
 
-    enum Kind: Hashable {
+    enum Kind: Hashable, Sendable {
         case website
         case x
         case bluesky

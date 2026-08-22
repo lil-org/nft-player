@@ -3,14 +3,13 @@
 import Foundation
 import os
 
-private let cardNft2AssetCacheLogger = Logger(
-    subsystem: Bundle.main.bundleIdentifier ?? "org.lil.nft-player",
-    category: "CardNft2Metal"
-)
-
-final class CardNft2AssetCache {
+nonisolated final class CardNft2AssetCache: Sendable {
 
     static let shared = CardNft2AssetCache()
+    private static let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier ?? "org.lil.nft-player",
+        category: "CardNft2Metal"
+    )
     private static let maxPrefetchFilesPerRequest = 6
     private static let maxCacheBytes: Int64 = 512 * 1024 * 1024
     private static let foilAssetsBaseURL = URL(string: "https://cdn.lil.org/nft/card_nft_2/foils")!
@@ -28,7 +27,7 @@ final class CardNft2AssetCache {
             configuration: NativeMetalCardAssetCacheConfiguration(
                 renderKind: .cardNft2,
                 rootURL: rootURL,
-                logger: cardNft2AssetCacheLogger,
+                logger: Self.logger,
                 logName: "Card NFT 2",
                 maxCacheBytes: Self.maxCacheBytes,
                 markCachedFilesAsUsed: true,
@@ -41,29 +40,24 @@ final class CardNft2AssetCache {
                         sharedEffectAssetsBaseURL: Self.sharedEffectAssetsBaseURL
                     )
                 }
-            ),
-            queueLabel: "org.lil.nft-player.card-nft-2-cache"
+            )
         )
     }
 
-    func loadEffectAssets(for tokenID: Int, completion: @escaping (NativeMetalCardAssetURLs?) -> Void) {
-        core.loadEffectAssets(for: tokenID, completion: completion)
+    func loadEffectAssets(for tokenID: Int) async -> NativeMetalCardAssetURLs? {
+        await core.loadEffectAssets(for: tokenID)
     }
 
-    func loadFace(for tokenID: Int, completion: @escaping (URL?) -> Void) {
-        core.loadFace(for: tokenID, completion: completion)
+    func loadFace(for tokenID: Int) async -> NativeMetalCardAssetURL? {
+        await core.loadFace(for: tokenID)
     }
 
-    func cacheFace(
-        for tokenID: Int,
-        from sourceURL: URL,
-        completion: ((Bool) -> Void)? = nil
-    ) {
-        core.cacheFace(for: tokenID, from: sourceURL, completion: completion)
+    func cacheFace(for tokenID: Int, from sourceURL: URL) async -> Bool {
+        await core.cacheFace(for: tokenID, from: sourceURL)
     }
 
-    func prefetch(around tokenID: Int, radius: Int) {
-        guard radius > 0 else { return }
+    func prefetch(around tokenID: Int, radius: Int) async {
+        guard radius > 0, !Task.isCancelled else { return }
 
         let boundedRadius = min(radius, CardNft2CardMetadata.tokenCount)
         let clampedTokenID = min(max(tokenID, 1), CardNft2CardMetadata.tokenCount)
@@ -73,7 +67,11 @@ final class CardNft2AssetCache {
             tokenID >= 1 && tokenID <= CardNft2CardMetadata.tokenCount
         }
 
-        let prefetchAssets = tokenIDs.flatMap(displayAssets(for:))
+        var prefetchAssets = [NativeMetalCardAssetPath]()
+        for tokenID in tokenIDs {
+            guard !Task.isCancelled else { return }
+            prefetchAssets.append(contentsOf: await displayAssets(for: tokenID))
+        }
 
         var seenPrefetchPaths = Set<String>()
         var cappedPrefetchAssets = [NativeMetalCardAssetPath]()
@@ -85,37 +83,32 @@ final class CardNft2AssetCache {
                 break
             }
         }
+        guard !Task.isCancelled else { return }
         let cappedPrefetchPaths = cappedPrefetchAssets.map(\.relativePath)
-        let currentTokenPaths = displayAssets(for: clampedTokenID).map(\.relativePath)
-        core.cancelStalePrefetchDownloads(keeping: Set(cappedPrefetchPaths + currentTokenPaths))
-        core.cache(
+        let currentTokenPaths = await displayAssets(for: clampedTokenID).map(\.relativePath)
+        guard !Task.isCancelled else { return }
+        await core.cancelStalePrefetchDownloads(keeping: Set(cappedPrefetchPaths + currentTokenPaths))
+        guard !Task.isCancelled else { return }
+        await core.cache(
             assets: cappedPrefetchAssets,
             taskPriority: URLSessionTask.lowPriority,
             isPrefetch: true
         )
     }
 
-    func invalidateFaceAsset(for tokenID: Int) {
-        core.invalidateFaceAsset(for: tokenID)
+    func invalidate(_ assetURL: NativeMetalCardAssetURL) async {
+        await core.invalidate(assetURL)
     }
 
-    func invalidateEffectAssets(for tokenID: Int) {
-        core.invalidateEffectAssets(for: tokenID)
+    func cancelPrefetchDownloads() async {
+        await core.cancelPrefetchDownloads()
     }
 
-    func invalidate(_ asset: NativeMetalCardAssetPath) {
-        core.invalidate(asset)
-    }
-
-    func cancelPrefetchDownloads() {
-        core.cancelPrefetchDownloads()
-    }
-
-    private func displayAssets(for tokenID: Int) -> [NativeMetalCardAssetPath] {
+    private func displayAssets(for tokenID: Int) async -> [NativeMetalCardAssetPath] {
         let metadata = CardNft2CardMetadata.metadata(for: tokenID)
         return metadata.requiresEffectAssets
-            ? core.tokenSpecificAssets(for: tokenID)
-            : [core.faceAsset(for: tokenID)]
+            ? await core.tokenSpecificAssets(for: tokenID)
+            : [await core.faceAsset(for: tokenID)]
     }
 
     private static func assetPaths(for tokenID: Int) -> NativeMetalCardAssetPaths {

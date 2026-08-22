@@ -3,7 +3,7 @@
 import CoreGraphics
 import Foundation
 
-struct PlayerBrowserGridCrossfadePlane: Equatable {
+nonisolated struct PlayerBrowserGridCrossfadePlane: Equatable, Sendable {
     let scaleX: CGFloat
     let scaleY: CGFloat
     let translation: CGPoint
@@ -11,13 +11,13 @@ struct PlayerBrowserGridCrossfadePlane: Equatable {
     let incomingContentOffsetY: CGFloat
 }
 
-struct PlayerBrowserGridPhantomCandidate: Equatable {
+nonisolated struct PlayerBrowserGridPhantomCandidate: Equatable, Sendable {
     let destinationItemIndex: Int
     let sourceFrame: CGRect
     let destinationFrame: CGRect
 }
 
-struct PlayerBrowserGridRepeatedPhantomRows: Equatable {
+nonisolated struct PlayerBrowserGridRepeatedPhantomRows: Equatable, Sendable {
     let firstRowFrames: [CGRect]
     let rowCount: Int
     let rowPitch: CGFloat
@@ -40,12 +40,12 @@ struct PlayerBrowserGridRepeatedPhantomRows: Equatable {
     }
 }
 
-struct PlayerBrowserGridSolidPhantomCoverage: Equatable {
+nonisolated struct PlayerBrowserGridSolidPhantomCoverage: Equatable, Sendable {
     let frame: CGRect
     let excludedFrames: [CGRect]
 }
 
-enum PlayerBrowserGridPhantomShapeCoverage: Equatable {
+nonisolated enum PlayerBrowserGridPhantomShapeCoverage: Equatable, Sendable {
     case repeatedRows(PlayerBrowserGridRepeatedPhantomRows)
     case solid(PlayerBrowserGridSolidPhantomCoverage)
 
@@ -86,7 +86,7 @@ enum PlayerBrowserGridPhantomShapeCoverage: Equatable {
     }
 }
 
-private func playerBrowserGridItemPrecedes(
+nonisolated private func playerBrowserGridItemPrecedes(
     _ lhs: Int,
     _ rhs: Int,
     anchor: Int
@@ -99,7 +99,7 @@ private func playerBrowserGridItemPrecedes(
     return lhsDistance < rhsDistance
 }
 
-private func playerBrowserGridPrioritizedItemIndices(
+nonisolated private func playerBrowserGridPrioritizedItemIndices(
     candidateItemIndices: [Int],
     anchorItemIndex: Int?,
     maximumCount: Int
@@ -113,7 +113,7 @@ private func playerBrowserGridPrioritizedItemIndices(
     }.prefix(maximumCount))
 }
 
-struct PlayerBrowserGridDetailPlan: Equatable {
+nonisolated struct PlayerBrowserGridDetailPlan: Equatable, Sendable {
     let itemIndices: [Int]
 
     init(
@@ -129,12 +129,12 @@ struct PlayerBrowserGridDetailPlan: Equatable {
     }
 }
 
-enum PlayerBrowserGridRenderBudget {
+nonisolated enum PlayerBrowserGridRenderBudget: Sendable {
     static let maximumVisualCellCount = 120
     static let maximumCarryoverSourceCount = maximumVisualCellCount * 2
 }
 
-struct PlayerBrowserGridCarryoverSource<Content> {
+nonisolated struct PlayerBrowserGridCarryoverSource<Content> {
     let destinationItem: Int?
     let viewportRect: CGRect
     let content: Content?
@@ -150,7 +150,9 @@ struct PlayerBrowserGridCarryoverSource<Content> {
     }
 }
 
-enum PlayerBrowserGridGeometry {
+extension PlayerBrowserGridCarryoverSource: Sendable where Content: Sendable {}
+
+nonisolated enum PlayerBrowserGridGeometry: Sendable {
     static func visibleRect(
         _ rect: CGRect,
         clippedTo viewportRect: CGRect
@@ -175,7 +177,7 @@ enum PlayerBrowserGridGeometry {
     }
 }
 
-enum PlayerBrowserGridCarryoverSelection {
+nonisolated enum PlayerBrowserGridCarryoverSelection: Sendable {
     static func selectedItemIndices(
         candidateItemIndices: [Int],
         anchorItemIndex: Int?
@@ -241,7 +243,7 @@ enum PlayerBrowserGridCarryoverSelection {
     }
 }
 
-struct PlayerBrowserGridPhantomPlan: Equatable {
+nonisolated struct PlayerBrowserGridPhantomPlan: Equatable, Sendable {
     let cellCandidates: [PlayerBrowserGridPhantomCandidate]
     let shapeCandidates: [PlayerBrowserGridPhantomCandidate]
     let shapeCoverage: PlayerBrowserGridPhantomShapeCoverage?
@@ -253,7 +255,7 @@ struct PlayerBrowserGridPhantomPlan: Equatable {
     private static let repeatedShapeExclusionLimit =
         renderingComplexityLimit
 
-    private struct PlanningContext {
+    private struct PlanningContext: Sendable {
         let destinationGeometry: MobilePlayerBrowserVisualLayoutGeometry
         let latticeMap: MobilePlayerBrowserGridLatticeMap
         let coverageRect: CGRect
@@ -665,7 +667,7 @@ struct PlayerBrowserGridPhantomPlan: Equatable {
     }
 }
 
-struct PlayerBrowserGridPhantomCoverage: Equatable {
+nonisolated struct PlayerBrowserGridPhantomCoverage: Equatable, Sendable {
     private(set) var installedRect: CGRect?
 
     mutating func replacementRect(
@@ -713,7 +715,7 @@ struct PlayerBrowserGridPhantomCoverage: Equatable {
 /// An `installationProgress` of 0 means the ramp has no room to run in — the
 /// clock it is driven by already sits at the install point — so the leftover
 /// simply decays from full to nothing as that clock travels to 1.
-struct PlayerBrowserGridCrossfadePlaneRebase: Equatable {
+nonisolated struct PlayerBrowserGridCrossfadePlaneRebase: Equatable, Sendable {
     let installationProgress: CGFloat
     let delta: CGAffineTransform
 
@@ -807,7 +809,7 @@ struct PlayerBrowserGridCrossfadePlaneRebase: Equatable {
 
 /// Scales one grid plane while its cell content crossfades to the destination
 /// grid and its axes settle onto the destination lattice pitch.
-struct PlayerBrowserGridCrossfade: Equatable {
+nonisolated struct PlayerBrowserGridCrossfade: Equatable, Sendable {
 
     static let contentFadeStartSettleProgress: CGFloat = 0.25
     static let contentFadeEndSettleProgress: CGFloat = 0.85

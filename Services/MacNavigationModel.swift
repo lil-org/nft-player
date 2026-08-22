@@ -1,7 +1,7 @@
 // ∅ 2026 lil org
 
-import Combine
 import Foundation
+import Observation
 
 typealias MacPlayerDisplayMode = PlayerDisplayMode
 
@@ -83,24 +83,24 @@ final class MacPlayerSession {
 
 /// Single source of truth for what the one macOS window is showing.
 /// The AppKit container reconciles its view controller stack against `route`.
-final class MacNavigationModel: ObservableObject {
+@MainActor
+@Observable
+final class MacNavigationModel {
 
     static let shared = MacNavigationModel()
 
-    @Published private(set) var route: MacRoute = .collections
-    @Published private(set) var title = Strings.nftPlayer
-    @Published private(set) var canBookmarkCurrentToken = false
-    @Published private(set) var isCurrentTokenBookmarked = false
-    @Published private(set) var canGoToPreviousPage = false
-    @Published private(set) var canGoToNextPage = false
+    private(set) var route: MacRoute = .collections
+    private(set) var title = Strings.nftPlayer
+    private(set) var canBookmarkCurrentToken = false
+    private(set) var canToggleCurrentTokenBookmark = false
+    private(set) var isCurrentTokenBookmarked = false
+    private(set) var canGoToPreviousPage = false
+    private(set) var canGoToNextPage = false
 
     private(set) var session: MacPlayerSession?
     private(set) var routeTransition: MacRouteTransition = .none
     weak var commands: MacNavigationCommands?
 
-    private var tokenObserver: AnyCancellable?
-    private var bookmarkObserver: AnyCancellable?
-    private var widgetInsertionObserver: AnyCancellable?
     private var browserFocusTokenIndex: Int?
     private var isChromeRefreshScheduled = false
 
@@ -113,15 +113,12 @@ final class MacNavigationModel: ObservableObject {
             collectionBrowserAvailable: session.supportsCollectionBrowser
         )
         adopt(session: session)
-        // Record the opening position straight away, the way opening the player window
-        // used to. Without this a session that lands on the browser and is quit before
-        // the wall is scrolled leaves no progress and no continue-viewing entry.
-        playerModel.markCurrentTokenViewed()
         browserFocusTokenIndex = session.initialTokenIndex
         setRoute(.player(sessionId: session.id, mode: mode), transition: transition)
     }
 
     func showCollections(transition: MacRouteTransition = .slide) {
+        Navigator.shared.cancelPendingPlayerPresentation()
         guard commands?.isNavigationTransitionInFlight != true,
               route != .collections else {
             return
@@ -130,36 +127,21 @@ final class MacNavigationModel: ObservableObject {
     }
 
     func resetToCollections() {
+        Navigator.shared.cancelPendingPlayerPresentation()
         guard route != .collections else { return }
         setRoute(.collections, transition: .none)
     }
 
     func handleMainWindowWillClose() {
+        Navigator.shared.cancelPendingPlayerPresentation()
         let commands = commands
         setRoute(.collections, transition: .none)
         commands?.prepareForWindowClose()
         DownloadableMediaCache.shared.cancelAllDownloads()
     }
 
-    func showShuffledCollection() {
-        let progressSnapshot = PlayerViewingProgressStore.progressSnapshot()
-        let collectionItems = CollectionCatalog.allItems
-        let unfinishedItems = collectionItems.filter {
-            !progressSnapshot.viewedToEndCollectionIds.contains($0.id)
-        }
-        guard let item = (unfinishedItems.isEmpty ? collectionItems : unfinishedItems).randomElement() else {
-            return
-        }
-        let progress = PlayerViewingProgressStore.progress(collectionId: item.id)
-        let initialTokenId = progress?.isComplete == false ? progress?.tokenId : nil
-        Navigator.shared.showPlayer(
-            collectionId: item.id,
-            initialTokenId: initialTokenId,
-            continueViewingCollectionId: item.id
-        )
-    }
-
     func showCollectionBrowser(transition: MacRouteTransition = .slide) {
+        Navigator.shared.cancelPendingPlayerPresentation()
         guard let session, session.supportsCollectionBrowser else {
             showCollections()
             return
@@ -168,11 +150,13 @@ final class MacNavigationModel: ObservableObject {
     }
 
     func showOnePerPage(transition: MacRouteTransition = .slide) {
+        Navigator.shared.cancelPendingPlayerPresentation()
         guard let session else { return }
         setRoute(.player(sessionId: session.id, mode: .onePerPage), transition: transition)
     }
 
     func goBack() {
+        Navigator.shared.cancelPendingPlayerPresentation()
         if commands?.navigateBackWithHeroTransition() == true { return }
 
         switch route {
@@ -195,8 +179,9 @@ final class MacNavigationModel: ObservableObject {
     }
 
     func toggleCurrentTokenBookmark() {
-        session?.playerModel.toggleCurrentTokenBookmark()
-        refreshChrome()
+        session?.playerModel.toggleCurrentTokenBookmark { [weak self] _, _ in
+            self?.refreshChrome()
+        }
     }
 
     /// Re-reads the state that lives on the container (paging availability, media
@@ -216,30 +201,31 @@ final class MacNavigationModel: ObservableObject {
 
     private func adopt(session: MacPlayerSession) {
         self.session = session
-        let playerModel = session.playerModel
-        tokenObserver = playerModel.$currentToken
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in
-                self?.refreshChrome()
-            }
-        bookmarkObserver = playerModel.$isCurrentTokenBookmarked
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in
-                self?.refreshChrome()
-            }
-        widgetInsertionObserver = playerModel.$isCurrentTokenInsertedWidgetToken
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in
-                self?.refreshChrome()
-            }
+        observePlayerModel(session.playerModel, sessionId: session.id)
     }
 
     private func releaseSession() {
-        tokenObserver = nil
-        bookmarkObserver = nil
-        widgetInsertionObserver = nil
         browserFocusTokenIndex = nil
         session = nil
+    }
+
+    private func observePlayerModel(_ playerModel: PlayerModel, sessionId: UUID) {
+        withObservationTracking {
+            _ = playerModel.currentToken
+            _ = playerModel.isCurrentTokenBookmarked
+            _ = playerModel.canToggleCurrentTokenBookmark
+            _ = playerModel.isCurrentTokenInsertedWidgetToken
+        } onChange: { [weak self, weak playerModel] in
+            Task { @MainActor in
+                guard let self,
+                      let playerModel,
+                      self.session?.id == sessionId else {
+                    return
+                }
+                self.refreshChrome()
+                self.observePlayerModel(playerModel, sessionId: sessionId)
+            }
+        }
     }
 
     /// Coalesced, next-turn refresh. The container drives these from inside SwiftUI's
@@ -248,7 +234,8 @@ final class MacNavigationModel: ObservableObject {
     private func scheduleChromeRefresh() {
         guard !isChromeRefreshScheduled else { return }
         isChromeRefreshScheduled = true
-        DispatchQueue.main.async { [weak self] in
+        Task { @MainActor [weak self] in
+            await Task.yield()
             guard let self else { return }
             self.isChromeRefreshScheduled = false
             self.refreshChrome()
@@ -260,6 +247,8 @@ final class MacNavigationModel: ObservableObject {
         let playerModel = session?.playerModel
         let isOnePerPage = route.displayMode == .onePerPage
         canBookmarkCurrentToken = isOnePerPage && playerModel?.canBookmarkCurrentToken == true
+        canToggleCurrentTokenBookmark = canBookmarkCurrentToken
+            && playerModel?.canToggleCurrentTokenBookmark == true
         isCurrentTokenBookmarked = canBookmarkCurrentToken
             && playerModel?.isCurrentTokenBookmarked == true
         canGoToPreviousPage = isOnePerPage && commands?.canGoToPreviousPage == true

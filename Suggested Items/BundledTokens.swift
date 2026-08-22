@@ -3,7 +3,7 @@
 import CoreGraphics
 import Foundation
 
-struct ThumbnailAspectRatio: Codable, Hashable {
+nonisolated struct ThumbnailAspectRatio: Codable, Hashable, Sendable {
     let width: Int
     let height: Int
 
@@ -51,7 +51,7 @@ struct ThumbnailAspectRatio: Codable, Hashable {
     }
 }
 
-struct ThumbnailAspectRatioOverride: Codable {
+nonisolated struct ThumbnailAspectRatioOverride: Codable, Sendable {
     let tokenIndex: Int
     let ratioIndex: Int
 
@@ -74,7 +74,7 @@ struct ThumbnailAspectRatioOverride: Codable {
     }
 }
 
-enum ThumbnailAspectRatioProfile: Hashable {
+nonisolated enum ThumbnailAspectRatioProfile: Hashable, Sendable {
     case uniform(ThumbnailAspectRatio)
     case variable([ThumbnailAspectRatio])
 
@@ -89,7 +89,7 @@ enum ThumbnailAspectRatioProfile: Hashable {
     }
 }
 
-struct ThumbnailAspectRatioProfileBuilder {
+nonisolated struct ThumbnailAspectRatioProfileBuilder: Sendable {
     private var itemCount = 0
     private var firstAspectRatio: ThumbnailAspectRatio?
     private var variableAspectRatios: [ThumbnailAspectRatio]?
@@ -129,7 +129,7 @@ struct ThumbnailAspectRatioProfileBuilder {
     }
 }
 
-enum ThumbnailAspectRatioMetadata {
+nonisolated enum ThumbnailAspectRatioMetadata {
     static func resolve(
         aspectRatios: [ThumbnailAspectRatio]?,
         overrides: [ThumbnailAspectRatioOverride]?,
@@ -182,9 +182,9 @@ enum ThumbnailAspectRatioMetadata {
     }
 }
 
-struct BundledTokens: Codable {
+nonisolated struct BundledTokens: Codable, Sendable {
     
-    struct Item: Codable {
+    struct Item: Codable, Sendable {
         let id: String
         let name: String?
         let url: String?
@@ -236,7 +236,7 @@ struct BundledTokens: Codable {
         }
     }
 
-    private struct CompactItem: Decodable {
+    private struct CompactItem: Decodable, Sendable {
         let id: String
         let prefixIndex: Int
         let urlSuffix: String

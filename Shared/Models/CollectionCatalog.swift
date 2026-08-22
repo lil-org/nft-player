@@ -1,9 +1,11 @@
 // ∅ 2026 lil org
 
+import AVFoundation
 import CoreGraphics
 import Foundation
+import os
 
-struct PlayerBackgroundColorComponents {
+nonisolated struct PlayerBackgroundColorComponents: Sendable {
     let red: CGFloat
     let green: CGFloat
     let blue: CGFloat
@@ -50,7 +52,7 @@ struct PlayerBackgroundColorComponents {
     }
 }
 
-struct CollectionCatalogItem: Hashable, Identifiable {
+nonisolated struct CollectionCatalogItem: Hashable, Identifiable, Sendable {
     let id: String
     let name: String
     let coverAssetName: String
@@ -62,13 +64,13 @@ struct CollectionCatalogItem: Hashable, Identifiable {
     }
 }
 
-enum CollectionCatalogDownloadableMediaPurpose: Hashable {
+nonisolated enum CollectionCatalogDownloadableMediaPurpose: Hashable, Sendable {
     case primary
     case collectionBrowserThumbnail
     case collectionBrowserMid
 }
 
-struct CollectionCatalogDownloadableMediaDescriptor: Hashable {
+nonisolated struct CollectionCatalogDownloadableMediaDescriptor: Hashable, Sendable {
     let collectionId: String
     let tokenId: String
     let tokenIndex: Int
@@ -127,7 +129,7 @@ struct CollectionCatalogDownloadableMediaDescriptor: Hashable {
     }
 }
 
-struct PlayerPagePosition: Hashable {
+nonisolated struct PlayerPagePosition: Hashable, Sendable {
     let position: Int
 
     static let initial = PlayerPagePosition(position: 0)
@@ -137,18 +139,18 @@ struct PlayerPagePosition: Hashable {
     }
 }
 
-enum PlayerCollectionBrowsePositionResolution: Hashable {
+nonisolated enum PlayerCollectionBrowsePositionResolution: Hashable, Sendable {
     case resolved(PlayerPagePosition)
     case unavailable
 }
 
-struct PlayerTokenContext: Hashable {
+nonisolated struct PlayerTokenContext: Hashable, Sendable {
     let collectionId: String
     let tokenIndex: Int
     let tokenCount: Int
 }
 
-struct PlayerCollectionBrowseSnapshot: Hashable {
+nonisolated struct PlayerCollectionBrowseSnapshot: Hashable, Sendable {
     let collectionId: String
     let itemCount: Int
     let initialTokenIndex: Int
@@ -166,14 +168,14 @@ struct PlayerCollectionBrowseSnapshot: Hashable {
     }
 }
 
-struct PlayerCollectionBrowsePreparation: Hashable {
+nonisolated struct PlayerCollectionBrowsePreparation: Hashable, Sendable {
     let sourcePagePosition: PlayerPagePosition
     let snapshot: PlayerCollectionBrowseSnapshot
     let focusedTokenIndex: Int
     let requiresWidgetInsertionExit: Bool
 }
 
-enum PlayerMediaPrefetchDirection: Hashable {
+nonisolated enum PlayerMediaPrefetchDirection: Hashable, Sendable {
     case forward, backward
 
     var adjacentOffset: Int {
@@ -186,7 +188,7 @@ enum PlayerMediaPrefetchDirection: Hashable {
     }
 }
 
-enum PlayerDownloadableMediaWindowLayout {
+nonisolated enum PlayerDownloadableMediaWindowLayout {
 #if os(iOS)
     static let windowRadius = 60
     static let decodedPreferredRadius = 12
@@ -287,7 +289,7 @@ enum PlayerDownloadableMediaWindowLayout {
     }
 }
 
-struct PlayerDownloadableMediaWindow: Hashable {
+nonisolated struct PlayerDownloadableMediaWindow: Hashable, Sendable {
     let currentDescriptor: CollectionCatalogDownloadableMediaDescriptor
     let descriptors: [CollectionCatalogDownloadableMediaDescriptor]
     let decodedDescriptors: [CollectionCatalogDownloadableMediaDescriptor]
@@ -340,7 +342,7 @@ struct PlayerDownloadableMediaWindow: Hashable {
     }
 }
 
-enum PlaybackNavigationDirection {
+nonisolated enum PlaybackNavigationDirection: Sendable {
     case back, forward, restartCollection
 
     var isPagingDirection: Bool {
@@ -359,6 +361,7 @@ enum PlaybackNavigationDirection {
     }
 }
 
+@MainActor
 final class PlayerTokenPagingDataSource {
 
     private let initialCollectionId: String?
@@ -570,7 +573,7 @@ final class PlayerTokenPagingDataSource {
             tokenId: token.id,
             tokenIndex: context.tokenIndex,
             tokenCount: context.tokenCount,
-            updatedAt: Date(),
+            updatedAt: PlayerSyncLogicalClock.next(for: .viewingProgress),
             hasViewedToEnd: hasViewedToEnd
         )
     }
@@ -810,9 +813,10 @@ final class PlayerTokenPagingDataSource {
     }
 }
 
-enum CollectionCatalog {
-    private static let shuffleLock = NSLock()
-    private static var currentPassCollectionIds = Set<String>()
+nonisolated enum CollectionCatalog {
+    private static let shuffledCollectionIds = OSAllocatedUnfairLock(
+        initialState: Set<String>()
+    )
 
     static let allItems: [CollectionCatalogItem] = {
         dedupedItems(
@@ -820,17 +824,17 @@ enum CollectionCatalog {
                 + downloadableItemsForGrid
         )
         .filter { !TokenGenerator.isCollectionDisabledOnCurrentPlatform(id: $0.id) }
-        .map(CollectionCatalogItem.init(item:))
+        .map { CollectionCatalogItem(item: $0) }
     }()
 
     static func nextShuffledCollectionId() -> String? {
-        shuffleLock.withLock {
-            if currentPassCollectionIds.isEmpty {
-                currentPassCollectionIds = Set(allItems.map(\.id))
+        shuffledCollectionIds.withLock { collectionIds in
+            if collectionIds.isEmpty {
+                collectionIds = Set(allItems.map(\.id))
             }
-            let nextCollectionId = currentPassCollectionIds.randomElement()
+            let nextCollectionId = collectionIds.randomElement()
             if let nextCollectionId {
-                currentPassCollectionIds.remove(nextCollectionId)
+                collectionIds.remove(nextCollectionId)
             }
             return nextCollectionId
         }
@@ -929,7 +933,7 @@ enum CollectionCatalog {
             tokenId: anchorToken.id,
             tokenIndex: anchorTokenIndex,
             tokenCount: tokenCount,
-            updatedAt: Date(),
+            updatedAt: PlayerSyncLogicalClock.next(for: .viewingProgress),
             hasViewedToEnd: matchingProgress?.hasBeenViewedToEnd == true
         )
 
@@ -1119,16 +1123,12 @@ enum CollectionCatalog {
         }
     }
 
-    private static var generativeItemsForGrid: [SuggestedItem] {
-        return TokenGenerator.allGenerativeSuggestedItems.filter {
-            !$0.isSolanaCollection && !$0.isTezosCollection
-        }
+    private static let generativeItemsForGrid = TokenGenerator.allGenerativeSuggestedItems.filter {
+        !$0.isSolanaCollection && !$0.isTezosCollection
     }
 
-    private static var downloadableItemsForGrid: [SuggestedItem] {
-        return SuggestedItemsService.allDownloadableCollectionItems.filter {
-            $0.tokenCount != nil || TokenGenerator.canGenerate(id: $0.id)
-        }
+    private static let downloadableItemsForGrid = SuggestedItemsService.allDownloadableCollectionItems.filter {
+        $0.tokenCount != nil || TokenGenerator.canGenerate(id: $0.id)
     }
 
     private static func generateRandomDownloadableToken(collectionId: String, notTokenId: String?) -> GeneratedToken? {
@@ -1147,7 +1147,7 @@ enum CollectionCatalog {
     }
 }
 
-struct DownloadableCollectionIndexItem: Codable, Hashable, Identifiable {
+nonisolated struct DownloadableCollectionIndexItem: Codable, Hashable, Identifiable, Sendable {
     let id: String
     let name: String
     let address: String
@@ -1171,13 +1171,16 @@ struct DownloadableCollectionIndexItem: Codable, Hashable, Identifiable {
     }
 }
 
-private enum DownloadableCollectionService {
+nonisolated private enum DownloadableCollectionService {
+    private struct CacheState: Sendable {
+        var tokenDataByCollectionId = [String: DownloadableCollectionTokenData]()
+    }
+
     private static let collectionAddressOnlyBlockExplorerAddresses: Set<String> = [
         "0xc2276a4a03e7c2e2fa122692b07a870eff43cf51",
     ]
-    private static let lock = NSLock()
-    private static var cachedIndex: DownloadableCollectionsIndex?
-    private static var cachedTokenDataByCollectionId = [String: DownloadableCollectionTokenData]()
+    private static let cache = OSAllocatedUnfairLock(initialState: CacheState())
+    private static let index = loadIndex()
 
     static func hasCollection(id: String) -> Bool {
         index.collectionById[id] != nil
@@ -1395,23 +1398,10 @@ private enum DownloadableCollectionService {
         return nil
     }
 
-    private static var index: DownloadableCollectionsIndex {
-        if let cachedIndex = lock.withLock({ cachedIndex }) {
-            return cachedIndex
-        }
-
-        let loadedIndex = loadIndex()
-        return lock.withLock {
-            if let cachedIndex = Self.cachedIndex {
-                return cachedIndex
-            }
-            Self.cachedIndex = loadedIndex
-            return loadedIndex
-        }
-    }
-
     private static func tokenData(collectionId: String) -> DownloadableCollectionTokenData? {
-        if let cachedTokenData = lock.withLock({ cachedTokenDataByCollectionId[collectionId] }) {
+        if let cachedTokenData = cache.withLock({
+            $0.tokenDataByCollectionId[collectionId]
+        }) {
             return cachedTokenData
         }
 
@@ -1419,11 +1409,11 @@ private enum DownloadableCollectionService {
             return nil
         }
 
-        return lock.withLock {
-            if let cachedTokenData = cachedTokenDataByCollectionId[collectionId] {
+        return cache.withLock { state in
+            if let cachedTokenData = state.tokenDataByCollectionId[collectionId] {
                 return cachedTokenData
             }
-            cachedTokenDataByCollectionId[collectionId] = loadedTokenData
+            state.tokenDataByCollectionId[collectionId] = loadedTokenData
             return loadedTokenData
         }
     }
@@ -1455,7 +1445,7 @@ private enum DownloadableCollectionService {
     }
 }
 
-private struct DownloadableCollectionsIndex {
+nonisolated private struct DownloadableCollectionsIndex: Sendable {
     let collectionById: [String: DownloadableCollectionIndexItem]
 
     init(collections: [DownloadableCollectionIndexItem]) {
@@ -1463,7 +1453,7 @@ private struct DownloadableCollectionsIndex {
     }
 }
 
-private struct DownloadableCollectionTokensPayload: Decodable {
+nonisolated private struct DownloadableCollectionTokensPayload: Decodable, Sendable {
     let defaultFileExtension: String?
     let items: [DownloadableTokenItem]
 
@@ -1538,7 +1528,7 @@ private struct DownloadableCollectionTokensPayload: Decodable {
     }
 }
 
-private struct DownloadableTokenItem: Codable, Hashable {
+nonisolated private struct DownloadableTokenItem: Codable, Hashable, Sendable {
     let id: String
     let name: String?
     let url: String?
@@ -1613,7 +1603,7 @@ private struct DownloadableTokenItem: Codable, Hashable {
     }
 }
 
-private struct DownloadableCompactTokenRow: Decodable {
+nonisolated private struct DownloadableCompactTokenRow: Decodable, Sendable {
     let id: String
     let prefixIndex: Int
     let urlSuffix: String
@@ -1633,7 +1623,7 @@ private struct DownloadableCompactTokenRow: Decodable {
     }
 }
 
-private struct DownloadableCollectionTokenData {
+nonisolated private struct DownloadableCollectionTokenData: Sendable {
     let defaultFileExtension: String?
     let tokens: [DownloadableTokenItem]
     let tokenIndicesById: [String: Int]
@@ -1656,7 +1646,7 @@ private struct DownloadableCollectionTokenData {
     }
 }
 
-private enum DownloadableMediaFileExtension {
+nonisolated private enum DownloadableMediaFileExtension {
     private static let staticImageExtensions = Set(["png", "jpg", "jpeg", "webp", "heic", "heif", "tiff"])
     private static let animatedImageExtensions = Set(["gif", "svg"])
     private static let videoExtensions = Set(["mp4", "mov"])
@@ -1692,12 +1682,37 @@ private enum DownloadableMediaFileExtension {
     }
 }
 
-enum DownloadableTokenHTML {
+nonisolated struct DownloadableTokenHTMLDocument: Sendable {
+    let html: String
+    let viewportSize: CGSize?
+}
+
+nonisolated enum DownloadableTokenHTML {
     static let imageElementId = "tokenImage"
     static let videoElementId = "tokenVideo"
     static let htmlDocumentElementId = "tokenDocument"
 
     private static let trustedHTMLDocumentSandbox = "allow-scripts allow-same-origin"
+
+    @concurrent
+    static func renderDocument(
+        at fileURL: URL,
+        baseURL: String,
+        includesViewportSizeInDocument: Bool = true
+    ) async -> DownloadableTokenHTMLDocument? {
+        guard let documentHTML = try? String(contentsOf: fileURL, encoding: .utf8) else {
+            return nil
+        }
+        let viewportSize = DownloadableTokenHTMLLayout.rootSVGViewBoxSize(in: documentHTML)
+        return DownloadableTokenHTMLDocument(
+            html: createInlineHTMLDocumentHTML(
+                documentHTML: documentHTML,
+                baseURL: baseURL,
+                contentSize: includesViewportSizeInDocument ? viewportSize : nil
+            ),
+            viewportSize: viewportSize
+        )
+    }
 
     static func createImageHTML(imageURL: String, nextImageURL: String? = nil) -> String {
         """
@@ -1886,7 +1901,7 @@ enum DownloadableTokenHTML {
         """
     }
 
-    private static var retainedPreloadFunctionJavaScript: String {
+    private static let retainedPreloadFunctionJavaScript =
         """
         function retainDownloadableTokenImagePreload(url) {
             if (!url) {
@@ -1993,7 +2008,6 @@ enum DownloadableTokenHTML {
             return preloadPromise;
         }
         """
-    }
 
     private static func htmlDocument(_ html: String, insertingBaseURL baseURL: String?) -> String {
         guard let baseURL,
@@ -2093,7 +2107,29 @@ enum DownloadableTokenHTML {
     }
 }
 
-enum DownloadableTokenHTMLLayout {
+nonisolated enum DownloadableMediaVideoLayout {
+    @concurrent
+    static func displaySize(at fileURL: URL) async -> CGSize? {
+        let asset = AVURLAsset(url: fileURL)
+        guard let track = try? await asset.loadTracks(withMediaType: .video).first,
+              let (naturalSize, preferredTransform) = try? await track.load(
+                .naturalSize,
+                .preferredTransform
+              ) else {
+            return nil
+        }
+
+        let transformedSize = naturalSize.applying(preferredTransform)
+        let size = CGSize(
+            width: abs(transformedSize.width),
+            height: abs(transformedSize.height)
+        )
+        guard size.width > 0, size.height > 0 else { return nil }
+        return size
+    }
+}
+
+nonisolated enum DownloadableTokenHTMLLayout {
     static func rootSVGViewBoxSize(in html: String) -> CGSize? {
         guard let svgOpeningTag = rootSVGOpeningTag(in: html) else { return nil }
 

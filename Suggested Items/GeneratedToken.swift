@@ -2,18 +2,18 @@
 
 import Foundation
 
-enum GeneratedTokenRenderKind: String, Hashable {
+nonisolated enum GeneratedTokenRenderKind: String, Hashable, Sendable {
     case html
     case ponchoDrifellaMetal
     case cardNft2Metal
 }
 
-enum NativeMetalCardRenderKind: String, Hashable, CaseIterable {
+nonisolated enum NativeMetalCardRenderKind: String, Hashable, CaseIterable, Sendable {
     case ponchoDrifella
     case cardNft2
 }
 
-extension NativeMetalCardRenderKind {
+nonisolated extension NativeMetalCardRenderKind {
     var collectionId: String {
         switch self {
         case .cardNft2:
@@ -31,7 +31,7 @@ extension NativeMetalCardRenderKind {
     }
 }
 
-extension GeneratedTokenRenderKind {
+nonisolated extension GeneratedTokenRenderKind {
     var nativeMetalCardRenderKind: NativeMetalCardRenderKind? {
         switch self {
         case .ponchoDrifellaMetal:
@@ -44,7 +44,7 @@ extension GeneratedTokenRenderKind {
     }
 }
 
-enum GeneratedTokenMedia: Hashable {
+nonisolated enum GeneratedTokenMedia: Hashable, Sendable {
     case staticImage(url: URL, fileExtension: String)
     case animatedImage(url: URL, fileExtension: String)
     case video(url: URL, fileExtension: String)
@@ -73,7 +73,7 @@ enum GeneratedTokenMedia: Hashable {
 
 }
 
-struct GeneratedToken: Hashable, Identifiable {
+nonisolated struct GeneratedToken: Hashable, Identifiable, Sendable {
     let fullCollectionId: String
     let collectionName: String
     let address: String

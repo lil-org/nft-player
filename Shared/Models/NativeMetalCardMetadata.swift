@@ -1,6 +1,6 @@
 // ∅ 2026 lil org
 
-enum NativeMetalCardEffect: UInt8 {
+nonisolated enum NativeMetalCardEffect: UInt8, Sendable {
     case rareHoloV = 0
     case supporter = 1
     case amazingRare = 2
@@ -12,7 +12,7 @@ enum NativeMetalCardEffect: UInt8 {
     }
 }
 
-struct NativeMetalCardMetadata {
+nonisolated struct NativeMetalCardMetadata: Sendable {
     let effect: NativeMetalCardEffect
     let glowKind: UInt8
 
@@ -50,7 +50,7 @@ struct NativeMetalCardMetadata {
     }
 }
 
-extension NativeMetalCardRenderKind {
+nonisolated extension NativeMetalCardRenderKind {
     var tokenCount: Int {
         switch self {
         case .cardNft2:

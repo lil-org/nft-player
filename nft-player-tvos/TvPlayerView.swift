@@ -5,18 +5,22 @@ import UIKit
 
 struct TvPlayerView: View {
     
-    @StateObject private var playerModel: PlayerModel
+    @State private var playerModelOwner: TvPlayerModelOwner
     @State private var isChromeVisible = false
     @State private var preferredPrefetchDirection: DownloadableMediaCache.PrefetchDirection = .forward
     @State private var bookmarkHUDState: TvBookmarkHUDState?
+
+    private var playerModel: PlayerModel {
+        playerModelOwner.model
+    }
     
     init(
         initialItemId: String?,
         initialTokenId: String? = nil,
         continueViewingCollectionId: String? = nil
     ) {
-        _playerModel = StateObject(
-            wrappedValue: TvPlayerPrewarmer.preparedModel(
+        _playerModelOwner = State(
+            initialValue: TvPlayerModelOwner(
                 initialItemId: initialItemId,
                 initialTokenId: initialTokenId,
                 continueViewingCollectionId: continueViewingCollectionId
@@ -29,17 +33,27 @@ struct TvPlayerView: View {
             mediaView(for: playerModel.currentToken)
                 .edgesIgnoringSafeArea(.all)
                 .onAppear {
-                    playerModel.markCurrentTokenViewed()
-                    playerModel.refreshCurrentTokenBookmarkState()
+                    let token = playerModel.currentToken
+                    if let progress = playerModel.viewingProgress(for: token) {
+                        PlayerPersistenceUpdates.enqueue {
+                            await playerModel.markViewed(progress)
+                        }
+                    }
+                    Task { await playerModel.refreshCurrentTokenBookmarkState() }
                 }
-                .onChange(of: playerModel.currentToken) { _ in
-                    playerModel.markCurrentTokenViewed()
+                .onChange(of: playerModel.currentToken) { _, token in
+                    if let progress = playerModel.viewingProgress(for: token) {
+                        PlayerPersistenceUpdates.enqueue {
+                            await playerModel.markViewed(progress)
+                        }
+                    }
                 }
 
             TvPlayerInputSurface(
                 onBookmarkToggle: toggleCurrentTokenBookmark,
                 onMove: handleMoveCommand,
                 onPlayPause: toggleChromeVisibility,
+                isBookmarkToggleEnabled: playerModel.canToggleCurrentTokenBookmark,
                 accessibilityLabel: playerModel.isCurrentTokenBookmarked ? Strings.removeBookmark : Strings.bookmark
             )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -73,14 +87,14 @@ struct TvPlayerView: View {
     }
 
     private func navigateBack() {
-        DispatchQueue.main.async {
+        DispatchQueue.main.async { @MainActor in
             preferredPrefetchDirection = .backward
             playerModel.goBack()
         }
     }
 
     private func navigateForward() {
-        DispatchQueue.main.async {
+        DispatchQueue.main.async { @MainActor in
             guard !isCurrentCollectionComplete else {
                 showChrome()
                 return
@@ -117,20 +131,28 @@ struct TvPlayerView: View {
     }
 
     private func toggleCurrentTokenBookmark() {
-        guard playerModel.canBookmarkCurrentToken else { return }
+        guard playerModel.canToggleCurrentTokenBookmark else { return }
 
-        let isBookmarked = playerModel.toggleCurrentTokenBookmark()
-        guard !isChromeVisible else { return }
+        let shouldShowHUD = !isChromeVisible
+        playerModel.toggleCurrentTokenBookmark { target, isBookmarked in
+            guard playerModel.currentToken.fullCollectionId == target.collectionId,
+                  playerModel.currentToken.id == target.tokenId,
+                  shouldShowHUD else {
+                return
+            }
 
-        let hudState = TvBookmarkHUDState(isBookmarked: isBookmarked)
-        withAnimation(.spring(response: 0.22, dampingFraction: 0.82)) {
-            bookmarkHUDState = hudState
-        }
+            let hudState = TvBookmarkHUDState(isBookmarked: isBookmarked)
+            withAnimation(.spring(response: 0.22, dampingFraction: 0.82)) {
+                bookmarkHUDState = hudState
+            }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.15) {
-            guard bookmarkHUDState?.id == hudState.id else { return }
-            withAnimation(.easeInOut(duration: 0.18)) {
-                bookmarkHUDState = nil
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(1.15))
+                guard !Task.isCancelled else { return }
+                guard bookmarkHUDState?.id == hudState.id else { return }
+                withAnimation(.easeInOut(duration: 0.18)) {
+                    bookmarkHUDState = nil
+                }
             }
         }
     }
@@ -165,6 +187,7 @@ struct TvPlayerView: View {
                             : Images.bookmarkSystemName
                     )
                     .font(.headline.weight(.semibold))
+                    .opacity(playerModel.canToggleCurrentTokenBookmark ? 1 : 0.55)
                 }
             }
         }
@@ -186,6 +209,31 @@ struct TvPlayerView: View {
         playerModel.currentProgress?.isComplete == true && !playerModel.isCurrentTokenInsertedWidgetToken
     }
     
+}
+
+@MainActor
+private final class TvPlayerModelOwner {
+
+    private let initialItemId: String?
+    private let initialTokenId: String?
+    private let continueViewingCollectionId: String?
+
+    init(
+        initialItemId: String?,
+        initialTokenId: String?,
+        continueViewingCollectionId: String?
+    ) {
+        self.initialItemId = initialItemId
+        self.initialTokenId = initialTokenId
+        self.continueViewingCollectionId = continueViewingCollectionId
+    }
+
+    lazy var model = TvPlayerPrewarmer.preparedModel(
+        initialItemId: initialItemId,
+        initialTokenId: initialTokenId,
+        continueViewingCollectionId: continueViewingCollectionId
+    )
+
 }
 
 private struct TvPlayerMediaIdentity: Hashable {
@@ -230,6 +278,7 @@ private struct TvPlayerInputSurface: UIViewControllerRepresentable {
     let onBookmarkToggle: () -> Void
     let onMove: (MoveCommandDirection) -> Void
     let onPlayPause: () -> Void
+    let isBookmarkToggleEnabled: Bool
     let accessibilityLabel: String
 
     func makeUIViewController(context: Context) -> TvPlayerInputViewController {
@@ -246,6 +295,7 @@ private struct TvPlayerInputSurface: UIViewControllerRepresentable {
         viewController.onSelect = onBookmarkToggle
         viewController.onMove = onMove
         viewController.onPlayPause = onPlayPause
+        viewController.isBookmarkToggleEnabled = isBookmarkToggleEnabled
         viewController.accessibilityLabel = accessibilityLabel
     }
 }
@@ -266,6 +316,11 @@ private final class TvPlayerInputViewController: UIViewController {
     var onPlayPause: (() -> Void)? {
         get { focusView.onPlayPause }
         set { focusView.onPlayPause = newValue }
+    }
+
+    var isBookmarkToggleEnabled: Bool {
+        get { focusView.isBookmarkToggleEnabled }
+        set { focusView.isBookmarkToggleEnabled = newValue }
     }
 
     override var accessibilityLabel: String? {
@@ -296,6 +351,13 @@ private final class TvPlayerInputView: UIView {
     var onSelect: (() -> Void)?
     var onMove: ((MoveCommandDirection) -> Void)?
     var onPlayPause: (() -> Void)?
+    var isBookmarkToggleEnabled = false {
+        didSet {
+            accessibilityTraits = isBookmarkToggleEnabled
+                ? .button
+                : [.button, .notEnabled]
+        }
+    }
 
     override var canBecomeFocused: Bool {
         true
@@ -348,6 +410,7 @@ private final class TvPlayerInputView: UIView {
     }
 
     override func accessibilityActivate() -> Bool {
+        guard isBookmarkToggleEnabled else { return false }
         onSelect?()
         return true
     }
@@ -398,6 +461,7 @@ private final class TvPlayerInputView: UIView {
     private func performAction(for press: UIPress) {
         switch press.type {
         case .select:
+            guard isBookmarkToggleEnabled else { return }
             onSelect?()
         case .playPause:
             onPlayPause?()

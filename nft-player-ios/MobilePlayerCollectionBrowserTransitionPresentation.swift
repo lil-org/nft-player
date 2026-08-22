@@ -328,27 +328,29 @@ final class MobilePlayerCollectionBrowserTransitionPresentation {
             role: .carryoverFade,
             identity: identity
         )
-        DispatchQueue.main.async {
+        RunLoop.main.perform(inModes: [.common]) {
             [weak self, weak contentContainerView] in
-            guard let self,
-                  let contentContainerView,
-                  self.contentContainerView === contentContainerView,
-                  self.isValid(validation) else {
-                return
-            }
-            self.contentFadeAnimator(
-                { contentContainerView.alpha = 0 },
-                {
-                    [weak self, weak contentContainerView] _ in
-                    guard let self,
-                          let contentContainerView,
-                          self.contentContainerView === contentContainerView,
-                          self.isValid(validation) else {
-                        return
-                    }
-                    self.clear()
+            MainActor.assumeIsolated {
+                guard let self,
+                      let contentContainerView,
+                      self.contentContainerView === contentContainerView,
+                      self.isValid(validation) else {
+                    return
                 }
-            )
+                self.contentFadeAnimator(
+                    { contentContainerView.alpha = 0 },
+                    {
+                        [weak self, weak contentContainerView] _ in
+                        guard let self,
+                              let contentContainerView,
+                              self.contentContainerView === contentContainerView,
+                              self.isValid(validation) else {
+                            return
+                        }
+                        self.clear()
+                    }
+                )
+            }
         }
     }
 

@@ -1,12 +1,16 @@
 // ∅ 2026 lil org
 
 import Foundation
+import MetalKit
+import os
 import UIKit
 import XCTest
 @testable import nft_player_ios
 
+nonisolated final class MobilePlayerCollectionBrowserCachedImagePolicyTests: XCTestCase {}
+
 @MainActor
-final class MobilePlayerCollectionBrowserCachedImagePolicyTests: XCTestCase {
+extension MobilePlayerCollectionBrowserCachedImagePolicyTests {
 
     private func makeDescriptor(
         name: String,
@@ -397,5 +401,693 @@ final class MobilePlayerCollectionBrowserCachedImagePolicyTests: XCTestCase {
 
         XCTAssertNil(cache.cachedDecodedImage(for: descriptor))
     }
+
+    func testDecodedImageResetRetiresOnlyReplacedCacheOffMainThread() async {
+        let collectionId = "retired-memory-cache-\(UUID())"
+        let retiredDescriptor = makeDescriptor(
+            name: "retired",
+            purpose: .collectionBrowserThumbnail,
+            collectionId: collectionId,
+            tokenIndex: 0
+        )
+        let activeDescriptor = makeDescriptor(
+            name: "active",
+            purpose: .collectionBrowserThumbnail,
+            collectionId: collectionId,
+            tokenIndex: 1
+        )
+        let retiredImage = makeImage(.orange)
+        let activeImage = makeImage(.green)
+        let cache = DownloadableMediaCache.shared
+        defer {
+            cache.resetDecodedImagesForTesting()
+        }
+
+        cache.installMemoryCachedImageForTesting(
+            retiredImage,
+            for: retiredDescriptor
+        )
+        cache.resetDecodedImagesForTesting()
+        cache.installMemoryCachedImageForTesting(
+            activeImage,
+            for: activeDescriptor
+        )
+
+        let retirementRanOnMainThread = await cache.waitForDecodedImageRetirementForTesting()
+
+        XCTAssertEqual(retirementRanOnMainThread, false)
+        XCTAssertNil(cache.cachedDecodedImage(for: retiredDescriptor))
+        XCTAssertTrue(cache.cachedDecodedImage(for: activeDescriptor) === activeImage)
+    }
+
+    func testCancelAllDownloadsInvalidatesDeferredImageLoad() async {
+        let descriptor = makeDescriptor(
+            name: "cancelled-deferred-image",
+            purpose: .collectionBrowserThumbnail,
+            collectionId: "cancelled-deferred-image-\(UUID())",
+            tokenIndex: 0
+        )
+        let image = makeImage(.cyan)
+        let cache = DownloadableMediaCache.shared
+        let completion = expectation(description: "Deferred image load completes")
+        var loadedImage: UIImage?
+        defer {
+            cache.removeDecodedImageForTesting(for: descriptor)
+            cache.cancelAllDownloads()
+        }
+
+        _ = cache.loadImage(for: descriptor) { image in
+            loadedImage = image
+            completion.fulfill()
+        }
+        cache.cancelAllDownloads()
+        cache.installDecodedImageForTesting(image, for: descriptor)
+
+        await fulfillment(of: [completion], timeout: 1)
+
+        XCTAssertNil(loadedImage)
+    }
+
+    func testCancelAllDownloadsInvalidatesDeferredFileLoad() async throws {
+        let descriptor = makeDescriptor(
+            name: "cancelled-deferred-file",
+            purpose: .collectionBrowserThumbnail,
+            collectionId: "cancelled-deferred-file-\(UUID())",
+            tokenIndex: 0
+        )
+        let cache = DownloadableMediaCache.shared
+        let fileURL = cache.cachedFileURLForTesting(for: descriptor)
+        try FileManager.default.createDirectory(
+            at: fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try Data("cached".utf8).write(to: fileURL)
+        let completion = expectation(description: "Deferred file load completes")
+        var loadedURL: URL?
+        defer {
+            try? FileManager.default.removeItem(at: fileURL.deletingLastPathComponent())
+            cache.cancelAllDownloads()
+        }
+
+        _ = cache.loadFile(for: descriptor) { url in
+            loadedURL = url
+            completion.fulfill()
+        }
+        cache.cancelAllDownloads()
+
+        await fulfillment(of: [completion], timeout: 1)
+
+        XCTAssertNil(loadedURL)
+    }
+
+    func testCancelAllDownloadsPreservesRetainedDeferredFileLoad() async throws {
+        let descriptor = makeDescriptor(
+            name: "retained-deferred-file",
+            purpose: .collectionBrowserThumbnail,
+            collectionId: "retained-deferred-file-\(UUID())",
+            tokenIndex: 0
+        )
+        let cache = DownloadableMediaCache.shared
+        let fileURL = cache.cachedFileURLForTesting(for: descriptor)
+        try FileManager.default.createDirectory(
+            at: fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try Data("cached".utf8).write(to: fileURL)
+        let completion = expectation(description: "Retained deferred file load completes")
+        var loadedURL: URL?
+
+        _ = cache.loadFile(for: descriptor) { url in
+            loadedURL = url
+            completion.fulfill()
+        }
+        let releaseFile = cache.retainFile(for: descriptor)
+        defer {
+            releaseFile()
+            try? FileManager.default.removeItem(at: fileURL.deletingLastPathComponent())
+            cache.cancelAllDownloads()
+        }
+        cache.cancelAllDownloads()
+
+        await fulfillment(of: [completion], timeout: 1)
+
+        XCTAssertEqual(loadedURL, fileURL)
+        releaseFile()
+        await Task.yield()
+    }
+
+    func testRetainingAfterCancelDoesNotReviveDeferredFileLoad() async throws {
+        let descriptor = makeDescriptor(
+            name: "post-cancel-retained-file",
+            purpose: .collectionBrowserThumbnail,
+            collectionId: "post-cancel-retained-file-\(UUID())",
+            tokenIndex: 0
+        )
+        let cache = DownloadableMediaCache.shared
+        let fileURL = cache.cachedFileURLForTesting(for: descriptor)
+        try FileManager.default.createDirectory(
+            at: fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try Data("cached".utf8).write(to: fileURL)
+        let completion = expectation(description: "Cancelled deferred file load completes")
+        var loadedURL: URL?
+
+        _ = cache.loadFile(for: descriptor) { url in
+            loadedURL = url
+            completion.fulfill()
+        }
+        cache.cancelAllDownloads()
+        let releaseFile = cache.retainFile(for: descriptor)
+        defer {
+            releaseFile()
+            try? FileManager.default.removeItem(at: fileURL.deletingLastPathComponent())
+            cache.cancelAllDownloads()
+        }
+
+        await fulfillment(of: [completion], timeout: 1)
+
+        XCTAssertNil(loadedURL)
+        releaseFile()
+        await Task.yield()
+    }
+
+    func testFileEvictionProtectsDemandedFileNames() {
+        let collectionId = "eviction-demand-\(UUID())"
+        let descriptor = makeDescriptor(
+            name: "demanded-file",
+            purpose: .collectionBrowserThumbnail,
+            collectionId: collectionId,
+            tokenIndex: 0
+        )
+        let cache = DownloadableMediaCache.shared
+        let cancel = cache.loadFile(for: descriptor) { _ in }
+        defer {
+            cancel?()
+            cache.cancelAllDownloads()
+        }
+
+        let protectedFileNames = cache.fileNamesProtectedFromEvictionForTesting(
+            collectionId: collectionId,
+            allowedFileNames: ["window-file"]
+        )
+        let fileName = cache.cachedFileURLForTesting(for: descriptor).lastPathComponent
+
+        XCTAssertTrue(protectedFileNames.contains("window-file"))
+        XCTAssertTrue(protectedFileNames.contains(fileName))
+        XCTAssertTrue(protectedFileNames.contains("\(fileName).metadata.json"))
+    }
+
+    func testMemoryWarningDoesNotClearNewerCachedImage() async {
+        let descriptor = makeDescriptor(
+            name: "post-memory-warning-image",
+            purpose: .collectionBrowserThumbnail,
+            collectionId: "post-memory-warning-image-\(UUID())",
+            tokenIndex: 0
+        )
+        let image = makeImage(.magenta)
+        let cache = DownloadableMediaCache.shared
+        defer {
+            cache.resetDecodedImagesForTesting()
+            let window = PlayerDownloadableMediaWindow(
+                currentDescriptor: descriptor,
+                descriptors: [descriptor],
+                decodedDescriptors: [],
+                adjacentDescriptor: nil
+            )
+            cache.prepareWindow(window, ownerId: UUID())
+            cache.cancelAllDownloads()
+        }
+
+        cache.handleMemoryWarningForTesting()
+        cache.installMemoryCachedImageForTesting(image, for: descriptor)
+        for _ in 0..<10 {
+            await Task.yield()
+        }
+
+        XCTAssertTrue(cache.cachedDecodedImage(for: descriptor) === image)
+    }
+
+    func testMemoryWarningPreservesActiveAnimatedMediaDownloadWithoutFileCallback() {
+        let collectionId = "memory-warning-foreground-media-\(UUID())"
+        let descriptor = CollectionCatalogDownloadableMediaDescriptor(
+            collectionId: collectionId,
+            tokenId: "0",
+            tokenIndex: 0,
+            media: .animatedImage(
+                url: URL(fileURLWithPath: "/memory-warning-foreground-media-\(UUID()).gif"),
+                fileExtension: "gif"
+            )
+        )
+        let cache = DownloadableMediaCache.shared
+        let ownerId = UUID()
+        let window = PlayerDownloadableMediaWindow(
+            currentDescriptor: descriptor,
+            descriptors: [descriptor],
+            decodedDescriptors: [],
+            adjacentDescriptor: nil
+        )
+        defer {
+            cache.clearActiveWindow(ownerId: ownerId)
+            cache.cancelAllDownloads()
+        }
+
+        cache.prepareWindow(window, ownerId: ownerId)
+        cache.handleMemoryWarningForTesting()
+
+        XCTAssertTrue(cache.hasForegroundFileWorkForTesting(for: descriptor))
+    }
 #endif
+}
+
+private actor NativeMetalCardAssetLoadGate<Value: Sendable> {
+    private struct PendingValue: Sendable {
+        let value: Value
+    }
+
+    private var continuation: CheckedContinuation<Value, Never>?
+    private var pendingValue: PendingValue?
+    private var started = false
+
+    func wait() async -> Value {
+        started = true
+        if let pendingValue {
+            self.pendingValue = nil
+            return pendingValue.value
+        }
+        return await withCheckedContinuation { continuation in
+            self.continuation = continuation
+        }
+    }
+
+    func hasStarted() -> Bool {
+        started
+    }
+
+    func resume(returning value: Value) {
+        if let continuation {
+            self.continuation = nil
+            continuation.resume(returning: value)
+        } else {
+            pendingValue = PendingValue(value: value)
+        }
+    }
+}
+
+nonisolated final class CancellableFileRemovalTokenTests: XCTestCase {
+
+    func testSuccessfulRemovalDeletesFile() throws {
+        let fileURL = temporaryFileURL()
+        try Data("cached".utf8).write(to: fileURL)
+        defer { try? FileManager.default.removeItem(at: fileURL) }
+        let token = DownloadableMediaCache.CancellableFileRemovalToken()
+
+        XCTAssertEqual(token.removeIfActive(at: fileURL), .removed)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: fileURL.path))
+    }
+
+    func testCancelledRemovalLeavesFileInPlace() throws {
+        let fileURL = temporaryFileURL()
+        try Data("cached".utf8).write(to: fileURL)
+        defer { try? FileManager.default.removeItem(at: fileURL) }
+        let token = DownloadableMediaCache.CancellableFileRemovalToken()
+
+        token.cancel()
+
+        XCTAssertEqual(token.removeIfActive(at: fileURL), .cancelled)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: fileURL.path))
+    }
+
+    func testCancelledPairRemovalLeavesBothFilesInPlace() throws {
+        let primaryURL = temporaryFileURL()
+        let sidecarURL = temporaryFileURL()
+        try Data("cached".utf8).write(to: primaryURL)
+        try Data("metadata".utf8).write(to: sidecarURL)
+        defer {
+            try? FileManager.default.removeItem(at: primaryURL)
+            try? FileManager.default.removeItem(at: sidecarURL)
+        }
+        let token = DownloadableMediaCache.CancellableFileRemovalToken()
+
+        token.cancel()
+        let removal = token.removePairIfActive(
+            primaryURL: primaryURL,
+            sidecarURL: sidecarURL
+        )
+
+        XCTAssertEqual(removal.primary, .cancelled)
+        XCTAssertNil(removal.sidecar)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: primaryURL.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: sidecarURL.path))
+    }
+
+    func testFailedCleanupIsStagedForLaterRemoval() {
+        let fileURL = temporaryFileURL()
+        try? Data("cached".utf8).write(to: fileURL)
+        defer { try? FileManager.default.removeItem(at: fileURL) }
+        let attemptedURL = OSAllocatedUnfairLock<URL?>(initialState: nil)
+        let token = DownloadableMediaCache.CancellableFileRemovalToken(removeItem: { url in
+            attemptedURL.withLock { $0 = url }
+            throw CancellableFileRemovalTestError.expected
+        })
+        defer {
+            if let url = attemptedURL.withLock({ $0 }) {
+                try? FileManager.default.removeItem(at: url)
+            }
+        }
+
+        let result = token.removeIfActive(at: fileURL)
+        XCTAssertEqual(result, .stagedForCleanup)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: fileURL.path))
+        XCTAssertTrue(token.isActive)
+    }
+
+    func testFailedPrimaryRemovalLeavesSidecarInPlace() throws {
+        let primaryURL = temporaryFileURL()
+        let sidecarURL = temporaryFileURL()
+        try Data("metadata".utf8).write(to: sidecarURL)
+        defer { try? FileManager.default.removeItem(at: sidecarURL) }
+        let token = DownloadableMediaCache.CancellableFileRemovalToken()
+
+        let removal = token.removePairIfActive(
+            primaryURL: primaryURL,
+            sidecarURL: sidecarURL
+        )
+
+        XCTAssertEqual(removal.primary, .notRemoved)
+        XCTAssertNil(removal.sidecar)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: sidecarURL.path))
+    }
+
+    func testSuccessfulPairRemovalDeletesBothFiles() throws {
+        let primaryURL = temporaryFileURL()
+        let sidecarURL = temporaryFileURL()
+        try Data("cached".utf8).write(to: primaryURL)
+        try Data("metadata".utf8).write(to: sidecarURL)
+        defer {
+            try? FileManager.default.removeItem(at: primaryURL)
+            try? FileManager.default.removeItem(at: sidecarURL)
+        }
+        let token = DownloadableMediaCache.CancellableFileRemovalToken()
+
+        let removal = token.removePairIfActive(
+            primaryURL: primaryURL,
+            sidecarURL: sidecarURL
+        )
+
+        XCTAssertEqual(removal.primary, .removed)
+        XCTAssertEqual(removal.sidecar, .removed)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: primaryURL.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: sidecarURL.path))
+    }
+
+    func testCancellationDoesNotWaitForInFlightRemoval() {
+        let removalStarted = DispatchSemaphore(value: 0)
+        let allowRemoval = DispatchSemaphore(value: 0)
+        let removalFinished = DispatchSemaphore(value: 0)
+        let cancellationFinished = DispatchSemaphore(value: 0)
+        let token = DownloadableMediaCache.CancellableFileRemovalToken(removeItem: { url in
+            removalStarted.signal()
+            allowRemoval.wait()
+            try? FileManager.default.removeItem(at: url)
+        })
+        let fileURL = temporaryFileURL()
+        try? Data("cached".utf8).write(to: fileURL)
+
+        DispatchQueue.global().async {
+            _ = token.removeIfActive(at: fileURL)
+            removalFinished.signal()
+        }
+        XCTAssertEqual(removalStarted.wait(timeout: .now() + 1), .success)
+
+        DispatchQueue.global().async {
+            token.cancel()
+            cancellationFinished.signal()
+        }
+        XCTAssertEqual(cancellationFinished.wait(timeout: .now() + 1), .success)
+        XCTAssertFalse(token.isActive)
+        let cancelledResult = token.removeIfActive(at: fileURL)
+        XCTAssertEqual(cancelledResult, .cancelled)
+        let replacementData = Data("replacement".utf8)
+        try? replacementData.write(to: fileURL)
+
+        allowRemoval.signal()
+
+        XCTAssertEqual(removalFinished.wait(timeout: .now() + 1), .success)
+        XCTAssertEqual(try? Data(contentsOf: fileURL), replacementData)
+        try? FileManager.default.removeItem(at: fileURL)
+    }
+
+    func testCancellationDuringPrimaryRemovalSkipsSidecar() {
+        let primaryURL = temporaryFileURL()
+        let sidecarURL = temporaryFileURL()
+        let primaryStarted = DispatchSemaphore(value: 0)
+        let allowPrimaryRemoval = DispatchSemaphore(value: 0)
+        let pairFinished = DispatchSemaphore(value: 0)
+        let cancellationFinished = DispatchSemaphore(value: 0)
+        let sidecarRemoved = DispatchSemaphore(value: 0)
+        let removalIndex = OSAllocatedUnfairLock(initialState: 0)
+        let token = DownloadableMediaCache.CancellableFileRemovalToken(removeItem: { url in
+            let index = removalIndex.withLock { index in
+                defer { index += 1 }
+                return index
+            }
+            if index == 0 {
+                primaryStarted.signal()
+                allowPrimaryRemoval.wait()
+            } else {
+                sidecarRemoved.signal()
+            }
+            try? FileManager.default.removeItem(at: url)
+        })
+        try? Data("cached".utf8).write(to: primaryURL)
+        try? Data("metadata".utf8).write(to: sidecarURL)
+        defer {
+            try? FileManager.default.removeItem(at: primaryURL)
+            try? FileManager.default.removeItem(at: sidecarURL)
+        }
+
+        DispatchQueue.global().async {
+            _ = token.removePairIfActive(
+                primaryURL: primaryURL,
+                sidecarURL: sidecarURL
+            )
+            pairFinished.signal()
+        }
+        XCTAssertEqual(primaryStarted.wait(timeout: .now() + 1), .success)
+
+        DispatchQueue.global().async {
+            token.cancel()
+            cancellationFinished.signal()
+        }
+        XCTAssertEqual(cancellationFinished.wait(timeout: .now() + 1), .success)
+        allowPrimaryRemoval.signal()
+
+        XCTAssertEqual(pairFinished.wait(timeout: .now() + 1), .success)
+        XCTAssertEqual(sidecarRemoved.wait(timeout: .now()), .timedOut)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: sidecarURL.path))
+    }
+
+    private func temporaryFileURL() -> URL {
+        FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    }
+}
+
+private enum CancellableFileRemovalTestError: Error {
+    case expected
+}
+
+nonisolated final class NativeMetalCardAssetLeaseTests: XCTestCase {
+
+    func testAssetGenerationChangesOnlyWhenCachedFileChanges() async throws {
+        let rootURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: rootURL)
+        }
+
+        let facePath = "faces/1.webp"
+        let faceURL = rootURL.appendingPathComponent(facePath)
+        try FileManager.default.createDirectory(
+            at: faceURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        let contents = Data([1, 2, 3])
+        try contents.write(to: faceURL)
+
+        let cache = NativeMetalCardAssetCache(configuration: NativeMetalCardAssetCacheConfiguration(
+            renderKind: .cardNft2,
+            rootURL: rootURL,
+            logger: Logger(subsystem: "org.lil.nft-player.tests", category: "NativeMetalCardAssetCache"),
+            logName: "test",
+            maxCacheBytes: nil,
+            markCachedFilesAsUsed: false,
+            paths: { _ in
+                NativeMetalCardAssetPaths(
+                    face: facePath,
+                    foil: "foils/1.webp",
+                    textureMask: "textures/1.webp",
+                    grain: "img/grain.webp",
+                    glitter: "img/glitter.png"
+                )
+            },
+            remoteURL: { _ in nil }
+        ))
+
+        let firstResult = await cache.loadFace(for: 1)
+        let secondResult = await cache.loadFace(for: 1)
+        let firstAssetURL = try XCTUnwrap(firstResult)
+        let secondAssetURL = try XCTUnwrap(secondResult)
+        XCTAssertEqual(firstAssetURL.generationID, secondAssetURL.generationID)
+
+        await cache.invalidate(firstAssetURL)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: faceURL.path))
+
+        let replacementSourceURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+        let replacementContents = Data([4, 5, 6])
+        try replacementContents.write(to: replacementSourceURL)
+        defer {
+            try? FileManager.default.removeItem(at: replacementSourceURL)
+        }
+        let didCacheReplacement = await cache.cacheFace(
+            for: 1,
+            from: replacementSourceURL
+        )
+        XCTAssertTrue(didCacheReplacement)
+        let replacementResult = await cache.loadFace(for: 1)
+        let replacementAssetURL = try XCTUnwrap(replacementResult)
+        XCTAssertNotEqual(firstAssetURL.generationID, replacementAssetURL.generationID)
+
+        await cache.invalidate(firstAssetURL)
+        XCTAssertEqual(try Data(contentsOf: faceURL), replacementContents)
+
+        await cache.invalidate(replacementAssetURL)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: faceURL.path))
+    }
+}
+
+nonisolated final class NativeMetalCardResourceLifecycleTests: XCTestCase {
+
+    @MainActor
+    func testRendererCoreDoesNotStayAliveWhileAssetLoadsAreSuspended() async throws {
+        guard let device = MTLCreateSystemDefaultDevice() else {
+            throw XCTSkip("Metal is unavailable")
+        }
+        let faceGate = NativeMetalCardAssetLoadGate<NativeMetalCardAssetURL?>()
+        let effectGate = NativeMetalCardAssetLoadGate<NativeMetalCardAssetURLs?>()
+        let assetLoader = NativeMetalCardRendererAssetLoader(
+            loadFace: { _, _ in
+                await faceGate.wait()
+            },
+            loadEffectAssets: { _, _ in
+                await effectGate.wait()
+            },
+            prefetch: { _, _, _ in },
+            cancelPrefetchDownloads: { _ in },
+            invalidateAsset: { _, _ in }
+        )
+        var rendererCore = NativeMetalCardRendererCore(
+            device: device,
+            logger: Logger(subsystem: "org.lil.nft-player.tests", category: "NativeMetalCard"),
+            assetLoader: assetLoader
+        )
+        guard rendererCore != nil else {
+            throw XCTSkip("Native Metal renderer is unavailable")
+        }
+        weak let weakRendererCore = rendererCore
+
+        rendererCore?.display(tokenID: 1, renderKind: .cardNft2)
+        for _ in 0..<100 {
+            let faceLoadStarted = await faceGate.hasStarted()
+            let effectLoadStarted = await effectGate.hasStarted()
+            if faceLoadStarted, effectLoadStarted {
+                break
+            }
+            await Task.yield()
+        }
+        let faceLoadStarted = await faceGate.hasStarted()
+        let effectLoadStarted = await effectGate.hasStarted()
+        XCTAssertTrue(faceLoadStarted)
+        XCTAssertTrue(effectLoadStarted)
+
+        rendererCore = nil
+        for _ in 0..<10 where weakRendererCore != nil {
+            await Task.yield()
+        }
+        XCTAssertNil(weakRendererCore)
+
+        await faceGate.resume(returning: nil)
+        await effectGate.resume(returning: nil)
+    }
+
+    @MainActor
+    func testEffectAssetFailureStillPresentsFaceFallback() async throws {
+        guard let device = MTLCreateSystemDefaultDevice() else {
+            throw XCTSkip("Metal is unavailable")
+        }
+        let faceGate = NativeMetalCardAssetLoadGate<NativeMetalCardAssetURL?>()
+        let effectGate = NativeMetalCardAssetLoadGate<NativeMetalCardAssetURLs?>()
+        await effectGate.resume(returning: nil)
+        let assetLoader = NativeMetalCardRendererAssetLoader(
+            loadFace: { _, _ in
+                await faceGate.wait()
+            },
+            loadEffectAssets: { _, _ in
+                await effectGate.wait()
+            },
+            prefetch: { _, _, _ in },
+            cancelPrefetchDownloads: { _ in },
+            invalidateAsset: { _, _ in }
+        )
+        guard let rendererCore = NativeMetalCardRendererCore(
+            device: device,
+            logger: Logger(subsystem: "org.lil.nft-player.tests", category: "NativeMetalCard"),
+            assetLoader: assetLoader
+        ) else {
+            throw XCTSkip("Native Metal renderer is unavailable")
+        }
+        let image = UIGraphicsImageRenderer(size: CGSize(width: 2, height: 2)).image { context in
+            UIColor.purple.setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 2, height: 2))
+        }
+        let imageData = try XCTUnwrap(image.pngData())
+        let faceURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension("png")
+        try imageData.write(to: faceURL, options: .atomic)
+        defer {
+            try? FileManager.default.removeItem(at: faceURL)
+        }
+        let contentReady = expectation(description: "Face fallback is ready")
+
+        rendererCore.display(
+            tokenID: 1,
+            renderKind: .cardNft2,
+            onContentReady: {
+                contentReady.fulfill()
+            }
+        )
+        for _ in 0..<100 {
+            if await effectGate.hasStarted() {
+                break
+            }
+            await Task.yield()
+        }
+        let effectLoadStarted = await effectGate.hasStarted()
+        XCTAssertTrue(effectLoadStarted)
+        for _ in 0..<10 {
+            await Task.yield()
+        }
+
+        await faceGate.resume(returning: NativeMetalCardAssetURL(
+            asset: NativeMetalCardAssetPath(role: .face, relativePath: faceURL.lastPathComponent),
+            url: faceURL,
+            generationID: UUID()
+        ))
+        await fulfillment(of: [contentReady], timeout: 2)
+
+        let textures = try XCTUnwrap(rendererCore.textures)
+        XCTAssertFalse(textures.rendersEffect)
+    }
 }

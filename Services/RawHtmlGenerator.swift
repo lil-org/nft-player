@@ -1,31 +1,31 @@
 // ∅ 2026 lil org
 
 import Foundation
+import os
 
-struct RawHtmlGenerator {
+nonisolated enum RawHtmlGenerator {
     
-    private static var libScriptsDict = [String: String]()
-    private static let libScriptsLock = NSLock()
+    private static let libScripts = OSAllocatedUnfairLock(
+        initialState: [Script.Kind: String]()
+    )
     
     private static func libScript(_ kind: Script.Kind) -> String {
-        if let libScript = libScriptsLock.withLock({ libScriptsDict[kind.rawValue] }) {
+        if let libScript = libScripts.withLock({ $0[kind] }) {
             return libScript
         }
 
-        let url: URL? = {
-            if let altPath = alternativeResourcesPath {
-                return URL(fileURLWithPath: altPath + "/Contents/Resources/\(kind.rawValue).js")
-            } else {
-                return Bundle.main.url(forResource: kind.rawValue, withExtension: "js")
-            }
-        }()
-        guard let url = url, let libScript = try? String(contentsOf: url, encoding: .utf8) else { return "" }
+        guard let url = SuggestedItemsService.hostResourceURL(
+            forJavaScriptLibrary: kind.rawValue
+        ),
+              let libScript = try? String(contentsOf: url, encoding: .utf8) else {
+            return ""
+        }
 
-        return libScriptsLock.withLock {
-            if let cachedLibScript = libScriptsDict[kind.rawValue] {
+        return libScripts.withLock { scripts in
+            if let cachedLibScript = scripts[kind] {
                 return cachedLibScript
             }
-            libScriptsDict[kind.rawValue] = libScript
+            scripts[kind] = libScript
             return libScript
         }
     }

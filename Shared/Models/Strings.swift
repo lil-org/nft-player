@@ -2,7 +2,7 @@
 
 import Foundation
 
-struct Strings {
+nonisolated struct Strings: Sendable {
 
     static let viewOnBlockExplorer = loc("View on block explorer")
     static let viewFullscreen = loc("View fullscreen")

@@ -1,7 +1,7 @@
 // ∅ 2026 lil org
 
 import Cocoa
-import Combine
+import Observation
 import SwiftUI
 
 /// The one-per-page screen. Wraps the `NSPageController` based pager and owns the
@@ -32,12 +32,10 @@ final class MacPlayerPagerViewController: NSViewController, MacNavigationScreen 
 
     private var completionControlsView: NSHostingView<MacPlayerCompletionControls>?
     private var completionControlsFadeGeneration = 0
-    private var currentTokenObserver: AnyCancellable?
-    private var completionObserver: AnyCancellable?
+    private var observedToken: GeneratedToken
     private var navigationKeysEventMonitor: Any?
     private var mouseMoveEventMonitor: Any?
     private var cursorHideTimer: Timer?
-    private var fullScreenObserver: NSObjectProtocol?
     private var magnifyEventMonitor: Any?
     private var scrollEventMonitor: Any?
     private var swipeEventMonitor: Any?
@@ -59,6 +57,7 @@ final class MacPlayerPagerViewController: NSViewController, MacNavigationScreen 
         self.session = session
         self.model = model
         self.mediaActions = mediaActions
+        self.observedToken = session.playerModel.currentToken
         self.pageController = MacPlayerPageController(
             playerModel: session.playerModel,
             playerMenuDelegate: nil
@@ -69,6 +68,9 @@ final class MacPlayerPagerViewController: NSViewController, MacNavigationScreen 
         }
         pageController.onNavigationStateChange = { [weak self] in
             guard let self, self.ownsActiveSession else { return }
+            if self.pageController.isTransitionInFlight {
+                self.playerModel.cancelPendingCollectionRestart()
+            }
             self.model.refreshCommandState()
         }
         pageController.update(playerMenuDelegate: self)
@@ -78,11 +80,13 @@ final class MacPlayerPagerViewController: NSViewController, MacNavigationScreen 
         fatalError("yo")
     }
 
-    deinit {
+    isolated deinit {
         removeEventMonitors()
-        if let fullScreenObserver {
-            NotificationCenter.default.removeObserver(fullScreenObserver)
-        }
+        NotificationCenter.default.removeObserver(
+            self,
+            name: NSWindow.didEnterFullScreenNotification,
+            object: nil
+        )
         cursorHideTimer?.invalidate()
         pageController.cleanup()
     }
@@ -110,36 +114,51 @@ final class MacPlayerPagerViewController: NSViewController, MacNavigationScreen 
             pagerView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
 
-        currentTokenObserver = playerModel.$currentToken
-            .dropFirst()
-            .receive(on: RunLoop.main)
-            .sink { [weak self] token in
-                guard let self else { return }
-                // Catches any token change the pager did not originate; a no-op when
-                // the page controller is already on `token`.
-                self.pageController.syncSelection()
-                self.playerModel.markTokenViewed(token)
-                self.updateCompletionControls()
-            }
-        completionObserver = playerModel.$isCurrentTokenInsertedWidgetToken
-            .dropFirst()
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in
-                self?.updateCompletionControls()
-            }
-        fullScreenObserver = NotificationCenter.default.addObserver(
-            forName: NSWindow.didEnterFullScreenNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] notification in
-            guard let self,
-                  self.isActive,
-                  let window = notification.object as? NSWindow,
-                  window === self.view.window else {
-                return
-            }
-            NSCursor.setHiddenUntilMouseMoves(true)
+        observePlayerModel()
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(windowDidEnterFullScreen(_:)),
+            name: NSWindow.didEnterFullScreenNotification,
+            object: nil
+        )
+    }
+
+    @objc private func windowDidEnterFullScreen(_ notification: Notification) {
+        guard isActive,
+              let window = notification.object as? NSWindow,
+              window === view.window else {
+            return
         }
+        NSCursor.setHiddenUntilMouseMoves(true)
+    }
+
+    private func observePlayerModel() {
+        withObservationTracking {
+            _ = playerModel.currentToken
+            _ = playerModel.isCurrentTokenInsertedWidgetToken
+        } onChange: { [weak self] in
+            Task { @MainActor in
+                guard let self else { return }
+                self.handlePlayerModelChange()
+                self.observePlayerModel()
+            }
+        }
+    }
+
+    private func handlePlayerModelChange() {
+        let token = playerModel.currentToken
+        if observedToken != token {
+            observedToken = token
+            pageController.syncSelection()
+            let playerModel = self.playerModel
+            if let progress = playerModel.viewingProgress(for: token) {
+                PlayerPersistenceUpdates.enqueue {
+                    await playerModel.markViewed(progress)
+                }
+            }
+        }
+
+        updateCompletionControls()
     }
 
     override func viewDidAppear() {
@@ -162,6 +181,7 @@ final class MacPlayerPagerViewController: NSViewController, MacNavigationScreen 
     }
 
     func navigationScreenDidResignActive() {
+        playerModel.cancelPendingCollectionRestart()
         guard isActive else { return }
         isActive = false
         updateAccessibilityVisibility()
@@ -171,12 +191,16 @@ final class MacPlayerPagerViewController: NSViewController, MacNavigationScreen 
     }
 
     func navigationScreenDidMoveOffstage() {
+        playerModel.cancelPendingCollectionRestart()
         isActive = false
         updateAccessibilityVisibility()
         pageController.deactivateContent()
     }
 
     func setModeTransitionAccessibilityHidden(_ isHidden: Bool) {
+        if isHidden {
+            playerModel.cancelPendingCollectionRestart()
+        }
         isAccessibilityHiddenForModeTransition = isHidden
         updateAccessibilityVisibility()
     }
@@ -187,6 +211,7 @@ final class MacPlayerPagerViewController: NSViewController, MacNavigationScreen 
     /// mode switch lands on the item the browser was showing.
     @discardableResult
     func anchor(toTokenIndex tokenIndex: Int) -> Bool {
+        playerModel.cancelPendingCollectionRestart()
         guard !pageController.isTransitionInFlight,
               !session.collectionId.isEmpty,
               let token = CollectionCatalog.generateToken(
@@ -201,6 +226,7 @@ final class MacPlayerPagerViewController: NSViewController, MacNavigationScreen 
     }
 
     func commitCollectionBrowserHandoff(toTokenIndex tokenIndex: Int) {
+        playerModel.cancelPendingCollectionRestart()
         guard playerModel.exitWidgetTokenInsertion(selectingTokenAt: tokenIndex) else { return }
         pageController.rebuildCollectionAfterWidgetInsertionExit()
     }
@@ -217,7 +243,7 @@ final class MacPlayerPagerViewController: NSViewController, MacNavigationScreen 
         pageController.isCurrentPageZoomed
     }
 
-    func resetZoom(completion: @escaping () -> Void) {
+    func resetZoom(completion: @MainActor @Sendable @escaping () -> Void) {
         pageController.resetCurrentPageZoom(completion: completion)
     }
 
@@ -228,11 +254,13 @@ final class MacPlayerPagerViewController: NSViewController, MacNavigationScreen 
 
     func goBack() {
         guard allowsPagingInteraction else { return }
+        playerModel.cancelPendingCollectionRestart()
         pageController.navigateBackFromChrome(animation: .immediate)
     }
 
     func goForward() {
         guard allowsPagingInteraction else { return }
+        playerModel.cancelPendingCollectionRestart()
         pageController.navigateForwardFromChrome(animation: .immediate)
     }
 
@@ -277,15 +305,17 @@ final class MacPlayerPagerViewController: NSViewController, MacNavigationScreen 
                 context.duration = Self.completionControlsFadeDuration
                 completionControlsView.animator().alphaValue = 0
             } completionHandler: { [weak self] in
-                // A fade back in bumps the generation, so a superseded fade-out can
-                // never tear the controls down underneath it.
-                guard let self,
-                      self.completionControlsFadeGeneration == generation,
-                      let view = self.completionControlsView else {
-                    return
+                Task { @MainActor in
+                    // A fade back in bumps the generation, so a superseded fade-out can
+                    // never tear the controls down underneath it.
+                    guard let self,
+                          self.completionControlsFadeGeneration == generation,
+                          let view = self.completionControlsView else {
+                        return
+                    }
+                    view.removeFromSuperview()
+                    self.completionControlsView = nil
                 }
-                view.removeFromSuperview()
-                self.completionControlsView = nil
             }
             return
         }
@@ -320,15 +350,23 @@ final class MacPlayerPagerViewController: NSViewController, MacNavigationScreen 
 
     private func viewAgain() {
         guard allowsPagingInteraction, !isPageTransitionInFlight else { return }
-        playerModel.restartCollection()
-        // restartCollection rewrites the model's history; the page controller has to
-        // be told, or the pager stays parked on the last token.
-        pageController.syncSelection()
+        playerModel.restartCollection(
+            ifCurrent: { [weak self] in
+                guard let self else { return false }
+                return self.ownsActiveSession
+                    && self.allowsPagingInteraction
+                    && !self.isPageTransitionInFlight
+            },
+            onCommit: { [weak self] in
+                self?.pageController.syncSelection()
+            }
+        )
     }
 
     /// "Finish" leaves the player entirely, the way closing the old player window did.
     private func finish() {
         guard allowsPagingInteraction, !isPageTransitionInFlight else { return }
+        playerModel.cancelPendingCollectionRestart()
         model.showCollections()
     }
 
@@ -348,8 +386,10 @@ final class MacPlayerPagerViewController: NSViewController, MacNavigationScreen 
         cursorHideTimer?.invalidate()
         guard isFullScreenOnActiveSpace else { return }
         cursorHideTimer = Timer.scheduledTimer(withTimeInterval: 2.3, repeats: false) { [weak self] _ in
-            if self?.isFullScreenOnActiveSpace == true {
-                NSCursor.setHiddenUntilMouseMoves(true)
+            Task { @MainActor in
+                if self?.isFullScreenOnActiveSpace == true {
+                    NSCursor.setHiddenUntilMouseMoves(true)
+                }
             }
         }
     }
@@ -365,11 +405,14 @@ final class MacPlayerPagerViewController: NSViewController, MacNavigationScreen 
             switch navigationAction {
             case let .back(animation):
                 guard self.allowsPagingInteraction else { return nil }
+                self.playerModel.cancelPendingCollectionRestart()
                 self.pageController.navigateBackFromChrome(animation: animation)
             case let .forward(animation):
                 guard self.allowsPagingInteraction else { return nil }
+                self.playerModel.cancelPendingCollectionRestart()
                 self.pageController.navigateForwardFromChrome(animation: animation)
             case .exit:
+                self.playerModel.cancelPendingCollectionRestart()
                 self.model.goBack()
             }
             return nil

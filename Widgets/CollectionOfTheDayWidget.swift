@@ -4,12 +4,12 @@ import AppIntents
 import SwiftUI
 import WidgetKit
 
-struct CollectionOfTheDayEntry: TimelineEntry {
+nonisolated struct CollectionOfTheDayEntry: TimelineEntry, Sendable {
     let date: Date
     let collectionId: String
     let tokenId: String?
     let coverAssetName: String
-    let image: WidgetPlatformImage?
+    let imageData: Data?
 
     var widgetURL: URL? {
         guard !collectionId.isEmpty else { return nil }
@@ -17,7 +17,7 @@ struct CollectionOfTheDayEntry: TimelineEntry {
     }
 }
 
-enum CollectionOfTheDaySource {
+nonisolated enum CollectionOfTheDaySource: Sendable {
     case collectionOfTheDay
     case defaultSelectedCollection
     case fixedCollection(id: String)
@@ -34,7 +34,7 @@ enum CollectionOfTheDaySource {
     }
 }
 
-struct CollectionOfTheDayProvider: TimelineProvider {
+nonisolated struct CollectionOfTheDayProvider: TimelineProvider, Sendable {
     let source: CollectionOfTheDaySource
 
     init(source: CollectionOfTheDaySource = .collectionOfTheDay) {
@@ -45,65 +45,71 @@ struct CollectionOfTheDayProvider: TimelineProvider {
         CollectionWidgetTimelineFactory.placeholderEntry(source: source)
     }
 
-    func getSnapshot(in context: Context, completion: @escaping (CollectionOfTheDayEntry) -> Void) {
+    func getSnapshot(in context: Context, completion: @escaping @Sendable (CollectionOfTheDayEntry) -> Void) {
         completion(CollectionWidgetTimelineFactory.placeholderEntry(source: source))
     }
 
-    func getTimeline(in context: Context, completion: @escaping (Timeline<CollectionOfTheDayEntry>) -> Void) {
-        CollectionWidgetTimelineFactory.timeline(source: source, context: context, completion: completion)
+    func getTimeline(
+        in context: Context,
+        completion: @escaping @Sendable (Timeline<CollectionOfTheDayEntry>) -> Void
+    ) {
+        let displaySize = context.displaySize
+        Task {
+            completion(await CollectionWidgetTimelineFactory.timeline(source: source, displaySize: displaySize))
+        }
     }
 }
 
-private enum CollectionWidgetTimelineFactory {
+nonisolated private enum CollectionWidgetTimelineFactory {
     static func placeholderEntry(source: CollectionOfTheDaySource, date: Date = Date()) -> CollectionOfTheDayEntry {
         fallbackEntry(source: source, date: date)
     }
 
     static func timeline(
         source: CollectionOfTheDaySource,
-        context: TimelineProviderContext,
+        displaySize: CGSize,
         date: Date = Date(),
-        rotationFrequency: WidgetRotationFrequency? = nil,
-        completion: @escaping (Timeline<CollectionOfTheDayEntry>) -> Void
-    ) {
+        rotationFrequency: WidgetRotationFrequency? = nil
+    ) async -> Timeline<CollectionOfTheDayEntry> {
         guard let collection = source.collection(for: date) else {
-            completion(Timeline(
+            return Timeline(
                 entries: [emptyEntry(date: date)],
                 policy: .after(CollectionOfTheDayWidgetData.retryDate(after: date))
-            ))
-            return
+            )
         }
 
         guard let imageReference = CollectionOfTheDayWidgetData.randomStaticImageReference(collection: collection) else {
-            completion(fallbackTimeline(collection: collection, date: date))
-            return
+            return fallbackTimeline(collection: collection, date: date)
         }
 
-        let maxPixelSize = CollectionOfTheDayWidgetData.maxImagePixelSize(displaySize: context.displaySize)
-        let request = URLRequest(url: imageReference.url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 20)
-        URLSession.shared.dataTask(with: request) { data, response, _ in
-            guard let data,
-                  isSuccessfulImageResponse(response),
-                  let imageData = CollectionOfTheDayWidgetData.preparedWidgetImageData(
+        let maxPixelSize = CollectionOfTheDayWidgetData.maxImagePixelSize(displaySize: displaySize)
+        let request = URLRequest(
+            url: imageReference.url,
+            cachePolicy: .reloadIgnoringLocalCacheData,
+            timeoutInterval: 20
+        )
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard isSuccessfulImageResponse(response),
+                  let imageData = await CollectionOfTheDayWidgetData.preparedWidgetImageData(
                     data,
                     maxPixelSize: maxPixelSize
-                  ),
-                  let image = CollectionOfTheDayWidgetData.platformImage(data: imageData) else {
-                completion(fallbackTimeline(collection: collection, date: date))
-                return
+                  ) else {
+                return fallbackTimeline(collection: collection, date: date)
             }
 
+            await CollectionOfTheDayWidgetData.cacheImageData(
+                imageData,
+                collectionId: collection.id,
+                tokenId: imageReference.tokenId
+            )
             let entry = CollectionOfTheDayEntry(
                 date: date,
                 collectionId: collection.id,
                 tokenId: imageReference.tokenId,
                 coverAssetName: collection.coverAssetName,
-                image: image
-            )
-            CollectionOfTheDayWidgetData.cacheImageData(
-                imageData,
-                collectionId: collection.id,
-                tokenId: imageReference.tokenId
+                imageData: imageData
             )
             let nextRotationDate: Date
             if let rotationFrequency {
@@ -114,20 +120,9 @@ private enum CollectionWidgetTimelineFactory {
             } else {
                 nextRotationDate = CollectionOfTheDayWidgetData.nextRotationDate(after: date)
             }
-            completion(Timeline(entries: [entry], policy: .after(nextRotationDate)))
-        }.resume()
-    }
-
-    static func timeline(
-        source: CollectionOfTheDaySource,
-        context: TimelineProviderContext,
-        date: Date = Date(),
-        rotationFrequency: WidgetRotationFrequency? = nil
-    ) async -> Timeline<CollectionOfTheDayEntry> {
-        await withCheckedContinuation { continuation in
-            timeline(source: source, context: context, date: date, rotationFrequency: rotationFrequency) { timeline in
-                continuation.resume(returning: timeline)
-            }
+            return Timeline(entries: [entry], policy: .after(nextRotationDate))
+        } catch {
+            return fallbackTimeline(collection: collection, date: date)
         }
     }
 
@@ -152,7 +147,7 @@ private enum CollectionWidgetTimelineFactory {
             collectionId: "",
             tokenId: nil,
             coverAssetName: "",
-            image: nil
+            imageData: nil
         )
     }
 
@@ -161,9 +156,9 @@ private enum CollectionWidgetTimelineFactory {
         return CollectionOfTheDayEntry(
             date: date,
             collectionId: collection.id,
-            tokenId: cachedImage == nil ? nil : CollectionOfTheDayWidgetData.cachedTokenId(collectionId: collection.id),
+            tokenId: cachedImage?.tokenId,
             coverAssetName: collection.coverAssetName,
-            image: cachedImage
+            imageData: cachedImage?.data
         )
     }
 
@@ -173,6 +168,7 @@ private enum CollectionWidgetTimelineFactory {
     }
 }
 
+@MainActor
 struct CollectionOfTheDayWidgetView: View {
     let entry: CollectionOfTheDayEntry
 
@@ -188,7 +184,8 @@ struct CollectionOfTheDayWidgetView: View {
 
     @ViewBuilder
     private var widgetImage: some View {
-        if let image = entry.image {
+        if let imageData = entry.imageData,
+           let image = CollectionOfTheDayWidgetData.platformImage(data: imageData) {
             fullColorWidgetImage(platformImage(image))
         } else if !entry.coverAssetName.isEmpty {
             fullColorWidgetImage(Image(entry.coverAssetName))
@@ -220,7 +217,7 @@ struct CollectionOfTheDayWidgetView: View {
     }
 }
 
-struct WidgetCollectionEntity: AppEntity {
+nonisolated struct WidgetCollectionEntity: AppEntity, Sendable {
     static let defaultQuery = WidgetCollectionEntityQuery()
     static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Collection")
 
@@ -237,7 +234,7 @@ struct WidgetCollectionEntity: AppEntity {
     }
 }
 
-struct WidgetCollectionEntityQuery: EntityQuery, EnumerableEntityQuery {
+nonisolated struct WidgetCollectionEntityQuery: EntityQuery, EnumerableEntityQuery, Sendable {
     init() {}
 
     func entities(for identifiers: [WidgetCollectionEntity.ID]) async throws -> [WidgetCollectionEntity] {
@@ -255,7 +252,7 @@ struct WidgetCollectionEntityQuery: EntityQuery, EnumerableEntityQuery {
     }
 }
 
-enum WidgetRotationFrequency: String, AppEnum, CaseIterable {
+nonisolated enum WidgetRotationFrequency: String, AppEnum, CaseIterable, Sendable {
     case onceDaily
     case twiceDaily
     case threeTimesDaily
@@ -301,7 +298,7 @@ struct SelectedCollectionWidgetIntent: WidgetConfigurationIntent {
     var rotation: WidgetRotationFrequency
 }
 
-struct SelectedCollectionWidgetProvider: AppIntentTimelineProvider {
+nonisolated struct SelectedCollectionWidgetProvider: AppIntentTimelineProvider, Sendable {
     func placeholder(in context: Context) -> CollectionOfTheDayEntry {
         CollectionWidgetTimelineFactory.placeholderEntry(source: .defaultSelectedCollection)
     }
@@ -313,7 +310,7 @@ struct SelectedCollectionWidgetProvider: AppIntentTimelineProvider {
     func timeline(for configuration: SelectedCollectionWidgetIntent, in context: Context) async -> Timeline<CollectionOfTheDayEntry> {
         await CollectionWidgetTimelineFactory.timeline(
             source: source(for: configuration),
-            context: context,
+            displaySize: context.displaySize,
             rotationFrequency: configuration.rotation
         )
     }

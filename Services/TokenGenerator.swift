@@ -1,14 +1,12 @@
 // ∅ 2026 lil org
 
 import Foundation
+import os
 
-struct TokenGenerator {
+nonisolated enum TokenGenerator {
     
     private static let dirURL = SuggestedItemsService.bundle.url(forResource: "Scripts", withExtension: nil)!
-    private static var collectionDataCache = [String: CollectionTokenData]()
-    private static let collectionDataCacheLock = NSLock()
-    private static var scriptCache = [String: ScriptCacheEntry]()
-    private static let scriptCacheLock = NSLock()
+    private static let cache = OSAllocatedUnfairLock(initialState: CacheState())
     private static let cardNft2NativeCollection = RangedNativeCollection(
         collectionId: NativeMetalCardRenderKind.cardNft2.collectionId,
         tokenCount: { cardNft2RangedTokenCount },
@@ -20,7 +18,12 @@ struct TokenGenerator {
     ]
     private static let nativeRendererCollectionIds = Set(NativeMetalCardRenderKind.allCases.map(\.collectionId))
 
-    private enum ScriptCacheEntry {
+    private struct CacheState: Sendable {
+        var collectionDataByJSONName = [String: CollectionTokenData]()
+        var scriptByJSONName = [String: ScriptCacheEntry]()
+    }
+
+    private enum ScriptCacheEntry: Sendable {
         case found(Script)
         case missing
 
@@ -34,11 +37,11 @@ struct TokenGenerator {
         }
     }
 
-    private struct RangedNativeCollection {
+    private struct RangedNativeCollection: Sendable {
         let collectionId: String
-        let tokenCount: () -> Int
-        let tokenAtIndex: (Int) -> BundledTokens.Item?
-        let tokenWithID: (Int) -> BundledTokens.Item
+        let tokenCount: @Sendable () -> Int
+        let tokenAtIndex: @Sendable (Int) -> BundledTokens.Item?
+        let tokenWithID: @Sendable (Int) -> BundledTokens.Item
 
         var count: Int {
             tokenCount()
@@ -90,13 +93,13 @@ struct TokenGenerator {
 #endif
     }()
 
-    private static var disablesNativeRenderersOnCurrentPlatform: Bool {
+    private static let disablesNativeRenderersOnCurrentPlatform: Bool = {
 #if os(watchOS) || os(visionOS) || os(tvOS)
         return true
 #else
         return false
 #endif
-    }
+    }()
 
     private static let jsonsNames: Set<String> = {
         let fileManager = FileManager.default
@@ -156,8 +159,8 @@ struct TokenGenerator {
         return nativeRendererCollectionIds.contains(id)
     }
 
-    static var allGenerativeSuggestedItems: [SuggestedItem] {
-        return SuggestedItemsService.visibleItems.filter { jsonsNames.contains($0.id + ".json") }
+    static let allGenerativeSuggestedItems = SuggestedItemsService.visibleItems.filter {
+        jsonsNames.contains($0.id + ".json")
     }
     
     static func tokenCount(specificCollectionId: String) -> Int {
@@ -265,13 +268,13 @@ struct TokenGenerator {
         return (collectionData.tokens[tokenIndex], collectionData.script)
     }
 
-    private static var cardNft2RangedTokenCount: Int {
+    private static let cardNft2RangedTokenCount: Int = {
 #if os(watchOS) || os(visionOS) || os(tvOS)
         return 0
 #else
         return CardNft2CardMetadata.tokenCount
 #endif
-    }
+    }()
 
     private static func cardNft2Token(at tokenIndex: Int) -> BundledTokens.Item? {
         guard tokenIndex >= 0,
@@ -288,7 +291,7 @@ struct TokenGenerator {
     }
 
     private static func collectionData(jsonName: String) -> CollectionTokenData? {
-        if let collectionData = collectionDataCacheLock.withLock({ collectionDataCache[jsonName] }) {
+        if let collectionData = cache.withLock({ $0.collectionDataByJSONName[jsonName] }) {
             return collectionData
         }
 
@@ -296,17 +299,17 @@ struct TokenGenerator {
               let tokens = bundledTokens(script: script) else { return nil }
 
         let collectionData = CollectionTokenData(script: script, tokens: tokens)
-        return collectionDataCacheLock.withLock {
-            if let cachedCollectionData = collectionDataCache[jsonName] {
+        return cache.withLock { state in
+            if let cachedCollectionData = state.collectionDataByJSONName[jsonName] {
                 return cachedCollectionData
             }
-            collectionDataCache[jsonName] = collectionData
+            state.collectionDataByJSONName[jsonName] = collectionData
             return collectionData
         }
     }
 
     private static func script(jsonName: String) -> Script? {
-        if let cachedEntry = scriptCacheLock.withLock({ scriptCache[jsonName] }) {
+        if let cachedEntry = cache.withLock({ $0.scriptByJSONName[jsonName] }) {
             return cachedEntry.script
         }
 
@@ -315,11 +318,11 @@ struct TokenGenerator {
             try? JSONDecoder().decode(Script.self, from: $0)
         }
         let entry: ScriptCacheEntry = decodedScript.map(ScriptCacheEntry.found) ?? .missing
-        return scriptCacheLock.withLock {
-            if let cachedEntry = scriptCache[jsonName] {
+        return cache.withLock { state in
+            if let cachedEntry = state.scriptByJSONName[jsonName] {
                 return cachedEntry.script
             }
-            scriptCache[jsonName] = entry
+            state.scriptByJSONName[jsonName] = entry
             return decodedScript
         }
     }
@@ -358,7 +361,7 @@ struct TokenGenerator {
     
 }
 
-private struct CollectionTokenData {
+nonisolated private struct CollectionTokenData: Sendable {
     let script: Script
     let tokens: [BundledTokens.Item]
     let tokenIndicesById: [String: Int]

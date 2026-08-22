@@ -1,10 +1,24 @@
 // ∅ 2026 lil org
 
 import Foundation
+import os
 
-var alternativeResourcesPath: String?
+nonisolated private let alternativeResourcesPathStorage = OSAllocatedUnfairLock(
+    initialState: Optional<String>.none
+)
 
-struct SuggestedItemsService {
+nonisolated var alternativeResourcesPath: String? {
+    get { alternativeResourcesPathStorage.withLock { $0 } }
+    set { alternativeResourcesPathStorage.withLock { $0 = newValue } }
+}
+
+nonisolated enum SuggestedItemsService {
+
+    private struct Snapshot: Sendable {
+        let allItems: [SuggestedItem]
+        let itemsById: [String: SuggestedItem]
+        let artistsBySlug: [String: SuggestedArtist]
+    }
 
     private struct SuggestedArtistMetadata: Decodable {
 
@@ -51,9 +65,18 @@ struct SuggestedItemsService {
 
     }
     
+    private static let alternativeResourceDirectoryURL = alternativeResourcesPath.map {
+        URL(fileURLWithPath: $0 + "/Contents/Resources", isDirectory: true)
+    }
+
     static let bundle: Bundle = {
-        if let altPath = alternativeResourcesPath,
-           let altBundle = Bundle(url: URL(fileURLWithPath: altPath + "/Contents/Resources/Suggested.bundle")) {
+        if let alternativeResourceDirectoryURL,
+           let altBundle = Bundle(
+            url: alternativeResourceDirectoryURL.appendingPathComponent(
+                "Suggested.bundle",
+                isDirectory: true
+            )
+           ) {
             return altBundle
         } else if let bundleURL = Bundle.main.url(forResource: "Suggested", withExtension: "bundle"),
            let suggestedBundle = Bundle(url: bundleURL) {
@@ -62,40 +85,53 @@ struct SuggestedItemsService {
             return Bundle.main
         }
     }()
-    
-    static var allItems = [SuggestedItem]()
-    private static var itemsById = [String: SuggestedItem]()
-    private static let artistsBySlug: [String: SuggestedArtist] = {
-        guard let url = bundle.url(forResource: "artists", withExtension: "json"),
-              let data = try? Data(contentsOf: url),
-              let metadataBySlug = try? JSONDecoder().decode(
-                [String: SuggestedArtistMetadata].self,
-                from: data
-              ) else {
-            return [:]
-        }
-        return metadataBySlug.reduce(into: [:]) { result, entry in
-            result[entry.key] = entry.value.artist(slug: entry.key)
-        }
-    }()
-    static var visibleItems: [SuggestedItem] {
-        ensureItemsLoaded()
-        return allItems
-    }
 
-    static var allDownloadableCollectionItems: [SuggestedItem] {
-        ensureItemsLoaded()
-        return allItems.filter(\.isDownloadableCollection)
-    }
+    private static let snapshot: Snapshot = {
+        let allItems: [SuggestedItem]
+        if let url = bundle.url(forResource: "items", withExtension: "json"),
+           let data = try? Data(contentsOf: url),
+           let items = try? JSONDecoder().decode([SuggestedItem].self, from: data) {
+            allItems = items
+        } else {
+            allItems = []
+        }
+
+        let itemsById = allItems.reduce(into: [String: SuggestedItem]()) { result, item in
+            result[item.id] = result[item.id] ?? item
+        }
+
+        let artistsBySlug: [String: SuggestedArtist]
+        if let url = bundle.url(forResource: "artists", withExtension: "json"),
+           let data = try? Data(contentsOf: url),
+           let metadataBySlug = try? JSONDecoder().decode(
+            [String: SuggestedArtistMetadata].self,
+            from: data
+           ) {
+            artistsBySlug = metadataBySlug.reduce(into: [:]) { result, entry in
+                result[entry.key] = entry.value.artist(slug: entry.key)
+            }
+        } else {
+            artistsBySlug = [:]
+        }
+
+        return Snapshot(
+            allItems: allItems,
+            itemsById: itemsById,
+            artistsBySlug: artistsBySlug
+        )
+    }()
+
+    static let allItems = snapshot.allItems
+    static let visibleItems = snapshot.allItems
+    static let allDownloadableCollectionItems = snapshot.allItems.filter(\.isDownloadableCollection)
 
     static func item(id: String) -> SuggestedItem? {
-        ensureItemsLoaded()
-        return itemsById[id]
+        snapshot.itemsById[id]
     }
 
     static func artists(forCollectionId collectionId: String) -> [SuggestedArtist] {
         guard let artistSlugs = item(id: collectionId)?.artists else { return [] }
-        return artistSlugs.compactMap { artistsBySlug[$0] }
+        return artistSlugs.compactMap { snapshot.artistsBySlug[$0] }
     }
     
     static func bundledTokens(collectionId: String) -> BundledTokens? {
@@ -108,17 +144,13 @@ struct SuggestedItemsService {
         }
     }
 
-    private static func ensureItemsLoaded() {
-        guard allItems.isEmpty else { return }
-        guard let url = bundle.url(forResource: "items", withExtension: "json"),
-              let data = try? Data(contentsOf: url),
-              let items = try? JSONDecoder().decode([SuggestedItem].self, from: data) else {
-            return
+    static func hostResourceURL(forJavaScriptLibrary name: String) -> URL? {
+        if let alternativeResourceDirectoryURL {
+            return alternativeResourceDirectoryURL.appendingPathComponent(
+                name + ".js",
+                isDirectory: false
+            )
         }
-        allItems = items
-        itemsById = items.reduce(into: [:]) { result, item in
-            result[item.id] = result[item.id] ?? item
-        }
+        return Bundle.main.url(forResource: name, withExtension: "js")
     }
-    
 }

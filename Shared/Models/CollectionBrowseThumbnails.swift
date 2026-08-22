@@ -2,7 +2,7 @@
 
 import Foundation
 
-struct CollectionBrowseImageSources: Hashable {
+nonisolated struct CollectionBrowseImageSources: Hashable, Sendable {
     let thumbnailDescriptor: CollectionCatalogDownloadableMediaDescriptor
     let largeDescriptor: CollectionCatalogDownloadableMediaDescriptor
 
@@ -36,7 +36,7 @@ struct CollectionBrowseImageSources: Hashable {
     }
 }
 
-extension CollectionCatalog {
+nonisolated extension CollectionCatalog {
 
     private static let generativeThumbnailBaseURL = URL(string: "https://cdn.lil.org/player")!
     static func standardThumbsPathsAvailable(specificCollectionId: String) -> Bool {

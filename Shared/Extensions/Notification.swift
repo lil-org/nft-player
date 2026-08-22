@@ -2,7 +2,7 @@
 
 import Foundation
 
-extension Notification.Name {
+nonisolated extension Notification.Name {
     
     static let mustTerminate = Notification.Name("TerminatePreviousInstance")
     

@@ -42,7 +42,7 @@ final class NativeMetalCardView: NSView {
         fatalError("yo")
     }
 
-    deinit {
+    isolated deinit {
         removeWindowFocusObservers()
         stopPointerTrackingTimer()
     }
@@ -168,7 +168,9 @@ final class NativeMetalCardView: NSView {
                 object: object,
                 queue: .main
             ) { [weak self] _ in
-                self?.updatePointerTrackingTimer()
+                MainActor.assumeIsolated {
+                    self?.updatePointerTrackingTimer()
+                }
             }
         }
     }
@@ -229,7 +231,9 @@ final class NativeMetalCardView: NSView {
         pollPointerFromScreen()
 
         let timer = Timer(timeInterval: Self.pointerTrackingInterval, repeats: true) { [weak self] _ in
-            self?.pollPointerFromScreen()
+            Task { @MainActor in
+                self?.pollPointerFromScreen()
+            }
         }
         RunLoop.main.add(timer, forMode: .common)
         pointerTrackingTimer = timer

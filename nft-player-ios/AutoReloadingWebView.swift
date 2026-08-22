@@ -29,27 +29,20 @@ class AutoReloadingWebView: WKWebView, WKNavigationDelegate {
     }
 
     static func scheduleFirstUsePrewarm() {
-        guard Thread.isMainThread else {
-            DispatchQueue.main.async { scheduleFirstUsePrewarm() }
-            return
-        }
-
         guard !didSchedulePrewarm, prewarmedWebView == nil else { return }
         didSchedulePrewarm = true
 
         let timer = Timer(timeInterval: 1.15, repeats: false) { _ in
-            prewarmTimer = nil
-            prewarmForFirstUseIfNeeded()
+            MainActor.assumeIsolated {
+                prewarmTimer = nil
+                prewarmForFirstUseIfNeeded()
+            }
         }
         prewarmTimer = timer
         RunLoop.main.add(timer, forMode: .default)
     }
 
     private static func prewarmForFirstUseIfNeeded() {
-        guard Thread.isMainThread else {
-            DispatchQueue.main.async { prewarmForFirstUseIfNeeded() }
-            return
-        }
         guard prewarmedWebView == nil else { return }
         guard UIApplication.shared.applicationState == .active else {
             didSchedulePrewarm = false
@@ -65,7 +58,6 @@ class AutoReloadingWebView: WKWebView, WKNavigationDelegate {
     }
 
     private static func takePrewarmedWebView() -> AutoReloadingWebView? {
-        guard Thread.isMainThread else { return nil }
         let webView = prewarmedWebView
         prewarmedWebView = nil
         prewarmTimer?.invalidate()

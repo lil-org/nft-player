@@ -180,7 +180,7 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
         currentPageViewController?.mediaContainerView?.isZoomedIn == true
     }
 
-    func resetCurrentPageZoom(completion: @escaping () -> Void) {
+    func resetCurrentPageZoom(completion: @MainActor @Sendable @escaping () -> Void) {
         guard let mediaView = currentPageViewController?.mediaContainerView else {
             completion()
             return
@@ -516,7 +516,8 @@ final class MacPlayerPageController: NSPageController, NSPageControllerDelegate 
 
     private func scheduleTransitionFinish() {
         guard !isLiveTransitioning else { return }
-        DispatchQueue.main.async { [weak self] in
+        Task { @MainActor [weak self] in
+            await Task.yield()
             self?.finishTransition()
         }
     }
@@ -920,7 +921,7 @@ private final class MacPlayerEdgeClickNavigationView: NSView {
     private var initialLocation = CGPoint.zero
     private var didMoveEnoughToCancelHighlight = false
     private var pendingHighlightSide: MacPlayerEdgeClickSide?
-    private var highlightWorkItem: DispatchWorkItem?
+    private var highlightTask: Task<Void, Never>?
     private var highlightRequestId = 0
 
     override init(frame frameRect: NSRect) {
@@ -935,7 +936,7 @@ private final class MacPlayerEdgeClickNavigationView: NSView {
     }
 
     deinit {
-        highlightWorkItem?.cancel()
+        highlightTask?.cancel()
     }
 
     override func hitTest(_ point: NSPoint) -> NSView? {
@@ -1078,7 +1079,14 @@ private final class MacPlayerEdgeClickNavigationView: NSView {
         pendingHighlightSide = side
         highlightRequestId += 1
         let requestId = highlightRequestId
-        let workItem = DispatchWorkItem { [weak self] in
+        highlightTask = Task { @MainActor [weak self] in
+            do {
+                try await Task.sleep(
+                    for: .seconds(MacPlayerEdgeClickTuning.highlightActivationDelay)
+                )
+            } catch {
+                return
+            }
             guard let self,
                   self.highlightRequestId == requestId,
                   self.pendingHighlightSide == side,
@@ -1087,14 +1095,9 @@ private final class MacPlayerEdgeClickNavigationView: NSView {
             }
 
             self.pendingHighlightSide = nil
-            self.highlightWorkItem = nil
+            self.highlightTask = nil
             self.highlight(for: side).setHighlighted(true)
         }
-        highlightWorkItem = workItem
-        DispatchQueue.main.asyncAfter(
-            deadline: .now() + MacPlayerEdgeClickTuning.highlightActivationDelay,
-            execute: workItem
-        )
     }
 
     private func endHighlight(on side: MacPlayerEdgeClickSide) {
@@ -1127,8 +1130,8 @@ private final class MacPlayerEdgeClickNavigationView: NSView {
             return false
         }
 
-        highlightWorkItem?.cancel()
-        highlightWorkItem = nil
+        highlightTask?.cancel()
+        highlightTask = nil
         pendingHighlightSide = nil
         highlightRequestId += 1
         return true
@@ -1140,9 +1143,14 @@ private final class MacPlayerEdgeClickNavigationView: NSView {
         highlightRequestId += 1
         let requestId = highlightRequestId
 
-        DispatchQueue.main.asyncAfter(
-            deadline: .now() + MacPlayerEdgeClickTuning.highlightTapFlashDuration
-        ) { [weak self] in
+        Task { @MainActor [weak self] in
+            do {
+                try await Task.sleep(
+                    for: .seconds(MacPlayerEdgeClickTuning.highlightTapFlashDuration)
+                )
+            } catch {
+                return
+            }
             guard let self, self.highlightRequestId == requestId else { return }
 
             self.highlight(for: side).setHighlighted(false)
@@ -1242,14 +1250,14 @@ private final class MacPlayerEdgeClickHighlightView: NSView {
     }
 }
 
-private struct MacPlayerPageObjectKey: Hashable {
+nonisolated private struct MacPlayerPageObjectKey: Hashable, Sendable {
     let collectionId: String
     let tokenIndex: Int
     let fallbackTokenID: String?
     let isInsertedWidgetToken: Bool
 }
 
-private final class MacPlayerPageObject: NSObject {
+nonisolated private final class MacPlayerPageObject: NSObject {
     let collectionId: String
     let tokenIndex: Int
     let pagePosition: PlayerPagePosition
@@ -1322,7 +1330,7 @@ private final class MacPlayerPageViewController: NSViewController {
         fatalError("yo")
     }
 
-    deinit {
+    isolated deinit {
         cleanup()
     }
 

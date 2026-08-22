@@ -1,6 +1,6 @@
 // ∅ 2026 lil org
 
-struct Script: Codable {
+nonisolated struct Script: Codable, Sendable {
     
     var id: String { address + abId }
     
@@ -12,7 +12,7 @@ struct Script: Codable {
     let kind: Kind
     let nftPlayerDisplayTuning: String?
     
-    enum Kind: String, Codable {
+    enum Kind: String, Codable, Hashable, Sendable {
         case svg, js, p5js100, regl, twemoji, three, tone, paper, p5js190
         case ponchoDrifellaNative = "native.poncho-drifella"
         case cardNft2Native = "native.card-nft-2"

@@ -152,7 +152,7 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
         fatalError("init(coder:) has not been implemented")
     }
 
-    deinit {
+    isolated deinit {
         Self.cancelImageLoads(&imageLoads)
     }
 
@@ -545,10 +545,10 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
         Self.cancelImageLoads(&imageLoads)
     }
 
-    nonisolated private static func cancelImageLoads(
+    private static func cancelImageLoads(
         _ imageLoads: inout [CollectionBrowseImageQuality: ImageLoad]
     ) {
-        let cancellations = imageLoads.values.compactMap(\.cancellation)
+        let cancellations = imageLoads.values.compactMap { $0.cancellation }
         imageLoads.removeAll()
         cancellations.forEach { $0() }
     }
@@ -725,7 +725,7 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
         }
         let loadID = UUID()
         let cancellation = DownloadableMediaCache.shared.loadImage(for: descriptor) { [weak self] image in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 guard let self,
                       let imageLoad = self.imageLoads[resolvedQuality],
                       imageLoad.id == loadID else {
@@ -1040,13 +1040,19 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
             return
         }
         guard let cachedStaticImageURL else {
-            renderKind.loadFace(for: tokenID) { _ in }
+            Task {
+                _ = await renderKind.loadFace(for: tokenID)
+            }
             return
         }
 
-        renderKind.cacheFace(for: tokenID, from: cachedStaticImageURL) { didCacheFace in
+        Task {
+            let didCacheFace = await renderKind.cacheFace(
+                for: tokenID,
+                from: cachedStaticImageURL
+            )
             guard !didCacheFace else { return }
-            renderKind.loadFace(for: tokenID) { _ in }
+            _ = await renderKind.loadFace(for: tokenID)
         }
     }
 }

@@ -3,99 +3,221 @@
 import Cocoa
 import SwiftUI
 
-class Navigator: NSObject, NSWindowDelegate {
+@MainActor
+final class Navigator: NSObject, NSWindowDelegate {
 
     private override init() { super.init() }
     static let shared = Navigator()
 
     private var mainWindow: NSWindow?
+    private let playerPresentationGate = PlayerPresentationRequestGate()
 
     func showCollections() {
         MacNavigationModel.shared.resetToCollections()
         showMainWindow()
     }
 
-    func showPlayer(
+    func requestPlayer(
         collectionId: String,
         ensureFrontAfterOpening: Bool = false,
         transition: MacRouteTransition = .slide
     ) {
+        let request = playerPresentationGate.begin()
+        Task {
+            await showPlayerUsingProgress(
+                collectionId: collectionId,
+                ensureFrontAfterOpening: ensureFrontAfterOpening,
+                transition: transition,
+                request: request
+            )
+        }
+    }
+
+    func requestPlayer(
+        collectionId: String,
+        initialTokenId: String?,
+        continueViewingCollectionId: String,
+        ensureFrontAfterOpening: Bool = false,
+        transition: MacRouteTransition = .slide
+    ) {
+        let request = playerPresentationGate.begin()
+        Task {
+            guard let snapshot = await playerPresentationSnapshot(for: request),
+                  playerPresentationGate.isPending(request) else {
+                return
+            }
+            let progress = snapshot.progress(collectionId: collectionId)
+            await showPlayer(
+                collectionId: collectionId,
+                initialTokenId: progress?.tokenId ?? initialTokenId,
+                continueViewingCollectionId: continueViewingCollectionId,
+                ensureFrontAfterOpening: ensureFrontAfterOpening,
+                transition: transition,
+                request: request
+            )
+        }
+    }
+
+    func requestShuffledPlayer() {
+        let request = playerPresentationGate.begin()
+        Task {
+            guard let snapshot = await playerPresentationSnapshot(for: request),
+                  playerPresentationGate.isPending(request) else {
+                return
+            }
+
+            let items = CollectionCatalog.allItems
+            let unfinishedItems = items.filter {
+                !snapshot.viewedToEndCollectionIds.contains($0.id)
+            }
+            guard let item = (unfinishedItems.isEmpty ? items : unfinishedItems).randomElement() else {
+                return
+            }
+
+            let progress = snapshot.progress(collectionId: item.id)
+            await showPlayer(
+                collectionId: item.id,
+                initialTokenId: progress?.isComplete == false ? progress?.tokenId : nil,
+                continueViewingCollectionId: item.id,
+                ensureFrontAfterOpening: false,
+                transition: .slide,
+                request: request
+            )
+        }
+    }
+
+    func cancelPendingPlayerPresentation() {
+        playerPresentationGate.cancel()
+    }
+
+    private func playerPresentationSnapshot(
+        for request: PlayerPresentationRequestGate.Request
+    ) async -> PlayerViewingProgressSnapshot? {
+        await PlayerPersistenceUpdates.flush()
+        guard playerPresentationGate.isPending(request) else { return nil }
+        let snapshot = await PlayerViewingProgressStore.shared.progressSnapshot()
+        guard playerPresentationGate.isPending(request) else { return nil }
+        return snapshot
+    }
+
+    private func showPlayerUsingProgress(
+        collectionId: String,
+        ensureFrontAfterOpening: Bool,
+        transition: MacRouteTransition,
+        request: PlayerPresentationRequestGate.Request,
+        preparedSnapshot: PlayerViewingProgressSnapshot? = nil
+    ) async {
+        guard playerPresentationGate.isPending(request) else { return }
         guard CollectionCatalog.allItems.contains(where: { $0.id == collectionId }) else { return }
 
-        if let progress = PlayerViewingProgressStore.progress(collectionId: collectionId) {
-            showPlayer(
+        let snapshot: PlayerViewingProgressSnapshot
+        if let preparedSnapshot {
+            snapshot = preparedSnapshot
+        } else {
+            guard let loadedSnapshot = await playerPresentationSnapshot(for: request),
+                  playerPresentationGate.isPending(request) else {
+                return
+            }
+            snapshot = loadedSnapshot
+        }
+
+        if let progress = snapshot.progress(collectionId: collectionId) {
+            await showPlayer(
                 collectionId: progress.collectionId,
                 initialTokenId: progress.tokenId,
                 continueViewingCollectionId: progress.collectionId,
                 ensureFrontAfterOpening: ensureFrontAfterOpening,
-                transition: transition
+                transition: transition,
+                request: request
             )
             return
         }
 
-        showPlayer(
+        guard playerPresentationGate.isPending(request) else { return }
+        await showPlayer(
             collectionId: collectionId,
+            initialTokenId: nil,
             continueViewingCollectionId: collectionId,
             ensureFrontAfterOpening: ensureFrontAfterOpening,
-            transition: transition
+            transition: transition,
+            request: request
         )
     }
 
-    /// Widget launches present instantly, as on iOS — the point of the widget is
-    /// "click the art, get the art", not a staged grid animating itself away.
-    func showWidgetPlayer(collectionId: String, tokenId: String?, ensureFrontAfterOpening: Bool = false) {
-        if let tokenId {
-            showPlayer(
-                collectionId: collectionId,
-                widgetTokenId: tokenId,
-                ensureFrontAfterOpening: ensureFrontAfterOpening
-            )
-        } else {
-            showPlayer(
-                collectionId: collectionId,
-                ensureFrontAfterOpening: ensureFrontAfterOpening,
-                transition: .none
-            )
+    func requestWidgetPlayer(
+        collectionId: String,
+        tokenId: String?,
+        ensureFrontAfterOpening: Bool = false,
+        completion: @escaping @MainActor () -> Void
+    ) {
+        let request = playerPresentationGate.begin()
+        Task {
+            defer { completion() }
+            await Task.yield()
+            guard playerPresentationGate.isPending(request) else { return }
+            if let tokenId {
+                await showPlayer(
+                    collectionId: collectionId,
+                    widgetTokenId: tokenId,
+                    ensureFrontAfterOpening: ensureFrontAfterOpening,
+                    request: request
+                )
+            } else {
+                await showPlayerUsingProgress(
+                    collectionId: collectionId,
+                    ensureFrontAfterOpening: ensureFrontAfterOpening,
+                    transition: .none,
+                    request: request
+                )
+            }
         }
     }
 
     private func showPlayer(
         collectionId: String,
         widgetTokenId: String,
-        ensureFrontAfterOpening: Bool
-    ) {
+        ensureFrontAfterOpening: Bool,
+        request: PlayerPresentationRequestGate.Request
+    ) async {
+        guard let snapshot = await playerPresentationSnapshot(for: request),
+              playerPresentationGate.isPending(request) else {
+            return
+        }
+        let progress = snapshot.progress(collectionId: collectionId)
         guard let widgetTokenInsertion = CollectionCatalog.widgetTokenInsertion(
             collectionId: collectionId,
             widgetTokenId: widgetTokenId,
-            progress: PlayerViewingProgressStore.progress(collectionId: collectionId)
+            progress: progress
         ) else {
-            showPlayer(
+            await showPlayerUsingProgress(
                 collectionId: collectionId,
                 ensureFrontAfterOpening: ensureFrontAfterOpening,
-                transition: .none
+                transition: .none,
+                request: request,
+                preparedSnapshot: snapshot
             )
             return
         }
 
-        if let anchorProgress = widgetTokenInsertion.automaticAnchorProgress() {
-            PlayerViewingProgressStore.save(anchorProgress)
-        }
-        PlayerViewingProgressStore.setContinueViewingCollectionId(collectionId)
-        showPlayer(
+        guard playerPresentationGate.isPending(request) else { return }
+        await commitPlayerPresentation(
             model: PlayerModel(widgetTokenInsertion: widgetTokenInsertion),
+            continueViewingCollectionId: collectionId,
             ensureFrontAfterOpening: ensureFrontAfterOpening,
-            transition: .none
+            transition: .none,
+            request: request
         )
     }
 
-    func showPlayer(
+    private func showPlayer(
         collectionId: String,
-        initialTokenId: String? = nil,
+        initialTokenId: String?,
         continueViewingCollectionId: String,
-        ensureFrontAfterOpening: Bool = false,
-        transition: MacRouteTransition = .slide
-    ) {
-        PlayerViewingProgressStore.setContinueViewingCollectionId(continueViewingCollectionId)
+        ensureFrontAfterOpening: Bool,
+        transition: MacRouteTransition,
+        request: PlayerPresentationRequestGate.Request
+    ) async {
+        guard playerPresentationGate.isPending(request) else { return }
         let preparedToken = PlayerTokenPrewarmer.preparedToken(
             initialCollectionId: collectionId,
             initialTokenId: initialTokenId
@@ -107,10 +229,60 @@ class Navigator: NSObject, NSWindowDelegate {
             initialTokenId: initialTokenId,
             continueViewingCollectionId: continueViewingCollectionId
         )
-        showPlayer(model: model, ensureFrontAfterOpening: ensureFrontAfterOpening, transition: transition)
+        await commitPlayerPresentation(
+            model: model,
+            continueViewingCollectionId: continueViewingCollectionId,
+            ensureFrontAfterOpening: ensureFrontAfterOpening,
+            transition: transition,
+            request: request
+        )
     }
 
-    func showPlayer(
+    private func commitPlayerPresentation(
+        model: PlayerModel,
+        continueViewingCollectionId: String,
+        ensureFrontAfterOpening: Bool,
+        transition: MacRouteTransition,
+        request: PlayerPresentationRequestGate.Request
+    ) async {
+        guard playerPresentationGate.isPending(request) else { return }
+        let openingProgress = model.currentProgress
+        let continueViewingUpdate: PlayerContinueViewingUpdate?
+        if openingProgress == nil {
+            continueViewingUpdate = await PlayerViewingProgressStore.shared
+                .prepareContinueViewingUpdate(collectionId: continueViewingCollectionId)
+            guard continueViewingUpdate != nil,
+                  playerPresentationGate.isPending(request) else {
+                return
+            }
+        } else {
+            continueViewingUpdate = nil
+        }
+        let openingTracker = PlayerViewingSessionTracker(
+            continueViewingCollectionId: continueViewingCollectionId
+        )
+        playerPresentationGate.commit(
+            request,
+            present: {
+                self.showPlayer(
+                    model: model,
+                    ensureFrontAfterOpening: ensureFrontAfterOpening,
+                    transition: transition
+                )
+            },
+            persist: {
+                if let openingProgress {
+                    await openingTracker.markViewed(openingProgress)
+                } else if let continueViewingUpdate {
+                    await PlayerViewingProgressStore.shared.applyContinueViewingUpdate(
+                        continueViewingUpdate
+                    )
+                }
+            }
+        )
+    }
+
+    private func showPlayer(
         model: PlayerModel,
         ensureFrontAfterOpening: Bool = false,
         transition: MacRouteTransition = .slide
@@ -121,7 +293,7 @@ class Navigator: NSObject, NSWindowDelegate {
 
         guard ensureFrontAfterOpening else { return }
 
-        let bringPresentedWindowToFront = { [weak self, weak presentedWindow] in
+        let bringPresentedWindowToFront = { @MainActor [weak self, weak presentedWindow] in
             guard let self,
                   let presentedWindow,
                   presentedWindow === self.mainWindow,
@@ -131,11 +303,12 @@ class Navigator: NSObject, NSWindowDelegate {
             }
             self.orderMainWindowToFront(regardless: true)
         }
-        DispatchQueue.main.async(execute: bringPresentedWindowToFront)
-        DispatchQueue.main.asyncAfter(
-            deadline: .now() + .milliseconds(150),
-            execute: bringPresentedWindowToFront
-        )
+        Task { @MainActor in
+            await Task.yield()
+            bringPresentedWindowToFront()
+            try? await Task.sleep(for: .milliseconds(150))
+            bringPresentedWindowToFront()
+        }
     }
 
     @discardableResult

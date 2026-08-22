@@ -2,12 +2,12 @@
 
 import Foundation
 
-struct PlayerCollectionVisibleItem: Equatable {
+nonisolated struct PlayerCollectionVisibleItem: Equatable, Sendable {
     let index: Int
     let frame: CGRect
 }
 
-struct PlayerCollectionScrollFocalGeometry: Equatable {
+nonisolated struct PlayerCollectionScrollFocalGeometry: Equatable, Sendable {
     let minimumOffsetY: CGFloat
     let maximumOffsetY: CGFloat
     let viewportHeight: CGFloat
@@ -187,7 +187,7 @@ struct PlayerCollectionScrollFocalGeometry: Equatable {
     }
 }
 
-struct PlayerCollectionScrollFocalBias: Equatable {
+nonisolated struct PlayerCollectionScrollFocalBias: Equatable, Sendable {
     let referenceFocalY: CGFloat
     let deltaY: CGFloat
     let decayDistance: CGFloat
@@ -269,12 +269,12 @@ struct PlayerCollectionScrollFocalBias: Equatable {
     }
 }
 
-struct PlayerCollectionRestorationResolution: Equatable {
+nonisolated struct PlayerCollectionRestorationResolution: Equatable, Sendable {
     let tokenIndex: Int?
     let didResolveRequestedPosition: Bool
 }
 
-enum PlayerCollectionScrollPolicy {
+nonisolated enum PlayerCollectionScrollPolicy: Sendable {
 
     static func boundedContentOffsetDelta(
         previousOffsetY: CGFloat,
@@ -531,13 +531,13 @@ enum PlayerCollectionScrollPolicy {
     }
 }
 
-struct PlayerCollectionScrollPublication: Equatable {
+nonisolated struct PlayerCollectionScrollPublication: Equatable, Sendable {
     let tokenIndex: Int
     let hasViewedToEnd: Bool
 }
 
-struct PlayerCollectionScrollPublicationState {
-    private enum PositioningPhase {
+nonisolated struct PlayerCollectionScrollPublicationState: Sendable {
+    private enum PositioningPhase: Sendable {
         case initial
         case programmatic
     }

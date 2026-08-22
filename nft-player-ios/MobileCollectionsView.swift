@@ -1,5 +1,5 @@
 import SwiftUI
-import Combine
+import Observation
 import UIKit
 import UIKit.UIGestureRecognizerSubclass
 
@@ -162,31 +162,40 @@ private enum MobileCollectionsGridScrollPositionStore {
 
 struct MobileCollectionsView: View {
     private let collectionItems: [MobileCollectionItem]
-    @ObservedObject private var widgetLaunchPresentationState: WidgetLaunchPresentationState
+    private let widgetLaunchPresentationState: WidgetLaunchPresentationState
     @Environment(\.displayScale) private var displayScale
     @State private var playerConfig: MobilePlayerConfig?
     @State private var playerPresentationTransition: PlayerPresentationTransition = .animated
-    @State private var viewingProgressByCollectionId: [String: Int]
-    @State private var viewedToEndCollectionIds: Set<String>
-    @State private var recentContinueViewingProgresses: [MobileViewingProgress]
+    @State private var viewingProgressSnapshot = PlayerViewingProgressSnapshot.empty
+    @State private var hasLoadedViewingProgress = false
+    @State private var playerPresentationGate = PlayerPresentationRequestGate()
     @State private var continueViewingScrollResetID = 0
     @State private var isSearchActive = false
     @State private var collectionSearchQuery = ""
+    @State private var viewingProgressRefreshID = 0
+    @State private var shouldResetScrollAfterViewingProgressRefresh = true
+    @State private var shouldPrewarmAfterViewingProgressRefresh = true
     
     init(
         collectionItems: [MobileCollectionItem] = MobileCollectionCatalog.allItems,
         widgetLaunchPresentationState: WidgetLaunchPresentationState = .shared
     ) {
         self.collectionItems = collectionItems
-        _widgetLaunchPresentationState = ObservedObject(wrappedValue: widgetLaunchPresentationState)
-        let progressSnapshot = MobileViewingProgressStore.progressSnapshot()
-        _viewingProgressByCollectionId = State(initialValue: progressSnapshot.percentagesByCollectionId)
-        _viewedToEndCollectionIds = State(initialValue: progressSnapshot.viewedToEndCollectionIds)
-        _recentContinueViewingProgresses = State(
-            initialValue: Self.visibleRecentContinueViewingProgresses(
-                from: progressSnapshot,
-                collectionItems: collectionItems
-            )
+        self.widgetLaunchPresentationState = widgetLaunchPresentationState
+    }
+
+    private var viewingProgressByCollectionId: [String: Int] {
+        viewingProgressSnapshot.percentagesByCollectionId
+    }
+
+    private var viewedToEndCollectionIds: Set<String> {
+        viewingProgressSnapshot.viewedToEndCollectionIds
+    }
+
+    private var recentContinueViewingProgresses: [MobileViewingProgress] {
+        Self.visibleRecentContinueViewingProgresses(
+            from: viewingProgressSnapshot,
+            collectionItems: collectionItems
         )
     }
     
@@ -195,23 +204,30 @@ struct MobileCollectionsView: View {
             rootView: collectionsRootView,
             playerConfig: playerConfig,
             presentationTransition: playerPresentationTransition,
+            onWillDismissPlayer: playerPresentationGate.resolutionForPendingRequest,
             onDismissPlayer: dismissPlayer
         )
         .ignoresSafeArea()
         .persistentSystemOverlays(.hidden)
-        .onAppear {
-            refreshViewingProgressAndResetContinueViewingScrollOffset()
-            schedulePlayerPrewarm()
-        }
+        .opacity(hasLoadedViewingProgress ? 1 : 0)
+        .allowsHitTesting(hasLoadedViewingProgress)
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
-            refreshViewingProgressAndResetContinueViewingScrollOffset()
-            schedulePlayerPrewarm()
+            requestViewingProgressRefresh(resetScroll: true, prewarm: true)
         }
-        .onReceive(NotificationCenter.default.publisher(for: .playerViewingProgressDidChange)) { _ in
+        .onReceive(
+            NotificationCenter.default.publisher(for: .playerViewingProgressDidChange)
+                .receive(on: RunLoop.main)
+        ) { _ in
             guard playerConfig == nil else { return }
-            refreshViewingProgress()
+            requestViewingProgressRefresh()
         }
-        .onOpenURL(perform: openWidgetURL)
+        .task(id: viewingProgressRefreshID) {
+            await performViewingProgressRefresh(id: viewingProgressRefreshID)
+        }
+        .onOpenURL(perform: requestWidgetURL)
+        .onDisappear {
+            playerPresentationGate.cancel()
+        }
     }
 
     private var collectionsRootView: some View {
@@ -273,7 +289,7 @@ struct MobileCollectionsView: View {
                             horizontalContentInset: continueViewingPillScrollHorizontalInset,
                             resetID: continueViewingScrollResetID,
                             coverAssetName: coverAssetName(for:),
-                            onSelect: { progress in resumeViewing(progress) }
+                            onSelect: requestResumeViewing
                         )
                         .padding(.bottom, MobileBottomChromeSpacing.continueViewingPadding(forSafeAreaBottom: geometry.safeAreaInsets.bottom))
                     }
@@ -305,7 +321,7 @@ struct MobileCollectionsView: View {
     }
 
     private func didSelectCollectionItem(_ item: MobileCollectionItem) {
-        openCollection(collectionId: item.id)
+        requestCollectionOpen(collectionId: item.id)
     }
 
     private func activateSearch() {
@@ -328,90 +344,142 @@ struct MobileCollectionsView: View {
 
     private func didSelectSearchResult(_ item: MobileCollectionItem) {
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-        openCollection(collectionId: item.id)
+        requestCollectionOpen(collectionId: item.id)
     }
 
     private func coverAssetName(for collectionId: String) -> String {
         collectionItems.first { $0.id == collectionId }?.coverAssetName ?? collectionId
     }
 
-    private func openCollection(
+    private func requestCollectionOpen(
         collectionId: String,
         presentationTransition: PlayerPresentationTransition = .animated
     ) {
-        if let progress = MobileViewingProgressStore.progress(collectionId: collectionId) {
-            resumeViewing(progress, presentationTransition: presentationTransition)
-            return
+        let request = playerPresentationGate.begin()
+        Task {
+            await openCollection(
+                collectionId: collectionId,
+                presentationTransition: presentationTransition,
+                request: request
+            )
         }
-
-        openPlayer(
-            initialItemId: collectionId,
-            continueViewingCollectionId: collectionId,
-            presentationTransition: presentationTransition
-        )
     }
-    
+
+    private func openCollection(
+        collectionId: String,
+        presentationTransition: PlayerPresentationTransition,
+        request: PlayerPresentationRequestGate.Request
+    ) async {
+        await PlayerPersistenceUpdates.flush()
+        guard playerPresentationGate.isPending(request) else { return }
+        let progress = await MobileViewingProgressStore.shared.progress(
+            collectionId: collectionId
+        )
+        guard playerPresentationGate.isPending(request) else { return }
+        if let progress {
+            await resumeViewing(
+                progress,
+                presentationTransition: presentationTransition,
+                request: request
+            )
+        } else {
+            await openPlayer(
+                initialItemId: collectionId,
+                continueViewingCollectionId: collectionId,
+                presentationTransition: presentationTransition,
+                request: request
+            )
+        }
+    }
+
+    private func requestResumeViewing(_ progress: MobileViewingProgress) {
+        let request = playerPresentationGate.begin()
+        Task {
+            await openCollection(
+                collectionId: progress.collectionId,
+                presentationTransition: .animated,
+                request: request
+            )
+        }
+    }
+
     private func resumeViewing(
         _ progress: MobileViewingProgress,
-        presentationTransition: PlayerPresentationTransition = .animated
-    ) {
-        openPlayer(
+        presentationTransition: PlayerPresentationTransition,
+        request: PlayerPresentationRequestGate.Request
+    ) async {
+        await openPlayer(
             initialItemId: progress.collectionId,
             initialTokenId: progress.tokenId,
             initialTokenIndex: progress.tokenIndex,
             continueViewingCollectionId: progress.collectionId,
-            presentationTransition: presentationTransition
+            presentationTransition: presentationTransition,
+            request: request
         )
     }
 
-    private func openWidgetURL(_ url: URL) {
-        defer {
-            widgetLaunchPresentationState.finishWidgetPlayerHandoff(for: url)
-        }
-
+    private func requestWidgetURL(_ url: URL) {
         guard let deepLink = WidgetDeepLink(url: url),
               case let .collection(collectionId, tokenId) = deepLink,
               collectionItems.contains(where: { $0.id == collectionId }) else {
+            widgetLaunchPresentationState.finishWidgetPlayerHandoff(for: url)
             return
         }
 
-        if let tokenId {
-            openWidgetToken(
-                collectionId: collectionId,
-                tokenId: tokenId
-            )
-        } else {
-            openCollection(
-                collectionId: collectionId,
-                presentationTransition: .instant
-            )
+        let request = playerPresentationGate.begin()
+        let handoffRequest = widgetLaunchPresentationState.beginWidgetPlayerHandoff(for: url)
+        Task {
+            defer {
+                widgetLaunchPresentationState.finishWidgetPlayerHandoff(handoffRequest)
+            }
+            if let tokenId {
+                await openWidgetToken(
+                    collectionId: collectionId,
+                    tokenId: tokenId,
+                    request: request
+                )
+            } else {
+                await openCollection(
+                    collectionId: collectionId,
+                    presentationTransition: .instant,
+                    request: request
+                )
+            }
         }
     }
 
     private func openWidgetToken(
         collectionId: String,
-        tokenId: String
-    ) {
+        tokenId: String,
+        request: PlayerPresentationRequestGate.Request
+    ) async {
+        await PlayerPersistenceUpdates.flush()
+        guard playerPresentationGate.isPending(request) else { return }
+        let progress = await MobileViewingProgressStore.shared.progress(
+            collectionId: collectionId
+        )
+        guard playerPresentationGate.isPending(request) else { return }
         guard let widgetTokenInsertion = MobileCollectionCatalog.widgetTokenInsertion(
             collectionId: collectionId,
             widgetTokenId: tokenId,
-            progress: MobileViewingProgressStore.progress(collectionId: collectionId)
+            progress: progress
         ) else {
-            openCollection(
+            await openCollection(
                 collectionId: collectionId,
-                presentationTransition: .instant
+                presentationTransition: .instant,
+                request: request
             )
             return
         }
 
-        if let anchorProgress = widgetTokenInsertion.automaticAnchorProgress() {
-            MobileViewingProgressStore.save(anchorProgress)
-        }
-        openPlayer(
+        guard playerPresentationGate.isPending(request) else { return }
+        await openPlayer(
             initialItemId: collectionId,
             continueViewingCollectionId: collectionId,
             widgetTokenInsertion: widgetTokenInsertion,
-            presentationTransition: .instant
+            anchorProgress: widgetTokenInsertion.automaticAnchorProgress(),
+            presentationTransition: .instant,
+            request: request
         )
     }
 
@@ -421,8 +489,16 @@ struct MobileCollectionsView: View {
         initialTokenIndex: Int? = nil,
         continueViewingCollectionId: String,
         widgetTokenInsertion: PlayerWidgetTokenInsertion? = nil,
-        presentationTransition: PlayerPresentationTransition = .animated
-    ) {
+        anchorProgress: MobileViewingProgress? = nil,
+        presentationTransition: PlayerPresentationTransition,
+        request: PlayerPresentationRequestGate.Request
+    ) async {
+        guard playerPresentationGate.isPending(request) else { return }
+        guard let continueViewingUpdate = await MobileViewingProgressStore.shared
+            .prepareContinueViewingUpdate(collectionId: continueViewingCollectionId),
+              playerPresentationGate.isPending(request) else {
+            return
+        }
         let config = MobilePlayerPrewarmer.preparedConfig(
             initialItemId: initialItemId,
             initialTokenId: initialTokenId,
@@ -430,25 +506,36 @@ struct MobileCollectionsView: View {
             continueViewingCollectionId: continueViewingCollectionId,
             widgetTokenInsertion: widgetTokenInsertion
         )
-
-        let presentPlayer = {
-            playerPresentationTransition = presentationTransition
-            playerConfig = config
-            MobileViewingProgressStore.setContinueViewingCollectionId(continueViewingCollectionId)
-        }
-        switch presentationTransition {
-        case .animated:
-            withAnimation(playerCrossfadeAnimation) {
-                presentPlayer()
+        playerPresentationGate.commit(
+            request,
+            present: {
+                let presentPlayer = {
+                    playerPresentationTransition = presentationTransition
+                    playerConfig = config
+                }
+                switch presentationTransition {
+                case .animated:
+                    withAnimation(playerCrossfadeAnimation) {
+                        presentPlayer()
+                    }
+                case .instant:
+                    var transaction = Transaction(animation: nil)
+                    transaction.disablesAnimations = true
+                    withTransaction(transaction) {
+                        presentPlayer()
+                    }
+                }
+                Haptic.selectionChanged()
+            },
+            persist: {
+                if let anchorProgress {
+                    await MobileViewingProgressStore.shared.save(anchorProgress)
+                }
+                await MobileViewingProgressStore.shared.applyContinueViewingUpdate(
+                    continueViewingUpdate
+                )
             }
-        case .instant:
-            var transaction = Transaction(animation: nil)
-            transaction.disablesAnimations = true
-            withTransaction(transaction) {
-                presentPlayer()
-            }
-        }
-        Haptic.selectionChanged()
+        )
     }
 
     private func dismissPlayer(_ config: MobilePlayerConfig) {
@@ -456,31 +543,43 @@ struct MobileCollectionsView: View {
         playerPresentationTransition = .animated
         withAnimation(playerCrossfadeAnimation) {
             playerConfig = nil
-            refreshViewingProgressAndResetContinueViewingScrollOffset()
         }
+        requestViewingProgressRefresh(resetScroll: true)
     }
 
-    private func refreshViewingProgress(resetScrollOnLeadingChange: Bool = true) {
+    private func requestViewingProgressRefresh(
+        resetScroll: Bool = false,
+        prewarm: Bool = false
+    ) {
+        shouldResetScrollAfterViewingProgressRefresh =
+            shouldResetScrollAfterViewingProgressRefresh || resetScroll
+        shouldPrewarmAfterViewingProgressRefresh =
+            shouldPrewarmAfterViewingProgressRefresh || prewarm
+        viewingProgressRefreshID &+= 1
+    }
+
+    private func performViewingProgressRefresh(id refreshID: Int) async {
+        let shouldResetScroll = shouldResetScrollAfterViewingProgressRefresh
+        let shouldPrewarm = shouldPrewarmAfterViewingProgressRefresh
         let previousLeadingCollectionId = recentContinueViewingProgresses.first?.collectionId
-        let progressSnapshot = MobileViewingProgressStore.progressSnapshot()
-        viewingProgressByCollectionId = progressSnapshot.percentagesByCollectionId
-        viewedToEndCollectionIds = progressSnapshot.viewedToEndCollectionIds
-        recentContinueViewingProgresses = Self.visibleRecentContinueViewingProgresses(
-            from: progressSnapshot,
-            collectionItems: collectionItems
-        )
+        let snapshot = await MobileViewingProgressStore.shared.progressSnapshot()
+        guard !Task.isCancelled, refreshID == viewingProgressRefreshID else { return }
 
-        guard resetScrollOnLeadingChange,
-              playerConfig == nil,
-              previousLeadingCollectionId != recentContinueViewingProgresses.first?.collectionId else {
-            return
+        viewingProgressSnapshot = snapshot
+        shouldResetScrollAfterViewingProgressRefresh = false
+        shouldPrewarmAfterViewingProgressRefresh = false
+
+        if shouldResetScroll
+            || (playerConfig == nil
+                && previousLeadingCollectionId != recentContinueViewingProgresses.first?.collectionId) {
+            resetContinueViewingScrollOffset()
         }
-        resetContinueViewingScrollOffset()
-    }
-
-    private func refreshViewingProgressAndResetContinueViewingScrollOffset() {
-        refreshViewingProgress(resetScrollOnLeadingChange: false)
-        resetContinueViewingScrollOffset()
+        if !hasLoadedViewingProgress {
+            hasLoadedViewingProgress = true
+        }
+        if shouldPrewarm {
+            schedulePlayerPrewarm()
+        }
     }
 
     private func resetContinueViewingScrollOffset() {
@@ -972,7 +1071,7 @@ private final class InfiniteCollectionsGridContainerView: UIView {
         fatalError("init(coder:) has not been implemented")
     }
 
-    deinit {
+    isolated deinit {
         coordinator?.flushScrollPosition(in: collectionView)
         NotificationCenter.default.removeObserver(self)
     }
@@ -1070,143 +1169,37 @@ private extension Double {
     }
 }
 
-private final class MobileCollectionCoverImageCache {
-    static let shared = MobileCollectionCoverImageCache()
-
-    private let visibleQueue = DispatchQueue(label: "org.lil.nft-player.mobile-collection-cover-cache.visible", qos: .userInitiated)
-    private let prefetchQueue = DispatchQueue(label: "org.lil.nft-player.mobile-collection-cover-cache.prefetch", qos: .utility)
-    private let lock = NSLock()
+nonisolated private final class MobileCollectionCoverImageStorage: @unchecked Sendable {
     private let cache = NSCache<NSString, UIImage>()
-    private var pendingPrefetchKeys = Set<String>()
-    private var cancelledPrefetchKeys = Set<String>()
 
-    private init() {
+    init() {
         cache.countLimit = 320
         cache.totalCostLimit = 64 * 1024 * 1024
     }
 
-    func cachedImage(assetName: String, targetSize: CGSize, displayScale: CGFloat) -> UIImage? {
-        let targetPixelSide = targetPixelSide(for: targetSize, displayScale: displayScale)
-        return cache.object(forKey: cacheKey(assetName: assetName, targetPixelSide: targetPixelSide) as NSString)
+    func image(forKey key: String) -> UIImage? {
+        cache.object(forKey: key as NSString)
     }
 
-    func loadImage(
+    func insert(_ image: UIImage, forKey key: String) {
+        cache.setObject(image, forKey: key as NSString, cost: image.memoryCost)
+    }
+}
+
+private actor MobileCollectionCoverImageDecodeLane {
+    func image(
         assetName: String,
-        targetSize: CGSize,
+        key: String,
+        targetPixelSide: Int,
         displayScale: CGFloat,
-        completion: @escaping (UIImage?) -> Void
-    ) {
-        let targetPixelSide = targetPixelSide(for: targetSize, displayScale: displayScale)
-        let key = cacheKey(assetName: assetName, targetPixelSide: targetPixelSide)
-        if let image = cache.object(forKey: key as NSString) {
-            completion(image)
-            return
+        storage: MobileCollectionCoverImageStorage
+    ) -> UIImage? {
+        if let image = storage.image(forKey: key) {
+            return image
         }
+        guard !Task.isCancelled else { return nil }
 
-        visibleQueue.async { [cache] in
-            if let cachedImage = cache.object(forKey: key as NSString) {
-                DispatchQueue.main.async {
-                    completion(cachedImage)
-                }
-                return
-            }
-
-            let image = Self.preparedImage(
-                assetName: assetName,
-                targetPixelSide: targetPixelSide,
-                displayScale: displayScale
-            )
-            if let image {
-                cache.setObject(image, forKey: key as NSString, cost: image.memoryCost)
-            }
-
-            DispatchQueue.main.async {
-                completion(image)
-            }
-        }
-    }
-
-    func prefetch(assetNames: [String], targetSize: CGSize, displayScale: CGFloat) {
-        assetNames.forEach { assetName in
-            let targetPixelSide = targetPixelSide(for: targetSize, displayScale: displayScale)
-            let key = cacheKey(assetName: assetName, targetPixelSide: targetPixelSide)
-            guard cache.object(forKey: key as NSString) == nil else { return }
-            guard shouldSchedulePrefetch(forKey: key) else { return }
-
-            prefetchQueue.async { [cache] in
-                guard self.shouldRunPrefetch(forKey: key) else { return }
-                guard cache.object(forKey: key as NSString) == nil else {
-                    self.finishPrefetch(forKey: key)
-                    return
-                }
-
-                let image = Self.preparedImage(
-                    assetName: assetName,
-                    targetPixelSide: targetPixelSide,
-                    displayScale: displayScale
-                )
-                if let image {
-                    cache.setObject(image, forKey: key as NSString, cost: image.memoryCost)
-                }
-                self.finishPrefetch(forKey: key)
-            }
-        }
-    }
-
-    func cancelPrefetch(assetNames: [String], targetSize: CGSize, displayScale: CGFloat) {
-        let targetPixelSide = targetPixelSide(for: targetSize, displayScale: displayScale)
-        let keys = assetNames.map { assetName in
-            cacheKey(assetName: assetName, targetPixelSide: targetPixelSide)
-        }
-        lock.withLock {
-            keys.forEach { key in
-                guard pendingPrefetchKeys.contains(key) else { return }
-                cancelledPrefetchKeys.insert(key)
-            }
-        }
-    }
-
-    private func targetPixelSide(for targetSize: CGSize, displayScale: CGFloat) -> Int {
-        let pointSide = max(max(targetSize.width, targetSize.height), 1)
-        return max(Int(ceil(pointSide * displayScale)), 1)
-    }
-
-    private func cacheKey(assetName: String, targetPixelSide: Int) -> String {
-        "\(assetName)-\(targetPixelSide)"
-    }
-
-    private func shouldSchedulePrefetch(forKey key: String) -> Bool {
-        lock.withLock {
-            if pendingPrefetchKeys.contains(key) {
-                cancelledPrefetchKeys.remove(key)
-                return false
-            }
-            cancelledPrefetchKeys.remove(key)
-            pendingPrefetchKeys.insert(key)
-            return true
-        }
-    }
-
-    private func shouldRunPrefetch(forKey key: String) -> Bool {
-        lock.withLock {
-            if cancelledPrefetchKeys.contains(key) {
-                pendingPrefetchKeys.remove(key)
-                cancelledPrefetchKeys.remove(key)
-                return false
-            }
-            return true
-        }
-    }
-
-    private func finishPrefetch(forKey key: String) {
-        lock.withLock {
-            pendingPrefetchKeys.remove(key)
-            cancelledPrefetchKeys.remove(key)
-        }
-    }
-
-    private static func preparedImage(assetName: String, targetPixelSide: Int, displayScale: CGFloat) -> UIImage? {
-        autoreleasepool {
+        let image = autoreleasepool { () -> UIImage? in
             guard let image = UIImage(named: assetName) else { return nil }
 
             let scale = max(displayScale, 1)
@@ -1215,8 +1208,14 @@ private final class MobileCollectionCoverImageCache {
             let imageSize = image.size
             guard imageSize.width > 0, imageSize.height > 0 else { return image }
 
-            let fillScale = max(targetSize.width / imageSize.width, targetSize.height / imageSize.height)
-            let scaledSize = CGSize(width: imageSize.width * fillScale, height: imageSize.height * fillScale)
+            let fillScale = max(
+                targetSize.width / imageSize.width,
+                targetSize.height / imageSize.height
+            )
+            let scaledSize = CGSize(
+                width: imageSize.width * fillScale,
+                height: imageSize.height * fillScale
+            )
             let drawRect = CGRect(
                 x: (targetSize.width - scaledSize.width) / 2,
                 y: (targetSize.height - scaledSize.height) / 2,
@@ -1231,11 +1230,106 @@ private final class MobileCollectionCoverImageCache {
                 image.draw(in: drawRect)
             }
         }
+
+        guard !Task.isCancelled else { return nil }
+        if let image {
+            storage.insert(image, forKey: key)
+        }
+        return image
+    }
+}
+
+private final class MobileCollectionCoverImageCache {
+    static let shared = MobileCollectionCoverImageCache()
+
+    private let storage = MobileCollectionCoverImageStorage()
+    private let visibleDecodeLane = MobileCollectionCoverImageDecodeLane()
+    private let prefetchDecodeLane = MobileCollectionCoverImageDecodeLane()
+    private var prefetchTasks = [String: (id: UUID, task: Task<Void, Never>)]()
+
+    private init() {}
+
+    func cachedImage(assetName: String, targetSize: CGSize, displayScale: CGFloat) -> UIImage? {
+        let targetPixelSide = targetPixelSide(for: targetSize, displayScale: displayScale)
+        return storage.image(
+            forKey: cacheKey(assetName: assetName, targetPixelSide: targetPixelSide)
+        )
+    }
+
+    func loadImage(
+        assetName: String,
+        targetSize: CGSize,
+        displayScale: CGFloat,
+        completion: @escaping (UIImage?) -> Void
+    ) {
+        let targetPixelSide = targetPixelSide(for: targetSize, displayScale: displayScale)
+        let key = cacheKey(assetName: assetName, targetPixelSide: targetPixelSide)
+        if let image = storage.image(forKey: key) {
+            completion(image)
+            return
+        }
+
+        Task(priority: .userInitiated) {
+            let image = await visibleDecodeLane.image(
+                assetName: assetName,
+                key: key,
+                targetPixelSide: targetPixelSide,
+                displayScale: displayScale,
+                storage: storage
+            )
+            completion(image)
+        }
+    }
+
+    func prefetch(assetNames: [String], targetSize: CGSize, displayScale: CGFloat) {
+        assetNames.forEach { assetName in
+            let targetPixelSide = targetPixelSide(for: targetSize, displayScale: displayScale)
+            let key = cacheKey(assetName: assetName, targetPixelSide: targetPixelSide)
+            guard storage.image(forKey: key) == nil else { return }
+            guard prefetchTasks[key] == nil else { return }
+
+            let id = UUID()
+            let task = Task(priority: .utility) { [weak self] in
+                guard let self else { return }
+                _ = await prefetchDecodeLane.image(
+                    assetName: assetName,
+                    key: key,
+                    targetPixelSide: targetPixelSide,
+                    displayScale: displayScale,
+                    storage: storage
+                )
+                guard !Task.isCancelled,
+                      prefetchTasks[key]?.id == id else {
+                    return
+                }
+                prefetchTasks.removeValue(forKey: key)
+            }
+            prefetchTasks[key] = (id, task)
+        }
+    }
+
+    func cancelPrefetch(assetNames: [String], targetSize: CGSize, displayScale: CGFloat) {
+        let targetPixelSide = targetPixelSide(for: targetSize, displayScale: displayScale)
+        let keys = assetNames.map { assetName in
+            cacheKey(assetName: assetName, targetPixelSide: targetPixelSide)
+        }
+        keys.forEach { key in
+            prefetchTasks.removeValue(forKey: key)?.task.cancel()
+        }
+    }
+
+    private func targetPixelSide(for targetSize: CGSize, displayScale: CGFloat) -> Int {
+        let pointSide = max(max(targetSize.width, targetSize.height), 1)
+        return max(Int(ceil(pointSide * displayScale)), 1)
+    }
+
+    private func cacheKey(assetName: String, targetPixelSide: Int) -> String {
+        "\(assetName)-\(targetPixelSide)"
     }
 }
 
 private extension UIImage {
-    var memoryCost: Int {
+    nonisolated var memoryCost: Int {
         guard let cgImage else {
             return Int(size.width * scale * size.height * scale * 4)
         }
@@ -1646,6 +1740,7 @@ private struct MobileCollectionsNavigationView<RootView: View>: UIViewController
     let rootView: RootView
     let playerConfig: MobilePlayerConfig?
     let presentationTransition: PlayerPresentationTransition
+    let onWillDismissPlayer: () -> ((Bool) -> Void)?
     let onDismissPlayer: (MobilePlayerConfig) -> Void
 
     func makeCoordinator() -> Coordinator {
@@ -1672,6 +1767,7 @@ private struct MobileCollectionsNavigationView<RootView: View>: UIViewController
         context.coordinator.update(
             playerConfig: playerConfig,
             presentationTransition: presentationTransition,
+            onWillDismissPlayer: onWillDismissPlayer,
             onDismissPlayer: onDismissPlayer
         )
         return navigationController
@@ -1685,6 +1781,7 @@ private struct MobileCollectionsNavigationView<RootView: View>: UIViewController
         context.coordinator.update(
             playerConfig: playerConfig,
             presentationTransition: presentationTransition,
+            onWillDismissPlayer: onWillDismissPlayer,
             onDismissPlayer: onDismissPlayer
         )
     }
@@ -1737,6 +1834,9 @@ private struct MobileCollectionsNavigationView<RootView: View>: UIViewController
                 self.initialStack = initialStack
             }
 
+            @inline(never)
+            deinit {}
+
             func owns(_ viewController: UIViewController?) -> Bool {
                 guard let viewController else { return false }
                 return viewController === pagerViewController
@@ -1756,10 +1856,15 @@ private struct MobileCollectionsNavigationView<RootView: View>: UIViewController
         private var activeSession: PlayerSession?
         private var desiredPlayerConfig: MobilePlayerConfig?
         private var desiredPresentationTransition: PlayerPresentationTransition = .animated
+        private var onWillDismissPlayer: (() -> ((Bool) -> Void)?)?
         private var onDismissPlayer: ((MobilePlayerConfig) -> Void)?
         private var dismissedConfigIDAwaitingStateUpdate: UUID?
         private var isReconcileScheduled = false
+        private var reconcileTask: Task<Void, Never>?
         private var isAwaitingNavigationTransition = false
+
+        @inline(never)
+        deinit {}
 
         func attach(
             navigationController: PlayerNavigationController,
@@ -1772,10 +1877,12 @@ private struct MobileCollectionsNavigationView<RootView: View>: UIViewController
         func update(
             playerConfig: MobilePlayerConfig?,
             presentationTransition: PlayerPresentationTransition,
+            onWillDismissPlayer: @escaping () -> ((Bool) -> Void)?,
             onDismissPlayer: @escaping (MobilePlayerConfig) -> Void
         ) {
             desiredPlayerConfig = playerConfig
             desiredPresentationTransition = presentationTransition
+            self.onWillDismissPlayer = onWillDismissPlayer
             self.onDismissPlayer = onDismissPlayer
             if dismissedConfigIDAwaitingStateUpdate != playerConfig?.id {
                 dismissedConfigIDAwaitingStateUpdate = nil
@@ -1790,20 +1897,26 @@ private struct MobileCollectionsNavigationView<RootView: View>: UIViewController
 
         func invalidate() {
             isReconcileScheduled = false
+            reconcileTask?.cancel()
+            reconcileTask = nil
             isAwaitingNavigationTransition = false
             activeSession?.invalidate()
             activeSession = nil
             navigationController?.delegate = nil
             navigationController = nil
             rootViewController = nil
+            onWillDismissPlayer = nil
+            onDismissPlayer = nil
         }
 
         private func scheduleReconcile() {
             guard !isReconcileScheduled else { return }
             isReconcileScheduled = true
-            DispatchQueue.main.async { [weak self] in
+            reconcileTask = Task { @MainActor [weak self] in
+                await Task.yield()
                 guard let self else { return }
                 self.isReconcileScheduled = false
+                self.reconcileTask = nil
                 self.reconcileNavigationState()
             }
         }
@@ -2014,6 +2127,9 @@ private struct MobileCollectionsNavigationView<RootView: View>: UIViewController
                   navigationController.transitionCoordinator == nil else {
                 return
             }
+            let resolvePendingPresentation = onWillDismissPlayer?()
+            resolvePendingPresentation?(true)
+            MobilePlaybackController.shared.cancelPendingCollectionRestart(uuid: configID)
             navigationController.popToRootViewController(animated: true)
         }
 
@@ -2032,10 +2148,32 @@ private struct MobileCollectionsNavigationView<RootView: View>: UIViewController
                 return
             }
 
-            guard viewController === rootViewController else { return }
-            activeSession?.interactionController.prepareForNavigationPopTransition(
+            guard viewController === rootViewController,
+                  let activeSession else { return }
+            schedulePendingPresentationCancellation(
                 using: navigationController.transitionCoordinator
             )
+            activeSession.interactionController.prepareForNavigationPopTransition(
+                using: navigationController.transitionCoordinator
+            )
+        }
+
+        private func schedulePendingPresentationCancellation(
+            using transitionCoordinator: (any UIViewControllerTransitionCoordinator)?
+        ) {
+            guard let resolution = onWillDismissPlayer?() else { return }
+            guard let transitionCoordinator else {
+                resolution(true)
+                return
+            }
+            let didRegisterCompletion = transitionCoordinator.animate(
+                alongsideTransition: nil
+            ) { context in
+                resolution(!context.isCancelled)
+            }
+            if !didRegisterCompletion {
+                resolution(true)
+            }
         }
 
         func navigationController(
@@ -2063,7 +2201,8 @@ private struct MobileCollectionsNavigationView<RootView: View>: UIViewController
             completedSession.invalidate()
             restoreRootNavigationState(navigationController)
             let completedConfig = completedSession.config
-            DispatchQueue.main.async { [weak self] in
+            Task { @MainActor [weak self] in
+                await Task.yield()
                 self?.onDismissPlayer?(completedConfig)
             }
             scheduleReconcile()
@@ -2747,7 +2886,7 @@ private final class CardTransitionUnderlayView: UIView {
         fatalError("yo")
     }
 
-    deinit {
+    isolated deinit {
         lateImageEntries.forEach { $0.cancellation?() }
     }
 
@@ -2796,7 +2935,8 @@ private final class CardTransitionUnderlayView: UIView {
             }
 
             entry.cancellation = DownloadableMediaCache.shared.loadImage(for: descriptor) { [weak self, weak entry] image in
-                DispatchQueue.main.async {
+                Task { @MainActor in
+                    await Task.yield()
                     guard let self,
                           let entry,
                           self.lateImageEntries.contains(where: { $0 === entry }) else {
@@ -3036,15 +3176,17 @@ final class PendingMainQueueUpdate {
 
         isScheduled = true
         let scheduledGeneration = generation
-        DispatchQueue.main.async { [weak self] in
-            guard let self,
-                  self.isScheduled,
-                  self.generation == scheduledGeneration else {
-                return
-            }
+        RunLoop.main.perform(inModes: [.common]) { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self,
+                      self.isScheduled,
+                      self.generation == scheduledGeneration else {
+                    return
+                }
 
-            self.isScheduled = false
-            self.action()
+                self.isScheduled = false
+                self.action()
+            }
         }
     }
 
@@ -3104,6 +3246,12 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
         let targetFrame: CGRect
         let foregroundView: UIView
         let underlayView: CardTransitionUnderlayView
+    }
+
+    @MainActor
+    private final class CardMinimizeBrowserRequestState {
+        var requestReturned = false
+        var wasRejectedSynchronously = false
     }
 
     let playerNavigationController: PlayerNavigationController
@@ -3188,10 +3336,10 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
     private var isCardExpandLayoutApplied = false
     private var playerInteractionEnabledBeforeLivePagerFade: Bool?
     private var topEdgeTintAnimator: UIViewPropertyAnimator?
-    private var pendingTopEdgeTintWorkItem: DispatchWorkItem?
+    private var pendingTopEdgeTintTask: Task<Void, Never>?
     private var didControlsPanConflictWithHorizontalScroll = false
     private var isNavigationBackDisplayModeRequestPending = false
-    private var chromeCancellables = Set<AnyCancellable>()
+    private var chromeObservationGeneration: UInt = 0
 
     init(
         navigationController: PlayerNavigationController,
@@ -3227,9 +3375,12 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
             shouldShowNavigationBarChrome,
             animated: false
         )
-        observePlayerBackgroundColor()
-        observeNavigationToolbarUpdates()
-        observeNavigationBarChromeVisibility()
+        chromeObservationGeneration &+= 1
+        let observationGeneration = chromeObservationGeneration
+        applyPlayerBackgroundColor(chrome.playerBackgroundColor)
+        observePlayerBackgroundColor(generation: observationGeneration)
+        observeNavigationToolbarUpdates(generation: observationGeneration)
+        observeNavigationBarChromeVisibility(generation: observationGeneration)
     }
 
     func install() {
@@ -3312,7 +3463,7 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
         isNavigationBackDisplayModeRequestPending = false
         cardMinimizePinchPresentationUpdate.invalidate()
         navigationToolbarUpdate.invalidate()
-        chromeCancellables.removeAll()
+        chromeObservationGeneration &+= 1
         playerViewController.onAccessibilityEscape = nil
         playerViewController.onPlayerLayout = nil
         browserViewController?.onAccessibilityEscape = nil
@@ -3459,8 +3610,8 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
     }
 
     private func cancelScheduledTopEdgeTintChanges() {
-        pendingTopEdgeTintWorkItem?.cancel()
-        pendingTopEdgeTintWorkItem = nil
+        pendingTopEdgeTintTask?.cancel()
+        pendingTopEdgeTintTask = nil
         if let topEdgeTintAnimator, topEdgeTintAnimator.state != .inactive {
             topEdgeTintAnimator.stopAnimation(true)
         }
@@ -3475,43 +3626,66 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
     private func animateTopEdgeTint(to alpha: CGFloat, delay: TimeInterval = 0) {
         cancelScheduledTopEdgeTintChanges()
 
-        let startAnimation = { [weak self] in
-            guard let self else { return }
-            let animator = UIViewPropertyAnimator(duration: 0.06, curve: .linear) {
-                self.playerNavigationController.setTopEdgeTintAlpha(alpha)
-            }
-            self.topEdgeTintAnimator = animator
-            animator.startAnimation()
-        }
         guard delay > 0 else {
-            startAnimation()
+            startTopEdgeTintAnimation(to: alpha)
             return
         }
 
-        let workItem = DispatchWorkItem(block: startAnimation)
-        pendingTopEdgeTintWorkItem = workItem
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: workItem)
+        pendingTopEdgeTintTask = Task { [weak self] in
+            do {
+                try await Task.sleep(for: .seconds(delay))
+            } catch {
+                return
+            }
+            guard let self else { return }
+            pendingTopEdgeTintTask = nil
+            startTopEdgeTintAnimation(to: alpha)
+        }
     }
 
-    private func observePlayerBackgroundColor() {
-        chrome.$playerBackgroundColor
-            .sink { [weak self] color in
-                guard let self else { return }
-                self.playerViewController.setPlayerPageBackground(color: color)
-                self.browserViewController?.setPlayerPageBackground(color: color)
-                self.cardTransitionCanvasView.backgroundColor = color
-            }
-            .store(in: &chromeCancellables)
+    private func startTopEdgeTintAnimation(to alpha: CGFloat) {
+        let animator = UIViewPropertyAnimator(duration: 0.06, curve: .linear) {
+            self.playerNavigationController.setTopEdgeTintAlpha(alpha)
+        }
+        topEdgeTintAnimator = animator
+        animator.startAnimation()
     }
 
-    private func observeNavigationToolbarUpdates() {
-        chrome.$allowsNavigationBackSwipe
-            .combineLatest(chrome.$isPlayerContentHiddenForCardTransition)
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _, _ in
-                self?.scheduleNavigationBarSynchronization()
+    private func observePlayerBackgroundColor(generation: UInt) {
+        withObservationTracking {
+            _ = chrome.playerBackgroundColor
+        } onChange: { [weak self] in
+            Task { @MainActor [weak self] in
+                guard let self,
+                      chromeObservationGeneration == generation else {
+                    return
+                }
+                applyPlayerBackgroundColor(chrome.playerBackgroundColor)
+                observePlayerBackgroundColor(generation: generation)
             }
-            .store(in: &chromeCancellables)
+        }
+    }
+
+    private func applyPlayerBackgroundColor(_ color: UIColor) {
+        playerViewController.setPlayerPageBackground(color: color)
+        browserViewController?.setPlayerPageBackground(color: color)
+        cardTransitionCanvasView.backgroundColor = color
+    }
+
+    private func observeNavigationToolbarUpdates(generation: UInt) {
+        withObservationTracking {
+            _ = chrome.allowsNavigationBackSwipe
+            _ = chrome.isPlayerContentHiddenForCardTransition
+        } onChange: { [weak self] in
+            Task { @MainActor [weak self] in
+                guard let self,
+                      chromeObservationGeneration == generation else {
+                    return
+                }
+                scheduleNavigationBarSynchronization()
+                observeNavigationToolbarUpdates(generation: generation)
+            }
+        }
     }
 
     private func scheduleNavigationBarSynchronization() {
@@ -3533,23 +3707,24 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
         playerNavigationController.synchronizeNavigationBarChromeVisibility()
     }
 
-    private func observeNavigationBarChromeVisibility() {
-        chrome.$showControls
-            .combineLatest(chrome.$allowsNavigationBackSwipe)
-            .map { showControls, allowsNavigationBackSwipe in
-                MobilePlayerChromeController.shouldShowPlayerChrome(
-                    showControls: showControls,
-                    allowsNavigationBackSwipe: allowsNavigationBackSwipe
+    private func observeNavigationBarChromeVisibility(generation: UInt) {
+        withObservationTracking {
+            _ = chrome.showControls
+            _ = chrome.allowsNavigationBackSwipe
+        } onChange: { [weak self] in
+            Task { @MainActor [weak self] in
+                guard let self,
+                      chromeObservationGeneration == generation else {
+                    return
+                }
+                setNavigationBarChromeVisible(
+                    shouldShowNavigationBarChrome,
+                    animated: true
                 )
+                scheduleNavigationBarSynchronization()
+                observeNavigationBarChromeVisibility(generation: generation)
             }
-            .removeDuplicates()
-            .sink { [weak self] isVisible in
-                guard let self else { return }
-
-                self.setNavigationBarChromeVisible(isVisible, animated: true)
-                self.scheduleNavigationBarSynchronization()
-            }
-            .store(in: &chromeCancellables)
+        }
     }
 
     private var shouldShowNavigationBarChrome: Bool {
@@ -4088,8 +4263,7 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
             return
         }
         let contextID = context.id
-        var requestReturned = false
-        var wasRejectedSynchronously = false
+        let requestState = CardMinimizeBrowserRequestState()
 
         modeController.switchToCollectionBrowser(
             targetPagePosition: context.sourcePagePosition
@@ -4099,10 +4273,10 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
                 return
             }
             guard didApply else {
-                if requestReturned {
+                if requestState.requestReturned {
                     self.resetCardMinimizeTransform()
                 } else {
-                    wasRejectedSynchronously = true
+                    requestState.wasRejectedSynchronously = true
                 }
                 return
             }
@@ -4110,8 +4284,8 @@ private final class PlayerInteractionController: NSObject, UIGestureRecognizerDe
             self.isCardMinimizeLayoutApplied = true
             self.finishCardMinimizeTransitionIfReady()
         }
-        requestReturned = true
-        if wasRejectedSynchronously {
+        requestState.requestReturned = true
+        if requestState.wasRejectedSynchronously {
             resetCardMinimizeTransform()
             return
         }
@@ -5412,7 +5586,8 @@ private struct MobileSearchTextField: UIViewRepresentable {
         }
 
         private func scheduleAutoFocus() {
-            DispatchQueue.main.async { [weak self] in
+            Task { @MainActor [weak self] in
+                await Task.yield()
                 guard let self, self.window != nil, !self.isFocusSuspended else { return }
                 self.becomeFirstResponder()
             }

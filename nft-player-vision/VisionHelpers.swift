@@ -1,5 +1,6 @@
 // ∅ 2026 lil org
 
+import Observation
 import SwiftUI
 
 enum VisionOrnamentMetrics {
@@ -93,10 +94,10 @@ struct Images {
     
 }
 
-@MainActor
-final class VisionImmersiveModeModel: ObservableObject {
-    @Published var isEnabled = false
-    @Published private(set) var isSpaceVisible = false
+@MainActor @Observable
+final class VisionImmersiveModeModel {
+    var isEnabled = false
+    private(set) var isSpaceVisible = false
 
     func didShowSpace() {
         isSpaceVisible = true
@@ -110,7 +111,7 @@ final class VisionImmersiveModeModel: ObservableObject {
 
 struct VisionBlackImmersiveBackdropView: View {
 
-    @EnvironmentObject private var immersiveMode: VisionImmersiveModeModel
+    @Environment(VisionImmersiveModeModel.self) private var immersiveMode
 
     var body: some View {
         Color.clear

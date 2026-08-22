@@ -93,7 +93,7 @@ final class MacPlayerCardTransitionCanvas: NSView {
         toCardFrame cardFrame: CGRect,
         backdropAlpha: CGFloat,
         duration: TimeInterval,
-        completion: @escaping () -> Void
+        completion: @MainActor @Sendable @escaping () -> Void
     ) {
         let timingFunction = CAMediaTimingFunction(name: .easeOut)
         cardView.animateCornerMask(
@@ -109,7 +109,9 @@ final class MacPlayerCardTransitionCanvas: NSView {
             cardView.animator().frame = cardFrame
             backdropView.animator().alphaValue = min(max(backdropAlpha, 0), 1)
         } completionHandler: {
-            completion()
+            Task { @MainActor in
+                completion()
+            }
         }
     }
 

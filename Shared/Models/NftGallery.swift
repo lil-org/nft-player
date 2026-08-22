@@ -2,7 +2,7 @@
 
 import Foundation
 
-enum NftGallery: Int, CaseIterable, Codable {
+nonisolated enum NftGallery: Int, CaseIterable, Codable, Sendable {
 
     case blockExplorer = 1
 
@@ -21,7 +21,7 @@ enum NftGallery: Int, CaseIterable, Codable {
     
 }
 
-private extension Network {
+nonisolated private extension Network {
     var blockExplorerBaseURLString: String {
         switch self {
         case .mainnet:

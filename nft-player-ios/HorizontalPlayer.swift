@@ -143,7 +143,7 @@ final class FullscreenTokenMediaRenderer {
         self.containerView = containerView
     }
 
-    deinit {
+    isolated deinit {
         cancelCurrentImageLoad()
         cancelNativeMetalCardProvisionalImageLoad?()
         nativeMetalCardView?.stop()
@@ -383,7 +383,7 @@ final class FullscreenTokenMediaRenderer {
         }
         if provisionalImage == nil, let loadProvisionalImage {
             cancelNativeMetalCardProvisionalImageLoad = loadProvisionalImage { [weak self] image in
-                DispatchQueue.main.async {
+                Task { @MainActor in
                     guard let self,
                           self.activeNativeMetalCardPresentationID == presentationID,
                           let image else {
@@ -480,7 +480,8 @@ final class FullscreenTokenMediaRenderer {
                 return
             }
 
-            DispatchQueue.main.async { [weak self] in
+            Task { @MainActor [weak self] in
+                await Task.yield()
                 guard let self,
                       self.activeLocalWebReadinessID == readinessID else {
                     return
@@ -732,7 +733,8 @@ final class FullscreenTokenMediaRenderer {
         invalidateLocalWebContentLoad()
         guard webViewMayContainContent else { return }
 
-        DispatchQueue.main.async { [weak self] in
+        Task { @MainActor [weak self] in
+            await Task.yield()
             guard let self,
                   self.representedImageKey == imageKey else {
                 return
@@ -1062,7 +1064,8 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, U
     private var displayedPagePosition: PlayerPagePosition?
     private var persistedPagePosition: PlayerPagePosition?
     private var pendingEdgeTapHighlightSide: PlayerEdgeTapSide?
-    private var edgeTapHighlightWorkItem: DispatchWorkItem?
+    private var edgeTapHighlightTask: Task<Void, Never>?
+    private var edgeTapFlashTask: Task<Void, Never>?
     private var edgeTapHighlightRequestId = 0
 
     init(
@@ -1127,9 +1130,10 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, U
         pagingVC.makePlayerBackgroundTransparent()
     }
 
-    deinit {
+    isolated deinit {
         chrome.clearPagerProvider(self)
-        edgeTapHighlightWorkItem?.cancel()
+        edgeTapHighlightTask?.cancel()
+        edgeTapFlashTask?.cancel()
     }
 
     func pagerCurrentPagePosition() -> PlayerPagePosition {
@@ -1264,7 +1268,16 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, U
         pendingEdgeTapHighlightSide = side
         edgeTapHighlightRequestId += 1
         let requestId = edgeTapHighlightRequestId
-        let workItem = DispatchWorkItem { [weak self] in
+        edgeTapHighlightTask = Task { [weak self] in
+            do {
+                try await Task.sleep(
+                    for: .seconds(
+                        MobilePlayerGestureTuning.edgeTapHighlightActivationDelay
+                    )
+                )
+            } catch {
+                return
+            }
             guard let self,
                   self.edgeTapHighlightRequestId == requestId,
                   self.pendingEdgeTapHighlightSide == side else {
@@ -1272,14 +1285,9 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, U
             }
 
             self.pendingEdgeTapHighlightSide = nil
-            self.edgeTapHighlightWorkItem = nil
+            self.edgeTapHighlightTask = nil
             self.edgeTapHighlight(for: side).setHighlighted(true)
         }
-        edgeTapHighlightWorkItem = workItem
-        DispatchQueue.main.asyncAfter(
-            deadline: .now() + MobilePlayerGestureTuning.edgeTapHighlightActivationDelay,
-            execute: workItem
-        )
     }
 
     private func endEdgeTapHighlight(on side: PlayerEdgeTapSide) {
@@ -1322,16 +1330,18 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, U
             return false
         }
 
-        edgeTapHighlightWorkItem?.cancel()
-        edgeTapHighlightWorkItem = nil
+        edgeTapHighlightTask?.cancel()
+        edgeTapHighlightTask = nil
         pendingEdgeTapHighlightSide = nil
         edgeTapHighlightRequestId += 1
         return true
     }
 
     private func clearEdgeTapHighlights() {
-        edgeTapHighlightWorkItem?.cancel()
-        edgeTapHighlightWorkItem = nil
+        edgeTapHighlightTask?.cancel()
+        edgeTapHighlightTask = nil
+        edgeTapFlashTask?.cancel()
+        edgeTapFlashTask = nil
         pendingEdgeTapHighlightSide = nil
         edgeTapHighlightRequestId += 1
         leftEdgeTapHighlight.setHighlighted(false)
@@ -1344,11 +1354,20 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, U
         edgeTapHighlightRequestId += 1
         let requestId = edgeTapHighlightRequestId
 
-        DispatchQueue.main.asyncAfter(
-            deadline: .now() + MobilePlayerGestureTuning.edgeTapHighlightTapFlashDuration
-        ) { [weak self] in
+        edgeTapFlashTask?.cancel()
+        edgeTapFlashTask = Task { [weak self] in
+            do {
+                try await Task.sleep(
+                    for: .seconds(
+                        MobilePlayerGestureTuning.edgeTapHighlightTapFlashDuration
+                    )
+                )
+            } catch {
+                return
+            }
             guard let self, self.edgeTapHighlightRequestId == requestId else { return }
 
+            self.edgeTapFlashTask = nil
             self.edgeTapHighlight(for: side).setHighlighted(false)
         }
     }
@@ -1629,25 +1648,6 @@ private final class PlayerZoomScrollView: UIScrollView {
 
 }
 
-private enum VideoAssetLayout {
-    static func displaySize(at fileURL: URL) async -> CGSize? {
-        let asset = AVURLAsset(url: fileURL)
-        guard let track = try? await asset.loadTracks(withMediaType: .video).first else { return nil }
-
-        async let naturalSize = track.load(.naturalSize)
-        async let preferredTransform = track.load(.preferredTransform)
-
-        guard let (loadedNaturalSize, loadedPreferredTransform) = try? await (naturalSize, preferredTransform) else {
-            return nil
-        }
-
-        let transformedSize = loadedNaturalSize.applying(loadedPreferredTransform)
-        let size = CGSize(width: abs(transformedSize.width), height: abs(transformedSize.height))
-        guard size.width > 0, size.height > 0 else { return nil }
-        return size
-    }
-}
-
 private class SpecificPageViewController: UIViewController, UIScrollViewDelegate {
 
     private static let maximumCachedVideoSizeCount = 24
@@ -1706,10 +1706,6 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     private weak var playerDataSource: HorizontalPlayerDataSource?
     private let zoomScrollView = PlayerZoomScrollView()
     private let mediaContentView = UIView()
-    private let htmlDocumentRenderQueue = DispatchQueue(
-        label: "org.lil.nft-player.html-document-render",
-        qos: .userInitiated
-    )
     private lazy var mediaRenderer = FullscreenTokenMediaRenderer(containerView: mediaContentView)
 
     private(set) var pagePosition: PlayerPagePosition
@@ -1725,6 +1721,8 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     private var cancelProvisionalAnimatedMediaImageLoad: (() -> Void)?
     private var downloadableMediaCacheObserver: NSObjectProtocol?
     private var videoSizeLoad: VideoSizeLoad?
+    private var htmlDocumentRenderTask: Task<Void, Never>?
+    private var imageSizeTask: Task<Void, Never>?
     private var cachedVideoSizes = [VideoSizeRequest: CGSize]()
     private var cachedVideoSizeRequests = [VideoSizeRequest]()
     private var willOrDidAppear = false
@@ -1756,8 +1754,9 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         fatalError("yo")
     }
 
-    deinit {
+    isolated deinit {
         cancelVideoSizeLoad()
+        cancelLocalMediaMetadataTasks()
         cancelProvisionalAnimatedMediaImageLoadIfNeeded()
         removeDownloadableMediaCacheObserver()
     }
@@ -2602,12 +2601,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         let html: String
         switch context.mediaKind {
         case .image:
-            if let imageSize = imageSize(at: localFileURL) {
-                setZoomContentLayout(
-                    .staticImage(imageSize),
-                    preservingActiveZoomDuringMediaReplacement: true
-                )
-            }
+            loadImageSizeIfNeeded(at: localFileURL, context: context)
             html = DownloadableTokenHTML.createImageHTML(
                 imageURL: localFileURL.absoluteString,
                 nextImageURL: nextLocalFileURL?.absoluteString
@@ -2684,50 +2678,49 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         localContentVersion: LocalMediaFileVersion
     ) {
         let fileURL = localContentVersion.fileURL
+        let downloadedSourceURLString = imageCache
+            .downloadedSourceURL(for: context.descriptor)
+            .absoluteString
         displayProvisionalAnimatedMediaImageOrClearContent(for: context)
         pendingAnimatedImageURL = fileURL
-        htmlDocumentRenderQueue.async {
-            let renderedDocument = (try? String(contentsOf: fileURL, encoding: .utf8)).map { documentHTML in
-                (
-                    html: DownloadableTokenHTML.createInlineHTMLDocumentHTML(
-                        documentHTML: documentHTML,
-                        baseURL: imageCache.downloadedSourceURL(for: context.descriptor).absoluteString
-                    ),
-                    viewportSize: DownloadableTokenHTMLLayout.rootSVGViewBoxSize(in: documentHTML)
+        htmlDocumentRenderTask?.cancel()
+        htmlDocumentRenderTask = Task { [weak self] in
+            let renderedDocument = await DownloadableTokenHTML.renderDocument(
+                at: fileURL,
+                baseURL: downloadedSourceURLString,
+                includesViewportSizeInDocument: false
+            )
+            guard let self,
+                  !Task.isCancelled,
+                  validateAnimatedLocalContentResult(
+                    localContentVersion,
+                    context: context
+                  ) else { return }
+
+            htmlDocumentRenderTask = nil
+            guard let renderedDocument else {
+                handleAnimatedLocalContentFailure(
+                    context,
+                    localContentVersion: localContentVersion
                 )
+                return
             }
 
-            DispatchQueue.main.async { [weak self] in
-                guard let self,
-                      self.validateAnimatedLocalContentResult(
-                        localContentVersion,
-                        context: context
-                      ) else { return }
-
-                guard let renderedDocument else {
-                    self.handleAnimatedLocalContentFailure(
-                        context,
-                        localContentVersion: localContentVersion
-                    )
-                    return
-                }
-
-                if let viewportSize = renderedDocument.viewportSize {
-                    self.setZoomContentLayout(
-                        .staticImage(viewportSize),
-                        preservingActiveZoomDuringMediaReplacement: true
-                    )
-                } else {
-                    self.setZoomContentLayout(.viewport)
-                }
-                self.renderAnimatedLocalWebContent(
-                    renderedDocument.html,
-                    context: context,
-                    localContentVersion: localContentVersion,
-                    htmlDirectoryURL: imageCache.webViewHTMLDirectoryURL,
-                    readAccessURL: imageCache.webViewHTMLDirectoryURL
+            if let viewportSize = renderedDocument.viewportSize {
+                setZoomContentLayout(
+                    .staticImage(viewportSize),
+                    preservingActiveZoomDuringMediaReplacement: true
                 )
+            } else {
+                setZoomContentLayout(.viewport)
             }
+            renderAnimatedLocalWebContent(
+                renderedDocument.html,
+                context: context,
+                localContentVersion: localContentVersion,
+                htmlDirectoryURL: imageCache.webViewHTMLDirectoryURL,
+                readAccessURL: imageCache.webViewHTMLDirectoryURL
+            )
         }
     }
 
@@ -2797,7 +2790,31 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         renderAnimatedFallbackWebContent(context.fallbackHTML)
     }
 
-    private func imageSize(at fileURL: URL) -> CGSize? {
+    private func loadImageSizeIfNeeded(
+        at fileURL: URL,
+        context: AnimatedRenderContext
+    ) {
+        imageSizeTask?.cancel()
+        imageSizeTask = Task { [weak self] in
+            let size = await Self.imageSize(at: fileURL)
+            guard let self,
+                  !Task.isCancelled,
+                  animatedRenderContext == context,
+                  (pendingAnimatedImageURL == fileURL
+                    || renderedAnimatedImageURL == fileURL) else {
+                return
+            }
+            imageSizeTask = nil
+            guard let size else { return }
+            setZoomContentLayout(
+                .staticImage(size),
+                preservingActiveZoomDuringMediaReplacement: true
+            )
+        }
+    }
+
+    @concurrent
+    nonisolated private static func imageSize(at fileURL: URL) async -> CGSize? {
         guard let imageSource = CGImageSourceCreateWithURL(fileURL as CFURL, nil),
               let properties = CGImageSourceCopyPropertiesAtIndex(imageSource, 0, nil) as? [CFString: Any],
               let width = properties[kCGImagePropertyPixelWidth] as? NSNumber,
@@ -2824,23 +2841,19 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
 
         guard videoSizeLoad == nil else { return }
 
-        let task = Task.detached(priority: .utility) { [fileURL, request] in
-            let size = await VideoAssetLayout.displaySize(at: fileURL)
-            guard !Task.isCancelled else { return }
-
-            await MainActor.run { [weak self] in
-                guard !Task.isCancelled,
-                      let self,
-                      self.videoSizeLoad?.request == request else {
-                    return
-                }
-
-                self.videoSizeLoad = nil
-                guard let size else { return }
-
-                self.cacheVideoSize(size, for: request)
-                self.applyVideoSizeIfCurrent(size, for: request)
+        let task = Task { [weak self, fileURL, request] in
+            let size = await DownloadableMediaVideoLayout.displaySize(at: fileURL)
+            guard !Task.isCancelled,
+                  let self,
+                  videoSizeLoad?.request == request else {
+                return
             }
+
+            videoSizeLoad = nil
+            guard let size else { return }
+
+            cacheVideoSize(size, for: request)
+            applyVideoSizeIfCurrent(size, for: request)
         }
 
         videoSizeLoad = VideoSizeLoad(request: request, task: task)
@@ -2900,6 +2913,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         provisionalImage: UIImage?
     ) {
         cancelVideoSizeLoad()
+        cancelLocalMediaMetadataTasks()
         cancelProvisionalAnimatedMediaImageLoadIfNeeded()
         animatedRenderContext = context
         provisionalAnimatedMediaImage = provisionalImage
@@ -2910,12 +2924,20 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
 
     private func clearAnimatedRenderContext() {
         cancelVideoSizeLoad()
+        cancelLocalMediaMetadataTasks()
         cancelProvisionalAnimatedMediaImageLoadIfNeeded()
         animatedRenderContext = nil
         provisionalAnimatedMediaImage = nil
         failedAnimatedLocalContentVersion = nil
         clearAnimatedImageURLState()
         removeDownloadableMediaCacheObserver()
+    }
+
+    private func cancelLocalMediaMetadataTasks() {
+        htmlDocumentRenderTask?.cancel()
+        htmlDocumentRenderTask = nil
+        imageSizeTask?.cancel()
+        imageSizeTask = nil
     }
 
     private func clearAnimatedImageURLState() {
@@ -2933,7 +2955,9 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            self?.renderAvailableAnimatedLocalContent()
+            MainActor.assumeIsolated {
+                self?.renderAvailableAnimatedLocalContent()
+            }
         }
     }
 
@@ -2956,6 +2980,7 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
     private var inPlaceReloadGeneration = 0
     private var activeInPlaceReloadGeneration: Int?
     private var pendingNavigationDirection: PlaybackNavigationDirection?
+    private var pendingNavigationRetryTask: Task<Void, Never>?
     private var configuredPagingPanGestures = Set<ObjectIdentifier>()
     private var didNotifyPaginationAttemptDuringCurrentPan = false
     private var didNotifyUnavailableNavigationDuringCurrentPan = false
@@ -3559,7 +3584,8 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
 
             finishReload()
         }
-        DispatchQueue.main.async {
+        Task { @MainActor in
+            await Task.yield()
             finishReload()
         }
     }
@@ -3636,11 +3662,21 @@ private class HorizontalPageViewController: UIPageViewController, UIPageViewCont
     private func performPendingNavigationIfNeeded() {
         guard let pendingNavigationDirection else { return }
         guard canStartNavigation else {
-            DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(30)) { [weak self] in
-                self?.performPendingNavigationIfNeeded()
+            guard pendingNavigationRetryTask == nil else { return }
+            pendingNavigationRetryTask = Task { [weak self] in
+                do {
+                    try await Task.sleep(for: .milliseconds(30))
+                } catch {
+                    return
+                }
+                guard let self else { return }
+                pendingNavigationRetryTask = nil
+                performPendingNavigationIfNeeded()
             }
             return
         }
+        pendingNavigationRetryTask?.cancel()
+        pendingNavigationRetryTask = nil
         self.pendingNavigationDirection = nil
         navigate(pendingNavigationDirection)
     }

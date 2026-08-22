@@ -6,7 +6,21 @@ import XCTest
 @testable import nft_player_ios
 
 @MainActor
-final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
+private func runMainTrackingRunLoop(
+    until condition: () -> Bool,
+    timeout: TimeInterval = 0.25
+) -> Bool {
+    let deadline = Date().addingTimeInterval(timeout)
+    while !condition(), deadline.timeIntervalSinceNow > 0 {
+        _ = RunLoop.main.run(mode: .tracking, before: deadline)
+    }
+    return condition()
+}
+
+nonisolated final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {}
+
+@MainActor
+extension MobilePlayerCollectionBrowserGridRendererTests {
     private typealias PromotionKey =
         MobilePlayerCollectionBrowserGridRenderer.PromotionRepresentationKey
 
@@ -816,13 +830,30 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
         })
     }
 
+    @MainActor
+    private final class MainRunLoopAction {
+        let action: () -> Void
+
+        init(action: @escaping () -> Void) {
+            self.action = action
+        }
+
+        func call() {
+            action()
+        }
+    }
+
     private func runOnNextMainQueueTurn(
         _ action: @escaping () -> Void = {}
     ) async {
+        await Task.yield()
+        let runLoopAction = MainRunLoopAction(action: action)
         await withCheckedContinuation { continuation in
-            DispatchQueue.main.async {
-                action()
-                continuation.resume()
+            RunLoop.main.perform {
+                MainActor.assumeIsolated {
+                    runLoopAction.call()
+                    continuation.resume()
+                }
             }
         }
     }
@@ -3561,14 +3592,17 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
         )
         XCTAssertTrue(cell.hasCarryoverContent)
         XCTAssertTrue(primaryTransitionImage(in: cell) === thumbnail)
+        let heldCarryover = try XCTUnwrap(cell.carryoverSourceContent)
+        cell.setCarryoverContent(heldCarryover)
+        let session = try activeSession(fixture)
+        let representationID = ObjectIdentifier(cell)
+        XCTAssertNotNil(session.transitionImageLoads[representationID])
 
         let destinationImage = makeImage()
         pendingCompletion(destinationImage)
         await runOnNextMainQueueTurn()
         drainQueuedWork(fixture)
 
-        let session = try activeSession(fixture)
-        let representationID = ObjectIdentifier(cell)
         XCTAssertTrue(
             session.lockedFallbackRepresentationIDs.contains(representationID)
         )
@@ -4897,6 +4931,52 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
             ObjectIdentifier(sourceCell)
         ))
         _ = fixture.renderer.finish(preservingCarryover: false)
+    }
+
+    func testTransitionImageCompletionProcessesDuringTrackingRunLoopMode() throws {
+        let completion = Box<((UIImage?) -> Void)?>(nil)
+        let fixture = try makeFixture(
+            itemCount: 1,
+            showsSourceCell: true,
+            providesContentAccess: true,
+            imageAccess: .init(
+                cachedImage: { _, _ in nil },
+                loadImage: { _, callback in
+                    completion.value = callback
+                    return {}
+                }
+            )
+        )
+        defer { _ = fixture.renderer.finish(preservingCarryover: false) }
+        let sourceCell = try XCTUnwrap(
+            fixture.collectionView.visibleCells.first
+                as? MobilePlayerCollectionBrowserCell
+        )
+        let originalSubviewIDs = sourceCell.contentView.subviews.map(
+            ObjectIdentifier.init
+        )
+        begin(fixture)
+        XCTAssertTrue(fixture.renderer.installPlane(fixture.planeRequest))
+        drainQueuedWork(fixture)
+
+        try XCTUnwrap(completion.value)(makeImage())
+
+        XCTAssertTrue(runMainTrackingRunLoop {
+            fixture.renderer.pendingMaterializationWorkCount > 0
+                || sourceCell.contentView.subviews.count
+                    > originalSubviewIDs.count
+        })
+        if fixture.renderer.pendingMaterializationWorkCount > 0 {
+            XCTAssertEqual(
+                sourceCell.contentView.subviews.map(ObjectIdentifier.init),
+                originalSubviewIDs
+            )
+            _ = fixture.renderer.drainMaterializationWork()
+        }
+        XCTAssertGreaterThan(
+            sourceCell.contentView.subviews.count,
+            originalSubviewIDs.count
+        )
     }
 
     func testFrameCorrectionUsesViewportCoordinates() throws {
@@ -9487,8 +9567,10 @@ final class MobilePlayerCollectionBrowserGridRendererTests: XCTestCase {
     }
 }
 
+nonisolated final class MobilePlayerCollectionBrowserPinchFrameCoalescerTests: XCTestCase {}
+
 @MainActor
-final class MobilePlayerCollectionBrowserPinchFrameCoalescerTests: XCTestCase {
+extension MobilePlayerCollectionBrowserPinchFrameCoalescerTests {
     private func makeFrame(
         scale: CGFloat,
         location: CGPoint
@@ -9549,5 +9631,28 @@ final class MobilePlayerCollectionBrowserPinchFrameCoalescerTests: XCTestCase {
         coalescer.flush()
 
         XCTAssertTrue(appliedFrames.isEmpty)
+    }
+
+    func testStagedFrameAppliesDuringTrackingRunLoopMode() {
+        var appliedFrames = [GridModePinchFrame]()
+        let coalescer = GridModePinchFrameCoalescer {
+            appliedFrames.append($0)
+        }
+        defer { coalescer.invalidate() }
+        let firstFrame = makeFrame(
+            scale: 1.1,
+            location: CGPoint(x: 140, y: 280)
+        )
+        let latestFrame = makeFrame(
+            scale: 1.2,
+            location: CGPoint(x: 150, y: 300)
+        )
+        coalescer.stage(firstFrame)
+        coalescer.stage(latestFrame)
+
+        XCTAssertTrue(runMainTrackingRunLoop {
+            !appliedFrames.isEmpty
+        })
+        XCTAssertEqual(appliedFrames, [latestFrame])
     }
 }

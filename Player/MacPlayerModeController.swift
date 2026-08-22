@@ -33,7 +33,7 @@ final class MacPlayerModeController: MacPlayerMinimizeHandling {
 
     private var phase = Phase.idle
     private var hiddenBrowserTokenIndex: Int?
-    private var pendingCleanup: DispatchWorkItem?
+    private var pendingCleanup: Task<Void, Never>?
     private var pendingCleanupId: UUID?
     private var isPagerHiddenForTransition = false
     private var transitionGeneration: UInt = 0
@@ -479,7 +479,12 @@ final class MacPlayerModeController: MacPlayerMinimizeHandling {
         // Cancellable and bound to this transition, so a new transition starting
         // inside the window cannot be torn down by it.
         let cleanupId = UUID()
-        let cleanup = DispatchWorkItem { [weak self] in
+        let cleanup = Task { @MainActor [weak self] in
+            do {
+                try await Task.sleep(for: .seconds(Self.cleanupDelay))
+            } catch {
+                return
+            }
             guard let self, self.pendingCleanupId == cleanupId else { return }
             self.pendingCleanup = nil
             self.pendingCleanupId = nil
@@ -492,7 +497,6 @@ final class MacPlayerModeController: MacPlayerMinimizeHandling {
         }
         pendingCleanup = cleanup
         pendingCleanupId = cleanupId
-        DispatchQueue.main.asyncAfter(deadline: .now() + Self.cleanupDelay, execute: cleanup)
     }
 
     private static let cleanupDelay: TimeInterval = 0.05

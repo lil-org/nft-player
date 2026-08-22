@@ -8,6 +8,155 @@ import Darwin
 /// the toolbar, the media view's context menu, or anywhere else in the single window.
 final class MacPlayerMediaActions: NSObject {
 
+    private actor MediaFileLane {
+        private static let pasteboardMediaDirectoryName = "CopiedTokenMedia"
+
+        func copyMediaFile(from sourceURL: URL, to destinationURL: URL) throws {
+            let fileManager = FileManager.default
+            let sourceURL = sourceURL.standardizedFileURL
+            let destinationURL = destinationURL.standardizedFileURL
+            guard sourceURL != destinationURL else { return }
+
+            let replacementDirectoryURL = try fileManager.url(
+                for: .itemReplacementDirectory,
+                in: .userDomainMask,
+                appropriateFor: destinationURL,
+                create: true
+            )
+            defer {
+                try? fileManager.removeItem(at: replacementDirectoryURL)
+            }
+
+            let stagedURL = replacementDirectoryURL.appendingPathComponent(
+                destinationURL.lastPathComponent
+            )
+            try fileManager.copyItem(at: sourceURL, to: stagedURL)
+
+            if fileManager.fileExists(atPath: destinationURL.path) {
+                _ = try fileManager.replaceItemAt(
+                    destinationURL,
+                    withItemAt: stagedURL,
+                    backupItemName: nil,
+                    options: []
+                )
+            } else {
+                try fileManager.moveItem(at: stagedURL, to: destinationURL)
+            }
+        }
+
+        func preparePasteboardMediaFile(from sourceURL: URL, fileName: String) throws -> URL {
+            let directoryURL = try pasteboardMediaDirectoryURL()
+            let destinationURL = uniqueFileURL(for: fileName, in: directoryURL)
+            try materializePasteboardMediaFile(
+                from: sourceURL,
+                to: destinationURL
+            )
+            return destinationURL
+        }
+
+        private func materializePasteboardMediaFile(
+            from sourceURL: URL,
+            to destinationURL: URL
+        ) throws {
+            let fileManager = FileManager.default
+            if clonefile(sourceURL.path, destinationURL.path, 0) != 0 {
+                try? fileManager.removeItem(at: destinationURL)
+                try fileManager.copyItem(at: sourceURL, to: destinationURL)
+            }
+            try? fileManager.setAttributes(
+                [.modificationDate: Date()],
+                ofItemAtPath: destinationURL.path
+            )
+        }
+
+        func removePasteboardMediaFile(_ fileURL: URL) {
+            try? FileManager.default.removeItem(at: fileURL)
+        }
+
+        private func pasteboardMediaDirectoryURL() throws -> URL {
+            let fileManager = FileManager.default
+            let applicationSupportDirectory = fileManager.urls(
+                for: .applicationSupportDirectory,
+                in: .userDomainMask
+            ).first ?? fileManager.temporaryDirectory
+            let directoryURL = applicationSupportDirectory.appendingPathComponent(
+                Self.pasteboardMediaDirectoryName,
+                isDirectory: true
+            )
+            try fileManager.createDirectory(
+                at: directoryURL,
+                withIntermediateDirectories: true
+            )
+            var excludedFromBackupURL = directoryURL
+            var resourceValues = URLResourceValues()
+            resourceValues.isExcludedFromBackup = true
+            try? excludedFromBackupURL.setResourceValues(resourceValues)
+            return directoryURL
+        }
+
+        private func uniqueFileURL(
+            for fileName: String,
+            in directoryURL: URL
+        ) -> URL {
+            let fileManager = FileManager.default
+            let fileURL = directoryURL.appendingPathComponent(fileName)
+            guard fileManager.fileExists(atPath: fileURL.path) else {
+                return fileURL
+            }
+
+            let fileExtension = fileURL.pathExtension
+            let baseName = fileExtension.isEmpty
+                ? fileURL.lastPathComponent
+                : fileURL.deletingPathExtension().lastPathComponent
+            for index in 2...1000 {
+                let indexedFileName = fileExtension.isEmpty
+                    ? "\(baseName)-\(index)"
+                    : "\(baseName)-\(index).\(fileExtension)"
+                let indexedURL = directoryURL.appendingPathComponent(
+                    indexedFileName
+                )
+                if !fileManager.fileExists(atPath: indexedURL.path) {
+                    return indexedURL
+                }
+            }
+
+            let fallbackFileName = fileExtension.isEmpty
+                ? "\(baseName)-\(UUID().uuidString)"
+                : "\(baseName)-\(UUID().uuidString).\(fileExtension)"
+            return directoryURL.appendingPathComponent(fallbackFileName)
+        }
+
+        func prunePasteboardMediaDirectory(
+            keeping keptURL: URL?,
+            removingItemsOlderThan maximumAge: TimeInterval? = nil
+        ) {
+            guard let directoryURL = try? pasteboardMediaDirectoryURL(),
+                  let contents = try? FileManager.default.contentsOfDirectory(
+                    at: directoryURL,
+                    includingPropertiesForKeys: [.contentModificationDateKey]
+                  ) else {
+                return
+            }
+
+            let keptURL = keptURL?.standardizedFileURL
+            let now = Date()
+            for url in contents {
+                if url.standardizedFileURL == keptURL {
+                    continue
+                }
+                if let maximumAge {
+                    guard let modificationDate = try? url.resourceValues(
+                        forKeys: [.contentModificationDateKey]
+                    ).contentModificationDate,
+                          now.timeIntervalSince(modificationDate) > maximumAge else {
+                        continue
+                    }
+                }
+                try? FileManager.default.removeItem(at: url)
+            }
+        }
+    }
+
     struct Target {
         let token: GeneratedToken
         let context: PlayerTokenContext?
@@ -59,13 +208,9 @@ final class MacPlayerMediaActions: NSObject {
         }
     }
 
-    private static let pasteboardMediaDirectoryName = "CopiedTokenMedia"
-    private static let pasteboardMediaMaximumAge: TimeInterval = 24 * 60 * 60
+    nonisolated private static let pasteboardMediaMaximumAge: TimeInterval = 24 * 60 * 60
+    private static let mediaFileLane = MediaFileLane()
 
-    private let mediaFileWorkQueue = DispatchQueue(
-        label: "org.lil.nft-player.player-media-file-actions",
-        qos: .utility
-    )
     private var activeCopyMediaRequest: CopyMediaRequest?
     private let contextProvider: () -> PlayerTokenContext?
     private let targetProvider: () -> Target?
@@ -78,15 +223,15 @@ final class MacPlayerMediaActions: NSObject {
         self.contextProvider = contextProvider
         self.targetProvider = targetProvider
         super.init()
-        mediaFileWorkQueue.async {
-            Self.prunePasteboardMediaDirectory(
+        Task {
+            await Self.mediaFileLane.prunePasteboardMediaDirectory(
                 keeping: nil,
                 removingItemsOlderThan: Self.pasteboardMediaMaximumAge
             )
         }
     }
 
-    deinit {
+    isolated deinit {
         activeCopyMediaRequest?.cancel()
     }
 
@@ -182,49 +327,52 @@ final class MacPlayerMediaActions: NSObject {
                 return
             }
 
-            let workQueue = self.mediaFileWorkQueue
-            workQueue.async { [copyRequest] in
+            Task { @MainActor [weak self, copyRequest] in
                 guard !copyRequest.isCancelled else {
                     copyRequest.releaseFile()
                     return
                 }
 
-                let pasteboardFileURL = Result {
-                    try Self.preparePasteboardMediaFile(
+                let pasteboardFileURL: URL?
+                do {
+                    pasteboardFileURL = try await Self.mediaFileLane.preparePasteboardMediaFile(
                         from: fileURL,
                         fileName: request.defaultFileName
                     )
+                } catch {
+                    pasteboardFileURL = nil
                 }
                 copyRequest.releaseFile()
 
-                DispatchQueue.main.async { [weak self] in
-                    guard let self else {
-                        Self.removePreparedPasteboardMediaFile(pasteboardFileURL, on: workQueue)
-                        return
+                guard let self else {
+                    if let pasteboardFileURL {
+                        await Self.mediaFileLane.removePasteboardMediaFile(pasteboardFileURL)
                     }
-                    let shouldWriteToPasteboard = self.isCurrentCopyMediaRequest(copyRequest)
-                    self.finishCopyMediaRequest(copyRequest)
-                    guard shouldWriteToPasteboard else {
-                        Self.removePreparedPasteboardMediaFile(pasteboardFileURL, on: workQueue)
-                        return
+                    return
+                }
+                let shouldWriteToPasteboard = self.isCurrentCopyMediaRequest(copyRequest)
+                self.finishCopyMediaRequest(copyRequest)
+                guard shouldWriteToPasteboard else {
+                    if let pasteboardFileURL {
+                        await Self.mediaFileLane.removePasteboardMediaFile(pasteboardFileURL)
                     }
+                    return
+                }
 
-                    switch pasteboardFileURL {
-                    case .success(let fileURL):
-                        let pasteboard = NSPasteboard.general
-                        pasteboard.clearContents()
-                        let didCopy = pasteboard.writeObjects([fileURL as NSURL])
-                        if didCopy {
-                            workQueue.async {
-                                Self.prunePasteboardMediaDirectory(keeping: fileURL)
-                            }
-                        } else {
-                            Self.removePasteboardMediaFile(fileURL, on: workQueue)
-                            self.showMediaAlert(message: Strings.copyMediaFailed)
-                        }
-                    case .failure:
-                        self.showMediaAlert(message: Strings.copyMediaFailed)
-                    }
+                guard let pasteboardFileURL else {
+                    self.showMediaAlert(message: Strings.copyMediaFailed)
+                    return
+                }
+                let pasteboard = NSPasteboard.general
+                pasteboard.clearContents()
+                let didCopy = pasteboard.writeObjects([pasteboardFileURL as NSURL])
+                if didCopy {
+                    await Self.mediaFileLane.prunePasteboardMediaDirectory(
+                        keeping: pasteboardFileURL
+                    )
+                } else {
+                    await Self.mediaFileLane.removePasteboardMediaFile(pasteboardFileURL)
+                    self.showMediaAlert(message: Strings.copyMediaFailed)
                 }
             }
         }
@@ -343,7 +491,6 @@ final class MacPlayerMediaActions: NSObject {
         to destinationURL: URL,
         stopAccessingWhenDone: Bool
     ) {
-        let workQueue = mediaFileWorkQueue
         let releaseFile = DownloadableMediaCache.shared.retainFile(for: descriptor)
         DownloadableMediaCache.shared.loadFile(for: descriptor) { [weak self] fileURL in
             guard let fileURL else {
@@ -355,19 +502,24 @@ final class MacPlayerMediaActions: NSObject {
                 return
             }
 
-            workQueue.async { [weak self] in
-                let result = Result {
-                    try Self.copyMediaFile(from: fileURL, to: destinationURL)
+            Task { @MainActor [weak self] in
+                let didSave: Bool
+                do {
+                    try await Self.mediaFileLane.copyMediaFile(
+                        from: fileURL,
+                        to: destinationURL
+                    )
+                    didSave = true
+                } catch {
+                    didSave = false
                 }
                 releaseFile()
                 if stopAccessingWhenDone {
                     destinationURL.stopAccessingSecurityScopedResource()
                 }
 
-                if case .failure = result {
-                    DispatchQueue.main.async { [weak self] in
-                        self?.showMediaAlert(message: Strings.saveMediaFailed)
-                    }
+                if !didSave {
+                    self?.showMediaAlert(message: Strings.saveMediaFailed)
                 }
             }
         }
@@ -377,140 +529,6 @@ final class MacPlayerMediaActions: NSObject {
         activeCopyMediaRequest === request
             && !request.isCancelled
             && NSPasteboard.general.changeCount == request.pasteboardChangeCount
-    }
-
-    private static func copyMediaFile(from sourceURL: URL, to destinationURL: URL) throws {
-        let fileManager = FileManager.default
-        let sourceURL = sourceURL.standardizedFileURL
-        let destinationURL = destinationURL.standardizedFileURL
-        guard sourceURL != destinationURL else { return }
-
-        let replacementDirectoryURL = try fileManager.url(
-            for: .itemReplacementDirectory,
-            in: .userDomainMask,
-            appropriateFor: destinationURL,
-            create: true
-        )
-        defer {
-            try? fileManager.removeItem(at: replacementDirectoryURL)
-        }
-
-        let stagedURL = replacementDirectoryURL.appendingPathComponent(destinationURL.lastPathComponent)
-        try fileManager.copyItem(at: sourceURL, to: stagedURL)
-
-        if fileManager.fileExists(atPath: destinationURL.path) {
-            _ = try fileManager.replaceItemAt(
-                destinationURL,
-                withItemAt: stagedURL,
-                backupItemName: nil,
-                options: []
-            )
-        } else {
-            try fileManager.moveItem(at: stagedURL, to: destinationURL)
-        }
-    }
-
-    private static func preparePasteboardMediaFile(from sourceURL: URL, fileName: String) throws -> URL {
-        let directoryURL = try pasteboardMediaDirectoryURL()
-        let destinationURL = uniqueFileURL(for: fileName, in: directoryURL)
-        try materializePasteboardMediaFile(from: sourceURL, to: destinationURL)
-        return destinationURL
-    }
-
-    private static func materializePasteboardMediaFile(from sourceURL: URL, to destinationURL: URL) throws {
-        let fileManager = FileManager.default
-        if clonefile(sourceURL.path, destinationURL.path, 0) != 0 {
-            try? fileManager.removeItem(at: destinationURL)
-            try fileManager.copyItem(at: sourceURL, to: destinationURL)
-        }
-        try? fileManager.setAttributes([.modificationDate: Date()], ofItemAtPath: destinationURL.path)
-    }
-
-    private static func removePreparedPasteboardMediaFile(
-        _ result: Result<URL, Error>,
-        on workQueue: DispatchQueue
-    ) {
-        guard case .success(let fileURL) = result else { return }
-        removePasteboardMediaFile(fileURL, on: workQueue)
-    }
-
-    private static func removePasteboardMediaFile(_ fileURL: URL, on workQueue: DispatchQueue) {
-        workQueue.async {
-            try? FileManager.default.removeItem(at: fileURL)
-        }
-    }
-
-    private static func pasteboardMediaDirectoryURL() throws -> URL {
-        let fileManager = FileManager.default
-        let applicationSupportDirectory = fileManager.urls(
-            for: .applicationSupportDirectory,
-            in: .userDomainMask
-        ).first ?? fileManager.temporaryDirectory
-        let directoryURL = applicationSupportDirectory.appendingPathComponent(
-            Self.pasteboardMediaDirectoryName,
-            isDirectory: true
-        )
-        try fileManager.createDirectory(at: directoryURL, withIntermediateDirectories: true)
-        var excludedFromBackupURL = directoryURL
-        var resourceValues = URLResourceValues()
-        resourceValues.isExcludedFromBackup = true
-        try? excludedFromBackupURL.setResourceValues(resourceValues)
-        return directoryURL
-    }
-
-    private static func uniqueFileURL(for fileName: String, in directoryURL: URL) -> URL {
-        let fileManager = FileManager.default
-        let fileURL = directoryURL.appendingPathComponent(fileName)
-        guard fileManager.fileExists(atPath: fileURL.path) else { return fileURL }
-
-        let fileExtension = fileURL.pathExtension
-        let baseName = fileExtension.isEmpty
-            ? fileURL.lastPathComponent
-            : fileURL.deletingPathExtension().lastPathComponent
-        for index in 2...1000 {
-            let indexedFileName = fileExtension.isEmpty
-                ? "\(baseName)-\(index)"
-                : "\(baseName)-\(index).\(fileExtension)"
-            let indexedURL = directoryURL.appendingPathComponent(indexedFileName)
-            if !fileManager.fileExists(atPath: indexedURL.path) {
-                return indexedURL
-            }
-        }
-
-        let fallbackFileName = fileExtension.isEmpty
-            ? "\(baseName)-\(UUID().uuidString)"
-            : "\(baseName)-\(UUID().uuidString).\(fileExtension)"
-        return directoryURL.appendingPathComponent(fallbackFileName)
-    }
-
-    private static func prunePasteboardMediaDirectory(
-        keeping keptURL: URL?,
-        removingItemsOlderThan maximumAge: TimeInterval? = nil
-    ) {
-        guard let directoryURL = try? pasteboardMediaDirectoryURL(),
-              let contents = try? FileManager.default.contentsOfDirectory(
-                at: directoryURL,
-                includingPropertiesForKeys: [.contentModificationDateKey]
-              ) else {
-            return
-        }
-
-        let keptURL = keptURL?.standardizedFileURL
-        let now = Date()
-        for url in contents {
-            if url.standardizedFileURL == keptURL {
-                continue
-            }
-            if let maximumAge {
-                guard let modificationDate = try? url.resourceValues(
-                    forKeys: [.contentModificationDateKey]
-                ).contentModificationDate,
-                      now.timeIntervalSince(modificationDate) > maximumAge else {
-                    continue
-                }
-            }
-            try? FileManager.default.removeItem(at: url)
-        }
     }
 
     private func showMediaAlert(message: String) {

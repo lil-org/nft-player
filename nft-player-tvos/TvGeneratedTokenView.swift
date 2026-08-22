@@ -4,8 +4,8 @@ import SwiftUI
 import UIKit
 
 private let maxLayoutRetryCount = 60
-private let layoutRetryDelay: DispatchTimeInterval = .milliseconds(50)
-private let fallbackSamplingDelay: DispatchTimeInterval = .milliseconds(230)
+private let layoutRetryDelay: Duration = .milliseconds(50)
+private let fallbackSamplingDelay: Duration = .milliseconds(230)
 private let unloadedHTML = """
 <!doctype html>
 <html>
@@ -53,7 +53,7 @@ struct TvGeneratedTokenView: UIViewRepresentable {
     </html>
     """
 
-    private static var prewarmTimer: Timer?
+    private static var prewarmTask: Task<Void, Never>?
     private static var prewarmedContainer: WebViewContainer?
     private static var didSchedulePrewarm = false
 
@@ -84,27 +84,22 @@ struct TvGeneratedTokenView: UIViewRepresentable {
     }
 
     static func scheduleFirstUsePrewarm() {
-        guard Thread.isMainThread else {
-            DispatchQueue.main.async { scheduleFirstUsePrewarm() }
-            return
-        }
-
         guard !didSchedulePrewarm, prewarmedContainer == nil else { return }
         didSchedulePrewarm = true
 
-        let timer = Timer(timeInterval: 1.15, repeats: false) { _ in
-            prewarmTimer = nil
+        prewarmTask = Task {
+            do {
+                try await Task.sleep(for: .seconds(1.15))
+                try Task.checkCancellation()
+            } catch {
+                return
+            }
+            prewarmTask = nil
             prewarmForFirstUseIfNeeded()
         }
-        prewarmTimer = timer
-        RunLoop.main.add(timer, forMode: .default)
     }
 
     private static func prewarmForFirstUseIfNeeded() {
-        guard Thread.isMainThread else {
-            DispatchQueue.main.async { prewarmForFirstUseIfNeeded() }
-            return
-        }
         guard prewarmedContainer == nil else { return }
         guard UIApplication.shared.applicationState == .active else {
             didSchedulePrewarm = false
@@ -122,8 +117,8 @@ struct TvGeneratedTokenView: UIViewRepresentable {
         guard Thread.isMainThread else { return nil }
         let container = prewarmedContainer
         prewarmedContainer = nil
-        prewarmTimer?.invalidate()
-        prewarmTimer = nil
+        prewarmTask?.cancel()
+        prewarmTask = nil
         return container
     }
 
@@ -289,7 +284,9 @@ struct TvGeneratedTokenView: UIViewRepresentable {
                 return
             }
 
-            DispatchQueue.main.asyncAfter(deadline: .now() + layoutRetryDelay) { [weak view, weak coordinator] in
+            Task { @MainActor [weak view, weak coordinator] in
+                try? await Task.sleep(for: layoutRetryDelay)
+                guard !Task.isCancelled else { return }
                 guard let view, let coordinator else { return }
                 loadContentWhenReady(
                     request,
@@ -304,7 +301,9 @@ struct TvGeneratedTokenView: UIViewRepresentable {
 
         if shouldSampleTvFallback {
             coordinator.prepareForSamplingIfNeeded()
-            DispatchQueue.main.asyncAfter(deadline: .now() + fallbackSamplingDelay) { [weak view, weak coordinator] in
+            Task { @MainActor [weak view, weak coordinator] in
+                try? await Task.sleep(for: fallbackSamplingDelay)
+                guard !Task.isCancelled else { return }
                 guard let view, let coordinator, coordinator.isCurrentGeneration(loadGeneration) else { return }
                 loadContentInto(request, view: view, coordinator: coordinator)
             }
@@ -316,9 +315,7 @@ struct TvGeneratedTokenView: UIViewRepresentable {
     private func deferred(_ callback: (() -> Void)?) -> (() -> Void)? {
         guard let callback else { return nil }
         return {
-            DispatchQueue.main.async {
-                callback()
-            }
+            Task { @MainActor in callback() }
         }
     }
     
@@ -382,7 +379,7 @@ struct TvGeneratedTokenView: UIViewRepresentable {
         var unloadContent: (() -> Void)?
         private var loadGeneration = 0
         private var currentRequest: LoadRequest?
-        private var currentFallbackImageTask: URLSessionDataTask?
+        private var currentFallbackImageTask: Task<Void, Never>?
         private weak var fallbackView: UIImageView?
         private var needsSampleReload = false
         private var onLocalLoadFailure: (() -> Void)?
@@ -390,10 +387,6 @@ struct TvGeneratedTokenView: UIViewRepresentable {
         private var didHandleLocalLoadFailure = false
         private weak var delegatedWebView: UIView?
         private var localHTMLFileURLs = Set<URL>()
-
-        deinit {
-            dismantle()
-        }
 
         func beginLoading(
             _ request: LoadRequest,
@@ -514,14 +507,14 @@ struct TvGeneratedTokenView: UIViewRepresentable {
             fallbackView.image = nil
             currentFallbackImageTask?.cancel()
 
-            let task = URLSession.shared.dataTask(with: url) { [weak fallbackView] data, _, error in
-                guard let data, error == nil, let image = UIImage(data: data) else { return }
-                DispatchQueue.main.async {
-                    fallbackView?.image = image
+            currentFallbackImageTask = Task { @MainActor [weak fallbackView] in
+                guard let (data, _) = try? await URLSession.shared.data(from: url),
+                      !Task.isCancelled,
+                      let image = UIImage(data: data) else {
+                    return
                 }
+                fallbackView?.image = image
             }
-            currentFallbackImageTask = task
-            task.resume()
         }
 
         private func fallbackImageView(in parentView: UIView) -> UIImageView {

@@ -1,6 +1,6 @@
 // ∅ 2026 lil org
 
-struct PonchoDrifellaCardMetadata {
+nonisolated struct PonchoDrifellaCardMetadata: Sendable {
     let effectKind: UInt8
     let glowKind: UInt8
 

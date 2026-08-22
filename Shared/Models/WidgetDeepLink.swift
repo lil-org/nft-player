@@ -1,9 +1,9 @@
 // ∅ 2026 lil org
 
-import Combine
 import Foundation
+import Observation
 
-enum WidgetDeepLink: Hashable {
+nonisolated enum WidgetDeepLink: Hashable, Sendable {
     private static let scheme = "nft-folder"
     private static let collectionHost = "collection"
 
@@ -43,12 +43,37 @@ enum WidgetDeepLink: Hashable {
             return components.url
         }
     }
+
+    func collectionTarget(
+        ifSupported isSupportedCollection: (String) -> Bool
+    ) -> WidgetCollectionDeepLinkTarget? {
+        guard case let .collection(collectionId, tokenId) = self,
+              isSupportedCollection(collectionId) else {
+            return nil
+        }
+        return WidgetCollectionDeepLinkTarget(
+            collectionId: collectionId,
+            tokenId: tokenId
+        )
+    }
 }
 
-final class WidgetLaunchPresentationState: ObservableObject {
+nonisolated struct WidgetCollectionDeepLinkTarget: Equatable, Sendable {
+    let collectionId: String
+    let tokenId: String?
+}
+
+@MainActor
+@Observable
+final class WidgetLaunchPresentationState {
+    struct Request: Hashable, Sendable {
+        fileprivate let id: UUID
+        fileprivate let deepLink: WidgetDeepLink
+    }
+
     static let shared = WidgetLaunchPresentationState()
 
-    @Published private var pendingWidgetPlayerHandoffs = Set<WidgetDeepLink>()
+    private var pendingWidgetPlayerHandoffs = [WidgetDeepLink: UUID]()
 
     var isSuppressingContinueViewing: Bool {
         !pendingWidgetPlayerHandoffs.isEmpty
@@ -63,23 +88,39 @@ final class WidgetLaunchPresentationState: ObservableObject {
 
         let incomingHandoffs = Set(urls.compactMap { url -> WidgetDeepLink? in
             guard let deepLink = WidgetDeepLink(url: url),
-                  case let .collection(collectionId, _) = deepLink,
-                  isSupportedCollection(collectionId) else {
+                  deepLink.collectionTarget(
+                    ifSupported: isSupportedCollection
+                  ) != nil else {
                 return nil
             }
             return deepLink
         })
-        let updatedHandoffs = pendingWidgetPlayerHandoffs.union(incomingHandoffs)
-        guard updatedHandoffs != pendingWidgetPlayerHandoffs else { return }
-        pendingWidgetPlayerHandoffs = updatedHandoffs
+        for deepLink in incomingHandoffs where pendingWidgetPlayerHandoffs[deepLink] == nil {
+            pendingWidgetPlayerHandoffs[deepLink] = UUID()
+        }
+    }
+
+    func beginWidgetPlayerHandoff(for url: URL) -> Request? {
+        guard let deepLink = WidgetDeepLink(url: url),
+              pendingWidgetPlayerHandoffs[deepLink] != nil else {
+            return nil
+        }
+        let request = Request(id: UUID(), deepLink: deepLink)
+        pendingWidgetPlayerHandoffs[deepLink] = request.id
+        return request
+    }
+
+    func finishWidgetPlayerHandoff(_ request: Request?) {
+        guard let request,
+              pendingWidgetPlayerHandoffs[request.deepLink] == request.id else {
+            return
+        }
+        pendingWidgetPlayerHandoffs.removeValue(forKey: request.deepLink)
     }
 
     func finishWidgetPlayerHandoff(for url: URL) {
-        guard let deepLink = WidgetDeepLink(url: url),
-              pendingWidgetPlayerHandoffs.contains(deepLink) else {
-            return
-        }
-        pendingWidgetPlayerHandoffs.remove(deepLink)
+        guard let deepLink = WidgetDeepLink(url: url) else { return }
+        pendingWidgetPlayerHandoffs.removeValue(forKey: deepLink)
     }
 
     func cancelAllWidgetPlayerHandoffs() {

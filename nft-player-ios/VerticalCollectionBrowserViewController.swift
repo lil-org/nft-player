@@ -318,6 +318,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     private(set) var lastPrefetchDirection: DownloadableMediaCache.PrefetchDirection = .forward
     private var scrollUpdateGeneration: UInt = 0
     private var isScrollUpdateScheduled = false
+    private var scrollUpdateTask: Task<Void, Never>?
     private var positionSettlementGeneration: UInt = 0
     private var preparedTransition: PreparedTransition?
     private var layoutAspectState = MobilePlayerCollectionBrowserLayoutAspectState(
@@ -332,9 +333,6 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     private var layoutWindowSafeAreaInsets = UIEdgeInsets.zero
     private var hasCapturedLayoutWindowSafeAreaInsets = false
     private var prefetchLoads = [Int: CancellableLoad]()
-    private var sceneDidEnterBackgroundObserver: NSObjectProtocol?
-    private var sceneDidActivateObserver: NSObjectProtocol?
-    private var cacheFileAvailabilityObserver: NSObjectProtocol?
     private var gridModeInteractionCoordinator =
         PlayerBrowserGridInteractionCoordinator()
     private var gridModeEffectDrainDepth = 0
@@ -345,6 +343,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     private var gridModeSettleDisplayLink: CADisplayLink?
     private var gridModeCommitSnapshotView: UIView?
     private var gridModeCommitSnapshotContentOffset: CGPoint?
+    private var gridModeCommitSnapshotDissolveTask: Task<Void, Never>?
     /// Separate from the settle link: it runs while the fingers are still
     /// down, so it must not touch scrolling, the pan recognizer, or the
     /// settle's captured offset the way the settle link's start does.
@@ -353,6 +352,8 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         GridModeInteractionFadeDisplayLinkTarget()
     private var gridModeSettleContentOffsetY: CGFloat?
     private var gridModeSettlePanMaximumNumberOfTouches: Int?
+    private var scrollToTopAnimationTimeoutTask: Task<Void, Never>?
+    private var focusPublicationTask: Task<Void, Never>?
     private var gridModeGeometryCache: GridModeGeometryCache?
     private var gridModeGeometryPrewarmPlan: GridModeGeometryPrewarmPlan?
     private var gridModeDestinationCache = [
@@ -434,20 +435,14 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         fatalError("init(coder:) has not been implemented")
     }
 
-    deinit {
-        if let sceneDidEnterBackgroundObserver {
-            NotificationCenter.default.removeObserver(
-                sceneDidEnterBackgroundObserver
-            )
-        }
-        if let sceneDidActivateObserver {
-            NotificationCenter.default.removeObserver(sceneDidActivateObserver)
-        }
-        if let cacheFileAvailabilityObserver {
-            NotificationCenter.default.removeObserver(cacheFileAvailabilityObserver)
-        }
+    isolated deinit {
+        NotificationCenter.default.removeObserver(self)
         gridModeSettleDisplayLink?.invalidate()
         gridModeInteractionFadeDisplayLink?.invalidate()
+        gridModeCommitSnapshotDissolveTask?.cancel()
+        scrollToTopAnimationTimeoutTask?.cancel()
+        scrollUpdateTask?.cancel()
+        focusPublicationTask?.cancel()
         cancelAllPrefetchLoads()
     }
 
@@ -473,43 +468,52 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         view.addGestureRecognizer(gridModePinchRecognizer)
 
         reloadBrowseSnapshot(resetPublicationState: true)
-        sceneDidEnterBackgroundObserver = NotificationCenter.default.addObserver(
-            forName: UIScene.didEnterBackgroundNotification,
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(sceneDidEnterBackground(_:)),
+            name: UIScene.didEnterBackgroundNotification,
             object: nil,
-            queue: .main
-        ) { [weak self] notification in
-            guard let self,
-                  let windowScene = notification.object as? UIWindowScene,
-                  let currentWindowScene = collectionView.window?.windowScene,
-                  windowScene === currentWindowScene else {
-                return
-            }
-            finalizeGridModeInteractionIfNeeded()
-            cancelScrollToTopAnimationState()
-            finishCurrentDrag()
-            flushSettledPosition()
-            cancelGridModeGeometryPrewarming()
-        }
-        sceneDidActivateObserver = NotificationCenter.default.addObserver(
-            forName: UIScene.didActivateNotification,
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(sceneDidActivate(_:)),
+            name: UIScene.didActivateNotification,
             object: nil,
-            queue: .main
-        ) { [weak self] notification in
-            guard let self,
-                  let windowScene = notification.object as? UIWindowScene,
-                  let currentWindowScene = collectionView.window?.windowScene,
-                  windowScene === currentWindowScene else {
-                return
-            }
-            scheduleGridModeGeometryPrewarmIfPossible()
-        }
-        cacheFileAvailabilityObserver = NotificationCenter.default.addObserver(
-            forName: .downloadableMediaCacheFileAvailabilityDidChange,
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(downloadableMediaCacheFileAvailabilityDidChange(_:)),
+            name: .downloadableMediaCacheFileAvailabilityDidChange,
             object: nil,
-            queue: .main
-        ) { [weak self] notification in
-            self?.refreshVisibleCachedImagesIfNeeded(notification: notification)
+        )
+    }
+
+    @objc private func sceneDidEnterBackground(_ notification: Notification) {
+        guard let windowScene = notification.object as? UIWindowScene,
+              let currentWindowScene = collectionView.window?.windowScene,
+              windowScene === currentWindowScene else {
+            return
         }
+        finalizeGridModeInteractionIfNeeded()
+        cancelScrollToTopAnimationState()
+        finishCurrentDrag()
+        flushSettledPosition()
+        cancelGridModeGeometryPrewarming()
+    }
+
+    @objc private func sceneDidActivate(_ notification: Notification) {
+        guard let windowScene = notification.object as? UIWindowScene,
+              let currentWindowScene = collectionView.window?.windowScene,
+              windowScene === currentWindowScene else {
+            return
+        }
+        scheduleGridModeGeometryPrewarmIfPossible()
+    }
+
+    @objc private func downloadableMediaCacheFileAvailabilityDidChange(
+        _ notification: Notification
+    ) {
+        refreshVisibleCachedImagesIfNeeded(notification: notification)
     }
 
     override func viewDidLayoutSubviews() {
@@ -684,15 +688,17 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         let retainedTokenIndex = gridModeAnchorTokenIndex()
             ?? browseSnapshot.initialTokenIndex
         let canAnimateTransition = hasFinishedInitialPositioning
+        let ratios = canAnimateTransition
+            ? makeGridModeRatios(fromMode: initialGridMode)
+            : []
         let effects = gridModeInteractionCoordinator.handle(
             .menuSelected(
                 fromMode: initialGridMode,
                 toMode: gridMode,
                 reduceMotion: UIAccessibility.isReduceMotionEnabled
             ),
-            ratioProvider: { [weak self] fromMode in
-                guard canAnimateTransition else { return [] }
-                return self?.makeGridModeRatios(fromMode: fromMode) ?? []
+            ratioProvider: { fromMode in
+                fromMode == initialGridMode ? ratios : []
             }
         )
         return applyGridModeInteractionEffects(
@@ -1345,11 +1351,18 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         snapshot.layer.add(fade, forKey: "opacity")
         let dissolveDelay = MobilePlayerCollectionBrowserTransitionPresentation
             .contentFadeDuration + 0.05
-        DispatchQueue.main.asyncAfter(deadline: .now() + dissolveDelay) {
+        gridModeCommitSnapshotDissolveTask?.cancel()
+        gridModeCommitSnapshotDissolveTask = Task {
             [weak self, weak snapshot] in
+            do {
+                try await Task.sleep(for: .seconds(dissolveDelay))
+            } catch {
+                return
+            }
             guard let snapshot else { return }
             snapshot.removeFromSuperview()
             if let self, self.gridModeCommitSnapshotView === snapshot {
+                self.gridModeCommitSnapshotDissolveTask = nil
                 self.gridModeCommitSnapshotView = nil
                 self.gridModeCommitSnapshotContentOffset = nil
             }
@@ -1359,6 +1372,8 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     /// A stale transition snapshot over a live grid is worse than a sharpen
     /// blink: every path that resumes rendering or scrolling must drop it.
     private func removeGridModeCommitSnapshot() {
+        gridModeCommitSnapshotDissolveTask?.cancel()
+        gridModeCommitSnapshotDissolveTask = nil
         gridModeCommitSnapshotView?.removeFromSuperview()
         gridModeCommitSnapshotView = nil
         gridModeCommitSnapshotContentOffset = nil
@@ -1523,13 +1538,15 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             let frame = gridModePinchFrame(recognizer)
             lastGridModePinchViewLocation = frame.viewLocation
             gridModePinchFrameCoalescer.seed(frame)
+            let initialGridMode = gridMode
+            let ratios = makeGridModeRatios(fromMode: initialGridMode)
             let effects = gridModeInteractionCoordinator.handle(
                 .pinchBegan(
                     sample: frame.sample,
                     currentMode: gridMode
                 ),
-                ratioProvider: { [weak self] fromMode in
-                    self?.makeGridModeRatios(fromMode: fromMode) ?? []
+                ratioProvider: { fromMode in
+                    fromMode == initialGridMode ? ratios : []
                 }
             )
             if wasSettling, effects.contains(.stopDisplayLink) {
@@ -2036,7 +2053,9 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         using preparation: PlayerCollectionBrowsePreparation,
         forcePosition: Bool = false,
         publishWhenStable: Bool,
-        completion: @escaping (MobilePlayerCollectionBrowserDisplayPreparationResult) -> Void
+        completion: @escaping @MainActor (
+            MobilePlayerCollectionBrowserDisplayPreparationResult
+        ) -> Void
     ) {
         loadViewIfNeeded()
         finalizeGridModeInteractionIfNeeded()
@@ -2089,7 +2108,8 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         focusedTokenIndex = preparation.focusedTokenIndex
         collectionView.layoutIfNeeded()
 
-        DispatchQueue.main.async { [weak self] in
+        Task { @MainActor [weak self] in
+            await Task.yield()
             guard let self else {
                 completion(.superseded)
                 return
@@ -2494,23 +2514,46 @@ final class VerticalCollectionBrowserViewController: UIViewController,
                 tokenIndex: descriptor.tokenIndex
             )
 
-            var children = [UIMenuElement]()
-            let isBookmarked = PlayerBookmarksStore.isBookmarked(
-                collectionId: descriptor.collectionId,
-                tokenId: descriptor.tokenId
-            )
-            children.append(
-                UIAction(
-                    title: isBookmarked ? Strings.removeBookmark : Strings.bookmark,
-                    image: UIImage(systemName: isBookmarked ? "bookmark.fill" : "bookmark")
-                ) { _ in
-                    PlayerBookmarksStore.toggleBookmark(
-                        collectionId: descriptor.collectionId,
-                        tokenId: descriptor.tokenId
-                    )
-                    Haptic.selectionChanged()
+            var children: [UIMenuElement] = [
+                UIDeferredMenuElement.uncached { completion in
+                    Task {
+                        let storedState = PlayerBookmarksStore.storedBookmarkState(
+                            collectionId: descriptor.collectionId,
+                            tokenId: descriptor.tokenId
+                        )
+                        let resolvedIsBookmarked = storedState.isReady
+                            ? storedState.isBookmarked
+                            : await PlayerBookmarksStore.shared.isBookmarked(
+                                collectionId: descriptor.collectionId,
+                                tokenId: descriptor.tokenId
+                            )
+                        let latestState = PlayerBookmarksStore.storedBookmarkState(
+                            collectionId: descriptor.collectionId,
+                            tokenId: descriptor.tokenId
+                        )
+                        let isBookmarked = latestState.isReady
+                            ? latestState.isBookmarked
+                            : resolvedIsBookmarked
+                        let action = UIAction(
+                            title: isBookmarked ? Strings.removeBookmark : Strings.bookmark,
+                            image: UIImage(
+                                systemName: isBookmarked ? "bookmark.fill" : "bookmark"
+                            ),
+                            attributes: latestState.isTogglePending ? .disabled : []
+                        ) { _ in
+                            let didBeginToggle = PlayerBookmarksStore.enqueueBookmarkUpdate(
+                                collectionId: descriptor.collectionId,
+                                tokenId: descriptor.tokenId,
+                                isBookmarked: !isBookmarked
+                            )
+                            if didBeginToggle {
+                                Haptic.selectionChanged()
+                            }
+                        }
+                        completion([action])
+                    }
                 }
-            )
+            ]
             if let url = token?.url {
                 children.append(
                     UIAction(title: Strings.viewOnBlockExplorer, image: UIImage(systemName: "globe")) { _ in
@@ -2608,7 +2651,8 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             if let cancellation = DownloadableMediaCache.shared.loadProvisionalImage(
                 for: descriptor,
                 completion: { [weak self] _ in
-                    DispatchQueue.main.async {
+                    Task { @MainActor in
+                        await Task.yield()
                         guard self?.prefetchLoads[tokenIndex]?.id == loadID else { return }
                         self?.prefetchLoads.removeValue(forKey: tokenIndex)
                     }
@@ -3455,6 +3499,8 @@ final class VerticalCollectionBrowserViewController: UIViewController,
 
     private func cancelScrollToTopAnimationState() {
         scrollToTopAnimationTimeoutGeneration &+= 1
+        scrollToTopAnimationTimeoutTask?.cancel()
+        scrollToTopAnimationTimeoutTask = nil
         guard isScrollToTopAnimationActive else { return }
         isScrollToTopAnimationActive = false
         if needsWindowSafeAreaRefresh {
@@ -3465,14 +3511,21 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     private func scheduleScrollToTopAnimationTimeout() {
         scrollToTopAnimationTimeoutGeneration &+= 1
         let generation = scrollToTopAnimationTimeoutGeneration
-        DispatchQueue.main.asyncAfter(
-            deadline: .now() + Self.scrollToTopAnimationTimeout
-        ) { [weak self] in
+        scrollToTopAnimationTimeoutTask?.cancel()
+        scrollToTopAnimationTimeoutTask = Task { [weak self] in
+            do {
+                try await Task.sleep(
+                    for: .seconds(Self.scrollToTopAnimationTimeout)
+                )
+            } catch {
+                return
+            }
             guard let self,
                   self.isScrollToTopAnimationActive,
                   self.scrollToTopAnimationTimeoutGeneration == generation else {
                 return
             }
+            self.scrollToTopAnimationTimeoutTask = nil
             self.cancelScrollToTopAnimationState()
             self.settleAfterApplyingPendingWindowSafeAreaRefresh()
         }
@@ -3694,12 +3747,14 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         isScrollUpdateScheduled = true
         scrollUpdateGeneration &+= 1
         let generation = scrollUpdateGeneration
-        DispatchQueue.main.async { [weak self] in
+        scrollUpdateTask = Task { @MainActor [weak self] in
+            await Task.yield()
             guard let self,
                   self.scrollUpdateGeneration == generation else {
                 return
             }
             self.isScrollUpdateScheduled = false
+            self.scrollUpdateTask = nil
             guard self.isActive,
                   self.hasFinishedInitialPositioning,
                   !self.isApplyingPosition else {
@@ -3716,6 +3771,8 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     private func cancelScheduledScrollUpdate() {
         scrollUpdateGeneration &+= 1
         isScrollUpdateScheduled = false
+        scrollUpdateTask?.cancel()
+        scrollUpdateTask = nil
     }
 
     private func publishFocus(
@@ -3751,12 +3808,19 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             focusPublicationGeneration &+= 1
             let generation = focusPublicationGeneration
             let delay = Self.continuousFocusPublicationInterval - elapsed
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            focusPublicationTask?.cancel()
+            focusPublicationTask = Task { [weak self] in
+                do {
+                    try await Task.sleep(for: .seconds(delay))
+                } catch {
+                    return
+                }
                 guard let self,
                       self.focusPublicationGeneration == generation else {
                     return
                 }
                 self.isFocusPublicationScheduled = false
+                self.focusPublicationTask = nil
                 guard let tokenIndex = self.pendingFocusedTokenIndex else { return }
                 self.pendingFocusedTokenIndex = nil
                 self.emitFocus(tokenIndex: tokenIndex)
@@ -3778,6 +3842,8 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     private func cancelPendingFocusPublication(resetLastPublicationTime: Bool) {
         focusPublicationGeneration &+= 1
         isFocusPublicationScheduled = false
+        focusPublicationTask?.cancel()
+        focusPublicationTask = nil
         pendingFocusedTokenIndex = nil
         if resetLastPublicationTime {
             lastFocusPublicationTime = nil

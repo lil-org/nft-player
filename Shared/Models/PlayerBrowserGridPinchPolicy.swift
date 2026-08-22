@@ -3,7 +3,7 @@
 import CoreGraphics
 import Foundation
 
-enum PlayerBrowserGridPinchPolicy {
+nonisolated enum PlayerBrowserGridPinchPolicy: Sendable {
 
     static let activationScaleDeviation: CGFloat = 0.04
     static let overshootMaximumDeviation: CGFloat = 0.05

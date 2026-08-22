@@ -1,25 +1,28 @@
 // ∅ 2026 lil org
 
-import Combine
-import SwiftUI
+import Foundation
+import Observation
 
-class PlayerModel: ObservableObject {
+@MainActor @Observable
+final class PlayerModel {
     
     private(set) var widgetTokenInsertion: PlayerWidgetTokenInsertion?
     
-    @Published var currentToken: GeneratedToken {
+    var currentToken: GeneratedToken {
         didSet {
-            refreshCurrentTokenBookmarkState()
+            scheduleCurrentTokenBookmarkStateRefresh()
         }
     }
-    @Published var history: [GeneratedToken]
-    @Published var currentIndex: Int = 0
-    @Published private(set) var isCurrentTokenInsertedWidgetToken = false
-    @Published private(set) var isCurrentTokenBookmarked = false
+    var history: [GeneratedToken]
+    var currentIndex: Int = 0
+    private(set) var isCurrentTokenInsertedWidgetToken = false
+    private var bookmarkPresentationState = PlayerBookmarkPresentationState()
     private static let historyTrimThreshold = 23
     private static let retainedHistoryCount = 10
-    private var viewingSessionTracker: PlayerViewingSessionTracker
-    private var bookmarkChangesObserver: AnyCancellable?
+    private let viewingSessionTracker: PlayerViewingSessionTracker
+    @ObservationIgnored private var bookmarkStateRefreshTask: Task<Void, Never>?
+    @ObservationIgnored private var bookmarkChangesObserver: NSObjectProtocol?
+    @ObservationIgnored private var restartRequestGeneration: UInt = 0
 
     init(specificCollectionId: String?, notTokenId: String?) {
         let token = Self.generateRandomToken(
@@ -30,7 +33,7 @@ class PlayerModel: ObservableObject {
         self.history = [token]
         self.widgetTokenInsertion = nil
         self.viewingSessionTracker = PlayerViewingSessionTracker(continueViewingCollectionId: specificCollectionId)
-        configureBookmarkState(for: token)
+        configureBookmarkState()
     }
 
     init(
@@ -45,7 +48,7 @@ class PlayerModel: ObservableObject {
         self.viewingSessionTracker = PlayerViewingSessionTracker(
             continueViewingCollectionId: continueViewingCollectionId ?? collectionId
         )
-        configureBookmarkState(for: token)
+        configureBookmarkState()
     }
     
     init(token: GeneratedToken) {
@@ -55,7 +58,7 @@ class PlayerModel: ObservableObject {
         self.viewingSessionTracker = PlayerViewingSessionTracker(
             continueViewingCollectionId: token.fullCollectionId
         )
-        configureBookmarkState(for: token)
+        configureBookmarkState()
     }
 
     init(widgetTokenInsertion: PlayerWidgetTokenInsertion) {
@@ -66,7 +69,14 @@ class PlayerModel: ObservableObject {
         self.viewingSessionTracker = PlayerViewingSessionTracker(
             continueViewingCollectionId: widgetTokenInsertion.collectionId
         )
-        configureBookmarkState(for: widgetTokenInsertion.insertedToken)
+        configureBookmarkState()
+    }
+
+    isolated deinit {
+        bookmarkStateRefreshTask?.cancel()
+        if let bookmarkChangesObserver {
+            NotificationCenter.default.removeObserver(bookmarkChangesObserver)
+        }
     }
 
     var playerWindowTitle: String {
@@ -101,6 +111,7 @@ class PlayerModel: ObservableObject {
     }
     
     func goBack() {
+        cancelPendingCollectionRestart()
 #if os(macOS) || os(tvOS)
         if currentIndex > 0 {
             currentIndex -= 1
@@ -119,6 +130,7 @@ class PlayerModel: ObservableObject {
     }
 
     func goForward() {
+        cancelPendingCollectionRestart()
 #if os(macOS) || os(tvOS)
         if currentIndex < history.count - 1 {
             currentIndex += 1
@@ -148,6 +160,7 @@ class PlayerModel: ObservableObject {
     
     func showPagedToken(_ token: GeneratedToken, isInsertedWidgetToken: Bool = false) {
         guard currentToken != token || isCurrentTokenInsertedWidgetToken != isInsertedWidgetToken else { return }
+        cancelPendingCollectionRestart()
 
         if currentToken == token {
             setCurrentTokenInsertedWidgetToken(isInsertedWidgetToken)
@@ -183,23 +196,47 @@ class PlayerModel: ObservableObject {
         Self.canBookmark(token: currentToken)
     }
 
-    @discardableResult
-    func toggleCurrentTokenBookmark() -> Bool {
-        guard canBookmarkCurrentToken else {
-            setCurrentTokenBookmarked(false)
-            return false
-        }
-
-        let isBookmarked = PlayerBookmarksStore.toggleBookmark(
-            collectionId: currentToken.fullCollectionId,
-            tokenId: currentToken.id
-        )
-        setCurrentTokenBookmarked(isBookmarked)
-        return isBookmarked
+    var canToggleCurrentTokenBookmark: Bool {
+        canBookmarkCurrentToken && bookmarkPresentationState.canToggle
     }
 
-    func refreshCurrentTokenBookmarkState() {
-        setCurrentTokenBookmarked(Self.isBookmarked(token: currentToken))
+    var isCurrentTokenBookmarked: Bool {
+        bookmarkPresentationState.isBookmarked
+    }
+
+    func toggleCurrentTokenBookmark(
+        completion: (@MainActor @Sendable (BookmarkTarget, Bool) -> Void)? = nil
+    ) {
+        guard let request = bookmarkPresentationState.beginToggle() else { return }
+
+        cancelCurrentTokenBookmarkStateRefresh()
+        PlayerBookmarksStore.enqueueBookmarkUpdate(
+            collectionId: request.target.collectionId,
+            tokenId: request.target.tokenId,
+            isBookmarked: request.isBookmarked
+        ) { [weak self] isBookmarked in
+            guard let self else { return }
+            let storedState = PlayerBookmarksStore.storedBookmarkState(
+                collectionId: request.target.collectionId,
+                tokenId: request.target.tokenId
+            )
+            bookmarkPresentationState.applyToggleCompletion(
+                isBookmarked: isBookmarked,
+                for: request.target,
+                isTogglePending: storedState.isTogglePending
+            )
+            completion?(request.target, isBookmarked)
+        }
+    }
+
+    func refreshCurrentTokenBookmarkState() async {
+        guard let request = beginBookmarkStateRequest() else { return }
+        let isBookmarked = await Self.isBookmarked(target: request.target)
+        guard !Task.isCancelled else { return }
+        bookmarkPresentationState.applyLoadedState(
+            isBookmarked: isBookmarked,
+            for: request
+        )
     }
 
     func progress(for token: GeneratedToken) -> PlayerViewingProgress? {
@@ -219,66 +256,85 @@ class PlayerModel: ObservableObject {
             tokenId: token.id,
             tokenIndex: tokenIndex,
             tokenCount: tokenCount,
-            updatedAt: Date()
+            updatedAt: PlayerSyncLogicalClock.next(for: .viewingProgress)
         )
     }
 
-    @discardableResult
-    func markCurrentTokenViewed() -> PlayerViewingProgress? {
-        markTokenViewed(currentToken)
-    }
-
-    @discardableResult
-    func markTokenViewed(_ token: GeneratedToken) -> PlayerViewingProgress? {
-        let progress = shouldRecordAnchorProgress(for: token)
+    func viewingProgress(for token: GeneratedToken) -> PlayerViewingProgress? {
+        shouldRecordAnchorProgress(for: token)
             ? widgetTokenInsertion?.automaticAnchorProgress()
             : progress(for: token)
-        guard let progress else { return nil }
-        viewingSessionTracker.markViewed(progress)
-        return progress
+    }
+
+    func markViewed(_ progress: PlayerViewingProgress) async {
+        await viewingSessionTracker.markViewed(progress)
     }
 
 #if os(macOS)
-    /// Records progress for a token the collection browser settled on, without
-    /// disturbing what the pager is currently showing.
-    @discardableResult
-    func markViewed(collectionId: String, tokenIndex: Int, hasViewedToEnd: Bool) -> PlayerViewingProgress? {
+    func viewingProgress(
+        collectionId: String,
+        tokenIndex: Int,
+        hasViewedToEnd: Bool
+    ) -> PlayerViewingProgress? {
         guard !collectionId.isEmpty else { return nil }
         let tokenCount = Self.tokenCount(specificCollectionId: collectionId)
         guard tokenCount > 0,
               (0..<tokenCount).contains(tokenIndex),
               let identity = CollectionCatalog.tokenIdentity(
-                specificCollectionId: collectionId,
-                tokenIndex: tokenIndex
+                  specificCollectionId: collectionId,
+                  tokenIndex: tokenIndex
               ) else {
             return nil
         }
 
-        let progress = PlayerViewingProgress(
+        return PlayerViewingProgress(
             collectionId: collectionId,
             collectionName: identity.collectionName,
             tokenId: identity.tokenId,
             tokenIndex: tokenIndex,
             tokenCount: tokenCount,
-            updatedAt: Date(),
+            updatedAt: PlayerSyncLogicalClock.next(for: .viewingProgress),
             hasViewedToEnd: hasViewedToEnd
         )
-        viewingSessionTracker.markViewed(progress)
-        return progress
     }
 #endif
 
-    func restartCollection() {
+    func restartCollection(
+        ifCurrent shouldCommit: @escaping @MainActor @Sendable () -> Bool,
+        onCommit: @escaping @MainActor @Sendable () -> Void
+    ) {
         guard !currentToken.fullCollectionId.isEmpty,
               let firstToken = Self.generateToken(specificCollectionId: currentToken.fullCollectionId, tokenIndex: 0) else {
             return
         }
 
-        viewingSessionTracker.beginRestart(collectionId: currentToken.fullCollectionId)
-        clearWidgetTokenInsertion()
-        history = [firstToken]
-        currentIndex = 0
-        currentToken = firstToken
+        let collectionId = currentToken.fullCollectionId
+        let startingToken = currentToken
+        let requestGeneration = advanceRestartRequestGeneration()
+        let viewingSessionTracker = self.viewingSessionTracker
+        Task { [weak self] in
+            let update = await viewingSessionTracker.prepareRestartUpdate(collectionId: collectionId)
+            guard let self,
+                  restartRequestGeneration == requestGeneration,
+                  currentToken == startingToken,
+                  shouldCommit() else {
+                return
+            }
+
+            restartRequestGeneration &+= 1
+            PlayerPersistenceUpdates.enqueue {
+                await viewingSessionTracker.beginRestart(update: update)
+            }
+            clearWidgetTokenInsertion()
+            history = [firstToken]
+            currentIndex = 0
+            currentToken = firstToken
+            onCommit()
+        }
+    }
+
+    func cancelPendingCollectionRestart() {
+        restartRequestGeneration &+= 1
     }
 
     @discardableResult
@@ -321,6 +377,12 @@ class PlayerModel: ObservableObject {
     private func setCurrentTokenInsertedWidgetToken(_ isInsertedWidgetToken: Bool) {
         guard isCurrentTokenInsertedWidgetToken != isInsertedWidgetToken else { return }
         isCurrentTokenInsertedWidgetToken = isInsertedWidgetToken
+    }
+
+    @discardableResult
+    private func advanceRestartRequestGeneration() -> UInt {
+        restartRequestGeneration &+= 1
+        return restartRequestGeneration
     }
 
     private func adjacentToken(offset: Int) -> GeneratedToken? {
@@ -371,34 +433,78 @@ class PlayerModel: ObservableObject {
         CollectionCatalog.generateToken(specificCollectionId: specificCollectionId, tokenIndex: tokenIndex)
     }
 
-    private func configureBookmarkState(for token: GeneratedToken) {
-        setCurrentTokenBookmarked(Self.isBookmarked(token: token))
+    private func configureBookmarkState() {
         installBookmarkChangesObserver()
-    }
-
-    private func setCurrentTokenBookmarked(_ isBookmarked: Bool) {
-        guard isCurrentTokenBookmarked != isBookmarked else { return }
-        isCurrentTokenBookmarked = isBookmarked
+        scheduleCurrentTokenBookmarkStateRefresh()
     }
 
     private static func canBookmark(token: GeneratedToken) -> Bool {
         !token.fullCollectionId.isEmpty && !token.id.isEmpty
     }
 
-    private static func isBookmarked(token: GeneratedToken) -> Bool {
-        guard canBookmark(token: token) else { return false }
-        return PlayerBookmarksStore.isBookmarked(
-            collectionId: token.fullCollectionId,
-            tokenId: token.id
+    private static func isBookmarked(target: BookmarkTarget) async -> Bool {
+        return await PlayerBookmarksStore.shared.isBookmarked(
+            collectionId: target.collectionId,
+            tokenId: target.tokenId
         )
     }
 
     private func installBookmarkChangesObserver() {
-        bookmarkChangesObserver = NotificationCenter.default.publisher(for: .playerBookmarksDidChange)
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in
-                self?.refreshCurrentTokenBookmarkState()
+        bookmarkChangesObserver = NotificationCenter.default.addObserver(
+            forName: .playerBookmarksDidChange,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.scheduleCurrentTokenBookmarkStateRefresh()
             }
+        }
     }
+
+    private func scheduleCurrentTokenBookmarkStateRefresh() {
+        guard let request = beginBookmarkStateRequest() else { return }
+        bookmarkStateRefreshTask = Task { [weak self] in
+            let isBookmarked = await Self.isBookmarked(target: request.target)
+            guard !Task.isCancelled else { return }
+            self?.bookmarkPresentationState.applyLoadedState(
+                isBookmarked: isBookmarked,
+                for: request
+            )
+        }
+    }
+
+    private var currentBookmarkTarget: BookmarkTarget? {
+        guard canBookmarkCurrentToken else { return nil }
+        return PlayerBookmarkPresentationState.Target(
+            collectionId: currentToken.fullCollectionId,
+            tokenId: currentToken.id
+        )
+    }
+
+    private func beginBookmarkStateRequest() -> PlayerBookmarkPresentationState.LoadRequest? {
+        cancelCurrentTokenBookmarkStateRefresh()
+        let target = currentBookmarkTarget
+        let storedState = target.map {
+            PlayerBookmarksStore.storedBookmarkState(
+                collectionId: $0.collectionId,
+                tokenId: $0.tokenId
+            )
+        } ?? PlayerStoredBookmarkState(
+            isBookmarked: false,
+            isTogglePending: false,
+            isReady: true
+        )
+        return bookmarkPresentationState.beginLoading(
+            target: target,
+            storedState: storedState
+        )
+    }
+
+    private func cancelCurrentTokenBookmarkStateRefresh() {
+        bookmarkStateRefreshTask?.cancel()
+        bookmarkStateRefreshTask = nil
+    }
+
+    typealias BookmarkTarget = PlayerBookmarkPresentationState.Target
 
 }

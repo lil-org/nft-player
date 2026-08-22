@@ -1,7 +1,7 @@
 // ∅ 2026 lil org
 
-import AVFoundation
 import ImageIO
+import Observation
 import SwiftUI
 import UIKit
 
@@ -21,12 +21,16 @@ struct VisionPlayerConfig: Hashable, Identifiable {
 struct VisionPlayerView: View {
     
     private let onDismiss: () -> Void
-    @StateObject private var playerModel: VisionPlayerModel
+    @State private var playerModelOwner: VisionPlayerModelOwner
     @State private var navigationBridge = VisionPlayerNavigationBridge()
+
+    private var playerModel: VisionPlayerModel {
+        playerModelOwner.model
+    }
     
     init(config: VisionPlayerConfig, onDismiss: @escaping () -> Void) {
         self.onDismiss = onDismiss
-        _playerModel = StateObject(wrappedValue: VisionPlayerModel(config: config))
+        _playerModelOwner = State(initialValue: VisionPlayerModelOwner(config: config))
     }
     
     var body: some View {
@@ -50,10 +54,8 @@ struct VisionPlayerView: View {
                 .padding(.bottom, VisionOrnamentMetrics.bottomPadding)
         }
         .onDisappear {
+            playerModel.cancelPendingCollectionRestart()
             DownloadableMediaCache.shared.clearActiveWindow(ownerId: playerModel.id)
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .playerBookmarksDidChange)) { _ in
-            playerModel.refreshBookmarkState()
         }
     }
 
@@ -109,7 +111,7 @@ struct VisionPlayerView: View {
         VisionOrnamentIconButton(
             image: Images.back,
             accessibilityLabel: Strings.back,
-            action: onDismiss
+            action: dismiss
         )
     }
 
@@ -193,7 +195,7 @@ struct VisionPlayerView: View {
             VisionOrnamentIconButton(
                 image: Images.finish,
                 accessibilityLabel: Strings.finish,
-                action: onDismiss
+                action: dismiss
             )
         }
     }
@@ -206,6 +208,7 @@ struct VisionPlayerView: View {
                 accessibilityLabel: playerModel.isCurrentTokenBookmarked ? Strings.removeBookmark : Strings.bookmark,
                 action: toggleCurrentTokenBookmark
             )
+            .disabled(!playerModel.canToggleCurrentTokenBookmark)
         }
     }
 
@@ -239,19 +242,41 @@ struct VisionPlayerView: View {
         playerModel.restartCollection()
     }
 
+    private func dismiss() {
+        playerModel.cancelPendingCollectionRestart()
+        onDismiss()
+    }
+
     private func toggleCurrentTokenBookmark() {
         playerModel.toggleCurrentTokenBookmark()
     }
 
 }
 
-private final class VisionPlayerModel: ObservableObject {
+@MainActor
+private final class VisionPlayerModelOwner {
+
+    private let config: VisionPlayerConfig
+
+    init(config: VisionPlayerConfig) {
+        self.config = config
+    }
+
+    lazy var model = VisionPlayerModel(config: config)
+
+}
+
+@MainActor @Observable
+private final class VisionPlayerModel {
 
     let id: UUID
     private let dataSource: PlayerTokenPagingDataSource
-    private var viewingSessionTracker: PlayerViewingSessionTracker
-    @Published private var displayState: VisionPlayerDisplayState
-    @Published private(set) var isCurrentTokenBookmarked = false
+    private let viewingSessionTracker: PlayerViewingSessionTracker
+    private var displayState: VisionPlayerDisplayState
+    private var bookmarkPresentationState = PlayerBookmarkPresentationState()
+    @ObservationIgnored private var bookmarkStateTask: Task<Void, Never>?
+    @ObservationIgnored private var bookmarkChangesObserver: NSObjectProtocol?
+    @ObservationIgnored private var restartRequestGeneration: UInt = 0
 
     init(config: VisionPlayerConfig) {
         let initialPagePosition = PlayerPagePosition.initial
@@ -264,14 +289,11 @@ private final class VisionPlayerModel: ObservableObject {
         )
         id = config.id
         self.dataSource = dataSource
-        var tracker = PlayerViewingSessionTracker(
+        let tracker = PlayerViewingSessionTracker(
             continueViewingCollectionId: config.continueViewingCollectionId
         )
         let token = dataSource.getToken(pagePosition: initialPagePosition)
         let progress = dataSource.progress(pagePosition: initialPagePosition)
-        if let progress {
-            tracker.markViewed(progress)
-        }
         viewingSessionTracker = tracker
         displayState = VisionPlayerDisplayState(
             pagePosition: initialPagePosition,
@@ -280,7 +302,20 @@ private final class VisionPlayerModel: ObservableObject {
             pageLabel: dataSource.pageLabel(pagePosition: initialPagePosition) ?? "",
             preferredPrefetchDirection: .forward
         )
-        isCurrentTokenBookmarked = Self.isBookmarked(token: token)
+        if let progress {
+            PlayerPersistenceUpdates.enqueue {
+                await tracker.markViewed(progress)
+            }
+        }
+        installBookmarkChangesObserver()
+        scheduleBookmarkStateRefresh()
+    }
+
+    isolated deinit {
+        bookmarkStateTask?.cancel()
+        if let bookmarkChangesObserver {
+            NotificationCenter.default.removeObserver(bookmarkChangesObserver)
+        }
     }
 
     var currentToken: GeneratedToken {
@@ -305,6 +340,14 @@ private final class VisionPlayerModel: ObservableObject {
 
     var canBookmarkCurrentToken: Bool {
         !currentToken.fullCollectionId.isEmpty && !currentToken.id.isEmpty
+    }
+
+    var canToggleCurrentTokenBookmark: Bool {
+        canBookmarkCurrentToken && bookmarkPresentationState.canToggle
+    }
+
+    var isCurrentTokenBookmarked: Bool {
+        bookmarkPresentationState.isBookmarked
     }
 
     var canGoBack: Bool {
@@ -333,9 +376,16 @@ private final class VisionPlayerModel: ObservableObject {
     ) {
         guard dataSource.canRender(pagePosition: pagePosition) else { return }
 
+        cancelPendingCollectionRestart()
         dataSource.acknowledgeIntentionalViewingPosition()
         displayState = makeDisplayState(pagePosition: pagePosition, direction: direction)
-        refreshBookmarkState()
+        if let progress = displayState.progress {
+            let tracker = viewingSessionTracker
+            PlayerPersistenceUpdates.enqueue {
+                await tracker.markViewed(progress)
+            }
+        }
+        scheduleBookmarkStateRefresh()
     }
 
     func restartCollection() {
@@ -344,26 +394,65 @@ private final class VisionPlayerModel: ObservableObject {
         ) else {
             return
         }
+
+        let startingPagePosition = currentPagePosition
+        let firstPagePosition = dataSource.pagePosition(forTokenIndex: 0)
+        let requestGeneration = advanceRestartRequestGeneration()
+        let viewingSessionTracker = self.viewingSessionTracker
         dataSource.acknowledgeIntentionalViewingPosition()
-        viewingSessionTracker.beginRestart(collectionId: context.collectionId)
-        display(pagePosition: dataSource.pagePosition(forTokenIndex: 0), direction: .backward)
+        Task { [weak self] in
+            let update = await viewingSessionTracker.prepareRestartUpdate(
+                collectionId: context.collectionId
+            )
+            guard let self,
+                  restartRequestGeneration == requestGeneration,
+                  currentPagePosition == startingPagePosition else {
+                return
+            }
+
+            restartRequestGeneration &+= 1
+            PlayerPersistenceUpdates.enqueue {
+                await viewingSessionTracker.beginRestart(update: update)
+            }
+            display(pagePosition: firstPagePosition, direction: .backward)
+        }
+    }
+
+    func cancelPendingCollectionRestart() {
+        restartRequestGeneration &+= 1
     }
 
     func toggleCurrentTokenBookmark() {
-        guard canBookmarkCurrentToken else { return }
+        guard let request = bookmarkPresentationState.beginToggle() else { return }
 
-        isCurrentTokenBookmarked = PlayerBookmarksStore.toggleBookmark(
-            collectionId: currentToken.fullCollectionId,
-            tokenId: currentToken.id
-        )
-    }
-
-    func refreshBookmarkState() {
-        isCurrentTokenBookmarked = Self.isBookmarked(token: currentToken)
+        bookmarkStateTask?.cancel()
+        bookmarkStateTask = nil
+        PlayerBookmarksStore.enqueueBookmarkUpdate(
+            collectionId: request.target.collectionId,
+            tokenId: request.target.tokenId,
+            isBookmarked: request.isBookmarked
+        ) { [weak self] isBookmarked in
+            guard let self else { return }
+            let storedState = PlayerBookmarksStore.storedBookmarkState(
+                collectionId: request.target.collectionId,
+                tokenId: request.target.tokenId
+            )
+            bookmarkPresentationState.applyToggleCompletion(
+                isBookmarked: isBookmarked,
+                for: request.target,
+                isTogglePending: storedState.isTogglePending
+            )
+        }
     }
 
     private func canRender(offset: Int) -> Bool {
         canRender(currentPagePosition.advanced(by: offset))
+    }
+
+    @discardableResult
+    private func advanceRestartRequestGeneration() -> UInt {
+        restartRequestGeneration &+= 1
+        return restartRequestGeneration
     }
 
     private func makeDisplayState(
@@ -372,9 +461,6 @@ private final class VisionPlayerModel: ObservableObject {
     ) -> VisionPlayerDisplayState {
         let token = dataSource.getToken(pagePosition: pagePosition)
         let progress = dataSource.progress(pagePosition: pagePosition)
-        if let progress {
-            viewingSessionTracker.markViewed(progress)
-        }
         return VisionPlayerDisplayState(
             pagePosition: pagePosition,
             token: token,
@@ -384,11 +470,61 @@ private final class VisionPlayerModel: ObservableObject {
         )
     }
 
-    private static func isBookmarked(token: GeneratedToken) -> Bool {
-        guard !token.fullCollectionId.isEmpty, !token.id.isEmpty else { return false }
-        return PlayerBookmarksStore.isBookmarked(
-            collectionId: token.fullCollectionId,
-            tokenId: token.id
+    private static func isBookmarked(
+        target: PlayerBookmarkPresentationState.Target
+    ) async -> Bool {
+        return await PlayerBookmarksStore.shared.isBookmarked(
+            collectionId: target.collectionId,
+            tokenId: target.tokenId
+        )
+    }
+
+    private func scheduleBookmarkStateRefresh() {
+        guard let request = beginBookmarkStateRequest() else { return }
+        bookmarkStateTask = Task { [weak self] in
+            let isBookmarked = await Self.isBookmarked(target: request.target)
+            guard !Task.isCancelled else { return }
+            self?.bookmarkPresentationState.applyLoadedState(
+                isBookmarked: isBookmarked,
+                for: request
+            )
+        }
+    }
+
+    private func installBookmarkChangesObserver() {
+        bookmarkChangesObserver = NotificationCenter.default.addObserver(
+            forName: .playerBookmarksDidChange,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.scheduleBookmarkStateRefresh()
+            }
+        }
+    }
+
+    private func beginBookmarkStateRequest() -> PlayerBookmarkPresentationState.LoadRequest? {
+        bookmarkStateTask?.cancel()
+        bookmarkStateTask = nil
+        let target: PlayerBookmarkPresentationState.Target? = canBookmarkCurrentToken
+            ? PlayerBookmarkPresentationState.Target(
+                collectionId: currentToken.fullCollectionId,
+                tokenId: currentToken.id
+            )
+            : nil
+        let storedState = target.map {
+            PlayerBookmarksStore.storedBookmarkState(
+                collectionId: $0.collectionId,
+                tokenId: $0.tokenId
+            )
+        } ?? PlayerStoredBookmarkState(
+            isBookmarked: false,
+            isTogglePending: false,
+            isReady: true
+        )
+        return bookmarkPresentationState.beginLoading(
+            target: target,
+            storedState: storedState
         )
     }
 }
@@ -696,7 +832,7 @@ private struct VisionPlayerQueuedNavigationRequest {
 
 private struct VisionPlayerPagerView: UIViewControllerRepresentable {
 
-    @ObservedObject var playerModel: VisionPlayerModel
+    let playerModel: VisionPlayerModel
     let navigationBridge: VisionPlayerNavigationBridge
 
     func makeUIViewController(context: Context) -> VisionPlayerPageController {
@@ -760,7 +896,8 @@ private final class VisionPlayerPageController: UIPageViewController, UIPageView
     private var hoveredSideTapSide: VisionPlayerSideTapSide?
     private var sideTapFlashSide: VisionPlayerSideTapSide?
     private var pendingSideTapHighlightSide: VisionPlayerSideTapSide?
-    private var sideTapHighlightWorkItem: DispatchWorkItem?
+    private var sideTapHighlightTask: Task<Void, Never>?
+    private var sideTapFlashTask: Task<Void, Never>?
     private var sideTapHighlightRequestId = 0
 
     init(playerModel: VisionPlayerModel) {
@@ -903,6 +1040,7 @@ private final class VisionPlayerPageController: UIPageViewController, UIPageView
         animated: Bool,
         preservingSideTapFlash: Bool = false
     ) -> Bool {
+        playerModel.cancelPendingCollectionRestart()
         let sourcePagePosition = displayedPagePosition
         let targetPagePosition = targetPagePosition(from: sourcePagePosition, for: request)
         guard playerModel.canRender(targetPagePosition) else {
@@ -976,7 +1114,8 @@ private final class VisionPlayerPageController: UIPageViewController, UIPageView
         refreshSideTapHoverIfNeeded()
 
         guard let queuedRequest else { return }
-        DispatchQueue.main.async { [weak self] in
+        Task { @MainActor [weak self] in
+            await Task.yield()
             self?.navigate(queuedRequest.navigation, animated: queuedRequest.animated)
         }
     }
@@ -1028,6 +1167,7 @@ private final class VisionPlayerPageController: UIPageViewController, UIPageView
         willTransitionTo pendingViewControllers: [UIViewController]
     ) {
         guard let pendingPage = pendingViewControllers.first as? VisionPlayerPageHostController else { return }
+        playerModel.cancelPendingCollectionRestart()
         cancelSideTapHighlights()
         pendingPage.setOwnsDownloadableMediaWindow(true, forceRefresh: true)
         transitionDestinationPage = pendingPage
@@ -1195,7 +1335,9 @@ private final class VisionPlayerPageController: UIPageViewController, UIPageView
         pendingSideTapHighlightSide = side
         sideTapHighlightRequestId += 1
         let requestId = sideTapHighlightRequestId
-        let workItem = DispatchWorkItem { [weak self] in
+        sideTapHighlightTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(VisionPlayerSideTapTuning.highlightActivationDelay))
+            guard !Task.isCancelled else { return }
             guard let self,
                   self.sideTapHighlightRequestId == requestId,
                   self.pendingSideTapHighlightSide == side,
@@ -1204,14 +1346,9 @@ private final class VisionPlayerPageController: UIPageViewController, UIPageView
             }
 
             self.pendingSideTapHighlightSide = nil
-            self.sideTapHighlightWorkItem = nil
+            self.sideTapHighlightTask = nil
             self.sideTapHighlight(for: side).setHighlighted(true)
         }
-        sideTapHighlightWorkItem = workItem
-        DispatchQueue.main.asyncAfter(
-            deadline: .now() + VisionPlayerSideTapTuning.highlightActivationDelay,
-            execute: workItem
-        )
     }
 
     private func cancelSideTapPressHighlight(on side: VisionPlayerSideTapSide) {
@@ -1266,8 +1403,8 @@ private final class VisionPlayerPageController: UIPageViewController, UIPageView
             return false
         }
 
-        sideTapHighlightWorkItem?.cancel()
-        sideTapHighlightWorkItem = nil
+        sideTapHighlightTask?.cancel()
+        sideTapHighlightTask = nil
         pendingSideTapHighlightSide = nil
         sideTapHighlightRequestId += 1
         return true
@@ -1282,15 +1419,17 @@ private final class VisionPlayerPageController: UIPageViewController, UIPageView
         sideTapHighlightRequestId += 1
         let requestId = sideTapHighlightRequestId
 
-        DispatchQueue.main.asyncAfter(
-            deadline: .now() + VisionPlayerSideTapTuning.highlightTapFlashDuration
-        ) { [weak self] in
+        sideTapFlashTask?.cancel()
+        sideTapFlashTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(VisionPlayerSideTapTuning.highlightTapFlashDuration))
+            guard !Task.isCancelled else { return }
             guard let self,
                   self.sideTapHighlightRequestId == requestId,
                   self.sideTapFlashSide == side else {
                 return
             }
 
+            self.sideTapFlashTask = nil
             self.sideTapFlashSide = nil
             self.sideTapHighlight(for: side).setHighlighted(false)
             self.refreshSideTapHoverIfNeeded()
@@ -1299,16 +1438,18 @@ private final class VisionPlayerPageController: UIPageViewController, UIPageView
 
     private func cancelSideTapHighlights(preservingFlash: Bool = false) {
         if preservingFlash, sideTapFlashSide != nil {
-            sideTapHighlightWorkItem?.cancel()
-            sideTapHighlightWorkItem = nil
+            sideTapHighlightTask?.cancel()
+            sideTapHighlightTask = nil
             pendingSideTapHighlightSide = nil
             sideTapPressSide = nil
             hoveredSideTapSide = nil
             return
         }
 
-        sideTapHighlightWorkItem?.cancel()
-        sideTapHighlightWorkItem = nil
+        sideTapHighlightTask?.cancel()
+        sideTapHighlightTask = nil
+        sideTapFlashTask?.cancel()
+        sideTapFlashTask = nil
         pendingSideTapHighlightSide = nil
         sideTapPressSide = nil
         hoveredSideTapSide = nil
@@ -1511,7 +1652,7 @@ private final class VisionPlayerPageHostController: UIViewController, UIScrollVi
         view.backgroundColor = .black
     }
 
-    deinit {
+    isolated deinit {
         cancelVideoSizeLoad()
     }
 
@@ -1919,23 +2060,19 @@ private final class VisionPlayerPageHostController: UIViewController, UIScrollVi
         setZoomContentLayout(.viewport)
         guard videoSizeLoad == nil else { return }
 
-        let task = Task.detached(priority: .utility) { [fileURL, request] in
-            let size = await VisionVideoAssetLayout.displaySize(at: fileURL)
-            guard !Task.isCancelled else { return }
-
-            await MainActor.run { [weak self] in
-                guard !Task.isCancelled,
-                      let self,
-                      self.videoSizeLoad?.request == request else {
-                    return
-                }
-
-                self.videoSizeLoad = nil
-                guard let size else { return }
-
-                self.cacheVideoSize(size, for: request)
-                self.applyVideoSizeIfCurrent(size, for: request)
+        let task = Task(priority: .utility) { [weak self, fileURL, request] in
+            let size = await DownloadableMediaVideoLayout.displaySize(at: fileURL)
+            guard !Task.isCancelled,
+                  let self,
+                  self.videoSizeLoad?.request == request else {
+                return
             }
+
+            self.videoSizeLoad = nil
+            guard let size else { return }
+
+            self.cacheVideoSize(size, for: request)
+            self.applyVideoSizeIfCurrent(size, for: request)
         }
 
         videoSizeLoad = VisionVideoSizeLoad(request: request, task: task)
@@ -2098,11 +2235,6 @@ private struct VisionPlayerPageHostView: View {
 
 private struct VisionPlayerMediaView: View {
 
-    private static let htmlDocumentRenderQueue = DispatchQueue(
-        label: "org.lil.nft-player.vision-html-document-render",
-        qos: .userInitiated
-    )
-
     let token: GeneratedToken
     let context: PlayerTokenContext?
     let ownerId: UUID
@@ -2119,19 +2251,25 @@ private struct VisionPlayerMediaView: View {
     @State private var localWebContentDescriptor: CollectionCatalogDownloadableMediaDescriptor?
     @State private var fallbackHTMLDescriptor: CollectionCatalogDownloadableMediaDescriptor?
     @State private var pendingHTMLDocumentRender: VisionHTMLDocumentRenderRequest?
+    @State private var htmlDocumentRenderTask: Task<Void, Never>?
     @State private var cancelActiveLoad: (() -> Void)?
 
     var body: some View {
         content
             .onAppear(perform: renderCurrentContent)
-            .onChange(of: renderKey) {
+            .onChange(of: renderKey) { _, _ in
                 renderCurrentContent()
             }
-            .onChange(of: mediaRefreshGeneration) {
+            .onChange(of: mediaRefreshGeneration) { _, _ in
                 renderCurrentContent()
             }
-            .onReceive(NotificationCenter.default.publisher(for: .downloadableMediaCacheFileAvailabilityDidChange)) { _ in
-                renderAvailableContent()
+            .task {
+                for await _ in NotificationCenter.default.notifications(
+                    named: .downloadableMediaCacheFileAvailabilityDidChange
+                ) {
+                    guard !Task.isCancelled else { return }
+                    renderAvailableContent()
+                }
             }
             .onDisappear(perform: cleanup)
     }
@@ -2368,47 +2506,38 @@ private struct VisionPlayerMediaView: View {
         clearDownloadableMediaFallback()
 
         let htmlDirectoryURL = DownloadableMediaCache.shared.webViewHTMLDirectoryURL
-
-        Self.htmlDocumentRenderQueue.async {
-            let baseURL = DownloadableMediaCache.shared.downloadedSourceURL(for: descriptor).absoluteString
-            let renderedDocument = (try? String(contentsOf: fileURL, encoding: .utf8)).map { documentHTML in
-                let viewportSize = DownloadableTokenHTMLLayout.rootSVGViewBoxSize(in: documentHTML)
-
-                return (
-                    content: VisionWebContent.localHTML(
-                        string: DownloadableTokenHTML.createInlineHTMLDocumentHTML(
-                            documentHTML: documentHTML,
-                            baseURL: baseURL,
-                            contentSize: viewportSize
-                        ),
-                        htmlDirectoryURL: htmlDirectoryURL,
-                        readAccessURL: htmlDirectoryURL
-                    ),
-                    viewportSize: viewportSize
-                )
+        let baseURL = DownloadableMediaCache.shared.downloadedSourceURL(for: descriptor).absoluteString
+        htmlDocumentRenderTask?.cancel()
+        htmlDocumentRenderTask = Task {
+            let renderedDocument = await DownloadableTokenHTML.renderDocument(
+                at: fileURL,
+                baseURL: baseURL
+            )
+            guard !Task.isCancelled,
+                  pendingHTMLDocumentRender == request,
+                  localWebContentDescriptor == descriptor else {
+                return
             }
 
-            DispatchQueue.main.async {
-                guard pendingHTMLDocumentRender == request,
-                      localWebContentDescriptor == descriptor else {
-                    return
-                }
-
-                pendingHTMLDocumentRender = nil
-                guard let renderedDocument else {
-                    localWebContent = nil
-                    renderDownloadableMediaFallback(for: descriptor)
-                    return
-                }
-
-                if let viewportSize = renderedDocument.viewportSize {
-                    updateZoomContentLayout(.intrinsicMediaSize(viewportSize))
-                } else {
-                    updateZoomContentLayout(.viewport)
-                }
-                clearDownloadableMediaFallback()
-                localWebContent = renderedDocument.content
+            htmlDocumentRenderTask = nil
+            pendingHTMLDocumentRender = nil
+            guard let renderedDocument else {
+                localWebContent = nil
+                renderDownloadableMediaFallback(for: descriptor)
+                return
             }
+
+            if let viewportSize = renderedDocument.viewportSize {
+                updateZoomContentLayout(.intrinsicMediaSize(viewportSize))
+            } else {
+                updateZoomContentLayout(.viewport)
+            }
+            clearDownloadableMediaFallback()
+            localWebContent = .localHTML(
+                string: renderedDocument.html,
+                htmlDirectoryURL: htmlDirectoryURL,
+                readAccessURL: htmlDirectoryURL
+            )
         }
     }
 
@@ -2557,6 +2686,8 @@ private struct VisionPlayerMediaView: View {
     private func cleanup() {
         cancelActiveLoad?()
         cancelActiveLoad = nil
+        htmlDocumentRenderTask?.cancel()
+        htmlDocumentRenderTask = nil
         staticImage = nil
         staticImageDescriptor = nil
         localWebContent = nil
@@ -2581,7 +2712,7 @@ private struct VisionHTMLDocumentRenderRequest: Hashable {
     let fileURL: URL
 }
 
-private struct VisionVideoSizeRequest: Hashable {
+nonisolated private struct VisionVideoSizeRequest: Hashable, Sendable {
     let descriptor: CollectionCatalogDownloadableMediaDescriptor
     let fileURL: URL
     let fileSize: Int?
@@ -2605,25 +2736,6 @@ private struct VisionVideoSizeRequest: Hashable {
 private struct VisionVideoSizeLoad {
     let request: VisionVideoSizeRequest
     let task: Task<Void, Never>
-}
-
-private enum VisionVideoAssetLayout {
-    static func displaySize(at fileURL: URL) async -> CGSize? {
-        let asset = AVURLAsset(url: fileURL)
-        guard let track = try? await asset.loadTracks(withMediaType: .video).first else { return nil }
-
-        async let naturalSize = track.load(.naturalSize)
-        async let preferredTransform = track.load(.preferredTransform)
-
-        guard let (loadedNaturalSize, loadedPreferredTransform) = try? await (naturalSize, preferredTransform) else {
-            return nil
-        }
-
-        let transformedSize = loadedNaturalSize.applying(loadedPreferredTransform)
-        let size = CGSize(width: abs(transformedSize.width), height: abs(transformedSize.height))
-        guard size.width > 0, size.height > 0 else { return nil }
-        return size
-    }
 }
 
 enum VisionPlayerPrewarmer {

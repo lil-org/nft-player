@@ -1,6 +1,6 @@
 // ∅ 2026 lil org
 
-import Combine
+import Observation
 import UIKit
 
 protocol MobilePlayerPagerProviding: AnyObject {
@@ -32,7 +32,7 @@ final class MobilePlayerBrowserPageViewController: UIViewController {
     private let chrome: MobilePlayerChromeController
     private let contentViewController: VerticalCollectionBrowserViewController
     private var playerPageBackgroundColor = MobilePlayerBackgroundColor.defaultColor
-    private var chromeCancellables = Set<AnyCancellable>()
+    private var chromeObservationGeneration: UInt = 0
     private lazy var moreMenu = makeMoreMenu()
     private lazy var moreBarButtonItem = makeMoreBarButtonItem()
 
@@ -96,20 +96,39 @@ final class MobilePlayerBrowserPageViewController: UIViewController {
         ])
         contentViewController.view.makeBackgroundTransparent()
 
-        chrome.$isPlayerContentHiddenForCardTransition
-            .sink { [weak self] isHidden in
-                guard let self else { return }
-                self.contentViewController.view.alpha = isHidden ? 0 : 1
-                self.contentViewController.view.isUserInteractionEnabled = !isHidden
-                self.moreBarButtonItem.menu = isHidden ? nil : self.moreMenu
-            }
-            .store(in: &chromeCancellables)
+        chromeObservationGeneration &+= 1
+        applyPlayerContentVisibility()
+        observePlayerContentVisibility(
+            generation: chromeObservationGeneration
+        )
     }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         applyPlayerPageBackground()
         onPlayerLayout?()
+    }
+
+    private func observePlayerContentVisibility(generation: UInt) {
+        withObservationTracking {
+            _ = chrome.isPlayerContentHiddenForCardTransition
+        } onChange: { [weak self] in
+            Task { @MainActor [weak self] in
+                guard let self,
+                      chromeObservationGeneration == generation else {
+                    return
+                }
+                applyPlayerContentVisibility()
+                observePlayerContentVisibility(generation: generation)
+            }
+        }
+    }
+
+    private func applyPlayerContentVisibility() {
+        let isHidden = chrome.isPlayerContentHiddenForCardTransition
+        contentViewController.view.alpha = isHidden ? 0 : 1
+        contentViewController.view.isUserInteractionEnabled = !isHidden
+        moreBarButtonItem.menu = isHidden ? nil : moreMenu
     }
 
     override func accessibilityPerformEscape() -> Bool {
@@ -159,7 +178,9 @@ final class MobilePlayerBrowserPageViewController: UIViewController {
     func prepareForDisplay(
         using preparation: PlayerCollectionBrowsePreparation,
         publishWhenStable: Bool,
-        completion: @escaping (MobilePlayerCollectionBrowserDisplayPreparationResult) -> Void
+        completion: @escaping @MainActor (
+            MobilePlayerCollectionBrowserDisplayPreparationResult
+        ) -> Void
     ) {
         contentViewController.prepareForDisplay(
             using: preparation,
@@ -445,7 +466,7 @@ final class MobilePlayerSessionModeController {
 
     func switchToCollectionBrowser(
         targetPagePosition: PlayerPagePosition?,
-        completion: ((Bool) -> Void)? = nil
+        completion: (@MainActor (Bool) -> Void)? = nil
     ) {
         guard let navigationController,
               let browserViewController,
@@ -470,6 +491,9 @@ final class MobilePlayerSessionModeController {
             return
         }
 
+        MobilePlaybackController.shared.acknowledgeIntentionalViewingPosition(
+            uuid: config.id
+        )
         let generation = beginOperation()
         stageBrowserViewForTransition()
         browserViewController.prepareForDisplay(
@@ -483,15 +507,12 @@ final class MobilePlayerSessionModeController {
                 return
             }
 
-            func rejectOperation() {
-                browserViewController.cancelPendingDisplayPreparation()
-                self.unstageBrowserViewIfNeeded()
-                self.finishOperation(generation)
-                completion?(false)
-            }
-
             guard preparationResult == .prepared else {
-                rejectOperation()
+                self.rejectCollectionBrowserOperation(
+                    browserViewController: browserViewController,
+                    generation: generation,
+                    completion: completion
+                )
                 return
             }
 
@@ -501,7 +522,11 @@ final class MobilePlayerSessionModeController {
                   navigationController.topViewController === self.pagerViewController,
                   self.chrome.pagerProvider?.pagerCurrentPagePosition()
                     == preparation.sourcePagePosition else {
-                rejectOperation()
+                self.rejectCollectionBrowserOperation(
+                    browserViewController: browserViewController,
+                    generation: generation,
+                    completion: completion
+                )
                 return
             }
 
@@ -509,7 +534,11 @@ final class MobilePlayerSessionModeController {
                 forTokenIndex: preparation.focusedTokenIndex
             ),
                   browserViewController.canCommitPreparedDisplay(preparation) else {
-                rejectOperation()
+                self.rejectCollectionBrowserOperation(
+                    browserViewController: browserViewController,
+                    generation: generation,
+                    completion: completion
+                )
                 return
             }
 
@@ -518,7 +547,11 @@ final class MobilePlayerSessionModeController {
                 preparation: preparation
             )
             guard case .resolved(let resolvedPagePosition) = resolution else {
-                rejectOperation()
+                self.rejectCollectionBrowserOperation(
+                    browserViewController: browserViewController,
+                    generation: generation,
+                    completion: completion
+                )
                 return
             }
 
@@ -533,6 +566,17 @@ final class MobilePlayerSessionModeController {
             self.finishOperation(generation)
             completion?(true)
         }
+    }
+
+    private func rejectCollectionBrowserOperation(
+        browserViewController: MobilePlayerBrowserPageViewController,
+        generation: UInt,
+        completion: (@MainActor (Bool) -> Void)?
+    ) {
+        browserViewController.cancelPendingDisplayPreparation()
+        unstageBrowserViewIfNeeded()
+        finishOperation(generation)
+        completion?(false)
     }
 
     func switchToOnePerPage(
@@ -623,6 +667,9 @@ final class MobilePlayerSessionModeController {
             return
         }
 
+        MobilePlaybackController.shared.acknowledgeIntentionalViewingPosition(
+            uuid: config.id
+        )
         supersedeActiveOperation()
         let sourcePagePosition = chrome.pagerProvider?.pagerCurrentPagePosition()
         commitCollectionBrowserPresentation(performsPop: false)

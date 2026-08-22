@@ -16,6 +16,7 @@ private let playerICloudSyncLogger = Logger(
     category: "PlayerICloudSync"
 )
 
+@MainActor
 final class PlayerICloudSync {
 
     static let shared = PlayerICloudSync()
@@ -35,25 +36,40 @@ final class PlayerICloudSync {
 
     private static let allDomains = Set(PlayerSyncDomain.allCases)
 
-    private lazy var container = CKContainer(identifier: PlayerICloudSync.containerIdentifier)
+    private let progressStore: PlayerViewingProgressStore
+    private let bookmarksStore: PlayerBookmarksStore
+    private lazy var container = CKContainer(identifier: Self.containerIdentifier)
     private lazy var database = container.privateCloudDatabase
 
     private var lifecycleObservers: [NSObjectProtocol] = []
     private var pendingDomains = Set<PlayerSyncDomain>()
-    private var pendingSyncWorkItem: DispatchWorkItem?
+    private var pendingSyncTask: Task<Void, Never>?
+    private var pendingSyncGeneration: UInt64 = 0
     private var syncTask: Task<Void, Never>?
+    private var activeRemoteRefreshTask: Task<Void, Never>?
+    private var activeRemoteRefreshGeneration: UInt64 = 0
     private var isStarted = false
-    private var isSyncInFlight = false
     private var retryAttempt = 0
-    private var activeRemoteRefreshWorkItem: DispatchWorkItem?
-    private var flushCompletionHandlers: [() -> Void] = []
+    private var flushCompletionHandlers: [@MainActor () -> Void] = []
 
-    private init() {}
+    private init(
+        progressStore: PlayerViewingProgressStore = .shared,
+        bookmarksStore: PlayerBookmarksStore = .shared
+    ) {
+        self.progressStore = progressStore
+        self.bookmarksStore = bookmarksStore
+    }
 
     func start() {
-        runOnMain { [weak self] in
-            self?.startOnMain()
+        guard !isStarted else { return }
+
+        isStarted = true
+        installLifecycleObservers()
+        refreshActiveRemotePollingState()
+        Task { [bookmarksStore] in
+            await bookmarksStore.prepareSharedSnapshot()
         }
+        scheduleSync(for: Self.allDomains, delay: 0)
     }
 
     func playerProgressDidChange() {
@@ -68,78 +84,36 @@ final class PlayerICloudSync {
         scheduleLocalSync(for: .bookmarks)
     }
 
-    func flushPendingChanges(completion: (() -> Void)? = nil) {
-        runOnMain { [weak self] in
-            guard let self else {
-                completion?()
-                return
-            }
-            if let completion {
-                flushCompletionHandlers.append(completion)
-            }
-            guard isStarted else {
-                startOnMain()
-                return
-            }
-            guard isSyncInFlight || !pendingDomains.isEmpty else {
-                completeFlushes()
-                return
-            }
-
-            pendingSyncWorkItem?.cancel()
-            pendingSyncWorkItem = nil
-
-            if !isSyncInFlight {
-                startPendingSync()
-            }
-        }
+    func flushPendingPersistenceAndChanges(
+        completion: (@MainActor () -> Void)? = nil
+    ) async {
+        await PlayerPersistenceUpdates.flush()
+        flushPendingChanges(completion: completion)
     }
 
-#if os(macOS)
-    @discardableResult
-    func flushPendingWorkBeforeTermination(completion: @escaping () -> Void) -> Bool {
-        guard Thread.isMainThread else {
-            return DispatchQueue.main.sync {
-                flushPendingWorkBeforeTerminationOnMain(completion: completion)
-            }
+    func flushPendingChanges(completion: (@MainActor () -> Void)? = nil) {
+        if let completion {
+            flushCompletionHandlers.append(completion)
+        }
+        guard isStarted else {
+            start()
+            return
+        }
+        guard syncTask != nil || !pendingDomains.isEmpty else {
+            completeFlushes()
+            return
         }
 
-        return flushPendingWorkBeforeTerminationOnMain(completion: completion)
-    }
-#endif
+        cancelPendingSyncTask()
 
-    private func startOnMain() {
-        guard !isStarted else { return }
-
-        isStarted = true
-        installLifecycleObservers()
-        refreshActiveRemotePollingState()
-        scheduleSync(for: Self.allDomains, delay: 0)
-    }
-
-#if os(macOS)
-    private func flushPendingWorkBeforeTerminationOnMain(completion: @escaping () -> Void) -> Bool {
-        guard isStarted, isSyncInFlight || !pendingDomains.isEmpty else {
-            return false
-        }
-
-        flushCompletionHandlers.append(completion)
-        pendingSyncWorkItem?.cancel()
-        pendingSyncWorkItem = nil
-
-        if !isSyncInFlight {
+        if syncTask == nil {
             startPendingSync()
         }
-
-        return true
     }
-#endif
 
     private func scheduleLocalSync(for domain: PlayerSyncDomain) {
-        runOnMain { [weak self] in
-            guard let self, isStarted else { return }
-            scheduleSync(for: [domain], delay: Self.localChangeSyncDelay)
-        }
+        guard isStarted else { return }
+        scheduleSync(for: [domain], delay: Self.localChangeSyncDelay)
     }
 
     private func installLifecycleObservers() {
@@ -150,8 +124,11 @@ final class PlayerICloudSync {
                 object: nil,
                 queue: .main
             ) { [weak self] _ in
-                self?.refreshActiveRemotePollingState()
-                self?.scheduleSync(for: Self.allDomains, delay: 0)
+                MainActor.assumeIsolated {
+                    guard let self else { return }
+                    self.refreshActiveRemotePollingState()
+                    self.scheduleSync(for: Self.allDomains, delay: 0)
+                }
             }
         )
         lifecycleObservers.append(
@@ -160,7 +137,10 @@ final class PlayerICloudSync {
                 object: nil,
                 queue: .main
             ) { [weak self] _ in
-                self?.cancelActiveRemoteRefresh()
+                MainActor.assumeIsolated {
+                    guard let self else { return }
+                    self.cancelActiveRemoteRefresh()
+                }
             }
         )
     }
@@ -198,75 +178,92 @@ final class PlayerICloudSync {
     }
 
     private func scheduleActiveRemoteRefreshIfNeeded() {
-        guard activeRemoteRefreshWorkItem == nil else { return }
+        guard activeRemoteRefreshTask == nil else { return }
 
-        let workItem = DispatchWorkItem { [weak self] in
-            guard let self else { return }
-            activeRemoteRefreshWorkItem = nil
+        let generation = activeRemoteRefreshGeneration
+        activeRemoteRefreshTask = Task { [weak self] in
+            do {
+                try await Task.sleep(for: .seconds(Self.activeRemoteRefreshInterval))
+            } catch {
+                return
+            }
+
+            guard !Task.isCancelled,
+                  let self,
+                  activeRemoteRefreshGeneration == generation else {
+                return
+            }
+            activeRemoteRefreshTask = nil
             guard isApplicationActive else { return }
             scheduleSync(for: Self.allDomains, delay: 0)
             scheduleActiveRemoteRefreshIfNeeded()
         }
-        activeRemoteRefreshWorkItem = workItem
-        DispatchQueue.main.asyncAfter(
-            deadline: .now() + Self.activeRemoteRefreshInterval,
-            execute: workItem
-        )
     }
 
     private func cancelActiveRemoteRefresh() {
-        activeRemoteRefreshWorkItem?.cancel()
-        activeRemoteRefreshWorkItem = nil
+        activeRemoteRefreshGeneration &+= 1
+        activeRemoteRefreshTask?.cancel()
+        activeRemoteRefreshTask = nil
     }
 
     private func scheduleSync(for domains: Set<PlayerSyncDomain>, delay: TimeInterval) {
         guard !domains.isEmpty else { return }
 
         pendingDomains.formUnion(domains)
-        pendingSyncWorkItem?.cancel()
-        pendingSyncWorkItem = nil
+        cancelPendingSyncTask()
 
-        guard !isSyncInFlight else {
-            return
-        }
+        guard syncTask == nil else { return }
 
         guard delay > 0 else {
             startPendingSync()
             return
         }
 
-        let workItem = DispatchWorkItem { [weak self] in
-            self?.startPendingSync()
+        let generation = pendingSyncGeneration
+        pendingSyncTask = Task { [weak self] in
+            do {
+                try await Task.sleep(for: .seconds(delay))
+            } catch {
+                return
+            }
+
+            guard !Task.isCancelled,
+                  let self,
+                  pendingSyncGeneration == generation else {
+                return
+            }
+            pendingSyncTask = nil
+            startPendingSync()
         }
-        pendingSyncWorkItem = workItem
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: workItem)
     }
 
     private func startPendingSync() {
+        guard syncTask == nil else { return }
+
         let domains = pendingDomains
         pendingDomains = []
-        pendingSyncWorkItem = nil
+        pendingSyncTask = nil
 
         guard !domains.isEmpty else {
             completeFlushes()
             return
         }
 
-        isSyncInFlight = true
         syncTask = Task { [weak self] in
             guard let self else { return }
-
             let failedDomains = await syncDomains(domains)
-
-            await MainActor.run {
-                self.finishCurrentSync(failedDomains: failedDomains)
-            }
+            finishCurrentSync(failedDomains: failedDomains)
         }
+    }
+
+    private func cancelPendingSyncTask() {
+        pendingSyncGeneration &+= 1
+        pendingSyncTask?.cancel()
+        pendingSyncTask = nil
     }
 
     private func finishCurrentSync(failedDomains: Set<PlayerSyncDomain>) {
         syncTask = nil
-        isSyncInFlight = false
         let hasQueuedFollowUpWork = !pendingDomains.isEmpty
         pendingDomains.formUnion(failedDomains)
 
@@ -303,7 +300,7 @@ final class PlayerICloudSync {
         let requestedDomains = domains.isEmpty ? Self.allDomains : domains
 
         do {
-            let accountStatus = try await cloudKitAccountStatus()
+            let accountStatus = try await container.accountStatus()
             guard accountStatus == .available else {
                 logUnavailableAccountStatus(accountStatus)
                 return retryDomains(for: accountStatus, requestedDomains: requestedDomains)
@@ -315,14 +312,16 @@ final class PlayerICloudSync {
                 return fetchResult.failedDomains
             }
 
-            let domainsNeedingUpload = await MainActor.run {
-                self.applyRemoteRecords(fetchResult.records, fetchedDomains: fetchedDomains)
-            }
-
+            let domainsNeedingUpload = await applyRemoteRecords(
+                fetchResult.records,
+                fetchedDomains: fetchedDomains
+            )
             let domainsMissingCloudPayload = Set(fetchedDomains.filter { domain in
                 fetchResult.records[domain].flatMap { payloadData(from: $0) } == nil
             })
-            let uploadDomains = domainsNeedingUpload.union(domainsMissingCloudPayload)
+            let uploadDomains = domainsNeedingUpload.union(
+                domainsMissingCloudPayload
+            )
             let failedUploadDomains = await uploadLocalSnapshot(
                 for: uploadDomains,
                 existingRecords: fetchResult.records
@@ -350,18 +349,6 @@ final class PlayerICloudSync {
         }
     }
 
-    private func cloudKitAccountStatus() async throws -> CKAccountStatus {
-        try await withCheckedThrowingContinuation { continuation in
-            container.accountStatus { status, error in
-                if let error {
-                    continuation.resume(throwing: error)
-                } else {
-                    continuation.resume(returning: status)
-                }
-            }
-        }
-    }
-
     private func fetchRemoteRecords(
         for domains: Set<PlayerSyncDomain>
     ) async -> (records: [PlayerSyncDomain: CKRecord], failedDomains: Set<PlayerSyncDomain>) {
@@ -381,32 +368,21 @@ final class PlayerICloudSync {
     }
 
     private func fetchRecord(for domain: PlayerSyncDomain) async throws -> CKRecord? {
-        try await withCheckedThrowingContinuation { continuation in
-            database.fetch(withRecordID: recordID(for: domain)) { record, error in
-                if let error = error as? CKError,
-                   error.code == .unknownItem {
-                    continuation.resume(returning: nil)
-                    return
-                }
-
-                if let error {
-                    continuation.resume(throwing: error)
-                    return
-                }
-
-                continuation.resume(returning: record)
-            }
+        do {
+            return try await database.record(for: recordID(for: domain))
+        } catch let error as CKError where error.code == .unknownItem {
+            return nil
         }
     }
 
     private func applyRemoteRecords(
         _ records: [PlayerSyncDomain: CKRecord],
         fetchedDomains: Set<PlayerSyncDomain>
-    ) -> Set<PlayerSyncDomain> {
+    ) async -> Set<PlayerSyncDomain> {
         var domainsNeedingUpload = Set<PlayerSyncDomain>()
 
         for domain in PlayerSyncDomain.allCases where fetchedDomains.contains(domain) {
-            let result = mergeRemotePayload(
+            let result = await mergeRemotePayload(
                 records[domain].flatMap { payloadData(from: $0) },
                 for: domain
             )
@@ -418,14 +394,17 @@ final class PlayerICloudSync {
         return domainsNeedingUpload
     }
 
-    private func mergeRemotePayload(_ data: Data?, for domain: PlayerSyncDomain) -> PlayerSyncMergeResult {
+    private func mergeRemotePayload(
+        _ data: Data?,
+        for domain: PlayerSyncDomain
+    ) async -> PlayerSyncMergeResult {
         switch domain {
         case .viewingProgress:
-            return PlayerViewingProgressStore.mergeSyncedProgressData(data)
+            return await progressStore.mergeSyncedProgressData(data)
         case .continueViewingState:
-            return PlayerViewingProgressStore.mergeSyncedContinueViewingStateData(data)
+            return await progressStore.mergeSyncedContinueViewingStateData(data)
         case .bookmarks:
-            return PlayerBookmarksStore.mergeSyncedBookmarksData(data)
+            return await bookmarksStore.mergeSyncedBookmarksData(data)
         }
     }
 
@@ -435,9 +414,7 @@ final class PlayerICloudSync {
     ) async -> Set<PlayerSyncDomain> {
         var failedDomains = Set<PlayerSyncDomain>()
         for domain in PlayerSyncDomain.allCases where domains.contains(domain) {
-            guard let payload = await MainActor.run(body: { localPayload(for: domain) }) else {
-                continue
-            }
+            guard let payload = await localPayload(for: domain) else { continue }
 
             let existingRecord = existingRecords[domain]
             guard existingRecord.flatMap({ payloadData(from: $0) }) != payload else {
@@ -472,50 +449,37 @@ final class PlayerICloudSync {
         )
 
         do {
-            _ = try await saveRecord(record)
+            _ = try await database.save(record)
         } catch let error as CKError where error.code == .serverRecordChanged {
             guard let serverRecord = error.serverRecord else {
                 throw error
             }
 
-            _ = await MainActor.run {
-                mergeRemotePayload(payloadData(from: serverRecord), for: domain)
-            }
+            let mergeResult = await mergeRemotePayload(
+                payloadData(from: serverRecord),
+                for: domain
+            )
+            guard !mergeResult.blocksConflictingUpload else { throw error }
 
-            guard let mergedPayload = await MainActor.run(body: { localPayload(for: domain) }) else {
-                return
-            }
+            guard let mergedPayload = await localPayload(for: domain) else { return }
 
             let retryRecord = cloudRecord(
                 for: domain,
                 payload: mergedPayload,
                 existingRecord: serverRecord
             )
-            _ = try await saveRecord(retryRecord)
+            _ = try await database.save(retryRecord)
         }
     }
 
-    private func saveRecord(_ record: CKRecord) async throws -> CKRecord {
-        try await withCheckedThrowingContinuation { continuation in
-            database.save(record) { savedRecord, error in
-                if let error {
-                    continuation.resume(throwing: error)
-                    return
-                }
-
-                continuation.resume(returning: savedRecord ?? record)
-            }
-        }
-    }
-
-    private func localPayload(for domain: PlayerSyncDomain) -> Data? {
+    private func localPayload(for domain: PlayerSyncDomain) async -> Data? {
         switch domain {
         case .viewingProgress:
-            return PlayerViewingProgressStore.syncedProgressData
+            return await progressStore.syncedProgressData
         case .continueViewingState:
-            return PlayerViewingProgressStore.syncedContinueViewingStateData
+            return await progressStore.syncedContinueViewingStateData
         case .bookmarks:
-            return PlayerBookmarksStore.syncedBookmarksData
+            return await bookmarksStore.syncedBookmarksData
         }
     }
 
@@ -568,23 +532,12 @@ final class PlayerICloudSync {
         }
     }
 
-    private func runOnMain(_ block: @escaping () -> Void) {
-        if Thread.isMainThread {
-            block()
-        } else {
-            DispatchQueue.main.async(execute: block)
-        }
-    }
-
-    deinit {
-        pendingSyncWorkItem?.cancel()
-        activeRemoteRefreshWorkItem?.cancel()
+    isolated deinit {
+        lifecycleObservers.forEach(NotificationCenter.default.removeObserver)
+        pendingSyncTask?.cancel()
+        activeRemoteRefreshTask?.cancel()
         syncTask?.cancel()
-        for observer in lifecycleObservers {
-            NotificationCenter.default.removeObserver(observer)
-        }
     }
-
 }
 
 private extension CKError {
@@ -592,6 +545,5 @@ private extension CKError {
     var serverRecord: CKRecord? {
         userInfo[CKRecordChangedErrorServerRecordKey] as? CKRecord
     }
-
 }
 #endif

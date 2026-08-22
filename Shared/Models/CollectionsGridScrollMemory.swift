@@ -2,7 +2,7 @@
 
 import Foundation
 
-struct CollectionsGridScrollPosition: Codable, Equatable {
+nonisolated struct CollectionsGridScrollPosition: Codable, Equatable, Sendable {
     let collectionId: String
     let sourceIndex: Int
 
@@ -15,7 +15,7 @@ struct CollectionsGridScrollPosition: Codable, Equatable {
     }
 }
 
-enum CollectionsGridLoop {
+nonisolated enum CollectionsGridLoop {
     static func sourceIndex(
         forDisplayedIndex displayedIndex: Int,
         itemCount: Int
@@ -64,18 +64,31 @@ enum CollectionsGridLoop {
     }
 }
 
-enum CollectionsGridScrollMemory {
+nonisolated private final class CollectionsGridScrollMemoryStorage: @unchecked Sendable {
+    private let lock = NSLock()
+    private let userDefaults = UserDefaults.standard
+
+    func data(forKey key: String) -> Data? {
+        lock.withLock { userDefaults.data(forKey: key) }
+    }
+
+    func set(_ data: Data, forKey key: String) {
+        lock.withLock { userDefaults.set(data, forKey: key) }
+    }
+}
+
+nonisolated enum CollectionsGridScrollMemory {
     private static let userDefaultsKey = "collectionsGridScrollPosition"
-    private static let userDefaults = UserDefaults.standard
+    private static let storage = CollectionsGridScrollMemoryStorage()
 
     static func load() -> CollectionsGridScrollPosition? {
-        guard let data = userDefaults.data(forKey: userDefaultsKey) else { return nil }
+        guard let data = storage.data(forKey: userDefaultsKey) else { return nil }
         return try? JSONDecoder().decode(CollectionsGridScrollPosition.self, from: data)
     }
 
     static func save(_ position: CollectionsGridScrollPosition) {
         guard let data = try? JSONEncoder().encode(position) else { return }
-        userDefaults.set(data, forKey: userDefaultsKey)
+        storage.set(data, forKey: userDefaultsKey)
     }
 
     static func resolvedStartSourceIndex(
@@ -87,8 +100,9 @@ enum CollectionsGridScrollMemory {
     }
 }
 
+@MainActor
 final class CollectionsGridScrollMemoryTracker {
-    private static let saveDebounceDelay: DispatchTimeInterval = .milliseconds(350)
+    private static let saveDebounceDelay = Duration.milliseconds(350)
 
     let initialDisplayedIndex: Int?
     let initialGridPassCount: Int
@@ -98,7 +112,7 @@ final class CollectionsGridScrollMemoryTracker {
     private var realizedDisplayedIndexes = Set<Int>()
     private var pendingPosition: CollectionsGridScrollPosition?
     private var lastSavedPosition: CollectionsGridScrollPosition?
-    private var saveWorkItem: DispatchWorkItem?
+    private var saveTask: Task<Void, Never>?
     private var canTrackRealizedDisplayedIndexes = false
     private var canRememberScrollPosition: Bool
 
@@ -122,7 +136,10 @@ final class CollectionsGridScrollMemoryTracker {
     }
 
     deinit {
-        flush()
+        saveTask?.cancel()
+        guard let pendingPosition,
+              pendingPosition != lastSavedPosition else { return }
+        CollectionsGridScrollMemory.save(pendingPosition)
     }
 
     func restoreWillBegin() {
@@ -206,15 +223,18 @@ final class CollectionsGridScrollMemoryTracker {
     private func scheduleFlush() {
         cancelScheduledFlush()
 
-        let workItem = DispatchWorkItem { [weak self] in
+        saveTask = Task { @MainActor [weak self] in
+            do {
+                try await Task.sleep(for: Self.saveDebounceDelay)
+            } catch {
+                return
+            }
             self?.flush()
         }
-        saveWorkItem = workItem
-        DispatchQueue.main.asyncAfter(deadline: .now() + Self.saveDebounceDelay, execute: workItem)
     }
 
     private func cancelScheduledFlush() {
-        saveWorkItem?.cancel()
-        saveWorkItem = nil
+        saveTask?.cancel()
+        saveTask = nil
     }
 }

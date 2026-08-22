@@ -2,6 +2,7 @@
 
 import Foundation
 import ImageIO
+import os
 
 #if canImport(UIKit)
 import UIKit
@@ -11,7 +12,18 @@ import AppKit
 typealias WidgetPlatformImage = NSImage
 #endif
 
-enum CollectionOfTheDayWidgetData {
+nonisolated enum CollectionOfTheDayWidgetData {
+    struct CachedImage: Sendable {
+        let data: Data
+        let tokenId: String?
+    }
+
+    private struct CachedImageRecord: Codable, Sendable {
+        let version: Int
+        let data: Data
+        let tokenId: String?
+    }
+
     static let tojibaCPUCorpCollectionId = "AU9F91RsrqQEeN8sshErtQnT8CgYxrg9YD9n4AHHvus7"
     static let defaultSelectedCollectionId = "0x30f9efa712dde239a13a5fef1a8c7a6ac530a26d"
 
@@ -19,13 +31,15 @@ enum CollectionOfTheDayWidgetData {
     private static let imageScale: CGFloat = 3
     private static let minimumImagePixelSize = 512
     private static let maximumImagePixelSize = 1_600
-    private static let pngImageType = "public.png" as CFString
-    private static let cacheLock = NSLock()
+    private static let cachedImageRecordVersion = 1
     private static let eligibleCollections = catalogCollections()
     private static let collectionsById = eligibleCollections.reduce(into: [String: WidgetCollection]()) { result, item in
         result[item.id] = result[item.id] ?? item
     }
-    private static var cachedStaticImageReferencesByCollectionId = [String: [WidgetStaticImageReference]]()
+    private static let staticImageReferenceCache = OSAllocatedUnfairLock(
+        initialState: [String: [WidgetStaticImageReference]]()
+    )
+    private static let imageCacheLock = OSAllocatedUnfairLock(initialState: ())
 
     static func collection(for date: Date = Date(), calendar: Calendar? = nil) -> WidgetCollection? {
         stableCollection(for: date, calendar: calendar, salt: nil)
@@ -117,18 +131,29 @@ enum CollectionOfTheDayWidgetData {
         staticImageReferences(collection: collection).randomElement()
     }
 
-    static func cachedImage(collectionId: String) -> WidgetPlatformImage? {
-        guard let data = try? Data(contentsOf: cacheURL(collectionId: collectionId)) else { return nil }
-        return platformImage(data: data)
-    }
+    static func cachedImage(collectionId: String) -> CachedImage? {
+        let fileURL = cacheURL(collectionId: collectionId)
+        let tokenIdURL = cacheTokenIdURL(collectionId: collectionId)
+        return imageCacheLock.withLock { () -> CachedImage? in
+            guard let storedData = try? Data(contentsOf: fileURL) else {
+                return nil
+            }
 
-    static func cachedTokenId(collectionId: String) -> String? {
-        guard let tokenId = try? String(contentsOf: cacheTokenIdURL(collectionId: collectionId), encoding: .utf8)
-            .trimmingCharacters(in: .whitespacesAndNewlines),
-              !tokenId.isEmpty else {
-            return nil
+            let cachedImage: CachedImage
+            if let record = try? PropertyListDecoder().decode(
+                CachedImageRecord.self,
+                from: storedData
+            ), record.version == cachedImageRecordVersion {
+                cachedImage = CachedImage(data: record.data, tokenId: record.tokenId)
+            } else {
+                cachedImage = CachedImage(
+                    data: storedData,
+                    tokenId: cachedTokenId(at: tokenIdURL)
+                )
+            }
+            guard isValidImageData(cachedImage.data) else { return nil }
+            return cachedImage
         }
-        return tokenId
     }
 
     static func maxImagePixelSize(displaySize: CGSize) -> Int {
@@ -141,7 +166,8 @@ enum CollectionOfTheDayWidgetData {
         return min(max(scaledLongestSide, minimumImagePixelSize), maximumImagePixelSize)
     }
 
-    static func preparedWidgetImageData(_ data: Data, maxPixelSize: Int) -> Data? {
+    @concurrent
+    static func preparedWidgetImageData(_ data: Data, maxPixelSize: Int) async -> Data? {
         guard let source = CGImageSourceCreateWithData(data as CFData, [
             kCGImageSourceShouldCache: false,
         ] as CFDictionary) else {
@@ -162,36 +188,39 @@ enum CollectionOfTheDayWidgetData {
         return encodedImageData(thumbnail)
     }
 
-    static func cacheImageData(_ data: Data, collectionId: String, tokenId: String?) {
+    @concurrent
+    static func cacheImageData(_ data: Data, collectionId: String, tokenId: String?) async {
         let fileURL = cacheURL(collectionId: collectionId)
         let tokenIdURL = cacheTokenIdURL(collectionId: collectionId)
+        let record = CachedImageRecord(
+            version: cachedImageRecordVersion,
+            data: data,
+            tokenId: tokenId?.isEmpty == false ? tokenId : nil
+        )
+        let encoder = PropertyListEncoder()
+        encoder.outputFormat = .binary
+        guard let recordData = try? encoder.encode(record) else { return }
 
-        do {
-            try FileManager.default.createDirectory(
-                at: fileURL.deletingLastPathComponent(),
-                withIntermediateDirectories: true
-            )
-        } catch {
-            return
-        }
-
-        guard clearCachedTokenId(at: tokenIdURL) else { return }
-
-        do {
-            try data.write(to: fileURL, options: .atomic)
-        } catch {
-            return
-        }
-
-        if let tokenId, !tokenId.isEmpty {
+        imageCacheLock.withLock {
             do {
-                try tokenId.write(to: tokenIdURL, atomically: true, encoding: .utf8)
+                try FileManager.default.createDirectory(
+                    at: fileURL.deletingLastPathComponent(),
+                    withIntermediateDirectories: true
+                )
             } catch {
-                _ = clearCachedTokenId(at: tokenIdURL)
+                return
             }
+
+            do {
+                try recordData.write(to: fileURL, options: .atomic)
+            } catch {
+                return
+            }
+            clearCachedTokenId(at: tokenIdURL)
         }
     }
 
+    @MainActor
     static func platformImage(data: Data) -> WidgetPlatformImage? {
 #if canImport(UIKit)
         guard let image = UIImage(data: data), image.size.width > 0, image.size.height > 0 else {
@@ -228,7 +257,7 @@ enum CollectionOfTheDayWidgetData {
     }
 
     private static func staticImageReferences(collection: WidgetCollection) -> [WidgetStaticImageReference] {
-        if let cachedImageReferences = cacheLock.withLock({ cachedStaticImageReferencesByCollectionId[collection.id] }) {
+        if let cachedImageReferences = staticImageReferenceCache.withLock({ $0[collection.id] }) {
             return cachedImageReferences
         }
 
@@ -241,11 +270,11 @@ enum CollectionOfTheDayWidgetData {
             imageReferences = []
         }
 
-        return cacheLock.withLock {
-            if let cachedImageReferences = cachedStaticImageReferencesByCollectionId[collection.id] {
+        return staticImageReferenceCache.withLock { cache in
+            if let cachedImageReferences = cache[collection.id] {
                 return cachedImageReferences
             }
-            cachedStaticImageReferencesByCollectionId[collection.id] = imageReferences
+            cache[collection.id] = imageReferences
             return imageReferences
         }
     }
@@ -260,15 +289,17 @@ enum CollectionOfTheDayWidgetData {
         cacheURL(collectionId: collectionId).appendingPathExtension("token-id")
     }
 
-    private static func clearCachedTokenId(at url: URL) -> Bool {
-        do {
-            try FileManager.default.removeItem(at: url)
-            return true
-        } catch {
-            let nsError = error as NSError
-            return nsError.domain == NSCocoaErrorDomain
-                && nsError.code == CocoaError.fileNoSuchFile.rawValue
+    private static func clearCachedTokenId(at url: URL) {
+        try? FileManager.default.removeItem(at: url)
+    }
+
+    private static func cachedTokenId(at url: URL) -> String? {
+        guard let tokenId = try? String(contentsOf: url, encoding: .utf8)
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+              !tokenId.isEmpty else {
+            return nil
         }
+        return tokenId
     }
 
     private static var suggestedBundle: Bundle {
@@ -287,7 +318,7 @@ enum CollectionOfTheDayWidgetData {
 
     private static func encodedImageData(_ image: CGImage) -> Data? {
         let data = NSMutableData()
-        guard let destination = CGImageDestinationCreateWithData(data, pngImageType, 1, nil) else {
+        guard let destination = CGImageDestinationCreateWithData(data, "public.png" as CFString, 1, nil) else {
             return nil
         }
 
@@ -296,6 +327,18 @@ enum CollectionOfTheDayWidgetData {
             return nil
         }
         return data as Data
+    }
+
+    private static func isValidImageData(_ data: Data) -> Bool {
+        guard let source = CGImageSourceCreateWithData(data as CFData, [
+            kCGImageSourceShouldCache: false,
+        ] as CFDictionary),
+              let image = CGImageSourceCreateImageAtIndex(source, 0, [
+                kCGImageSourceShouldCacheImmediately: true,
+              ] as CFDictionary) else {
+            return false
+        }
+        return image.width > 0 && image.height > 0
     }
 
     private static func cacheFileName(collectionId: String) -> String {
@@ -314,7 +357,7 @@ enum CollectionOfTheDayWidgetData {
     }
 }
 
-struct WidgetCollection: Decodable, Hashable {
+nonisolated struct WidgetCollection: Decodable, Hashable, Sendable {
     let address: String
     let collectionId: String?
     let abId: String?
@@ -359,12 +402,12 @@ struct WidgetCollection: Decodable, Hashable {
     }
 }
 
-struct WidgetStaticImageReference: Hashable {
+nonisolated struct WidgetStaticImageReference: Hashable, Sendable {
     let tokenId: String
     let url: URL
 }
 
-private enum WidgetCollectionChain: Decodable, Hashable {
+nonisolated private enum WidgetCollectionChain: Decodable, Hashable, Sendable {
     case ethereum
     case other
 
@@ -374,7 +417,7 @@ private enum WidgetCollectionChain: Decodable, Hashable {
     }
 }
 
-private enum WidgetMediaFileExtension {
+nonisolated private enum WidgetMediaFileExtension {
     private static let staticImageExtensions = Set(["png", "jpg", "jpeg", "webp", "heic", "heif", "tiff"])
 
     static func normalized(_ value: String?) -> String? {
@@ -393,7 +436,7 @@ private enum WidgetMediaFileExtension {
     }
 }
 
-private struct WidgetTokenPayload: Decodable {
+nonisolated private struct WidgetTokenPayload: Decodable, Sendable {
     let defaultFileExtension: String?
     let items: [WidgetTokenItem]
 
@@ -432,7 +475,7 @@ private struct WidgetTokenPayload: Decodable {
     }
 }
 
-private struct WidgetTokenItem: Decodable, Hashable {
+nonisolated private struct WidgetTokenItem: Decodable, Hashable, Sendable {
     let id: String
     let url: String?
     let sh: String?
@@ -468,7 +511,7 @@ private struct WidgetTokenItem: Decodable, Hashable {
     }
 }
 
-private struct WidgetCompactTokenRow: Decodable {
+nonisolated private struct WidgetCompactTokenRow: Decodable, Sendable {
     let id: String
     let prefixIndex: Int
     let urlSuffix: String

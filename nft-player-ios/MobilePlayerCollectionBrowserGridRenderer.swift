@@ -5594,7 +5594,7 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
         let loadID = UUID()
         let cancellation = imageAccess.loadImage(descriptor) {
             [weak self] image in
-            DispatchQueue.main.async {
+            Task { @MainActor [weak self] in
                 guard let self,
                       case let .active(activeSession) = self.lifecycle,
                       activeSession.id == sessionID,

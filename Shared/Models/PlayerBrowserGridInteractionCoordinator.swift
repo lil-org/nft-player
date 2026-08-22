@@ -3,28 +3,28 @@
 import CoreGraphics
 import Foundation
 
-struct PlayerBrowserGridInteractionCoordinator {
+nonisolated struct PlayerBrowserGridInteractionCoordinator: Sendable {
 
-    enum Phase: Equatable {
+    enum Phase: Equatable, Sendable {
         case idle
         case tracking
         case interacting
         case settling
     }
 
-    struct PinchSample: Equatable {
+    struct PinchSample: Equatable, Sendable {
         let scale: CGFloat
         let centroidY: CGFloat
         /// Monotonic recognizer time used to distinguish motion from a dwell.
         let timestamp: TimeInterval
     }
 
-    private struct ScaleSample: Equatable {
+    private struct ScaleSample: Equatable, Sendable {
         let logScale: CGFloat
         let timestamp: TimeInterval
     }
 
-    private struct ReleaseMotionSamples: Equatable {
+    private struct ReleaseMotionSamples: Equatable, Sendable {
         var values: [ScaleSample] = []
         var lastObservedTimestamp: TimeInterval?
 
@@ -96,12 +96,12 @@ struct PlayerBrowserGridInteractionCoordinator {
         }
     }
 
-    struct ModeRatio: Equatable {
+    struct ModeRatio: Equatable, Sendable {
         let mode: MobileCollectionBrowserGridMode
         let itemWidthRatio: CGFloat
     }
 
-    struct Plane: Equatable {
+    struct Plane: Equatable, Sendable {
         let id: UUID
         let fromMode: MobileCollectionBrowserGridMode
         let toMode: MobileCollectionBrowserGridMode
@@ -140,7 +140,7 @@ struct PlayerBrowserGridInteractionCoordinator {
         }
     }
 
-    enum Event: Equatable {
+    enum Event: Equatable, Sendable {
         case menuSelected(
             fromMode: MobileCollectionBrowserGridMode,
             toMode: MobileCollectionBrowserGridMode,
@@ -165,7 +165,7 @@ struct PlayerBrowserGridInteractionCoordinator {
         case rendererFailed
     }
 
-    enum Effect: Equatable {
+    enum Effect: Equatable, Sendable {
         case beginInteraction
         case coverPlaneChange
         case installPlane(Plane)
@@ -191,9 +191,9 @@ struct PlayerBrowserGridInteractionCoordinator {
         case resetRenderer
     }
 
-    typealias RatioProvider = (MobileCollectionBrowserGridMode) -> [ModeRatio]
+    typealias RatioProvider = @Sendable (MobileCollectionBrowserGridMode) -> [ModeRatio]
 
-    private struct Session: Equatable {
+    private struct Session: Equatable, Sendable {
         let initialMode: MobileCollectionBrowserGridMode
         let modeRatios: [ModeRatio]
 
@@ -236,13 +236,13 @@ struct PlayerBrowserGridInteractionCoordinator {
         }
     }
 
-    private struct TrackingState: Equatable {
+    private struct TrackingState: Equatable, Sendable {
         let session: Session
         var centroidY: CGFloat
         var releaseMotionSamples = ReleaseMotionSamples()
     }
 
-    private struct AdoptedSettleContext: Equatable {
+    private struct AdoptedSettleContext: Equatable, Sendable {
         let targetMode: MobileCollectionBrowserGridMode
         let usesMenuFallback: Bool
         let planeIdAtAdoption: UUID?
@@ -253,8 +253,8 @@ struct PlayerBrowserGridInteractionCoordinator {
         let progressAtAdoption: CGFloat
     }
 
-    private enum AdoptedSettlePhase: Equatable {
-        struct Resolution {
+    private enum AdoptedSettlePhase: Equatable, Sendable {
+        struct Resolution: Sendable {
             let context: AdoptedSettleContext?
             let heldContext: AdoptedSettleContext?
             let preservesAdoptedProgress: Bool
@@ -380,7 +380,7 @@ struct PlayerBrowserGridInteractionCoordinator {
         }
     }
 
-    private struct InteractionState: Equatable {
+    private struct InteractionState: Equatable, Sendable {
         let session: Session
         let referenceScale: CGFloat
         let referenceCentroidY: CGFloat
@@ -414,8 +414,8 @@ struct PlayerBrowserGridInteractionCoordinator {
         }
     }
 
-    private struct PresentationProgressMap: Equatable {
-        private enum EndpointBehavior: Equatable {
+    private struct PresentationProgressMap: Equatable, Sendable {
+        private enum EndpointBehavior: Equatable, Sendable {
             case preserveAnchor
             case normalizeThroughHandoff
         }
@@ -521,13 +521,13 @@ struct PlayerBrowserGridInteractionCoordinator {
         }
     }
 
-    private enum PlaneDecision {
+    private enum PlaneDecision: Sendable {
         case keep
         case replace(ModeRatio)
         case discard
     }
 
-    private struct SettleProgressSpring: Equatable {
+    private struct SettleProgressSpring: Equatable, Sendable {
         var offset: CGFloat
         var velocity: CGFloat = 0
 
@@ -555,7 +555,7 @@ struct PlayerBrowserGridInteractionCoordinator {
         }
     }
 
-    private struct SettleState: Equatable {
+    private struct SettleState: Equatable, Sendable {
         let session: Session
         let plane: Plane?
         let targetMode: MobileCollectionBrowserGridMode
@@ -617,7 +617,7 @@ struct PlayerBrowserGridInteractionCoordinator {
         }
     }
 
-    private struct PendingRendererAction: Equatable {
+    private struct PendingRendererAction: Equatable, Sendable {
         let session: Session
         let mode: MobileCollectionBrowserGridMode
         let settlesPosition: Bool
@@ -628,7 +628,7 @@ struct PlayerBrowserGridInteractionCoordinator {
         var wasInterrupted = false
     }
 
-    private enum State: Equatable {
+    private enum State: Equatable, Sendable {
         case idle
         case tracking(TrackingState)
         case interacting(InteractionState)
