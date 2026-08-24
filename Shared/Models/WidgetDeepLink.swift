@@ -66,6 +66,11 @@ nonisolated struct WidgetCollectionDeepLinkTarget: Equatable, Sendable {
 @MainActor
 @Observable
 final class WidgetLaunchPresentationState {
+    private enum PendingHandoff {
+        case prepared
+        case active(UUID)
+    }
+
     struct Request: Hashable, Sendable {
         fileprivate let id: UUID
         fileprivate let deepLink: WidgetDeepLink
@@ -73,10 +78,15 @@ final class WidgetLaunchPresentationState {
 
     static let shared = WidgetLaunchPresentationState()
 
-    private var pendingWidgetPlayerHandoffs = [WidgetDeepLink: UUID]()
+    private var pendingWidgetPlayerHandoffs = [WidgetDeepLink: PendingHandoff]()
+    private(set) var didPrepareInitialWidgetPlayerHandoff = false
 
-    var isSuppressingContinueViewing: Bool {
+    var isPreparingWidgetPlayerPresentation: Bool {
         !pendingWidgetPlayerHandoffs.isEmpty
+    }
+
+    var shouldAnimateInitialCollectionsAppearance: Bool {
+        !didPrepareInitialWidgetPlayerHandoff
     }
 
     func prepareForIncomingURLs(
@@ -95,24 +105,27 @@ final class WidgetLaunchPresentationState {
             }
             return deepLink
         })
+        if !incomingHandoffs.isEmpty {
+            didPrepareInitialWidgetPlayerHandoff = true
+        }
         for deepLink in incomingHandoffs where pendingWidgetPlayerHandoffs[deepLink] == nil {
-            pendingWidgetPlayerHandoffs[deepLink] = UUID()
+            pendingWidgetPlayerHandoffs[deepLink] = .prepared
         }
     }
 
     func beginWidgetPlayerHandoff(for url: URL) -> Request? {
-        guard let deepLink = WidgetDeepLink(url: url),
-              pendingWidgetPlayerHandoffs[deepLink] != nil else {
-            return nil
-        }
+        guard let deepLink = WidgetDeepLink(url: url) else { return nil }
         let request = Request(id: UUID(), deepLink: deepLink)
-        pendingWidgetPlayerHandoffs[deepLink] = request.id
+        pendingWidgetPlayerHandoffs.removeAll()
+        pendingWidgetPlayerHandoffs[deepLink] = .active(request.id)
         return request
     }
 
     func finishWidgetPlayerHandoff(_ request: Request?) {
         guard let request,
-              pendingWidgetPlayerHandoffs[request.deepLink] == request.id else {
+              let handoff = pendingWidgetPlayerHandoffs[request.deepLink],
+              case let .active(requestId) = handoff,
+              requestId == request.id else {
             return
         }
         pendingWidgetPlayerHandoffs.removeValue(forKey: request.deepLink)

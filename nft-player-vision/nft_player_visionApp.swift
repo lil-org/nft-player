@@ -106,8 +106,6 @@ final class VisionAppDelegate: NSObject, UIApplicationDelegate {
 @MainActor
 final class VisionSceneDelegate: UIResponder, UIWindowSceneDelegate, ObservableObject {
 
-    private static var hasActivatedApplicationScene = false
-
     let widgetLaunchPresentationState = WidgetLaunchPresentationState()
 
     func scene(
@@ -118,16 +116,11 @@ final class VisionSceneDelegate: UIResponder, UIWindowSceneDelegate, ObservableO
         guard session.role == .windowApplication else { return }
         widgetLaunchPresentationState.prepareForIncomingURLs(
             connectionOptions.urlContexts.map(\.url),
-            isApplicationLaunch: !Self.hasActivatedApplicationScene,
+            isApplicationLaunch: true,
             isSupportedCollection: { collectionId in
                 CollectionCatalog.allItems.contains { $0.id == collectionId }
             }
         )
-    }
-
-    func sceneDidBecomeActive(_ scene: UIScene) {
-        guard scene.session.role == .windowApplication else { return }
-        Self.hasActivatedApplicationScene = true
     }
 
     func sceneDidDisconnect(_ scene: UIScene) {

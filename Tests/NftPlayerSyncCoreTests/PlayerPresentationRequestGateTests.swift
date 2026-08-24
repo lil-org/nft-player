@@ -120,13 +120,58 @@ final class PlayerPresentationRequestGateTests: XCTestCase {
             gate.commit(
                 request,
                 present: { recorder.events.append("present") },
-                persist: { recorder.events.append("persist") }
+                persist: { recorder.events.append("persist") },
+                discard: { recorder.events.append("discard") }
             )
         )
         resolution?(true)
         await PlayerPersistenceUpdates.flush()
 
-        XCTAssertTrue(recorder.events.isEmpty)
+        XCTAssertEqual(recorder.events, ["discard"])
+    }
+
+    func testDeferredCommitRunsDiscardWhenCancelled() async {
+        await PlayerPersistenceUpdates.flush()
+        let gate = PlayerPresentationRequestGate()
+        let recorder = PlayerPresentationRecorder()
+        let request = gate.begin()
+        _ = gate.resolutionForPendingRequest()
+
+        XCTAssertTrue(
+            gate.commit(
+                request,
+                present: { recorder.events.append("present") },
+                persist: { recorder.events.append("persist") },
+                discard: { recorder.events.append("discard") }
+            )
+        )
+
+        gate.cancel()
+        await PlayerPersistenceUpdates.flush()
+
+        XCTAssertEqual(recorder.events, ["discard"])
+    }
+
+    func testSupersedingRequestDiscardsDeferredCommit() async {
+        await PlayerPersistenceUpdates.flush()
+        let gate = PlayerPresentationRequestGate()
+        let recorder = PlayerPresentationRecorder()
+        let request = gate.begin()
+        _ = gate.resolutionForPendingRequest()
+
+        XCTAssertTrue(
+            gate.commit(
+                request,
+                present: { recorder.events.append("present") },
+                persist: { recorder.events.append("persist") },
+                discard: { recorder.events.append("discard") }
+            )
+        )
+
+        _ = gate.begin()
+        await PlayerPersistenceUpdates.flush()
+
+        XCTAssertEqual(recorder.events, ["discard"])
     }
 
     func testDeferredRequestCanOnlyCommitOnce() async {

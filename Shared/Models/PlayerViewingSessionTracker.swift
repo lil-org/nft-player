@@ -54,6 +54,7 @@ final class PlayerPresentationRequestGate {
         let request: Request
         let present: PresentationOperation
         let persist: PersistenceOperation
+        let discard: PresentationOperation
     }
 
     struct Request: Equatable, Sendable {
@@ -67,9 +68,9 @@ final class PlayerPresentationRequestGate {
     private var committedPersistenceOperations = [PersistenceOperation]()
 
     func begin() -> Request {
+        discardDeferredCommit()
         let request = Request(id: UUID())
         pendingRequest = request
-        deferredCommit = nil
         return request
     }
 
@@ -80,7 +81,7 @@ final class PlayerPresentationRequestGate {
     func cancel() {
         pendingRequest = nil
         suspension = nil
-        deferredCommit = nil
+        discardDeferredCommit()
     }
 
     func resolutionForPendingRequest() -> (@MainActor (Bool) -> Void)? {
@@ -96,7 +97,8 @@ final class PlayerPresentationRequestGate {
     func commit(
         _ request: Request,
         present: @escaping PresentationOperation,
-        persist: @escaping @MainActor @Sendable () async -> Void
+        persist: @escaping @MainActor @Sendable () async -> Void,
+        discard: @escaping PresentationOperation = {}
     ) -> Bool {
         guard isPending(request) else { return false }
         if suspension?.request == request {
@@ -104,7 +106,8 @@ final class PlayerPresentationRequestGate {
             deferredCommit = DeferredCommit(
                 request: request,
                 present: present,
-                persist: persist
+                persist: persist,
+                discard: discard
             )
             return true
         }
@@ -116,13 +119,13 @@ final class PlayerPresentationRequestGate {
         self.suspension = nil
         guard pendingRequest == suspension.request else {
             if deferredCommit?.request == suspension.request {
-                deferredCommit = nil
+                discardDeferredCommit()
             }
             return
         }
         if didComplete {
             pendingRequest = nil
-            deferredCommit = nil
+            discardDeferredCommit()
             return
         }
         guard let deferredCommit,
@@ -135,6 +138,12 @@ final class PlayerPresentationRequestGate {
             present: deferredCommit.present,
             persist: deferredCommit.persist
         )
+    }
+
+    private func discardDeferredCommit() {
+        let deferredCommit = deferredCommit
+        self.deferredCommit = nil
+        deferredCommit?.discard()
     }
 
     private func performCommit(

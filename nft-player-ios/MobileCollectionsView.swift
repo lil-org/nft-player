@@ -161,6 +161,11 @@ private enum MobileCollectionsGridScrollPositionStore {
 }
 
 struct MobileCollectionsView: View {
+    private struct WidgetPlayerHandoff {
+        let playerConfigID: UUID
+        let request: WidgetLaunchPresentationState.Request
+    }
+
     private let collectionItems: [MobileCollectionItem]
     private let widgetLaunchPresentationState: WidgetLaunchPresentationState
     @Environment(\.displayScale) private var displayScale
@@ -175,6 +180,7 @@ struct MobileCollectionsView: View {
     @State private var viewingProgressRefreshID = 0
     @State private var shouldResetScrollAfterViewingProgressRefresh = true
     @State private var shouldPrewarmAfterViewingProgressRefresh = true
+    @State private var widgetPlayerHandoff: WidgetPlayerHandoff?
     
     init(
         collectionItems: [MobileCollectionItem] = MobileCollectionCatalog.allItems,
@@ -198,19 +204,30 @@ struct MobileCollectionsView: View {
             collectionItems: collectionItems
         )
     }
+
+    private var isReadyToRevealNavigation: Bool {
+        (hasLoadedViewingProgress || playerConfig != nil)
+            && !widgetLaunchPresentationState.isPreparingWidgetPlayerPresentation
+    }
     
     var body: some View {
-        MobileCollectionsNavigationView(
-            rootView: collectionsRootView,
-            playerConfig: playerConfig,
-            presentationTransition: playerPresentationTransition,
-            onWillDismissPlayer: playerPresentationGate.resolutionForPendingRequest,
-            onDismissPlayer: dismissPlayer
-        )
+        ZStack {
+            Color(uiColor: MobilePlayerBackgroundColor.defaultColor)
+                .ignoresSafeArea()
+
+            MobileCollectionsNavigationView(
+                rootView: collectionsRootView,
+                playerConfig: playerConfig,
+                presentationTransition: playerPresentationTransition,
+                onWillDismissPlayer: playerPresentationGate.resolutionForPendingRequest,
+                onDidPresentPlayer: didPresentPlayer,
+                onDismissPlayer: dismissPlayer
+            )
+            .opacity(isReadyToRevealNavigation ? 1 : 0)
+            .allowsHitTesting(isReadyToRevealNavigation)
+        }
         .ignoresSafeArea()
         .persistentSystemOverlays(.hidden)
-        .opacity(hasLoadedViewingProgress ? 1 : 0)
-        .allowsHitTesting(hasLoadedViewingProgress)
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
             requestViewingProgressRefresh(resetScroll: true, prewarm: true)
         }
@@ -227,6 +244,8 @@ struct MobileCollectionsView: View {
         .onOpenURL(perform: requestWidgetURL)
         .onDisappear {
             playerPresentationGate.cancel()
+            widgetPlayerHandoff = nil
+            widgetLaunchPresentationState.cancelAllWidgetPlayerHandoffs()
         }
     }
 
@@ -236,6 +255,9 @@ struct MobileCollectionsView: View {
                 items: collectionItems,
                 progressByCollectionId: viewingProgressByCollectionId,
                 viewedToEndCollectionIds: viewedToEndCollectionIds,
+                animatesInitialAppearance:
+                    widgetLaunchPresentationState
+                        .shouldAnimateInitialCollectionsAppearance,
                 onSelect: didSelectCollectionItem
             )
             .ignoresSafeArea()
@@ -275,7 +297,7 @@ struct MobileCollectionsView: View {
                 }
             }
 
-            if !widgetLaunchPresentationState.isSuppressingContinueViewing,
+            if !widgetLaunchPresentationState.isPreparingWidgetPlayerPresentation,
                !recentContinueViewingProgresses.isEmpty,
                !isSearchActive {
                 GeometryReader { geometry in
@@ -365,29 +387,33 @@ struct MobileCollectionsView: View {
         }
     }
 
+    @discardableResult
     private func openCollection(
         collectionId: String,
         presentationTransition: PlayerPresentationTransition,
-        request: PlayerPresentationRequestGate.Request
-    ) async {
+        request: PlayerPresentationRequestGate.Request,
+        widgetHandoffRequest: WidgetLaunchPresentationState.Request? = nil
+    ) async -> Bool {
         await PlayerPersistenceUpdates.flush()
-        guard playerPresentationGate.isPending(request) else { return }
+        guard playerPresentationGate.isPending(request) else { return false }
         let progress = await MobileViewingProgressStore.shared.progress(
             collectionId: collectionId
         )
-        guard playerPresentationGate.isPending(request) else { return }
+        guard playerPresentationGate.isPending(request) else { return false }
         if let progress {
-            await resumeViewing(
+            return await resumeViewing(
                 progress,
                 presentationTransition: presentationTransition,
-                request: request
+                request: request,
+                widgetHandoffRequest: widgetHandoffRequest
             )
         } else {
-            await openPlayer(
+            return await openPlayer(
                 initialItemId: collectionId,
                 continueViewingCollectionId: collectionId,
                 presentationTransition: presentationTransition,
-                request: request
+                request: request,
+                widgetHandoffRequest: widgetHandoffRequest
             )
         }
     }
@@ -403,18 +429,21 @@ struct MobileCollectionsView: View {
         }
     }
 
+    @discardableResult
     private func resumeViewing(
         _ progress: MobileViewingProgress,
         presentationTransition: PlayerPresentationTransition,
-        request: PlayerPresentationRequestGate.Request
-    ) async {
+        request: PlayerPresentationRequestGate.Request,
+        widgetHandoffRequest: WidgetLaunchPresentationState.Request? = nil
+    ) async -> Bool {
         await openPlayer(
             initialItemId: progress.collectionId,
             initialTokenId: progress.tokenId,
             initialTokenIndex: progress.tokenIndex,
             continueViewingCollectionId: progress.collectionId,
             presentationTransition: presentationTransition,
-            request: request
+            request: request,
+            widgetHandoffRequest: widgetHandoffRequest
         )
     }
 
@@ -427,62 +456,70 @@ struct MobileCollectionsView: View {
         }
 
         let request = playerPresentationGate.begin()
+        widgetPlayerHandoff = nil
         let handoffRequest = widgetLaunchPresentationState.beginWidgetPlayerHandoff(for: url)
         Task {
-            defer {
-                widgetLaunchPresentationState.finishWidgetPlayerHandoff(handoffRequest)
-            }
+            let didAcceptPresentation: Bool
             if let tokenId {
-                await openWidgetToken(
+                didAcceptPresentation = await openWidgetToken(
                     collectionId: collectionId,
                     tokenId: tokenId,
-                    request: request
+                    request: request,
+                    widgetHandoffRequest: handoffRequest
                 )
             } else {
-                await openCollection(
+                didAcceptPresentation = await openCollection(
                     collectionId: collectionId,
                     presentationTransition: .instant,
-                    request: request
+                    request: request,
+                    widgetHandoffRequest: handoffRequest
                 )
+            }
+            if !didAcceptPresentation {
+                widgetLaunchPresentationState.finishWidgetPlayerHandoff(handoffRequest)
             }
         }
     }
 
+    @discardableResult
     private func openWidgetToken(
         collectionId: String,
         tokenId: String,
-        request: PlayerPresentationRequestGate.Request
-    ) async {
+        request: PlayerPresentationRequestGate.Request,
+        widgetHandoffRequest: WidgetLaunchPresentationState.Request?
+    ) async -> Bool {
         await PlayerPersistenceUpdates.flush()
-        guard playerPresentationGate.isPending(request) else { return }
+        guard playerPresentationGate.isPending(request) else { return false }
         let progress = await MobileViewingProgressStore.shared.progress(
             collectionId: collectionId
         )
-        guard playerPresentationGate.isPending(request) else { return }
+        guard playerPresentationGate.isPending(request) else { return false }
         guard let widgetTokenInsertion = MobileCollectionCatalog.widgetTokenInsertion(
             collectionId: collectionId,
             widgetTokenId: tokenId,
             progress: progress
         ) else {
-            await openCollection(
+            return await openCollection(
                 collectionId: collectionId,
                 presentationTransition: .instant,
-                request: request
+                request: request,
+                widgetHandoffRequest: widgetHandoffRequest
             )
-            return
         }
 
-        guard playerPresentationGate.isPending(request) else { return }
-        await openPlayer(
+        guard playerPresentationGate.isPending(request) else { return false }
+        return await openPlayer(
             initialItemId: collectionId,
             continueViewingCollectionId: collectionId,
             widgetTokenInsertion: widgetTokenInsertion,
             anchorProgress: widgetTokenInsertion.automaticAnchorProgress(),
             presentationTransition: .instant,
-            request: request
+            request: request,
+            widgetHandoffRequest: widgetHandoffRequest
         )
     }
 
+    @discardableResult
     private func openPlayer(
         initialItemId: String,
         initialTokenId: String? = nil,
@@ -491,13 +528,14 @@ struct MobileCollectionsView: View {
         widgetTokenInsertion: PlayerWidgetTokenInsertion? = nil,
         anchorProgress: MobileViewingProgress? = nil,
         presentationTransition: PlayerPresentationTransition,
-        request: PlayerPresentationRequestGate.Request
-    ) async {
-        guard playerPresentationGate.isPending(request) else { return }
+        request: PlayerPresentationRequestGate.Request,
+        widgetHandoffRequest: WidgetLaunchPresentationState.Request? = nil
+    ) async -> Bool {
+        guard playerPresentationGate.isPending(request) else { return false }
         guard let continueViewingUpdate = await MobileViewingProgressStore.shared
             .prepareContinueViewingUpdate(collectionId: continueViewingCollectionId),
               playerPresentationGate.isPending(request) else {
-            return
+            return false
         }
         let config = MobilePlayerPrewarmer.preparedConfig(
             initialItemId: initialItemId,
@@ -506,9 +544,15 @@ struct MobileCollectionsView: View {
             continueViewingCollectionId: continueViewingCollectionId,
             widgetTokenInsertion: widgetTokenInsertion
         )
-        playerPresentationGate.commit(
+        return playerPresentationGate.commit(
             request,
             present: {
+                if let widgetHandoffRequest {
+                    widgetPlayerHandoff = WidgetPlayerHandoff(
+                        playerConfigID: config.id,
+                        request: widgetHandoffRequest
+                    )
+                }
                 let presentPlayer = {
                     playerPresentationTransition = presentationTransition
                     playerConfig = config
@@ -534,7 +578,23 @@ struct MobileCollectionsView: View {
                 await MobileViewingProgressStore.shared.applyContinueViewingUpdate(
                     continueViewingUpdate
                 )
+            },
+            discard: {
+                widgetLaunchPresentationState.finishWidgetPlayerHandoff(
+                    widgetHandoffRequest
+                )
             }
+        )
+    }
+
+    private func didPresentPlayer(_ config: MobilePlayerConfig) {
+        guard let widgetPlayerHandoff,
+              widgetPlayerHandoff.playerConfigID == config.id else {
+            return
+        }
+        self.widgetPlayerHandoff = nil
+        widgetLaunchPresentationState.finishWidgetPlayerHandoff(
+            widgetPlayerHandoff.request
         )
     }
 
@@ -627,10 +687,17 @@ private struct InfiniteCollectionsGridView: UIViewRepresentable {
     let items: [MobileCollectionItem]
     let progressByCollectionId: [String: Int]
     let viewedToEndCollectionIds: Set<String>
+    let animatesInitialAppearance: Bool
     let onSelect: (MobileCollectionItem) -> Void
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(items: [], progressByCollectionId: [:], viewedToEndCollectionIds: [], onSelect: onSelect)
+        Coordinator(
+            items: [],
+            progressByCollectionId: [:],
+            viewedToEndCollectionIds: [],
+            animatesInitialAppearance: animatesInitialAppearance,
+            onSelect: onSelect
+        )
     }
 
     func makeUIView(context: Context) -> InfiniteCollectionsGridContainerView {
@@ -675,11 +742,13 @@ private struct InfiniteCollectionsGridView: UIViewRepresentable {
             items: [MobileCollectionItem],
             progressByCollectionId: [String: Int],
             viewedToEndCollectionIds: Set<String>,
+            animatesInitialAppearance: Bool,
             onSelect: @escaping (MobileCollectionItem) -> Void
         ) {
             self.items = items
             self.progressByCollectionId = progressByCollectionId
             self.viewedToEndCollectionIds = viewedToEndCollectionIds
+            self.isInitialCoverImageFadeActive = animatesInitialAppearance
             self.onSelect = onSelect
         }
 
@@ -1741,6 +1810,7 @@ private struct MobileCollectionsNavigationView<RootView: View>: UIViewController
     let playerConfig: MobilePlayerConfig?
     let presentationTransition: PlayerPresentationTransition
     let onWillDismissPlayer: () -> ((Bool) -> Void)?
+    let onDidPresentPlayer: (MobilePlayerConfig) -> Void
     let onDismissPlayer: (MobilePlayerConfig) -> Void
 
     func makeCoordinator() -> Coordinator {
@@ -1768,6 +1838,7 @@ private struct MobileCollectionsNavigationView<RootView: View>: UIViewController
             playerConfig: playerConfig,
             presentationTransition: presentationTransition,
             onWillDismissPlayer: onWillDismissPlayer,
+            onDidPresentPlayer: onDidPresentPlayer,
             onDismissPlayer: onDismissPlayer
         )
         return navigationController
@@ -1782,6 +1853,7 @@ private struct MobileCollectionsNavigationView<RootView: View>: UIViewController
             playerConfig: playerConfig,
             presentationTransition: presentationTransition,
             onWillDismissPlayer: onWillDismissPlayer,
+            onDidPresentPlayer: onDidPresentPlayer,
             onDismissPlayer: onDismissPlayer
         )
     }
@@ -1857,6 +1929,7 @@ private struct MobileCollectionsNavigationView<RootView: View>: UIViewController
         private var desiredPlayerConfig: MobilePlayerConfig?
         private var desiredPresentationTransition: PlayerPresentationTransition = .animated
         private var onWillDismissPlayer: (() -> ((Bool) -> Void)?)?
+        private var onDidPresentPlayer: ((MobilePlayerConfig) -> Void)?
         private var onDismissPlayer: ((MobilePlayerConfig) -> Void)?
         private var dismissedConfigIDAwaitingStateUpdate: UUID?
         private var isReconcileScheduled = false
@@ -1878,11 +1951,13 @@ private struct MobileCollectionsNavigationView<RootView: View>: UIViewController
             playerConfig: MobilePlayerConfig?,
             presentationTransition: PlayerPresentationTransition,
             onWillDismissPlayer: @escaping () -> ((Bool) -> Void)?,
+            onDidPresentPlayer: @escaping (MobilePlayerConfig) -> Void,
             onDismissPlayer: @escaping (MobilePlayerConfig) -> Void
         ) {
             desiredPlayerConfig = playerConfig
             desiredPresentationTransition = presentationTransition
             self.onWillDismissPlayer = onWillDismissPlayer
+            self.onDidPresentPlayer = onDidPresentPlayer
             self.onDismissPlayer = onDismissPlayer
             if dismissedConfigIDAwaitingStateUpdate != playerConfig?.id {
                 dismissedConfigIDAwaitingStateUpdate = nil
@@ -1906,6 +1981,7 @@ private struct MobileCollectionsNavigationView<RootView: View>: UIViewController
             navigationController = nil
             rootViewController = nil
             onWillDismissPlayer = nil
+            onDidPresentPlayer = nil
             onDismissPlayer = nil
         }
 
@@ -2185,6 +2261,10 @@ private struct MobileCollectionsNavigationView<RootView: View>: UIViewController
                activeSession.owns(viewController) {
                 activeSession.modeController.noteNavigationDidShow(viewController)
                 activeSession.interactionController.didShowPlayerAfterNavigationTransition()
+                let presentedConfig = activeSession.config
+                Task { @MainActor [weak self] in
+                    self?.onDidPresentPlayer?(presentedConfig)
+                }
                 scheduleReconcile()
                 return
             }

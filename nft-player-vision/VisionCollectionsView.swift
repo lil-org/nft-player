@@ -124,7 +124,7 @@ struct VisionCollectionsView: View {
             contentAlignment: .bottom
         ) {
             VisionCollectionsTopOrnament(
-                continueViewingProgress: widgetLaunchPresentationState.isSuppressingContinueViewing
+                continueViewingProgress: widgetLaunchPresentationState.isPreparingWidgetPlayerPresentation
                     ? nil
                     : continueViewingProgress,
                 onContinueViewing: { progress in resumeViewing(progress) },

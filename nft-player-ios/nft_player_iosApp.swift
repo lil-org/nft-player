@@ -88,15 +88,13 @@ class AppDelegate: NSObject, UIApplicationDelegate {
 @MainActor
 final class SceneDelegate: UIResponder, UIWindowSceneDelegate, ObservableObject {
 
-    private static var hasActivatedApplicationScene = false
-
     let widgetLaunchPresentationState = WidgetLaunchPresentationState()
     
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
         if session.role == .windowApplication {
             widgetLaunchPresentationState.prepareForIncomingURLs(
                 connectionOptions.urlContexts.map(\.url),
-                isApplicationLaunch: !Self.hasActivatedApplicationScene,
+                isApplicationLaunch: true,
                 isSupportedCollection: { collectionId in
                     MobileCollectionCatalog.allItems.contains { $0.id == collectionId }
                 }
@@ -106,11 +104,6 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate, ObservableObject 
         if let shortcutItem = connectionOptions.shortcutItem, shortcutItem.type == feedbackShortcutItemType {
             UIApplication.shared.open(.quickFeedbackMail)
         }
-    }
-
-    func sceneDidBecomeActive(_ scene: UIScene) {
-        guard scene.session.role == .windowApplication else { return }
-        Self.hasActivatedApplicationScene = true
     }
 
     func sceneDidDisconnect(_ scene: UIScene) {

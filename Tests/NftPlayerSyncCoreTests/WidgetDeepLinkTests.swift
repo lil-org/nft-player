@@ -57,7 +57,7 @@ final class WidgetDeepLinkTests: XCTestCase {
         )
     }
 
-    func testInitialWidgetURLSuppressesContinueViewingUntilHandoffFinishes() throws {
+    func testInitialWidgetURLStagesPresentationUntilHandoffFinishes() throws {
         let state = WidgetLaunchPresentationState()
         let url = try XCTUnwrap(WidgetDeepLink.collection(id: "collection", tokenId: nil).url)
 
@@ -67,15 +67,16 @@ final class WidgetDeepLinkTests: XCTestCase {
             isSupportedCollection: { $0 == "collection" }
         )
 
-        XCTAssertTrue(state.isSuppressingContinueViewing)
+        XCTAssertTrue(state.isPreparingWidgetPlayerPresentation)
+        XCTAssertFalse(state.shouldAnimateInitialCollectionsAppearance)
 
         let request = state.beginWidgetPlayerHandoff(for: url)
         state.finishWidgetPlayerHandoff(request)
 
-        XCTAssertFalse(state.isSuppressingContinueViewing)
+        XCTAssertFalse(state.isPreparingWidgetPlayerPresentation)
     }
 
-    func testSupersededDuplicateHandoffCannotClearSuppression() throws {
+    func testSupersededDuplicateHandoffCannotClearPresentationStaging() throws {
         let state = WidgetLaunchPresentationState()
         let url = try XCTUnwrap(WidgetDeepLink.collection(id: "collection", tokenId: nil).url)
         state.prepareForIncomingURLs(
@@ -88,14 +89,14 @@ final class WidgetDeepLinkTests: XCTestCase {
 
         state.finishWidgetPlayerHandoff(firstRequest)
 
-        XCTAssertTrue(state.isSuppressingContinueViewing)
+        XCTAssertTrue(state.isPreparingWidgetPlayerPresentation)
 
         state.finishWidgetPlayerHandoff(replacementRequest)
 
-        XCTAssertFalse(state.isSuppressingContinueViewing)
+        XCTAssertFalse(state.isPreparingWidgetPlayerPresentation)
     }
 
-    func testWarmWidgetURLDoesNotSuppressContinueViewing() throws {
+    func testWarmWidgetURLStagesPresentationWhenHandoffBegins() throws {
         let state = WidgetLaunchPresentationState()
         let url = try XCTUnwrap(WidgetDeepLink.collection(id: "collection", tokenId: nil).url)
 
@@ -105,10 +106,19 @@ final class WidgetDeepLinkTests: XCTestCase {
             isSupportedCollection: { $0 == "collection" }
         )
 
-        XCTAssertFalse(state.isSuppressingContinueViewing)
+        XCTAssertFalse(state.isPreparingWidgetPlayerPresentation)
+
+        let request = state.beginWidgetPlayerHandoff(for: url)
+
+        XCTAssertTrue(state.isPreparingWidgetPlayerPresentation)
+
+        state.finishWidgetPlayerHandoff(request)
+
+        XCTAssertFalse(state.isPreparingWidgetPlayerPresentation)
+        XCTAssertTrue(state.shouldAnimateInitialCollectionsAppearance)
     }
 
-    func testNormalLaunchDoesNotSuppressContinueViewing() {
+    func testNormalLaunchDoesNotStageWidgetPresentation() {
         let state = WidgetLaunchPresentationState()
 
         state.prepareForIncomingURLs(
@@ -117,10 +127,11 @@ final class WidgetDeepLinkTests: XCTestCase {
             isSupportedCollection: { _ in true }
         )
 
-        XCTAssertFalse(state.isSuppressingContinueViewing)
+        XCTAssertFalse(state.isPreparingWidgetPlayerPresentation)
+        XCTAssertTrue(state.shouldAnimateInitialCollectionsAppearance)
     }
 
-    func testMalformedInitialURLDoesNotSuppressContinueViewing() throws {
+    func testMalformedInitialURLDoesNotStageWidgetPresentation() throws {
         let state = WidgetLaunchPresentationState()
         let url = try XCTUnwrap(URL(string: "https://example.com/collection?id=collection"))
 
@@ -130,10 +141,10 @@ final class WidgetDeepLinkTests: XCTestCase {
             isSupportedCollection: { _ in true }
         )
 
-        XCTAssertFalse(state.isSuppressingContinueViewing)
+        XCTAssertFalse(state.isPreparingWidgetPlayerPresentation)
     }
 
-    func testUnsupportedInitialWidgetURLDoesNotSuppressContinueViewing() throws {
+    func testUnsupportedInitialWidgetURLDoesNotStageWidgetPresentation() throws {
         let state = WidgetLaunchPresentationState()
         let url = try XCTUnwrap(WidgetDeepLink.collection(id: "stale-collection", tokenId: nil).url)
 
@@ -143,7 +154,7 @@ final class WidgetDeepLinkTests: XCTestCase {
             isSupportedCollection: { $0 == "collection" }
         )
 
-        XCTAssertFalse(state.isSuppressingContinueViewing)
+        XCTAssertFalse(state.isPreparingWidgetPlayerPresentation)
     }
 
     func testUnrelatedURLDoesNotFinishPendingHandoff() throws {
@@ -158,10 +169,31 @@ final class WidgetDeepLinkTests: XCTestCase {
 
         state.finishWidgetPlayerHandoff(for: unrelatedURL)
 
-        XCTAssertTrue(state.isSuppressingContinueViewing)
+        XCTAssertTrue(state.isPreparingWidgetPlayerPresentation)
     }
 
-    func testMultiplePendingHandoffsFinishIndependently() throws {
+    func testNewHandoffSupersedesOtherPendingHandoffs() throws {
+        let state = WidgetLaunchPresentationState()
+        let firstURL = try XCTUnwrap(WidgetDeepLink.collection(id: "first", tokenId: nil).url)
+        let secondURL = try XCTUnwrap(WidgetDeepLink.collection(id: "second", tokenId: nil).url)
+        state.prepareForIncomingURLs(
+            [firstURL, secondURL],
+            isApplicationLaunch: true,
+            isSupportedCollection: { _ in true }
+        )
+        let firstRequest = state.beginWidgetPlayerHandoff(for: firstURL)
+        let secondRequest = state.beginWidgetPlayerHandoff(for: secondURL)
+
+        state.finishWidgetPlayerHandoff(firstRequest)
+
+        XCTAssertTrue(state.isPreparingWidgetPlayerPresentation)
+
+        state.finishWidgetPlayerHandoff(secondRequest)
+
+        XCTAssertFalse(state.isPreparingWidgetPlayerPresentation)
+    }
+
+    func testBeginningHandoffClearsOtherPreparedLaunchURLs() throws {
         let state = WidgetLaunchPresentationState()
         let firstURL = try XCTUnwrap(WidgetDeepLink.collection(id: "first", tokenId: nil).url)
         let secondURL = try XCTUnwrap(WidgetDeepLink.collection(id: "second", tokenId: nil).url)
@@ -171,13 +203,10 @@ final class WidgetDeepLinkTests: XCTestCase {
             isSupportedCollection: { _ in true }
         )
 
-        state.finishWidgetPlayerHandoff(for: firstURL)
+        let firstRequest = state.beginWidgetPlayerHandoff(for: firstURL)
+        state.finishWidgetPlayerHandoff(firstRequest)
 
-        XCTAssertTrue(state.isSuppressingContinueViewing)
-
-        state.finishWidgetPlayerHandoff(for: secondURL)
-
-        XCTAssertFalse(state.isSuppressingContinueViewing)
+        XCTAssertFalse(state.isPreparingWidgetPlayerPresentation)
     }
 
     func testEquivalentURLFinishesPendingHandoff() throws {
@@ -196,7 +225,7 @@ final class WidgetDeepLinkTests: XCTestCase {
 
         state.finishWidgetPlayerHandoff(for: deliveredURL)
 
-        XCTAssertFalse(state.isSuppressingContinueViewing)
+        XCTAssertFalse(state.isPreparingWidgetPlayerPresentation)
     }
 
     func testCancelAllClearsPendingHandoffs() throws {
@@ -210,7 +239,7 @@ final class WidgetDeepLinkTests: XCTestCase {
 
         state.cancelAllWidgetPlayerHandoffs()
 
-        XCTAssertFalse(state.isSuppressingContinueViewing)
+        XCTAssertFalse(state.isPreparingWidgetPlayerPresentation)
     }
 
     private func collectionId(in url: URL) -> String? {

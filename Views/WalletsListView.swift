@@ -117,12 +117,12 @@ struct WalletsListView: View {
         .animation(continueViewingControlAnimation, value: recentContinueViewingProgresses)
         .animation(
             continueViewingControlAnimation,
-            value: widgetLaunchPresentationState.isSuppressingContinueViewing
+            value: widgetLaunchPresentationState.isPreparingWidgetPlayerPresentation
         )
     }
 
     private var shouldShowContinueViewingControl: Bool {
-        !widgetLaunchPresentationState.isSuppressingContinueViewing
+        !widgetLaunchPresentationState.isPreparingWidgetPlayerPresentation
             && !recentContinueViewingProgresses.isEmpty
     }
 
