@@ -25,6 +25,7 @@ tools/wip/
 
 # Local thumbnail corpus used for offline sampling
 /thumbnails/
+/mid-downloads/
 
 # Release artifacts
 .asc/artifacts/
