@@ -291,6 +291,274 @@ final class MobilePlayerBrowserLayoutTests: XCTestCase {
         XCTAssertEqual(fileRadii.opposite, 50)
     }
 
+    func testCompactCoverageAlignsSuppliedProjectedRangesToFullRows() throws {
+        XCTAssertEqual(
+            PlayerCollectionBrowseMediaWindowPolicy.rowAlignedRefreshDistance(
+                prefetchStride: 25,
+                columnCount: 5
+            ),
+            25
+        )
+        let landscapeRefreshDistance = PlayerCollectionBrowseMediaWindowPolicy
+            .rowAlignedRefreshDistance(
+                prefetchStride: 25,
+                columnCount: 10
+            )
+        XCTAssertEqual(landscapeRefreshDistance, 30)
+        XCTAssertFalse(
+            PlayerCollectionBrowseMediaWindowPolicy.shouldRefresh(
+                previousTokenIndex: 50,
+                nextTokenIndex: 79,
+                refreshDistance: landscapeRefreshDistance,
+                force: false
+            )
+        )
+        XCTAssertTrue(
+            PlayerCollectionBrowseMediaWindowPolicy.shouldRefresh(
+                previousTokenIndex: 50,
+                nextTokenIndex: 80,
+                refreshDistance: landscapeRefreshDistance,
+                force: false
+            )
+        )
+
+        let portrait = try XCTUnwrap(
+            PlayerCollectionBrowseMediaWindowPolicy.compactCoverage(
+                centeredAt: 50,
+                requiredTokenRange: 37...83,
+                itemCount: 200,
+                columnCount: 5,
+                prefetchStride: 25,
+                prefersIncreasingIndices: true
+            )
+        )
+        XCTAssertEqual(portrait.decodedRange, 35...84)
+
+        let landscape = try XCTUnwrap(
+            PlayerCollectionBrowseMediaWindowPolicy.compactCoverage(
+                centeredAt: 54,
+                requiredTokenRange: 30...109,
+                itemCount: 200,
+                columnCount: 10,
+                prefetchStride: 25,
+                prefersIncreasingIndices: true
+            )
+        )
+        XCTAssertEqual(landscape.decodedRange, 30...109)
+        XCTAssertTrue((50...99).allSatisfy(landscape.decodedRange.contains))
+    }
+
+    func testCompactCoverageMirrorsDirectionAndUnionsFileRange() throws {
+        let increasing = try XCTUnwrap(
+            PlayerCollectionBrowseMediaWindowPolicy.compactCoverage(
+                centeredAt: 499,
+                requiredTokenRange: 445...499,
+                itemCount: 500,
+                columnCount: 5,
+                prefetchStride: 25,
+                prefersIncreasingIndices: true
+            )
+        )
+        XCTAssertEqual(increasing.decodedRange, 445...499)
+        XCTAssertEqual(increasing.fileRange, 445...499)
+
+        let decreasing = try XCTUnwrap(
+            PlayerCollectionBrowseMediaWindowPolicy.compactCoverage(
+                centeredAt: 50,
+                requiredTokenRange: 12...58,
+                itemCount: 200,
+                columnCount: 5,
+                prefetchStride: 25,
+                prefersIncreasingIndices: false
+            )
+        )
+        XCTAssertEqual(decreasing.decodedRange, 10...59)
+        XCTAssertEqual(decreasing.fileRange, 0...100)
+        XCTAssertTrue(
+            decreasing.decodedRange.allSatisfy(decreasing.fileRange.contains)
+        )
+    }
+
+    func testCompactCoverageClampsToPartialCollectionRows() throws {
+        let increasing = try XCTUnwrap(
+            PlayerCollectionBrowseMediaWindowPolicy.compactCoverage(
+                centeredAt: 99,
+                requiredTokenRange: 90...102,
+                itemCount: 103,
+                columnCount: 10,
+                prefetchStride: 25,
+                prefersIncreasingIndices: true
+            )
+        )
+        XCTAssertEqual(increasing.decodedRange, 90...102)
+
+        let decreasing = try XCTUnwrap(
+            PlayerCollectionBrowseMediaWindowPolicy.compactCoverage(
+                centeredAt: 99,
+                requiredTokenRange: 60...102,
+                itemCount: 103,
+                columnCount: 10,
+                prefetchStride: 25,
+                prefersIncreasingIndices: false
+            )
+        )
+        XCTAssertEqual(decreasing.decodedRange, 60...102)
+    }
+
+    func testCompactCoverageRejectsInvalidGeometry() {
+        let cases = [
+            (center: 9, required: 10...20, itemCount: 100, columns: 5),
+            (center: 21, required: 10...20, itemCount: 100, columns: 5),
+            (center: -1, required: -2 ... -1, itemCount: 100, columns: 5),
+            (center: 10, required: 10...100, itemCount: 100, columns: 5),
+            (center: 10, required: 10...20, itemCount: 100, columns: 0),
+        ]
+
+        for testCase in cases {
+            XCTAssertNil(
+                PlayerCollectionBrowseMediaWindowPolicy.compactCoverage(
+                    centeredAt: testCase.center,
+                    requiredTokenRange: testCase.required,
+                    itemCount: testCase.itemCount,
+                    columnCount: testCase.columns,
+                    prefetchStride: 25,
+                    prefersIncreasingIndices: true
+                )
+            )
+        }
+    }
+
+    func testCompactCoverageUsesProjectedVariableRowVisibility() throws {
+        let viewportSize = CGSize(width: 390, height: 844)
+        let columnCount = 5
+        let itemCount = 500
+        let itemWidth = try XCTUnwrap(MobilePlayerBrowserLayout.itemWidth(
+            viewportSize: viewportSize,
+            columnCount: columnCount
+        ))
+        let heightToWidthRatios =
+            Array(repeating: CGFloat(800) / itemWidth, count: columnCount)
+            + Array(
+                repeating: CGFloat(20) / itemWidth,
+                count: itemCount - columnCount
+            )
+        let layout = try XCTUnwrap(MobilePlayerBrowserLayout(
+            viewportSize: viewportSize,
+            topContentInset: 59,
+            bottomContentInset: 34,
+            aspectProfile: MobilePlayerBrowserAspectProfile(
+                heightToWidthRatios: heightToWidthRatios,
+                columnCount: columnCount
+            )
+        ))
+
+        func visibleTokenRange(at offsetY: CGFloat) throws -> ClosedRange<Int> {
+            let viewport = CGRect(
+                x: 0,
+                y: offsetY,
+                width: viewportSize.width,
+                height: viewportSize.height
+            )
+            let visibleIndices = (0..<itemCount).filter { tokenIndex in
+                layout.itemFrame(at: tokenIndex)?.intersects(viewport) == true
+            }
+            let first = try XCTUnwrap(visibleIndices.first)
+            let last = try XCTUnwrap(visibleIndices.last)
+            return first...last
+        }
+
+        let currentAnchor = 2
+        let currentOffsetY = try XCTUnwrap(
+            layout.itemFrame(at: currentAnchor)
+        ).midY - viewportSize.height / 2
+        let refreshDistance = PlayerCollectionBrowseMediaWindowPolicy
+            .rowAlignedRefreshDistance(
+                prefetchStride: layout.prefetchStride,
+                columnCount: columnCount
+            )
+        let projectedAnchor = currentAnchor + refreshDistance
+        let projectedOffsetY = try XCTUnwrap(
+            layout.itemFrame(at: projectedAnchor)
+        ).midY - viewportSize.height / 2
+        let currentRange = try visibleTokenRange(at: currentOffsetY)
+        let projectedRange = try visibleTokenRange(at: projectedOffsetY)
+        let requiredRange = min(
+            currentRange.lowerBound,
+            projectedRange.lowerBound
+        )...max(
+            currentRange.upperBound,
+            projectedRange.upperBound
+        )
+
+        XCTAssertEqual(layout.prefetchStride, 25)
+        XCTAssertEqual(currentOffsetY, 37, accuracy: 0.000_001)
+        XCTAssertEqual(currentRange, 0...9)
+        XCTAssertEqual(projectedRange, 0...124)
+        XCTAssertEqual(requiredRange, 0...124)
+
+        let coverage = try XCTUnwrap(
+            PlayerCollectionBrowseMediaWindowPolicy.compactCoverage(
+                centeredAt: currentAnchor,
+                requiredTokenRange: requiredRange,
+                itemCount: itemCount,
+                columnCount: columnCount,
+                prefetchStride: layout.prefetchStride,
+                prefersIncreasingIndices: true
+            )
+        )
+        XCTAssertEqual(coverage.decodedRange, 0...124)
+        XCTAssertTrue(coverage.decodedRange.contains(35))
+        XCTAssertTrue(
+            coverage.decodedRange.allSatisfy(coverage.fileRange.contains)
+        )
+    }
+
+    func testNearestFirstTokenIndicesMirrorDirection() {
+        let increasing = PlayerCollectionBrowseMediaWindowPolicy
+            .nearestFirstTokenIndices(
+                centeredAt: 5,
+                in: 2...8,
+                prefersIncreasingIndices: true
+            )
+        let decreasing = PlayerCollectionBrowseMediaWindowPolicy
+            .nearestFirstTokenIndices(
+                centeredAt: 5,
+                in: 2...8,
+                prefersIncreasingIndices: false
+            )
+
+        XCTAssertEqual(increasing, [5, 6, 4, 7, 3, 8, 2])
+        XCTAssertEqual(decreasing, [5, 4, 6, 3, 7, 2, 8])
+    }
+
+    func testCompactCoverageHandlesExtremeCollectionBounds() throws {
+        let lastTokenIndex = Int.max - 1
+        let coverage = try XCTUnwrap(
+            PlayerCollectionBrowseMediaWindowPolicy.compactCoverage(
+                centeredAt: lastTokenIndex - 4,
+                requiredTokenRange: (lastTokenIndex - 9)...lastTokenIndex,
+                itemCount: Int.max,
+                columnCount: 10,
+                prefetchStride: Int.max,
+                prefersIncreasingIndices: true
+            )
+        )
+        XCTAssertEqual(coverage.decodedRange.upperBound, lastTokenIndex)
+        XCTAssertTrue(coverage.decodedRange.contains(lastTokenIndex - 4))
+        XCTAssertTrue(
+            coverage.decodedRange.allSatisfy(coverage.fileRange.contains)
+        )
+
+        XCTAssertEqual(
+            PlayerCollectionBrowseMediaWindowPolicy.nearestFirstTokenIndices(
+                centeredAt: Int.max - 2,
+                in: (Int.max - 4)...(Int.max - 1),
+                prefersIncreasingIndices: true
+            ),
+            [Int.max - 2, Int.max - 1, Int.max - 3, Int.max - 4]
+        )
+    }
+
     func testMixedAspectItemsUseTallestAspectOnlyWithinTheirRow() throws {
         let layout = try XCTUnwrap(MobilePlayerBrowserLayout(
             viewportSize: CGSize(width: 390, height: 844),

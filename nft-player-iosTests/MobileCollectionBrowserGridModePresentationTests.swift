@@ -10,6 +10,39 @@ nonisolated final class MobileCollectionBrowserGridModePresentationTests: XCTest
 @MainActor
 extension MobileCollectionBrowserGridModePresentationTests {
 
+    func testDenseGridImageRefreshQueueRotatesRetriesFairly() {
+        var queue = DenseGridImageRefreshQueue()
+        for tokenIndex in 0..<10 {
+            XCTAssertTrue(queue.enqueue(tokenIndex))
+            XCTAssertFalse(queue.enqueue(tokenIndex))
+        }
+
+        let firstFrame = queue.dequeue(limit: 5)
+        firstFrame.forEach { XCTAssertTrue(queue.enqueue($0)) }
+        let secondFrame = queue.dequeue(limit: 5)
+
+        XCTAssertEqual(firstFrame, Array(0..<5))
+        XCTAssertEqual(secondFrame, Array(5..<10))
+        XCTAssertEqual(queue.count, 5)
+    }
+
+    func testDenseGridImageRefreshQueueRemovesOffscreenWork() {
+        var queue = DenseGridImageRefreshQueue()
+        for tokenIndex in 0..<10 {
+            queue.enqueue(tokenIndex)
+        }
+        for tokenIndex in 0..<10 {
+            XCTAssertTrue(queue.remove(tokenIndex))
+            XCTAssertFalse(queue.remove(tokenIndex))
+        }
+        for tokenIndex in 10..<15 {
+            queue.enqueue(tokenIndex)
+        }
+
+        XCTAssertEqual(queue.count, 5)
+        XCTAssertEqual(queue.dequeue(limit: 5), Array(10..<15))
+    }
+
     private final class PlaybackDisplay: MobilePlaybackControllerDisplay {
         func navigate(_ direction: PlaybackNavigationDirection) {}
 
@@ -122,15 +155,22 @@ extension MobileCollectionBrowserGridModePresentationTests {
         } else {
             controller = VerticalCollectionBrowserViewController(uuid: uuid)
         }
-        let window = UIWindow(frame: CGRect(
+        let foregroundScene = try XCTUnwrap(
+            UIApplication.shared.connectedScenes
+                .compactMap { $0 as? UIWindowScene }
+                .first { $0.activationState == .foregroundActive }
+        )
+        let window = UIWindow(windowScene: foregroundScene)
+        window.frame = CGRect(
             x: 0,
             y: 0,
             width: 390,
             height: 844
-        ))
+        )
         window.rootViewController = controller
         window.isHidden = false
         window.layoutIfNeeded()
+        controller.viewDidAppear(false)
         controller.setActive(true)
         controller.view.layoutIfNeeded()
 
@@ -283,6 +323,189 @@ extension MobileCollectionBrowserGridModePresentationTests {
         )
     }
 
+    func testCompactCoverageRequiresDistinctSmallThumbnails() throws {
+        func descriptor(_ name: String) throws
+            -> CollectionCatalogDownloadableMediaDescriptor {
+            CollectionCatalogDownloadableMediaDescriptor(
+                collectionId: "dense-radii",
+                tokenId: name,
+                tokenIndex: 50,
+                media: .staticImage(
+                    url: try XCTUnwrap(URL(
+                        string: "https://example.com/\(name).webp"
+                    )),
+                    fileExtension: "webp"
+                ),
+                purpose: .collectionBrowserThumbnail
+            )
+        }
+        let small = try descriptor("small")
+        let thumbnail = try descriptor("thumbnail")
+        let distinctSources = CollectionBrowseImageSources(
+            smallThumbnailDescriptor: small,
+            thumbnailDescriptor: thumbnail,
+            largeDescriptor: thumbnail
+        )
+        let fallbackSources = CollectionBrowseImageSources(
+            thumbnailDescriptor: thumbnail,
+            largeDescriptor: thumbnail
+        )
+
+        XCTAssertEqual(
+            MobilePlaybackController.collectionBrowseCompactCoverage(
+                imageSources: distinctSources,
+                centeredAt: 50,
+                direction: .forward,
+                itemCount: 200,
+                columnCount: 5,
+                prefetchStride: 25,
+                quality: .smallThumbnail,
+                requiredTokenRange: 20...109
+            ),
+            PlayerCollectionBrowseMediaWindowPolicy.CompactCoverage(
+                decodedRange: 20...109,
+                fileRange: 0...199
+            )
+        )
+        XCTAssertNil(
+            MobilePlaybackController.collectionBrowseCompactCoverage(
+                imageSources: fallbackSources,
+                centeredAt: 50,
+                direction: .forward,
+                itemCount: 200,
+                columnCount: 5,
+                prefetchStride: 25,
+                quality: .smallThumbnail,
+                requiredTokenRange: 20...109
+            )
+        )
+        XCTAssertNil(
+            MobilePlaybackController.collectionBrowseCompactCoverage(
+                imageSources: distinctSources,
+                centeredAt: 50,
+                direction: .forward,
+                itemCount: 200,
+                columnCount: 5,
+                prefetchStride: 25,
+                quality: .thumbnail,
+                requiredTokenRange: 20...109
+            )
+        )
+    }
+
+    func testCompactWindowUsesNearestFirstOrdering() throws {
+        let descriptor: (Int) -> CollectionCatalogDownloadableMediaDescriptor = {
+            tokenIndex in
+            CollectionCatalogDownloadableMediaDescriptor(
+                collectionId: "dense-window",
+                tokenId: String(tokenIndex),
+                tokenIndex: tokenIndex,
+                media: .staticImage(
+                    url: URL(fileURLWithPath: "/dense-window/\(tokenIndex).webp"),
+                    fileExtension: "webp"
+                ),
+                purpose: .collectionBrowserThumbnail
+            )
+        }
+
+        let forward = try XCTUnwrap(
+            PlayerCollectionBrowseMediaWindowLayout.makeWindow(
+                centeredAt: 5,
+                itemCount: 12,
+                direction: .forward,
+                prefetchStride: 1,
+                compactCoverage: .init(
+                    decodedRange: 3...8,
+                    fileRange: 0...11
+                ),
+                descriptorForTokenIndex: descriptor
+            )
+        )
+        let backward = try XCTUnwrap(
+            PlayerCollectionBrowseMediaWindowLayout.makeWindow(
+                centeredAt: 5,
+                itemCount: 12,
+                direction: .backward,
+                prefetchStride: 1,
+                compactCoverage: .init(
+                    decodedRange: 2...7,
+                    fileRange: 0...11
+                ),
+                descriptorForTokenIndex: descriptor
+            )
+        )
+        let standard = try XCTUnwrap(
+            PlayerCollectionBrowseMediaWindowLayout.makeWindow(
+                centeredAt: 5,
+                itemCount: 12,
+                direction: .forward,
+                prefetchStride: 1,
+                descriptorForTokenIndex: descriptor
+            )
+        )
+
+        XCTAssertEqual(
+            forward.decodedDescriptors.map(\.tokenIndex),
+            [5, 6, 4, 7, 3, 8]
+        )
+        XCTAssertEqual(
+            backward.decodedDescriptors.map(\.tokenIndex),
+            [5, 4, 6, 3, 7, 2]
+        )
+        XCTAssertEqual(
+            standard.decodedDescriptors.map(\.tokenIndex),
+            [5, 6, 7, 4]
+        )
+    }
+
+    func testCompactWindowContainsFullVisibleRangeAtCollectionEnd() throws {
+        let coverage = try XCTUnwrap(
+            PlayerCollectionBrowseMediaWindowPolicy.compactCoverage(
+                centeredAt: 499,
+                requiredTokenRange: 445...499,
+                itemCount: 500,
+                columnCount: 5,
+                prefetchStride: 25,
+                prefersIncreasingIndices: true
+            )
+        )
+        let window = try XCTUnwrap(
+            PlayerCollectionBrowseMediaWindowLayout.makeWindow(
+                centeredAt: 499,
+                itemCount: 500,
+                direction: .forward,
+                prefetchStride: 25,
+                compactCoverage: coverage,
+                descriptorForTokenIndex: { tokenIndex in
+                    CollectionCatalogDownloadableMediaDescriptor(
+                        collectionId: "dense-boundary",
+                        tokenId: String(tokenIndex),
+                        tokenIndex: tokenIndex,
+                        media: .staticImage(
+                            url: URL(fileURLWithPath:
+                                "/dense-boundary/\(tokenIndex).webp"),
+                            fileExtension: "webp"
+                        ),
+                        purpose: .collectionBrowserThumbnail
+                    )
+                }
+            )
+        )
+        let visibleTokenIndices = Set(445...499)
+
+        XCTAssertEqual(coverage.decodedRange, 445...499)
+        XCTAssertTrue(
+            visibleTokenIndices.isSubset(of: Set(
+                window.descriptors.map(\.tokenIndex)
+            ))
+        )
+        XCTAssertTrue(
+            visibleTokenIndices.isSubset(of: Set(
+                window.decodedDescriptors.map(\.tokenIndex)
+            ))
+        )
+    }
+
     func testBrowseImageSourcesFollowCatalogTierLayouts() throws {
         let cases = [
             (
@@ -424,6 +647,483 @@ extension MobileCollectionBrowserGridModePresentationTests {
     }
 #endif
 
+    func testFiveColumnDragDefersForegroundImageLoadsUntilDecelerationEnds()
+        async throws {
+        let metadata = try collectionMetadata(minimumTokenCount: 300)
+        let fixture = try makeFixture(collectionId: metadata.id)
+        defer { tearDownFixture(fixture) }
+        let collectionView = try XCTUnwrap(
+            fixture.controller.view.subviews.first {
+                $0 is MobilePlayerCollectionBrowserCollectionView
+            } as? MobilePlayerCollectionBrowserCollectionView
+        )
+        func visibleCells() -> [MobilePlayerCollectionBrowserCell] {
+            collectionView.visibleCells.compactMap {
+                $0 as? MobilePlayerCollectionBrowserCell
+            }
+        }
+
+        try await selectGridMode(
+            .fiveColumns,
+            controller: fixture.controller
+        )
+        await waitForNextMainQueueTurn()
+#if DEBUG
+        let baselineThumbnailWindowMetrics =
+            fixture.controller.thumbnailWindowMetrics
+#endif
+
+        XCTAssertFalse(visibleCells().isEmpty)
+        XCTAssertTrue(visibleCells().allSatisfy(\.usesForegroundImageLoading))
+        let initialVisibleIndexPaths = Set(
+            collectionView.indexPathsForVisibleItems
+        )
+
+        fixture.controller.scrollViewWillBeginDragging(collectionView)
+        XCTAssertTrue(visibleCells().allSatisfy {
+            !$0.usesForegroundImageLoading
+        })
+
+        let firstRow = try XCTUnwrap(
+            collectionView.collectionViewLayout.layoutAttributesForItem(
+                at: IndexPath(item: 0, section: 0)
+            )
+        )
+        let distantRow = try XCTUnwrap(
+            collectionView.collectionViewLayout.layoutAttributesForItem(
+                at: IndexPath(item: 200, section: 0)
+            )
+        )
+        let distantOffsetDeltaY = distantRow.frame.midY - firstRow.frame.midY
+        collectionView.contentOffset.y += distantOffsetDeltaY
+        collectionView.layoutIfNeeded()
+        fixture.controller.scrollViewDidScroll(collectionView)
+
+        let movedVisibleIndexPaths = Set(
+            collectionView.indexPathsForVisibleItems
+        )
+        XCTAssertFalse(
+            movedVisibleIndexPaths.subtracting(initialVisibleIndexPaths)
+                .isEmpty
+        )
+#if DEBUG
+        let pendingRefreshCount =
+            fixture.controller.pendingDenseGridImageRefreshCount
+        XCTAssertGreaterThan(pendingRefreshCount, 0)
+        XCTAssertLessThanOrEqual(
+            pendingRefreshCount,
+            movedVisibleIndexPaths.count
+        )
+        XCTAssertTrue(fixture.controller.isDenseGridImageDisplayLinkActive)
+        XCTAssertEqual(
+            fixture.controller
+                .drainDenseGridImageDisplayLinkFrameForTesting(),
+            min(pendingRefreshCount, 5)
+        )
+
+        let refreshIndexPath = try XCTUnwrap(
+            collectionView.indexPathsForVisibleItems.first
+        )
+        let refreshCell = try XCTUnwrap(
+            collectionView.cellForItem(
+                at: refreshIndexPath
+            ) as? MobilePlayerCollectionBrowserCell
+        )
+        refreshCell.clearDisplayedImageForTesting()
+        let refreshDescriptor = try XCTUnwrap(refreshCell.descriptor)
+        let injectedImage = UIGraphicsImageRenderer(
+            size: CGSize(width: 2, height: 2)
+        ).image {
+            UIColor.cyan.setFill()
+            $0.fill(CGRect(x: 0, y: 0, width: 2, height: 2))
+        }
+        DownloadableMediaCache.shared.installDecodedImageForTesting(
+            injectedImage,
+            for: refreshDescriptor
+        )
+        defer {
+            DownloadableMediaCache.shared.removeDecodedImageForTesting(
+                for: refreshDescriptor
+            )
+        }
+        let baseImageView = try XCTUnwrap(
+            refreshCell.contentView.subviews.first {
+                $0 is NativeMetalCardCornerMaskedImageView
+            } as? NativeMetalCardCornerMaskedImageView
+        )
+        XCTAssertNil(baseImageView.image)
+        fixture.controller.replacePendingDenseGridImageRefreshesForTesting(
+            tokenIndices: [refreshIndexPath.item]
+        )
+        XCTAssertEqual(
+            fixture.controller
+                .drainDenseGridImageDisplayLinkFrameForTesting(),
+            1
+        )
+        XCTAssertTrue(baseImageView.image === injectedImage)
+        XCTAssertFalse(refreshCell.usesForegroundImageLoading)
+#endif
+#if DEBUG
+        try await waitUntil("Rolling thumbnail window did not advance") {
+            fixture.controller.thumbnailWindowMetrics.preparations
+                > baselineThumbnailWindowMetrics.preparations
+        }
+#endif
+
+        XCTAssertFalse(visibleCells().isEmpty)
+        XCTAssertTrue(visibleCells().allSatisfy {
+            !$0.usesForegroundImageLoading
+        })
+
+        fixture.controller.scrollViewDidEndDragging(
+            collectionView,
+            willDecelerate: true
+        )
+        XCTAssertTrue(visibleCells().allSatisfy {
+            !$0.usesForegroundImageLoading
+        })
+
+        fixture.controller.scrollViewDidEndDecelerating(collectionView)
+        XCTAssertFalse(visibleCells().isEmpty)
+        XCTAssertTrue(visibleCells().allSatisfy(\.usesForegroundImageLoading))
+#if DEBUG
+        XCTAssertEqual(fixture.controller.pendingDenseGridImageRefreshCount, 0)
+        XCTAssertFalse(fixture.controller.isDenseGridImageDisplayLinkActive)
+#endif
+
+        fixture.controller.scrollViewWillBeginDragging(collectionView)
+        XCTAssertTrue(visibleCells().allSatisfy {
+            !$0.usesForegroundImageLoading
+        })
+#if DEBUG
+        let reverseThumbnailWindowMetrics =
+            fixture.controller.thumbnailWindowMetrics
+#endif
+        collectionView.contentOffset.y -= distantOffsetDeltaY
+        collectionView.layoutIfNeeded()
+        fixture.controller.scrollViewDidScroll(collectionView)
+
+        XCTAssertEqual(fixture.controller.lastPrefetchDirection, .backward)
+        XCTAssertTrue(visibleCells().allSatisfy {
+            !$0.usesForegroundImageLoading
+        })
+#if DEBUG
+        try await waitUntil("Reverse thumbnail window did not advance") {
+            fixture.controller.thumbnailWindowMetrics.preparations
+                > reverseThumbnailWindowMetrics.preparations
+        }
+        XCTAssertLessThanOrEqual(
+            fixture.controller.pendingDenseGridImageRefreshCount,
+            collectionView.indexPathsForVisibleItems.count
+        )
+#endif
+        fixture.controller.scrollViewDidEndDragging(
+            collectionView,
+            willDecelerate: false
+        )
+        XCTAssertTrue(visibleCells().allSatisfy(\.usesForegroundImageLoading))
+#if DEBUG
+        XCTAssertEqual(fixture.controller.pendingDenseGridImageRefreshCount, 0)
+        XCTAssertFalse(fixture.controller.isDenseGridImageDisplayLinkActive)
+#endif
+    }
+
+#if DEBUG
+    func testFiveColumnMotionLimitsCachedImageInstallsPerFrame() async throws {
+        let metadata = try collectionMetadata(minimumTokenCount: 100)
+        let fixture = try makeFixture(collectionId: metadata.id)
+        defer { tearDownFixture(fixture) }
+        let collectionView = try XCTUnwrap(
+            fixture.controller.view.subviews.first {
+                $0 is MobilePlayerCollectionBrowserCollectionView
+            } as? MobilePlayerCollectionBrowserCollectionView
+        )
+
+        try await selectGridMode(
+            .fiveColumns,
+            controller: fixture.controller
+        )
+        fixture.controller.scrollViewWillBeginDragging(collectionView)
+        let indexPaths = Array(
+            collectionView.indexPathsForVisibleItems.sorted().prefix(6)
+        )
+        XCTAssertEqual(indexPaths.count, 6)
+        let cells = try indexPaths.map { indexPath in
+            try XCTUnwrap(
+                collectionView.cellForItem(at: indexPath)
+                    as? MobilePlayerCollectionBrowserCell
+            )
+        }
+        let image = UIGraphicsImageRenderer(
+            size: CGSize(width: 2, height: 2)
+        ).image {
+            UIColor.cyan.setFill()
+            $0.fill(CGRect(x: 0, y: 0, width: 2, height: 2))
+        }
+        let descriptors = try cells.map { cell in
+            cell.clearDisplayedImageForTesting()
+            return try XCTUnwrap(cell.descriptor)
+        }
+        descriptors.forEach {
+            DownloadableMediaCache.shared.installDecodedImageForTesting(
+                image,
+                for: $0
+            )
+        }
+        defer {
+            descriptors.forEach {
+                DownloadableMediaCache.shared.removeDecodedImageForTesting(
+                    for: $0
+                )
+            }
+        }
+        func installedImageCount() -> Int {
+            cells.filter { cell in
+                cell.contentView.subviews.contains {
+                    ($0 as? NativeMetalCardCornerMaskedImageView)?.image != nil
+                }
+            }.count
+        }
+        fixture.controller.replacePendingDenseGridImageRefreshesForTesting(
+            tokenIndices: indexPaths.map(\.item)
+        )
+
+        XCTAssertEqual(installedImageCount(), 0)
+        XCTAssertEqual(
+            fixture.controller.drainDenseGridImageDisplayLinkFrameForTesting(),
+            5
+        )
+        XCTAssertEqual(installedImageCount(), 5)
+        XCTAssertEqual(
+            fixture.controller.drainDenseGridImageDisplayLinkFrameForTesting(),
+            1
+        )
+        XCTAssertEqual(installedImageCount(), 6)
+    }
+#endif
+
+    func testThreeColumnDragKeepsForegroundImageLoads() throws {
+        let metadata = try collectionMetadata(minimumTokenCount: 100)
+        let fixture = try makeFixture(collectionId: metadata.id)
+        defer { tearDownFixture(fixture) }
+        let collectionView = try XCTUnwrap(
+            fixture.controller.view.subviews.first {
+                $0 is MobilePlayerCollectionBrowserCollectionView
+            } as? MobilePlayerCollectionBrowserCollectionView
+        )
+        let visibleCells = collectionView.visibleCells.compactMap {
+            $0 as? MobilePlayerCollectionBrowserCell
+        }
+
+        XCTAssertFalse(visibleCells.isEmpty)
+        XCTAssertTrue(visibleCells.allSatisfy(\.usesForegroundImageLoading))
+
+        fixture.controller.scrollViewWillBeginDragging(collectionView)
+        XCTAssertTrue(visibleCells.allSatisfy(\.usesForegroundImageLoading))
+
+        fixture.controller.scrollViewDidEndDragging(
+            collectionView,
+            willDecelerate: false
+        )
+        XCTAssertTrue(visibleCells.allSatisfy(\.usesForegroundImageLoading))
+    }
+
+#if DEBUG
+    func testForcedPreparationEndsScrollMotion() async throws {
+        let metadata = try collectionMetadata(minimumTokenCount: 100)
+        let fixture = try makeFixture(collectionId: metadata.id)
+        defer { tearDownFixture(fixture) }
+        let collectionView = try XCTUnwrap(
+            fixture.controller.view.subviews.first {
+                $0 is MobilePlayerCollectionBrowserCollectionView
+            } as? MobilePlayerCollectionBrowserCollectionView
+        )
+        try await selectGridMode(
+            .fiveColumns,
+            controller: fixture.controller
+        )
+        fixture.controller.scrollViewWillBeginDragging(collectionView)
+        XCTAssertTrue(fixture.controller.isScrollMotionActiveForTesting)
+        let preparation = try XCTUnwrap(
+            MobilePlaybackController.shared.prepareCollectionBrowse(
+                uuid: fixture.uuid,
+                containing: PlayerPagePosition(position: 25)
+            )
+        )
+
+        let result = await prepare(
+            fixture.controller,
+            using: preparation,
+            forcePosition: true
+        )
+
+        XCTAssertEqual(result, .prepared)
+        XCTAssertFalse(fixture.controller.isScrollMotionActiveForTesting)
+        XCTAssertEqual(fixture.controller.pendingDenseGridImageRefreshCount, 0)
+    }
+
+    func testPreparedTransitionSelectionEndsScrollMotion() async throws {
+        let metadata = try collectionMetadata(minimumTokenCount: 100)
+        let fixture = try makeFixture(collectionId: metadata.id)
+        defer { tearDownFixture(fixture) }
+        let collectionView = try XCTUnwrap(
+            fixture.controller.view.subviews.first {
+                $0 is MobilePlayerCollectionBrowserCollectionView
+            } as? MobilePlayerCollectionBrowserCollectionView
+        )
+        try await selectGridMode(
+            .fiveColumns,
+            controller: fixture.controller
+        )
+        let pagePosition = try XCTUnwrap(fixture.controller.currentPagePosition)
+        let preparation = try XCTUnwrap(
+            MobilePlaybackController.shared.prepareCollectionBrowse(
+                uuid: fixture.uuid,
+                containing: pagePosition
+            )
+        )
+        fixture.controller.scrollViewWillBeginDragging(collectionView)
+        XCTAssertTrue(fixture.controller.isScrollMotionActiveForTesting)
+
+        let selection = fixture.controller.preparedTransitionSelection(
+            using: preparation
+        )
+
+        XCTAssertNotNil(selection)
+        XCTAssertFalse(fixture.controller.isScrollMotionActiveForTesting)
+        XCTAssertEqual(fixture.controller.pendingDenseGridImageRefreshCount, 0)
+    }
+
+    func testOrdinarySelectionEndsScrollMotion() async throws {
+        let metadata = try collectionMetadata(minimumTokenCount: 100)
+        let fixture = try makeFixture(collectionId: metadata.id)
+        defer { tearDownFixture(fixture) }
+        let collectionView = try XCTUnwrap(
+            fixture.controller.view.subviews.first {
+                $0 is MobilePlayerCollectionBrowserCollectionView
+            } as? MobilePlayerCollectionBrowserCollectionView
+        )
+        try await selectGridMode(
+            .fiveColumns,
+            controller: fixture.controller
+        )
+        let indexPath = try XCTUnwrap(
+            collectionView.indexPathsForVisibleItems.sorted().first {
+                guard let cell = collectionView.cellForItem(at: $0)
+                    as? MobilePlayerCollectionBrowserCell else {
+                    return false
+                }
+                return cell.canSelect(representing: .init(
+                    collectionId: metadata.id,
+                    tokenIndex: $0.item
+                ))
+            }
+        )
+        var selectionCount = 0
+        fixture.controller.onSelection = { _ in
+            selectionCount += 1
+            return true
+        }
+        fixture.controller.scrollViewWillBeginDragging(collectionView)
+        XCTAssertTrue(fixture.controller.isScrollMotionActiveForTesting)
+
+        fixture.controller.collectionView(
+            collectionView,
+            didSelectItemAt: indexPath
+        )
+
+        XCTAssertEqual(selectionCount, 1)
+        XCTAssertFalse(fixture.controller.isScrollMotionActiveForTesting)
+        XCTAssertEqual(fixture.controller.pendingDenseGridImageRefreshCount, 0)
+    }
+
+    func testRejectedSelectionRestoresForegroundImageLoading() async throws {
+        let metadata = try collectionMetadata(minimumTokenCount: 100)
+        let fixture = try makeFixture(collectionId: metadata.id)
+        defer { tearDownFixture(fixture) }
+        let collectionView = try XCTUnwrap(
+            fixture.controller.view.subviews.first {
+                $0 is MobilePlayerCollectionBrowserCollectionView
+            } as? MobilePlayerCollectionBrowserCollectionView
+        )
+        try await selectGridMode(
+            .fiveColumns,
+            controller: fixture.controller
+        )
+        let indexPath = try XCTUnwrap(
+            collectionView.indexPathsForVisibleItems.sorted().first {
+                guard let cell = collectionView.cellForItem(at: $0)
+                    as? MobilePlayerCollectionBrowserCell else {
+                    return false
+                }
+                return cell.canSelect(representing: .init(
+                    collectionId: metadata.id,
+                    tokenIndex: $0.item
+                ))
+            }
+        )
+        fixture.controller.onSelection = { _ in false }
+        fixture.controller.scrollViewWillBeginDragging(collectionView)
+
+        fixture.controller.collectionView(
+            collectionView,
+            didSelectItemAt: indexPath
+        )
+
+        XCTAssertFalse(fixture.controller.isScrollMotionActiveForTesting)
+        let visibleCells = collectionView.visibleCells.compactMap {
+            $0 as? MobilePlayerCollectionBrowserCell
+        }
+        XCTAssertFalse(visibleCells.isEmpty)
+        XCTAssertTrue(visibleCells.allSatisfy(\.usesForegroundImageLoading))
+        XCTAssertEqual(fixture.controller.pendingDenseGridImageRefreshCount, 0)
+    }
+
+    func testLateScrollToTopCallbackDoesNotEndInterruptingDrag()
+        async throws {
+        let metadata = try collectionMetadata(minimumTokenCount: 100)
+        let fixture = try makeFixture(collectionId: metadata.id)
+        defer { tearDownFixture(fixture) }
+        let collectionView = try XCTUnwrap(
+            fixture.controller.view.subviews.first {
+                $0 is MobilePlayerCollectionBrowserCollectionView
+            } as? MobilePlayerCollectionBrowserCollectionView
+        )
+        try await selectGridMode(
+            .fiveColumns,
+            controller: fixture.controller
+        )
+        collectionView.contentOffset.y = min(
+            1_000,
+            max(
+                -collectionView.adjustedContentInset.top,
+                collectionView.contentSize.height - collectionView.bounds.height
+            )
+        )
+        XCTAssertTrue(
+            fixture.controller.scrollViewShouldScrollToTop(collectionView)
+        )
+        fixture.controller.scrollViewWillBeginDragging(collectionView)
+        XCTAssertTrue(fixture.controller.isScrollMotionActiveForTesting)
+
+        fixture.controller.scrollViewDidScrollToTop(collectionView)
+
+        XCTAssertTrue(fixture.controller.isScrollMotionActiveForTesting)
+        let deferredCells = collectionView.visibleCells.compactMap {
+            $0 as? MobilePlayerCollectionBrowserCell
+        }
+        XCTAssertFalse(deferredCells.isEmpty)
+        XCTAssertTrue(deferredCells.allSatisfy {
+            !$0.usesForegroundImageLoading
+        })
+        fixture.controller.scrollViewDidEndDragging(
+            collectionView,
+            willDecelerate: false
+        )
+        XCTAssertFalse(fixture.controller.isScrollMotionActiveForTesting)
+    }
+#endif
+
     func testControllerDeallocatesWithActiveInteractionFadeDisplayLink()
         async throws {
         let metadata = try collectionMetadata()
@@ -472,16 +1172,34 @@ extension MobileCollectionBrowserGridModePresentationTests {
         let metadata = try collectionMetadata()
         let fixture = try makeFixture(collectionId: metadata.id)
         defer { tearDownFixture(fixture) }
+        let collectionView = try XCTUnwrap(
+            fixture.controller.view.subviews.first {
+                $0 is MobilePlayerCollectionBrowserCollectionView
+            } as? MobilePlayerCollectionBrowserCollectionView
+        )
         try await selectGridMode(
             .fiveColumns,
             controller: fixture.controller
         )
+        fixture.controller.scrollViewWillBeginDragging(collectionView)
+        XCTAssertTrue(collectionView.visibleCells.compactMap {
+            $0 as? MobilePlayerCollectionBrowserCell
+        }.allSatisfy {
+            !$0.usesForegroundImageLoading
+        })
 
         fixture.controller.scrollToFirstItemAndPublish()
         XCTAssertEqual(fixture.controller.gridMode, .fiveColumns)
         await waitForNextMainQueueTurn()
 
         XCTAssertEqual(fixture.controller.gridMode, .fiveColumns)
+        try await waitUntil("Restart did not resume visible image loads") {
+            let visibleCells = collectionView.visibleCells.compactMap {
+                $0 as? MobilePlayerCollectionBrowserCell
+            }
+            return !visibleCells.isEmpty
+                && visibleCells.allSatisfy(\.usesForegroundImageLoading)
+        }
     }
 
     func testCommitSnapshotBlocksSelectionUntilItDissolves() async throws {
@@ -1106,6 +1824,13 @@ extension MobileCollectionBrowserGridModePresentationTests {
         XCTAssertEqual(fixture.controller.gridMode, .fiveColumns)
         XCTAssertTrue(collectionView.isScrollEnabled)
         XCTAssertTrue(settledPagePositions.isEmpty)
+        let visibleCells = collectionView.visibleCells.compactMap {
+            $0 as? MobilePlayerCollectionBrowserCell
+        }
+        XCTAssertFalse(visibleCells.isEmpty)
+        XCTAssertTrue(visibleCells.allSatisfy {
+            !$0.usesForegroundImageLoading
+        })
     }
 
     func testAccessibilityScrollInterruptsSettleBeforeScrolling() throws {
@@ -1167,6 +1892,195 @@ extension MobileCollectionBrowserGridModePresentationTests {
             settledPagePositions,
             [try XCTUnwrap(fixture.controller.currentPagePosition)]
         )
+        let visibleCells = collectionView.visibleCells.compactMap {
+            $0 as? MobilePlayerCollectionBrowserCell
+        }
+        XCTAssertFalse(visibleCells.isEmpty)
+        XCTAssertTrue(visibleCells.allSatisfy(\.usesForegroundImageLoading))
+    }
+
+    func testFailedAccessibilityAttemptKeepsActiveScrollImageDeferral()
+        async throws {
+        let metadata = try collectionMetadata(minimumTokenCount: 100)
+        let fixture = try makeFixture(collectionId: metadata.id)
+        defer { tearDownFixture(fixture) }
+        let collectionView = try XCTUnwrap(
+            fixture.controller.view.subviews.first {
+                $0 is MobilePlayerCollectionBrowserCollectionView
+            } as? MobilePlayerCollectionBrowserCollectionView
+        )
+
+        try await selectGridMode(
+            .fiveColumns,
+            controller: fixture.controller
+        )
+        let activeAttempt = try XCTUnwrap(
+            collectionView.onWillAccessibilityScroll?()
+        )
+        collectionView.onAccessibilityScrollResult?(true, activeAttempt)
+#if DEBUG
+        XCTAssertTrue(
+            fixture.controller
+                .isScrollMotionAnimationTimeoutScheduled
+        )
+#endif
+        let failedAttempt = try XCTUnwrap(
+            collectionView.onWillAccessibilityScroll?()
+        )
+        collectionView.onAccessibilityScrollResult?(false, failedAttempt)
+
+        let deferredCells = collectionView.visibleCells.compactMap {
+            $0 as? MobilePlayerCollectionBrowserCell
+        }
+        XCTAssertFalse(deferredCells.isEmpty)
+        XCTAssertTrue(deferredCells.allSatisfy {
+            !$0.usesForegroundImageLoading
+        })
+
+#if DEBUG
+        XCTAssertTrue(
+            fixture.controller
+                .isScrollMotionAnimationTimeoutScheduled
+        )
+        fixture.controller.expireScrollMotionAnimationForTesting()
+        XCTAssertFalse(
+            fixture.controller
+                .isScrollMotionAnimationTimeoutScheduled
+        )
+#else
+        fixture.controller.scrollViewDidEndScrollingAnimation(collectionView)
+#endif
+        let resumedCells = collectionView.visibleCells.compactMap {
+            $0 as? MobilePlayerCollectionBrowserCell
+        }
+        XCTAssertFalse(resumedCells.isEmpty)
+        XCTAssertTrue(resumedCells.allSatisfy(\.usesForegroundImageLoading))
+#if DEBUG
+        XCTAssertEqual(fixture.controller.pendingDenseGridImageRefreshCount, 0)
+        XCTAssertFalse(fixture.controller.isDenseGridImageDisplayLinkActive)
+#endif
+    }
+
+#if DEBUG
+    func testFailedAccessibilityAttemptReschedulesGeometryPrewarming() throws {
+        let fixture = try makeFixture(
+            collectionId: collectionId(internalSlug: "in_your_dreams")
+        )
+        defer { tearDownFixture(fixture) }
+        let collectionView = try XCTUnwrap(
+            fixture.controller.view.subviews.first {
+                $0 is MobilePlayerCollectionBrowserCollectionView
+            } as? MobilePlayerCollectionBrowserCollectionView
+        )
+        fixture.controller.resetGridModeGeometryPrewarmingForTesting()
+        XCTAssertFalse(
+            fixture.controller.hasPendingGridModeGeometryPrewarmForTesting
+        )
+        let attempt = try XCTUnwrap(
+            collectionView.onWillAccessibilityScroll?()
+        )
+        XCTAssertFalse(attempt.interruptedGridModeSettle)
+
+        collectionView.onAccessibilityScrollResult?(false, attempt)
+
+        XCTAssertTrue(
+            fixture.controller.hasPendingGridModeGeometryPrewarmForTesting
+        )
+    }
+#endif
+
+    func testHiddenControllerDoesNotResumeVisibleImageLoads() async throws {
+        let metadata = try collectionMetadata(minimumTokenCount: 100)
+        let fixture = try makeFixture(collectionId: metadata.id)
+        defer { tearDownFixture(fixture) }
+        let collectionView = try XCTUnwrap(
+            fixture.controller.view.subviews.first {
+                $0 is MobilePlayerCollectionBrowserCollectionView
+            } as? MobilePlayerCollectionBrowserCollectionView
+        )
+        try await selectGridMode(
+            .fiveColumns,
+            controller: fixture.controller
+        )
+        fixture.controller.scrollViewWillBeginDragging(collectionView)
+
+        fixture.controller.viewWillDisappear(false)
+        fixture.controller.scrollViewDidEndScrollingAnimation(collectionView)
+
+        let visibleCells = collectionView.visibleCells.compactMap {
+            $0 as? MobilePlayerCollectionBrowserCell
+        }
+        XCTAssertFalse(visibleCells.isEmpty)
+        XCTAssertTrue(visibleCells.allSatisfy {
+            !$0.usesForegroundImageLoading
+        })
+    }
+
+    func testDetachedControllerDoesNotResumeVisibleImageLoads() async throws {
+        let metadata = try collectionMetadata(minimumTokenCount: 100)
+        let fixture = try makeFixture(collectionId: metadata.id)
+        defer { tearDownFixture(fixture) }
+        let collectionView = try XCTUnwrap(
+            fixture.controller.view.subviews.first {
+                $0 is MobilePlayerCollectionBrowserCollectionView
+            } as? MobilePlayerCollectionBrowserCollectionView
+        )
+        try await selectGridMode(
+            .fiveColumns,
+            controller: fixture.controller
+        )
+        fixture.controller.scrollViewWillBeginDragging(collectionView)
+        fixture.window.rootViewController = nil
+
+        fixture.controller.viewDidAppear(false)
+        fixture.controller.scrollViewDidEndScrollingAnimation(collectionView)
+
+        let visibleCells = collectionView.visibleCells.compactMap {
+            $0 as? MobilePlayerCollectionBrowserCell
+        }
+        XCTAssertFalse(visibleCells.isEmpty)
+        XCTAssertTrue(visibleCells.allSatisfy {
+            !$0.usesForegroundImageLoading
+        })
+    }
+
+    func testLateAnimatedScrollEndDoesNotEndInterruptingDrag() async throws {
+        let metadata = try collectionMetadata(minimumTokenCount: 100)
+        let fixture = try makeFixture(collectionId: metadata.id)
+        defer { tearDownFixture(fixture) }
+        let collectionView = try XCTUnwrap(
+            fixture.controller.view.subviews.first {
+                $0 is MobilePlayerCollectionBrowserCollectionView
+            } as? MobilePlayerCollectionBrowserCollectionView
+        )
+
+        try await selectGridMode(
+            .fiveColumns,
+            controller: fixture.controller
+        )
+        let attempt = try XCTUnwrap(
+            collectionView.onWillAccessibilityScroll?()
+        )
+        collectionView.onAccessibilityScrollResult?(true, attempt)
+        fixture.controller.scrollViewWillBeginDragging(collectionView)
+
+        fixture.controller.scrollViewDidEndScrollingAnimation(collectionView)
+
+        let deferredCells = collectionView.visibleCells.compactMap {
+            $0 as? MobilePlayerCollectionBrowserCell
+        }
+        XCTAssertFalse(deferredCells.isEmpty)
+        XCTAssertTrue(deferredCells.allSatisfy {
+            !$0.usesForegroundImageLoading
+        })
+
+        fixture.controller.scrollViewDidEndDragging(
+            collectionView,
+            willDecelerate: false
+        )
+        XCTAssertTrue(collectionView.visibleCells.compactMap {
+            $0 as? MobilePlayerCollectionBrowserCell
+        }.allSatisfy(\.usesForegroundImageLoading))
     }
 
     func testFailedAccessibilityScrollAppliesPendingSafeAreaRefreshBeforeSettlement()

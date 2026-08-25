@@ -376,17 +376,36 @@ class MobilePlaybackController {
         centeredAt tokenIndex: Int,
         direction: DownloadableMediaCache.PrefetchDirection,
         prefetchStride: Int,
+        columnCount: Int,
         quality: CollectionBrowseImageQuality,
+        requiredTokenRange: ClosedRange<Int>?,
         displayedRegularThumbnailTokenIndices: Set<Int>,
         displayedLargeTokenIndices: Set<Int>,
         locallyAvailableLargeTokenIndices: Set<Int>
     ) {
-        guard let snapshot = collectionBrowseSnapshot(uuid: uuid),
-              let preparedWindow = PlayerCollectionBrowseMediaWindowLayout.makeWindow(
+        guard let snapshot = collectionBrowseSnapshot(uuid: uuid) else {
+            clearDownloadableMediaWindow(uuid: uuid)
+            return
+        }
+        let compactCoverage = Self.collectionBrowseCompactCoverage(
+            imageSources: collectionBrowseImageSources(
+                snapshot: snapshot,
+                tokenIndex: tokenIndex
+            ),
+            centeredAt: tokenIndex,
+            direction: direction,
+            itemCount: snapshot.itemCount,
+            columnCount: columnCount,
+            prefetchStride: prefetchStride,
+            quality: quality,
+            requiredTokenRange: requiredTokenRange
+        )
+        guard let preparedWindow = PlayerCollectionBrowseMediaWindowLayout.makeWindow(
                 centeredAt: tokenIndex,
                 itemCount: snapshot.itemCount,
                 direction: direction,
                 prefetchStride: prefetchStride,
+                compactCoverage: compactCoverage,
                 descriptorForTokenIndex: { candidateTokenIndex in
                     let selection = CollectionBrowseImageWindowSelection.resolve(
                         requiredQuality: quality,
@@ -425,6 +444,33 @@ class MobilePlaybackController {
             return
         }
         DownloadableMediaCache.shared.prepareWindow(preparedWindow, ownerId: uuid)
+    }
+
+    nonisolated static func collectionBrowseCompactCoverage(
+        imageSources: CollectionBrowseImageSources?,
+        centeredAt tokenIndex: Int,
+        direction: DownloadableMediaCache.PrefetchDirection,
+        itemCount: Int,
+        columnCount: Int,
+        prefetchStride: Int,
+        quality: CollectionBrowseImageQuality,
+        requiredTokenRange: ClosedRange<Int>?
+    ) -> PlayerCollectionBrowseMediaWindowPolicy.CompactCoverage? {
+        guard quality == .smallThumbnail,
+              let requiredTokenRange,
+              let imageSources,
+              imageSources.smallThumbnailDescriptor
+                != imageSources.thumbnailDescriptor else {
+            return nil
+        }
+        return PlayerCollectionBrowseMediaWindowPolicy.compactCoverage(
+            centeredAt: tokenIndex,
+            requiredTokenRange: requiredTokenRange,
+            itemCount: itemCount,
+            columnCount: columnCount,
+            prefetchStride: prefetchStride,
+            prefersIncreasingIndices: direction == .forward
+        )
     }
 
     func downloadableMediaDescriptor(uuid: UUID, pagePosition: PlayerPagePosition) -> DownloadableMediaDescriptor? {

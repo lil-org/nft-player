@@ -146,20 +146,48 @@ nonisolated enum PlayerCollectionBrowseMediaWindowLayout {
         itemCount: Int,
         direction: DownloadableMediaCache.PrefetchDirection,
         prefetchStride: Int,
+        compactCoverage: PlayerCollectionBrowseMediaWindowPolicy.CompactCoverage? = nil,
         descriptorForTokenIndex: (Int) -> CollectionCatalogDownloadableMediaDescriptor?
     ) -> PlayerDownloadableMediaWindow? {
         guard itemCount > 0, (0..<itemCount).contains(tokenIndex) else { return nil }
 
-        let fileTokenIndices = PlayerDownloadableMediaWindowLayout.indices(
-            currentIndex: tokenIndex,
-            tokenCount: itemCount,
-            offsets: fileOffsets(prefetchStride: prefetchStride, direction: direction)
+        let compactCoverage = validatedCompactCoverage(
+            compactCoverage,
+            centeredAt: tokenIndex,
+            itemCount: itemCount
         )
-        let decodedTokenIndices = PlayerDownloadableMediaWindowLayout.indices(
-            currentIndex: tokenIndex,
-            tokenCount: itemCount,
-            offsets: decodedOffsets(prefetchStride: prefetchStride, direction: direction)
-        )
+        let fileTokenIndices: [Int]
+        let decodedTokenIndices: [Int]
+        if let compactCoverage {
+            fileTokenIndices = directionallyOrderedTokenIndices(
+                centeredAt: tokenIndex,
+                in: compactCoverage.fileRange,
+                direction: direction
+            )
+            decodedTokenIndices = PlayerCollectionBrowseMediaWindowPolicy
+                .nearestFirstTokenIndices(
+                    centeredAt: tokenIndex,
+                    in: compactCoverage.decodedRange,
+                    prefersIncreasingIndices: direction == .forward
+                )
+        } else {
+            fileTokenIndices = PlayerDownloadableMediaWindowLayout.indices(
+                currentIndex: tokenIndex,
+                tokenCount: itemCount,
+                offsets: fileOffsets(
+                    prefetchStride: prefetchStride,
+                    direction: direction
+                )
+            )
+            decodedTokenIndices = PlayerDownloadableMediaWindowLayout.indices(
+                currentIndex: tokenIndex,
+                tokenCount: itemCount,
+                offsets: decodedOffsets(
+                    prefetchStride: prefetchStride,
+                    direction: direction
+                )
+            )
+        }
         var descriptorLookup = [Int: CollectionCatalogDownloadableMediaDescriptor]()
         descriptorLookup.reserveCapacity(fileTokenIndices.count)
         for index in fileTokenIndices {
@@ -194,6 +222,57 @@ nonisolated enum PlayerCollectionBrowseMediaWindowLayout {
             adjacentDescriptor: adjacentTokenIndex.flatMap { descriptorLookup[$0] },
             decodedDescriptorCapacity: max(decodedDescriptors.count, 1)
         )
+    }
+
+    private static func validatedCompactCoverage(
+        _ coverage: PlayerCollectionBrowseMediaWindowPolicy.CompactCoverage?,
+        centeredAt tokenIndex: Int,
+        itemCount: Int
+    ) -> PlayerCollectionBrowseMediaWindowPolicy.CompactCoverage? {
+        guard let coverage,
+              coverage.fileRange.lowerBound >= 0,
+              coverage.fileRange.upperBound < itemCount,
+              coverage.fileRange.contains(tokenIndex),
+              coverage.decodedRange.lowerBound >= coverage.fileRange.lowerBound,
+              coverage.decodedRange.upperBound <= coverage.fileRange.upperBound,
+              coverage.decodedRange.contains(tokenIndex) else {
+            return nil
+        }
+        return coverage
+    }
+
+    private static func directionallyOrderedTokenIndices(
+        centeredAt tokenIndex: Int,
+        in range: ClosedRange<Int>,
+        direction: DownloadableMediaCache.PrefetchDirection
+    ) -> [Int] {
+        var indices = [tokenIndex]
+
+        func appendIncreasingIndices() {
+            var index = tokenIndex
+            while index < range.upperBound {
+                index += 1
+                indices.append(index)
+            }
+        }
+
+        func appendDecreasingIndices() {
+            var index = tokenIndex
+            while index > range.lowerBound {
+                index -= 1
+                indices.append(index)
+            }
+        }
+
+        switch direction {
+        case .forward:
+            appendIncreasingIndices()
+            appendDecreasingIndices()
+        case .backward:
+            appendDecreasingIndices()
+            appendIncreasingIndices()
+        }
+        return indices
     }
 
     private static func offsets(

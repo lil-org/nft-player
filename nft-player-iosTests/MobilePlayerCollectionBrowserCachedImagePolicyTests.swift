@@ -12,6 +12,119 @@ nonisolated final class MobilePlayerCollectionBrowserCachedImagePolicyTests: XCT
 @MainActor
 extension MobilePlayerCollectionBrowserCachedImagePolicyTests {
 
+#if DEBUG
+    func testPendingDecodePriorityBucketsPreserveOrderAndDeduplicate() {
+        XCTAssertEqual(
+            DownloadableMediaCache.orderedPendingImageDecodeKeysForTesting(
+                pendingKeys: [
+                    "tail",
+                    "foreground",
+                    "demand-b",
+                    "near",
+                    "demand-a",
+                    "demand-b"
+                ],
+                imageDemandKeys: ["demand-a", "demand-b"],
+                foregroundKey: "foreground",
+                preferredKeys: ["near", "foreground"]
+            ),
+            ["demand-b", "demand-a", "foreground", "near", "tail"]
+        )
+    }
+
+    func testAddingImageDemandPromotesExistingPendingDecode() {
+        let pendingKeys = ["foreground", "near", "demanded", "tail"]
+        let withoutDemand = DownloadableMediaCache
+            .orderedPendingImageDecodeKeysForTesting(
+                pendingKeys: pendingKeys,
+                imageDemandKeys: [],
+                foregroundKey: "foreground",
+                preferredKeys: ["near", "demanded"]
+            )
+        let withDemand = DownloadableMediaCache
+            .orderedPendingImageDecodeKeysForTesting(
+                pendingKeys: pendingKeys,
+                imageDemandKeys: ["demanded"],
+                foregroundKey: "foreground",
+                preferredKeys: ["near", "demanded"]
+            )
+
+        XCTAssertEqual(
+            withoutDemand,
+            ["foreground", "near", "demanded", "tail"]
+        )
+        XCTAssertEqual(
+            withDemand,
+            ["demanded", "foreground", "near", "tail"]
+        )
+    }
+
+    func testCancellingLastImageDemandDemotesRetainedPendingDecode() {
+        let pendingKeys = ["demanded", "foreground", "near", "tail"]
+        let withDemand = DownloadableMediaCache
+            .orderedPendingImageDecodeKeysForTesting(
+                pendingKeys: pendingKeys,
+                imageDemandKeys: ["demanded"],
+                foregroundKey: "foreground",
+                preferredKeys: ["near", "demanded"]
+            )
+        let afterCancellation = DownloadableMediaCache
+            .orderedPendingImageDecodeKeysForTesting(
+                pendingKeys: pendingKeys,
+                imageDemandKeys: [],
+                foregroundKey: "foreground",
+                preferredKeys: ["near", "demanded"]
+            )
+
+        XCTAssertEqual(
+            withDemand,
+            ["demanded", "foreground", "near", "tail"]
+        )
+        XCTAssertEqual(
+            afterCancellation,
+            ["foreground", "near", "demanded", "tail"]
+        )
+    }
+
+    func testQueuedDecodeRetirementRequiresNoWindowDemandOrStartedWork() {
+        XCTAssertTrue(DownloadableMediaCache.shouldRetireQueuedImageDecodeForTesting(
+            isInDecodedWindow: false,
+            hasImageDemand: false,
+            hasStarted: false
+        ))
+        XCTAssertFalse(DownloadableMediaCache.shouldRetireQueuedImageDecodeForTesting(
+            isInDecodedWindow: true,
+            hasImageDemand: false,
+            hasStarted: false
+        ))
+        XCTAssertFalse(DownloadableMediaCache.shouldRetireQueuedImageDecodeForTesting(
+            isInDecodedWindow: false,
+            hasImageDemand: true,
+            hasStarted: false
+        ))
+        XCTAssertFalse(DownloadableMediaCache.shouldRetireQueuedImageDecodeForTesting(
+            isInDecodedWindow: false,
+            hasImageDemand: false,
+            hasStarted: true
+        ))
+    }
+
+    func testDecodeGenerationStartsOnceAndInvalidationSkipsIt() {
+        XCTAssertEqual(
+            DownloadableMediaCache.imageDecodeGenerationStartResultsForTesting(
+                invalidateBeforeStart: false
+            ),
+            [true, false]
+        )
+        XCTAssertEqual(
+            DownloadableMediaCache.imageDecodeGenerationStartResultsForTesting(
+                invalidateBeforeStart: true
+            ),
+            [false, false]
+        )
+    }
+#endif
+
     private func makeDescriptor(
         name: String,
         purpose: CollectionCatalogDownloadableMediaPurpose,
@@ -367,6 +480,61 @@ extension MobilePlayerCollectionBrowserCachedImagePolicyTests {
     }
 
 #if DEBUG
+    func testCachedOnlyCellInstallsImageDecodedAfterConfiguration() throws {
+        let collectionId = "scrolling-cache-\(UUID())"
+        let descriptor = makeDescriptor(
+            name: "scrolling-cache",
+            purpose: .collectionBrowserThumbnail,
+            collectionId: collectionId,
+            tokenIndex: 0
+        )
+        let sources = CollectionBrowseImageSources(
+            thumbnailDescriptor: descriptor,
+            largeDescriptor: descriptor
+        )
+        let identity = MobilePlayerBrowserContentIdentity(
+            collectionId: collectionId,
+            tokenIndex: 0
+        )
+        let image = makeImage(.magenta)
+        let cache = DownloadableMediaCache.shared
+        let cell = MobilePlayerCollectionBrowserCell(frame: CGRect(
+            x: 0,
+            y: 0,
+            width: 120,
+            height: 80
+        ))
+        cell.configure(
+            contentIdentity: identity,
+            itemCount: 1,
+            imageSources: sources,
+            requiredImageQuality: .smallThumbnail,
+            missingDescriptorFallbackSpec:
+                PlayerMediaPlaceholderSpec(thumbnailAspectRatio: nil),
+            imageLoadPolicy: .cachedOnly,
+            allowsLocalLargeImageUpgrade: false
+        )
+        let baseImageView = try XCTUnwrap(
+            cell.contentView.subviews.first {
+                $0 is NativeMetalCardCornerMaskedImageView
+            } as? NativeMetalCardCornerMaskedImageView
+        )
+        XCTAssertNil(baseImageView.image)
+        XCTAssertFalse(cell.usesForegroundImageLoading)
+
+        cache.installDecodedImageForTesting(image, for: descriptor)
+        defer {
+            cache.removeDecodedImageForTesting(for: descriptor)
+        }
+
+        XCTAssertEqual(
+            cell.refreshCachedImageIfAvailable(tokenIndex: 0),
+            .satisfied
+        )
+        XCTAssertTrue(baseImageView.image === image)
+        XCTAssertFalse(cell.usesForegroundImageLoading)
+    }
+
     func testForegroundCachedIdentityRetargetPreservesCarryoverUntilFade() throws {
         let collectionId = "cached-retarget-\(UUID())"
         let descriptorA = makeDescriptor(

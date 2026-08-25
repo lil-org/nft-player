@@ -49,6 +49,12 @@ func cachedImageDescriptorRetention(
 }
 
 final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
+    enum CachedImageRefreshResult: Equatable {
+        case satisfied
+        case retry
+        case unavailable
+    }
+
     enum ImageLoadPolicy: Equatable {
         case disabled
         case cachedOnly
@@ -492,11 +498,7 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
         case .disabled:
             break
         case .cachedOnly:
-            installCachedImageIfAvailable(
-                animatedWhenLoaded: false,
-                tracksLocalFileAvailability: false,
-                prewarmsNativeMetalCardFace: false
-            )
+            break
         case .foreground:
             if previousImageLoadPolicy != .foreground,
                let retainedDescriptor {
@@ -535,6 +537,49 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
         configuredImageLoadPolicy = .cachedOnly
         cancelImageLoad()
     }
+
+    func refreshCachedImageIfAvailable(
+        tokenIndex: Int
+    ) -> CachedImageRefreshResult {
+        guard representedTokenIndex == tokenIndex,
+              configuredImageLoadPolicy == .cachedOnly,
+              imageSources != nil else {
+            return .unavailable
+        }
+        guard needsCachedImageRefresh(tokenIndex: tokenIndex) else {
+            return .satisfied
+        }
+        installCachedImageIfAvailable(
+            animatedWhenLoaded: false,
+            tracksLocalFileAvailability: false,
+            prewarmsNativeMetalCardFace: false
+        )
+        return needsCachedImageRefresh(tokenIndex: tokenIndex)
+            ? .retry
+            : .satisfied
+    }
+
+    func needsCachedImageRefresh(tokenIndex: Int) -> Bool {
+        guard representedTokenIndex == tokenIndex,
+              configuredImageLoadPolicy == .cachedOnly,
+              imageSources != nil else {
+            return false
+        }
+        return displayedImageQuality?.canReplace(requiredImageQuality) != true
+            && deferredImageInstall?.quality.canReplace(requiredImageQuality)
+                != true
+    }
+
+#if DEBUG
+    func clearDisplayedImageForTesting() {
+        deferredImageInstall = nil
+        clearTransitionContent()
+        displayedImageDescriptor = nil
+        displayedImageHasLocalFile = false
+        imageView.image = nil
+        descriptor = imageSources?.descriptor(for: requiredImageQuality)
+    }
+#endif
 
     func prepareForTransitionSnapshot(tokenIndex: Int) -> Bool {
         guard representedTokenIndex == tokenIndex else { return false }

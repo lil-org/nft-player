@@ -156,6 +156,11 @@ nonisolated enum PlayerCollectionBrowseMediaWindowPolicy: Sendable {
         let opposite: Int
     }
 
+    struct CompactCoverage: Equatable, Sendable {
+        let decodedRange: ClosedRange<Int>
+        let fileRange: ClosedRange<Int>
+    }
+
     static func decodedRadii(prefetchStride: Int) -> Radii {
         radii(
             prefetchStride: prefetchStride,
@@ -172,11 +177,108 @@ nonisolated enum PlayerCollectionBrowseMediaWindowPolicy: Sendable {
         )
     }
 
+    static func compactCoverage(
+        centeredAt tokenIndex: Int,
+        requiredTokenRange: ClosedRange<Int>,
+        itemCount: Int,
+        columnCount: Int,
+        prefetchStride: Int,
+        prefersIncreasingIndices: Bool
+    ) -> CompactCoverage? {
+        guard itemCount > 0,
+              columnCount > 0,
+              (0..<itemCount).contains(tokenIndex),
+              requiredTokenRange.lowerBound >= 0,
+              requiredTokenRange.upperBound < itemCount,
+              requiredTokenRange.contains(tokenIndex) else {
+            return nil
+        }
+
+        let lastTokenIndex = itemCount - 1
+        let lastCollectionRow = lastTokenIndex / columnCount
+        guard let decodedRange = rowAlignedTokenRange(
+            firstRow: requiredTokenRange.lowerBound / columnCount,
+            lastRow: requiredTokenRange.upperBound / columnCount,
+            lastCollectionRow: lastCollectionRow,
+            itemCount: itemCount,
+            columnCount: columnCount
+        ) else {
+            return nil
+        }
+
+        let standardFileRange = directionalTokenRange(
+            centeredAt: tokenIndex,
+            itemCount: itemCount,
+            radii: fileRadii(prefetchStride: prefetchStride),
+            prefersIncreasingIndices: prefersIncreasingIndices
+        )
+        return CompactCoverage(
+            decodedRange: decodedRange,
+            fileRange: min(
+                standardFileRange.lowerBound,
+                decodedRange.lowerBound
+            )...max(
+                standardFileRange.upperBound,
+                decodedRange.upperBound
+            )
+        )
+    }
+
+    static func nearestFirstTokenIndices(
+        centeredAt tokenIndex: Int,
+        in range: ClosedRange<Int>,
+        prefersIncreasingIndices: Bool
+    ) -> [Int] {
+        guard range.lowerBound >= 0, range.contains(tokenIndex) else { return [] }
+
+        var indices = [tokenIndex]
+        var preferredIndex = nextTokenIndex(
+            after: tokenIndex,
+            increasing: prefersIncreasingIndices,
+            in: range
+        )
+        var oppositeIndex = nextTokenIndex(
+            after: tokenIndex,
+            increasing: !prefersIncreasingIndices,
+            in: range
+        )
+        while preferredIndex != nil || oppositeIndex != nil {
+            if let index = preferredIndex {
+                indices.append(index)
+                preferredIndex = nextTokenIndex(
+                    after: index,
+                    increasing: prefersIncreasingIndices,
+                    in: range
+                )
+            }
+            if let index = oppositeIndex {
+                indices.append(index)
+                oppositeIndex = nextTokenIndex(
+                    after: index,
+                    increasing: !prefersIncreasingIndices,
+                    in: range
+                )
+            }
+        }
+        return indices
+    }
+
     static func normalizedPrefetchStride(_ prefetchStride: Int) -> Int {
         min(
             max(prefetchStride, 1),
             MobilePlayerBrowserLayout.maximumPrefetchStride
         )
+    }
+
+    static func rowAlignedRefreshDistance(
+        prefetchStride: Int,
+        columnCount: Int
+    ) -> Int {
+        let stride = normalizedPrefetchStride(prefetchStride)
+        let columns = max(columnCount, 1)
+        let rowCount = (stride - 1) / columns + 1
+        let distance = rowCount.multipliedReportingOverflow(by: columns)
+        return distance.overflow ? Int.max : distance.partialValue
     }
 
     static func shouldRefresh(
@@ -185,14 +287,28 @@ nonisolated enum PlayerCollectionBrowseMediaWindowPolicy: Sendable {
         prefetchStride: Int,
         force: Bool
     ) -> Bool {
+        shouldRefresh(
+            previousTokenIndex: previousTokenIndex,
+            nextTokenIndex: nextTokenIndex,
+            refreshDistance: normalizedPrefetchStride(prefetchStride),
+            force: force
+        )
+    }
+
+    static func shouldRefresh(
+        previousTokenIndex: Int?,
+        nextTokenIndex: Int,
+        refreshDistance: Int,
+        force: Bool
+    ) -> Bool {
         guard !force, let previousTokenIndex else {
             return true
         }
-        let stride = normalizedPrefetchStride(prefetchStride)
+        let distance = max(refreshDistance, 1)
         let delta = nextTokenIndex.subtractingReportingOverflow(
             previousTokenIndex
         )
-        return delta.overflow || delta.partialValue.magnitude >= UInt(stride)
+        return delta.overflow || delta.partialValue.magnitude >= UInt(distance)
     }
 
     private static func radii(
@@ -205,6 +321,63 @@ nonisolated enum PlayerCollectionBrowseMediaWindowPolicy: Sendable {
             preferred: stride * preferredStrideCount,
             opposite: stride * oppositeStrideCount
         )
+    }
+
+    private static func rowAlignedTokenRange(
+        firstRow: Int,
+        lastRow: Int,
+        lastCollectionRow: Int,
+        itemCount: Int,
+        columnCount: Int
+    ) -> ClosedRange<Int>? {
+        let firstToken = firstRow.multipliedReportingOverflow(by: columnCount)
+        guard !firstToken.overflow else { return nil }
+
+        let lastToken: Int
+        if lastRow == lastCollectionRow {
+            lastToken = itemCount - 1
+        } else {
+            let nextRow = lastRow.addingReportingOverflow(1)
+            guard !nextRow.overflow else { return nil }
+            let nextRowToken = nextRow.partialValue
+                .multipliedReportingOverflow(by: columnCount)
+            guard !nextRowToken.overflow else { return nil }
+            lastToken = nextRowToken.partialValue - 1
+        }
+        guard firstToken.partialValue <= lastToken else { return nil }
+        return firstToken.partialValue...lastToken
+    }
+
+    private static func directionalTokenRange(
+        centeredAt tokenIndex: Int,
+        itemCount: Int,
+        radii: Radii,
+        prefersIncreasingIndices: Bool
+    ) -> ClosedRange<Int> {
+        let lastTokenIndex = itemCount - 1
+        let increasingRadius = prefersIncreasingIndices
+            ? radii.preferred
+            : radii.opposite
+        let decreasingRadius = prefersIncreasingIndices
+            ? radii.opposite
+            : radii.preferred
+        let lowerBound = tokenIndex - min(tokenIndex, decreasingRadius)
+        let upperBound = tokenIndex + min(
+            lastTokenIndex - tokenIndex,
+            increasingRadius
+        )
+        return lowerBound...upperBound
+    }
+
+    private static func nextTokenIndex(
+        after tokenIndex: Int,
+        increasing: Bool,
+        in range: ClosedRange<Int>
+    ) -> Int? {
+        if increasing {
+            return tokenIndex < range.upperBound ? tokenIndex + 1 : nil
+        }
+        return tokenIndex > range.lowerBound ? tokenIndex - 1 : nil
     }
 }
 

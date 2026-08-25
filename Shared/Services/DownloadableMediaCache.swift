@@ -129,7 +129,6 @@ final class DownloadableMediaCache {
 
     private var memoryCache = NSCache<NSString, DownloadableMediaImage>()
     private let imageDecodeLane = ImageDecodeLane()
-    private let foregroundImageDecodeLane = ImageDecodeLane()
     private let diskMutationLane = DiskMutationLane()
     private let decodedImageRetirementLane = DecodedImageRetirementLane()
     private var decodedImageRetirementTask: Task<Bool, Never>?
@@ -203,27 +202,43 @@ final class DownloadableMediaCache {
         let cacheBytes: Int64
     }
 
-    private nonisolated enum ImageDecodePriority: Equatable, Sendable {
-        case foreground, prefetch
-    }
-
     private nonisolated enum ImageLoadScheduling: Sendable {
         case foreground
         case preservingPrefetch
     }
 
-    private nonisolated enum ImageDecodeWorkKind: Equatable, Sendable {
-        case primary, foregroundRace
+    private nonisolated enum ImageDecodeOrigin: Equatable, Sendable {
+        case cachedFile
+        case freshDownload
     }
 
-    private nonisolated struct ImageDecodeJob: Sendable {
-        let decodeId: UUID
-        let fileURL: URL
-        let descriptor: CollectionCatalogDownloadableMediaDescriptor
-        let key: String
-        let redownloadOnFailure: Bool
-        let priority: ImageDecodePriority
-        let workKind: ImageDecodeWorkKind
+    private nonisolated final class ImageDecodeGeneration: @unchecked Sendable {
+        private enum State: Equatable {
+            case pending
+            case decoding
+            case invalidated
+        }
+
+        private let lock = NSLock()
+        private var state = State.pending
+
+        var hasStarted: Bool {
+            lock.withLock { state == .decoding }
+        }
+
+        func beginIfCurrent() -> Bool {
+            lock.withLock {
+                guard state == .pending else { return false }
+                state = .decoding
+                return true
+            }
+        }
+
+        func invalidate() {
+            lock.withLock {
+                state = .invalidated
+            }
+        }
     }
 
     private nonisolated struct DecodedImageTransfer: @unchecked Sendable {
@@ -252,9 +267,9 @@ final class DownloadableMediaCache {
     private actor ImageDecodeLane {
         func decode(
             at fileURL: URL,
-            if shouldStart: @MainActor @Sendable () -> Bool
+            generation: ImageDecodeGeneration
         ) async -> DecodedImageTransfer? {
-            guard await shouldStart() else { return nil }
+            guard generation.beginIfCurrent() else { return nil }
             return DownloadableMediaCache.loadDecodedImage(at: fileURL)
         }
     }
@@ -506,8 +521,15 @@ final class DownloadableMediaCache {
     }
 
     private struct ActiveDecode {
-        let id: UUID
         let descriptor: CollectionCatalogDownloadableMediaDescriptor
+        let fileURL: URL
+        let generation: ImageDecodeGeneration
+        let origin: ImageDecodeOrigin
+    }
+
+    private struct RunningDecode {
+        let key: String
+        let generation: ImageDecodeGeneration
     }
 
     private final class LoadRequest {
@@ -852,9 +874,8 @@ final class DownloadableMediaCache {
     private var pendingFinalizedFileRemovals = [UUID: PendingFinalizedFileRemoval]()
 #endif
     private var activeDecodesByKey = [String: ActiveDecode]()
-    private var foregroundDecodeIdsByKey = [String: UUID]()
-    private var freshDownloadDecodeKeys = Set<String>()
-    private var redownloadOnDecodeFailureKeys = Set<String>()
+    private var pendingDecodeKeys = [String]()
+    private var runningDecode: RunningDecode?
     private var foregroundKey: String?
     private var foregroundWorkKeys = Set<String>()
     private var completions = [String: ImageLoadCompletions]()
@@ -1141,9 +1162,7 @@ final class DownloadableMediaCache {
         configureDecodedImageMemoryCacheLimit(decodedDescriptorCount: nextWindow.decodedKeys.count)
         let didChangeFileWindow = didChangeCollection || previousWindow?.fileNames != nextWindow.fileNames
         let didChangeAllowedWindow = didChangeCollection || previousWindow?.allowedKeys != nextWindow.allowedKeys
-#if !os(iOS)
         let didChangeDecodedWindow = didChangeCollection || previousWindow?.decodedKeys != nextWindow.decodedKeys
-#endif
 #if os(iOS) || os(macOS)
         if didChangeFileWindow {
             cancelDiskPruneRemovalIfNeeded()
@@ -1173,6 +1192,12 @@ final class DownloadableMediaCache {
             )
         }
         pruneForegroundTracking(allowedKeys: nextWindow.allowedKeys)
+        if didChangeDecodedWindow {
+            invalidateUndemandedDecodeWork(
+                outside: nextWindow.decodedKeys,
+                startsDrain: false
+            )
+        }
 #if !os(iOS)
         if didChangeDecodedWindow {
             evictMemoryOutsideWindow(
@@ -1337,10 +1362,7 @@ final class DownloadableMediaCache {
 #endif
         cancelUnretainedDownloadsAndPendingWork()
 
-        activeDecodesByKey.removeAll()
-        foregroundDecodeIdsByKey.removeAll()
-        freshDownloadDecodeKeys.removeAll()
-        redownloadOnDecodeFailureKeys.removeAll()
+        invalidateAllImageDecodes()
         foregroundKey = nil
         foregroundWorkKeys.removeAll()
         clearDecodedImageMemory()
@@ -1405,6 +1427,7 @@ final class DownloadableMediaCache {
             completion: completion
         )
         completions[key, default: [:]][request.id] = callback
+        reorderPendingImageDecodes()
 #if os(tvOS) || os(visionOS)
         rescheduleFileEvictionIfNeeded(for: [descriptor])
 #endif
@@ -1420,6 +1443,7 @@ final class DownloadableMediaCache {
                 guard self.removeCompletion(forKey: key, requestId: request.id) else {
                     return
                 }
+                self.updateQueuedImageDecodeAfterDemandChange(forKey: key)
                 if cachedImageLookup.recordsDiskAccess {
                     self.markCachedFileUsed(for: descriptor)
                 }
@@ -1457,20 +1481,10 @@ final class DownloadableMediaCache {
                         at: fileURL,
                         descriptor: descriptor,
                         key: key,
-                        redownloadOnFailure: true,
-                        priority: .foreground
+                        origin: .cachedFile
                     )
                 } else {
-                    let shouldRedownloadOnFailure = !self.freshDownloadDecodeKeys.contains(key)
-                    if shouldRedownloadOnFailure {
-                        self.redownloadOnDecodeFailureKeys.insert(key)
-                    }
-                    self.startForegroundDecodeIfNeeded(
-                        at: fileURL,
-                        descriptor: descriptor,
-                        key: key,
-                        redownloadOnFailure: shouldRedownloadOnFailure
-                    )
+                    self.reorderPendingImageDecodes()
                 }
                 return
             }
@@ -1565,7 +1579,11 @@ final class DownloadableMediaCache {
     private func cancelImageLoad(for descriptor: CollectionCatalogDownloadableMediaDescriptor, requestId: UUID) {
         Task { @MainActor [weak self] in
             guard let self else { return }
-            self.cancelLoad(for: descriptor, requestId: requestId) { key, requestId in
+            self.cancelLoad(
+                for: descriptor,
+                requestId: requestId,
+                updatesImageDecodePriority: true
+            ) { key, requestId in
                 self.removeCompletion(forKey: key, requestId: requestId)
             }
         }
@@ -1586,7 +1604,11 @@ final class DownloadableMediaCache {
     private func cancelFileLoad(for descriptor: CollectionCatalogDownloadableMediaDescriptor, requestId: UUID) {
         Task { @MainActor [weak self] in
             guard let self else { return }
-            self.cancelLoad(for: descriptor, requestId: requestId) { key, requestId in
+            self.cancelLoad(
+                for: descriptor,
+                requestId: requestId,
+                updatesImageDecodePriority: false
+            ) { key, requestId in
                 self.removeFileCompletion(forKey: key, requestId: requestId)
             }
         }
@@ -1595,11 +1617,15 @@ final class DownloadableMediaCache {
     private func cancelLoad(
         for descriptor: CollectionCatalogDownloadableMediaDescriptor,
         requestId: UUID,
+        updatesImageDecodePriority: Bool,
         removeCallback: (String, UUID) -> Bool
     ) {
         let key = cacheKey(for: descriptor)
         guard removeCallback(key, requestId) else { return }
         let didEndFileDemand = cancelFileWorkIfNoLongerNeeded(for: descriptor, key: key)
+        if updatesImageDecodePriority {
+            updateQueuedImageDecodeAfterDemandChange(forKey: key)
+        }
 #if os(tvOS) || os(visionOS)
         if didEndFileDemand {
             rescheduleFileEvictionIfNeeded(for: [descriptor])
@@ -1610,7 +1636,11 @@ final class DownloadableMediaCache {
     }
 
     private func removeCompletion(forKey key: String, requestId: UUID) -> Bool {
-        removeCallback(forKey: key, requestId: requestId, from: &completions)
+        removeCallback(
+            forKey: key,
+            requestId: requestId,
+            from: &completions
+        )
     }
 
     private func removeFileCompletion(forKey key: String, requestId: UUID) -> Bool {
@@ -1735,6 +1765,42 @@ final class DownloadableMediaCache {
     }
 
 #if DEBUG && os(iOS)
+    nonisolated static func orderedPendingImageDecodeKeysForTesting(
+        pendingKeys: [String],
+        imageDemandKeys: Set<String>,
+        foregroundKey: String?,
+        preferredKeys: [String]
+    ) -> [String] {
+        orderedPendingImageDecodeKeys(
+            pendingKeys: pendingKeys,
+            imageDemandKeys: imageDemandKeys,
+            foregroundKey: foregroundKey,
+            preferredKeys: preferredKeys
+        )
+    }
+
+    nonisolated static func shouldRetireQueuedImageDecodeForTesting(
+        isInDecodedWindow: Bool,
+        hasImageDemand: Bool,
+        hasStarted: Bool
+    ) -> Bool {
+        shouldRetireQueuedImageDecode(
+            isInDecodedWindow: isInDecodedWindow,
+            hasImageDemand: hasImageDemand,
+            hasStarted: hasStarted
+        )
+    }
+
+    nonisolated static func imageDecodeGenerationStartResultsForTesting(
+        invalidateBeforeStart: Bool
+    ) -> [Bool] {
+        let generation = ImageDecodeGeneration()
+        if invalidateBeforeStart {
+            generation.invalidate()
+        }
+        return [generation.beginIfCurrent(), generation.beginIfCurrent()]
+    }
+
     func installDecodedImageForTesting(
         _ image: DownloadableMediaImage,
         for descriptor: CollectionCatalogDownloadableMediaDescriptor
@@ -2011,18 +2077,73 @@ final class DownloadableMediaCache {
     }
 
     private func invalidateUndemandedDecodeWork() {
-        let keysToInvalidate = activeDecodesByKey.keys.filter { key in
-            !isForegroundKey(key)
-                && !hasDemandCallbacks(forKey: key)
+        let keysToInvalidate = Set(activeDecodesByKey.keys.filter { key in
+            Self.shouldRetireQueuedImageDecode(
+                isInDecodedWindow: false,
+                hasImageDemand: hasImageDemandCallbacks(forKey: key),
+                hasStarted: isImageDecodeRunning(forKey: key)
+            )
+        })
+        invalidateImageDecodes(for: keysToInvalidate)
+    }
+
+#endif
+
+    private func invalidateUndemandedDecodeWork(
+        outside decodedWindowKeys: Set<String>,
+        startsDrain: Bool
+    ) {
+        let keysToInvalidate = Set(activeDecodesByKey.keys.filter { key in
+            Self.shouldRetireQueuedImageDecode(
+                isInDecodedWindow: decodedWindowKeys.contains(key),
+                hasImageDemand: hasImageDemandCallbacks(forKey: key),
+                hasStarted: isImageDecodeRunning(forKey: key)
+            )
+        })
+        invalidateImageDecodes(
+            for: keysToInvalidate,
+            startsDrain: startsDrain
+        )
+    }
+
+    private func invalidateImageDecodes(
+        for keys: Set<String>,
+        startsDrain: Bool = true
+    ) {
+        for key in keys {
+            activeDecodesByKey.removeValue(forKey: key)?.generation.invalidate()
         }
-        for key in keysToInvalidate {
-            activeDecodesByKey.removeValue(forKey: key)
-            foregroundDecodeIdsByKey.removeValue(forKey: key)
-            freshDownloadDecodeKeys.remove(key)
-            redownloadOnDecodeFailureKeys.remove(key)
+        pendingDecodeKeys.removeAll { keys.contains($0) }
+        if startsDrain {
+            startNextImageDecodeIfNeeded()
         }
     }
-#endif
+
+    private func updateQueuedImageDecodeAfterDemandChange(forKey key: String) {
+        if Self.shouldRetireQueuedImageDecode(
+            isInDecodedWindow: activeWindow?.decodedKeys.contains(key) == true,
+            hasImageDemand: hasImageDemandCallbacks(forKey: key),
+            hasStarted: isImageDecodeRunning(forKey: key)
+        ) {
+            invalidateImageDecodes(for: [key])
+            return
+        }
+        reorderPendingImageDecodes()
+    }
+
+    nonisolated private static func shouldRetireQueuedImageDecode(
+        isInDecodedWindow: Bool,
+        hasImageDemand: Bool,
+        hasStarted: Bool
+    ) -> Bool {
+        !isInDecodedWindow && !hasImageDemand && !hasStarted
+    }
+
+    private func invalidateAllImageDecodes() {
+        activeDecodesByKey.values.forEach { $0.generation.invalidate() }
+        activeDecodesByKey.removeAll()
+        pendingDecodeKeys.removeAll()
+    }
 
 #if os(iOS) || os(macOS)
     private func scheduleDiskPruneCheck(
@@ -3027,32 +3148,13 @@ final class DownloadableMediaCache {
         if !callbacks.isEmpty {
             completions[key, default: [:]].merge(callbacks) { current, _ in current }
         }
-        let decodePriority = imageDecodePriority(forKey: key, hasKnownDemandCallbacks: !callbacks.isEmpty)
-        if activeDecodesByKey[key] == nil {
-            freshDownloadDecodeKeys.insert(key)
-            startImageDecode(
-                at: fileURL,
-                descriptor: descriptor,
-                key: key,
-                redownloadOnFailure: false,
-                priority: decodePriority
-            )
-        } else if !callbacks.isEmpty && !freshDownloadDecodeKeys.contains(key) {
-            redownloadOnDecodeFailureKeys.insert(key)
-            startForegroundDecodeIfNeeded(
-                at: fileURL,
-                descriptor: descriptor,
-                key: key,
-                redownloadOnFailure: true
-            )
-        } else if decodePriority == .foreground {
-            startForegroundDecodeIfNeeded(
-                at: fileURL,
-                descriptor: descriptor,
-                key: key,
-                redownloadOnFailure: false
-            )
-        }
+        startImageDecode(
+            at: fileURL,
+            descriptor: descriptor,
+            key: key,
+            origin: .freshDownload,
+            replacingExisting: true
+        )
         startDownloadsIfNeeded()
     }
 
@@ -3072,124 +3174,166 @@ final class DownloadableMediaCache {
         at fileURL: URL,
         descriptor: CollectionCatalogDownloadableMediaDescriptor,
         key: String,
-        redownloadOnFailure: Bool,
-        priority: ImageDecodePriority
+        origin: ImageDecodeOrigin,
+        replacingExisting: Bool = false,
+        startsDrain: Bool = true
     ) {
-        let decodeId = UUID()
+        if let activeDecode = activeDecodesByKey[key] {
+            guard replacingExisting,
+                  activeDecode.origin != .freshDownload else {
+                reorderPendingImageDecodes()
+                return
+            }
+            activeDecode.generation.invalidate()
+            activeDecodesByKey.removeValue(forKey: key)
+            pendingDecodeKeys.removeAll { $0 == key }
+        }
 #if os(iOS) || os(macOS)
         cancelDiskPruneRemovalIfNeeded()
 #endif
-        activeDecodesByKey[key] = ActiveDecode(id: decodeId, descriptor: descriptor)
-
-        if redownloadOnFailure {
-            redownloadOnDecodeFailureKeys.insert(key)
-        } else {
-            redownloadOnDecodeFailureKeys.remove(key)
-        }
-
-        if priority == .foreground {
-            foregroundDecodeIdsByKey[key] = decodeId
-        }
-        enqueueImageDecodeWork(ImageDecodeJob(
-            decodeId: decodeId,
-            fileURL: fileURL,
+        let generation = ImageDecodeGeneration()
+        activeDecodesByKey[key] = ActiveDecode(
             descriptor: descriptor,
-            key: key,
-            redownloadOnFailure: redownloadOnFailure,
-            priority: priority,
-            workKind: .primary
-        ))
-    }
-
-    private func startForegroundDecodeIfNeeded(
-        at fileURL: URL,
-        descriptor: CollectionCatalogDownloadableMediaDescriptor,
-        key: String,
-        redownloadOnFailure: Bool
-    ) {
-        guard let activeDecode = activeDecodesByKey[key],
-              foregroundDecodeIdsByKey[key] != activeDecode.id else { return }
-
-        foregroundDecodeIdsByKey[key] = activeDecode.id
-
-        enqueueImageDecodeWork(ImageDecodeJob(
-            decodeId: activeDecode.id,
             fileURL: fileURL,
-            descriptor: descriptor,
-            key: key,
-            redownloadOnFailure: redownloadOnFailure,
-            priority: .foreground,
-            workKind: .foregroundRace
-        ))
-    }
-
-    private func enqueueImageDecodeWork(_ job: ImageDecodeJob) {
-        let priority: TaskPriority = job.priority == .foreground ? .userInitiated : .utility
-        let lane = job.priority == .foreground ? foregroundImageDecodeLane : imageDecodeLane
-        Task(priority: priority) { @MainActor [weak self] in
-            guard let transfer = await lane.decode(at: job.fileURL, if: { [weak self] in
-                self?.shouldStartImageDecode(job) == true
-            }) else { return }
-            self?.finishImageDecode(transfer.image, job: job)
+            generation: generation,
+            origin: origin
+        )
+        pendingDecodeKeys.append(key)
+        if startsDrain {
+            reorderPendingImageDecodes()
+            startNextImageDecodeIfNeeded()
         }
     }
 
-    private func shouldStartImageDecode(_ job: ImageDecodeJob) -> Bool {
-        activeDecodesByKey[job.key]?.id == job.decodeId
+    private func reorderPendingImageDecodes(preferredKeys: [String] = []) {
+        guard !pendingDecodeKeys.isEmpty else { return }
+        let foregroundDecodeKey = foregroundKey.flatMap { key in
+            activeWindow?.decodedKeys.contains(key) == true ? key : nil
+        }
+        pendingDecodeKeys = Self.orderedPendingImageDecodeKeys(
+            pendingKeys: pendingDecodeKeys,
+            imageDemandKeys: Set(completions.keys),
+            foregroundKey: foregroundDecodeKey,
+            preferredKeys: preferredKeys
+        )
+    }
+
+    nonisolated private static func orderedPendingImageDecodeKeys(
+        pendingKeys: [String],
+        imageDemandKeys: Set<String>,
+        foregroundKey: String?,
+        preferredKeys: [String]
+    ) -> [String] {
+        let pendingKeySet = Set(pendingKeys)
+        var reorderedKeys = [String]()
+        var usedKeys = Set<String>()
+
+        func append(_ key: String) {
+            guard pendingKeySet.contains(key),
+                  usedKeys.insert(key).inserted else {
+                return
+            }
+            reorderedKeys.append(key)
+        }
+
+        for key in pendingKeys where imageDemandKeys.contains(key) {
+            append(key)
+        }
+        if let foregroundKey {
+            append(foregroundKey)
+        }
+        preferredKeys.forEach(append)
+        pendingKeys.forEach(append)
+        return reorderedKeys
+    }
+
+    private func isImageDecodeRunning(forKey key: String) -> Bool {
+        guard let runningDecode,
+              runningDecode.key == key,
+              let activeDecode = activeDecodesByKey[key],
+              activeDecode.generation === runningDecode.generation else {
+            return false
+        }
+        return runningDecode.generation.hasStarted
+    }
+
+    private func startNextImageDecodeIfNeeded() {
+        guard runningDecode == nil else { return }
+        while !pendingDecodeKeys.isEmpty {
+            let key = pendingDecodeKeys.removeFirst()
+            guard let activeDecode = activeDecodesByKey[key] else { continue }
+            let generation = activeDecode.generation
+            runningDecode = RunningDecode(key: key, generation: generation)
+            Task(priority: .utility) { @MainActor [weak self] in
+                guard let self else { return }
+                let transfer = await self.imageDecodeLane.decode(
+                    at: activeDecode.fileURL,
+                    generation: generation
+                )
+                guard let runningDecode = self.runningDecode,
+                      runningDecode.key == key,
+                      runningDecode.generation === generation else {
+                    return
+                }
+                self.runningDecode = nil
+                if let transfer {
+                    self.finishImageDecode(
+                        transfer.image,
+                        key: key,
+                        generation: generation
+                    )
+                }
+                self.startNextImageDecodeIfNeeded()
+            }
+            return
+        }
     }
 
     private func finishImageDecode(
         _ image: DownloadableMediaImage?,
-        job: ImageDecodeJob
+        key: String,
+        generation: ImageDecodeGeneration
     ) {
-        if job.priority == .foreground,
-           foregroundDecodeIdsByKey[job.key] == job.decodeId {
-            foregroundDecodeIdsByKey.removeValue(forKey: job.key)
-        }
-        guard activeDecodesByKey[job.key]?.id == job.decodeId else { return }
+        guard let activeDecode = activeDecodesByKey[key],
+              activeDecode.generation === generation else { return }
+        activeDecodesByKey.removeValue(forKey: key)
 
-        if job.workKind == .foregroundRace, image == nil {
-            guard redownloadOnDecodeFailureKeys.contains(job.key) else {
-                return
-            }
-        }
-        activeDecodesByKey.removeValue(forKey: job.key)
-        freshDownloadDecodeKeys.remove(job.key)
-        let wasRequestedForRedownloadOnFailure = redownloadOnDecodeFailureKeys.remove(job.key) != nil
-        let shouldRedownloadOnFailure = job.redownloadOnFailure || wasRequestedForRedownloadOnFailure
-
-        let callbacks = completions.removeValue(forKey: job.key) ?? [:]
+        let callbacks = completions.removeValue(forKey: key) ?? [:]
         if let image {
             if shouldCacheDecodedImage(
-                job.descriptor,
-                key: job.key,
-                priority: job.priority,
+                activeDecode.descriptor,
+                key: key,
                 hasDemandCallbacks: !callbacks.isEmpty
             ) {
-                cache(image, for: job.descriptor)
+                cache(image, for: activeDecode.descriptor)
             }
-            finishForegroundWork(forKey: job.key, callbacks: callbacks, image: image)
+            finishForegroundWork(forKey: key, callbacks: callbacks, image: image)
             return
         }
 
-        if hasRetainedFile(forKey: job.key) {
-            retainedDecodeFailureDescriptors[job.key] = job.descriptor
+        let shouldRedownloadOnFailure = activeDecode.origin == .cachedFile
+            && !callbacks.isEmpty
+        if hasRetainedFile(forKey: key) {
+            retainedDecodeFailureDescriptors[key] = activeDecode.descriptor
             if shouldRedownloadOnFailure, !callbacks.isEmpty {
-                completions[job.key, default: [:]].merge(callbacks) { current, _ in current }
+                completions[key, default: [:]].merge(callbacks) { current, _ in current }
             } else {
-                finishForegroundWork(forKey: job.key, callbacks: callbacks)
+                finishForegroundWork(forKey: key, callbacks: callbacks)
             }
             return
         }
 
-        removeCachedFileAfterDecodeFailure(for: job.descriptor, fileURL: job.fileURL)
+        removeCachedFileAfterDecodeFailure(
+            for: activeDecode.descriptor,
+            fileURL: activeDecode.fileURL
+        )
         guard shouldRedownloadOnFailure, !callbacks.isEmpty else {
-            finishForegroundWork(forKey: job.key, callbacks: callbacks)
+            finishForegroundWork(forKey: key, callbacks: callbacks)
             return
         }
 
-        completions[job.key, default: [:]].merge(callbacks) { current, _ in current }
-        startForegroundDownload(for: job.descriptor, key: job.key)
+        completions[key, default: [:]].merge(callbacks) { current, _ in current }
+        startForegroundDownload(for: activeDecode.descriptor, key: key)
         startDownloadsIfNeeded()
     }
 
@@ -3255,6 +3399,7 @@ final class DownloadableMediaCache {
         let key = cacheKey(for: descriptor)
         foregroundKey = key
         foregroundWorkKeys.formIntersection([key])
+        reorderPendingImageDecodes()
         updateOngoingDownloadPriorities()
 
         let fileURL = fileURL(for: descriptor)
@@ -3284,6 +3429,10 @@ final class DownloadableMediaCache {
 
     private func hasDemandCallbacks(forKey key: String) -> Bool {
         completions[key]?.isEmpty == false || fileCompletions[key]?.isEmpty == false
+    }
+
+    private func hasImageDemandCallbacks(forKey key: String) -> Bool {
+        completions[key]?.isEmpty == false
     }
 
     private func hasRetainedFile(forKey key: String) -> Bool {
@@ -3369,18 +3518,6 @@ final class DownloadableMediaCache {
         return foregroundWorkKeys.isEmpty ? URLSessionTask.defaultPriority : URLSessionTask.lowPriority
     }
 
-    private func imageDecodePriority(
-        forKey key: String,
-        hasKnownDemandCallbacks: Bool = false
-    ) -> ImageDecodePriority {
-        let hasDemandCallbacks = hasKnownDemandCallbacks || self.hasDemandCallbacks(forKey: key)
-        if isForegroundKey(key) || hasDemandCallbacks {
-            return .foreground
-        }
-
-        return .prefetch
-    }
-
     private func updateOngoingDownloadPriorities() {
         ongoingDownloads.forEach { key, download in
             download.task.priority = downloadTaskPriority(forKey: key)
@@ -3453,24 +3590,20 @@ final class DownloadableMediaCache {
                 continue
             }
 
-            let decodePriority = imageDecodePriority(forKey: key)
             if activeDecodesByKey[key] == nil {
                 startImageDecode(
                     at: fileURL,
                     descriptor: descriptor,
                     key: key,
-                    redownloadOnFailure: false,
-                    priority: decodePriority
-                )
-            } else if decodePriority == .foreground {
-                startForegroundDecodeIfNeeded(
-                    at: fileURL,
-                    descriptor: descriptor,
-                    key: key,
-                    redownloadOnFailure: false
+                    origin: .cachedFile,
+                    startsDrain: false
                 )
             }
         }
+        reorderPendingImageDecodes(
+            preferredKeys: descriptors.map(cacheKey(for:))
+        )
+        startNextImageDecodeIfNeeded()
     }
 
     private func prioritizedDownloadDescriptors(
@@ -3756,6 +3889,10 @@ final class DownloadableMediaCache {
         cancelScheduledFileEviction()
 #endif
         activeWindow = nil
+        invalidateUndemandedDecodeWork(
+            outside: [],
+            startsDrain: true
+        )
         exclusiveWindowRegistration = nil
         managedWindowsByOwnerId.removeAll()
         windowPreparationSequence = 0
@@ -4005,11 +4142,10 @@ final class DownloadableMediaCache {
     private func shouldCacheDecodedImage(
         _ descriptor: CollectionCatalogDownloadableMediaDescriptor,
         key: String,
-        priority: ImageDecodePriority,
         hasDemandCallbacks: Bool
     ) -> Bool {
 #if os(iOS)
-        hasDemandCallbacks || priority == .foreground || shouldKeepDecodedImage(descriptor, key: key)
+        hasDemandCallbacks || shouldKeepDecodedImage(descriptor, key: key)
 #else
         shouldKeepDecodedImage(descriptor, key: key)
 #endif
