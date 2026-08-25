@@ -1994,8 +1994,8 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         )
     }
 
-    /// `makeGridModeGestureAnchor` resolves item frames in mirrored view space,
-    /// but `currentFocalPoint` reads layout attributes, which are unmirrored.
+    /// `makeGridModeGestureAnchor` resolves mirrored view geometry, while
+    /// `currentFocalPoint` resolves the unmirrored layout model.
     private func gridModeVisualFocalPoint() -> CGPoint {
         let focalPoint = currentFocalPoint()
         guard let layout = browserCollectionLayout.browserLayout else {
@@ -2005,8 +2005,8 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     }
 
     /// Resolves the anchor the way every grid-mode entry point does. Not a
-    /// property: `currentAnchorTokenIndex()` queries layout attributes and
-    /// can clear `forcedFocusedTokenIndex`, so this must be called once.
+    /// property: `currentAnchorTokenIndex()` resolves visible geometry and can
+    /// clear `forcedFocusedTokenIndex`, so this must be called once.
     private func gridModeAnchorTokenIndex() -> Int? {
         currentAnchorTokenIndex()
             ?? forcedFocusedTokenIndex
@@ -2637,6 +2637,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     ) {
         guard isActive,
               !isApplyingPosition,
+              requiredImageQuality != .smallThumbnail,
               prefetchLoads.count < Self.maximumPrefetchLoadCount else {
             return
         }
@@ -3580,13 +3581,20 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     }
 
     private func currentAnchorTokenIndex() -> Int? {
-        guard let browseSnapshot else { return nil }
+        guard let browseSnapshot,
+              let browserLayout = browserCollectionLayout.browserLayout else {
+            return nil
+        }
 
-        let visibleItems = collectionView.indexPathsForVisibleItems.compactMap { indexPath -> PlayerCollectionVisibleItem? in
-            guard let attributes = collectionView.collectionViewLayout.layoutAttributesForItem(at: indexPath) else {
+        let visibleItems = collectionView.indexPathsForVisibleItems.compactMap {
+            indexPath -> PlayerCollectionVisibleItem? in
+            guard let frame = browserLayout.itemFrame(at: indexPath.item) else {
                 return nil
             }
-            return PlayerCollectionVisibleItem(index: indexPath.item, frame: attributes.frame)
+            return PlayerCollectionVisibleItem(
+                index: indexPath.item,
+                frame: frame
+            )
         }
         let candidateIndex = PlayerCollectionScrollPolicy.anchorIndex(
             visibleItems: visibleItems,
@@ -3643,11 +3651,10 @@ final class VerticalCollectionBrowserViewController: UIViewController,
               configuredColumnCount > 0,
               collectionView.bounds.width > 0,
               collectionView.bounds.height > 0,
-              let firstAttributes = collectionView.collectionViewLayout.layoutAttributesForItem(
-                at: IndexPath(item: 0, section: 0)
-              ),
-              let lastAttributes = collectionView.collectionViewLayout.layoutAttributesForItem(
-                at: IndexPath(item: browseSnapshot.itemCount - 1, section: 0)
+              let browserLayout = browserCollectionLayout.browserLayout,
+              let firstItemFrame = browserLayout.itemFrame(at: 0),
+              let lastItemFrame = browserLayout.itemFrame(
+                at: browseSnapshot.itemCount - 1
               ) else {
             return nil
         }
@@ -3656,18 +3663,14 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             * configuredColumnCount
         let lastRowFocalEntryY: CGFloat
         if lastRowFirstIndex > 0,
-           let previousRowAttributes =
-            collectionView.collectionViewLayout.layoutAttributesForItem(
-                at: IndexPath(
-                    item: lastRowFirstIndex - configuredColumnCount,
-                    section: 0
-                )
-            ) {
+           let previousRowFrame = browserLayout.itemFrame(
+                at: lastRowFirstIndex - configuredColumnCount
+           ) {
             lastRowFocalEntryY = (
-                previousRowAttributes.frame.midY + lastAttributes.frame.midY
+                previousRowFrame.midY + lastItemFrame.midY
             ) / 2
         } else {
-            lastRowFocalEntryY = firstAttributes.frame.midY
+            lastRowFocalEntryY = firstItemFrame.midY
         }
 
         let verticalRange = verticalContentOffsetRange
@@ -3677,12 +3680,12 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             viewportHeight: collectionView.bounds.height,
             viewportCenterX: collectionView.bounds.midX,
             firstItemCenter: CGPoint(
-                x: firstAttributes.frame.midX,
-                y: firstAttributes.frame.midY
+                x: firstItemFrame.midX,
+                y: firstItemFrame.midY
             ),
             lastItemCenter: CGPoint(
-                x: lastAttributes.frame.midX,
-                y: lastAttributes.frame.midY
+                x: lastItemFrame.midX,
+                y: lastItemFrame.midY
             ),
             lastRowFocalEntryY: lastRowFocalEntryY
         )
