@@ -116,8 +116,9 @@ nonisolated extension CollectionCatalog {
         ) else {
             return nil
         }
-        let smallThumbnailDescriptor = smallThumbnailDescriptor(
-            for: thumbnailDescriptor
+        let smallThumbnailDescriptor = sizedThumbnailDescriptor(
+            for: thumbnailDescriptor,
+            width: .width260
         ) ?? thumbnailDescriptor
 
         let largeDescriptor: CollectionCatalogDownloadableMediaDescriptor
@@ -230,12 +231,37 @@ nonisolated extension CollectionCatalog {
         )
     }
 
-    private static func smallThumbnailDescriptor(
-        for thumbnailDescriptor: CollectionCatalogDownloadableMediaDescriptor
+    static func collectionBrowseSizedThumbnailDescriptor(
+        specificCollectionId: String,
+        tokenIndex: Int,
+        width: CollectionBrowseThumbnailWidth
+    ) -> CollectionCatalogDownloadableMediaDescriptor? {
+        guard let thumbnailDescriptor = collectionBrowseThumbnailDescriptor(
+            specificCollectionId: specificCollectionId,
+            tokenIndex: tokenIndex
+        ) else {
+            return nil
+        }
+        return sizedThumbnailDescriptor(
+            for: thumbnailDescriptor,
+            width: width
+        )
+    }
+
+    private static func sizedThumbnailDescriptor(
+        for thumbnailDescriptor: CollectionCatalogDownloadableMediaDescriptor,
+        width: CollectionBrowseThumbnailWidth
     ) -> CollectionCatalogDownloadableMediaDescriptor? {
         guard thumbnailDescriptor.isCollectionBrowserThumbnail,
-              let smallThumbnailURL = CollectionBrowseImageURLMapping
-                .smallThumbnailURL(for: thumbnailDescriptor.url) else {
+              let mappingSourceURL = sizedThumbnailMappingSourceURL(
+                for: thumbnailDescriptor
+              ),
+              let sizedThumbnailURL = CollectionBrowseImageURLMapping
+                .thumbnailURL(
+                    for: mappingSourceURL,
+                    tokenIndex: thumbnailDescriptor.tokenIndex,
+                    width: width
+                ) else {
             return nil
         }
 
@@ -243,10 +269,35 @@ nonisolated extension CollectionCatalog {
             collectionId: thumbnailDescriptor.collectionId,
             tokenId: thumbnailDescriptor.tokenId,
             tokenIndex: thumbnailDescriptor.tokenIndex,
-            media: .staticImage(url: smallThumbnailURL, fileExtension: "webp"),
+            media: .staticImage(url: sizedThumbnailURL, fileExtension: "webp"),
             purpose: .collectionBrowserThumbnail,
             thumbnailAspectRatio: thumbnailDescriptor.thumbnailAspectRatio
         )
+    }
+
+    private static func sizedThumbnailMappingSourceURL(
+        for thumbnailDescriptor: CollectionCatalogDownloadableMediaDescriptor
+    ) -> URL? {
+        guard thumbnailDescriptor.collectionId
+                == NativeMetalCardRenderKind.ponchoDrifella.collectionId else {
+            return thumbnailDescriptor.url
+        }
+
+        let thumbnailDirectoryURL = thumbnailDescriptor.url
+            .deletingLastPathComponent()
+        let frontsDirectoryURL = thumbnailDirectoryURL
+            .deletingLastPathComponent()
+        guard thumbnailDirectoryURL.lastPathComponent == "thumbs",
+              frontsDirectoryURL.lastPathComponent == "fronts" else {
+            return nil
+        }
+        return frontsDirectoryURL
+            .deletingLastPathComponent()
+            .appendingPathComponent("thumbs", isDirectory: true)
+            .appendingPathComponent(
+                thumbnailDescriptor.url.lastPathComponent,
+                isDirectory: false
+            )
     }
 
     /// Native metal card collections have no downloadable primary descriptor on macOS —

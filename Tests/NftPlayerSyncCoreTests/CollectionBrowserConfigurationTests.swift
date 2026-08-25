@@ -38,18 +38,21 @@ final class CollectionBrowserConfigurationTests: XCTestCase {
         let mappings = [
             (
                 source: "https://cdn.lil.org/player/terraforms/thumbs/1.webp",
-                width140: "https://cdn.lil.org/player/terraforms/thumbs/140/1.webp",
-                width260: "https://cdn.lil.org/player/terraforms/thumbs/260/1.webp"
+                tokenIndex: 0,
+                width140: "https://cdn.lil.org/player/terraforms/thumbs/140/0.webp",
+                width260: "https://cdn.lil.org/player/terraforms/thumbs/260/0.webp"
             ),
             (
                 source: "https://cdn.lil.org/player/example-generative/thumbs/42.webp",
+                tokenIndex: 42,
                 width140: "https://cdn.lil.org/player/example-generative/thumbs/140/42.webp",
                 width260: "https://cdn.lil.org/player/example-generative/thumbs/260/42.webp"
             ),
             (
                 source: "https://cdn.example.com/nft/collection/thumbs/0001.webp",
-                width140: "https://cdn.example.com/nft/collection/thumbs/140/0001.webp",
-                width260: "https://cdn.example.com/nft/collection/thumbs/260/0001.webp"
+                tokenIndex: 0,
+                width140: "https://cdn.example.com/nft/collection/thumbs/140/0.webp",
+                width260: "https://cdn.example.com/nft/collection/thumbs/260/0.webp"
             ),
         ]
 
@@ -58,6 +61,7 @@ final class CollectionBrowserConfigurationTests: XCTestCase {
             XCTAssertEqual(
                 CollectionBrowseImageURLMapping.thumbnailURL(
                     for: url,
+                    tokenIndex: mapping.tokenIndex,
                     width: .width140
                 ),
                 URL(string: mapping.width140)
@@ -65,12 +69,16 @@ final class CollectionBrowserConfigurationTests: XCTestCase {
             XCTAssertEqual(
                 CollectionBrowseImageURLMapping.thumbnailURL(
                     for: url,
+                    tokenIndex: mapping.tokenIndex,
                     width: .width260
                 ),
                 URL(string: mapping.width260)
             )
             XCTAssertEqual(
-                CollectionBrowseImageURLMapping.smallThumbnailURL(for: url),
+                CollectionBrowseImageURLMapping.smallThumbnailURL(
+                    for: url,
+                    tokenIndex: mapping.tokenIndex
+                ),
                 URL(string: mapping.width260)
             )
         }
@@ -116,18 +124,40 @@ final class CollectionBrowserConfigurationTests: XCTestCase {
             let url = try XCTUnwrap(URL(string: value))
             XCTAssertNil(CollectionBrowseImageURLMapping.midURL(for: url), value)
             XCTAssertNil(
-                CollectionBrowseImageURLMapping.smallThumbnailURL(for: url),
+                CollectionBrowseImageURLMapping.smallThumbnailURL(
+                    for: url,
+                    tokenIndex: 0
+                ),
                 value
             )
             for width in CollectionBrowseThumbnailWidth.allCases {
                 XCTAssertNil(
                     CollectionBrowseImageURLMapping.thumbnailURL(
                         for: url,
+                        tokenIndex: 0,
                         width: width
                     ),
                     value
                 )
             }
+        }
+    }
+
+    func testSizedThumbnailURLMappingRejectsNegativeTokenIndices() throws {
+        let thumbnailURL = try XCTUnwrap(URL(
+            string: "https://cdn.example.com/collection/thumbs/1.webp"
+        ))
+
+        XCTAssertNil(CollectionBrowseImageURLMapping.smallThumbnailURL(
+            for: thumbnailURL,
+            tokenIndex: -1
+        ))
+        for width in CollectionBrowseThumbnailWidth.allCases {
+            XCTAssertNil(CollectionBrowseImageURLMapping.thumbnailURL(
+                for: thumbnailURL,
+                tokenIndex: -1,
+                width: width
+            ))
         }
     }
 

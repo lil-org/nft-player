@@ -123,20 +123,29 @@ nonisolated enum CollectionBrowseThumbnailWidth: Int, CaseIterable, Hashable, Se
 }
 
 nonisolated enum CollectionBrowseImageURLMapping: Sendable {
-    static func smallThumbnailURL(for thumbnailURL: URL) -> URL? {
-        Self.thumbnailURL(for: thumbnailURL, width: .width260)
+    static func smallThumbnailURL(
+        for thumbnailURL: URL,
+        tokenIndex: Int
+    ) -> URL? {
+        Self.thumbnailURL(
+            for: thumbnailURL,
+            tokenIndex: tokenIndex,
+            width: .width260
+        )
     }
 
     static func thumbnailURL(
         for thumbnailURL: URL,
+        tokenIndex: Int,
         width: CollectionBrowseThumbnailWidth
     ) -> URL? {
-        guard let mapping = validatedThumbnailURL(thumbnailURL) else {
+        guard tokenIndex >= 0,
+              let mapping = validatedThumbnailURL(thumbnailURL) else {
             return nil
         }
         return mapping.directoryURL
             .appendingPathComponent(width.pathComponent, isDirectory: true)
-            .appendingPathComponent(mapping.fileName, isDirectory: false)
+            .appendingPathComponent("\(tokenIndex).webp", isDirectory: false)
     }
 
     static func midURL(for thumbnailURL: URL) -> URL? {

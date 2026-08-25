@@ -115,6 +115,26 @@ function standardThumbnailURL(sourceURL, thumbsBaseURL) {
   return url;
 }
 
+function sizedThumbnailURL(thumbnailURL, tokenIndex, width, thumbsBaseURL) {
+  const fileName = `${tokenIndex}.webp`;
+  if (thumbsBaseURL != null) {
+    return new URL(`${width}/${fileName}`, thumbsBaseURL);
+  }
+
+  const url = new URL(thumbnailURL);
+  const thumbnailParentPath = path.posix.dirname(url.pathname);
+  url.pathname = `${thumbnailParentPath}/${width}/${fileName}`;
+  return url;
+}
+
+function midImageURL(thumbnailURL) {
+  const url = new URL(thumbnailURL);
+  const thumbnailParentPath = path.posix.dirname(url.pathname);
+  const collectionParentPath = path.posix.dirname(thumbnailParentPath);
+  url.pathname = `${collectionParentPath}/mid/${path.posix.basename(url.pathname)}`;
+  return url;
+}
+
 function entriesByLowercasedName(names) {
   const entries = new Map();
   for (const name of names) {
@@ -355,7 +375,7 @@ test("media extension resolution prefers URL, then row, then manifest defaults",
   );
 });
 
-test("eligible token manifests derive unique standard webp thumbnail URLs", () => {
+test("eligible token manifests derive unique browse image tier URLs", () => {
   const items = readJSON(ITEMS_PATH);
   const scriptIds = scriptCollectionIds();
   const tokenFileNames = new Set(
@@ -376,6 +396,11 @@ test("eligible token manifests derive unique standard webp thumbnail URLs", () =
     assert.ok(payload.items.length > 0, `${item.internal_slug} has an empty token manifest`);
 
     const originalURLByDerivedURL = new Map();
+    const originalURLByMidURL = new Map();
+    const sizedURLsByWidth = new Map([
+      [140, new Set()],
+      [260, new Set()],
+    ]);
     for (const [index, row] of payload.items.entries()) {
       const sourceURL = tokenSourceURL(payload, row);
       assert.equal(
@@ -417,6 +442,33 @@ test("eligible token manifests derive unique standard webp thumbnail URLs", () =
       }
       assert.equal(thumbnailURL.search, "");
       assert.equal(thumbnailURL.hash, "");
+
+      const midURL = midImageURL(thumbnailURL);
+      assert.equal(
+        midURL.pathname,
+        `${path.posix.dirname(path.posix.dirname(thumbnailURL.pathname))}/mid/${expectedStem}.webp`,
+        `${item.internal_slug} token ${index} derives an unexpected mid path`
+      );
+      assert.equal(midURL.search, "");
+      assert.equal(midURL.hash, "");
+
+      for (const [width, sizedURLs] of sizedURLsByWidth) {
+        const sizedURL = sizedThumbnailURL(thumbnailURL, index, width);
+        assert.equal(
+          sizedURL.pathname,
+          `${path.posix.dirname(thumbnailURL.pathname)}/${width}/${index}.webp`,
+          `${item.internal_slug} token ${index} derives an unexpected ${width} path`
+        );
+        assert.equal(sizedURL.search, "");
+        assert.equal(sizedURL.hash, "");
+        assert.equal(
+          sizedURLs.has(sizedURL.href),
+          false,
+          `${item.internal_slug} has a duplicate ${width} URL at ${sizedURL.href}`
+        );
+        sizedURLs.add(sizedURL.href);
+      }
+
       const previousOriginalURL = originalURLByDerivedURL.get(thumbnailURL.href);
       if (previousOriginalURL != null) {
         assert.equal(
@@ -427,6 +479,49 @@ test("eligible token manifests derive unique standard webp thumbnail URLs", () =
       } else {
         originalURLByDerivedURL.set(thumbnailURL.href, originalURL.href);
       }
+
+      const previousMidOriginalURL = originalURLByMidURL.get(midURL.href);
+      if (previousMidOriginalURL != null) {
+        assert.equal(
+          originalURL.href,
+          previousMidOriginalURL,
+          `${item.internal_slug} has distinct originals colliding at ${midURL.href}`
+        );
+      } else {
+        originalURLByMidURL.set(midURL.href, originalURL.href);
+      }
+    }
+  }
+});
+
+test("native browser thumbnails derive their sized tier layouts", () => {
+  const cases = [
+    {
+      slug: "card_nft_2",
+      thumbnailURL: "https://cdn.lil.org/nft/card_nft_2/fronts_1400/thumbs/0001.webp",
+      sizedThumbsBaseURL: undefined,
+      expectedBaseURL: "https://cdn.lil.org/nft/card_nft_2/fronts_1400/thumbs/",
+    },
+    {
+      slug: "poncho_drifella",
+      thumbnailURL: "https://cdn.lil.org/nft/poncho_drifella/fronts/thumbs/1.webp",
+      sizedThumbsBaseURL: "https://cdn.lil.org/nft/poncho_drifella/thumbs/",
+      expectedBaseURL: "https://cdn.lil.org/nft/poncho_drifella/thumbs/",
+    },
+  ];
+
+  for (const entry of cases) {
+    for (const width of [140, 260]) {
+      assert.equal(
+        sizedThumbnailURL(
+          entry.thumbnailURL,
+          0,
+          width,
+          entry.sizedThumbsBaseURL
+        ).href,
+        `${entry.expectedBaseURL}${width}/0.webp`,
+        `${entry.slug} derives an unexpected ${width} path`
+      );
     }
   }
 });

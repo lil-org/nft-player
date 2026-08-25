@@ -90,6 +90,14 @@ extension MobileCollectionBrowserGridModePresentationTests {
         return (item.id, try XCTUnwrap(item.internalSlug))
     }
 
+    private func collectionId(internalSlug: String) throws -> String {
+        try XCTUnwrap(
+            SuggestedItemsService.visibleItems.first {
+                $0.internalSlug == internalSlug
+            }?.id
+        )
+    }
+
     private func makeFixture(
         collectionId: String,
         gridModeCommitSnapshotFactory: ((UIView) -> UIView?)? = nil
@@ -258,6 +266,14 @@ extension MobileCollectionBrowserGridModePresentationTests {
         XCTAssertEqual(sources.thumbnailDescriptor.url, standardThumbnailURL)
         XCTAssertEqual(sources.smallThumbnailDescriptor.url, smallThumbnailURL)
         XCTAssertEqual(
+            CollectionCatalog.collectionBrowseSizedThumbnailDescriptor(
+                specificCollectionId: metadata.id,
+                tokenIndex: 0,
+                width: .width140
+            )?.url,
+            URL(string: "https://cdn.lil.org/player/\(metadata.internalSlug)/thumbs/140/0.webp")
+        )
+        XCTAssertEqual(
             MobilePlaybackController.shared.collectionBrowseImageDescriptor(
                 snapshot: snapshot,
                 tokenIndex: 0,
@@ -265,6 +281,86 @@ extension MobileCollectionBrowserGridModePresentationTests {
             ),
             sources.smallThumbnailDescriptor
         )
+    }
+
+    func testBrowseImageSourcesFollowCatalogTierLayouts() throws {
+        let cases = [
+            (
+                internalSlug: "card_nft_2",
+                thumbnail: "https://cdn.lil.org/nft/card_nft_2/fronts_1400/thumbs/0001.webp",
+                width140: "https://cdn.lil.org/nft/card_nft_2/fronts_1400/thumbs/140/0.webp",
+                width260: "https://cdn.lil.org/nft/card_nft_2/fronts_1400/thumbs/260/0.webp",
+                large: "https://cdn.lil.org/nft/card_nft_2/fronts_1400/0001.webp"
+            ),
+            (
+                internalSlug: "poncho_drifella",
+                thumbnail: "https://cdn.lil.org/nft/poncho_drifella/fronts/thumbs/1.webp",
+                width140: "https://cdn.lil.org/nft/poncho_drifella/thumbs/140/0.webp",
+                width260: "https://cdn.lil.org/nft/poncho_drifella/thumbs/260/0.webp",
+                large: "https://cdn.lil.org/nft/poncho_drifella/fronts/1.webp"
+            ),
+            (
+                internalSlug: "drifella_2",
+                thumbnail: "https://cdn.lil.org/nft/drifella_2/thumbs/0001.webp",
+                width140: "https://cdn.lil.org/nft/drifella_2/thumbs/140/0.webp",
+                width260: "https://cdn.lil.org/nft/drifella_2/thumbs/260/0.webp",
+                large: "https://cdn.lil.org/nft/drifella_2/mid/0001.webp"
+            ),
+            (
+                internalSlug: "super_metal_mons_2",
+                thumbnail: "https://cdn.lil.org/nft/smm2/thumbs/001.webp",
+                width140: "https://cdn.lil.org/nft/smm2/thumbs/140/0.webp",
+                width260: "https://cdn.lil.org/nft/smm2/thumbs/260/0.webp",
+                large: "https://cdn.lil.org/nft/smm2/mid/001.webp"
+            ),
+            (
+                internalSlug: "super_metal_mons",
+                thumbnail: "https://cdn.lil.org/nft/smm/thumbs/1.webp",
+                width140: "https://cdn.lil.org/nft/smm/thumbs/140/0.webp",
+                width260: "https://cdn.lil.org/nft/smm/thumbs/260/0.webp",
+                large: "https://cdn.lil.org/nft/smm/mid/1.webp"
+            ),
+        ]
+
+        for entry in cases {
+            let collectionId = try collectionId(
+                internalSlug: entry.internalSlug
+            )
+            let sources = try XCTUnwrap(
+                CollectionCatalog.collectionBrowseImageSources(
+                    specificCollectionId: collectionId,
+                    tokenIndex: 0
+                )
+            )
+            let width140Descriptor = try XCTUnwrap(
+                CollectionCatalog.collectionBrowseSizedThumbnailDescriptor(
+                    specificCollectionId: collectionId,
+                    tokenIndex: 0,
+                    width: .width140
+                )
+            )
+
+            XCTAssertEqual(
+                sources.thumbnailDescriptor.url,
+                URL(string: entry.thumbnail),
+                entry.internalSlug
+            )
+            XCTAssertEqual(
+                width140Descriptor.url,
+                URL(string: entry.width140),
+                entry.internalSlug
+            )
+            XCTAssertEqual(
+                sources.smallThumbnailDescriptor.url,
+                URL(string: entry.width260),
+                entry.internalSlug
+            )
+            XCTAssertEqual(
+                sources.largeDescriptor.url,
+                URL(string: entry.large),
+                entry.internalSlug
+            )
+        }
     }
 
     func testControllerDeallocatesWithActiveInteractionFadeDisplayLink()
