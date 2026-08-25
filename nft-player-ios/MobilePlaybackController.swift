@@ -233,10 +233,17 @@ class MobilePlaybackController {
     ) -> DownloadableMediaDescriptor? {
         switch quality {
         case .smallThumbnail:
-            return collectionBrowseImageSources(
+            guard snapshot.pagePosition(forTokenIndex: tokenIndex) != nil else {
+                return nil
+            }
+            return MobileCollectionCatalog.collectionBrowseSizedThumbnailDescriptor(
+                specificCollectionId: snapshot.collectionId,
+                tokenIndex: tokenIndex,
+                width: .width260
+            ) ?? collectionBrowseThumbnailDescriptor(
                 snapshot: snapshot,
                 tokenIndex: tokenIndex
-            )?.smallThumbnailDescriptor
+            )
         case .thumbnail:
             return collectionBrowseThumbnailDescriptor(
                 snapshot: snapshot,
@@ -253,8 +260,7 @@ class MobilePlaybackController {
     func collectionBrowsePrefetchDescriptor(
         snapshot: PlayerCollectionBrowseSnapshot,
         tokenIndex: Int,
-        quality: CollectionBrowseImageQuality,
-        retainsCachedDescriptor: Bool = false
+        quality: CollectionBrowseImageQuality
     ) -> DownloadableMediaDescriptor? {
         guard let sources = collectionBrowseImageSources(
             snapshot: snapshot,
@@ -264,13 +270,13 @@ class MobilePlaybackController {
         }
         let requestedDescriptor = sources.descriptor(for: quality)
         let cache = DownloadableMediaCache.shared
-        if quality != .large,
+        if quality == .thumbnail,
            sources.largeDescriptor != requestedDescriptor,
            cache.cachedDecodedImage(for: sources.largeDescriptor) != nil {
             return nil
         }
         if cache.cachedDecodedImage(for: requestedDescriptor) != nil {
-            return retainsCachedDescriptor ? requestedDescriptor : nil
+            return nil
         }
         guard quality == .smallThumbnail,
               sources.thumbnailDescriptor
@@ -399,11 +405,10 @@ class MobilePlaybackController {
                     )
                     switch selection {
                     case .requestedQuality:
-                        return collectionBrowsePrefetchDescriptor(
+                        return collectionBrowseImageDescriptor(
                             snapshot: snapshot,
                             tokenIndex: candidateTokenIndex,
-                            quality: quality,
-                            retainsCachedDescriptor: true
+                            quality: quality
                         )
                     case .locallyAvailableLarge:
                         return collectionBrowseImageDescriptor(

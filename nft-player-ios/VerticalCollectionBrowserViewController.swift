@@ -4029,7 +4029,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         at indexPath: IndexPath,
         requiredImageQuality: CollectionBrowseImageQuality? = nil,
         imageLoadPolicy: MobilePlayerCollectionBrowserCell.ImageLoadPolicy? = nil,
-        allowsLocalLargeImageUpgrade: Bool = true
+        allowsLocalLargeImageUpgrade: Bool? = nil
     ) {
         guard let contentIdentity = browserContentIdentity(
             forTokenIndex: indexPath.item
@@ -4042,16 +4042,18 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             ?? (isActive || preparedTransition != nil
                 ? .foreground
                 : .disabled)
+        let resolvedRequiredImageQuality = requiredImageQuality
+            ?? self.requiredImageQuality
         cell.configure(
             contentIdentity: contentIdentity,
             itemCount: browseSnapshot?.itemCount ?? 0,
             imageSources: imageSources,
-            requiredImageQuality: requiredImageQuality
-                ?? self.requiredImageQuality,
+            requiredImageQuality: resolvedRequiredImageQuality,
             missingDescriptorFallbackSpec: layoutAspectState.fallbackSpec,
             imageLoadPolicy: resolvedImageLoadPolicy,
             fadesFirstImage: CACurrentMediaTime() < gridModeCommitFadeDeadline,
             allowsLocalLargeImageUpgrade: allowsLocalLargeImageUpgrade
+                ?? gridMode.allowsLocalLargeImageUpgrade
         )
     }
 

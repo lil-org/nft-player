@@ -1080,7 +1080,7 @@ extension CollectionBrowseImageSources {
             if requiredQuality == .thumbnail {
                 return [thumbnailDescriptor]
             }
-            return [thumbnailDescriptor, smallThumbnailDescriptor]
+            return [smallThumbnailDescriptor, thumbnailDescriptor]
                 .reduce(into: []) { descriptors, descriptor in
                     if !descriptors.contains(descriptor) {
                         descriptors.append(descriptor)

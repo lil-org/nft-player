@@ -30,6 +30,17 @@ final class CollectionBrowserConfigurationTests: XCTestCase {
             MobileCollectionBrowserGridMode.fiveColumns.requiredImageQuality,
             .smallThumbnail
         )
+        XCTAssertTrue(
+            MobileCollectionBrowserGridMode.large.allowsLocalLargeImageUpgrade
+        )
+        XCTAssertTrue(
+            MobileCollectionBrowserGridMode.threeColumns
+                .allowsLocalLargeImageUpgrade
+        )
+        XCTAssertFalse(
+            MobileCollectionBrowserGridMode.fiveColumns
+                .allowsLocalLargeImageUpgrade
+        )
     }
 
     func testSizedThumbnailURLMappingAddsWidthAfterThumbsDirectory() throws {

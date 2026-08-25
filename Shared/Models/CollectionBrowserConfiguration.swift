@@ -111,6 +111,10 @@ nonisolated enum MobileCollectionBrowserGridMode: Int, CaseIterable, Hashable, S
             .smallThumbnail
         }
     }
+
+    var allowsLocalLargeImageUpgrade: Bool {
+        self != .fiveColumns
+    }
 }
 
 nonisolated enum CollectionBrowseThumbnailWidth: Int, CaseIterable, Hashable, Sendable {

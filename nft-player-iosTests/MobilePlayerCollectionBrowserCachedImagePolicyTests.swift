@@ -81,7 +81,7 @@ extension MobilePlayerCollectionBrowserCachedImagePolicyTests {
         )
     }
 
-    func testSmallThumbnailBaseWithoutLargeUpgradeReusesRegularThumbnail() {
+    func testSmallThumbnailBaseWithoutLargeUpgradePrefersOptimizedThumbnail() {
         let fixture = makeDistinctSources()
 
         XCTAssertEqual(
@@ -91,7 +91,7 @@ extension MobilePlayerCollectionBrowserCachedImagePolicyTests {
                     allowsLocalLargeUpgrade: false
                 )
             ),
-            [fixture.thumbnail, fixture.smallThumbnail]
+            [fixture.smallThumbnail, fixture.thumbnail]
         )
     }
 
