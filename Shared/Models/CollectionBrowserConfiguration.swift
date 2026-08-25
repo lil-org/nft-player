@@ -3,6 +3,7 @@
 import Foundation
 
 nonisolated enum CollectionBrowseImageQuality: Int, Hashable, Sendable {
+    case smallThumbnail
     case thumbnail
     case large
 
@@ -19,10 +20,15 @@ nonisolated enum CollectionBrowseImageWindowSelection: Hashable, Sendable {
 
     static func resolve(
         requiredQuality: CollectionBrowseImageQuality,
+        isDisplayingRegularThumbnail: Bool,
         isDisplayingLargeImage: Bool,
         largeImageIsLocallyAvailable: Bool
     ) -> Self {
-        guard requiredQuality == .thumbnail,
+        if requiredQuality == .smallThumbnail,
+           isDisplayingRegularThumbnail {
+            return .omitSatisfiedToken
+        }
+        guard requiredQuality != .large,
               isDisplayingLargeImage else {
             return .requestedQuality
         }
@@ -43,7 +49,7 @@ nonisolated enum CollectionBrowseImageLoadPolicy: Sendable {
         largeImageIsLocallyAvailable: @autoclosure () -> Bool,
         allowsPromotion: Bool
     ) -> Bool {
-        requiredQuality == .thumbnail
+        requiredQuality != .large
             && hasDistinctLargeImage
             && allowsPromotion
             && largeImageIsLocallyAvailable()
@@ -96,12 +102,56 @@ nonisolated enum MobileCollectionBrowserGridMode: Int, CaseIterable, Hashable, S
     }
 
     var requiredImageQuality: CollectionBrowseImageQuality {
-        self == .large ? .large : .thumbnail
+        switch self {
+        case .large:
+            .large
+        case .threeColumns:
+            .thumbnail
+        case .fiveColumns:
+            .smallThumbnail
+        }
+    }
+}
+
+nonisolated enum CollectionBrowseThumbnailWidth: Int, CaseIterable, Hashable, Sendable {
+    case width140 = 140
+    case width260 = 260
+
+    var pathComponent: String {
+        String(rawValue)
     }
 }
 
 nonisolated enum CollectionBrowseImageURLMapping: Sendable {
+    static func smallThumbnailURL(for thumbnailURL: URL) -> URL? {
+        Self.thumbnailURL(for: thumbnailURL, width: .width260)
+    }
+
+    static func thumbnailURL(
+        for thumbnailURL: URL,
+        width: CollectionBrowseThumbnailWidth
+    ) -> URL? {
+        guard let mapping = validatedThumbnailURL(thumbnailURL) else {
+            return nil
+        }
+        return mapping.directoryURL
+            .appendingPathComponent(width.pathComponent, isDirectory: true)
+            .appendingPathComponent(mapping.fileName, isDirectory: false)
+    }
+
     static func midURL(for thumbnailURL: URL) -> URL? {
+        guard let mapping = validatedThumbnailURL(thumbnailURL) else {
+            return nil
+        }
+        return mapping.directoryURL
+            .deletingLastPathComponent()
+            .appendingPathComponent("mid", isDirectory: true)
+            .appendingPathComponent(mapping.fileName, isDirectory: false)
+    }
+
+    private static func validatedThumbnailURL(
+        _ thumbnailURL: URL
+    ) -> (directoryURL: URL, fileName: String)? {
         guard let thumbnailURLComponents = URLComponents(
             url: thumbnailURL,
             resolvingAgainstBaseURL: false
@@ -131,13 +181,6 @@ nonisolated enum CollectionBrowseImageURLMapping: Sendable {
               !thumbnailURL.lastPathComponent.contains("\\") else {
             return nil
         }
-
-        return thumbnailDirectoryURL
-            .deletingLastPathComponent()
-            .appendingPathComponent("mid", isDirectory: true)
-            .appendingPathComponent(
-                thumbnailURL.lastPathComponent,
-                isDirectory: false
-            )
+        return (thumbnailDirectoryURL, thumbnailURL.lastPathComponent)
     }
 }

@@ -3,13 +3,27 @@
 import Foundation
 
 nonisolated struct CollectionBrowseImageSources: Hashable, Sendable {
+    let smallThumbnailDescriptor: CollectionCatalogDownloadableMediaDescriptor
     let thumbnailDescriptor: CollectionCatalogDownloadableMediaDescriptor
     let largeDescriptor: CollectionCatalogDownloadableMediaDescriptor
+
+    init(
+        smallThumbnailDescriptor: CollectionCatalogDownloadableMediaDescriptor? = nil,
+        thumbnailDescriptor: CollectionCatalogDownloadableMediaDescriptor,
+        largeDescriptor: CollectionCatalogDownloadableMediaDescriptor
+    ) {
+        self.smallThumbnailDescriptor = smallThumbnailDescriptor
+            ?? thumbnailDescriptor
+        self.thumbnailDescriptor = thumbnailDescriptor
+        self.largeDescriptor = largeDescriptor
+    }
 
     func descriptor(
         for quality: CollectionBrowseImageQuality
     ) -> CollectionCatalogDownloadableMediaDescriptor {
         switch quality {
+        case .smallThumbnail:
+            return smallThumbnailDescriptor
         case .thumbnail:
             return thumbnailDescriptor
         case .large:
@@ -26,13 +40,19 @@ nonisolated struct CollectionBrowseImageSources: Hashable, Sendable {
         if descriptor == thumbnailDescriptor {
             return .thumbnail
         }
+        if descriptor == smallThumbnailDescriptor {
+            return .smallThumbnail
+        }
         return nil
     }
 
     var descriptorsByDescendingQuality: [CollectionCatalogDownloadableMediaDescriptor] {
-        largeDescriptor == thumbnailDescriptor
-            ? [largeDescriptor]
-            : [largeDescriptor, thumbnailDescriptor]
+        [largeDescriptor, thumbnailDescriptor, smallThumbnailDescriptor]
+            .reduce(into: []) { descriptors, descriptor in
+                if !descriptors.contains(descriptor) {
+                    descriptors.append(descriptor)
+                }
+            }
     }
 }
 
@@ -96,6 +116,9 @@ nonisolated extension CollectionCatalog {
         ) else {
             return nil
         }
+        let smallThumbnailDescriptor = smallThumbnailDescriptor(
+            for: thumbnailDescriptor
+        ) ?? thumbnailDescriptor
 
         let largeDescriptor: CollectionCatalogDownloadableMediaDescriptor
 #if os(iOS) || os(macOS)
@@ -119,6 +142,7 @@ nonisolated extension CollectionCatalog {
 #endif
 
         return CollectionBrowseImageSources(
+            smallThumbnailDescriptor: smallThumbnailDescriptor,
             thumbnailDescriptor: thumbnailDescriptor,
             largeDescriptor: largeDescriptor
         )
@@ -202,6 +226,25 @@ nonisolated extension CollectionCatalog {
             tokenIndex: thumbnailDescriptor.tokenIndex,
             media: .staticImage(url: midURL, fileExtension: "webp"),
             purpose: .collectionBrowserMid,
+            thumbnailAspectRatio: thumbnailDescriptor.thumbnailAspectRatio
+        )
+    }
+
+    private static func smallThumbnailDescriptor(
+        for thumbnailDescriptor: CollectionCatalogDownloadableMediaDescriptor
+    ) -> CollectionCatalogDownloadableMediaDescriptor? {
+        guard thumbnailDescriptor.isCollectionBrowserThumbnail,
+              let smallThumbnailURL = CollectionBrowseImageURLMapping
+                .smallThumbnailURL(for: thumbnailDescriptor.url) else {
+            return nil
+        }
+
+        return CollectionCatalogDownloadableMediaDescriptor(
+            collectionId: thumbnailDescriptor.collectionId,
+            tokenId: thumbnailDescriptor.tokenId,
+            tokenIndex: thumbnailDescriptor.tokenIndex,
+            media: .staticImage(url: smallThumbnailURL, fileExtension: "webp"),
+            purpose: .collectionBrowserThumbnail,
             thumbnailAspectRatio: thumbnailDescriptor.thumbnailAspectRatio
         )
     }

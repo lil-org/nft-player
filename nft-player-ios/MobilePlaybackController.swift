@@ -232,6 +232,11 @@ class MobilePlaybackController {
         quality: CollectionBrowseImageQuality
     ) -> DownloadableMediaDescriptor? {
         switch quality {
+        case .smallThumbnail:
+            return collectionBrowseImageSources(
+                snapshot: snapshot,
+                tokenIndex: tokenIndex
+            )?.smallThumbnailDescriptor
         case .thumbnail:
             return collectionBrowseThumbnailDescriptor(
                 snapshot: snapshot,
@@ -243,6 +248,39 @@ class MobilePlaybackController {
                 tokenIndex: tokenIndex
             )?.largeDescriptor
         }
+    }
+
+    func collectionBrowsePrefetchDescriptor(
+        snapshot: PlayerCollectionBrowseSnapshot,
+        tokenIndex: Int,
+        quality: CollectionBrowseImageQuality,
+        retainsCachedDescriptor: Bool = false
+    ) -> DownloadableMediaDescriptor? {
+        guard let sources = collectionBrowseImageSources(
+            snapshot: snapshot,
+            tokenIndex: tokenIndex
+        ) else {
+            return nil
+        }
+        let requestedDescriptor = sources.descriptor(for: quality)
+        let cache = DownloadableMediaCache.shared
+        if quality != .large,
+           sources.largeDescriptor != requestedDescriptor,
+           cache.cachedDecodedImage(for: sources.largeDescriptor) != nil {
+            return nil
+        }
+        if cache.cachedDecodedImage(for: requestedDescriptor) != nil {
+            return retainsCachedDescriptor ? requestedDescriptor : nil
+        }
+        guard quality == .smallThumbnail,
+              sources.thumbnailDescriptor
+                != sources.smallThumbnailDescriptor else {
+            return requestedDescriptor
+        }
+        if cache.cachedDecodedImage(for: sources.thumbnailDescriptor) != nil {
+            return nil
+        }
+        return requestedDescriptor
     }
 
     func collectionBrowseThumbnailAspectRatioProfile(
@@ -333,34 +371,44 @@ class MobilePlaybackController {
         direction: DownloadableMediaCache.PrefetchDirection,
         prefetchStride: Int,
         quality: CollectionBrowseImageQuality,
+        displayedRegularThumbnailTokenIndices: Set<Int>,
         displayedLargeTokenIndices: Set<Int>,
         locallyAvailableLargeTokenIndices: Set<Int>
-    ) -> PlayerDownloadableMediaWindow? {
+    ) {
         guard let snapshot = collectionBrowseSnapshot(uuid: uuid),
               let preparedWindow = PlayerCollectionBrowseMediaWindowLayout.makeWindow(
                 centeredAt: tokenIndex,
                 itemCount: snapshot.itemCount,
                 direction: direction,
                 prefetchStride: prefetchStride,
-                descriptorForTokenIndex: {
+                descriptorForTokenIndex: { candidateTokenIndex in
                     let selection = CollectionBrowseImageWindowSelection.resolve(
                         requiredQuality: quality,
+                        isDisplayingRegularThumbnail:
+                            displayedRegularThumbnailTokenIndices.contains(
+                                candidateTokenIndex
+                            ),
                         isDisplayingLargeImage:
-                            displayedLargeTokenIndices.contains($0),
+                            displayedLargeTokenIndices.contains(
+                                candidateTokenIndex
+                            ),
                         largeImageIsLocallyAvailable:
-                            locallyAvailableLargeTokenIndices.contains($0)
+                            locallyAvailableLargeTokenIndices.contains(
+                                candidateTokenIndex
+                            )
                     )
                     switch selection {
                     case .requestedQuality:
-                        return collectionBrowseImageDescriptor(
+                        return collectionBrowsePrefetchDescriptor(
                             snapshot: snapshot,
-                            tokenIndex: $0,
-                            quality: quality
+                            tokenIndex: candidateTokenIndex,
+                            quality: quality,
+                            retainsCachedDescriptor: true
                         )
                     case .locallyAvailableLarge:
                         return collectionBrowseImageDescriptor(
                             snapshot: snapshot,
-                            tokenIndex: $0,
+                            tokenIndex: candidateTokenIndex,
                             quality: .large
                         )
                     case .omitSatisfiedToken:
@@ -369,10 +417,9 @@ class MobilePlaybackController {
                 }
               ) else {
             clearDownloadableMediaWindow(uuid: uuid)
-            return nil
+            return
         }
         DownloadableMediaCache.shared.prepareWindow(preparedWindow, ownerId: uuid)
-        return preparedWindow
     }
 
     func downloadableMediaDescriptor(uuid: UUID, pagePosition: PlayerPagePosition) -> DownloadableMediaDescriptor? {

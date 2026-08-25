@@ -162,15 +162,18 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         let direction: DownloadableMediaCache.PrefetchDirection
         let prefetchStride: Int
         let quality: CollectionBrowseImageQuality
+        let displayedRegularThumbnailTokenIndices: Set<Int>
         let displayedLargeTokenIndices: Set<Int>
         let locallyAvailableLargeTokenIndices: Set<Int>
     }
 
-    private struct DisplayedLargeImageWindowState {
+    private struct DisplayedImageWindowState {
+        let regularThumbnailTokenIndices: Set<Int>
         let tokenIndices: Set<Int>
         let locallyAvailableTokenIndices: Set<Int>
 
         static let empty = Self(
+            regularThumbnailTokenIndices: [],
             tokenIndices: [],
             locallyAvailableTokenIndices: []
         )
@@ -2637,33 +2640,51 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         for tokenIndex in orderedIndices {
             guard prefetchLoads.count < Self.maximumPrefetchLoadCount,
                   prefetchLoads[tokenIndex] == nil,
-                  let browseSnapshot,
-                  let descriptor = MobilePlaybackController.shared.collectionBrowseImageDescriptor(
+                  let browseSnapshot else {
+                continue
+            }
+            let loadID = UUID()
+            guard let descriptor = MobilePlaybackController.shared
+                .collectionBrowsePrefetchDescriptor(
                     snapshot: browseSnapshot,
                     tokenIndex: tokenIndex,
                     quality: requiredImageQuality
-                  ),
-                  DownloadableMediaCache.shared.cachedDecodedImage(for: descriptor) == nil else {
+                ) else {
                 continue
             }
+            startCollectionViewPrefetch(
+                descriptor: descriptor,
+                tokenIndex: tokenIndex,
+                loadID: loadID
+            )
+        }
+    }
 
-            let loadID = UUID()
-            if let cancellation = DownloadableMediaCache.shared.loadProvisionalImage(
+    private func startCollectionViewPrefetch(
+        descriptor: DownloadableMediaDescriptor,
+        tokenIndex: Int,
+        loadID: UUID
+    ) {
+        guard let cancellation = DownloadableMediaCache.shared
+            .loadProvisionalImage(
                 for: descriptor,
                 completion: { [weak self] _ in
                     Task { @MainActor in
                         await Task.yield()
-                        guard self?.prefetchLoads[tokenIndex]?.id == loadID else { return }
+                        guard self?.prefetchLoads[tokenIndex]?.id == loadID else {
+                            return
+                        }
                         self?.prefetchLoads.removeValue(forKey: tokenIndex)
                     }
                 }
-            ) {
-                prefetchLoads[tokenIndex] = CancellableLoad(
-                    id: loadID,
-                    cancellation: cancellation
-                )
-            }
+            ) else {
+            prefetchLoads.removeValue(forKey: tokenIndex)
+            return
         }
+        prefetchLoads[tokenIndex] = CancellableLoad(
+            id: loadID,
+            cancellation: cancellation
+        )
     }
 
     func collectionView(
@@ -3882,17 +3903,23 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         force: Bool
     ) {
         guard isActive else { return }
-        let displayedLargeImages = requiredImageQuality == .thumbnail
-            ? displayedLargeImageWindowState()
+        let displayedImages = requiredImageQuality != .large
+            ? displayedImageWindowState()
             : .empty
+        let displayedRegularThumbnailTokenIndices =
+            requiredImageQuality == .smallThumbnail
+            ? displayedImages.regularThumbnailTokenIndices
+            : []
         let request = ThumbnailWindowRequest(
             tokenIndex: tokenIndex,
             direction: direction,
             prefetchStride: configuredPrefetchStride,
             quality: requiredImageQuality,
-            displayedLargeTokenIndices: displayedLargeImages.tokenIndices,
+            displayedRegularThumbnailTokenIndices:
+                displayedRegularThumbnailTokenIndices,
+            displayedLargeTokenIndices: displayedImages.tokenIndices,
             locallyAvailableLargeTokenIndices:
-                displayedLargeImages.locallyAvailableTokenIndices
+                displayedImages.locallyAvailableTokenIndices
         )
         if !force, lastThumbnailWindowRequest == request {
             return
@@ -3902,22 +3929,26 @@ final class VerticalCollectionBrowserViewController: UIViewController,
            lastThumbnailWindowRequest.direction == direction,
            lastThumbnailWindowRequest.prefetchStride == configuredPrefetchStride,
            lastThumbnailWindowRequest.quality == requiredImageQuality,
+           lastThumbnailWindowRequest.displayedRegularThumbnailTokenIndices
+                == displayedRegularThumbnailTokenIndices,
            lastThumbnailWindowRequest.displayedLargeTokenIndices
-                == displayedLargeImages.tokenIndices,
+                == displayedImages.tokenIndices,
            lastThumbnailWindowRequest.locallyAvailableLargeTokenIndices
-                == displayedLargeImages.locallyAvailableTokenIndices,
+                == displayedImages.locallyAvailableTokenIndices,
            abs(lastThumbnailWindowRequest.tokenIndex - tokenIndex) < configuredPrefetchStride {
             return
         }
-        _ = MobilePlaybackController.shared.prepareCollectionBrowseThumbnailWindow(
+        MobilePlaybackController.shared.prepareCollectionBrowseThumbnailWindow(
             uuid: uuid,
             centeredAt: tokenIndex,
             direction: direction,
             prefetchStride: configuredPrefetchStride,
             quality: requiredImageQuality,
-            displayedLargeTokenIndices: displayedLargeImages.tokenIndices,
+            displayedRegularThumbnailTokenIndices:
+                displayedRegularThumbnailTokenIndices,
+            displayedLargeTokenIndices: displayedImages.tokenIndices,
             locallyAvailableLargeTokenIndices:
-                displayedLargeImages.locallyAvailableTokenIndices
+                displayedImages.locallyAvailableTokenIndices
         )
         lastThumbnailWindowRequest = request
     }
@@ -4057,17 +4088,22 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         collectionView.visibleCells.compactMap { $0 as? MobilePlayerCollectionBrowserCell }
     }
 
-    private func displayedLargeImageWindowState() -> DisplayedLargeImageWindowState {
+    private func displayedImageWindowState() -> DisplayedImageWindowState {
+        var regularThumbnailTokenIndices = Set<Int>()
         var tokenIndices = Set<Int>()
         var locallyAvailableTokenIndices = Set<Int>()
         for cell in visibleBrowserCells {
+            if let tokenIndex = cell.displayedRegularThumbnailTokenIndex {
+                regularThumbnailTokenIndices.insert(tokenIndex)
+            }
             guard let entry = cell.displayedLargeImageWindowEntry else { continue }
             tokenIndices.insert(entry.tokenIndex)
             if entry.isLocallyAvailable {
                 locallyAvailableTokenIndices.insert(entry.tokenIndex)
             }
         }
-        return DisplayedLargeImageWindowState(
+        return DisplayedImageWindowState(
+            regularThumbnailTokenIndices: regularThumbnailTokenIndices,
             tokenIndices: tokenIndices,
             locallyAvailableTokenIndices: locallyAvailableTokenIndices
         )

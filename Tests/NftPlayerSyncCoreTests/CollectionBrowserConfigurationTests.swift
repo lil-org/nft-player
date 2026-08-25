@@ -17,7 +17,7 @@ final class CollectionBrowserConfigurationTests: XCTestCase {
         XCTAssertEqual(MobileCollectionBrowserGridMode.defaultMode, .threeColumns)
     }
 
-    func testGridModeImageQualityRequiresLargeImagesOnlyForTheLargeGrid() {
+    func testGridModesSelectTheirDesignatedImageQuality() {
         XCTAssertEqual(
             MobileCollectionBrowserGridMode.large.requiredImageQuality,
             .large
@@ -28,8 +28,52 @@ final class CollectionBrowserConfigurationTests: XCTestCase {
         )
         XCTAssertEqual(
             MobileCollectionBrowserGridMode.fiveColumns.requiredImageQuality,
-            .thumbnail
+            .smallThumbnail
         )
+    }
+
+    func testSizedThumbnailURLMappingAddsWidthAfterThumbsDirectory() throws {
+        XCTAssertEqual(CollectionBrowseThumbnailWidth.width140.rawValue, 140)
+        XCTAssertEqual(CollectionBrowseThumbnailWidth.width260.rawValue, 260)
+        let mappings = [
+            (
+                source: "https://cdn.lil.org/player/terraforms/thumbs/1.webp",
+                width140: "https://cdn.lil.org/player/terraforms/thumbs/140/1.webp",
+                width260: "https://cdn.lil.org/player/terraforms/thumbs/260/1.webp"
+            ),
+            (
+                source: "https://cdn.lil.org/player/example-generative/thumbs/42.webp",
+                width140: "https://cdn.lil.org/player/example-generative/thumbs/140/42.webp",
+                width260: "https://cdn.lil.org/player/example-generative/thumbs/260/42.webp"
+            ),
+            (
+                source: "https://cdn.example.com/nft/collection/thumbs/0001.webp",
+                width140: "https://cdn.example.com/nft/collection/thumbs/140/0001.webp",
+                width260: "https://cdn.example.com/nft/collection/thumbs/260/0001.webp"
+            ),
+        ]
+
+        for mapping in mappings {
+            let url = try XCTUnwrap(URL(string: mapping.source))
+            XCTAssertEqual(
+                CollectionBrowseImageURLMapping.thumbnailURL(
+                    for: url,
+                    width: .width140
+                ),
+                URL(string: mapping.width140)
+            )
+            XCTAssertEqual(
+                CollectionBrowseImageURLMapping.thumbnailURL(
+                    for: url,
+                    width: .width260
+                ),
+                URL(string: mapping.width260)
+            )
+            XCTAssertEqual(
+                CollectionBrowseImageURLMapping.smallThumbnailURL(for: url),
+                URL(string: mapping.width260)
+            )
+        }
     }
 
     func testMidImageURLMappingUsesFinalThumbsDirectory() throws {
@@ -57,7 +101,7 @@ final class CollectionBrowserConfigurationTests: XCTestCase {
         )
     }
 
-    func testMidImageURLMappingRejectsUnsafeOrUnsupportedURLs() throws {
+    func testImageURLMappingsRejectUnsafeOrUnsupportedURLs() throws {
         let unsupportedURLs = [
             "file:///collection/thumbs/1.webp",
             "https://cdn.lil.org/nft/card_nft_2/fronts_1400/0001.webp",
@@ -71,20 +115,50 @@ final class CollectionBrowserConfigurationTests: XCTestCase {
         for value in unsupportedURLs {
             let url = try XCTUnwrap(URL(string: value))
             XCTAssertNil(CollectionBrowseImageURLMapping.midURL(for: url), value)
+            XCTAssertNil(
+                CollectionBrowseImageURLMapping.smallThumbnailURL(for: url),
+                value
+            )
+            for width in CollectionBrowseThumbnailWidth.allCases {
+                XCTAssertNil(
+                    CollectionBrowseImageURLMapping.thumbnailURL(
+                        for: url,
+                        width: width
+                    ),
+                    value
+                )
+            }
         }
     }
 
-    func testImageQualityNeverAllowsLateThumbnailToReplaceLargeImage() {
+    func testImageQualityReplacementFollowsResolutionOrder() {
+        XCTAssertTrue(CollectionBrowseImageQuality.smallThumbnail.canReplace(nil))
         XCTAssertTrue(CollectionBrowseImageQuality.thumbnail.canReplace(nil))
+        XCTAssertTrue(
+            CollectionBrowseImageQuality.thumbnail.canReplace(.smallThumbnail)
+        )
         XCTAssertTrue(CollectionBrowseImageQuality.large.canReplace(.thumbnail))
         XCTAssertTrue(CollectionBrowseImageQuality.large.canReplace(.large))
+        XCTAssertFalse(
+            CollectionBrowseImageQuality.smallThumbnail.canReplace(.thumbnail)
+        )
         XCTAssertFalse(CollectionBrowseImageQuality.thumbnail.canReplace(.large))
     }
 
     func testCacheWindowKeepsDisplayedLargeImagesWithoutRedundantDownloads() {
         XCTAssertEqual(
             CollectionBrowseImageWindowSelection.resolve(
-                requiredQuality: .thumbnail,
+                requiredQuality: .smallThumbnail,
+                isDisplayingRegularThumbnail: true,
+                isDisplayingLargeImage: false,
+                largeImageIsLocallyAvailable: false
+            ),
+            .omitSatisfiedToken
+        )
+        XCTAssertEqual(
+            CollectionBrowseImageWindowSelection.resolve(
+                requiredQuality: .smallThumbnail,
+                isDisplayingRegularThumbnail: false,
                 isDisplayingLargeImage: true,
                 largeImageIsLocallyAvailable: true
             ),
@@ -93,6 +167,16 @@ final class CollectionBrowserConfigurationTests: XCTestCase {
         XCTAssertEqual(
             CollectionBrowseImageWindowSelection.resolve(
                 requiredQuality: .thumbnail,
+                isDisplayingRegularThumbnail: false,
+                isDisplayingLargeImage: true,
+                largeImageIsLocallyAvailable: true
+            ),
+            .locallyAvailableLarge
+        )
+        XCTAssertEqual(
+            CollectionBrowseImageWindowSelection.resolve(
+                requiredQuality: .thumbnail,
+                isDisplayingRegularThumbnail: false,
                 isDisplayingLargeImage: true,
                 largeImageIsLocallyAvailable: false
             ),
@@ -101,6 +185,7 @@ final class CollectionBrowserConfigurationTests: XCTestCase {
         XCTAssertEqual(
             CollectionBrowseImageWindowSelection.resolve(
                 requiredQuality: .thumbnail,
+                isDisplayingRegularThumbnail: true,
                 isDisplayingLargeImage: false,
                 largeImageIsLocallyAvailable: true
             ),
@@ -109,6 +194,7 @@ final class CollectionBrowserConfigurationTests: XCTestCase {
         XCTAssertEqual(
             CollectionBrowseImageWindowSelection.resolve(
                 requiredQuality: .large,
+                isDisplayingRegularThumbnail: false,
                 isDisplayingLargeImage: true,
                 largeImageIsLocallyAvailable: false
             ),
@@ -123,6 +209,14 @@ final class CollectionBrowserConfigurationTests: XCTestCase {
                 hasDistinctLargeImage: true,
                 largeImageIsLocallyAvailable: true,
                 allowsPromotion: false
+            )
+        )
+        XCTAssertTrue(
+            CollectionBrowseImageLoadPolicy.allowsLocalLargeImagePromotion(
+                requiredQuality: .smallThumbnail,
+                hasDistinctLargeImage: true,
+                largeImageIsLocallyAvailable: true,
+                allowsPromotion: true
             )
         )
         XCTAssertTrue(

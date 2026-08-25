@@ -32,9 +32,14 @@ extension MobilePlayerCollectionBrowserCachedImagePolicyTests {
 
     private func makeDistinctSources() -> (
         sources: CollectionBrowseImageSources,
+        smallThumbnail: DownloadableMediaDescriptor,
         thumbnail: DownloadableMediaDescriptor,
         large: DownloadableMediaDescriptor
     ) {
+        let smallThumbnail = makeDescriptor(
+            name: "small-thumbnail",
+            purpose: .collectionBrowserThumbnail
+        )
         let thumbnail = makeDescriptor(
             name: "thumbnail",
             purpose: .collectionBrowserThumbnail
@@ -45,9 +50,11 @@ extension MobilePlayerCollectionBrowserCachedImagePolicyTests {
         )
         return (
             CollectionBrowseImageSources(
+                smallThumbnailDescriptor: smallThumbnail,
                 thumbnailDescriptor: thumbnail,
                 largeDescriptor: large
             ),
+            smallThumbnail,
             thumbnail,
             large
         )
@@ -74,6 +81,20 @@ extension MobilePlayerCollectionBrowserCachedImagePolicyTests {
         )
     }
 
+    func testSmallThumbnailBaseWithoutLargeUpgradeReusesRegularThumbnail() {
+        let fixture = makeDistinctSources()
+
+        XCTAssertEqual(
+            fixture.sources.cachedImageCandidateDescriptors(
+                selectionPolicy: .base(
+                    requiredQuality: .smallThumbnail,
+                    allowsLocalLargeUpgrade: false
+                )
+            ),
+            [fixture.thumbnail, fixture.smallThumbnail]
+        )
+    }
+
     func testRequiredLargeWithoutUpgradeUsesDescendingQuality() {
         let fixture = makeDistinctSources()
 
@@ -84,7 +105,7 @@ extension MobilePlayerCollectionBrowserCachedImagePolicyTests {
                     allowsLocalLargeUpgrade: false
                 )
             ),
-            [fixture.large, fixture.thumbnail]
+            [fixture.large, fixture.thumbnail, fixture.smallThumbnail]
         )
     }
 
@@ -98,8 +119,34 @@ extension MobilePlayerCollectionBrowserCachedImagePolicyTests {
                     allowsLocalLargeUpgrade: true
                 )
             ),
-            [fixture.large, fixture.thumbnail]
+            [fixture.large, fixture.thumbnail, fixture.smallThumbnail]
         )
+    }
+
+    func testThreeDistinctImageSourcesResolveByQuality() {
+        let fixture = makeDistinctSources()
+
+        XCTAssertEqual(
+            fixture.sources.descriptor(for: .smallThumbnail),
+            fixture.smallThumbnail
+        )
+        XCTAssertEqual(
+            fixture.sources.descriptor(for: .thumbnail),
+            fixture.thumbnail
+        )
+        XCTAssertEqual(
+            fixture.sources.descriptor(for: .large),
+            fixture.large
+        )
+        XCTAssertEqual(
+            fixture.sources.quality(of: fixture.smallThumbnail),
+            .smallThumbnail
+        )
+        XCTAssertEqual(
+            fixture.sources.quality(of: fixture.thumbnail),
+            .thumbnail
+        )
+        XCTAssertEqual(fixture.sources.quality(of: fixture.large), .large)
     }
 
     func testSharedDescriptorIsReturnedOnceWithoutLargeUpgrade() {
@@ -120,6 +167,35 @@ extension MobilePlayerCollectionBrowserCachedImagePolicyTests {
                 )
             ),
             [descriptor]
+        )
+    }
+
+    func testDescendingCandidatesDeduplicateSharedQualityDescriptors() {
+        let shared = makeDescriptor(
+            name: "shared",
+            purpose: .collectionBrowserThumbnail
+        )
+        let smallThumbnail = makeDescriptor(
+            name: "small-thumbnail",
+            purpose: .collectionBrowserThumbnail
+        )
+        let partiallySharedSources = CollectionBrowseImageSources(
+            smallThumbnailDescriptor: smallThumbnail,
+            thumbnailDescriptor: shared,
+            largeDescriptor: shared
+        )
+        let fullySharedSources = CollectionBrowseImageSources(
+            thumbnailDescriptor: shared,
+            largeDescriptor: shared
+        )
+
+        XCTAssertEqual(
+            partiallySharedSources.descriptorsByDescendingQuality,
+            [shared, smallThumbnail]
+        )
+        XCTAssertEqual(
+            fullySharedSources.descriptorsByDescendingQuality,
+            [shared]
         )
     }
 

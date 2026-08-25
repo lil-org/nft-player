@@ -57,7 +57,8 @@ extension MobileCollectionBrowserGridModePresentationTests {
     }
 
     private func collectionMetadata(
-        minimumTokenCount: Int = 4
+        minimumTokenCount: Int = 4,
+        requiresBundledGenerativeToken: Bool = false
     ) throws -> (
         id: String,
         internalSlug: String
@@ -79,6 +80,11 @@ extension MobileCollectionBrowserGridModePresentationTests {
                         specificCollectionId: item.id,
                         tokenIndex: 0
                     )
+                    && (!requiresBundledGenerativeToken
+                        || TokenGenerator.bundledWebGenerativeToken(
+                            specificCollectionId: item.id,
+                            tokenIndex: 0
+                        ) != nil)
             }
         )
         return (item.id, try XCTUnwrap(item.internalSlug))
@@ -223,6 +229,42 @@ extension MobileCollectionBrowserGridModePresentationTests {
             )
         }
         return (pixel[0], pixel[1], pixel[2], pixel[3])
+    }
+
+    func testBrowseImageDescriptorSelects260TierForFiveColumns() throws {
+        let metadata = try collectionMetadata(
+            requiresBundledGenerativeToken: true
+        )
+        let snapshot = PlayerCollectionBrowseSnapshot(
+            collectionId: metadata.id,
+            itemCount: CollectionCatalog.tokenCount(
+                specificCollectionId: metadata.id
+            ),
+            initialTokenIndex: 0
+        )
+        let sources = try XCTUnwrap(
+            CollectionCatalog.collectionBrowseImageSources(
+                specificCollectionId: metadata.id,
+                tokenIndex: 0
+            )
+        )
+        let standardThumbnailURL = try XCTUnwrap(URL(
+            string: "https://cdn.lil.org/player/\(metadata.internalSlug)/thumbs/0.webp"
+        ))
+        let smallThumbnailURL = try XCTUnwrap(URL(
+            string: "https://cdn.lil.org/player/\(metadata.internalSlug)/thumbs/260/0.webp"
+        ))
+
+        XCTAssertEqual(sources.thumbnailDescriptor.url, standardThumbnailURL)
+        XCTAssertEqual(sources.smallThumbnailDescriptor.url, smallThumbnailURL)
+        XCTAssertEqual(
+            MobilePlaybackController.shared.collectionBrowseImageDescriptor(
+                snapshot: snapshot,
+                tokenIndex: 0,
+                quality: .smallThumbnail
+            ),
+            sources.smallThumbnailDescriptor
+        )
     }
 
     func testControllerDeallocatesWithActiveInteractionFadeDisplayLink()

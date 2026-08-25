@@ -125,6 +125,14 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
         return (representedTokenIndex, displayedImageHasLocalFile)
     }
 
+    var displayedRegularThumbnailTokenIndex: Int? {
+        guard imageView.image != nil,
+              displayedImageQuality == .thumbnail else {
+            return nil
+        }
+        return representedTokenIndex
+    }
+
     var usesForegroundImageLoading: Bool {
         configuredImageLoadPolicy == .foreground
     }
@@ -922,10 +930,10 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
         if let matchingLoad = imageLoads.removeValue(forKey: quality) {
             matchingLoad.cancellation?()
         }
-        if quality == .large,
-           let thumbnailLoad = imageLoads.removeValue(forKey: .thumbnail) {
-            thumbnailLoad.cancellation?()
-        }
+        let replacedLoads = imageLoads.keys
+            .filter { $0.rawValue < quality.rawValue }
+            .compactMap { imageLoads.removeValue(forKey: $0)?.cancellation }
+        replacedLoads.forEach { $0() }
         if let deferredImageInstall,
            !quality.canReplace(deferredImageInstall.quality) {
             return
@@ -1065,12 +1073,19 @@ extension CollectionBrowseImageSources {
         case .highestAvailable:
             return descriptorsByDescendingQuality
         case let .base(requiredQuality, allowsLocalLargeUpgrade):
-            if requiredQuality == .thumbnail,
-               largeDescriptor != thumbnailDescriptor,
-               !allowsLocalLargeUpgrade {
+            guard requiredQuality != .large,
+                  !allowsLocalLargeUpgrade else {
+                return descriptorsByDescendingQuality
+            }
+            if requiredQuality == .thumbnail {
                 return [thumbnailDescriptor]
             }
-            return descriptorsByDescendingQuality
+            return [thumbnailDescriptor, smallThumbnailDescriptor]
+                .reduce(into: []) { descriptors, descriptor in
+                    if !descriptors.contains(descriptor) {
+                        descriptors.append(descriptor)
+                    }
+                }
         }
     }
 

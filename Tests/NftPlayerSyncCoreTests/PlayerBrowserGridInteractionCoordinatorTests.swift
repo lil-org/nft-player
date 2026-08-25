@@ -2073,7 +2073,7 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
 
         let wrapUp = coordinator.handle(.rendererSucceeded)
         XCTAssertTrue(
-            wrapUp.contains(.reconcileMedia(cancelsPrefetchLoads: false))
+            wrapUp.contains(.reconcileMedia(cancelsPrefetchLoads: true))
         )
         XCTAssertTrue(wrapUp.contains(.finishInteraction(settlesPosition: true)))
         XCTAssertEqual(coordinator.phase, .idle)
@@ -2179,7 +2179,7 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
         )
     }
 
-    func testQualityReconciliationKeepsPrefetchesBetweenDenseGrids() {
+    func testQualityReconciliationCancelsPrefetchesBetweenDenseGridTiers() {
         var coordinator = Coordinator()
         _ = coordinator.handle(
             .menuSelected(
@@ -2192,11 +2192,11 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
         let wrapUp = coordinator.handle(.rendererSucceeded)
 
         XCTAssertTrue(
-            wrapUp.contains(.reconcileMedia(cancelsPrefetchLoads: false)),
-            "both dense grids need only thumbnails, so loads in flight survive"
+            wrapUp.contains(.reconcileMedia(cancelsPrefetchLoads: true)),
+            "five columns uses small thumbnails while three columns uses regular thumbnails"
         )
         XCTAssertFalse(
-            wrapUp.contains(.reconcileMedia(cancelsPrefetchLoads: true))
+            wrapUp.contains(.reconcileMedia(cancelsPrefetchLoads: false))
         )
     }
 
