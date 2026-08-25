@@ -234,6 +234,14 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         case continuous
     }
 
+#if DEBUG
+    struct ThumbnailWindowMetrics: Equatable {
+        var skippedDisplayedImageScans = 0
+        var displayedImageScans = 0
+        var preparations = 0
+    }
+#endif
+
     private static let cellReuseIdentifier = "MobilePlayerCollectionBrowserCell"
     private static let boundaryEpsilon: CGFloat = 0.75
     private static let verticalContentMargin: CGFloat = 0
@@ -249,6 +257,9 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     var onSettledPagePosition: ((PlayerPagePosition, Bool) -> Bool)?
     var onSelection: ((MobilePlayerBrowserTransitionSelection) -> Bool)?
     var onImmediateSelection: ((PlayerPagePosition, @escaping () -> Void) -> Bool)?
+#if DEBUG
+    private(set) var thumbnailWindowMetrics = ThumbnailWindowMetrics()
+#endif
 
     private let browserCollectionLayout = MobilePlayerCollectionBrowserLayout()
     private lazy var collectionView: MobilePlayerCollectionBrowserCollectionView = {
@@ -3903,53 +3914,80 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         force: Bool
     ) {
         guard isActive else { return }
-        let displayedImages = requiredImageQuality != .large
-            ? displayedImageWindowState()
-            : .empty
+        let prefetchStride = PlayerCollectionBrowseMediaWindowPolicy
+            .normalizedPrefetchStride(configuredPrefetchStride)
+        let quality = requiredImageQuality
+        let previousTokenIndex = lastThumbnailWindowRequest.flatMap {
+            $0.direction == direction
+                && $0.prefetchStride == prefetchStride
+                && $0.quality == quality
+                ? $0.tokenIndex
+                : nil
+        }
+        let shouldRefreshStableWindow =
+            PlayerCollectionBrowseMediaWindowPolicy.shouldRefresh(
+                previousTokenIndex: previousTokenIndex,
+                nextTokenIndex: tokenIndex,
+                prefetchStride: prefetchStride,
+                force: force
+        )
+        if quality == .smallThumbnail, !shouldRefreshStableWindow {
+#if DEBUG
+            thumbnailWindowMetrics.skippedDisplayedImageScans += 1
+#endif
+            return
+        }
+
+        let displayedImages: DisplayedImageWindowState
+        if quality == .large {
+            displayedImages = .empty
+        } else {
+            displayedImages = displayedImageWindowState()
+#if DEBUG
+            thumbnailWindowMetrics.displayedImageScans += 1
+#endif
+        }
         let displayedRegularThumbnailTokenIndices =
-            requiredImageQuality == .smallThumbnail
+            quality == .smallThumbnail
             ? displayedImages.regularThumbnailTokenIndices
             : []
         let request = ThumbnailWindowRequest(
             tokenIndex: tokenIndex,
             direction: direction,
-            prefetchStride: configuredPrefetchStride,
-            quality: requiredImageQuality,
+            prefetchStride: prefetchStride,
+            quality: quality,
             displayedRegularThumbnailTokenIndices:
                 displayedRegularThumbnailTokenIndices,
             displayedLargeTokenIndices: displayedImages.tokenIndices,
             locallyAvailableLargeTokenIndices:
                 displayedImages.locallyAvailableTokenIndices
         )
-        if !force, lastThumbnailWindowRequest == request {
-            return
-        }
         if !force,
            let lastThumbnailWindowRequest,
-           lastThumbnailWindowRequest.direction == direction,
-           lastThumbnailWindowRequest.prefetchStride == configuredPrefetchStride,
-           lastThumbnailWindowRequest.quality == requiredImageQuality,
            lastThumbnailWindowRequest.displayedRegularThumbnailTokenIndices
                 == displayedRegularThumbnailTokenIndices,
            lastThumbnailWindowRequest.displayedLargeTokenIndices
                 == displayedImages.tokenIndices,
            lastThumbnailWindowRequest.locallyAvailableLargeTokenIndices
                 == displayedImages.locallyAvailableTokenIndices,
-           abs(lastThumbnailWindowRequest.tokenIndex - tokenIndex) < configuredPrefetchStride {
+           !shouldRefreshStableWindow {
             return
         }
         MobilePlaybackController.shared.prepareCollectionBrowseThumbnailWindow(
             uuid: uuid,
             centeredAt: tokenIndex,
             direction: direction,
-            prefetchStride: configuredPrefetchStride,
-            quality: requiredImageQuality,
+            prefetchStride: prefetchStride,
+            quality: quality,
             displayedRegularThumbnailTokenIndices:
                 displayedRegularThumbnailTokenIndices,
             displayedLargeTokenIndices: displayedImages.tokenIndices,
             locallyAvailableLargeTokenIndices:
                 displayedImages.locallyAvailableTokenIndices
         )
+#if DEBUG
+        thumbnailWindowMetrics.preparations += 1
+#endif
         lastThumbnailWindowRequest = request
     }
 

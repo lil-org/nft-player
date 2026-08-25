@@ -363,6 +363,67 @@ extension MobileCollectionBrowserGridModePresentationTests {
         }
     }
 
+#if DEBUG
+    func testFiveColumnThumbnailWindowSkipsContinuousScanAndForcesSettlement()
+        async throws {
+        let metadata = try collectionMetadata(minimumTokenCount: 100)
+        let fixture = try makeFixture(collectionId: metadata.id)
+        defer { tearDownFixture(fixture) }
+        let collectionView = try XCTUnwrap(
+            fixture.controller.view.subviews.first {
+                $0 is MobilePlayerCollectionBrowserCollectionView
+            } as? MobilePlayerCollectionBrowserCollectionView
+        )
+
+        try await selectGridMode(
+            .fiveColumns,
+            controller: fixture.controller
+        )
+        await waitForNextMainQueueTurn()
+
+        let baseline = fixture.controller.thumbnailWindowMetrics
+        let firstRow = try XCTUnwrap(
+            collectionView.collectionViewLayout.layoutAttributesForItem(
+                at: IndexPath(item: 0, section: 0)
+            )
+        )
+        let secondRow = try XCTUnwrap(
+            collectionView.collectionViewLayout.layoutAttributesForItem(
+                at: IndexPath(item: 5, section: 0)
+            )
+        )
+        collectionView.contentOffset.y += secondRow.frame.midY
+            - firstRow.frame.midY
+        fixture.controller.scrollViewDidScroll(collectionView)
+        try await waitUntil("Sub-stride scroll update did not run") {
+            fixture.controller.thumbnailWindowMetrics
+                .skippedDisplayedImageScans
+                > baseline.skippedDisplayedImageScans
+        }
+        XCTAssertEqual(
+            fixture.controller.thumbnailWindowMetrics.displayedImageScans,
+            baseline.displayedImageScans
+        )
+        XCTAssertEqual(
+            fixture.controller.thumbnailWindowMetrics.preparations,
+            baseline.preparations
+        )
+
+        fixture.controller.scrollViewDidEndDragging(
+            collectionView,
+            willDecelerate: false
+        )
+        XCTAssertEqual(
+            fixture.controller.thumbnailWindowMetrics.displayedImageScans,
+            baseline.displayedImageScans + 1
+        )
+        XCTAssertEqual(
+            fixture.controller.thumbnailWindowMetrics.preparations,
+            baseline.preparations + 1
+        )
+    }
+#endif
+
     func testControllerDeallocatesWithActiveInteractionFadeDisplayLink()
         async throws {
         let metadata = try collectionMetadata()

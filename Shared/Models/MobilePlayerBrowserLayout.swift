@@ -172,15 +172,35 @@ nonisolated enum PlayerCollectionBrowseMediaWindowPolicy: Sendable {
         )
     }
 
+    static func normalizedPrefetchStride(_ prefetchStride: Int) -> Int {
+        min(
+            max(prefetchStride, 1),
+            MobilePlayerBrowserLayout.maximumPrefetchStride
+        )
+    }
+
+    static func shouldRefresh(
+        previousTokenIndex: Int?,
+        nextTokenIndex: Int,
+        prefetchStride: Int,
+        force: Bool
+    ) -> Bool {
+        guard !force, let previousTokenIndex else {
+            return true
+        }
+        let stride = normalizedPrefetchStride(prefetchStride)
+        let delta = nextTokenIndex.subtractingReportingOverflow(
+            previousTokenIndex
+        )
+        return delta.overflow || delta.partialValue.magnitude >= UInt(stride)
+    }
+
     private static func radii(
         prefetchStride: Int,
         preferredStrideCount: Int,
         oppositeStrideCount: Int
     ) -> Radii {
-        let stride = min(
-            max(prefetchStride, 1),
-            MobilePlayerBrowserLayout.maximumPrefetchStride
-        )
+        let stride = normalizedPrefetchStride(prefetchStride)
         return Radii(
             preferred: stride * preferredStrideCount,
             opposite: stride * oppositeStrideCount
