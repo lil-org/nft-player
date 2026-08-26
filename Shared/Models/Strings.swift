@@ -15,6 +15,7 @@ nonisolated struct Strings: Sendable {
     static let largeGrid = loc("Large grid: 1 column in portrait, 2 in landscape")
     static let threeColumns = loc("3 columns")
     static let fiveColumns = loc("5 columns")
+    static let nineColumns = loc("9 columns")
     static let finish = loc("Finish")
     static let share = loc("Share")
     static let copyMedia = loc("Copy Media")

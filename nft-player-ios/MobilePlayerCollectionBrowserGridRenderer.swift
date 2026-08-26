@@ -5559,7 +5559,15 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
         let generation = session.transitionContentGeneration
         let sessionID = session.id
         let planeID = plane.id
-        let descriptor = imageSources.descriptor(for: requiredQuality)
+        guard let descriptor = imageSources.descriptor(
+            for: requiredQuality
+        ) else {
+            cancelTransitionImageLoad(session: session, for: cell)
+            return installedCachedContent
+                || retainedTransitionContentQuality != nil
+                ? .ready
+                : .unavailable
+        }
         let loadEligibility = foregroundDestinationEligibility(
             destinationItem: toItem,
             cell: cell,

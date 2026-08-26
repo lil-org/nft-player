@@ -3,25 +3,30 @@
 import Foundation
 
 nonisolated struct CollectionBrowseImageSources: Hashable, Sendable {
+    let smallestThumbnailDescriptor: CollectionCatalogDownloadableMediaDescriptor?
     let smallThumbnailDescriptor: CollectionCatalogDownloadableMediaDescriptor
     let thumbnailDescriptor: CollectionCatalogDownloadableMediaDescriptor
     let largeDescriptor: CollectionCatalogDownloadableMediaDescriptor
 
     init(
+        smallestThumbnailDescriptor: CollectionCatalogDownloadableMediaDescriptor? = nil,
         smallThumbnailDescriptor: CollectionCatalogDownloadableMediaDescriptor? = nil,
         thumbnailDescriptor: CollectionCatalogDownloadableMediaDescriptor,
         largeDescriptor: CollectionCatalogDownloadableMediaDescriptor
     ) {
         self.smallThumbnailDescriptor = smallThumbnailDescriptor
             ?? thumbnailDescriptor
+        self.smallestThumbnailDescriptor = smallestThumbnailDescriptor
         self.thumbnailDescriptor = thumbnailDescriptor
         self.largeDescriptor = largeDescriptor
     }
 
     func descriptor(
         for quality: CollectionBrowseImageQuality
-    ) -> CollectionCatalogDownloadableMediaDescriptor {
+    ) -> CollectionCatalogDownloadableMediaDescriptor? {
         switch quality {
+        case .smallestThumbnail:
+            return smallestThumbnailDescriptor
         case .smallThumbnail:
             return smallThumbnailDescriptor
         case .thumbnail:
@@ -43,11 +48,21 @@ nonisolated struct CollectionBrowseImageSources: Hashable, Sendable {
         if descriptor == smallThumbnailDescriptor {
             return .smallThumbnail
         }
+        if let smallestThumbnailDescriptor,
+           descriptor == smallestThumbnailDescriptor {
+            return .smallestThumbnail
+        }
         return nil
     }
 
     var descriptorsByDescendingQuality: [CollectionCatalogDownloadableMediaDescriptor] {
-        [largeDescriptor, thumbnailDescriptor, smallThumbnailDescriptor]
+        [
+            largeDescriptor,
+            thumbnailDescriptor,
+            smallThumbnailDescriptor,
+            smallestThumbnailDescriptor,
+        ]
+            .compactMap { $0 }
             .reduce(into: []) { descriptors, descriptor in
                 if !descriptors.contains(descriptor) {
                     descriptors.append(descriptor)
@@ -120,6 +135,10 @@ nonisolated extension CollectionCatalog {
             for: thumbnailDescriptor,
             width: .width260
         ) ?? thumbnailDescriptor
+        let smallestThumbnailDescriptor = sizedThumbnailDescriptor(
+            for: thumbnailDescriptor,
+            width: .width140
+        )
 
         let largeDescriptor: CollectionCatalogDownloadableMediaDescriptor
 #if os(iOS) || os(macOS)
@@ -143,6 +162,7 @@ nonisolated extension CollectionCatalog {
 #endif
 
         return CollectionBrowseImageSources(
+            smallestThumbnailDescriptor: smallestThumbnailDescriptor,
             smallThumbnailDescriptor: smallThumbnailDescriptor,
             thumbnailDescriptor: thumbnailDescriptor,
             largeDescriptor: largeDescriptor

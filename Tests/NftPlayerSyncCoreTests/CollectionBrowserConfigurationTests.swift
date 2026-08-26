@@ -9,11 +9,12 @@ final class CollectionBrowserConfigurationTests: XCTestCase {
     func testGridModesExposeSupportedColumnCounts() {
         XCTAssertEqual(
             MobileCollectionBrowserGridMode.allCases,
-            [.large, .threeColumns, .fiveColumns]
+            [.large, .threeColumns, .fiveColumns, .nineColumns]
         )
         XCTAssertEqual(MobileCollectionBrowserGridMode.large.columnCount, 1)
         XCTAssertEqual(MobileCollectionBrowserGridMode.threeColumns.columnCount, 3)
         XCTAssertEqual(MobileCollectionBrowserGridMode.fiveColumns.columnCount, 5)
+        XCTAssertEqual(MobileCollectionBrowserGridMode.nineColumns.columnCount, 9)
         XCTAssertEqual(MobileCollectionBrowserGridMode.defaultMode, .threeColumns)
     }
 
@@ -30,6 +31,10 @@ final class CollectionBrowserConfigurationTests: XCTestCase {
             MobileCollectionBrowserGridMode.fiveColumns.requiredImageQuality,
             .smallThumbnail
         )
+        XCTAssertEqual(
+            MobileCollectionBrowserGridMode.nineColumns.requiredImageQuality,
+            .smallestThumbnail
+        )
         XCTAssertTrue(
             MobileCollectionBrowserGridMode.large.allowsLocalLargeImageUpgrade
         )
@@ -39,6 +44,10 @@ final class CollectionBrowserConfigurationTests: XCTestCase {
         )
         XCTAssertFalse(
             MobileCollectionBrowserGridMode.fiveColumns
+                .allowsLocalLargeImageUpgrade
+        )
+        XCTAssertFalse(
+            MobileCollectionBrowserGridMode.nineColumns
                 .allowsLocalLargeImageUpgrade
         )
     }
@@ -173,24 +182,47 @@ final class CollectionBrowserConfigurationTests: XCTestCase {
     }
 
     func testImageQualityReplacementFollowsResolutionOrder() {
+        XCTAssertTrue(CollectionBrowseImageQuality.smallestThumbnail.canReplace(nil))
         XCTAssertTrue(CollectionBrowseImageQuality.smallThumbnail.canReplace(nil))
         XCTAssertTrue(CollectionBrowseImageQuality.thumbnail.canReplace(nil))
+        XCTAssertTrue(
+            CollectionBrowseImageQuality.smallThumbnail.canReplace(
+                .smallestThumbnail
+            )
+        )
         XCTAssertTrue(
             CollectionBrowseImageQuality.thumbnail.canReplace(.smallThumbnail)
         )
         XCTAssertTrue(CollectionBrowseImageQuality.large.canReplace(.thumbnail))
         XCTAssertTrue(CollectionBrowseImageQuality.large.canReplace(.large))
         XCTAssertFalse(
+            CollectionBrowseImageQuality.smallestThumbnail.canReplace(
+                .smallThumbnail
+            )
+        )
+        XCTAssertFalse(
             CollectionBrowseImageQuality.smallThumbnail.canReplace(.thumbnail)
         )
         XCTAssertFalse(CollectionBrowseImageQuality.thumbnail.canReplace(.large))
+        XCTAssertTrue(CollectionBrowseImageQuality.smallestThumbnail.isDenseGridThumbnail)
+        XCTAssertTrue(CollectionBrowseImageQuality.smallThumbnail.isDenseGridThumbnail)
+        XCTAssertFalse(CollectionBrowseImageQuality.thumbnail.isDenseGridThumbnail)
     }
 
     func testCacheWindowKeepsDisplayedLargeImagesWithoutRedundantDownloads() {
         XCTAssertEqual(
             CollectionBrowseImageWindowSelection.resolve(
                 requiredQuality: .smallThumbnail,
-                isDisplayingRegularThumbnail: true,
+                isDisplayingSatisfyingThumbnail: true,
+                isDisplayingLargeImage: false,
+                largeImageIsLocallyAvailable: false
+            ),
+            .omitSatisfiedToken
+        )
+        XCTAssertEqual(
+            CollectionBrowseImageWindowSelection.resolve(
+                requiredQuality: .smallestThumbnail,
+                isDisplayingSatisfyingThumbnail: true,
                 isDisplayingLargeImage: false,
                 largeImageIsLocallyAvailable: false
             ),
@@ -199,7 +231,7 @@ final class CollectionBrowserConfigurationTests: XCTestCase {
         XCTAssertEqual(
             CollectionBrowseImageWindowSelection.resolve(
                 requiredQuality: .smallThumbnail,
-                isDisplayingRegularThumbnail: false,
+                isDisplayingSatisfyingThumbnail: false,
                 isDisplayingLargeImage: true,
                 largeImageIsLocallyAvailable: true
             ),
@@ -208,7 +240,7 @@ final class CollectionBrowserConfigurationTests: XCTestCase {
         XCTAssertEqual(
             CollectionBrowseImageWindowSelection.resolve(
                 requiredQuality: .thumbnail,
-                isDisplayingRegularThumbnail: false,
+                isDisplayingSatisfyingThumbnail: false,
                 isDisplayingLargeImage: true,
                 largeImageIsLocallyAvailable: true
             ),
@@ -217,7 +249,7 @@ final class CollectionBrowserConfigurationTests: XCTestCase {
         XCTAssertEqual(
             CollectionBrowseImageWindowSelection.resolve(
                 requiredQuality: .thumbnail,
-                isDisplayingRegularThumbnail: false,
+                isDisplayingSatisfyingThumbnail: false,
                 isDisplayingLargeImage: true,
                 largeImageIsLocallyAvailable: false
             ),
@@ -226,7 +258,7 @@ final class CollectionBrowserConfigurationTests: XCTestCase {
         XCTAssertEqual(
             CollectionBrowseImageWindowSelection.resolve(
                 requiredQuality: .thumbnail,
-                isDisplayingRegularThumbnail: true,
+                isDisplayingSatisfyingThumbnail: true,
                 isDisplayingLargeImage: false,
                 largeImageIsLocallyAvailable: true
             ),
@@ -235,7 +267,7 @@ final class CollectionBrowserConfigurationTests: XCTestCase {
         XCTAssertEqual(
             CollectionBrowseImageWindowSelection.resolve(
                 requiredQuality: .large,
-                isDisplayingRegularThumbnail: false,
+                isDisplayingSatisfyingThumbnail: false,
                 isDisplayingLargeImage: true,
                 largeImageIsLocallyAvailable: false
             ),

@@ -131,12 +131,17 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
         return (representedTokenIndex, displayedImageHasLocalFile)
     }
 
-    var displayedRegularThumbnailTokenIndex: Int? {
+    var displayedThumbnailWindowEntry: (
+        tokenIndex: Int,
+        quality: CollectionBrowseImageQuality
+    )? {
         guard imageView.image != nil,
-              displayedImageQuality == .thumbnail else {
+              let displayedImageQuality,
+              displayedImageQuality != .large,
+              let representedTokenIndex else {
             return nil
         }
-        return representedTokenIndex
+        return (representedTokenIndex, displayedImageQuality)
     }
 
     var usesForegroundImageLoading: Bool {
@@ -554,9 +559,13 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
             tracksLocalFileAvailability: false,
             prewarmsNativeMetalCardFace: false
         )
-        return needsCachedImageRefresh(tokenIndex: tokenIndex)
-            ? .retry
-            : .satisfied
+        guard needsCachedImageRefresh(tokenIndex: tokenIndex) else {
+            return .satisfied
+        }
+        guard imageSources?.descriptor(for: requiredImageQuality) != nil else {
+            return .unavailable
+        }
+        return .retry
     }
 
     func needsCachedImageRefresh(tokenIndex: Int) -> Bool {
@@ -622,7 +631,9 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
         }
 
         let incompatibleQualities = imageLoads.keys.filter { quality in
-            let descriptor = imageSources.descriptor(for: quality)
+            guard let descriptor = imageSources.descriptor(for: quality) else {
+                return true
+            }
             if previousSources.descriptor(for: quality) != descriptor
                 || imageSources.quality(of: descriptor) != quality {
                 return true
@@ -676,7 +687,9 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
             startImageLoad(
                 quality: .large,
                 animatedWhenLoaded: animatedWhenLoaded,
-                fallbackQualityOnFailure: imageView.image == nil ? .thumbnail : nil
+                fallbackQualityOnFailure: imageView.image == nil
+                    ? imageSources.fallbackQuality(after: .large)
+                    : nil
             )
             return
         }
@@ -767,7 +780,15 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
             return
         }
 
-        let descriptor = imageSources.descriptor(for: requestedQuality)
+        guard let descriptor = imageSources.descriptor(
+            for: requestedQuality
+        ) else {
+            if imageView.image == nil, imageLoads.isEmpty {
+                fadeOutCarryoverContentIfNeeded()
+                clearTransitionPlaceholderTone(animated: true)
+            }
+            return
+        }
         guard let resolvedQuality = imageSources.quality(of: descriptor) else {
             return
         }
@@ -795,7 +816,11 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
                        self.imageView.image == nil {
                         self.startImageLoad(
                             quality: fallbackQualityOnFailure,
-                            animatedWhenLoaded: animatedWhenLoaded
+                            animatedWhenLoaded: animatedWhenLoaded,
+                            fallbackQualityOnFailure: self.imageSources?
+                                .fallbackQuality(
+                                    after: fallbackQualityOnFailure
+                                )
                         )
                     } else if self.imageView.image == nil,
                               self.imageLoads.isEmpty {
@@ -1111,6 +1136,24 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
 }
 
 extension CollectionBrowseImageSources {
+    func fallbackQuality(
+        after quality: CollectionBrowseImageQuality
+    ) -> CollectionBrowseImageQuality? {
+        let candidates: [CollectionBrowseImageQuality]
+        switch quality {
+        case .smallestThumbnail, .smallThumbnail, .thumbnail:
+            candidates = []
+        case .large:
+            candidates = [.thumbnail]
+        }
+        guard let currentDescriptor = descriptor(for: quality) else {
+            return nil
+        }
+        return candidates.first {
+            descriptor(for: $0) != currentDescriptor
+        }
+    }
+
     func cachedImageCandidateDescriptors(
         selectionPolicy: CachedImageSelectionPolicy
     ) -> [DownloadableMediaDescriptor] {
@@ -1125,7 +1168,15 @@ extension CollectionBrowseImageSources {
             if requiredQuality == .thumbnail {
                 return [thumbnailDescriptor]
             }
-            return [smallThumbnailDescriptor, thumbnailDescriptor]
+            let descriptors = requiredQuality == .smallestThumbnail
+                ? [
+                    smallestThumbnailDescriptor,
+                    smallThumbnailDescriptor,
+                    thumbnailDescriptor,
+                ]
+                : [smallThumbnailDescriptor, thumbnailDescriptor]
+            return descriptors
+                .compactMap { $0 }
                 .reduce(into: []) { descriptors, descriptor in
                     if !descriptors.contains(descriptor) {
                         descriptors.append(descriptor)

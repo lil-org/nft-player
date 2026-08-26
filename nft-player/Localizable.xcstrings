@@ -617,6 +617,9 @@
     "5 columns" : {
       "comment" : "The accessibility value for the collection browser grid button when activating it will switch to the five-column mode."
     },
+    "9 columns" : {
+      "comment" : "The accessibility value for the collection browser grid button when activating it will switch to the nine-column mode."
+    },
     "Back" : {
       "comment" : "1821392793776213918",
       "localizations" : {

@@ -232,6 +232,15 @@ class MobilePlaybackController {
         quality: CollectionBrowseImageQuality
     ) -> DownloadableMediaDescriptor? {
         switch quality {
+        case .smallestThumbnail:
+            guard snapshot.pagePosition(forTokenIndex: tokenIndex) != nil else {
+                return nil
+            }
+            return MobileCollectionCatalog.collectionBrowseSizedThumbnailDescriptor(
+                specificCollectionId: snapshot.collectionId,
+                tokenIndex: tokenIndex,
+                width: .width140
+            )
         case .smallThumbnail:
             guard snapshot.pagePosition(forTokenIndex: tokenIndex) != nil else {
                 return nil
@@ -268,7 +277,9 @@ class MobilePlaybackController {
         ) else {
             return nil
         }
-        let requestedDescriptor = sources.descriptor(for: quality)
+        guard let requestedDescriptor = sources.descriptor(for: quality) else {
+            return nil
+        }
         let cache = DownloadableMediaCache.shared
         if quality == .thumbnail,
            sources.largeDescriptor != requestedDescriptor,
@@ -278,12 +289,25 @@ class MobilePlaybackController {
         if cache.cachedDecodedImage(for: requestedDescriptor) != nil {
             return nil
         }
-        guard quality == .smallThumbnail,
-              sources.thumbnailDescriptor
-                != sources.smallThumbnailDescriptor else {
+        guard quality.isDenseGridThumbnail else {
             return requestedDescriptor
         }
-        if cache.cachedDecodedImage(for: sources.thumbnailDescriptor) != nil {
+        let satisfyingDescriptors: [DownloadableMediaDescriptor]
+        switch quality {
+        case .smallestThumbnail:
+            satisfyingDescriptors = [
+                sources.smallThumbnailDescriptor,
+                sources.thumbnailDescriptor,
+            ]
+        case .smallThumbnail:
+            satisfyingDescriptors = [sources.thumbnailDescriptor]
+        case .thumbnail, .large:
+            satisfyingDescriptors = []
+        }
+        if satisfyingDescriptors.contains(where: {
+            $0 != requestedDescriptor
+                && cache.cachedDecodedImage(for: $0) != nil
+        }) {
             return nil
         }
         return requestedDescriptor
@@ -379,7 +403,7 @@ class MobilePlaybackController {
         columnCount: Int,
         quality: CollectionBrowseImageQuality,
         requiredTokenRange: ClosedRange<Int>?,
-        displayedRegularThumbnailTokenIndices: Set<Int>,
+        displayedHigherQualityThumbnailTokenIndices: Set<Int>,
         displayedLargeTokenIndices: Set<Int>,
         locallyAvailableLargeTokenIndices: Set<Int>
     ) {
@@ -409,8 +433,8 @@ class MobilePlaybackController {
                 descriptorForTokenIndex: { candidateTokenIndex in
                     let selection = CollectionBrowseImageWindowSelection.resolve(
                         requiredQuality: quality,
-                        isDisplayingRegularThumbnail:
-                            displayedRegularThumbnailTokenIndices.contains(
+                        isDisplayingSatisfyingThumbnail:
+                            displayedHigherQualityThumbnailTokenIndices.contains(
                                 candidateTokenIndex
                             ),
                         isDisplayingLargeImage:
@@ -456,11 +480,11 @@ class MobilePlaybackController {
         quality: CollectionBrowseImageQuality,
         requiredTokenRange: ClosedRange<Int>?
     ) -> PlayerCollectionBrowseMediaWindowPolicy.CompactCoverage? {
-        guard quality == .smallThumbnail,
+        guard quality.isDenseGridThumbnail,
               let requiredTokenRange,
               let imageSources,
-              imageSources.smallThumbnailDescriptor
-                != imageSources.thumbnailDescriptor else {
+              let requestedDescriptor = imageSources.descriptor(for: quality),
+              requestedDescriptor != imageSources.thumbnailDescriptor else {
             return nil
         }
         return PlayerCollectionBrowseMediaWindowPolicy.compactCoverage(

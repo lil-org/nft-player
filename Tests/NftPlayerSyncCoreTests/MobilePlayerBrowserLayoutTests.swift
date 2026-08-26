@@ -1153,6 +1153,39 @@ final class MobilePlayerBrowserLayoutTests: XCTestCase {
         )
     }
 
+    func testNineColumnModeUsesNinePortraitAndEighteenLandscapeColumns() throws {
+        let portraitSize = CGSize(width: 390, height: 844)
+        let landscapeSize = CGSize(width: 844, height: 390)
+        let aspectProfile = MobilePlayerBrowserAspectProfile(
+            itemCount: 37,
+            uniformImageSize: CGSize(width: 1, height: 1),
+            columnCount: MobileCollectionBrowserGridMode.nineColumns.columnCount
+        )
+        let portrait = try XCTUnwrap(MobilePlayerBrowserLayout(
+            viewportSize: portraitSize,
+            aspectProfile: aspectProfile
+        ))
+        let landscape = try XCTUnwrap(MobilePlayerBrowserLayout(
+            viewportSize: landscapeSize,
+            aspectProfile: aspectProfile
+        ))
+
+        XCTAssertEqual(portrait.columnCount, 9)
+        XCTAssertEqual(portrait.rowCount, 5)
+        XCTAssertEqual(landscape.columnCount, 18)
+        XCTAssertEqual(landscape.rowCount, 3)
+        XCTAssertEqual(
+            try XCTUnwrap(portrait.itemFrame(at: 8)).maxX,
+            portraitSize.width,
+            accuracy: 0.000_001
+        )
+        XCTAssertEqual(
+            try XCTUnwrap(landscape.itemFrame(at: 17)).maxX,
+            landscapeSize.width,
+            accuracy: 0.000_001
+        )
+    }
+
     func testSquareViewportKeepsPortraitColumnCount() throws {
         let aspectProfile = MobilePlayerBrowserAspectProfile(
             itemCount: 8,

@@ -6131,6 +6131,47 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         )
     }
 
+    func testNineColumnViewportKeepsPlaceholderCoverageBeyondCellBudget()
+        throws {
+        let fixture = try makeFixture(
+            itemCount: 500,
+            sourceColumnCount: 5,
+            destinationColumnCount: 9,
+            destinationMode: .nineColumns,
+            anchorItemIndex: 0
+        )
+        defer { _ = fixture.renderer.finish(preservingCarryover: false) }
+        begin(fixture)
+        XCTAssertTrue(fixture.renderer.installPlane(fixture.planeRequest))
+        let session = try activeSession(fixture)
+        let plan = try XCTUnwrap(session.currentPhantomPlan)
+        let visibleItems = Set(
+            fixture.destinationLayout.candidateItemIndices(
+                intersecting: fixture.viewportView.bounds
+            ).filter {
+                fixture.destinationLayout.itemFrame(at: $0)?
+                    .intersects(fixture.viewportView.bounds) == true
+            }
+        )
+        let coveredItems = Set(plan.cellCandidates.map(
+            \.destinationItemIndex
+        )).union(plan.shapeCandidates.map(\.destinationItemIndex))
+
+        XCTAssertGreaterThan(
+            visibleItems.count,
+            PlayerBrowserGridRenderBudget.maximumVisualCellCount
+        )
+        XCTAssertEqual(
+            plan.cellCandidates.count,
+            PlayerBrowserGridRenderBudget.maximumVisualCellCount
+        )
+        XCTAssertTrue(visibleItems.isSubset(of: coveredItems))
+        XCTAssertTrue(
+            !plan.shapeCandidates.isEmpty || plan.shapeCoverage != nil
+        )
+        XCTAssertNotNil(session.phantomShapeView)
+    }
+
     func testPhantomShapeUsesCurrentSeamCompensation() throws {
         let fixture = try makeFixture(
             itemCount: 1,

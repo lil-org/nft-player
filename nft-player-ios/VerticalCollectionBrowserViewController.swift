@@ -162,6 +162,18 @@ struct DenseGridImageRefreshQueue {
     }
 }
 
+nonisolated enum DenseGridImageRefreshPolicy {
+    static let minimumBatchSize = 5
+    static let maximumBatchSize = 9
+
+    static func batchSize(baseColumnCount: Int) -> Int {
+        min(
+            max(baseColumnCount, minimumBatchSize),
+            maximumBatchSize
+        )
+    }
+}
+
 final class VerticalCollectionBrowserViewController: UIViewController,
     UICollectionViewDataSource,
     UICollectionViewDelegate,
@@ -215,18 +227,18 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         let prefetchStride: Int
         let columnCount: Int
         let quality: CollectionBrowseImageQuality
-        let displayedRegularThumbnailTokenIndices: Set<Int>
+        let displayedHigherQualityThumbnailTokenIndices: Set<Int>
         let displayedLargeTokenIndices: Set<Int>
         let locallyAvailableLargeTokenIndices: Set<Int>
     }
 
     private struct DisplayedImageWindowState {
-        let regularThumbnailTokenIndices: Set<Int>
+        let higherQualityThumbnailTokenIndices: Set<Int>
         let tokenIndices: Set<Int>
         let locallyAvailableTokenIndices: Set<Int>
 
         static let empty = Self(
-            regularThumbnailTokenIndices: [],
+            higherQualityThumbnailTokenIndices: [],
             tokenIndices: [],
             locallyAvailableTokenIndices: []
         )
@@ -302,7 +314,6 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     private static let continuousFocusPublicationInterval: CFTimeInterval = 1 / 12
     private static let scrollMotionAnimationTimeout: TimeInterval = 2
     private static let gridModeCommitFadeWindow: TimeInterval = 1.5
-    private static let denseGridImageRefreshBatchSize = 5
 
     let uuid: UUID
     private let gridModeCommitSnapshotFactory: (UIView) -> UIView?
@@ -510,9 +521,15 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     }
 
     private var defersDenseGridImageLoading: Bool {
-        requiredImageQuality == .smallThumbnail
+        requiredImageQuality.isDenseGridThumbnail
             && !gridModeRenderer.isActive
             && isScrollMotionActive
+    }
+
+    private var denseGridImageRefreshBatchSize: Int {
+        DenseGridImageRefreshPolicy.batchSize(
+            baseColumnCount: gridMode.columnCount
+        )
     }
 
     init(
@@ -2742,7 +2759,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     ) {
         guard isActive,
               !isApplyingPosition,
-              requiredImageQuality != .smallThumbnail,
+              !requiredImageQuality.isDenseGridThumbnail,
               prefetchLoads.count < Self.maximumPrefetchLoadCount else {
             return
         }
@@ -4056,7 +4073,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             .normalizedPrefetchStride(configuredPrefetchStride)
         let columnCount = configuredColumnCount
         let quality = requiredImageQuality
-        let refreshDistance = quality == .smallThumbnail
+        let refreshDistance = quality.isDenseGridThumbnail
             ? PlayerCollectionBrowseMediaWindowPolicy.rowAlignedRefreshDistance(
                 prefetchStride: prefetchStride,
                 columnCount: columnCount
@@ -4077,13 +4094,13 @@ final class VerticalCollectionBrowserViewController: UIViewController,
                 refreshDistance: refreshDistance,
                 force: force
         )
-        if quality == .smallThumbnail, !shouldRefreshStableWindow {
+        if quality.isDenseGridThumbnail, !shouldRefreshStableWindow {
 #if DEBUG
             thumbnailWindowMetrics.skippedDisplayedImageScans += 1
 #endif
             return
         }
-        let visibleTokenRange = quality == .smallThumbnail
+        let visibleTokenRange = quality.isDenseGridThumbnail
             ? visibleBrowserTokenRange()
             : nil
         let requiredTokenRange = visibleTokenRange.map {
@@ -4099,14 +4116,16 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         if quality == .large {
             displayedImages = .empty
         } else {
-            displayedImages = displayedImageWindowState()
+            displayedImages = displayedImageWindowState(
+                requiredQuality: quality
+            )
 #if DEBUG
             thumbnailWindowMetrics.displayedImageScans += 1
 #endif
         }
-        let displayedRegularThumbnailTokenIndices =
-            quality == .smallThumbnail
-            ? displayedImages.regularThumbnailTokenIndices
+        let displayedHigherQualityThumbnailTokenIndices =
+            quality.isDenseGridThumbnail
+            ? displayedImages.higherQualityThumbnailTokenIndices
             : []
         let request = ThumbnailWindowRequest(
             tokenIndex: tokenIndex,
@@ -4114,16 +4133,17 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             prefetchStride: prefetchStride,
             columnCount: columnCount,
             quality: quality,
-            displayedRegularThumbnailTokenIndices:
-                displayedRegularThumbnailTokenIndices,
+            displayedHigherQualityThumbnailTokenIndices:
+                displayedHigherQualityThumbnailTokenIndices,
             displayedLargeTokenIndices: displayedImages.tokenIndices,
             locallyAvailableLargeTokenIndices:
                 displayedImages.locallyAvailableTokenIndices
         )
         if !force,
            let lastThumbnailWindowRequest,
-           lastThumbnailWindowRequest.displayedRegularThumbnailTokenIndices
-                == displayedRegularThumbnailTokenIndices,
+           lastThumbnailWindowRequest
+                .displayedHigherQualityThumbnailTokenIndices
+                == displayedHigherQualityThumbnailTokenIndices,
            lastThumbnailWindowRequest.displayedLargeTokenIndices
                 == displayedImages.tokenIndices,
            lastThumbnailWindowRequest.locallyAvailableLargeTokenIndices
@@ -4139,8 +4159,8 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             columnCount: columnCount,
             quality: quality,
             requiredTokenRange: requiredTokenRange,
-            displayedRegularThumbnailTokenIndices:
-                displayedRegularThumbnailTokenIndices,
+            displayedHigherQualityThumbnailTokenIndices:
+                displayedHigherQualityThumbnailTokenIndices,
             displayedLargeTokenIndices: displayedImages.tokenIndices,
             locallyAvailableLargeTokenIndices:
                 displayedImages.locallyAvailableTokenIndices
@@ -4446,7 +4466,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
 
     private func handleDenseGridImageDisplayLinkTick() {
         _ = drainDenseGridImageRefreshes(
-            limit: Self.denseGridImageRefreshBatchSize
+            limit: denseGridImageRefreshBatchSize
         )
     }
 
@@ -4515,7 +4535,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
 
     func drainDenseGridImageDisplayLinkFrameForTesting() -> Int {
         drainDenseGridImageRefreshes(
-            limit: Self.denseGridImageRefreshBatchSize
+            limit: denseGridImageRefreshBatchSize
         )
     }
 
@@ -4540,13 +4560,16 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     }
 #endif
 
-    private func displayedImageWindowState() -> DisplayedImageWindowState {
-        var regularThumbnailTokenIndices = Set<Int>()
+    private func displayedImageWindowState(
+        requiredQuality: CollectionBrowseImageQuality
+    ) -> DisplayedImageWindowState {
+        var higherQualityThumbnailTokenIndices = Set<Int>()
         var tokenIndices = Set<Int>()
         var locallyAvailableTokenIndices = Set<Int>()
         for cell in visibleBrowserCells {
-            if let tokenIndex = cell.displayedRegularThumbnailTokenIndex {
-                regularThumbnailTokenIndices.insert(tokenIndex)
+            if let entry = cell.displayedThumbnailWindowEntry,
+               entry.quality.rawValue > requiredQuality.rawValue {
+                higherQualityThumbnailTokenIndices.insert(entry.tokenIndex)
             }
             guard let entry = cell.displayedLargeImageWindowEntry else { continue }
             tokenIndices.insert(entry.tokenIndex)
@@ -4555,7 +4578,8 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             }
         }
         return DisplayedImageWindowState(
-            regularThumbnailTokenIndices: regularThumbnailTokenIndices,
+            higherQualityThumbnailTokenIndices:
+                higherQualityThumbnailTokenIndices,
             tokenIndices: tokenIndices,
             locallyAvailableTokenIndices: locallyAvailableTokenIndices
         )
@@ -4572,6 +4596,8 @@ private extension MobileCollectionBrowserGridMode {
             Strings.threeColumns
         case .fiveColumns:
             Strings.fiveColumns
+        case .nineColumns:
+            Strings.nineColumns
         }
     }
 
@@ -4583,6 +4609,8 @@ private extension MobileCollectionBrowserGridMode {
             "square.grid.3x2"
         case .fiveColumns:
             "square.grid.4x3.fill"
+        case .nineColumns:
+            "square.grid.3x3.fill"
         }
     }
 }

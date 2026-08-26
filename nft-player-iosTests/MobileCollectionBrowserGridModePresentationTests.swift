@@ -43,6 +43,18 @@ extension MobileCollectionBrowserGridModePresentationTests {
         XCTAssertEqual(queue.dequeue(limit: 5), Array(10..<15))
     }
 
+    func testDenseGridImageRefreshBatchScalesToNineColumnsWithinBounds() {
+        XCTAssertEqual(DenseGridImageRefreshPolicy.batchSize(baseColumnCount: 0), 5)
+        XCTAssertEqual(DenseGridImageRefreshPolicy.batchSize(baseColumnCount: 3), 5)
+        XCTAssertEqual(DenseGridImageRefreshPolicy.batchSize(baseColumnCount: 5), 5)
+        XCTAssertEqual(DenseGridImageRefreshPolicy.batchSize(baseColumnCount: 9), 9)
+        XCTAssertEqual(DenseGridImageRefreshPolicy.batchSize(baseColumnCount: 18), 9)
+        XCTAssertEqual(
+            DenseGridImageRefreshPolicy.batchSize(baseColumnCount: Int.max),
+            9
+        )
+    }
+
     private final class PlaybackDisplay: MobilePlaybackControllerDisplay {
         func navigate(_ direction: PlaybackNavigationDirection) {}
 
@@ -279,7 +291,27 @@ extension MobileCollectionBrowserGridModePresentationTests {
         return (pixel[0], pixel[1], pixel[2], pixel[3])
     }
 
-    func testBrowseImageDescriptorSelects260TierForFiveColumns() throws {
+    func testGridModeMenuListsNineThroughLargeWithThreeSelected() throws {
+        let metadata = try collectionMetadata()
+        let fixture = try makeFixture(collectionId: metadata.id)
+        defer { tearDownFixture(fixture) }
+        let actions = fixture.controller.makeGridModeMenu().children.compactMap {
+            $0 as? UIAction
+        }
+
+        XCTAssertEqual(
+            actions.map(\.title),
+            [
+                Strings.nineColumns,
+                Strings.fiveColumns,
+                Strings.threeColumns,
+                Strings.largeGrid,
+            ]
+        )
+        XCTAssertEqual(actions.map(\.state), [.off, .off, .on, .off])
+    }
+
+    func testBrowseImageDescriptorsSelectSizedTiersForDenseModes() throws {
         let metadata = try collectionMetadata(
             requiresBundledGenerativeToken: true
         )
@@ -302,16 +334,18 @@ extension MobileCollectionBrowserGridModePresentationTests {
         let smallThumbnailURL = try XCTUnwrap(URL(
             string: "https://cdn.lil.org/player/\(metadata.internalSlug)/thumbs/260/0.webp"
         ))
+        let smallestThumbnailURL = try XCTUnwrap(URL(
+            string: "https://cdn.lil.org/player/\(metadata.internalSlug)/thumbs/140/0.webp"
+        ))
+        let smallestThumbnailDescriptor = try XCTUnwrap(
+            sources.smallestThumbnailDescriptor
+        )
 
         XCTAssertEqual(sources.thumbnailDescriptor.url, standardThumbnailURL)
         XCTAssertEqual(sources.smallThumbnailDescriptor.url, smallThumbnailURL)
         XCTAssertEqual(
-            CollectionCatalog.collectionBrowseSizedThumbnailDescriptor(
-                specificCollectionId: metadata.id,
-                tokenIndex: 0,
-                width: .width140
-            )?.url,
-            URL(string: "https://cdn.lil.org/player/\(metadata.internalSlug)/thumbs/140/0.webp")
+            smallestThumbnailDescriptor.url,
+            smallestThumbnailURL
         )
         XCTAssertEqual(
             MobilePlaybackController.shared.collectionBrowseImageDescriptor(
@@ -321,7 +355,88 @@ extension MobileCollectionBrowserGridModePresentationTests {
             ),
             sources.smallThumbnailDescriptor
         )
+        XCTAssertEqual(
+            MobilePlaybackController.shared.collectionBrowseImageDescriptor(
+                snapshot: snapshot,
+                tokenIndex: 0,
+                quality: .smallestThumbnail
+            ),
+            smallestThumbnailDescriptor
+        )
     }
+
+#if DEBUG
+    func testNineColumnPrefetchReusesCachedHigherQualityThumbnails() throws {
+        let metadata = try collectionMetadata(
+            requiresBundledGenerativeToken: true
+        )
+        let snapshot = PlayerCollectionBrowseSnapshot(
+            collectionId: metadata.id,
+            itemCount: CollectionCatalog.tokenCount(
+                specificCollectionId: metadata.id
+            ),
+            initialTokenIndex: 0
+        )
+        let sources = try XCTUnwrap(
+            CollectionCatalog.collectionBrowseImageSources(
+                specificCollectionId: metadata.id,
+                tokenIndex: 0
+            )
+        )
+        let cache = DownloadableMediaCache.shared
+        let smallestThumbnailDescriptor = try XCTUnwrap(
+            sources.smallestThumbnailDescriptor
+        )
+        let descriptors = [
+            smallestThumbnailDescriptor,
+            sources.smallThumbnailDescriptor,
+            sources.thumbnailDescriptor,
+        ]
+        descriptors.forEach { cache.removeDecodedImageForTesting(for: $0) }
+        defer {
+            descriptors.forEach { cache.removeDecodedImageForTesting(for: $0) }
+        }
+
+        XCTAssertEqual(
+            MobilePlaybackController.shared.collectionBrowsePrefetchDescriptor(
+                snapshot: snapshot,
+                tokenIndex: 0,
+                quality: .smallestThumbnail
+            ),
+            smallestThumbnailDescriptor
+        )
+
+        let image = UIGraphicsImageRenderer(
+            size: CGSize(width: 2, height: 2)
+        ).image { _ in }
+        cache.installDecodedImageForTesting(
+            image,
+            for: sources.smallThumbnailDescriptor
+        )
+        XCTAssertNil(
+            MobilePlaybackController.shared.collectionBrowsePrefetchDescriptor(
+                snapshot: snapshot,
+                tokenIndex: 0,
+                quality: .smallestThumbnail
+            )
+        )
+
+        cache.removeDecodedImageForTesting(
+            for: sources.smallThumbnailDescriptor
+        )
+        cache.installDecodedImageForTesting(
+            image,
+            for: sources.thumbnailDescriptor
+        )
+        XCTAssertNil(
+            MobilePlaybackController.shared.collectionBrowsePrefetchDescriptor(
+                snapshot: snapshot,
+                tokenIndex: 0,
+                quality: .smallestThumbnail
+            )
+        )
+    }
+#endif
 
     func testCompactCoverageRequiresDistinctSmallThumbnails() throws {
         func descriptor(_ name: String) throws
@@ -340,8 +455,10 @@ extension MobileCollectionBrowserGridModePresentationTests {
             )
         }
         let small = try descriptor("small")
+        let smallest = try descriptor("smallest")
         let thumbnail = try descriptor("thumbnail")
         let distinctSources = CollectionBrowseImageSources(
+            smallestThumbnailDescriptor: smallest,
             smallThumbnailDescriptor: small,
             thumbnailDescriptor: thumbnail,
             largeDescriptor: thumbnail
@@ -367,6 +484,22 @@ extension MobileCollectionBrowserGridModePresentationTests {
                 fileRange: 0...199
             )
         )
+        XCTAssertEqual(
+            MobilePlaybackController.collectionBrowseCompactCoverage(
+                imageSources: distinctSources,
+                centeredAt: 50,
+                direction: .forward,
+                itemCount: 200,
+                columnCount: 9,
+                prefetchStride: 45,
+                quality: .smallestThumbnail,
+                requiredTokenRange: 18...107
+            ),
+            PlayerCollectionBrowseMediaWindowPolicy.CompactCoverage(
+                decodedRange: 18...107,
+                fileRange: 0...199
+            )
+        )
         XCTAssertNil(
             MobilePlaybackController.collectionBrowseCompactCoverage(
                 imageSources: fallbackSources,
@@ -377,6 +510,18 @@ extension MobileCollectionBrowserGridModePresentationTests {
                 prefetchStride: 25,
                 quality: .smallThumbnail,
                 requiredTokenRange: 20...109
+            )
+        )
+        XCTAssertNil(
+            MobilePlaybackController.collectionBrowseCompactCoverage(
+                imageSources: fallbackSources,
+                centeredAt: 50,
+                direction: .forward,
+                itemCount: 200,
+                columnCount: 9,
+                prefetchStride: 45,
+                quality: .smallestThumbnail,
+                requiredTokenRange: 18...107
             )
         )
         XCTAssertNil(
@@ -562,6 +707,9 @@ extension MobileCollectionBrowserGridModePresentationTests {
                     width: .width140
                 )
             )
+            let smallestThumbnailDescriptor = try XCTUnwrap(
+                sources.smallestThumbnailDescriptor
+            )
 
             XCTAssertEqual(
                 sources.thumbnailDescriptor.url,
@@ -569,8 +717,13 @@ extension MobileCollectionBrowserGridModePresentationTests {
                 entry.internalSlug
             )
             XCTAssertEqual(
-                width140Descriptor.url,
+                smallestThumbnailDescriptor.url,
                 URL(string: entry.width140),
+                entry.internalSlug
+            )
+            XCTAssertEqual(
+                width140Descriptor,
+                smallestThumbnailDescriptor,
                 entry.internalSlug
             )
             XCTAssertEqual(
@@ -584,6 +737,72 @@ extension MobileCollectionBrowserGridModePresentationTests {
                 entry.internalSlug
             )
         }
+    }
+
+    func testNineColumnDragDefersForegroundImageLoadsUntilDragEnds()
+        async throws {
+        let metadata = try collectionMetadata(minimumTokenCount: 100)
+        let fixture = try makeFixture(collectionId: metadata.id)
+        defer { tearDownFixture(fixture) }
+        let collectionView = try XCTUnwrap(
+            fixture.controller.view.subviews.first {
+                $0 is MobilePlayerCollectionBrowserCollectionView
+            } as? MobilePlayerCollectionBrowserCollectionView
+        )
+
+        try await selectGridMode(
+            .nineColumns,
+            controller: fixture.controller
+        )
+        await waitForNextMainQueueTurn()
+        XCTAssertEqual(fixture.controller.gridMode, .nineColumns)
+        XCTAssertFalse(collectionView.visibleCells.isEmpty)
+        XCTAssertTrue(collectionView.visibleCells.allSatisfy {
+            ($0 as? MobilePlayerCollectionBrowserCell)?
+                .usesForegroundImageLoading == true
+        })
+
+        fixture.controller.scrollViewWillBeginDragging(collectionView)
+        XCTAssertTrue(collectionView.visibleCells.allSatisfy {
+            ($0 as? MobilePlayerCollectionBrowserCell)?
+                .usesForegroundImageLoading == false
+        })
+
+        fixture.controller.scrollViewDidEndDragging(
+            collectionView,
+            willDecelerate: false
+        )
+        XCTAssertTrue(collectionView.visibleCells.allSatisfy {
+            ($0 as? MobilePlayerCollectionBrowserCell)?
+                .usesForegroundImageLoading == true
+        })
+    }
+
+    func testDirectNineAndLargeModeTransitionsRetainFocus() async throws {
+        let metadata = try collectionMetadata(minimumTokenCount: 100)
+        let fixture = try makeFixture(collectionId: metadata.id)
+        defer { tearDownFixture(fixture) }
+        let initialPosition = try XCTUnwrap(
+            fixture.controller.currentPagePosition
+        )
+
+        try await selectGridMode(
+            .large,
+            controller: fixture.controller
+        )
+        XCTAssertEqual(fixture.controller.currentPagePosition, initialPosition)
+
+        try await selectGridMode(
+            .nineColumns,
+            controller: fixture.controller
+        )
+        XCTAssertEqual(fixture.controller.currentPagePosition, initialPosition)
+
+        try await selectGridMode(
+            .large,
+            controller: fixture.controller
+        )
+        XCTAssertEqual(fixture.controller.currentPagePosition, initialPosition)
     }
 
 #if DEBUG
@@ -1531,12 +1750,12 @@ extension MobileCollectionBrowserGridModePresentationTests {
         sendPinch(recognizer, to: controller)
 
         for _ in 0..<200 {
-            if controller.gridMode == .fiveColumns {
+            if controller.gridMode == .nineColumns {
                 break
             }
             try await Task.sleep(nanoseconds: 10_000_000)
         }
-        XCTAssertEqual(controller.gridMode, .fiveColumns)
+        XCTAssertEqual(controller.gridMode, .nineColumns)
     }
 
     func testDisplayScaleChangeRelayoutsSameSizeViewport() async throws {

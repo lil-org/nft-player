@@ -484,10 +484,10 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
         let activation = activatePinch(
             &coordinator,
             scale: 1.2,
-            fromMode: .fiveColumns
+            fromMode: .nineColumns
         )
         let plane = installedPlane(activation)
-        XCTAssertEqual(plane?.toMode, .threeColumns)
+        XCTAssertEqual(plane?.toMode, .fiveColumns)
 
         let reversal = coordinator.handle(
             .pinchChanged(sample: makeSample(scale: 0.9))
@@ -2179,7 +2179,7 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
         )
     }
 
-    func testQualityReconciliationCancelsPrefetchesBetweenDenseGridTiers() {
+    func testQualityReconciliationCancelsPrefetchesForDenseGridEntry() {
         var coordinator = Coordinator()
         _ = coordinator.handle(
             .menuSelected(
@@ -2197,6 +2197,24 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
         )
         XCTAssertFalse(
             wrapUp.contains(.reconcileMedia(cancelsPrefetchLoads: false))
+        )
+    }
+
+    func testQualityReconciliationCancelsPrefetchesBetweenDenseGridTiers() {
+        var coordinator = Coordinator()
+        _ = coordinator.handle(
+            .menuSelected(
+                fromMode: .fiveColumns,
+                toMode: .nineColumns,
+                reduceMotion: true
+            ),
+            ratioProvider: Self.ratioProvider
+        )
+        let wrapUp = coordinator.handle(.rendererSucceeded)
+
+        XCTAssertTrue(
+            wrapUp.contains(.reconcileMedia(cancelsPrefetchLoads: true)),
+            "nine columns uses 140 px thumbnails while five columns uses 260 px thumbnails"
         )
     }
 
@@ -2769,13 +2787,13 @@ final class PlayerBrowserGridInteractionCoordinatorTests: XCTestCase {
             )
         )
         let plane = try XCTUnwrap(installedPlane(released))
-        XCTAssertEqual(plane.toMode, .fiveColumns)
+        XCTAssertEqual(plane.toMode, .nineColumns)
         XCTAssertTrue(released.contains(.beginInteraction))
         XCTAssertEqual(coordinator.phase, .settling)
         assertCommits(
             released + drainSettle(&coordinator),
             planeId: plane.id,
-            mode: .fiveColumns
+            mode: .nineColumns
         )
     }
 

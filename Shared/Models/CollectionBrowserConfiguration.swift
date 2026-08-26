@@ -3,6 +3,7 @@
 import Foundation
 
 nonisolated enum CollectionBrowseImageQuality: Int, Hashable, Sendable {
+    case smallestThumbnail
     case smallThumbnail
     case thumbnail
     case large
@@ -10,6 +11,10 @@ nonisolated enum CollectionBrowseImageQuality: Int, Hashable, Sendable {
     func canReplace(_ displayedQuality: Self?) -> Bool {
         guard let displayedQuality else { return true }
         return rawValue >= displayedQuality.rawValue
+    }
+
+    var isDenseGridThumbnail: Bool {
+        self == .smallestThumbnail || self == .smallThumbnail
     }
 }
 
@@ -20,12 +25,12 @@ nonisolated enum CollectionBrowseImageWindowSelection: Hashable, Sendable {
 
     static func resolve(
         requiredQuality: CollectionBrowseImageQuality,
-        isDisplayingRegularThumbnail: Bool,
+        isDisplayingSatisfyingThumbnail: Bool,
         isDisplayingLargeImage: Bool,
         largeImageIsLocallyAvailable: Bool
     ) -> Self {
-        if requiredQuality == .smallThumbnail,
-           isDisplayingRegularThumbnail {
+        if requiredQuality.isDenseGridThumbnail,
+           isDisplayingSatisfyingThumbnail {
             return .omitSatisfiedToken
         }
         guard requiredQuality != .large,
@@ -87,13 +92,14 @@ nonisolated enum CollectionBrowseSnapshotUpdatePolicy: Sendable {
     }
 }
 
-/// The 5-3-1 column ladder of the Photos app. Odd counts keep a center
+/// The 9-5-3-1 column ladder of the Photos app. Odd counts keep a center
 /// column, so zoom transitions reveal content symmetrically at both sides
 /// instead of forcing one-sided column shifts.
 nonisolated enum MobileCollectionBrowserGridMode: Int, CaseIterable, Hashable, Sendable {
     case large = 1
     case threeColumns = 3
     case fiveColumns = 5
+    case nineColumns = 9
 
     static let defaultMode = MobileCollectionBrowserGridMode.threeColumns
 
@@ -109,11 +115,13 @@ nonisolated enum MobileCollectionBrowserGridMode: Int, CaseIterable, Hashable, S
             .thumbnail
         case .fiveColumns:
             .smallThumbnail
+        case .nineColumns:
+            .smallestThumbnail
         }
     }
 
     var allowsLocalLargeImageUpgrade: Bool {
-        self != .fiveColumns
+        self == .large || self == .threeColumns
     }
 }
 

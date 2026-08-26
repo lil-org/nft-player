@@ -145,10 +145,15 @@ extension MobilePlayerCollectionBrowserCachedImagePolicyTests {
 
     private func makeDistinctSources() -> (
         sources: CollectionBrowseImageSources,
+        smallestThumbnail: DownloadableMediaDescriptor,
         smallThumbnail: DownloadableMediaDescriptor,
         thumbnail: DownloadableMediaDescriptor,
         large: DownloadableMediaDescriptor
     ) {
+        let smallestThumbnail = makeDescriptor(
+            name: "smallest-thumbnail",
+            purpose: .collectionBrowserThumbnail
+        )
         let smallThumbnail = makeDescriptor(
             name: "small-thumbnail",
             purpose: .collectionBrowserThumbnail
@@ -163,10 +168,12 @@ extension MobilePlayerCollectionBrowserCachedImagePolicyTests {
         )
         return (
             CollectionBrowseImageSources(
+                smallestThumbnailDescriptor: smallestThumbnail,
                 smallThumbnailDescriptor: smallThumbnail,
                 thumbnailDescriptor: thumbnail,
                 largeDescriptor: large
             ),
+            smallestThumbnail,
             smallThumbnail,
             thumbnail,
             large
@@ -208,6 +215,24 @@ extension MobilePlayerCollectionBrowserCachedImagePolicyTests {
         )
     }
 
+    func testSmallestThumbnailBaseReusesHigherQualityThumbnails() {
+        let fixture = makeDistinctSources()
+
+        XCTAssertEqual(
+            fixture.sources.cachedImageCandidateDescriptors(
+                selectionPolicy: .base(
+                    requiredQuality: .smallestThumbnail,
+                    allowsLocalLargeUpgrade: false
+                )
+            ),
+            [
+                fixture.smallestThumbnail,
+                fixture.smallThumbnail,
+                fixture.thumbnail,
+            ]
+        )
+    }
+
     func testRequiredLargeWithoutUpgradeUsesDescendingQuality() {
         let fixture = makeDistinctSources()
 
@@ -218,7 +243,12 @@ extension MobilePlayerCollectionBrowserCachedImagePolicyTests {
                     allowsLocalLargeUpgrade: false
                 )
             ),
-            [fixture.large, fixture.thumbnail, fixture.smallThumbnail]
+            [
+                fixture.large,
+                fixture.thumbnail,
+                fixture.smallThumbnail,
+                fixture.smallestThumbnail,
+            ]
         )
     }
 
@@ -232,13 +262,22 @@ extension MobilePlayerCollectionBrowserCachedImagePolicyTests {
                     allowsLocalLargeUpgrade: true
                 )
             ),
-            [fixture.large, fixture.thumbnail, fixture.smallThumbnail]
+            [
+                fixture.large,
+                fixture.thumbnail,
+                fixture.smallThumbnail,
+                fixture.smallestThumbnail,
+            ]
         )
     }
 
-    func testThreeDistinctImageSourcesResolveByQuality() {
+    func testFourDistinctImageSourcesResolveByQuality() {
         let fixture = makeDistinctSources()
 
+        XCTAssertEqual(
+            fixture.sources.descriptor(for: .smallestThumbnail),
+            fixture.smallestThumbnail
+        )
         XCTAssertEqual(
             fixture.sources.descriptor(for: .smallThumbnail),
             fixture.smallThumbnail
@@ -252,6 +291,10 @@ extension MobilePlayerCollectionBrowserCachedImagePolicyTests {
             fixture.large
         )
         XCTAssertEqual(
+            fixture.sources.quality(of: fixture.smallestThumbnail),
+            .smallestThumbnail
+        )
+        XCTAssertEqual(
             fixture.sources.quality(of: fixture.smallThumbnail),
             .smallThumbnail
         )
@@ -260,6 +303,180 @@ extension MobilePlayerCollectionBrowserCachedImagePolicyTests {
             .thumbnail
         )
         XCTAssertEqual(fixture.sources.quality(of: fixture.large), .large)
+        XCTAssertNil(
+            fixture.sources.fallbackQuality(after: .smallestThumbnail)
+        )
+        XCTAssertNil(fixture.sources.fallbackQuality(after: .smallThumbnail))
+        XCTAssertEqual(
+            fixture.sources.fallbackQuality(after: .large),
+            .thumbnail
+        )
+        XCTAssertNil(fixture.sources.fallbackQuality(after: .thumbnail))
+    }
+
+    func testMissingSmallestThumbnailDoesNotResolveToAnotherTier() {
+        let smallThumbnail = makeDescriptor(
+            name: "small-thumbnail",
+            purpose: .collectionBrowserThumbnail
+        )
+        let thumbnail = makeDescriptor(
+            name: "thumbnail",
+            purpose: .collectionBrowserThumbnail
+        )
+        let smallFallback = CollectionBrowseImageSources(
+            smallThumbnailDescriptor: smallThumbnail,
+            thumbnailDescriptor: thumbnail,
+            largeDescriptor: thumbnail
+        )
+        let standardFallback = CollectionBrowseImageSources(
+            thumbnailDescriptor: thumbnail,
+            largeDescriptor: thumbnail
+        )
+
+        XCTAssertNil(smallFallback.descriptor(for: .smallestThumbnail))
+        XCTAssertEqual(
+            smallFallback.quality(of: smallThumbnail),
+            .smallThumbnail
+        )
+        XCTAssertNil(
+            smallFallback.fallbackQuality(after: .smallestThumbnail)
+        )
+        XCTAssertNil(standardFallback.descriptor(for: .smallestThumbnail))
+        XCTAssertEqual(
+            standardFallback.quality(of: thumbnail),
+            .large
+        )
+        XCTAssertNil(
+            standardFallback.fallbackQuality(after: .smallestThumbnail)
+        )
+    }
+
+    func testMissingSmallestThumbnailStopsCachedRefreshRetry() {
+        let descriptor = makeDescriptor(
+            name: "missing-smallest-refresh",
+            purpose: .collectionBrowserThumbnail
+        )
+        let sources = CollectionBrowseImageSources(
+            thumbnailDescriptor: descriptor,
+            largeDescriptor: descriptor
+        )
+        let cell = MobilePlayerCollectionBrowserCell(frame: CGRect(
+            x: 0,
+            y: 0,
+            width: 120,
+            height: 80
+        ))
+        cell.configure(
+            contentIdentity: MobilePlayerBrowserContentIdentity(
+                collectionId: descriptor.collectionId,
+                tokenIndex: descriptor.tokenIndex
+            ),
+            itemCount: 1,
+            imageSources: sources,
+            requiredImageQuality: .smallestThumbnail,
+            missingDescriptorFallbackSpec:
+                PlayerMediaPlaceholderSpec(thumbnailAspectRatio: nil),
+            imageLoadPolicy: .cachedOnly,
+            allowsLocalLargeImageUpgrade: false
+        )
+
+        XCTAssertEqual(
+            cell.refreshCachedImageIfAvailable(
+                tokenIndex: descriptor.tokenIndex
+            ),
+            .unavailable
+        )
+
+        let cache = DownloadableMediaCache.shared
+        cache.installDecodedImageForTesting(makeImage(.blue), for: descriptor)
+        defer { cache.removeDecodedImageForTesting(for: descriptor) }
+
+        XCTAssertEqual(
+            cell.refreshCachedImageIfAvailable(
+                tokenIndex: descriptor.tokenIndex
+            ),
+            .satisfied
+        )
+    }
+
+    func testMissingSmallestThumbnailReleasesRetargetCarryover() async {
+        let collectionId = "missing-smallest-retarget-\(UUID())"
+        let descriptorA = makeDescriptor(
+            name: "a",
+            purpose: .collectionBrowserThumbnail,
+            collectionId: collectionId,
+            tokenIndex: 0
+        )
+        let descriptorB = makeDescriptor(
+            name: "b",
+            purpose: .collectionBrowserThumbnail,
+            collectionId: collectionId,
+            tokenIndex: 1
+        )
+        let sourcesA = CollectionBrowseImageSources(
+            thumbnailDescriptor: descriptorA,
+            largeDescriptor: descriptorA
+        )
+        let sourcesB = CollectionBrowseImageSources(
+            thumbnailDescriptor: descriptorB,
+            largeDescriptor: descriptorB
+        )
+        let identityA = MobilePlayerBrowserContentIdentity(
+            collectionId: collectionId,
+            tokenIndex: 0
+        )
+        let identityB = MobilePlayerBrowserContentIdentity(
+            collectionId: collectionId,
+            tokenIndex: 1
+        )
+        let cell = MobilePlayerCollectionBrowserCell(frame: CGRect(
+            x: 0,
+            y: 0,
+            width: 120,
+            height: 80
+        ))
+        let placeholder = PlayerMediaPlaceholderSpec(
+            thumbnailAspectRatio: nil
+        )
+        cell.configure(
+            contentIdentity: identityA,
+            itemCount: 2,
+            imageSources: sourcesA,
+            requiredImageQuality: .thumbnail,
+            missingDescriptorFallbackSpec: placeholder,
+            imageLoadPolicy: .disabled
+        )
+        cell.setImage(
+            makeImage(.red),
+            descriptor: descriptorA,
+            quality: .thumbnail,
+            tokenIndex: 0,
+            animated: false,
+            tracksLocalFileAvailability: false,
+            prewarmsNativeMetalCardFace: false
+        )
+
+        let animationsWereEnabled = UIView.areAnimationsEnabled
+        UIView.setAnimationsEnabled(false)
+        defer { UIView.setAnimationsEnabled(animationsWereEnabled) }
+        cell.configure(
+            contentIdentity: identityB,
+            itemCount: 2,
+            imageSources: sourcesB,
+            requiredImageQuality: .smallestThumbnail,
+            missingDescriptorFallbackSpec: placeholder,
+            imageLoadPolicy: .foreground,
+            allowsLocalLargeImageUpgrade: false
+        )
+        await withCheckedContinuation { continuation in
+            DispatchQueue.main.async {
+                continuation.resume()
+            }
+        }
+
+        XCTAssertNil(cell.carryoverSourceContent)
+        XCTAssertTrue(cell.canSelect(representing: identityB))
+        XCTAssertNil(cell.descriptor)
     }
 
     func testSharedDescriptorIsReturnedOnceWithoutLargeUpgrade() {
