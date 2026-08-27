@@ -3,175 +3,10 @@
 import QuartzCore
 import UIKit
 
-final class MobilePlayerCollectionBrowserCollectionView: UICollectionView {
-    struct AccessibilityScrollAttempt {
-        let interruptedGridModeSettle: Bool
-        let wasScrollMotionActive: Bool
-    }
-
-    var onWillAccessibilityScroll: (() -> AccessibilityScrollAttempt)?
-    var onAccessibilityScrollResult: ((Bool, AccessibilityScrollAttempt) -> Void)?
-    var contentOffsetTarget: ((CGPoint, Bool) -> (
-        target: CGPoint,
-        settlesAfterApplying: Bool
-    ))?
-    var onDidApplyImmediateContentOffset: (() -> Void)?
-
-    override func accessibilityScroll(
-        _ direction: UIAccessibilityScrollDirection
-    ) -> Bool {
-        let attempt = onWillAccessibilityScroll?()
-        let succeeded = super.accessibilityScroll(direction)
-        if let attempt {
-            onAccessibilityScrollResult?(succeeded, attempt)
-        }
-        return succeeded
-    }
-
-    override func setContentOffset(
-        _ contentOffset: CGPoint,
-        animated: Bool
-    ) {
-        let resolution = contentOffsetTarget?(contentOffset, animated)
-        super.setContentOffset(
-            resolution?.target ?? contentOffset,
-            animated: animated
-        )
-        if resolution?.settlesAfterApplying == true {
-            onDidApplyImmediateContentOffset?()
-        }
-    }
-
-    func setContentOffsetWithoutResolution(_ contentOffset: CGPoint) {
-        super.setContentOffset(contentOffset, animated: false)
-    }
-
-    func visualGeometry(
-        for layout: MobilePlayerBrowserLayout
-    ) -> MobilePlayerBrowserVisualLayoutGeometry {
-        MobilePlayerBrowserVisualLayoutGeometry(
-            layout: layout,
-            mirrorsHorizontally:
-                effectiveUserInterfaceLayoutDirection == .rightToLeft
-        )
-    }
-}
-
 enum MobilePlayerCollectionBrowserDisplayPreparationResult: Equatable {
     case prepared
     case superseded
     case unavailable
-}
-
-struct GridModePinchFrame: Equatable {
-    let sample: PlayerBrowserGridInteractionCoordinator.PinchSample
-    let viewLocation: CGPoint
-
-    /// The timestamp is captured at recognizer-event time, not at the
-    /// coalesced apply, so release-motion detection sees honest sample ages.
-    init(
-        scale: CGFloat,
-        viewLocation: CGPoint,
-        timestamp: TimeInterval = CACurrentMediaTime()
-    ) {
-        self.sample = PlayerBrowserGridInteractionCoordinator.PinchSample(
-            scale: scale,
-            centroidY: viewLocation.y,
-            timestamp: timestamp
-        )
-        self.viewLocation = viewLocation
-    }
-}
-
-final class GridModePinchFrameCoalescer {
-    private var pendingFrame: GridModePinchFrame?
-    private let apply: (GridModePinchFrame) -> Void
-    private lazy var update = PendingMainQueueUpdate { [weak self] in
-        self?.applyPendingFrame()
-    }
-
-    init(apply: @escaping (GridModePinchFrame) -> Void) {
-        self.apply = apply
-    }
-
-    func seed(_ frame: GridModePinchFrame) {
-        pendingFrame = frame
-    }
-
-    func stage(_ frame: GridModePinchFrame) {
-        pendingFrame = frame
-        update.schedule()
-    }
-
-    func flush() {
-        update.invalidate()
-        applyPendingFrame()
-    }
-
-    func invalidate() {
-        update.invalidate()
-        pendingFrame = nil
-    }
-
-    private func applyPendingFrame() {
-        guard let pendingFrame else { return }
-        self.pendingFrame = nil
-        apply(pendingFrame)
-    }
-}
-
-struct DenseGridImageRefreshQueue {
-    private var tokenIndices = [Int]()
-    private var tokenIndexSet = Set<Int>()
-
-    var count: Int {
-        tokenIndexSet.count
-    }
-
-    @discardableResult
-    mutating func enqueue(_ tokenIndex: Int) -> Bool {
-        guard tokenIndexSet.insert(tokenIndex).inserted else {
-            return false
-        }
-        tokenIndices.append(tokenIndex)
-        return true
-    }
-
-    mutating func dequeue(limit: Int) -> [Int] {
-        let count = min(max(limit, 0), tokenIndices.count)
-        let result = Array(tokenIndices.prefix(count))
-        tokenIndices.removeFirst(count)
-        result.forEach { tokenIndexSet.remove($0) }
-        return result
-    }
-
-    @discardableResult
-    mutating func remove(_ tokenIndex: Int) -> Bool {
-        guard tokenIndexSet.contains(tokenIndex),
-              let index = tokenIndices.firstIndex(of: tokenIndex) else {
-            return false
-        }
-        tokenIndices.remove(at: index)
-        tokenIndexSet.remove(tokenIndex)
-        return true
-    }
-
-    mutating func removeAll() {
-        tokenIndices.removeAll()
-        tokenIndexSet.removeAll()
-    }
-}
-
-nonisolated enum DenseGridImageRefreshPolicy {
-    static let minimumBatchSize = 5
-    static let maximumBatchSize = 9
-
-    static func batchSize(baseColumnCount: Int) -> Int {
-        min(
-            max(baseColumnCount, minimumBatchSize),
-            maximumBatchSize
-        )
-    }
 }
 
 final class VerticalCollectionBrowserViewController: UIViewController,
@@ -179,22 +14,6 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     UICollectionViewDelegate,
     UICollectionViewDataSourcePrefetching,
     UIGestureRecognizerDelegate {
-
-    private final class GridModeInteractionFadeDisplayLinkTarget: NSObject {
-        weak var controller: VerticalCollectionBrowserViewController?
-
-        @MainActor @objc func tick(_ displayLink: CADisplayLink) {
-            controller?.handleGridModeInteractionFadeTick(displayLink)
-        }
-    }
-
-    private final class DenseGridImageDisplayLinkTarget: NSObject {
-        weak var controller: VerticalCollectionBrowserViewController?
-
-        @MainActor @objc func tick(_ displayLink: CADisplayLink) {
-            controller?.handleDenseGridImageDisplayLinkTick()
-        }
-    }
 
     private struct PreparedTransition {
         let preparation: PlayerCollectionBrowsePreparation
@@ -204,44 +23,11 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         let layoutWindowSafeAreaInsets: UIEdgeInsets
         let verticalContentOffsetRange: ClosedRange<CGFloat>
         let browseSnapshot: PlayerCollectionBrowseSnapshot?
-        let publicationState: PlayerCollectionScrollPublicationState?
-        let hasFinishedInitialPositioning: Bool
-        let focusedTokenIndex: Int?
-        let forcedFocusedTokenIndex: Int?
-        let retainedFocusFocalBias: PlayerCollectionScrollFocalBias?
-        let lastEmittedFocusedTokenIndex: Int?
-        let lastThumbnailWindowRequest: ThumbnailWindowRequest?
-        let lastPrefetchDirection: DownloadableMediaCache.PrefetchDirection
-        let lastScrollOffsetY: CGFloat?
+        let scrollCoordinatorSnapshot:
+            MobilePlayerCollectionBrowserScrollCoordinator.Snapshot
+        let imagePipelineSnapshot:
+            MobilePlayerCollectionBrowserImagePipeline.Snapshot
         let layoutAspectState: MobilePlayerCollectionBrowserLayoutAspectState
-    }
-
-    private struct CancellableLoad {
-        let id: UUID
-        let cancellation: () -> Void
-    }
-
-    private struct ThumbnailWindowRequest: Equatable {
-        let tokenIndex: Int
-        let direction: DownloadableMediaCache.PrefetchDirection
-        let prefetchStride: Int
-        let columnCount: Int
-        let quality: CollectionBrowseImageQuality
-        let displayedHigherQualityThumbnailTokenIndices: Set<Int>
-        let displayedLargeTokenIndices: Set<Int>
-        let locallyAvailableLargeTokenIndices: Set<Int>
-    }
-
-    private struct DisplayedImageWindowState {
-        let higherQualityThumbnailTokenIndices: Set<Int>
-        let tokenIndices: Set<Int>
-        let locallyAvailableTokenIndices: Set<Int>
-
-        static let empty = Self(
-            higherQualityThumbnailTokenIndices: [],
-            tokenIndices: [],
-            locallyAvailableTokenIndices: []
-        )
     }
 
     private struct WindowSafeAreaState {
@@ -254,79 +40,37 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         let usesNativeMetalCardCornerMask: Bool
     }
 
-    private struct CachedGridModeDestination {
-        let anchorTokenIndex: Int
-        let layoutAspectState: MobilePlayerCollectionBrowserLayoutAspectState
-        let layout: MobilePlayerBrowserLayout
-    }
-
-    /// Deliberately excludes `initialTokenIndex`: cached geometries do not
-    /// depend on it, and a settled-position echo must not discard them.
-    private struct GridModeGeometryCacheIdentity: Equatable {
-        let collectionId: String
-        let itemCount: Int
-        let viewportSize: CGSize
-        let displayScale: CGFloat
-        let topContentInset: CGFloat
-        let bottomContentInset: CGFloat
-    }
-
-    private struct CachedGridModeGeometry {
-        let aspectProfile: MobilePlayerBrowserAspectProfile
-        let layout: MobilePlayerBrowserLayout
-    }
-
-    private struct GridModeGeometryCache {
-        let identity: GridModeGeometryCacheIdentity
-        var geometries: [
-            MobileCollectionBrowserGridMode: CachedGridModeGeometry
-        ]
-    }
-
-    private struct GridModeGeometryPrewarmPlan {
-        let identity: GridModeGeometryCacheIdentity
-        var modes: [MobileCollectionBrowserGridMode]
-    }
-
     private struct WindowSafeAreaLayoutUpdate {
         let insetsToCapture: UIEdgeInsets?
         let clearsPendingRefresh: Bool
         let requiresLayoutRefresh: Bool
     }
 
-    private enum FocusPublicationCadence {
-        case immediate
-        case continuous
-    }
-
-#if DEBUG
-    struct ThumbnailWindowMetrics: Equatable {
-        var skippedDisplayedImageScans = 0
-        var displayedImageScans = 0
-        var preparations = 0
-    }
-#endif
-
     private static let cellReuseIdentifier = "MobilePlayerCollectionBrowserCell"
     private static let boundaryEpsilon: CGFloat = 0.75
     private static let verticalContentMargin: CGFloat = 0
-    private static let maximumPrefetchLoadCount = 96
-    private static let continuousFocusPublicationInterval: CFTimeInterval = 1 / 12
-    private static let scrollMotionAnimationTimeout: TimeInterval = 2
-    private static let gridModeCommitFadeWindow: TimeInterval = 1.5
 
     let uuid: UUID
-    private let gridModeCommitSnapshotFactory: (UIView) -> UIView?
 
     var onFocusedPagePosition: ((PlayerPagePosition) -> Void)?
     var onSettledPagePosition: ((PlayerPagePosition, Bool) -> Bool)?
     var onSelection: ((MobilePlayerBrowserTransitionSelection) -> Bool)?
     var onImmediateSelection: ((PlayerPagePosition, @escaping () -> Void) -> Bool)?
 #if DEBUG
-    private(set) var thumbnailWindowMetrics = ThumbnailWindowMetrics()
+    typealias ThumbnailWindowMetrics =
+        MobilePlayerCollectionBrowserImagePipeline.ThumbnailWindowMetrics
+
+    var thumbnailWindowMetrics: ThumbnailWindowMetrics {
+        imagePipeline.thumbnailWindowMetrics
+    }
 #endif
 
     private let browserCollectionLayout = MobilePlayerCollectionBrowserLayout()
+    private let imagePipeline = MobilePlayerCollectionBrowserImagePipeline()
+    private let scrollCoordinator =
+        MobilePlayerCollectionBrowserScrollCoordinator()
+    private let gridModeCoordinator:
+        MobilePlayerCollectionBrowserGridModeCoordinator
     private lazy var collectionView: MobilePlayerCollectionBrowserCollectionView = {
         let collectionView = MobilePlayerCollectionBrowserCollectionView(
             frame: .zero,
@@ -394,34 +138,64 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     }()
 
     private var browseSnapshot: PlayerCollectionBrowseSnapshot?
-    private var publicationState: PlayerCollectionScrollPublicationState?
-    private var hasFinishedInitialPositioning = false
-    private var isActive = false
-    private var isViewVisible = false
-    private var isApplyingPosition = false
-    private var positioningGeneration: UInt = 0
+    private var publicationState: PlayerCollectionScrollPublicationState? {
+        get { scrollCoordinator.publicationState }
+        set { scrollCoordinator.publicationState = newValue }
+    }
+    private var hasFinishedInitialPositioning: Bool {
+        get { scrollCoordinator.hasFinishedInitialPositioning }
+        set { scrollCoordinator.hasFinishedInitialPositioning = newValue }
+    }
+    private var isActive: Bool {
+        get { scrollCoordinator.isActive }
+        set {
+            scrollCoordinator.setActive(newValue)
+            imagePipeline.setActive(newValue)
+        }
+    }
+    private var isViewVisible: Bool {
+        get { imagePipeline.isVisible }
+        set { imagePipeline.setVisible(newValue) }
+    }
+    private var isApplyingPosition: Bool {
+        get { scrollCoordinator.isApplyingPosition }
+        set { scrollCoordinator.setApplyingPosition(newValue) }
+    }
     private var lastLayoutSize = CGSize.zero
     private var lastLayoutDisplayScale: CGFloat = 0
-    private var focusedTokenIndex: Int?
-    private var forcedFocusedTokenIndex: Int?
-    private var retainedFocusFocalBias: PlayerCollectionScrollFocalBias?
-    private var lastEmittedFocusedTokenIndex: Int?
-    private var pendingFocusedTokenIndex: Int?
-    private var focusPublicationGeneration: UInt = 0
-    private var isFocusPublicationScheduled = false
-    private var lastFocusPublicationTime: CFTimeInterval?
-    private var lastScrollOffsetY: CGFloat?
-    private var dragStartContentOffsetY: CGFloat?
-    private var hasAcknowledgedCurrentDrag = false
+    private var focusedTokenIndex: Int? {
+        get { scrollCoordinator.focusedTokenIndex }
+        set { scrollCoordinator.focusedTokenIndex = newValue }
+    }
+    private var forcedFocusedTokenIndex: Int? {
+        get { scrollCoordinator.forcedFocusedTokenIndex }
+        set { scrollCoordinator.forcedFocusedTokenIndex = newValue }
+    }
+    private var retainedFocusFocalBias: PlayerCollectionScrollFocalBias? {
+        get { scrollCoordinator.retainedFocusFocalBias }
+        set { scrollCoordinator.retainedFocusFocalBias = newValue }
+    }
+    private var lastEmittedFocusedTokenIndex: Int? {
+        get { scrollCoordinator.lastEmittedFocusedTokenIndex }
+        set { scrollCoordinator.lastEmittedFocusedTokenIndex = newValue }
+    }
+    private var lastScrollOffsetY: CGFloat? {
+        get { scrollCoordinator.lastScrollOffsetY }
+        set { scrollCoordinator.lastScrollOffsetY = newValue }
+    }
+    private var dragStartContentOffsetY: CGFloat? {
+        get { scrollCoordinator.dragStartContentOffsetY }
+        set { scrollCoordinator.dragStartContentOffsetY = newValue }
+    }
     private var needsWindowSafeAreaRefresh = false
-    private var isScrollMotionActive = false
-    private var scrollMotionAnimationTimeoutGeneration: UInt = 0
-    private var lastThumbnailWindowRequest: ThumbnailWindowRequest?
-    private(set) var lastPrefetchDirection: DownloadableMediaCache.PrefetchDirection = .forward
-    private var scrollUpdateGeneration: UInt = 0
-    private var isScrollUpdateScheduled = false
-    private var scrollUpdateTask: Task<Void, Never>?
-    private var positionSettlementGeneration: UInt = 0
+    private var isScrollMotionActive: Bool {
+        scrollCoordinator.isScrollMotionActive
+    }
+    private(set) var lastPrefetchDirection:
+        DownloadableMediaCache.PrefetchDirection {
+        get { scrollCoordinator.lastPrefetchDirection }
+        set { scrollCoordinator.setPrefetchDirection(newValue) }
+    }
     private var preparedTransition: PreparedTransition?
     private var layoutAspectState = MobilePlayerCollectionBrowserLayoutAspectState(
         aspectProfile: MobilePlayerBrowserAspectProfile(
@@ -434,59 +208,181 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     )
     private var layoutWindowSafeAreaInsets = UIEdgeInsets.zero
     private var hasCapturedLayoutWindowSafeAreaInsets = false
-    private var prefetchLoads = [Int: CancellableLoad]()
-    private var gridModeInteractionCoordinator =
-        PlayerBrowserGridInteractionCoordinator()
-    private var gridModeEffectDrainDepth = 0
-    private var gridModeContentOffsetRestorationDepth = 0
-    /// Cells that materialize during the post-commit fade window fade their
-    /// first image in because an instant install reads as a pop at rest.
-    private var gridModeCommitFadeDeadline: TimeInterval = 0
-    private var gridModeSettleDisplayLink: CADisplayLink?
-    private var gridModeCommitSnapshotView: UIView?
-    private var gridModeCommitSnapshotContentOffset: CGPoint?
-    private var gridModeCommitSnapshotDissolveTask: Task<Void, Never>?
-    /// Separate from the settle link: it runs while the fingers are still
-    /// down, so it must not touch scrolling, the pan recognizer, or the
-    /// settle's captured offset the way the settle link's start does.
-    private var gridModeInteractionFadeDisplayLink: CADisplayLink?
-    private let gridModeInteractionFadeDisplayLinkTarget =
-        GridModeInteractionFadeDisplayLinkTarget()
-    private var denseGridImageDisplayLink: CADisplayLink?
-    private let denseGridImageDisplayLinkTarget =
-        DenseGridImageDisplayLinkTarget()
-    private var denseGridImageRefreshQueue = DenseGridImageRefreshQueue()
-    private var gridModeSettleContentOffsetY: CGFloat?
-    private var gridModeSettlePanMaximumNumberOfTouches: Int?
-    private var scrollMotionAnimationTimeoutTask: Task<Void, Never>?
-    private var focusPublicationTask: Task<Void, Never>?
-    private var gridModeGeometryCache: GridModeGeometryCache?
-    private var gridModeGeometryPrewarmPlan: GridModeGeometryPrewarmPlan?
-    private var gridModeDestinationCache = [
+    private var gridModeInteractionCoordinator:
+        PlayerBrowserGridInteractionCoordinator {
+        get { gridModeCoordinator.interactionCoordinator }
+        set { gridModeCoordinator.interactionCoordinator = newValue }
+    }
+    private var gridModeEffectDrainDepth: Int {
+        get { gridModeCoordinator.effectDrainDepth }
+        set { gridModeCoordinator.effectDrainDepth = newValue }
+    }
+    private var gridModeContentOffsetRestorationDepth: Int {
+        get { gridModeCoordinator.contentOffsetRestorationDepth }
+        set { gridModeCoordinator.contentOffsetRestorationDepth = newValue }
+    }
+    private var gridModeCommitSnapshotView: UIView? {
+        gridModeCoordinator.commitSnapshotView
+    }
+    private var gridModeCommitSnapshotContentOffset: CGPoint? {
+        get { gridModeCoordinator.commitSnapshotContentOffset }
+        set { gridModeCoordinator.commitSnapshotContentOffset = newValue }
+    }
+    private var gridModeSettleContentOffsetY: CGFloat? {
+        gridModeCoordinator.settleContentOffsetY
+    }
+    private var gridModeGeometryCache: GridModeGeometryCache? {
+        get { gridModeCoordinator.geometryCache }
+        set { gridModeCoordinator.geometryCache = newValue }
+    }
+    private var gridModeGeometryPrewarmPlan: GridModeGeometryPrewarmPlan? {
+        get { gridModeCoordinator.geometryPrewarmPlan }
+        set { gridModeCoordinator.geometryPrewarmPlan = newValue }
+    }
+    private var gridModeDestinationCache: [
         MobileCollectionBrowserGridMode: CachedGridModeDestination
-    ]()
-    private lazy var gridModePinchRecognizer: UIPinchGestureRecognizer = {
-        let recognizer = UIPinchGestureRecognizer(
-            target: self,
-            action: #selector(handleGridModePinch(_:))
-        )
-        recognizer.delegate = self
-        return recognizer
-    }()
-    private var lastGridModePinchViewLocation: CGPoint?
-    private lazy var gridModePinchFrameCoalescer = GridModePinchFrameCoalescer {
-        [weak self] frame in
-        self?.applyGridModePinchFrame(frame)
+    ] {
+        get { gridModeCoordinator.destinationCache }
+        set { gridModeCoordinator.destinationCache = newValue }
     }
-    private lazy var gridModeGeometryPrewarmUpdate = PendingMainQueueUpdate {
-        [weak self] in
-        self?.prewarmNextGridModeGeometry()
+    private var gridModePinchRecognizer: UIPinchGestureRecognizer {
+        gridModeCoordinator.pinchRecognizer
     }
-    private lazy var gridModeRenderer =
-        MobilePlayerCollectionBrowserGridRenderer(
+    private var lastGridModePinchViewLocation: CGPoint? {
+        get { gridModeCoordinator.lastPinchViewLocation }
+        set { gridModeCoordinator.lastPinchViewLocation = newValue }
+    }
+    private var gridModePinchFrameCoalescer: GridModePinchFrameCoalescer {
+        gridModeCoordinator.pinchFrameCoalescer
+    }
+    private var gridModeGeometryPrewarmUpdate: PendingMainQueueUpdate {
+        gridModeCoordinator.geometryPrewarmUpdate
+    }
+    private var gridModeRenderer: MobilePlayerCollectionBrowserGridRenderer {
+        gridModeCoordinator.renderer
+    }
+
+    private var configuredColumnCount: Int {
+        browserCollectionLayout.browserLayout?.columnCount ?? 0
+    }
+
+    private var configuredPrefetchStride: Int {
+        browserCollectionLayout.browserLayout?.prefetchStride
+            ?? MobilePlayerBrowserLayout.defaultColumnCount
+    }
+
+    private var requiredImageQuality: CollectionBrowseImageQuality {
+        gridMode.requiredImageQuality
+    }
+
+    init(
+        uuid: UUID,
+        gridModeCommitSnapshotFactory: @escaping (UIView) -> UIView? = { view in
+            view.resizableSnapshotView(
+                from: view.bounds,
+                afterScreenUpdates: false,
+                withCapInsets: .zero
+            )
+        }
+    ) {
+        self.uuid = uuid
+        self.gridModeCoordinator =
+            MobilePlayerCollectionBrowserGridModeCoordinator(
+                commitSnapshotFactory: gridModeCommitSnapshotFactory
+            )
+        super.init(nibName: nil, bundle: nil)
+        imagePipeline.configure(contentAccess: .init(
+            visibleIndexPaths: { [weak self] in
+                self?.collectionView.indexPathsForVisibleItems ?? []
+            },
+            cell: { [weak self] indexPath in
+                self?.collectionView.cellForItem(at: indexPath)
+                    as? MobilePlayerCollectionBrowserCell
+            },
+            visibleCells: { [weak self] in
+                self?.visibleBrowserCells ?? []
+            },
+            viewportRenderCells: { [weak self] in
+                self?.gridModeRenderer.viewportRenderCells ?? []
+            },
+            requiredImageQuality: { [weak self] in
+                self?.requiredImageQuality ?? .large
+            },
+            baseColumnCount: { [weak self] in
+                self?.gridMode.columnCount ?? 0
+            },
+            isRendererActive: { [weak self] in
+                self?.gridModeRenderer.isActive == true
+            },
+            isApplyingPosition: { [weak self] in
+                self?.isApplyingPosition == true
+            },
+            isPreparedTransitionActive: { [weak self] in
+                self?.preparedTransition != nil
+            },
+            isForegroundActive: { [weak self] in
+                self?.collectionView.window?.windowScene?.activationState
+                    == .foregroundActive
+            },
+            projectedTokenRange: { [weak self] tokenIndex, direction, distance in
+                self?.projectedBrowserTokenRange(
+                    around: tokenIndex,
+                    direction: direction,
+                    refreshDistance: distance
+                )
+            },
+            prepareThumbnailWindow: { [weak self] preparation in
+                guard let self else { return }
+                MobilePlaybackController.shared
+                    .prepareCollectionBrowseThumbnailWindow(
+                        uuid: self.uuid,
+                        centeredAt: preparation.tokenIndex,
+                        direction: preparation.direction,
+                        prefetchStride: preparation.prefetchStride,
+                        columnCount: preparation.columnCount,
+                        quality: preparation.quality,
+                        requiredTokenRange: preparation.requiredTokenRange,
+                        displayedHigherQualityThumbnailTokenIndices:
+                            preparation
+                                .displayedHigherQualityThumbnailTokenIndices,
+                        displayedLargeTokenIndices:
+                            preparation.displayedLargeTokenIndices,
+                        locallyAvailableLargeTokenIndices:
+                            preparation.locallyAvailableLargeTokenIndices
+                    )
+            }
+        ))
+        scrollCoordinator.configure(contentAccess: .init(
+            pagePosition: { [weak self] tokenIndex in
+                self?.browseSnapshot?.pagePosition(forTokenIndex: tokenIndex)
+            },
+            publishFocusedPagePosition: { [weak self] pagePosition in
+                self?.onFocusedPagePosition?(pagePosition)
+            },
+            publishSettledPosition: { [weak self] publication in
+                self?.publishSettledPagePosition(publication) == true
+            },
+            performScheduledScrollObservation: { [weak self] in
+                self?.observeCurrentAnchor(
+                    focusCadence: .continuous,
+                    preparesThumbnailWindow: true,
+                    forcesThumbnailWindow: false
+                )
+            },
+            scrollMotionAnimationDidExpire: { [weak self] in
+                self?.handleScrollMotionAnimationTimeout()
+            }
+        ))
+    }
+
+    private func configureGridModeCoordinator() {
+        gridModeCoordinator.configure(
             collectionView: collectionView,
             viewportView: view,
-            contentAccess: .init(
+            gestureTarget: self,
+            gestureAction: #selector(handleGridModePinch(_:)),
+            gestureDelegate: self,
+            rendererContentAccess: .init(
                 configureCell: { [weak self] cell, indexPath, configuration in
                     self?.configureBrowserCell(
                         cell,
@@ -504,49 +400,26 @@ final class VerticalCollectionBrowserViewController: UIViewController,
                 imageSources: { [weak self] in
                     self?.browseImageSources(forTokenIndex: $0)
                 }
+            ),
+            contentAccess: .init(
+                applyPinchFrame: { [weak self] frame in
+                    self?.applyGridModePinchFrame(frame)
+                },
+                prewarmNextGeometry: { [weak self] in
+                    self?.prewarmNextGridModeGeometry()
+                },
+                settleTick: { [weak self] in
+                    self?.advanceGridModeInteractionTick(.settleTick(
+                        timestamp: CACurrentMediaTime()
+                    ))
+                },
+                interactionFadeTick: { [weak self] in
+                    self?.advanceGridModeInteractionTick(.interactionFadeTick(
+                        timestamp: CACurrentMediaTime()
+                    ))
+                }
             )
         )
-
-    private var configuredColumnCount: Int {
-        browserCollectionLayout.browserLayout?.columnCount ?? 0
-    }
-
-    private var configuredPrefetchStride: Int {
-        browserCollectionLayout.browserLayout?.prefetchStride
-            ?? MobilePlayerBrowserLayout.defaultColumnCount
-    }
-
-    private var requiredImageQuality: CollectionBrowseImageQuality {
-        gridMode.requiredImageQuality
-    }
-
-    private var defersDenseGridImageLoading: Bool {
-        requiredImageQuality.isDenseGridThumbnail
-            && !gridModeRenderer.isActive
-            && isScrollMotionActive
-    }
-
-    private var denseGridImageRefreshBatchSize: Int {
-        DenseGridImageRefreshPolicy.batchSize(
-            baseColumnCount: gridMode.columnCount
-        )
-    }
-
-    init(
-        uuid: UUID,
-        gridModeCommitSnapshotFactory: @escaping (UIView) -> UIView? = { view in
-            view.resizableSnapshotView(
-                from: view.bounds,
-                afterScreenUpdates: false,
-                withCapInsets: .zero
-            )
-        }
-    ) {
-        self.uuid = uuid
-        self.gridModeCommitSnapshotFactory = gridModeCommitSnapshotFactory
-        super.init(nibName: nil, bundle: nil)
-        gridModeInteractionFadeDisplayLinkTarget.controller = self
-        denseGridImageDisplayLinkTarget.controller = self
     }
 
     @available(*, unavailable)
@@ -556,14 +429,9 @@ final class VerticalCollectionBrowserViewController: UIViewController,
 
     isolated deinit {
         NotificationCenter.default.removeObserver(self)
-        gridModeSettleDisplayLink?.invalidate()
-        gridModeInteractionFadeDisplayLink?.invalidate()
-        denseGridImageDisplayLink?.invalidate()
-        gridModeCommitSnapshotDissolveTask?.cancel()
-        scrollMotionAnimationTimeoutTask?.cancel()
-        scrollUpdateTask?.cancel()
-        focusPublicationTask?.cancel()
-        cancelAllPrefetchLoads()
+        gridModeCoordinator.invalidate()
+        scrollCoordinator.invalidate()
+        imagePipeline.invalidate()
     }
 
     override func viewDidLoad() {
@@ -585,6 +453,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             collectionView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             collectionView.trailingAnchor.constraint(equalTo: view.trailingAnchor)
         ])
+        configureGridModeCoordinator()
         view.addGestureRecognizer(gridModePinchRecognizer)
 
         reloadBrowseSnapshot(resetPublicationState: true)
@@ -776,21 +645,11 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     }
 
     func makeGridModeMenu() -> UIMenu {
-        let currentGridMode = gridMode
-        let actions = MobileCollectionBrowserGridMode.allCases.reversed().map { gridMode in
-            UIAction(
-                title: gridMode.menuTitle,
-                image: UIImage(systemName: gridMode.menuSystemImageName),
-                state: gridMode == currentGridMode ? .on : .off
-            ) { [weak self] _ in
+        gridModeCoordinator.makeMenu(currentMode: gridMode) {
+            [weak self] gridMode in
                 guard self?.setGridMode(gridMode) == true else { return }
                 Haptic.selectionChanged()
-            }
         }
-        return UIMenu(
-            options: [.displayInline, .singleSelection, .displayAsPalette],
-            children: actions
-        )
     }
 
     @discardableResult
@@ -834,7 +693,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     }
 
     private var hasGridModeInteractionState: Bool {
-        gridModeInteractionCoordinator.phase != .idle
+        gridModeCoordinator.hasInteractionState
     }
 
     /// `awaitingRenderer` also reports `.settling` but cannot be finalized;
@@ -1390,8 +1249,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         }
         let plane = preparation.planeRequest
         layoutAspectState = plane.layoutAspectState
-        gridModeCommitFadeDeadline = CACurrentMediaTime()
-            + Self.gridModeCommitFadeWindow
+        gridModeCoordinator.beginCommitFadeWindow()
         let toLayout = plane.transitionLayout.toLayout
         installCollectionLayout(toLayout)
         applyGridModeTransitionEndpoint(
@@ -1410,96 +1268,20 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     /// then dissolves it over the new presentation.
     @discardableResult
     private func installGridModeSnapshotCover() -> UIView {
-        let snapshot = gridModeCommitSnapshotFactory(view)
-            ?? makeGridModeBitmapSnapshotCover()
-        removeGridModeCommitSnapshot()
-        snapshot.frame = gridModeSnapshotFrame
-        snapshot.isUserInteractionEnabled = false
-        view.insertSubview(snapshot, aboveSubview: collectionView)
-        gridModeCommitSnapshotView = snapshot
-        gridModeCommitSnapshotContentOffset = collectionView.contentOffset
-        return snapshot
-    }
-
-    private var gridModeSnapshotFrame: CGRect {
-        let bounds = view.bounds
-        guard bounds.origin.x.isFinite,
-              bounds.origin.y.isFinite,
-              bounds.width.isFinite,
-              bounds.height.isFinite else {
-            return .zero
-        }
-        return bounds
-    }
-
-    private func makeGridModeBitmapSnapshotCover() -> UIView {
-        let bounds = gridModeSnapshotFrame
-        guard bounds.width > 0, bounds.height > 0 else {
-            return UIView(frame: bounds)
-        }
-        let format = UIGraphicsImageRendererFormat()
-        format.scale = 1
-        let image = UIGraphicsImageRenderer(
-            bounds: bounds,
-            format: format
-        ).image { context in
-            guard !view.drawHierarchy(
-                in: bounds,
-                afterScreenUpdates: false
-            ) else {
-                return
-            }
-            (view.layer.presentation() ?? view.layer).render(
-                in: context.cgContext
-            )
-        }
-        return UIImageView(image: image)
+        gridModeCoordinator.installSnapshotCover(
+            viewportView: view,
+            collectionView: collectionView
+        )
     }
 
     private func startGridModeCommitSnapshotDissolve(_ snapshot: UIView) {
-        guard gridModeCommitSnapshotView === snapshot else { return }
-        guard snapshot.layer.animation(forKey: "opacity") == nil else { return }
-        // An explicit layer animation commits atomically with the snapshot's
-        // insertion. UIView.animate a runloop later intermittently failed to
-        // start on a fresh snapshot view, leaving the soft cover opaque for
-        // the full duration and then dropping it in a single frame — the
-        // exact blink this cover exists to prevent.
-        let fade = CABasicAnimation(keyPath: "opacity")
-        fade.fromValue = 1
-        fade.toValue = 0
-        fade.duration = MobilePlayerCollectionBrowserTransitionPresentation
-            .contentFadeDuration
-        fade.timingFunction = CAMediaTimingFunction(name: .linear)
-        snapshot.layer.opacity = 0
-        snapshot.layer.add(fade, forKey: "opacity")
-        let dissolveDelay = MobilePlayerCollectionBrowserTransitionPresentation
-            .contentFadeDuration + 0.05
-        gridModeCommitSnapshotDissolveTask?.cancel()
-        gridModeCommitSnapshotDissolveTask = Task {
-            [weak self, weak snapshot] in
-            do {
-                try await Task.sleep(for: .seconds(dissolveDelay))
-            } catch {
-                return
-            }
-            guard let snapshot else { return }
-            snapshot.removeFromSuperview()
-            if let self, self.gridModeCommitSnapshotView === snapshot {
-                self.gridModeCommitSnapshotDissolveTask = nil
-                self.gridModeCommitSnapshotView = nil
-                self.gridModeCommitSnapshotContentOffset = nil
-            }
-        }
+        gridModeCoordinator.startCommitSnapshotDissolve(snapshot)
     }
 
     /// A stale transition snapshot over a live grid is worse than a sharpen
     /// blink: every path that resumes rendering or scrolling must drop it.
     private func removeGridModeCommitSnapshot() {
-        gridModeCommitSnapshotDissolveTask?.cancel()
-        gridModeCommitSnapshotDissolveTask = nil
-        gridModeCommitSnapshotView?.removeFromSuperview()
-        gridModeCommitSnapshotView = nil
-        gridModeCommitSnapshotContentOffset = nil
+        gridModeCoordinator.removeCommitSnapshot()
     }
 
     private func captureVisibleCarryoverSources(
@@ -1754,12 +1536,6 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         }
     }
 
-    @objc private func handleGridModeSettleTick(_: CADisplayLink) {
-        advanceGridModeInteractionTick(.settleTick(
-            timestamp: CACurrentMediaTime()
-        ))
-    }
-
     private func advanceGridModeInteractionTick(
         _ event: PlayerBrowserGridInteractionCoordinator.Event
     ) {
@@ -1770,57 +1546,23 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     }
 
     private func startGridModeSettleDisplayLink() {
-        if gridModeSettleContentOffsetY == nil {
-            gridModeSettleContentOffsetY = collectionView.contentOffset.y
-        }
-        if gridModeSettlePanMaximumNumberOfTouches == nil {
-            let panGestureRecognizer = collectionView.panGestureRecognizer
-            gridModeSettlePanMaximumNumberOfTouches = panGestureRecognizer
-                .maximumNumberOfTouches
-            panGestureRecognizer.maximumNumberOfTouches = 1
-        }
-        guard gridModeSettleDisplayLink == nil else { return }
-        let displayLink = CADisplayLink(
-            target: self,
-            selector: #selector(handleGridModeSettleTick(_:))
+        gridModeCoordinator.startSettleDisplayLink(
+            collectionView: collectionView
         )
-        displayLink.add(to: .main, forMode: .common)
-        gridModeSettleDisplayLink = displayLink
     }
 
     private func stopGridModeSettleDisplayLink() {
-        gridModeSettleDisplayLink?.invalidate()
-        gridModeSettleDisplayLink = nil
-        gridModeSettleContentOffsetY = nil
-        if let maximumNumberOfTouches =
-            gridModeSettlePanMaximumNumberOfTouches {
-            collectionView.panGestureRecognizer.maximumNumberOfTouches =
-                maximumNumberOfTouches
-            gridModeSettlePanMaximumNumberOfTouches = nil
-        }
-    }
-
-    @objc private func handleGridModeInteractionFadeTick(_: CADisplayLink) {
-        advanceGridModeInteractionTick(.interactionFadeTick(
-            timestamp: CACurrentMediaTime()
-        ))
+        gridModeCoordinator.stopSettleDisplayLink(
+            collectionView: collectionView
+        )
     }
 
     private func startGridModeInteractionFadeDisplayLink() {
-        guard gridModeInteractionFadeDisplayLink == nil else { return }
-        let displayLink = CADisplayLink(
-            target: gridModeInteractionFadeDisplayLinkTarget,
-            selector: #selector(
-                GridModeInteractionFadeDisplayLinkTarget.tick(_:)
-            )
-        )
-        displayLink.add(to: .main, forMode: .common)
-        gridModeInteractionFadeDisplayLink = displayLink
+        gridModeCoordinator.startInteractionFadeDisplayLink()
     }
 
     private func stopGridModeInteractionFadeDisplayLink() {
-        gridModeInteractionFadeDisplayLink?.invalidate()
-        gridModeInteractionFadeDisplayLink = nil
+        gridModeCoordinator.stopInteractionFadeDisplayLink()
     }
 
     @discardableResult
@@ -1993,9 +1735,9 @@ final class VerticalCollectionBrowserViewController: UIViewController,
 
             case let .reconcileMedia(cancelsPrefetchLoads):
                 if cancelsPrefetchLoads {
-                    cancelAllPrefetchLoads()
+                    imagePipeline.cancelAllPrefetchLoads()
                 }
-                lastThumbnailWindowRequest = nil
+                imagePipeline.resetThumbnailWindow()
                 needsVisibleCellQualityReconciliation = true
                 reconcileVisibleCellsIfNeeded()
 
@@ -2124,6 +1866,9 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     }
 
     func setActive(_ active: Bool) {
+        if active {
+            loadViewIfNeeded()
+        }
         guard isActive != active else {
             if active {
                 performInitialPositioningIfNeeded()
@@ -2144,9 +1889,9 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             endScrollMotionAndResetDragState()
             cancelScheduledScrollUpdate()
             cancelPendingFocusPublication(resetLastPublicationTime: true)
-            cancelAllPrefetchLoads()
-            lastThumbnailWindowRequest = nil
-            visibleBrowserCells.forEach { $0.cancelImageLoad() }
+            imagePipeline.cancelAllPrefetchLoads()
+            imagePipeline.resetThumbnailWindow()
+            imagePipeline.cancelVisibleCellImageLoads()
         }
 
         isActive = active
@@ -2181,10 +1926,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     ) {
         loadViewIfNeeded()
         finalizeGridModeInteractionIfNeeded()
-        positioningGeneration &+= 1
-        let generation = positioningGeneration
-        cancelScheduledScrollUpdate()
-        cancelPendingFocusPublication(resetLastPublicationTime: false)
+        let generation = scrollCoordinator.beginPositioning()
         guard isValid(preparation) else {
             isApplyingPosition = false
             cancelPreparedTransition()
@@ -2207,20 +1949,10 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             sampledAround: preparation.focusedTokenIndex
         )
 
-        if hasFinishedInitialPositioning, !snapshotChanged {
-            if publicationState == nil {
-                publicationState = PlayerCollectionScrollPublicationState(
-                    initialIndex: preparation.focusedTokenIndex
-                )
-                publicationState?.finishInitialPositioning()
-            }
-            publicationState?.beginProgrammaticPositioning(at: preparation.focusedTokenIndex)
-        } else {
-            publicationState = PlayerCollectionScrollPublicationState(
-                initialIndex: preparation.focusedTokenIndex
-            )
-            hasFinishedInitialPositioning = false
-        }
+        scrollCoordinator.beginPublicationPositioning(
+            at: preparation.focusedTokenIndex,
+            snapshotChanged: snapshotChanged
+        )
 
         if forcePosition
             || snapshotChanged
@@ -2237,24 +1969,18 @@ final class VerticalCollectionBrowserViewController: UIViewController,
                 completion(.superseded)
                 return
             }
-            guard self.positioningGeneration == generation else {
+            guard self.scrollCoordinator
+                .isCurrentPositioningGeneration(generation) else {
                 completion(.superseded)
                 return
             }
 
             self.collectionView.layoutIfNeeded()
-            if !self.hasFinishedInitialPositioning {
-                self.hasFinishedInitialPositioning = true
-                self.publicationState?.finishInitialPositioning()
-            } else {
-                self.publicationState?.finishProgrammaticPositioning()
-            }
-            self.isApplyingPosition = false
+            self.scrollCoordinator.finishPositioning()
             self.resumeVisibleBrowserImageLoadsIfNeeded()
-            self.publicationState?.observeCandidate(preparation.focusedTokenIndex)
-            self.publishFocus(
+            self.scrollCoordinator.observe(
                 tokenIndex: preparation.focusedTokenIndex,
-                cadence: .immediate
+                focusCadence: .immediate
             )
             if publishWhenStable, self.isActive {
                 self.publishSettledTokenIfNeeded()
@@ -2303,9 +2029,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     }
 
     func cancelPendingDisplayPreparation() {
-        positioningGeneration &+= 1
-        cancelScheduledScrollUpdate()
-        cancelPendingFocusPublication(resetLastPublicationTime: false)
+        scrollCoordinator.cancelPositioning()
         cancelPreparedTransition()
     }
 
@@ -2372,7 +2096,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         )
         hasFinishedInitialPositioning = false
         lastEmittedFocusedTokenIndex = nil
-        lastThumbnailWindowRequest = nil
+        imagePipeline.resetThumbnailWindow()
         if snapshotChanged
             || !isTokenFullyVisible(preparation.focusedTokenIndex) {
             centerContent(on: preparation.focusedTokenIndex)
@@ -2414,15 +2138,8 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             layoutWindowSafeAreaInsets: layoutWindowSafeAreaInsets,
             verticalContentOffsetRange: verticalContentOffsetRange,
             browseSnapshot: browseSnapshot,
-            publicationState: publicationState,
-            hasFinishedInitialPositioning: hasFinishedInitialPositioning,
-            focusedTokenIndex: focusedTokenIndex,
-            forcedFocusedTokenIndex: forcedFocusedTokenIndex,
-            retainedFocusFocalBias: retainedFocusFocalBias,
-            lastEmittedFocusedTokenIndex: lastEmittedFocusedTokenIndex,
-            lastThumbnailWindowRequest: lastThumbnailWindowRequest,
-            lastPrefetchDirection: lastPrefetchDirection,
-            lastScrollOffsetY: lastScrollOffsetY,
+            scrollCoordinatorSnapshot: scrollCoordinator.snapshot(),
+            imagePipelineSnapshot: imagePipeline.snapshot(),
             layoutAspectState: layoutAspectState
         )
     }
@@ -2436,11 +2153,9 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         isApplyingPosition = true
 
         browseSnapshot = preparedTransition.browseSnapshot
-        publicationState = preparedTransition.publicationState
-        hasFinishedInitialPositioning = preparedTransition.hasFinishedInitialPositioning
         layoutAspectState = preparedTransition.layoutAspectState
-        cancelAllPrefetchLoads()
-        visibleBrowserCells.forEach { $0.cancelImageLoad() }
+        imagePipeline.cancelAllPrefetchLoads()
+        imagePipeline.cancelVisibleCellImageLoads()
         collectionView.reloadData()
         configureCollectionLayout()
         collectionView.layoutIfNeeded()
@@ -2469,35 +2184,39 @@ final class VerticalCollectionBrowserViewController: UIViewController,
                 restoredContentOffset,
                 animated: false
             )
-        } else if let focusedTokenIndex = preparedTransition.forcedFocusedTokenIndex
-            ?? preparedTransition.focusedTokenIndex {
+        } else if let focusedTokenIndex = preparedTransition
+            .scrollCoordinatorSnapshot.forcedFocusedTokenIndex
+            ?? preparedTransition.scrollCoordinatorSnapshot.focusedTokenIndex {
             centerContent(on: focusedTokenIndex)
         } else {
             collectionView.setContentOffset(clampedContentOffset(preparedTransition.contentOffset), animated: false)
         }
         collectionView.layoutIfNeeded()
 
-        focusedTokenIndex = preparedTransition.focusedTokenIndex
-        if let forcedFocusedTokenIndex = preparedTransition.forcedFocusedTokenIndex {
-            self.forcedFocusedTokenIndex = forcedFocusedTokenIndex
+        let scrollSnapshot = preparedTransition.scrollCoordinatorSnapshot
+        let restoredRetainedFocusFocalBias: PlayerCollectionScrollFocalBias?
+        if let forcedFocusedTokenIndex = scrollSnapshot.forcedFocusedTokenIndex {
             if canRestoreExactGeometry {
-                retainedFocusFocalBias = preparedTransition.retainedFocusFocalBias
+                restoredRetainedFocusFocalBias =
+                    scrollSnapshot.retainedFocusFocalBias
                     ?? makeFocalBias(for: forcedFocusedTokenIndex)
             } else {
-                retainedFocusFocalBias = makeFocalBias(for: forcedFocusedTokenIndex)
+                restoredRetainedFocusFocalBias =
+                    makeFocalBias(for: forcedFocusedTokenIndex)
             }
         } else {
-            forcedFocusedTokenIndex = nil
-            retainedFocusFocalBias = canRestoreExactGeometry
-                ? preparedTransition.retainedFocusFocalBias
+            restoredRetainedFocusFocalBias = canRestoreExactGeometry
+                ? scrollSnapshot.retainedFocusFocalBias
                 : nil
         }
-        lastEmittedFocusedTokenIndex = preparedTransition.lastEmittedFocusedTokenIndex
-        lastThumbnailWindowRequest = preparedTransition.lastThumbnailWindowRequest
-        lastPrefetchDirection = preparedTransition.lastPrefetchDirection
-        lastScrollOffsetY = canRestoreExactGeometry
-            ? preparedTransition.lastScrollOffsetY
-            : collectionView.contentOffset.y
+        scrollCoordinator.restore(
+            scrollSnapshot,
+            retainedFocusFocalBias: restoredRetainedFocusFocalBias,
+            lastScrollOffsetY: canRestoreExactGeometry
+                ? scrollSnapshot.lastScrollOffsetY
+                : collectionView.contentOffset.y
+        )
+        imagePipeline.restore(preparedTransition.imagePipelineSnapshot)
         isApplyingPosition = false
         scheduleGridModeGeometryPrewarmIfPossible()
     }
@@ -2528,15 +2247,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             preparesThumbnailWindow: false,
             forcesThumbnailWindow: false
         )
-        guard let publication = publicationState?.finalFlush(
-            hasViewedToEnd: hasViewedToEnd
-        ) else {
-            return
-        }
-        guard publishSettledPagePosition(publication) else {
-            publicationState?.retryPublication(of: publication)
-            return
-        }
+        scrollCoordinator.finalFlush(hasViewedToEnd: hasViewedToEnd)
     }
 
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
@@ -2563,35 +2274,22 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         forItemAt indexPath: IndexPath
     ) {
         gridModeRenderer.willDisplayCell(cell, at: indexPath)
-        guard isActive || preparedTransition != nil else { return }
         guard let browserCell = cell as? MobilePlayerCollectionBrowserCell else {
             return
         }
-        if !gridModeRenderer.isActive {
-            if defersDenseGridImageLoading {
-                browserCell.demoteImageLoadToCachedOnlyIfNeeded(
-                    tokenIndex: indexPath.item
-                )
-                if browserCell.needsCachedImageRefresh(
-                    tokenIndex: indexPath.item
-                ) {
-                    enqueueDenseGridImageRefresh(tokenIndex: indexPath.item)
-                }
-                return
-            }
-            browserCell.resumeImageLoadIfNeeded(tokenIndex: indexPath.item)
-            if MobilePlayerCollectionBrowserTransitionSupport
-                .itemIntersectsViewport(
+        imagePipeline.willDisplay(
+            cell: browserCell,
+            tokenIndex: indexPath.item,
+            intersectsViewport: {
+                MobilePlayerCollectionBrowserTransitionSupport
+                    .itemIntersectsViewport(
                     at: indexPath,
                     cell: browserCell,
                     collectionView: collectionView,
                     viewportView: view
-                ) {
-                browserCell.promoteImageLoadToForegroundIfNeeded(
-                    tokenIndex: indexPath.item
                 )
             }
-        }
+        )
     }
 
     func collectionView(
@@ -2599,12 +2297,15 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         didEndDisplaying cell: UICollectionViewCell,
         forItemAt indexPath: IndexPath
     ) {
-        denseGridImageRefreshQueue.remove(indexPath.item)
+        imagePipeline.willEndDisplaying(tokenIndex: indexPath.item)
         gridModeRenderer.didEndDisplayingCell(cell, at: indexPath)
         guard let browserCell = cell as? MobilePlayerCollectionBrowserCell else {
             return
         }
-        browserCell.cancelImageLoad(ifRepresenting: indexPath.item)
+        imagePipeline.didEndDisplaying(
+            cell: browserCell,
+            tokenIndex: indexPath.item
+        )
     }
 
     func collectionView(
@@ -2757,67 +2458,24 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         _ collectionView: UICollectionView,
         prefetchItemsAt indexPaths: [IndexPath]
     ) {
-        guard isActive,
-              !isApplyingPosition,
-              !requiredImageQuality.isDenseGridThumbnail,
-              prefetchLoads.count < Self.maximumPrefetchLoadCount else {
-            return
-        }
-
-        let center = focusedTokenIndex ?? currentAnchorTokenIndex() ?? 0
-        let orderedIndices = Set(indexPaths.map(\.item)).sorted {
-            let lhsDistance = abs($0 - center)
-            let rhsDistance = abs($1 - center)
-            return lhsDistance == rhsDistance ? $0 < $1 : lhsDistance < rhsDistance
-        }
-
-        for tokenIndex in orderedIndices {
-            guard prefetchLoads.count < Self.maximumPrefetchLoadCount,
-                  prefetchLoads[tokenIndex] == nil,
-                  let browseSnapshot else {
-                continue
+        let quality = requiredImageQuality
+        imagePipeline.prefetch(
+            indexPaths: indexPaths,
+            centerTokenIndex: { [weak self] in
+                self?.focusedTokenIndex
+                    ?? self?.currentAnchorTokenIndex()
+                    ?? 0
+            },
+            requiredImageQuality: quality,
+            descriptor: { [weak self] tokenIndex in
+                guard let snapshot = self?.browseSnapshot else { return nil }
+                return MobilePlaybackController.shared
+                    .collectionBrowsePrefetchDescriptor(
+                        snapshot: snapshot,
+                        tokenIndex: tokenIndex,
+                        quality: quality
+                    )
             }
-            let loadID = UUID()
-            guard let descriptor = MobilePlaybackController.shared
-                .collectionBrowsePrefetchDescriptor(
-                    snapshot: browseSnapshot,
-                    tokenIndex: tokenIndex,
-                    quality: requiredImageQuality
-                ) else {
-                continue
-            }
-            startCollectionViewPrefetch(
-                descriptor: descriptor,
-                tokenIndex: tokenIndex,
-                loadID: loadID
-            )
-        }
-    }
-
-    private func startCollectionViewPrefetch(
-        descriptor: DownloadableMediaDescriptor,
-        tokenIndex: Int,
-        loadID: UUID
-    ) {
-        guard let cancellation = DownloadableMediaCache.shared
-            .loadProvisionalImage(
-                for: descriptor,
-                completion: { [weak self] _ in
-                    Task { @MainActor in
-                        await Task.yield()
-                        guard self?.prefetchLoads[tokenIndex]?.id == loadID else {
-                            return
-                        }
-                        self?.prefetchLoads.removeValue(forKey: tokenIndex)
-                    }
-                }
-            ) else {
-            prefetchLoads.removeValue(forKey: tokenIndex)
-            return
-        }
-        prefetchLoads[tokenIndex] = CancellableLoad(
-            id: loadID,
-            cancellation: cancellation
         )
     }
 
@@ -2825,9 +2483,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         _ collectionView: UICollectionView,
         cancelPrefetchingForItemsAt indexPaths: [IndexPath]
     ) {
-        for tokenIndex in Set(indexPaths.map(\.item)) {
-            prefetchLoads.removeValue(forKey: tokenIndex)?.cancellation()
-        }
+        imagePipeline.cancelPrefetching(indexPaths: indexPaths)
     }
 
     private func gridModeContentOffsetTarget(
@@ -2950,20 +2606,25 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         interruptGridModeSettleForDragIfNeeded()
         removeGridModeCommitSnapshot()
         cancelScrollMotionAnimationTimeout()
-        lastScrollOffsetY = scrollView.contentOffset.y
-        dragStartContentOffsetY = clampedVerticalContentOffsetY(scrollView.contentOffset.y)
-        hasAcknowledgedCurrentDrag = false
-        beginScrollMotion()
+        if scrollCoordinator.beginDrag(
+            contentOffsetY: scrollView.contentOffset.y,
+            clampedContentOffsetY:
+                clampedVerticalContentOffsetY(scrollView.contentOffset.y)
+        ) {
+            imagePipeline.setScrollMotionActive(true)
+            cancelGridModeGeometryPrewarming()
+            demoteVisibleBrowserImageLoadsIfNeeded()
+        }
         let verticalRange = verticalContentOffsetRange
-        if verticalRange.upperBound - verticalRange.lowerBound <= Self.boundaryEpsilon {
-            hasAcknowledgedCurrentDrag = true
+        if verticalRange.upperBound - verticalRange.lowerBound <= Self.boundaryEpsilon,
+           scrollCoordinator.markCurrentDragAcknowledged() {
             MobilePlaybackController.shared.acknowledgeIntentionalViewingPosition(uuid: uuid)
         }
     }
 
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
         if gridModeContentOffsetRestorationDepth > 0 {
-            lastScrollOffsetY = scrollView.contentOffset.y
+            _ = scrollCoordinator.observeContentOffset(scrollView.contentOffset.y)
             return
         }
         if let snapshotContentOffset = gridModeCommitSnapshotContentOffset,
@@ -2973,8 +2634,9 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         }
         let settlesAfterImmediateGridModeOffset =
             resolveScrollObservedDuringGridModeSettle(scrollView)
-        let previousOffsetY = lastScrollOffsetY
-        lastScrollOffsetY = scrollView.contentOffset.y
+        let previousOffsetY = scrollCoordinator.observeContentOffset(
+            scrollView.contentOffset.y
+        )
         guard isActive,
               hasFinishedInitialPositioning,
               !isApplyingPosition else {
@@ -2988,9 +2650,10 @@ final class VerticalCollectionBrowserViewController: UIViewController,
                 currentOffsetY: scrollView.contentOffset.y,
                 validRange: verticalContentOffsetRange
             )
-            if abs(offsetDelta) > Self.boundaryEpsilon {
-                lastPrefetchDirection = offsetDelta > 0 ? .forward : .backward
-            }
+            _ = scrollCoordinator.updatePrefetchDirection(
+                offsetDelta: offsetDelta,
+                epsilon: Self.boundaryEpsilon
+            )
         }
         scheduleScrollUpdate()
         if settlesAfterImmediateGridModeOffset {
@@ -3095,8 +2758,8 @@ final class VerticalCollectionBrowserViewController: UIViewController,
                 columnCount: gridMode.columnCount
             )
         }
-        cancelAllPrefetchLoads()
-        visibleBrowserCells.forEach { $0.cancelImageLoad() }
+        imagePipeline.cancelAllPrefetchLoads()
+        imagePipeline.cancelVisibleCellImageLoads()
         // An in-place reload recreates every cell; anchor-nearest regions keep
         // their current pixels and crossfade to the reloaded content.
         let isOnScreen = isActive && viewIfLoaded?.window != nil
@@ -3106,8 +2769,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             )
             : []
         if isOnScreen {
-            gridModeCommitFadeDeadline = CACurrentMediaTime()
-                + Self.gridModeCommitFadeWindow
+            gridModeCoordinator.beginCommitFadeWindow()
         }
         collectionView.reloadData()
         if let cachedGeometry {
@@ -3330,7 +2992,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         focusedTokenIndex = restorationIndex
         retainFocusedTokenIndex(restorationIndex)
         lastEmittedFocusedTokenIndex = nil
-        lastThumbnailWindowRequest = nil
+        imagePipeline.resetThumbnailWindow()
         cancelPendingFocusPublication(resetLastPublicationTime: true)
     }
 
@@ -3397,7 +3059,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
                 || configuredColumnCount != browserLayout.columnCount
         browserCollectionLayout.browserLayout = browserLayout
         if thumbnailWindowCadenceChanged {
-            lastThumbnailWindowRequest = nil
+            imagePipeline.resetThumbnailWindow()
         }
         collectionView.scrollIndicatorInsets = UIEdgeInsets(
             top: layoutWindowSafeAreaInsets.top,
@@ -3507,10 +3169,9 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         let appliedOffsetDeltaY =
             restoredContentOffset.y - previousContentOffset.y
         collectionView.setContentOffset(restoredContentOffset, animated: false)
-        if let dragStartContentOffsetY {
-            self.dragStartContentOffsetY =
-                dragStartContentOffsetY + appliedOffsetDeltaY
-        }
+        scrollCoordinator.adjustDragStartContentOffset(
+            by: appliedOffsetDeltaY
+        )
 
         retainFocusedTokenIndex(retainedFocusTokenIndex)
         if let retainedFocusTokenIndex {
@@ -3641,71 +3302,49 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     }
 
     private func acknowledgeIntentionalScrollIfNeeded(_ scrollView: UIScrollView) {
-        guard !hasAcknowledgedCurrentDrag,
-              let dragStartContentOffsetY else {
-            return
-        }
         let currentContentOffsetY = clampedVerticalContentOffsetY(scrollView.contentOffset.y)
-        guard abs(currentContentOffsetY - dragStartContentOffsetY) > Self.boundaryEpsilon else {
-            return
-        }
-
-        hasAcknowledgedCurrentDrag = true
+        guard scrollCoordinator.acknowledgeIntentionalScrollIfNeeded(
+            clampedContentOffsetY: currentContentOffsetY,
+            epsilon: Self.boundaryEpsilon
+        ) else { return }
         MobilePlaybackController.shared.acknowledgeIntentionalViewingPosition(uuid: uuid)
     }
 
     private func endScrollMotionAndResetDragState() {
-        dragStartContentOffsetY = nil
         endScrollMotion()
-        hasAcknowledgedCurrentDrag = false
+        scrollCoordinator.resetDragState()
         if needsWindowSafeAreaRefresh {
             view.setNeedsLayout()
         }
     }
 
     private func beginScrollMotion() {
-        guard !isScrollMotionActive else { return }
-        isScrollMotionActive = true
+        guard scrollCoordinator.beginScrollMotion() else { return }
+        imagePipeline.setScrollMotionActive(true)
         cancelGridModeGeometryPrewarming()
         demoteVisibleBrowserImageLoadsIfNeeded()
     }
 
     private func endScrollMotion() {
-        isScrollMotionActive = false
-        cancelScrollMotionAnimationTimeout()
-        stopDenseGridImageDisplayLink()
+        scrollCoordinator.endScrollMotion()
+        imagePipeline.setScrollMotionActive(false)
+        imagePipeline.cancelDenseGridImageRefreshes()
         if needsWindowSafeAreaRefresh {
             view.setNeedsLayout()
         }
     }
 
     private func cancelScrollMotionAnimationTimeout() {
-        scrollMotionAnimationTimeoutGeneration &+= 1
-        scrollMotionAnimationTimeoutTask?.cancel()
-        scrollMotionAnimationTimeoutTask = nil
+        scrollCoordinator.cancelScrollMotionAnimationTimeout()
     }
 
     private func scheduleScrollMotionAnimationTimeout() {
-        guard isScrollMotionActive else { return }
-        cancelScrollMotionAnimationTimeout()
-        let generation = scrollMotionAnimationTimeoutGeneration
-        scrollMotionAnimationTimeoutTask = Task { [weak self] in
-            do {
-                try await Task.sleep(
-                    for: .seconds(Self.scrollMotionAnimationTimeout)
-                )
-            } catch {
-                return
-            }
-            guard let self,
-                  self.isScrollMotionActive,
-                  self.scrollMotionAnimationTimeoutGeneration == generation else {
-                return
-            }
-            self.scrollMotionAnimationTimeoutTask = nil
-            self.endScrollMotion()
-            self.settleAfterApplyingPendingWindowSafeAreaRefresh()
-        }
+        scrollCoordinator.scheduleScrollMotionAnimationTimeout()
+    }
+
+    private func handleScrollMotionAnimationTimeout() {
+        endScrollMotion()
+        settleAfterApplyingPendingWindowSafeAreaRefresh()
     }
 
     private func settleAfterApplyingPendingWindowSafeAreaRefresh() {
@@ -3714,12 +3353,12 @@ final class VerticalCollectionBrowserViewController: UIViewController,
            let currentAnchorTokenIndex = currentAnchorTokenIndex() {
             focusedTokenIndex = currentAnchorTokenIndex
         }
-        let previousSettlementGeneration = positionSettlementGeneration
+        let previousSettlementGeneration = scrollCoordinator.settlementGeneration
         if needsWindowSafeAreaRefresh {
             view.setNeedsLayout()
         }
         view.layoutIfNeeded()
-        if positionSettlementGeneration == previousSettlementGeneration {
+        if scrollCoordinator.settlementGeneration == previousSettlementGeneration {
             settleCurrentPosition()
         }
     }
@@ -3867,13 +3506,17 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     }
 
     private func observeCurrentAnchor(
-        focusCadence: FocusPublicationCadence,
+        focusCadence:
+            MobilePlayerCollectionBrowserScrollCoordinator
+                .FocusPublicationCadence,
         preparesThumbnailWindow: Bool,
         forcesThumbnailWindow: Bool
     ) {
         guard let tokenIndex = currentAnchorTokenIndex() else { return }
-        publicationState?.observeCandidate(tokenIndex)
-        publishFocus(tokenIndex: tokenIndex, cadence: focusCadence)
+        scrollCoordinator.observe(
+            tokenIndex: tokenIndex,
+            focusCadence: focusCadence
+        )
         if preparesThumbnailWindow {
             prepareThumbnailWindow(
                 around: tokenIndex,
@@ -3885,8 +3528,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
 
     private func settleCurrentPosition() {
         guard isActive else { return }
-        positionSettlementGeneration &+= 1
-        cancelScheduledScrollUpdate()
+        scrollCoordinator.beginSettlement()
         resumeVisibleBrowserImageLoadsIfNeeded()
         observeCurrentAnchor(
             focusCadence: .immediate,
@@ -3920,133 +3562,41 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             return
         }
 
-        cancelScheduledScrollUpdate()
+        scrollCoordinator.cancelScheduledScrollUpdate()
         retainFocusedTokenIndex(tokenIndex)
-        focusedTokenIndex = tokenIndex
-        publicationState?.observeCandidate(tokenIndex)
         MobilePlaybackController.shared.acknowledgeIntentionalViewingPosition(uuid: uuid)
-        publishFocus(tokenIndex: tokenIndex, cadence: .immediate)
+        scrollCoordinator.observe(
+            tokenIndex: tokenIndex,
+            focusCadence: .immediate
+        )
         publishSettledTokenIfNeeded()
     }
 
     private func scheduleScrollUpdate() {
-        guard !isScrollUpdateScheduled else { return }
-        isScrollUpdateScheduled = true
-        scrollUpdateGeneration &+= 1
-        let generation = scrollUpdateGeneration
-        scrollUpdateTask = Task { @MainActor [weak self] in
-            await Task.yield()
-            guard let self,
-                  self.scrollUpdateGeneration == generation else {
-                return
-            }
-            self.isScrollUpdateScheduled = false
-            self.scrollUpdateTask = nil
-            guard self.isActive,
-                  self.hasFinishedInitialPositioning,
-                  !self.isApplyingPosition else {
-                return
-            }
-            self.observeCurrentAnchor(
-                focusCadence: .continuous,
-                preparesThumbnailWindow: true,
-                forcesThumbnailWindow: false
-            )
-        }
+        scrollCoordinator.scheduleScrollUpdate()
     }
 
     private func cancelScheduledScrollUpdate() {
-        scrollUpdateGeneration &+= 1
-        isScrollUpdateScheduled = false
-        scrollUpdateTask?.cancel()
-        scrollUpdateTask = nil
+        scrollCoordinator.cancelScheduledScrollUpdate()
     }
 
     private func publishFocus(
         tokenIndex: Int,
-        cadence: FocusPublicationCadence
+        cadence:
+            MobilePlayerCollectionBrowserScrollCoordinator
+                .FocusPublicationCadence
     ) {
-        focusedTokenIndex = tokenIndex
-        switch cadence {
-        case .immediate:
-            cancelPendingFocusPublication(resetLastPublicationTime: false)
-            emitFocus(tokenIndex: tokenIndex)
-
-        case .continuous:
-            guard isActive else {
-                return
-            }
-            if lastEmittedFocusedTokenIndex == tokenIndex {
-                cancelPendingFocusPublication(resetLastPublicationTime: false)
-                return
-            }
-            pendingFocusedTokenIndex = tokenIndex
-            let now = CACurrentMediaTime()
-            let elapsed = lastFocusPublicationTime.map { now - $0 }
-                ?? Self.continuousFocusPublicationInterval
-            guard elapsed < Self.continuousFocusPublicationInterval else {
-                cancelPendingFocusPublication(resetLastPublicationTime: false)
-                emitFocus(tokenIndex: tokenIndex)
-                return
-            }
-            guard !isFocusPublicationScheduled else { return }
-
-            isFocusPublicationScheduled = true
-            focusPublicationGeneration &+= 1
-            let generation = focusPublicationGeneration
-            let delay = Self.continuousFocusPublicationInterval - elapsed
-            focusPublicationTask?.cancel()
-            focusPublicationTask = Task { [weak self] in
-                do {
-                    try await Task.sleep(for: .seconds(delay))
-                } catch {
-                    return
-                }
-                guard let self,
-                      self.focusPublicationGeneration == generation else {
-                    return
-                }
-                self.isFocusPublicationScheduled = false
-                self.focusPublicationTask = nil
-                guard let tokenIndex = self.pendingFocusedTokenIndex else { return }
-                self.pendingFocusedTokenIndex = nil
-                self.emitFocus(tokenIndex: tokenIndex)
-            }
-        }
-    }
-
-    private func emitFocus(tokenIndex: Int) {
-        guard isActive,
-              lastEmittedFocusedTokenIndex != tokenIndex,
-              let pagePosition = browseSnapshot?.pagePosition(forTokenIndex: tokenIndex) else {
-            return
-        }
-        lastEmittedFocusedTokenIndex = tokenIndex
-        lastFocusPublicationTime = CACurrentMediaTime()
-        onFocusedPagePosition?(pagePosition)
+        scrollCoordinator.publishFocus(tokenIndex: tokenIndex, cadence: cadence)
     }
 
     private func cancelPendingFocusPublication(resetLastPublicationTime: Bool) {
-        focusPublicationGeneration &+= 1
-        isFocusPublicationScheduled = false
-        focusPublicationTask?.cancel()
-        focusPublicationTask = nil
-        pendingFocusedTokenIndex = nil
-        if resetLastPublicationTime {
-            lastFocusPublicationTime = nil
-        }
+        scrollCoordinator.cancelPendingFocusPublication(
+            resetLastPublicationTime: resetLastPublicationTime
+        )
     }
 
     private func publishSettledTokenIfNeeded() {
-        guard let publication = publicationState?.settle(
-            hasViewedToEnd: hasViewedToEnd
-        ) else {
-            return
-        }
-        guard publishSettledPagePosition(publication) else {
-            publicationState?.retryPublication(of: publication)
-            return
-        }
+        scrollCoordinator.settle(hasViewedToEnd: hasViewedToEnd)
     }
 
     private func publishSettledPagePosition(
@@ -4068,137 +3618,13 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         direction: DownloadableMediaCache.PrefetchDirection,
         force: Bool
     ) {
-        guard isActive else { return }
-        let prefetchStride = PlayerCollectionBrowseMediaWindowPolicy
-            .normalizedPrefetchStride(configuredPrefetchStride)
-        let columnCount = configuredColumnCount
-        let quality = requiredImageQuality
-        let refreshDistance = quality.isDenseGridThumbnail
-            ? PlayerCollectionBrowseMediaWindowPolicy.rowAlignedRefreshDistance(
-                prefetchStride: prefetchStride,
-                columnCount: columnCount
-            )
-            : prefetchStride
-        let previousTokenIndex = lastThumbnailWindowRequest.flatMap {
-            $0.direction == direction
-                && $0.prefetchStride == prefetchStride
-                && $0.columnCount == columnCount
-                && $0.quality == quality
-                ? $0.tokenIndex
-                : nil
-        }
-        let shouldRefreshStableWindow =
-            PlayerCollectionBrowseMediaWindowPolicy.shouldRefresh(
-                previousTokenIndex: previousTokenIndex,
-                nextTokenIndex: tokenIndex,
-                refreshDistance: refreshDistance,
-                force: force
-        )
-        if quality.isDenseGridThumbnail, !shouldRefreshStableWindow {
-#if DEBUG
-            thumbnailWindowMetrics.skippedDisplayedImageScans += 1
-#endif
-            return
-        }
-        let visibleTokenRange = quality.isDenseGridThumbnail
-            ? visibleBrowserTokenRange()
-            : nil
-        let requiredTokenRange = visibleTokenRange.map {
-            requiredThumbnailWindowTokenRange(
-                around: tokenIndex,
-                direction: direction,
-                refreshDistance: refreshDistance,
-                visibleTokenRange: $0
-            )
-        }
-
-        let displayedImages: DisplayedImageWindowState
-        if quality == .large {
-            displayedImages = .empty
-        } else {
-            displayedImages = displayedImageWindowState(
-                requiredQuality: quality
-            )
-#if DEBUG
-            thumbnailWindowMetrics.displayedImageScans += 1
-#endif
-        }
-        let displayedHigherQualityThumbnailTokenIndices =
-            quality.isDenseGridThumbnail
-            ? displayedImages.higherQualityThumbnailTokenIndices
-            : []
-        let request = ThumbnailWindowRequest(
-            tokenIndex: tokenIndex,
-            direction: direction,
-            prefetchStride: prefetchStride,
-            columnCount: columnCount,
-            quality: quality,
-            displayedHigherQualityThumbnailTokenIndices:
-                displayedHigherQualityThumbnailTokenIndices,
-            displayedLargeTokenIndices: displayedImages.tokenIndices,
-            locallyAvailableLargeTokenIndices:
-                displayedImages.locallyAvailableTokenIndices
-        )
-        if !force,
-           let lastThumbnailWindowRequest,
-           lastThumbnailWindowRequest
-                .displayedHigherQualityThumbnailTokenIndices
-                == displayedHigherQualityThumbnailTokenIndices,
-           lastThumbnailWindowRequest.displayedLargeTokenIndices
-                == displayedImages.tokenIndices,
-           lastThumbnailWindowRequest.locallyAvailableLargeTokenIndices
-                == displayedImages.locallyAvailableTokenIndices,
-           !shouldRefreshStableWindow {
-            return
-        }
-        MobilePlaybackController.shared.prepareCollectionBrowseThumbnailWindow(
-            uuid: uuid,
-            centeredAt: tokenIndex,
-            direction: direction,
-            prefetchStride: prefetchStride,
-            columnCount: columnCount,
-            quality: quality,
-            requiredTokenRange: requiredTokenRange,
-            displayedHigherQualityThumbnailTokenIndices:
-                displayedHigherQualityThumbnailTokenIndices,
-            displayedLargeTokenIndices: displayedImages.tokenIndices,
-            locallyAvailableLargeTokenIndices:
-                displayedImages.locallyAvailableTokenIndices
-        )
-#if DEBUG
-        thumbnailWindowMetrics.preparations += 1
-#endif
-        lastThumbnailWindowRequest = request
-    }
-
-    private func visibleBrowserTokenRange() -> ClosedRange<Int>? {
-        let tokenIndices = collectionView.indexPathsForVisibleItems.map(\.item)
-        guard let first = tokenIndices.min(),
-              let last = tokenIndices.max() else {
-            return nil
-        }
-        return first...last
-    }
-
-    private func requiredThumbnailWindowTokenRange(
-        around tokenIndex: Int,
-        direction: DownloadableMediaCache.PrefetchDirection,
-        refreshDistance: Int,
-        visibleTokenRange: ClosedRange<Int>
-    ) -> ClosedRange<Int> {
-        guard let projectedTokenRange = projectedBrowserTokenRange(
+        imagePipeline.prepareThumbnailWindow(
             around: tokenIndex,
             direction: direction,
-            refreshDistance: refreshDistance
-        ) else {
-            return visibleTokenRange
-        }
-        return min(
-            visibleTokenRange.lowerBound,
-            projectedTokenRange.lowerBound
-        )...max(
-            visibleTokenRange.upperBound,
-            projectedTokenRange.upperBound
+            force: force,
+            configuredPrefetchStride: configuredPrefetchStride,
+            configuredColumnCount: configuredColumnCount,
+            requiredImageQuality: requiredImageQuality
         )
     }
 
@@ -4290,12 +3716,6 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         )
     }
 
-    private func cancelAllPrefetchLoads() {
-        let cancellations = prefetchLoads.values.map(\.cancellation)
-        prefetchLoads.removeAll()
-        cancellations.forEach { $0() }
-    }
-
     private func browseImageSources(
         forTokenIndex tokenIndex: Int
     ) -> CollectionBrowseImageSources? {
@@ -4334,35 +3754,25 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             return
         }
         let imageSources = browseImageSources(forTokenIndex: indexPath.item)
-        if imageLoadPolicy == nil, defersDenseGridImageLoading {
-            cell.demoteImageLoadToCachedOnlyIfNeeded(
-                tokenIndex: indexPath.item
-            )
-        }
-        let resolvedImageLoadPolicy = imageLoadPolicy
-            ?? (isActive || preparedTransition != nil
-                ? (defersDenseGridImageLoading ? .cachedOnly : .foreground)
-                : .disabled)
-        let resolvedRequiredImageQuality = requiredImageQuality
-            ?? self.requiredImageQuality
-        cell.configure(
-            contentIdentity: contentIdentity,
-            itemCount: browseSnapshot?.itemCount ?? 0,
-            imageSources: imageSources,
-            requiredImageQuality: resolvedRequiredImageQuality,
-            missingDescriptorFallbackSpec: layoutAspectState.fallbackSpec,
-            imageLoadPolicy: resolvedImageLoadPolicy,
-            fadesFirstImage: CACurrentMediaTime() < gridModeCommitFadeDeadline,
-            allowsLocalLargeImageUpgrade: allowsLocalLargeImageUpgrade
-                ?? gridMode.allowsLocalLargeImageUpgrade
+        imagePipeline.configure(
+            cell: cell,
+            tokenIndex: indexPath.item,
+            requiredImageQuality: requiredImageQuality,
+            imageLoadPolicy: imageLoadPolicy,
+            apply: { resolvedRequiredImageQuality, resolvedImageLoadPolicy in
+                cell.configure(
+                    contentIdentity: contentIdentity,
+                    itemCount: browseSnapshot?.itemCount ?? 0,
+                    imageSources: imageSources,
+                    requiredImageQuality: resolvedRequiredImageQuality,
+                    missingDescriptorFallbackSpec: layoutAspectState.fallbackSpec,
+                    imageLoadPolicy: resolvedImageLoadPolicy,
+                    fadesFirstImage: gridModeCoordinator.fadesFirstImage,
+                    allowsLocalLargeImageUpgrade: allowsLocalLargeImageUpgrade
+                        ?? gridMode.allowsLocalLargeImageUpgrade
+                )
+            }
         )
-        guard resolvedImageLoadPolicy == .cachedOnly else { return }
-        if imageLoadPolicy != nil {
-            _ = cell.refreshCachedImageIfAvailable(tokenIndex: indexPath.item)
-        } else if defersDenseGridImageLoading,
-                  cell.needsCachedImageRefresh(tokenIndex: indexPath.item) {
-            enqueueDenseGridImageRefresh(tokenIndex: indexPath.item)
-        }
     }
 
     private func reloadVisibleCells() {
@@ -4375,24 +3785,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     }
 
     private func refreshVisibleCachedImagesIfNeeded(notification: Notification) {
-        guard isActive || preparedTransition != nil,
-              let change = notification.object
-                as? DownloadableMediaCacheFileAvailabilityChange else {
-            return
-        }
-        visibleBrowserCells.forEach {
-            $0.updateLocalFileAvailability(
-                notification: notification,
-                isAvailable: change == .becameAvailable
-            )
-        }
-        if defersDenseGridImageLoading
-            || change == .becameUnavailable {
-            return
-        }
-        gridModeRenderer.viewportRenderCells.forEach {
-            $0.refreshAvailableImageIfNeeded(notification: notification)
-        }
+        imagePipeline.handleCacheNotification(notification)
     }
 
     private var visibleBrowserCells: [MobilePlayerCollectionBrowserCell] {
@@ -4400,129 +3793,24 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     }
 
     private func demoteVisibleBrowserImageLoadsIfNeeded() {
-        guard defersDenseGridImageLoading else { return }
-        for indexPath in collectionView.indexPathsForVisibleItems {
-            guard let cell = collectionView.cellForItem(
-                at: indexPath
-            ) as? MobilePlayerCollectionBrowserCell else {
-                continue
-            }
-            cell.demoteImageLoadToCachedOnlyIfNeeded(
-                tokenIndex: indexPath.item
-            )
-            if cell.needsCachedImageRefresh(tokenIndex: indexPath.item) {
-                enqueueDenseGridImageRefresh(tokenIndex: indexPath.item)
-            }
-        }
+        imagePipeline.demoteVisibleImageLoadsIfNeeded()
     }
 
     private func resumeVisibleBrowserImageLoadsIfNeeded() {
-        guard !defersDenseGridImageLoading else { return }
-        stopDenseGridImageDisplayLink()
-        guard isActive,
-              isViewVisible,
-              let windowScene = collectionView.window?.windowScene,
-              windowScene.activationState == .foregroundActive,
-              !isApplyingPosition,
-              !gridModeRenderer.isActive else {
-            return
-        }
-        for indexPath in collectionView.indexPathsForVisibleItems {
-            guard let cell = collectionView.cellForItem(
-                at: indexPath
-            ) as? MobilePlayerCollectionBrowserCell else {
-                continue
-            }
-            cell.promoteImageLoadToForegroundIfNeeded(
-                tokenIndex: indexPath.item
-            )
-        }
-    }
-
-    private func startDenseGridImageDisplayLinkIfNeeded() {
-        guard defersDenseGridImageLoading,
-              denseGridImageRefreshQueue.count > 0,
-              denseGridImageDisplayLink == nil else {
-            return
-        }
-        let displayLink = CADisplayLink(
-            target: denseGridImageDisplayLinkTarget,
-            selector: #selector(DenseGridImageDisplayLinkTarget.tick(_:))
-        )
-        displayLink.preferredFrameRateRange = CAFrameRateRange(
-            minimum: 30,
-            maximum: 60,
-            preferred: 60
-        )
-        displayLink.add(to: .main, forMode: .common)
-        denseGridImageDisplayLink = displayLink
-    }
-
-    private func stopDenseGridImageDisplayLink() {
-        denseGridImageDisplayLink?.invalidate()
-        denseGridImageDisplayLink = nil
-        denseGridImageRefreshQueue.removeAll()
-    }
-
-    private func handleDenseGridImageDisplayLinkTick() {
-        _ = drainDenseGridImageRefreshes(
-            limit: denseGridImageRefreshBatchSize
-        )
-    }
-
-    private func enqueueDenseGridImageRefresh(tokenIndex: Int) {
-        guard defersDenseGridImageLoading,
-              denseGridImageRefreshQueue.enqueue(tokenIndex) else {
-            return
-        }
-        startDenseGridImageDisplayLinkIfNeeded()
-    }
-
-    @discardableResult
-    private func drainDenseGridImageRefreshes(limit: Int) -> Int {
-        guard defersDenseGridImageLoading else {
-            stopDenseGridImageDisplayLink()
-            return 0
-        }
-        var processedCount = 0
-        let tokenIndices = denseGridImageRefreshQueue.dequeue(limit: limit)
-        var retryTokenIndices = [Int]()
-        retryTokenIndices.reserveCapacity(tokenIndices.count)
-        for tokenIndex in tokenIndices {
-            processedCount += 1
-            let indexPath = IndexPath(item: tokenIndex, section: 0)
-            guard let cell = collectionView.cellForItem(
-                at: indexPath
-            ) as? MobilePlayerCollectionBrowserCell else {
-                continue
-            }
-            switch cell.refreshCachedImageIfAvailable(tokenIndex: tokenIndex) {
-            case .satisfied, .unavailable:
-                break
-            case .retry:
-                retryTokenIndices.append(tokenIndex)
-            }
-        }
-        retryTokenIndices.forEach {
-            enqueueDenseGridImageRefresh(tokenIndex: $0)
-        }
-        if denseGridImageRefreshQueue.count == 0 {
-            stopDenseGridImageDisplayLink()
-        }
-        return processedCount
+        imagePipeline.resumeVisibleImageLoadsIfNeeded()
     }
 
 #if DEBUG
     var pendingDenseGridImageRefreshCount: Int {
-        denseGridImageRefreshQueue.count
+        imagePipeline.pendingDenseGridImageRefreshCount
     }
 
     var isDenseGridImageDisplayLinkActive: Bool {
-        denseGridImageDisplayLink != nil
+        imagePipeline.isDenseGridImageDisplayLinkActive
     }
 
     var isScrollMotionAnimationTimeoutScheduled: Bool {
-        scrollMotionAnimationTimeoutTask != nil
+        scrollCoordinator.isScrollMotionAnimationTimeoutScheduled
     }
 
     var isScrollMotionActiveForTesting: Bool {
@@ -4534,18 +3822,15 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     }
 
     func drainDenseGridImageDisplayLinkFrameForTesting() -> Int {
-        drainDenseGridImageRefreshes(
-            limit: denseGridImageRefreshBatchSize
-        )
+        imagePipeline.drainDenseGridImageDisplayLinkFrameForTesting()
     }
 
     func replacePendingDenseGridImageRefreshesForTesting(
         tokenIndices: [Int]
     ) {
-        stopDenseGridImageDisplayLink()
-        tokenIndices.forEach {
-            enqueueDenseGridImageRefresh(tokenIndex: $0)
-        }
+        imagePipeline.replacePendingDenseGridImageRefreshesForTesting(
+            tokenIndices: tokenIndices
+        )
     }
 
     func expireScrollMotionAnimationForTesting() {
@@ -4560,110 +3845,4 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     }
 #endif
 
-    private func displayedImageWindowState(
-        requiredQuality: CollectionBrowseImageQuality
-    ) -> DisplayedImageWindowState {
-        var higherQualityThumbnailTokenIndices = Set<Int>()
-        var tokenIndices = Set<Int>()
-        var locallyAvailableTokenIndices = Set<Int>()
-        for cell in visibleBrowserCells {
-            if let entry = cell.displayedThumbnailWindowEntry,
-               entry.quality.rawValue > requiredQuality.rawValue {
-                higherQualityThumbnailTokenIndices.insert(entry.tokenIndex)
-            }
-            guard let entry = cell.displayedLargeImageWindowEntry else { continue }
-            tokenIndices.insert(entry.tokenIndex)
-            if entry.isLocallyAvailable {
-                locallyAvailableTokenIndices.insert(entry.tokenIndex)
-            }
-        }
-        return DisplayedImageWindowState(
-            higherQualityThumbnailTokenIndices:
-                higherQualityThumbnailTokenIndices,
-            tokenIndices: tokenIndices,
-            locallyAvailableTokenIndices: locallyAvailableTokenIndices
-        )
-    }
-}
-
-private extension MobileCollectionBrowserGridMode {
-
-    var menuTitle: String {
-        switch self {
-        case .large:
-            Strings.largeGrid
-        case .threeColumns:
-            Strings.threeColumns
-        case .fiveColumns:
-            Strings.fiveColumns
-        case .nineColumns:
-            Strings.nineColumns
-        }
-    }
-
-    var menuSystemImageName: String {
-        switch self {
-        case .large:
-            "rectangle.grid.1x2"
-        case .threeColumns:
-            "square.grid.3x2"
-        case .fiveColumns:
-            "square.grid.4x3.fill"
-        case .nineColumns:
-            "square.grid.3x3.fill"
-        }
-    }
-}
-
-private final class MobilePlayerCollectionBrowserLayout: UICollectionViewLayout {
-    override var developmentLayoutDirection: UIUserInterfaceLayoutDirection {
-        .leftToRight
-    }
-
-    override var flipsHorizontallyInOppositeLayoutDirection: Bool {
-        true
-    }
-
-    var browserLayout: MobilePlayerBrowserLayout? {
-        didSet {
-            invalidateLayout()
-        }
-    }
-
-    override var collectionViewContentSize: CGSize {
-        browserLayout?.contentSize ?? .zero
-    }
-
-    override func layoutAttributesForElements(
-        in rect: CGRect
-    ) -> [UICollectionViewLayoutAttributes]? {
-        let candidateItemIndices = browserLayout?.candidateItemIndices(
-            intersecting: rect
-        ) ?? 0..<0
-        return candidateItemIndices
-            .compactMap { itemIndex in
-                let indexPath = IndexPath(item: itemIndex, section: 0)
-                guard let attributes = layoutAttributesForItem(at: indexPath),
-                      attributes.frame.intersects(rect) else {
-                    return nil
-                }
-                return attributes
-            }
-    }
-
-    override func layoutAttributesForItem(
-        at indexPath: IndexPath
-    ) -> UICollectionViewLayoutAttributes? {
-        guard indexPath.section == 0,
-              let frame = browserLayout?.itemFrame(at: indexPath.item) else {
-            return nil
-        }
-        let attributes = UICollectionViewLayoutAttributes(forCellWith: indexPath)
-        attributes.frame = frame
-        return attributes
-    }
-
-    override func shouldInvalidateLayout(forBoundsChange newBounds: CGRect) -> Bool {
-        collectionView?.bounds.size != newBounds.size
-    }
 }
