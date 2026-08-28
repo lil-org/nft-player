@@ -157,6 +157,15 @@
 		2CE9A7712BAD8ECD00579BF7 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 2CE9A7702BAD8ECD00579BF7 /* Localizable.xcstrings */; };
 		2CEF35AD2C413AE700388574 /* RawHtmlGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CEF35AC2C413AE700388574 /* RawHtmlGenerator.swift */; };
 		2CF08AA92D2A937400D82ACA /* MobileCollectionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CF08AA42D2A937400D82ACA /* MobileCollectionsView.swift */; };
+		2E3000000000000000000011 /* MobileCollectionsGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E3000000000000000000001 /* MobileCollectionsGrid.swift */; };
+		2E3000000000000000000012 /* MobileCollectionsContinueViewing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E3000000000000000000002 /* MobileCollectionsContinueViewing.swift */; };
+		2E3000000000000000000013 /* MobileCollectionsSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E3000000000000000000003 /* MobileCollectionsSearch.swift */; };
+		2E3000000000000000000014 /* MobileCollectionsNavigation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E3000000000000000000004 /* MobileCollectionsNavigation.swift */; };
+		2E3000000000000000000015 /* PlayerInteractionController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E3000000000000000000005 /* PlayerInteractionController.swift */; };
+		2E3000000000000000000016 /* PlayerNavigationChromeCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E3000000000000000000006 /* PlayerNavigationChromeCoordinator.swift */; };
+		2E3000000000000000000017 /* PlayerCardTransitionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E3000000000000000000007 /* PlayerCardTransitionCoordinator.swift */; };
+		2E3000000000000000000018 /* PlayerCardTransitionViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E3000000000000000000008 /* PlayerCardTransitionViews.swift */; };
+		2E3000000000000000000019 /* MobilePlayerInteractionCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E3000000000000000000009 /* MobilePlayerInteractionCoordinatorTests.swift */; };
 		2CF08AAA2D2A937400D82ACA /* MobileHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CF08AA52D2A937400D82ACA /* MobileHelpers.swift */; };
 		2CF08AAB2D2A937400D82ACA /* nft_player_iosApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CF08AA72D2A937400D82ACA /* nft_player_iosApp.swift */; };
 		2CF08AAC2D2A937400D82ACA /* MobilePlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CF08AA82D2A937400D82ACA /* MobilePlayerView.swift */; };
@@ -437,6 +446,15 @@
 		2CEF35B42C413DA000388574 /* p5js100.js */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.javascript; path = p5js100.js; sourceTree = "<group>"; };
 		2CF08AA32D2A937400D82ACA /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		2CF08AA42D2A937400D82ACA /* MobileCollectionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileCollectionsView.swift; sourceTree = "<group>"; };
+		2E3000000000000000000001 /* MobileCollectionsGrid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileCollectionsGrid.swift; sourceTree = "<group>"; };
+		2E3000000000000000000002 /* MobileCollectionsContinueViewing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileCollectionsContinueViewing.swift; sourceTree = "<group>"; };
+		2E3000000000000000000003 /* MobileCollectionsSearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileCollectionsSearch.swift; sourceTree = "<group>"; };
+		2E3000000000000000000004 /* MobileCollectionsNavigation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileCollectionsNavigation.swift; sourceTree = "<group>"; };
+		2E3000000000000000000005 /* PlayerInteractionController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerInteractionController.swift; sourceTree = "<group>"; };
+		2E3000000000000000000006 /* PlayerNavigationChromeCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerNavigationChromeCoordinator.swift; sourceTree = "<group>"; };
+		2E3000000000000000000007 /* PlayerCardTransitionCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerCardTransitionCoordinator.swift; sourceTree = "<group>"; };
+		2E3000000000000000000008 /* PlayerCardTransitionViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerCardTransitionViews.swift; sourceTree = "<group>"; };
+		2E3000000000000000000009 /* MobilePlayerInteractionCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobilePlayerInteractionCoordinatorTests.swift; sourceTree = "<group>"; };
 		2CF08AA52D2A937400D82ACA /* MobileHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileHelpers.swift; sourceTree = "<group>"; };
 		2CF08AA62D2A937400D82ACA /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		2CF08AA72D2A937400D82ACA /* nft_player_iosApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = nft_player_iosApp.swift; sourceTree = "<group>"; };
@@ -858,6 +876,14 @@
 			isa = PBXGroup;
 			children = (
 				2CF08AA42D2A937400D82ACA /* MobileCollectionsView.swift */,
+				2E3000000000000000000001 /* MobileCollectionsGrid.swift */,
+				2E3000000000000000000002 /* MobileCollectionsContinueViewing.swift */,
+				2E3000000000000000000003 /* MobileCollectionsSearch.swift */,
+				2E3000000000000000000004 /* MobileCollectionsNavigation.swift */,
+				2E3000000000000000000005 /* PlayerInteractionController.swift */,
+				2E3000000000000000000006 /* PlayerNavigationChromeCoordinator.swift */,
+				2E3000000000000000000007 /* PlayerCardTransitionCoordinator.swift */,
+				2E3000000000000000000008 /* PlayerCardTransitionViews.swift */,
 				2DA700022FF3000000000001 /* MobileCollectionsSessionCoordinator.swift */,
 				2CFA90002EB0000000000001 /* MobileCollectionCatalog.swift */,
 				2CF08AA82D2A937400D82ACA /* MobilePlayerView.swift */,
@@ -895,6 +921,7 @@
 		2DA2000C2FD0000000000001 /* nft-player-iosTests */ = {
 			isa = PBXGroup;
 			children = (
+				2E3000000000000000000009 /* MobilePlayerInteractionCoordinatorTests.swift */,
 				2DA700042FF3000000000001 /* MobileCollectionsSessionCoordinatorTests.swift */,
 				2DB200012FF4000000000001 /* MobilePlaybackSessionTests.swift */,
 				2DA400022FF0000000000001 /* MobileCollectionBrowserGridModePresentationTests.swift */,
@@ -1336,6 +1363,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2E3000000000000000000019 /* MobilePlayerInteractionCoordinatorTests.swift in Sources */,
 				2DA700032FF3000000000001 /* MobileCollectionsSessionCoordinatorTests.swift in Sources */,
 				2DB200022FF4000000000001 /* MobilePlaybackSessionTests.swift in Sources */,
 				2DA400012FF0000000000001 /* MobileCollectionBrowserGridModePresentationTests.swift in Sources */,
@@ -1389,6 +1417,14 @@
 				2C460ED32D2985D20083124E /* Network.swift in Sources */,
 				2C460ED42D2985D20083124E /* HostAppImages.swift in Sources */,
 				2CF08AA92D2A937400D82ACA /* MobileCollectionsView.swift in Sources */,
+				2E3000000000000000000011 /* MobileCollectionsGrid.swift in Sources */,
+				2E3000000000000000000012 /* MobileCollectionsContinueViewing.swift in Sources */,
+				2E3000000000000000000013 /* MobileCollectionsSearch.swift in Sources */,
+				2E3000000000000000000014 /* MobileCollectionsNavigation.swift in Sources */,
+				2E3000000000000000000015 /* PlayerInteractionController.swift in Sources */,
+				2E3000000000000000000016 /* PlayerNavigationChromeCoordinator.swift in Sources */,
+				2E3000000000000000000017 /* PlayerCardTransitionCoordinator.swift in Sources */,
+				2E3000000000000000000018 /* PlayerCardTransitionViews.swift in Sources */,
 				2D1000312F30000000000001 /* PlayerWidgetTokenInsertion.swift in Sources */,
 				2CFA92012EB2000000000001 /* CollectionCatalog.swift in Sources */,
 				2CFA90012EB0000000000001 /* MobileCollectionCatalog.swift in Sources */,
