@@ -235,6 +235,7 @@
 		2DA200022FD0000000000001 /* MobilePlayerCollectionBrowserCachedImagePolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA200082FD0000000000001 /* MobilePlayerCollectionBrowserCachedImagePolicyTests.swift */; };
 		2DA200042FD0000000000001 /* MobilePlayerCollectionBrowserGridRendererTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA2000A2FD0000000000001 /* MobilePlayerCollectionBrowserGridRendererTests.swift */; };
 		2DA400012FF0000000000001 /* MobileCollectionBrowserGridModePresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA400022FF0000000000001 /* MobileCollectionBrowserGridModePresentationTests.swift */; };
+		2DB200022FF4000000000001 /* MobilePlaybackSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DB200012FF4000000000001 /* MobilePlaybackSessionTests.swift */; };
 		2DA500012FF1000000000001 /* MobilePlayerBrowserPageViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA500112FF1000000000001 /* MobilePlayerBrowserPageViewController.swift */; };
 		2DA500022FF1000000000001 /* PendingMainQueueUpdate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA500122FF1000000000001 /* PendingMainQueueUpdate.swift */; };
 		2DA500032FF1000000000001 /* MobilePlayerCollectionBrowserCollectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA500132FF1000000000001 /* MobilePlayerCollectionBrowserCollectionView.swift */; };
@@ -481,6 +482,7 @@
 		2DA200082FD0000000000001 /* MobilePlayerCollectionBrowserCachedImagePolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobilePlayerCollectionBrowserCachedImagePolicyTests.swift; sourceTree = "<group>"; };
 		2DA2000A2FD0000000000001 /* MobilePlayerCollectionBrowserGridRendererTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobilePlayerCollectionBrowserGridRendererTests.swift; sourceTree = "<group>"; };
 		2DA400022FF0000000000001 /* MobileCollectionBrowserGridModePresentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileCollectionBrowserGridModePresentationTests.swift; sourceTree = "<group>"; };
+		2DB200012FF4000000000001 /* MobilePlaybackSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobilePlaybackSessionTests.swift; sourceTree = "<group>"; };
 		2DA500112FF1000000000001 /* MobilePlayerBrowserPageViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobilePlayerBrowserPageViewController.swift; sourceTree = "<group>"; };
 		2DA500122FF1000000000001 /* PendingMainQueueUpdate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingMainQueueUpdate.swift; sourceTree = "<group>"; };
 		2DA500132FF1000000000001 /* MobilePlayerCollectionBrowserCollectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobilePlayerCollectionBrowserCollectionView.swift; sourceTree = "<group>"; };
@@ -894,6 +896,7 @@
 			isa = PBXGroup;
 			children = (
 				2DA700042FF3000000000001 /* MobileCollectionsSessionCoordinatorTests.swift */,
+				2DB200012FF4000000000001 /* MobilePlaybackSessionTests.swift */,
 				2DA400022FF0000000000001 /* MobileCollectionBrowserGridModePresentationTests.swift */,
 				2DA600162FF2000000000001 /* MobileCollectionBrowserGridTransitionTests.swift */,
 				2DA600172FF2000000000001 /* MobileCollectionBrowserScrollingPrefetchTests.swift */,
@@ -1334,6 +1337,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				2DA700032FF3000000000001 /* MobileCollectionsSessionCoordinatorTests.swift in Sources */,
+				2DB200022FF4000000000001 /* MobilePlaybackSessionTests.swift in Sources */,
 				2DA400012FF0000000000001 /* MobileCollectionBrowserGridModePresentationTests.swift in Sources */,
 				2DA600062FF2000000000001 /* MobileCollectionBrowserGridTransitionTests.swift in Sources */,
 				2DA600072FF2000000000001 /* MobileCollectionBrowserScrollingPrefetchTests.swift in Sources */,

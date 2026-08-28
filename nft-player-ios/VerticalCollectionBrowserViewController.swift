@@ -50,7 +50,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     private static let boundaryEpsilon: CGFloat = 0.75
     private static let verticalContentMargin: CGFloat = 0
 
-    let uuid: UUID
+    private let playbackSession: MobilePlaybackSession
 
     var onFocusedPagePosition: ((PlayerPagePosition) -> Void)?
     var onSettledPagePosition: ((PlayerPagePosition, Bool) -> Bool)?
@@ -276,7 +276,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     }
 
     init(
-        uuid: UUID,
+        playbackSession: MobilePlaybackSession,
         gridModeCommitSnapshotFactory: @escaping (UIView) -> UIView? = { view in
             view.resizableSnapshotView(
                 from: view.bounds,
@@ -285,7 +285,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             )
         }
     ) {
-        self.uuid = uuid
+        self.playbackSession = playbackSession
         self.gridModeCoordinator =
             MobilePlayerCollectionBrowserGridModeCoordinator(
                 commitSnapshotFactory: gridModeCommitSnapshotFactory
@@ -333,23 +333,21 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             },
             prepareThumbnailWindow: { [weak self] preparation in
                 guard let self else { return }
-                MobilePlaybackController.shared
-                    .prepareCollectionBrowseThumbnailWindow(
-                        uuid: self.uuid,
-                        centeredAt: preparation.tokenIndex,
-                        direction: preparation.direction,
-                        prefetchStride: preparation.prefetchStride,
-                        columnCount: preparation.columnCount,
-                        quality: preparation.quality,
-                        requiredTokenRange: preparation.requiredTokenRange,
-                        displayedHigherQualityThumbnailTokenIndices:
-                            preparation
-                                .displayedHigherQualityThumbnailTokenIndices,
-                        displayedLargeTokenIndices:
-                            preparation.displayedLargeTokenIndices,
-                        locallyAvailableLargeTokenIndices:
-                            preparation.locallyAvailableLargeTokenIndices
-                    )
+                self.playbackSession.prepareCollectionBrowseThumbnailWindow(
+                    centeredAt: preparation.tokenIndex,
+                    direction: preparation.direction,
+                    prefetchStride: preparation.prefetchStride,
+                    columnCount: preparation.columnCount,
+                    quality: preparation.quality,
+                    requiredTokenRange: preparation.requiredTokenRange,
+                    displayedHigherQualityThumbnailTokenIndices:
+                        preparation
+                            .displayedHigherQualityThumbnailTokenIndices,
+                    displayedLargeTokenIndices:
+                        preparation.displayedLargeTokenIndices,
+                    locallyAvailableLargeTokenIndices:
+                        preparation.locallyAvailableLargeTokenIndices
+                )
             }
         ))
         scrollCoordinator.configure(contentAccess: .init(
@@ -889,7 +887,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
 
         let aspectState: MobilePlayerCollectionBrowserLayoutAspectState
         let layout: MobilePlayerBrowserLayout
-        let aspectRatioProfile = MobilePlaybackController.shared
+        let aspectRatioProfile = MobileCollectionBrowseMediaResolver
             .collectionBrowseThumbnailAspectRatioProfile(
                 snapshot: browseSnapshot
             )
@@ -1084,7 +1082,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
               !collectionView.isDecelerating,
               !isScrollMotionActive,
               let browseSnapshot,
-              let aspectRatioProfile = MobilePlaybackController.shared
+              let aspectRatioProfile = MobileCollectionBrowseMediaResolver
                 .collectionBrowseThumbnailAspectRatioProfile(
                     snapshot: browseSnapshot
                 ),
@@ -2021,7 +2019,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         guard browseSnapshot == preparation.snapshot else { return false }
         guard let preparedTransition else { return true }
         guard preparedTransition.preparation == preparation,
-              MobilePlaybackController.shared.collectionBrowseSnapshot(uuid: uuid) == preparation.snapshot else {
+              playbackSession.collectionBrowseSnapshot() == preparation.snapshot else {
             return false
         }
         self.preparedTransition = nil
@@ -2058,8 +2056,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     func preparedTransitionSelection(
         for pagePosition: PlayerPagePosition
     ) -> MobilePlayerBrowserTransitionSelection? {
-        guard let preparation = MobilePlaybackController.shared.prepareCollectionBrowse(
-            uuid: uuid,
+        guard let preparation = playbackSession.prepareCollectionBrowse(
             containing: pagePosition
         ) else {
             return nil
@@ -2223,8 +2220,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
 
     func scrollToFirstItemAndPublish() {
         guard let pagePosition = browseSnapshot?.pagePosition(forTokenIndex: 0),
-              let preparation = MobilePlaybackController.shared.prepareCollectionBrowse(
-                uuid: uuid,
+              let preparation = playbackSession.prepareCollectionBrowse(
                 containing: pagePosition
               ) else {
             return
@@ -2330,7 +2326,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
               !hasGridModeInteractionState,
               canSelectBrowserCell(at: indexPath.item),
               let snapshot = browseSnapshot,
-              let descriptor = MobilePlaybackController.shared.collectionBrowseThumbnailDescriptor(
+              let descriptor = MobileCollectionBrowseMediaResolver.collectionBrowseThumbnailDescriptor(
                 snapshot: snapshot,
                 tokenIndex: indexPath.item
               ),
@@ -2469,7 +2465,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             requiredImageQuality: quality,
             descriptor: { [weak self] tokenIndex in
                 guard let snapshot = self?.browseSnapshot else { return nil }
-                return MobilePlaybackController.shared
+                return MobileCollectionBrowseMediaResolver
                     .collectionBrowsePrefetchDescriptor(
                         snapshot: snapshot,
                         tokenIndex: tokenIndex,
@@ -2618,7 +2614,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         let verticalRange = verticalContentOffsetRange
         if verticalRange.upperBound - verticalRange.lowerBound <= Self.boundaryEpsilon,
            scrollCoordinator.markCurrentDragAcknowledged() {
-            MobilePlaybackController.shared.acknowledgeIntentionalViewingPosition(uuid: uuid)
+            playbackSession.acknowledgeIntentionalViewingPosition()
         }
     }
 
@@ -2807,7 +2803,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             return
         }
 
-        let aspectRatioProfile = MobilePlaybackController.shared
+        let aspectRatioProfile = MobileCollectionBrowseMediaResolver
             .collectionBrowseThumbnailAspectRatioProfile(snapshot: snapshot)
         let aspectState = makeLayoutAspectState(
             snapshot: snapshot,
@@ -2876,7 +2872,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         )
         let sampleRange = firstIndex..<(firstIndex + sampleCount)
         let samples = sampleRange.compactMap { tokenIndex -> LayoutAspectSample? in
-            guard let descriptor = MobilePlaybackController.shared.collectionBrowseThumbnailDescriptor(
+            guard let descriptor = MobileCollectionBrowseMediaResolver.collectionBrowseThumbnailDescriptor(
                 snapshot: snapshot,
                 tokenIndex: tokenIndex
             ) else {
@@ -2954,7 +2950,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     }
 
     private func reloadBrowseSnapshot(resetPublicationState: Bool) {
-        let newSnapshot = MobilePlaybackController.shared.collectionBrowseSnapshot(uuid: uuid)
+        let newSnapshot = playbackSession.collectionBrowseSnapshot()
         let snapshotChanged = newSnapshot != browseSnapshot
         guard snapshotChanged || resetPublicationState else { return }
 
@@ -3307,7 +3303,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             clampedContentOffsetY: currentContentOffsetY,
             epsilon: Self.boundaryEpsilon
         ) else { return }
-        MobilePlaybackController.shared.acknowledgeIntentionalViewingPosition(uuid: uuid)
+        playbackSession.acknowledgeIntentionalViewingPosition()
     }
 
     private func endScrollMotionAndResetDragState() {
@@ -3564,7 +3560,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
 
         scrollCoordinator.cancelScheduledScrollUpdate()
         retainFocusedTokenIndex(tokenIndex)
-        MobilePlaybackController.shared.acknowledgeIntentionalViewingPosition(uuid: uuid)
+        playbackSession.acknowledgeIntentionalViewingPosition()
         scrollCoordinator.observe(
             tokenIndex: tokenIndex,
             focusCadence: .immediate
@@ -3720,7 +3716,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         forTokenIndex tokenIndex: Int
     ) -> CollectionBrowseImageSources? {
         browseSnapshot.flatMap {
-            MobilePlaybackController.shared.collectionBrowseImageSources(
+            MobileCollectionBrowseMediaResolver.collectionBrowseImageSources(
                 snapshot: $0,
                 tokenIndex: tokenIndex
             )

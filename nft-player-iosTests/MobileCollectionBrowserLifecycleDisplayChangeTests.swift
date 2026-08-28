@@ -11,19 +11,21 @@ extension MobileCollectionBrowserGridModePresentationTests {
     func testPreViewActivationLoadsGridCoordinator() throws {
         let metadata = try collectionMetadata()
         let uuid = UUID()
-        let display = PlaybackDisplay()
-        MobilePlaybackController.shared.subscribe(
+        let session = MobilePlaybackController.shared.startSession(
             config: MobilePlayerConfig(
                 id: uuid,
                 initialItemId: metadata.id,
                 initialTokenIndex: 0
-            ),
-            display: display
+            )
         )
-        let controller = VerticalCollectionBrowserViewController(uuid: uuid)
+        let display = PlaybackDisplay()
+        session.attach(display: display)
+        let controller = VerticalCollectionBrowserViewController(
+            playbackSession: session
+        )
         defer {
             controller.setActive(false)
-            MobilePlaybackController.shared.stopAndDisconnect(uuid: uuid)
+            session.stopAndDisconnect()
         }
 
         XCTAssertFalse(controller.isViewLoaded)
@@ -37,17 +39,17 @@ extension MobileCollectionBrowserGridModePresentationTests {
         async throws {
         let metadata = try collectionMetadata()
         let uuid = UUID()
-        let display = PlaybackDisplay()
-        MobilePlaybackController.shared.subscribe(
+        let session = MobilePlaybackController.shared.startSession(
             config: MobilePlayerConfig(
                 id: uuid,
                 initialItemId: metadata.id,
                 initialTokenIndex: 0
-            ),
-            display: display
+            )
         )
+        let display = PlaybackDisplay()
+        session.attach(display: display)
         var candidate: VerticalCollectionBrowserViewController? =
-            VerticalCollectionBrowserViewController(uuid: uuid)
+            VerticalCollectionBrowserViewController(playbackSession: session)
         candidate?.loadViewIfNeeded()
         candidate?.view.frame = CGRect(x: 0, y: 0, width: 390, height: 844)
         candidate?.setActive(true)
@@ -71,7 +73,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
         controller = candidate
 
         candidate = nil
-        MobilePlaybackController.shared.stopAndDisconnect(uuid: uuid)
+        session.stopAndDisconnect()
         await waitForNextMainQueueTurn()
 
         XCTAssertNil(controller)
@@ -170,8 +172,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
             position: targetTokenIndex
         )
         let preparation = try XCTUnwrap(
-            MobilePlaybackController.shared.prepareCollectionBrowse(
-                uuid: fixture.uuid,
+            fixture.session.prepareCollectionBrowse(
                 containing: targetPagePosition
             )
         )
@@ -328,8 +329,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
         defer { tearDownFixture(fixture) }
         let targetPagePosition = PlayerPagePosition(position: 3)
         let preparation = try XCTUnwrap(
-            MobilePlaybackController.shared.prepareCollectionBrowse(
-                uuid: fixture.uuid,
+            fixture.session.prepareCollectionBrowse(
                 containing: targetPagePosition
             )
         )
@@ -348,8 +348,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
         fixture.controller.setActive(false)
         XCTAssertEqual(fixture.controller.gridMode, .large)
         let returnPreparation = try XCTUnwrap(
-            MobilePlaybackController.shared.prepareCollectionBrowse(
-                uuid: fixture.uuid,
+            fixture.session.prepareCollectionBrowse(
                 containing: targetPagePosition
             )
         )
@@ -375,8 +374,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
         fixture.controller.setActive(false)
         let originalPosition = fixture.controller.currentPagePosition
         let preparation = try XCTUnwrap(
-            MobilePlaybackController.shared.prepareCollectionBrowse(
-                uuid: fixture.uuid,
+            fixture.session.prepareCollectionBrowse(
                 containing: .initial
             )
         )
@@ -421,8 +419,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
         let originalTokenIndex = tokenCount / 2
         let originalPosition = PlayerPagePosition(position: originalTokenIndex)
         let originalPreparation = try XCTUnwrap(
-            MobilePlaybackController.shared.prepareCollectionBrowse(
-                uuid: fixture.uuid,
+            fixture.session.prepareCollectionBrowse(
                 containing: originalPosition
             )
         )
@@ -449,8 +446,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
         let originalCenterY = try viewportCenterY(of: originalTokenIndex)
         controller.setActive(false)
         let replacementPreparation = try XCTUnwrap(
-            MobilePlaybackController.shared.prepareCollectionBrowse(
-                uuid: fixture.uuid,
+            fixture.session.prepareCollectionBrowse(
                 containing: .initial
             )
         )
@@ -485,8 +481,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
         fixture.controller.setActive(false)
         let targetPagePosition = PlayerPagePosition(position: 3)
         let preparation = try XCTUnwrap(
-            MobilePlaybackController.shared.prepareCollectionBrowse(
-                uuid: fixture.uuid,
+            fixture.session.prepareCollectionBrowse(
                 containing: targetPagePosition
             )
         )

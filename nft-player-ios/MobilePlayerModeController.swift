@@ -25,7 +25,7 @@ final class MobilePlayerSessionModeController {
 
     private(set) var activeMode: MobilePlayerDisplayMode
 
-    private let config: MobilePlayerConfig
+    private let playbackSession: MobilePlaybackSession
     private let chrome: MobilePlayerChromeController
     private weak var navigationController: UINavigationController?
     private let browserViewController: MobilePlayerBrowserPageViewController?
@@ -35,21 +35,21 @@ final class MobilePlayerSessionModeController {
     private var activeOperationGeneration: UInt?
 
     init(
-        config: MobilePlayerConfig,
+        playbackSession: MobilePlaybackSession,
         chrome: MobilePlayerChromeController,
         navigationController: UINavigationController,
         browserViewController: MobilePlayerBrowserPageViewController?,
         pagerViewController: UIViewController,
         initialMode: MobilePlayerDisplayMode
     ) {
-        self.config = config
+        self.playbackSession = playbackSession
         self.chrome = chrome
         self.navigationController = navigationController
         self.browserViewController = browserViewController
         self.pagerViewController = pagerViewController
         self.activeMode = initialMode
 
-        MobilePlaybackController.shared.subscribe(config: config, display: self)
+        playbackSession.attach(display: self)
         chrome.setCollectionBrowserTransitionProvider(self)
         chrome.setLiveLayoutInteractionStateProvider(
             id: liveLayoutInteractionStateProviderID
@@ -82,21 +82,17 @@ final class MobilePlayerSessionModeController {
         }
 
         let sourcePagePosition = targetPagePosition ?? pagerProvider.pagerCurrentPagePosition()
-        guard MobilePlaybackController.shared.canRender(
-            uuid: config.id,
+        guard playbackSession.canRender(
             pagePosition: sourcePagePosition
         ),
-              let preparation = MobilePlaybackController.shared.prepareCollectionBrowse(
-                uuid: config.id,
+              let preparation = playbackSession.prepareCollectionBrowse(
                 containing: sourcePagePosition
               ) else {
             completion?(false)
             return
         }
 
-        MobilePlaybackController.shared.acknowledgeIntentionalViewingPosition(
-            uuid: config.id
-        )
+        playbackSession.acknowledgeIntentionalViewingPosition()
         let generation = beginOperation()
         stageBrowserViewForTransition()
         browserViewController.prepareForDisplay(
@@ -145,8 +141,7 @@ final class MobilePlayerSessionModeController {
                 return
             }
 
-            let resolution = MobilePlaybackController.shared.commitCollectionBrowse(
-                uuid: self.config.id,
+            let resolution = self.playbackSession.commitCollectionBrowse(
                 preparation: preparation
             )
             guard case .resolved(let resolvedPagePosition) = resolution else {
@@ -160,9 +155,7 @@ final class MobilePlayerSessionModeController {
 
             assert(resolvedPagePosition == expectedPagePosition)
             assert(
-                MobilePlaybackController.shared.collectionBrowseSnapshot(
-                    uuid: self.config.id
-                ) == preparation.snapshot
+                self.playbackSession.collectionBrowseSnapshot() == preparation.snapshot
             )
             browserViewController.commitPreparedDisplay(preparation)
             self.commitCollectionBrowserPresentation(performsPop: true)
@@ -196,8 +189,7 @@ final class MobilePlayerSessionModeController {
             return
         }
         if let targetPagePosition,
-           !MobilePlaybackController.shared.canRender(
-            uuid: config.id,
+           !playbackSession.canRender(
             pagePosition: targetPagePosition
            ) {
             completion?(false)
@@ -237,9 +229,7 @@ final class MobilePlayerSessionModeController {
             self.activeMode = .onePerPage
             self.unstagePagerViewIfNeeded()
             navigationController.pushViewController(self.pagerViewController, animated: false)
-            MobilePlaybackController.shared.acknowledgeIntentionalViewingPosition(
-                uuid: self.config.id
-            )
+            self.playbackSession.acknowledgeIntentionalViewingPosition()
             self.chrome.pagerProvider?.activatePagerAfterModeSwitch(destination: destination)
             self.finishOperation(generation)
             completion?(true)
@@ -270,16 +260,13 @@ final class MobilePlayerSessionModeController {
             return
         }
 
-        MobilePlaybackController.shared.acknowledgeIntentionalViewingPosition(
-            uuid: config.id
-        )
+        playbackSession.acknowledgeIntentionalViewingPosition()
         supersedeActiveOperation()
         let sourcePagePosition = chrome.pagerProvider?.pagerCurrentPagePosition()
         commitCollectionBrowserPresentation(performsPop: false)
 
         guard let sourcePagePosition,
-              let preparation = MobilePlaybackController.shared.prepareCollectionBrowse(
-                uuid: config.id,
+              let preparation = playbackSession.prepareCollectionBrowse(
                 containing: sourcePagePosition
               ) else {
             return
@@ -303,8 +290,7 @@ final class MobilePlayerSessionModeController {
                 return
             }
 
-            _ = MobilePlaybackController.shared.commitCollectionBrowse(
-                uuid: self.config.id,
+            _ = self.playbackSession.commitCollectionBrowse(
                 preparation: preparation
             )
             _ = browserViewController.finalizePreparedDisplay(preparation)
@@ -327,14 +313,12 @@ final class MobilePlayerSessionModeController {
     private func updatePlayerNavigationTitle(
         for pagePosition: PlayerPagePosition
     ) {
-        let token = MobilePlaybackController.shared.getToken(
-            uuid: config.id,
+        let token = playbackSession.getToken(
             pagePosition: pagePosition
         )
         chrome.setPlayerNavigationTitle(
             collectionTitle: token.collectionName,
-            pageLabel: MobilePlaybackController.shared.pageLabel(
-                uuid: config.id,
+            pageLabel: playbackSession.pageLabel(
                 pagePosition: pagePosition
             ) ?? ""
         )
@@ -407,8 +391,7 @@ final class MobilePlayerSessionModeController {
     }
 
     private func currentLayoutInteractionState() -> MobilePlayerLayoutInteractionState {
-        MobilePlaybackController.shared.layoutInteractionState(
-            uuid: config.id,
+        playbackSession.layoutInteractionState(
             displayMode: activeMode,
             pagePosition: getCurrentPagePosition(),
             collectionBrowserAvailable: browserViewController != nil
@@ -417,7 +400,7 @@ final class MobilePlayerSessionModeController {
 
 }
 
-extension MobilePlayerSessionModeController: MobilePlaybackControllerDisplay {
+extension MobilePlayerSessionModeController: MobilePlaybackSessionDisplay {
 
     func navigate(_ direction: PlaybackNavigationDirection) {
         guard activeMode == .collectionBrowser else {
@@ -436,7 +419,7 @@ extension MobilePlayerSessionModeController: MobilePlaybackControllerDisplay {
             return pagePosition
         }
         return chrome.pagerProvider?.pagerCurrentPagePosition()
-            ?? MobilePlaybackController.shared.startPagePosition(uuid: config.id)
+            ?? playbackSession.startPagePosition()
     }
 
     func flushPendingViewingProgress() {

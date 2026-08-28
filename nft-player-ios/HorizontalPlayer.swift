@@ -946,7 +946,7 @@ struct HorizontalPlayerContainerView: UIViewControllerRepresentable {
         }
     }
 
-    private let initialConfig: MobilePlayerConfig
+    private let playbackSession: MobilePlaybackSession
     private let chrome: MobilePlayerChromeController
     private let bundledGenerativePresentationMode: MobileBundledGenerativePresentationMode
     private let onFocusedPagePositionUpdate: ((PlayerPagePosition) -> Void)
@@ -957,7 +957,7 @@ struct HorizontalPlayerContainerView: UIViewControllerRepresentable {
     private let onZoomStateChange: ((Bool) -> Void)
 
     init(
-        initialConfig: MobilePlayerConfig,
+        playbackSession: MobilePlaybackSession,
         chrome: MobilePlayerChromeController,
         bundledGenerativePresentationMode: MobileBundledGenerativePresentationMode,
         onFocusedPagePositionUpdate: @escaping (PlayerPagePosition) -> Void,
@@ -967,7 +967,7 @@ struct HorizontalPlayerContainerView: UIViewControllerRepresentable {
         onToggleChrome: @escaping () -> Void,
         onZoomStateChange: @escaping (Bool) -> Void
     ) {
-        self.initialConfig = initialConfig
+        self.playbackSession = playbackSession
         self.chrome = chrome
         self.bundledGenerativePresentationMode = bundledGenerativePresentationMode
         self.onFocusedPagePositionUpdate = onFocusedPagePositionUpdate
@@ -984,7 +984,7 @@ struct HorizontalPlayerContainerView: UIViewControllerRepresentable {
 
     func makeUIViewController(context: Context) -> HorizontalPlayerContainer {
         return HorizontalPlayerContainer(
-            initialConfig: initialConfig,
+            playbackSession: playbackSession,
             chrome: chrome,
             bundledGenerativePresentationMode: bundledGenerativePresentationMode,
             onFocusedPagePositionUpdate: onFocusedPagePositionUpdate,
@@ -1009,7 +1009,7 @@ struct HorizontalPlayerContainerView: UIViewControllerRepresentable {
 
 class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, UIGestureRecognizerDelegate, MobilePlayerPagerProviding {
 
-    private let initialConfig: MobilePlayerConfig
+    private let playbackSession: MobilePlaybackSession
     private let chrome: MobilePlayerChromeController
     private var bundledGenerativePresentationMode: MobileBundledGenerativePresentationMode
     private let onFocusedPagePositionUpdate: ((PlayerPagePosition) -> Void)
@@ -1069,7 +1069,7 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, U
     private var edgeTapHighlightRequestId = 0
 
     init(
-        initialConfig: MobilePlayerConfig,
+        playbackSession: MobilePlaybackSession,
         chrome: MobilePlayerChromeController,
         bundledGenerativePresentationMode: MobileBundledGenerativePresentationMode,
         onFocusedPagePositionUpdate: @escaping (PlayerPagePosition) -> Void,
@@ -1079,7 +1079,7 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, U
         onToggleChrome: @escaping () -> Void,
         onZoomStateChange: @escaping (Bool) -> Void
     ) {
-        self.initialConfig = initialConfig
+        self.playbackSession = playbackSession
         self.chrome = chrome
         self.bundledGenerativePresentationMode = bundledGenerativePresentationMode
         self.onFocusedPagePositionUpdate = onFocusedPagePositionUpdate
@@ -1430,27 +1430,25 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, U
     }
 
     fileprivate func getToken(pagePosition: PlayerPagePosition) -> GeneratedToken {
-        MobilePlaybackController.shared.getToken(uuid: initialConfig.id, pagePosition: pagePosition)
+        playbackSession.getToken(pagePosition: pagePosition)
     }
 
     fileprivate func prepareDownloadableMediaWindow(
         for pagePosition: PlayerPagePosition,
         direction: DownloadableMediaCache.PrefetchDirection
     ) -> PlayerDownloadableMediaWindow? {
-        MobilePlaybackController.shared.prepareDownloadableMediaWindow(
-            uuid: initialConfig.id,
+        playbackSession.prepareDownloadableMediaWindow(
             pagePosition: pagePosition,
             direction: direction
         )
     }
 
     fileprivate func clearDownloadableMediaWindow() {
-        MobilePlaybackController.shared.clearDownloadableMediaWindow(uuid: initialConfig.id)
+        playbackSession.clearDownloadableMediaWindow()
     }
 
     fileprivate func downloadableMediaDescriptor(for pagePosition: PlayerPagePosition) -> DownloadableMediaDescriptor? {
-        MobilePlaybackController.shared.downloadableMediaDescriptor(
-            uuid: initialConfig.id,
+        playbackSession.downloadableMediaDescriptor(
             pagePosition: pagePosition
         )
     }
@@ -1472,8 +1470,7 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, U
             return nil
         }
 
-        guard let descriptor = MobilePlaybackController.shared.collectionBrowseThumbnailDescriptor(
-            uuid: initialConfig.id,
+        guard let descriptor = playbackSession.collectionBrowseThumbnailDescriptor(
             pagePosition: pagePosition
         ) else {
             return nil
@@ -1487,14 +1484,13 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, U
     }
 
     fileprivate func canRenderPagePosition(_ pagePosition: PlayerPagePosition) -> Bool {
-        MobilePlaybackController.shared.canRender(
-            uuid: initialConfig.id,
+        playbackSession.canRender(
             pagePosition: pagePosition
         )
     }
 
     fileprivate func startPagePosition() -> PlayerPagePosition {
-        MobilePlaybackController.shared.startPagePosition(uuid: initialConfig.id)
+        playbackSession.startPagePosition()
     }
 
     fileprivate func didRenderPagePosition(_ pagePosition: PlayerPagePosition) {

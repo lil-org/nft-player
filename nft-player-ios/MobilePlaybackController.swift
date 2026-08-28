@@ -2,13 +2,25 @@
 
 import UIKit
 
-protocol MobilePlaybackControllerDisplay: AnyObject {
+@MainActor
+protocol MobilePlaybackSessionDisplay: AnyObject {
 
     func navigate(_ direction: PlaybackNavigationDirection)
     func getCurrentPagePosition() -> PlayerPagePosition
     func flushPendingViewingProgress()
 
 }
+
+nonisolated protocol MobilePlaybackViewingSessionTracking: Sendable {
+    func prepareRestartUpdate(
+        collectionId: String?
+    ) async -> PlayerContinueViewingUpdate?
+    func beginRestart(update: PlayerContinueViewingUpdate?) async
+    func markViewed(_ progress: MobileViewingProgress) async
+}
+
+nonisolated extension PlayerViewingSessionTracker:
+    MobilePlaybackViewingSessionTracking {}
 
 struct MobilePlayerFileShareItem {
     let fileURL: URL
@@ -81,128 +93,10 @@ extension MobilePlayerFileShareItem {
     }
 }
 
-class MobilePlaybackController {
-    
-    private init() {}
-    
-    static let shared = MobilePlaybackController()
-    
-    private var displays = [UUID: MobilePlaybackControllerDisplay]()
-    private var initialConfigs = [UUID: MobilePlayerConfig]()
-    private var tokensDataSources = [UUID: PlayerTokenPagingDataSource]()
-    private var viewingSessionTrackers = [UUID: PlayerViewingSessionTracker]()
-    private var navigationRequestGenerations = [UUID: UInt]()
-    
-    func goForward(uuid: UUID) {
-        advanceNavigationRequestGeneration(uuid: uuid)
-        navigate(.forward, uuid: uuid)
-    }
-    
-    func goBack(uuid: UUID) {
-        advanceNavigationRequestGeneration(uuid: uuid)
-        navigate(.back, uuid: uuid)
-    }
+@MainActor
+enum MobileCollectionBrowseMediaResolver {
 
-    func restartCollection(uuid: UUID) {
-        guard let display = displays[uuid] else { return }
-        let requestGeneration = advanceNavigationRequestGeneration(uuid: uuid)
-        let startingPagePosition = display.getCurrentPagePosition()
-        dataSource(uuid: uuid)?.acknowledgeIntentionalViewingPosition()
-        let collectionId = dataSource(uuid: uuid)?
-            .collectionTokenContext(pagePosition: startingPagePosition)?.collectionId
-        let tracker = viewingSessionTracker(uuid: uuid)
-        Task {
-            let update = await tracker.prepareRestartUpdate(collectionId: collectionId)
-            guard navigationRequestGenerations[uuid] == requestGeneration,
-                  viewingSessionTrackers[uuid] === tracker,
-                  let currentDisplay = displays[uuid],
-                  currentDisplay.getCurrentPagePosition() == startingPagePosition else {
-                return
-            }
-            PlayerPersistenceUpdates.enqueue {
-                await tracker.beginRestart(update: update)
-            }
-            navigate(.restartCollection, uuid: uuid)
-        }
-    }
-
-    private func navigate(_ direction: PlaybackNavigationDirection, uuid: UUID) {
-        displays[uuid]?.navigate(direction)
-    }
-
-    func cancelPendingCollectionRestart(uuid: UUID) {
-        advanceNavigationRequestGeneration(uuid: uuid)
-    }
-
-    @discardableResult
-    private func advanceNavigationRequestGeneration(uuid: UUID) -> UInt {
-        let generation = (navigationRequestGenerations[uuid] ?? 0) &+ 1
-        navigationRequestGenerations[uuid] = generation
-        return generation
-    }
-    
-    func subscribe(config: MobilePlayerConfig, display: MobilePlaybackControllerDisplay) {
-        displays[config.id] = display
-        initialConfigs[config.id] = config
-        navigationRequestGenerations[config.id] = 0
-        viewingSessionTrackers[config.id] = PlayerViewingSessionTracker(
-            continueViewingCollectionId: config.continueViewingCollectionId
-        )
-    }
-    
-    func stopAndDisconnect(uuid: UUID) {
-        displays[uuid]?.flushPendingViewingProgress()
-        displays.removeValue(forKey: uuid)
-        initialConfigs.removeValue(forKey: uuid)
-        tokensDataSources.removeValue(forKey: uuid)
-        viewingSessionTrackers.removeValue(forKey: uuid)
-        navigationRequestGenerations.removeValue(forKey: uuid)
-        if displays.isEmpty {
-            DownloadableMediaCache.shared.cancelAllDownloads()
-        } else {
-            clearDownloadableMediaWindow(uuid: uuid)
-        }
-    }
-
-    func clearDownloadableMediaWindow(uuid: UUID) {
-        DownloadableMediaCache.shared.clearActiveWindow(ownerId: uuid)
-    }
-    
-    func getToken(uuid: UUID, pagePosition: PlayerPagePosition) -> GeneratedToken {
-        dataSource(uuid: uuid)?.getToken(pagePosition: pagePosition) ?? .empty
-    }
-
-    func canRender(uuid: UUID, pagePosition: PlayerPagePosition) -> Bool {
-        dataSource(uuid: uuid)?.canRender(pagePosition: pagePosition) ?? false
-    }
-
-    func pageLabel(uuid: UUID, pagePosition: PlayerPagePosition) -> String? {
-        dataSource(uuid: uuid)?.pageLabel(pagePosition: pagePosition)
-    }
-
-    func isInsertedWidgetToken(uuid: UUID, pagePosition: PlayerPagePosition) -> Bool {
-        dataSource(uuid: uuid)?.isInsertedWidgetToken(pagePosition: pagePosition) ?? false
-    }
-
-    func collectionBrowseSnapshot(uuid: UUID) -> PlayerCollectionBrowseSnapshot? {
-        dataSource(uuid: uuid)?.collectionBrowseSnapshot()
-    }
-
-    func prepareCollectionBrowse(
-        uuid: UUID,
-        containing pagePosition: PlayerPagePosition
-    ) -> PlayerCollectionBrowsePreparation? {
-        dataSource(uuid: uuid)?.prepareCollectionBrowse(containing: pagePosition)
-    }
-
-    func commitCollectionBrowse(
-        uuid: UUID,
-        preparation: PlayerCollectionBrowsePreparation
-    ) -> PlayerCollectionBrowsePositionResolution {
-        dataSource(uuid: uuid)?.commitCollectionBrowse(preparation) ?? .unavailable
-    }
-
-    func collectionBrowseThumbnailDescriptor(
+    static func collectionBrowseThumbnailDescriptor(
         snapshot: PlayerCollectionBrowseSnapshot,
         tokenIndex: Int
     ) -> DownloadableMediaDescriptor? {
@@ -214,7 +108,7 @@ class MobilePlaybackController {
         )
     }
 
-    func collectionBrowseImageSources(
+    static func collectionBrowseImageSources(
         snapshot: PlayerCollectionBrowseSnapshot,
         tokenIndex: Int
     ) -> CollectionBrowseImageSources? {
@@ -226,7 +120,7 @@ class MobilePlaybackController {
         )
     }
 
-    func collectionBrowseImageDescriptor(
+    static func collectionBrowseImageDescriptor(
         snapshot: PlayerCollectionBrowseSnapshot,
         tokenIndex: Int,
         quality: CollectionBrowseImageQuality
@@ -266,7 +160,7 @@ class MobilePlaybackController {
         }
     }
 
-    func collectionBrowsePrefetchDescriptor(
+    static func collectionBrowsePrefetchDescriptor(
         snapshot: PlayerCollectionBrowseSnapshot,
         tokenIndex: Int,
         quality: CollectionBrowseImageQuality
@@ -313,7 +207,7 @@ class MobilePlaybackController {
         return requestedDescriptor
     }
 
-    func collectionBrowseThumbnailAspectRatioProfile(
+    static func collectionBrowseThumbnailAspectRatioProfile(
         snapshot: PlayerCollectionBrowseSnapshot
     ) -> ThumbnailAspectRatioProfile? {
         guard snapshot.itemCount > 0,
@@ -324,150 +218,6 @@ class MobilePlaybackController {
             return nil
         }
         return profile
-    }
-
-    func collectionBrowseThumbnailDescriptor(
-        uuid: UUID,
-        pagePosition: PlayerPagePosition
-    ) -> DownloadableMediaDescriptor? {
-        guard let context = collectionTokenContext(uuid: uuid, pagePosition: pagePosition) else {
-            return nil
-        }
-
-        return MobileCollectionCatalog.collectionBrowseThumbnailDescriptor(
-            specificCollectionId: context.collectionId,
-            tokenIndex: context.tokenIndex
-        )
-    }
-
-    func layoutInteractionState(
-        uuid: UUID,
-        displayMode: MobilePlayerDisplayMode,
-        pagePosition: PlayerPagePosition?,
-        collectionBrowserAvailable expectedCollectionBrowserAvailability: Bool? = nil
-    ) -> MobilePlayerLayoutInteractionState {
-        let currentDescriptor = pagePosition.flatMap {
-            collectionBrowseThumbnailDescriptor(uuid: uuid, pagePosition: $0)
-                ?? downloadableMediaDescriptor(uuid: uuid, pagePosition: $0)
-        }
-        let collectionBrowserAvailable = expectedCollectionBrowserAvailability
-            ?? PlayerCollectionBrowserSupport.isAvailable(for: currentDescriptor)
-        guard let pagePosition,
-              collectionTokenContext(
-                uuid: uuid,
-                pagePosition: pagePosition
-              ) != nil,
-              collectionBrowserAvailable else {
-            return MobilePlayerLayoutInteractionState(
-                displayMode: displayMode,
-                pagePosition: pagePosition,
-                collectionBrowserAvailable: false,
-                currentDescriptor: nil,
-                browserSwitchMode: .animated
-            )
-        }
-
-        return MobilePlayerLayoutInteractionState(
-            displayMode: displayMode,
-            pagePosition: pagePosition,
-            collectionBrowserAvailable: true,
-            currentDescriptor: currentDescriptor,
-            browserSwitchMode: isInsertedWidgetToken(uuid: uuid, pagePosition: pagePosition)
-                ? .offscreenInsertion
-                : .animated
-        )
-    }
-
-    func prepareDownloadableMediaWindow(
-        uuid: UUID,
-        pagePosition: PlayerPagePosition,
-        direction: DownloadableMediaCache.PrefetchDirection
-    ) -> PlayerDownloadableMediaWindow? {
-        guard let window = dataSource(uuid: uuid)?.downloadableMediaWindow(
-            pagePosition: pagePosition,
-            direction: direction
-        ) else {
-            clearDownloadableMediaWindow(uuid: uuid)
-            return nil
-        }
-
-        DownloadableMediaCache.shared.prepareWindow(window, ownerId: uuid)
-        return window
-    }
-
-    func prepareCollectionBrowseThumbnailWindow(
-        uuid: UUID,
-        centeredAt tokenIndex: Int,
-        direction: DownloadableMediaCache.PrefetchDirection,
-        prefetchStride: Int,
-        columnCount: Int,
-        quality: CollectionBrowseImageQuality,
-        requiredTokenRange: ClosedRange<Int>?,
-        displayedHigherQualityThumbnailTokenIndices: Set<Int>,
-        displayedLargeTokenIndices: Set<Int>,
-        locallyAvailableLargeTokenIndices: Set<Int>
-    ) {
-        guard let snapshot = collectionBrowseSnapshot(uuid: uuid) else {
-            clearDownloadableMediaWindow(uuid: uuid)
-            return
-        }
-        let compactCoverage = Self.collectionBrowseCompactCoverage(
-            imageSources: collectionBrowseImageSources(
-                snapshot: snapshot,
-                tokenIndex: tokenIndex
-            ),
-            centeredAt: tokenIndex,
-            direction: direction,
-            itemCount: snapshot.itemCount,
-            columnCount: columnCount,
-            prefetchStride: prefetchStride,
-            quality: quality,
-            requiredTokenRange: requiredTokenRange
-        )
-        guard let preparedWindow = PlayerCollectionBrowseMediaWindowLayout.makeWindow(
-                centeredAt: tokenIndex,
-                itemCount: snapshot.itemCount,
-                direction: direction,
-                prefetchStride: prefetchStride,
-                compactCoverage: compactCoverage,
-                descriptorForTokenIndex: { candidateTokenIndex in
-                    let selection = CollectionBrowseImageWindowSelection.resolve(
-                        requiredQuality: quality,
-                        isDisplayingSatisfyingThumbnail:
-                            displayedHigherQualityThumbnailTokenIndices.contains(
-                                candidateTokenIndex
-                            ),
-                        isDisplayingLargeImage:
-                            displayedLargeTokenIndices.contains(
-                                candidateTokenIndex
-                            ),
-                        largeImageIsLocallyAvailable:
-                            locallyAvailableLargeTokenIndices.contains(
-                                candidateTokenIndex
-                            )
-                    )
-                    switch selection {
-                    case .requestedQuality:
-                        return collectionBrowseImageDescriptor(
-                            snapshot: snapshot,
-                            tokenIndex: candidateTokenIndex,
-                            quality: quality
-                        )
-                    case .locallyAvailableLarge:
-                        return collectionBrowseImageDescriptor(
-                            snapshot: snapshot,
-                            tokenIndex: candidateTokenIndex,
-                            quality: .large
-                        )
-                    case .omitSatisfiedToken:
-                        return nil
-                    }
-                }
-              ) else {
-            clearDownloadableMediaWindow(uuid: uuid)
-            return
-        }
-        DownloadableMediaCache.shared.prepareWindow(preparedWindow, ownerId: uuid)
     }
 
     nonisolated static func collectionBrowseCompactCoverage(
@@ -496,9 +246,299 @@ class MobilePlaybackController {
             prefersIncreasingIndices: direction == .forward
         )
     }
+}
 
-    func downloadableMediaDescriptor(uuid: UUID, pagePosition: PlayerPagePosition) -> DownloadableMediaDescriptor? {
-        guard let context = downloadableMediaTokenContext(uuid: uuid, pagePosition: pagePosition) else {
+@MainActor
+final class MobilePlaybackSession {
+
+    private enum LifecycleState: Equatable {
+        case active
+        case disconnecting
+        case disconnected
+    }
+
+    let config: MobilePlayerConfig
+
+    var id: UUID {
+        config.id
+    }
+
+    private weak var display: MobilePlaybackSessionDisplay?
+    private let viewingSessionTracker: any MobilePlaybackViewingSessionTracking
+    fileprivate let mediaWindowOwnerID = UUID()
+    private let disconnect: @MainActor (MobilePlaybackSession) -> Void
+    private var lifecycleState = LifecycleState.active
+    private var navigationRequestGeneration: UInt = 0
+    private lazy var dataSource = PlayerTokenPagingDataSource(
+        initialCollectionId: config.initialItemId,
+        specificInitialToken: config.specificToken,
+        initialTokenId: config.initialTokenId,
+        initialTokenIndex: config.initialTokenIndex,
+        widgetTokenInsertion: config.widgetTokenInsertion
+    )
+
+    fileprivate init(
+        config: MobilePlayerConfig,
+        viewingSessionTracker: any MobilePlaybackViewingSessionTracking,
+        disconnect: @escaping @MainActor (MobilePlaybackSession) -> Void
+    ) {
+        self.config = config
+        self.viewingSessionTracker = viewingSessionTracker
+        self.disconnect = disconnect
+    }
+
+    func attach(display: MobilePlaybackSessionDisplay) {
+        guard lifecycleState == .active else { return }
+        self.display = display
+    }
+
+    func stopAndDisconnect() {
+        guard lifecycleState == .active else { return }
+        lifecycleState = .disconnecting
+        advanceNavigationRequestGeneration()
+        display?.flushPendingViewingProgress()
+        display = nil
+        lifecycleState = .disconnected
+        disconnect(self)
+    }
+
+    func goForward() {
+        guard lifecycleState == .active else { return }
+        advanceNavigationRequestGeneration()
+        display?.navigate(.forward)
+    }
+
+    func goBack() {
+        guard lifecycleState == .active else { return }
+        advanceNavigationRequestGeneration()
+        display?.navigate(.back)
+    }
+
+    @discardableResult
+    func restartCollection() -> Task<Void, Never>? {
+        guard lifecycleState == .active,
+              let display else {
+            return nil
+        }
+        let requestGeneration = advanceNavigationRequestGeneration()
+        let startingPagePosition = display.getCurrentPagePosition()
+        let displayIdentity = ObjectIdentifier(display)
+        dataSource.acknowledgeIntentionalViewingPosition()
+        let collectionId = dataSource
+            .collectionTokenContext(pagePosition: startingPagePosition)?.collectionId
+        let tracker = viewingSessionTracker
+        return Task { @MainActor [weak self] in
+            let update = await tracker.prepareRestartUpdate(collectionId: collectionId)
+            guard let self,
+                  self.lifecycleState == .active,
+                  self.navigationRequestGeneration == requestGeneration,
+                  let currentDisplay = self.display,
+                  ObjectIdentifier(currentDisplay) == displayIdentity,
+                  currentDisplay.getCurrentPagePosition() == startingPagePosition else {
+                return
+            }
+            PlayerPersistenceUpdates.enqueue {
+                await tracker.beginRestart(update: update)
+            }
+            currentDisplay.navigate(.restartCollection)
+        }
+    }
+
+    func cancelPendingCollectionRestart() {
+        guard lifecycleState != .disconnected else { return }
+        advanceNavigationRequestGeneration()
+    }
+
+    func clearDownloadableMediaWindow() {
+        guard lifecycleState != .disconnected else { return }
+        DownloadableMediaCache.shared.clearActiveWindow(ownerId: mediaWindowOwnerID)
+    }
+
+    func getToken(pagePosition: PlayerPagePosition) -> GeneratedToken {
+        activeDataSource?.getToken(pagePosition: pagePosition) ?? .empty
+    }
+
+    func canRender(pagePosition: PlayerPagePosition) -> Bool {
+        activeDataSource?.canRender(pagePosition: pagePosition) ?? false
+    }
+
+    func pageLabel(pagePosition: PlayerPagePosition) -> String? {
+        activeDataSource?.pageLabel(pagePosition: pagePosition)
+    }
+
+    func isInsertedWidgetToken(pagePosition: PlayerPagePosition) -> Bool {
+        activeDataSource?.isInsertedWidgetToken(pagePosition: pagePosition) ?? false
+    }
+
+    func collectionBrowseSnapshot() -> PlayerCollectionBrowseSnapshot? {
+        activeDataSource?.collectionBrowseSnapshot()
+    }
+
+    func prepareCollectionBrowse(
+        containing pagePosition: PlayerPagePosition
+    ) -> PlayerCollectionBrowsePreparation? {
+        activeDataSource?.prepareCollectionBrowse(containing: pagePosition)
+    }
+
+    func commitCollectionBrowse(
+        preparation: PlayerCollectionBrowsePreparation
+    ) -> PlayerCollectionBrowsePositionResolution {
+        activeDataSource?.commitCollectionBrowse(preparation) ?? .unavailable
+    }
+
+    func collectionBrowseThumbnailDescriptor(
+        pagePosition: PlayerPagePosition
+    ) -> DownloadableMediaDescriptor? {
+        guard let context = collectionTokenContext(pagePosition: pagePosition) else {
+            return nil
+        }
+
+        return MobileCollectionCatalog.collectionBrowseThumbnailDescriptor(
+            specificCollectionId: context.collectionId,
+            tokenIndex: context.tokenIndex
+        )
+    }
+
+    func layoutInteractionState(
+        displayMode: MobilePlayerDisplayMode,
+        pagePosition: PlayerPagePosition?,
+        collectionBrowserAvailable expectedCollectionBrowserAvailability: Bool? = nil
+    ) -> MobilePlayerLayoutInteractionState {
+        let currentDescriptor = pagePosition.flatMap {
+            collectionBrowseThumbnailDescriptor(pagePosition: $0)
+                ?? downloadableMediaDescriptor(pagePosition: $0)
+        }
+        let collectionBrowserAvailable = expectedCollectionBrowserAvailability
+            ?? PlayerCollectionBrowserSupport.isAvailable(for: currentDescriptor)
+        guard let pagePosition,
+              collectionTokenContext(pagePosition: pagePosition) != nil,
+              collectionBrowserAvailable else {
+            return MobilePlayerLayoutInteractionState(
+                displayMode: displayMode,
+                pagePosition: pagePosition,
+                collectionBrowserAvailable: false,
+                currentDescriptor: nil,
+                browserSwitchMode: .animated
+            )
+        }
+
+        return MobilePlayerLayoutInteractionState(
+            displayMode: displayMode,
+            pagePosition: pagePosition,
+            collectionBrowserAvailable: true,
+            currentDescriptor: currentDescriptor,
+            browserSwitchMode: isInsertedWidgetToken(pagePosition: pagePosition)
+                ? .offscreenInsertion
+                : .animated
+        )
+    }
+
+    func prepareDownloadableMediaWindow(
+        pagePosition: PlayerPagePosition,
+        direction: DownloadableMediaCache.PrefetchDirection
+    ) -> PlayerDownloadableMediaWindow? {
+        guard lifecycleState == .active,
+              let window = dataSource.downloadableMediaWindow(
+                  pagePosition: pagePosition,
+                  direction: direction
+              ) else {
+            clearDownloadableMediaWindow()
+            return nil
+        }
+
+        DownloadableMediaCache.shared.prepareWindow(
+            window,
+            ownerId: mediaWindowOwnerID
+        )
+        return window
+    }
+
+    func prepareCollectionBrowseThumbnailWindow(
+        centeredAt tokenIndex: Int,
+        direction: DownloadableMediaCache.PrefetchDirection,
+        prefetchStride: Int,
+        columnCount: Int,
+        quality: CollectionBrowseImageQuality,
+        requiredTokenRange: ClosedRange<Int>?,
+        displayedHigherQualityThumbnailTokenIndices: Set<Int>,
+        displayedLargeTokenIndices: Set<Int>,
+        locallyAvailableLargeTokenIndices: Set<Int>
+    ) {
+        guard lifecycleState == .active,
+              let snapshot = collectionBrowseSnapshot() else {
+            clearDownloadableMediaWindow()
+            return
+        }
+        let compactCoverage = MobileCollectionBrowseMediaResolver
+            .collectionBrowseCompactCoverage(
+                imageSources: MobileCollectionBrowseMediaResolver
+                    .collectionBrowseImageSources(
+                        snapshot: snapshot,
+                        tokenIndex: tokenIndex
+                    ),
+                centeredAt: tokenIndex,
+                direction: direction,
+                itemCount: snapshot.itemCount,
+                columnCount: columnCount,
+                prefetchStride: prefetchStride,
+                quality: quality,
+                requiredTokenRange: requiredTokenRange
+            )
+        guard let preparedWindow = PlayerCollectionBrowseMediaWindowLayout.makeWindow(
+                centeredAt: tokenIndex,
+                itemCount: snapshot.itemCount,
+                direction: direction,
+                prefetchStride: prefetchStride,
+                compactCoverage: compactCoverage,
+                descriptorForTokenIndex: { candidateTokenIndex in
+                    let selection = CollectionBrowseImageWindowSelection.resolve(
+                        requiredQuality: quality,
+                        isDisplayingSatisfyingThumbnail:
+                            displayedHigherQualityThumbnailTokenIndices.contains(
+                                candidateTokenIndex
+                            ),
+                        isDisplayingLargeImage:
+                            displayedLargeTokenIndices.contains(
+                                candidateTokenIndex
+                            ),
+                        largeImageIsLocallyAvailable:
+                            locallyAvailableLargeTokenIndices.contains(
+                                candidateTokenIndex
+                            )
+                    )
+                    switch selection {
+                    case .requestedQuality:
+                        return MobileCollectionBrowseMediaResolver
+                            .collectionBrowseImageDescriptor(
+                                snapshot: snapshot,
+                                tokenIndex: candidateTokenIndex,
+                                quality: quality
+                            )
+                    case .locallyAvailableLarge:
+                        return MobileCollectionBrowseMediaResolver
+                            .collectionBrowseImageDescriptor(
+                                snapshot: snapshot,
+                                tokenIndex: candidateTokenIndex,
+                                quality: .large
+                            )
+                    case .omitSatisfiedToken:
+                        return nil
+                    }
+                }
+              ) else {
+            clearDownloadableMediaWindow()
+            return
+        }
+        DownloadableMediaCache.shared.prepareWindow(
+            preparedWindow,
+            ownerId: mediaWindowOwnerID
+        )
+    }
+
+    func downloadableMediaDescriptor(
+        pagePosition: PlayerPagePosition
+    ) -> DownloadableMediaDescriptor? {
+        guard let context = downloadableMediaTokenContext(pagePosition: pagePosition) else {
             return nil
         }
 
@@ -509,79 +549,56 @@ class MobilePlaybackController {
     }
 
     func hasNavigationDestination(
-        uuid: UUID,
         from pagePosition: PlayerPagePosition,
         direction: PlaybackNavigationDirection
     ) -> Bool {
         guard let targetOffset = direction.pageOffset else { return false }
 
-        return canRender(uuid: uuid, pagePosition: pagePosition.advanced(by: targetOffset))
-    }
-
-    private func downloadableMediaTokenContext(
-        uuid: UUID,
-        pagePosition: PlayerPagePosition
-    ) -> PlayerTokenContext? {
-        guard let dataSource = dataSource(uuid: uuid) else { return nil }
-        return downloadableMediaTokenContext(dataSource: dataSource, pagePosition: pagePosition)
-    }
-
-    private func collectionTokenContext(
-        uuid: UUID,
-        pagePosition: PlayerPagePosition
-    ) -> PlayerTokenContext? {
-        dataSource(uuid: uuid)?.collectionTokenContext(pagePosition: pagePosition)
-    }
-
-    private func downloadableMediaTokenContext(
-        dataSource: PlayerTokenPagingDataSource,
-        pagePosition: PlayerPagePosition
-    ) -> PlayerTokenContext? {
-        guard let context = dataSource.collectionTokenContext(pagePosition: pagePosition),
-              MobileCollectionCatalog.hasDownloadableMediaDescriptor(specificCollectionId: context.collectionId) else {
-            return nil
-        }
-        return context
+        return canRender(pagePosition: pagePosition.advanced(by: targetOffset))
     }
 
     func markViewed(
-        uuid: UUID,
         pagePosition: PlayerPagePosition,
         hasViewedToEnd: Bool = false
     ) -> MobileViewingProgress? {
-        guard let dataSource = dataSource(uuid: uuid),
+        guard let dataSource = activeDataSource,
               let progress = dataSource.progress(
                   pagePosition: pagePosition,
                   hasViewedToEnd: hasViewedToEnd
               ) else {
             return nil
         }
-        let tracker = viewingSessionTracker(uuid: uuid)
+        let tracker = viewingSessionTracker
         PlayerPersistenceUpdates.enqueue {
             await tracker.markViewed(progress)
         }
         return progress
     }
 
-    func acknowledgeIntentionalViewingPosition(uuid: UUID) {
-        advanceNavigationRequestGeneration(uuid: uuid)
-        dataSource(uuid: uuid)?.acknowledgeIntentionalViewingPosition()
+    func acknowledgeIntentionalViewingPosition() {
+        guard let dataSource = activeDataSource else { return }
+        advanceNavigationRequestGeneration()
+        dataSource.acknowledgeIntentionalViewingPosition()
     }
 
     func progress(
-        uuid: UUID,
         pagePosition: PlayerPagePosition,
         resolvedToken: GeneratedToken
     ) -> MobileViewingProgress? {
-        dataSource(uuid: uuid)?.progress(
+        activeDataSource?.progress(
             pagePosition: pagePosition,
             resolvedToken: resolvedToken
         )
     }
 
-    func downloadedFileShareItem(uuid: UUID, pagePosition: PlayerPagePosition) -> MobilePlayerFileShareItem? {
-        guard let dataSource = dataSource(uuid: uuid),
-              let context = downloadableMediaTokenContext(dataSource: dataSource, pagePosition: pagePosition),
+    func downloadedFileShareItem(
+        pagePosition: PlayerPagePosition
+    ) -> MobilePlayerFileShareItem? {
+        guard let dataSource = activeDataSource,
+              let context = downloadableMediaTokenContext(
+                dataSource: dataSource,
+                pagePosition: pagePosition
+              ),
               let descriptor = MobileCollectionCatalog.downloadableMediaDescriptor(
                 specificCollectionId: context.collectionId,
                 tokenIndex: context.tokenIndex
@@ -600,7 +617,10 @@ class MobilePlaybackController {
             previewTitle: MobilePlayerFileShareItem.previewTitle(
                 for: token,
                 progressText: dataSource.pageLabel(pagePosition: pagePosition)
-                    ?? Strings.pagePosition(current: context.tokenIndex + 1, total: context.tokenCount)
+                    ?? Strings.pagePosition(
+                        current: context.tokenIndex + 1,
+                        total: context.tokenCount
+                    )
             ),
             releaseFile: releaseFile
         ) {
@@ -608,39 +628,120 @@ class MobilePlaybackController {
         }
     }
 
-    func startPagePosition(uuid: UUID) -> PlayerPagePosition {
-        dataSource(uuid: uuid)?.pagePosition(forTokenIndex: 0) ?? .initial
+    func startPagePosition() -> PlayerPagePosition {
+        activeDataSource?.pagePosition(forTokenIndex: 0) ?? .initial
     }
 
-    private func dataSource(uuid: UUID) -> PlayerTokenPagingDataSource? {
-        guard let initialConfig = initialConfigs[uuid] else { return nil }
-        if let dataSource = tokensDataSources[uuid] {
-            return dataSource
-        }
+    private var activeDataSource: PlayerTokenPagingDataSource? {
+        lifecycleState == .disconnected ? nil : dataSource
+    }
 
-        let newDataSource = PlayerTokenPagingDataSource(
-            initialCollectionId: initialConfig.initialItemId,
-            specificInitialToken: initialConfig.specificToken,
-            initialTokenId: initialConfig.initialTokenId,
-            initialTokenIndex: initialConfig.initialTokenIndex,
-            widgetTokenInsertion: initialConfig.widgetTokenInsertion
+    @discardableResult
+    private func advanceNavigationRequestGeneration() -> UInt {
+        navigationRequestGeneration &+= 1
+        return navigationRequestGeneration
+    }
+
+    private func downloadableMediaTokenContext(
+        pagePosition: PlayerPagePosition
+    ) -> PlayerTokenContext? {
+        guard let dataSource = activeDataSource else { return nil }
+        return downloadableMediaTokenContext(
+            dataSource: dataSource,
+            pagePosition: pagePosition
         )
-        tokensDataSources[uuid] = newDataSource
-        return newDataSource
     }
 
-    private func viewingSessionTracker(uuid: UUID) -> PlayerViewingSessionTracker {
-        if let tracker = viewingSessionTrackers[uuid] {
-            return tracker
+    private func collectionTokenContext(
+        pagePosition: PlayerPagePosition
+    ) -> PlayerTokenContext? {
+        activeDataSource?.collectionTokenContext(pagePosition: pagePosition)
+    }
+
+    private func downloadableMediaTokenContext(
+        dataSource: PlayerTokenPagingDataSource,
+        pagePosition: PlayerPagePosition
+    ) -> PlayerTokenContext? {
+        guard let context = dataSource.collectionTokenContext(pagePosition: pagePosition),
+              MobileCollectionCatalog.hasDownloadableMediaDescriptor(
+                specificCollectionId: context.collectionId
+              ) else {
+            return nil
         }
+        return context
+    }
+}
 
-        let tracker = PlayerViewingSessionTracker(
-            continueViewingCollectionId: initialConfigs[uuid]?.continueViewingCollectionId
+@MainActor
+final class MobilePlaybackSessionRegistry {
+
+    struct Dependencies {
+        let makeViewingSessionTracker:
+            @MainActor (String?) -> any MobilePlaybackViewingSessionTracking
+        let clearActiveMediaWindow: @MainActor (UUID) -> Void
+        let cancelAllMediaDownloads: @MainActor () -> Void
+
+        fileprivate static let live = Dependencies(
+            makeViewingSessionTracker: {
+                PlayerViewingSessionTracker(continueViewingCollectionId: $0)
+            },
+            clearActiveMediaWindow: {
+                DownloadableMediaCache.shared.clearActiveWindow(ownerId: $0)
+            },
+            cancelAllMediaDownloads: {
+                DownloadableMediaCache.shared.cancelAllDownloads()
+            }
         )
-        viewingSessionTrackers[uuid] = tracker
-        return tracker
     }
 
+    private let dependencies: Dependencies
+    private var activeSessions = [ObjectIdentifier: MobilePlaybackSession]()
+
+    var activeSessionCount: Int {
+        activeSessions.count
+    }
+
+    init(dependencies: Dependencies) {
+        self.dependencies = dependencies
+    }
+
+    func startSession(config: MobilePlayerConfig) -> MobilePlaybackSession {
+        let session = MobilePlaybackSession(
+            config: config,
+            viewingSessionTracker: dependencies.makeViewingSessionTracker(
+                config.continueViewingCollectionId
+            )
+        ) { [weak self] session in
+            self?.disconnect(session)
+        }
+        activeSessions[ObjectIdentifier(session)] = session
+        return session
+    }
+
+    private func disconnect(_ session: MobilePlaybackSession) {
+        let identity = ObjectIdentifier(session)
+        guard activeSessions[identity] === session else { return }
+        activeSessions.removeValue(forKey: identity)
+        if activeSessions.isEmpty {
+            dependencies.cancelAllMediaDownloads()
+        } else {
+            dependencies.clearActiveMediaWindow(session.mediaWindowOwnerID)
+        }
+    }
+}
+
+@MainActor
+final class MobilePlaybackController {
+
+    static let shared = MobilePlaybackController()
+
+    private let registry = MobilePlaybackSessionRegistry(dependencies: .live)
+
+    private init() {}
+
+    func startSession(config: MobilePlayerConfig) -> MobilePlaybackSession {
+        registry.startSession(config: config)
+    }
 }
 
 enum MobilePlayerPrewarmer {

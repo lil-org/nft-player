@@ -7,7 +7,7 @@ final class MobilePlayerBrowserPageViewController: UIViewController {
     var onAccessibilityEscape: (() -> Bool)?
     var onPlayerLayout: (() -> Void)?
 
-    private let configID: UUID
+    private let playbackSession: MobilePlaybackSession
     private let chrome: MobilePlayerChromeController
     private let contentViewController: VerticalCollectionBrowserViewController
     private var playerPageBackgroundColor = MobilePlayerBackgroundColor.defaultColor
@@ -19,10 +19,15 @@ final class MobilePlayerBrowserPageViewController: UIViewController {
         contentViewController.currentPagePosition
     }
 
-    init(uuid: UUID, chrome: MobilePlayerChromeController) {
-        self.configID = uuid
+    init(
+        playbackSession: MobilePlaybackSession,
+        chrome: MobilePlayerChromeController
+    ) {
+        self.playbackSession = playbackSession
         self.chrome = chrome
-        self.contentViewController = VerticalCollectionBrowserViewController(uuid: uuid)
+        self.contentViewController = VerticalCollectionBrowserViewController(
+            playbackSession: playbackSession
+        )
         super.init(nibName: nil, bundle: nil)
 
         navigationItem.backButtonDisplayMode = .minimal
@@ -36,8 +41,7 @@ final class MobilePlayerBrowserPageViewController: UIViewController {
         contentViewController.onSettledPagePosition = { [weak self] pagePosition, hasViewedToEnd in
             guard let self,
                   self.modeController?.activeMode == .collectionBrowser else { return false }
-            return MobilePlaybackController.shared.markViewed(
-                uuid: self.configID,
+            return self.playbackSession.markViewed(
                 pagePosition: pagePosition,
                 hasViewedToEnd: hasViewedToEnd
             ) != nil
@@ -126,9 +130,8 @@ final class MobilePlayerBrowserPageViewController: UIViewController {
     }
 
     func seedNavigationTitles() {
-        let token = MobilePlaybackController.shared.getToken(
-            uuid: configID,
-            pagePosition: MobilePlaybackController.shared.startPagePosition(uuid: configID)
+        let token = playbackSession.getToken(
+            pagePosition: playbackSession.startPagePosition()
         )
         refreshNavigationTitles(with: token)
     }
@@ -139,8 +142,7 @@ final class MobilePlayerBrowserPageViewController: UIViewController {
         let pagePosition = currentMenuPagePosition
         updatePlayerNavigationTitle(
             for: pagePosition,
-            token: MobilePlaybackController.shared.getToken(
-                uuid: configID,
+            token: playbackSession.getToken(
                 pagePosition: pagePosition
             )
         )
@@ -186,8 +188,7 @@ final class MobilePlayerBrowserPageViewController: UIViewController {
         if let pagePosition = preparation.snapshot.pagePosition(
             forTokenIndex: preparation.focusedTokenIndex
         ) {
-            let token = MobilePlaybackController.shared.getToken(
-                uuid: configID,
+            let token = playbackSession.getToken(
                 pagePosition: pagePosition
             )
             refreshNavigationTitles(with: token)
@@ -255,12 +256,11 @@ final class MobilePlayerBrowserPageViewController: UIViewController {
 
     private var currentMenuPagePosition: PlayerPagePosition {
         contentViewController.currentPagePosition
-            ?? MobilePlaybackController.shared.startPagePosition(uuid: configID)
+            ?? playbackSession.startPagePosition()
     }
 
     private var currentMenuToken: GeneratedToken {
-        return MobilePlaybackController.shared.getToken(
-            uuid: configID,
+        return playbackSession.getToken(
             pagePosition: currentMenuPagePosition
         )
     }
@@ -298,15 +298,13 @@ final class MobilePlayerBrowserPageViewController: UIViewController {
     }
 
     private func handleFocusedPagePosition(_ pagePosition: PlayerPagePosition) {
-        let token = MobilePlaybackController.shared.getToken(
-            uuid: configID,
+        let token = playbackSession.getToken(
             pagePosition: pagePosition
         )
         updatePlayerNavigationTitle(for: pagePosition, token: token)
         chrome.setPlayerBackgroundColor(MobilePlayerBackgroundColor.color(for: token))
         chrome.setLayoutInteractionState(
-            MobilePlaybackController.shared.layoutInteractionState(
-                uuid: configID,
+            playbackSession.layoutInteractionState(
                 displayMode: .collectionBrowser,
                 pagePosition: pagePosition,
                 collectionBrowserAvailable: true
@@ -322,8 +320,7 @@ final class MobilePlayerBrowserPageViewController: UIViewController {
     ) {
         chrome.setPlayerNavigationTitle(
             collectionTitle: token.collectionName,
-            pageLabel: MobilePlaybackController.shared.pageLabel(
-                uuid: configID,
+            pageLabel: playbackSession.pageLabel(
                 pagePosition: pagePosition
             ) ?? ""
         )

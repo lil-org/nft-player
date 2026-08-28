@@ -310,7 +310,7 @@ final class MobilePlayerCardTransitionCanvas {
 
 struct MobilePlayerView: View {
 
-    private let initialConfig: MobilePlayerConfig
+    private let playbackSession: MobilePlaybackSession
     private let onDismiss: () -> Void
     private let collectionBrowserAvailable: Bool
     private let chrome: MobilePlayerChromeController
@@ -330,15 +330,15 @@ struct MobilePlayerView: View {
         MobilePlayerFocusedPagePositionUpdateCoordinator()
 
     init(
-        config: MobilePlayerConfig,
+        playbackSession: MobilePlaybackSession,
         onDismiss: @escaping () -> Void,
         chrome: MobilePlayerChromeController
     ) {
-        self.initialConfig = config
+        self.playbackSession = playbackSession
         self.onDismiss = onDismiss
         self.chrome = chrome
         self.collectionBrowserAvailable = PlayerCollectionBrowserSupport.isAvailable(
-            for: config
+            for: playbackSession.config
         )
     }
 
@@ -353,15 +353,13 @@ struct MobilePlayerView: View {
                     .allowsHitTesting(false)
 
                 HorizontalPlayerContainerView(
-                    initialConfig: initialConfig,
+                    playbackSession: playbackSession,
                     chrome: chrome,
                     bundledGenerativePresentationMode: bundledGenerativePresentationMode,
                     onFocusedPagePositionUpdate: handleFocusedPagePositionUpdate,
                     onSettledPagePositionUpdate: handleSettledPagePositionUpdate,
                     onPaginationAttempt: {
-                        MobilePlaybackController.shared.acknowledgeIntentionalViewingPosition(
-                            uuid: initialConfig.id
-                        )
+                        playbackSession.acknowledgeIntentionalViewingPosition()
                     },
                     onUnavailableNavigation: {
                         chrome.setControlsVisible(true)
@@ -401,7 +399,7 @@ struct MobilePlayerView: View {
                     Spacer()
                     HStack {
                         PlayerShareControl(
-                            playerID: initialConfig.id,
+                            playbackSession: playbackSession,
                             pagePosition: currentPagePosition,
                             isVisible: chrome.showControls
                         )
@@ -532,8 +530,7 @@ struct MobilePlayerView: View {
             return false
         }
 
-        guard let descriptor = MobilePlaybackController.shared.collectionBrowseThumbnailDescriptor(
-            uuid: initialConfig.id,
+        guard let descriptor = playbackSession.collectionBrowseThumbnailDescriptor(
             pagePosition: currentPagePosition
         ) else {
             return false
@@ -594,8 +591,7 @@ struct MobilePlayerView: View {
 
     private func updateLayoutInteractionState() {
         chrome.setLayoutInteractionState(
-            MobilePlaybackController.shared.layoutInteractionState(
-                uuid: initialConfig.id,
+            playbackSession.layoutInteractionState(
                 displayMode: .onePerPage,
                 pagePosition: currentPagePosition,
                 collectionBrowserAvailable: collectionBrowserAvailable
@@ -610,20 +606,16 @@ struct MobilePlayerView: View {
             await Task.yield()
             guard self.focusedPagePositionUpdateCoordinator.isCurrent(generation) else { return }
 
-            let token = MobilePlaybackController.shared.getToken(
-                uuid: initialConfig.id,
+            let token = playbackSession.getToken(
                 pagePosition: pagePosition
             )
-            let pageLabel = MobilePlaybackController.shared.pageLabel(
-                uuid: initialConfig.id,
+            let pageLabel = playbackSession.pageLabel(
                 pagePosition: pagePosition
             ) ?? ""
-            let isInsertedWidgetToken = MobilePlaybackController.shared.isInsertedWidgetToken(
-                uuid: initialConfig.id,
+            let isInsertedWidgetToken = playbackSession.isInsertedWidgetToken(
                 pagePosition: pagePosition
             )
-            let progress = MobilePlaybackController.shared.progress(
-                uuid: initialConfig.id,
+            let progress = playbackSession.progress(
                 pagePosition: pagePosition,
                 resolvedToken: token
             )
@@ -664,8 +656,7 @@ struct MobilePlayerView: View {
         _ pagePosition: PlayerPagePosition,
         hasViewedToEnd: Bool
     ) -> MobileViewingProgress? {
-        MobilePlaybackController.shared.markViewed(
-            uuid: initialConfig.id,
+        playbackSession.markViewed(
             pagePosition: pagePosition,
             hasViewedToEnd: hasViewedToEnd
         )
@@ -673,13 +664,13 @@ struct MobilePlayerView: View {
 
     private func goBack() {
         navigateIfPossible(canGoBack) {
-            MobilePlaybackController.shared.goBack(uuid: initialConfig.id)
+            playbackSession.goBack()
         }
     }
 
     private func goForward() {
         navigateIfPossible(canGoForward) {
-            MobilePlaybackController.shared.goForward(uuid: initialConfig.id)
+            playbackSession.goForward()
         }
     }
 
@@ -707,15 +698,14 @@ struct MobilePlayerView: View {
         from pagePosition: PlayerPagePosition,
         direction: PlaybackNavigationDirection
     ) -> Bool {
-        MobilePlaybackController.shared.hasNavigationDestination(
-            uuid: initialConfig.id,
+        playbackSession.hasNavigationDestination(
             from: pagePosition,
             direction: direction
         )
     }
 
     private func viewAgain() {
-        MobilePlaybackController.shared.restartCollection(uuid: initialConfig.id)
+        playbackSession.restartCollection()
     }
 
     private func toggleCurrentTokenBookmark() {
@@ -1005,7 +995,7 @@ private struct PlayerProgressArrowButton: View {
 }
 
 private struct PlayerShareControl: View {
-    let playerID: UUID
+    let playbackSession: MobilePlaybackSession
     let pagePosition: PlayerPagePosition?
     let isVisible: Bool
 
@@ -1049,8 +1039,7 @@ private struct PlayerShareControl: View {
 
     private func updateShareItem(for pagePosition: PlayerPagePosition?) {
         let updatedShareItem = pagePosition.flatMap {
-            MobilePlaybackController.shared.downloadedFileShareItem(
-                uuid: playerID,
+            playbackSession.downloadedFileShareItem(
                 pagePosition: $0
             )
         }

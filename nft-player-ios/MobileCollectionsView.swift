@@ -1616,8 +1616,8 @@ private struct MobileCollectionsNavigationView<RootView: View>: UIViewController
 
     final class Coordinator: NSObject, UINavigationControllerDelegate {
 
-        private final class PlayerSession {
-            let config: MobilePlayerConfig
+        private final class PlayerPresentationSession {
+            let playbackSession: MobilePlaybackSession
             let chrome: MobilePlayerChromeController
             let pagerViewController: MobilePlayerHostingController
             let browserViewController: MobilePlayerBrowserPageViewController?
@@ -1625,8 +1625,12 @@ private struct MobileCollectionsNavigationView<RootView: View>: UIViewController
             let interactionController: PlayerInteractionController
             let initialStack: [UIViewController]
 
+            var config: MobilePlayerConfig {
+                playbackSession.config
+            }
+
             init(
-                config: MobilePlayerConfig,
+                playbackSession: MobilePlaybackSession,
                 chrome: MobilePlayerChromeController,
                 pagerViewController: MobilePlayerHostingController,
                 browserViewController: MobilePlayerBrowserPageViewController?,
@@ -1634,7 +1638,7 @@ private struct MobileCollectionsNavigationView<RootView: View>: UIViewController
                 interactionController: PlayerInteractionController,
                 initialStack: [UIViewController]
             ) {
-                self.config = config
+                self.playbackSession = playbackSession
                 self.chrome = chrome
                 self.pagerViewController = pagerViewController
                 self.browserViewController = browserViewController
@@ -1653,7 +1657,9 @@ private struct MobileCollectionsNavigationView<RootView: View>: UIViewController
             }
 
             func invalidate() {
-                pagerViewController.finalizePlayerSession()
+                updateExternalDisplayToken(GeneratedToken.empty)
+                NativeMetalCardView.resetMotionCalibration()
+                playbackSession.stopAndDisconnect()
                 interactionController.invalidate()
                 modeController.invalidate()
                 UIApplication.shared.isIdleTimerDisabled = false
@@ -1662,7 +1668,7 @@ private struct MobileCollectionsNavigationView<RootView: View>: UIViewController
 
         weak var rootViewController: UIHostingController<RootView>?
         private weak var navigationController: PlayerNavigationController?
-        private var activeSession: PlayerSession?
+        private var activeSession: PlayerPresentationSession?
         private var desiredPlayerConfig: MobilePlayerConfig?
         private var desiredPresentationTransition: PlayerPresentationTransition = .animated
         private var onWillDismissPlayer: (() -> ((Bool) -> Void)?)?
@@ -1820,7 +1826,10 @@ private struct MobileCollectionsNavigationView<RootView: View>: UIViewController
         private func makePlayerSession(
             config: MobilePlayerConfig,
             navigationController: PlayerNavigationController
-        ) -> PlayerSession {
+        ) -> PlayerPresentationSession {
+            let playbackSession = MobilePlaybackController.shared.startSession(
+                config: config
+            )
             let collectionBrowserAvailable = PlayerCollectionBrowserSupport.isAvailable(
                 for: config
             )
@@ -1845,15 +1854,18 @@ private struct MobileCollectionsNavigationView<RootView: View>: UIViewController
                 self?.requestPop(configID: config.id)
             }
             let browserViewController = collectionBrowserAvailable
-                ? MobilePlayerBrowserPageViewController(uuid: config.id, chrome: chrome)
+                ? MobilePlayerBrowserPageViewController(
+                    playbackSession: playbackSession,
+                    chrome: chrome
+                )
                 : nil
             let playerViewController = makeMobilePlayerViewController(
-                config: config,
+                playbackSession: playbackSession,
                 onDismiss: onDismiss,
                 chrome: chrome
             )
             let modeController = MobilePlayerSessionModeController(
-                config: config,
+                playbackSession: playbackSession,
                 chrome: chrome,
                 navigationController: navigationController,
                 browserViewController: browserViewController,
@@ -1898,8 +1910,8 @@ private struct MobileCollectionsNavigationView<RootView: View>: UIViewController
             } else {
                 initialStack = [playerViewController]
             }
-            return PlayerSession(
-                config: config,
+            return PlayerPresentationSession(
+                playbackSession: playbackSession,
                 chrome: chrome,
                 pagerViewController: playerViewController,
                 browserViewController: browserViewController,
@@ -1942,7 +1954,7 @@ private struct MobileCollectionsNavigationView<RootView: View>: UIViewController
             }
             let resolvePendingPresentation = onWillDismissPlayer?()
             resolvePendingPresentation?(true)
-            MobilePlaybackController.shared.cancelPendingCollectionRestart(uuid: configID)
+            activeSession.playbackSession.cancelPendingCollectionRestart()
             navigationController.popToRootViewController(animated: true)
         }
 
@@ -2037,34 +2049,27 @@ private struct MobileCollectionsNavigationView<RootView: View>: UIViewController
 }
 
 private func makeMobilePlayerViewController(
-    config: MobilePlayerConfig,
+    playbackSession: MobilePlaybackSession,
     onDismiss: @escaping () -> Void,
     chrome: MobilePlayerChromeController
 ) -> MobilePlayerHostingController {
     let playerViewController = MobilePlayerHostingController(
         rootView: MobilePlayerView(
-            config: config,
+            playbackSession: playbackSession,
             onDismiss: onDismiss,
             chrome: chrome
         )
     )
     playerViewController.installNavigationTitle(chrome: chrome)
-    playerViewController.onPermanentRemoval = {
-        updateExternalDisplayToken(GeneratedToken.empty)
-        NativeMetalCardView.resetMotionCalibration()
-        MobilePlaybackController.shared.stopAndDisconnect(uuid: config.id)
-    }
     return playerViewController
 }
 
 private final class MobilePlayerHostingController: UIHostingController<MobilePlayerView> {
 
     private var playerPageBackgroundColor = MobilePlayerBackgroundColor.defaultColor
-    private var didFinalizePlayerSession = false
     private var playerNavigationTitleView: UIView?
     var onAccessibilityEscape: (() -> Bool)?
     var onPlayerLayout: (() -> Void)?
-    var onPermanentRemoval: (() -> Void)?
 
     override var preferredStatusBarUpdateAnimation: UIStatusBarAnimation {
         .none
@@ -2128,14 +2133,6 @@ private final class MobilePlayerHostingController: UIHostingController<MobilePla
             return
         }
         navigationItem.titleView = playerNavigationTitleView
-    }
-
-    func finalizePlayerSession() {
-        guard !didFinalizePlayerSession else { return }
-        didFinalizePlayerSession = true
-        let finalizer = onPermanentRemoval
-        onPermanentRemoval = nil
-        finalizer?()
     }
 
     private func applyPlayerPageBackground() {

@@ -90,7 +90,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
             smallestThumbnailURL
         )
         XCTAssertEqual(
-            MobilePlaybackController.shared.collectionBrowseImageDescriptor(
+            MobileCollectionBrowseMediaResolver.collectionBrowseImageDescriptor(
                 snapshot: snapshot,
                 tokenIndex: 0,
                 quality: .smallThumbnail
@@ -98,7 +98,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
             sources.smallThumbnailDescriptor
         )
         XCTAssertEqual(
-            MobilePlaybackController.shared.collectionBrowseImageDescriptor(
+            MobileCollectionBrowseMediaResolver.collectionBrowseImageDescriptor(
                 snapshot: snapshot,
                 tokenIndex: 0,
                 quality: .smallestThumbnail
@@ -140,7 +140,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
         }
 
         XCTAssertEqual(
-            MobilePlaybackController.shared.collectionBrowsePrefetchDescriptor(
+            MobileCollectionBrowseMediaResolver.collectionBrowsePrefetchDescriptor(
                 snapshot: snapshot,
                 tokenIndex: 0,
                 quality: .smallestThumbnail
@@ -156,7 +156,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
             for: sources.smallThumbnailDescriptor
         )
         XCTAssertNil(
-            MobilePlaybackController.shared.collectionBrowsePrefetchDescriptor(
+            MobileCollectionBrowseMediaResolver.collectionBrowsePrefetchDescriptor(
                 snapshot: snapshot,
                 tokenIndex: 0,
                 quality: .smallestThumbnail
@@ -171,7 +171,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
             for: sources.thumbnailDescriptor
         )
         XCTAssertNil(
-            MobilePlaybackController.shared.collectionBrowsePrefetchDescriptor(
+            MobileCollectionBrowseMediaResolver.collectionBrowsePrefetchDescriptor(
                 snapshot: snapshot,
                 tokenIndex: 0,
                 quality: .smallestThumbnail
@@ -211,7 +211,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
         )
 
         XCTAssertEqual(
-            MobilePlaybackController.collectionBrowseCompactCoverage(
+            MobileCollectionBrowseMediaResolver.collectionBrowseCompactCoverage(
                 imageSources: distinctSources,
                 centeredAt: 50,
                 direction: .forward,
@@ -227,7 +227,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
             )
         )
         XCTAssertEqual(
-            MobilePlaybackController.collectionBrowseCompactCoverage(
+            MobileCollectionBrowseMediaResolver.collectionBrowseCompactCoverage(
                 imageSources: distinctSources,
                 centeredAt: 50,
                 direction: .forward,
@@ -243,7 +243,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
             )
         )
         XCTAssertNil(
-            MobilePlaybackController.collectionBrowseCompactCoverage(
+            MobileCollectionBrowseMediaResolver.collectionBrowseCompactCoverage(
                 imageSources: fallbackSources,
                 centeredAt: 50,
                 direction: .forward,
@@ -255,7 +255,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
             )
         )
         XCTAssertNil(
-            MobilePlaybackController.collectionBrowseCompactCoverage(
+            MobileCollectionBrowseMediaResolver.collectionBrowseCompactCoverage(
                 imageSources: fallbackSources,
                 centeredAt: 50,
                 direction: .forward,
@@ -267,7 +267,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
             )
         )
         XCTAssertNil(
-            MobilePlaybackController.collectionBrowseCompactCoverage(
+            MobileCollectionBrowseMediaResolver.collectionBrowseCompactCoverage(
                 imageSources: distinctSources,
                 centeredAt: 50,
                 direction: .forward,
@@ -871,8 +871,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
             let baselineFixture = try makeFixture(collectionId: metadata.id)
             defer { tearDownFixture(baselineFixture) }
             let preparation = try XCTUnwrap(
-                MobilePlaybackController.shared.prepareCollectionBrowse(
-                    uuid: baselineFixture.uuid,
+                baselineFixture.session.prepareCollectionBrowse(
                     containing: focusedPagePosition
                 )
             )
@@ -893,8 +892,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
         let fixture = try makeFixture(collectionId: metadata.id)
         defer { tearDownFixture(fixture) }
         let preparation = try XCTUnwrap(
-            MobilePlaybackController.shared.prepareCollectionBrowse(
-                uuid: fixture.uuid,
+            fixture.session.prepareCollectionBrowse(
                 containing: focusedPagePosition
             )
         )
@@ -993,8 +991,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
             )
             defer { tearDownFixture(baselineFixture) }
             let preparation = try XCTUnwrap(
-                MobilePlaybackController.shared.prepareCollectionBrowse(
-                    uuid: baselineFixture.uuid,
+                baselineFixture.session.prepareCollectionBrowse(
                     containing: focusedPagePosition
                 )
             )
@@ -1017,8 +1014,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
         let fixture = try makeFixture(collectionId: metadata.id)
         defer { tearDownFixture(fixture) }
         let preparation = try XCTUnwrap(
-            MobilePlaybackController.shared.prepareCollectionBrowse(
-                uuid: fixture.uuid,
+            fixture.session.prepareCollectionBrowse(
                 containing: focusedPagePosition
             )
         )
@@ -1154,8 +1150,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
         let fixture = try makeFixture(collectionId: metadata.id)
         defer { tearDownFixture(fixture) }
         let preparation = try XCTUnwrap(
-            MobilePlaybackController.shared.prepareCollectionBrowse(
-                uuid: fixture.uuid,
+            fixture.session.prepareCollectionBrowse(
                 containing: PlayerPagePosition(position: tokenCount - 1)
             )
         )

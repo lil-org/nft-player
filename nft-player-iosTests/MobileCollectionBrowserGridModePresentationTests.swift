@@ -11,7 +11,7 @@ nonisolated final class MobileCollectionBrowserGridModePresentationTests:
 @MainActor
 extension MobileCollectionBrowserGridModePresentationTests {
 
-    final class PlaybackDisplay: MobilePlaybackControllerDisplay {
+    final class PlaybackDisplay: MobilePlaybackSessionDisplay {
         func navigate(_ direction: PlaybackNavigationDirection) {}
 
         func getCurrentPagePosition() -> PlayerPagePosition {
@@ -37,16 +37,19 @@ extension MobileCollectionBrowserGridModePresentationTests {
 
     @MainActor
     final class Fixture {
-        let uuid: UUID
+        let session: MobilePlaybackSession
+        let display: PlaybackDisplay
         let controller: VerticalCollectionBrowserViewController
         let window: UIWindow
 
         init(
-            uuid: UUID,
+            session: MobilePlaybackSession,
+            display: PlaybackDisplay,
             controller: VerticalCollectionBrowserViewController,
             window: UIWindow
         ) {
-            self.uuid = uuid
+            self.session = session
+            self.display = display
             self.controller = controller
             self.window = window
         }
@@ -104,24 +107,26 @@ extension MobileCollectionBrowserGridModePresentationTests {
         gridModeCommitSnapshotFactory: ((UIView) -> UIView?)? = nil
     ) throws -> Fixture {
         let uuid = UUID()
-        let display = PlaybackDisplay()
-        MobilePlaybackController.shared.subscribe(
+        let session = MobilePlaybackController.shared.startSession(
             config: MobilePlayerConfig(
                 id: uuid,
                 initialItemId: collectionId,
                 initialTokenIndex: 0
-            ),
-            display: display
+            )
         )
+        let display = PlaybackDisplay()
+        session.attach(display: display)
 
         let controller: VerticalCollectionBrowserViewController
         if let gridModeCommitSnapshotFactory {
             controller = VerticalCollectionBrowserViewController(
-                uuid: uuid,
+                playbackSession: session,
                 gridModeCommitSnapshotFactory: gridModeCommitSnapshotFactory
             )
         } else {
-            controller = VerticalCollectionBrowserViewController(uuid: uuid)
+            controller = VerticalCollectionBrowserViewController(
+                playbackSession: session
+            )
         }
         let foregroundScene = try XCTUnwrap(
             UIApplication.shared.connectedScenes
@@ -144,7 +149,12 @@ extension MobileCollectionBrowserGridModePresentationTests {
 
         XCTAssertEqual(controller.gridMode, .threeColumns)
         XCTAssertNotNil(controller.currentPagePosition)
-        return Fixture(uuid: uuid, controller: controller, window: window)
+        return Fixture(
+            session: session,
+            display: display,
+            controller: controller,
+            window: window
+        )
     }
 
     func tearDownFixture(_ fixture: Fixture) {
@@ -152,7 +162,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
         fixture.controller.setActive(false)
         fixture.window.isHidden = true
         fixture.window.rootViewController = nil
-        MobilePlaybackController.shared.stopAndDisconnect(uuid: fixture.uuid)
+        fixture.session.stopAndDisconnect()
     }
 
     func selectGridMode(

@@ -74,8 +74,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
         fixture.controller.scrollViewWillBeginDragging(collectionView)
         XCTAssertTrue(fixture.controller.isScrollMotionActiveForTesting)
         let preparation = try XCTUnwrap(
-            MobilePlaybackController.shared.prepareCollectionBrowse(
-                uuid: fixture.uuid,
+            fixture.session.prepareCollectionBrowse(
                 containing: PlayerPagePosition(position: 25)
             )
         )
@@ -106,8 +105,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
         )
         let pagePosition = try XCTUnwrap(fixture.controller.currentPagePosition)
         let preparation = try XCTUnwrap(
-            MobilePlaybackController.shared.prepareCollectionBrowse(
-                uuid: fixture.uuid,
+            fixture.session.prepareCollectionBrowse(
                 containing: pagePosition
             )
         )
@@ -734,8 +732,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
             specificCollectionId: metadata.id
         )
         let preparation = try XCTUnwrap(
-            MobilePlaybackController.shared.prepareCollectionBrowse(
-                uuid: fixture.uuid,
+            fixture.session.prepareCollectionBrowse(
                 containing: PlayerPagePosition(position: tokenCount - 1)
             )
         )
