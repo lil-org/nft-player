@@ -12,6 +12,120 @@ private final class SettlementAcceptance {
     var value = false
 }
 
+#if DEBUG
+@MainActor
+private final class GridModeContractPinchGestureRecognizer:
+    UIPinchGestureRecognizer {
+    var reportedState: UIGestureRecognizer.State = .possible
+    var reportedLocation = CGPoint.zero
+
+    override var state: UIGestureRecognizer.State {
+        get { reportedState }
+        set { reportedState = newValue }
+    }
+
+    override func location(in view: UIView?) -> CGPoint {
+        reportedLocation
+    }
+}
+
+@MainActor
+private final class GridModeContractState {
+    var browseSnapshot: PlayerCollectionBrowseSnapshot?
+    var layoutAspectState: MobilePlayerCollectionBrowserLayoutAspectState
+    var focusedTokenIndex: Int?
+
+    init(
+        browseSnapshot: PlayerCollectionBrowseSnapshot,
+        layoutAspectState: MobilePlayerCollectionBrowserLayoutAspectState
+    ) {
+        self.browseSnapshot = browseSnapshot
+        self.layoutAspectState = layoutAspectState
+        focusedTokenIndex = browseSnapshot.initialTokenIndex
+    }
+}
+
+@MainActor
+private final class GridModeContractDataSource: NSObject,
+    UICollectionViewDataSource {
+    private let collectionId: String
+    private let itemCount: Int
+
+    init(collectionId: String, itemCount: Int) {
+        self.collectionId = collectionId
+        self.itemCount = itemCount
+    }
+
+    func collectionView(
+        _ collectionView: UICollectionView,
+        numberOfItemsInSection section: Int
+    ) -> Int {
+        itemCount
+    }
+
+    func collectionView(
+        _ collectionView: UICollectionView,
+        cellForItemAt indexPath: IndexPath
+    ) -> UICollectionViewCell {
+        let cell = collectionView.dequeueReusableCell(
+            withReuseIdentifier: "grid-mode-contract",
+            for: indexPath
+        ) as! MobilePlayerCollectionBrowserCell
+        cell.configure(
+            contentIdentity: MobilePlayerBrowserContentIdentity(
+                collectionId: collectionId,
+                tokenIndex: indexPath.item
+            ),
+            itemCount: itemCount,
+            imageSources: nil,
+            requiredImageQuality: .thumbnail,
+            missingDescriptorFallbackSpec: PlayerMediaPlaceholderSpec(
+                thumbnailAspectRatio: nil
+            ),
+            imageLoadPolicy: .disabled
+        )
+        return cell
+    }
+}
+
+@MainActor
+private final class GridModeContractScrollDelegate: NSObject,
+    UICollectionViewDelegate {
+    weak var coordinator: MobilePlayerCollectionBrowserGridModeCoordinator?
+    var lifecycleStates = [
+        MobilePlayerCollectionBrowserGridModeCoordinator
+            .LifecycleStateForTesting
+    ]()
+
+    func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        guard let coordinator else { return }
+        lifecycleStates.append(coordinator.lifecycleStateForTesting)
+    }
+}
+
+@MainActor
+private struct GridModeCoordinatorContractFixture {
+    let coordinator: MobilePlayerCollectionBrowserGridModeCoordinator
+    let collectionView: MobilePlayerCollectionBrowserCollectionView
+    let viewportView: UIView
+    let collectionLayout: MobilePlayerCollectionBrowserLayout
+    let scrollCoordinator: MobilePlayerCollectionBrowserScrollCoordinator
+    let imagePipeline: MobilePlayerCollectionBrowserImagePipeline
+    let state: GridModeContractState
+    let dataSource: GridModeContractDataSource
+    let hostViewController: UIViewController
+    let window: UIWindow
+
+    func tearDown() {
+        coordinator.invalidate()
+        imagePipeline.invalidate()
+        scrollCoordinator.invalidate()
+        window.isHidden = true
+        window.rootViewController = nil
+    }
+}
+#endif
+
 @MainActor
 extension MobilePlayerCollectionBrowserCoordinatorContractTests {
     private func makeImageContentAccess(
@@ -57,6 +171,291 @@ extension MobilePlayerCollectionBrowserCoordinatorContractTests {
             scrollMotionAnimationDidExpire: scrollMotionAnimationDidExpire
         )
     }
+
+#if DEBUG
+    private func makeGridModeAspectProfile(
+        snapshot: PlayerCollectionBrowseSnapshot,
+        columnCount: Int,
+        profile: ThumbnailAspectRatioProfile
+    ) -> MobilePlayerBrowserAspectProfile {
+        switch profile {
+        case let .uniform(aspectRatio):
+            return MobilePlayerBrowserAspectProfile(
+                itemCount: snapshot.itemCount,
+                uniformImageSize: aspectRatio.size,
+                columnCount: columnCount
+            )
+        case let .variable(aspectRatios):
+            return MobilePlayerBrowserAspectProfile(
+                heightToWidthRatios: aspectRatios.map {
+                    CGFloat($0.height) / CGFloat($0.width)
+                },
+                columnCount: columnCount
+            )
+        }
+    }
+
+    private func makeGridModeCoordinatorFixture() throws
+        -> GridModeCoordinatorContractFixture {
+        let collectionId = try XCTUnwrap(
+            SuggestedItemsService.visibleItems.first {
+                $0.internalSlug == "in_your_dreams"
+            }?.id
+        )
+        let itemCount = CollectionCatalog.tokenCount(
+            specificCollectionId: collectionId
+        )
+        let snapshot = PlayerCollectionBrowseSnapshot(
+            collectionId: collectionId,
+            itemCount: itemCount,
+            initialTokenIndex: 0
+        )
+        let thumbnailProfile = try XCTUnwrap(
+            MobileCollectionBrowseMediaResolver
+                .collectionBrowseThumbnailAspectRatioProfile(
+                    snapshot: snapshot
+                )
+        )
+        let viewportSize = CGSize(width: 390, height: 844)
+        let currentAspectProfile = makeGridModeAspectProfile(
+            snapshot: snapshot,
+            columnCount: MobileCollectionBrowserGridMode.defaultMode
+                .columnCount,
+            profile: thumbnailProfile
+        )
+        let currentLayout = try XCTUnwrap(MobilePlayerBrowserLayout(
+            viewportSize: viewportSize,
+            displayScale: 3,
+            aspectProfile: currentAspectProfile
+        ))
+        let collectionLayout = MobilePlayerCollectionBrowserLayout()
+        collectionLayout.browserLayout = currentLayout
+        let collectionView = MobilePlayerCollectionBrowserCollectionView(
+            frame: CGRect(origin: .zero, size: viewportSize),
+            collectionViewLayout: collectionLayout
+        )
+        collectionView.register(
+            MobilePlayerCollectionBrowserCell.self,
+            forCellWithReuseIdentifier: "grid-mode-contract"
+        )
+        let dataSource = GridModeContractDataSource(
+            collectionId: collectionId,
+            itemCount: itemCount
+        )
+        collectionView.dataSource = dataSource
+
+        let hostViewController = UIViewController()
+        hostViewController.view.frame = CGRect(
+            origin: .zero,
+            size: viewportSize
+        )
+        hostViewController.view.addSubview(collectionView)
+        let foregroundScene = try XCTUnwrap(
+            UIApplication.shared.connectedScenes
+                .compactMap { $0 as? UIWindowScene }
+                .first { $0.activationState == .foregroundActive }
+        )
+        let window = UIWindow(windowScene: foregroundScene)
+        window.frame = CGRect(origin: .zero, size: viewportSize)
+        window.rootViewController = hostViewController
+        window.isHidden = false
+        window.layoutIfNeeded()
+        collectionView.reloadData()
+        collectionView.layoutIfNeeded()
+
+        let state = GridModeContractState(
+            browseSnapshot: snapshot,
+            layoutAspectState: .init(
+                aspectProfile: currentAspectProfile,
+                fallbackSpec: PlayerMediaPlaceholderSpec(
+                    thumbnailAspectRatio: nil
+                )
+            )
+        )
+        let scrollCoordinator =
+            MobilePlayerCollectionBrowserScrollCoordinator()
+        scrollCoordinator.configure(contentAccess: makeScrollContentAccess())
+        scrollCoordinator.setActive(true)
+        scrollCoordinator.hasFinishedInitialPositioning = true
+        scrollCoordinator.focusedTokenIndex = snapshot.initialTokenIndex
+        scrollCoordinator.lastScrollOffsetY = collectionView.contentOffset.y
+        let imagePipeline = MobilePlayerCollectionBrowserImagePipeline()
+        imagePipeline.configure(contentAccess: makeImageContentAccess())
+        imagePipeline.setActive(true)
+        imagePipeline.setVisible(true)
+        let coordinator = MobilePlayerCollectionBrowserGridModeCoordinator(
+            commitSnapshotFactory: { view in
+                UIView(frame: view.bounds)
+            }
+        )
+        coordinator.configure(
+            collectionView: collectionView,
+            viewportView: hostViewController.view,
+            collectionLayout: collectionLayout,
+            scrollCoordinator: scrollCoordinator,
+            imagePipeline: imagePipeline,
+            rendererContentAccess: .init(
+                configureCell: { cell, indexPath, configuration in
+                    cell.configure(
+                        contentIdentity: MobilePlayerBrowserContentIdentity(
+                            collectionId: collectionId,
+                            tokenIndex: indexPath.item
+                        ),
+                        itemCount: itemCount,
+                        imageSources: nil,
+                        requiredImageQuality:
+                            configuration.requiredImageQuality ?? .thumbnail,
+                        missingDescriptorFallbackSpec:
+                            PlayerMediaPlaceholderSpec(
+                                thumbnailAspectRatio: nil
+                            ),
+                        imageLoadPolicy: configuration.imageLoadPolicy,
+                        allowsLocalLargeImageUpgrade:
+                            configuration.allowsLocalLargeImageUpgrade
+                    )
+                },
+                contentIdentity: {
+                    guard (0..<itemCount).contains($0) else { return nil }
+                    return MobilePlayerBrowserContentIdentity(
+                        collectionId: collectionId,
+                        tokenIndex: $0
+                    )
+                },
+                imageSources: { _ in nil }
+            ),
+            currentState: {
+                .init(
+                    browseSnapshot: state.browseSnapshot,
+                    layoutAspectState: state.layoutAspectState,
+                    isActive: true,
+                    isViewVisible: true,
+                    isApplyingPosition:
+                        scrollCoordinator.isApplyingPosition,
+                    hasFinishedInitialPositioning: true,
+                    focusedTokenIndex: state.focusedTokenIndex,
+                    forcedFocusedTokenIndex: nil,
+                    isScrollMotionActive:
+                        scrollCoordinator.isScrollMotionActive,
+                    needsWindowSafeAreaRefresh: false,
+                    hasPreparedTransition: false,
+                    currentLayoutDisplayScale: 3,
+                    layoutWindowSafeAreaInsets: .zero
+                )
+            },
+            layoutOperations: .init(
+                makeLayoutAspectState: {
+                    updatedSnapshot, columnCount, _, profile in
+                    let aspectProfile = self.makeGridModeAspectProfile(
+                        snapshot: updatedSnapshot,
+                        columnCount: columnCount,
+                        profile: profile ?? thumbnailProfile
+                    )
+                    return .init(
+                        aspectProfile: aspectProfile,
+                        fallbackSpec: PlayerMediaPlaceholderSpec(
+                            thumbnailAspectRatio: nil
+                        )
+                    )
+                },
+                makeLayoutFallbackSpec: { _, _ in
+                    PlayerMediaPlaceholderSpec(thumbnailAspectRatio: nil)
+                },
+                makeLayoutAspectProfile: {
+                    updatedSnapshot, columnCount, profile in
+                    self.makeGridModeAspectProfile(
+                        snapshot: updatedSnapshot,
+                        columnCount: columnCount,
+                        profile: profile
+                    )
+                },
+                makeBrowserLayout: { profile in
+                    MobilePlayerBrowserLayout(
+                        viewportSize: viewportSize,
+                        displayScale: 3,
+                        aspectProfile: profile
+                    )
+                },
+                installCollectionLayout: { layout in
+                    collectionLayout.browserLayout = layout
+                },
+                centerContent: { tokenIndex in
+                    guard let itemFrame = collectionLayout.browserLayout?
+                        .itemFrame(at: tokenIndex) else {
+                        return
+                    }
+                    let maximumOffsetY = max(
+                        0,
+                        collectionView.contentSize.height
+                            - collectionView.bounds.height
+                    )
+                    collectionView.setContentOffsetWithoutResolution(CGPoint(
+                        x: 0,
+                        y: min(
+                            max(itemFrame.midY - viewportSize.height / 2, 0),
+                            maximumOffsetY
+                        )
+                    ))
+                },
+                currentAnchorTokenIndex: {
+                    state.focusedTokenIndex
+                },
+                currentFocalPoint: {
+                    CGPoint(
+                        x: viewportSize.width / 2,
+                        y: viewportSize.height / 2
+                    )
+                },
+                retainFocusedTokenIndex: {
+                    state.focusedTokenIndex = $0
+                }
+            ),
+            browserEffects: .init(
+                setBrowseSnapshot: { state.browseSnapshot = $0 },
+                setLayoutAspectState: { state.layoutAspectState = $0 },
+                updateLayoutAspectProfile: {
+                    updatedSnapshot, _, columnCount in
+                    guard let updatedSnapshot else { return }
+                    state.layoutAspectState = .init(
+                        aspectProfile: self.makeGridModeAspectProfile(
+                            snapshot: updatedSnapshot,
+                            columnCount: columnCount,
+                            profile: thumbnailProfile
+                        ),
+                        fallbackSpec: PlayerMediaPlaceholderSpec(
+                            thumbnailAspectRatio: nil
+                        )
+                    )
+                },
+                configureCollectionLayout: {
+                    collectionLayout.browserLayout =
+                        MobilePlayerBrowserLayout(
+                            viewportSize: viewportSize,
+                            displayScale: 3,
+                            aspectProfile:
+                                state.layoutAspectState.aspectProfile
+                        )
+                },
+                endScrollMotionAndResetDragState: {},
+                settleCurrentPosition: {},
+                settleAfterApplyingPendingWindowSafeAreaRefresh: {},
+                reloadVisibleCells: {},
+                browseImageSources: { _ in nil }
+            )
+        )
+        return GridModeCoordinatorContractFixture(
+            coordinator: coordinator,
+            collectionView: collectionView,
+            viewportView: hostViewController.view,
+            collectionLayout: collectionLayout,
+            scrollCoordinator: scrollCoordinator,
+            imagePipeline: imagePipeline,
+            state: state,
+            dataSource: dataSource,
+            hostViewController: hostViewController,
+            window: window
+        )
+    }
+#endif
 
     func testImagePipelineSnapshotRestoreRoundTripsAllSnapshotState() throws {
         let pipeline = MobilePlayerCollectionBrowserImagePipeline()
@@ -162,6 +561,216 @@ extension MobilePlayerCollectionBrowserCoordinatorContractTests {
         XCTAssertEqual(
             pipeline.drainDenseGridImageDisplayLinkFrameForTesting(),
             0
+        )
+    }
+#endif
+
+#if DEBUG
+    func testGridModeCoordinatorInvalidationCancelsPrewarmAndRejectsWork()
+        throws {
+        let fixture = try makeGridModeCoordinatorFixture()
+        defer { fixture.tearDown() }
+        let coordinator = fixture.coordinator
+
+        XCTAssertTrue(
+            coordinator.lifecycleStateForTesting.isPinchRecognizerAttached
+        )
+        coordinator.scheduleGeometryPrewarmIfPossible()
+        XCTAssertTrue(
+            coordinator.lifecycleStateForTesting.hasPendingGeometryPrewarm
+        )
+
+        coordinator.invalidate()
+        coordinator.invalidate()
+        coordinator.scheduleGeometryPrewarmIfPossible()
+        coordinator.resetGeometryState()
+        coordinator.discardTransitionCover()
+
+        let state = coordinator.lifecycleStateForTesting
+        XCTAssertTrue(state.isInvalidated)
+        XCTAssertFalse(state.hasPendingPinchFrame)
+        XCTAssertFalse(state.hasPendingGeometryPrewarm)
+        XCTAssertFalse(state.isSettleDisplayLinkActive)
+        XCTAssertFalse(state.isInteractionFadeDisplayLinkActive)
+        XCTAssertFalse(state.hasCommitSnapshot)
+        XCTAssertFalse(state.isRendererActive)
+        XCTAssertFalse(state.isPinchRecognizerAttached)
+        XCTAssertFalse(state.isDrainingEffects)
+        XCTAssertFalse(state.isRestoringContentOffset)
+        XCTAssertFalse(coordinator.setGridMode(.fiveColumns))
+    }
+
+    func testGridModeCoordinatorInvalidationCancelsPendingPinchFrame()
+        async throws {
+        let fixture = try makeGridModeCoordinatorFixture()
+        defer { fixture.tearDown() }
+        let coordinator = fixture.coordinator
+        let recognizer = GridModeContractPinchGestureRecognizer()
+        recognizer.reportedLocation = CGPoint(
+            x: fixture.viewportView.bounds.midX,
+            y: fixture.viewportView.bounds.midY
+        )
+        recognizer.reportedState = .began
+        recognizer.scale = 1
+        coordinator.handleGridModePinchForTesting(recognizer)
+        recognizer.reportedState = .changed
+        recognizer.scale = 1.2
+        coordinator.handleGridModePinchForTesting(recognizer)
+
+        XCTAssertTrue(
+            coordinator.lifecycleStateForTesting.hasPendingPinchFrame
+        )
+
+        coordinator.invalidate()
+        coordinator.handleGridModePinchForTesting(recognizer)
+        await Task.yield()
+        await Task.yield()
+
+        let state = coordinator.lifecycleStateForTesting
+        XCTAssertTrue(state.isInvalidated)
+        XCTAssertFalse(state.hasPendingPinchFrame)
+        XCTAssertFalse(state.isRendererActive)
+        XCTAssertFalse(state.isPinchRecognizerAttached)
+    }
+
+    func testGridModeCoordinatorInvalidationStopsSettleAndRestoresPanLimit()
+        throws {
+        try XCTSkipIf(UIAccessibility.isReduceMotionEnabled)
+        let fixture = try makeGridModeCoordinatorFixture()
+        defer { fixture.tearDown() }
+        let coordinator = fixture.coordinator
+        let panGestureRecognizer = fixture.collectionView
+            .panGestureRecognizer
+        panGestureRecognizer.maximumNumberOfTouches = 4
+
+        XCTAssertTrue(coordinator.setGridMode(.fiveColumns))
+        let settlingState = coordinator.lifecycleStateForTesting
+        XCTAssertTrue(settlingState.isSettleDisplayLinkActive)
+        XCTAssertTrue(settlingState.isRendererActive)
+        XCTAssertEqual(panGestureRecognizer.maximumNumberOfTouches, 1)
+
+        coordinator.invalidate()
+        coordinator.invalidate()
+
+        let invalidatedState = coordinator.lifecycleStateForTesting
+        XCTAssertFalse(invalidatedState.isSettleDisplayLinkActive)
+        XCTAssertFalse(invalidatedState.isInteractionFadeDisplayLinkActive)
+        XCTAssertFalse(invalidatedState.isRendererActive)
+        XCTAssertEqual(panGestureRecognizer.maximumNumberOfTouches, 4)
+        XCTAssertFalse(coordinator.hasInteractionState)
+        XCTAssertFalse(fixture.scrollCoordinator.isApplyingPosition)
+        XCTAssertTrue(fixture.collectionView.isPrefetchingEnabled)
+        XCTAssertTrue(fixture.collectionView.clipsToBounds)
+        XCTAssertTrue(fixture.collectionView.isScrollEnabled)
+    }
+
+    func testGridModeCoordinatorInvalidationStopsInteractionFadeDisplayLink()
+        throws {
+        try XCTSkipIf(UIAccessibility.isReduceMotionEnabled)
+        let fixture = try makeGridModeCoordinatorFixture()
+        defer { fixture.tearDown() }
+        let coordinator = fixture.coordinator
+        let recognizer = GridModeContractPinchGestureRecognizer()
+        recognizer.reportedLocation = CGPoint(
+            x: fixture.viewportView.bounds.midX,
+            y: fixture.viewportView.bounds.midY
+        )
+
+        XCTAssertTrue(coordinator.setGridMode(.fiveColumns))
+        recognizer.reportedState = .began
+        recognizer.scale = 1
+        coordinator.handleGridModePinchForTesting(recognizer)
+        let interactionState = coordinator.lifecycleStateForTesting
+        XCTAssertFalse(interactionState.isSettleDisplayLinkActive)
+        XCTAssertTrue(interactionState.isInteractionFadeDisplayLinkActive)
+        XCTAssertTrue(interactionState.isRendererActive)
+
+        coordinator.invalidate()
+
+        let invalidatedState = coordinator.lifecycleStateForTesting
+        XCTAssertFalse(invalidatedState.isInteractionFadeDisplayLinkActive)
+        XCTAssertFalse(invalidatedState.isRendererActive)
+    }
+
+    func testGridModeCoordinatorInvalidationRemovesCommitSnapshot() throws {
+        try XCTSkipIf(UIAccessibility.isReduceMotionEnabled)
+        let fixture = try makeGridModeCoordinatorFixture()
+        defer { fixture.tearDown() }
+        let coordinator = fixture.coordinator
+
+        XCTAssertTrue(coordinator.setGridMode(.fiveColumns))
+        XCTAssertTrue(coordinator.finalizeInterruptibleSettle())
+        XCTAssertTrue(coordinator.lifecycleStateForTesting.hasCommitSnapshot)
+        let snapshot = try XCTUnwrap(
+            fixture.viewportView.subviews.first {
+                $0 !== fixture.collectionView
+            }
+        )
+
+        coordinator.invalidate()
+
+        XCTAssertFalse(
+            coordinator.lifecycleStateForTesting.hasCommitSnapshot
+        )
+        XCTAssertNil(snapshot.superview)
+    }
+
+    func testGridModeCoordinatorMarksEffectDrainBeforeSynchronousReentry()
+        throws {
+        try XCTSkipIf(UIAccessibility.isReduceMotionEnabled)
+        let fixture = try makeGridModeCoordinatorFixture()
+        defer { fixture.tearDown() }
+        let coordinator = fixture.coordinator
+        var callbackStates = [
+            MobilePlayerCollectionBrowserGridModeCoordinator
+                .LifecycleStateForTesting
+        ]()
+        fixture.collectionView.contentOffsetTarget = {
+            requestedContentOffset, _ in
+            callbackStates.append(coordinator.lifecycleStateForTesting)
+            _ = coordinator.observeScrollDuringGridMode(
+                fixture.collectionView
+            )
+            return (requestedContentOffset, false)
+        }
+
+        XCTAssertTrue(coordinator.setGridMode(.fiveColumns))
+
+        XCTAssertFalse(callbackStates.isEmpty)
+        XCTAssertTrue(callbackStates.allSatisfy(\.isDrainingEffects))
+        XCTAssertFalse(
+            coordinator.lifecycleStateForTesting.isDrainingEffects
+        )
+    }
+
+    func testGridModeCoordinatorMarksContentOffsetRestorationBeforeCallbacks()
+        throws {
+        try XCTSkipIf(UIAccessibility.isReduceMotionEnabled)
+        let fixture = try makeGridModeCoordinatorFixture()
+        defer { fixture.tearDown() }
+        let coordinator = fixture.coordinator
+
+        XCTAssertTrue(coordinator.setGridMode(.fiveColumns))
+        fixture.collectionView.setContentOffsetWithoutResolution(CGPoint(
+            x: 0,
+            y: fixture.collectionView.contentOffset.y + 40
+        ))
+        let delegate = GridModeContractScrollDelegate()
+        delegate.coordinator = coordinator
+        fixture.collectionView.delegate = delegate
+
+        let observation = coordinator.observeScrollDuringGridMode(
+            fixture.collectionView
+        )
+
+        XCTAssertTrue(observation.shouldContinue)
+        XCTAssertTrue(observation.settlesAfterImmediateOffset)
+        XCTAssertFalse(delegate.lifecycleStates.isEmpty)
+        XCTAssertTrue(
+            delegate.lifecycleStates.allSatisfy(\.isRestoringContentOffset)
+        )
+        XCTAssertFalse(
+            coordinator.lifecycleStateForTesting.isRestoringContentOffset
         )
     }
 #endif

@@ -220,9 +220,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
         _ recognizer: UIPinchGestureRecognizer,
         to controller: VerticalCollectionBrowserViewController
     ) {
-        let selector = NSSelectorFromString("handleGridModePinch:")
-        XCTAssertTrue(controller.responds(to: selector))
-        controller.perform(selector, with: recognizer)
+        controller.handleGridModePinchForTesting(recognizer)
     }
 
     func skipIfReduceMotionEnabled() throws {

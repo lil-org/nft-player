@@ -12,8 +12,7 @@ enum MobilePlayerCollectionBrowserDisplayPreparationResult: Equatable {
 final class VerticalCollectionBrowserViewController: UIViewController,
     UICollectionViewDataSource,
     UICollectionViewDelegate,
-    UICollectionViewDataSourcePrefetching,
-    UIGestureRecognizerDelegate {
+    UICollectionViewDataSourcePrefetching {
 
     private struct PreparedTransition {
         let preparation: PlayerCollectionBrowsePreparation
@@ -101,7 +100,8 @@ final class VerticalCollectionBrowserViewController: UIViewController,
                 )
             }
             let wasScrollMotionActive = self.isScrollMotionActive
-            let interrupted = self.finalizeInterruptibleGridModeSettle()
+            let interrupted = self.gridModeCoordinator
+                .finalizeInterruptibleSettle()
             self.beginScrollMotion()
             return .init(
                 interruptedGridModeSettle: interrupted,
@@ -112,27 +112,28 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             [weak self] succeeded, attempt in
             guard let self else { return }
             if succeeded {
-                self.removeGridModeCommitSnapshot()
+                self.gridModeCoordinator.discardTransitionCover()
                 self.scheduleScrollMotionAnimationTimeout()
                 return
             }
             if !attempt.wasScrollMotionActive {
                 self.endScrollMotion()
                 self.resumeVisibleBrowserImageLoadsIfNeeded()
-                self.scheduleGridModeGeometryPrewarmIfPossible()
+                self.gridModeCoordinator.scheduleGeometryPrewarmIfPossible()
             }
             if attempt.interruptedGridModeSettle {
-                self.settleAfterImmediateGridModeOffsetIfPossible()
+                self.gridModeCoordinator
+                    .settleAfterImmediateOffsetIfPossible()
             }
         }
         collectionView.contentOffsetTarget = { [weak self] requestedContentOffset, animated in
-            self?.gridModeContentOffsetTarget(
+            self?.gridModeCoordinator.contentOffsetTarget(
                 for: requestedContentOffset,
                 animated: animated
             ) ?? (requestedContentOffset, false)
         }
         collectionView.onDidApplyImmediateContentOffset = { [weak self] in
-            self?.settleAfterImmediateGridModeOffsetIfPossible()
+            self?.gridModeCoordinator.settleAfterImmediateOffsetIfPossible()
         }
         return collectionView
     }()
@@ -208,59 +209,6 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     )
     private var layoutWindowSafeAreaInsets = UIEdgeInsets.zero
     private var hasCapturedLayoutWindowSafeAreaInsets = false
-    private var gridModeInteractionCoordinator:
-        PlayerBrowserGridInteractionCoordinator {
-        get { gridModeCoordinator.interactionCoordinator }
-        set { gridModeCoordinator.interactionCoordinator = newValue }
-    }
-    private var gridModeEffectDrainDepth: Int {
-        get { gridModeCoordinator.effectDrainDepth }
-        set { gridModeCoordinator.effectDrainDepth = newValue }
-    }
-    private var gridModeContentOffsetRestorationDepth: Int {
-        get { gridModeCoordinator.contentOffsetRestorationDepth }
-        set { gridModeCoordinator.contentOffsetRestorationDepth = newValue }
-    }
-    private var gridModeCommitSnapshotView: UIView? {
-        gridModeCoordinator.commitSnapshotView
-    }
-    private var gridModeCommitSnapshotContentOffset: CGPoint? {
-        get { gridModeCoordinator.commitSnapshotContentOffset }
-        set { gridModeCoordinator.commitSnapshotContentOffset = newValue }
-    }
-    private var gridModeSettleContentOffsetY: CGFloat? {
-        gridModeCoordinator.settleContentOffsetY
-    }
-    private var gridModeGeometryCache: GridModeGeometryCache? {
-        get { gridModeCoordinator.geometryCache }
-        set { gridModeCoordinator.geometryCache = newValue }
-    }
-    private var gridModeGeometryPrewarmPlan: GridModeGeometryPrewarmPlan? {
-        get { gridModeCoordinator.geometryPrewarmPlan }
-        set { gridModeCoordinator.geometryPrewarmPlan = newValue }
-    }
-    private var gridModeDestinationCache: [
-        MobileCollectionBrowserGridMode: CachedGridModeDestination
-    ] {
-        get { gridModeCoordinator.destinationCache }
-        set { gridModeCoordinator.destinationCache = newValue }
-    }
-    private var gridModePinchRecognizer: UIPinchGestureRecognizer {
-        gridModeCoordinator.pinchRecognizer
-    }
-    private var lastGridModePinchViewLocation: CGPoint? {
-        get { gridModeCoordinator.lastPinchViewLocation }
-        set { gridModeCoordinator.lastPinchViewLocation = newValue }
-    }
-    private var gridModePinchFrameCoalescer: GridModePinchFrameCoalescer {
-        gridModeCoordinator.pinchFrameCoalescer
-    }
-    private var gridModeGeometryPrewarmUpdate: PendingMainQueueUpdate {
-        gridModeCoordinator.geometryPrewarmUpdate
-    }
-    private var gridModeRenderer: MobilePlayerCollectionBrowserGridRenderer {
-        gridModeCoordinator.renderer
-    }
 
     private var configuredColumnCount: Int {
         browserCollectionLayout.browserLayout?.columnCount ?? 0
@@ -303,7 +251,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
                 self?.visibleBrowserCells ?? []
             },
             viewportRenderCells: { [weak self] in
-                self?.gridModeRenderer.viewportRenderCells ?? []
+                self?.gridModeCoordinator.viewportRenderCells ?? []
             },
             requiredImageQuality: { [weak self] in
                 self?.requiredImageQuality ?? .large
@@ -312,7 +260,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
                 self?.gridMode.columnCount ?? 0
             },
             isRendererActive: { [weak self] in
-                self?.gridModeRenderer.isActive == true
+                self?.gridModeCoordinator.isRendererActive == true
             },
             isApplyingPosition: { [weak self] in
                 self?.isApplyingPosition == true
@@ -377,9 +325,9 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         gridModeCoordinator.configure(
             collectionView: collectionView,
             viewportView: view,
-            gestureTarget: self,
-            gestureAction: #selector(handleGridModePinch(_:)),
-            gestureDelegate: self,
+            collectionLayout: browserCollectionLayout,
+            scrollCoordinator: scrollCoordinator,
+            imagePipeline: imagePipeline,
             rendererContentAccess: .init(
                 configureCell: { [weak self] cell, indexPath, configuration in
                     self?.configureBrowserCell(
@@ -399,22 +347,105 @@ final class VerticalCollectionBrowserViewController: UIViewController,
                     self?.browseImageSources(forTokenIndex: $0)
                 }
             ),
-            contentAccess: .init(
-                applyPinchFrame: { [weak self] frame in
-                    self?.applyGridModePinchFrame(frame)
+            currentState: { [unowned self] in
+                .init(
+                    browseSnapshot: browseSnapshot,
+                    layoutAspectState: layoutAspectState,
+                    isActive: isActive,
+                    isViewVisible: isViewVisible,
+                    isApplyingPosition: isApplyingPosition,
+                    hasFinishedInitialPositioning:
+                        hasFinishedInitialPositioning,
+                    focusedTokenIndex: focusedTokenIndex,
+                    forcedFocusedTokenIndex: forcedFocusedTokenIndex,
+                    isScrollMotionActive: isScrollMotionActive,
+                    needsWindowSafeAreaRefresh:
+                        needsWindowSafeAreaRefresh,
+                    hasPreparedTransition: preparedTransition != nil,
+                    currentLayoutDisplayScale: currentLayoutDisplayScale,
+                    layoutWindowSafeAreaInsets:
+                        layoutWindowSafeAreaInsets
+                )
+            },
+            layoutOperations: .init(
+                makeLayoutAspectState: {
+                    [unowned self] snapshot, columnCount,
+                    focusedTokenIndex, aspectRatioProfile in
+                    makeLayoutAspectState(
+                        snapshot: snapshot,
+                        columnCount: columnCount,
+                        focusedTokenIndex: focusedTokenIndex,
+                        aspectRatioProfile: aspectRatioProfile
+                    )
                 },
-                prewarmNextGeometry: { [weak self] in
-                    self?.prewarmNextGridModeGeometry()
+                makeLayoutFallbackSpec: {
+                    [unowned self] snapshot, focusedTokenIndex in
+                    makeLayoutFallbackSpec(
+                        snapshot: snapshot,
+                        focusedTokenIndex: focusedTokenIndex
+                    )
                 },
-                settleTick: { [weak self] in
-                    self?.advanceGridModeInteractionTick(.settleTick(
-                        timestamp: CACurrentMediaTime()
-                    ))
+                makeLayoutAspectProfile: {
+                    [unowned self] snapshot, columnCount,
+                    aspectRatioProfile in
+                    makeLayoutAspectProfile(
+                        snapshot: snapshot,
+                        columnCount: columnCount,
+                        aspectRatioProfile: aspectRatioProfile
+                    )
                 },
-                interactionFadeTick: { [weak self] in
-                    self?.advanceGridModeInteractionTick(.interactionFadeTick(
-                        timestamp: CACurrentMediaTime()
-                    ))
+                makeBrowserLayout: { [unowned self] aspectProfile in
+                    makeBrowserLayout(aspectProfile: aspectProfile)
+                },
+                installCollectionLayout: { [unowned self] layout in
+                    installCollectionLayout(layout)
+                },
+                centerContent: { [unowned self] tokenIndex in
+                    centerContent(on: tokenIndex)
+                },
+                currentAnchorTokenIndex: { [unowned self] in
+                    currentAnchorTokenIndex()
+                },
+                currentFocalPoint: { [unowned self] in
+                    currentFocalPoint()
+                },
+                retainFocusedTokenIndex: { [unowned self] tokenIndex in
+                    retainFocusedTokenIndex(tokenIndex)
+                }
+            ),
+            browserEffects: .init(
+                setBrowseSnapshot: { [weak self] snapshot in
+                    self?.browseSnapshot = snapshot
+                },
+                setLayoutAspectState: { [weak self] state in
+                    self?.layoutAspectState = state
+                },
+                updateLayoutAspectProfile: {
+                    [weak self] snapshot, focusedTokenIndex, columnCount in
+                    self?.updateLayoutAspectProfile(
+                        snapshot: snapshot,
+                        focusedTokenIndex: focusedTokenIndex,
+                        columnCount: columnCount
+                    )
+                },
+                configureCollectionLayout: { [weak self] in
+                    self?.configureCollectionLayout()
+                },
+                endScrollMotionAndResetDragState: { [weak self] in
+                    self?.endScrollMotionAndResetDragState()
+                },
+                settleCurrentPosition: { [weak self] in
+                    self?.settleCurrentPosition()
+                },
+                settleAfterApplyingPendingWindowSafeAreaRefresh: {
+                    [weak self] in
+                    self?.settleAfterApplyingPendingWindowSafeAreaRefresh()
+                },
+                reloadVisibleCells: { [weak self] in
+                    self?.reloadVisibleCells()
+                },
+                browseImageSources: { [weak self] tokenIndex in
+                    self?.browseImageSources(forTokenIndex: tokenIndex)
                 }
             )
         )
@@ -452,7 +483,6 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             collectionView.trailingAnchor.constraint(equalTo: view.trailingAnchor)
         ])
         configureGridModeCoordinator()
-        view.addGestureRecognizer(gridModePinchRecognizer)
 
         reloadBrowseSnapshot(resetPublicationState: true)
         NotificationCenter.default.addObserver(
@@ -481,10 +511,10 @@ final class VerticalCollectionBrowserViewController: UIViewController,
               windowScene === currentWindowScene else {
             return
         }
-        finalizeGridModeInteractionIfNeeded()
+        gridModeCoordinator.interruptInteractionIfNeeded()
         endScrollMotionAndResetDragState()
         flushSettledPosition()
-        cancelGridModeGeometryPrewarming()
+        gridModeCoordinator.cancelGeometryPrewarming()
     }
 
     @objc private func sceneDidActivate(_ notification: Notification) {
@@ -494,7 +524,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             return
         }
         resumeVisibleBrowserImageLoadsIfNeeded()
-        scheduleGridModeGeometryPrewarmIfPossible()
+        gridModeCoordinator.scheduleGeometryPrewarmIfPossible()
     }
 
     @objc private func downloadableMediaCacheFileAvailabilityDidChange(
@@ -515,21 +545,15 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             state: currentWindowSafeAreaState,
             sizeChanged: sizeChanged
         )
-        var interruptedGridModeAnchorTokenIndex: Int?
-        if hasGridModeInteractionState,
-           sizeChanged || displayScaleChanged
-               || windowSafeAreaLayoutUpdate.requiresLayoutRefresh {
-            interruptedGridModeAnchorTokenIndex =
-                gridModeRenderer.anchorTokenIndex
-            finalizeGridModeInteractionIfNeeded()
-            guard !hasGridModeInteractionState else {
-                view.setNeedsLayout()
-                return
-            }
-        }
-        if sizeChanged || displayScaleChanged
-            || windowSafeAreaLayoutUpdate.requiresLayoutRefresh {
-            removeGridModeCommitSnapshot()
+        let geometryChanged = sizeChanged || displayScaleChanged
+            || windowSafeAreaLayoutUpdate.requiresLayoutRefresh
+        let interruptedGridModeAnchorTokenIndex: Int?
+        switch gridModeCoordinator.prepareForGeometryChange(geometryChanged) {
+        case let .ready(anchorTokenIndex):
+            interruptedGridModeAnchorTokenIndex = anchorTokenIndex
+        case .retryAfterInteractionFinishes:
+            view.setNeedsLayout()
+            return
         }
         let previousLayoutWindowSafeAreaInsets = layoutWindowSafeAreaInsets
         let previousContentOffset = collectionView.contentOffset
@@ -601,13 +625,13 @@ final class VerticalCollectionBrowserViewController: UIViewController,
            !isApplyingPosition {
             settleCurrentPosition()
         } else if windowSafeAreaLayoutUpdate.clearsPendingRefresh {
-            scheduleGridModeGeometryPrewarmIfPossible()
+            gridModeCoordinator.scheduleGeometryPrewarmIfPossible()
         }
     }
 
     override func viewSafeAreaInsetsDidChange() {
         super.viewSafeAreaInsetsDidChange()
-        cancelGridModeGeometryPrewarming()
+        gridModeCoordinator.cancelGeometryPrewarming()
         needsWindowSafeAreaRefresh = true
         view.setNeedsLayout()
     }
@@ -616,16 +640,16 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         super.viewDidAppear(animated)
         isViewVisible = true
         resumeVisibleBrowserImageLoadsIfNeeded()
-        scheduleGridModeGeometryPrewarmIfPossible()
+        gridModeCoordinator.scheduleGeometryPrewarmIfPossible()
     }
 
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         isViewVisible = false
-        finalizeGridModeInteractionIfNeeded()
+        gridModeCoordinator.interruptInteractionIfNeeded()
         endScrollMotionAndResetDragState()
         flushSettledPosition()
-        cancelGridModeGeometryPrewarming()
+        gridModeCoordinator.cancelGeometryPrewarming()
     }
 
     var currentPagePosition: PlayerPagePosition? {
@@ -637,1232 +661,17 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     }
 
     var gridMode: MobileCollectionBrowserGridMode {
-        MobileCollectionBrowserGridMode(
-            rawValue: layoutAspectState.aspectProfile.columnCount
-        ) ?? .defaultMode
+        gridModeCoordinator.gridMode
     }
 
     func makeGridModeMenu() -> UIMenu {
-        gridModeCoordinator.makeMenu(currentMode: gridMode) {
-            [weak self] gridMode in
-                guard self?.setGridMode(gridMode) == true else { return }
-                Haptic.selectionChanged()
-        }
+        gridModeCoordinator.makeMenu()
     }
 
     @discardableResult
     func setGridMode(_ gridMode: MobileCollectionBrowserGridMode) -> Bool {
-        let initialGridMode = self.gridMode
-        guard gridMode != initialGridMode,
-              isActive,
-              !isApplyingPosition,
-              !hasGridModeInteractionState,
-              preparedTransition == nil,
-              let browseSnapshot else {
-            return false
-        }
-
-        let retainedTokenIndex = gridModeAnchorTokenIndex()
-            ?? browseSnapshot.initialTokenIndex
-        let canAnimateTransition = hasFinishedInitialPositioning
-        let ratios = canAnimateTransition
-            ? makeGridModeRatios(fromMode: initialGridMode)
-            : []
-        let effects = gridModeInteractionCoordinator.handle(
-            .menuSelected(
-                fromMode: initialGridMode,
-                toMode: gridMode,
-                reduceMotion: UIAccessibility.isReduceMotionEnabled
-            ),
-            ratioProvider: { fromMode in
-                fromMode == initialGridMode ? ratios : []
-            }
-        )
-        return applyGridModeInteractionEffects(
-            effects,
-            transitionAnchor: { [weak self] in
-                guard let self else { return nil }
-                return makeGridModeGestureAnchor(
-                    tokenIndex: retainedTokenIndex,
-                    preferredContentPoint: gridModeVisualFocalPoint()
-                )
-            }
-        )
+        gridModeCoordinator.setGridMode(gridMode)
     }
-
-    private var hasGridModeInteractionState: Bool {
-        gridModeCoordinator.hasInteractionState
-    }
-
-    /// `awaitingRenderer` also reports `.settling` but cannot be finalized;
-    /// `canBeginPinch` excludes it.
-    private var hasInterruptibleGridModeSettle: Bool {
-        gridModeInteractionCoordinator.phase == .settling
-            && gridModeInteractionCoordinator.canBeginPinch
-            && gridModeEffectDrainDepth == 0
-    }
-
-    @discardableResult
-    private func finalizeInterruptibleGridModeSettle() -> Bool {
-        guard hasInterruptibleGridModeSettle,
-              gridModeContentOffsetRestorationDepth == 0 else {
-            return false
-        }
-        finalizeGridModeInteractionIfNeeded()
-        return gridModeInteractionCoordinator.phase == .idle
-    }
-
-    private func interruptGridModeSettleForDragIfNeeded() {
-        guard !finalizeInterruptibleGridModeSettle(),
-              gridModeInteractionCoordinator.phase == .settling,
-              !gridModeInteractionCoordinator.canBeginPinch else {
-            return
-        }
-        _ = gridModeInteractionCoordinator.handle(.interrupt)
-    }
-
-    private func gridModeVisualGeometry(
-        for layout: MobilePlayerBrowserLayout
-    ) -> MobilePlayerBrowserVisualLayoutGeometry {
-        collectionView.visualGeometry(for: layout)
-    }
-
-    private func makeGridModeGestureAnchor(
-        tokenIndex: Int,
-        preferredContentPoint: CGPoint
-    ) -> GridModeGestureAnchor? {
-        guard let layout = browserCollectionLayout.browserLayout,
-              let itemFrame = gridModeVisualGeometry(for: layout)
-                .itemFrame(at: tokenIndex) else {
-            return nil
-        }
-        let relativeItemPoint = CGPoint(
-            x: MobilePlayerBrowserGridTransition.anchorRelativeX(
-                contentX: preferredContentPoint.x,
-                itemFrame: itemFrame
-            ),
-            y: MobilePlayerBrowserGridTransition.anchorRelativeY(
-                contentY: preferredContentPoint.y,
-                itemFrame: itemFrame
-            )
-        )
-        let anchorContentPoint = CGPoint(
-            x: MobilePlayerBrowserGridTransition.anchorX(
-                itemFrame: itemFrame,
-                relativeX: relativeItemPoint.x
-            ),
-            y: MobilePlayerBrowserGridTransition.anchorY(
-                itemFrame: itemFrame,
-                relativeY: relativeItemPoint.y
-            )
-        )
-        return GridModeGestureAnchor(
-            tokenIndex: tokenIndex,
-            viewportPoint: CGPoint(
-                x: anchorContentPoint.x - collectionView.contentOffset.x,
-                y: anchorContentPoint.y - collectionView.contentOffset.y
-            ),
-            relativeItemPoint: relativeItemPoint,
-            baseContentOffsetY: collectionView.contentOffset.y
-        )
-    }
-
-    private func makeGridModePlaneRequest(
-        plane: PlayerBrowserGridInteractionCoordinator.Plane
-    ) -> GridModePlaneRequest? {
-        guard let renderSnapshot = gridModeRenderer.renderSnapshot,
-              plane.fromMode == gridMode,
-              browseSnapshot?.itemCount ?? 0 > 0,
-              let anchor = renderSnapshot.gestureAnchor,
-              let fromLayout = browserCollectionLayout.browserLayout,
-              let destination = makeGridModeDestination(
-                  mode: plane.toMode,
-                  anchorTokenIndex: anchor.tokenIndex
-              ) else {
-            return nil
-        }
-
-        guard let transitionLayout = MobilePlayerBrowserGridTransition(
-            fromLayout: fromLayout,
-            toLayout: destination.layout
-        ),
-              transitionLayout.itemWidthRatio == plane.itemWidthRatio,
-              gridModeVisualGeometry(for: fromLayout)
-                .itemFrame(at: anchor.tokenIndex) != nil,
-              let toFrame = gridModeVisualGeometry(for: destination.layout)
-                .itemFrame(at: anchor.tokenIndex) else {
-            return nil
-        }
-
-        let viewportSize = view.bounds.size
-        let toContentOffsetY = MobilePlayerBrowserGridTransition.clampedContentOffsetY(
-            MobilePlayerBrowserGridTransition.targetContentOffsetY(
-                anchorFrame: toFrame,
-                anchorRelativeY: anchor.relativeItemPoint.y,
-                anchorViewportY: anchor.viewportPoint.y
-            ),
-            contentHeight: destination.layout.contentSize.height,
-            viewportHeight: viewportSize.height
-        )
-        guard anchor.baseContentOffsetY.isFinite, toContentOffsetY.isFinite else {
-            return nil
-        }
-
-        let horizontalPivotX = MobilePlayerBrowserGridTransition
-            .boundaryPreservingPivotX(
-                anchorX: anchor.viewportPoint.x,
-                columnPitchRatio: transitionLayout.columnPitchRatio,
-                destinationColumnPitch: destination.layout.itemWidth
-                    + destination.layout.interItemSpacing,
-                viewportWidth: viewportSize.width
-            )
-        let fromAnchorContentPoint = CGPoint(
-            x: horizontalPivotX + collectionView.contentOffset.x,
-            y: anchor.viewportPoint.y + anchor.baseContentOffsetY
-        )
-        let toAnchorContentPoint = CGPoint(
-            x: fromAnchorContentPoint.x,
-            y: MobilePlayerBrowserGridTransition.anchorY(
-                itemFrame: toFrame,
-                relativeY: anchor.relativeItemPoint.y
-            )
-        )
-        let incomingAnchor = CGPoint(
-            x: toAnchorContentPoint.x - collectionView.contentOffset.x,
-            y: toAnchorContentPoint.y - toContentOffsetY
-        )
-        guard let canonicalCrossfade = PlayerBrowserGridCrossfade(
-            itemWidthRatio: transitionLayout.itemWidthRatio,
-            terminalScaleX: transitionLayout.columnPitchRatio,
-            terminalScaleY: transitionLayout.rowPitchRatio,
-            outgoingAnchor: CGPoint(
-                x: horizontalPivotX,
-                y: anchor.viewportPoint.y
-            ),
-            incomingAnchor: incomingAnchor,
-            outgoingContentOffsetY: anchor.baseContentOffsetY,
-            incomingContentOffsetY: toContentOffsetY,
-            outgoingContentHeight: fromLayout.contentSize.height,
-            incomingContentHeight: destination.layout.contentSize.height,
-            viewportSize: viewportSize
-        ) else {
-            return nil
-        }
-        let crossfade: PlayerBrowserGridCrossfade
-        if let visualAnchor = renderSnapshot.visualAnchor {
-            guard let reanchoredCrossfade = canonicalCrossfade.reanchored(
-                outgoingAnchor: visualAnchor
-            ) else {
-                return nil
-            }
-            crossfade = reanchoredCrossfade
-        } else {
-            crossfade = canonicalCrossfade
-        }
-        return GridModePlaneRequest(
-            id: plane.id,
-            toMode: plane.toMode,
-            layoutAspectState: destination.layoutAspectState,
-            anchorTokenIndex: anchor.tokenIndex,
-            transitionLayout: transitionLayout,
-            crossfade: crossfade,
-            latticeMap: transitionLayout.latticeMap(
-                fromAnchorContentPoint: fromAnchorContentPoint,
-                toAnchorContentPoint: toAnchorContentPoint
-            )
-        )
-    }
-
-    private func makeGridModeDestination(
-        mode: MobileCollectionBrowserGridMode,
-        anchorTokenIndex: Int
-    ) -> CachedGridModeDestination? {
-        guard gridModeRenderer.isActive, let browseSnapshot else {
-            return nil
-        }
-        if let cachedDestination = gridModeDestinationCache[mode],
-           cachedDestination.anchorTokenIndex == anchorTokenIndex {
-            return cachedDestination
-        }
-
-        let aspectState: MobilePlayerCollectionBrowserLayoutAspectState
-        let layout: MobilePlayerBrowserLayout
-        let aspectRatioProfile = MobileCollectionBrowseMediaResolver
-            .collectionBrowseThumbnailAspectRatioProfile(
-                snapshot: browseSnapshot
-            )
-        if let aspectRatioProfile {
-            guard let geometry = makeGridModeGeometry(
-                snapshot: browseSnapshot,
-                mode: mode,
-                aspectRatioProfile: aspectRatioProfile
-            ) else {
-                return nil
-            }
-            aspectState = MobilePlayerCollectionBrowserLayoutAspectState(
-                aspectProfile: geometry.aspectProfile,
-                fallbackSpec: makeLayoutFallbackSpec(
-                    snapshot: browseSnapshot,
-                    focusedTokenIndex: anchorTokenIndex
-                )
-            )
-            layout = geometry.layout
-        } else {
-            aspectState = makeLayoutAspectState(
-                snapshot: browseSnapshot,
-                columnCount: mode.columnCount,
-                focusedTokenIndex: anchorTokenIndex,
-                aspectRatioProfile: nil
-            )
-            guard let sampledLayout = makeBrowserLayout(
-                aspectProfile: aspectState.aspectProfile
-            ) else {
-                return nil
-            }
-            layout = sampledLayout
-        }
-
-        let destination = CachedGridModeDestination(
-            anchorTokenIndex: anchorTokenIndex,
-            layoutAspectState: aspectState,
-            layout: layout
-        )
-        gridModeDestinationCache[mode] = destination
-        return destination
-    }
-
-    private func makeGridModeGeometry(
-        snapshot: PlayerCollectionBrowseSnapshot,
-        mode: MobileCollectionBrowserGridMode,
-        aspectRatioProfile: ThumbnailAspectRatioProfile
-    ) -> CachedGridModeGeometry? {
-        ensureGridModeGeometryCache(snapshot: snapshot)
-        if let geometry = gridModeGeometryCache?.geometries[mode] {
-            return geometry
-        }
-
-        let aspectProfile = makeLayoutAspectProfile(
-            snapshot: snapshot,
-            columnCount: mode.columnCount,
-            aspectRatioProfile: aspectRatioProfile
-        )
-        guard let layout = makeBrowserLayout(aspectProfile: aspectProfile) else {
-            return nil
-        }
-        let geometry = CachedGridModeGeometry(
-            aspectProfile: aspectProfile,
-            layout: layout
-        )
-        gridModeGeometryCache?.geometries[mode] = geometry
-        return geometry
-    }
-
-    @discardableResult
-    private func ensureGridModeGeometryCache(
-        snapshot: PlayerCollectionBrowseSnapshot
-    ) -> GridModeGeometryCacheIdentity {
-        let identity = gridModeGeometryCacheIdentity(snapshot: snapshot)
-        if gridModeGeometryCache?.identity != identity {
-            gridModeGeometryCache = GridModeGeometryCache(
-                identity: identity,
-                geometries: [:]
-            )
-        }
-        return identity
-    }
-
-    private func gridModeGeometryCacheIdentity(
-        snapshot: PlayerCollectionBrowseSnapshot
-    ) -> GridModeGeometryCacheIdentity {
-        GridModeGeometryCacheIdentity(
-            collectionId: snapshot.collectionId,
-            itemCount: snapshot.itemCount,
-            viewportSize: view.bounds.size,
-            displayScale: currentLayoutDisplayScale,
-            topContentInset:
-                Self.verticalContentMargin + layoutWindowSafeAreaInsets.top,
-            bottomContentInset:
-                Self.verticalContentMargin + layoutWindowSafeAreaInsets.bottom
-        )
-    }
-
-    private func scheduleGridModeGeometryPrewarmIfPossible() {
-        guard let context = gridModeGeometryPrewarmContext(),
-              let browserLayout = browserCollectionLayout.browserLayout,
-              let currentMode = MobileCollectionBrowserGridMode(
-                  rawValue: layoutAspectState.aspectProfile.columnCount
-              ) else {
-            cancelGridModeGeometryPrewarming()
-            return
-        }
-
-        let identity = ensureGridModeGeometryCache(snapshot: context.snapshot)
-        gridModeGeometryCache?.geometries[currentMode] = CachedGridModeGeometry(
-            aspectProfile: layoutAspectState.aspectProfile,
-            layout: browserLayout
-        )
-
-        let missingModes = MobileCollectionBrowserGridMode.allCases
-            .filter { gridModeGeometryCache?.geometries[$0] == nil }
-            .sorted { lhs, rhs in
-                let lhsDistance = abs(
-                    lhs.columnCount - currentMode.columnCount
-                )
-                let rhsDistance = abs(
-                    rhs.columnCount - currentMode.columnCount
-                )
-                if lhsDistance == rhsDistance {
-                    return lhs.columnCount < rhs.columnCount
-                }
-                return lhsDistance < rhsDistance
-            }
-        guard !missingModes.isEmpty else {
-            cancelGridModeGeometryPrewarming()
-            return
-        }
-
-        gridModeGeometryPrewarmUpdate.invalidate()
-        gridModeGeometryPrewarmPlan = GridModeGeometryPrewarmPlan(
-            identity: identity,
-            modes: missingModes
-        )
-        gridModeGeometryPrewarmUpdate.schedule()
-    }
-
-    private func prewarmNextGridModeGeometry() {
-        guard var plan = gridModeGeometryPrewarmPlan,
-              !plan.modes.isEmpty,
-              let context = gridModeGeometryPrewarmContext() else {
-            cancelGridModeGeometryPrewarming()
-            return
-        }
-
-        let identity = gridModeGeometryCacheIdentity(snapshot: context.snapshot)
-        guard plan.identity == identity,
-              gridModeGeometryCache?.identity == identity else {
-            cancelGridModeGeometryPrewarming()
-            scheduleGridModeGeometryPrewarmIfPossible()
-            return
-        }
-
-        let mode = plan.modes.removeFirst()
-        gridModeGeometryPrewarmPlan = plan.modes.isEmpty ? nil : plan
-        if gridModeGeometryCache?.geometries[mode] == nil {
-            _ = makeGridModeGeometry(
-                snapshot: context.snapshot,
-                mode: mode,
-                aspectRatioProfile: context.aspectRatioProfile
-            )
-        }
-        if gridModeGeometryPrewarmPlan != nil {
-            gridModeGeometryPrewarmUpdate.schedule()
-        }
-    }
-
-    private func cancelGridModeGeometryPrewarming() {
-        gridModeGeometryPrewarmUpdate.invalidate()
-        gridModeGeometryPrewarmPlan = nil
-    }
-
-    private func gridModeGeometryPrewarmContext() -> (
-        snapshot: PlayerCollectionBrowseSnapshot,
-        aspectRatioProfile: ThumbnailAspectRatioProfile
-    )? {
-        guard isActive,
-              isViewVisible,
-              let windowScene = collectionView.window?.windowScene,
-              windowScene.activationState == .foregroundActive,
-              !hasGridModeInteractionState,
-              !isApplyingPosition,
-              !needsWindowSafeAreaRefresh,
-              preparedTransition == nil,
-              hasFinishedInitialPositioning,
-              !collectionView.isTracking,
-              !collectionView.isDragging,
-              !collectionView.isDecelerating,
-              !isScrollMotionActive,
-              let browseSnapshot,
-              let aspectRatioProfile = MobileCollectionBrowseMediaResolver
-                .collectionBrowseThumbnailAspectRatioProfile(
-                    snapshot: browseSnapshot
-                ),
-              case .variable = aspectRatioProfile else {
-            return nil
-        }
-        return (browseSnapshot, aspectRatioProfile)
-    }
-
-    /// Scrolling stays frozen for as long as the pinch owns the grid: the
-    /// renderer anchors every plane transform to the content offset captured
-    /// when the interaction began. The settle releases it so a drag can land
-    /// without waiting out the spring.
-    private func setGridModeScrollingSuspended(_ suspended: Bool) {
-        collectionView.isScrollEnabled = suspended ? false : isActive
-    }
-
-    private func applyGridModeInteractionBegan(
-        transitionAnchor: (() -> GridModeGestureAnchor?)?
-    ) {
-        guard !gridModeRenderer.isActive else {
-            setGridModeScrollingSuspended(true)
-            return
-        }
-        guard let sourceLayout = browserCollectionLayout.browserLayout else {
-            return
-        }
-        let wasCollectionViewPrefetchingEnabled =
-            collectionView.isPrefetchingEnabled
-        cancelGridModeGeometryPrewarming()
-        isApplyingPosition = true
-        collectionView.isPrefetchingEnabled = false
-        collectionView.layoutIfNeeded()
-        collectionView.setContentOffset(
-            clampedContentOffset(collectionView.contentOffset),
-            animated: false
-        )
-        endScrollMotionAndResetDragState()
-        cancelScheduledScrollUpdate()
-        cancelPendingFocusPublication(resetLastPublicationTime: false)
-        setGridModeScrollingSuspended(true)
-        collectionView.clipsToBounds = false
-        gridModeDestinationCache.removeAll(keepingCapacity: true)
-        _ = gridModeRenderer.begin(
-            gestureAnchor: transitionAnchor?(),
-            sourceLayout: sourceLayout,
-            wasCollectionViewPrefetchingEnabled:
-                wasCollectionViewPrefetchingEnabled
-        )
-    }
-
-    private func applyGridModeInteractionFinished(
-        settlesPosition: Bool
-    ) {
-        gridModePinchFrameCoalescer.invalidate()
-        stopGridModeSettleDisplayLink()
-        stopGridModeInteractionFadeDisplayLink()
-        guard let finishState = gridModeRenderer.finish(
-            preservingCarryover: true
-        ) else {
-            removeGridModeCommitSnapshot()
-            collectionView.clipsToBounds = true
-            gridModeDestinationCache.removeAll(keepingCapacity: false)
-            isApplyingPosition = false
-            collectionView.isPrefetchingEnabled = true
-            setGridModeScrollingSuspended(false)
-            demoteVisibleBrowserImageLoadsIfNeeded()
-            resumeVisibleBrowserImageLoadsIfNeeded()
-            scheduleGridModeGeometryPrewarmIfPossible()
-            return
-        }
-        let pannedContentOffsetY = finishState.pannedContentOffsetY.map {
-            MobilePlayerBrowserGridTransition.clampedContentOffsetY(
-                $0,
-                contentHeight: browserCollectionLayout.browserLayout?
-                    .contentSize.height ?? 0,
-                viewportHeight: view.bounds.height
-            )
-        }
-        collectionView.clipsToBounds = true
-        gridModeDestinationCache.removeAll(keepingCapacity: false)
-        if let pannedContentOffsetY {
-            collectionView.contentOffset.y = pannedContentOffsetY
-        }
-        collectionView.layoutIfNeeded()
-        if finishState.clearsTransitionPlaceholderTones {
-            visibleBrowserCells.forEach {
-                // A commit in this same drain tones still-loading regions;
-                // their load's completion clears them. The sweep only covers
-                // cells nothing else will run for.
-                guard !$0.keepsTransitionPlaceholderToneForPendingLoad else {
-                    return
-                }
-                $0.setTransitionPlaceholderTone(false)
-            }
-        }
-        lastScrollOffsetY = collectionView.contentOffset.y
-        isApplyingPosition = false
-        collectionView.isPrefetchingEnabled =
-            finishState.wasCollectionViewPrefetchingEnabled
-        setGridModeScrollingSuspended(false)
-        if settlesPosition {
-            settleCurrentPosition()
-        }
-        demoteVisibleBrowserImageLoadsIfNeeded()
-        resumeVisibleBrowserImageLoadsIfNeeded()
-        scheduleGridModeGeometryPrewarmIfPossible()
-    }
-
-    private func renderGridModeZoom(
-        planeId: UUID?,
-        scale: CGFloat,
-        panDeltaY: CGFloat
-    ) -> Bool {
-        guard let sourceLayout = browserCollectionLayout.browserLayout else {
-            return false
-        }
-        return gridModeRenderer.renderZoom(
-            planeID: planeId,
-            scale: scale,
-            panDeltaY: panDeltaY,
-            sourceLayout: sourceLayout
-        )
-    }
-
-    private func renderGridModeSettle(
-        id: UUID,
-        scale: CGFloat,
-        settleProgress: CGFloat,
-        presentationProgress: CGFloat,
-        panDeltaY: CGFloat
-    ) -> Bool {
-        gridModeRenderer.renderSettle(
-            id: id,
-            scale: scale,
-            settleProgress: settleProgress,
-            presentationProgress: presentationProgress,
-            panDeltaY: panDeltaY
-        )
-    }
-
-    private func commitGridModePlaneGeometry(
-        id: UUID,
-        mode: MobileCollectionBrowserGridMode
-    ) -> Bool {
-        let commitSnapshot = installGridModeSnapshotCover()
-        guard let preparation = gridModeRenderer.prepareCommit(
-            id: id,
-            mode: mode,
-            capturesFallbackSources: true
-        ) else {
-            removeGridModeCommitSnapshot()
-            return false
-        }
-        startGridModeCommitSnapshotDissolve(commitSnapshot)
-        var completed = false
-        defer {
-            if !completed {
-                gridModeRenderer.abortCommit(preparation)
-                removeGridModeCommitSnapshot()
-            }
-        }
-        let plane = preparation.planeRequest
-        layoutAspectState = plane.layoutAspectState
-        gridModeCoordinator.beginCommitFadeWindow()
-        let toLayout = plane.transitionLayout.toLayout
-        installCollectionLayout(toLayout)
-        applyGridModeTransitionEndpoint(
-            layout: toLayout,
-            contentOffsetY: preparation.terminalContentOffsetY
-        )
-        guard gridModeRenderer.completeCommit(preparation) else { return false }
-        completed = true
-        gridModeCommitSnapshotContentOffset = collectionView.contentOffset
-        retainFocusedTokenIndex(plane.anchorTokenIndex)
-        focusedTokenIndex = plane.anchorTokenIndex
-        return true
-    }
-
-    /// Captures the rendered viewport before a plane's pixels are replaced,
-    /// then dissolves it over the new presentation.
-    @discardableResult
-    private func installGridModeSnapshotCover() -> UIView {
-        gridModeCoordinator.installSnapshotCover(
-            viewportView: view,
-            collectionView: collectionView
-        )
-    }
-
-    private func startGridModeCommitSnapshotDissolve(_ snapshot: UIView) {
-        gridModeCoordinator.startCommitSnapshotDissolve(snapshot)
-    }
-
-    /// A stale transition snapshot over a live grid is worse than a sharpen
-    /// blink: every path that resumes rendering or scrolling must drop it.
-    private func removeGridModeCommitSnapshot() {
-        gridModeCoordinator.removeCommitSnapshot()
-    }
-
-    private func captureVisibleCarryoverSources(
-        anchorTokenIndex: Int?
-    ) -> [MobilePlayerBrowserGridCarryoverSource] {
-        let eligibleSourceCells = collectionView.indexPathsForVisibleItems
-            .sorted { $0.item < $1.item }
-            .compactMap { indexPath -> (
-                indexPath: IndexPath,
-                cell: MobilePlayerCollectionBrowserCell
-            )? in
-                guard let cell = collectionView.cellForItem(
-                    at: indexPath
-                ) as? MobilePlayerCollectionBrowserCell else {
-                    return nil
-                }
-                return (indexPath, cell)
-            }
-        let selectedItems = PlayerBrowserGridCarryoverSelection
-            .selectedItemIndices(
-                candidateItemIndices: eligibleSourceCells.map {
-                    $0.indexPath.item
-                },
-                anchorItemIndex: anchorTokenIndex
-            )
-        let sourceCells = eligibleSourceCells.compactMap {
-            selectedItems.contains($0.indexPath.item) ? $0.cell : nil
-        }
-        return MobilePlayerCollectionBrowserTransitionSupport.captureSources(
-            from: sourceCells,
-            in: view
-        )
-    }
-
-    /// Preserves the highest-priority visible regions across the layout swap.
-    private func installGridModeCarryoverContent(
-        sources: [MobilePlayerBrowserGridCarryoverSource],
-        anchorTokenIndex: Int? = nil
-    ) {
-        _ = MobilePlayerCollectionBrowserTransitionSupport.installCarryover(
-            sources: sources,
-            in: collectionView,
-            viewportView: view,
-            anchorItemIndex: anchorTokenIndex ?? focusedTokenIndex,
-            hasImageSources: { tokenIndex in
-                browseImageSources(forTokenIndex: tokenIndex) != nil
-            }
-        )
-    }
-
-    private func discardGridModePlane(id: UUID) -> Bool {
-        guard let sourceLayout = browserCollectionLayout.browserLayout else {
-            return false
-        }
-        return gridModeRenderer.discardPlane(
-            id: id,
-            sourceLayout: sourceLayout
-        )
-    }
-
-    private func applyGridModeTransitionEndpoint(
-        layout: MobilePlayerBrowserLayout,
-        contentOffsetY: CGFloat
-    ) {
-        let contentOffsetY = MobilePlayerBrowserGridTransition.clampedContentOffsetY(
-            contentOffsetY,
-            contentHeight: layout.contentSize.height,
-            viewportHeight: collectionView.bounds.height
-        )
-        collectionView.setContentOffset(
-            CGPoint(
-                x: canonicalContentOffsetX,
-                y: contentOffsetY
-            ),
-            animated: false
-        )
-        collectionView.layoutIfNeeded()
-        lastScrollOffsetY = collectionView.contentOffset.y
-    }
-
-    private func makeGridModeRatios(
-        fromMode: MobileCollectionBrowserGridMode
-    ) -> [PlayerBrowserGridInteractionCoordinator.ModeRatio] {
-        guard fromMode == gridMode,
-              let fromWidth = browserCollectionLayout.browserLayout?.itemWidth,
-              fromWidth > 0 else {
-            return []
-        }
-        return MobileCollectionBrowserGridMode.allCases.compactMap { mode in
-            guard mode != fromMode else {
-                return .init(mode: mode, itemWidthRatio: 1)
-            }
-            guard let width = MobilePlayerBrowserLayout.itemWidth(
-                viewportSize: view.bounds.size,
-                columnCount: mode.columnCount,
-                displayScale: currentLayoutDisplayScale
-            ) else {
-                return nil
-            }
-            return .init(mode: mode, itemWidthRatio: width / fromWidth)
-        }
-    }
-
-    private func gridModePinchFrame(
-        _ recognizer: UIPinchGestureRecognizer
-    ) -> GridModePinchFrame {
-        GridModePinchFrame(
-            scale: recognizer.scale,
-            viewLocation: recognizer.location(in: view)
-        )
-    }
-
-    private func finalizeGridModeInteractionIfNeeded() {
-        let snapshotAtEntry = gridModeCommitSnapshotView
-        defer {
-            if gridModeCommitSnapshotView === snapshotAtEntry {
-                removeGridModeCommitSnapshot()
-            }
-        }
-        guard hasGridModeInteractionState else { return }
-        gridModePinchFrameCoalescer.invalidate()
-        lastGridModePinchViewLocation = nil
-        let effects = gridModeInteractionCoordinator.handle(.interrupt)
-        applyGridModeInteractionEffects(effects, transitionAnchor: nil)
-        if gridModeInteractionCoordinator.phase == .idle {
-            scheduleGridModeGeometryPrewarmIfPossible()
-        }
-    }
-
-    func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
-        guard gestureRecognizer === gridModePinchRecognizer else { return true }
-        guard isActive,
-              hasFinishedInitialPositioning,
-              browseSnapshot?.itemCount ?? 0 > 0,
-              collectionView.bounds.width > 0,
-              collectionView.bounds.height > 0,
-              preparedTransition == nil,
-              gridModeInteractionCoordinator.canBeginPinch else {
-            return false
-        }
-        return gridModeInteractionCoordinator.phase == .settling
-            || !isApplyingPosition
-    }
-
-    func gestureRecognizer(
-        _ gestureRecognizer: UIGestureRecognizer,
-        shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
-    ) -> Bool {
-        gestureRecognizer === gridModePinchRecognizer
-            && otherGestureRecognizer === collectionView.panGestureRecognizer
-    }
-
-    @objc private func handleGridModePinch(_ recognizer: UIPinchGestureRecognizer) {
-        switch recognizer.state {
-        case .began:
-            gridModePinchFrameCoalescer.invalidate()
-            cancelGridModeGeometryPrewarming()
-            let wasSettling = gridModeInteractionCoordinator.phase == .settling
-            let frame = gridModePinchFrame(recognizer)
-            lastGridModePinchViewLocation = frame.viewLocation
-            gridModePinchFrameCoalescer.seed(frame)
-            let initialGridMode = gridMode
-            let ratios = makeGridModeRatios(fromMode: initialGridMode)
-            let effects = gridModeInteractionCoordinator.handle(
-                .pinchBegan(
-                    sample: frame.sample,
-                    currentMode: gridMode
-                ),
-                ratioProvider: { fromMode in
-                    fromMode == initialGridMode ? ratios : []
-                }
-            )
-            if wasSettling, effects.contains(.stopDisplayLink) {
-                reanchorSettlingGridModeRendering(
-                    at: frame.viewLocation
-                )
-            }
-            applyGridModeInteractionEffects(
-                effects,
-                transitionAnchor: gridModePinchAnchorProvider(
-                    viewLocation: frame.viewLocation
-                )
-            )
-            if gridModeInteractionCoordinator.phase == .idle {
-                scheduleGridModeGeometryPrewarmIfPossible()
-            }
-
-        case .changed:
-            let frame = gridModePinchFrame(recognizer)
-            lastGridModePinchViewLocation = frame.viewLocation
-            gridModePinchFrameCoalescer.stage(frame)
-
-        case .ended:
-            let terminalEvent = PlayerBrowserGridInteractionCoordinator.Event.pinchEnded(
-                scale: recognizer.scale,
-                reduceMotion: UIAccessibility.isReduceMotionEnabled,
-                timestamp: CACurrentMediaTime()
-            )
-            gridModePinchFrameCoalescer.flush()
-            finishGridModePinch(terminalEvent)
-
-        case .cancelled, .failed:
-            gridModePinchFrameCoalescer.flush()
-            finishGridModePinch(.pinchCancelled(
-                reduceMotion: UIAccessibility.isReduceMotionEnabled
-            ))
-
-        default:
-            break
-        }
-    }
-
-    private func reanchorSettlingGridModeRendering(at screenPoint: CGPoint) {
-        gridModeRenderer.reanchorSettlingRendering(at: screenPoint)
-    }
-
-    private func applyGridModePinchFrame(_ frame: GridModePinchFrame) {
-        let effects = gridModeInteractionCoordinator.handle(
-            .pinchChanged(sample: frame.sample)
-        )
-        let rendersGestureGeometry = effects.contains { effect in
-            switch effect {
-            case .renderZoom, .renderSettle:
-                true
-            default:
-                false
-            }
-        }
-        applyGridModeInteractionEffects(
-            effects,
-            transitionAnchor: gridModePinchAnchorProvider(
-                viewLocation: frame.viewLocation
-            ),
-            requestsGestureMaterializationBurst: rendersGestureGeometry
-        )
-    }
-
-    private func finishGridModePinch(
-        _ event: PlayerBrowserGridInteractionCoordinator.Event
-    ) {
-        let transitionAnchor = lastGridModePinchViewLocation.map {
-            gridModePinchAnchorProvider(viewLocation: $0)
-        }
-        defer { lastGridModePinchViewLocation = nil }
-        let effects = gridModeInteractionCoordinator.handle(event)
-        applyGridModeInteractionEffects(
-            effects,
-            transitionAnchor: transitionAnchor
-        )
-        if gridModeInteractionCoordinator.phase == .idle {
-            scheduleGridModeGeometryPrewarmIfPossible()
-        }
-    }
-
-    private func advanceGridModeInteractionTick(
-        _ event: PlayerBrowserGridInteractionCoordinator.Event
-    ) {
-        let effects = gridModeInteractionCoordinator.handle(
-            event
-        )
-        applyGridModeInteractionEffects(effects, transitionAnchor: nil)
-    }
-
-    private func startGridModeSettleDisplayLink() {
-        gridModeCoordinator.startSettleDisplayLink(
-            collectionView: collectionView
-        )
-    }
-
-    private func stopGridModeSettleDisplayLink() {
-        gridModeCoordinator.stopSettleDisplayLink(
-            collectionView: collectionView
-        )
-    }
-
-    private func startGridModeInteractionFadeDisplayLink() {
-        gridModeCoordinator.startInteractionFadeDisplayLink()
-    }
-
-    private func stopGridModeInteractionFadeDisplayLink() {
-        gridModeCoordinator.stopInteractionFadeDisplayLink()
-    }
-
-    @discardableResult
-    private func applyGridModeInteractionEffects(
-        _ initialEffects: [PlayerBrowserGridInteractionCoordinator.Effect],
-        transitionAnchor: (() -> GridModeGestureAnchor?)?,
-        requestsGestureMaterializationBurst: Bool = false
-    ) -> Bool {
-        let result = drainGridModeInteractionEffects(
-            initialEffects,
-            transitionAnchor: transitionAnchor
-        )
-        if gridModeInteractionCoordinator.phase != .interacting {
-            gridModeRenderer.cancelGestureMaterializationBurst()
-        } else if requestsGestureMaterializationBurst {
-            gridModeRenderer.requestGestureMaterializationBurst()
-        }
-        if result.needsVisibleCellQualityReconciliation {
-            reloadVisibleCells()
-        }
-        return result.succeeded
-    }
-
-    private func drainGridModeInteractionEffects(
-        _ initialEffects: [PlayerBrowserGridInteractionCoordinator.Effect],
-        transitionAnchor: (() -> GridModeGestureAnchor?)?
-    ) -> (
-        succeeded: Bool,
-        needsVisibleCellQualityReconciliation: Bool
-    ) {
-        gridModeEffectDrainDepth += 1
-        defer { gridModeEffectDrainDepth -= 1 }
-        var pendingEffects = initialEffects
-        var needsVisibleCellQualityReconciliation = false
-        var rendererRecoverySucceeded = true
-
-        func reconcileVisibleCellsIfNeeded() {
-            guard needsVisibleCellQualityReconciliation else { return }
-            needsVisibleCellQualityReconciliation = false
-            reloadVisibleCells()
-        }
-
-        func enqueueRendererFailureRecovery() {
-            let effects = gridModeInteractionCoordinator.handle(
-                .rendererFailed
-            )
-            rendererRecoverySucceeded = rendererRecoverySucceeded
-                && effects.contains { effect in
-                    if case .applyMode = effect {
-                        return true
-                    }
-                    return false
-                }
-            pendingEffects = effects.isEmpty
-                ? [.resetRenderer, .finishInteraction(settlesPosition: false)]
-                : effects
-        }
-
-        effectLoop: while !pendingEffects.isEmpty {
-            let effect = pendingEffects.removeFirst()
-            switch effect {
-            case .beginInteraction:
-                removeGridModeCommitSnapshot()
-                applyGridModeInteractionBegan(
-                    transitionAnchor: transitionAnchor
-                )
-
-            case .coverPlaneChange:
-                if gridModeRenderer.planeChangeNeedsVisualCover {
-                    startGridModeCommitSnapshotDissolve(
-                        installGridModeSnapshotCover()
-                    )
-                }
-
-            case let .installPlane(plane):
-                guard let context = makeGridModePlaneRequest(plane: plane),
-                      gridModeRenderer.installPlane(context) else {
-                    enqueueRendererFailureRecovery()
-                    continue effectLoop
-                }
-
-            case let .renderZoom(planeId, scale, panDeltaY):
-                guard renderGridModeZoom(
-                    planeId: planeId,
-                    scale: scale,
-                    panDeltaY: panDeltaY
-                ) else {
-                    enqueueRendererFailureRecovery()
-                    continue effectLoop
-                }
-
-            case let .renderSettle(
-                id,
-                scale,
-                settleProgress,
-                presentationProgress,
-                panDeltaY
-            ):
-                guard renderGridModeSettle(
-                    id: id,
-                    scale: scale,
-                    settleProgress: settleProgress,
-                    presentationProgress: presentationProgress,
-                    panDeltaY: panDeltaY
-                ) else {
-                    enqueueRendererFailureRecovery()
-                    continue effectLoop
-                }
-
-            case let .renderInteractionFade(id, presentationProgress):
-                guard gridModeRenderer.renderInteractionFade(
-                    id: id,
-                    presentationProgress: presentationProgress
-                ) else {
-                    enqueueRendererFailureRecovery()
-                    continue effectLoop
-                }
-
-            case let .commitPlane(id, mode):
-                guard commitGridModePlaneGeometry(id: id, mode: mode) else {
-                    enqueueRendererFailureRecovery()
-                    continue effectLoop
-                }
-                needsVisibleCellQualityReconciliation = true
-                prependGridModeRendererSuccessEffects(to: &pendingEffects)
-
-            case let .discardPlane(id):
-                guard discardGridModePlane(id: id) else {
-                    enqueueRendererFailureRecovery()
-                    continue effectLoop
-                }
-                prependGridModeRendererSuccessEffects(to: &pendingEffects)
-
-            case let .applyMode(mode):
-                guard applyGridModeWithoutAnimation(
-                    mode,
-                    retainedTokenIndex: gridModeRenderer.renderSnapshot?
-                        .gestureAnchor?.tokenIndex
-                ) else {
-                    enqueueRendererFailureRecovery()
-                    continue effectLoop
-                }
-                needsVisibleCellQualityReconciliation = true
-                prependGridModeRendererSuccessEffects(to: &pendingEffects)
-
-            case .resetRenderer:
-                resetGridModeRenderer()
-                needsVisibleCellQualityReconciliation = true
-
-            case .selectionHaptic:
-                Haptic.selectionChanged()
-
-            case .startDisplayLink:
-                stopGridModeInteractionFadeDisplayLink()
-                startGridModeSettleDisplayLink()
-                setGridModeScrollingSuspended(false)
-                let continuedEffects = gridModeInteractionCoordinator.handle(
-                    .settleStarted(timestamp: CACurrentMediaTime())
-                )
-                pendingEffects.insert(contentsOf: continuedEffects, at: 0)
-
-            case .stopDisplayLink:
-                stopGridModeSettleDisplayLink()
-
-            case .startInteractionFadeTicks:
-                startGridModeInteractionFadeDisplayLink()
-
-            case .stopInteractionFadeTicks:
-                stopGridModeInteractionFadeDisplayLink()
-
-            case let .reconcileMedia(cancelsPrefetchLoads):
-                if cancelsPrefetchLoads {
-                    imagePipeline.cancelAllPrefetchLoads()
-                }
-                imagePipeline.resetThumbnailWindow()
-                needsVisibleCellQualityReconciliation = true
-                reconcileVisibleCellsIfNeeded()
-
-            case let .finishInteraction(settlesPosition):
-                reconcileVisibleCellsIfNeeded()
-                applyGridModeInteractionFinished(
-                    settlesPosition: settlesPosition
-                )
-            }
-        }
-        return (
-            rendererRecoverySucceeded,
-            needsVisibleCellQualityReconciliation
-        )
-    }
-
-    private func prependGridModeRendererSuccessEffects(
-        to pendingEffects: inout [PlayerBrowserGridInteractionCoordinator.Effect]
-    ) {
-        let continuedEffects = gridModeInteractionCoordinator.handle(
-            .rendererSucceeded
-        )
-        pendingEffects.insert(contentsOf: continuedEffects, at: 0)
-    }
-
-    private func resetGridModeRenderer() {
-        removeGridModeCommitSnapshot()
-        let anchoredContentOffsetY = gridModeRenderer.reset()
-        guard let layout = browserCollectionLayout.browserLayout else {
-            return
-        }
-        applyGridModeTransitionEndpoint(
-            layout: layout,
-            contentOffsetY: anchoredContentOffsetY
-                ?? collectionView.contentOffset.y
-        )
-    }
-
-    private func applyGridModeWithoutAnimation(
-        _ gridMode: MobileCollectionBrowserGridMode,
-        retainedTokenIndex: Int?
-    ) -> Bool {
-        guard gridModeRenderer.isActive, let browseSnapshot else {
-            return false
-        }
-        let tokenIndex = retainedTokenIndex
-            ?? gridModeAnchorTokenIndex()
-            ?? browseSnapshot.initialTokenIndex
-        guard let destination = makeGridModeDestination(
-            mode: gridMode,
-            anchorTokenIndex: tokenIndex
-        ), destination.layout.itemFrame(at: tokenIndex) != nil else {
-            return false
-        }
-        guard let preparation = gridModeRenderer.prepareDirectCommit() else {
-            return false
-        }
-        var completed = false
-        defer {
-            if !completed {
-                gridModeRenderer.abortDirectCommit(preparation)
-            }
-        }
-        layoutAspectState = destination.layoutAspectState
-        installCollectionLayout(destination.layout)
-        centerContent(on: tokenIndex)
-        guard gridModeRenderer.completeDirectCommit(preparation) else {
-            return false
-        }
-        completed = true
-        gridModeRenderer.updateGestureAnchor(nil)
-        retainFocusedTokenIndex(tokenIndex)
-        focusedTokenIndex = tokenIndex
-        lastScrollOffsetY = collectionView.contentOffset.y
-        collectionView.layoutIfNeeded()
-        visibleBrowserCells.forEach {
-            $0.setTransitionPlaceholderTone(false)
-        }
-        return true
-    }
-
-    private func gridModePinchAnchorProvider(
-        viewLocation: CGPoint
-    ) -> () -> GridModeGestureAnchor? {
-        { [weak self] in
-            self?.pinchGridModeGestureAnchor(viewLocation: viewLocation)
-        }
-    }
-
-    private func pinchGridModeGestureAnchor(
-        viewLocation: CGPoint
-    ) -> GridModeGestureAnchor? {
-        let contentPoint = collectionView.convert(viewLocation, from: view)
-        if let indexPath = collectionView.indexPathForItem(
-            at: contentPoint
-        ) {
-            return makeGridModeGestureAnchor(
-                tokenIndex: indexPath.item,
-                preferredContentPoint: contentPoint
-            )
-        }
-        return makeGridModeGestureAnchor(
-            tokenIndex: gridModeAnchorTokenIndex() ?? 0,
-            preferredContentPoint: gridModeVisualFocalPoint()
-        )
-    }
-
-    /// `makeGridModeGestureAnchor` resolves mirrored view geometry, while
-    /// `currentFocalPoint` resolves the unmirrored layout model.
-    private func gridModeVisualFocalPoint() -> CGPoint {
-        let focalPoint = currentFocalPoint()
-        guard let layout = browserCollectionLayout.browserLayout else {
-            return focalPoint
-        }
-        return gridModeVisualGeometry(for: layout).mirroredPoint(focalPoint)
-    }
-
-    /// Resolves the anchor the way every grid-mode entry point does. Not a
-    /// property: `currentAnchorTokenIndex()` resolves visible geometry and can
-    /// clear `forcedFocusedTokenIndex`, so this must be called once.
-    private func gridModeAnchorTokenIndex() -> Int? {
-        currentAnchorTokenIndex()
-            ?? forcedFocusedTokenIndex
-            ?? focusedTokenIndex
-            ?? browseSnapshot?.initialTokenIndex
-    }
-
     func setActive(_ active: Bool) {
         if active {
             loadViewIfNeeded()
@@ -1873,7 +682,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             }
             return
         }
-        finalizeGridModeInteractionIfNeeded()
+        gridModeCoordinator.interruptInteractionIfNeeded()
 
         if active,
            let preparation = preparedTransition?.preparation,
@@ -1882,7 +691,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         }
 
         if !active {
-            cancelGridModeGeometryPrewarming()
+            gridModeCoordinator.cancelGeometryPrewarming()
             flushSettledPosition()
             endScrollMotionAndResetDragState()
             cancelScheduledScrollUpdate()
@@ -1910,7 +719,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
                 )
                 publishSettledTokenIfNeeded()
             }
-            scheduleGridModeGeometryPrewarmIfPossible()
+            gridModeCoordinator.scheduleGeometryPrewarmIfPossible()
         }
     }
 
@@ -1923,7 +732,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         ) -> Void
     ) {
         loadViewIfNeeded()
-        finalizeGridModeInteractionIfNeeded()
+        gridModeCoordinator.interruptInteractionIfNeeded()
         let generation = scrollCoordinator.beginPositioning()
         guard isValid(preparation) else {
             isApplyingPosition = false
@@ -1991,7 +800,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             if self.isActive {
                 self.preparedTransition = nil
             }
-            self.scheduleGridModeGeometryPrewarmIfPossible()
+            self.gridModeCoordinator.scheduleGeometryPrewarmIfPossible()
             completion(.prepared)
         }
     }
@@ -2032,7 +841,9 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     }
 
     func canSelectItem(at location: CGPoint, in coordinateView: UIView) -> Bool {
-        guard isActive, !hasGridModeInteractionState else { return false }
+        guard isActive, !gridModeCoordinator.hasInteractionState else {
+            return false
+        }
         let point = collectionView.convert(location, from: coordinateView)
         guard let indexPath = collectionView.indexPathForItem(at: point) else {
             return false
@@ -2041,7 +852,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     }
 
     private func canSelectBrowserCell(at tokenIndex: Int) -> Bool {
-        guard gridModeCommitSnapshotView == nil,
+        guard !gridModeCoordinator.blocksSelection,
               let identity = browserContentIdentity(
             forTokenIndex: tokenIndex
         ),
@@ -2068,7 +879,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         using preparation: PlayerCollectionBrowsePreparation
     ) -> MobilePlayerBrowserTransitionSelection? {
         loadViewIfNeeded()
-        finalizeGridModeInteractionIfNeeded()
+        gridModeCoordinator.interruptInteractionIfNeeded()
         guard isValid(preparation) else { return nil }
         endScrollMotionAndResetDragState()
 
@@ -2143,8 +954,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
 
     private func restorePreparedTransition(_ preparedTransition: PreparedTransition) {
         self.preparedTransition = nil
-        cancelGridModeGeometryPrewarming()
-        gridModeGeometryCache = nil
+        gridModeCoordinator.resetGeometryState()
         cancelScheduledScrollUpdate()
         cancelPendingFocusPublication(resetLastPublicationTime: false)
         isApplyingPosition = true
@@ -2215,7 +1025,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         )
         imagePipeline.restore(preparedTransition.imagePipelineSnapshot)
         isApplyingPosition = false
-        scheduleGridModeGeometryPrewarmIfPossible()
+        gridModeCoordinator.scheduleGeometryPrewarmIfPossible()
     }
 
     func scrollToFirstItemAndPublish() {
@@ -2236,7 +1046,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
 
     func flushSettledPosition() {
         guard isActive else { return }
-        finalizeGridModeInteractionIfNeeded()
+        gridModeCoordinator.interruptInteractionIfNeeded()
         cancelScheduledScrollUpdate()
         observeCurrentAnchor(
             focusCadence: .immediate,
@@ -2260,7 +1070,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         )
         guard let browserCell = cell as? MobilePlayerCollectionBrowserCell else { return cell }
         configureBrowserCell(browserCell, at: indexPath)
-        gridModeRenderer.didConfigureCell(browserCell, at: indexPath)
+        gridModeCoordinator.didConfigureCell(browserCell, at: indexPath)
         return browserCell
     }
 
@@ -2269,7 +1079,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         willDisplay cell: UICollectionViewCell,
         forItemAt indexPath: IndexPath
     ) {
-        gridModeRenderer.willDisplayCell(cell, at: indexPath)
+        gridModeCoordinator.willDisplayCell(cell, at: indexPath)
         guard let browserCell = cell as? MobilePlayerCollectionBrowserCell else {
             return
         }
@@ -2294,7 +1104,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         forItemAt indexPath: IndexPath
     ) {
         imagePipeline.willEndDisplaying(tokenIndex: indexPath.item)
-        gridModeRenderer.didEndDisplayingCell(cell, at: indexPath)
+        gridModeCoordinator.didEndDisplayingCell(cell, at: indexPath)
         guard let browserCell = cell as? MobilePlayerCollectionBrowserCell else {
             return
         }
@@ -2309,7 +1119,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         shouldSelectItemAt indexPath: IndexPath
     ) -> Bool {
         isActive
-            && !hasGridModeInteractionState
+            && !gridModeCoordinator.hasInteractionState
             && canSelectBrowserCell(at: indexPath.item)
     }
 
@@ -2323,7 +1133,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         point: CGPoint
     ) -> UIContextMenuConfiguration? {
         guard isActive,
-              !hasGridModeInteractionState,
+              !gridModeCoordinator.hasInteractionState,
               canSelectBrowserCell(at: indexPath.item),
               let snapshot = browseSnapshot,
               let descriptor = MobileCollectionBrowseMediaResolver.collectionBrowseThumbnailDescriptor(
@@ -2482,125 +1292,8 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         imagePipeline.cancelPrefetching(indexPaths: indexPaths)
     }
 
-    private func gridModeContentOffsetTarget(
-        for requestedContentOffset: CGPoint,
-        animated: Bool
-    ) -> (target: CGPoint, settlesAfterApplying: Bool) {
-        let requestedDeltaY = requestedContentOffset.y
-            - collectionView.contentOffset.y
-        guard requestedDeltaY.isFinite else {
-            return (collectionView.contentOffset, false)
-        }
-        guard requestedDeltaY != 0 else {
-            guard gridModeInteractionCoordinator.phase == .settling else {
-                return (requestedContentOffset, false)
-            }
-            return (
-                CGPoint(
-                    x: canonicalContentOffsetX,
-                    y: requestedContentOffset.y
-                ),
-                false
-            )
-        }
-        guard finalizeInterruptibleGridModeSettle() else {
-            if gridModeInteractionCoordinator.phase == .idle,
-               gridModeEffectDrainDepth == 0 {
-                removeGridModeCommitSnapshot()
-            }
-            return (requestedContentOffset, false)
-        }
-        let target = clampedContentOffset(CGPoint(
-            x: collectionView.contentOffset.x,
-            y: collectionView.contentOffset.y + requestedDeltaY
-        ))
-        return (
-            target,
-            !animated || target == collectionView.contentOffset
-        )
-    }
-
-    private func settleAfterImmediateGridModeOffsetIfPossible() {
-        guard gridModeInteractionCoordinator.phase == .idle,
-              !isApplyingPosition,
-              !collectionView.isTracking,
-              !collectionView.isDragging,
-              !collectionView.isDecelerating,
-              !isScrollMotionActive else {
-            return
-        }
-        settleAfterApplyingPendingWindowSafeAreaRefresh()
-    }
-
-    private func resolveScrollObservedDuringGridModeSettle(
-        _ scrollView: UIScrollView
-    ) -> Bool {
-        guard hasInterruptibleGridModeSettle else { return false }
-        let observedContentOffsetY = scrollView.contentOffset.y
-        let settleContentOffsetY = gridModeSettleContentOffsetY
-            ?? lastScrollOffsetY
-            ?? observedContentOffsetY
-        let observedDeltaY = observedContentOffsetY - settleContentOffsetY
-        guard observedDeltaY.isFinite else { return false }
-        guard observedDeltaY != 0 else {
-            let canonicalContentOffset = CGPoint(
-                x: canonicalContentOffsetX,
-                y: observedContentOffsetY
-            )
-            if canonicalContentOffset != scrollView.contentOffset {
-                scrollView.setContentOffset(
-                    canonicalContentOffset,
-                    animated: false
-                )
-            }
-            return false
-        }
-        return resumeObservedGridModeSettleOffset(
-            settleContentOffsetY: settleContentOffsetY,
-            observedDeltaY: observedDeltaY
-        )
-    }
-
-    private func resumeObservedGridModeSettleOffset(
-        settleContentOffsetY: CGFloat,
-        observedDeltaY: CGFloat
-    ) -> Bool {
-        gridModeContentOffsetRestorationDepth += 1
-        defer { gridModeContentOffsetRestorationDepth -= 1 }
-        collectionView.setContentOffsetWithoutResolution(CGPoint(
-            x: canonicalContentOffsetX,
-            y: settleContentOffsetY
-        ))
-        collectionView.layoutIfNeeded()
-        finalizeGridModeInteractionIfNeeded()
-        guard gridModeInteractionCoordinator.phase == .idle else {
-            lastScrollOffsetY = collectionView.contentOffset.y
-            return false
-        }
-        removeGridModeCommitSnapshot()
-        let committedContentOffsetY = collectionView.contentOffset.y
-        lastScrollOffsetY = committedContentOffsetY
-        let resumedContentOffset = CGPoint(
-            x: canonicalContentOffsetX,
-            y: clampedVerticalContentOffsetY(
-                committedContentOffsetY + observedDeltaY
-            )
-        )
-        let resumedDeltaY = resumedContentOffset.y - committedContentOffsetY
-        if abs(resumedDeltaY) > Self.boundaryEpsilon {
-            lastPrefetchDirection = resumedDeltaY > 0 ? .forward : .backward
-        }
-        if resumedContentOffset != collectionView.contentOffset {
-            collectionView.setContentOffsetWithoutResolution(
-                resumedContentOffset
-            )
-        }
-        return true
-    }
-
     func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
-        interruptGridModeSettleForDragIfNeeded()
-        removeGridModeCommitSnapshot()
+        gridModeCoordinator.prepareForDragging()
         cancelScrollMotionAnimationTimeout()
         if scrollCoordinator.beginDrag(
             contentOffsetY: scrollView.contentOffset.y,
@@ -2608,7 +1301,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
                 clampedVerticalContentOffsetY(scrollView.contentOffset.y)
         ) {
             imagePipeline.setScrollMotionActive(true)
-            cancelGridModeGeometryPrewarming()
+            gridModeCoordinator.dragDidBeginScrollMotion()
             demoteVisibleBrowserImageLoadsIfNeeded()
         }
         let verticalRange = verticalContentOffsetRange
@@ -2619,17 +1312,9 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     }
 
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        if gridModeContentOffsetRestorationDepth > 0 {
-            _ = scrollCoordinator.observeContentOffset(scrollView.contentOffset.y)
-            return
-        }
-        if let snapshotContentOffset = gridModeCommitSnapshotContentOffset,
-           gridModeEffectDrainDepth == 0,
-           scrollView.contentOffset != snapshotContentOffset {
-            removeGridModeCommitSnapshot()
-        }
-        let settlesAfterImmediateGridModeOffset =
-            resolveScrollObservedDuringGridModeSettle(scrollView)
+        let gridModeObservation = gridModeCoordinator
+            .observeScrollDuringGridMode(scrollView)
+        guard gridModeObservation.shouldContinue else { return }
         let previousOffsetY = scrollCoordinator.observeContentOffset(
             scrollView.contentOffset.y
         )
@@ -2652,8 +1337,8 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             )
         }
         scheduleScrollUpdate()
-        if settlesAfterImmediateGridModeOffset {
-            settleAfterImmediateGridModeOffsetIfPossible()
+        if gridModeObservation.settlesAfterImmediateOffset {
+            gridModeCoordinator.settleAfterImmediateOffsetIfPossible()
         }
     }
 
@@ -2685,22 +1370,23 @@ final class VerticalCollectionBrowserViewController: UIViewController,
 
     func scrollViewShouldScrollToTop(_ scrollView: UIScrollView) -> Bool {
         guard isActive else { return false }
-        let interruptedGridModeSettle = finalizeInterruptibleGridModeSettle()
-        guard !hasGridModeInteractionState else { return false }
+        let interruptedGridModeSettle = gridModeCoordinator
+            .finalizeInterruptibleSettle()
+        guard !gridModeCoordinator.hasInteractionState else { return false }
         endScrollMotionAndResetDragState()
         let hasScrollMotion =
             scrollView.contentOffset.y
                 > verticalContentOffsetRange.lowerBound + Self.boundaryEpsilon
         if hasScrollMotion {
             beginScrollMotion()
-            removeGridModeCommitSnapshot()
+            gridModeCoordinator.discardTransitionCover()
             scheduleScrollMotionAnimationTimeout()
         }
         retainFocusedTokenIndex(nil)
         cancelScheduledScrollUpdate()
         lastScrollOffsetY = scrollView.contentOffset.y
         if interruptedGridModeSettle, !hasScrollMotion {
-            settleAfterImmediateGridModeOffsetIfPossible()
+            gridModeCoordinator.settleAfterImmediateOffsetIfPossible()
         }
         return true
     }
@@ -2729,57 +1415,11 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         sampledAround focusedTokenIndex: Int?,
         gridMode: MobileCollectionBrowserGridMode
     ) {
-        cancelGridModeGeometryPrewarming()
-        let cachedGeometry: CachedGridModeGeometry?
-        if let snapshot {
-            ensureGridModeGeometryCache(snapshot: snapshot)
-            cachedGeometry = gridModeGeometryCache?.geometries[gridMode]
-        } else {
-            gridModeGeometryCache = nil
-            cachedGeometry = nil
-        }
-        browseSnapshot = snapshot
-        if let snapshot, let cachedGeometry {
-            layoutAspectState = MobilePlayerCollectionBrowserLayoutAspectState(
-                aspectProfile: cachedGeometry.aspectProfile,
-                fallbackSpec: makeLayoutFallbackSpec(
-                    snapshot: snapshot,
-                    focusedTokenIndex: focusedTokenIndex
-                )
-            )
-        } else {
-            updateLayoutAspectProfile(
-                snapshot: snapshot,
-                focusedTokenIndex: focusedTokenIndex,
-                columnCount: gridMode.columnCount
-            )
-        }
-        imagePipeline.cancelAllPrefetchLoads()
-        imagePipeline.cancelVisibleCellImageLoads()
-        // An in-place reload recreates every cell; anchor-nearest regions keep
-        // their current pixels and crossfade to the reloaded content.
-        let isOnScreen = isActive && viewIfLoaded?.window != nil
-        let carryoverSources = isOnScreen
-            ? captureVisibleCarryoverSources(
-                anchorTokenIndex: focusedTokenIndex
-            )
-            : []
-        if isOnScreen {
-            gridModeCoordinator.beginCommitFadeWindow()
-        }
-        collectionView.reloadData()
-        if let cachedGeometry {
-            installCollectionLayout(cachedGeometry.layout)
-        } else {
-            configureCollectionLayout()
-        }
-        collectionView.layoutIfNeeded()
-        if !carryoverSources.isEmpty {
-            installGridModeCarryoverContent(
-                sources: carryoverSources,
-                anchorTokenIndex: focusedTokenIndex
-            )
-        }
+        gridModeCoordinator.applyBrowseSnapshot(
+            snapshot,
+            sampledAround: focusedTokenIndex,
+            gridMode: gridMode
+        )
     }
 
     private func updateLayoutAspectProfile(
@@ -3017,7 +1657,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         publishFocus(tokenIndex: targetTokenIndex, cadence: .immediate)
         publishSettledTokenIfNeeded()
         prepareThumbnailWindow(around: targetTokenIndex, direction: .forward, force: true)
-        scheduleGridModeGeometryPrewarmIfPossible()
+        gridModeCoordinator.scheduleGeometryPrewarmIfPossible()
     }
 
     private func configureCollectionLayout() {
@@ -3063,7 +1703,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             bottom: layoutWindowSafeAreaInsets.bottom,
             right: 0
         )
-        scheduleGridModeGeometryPrewarmIfPossible()
+        gridModeCoordinator.scheduleGeometryPrewarmIfPossible()
     }
 
     private func captureLayoutWindowSafeAreaInsets(_ safeAreaInsets: UIEdgeInsets) {
@@ -3317,7 +1957,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     private func beginScrollMotion() {
         guard scrollCoordinator.beginScrollMotion() else { return }
         imagePipeline.setScrollMotionActive(true)
-        cancelGridModeGeometryPrewarming()
+        gridModeCoordinator.cancelGeometryPrewarming()
         demoteVisibleBrowserImageLoadsIfNeeded()
     }
 
@@ -3532,11 +2172,11 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             forcesThumbnailWindow: true
         )
         publishSettledTokenIfNeeded()
-        scheduleGridModeGeometryPrewarmIfPossible()
+        gridModeCoordinator.scheduleGeometryPrewarmIfPossible()
     }
 
     private func performSelection(at tokenIndex: Int) {
-        guard !hasGridModeInteractionState,
+        guard !gridModeCoordinator.hasInteractionState,
               canSelectBrowserCell(at: tokenIndex) else {
             return
         }
@@ -3814,7 +2454,8 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     }
 
     var hasPendingGridModeGeometryPrewarmForTesting: Bool {
-        gridModeGeometryPrewarmPlan != nil
+        gridModeCoordinator.lifecycleStateForTesting
+            .hasPendingGeometryPrewarm
     }
 
     func drainDenseGridImageDisplayLinkFrameForTesting() -> Int {
@@ -3836,9 +2477,15 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     }
 
     func resetGridModeGeometryPrewarmingForTesting() {
-        cancelGridModeGeometryPrewarming()
-        gridModeGeometryCache = nil
+        gridModeCoordinator.resetGeometryState()
     }
+
 #endif
+
+    func handleGridModePinchForTesting(
+        _ recognizer: UIPinchGestureRecognizer
+    ) {
+        gridModeCoordinator.handleGridModePinchForTesting(recognizer)
+    }
 
 }
