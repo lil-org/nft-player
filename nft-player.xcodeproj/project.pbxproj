@@ -255,6 +255,8 @@
 		2DA600082FF2000000000001 /* MobileCollectionBrowserLifecycleDisplayChangeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA600182FF2000000000001 /* MobileCollectionBrowserLifecycleDisplayChangeTests.swift */; };
 		2DA600092FF2000000000001 /* MobileCollectionBrowserAccessibilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA600192FF2000000000001 /* MobileCollectionBrowserAccessibilityTests.swift */; };
 		2DA6000A2FF2000000000001 /* MobilePlayerCollectionBrowserCoordinatorContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA6001A2FF2000000000001 /* MobilePlayerCollectionBrowserCoordinatorContractTests.swift */; };
+		2DA700012FF3000000000001 /* MobileCollectionsSessionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA700022FF3000000000001 /* MobileCollectionsSessionCoordinator.swift */; };
+		2DA700032FF3000000000001 /* MobileCollectionsSessionCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA700042FF3000000000001 /* MobileCollectionsSessionCoordinatorTests.swift */; };
 		2DA100042FC0000000000001 /* PlayerCollectionScrollPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA100002FC0000000000001 /* PlayerCollectionScrollPolicy.swift */; };
 		2DA100052FC0000000000001 /* PlayerCollectionScrollPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA100002FC0000000000001 /* PlayerCollectionScrollPolicy.swift */; };
 		2DA100062FC0000000000001 /* PlayerCollectionScrollPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA100002FC0000000000001 /* PlayerCollectionScrollPolicy.swift */; };
@@ -499,6 +501,8 @@
 		2DA600182FF2000000000001 /* MobileCollectionBrowserLifecycleDisplayChangeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileCollectionBrowserLifecycleDisplayChangeTests.swift; sourceTree = "<group>"; };
 		2DA600192FF2000000000001 /* MobileCollectionBrowserAccessibilityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileCollectionBrowserAccessibilityTests.swift; sourceTree = "<group>"; };
 		2DA6001A2FF2000000000001 /* MobilePlayerCollectionBrowserCoordinatorContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobilePlayerCollectionBrowserCoordinatorContractTests.swift; sourceTree = "<group>"; };
+		2DA700022FF3000000000001 /* MobileCollectionsSessionCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileCollectionsSessionCoordinator.swift; sourceTree = "<group>"; };
+		2DA700042FF3000000000001 /* MobileCollectionsSessionCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileCollectionsSessionCoordinatorTests.swift; sourceTree = "<group>"; };
 		2DB100012FD0000000000001 /* MobilePlayerBrowserLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobilePlayerBrowserLayout.swift; sourceTree = "<group>"; };
 		2E0000000000B7378DF1FB9C /* CollectionBrowseThumbnails.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionBrowseThumbnails.swift; sourceTree = "<group>"; };
 		2E0000000000053BA7B2B190 /* PlayerCollectionBrowserSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerCollectionBrowserSupport.swift; sourceTree = "<group>"; };
@@ -852,6 +856,7 @@
 			isa = PBXGroup;
 			children = (
 				2CF08AA42D2A937400D82ACA /* MobileCollectionsView.swift */,
+				2DA700022FF3000000000001 /* MobileCollectionsSessionCoordinator.swift */,
 				2CFA90002EB0000000000001 /* MobileCollectionCatalog.swift */,
 				2CF08AA82D2A937400D82ACA /* MobilePlayerView.swift */,
 				2CC971622D2F4214005A8C4C /* HorizontalPlayer.swift */,
@@ -888,6 +893,7 @@
 		2DA2000C2FD0000000000001 /* nft-player-iosTests */ = {
 			isa = PBXGroup;
 			children = (
+				2DA700042FF3000000000001 /* MobileCollectionsSessionCoordinatorTests.swift */,
 				2DA400022FF0000000000001 /* MobileCollectionBrowserGridModePresentationTests.swift */,
 				2DA600162FF2000000000001 /* MobileCollectionBrowserGridTransitionTests.swift */,
 				2DA600172FF2000000000001 /* MobileCollectionBrowserScrollingPrefetchTests.swift */,
@@ -1327,6 +1333,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2DA700032FF3000000000001 /* MobileCollectionsSessionCoordinatorTests.swift in Sources */,
 				2DA400012FF0000000000001 /* MobileCollectionBrowserGridModePresentationTests.swift in Sources */,
 				2DA600062FF2000000000001 /* MobileCollectionBrowserGridTransitionTests.swift in Sources */,
 				2DA600072FF2000000000001 /* MobileCollectionBrowserScrollingPrefetchTests.swift in Sources */,
@@ -1348,6 +1355,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2DA700012FF3000000000001 /* MobileCollectionsSessionCoordinator.swift in Sources */,
 				2C460EDC2D2986460083124E /* SuggestedItemsService.swift in Sources */,
 				2C460EDE2D29865F0083124E /* Script.swift in Sources */,
 				2C460ECA2D29855A0083124E /* AutoReloadingWebView.swift in Sources */,

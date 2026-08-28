@@ -10,7 +10,22 @@ download on the [app store](https://player.lil.org)
 > big thanks to [nouns](https://nouns.camp) for supporting nft player with a [garden round](https://prop.house/0x6c7f962819d04c5e95a1ca750e8f076c9735da2b/2) grant
 
 ## development
-* run the xcode project
+
+Open `nft-player.xcodeproj` in Xcode to run the app. Run the complete Swift package and iOS test suites with:
+
+```sh
+scripts/test.sh
+```
+
+The script runs package tests first, then uses the first available iPhone simulator for the iOS tests. Override the destination or derived-data location when needed:
+
+```sh
+IOS_TEST_DESTINATION='platform=iOS Simulator,name=iPhone 17 Pro,OS=latest' \
+TEST_DERIVED_DATA_PATH='build/custom-derived-data' \
+scripts/test.sh
+```
+
+Derived data defaults to the ignored `build/test-derived-data` directory.
 
 ## app store
 Install [asc](https://asccli.sh) and Node.js, then authenticate asc with App Store Connect. The release helper uses Node for JSON parsing; no npm packages are required.

@@ -14,20 +14,6 @@ private let continueViewingPillSpacing: CGFloat = 8
 private let continueViewingPillScrollHorizontalInset: CGFloat = 16
 private let mobileCollectionsGridScrollPositionKey = "mobileCollectionsGridScrollPosition"
 
-private enum PlayerPresentationTransition {
-    case animated
-    case instant
-
-    var animatesNavigationTransition: Bool {
-        switch self {
-        case .animated:
-            return true
-        case .instant:
-            return false
-        }
-    }
-}
-
 private enum InfiniteCollectionsLoop {
     private static let repetitionCount = 31
     private static let middleRepetition = repetitionCount / 2
@@ -161,55 +147,49 @@ private enum MobileCollectionsGridScrollPositionStore {
 }
 
 struct MobileCollectionsView: View {
-    private struct WidgetPlayerHandoff {
-        let playerConfigID: UUID
-        let request: WidgetLaunchPresentationState.Request
+    private struct SessionConfigurationID: Equatable {
+        let collectionItems: [MobileCollectionItem]
+        let widgetStateID: ObjectIdentifier
+        let dependenciesID: UUID
     }
+
+    @Environment(\.displayScale) private var displayScale
 
     private let collectionItems: [MobileCollectionItem]
-    private let widgetLaunchPresentationState: WidgetLaunchPresentationState
-    @Environment(\.displayScale) private var displayScale
-    @State private var playerConfig: MobilePlayerConfig?
-    @State private var playerPresentationTransition: PlayerPresentationTransition = .animated
-    @State private var viewingProgressSnapshot = PlayerViewingProgressSnapshot.empty
-    @State private var hasLoadedViewingProgress = false
-    @State private var playerPresentationGate = PlayerPresentationRequestGate()
-    @State private var continueViewingScrollResetID = 0
+    private let widgetLaunchPresentationState:
+        WidgetLaunchPresentationState
+    private let dependencies:
+        MobileCollectionsSessionCoordinator.Dependencies
+
+    @State private var sessionCoordinator:
+        MobileCollectionsSessionCoordinator
     @State private var isSearchActive = false
     @State private var collectionSearchQuery = ""
-    @State private var viewingProgressRefreshID = 0
-    @State private var shouldResetScrollAfterViewingProgressRefresh = true
-    @State private var shouldPrewarmAfterViewingProgressRefresh = true
-    @State private var widgetPlayerHandoff: WidgetPlayerHandoff?
-    
+
     init(
         collectionItems: [MobileCollectionItem] = MobileCollectionCatalog.allItems,
-        widgetLaunchPresentationState: WidgetLaunchPresentationState = .shared
+        widgetLaunchPresentationState: WidgetLaunchPresentationState = .shared,
+        dependencies: MobileCollectionsSessionCoordinator.Dependencies = .live
     ) {
         self.collectionItems = collectionItems
-        self.widgetLaunchPresentationState = widgetLaunchPresentationState
-    }
-
-    private var viewingProgressByCollectionId: [String: Int] {
-        viewingProgressSnapshot.percentagesByCollectionId
-    }
-
-    private var viewedToEndCollectionIds: Set<String> {
-        viewingProgressSnapshot.viewedToEndCollectionIds
-    }
-
-    private var recentContinueViewingProgresses: [MobileViewingProgress] {
-        Self.visibleRecentContinueViewingProgresses(
-            from: viewingProgressSnapshot,
-            collectionItems: collectionItems
+        self.widgetLaunchPresentationState =
+            widgetLaunchPresentationState
+        self.dependencies = dependencies
+        _sessionCoordinator = State(initialValue:
+            MobileCollectionsSessionCoordinator(
+                collectionItems: collectionItems,
+                widgetLaunchPresentationState:
+                    widgetLaunchPresentationState,
+                dependencies: dependencies,
+                initialCollectionIdsForPrewarm: {
+                    Self.initialCollectionIdsForPrewarm(
+                        in: collectionItems
+                    )
+                }
+            )
         )
     }
 
-    private var isReadyToRevealNavigation: Bool {
-        (hasLoadedViewingProgress || playerConfig != nil)
-            && !widgetLaunchPresentationState.isPreparingWidgetPlayerPresentation
-    }
-    
     var body: some View {
         ZStack {
             Color(uiColor: MobilePlayerBackgroundColor.defaultColor)
@@ -217,46 +197,70 @@ struct MobileCollectionsView: View {
 
             MobileCollectionsNavigationView(
                 rootView: collectionsRootView,
-                playerConfig: playerConfig,
-                presentationTransition: playerPresentationTransition,
-                onWillDismissPlayer: playerPresentationGate.resolutionForPendingRequest,
-                onDidPresentPlayer: didPresentPlayer,
-                onDismissPlayer: dismissPlayer
+                playerConfig: sessionCoordinator.playerConfig,
+                presentationTransition:
+                    sessionCoordinator.playerPresentationTransition,
+                onWillDismissPlayer:
+                    sessionCoordinator
+                        .resolutionForPendingPresentationRequest,
+                onDidPresentPlayer:
+                    sessionCoordinator.didPresentPlayer,
+                onDismissPlayer: sessionCoordinator.dismissPlayer
             )
-            .opacity(isReadyToRevealNavigation ? 1 : 0)
-            .allowsHitTesting(isReadyToRevealNavigation)
+            .opacity(
+                sessionCoordinator.isReadyToRevealNavigation ? 1 : 0
+            )
+            .allowsHitTesting(
+                sessionCoordinator.isReadyToRevealNavigation
+            )
         }
         .ignoresSafeArea()
         .persistentSystemOverlays(.hidden)
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
-            requestViewingProgressRefresh(resetScroll: true, prewarm: true)
+            sessionCoordinator.applicationDidBecomeActive()
         }
         .onReceive(
             NotificationCenter.default.publisher(for: .playerViewingProgressDidChange)
                 .receive(on: RunLoop.main)
         ) { _ in
-            guard playerConfig == nil else { return }
-            requestViewingProgressRefresh()
+            sessionCoordinator.viewingProgressDidChange()
         }
-        .task(id: viewingProgressRefreshID) {
-            await performViewingProgressRefresh(id: viewingProgressRefreshID)
+        .onChange(of: sessionConfigurationID, initial: true) {
+            synchronizeSessionCoordinator()
         }
-        .onOpenURL(perform: requestWidgetURL)
+        .task(id: sessionCoordinator.viewingProgressRefreshID) {
+            await sessionCoordinator.refreshViewingProgress(
+                id: sessionCoordinator.viewingProgressRefreshID
+            )
+        }
+        .onOpenURL { url in
+            _ = sessionCoordinator.handleOpenURL(url)
+        }
         .onDisappear {
-            playerPresentationGate.cancel()
-            widgetPlayerHandoff = nil
-            widgetLaunchPresentationState.cancelAllWidgetPlayerHandoffs()
+            sessionCoordinator.cancel()
         }
+    }
+
+    private var sessionConfigurationID: SessionConfigurationID {
+        SessionConfigurationID(
+            collectionItems: collectionItems,
+            widgetStateID: ObjectIdentifier(
+                widgetLaunchPresentationState
+            ),
+            dependenciesID: dependencies.id
+        )
     }
 
     private var collectionsRootView: some View {
         ZStack {
             InfiniteCollectionsGridView(
                 items: collectionItems,
-                progressByCollectionId: viewingProgressByCollectionId,
-                viewedToEndCollectionIds: viewedToEndCollectionIds,
+                progressByCollectionId:
+                    sessionCoordinator.viewingProgressByCollectionId,
+                viewedToEndCollectionIds:
+                    sessionCoordinator.viewedToEndCollectionIds,
                 animatesInitialAppearance:
-                    widgetLaunchPresentationState
+                    sessionCoordinator
                         .shouldAnimateInitialCollectionsAppearance,
                 onSelect: didSelectCollectionItem
             )
@@ -267,7 +271,8 @@ struct MobileCollectionsView: View {
                     ToolbarItem(placement: .principal) {
                         MobileCollectionsSearchBar(
                             query: $collectionSearchQuery,
-                            isFocusSuspended: playerConfig != nil
+                            isFocusSuspended:
+                                sessionCoordinator.playerConfig != nil
                         )
                     }
                     ToolbarItem(placement: .navigationBarTrailing) {
@@ -297,21 +302,29 @@ struct MobileCollectionsView: View {
                 }
             }
 
-            if !widgetLaunchPresentationState.isPreparingWidgetPlayerPresentation,
-               !recentContinueViewingProgresses.isEmpty,
+            if !sessionCoordinator.isPreparingWidgetPlayerPresentation,
+               !sessionCoordinator.recentContinueViewingProgresses.isEmpty,
                !isSearchActive {
                 GeometryReader { geometry in
                     VStack {
                         Spacer()
                         ContinueViewingPillsScrollView(
                             progresses: Array(
-                                recentContinueViewingProgresses.prefix(maximumVisibleRecentContinueViewingCount)
+                                sessionCoordinator
+                                    .recentContinueViewingProgresses
+                                    .prefix(
+                                        maximumVisibleRecentContinueViewingCount
+                                    )
                             ),
                             availableWidth: geometry.size.width,
                             horizontalContentInset: continueViewingPillScrollHorizontalInset,
-                            resetID: continueViewingScrollResetID,
+                            resetID:
+                                sessionCoordinator.continueViewingScrollResetID,
                             coverAssetName: coverAssetName(for:),
-                            onSelect: requestResumeViewing
+                            onSelect: { progress in
+                                _ = sessionCoordinator
+                                    .requestResumeViewing(progress)
+                            }
                         )
                         .padding(.bottom, MobileBottomChromeSpacing.continueViewingPadding(forSafeAreaBottom: geometry.safeAreaInsets.bottom))
                     }
@@ -343,7 +356,7 @@ struct MobileCollectionsView: View {
     }
 
     private func didSelectCollectionItem(_ item: MobileCollectionItem) {
-        requestCollectionOpen(collectionId: item.id)
+        sessionCoordinator.requestCollectionOpen(collectionId: item.id)
     }
 
     private func activateSearch() {
@@ -366,305 +379,30 @@ struct MobileCollectionsView: View {
 
     private func didSelectSearchResult(_ item: MobileCollectionItem) {
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-        requestCollectionOpen(collectionId: item.id)
+        sessionCoordinator.requestCollectionOpen(collectionId: item.id)
     }
 
     private func coverAssetName(for collectionId: String) -> String {
         collectionItems.first { $0.id == collectionId }?.coverAssetName ?? collectionId
     }
 
-    private func requestCollectionOpen(
-        collectionId: String,
-        presentationTransition: PlayerPresentationTransition = .animated
-    ) {
-        let request = playerPresentationGate.begin()
-        Task {
-            await openCollection(
-                collectionId: collectionId,
-                presentationTransition: presentationTransition,
-                request: request
-            )
-        }
-    }
-
-    @discardableResult
-    private func openCollection(
-        collectionId: String,
-        presentationTransition: PlayerPresentationTransition,
-        request: PlayerPresentationRequestGate.Request,
-        widgetHandoffRequest: WidgetLaunchPresentationState.Request? = nil
-    ) async -> Bool {
-        await PlayerPersistenceUpdates.flush()
-        guard playerPresentationGate.isPending(request) else { return false }
-        let progress = await MobileViewingProgressStore.shared.progress(
-            collectionId: collectionId
-        )
-        guard playerPresentationGate.isPending(request) else { return false }
-        if let progress {
-            return await resumeViewing(
-                progress,
-                presentationTransition: presentationTransition,
-                request: request,
-                widgetHandoffRequest: widgetHandoffRequest
-            )
-        } else {
-            return await openPlayer(
-                initialItemId: collectionId,
-                continueViewingCollectionId: collectionId,
-                presentationTransition: presentationTransition,
-                request: request,
-                widgetHandoffRequest: widgetHandoffRequest
-            )
-        }
-    }
-
-    private func requestResumeViewing(_ progress: MobileViewingProgress) {
-        let request = playerPresentationGate.begin()
-        Task {
-            await openCollection(
-                collectionId: progress.collectionId,
-                presentationTransition: .animated,
-                request: request
-            )
-        }
-    }
-
-    @discardableResult
-    private func resumeViewing(
-        _ progress: MobileViewingProgress,
-        presentationTransition: PlayerPresentationTransition,
-        request: PlayerPresentationRequestGate.Request,
-        widgetHandoffRequest: WidgetLaunchPresentationState.Request? = nil
-    ) async -> Bool {
-        await openPlayer(
-            initialItemId: progress.collectionId,
-            initialTokenId: progress.tokenId,
-            initialTokenIndex: progress.tokenIndex,
-            continueViewingCollectionId: progress.collectionId,
-            presentationTransition: presentationTransition,
-            request: request,
-            widgetHandoffRequest: widgetHandoffRequest
-        )
-    }
-
-    private func requestWidgetURL(_ url: URL) {
-        guard let deepLink = WidgetDeepLink(url: url),
-              case let .collection(collectionId, tokenId) = deepLink,
-              collectionItems.contains(where: { $0.id == collectionId }) else {
-            widgetLaunchPresentationState.finishWidgetPlayerHandoff(for: url)
-            return
-        }
-
-        let request = playerPresentationGate.begin()
-        widgetPlayerHandoff = nil
-        let handoffRequest = widgetLaunchPresentationState.beginWidgetPlayerHandoff(for: url)
-        Task {
-            let didAcceptPresentation: Bool
-            if let tokenId {
-                didAcceptPresentation = await openWidgetToken(
-                    collectionId: collectionId,
-                    tokenId: tokenId,
-                    request: request,
-                    widgetHandoffRequest: handoffRequest
-                )
-            } else {
-                didAcceptPresentation = await openCollection(
-                    collectionId: collectionId,
-                    presentationTransition: .instant,
-                    request: request,
-                    widgetHandoffRequest: handoffRequest
-                )
-            }
-            if !didAcceptPresentation {
-                widgetLaunchPresentationState.finishWidgetPlayerHandoff(handoffRequest)
-            }
-        }
-    }
-
-    @discardableResult
-    private func openWidgetToken(
-        collectionId: String,
-        tokenId: String,
-        request: PlayerPresentationRequestGate.Request,
-        widgetHandoffRequest: WidgetLaunchPresentationState.Request?
-    ) async -> Bool {
-        await PlayerPersistenceUpdates.flush()
-        guard playerPresentationGate.isPending(request) else { return false }
-        let progress = await MobileViewingProgressStore.shared.progress(
-            collectionId: collectionId
-        )
-        guard playerPresentationGate.isPending(request) else { return false }
-        guard let widgetTokenInsertion = MobileCollectionCatalog.widgetTokenInsertion(
-            collectionId: collectionId,
-            widgetTokenId: tokenId,
-            progress: progress
-        ) else {
-            return await openCollection(
-                collectionId: collectionId,
-                presentationTransition: .instant,
-                request: request,
-                widgetHandoffRequest: widgetHandoffRequest
-            )
-        }
-
-        guard playerPresentationGate.isPending(request) else { return false }
-        return await openPlayer(
-            initialItemId: collectionId,
-            continueViewingCollectionId: collectionId,
-            widgetTokenInsertion: widgetTokenInsertion,
-            anchorProgress: widgetTokenInsertion.automaticAnchorProgress(),
-            presentationTransition: .instant,
-            request: request,
-            widgetHandoffRequest: widgetHandoffRequest
-        )
-    }
-
-    @discardableResult
-    private func openPlayer(
-        initialItemId: String,
-        initialTokenId: String? = nil,
-        initialTokenIndex: Int? = nil,
-        continueViewingCollectionId: String,
-        widgetTokenInsertion: PlayerWidgetTokenInsertion? = nil,
-        anchorProgress: MobileViewingProgress? = nil,
-        presentationTransition: PlayerPresentationTransition,
-        request: PlayerPresentationRequestGate.Request,
-        widgetHandoffRequest: WidgetLaunchPresentationState.Request? = nil
-    ) async -> Bool {
-        guard playerPresentationGate.isPending(request) else { return false }
-        guard let continueViewingUpdate = await MobileViewingProgressStore.shared
-            .prepareContinueViewingUpdate(collectionId: continueViewingCollectionId),
-              playerPresentationGate.isPending(request) else {
-            return false
-        }
-        let config = MobilePlayerPrewarmer.preparedConfig(
-            initialItemId: initialItemId,
-            initialTokenId: initialTokenId,
-            initialTokenIndex: initialTokenIndex,
-            continueViewingCollectionId: continueViewingCollectionId,
-            widgetTokenInsertion: widgetTokenInsertion
-        )
-        return playerPresentationGate.commit(
-            request,
-            present: {
-                if let widgetHandoffRequest {
-                    widgetPlayerHandoff = WidgetPlayerHandoff(
-                        playerConfigID: config.id,
-                        request: widgetHandoffRequest
-                    )
-                }
-                let presentPlayer = {
-                    playerPresentationTransition = presentationTransition
-                    playerConfig = config
-                }
-                switch presentationTransition {
-                case .animated:
-                    withAnimation(playerCrossfadeAnimation) {
-                        presentPlayer()
-                    }
-                case .instant:
-                    var transaction = Transaction(animation: nil)
-                    transaction.disablesAnimations = true
-                    withTransaction(transaction) {
-                        presentPlayer()
-                    }
-                }
-                Haptic.selectionChanged()
-            },
-            persist: {
-                if let anchorProgress {
-                    await MobileViewingProgressStore.shared.save(anchorProgress)
-                }
-                await MobileViewingProgressStore.shared.applyContinueViewingUpdate(
-                    continueViewingUpdate
-                )
-            },
-            discard: {
-                widgetLaunchPresentationState.finishWidgetPlayerHandoff(
-                    widgetHandoffRequest
+    private func synchronizeSessionCoordinator() {
+        sessionCoordinator.update(
+            collectionItems: collectionItems,
+            widgetLaunchPresentationState:
+                widgetLaunchPresentationState,
+            dependencies: dependencies,
+            initialCollectionIdsForPrewarm: {
+                Self.initialCollectionIdsForPrewarm(
+                    in: collectionItems
                 )
             }
         )
     }
 
-    private func didPresentPlayer(_ config: MobilePlayerConfig) {
-        guard let widgetPlayerHandoff,
-              widgetPlayerHandoff.playerConfigID == config.id else {
-            return
-        }
-        self.widgetPlayerHandoff = nil
-        widgetLaunchPresentationState.finishWidgetPlayerHandoff(
-            widgetPlayerHandoff.request
-        )
-    }
-
-    private func dismissPlayer(_ config: MobilePlayerConfig) {
-        guard playerConfig?.id == config.id else { return }
-        playerPresentationTransition = .animated
-        withAnimation(playerCrossfadeAnimation) {
-            playerConfig = nil
-        }
-        requestViewingProgressRefresh(resetScroll: true)
-    }
-
-    private func requestViewingProgressRefresh(
-        resetScroll: Bool = false,
-        prewarm: Bool = false
-    ) {
-        shouldResetScrollAfterViewingProgressRefresh =
-            shouldResetScrollAfterViewingProgressRefresh || resetScroll
-        shouldPrewarmAfterViewingProgressRefresh =
-            shouldPrewarmAfterViewingProgressRefresh || prewarm
-        viewingProgressRefreshID &+= 1
-    }
-
-    private func performViewingProgressRefresh(id refreshID: Int) async {
-        let shouldResetScroll = shouldResetScrollAfterViewingProgressRefresh
-        let shouldPrewarm = shouldPrewarmAfterViewingProgressRefresh
-        let previousLeadingCollectionId = recentContinueViewingProgresses.first?.collectionId
-        let snapshot = await MobileViewingProgressStore.shared.progressSnapshot()
-        guard !Task.isCancelled, refreshID == viewingProgressRefreshID else { return }
-
-        viewingProgressSnapshot = snapshot
-        shouldResetScrollAfterViewingProgressRefresh = false
-        shouldPrewarmAfterViewingProgressRefresh = false
-
-        if shouldResetScroll
-            || (playerConfig == nil
-                && previousLeadingCollectionId != recentContinueViewingProgresses.first?.collectionId) {
-            resetContinueViewingScrollOffset()
-        }
-        if !hasLoadedViewingProgress {
-            hasLoadedViewingProgress = true
-        }
-        if shouldPrewarm {
-            schedulePlayerPrewarm()
-        }
-    }
-
-    private func resetContinueViewingScrollOffset() {
-        continueViewingScrollResetID += 1
-    }
-
-    private func schedulePlayerPrewarm() {
-        MobilePlayerPrewarmer.scheduleAfterLaunch(
-            continueViewingProgress: recentContinueViewingProgresses.first,
-            initialCollectionIds: likelyInitialCollectionIds()
-        )
-    }
-
-    private static func visibleRecentContinueViewingProgresses(
-        from progressSnapshot: PlayerViewingProgressSnapshot,
-        collectionItems: [MobileCollectionItem]
-    ) -> [MobileViewingProgress] {
-        let visibleCollectionIds = Set(collectionItems.map(\.id))
-        return progressSnapshot.recentContinueViewingProgresses.filter { progress in
-            visibleCollectionIds.contains(progress.collectionId)
-                && MobileCollectionCatalog.canOpenCollection(specificCollectionId: progress.collectionId)
-        }
-    }
-
-    private func likelyInitialCollectionIds() -> [String] {
+    private static func initialCollectionIdsForPrewarm(
+        in collectionItems: [MobileCollectionItem]
+    ) -> [String] {
         guard let sourceIndex = resolvedInitialSourceIndex(
             in: collectionItems,
             savedPosition: MobileCollectionsGridScrollPositionStore.load()
@@ -680,7 +418,6 @@ struct MobileCollectionsView: View {
             )
             .map { collectionItems[$0].id }
     }
-    
 }
 
 private struct InfiniteCollectionsGridView: UIViewRepresentable {
