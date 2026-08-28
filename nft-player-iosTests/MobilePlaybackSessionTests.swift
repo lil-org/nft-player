@@ -8,25 +8,26 @@ nonisolated final class MobilePlaybackSessionTests: XCTestCase {}
 private actor MobilePlaybackSessionTestViewingTracker:
     MobilePlaybackViewingSessionTracking {
 
-    private let onPrepareStarted: @MainActor @Sendable () -> Void
+    private let preparationStarted: AsyncStream<Void>
+    private let preparationStartedContinuation: AsyncStream<Void>.Continuation
     private var restartContinuation:
         CheckedContinuation<PlayerContinueViewingUpdate?, Never>?
+    private var isPreparationCancelled = false
 
-    init(
-        onPrepareStarted: @escaping @MainActor @Sendable () -> Void = {}
-    ) {
-        self.onPrepareStarted = onPrepareStarted
+    init() {
+        let (stream, continuation) = AsyncStream<Void>.makeStream()
+        self.preparationStarted = stream
+        self.preparationStartedContinuation = continuation
     }
 
     func prepareRestartUpdate(
         collectionId: String?
     ) async -> PlayerContinueViewingUpdate? {
-        let onPrepareStarted = self.onPrepareStarted
+        guard !isPreparationCancelled else { return nil }
         return await withCheckedContinuation { continuation in
             restartContinuation = continuation
-            Task { @MainActor in
-                onPrepareStarted()
-            }
+            preparationStartedContinuation.yield(())
+            preparationStartedContinuation.finish()
         }
     }
 
@@ -34,10 +35,21 @@ private actor MobilePlaybackSessionTestViewingTracker:
 
     func markViewed(_ progress: MobileViewingProgress) async {}
 
+    func waitUntilPrepareStarted() async -> Bool {
+        var iterator = preparationStarted.makeAsyncIterator()
+        return await iterator.next() != nil
+    }
+
+    func cancelPreparedRestart() {
+        isPreparationCancelled = true
+        preparationStartedContinuation.finish()
+        resumePreparedRestart()
+    }
+
     func resumePreparedRestart() {
-        let continuation = restartContinuation
+        guard let continuation = restartContinuation else { return }
         restartContinuation = nil
-        continuation?.resume(returning: nil)
+        continuation.resume(returning: nil)
     }
 }
 
@@ -131,7 +143,7 @@ extension MobilePlaybackSessionTests {
         firstSession.goForward()
 
         XCTAssertEqual(firstDisplay.navigations.count, 1)
-        switch firstDisplay.navigations[0] {
+        switch try XCTUnwrap(firstDisplay.navigations.first) {
         case .forward:
             break
         case .back, .restartCollection:
@@ -266,7 +278,7 @@ extension MobilePlaybackSessionTests {
         XCTAssertEqual(secondDisplay.flushCount, 1)
         XCTAssertEqual(registry.activeSessionCount, 1)
         XCTAssertEqual(clearedOwnerIDs.count, 2)
-        XCTAssertNotEqual(clearedOwnerIDs[0], clearedOwnerIDs[1])
+        XCTAssertEqual(Set(clearedOwnerIDs).count, 2)
         XCTAssertEqual(cancelAllCount, 0)
 
         thirdSession.stopAndDisconnect()
@@ -279,10 +291,7 @@ extension MobilePlaybackSessionTests {
     }
 
     func testPendingRestartDoesNotRetainOrNavigateReplacedDisplay() async throws {
-        let prepareStarted = expectation(description: "Restart preparation started")
-        let tracker = MobilePlaybackSessionTestViewingTracker {
-            prepareStarted.fulfill()
-        }
+        let tracker = MobilePlaybackSessionTestViewingTracker()
         let registry = MobilePlaybackSessionRegistry(
             dependencies: .init(
                 makeViewingSessionTracker: { _ in tracker },
@@ -297,7 +306,13 @@ extension MobilePlaybackSessionTests {
             MobilePlaybackSessionTestWeakDisplayReference(originalDisplay)
         session.attach(display: originalDisplay!)
         let restartTask = try XCTUnwrap(session.restartCollection())
-        await fulfillment(of: [prepareStarted], timeout: 1)
+        guard await waitUntilPrepareStarted(tracker) else {
+            session.stopAndDisconnect()
+            await tracker.cancelPreparedRestart()
+            restartTask.cancel()
+            XCTFail("Restart preparation did not start")
+            return
+        }
         let replacementDisplay = MobilePlaybackSessionTestDisplay()
         session.attach(display: replacementDisplay)
 
@@ -311,10 +326,7 @@ extension MobilePlaybackSessionTests {
     }
 
     func testPendingRestartCannotNavigateAfterDisconnect() async throws {
-        let prepareStarted = expectation(description: "Restart preparation started")
-        let tracker = MobilePlaybackSessionTestViewingTracker {
-            prepareStarted.fulfill()
-        }
+        let tracker = MobilePlaybackSessionTestViewingTracker()
         let registry = MobilePlaybackSessionRegistry(
             dependencies: .init(
                 makeViewingSessionTracker: { _ in tracker },
@@ -326,7 +338,13 @@ extension MobilePlaybackSessionTests {
         let display = MobilePlaybackSessionTestDisplay()
         session.attach(display: display)
         let restartTask = try XCTUnwrap(session.restartCollection())
-        await fulfillment(of: [prepareStarted], timeout: 1)
+        guard await waitUntilPrepareStarted(tracker) else {
+            session.stopAndDisconnect()
+            await tracker.cancelPreparedRestart()
+            restartTask.cancel()
+            XCTFail("Restart preparation did not start")
+            return
+        }
 
         session.stopAndDisconnect()
         await tracker.resumePreparedRestart()
@@ -335,5 +353,22 @@ extension MobilePlaybackSessionTests {
         XCTAssertEqual(display.flushCount, 1)
         XCTAssertTrue(display.navigations.isEmpty)
         XCTAssertEqual(registry.activeSessionCount, 0)
+    }
+
+    private func waitUntilPrepareStarted(
+        _ tracker: MobilePlaybackSessionTestViewingTracker
+    ) async -> Bool {
+        await withTaskGroup(of: Bool.self) { group in
+            group.addTask {
+                await tracker.waitUntilPrepareStarted()
+            }
+            group.addTask {
+                try? await Task.sleep(for: .seconds(1))
+                return false
+            }
+            let didStart = await group.next() ?? false
+            group.cancelAll()
+            return didStart
+        }
     }
 }
