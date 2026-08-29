@@ -334,6 +334,33 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         _ = fixture.renderer.finish(preservingCarryover: false)
     }
 
+    func testCancellingBurstWhileCommitIsPendingClearsSessionRequest() throws {
+        let fixture = try makeFixture(clock: { 0 })
+        begin(fixture)
+        XCTAssertTrue(fixture.renderer.installPlane(fixture.planeRequest))
+        XCTAssertTrue(fixture.renderer.renderSettle(
+            id: fixture.planeRequest.id,
+            scale: 0.8,
+            settleProgress: 0.5,
+            panDeltaY: 0
+        ))
+        fixture.renderer.requestGestureMaterializationBurst()
+        guard case let .active(session) = fixture.renderer.lifecycle else {
+            return XCTFail("Expected an active renderer session")
+        }
+        XCTAssertTrue(session.pendingGestureMaterializationBurst)
+        let preparation = try XCTUnwrap(fixture.renderer.prepareCommit(
+            id: fixture.planeRequest.id,
+            mode: fixture.planeRequest.toMode
+        ))
+
+        fixture.renderer.cancelGestureMaterializationBurst()
+
+        XCTAssertFalse(session.pendingGestureMaterializationBurst)
+        fixture.renderer.abortCommit(preparation)
+        _ = fixture.renderer.finish(preservingCarryover: false)
+    }
+
     func testPhantomShapeHierarchyIsRetainedAcrossDrainBatches() throws {
         let fixture = try makeFixture(clock: { 0 })
         begin(fixture)

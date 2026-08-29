@@ -3,50 +3,10 @@
 import QuartzCore
 import UIKit
 
-extension MobilePlayerCollectionBrowserGridRenderer {
+extension GridPlaneRenderer {
     enum PhantomShapeOccupantKey: Hashable {
         case phantom(Int)
         case source(ObjectIdentifier)
-    }
-
-    struct PhantomShapeFrameCompensation: Equatable {
-        let localExcessX: CGFloat
-        let localExcessY: CGFloat
-        let minimumScaleFactor: CGFloat
-
-        init?(
-            excessX: CGFloat,
-            excessY: CGFloat,
-            appliedScaleX: CGFloat,
-            appliedScaleY: CGFloat,
-            minimumScaleFactor: CGFloat
-        ) {
-            guard appliedScaleX > 0, appliedScaleY > 0 else { return nil }
-            localExcessX = excessX / appliedScaleX
-            localExcessY = excessY / appliedScaleY
-            self.minimumScaleFactor = minimumScaleFactor
-            guard localExcessX.isFinite, localExcessY.isFinite else {
-                return nil
-            }
-        }
-
-        func applying(to frame: CGRect) -> CGRect {
-            guard frame.width > 0, frame.height > 0 else { return frame }
-            let width = max(
-                frame.width + localExcessX,
-                frame.width * minimumScaleFactor
-            )
-            let height = max(
-                frame.height + localExcessY,
-                frame.height * minimumScaleFactor
-            )
-            return CGRect(
-                x: frame.midX - width / 2,
-                y: frame.midY - height / 2,
-                width: width,
-                height: height
-            )
-        }
     }
 
     final class PhantomShapeView: UIView {

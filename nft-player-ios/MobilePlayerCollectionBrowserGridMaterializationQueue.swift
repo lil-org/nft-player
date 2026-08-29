@@ -2,7 +2,7 @@
 
 import Foundation
 
-extension MobilePlayerCollectionBrowserGridRenderer {
+extension GridMaterializer {
     enum MaterializationKind {
         case detail(
             planeID: UUID,

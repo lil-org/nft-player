@@ -166,6 +166,9 @@
 		2E3000000000000000000017 /* PlayerCardTransitionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E3000000000000000000007 /* PlayerCardTransitionCoordinator.swift */; };
 		2E3000000000000000000018 /* PlayerCardTransitionViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E3000000000000000000008 /* PlayerCardTransitionViews.swift */; };
 		2E3000000000000000000019 /* MobilePlayerInteractionCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E3000000000000000000009 /* MobilePlayerInteractionCoordinatorTests.swift */; };
+		2E4000023000000000000001 /* GridRenderSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E4000013000000000000001 /* GridRenderSession.swift */; };
+		2E4000043000000000000001 /* GridPlaneRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E4000033000000000000001 /* GridPlaneRenderer.swift */; };
+		2E4000063000000000000001 /* GridMaterializer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E4000053000000000000001 /* GridMaterializer.swift */; };
 		2CF08AAA2D2A937400D82ACA /* MobileHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CF08AA52D2A937400D82ACA /* MobileHelpers.swift */; };
 		2CF08AAB2D2A937400D82ACA /* nft_player_iosApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CF08AA72D2A937400D82ACA /* nft_player_iosApp.swift */; };
 		2CF08AAC2D2A937400D82ACA /* MobilePlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CF08AA82D2A937400D82ACA /* MobilePlayerView.swift */; };
@@ -455,6 +458,9 @@
 		2E3000000000000000000007 /* PlayerCardTransitionCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerCardTransitionCoordinator.swift; sourceTree = "<group>"; };
 		2E3000000000000000000008 /* PlayerCardTransitionViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerCardTransitionViews.swift; sourceTree = "<group>"; };
 		2E3000000000000000000009 /* MobilePlayerInteractionCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobilePlayerInteractionCoordinatorTests.swift; sourceTree = "<group>"; };
+		2E4000013000000000000001 /* GridRenderSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GridRenderSession.swift; sourceTree = "<group>"; };
+		2E4000033000000000000001 /* GridPlaneRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GridPlaneRenderer.swift; sourceTree = "<group>"; };
+		2E4000053000000000000001 /* GridMaterializer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GridMaterializer.swift; sourceTree = "<group>"; };
 		2CF08AA52D2A937400D82ACA /* MobileHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileHelpers.swift; sourceTree = "<group>"; };
 		2CF08AA62D2A937400D82ACA /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		2CF08AA72D2A937400D82ACA /* nft_player_iosApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = nft_player_iosApp.swift; sourceTree = "<group>"; };
@@ -899,6 +905,9 @@
 				2DA100082FC0000000000001 /* MobilePlayerCollectionBrowserTransitionPresentation.swift */,
 				2DA300022FE0000000000001 /* MobilePlayerCollectionBrowserTransitionSupport.swift */,
 				2DA1000D2FC0000000000001 /* MobilePlayerCollectionBrowserGridRenderer.swift */,
+				2E4000013000000000000001 /* GridRenderSession.swift */,
+				2E4000033000000000000001 /* GridPlaneRenderer.swift */,
+				2E4000053000000000000001 /* GridMaterializer.swift */,
 				2DA500162FF1000000000001 /* MobilePlayerCollectionBrowserGridMaterializationQueue.swift */,
 				2DA500172FF1000000000001 /* MobilePlayerCollectionBrowserGridPhantomShape.swift */,
 				2DA500192FF1000000000001 /* MobilePlayerCollectionBrowserImagePipeline.swift */,
@@ -1453,6 +1462,9 @@
 				2DA1000A2FC0000000000001 /* MobilePlayerCollectionBrowserTransitionPresentation.swift in Sources */,
 				2DA300012FE0000000000001 /* MobilePlayerCollectionBrowserTransitionSupport.swift in Sources */,
 				2DA1000B2FC0000000000001 /* MobilePlayerCollectionBrowserGridRenderer.swift in Sources */,
+				2E4000023000000000000001 /* GridRenderSession.swift in Sources */,
+				2E4000043000000000000001 /* GridPlaneRenderer.swift in Sources */,
+				2E4000063000000000000001 /* GridMaterializer.swift in Sources */,
 				2DA500062FF1000000000001 /* MobilePlayerCollectionBrowserGridMaterializationQueue.swift in Sources */,
 				2DA500072FF1000000000001 /* MobilePlayerCollectionBrowserGridPhantomShape.swift in Sources */,
 				2DA500092FF1000000000001 /* MobilePlayerCollectionBrowserImagePipeline.swift in Sources */,
