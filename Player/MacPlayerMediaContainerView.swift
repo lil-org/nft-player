@@ -29,7 +29,7 @@ final class MacPlayerMediaContainerView: NSView {
         static let horizontalIntentRatio: CGFloat = 1.15
     }
 
-    private enum WebMediaKind {
+    nonisolated private enum WebMediaKind: Hashable, Sendable {
         case image, video, html
     }
 
@@ -47,21 +47,46 @@ final class MacPlayerMediaContainerView: NSView {
         case nativeMetalCard
     }
 
-    private struct LocalMediaFileVersion: Equatable, Hashable {
+    nonisolated private struct LocalMediaFileVersion: Equatable, Hashable, Sendable {
         let descriptor: CollectionCatalogDownloadableMediaDescriptor
         let fileURL: URL
         let fileSize: Int?
         let contentModificationDate: Date?
 
-        init(fileURL: URL, descriptor: CollectionCatalogDownloadableMediaDescriptor) {
+        private init(
+            fileURL: URL,
+            descriptor: CollectionCatalogDownloadableMediaDescriptor,
+            fileSize: Int?,
+            contentModificationDate: Date?
+        ) {
+            self.descriptor = descriptor
+            self.fileURL = fileURL
+            self.fileSize = fileSize
+            self.contentModificationDate = contentModificationDate
+        }
+
+        @concurrent
+        static func load(
+            fileURL: URL,
+            descriptor: CollectionCatalogDownloadableMediaDescriptor
+        ) async -> Self {
             let resourceValues = try? fileURL.resourceValues(
                 forKeys: [.fileSizeKey, .contentModificationDateKey]
             )
-            self.descriptor = descriptor
-            self.fileURL = fileURL
-            self.fileSize = resourceValues?.fileSize
-            self.contentModificationDate = resourceValues?.contentModificationDate
+            return Self(
+                fileURL: fileURL,
+                descriptor: descriptor,
+                fileSize: resourceValues?.fileSize,
+                contentModificationDate: resourceValues?.contentModificationDate
+            )
         }
+    }
+
+    nonisolated private struct LocalWebPreparationIdentity: Hashable, Sendable {
+        let context: WebMediaContext
+        let fileURL: URL
+        let nextFileURL: URL?
+        let generation: UInt
     }
 
     private typealias VideoSizeRequest = LocalMediaFileVersion
@@ -71,7 +96,12 @@ final class MacPlayerMediaContainerView: NSView {
         let task: Task<Void, Never>
     }
 
-    private struct WebMediaContext: Equatable {
+    private struct LocalWebPreparationLoad {
+        let identity: LocalWebPreparationIdentity
+        let task: Task<Void, Never>
+    }
+
+    nonisolated private struct WebMediaContext: Hashable, Sendable {
         let descriptor: CollectionCatalogDownloadableMediaDescriptor
         let adjacentDescriptor: CollectionCatalogDownloadableMediaDescriptor?
         let fallbackHTML: String
@@ -94,9 +124,13 @@ final class MacPlayerMediaContainerView: NSView {
     private var renderMode: MacPlayerMediaRenderMode?
     private var representedImageKey: AnyHashable?
     private var activeImageLoadId: UUID?
-    private var cancelActiveImageLoad: (() -> Void)?
+    private var activeImageLoadTask: Task<Void, Never>?
     private var activeFileLoadId: UUID?
-    private var cancelActiveFileLoad: (() -> Void)?
+    private var activeFileLoadTask: Task<Void, Never>?
+    private var htmlDocumentRenderId: UUID?
+    private var htmlDocumentRenderTask: Task<Void, Never>?
+    private var localWebPreparationLoad: LocalWebPreparationLoad?
+    private var localWebGeneration: UInt = 0
     private var webMediaContext: WebMediaContext?
     private var isDownloadableMediaCacheObserverInstalled = false
     private var pendingLocalWebVersion: LocalMediaFileVersion?
@@ -216,11 +250,11 @@ final class MacPlayerMediaContainerView: NSView {
         if tokenChanged || !mode.canDemandLoad {
             representedImageKey = nil
             activeImageLoadId = nil
-            cancelActiveImageLoad?()
-            cancelActiveImageLoad = nil
+            activeImageLoadTask?.cancel()
+            activeImageLoadTask = nil
             activeFileLoadId = nil
-            cancelActiveFileLoad?()
-            cancelActiveFileLoad = nil
+            activeFileLoadTask?.cancel()
+            activeFileLoadTask = nil
         }
 
         if !mode.managesDownloadWindow {
@@ -304,11 +338,11 @@ final class MacPlayerMediaContainerView: NSView {
     }
 
     private func tearDownRenderedContent() {
-        cancelActiveImageLoad?()
-        cancelActiveImageLoad = nil
+        activeImageLoadTask?.cancel()
+        activeImageLoadTask = nil
         activeImageLoadId = nil
-        cancelActiveFileLoad?()
-        cancelActiveFileLoad = nil
+        activeFileLoadTask?.cancel()
+        activeFileLoadTask = nil
         activeFileLoadId = nil
         cancelVideoSizeLoad()
         isNativeMagnifyGestureActive = false
@@ -416,14 +450,16 @@ final class MacPlayerMediaContainerView: NSView {
         let imageLoadId = UUID()
         activeImageLoadId = imageLoadId
 
-        cancelActiveImageLoad = DownloadableMediaCache.shared.loadImage(for: descriptor) { [weak self] image in
-            guard let self,
+        activeImageLoadTask = Task { @MainActor [weak self] in
+            let image = await DownloadableMediaCache.shared.image(for: descriptor)
+            guard !Task.isCancelled,
+                  let self,
                   self.representedImageKey == imageKey,
                   self.activeImageLoadId == imageLoadId else {
                 return
             }
 
-            self.cancelActiveImageLoad = nil
+            self.activeImageLoadTask = nil
             self.activeImageLoadId = nil
             guard let image else {
                 self.renderWebContent(fallbackHTML)
@@ -435,8 +471,8 @@ final class MacPlayerMediaContainerView: NSView {
     }
 
     private func displayLoadedImage<Key: Hashable>(_ image: NSImage, key: Key) {
-        cancelActiveImageLoad?()
-        cancelActiveImageLoad = nil
+        activeImageLoadTask?.cancel()
+        activeImageLoadTask = nil
         activeImageLoadId = nil
         hideWebView()
         hideNativeMetalCardView()
@@ -462,6 +498,7 @@ final class MacPlayerMediaContainerView: NSView {
         )
         if webMediaContext != context {
             cancelVideoSizeLoad()
+            advanceLocalWebGeneration()
         }
         webMediaContext = context
         if mode.managesDownloadWindow {
@@ -470,34 +507,96 @@ final class MacPlayerMediaContainerView: NSView {
             removeDownloadableMediaCacheObserver()
         }
         renderAvailableLocalWebContent()
-        if mode.canDemandLoad {
-            requestLocalWebContentIfNeeded()
-        }
+        requestLocalWebContentIfNeeded()
     }
 
     private func renderAvailableLocalWebContent() {
         guard let context = webMediaContext else { return }
 
         let imageCache = DownloadableMediaCache.shared
-        guard let localContentVersion = localMediaFileVersion(for: context.descriptor) else {
+        guard let localFileURL = imageCache.knownLocalFileURL(
+            for: context.descriptor
+        ) else {
             cancelVideoSizeLoad()
             clearLocalWebLoadState()
             clearVisibleContentForPendingDownload()
             return
         }
-        let localFileURL = localContentVersion.fileURL
-        cancelActiveFileLoad?()
-        cancelActiveFileLoad = nil
+        activeFileLoadTask?.cancel()
+        activeFileLoadTask = nil
         activeFileLoadId = nil
 
-        let nextLocalContentVersion = context.adjacentDescriptor.flatMap {
-            localMediaFileVersion(for: $0)
+        let nextLocalFileURL = context.adjacentDescriptor.flatMap {
+            imageCache.knownLocalFileURL(for: $0)
         }
+        let identity = LocalWebPreparationIdentity(
+            context: context,
+            fileURL: localFileURL,
+            nextFileURL: nextLocalFileURL,
+            generation: localWebGeneration
+        )
+        guard localWebPreparationLoad?.identity != identity else { return }
+
+        localWebPreparationLoad?.task.cancel()
+        let task = Task { @MainActor [weak self] in
+            guard let self,
+                  self.localWebGeneration == identity.generation,
+                  self.localWebPreparationLoad?.identity == identity,
+                  self.webMediaContext == context else {
+                return
+            }
+            async let currentVersion = LocalMediaFileVersion.load(
+                fileURL: localFileURL,
+                descriptor: context.descriptor
+            )
+            async let nextVersion = Self.localMediaFileVersion(
+                fileURL: nextLocalFileURL,
+                descriptor: context.adjacentDescriptor
+            )
+            async let imageSize = context.mediaKind == .image
+                ? Self.imageOrSVGSize(at: localFileURL)
+                : nil
+            let preparation = await (currentVersion, nextVersion, imageSize)
+            guard !Task.isCancelled,
+                  self.localWebGeneration == identity.generation,
+                  self.localWebPreparationLoad?.identity == identity else {
+                return
+            }
+            self.localWebPreparationLoad = nil
+            guard self.webMediaContext == context,
+                  imageCache.knownLocalFileURL(
+                    for: context.descriptor
+                  ) == localFileURL else {
+                self.renderAvailableLocalWebContent()
+                self.requestLocalWebContentIfNeeded()
+                return
+            }
+
+            self.applyAvailableLocalWebContent(
+                context: context,
+                localContentVersion: preparation.0,
+                nextLocalContentVersion: preparation.1,
+                imageSize: preparation.2,
+                imageCache: imageCache
+            )
+        }
+        localWebPreparationLoad = LocalWebPreparationLoad(
+            identity: identity,
+            task: task
+        )
+    }
+
+    private func applyAvailableLocalWebContent(
+        context: WebMediaContext,
+        localContentVersion: LocalMediaFileVersion,
+        nextLocalContentVersion: LocalMediaFileVersion?,
+        imageSize: CGSize?,
+        imageCache: DownloadableMediaCache
+    ) {
+        let localFileURL = localContentVersion.fileURL
         let nextLocalFileURL = nextLocalContentVersion?.fileURL
 
-        if pendingLocalWebVersion == localContentVersion {
-            return
-        }
+        if pendingLocalWebVersion == localContentVersion { return }
 
         if renderedLocalWebVersion == localContentVersion {
             guard let nextLocalContentVersion else {
@@ -508,28 +607,39 @@ final class MacPlayerMediaContainerView: NSView {
             guard renderedNextLocalWebVersion != nextLocalContentVersion else { return }
             guard pendingNextLocalWebVersion != nextLocalContentVersion else { return }
 
+            let generation = localWebGeneration
             pendingNextLocalWebVersion = nextLocalContentVersion
             preloadWebImage(nextLocalContentVersion.fileURL) { [weak self] didPreload in
-                guard let self,
-                      self.webMediaContext == context,
-                      self.renderedLocalWebVersion == localContentVersion,
-                      self.pendingNextLocalWebVersion == nextLocalContentVersion else {
-                    return
-                }
+                Task { @MainActor [weak self] in
+                    guard !Task.isCancelled,
+                          let self,
+                          self.localWebGeneration == generation,
+                          self.webMediaContext == context,
+                          self.renderedLocalWebVersion == localContentVersion,
+                          self.pendingNextLocalWebVersion == nextLocalContentVersion else {
+                        return
+                    }
+                    let currentNextVersion = await LocalMediaFileVersion.load(
+                        fileURL: nextLocalContentVersion.fileURL,
+                        descriptor: nextLocalContentVersion.descriptor
+                    )
+                    guard !Task.isCancelled,
+                          self.localWebGeneration == generation,
+                          self.webMediaContext == context,
+                          self.renderedLocalWebVersion == localContentVersion,
+                          self.pendingNextLocalWebVersion == nextLocalContentVersion else {
+                        return
+                    }
 
-                let currentNextLocalContentVersion = self.localMediaFileVersion(
-                    for: nextLocalContentVersion.descriptor
-                )
-                guard currentNextLocalContentVersion == nextLocalContentVersion else {
                     self.pendingNextLocalWebVersion = nil
-                    self.renderAvailableLocalWebContent()
-                    return
+                    guard currentNextVersion == nextLocalContentVersion else {
+                        self.renderAvailableLocalWebContent()
+                        return
+                    }
+                    guard didPreload else { return }
+
+                    self.renderedNextLocalWebVersion = nextLocalContentVersion
                 }
-
-                self.pendingNextLocalWebVersion = nil
-                guard didPreload else { return }
-
-                self.renderedNextLocalWebVersion = nextLocalContentVersion
             }
             return
         }
@@ -542,7 +652,7 @@ final class MacPlayerMediaContainerView: NSView {
         let html: String
         switch context.mediaKind {
         case .image:
-            if let imageSize = imageOrSVGSize(at: localFileURL) {
+            if let imageSize {
                 setZoomContentLayout(.staticImage(imageSize))
             } else {
                 setZoomContentLayout(.viewport)
@@ -552,7 +662,10 @@ final class MacPlayerMediaContainerView: NSView {
                 nextImageURL: nextLocalFileURL?.absoluteString
             )
         case .video:
-            loadVideoSizeIfNeeded(at: localFileURL, context: context)
+            loadVideoSizeIfNeeded(
+                request: localContentVersion,
+                context: context
+            )
             html = DownloadableTokenHTML.createVideoHTML(videoURL: localFileURL.absoluteString)
         case .html:
             renderCachedHTMLDocument(
@@ -578,20 +691,47 @@ final class MacPlayerMediaContainerView: NSView {
         localContentVersion: LocalMediaFileVersion
     ) {
         let fileURL = localContentVersion.fileURL
-        let baseURL = imageCache.downloadedSourceURL(for: context.descriptor).absoluteString
         let htmlDirectoryURL = imageCache.webViewHTMLDirectoryURL
         clearVisibleContentForPendingDownload()
         pendingLocalWebVersion = localContentVersion
-        Task { @MainActor [weak self] in
+        cancelHTMLDocumentRender()
+        let generation = localWebGeneration
+        let renderId = UUID()
+        htmlDocumentRenderId = renderId
+        htmlDocumentRenderTask = Task { @MainActor [weak self] in
+            guard !Task.isCancelled,
+                  self?.localWebGeneration == generation,
+                  self?.htmlDocumentRenderId == renderId,
+                  self?.webMediaContext == context,
+                  self?.pendingLocalWebVersion == localContentVersion else {
+                return
+            }
+            let baseURL = await imageCache.downloadedSourceURL(
+                for: context.descriptor
+            ).absoluteString
+            guard !Task.isCancelled,
+                  self?.localWebGeneration == generation,
+                  self?.htmlDocumentRenderId == renderId,
+                  self?.webMediaContext == context,
+                  self?.pendingLocalWebVersion == localContentVersion else {
+                return
+            }
             let renderedDocument = await DownloadableTokenHTML.renderDocument(
                 at: fileURL,
                 baseURL: baseURL
             )
-            guard let self,
-                  self.validateLocalWebContentResult(
+            guard !Task.isCancelled,
+                  let self,
+                  self.localWebGeneration == generation,
+                  self.htmlDocumentRenderId == renderId,
+                  await self.validateLocalWebContentResult(
                     localContentVersion,
-                    context: context
+                    context: context,
+                    generation: generation
                   ) else { return }
+
+            self.htmlDocumentRenderId = nil
+            self.htmlDocumentRenderTask = nil
 
             guard let renderedDocument else {
                 self.clearWebMediaContext()
@@ -621,84 +761,91 @@ final class MacPlayerMediaContainerView: NSView {
         htmlDirectoryURL: URL,
         readAccessURL: URL
     ) {
+        let generation = localWebGeneration
         pendingLocalWebVersion = localContentVersion
         displayWebHTML(
             html,
             htmlDirectoryURL: htmlDirectoryURL,
             readAccessURL: readAccessURL,
             onSuccess: { [weak self] in
-                guard let self,
-                      self.validateLocalWebContentResult(
-                        localContentVersion,
-                        context: context
-                      ) else { return }
+                Task { @MainActor [weak self] in
+                    guard let self,
+                          await self.validateLocalWebContentResult(
+                            localContentVersion,
+                            context: context,
+                            generation: generation
+                          ) else { return }
 
-                self.clearLocalWebLoadState()
-                self.renderedLocalWebVersion = localContentVersion
-                self.renderAvailableLocalWebContent()
+                    self.clearLocalWebLoadState()
+                    self.renderedLocalWebVersion = localContentVersion
+                    self.renderAvailableLocalWebContent()
+                }
             },
             onFailure: { [weak self] in
-                guard let self,
-                      self.validateLocalWebContentResult(
-                        localContentVersion,
-                        context: context
-                      ) else { return }
+                Task { @MainActor [weak self] in
+                    guard let self,
+                          await self.validateLocalWebContentResult(
+                            localContentVersion,
+                            context: context,
+                            generation: generation
+                          ) else { return }
 
-                self.clearWebMediaContext()
-                self.renderWebContent(context.fallbackHTML)
+                    self.clearWebMediaContext()
+                    self.renderWebContent(context.fallbackHTML)
+                }
             }
         )
     }
 
-    private func localMediaFileVersion(
-        for descriptor: CollectionCatalogDownloadableMediaDescriptor
-    ) -> LocalMediaFileVersion? {
-        DownloadableMediaCache.shared
-            .localFileURL(for: descriptor)
-            .map {
-                LocalMediaFileVersion(
-                    fileURL: $0,
-                    descriptor: descriptor
-                )
-            }
+    @concurrent
+    nonisolated private static func localMediaFileVersion(
+        fileURL: URL?,
+        descriptor: CollectionCatalogDownloadableMediaDescriptor?
+    ) async -> LocalMediaFileVersion? {
+        guard let fileURL, let descriptor else { return nil }
+        return await LocalMediaFileVersion.load(
+            fileURL: fileURL,
+            descriptor: descriptor
+        )
     }
 
     private func validateLocalWebContentResult(
         _ localContentVersion: LocalMediaFileVersion,
-        context: WebMediaContext
-    ) -> Bool {
-        guard webMediaContext == context,
+        context: WebMediaContext,
+        generation: UInt
+    ) async -> Bool {
+        guard localWebGeneration == generation,
+              webMediaContext == context,
               pendingLocalWebVersion == localContentVersion else {
             return false
         }
 
-        return !retryLocalWebContentIfFileChanged(
-            from: localContentVersion,
-            context: context
+        let currentVersion = await Self.localMediaFileVersion(
+            fileURL: DownloadableMediaCache.shared.knownLocalFileURL(
+                for: context.descriptor
+            ),
+            descriptor: context.descriptor
         )
-    }
-
-    private func retryLocalWebContentIfFileChanged(
-        from attemptedVersion: LocalMediaFileVersion,
-        context: WebMediaContext
-    ) -> Bool {
-        let currentVersion = localMediaFileVersion(for: context.descriptor)
-        guard currentVersion != attemptedVersion else { return false }
+        guard !Task.isCancelled,
+              localWebGeneration == generation,
+              webMediaContext == context,
+              pendingLocalWebVersion == localContentVersion else {
+            return false
+        }
+        guard currentVersion != localContentVersion else { return true }
 
         clearLocalWebLoadState()
         webView?.invalidateRequestedContent()
         renderAvailableLocalWebContent()
-        if renderMode?.canDemandLoad == true {
-            requestLocalWebContentIfNeeded()
-        }
-        return true
+        requestLocalWebContentIfNeeded()
+        return false
     }
 
     private func requestLocalWebContentIfNeeded() {
         guard let context = webMediaContext else {
             return
         }
-        if DownloadableMediaCache.shared.localFileURL(for: context.descriptor) != nil {
+        if DownloadableMediaCache.shared.knownLocalFileURL(for: context.descriptor) != nil {
             renderAvailableLocalWebContent()
             return
         }
@@ -706,16 +853,40 @@ final class MacPlayerMediaContainerView: NSView {
 
         let fileLoadId = UUID()
         activeFileLoadId = fileLoadId
-        cancelActiveFileLoad = DownloadableMediaCache.shared.loadFile(for: context.descriptor) { [weak self] fileURL in
-            guard let self,
+        activeFileLoadTask = Task { @MainActor [weak self] in
+            let existingFileURL = await DownloadableMediaCache.shared.existingFileURL(
+                for: context.descriptor
+            )
+            guard !Task.isCancelled,
+                  self?.webMediaContext == context,
+                  self?.activeFileLoadId == fileLoadId else {
+                return
+            }
+
+            if existingFileURL != nil {
+                guard let self else { return }
+                self.activeFileLoadTask = nil
+                self.activeFileLoadId = nil
+                self.renderAvailableLocalWebContent()
+                return
+            }
+
+            guard self?.renderMode?.canDemandLoad == true else {
+                self?.activeFileLoadTask = nil
+                self?.activeFileLoadId = nil
+                return
+            }
+
+            let fileURL = await DownloadableMediaCache.shared.file(for: context.descriptor)
+            guard !Task.isCancelled,
+                  let self,
                   self.webMediaContext == context,
                   self.activeFileLoadId == fileLoadId else {
                 return
             }
 
-            self.cancelActiveFileLoad = nil
+            self.activeFileLoadTask = nil
             self.activeFileLoadId = nil
-
             guard fileURL != nil else {
                 self.renderWebMediaFallback(for: context)
                 return
@@ -790,8 +961,9 @@ final class MacPlayerMediaContainerView: NSView {
         onSuccess: (() -> Void)? = nil,
         onFailure: (() -> Void)? = nil
     ) {
-        cancelActiveImageLoad?()
-        cancelActiveImageLoad = nil
+        activeImageLoadTask?.cancel()
+        activeImageLoadTask = nil
+        activeImageLoadId = nil
         representedImageKey = nil
         hideImageView()
         hideNativeMetalCardView()
@@ -813,8 +985,9 @@ final class MacPlayerMediaContainerView: NSView {
     }
 
     private func renderNativeMetalCard(_ token: GeneratedToken, renderKind: NativeMetalCardRenderKind) {
-        cancelActiveImageLoad?()
-        cancelActiveImageLoad = nil
+        activeImageLoadTask?.cancel()
+        activeImageLoadTask = nil
+        activeImageLoadId = nil
         representedImageKey = nil
         hideImageView()
         hideWebView()
@@ -960,8 +1133,8 @@ final class MacPlayerMediaContainerView: NSView {
     }
 
     private func clearWebMediaContext() {
-        cancelActiveFileLoad?()
-        cancelActiveFileLoad = nil
+        activeFileLoadTask?.cancel()
+        activeFileLoadTask = nil
         activeFileLoadId = nil
         cancelVideoSizeLoad()
         webMediaContext = nil
@@ -970,15 +1143,29 @@ final class MacPlayerMediaContainerView: NSView {
     }
 
     private func clearLocalWebLoadState() {
+        advanceLocalWebGeneration()
+        cancelHTMLDocumentRender()
         pendingLocalWebVersion = nil
         renderedLocalWebVersion = nil
         renderedNextLocalWebVersion = nil
         pendingNextLocalWebVersion = nil
     }
 
+    private func cancelHTMLDocumentRender() {
+        htmlDocumentRenderId = nil
+        htmlDocumentRenderTask?.cancel()
+        htmlDocumentRenderTask = nil
+    }
+
+    private func advanceLocalWebGeneration() {
+        localWebGeneration &+= 1
+        localWebPreparationLoad?.task.cancel()
+        localWebPreparationLoad = nil
+    }
+
     private func clearVisibleContentForPendingDownload() {
-        cancelActiveImageLoad?()
-        cancelActiveImageLoad = nil
+        activeImageLoadTask?.cancel()
+        activeImageLoadTask = nil
         activeImageLoadId = nil
         representedImageKey = nil
         hideImageView()
@@ -1020,7 +1207,15 @@ final class MacPlayerMediaContainerView: NSView {
         }) else {
             return
         }
+        if pendingLocalWebVersion == nil,
+           pendingNextLocalWebVersion == nil {
+            advanceLocalWebGeneration()
+        } else {
+            localWebPreparationLoad?.task.cancel()
+            localWebPreparationLoad = nil
+        }
         renderAvailableLocalWebContent()
+        requestLocalWebContentIfNeeded()
     }
 
     private func removeDownloadableMediaCacheObserver() {
@@ -1055,7 +1250,8 @@ final class MacPlayerMediaContainerView: NSView {
         return CGSize(width: cgImage.width, height: cgImage.height)
     }
 
-    private func imageOrSVGSize(at fileURL: URL) -> CGSize? {
+    @concurrent
+    nonisolated private static func imageOrSVGSize(at fileURL: URL) async -> CGSize? {
         if let imageSize = imageSize(at: fileURL) {
             return imageSize
         }
@@ -1066,7 +1262,7 @@ final class MacPlayerMediaContainerView: NSView {
         return DownloadableTokenHTMLLayout.rootSVGViewBoxSize(in: documentHTML)
     }
 
-    private func imageSize(at fileURL: URL) -> CGSize? {
+    nonisolated private static func imageSize(at fileURL: URL) -> CGSize? {
         guard let imageSource = CGImageSourceCreateWithURL(fileURL as CFURL, nil),
               let properties = CGImageSourceCopyPropertiesAtIndex(imageSource, 0, nil) as? [CFString: Any],
               let width = properties[kCGImagePropertyPixelWidth] as? NSNumber,
@@ -1079,9 +1275,10 @@ final class MacPlayerMediaContainerView: NSView {
         return size
     }
 
-    private func loadVideoSizeIfNeeded(at fileURL: URL, context: WebMediaContext) {
-        let request = VideoSizeRequest(fileURL: fileURL, descriptor: context.descriptor)
-
+    private func loadVideoSizeIfNeeded(
+        request: VideoSizeRequest,
+        context: WebMediaContext
+    ) {
         if let videoSizeLoad, videoSizeLoad.request != request {
             cancelVideoSizeLoad()
         }
@@ -1094,6 +1291,7 @@ final class MacPlayerMediaContainerView: NSView {
         setZoomContentLayout(.viewport)
         guard videoSizeLoad == nil else { return }
 
+        let fileURL = request.fileURL
         let task = Task(priority: .utility) { @MainActor [weak self, fileURL, request] in
             let size = await DownloadableMediaVideoLayout.displaySize(at: fileURL)
             guard !Task.isCancelled,
@@ -1102,7 +1300,19 @@ final class MacPlayerMediaContainerView: NSView {
                 return
             }
 
+            let currentVersion = await LocalMediaFileVersion.load(
+                fileURL: fileURL,
+                descriptor: request.descriptor
+            )
+            guard !Task.isCancelled,
+                  self.videoSizeLoad?.request == request else { return }
             self.videoSizeLoad = nil
+            guard currentVersion == request else {
+                self.clearLocalWebLoadState()
+                self.webView?.invalidateRequestedContent()
+                self.renderAvailableLocalWebContent()
+                return
+            }
             guard let size else { return }
 
             self.cacheVideoSize(size, for: request)
@@ -1127,11 +1337,11 @@ final class MacPlayerMediaContainerView: NSView {
     private func applyCachedCurrentVideoSizeIfAvailable() {
         guard let context = webMediaContext,
               context.mediaKind == .video,
-              let fileURL = DownloadableMediaCache.shared.localFileURL(for: context.descriptor) else {
+              let request = renderedLocalWebVersion ?? pendingLocalWebVersion,
+              request.descriptor == context.descriptor else {
             return
         }
 
-        let request = VideoSizeRequest(fileURL: fileURL, descriptor: context.descriptor)
         guard let cachedSize = cachedVideoSizes[request] else { return }
 
         applyVideoSizeIfCurrent(cachedSize, for: request)
@@ -1141,8 +1351,10 @@ final class MacPlayerMediaContainerView: NSView {
         guard let context = webMediaContext,
               context.mediaKind == .video,
               context.descriptor == request.descriptor,
-              DownloadableMediaCache.shared.localFileURL(for: request.descriptor) == request.fileURL,
-              VideoSizeRequest(fileURL: request.fileURL, descriptor: request.descriptor) == request,
+              DownloadableMediaCache.shared.knownLocalFileURL(
+                for: request.descriptor
+              ) == request.fileURL,
+              (renderedLocalWebVersion == request || pendingLocalWebVersion == request),
               !isZoomed,
               !isNativeMagnifyGestureActive,
               activeZoomAnimationCount == 0 else {

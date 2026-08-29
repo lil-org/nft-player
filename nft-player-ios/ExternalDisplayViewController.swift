@@ -100,7 +100,14 @@ class ExternalDisplayViewController: UIViewController {
                 self?.placeholderStack.isHidden = false
             },
             load: { completion in
-                DownloadableMediaCache.shared.loadImage(for: token, completion: completion)
+                let task = Task { @MainActor in
+                    let image = await DownloadableMediaCache.shared.image(
+                        for: token
+                    )
+                    guard !Task.isCancelled else { return }
+                    completion(image)
+                }
+                return { task.cancel() }
             },
             fallbackToWebContent: { [weak self] in
                 self?.renderWebContent(token.html)

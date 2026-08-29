@@ -352,7 +352,7 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
         let retainedDescriptor = descriptorRetention.descriptor
         let retainedCachedStaticImageURL = retainedDescriptor.flatMap {
             imageSources?.largeDescriptor == $0
-                ? DownloadableMediaCache.shared.localFileURL(for: $0)
+                ? DownloadableMediaCache.shared.knownLocalFileURL(for: $0)
                 : nil
         }
         imageLoader.cancelIncompatibleImageLoads(
@@ -551,7 +551,7 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
                requiredQuality: requiredImageQuality,
                hasDistinctLargeImage: imageSources.largeDescriptor
                    != imageSources.thumbnailDescriptor,
-               largeImageIsLocallyAvailable: cache.localFileURL(
+               largeImageIsLocallyAvailable: cache.knownLocalFileURL(
                    for: imageSources.largeDescriptor
                ) != nil,
                allowsPromotion: allowsLocalLargeImageUpgrade
@@ -574,7 +574,7 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
         if requiredImageQuality == .large,
            imageView.image == nil,
            imageSources.thumbnailDescriptor != imageSources.largeDescriptor,
-           cache.localFileURL(for: imageSources.thumbnailDescriptor) != nil {
+           cache.knownLocalFileURL(for: imageSources.thumbnailDescriptor) != nil {
             startImageLoad(
                 quality: .thumbnail,
                 animatedWhenLoaded: animatedWhenLoaded

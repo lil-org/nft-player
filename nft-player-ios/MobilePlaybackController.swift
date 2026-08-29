@@ -26,30 +26,18 @@ struct MobilePlayerFileShareItem {
     let fileURL: URL
     let previewTitle: String
     let previewImage: () -> UIImage?
-    private let retainedFile: MobilePlayerFileShareRetainedFile
+    private let fileLease: DownloadableMediaFileLease
 
     init(
         fileURL: URL,
         previewTitle: String,
-        releaseFile: @escaping @Sendable () -> Void,
+        fileLease: DownloadableMediaFileLease,
         previewImage: @escaping () -> UIImage?
     ) {
         self.fileURL = fileURL
         self.previewTitle = previewTitle
         self.previewImage = previewImage
-        self.retainedFile = MobilePlayerFileShareRetainedFile(releaseFile: releaseFile)
-    }
-}
-
-private final class MobilePlayerFileShareRetainedFile {
-    private let releaseFile: @Sendable () -> Void
-
-    init(releaseFile: @escaping @Sendable () -> Void) {
-        self.releaseFile = releaseFile
-    }
-
-    deinit {
-        releaseFile()
+        self.fileLease = fileLease
     }
 }
 
@@ -593,7 +581,7 @@ final class MobilePlaybackSession {
 
     func downloadedFileShareItem(
         pagePosition: PlayerPagePosition
-    ) -> MobilePlayerFileShareItem? {
+    ) async -> MobilePlayerFileShareItem? {
         guard let dataSource = activeDataSource,
               let context = downloadableMediaTokenContext(
                 dataSource: dataSource,
@@ -606,9 +594,18 @@ final class MobilePlaybackSession {
             return nil
         }
 
-        let releaseFile = DownloadableMediaCache.shared.retainFile(for: descriptor)
-        guard let fileURL = DownloadableMediaCache.shared.localFileURL(for: descriptor) else {
-            releaseFile()
+        let cache = DownloadableMediaCache.shared
+        let fileLease = cache.fileLease(for: descriptor)
+        let fileURL: URL?
+        if let knownFileURL = cache.knownLocalFileURL(for: descriptor) {
+            fileURL = knownFileURL
+        } else {
+            fileURL = await cache.existingFileURL(for: descriptor)
+        }
+        guard !Task.isCancelled,
+              downloadableMediaDescriptor(pagePosition: pagePosition) == descriptor,
+              let fileURL else {
+            fileLease.release()
             return nil
         }
         let token = dataSource.getToken(pagePosition: pagePosition)
@@ -622,9 +619,9 @@ final class MobilePlaybackSession {
                         total: context.tokenCount
                     )
             ),
-            releaseFile: releaseFile
+            fileLease: fileLease
         ) {
-            DownloadableMediaCache.shared.cachedDecodedImage(for: descriptor)
+            cache.cachedDecodedImage(for: descriptor)
         }
     }
 

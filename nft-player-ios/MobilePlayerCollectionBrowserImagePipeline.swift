@@ -63,7 +63,7 @@ final class MobilePlayerCollectionBrowserImagePipeline {
 
     private struct CancellableLoad {
         let id: UUID
-        let cancellation: () -> Void
+        let task: Task<Void, Never>
     }
 
     private struct DisplayedImageWindowState {
@@ -199,14 +199,14 @@ final class MobilePlayerCollectionBrowserImagePipeline {
     func cancelPrefetching(indexPaths: [IndexPath]) {
         guard !isInvalidated else { return }
         for tokenIndex in Set(indexPaths.map(\.item)) {
-            prefetchLoads.removeValue(forKey: tokenIndex)?.cancellation()
+            prefetchLoads.removeValue(forKey: tokenIndex)?.task.cancel()
         }
     }
 
     func cancelAllPrefetchLoads() {
-        let cancellations = prefetchLoads.values.map(\.cancellation)
+        let tasks = prefetchLoads.values.map(\.task)
         prefetchLoads.removeAll()
-        cancellations.forEach { $0() }
+        tasks.forEach { $0.cancel() }
     }
 
     func cancelVisibleCellImageLoads() {
@@ -481,25 +481,21 @@ final class MobilePlayerCollectionBrowserImagePipeline {
         tokenIndex: Int,
         loadID: UUID
     ) {
-        guard let cancellation = DownloadableMediaCache.shared
-            .loadProvisionalImage(
+        let task = Task { @MainActor [weak self] in
+            _ = await DownloadableMediaCache.shared.image(
                 for: descriptor,
-                completion: { [weak self] _ in
-                    Task { @MainActor in
-                        await Task.yield()
-                        guard self?.prefetchLoads[tokenIndex]?.id == loadID else {
-                            return
-                        }
-                        self?.prefetchLoads.removeValue(forKey: tokenIndex)
-                    }
-                }
-            ) else {
-            prefetchLoads.removeValue(forKey: tokenIndex)
-            return
+                priority: .preservingPrefetch
+            )
+            guard !Task.isCancelled else { return }
+            await Task.yield()
+            guard self?.prefetchLoads[tokenIndex]?.id == loadID else {
+                return
+            }
+            self?.prefetchLoads.removeValue(forKey: tokenIndex)
         }
         prefetchLoads[tokenIndex] = CancellableLoad(
             id: loadID,
-            cancellation: cancellation
+            task: task
         )
     }
 

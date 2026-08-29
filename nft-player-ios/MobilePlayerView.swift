@@ -1000,6 +1000,8 @@ private struct PlayerShareControl: View {
     let isVisible: Bool
 
     @State private var shareItem: MobilePlayerFileShareItem?
+    @State private var shareItemTask: Task<Void, Never>?
+    @State private var shareItemRequestID = UUID()
 
     var body: some View {
         ZStack {
@@ -1020,13 +1022,23 @@ private struct PlayerShareControl: View {
         )
         .animation(playerChromeToggleAnimation, value: shareItem?.fileURL)
         .onChange(of: pagePosition, initial: true) { _, pagePosition in
-            updateShareItem(for: pagePosition)
+            updateShareItem(for: pagePosition, clearsCurrentItem: true)
         }
         .onReceive(
             NotificationCenter.default.publisher(
                 for: .downloadableMediaCacheFileAvailabilityDidChange
             )
         ) { notification in
+            guard let pagePosition,
+                  let descriptor = playbackSession.downloadableMediaDescriptor(
+                    pagePosition: pagePosition
+                  ),
+                  DownloadableMediaCache.shared.fileAvailabilityChange(
+                    notification,
+                    affects: descriptor
+                  ) else {
+                return
+            }
             let availabilityChange = notification.object
                 as? DownloadableMediaCacheFileAvailabilityChange
             if shareItem != nil,
@@ -1035,19 +1047,41 @@ private struct PlayerShareControl: View {
             }
             updateShareItem(for: pagePosition)
         }
+        .onDisappear {
+            shareItemTask?.cancel()
+            shareItemTask = nil
+        }
     }
 
-    private func updateShareItem(for pagePosition: PlayerPagePosition?) {
-        let updatedShareItem = pagePosition.flatMap {
-            playbackSession.downloadedFileShareItem(
-                pagePosition: $0
-            )
+    private func updateShareItem(
+        for pagePosition: PlayerPagePosition?,
+        clearsCurrentItem: Bool = false
+    ) {
+        shareItemTask?.cancel()
+        let requestID = UUID()
+        shareItemRequestID = requestID
+        if clearsCurrentItem {
+            shareItem = nil
         }
-        guard shareItem?.fileURL != updatedShareItem?.fileURL
-            || shareItem?.previewTitle != updatedShareItem?.previewTitle else {
+        guard let pagePosition else {
+            shareItemTask = nil
             return
         }
-        shareItem = updatedShareItem
+        shareItemTask = Task { @MainActor in
+            let updatedShareItem = await playbackSession.downloadedFileShareItem(
+                pagePosition: pagePosition
+            )
+            guard !Task.isCancelled,
+                  shareItemRequestID == requestID else {
+                return
+            }
+            shareItemTask = nil
+            guard shareItem?.fileURL != updatedShareItem?.fileURL
+                || shareItem?.previewTitle != updatedShareItem?.previewTitle else {
+                return
+            }
+            shareItem = updatedShareItem
+        }
     }
 }
 

@@ -2480,6 +2480,10 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         gridModeCoordinator.resetGeometryState()
     }
 
+    func flushPendingGridModePinchFrameForTesting() {
+        gridModeCoordinator.flushPendingPinchFrameForTesting()
+    }
+
 #endif
 
     func handleGridModePinchForTesting(

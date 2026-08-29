@@ -170,41 +170,44 @@ final class MacPlayerMediaActions: NSObject {
     private final class CopyMediaRequest {
         let pasteboardChangeCount: Int
         private let lock = NSLock()
-        private let releaseFileClosure: () -> Void
-        private var cancelFileLoad: (() -> Void)?
+        private let fileLease: DownloadableMediaFileLease
+        private var task: Task<Void, Never>?
         private var isCancelledValue = false
 
         var isCancelled: Bool {
             lock.withLock { isCancelledValue }
         }
 
-        init(pasteboardChangeCount: Int, releaseFile: @escaping () -> Void) {
+        init(
+            pasteboardChangeCount: Int,
+            fileLease: DownloadableMediaFileLease
+        ) {
             self.pasteboardChangeCount = pasteboardChangeCount
-            self.releaseFileClosure = releaseFile
+            self.fileLease = fileLease
         }
 
-        func setCancelFileLoad(_ cancelFileLoad: (() -> Void)?) {
+        func setTask(_ task: Task<Void, Never>) {
             let shouldCancel = lock.withLock {
-                self.cancelFileLoad = cancelFileLoad
+                self.task = task
                 return isCancelledValue
             }
             if shouldCancel {
-                cancelFileLoad?()
+                task.cancel()
             }
         }
 
         func cancel() {
-            let cancelFileLoad = lock.withLock { () -> (() -> Void)? in
+            let task = lock.withLock { () -> Task<Void, Never>? in
                 guard !isCancelledValue else { return nil }
                 isCancelledValue = true
-                return self.cancelFileLoad
+                return self.task
             }
-            cancelFileLoad?()
+            task?.cancel()
             releaseFile()
         }
 
         func releaseFile() {
-            releaseFileClosure()
+            fileLease.release()
         }
     }
 
@@ -212,6 +215,7 @@ final class MacPlayerMediaActions: NSObject {
     private static let mediaFileLane = MediaFileLane()
 
     private var activeCopyMediaRequest: CopyMediaRequest?
+    private var activeSaveTasks = [UUID: Task<Void, Never>]()
     private let contextProvider: () -> PlayerTokenContext?
     private let targetProvider: () -> Target?
     private weak var presentingWindow: NSWindow?
@@ -233,6 +237,7 @@ final class MacPlayerMediaActions: NSObject {
 
     isolated deinit {
         activeCopyMediaRequest?.cancel()
+        activeSaveTasks.values.forEach { $0.cancel() }
     }
 
     func updatePresentingWindow(_ window: NSWindow?) {
@@ -309,12 +314,14 @@ final class MacPlayerMediaActions: NSObject {
         guard let request = currentMediaFileRequest() else { return }
 
         let copyRequest = beginCopyMediaRequest(for: request.descriptor)
-        let cancelFileLoad = DownloadableMediaCache.shared.loadFile(for: request.descriptor) { [weak self, copyRequest] fileURL in
-            guard let self else {
-                copyRequest.releaseFile()
-                return
-            }
+        let task = Task { @MainActor [weak self, weak copyRequest] in
+            guard let copyRequest else { return }
+            defer { copyRequest.releaseFile() }
+
+            let fileURL = await DownloadableMediaCache.shared.file(for: request.descriptor)
+            guard !Task.isCancelled, !copyRequest.isCancelled else { return }
             guard let fileURL else {
+                guard let self else { return }
                 let shouldShowFailure = self.isCurrentCopyMediaRequest(copyRequest)
                 self.finishCopyMediaRequest(copyRequest)
                 if shouldShowFailure {
@@ -322,61 +329,59 @@ final class MacPlayerMediaActions: NSObject {
                 }
                 return
             }
-            guard self.isCurrentCopyMediaRequest(copyRequest) else {
-                self.finishCopyMediaRequest(copyRequest)
+            guard self?.isCurrentCopyMediaRequest(copyRequest) == true else {
+                self?.finishCopyMediaRequest(copyRequest)
                 return
             }
 
-            Task { @MainActor [weak self, copyRequest] in
-                guard !copyRequest.isCancelled else {
-                    copyRequest.releaseFile()
-                    return
-                }
+            let pasteboardFileURL: URL?
+            do {
+                pasteboardFileURL = try await Self.mediaFileLane.preparePasteboardMediaFile(
+                    from: fileURL,
+                    fileName: request.defaultFileName
+                )
+            } catch {
+                pasteboardFileURL = nil
+            }
 
-                let pasteboardFileURL: URL?
-                do {
-                    pasteboardFileURL = try await Self.mediaFileLane.preparePasteboardMediaFile(
-                        from: fileURL,
-                        fileName: request.defaultFileName
-                    )
-                } catch {
-                    pasteboardFileURL = nil
-                }
-                copyRequest.releaseFile()
-
-                guard let self else {
-                    if let pasteboardFileURL {
-                        await Self.mediaFileLane.removePasteboardMediaFile(pasteboardFileURL)
-                    }
-                    return
-                }
-                let shouldWriteToPasteboard = self.isCurrentCopyMediaRequest(copyRequest)
-                self.finishCopyMediaRequest(copyRequest)
-                guard shouldWriteToPasteboard else {
-                    if let pasteboardFileURL {
-                        await Self.mediaFileLane.removePasteboardMediaFile(pasteboardFileURL)
-                    }
-                    return
-                }
-
-                guard let pasteboardFileURL else {
-                    self.showMediaAlert(message: Strings.copyMediaFailed)
-                    return
-                }
-                let pasteboard = NSPasteboard.general
-                pasteboard.clearContents()
-                let didCopy = pasteboard.writeObjects([pasteboardFileURL as NSURL])
-                if didCopy {
-                    await Self.mediaFileLane.prunePasteboardMediaDirectory(
-                        keeping: pasteboardFileURL
-                    )
-                } else {
+            guard !Task.isCancelled, !copyRequest.isCancelled else {
+                if let pasteboardFileURL {
                     await Self.mediaFileLane.removePasteboardMediaFile(pasteboardFileURL)
-                    self.showMediaAlert(message: Strings.copyMediaFailed)
                 }
+                return
+            }
+            guard let self else {
+                if let pasteboardFileURL {
+                    await Self.mediaFileLane.removePasteboardMediaFile(pasteboardFileURL)
+                }
+                return
+            }
+
+            let shouldWriteToPasteboard = self.isCurrentCopyMediaRequest(copyRequest)
+            self.finishCopyMediaRequest(copyRequest)
+            guard shouldWriteToPasteboard else {
+                if let pasteboardFileURL {
+                    await Self.mediaFileLane.removePasteboardMediaFile(pasteboardFileURL)
+                }
+                return
+            }
+            guard let pasteboardFileURL else {
+                self.showMediaAlert(message: Strings.copyMediaFailed)
+                return
+            }
+            let pasteboard = NSPasteboard.general
+            pasteboard.clearContents()
+            let didCopy = pasteboard.writeObjects([pasteboardFileURL as NSURL])
+            if didCopy {
+                await Self.mediaFileLane.prunePasteboardMediaDirectory(
+                    keeping: pasteboardFileURL
+                )
+            } else {
+                await Self.mediaFileLane.removePasteboardMediaFile(pasteboardFileURL)
+                self.showMediaAlert(message: Strings.copyMediaFailed)
             }
         }
-        copyRequest.setCancelFileLoad(cancelFileLoad)
+        copyRequest.setTask(task)
     }
 
     @objc func saveMediaAs() {
@@ -430,7 +435,7 @@ final class MacPlayerMediaActions: NSObject {
         cancelActiveCopyMediaRequest()
         let request = CopyMediaRequest(
             pasteboardChangeCount: NSPasteboard.general.changeCount,
-            releaseFile: DownloadableMediaCache.shared.retainFile(for: descriptor)
+            fileLease: DownloadableMediaCache.shared.fileLease(for: descriptor)
         )
         activeCopyMediaRequest = request
         return request
@@ -491,38 +496,46 @@ final class MacPlayerMediaActions: NSObject {
         to destinationURL: URL,
         stopAccessingWhenDone: Bool
     ) {
-        let releaseFile = DownloadableMediaCache.shared.retainFile(for: descriptor)
-        DownloadableMediaCache.shared.loadFile(for: descriptor) { [weak self] fileURL in
-            guard let fileURL else {
-                releaseFile()
+        let taskId = UUID()
+        let fileLease = DownloadableMediaCache.shared.fileLease(for: descriptor)
+        let task = Task { @MainActor [weak self] in
+            defer {
+                fileLease.release()
                 if stopAccessingWhenDone {
                     destinationURL.stopAccessingSecurityScopedResource()
                 }
-                self?.showMediaAlert(message: Strings.saveMediaFailed)
+                self?.activeSaveTasks[taskId] = nil
+            }
+
+            guard let fileURL = await DownloadableMediaCache.shared.file(for: descriptor),
+                  !Task.isCancelled,
+                  self?.activeSaveTasks[taskId] != nil else {
+                if !Task.isCancelled {
+                    self?.showMediaAlert(message: Strings.saveMediaFailed)
+                }
                 return
             }
 
-            Task { @MainActor [weak self] in
-                let didSave: Bool
-                do {
-                    try await Self.mediaFileLane.copyMediaFile(
-                        from: fileURL,
-                        to: destinationURL
-                    )
-                    didSave = true
-                } catch {
-                    didSave = false
-                }
-                releaseFile()
-                if stopAccessingWhenDone {
-                    destinationURL.stopAccessingSecurityScopedResource()
-                }
+            let didSave: Bool
+            do {
+                try await Self.mediaFileLane.copyMediaFile(
+                    from: fileURL,
+                    to: destinationURL
+                )
+                didSave = true
+            } catch {
+                didSave = false
+            }
 
-                if !didSave {
-                    self?.showMediaAlert(message: Strings.saveMediaFailed)
-                }
+            guard !Task.isCancelled,
+                  self?.activeSaveTasks[taskId] != nil else {
+                return
+            }
+            if !didSave {
+                self?.showMediaAlert(message: Strings.saveMediaFailed)
             }
         }
+        activeSaveTasks[taskId] = task
     }
 
     private func isCurrentCopyMediaRequest(_ request: CopyMediaRequest) -> Bool {

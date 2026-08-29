@@ -704,6 +704,10 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
         )
     }
 
+    func flushPendingPinchFrameForTesting() {
+        pinchFrameCoalescer?.flush()
+    }
+
 #endif
 
     func handleGridModePinchForTesting(

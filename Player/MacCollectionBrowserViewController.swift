@@ -1186,7 +1186,7 @@ private final class MacCollectionBrowserItem: NSCollectionViewItem {
     private var representedTokenIndex: Int?
     private var descriptor: CollectionCatalogDownloadableMediaDescriptor?
     private var imageLoadId: UUID?
-    private var imageLoadCancellation: (() -> Void)?
+    private var imageLoadTask: Task<Void, Never>?
 
     override func loadView() {
         view = thumbnailView
@@ -1262,9 +1262,8 @@ private final class MacCollectionBrowserItem: NSCollectionViewItem {
 
     func cancelImageLoad() {
         imageLoadId = nil
-        let cancellation = imageLoadCancellation
-        imageLoadCancellation = nil
-        cancellation?()
+        imageLoadTask?.cancel()
+        imageLoadTask = nil
     }
 
     func refreshImageIfNeeded() {
@@ -1282,20 +1281,23 @@ private final class MacCollectionBrowserItem: NSCollectionViewItem {
 
         let loadId = UUID()
         imageLoadId = loadId
-        let cancellation = DownloadableMediaCache.shared.loadProvisionalImage(
-            for: descriptor
-        ) { [weak self] image in
-            guard let self, self.imageLoadId == loadId else { return }
+        imageLoadTask = Task { @MainActor [weak self] in
+            let image = await DownloadableMediaCache.shared.image(
+                for: descriptor,
+                priority: .preservingPrefetch
+            )
+            guard !Task.isCancelled,
+                  let self,
+                  self.imageLoadId == loadId else {
+                return
+            }
             self.imageLoadId = nil
-            self.imageLoadCancellation = nil
+            self.imageLoadTask = nil
             guard self.representedTokenIndex == tokenIndex,
                   self.descriptor == descriptor else {
                 return
             }
             self.thumbnailView.image = image
-        }
-        if imageLoadId == loadId {
-            imageLoadCancellation = cancellation
         }
     }
 

@@ -514,8 +514,8 @@ extension MobileCollectionBrowserGridModePresentationTests {
         XCTAssertFalse(collectionView.isScrollEnabled)
     }
 
-    func testZeroAlphaPlaneReversalSkipsSnapshotAndKeepsPinchActive()
-        async throws {
+#if DEBUG
+    func testZeroAlphaPlaneReversalSkipsSnapshotAndKeepsPinchActive() throws {
         let metadata = try collectionMetadata()
         var snapshotRequestCount = 0
         let fixture = try makeFixture(
@@ -544,22 +544,23 @@ extension MobileCollectionBrowserGridModePresentationTests {
         recognizer.reportedState = .changed
         recognizer.scale = 1.05
         sendPinch(recognizer, to: controller)
-        await waitForNextMainQueueTurn()
+        controller.flushPendingGridModePinchFrameForTesting()
 
         recognizer.scale = 1.03
         sendPinch(recognizer, to: controller)
-        await waitForNextMainQueueTurn()
+        controller.flushPendingGridModePinchFrameForTesting()
 
         XCTAssertEqual(snapshotRequestCount, 0)
         XCTAssertFalse(collectionView.isScrollEnabled)
 
         recognizer.scale = 1.05
         sendPinch(recognizer, to: controller)
-        await waitForNextMainQueueTurn()
+        controller.flushPendingGridModePinchFrameForTesting()
 
         XCTAssertEqual(snapshotRequestCount, 0)
         XCTAssertFalse(collectionView.isScrollEnabled)
     }
+#endif
 
     func testPinchEndAppliesTerminalScaleWithoutTerminalCentroid() async throws {
         let metadata = try collectionMetadata()
@@ -656,8 +657,16 @@ extension MobileCollectionBrowserGridModePresentationTests {
         ) { _, change in
             guard change.newValue == false else { return }
             MainActor.assumeIsolated {
+                guard let currentCollectionView = fixture.controller.view
+                    .subviews.first(where: {
+                        $0 is MobilePlayerCollectionBrowserCollectionView
+                    }) as? MobilePlayerCollectionBrowserCollectionView else {
+                    return
+                }
                 reentryState.didReenter = true
-                fixture.controller.scrollViewDidEndDecelerating(collectionView)
+                fixture.controller.scrollViewDidEndDecelerating(
+                    currentCollectionView
+                )
             }
         }
 
@@ -703,8 +712,16 @@ extension MobileCollectionBrowserGridModePresentationTests {
             guard change.newValue == true else { return }
             MainActor.assumeIsolated {
                 guard !reentryState.didReenter else { return }
+                guard let currentCollectionView = fixture.controller.view
+                    .subviews.first(where: {
+                        $0 is MobilePlayerCollectionBrowserCollectionView
+                    }) as? MobilePlayerCollectionBrowserCollectionView else {
+                    return
+                }
                 reentryState.didReenter = true
-                fixture.controller.scrollViewWillBeginDragging(collectionView)
+                fixture.controller.scrollViewWillBeginDragging(
+                    currentCollectionView
+                )
             }
         }
 
@@ -761,8 +778,16 @@ extension MobileCollectionBrowserGridModePresentationTests {
                       !reentryState.didReenter else {
                     return
                 }
+                guard let currentCollectionView = fixture.controller.view
+                    .subviews.first(where: {
+                        $0 is MobilePlayerCollectionBrowserCollectionView
+                    }) as? MobilePlayerCollectionBrowserCollectionView else {
+                    return
+                }
                 reentryState.didReenter = true
-                fixture.controller.scrollViewWillBeginDragging(collectionView)
+                fixture.controller.scrollViewWillBeginDragging(
+                    currentCollectionView
+                )
             }
         }
 

@@ -130,6 +130,27 @@
 		2CC971662E88410100000001 /* MobilePlayerModeController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CC971652E88410100000001 /* MobilePlayerModeController.swift */; };
 		2CDF00102F10000000000001 /* DownloadableMediaCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF00012F10000000000001 /* DownloadableMediaCache.swift */; };
 		2CDF00112F10000000000001 /* DownloadableMediaCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF00012F10000000000001 /* DownloadableMediaCache.swift */; };
+		2ECA00000000000000000010 /* DownloadableMediaCacheSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ECA00000000000000000001 /* DownloadableMediaCacheSupport.swift */; };
+		2ECA00000000000000000011 /* DownloadableMediaCacheSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ECA00000000000000000001 /* DownloadableMediaCacheSupport.swift */; };
+		2ECA00000000000000000012 /* DownloadableMediaCacheSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ECA00000000000000000001 /* DownloadableMediaCacheSupport.swift */; };
+		2ECA00000000000000000013 /* DownloadableMediaCacheSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ECA00000000000000000001 /* DownloadableMediaCacheSupport.swift */; };
+		2ECA00000000000000000014 /* DownloadableMediaDownloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ECA00000000000000000002 /* DownloadableMediaDownloader.swift */; };
+		2ECA00000000000000000015 /* DownloadableMediaDownloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ECA00000000000000000002 /* DownloadableMediaDownloader.swift */; };
+		2ECA00000000000000000016 /* DownloadableMediaDownloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ECA00000000000000000002 /* DownloadableMediaDownloader.swift */; };
+		2ECA00000000000000000017 /* DownloadableMediaDownloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ECA00000000000000000002 /* DownloadableMediaDownloader.swift */; };
+		2ECA00000000000000000018 /* DownloadableMediaImageDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ECA00000000000000000003 /* DownloadableMediaImageDecoder.swift */; };
+		2ECA00000000000000000019 /* DownloadableMediaImageDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ECA00000000000000000003 /* DownloadableMediaImageDecoder.swift */; };
+		2ECA0000000000000000001A /* DownloadableMediaImageDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ECA00000000000000000003 /* DownloadableMediaImageDecoder.swift */; };
+		2ECA0000000000000000001B /* DownloadableMediaImageDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ECA00000000000000000003 /* DownloadableMediaImageDecoder.swift */; };
+		2ECA0000000000000000001C /* DownloadableMediaMemoryCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ECA00000000000000000004 /* DownloadableMediaMemoryCache.swift */; };
+		2ECA0000000000000000001D /* DownloadableMediaMemoryCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ECA00000000000000000004 /* DownloadableMediaMemoryCache.swift */; };
+		2ECA0000000000000000001E /* DownloadableMediaMemoryCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ECA00000000000000000004 /* DownloadableMediaMemoryCache.swift */; };
+		2ECA0000000000000000001F /* DownloadableMediaMemoryCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ECA00000000000000000004 /* DownloadableMediaMemoryCache.swift */; };
+		2ECA00000000000000000020 /* DownloadableMediaDiskStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ECA00000000000000000005 /* DownloadableMediaDiskStore.swift */; };
+		2ECA00000000000000000021 /* DownloadableMediaDiskStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ECA00000000000000000005 /* DownloadableMediaDiskStore.swift */; };
+		2ECA00000000000000000022 /* DownloadableMediaDiskStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ECA00000000000000000005 /* DownloadableMediaDiskStore.swift */; };
+		2ECA00000000000000000023 /* DownloadableMediaDiskStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ECA00000000000000000005 /* DownloadableMediaDiskStore.swift */; };
+		2ECA00000000000000000030 /* DownloadableMediaCacheTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ECA00000000000000000006 /* DownloadableMediaCacheTests.swift */; };
 		2CDF00122F10000000000001 /* PlayerTokenPrewarmer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF00022F10000000000001 /* PlayerTokenPrewarmer.swift */; };
 		2CDF00132F10000000000001 /* PlayerTokenPrewarmer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF00022F10000000000001 /* PlayerTokenPrewarmer.swift */; };
 		2CDF00142F10000000000001 /* PlayerWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF00032F10000000000001 /* PlayerWebView.swift */; };
@@ -424,6 +445,12 @@
 		2CCFED972B08246800D98A2E /* WalletsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletsListView.swift; sourceTree = "<group>"; };
 		2CD488FE2B10C6FA00A53950 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = SOURCE_ROOT; };
 		2CDF00012F10000000000001 /* DownloadableMediaCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadableMediaCache.swift; sourceTree = "<group>"; };
+		2ECA00000000000000000001 /* DownloadableMediaCacheSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadableMediaCacheSupport.swift; sourceTree = "<group>"; };
+		2ECA00000000000000000002 /* DownloadableMediaDownloader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadableMediaDownloader.swift; sourceTree = "<group>"; };
+		2ECA00000000000000000003 /* DownloadableMediaImageDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadableMediaImageDecoder.swift; sourceTree = "<group>"; };
+		2ECA00000000000000000004 /* DownloadableMediaMemoryCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadableMediaMemoryCache.swift; sourceTree = "<group>"; };
+		2ECA00000000000000000005 /* DownloadableMediaDiskStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadableMediaDiskStore.swift; sourceTree = "<group>"; };
+		2ECA00000000000000000006 /* DownloadableMediaCacheTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadableMediaCacheTests.swift; sourceTree = "<group>"; };
 		2CDF00022F10000000000001 /* PlayerTokenPrewarmer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerTokenPrewarmer.swift; sourceTree = "<group>"; };
 		2CDF00032F10000000000001 /* PlayerWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerWebView.swift; sourceTree = "<group>"; };
 		2CDF00042F10000000000001 /* MacPlayerMediaContainerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacPlayerMediaContainerView.swift; sourceTree = "<group>"; };
@@ -645,6 +672,11 @@
 			isa = PBXGroup;
 			children = (
 				2CDF00012F10000000000001 /* DownloadableMediaCache.swift */,
+				2ECA00000000000000000001 /* DownloadableMediaCacheSupport.swift */,
+				2ECA00000000000000000002 /* DownloadableMediaDownloader.swift */,
+				2ECA00000000000000000003 /* DownloadableMediaImageDecoder.swift */,
+				2ECA00000000000000000004 /* DownloadableMediaMemoryCache.swift */,
+				2ECA00000000000000000005 /* DownloadableMediaDiskStore.swift */,
 				2CDF00072F10000000000001 /* PonchoDrifellaAssetCache.swift */,
 				2CDF000A2F10000000000001 /* CardNft2AssetCache.swift */,
 				2CDF000C2F10000000000001 /* NativeMetalCardAssetCache.swift */,
@@ -930,6 +962,7 @@
 		2DA2000C2FD0000000000001 /* nft-player-iosTests */ = {
 			isa = PBXGroup;
 			children = (
+				2ECA00000000000000000006 /* DownloadableMediaCacheTests.swift */,
 				2E3000000000000000000009 /* MobilePlayerInteractionCoordinatorTests.swift */,
 				2DA700042FF3000000000001 /* MobileCollectionsSessionCoordinatorTests.swift */,
 				2DB200012FF4000000000001 /* MobilePlaybackSessionTests.swift */,
@@ -1372,6 +1405,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2ECA00000000000000000030 /* DownloadableMediaCacheTests.swift in Sources */,
 				2E3000000000000000000019 /* MobilePlayerInteractionCoordinatorTests.swift in Sources */,
 				2DA700032FF3000000000001 /* MobileCollectionsSessionCoordinatorTests.swift in Sources */,
 				2DB200022FF4000000000001 /* MobilePlaybackSessionTests.swift in Sources */,
@@ -1401,6 +1435,11 @@
 				2C460EDE2D29865F0083124E /* Script.swift in Sources */,
 				2C460ECA2D29855A0083124E /* AutoReloadingWebView.swift in Sources */,
 				2CDF00102F10000000000001 /* DownloadableMediaCache.swift in Sources */,
+				2ECA00000000000000000010 /* DownloadableMediaCacheSupport.swift in Sources */,
+				2ECA00000000000000000014 /* DownloadableMediaDownloader.swift in Sources */,
+				2ECA00000000000000000018 /* DownloadableMediaImageDecoder.swift in Sources */,
+				2ECA0000000000000000001C /* DownloadableMediaMemoryCache.swift in Sources */,
+				2ECA00000000000000000020 /* DownloadableMediaDiskStore.swift in Sources */,
 				2CDF001A2F10000000000001 /* PonchoDrifellaAssetCache.swift in Sources */,
 				2CDF00202F10000000000001 /* CardNft2AssetCache.swift in Sources */,
 				2CDF00242F10000000000001 /* NativeMetalCardAssetCache.swift in Sources */,
@@ -1502,6 +1541,11 @@
 				2D3000002F40000000000001 /* CollectionCatalog.swift in Sources */,
 				2DA100042FC0000000000001 /* PlayerCollectionScrollPolicy.swift in Sources */,
 				2D3000012F40000000000001 /* DownloadableMediaCache.swift in Sources */,
+				2ECA00000000000000000011 /* DownloadableMediaCacheSupport.swift in Sources */,
+				2ECA00000000000000000015 /* DownloadableMediaDownloader.swift in Sources */,
+				2ECA00000000000000000019 /* DownloadableMediaImageDecoder.swift in Sources */,
+				2ECA0000000000000000001D /* DownloadableMediaMemoryCache.swift in Sources */,
+				2ECA00000000000000000021 /* DownloadableMediaDiskStore.swift in Sources */,
 				2D3000022F40000000000001 /* PlayerTokenPrewarmer.swift in Sources */,
 				2D3000032F40000000000001 /* PlayerWebContentLoadCoordinator.swift in Sources */,
 				2D4000062F50000000000001 /* PlayerICloudSync.swift in Sources */,
@@ -1548,6 +1592,11 @@
 				2D6000002F70000000000001 /* CollectionCatalog.swift in Sources */,
 				2DA100052FC0000000000001 /* PlayerCollectionScrollPolicy.swift in Sources */,
 				2D7000032F70000100000001 /* DownloadableMediaCache.swift in Sources */,
+				2ECA00000000000000000012 /* DownloadableMediaCacheSupport.swift in Sources */,
+				2ECA00000000000000000016 /* DownloadableMediaDownloader.swift in Sources */,
+				2ECA0000000000000000001A /* DownloadableMediaImageDecoder.swift in Sources */,
+				2ECA0000000000000000001E /* DownloadableMediaMemoryCache.swift in Sources */,
+				2ECA00000000000000000022 /* DownloadableMediaDiskStore.swift in Sources */,
 				2D7000042F70000100000001 /* PlayerTokenPrewarmer.swift in Sources */,
 				2D9000022FB0000000000001 /* CollectionsGridScrollMemory.swift in Sources */,
 				2D9000062FB0000000000001 /* CollectionsGridScrollViewHelpers.swift in Sources */,
@@ -1577,6 +1626,11 @@
 				2CF4C49B2B7F567B000AB4A6 /* Navigator.swift in Sources */,
 				2D10001B2F30000000000001 /* WidgetDeepLink.swift in Sources */,
 				2CDF00112F10000000000001 /* DownloadableMediaCache.swift in Sources */,
+				2ECA00000000000000000013 /* DownloadableMediaCacheSupport.swift in Sources */,
+				2ECA00000000000000000017 /* DownloadableMediaDownloader.swift in Sources */,
+				2ECA0000000000000000001B /* DownloadableMediaImageDecoder.swift in Sources */,
+				2ECA0000000000000000001F /* DownloadableMediaMemoryCache.swift in Sources */,
+				2ECA00000000000000000023 /* DownloadableMediaDiskStore.swift in Sources */,
 				2CDF001B2F10000000000001 /* PonchoDrifellaAssetCache.swift in Sources */,
 				2CDF00212F10000000000001 /* CardNft2AssetCache.swift in Sources */,
 				2CDF00252F10000000000001 /* NativeMetalCardAssetCache.swift in Sources */,

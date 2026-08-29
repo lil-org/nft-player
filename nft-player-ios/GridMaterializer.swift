@@ -5,6 +5,21 @@ import UIKit
 
 @MainActor
 final class GridMaterializer {
+    private nonisolated final class ImageLoadCancellation:
+        @unchecked Sendable {
+
+        private let lock = NSLock()
+        private var cancelled = false
+
+        var isCancelled: Bool {
+            lock.withLock { cancelled }
+        }
+
+        func cancel() {
+            lock.withLock { cancelled = true }
+        }
+    }
+
     enum CarryoverRetention {
         case none
         case pendingBase
@@ -58,8 +73,8 @@ final class GridMaterializer {
         ) -> CachedImage?
         let loadImage: (
             DownloadableMediaDescriptor,
-            @escaping (UIImage?) -> Void
-        ) -> (() -> Void)?
+            @escaping @MainActor @Sendable (UIImage?) -> Void
+        ) -> (@MainActor @Sendable () -> Void)?
 
         static let live = Self(
             cachedImage: { imageSources, selectionPolicy in
@@ -69,10 +84,24 @@ final class GridMaterializer {
                 )
             },
             loadImage: { descriptor, completion in
-                DownloadableMediaCache.shared.loadImage(
-                    for: descriptor,
-                    completion: completion
-                )
+                let cancellation = ImageLoadCancellation()
+                let task = Task { @MainActor in
+                    let image = await DownloadableMediaCache.shared.image(
+                        for: descriptor
+                    )
+                    guard !Task.isCancelled,
+                          !cancellation.isCancelled else {
+                        return
+                    }
+                    Task { @MainActor in
+                        guard !cancellation.isCancelled else { return }
+                        completion(image)
+                    }
+                }
+                return {
+                    cancellation.cancel()
+                    task.cancel()
+                }
             }
         )
     }

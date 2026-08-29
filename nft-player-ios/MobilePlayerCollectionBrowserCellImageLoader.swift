@@ -93,7 +93,7 @@ final class MobilePlayerCollectionBrowserCellImageLoader {
 
     private struct ImageLoad {
         let id: UUID
-        let cancellation: (() -> Void)?
+        let task: Task<Void, Never>
         var fallbackQualityOnFailure: CollectionBrowseImageQuality?
     }
 
@@ -180,16 +180,16 @@ final class MobilePlayerCollectionBrowserCellImageLoader {
                     hasDistinctLargeImage: imageSources.largeDescriptor
                         != imageSources.thumbnailDescriptor,
                     largeImageIsLocallyAvailable:
-                        DownloadableMediaCache.shared.localFileURL(
+                        DownloadableMediaCache.shared.knownLocalFileURL(
                             for: descriptor
                         ) != nil,
                     allowsLocalPromotion: allowsLocalLargeImageUpgrade
                 )
         }
-        let cancellations = incompatibleQualities.compactMap { quality in
-            imageLoads.removeValue(forKey: quality)?.cancellation
+        let tasks = incompatibleQualities.compactMap { quality in
+            imageLoads.removeValue(forKey: quality)?.task
         }
-        cancellations.forEach { $0() }
+        tasks.forEach { $0.cancel() }
     }
 
     func configure(
@@ -305,47 +305,49 @@ final class MobilePlayerCollectionBrowserCellImageLoader {
         }
 
         let loadID = UUID()
-        let cancellation = DownloadableMediaCache.shared.loadImage(
-            for: descriptor
-        ) { [weak self] image in
-            Task { @MainActor in
-                guard let self,
-                      let imageLoad = self.imageLoads[resolvedQuality],
-                      imageLoad.id == loadID else {
-                    return
-                }
-                self.imageLoads.removeValue(forKey: resolvedQuality)
-                guard self.tokenIndex == tokenIndex,
-                      self.imageSources?.descriptor(for: resolvedQuality)
-                        == descriptor else {
-                    return
-                }
-                completion(LoadCompletion(
-                    image: image,
-                    descriptor: descriptor,
-                    quality: resolvedQuality,
-                    tokenIndex: tokenIndex,
-                    animatedWhenLoaded: animatedWhenLoaded,
-                    fallbackQualityOnFailure:
-                        imageLoad.fallbackQualityOnFailure,
-                    hasActiveLoads: !self.imageLoads.isEmpty
-                ))
+        let task = Task { @MainActor [weak self] in
+            let image = await DownloadableMediaCache.shared.image(
+                for: descriptor
+            )
+            guard !Task.isCancelled,
+                  let self,
+                  let imageLoad = self.imageLoads[resolvedQuality],
+                  imageLoad.id == loadID else {
+                return
             }
+            self.imageLoads.removeValue(forKey: resolvedQuality)
+            guard self.tokenIndex == tokenIndex,
+                  self.imageSources?.descriptor(for: resolvedQuality)
+                    == descriptor else {
+                return
+            }
+            completion(LoadCompletion(
+                image: image,
+                descriptor: descriptor,
+                quality: resolvedQuality,
+                tokenIndex: tokenIndex,
+                animatedWhenLoaded: animatedWhenLoaded,
+                fallbackQualityOnFailure:
+                    imageLoad.fallbackQualityOnFailure,
+                hasActiveLoads: !self.imageLoads.isEmpty
+            ))
         }
         if imageLoads[resolvedQuality] == nil {
             imageLoads[resolvedQuality] = ImageLoad(
                 id: loadID,
-                cancellation: cancellation,
+                task: task,
                 fallbackQualityOnFailure: fallbackQualityOnFailure
             )
+        } else {
+            task.cancel()
         }
         return .active
     }
 
     func cancelImageLoads() {
-        let cancellations = imageLoads.values.compactMap(\.cancellation)
+        let tasks = imageLoads.values.map(\.task)
         imageLoads.removeAll()
-        cancellations.forEach { $0() }
+        tasks.forEach { $0.cancel() }
     }
 
     func prepareImageInstall(
@@ -385,7 +387,7 @@ final class MobilePlayerCollectionBrowserCellImageLoader {
             == descriptor
         let cachedStaticImageURL = descriptorCanSatisfyLarge
             && (tracksLocalFileAvailability || prewarmsNativeMetalCardFace)
-            ? DownloadableMediaCache.shared.localFileURL(for: descriptor)
+            ? DownloadableMediaCache.shared.knownLocalFileURL(for: descriptor)
             : nil
         displayedImageHasLocalFile = tracksLocalFileAvailability
             && descriptorCanSatisfyLarge
@@ -467,7 +469,7 @@ final class MobilePlayerCollectionBrowserCellImageLoader {
         let descriptorCanSatisfyLarge = imageSources?.largeDescriptor
             == displayedImageDescriptor
         let cachedStaticImageURL = descriptorCanSatisfyLarge
-            ? DownloadableMediaCache.shared.localFileURL(
+            ? DownloadableMediaCache.shared.knownLocalFileURL(
                 for: displayedImageDescriptor
             )
             : nil
@@ -516,12 +518,12 @@ final class MobilePlayerCollectionBrowserCellImageLoader {
         satisfiedBy quality: CollectionBrowseImageQuality
     ) {
         if let matchingLoad = imageLoads.removeValue(forKey: quality) {
-            matchingLoad.cancellation?()
+            matchingLoad.task.cancel()
         }
         let replacedLoads = imageLoads.keys
             .filter { $0.rawValue < quality.rawValue }
-            .compactMap { imageLoads.removeValue(forKey: $0)?.cancellation }
-        replacedLoads.forEach { $0() }
+            .compactMap { imageLoads.removeValue(forKey: $0)?.task }
+        replacedLoads.forEach { $0.cancel() }
     }
 
 }

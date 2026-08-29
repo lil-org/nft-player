@@ -6,7 +6,7 @@ final class CardTransitionUnderlayView: UIView {
     private final class LateImageEntry {
         let itemSnapshot: MobilePlayerBrowserItemSnapshot
         let imageView = NativeMetalCardCornerMaskedImageView()
-        var cancellation: (() -> Void)?
+        var task: Task<Void, Never>?
         var hasLoadedImage = false
 
         init(itemSnapshot: MobilePlayerBrowserItemSnapshot) {
@@ -44,7 +44,7 @@ final class CardTransitionUnderlayView: UIView {
     }
 
     isolated deinit {
-        lateImageEntries.forEach { $0.cancellation?() }
+        lateImageEntries.forEach { $0.task?.cancel() }
     }
 
     override func layoutSubviews() {
@@ -91,18 +91,20 @@ final class CardTransitionUnderlayView: UIView {
                 continue
             }
 
-            entry.cancellation = DownloadableMediaCache.shared.loadImage(for: descriptor) { [weak self, weak entry] image in
-                Task { @MainActor in
-                    await Task.yield()
-                    guard let self,
-                          let entry,
-                          self.lateImageEntries.contains(where: { $0 === entry }) else {
-                        return
-                    }
-                    entry.cancellation = nil
-                    guard let image else { return }
-                    self.displayLateImage(image, for: entry, animated: true)
+            entry.task = Task { @MainActor [weak self, weak entry] in
+                let image = await DownloadableMediaCache.shared.image(
+                    for: descriptor
+                )
+                guard !Task.isCancelled else { return }
+                await Task.yield()
+                guard let self,
+                      let entry,
+                      self.lateImageEntries.contains(where: { $0 === entry }) else {
+                    return
                 }
+                entry.task = nil
+                guard let image else { return }
+                self.displayLateImage(image, for: entry, animated: true)
             }
         }
     }
@@ -316,4 +318,3 @@ final class CardLayoutPinchGestureRecognizer: UIGestureRecognizer {
     }
 
 }
-

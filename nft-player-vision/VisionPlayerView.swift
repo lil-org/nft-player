@@ -1614,6 +1614,11 @@ private final class VisionPlayerPageHostController: UIViewController, UIScrollVi
 
     private static let maximumCachedVideoSizeCount = 24
 
+    private struct DeferredZoomContentLayout {
+        let layout: VisionPlayerZoomContentLayout
+        let generation: Int
+    }
+
     private let playerModel: VisionPlayerModel
     private let zoomScrollView = VisionPlayerZoomScrollView()
     private let zoomContentView = UIView()
@@ -1624,7 +1629,9 @@ private final class VisionPlayerPageHostController: UIViewController, UIScrollVi
     private var renderGeneration = 0
     private var mediaRefreshGeneration = 0
     private var zoomContentLayout: VisionPlayerZoomContentLayout = .viewport
+    private var deferredZoomContentLayout: DeferredZoomContentLayout?
     private var laidOutZoomViewportSize: CGSize = .zero
+    private var currentVideoSizeIdentity: VisionVideoSizeIdentity?
     private var currentVideoSizeRequest: VisionVideoSizeRequest?
     private var videoSizeLoad: VisionVideoSizeLoad?
     private var cachedVideoSizes = [VisionVideoSizeRequest: CGSize]()
@@ -1699,7 +1706,8 @@ private final class VisionPlayerPageHostController: UIViewController, UIScrollVi
             return
         }
 
-        if forceRefresh || self.pagePosition != pagePosition {
+        let resetsContent = forceRefresh || self.pagePosition != pagePosition
+        if resetsContent {
             clearVideoZoomContentLayout()
             resetZoomForReuse()
             setZoomContentLayout(.viewport)
@@ -1708,6 +1716,9 @@ private final class VisionPlayerPageHostController: UIViewController, UIScrollVi
         self.preferredPrefetchDirection = preferredPrefetchDirection
         self.ownsDownloadableMediaWindow = ownsDownloadableMediaWindow
         if forceRefresh || didBecomeDownloadableMediaWindowOwner {
+            if !resetsContent {
+                clearVideoZoomContentLayout()
+            }
             renderGeneration += 1
         }
         updateHostedRootView()
@@ -1729,11 +1740,12 @@ private final class VisionPlayerPageHostController: UIViewController, UIScrollVi
             onZoomContentLayoutChange: { [weak self] layout, generation in
                 self?.setZoomContentLayout(layout, from: generation)
             },
-            onVideoZoomContentLayoutRequest: { [weak self] descriptor, fileURL, generation in
+            onVideoZoomContentLayoutRequest: { [weak self] descriptor, fileURL, generation, availabilityGeneration in
                 self?.requestVideoZoomContentLayout(
                     descriptor: descriptor,
                     fileURL: fileURL,
-                    from: generation
+                    from: generation,
+                    availabilityGeneration: availabilityGeneration
                 )
             }
         )
@@ -1761,6 +1773,8 @@ private final class VisionPlayerPageHostController: UIViewController, UIScrollVi
 
     func resetZoomForReuse() {
         resetZoom(animated: false)
+        applyDeferredZoomContentLayoutIfNeeded()
+        applyCachedCurrentVideoSizeIfAvailable()
     }
 
     func refreshDownloadableMediaWindow() {
@@ -1889,8 +1903,32 @@ private final class VisionPlayerPageHostController: UIViewController, UIScrollVi
     ) {
         guard generation == renderGeneration else { return }
 
+        if zoomContentLayout != layout,
+           zoomScrollView.isZoomed || zoomScrollView.isZooming {
+            deferredZoomContentLayout = DeferredZoomContentLayout(
+                layout: layout,
+                generation: generation
+            )
+            return
+        }
+
         clearVideoZoomContentLayout()
         setZoomContentLayout(layout)
+    }
+
+    private func applyDeferredZoomContentLayoutIfNeeded() {
+        guard !zoomScrollView.isZoomed,
+              !zoomScrollView.isZooming,
+              let deferredZoomContentLayout else {
+            return
+        }
+        self.deferredZoomContentLayout = nil
+        guard deferredZoomContentLayout.generation == renderGeneration else {
+            return
+        }
+
+        clearVideoZoomContentLayout()
+        setZoomContentLayout(deferredZoomContentLayout.layout)
     }
 
     private func setZoomContentLayout(_ layout: VisionPlayerZoomContentLayout) {
@@ -2041,41 +2079,70 @@ private final class VisionPlayerPageHostController: UIViewController, UIScrollVi
     private func requestVideoZoomContentLayout(
         descriptor: CollectionCatalogDownloadableMediaDescriptor,
         fileURL: URL,
-        from generation: Int
+        from generation: Int,
+        availabilityGeneration: Int
     ) {
         guard generation == renderGeneration else { return }
 
-        let request = VisionVideoSizeRequest(fileURL: fileURL, descriptor: descriptor)
-        currentVideoSizeRequest = request
-
-        if let videoSizeLoad, videoSizeLoad.request != request {
-            cancelVideoSizeLoad()
-        }
-
-        if let cachedSize = cachedVideoSizes[request] {
-            applyVideoSizeIfCurrent(cachedSize, for: request)
+        let identity = VisionVideoSizeIdentity(
+            descriptor: descriptor,
+            fileURL: fileURL,
+            generation: generation,
+            availabilityGeneration: availabilityGeneration
+        )
+        guard videoSizeLoad?.identity != identity,
+              currentVideoSizeIdentity != identity else {
             return
         }
-
-        setZoomContentLayout(.viewport)
-        guard videoSizeLoad == nil else { return }
-
-        let task = Task(priority: .utility) { [weak self, fileURL, request] in
-            let size = await DownloadableMediaVideoLayout.displaySize(at: fileURL)
+        cancelVideoSizeLoad()
+        currentVideoSizeIdentity = identity
+        let task = Task(priority: .utility) { [weak self, fileURL, identity] in
+            let request = await VisionVideoSizeRequest.load(
+                fileURL: fileURL,
+                descriptor: descriptor
+            )
             guard !Task.isCancelled,
                   let self,
-                  self.videoSizeLoad?.request == request else {
+                  self.renderGeneration == generation,
+                  self.videoSizeLoad?.identity == identity else {
+                return
+            }
+
+            self.currentVideoSizeRequest = request
+            if let cachedSize = self.cachedVideoSizes[request] {
+                self.videoSizeLoad = nil
+                self.applyVideoSizeIfCurrent(cachedSize, for: request)
+                return
+            }
+
+            let size = await DownloadableMediaVideoLayout.displaySize(at: fileURL)
+            let currentRequest = await VisionVideoSizeRequest.load(
+                fileURL: fileURL,
+                descriptor: descriptor
+            )
+            guard !Task.isCancelled,
+                  self.videoSizeLoad?.identity == identity else {
                 return
             }
 
             self.videoSizeLoad = nil
+            guard currentRequest == request else {
+                self.currentVideoSizeIdentity = nil
+                self.requestVideoZoomContentLayout(
+                    descriptor: descriptor,
+                    fileURL: fileURL,
+                    from: generation,
+                    availabilityGeneration: availabilityGeneration
+                )
+                return
+            }
             guard let size else { return }
 
             self.cacheVideoSize(size, for: request)
             self.applyVideoSizeIfCurrent(size, for: request)
         }
 
-        videoSizeLoad = VisionVideoSizeLoad(request: request, task: task)
+        videoSizeLoad = VisionVideoSizeLoad(identity: identity, task: task)
     }
 
     private func cacheVideoSize(_ size: CGSize, for request: VisionVideoSizeRequest) {
@@ -2101,8 +2168,7 @@ private final class VisionPlayerPageHostController: UIViewController, UIScrollVi
 
     private func applyVideoSizeIfCurrent(_ size: CGSize, for request: VisionVideoSizeRequest) {
         guard currentVideoSizeRequest == request,
-              DownloadableMediaCache.shared.localFileURL(for: request.descriptor) == request.fileURL,
-              request.matchesCurrentFileVersion(),
+              DownloadableMediaCache.shared.knownLocalFileURL(for: request.descriptor) == request.fileURL,
               !zoomScrollView.isZoomed,
               !zoomScrollView.isZooming else {
             return
@@ -2112,6 +2178,8 @@ private final class VisionPlayerPageHostController: UIViewController, UIScrollVi
     }
 
     private func clearVideoZoomContentLayout() {
+        deferredZoomContentLayout = nil
+        currentVideoSizeIdentity = nil
         currentVideoSizeRequest = nil
         cancelVideoSizeLoad()
     }
@@ -2134,6 +2202,8 @@ private final class VisionPlayerPageHostController: UIViewController, UIScrollVi
     func scrollViewDidEndZooming(_ scrollView: UIScrollView, with view: UIView?, atScale scale: CGFloat) {
         if scale <= scrollView.minimumZoomScale + VisionPlayerZoomTuning.resetTolerance {
             resetZoom(animated: true)
+            applyDeferredZoomContentLayoutIfNeeded()
+            applyCachedCurrentVideoSizeIfAvailable()
         } else {
             updateZoomContentInsets()
             clampZoomContentOffsetIfNeeded()
@@ -2213,7 +2283,12 @@ private struct VisionPlayerPageHostView: View {
     let renderGeneration: Int
     let mediaRefreshGeneration: Int
     let onZoomContentLayoutChange: (VisionPlayerZoomContentLayout, Int) -> Void
-    let onVideoZoomContentLayoutRequest: (CollectionCatalogDownloadableMediaDescriptor, URL, Int) -> Void
+    let onVideoZoomContentLayoutRequest: (
+        CollectionCatalogDownloadableMediaDescriptor,
+        URL,
+        Int,
+        Int
+    ) -> Void
 
     var body: some View {
         VisionPlayerMediaView(
@@ -2243,7 +2318,12 @@ private struct VisionPlayerMediaView: View {
     let mediaRefreshGeneration: Int
     let layoutGeneration: Int
     let onZoomContentLayoutChange: (VisionPlayerZoomContentLayout, Int) -> Void
-    let onVideoZoomContentLayoutRequest: (CollectionCatalogDownloadableMediaDescriptor, URL, Int) -> Void
+    let onVideoZoomContentLayoutRequest: (
+        CollectionCatalogDownloadableMediaDescriptor,
+        URL,
+        Int,
+        Int
+    ) -> Void
 
     @State private var staticImage: UIImage?
     @State private var staticImageDescriptor: CollectionCatalogDownloadableMediaDescriptor?
@@ -2252,7 +2332,11 @@ private struct VisionPlayerMediaView: View {
     @State private var fallbackHTMLDescriptor: CollectionCatalogDownloadableMediaDescriptor?
     @State private var pendingHTMLDocumentRender: VisionHTMLDocumentRenderRequest?
     @State private var htmlDocumentRenderTask: Task<Void, Never>?
-    @State private var cancelActiveLoad: (() -> Void)?
+    @State private var activeLoadTask: Task<Void, Never>?
+    @State private var activeLoadID: UUID?
+    @State private var imageLayoutTask: Task<Void, Never>?
+    @State private var imageLayoutRequest: VisionImageLayoutRequest?
+    @State private var fileAvailabilityGeneration = 0
 
     var body: some View {
         content
@@ -2264,11 +2348,11 @@ private struct VisionPlayerMediaView: View {
                 renderCurrentContent()
             }
             .task {
-                for await _ in NotificationCenter.default.notifications(
+                for await notification in NotificationCenter.default.notifications(
                     named: .downloadableMediaCacheFileAvailabilityDidChange
                 ) {
                     guard !Task.isCancelled else { return }
-                    renderAvailableContent()
+                    handleFileAvailabilityChange(notification)
                 }
             }
             .onDisappear(perform: cleanup)
@@ -2326,6 +2410,29 @@ private struct VisionPlayerMediaView: View {
         renderCurrentContent(shouldPrepareWindow: false)
     }
 
+    private func handleFileAvailabilityChange(_ notification: Notification) {
+        guard let descriptor = downloadableMediaDescriptor else { return }
+
+        let cache = DownloadableMediaCache.shared
+        let affectsCurrent = cache.fileAvailabilityChange(
+            notification,
+            affects: descriptor
+        )
+        let adjacentDescriptor = adjacentDownloadableMediaDescriptor()
+        let affectsAdjacent = adjacentDescriptor.map {
+            cache.fileAvailabilityChange(notification, affects: $0)
+        } ?? false
+        guard affectsCurrent || affectsAdjacent else { return }
+
+        if affectsCurrent {
+            fileAvailabilityGeneration &+= 1
+            renderAvailableContent()
+        }
+        if affectsAdjacent {
+            refreshAdjacentLocalWebContent(for: descriptor)
+        }
+    }
+
     private func renderCurrentContent(shouldPrepareWindow: Bool) {
         let descriptor = shouldPrepareWindow
             ? prepareCurrentDownloadableMediaWindow()
@@ -2366,11 +2473,11 @@ private struct VisionPlayerMediaView: View {
 
         localWebContent = nil
         localWebContentDescriptor = nil
-        pendingHTMLDocumentRender = nil
+        cancelHTMLDocumentRenderIfNeeded()
+        cancelImageLayoutIfNeeded()
 
         if staticImageDescriptor != descriptor {
-            cancelActiveLoad?()
-            cancelActiveLoad = nil
+            cancelActiveLoadIfNeeded()
             staticImage = nil
             staticImageDescriptor = descriptor
             updateZoomContentLayout(.viewport)
@@ -2378,8 +2485,7 @@ private struct VisionPlayerMediaView: View {
         }
 
         if let cachedImage = DownloadableMediaCache.shared.cachedDecodedImage(for: descriptor) {
-            cancelActiveLoad?()
-            cancelActiveLoad = nil
+            cancelActiveLoadIfNeeded()
             clearDownloadableMediaFallback()
             staticImage = cachedImage
             staticImageDescriptor = descriptor
@@ -2387,13 +2493,18 @@ private struct VisionPlayerMediaView: View {
             return
         }
 
-        guard cancelActiveLoad == nil else { return }
+        guard activeLoadTask == nil else { return }
 
-        cancelActiveLoad = DownloadableMediaCache.shared.loadImage(for: descriptor) { image in
-            cancelActiveLoad = nil
-            guard staticImageDescriptor == descriptor else {
-                return
-            }
+        let loadID = UUID()
+        activeLoadID = loadID
+        activeLoadTask = Task {
+            let image = await DownloadableMediaCache.shared.image(for: descriptor)
+            guard !Task.isCancelled,
+                  activeLoadID == loadID,
+                  staticImageDescriptor == descriptor else { return }
+
+            activeLoadTask = nil
+            activeLoadID = nil
             guard let image else {
                 renderDownloadableMediaFallback(for: descriptor)
                 return
@@ -2419,34 +2530,18 @@ private struct VisionPlayerMediaView: View {
         }
 
         if localWebContentDescriptor != descriptor {
-            cancelActiveLoad?()
-            cancelActiveLoad = nil
+            cancelActiveLoadIfNeeded()
+            cancelHTMLDocumentRenderIfNeeded()
+            cancelImageLayoutIfNeeded()
             localWebContent = nil
             localWebContentDescriptor = descriptor
-            pendingHTMLDocumentRender = nil
             updateZoomContentLayout(.viewport)
             clearDownloadableMediaFallback()
         }
 
         let cache = DownloadableMediaCache.shared
-        guard let localFileURL = cache.localFileURL(for: descriptor) else {
-            guard cancelActiveLoad == nil else { return }
-            cancelActiveLoad = cache.loadFile(for: descriptor) { fileURL in
-                cancelActiveLoad = nil
-                guard localWebContentDescriptor == descriptor else {
-                    return
-                }
-                guard let fileURL else {
-                    renderDownloadableMediaFallback(for: descriptor)
-                    return
-                }
-
-                setLocalWebContent(
-                    for: descriptor,
-                    fileURL: fileURL,
-                    nextLocalFileURL: adjacentLocalFileURL(for: descriptor)
-                )
-            }
+        guard let localFileURL = cache.knownLocalFileURL(for: descriptor) else {
+            loadLocalWebMedia(descriptor)
             return
         }
 
@@ -2457,13 +2552,49 @@ private struct VisionPlayerMediaView: View {
             return
         }
 
-        cancelActiveLoad?()
-        cancelActiveLoad = nil
+        cancelActiveLoadIfNeeded()
         setLocalWebContent(
             for: descriptor,
             fileURL: localFileURL,
             nextLocalFileURL: adjacentLocalFileURL(for: descriptor)
         )
+    }
+
+    private func loadLocalWebMedia(
+        _ descriptor: CollectionCatalogDownloadableMediaDescriptor
+    ) {
+        guard activeLoadTask == nil else { return }
+
+        let loadID = UUID()
+        activeLoadID = loadID
+        activeLoadTask = Task {
+            let cache = DownloadableMediaCache.shared
+            var fileURL = await cache.existingFileURL(for: descriptor)
+            guard !Task.isCancelled,
+                  activeLoadID == loadID,
+                  localWebContentDescriptor == descriptor else { return }
+
+            if fileURL == nil {
+                fileURL = await cache.file(for: descriptor)
+            }
+
+            guard !Task.isCancelled,
+                  activeLoadID == loadID,
+                  localWebContentDescriptor == descriptor else { return }
+
+            activeLoadTask = nil
+            activeLoadID = nil
+            guard let fileURL else {
+                renderDownloadableMediaFallback(for: descriptor)
+                return
+            }
+
+            setLocalWebContent(
+                for: descriptor,
+                fileURL: fileURL,
+                nextLocalFileURL: adjacentLocalFileURL(for: descriptor)
+            )
+        }
     }
 
     private func setLocalWebContent(
@@ -2477,6 +2608,8 @@ private struct VisionPlayerMediaView: View {
         }
 
         pendingHTMLDocumentRender = nil
+        htmlDocumentRenderTask?.cancel()
+        htmlDocumentRenderTask = nil
         updateLocalWebZoomContentLayout(for: descriptor, fileURL: fileURL)
         guard let content = localWebContent(
             for: descriptor,
@@ -2502,13 +2635,20 @@ private struct VisionPlayerMediaView: View {
 
         pendingHTMLDocumentRender = request
         localWebContent = nil
+        cancelImageLayoutIfNeeded()
         updateZoomContentLayout(.viewport)
         clearDownloadableMediaFallback()
 
         let htmlDirectoryURL = DownloadableMediaCache.shared.webViewHTMLDirectoryURL
-        let baseURL = DownloadableMediaCache.shared.downloadedSourceURL(for: descriptor).absoluteString
         htmlDocumentRenderTask?.cancel()
         htmlDocumentRenderTask = Task {
+            let baseURL = await DownloadableMediaCache.shared.downloadedSourceURL(
+                for: descriptor
+            ).absoluteString
+            guard !Task.isCancelled,
+                  pendingHTMLDocumentRender == request,
+                  localWebContentDescriptor == descriptor else { return }
+
             let renderedDocument = await DownloadableTokenHTML.renderDocument(
                 at: fileURL,
                 baseURL: baseURL
@@ -2576,7 +2716,8 @@ private struct VisionPlayerMediaView: View {
     private func updateLocalWebZoomContentLayoutIfAvailable(
         for descriptor: CollectionCatalogDownloadableMediaDescriptor
     ) {
-        guard let fileURL = DownloadableMediaCache.shared.localFileURL(for: descriptor) else {
+        guard let fileURL = DownloadableMediaCache.shared.knownLocalFileURL(for: descriptor) else {
+            cancelImageLayoutIfNeeded()
             updateZoomContentLayout(.viewport)
             return
         }
@@ -2590,65 +2731,103 @@ private struct VisionPlayerMediaView: View {
     ) {
         switch descriptor.media {
         case .staticImage:
+            cancelImageLayoutIfNeeded()
             updateZoomContentLayout(.viewport)
 
         case .animatedImage:
-            if let imageSize = imageOrSVGSize(at: fileURL) {
+            requestImageZoomContentLayout(for: descriptor, fileURL: fileURL)
+
+        case .video:
+            cancelImageLayoutIfNeeded()
+            requestVideoZoomContentLayout(for: descriptor, fileURL: fileURL)
+
+        case .html:
+            cancelImageLayoutIfNeeded()
+            updateZoomContentLayout(.viewport)
+        }
+    }
+
+    private func requestImageZoomContentLayout(
+        for descriptor: CollectionCatalogDownloadableMediaDescriptor,
+        fileURL: URL
+    ) {
+        let request = VisionImageLayoutRequest(
+            descriptor: descriptor,
+            fileURL: fileURL,
+            layoutGeneration: layoutGeneration,
+            fileAvailabilityGeneration: fileAvailabilityGeneration
+        )
+        guard imageLayoutRequest != request else { return }
+
+        cancelImageLayoutIfNeeded()
+        imageLayoutRequest = request
+        imageLayoutTask = Task {
+            let imageSize = await VisionDownloadableMediaLayout.imageOrSVGSize(at: fileURL)
+            guard !Task.isCancelled,
+                  imageLayoutRequest == request,
+                  localWebContentDescriptor == descriptor else { return }
+
+            imageLayoutTask = nil
+            guard DownloadableMediaCache.shared.knownLocalFileURL(for: descriptor) == fileURL else {
+                imageLayoutRequest = nil
+                updateZoomContentLayout(.viewport)
+                return
+            }
+            if let imageSize {
                 updateZoomContentLayout(.intrinsicMediaSize(imageSize))
             } else {
                 updateZoomContentLayout(.viewport)
             }
-
-        case .video:
-            requestVideoZoomContentLayout(for: descriptor, fileURL: fileURL)
-
-        case .html:
-            updateZoomContentLayout(.viewport)
         }
-    }
-
-    private func imageOrSVGSize(at fileURL: URL) -> CGSize? {
-        if let imageSize = imageSize(at: fileURL) {
-            return imageSize
-        }
-
-        guard let documentHTML = try? String(contentsOf: fileURL, encoding: .utf8) else {
-            return nil
-        }
-        return DownloadableTokenHTMLLayout.rootSVGViewBoxSize(in: documentHTML)
-    }
-
-    private func imageSize(at fileURL: URL) -> CGSize? {
-        guard let imageSource = CGImageSourceCreateWithURL(fileURL as CFURL, nil),
-              let properties = CGImageSourceCopyPropertiesAtIndex(imageSource, 0, nil) as? [CFString: Any],
-              let width = properties[kCGImagePropertyPixelWidth] as? NSNumber,
-              let height = properties[kCGImagePropertyPixelHeight] as? NSNumber else {
-            return nil
-        }
-
-        let size = CGSize(width: CGFloat(width.doubleValue), height: CGFloat(height.doubleValue))
-        guard size.width > 0, size.height > 0 else { return nil }
-        return size
     }
 
     private func requestVideoZoomContentLayout(
         for descriptor: CollectionCatalogDownloadableMediaDescriptor,
         fileURL: URL
     ) {
-        onVideoZoomContentLayoutRequest(descriptor, fileURL, layoutGeneration)
+        onVideoZoomContentLayoutRequest(
+            descriptor,
+            fileURL,
+            layoutGeneration,
+            fileAvailabilityGeneration
+        )
     }
 
     private func adjacentLocalFileURL(for descriptor: CollectionCatalogDownloadableMediaDescriptor) -> URL? {
-        guard let context,
-              case .animatedImage = descriptor.media,
-              let adjacentDescriptor = DownloadableMediaCache.adjacentDescriptor(
-                for: context,
-                direction: preferredPrefetchDirection
-              ) else {
+        guard case .animatedImage = descriptor.media,
+              let adjacentDescriptor = adjacentDownloadableMediaDescriptor() else {
             return nil
         }
 
-        return DownloadableMediaCache.shared.localFileURL(for: adjacentDescriptor)
+        return DownloadableMediaCache.shared.knownLocalFileURL(for: adjacentDescriptor)
+    }
+
+    private func adjacentDownloadableMediaDescriptor() -> CollectionCatalogDownloadableMediaDescriptor? {
+        guard let context else { return nil }
+        return DownloadableMediaCache.adjacentDescriptor(
+            for: context,
+            direction: preferredPrefetchDirection
+        )
+    }
+
+    private func refreshAdjacentLocalWebContent(
+        for descriptor: CollectionCatalogDownloadableMediaDescriptor
+    ) {
+        guard case .animatedImage = descriptor.media,
+              localWebContentDescriptor == descriptor,
+              localWebContent != nil,
+              let fileURL = DownloadableMediaCache.shared.knownLocalFileURL(
+                for: descriptor
+              ),
+              let content = localWebContent(
+                for: descriptor,
+                fileURL: fileURL,
+                nextLocalFileURL: adjacentLocalFileURL(for: descriptor)
+              ) else {
+            return
+        }
+
+        localWebContent = content
     }
 
     private func handleLocalWebContentLoadFailure(
@@ -2660,6 +2839,8 @@ private struct VisionPlayerMediaView: View {
         }
 
         localWebContent = nil
+        cancelHTMLDocumentRenderIfNeeded()
+        cancelImageLayoutIfNeeded()
         pendingHTMLDocumentRender = nil
         renderDownloadableMediaFallback(for: descriptor)
     }
@@ -2684,10 +2865,9 @@ private struct VisionPlayerMediaView: View {
     }
 
     private func cleanup() {
-        cancelActiveLoad?()
-        cancelActiveLoad = nil
-        htmlDocumentRenderTask?.cancel()
-        htmlDocumentRenderTask = nil
+        cancelActiveLoadIfNeeded()
+        cancelHTMLDocumentRenderIfNeeded()
+        cancelImageLayoutIfNeeded()
         staticImage = nil
         staticImageDescriptor = nil
         localWebContent = nil
@@ -2695,6 +2875,24 @@ private struct VisionPlayerMediaView: View {
         fallbackHTMLDescriptor = nil
         pendingHTMLDocumentRender = nil
         updateZoomContentLayout(.viewport)
+    }
+
+    private func cancelActiveLoadIfNeeded() {
+        activeLoadTask?.cancel()
+        activeLoadTask = nil
+        activeLoadID = nil
+    }
+
+    private func cancelHTMLDocumentRenderIfNeeded() {
+        htmlDocumentRenderTask?.cancel()
+        htmlDocumentRenderTask = nil
+        pendingHTMLDocumentRender = nil
+    }
+
+    private func cancelImageLayoutIfNeeded() {
+        imageLayoutTask?.cancel()
+        imageLayoutTask = nil
+        imageLayoutRequest = nil
     }
 
 }
@@ -2712,29 +2910,81 @@ private struct VisionHTMLDocumentRenderRequest: Hashable {
     let fileURL: URL
 }
 
+private struct VisionImageLayoutRequest: Hashable {
+    let descriptor: CollectionCatalogDownloadableMediaDescriptor
+    let fileURL: URL
+    let layoutGeneration: Int
+    let fileAvailabilityGeneration: Int
+}
+
+nonisolated private enum VisionDownloadableMediaLayout {
+
+    @concurrent
+    static func imageOrSVGSize(at fileURL: URL) async -> CGSize? {
+        if let imageSource = CGImageSourceCreateWithURL(fileURL as CFURL, nil),
+           let properties = CGImageSourceCopyPropertiesAtIndex(imageSource, 0, nil) as? [CFString: Any],
+           let width = properties[kCGImagePropertyPixelWidth] as? NSNumber,
+           let height = properties[kCGImagePropertyPixelHeight] as? NSNumber {
+            let size = CGSize(
+                width: CGFloat(width.doubleValue),
+                height: CGFloat(height.doubleValue)
+            )
+            if size.width > 0, size.height > 0 {
+                return size
+            }
+        }
+
+        guard let documentHTML = try? String(contentsOf: fileURL, encoding: .utf8) else {
+            return nil
+        }
+        return DownloadableTokenHTMLLayout.rootSVGViewBoxSize(in: documentHTML)
+    }
+}
+
+nonisolated private struct VisionVideoSizeIdentity: Hashable, Sendable {
+    let descriptor: CollectionCatalogDownloadableMediaDescriptor
+    let fileURL: URL
+    let generation: Int
+    let availabilityGeneration: Int
+}
+
 nonisolated private struct VisionVideoSizeRequest: Hashable, Sendable {
     let descriptor: CollectionCatalogDownloadableMediaDescriptor
     let fileURL: URL
     let fileSize: Int?
     let contentModificationDate: Date?
 
-    init(fileURL: URL, descriptor: CollectionCatalogDownloadableMediaDescriptor) {
+    private init(
+        fileURL: URL,
+        descriptor: CollectionCatalogDownloadableMediaDescriptor,
+        fileSize: Int?,
+        contentModificationDate: Date?
+    ) {
+        self.descriptor = descriptor
+        self.fileURL = fileURL
+        self.fileSize = fileSize
+        self.contentModificationDate = contentModificationDate
+    }
+
+    @concurrent
+    static func load(
+        fileURL: URL,
+        descriptor: CollectionCatalogDownloadableMediaDescriptor
+    ) async -> Self {
         let resourceValues = try? fileURL.resourceValues(
             forKeys: [.fileSizeKey, .contentModificationDateKey]
         )
-        self.descriptor = descriptor
-        self.fileURL = fileURL
-        self.fileSize = resourceValues?.fileSize
-        self.contentModificationDate = resourceValues?.contentModificationDate
-    }
-
-    func matchesCurrentFileVersion() -> Bool {
-        Self(fileURL: fileURL, descriptor: descriptor) == self
+        return Self(
+            fileURL: fileURL,
+            descriptor: descriptor,
+            fileSize: resourceValues?.fileSize,
+            contentModificationDate: resourceValues?.contentModificationDate
+        )
     }
 }
 
 private struct VisionVideoSizeLoad {
-    let request: VisionVideoSizeRequest
+    let identity: VisionVideoSizeIdentity
     let task: Task<Void, Never>
 }
 

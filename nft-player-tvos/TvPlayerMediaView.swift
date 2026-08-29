@@ -18,7 +18,8 @@ struct TvPlayerMediaView: View {
     @State private var fallbackHTMLDescriptor: CollectionCatalogDownloadableMediaDescriptor?
     @State private var pendingHTMLDocumentRender: TvHTMLDocumentRenderRequest?
     @State private var htmlDocumentRenderTask: Task<Void, Never>?
-    @State private var cancelActiveLoad: (() -> Void)?
+    @State private var activeLoadTask: Task<Void, Never>?
+    @State private var activeLoadID: UUID?
 
     var body: some View {
         content
@@ -129,7 +130,7 @@ struct TvPlayerMediaView: View {
 
         localWebContent = nil
         localWebContentDescriptor = nil
-        pendingHTMLDocumentRender = nil
+        cancelHTMLDocumentRenderIfNeeded()
 
         if staticImageDescriptor != descriptor {
             cancelActiveLoadIfNeeded()
@@ -146,13 +147,18 @@ struct TvPlayerMediaView: View {
             return
         }
 
-        guard cancelActiveLoad == nil else { return }
+        guard activeLoadTask == nil else { return }
 
-        cancelActiveLoad = DownloadableMediaCache.shared.loadImage(for: descriptor) { image in
-            cancelActiveLoad = nil
-            guard staticImageDescriptor == descriptor else {
-                return
-            }
+        let loadID = UUID()
+        activeLoadID = loadID
+        activeLoadTask = Task {
+            let image = await DownloadableMediaCache.shared.image(for: descriptor)
+            guard !Task.isCancelled,
+                  activeLoadID == loadID,
+                  staticImageDescriptor == descriptor else { return }
+
+            activeLoadTask = nil
+            activeLoadID = nil
             guard let image else {
                 renderDownloadableMediaFallback(for: descriptor)
                 return
@@ -174,31 +180,15 @@ struct TvPlayerMediaView: View {
 
         if localWebContentDescriptor != descriptor {
             cancelActiveLoadIfNeeded()
+            cancelHTMLDocumentRenderIfNeeded()
             localWebContent = nil
             localWebContentDescriptor = descriptor
-            pendingHTMLDocumentRender = nil
             clearDownloadableMediaFallback()
         }
 
         let cache = DownloadableMediaCache.shared
-        guard let localFileURL = cache.localFileURL(for: descriptor) else {
-            guard cancelActiveLoad == nil else { return }
-            cancelActiveLoad = cache.loadFile(for: descriptor) { fileURL in
-                cancelActiveLoad = nil
-                guard localWebContentDescriptor == descriptor else {
-                    return
-                }
-                guard let fileURL else {
-                    renderDownloadableMediaFallback(for: descriptor)
-                    return
-                }
-
-                setLocalWebContent(
-                    for: descriptor,
-                    fileURL: fileURL,
-                    nextLocalFileURL: adjacentLocalFileURL(for: descriptor)
-                )
-            }
+        guard let localFileURL = cache.knownLocalFileURL(for: descriptor) else {
+            loadLocalWebMedia(descriptor)
             return
         }
 
@@ -217,6 +207,43 @@ struct TvPlayerMediaView: View {
         )
     }
 
+    private func loadLocalWebMedia(
+        _ descriptor: CollectionCatalogDownloadableMediaDescriptor
+    ) {
+        guard activeLoadTask == nil else { return }
+
+        let loadID = UUID()
+        activeLoadID = loadID
+        activeLoadTask = Task {
+            let cache = DownloadableMediaCache.shared
+            var fileURL = await cache.existingFileURL(for: descriptor)
+            guard !Task.isCancelled,
+                  activeLoadID == loadID,
+                  localWebContentDescriptor == descriptor else { return }
+
+            if fileURL == nil {
+                fileURL = await cache.file(for: descriptor)
+            }
+
+            guard !Task.isCancelled,
+                  activeLoadID == loadID,
+                  localWebContentDescriptor == descriptor else { return }
+
+            activeLoadTask = nil
+            activeLoadID = nil
+            guard let fileURL else {
+                renderDownloadableMediaFallback(for: descriptor)
+                return
+            }
+
+            setLocalWebContent(
+                for: descriptor,
+                fileURL: fileURL,
+                nextLocalFileURL: adjacentLocalFileURL(for: descriptor)
+            )
+        }
+    }
+
     private func setLocalWebContent(
         for descriptor: CollectionCatalogDownloadableMediaDescriptor,
         fileURL: URL,
@@ -228,6 +255,8 @@ struct TvPlayerMediaView: View {
         }
 
         pendingHTMLDocumentRender = nil
+        htmlDocumentRenderTask?.cancel()
+        htmlDocumentRenderTask = nil
         guard let content = localWebContent(
             for: descriptor,
             fileURL: fileURL,
@@ -255,8 +284,14 @@ struct TvPlayerMediaView: View {
         clearDownloadableMediaFallback()
 
         htmlDocumentRenderTask?.cancel()
-        let baseURL = DownloadableMediaCache.shared.downloadedSourceURL(for: descriptor).absoluteString
         htmlDocumentRenderTask = Task {
+            let baseURL = await DownloadableMediaCache.shared.downloadedSourceURL(
+                for: descriptor
+            ).absoluteString
+            guard !Task.isCancelled,
+                  pendingHTMLDocumentRender == request,
+                  localWebContentDescriptor == descriptor else { return }
+
             let renderedDocument = await DownloadableTokenHTML.renderDocument(
                 at: fileURL,
                 baseURL: baseURL
@@ -326,7 +361,7 @@ struct TvPlayerMediaView: View {
             return nil
         }
 
-        return DownloadableMediaCache.shared.localFileURL(for: adjacentDescriptor)
+        return DownloadableMediaCache.shared.knownLocalFileURL(for: adjacentDescriptor)
     }
 
     private func handleLocalWebContentLoadFailure(
@@ -386,8 +421,7 @@ struct TvPlayerMediaView: View {
 
     private func cleanup() {
         cancelActiveLoadIfNeeded()
-        htmlDocumentRenderTask?.cancel()
-        htmlDocumentRenderTask = nil
+        cancelHTMLDocumentRenderIfNeeded()
         DownloadableMediaCache.shared.clearActiveWindow(ownerId: ownerId)
         staticImage = nil
         staticImageDescriptor = nil
@@ -398,8 +432,15 @@ struct TvPlayerMediaView: View {
     }
 
     private func cancelActiveLoadIfNeeded() {
-        cancelActiveLoad?()
-        cancelActiveLoad = nil
+        activeLoadTask?.cancel()
+        activeLoadTask = nil
+        activeLoadID = nil
+    }
+
+    private func cancelHTMLDocumentRenderIfNeeded() {
+        htmlDocumentRenderTask?.cancel()
+        htmlDocumentRenderTask = nil
+        pendingHTMLDocumentRender = nil
     }
 
     private func fallbackURL(for token: GeneratedToken) -> URL? {

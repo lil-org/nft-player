@@ -155,7 +155,7 @@ extension MobilePlaybackSessionTests {
         secondSession.stopAndDisconnect()
     }
 
-    func testDisconnectedSessionReturnsFallbacksAndRejectsActions() throws {
+    func testDisconnectedSessionReturnsFallbacksAndRejectsActions() async throws {
         let registry = MobilePlaybackSessionRegistry(
             dependencies: .init(
                 makeViewingSessionTracker: { _ in
@@ -239,9 +239,10 @@ extension MobilePlaybackSessionTests {
                 resolvedToken: .empty
             )
         )
-        XCTAssertNil(
-            session.downloadedFileShareItem(pagePosition: .initial)
+        let shareItem = await session.downloadedFileShareItem(
+            pagePosition: .initial
         )
+        XCTAssertNil(shareItem)
         XCTAssertEqual(session.startPagePosition(), .initial)
     }
 
