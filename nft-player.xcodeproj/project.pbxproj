@@ -317,6 +317,9 @@
 		2E1300000000000000000003 /* PlayerBrowserGridPinchPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E1300000000000000000001 /* PlayerBrowserGridPinchPolicy.swift */; };
 		2E1400000000000000000002 /* PlayerBrowserGridInteractionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E1400000000000000000001 /* PlayerBrowserGridInteractionCoordinator.swift */; };
 		2E1400000000000000000003 /* PlayerBrowserGridInteractionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E1400000000000000000001 /* PlayerBrowserGridInteractionCoordinator.swift */; };
+		2F1000000000000000000002 /* PlayerBrowserGridTransitionRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F1000000000000000000001 /* PlayerBrowserGridTransitionRuntime.swift */; };
+		2F1000000000000000000004 /* GridTransitionFrameDriver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F1000000000000000000003 /* GridTransitionFrameDriver.swift */; };
+		2F1000000000000000000006 /* MobilePlayerGridTransitionCoverRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F1000000000000000000005 /* MobilePlayerGridTransitionCoverRenderer.swift */; };
 		2E1500000000000000000002 /* PlayerBrowserGridCrossfade.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E1500000000000000000001 /* PlayerBrowserGridCrossfade.swift */; };
 		2E1500000000000000000003 /* PlayerBrowserGridCrossfade.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E1500000000000000000001 /* PlayerBrowserGridCrossfade.swift */; };
 /* End PBXBuildFile section */
@@ -572,6 +575,9 @@
 		2E1100000000000000000001 /* PlayerCardMinimizePinchPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerCardMinimizePinchPolicy.swift; sourceTree = "<group>"; };
 		2E1300000000000000000001 /* PlayerBrowserGridPinchPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerBrowserGridPinchPolicy.swift; sourceTree = "<group>"; };
 		2E1400000000000000000001 /* PlayerBrowserGridInteractionCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerBrowserGridInteractionCoordinator.swift; sourceTree = "<group>"; };
+		2F1000000000000000000001 /* PlayerBrowserGridTransitionRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerBrowserGridTransitionRuntime.swift; sourceTree = "<group>"; };
+		2F1000000000000000000003 /* GridTransitionFrameDriver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GridTransitionFrameDriver.swift; sourceTree = "<group>"; };
+		2F1000000000000000000005 /* MobilePlayerGridTransitionCoverRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobilePlayerGridTransitionCoverRenderer.swift; sourceTree = "<group>"; };
 		2E1500000000000000000001 /* PlayerBrowserGridCrossfade.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerBrowserGridCrossfade.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -653,6 +659,7 @@
 				2E1100000000000000000001 /* PlayerCardMinimizePinchPolicy.swift */,
 				2E1300000000000000000001 /* PlayerBrowserGridPinchPolicy.swift */,
 				2E1400000000000000000001 /* PlayerBrowserGridInteractionCoordinator.swift */,
+				2F1000000000000000000001 /* PlayerBrowserGridTransitionRuntime.swift */,
 				2E1500000000000000000001 /* PlayerBrowserGridCrossfade.swift */,
 				2DA1000E2FC0000000000001 /* PlayerBrowserGridSourceCoverage.swift */,
 				2DB100012FD0000000000001 /* MobilePlayerBrowserLayout.swift */,
@@ -945,6 +952,8 @@
 				2DA500192FF1000000000001 /* MobilePlayerCollectionBrowserImagePipeline.swift */,
 				2DA5001A2FF1000000000001 /* MobilePlayerCollectionBrowserScrollCoordinator.swift */,
 				2DA5001B2FF1000000000001 /* MobilePlayerCollectionBrowserGridModeCoordinator.swift */,
+				2F1000000000000000000003 /* GridTransitionFrameDriver.swift */,
+				2F1000000000000000000005 /* MobilePlayerGridTransitionCoverRenderer.swift */,
 				2C7134D52D304609001E33DC /* MobilePlaybackController.swift */,
 				2CC93C662DB2B13A00C5801A /* ExternalDisplayViewController.swift */,
 				2CFA91002EB1000000000001 /* NativeMetalCardView.swift */,
@@ -1490,6 +1499,7 @@
 				2E1100000000000000000002 /* PlayerCardMinimizePinchPolicy.swift in Sources */,
 				2E1300000000000000000002 /* PlayerBrowserGridPinchPolicy.swift in Sources */,
 				2E1400000000000000000002 /* PlayerBrowserGridInteractionCoordinator.swift in Sources */,
+				2F1000000000000000000002 /* PlayerBrowserGridTransitionRuntime.swift in Sources */,
 				2E1500000000000000000002 /* PlayerBrowserGridCrossfade.swift in Sources */,
 				2DB100022FD0000000000001 /* MobilePlayerBrowserLayout.swift in Sources */,
 				2E1200000000000000000002 /* CollectionBrowserConfiguration.swift in Sources */,
@@ -1509,6 +1519,8 @@
 				2DA500092FF1000000000001 /* MobilePlayerCollectionBrowserImagePipeline.swift in Sources */,
 				2DA5000A2FF1000000000001 /* MobilePlayerCollectionBrowserScrollCoordinator.swift in Sources */,
 				2DA5000B2FF1000000000001 /* MobilePlayerCollectionBrowserGridModeCoordinator.swift in Sources */,
+				2F1000000000000000000004 /* GridTransitionFrameDriver.swift in Sources */,
+				2F1000000000000000000006 /* MobilePlayerGridTransitionCoverRenderer.swift in Sources */,
 				2DA1000C2FC0000000000001 /* PlayerBrowserGridSourceCoverage.swift in Sources */,
 				2C460ED02D2985A90083124E /* NftGallery.swift in Sources */,
 				2C460ED22D2985A90083124E /* Chain.swift in Sources */,

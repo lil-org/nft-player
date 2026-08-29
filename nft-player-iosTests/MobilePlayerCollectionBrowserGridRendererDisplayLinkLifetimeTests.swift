@@ -777,92 +777,60 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
     }
 }
 
-nonisolated final class MobilePlayerCollectionBrowserPinchFrameCoalescerTests: XCTestCase {}
+nonisolated final class GridTransitionDisplayLinkFrameDriverTests:
+    XCTestCase {}
 
 @MainActor
-extension MobilePlayerCollectionBrowserPinchFrameCoalescerTests {
-    private func makeFrame(
-        scale: CGFloat,
-        location: CGPoint
-    ) -> GridModePinchFrame {
-        GridModePinchFrame(scale: scale, viewLocation: location)
-    }
+extension GridTransitionDisplayLinkFrameDriverTests {
+    func testFramesRunInTrackingModeAndLifecycleIsTerminalAfterInvalidation() {
+        let driver = GridTransitionDisplayLinkFrameDriver()
+        var frameCount = 0
+        var frameModes = [RunLoop.Mode?]()
+        var framesArrivedOnMainThread = true
 
-    func testTerminationFlushAppliesLatestChangedFrameOnce() {
-        var appliedFrames = [GridModePinchFrame]()
-        let coalescer = GridModePinchFrameCoalescer {
-            appliedFrames.append($0)
+        driver.start { _ in
+            frameCount += 1
+            frameModes.append(RunLoop.current.currentMode)
+            framesArrivedOnMainThread = framesArrivedOnMainThread
+                && Thread.isMainThread
         }
-        coalescer.seed(makeFrame(
-            scale: 1.2,
-            location: CGPoint(x: 160, y: 320)
-        ))
-        let latestFrame = makeFrame(
-            scale: 1.01,
-            location: CGPoint(x: 160, y: 320)
-        )
-        coalescer.stage(latestFrame)
 
-        coalescer.flush()
-        coalescer.flush()
-
-        XCTAssertEqual(appliedFrames, [latestFrame])
-        XCTAssertEqual(latestFrame.sample.centroidY, latestFrame.viewLocation.y)
-    }
-
-    func testTerminationFlushAppliesBeganFrameWithoutChangedFrame() {
-        var appliedFrames = [GridModePinchFrame]()
-        let coalescer = GridModePinchFrameCoalescer {
-            appliedFrames.append($0)
-        }
-        let beganFrame = makeFrame(
-            scale: 1.2,
-            location: CGPoint(x: 160, y: 320)
-        )
-        coalescer.seed(beganFrame)
-
-        coalescer.flush()
-        coalescer.flush()
-
-        XCTAssertEqual(appliedFrames, [beganFrame])
-    }
-
-    func testInvalidationDropsPendingFrame() {
-        var appliedFrames = [GridModePinchFrame]()
-        let coalescer = GridModePinchFrameCoalescer {
-            appliedFrames.append($0)
-        }
-        coalescer.stage(makeFrame(
-            scale: 1.2,
-            location: CGPoint(x: 160, y: 320)
-        ))
-
-        coalescer.invalidate()
-        coalescer.flush()
-
-        XCTAssertTrue(appliedFrames.isEmpty)
-    }
-
-    func testStagedFrameAppliesDuringTrackingRunLoopMode() {
-        var appliedFrames = [GridModePinchFrame]()
-        let coalescer = GridModePinchFrameCoalescer {
-            appliedFrames.append($0)
-        }
-        defer { coalescer.invalidate() }
-        let firstFrame = makeFrame(
-            scale: 1.1,
-            location: CGPoint(x: 140, y: 280)
-        )
-        let latestFrame = makeFrame(
-            scale: 1.2,
-            location: CGPoint(x: 150, y: 300)
-        )
-        coalescer.stage(firstFrame)
-        coalescer.stage(latestFrame)
-
+        XCTAssertTrue(driver.isRunning)
         XCTAssertTrue(runMainTrackingRunLoop {
-            !appliedFrames.isEmpty
+            frameCount > 0
         })
-        XCTAssertEqual(appliedFrames, [latestFrame])
+        XCTAssertTrue(framesArrivedOnMainThread)
+        XCTAssertEqual(frameModes.first, .tracking)
+
+        driver.stop()
+        let stoppedFrameCount = frameCount
+        XCTAssertFalse(driver.isRunning)
+        XCTAssertFalse(runMainTrackingRunLoop(
+            until: { frameCount > stoppedFrameCount },
+            timeout: 0.05
+        ))
+
+        driver.start { _ in
+            frameCount += 1
+        }
+
+        XCTAssertTrue(driver.isRunning)
+        XCTAssertTrue(runMainTrackingRunLoop {
+            frameCount > stoppedFrameCount
+        })
+
+        driver.invalidate()
+        let invalidatedFrameCount = frameCount
+        XCTAssertFalse(driver.isRunning)
+
+        driver.start { _ in
+            frameCount += 1
+        }
+
+        XCTAssertFalse(driver.isRunning)
+        XCTAssertFalse(runMainTrackingRunLoop(
+            until: { frameCount > invalidatedFrameCount },
+            timeout: 0.05
+        ))
     }
 }

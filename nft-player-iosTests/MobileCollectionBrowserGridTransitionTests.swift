@@ -31,28 +31,19 @@ extension MobileCollectionBrowserGridModePresentationTests {
 
     func testDirectNineAndLargeModeTransitionsRetainFocus() async throws {
         let metadata = try collectionMetadata(minimumTokenCount: 100)
-        let fixture = try makeFixture(collectionId: metadata.id)
+        let fixture = try makeDeterministicFixture(collectionId: metadata.id)
         defer { tearDownFixture(fixture) }
         let initialPosition = try XCTUnwrap(
             fixture.controller.currentPagePosition
         )
 
-        try await selectGridMode(
-            .large,
-            controller: fixture.controller
-        )
+        selectGridMode(.large, fixture: fixture)
         XCTAssertEqual(fixture.controller.currentPagePosition, initialPosition)
 
-        try await selectGridMode(
-            .nineColumns,
-            controller: fixture.controller
-        )
+        selectGridMode(.nineColumns, fixture: fixture)
         XCTAssertEqual(fixture.controller.currentPagePosition, initialPosition)
 
-        try await selectGridMode(
-            .large,
-            controller: fixture.controller
-        )
+        selectGridMode(.large, fixture: fixture)
         XCTAssertEqual(fixture.controller.currentPagePosition, initialPosition)
     }
 
@@ -60,17 +51,14 @@ extension MobileCollectionBrowserGridModePresentationTests {
 
     func testForcedPreparationEndsScrollMotion() async throws {
         let metadata = try collectionMetadata(minimumTokenCount: 100)
-        let fixture = try makeFixture(collectionId: metadata.id)
+        let fixture = try makeDeterministicFixture(collectionId: metadata.id)
         defer { tearDownFixture(fixture) }
         let collectionView = try XCTUnwrap(
             fixture.controller.view.subviews.first {
                 $0 is MobilePlayerCollectionBrowserCollectionView
             } as? MobilePlayerCollectionBrowserCollectionView
         )
-        try await selectGridMode(
-            .fiveColumns,
-            controller: fixture.controller
-        )
+        selectGridMode(.fiveColumns, fixture: fixture)
         fixture.controller.scrollViewWillBeginDragging(collectionView)
         XCTAssertTrue(fixture.controller.isScrollMotionActiveForTesting)
         let preparation = try XCTUnwrap(
@@ -92,17 +80,14 @@ extension MobileCollectionBrowserGridModePresentationTests {
 
     func testPreparedTransitionSelectionEndsScrollMotion() async throws {
         let metadata = try collectionMetadata(minimumTokenCount: 100)
-        let fixture = try makeFixture(collectionId: metadata.id)
+        let fixture = try makeDeterministicFixture(collectionId: metadata.id)
         defer { tearDownFixture(fixture) }
         let collectionView = try XCTUnwrap(
             fixture.controller.view.subviews.first {
                 $0 is MobilePlayerCollectionBrowserCollectionView
             } as? MobilePlayerCollectionBrowserCollectionView
         )
-        try await selectGridMode(
-            .fiveColumns,
-            controller: fixture.controller
-        )
+        selectGridMode(.fiveColumns, fixture: fixture)
         let pagePosition = try XCTUnwrap(fixture.controller.currentPagePosition)
         let preparation = try XCTUnwrap(
             fixture.session.prepareCollectionBrowse(
@@ -123,17 +108,14 @@ extension MobileCollectionBrowserGridModePresentationTests {
 
     func testOrdinarySelectionEndsScrollMotion() async throws {
         let metadata = try collectionMetadata(minimumTokenCount: 100)
-        let fixture = try makeFixture(collectionId: metadata.id)
+        let fixture = try makeDeterministicFixture(collectionId: metadata.id)
         defer { tearDownFixture(fixture) }
         let collectionView = try XCTUnwrap(
             fixture.controller.view.subviews.first {
                 $0 is MobilePlayerCollectionBrowserCollectionView
             } as? MobilePlayerCollectionBrowserCollectionView
         )
-        try await selectGridMode(
-            .fiveColumns,
-            controller: fixture.controller
-        )
+        selectGridMode(.fiveColumns, fixture: fixture)
         let indexPath = try XCTUnwrap(
             collectionView.indexPathsForVisibleItems.sorted().first {
                 guard let cell = collectionView.cellForItem(at: $0)
@@ -166,17 +148,14 @@ extension MobileCollectionBrowserGridModePresentationTests {
 
     func testRejectedSelectionRestoresForegroundImageLoading() async throws {
         let metadata = try collectionMetadata(minimumTokenCount: 100)
-        let fixture = try makeFixture(collectionId: metadata.id)
+        let fixture = try makeDeterministicFixture(collectionId: metadata.id)
         defer { tearDownFixture(fixture) }
         let collectionView = try XCTUnwrap(
             fixture.controller.view.subviews.first {
                 $0 is MobilePlayerCollectionBrowserCollectionView
             } as? MobilePlayerCollectionBrowserCollectionView
         )
-        try await selectGridMode(
-            .fiveColumns,
-            controller: fixture.controller
-        )
+        selectGridMode(.fiveColumns, fixture: fixture)
         let indexPath = try XCTUnwrap(
             collectionView.indexPathsForVisibleItems.sorted().first {
                 guard let cell = collectionView.cellForItem(at: $0)
@@ -209,17 +188,14 @@ extension MobileCollectionBrowserGridModePresentationTests {
     func testLateScrollToTopCallbackDoesNotEndInterruptingDrag()
         async throws {
         let metadata = try collectionMetadata(minimumTokenCount: 100)
-        let fixture = try makeFixture(collectionId: metadata.id)
+        let fixture = try makeDeterministicFixture(collectionId: metadata.id)
         defer { tearDownFixture(fixture) }
         let collectionView = try XCTUnwrap(
             fixture.controller.view.subviews.first {
                 $0 is MobilePlayerCollectionBrowserCollectionView
             } as? MobilePlayerCollectionBrowserCollectionView
         )
-        try await selectGridMode(
-            .fiveColumns,
-            controller: fixture.controller
-        )
+        selectGridMode(.fiveColumns, fixture: fixture)
         collectionView.contentOffset.y = min(
             1_000,
             max(
@@ -255,23 +231,23 @@ extension MobileCollectionBrowserGridModePresentationTests {
     func testCommitSnapshotBlocksSelectionUntilItDissolves() async throws {
         try skipIfReduceMotionEnabled()
         let metadata = try collectionMetadata()
-        let fixture = try makeFixture(
+        let fixture = try makeDeterministicFixture(
             collectionId: metadata.id,
             gridModeCommitSnapshotFactory: {
                 UIView(frame: $0.bounds)
             }
         )
         defer { tearDownFixture(fixture) }
+        let frameDriver = try XCTUnwrap(
+            fixture.gridTransitionFrameDriver
+        )
         let collectionView = try XCTUnwrap(
             fixture.controller.view.subviews.first {
                 $0 is MobilePlayerCollectionBrowserCollectionView
             } as? MobilePlayerCollectionBrowserCollectionView
         )
 
-        try await selectGridMode(
-            .fiveColumns,
-            controller: fixture.controller
-        )
+        selectGridMode(.fiveColumns, fixture: fixture)
 
         let indexPath = try XCTUnwrap(
             collectionView.indexPathsForVisibleItems.sorted().first {
@@ -297,12 +273,18 @@ extension MobileCollectionBrowserGridModePresentationTests {
             shouldSelectItemAt: indexPath
         ))
 
-        try await waitUntil("Snapshot did not finish dissolving") {
-            fixture.controller.collectionView(
-                collectionView,
-                shouldSelectItemAt: indexPath
-            )
-        }
+        let coverRemovalDeadline = frameDriver.now
+            + MobilePlayerCollectionBrowserTransitionPresentation
+                .contentFadeDuration
+            + 0.05
+        frameDriver.advance(to: coverRemovalDeadline.nextDown)
+
+        XCTAssertFalse(fixture.controller.collectionView(
+            collectionView,
+            shouldSelectItemAt: indexPath
+        ))
+
+        frameDriver.advance(to: coverRemovalDeadline)
 
         XCTAssertTrue(fixture.controller.canSelectItem(
             at: cell.center,
@@ -318,7 +300,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
         async throws {
         let metadata = try collectionMetadata()
         var snapshotRequestCount = 0
-        let fixture = try makeFixture(
+        let fixture = try makeDeterministicFixture(
             collectionId: metadata.id,
             gridModeCommitSnapshotFactory: { _ in
                 snapshotRequestCount += 1
@@ -327,6 +309,9 @@ extension MobileCollectionBrowserGridModePresentationTests {
         )
         defer { tearDownFixture(fixture) }
         let controller = fixture.controller
+        let frameDriver = try XCTUnwrap(
+            fixture.gridTransitionFrameDriver
+        )
         let collectionView = try XCTUnwrap(
             controller.view.subviews.first {
                 $0 is MobilePlayerCollectionBrowserCollectionView
@@ -343,13 +328,13 @@ extension MobileCollectionBrowserGridModePresentationTests {
         recognizer.reportedState = .changed
         recognizer.scale = 1.5
         sendPinch(recognizer, to: controller)
-        await waitForNextMainQueueTurn()
+        frameDriver.advance()
 
         XCTAssertFalse(collectionView.isScrollEnabled)
 
         recognizer.scale = 0.9
         sendPinch(recognizer, to: controller)
-        await waitForNextMainQueueTurn()
+        frameDriver.advance()
 
         XCTAssertGreaterThan(snapshotRequestCount, 0)
         let fallbackCover = try XCTUnwrap(
@@ -367,7 +352,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
     func testBitmapFallbackCapturesAnimatedPresentationPixels() async throws {
         let metadata = try collectionMetadata()
         var snapshotRequestCount = 0
-        let fixture = try makeFixture(
+        let fixture = try makeDeterministicFixture(
             collectionId: metadata.id,
             gridModeCommitSnapshotFactory: { _ in
                 snapshotRequestCount += 1
@@ -376,6 +361,9 @@ extension MobileCollectionBrowserGridModePresentationTests {
         )
         defer { tearDownFixture(fixture) }
         let controller = fixture.controller
+        let frameDriver = try XCTUnwrap(
+            fixture.gridTransitionFrameDriver
+        )
         let foregroundScene = try XCTUnwrap(
             UIApplication.shared.connectedScenes
                 .compactMap { $0 as? UIWindowScene }
@@ -425,11 +413,11 @@ extension MobileCollectionBrowserGridModePresentationTests {
         recognizer.reportedState = .changed
         recognizer.scale = 1.5
         sendPinch(recognizer, to: controller)
-        await waitForNextMainQueueTurn()
+        frameDriver.advance()
 
         recognizer.scale = 0.9
         sendPinch(recognizer, to: controller)
-        await waitForNextMainQueueTurn()
+        frameDriver.advance()
 
         XCTAssertGreaterThan(snapshotRequestCount, 0)
         let fallbackCover = try XCTUnwrap(
@@ -452,7 +440,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
         let metadata = try collectionMetadata()
         var snapshots = [UIView]()
         var snapshotRequestCount = 0
-        let fixture = try makeFixture(
+        let fixture = try makeDeterministicFixture(
             collectionId: metadata.id,
             gridModeCommitSnapshotFactory: { view in
                 snapshotRequestCount += 1
@@ -464,6 +452,9 @@ extension MobileCollectionBrowserGridModePresentationTests {
         )
         defer { tearDownFixture(fixture) }
         let controller = fixture.controller
+        let frameDriver = try XCTUnwrap(
+            fixture.gridTransitionFrameDriver
+        )
         let collectionView = try XCTUnwrap(
             controller.view.subviews.first {
                 $0 is MobilePlayerCollectionBrowserCollectionView
@@ -480,28 +471,32 @@ extension MobileCollectionBrowserGridModePresentationTests {
         recognizer.reportedState = .changed
         recognizer.scale = 1.5
         sendPinch(recognizer, to: controller)
-        await waitForNextMainQueueTurn()
+        frameDriver.advance()
 
         XCTAssertEqual(snapshotRequestCount, 0)
 
         recognizer.scale = 0.9
         sendPinch(recognizer, to: controller)
-        await waitForNextMainQueueTurn()
+        frameDriver.advance()
 
         let firstSnapshot = try XCTUnwrap(snapshots.first)
         XCTAssertEqual(snapshotRequestCount, 1)
         XCTAssertTrue(firstSnapshot.superview === controller.view)
+        let firstCoverRemovalDeadline = frameDriver.now
+            + MobilePlayerCollectionBrowserTransitionPresentation
+                .contentFadeDuration
+            + 0.05
 
         recognizer.scale = 0.5
         sendPinch(recognizer, to: controller)
-        await waitForNextMainQueueTurn()
+        frameDriver.advance()
 
         XCTAssertEqual(snapshotRequestCount, 1)
         XCTAssertTrue(firstSnapshot.superview === controller.view)
 
         recognizer.scale = 1.5
         sendPinch(recognizer, to: controller)
-        await waitForNextMainQueueTurn()
+        frameDriver.advance()
 
         XCTAssertEqual(snapshotRequestCount, 2)
         XCTAssertNil(firstSnapshot.superview)
@@ -509,8 +504,25 @@ extension MobileCollectionBrowserGridModePresentationTests {
             controller.view.subviews.first { $0 is UIImageView }
                 as? UIImageView
         )
+        let replacementCoverRemovalDeadline = frameDriver.now
+            + MobilePlayerCollectionBrowserTransitionPresentation
+                .contentFadeDuration
+            + 0.05
         XCTAssertEqual(try XCTUnwrap(fallbackCover.image).scale, 1)
         XCTAssertTrue(fallbackCover.superview === controller.view)
+        XCTAssertFalse(collectionView.isScrollEnabled)
+
+        frameDriver.advance(to: firstCoverRemovalDeadline)
+
+        XCTAssertTrue(fallbackCover.superview === controller.view)
+
+        frameDriver.advance(to: replacementCoverRemovalDeadline.nextDown)
+
+        XCTAssertTrue(fallbackCover.superview === controller.view)
+
+        frameDriver.advance(to: replacementCoverRemovalDeadline)
+
+        XCTAssertNil(fallbackCover.superview)
         XCTAssertFalse(collectionView.isScrollEnabled)
     }
 
@@ -518,7 +530,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
     func testZeroAlphaPlaneReversalSkipsSnapshotAndKeepsPinchActive() throws {
         let metadata = try collectionMetadata()
         var snapshotRequestCount = 0
-        let fixture = try makeFixture(
+        let fixture = try makeDeterministicFixture(
             collectionId: metadata.id,
             gridModeCommitSnapshotFactory: { view in
                 snapshotRequestCount += 1
@@ -527,6 +539,9 @@ extension MobileCollectionBrowserGridModePresentationTests {
         )
         defer { tearDownFixture(fixture) }
         let controller = fixture.controller
+        let frameDriver = try XCTUnwrap(
+            fixture.gridTransitionFrameDriver
+        )
         let collectionView = try XCTUnwrap(
             controller.view.subviews.first {
                 $0 is MobilePlayerCollectionBrowserCollectionView
@@ -544,18 +559,18 @@ extension MobileCollectionBrowserGridModePresentationTests {
         recognizer.reportedState = .changed
         recognizer.scale = 1.05
         sendPinch(recognizer, to: controller)
-        controller.flushPendingGridModePinchFrameForTesting()
+        frameDriver.advance()
 
         recognizer.scale = 1.03
         sendPinch(recognizer, to: controller)
-        controller.flushPendingGridModePinchFrameForTesting()
+        frameDriver.advance()
 
         XCTAssertEqual(snapshotRequestCount, 0)
         XCTAssertFalse(collectionView.isScrollEnabled)
 
         recognizer.scale = 1.05
         sendPinch(recognizer, to: controller)
-        controller.flushPendingGridModePinchFrameForTesting()
+        frameDriver.advance()
 
         XCTAssertEqual(snapshotRequestCount, 0)
         XCTAssertFalse(collectionView.isScrollEnabled)
@@ -564,7 +579,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
 
     func testPinchEndAppliesTerminalScaleWithoutTerminalCentroid() async throws {
         let metadata = try collectionMetadata()
-        let fixture = try makeFixture(collectionId: metadata.id)
+        let fixture = try makeDeterministicFixture(collectionId: metadata.id)
         defer { tearDownFixture(fixture) }
         let controller = fixture.controller
         let recognizer = TestPinchGestureRecognizer()
@@ -581,12 +596,13 @@ extension MobileCollectionBrowserGridModePresentationTests {
         recognizer.reportedLocation.y -= 200
         sendPinch(recognizer, to: controller)
 
-        for _ in 0..<200 {
-            if controller.gridMode == .nineColumns {
-                break
-            }
-            try await Task.sleep(nanoseconds: 10_000_000)
+        advanceGridTransitionFrames(
+            "Terminal pinch scale did not settle to nine columns",
+            fixture: fixture
+        ) {
+            controller.gridMode == .nineColumns
         }
+
         XCTAssertEqual(controller.gridMode, .nineColumns)
     }
 
@@ -594,7 +610,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
     func testSettleReservesCollectionPanForOneFingerAndRestoresIt() throws {
         try skipIfReduceMotionEnabled()
         let metadata = try collectionMetadata()
-        let fixture = try makeFixture(collectionId: metadata.id)
+        let fixture = try makeDeterministicFixture(collectionId: metadata.id)
         defer { tearDownFixture(fixture) }
         let collectionView = try XCTUnwrap(
             fixture.controller.view.subviews.first {
@@ -629,7 +645,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
         throws {
         try skipIfReduceMotionEnabled()
         let metadata = try collectionMetadata()
-        let fixture = try makeFixture(collectionId: metadata.id)
+        let fixture = try makeDeterministicFixture(collectionId: metadata.id)
         defer { tearDownFixture(fixture) }
         let collectionView = try XCTUnwrap(
             fixture.controller.view.subviews.first {
@@ -687,7 +703,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
     func testSettleStartupIgnoresSynchronousDragReentry() throws {
         try skipIfReduceMotionEnabled()
         let metadata = try collectionMetadata()
-        let fixture = try makeFixture(collectionId: metadata.id)
+        let fixture = try makeDeterministicFixture(collectionId: metadata.id)
         defer { tearDownFixture(fixture) }
         let collectionView = try XCTUnwrap(
             fixture.controller.view.subviews.first {
@@ -743,7 +759,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
     func testDragDuringRendererHandoffSkipsPositionSettlement() async throws {
         try skipIfReduceMotionEnabled()
         let metadata = try collectionMetadata()
-        let fixture = try makeFixture(collectionId: metadata.id)
+        let fixture = try makeDeterministicFixture(collectionId: metadata.id)
         defer { tearDownFixture(fixture) }
         let tokenCount = CollectionCatalog.tokenCount(
             specificCollectionId: metadata.id
@@ -792,11 +808,11 @@ extension MobileCollectionBrowserGridModePresentationTests {
         }
 
         XCTAssertTrue(fixture.controller.setGridMode(.fiveColumns))
-        for _ in 0..<200 {
-            if fixture.controller.gridMode == .fiveColumns {
-                break
-            }
-            try await Task.sleep(nanoseconds: 10_000_000)
+        advanceGridTransitionFrames(
+            "Renderer handoff did not reach five columns",
+            fixture: fixture
+        ) {
+            fixture.controller.gridMode == .fiveColumns
         }
         withExtendedLifetime(observation) {}
 

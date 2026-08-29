@@ -48,6 +48,7 @@ let package = Package(
                 "Models/PlayerBrowserGridCrossfade.swift",
                 "Models/PlayerBrowserGridSourceCoverage.swift",
                 "Models/PlayerBrowserGridInteractionCoordinator.swift",
+                "Models/PlayerBrowserGridTransitionRuntime.swift",
                 "Models/PlayerBrowserGridPinchPolicy.swift",
                 "Models/PlayerCardMinimizePinchPolicy.swift",
                 "Models/PlayerCollectionScrollPolicy.swift",

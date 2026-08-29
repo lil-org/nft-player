@@ -592,6 +592,7 @@ extension MobilePlayerCollectionBrowserCoordinatorContractTests {
         XCTAssertFalse(state.hasPendingGeometryPrewarm)
         XCTAssertFalse(state.isSettleDisplayLinkActive)
         XCTAssertFalse(state.isInteractionFadeDisplayLinkActive)
+        XCTAssertFalse(state.isFrameDriverActive)
         XCTAssertFalse(state.hasCommitSnapshot)
         XCTAssertFalse(state.isRendererActive)
         XCTAssertFalse(state.isPinchRecognizerAttached)
@@ -646,6 +647,7 @@ extension MobilePlayerCollectionBrowserCoordinatorContractTests {
         XCTAssertTrue(coordinator.setGridMode(.fiveColumns))
         let settlingState = coordinator.lifecycleStateForTesting
         XCTAssertTrue(settlingState.isSettleDisplayLinkActive)
+        XCTAssertTrue(settlingState.isFrameDriverActive)
         XCTAssertTrue(settlingState.isRendererActive)
         XCTAssertEqual(panGestureRecognizer.maximumNumberOfTouches, 1)
 
@@ -655,6 +657,7 @@ extension MobilePlayerCollectionBrowserCoordinatorContractTests {
         let invalidatedState = coordinator.lifecycleStateForTesting
         XCTAssertFalse(invalidatedState.isSettleDisplayLinkActive)
         XCTAssertFalse(invalidatedState.isInteractionFadeDisplayLinkActive)
+        XCTAssertFalse(invalidatedState.isFrameDriverActive)
         XCTAssertFalse(invalidatedState.isRendererActive)
         XCTAssertEqual(panGestureRecognizer.maximumNumberOfTouches, 4)
         XCTAssertFalse(coordinator.hasInteractionState)
@@ -683,13 +686,39 @@ extension MobilePlayerCollectionBrowserCoordinatorContractTests {
         let interactionState = coordinator.lifecycleStateForTesting
         XCTAssertFalse(interactionState.isSettleDisplayLinkActive)
         XCTAssertTrue(interactionState.isInteractionFadeDisplayLinkActive)
+        XCTAssertTrue(interactionState.isFrameDriverActive)
         XCTAssertTrue(interactionState.isRendererActive)
 
         coordinator.invalidate()
 
         let invalidatedState = coordinator.lifecycleStateForTesting
         XCTAssertFalse(invalidatedState.isInteractionFadeDisplayLinkActive)
+        XCTAssertFalse(invalidatedState.isFrameDriverActive)
         XCTAssertFalse(invalidatedState.isRendererActive)
+    }
+
+    func testGridModeCoordinatorReanchorsWhenPinchGrabsSettle() throws {
+        try XCTSkipIf(UIAccessibility.isReduceMotionEnabled)
+        let fixture = try makeGridModeCoordinatorFixture()
+        defer { fixture.tearDown() }
+        let coordinator = fixture.coordinator
+        let recognizer = GridModeContractPinchGestureRecognizer()
+        recognizer.reportedLocation = CGPoint(x: 80, y: 180)
+        recognizer.reportedState = .began
+        recognizer.scale = 1
+
+        XCTAssertTrue(coordinator.setGridMode(.fiveColumns))
+        XCTAssertEqual(
+            coordinator.lifecycleStateForTesting.settlingReanchorCount,
+            0
+        )
+
+        coordinator.handleGridModePinchForTesting(recognizer)
+
+        XCTAssertEqual(
+            coordinator.lifecycleStateForTesting.settlingReanchorCount,
+            1
+        )
     }
 
     func testGridModeCoordinatorInvalidationRemovesCommitSnapshot() throws {

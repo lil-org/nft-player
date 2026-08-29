@@ -1,67 +1,4 @@
-import QuartzCore
 import UIKit
-
-struct GridModePinchFrame: Equatable {
-    let sample: PlayerBrowserGridInteractionCoordinator.PinchSample
-    let viewLocation: CGPoint
-
-    /// Captured before coalescing so release motion uses the real sample age.
-    init(
-        scale: CGFloat,
-        viewLocation: CGPoint,
-        timestamp: TimeInterval = CACurrentMediaTime()
-    ) {
-        sample = PlayerBrowserGridInteractionCoordinator.PinchSample(
-            scale: scale,
-            centroidY: viewLocation.y,
-            timestamp: timestamp
-        )
-        self.viewLocation = viewLocation
-    }
-}
-
-final class GridModePinchFrameCoalescer {
-    private var pendingFrame: GridModePinchFrame?
-    private let apply: (GridModePinchFrame) -> Void
-    private lazy var update = PendingMainQueueUpdate { [weak self] in
-        self?.applyPendingFrame()
-    }
-
-    init(apply: @escaping (GridModePinchFrame) -> Void) {
-        self.apply = apply
-    }
-
-    func seed(_ frame: GridModePinchFrame) {
-        pendingFrame = frame
-    }
-
-    func stage(_ frame: GridModePinchFrame) {
-        pendingFrame = frame
-        update.schedule()
-    }
-
-    func flush() {
-        update.invalidate()
-        applyPendingFrame()
-    }
-
-    func invalidate() {
-        update.invalidate()
-        pendingFrame = nil
-    }
-
-#if DEBUG
-    var hasPendingFrameForTesting: Bool {
-        pendingFrame != nil
-    }
-#endif
-
-    private func applyPendingFrame() {
-        guard let pendingFrame else { return }
-        self.pendingFrame = nil
-        apply(pendingFrame)
-    }
-}
 
 private struct CachedGridModeDestination {
     let anchorTokenIndex: Int
@@ -165,31 +102,11 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
         ) -> CollectionBrowseImageSources?
     }
 
-    private final class SettleDisplayLinkTarget: NSObject {
-        weak var coordinator: MobilePlayerCollectionBrowserGridModeCoordinator?
-
-        @MainActor @objc func tick(_ displayLink: CADisplayLink) {
-            coordinator?.advanceInteractionTick(.settleTick(
-                timestamp: CACurrentMediaTime()
-            ))
-        }
-    }
-
-    private final class InteractionFadeDisplayLinkTarget: NSObject {
-        weak var coordinator: MobilePlayerCollectionBrowserGridModeCoordinator?
-
-        @MainActor @objc func tick(_ displayLink: CADisplayLink) {
-            coordinator?.advanceInteractionTick(.interactionFadeTick(
-                timestamp: CACurrentMediaTime()
-            ))
-        }
-    }
-
-    private static let commitFadeWindow: TimeInterval = 1.5
     private static let boundaryEpsilon: CGFloat = 0.75
     private static let verticalContentMargin: CGFloat = 0
 
-    private let commitSnapshotFactory: (UIView) -> UIView?
+    private let frameDriver: any GridTransitionFrameDriving
+    private let coverRenderer: MobilePlayerGridTransitionCoverRenderer
     private weak var collectionView:
         MobilePlayerCollectionBrowserCollectionView?
     private weak var viewportView: UIView?
@@ -202,25 +119,14 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
     private var currentState: (@MainActor () -> CurrentState)?
     private var layoutOperations: LayoutOperations?
     private var browserEffects: BrowserEffects?
-    private let settleDisplayLinkTarget = SettleDisplayLinkTarget()
-    private let interactionFadeDisplayLinkTarget =
-        InteractionFadeDisplayLinkTarget()
     private var isInvalidated = false
 
     private var renderer: MobilePlayerCollectionBrowserGridRenderer?
     private var pinchRecognizer: UIPinchGestureRecognizer?
-    private var pinchFrameCoalescer: GridModePinchFrameCoalescer?
     private var geometryPrewarmUpdate: PendingMainQueueUpdate?
-    private var interactionCoordinator =
-        PlayerBrowserGridInteractionCoordinator()
+    private var transitionRuntime: PlayerBrowserGridTransitionRuntime
     private var effectDrainDepth = 0
     private var contentOffsetRestorationDepth = 0
-    private var commitFadeDeadline: TimeInterval = 0
-    private var settleDisplayLink: CADisplayLink?
-    private var commitSnapshotView: UIView?
-    private var commitSnapshotContentOffset: CGPoint?
-    private var commitSnapshotDissolveTask: Task<Void, Never>?
-    private var interactionFadeDisplayLink: CADisplayLink?
     private var settleContentOffsetY: CGFloat?
     private var settlePanMaximumNumberOfTouches: Int?
     private var geometryCache: GridModeGeometryCache?
@@ -229,12 +135,29 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
         MobileCollectionBrowserGridMode: CachedGridModeDestination
     ]()
     private var lastPinchViewLocation: CGPoint?
+    private var settlingReanchorCount = 0
 
-    init(commitSnapshotFactory: @escaping (UIView) -> UIView?) {
-        self.commitSnapshotFactory = commitSnapshotFactory
+    init(
+        commitSnapshotFactory: @escaping (UIView) -> UIView?,
+        frameDriver: (any GridTransitionFrameDriving)? = nil
+    ) {
+        self.frameDriver = frameDriver
+            ?? GridTransitionDisplayLinkFrameDriver()
+        self.coverRenderer = MobilePlayerGridTransitionCoverRenderer(
+            snapshotFactory: commitSnapshotFactory
+        )
+        self.transitionRuntime = PlayerBrowserGridTransitionRuntime(
+            configuration: .init(
+                coverFadeDuration:
+                    MobilePlayerCollectionBrowserTransitionPresentation
+                        .contentFadeDuration,
+                coverRemovalGrace: 0.05,
+                rendererFadeDuration:
+                    GridPlaneRenderer.contentFadeOutDuration,
+                firstImageFadeWindow: 1.5
+            )
+        )
         super.init()
-        settleDisplayLinkTarget.coordinator = self
-        interactionFadeDisplayLinkTarget.coordinator = self
     }
 
     func configure(
@@ -270,11 +193,6 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
         recognizer.delegate = self
         pinchRecognizer = recognizer
         viewportView.addGestureRecognizer(recognizer)
-        pinchFrameCoalescer = GridModePinchFrameCoalescer(
-            apply: { [weak self] frame in
-                self?.applyPinchFrame(frame)
-            }
-        )
         geometryPrewarmUpdate = PendingMainQueueUpdate(
             action: { [weak self] in
                 self?.prewarmNextGeometry()
@@ -283,7 +201,7 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
     }
 
     var hasInteractionState: Bool {
-        interactionCoordinator.phase != .idle
+        transitionRuntime.phase != .idle
     }
 
     var gridMode: MobileCollectionBrowserGridMode {
@@ -304,11 +222,11 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
     }
 
     var blocksSelection: Bool {
-        commitSnapshotView != nil
+        transitionRuntime.blocksSelection
     }
 
     var fadesFirstImage: Bool {
-        CACurrentMediaTime() < commitFadeDeadline
+        transitionRuntime.fadesFirstImage(at: frameDriver.now)
     }
 
     func makeMenu() -> UIMenu {
@@ -353,18 +271,19 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
         let ratios = state.hasFinishedInitialPositioning
             ? makeGridModeRatios(fromMode: initialMode)
             : []
-        let effects = interactionCoordinator.handle(
+        let output = transitionRuntime.handle(
             .menuSelected(
                 fromMode: initialMode,
                 toMode: mode,
                 reduceMotion: UIAccessibility.isReduceMotionEnabled
             ),
+            at: frameDriver.now,
             ratioProvider: { fromMode in
                 fromMode == initialMode ? ratios : []
             }
         )
-        return applyInteractionEffects(
-            effects,
+        return applyRuntimeOutput(
+            output,
             transitionAnchor: { [weak self] in
                 guard let self else { return nil }
                 return self.makeGestureAnchor(
@@ -412,24 +331,26 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
                 return .retryAfterInteractionFinishes
             }
         }
-        removeCommitSnapshot()
+        removeTransitionCover()
         return .ready(anchorTokenIndex: anchorTokenIndex)
     }
 
     func interruptInteractionIfNeeded() {
         guard !isInvalidated else { return }
-        let snapshotAtEntry = commitSnapshotView
+        let coverAtEntry = transitionRuntime.activeCover?.id
         defer {
-            if commitSnapshotView === snapshotAtEntry {
-                removeCommitSnapshot()
+            if transitionRuntime.activeCover?.id == coverAtEntry {
+                removeTransitionCover()
             }
         }
         guard hasInteractionState else { return }
-        pinchFrameCoalescer?.invalidate()
         lastPinchViewLocation = nil
-        let effects = interactionCoordinator.handle(.interrupt)
-        applyInteractionEffects(effects, transitionAnchor: nil)
-        if interactionCoordinator.phase == .idle {
+        let output = transitionRuntime.handle(
+            .interrupt,
+            at: frameDriver.now
+        )
+        applyRuntimeOutput(output, transitionAnchor: nil)
+        if transitionRuntime.phase == .idle {
             scheduleGeometryPrewarmIfPossible()
         }
     }
@@ -441,13 +362,13 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
             return false
         }
         interruptInteractionIfNeeded()
-        return interactionCoordinator.phase == .idle
+        return transitionRuntime.phase == .idle
     }
 
     func prepareForDragging() {
         guard !isInvalidated else { return }
         interruptSettleForDragIfNeeded()
-        removeCommitSnapshot()
+        removeTransitionCover()
     }
 
     func dragDidBeginScrollMotion() {
@@ -477,10 +398,11 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
                 settlesAfterImmediateOffset: false
             )
         }
-        if let snapshotContentOffset = commitSnapshotContentOffset,
+        if let snapshotContentOffset = transitionRuntime.activeCover?
+            .contentOffset,
            effectDrainDepth == 0,
            scrollView.contentOffset != snapshotContentOffset {
-            removeCommitSnapshot()
+            removeTransitionCover()
         }
         return ScrollObservation(
             shouldContinue: true,
@@ -502,7 +424,7 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
             return (collectionView.contentOffset, false)
         }
         guard requestedDeltaY != 0 else {
-            guard interactionCoordinator.phase == .settling else {
+            guard transitionRuntime.phase == .settling else {
                 return (requestedContentOffset, false)
             }
             return (
@@ -514,9 +436,9 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
             )
         }
         guard finalizeInterruptibleSettle() else {
-            if interactionCoordinator.phase == .idle,
+            if transitionRuntime.phase == .idle,
                effectDrainDepth == 0 {
-                removeCommitSnapshot()
+                removeTransitionCover()
             }
             return (requestedContentOffset, false)
         }
@@ -534,7 +456,7 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
         guard !isInvalidated,
               let state = currentState?(),
               let collectionView,
-              interactionCoordinator.phase == .idle,
+              transitionRuntime.phase == .idle,
               !state.isApplyingPosition,
               !collectionView.isTracking,
               !collectionView.isDragging,
@@ -548,7 +470,7 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
 
     func discardTransitionCover() {
         guard !isInvalidated else { return }
-        removeCommitSnapshot()
+        removeTransitionCover()
     }
 
     func scheduleGeometryPrewarmIfPossible() {
@@ -656,7 +578,8 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
             )
             : []
         if isOnScreen {
-            beginCommitFadeWindow()
+            transitionRuntime.beginFirstImageFade(at: frameDriver.now)
+            reconcileFrameDriving()
         }
         collectionView.reloadData()
         if let cachedGeometry {
@@ -680,32 +603,40 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
         let hasPendingGeometryPrewarm: Bool
         let isSettleDisplayLinkActive: Bool
         let isInteractionFadeDisplayLinkActive: Bool
+        let isFrameDriverActive: Bool
         let hasCommitSnapshot: Bool
         let isRendererActive: Bool
         let isPinchRecognizerAttached: Bool
         let isDrainingEffects: Bool
         let isRestoringContentOffset: Bool
+        let settlingReanchorCount: Int
     }
 
     var lifecycleStateForTesting: LifecycleStateForTesting {
         LifecycleStateForTesting(
             isInvalidated: isInvalidated,
-            hasPendingPinchFrame:
-                pinchFrameCoalescer?.hasPendingFrameForTesting == true,
+            hasPendingPinchFrame: transitionRuntime.hasPendingPinchFrame,
             hasPendingGeometryPrewarm: geometryPrewarmPlan != nil,
-            isSettleDisplayLinkActive: settleDisplayLink != nil,
+            isSettleDisplayLinkActive:
+                transitionRuntime.needsSettleFrames,
             isInteractionFadeDisplayLinkActive:
-                interactionFadeDisplayLink != nil,
-            hasCommitSnapshot: commitSnapshotView != nil,
+                transitionRuntime.needsInteractionFadeFrames,
+            isFrameDriverActive: frameDriver.isRunning,
+            hasCommitSnapshot:
+                transitionRuntime.hasCover && coverRenderer.hasCover,
             isRendererActive: renderer?.isActive == true,
             isPinchRecognizerAttached: pinchRecognizer?.view != nil,
             isDrainingEffects: effectDrainDepth > 0,
-            isRestoringContentOffset: contentOffsetRestorationDepth > 0
+            isRestoringContentOffset: contentOffsetRestorationDepth > 0,
+            settlingReanchorCount: settlingReanchorCount
         )
     }
 
     func flushPendingPinchFrameForTesting() {
-        pinchFrameCoalescer?.flush()
+        let output = transitionRuntime.flushPendingPinch(
+            at: frameDriver.now
+        )
+        applyRuntimeOutput(output, transitionAnchor: nil)
     }
 
 #endif
@@ -1081,10 +1012,15 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
 
     private func pinchFrame(
         _ recognizer: UIPinchGestureRecognizer
-    ) -> GridModePinchFrame {
-        GridModePinchFrame(
-            scale: recognizer.scale,
-            viewLocation: recognizer.location(in: viewportView)
+    ) -> PlayerBrowserGridTransitionRuntime.PinchFrame {
+        let viewLocation = recognizer.location(in: viewportView)
+        return PlayerBrowserGridTransitionRuntime.PinchFrame(
+            sample: .init(
+                scale: recognizer.scale,
+                centroidY: viewLocation.y,
+                timestamp: frameDriver.now
+            ),
+            viewLocation: viewLocation
         )
     }
 
@@ -1173,10 +1109,10 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
               collectionView.bounds.width > 0,
               collectionView.bounds.height > 0,
               !state.hasPreparedTransition,
-              interactionCoordinator.canBeginPinch else {
+              transitionRuntime.canBeginPinch else {
             return false
         }
-        return interactionCoordinator.phase == .settling
+        return transitionRuntime.phase == .settling
             || !state.isApplyingPosition
     }
 
@@ -1193,57 +1129,57 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
         guard !isInvalidated else { return }
         switch recognizer.state {
         case .began:
-            pinchFrameCoalescer?.invalidate()
             cancelGeometryPrewarming()
-            let wasSettling = interactionCoordinator.phase == .settling
+            let wasSettling = transitionRuntime.phase == .settling
             let frame = pinchFrame(recognizer)
             lastPinchViewLocation = frame.viewLocation
-            pinchFrameCoalescer?.seed(frame)
             let initialMode = gridMode
             let ratios = makeGridModeRatios(fromMode: initialMode)
-            let effects = interactionCoordinator.handle(
-                .pinchBegan(
-                    sample: frame.sample,
-                    currentMode: initialMode
-                ),
+            let output = transitionRuntime.beginPinch(
+                frame,
+                currentMode: initialMode,
+                at: frameDriver.now,
                 ratioProvider: { fromMode in
                     fromMode == initialMode ? ratios : []
                 }
             )
-            if wasSettling, effects.contains(.stopDisplayLink) {
+            let stopsSettle = output.effects.contains {
+                $0 == .stopDisplayLink
+            }
+            if wasSettling, stopsSettle {
+                settlingReanchorCount += 1
                 renderer?.reanchorSettlingRendering(
                     at: frame.viewLocation
                 )
             }
-            applyInteractionEffects(
-                effects,
+            applyRuntimeOutput(
+                output,
                 transitionAnchor: pinchAnchorProvider(
                     viewLocation: frame.viewLocation
                 )
             )
-            if interactionCoordinator.phase == .idle {
+            if transitionRuntime.phase == .idle {
                 scheduleGeometryPrewarmIfPossible()
             }
 
         case .changed:
             let frame = pinchFrame(recognizer)
             lastPinchViewLocation = frame.viewLocation
-            pinchFrameCoalescer?.stage(frame)
+            transitionRuntime.stagePinch(frame)
+            reconcileFrameDriving()
 
         case .ended:
-            let terminalEvent = PlayerBrowserGridInteractionCoordinator.Event
-                .pinchEnded(
-                    scale: recognizer.scale,
-                    reduceMotion: UIAccessibility.isReduceMotionEnabled,
-                    timestamp: CACurrentMediaTime()
-                )
-            pinchFrameCoalescer?.flush()
-            finishPinch(terminalEvent)
+            let timestamp = frameDriver.now
+            finishPinch(transitionRuntime.endPinch(
+                scale: recognizer.scale,
+                reduceMotion: UIAccessibility.isReduceMotionEnabled,
+                timestamp: timestamp
+            ))
 
         case .cancelled, .failed:
-            pinchFrameCoalescer?.flush()
-            finishPinch(.pinchCancelled(
-                reduceMotion: UIAccessibility.isReduceMotionEnabled
+            finishPinch(transitionRuntime.cancelPinch(
+                reduceMotion: UIAccessibility.isReduceMotionEnabled,
+                at: frameDriver.now
             ))
 
         default:
@@ -1251,66 +1187,45 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
         }
     }
 
-    private func applyPinchFrame(_ frame: GridModePinchFrame) {
-        guard !isInvalidated else { return }
-        let effects = interactionCoordinator.handle(
-            .pinchChanged(sample: frame.sample)
-        )
-        let rendersGestureGeometry = effects.contains { effect in
-            switch effect {
-            case .renderZoom, .renderSettle:
-                true
-            default:
-                false
-            }
-        }
-        applyInteractionEffects(
-            effects,
-            transitionAnchor: pinchAnchorProvider(
-                viewLocation: frame.viewLocation
-            ),
-            requestsGestureMaterializationBurst: rendersGestureGeometry
-        )
-    }
-
     private func finishPinch(
-        _ event: PlayerBrowserGridInteractionCoordinator.Event
+        _ output: PlayerBrowserGridTransitionRuntime.Output
     ) {
         let transitionAnchor = lastPinchViewLocation.map {
             pinchAnchorProvider(viewLocation: $0)
         }
         defer { lastPinchViewLocation = nil }
-        let effects = interactionCoordinator.handle(event)
-        applyInteractionEffects(
-            effects,
+        applyRuntimeOutput(
+            output,
             transitionAnchor: transitionAnchor
         )
-        if interactionCoordinator.phase == .idle {
+        if transitionRuntime.phase == .idle {
             scheduleGeometryPrewarmIfPossible()
         }
     }
 
-    private func advanceInteractionTick(
-        _ event: PlayerBrowserGridInteractionCoordinator.Event
-    ) {
+    private func advanceFrame(to timestamp: TimeInterval) {
         guard !isInvalidated else { return }
-        let effects = interactionCoordinator.handle(event)
-        applyInteractionEffects(effects, transitionAnchor: nil)
+        let output = transitionRuntime.advanceFrame(to: timestamp)
+        applyRuntimeOutput(output, transitionAnchor: nil)
     }
 
     private var hasInterruptibleSettle: Bool {
-        interactionCoordinator.phase == .settling
-            && interactionCoordinator.canBeginPinch
+        transitionRuntime.phase == .settling
+            && transitionRuntime.canBeginPinch
             && effectDrainDepth == 0
     }
 
     private func interruptSettleForDragIfNeeded() {
         guard !finalizeInterruptibleSettle(),
-              interactionCoordinator.phase == .settling,
-              !interactionCoordinator.canBeginPinch else {
+              transitionRuntime.phase == .settling,
+              !transitionRuntime.canBeginPinch else {
             return
         }
-        _ = interactionCoordinator.handle(.interrupt)
+        let output = transitionRuntime.handle(
+            .interrupt,
+            at: frameDriver.now
+        )
+        applyRuntimeOutput(output, transitionAnchor: nil)
     }
 
     private func resolveScrollObservedDuringSettle(
@@ -1355,11 +1270,11 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
         ))
         collectionView.layoutIfNeeded()
         interruptInteractionIfNeeded()
-        guard interactionCoordinator.phase == .idle else {
+        guard transitionRuntime.phase == .idle else {
             scrollCoordinator.lastScrollOffsetY = collectionView.contentOffset.y
             return false
         }
-        removeCommitSnapshot()
+        removeTransitionCover()
         let committedContentOffsetY = collectionView.contentOffset.y
         scrollCoordinator.lastScrollOffsetY = committedContentOffsetY
         let resumedContentOffset = CGPoint(
@@ -1383,16 +1298,30 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
     }
 
     @discardableResult
-    private func applyInteractionEffects(
-        _ initialEffects: [PlayerBrowserGridInteractionCoordinator.Effect],
-        transitionAnchor: (() -> GridModeGestureAnchor?)?,
-        requestsGestureMaterializationBurst: Bool = false
+    private func applyRuntimeOutput(
+        _ output: PlayerBrowserGridTransitionRuntime.Output,
+        transitionAnchor: (() -> GridModeGestureAnchor?)?
     ) -> Bool {
+        if let expiredCoverID = output.expiredCoverID {
+            coverRenderer.remove(generation: expiredCoverID)
+        }
+        let resolvedTransitionAnchor = output.appliedPinchFrame.map { frame in
+            pinchAnchorProvider(viewLocation: frame.viewLocation)
+        } ?? transitionAnchor
         let result = drainInteractionEffects(
-            initialEffects,
-            transitionAnchor: transitionAnchor
+            output.effects,
+            transitionAnchor: resolvedTransitionAnchor
         )
-        if interactionCoordinator.phase != .interacting {
+        let requestsGestureMaterializationBurst = output.effects.contains {
+            effect in
+            switch effect {
+            case .renderZoom, .renderSettle:
+                true
+            default:
+                false
+            }
+        }
+        if transitionRuntime.phase != .interacting {
             renderer?.cancelGestureMaterializationBurst()
         } else if requestsGestureMaterializationBurst {
             renderer?.requestGestureMaterializationBurst()
@@ -1400,6 +1329,7 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
         if result.needsVisibleCellQualityReconciliation {
             browserEffects?.reloadVisibleCells()
         }
+        reconcileFrameDriving()
         return result.succeeded
     }
 
@@ -1423,7 +1353,14 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
         }
 
         func enqueueRendererFailureRecovery() {
-            let effects = interactionCoordinator.handle(.rendererFailed)
+            let output = transitionRuntime.handle(
+                .rendererFailed,
+                at: frameDriver.now
+            )
+            if let expiredCoverID = output.expiredCoverID {
+                coverRenderer.remove(generation: expiredCoverID)
+            }
+            let effects = output.effects
             rendererRecoverySucceeded = rendererRecoverySucceeded
                 && effects.contains { effect in
                     if case .applyMode = effect {
@@ -1440,13 +1377,15 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
             let effect = pendingEffects.removeFirst()
             switch effect {
             case .beginInteraction:
-                removeCommitSnapshot()
+                removeTransitionCover()
                 applyInteractionBegan(transitionAnchor: transitionAnchor)
 
             case .coverPlaneChange:
-                if renderer?.planeChangeNeedsVisualCover == true,
-                   let snapshot = installSnapshotCover() {
-                    startCommitSnapshotDissolve(snapshot)
+                let timestamp = frameDriver.now
+                if transitionRuntime.planeChangeNeedsVisualCover(
+                    at: timestamp
+                ), let cover = installTransitionCover(at: timestamp) {
+                    startTransitionCoverFade(cover, at: frameDriver.now)
                 }
 
             case let .installPlane(plane):
@@ -1455,6 +1394,10 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
                     enqueueRendererFailureRecovery()
                     continue effectLoop
                 }
+                transitionRuntime.recordRendererEffect(
+                    effect,
+                    at: frameDriver.now
+                )
 
             case let .renderZoom(planeId, scale, panDeltaY):
                 guard renderZoom(
@@ -1465,6 +1408,10 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
                     enqueueRendererFailureRecovery()
                     continue effectLoop
                 }
+                transitionRuntime.recordRendererEffect(
+                    effect,
+                    at: frameDriver.now
+                )
 
             case let .renderSettle(
                 id,
@@ -1483,6 +1430,10 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
                     enqueueRendererFailureRecovery()
                     continue effectLoop
                 }
+                transitionRuntime.recordRendererEffect(
+                    effect,
+                    at: frameDriver.now
+                )
 
             case let .renderInteractionFade(id, presentationProgress):
                 guard renderer?.renderInteractionFade(
@@ -1492,12 +1443,20 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
                     enqueueRendererFailureRecovery()
                     continue effectLoop
                 }
+                transitionRuntime.recordRendererEffect(
+                    effect,
+                    at: frameDriver.now
+                )
 
             case let .commitPlane(id, mode):
                 guard commitPlaneGeometry(id: id, mode: mode) else {
                     enqueueRendererFailureRecovery()
                     continue effectLoop
                 }
+                transitionRuntime.recordRendererEffect(
+                    effect,
+                    at: frameDriver.now
+                )
                 needsVisibleCellQualityReconciliation = true
                 prependRendererSuccessEffects(to: &pendingEffects)
 
@@ -1506,6 +1465,10 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
                     enqueueRendererFailureRecovery()
                     continue effectLoop
                 }
+                transitionRuntime.recordRendererEffect(
+                    effect,
+                    at: frameDriver.now
+                )
                 prependRendererSuccessEffects(to: &pendingEffects)
 
             case let .applyMode(mode):
@@ -1517,33 +1480,35 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
                     enqueueRendererFailureRecovery()
                     continue effectLoop
                 }
+                transitionRuntime.recordRendererEffect(
+                    effect,
+                    at: frameDriver.now
+                )
                 needsVisibleCellQualityReconciliation = true
                 prependRendererSuccessEffects(to: &pendingEffects)
 
             case .resetRenderer:
                 resetRenderer()
+                transitionRuntime.recordRendererEffect(
+                    effect,
+                    at: frameDriver.now
+                )
                 needsVisibleCellQualityReconciliation = true
 
             case .selectionHaptic:
                 Haptic.selectionChanged()
 
-            case .startDisplayLink:
-                stopInteractionFadeDisplayLink()
-                startSettleDisplayLink()
-                setScrollingSuspended(false)
-                let continuedEffects = interactionCoordinator.handle(
-                    .settleStarted(timestamp: CACurrentMediaTime())
+            case .startDisplayLink, .stopDisplayLink,
+                 .startInteractionFadeTicks, .stopInteractionFadeTicks:
+                let output = transitionRuntime.acknowledgeTimingEffect(
+                    effect,
+                    at: frameDriver.now
                 )
-                pendingEffects.insert(contentsOf: continuedEffects, at: 0)
-
-            case .stopDisplayLink:
-                stopSettleDisplayLink()
-
-            case .startInteractionFadeTicks:
-                startInteractionFadeDisplayLink()
-
-            case .stopInteractionFadeTicks:
-                stopInteractionFadeDisplayLink()
+                if let expiredCoverID = output.expiredCoverID {
+                    coverRenderer.remove(generation: expiredCoverID)
+                }
+                reconcileFrameDriving()
+                pendingEffects.insert(contentsOf: output.effects, at: 0)
 
             case let .reconcileMedia(cancelsPrefetchLoads):
                 if cancelsPrefetchLoads {
@@ -1556,8 +1521,13 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
             case let .finishInteraction(settlesPosition):
                 reconcileVisibleCellsIfNeeded()
                 applyInteractionFinished(settlesPosition: settlesPosition)
+                transitionRuntime.recordRendererEffect(
+                    effect,
+                    at: frameDriver.now
+                )
             }
         }
+        reconcileSettleFrameDemand()
         return (
             rendererRecoverySucceeded,
             needsVisibleCellQualityReconciliation
@@ -1567,10 +1537,14 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
     private func prependRendererSuccessEffects(
         to pendingEffects: inout [PlayerBrowserGridInteractionCoordinator.Effect]
     ) {
-        let continuedEffects = interactionCoordinator.handle(
-            .rendererSucceeded
+        let output = transitionRuntime.handle(
+            .rendererSucceeded,
+            at: frameDriver.now
         )
-        pendingEffects.insert(contentsOf: continuedEffects, at: 0)
+        if let expiredCoverID = output.expiredCoverID {
+            coverRenderer.remove(generation: expiredCoverID)
+        }
+        pendingEffects.insert(contentsOf: output.effects, at: 0)
     }
 
     private func setScrollingSuspended(_ suspended: Bool) {
@@ -1621,18 +1595,16 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
     }
 
     private func applyInteractionFinished(settlesPosition: Bool) {
+        transitionRuntime.discardPendingPinch()
         guard let collectionView,
               let scrollCoordinator,
               let imagePipeline else {
             return
         }
-        pinchFrameCoalescer?.invalidate()
-        stopSettleDisplayLink()
-        stopInteractionFadeDisplayLink()
         guard let finishState = renderer?.finish(
             preservingCarryover: true
         ) else {
-            removeCommitSnapshot()
+            removeTransitionCover()
             collectionView.clipsToBounds = true
             destinationCache.removeAll(keepingCapacity: false)
             scrollCoordinator.setApplyingPosition(false)
@@ -1703,7 +1675,7 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
               let layoutOperations,
               let browserEffects,
               let scrollCoordinator,
-              let commitSnapshot = installSnapshotCover() else {
+              let cover = installTransitionCover(at: frameDriver.now) else {
             return false
         }
         guard let preparation = renderer.prepareCommit(
@@ -1711,20 +1683,20 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
             mode: mode,
             capturesFallbackSources: true
         ) else {
-            removeCommitSnapshot()
+            removeTransitionCover(generation: cover.generation)
             return false
         }
-        startCommitSnapshotDissolve(commitSnapshot)
+        startTransitionCoverFade(cover, at: frameDriver.now)
         var completed = false
         defer {
             if !completed {
                 renderer.abortCommit(preparation)
-                removeCommitSnapshot()
+                removeTransitionCover(generation: cover.generation)
             }
         }
         let plane = preparation.planeRequest
         browserEffects.setLayoutAspectState(plane.layoutAspectState)
-        beginCommitFadeWindow()
+        transitionRuntime.beginFirstImageFade(at: frameDriver.now)
         let toLayout = plane.transitionLayout.toLayout
         layoutOperations.installCollectionLayout(toLayout)
         applyTransitionEndpoint(
@@ -1733,7 +1705,14 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
         )
         guard renderer.completeCommit(preparation) else { return false }
         completed = true
-        commitSnapshotContentOffset = collectionView.contentOffset
+        transitionRuntime.updateCoverContentOffset(
+            generation: cover.generation,
+            contentOffset: collectionView.contentOffset
+        )
+        coverRenderer.updateCapturedContentOffset(
+            collectionView.contentOffset,
+            generation: cover.generation
+        )
         layoutOperations.retainFocusedTokenIndex(plane.anchorTokenIndex)
         scrollCoordinator.focusedTokenIndex = plane.anchorTokenIndex
         return true
@@ -1750,7 +1729,7 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
     }
 
     private func resetRenderer() {
-        removeCommitSnapshot()
+        removeTransitionCover()
         let anchoredContentOffsetY = renderer?.reset()
         guard let layout = browserCollectionLayout?.browserLayout,
               let collectionView else {
@@ -1895,75 +1874,63 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
         )
     }
 
-    private func installSnapshotCover() -> UIView? {
-        guard let viewportView, let collectionView else { return nil }
-        return installSnapshotCover(
+    private func installTransitionCover(
+        at timestamp: TimeInterval
+    ) -> PlayerBrowserGridTransitionRuntime.Cover? {
+        guard !isInvalidated,
+              let viewportView,
+              let collectionView else {
+            return nil
+        }
+        let cover = transitionRuntime.installCover(
+            contentOffset: collectionView.contentOffset,
+            at: timestamp
+        )
+        guard coverRenderer.install(
+            generation: cover.generation,
             viewportView: viewportView,
             collectionView: collectionView
-        )
-    }
-
-    private func beginCommitFadeWindow() {
-        guard !isInvalidated else { return }
-        commitFadeDeadline = CACurrentMediaTime() + Self.commitFadeWindow
-    }
-
-    @discardableResult
-    private func installSnapshotCover(
-        viewportView: UIView,
-        collectionView: UICollectionView
-    ) -> UIView {
-        let snapshot = commitSnapshotFactory(viewportView)
-            ?? makeBitmapSnapshotCover(viewportView: viewportView)
-        removeCommitSnapshot()
-        snapshot.frame = snapshotFrame(for: viewportView)
-        snapshot.isUserInteractionEnabled = false
-        viewportView.insertSubview(snapshot, aboveSubview: collectionView)
-        commitSnapshotView = snapshot
-        commitSnapshotContentOffset = collectionView.contentOffset
-        return snapshot
-    }
-
-    private func startCommitSnapshotDissolve(_ snapshot: UIView) {
-        guard !isInvalidated, commitSnapshotView === snapshot else { return }
-        guard snapshot.layer.animation(forKey: "opacity") == nil else { return }
-        // The layer animation commits with insertion; a deferred UIView fade can blink.
-        let fade = CABasicAnimation(keyPath: "opacity")
-        fade.fromValue = 1
-        fade.toValue = 0
-        fade.duration = MobilePlayerCollectionBrowserTransitionPresentation
-            .contentFadeDuration
-        fade.timingFunction = CAMediaTimingFunction(name: .linear)
-        snapshot.layer.opacity = 0
-        snapshot.layer.add(fade, forKey: "opacity")
-        let dissolveDelay = MobilePlayerCollectionBrowserTransitionPresentation
-            .contentFadeDuration + 0.05
-        commitSnapshotDissolveTask?.cancel()
-        commitSnapshotDissolveTask = Task { [weak self, weak snapshot] in
-            do {
-                try await Task.sleep(for: .seconds(dissolveDelay))
-            } catch {
-                return
-            }
-            guard let snapshot else { return }
-            snapshot.removeFromSuperview()
-            if let self, self.commitSnapshotView === snapshot {
-                self.commitSnapshotDissolveTask = nil
-                self.commitSnapshotView = nil
-                self.commitSnapshotContentOffset = nil
-            }
+        ) else {
+            transitionRuntime.removeCover(generation: cover.generation)
+            coverRenderer.removeAll()
+            reconcileFrameDriving()
+            return nil
         }
+        reconcileFrameDriving()
+        return cover
     }
 
-    private func removeCommitSnapshot() {
-        commitSnapshotDissolveTask?.cancel()
-        commitSnapshotDissolveTask = nil
-        commitSnapshotView?.removeFromSuperview()
-        commitSnapshotView = nil
-        commitSnapshotContentOffset = nil
+    private func startTransitionCoverFade(
+        _ cover: PlayerBrowserGridTransitionRuntime.Cover,
+        at timestamp: TimeInterval
+    ) {
+        guard !isInvalidated,
+              coverRenderer.startFade(generation: cover.generation) else {
+            removeTransitionCover(generation: cover.generation)
+            return
+        }
+        transitionRuntime.beginCoverFade(
+            generation: cover.generation,
+            at: timestamp
+        )
+        reconcileFrameDriving()
     }
 
-    private func startSettleDisplayLink() {
+    private func removeTransitionCover(
+        generation: PlayerBrowserGridTransitionRuntime.Cover.Generation? = nil
+    ) {
+        let removedGeneration = transitionRuntime.removeCover(
+            generation: generation
+        )
+        if let removedGeneration {
+            coverRenderer.remove(generation: removedGeneration)
+        } else if generation == nil {
+            coverRenderer.removeAll()
+        }
+        reconcileFrameDriving()
+    }
+
+    private func startSettleFrameDemand() {
         guard !isInvalidated, let collectionView else { return }
         if settleContentOffsetY == nil {
             settleContentOffsetY = collectionView.contentOffset.y
@@ -1974,18 +1941,10 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
                 .maximumNumberOfTouches
             panGestureRecognizer.maximumNumberOfTouches = 1
         }
-        guard settleDisplayLink == nil else { return }
-        let displayLink = CADisplayLink(
-            target: settleDisplayLinkTarget,
-            selector: #selector(SettleDisplayLinkTarget.tick(_:))
-        )
-        displayLink.add(to: .main, forMode: .common)
-        settleDisplayLink = displayLink
+        setScrollingSuspended(false)
     }
 
-    private func stopSettleDisplayLink() {
-        settleDisplayLink?.invalidate()
-        settleDisplayLink = nil
+    private func stopSettleFrameDemand() {
         settleContentOffsetY = nil
         if let collectionView,
            let maximumNumberOfTouches = settlePanMaximumNumberOfTouches {
@@ -1995,30 +1954,40 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
         settlePanMaximumNumberOfTouches = nil
     }
 
-    private func startInteractionFadeDisplayLink() {
-        guard !isInvalidated, interactionFadeDisplayLink == nil else { return }
-        let displayLink = CADisplayLink(
-            target: interactionFadeDisplayLinkTarget,
-            selector: #selector(InteractionFadeDisplayLinkTarget.tick(_:))
-        )
-        displayLink.add(to: .main, forMode: .common)
-        interactionFadeDisplayLink = displayLink
+    private func reconcileFrameDriving() {
+        guard !isInvalidated else {
+            frameDriver.stop()
+            stopSettleFrameDemand()
+            return
+        }
+        reconcileSettleFrameDemand()
+        if transitionRuntime.needsFrames {
+            guard !frameDriver.isRunning else { return }
+            frameDriver.start { [weak self] timestamp in
+                self?.advanceFrame(to: timestamp)
+            }
+        } else {
+            frameDriver.stop()
+        }
     }
 
-    private func stopInteractionFadeDisplayLink() {
-        interactionFadeDisplayLink?.invalidate()
-        interactionFadeDisplayLink = nil
+    private func reconcileSettleFrameDemand() {
+        if transitionRuntime.needsSettleFrames {
+            startSettleFrameDemand()
+        } else {
+            stopSettleFrameDemand()
+        }
     }
 
     func invalidate() {
         guard !isInvalidated else { return }
         isInvalidated = true
-        pinchFrameCoalescer?.invalidate()
         geometryPrewarmUpdate?.invalidate()
         geometryPrewarmPlan = nil
-        stopSettleDisplayLink()
-        stopInteractionFadeDisplayLink()
-        removeCommitSnapshot()
+        frameDriver.invalidate()
+        stopSettleFrameDemand()
+        transitionRuntime.invalidate()
+        coverRenderer.removeAll()
         let finishState = renderer?.finish(preservingCarryover: false)
         if let collectionView {
             collectionView.clipsToBounds = true
@@ -2045,12 +2014,10 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
         setScrollingSuspended(false)
         imagePipeline?.demoteVisibleImageLoadsIfNeeded()
         imagePipeline?.resumeVisibleImageLoadsIfNeeded()
-        interactionCoordinator = PlayerBrowserGridInteractionCoordinator()
         effectDrainDepth = 0
         contentOffsetRestorationDepth = 0
         destinationCache.removeAll(keepingCapacity: false)
         lastPinchViewLocation = nil
-        commitFadeDeadline = 0
         pinchRecognizer?.delegate = nil
         if let pinchRecognizer {
             pinchRecognizer.view?.removeGestureRecognizer(pinchRecognizer)
@@ -2059,41 +2026,6 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
         currentState = nil
         layoutOperations = nil
         browserEffects = nil
-    }
-
-    private func snapshotFrame(for viewportView: UIView) -> CGRect {
-        let bounds = viewportView.bounds
-        guard bounds.origin.x.isFinite,
-              bounds.origin.y.isFinite,
-              bounds.width.isFinite,
-              bounds.height.isFinite else {
-            return .zero
-        }
-        return bounds
-    }
-
-    private func makeBitmapSnapshotCover(viewportView: UIView) -> UIView {
-        let bounds = snapshotFrame(for: viewportView)
-        guard bounds.width > 0, bounds.height > 0 else {
-            return UIView(frame: bounds)
-        }
-        let format = UIGraphicsImageRendererFormat()
-        format.scale = 1
-        let image = UIGraphicsImageRenderer(
-            bounds: bounds,
-            format: format
-        ).image { context in
-            guard !viewportView.drawHierarchy(
-                in: bounds,
-                afterScreenUpdates: false
-            ) else {
-                return
-            }
-            (viewportView.layer.presentation() ?? viewportView.layer).render(
-                in: context.cgContext
-            )
-        }
-        return UIImageView(image: image)
     }
 
     private func menuTitle(

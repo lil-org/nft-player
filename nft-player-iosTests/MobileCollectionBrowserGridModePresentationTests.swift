@@ -35,23 +35,69 @@ extension MobileCollectionBrowserGridModePresentationTests {
         }
     }
 
+    final class ManualGridTransitionFrameDriver: GridTransitionFrameDriving {
+        private var onFrame: (@MainActor (TimeInterval) -> Void)?
+        private var isInvalidated = false
+
+        private(set) var now: TimeInterval
+        private(set) var isRunning = false
+
+        init(now: TimeInterval = 100) {
+            self.now = now
+        }
+
+        func start(
+            onFrame: @escaping @MainActor (TimeInterval) -> Void
+        ) {
+            guard !isInvalidated else { return }
+            self.onFrame = onFrame
+            isRunning = true
+        }
+
+        func stop() {
+            isRunning = false
+            onFrame = nil
+        }
+
+        func invalidate() {
+            guard !isInvalidated else { return }
+            isInvalidated = true
+            stop()
+        }
+
+        func advance(by interval: TimeInterval = 1 / 60) {
+            precondition(interval.isFinite && interval >= 0)
+            advance(to: now + interval)
+        }
+
+        func advance(to timestamp: TimeInterval) {
+            precondition(timestamp.isFinite && timestamp >= now)
+            now = timestamp
+            guard isRunning else { return }
+            onFrame?(timestamp)
+        }
+    }
+
     @MainActor
     final class Fixture {
         let session: MobilePlaybackSession
         let display: PlaybackDisplay
         let controller: VerticalCollectionBrowserViewController
         let window: UIWindow
+        let gridTransitionFrameDriver: ManualGridTransitionFrameDriver?
 
         init(
             session: MobilePlaybackSession,
             display: PlaybackDisplay,
             controller: VerticalCollectionBrowserViewController,
-            window: UIWindow
+            window: UIWindow,
+            gridTransitionFrameDriver: ManualGridTransitionFrameDriver?
         ) {
             self.session = session
             self.display = display
             self.controller = controller
             self.window = window
+            self.gridTransitionFrameDriver = gridTransitionFrameDriver
         }
     }
 
@@ -104,7 +150,8 @@ extension MobileCollectionBrowserGridModePresentationTests {
 
     func makeFixture(
         collectionId: String,
-        gridModeCommitSnapshotFactory: ((UIView) -> UIView?)? = nil
+        gridModeCommitSnapshotFactory: ((UIView) -> UIView?)? = nil,
+        gridTransitionFrameDriver: ManualGridTransitionFrameDriver? = nil
     ) throws -> Fixture {
         let uuid = UUID()
         let session = MobilePlaybackController.shared.startSession(
@@ -121,11 +168,13 @@ extension MobileCollectionBrowserGridModePresentationTests {
         if let gridModeCommitSnapshotFactory {
             controller = VerticalCollectionBrowserViewController(
                 playbackSession: session,
-                gridModeCommitSnapshotFactory: gridModeCommitSnapshotFactory
+                gridModeCommitSnapshotFactory: gridModeCommitSnapshotFactory,
+                gridTransitionFrameDriver: gridTransitionFrameDriver
             )
         } else {
             controller = VerticalCollectionBrowserViewController(
-                playbackSession: session
+                playbackSession: session,
+                gridTransitionFrameDriver: gridTransitionFrameDriver
             )
         }
         let foregroundScene = try XCTUnwrap(
@@ -153,7 +202,19 @@ extension MobileCollectionBrowserGridModePresentationTests {
             session: session,
             display: display,
             controller: controller,
-            window: window
+            window: window,
+            gridTransitionFrameDriver: gridTransitionFrameDriver
+        )
+    }
+
+    func makeDeterministicFixture(
+        collectionId: String,
+        gridModeCommitSnapshotFactory: ((UIView) -> UIView?)? = nil
+    ) throws -> Fixture {
+        try makeFixture(
+            collectionId: collectionId,
+            gridModeCommitSnapshotFactory: gridModeCommitSnapshotFactory,
+            gridTransitionFrameDriver: ManualGridTransitionFrameDriver()
         )
     }
 
@@ -177,6 +238,38 @@ extension MobileCollectionBrowserGridModePresentationTests {
             try await Task.sleep(nanoseconds: 10_000_000)
         }
         XCTFail("Grid mode did not settle to \(mode)")
+    }
+
+    func selectGridMode(
+        _ mode: MobileCollectionBrowserGridMode,
+        fixture: Fixture
+    ) {
+        XCTAssertTrue(fixture.controller.setGridMode(mode))
+        advanceGridTransitionFrames(
+            "Grid mode did not settle to \(mode)",
+            fixture: fixture
+        ) {
+            fixture.controller.gridMode == mode
+        }
+    }
+
+    func advanceGridTransitionFrames(
+        _ failureMessage: String,
+        fixture: Fixture,
+        maximumFrameCount: Int = 200,
+        until condition: () -> Bool
+    ) {
+        guard let frameDriver = fixture.gridTransitionFrameDriver else {
+            XCTFail("Fixture does not have a manual grid-transition frame driver")
+            return
+        }
+        for _ in 0..<maximumFrameCount {
+            if condition() {
+                return
+            }
+            frameDriver.advance()
+        }
+        XCTFail(failureMessage)
     }
 
     func prepare(

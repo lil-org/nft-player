@@ -107,7 +107,7 @@ final class GridPlaneRenderer {
     }
 
     private static let edgeHandoffDistance: CGFloat = 128
-    private static let contentFadeOutDuration: TimeInterval = 0.12
+    static let contentFadeOutDuration: TimeInterval = 0.12
 
     private weak var collectionView:
         MobilePlayerCollectionBrowserCollectionView?

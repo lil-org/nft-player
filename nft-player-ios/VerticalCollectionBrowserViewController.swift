@@ -231,12 +231,15 @@ final class VerticalCollectionBrowserViewController: UIViewController,
                 afterScreenUpdates: false,
                 withCapInsets: .zero
             )
-        }
+        },
+        gridTransitionFrameDriver:
+            (any GridTransitionFrameDriving)? = nil
     ) {
         self.playbackSession = playbackSession
         self.gridModeCoordinator =
             MobilePlayerCollectionBrowserGridModeCoordinator(
-                commitSnapshotFactory: gridModeCommitSnapshotFactory
+                commitSnapshotFactory: gridModeCommitSnapshotFactory,
+                frameDriver: gridTransitionFrameDriver
             )
         super.init(nibName: nil, bundle: nil)
         imagePipeline.configure(contentAccess: .init(
