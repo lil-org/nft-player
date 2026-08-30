@@ -107,6 +107,48 @@ extension MobileCollectionBrowserGridModePresentationTests {
         )
     }
 
+    func testArtifactMagazineUsesOneBasedCDNMediaTiers() throws {
+        let collectionId = try collectionId(
+            internalSlug: "artifact_magazine_3"
+        )
+
+        for (tokenIndex, cdnIndex) in [(0, 1), (592, 593)] {
+            let primaryDescriptor = try XCTUnwrap(
+                CollectionCatalog.downloadableMediaDescriptor(
+                    specificCollectionId: collectionId,
+                    tokenIndex: tokenIndex
+                )
+            )
+            let sources = try XCTUnwrap(
+                CollectionCatalog.collectionBrowseImageSources(
+                    specificCollectionId: collectionId,
+                    tokenIndex: tokenIndex
+                )
+            )
+
+            XCTAssertEqual(
+                primaryDescriptor.url,
+                URL(string: "https://cdn.lil.org/player/artifact_magazine_3/\(cdnIndex).png")
+            )
+            XCTAssertEqual(
+                sources.thumbnailDescriptor.url,
+                URL(string: "https://cdn.lil.org/player/artifact_magazine_3/thumbs/\(cdnIndex).webp")
+            )
+            XCTAssertEqual(
+                sources.smallestThumbnailDescriptor?.url,
+                URL(string: "https://cdn.lil.org/player/artifact_magazine_3/thumbs/140/\(cdnIndex).webp")
+            )
+            XCTAssertEqual(
+                sources.smallThumbnailDescriptor.url,
+                URL(string: "https://cdn.lil.org/player/artifact_magazine_3/thumbs/260/\(cdnIndex).webp")
+            )
+            XCTAssertEqual(
+                sources.largeDescriptor.url,
+                URL(string: "https://cdn.lil.org/player/artifact_magazine_3/mid/\(cdnIndex).webp")
+            )
+        }
+    }
+
 #if DEBUG
     func testNineColumnPrefetchReusesCachedHigherQualityThumbnails() throws {
         let metadata = try collectionMetadata(

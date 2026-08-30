@@ -40,6 +40,69 @@ const NATIVE_SCRIPT_THUMBNAIL_COLLECTIONS = new Set([
   "card_nft_2",
   "poncho_drifella",
 ]);
+const NEW_CDN_COLLECTIONS = [
+  {
+    address: "0xcde288d791b10b38eca62e6e82a609541fab94e0",
+    chain: "ethereum",
+    chainId: 1,
+    name: "Chair NFT",
+    tokenCount: 1999,
+    standardThumbsPathsAvailable: true,
+    internal_slug: "chair_nft",
+    artists: [],
+  },
+  {
+    address: "36NQDyvCBqg4N1z5mZi2i4nW1K9ELdzmntMMKnqbChVZ",
+    chain: "solana",
+    chainId: 0,
+    name: "Artifact Magazine 3",
+    tokenCount: 593,
+    standardThumbsPathsAvailable: true,
+    sizedThumbsIndexOffset: 1,
+    internal_slug: "artifact_magazine_3",
+    artists: [],
+  },
+  {
+    address: "3Rb9mG22dkAFVA8PVRgD76SiHUwUTK38Kq55NkrZuR2k",
+    chain: "solana",
+    chainId: 0,
+    name: "Rare Weitsmans",
+    tokenCount: 1968,
+    standardThumbsPathsAvailable: true,
+    internal_slug: "rare_weitsmans",
+    artists: [],
+  },
+  {
+    address: "Es6NZcYQpyo8wukzvznTHXbFXsGMWAP7YbyohEe77poo",
+    chain: "solana",
+    chainId: 0,
+    name: "Tomodachi Void Club",
+    tokenCount: 192,
+    standardThumbsPathsAvailable: true,
+    internal_slug: "tomodachi_void_club",
+    artists: [],
+  },
+  {
+    address: "KT1LiZ9cFA9fRQdKkbJtfz1djC7AkrTkTcDE",
+    chain: "tezos",
+    chainId: 0,
+    name: "Friedeberg",
+    tokenCount: 94,
+    standardThumbsPathsAvailable: true,
+    internal_slug: "friedeberg",
+    artists: [],
+  },
+  {
+    address: "KT1MSEve3ZVZWH1MVeWHTeafWq3sq2GYwMwC",
+    chain: "tezos",
+    chainId: 0,
+    name: "Matchstick",
+    tokenCount: 415,
+    standardThumbsPathsAvailable: true,
+    internal_slug: "matchstick",
+    artists: [],
+  },
+];
 const SUPPORTED_MEDIA_EXTENSIONS = new Set([
   "gif", "heic", "heif", "htm", "html", "jpeg", "jpg", "mov", "mp4",
   "png", "svg", "tiff", "webp", "xhtml",
@@ -277,6 +340,45 @@ test("catalog web URL overrides are absolute HTTP URLs", () => {
   }
 });
 
+test("new CDN collections have their exact catalog metadata", () => {
+  const items = readJSON(ITEMS_PATH);
+
+  for (const expected of NEW_CDN_COLLECTIONS) {
+    const item = items.find((candidate) => candidate.internal_slug === expected.internal_slug);
+    assert.ok(item, `Missing ${expected.internal_slug}`);
+    assert.deepEqual(
+      Object.fromEntries(Object.keys(expected).map((key) => [key, item[key]])),
+      expected
+    );
+  }
+});
+
+test("Artifact Magazine 3 uses one-based CDN media tiers", () => {
+  const items = readJSON(ITEMS_PATH);
+  const item = items.find((candidate) => candidate.internal_slug === "artifact_magazine_3");
+  assert.ok(item, "Missing artifact_magazine_3");
+  assert.equal(item.sizedThumbsIndexOffset, 1);
+
+  const payload = readJSON(path.join(TOKENS_PATH, `${suggestedItemId(item)}.json`));
+  assert.equal(payload.items.length, 593);
+  assert.equal(payload.items[0][0], "3dJFRCd9VCKVBu4XRbuofqTyCqDE1jZHAmprKcU9otsm");
+  assert.equal(payload.items.at(-1)[0], "2R53LsQgyUCeQtsd7r92nqdKd2AWEF2asYjpeRcZQbHP");
+
+  for (const [tokenIndex, cdnIndex] of [[0, 1], [592, 593]]) {
+    const sourceURL = tokenSourceURL(payload, payload.items[tokenIndex]);
+    const thumbnailURL = standardThumbnailURL(sourceURL);
+    assert.equal(sourceURL, `https://cdn.lil.org/player/artifact_magazine_3/${cdnIndex}.png`);
+    assert.equal(thumbnailURL.href, `https://cdn.lil.org/player/artifact_magazine_3/thumbs/${cdnIndex}.webp`);
+    assert.equal(midImageURL(thumbnailURL).href, `https://cdn.lil.org/player/artifact_magazine_3/mid/${cdnIndex}.webp`);
+    for (const width of [140, 260]) {
+      assert.equal(
+        sizedThumbnailURL(thumbnailURL, tokenIndex + item.sizedThumbsIndexOffset, width).href,
+        `https://cdn.lil.org/player/artifact_magazine_3/thumbs/${width}/${cdnIndex}.webp`
+      );
+    }
+  }
+});
+
 test("catalog IDs exactly match token manifest and cover asset casing", () => {
   const items = readJSON(ITEMS_PATH);
   const scriptIds = scriptCollectionIds();
@@ -394,6 +496,11 @@ test("eligible token manifests derive unique browse image tier URLs", () => {
     const payload = readJSON(tokensPath);
     assert.ok(Array.isArray(payload.items), `${item.internal_slug} has no token items array`);
     assert.ok(payload.items.length > 0, `${item.internal_slug} has an empty token manifest`);
+    const sizedThumbsIndexOffset = item.sizedThumbsIndexOffset ?? 0;
+    assert.ok(
+      Number.isSafeInteger(sizedThumbsIndexOffset),
+      `${item.internal_slug} has an invalid sized thumbnail index offset`
+    );
 
     const originalURLByDerivedURL = new Map();
     const originalURLByMidURL = new Map();
@@ -453,10 +560,15 @@ test("eligible token manifests derive unique browse image tier URLs", () => {
       assert.equal(midURL.hash, "");
 
       for (const [width, sizedURLs] of sizedURLsByWidth) {
-        const sizedURL = sizedThumbnailURL(thumbnailURL, index, width);
+        const sizedThumbnailIndex = index + sizedThumbsIndexOffset;
+        assert.ok(
+          Number.isSafeInteger(sizedThumbnailIndex) && sizedThumbnailIndex >= 0,
+          `${item.internal_slug} token ${index} derives an invalid sized thumbnail index`
+        );
+        const sizedURL = sizedThumbnailURL(thumbnailURL, sizedThumbnailIndex, width);
         assert.equal(
           sizedURL.pathname,
-          `${path.posix.dirname(thumbnailURL.pathname)}/${width}/${index}.webp`,
+          `${path.posix.dirname(thumbnailURL.pathname)}/${width}/${sizedThumbnailIndex}.webp`,
           `${item.internal_slug} token ${index} derives an unexpected ${width} path`
         );
         assert.equal(sizedURL.search, "");
@@ -549,7 +661,7 @@ test("bundled tokens have compact aspect ratios and matching iOS layouts", () =>
   const primaryFileNames = fs.readdirSync(TOKENS_PATH)
     .filter((fileName) => path.extname(fileName) === ".json")
     .sort();
-  assert.equal(primaryFileNames.length, 217);
+  assert.equal(primaryFileNames.length, 223);
 
   const catalogItems = readJSON(ITEMS_PATH);
   const catalogItemByLowercasedFileName = new Map(
@@ -600,7 +712,7 @@ test("bundled tokens have compact aspect ratios and matching iOS layouts", () =>
     primaryTokenCount += payload.items.length;
     primaryByLowercasedFileName.set(fileName.toLowerCase(), { payload, ratios });
   }
-  assert.equal(primaryTokenCount, 209_828);
+  assert.equal(primaryTokenCount, 215_089);
   assert.equal(twoColumnCollectionCount, 39);
   assert.equal(
     manualThreeColumnCollectionCount,

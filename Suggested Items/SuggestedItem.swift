@@ -41,6 +41,7 @@ nonisolated struct SuggestedItem: Identifiable, Hashable, Codable, Sendable {
     let collectionWebURL: String?
     let standardThumbsPathsAvailable: Bool?
     let standardThumbsBaseURL: String?
+    let sizedThumbsIndexOffset: Int?
     let artists: [String]
 
     enum CodingKeys: String, CodingKey {
@@ -59,6 +60,7 @@ nonisolated struct SuggestedItem: Identifiable, Hashable, Codable, Sendable {
         case collectionWebURL
         case standardThumbsPathsAvailable
         case standardThumbsBaseURL
+        case sizedThumbsIndexOffset
         case artists
     }
     

@@ -2661,5 +2661,66 @@
       "parker_ito"
     ],
     "iosCollectionBrowserColumnCount" : 2
+  },
+  {
+    "address" : "0xcde288d791b10b38eca62e6e82a609541fab94e0",
+    "chain" : "ethereum",
+    "chainId" : 1,
+    "name" : "Chair NFT",
+    "tokenCount" : 1999,
+    "standardThumbsPathsAvailable" : true,
+    "internal_slug" : "chair_nft",
+    "artists" : []
+  },
+  {
+    "address" : "36NQDyvCBqg4N1z5mZi2i4nW1K9ELdzmntMMKnqbChVZ",
+    "chain" : "solana",
+    "chainId" : 0,
+    "name" : "Artifact Magazine 3",
+    "tokenCount" : 593,
+    "standardThumbsPathsAvailable" : true,
+    "sizedThumbsIndexOffset" : 1,
+    "internal_slug" : "artifact_magazine_3",
+    "artists" : []
+  },
+  {
+    "address" : "3Rb9mG22dkAFVA8PVRgD76SiHUwUTK38Kq55NkrZuR2k",
+    "chain" : "solana",
+    "chainId" : 0,
+    "name" : "Rare Weitsmans",
+    "tokenCount" : 1968,
+    "standardThumbsPathsAvailable" : true,
+    "internal_slug" : "rare_weitsmans",
+    "artists" : []
+  },
+  {
+    "address" : "Es6NZcYQpyo8wukzvznTHXbFXsGMWAP7YbyohEe77poo",
+    "chain" : "solana",
+    "chainId" : 0,
+    "name" : "Tomodachi Void Club",
+    "tokenCount" : 192,
+    "standardThumbsPathsAvailable" : true,
+    "internal_slug" : "tomodachi_void_club",
+    "artists" : []
+  },
+  {
+    "address" : "KT1LiZ9cFA9fRQdKkbJtfz1djC7AkrTkTcDE",
+    "chain" : "tezos",
+    "chainId" : 0,
+    "name" : "Friedeberg",
+    "tokenCount" : 94,
+    "standardThumbsPathsAvailable" : true,
+    "internal_slug" : "friedeberg",
+    "artists" : []
+  },
+  {
+    "address" : "KT1MSEve3ZVZWH1MVeWHTeafWq3sq2GYwMwC",
+    "chain" : "tezos",
+    "chainId" : 0,
+    "name" : "Matchstick",
+    "tokenCount" : 415,
+    "standardThumbsPathsAvailable" : true,
+    "internal_slug" : "matchstick",
+    "artists" : []
   }
 ]

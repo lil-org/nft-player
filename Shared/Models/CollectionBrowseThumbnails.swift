@@ -272,14 +272,22 @@ nonisolated extension CollectionCatalog {
         for thumbnailDescriptor: CollectionCatalogDownloadableMediaDescriptor,
         width: CollectionBrowseThumbnailWidth
     ) -> CollectionCatalogDownloadableMediaDescriptor? {
-        guard thumbnailDescriptor.isCollectionBrowserThumbnail,
+        let offset = SuggestedItemsService.item(
+            id: thumbnailDescriptor.collectionId
+        )?.sizedThumbsIndexOffset ?? 0
+        let (sizedThumbnailIndex, overflow) = thumbnailDescriptor.tokenIndex
+            .addingReportingOverflow(offset)
+
+        guard !overflow,
+              sizedThumbnailIndex >= 0,
+              thumbnailDescriptor.isCollectionBrowserThumbnail,
               let mappingSourceURL = sizedThumbnailMappingSourceURL(
                 for: thumbnailDescriptor
               ),
               let sizedThumbnailURL = CollectionBrowseImageURLMapping
                 .thumbnailURL(
                     for: mappingSourceURL,
-                    tokenIndex: thumbnailDescriptor.tokenIndex,
+                    tokenIndex: sizedThumbnailIndex,
                     width: width
                 ) else {
             return nil

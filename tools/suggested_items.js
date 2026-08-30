@@ -24,6 +24,7 @@ const PRESERVED_GENERATED_SUGGESTED_ITEM_FIELDS = [
   IOS_COLLECTION_BROWSER_COLUMN_COUNT_KEY,
   "standardThumbsPathsAvailable",
   "standardThumbsBaseURL",
+  "sizedThumbsIndexOffset",
 ];
 
 function mergeGeneratedSuggestedItem(existingItem, generatedItem) {
