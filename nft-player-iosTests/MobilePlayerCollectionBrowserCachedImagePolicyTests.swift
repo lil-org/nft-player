@@ -74,6 +74,188 @@ extension MobilePlayerCollectionBrowserCachedImagePolicyTests {
         }
     }
 
+    func testDecodeVariantCompatibilityRequiresEnoughPixels() {
+        XCTAssertTrue(
+            DownloadableMediaImageDecodeVariant.full.satisfies(
+                .downsampled(maxPixelWidth: 260)
+            )
+        )
+        XCTAssertTrue(
+            DownloadableMediaImageDecodeVariant.downsampled(
+                maxPixelWidth: 260
+            ).satisfies(.downsampled(maxPixelWidth: 140))
+        )
+        XCTAssertFalse(
+            DownloadableMediaImageDecodeVariant.downsampled(
+                maxPixelWidth: 140
+            ).satisfies(.downsampled(maxPixelWidth: 260))
+        )
+        XCTAssertFalse(
+            DownloadableMediaImageDecodeVariant.downsampled(
+                maxPixelWidth: 260
+            ).satisfies(.full)
+        )
+    }
+
+#if DEBUG
+    func testCachedImageCarriesActualDecodeVariant() throws {
+        let descriptor = makeDescriptor(
+            name: "cached-variant-provenance",
+            purpose: .collectionBrowserThumbnail
+        )
+        let sources = CollectionBrowseImageSources(
+            thumbnailDescriptor: descriptor,
+            largeDescriptor: descriptor
+        )
+        let cache = DownloadableMediaCache.shared
+        let loader = MobilePlayerCollectionBrowserCellImageLoader()
+        defer { cache.resetDecodedImagesForTesting() }
+
+        cache.installDecodedImageForTesting(
+            makeImage(.red),
+            for: descriptor,
+            variant: .downsampled(maxPixelWidth: 260)
+        )
+        cache.installDecodedImageForTesting(
+            makeImage(.blue),
+            for: descriptor,
+            variant: .full
+        )
+        loader.configure(
+            contentIdentity: MobilePlayerBrowserContentIdentity(
+                collectionId: descriptor.collectionId,
+                tokenIndex: descriptor.tokenIndex
+            ),
+            imageSources: sources,
+            requiredImageQuality: .thumbnail,
+            imageDecodeVariant: .downsampled(maxPixelWidth: 140),
+            imageLoadPolicy: .cachedOnly,
+            allowsLocalLargeImageUpgrade: false,
+            retainedDescriptor: nil,
+            retainedImageHasLocalFile: false,
+            fallbackImageSize: CGSize(width: 1, height: 1)
+        )
+
+        XCTAssertEqual(
+            try XCTUnwrap(loader.cachedImageIfAvailable(
+                displayedImageIsPresent: false
+            )).imageDecodeVariant,
+            .downsampled(maxPixelWidth: 260)
+        )
+    }
+
+    func testBestAvailableCachedImagePrefersDestinationDecodeTierBeforeQuality()
+        throws {
+        let fixture = makeDistinctSources()
+        let cache = DownloadableMediaCache.shared
+        let largeImage = makeImage(.red)
+        let thumbnailImage = makeImage(.blue)
+        defer { cache.resetDecodedImagesForTesting() }
+        cache.resetDecodedImagesForTesting()
+        cache.installDecodedImageForTesting(
+            largeImage,
+            for: fixture.large,
+            variant: .downsampled(maxPixelWidth: 160)
+        )
+        cache.installDecodedImageForTesting(
+            thumbnailImage,
+            for: fixture.thumbnail,
+            variant: .full
+        )
+
+        let entry = try XCTUnwrap(fixture.sources.cachedImageEntry(
+            in: cache,
+            selectionPolicy: .highestAvailable,
+            decodeSelection: .bestAvailable(
+                preferredVariants: [
+                    .full,
+                    .downsampled(maxPixelWidth: 288),
+                ]
+            )
+        ))
+
+        XCTAssertEqual(entry.descriptor, fixture.thumbnail)
+        XCTAssertEqual(entry.quality, .thumbnail)
+        XCTAssertTrue(entry.image === thumbnailImage)
+        XCTAssertEqual(entry.variant, .full)
+    }
+
+    func testBestAvailableCachedImagePrefersSourceDecodeTierBeforeAny()
+        throws {
+        let fixture = makeDistinctSources()
+        let cache = DownloadableMediaCache.shared
+        let largeImage = makeImage(.red)
+        let thumbnailImage = makeImage(.blue)
+        let sourceVariant = DownloadableMediaImageDecodeVariant.downsampled(
+            maxPixelWidth: 288
+        )
+        defer { cache.resetDecodedImagesForTesting() }
+        cache.resetDecodedImagesForTesting()
+        cache.installDecodedImageForTesting(
+            largeImage,
+            for: fixture.large,
+            variant: .downsampled(maxPixelWidth: 160)
+        )
+        cache.installDecodedImageForTesting(
+            thumbnailImage,
+            for: fixture.thumbnail,
+            variant: sourceVariant
+        )
+
+        let entry = try XCTUnwrap(fixture.sources.cachedImageEntry(
+            in: cache,
+            selectionPolicy: .highestAvailable,
+            decodeSelection: .bestAvailable(
+                preferredVariants: [.full, sourceVariant, sourceVariant]
+            )
+        ))
+
+        XCTAssertEqual(entry.descriptor, fixture.thumbnail)
+        XCTAssertEqual(entry.quality, .thumbnail)
+        XCTAssertTrue(entry.image === thumbnailImage)
+        XCTAssertEqual(entry.variant, sourceVariant)
+    }
+
+    func testBestAvailableCachedImagePreservesAnyVariantAndQualityRanking()
+        throws {
+        let fixture = makeDistinctSources()
+        let cache = DownloadableMediaCache.shared
+        let largeImage = makeImage(.red)
+        let thumbnailImage = makeImage(.blue)
+        let largeVariant = DownloadableMediaImageDecodeVariant.downsampled(
+            maxPixelWidth: 160
+        )
+        defer { cache.resetDecodedImagesForTesting() }
+        cache.resetDecodedImagesForTesting()
+        cache.installDecodedImageForTesting(
+            largeImage,
+            for: fixture.large,
+            variant: largeVariant
+        )
+        cache.installDecodedImageForTesting(
+            thumbnailImage,
+            for: fixture.thumbnail,
+            variant: .downsampled(maxPixelWidth: 140)
+        )
+
+        let entry = try XCTUnwrap(fixture.sources.cachedImageEntry(
+            in: cache,
+            selectionPolicy: .highestAvailable,
+            decodeSelection: .bestAvailable(
+                preferredVariants: [
+                    .full,
+                    .downsampled(maxPixelWidth: 288),
+                ]
+            )
+        ))
+
+        XCTAssertEqual(entry.descriptor, fixture.large)
+        XCTAssertEqual(entry.quality, .large)
+        XCTAssertTrue(entry.image === largeImage)
+        XCTAssertEqual(entry.variant, largeVariant)
+    }
+#endif
+
     func testThumbnailBaseWithoutLargeUpgradeUsesOnlyThumbnail() {
         let fixture = makeDistinctSources()
 
@@ -239,6 +421,365 @@ extension MobilePlayerCollectionBrowserCachedImagePolicyTests {
     }
 
 #if DEBUG
+    func testDecodeVariantUpgradeKeepsDisplayedFallback() throws {
+        let descriptor = makeDescriptor(
+            name: "dense-upgrade-fallback",
+            purpose: .collectionBrowserThumbnail
+        )
+        let sources = CollectionBrowseImageSources(
+            thumbnailDescriptor: descriptor,
+            largeDescriptor: descriptor
+        )
+        let identity = MobilePlayerBrowserContentIdentity(
+            collectionId: descriptor.collectionId,
+            tokenIndex: descriptor.tokenIndex
+        )
+        let denseImage = makeImage(.red)
+        let cache = DownloadableMediaCache.shared
+        let cell = MobilePlayerCollectionBrowserCell(frame: CGRect(
+            x: 0,
+            y: 0,
+            width: 120,
+            height: 80
+        ))
+        let imageView = try XCTUnwrap(
+            cell.contentView.subviews.first {
+                $0 is NativeMetalCardCornerMaskedImageView
+            } as? NativeMetalCardCornerMaskedImageView
+        )
+        defer { cache.resetDecodedImagesForTesting() }
+
+        cache.installDecodedImageForTesting(
+            denseImage,
+            for: descriptor,
+            variant: .downsampled(maxPixelWidth: 140)
+        )
+        cell.configure(
+            contentIdentity: identity,
+            itemCount: 1,
+            imageSources: sources,
+            requiredImageQuality: .thumbnail,
+            missingDescriptorFallbackSpec:
+                PlayerMediaPlaceholderSpec(thumbnailAspectRatio: nil),
+            imageLoadPolicy: .foreground,
+            allowsLocalLargeImageUpgrade: false,
+            imageDecodeVariant: .downsampled(maxPixelWidth: 140)
+        )
+        XCTAssertTrue(imageView.image === denseImage)
+
+        cell.configure(
+            contentIdentity: identity,
+            itemCount: 1,
+            imageSources: sources,
+            requiredImageQuality: .thumbnail,
+            missingDescriptorFallbackSpec:
+                PlayerMediaPlaceholderSpec(thumbnailAspectRatio: nil),
+            imageLoadPolicy: .foreground,
+            allowsLocalLargeImageUpgrade: false,
+            imageDecodeVariant: .full
+        )
+
+        XCTAssertTrue(imageView.image === denseImage)
+    }
+
+    func testFullConfigurationReplacesDenseImageForSameDescriptor() throws {
+        let descriptor = makeDescriptor(
+            name: "dense-to-full",
+            purpose: .collectionBrowserThumbnail
+        )
+        let sources = CollectionBrowseImageSources(
+            thumbnailDescriptor: descriptor,
+            largeDescriptor: descriptor
+        )
+        let identity = MobilePlayerBrowserContentIdentity(
+            collectionId: descriptor.collectionId,
+            tokenIndex: descriptor.tokenIndex
+        )
+        let denseImage = makeImage(.red)
+        let fullImage = makeImage(.blue)
+        let cache = DownloadableMediaCache.shared
+        let cell = MobilePlayerCollectionBrowserCell(frame: CGRect(
+            x: 0,
+            y: 0,
+            width: 120,
+            height: 80
+        ))
+        let placeholder = PlayerMediaPlaceholderSpec(thumbnailAspectRatio: nil)
+        let imageView = try XCTUnwrap(
+            cell.contentView.subviews.first {
+                $0 is NativeMetalCardCornerMaskedImageView
+            } as? NativeMetalCardCornerMaskedImageView
+        )
+        defer { cache.resetDecodedImagesForTesting() }
+
+        cache.installDecodedImageForTesting(
+            denseImage,
+            for: descriptor,
+            variant: .downsampled(maxPixelWidth: 140)
+        )
+        cell.configure(
+            contentIdentity: identity,
+            itemCount: 1,
+            imageSources: sources,
+            requiredImageQuality: .thumbnail,
+            missingDescriptorFallbackSpec: placeholder,
+            imageLoadPolicy: .foreground,
+            allowsLocalLargeImageUpgrade: false,
+            imageDecodeVariant: .downsampled(maxPixelWidth: 140)
+        )
+        XCTAssertTrue(imageView.image === denseImage)
+
+        cache.installDecodedImageForTesting(fullImage, for: descriptor)
+        cell.configure(
+            contentIdentity: identity,
+            itemCount: 1,
+            imageSources: sources,
+            requiredImageQuality: .thumbnail,
+            missingDescriptorFallbackSpec: placeholder,
+            imageLoadPolicy: .foreground,
+            allowsLocalLargeImageUpgrade: false,
+            imageDecodeVariant: .full
+        )
+
+        XCTAssertTrue(imageView.image === fullImage)
+    }
+
+    func testLargerDenseConfigurationReplacesSmallerDenseImage() throws {
+        let descriptor = makeDescriptor(
+            name: "dense-size-upgrade",
+            purpose: .collectionBrowserThumbnail
+        )
+        let sources = CollectionBrowseImageSources(
+            thumbnailDescriptor: descriptor,
+            largeDescriptor: descriptor
+        )
+        let identity = MobilePlayerBrowserContentIdentity(
+            collectionId: descriptor.collectionId,
+            tokenIndex: descriptor.tokenIndex
+        )
+        let smallImage = makeImage(.red)
+        let largeImage = makeImage(.blue)
+        let cache = DownloadableMediaCache.shared
+        let cell = MobilePlayerCollectionBrowserCell(frame: CGRect(
+            x: 0,
+            y: 0,
+            width: 120,
+            height: 80
+        ))
+        let placeholder = PlayerMediaPlaceholderSpec(thumbnailAspectRatio: nil)
+        let imageView = try XCTUnwrap(
+            cell.contentView.subviews.first {
+                $0 is NativeMetalCardCornerMaskedImageView
+            } as? NativeMetalCardCornerMaskedImageView
+        )
+        defer { cache.resetDecodedImagesForTesting() }
+
+        cache.installDecodedImageForTesting(
+            smallImage,
+            for: descriptor,
+            variant: .downsampled(maxPixelWidth: 140)
+        )
+        cell.configure(
+            contentIdentity: identity,
+            itemCount: 1,
+            imageSources: sources,
+            requiredImageQuality: .thumbnail,
+            missingDescriptorFallbackSpec: placeholder,
+            imageLoadPolicy: .foreground,
+            allowsLocalLargeImageUpgrade: false,
+            imageDecodeVariant: .downsampled(maxPixelWidth: 140)
+        )
+        XCTAssertTrue(imageView.image === smallImage)
+
+        cache.installDecodedImageForTesting(
+            largeImage,
+            for: descriptor,
+            variant: .downsampled(maxPixelWidth: 260)
+        )
+        cell.configure(
+            contentIdentity: identity,
+            itemCount: 1,
+            imageSources: sources,
+            requiredImageQuality: .thumbnail,
+            missingDescriptorFallbackSpec: placeholder,
+            imageLoadPolicy: .foreground,
+            allowsLocalLargeImageUpgrade: false,
+            imageDecodeVariant: .downsampled(maxPixelWidth: 260)
+        )
+
+        XCTAssertTrue(imageView.image === largeImage)
+    }
+
+    func testUnchangedUnsatisfiedCachedOnlyConfigurationRefreshesCache() throws {
+        let descriptor = makeDescriptor(
+            name: "same-signature-cache-refresh",
+            purpose: .collectionBrowserThumbnail
+        )
+        let sources = CollectionBrowseImageSources(
+            thumbnailDescriptor: descriptor,
+            largeDescriptor: descriptor
+        )
+        let identity = MobilePlayerBrowserContentIdentity(
+            collectionId: descriptor.collectionId,
+            tokenIndex: descriptor.tokenIndex
+        )
+        let image = makeImage(.blue)
+        let cache = DownloadableMediaCache.shared
+        let cell = MobilePlayerCollectionBrowserCell(frame: CGRect(
+            x: 0,
+            y: 0,
+            width: 120,
+            height: 80
+        ))
+        let placeholder = PlayerMediaPlaceholderSpec(thumbnailAspectRatio: nil)
+        let imageView = try XCTUnwrap(
+            cell.contentView.subviews.first {
+                $0 is NativeMetalCardCornerMaskedImageView
+            } as? NativeMetalCardCornerMaskedImageView
+        )
+        defer { cache.resetDecodedImagesForTesting() }
+
+        cache.installDecodedImageForTesting(image, for: descriptor)
+        cell.configure(
+            contentIdentity: identity,
+            itemCount: 1,
+            imageSources: sources,
+            requiredImageQuality: .thumbnail,
+            missingDescriptorFallbackSpec: placeholder,
+            imageLoadPolicy: .cachedOnly,
+            allowsLocalLargeImageUpgrade: false
+        )
+        XCTAssertNil(imageView.image)
+
+        cell.configure(
+            contentIdentity: identity,
+            itemCount: 1,
+            imageSources: sources,
+            requiredImageQuality: .thumbnail,
+            missingDescriptorFallbackSpec: placeholder,
+            imageLoadPolicy: .cachedOnly,
+            allowsLocalLargeImageUpgrade: false
+        )
+
+        XCTAssertTrue(imageView.image === image)
+    }
+
+    func testUnchangedForegroundConfigurationInstallsCachedUpgrade() throws {
+        let thumbnailDescriptor = makeDescriptor(
+            name: "unchanged-thumbnail",
+            purpose: .collectionBrowserThumbnail
+        )
+        let largeDescriptor = makeDescriptor(
+            name: "unchanged-large",
+            purpose: .primary
+        )
+        let sources = CollectionBrowseImageSources(
+            thumbnailDescriptor: thumbnailDescriptor,
+            largeDescriptor: largeDescriptor
+        )
+        let identity = MobilePlayerBrowserContentIdentity(
+            collectionId: thumbnailDescriptor.collectionId,
+            tokenIndex: thumbnailDescriptor.tokenIndex
+        )
+        let thumbnailImage = makeImage(.red)
+        let largeImage = makeImage(.blue)
+        let cache = DownloadableMediaCache.shared
+        let cell = MobilePlayerCollectionBrowserCell(frame: CGRect(
+            x: 0,
+            y: 0,
+            width: 120,
+            height: 80
+        ))
+        let placeholder = PlayerMediaPlaceholderSpec(thumbnailAspectRatio: nil)
+        let imageView = try XCTUnwrap(
+            cell.contentView.subviews.first {
+                $0 is NativeMetalCardCornerMaskedImageView
+            } as? NativeMetalCardCornerMaskedImageView
+        )
+        defer { cache.resetDecodedImagesForTesting() }
+
+        cache.installDecodedImageForTesting(
+            thumbnailImage,
+            for: thumbnailDescriptor
+        )
+        cell.configure(
+            contentIdentity: identity,
+            itemCount: 1,
+            imageSources: sources,
+            requiredImageQuality: .thumbnail,
+            missingDescriptorFallbackSpec: placeholder,
+            imageLoadPolicy: .foreground
+        )
+        XCTAssertTrue(imageView.image === thumbnailImage)
+
+        cache.installDecodedImageForTesting(largeImage, for: largeDescriptor)
+        cell.configure(
+            contentIdentity: identity,
+            itemCount: 1,
+            imageSources: sources,
+            requiredImageQuality: .thumbnail,
+            missingDescriptorFallbackSpec: placeholder,
+            imageLoadPolicy: .foreground
+        )
+
+        XCTAssertTrue(imageView.image === largeImage)
+    }
+
+    func testForegroundReconfigurationRestoresDemotedImageLoadPolicy() throws {
+        let descriptor = makeDescriptor(
+            name: "foreground-reconfiguration",
+            purpose: .collectionBrowserThumbnail
+        )
+        let sources = CollectionBrowseImageSources(
+            thumbnailDescriptor: descriptor,
+            largeDescriptor: descriptor
+        )
+        let identity = MobilePlayerBrowserContentIdentity(
+            collectionId: descriptor.collectionId,
+            tokenIndex: descriptor.tokenIndex
+        )
+        let cache = DownloadableMediaCache.shared
+        let cell = MobilePlayerCollectionBrowserCell(frame: CGRect(
+            x: 0,
+            y: 0,
+            width: 120,
+            height: 80
+        ))
+        defer { cache.resetDecodedImagesForTesting() }
+        cache.installDecodedImageForTesting(
+            makeImage(.blue),
+            for: descriptor
+        )
+
+        cell.configure(
+            contentIdentity: identity,
+            itemCount: 1,
+            imageSources: sources,
+            requiredImageQuality: .thumbnail,
+            missingDescriptorFallbackSpec:
+                PlayerMediaPlaceholderSpec(thumbnailAspectRatio: nil),
+            imageLoadPolicy: .foreground,
+            allowsLocalLargeImageUpgrade: false
+        )
+        cell.demoteImageLoadToCachedOnlyIfNeeded(
+            tokenIndex: descriptor.tokenIndex
+        )
+        XCTAssertFalse(cell.usesForegroundImageLoading)
+
+        cell.configure(
+            contentIdentity: identity,
+            itemCount: 1,
+            imageSources: sources,
+            requiredImageQuality: .thumbnail,
+            missingDescriptorFallbackSpec:
+                PlayerMediaPlaceholderSpec(thumbnailAspectRatio: nil),
+            imageLoadPolicy: .foreground,
+            allowsLocalLargeImageUpgrade: false
+        )
+
+        XCTAssertTrue(cell.usesForegroundImageLoading)
+    }
+
     func testMissingSmallestThumbnailStopsCachedRefreshRetry() {
         let descriptor = makeDescriptor(
             name: "missing-smallest-refresh",
@@ -268,22 +809,20 @@ extension MobilePlayerCollectionBrowserCachedImagePolicyTests {
             allowsLocalLargeImageUpgrade: false
         )
 
-        XCTAssertEqual(
+        XCTAssertFalse(
             cell.refreshCachedImageIfAvailable(
                 tokenIndex: descriptor.tokenIndex
-            ),
-            .unavailable
+            )
         )
 
         let cache = DownloadableMediaCache.shared
         cache.installDecodedImageForTesting(makeImage(.blue), for: descriptor)
         defer { cache.removeDecodedImageForTesting(for: descriptor) }
 
-        XCTAssertEqual(
+        XCTAssertTrue(
             cell.refreshCachedImageIfAvailable(
                 tokenIndex: descriptor.tokenIndex
-            ),
-            .satisfied
+            )
         )
     }
 #endif
@@ -633,9 +1172,8 @@ extension MobilePlayerCollectionBrowserCachedImagePolicyTests {
             cache.removeDecodedImageForTesting(for: descriptor)
         }
 
-        XCTAssertEqual(
-            cell.refreshCachedImageIfAvailable(tokenIndex: 0),
-            .satisfied
+        XCTAssertTrue(
+            cell.refreshCachedImageIfAvailable(tokenIndex: 0)
         )
         XCTAssertTrue(baseImageView.image === image)
         XCTAssertFalse(cell.usesForegroundImageLoading)

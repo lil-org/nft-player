@@ -41,10 +41,10 @@ final class MobilePlayerBrowserPageViewController: UIViewController {
         contentViewController.onSettledPagePosition = { [weak self] pagePosition, hasViewedToEnd in
             guard let self,
                   self.modeController?.activeMode == .collectionBrowser else { return false }
-            return self.playbackSession.markViewed(
+            return self.handleSettledPagePosition(
                 pagePosition: pagePosition,
                 hasViewedToEnd: hasViewedToEnd
-            ) != nil
+            )
         }
         contentViewController.onSelection = { [weak self] selection in
             self?.openSelection(selection) == true
@@ -302,6 +302,17 @@ final class MobilePlayerBrowserPageViewController: UIViewController {
             pagePosition: pagePosition
         )
         updatePlayerNavigationTitle(for: pagePosition, token: token)
+        updateExternalDisplayToken(token)
+    }
+
+    private func handleSettledPagePosition(
+        pagePosition: PlayerPagePosition,
+        hasViewedToEnd: Bool
+    ) -> Bool {
+        let token = playbackSession.getToken(
+            pagePosition: pagePosition
+        )
+        updatePlayerNavigationTitle(for: pagePosition, token: token)
         chrome.setPlayerBackgroundColor(MobilePlayerBackgroundColor.color(for: token))
         chrome.setLayoutInteractionState(
             playbackSession.layoutInteractionState(
@@ -311,7 +322,10 @@ final class MobilePlayerBrowserPageViewController: UIViewController {
             )
         )
         refreshNavigationTitles(with: token)
-        updateExternalDisplayToken(token)
+        return playbackSession.markViewed(
+            pagePosition: pagePosition,
+            hasViewedToEnd: hasViewedToEnd
+        ) != nil
     }
 
     private func updatePlayerNavigationTitle(

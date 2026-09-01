@@ -295,6 +295,7 @@ nonisolated struct PlayerDownloadableMediaWindow: Hashable, Sendable {
     let decodedDescriptors: [CollectionCatalogDownloadableMediaDescriptor]
     let preferredDownloadDescriptors: [CollectionCatalogDownloadableMediaDescriptor]
     let adjacentDescriptor: CollectionCatalogDownloadableMediaDescriptor?
+    let decodeVariant: DownloadableMediaImageDecodeVariant
 
     init(
         currentDescriptor: CollectionCatalogDownloadableMediaDescriptor,
@@ -302,7 +303,9 @@ nonisolated struct PlayerDownloadableMediaWindow: Hashable, Sendable {
         decodedDescriptors: [CollectionCatalogDownloadableMediaDescriptor],
         adjacentDescriptor: CollectionCatalogDownloadableMediaDescriptor?,
         preferredDownloadDescriptors: [CollectionCatalogDownloadableMediaDescriptor] = [],
-        decodedDescriptorCapacity: Int = PlayerDownloadableMediaWindowLayout.decodedWindowCapacity
+        decodedDescriptorCapacity: Int = PlayerDownloadableMediaWindowLayout.decodedWindowCapacity,
+        includesCurrentInDecodedDescriptors: Bool = true,
+        decodeVariant: DownloadableMediaImageDecodeVariant = .full
     ) {
         let decodedDescriptorCapacity = max(decodedDescriptorCapacity, 1)
         let descriptors = Self.uniqueDescriptors(
@@ -314,7 +317,9 @@ nonisolated struct PlayerDownloadableMediaWindow: Hashable, Sendable {
         self.descriptors = descriptors
         self.decodedDescriptors = Array(
             Self.uniqueDescriptors(
-                currentDescriptor: currentDescriptor,
+                currentDescriptor: includesCurrentInDecodedDescriptors
+                    ? currentDescriptor
+                    : nil,
                 descriptors: decodedDescriptors
             )
             .filter(\.isStaticImage)
@@ -322,10 +327,11 @@ nonisolated struct PlayerDownloadableMediaWindow: Hashable, Sendable {
         )
         self.preferredDownloadDescriptors = preferredDownloadDescriptors.filter(descriptorSet.contains)
         self.adjacentDescriptor = adjacentDescriptor
+        self.decodeVariant = decodeVariant.normalized
     }
 
     private static func uniqueDescriptors(
-        currentDescriptor: CollectionCatalogDownloadableMediaDescriptor,
+        currentDescriptor: CollectionCatalogDownloadableMediaDescriptor?,
         descriptors: [CollectionCatalogDownloadableMediaDescriptor]
     ) -> [CollectionCatalogDownloadableMediaDescriptor] {
         var orderedDescriptors = [CollectionCatalogDownloadableMediaDescriptor]()
@@ -336,7 +342,9 @@ nonisolated struct PlayerDownloadableMediaWindow: Hashable, Sendable {
             orderedDescriptors.append(descriptor)
         }
 
-        appendDescriptor(currentDescriptor)
+        if let currentDescriptor {
+            appendDescriptor(currentDescriptor)
+        }
         descriptors.forEach(appendDescriptor)
         return orderedDescriptors
     }

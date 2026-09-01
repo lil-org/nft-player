@@ -208,6 +208,110 @@ extension MobileCollectionBrowserGridModePresentationTests {
         )
     }
 
+    func testDisplayScaleChangeReconfiguresVisibleDecodeVariants() async throws {
+        let metadata = try collectionMetadata(minimumTokenCount: 100)
+        let fixture = try makeFixture(collectionId: metadata.id)
+        defer { tearDownFixture(fixture) }
+        try await selectGridMode(
+            .fiveColumns,
+            controller: fixture.controller
+        )
+        let collectionView = try XCTUnwrap(
+            fixture.controller.view.subviews.first {
+                $0 is MobilePlayerCollectionBrowserCollectionView
+            } as? MobilePlayerCollectionBrowserCollectionView
+        )
+        let initialVariants = Set(collectionView.visibleCells.compactMap {
+            ($0 as? MobilePlayerCollectionBrowserCell)?
+                .configuredImageDecodeVariantForTesting
+        })
+
+        fixture.controller.traitOverrides.displayScale = 4
+        await waitForNextMainQueueTurn()
+        fixture.controller.view.layoutIfNeeded()
+        let resizedVariants = Set(collectionView.visibleCells.compactMap {
+            ($0 as? MobilePlayerCollectionBrowserCell)?
+                .configuredImageDecodeVariantForTesting
+        })
+
+        XCTAssertFalse(initialVariants.isEmpty)
+        XCTAssertEqual(resizedVariants.count, 1)
+        XCTAssertNotEqual(initialVariants, resizedVariants)
+    }
+
+#if DEBUG
+    func testSceneActivationRestoresDecodedWindowAfterScrolling() async throws {
+        let metadata = try collectionMetadata(minimumTokenCount: 100)
+        let fixture = try makeFixture(collectionId: metadata.id)
+        defer { tearDownFixture(fixture) }
+        try await selectGridMode(
+            .fiveColumns,
+            controller: fixture.controller
+        )
+        let collectionView = try XCTUnwrap(
+            fixture.controller.view.subviews.first {
+                $0 is MobilePlayerCollectionBrowserCollectionView
+            } as? MobilePlayerCollectionBrowserCollectionView
+        )
+        let scene = try XCTUnwrap(fixture.window.windowScene)
+
+        fixture.controller.scrollViewWillBeginDragging(collectionView)
+        let scrollingMetrics = fixture.controller.thumbnailWindowMetrics
+        XCTAssertGreaterThan(scrollingMetrics.fileOnlyPreparations, 0)
+
+        NotificationCenter.default.post(
+            name: UIScene.didEnterBackgroundNotification,
+            object: scene
+        )
+        NotificationCenter.default.post(
+            name: UIScene.didActivateNotification,
+            object: scene
+        )
+        let activatedMetrics = fixture.controller.thumbnailWindowMetrics
+
+        XCTAssertEqual(
+            activatedMetrics.preparations,
+            scrollingMetrics.preparations + 1
+        )
+        XCTAssertEqual(
+            activatedMetrics.fileOnlyPreparations,
+            scrollingMetrics.fileOnlyPreparations
+        )
+    }
+
+    func testViewReappearanceRestoresDecodedWindowAfterScrolling() async throws {
+        let metadata = try collectionMetadata(minimumTokenCount: 100)
+        let fixture = try makeFixture(collectionId: metadata.id)
+        defer { tearDownFixture(fixture) }
+        try await selectGridMode(
+            .fiveColumns,
+            controller: fixture.controller
+        )
+        let collectionView = try XCTUnwrap(
+            fixture.controller.view.subviews.first {
+                $0 is MobilePlayerCollectionBrowserCollectionView
+            } as? MobilePlayerCollectionBrowserCollectionView
+        )
+
+        fixture.controller.scrollViewWillBeginDragging(collectionView)
+        let scrollingMetrics = fixture.controller.thumbnailWindowMetrics
+        XCTAssertGreaterThan(scrollingMetrics.fileOnlyPreparations, 0)
+
+        fixture.controller.viewWillDisappear(false)
+        fixture.controller.viewDidAppear(false)
+        let reappearedMetrics = fixture.controller.thumbnailWindowMetrics
+
+        XCTAssertEqual(
+            reappearedMetrics.preparations,
+            scrollingMetrics.preparations + 1
+        )
+        XCTAssertEqual(
+            reappearedMetrics.fileOnlyPreparations,
+            scrollingMetrics.fileOnlyPreparations
+        )
+    }
+#endif
+
 
     func testHiddenControllerDoesNotResumeVisibleImageLoads() async throws {
         let metadata = try collectionMetadata(minimumTokenCount: 100)

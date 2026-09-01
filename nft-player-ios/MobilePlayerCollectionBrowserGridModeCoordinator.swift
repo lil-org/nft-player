@@ -1,4 +1,10 @@
 import UIKit
+import os
+
+private let gridModeCoordinatorSignposter = OSSignposter(
+    subsystem: Bundle.main.bundleIdentifier ?? "org.lil.nft-player",
+    category: "GridModeCoordinator"
+)
 
 private struct CachedGridModeDestination {
     let anchorTokenIndex: Int
@@ -94,6 +100,7 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
         let configureCollectionLayout: @MainActor () -> Void
         let endScrollMotionAndResetDragState: @MainActor () -> Void
         let settleCurrentPosition: @MainActor () -> Void
+        let prepareCurrentImageWindowIfPossible: @MainActor () -> Void
         let settleAfterApplyingPendingWindowSafeAreaRefresh:
             @MainActor () -> Void
         let reloadVisibleCells: @MainActor () -> Void
@@ -569,7 +576,6 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
                 gridMode.columnCount
             )
         }
-        imagePipeline.cancelAllPrefetchLoads()
         imagePipeline.cancelVisibleCellImageLoads()
         let isOnScreen = state.isActive && viewportView.window != nil
         let carryoverSources = isOnScreen
@@ -981,7 +987,12 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
             latticeMap: transitionLayout.latticeMap(
                 fromAnchorContentPoint: fromAnchorContentPoint,
                 toAnchorContentPoint: toAnchorContentPoint
-            )
+            ),
+            imageDecodeVariant:
+                MobilePlayerCollectionBrowserGridImageDecodeVariant.resolve(
+                    for: destination.layout,
+                    displayScale: state.currentLayoutDisplayScale
+                )
         )
     }
 
@@ -1203,10 +1214,26 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
         }
     }
 
-    private func advanceFrame(to timestamp: TimeInterval) {
+    private func advanceFrame(to frame: GridTransitionFrame) {
         guard !isInvalidated else { return }
-        let output = transitionRuntime.advanceFrame(to: timestamp)
-        applyRuntimeOutput(output, transitionAnchor: nil)
+        renderer?.beginTransitionFrame(frame)
+        let signpostState = gridModeCoordinatorSignposter.beginInterval(
+            "TransitionFrameWork"
+        )
+        let output = transitionRuntime.advanceFrame(to: frame.timestamp)
+        applyRuntimeOutput(
+            output,
+            transitionAnchor: nil,
+            transitionFrame: frame
+        )
+        let drainResult = renderer?.finishTransitionFrame(frame)
+        gridModeCoordinatorSignposter.endInterval(
+            "TransitionFrameWork",
+            signpostState
+        )
+        if drainResult != nil, frameDriver.now > frame.targetTimestamp {
+            gridModeCoordinatorSignposter.emitEvent("TransitionDeadlineMiss")
+        }
     }
 
     private var hasInterruptibleSettle: Bool {
@@ -1300,8 +1327,49 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
     @discardableResult
     private func applyRuntimeOutput(
         _ output: PlayerBrowserGridTransitionRuntime.Output,
-        transitionAnchor: (() -> GridModeGestureAnchor?)?
+        transitionAnchor: (() -> GridModeGestureAnchor?)?,
+        transitionFrame: GridTransitionFrame? = nil
     ) -> Bool {
+        if transitionRuntime.needsFrames || coverRenderer.hasCover
+            || output.effects.contains(where: { effect in
+                switch effect {
+                case .installPlane, .renderZoom, .renderSettle,
+                     .renderInteractionFade, .coverPlaneChange, .commitPlane:
+                    true
+                default:
+                    false
+                }
+        }) {
+            renderer?.setTransitionFrameDriving(true)
+        }
+        let synchronousTransitionFrame: GridTransitionFrame?
+        if transitionFrame == nil,
+           output.effects.contains(where: { effect in
+               if case .commitPlane = effect { return true }
+               return false
+           }) {
+            let timestamp = frameDriver.now
+            synchronousTransitionFrame = GridTransitionFrame(
+                timestamp: timestamp,
+                targetTimestamp: timestamp
+                    + GridTransitionFrame.maximumDuration
+            )
+        } else {
+            synchronousTransitionFrame = nil
+        }
+        let beganSynchronousTransitionFrame = synchronousTransitionFrame.map {
+            renderer?.beginTransitionFrame($0) == true
+        } ?? false
+        defer {
+            if beganSynchronousTransitionFrame,
+               let synchronousTransitionFrame {
+                _ = renderer?.finishTransitionFrame(
+                    synchronousTransitionFrame
+                )
+            }
+        }
+        let effectTransitionFrame = transitionFrame
+            ?? synchronousTransitionFrame
         if let expiredCoverID = output.expiredCoverID {
             coverRenderer.remove(generation: expiredCoverID)
         }
@@ -1310,7 +1378,8 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
         } ?? transitionAnchor
         let result = drainInteractionEffects(
             output.effects,
-            transitionAnchor: resolvedTransitionAnchor
+            transitionAnchor: resolvedTransitionAnchor,
+            transitionFrame: effectTransitionFrame
         )
         let requestsGestureMaterializationBurst = output.effects.contains {
             effect in
@@ -1335,7 +1404,8 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
 
     private func drainInteractionEffects(
         _ initialEffects: [PlayerBrowserGridInteractionCoordinator.Effect],
-        transitionAnchor: (() -> GridModeGestureAnchor?)?
+        transitionAnchor: (() -> GridModeGestureAnchor?)?,
+        transitionFrame: GridTransitionFrame?
     ) -> (
         succeeded: Bool,
         needsVisibleCellQualityReconciliation: Bool
@@ -1449,7 +1519,11 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
                 )
 
             case let .commitPlane(id, mode):
-                guard commitPlaneGeometry(id: id, mode: mode) else {
+                guard commitPlaneGeometry(
+                    id: id,
+                    mode: mode,
+                    transitionFrame: transitionFrame
+                ) else {
                     enqueueRendererFailureRecovery()
                     continue effectLoop
                 }
@@ -1510,10 +1584,7 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
                 reconcileFrameDriving()
                 pendingEffects.insert(contentsOf: output.effects, at: 0)
 
-            case let .reconcileMedia(cancelsPrefetchLoads):
-                if cancelsPrefetchLoads {
-                    imagePipeline?.cancelAllPrefetchLoads()
-                }
+            case .reconcileMedia:
                 imagePipeline?.resetThumbnailWindow()
                 needsVisibleCellQualityReconciliation = true
                 reconcileVisibleCellsIfNeeded()
@@ -1589,6 +1660,12 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
         _ = renderer.begin(
             gestureAnchor: transitionAnchor?(),
             sourceLayout: sourceLayout,
+            sourceImageDecodeVariant:
+                MobilePlayerCollectionBrowserGridImageDecodeVariant.resolve(
+                    for: sourceLayout,
+                    displayScale: currentState?()
+                        .currentLayoutDisplayScale ?? 3
+            ),
             wasCollectionViewPrefetchingEnabled:
                 wasCollectionViewPrefetchingEnabled
         )
@@ -1612,6 +1689,9 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
             setScrollingSuspended(false)
             imagePipeline.demoteVisibleImageLoadsIfNeeded()
             imagePipeline.resumeVisibleImageLoadsIfNeeded()
+            if !settlesPosition {
+                browserEffects?.prepareCurrentImageWindowIfPossible()
+            }
             scheduleGeometryPrewarmIfPossible()
             return
         }
@@ -1644,6 +1724,8 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
         setScrollingSuspended(false)
         if settlesPosition {
             browserEffects?.settleCurrentPosition()
+        } else {
+            browserEffects?.prepareCurrentImageWindowIfPossible()
         }
         imagePipeline.demoteVisibleImageLoadsIfNeeded()
         imagePipeline.resumeVisibleImageLoadsIfNeeded()
@@ -1668,13 +1750,22 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
 
     private func commitPlaneGeometry(
         id: UUID,
-        mode: MobileCollectionBrowserGridMode
+        mode: MobileCollectionBrowserGridMode,
+        transitionFrame: GridTransitionFrame?
     ) -> Bool {
         guard let renderer,
               let collectionView,
               let layoutOperations,
               let browserEffects,
-              let scrollCoordinator,
+              let scrollCoordinator else {
+            return false
+        }
+        let barrierFrame = transitionFrame ?? GridTransitionFrame(
+            timestamp: frameDriver.now,
+            targetTimestamp: frameDriver.now
+                + GridTransitionFrame.maximumDuration
+        )
+        guard renderer.prepareForSnapshot(using: barrierFrame) != nil,
               let cover = installTransitionCover(at: frameDriver.now) else {
             return false
         }
@@ -1961,10 +2052,13 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
             return
         }
         reconcileSettleFrameDemand()
-        if transitionRuntime.needsFrames {
+        let shouldExternallyDriveRenderer = transitionRuntime.needsFrames
+            || coverRenderer.hasCover
+        renderer?.setTransitionFrameDriving(shouldExternallyDriveRenderer)
+        if shouldExternallyDriveRenderer {
             guard !frameDriver.isRunning else { return }
-            frameDriver.start { [weak self] timestamp in
-                self?.advanceFrame(to: timestamp)
+            frameDriver.start { [weak self] frame in
+                self?.advanceFrame(to: frame)
             }
         } else {
             frameDriver.stop()

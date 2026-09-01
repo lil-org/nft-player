@@ -2,6 +2,12 @@
 
 import QuartzCore
 import UIKit
+import os
+
+private let gridPlaneRendererSignposter = OSSignposter(
+    subsystem: Bundle.main.bundleIdentifier ?? "org.lil.nft-player",
+    category: "GridPlaneRenderer"
+)
 
 @MainActor
 final class GridPlaneRenderer {
@@ -114,6 +120,10 @@ final class GridPlaneRenderer {
     private weak var viewportView: UIView?
     private(set) var phantomShapeStructureBuildCount = 0
     private(set) var phantomShapeMaskBuildCount = 0
+
+#if DEBUG
+    private(set) var phantomShapeMaskCommitAttemptCount = 0
+#endif
 
     init(
         collectionView: MobilePlayerCollectionBrowserCollectionView,
@@ -417,10 +427,12 @@ final class GridPlaneRenderer {
                 anchorTokenIndex: plane.anchorTokenIndex,
                 transitionLayout: plane.transitionLayout,
                 crossfade: crossfade,
-                latticeMap: plane.latticeMap
+                latticeMap: plane.latticeMap,
+                imageDecodeVariant: plane.imageDecodeVariant
             ),
             rebase: rebase
         )
+        session.lastPlaneFrameRevision = nil
     }
 
     static func makeRebase(
@@ -968,6 +980,17 @@ final class GridPlaneRenderer {
     }
 
     func refreshPhantomShapeExclusionMask(session: GridRenderSession) {
+        session.phantomShapeMaskIsDirty = true
+        guard !session.defersPhantomShapeMaskCommits else { return }
+        commitPhantomShapeExclusionMask(session: session)
+    }
+
+    func commitPhantomShapeExclusionMask(session: GridRenderSession) {
+        guard session.phantomShapeMaskIsDirty else { return }
+        defer { session.phantomShapeMaskIsDirty = false }
+#if DEBUG
+        phantomShapeMaskCommitAttemptCount += 1
+#endif
         guard let placeholderView = session.phantomShapeView
             as? PhantomShapeView,
               let coverageBounds = placeholderView.renderedCoverageBounds
@@ -978,6 +1001,15 @@ final class GridPlaneRenderer {
         guard placeholderView.renderedOccupantFrames != occupantFrames
             || placeholderView.maskedCoverageBounds != coverageBounds else {
             return
+        }
+        let signpostState = gridPlaneRendererSignposter.beginInterval(
+            "PhantomMaskCommit"
+        )
+        defer {
+            gridPlaneRendererSignposter.endInterval(
+                "PhantomMaskCommit",
+                signpostState
+            )
         }
         phantomShapeMaskBuildCount += 1
         CATransaction.begin()

@@ -2,6 +2,7 @@
 
 import CoreGraphics
 import Foundation
+import os
 
 #if os(macOS)
 import AppKit
@@ -11,6 +12,7 @@ import UIKit
 
 extension Notification.Name {
     nonisolated static let downloadableMediaCacheFileAvailabilityDidChange = Notification.Name("DownloadableMediaCacheFileAvailabilityDidChange")
+    nonisolated static let downloadableMediaCacheDecodedImageDidBecomeAvailable = Notification.Name("DownloadableMediaCacheDecodedImageDidBecomeAvailable")
 }
 
 nonisolated enum DownloadableMediaCacheFileAvailabilityChange: Equatable, Sendable {
@@ -128,12 +130,6 @@ final class DownloadableMediaCache {
         let request: DownloadableMediaAsyncRequest<Void>
     }
 
-    private struct ImageDemandCountWaiter {
-        let id: UUID
-        let expectedCount: Int
-        let request: DownloadableMediaAsyncRequest<Void>
-    }
-
     private var beforeCorruptFileRemovalForTesting:
         (@Sendable () async -> Void)?
     private var afterCorruptFileRecoveryForTesting:
@@ -144,8 +140,6 @@ final class DownloadableMediaCache {
         (@Sendable () async -> Void)?
     private var fileLeaseCountWaitersForTesting =
         [String: [FileLeaseCountWaiter]]()
-    private var imageDemandCountWaitersForTesting =
-        [String: [ImageDemandCountWaiter]]()
 #endif
 
     private struct OngoingDownload {
@@ -160,10 +154,97 @@ final class DownloadableMediaCache {
     private typealias WindowFileAvailability =
         DownloadableMediaFileAvailability
 
+    private nonisolated struct DecodedImageRequest: Hashable, Sendable {
+        let descriptor: CollectionCatalogDownloadableMediaDescriptor
+        let variant: DownloadableMediaImageDecodeVariant
+    }
+
+    private struct DecodedVariantIndex {
+        private var variantsByMediaKey =
+            [String: Set<DownloadableMediaImageDecodeVariant>]()
+        private var collectionByMediaKey = [String: String]()
+
+        var count: Int {
+            variantsByMediaKey.values.reduce(0) { $0 + $1.count }
+        }
+
+        var indexedVariants: [(
+            mediaKey: String,
+            variant: DownloadableMediaImageDecodeVariant
+        )] {
+            variantsByMediaKey.flatMap { mediaKey, variants in
+                variants.map { (mediaKey, $0) }
+            }
+        }
+
+        func variants(for mediaKey: String) -> Set<DownloadableMediaImageDecodeVariant> {
+            variantsByMediaKey[mediaKey] ?? []
+        }
+
+        mutating func record(
+            mediaKey: String,
+            collectionId: String,
+            variant: DownloadableMediaImageDecodeVariant
+        ) {
+            variantsByMediaKey[mediaKey, default: []].insert(
+                variant.normalized
+            )
+            collectionByMediaKey[mediaKey] = collectionId
+        }
+
+        mutating func remove(
+            mediaKey: String,
+            variant: DownloadableMediaImageDecodeVariant
+        ) {
+            guard var variants = variantsByMediaKey[mediaKey] else {
+                return
+            }
+            variants.remove(variant.normalized)
+            if variants.isEmpty {
+                variantsByMediaKey.removeValue(forKey: mediaKey)
+                collectionByMediaKey.removeValue(forKey: mediaKey)
+            } else {
+                variantsByMediaKey[mediaKey] = variants
+            }
+        }
+
+        mutating func removeOutsideWindow(
+            collectionId: String,
+            allowedMediaKeys: Set<String>
+        ) {
+            let removedMediaKeys = Set(collectionByMediaKey.compactMap {
+                $0.value == collectionId && !allowedMediaKeys.contains($0.key)
+                    ? $0.key
+                    : nil
+            })
+            remove(mediaKeys: removedMediaKeys)
+        }
+
+        mutating func removeOutsideCollection(_ collectionId: String) {
+            let removedMediaKeys = Set(collectionByMediaKey.compactMap {
+                $0.value == collectionId ? nil : $0.key
+            })
+            remove(mediaKeys: removedMediaKeys)
+        }
+
+        mutating func removeAll() {
+            variantsByMediaKey.removeAll(keepingCapacity: false)
+            collectionByMediaKey.removeAll(keepingCapacity: false)
+        }
+
+        private mutating func remove(mediaKeys: Set<String>) {
+            guard !mediaKeys.isEmpty else { return }
+            mediaKeys.forEach {
+                variantsByMediaKey.removeValue(forKey: $0)
+                collectionByMediaKey.removeValue(forKey: $0)
+            }
+        }
+    }
+
     private nonisolated struct WindowWorkPlan: Sendable {
         let foregroundDescriptor: CollectionCatalogDownloadableMediaDescriptor
-        let requiresDecodedForegroundImage: Bool
-        let decodedDescriptors: [CollectionCatalogDownloadableMediaDescriptor]
+        let foregroundDecodeVariant: DownloadableMediaImageDecodeVariant?
+        let decodedRequests: [DecodedImageRequest]
         let downloadDescriptors: [CollectionCatalogDownloadableMediaDescriptor]
     }
 
@@ -184,6 +265,7 @@ final class DownloadableMediaCache {
     private struct ActiveDecode {
         let descriptor: CollectionCatalogDownloadableMediaDescriptor
         let fileURL: URL
+        let variant: DownloadableMediaImageDecodeVariant
         let generation: ImageDecodeGeneration
         let origin: ImageDecodeOrigin
     }
@@ -191,6 +273,7 @@ final class DownloadableMediaCache {
     private struct RunningDecode {
         let key: String
         let generation: ImageDecodeGeneration
+        let signpostState: OSSignpostIntervalState
     }
 
     private final class LoadRequest {
@@ -235,7 +318,8 @@ final class DownloadableMediaCache {
     private struct ImageLoadRequest {
         let request: LoadRequest
         let descriptor: CollectionCatalogDownloadableMediaDescriptor
-        let result: DownloadableMediaAsyncRequest<DownloadableMediaImage?>
+        let variant: DownloadableMediaImageDecodeVariant
+        let result: DownloadableMediaAsyncRequest<DownloadableMediaImageEntry?>
     }
     private typealias ImageLoadRequests = [UUID: ImageLoadRequest]
 
@@ -271,6 +355,17 @@ final class DownloadableMediaCache {
         let fileNames: Set<String>
         let allowedKeys: Set<String>
         let decodedKeys: Set<String>
+    }
+
+    private enum DiskProtectionOwner: Hashable, CaseIterable {
+        case activeWindow
+        case retainedFileNames
+        case pendingDescriptors
+        case ongoingDownloads
+        case activeDecodes
+        case retainedDecodeFailures
+        case imageDemands
+        case fileDemands
     }
 
 #if os(tvOS) || os(visionOS)
@@ -319,6 +414,23 @@ final class DownloadableMediaCache {
     private var memoryWarningObserver: NSObjectProtocol?
     private var knownAvailableFileURLs = [String: URL]()
     private var diskProtectionRevision: UInt64 = 0
+    private var diskProtectionPathCountsByOwner =
+        [DiskProtectionOwner: [String: Int]]()
+    private var diskProtectionPathReferenceCounts = [String: Int]()
+    private var decodedVariantIndex = DecodedVariantIndex()
+    private var pendingWindowDecodeVariantsByMediaKey =
+        [String: Set<DownloadableMediaImageDecodeVariant>]()
+#if DEBUG && os(iOS)
+    private var imageRequestCountForTesting = 0
+    private var imageDecodeCountForTesting = 0
+    private var protectionDeltaCountForTesting = 0
+    private var protectionFullRebuildCountForTesting = 0
+    private var protectionPathAdjustmentCountForTesting = 0
+#endif
+    private static let signposter = OSSignposter(
+        subsystem: "org.lil.nft-player",
+        category: "media-cache"
+    )
 
     private convenience init() {
         self.init(
@@ -606,7 +718,7 @@ final class DownloadableMediaCache {
         cancelFinalizedFileRemovals(retainedBy: nextWindow)
 #endif
         activeWindow = nextWindow
-        refreshDiskProtection()
+        updateDiskProtectionContributions(owners: [.activeWindow])
 
         if didChangeFileWindow {
 #if os(iOS) || os(macOS)
@@ -625,17 +737,11 @@ final class DownloadableMediaCache {
             )
         }
         pruneForegroundTracking(allowedKeys: nextWindow.allowedKeys)
-        if didChangeDecodedWindow {
-            invalidateUndemandedDecodeWork(
-                outside: nextWindow.decodedKeys,
-                startsDrain: false
-            )
-        }
 #if !os(iOS)
         if didChangeDecodedWindow {
             evictMemoryOutsideWindow(
                 collectionId: nextWindow.collectionId,
-                allowedKeys: nextWindow.decodedKeys
+                allowedMediaKeys: nextWindow.decodedKeys
             )
         }
 #endif
@@ -676,20 +782,26 @@ final class DownloadableMediaCache {
             reconcileInactiveWindowWork()
             return
         }
-        var decodedDescriptors = [CollectionCatalogDownloadableMediaDescriptor]()
+        var decodedRequests = [DecodedImageRequest]()
         var usedDecodedKeys = Set<String>()
         for window in activeWindows {
             for descriptor in window.mediaWindow.decodedDescriptors {
-                let key = cacheKey(for: descriptor)
+                let request = DecodedImageRequest(
+                    descriptor: descriptor,
+                    variant: window.mediaWindow.decodeVariant
+                )
+                let key = decodedRequestKey(for: request)
                 guard usedDecodedKeys.insert(key).inserted else { continue }
-                decodedDescriptors.append(descriptor)
+                decodedRequests.append(request)
             }
         }
         let downloadDescriptors = prioritizedDownloadDescriptors(for: activeWindows)
         scheduleWindowWork(WindowWorkPlan(
             foregroundDescriptor: foregroundWindow.mediaWindow.currentDescriptor,
-            requiresDecodedForegroundImage: foregroundWindow.mediaWindow.currentDescriptor.isStaticImage,
-            decodedDescriptors: decodedDescriptors,
+            foregroundDecodeVariant: foregroundDecodeVariant(
+                for: foregroundWindow.mediaWindow
+            ),
+            decodedRequests: decodedRequests,
             downloadDescriptors: downloadDescriptors
         ))
     }
@@ -698,14 +810,23 @@ final class DownloadableMediaCache {
         let downloadDescriptors = prioritizedDownloadDescriptors(for: mediaWindow)
         scheduleWindowWork(WindowWorkPlan(
             foregroundDescriptor: mediaWindow.currentDescriptor,
-            requiresDecodedForegroundImage: mediaWindow.currentDescriptor.isStaticImage,
-            decodedDescriptors: mediaWindow.decodedDescriptors,
+            foregroundDecodeVariant: foregroundDecodeVariant(
+                for: mediaWindow
+            ),
+            decodedRequests: mediaWindow.decodedDescriptors.map {
+                DecodedImageRequest(
+                    descriptor: $0,
+                    variant: mediaWindow.decodeVariant
+                )
+            },
             downloadDescriptors: downloadDescriptors
         ))
     }
 
     private func reconcileInactiveWindowWork() {
         cancelScheduledWindowWork()
+        pendingWindowDecodeVariantsByMediaKey.removeAll(keepingCapacity: false)
+        reconcileImageDecodeRequirements()
         foregroundKey = nil
         foregroundWorkKeys.removeAll()
         updateOngoingDownloadPriorities()
@@ -717,10 +838,18 @@ final class DownloadableMediaCache {
         suppressesPrefetchDecodeUntilNextWindowWork = false
 #endif
         windowWorkTask?.cancel()
+        pendingWindowDecodeVariantsByMediaKey = Dictionary(
+            grouping: plan.decodedRequests,
+            by: { cacheKey(for: $0.descriptor) }
+        ).mapValues { Set($0.map { $0.variant.normalized }) }
+        settleCachedPendingWindowDecodeVariants()
+        reconcileImageDecodeRequirements()
         windowWorkGeneration &+= 1
         let generation = windowWorkGeneration
         var locationsByKey = [String: DownloadableMediaDiskLocation]()
-        for descriptor in [plan.foregroundDescriptor] + plan.decodedDescriptors + plan.downloadDescriptors {
+        for descriptor in [plan.foregroundDescriptor]
+            + plan.decodedRequests.map(\.descriptor)
+            + plan.downloadDescriptors {
             let key = cacheKey(for: descriptor)
             locationsByKey[key] = layout.location(for: descriptor)
         }
@@ -812,7 +941,7 @@ final class DownloadableMediaCache {
     private func applyWindowWork(_ plan: WindowWorkPlan, availability: WindowFileAvailability) {
         var discoveredAvailableFile = false
         for descriptor in [plan.foregroundDescriptor]
-            + plan.decodedDescriptors
+            + plan.decodedRequests.map(\.descriptor)
             + plan.downloadDescriptors {
             let key = cacheKey(for: descriptor)
             if availability.hasFile(forKey: key) == true {
@@ -828,10 +957,10 @@ final class DownloadableMediaCache {
         }
         prioritizeForegroundImageIfNeeded(
             plan.foregroundDescriptor,
-            requireDecodedStaticImage: plan.requiresDecodedForegroundImage,
+            requiredDecodeVariant: plan.foregroundDecodeVariant,
             hasFile: availability.hasFile(forKey: cacheKey(for: plan.foregroundDescriptor))
         )
-        decodeCachedImagesIfNeeded(plan.decodedDescriptors, availability: availability)
+        decodeCachedImagesIfNeeded(plan.decodedRequests, availability: availability)
         for descriptor in plan.downloadDescriptors {
             enqueueDownloadIfNeeded(
                 descriptor,
@@ -845,6 +974,7 @@ final class DownloadableMediaCache {
 
     func cancelAllDownloads() {
         cancelScheduledWindowWork()
+        pendingWindowDecodeVariantsByMediaKey.removeAll(keepingCapacity: false)
 #if os(iOS) || os(macOS)
         cancelDiskPruneRemovalIfNeeded()
 #endif
@@ -859,7 +989,7 @@ final class DownloadableMediaCache {
         foregroundWorkKeys.removeAll()
         clearDecodedImageMemory()
         activeWindow = nil
-        refreshDiskProtection()
+        updateDiskProtectionContributions(owners: [.activeWindow])
         exclusiveWindowRegistration = nil
         managedWindowsByOwnerId.removeAll()
         windowPreparationSequence = 0
@@ -903,13 +1033,29 @@ final class DownloadableMediaCache {
 
     func image(
         for descriptor: CollectionCatalogDownloadableMediaDescriptor,
-        priority: DownloadableMediaRequestPriority = .foreground
+        priority: DownloadableMediaRequestPriority = .foreground,
+        variant: DownloadableMediaImageDecodeVariant = .full
     ) async -> DownloadableMediaImage? {
-        if let image = cachedDecodedImage(for: descriptor) {
-            return image
+        await imageEntry(
+            for: descriptor,
+            priority: priority,
+            variant: variant
+        )?.image
+    }
+
+    func imageEntry(
+        for descriptor: CollectionCatalogDownloadableMediaDescriptor,
+        priority: DownloadableMediaRequestPriority = .foreground,
+        variant: DownloadableMediaImageDecodeVariant = .full
+    ) async -> DownloadableMediaImageEntry? {
+        if let entry = cachedDecodedImageEntry(
+            for: descriptor,
+            variant: variant
+        ) {
+            return entry
         }
 
-        let request = DownloadableMediaAsyncRequest<DownloadableMediaImage?>()
+        let request = DownloadableMediaAsyncRequest<DownloadableMediaImageEntry?>()
         return await withTaskCancellationHandler {
             let scheduling: ImageLoadScheduling = priority == .foreground
                 ? .foreground
@@ -917,6 +1063,7 @@ final class DownloadableMediaCache {
             let cancellation = beginImageRequest(
                 for: descriptor,
                 scheduling: scheduling,
+                variant: variant,
                 result: request
             )
             request.installCancellation(cancellation ?? {})
@@ -928,8 +1075,21 @@ final class DownloadableMediaCache {
 
     func image(
         for token: GeneratedToken,
-        priority: DownloadableMediaRequestPriority = .foreground
+        priority: DownloadableMediaRequestPriority = .foreground,
+        variant: DownloadableMediaImageDecodeVariant = .full
     ) async -> DownloadableMediaImage? {
+        await imageEntry(
+            for: token,
+            priority: priority,
+            variant: variant
+        )?.image
+    }
+
+    func imageEntry(
+        for token: GeneratedToken,
+        priority: DownloadableMediaRequestPriority = .foreground,
+        variant: DownloadableMediaImageDecodeVariant = .full
+    ) async -> DownloadableMediaImageEntry? {
         guard let tokenIndex = CollectionCatalog.tokenIndex(
             specificCollectionId: token.fullCollectionId,
             tokenId: token.id
@@ -940,7 +1100,11 @@ final class DownloadableMediaCache {
         ) else {
             return nil
         }
-        return await image(for: descriptor, priority: priority)
+        return await imageEntry(
+            for: descriptor,
+            priority: priority,
+            variant: variant
+        )
     }
 
     func file(
@@ -977,7 +1141,8 @@ final class DownloadableMediaCache {
     private func beginImageRequest(
         for descriptor: CollectionCatalogDownloadableMediaDescriptor,
         scheduling: ImageLoadScheduling,
-        result: DownloadableMediaAsyncRequest<DownloadableMediaImage?>
+        variant: DownloadableMediaImageDecodeVariant,
+        result: DownloadableMediaAsyncRequest<DownloadableMediaImageEntry?>
     ) -> (@MainActor @Sendable () -> Void)? {
 #if os(iOS) || os(macOS)
         cancelDiskPruneRemovalIfNeeded()
@@ -998,10 +1163,25 @@ final class DownloadableMediaCache {
         let callback = ImageLoadRequest(
             request: request,
             descriptor: descriptor,
+            variant: variant.normalized,
             result: result
         )
+#if DEBUG && os(iOS)
+        imageRequestCountForTesting += 1
+#endif
+        Self.signposter.emitEvent(
+            "Image Request",
+            id: .exclusive
+        )
+        let didBeginImageDemand = completions[key]?.isEmpty != false
         completions[key, default: [:]][request.id] = callback
-        refreshDiskProtection()
+        if didBeginImageDemand {
+            retainDiskProtection(
+                owner: .imageDemands,
+                descriptor: descriptor
+            )
+        }
+        reconcileImageDecodeRequirement(forKey: key)
         reorderPendingImageDecodes()
 #if os(tvOS) || os(visionOS)
         rescheduleFileEvictionIfNeeded(for: [descriptor])
@@ -1013,8 +1193,12 @@ final class DownloadableMediaCache {
                 return
             }
 
-            let cachedImageLookup = self.cachedDecodedImageLookup(forKey: key)
-            if let cachedImage = cachedImageLookup.image {
+            let cachedImageLookup = self.cachedDecodedImageLookup(
+                forKey: key,
+                variant: variant
+            )
+            if let cachedImage = cachedImageLookup.image,
+               let cachedVariant = cachedImageLookup.variant {
                 guard self.removeCompletion(forKey: key, requestId: request.id) else {
                     return
                 }
@@ -1022,7 +1206,13 @@ final class DownloadableMediaCache {
                 if cachedImageLookup.recordsDiskAccess {
                     self.markCachedFileUsed(for: descriptor)
                 }
-                self.complete([callback], with: cachedImage)
+                self.complete(
+                    [callback],
+                    with: DownloadableMediaImageEntry(
+                        image: cachedImage,
+                        variant: cachedVariant
+                    )
+                )
                 return
             }
 
@@ -1039,7 +1229,7 @@ final class DownloadableMediaCache {
             case .foreground:
                 self.prioritizeForegroundImageIfNeeded(
                     descriptor,
-                    requireDecodedStaticImage: true,
+                    requiredDecodeVariant: variant,
                     hasFile: hasFile
                 )
             case .preservingPrefetch:
@@ -1056,10 +1246,12 @@ final class DownloadableMediaCache {
                         at: fileURL,
                         descriptor: descriptor,
                         key: key,
+                        variant: self.preferredImageDecodeVariant(forKey: key)
+                            ?? variant,
                         origin: .cachedFile
                     )
                 } else {
-                    self.reorderPendingImageDecodes()
+                    self.updateQueuedImageDecodeAfterDemandChange(forKey: key)
                 }
                 return
             }
@@ -1093,8 +1285,14 @@ final class DownloadableMediaCache {
             descriptor: descriptor,
             result: result
         )
+        let didBeginFileDemand = fileCompletions[key]?.isEmpty != false
         fileCompletions[key, default: [:]][request.id] = callback
-        refreshDiskProtection()
+        if didBeginFileDemand {
+            retainDiskProtection(
+                owner: .fileDemands,
+                descriptor: descriptor
+            )
+        }
 #if os(tvOS) || os(visionOS)
         rescheduleFileEvictionIfNeeded(for: [descriptor])
 #endif
@@ -1123,7 +1321,7 @@ final class DownloadableMediaCache {
 
             self.prioritizeForegroundImageIfNeeded(
                 descriptor,
-                requireDecodedStaticImage: false,
+                requiredDecodeVariant: nil,
                 hasFile: false
             )
             self.startDownloadsIfNeeded(fileAvailability: availability)
@@ -1210,22 +1408,52 @@ final class DownloadableMediaCache {
     }
 
     private func removeCompletion(forKey key: String, requestId: UUID) -> Bool {
+        let descriptor = completions[key]?[requestId]?.descriptor
+        let didEndDemand = completions[key]?.count == 1
         let removed = removeCallback(
             forKey: key,
             requestId: requestId,
             from: &completions
         )
         if removed {
-            refreshDiskProtection()
+            if didEndDemand, let descriptor {
+                releaseDiskProtection(owner: .imageDemands, descriptor: descriptor)
+            }
         }
         return removed
     }
 
-    private func detachImageCallbacks(forKey key: String) -> ImageLoadRequests {
-        guard let callbacks = completions.removeValue(forKey: key) else {
-            return [:]
+    private func detachImageCallbacks(
+        forKey key: String,
+        variant: DownloadableMediaImageDecodeVariant? = nil
+    ) -> ImageLoadRequests {
+        guard let storedCallbacks = completions[key] else { return [:] }
+        let callbacks: ImageLoadRequests
+        let didEndDemand: Bool
+        if let variant {
+            let normalizedVariant = variant.normalized
+            callbacks = storedCallbacks.filter {
+                normalizedVariant.satisfies($0.value.variant)
+            }
+            let remainingCallbacks = storedCallbacks.filter {
+                !normalizedVariant.satisfies($0.value.variant)
+            }
+            if remainingCallbacks.isEmpty {
+                completions.removeValue(forKey: key)
+                didEndDemand = true
+            } else {
+                completions[key] = remainingCallbacks
+                didEndDemand = false
+            }
+        } else {
+            callbacks = storedCallbacks
+            completions.removeValue(forKey: key)
+            didEndDemand = true
         }
-        refreshDiskProtection()
+        guard !callbacks.isEmpty else { return [:] }
+        if didEndDemand, let descriptor = callbacks.values.first?.descriptor {
+            releaseDiskProtection(owner: .imageDemands, descriptor: descriptor)
+        }
         return callbacks
     }
 
@@ -1235,22 +1463,49 @@ final class DownloadableMediaCache {
         }
     }
 
+    private func completeCachedImageCallbacksIfPossible(forKey key: String) {
+        let callbacks = Array((completions[key] ?? [:]).values)
+        var didCompleteCallback = false
+        for callback in callbacks {
+            guard let entry = cachedDecodedImageEntry(
+                for: callback.descriptor,
+                variant: callback.variant
+            ), removeCompletion(
+                forKey: key,
+                requestId: callback.request.id
+            ) else {
+                continue
+            }
+            didCompleteCallback = true
+            complete([callback], with: entry)
+        }
+        if didCompleteCallback {
+            updateQueuedImageDecodeAfterDemandChange(forKey: key)
+        }
+    }
+
     private func detachFileCallbacks(forKey key: String) -> FileLoadRequests {
         guard let callbacks = fileCompletions.removeValue(forKey: key) else {
             return [:]
         }
-        refreshDiskProtection()
+        if let descriptor = callbacks.values.first?.descriptor {
+            releaseDiskProtection(owner: .fileDemands, descriptor: descriptor)
+        }
         return callbacks
     }
 
     private func removeFileCompletion(forKey key: String, requestId: UUID) -> Bool {
+        let descriptor = fileCompletions[key]?[requestId]?.descriptor
+        let didEndDemand = fileCompletions[key]?.count == 1
         let removed = removeCallback(
             forKey: key,
             requestId: requestId,
             from: &fileCompletions
         )
         if removed {
-            refreshDiskProtection()
+            if didEndDemand, let descriptor {
+                releaseDiskProtection(owner: .fileDemands, descriptor: descriptor)
+            }
         }
         return removed
     }
@@ -1298,7 +1553,7 @@ final class DownloadableMediaCache {
         for fileNameKey in fileNameKeys {
             retainedFileNameKeys[fileNameKey, default: 0] += 1
         }
-        refreshDiskProtection()
+        retainDiskProtection(owner: .retainedFileNames, descriptor: descriptor)
 #if os(tvOS) || os(visionOS)
         if let activeWindow {
             scheduleFileEvictionOutsideWindow(
@@ -1314,7 +1569,11 @@ final class DownloadableMediaCache {
             guard releaseToken.take() else { return }
             Task { @MainActor [weak self] in
                 guard let self else { return }
-                self.releaseRetainedFile(forKey: key, fileNameKeys: fileNameKeys)
+                self.releaseRetainedFile(
+                    for: descriptor,
+                    key: key,
+                    fileNameKeys: fileNameKeys
+                )
                 if !self.hasRetainedFile(forKey: key) {
                     await self.handleRetainedDecodeFailureIfNeeded(forKey: key)
                     self.cancelFileWorkIfNoLongerNeeded(for: descriptor, key: key)
@@ -1338,17 +1597,54 @@ final class DownloadableMediaCache {
         }
     }
 
-    func cachedDecodedImage(for descriptor: CollectionCatalogDownloadableMediaDescriptor) -> DownloadableMediaImage? {
+    func cachedDecodedImage(
+        for descriptor: CollectionCatalogDownloadableMediaDescriptor,
+        variant: DownloadableMediaImageDecodeVariant = .full
+    ) -> DownloadableMediaImage? {
+        cachedDecodedImageEntry(
+            for: descriptor,
+            variant: variant
+        )?.image
+    }
+
+    func cachedDecodedImageEntry(
+        for descriptor: CollectionCatalogDownloadableMediaDescriptor,
+        variant: DownloadableMediaImageDecodeVariant = .full
+    ) -> DownloadableMediaImageEntry? {
         let key = cacheKey(for: descriptor)
-        let lookup = cachedDecodedImageLookup(forKey: key)
-        guard let image = lookup.image else { return nil }
+        let lookup = cachedDecodedImageLookup(forKey: key, variant: variant)
+        guard let image = lookup.image,
+              let cachedVariant = lookup.variant else { return nil }
 
 #if os(iOS) || os(macOS)
         if lookup.recordsDiskAccess {
             markCachedFileUsed(for: descriptor)
         }
 #endif
-        return image
+        return DownloadableMediaImageEntry(
+            image: image,
+            variant: cachedVariant
+        )
+    }
+
+    func anyCachedDecodedImageEntry(
+        for descriptor: CollectionCatalogDownloadableMediaDescriptor
+    ) -> DownloadableMediaImageEntry? {
+        let lookup = anyCachedDecodedImageLookup(
+            forKey: cacheKey(for: descriptor)
+        )
+        guard let image = lookup.image,
+              let cachedVariant = lookup.variant else { return nil }
+
+#if os(iOS) || os(macOS)
+        if lookup.recordsDiskAccess {
+            markCachedFileUsed(for: descriptor)
+        }
+#endif
+        return DownloadableMediaImageEntry(
+            image: image,
+            variant: cachedVariant
+        )
     }
 
 #if DEBUG && os(iOS)
@@ -1366,18 +1662,6 @@ final class DownloadableMediaCache {
         )
     }
 
-    nonisolated static func shouldRetireQueuedImageDecodeForTesting(
-        isInDecodedWindow: Bool,
-        hasImageDemand: Bool,
-        hasStarted: Bool
-    ) -> Bool {
-        shouldRetireQueuedImageDecode(
-            isInDecodedWindow: isInDecodedWindow,
-            hasImageDemand: hasImageDemand,
-            hasStarted: hasStarted
-        )
-    }
-
     nonisolated static func imageDecodeGenerationStartResultsForTesting(
         invalidateBeforeStart: Bool
     ) -> [Bool] {
@@ -1390,10 +1674,21 @@ final class DownloadableMediaCache {
 
     func installDecodedImageForTesting(
         _ image: DownloadableMediaImage,
-        for descriptor: CollectionCatalogDownloadableMediaDescriptor
+        for descriptor: CollectionCatalogDownloadableMediaDescriptor,
+        variant: DownloadableMediaImageDecodeVariant = .full
     ) {
-        let key = cacheKey(for: descriptor)
+        let key = decodedCacheKey(for: descriptor, variant: variant)
         memoryCache.installInjectedImage(image, forKey: key)
+        synchronizeDecodedVariantIndex()
+        decodedVariantIndex.record(
+            mediaKey: cacheKey(for: descriptor),
+            collectionId: descriptor.collectionId,
+            variant: variant
+        )
+    }
+
+    func setDecodedImageCacheAcceptsInsertionsForTesting(_ acceptsInsertions: Bool) {
+        memoryCache.setAcceptsInsertionsForTesting(acceptsInsertions)
     }
 
     func installMemoryCachedImageForTesting(
@@ -1404,9 +1699,10 @@ final class DownloadableMediaCache {
     }
 
     func removeDecodedImageForTesting(
-        for descriptor: CollectionCatalogDownloadableMediaDescriptor
+        for descriptor: CollectionCatalogDownloadableMediaDescriptor,
+        variant: DownloadableMediaImageDecodeVariant = .full
     ) {
-        let key = cacheKey(for: descriptor)
+        let key = decodedCacheKey(for: descriptor, variant: variant)
         memoryCache.removeInjectedImage(forKey: key)
     }
 
@@ -1434,8 +1730,52 @@ final class DownloadableMediaCache {
         )
     }
 
+    func protectedDiskPathsForTesting() -> Set<String> {
+        diskStore.protectedPathsForTesting()
+    }
+
+    func exerciseImageDemandProtectionForTesting(
+        _ descriptors: [CollectionCatalogDownloadableMediaDescriptor]
+    ) {
+        for descriptor in descriptors {
+            retainDiskProtection(owner: .imageDemands, descriptor: descriptor)
+            releaseDiskProtection(owner: .imageDemands, descriptor: descriptor)
+        }
+    }
+
     func handleMemoryWarningForTesting() {
         handleMemoryWarning()
+    }
+
+    func waitForWindowWorkForTesting() async throws {
+        while windowWorkTask != nil {
+            try Task.checkCancellation()
+            await Task.yield()
+        }
+    }
+
+    func hasPendingWindowDecodeVariantForTesting(
+        for descriptor: CollectionCatalogDownloadableMediaDescriptor,
+        variant: DownloadableMediaImageDecodeVariant
+    ) -> Bool {
+        pendingWindowDecodeVariantsByMediaKey[cacheKey(for: descriptor)]?
+            .contains(variant.normalized) == true
+    }
+
+    func hasActiveImageDecodeForTesting(
+        for descriptor: CollectionCatalogDownloadableMediaDescriptor
+    ) -> Bool {
+        let key = cacheKey(for: descriptor)
+        return activeDecodesByKey[key] != nil
+            || runningDecode?.key == key
+            || pendingDecodeKeys.contains(key)
+    }
+
+    func decodedVariantMetadataCountsForTesting() -> (
+        count: Int,
+        capacity: Int
+    ) {
+        (decodedVariantIndex.count, memoryCache.metadataEntryCapacity)
     }
 
     func hasForegroundFileWorkForTesting(
@@ -1445,6 +1785,24 @@ final class DownloadableMediaCache {
         return foregroundKey == key
             && foregroundWorkKeys.contains(key)
             && (pendingKeys.contains(key) || ongoingDownloads[key] != nil)
+    }
+
+    func hasForegroundWorkForTesting(
+        for descriptor: CollectionCatalogDownloadableMediaDescriptor
+    ) -> Bool {
+        foregroundKey == cacheKey(for: descriptor)
+            && foregroundWorkKeys.contains(cacheKey(for: descriptor))
+    }
+
+    func prioritizeForegroundImageForTesting(
+        _ descriptor: CollectionCatalogDownloadableMediaDescriptor,
+        requiredDecodeVariant: DownloadableMediaImageDecodeVariant
+    ) {
+        prioritizeForegroundImageIfNeeded(
+            descriptor,
+            requiredDecodeVariant: requiredDecodeVariant,
+            hasFile: true
+        )
     }
 
     func hasScheduledFileWorkForTesting(
@@ -1461,36 +1819,29 @@ final class DownloadableMediaCache {
         return completions[key]?.count ?? 0
     }
 
+    func instrumentationCountsForTesting() -> (
+        imageRequests: Int,
+        imageDecodes: Int,
+        protectionDeltas: Int,
+        protectionFullRebuilds: Int,
+        protectionPathAdjustments: Int
+    ) {
+        (
+            imageRequestCountForTesting,
+            imageDecodeCountForTesting,
+            protectionDeltaCountForTesting,
+            protectionFullRebuildCountForTesting,
+            protectionPathAdjustmentCountForTesting
+        )
+    }
+
     func waitForImageDemandCountForTesting(
         for descriptor: CollectionCatalogDownloadableMediaDescriptor,
         expectedCount: Int
-    ) async {
-        let key = cacheKey(for: descriptor)
-        guard imageDemandCountForTesting(for: descriptor) != expectedCount else {
-            return
-        }
-        let waiterID = UUID()
-        let request = DownloadableMediaAsyncRequest<Void>()
-        await withTaskCancellationHandler {
-            if imageDemandCountForTesting(for: descriptor) == expectedCount {
-                return
-            }
-            imageDemandCountWaitersForTesting[key, default: []].append(
-                ImageDemandCountWaiter(
-                    id: waiterID,
-                    expectedCount: expectedCount,
-                    request: request
-                )
-            )
-            defer {
-                removeImageDemandCountWaiterForTesting(
-                    id: waiterID,
-                    forKey: key
-                )
-            }
-            await request.wait()
-        } onCancel: {
-            request.cancel(returning: ())
+    ) async throws {
+        while imageDemandCountForTesting(for: descriptor) != expectedCount {
+            try Task.checkCancellation()
+            await Task.yield()
         }
     }
 
@@ -1546,41 +1897,6 @@ final class DownloadableMediaCache {
         }
     }
 
-    private func resumeImageDemandCountWaitersForTesting() {
-        for key in Array(imageDemandCountWaitersForTesting.keys) {
-            let count = completions[key]?.count ?? 0
-            let waiters = imageDemandCountWaitersForTesting.removeValue(
-                forKey: key
-            ) ?? []
-            var pendingWaiters = [ImageDemandCountWaiter]()
-            for waiter in waiters {
-                if count == waiter.expectedCount {
-                    waiter.request.finish(())
-                } else {
-                    pendingWaiters.append(waiter)
-                }
-            }
-            if !pendingWaiters.isEmpty {
-                imageDemandCountWaitersForTesting[key] = pendingWaiters
-            }
-        }
-    }
-
-    private func removeImageDemandCountWaiterForTesting(
-        id: UUID,
-        forKey key: String
-    ) {
-        guard var waiters = imageDemandCountWaitersForTesting[key] else {
-            return
-        }
-        waiters.removeAll { $0.id == id }
-        if waiters.isEmpty {
-            _ = imageDemandCountWaitersForTesting.removeValue(forKey: key)
-        } else {
-            imageDemandCountWaitersForTesting[key] = waiters
-        }
-    }
-
     private func removeFileLeaseCountWaiterForTesting(
         id: UUID,
         forKey key: String
@@ -1599,6 +1915,7 @@ final class DownloadableMediaCache {
 
     private func clearDecodedImageMemory() {
         memoryCache.clear()
+        decodedVariantIndex.removeAll()
     }
 
     var webViewHTMLDirectoryURL: URL {
@@ -1660,16 +1977,30 @@ final class DownloadableMediaCache {
         memoryCache.configureLimits(
             decodedDescriptorCount: decodedDescriptorCount
         )
+        synchronizeDecodedVariantIndex()
+    }
+
+    private var activeForegroundMediaWindow: PlayerDownloadableMediaWindow? {
+        if let registration = exclusiveWindowRegistration,
+           !registration.isSuspended {
+            return registration.mediaWindow
+        }
+        return managedWindowsByOwnerId.values
+            .filter { !$0.isSuspended }
+            .max { $0.preparationSequence < $1.preparationSequence }?
+            .mediaWindow
     }
 
 #if os(iOS)
     private func handleMemoryWarning() {
-        let foregroundDescriptor = activeForegroundDescriptor
+        let foregroundDescriptor = activeForegroundMediaWindow?
+            .currentDescriptor
         let preservedForegroundKey = foregroundDescriptor.map(cacheKey(for:))
         cancelScheduledWindowWork()
+        pendingWindowDecodeVariantsByMediaKey.removeAll(keepingCapacity: false)
         suppressesPrefetchDecodeUntilNextWindowWork = true
         clearDecodedImageMemory()
-        invalidateUndemandedDecodeWork()
+        reconcileImageDecodeRequirements()
         cancelPrefetchDownloadsAndPendingWork(
             preservingForegroundKey: preservedForegroundKey
         )
@@ -1680,93 +2011,23 @@ final class DownloadableMediaCache {
         }
         prioritizeForegroundImageIfNeeded(
             foregroundDescriptor,
-            requireDecodedStaticImage: false
+            requiredDecodeVariant: nil
         )
         startDownloadsIfNeeded()
     }
 
-    private var activeForegroundDescriptor: CollectionCatalogDownloadableMediaDescriptor? {
-        if let registration = exclusiveWindowRegistration,
-           !registration.isSuspended {
-            return registration.mediaWindow.currentDescriptor
-        }
-        return managedWindowsByOwnerId.values
-            .filter { !$0.isSuspended }
-            .max { $0.preparationSequence < $1.preparationSequence }?
-            .mediaWindow.currentDescriptor
-    }
-
-    private func invalidateUndemandedDecodeWork() {
-        let keysToInvalidate = Set(activeDecodesByKey.keys.filter { key in
-            Self.shouldRetireQueuedImageDecode(
-                isInDecodedWindow: false,
-                hasImageDemand: hasImageDemandCallbacks(forKey: key),
-                hasStarted: isImageDecodeRunning(forKey: key)
-            )
-        })
-        invalidateImageDecodes(for: keysToInvalidate)
-    }
-
 #endif
 
-    private func invalidateUndemandedDecodeWork(
-        outside decodedWindowKeys: Set<String>,
-        startsDrain: Bool
-    ) {
-        let keysToInvalidate = Set(activeDecodesByKey.keys.filter { key in
-            Self.shouldRetireQueuedImageDecode(
-                isInDecodedWindow: decodedWindowKeys.contains(key),
-                hasImageDemand: hasImageDemandCallbacks(forKey: key),
-                hasStarted: isImageDecodeRunning(forKey: key)
-            )
-        })
-        invalidateImageDecodes(
-            for: keysToInvalidate,
-            startsDrain: startsDrain
-        )
-    }
-
-    private func invalidateImageDecodes(
-        for keys: Set<String>,
-        startsDrain: Bool = true
-    ) {
-        for key in keys {
-            activeDecodesByKey.removeValue(forKey: key)?.generation.invalidate()
-        }
-        pendingDecodeKeys.removeAll { keys.contains($0) }
-        if !keys.isEmpty {
-            refreshDiskProtection()
-        }
-        if startsDrain {
-            startNextImageDecodeIfNeeded()
-        }
-    }
-
     private func updateQueuedImageDecodeAfterDemandChange(forKey key: String) {
-        if Self.shouldRetireQueuedImageDecode(
-            isInDecodedWindow: activeWindow?.decodedKeys.contains(key) == true,
-            hasImageDemand: hasImageDemandCallbacks(forKey: key),
-            hasStarted: isImageDecodeRunning(forKey: key)
-        ) {
-            invalidateImageDecodes(for: [key])
-            return
-        }
+        reconcileImageDecodeRequirement(forKey: key)
         reorderPendingImageDecodes()
-    }
-
-    nonisolated private static func shouldRetireQueuedImageDecode(
-        isInDecodedWindow: Bool,
-        hasImageDemand: Bool,
-        hasStarted: Bool
-    ) -> Bool {
-        !isInDecodedWindow && !hasImageDemand && !hasStarted
     }
 
     private func invalidateAllImageDecodes() {
         activeDecodesByKey.values.forEach { $0.generation.invalidate() }
         activeDecodesByKey.removeAll()
         pendingDecodeKeys.removeAll()
-        refreshDiskProtection()
+        updateDiskProtectionContributions(owners: [.activeDecodes])
     }
 
 #if os(iOS) || os(macOS)
@@ -1814,77 +2075,195 @@ final class DownloadableMediaCache {
         await applyRemovedMediaURLs(result.removedMediaURLs)
     }
 
-    private func refreshDiskProtection() {
+    private func updateDiskProtectionContributions(
+        owners: Set<DiskProtectionOwner> = Set(DiskProtectionOwner.allCases)
+    ) {
+        let nextCountsByOwner = Dictionary(
+            uniqueKeysWithValues: owners.map {
+                ($0, diskProtectionPathCounts(for: $0))
+            }
+        )
+        var addedPaths = Set<String>()
+        var removedPaths = Set<String>()
+        for owner in owners {
+            let previousPaths = Set(
+                (diskProtectionPathCountsByOwner[owner] ?? [:]).keys
+            )
+            let nextPaths = Set((nextCountsByOwner[owner] ?? [:]).keys)
+            for path in nextPaths.subtracting(previousPaths) {
+                if retainDiskProtectionPath(path) {
+                    addedPaths.insert(path)
+                }
+            }
+        }
+        for owner in owners {
+            let previousPaths = Set(
+                (diskProtectionPathCountsByOwner[owner] ?? [:]).keys
+            )
+            let nextCounts = nextCountsByOwner[owner] ?? [:]
+            let nextPaths = Set(nextCounts.keys)
+            for path in previousPaths.subtracting(nextPaths) {
+                if releaseDiskProtectionPath(path) {
+                    removedPaths.insert(path)
+                }
+            }
+            diskProtectionPathCountsByOwner[owner] = nextCounts
+        }
+        guard !addedPaths.isEmpty || !removedPaths.isEmpty else {
+            return
+        }
         diskProtectionRevision &+= 1
-        let revision = diskProtectionRevision
-        let protectedPaths = protectedDiskCachePaths()
-        diskStore.setProtectedPaths(
-            protectedPaths,
-            revision: revision
+        diskStore.applyProtectedPathDelta(
+            adding: addedPaths,
+            removing: removedPaths,
+            revision: diskProtectionRevision
         )
 #if DEBUG && os(iOS)
-        resumeImageDemandCountWaitersForTesting()
+        protectionDeltaCountForTesting += 1
 #endif
+        Self.signposter.emitEvent("Protection Delta", id: .exclusive)
     }
 
+    private func retainDiskProtection(
+        owner: DiskProtectionOwner,
+        descriptor: CollectionCatalogDownloadableMediaDescriptor
+    ) {
+        adjustDiskProtection(
+            owner: owner,
+            adding: Set(layout.diskPaths(for: descriptor)),
+            removing: []
+        )
+    }
 
-    private func protectedDiskCachePaths(
-        extraProtectedPaths: Set<String> = []
-    ) -> Set<String> {
-        var protectedPaths = extraProtectedPaths
-        if let activeWindow {
+    private func releaseDiskProtection(
+        owner: DiskProtectionOwner,
+        descriptor: CollectionCatalogDownloadableMediaDescriptor
+    ) {
+        adjustDiskProtection(
+            owner: owner,
+            adding: [],
+            removing: Set(layout.diskPaths(for: descriptor))
+        )
+    }
+
+    private func adjustDiskProtection(
+        owner: DiskProtectionOwner,
+        adding pathsToAdd: Set<String>,
+        removing pathsToRemove: Set<String>
+    ) {
+#if DEBUG && os(iOS)
+        protectionPathAdjustmentCountForTesting +=
+            pathsToAdd.count + pathsToRemove.count
+#endif
+        var ownerCounts = diskProtectionPathCountsByOwner[owner] ?? [:]
+        var addedPaths = Set<String>()
+        var removedPaths = Set<String>()
+        for path in pathsToAdd {
+            let ownerCount = ownerCounts[path, default: 0]
+            ownerCounts[path] = ownerCount + 1
+            if ownerCount == 0, retainDiskProtectionPath(path) {
+                addedPaths.insert(path)
+            }
+        }
+        for path in pathsToRemove {
+            guard let ownerCount = ownerCounts[path] else { continue }
+            if ownerCount == 1 {
+                ownerCounts.removeValue(forKey: path)
+                if releaseDiskProtectionPath(path) {
+                    removedPaths.insert(path)
+                }
+            } else {
+                ownerCounts[path] = ownerCount - 1
+            }
+        }
+        diskProtectionPathCountsByOwner[owner] = ownerCounts
+        applyDiskProtectionDelta(adding: addedPaths, removing: removedPaths)
+    }
+
+    private func retainDiskProtectionPath(_ path: String) -> Bool {
+        let count = diskProtectionPathReferenceCounts[path, default: 0]
+        diskProtectionPathReferenceCounts[path] = count + 1
+        return count == 0
+    }
+
+    private func releaseDiskProtectionPath(_ path: String) -> Bool {
+        guard let count = diskProtectionPathReferenceCounts[path] else {
+            return false
+        }
+        if count == 1 {
+            diskProtectionPathReferenceCounts.removeValue(forKey: path)
+            return true
+        }
+        diskProtectionPathReferenceCounts[path] = count - 1
+        return false
+    }
+
+    private func applyDiskProtectionDelta(
+        adding addedPaths: Set<String>,
+        removing removedPaths: Set<String>
+    ) {
+        guard !addedPaths.isEmpty || !removedPaths.isEmpty else { return }
+        diskProtectionRevision &+= 1
+        diskStore.applyProtectedPathDelta(
+            adding: addedPaths,
+            removing: removedPaths,
+            revision: diskProtectionRevision
+        )
+#if DEBUG && os(iOS)
+        protectionDeltaCountForTesting += 1
+#endif
+        Self.signposter.emitEvent("Protection Delta", id: .exclusive)
+    }
+
+    private func diskProtectionPathCounts(
+        for owner: DiskProtectionOwner
+    ) -> [String: Int] {
+        func counts(
+            _ descriptors: some Sequence<CollectionCatalogDownloadableMediaDescriptor>
+        ) -> [String: Int] {
+            var result = [String: Int]()
+            for descriptor in descriptors {
+                for path in layout.diskPaths(for: descriptor) {
+                    result[path, default: 0] += 1
+                }
+            }
+            return result
+        }
+        switch owner {
+        case .retainedFileNames:
+            var result = [String: Int]()
+            for (key, count) in retainedFileNameKeys {
+                let path = layout.diskPath(for: collectionDirectory(
+                    collectionId: key.collectionId
+                ).appendingPathComponent(key.fileName))
+                result[path, default: 0] += count
+            }
+            return result
+        case .imageDemands:
+            return counts(completions.values.compactMap {
+                $0.values.first?.descriptor
+            })
+        case .fileDemands:
+            return counts(fileCompletions.values.compactMap {
+                $0.values.first?.descriptor
+            })
+        case .pendingDescriptors:
+            return counts(pendingDescriptors)
+        case .ongoingDownloads:
+            return counts(ongoingDownloads.values.map(\.descriptor))
+        case .activeDecodes:
+            return counts(activeDecodesByKey.values.map(\.descriptor))
+        case .retainedDecodeFailures:
+            return counts(retainedDecodeFailureDescriptors.values)
+        case .activeWindow:
+            guard let activeWindow else { return [:] }
             let directory = collectionDirectory(
                 collectionId: activeWindow.collectionId
             )
-            for fileName in activeWindow.fileNames {
-                protectedPaths.insert(
-                    layout.diskPath(
-                        for: directory.appendingPathComponent(fileName)
-                    )
-                )
-            }
+            return Dictionary(uniqueKeysWithValues: activeWindow.fileNames.map {
+                (layout.diskPath(for: directory.appendingPathComponent($0)), 1)
+            })
         }
-        for fileNameKey in retainedFileNameKeys.keys {
-            let directory = collectionDirectory(
-                collectionId: fileNameKey.collectionId
-            )
-            protectedPaths.insert(
-                layout.diskPath(
-                    for: directory.appendingPathComponent(fileNameKey.fileName)
-                )
-            )
-        }
-        for descriptor in pendingDescriptors {
-            protectedPaths.formUnion(layout.diskPaths(for: descriptor))
-        }
-        for download in ongoingDownloads.values {
-            protectedPaths.formUnion(
-                layout.diskPaths(for: download.descriptor)
-            )
-        }
-        for activeDecode in activeDecodesByKey.values {
-            protectedPaths.formUnion(
-                layout.diskPaths(for: activeDecode.descriptor)
-            )
-        }
-        for descriptor in retainedDecodeFailureDescriptors.values {
-            protectedPaths.formUnion(layout.diskPaths(for: descriptor))
-        }
-        for callbacks in completions.values {
-            for callback in callbacks.values {
-                protectedPaths.formUnion(
-                    layout.diskPaths(for: callback.descriptor)
-                )
-            }
-        }
-        for callbacks in fileCompletions.values {
-            for callback in callbacks.values {
-                protectedPaths.formUnion(
-                    layout.diskPaths(for: callback.descriptor)
-                )
-            }
-        }
-        return protectedPaths
     }
 
     private func markCachedFileUsed(for descriptor: CollectionCatalogDownloadableMediaDescriptor) {
@@ -1903,7 +2282,17 @@ final class DownloadableMediaCache {
     }
 #else
     private func markCachedFileUsed(for _: CollectionCatalogDownloadableMediaDescriptor) {}
-    private func refreshDiskProtection() {}
+    private func retainDiskProtection(
+        owner _: DiskProtectionOwner,
+        descriptor _: CollectionCatalogDownloadableMediaDescriptor
+    ) {}
+    private func releaseDiskProtection(
+        owner _: DiskProtectionOwner,
+        descriptor _: CollectionCatalogDownloadableMediaDescriptor
+    ) {}
+    private func updateDiskProtectionContributions(
+        owners _: Set<DiskProtectionOwner> = Set(DiskProtectionOwner.allCases)
+    ) {}
 #endif
 
     private func applyRemovedMediaURLs(
@@ -1971,7 +2360,7 @@ final class DownloadableMediaCache {
         } else {
             pendingDescriptors.append(descriptor)
         }
-        refreshDiskProtection()
+        retainDiskProtection(owner: .pendingDescriptors, descriptor: descriptor)
     }
 
     private func startDownloadsIfNeeded(fileAvailability: WindowFileAvailability? = nil) {
@@ -2002,6 +2391,8 @@ final class DownloadableMediaCache {
                 id: downloadId,
                 operation: operation
             )
+            retainDiskProtection(owner: .ongoingDownloads, descriptor: descriptor)
+            releaseDiskProtection(owner: .pendingDescriptors, descriptor: descriptor)
         }
     }
 
@@ -2017,7 +2408,7 @@ final class DownloadableMediaCache {
             if !isAllowed {
                 pendingDescriptors.remove(at: index)
                 pendingKeys.remove(key)
-                refreshDiskProtection()
+                releaseDiskProtection(owner: .pendingDescriptors, descriptor: descriptor)
                 continue
             }
 
@@ -2031,13 +2422,12 @@ final class DownloadableMediaCache {
             if hasFile {
                 pendingDescriptors.remove(at: index)
                 pendingKeys.remove(key)
-                refreshDiskProtection()
+                releaseDiskProtection(owner: .pendingDescriptors, descriptor: descriptor)
                 continue
             }
 
             pendingDescriptors.remove(at: index)
             pendingKeys.remove(key)
-            refreshDiskProtection()
             return descriptor
         }
         return nil
@@ -2230,10 +2620,17 @@ final class DownloadableMediaCache {
             return
         }
 
+        completeCachedImageCallbacksIfPossible(forKey: key)
+        guard let decodeVariant = preferredImageDecodeVariant(forKey: key) else {
+            finishForegroundWork(forKey: key)
+            return
+        }
+
         startImageDecode(
             at: fileURL,
             descriptor: descriptor,
             key: key,
+            variant: decodeVariant,
             origin: .freshDownload,
             replacingExisting: true
         )
@@ -2258,9 +2655,13 @@ final class DownloadableMediaCache {
         forKey key: String,
         downloadId: UUID
     ) -> Bool {
-        guard ongoingDownloads[key]?.id == downloadId else { return false }
+        guard let download = ongoingDownloads[key],
+              download.id == downloadId else { return false }
         ongoingDownloads.removeValue(forKey: key)
-        refreshDiskProtection()
+        releaseDiskProtection(
+            owner: .ongoingDownloads,
+            descriptor: download.descriptor
+        )
         return true
     }
 
@@ -2268,10 +2669,12 @@ final class DownloadableMediaCache {
         at fileURL: URL,
         descriptor: CollectionCatalogDownloadableMediaDescriptor,
         key: String,
+        variant: DownloadableMediaImageDecodeVariant = .full,
         origin: ImageDecodeOrigin,
         replacingExisting: Bool = false,
         startsDrain: Bool = true
     ) {
+        var replacesActiveDecode = false
         if let activeDecode = activeDecodesByKey[key] {
             guard replacingExisting,
                   activeDecode.origin != .freshDownload else {
@@ -2281,6 +2684,7 @@ final class DownloadableMediaCache {
             activeDecode.generation.invalidate()
             activeDecodesByKey.removeValue(forKey: key)
             pendingDecodeKeys.removeAll { $0 == key }
+            replacesActiveDecode = true
         }
 #if os(iOS) || os(macOS)
         cancelDiskPruneRemovalIfNeeded()
@@ -2289,10 +2693,13 @@ final class DownloadableMediaCache {
         activeDecodesByKey[key] = ActiveDecode(
             descriptor: descriptor,
             fileURL: fileURL,
+            variant: variant.normalized,
             generation: generation,
             origin: origin
         )
-        refreshDiskProtection()
+        if !replacesActiveDecode {
+            retainDiskProtection(owner: .activeDecodes, descriptor: descriptor)
+        }
         pendingDecodeKeys.append(key)
         if startsDrain {
             reorderPendingImageDecodes()
@@ -2311,6 +2718,43 @@ final class DownloadableMediaCache {
             foregroundKey: foregroundDecodeKey,
             preferredKeys: preferredKeys
         )
+    }
+
+    private func reconcileImageDecodeRequirements() {
+        Array(activeDecodesByKey.keys).forEach {
+            reconcileImageDecodeRequirement(forKey: $0)
+        }
+    }
+
+    private func reconcileImageDecodeRequirement(forKey key: String) {
+        guard let activeDecode = activeDecodesByKey[key] else {
+            return
+        }
+        let preferredVariant = preferredImageDecodeVariant(forKey: key)?
+            .normalized
+        guard preferredVariant != activeDecode.variant,
+              activeDecode.generation.invalidateIfPending() else { return }
+
+        guard let preferredVariant else {
+            activeDecodesByKey.removeValue(forKey: key)
+            pendingDecodeKeys.removeAll { $0 == key }
+            releaseDiskProtection(
+                owner: .activeDecodes,
+                descriptor: activeDecode.descriptor
+            )
+            return
+        }
+
+        activeDecodesByKey[key] = ActiveDecode(
+            descriptor: activeDecode.descriptor,
+            fileURL: activeDecode.fileURL,
+            variant: preferredVariant,
+            generation: ImageDecodeGeneration(),
+            origin: activeDecode.origin
+        )
+        if !pendingDecodeKeys.contains(key) {
+            pendingDecodeKeys.append(key)
+        }
     }
 
     nonisolated private static func orderedPendingImageDecodeKeys(
@@ -2342,38 +2786,54 @@ final class DownloadableMediaCache {
         return reorderedKeys
     }
 
-    private func isImageDecodeRunning(forKey key: String) -> Bool {
-        guard let runningDecode,
-              runningDecode.key == key,
-              let activeDecode = activeDecodesByKey[key],
-              activeDecode.generation === runningDecode.generation else {
-            return false
-        }
-        return runningDecode.generation.hasStarted
-    }
-
     private func startNextImageDecodeIfNeeded() {
         guard runningDecode == nil else { return }
         while !pendingDecodeKeys.isEmpty {
             let key = pendingDecodeKeys.removeFirst()
             guard let activeDecode = activeDecodesByKey[key] else { continue }
             let generation = activeDecode.generation
-            runningDecode = RunningDecode(key: key, generation: generation)
+            let signpostState = Self.signposter.beginInterval(
+                "Decode",
+                id: .exclusive
+            )
+#if DEBUG && os(iOS)
+            imageDecodeCountForTesting += 1
+#endif
+            runningDecode = RunningDecode(
+                key: key,
+                generation: generation,
+                signpostState: signpostState
+            )
             Task(priority: .utility) { @MainActor [weak self] in
                 guard let self else { return }
-                let transfer = await self.imageDecodeLane.decode(
-                    at: activeDecode.fileURL,
-                    generation: generation
-                )
+                let transfer: DownloadableMediaDecodedImageTransfer?
+                let fallbackVariant: DownloadableMediaImageDecodeVariant
+                if let variantDecoder = self.imageDecodeLane
+                    as? any DownloadableMediaVariantImageDecoding {
+                    fallbackVariant = activeDecode.variant
+                    transfer = await variantDecoder.decode(
+                        at: activeDecode.fileURL,
+                        variant: activeDecode.variant,
+                        generation: generation
+                    )
+                } else {
+                    fallbackVariant = .full
+                    transfer = await self.imageDecodeLane.decode(
+                        at: activeDecode.fileURL,
+                        generation: generation
+                    )
+                }
                 guard let runningDecode = self.runningDecode,
                       runningDecode.key == key,
                       runningDecode.generation === generation else {
                     return
                 }
                 self.runningDecode = nil
+                Self.signposter.endInterval("Decode", runningDecode.signpostState)
                 if let transfer {
                     await self.finishImageDecode(
                         transfer.image,
+                        variant: transfer.variant ?? fallbackVariant,
                         key: key,
                         generation: generation
                     )
@@ -2386,26 +2846,63 @@ final class DownloadableMediaCache {
 
     private func finishImageDecode(
         _ image: DownloadableMediaImage?,
+        variant decodedVariant: DownloadableMediaImageDecodeVariant,
         key: String,
         generation: ImageDecodeGeneration
     ) async {
         guard let activeDecode = activeDecodesByKey[key],
               activeDecode.generation === generation else { return }
         activeDecodesByKey.removeValue(forKey: key)
-        refreshDiskProtection()
+        releaseDiskProtection(
+            owner: .activeDecodes,
+            descriptor: activeDecode.descriptor
+        )
         if let image {
-            let callbacks = detachImageCallbacks(forKey: key)
+            let callbacks = detachImageCallbacks(
+                forKey: key,
+                variant: decodedVariant
+            )
             let hasDemandCallbacks = callbacks.values.contains {
                 !$0.request.isCancelled
             }
+            var cachedVariant: DownloadableMediaImageDecodeVariant?
             if shouldCacheDecodedImage(
                 activeDecode.descriptor,
                 key: key,
                 hasDemandCallbacks: hasDemandCallbacks
             ) {
-                cache(image, for: activeDecode.descriptor)
+                if cache(
+                    image,
+                    for: activeDecode.descriptor,
+                    variant: decodedVariant
+                ) {
+                    cachedVariant = decodedVariant
+                }
             }
-            finishForegroundWork(forKey: key, callbacks: callbacks, image: image)
+            settlePendingWindowDecodeVariants(
+                forKey: key,
+                attemptedVariant: activeDecode.variant,
+                cachedVariant: cachedVariant
+            )
+            finishForegroundWork(
+                forKey: key,
+                callbacks: callbacks,
+                entry: DownloadableMediaImageEntry(
+                    image: image,
+                    variant: decodedVariant
+                )
+            )
+            if let nextVariant = preferredImageDecodeVariant(forKey: key) {
+                startImageDecode(
+                    at: activeDecode.fileURL,
+                    descriptor: activeDecode.descriptor,
+                    key: key,
+                    variant: nextVariant,
+                    origin: .cachedFile,
+                    startsDrain: false
+                )
+            }
+            reorderPendingImageDecodes()
             return
         }
 
@@ -2462,7 +2959,7 @@ final class DownloadableMediaCache {
         redownloadsWhenReleased: Bool
     ) {
         retainedDecodeFailureDescriptors[key] = descriptor
-        refreshDiskProtection()
+        retainDiskProtection(owner: .retainedDecodeFailures, descriptor: descriptor)
         guard redownloadsWhenReleased,
               !activeImageCallbacks(forKey: key).isEmpty else {
             let callbacks = detachImageCallbacks(forKey: key)
@@ -2504,7 +3001,7 @@ final class DownloadableMediaCache {
 
     private func prioritizeForegroundImageIfNeeded(
         _ descriptor: CollectionCatalogDownloadableMediaDescriptor,
-        requireDecodedStaticImage: Bool,
+        requiredDecodeVariant: DownloadableMediaImageDecodeVariant?,
         hasFile knownFileAvailability: Bool? = nil
     ) {
         let key = cacheKey(for: descriptor)
@@ -2513,11 +3010,23 @@ final class DownloadableMediaCache {
         reorderPendingImageDecodes()
         updateOngoingDownloadPriorities()
 
+        let strongestRequiredVariant = strongestForegroundDecodeRequirement(
+            forKey: key,
+            including: requiredDecodeVariant
+        )
+
         let hasFile = knownFileAvailability
             ?? (knownAvailableFileURLs[key] != nil)
         let isReady: Bool
         if descriptor.isStaticImage {
-            isReady = cachedDecodedImage(forKey: key) != nil || (!requireDecodedStaticImage && hasFile)
+            if let strongestRequiredVariant {
+                isReady = cachedDecodedImage(
+                    forKey: key,
+                    variant: strongestRequiredVariant
+                ) != nil
+            } else {
+                isReady = hasFile
+            }
         } else {
             isReady = hasFile
         }
@@ -2543,6 +3052,118 @@ final class DownloadableMediaCache {
 
     private func hasImageDemandCallbacks(forKey key: String) -> Bool {
         completions[key]?.isEmpty == false
+    }
+
+    private func strongestForegroundDecodeRequirement(
+        forKey key: String,
+        including proposedVariant: DownloadableMediaImageDecodeVariant? = nil
+    ) -> DownloadableMediaImageDecodeVariant? {
+        guard foregroundKey == key else { return nil }
+        var variants = Set(activeImageCallbacks(forKey: key).values.map {
+            $0.variant.normalized
+        })
+        if let proposedVariant {
+            variants.insert(proposedVariant.normalized)
+        }
+        if let windowVariant = activeForegroundWindowDecodeRequirement(
+            forKey: key
+        ) {
+            variants.insert(windowVariant)
+        }
+        return orderedDecodeVariants(variants).first
+    }
+
+    private func activeForegroundWindowDecodeRequirement(
+        forKey key: String
+    ) -> DownloadableMediaImageDecodeVariant? {
+#if os(iOS)
+        guard !suppressesPrefetchDecodeUntilNextWindowWork else { return nil }
+#endif
+        guard let mediaWindow = activeForegroundMediaWindow,
+              cacheKey(for: mediaWindow.currentDescriptor) == key else {
+            return nil
+        }
+        return foregroundDecodeVariant(for: mediaWindow)?.normalized
+    }
+
+    private func preferredImageDecodeVariant(
+        forKey key: String
+    ) -> DownloadableMediaImageDecodeVariant? {
+        settleCachedPendingWindowDecodeVariants(forKey: key)
+        return nextDesiredDecodeVariant(forKey: key)
+    }
+
+    private func nextDesiredDecodeVariant(
+        forKey key: String
+    ) -> DownloadableMediaImageDecodeVariant? {
+        let callbackVariants = Set(activeImageCallbacks(forKey: key).values.map {
+            $0.variant.normalized
+        })
+        if let callbackVariant = orderedDecodeVariants(callbackVariants).first(where: {
+            cachedDecodedImage(forKey: key, variant: $0) == nil
+        }) {
+            return callbackVariant
+        }
+
+        return orderedDecodeVariants(
+            pendingWindowDecodeVariantsByMediaKey[key] ?? []
+        ).first
+    }
+
+    private func settleCachedPendingWindowDecodeVariants() {
+        for key in Array(pendingWindowDecodeVariantsByMediaKey.keys) {
+            settleCachedPendingWindowDecodeVariants(forKey: key)
+        }
+    }
+
+    private func settleCachedPendingWindowDecodeVariants(forKey key: String) {
+        guard let pendingVariants = pendingWindowDecodeVariantsByMediaKey[key]
+        else { return }
+        let remainingVariants = pendingVariants.filter {
+            cachedDecodedImage(forKey: key, variant: $0) == nil
+        }
+        updatePendingWindowDecodeVariants(remainingVariants, forKey: key)
+    }
+
+    private func settlePendingWindowDecodeVariants(
+        forKey key: String,
+        attemptedVariant: DownloadableMediaImageDecodeVariant,
+        cachedVariant: DownloadableMediaImageDecodeVariant?
+    ) {
+        guard var pendingVariants = pendingWindowDecodeVariantsByMediaKey[key]
+        else { return }
+        pendingVariants.remove(attemptedVariant.normalized)
+        if let cachedVariant {
+            pendingVariants = pendingVariants.filter {
+                !cachedVariant.normalized.satisfies($0)
+            }
+        }
+        updatePendingWindowDecodeVariants(pendingVariants, forKey: key)
+    }
+
+    private func updatePendingWindowDecodeVariants(
+        _ variants: Set<DownloadableMediaImageDecodeVariant>,
+        forKey key: String
+    ) {
+        if variants.isEmpty {
+            pendingWindowDecodeVariantsByMediaKey.removeValue(forKey: key)
+        } else {
+            pendingWindowDecodeVariantsByMediaKey[key] = variants
+        }
+    }
+
+    private func orderedDecodeVariants(
+        _ variants: Set<DownloadableMediaImageDecodeVariant>
+    ) -> [DownloadableMediaImageDecodeVariant] {
+        variants.sorted { lhs, rhs in
+            switch (lhs, rhs) {
+            case (.full, .full): return false
+            case (.full, _): return true
+            case (_, .full): return false
+            case let (.downsampled(left), .downsampled(right)):
+                return left > right
+            }
+        }
     }
 
     private func hasRetainedFile(forKey key: String) -> Bool {
@@ -2577,7 +3198,11 @@ final class DownloadableMediaCache {
         return protectedFileNames
     }
 
-    private func releaseRetainedFile(forKey key: String, fileNameKeys: [RetainedFileNameKey]) {
+    private func releaseRetainedFile(
+        for descriptor: CollectionCatalogDownloadableMediaDescriptor,
+        key: String,
+        fileNameKeys: [RetainedFileNameKey]
+    ) {
         decrementRetainedCount(for: key, in: &retainedFileKeys)
         for fileNameKey in fileNameKeys {
             decrementRetainedCount(for: fileNameKey, in: &retainedFileNameKeys)
@@ -2585,7 +3210,7 @@ final class DownloadableMediaCache {
 #if DEBUG && os(iOS)
         resumeFileLeaseCountWaitersForTesting(forKey: key)
 #endif
-        refreshDiskProtection()
+        releaseDiskProtection(owner: .retainedFileNames, descriptor: descriptor)
     }
 
 #if DEBUG && os(iOS)
@@ -2610,14 +3235,14 @@ final class DownloadableMediaCache {
         forKey key: String
     ) async {
         guard let descriptor = retainedDecodeFailureDescriptors.removeValue(forKey: key) else { return }
-        refreshDiskProtection()
+        updateDiskProtectionContributions(owners: [.retainedDecodeFailures])
         await removeCachedFileAfterDecodeFailure(
             for: descriptor,
             fileURL: fileURL(for: descriptor)
         )
         if hasRetainedFile(forKey: key) {
             retainedDecodeFailureDescriptors[key] = descriptor
-            refreshDiskProtection()
+            updateDiskProtectionContributions(owners: [.retainedDecodeFailures])
             return
         }
 
@@ -2715,10 +3340,20 @@ final class DownloadableMediaCache {
     private func finishForegroundWork(
         forKey key: String,
         callbacks: ImageLoadRequests = [:],
-        image: DownloadableMediaImage? = nil
+        entry: DownloadableMediaImageEntry? = nil
     ) {
-        markForegroundWorkFinished(forKey: key)
-        complete(callbacks, with: image)
+        let completedRequiredVariant = entry.map { entry in
+            guard let requiredVariant = strongestForegroundDecodeRequirement(
+                forKey: key
+            ) else {
+                return true
+            }
+            return entry.variant.satisfies(requiredVariant)
+        } ?? true
+        if completedRequiredVariant {
+            markForegroundWorkFinished(forKey: key)
+        }
+        complete(callbacks, with: entry)
         startDownloadsIfNeeded()
     }
 
@@ -2745,13 +3380,16 @@ final class DownloadableMediaCache {
     }
 
     private func decodeCachedImagesIfNeeded(
-        _ descriptors: [CollectionCatalogDownloadableMediaDescriptor],
+        _ requests: [DecodedImageRequest],
         availability: WindowFileAvailability? = nil
     ) {
-        for descriptor in descriptors {
+        for request in requests {
+            let descriptor = request.descriptor
             let key = cacheKey(for: descriptor)
+            settleCachedPendingWindowDecodeVariants(forKey: key)
             guard activeWindow?.decodedKeys.contains(key) == true,
-                  cachedDecodedImage(forKey: key) == nil else {
+                  pendingWindowDecodeVariantsByMediaKey[key]?
+                    .contains(request.variant.normalized) == true else {
                 continue
             }
 
@@ -2767,15 +3405,36 @@ final class DownloadableMediaCache {
                     at: fileURL,
                     descriptor: descriptor,
                     key: key,
+                    variant: preferredImageDecodeVariant(forKey: key)
+                        ?? request.variant,
                     origin: .cachedFile,
                     startsDrain: false
                 )
+            } else {
+                reconcileImageDecodeRequirement(forKey: key)
             }
         }
         reorderPendingImageDecodes(
-            preferredKeys: descriptors.map(cacheKey(for:))
+            preferredKeys: requests.map { cacheKey(for: $0.descriptor) }
         )
         startNextImageDecodeIfNeeded()
+    }
+
+    private func foregroundDecodeVariant(
+        for mediaWindow: PlayerDownloadableMediaWindow
+    ) -> DownloadableMediaImageDecodeVariant? {
+        guard mediaWindow.currentDescriptor.isStaticImage,
+              mediaWindow.decodedDescriptors.contains(
+                  mediaWindow.currentDescriptor
+              ) else { return nil }
+        return mediaWindow.decodeVariant
+    }
+
+    private func decodedRequestKey(for request: DecodedImageRequest) -> String {
+        decodedCacheKey(
+            for: request.descriptor,
+            variant: request.variant
+        )
     }
 
     private func prioritizedDownloadDescriptors(
@@ -2858,11 +3517,17 @@ final class DownloadableMediaCache {
         pendingKeys = Set(reorderedDescriptors.map { cacheKey(for: $0) })
     }
 
-    private func complete(_ callbacks: ImageLoadRequests, with image: DownloadableMediaImage?) {
-        complete(Array(callbacks.values), with: image)
+    private func complete(
+        _ callbacks: ImageLoadRequests,
+        with entry: DownloadableMediaImageEntry?
+    ) {
+        complete(Array(callbacks.values), with: entry)
     }
 
-    private func complete(_ callbacks: [ImageLoadRequest], with image: DownloadableMediaImage?) {
+    private func complete(
+        _ callbacks: [ImageLoadRequest],
+        with entry: DownloadableMediaImageEntry?
+    ) {
         let activeCallbacks = callbacks.filter { !$0.request.isCancelled }
         guard !activeCallbacks.isEmpty else {
 #if os(tvOS) || os(visionOS)
@@ -2873,7 +3538,7 @@ final class DownloadableMediaCache {
         Task { @MainActor [weak self] in
             activeCallbacks.forEach { callback in
                 guard !callback.request.isCancelled else { return }
-                callback.result.finish(image)
+                callback.result.finish(entry)
             }
 #if os(tvOS) || os(visionOS)
             self?.rescheduleFileEvictionIfNeeded(for: callbacks.map(\.descriptor))
@@ -2939,7 +3604,7 @@ final class DownloadableMediaCache {
         for key in keysToCancel {
             cancelDownload(forKey: key)
         }
-        refreshDiskProtection()
+        updateDiskProtectionContributions()
     }
 
     private func cancelDownloadsOutsideActiveCollection(collectionId: String) {
@@ -2962,7 +3627,7 @@ final class DownloadableMediaCache {
                 : nil
         }
         keysToCancel.forEach(cancelDownload)
-        refreshDiskProtection()
+        updateDiskProtectionContributions()
     }
 
     private func cancelDownload(forKey key: String) {
@@ -2973,7 +3638,7 @@ final class DownloadableMediaCache {
         if download.isFinalizing {
             complete(completions.removeValue(forKey: key) ?? [:], with: nil)
             completeFile(fileCompletions.removeValue(forKey: key) ?? [:], with: nil)
-            refreshDiskProtection()
+            updateDiskProtectionContributions()
             return
         }
         download.isCancelling = true
@@ -2981,7 +3646,7 @@ final class DownloadableMediaCache {
         download.operation.cancel()
         complete(completions.removeValue(forKey: key) ?? [:], with: nil)
         completeFile(fileCompletions.removeValue(forKey: key) ?? [:], with: nil)
-        refreshDiskProtection()
+        updateDiskProtectionContributions()
         Task { @MainActor [weak self] in
             guard let self else { return }
             await self.downloader.cancel(requestID: download.id)
@@ -3000,7 +3665,7 @@ final class DownloadableMediaCache {
                     hasFile: false
                 )
             }
-            self.refreshDiskProtection()
+            self.updateDiskProtectionContributions()
             self.startDownloadsIfNeeded()
         }
     }
@@ -3020,7 +3685,7 @@ final class DownloadableMediaCache {
         if !isDescriptorInActiveWindow(descriptor) {
             pendingDescriptors.removeAll { cacheKey(for: $0) == key }
             pendingKeys.remove(key)
-            refreshDiskProtection()
+            updateDiskProtectionContributions()
             cancelDownload(forKey: key)
         } else if !foregroundWorkKeys.isEmpty {
             cancelOngoingPrefetchDownloadForForeground(forKey: key)
@@ -3039,7 +3704,7 @@ final class DownloadableMediaCache {
         let fileCallbacks = unretainedCallbacks(from: &fileCompletions, retainedKeys: retainedKeys)
         complete(imageCallbacks, with: nil)
         completeFile(fileCallbacks, with: nil)
-        refreshDiskProtection()
+        updateDiskProtectionContributions()
     }
 
     private func removeAllCallbacks<Callback>(
@@ -3084,25 +3749,23 @@ final class DownloadableMediaCache {
 
         let keysToCancel = ongoingDownloads.keys.filter(shouldCancelKey)
         keysToCancel.forEach(cancelDownload)
-        refreshDiskProtection()
+        updateDiskProtectionContributions()
     }
 
     private func clearActiveWindowState() {
         cancelScheduledWindowWork()
+        pendingWindowDecodeVariantsByMediaKey.removeAll(keepingCapacity: false)
 #if os(tvOS) || os(visionOS)
         cancelScheduledFileEviction()
 #endif
         activeWindow = nil
-        invalidateUndemandedDecodeWork(
-            outside: [],
-            startsDrain: true
-        )
+        reconcileImageDecodeRequirements()
         exclusiveWindowRegistration = nil
         managedWindowsByOwnerId.removeAll()
         windowPreparationSequence = 0
         foregroundKey = nil
         foregroundWorkKeys.removeAll()
-        refreshDiskProtection()
+        updateDiskProtectionContributions()
 #if !os(iOS)
         clearDecodedImageMemory()
 #endif
@@ -3208,25 +3871,73 @@ final class DownloadableMediaCache {
 
 
 #if !os(iOS)
-    private func evictMemoryOutsideWindow(collectionId: String, allowedKeys: Set<String>) {
+    private func decodedMemoryKeys(
+        forMediaKeys mediaKeys: Set<String>
+    ) -> Set<String> {
+        Set(mediaKeys.flatMap { mediaKey in
+            decodedVariantIndex.variants(for: mediaKey).map {
+                decodedCacheKey(forKey: mediaKey, variant: $0)
+            }
+        })
+    }
+
+    private func evictMemoryOutsideWindow(
+        collectionId: String,
+        allowedMediaKeys: Set<String>
+    ) {
         memoryCache.evictOutsideWindow(
             collectionId: collectionId,
-            allowedKeys: allowedKeys
+            allowedKeys: decodedMemoryKeys(forMediaKeys: allowedMediaKeys)
+        )
+        decodedVariantIndex.removeOutsideWindow(
+            collectionId: collectionId,
+            allowedMediaKeys: allowedMediaKeys
         )
     }
 
     private func evictMemoryOutsideActiveCollection(collectionId: String) {
         memoryCache.evictOutsideActiveCollection(collectionId)
+        decodedVariantIndex.removeOutsideCollection(collectionId)
     }
 #endif
 
-    private func cache(_ image: DownloadableMediaImage, for descriptor: CollectionCatalogDownloadableMediaDescriptor) {
-        let key = cacheKey(for: descriptor)
-        memoryCache.insert(
+    @discardableResult
+    private func cache(
+        _ image: DownloadableMediaImage,
+        for descriptor: CollectionCatalogDownloadableMediaDescriptor,
+        variant: DownloadableMediaImageDecodeVariant = .full
+    ) -> Bool {
+        let key = decodedCacheKey(
+            for: descriptor,
+            variant: variant
+        )
+        guard memoryCache.insert(
             image,
             forKey: key,
             collectionId: descriptor.collectionId
+        ) else { return false }
+        synchronizeDecodedVariantIndex()
+        decodedVariantIndex.record(
+            mediaKey: cacheKey(for: descriptor),
+            collectionId: descriptor.collectionId,
+            variant: variant
         )
+        availabilityPublisher.postDecodedImageAvailable(for: descriptor)
+        return true
+    }
+
+    private func synchronizeDecodedVariantIndex() {
+        for indexedVariant in decodedVariantIndex.indexedVariants {
+            let key = decodedCacheKey(
+                forKey: indexedVariant.mediaKey,
+                variant: indexedVariant.variant
+            )
+            guard memoryCache.image(forKey: key) == nil else { continue }
+            decodedVariantIndex.remove(
+                mediaKey: indexedVariant.mediaKey,
+                variant: indexedVariant.variant
+            )
+        }
     }
 
     private func isDescriptorInActiveWindow(_ descriptor: CollectionCatalogDownloadableMediaDescriptor) -> Bool {
@@ -3251,7 +3962,10 @@ final class DownloadableMediaCache {
         hasDemandCallbacks: Bool
     ) -> Bool {
 #if os(iOS)
-        hasDemandCallbacks || shouldKeepDecodedImage(descriptor, key: key)
+        hasDemandCallbacks
+            || shouldKeepDecodedImage(descriptor, key: key)
+            || (!suppressesPrefetchDecodeUntilNextWindowWork
+                && isDescriptorInActiveWindow(descriptor))
 #else
         shouldKeepDecodedImage(descriptor, key: key)
 #endif
@@ -3261,15 +3975,120 @@ final class DownloadableMediaCache {
         layout.cacheKey(for: descriptor)
     }
 
-    private func cachedDecodedImage(forKey key: String) -> DownloadableMediaImage? {
-        cachedDecodedImageLookup(forKey: key).image
+    private func cachedDecodedImage(
+        forKey key: String,
+        variant: DownloadableMediaImageDecodeVariant = .full
+    ) -> DownloadableMediaImage? {
+        cachedDecodedImageLookup(forKey: key, variant: variant).image
+    }
+
+    private func anyCachedDecodedImageLookup(
+        forKey key: String
+    ) -> (
+        image: DownloadableMediaImage?,
+        variant: DownloadableMediaImageDecodeVariant?,
+        recordsDiskAccess: Bool
+    ) {
+        let downsampledVariants = decodedVariantIndex.variants(for: key)
+            .compactMap { variant -> (Int, DownloadableMediaImageDecodeVariant)? in
+                guard case let .downsampled(maxPixelWidth) = variant else {
+                    return nil
+                }
+                return (maxPixelWidth, variant)
+            }
+            .sorted { $0.0 < $1.0 }
+        for (_, variant) in downsampledVariants {
+            let lookup = memoryCache.lookup(
+                forKey: decodedCacheKey(forKey: key, variant: variant)
+            )
+            if let image = lookup.image {
+                return (image, variant, lookup.recordsDiskAccess)
+            }
+            decodedVariantIndex.remove(mediaKey: key, variant: variant)
+        }
+        let fullLookup = memoryCache.lookup(
+            forKey: decodedCacheKey(forKey: key, variant: .full)
+        )
+        if let image = fullLookup.image {
+            return (image, .full, fullLookup.recordsDiskAccess)
+        }
+        decodedVariantIndex.remove(mediaKey: key, variant: .full)
+        return (nil, nil, fullLookup.recordsDiskAccess)
     }
 
     private func cachedDecodedImageLookup(
-        forKey key: String
-    ) -> (image: DownloadableMediaImage?, recordsDiskAccess: Bool) {
-        let lookup = memoryCache.lookup(forKey: key)
-        return (lookup.image, lookup.recordsDiskAccess)
+        forKey key: String,
+        variant: DownloadableMediaImageDecodeVariant = .full
+    ) -> (
+        image: DownloadableMediaImage?,
+        variant: DownloadableMediaImageDecodeVariant?,
+        recordsDiskAccess: Bool
+    ) {
+        let normalizedVariant = variant.normalized
+        let lookup = memoryCache.lookup(
+            forKey: decodedCacheKey(forKey: key, variant: normalizedVariant)
+        )
+        if let image = lookup.image {
+            return (
+                image,
+                normalizedVariant,
+                lookup.recordsDiskAccess
+            )
+        }
+        decodedVariantIndex.remove(
+            mediaKey: key,
+            variant: normalizedVariant
+        )
+        if normalizedVariant == .full {
+            return (nil, nil, lookup.recordsDiskAccess)
+        }
+        if case let .downsampled(maxPixelWidth) = normalizedVariant {
+            let candidates = decodedVariantIndex.variants(for: key)
+                .compactMap { candidate -> (Int, DownloadableMediaImageDecodeVariant)? in
+                    guard case let .downsampled(candidateWidth) = candidate,
+                          candidateWidth >= maxPixelWidth else { return nil }
+                    return (candidateWidth, candidate)
+                }
+                .sorted { $0.0 < $1.0 }
+            for (_, candidate) in candidates {
+                let candidateLookup = memoryCache.lookup(
+                    forKey: decodedCacheKey(forKey: key, variant: candidate)
+                )
+                if let image = candidateLookup.image {
+                    return (
+                        image,
+                        candidate,
+                        candidateLookup.recordsDiskAccess
+                    )
+                }
+                decodedVariantIndex.remove(
+                    mediaKey: key,
+                    variant: candidate
+                )
+            }
+        }
+        let fullLookup = memoryCache.lookup(
+            forKey: decodedCacheKey(forKey: key, variant: .full)
+        )
+        if let image = fullLookup.image {
+            return (image, .full, fullLookup.recordsDiskAccess)
+        }
+        decodedVariantIndex.remove(mediaKey: key, variant: .full)
+        return (nil, nil, lookup.recordsDiskAccess)
+    }
+
+    private func decodedCacheKey(
+        for descriptor: CollectionCatalogDownloadableMediaDescriptor,
+        variant: DownloadableMediaImageDecodeVariant
+    ) -> String {
+        decodedCacheKey(forKey: cacheKey(for: descriptor), variant: variant)
+    }
+
+    private func decodedCacheKey(
+        forKey key: String,
+        variant: DownloadableMediaImageDecodeVariant
+    ) -> String {
+        "\(key)|decode|\(variant.normalized.cacheKeyComponent)"
     }
 
     nonisolated private func fileURL(for descriptor: CollectionCatalogDownloadableMediaDescriptor) -> URL {

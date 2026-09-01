@@ -137,6 +137,43 @@ extension MobileCollectionBrowserGridModePresentationTests {
     }
 
 #if DEBUG
+    func testFailedAccessibilityAttemptRestoresDecodedWindow() async throws {
+        let metadata = try collectionMetadata(minimumTokenCount: 100)
+        let fixture = try makeFixture(collectionId: metadata.id)
+        defer { tearDownFixture(fixture) }
+        let collectionView = try XCTUnwrap(
+            fixture.controller.view.subviews.first {
+                $0 is MobilePlayerCollectionBrowserCollectionView
+            } as? MobilePlayerCollectionBrowserCollectionView
+        )
+        try await selectGridMode(
+            .fiveColumns,
+            controller: fixture.controller
+        )
+        let initialMetrics = fixture.controller.thumbnailWindowMetrics
+        let attempt = try XCTUnwrap(
+            collectionView.onWillAccessibilityScroll?()
+        )
+        XCTAssertFalse(attempt.wasScrollMotionActive)
+        let motionMetrics = fixture.controller.thumbnailWindowMetrics
+        XCTAssertGreaterThan(
+            motionMetrics.fileOnlyPreparations,
+            initialMetrics.fileOnlyPreparations
+        )
+
+        collectionView.onAccessibilityScrollResult?(false, attempt)
+
+        let restoredMetrics = fixture.controller.thumbnailWindowMetrics
+        XCTAssertEqual(
+            restoredMetrics.fileOnlyPreparations,
+            motionMetrics.fileOnlyPreparations
+        )
+        XCTAssertGreaterThan(
+            restoredMetrics.preparations,
+            motionMetrics.preparations
+        )
+    }
+
     func testFailedAccessibilityAttemptReschedulesGeometryPrewarming() throws {
         let fixture = try makeFixture(
             collectionId: collectionId(internalSlug: "in_your_dreams")

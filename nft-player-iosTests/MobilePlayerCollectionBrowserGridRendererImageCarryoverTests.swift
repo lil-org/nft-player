@@ -181,7 +181,8 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         let completion = Box<((UIImage?) -> Void)?>(nil)
         let cancellationCount = Counter()
         let cachedImage = Box<
-            MobilePlayerCollectionBrowserGridRenderer.ImageAccess.CachedImage?
+            MobilePlayerCollectionBrowserGridRenderer.ImageAccess
+                .LegacyCachedImage?
         >(nil)
         let fixture = try makeFixture(
             itemCount: 1,
@@ -1082,7 +1083,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             id: fixture.planeRequest.id,
             scale: 0.8,
             settleProgress: PlayerBrowserGridCrossfade
-                .contentFadeRearmSettleProgress + 0.02,
+                .contentFadeRearmSettleProgress + 0.0009,
             panDeltaY: 0
         ))
         XCTAssertTrue(
@@ -1094,7 +1095,8 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         XCTAssertTrue(fixture.renderer.renderSettle(
             id: fixture.planeRequest.id,
             scale: 0.8,
-            settleProgress: 0.2,
+            settleProgress: PlayerBrowserGridCrossfade
+                .contentFadeRearmSettleProgress - 0.0009,
             panDeltaY: 0
         ))
         XCTAssertFalse(
@@ -1403,6 +1405,74 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             reentered.session.transitionImageLoads[
                 reentered.representationID
             ]
+        )
+        _ = fixture.renderer.finish(preservingCarryover: false)
+    }
+
+    func testPreparedContentKeepsSharperEqualQualityVariantOnReentry()
+        throws {
+        let returnsFullVariant = Box(true)
+        let fullImage = makeImage()
+        let destinationImage = makeImage()
+        let requestedVariants = Box<[DownloadableMediaImageDecodeVariant]>([])
+        let imageSources = makeDistinctImageSources()
+        let fixture = try makeFixture(
+            itemCount: 240,
+            sourceColumnCount: 5,
+            destinationColumnCount: 3,
+            destinationMode: .threeColumns,
+            showsSourceGrid: true,
+            providesContentAccess: true,
+            anchorItemIndex: 0,
+            contentImageSources: imageSources,
+            imageAccess: .init(
+                cachedImage: { imageSources, _, decodeSelection in
+                    guard case let .satisfying(requestedVariant) =
+                        decodeSelection.normalized else {
+                        return nil
+                    }
+                    requestedVariants.value.append(requestedVariant)
+                    return (
+                        imageSources.thumbnailDescriptor,
+                        .thumbnail,
+                        returnsFullVariant.value ? fullImage : destinationImage,
+                        returnsFullVariant.value ? .full : requestedVariant
+                    )
+                },
+                loadImage: { _, _, _ in {} }
+            ),
+            imageDecodeVariant: .downsampled(maxPixelWidth: 160)
+        )
+        let reentered = try reenterPreparedRepresentation(
+            fixture: fixture,
+            panDistanceInViewports: 0.5,
+            afterInitialMaterialization: {
+                returnsFullVariant.value = false
+            }
+        )
+
+        XCTAssertNotEqual(fixture.planeRequest.imageDecodeVariant, .full)
+        XCTAssertGreaterThan(requestedVariants.value.count, 1)
+        XCTAssertTrue(requestedVariants.value.allSatisfy {
+            $0 == fixture.planeRequest.imageDecodeVariant
+        })
+        XCTAssertTrue(primaryTransitionImage(in: reentered.cell) === fullImage)
+        let sourceItem = try XCTUnwrap(
+            reentered.session.cachedSourceRepresentations[
+                reentered.representationID
+            ]?.itemIndex
+        )
+        let destinationItem = try XCTUnwrap(
+            reentered.session.reassignments[sourceItem]
+        )
+        XCTAssertEqual(
+            reentered.cell.incomingTransitionContentDecodeVariant(
+                representing: MobilePlayerBrowserContentIdentity(
+                    collectionId: "collection",
+                    tokenIndex: destinationItem
+                )
+            ),
+            .full
         )
         _ = fixture.renderer.finish(preservingCarryover: false)
     }
@@ -1986,7 +2056,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         XCTAssertTrue(fixture.renderer.renderSettle(
             id: fixture.planeRequest.id,
             scale: 0.8,
-            settleProgress: 0.2,
+            settleProgress: 0.0009,
             panDeltaY: 0
         ))
         XCTAssertFalse(
@@ -2138,6 +2208,154 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         )
         XCTAssertEqual(cacheAccessCount.value, 1)
         XCTAssertEqual(selectionPolicies.value.last, .highestAvailable)
+        _ = fixture.renderer.finish(preservingCarryover: true)
+    }
+
+    func testCommitFallbackRetriesSourceDecodeVariant() throws {
+        let sourceVariant: DownloadableMediaImageDecodeVariant =
+            .downsampled(maxPixelWidth: 288)
+        let destinationVariant: DownloadableMediaImageDecodeVariant = .full
+        let cacheIsReady = Box(false)
+        let expectedSelection = CollectionBrowseCachedImageDecodeSelection
+            .bestAvailable(
+                preferredVariants: [destinationVariant, sourceVariant]
+            )
+        let requestedSelections = Box<[
+            CollectionBrowseCachedImageDecodeSelection
+        ]>([])
+        let fallbackImage = makeImage()
+        let fixture = try makeFixture(
+            itemCount: 1,
+            sourceColumnCount: 5,
+            destinationColumnCount: 3,
+            destinationMode: .threeColumns,
+            showsSourceCell: true,
+            providesContentAccess: true,
+            imageAccess: .init(
+                cachedImage: { imageSources, _, decodeSelection in
+                    requestedSelections.value.append(decodeSelection)
+                    guard cacheIsReady.value,
+                          decodeSelection.normalized == expectedSelection else {
+                        return nil
+                    }
+                    return (
+                        imageSources.thumbnailDescriptor,
+                        .thumbnail,
+                        fallbackImage,
+                        sourceVariant
+                    )
+                },
+                loadImage: { _, _, _ in {} }
+            )
+        )
+        let destinationCell = try XCTUnwrap(
+            fixture.collectionView.visibleCells.first
+                as? MobilePlayerCollectionBrowserCell
+        )
+        XCTAssertEqual(
+            fixture.planeRequest.imageDecodeVariant,
+            destinationVariant
+        )
+        begin(fixture)
+        XCTAssertEqual(
+            try activeSession(fixture).sourceImageDecodeVariant,
+            sourceVariant
+        )
+        XCTAssertTrue(fixture.renderer.installPlane(fixture.planeRequest))
+        let preparation = try XCTUnwrap(fixture.renderer.prepareCommit(
+            id: fixture.planeRequest.id,
+            mode: .threeColumns
+        ))
+        cacheIsReady.value = true
+        let requestCountBeforeCompletion = requestedSelections.value.count
+
+        XCTAssertTrue(fixture.renderer.completeCommit(preparation))
+
+        XCTAssertEqual(
+            Array(requestedSelections.value.dropFirst(
+                requestCountBeforeCompletion
+            )),
+            [expectedSelection]
+        )
+        XCTAssertTrue(
+            destinationCell.carryoverSourceContent?.primary.image
+                === fallbackImage
+        )
+        _ = fixture.renderer.finish(preservingCarryover: true)
+    }
+
+    func testCommitFallbackUsesRetainedLowerDecodeVariant() throws {
+        let retainedVariant: DownloadableMediaImageDecodeVariant =
+            .downsampled(maxPixelWidth: 160)
+        let sourceVariant: DownloadableMediaImageDecodeVariant =
+            .downsampled(maxPixelWidth: 288)
+        let destinationVariant: DownloadableMediaImageDecodeVariant = .full
+        let cacheIsReady = Box(false)
+        let expectedSelection = CollectionBrowseCachedImageDecodeSelection
+            .bestAvailable(
+                preferredVariants: [destinationVariant, sourceVariant]
+            )
+        let requestedSelections = Box<[
+            CollectionBrowseCachedImageDecodeSelection
+        ]>([])
+        let fallbackImage = makeImage()
+        let fixture = try makeFixture(
+            itemCount: 1,
+            sourceColumnCount: 5,
+            destinationColumnCount: 3,
+            destinationMode: .threeColumns,
+            showsSourceCell: true,
+            providesContentAccess: true,
+            imageAccess: .init(
+                cachedImage: { imageSources, _, decodeSelection in
+                    requestedSelections.value.append(decodeSelection)
+                    guard cacheIsReady.value,
+                          decodeSelection.normalized == expectedSelection else {
+                        return nil
+                    }
+                    return (
+                        imageSources.thumbnailDescriptor,
+                        .thumbnail,
+                        fallbackImage,
+                        retainedVariant
+                    )
+                },
+                loadImage: { _, _, _ in {} }
+            )
+        )
+        let destinationCell = try XCTUnwrap(
+            fixture.collectionView.visibleCells.first
+                as? MobilePlayerCollectionBrowserCell
+        )
+        begin(fixture)
+        XCTAssertEqual(
+            try activeSession(fixture).sourceImageDecodeVariant,
+            sourceVariant
+        )
+        XCTAssertEqual(
+            fixture.planeRequest.imageDecodeVariant,
+            destinationVariant
+        )
+        XCTAssertTrue(fixture.renderer.installPlane(fixture.planeRequest))
+        let preparation = try XCTUnwrap(fixture.renderer.prepareCommit(
+            id: fixture.planeRequest.id,
+            mode: .threeColumns
+        ))
+        cacheIsReady.value = true
+        let requestCountBeforeCompletion = requestedSelections.value.count
+
+        XCTAssertTrue(fixture.renderer.completeCommit(preparation))
+
+        XCTAssertEqual(
+            Array(requestedSelections.value.dropFirst(
+                requestCountBeforeCompletion
+            )),
+            [expectedSelection]
+        )
+        XCTAssertTrue(
+            destinationCell.carryoverSourceContent?.primary.image
+                === fallbackImage
+        )
         _ = fixture.renderer.finish(preservingCarryover: true)
     }
 
@@ -2424,7 +2642,10 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
 
         XCTAssertTrue(fixture.renderer.completeCommit(preparation))
         XCTAssertNil(destinationCell.carryoverSourceContent)
-        XCTAssertEqual(selectionPolicies.value, [.highestAvailable])
+        XCTAssertEqual(
+            selectionPolicies.value,
+            [.highestAvailable]
+        )
         let finish = try XCTUnwrap(
             fixture.renderer.finish(preservingCarryover: true)
         )

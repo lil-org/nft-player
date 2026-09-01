@@ -2,6 +2,12 @@
 
 import QuartzCore
 import UIKit
+import os
+
+private let gridMaterializerSignposter = OSSignposter(
+    subsystem: Bundle.main.bundleIdentifier ?? "org.lil.nft-player",
+    category: "GridMaterializer"
+)
 
 @MainActor
 final class GridMaterializer {
@@ -27,17 +33,29 @@ final class GridMaterializer {
     }
 
     enum CellConfiguration: Equatable {
-        case sourceOverscan
+        case sourceOverscan(
+            imageDecodeVariant: DownloadableMediaImageDecodeVariant
+        )
         case destinationPhantom(
-            requiredImageQuality: CollectionBrowseImageQuality
+            requiredImageQuality: CollectionBrowseImageQuality,
+            imageDecodeVariant: DownloadableMediaImageDecodeVariant
         )
 
         var requiredImageQuality: CollectionBrowseImageQuality? {
             switch self {
             case .sourceOverscan:
                 nil
-            case let .destinationPhantom(requiredImageQuality):
+            case let .destinationPhantom(requiredImageQuality, _):
                 requiredImageQuality
+            }
+        }
+
+        var imageDecodeVariant: DownloadableMediaImageDecodeVariant {
+            switch self {
+            case let .sourceOverscan(imageDecodeVariant):
+                imageDecodeVariant
+            case let .destinationPhantom(_, imageDecodeVariant):
+                imageDecodeVariant
             }
         }
 
@@ -61,33 +79,129 @@ final class GridMaterializer {
     }
 
     struct ImageAccess {
+        typealias DecodeSelection =
+            CollectionBrowseCachedImageDecodeSelection
         typealias CachedImage = (
+            descriptor: DownloadableMediaDescriptor,
+            quality: CollectionBrowseImageQuality,
+            image: UIImage,
+            variant: DownloadableMediaImageDecodeVariant
+        )
+        typealias LegacyCachedImage = (
             descriptor: DownloadableMediaDescriptor,
             quality: CollectionBrowseImageQuality,
             image: UIImage
         )
+        typealias LoadedImage = DownloadableMediaImageEntry
 
-        let cachedImage: (
+        private let cachedImageProvider: (
             CollectionBrowseImageSources,
-            CachedImageSelectionPolicy
+            CachedImageSelectionPolicy,
+            DecodeSelection
         ) -> CachedImage?
-        let loadImage: (
+        private let imageLoader: (
             DownloadableMediaDescriptor,
-            @escaping @MainActor @Sendable (UIImage?) -> Void
+            DownloadableMediaImageDecodeVariant,
+            @escaping @MainActor @Sendable (LoadedImage?) -> Void
         ) -> (@MainActor @Sendable () -> Void)?
 
+        init(
+            cachedImage: @escaping (
+                CollectionBrowseImageSources,
+                CachedImageSelectionPolicy,
+                DecodeSelection
+            ) -> CachedImage?,
+            loadImage: @escaping (
+                DownloadableMediaDescriptor,
+                DownloadableMediaImageDecodeVariant,
+                @escaping @MainActor @Sendable (LoadedImage?) -> Void
+            ) -> (@MainActor @Sendable () -> Void)?
+        ) {
+            cachedImageProvider = cachedImage
+            imageLoader = loadImage
+        }
+
+        init(
+            cachedImage: @escaping (
+                CollectionBrowseImageSources,
+                CachedImageSelectionPolicy
+            ) -> LegacyCachedImage?,
+            loadImage: @escaping (
+                DownloadableMediaDescriptor,
+                @escaping @MainActor @Sendable (UIImage?) -> Void
+            ) -> (@MainActor @Sendable () -> Void)?
+        ) {
+            cachedImageProvider = { sources, policy, _ in
+                guard let cachedImage = cachedImage(sources, policy) else {
+                    return nil
+                }
+                return (
+                    cachedImage.descriptor,
+                    cachedImage.quality,
+                    cachedImage.image,
+                    .full
+                )
+            }
+            imageLoader = { descriptor, _, completion in
+                loadImage(descriptor) { image in
+                    completion(image.map {
+                        DownloadableMediaImageEntry(
+                            image: $0,
+                            variant: .full
+                        )
+                    })
+                }
+            }
+        }
+
+        func cachedImage(
+            _ imageSources: CollectionBrowseImageSources,
+            _ selectionPolicy: CachedImageSelectionPolicy,
+            variant: DownloadableMediaImageDecodeVariant
+        ) -> CachedImage? {
+            cachedImageProvider(
+                imageSources,
+                selectionPolicy,
+                .satisfying(variant.normalized)
+            )
+        }
+
+        func bestAvailableCachedImage(
+            _ imageSources: CollectionBrowseImageSources,
+            _ selectionPolicy: CachedImageSelectionPolicy,
+            preferredVariants: [DownloadableMediaImageDecodeVariant]
+        ) -> CachedImage? {
+            cachedImageProvider(
+                imageSources,
+                selectionPolicy,
+                .bestAvailable(
+                    preferredVariants: preferredVariants
+                ).normalized
+            )
+        }
+
+        func loadImage(
+            _ descriptor: DownloadableMediaDescriptor,
+            variant: DownloadableMediaImageDecodeVariant,
+            completion: @escaping @MainActor @Sendable (LoadedImage?) -> Void
+        ) -> (@MainActor @Sendable () -> Void)? {
+            imageLoader(descriptor, variant.normalized, completion)
+        }
+
         static let live = Self(
-            cachedImage: { imageSources, selectionPolicy in
-                imageSources.highestQualityCachedImage(
+            cachedImage: { imageSources, selectionPolicy, decodeSelection in
+                imageSources.cachedImageEntry(
                     in: DownloadableMediaCache.shared,
-                    selectionPolicy: selectionPolicy
+                    selectionPolicy: selectionPolicy,
+                    decodeSelection: decodeSelection
                 )
             },
-            loadImage: { descriptor, completion in
+            loadImage: { descriptor, variant, completion in
                 let cancellation = ImageLoadCancellation()
                 let task = Task { @MainActor in
-                    let image = await DownloadableMediaCache.shared.image(
-                        for: descriptor
+                    let entry = await DownloadableMediaCache.shared.imageEntry(
+                        for: descriptor,
+                        variant: variant
                     )
                     guard !Task.isCancelled,
                           !cancellation.isCancelled else {
@@ -95,7 +209,7 @@ final class GridMaterializer {
                     }
                     Task { @MainActor in
                         guard !cancellation.isCancelled else { return }
-                        completion(image)
+                        completion(entry)
                     }
                 }
                 return {
@@ -123,6 +237,8 @@ final class GridMaterializer {
         let destinationItem: Int
         let contentIdentity: MobilePlayerBrowserContentIdentity
         let requiredImageQuality: CollectionBrowseImageQuality
+        let requiredImageDecodeVariant: DownloadableMediaImageDecodeVariant
+        let imageDecodeVariant: DownloadableMediaImageDecodeVariant
         let descriptor: DownloadableMediaDescriptor
         let image: UIImage?
     }
@@ -202,6 +318,7 @@ final class GridMaterializer {
         let destinationItem: Int
         let contentIdentity: MobilePlayerBrowserContentIdentity
         let imageSources: CollectionBrowseImageSources
+        let imageDecodeVariant: DownloadableMediaImageDecodeVariant
         let cachedImage: ImageAccess.CachedImage?
     }
 
@@ -236,6 +353,10 @@ final class GridMaterializer {
     private static let transitionJobLimit = 32
     private static let transitionMaximumTimeLimit: CFTimeInterval = 0.004
     private static let transitionFrameFraction: CFTimeInterval = 0.24
+    private static let transition120HzJobLimit = 4
+    private static let transition120HzTimeLimit: CFTimeInterval = 0.001
+    private static let transition60HzJobLimit = 8
+    private static let transition60HzTimeLimit: CFTimeInterval = 0.002
     private static let defaultFrameDuration: CFTimeInterval = 1.0 / 60
     private static let minimumSourceBatchCapacity = 4
     private(set) weak var collectionView:
@@ -248,6 +369,7 @@ final class GridMaterializer {
     private var queue = MaterializationQueue()
     private var displayLink: CADisplayLink?
     private let displayLinkTarget = DisplayLinkTarget()
+    private(set) var isExternallyFrameDriven = false
     private var activeSession: Session?
     private(set) var isDraining = false
     private(set) var transitionWorkQueueFilterPassCount: UInt = 0
@@ -256,6 +378,12 @@ final class GridMaterializer {
     private(set) var sourceCoverageBuildCount = 0
     private(set) var foregroundEligibilityReconciliationCount = 0
 
+#if DEBUG
+    private(set) var externalFrameDrainCount = 0
+    private(set) var externalFrameDeadlineMissCount = 0
+    private(set) var independentDisplayLinkStartCount = 0
+#endif
+
     var phantomShapeStructureBuildCount: Int {
         planeRenderer.phantomShapeStructureBuildCount
     }
@@ -263,6 +391,12 @@ final class GridMaterializer {
     var phantomShapeMaskBuildCount: Int {
         planeRenderer.phantomShapeMaskBuildCount
     }
+
+#if DEBUG
+    var phantomShapeMaskCommitAttemptCount: Int {
+        planeRenderer.phantomShapeMaskCommitAttemptCount
+    }
+#endif
 
     init(
         collectionView: MobilePlayerCollectionBrowserCollectionView,
@@ -298,6 +432,10 @@ final class GridMaterializer {
 
     func activate(session: Session) {
         activeSession = session
+        session.defersPhantomShapeMaskCommits = isExternallyFrameDriven
+        if isExternallyFrameDriven {
+            session.phantomShapeMaskIsDirty = true
+        }
     }
 
     func deactivate(session: Session) {
@@ -603,7 +741,8 @@ final class GridMaterializer {
     }
 
     func startIfNeeded() {
-        guard displayLink == nil,
+        guard !isExternallyFrameDriven,
+              displayLink == nil,
               !queue.isEmpty || hasDeferredRenderRefresh else {
             return
         }
@@ -611,6 +750,9 @@ final class GridMaterializer {
             target: displayLinkTarget,
             selector: #selector(DisplayLinkTarget.tick(_:))
         )
+#if DEBUG
+        independentDisplayLinkStartCount += 1
+#endif
         displayLink.add(to: .main, forMode: .common)
         self.displayLink = displayLink
     }
@@ -618,9 +760,24 @@ final class GridMaterializer {
     @discardableResult
     func drain(
         budgetOverride: (jobs: Int, time: CFTimeInterval)? = nil,
-        frameDuration: CFTimeInterval? = nil
+        frameDuration: CFTimeInterval? = nil,
+        commitsPhantomMask: Bool = true
     ) -> DrainResult {
+        let signpostState = gridMaterializerSignposter.beginInterval(
+            "MaterializerDrain"
+        )
+        defer {
+            gridMaterializerSignposter.endInterval(
+                "MaterializerDrain",
+                signpostState
+            )
+        }
         let start = clock()
+        if commitsPhantomMask,
+           let session = activeSession,
+           !session.defersPhantomShapeMaskCommits {
+            commitPhantomShapeExclusionMask(session: session)
+        }
         var processedCount = 0
         var canBatchDirtySource = false
         isDraining = true
@@ -739,8 +896,11 @@ final class GridMaterializer {
                 canBatchDirtySource = false
             }
         }
-        if processedCount > 0, let session = activeSession {
-            planeRenderer.refreshPhantomShapeExclusionMask(session: session)
+        if commitsPhantomMask, processedCount > 0, let session = activeSession {
+            refreshPhantomShapeExclusionMask(session: session)
+        } else if processedCount > 0, let session = activeSession,
+                  session.defersPhantomShapeMaskCommits {
+            session.phantomShapeMaskIsDirty = true
         }
         let elapsed = max(clock() - start, 0)
         let stoppedForTimeLimit = (
@@ -755,6 +915,72 @@ final class GridMaterializer {
             elapsed: elapsed,
             stoppedForTimeLimit: stoppedForTimeLimit
         )
+    }
+
+    func setExternallyFrameDriven(
+        _ isExternallyFrameDriven: Bool,
+        commitsPendingPhantomMask: Bool = true
+    ) {
+        guard self.isExternallyFrameDriven != isExternallyFrameDriven else {
+            return
+        }
+        self.isExternallyFrameDriven = isExternallyFrameDriven
+        activeSession?.defersPhantomShapeMaskCommits = isExternallyFrameDriven
+        if isExternallyFrameDriven {
+            activeSession?.phantomShapeMaskIsDirty = true
+            displayLink?.invalidate()
+            displayLink = nil
+            return
+        }
+        if commitsPendingPhantomMask, let activeSession {
+            commitPhantomShapeExclusionMask(session: activeSession)
+        }
+        startIfNeeded()
+    }
+
+    @discardableResult
+    func drainTransitionFrame(
+        _ frame: GridTransitionFrame,
+        commitsPendingPhantomMask: Bool = true
+    ) -> DrainResult {
+        if commitsPendingPhantomMask {
+            let remainingTime = max(frame.targetTimestamp - clock(), 0)
+            if remainingTime >= frame.adaptiveDuration / 2,
+               let activeSession {
+                commitPhantomShapeExclusionMask(session: activeSession)
+            }
+        }
+        let nominalBudget: (jobs: Int, time: CFTimeInterval)
+        if frame.adaptiveDuration <= 1.0 / 90 {
+            nominalBudget = (
+                Self.transition120HzJobLimit,
+                Self.transition120HzTimeLimit
+            )
+        } else {
+            nominalBudget = (
+                Self.transition60HzJobLimit,
+                Self.transition60HzTimeLimit
+            )
+        }
+        let budget = (
+            jobs: nominalBudget.jobs,
+            time: min(
+                nominalBudget.time,
+                max(frame.targetTimestamp - clock(), 0)
+            )
+        )
+        let result = drain(
+            budgetOverride: budget,
+            frameDuration: frame.adaptiveDuration,
+            commitsPhantomMask: false
+        )
+#if DEBUG
+        externalFrameDrainCount += 1
+        if clock() > frame.targetTimestamp {
+            externalFrameDeadlineMissCount += 1
+        }
+#endif
+        return result
     }
 
     func cancel() {
@@ -904,6 +1130,10 @@ final class GridMaterializer {
 
     func refreshPhantomShapeExclusionMask(session: Session) {
         planeRenderer.refreshPhantomShapeExclusionMask(session: session)
+    }
+
+    func commitPhantomShapeExclusionMask(session: Session) {
+        planeRenderer.commitPhantomShapeExclusionMask(session: session)
     }
 
     private func registerCellFrameCorrection(
@@ -1579,7 +1809,7 @@ final class GridMaterializer {
                 alpha: session.lastContentFadeAlpha
             )
         }
-        planeRenderer.refreshPhantomShapeExclusionMask(session: session)
+        refreshPhantomShapeExclusionMask(session: session)
         if installedImmediateDestinationCoverage {
             return sourceCellEntries
         }
@@ -2324,7 +2554,9 @@ final class GridMaterializer {
         contentAccess.configureCell(
             cell,
             IndexPath(item: itemIndex, section: 0),
-            .sourceOverscan
+            .sourceOverscan(
+                imageDecodeVariant: session.sourceImageDecodeVariant
+            )
         )
         let cellID = ObjectIdentifier(cell)
         if session.lastContentFadeAlpha > 0 {
@@ -2448,7 +2680,8 @@ final class GridMaterializer {
         candidate: PlayerBrowserGridPhantomCandidate,
         requiredImageQuality: CollectionBrowseImageQuality
     ) {
-        guard session.phantomCells[candidate.destinationItemIndex] == nil,
+        guard let plane = session.plane,
+              session.phantomCells[candidate.destinationItemIndex] == nil,
               !session.sourceCoverage.coveredDestinationItems.contains(
                   candidate.destinationItemIndex
               ) else {
@@ -2465,7 +2698,8 @@ final class GridMaterializer {
                 section: 0
             ),
             .destinationPhantom(
-                requiredImageQuality: requiredImageQuality
+                requiredImageQuality: requiredImageQuality,
+                imageDecodeVariant: plane.imageDecodeVariant
             )
         )
         planeRenderer.insertManualCell(
@@ -2473,8 +2707,7 @@ final class GridMaterializer {
             role: .destinationPhantom,
             session: session
         )
-        if let plane = session.plane,
-           let appliedScale = appliedPlaneScale(),
+        if let appliedScale = appliedPlaneScale(),
            let compensation = phantomSeamCompensation(
                session: session,
                plane: plane,
@@ -2488,20 +2721,18 @@ final class GridMaterializer {
         // Must not re-arm the viewport promotion sweep: it only promotes source
         // representations, so a phantom install cannot change its outcome, but
         // re-arming preempts the phantoms still queued behind it.
-        if let plane = session.plane {
-            reconcileForegroundDestinationEligibility(
+        reconcileForegroundDestinationEligibility(
+            session: session,
+            plane: plane
+        )
+        reconcilePhantomImageLoadEligibility(
+            session: session,
+            context: cachedForegroundDestinationEligibilityContext(
                 session: session,
                 plane: plane
-            )
-            reconcilePhantomImageLoadEligibility(
-                session: session,
-                context: cachedForegroundDestinationEligibilityContext(
-                    session: session,
-                    plane: plane
-                ),
-                cells: [candidate.destinationItemIndex: phantom]
-            )
-        }
+            ),
+            cells: [candidate.destinationItemIndex: phantom]
+        )
     }
 
     private func recyclePhantomCells(
@@ -2862,7 +3093,7 @@ final class GridMaterializer {
         invalidateManagedCellPlans(session: session)
         guard let plane = session.plane else {
             applyNoPlaneSourceSeamCompensation(session: session, to: cell)
-            planeRenderer.refreshPhantomShapeExclusionMask(session: session)
+            refreshPhantomShapeExclusionMask(session: session)
             return
         }
         let cellID = ObjectIdentifier(cell)
@@ -2906,7 +3137,7 @@ final class GridMaterializer {
                 session: session,
                 to: browserCell
             )
-            planeRenderer.refreshPhantomShapeExclusionMask(session: session)
+            refreshPhantomShapeExclusionMask(session: session)
         }
         enqueueMaterialization(
             session: session,
@@ -3161,10 +3392,16 @@ final class GridMaterializer {
             return .unavailable
         }
         let cellID = ObjectIdentifier(cell)
+        let requiredImageDecodeVariant = plane.imageDecodeVariant
         guard !session.lockedFallbackRepresentationIDs.contains(cellID),
               let resolvedContent = resolvedContent?.destinationItem == toItem
+                && resolvedContent?.imageDecodeVariant
+                    == requiredImageDecodeVariant
                 ? resolvedContent
-                : resolveTransitionContent(destinationItem: toItem) else {
+                : resolveTransitionContent(
+                    destinationItem: toItem,
+                    imageDecodeVariant: requiredImageDecodeVariant
+                ) else {
             cancelTransitionImageLoad(session: session, for: cell)
             return .unavailable
         }
@@ -3178,17 +3415,36 @@ final class GridMaterializer {
                 from: imageSources
             )
             : nil
+        let retainedTransitionContentDecodeVariant =
+            retainedTransitionContentQuality == nil
+            ? nil
+            : cell.incomingTransitionContentDecodeVariant(
+                representing: contentIdentity
+            )
+        let retainedTransitionContentSatisfiesVariant =
+            retainedTransitionContentDecodeVariant?.satisfies(
+                requiredImageDecodeVariant
+            ) == true
         var installedCachedContent = false
         if let cachedImage = resolvedContent.cachedImage {
             let satisfiesRequiredQuality = cachedImage.quality.canReplace(
                 requiredQuality
             )
-            if cachedImage.quality.canReplace(
+            let preservesRetainedDecodeVariant =
+                retainedTransitionContentDecodeVariant.map {
+                    cachedImage.variant.satisfies($0)
+                } ?? true
+            let replacesRetainedContent = cachedImage.quality.canReplace(
                 retainedTransitionContentQuality
-            ) {
+            ) || (!retainedTransitionContentSatisfiesVariant
+                && satisfiesRequiredQuality)
+            if replacesRetainedContent
+                && (cachedImage.quality != retainedTransitionContentQuality
+                    || preservesRetainedDecodeVariant) {
                 cell.installTransitionContent(
                     image: cachedImage.image,
                     descriptor: cachedImage.descriptor,
+                    imageDecodeVariant: cachedImage.variant,
                     usesNativeMetalCardCornerMask:
                         cachedImage.descriptor
                             .usesNativeMetalCardPresentation,
@@ -3204,7 +3460,8 @@ final class GridMaterializer {
             }
         }
         if let retainedTransitionContentQuality,
-           retainedTransitionContentQuality.canReplace(requiredQuality) {
+           retainedTransitionContentQuality.canReplace(requiredQuality),
+           retainedTransitionContentSatisfiesVariant {
             cancelTransitionImageLoad(session: session, for: cell)
             return .ready
         }
@@ -3235,6 +3492,7 @@ final class GridMaterializer {
                load.contentGeneration == generation,
                load.contentIdentity == contentIdentity,
                load.requiredImageQuality == requiredQuality,
+               load.requiredImageDecodeVariant == requiredImageDecodeVariant,
                load.descriptor == descriptor,
                loadEligibility != nil {
                 return installedCachedContent
@@ -3252,8 +3510,11 @@ final class GridMaterializer {
                 : .unavailable
         }
         let loadID = UUID()
-        let cancellation = imageAccess.loadImage(descriptor) {
-            [weak self] image in
+        let cancellation = imageAccess.loadImage(
+            descriptor,
+            variant: requiredImageDecodeVariant
+        ) {
+            [weak self] loadedImage in
             Task { @MainActor [weak self] in
                 guard let self,
                       let activeSession = self.activeSession,
@@ -3296,8 +3557,13 @@ final class GridMaterializer {
                             destinationItem: toItem,
                             contentIdentity: contentIdentity,
                             requiredImageQuality: requiredQuality,
+                            requiredImageDecodeVariant:
+                                requiredImageDecodeVariant,
+                            imageDecodeVariant:
+                                loadedImage?.variant
+                                    ?? requiredImageDecodeVariant,
                             descriptor: descriptor,
-                            image: image
+                            image: loadedImage?.image
                         )
                     )
                 )
@@ -3336,6 +3602,7 @@ final class GridMaterializer {
                 contentGeneration: generation,
                 contentIdentity: contentIdentity,
                 requiredImageQuality: requiredQuality,
+                requiredImageDecodeVariant: requiredImageDecodeVariant,
                 descriptor: descriptor,
                 cancellation: cancellation
             )
@@ -3351,7 +3618,8 @@ final class GridMaterializer {
     }
 
     private func resolveTransitionContent(
-        destinationItem: Int
+        destinationItem: Int,
+        imageDecodeVariant: DownloadableMediaImageDecodeVariant
     ) -> ResolvedTransitionContent? {
         guard let contentIdentity = contentAccess.contentIdentity(destinationItem),
               let imageSources = contentAccess.imageSources(destinationItem) else {
@@ -3361,9 +3629,11 @@ final class GridMaterializer {
             destinationItem: destinationItem,
             contentIdentity: contentIdentity,
             imageSources: imageSources,
+            imageDecodeVariant: imageDecodeVariant.normalized,
             cachedImage: imageAccess.cachedImage(
                 imageSources,
-                .highestAvailable
+                .highestAvailable,
+                variant: imageDecodeVariant
             )
         )
     }
@@ -3574,7 +3844,8 @@ final class GridMaterializer {
                 sourceItem: representation.itemIndex,
                 plane: plane
             ), let resolvedContent = resolveTransitionContent(
-                destinationItem: destinationItem
+                destinationItem: destinationItem,
+                imageDecodeVariant: plane.imageDecodeVariant
             ), resolvedContent.cachedImage != nil else {
                 return nil
             }
@@ -3989,6 +4260,10 @@ final class GridMaterializer {
                     fallbackCarryoverSource(
                         destinationItem: itemIndex,
                         isNeeded: cell.needsCarryoverContent,
+                        destinationImageDecodeVariant:
+                            plane.imageDecodeVariant,
+                        sourceImageDecodeVariant:
+                            session.sourceImageDecodeVariant,
                         sourceItemByDestinationItem:
                             fallbackSourceItemByDestinationItem
                     )
@@ -4002,18 +4277,28 @@ final class GridMaterializer {
     private func fallbackCarryoverSource(
         destinationItem: Int,
         isNeeded: Bool,
+        destinationImageDecodeVariant: DownloadableMediaImageDecodeVariant,
+        sourceImageDecodeVariant: DownloadableMediaImageDecodeVariant,
         sourceItemByDestinationItem: [Int: Int]
     ) -> MobilePlayerBrowserCarryoverContent? {
         guard isNeeded,
               let sourceItem = sourceItemByDestinationItem[destinationItem],
               let contentIdentity = contentAccess.contentIdentity(sourceItem),
-              let imageSources = contentAccess.imageSources(sourceItem),
-              let cachedImage = imageAccess.cachedImage(
-                  imageSources,
-                  .highestAvailable
-              ) else {
+              let imageSources = contentAccess.imageSources(sourceItem) else {
             return nil
         }
+        var preferredVariants = [destinationImageDecodeVariant.normalized]
+        if !sourceImageDecodeVariant.satisfies(
+            destinationImageDecodeVariant
+        ) {
+            preferredVariants.append(sourceImageDecodeVariant.normalized)
+        }
+        let cachedImage = imageAccess.bestAvailableCachedImage(
+            imageSources,
+            .highestAvailable,
+            preferredVariants: preferredVariants
+        )
+        guard let cachedImage else { return nil }
         return MobilePlayerBrowserCarryoverContent(
             identity: contentIdentity,
             image: cachedImage.image,
@@ -4064,6 +4349,8 @@ final class GridMaterializer {
         guard let session = activeSession else { return false }
         return !session.deferredClassificationPaintRepresentationIDs.isEmpty
             || hasNonClassificationDeferredRenderRefresh(session: session)
+            || (!session.defersPhantomShapeMaskCommits
+                && session.phantomShapeMaskIsDirty)
     }
 
     private func hasNonClassificationDeferredRenderRefresh(
@@ -4263,6 +4550,10 @@ final class GridMaterializer {
               load.contentGeneration == completion.contentGeneration,
               load.contentIdentity == completion.contentIdentity,
               load.requiredImageQuality == completion.requiredImageQuality,
+              load.requiredImageDecodeVariant
+                == completion.requiredImageDecodeVariant,
+              plane.imageDecodeVariant
+                == completion.requiredImageDecodeVariant,
               load.descriptor == completion.descriptor else {
             return
         }
@@ -4283,7 +4574,10 @@ final class GridMaterializer {
                 == completion.descriptor else {
             return
         }
-        guard let image = completion.image else {
+        guard let image = completion.image,
+              completion.imageDecodeVariant.satisfies(
+                  completion.requiredImageDecodeVariant
+              ) else {
             cell.installDeferredBaseImageIfNoIncomingOverlay()
             return
         }
@@ -4314,6 +4608,7 @@ final class GridMaterializer {
             cell.installTransitionContent(
                 image: image,
                 descriptor: completion.descriptor,
+                imageDecodeVariant: completion.imageDecodeVariant,
                 usesNativeMetalCardCornerMask:
                     completion.descriptor.usesNativeMetalCardPresentation,
                 targetAlpha: sourceTransitionContentTargetAlpha(
@@ -4334,6 +4629,7 @@ final class GridMaterializer {
         cell.installTransitionContent(
             image: image,
             descriptor: completion.descriptor,
+            imageDecodeVariant: completion.imageDecodeVariant,
             usesNativeMetalCardCornerMask:
                 completion.descriptor.usesNativeMetalCardPresentation,
             targetAlpha: session.lastContentFadeAlpha,

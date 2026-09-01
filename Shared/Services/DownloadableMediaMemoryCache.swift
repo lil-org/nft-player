@@ -60,6 +60,7 @@ final class DownloadableMediaMemoryCache {
 #endif
 #if DEBUG && os(iOS)
     private var injectedImages = [String: DownloadableMediaImage]()
+    private var acceptsInsertionsForTesting = true
 #endif
 
     init(
@@ -85,19 +86,31 @@ final class DownloadableMediaMemoryCache {
         lookup(forKey: key).image
     }
 
+    @discardableResult
     func insert(
         _ image: DownloadableMediaImage,
         forKey key: String,
         collectionId: String
-    ) {
+    ) -> Bool {
+#if DEBUG && os(iOS)
+        guard acceptsInsertionsForTesting else { return false }
+#endif
         cache.setObject(
             image,
             forKey: key as NSString,
             cost: estimatedCost(of: image)
         )
+        let wasAdmitted = cache.object(forKey: key as NSString) != nil
 #if !os(iOS)
-        keysByCollection[collectionId, default: []].insert(key)
+        if wasAdmitted {
+            keysByCollection[collectionId, default: []].insert(key)
+        }
 #endif
+        return wasAdmitted
+    }
+
+    var metadataEntryCapacity: Int {
+        max(cache.countLimit, 1)
     }
 
     func configureLimits(decodedDescriptorCount: Int) {
@@ -199,6 +212,10 @@ final class DownloadableMediaMemoryCache {
         injectedImages.removeValue(forKey: key)
     }
 
+    func setAcceptsInsertionsForTesting(_ acceptsInsertions: Bool) {
+        acceptsInsertionsForTesting = acceptsInsertions
+    }
+
     func waitForRetirementForTesting() async -> Bool? {
         await retirementTask?.value
     }
@@ -215,8 +232,11 @@ final class DownloadableMediaMemoryCache {
             let height = Int(image.size.height)
             return max(width * height * 4, 1)
         }
-        return max(cgImage.width * cgImage.height * 4, 1)
+        return max(cgImage.bytesPerRow * cgImage.height, 1)
 #else
+        if let cgImage = image.cgImage {
+            return max(cgImage.bytesPerRow * cgImage.height, 1)
+        }
         let width = Int(image.size.width * image.scale)
         let height = Int(image.size.height * image.scale)
         return max(width * height * 4, 1)

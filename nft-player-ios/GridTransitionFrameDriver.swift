@@ -1,5 +1,30 @@
 import QuartzCore
 import UIKit
+import os
+
+private let gridTransitionFrameSignposter = OSSignposter(
+    subsystem: Bundle.main.bundleIdentifier ?? "org.lil.nft-player",
+    category: "GridTransitionFrame"
+)
+
+struct GridTransitionFrame: Equatable {
+    static let minimumDuration: TimeInterval = 1.0 / 120
+    static let maximumDuration: TimeInterval = 1.0 / 60
+
+    let timestamp: TimeInterval
+    let targetTimestamp: TimeInterval
+    let duration: TimeInterval
+
+    init(timestamp: TimeInterval, targetTimestamp: TimeInterval) {
+        self.timestamp = timestamp
+        self.targetTimestamp = targetTimestamp
+        duration = max(targetTimestamp - timestamp, 0)
+    }
+
+    var adaptiveDuration: TimeInterval {
+        min(max(duration, Self.minimumDuration), Self.maximumDuration)
+    }
+}
 
 @MainActor
 protocol GridTransitionFrameDriving: AnyObject {
@@ -7,7 +32,7 @@ protocol GridTransitionFrameDriving: AnyObject {
     var isRunning: Bool { get }
 
     func start(
-        onFrame: @escaping @MainActor (TimeInterval) -> Void
+        onFrame: @escaping @MainActor (GridTransitionFrame) -> Void
     )
     func stop()
     func invalidate()
@@ -27,7 +52,7 @@ final class GridTransitionDisplayLinkFrameDriver:
 
     private let displayLinkTarget = DisplayLinkTarget()
     private var displayLink: CADisplayLink?
-    private var onFrame: (@MainActor (TimeInterval) -> Void)?
+    private var onFrame: (@MainActor (GridTransitionFrame) -> Void)?
     private var isInvalidated = false
 
     init() {
@@ -43,7 +68,7 @@ final class GridTransitionDisplayLinkFrameDriver:
     }
 
     func start(
-        onFrame: @escaping @MainActor (TimeInterval) -> Void
+        onFrame: @escaping @MainActor (GridTransitionFrame) -> Void
     ) {
         guard !isInvalidated else { return }
         self.onFrame = onFrame
@@ -52,6 +77,7 @@ final class GridTransitionDisplayLinkFrameDriver:
             target: displayLinkTarget,
             selector: #selector(DisplayLinkTarget.tick(_:))
         )
+        configureMaximumFrameRate(of: displayLink)
         displayLink.add(to: .main, forMode: .common)
         self.displayLink = displayLink
     }
@@ -70,6 +96,27 @@ final class GridTransitionDisplayLinkFrameDriver:
 
     private func tick(at timestamp: TimeInterval) {
         guard !isInvalidated else { return }
-        onFrame?(timestamp)
+        guard let displayLink else { return }
+        let frame = GridTransitionFrame(
+            timestamp: timestamp,
+            targetTimestamp: displayLink.targetTimestamp
+        )
+        let state = gridTransitionFrameSignposter.beginInterval(
+            "TransitionFrame"
+        )
+        onFrame?(frame)
+        gridTransitionFrameSignposter.endInterval(
+            "TransitionFrame",
+            state
+        )
+    }
+
+    private func configureMaximumFrameRate(of displayLink: CADisplayLink) {
+        let maximum = min(UIScreen.main.maximumFramesPerSecond, 120)
+        displayLink.preferredFrameRateRange = CAFrameRateRange(
+            minimum: Float(maximum),
+            maximum: Float(maximum),
+            preferred: Float(maximum)
+        )
     }
 }

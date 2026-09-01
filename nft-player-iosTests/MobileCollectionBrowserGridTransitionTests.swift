@@ -47,6 +47,47 @@ extension MobileCollectionBrowserGridModePresentationTests {
         XCTAssertEqual(fixture.controller.currentPagePosition, initialPosition)
     }
 
+    func testStationaryPinchStopsTransitionFrameDriverAfterFade() throws {
+        let metadata = try collectionMetadata()
+        let fixture = try makeDeterministicFixture(collectionId: metadata.id)
+        defer { tearDownFixture(fixture) }
+        let controller = fixture.controller
+        let frameDriver = try XCTUnwrap(
+            fixture.gridTransitionFrameDriver
+        )
+        let collectionView = try XCTUnwrap(
+            controller.view.subviews.first {
+                $0 is MobilePlayerCollectionBrowserCollectionView
+            } as? MobilePlayerCollectionBrowserCollectionView
+        )
+        let recognizer = TestPinchGestureRecognizer()
+        recognizer.reportedLocation = CGPoint(
+            x: controller.view.bounds.midX,
+            y: controller.view.bounds.midY
+        )
+        recognizer.reportedState = .began
+        recognizer.scale = 1
+        sendPinch(recognizer, to: controller)
+        recognizer.reportedState = .changed
+        recognizer.scale = 1.5
+        sendPinch(recognizer, to: controller)
+        frameDriver.advance()
+
+        XCTAssertTrue(frameDriver.isRunning)
+        XCTAssertFalse(collectionView.isScrollEnabled)
+
+        frameDriver.advance()
+        frameDriver.advance(
+            by: TimeInterval(
+                PlayerBrowserGridPinchPolicy.interactionFadeDuration
+            ) + 0.1
+        )
+        frameDriver.advance()
+
+        XCTAssertFalse(frameDriver.isRunning)
+        XCTAssertFalse(collectionView.isScrollEnabled)
+    }
+
 #if DEBUG
 
     func testForcedPreparationEndsScrollMotion() async throws {
@@ -294,6 +335,59 @@ extension MobileCollectionBrowserGridModePresentationTests {
             collectionView,
             shouldSelectItemAt: indexPath
         ))
+    }
+
+    func testTerminalCommitSnapshotUsesCurrentPhantomMask() throws {
+        struct SnapshotMaskState {
+            let occupantCount: Int
+            let coverageIsCurrent: Bool
+            let occupantsAreCurrent: Bool
+        }
+
+        let metadata = try collectionMetadata()
+        var snapshotMaskStates = [SnapshotMaskState]()
+        let fixture = try makeDeterministicFixture(
+            collectionId: metadata.id,
+            gridModeCommitSnapshotFactory: { view in
+                guard let collectionView = view.subviews.first(where: {
+                    $0 is MobilePlayerCollectionBrowserCollectionView
+                }) as? MobilePlayerCollectionBrowserCollectionView,
+                    let phantomShape = collectionView.subviews.first(where: {
+                        $0 is GridPlaneRenderer.PhantomShapeView
+                    }) as? GridPlaneRenderer.PhantomShapeView else {
+                    return UIView(frame: view.bounds)
+                }
+                let currentCellFrames = collectionView.subviews.compactMap {
+                    cell -> CGRect? in
+                    guard let cell = cell
+                        as? MobilePlayerCollectionBrowserCell else {
+                        return nil
+                    }
+                    return cell.convert(cell.bounds, to: collectionView)
+                }
+                let occupantFrames = Array(
+                    phantomShape.renderedOccupantFrames.values
+                )
+                snapshotMaskStates.append(SnapshotMaskState(
+                    occupantCount: occupantFrames.count,
+                    coverageIsCurrent:
+                        phantomShape.maskedCoverageBounds
+                            == phantomShape.renderedCoverageBounds,
+                    occupantsAreCurrent: occupantFrames.allSatisfy { frame in
+                        currentCellFrames.contains(frame)
+                    }
+                ))
+                return UIView(frame: view.bounds)
+            }
+        )
+        defer { tearDownFixture(fixture) }
+
+        selectGridMode(.fiveColumns, fixture: fixture)
+
+        let state = try XCTUnwrap(snapshotMaskStates.last)
+        XCTAssertGreaterThan(state.occupantCount, 0)
+        XCTAssertTrue(state.coverageIsCurrent)
+        XCTAssertTrue(state.occupantsAreCurrent)
     }
 
     func testNilPlaneChangeSnapshotUsesBitmapCoverWithoutCancelingPinch()
@@ -605,6 +699,53 @@ extension MobileCollectionBrowserGridModePresentationTests {
 
         XCTAssertEqual(controller.gridMode, .nineColumns)
     }
+
+#if DEBUG
+    func testInterruptedGridInteractionRestoresDecodedWindowAfterDenseScroll()
+        throws {
+        let metadata = try collectionMetadata(minimumTokenCount: 100)
+        let fixture = try makeDeterministicFixture(collectionId: metadata.id)
+        defer { tearDownFixture(fixture) }
+        let controller = fixture.controller
+        let collectionView = try XCTUnwrap(
+            controller.view.subviews.first {
+                $0 is MobilePlayerCollectionBrowserCollectionView
+            } as? MobilePlayerCollectionBrowserCollectionView
+        )
+        selectGridMode(.fiveColumns, fixture: fixture)
+        controller.scrollViewWillBeginDragging(collectionView)
+        let scrollingMetrics = controller.thumbnailWindowMetrics
+        XCTAssertGreaterThan(scrollingMetrics.fileOnlyPreparations, 0)
+
+        let recognizer = TestPinchGestureRecognizer()
+        recognizer.reportedLocation = CGPoint(
+            x: controller.view.bounds.midX,
+            y: controller.view.bounds.midY
+        )
+        recognizer.reportedState = .began
+        recognizer.scale = 1
+        sendPinch(recognizer, to: controller)
+        recognizer.reportedState = .changed
+        recognizer.scale = 1.2
+        sendPinch(recognizer, to: controller)
+        fixture.gridTransitionFrameDriver?.advance()
+        let interactionMetrics = controller.thumbnailWindowMetrics
+        XCTAssertFalse(collectionView.isScrollEnabled)
+
+        controller.flushSettledPosition()
+        let interruptedMetrics = controller.thumbnailWindowMetrics
+
+        XCTAssertTrue(collectionView.isScrollEnabled)
+        XCTAssertEqual(
+            interruptedMetrics.preparations,
+            interactionMetrics.preparations + 1
+        )
+        XCTAssertEqual(
+            interruptedMetrics.fileOnlyPreparations,
+            interactionMetrics.fileOnlyPreparations
+        )
+    }
+#endif
 
 
     func testSettleReservesCollectionPanForOneFingerAndRestoresIt() throws {

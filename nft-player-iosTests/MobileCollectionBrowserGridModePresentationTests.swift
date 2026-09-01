@@ -36,18 +36,18 @@ extension MobileCollectionBrowserGridModePresentationTests {
     }
 
     final class ManualGridTransitionFrameDriver: GridTransitionFrameDriving {
-        private var onFrame: (@MainActor (TimeInterval) -> Void)?
+        private var onFrame: (@MainActor (GridTransitionFrame) -> Void)?
         private var isInvalidated = false
 
         private(set) var now: TimeInterval
         private(set) var isRunning = false
 
-        init(now: TimeInterval = 100) {
+        init(now: TimeInterval = CACurrentMediaTime()) {
             self.now = now
         }
 
         func start(
-            onFrame: @escaping @MainActor (TimeInterval) -> Void
+            onFrame: @escaping @MainActor (GridTransitionFrame) -> Void
         ) {
             guard !isInvalidated else { return }
             self.onFrame = onFrame
@@ -74,7 +74,10 @@ extension MobileCollectionBrowserGridModePresentationTests {
             precondition(timestamp.isFinite && timestamp >= now)
             now = timestamp
             guard isRunning else { return }
-            onFrame?(timestamp)
+            onFrame?(GridTransitionFrame(
+                timestamp: timestamp,
+                targetTimestamp: timestamp + 1 / 60
+            ))
         }
     }
 

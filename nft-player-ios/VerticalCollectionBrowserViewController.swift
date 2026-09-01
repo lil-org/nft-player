@@ -2,6 +2,7 @@
 
 import QuartzCore
 import UIKit
+import os
 
 enum MobilePlayerCollectionBrowserDisplayPreparationResult: Equatable {
     case prepared
@@ -11,8 +12,7 @@ enum MobilePlayerCollectionBrowserDisplayPreparationResult: Equatable {
 
 final class VerticalCollectionBrowserViewController: UIViewController,
     UICollectionViewDataSource,
-    UICollectionViewDelegate,
-    UICollectionViewDataSourcePrefetching {
+    UICollectionViewDelegate {
 
     private struct PreparedTransition {
         let preparation: PlayerCollectionBrowsePreparation
@@ -48,6 +48,10 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     private static let cellReuseIdentifier = "MobilePlayerCollectionBrowserCell"
     private static let boundaryEpsilon: CGFloat = 0.75
     private static let verticalContentMargin: CGFloat = 0
+    private static let signposter = OSSignposter(
+        subsystem: Bundle.main.bundleIdentifier ?? "org.lil.nft-player",
+        category: "CollectionBrowserScroll"
+    )
 
     private let playbackSession: MobilePlaybackSession
 
@@ -91,7 +95,6 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         )
         collectionView.dataSource = self
         collectionView.delegate = self
-        collectionView.prefetchDataSource = self
         collectionView.onWillAccessibilityScroll = { [weak self] in
             guard let self else {
                 return .init(
@@ -118,6 +121,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             }
             if !attempt.wasScrollMotionActive {
                 self.endScrollMotion()
+                self.prepareCurrentImageWindowIfPossible()
                 self.resumeVisibleBrowserImageLoadsIfNeeded()
                 self.gridModeCoordinator.scheduleGeometryPrewarmIfPossible()
             }
@@ -137,7 +141,6 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         }
         return collectionView
     }()
-
     private var browseSnapshot: PlayerCollectionBrowseSnapshot?
     private var publicationState: PlayerCollectionScrollPublicationState? {
         get { scrollCoordinator.publicationState }
@@ -209,6 +212,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     )
     private var layoutWindowSafeAreaInsets = UIEdgeInsets.zero
     private var hasCapturedLayoutWindowSafeAreaInsets = false
+    private var scrollSessionSignpost: OSSignpostIntervalState?
 
     private var configuredColumnCount: Int {
         browserCollectionLayout.browserLayout?.columnCount ?? 0
@@ -221,6 +225,16 @@ final class VerticalCollectionBrowserViewController: UIViewController,
 
     private var requiredImageQuality: CollectionBrowseImageQuality {
         gridMode.requiredImageQuality
+    }
+
+    private var browserImageDecodeVariant: DownloadableMediaImageDecodeVariant {
+        guard let browserLayout = browserCollectionLayout.browserLayout else {
+            return .full
+        }
+        return MobilePlayerCollectionBrowserGridImageDecodeVariant.resolve(
+            for: browserLayout,
+            displayScale: currentLayoutDisplayScale
+        )
     }
 
     init(
@@ -256,8 +270,14 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             viewportRenderCells: { [weak self] in
                 self?.gridModeCoordinator.viewportRenderCells ?? []
             },
+            collectionID: { [weak self] in
+                self?.browseSnapshot?.collectionId
+            },
             requiredImageQuality: { [weak self] in
                 self?.requiredImageQuality ?? .large
+            },
+            imageDecodeVariant: { [weak self] in
+                self?.browserImageDecodeVariant ?? .full
             },
             baseColumnCount: { [weak self] in
                 self?.gridMode.columnCount ?? 0
@@ -291,6 +311,9 @@ final class VerticalCollectionBrowserViewController: UIViewController,
                     columnCount: preparation.columnCount,
                     quality: preparation.quality,
                     requiredTokenRange: preparation.requiredTokenRange,
+                    visibleTokenRange: preparation.visibleTokenRange,
+                    isFileOnly: preparation.isFileOnly,
+                    decodeVariant: preparation.decodeVariant,
                     displayedHigherQualityThumbnailTokenIndices:
                         preparation
                             .displayedHigherQualityThumbnailTokenIndices,
@@ -340,7 +363,8 @@ final class VerticalCollectionBrowserViewController: UIViewController,
                             configuration.requiredImageQuality,
                         imageLoadPolicy: configuration.imageLoadPolicy,
                         allowsLocalLargeImageUpgrade:
-                            configuration.allowsLocalLargeImageUpgrade
+                            configuration.allowsLocalLargeImageUpgrade,
+                        imageDecodeVariant: configuration.imageDecodeVariant
                     )
                 },
                 contentIdentity: { [weak self] in
@@ -440,6 +464,9 @@ final class VerticalCollectionBrowserViewController: UIViewController,
                 settleCurrentPosition: { [weak self] in
                     self?.settleCurrentPosition()
                 },
+                prepareCurrentImageWindowIfPossible: { [weak self] in
+                    self?.prepareCurrentImageWindowIfPossible()
+                },
                 settleAfterApplyingPendingWindowSafeAreaRefresh: {
                     [weak self] in
                     self?.settleAfterApplyingPendingWindowSafeAreaRefresh()
@@ -460,6 +487,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     }
 
     isolated deinit {
+        endScrollSessionSignpost()
         NotificationCenter.default.removeObserver(self)
         gridModeCoordinator.invalidate()
         scrollCoordinator.invalidate()
@@ -506,6 +534,12 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             name: .downloadableMediaCacheFileAvailabilityDidChange,
             object: nil,
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(downloadableMediaCacheDecodedImageDidBecomeAvailable(_:)),
+            name: .downloadableMediaCacheDecodedImageDidBecomeAvailable,
+            object: nil,
+        )
     }
 
     @objc private func sceneDidEnterBackground(_ notification: Notification) {
@@ -527,6 +561,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             return
         }
         resumeVisibleBrowserImageLoadsIfNeeded()
+        prepareCurrentImageWindowIfPossible()
         gridModeCoordinator.scheduleGeometryPrewarmIfPossible()
     }
 
@@ -534,6 +569,12 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         _ notification: Notification
     ) {
         refreshVisibleCachedImagesIfNeeded(notification: notification)
+    }
+
+    @objc private func downloadableMediaCacheDecodedImageDidBecomeAvailable(
+        _ notification: Notification
+    ) {
+        imagePipeline.handleDecodedImageNotification(notification)
     }
 
     override func viewDidLayoutSubviews() {
@@ -544,6 +585,15 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         let displayScale = currentLayoutDisplayScale
         let displayScaleChanged = lastLayoutDisplayScale > 0
             && lastLayoutDisplayScale != displayScale
+        let previousImageDecodeVariant = browserCollectionLayout.browserLayout
+            .map {
+                MobilePlayerCollectionBrowserGridImageDecodeVariant.resolve(
+                    for: $0,
+                    displayScale: lastLayoutDisplayScale > 0
+                        ? lastLayoutDisplayScale
+                        : displayScale
+                )
+            } ?? .full
         let windowSafeAreaLayoutUpdate = resolveWindowSafeAreaLayoutUpdate(
             state: currentWindowSafeAreaState,
             sizeChanged: sizeChanged
@@ -621,6 +671,10 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         lastLayoutDisplayScale = displayScale
 
         guard isActive else { return }
+        if previousImageDecodeVariant != browserImageDecodeVariant {
+            imagePipeline.resetThumbnailWindow()
+            reloadVisibleCells()
+        }
         let hadFinishedInitialPositioning = hasFinishedInitialPositioning
         performInitialPositioningIfNeeded()
         if hadFinishedInitialPositioning,
@@ -643,6 +697,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         super.viewDidAppear(animated)
         isViewVisible = true
         resumeVisibleBrowserImageLoadsIfNeeded()
+        prepareCurrentImageWindowIfPossible()
         gridModeCoordinator.scheduleGeometryPrewarmIfPossible()
     }
 
@@ -699,7 +754,6 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             endScrollMotionAndResetDragState()
             cancelScheduledScrollUpdate()
             cancelPendingFocusPublication(resetLastPublicationTime: true)
-            imagePipeline.cancelAllPrefetchLoads()
             imagePipeline.resetThumbnailWindow()
             imagePipeline.cancelVisibleCellImageLoads()
         }
@@ -964,7 +1018,6 @@ final class VerticalCollectionBrowserViewController: UIViewController,
 
         browseSnapshot = preparedTransition.browseSnapshot
         layoutAspectState = preparedTransition.layoutAspectState
-        imagePipeline.cancelAllPrefetchLoads()
         imagePipeline.cancelVisibleCellImageLoads()
         collectionView.reloadData()
         configureCollectionLayout()
@@ -1263,38 +1316,6 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         }
     }
 
-    func collectionView(
-        _ collectionView: UICollectionView,
-        prefetchItemsAt indexPaths: [IndexPath]
-    ) {
-        let quality = requiredImageQuality
-        imagePipeline.prefetch(
-            indexPaths: indexPaths,
-            centerTokenIndex: { [weak self] in
-                self?.focusedTokenIndex
-                    ?? self?.currentAnchorTokenIndex()
-                    ?? 0
-            },
-            requiredImageQuality: quality,
-            descriptor: { [weak self] tokenIndex in
-                guard let snapshot = self?.browseSnapshot else { return nil }
-                return MobileCollectionBrowseMediaResolver
-                    .collectionBrowsePrefetchDescriptor(
-                        snapshot: snapshot,
-                        tokenIndex: tokenIndex,
-                        quality: quality
-                    )
-            }
-        )
-    }
-
-    func collectionView(
-        _ collectionView: UICollectionView,
-        cancelPrefetchingForItemsAt indexPaths: [IndexPath]
-    ) {
-        imagePipeline.cancelPrefetching(indexPaths: indexPaths)
-    }
-
     func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
         gridModeCoordinator.prepareForDragging()
         cancelScrollMotionAnimationTimeout()
@@ -1303,9 +1324,11 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             clampedContentOffsetY:
                 clampedVerticalContentOffsetY(scrollView.contentOffset.y)
         ) {
+            beginScrollSessionSignpost()
             imagePipeline.setScrollMotionActive(true)
             gridModeCoordinator.dragDidBeginScrollMotion()
             demoteVisibleBrowserImageLoadsIfNeeded()
+            prepareCurrentImageWindowIfPossible()
         }
         let verticalRange = verticalContentOffsetRange
         if verticalRange.upperBound - verticalRange.lowerBound <= Self.boundaryEpsilon,
@@ -1959,17 +1982,32 @@ final class VerticalCollectionBrowserViewController: UIViewController,
 
     private func beginScrollMotion() {
         guard scrollCoordinator.beginScrollMotion() else { return }
+        beginScrollSessionSignpost()
         imagePipeline.setScrollMotionActive(true)
         gridModeCoordinator.cancelGeometryPrewarming()
         demoteVisibleBrowserImageLoadsIfNeeded()
+        prepareCurrentImageWindowIfPossible()
     }
 
     private func endScrollMotion() {
         scrollCoordinator.endScrollMotion()
+        endScrollSessionSignpost()
         imagePipeline.setScrollMotionActive(false)
         imagePipeline.cancelDenseGridImageRefreshes()
         if needsWindowSafeAreaRefresh {
             view.setNeedsLayout()
+        }
+    }
+
+    private func beginScrollSessionSignpost() {
+        guard scrollSessionSignpost == nil else { return }
+        scrollSessionSignpost = Self.signposter.beginInterval("ScrollSession")
+    }
+
+    private func endScrollSessionSignpost() {
+        if let scrollSessionSignpost {
+            Self.signposter.endInterval("ScrollSession", scrollSessionSignpost)
+            self.scrollSessionSignpost = nil
         }
     }
 
@@ -2267,6 +2305,21 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         )
     }
 
+    private func prepareCurrentImageWindowIfPossible() {
+        guard isActive,
+              isViewVisible,
+              collectionView.window?.windowScene?.activationState
+                == .foregroundActive,
+              let tokenIndex = currentAnchorTokenIndex() else {
+            return
+        }
+        prepareThumbnailWindow(
+            around: tokenIndex,
+            direction: lastPrefetchDirection,
+            force: true
+        )
+    }
+
     private func projectedBrowserTokenRange(
         around tokenIndex: Int,
         direction: DownloadableMediaCache.PrefetchDirection,
@@ -2384,7 +2437,8 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         at indexPath: IndexPath,
         requiredImageQuality: CollectionBrowseImageQuality? = nil,
         imageLoadPolicy: MobilePlayerCollectionBrowserCell.ImageLoadPolicy? = nil,
-        allowsLocalLargeImageUpgrade: Bool? = nil
+        allowsLocalLargeImageUpgrade: Bool? = nil,
+        imageDecodeVariant: DownloadableMediaImageDecodeVariant? = nil
     ) {
         guard let contentIdentity = browserContentIdentity(
             forTokenIndex: indexPath.item
@@ -2398,7 +2452,10 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             tokenIndex: indexPath.item,
             requiredImageQuality: requiredImageQuality,
             imageLoadPolicy: imageLoadPolicy,
-            apply: { resolvedRequiredImageQuality, resolvedImageLoadPolicy in
+            apply: {
+                resolvedRequiredImageQuality,
+                resolvedImageLoadPolicy,
+                resolvedImageDecodeVariant in
                 cell.configure(
                     contentIdentity: contentIdentity,
                     itemCount: browseSnapshot?.itemCount ?? 0,
@@ -2408,7 +2465,9 @@ final class VerticalCollectionBrowserViewController: UIViewController,
                     imageLoadPolicy: resolvedImageLoadPolicy,
                     fadesFirstImage: gridModeCoordinator.fadesFirstImage,
                     allowsLocalLargeImageUpgrade: allowsLocalLargeImageUpgrade
-                        ?? gridMode.allowsLocalLargeImageUpgrade
+                        ?? gridMode.allowsLocalLargeImageUpgrade,
+                    imageDecodeVariant: imageDecodeVariant
+                        ?? resolvedImageDecodeVariant
                 )
             }
         )

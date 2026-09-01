@@ -277,6 +277,416 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         XCTAssertGreaterThan(sixtyHertzCount, oneTwentyHertzCount)
     }
 
+    func testCoordinatorFrameTailUsesSixtyAndOneTwentyHertzBudgets()
+        throws {
+        func processedCount(frameDuration: CFTimeInterval) throws -> Int {
+            let fixture = try makeFixture(clock: { 0 })
+            begin(fixture)
+            XCTAssertTrue(fixture.renderer.installPlane(fixture.planeRequest))
+            XCTAssertGreaterThan(
+                fixture.renderer.pendingMaterializationWorkCount,
+                8
+            )
+            let frame = GridTransitionFrame(
+                timestamp: 1,
+                targetTimestamp: 1 + frameDuration
+            )
+            fixture.renderer.beginTransitionFrame(frame)
+            let result = try XCTUnwrap(
+                fixture.renderer.finishTransitionFrame(frame)
+            )
+            _ = fixture.renderer.finish(preservingCarryover: false)
+            return result.processedCount
+        }
+
+        XCTAssertEqual(try processedCount(frameDuration: 1.0 / 120), 4)
+        XCTAssertEqual(try processedCount(frameDuration: 1.0 / 60), 8)
+    }
+
+    func testCoordinatorFrameTailSkipsWorkAfterDeadline() throws {
+        let fixture = try makeFixture(clock: { 2 })
+        begin(fixture)
+        XCTAssertTrue(fixture.renderer.installPlane(fixture.planeRequest))
+        let pendingCount = fixture.renderer.pendingMaterializationWorkCount
+        XCTAssertGreaterThan(pendingCount, 0)
+        let frame = GridTransitionFrame(
+            timestamp: 1,
+            targetTimestamp: 1 + 1.0 / 120
+        )
+
+        XCTAssertTrue(fixture.renderer.beginTransitionFrame(frame))
+        let result = try XCTUnwrap(
+            fixture.renderer.finishTransitionFrame(frame)
+        )
+
+        XCTAssertEqual(result.processedCount, 0)
+        XCTAssertTrue(result.stoppedForTimeLimit)
+        XCTAssertEqual(
+            fixture.renderer.pendingMaterializationWorkCount,
+            pendingCount
+        )
+        _ = fixture.renderer.finish(preservingCarryover: false)
+    }
+
+#if DEBUG
+    func testExpiredTransitionFrameDoesNotCommitDirtyPhantomMask() throws {
+        let fixture = try makeFixture(clock: { 2 })
+        begin(fixture)
+        fixture.renderer.setTransitionFrameDriving(true)
+        XCTAssertTrue(fixture.renderer.installPlane(fixture.planeRequest))
+        let before = fixture.renderer.phantomShapeMaskCommitAttemptCount
+        let frame = GridTransitionFrame(
+            timestamp: 1,
+            targetTimestamp: 1 + 1.0 / 120
+        )
+
+        fixture.renderer.beginTransitionFrame(frame)
+        _ = fixture.renderer.finishTransitionFrame(frame)
+
+        XCTAssertEqual(
+            fixture.renderer.phantomShapeMaskCommitAttemptCount,
+            before
+        )
+        _ = fixture.renderer.finish(preservingCarryover: false)
+    }
+
+    func testNearExpiredTransitionFrameDefersDirtyPhantomMask() throws {
+        let frameDuration = 1.0 / 120
+        let frame = GridTransitionFrame(
+            timestamp: 1,
+            targetTimestamp: 1 + frameDuration
+        )
+        let fixture = try makeFixture(clock: {
+            frame.targetTimestamp - frameDuration / 4
+        })
+        begin(fixture)
+        fixture.renderer.setTransitionFrameDriving(true)
+        XCTAssertTrue(fixture.renderer.installPlane(fixture.planeRequest))
+        let before = fixture.renderer.phantomShapeMaskCommitAttemptCount
+
+        fixture.renderer.beginTransitionFrame(frame)
+        _ = fixture.renderer.finishTransitionFrame(frame)
+
+        XCTAssertEqual(
+            fixture.renderer.phantomShapeMaskCommitAttemptCount,
+            before
+        )
+        _ = fixture.renderer.finish(preservingCarryover: false)
+    }
+
+    func testNextLiveTransitionFrameCommitsDeferredPhantomMask() throws {
+        let time = Box<CFTimeInterval>(2)
+        let fixture = try makeFixture(clock: { time.value })
+        begin(fixture)
+        fixture.renderer.setTransitionFrameDriving(true)
+        XCTAssertTrue(fixture.renderer.installPlane(fixture.planeRequest))
+        let before = fixture.renderer.phantomShapeMaskCommitAttemptCount
+        let expiredFrame = GridTransitionFrame(
+            timestamp: 1,
+            targetTimestamp: 1 + 1.0 / 120
+        )
+        fixture.renderer.beginTransitionFrame(expiredFrame)
+        _ = fixture.renderer.finishTransitionFrame(expiredFrame)
+        time.value = 2
+        let liveFrame = GridTransitionFrame(
+            timestamp: 2,
+            targetTimestamp: 2 + 1.0 / 120
+        )
+
+        fixture.renderer.beginTransitionFrame(liveFrame)
+        _ = fixture.renderer.finishTransitionFrame(liveFrame)
+
+        XCTAssertEqual(
+            fixture.renderer.phantomShapeMaskCommitAttemptCount,
+            before + 1
+        )
+        _ = fixture.renderer.finish(preservingCarryover: false)
+    }
+
+    func testExpiredSnapshotBarrierForcesDirtyPhantomMaskCommit() throws {
+        let fixture = try makeFixture(clock: { 2 })
+        begin(fixture)
+        fixture.renderer.setTransitionFrameDriving(true)
+        XCTAssertTrue(fixture.renderer.installPlane(fixture.planeRequest))
+        let before = fixture.renderer.phantomShapeMaskCommitAttemptCount
+        let frame = GridTransitionFrame(
+            timestamp: 1,
+            targetTimestamp: 1 + 1.0 / 120
+        )
+        fixture.renderer.beginTransitionFrame(frame)
+
+        let barrierResult = fixture.renderer.prepareForSnapshot(using: frame)
+
+        XCTAssertEqual(
+            fixture.renderer.phantomShapeMaskCommitAttemptCount,
+            before + 1
+        )
+        XCTAssertEqual(
+            fixture.renderer.finishTransitionFrame(frame),
+            barrierResult
+        )
+        XCTAssertEqual(
+            fixture.renderer.phantomShapeMaskCommitAttemptCount,
+            before + 1
+        )
+        _ = fixture.renderer.finish(preservingCarryover: false)
+    }
+
+    func testExpiredFrameDefersMaskCommitWhenFrameDrivingEnds() throws {
+        let time = Box<CFTimeInterval>(0)
+        let fixture = try makeFixture(clock: { time.value })
+        begin(fixture)
+        XCTAssertTrue(fixture.renderer.installPlane(fixture.planeRequest))
+        drainQueuedWork(fixture)
+        fixture.renderer.setTransitionFrameDriving(true)
+        let before = fixture.renderer.phantomShapeMaskCommitAttemptCount
+        let displayLinkStartCount = fixture.renderer
+            .independentMaterializerDisplayLinkStartCount
+        let frame = GridTransitionFrame(
+            timestamp: 1,
+            targetTimestamp: 1 + 1.0 / 120
+        )
+        time.value = 2
+        fixture.renderer.beginTransitionFrame(frame)
+        fixture.renderer.setTransitionFrameDriving(false)
+
+        _ = fixture.renderer.finishTransitionFrame(frame)
+
+        XCTAssertFalse(fixture.renderer.isTransitionFrameDriving)
+        XCTAssertEqual(
+            fixture.renderer.phantomShapeMaskCommitAttemptCount,
+            before
+        )
+        XCTAssertEqual(
+            fixture.renderer.independentMaterializerDisplayLinkStartCount,
+            displayLinkStartCount + 1
+        )
+
+        _ = fixture.renderer.drainMaterializationWork()
+
+        XCTAssertEqual(
+            fixture.renderer.phantomShapeMaskCommitAttemptCount,
+            before + 1
+        )
+        _ = fixture.renderer.finish(preservingCarryover: false)
+    }
+#endif
+
+    func testTransitionFrameDefersMaterializerHandoffUntilTailCompletes()
+        throws {
+        let fixture = try makeFixture(clock: { 0 })
+        begin(fixture)
+        fixture.renderer.setTransitionFrameDriving(true)
+        XCTAssertTrue(fixture.renderer.isTransitionFrameDriving)
+        XCTAssertTrue(fixture.renderer.installPlane(fixture.planeRequest))
+        let frame = GridTransitionFrame(
+            timestamp: 1,
+            targetTimestamp: 1 + 1.0 / 120
+        )
+#if DEBUG
+        let startCount = fixture.renderer
+            .independentMaterializerDisplayLinkStartCount
+#endif
+
+        fixture.renderer.beginTransitionFrame(frame)
+        fixture.renderer.setTransitionFrameDriving(false)
+        XCTAssertTrue(fixture.renderer.isTransitionFrameDriving)
+#if DEBUG
+        XCTAssertEqual(
+            fixture.renderer.independentMaterializerDisplayLinkStartCount,
+            startCount
+        )
+#endif
+
+        _ = fixture.renderer.finishTransitionFrame(frame)
+        XCTAssertFalse(fixture.renderer.isTransitionFrameDriving)
+#if DEBUG
+        XCTAssertGreaterThan(
+            fixture.renderer.independentMaterializerDisplayLinkStartCount,
+            startCount
+        )
+#endif
+        _ = fixture.renderer.finish(preservingCarryover: false)
+    }
+
+    func testSynchronousSnapshotBarrierUsesSixtyHertzBudget() throws {
+        let fixture = try makeFixture(clock: { 0 })
+        begin(fixture)
+        fixture.renderer.setTransitionFrameDriving(true)
+        XCTAssertTrue(fixture.renderer.installPlane(fixture.planeRequest))
+        XCTAssertGreaterThan(
+            fixture.renderer.pendingMaterializationWorkCount,
+            8
+        )
+        let frame = GridTransitionFrame(
+            timestamp: 1,
+            targetTimestamp: 1 + 1.0 / 60
+        )
+        XCTAssertTrue(fixture.renderer.beginTransitionFrame(frame))
+        let result = try XCTUnwrap(fixture.renderer.prepareForSnapshot(
+            using: frame
+        ))
+
+        XCTAssertEqual(result.processedCount, 8)
+        XCTAssertEqual(
+            fixture.renderer.finishTransitionFrame(frame),
+            result
+        )
+        XCTAssertTrue(fixture.renderer.isTransitionFrameDriving)
+        fixture.renderer.setTransitionFrameDriving(false)
+        _ = fixture.renderer.finish(preservingCarryover: false)
+    }
+
+#if DEBUG
+    func testSnapshotBarrierDrainsOnceAndDefersHandoffUntilFrameTail()
+        throws {
+        let fixture = try makeFixture(clock: { 0 })
+        begin(fixture)
+        fixture.renderer.setTransitionFrameDriving(true)
+        XCTAssertTrue(fixture.renderer.installPlane(fixture.planeRequest))
+        XCTAssertGreaterThan(
+            fixture.renderer.pendingMaterializationWorkCount,
+            8
+        )
+        let frame = GridTransitionFrame(
+            timestamp: 1,
+            targetTimestamp: 1 + 1.0 / 120
+        )
+        let drainCount = fixture.renderer.externalMaterializerFrameDrainCount
+
+        fixture.renderer.beginTransitionFrame(frame)
+        fixture.renderer.setTransitionFrameDriving(false)
+        let barrierResult = try XCTUnwrap(
+            fixture.renderer.prepareForSnapshot(using: frame)
+        )
+
+        XCTAssertEqual(barrierResult.processedCount, 4)
+        XCTAssertEqual(
+            fixture.renderer.externalMaterializerFrameDrainCount,
+            drainCount + 1
+        )
+        XCTAssertTrue(fixture.renderer.isTransitionFrameDriving)
+
+        let tailResult = try XCTUnwrap(
+            fixture.renderer.finishTransitionFrame(frame)
+        )
+
+        XCTAssertEqual(tailResult, barrierResult)
+        XCTAssertEqual(
+            fixture.renderer.externalMaterializerFrameDrainCount,
+            drainCount + 1
+        )
+        XCTAssertFalse(fixture.renderer.isTransitionFrameDriving)
+        _ = fixture.renderer.finish(preservingCarryover: false)
+    }
+
+    func testSnapshotBarrierCommitsPhantomMaskBeforeFrameTail() throws {
+        let fixture = try makeFixture(clock: { 0 })
+        begin(fixture)
+        XCTAssertTrue(fixture.renderer.installPlane(fixture.planeRequest))
+        drainQueuedWork(fixture)
+        fixture.renderer.setTransitionFrameDriving(true)
+        let firstFrame = GridTransitionFrame(
+            timestamp: 1,
+            targetTimestamp: 1 + 1.0 / 120
+        )
+        fixture.renderer.beginTransitionFrame(firstFrame)
+        _ = fixture.renderer.finishTransitionFrame(firstFrame)
+        let before = fixture.renderer.phantomShapeMaskCommitAttemptCount
+
+        let secondFrame = GridTransitionFrame(
+            timestamp: 1 + 1.0 / 120,
+            targetTimestamp: 1 + 2.0 / 120
+        )
+        fixture.renderer.beginTransitionFrame(secondFrame)
+        XCTAssertTrue(fixture.renderer.renderSettle(
+            id: fixture.planeRequest.id,
+            scale: 0.8,
+            settleProgress: 0.5,
+            panDeltaY: 0
+        ))
+        XCTAssertEqual(
+            fixture.renderer.phantomShapeMaskCommitAttemptCount,
+            before
+        )
+        let barrierResult = try XCTUnwrap(
+            fixture.renderer.prepareForSnapshot(using: secondFrame)
+        )
+
+        XCTAssertEqual(
+            fixture.renderer.phantomShapeMaskCommitAttemptCount,
+            before + 1
+        )
+        XCTAssertEqual(
+            fixture.renderer.finishTransitionFrame(secondFrame),
+            barrierResult
+        )
+        XCTAssertEqual(
+            fixture.renderer.phantomShapeMaskCommitAttemptCount,
+            before + 1
+        )
+        _ = fixture.renderer.finish(preservingCarryover: false)
+    }
+
+    func testEndingExternalDrivingFlushesDirtyPhantomMask() throws {
+        let fixture = try makeFixture(clock: { 0 })
+        begin(fixture)
+        XCTAssertTrue(fixture.renderer.installPlane(fixture.planeRequest))
+        drainQueuedWork(fixture)
+        fixture.renderer.setTransitionFrameDriving(true)
+        let frame = GridTransitionFrame(
+            timestamp: 1,
+            targetTimestamp: 1 + 1.0 / 120
+        )
+        fixture.renderer.beginTransitionFrame(frame)
+        _ = fixture.renderer.finishTransitionFrame(frame)
+        XCTAssertTrue(fixture.renderer.renderSettle(
+            id: fixture.planeRequest.id,
+            scale: 0.8,
+            settleProgress: 0.5,
+            panDeltaY: 0
+        ))
+        let before = fixture.renderer.phantomShapeMaskCommitAttemptCount
+
+        fixture.renderer.setTransitionFrameDriving(false)
+
+        XCTAssertEqual(
+            fixture.renderer.phantomShapeMaskCommitAttemptCount,
+            before + 1
+        )
+        _ = fixture.renderer.finish(preservingCarryover: false)
+    }
+
+    func testTransitionFramesSkipCleanPhantomMaskCommits() throws {
+        let fixture = try makeFixture(clock: { 0 })
+        begin(fixture)
+        fixture.renderer.setTransitionFrameDriving(true)
+        let before = fixture.renderer.phantomShapeMaskCommitAttemptCount
+
+        let firstFrame = GridTransitionFrame(
+            timestamp: 1,
+            targetTimestamp: 1 + 1.0 / 120
+        )
+        fixture.renderer.beginTransitionFrame(firstFrame)
+        _ = fixture.renderer.finishTransitionFrame(firstFrame)
+        let afterFirstFrame = fixture.renderer.phantomShapeMaskCommitAttemptCount
+
+        let secondFrame = GridTransitionFrame(
+            timestamp: 1 + 1.0 / 120,
+            targetTimestamp: 1 + 2.0 / 120
+        )
+        fixture.renderer.beginTransitionFrame(secondFrame)
+        _ = fixture.renderer.finishTransitionFrame(secondFrame)
+
+        XCTAssertEqual(afterFirstFrame, before + 1)
+        XCTAssertEqual(
+            fixture.renderer.phantomShapeMaskCommitAttemptCount,
+            afterFirstFrame
+        )
+        _ = fixture.renderer.finish(preservingCarryover: false)
+    }
+#endif
+
     func testInteractionFadePreservesOnlyTheNextMaterializationBurst() throws {
         let fixture = try makeFixture(clock: { 0 })
         begin(fixture)
@@ -782,6 +1192,38 @@ nonisolated final class GridTransitionDisplayLinkFrameDriverTests:
 
 @MainActor
 extension GridTransitionDisplayLinkFrameDriverTests {
+    func testFrameClampsAdaptiveBudgetToSixtyThroughOneTwentyHertz() {
+        let fastFrame = GridTransitionFrame(
+            timestamp: 10,
+            targetTimestamp: 10 + 1.0 / 240
+        )
+        let normalFrame = GridTransitionFrame(
+            timestamp: 10,
+            targetTimestamp: 10 + 1.0 / 120
+        )
+        let slowFrame = GridTransitionFrame(
+            timestamp: 10,
+            targetTimestamp: 10 + 1.0 / 30
+        )
+
+        XCTAssertEqual(fastFrame.duration, 1.0 / 240, accuracy: 0.000_001)
+        XCTAssertEqual(
+            fastFrame.adaptiveDuration,
+            1.0 / 120,
+            accuracy: 0.000_001
+        )
+        XCTAssertEqual(
+            normalFrame.adaptiveDuration,
+            1.0 / 120,
+            accuracy: 0.000_001
+        )
+        XCTAssertEqual(
+            slowFrame.adaptiveDuration,
+            1.0 / 60,
+            accuracy: 0.000_001
+        )
+    }
+
     func testFramesRunInTrackingModeAndLifecycleIsTerminalAfterInvalidation() {
         let driver = GridTransitionDisplayLinkFrameDriver()
         var frameCount = 0

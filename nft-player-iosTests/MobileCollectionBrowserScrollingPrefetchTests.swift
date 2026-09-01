@@ -8,7 +8,7 @@ import XCTest
 @MainActor
 extension MobileCollectionBrowserGridModePresentationTests {
 
-    func testDenseGridImageRefreshQueueRotatesRetriesFairly() {
+    func testDenseGridImageRefreshQueuePreservesFairRequeueOrder() {
         var queue = DenseGridImageRefreshQueue()
         for tokenIndex in 0..<10 {
             XCTAssertTrue(queue.enqueue(tokenIndex))
@@ -343,6 +343,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
                 itemCount: 12,
                 direction: .forward,
                 prefetchStride: 1,
+                columnCount: 1,
                 compactCoverage: .init(
                     decodedRange: 3...8,
                     fileRange: 0...11
@@ -356,6 +357,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
                 itemCount: 12,
                 direction: .backward,
                 prefetchStride: 1,
+                columnCount: 1,
                 compactCoverage: .init(
                     decodedRange: 2...7,
                     fileRange: 0...11
@@ -369,6 +371,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
                 itemCount: 12,
                 direction: .forward,
                 prefetchStride: 1,
+                columnCount: 1,
                 descriptorForTokenIndex: descriptor
             )
         )
@@ -385,6 +388,208 @@ extension MobileCollectionBrowserGridModePresentationTests {
             standard.decodedDescriptors.map(\.tokenIndex),
             [5, 6, 7, 4]
         )
+    }
+
+    func testMediaWindowPrioritizesVisibleItemsWithinBoundedCapacities() throws {
+        let descriptor: (Int) -> CollectionCatalogDownloadableMediaDescriptor = {
+            tokenIndex in
+            CollectionCatalogDownloadableMediaDescriptor(
+                collectionId: "bounded-window",
+                tokenId: String(tokenIndex),
+                tokenIndex: tokenIndex,
+                media: .staticImage(
+                    url: URL(fileURLWithPath: "/bounded-window/\(tokenIndex).webp"),
+                    fileExtension: "webp"
+                ),
+                purpose: .collectionBrowserThumbnail
+            )
+        }
+        let window = try XCTUnwrap(
+            PlayerCollectionBrowseMediaWindowLayout.makeWindow(
+                centeredAt: 50,
+                itemCount: 500,
+                direction: .forward,
+                prefetchStride: 25,
+                columnCount: 5,
+                visibleTokenRange: 46...55,
+                descriptorForTokenIndex: descriptor
+            )
+        )
+
+        XCTAssertLessThanOrEqual(window.descriptors.count, 60)
+        XCTAssertLessThanOrEqual(window.decodedDescriptors.count, 30)
+        XCTAssertEqual(
+            Array(window.descriptors.map(\.tokenIndex).prefix(6)),
+            [50, 51, 49, 52, 48, 53]
+        )
+        XCTAssertEqual(
+            Array(window.decodedDescriptors.map(\.tokenIndex).prefix(6)),
+            [50, 51, 49, 52, 48, 53]
+        )
+    }
+
+    func testFileOnlyMediaWindowHasNoDecodeDemand() throws {
+        let window = try XCTUnwrap(
+            PlayerCollectionBrowseMediaWindowLayout.makeWindow(
+                centeredAt: 5,
+                itemCount: 12,
+                direction: .forward,
+                prefetchStride: 1,
+                columnCount: 1,
+                includesDecodedDescriptors: false,
+                descriptorForTokenIndex: { tokenIndex in
+                    CollectionCatalogDownloadableMediaDescriptor(
+                        collectionId: "file-only-window",
+                        tokenId: String(tokenIndex),
+                        tokenIndex: tokenIndex,
+                        media: .staticImage(
+                            url: URL(fileURLWithPath:
+                                "/file-only-window/\(tokenIndex).webp"),
+                            fileExtension: "webp"
+                        ),
+                        purpose: .collectionBrowserThumbnail
+                    )
+                }
+            )
+        )
+
+        XCTAssertFalse(window.descriptors.isEmpty)
+        XCTAssertTrue(window.decodedDescriptors.isEmpty)
+    }
+
+    func testFileOnlyDenseWindowCoversEachRowAlignedRefreshInterval() throws {
+        let layouts = [
+            (columnCount: 5, prefetchStride: 25),
+            (columnCount: 9, prefetchStride: 25),
+            (columnCount: 10, prefetchStride: 25),
+            (columnCount: 18, prefetchStride: 25),
+        ]
+        let visibleRange = 200...269
+        let descriptor: (Int) -> CollectionCatalogDownloadableMediaDescriptor = {
+            tokenIndex in
+            CollectionCatalogDownloadableMediaDescriptor(
+                collectionId: "dense-file-window",
+                tokenId: String(tokenIndex),
+                tokenIndex: tokenIndex,
+                media: .staticImage(
+                    url: URL(fileURLWithPath:
+                        "/dense-file-window/\(tokenIndex).webp"),
+                    fileExtension: "webp"
+                ),
+                purpose: .collectionBrowserThumbnail
+            )
+        }
+
+        for layout in layouts {
+            let refreshDistance = PlayerCollectionBrowseMediaWindowPolicy
+                .rowAlignedRefreshDistance(
+                    prefetchStride: layout.prefetchStride,
+                    columnCount: layout.columnCount
+                )
+            for direction in [
+                DownloadableMediaCache.PrefetchDirection.forward,
+                .backward,
+            ] {
+                let window = try XCTUnwrap(
+                    PlayerCollectionBrowseMediaWindowLayout.makeWindow(
+                        centeredAt: 235,
+                        itemCount: 1_000,
+                        direction: direction,
+                        prefetchStride: layout.prefetchStride,
+                        columnCount: layout.columnCount,
+                        visibleTokenRange: visibleRange,
+                        includesDecodedDescriptors: false,
+                        descriptorForTokenIndex: descriptor
+                    )
+                )
+                let requiredLookahead: ClosedRange<Int>
+                switch direction {
+                case .forward:
+                    requiredLookahead = (visibleRange.upperBound + 1)...(
+                        visibleRange.upperBound + refreshDistance
+                    )
+                case .backward:
+                    requiredLookahead = (
+                        visibleRange.lowerBound - refreshDistance
+                    )...(visibleRange.lowerBound - 1)
+                }
+                let fileTokenIndices = Set(window.descriptors.map(\.tokenIndex))
+
+                XCTAssertTrue(
+                    requiredLookahead.allSatisfy(fileTokenIndices.contains),
+                    "missing \(direction) coverage for \(layout.columnCount) columns"
+                )
+                XCTAssertTrue(window.decodedDescriptors.isEmpty)
+            }
+        }
+    }
+
+    func testMediaWindowExpandsOnlyToVisibleFloorAndLookahead() throws {
+        let visibleRange = 40...109
+        let window = try XCTUnwrap(
+            PlayerCollectionBrowseMediaWindowLayout.makeWindow(
+                centeredAt: 75,
+                itemCount: 500,
+                direction: .forward,
+                prefetchStride: 25,
+                columnCount: 5,
+                visibleTokenRange: visibleRange,
+                descriptorForTokenIndex: { tokenIndex in
+                    CollectionCatalogDownloadableMediaDescriptor(
+                        collectionId: "visible-floor-window",
+                        tokenId: String(tokenIndex),
+                        tokenIndex: tokenIndex,
+                        media: .staticImage(
+                            url: URL(fileURLWithPath:
+                                "/visible-floor-window/\(tokenIndex).webp"),
+                            fileExtension: "webp"
+                        ),
+                        purpose: .collectionBrowserThumbnail
+                    )
+                }
+            )
+        )
+
+        let fileIndices = Set(window.descriptors.map(\.tokenIndex))
+        let decodedIndices = Set(window.decodedDescriptors.map(\.tokenIndex))
+        XCTAssertTrue(visibleRange.allSatisfy(fileIndices.contains))
+        XCTAssertTrue(visibleRange.allSatisfy(decodedIndices.contains))
+        XCTAssertEqual(window.descriptors.count, visibleRange.count + 25)
+        XCTAssertEqual(window.decodedDescriptors.count, visibleRange.count)
+    }
+
+    func testMediaWindowBackfillsNilDescriptorCandidates() throws {
+        let visibleRange = 46...55
+        let omittedTokenIndices = Set(40...69)
+        let window = try XCTUnwrap(
+            PlayerCollectionBrowseMediaWindowLayout.makeWindow(
+                centeredAt: 50,
+                itemCount: 500,
+                direction: .forward,
+                prefetchStride: 25,
+                columnCount: 5,
+                visibleTokenRange: visibleRange,
+                descriptorForTokenIndex: { tokenIndex in
+                    guard !omittedTokenIndices.contains(tokenIndex) else {
+                        return nil
+                    }
+                    return CollectionCatalogDownloadableMediaDescriptor(
+                        collectionId: "backfilled-window",
+                        tokenId: String(tokenIndex),
+                        tokenIndex: tokenIndex,
+                        media: .staticImage(
+                            url: URL(fileURLWithPath:
+                                "/backfilled-window/\(tokenIndex).webp"),
+                            fileExtension: "webp"
+                        ),
+                        purpose: .collectionBrowserThumbnail
+                    )
+                }
+            )
+        )
+
+        XCTAssertEqual(window.descriptors.count, 60)
+        XCTAssertEqual(window.decodedDescriptors.count, 30)
     }
 
     func testCompactWindowContainsFullVisibleRangeAtCollectionEnd() throws {
@@ -404,7 +609,9 @@ extension MobileCollectionBrowserGridModePresentationTests {
                 itemCount: 500,
                 direction: .forward,
                 prefetchStride: 25,
+                columnCount: 5,
                 compactCoverage: coverage,
+                visibleTokenRange: 445...499,
                 descriptorForTokenIndex: { tokenIndex in
                     CollectionCatalogDownloadableMediaDescriptor(
                         collectionId: "dense-boundary",
@@ -692,10 +899,13 @@ extension MobileCollectionBrowserGridModePresentationTests {
             movedVisibleIndexPaths.count
         )
         XCTAssertTrue(fixture.controller.isDenseGridImageDisplayLinkActive)
-        XCTAssertEqual(
+        let drainedRefreshCount =
             fixture.controller
-                .drainDenseGridImageDisplayLinkFrameForTesting(),
-            min(pendingRefreshCount, 5)
+                .drainDenseGridImageDisplayLinkFrameForTesting()
+        XCTAssertEqual(drainedRefreshCount, min(pendingRefreshCount, 5))
+        XCTAssertEqual(
+            fixture.controller.pendingDenseGridImageRefreshCount,
+            pendingRefreshCount - drainedRefreshCount
         )
 
         let refreshIndexPath = try XCTUnwrap(
@@ -894,9 +1104,19 @@ extension MobileCollectionBrowserGridModePresentationTests {
 
         XCTAssertFalse(visibleCells.isEmpty)
         XCTAssertTrue(visibleCells.allSatisfy(\.usesForegroundImageLoading))
+#if DEBUG
+        let fileOnlyPreparationCount = fixture.controller
+            .thumbnailWindowMetrics.fileOnlyPreparations
+#endif
 
         fixture.controller.scrollViewWillBeginDragging(collectionView)
         XCTAssertTrue(visibleCells.allSatisfy(\.usesForegroundImageLoading))
+#if DEBUG
+        XCTAssertEqual(
+            fixture.controller.thumbnailWindowMetrics.fileOnlyPreparations,
+            fileOnlyPreparationCount
+        )
+#endif
 
         fixture.controller.scrollViewDidEndDragging(
             collectionView,

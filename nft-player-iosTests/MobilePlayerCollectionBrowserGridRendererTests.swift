@@ -7,20 +7,137 @@ import XCTest
 
 @MainActor
 extension MobilePlayerCollectionBrowserGridRendererTests {
+    func testFiveAndNineColumnTransitionsUseDestinationDecodeVariant()
+        throws {
+        try assertTransitionDecodeVariants(
+            sourceColumnCount: 5,
+            destinationColumnCount: 9,
+            destinationMode: .nineColumns,
+            expectedVariant: .downsampled(maxPixelWidth: 160)
+        )
+        try assertTransitionDecodeVariants(
+            sourceColumnCount: 9,
+            destinationColumnCount: 5,
+            destinationMode: .fiveColumns,
+            expectedVariant: .downsampled(maxPixelWidth: 288)
+        )
+    }
+
+    func testFiveAndThreeColumnTransitionsUseDestinationDecodeVariant()
+        throws {
+        try assertTransitionDecodeVariants(
+            sourceColumnCount: 5,
+            destinationColumnCount: 3,
+            destinationMode: .threeColumns,
+            expectedVariant: .full
+        )
+        try assertTransitionDecodeVariants(
+            sourceColumnCount: 3,
+            destinationColumnCount: 5,
+            destinationMode: .fiveColumns,
+            expectedVariant: .downsampled(maxPixelWidth: 288)
+        )
+    }
+
+    private func assertTransitionDecodeVariants(
+        sourceColumnCount: Int,
+        destinationColumnCount: Int,
+        destinationMode: MobileCollectionBrowserGridMode,
+        expectedVariant: DownloadableMediaImageDecodeVariant
+    ) throws {
+        let cachedImageVariants = Box<[
+            DownloadableMediaImageDecodeVariant
+        ]>([])
+        let loadVariants = Box<[
+            DownloadableMediaImageDecodeVariant
+        ]>([])
+        let defaultImageSources = makeImageSources()
+        let imageSources = CollectionBrowseImageSources(
+            smallestThumbnailDescriptor:
+                defaultImageSources.thumbnailDescriptor,
+            smallThumbnailDescriptor:
+                defaultImageSources.thumbnailDescriptor,
+            thumbnailDescriptor: defaultImageSources.thumbnailDescriptor,
+            largeDescriptor: defaultImageSources.largeDescriptor
+        )
+        let fixture = try makeFixture(
+            itemCount: 90,
+            sourceColumnCount: sourceColumnCount,
+            destinationColumnCount: destinationColumnCount,
+            destinationMode: destinationMode,
+            showsSourceGrid: true,
+            providesContentAccess: true,
+            contentImageSources: imageSources,
+            imageAccess: .init(
+                cachedImage: { _, _, decodeSelection in
+                    guard case let .satisfying(variant) =
+                        decodeSelection.normalized else {
+                        return nil
+                    }
+                    cachedImageVariants.value.append(variant)
+                    return nil
+                },
+                loadImage: { _, variant, _ in
+                    loadVariants.value.append(variant)
+                    return {}
+                }
+            )
+        )
+        defer { _ = fixture.renderer.finish(preservingCarryover: false) }
+
+        XCTAssertEqual(fixture.planeRequest.imageDecodeVariant, expectedVariant)
+        begin(fixture)
+        XCTAssertTrue(fixture.renderer.installPlane(fixture.planeRequest))
+        drainQueuedWork(fixture)
+
+        XCTAssertFalse(cachedImageVariants.value.isEmpty)
+        XCTAssertTrue(cachedImageVariants.value.allSatisfy {
+            $0 == expectedVariant
+        })
+        XCTAssertFalse(
+            loadVariants.value.isEmpty,
+            "\(sourceColumnCount)→\(destinationColumnCount) did not load"
+        )
+        XCTAssertTrue(loadVariants.value.allSatisfy {
+            $0 == expectedVariant
+        })
+        let phantomVariants = fixture.cellConfigurations.value.compactMap {
+            configuration -> DownloadableMediaImageDecodeVariant? in
+            guard case let .destinationPhantom(_, variant) = configuration else {
+                return nil
+            }
+            return variant
+        }
+        XCTAssertTrue(phantomVariants.allSatisfy { $0 == expectedVariant })
+    }
+
     func testCellConfigurationEncodesMaterializationInvariants() {
         let sourceConfiguration =
             MobilePlayerCollectionBrowserGridRenderer.CellConfiguration
-                .sourceOverscan
+                .sourceOverscan(
+                    imageDecodeVariant: .downsampled(maxPixelWidth: 160)
+                )
         XCTAssertNil(sourceConfiguration.requiredImageQuality)
         XCTAssertEqual(sourceConfiguration.imageLoadPolicy, .cachedOnly)
         XCTAssertFalse(sourceConfiguration.allowsLocalLargeImageUpgrade)
+        XCTAssertEqual(
+            sourceConfiguration.imageDecodeVariant,
+            .downsampled(maxPixelWidth: 160)
+        )
 
         let destinationConfiguration =
             MobilePlayerCollectionBrowserGridRenderer.CellConfiguration
-                .destinationPhantom(requiredImageQuality: .large)
+                .destinationPhantom(
+                    requiredImageQuality: .large,
+                    imageDecodeVariant: .downsampled(maxPixelWidth: 288)
+                )
         XCTAssertEqual(destinationConfiguration.requiredImageQuality, .large)
         XCTAssertEqual(destinationConfiguration.imageLoadPolicy, .cachedOnly)
         XCTAssertFalse(destinationConfiguration.allowsLocalLargeImageUpgrade)
+        XCTAssertEqual(
+            destinationConfiguration.imageDecodeVariant,
+            .downsampled(maxPixelWidth: 288)
+        )
     }
 
     func testLifecycleCleanupIsIdempotent() throws {
@@ -216,6 +333,52 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         )
         _ = fixture.renderer.finish(preservingCarryover: false)
     }
+
+#if DEBUG
+    func testPlaneReanchorReconcilesAnOtherwiseIdenticalFrame() throws {
+        let fixture = try makeFixture()
+        defer { _ = fixture.renderer.finish(preservingCarryover: false) }
+        begin(fixture)
+        XCTAssertTrue(fixture.renderer.installPlane(fixture.planeRequest))
+        let scale: CGFloat = 0.8
+        let settleProgress: CGFloat = 0.4
+        let panDeltaY: CGFloat = 12
+
+        XCTAssertTrue(fixture.renderer.renderSettle(
+            id: fixture.planeRequest.id,
+            scale: scale,
+            settleProgress: settleProgress,
+            panDeltaY: panDeltaY
+        ))
+        let reconciliationCount = fixture.renderer
+            .phantomShapeMaskCommitAttemptCount
+        XCTAssertTrue(fixture.renderer.renderSettle(
+            id: fixture.planeRequest.id,
+            scale: scale,
+            settleProgress: settleProgress,
+            panDeltaY: panDeltaY
+        ))
+        XCTAssertEqual(
+            fixture.renderer.phantomShapeMaskCommitAttemptCount,
+            reconciliationCount
+        )
+
+        fixture.renderer.reanchorSettlingRendering(
+            at: CGPoint(x: 40, y: 120)
+        )
+        XCTAssertNil(try activeSession(fixture).lastPlaneFrameRevision)
+        XCTAssertTrue(fixture.renderer.renderSettle(
+            id: fixture.planeRequest.id,
+            scale: scale,
+            settleProgress: settleProgress,
+            panDeltaY: panDeltaY
+        ))
+        XCTAssertEqual(
+            fixture.renderer.phantomShapeMaskCommitAttemptCount,
+            reconciliationCount + 1
+        )
+    }
+#endif
 
     func testInstallingPlaneReplacesActivePlane() throws {
         let fixture = try makeFixture()
@@ -481,6 +644,95 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         ))
         XCTAssertNil(sourceCell.layer.animation(forKey: "opacity"))
         XCTAssertNil(container.layer.animation(forKey: "opacity"))
+    }
+
+    func testTinyPositivePresentationInterruptsZeroProgressFade() throws {
+        let fixture = try makeFixture(showsSourceCell: true)
+        defer { _ = fixture.renderer.finish(preservingCarryover: false) }
+        let sourceCell = try XCTUnwrap(
+            fixture.collectionView.visibleCells.first
+                as? MobilePlayerCollectionBrowserCell
+        )
+        begin(fixture)
+        XCTAssertTrue(fixture.renderer.installPlane(fixture.planeRequest))
+        let session = try activeSession(fixture)
+        let scale = fixture.planeRequest.transitionLayout.itemWidthRatio
+
+        XCTAssertTrue(fixture.renderer.renderSettle(
+            id: fixture.planeRequest.id,
+            scale: scale,
+            settleProgress: 0,
+            presentationProgress: 0.5,
+            panDeltaY: 0
+        ))
+        XCTAssertTrue(fixture.renderer.renderSettle(
+            id: fixture.planeRequest.id,
+            scale: scale,
+            settleProgress: 0,
+            presentationProgress: 0,
+            panDeltaY: 0
+        ))
+        XCTAssertTrue(session.contentFadeAnimationMayBeActive)
+        let opacity = CABasicAnimation(keyPath: "opacity")
+        opacity.duration = 10
+        sourceCell.layer.add(opacity, forKey: "opacity")
+
+        XCTAssertTrue(fixture.renderer.renderSettle(
+            id: fixture.planeRequest.id,
+            scale: scale,
+            settleProgress: 0,
+            presentationProgress: 0.0009,
+            panDeltaY: 0
+        ))
+
+        XCTAssertFalse(session.contentFadeAnimationMayBeActive)
+        XCTAssertNil(sourceCell.layer.animation(forKey: "opacity"))
+    }
+
+    func testRenderRejectsUnsafeScaleAndPanValues() throws {
+        let fixture = try makeFixture()
+        begin(fixture)
+        XCTAssertTrue(fixture.renderer.installPlane(fixture.planeRequest))
+
+        for (scale, panDeltaY) in [
+            (CGFloat.nan, CGFloat.zero),
+            (CGFloat.infinity, CGFloat.zero),
+            (CGFloat.greatestFiniteMagnitude, CGFloat.zero),
+            (CGFloat(1), CGFloat.nan),
+            (CGFloat(1), CGFloat.infinity),
+            (CGFloat(1), CGFloat.greatestFiniteMagnitude),
+        ] {
+            XCTAssertFalse(fixture.renderer.renderSettle(
+                id: fixture.planeRequest.id,
+                scale: scale,
+                settleProgress: 0,
+                panDeltaY: panDeltaY
+            ))
+        }
+
+        XCTAssertEqual(try activeSession(fixture).lastPanDeltaY, 0)
+        _ = fixture.renderer.finish(preservingCarryover: false)
+    }
+
+    func testZoomRejectsUnsafePanAndFiniteOverflowingScale() throws {
+        let fixture = try makeFixture()
+        begin(fixture)
+
+        XCTAssertFalse(fixture.renderer.renderZoom(
+            planeID: nil,
+            scale: 1,
+            panDeltaY: .nan,
+            sourceLayout: fixture.sourceLayout
+        ))
+        XCTAssertFalse(fixture.renderer.renderZoom(
+            planeID: nil,
+            scale: .greatestFiniteMagnitude,
+            panDeltaY: 0,
+            sourceLayout: fixture.sourceLayout
+        ))
+
+        XCTAssertEqual(try activeSession(fixture).lastPanDeltaY, 0)
+        _ = fixture.renderer.finish(preservingCarryover: false)
     }
 
     func testDirectCommitCanCompleteOrAbort() throws {

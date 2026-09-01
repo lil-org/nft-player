@@ -8,6 +8,15 @@ nonisolated final class MobilePlayerCollectionBrowserCoordinatorContractTests:
     XCTestCase {}
 
 @MainActor
+private final class CollectionBrowserDecodeVariantState {
+    var value: DownloadableMediaImageDecodeVariant
+
+    init(_ value: DownloadableMediaImageDecodeVariant) {
+        self.value = value
+    }
+}
+
+@MainActor
 private final class SettlementAcceptance {
     var value = false
 }
@@ -129,19 +138,28 @@ private struct GridModeCoordinatorContractFixture {
 @MainActor
 extension MobilePlayerCollectionBrowserCoordinatorContractTests {
     private func makeImageContentAccess(
+        visibleIndexPaths: @escaping @MainActor () -> [IndexPath] = { [] },
+        cell: @escaping @MainActor (
+            IndexPath
+        ) -> MobilePlayerCollectionBrowserCell? = { _ in nil },
+        collectionID: @escaping @MainActor () -> String? = { nil },
         requiredImageQuality: @escaping @MainActor ()
             -> CollectionBrowseImageQuality = { .large },
+        imageDecodeVariant: @escaping @MainActor ()
+            -> DownloadableMediaImageDecodeVariant = { .full },
         prepareThumbnailWindow: @escaping @MainActor (
             MobilePlayerCollectionBrowserImagePipeline
                 .ThumbnailWindowPreparation
         ) -> Void = { _ in }
     ) -> MobilePlayerCollectionBrowserImagePipeline.ContentAccess {
         .init(
-            visibleIndexPaths: { [] },
-            cell: { _ in nil },
+            visibleIndexPaths: visibleIndexPaths,
+            cell: cell,
             visibleCells: { [] },
             viewportRenderCells: { [] },
+            collectionID: collectionID,
             requiredImageQuality: requiredImageQuality,
+            imageDecodeVariant: imageDecodeVariant,
             baseColumnCount: { 5 },
             isRendererActive: { false },
             isApplyingPosition: { false },
@@ -437,6 +455,7 @@ extension MobilePlayerCollectionBrowserCoordinatorContractTests {
                 },
                 endScrollMotionAndResetDragState: {},
                 settleCurrentPosition: {},
+                prepareCurrentImageWindowIfPossible: {},
                 settleAfterApplyingPendingWindowSafeAreaRefresh: {},
                 reloadVisibleCells: {},
                 browseImageSources: { _ in nil }
@@ -490,6 +509,50 @@ extension MobilePlayerCollectionBrowserCoordinatorContractTests {
         XCTAssertEqual(preparations.count, 1)
     }
 
+    func testDenseThumbnailWindowRefreshesWhenDecodeVariantChanges() {
+        let pipeline = MobilePlayerCollectionBrowserImagePipeline()
+        let variant = CollectionBrowserDecodeVariantState(
+            .downsampled(maxPixelWidth: 160)
+        )
+        var preparations = [
+            MobilePlayerCollectionBrowserImagePipeline
+                .ThumbnailWindowPreparation
+        ]()
+        pipeline.configure(contentAccess: makeImageContentAccess(
+            requiredImageQuality: { .smallThumbnail },
+            imageDecodeVariant: { variant.value },
+            prepareThumbnailWindow: { preparations.append($0) }
+        ))
+        pipeline.setActive(true)
+        pipeline.prepareThumbnailWindow(
+            around: 18,
+            direction: .forward,
+            force: true,
+            configuredPrefetchStride: 9,
+            configuredColumnCount: 5,
+            requiredImageQuality: .smallThumbnail
+        )
+
+        variant.value = .downsampled(maxPixelWidth: 320)
+        pipeline.prepareThumbnailWindow(
+            around: 18,
+            direction: .forward,
+            force: false,
+            configuredPrefetchStride: 9,
+            configuredColumnCount: 5,
+            requiredImageQuality: .smallThumbnail
+        )
+
+        XCTAssertEqual(preparations.count, 2)
+        XCTAssertEqual(
+            preparations.map(\.decodeVariant),
+            [
+                .downsampled(maxPixelWidth: 160),
+                .downsampled(maxPixelWidth: 320),
+            ]
+        )
+    }
+
     func testImagePipelineInvalidateIsIdempotentAndRejectsStateChanges() {
         let pipeline = MobilePlayerCollectionBrowserImagePipeline()
         var requiredQualityAccessCount = 0
@@ -537,6 +600,90 @@ extension MobilePlayerCollectionBrowserCoordinatorContractTests {
     }
 
 #if DEBUG
+    func testDecodedImageAvailabilityRequeuesVisibleDenseCacheMiss() throws {
+        let collectionID = "decoded-image-wake"
+        let tokenIndex = 4
+        let indexPath = IndexPath(item: tokenIndex, section: 0)
+        let descriptor = CollectionCatalogDownloadableMediaDescriptor(
+            collectionId: collectionID,
+            tokenId: String(tokenIndex),
+            tokenIndex: tokenIndex,
+            media: .staticImage(
+                url: URL(fileURLWithPath: "/decoded-image-wake.webp"),
+                fileExtension: "webp"
+            ),
+            purpose: .collectionBrowserThumbnail
+        )
+        let cell = MobilePlayerCollectionBrowserCell(frame: CGRect(
+            x: 0,
+            y: 0,
+            width: 80,
+            height: 80
+        ))
+        cell.configure(
+            contentIdentity: MobilePlayerBrowserContentIdentity(
+                collectionId: collectionID,
+                tokenIndex: tokenIndex
+            ),
+            itemCount: 10,
+            imageSources: CollectionBrowseImageSources(
+                thumbnailDescriptor: descriptor,
+                largeDescriptor: descriptor
+            ),
+            requiredImageQuality: .smallThumbnail,
+            missingDescriptorFallbackSpec: PlayerMediaPlaceholderSpec(
+                thumbnailAspectRatio: nil
+            ),
+            imageLoadPolicy: .cachedOnly,
+            allowsLocalLargeImageUpgrade: false
+        )
+        let pipeline = MobilePlayerCollectionBrowserImagePipeline()
+        pipeline.configure(contentAccess: makeImageContentAccess(
+            visibleIndexPaths: { [indexPath] },
+            cell: { $0 == indexPath ? cell : nil },
+            collectionID: { collectionID },
+            requiredImageQuality: { .smallThumbnail }
+        ))
+        pipeline.setActive(true)
+        pipeline.setVisible(true)
+        pipeline.setScrollMotionActive(true)
+        let cache = DownloadableMediaCache.shared
+        cache.resetDecodedImagesForTesting()
+        defer {
+            pipeline.invalidate()
+            cache.resetDecodedImagesForTesting()
+        }
+
+        XCTAssertFalse(
+            cell.refreshCachedImageIfAvailable(tokenIndex: tokenIndex)
+        )
+        XCTAssertEqual(pipeline.pendingDenseGridImageRefreshCount, 0)
+
+        let image = UIGraphicsImageRenderer(
+            size: CGSize(width: 2, height: 2)
+        ).image { _ in }
+        cache.installDecodedImageForTesting(image, for: descriptor)
+        pipeline.handleDecodedImageNotification(Notification(
+            name: .downloadableMediaCacheDecodedImageDidBecomeAvailable,
+            object: DownloadableMediaCacheDecodedImageAvailability(
+                collectionId: collectionID,
+                tokenIndex: tokenIndex
+            )
+        ))
+
+        XCTAssertEqual(pipeline.pendingDenseGridImageRefreshCount, 1)
+        XCTAssertEqual(
+            pipeline.drainDenseGridImageDisplayLinkFrameForTesting(),
+            1
+        )
+        let imageView = try XCTUnwrap(
+            cell.contentView.subviews.first {
+                $0 is NativeMetalCardCornerMaskedImageView
+            } as? NativeMetalCardCornerMaskedImageView
+        )
+        XCTAssertTrue(imageView.image === image)
+    }
+
     func testImagePipelineInvalidationClearsAndRejectsPendingDenseGridWork() {
         let pipeline = MobilePlayerCollectionBrowserImagePipeline()
         pipeline.configure(contentAccess: makeImageContentAccess(

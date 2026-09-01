@@ -6,6 +6,22 @@ import XCTest
 
 nonisolated final class DownloadableMediaCacheTests: XCTestCase {}
 
+nonisolated private final class DecodedImageAvailabilityRecorder:
+    @unchecked Sendable {
+    private let lock = NSLock()
+    private var recordedValues = [
+        DownloadableMediaCacheDecodedImageAvailability
+    ]()
+
+    var values: [DownloadableMediaCacheDecodedImageAvailability] {
+        lock.withLock { recordedValues }
+    }
+
+    func record(_ value: DownloadableMediaCacheDecodedImageAvailability) {
+        lock.withLock { recordedValues.append(value) }
+    }
+}
+
 @MainActor
 extension DownloadableMediaCacheTests {
 
@@ -56,29 +72,6 @@ extension DownloadableMediaCacheTests {
         )
     }
 
-    func testQueuedDecodeRetirementRequiresNoWindowDemandOrStartedWork() {
-        XCTAssertTrue(DownloadableMediaCache.shouldRetireQueuedImageDecodeForTesting(
-            isInDecodedWindow: false,
-            hasImageDemand: false,
-            hasStarted: false
-        ))
-        XCTAssertFalse(DownloadableMediaCache.shouldRetireQueuedImageDecodeForTesting(
-            isInDecodedWindow: true,
-            hasImageDemand: false,
-            hasStarted: false
-        ))
-        XCTAssertFalse(DownloadableMediaCache.shouldRetireQueuedImageDecodeForTesting(
-            isInDecodedWindow: false,
-            hasImageDemand: true,
-            hasStarted: false
-        ))
-        XCTAssertFalse(DownloadableMediaCache.shouldRetireQueuedImageDecodeForTesting(
-            isInDecodedWindow: false,
-            hasImageDemand: false,
-            hasStarted: true
-        ))
-    }
-
     func testAsyncImageReturnsSynchronousMemoryHit() async {
         let descriptor = makeDescriptor(name: "async-memory-hit")
         let image = makeImage(.cyan)
@@ -91,6 +84,260 @@ extension DownloadableMediaCacheTests {
         let loadedImage = await cache.image(for: descriptor)
 
         XCTAssertTrue(loadedImage === image)
+    }
+
+    func testDecodedImageAvailabilityOnlyPublishesAcceptedInsertions()
+        async throws {
+        let fixture = try makeControlledCacheFixture()
+        let recorder = DecodedImageAvailabilityRecorder()
+        let observer = fixture.notificationCenter.addObserver(
+            forName: .downloadableMediaCacheDecodedImageDidBecomeAvailable,
+            object: nil,
+            queue: nil
+        ) { notification in
+            guard let availability = notification.object
+                as? DownloadableMediaCacheDecodedImageAvailability else {
+                return
+            }
+            recorder.record(availability)
+        }
+        defer {
+            fixture.notificationCenter.removeObserver(observer)
+            fixture.cache.setDecodedImageCacheAcceptsInsertionsForTesting(true)
+        }
+        let rejectedDescriptor = makeDescriptor(
+            name: "rejected-decoded-notification"
+        )
+        let acceptedDescriptor = makeDescriptor(
+            name: "accepted-decoded-notification"
+        )
+        let expected = DownloadableMediaCacheDecodedImageAvailability(
+            collectionId: acceptedDescriptor.collectionId,
+            tokenIndex: acceptedDescriptor.tokenIndex
+        )
+
+        fixture.cache.setDecodedImageCacheAcceptsInsertionsForTesting(false)
+        fixture.cache.installMemoryCachedImageForTesting(
+            makeImage(.red),
+            for: rejectedDescriptor
+        )
+        fixture.cache.setDecodedImageCacheAcceptsInsertionsForTesting(true)
+        fixture.cache.installMemoryCachedImageForTesting(
+            makeImage(.green),
+            for: acceptedDescriptor
+        )
+        try await waitForControlledEvent("decoded image availability") {
+            while !recorder.values.contains(expected) {
+                try Task.checkCancellation()
+                await Task.yield()
+            }
+        }
+
+        XCTAssertEqual(recorder.values, [expected])
+    }
+
+    func testImageDecoderDownsamplesPortraitByDisplayedPixelWidth()
+        async throws {
+        let rootURL = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: rootURL) }
+        let fileURL = rootURL.appendingPathComponent("portrait.png")
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let sourceImage = UIGraphicsImageRenderer(
+            size: CGSize(width: 1_000, height: 3_000),
+            format: format
+        ).image { context in
+            UIColor.magenta.setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 1_000, height: 3_000))
+        }
+        try XCTUnwrap(sourceImage.pngData()).write(to: fileURL)
+
+        let transfer = await DownloadableMediaImageDecoder().decode(
+            at: fileURL,
+            variant: .downsampled(maxPixelWidth: 320),
+            generation: DownloadableMediaImageDecodeGeneration()
+        )
+        let image = try XCTUnwrap(transfer?.image)
+
+        XCTAssertEqual(image.cgImage?.width, 320)
+        XCTAssertEqual(image.cgImage?.height ?? 0, 960, accuracy: 1)
+        XCTAssertEqual(
+            transfer?.variant,
+            .downsampled(maxPixelWidth: 320)
+        )
+    }
+
+    func testImageDecoderNeverUpsamplesSmallSources() async throws {
+        let rootURL = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: rootURL) }
+        let fileURL = rootURL.appendingPathComponent("small.png")
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let sourceImage = UIGraphicsImageRenderer(
+            size: CGSize(width: 100, height: 300),
+            format: format
+        ).image { context in
+            UIColor.cyan.setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 100, height: 300))
+        }
+        try XCTUnwrap(sourceImage.pngData()).write(to: fileURL)
+
+        let transfer = await DownloadableMediaImageDecoder().decode(
+            at: fileURL,
+            variant: .downsampled(maxPixelWidth: 320),
+            generation: DownloadableMediaImageDecodeGeneration()
+        )
+        let image = try XCTUnwrap(transfer?.image)
+
+        XCTAssertEqual(image.cgImage?.width, 100)
+        XCTAssertEqual(image.cgImage?.height, 300)
+        XCTAssertEqual(transfer?.variant, .full)
+    }
+
+    func testImageDecoderFallsBackToFullDecodeWhenThumbnailFails() throws {
+        let rootURL = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: rootURL) }
+        let fileURL = rootURL.appendingPathComponent("fallback.png")
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let sourceImage = UIGraphicsImageRenderer(
+            size: CGSize(width: 640, height: 960),
+            format: format
+        ).image { context in
+            UIColor.orange.setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 640, height: 960))
+        }
+        try XCTUnwrap(sourceImage.pngData()).write(to: fileURL)
+
+        let entry = DownloadableMediaImageDecoder
+            .decodeDownsampledImageWithFailedThumbnailForTesting(
+                at: fileURL,
+                maxPixelWidth: 160
+            )
+
+        XCTAssertEqual(entry?.image.cgImage?.width, 640)
+        XCTAssertEqual(entry?.image.cgImage?.height, 960)
+        XCTAssertEqual(entry?.variant, .full)
+    }
+
+    func testDecodedImageVariantsKeepFullResolutionIndependent() {
+        let descriptor = makeDescriptor(name: "decode-variants")
+        let denseImage = makeImage(.purple)
+        let fullImage = makeImage(.yellow)
+        let cache = DownloadableMediaCache.shared
+        defer { cache.resetDecodedImagesForTesting() }
+
+        cache.installDecodedImageForTesting(
+            denseImage,
+            for: descriptor,
+            variant: .downsampled(maxPixelWidth: 320)
+        )
+
+        XCTAssertNil(cache.cachedDecodedImage(for: descriptor, variant: .full))
+        XCTAssertTrue(cache.cachedDecodedImage(
+            for: descriptor,
+            variant: .downsampled(maxPixelWidth: 320)
+        ) === denseImage)
+        let denseEntry = cache.cachedDecodedImageEntry(
+            for: descriptor,
+            variant: .downsampled(maxPixelWidth: 140)
+        )
+        XCTAssertTrue(denseEntry?.image === denseImage)
+        XCTAssertEqual(
+            denseEntry?.variant,
+            .downsampled(maxPixelWidth: 320)
+        )
+
+        cache.installDecodedImageForTesting(fullImage, for: descriptor)
+
+        XCTAssertTrue(cache.cachedDecodedImage(
+            for: descriptor,
+            variant: .downsampled(maxPixelWidth: 320)
+        ) === denseImage)
+        XCTAssertTrue(cache.cachedDecodedImage(
+            for: descriptor,
+            variant: .downsampled(maxPixelWidth: 640)
+        ) === fullImage)
+        let fullFallbackEntry = cache.cachedDecodedImageEntry(
+            for: descriptor,
+            variant: .downsampled(maxPixelWidth: 640)
+        )
+        XCTAssertTrue(fullFallbackEntry?.image === fullImage)
+        XCTAssertEqual(fullFallbackEntry?.variant, .full)
+    }
+
+    func testAnyCachedDecodedImageUsesSmallestVariantAndSkipsStaleMetadata() {
+        let descriptor = makeDescriptor(name: "any-decode-variant")
+        let smallVariant = DownloadableMediaImageDecodeVariant.downsampled(
+            maxPixelWidth: 140
+        )
+        let largeVariant = DownloadableMediaImageDecodeVariant.downsampled(
+            maxPixelWidth: 260
+        )
+        let smallImage = makeImage(.purple)
+        let largeImage = makeImage(.cyan)
+        let fullImage = makeImage(.yellow)
+        let cache = DownloadableMediaCache.shared
+        defer { cache.resetDecodedImagesForTesting() }
+
+        cache.installDecodedImageForTesting(
+            fullImage,
+            for: descriptor,
+            variant: .full
+        )
+        cache.installDecodedImageForTesting(
+            largeImage,
+            for: descriptor,
+            variant: largeVariant
+        )
+        cache.installDecodedImageForTesting(
+            smallImage,
+            for: descriptor,
+            variant: smallVariant
+        )
+
+        let smallestEntry = cache.anyCachedDecodedImageEntry(for: descriptor)
+        XCTAssertTrue(smallestEntry?.image === smallImage)
+        XCTAssertEqual(smallestEntry?.variant, smallVariant)
+
+        cache.removeDecodedImageForTesting(
+            for: descriptor,
+            variant: smallVariant
+        )
+        let nextEntry = cache.anyCachedDecodedImageEntry(for: descriptor)
+        XCTAssertTrue(nextEntry?.image === largeImage)
+        XCTAssertEqual(nextEntry?.variant, largeVariant)
+
+        cache.removeDecodedImageForTesting(
+            for: descriptor,
+            variant: largeVariant
+        )
+        let fullEntry = cache.anyCachedDecodedImageEntry(for: descriptor)
+        XCTAssertTrue(fullEntry?.image === fullImage)
+        XCTAssertEqual(fullEntry?.variant, .full)
+    }
+
+    func testDistinctImageDemandChangesAdjustProtectionLinearly() {
+        let cache = DownloadableMediaCache.shared
+        let countsBefore = cache.instrumentationCountsForTesting()
+        let descriptors = (0..<1_000).map { index in
+            makeDescriptor(
+                name: "protection-delta-\(index)"
+            )
+        }
+
+        cache.exerciseImageDemandProtectionForTesting(descriptors)
+
+        let countsAfter = cache.instrumentationCountsForTesting()
+        XCTAssertEqual(
+            countsAfter.protectionFullRebuilds,
+            countsBefore.protectionFullRebuilds
+        )
+        XCTAssertEqual(
+            countsAfter.protectionPathAdjustments
+                - countsBefore.protectionPathAdjustments,
+            4_000
+        )
     }
 
     func testMemoryCacheReplacementRetiresOnlyPreviousContentsOffMainThread() async {
@@ -161,6 +408,1569 @@ extension DownloadableMediaCacheTests {
         XCTAssertTrue(cache.hasForegroundFileWorkForTesting(for: descriptor))
     }
 
+    func testClearingWindowDropsPendingVariantDuringRunningDecode()
+        async throws {
+        let fixture = try makeControlledCacheFixture()
+        let descriptor = makeDescriptor(name: "cleared-window-decode")
+        let ownerID = UUID()
+        let variant = DownloadableMediaImageDecodeVariant.downsampled(
+            maxPixelWidth: 320
+        )
+        let fileURL = fixture.cache.cachedFileURLForTesting(for: descriptor)
+        try FileManager.default.createDirectory(
+            at: fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try XCTUnwrap(makeImage(.orange).pngData()).write(to: fileURL)
+
+        fixture.cache.prepareWindow(
+            PlayerDownloadableMediaWindow(
+                currentDescriptor: descriptor,
+                descriptors: [descriptor],
+                decodedDescriptors: [descriptor],
+                adjacentDescriptor: nil,
+                decodeVariant: variant
+            ),
+            ownerId: ownerID
+        )
+        try await waitForControlledEvent("cleared window decode") {
+            await fixture.decoder.waitForStartedDecodeCount(1)
+        }
+        XCTAssertTrue(fixture.cache.hasPendingWindowDecodeVariantForTesting(
+            for: descriptor,
+            variant: variant
+        ))
+
+        fixture.cache.clearActiveWindow(ownerId: ownerID)
+
+        XCTAssertFalse(fixture.cache.hasPendingWindowDecodeVariantForTesting(
+            for: descriptor,
+            variant: variant
+        ))
+    }
+
+    func testMemoryWarningDropsPendingVariantDuringRunningDecode()
+        async throws {
+        let fixture = try makeControlledCacheFixture()
+        let descriptor = makeDescriptor(name: "memory-warning-decode")
+        let ownerID = UUID()
+        let variant = DownloadableMediaImageDecodeVariant.downsampled(
+            maxPixelWidth: 320
+        )
+        let fileURL = fixture.cache.cachedFileURLForTesting(for: descriptor)
+        try FileManager.default.createDirectory(
+            at: fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try XCTUnwrap(makeImage(.orange).pngData()).write(to: fileURL)
+        defer { fixture.cache.clearActiveWindow(ownerId: ownerID) }
+
+        fixture.cache.prepareWindow(
+            PlayerDownloadableMediaWindow(
+                currentDescriptor: descriptor,
+                descriptors: [descriptor],
+                decodedDescriptors: [descriptor],
+                adjacentDescriptor: nil,
+                decodeVariant: variant
+            ),
+            ownerId: ownerID
+        )
+        try await waitForControlledEvent("memory warning decode") {
+            await fixture.decoder.waitForStartedDecodeCount(1)
+        }
+        XCTAssertTrue(fixture.cache.hasPendingWindowDecodeVariantForTesting(
+            for: descriptor,
+            variant: variant
+        ))
+
+        fixture.cache.handleMemoryWarningForTesting()
+
+        XCTAssertFalse(fixture.cache.hasPendingWindowDecodeVariantForTesting(
+            for: descriptor,
+            variant: variant
+        ))
+        let didComplete = await fixture.decoder.completeNext(
+            with: DownloadableMediaDecodedImageTransfer(image: makeImage(.cyan))
+        )
+        XCTAssertTrue(didComplete)
+        try await waitForControlledEvent("memory warning decode completion") {
+            while await MainActor.run(body: {
+                fixture.cache.hasActiveImageDecodeForTesting(for: descriptor)
+            }) {
+                try Task.checkCancellation()
+                await Task.yield()
+            }
+        }
+        XCTAssertNil(fixture.cache.cachedDecodedImage(
+            for: descriptor,
+            variant: variant
+        ))
+    }
+
+    func testCachedFileOnlyWindowDoesNotLeaveForegroundDecodeWork() async throws {
+        let fixture = try makeControlledCacheFixture()
+        let descriptor = makeDescriptor(name: "file-only-window")
+        let ownerID = UUID()
+        let fileURL = fixture.cache.cachedFileURLForTesting(for: descriptor)
+        try FileManager.default.createDirectory(
+            at: fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try XCTUnwrap(makeImage(.cyan).pngData()).write(to: fileURL)
+        defer { fixture.cache.clearActiveWindow(ownerId: ownerID) }
+
+        fixture.cache.prepareWindow(
+            PlayerDownloadableMediaWindow(
+                currentDescriptor: descriptor,
+                descriptors: [descriptor],
+                decodedDescriptors: [],
+                adjacentDescriptor: nil,
+                includesCurrentInDecodedDescriptors: false
+            ),
+            ownerId: ownerID
+        )
+        try await waitForControlledEvent("file-only window work") {
+            try await fixture.cache.waitForWindowWorkForTesting()
+        }
+
+        XCTAssertFalse(fixture.cache.hasForegroundFileWorkForTesting(
+            for: descriptor
+        ))
+        let decodeCount = await fixture.decoder.startedDecodeCount()
+        XCTAssertEqual(decodeCount, 0)
+    }
+
+    func testRunningDecodeCachesAfterDemandMovesToFileOnlyWindow()
+        async throws {
+        let fixture = try makeControlledCacheFixture()
+        let descriptor = makeDescriptor(name: "running-decode-file-window")
+        let ownerID = UUID()
+        let fileURL = fixture.cache.cachedFileURLForTesting(for: descriptor)
+        try FileManager.default.createDirectory(
+            at: fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try XCTUnwrap(makeImage(.orange).pngData()).write(to: fileURL)
+        let recorder = DecodedImageAvailabilityRecorder()
+        let observer = fixture.notificationCenter.addObserver(
+            forName: .downloadableMediaCacheDecodedImageDidBecomeAvailable,
+            object: nil,
+            queue: nil
+        ) { notification in
+            guard let availability = notification.object
+                as? DownloadableMediaCacheDecodedImageAvailability else {
+                return
+            }
+            recorder.record(availability)
+        }
+        defer {
+            fixture.notificationCenter.removeObserver(observer)
+            fixture.cache.clearActiveWindow(ownerId: ownerID)
+        }
+
+        let imageTask = Task { @MainActor in
+            await fixture.cache.image(for: descriptor)
+        }
+        try await waitForControlledEvent("running file-window decode") {
+            await fixture.decoder.waitForStartedDecodeCount(1)
+        }
+        fixture.cache.prepareWindow(
+            PlayerDownloadableMediaWindow(
+                currentDescriptor: descriptor,
+                descriptors: [descriptor],
+                decodedDescriptors: [],
+                adjacentDescriptor: nil,
+                includesCurrentInDecodedDescriptors: false
+            ),
+            ownerId: ownerID
+        )
+        try await waitForControlledEvent("file-only window switch") {
+            try await fixture.cache.waitForWindowWorkForTesting()
+        }
+
+        imageTask.cancel()
+        let cancelledImage = try await waitForControlledTaskValue(
+            imageTask,
+            event: "cancelled running decode demand"
+        )
+        try await waitForControlledEvent("running decode demand removal") {
+            try await fixture.cache.waitForImageDemandCountForTesting(
+                for: descriptor,
+                expectedCount: 0
+            )
+        }
+        XCTAssertNil(cancelledImage)
+        XCTAssertTrue(fixture.cache.hasActiveImageDecodeForTesting(
+            for: descriptor
+        ))
+
+        let decodedImage = makeImage(.cyan)
+        let didComplete = await fixture.decoder.completeNext(
+            with: DownloadableMediaDecodedImageTransfer(image: decodedImage)
+        )
+        XCTAssertTrue(didComplete)
+        let expectedAvailability = DownloadableMediaCacheDecodedImageAvailability(
+            collectionId: descriptor.collectionId,
+            tokenIndex: descriptor.tokenIndex
+        )
+        try await waitForControlledEvent("file-window decoded availability") {
+            while !recorder.values.contains(expectedAvailability) {
+                try Task.checkCancellation()
+                await Task.yield()
+            }
+        }
+
+        XCTAssertTrue(
+            fixture.cache.cachedDecodedImage(for: descriptor) === decodedImage
+        )
+        XCTAssertEqual(recorder.values, [expectedAvailability])
+    }
+
+    func testDenseWindowPredecodeUsesDenseVariantAndReusesIt() async throws {
+        let fixture = try makeControlledCacheFixture()
+        let descriptor = makeDescriptor(name: "dense-window")
+        let ownerID = UUID()
+        let variant = DownloadableMediaImageDecodeVariant.downsampled(
+            maxPixelWidth: 320
+        )
+        let fileURL = fixture.cache.cachedFileURLForTesting(for: descriptor)
+        try FileManager.default.createDirectory(
+            at: fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try XCTUnwrap(makeImage(.orange).pngData()).write(to: fileURL)
+        let window = PlayerDownloadableMediaWindow(
+            currentDescriptor: descriptor,
+            descriptors: [descriptor],
+            decodedDescriptors: [descriptor],
+            adjacentDescriptor: nil,
+            decodeVariant: variant
+        )
+        defer { fixture.cache.clearActiveWindow(ownerId: ownerID) }
+
+        fixture.cache.prepareWindow(window, ownerId: ownerID)
+        try await waitForControlledEvent("dense decode start") {
+            await fixture.decoder.waitForStartedDecodeCount(1)
+        }
+        let variants = await fixture.decoder.startedDecodeVariants()
+        XCTAssertEqual(variants, [variant])
+        let didCompleteDecode = await fixture.decoder.completeNext(
+            with: DownloadableMediaDecodedImageTransfer(image: makeImage(.orange))
+        )
+        XCTAssertTrue(didCompleteDecode)
+        try await waitForControlledEvent("dense image cache") {
+            while await MainActor.run(body: {
+                fixture.cache.cachedDecodedImage(
+                    for: descriptor,
+                    variant: variant
+                ) == nil
+            }) {
+                try Task.checkCancellation()
+                await Task.yield()
+            }
+        }
+
+        XCTAssertNotNil(fixture.cache.cachedDecodedImage(
+            for: descriptor,
+            variant: variant
+        ))
+        XCTAssertNil(fixture.cache.cachedDecodedImage(for: descriptor))
+
+        fixture.cache.prepareWindow(window, ownerId: ownerID)
+        try await waitForControlledEvent("reused dense window work") {
+            try await fixture.cache.waitForWindowWorkForTesting()
+        }
+        let decodeCount = await fixture.decoder.startedDecodeCount()
+        XCTAssertEqual(decodeCount, 1)
+        XCTAssertFalse(fixture.cache.hasForegroundFileWorkForTesting(
+            for: descriptor
+        ))
+    }
+
+    func testDenseWindowRedownloadUsesCachedVariantWithoutAnotherDecode()
+        async throws {
+        let fixture = try makeControlledCacheFixture()
+        let descriptor = makeDescriptor(name: "dense-window-redownload")
+        let ownerID = UUID()
+        let variant = DownloadableMediaImageDecodeVariant.downsampled(
+            maxPixelWidth: 320
+        )
+        defer { fixture.cache.clearActiveWindow(ownerId: ownerID) }
+
+        let imageTask = Task { @MainActor in
+            await fixture.cache.imageEntry(
+                for: descriptor,
+                variant: variant
+            )
+        }
+        try await waitForControlledEvent("dense redownload start") {
+            await fixture.downloader.waitForStartedRequestCount(1)
+        }
+        let requestID = await fixture.downloader.startedRequest(at: 0).id
+
+        fixture.cache.prepareWindow(
+            PlayerDownloadableMediaWindow(
+                currentDescriptor: descriptor,
+                descriptors: [descriptor],
+                decodedDescriptors: [descriptor],
+                adjacentDescriptor: nil,
+                decodeVariant: variant
+            ),
+            ownerId: ownerID
+        )
+        try await waitForControlledEvent("dense redownload window") {
+            try await fixture.cache.waitForWindowWorkForTesting()
+        }
+
+        let cachedImage = makeImage(.purple)
+        fixture.cache.installDecodedImageForTesting(
+            cachedImage,
+            for: descriptor,
+            variant: variant
+        )
+        let didCompleteDownload = await fixture.downloader.succeed(
+            requestID: requestID,
+            data: Data("dense".utf8)
+        )
+        let entry = try await waitForControlledTaskValue(
+            imageTask,
+            event: "cached dense redownload completion"
+        )
+        let decodeCount = await fixture.decoder.startedDecodeCount()
+
+        XCTAssertTrue(didCompleteDownload)
+        XCTAssertTrue(entry?.image === cachedImage)
+        XCTAssertEqual(entry?.variant, variant)
+        XCTAssertEqual(decodeCount, 0)
+    }
+
+    func testCooperativeWindowsDecodeDenseThenFullForSameFile() async throws {
+        let fixture = try makeControlledCacheFixture()
+        let descriptor = makeDescriptor(
+            name: "cooperative-variants",
+            collectionId: "cooperative-variant-window",
+            tokenIndex: 0
+        )
+        let denseOwnerID = UUID()
+        let fullOwnerID = UUID()
+        let denseVariant = DownloadableMediaImageDecodeVariant.downsampled(
+            maxPixelWidth: 260
+        )
+        let fileURL = fixture.cache.cachedFileURLForTesting(for: descriptor)
+        try FileManager.default.createDirectory(
+            at: fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try XCTUnwrap(makeImage(.orange).pngData()).write(to: fileURL)
+        defer {
+            fixture.cache.clearActiveWindow(ownerId: denseOwnerID)
+            fixture.cache.clearActiveWindow(ownerId: fullOwnerID)
+        }
+
+        fixture.cache.prepareWindow(
+            PlayerDownloadableMediaWindow(
+                currentDescriptor: descriptor,
+                descriptors: [descriptor],
+                decodedDescriptors: [descriptor],
+                adjacentDescriptor: nil,
+                decodeVariant: denseVariant
+            ),
+            ownerId: denseOwnerID,
+            ownership: .cooperative(.macCollectionBrowser)
+        )
+        try await waitForControlledEvent("dense cooperative decode start") {
+            await fixture.decoder.waitForStartedDecodeCount(1)
+        }
+
+        fixture.cache.prepareWindow(
+            PlayerDownloadableMediaWindow(
+                currentDescriptor: descriptor,
+                descriptors: [descriptor],
+                decodedDescriptors: [descriptor],
+                adjacentDescriptor: nil,
+                decodeVariant: .full
+            ),
+            ownerId: fullOwnerID,
+            ownership: .cooperative(.macPlayerPager)
+        )
+        try await waitForControlledEvent("full cooperative window work") {
+            try await fixture.cache.waitForWindowWorkForTesting()
+        }
+        XCTAssertTrue(fixture.cache.hasForegroundWorkForTesting(
+            for: descriptor
+        ))
+        let didCompleteDense = await fixture.decoder.completeNext(
+            with: DownloadableMediaDecodedImageTransfer(image: makeImage(.orange))
+        )
+        XCTAssertTrue(didCompleteDense)
+        try await waitForControlledEvent("full cooperative decode start") {
+            await fixture.decoder.waitForStartedDecodeCount(2)
+        }
+        XCTAssertTrue(fixture.cache.hasForegroundWorkForTesting(
+            for: descriptor
+        ))
+
+        let variants = await fixture.decoder.startedDecodeVariants()
+        XCTAssertEqual(variants, [denseVariant, .full])
+        let didCompleteFull = await fixture.decoder.completeNext(
+            with: DownloadableMediaDecodedImageTransfer(image: makeImage(.blue))
+        )
+        XCTAssertTrue(didCompleteFull)
+        try await waitForControlledEvent("full image cache") {
+            while await MainActor.run(body: {
+                fixture.cache.cachedDecodedImage(for: descriptor) == nil
+            }) {
+                try Task.checkCancellation()
+                await Task.yield()
+            }
+        }
+
+        XCTAssertNotNil(fixture.cache.cachedDecodedImage(
+            for: descriptor,
+            variant: denseVariant
+        ))
+        XCTAssertNotNil(fixture.cache.cachedDecodedImage(for: descriptor))
+        XCTAssertFalse(fixture.cache.hasForegroundWorkForTesting(
+            for: descriptor
+        ))
+        XCTAssertFalse(fixture.cache.hasForegroundFileWorkForTesting(
+            for: descriptor
+        ))
+    }
+
+    func testFollowUpDemandDecodeRunsBeforeQueuedPrefetch() async throws {
+        let fixture = try makeControlledCacheFixture()
+        let collectionID = "follow-up-priority"
+        let target = makeDescriptor(
+            name: "follow-up-target",
+            collectionId: collectionID,
+            tokenIndex: 0
+        )
+        let prefetchDescriptors = (1...2).map { index in
+            makeDescriptor(
+                name: "follow-up-prefetch-\(index)",
+                collectionId: collectionID,
+                tokenIndex: index
+            )
+        }
+        let descriptors = [target] + prefetchDescriptors
+        let denseVariant = DownloadableMediaImageDecodeVariant.downsampled(
+            maxPixelWidth: 140
+        )
+        for descriptor in descriptors {
+            let fileURL = fixture.cache.cachedFileURLForTesting(
+                for: descriptor
+            )
+            try FileManager.default.createDirectory(
+                at: fileURL.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            try XCTUnwrap(makeImage(.orange).pngData()).write(to: fileURL)
+        }
+        let ownerID = UUID()
+        defer { fixture.cache.clearActiveWindow(ownerId: ownerID) }
+
+        fixture.cache.prepareWindow(
+            PlayerDownloadableMediaWindow(
+                currentDescriptor: target,
+                descriptors: descriptors,
+                decodedDescriptors: descriptors,
+                adjacentDescriptor: nil,
+                decodeVariant: denseVariant
+            ),
+            ownerId: ownerID
+        )
+        try await waitForControlledEvent("initial target decode") {
+            await fixture.decoder.waitForStartedDecodeCount(1)
+        }
+        try await fixture.cache.waitForWindowWorkForTesting()
+        XCTAssertTrue(prefetchDescriptors.allSatisfy {
+            fixture.cache.hasActiveImageDecodeForTesting(for: $0)
+        })
+
+        let fullTask = Task { @MainActor in
+            await fixture.cache.imageEntry(for: target, variant: .full)
+        }
+        defer { fullTask.cancel() }
+        try await waitForControlledEvent("follow-up full demand") {
+            try await fixture.cache.waitForImageDemandCountForTesting(
+                for: target,
+                expectedCount: 1
+            )
+        }
+        let didCompleteDense = await fixture.decoder.completeNext(
+            with: DownloadableMediaDecodedImageTransfer(
+                image: makeImage(.purple)
+            )
+        )
+        XCTAssertTrue(didCompleteDense)
+        try await waitForControlledEvent("prioritized follow-up decode") {
+            await fixture.decoder.waitForStartedDecodeCount(2)
+        }
+
+        let startedURLs = await fixture.decoder.startedDecodeFileURLs()
+        XCTAssertEqual(
+            Array(startedURLs.prefix(2)),
+            [
+                fixture.cache.cachedFileURLForTesting(for: target),
+                fixture.cache.cachedFileURLForTesting(for: target),
+            ]
+        )
+        let startedVariants = await fixture.decoder.startedDecodeVariants()
+        XCTAssertEqual(Array(startedVariants.prefix(2)), [denseVariant, .full])
+
+        let fullImage = makeImage(.cyan)
+        let didCompleteFull = await fixture.decoder.completeNext(
+            with: DownloadableMediaDecodedImageTransfer(image: fullImage)
+        )
+        XCTAssertTrue(didCompleteFull)
+        let entry = try await waitForControlledTaskValue(
+            fullTask,
+            event: "prioritized follow-up completion"
+        )
+        XCTAssertTrue(entry?.image === fullImage)
+    }
+
+    func testActualFullDecodeSatisfiesPendingFullWindow() async throws {
+        let fixture = try makeControlledCacheFixture()
+        let descriptor = makeDescriptor(name: "actual-full-variant")
+        let denseOwnerID = UUID()
+        let fullOwnerID = UUID()
+        let denseVariant = DownloadableMediaImageDecodeVariant.downsampled(
+            maxPixelWidth: 320
+        )
+        let fileURL = fixture.cache.cachedFileURLForTesting(for: descriptor)
+        try FileManager.default.createDirectory(
+            at: fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try XCTUnwrap(makeImage(.orange).pngData()).write(to: fileURL)
+        defer {
+            fixture.cache.clearActiveWindow(ownerId: denseOwnerID)
+            fixture.cache.clearActiveWindow(ownerId: fullOwnerID)
+        }
+
+        fixture.cache.prepareWindow(
+            PlayerDownloadableMediaWindow(
+                currentDescriptor: descriptor,
+                descriptors: [descriptor],
+                decodedDescriptors: [descriptor],
+                adjacentDescriptor: nil,
+                decodeVariant: denseVariant
+            ),
+            ownerId: denseOwnerID,
+            ownership: .cooperative(.macCollectionBrowser)
+        )
+        try await waitForControlledEvent("small source decode start") {
+            await fixture.decoder.waitForStartedDecodeCount(1)
+        }
+        fixture.cache.prepareWindow(
+            PlayerDownloadableMediaWindow(
+                currentDescriptor: descriptor,
+                descriptors: [descriptor],
+                decodedDescriptors: [descriptor],
+                adjacentDescriptor: nil,
+                decodeVariant: .full
+            ),
+            ownerId: fullOwnerID,
+            ownership: .cooperative(.macPlayerPager)
+        )
+        try await waitForControlledEvent("actual full window work") {
+            try await fixture.cache.waitForWindowWorkForTesting()
+        }
+        XCTAssertTrue(fixture.cache.hasForegroundWorkForTesting(
+            for: descriptor
+        ))
+        let expectedImage = makeImage(.purple)
+        let didComplete = await fixture.decoder.completeNext(
+            with: DownloadableMediaDecodedImageTransfer(
+                image: expectedImage,
+                variant: .full
+            )
+        )
+        XCTAssertTrue(didComplete)
+        try await waitForControlledEvent("small source decode completion") {
+            while await MainActor.run(body: {
+                fixture.cache.hasActiveImageDecodeForTesting(for: descriptor)
+            }) {
+                try Task.checkCancellation()
+                await Task.yield()
+            }
+        }
+        let decodeCount = await fixture.decoder.startedDecodeCount()
+        XCTAssertEqual(decodeCount, 1)
+        XCTAssertTrue(fixture.cache.cachedDecodedImage(
+            for: descriptor,
+            variant: .full
+        ) === expectedImage)
+        let denseEntry = fixture.cache.cachedDecodedImageEntry(
+            for: descriptor,
+            variant: denseVariant
+        )
+        XCTAssertTrue(denseEntry?.image === expectedImage)
+        XCTAssertEqual(denseEntry?.variant, .full)
+        XCTAssertFalse(fixture.cache.hasForegroundWorkForTesting(
+            for: descriptor
+        ))
+    }
+
+    func testForegroundRequirementUsesLiveDemandOrderAndCancellation()
+        async throws {
+        let fixture = try makeControlledCacheFixture()
+        let descriptor = makeDescriptor(name: "live-foreground-requirement")
+        let denseVariant = DownloadableMediaImageDecodeVariant.downsampled(
+            maxPixelWidth: 320
+        )
+        let fileURL = fixture.cache.cachedFileURLForTesting(for: descriptor)
+        try FileManager.default.createDirectory(
+            at: fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try XCTUnwrap(makeImage(.orange).pngData()).write(to: fileURL)
+        defer { fixture.cache.cancelAllDownloads() }
+
+        let denseTask = Task { @MainActor in
+            await fixture.cache.image(
+                for: descriptor,
+                variant: denseVariant
+            )
+        }
+        try await waitForControlledEvent("dense foreground decode") {
+            await fixture.decoder.waitForStartedDecodeCount(1)
+        }
+        let fullTask = Task { @MainActor in
+            await fixture.cache.image(for: descriptor, variant: .full)
+        }
+        try await waitForControlledEvent("full foreground demand") {
+            try await fixture.cache.waitForImageDemandCountForTesting(
+                for: descriptor,
+                expectedCount: 2
+            )
+        }
+
+        fixture.cache.prioritizeForegroundImageForTesting(
+            descriptor,
+            requiredDecodeVariant: .full
+        )
+        fixture.cache.prioritizeForegroundImageForTesting(
+            descriptor,
+            requiredDecodeVariant: denseVariant
+        )
+        let denseImage = makeImage(.purple)
+        let didCompleteDense = await fixture.decoder.completeNext(
+            with: DownloadableMediaDecodedImageTransfer(image: denseImage)
+        )
+        XCTAssertTrue(didCompleteDense)
+        let deliveredDenseImage = try await waitForControlledTaskValue(
+            denseTask,
+            event: "dense foreground completion"
+        )
+        XCTAssertTrue(deliveredDenseImage === denseImage)
+        try await waitForControlledEvent("full foreground decode") {
+            await fixture.decoder.waitForStartedDecodeCount(2)
+        }
+        XCTAssertTrue(fixture.cache.hasForegroundWorkForTesting(
+            for: descriptor
+        ))
+
+        fullTask.cancel()
+        _ = try await waitForControlledTaskValue(
+            fullTask,
+            event: "full demand cancellation"
+        )
+        try await waitForControlledEvent("foreground demand removal") {
+            try await fixture.cache.waitForImageDemandCountForTesting(
+                for: descriptor,
+                expectedCount: 0
+            )
+        }
+        XCTAssertFalse(fixture.cache.hasForegroundWorkForTesting(
+            for: descriptor
+        ))
+        await fixture.decoder.cancelAll()
+    }
+
+    func testLargerDenseDecodeCompletesSmallerDenseDemand() async throws {
+        let fixture = try makeControlledCacheFixture()
+        let descriptor = makeDescriptor(name: "compatible-dense-demands")
+        let fileURL = fixture.cache.cachedFileURLForTesting(for: descriptor)
+        try FileManager.default.createDirectory(
+            at: fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try XCTUnwrap(makeImage(.orange).pngData()).write(to: fileURL)
+        let expectedImage = makeImage(.purple)
+
+        let largeTask = Task { @MainActor in
+            await fixture.cache.imageEntry(
+                for: descriptor,
+                variant: .downsampled(maxPixelWidth: 260)
+            )
+        }
+        try await waitForControlledEvent("large dense demand") {
+            try await fixture.cache.waitForImageDemandCountForTesting(
+                for: descriptor,
+                expectedCount: 1
+            )
+        }
+        let smallTask = Task { @MainActor in
+            await fixture.cache.imageEntry(
+                for: descriptor,
+                variant: .downsampled(maxPixelWidth: 140)
+            )
+        }
+        try await waitForControlledEvent("small dense demand") {
+            try await fixture.cache.waitForImageDemandCountForTesting(
+                for: descriptor,
+                expectedCount: 2
+            )
+        }
+        try await waitForControlledEvent("compatible dense decode") {
+            await fixture.decoder.waitForStartedDecodeCount(1)
+        }
+        let didComplete = await fixture.decoder.completeNext(
+            with: DownloadableMediaDecodedImageTransfer(image: expectedImage)
+        )
+        XCTAssertTrue(didComplete)
+
+        let largeEntry = try await waitForControlledTaskValue(
+            largeTask,
+            event: "large dense completion"
+        )
+        let smallEntry = try await waitForControlledTaskValue(
+            smallTask,
+            event: "small dense completion"
+        )
+        XCTAssertTrue(largeEntry?.image === expectedImage)
+        XCTAssertTrue(smallEntry?.image === expectedImage)
+        XCTAssertEqual(
+            largeEntry?.variant,
+            .downsampled(maxPixelWidth: 260)
+        )
+        XCTAssertEqual(
+            smallEntry?.variant,
+            .downsampled(maxPixelWidth: 260)
+        )
+        let decodeCount = await fixture.decoder.startedDecodeCount()
+        XCTAssertEqual(decodeCount, 1)
+    }
+
+    func testOverlappingCachedFileRequestsStartStrongestLiveDecode()
+        async throws {
+        let fixture = try makeControlledCacheFixture()
+        let descriptor = makeDescriptor(name: "overlapping-variant-demands")
+        let denseVariant = DownloadableMediaImageDecodeVariant.downsampled(
+            maxPixelWidth: 140
+        )
+        let fileURL = fixture.cache.cachedFileURLForTesting(for: descriptor)
+        try FileManager.default.createDirectory(
+            at: fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try XCTUnwrap(makeImage(.orange).pngData()).write(to: fileURL)
+
+        let denseTask = Task { @MainActor in
+            await fixture.cache.imageEntry(
+                for: descriptor,
+                variant: denseVariant
+            )
+        }
+        let fullTask = Task { @MainActor in
+            await fixture.cache.imageEntry(for: descriptor, variant: .full)
+        }
+        defer {
+            denseTask.cancel()
+            fullTask.cancel()
+        }
+        try await waitForControlledEvent("overlapping image demands") {
+            try await fixture.cache.waitForImageDemandCountForTesting(
+                for: descriptor,
+                expectedCount: 2
+            )
+        }
+        try await waitForControlledEvent("strongest live decode") {
+            await fixture.decoder.waitForStartedDecodeCount(1)
+        }
+
+        let startedVariants = await fixture.decoder.startedDecodeVariants()
+        XCTAssertEqual(startedVariants, [.full])
+        let image = makeImage(.purple)
+        let didComplete = await fixture.decoder.completeNext(
+            with: DownloadableMediaDecodedImageTransfer(image: image)
+        )
+        XCTAssertTrue(didComplete)
+        let denseEntry = try await waitForControlledTaskValue(
+            denseTask,
+            event: "overlapping dense completion"
+        )
+        let fullEntry = try await waitForControlledTaskValue(
+            fullTask,
+            event: "overlapping full completion"
+        )
+
+        XCTAssertTrue(denseEntry?.image === image)
+        XCTAssertTrue(fullEntry?.image === image)
+        XCTAssertEqual(denseEntry?.variant, .full)
+        XCTAssertEqual(fullEntry?.variant, .full)
+        let decodeCount = await fixture.decoder.startedDecodeCount()
+        XCTAssertEqual(decodeCount, 1)
+    }
+
+    func testQueuedDecodeUpgradesToStrongestDemandBeforeStarting()
+        async throws {
+        let fixture = try makeControlledCacheFixture()
+        let blocker = makeDescriptor(name: "decode-upgrade-blocker")
+        let target = makeDescriptor(name: "decode-upgrade-target")
+        for descriptor in [blocker, target] {
+            let fileURL = fixture.cache.cachedFileURLForTesting(
+                for: descriptor
+            )
+            try FileManager.default.createDirectory(
+                at: fileURL.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            try XCTUnwrap(makeImage(.orange).pngData()).write(to: fileURL)
+        }
+
+        let blockerTask = Task { @MainActor in
+            await fixture.cache.image(for: blocker)
+        }
+        try await waitForControlledEvent("blocking decode") {
+            await fixture.decoder.waitForStartedDecodeCount(1)
+        }
+
+        let denseVariant = DownloadableMediaImageDecodeVariant.downsampled(
+            maxPixelWidth: 140
+        )
+        let denseTask = Task { @MainActor in
+            await fixture.cache.imageEntry(
+                for: target,
+                variant: denseVariant
+            )
+        }
+        try await waitForControlledEvent("queued dense decode") {
+            while await MainActor.run(body: {
+                !fixture.cache.hasActiveImageDecodeForTesting(for: target)
+            }) {
+                try Task.checkCancellation()
+                await Task.yield()
+            }
+        }
+
+        let fullTask = Task { @MainActor in
+            await fixture.cache.imageEntry(for: target, variant: .full)
+        }
+        try await waitForControlledEvent("full decode demand") {
+            try await fixture.cache.waitForImageDemandCountForTesting(
+                for: target,
+                expectedCount: 2
+            )
+        }
+        let decodeCountBeforeUpgrade = await fixture.decoder.startedDecodeCount()
+        XCTAssertEqual(decodeCountBeforeUpgrade, 1)
+
+        let didCompleteBlocker = await fixture.decoder.completeNext(
+            with: DownloadableMediaDecodedImageTransfer(
+                image: makeImage(.cyan)
+            )
+        )
+        XCTAssertTrue(didCompleteBlocker)
+        _ = try await waitForControlledTaskValue(
+            blockerTask,
+            event: "blocking decode completion"
+        )
+        try await waitForControlledEvent("upgraded decode") {
+            await fixture.decoder.waitForStartedDecodeCount(2)
+        }
+        let startedVariants = await fixture.decoder.startedDecodeVariants()
+        XCTAssertEqual(startedVariants, [.full, .full])
+
+        let targetImage = makeImage(.purple)
+        let didCompleteTarget = await fixture.decoder.completeNext(
+            with: DownloadableMediaDecodedImageTransfer(image: targetImage)
+        )
+        XCTAssertTrue(didCompleteTarget)
+        let denseEntry = try await waitForControlledTaskValue(
+            denseTask,
+            event: "dense upgraded completion"
+        )
+        let fullEntry = try await waitForControlledTaskValue(
+            fullTask,
+            event: "full upgraded completion"
+        )
+
+        XCTAssertTrue(denseEntry?.image === targetImage)
+        XCTAssertTrue(fullEntry?.image === targetImage)
+        XCTAssertEqual(denseEntry?.variant, .full)
+        XCTAssertEqual(fullEntry?.variant, .full)
+        let finalDecodeCount = await fixture.decoder.startedDecodeCount()
+        XCTAssertEqual(finalDecodeCount, 2)
+    }
+
+    func testQueuedDecodeDowngradesToWindowVariantAfterDemandCancellation()
+        async throws {
+        let fixture = try makeControlledCacheFixture()
+        let blocker = makeDescriptor(name: "decode-downgrade-blocker")
+        let target = makeDescriptor(name: "decode-downgrade-target")
+        let ownerID = UUID()
+        let denseVariant = DownloadableMediaImageDecodeVariant.downsampled(
+            maxPixelWidth: 140
+        )
+        for descriptor in [blocker, target] {
+            let fileURL = fixture.cache.cachedFileURLForTesting(
+                for: descriptor
+            )
+            try FileManager.default.createDirectory(
+                at: fileURL.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            try XCTUnwrap(makeImage(.orange).pngData()).write(to: fileURL)
+        }
+        defer { fixture.cache.clearActiveWindow(ownerId: ownerID) }
+
+        let blockerTask = Task { @MainActor in
+            await fixture.cache.image(for: blocker)
+        }
+        try await waitForControlledEvent("blocking downgrade decode") {
+            await fixture.decoder.waitForStartedDecodeCount(1)
+        }
+
+        fixture.cache.prepareWindow(
+            PlayerDownloadableMediaWindow(
+                currentDescriptor: target,
+                descriptors: [target],
+                decodedDescriptors: [target],
+                adjacentDescriptor: nil,
+                decodeVariant: denseVariant
+            ),
+            ownerId: ownerID
+        )
+        try await waitForControlledEvent("queued window decode") {
+            while await MainActor.run(body: {
+                !fixture.cache.hasActiveImageDecodeForTesting(for: target)
+            }) {
+                try Task.checkCancellation()
+                await Task.yield()
+            }
+        }
+
+        let fullTask = Task { @MainActor in
+            await fixture.cache.imageEntry(for: target, variant: .full)
+        }
+        try await waitForControlledEvent("queued full demand") {
+            try await fixture.cache.waitForImageDemandCountForTesting(
+                for: target,
+                expectedCount: 1
+            )
+        }
+        fullTask.cancel()
+        let cancelledEntry = try await waitForControlledTaskValue(
+            fullTask,
+            event: "cancelled queued full demand"
+        )
+        XCTAssertNil(cancelledEntry)
+        try await waitForControlledEvent("removed queued full demand") {
+            try await fixture.cache.waitForImageDemandCountForTesting(
+                for: target,
+                expectedCount: 0
+            )
+        }
+
+        let didCompleteBlocker = await fixture.decoder.completeNext(
+            with: DownloadableMediaDecodedImageTransfer(
+                image: makeImage(.cyan)
+            )
+        )
+        XCTAssertTrue(didCompleteBlocker)
+        _ = try await waitForControlledTaskValue(
+            blockerTask,
+            event: "blocking downgrade completion"
+        )
+        try await waitForControlledEvent("downgraded window decode") {
+            await fixture.decoder.waitForStartedDecodeCount(2)
+        }
+        let startedVariants = await fixture.decoder.startedDecodeVariants()
+        XCTAssertEqual(startedVariants, [.full, denseVariant])
+
+        let didCompleteTarget = await fixture.decoder.completeNext(
+            with: DownloadableMediaDecodedImageTransfer(
+                image: makeImage(.purple)
+            )
+        )
+        XCTAssertTrue(didCompleteTarget)
+    }
+
+    func testDispatchedDecodeUpgradesBeforeGenerationStarts() async throws {
+        let fixture = try makeControlledCacheFixture()
+        let descriptor = makeDescriptor(name: "dispatched-decode-upgrade")
+        let denseVariant = DownloadableMediaImageDecodeVariant.downsampled(
+            maxPixelWidth: 140
+        )
+        let fileURL = fixture.cache.cachedFileURLForTesting(for: descriptor)
+        try FileManager.default.createDirectory(
+            at: fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try XCTUnwrap(makeImage(.orange).pngData()).write(to: fileURL)
+        await fixture.decoder.suspendDecodeStarts()
+
+        let denseTask = Task { @MainActor in
+            await fixture.cache.imageEntry(
+                for: descriptor,
+                variant: denseVariant
+            )
+        }
+        try await waitForControlledEvent("dispatched dense decode") {
+            await fixture.decoder.waitForDecodeAttemptCount(1)
+        }
+        let fullTask = Task { @MainActor in
+            await fixture.cache.imageEntry(for: descriptor, variant: .full)
+        }
+        try await waitForControlledEvent("dispatched full demand") {
+            try await fixture.cache.waitForImageDemandCountForTesting(
+                for: descriptor,
+                expectedCount: 2
+            )
+        }
+
+        await fixture.decoder.resumeDecodeStarts()
+        try await waitForControlledEvent("replaced full decode") {
+            await fixture.decoder.waitForStartedDecodeCount(1)
+        }
+        let startedVariants = await fixture.decoder.startedDecodeVariants()
+        XCTAssertEqual(startedVariants, [.full])
+
+        let image = makeImage(.purple)
+        let didComplete = await fixture.decoder.completeNext(
+            with: DownloadableMediaDecodedImageTransfer(image: image)
+        )
+        XCTAssertTrue(didComplete)
+        let denseEntry = try await waitForControlledTaskValue(
+            denseTask,
+            event: "dispatched dense completion"
+        )
+        let fullEntry = try await waitForControlledTaskValue(
+            fullTask,
+            event: "dispatched full completion"
+        )
+        XCTAssertTrue(denseEntry?.image === image)
+        XCTAssertTrue(fullEntry?.image === image)
+        XCTAssertEqual(denseEntry?.variant, .full)
+        XCTAssertEqual(fullEntry?.variant, .full)
+    }
+
+    func testCancelledDispatchedFullDecodeRetiresWhenWindowVariantIsCached()
+        async throws {
+        let fixture = try makeControlledCacheFixture()
+        let descriptor = makeDescriptor(name: "dispatched-decode-retirement")
+        let ownerID = UUID()
+        let denseVariant = DownloadableMediaImageDecodeVariant.downsampled(
+            maxPixelWidth: 140
+        )
+        let fileURL = fixture.cache.cachedFileURLForTesting(for: descriptor)
+        try FileManager.default.createDirectory(
+            at: fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try XCTUnwrap(makeImage(.orange).pngData()).write(to: fileURL)
+        fixture.cache.installDecodedImageForTesting(
+            makeImage(.cyan),
+            for: descriptor,
+            variant: denseVariant
+        )
+        defer { fixture.cache.clearActiveWindow(ownerId: ownerID) }
+
+        fixture.cache.prepareWindow(
+            PlayerDownloadableMediaWindow(
+                currentDescriptor: descriptor,
+                descriptors: [descriptor],
+                decodedDescriptors: [descriptor],
+                adjacentDescriptor: nil,
+                decodeVariant: denseVariant
+            ),
+            ownerId: ownerID
+        )
+        try await waitForControlledEvent("cached dense window") {
+            try await fixture.cache.waitForWindowWorkForTesting()
+        }
+        await fixture.decoder.suspendDecodeStarts()
+
+        let fullTask = Task { @MainActor in
+            await fixture.cache.imageEntry(for: descriptor, variant: .full)
+        }
+        try await waitForControlledEvent("dispatched full decode") {
+            await fixture.decoder.waitForDecodeAttemptCount(1)
+        }
+        fullTask.cancel()
+        let cancelledEntry = try await waitForControlledTaskValue(
+            fullTask,
+            event: "dispatched full cancellation"
+        )
+        XCTAssertNil(cancelledEntry)
+        try await waitForControlledEvent("removed dispatched full demand") {
+            try await fixture.cache.waitForImageDemandCountForTesting(
+                for: descriptor,
+                expectedCount: 0
+            )
+        }
+
+        await fixture.decoder.resumeDecodeStarts()
+        try await waitForControlledEvent("retired dispatched full decode") {
+            while await MainActor.run(body: {
+                fixture.cache.hasActiveImageDecodeForTesting(for: descriptor)
+            }) {
+                try Task.checkCancellation()
+                await Task.yield()
+            }
+        }
+        let startedDecodeCount = await fixture.decoder.startedDecodeCount()
+        XCTAssertEqual(startedDecodeCount, 0)
+        XCTAssertNotNil(fixture.cache.cachedDecodedImage(
+            for: descriptor,
+            variant: denseVariant
+        ))
+    }
+
+    func testUncachedDecodedImageDoesNotRetryAttemptedWindowVariant() async throws {
+        let fixture = try makeControlledCacheFixture()
+        let descriptor = makeDescriptor(name: "rejected-decoded-image")
+        let ownerID = UUID()
+        let variant = DownloadableMediaImageDecodeVariant.downsampled(
+            maxPixelWidth: 320
+        )
+        let fileURL = fixture.cache.cachedFileURLForTesting(for: descriptor)
+        try FileManager.default.createDirectory(
+            at: fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try XCTUnwrap(makeImage(.orange).pngData()).write(to: fileURL)
+        defer {
+            fixture.cache.setDecodedImageCacheAcceptsInsertionsForTesting(true)
+            fixture.cache.clearActiveWindow(ownerId: ownerID)
+        }
+        fixture.cache.setDecodedImageCacheAcceptsInsertionsForTesting(false)
+
+        fixture.cache.prepareWindow(
+            PlayerDownloadableMediaWindow(
+                currentDescriptor: descriptor,
+                descriptors: [descriptor],
+                decodedDescriptors: [descriptor],
+                adjacentDescriptor: nil,
+                decodeVariant: variant
+            ),
+            ownerId: ownerID
+        )
+        try await waitForControlledEvent("rejected image decode start") {
+            await fixture.decoder.waitForStartedDecodeCount(1)
+        }
+        let didComplete = await fixture.decoder.completeNext(
+            with: DownloadableMediaDecodedImageTransfer(
+                image: makeImage(.purple),
+                variant: .full
+            )
+        )
+        XCTAssertTrue(didComplete)
+        try await waitForControlledEvent("rejected image decode completion") {
+            while await MainActor.run(body: {
+                fixture.cache.hasActiveImageDecodeForTesting(for: descriptor)
+            }) {
+                try Task.checkCancellation()
+                await Task.yield()
+            }
+        }
+
+        let decodeCount = await fixture.decoder.startedDecodeCount()
+        XCTAssertEqual(decodeCount, 1)
+        XCTAssertNil(fixture.cache.cachedDecodedImage(
+            for: descriptor,
+            variant: variant
+        ))
+    }
+
+    func testUncachedFullOnlyWindowDoesNotRetryDecode() async throws {
+        let fixture = try makeControlledCacheFixture()
+        let descriptor = makeDescriptor(name: "rejected-full-only-window")
+        let ownerID = UUID()
+        let fileURL = fixture.cache.cachedFileURLForTesting(for: descriptor)
+        try FileManager.default.createDirectory(
+            at: fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try XCTUnwrap(makeImage(.orange).pngData()).write(to: fileURL)
+        defer {
+            fixture.cache.setDecodedImageCacheAcceptsInsertionsForTesting(true)
+            fixture.cache.clearActiveWindow(ownerId: ownerID)
+        }
+        fixture.cache.setDecodedImageCacheAcceptsInsertionsForTesting(false)
+
+        fixture.cache.prepareWindow(
+            PlayerDownloadableMediaWindow(
+                currentDescriptor: descriptor,
+                descriptors: [descriptor],
+                decodedDescriptors: [descriptor],
+                adjacentDescriptor: nil,
+                decodeVariant: .full
+            ),
+            ownerId: ownerID
+        )
+        try await waitForControlledEvent("rejected full-only decode") {
+            await fixture.decoder.waitForStartedDecodeCount(1)
+        }
+        let didComplete = await fixture.decoder.completeNext(
+            with: DownloadableMediaDecodedImageTransfer(image: makeImage(.purple))
+        )
+        XCTAssertTrue(didComplete)
+        try await waitForControlledEvent("terminal full-only decode") {
+            while await MainActor.run(body: {
+                fixture.cache.hasActiveImageDecodeForTesting(for: descriptor)
+            }) {
+                try Task.checkCancellation()
+                await Task.yield()
+            }
+        }
+
+        XCTAssertNil(fixture.cache.cachedDecodedImage(for: descriptor))
+        XCTAssertFalse(fixture.cache.hasPendingWindowDecodeVariantForTesting(
+            for: descriptor,
+            variant: .full
+        ))
+        let decodeCount = await fixture.decoder.startedDecodeCount()
+        XCTAssertEqual(decodeCount, 1)
+    }
+
+    func testUncachedDenseDecodeStillCompletesPendingFullRequest() async throws {
+        let fixture = try makeControlledCacheFixture()
+        let descriptor = makeDescriptor(name: "rejected-dense-pending-full")
+        let ownerID = UUID()
+        let denseVariant = DownloadableMediaImageDecodeVariant.downsampled(
+            maxPixelWidth: 260
+        )
+        let fileURL = fixture.cache.cachedFileURLForTesting(for: descriptor)
+        try FileManager.default.createDirectory(
+            at: fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try XCTUnwrap(makeImage(.orange).pngData()).write(to: fileURL)
+        defer {
+            fixture.cache.setDecodedImageCacheAcceptsInsertionsForTesting(true)
+            fixture.cache.clearActiveWindow(ownerId: ownerID)
+        }
+        fixture.cache.setDecodedImageCacheAcceptsInsertionsForTesting(false)
+
+        fixture.cache.prepareWindow(
+            PlayerDownloadableMediaWindow(
+                currentDescriptor: descriptor,
+                descriptors: [descriptor],
+                decodedDescriptors: [descriptor],
+                adjacentDescriptor: nil,
+                decodeVariant: denseVariant
+            ),
+            ownerId: ownerID
+        )
+        try await waitForControlledEvent("rejected dense decode start") {
+            await fixture.decoder.waitForStartedDecodeCount(1)
+        }
+
+        let fullTask = Task { @MainActor in
+            await fixture.cache.imageEntry(for: descriptor, variant: .full)
+        }
+        defer { fullTask.cancel() }
+        try await waitForControlledEvent("pending full image demand") {
+            try await fixture.cache.waitForImageDemandCountForTesting(
+                for: descriptor,
+                expectedCount: 1
+            )
+        }
+
+        let didCompleteDense = await fixture.decoder.completeNext(
+            with: DownloadableMediaDecodedImageTransfer(image: makeImage(.purple))
+        )
+        XCTAssertTrue(didCompleteDense)
+        try await waitForControlledEvent("full decode after dense rejection") {
+            await fixture.decoder.waitForStartedDecodeCount(2)
+        }
+
+        let fullImage = makeImage(.cyan)
+        let didCompleteFull = await fixture.decoder.completeNext(
+            with: DownloadableMediaDecodedImageTransfer(image: fullImage)
+        )
+        XCTAssertTrue(didCompleteFull)
+        let fullEntry = try await waitForControlledTaskValue(
+            fullTask,
+            event: "full image after dense rejection"
+        )
+        XCTAssertTrue(fullEntry?.image === fullImage)
+        XCTAssertEqual(fullEntry?.variant, .full)
+        try await waitForControlledEvent("rejected decode queue drain") {
+            while await MainActor.run(body: {
+                fixture.cache.hasActiveImageDecodeForTesting(for: descriptor)
+            }) {
+                try Task.checkCancellation()
+                await Task.yield()
+            }
+        }
+
+        let startedVariants = await fixture.decoder.startedDecodeVariants()
+        XCTAssertEqual(startedVariants, [denseVariant, .full])
+    }
+
+    func testUncachedFullDecodeFallsBackToDensePendingVariant() async throws {
+        let fixture = try makeControlledCacheFixture()
+        let descriptor = makeDescriptor(name: "rejected-full-with-dense")
+        let fullOwnerID = UUID()
+        let denseOwnerID = UUID()
+        let denseVariant = DownloadableMediaImageDecodeVariant.downsampled(
+            maxPixelWidth: 260
+        )
+        let fileURL = fixture.cache.cachedFileURLForTesting(for: descriptor)
+        try FileManager.default.createDirectory(
+            at: fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try XCTUnwrap(makeImage(.orange).pngData()).write(to: fileURL)
+        defer {
+            fixture.cache.setDecodedImageCacheAcceptsInsertionsForTesting(true)
+            fixture.cache.clearActiveWindow(ownerId: fullOwnerID)
+            fixture.cache.clearActiveWindow(ownerId: denseOwnerID)
+        }
+        fixture.cache.setDecodedImageCacheAcceptsInsertionsForTesting(false)
+
+        fixture.cache.prepareWindow(
+            PlayerDownloadableMediaWindow(
+                currentDescriptor: descriptor,
+                descriptors: [descriptor],
+                decodedDescriptors: [descriptor],
+                adjacentDescriptor: nil,
+                decodeVariant: .full
+            ),
+            ownerId: fullOwnerID,
+            ownership: .cooperative(.macPlayerPager)
+        )
+        try await waitForControlledEvent("rejected full decode start") {
+            await fixture.decoder.waitForStartedDecodeCount(1)
+        }
+        fixture.cache.prepareWindow(
+            PlayerDownloadableMediaWindow(
+                currentDescriptor: descriptor,
+                descriptors: [descriptor],
+                decodedDescriptors: [descriptor],
+                adjacentDescriptor: nil,
+                decodeVariant: denseVariant
+            ),
+            ownerId: denseOwnerID,
+            ownership: .cooperative(.macCollectionBrowser)
+        )
+        try await fixture.cache.waitForWindowWorkForTesting()
+
+        let didCompleteFull = await fixture.decoder.completeNext(
+            with: DownloadableMediaDecodedImageTransfer(image: makeImage(.purple))
+        )
+        XCTAssertTrue(didCompleteFull)
+        try await waitForControlledEvent("dense fallback decode start") {
+            await fixture.decoder.waitForStartedDecodeCount(2)
+        }
+        let startedVariants = await fixture.decoder.startedDecodeVariants()
+        XCTAssertEqual(startedVariants, [.full, denseVariant])
+        XCTAssertNil(fixture.cache.cachedDecodedImage(for: descriptor))
+
+        fixture.cache.setDecodedImageCacheAcceptsInsertionsForTesting(true)
+        let denseImage = makeImage(.cyan)
+        let didCompleteDense = await fixture.decoder.completeNext(
+            with: DownloadableMediaDecodedImageTransfer(image: denseImage)
+        )
+        XCTAssertTrue(didCompleteDense)
+        try await waitForControlledEvent("dense fallback image cache") {
+            while await MainActor.run(body: {
+                fixture.cache.cachedDecodedImage(
+                    for: descriptor,
+                    variant: denseVariant
+                ) == nil
+            }) {
+                try Task.checkCancellation()
+                await Task.yield()
+            }
+        }
+        try await waitForControlledEvent("dense fallback completion") {
+            while await MainActor.run(body: {
+                fixture.cache.hasActiveImageDecodeForTesting(for: descriptor)
+            }) {
+                try Task.checkCancellation()
+                await Task.yield()
+            }
+        }
+
+        XCTAssertTrue(fixture.cache.cachedDecodedImage(
+            for: descriptor,
+            variant: denseVariant
+        ) === denseImage)
+        let decodeCount = await fixture.decoder.startedDecodeCount()
+        XCTAssertEqual(decodeCount, 2)
+    }
+
+    func testWindowRefreshDuringFullCallbackDecodeSettlesDenseWork() async throws {
+        let fixture = try makeControlledCacheFixture()
+        let descriptor = makeDescriptor(name: "refreshed-dense-window")
+        let ownerID = UUID()
+        let denseVariant = DownloadableMediaImageDecodeVariant.downsampled(
+            maxPixelWidth: 260
+        )
+        let fileURL = fixture.cache.cachedFileURLForTesting(for: descriptor)
+        try FileManager.default.createDirectory(
+            at: fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try XCTUnwrap(makeImage(.orange).pngData()).write(to: fileURL)
+        let window = PlayerDownloadableMediaWindow(
+            currentDescriptor: descriptor,
+            descriptors: [descriptor],
+            decodedDescriptors: [descriptor],
+            adjacentDescriptor: nil,
+            decodeVariant: denseVariant
+        )
+        defer {
+            fixture.cache.setDecodedImageCacheAcceptsInsertionsForTesting(true)
+            fixture.cache.clearActiveWindow(ownerId: ownerID)
+        }
+        fixture.cache.setDecodedImageCacheAcceptsInsertionsForTesting(false)
+
+        fixture.cache.prepareWindow(window, ownerId: ownerID)
+        try await waitForControlledEvent("initial dense decode") {
+            await fixture.decoder.waitForStartedDecodeCount(1)
+        }
+        let fullTask = Task { @MainActor in
+            await fixture.cache.imageEntry(for: descriptor, variant: .full)
+        }
+        defer { fullTask.cancel() }
+        try await waitForControlledEvent("full callback demand") {
+            try await fixture.cache.waitForImageDemandCountForTesting(
+                for: descriptor,
+                expectedCount: 1
+            )
+        }
+
+        let didCompleteDense = await fixture.decoder.completeNext(
+            with: DownloadableMediaDecodedImageTransfer(image: makeImage(.purple))
+        )
+        XCTAssertTrue(didCompleteDense)
+        try await waitForControlledEvent("full callback decode") {
+            await fixture.decoder.waitForStartedDecodeCount(2)
+        }
+
+        fixture.cache.prepareWindow(window, ownerId: ownerID)
+        try await fixture.cache.waitForWindowWorkForTesting()
+        XCTAssertTrue(fixture.cache.hasPendingWindowDecodeVariantForTesting(
+            for: descriptor,
+            variant: denseVariant
+        ))
+        fixture.cache.setDecodedImageCacheAcceptsInsertionsForTesting(true)
+        let fullImage = makeImage(.cyan)
+        let didCompleteFull = await fixture.decoder.completeNext(
+            with: DownloadableMediaDecodedImageTransfer(
+                image: fullImage,
+                variant: .full
+            )
+        )
+        XCTAssertTrue(didCompleteFull)
+        let fullEntry = try await waitForControlledTaskValue(
+            fullTask,
+            event: "refreshed full callback"
+        )
+        XCTAssertTrue(fullEntry?.image === fullImage)
+        try await waitForControlledEvent("refreshed decode drain") {
+            while await MainActor.run(body: {
+                fixture.cache.hasActiveImageDecodeForTesting(for: descriptor)
+            }) {
+                try Task.checkCancellation()
+                await Task.yield()
+            }
+        }
+
+        XCTAssertFalse(fixture.cache.hasPendingWindowDecodeVariantForTesting(
+            for: descriptor,
+            variant: denseVariant
+        ))
+        let decodeCount = await fixture.decoder.startedDecodeCount()
+        XCTAssertEqual(decodeCount, 2)
+    }
+
+    func testDecodeFailureDoesNotSettlePendingWindowVariant() async throws {
+        let fixture = try makeControlledCacheFixture()
+        let descriptor = makeDescriptor(name: "failed-window-decode")
+        let ownerID = UUID()
+        let fileURL = fixture.cache.cachedFileURLForTesting(for: descriptor)
+        try FileManager.default.createDirectory(
+            at: fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try XCTUnwrap(makeImage(.orange).pngData()).write(to: fileURL)
+        defer { fixture.cache.clearActiveWindow(ownerId: ownerID) }
+
+        fixture.cache.prepareWindow(
+            PlayerDownloadableMediaWindow(
+                currentDescriptor: descriptor,
+                descriptors: [descriptor],
+                decodedDescriptors: [descriptor],
+                adjacentDescriptor: nil,
+                decodeVariant: .full
+            ),
+            ownerId: ownerID
+        )
+        try await waitForControlledEvent("failed window decode") {
+            await fixture.decoder.waitForStartedDecodeCount(1)
+        }
+        let didComplete = await fixture.decoder.completeNext(
+            with: DownloadableMediaDecodedImageTransfer(image: nil)
+        )
+        XCTAssertTrue(didComplete)
+        try await waitForControlledEvent("failed decode cleanup") {
+            while await MainActor.run(body: {
+                fixture.cache.hasActiveImageDecodeForTesting(for: descriptor)
+            }) {
+                try Task.checkCancellation()
+                await Task.yield()
+            }
+        }
+
+        XCTAssertTrue(fixture.cache.hasPendingWindowDecodeVariantForTesting(
+            for: descriptor,
+            variant: .full
+        ))
+    }
+
+    func testDecodedVariantMetadataRetainsResidentImagesPastSoftCapacity() {
+        let cache = DownloadableMediaCache.shared
+        cache.resetDecodedImagesForTesting()
+        defer { cache.resetDecodedImagesForTesting() }
+        let capacity = cache.decodedVariantMetadataCountsForTesting().capacity
+        let retainedDescriptor = makeDescriptor(name: "metadata-retained")
+        let retainedImage = makeImage(.cyan)
+        let variant = DownloadableMediaImageDecodeVariant.downsampled(
+            maxPixelWidth: 320
+        )
+
+        cache.installDecodedImageForTesting(
+            retainedImage,
+            for: retainedDescriptor,
+            variant: variant
+        )
+
+        for index in 0..<(capacity + 20) {
+            cache.installDecodedImageForTesting(
+                makeImage(.purple),
+                for: makeDescriptor(name: "metadata-\(index)"),
+                variant: variant
+            )
+        }
+
+        let counts = cache.decodedVariantMetadataCountsForTesting()
+        XCTAssertEqual(counts.count, counts.capacity + 21)
+        let retainedEntry = cache.anyCachedDecodedImageEntry(
+            for: retainedDescriptor
+        )
+        XCTAssertTrue(retainedEntry?.image === retainedImage)
+        XCTAssertEqual(retainedEntry?.variant, variant)
+    }
+
     func testFileLeasesProtectFilesUntilTheLastLeaseReleases() async throws {
         let descriptor = makeDescriptor(name: "leased-file")
         guard let fixture = try? makeControlledCacheFixture() else {
@@ -176,6 +1986,9 @@ extension DownloadableMediaCacheTests {
             fileName,
             fileName + DownloadableMediaCacheLayout.downloadedMediaMetadataFileSuffix,
         ])
+        let expectedDiskPaths = Set(
+            fixture.layout.diskPaths(for: descriptor)
+        )
 
         XCTAssertTrue(expectedFileNames.isSubset(of:
             fixture.cache.fileNamesProtectedFromEvictionForTesting(
@@ -183,6 +1996,11 @@ extension DownloadableMediaCacheTests {
                 allowedFileNames: []
             )
         ))
+        XCTAssertTrue(expectedDiskPaths.isSubset(of:
+            fixture.cache.protectedDiskPathsForTesting()
+        ))
+
+        fixture.cache.cancelAllDownloads()
 
         firstLease.release()
         try await waitForControlledEvent("first file lease release") {
@@ -198,6 +2016,9 @@ extension DownloadableMediaCacheTests {
                 allowedFileNames: []
             )
         ))
+        XCTAssertTrue(expectedDiskPaths.isSubset(of:
+            fixture.cache.protectedDiskPathsForTesting()
+        ))
 
         secondLease.release()
         try await waitForControlledEvent("final file lease release") {
@@ -211,6 +2032,11 @@ extension DownloadableMediaCacheTests {
             collectionId: descriptor.collectionId,
             allowedFileNames: []
         ).isEmpty)
+        XCTAssertTrue(
+            expectedDiskPaths.isDisjoint(
+                with: fixture.cache.protectedDiskPathsForTesting()
+            )
+        )
     }
 
     func testCancellingImageDemandPreservesSharedFileDownload() async throws {
@@ -245,7 +2071,7 @@ extension DownloadableMediaCacheTests {
             event: "cancelled shared image request"
         )
         try await waitForControlledEvent("image demand cancellation") {
-            await fixture.cache.waitForImageDemandCountForTesting(
+            try await fixture.cache.waitForImageDemandCountForTesting(
                 for: descriptor,
                 expectedCount: 0
             )
@@ -659,7 +2485,7 @@ extension DownloadableMediaCacheTests {
             await fixture.cache.image(for: descriptor)
         }
         try await waitForControlledEvent("shared finalization demand") {
-            await fixture.cache.waitForImageDemandCountForTesting(
+            try await fixture.cache.waitForImageDemandCountForTesting(
                 for: descriptor,
                 expectedCount: 2
             )
@@ -681,7 +2507,7 @@ extension DownloadableMediaCacheTests {
         )
         XCTAssertNil(firstImage)
         try await waitForControlledEvent("individual finalization cancellation") {
-            await fixture.cache.waitForImageDemandCountForTesting(
+            try await fixture.cache.waitForImageDemandCountForTesting(
                 for: descriptor,
                 expectedCount: 1
             )
@@ -694,7 +2520,7 @@ extension DownloadableMediaCacheTests {
         )
         XCTAssertNil(secondImage)
         try await waitForControlledEvent("global finalization cancellation") {
-            await fixture.cache.waitForImageDemandCountForTesting(
+            try await fixture.cache.waitForImageDemandCountForTesting(
                 for: descriptor,
                 expectedCount: 0
             )
@@ -1178,12 +3004,12 @@ extension DownloadableMediaCacheTests {
         let currentGeneration = DownloadableMediaImageDecodeGeneration()
         XCTAssertTrue(currentGeneration.beginIfCurrent())
         XCTAssertFalse(currentGeneration.beginIfCurrent())
-        XCTAssertTrue(currentGeneration.hasStarted)
+        XCTAssertFalse(currentGeneration.invalidateIfPending())
 
         let invalidatedGeneration = DownloadableMediaImageDecodeGeneration()
-        invalidatedGeneration.invalidate()
+        XCTAssertTrue(invalidatedGeneration.invalidateIfPending())
+        XCTAssertFalse(invalidatedGeneration.invalidateIfPending())
         XCTAssertFalse(invalidatedGeneration.beginIfCurrent())
-        XCTAssertFalse(invalidatedGeneration.hasStarted)
     }
 
     func testImageDecoderHonorsGenerationInvalidation() async throws {
@@ -1297,6 +3123,55 @@ extension DownloadableMediaCacheTests {
 }
 
 extension DownloadableMediaCacheTests {
+
+    func testDiskProtectionDeltasRetainOverlappingOwners() {
+        let layout = DownloadableMediaCacheLayout(
+            cacheRoot: FileManager.default.temporaryDirectory.appendingPathComponent(
+                UUID().uuidString,
+                isDirectory: true
+            ),
+            stagingRoot: FileManager.default.temporaryDirectory.appendingPathComponent(
+                UUID().uuidString,
+                isDirectory: true
+            )
+        )
+        let store = DownloadableMediaDiskStore(layout: layout)
+        let path = layout.cacheRoot.appendingPathComponent("media").path
+
+        store.applyProtectedPathDelta(
+            adding: [path],
+            removing: [],
+            revision: 1
+        )
+        store.applyProtectedPathDelta(
+            adding: [path],
+            removing: [],
+            revision: 2
+        )
+        store.applyProtectedPathDelta(
+            adding: [],
+            removing: [path],
+            revision: 3
+        )
+        XCTAssertEqual(store.protectedPathsForTesting(), [path])
+
+        for revision in 4...1_003 {
+            store.applyProtectedPathDelta(
+                adding: [path],
+                removing: [path],
+                revision: UInt64(revision)
+            )
+        }
+
+        XCTAssertEqual(store.protectedPathsForTesting(), [path])
+
+        store.applyProtectedPathDelta(
+            adding: [],
+            removing: [path],
+            revision: 1_004
+        )
+        XCTAssertEqual(store.protectedPathsForTesting(), [])
+    }
 
     func testDiskStoreFinalizesMetadataAndAvailability() async throws {
         let fixture = try makeDiskFixture()
@@ -1780,7 +3655,7 @@ private actor ControlledDownloadableMediaDownloader:
 }
 
 private actor ControlledDownloadableMediaImageDecoder:
-    DownloadableMediaImageDecoding {
+    DownloadableMediaVariantImageDecoding {
 
     private struct PendingDecode {
         let id: UUID
@@ -1796,14 +3671,27 @@ private actor ControlledDownloadableMediaImageDecoder:
     }
 
     private var pendingDecodes = [PendingDecode]()
+    private var decodeStartGate: DownloadableMediaAsyncRequest<Void>?
+    private var decodeAttemptCountValue = 0
     private var startedDecodeCountValue = 0
+    private var startedVariants = [DownloadableMediaImageDecodeVariant]()
+    private var startedFileURLs = [URL]()
+    private var decodeAttemptWaiters = [CountWaiter]()
     private var startedDecodeWaiters = [CountWaiter]()
 
     func decode(
         at fileURL: URL,
+        variant: DownloadableMediaImageDecodeVariant,
         generation: DownloadableMediaImageDecodeGeneration
     ) async -> DownloadableMediaDecodedImageTransfer? {
-        _ = fileURL
+        decodeAttemptCountValue += 1
+        resumeCountWaiters(
+            &decodeAttemptWaiters,
+            currentCount: decodeAttemptCountValue
+        )
+        if let decodeStartGate {
+            await decodeStartGate.wait()
+        }
         guard generation.beginIfCurrent() else { return nil }
         let pendingDecode = PendingDecode(
             id: UUID(),
@@ -1813,6 +3701,8 @@ private actor ControlledDownloadableMediaImageDecoder:
         )
         pendingDecodes.append(pendingDecode)
         startedDecodeCountValue += 1
+        startedVariants.append(variant.normalized)
+        startedFileURLs.append(fileURL)
         resumeStartedDecodeWaiters()
         defer {
             pendingDecodes.removeAll { $0.id == pendingDecode.id }
@@ -1842,8 +3732,44 @@ private actor ControlledDownloadableMediaImageDecoder:
         }
     }
 
+    func suspendDecodeStarts() {
+        guard decodeStartGate == nil else { return }
+        decodeStartGate = DownloadableMediaAsyncRequest<Void>()
+    }
+
+    func resumeDecodeStarts() {
+        decodeStartGate?.finish(())
+        decodeStartGate = nil
+    }
+
+    func waitForDecodeAttemptCount(_ count: Int) async {
+        guard decodeAttemptCountValue < count else { return }
+        let waiter = CountWaiter(
+            id: UUID(),
+            count: count,
+            request: DownloadableMediaAsyncRequest<Void>()
+        )
+        decodeAttemptWaiters.append(waiter)
+        defer {
+            decodeAttemptWaiters.removeAll { $0.id == waiter.id }
+        }
+        await withTaskCancellationHandler {
+            await waiter.request.wait()
+        } onCancel: {
+            waiter.request.cancel(returning: ())
+        }
+    }
+
     func startedDecodeCount() -> Int {
         startedDecodeCountValue
+    }
+
+    func startedDecodeVariants() -> [DownloadableMediaImageDecodeVariant] {
+        startedVariants
+    }
+
+    func startedDecodeFileURLs() -> [URL] {
+        startedFileURLs
     }
 
     func completeNext(
@@ -1855,21 +3781,32 @@ private actor ControlledDownloadableMediaImageDecoder:
     }
 
     func cancelAll() {
+        resumeDecodeStarts()
         let decodes = pendingDecodes
         pendingDecodes.removeAll()
         decodes.forEach { $0.request.cancel(returning: nil) }
     }
 
     private func resumeStartedDecodeWaiters() {
+        resumeCountWaiters(
+            &startedDecodeWaiters,
+            currentCount: startedDecodeCountValue
+        )
+    }
+
+    private func resumeCountWaiters(
+        _ waiters: inout [CountWaiter],
+        currentCount: Int
+    ) {
         var pendingWaiters = [CountWaiter]()
-        for waiter in startedDecodeWaiters {
-            if startedDecodeCountValue >= waiter.count {
+        for waiter in waiters {
+            if currentCount >= waiter.count {
                 waiter.request.finish(())
             } else {
                 pendingWaiters.append(waiter)
             }
         }
-        startedDecodeWaiters = pendingWaiters
+        waiters = pendingWaiters
     }
 }
 
@@ -2150,11 +4087,11 @@ nonisolated private struct ControlledEventTimeoutError:
 nonisolated private func waitForControlledEvent<Value: Sendable>(
     _ event: String,
     timeout: Duration = .seconds(2),
-    operation: @escaping @Sendable () async -> Value
+    operation: @escaping @Sendable () async throws -> Value
 ) async throws -> Value {
     try await withThrowingTaskGroup(of: Value.self) { group in
         group.addTask {
-            await operation()
+            try await operation()
         }
         group.addTask {
             try await Task.sleep(for: timeout)

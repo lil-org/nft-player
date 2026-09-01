@@ -1,3 +1,4 @@
+import os
 import QuartzCore
 import UIKit
 
@@ -16,6 +17,8 @@ final class MobilePlayerCollectionBrowserImagePipeline {
         let displayedHigherQualityThumbnailTokenIndices: Set<Int>
         let displayedLargeTokenIndices: Set<Int>
         let locallyAvailableLargeTokenIndices: Set<Int>
+        let isFileOnly: Bool
+        let decodeVariant: DownloadableMediaImageDecodeVariant
     }
 
     struct ThumbnailWindowPreparation {
@@ -25,6 +28,9 @@ final class MobilePlayerCollectionBrowserImagePipeline {
         let columnCount: Int
         let quality: CollectionBrowseImageQuality
         let requiredTokenRange: ClosedRange<Int>?
+        let visibleTokenRange: ClosedRange<Int>?
+        let isFileOnly: Bool
+        let decodeVariant: DownloadableMediaImageDecodeVariant
         let displayedHigherQualityThumbnailTokenIndices: Set<Int>
         let displayedLargeTokenIndices: Set<Int>
         let locallyAvailableLargeTokenIndices: Set<Int>
@@ -35,7 +41,9 @@ final class MobilePlayerCollectionBrowserImagePipeline {
         let cell: @MainActor (IndexPath) -> MobilePlayerCollectionBrowserCell?
         let visibleCells: @MainActor () -> [MobilePlayerCollectionBrowserCell]
         let viewportRenderCells: @MainActor () -> [MobilePlayerCollectionBrowserCell]
+        let collectionID: @MainActor () -> String?
         let requiredImageQuality: @MainActor () -> CollectionBrowseImageQuality
+        let imageDecodeVariant: @MainActor () -> DownloadableMediaImageDecodeVariant
         let baseColumnCount: @MainActor () -> Int
         let isRendererActive: @MainActor () -> Bool
         let isApplyingPosition: @MainActor () -> Bool
@@ -56,15 +64,14 @@ final class MobilePlayerCollectionBrowserImagePipeline {
         var skippedDisplayedImageScans = 0
         var displayedImageScans = 0
         var preparations = 0
+        var fileOnlyPreparations = 0
+        var visibleCellCount = 0
+        var emptyVisibleCellCount = 0
+        var outstandingCachedImageRefreshes = 0
     }
 
     private(set) var thumbnailWindowMetrics = ThumbnailWindowMetrics()
 #endif
-
-    private struct CancellableLoad {
-        let id: UUID
-        let task: Task<Void, Never>
-    }
 
     private struct DisplayedImageWindowState {
         let higherQualityThumbnailTokenIndices: Set<Int>
@@ -86,10 +93,12 @@ final class MobilePlayerCollectionBrowserImagePipeline {
         }
     }
 
-    private static let maximumPrefetchLoadCount = 96
+    private static let signposter = OSSignposter(
+        subsystem: Bundle.main.bundleIdentifier ?? "org.lil.nft-player",
+        category: "CollectionBrowserImages"
+    )
 
     private var contentAccess: ContentAccess?
-    private var prefetchLoads = [Int: CancellableLoad]()
     private var lastThumbnailWindowRequest: ThumbnailWindowRequest?
     private var denseGridImageDisplayLink: CADisplayLink?
     private let displayLinkTarget = DisplayLinkTarget()
@@ -105,9 +114,8 @@ final class MobilePlayerCollectionBrowserImagePipeline {
     }
 
     var defersDenseGridImageLoading: Bool {
-        guard let contentAccess else { return false }
-        return contentAccess.requiredImageQuality().isDenseGridThumbnail
-            && !contentAccess.isRendererActive()
+        contentAccess?.requiredImageQuality().isDenseGridThumbnail == true
+            && contentAccess?.isRendererActive() == false
             && isScrollMotionActive
     }
 
@@ -155,58 +163,8 @@ final class MobilePlayerCollectionBrowserImagePipeline {
         guard !isInvalidated else { return }
         cancelVisibleCellImageLoads()
         isInvalidated = true
-        cancelAllPrefetchLoads()
         stopDenseGridImageDisplayLink()
         contentAccess = nil
-    }
-
-    func prefetch(
-        indexPaths: [IndexPath],
-        centerTokenIndex: @MainActor () -> Int,
-        requiredImageQuality: CollectionBrowseImageQuality,
-        descriptor: @MainActor (Int) -> DownloadableMediaDescriptor?
-    ) {
-        guard !isInvalidated,
-              isActive,
-              contentAccess?.isApplyingPosition() == false,
-              !requiredImageQuality.isDenseGridThumbnail,
-              prefetchLoads.count < Self.maximumPrefetchLoadCount else {
-            return
-        }
-
-        let centerTokenIndex = centerTokenIndex()
-        let orderedIndices = Set(indexPaths.map(\.item)).sorted {
-            let lhsDistance = abs($0 - centerTokenIndex)
-            let rhsDistance = abs($1 - centerTokenIndex)
-            return lhsDistance == rhsDistance ? $0 < $1 : lhsDistance < rhsDistance
-        }
-
-        for tokenIndex in orderedIndices {
-            guard prefetchLoads.count < Self.maximumPrefetchLoadCount,
-                  prefetchLoads[tokenIndex] == nil else {
-                continue
-            }
-            let loadID = UUID()
-            guard let descriptor = descriptor(tokenIndex) else { continue }
-            startPrefetch(
-                descriptor: descriptor,
-                tokenIndex: tokenIndex,
-                loadID: loadID
-            )
-        }
-    }
-
-    func cancelPrefetching(indexPaths: [IndexPath]) {
-        guard !isInvalidated else { return }
-        for tokenIndex in Set(indexPaths.map(\.item)) {
-            prefetchLoads.removeValue(forKey: tokenIndex)?.task.cancel()
-        }
-    }
-
-    func cancelAllPrefetchLoads() {
-        let tasks = prefetchLoads.values.map(\.task)
-        prefetchLoads.removeAll()
-        tasks.forEach { $0.cancel() }
     }
 
     func cancelVisibleCellImageLoads() {
@@ -227,6 +185,9 @@ final class MobilePlayerCollectionBrowserImagePipeline {
             .normalizedPrefetchStride(configuredPrefetchStride)
         let columnCount = configuredColumnCount
         let quality = requiredImageQuality
+        let decodeVariant = contentAccess.imageDecodeVariant()
+        let isFileOnly = quality.isDenseGridThumbnail
+            && isScrollMotionActive
         let refreshDistance = quality.isDenseGridThumbnail
             ? PlayerCollectionBrowseMediaWindowPolicy.rowAlignedRefreshDistance(
                 prefetchStride: prefetchStride,
@@ -248,16 +209,17 @@ final class MobilePlayerCollectionBrowserImagePipeline {
                 refreshDistance: refreshDistance,
                 force: force
             )
-        if quality.isDenseGridThumbnail, !shouldRefreshStableWindow {
+        if quality.isDenseGridThumbnail,
+           !shouldRefreshStableWindow,
+           lastThumbnailWindowRequest?.isFileOnly == isFileOnly,
+           lastThumbnailWindowRequest?.decodeVariant == decodeVariant {
 #if DEBUG
             thumbnailWindowMetrics.skippedDisplayedImageScans += 1
 #endif
             return
         }
 
-        let visibleTokenRange = quality.isDenseGridThumbnail
-            ? visibleBrowserTokenRange(contentAccess: contentAccess)
-            : nil
+        let visibleTokenRange = visibleBrowserTokenRange(contentAccess: contentAccess)
         let requiredTokenRange = visibleTokenRange.map {
             requiredThumbnailWindowTokenRange(
                 around: tokenIndex,
@@ -293,7 +255,9 @@ final class MobilePlayerCollectionBrowserImagePipeline {
                 displayedHigherQualityThumbnailTokenIndices,
             displayedLargeTokenIndices: displayedImages.tokenIndices,
             locallyAvailableLargeTokenIndices:
-                displayedImages.locallyAvailableTokenIndices
+                displayedImages.locallyAvailableTokenIndices,
+            isFileOnly: isFileOnly,
+            decodeVariant: decodeVariant
         )
         if !force,
            let lastThumbnailWindowRequest,
@@ -304,6 +268,8 @@ final class MobilePlayerCollectionBrowserImagePipeline {
                 == displayedImages.tokenIndices,
            lastThumbnailWindowRequest.locallyAvailableLargeTokenIndices
                 == displayedImages.locallyAvailableTokenIndices,
+           lastThumbnailWindowRequest.isFileOnly == isFileOnly,
+           lastThumbnailWindowRequest.decodeVariant == decodeVariant,
            !shouldRefreshStableWindow {
             return
         }
@@ -315,6 +281,9 @@ final class MobilePlayerCollectionBrowserImagePipeline {
             columnCount: columnCount,
             quality: quality,
             requiredTokenRange: requiredTokenRange,
+            visibleTokenRange: visibleTokenRange,
+            isFileOnly: isFileOnly,
+            decodeVariant: decodeVariant,
             displayedHigherQualityThumbnailTokenIndices:
                 displayedHigherQualityThumbnailTokenIndices,
             displayedLargeTokenIndices: displayedImages.tokenIndices,
@@ -323,7 +292,15 @@ final class MobilePlayerCollectionBrowserImagePipeline {
         ))
 #if DEBUG
         thumbnailWindowMetrics.preparations += 1
+        thumbnailWindowMetrics.fileOnlyPreparations += isFileOnly ? 1 : 0
+        let visibleCells = contentAccess.visibleCells()
+        thumbnailWindowMetrics.visibleCellCount = visibleCells.count
+        thumbnailWindowMetrics.emptyVisibleCellCount = visibleCells.filter {
+            $0.displayedLargeImageWindowEntry == nil
+                && $0.displayedThumbnailWindowEntry == nil
+        }.count
 #endif
+        Self.signposter.emitEvent("ThumbnailWindow")
         lastThumbnailWindowRequest = request
     }
 
@@ -334,7 +311,8 @@ final class MobilePlayerCollectionBrowserImagePipeline {
         imageLoadPolicy: MobilePlayerCollectionBrowserCell.ImageLoadPolicy?,
         apply: @MainActor (
             CollectionBrowseImageQuality,
-            MobilePlayerCollectionBrowserCell.ImageLoadPolicy
+            MobilePlayerCollectionBrowserCell.ImageLoadPolicy,
+            DownloadableMediaImageDecodeVariant
         ) -> Void
     ) {
         guard !isInvalidated else { return }
@@ -342,21 +320,29 @@ final class MobilePlayerCollectionBrowserImagePipeline {
         if imageLoadPolicy == nil, defersDenseGridImageLoading {
             cell.demoteImageLoadToCachedOnlyIfNeeded(tokenIndex: tokenIndex)
         }
-        let resolvedImageLoadPolicy = imageLoadPolicy
+        let requestedImageLoadPolicy = imageLoadPolicy
             ?? (isActive || contentAccess?.isPreparedTransitionActive() == true
                 ? (defersDenseGridImageLoading ? .cachedOnly : .foreground)
                 : .disabled)
+        let resolvedImageLoadPolicy = defersDenseGridImageLoading
+            && requestedImageLoadPolicy == .foreground
+            ? .cachedOnly
+            : requestedImageLoadPolicy
         let resolvedRequiredImageQuality = requiredImageQuality
             ?? contentAccess?.requiredImageQuality()
             ?? .large
-        apply(resolvedRequiredImageQuality, resolvedImageLoadPolicy)
+        apply(
+            resolvedRequiredImageQuality,
+            resolvedImageLoadPolicy,
+            contentAccess?.imageDecodeVariant() ?? .full
+        )
 
         guard resolvedImageLoadPolicy == .cachedOnly else { return }
-        if imageLoadPolicy != nil {
-            _ = cell.refreshCachedImageIfAvailable(tokenIndex: tokenIndex)
-        } else if defersDenseGridImageLoading,
-                  cell.needsCachedImageRefresh(tokenIndex: tokenIndex) {
+        if defersDenseGridImageLoading,
+           cell.needsCachedImageRefresh(tokenIndex: tokenIndex) {
             enqueueDenseGridImageRefresh(tokenIndex: tokenIndex)
+        } else if imageLoadPolicy != nil {
+            _ = cell.refreshCachedImageIfAvailable(tokenIndex: tokenIndex)
         }
     }
 
@@ -386,6 +372,10 @@ final class MobilePlayerCollectionBrowserImagePipeline {
     func willEndDisplaying(tokenIndex: Int) {
         guard !isInvalidated else { return }
         denseGridImageRefreshQueue.remove(tokenIndex)
+#if DEBUG
+        thumbnailWindowMetrics.outstandingCachedImageRefreshes =
+            denseGridImageRefreshQueue.count
+#endif
     }
 
     func didEndDisplaying(
@@ -404,6 +394,13 @@ final class MobilePlayerCollectionBrowserImagePipeline {
               let contentAccess else {
             return
         }
+        if let collectionID = contentAccess.collectionID(),
+           !DownloadableMediaCache.shared.fileAvailabilityChange(
+               notification,
+               affectsCollection: collectionID
+           ) {
+            return
+        }
         contentAccess.visibleCells().forEach {
             $0.updateLocalFileAvailability(
                 notification: notification,
@@ -416,6 +413,30 @@ final class MobilePlayerCollectionBrowserImagePipeline {
         contentAccess.viewportRenderCells().forEach {
             $0.refreshAvailableImageIfNeeded(notification: notification)
         }
+    }
+
+    func handleDecodedImageNotification(_ notification: Notification) {
+        guard !isInvalidated,
+              isActive || contentAccess?.isPreparedTransitionActive() == true,
+              defersDenseGridImageLoading,
+              let availability = notification.object
+                as? DownloadableMediaCacheDecodedImageAvailability,
+              let contentAccess,
+              contentAccess.collectionID() == availability.collectionId else {
+            return
+        }
+        let indexPath = IndexPath(
+            item: availability.tokenIndex,
+            section: 0
+        )
+        guard contentAccess.visibleIndexPaths().contains(indexPath),
+              let cell = contentAccess.cell(indexPath),
+              cell.needsCachedImageRefresh(
+                  tokenIndex: availability.tokenIndex
+              ) else {
+            return
+        }
+        enqueueDenseGridImageRefresh(tokenIndex: availability.tokenIndex)
     }
 
     func demoteVisibleImageLoadsIfNeeded() {
@@ -475,29 +496,6 @@ final class MobilePlayerCollectionBrowserImagePipeline {
         tokenIndices.forEach { enqueueDenseGridImageRefresh(tokenIndex: $0) }
     }
 #endif
-
-    private func startPrefetch(
-        descriptor: DownloadableMediaDescriptor,
-        tokenIndex: Int,
-        loadID: UUID
-    ) {
-        let task = Task { @MainActor [weak self] in
-            _ = await DownloadableMediaCache.shared.image(
-                for: descriptor,
-                priority: .preservingPrefetch
-            )
-            guard !Task.isCancelled else { return }
-            await Task.yield()
-            guard self?.prefetchLoads[tokenIndex]?.id == loadID else {
-                return
-            }
-            self?.prefetchLoads.removeValue(forKey: tokenIndex)
-        }
-        prefetchLoads[tokenIndex] = CancellableLoad(
-            id: loadID,
-            task: task
-        )
-    }
 
     private func visibleBrowserTokenRange(
         contentAccess: ContentAccess
@@ -583,6 +581,9 @@ final class MobilePlayerCollectionBrowserImagePipeline {
         denseGridImageDisplayLink?.invalidate()
         denseGridImageDisplayLink = nil
         denseGridImageRefreshQueue.removeAll()
+#if DEBUG
+        thumbnailWindowMetrics.outstandingCachedImageRefreshes = 0
+#endif
     }
 
     private func handleDenseGridImageDisplayLinkTick() {
@@ -595,6 +596,10 @@ final class MobilePlayerCollectionBrowserImagePipeline {
               denseGridImageRefreshQueue.enqueue(tokenIndex) else {
             return
         }
+#if DEBUG
+        thumbnailWindowMetrics.outstandingCachedImageRefreshes =
+            denseGridImageRefreshQueue.count
+#endif
         startDenseGridImageDisplayLinkIfNeeded()
     }
 
@@ -606,24 +611,19 @@ final class MobilePlayerCollectionBrowserImagePipeline {
         }
         var processedCount = 0
         let tokenIndices = denseGridImageRefreshQueue.dequeue(limit: limit)
-        var retryTokenIndices = [Int]()
-        retryTokenIndices.reserveCapacity(tokenIndices.count)
         for tokenIndex in tokenIndices {
             processedCount += 1
             let indexPath = IndexPath(item: tokenIndex, section: 0)
             guard let cell = contentAccess?.cell(indexPath) else { continue }
-            switch cell.refreshCachedImageIfAvailable(tokenIndex: tokenIndex) {
-            case .satisfied, .unavailable:
-                break
-            case .retry:
-                retryTokenIndices.append(tokenIndex)
-            }
-        }
-        retryTokenIndices.forEach {
-            enqueueDenseGridImageRefresh(tokenIndex: $0)
+            _ = cell.refreshCachedImageIfAvailable(tokenIndex: tokenIndex)
         }
         if denseGridImageRefreshQueue.count == 0 {
             stopDenseGridImageDisplayLink()
+        } else {
+#if DEBUG
+            thumbnailWindowMetrics.outstandingCachedImageRefreshes =
+                denseGridImageRefreshQueue.count
+#endif
         }
         return processedCount
     }

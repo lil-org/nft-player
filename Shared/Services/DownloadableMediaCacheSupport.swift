@@ -15,6 +15,43 @@ nonisolated enum DownloadableMediaRequestPriority: Sendable {
     case preservingPrefetch
 }
 
+nonisolated enum DownloadableMediaImageDecodeVariant: Hashable, Sendable {
+    case full
+    case downsampled(maxPixelWidth: Int)
+
+    var normalized: Self {
+        switch self {
+        case .full:
+            return .full
+        case let .downsampled(maxPixelWidth):
+            return .downsampled(maxPixelWidth: max(maxPixelWidth, 1))
+        }
+    }
+
+    var cacheKeyComponent: String {
+        switch normalized {
+        case .full:
+            return "full"
+        case let .downsampled(maxPixelWidth):
+            return "downsampled-\(maxPixelWidth)"
+        }
+    }
+
+    func satisfies(_ requestedVariant: Self) -> Bool {
+        switch (normalized, requestedVariant.normalized) {
+        case (.full, _):
+            return true
+        case (.downsampled, .full):
+            return false
+        case let (
+            .downsampled(maxPixelWidth: availableWidth),
+            .downsampled(maxPixelWidth: requestedWidth)
+        ):
+            return availableWidth >= requestedWidth
+        }
+    }
+}
+
 nonisolated struct DownloadableMediaCacheLayout: Sendable {
     static let webViewHTMLDirectoryName = "_WebViewHTML"
     static let downloadedMediaMetadataFileSuffix = ".metadata.json"
@@ -194,14 +231,18 @@ nonisolated final class DownloadableMediaImageDecodeGeneration:
     private let lock = NSLock()
     private var state = State.pending
 
-    var hasStarted: Bool {
-        lock.withLock { state == .decoding }
-    }
-
     func beginIfCurrent() -> Bool {
         lock.withLock {
             guard state == .pending else { return false }
             state = .decoding
+            return true
+        }
+    }
+
+    func invalidateIfPending() -> Bool {
+        lock.withLock {
+            guard state == .pending else { return false }
+            state = .invalidated
             return true
         }
     }
@@ -216,6 +257,26 @@ nonisolated final class DownloadableMediaImageDecodeGeneration:
 nonisolated struct DownloadableMediaDecodedImageTransfer:
     @unchecked Sendable {
     let image: DownloadableMediaImage?
+    let variant: DownloadableMediaImageDecodeVariant?
+
+    init(
+        image: DownloadableMediaImage?,
+        variant: DownloadableMediaImageDecodeVariant? = nil
+    ) {
+        self.image = image
+        self.variant = variant?.normalized
+    }
+}
+
+nonisolated struct DownloadableMediaImageEntry: @unchecked Sendable {
+    let image: DownloadableMediaImage
+    let variant: DownloadableMediaImageDecodeVariant
+}
+
+nonisolated struct DownloadableMediaCacheDecodedImageAvailability:
+    Equatable, Sendable {
+    let collectionId: String
+    let tokenIndex: Int
 }
 
 nonisolated final class DownloadableMediaFileLease: @unchecked Sendable {
@@ -453,6 +514,24 @@ nonisolated protocol DownloadableMediaImageDecoding: Actor {
     ) async -> DownloadableMediaDecodedImageTransfer?
 }
 
+nonisolated protocol DownloadableMediaVariantImageDecoding:
+    DownloadableMediaImageDecoding {
+    func decode(
+        at fileURL: URL,
+        variant: DownloadableMediaImageDecodeVariant,
+        generation: DownloadableMediaImageDecodeGeneration
+    ) async -> DownloadableMediaDecodedImageTransfer?
+}
+
+extension DownloadableMediaVariantImageDecoding {
+    func decode(
+        at fileURL: URL,
+        generation: DownloadableMediaImageDecodeGeneration
+    ) async -> DownloadableMediaDecodedImageTransfer? {
+        await decode(at: fileURL, variant: .full, generation: generation)
+    }
+}
+
 @MainActor
 final class DownloadableMediaAvailabilityPublisher {
     enum Scope: Sendable {
@@ -484,6 +563,21 @@ final class DownloadableMediaAvailabilityPublisher {
                 name: .downloadableMediaCacheFileAvailabilityDidChange,
                 object: change,
                 userInfo: [Self.scopeUserInfoKey: scope]
+            )
+        }
+    }
+
+    func postDecodedImageAvailable(
+        for descriptor: CollectionCatalogDownloadableMediaDescriptor
+    ) {
+        let availability = DownloadableMediaCacheDecodedImageAvailability(
+            collectionId: descriptor.collectionId,
+            tokenIndex: descriptor.tokenIndex
+        )
+        Task { @MainActor [notificationCenter] in
+            notificationCenter.post(
+                name: .downloadableMediaCacheDecodedImageDidBecomeAvailable,
+                object: availability
             )
         }
     }

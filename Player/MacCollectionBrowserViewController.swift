@@ -15,6 +15,7 @@ final class MacCollectionBrowserViewController: NSViewController,
         let tokenIndex: Int
         let direction: DownloadableMediaCache.PrefetchDirection
         let prefetchStride: Int
+        let visibleTokenRange: ClosedRange<Int>?
     }
 
     let session: MacPlayerSession
@@ -705,12 +706,22 @@ final class MacCollectionBrowserViewController: NSViewController,
 
     private func prepareThumbnailWindow(force: Bool) {
         guard allowsThumbnailDemand, let focusedTokenIndex else { return }
-        let prefetchStride = browserLayout.browserLayout?.prefetchStride
+        let layout = browserLayout.browserLayout
+        let prefetchStride = layout?.prefetchStride
             ?? MobilePlayerBrowserLayout.defaultColumnCount
+        let columnCount = layout?.columnCount
+            ?? MobilePlayerBrowserLayout.defaultColumnCount
+        let visibleTokenIndices = collectionView.indexPathsForVisibleItems()
+            .map(\.item)
+            .filter { (0..<snapshot.itemCount).contains($0) }
+        let visibleTokenRange = visibleTokenIndices.min().flatMap { lowerBound in
+            visibleTokenIndices.max().map { lowerBound...$0 }
+        }
         let request = ThumbnailWindowRequest(
             tokenIndex: focusedTokenIndex,
             direction: lastPrefetchDirection,
-            prefetchStride: prefetchStride
+            prefetchStride: prefetchStride,
+            visibleTokenRange: visibleTokenRange
         )
         if !force, lastThumbnailWindowRequest == request {
             return
@@ -719,6 +730,7 @@ final class MacCollectionBrowserViewController: NSViewController,
            let lastThumbnailWindowRequest,
            lastThumbnailWindowRequest.direction == request.direction,
            lastThumbnailWindowRequest.prefetchStride == request.prefetchStride,
+           lastThumbnailWindowRequest.visibleTokenRange == request.visibleTokenRange,
            abs(lastThumbnailWindowRequest.tokenIndex - request.tokenIndex) < prefetchStride {
             return
         }
@@ -729,6 +741,8 @@ final class MacCollectionBrowserViewController: NSViewController,
             itemCount: snapshot.itemCount,
             direction: lastPrefetchDirection,
             prefetchStride: prefetchStride,
+            columnCount: columnCount,
+            visibleTokenRange: visibleTokenRange,
             descriptorForTokenIndex: { descriptor(for: $0) }
         ) else {
             DownloadableMediaCache.shared.clearActiveWindow(ownerId: ownerId)

@@ -117,6 +117,9 @@ nonisolated enum PlayerCollectionBrowserSupport {
 }
 
 nonisolated enum PlayerCollectionBrowseMediaWindowLayout {
+    static let fileDescriptorCapacity = 60
+    static let decodedDescriptorCapacity = 30
+
     static func fileOffsets(
         prefetchStride: Int,
         direction: DownloadableMediaCache.PrefetchDirection
@@ -146,7 +149,11 @@ nonisolated enum PlayerCollectionBrowseMediaWindowLayout {
         itemCount: Int,
         direction: DownloadableMediaCache.PrefetchDirection,
         prefetchStride: Int,
+        columnCount: Int,
         compactCoverage: PlayerCollectionBrowseMediaWindowPolicy.CompactCoverage? = nil,
+        visibleTokenRange: ClosedRange<Int>? = nil,
+        includesDecodedDescriptors: Bool = true,
+        decodeVariant: DownloadableMediaImageDecodeVariant = .full,
         descriptorForTokenIndex: (Int) -> CollectionCatalogDownloadableMediaDescriptor?
     ) -> PlayerDownloadableMediaWindow? {
         guard itemCount > 0, (0..<itemCount).contains(tokenIndex) else { return nil }
@@ -156,22 +163,24 @@ nonisolated enum PlayerCollectionBrowseMediaWindowLayout {
             centeredAt: tokenIndex,
             itemCount: itemCount
         )
-        let fileTokenIndices: [Int]
-        let decodedTokenIndices: [Int]
+        let effectiveVisibleTokenRange = visibleTokenRange
+            ?? compactCoverage?.decodedRange
+        let rawFileTokenIndices: [Int]
+        let rawDecodedTokenIndices: [Int]
         if let compactCoverage {
-            fileTokenIndices = directionallyOrderedTokenIndices(
+            rawFileTokenIndices = directionallyOrderedTokenIndices(
                 centeredAt: tokenIndex,
                 in: compactCoverage.fileRange,
                 direction: direction
             )
-            decodedTokenIndices = PlayerCollectionBrowseMediaWindowPolicy
+            rawDecodedTokenIndices = PlayerCollectionBrowseMediaWindowPolicy
                 .nearestFirstTokenIndices(
                     centeredAt: tokenIndex,
                     in: compactCoverage.decodedRange,
                     prefersIncreasingIndices: direction == .forward
                 )
         } else {
-            fileTokenIndices = PlayerDownloadableMediaWindowLayout.indices(
+            rawFileTokenIndices = PlayerDownloadableMediaWindowLayout.indices(
                 currentIndex: tokenIndex,
                 tokenCount: itemCount,
                 offsets: fileOffsets(
@@ -179,7 +188,7 @@ nonisolated enum PlayerCollectionBrowseMediaWindowLayout {
                     direction: direction
                 )
             )
-            decodedTokenIndices = PlayerDownloadableMediaWindowLayout.indices(
+            rawDecodedTokenIndices = PlayerDownloadableMediaWindowLayout.indices(
                 currentIndex: tokenIndex,
                 tokenCount: itemCount,
                 offsets: decodedOffsets(
@@ -188,15 +197,77 @@ nonisolated enum PlayerCollectionBrowseMediaWindowLayout {
                 )
             )
         }
+        let orderedFileTokenIndices = prioritizedTokenIndices(
+            currentIndex: tokenIndex,
+            candidateTokenIndices: rawFileTokenIndices,
+            visibleTokenRange: effectiveVisibleTokenRange,
+            itemCount: itemCount,
+            direction: direction
+        )
+        let orderedDecodedTokenIndices = includesDecodedDescriptors
+            ? prioritizedTokenIndices(
+                currentIndex: tokenIndex,
+                candidateTokenIndices: rawDecodedTokenIndices,
+                visibleTokenRange: effectiveVisibleTokenRange,
+                itemCount: itemCount,
+                direction: direction
+            )
+            : []
         var descriptorLookup = [Int: CollectionCatalogDownloadableMediaDescriptor]()
-        descriptorLookup.reserveCapacity(fileTokenIndices.count)
-        for index in fileTokenIndices {
+        var resolvedTokenIndices = Set<Int>()
+
+        func descriptor(at index: Int) -> CollectionCatalogDownloadableMediaDescriptor? {
+            guard resolvedTokenIndices.insert(index).inserted else {
+                return descriptorLookup[index]
+            }
             guard let descriptor = descriptorForTokenIndex(index),
                   PlayerCollectionBrowserSupport.isAvailable(for: descriptor) else {
-                continue
+                return nil
             }
             descriptorLookup[index] = descriptor
+            return descriptor
         }
+
+        let visibleTokenIndices: [Int] = effectiveVisibleTokenRange.map {
+            range -> [Int] in
+            let lowerBound = max(range.lowerBound, 0)
+            let upperBound = min(range.upperBound, itemCount - 1)
+            return lowerBound <= upperBound
+                ? Array(lowerBound...upperBound)
+                : []
+        } ?? []
+        let availableVisibleTokenIndices = Set<Int>(visibleTokenIndices.filter {
+            descriptor(at: $0) != nil
+        })
+        let decodedTokenIndices = availableTokenIndices(
+            orderedTokenIndices: orderedDecodedTokenIndices,
+            requiredTokenIndices: availableVisibleTokenIndices,
+            capacity: max(
+                decodedDescriptorCapacity,
+                availableVisibleTokenIndices.count
+            ),
+            descriptorForTokenIndex: descriptor(at:)
+        )
+        let fileLookahead = PlayerCollectionBrowseMediaWindowPolicy
+            .rowAlignedRefreshDistance(
+                prefetchStride: prefetchStride,
+                columnCount: columnCount
+            )
+        let visibleFileCapacity = availableVisibleTokenIndices.count
+            .addingReportingOverflow(fileLookahead)
+        let fileTokenIndices = availableTokenIndices(
+            orderedTokenIndices: orderedFileTokenIndices,
+            requiredTokenIndices: availableVisibleTokenIndices.union(
+                decodedTokenIndices
+            ),
+            capacity: max(
+                fileDescriptorCapacity,
+                visibleFileCapacity.overflow
+                    ? Int.max
+                    : visibleFileCapacity.partialValue
+            ),
+            descriptorForTokenIndex: descriptor(at:)
+        )
 
         let descriptors = fileTokenIndices.compactMap { descriptorLookup[$0] }
         guard let currentDescriptor = descriptorLookup[tokenIndex] ?? descriptors.min(by: {
@@ -220,7 +291,9 @@ nonisolated enum PlayerCollectionBrowseMediaWindowLayout {
             descriptors: descriptors,
             decodedDescriptors: decodedDescriptors,
             adjacentDescriptor: adjacentTokenIndex.flatMap { descriptorLookup[$0] },
-            decodedDescriptorCapacity: max(decodedDescriptors.count, 1)
+            decodedDescriptorCapacity: max(decodedDescriptors.count, 1),
+            includesCurrentInDecodedDescriptors: includesDecodedDescriptors,
+            decodeVariant: decodeVariant
         )
     }
 
@@ -273,6 +346,81 @@ nonisolated enum PlayerCollectionBrowseMediaWindowLayout {
             appendIncreasingIndices()
         }
         return indices
+    }
+
+    private static func prioritizedTokenIndices(
+        currentIndex: Int,
+        candidateTokenIndices: [Int],
+        visibleTokenRange: ClosedRange<Int>?,
+        itemCount: Int,
+        direction: DownloadableMediaCache.PrefetchDirection
+    ) -> [Int] {
+        let visibleIndices: [Int]
+        if let visibleTokenRange {
+            let lowerBound = max(visibleTokenRange.lowerBound, 0)
+            let upperBound = min(visibleTokenRange.upperBound, itemCount - 1)
+            visibleIndices = lowerBound <= upperBound
+                ? Array(lowerBound...upperBound)
+                : []
+        } else {
+            visibleIndices = []
+        }
+        let candidates = Set(candidateTokenIndices).union(visibleIndices)
+        guard !candidates.isEmpty else { return [] }
+        let visibleCandidates = candidates.filter {
+            visibleTokenRange?.contains($0) == true
+        }
+        var result = [Int]()
+        var included = Set<Int>()
+
+        func append(_ index: Int) {
+            guard candidates.contains(index), included.insert(index).inserted else {
+                return
+            }
+            result.append(index)
+        }
+
+        append(currentIndex)
+        visibleCandidates.sorted {
+            let lhsDistance = abs($0 - currentIndex)
+            let rhsDistance = abs($1 - currentIndex)
+            guard lhsDistance == rhsDistance else { return lhsDistance < rhsDistance }
+            switch direction {
+            case .forward:
+                return $0 > $1
+            case .backward:
+                return $0 < $1
+            }
+        }.forEach(append)
+        candidateTokenIndices.forEach(append)
+        return result
+    }
+
+    private static func availableTokenIndices(
+        orderedTokenIndices: [Int],
+        requiredTokenIndices: Set<Int>,
+        capacity: Int,
+        descriptorForTokenIndex: (Int) -> CollectionCatalogDownloadableMediaDescriptor?
+    ) -> [Int] {
+        var remainingRequiredTokenIndices = requiredTokenIndices.intersection(
+            orderedTokenIndices
+        )
+        let limit = max(capacity, remainingRequiredTokenIndices.count)
+        var result = [Int]()
+        result.reserveCapacity(min(limit, orderedTokenIndices.count))
+
+        for tokenIndex in orderedTokenIndices {
+            guard descriptorForTokenIndex(tokenIndex) != nil else { continue }
+            if remainingRequiredTokenIndices.remove(tokenIndex) != nil {
+                result.append(tokenIndex)
+            } else if result.count + remainingRequiredTokenIndices.count < limit {
+                result.append(tokenIndex)
+            }
+            if result.count >= limit, remainingRequiredTokenIndices.isEmpty {
+                break
+            }
+        }
+        return result
     }
 
     private static func offsets(

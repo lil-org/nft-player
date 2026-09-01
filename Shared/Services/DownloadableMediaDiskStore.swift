@@ -266,6 +266,7 @@ nonisolated private final class DownloadableMediaDiskProtectionGate:
 
     private let lock = NSLock()
     private var paths = Set<String>()
+    private var pathReferenceCounts = [String: Int]()
     private var revision: UInt64 = 0
 
     func update(_ paths: Set<String>, revision: UInt64) -> Bool {
@@ -274,7 +275,41 @@ nonisolated private final class DownloadableMediaDiskProtectionGate:
             self.revision = revision
             guard self.paths != paths else { return false }
             self.paths = paths
+            pathReferenceCounts = Dictionary(
+                uniqueKeysWithValues: paths.map { ($0, 1) }
+            )
             return true
+        }
+    }
+
+    func applyDelta(
+        adding addedPaths: Set<String>,
+        removing removedPaths: Set<String>,
+        revision: UInt64
+    ) -> Bool {
+        lock.withLock {
+            guard revision >= self.revision else { return false }
+            self.revision = revision
+            var didChange = false
+            for path in addedPaths {
+                let count = pathReferenceCounts[path, default: 0]
+                pathReferenceCounts[path] = count + 1
+                if count == 0 {
+                    paths.insert(path)
+                    didChange = true
+                }
+            }
+            for path in removedPaths {
+                guard let count = pathReferenceCounts[path] else { continue }
+                if count == 1 {
+                    pathReferenceCounts.removeValue(forKey: path)
+                    paths.remove(path)
+                    didChange = true
+                } else {
+                    pathReferenceCounts[path] = count - 1
+                }
+            }
+            return didChange
         }
     }
 
@@ -586,6 +621,26 @@ actor DownloadableMediaDiskStore {
             pruneGate.cancel()
         }
     }
+
+    nonisolated func applyProtectedPathDelta(
+        adding addedPaths: Set<String>,
+        removing removedPaths: Set<String>,
+        revision: UInt64
+    ) {
+        if protectionGate.applyDelta(
+            adding: addedPaths,
+            removing: removedPaths,
+            revision: revision
+        ) {
+            pruneGate.cancel()
+        }
+    }
+
+#if DEBUG && os(iOS)
+    nonisolated func protectedPathsForTesting() -> Set<String> {
+        protectionGate.snapshot()
+    }
+#endif
 
     nonisolated func cancelPrune() {
         pruneGate.cancel()

@@ -2,15 +2,22 @@
 
 import QuartzCore
 import UIKit
+import os
 
 final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
     typealias ImageLoadPolicy =
         MobilePlayerCollectionBrowserCellImageLoader.ImageLoadPolicy
 
-    enum CachedImageRefreshResult: Equatable {
-        case satisfied
-        case retry
-        case unavailable
+    private struct ConfigurationSignature: Equatable {
+        let contentIdentity: MobilePlayerBrowserContentIdentity
+        let itemCount: Int
+        let imageSources: CollectionBrowseImageSources?
+        let requiredImageQuality: CollectionBrowseImageQuality
+        let missingDescriptorFallbackSpec: PlayerMediaPlaceholderSpec
+        let imageLoadPolicy: ImageLoadPolicy
+        let fadesFirstImage: Bool
+        let allowsLocalLargeImageUpgrade: Bool
+        let imageDecodeVariant: DownloadableMediaImageDecodeVariant
     }
 
     struct TransitionSnapshot {
@@ -31,6 +38,7 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
     }
     private var fadesFirstImage = false
     private var configuredMediaTime: CFTimeInterval = 0
+    private var configurationSignature: ConfigurationSignature?
     /// Cached images found by a scan in the cell's own configure frame may
     /// install instantly — the cell has not been drawn yet. Anything later
     /// (a resumed load, a cache-availability notification) lands in a cell
@@ -38,6 +46,10 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
     private static let configureFrameInstallGrace: CFTimeInterval = 0.05
     private static let contentFadeDuration =
         MobilePlayerCollectionBrowserTransitionPresentation.contentFadeDuration
+    private static let signposter = OSSignposter(
+        subsystem: Bundle.main.bundleIdentifier ?? "org.lil.nft-player",
+        category: "CollectionBrowserImages"
+    )
     var descriptor: DownloadableMediaDescriptor? {
         imageLoader.descriptor
     }
@@ -73,6 +85,8 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
     }
     private var installedIncomingTransitionContentDescriptor:
         DownloadableMediaDescriptor?
+    private var installedIncomingTransitionContentDecodeVariant:
+        DownloadableMediaImageDecodeVariant?
 
     var displayedLargeImageWindowEntry: (
         tokenIndex: Int,
@@ -144,6 +158,7 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
     func installTransitionContent(
         image: UIImage,
         descriptor: DownloadableMediaDescriptor,
+        imageDecodeVariant: DownloadableMediaImageDecodeVariant = .full,
         usesNativeMetalCardCornerMask: Bool,
         targetAlpha: CGFloat,
         animated: Bool,
@@ -157,6 +172,8 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
             identity: identity
         )
         installedIncomingTransitionContentDescriptor = descriptor
+        installedIncomingTransitionContentDecodeVariant =
+            imageDecodeVariant.normalized
     }
 
     func setTransitionContentAlpha(
@@ -201,6 +218,17 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
         )
     }
 
+    func incomingTransitionContentDecodeVariant(
+        representing identity: MobilePlayerBrowserContentIdentity
+    ) -> DownloadableMediaImageDecodeVariant? {
+        guard case let .incoming(incomingIdentity) =
+            transitionPresentation.presentationState,
+              incomingIdentity == identity else {
+            return nil
+        }
+        return installedIncomingTransitionContentDecodeVariant
+    }
+
     func clearTransitionContent(
         preservingCarryover: Bool = false
     ) {
@@ -208,6 +236,7 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
             preservingCarryover: preservingCarryover
         )
         installedIncomingTransitionContentDescriptor = nil
+        installedIncomingTransitionContentDecodeVariant = nil
     }
 
     func finishTransitionContent(
@@ -269,6 +298,7 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
     func setCarryoverContent(_ content: MobilePlayerBrowserCarryoverContent) {
         transitionPresentation.installCarryover(content)
         installedIncomingTransitionContentDescriptor = nil
+        installedIncomingTransitionContentDecodeVariant = nil
     }
 
     private func fadeOutCarryoverContentIfNeeded() {
@@ -286,6 +316,7 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
 
     private func resetForReuse() {
         imageLoader.reset()
+        configurationSignature = nil
         clearTransitionContent()
         fadesFirstImage = false
         setTransitionPlaceholderTone(false)
@@ -308,10 +339,10 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
         missingDescriptorFallbackSpec: PlayerMediaPlaceholderSpec,
         imageLoadPolicy: ImageLoadPolicy,
         fadesFirstImage: Bool = false,
-        allowsLocalLargeImageUpgrade: Bool = true
+        allowsLocalLargeImageUpgrade: Bool = true,
+        imageDecodeVariant: DownloadableMediaImageDecodeVariant = .full
     ) {
         let tokenIndex = contentIdentity.tokenIndex
-        self.fadesFirstImage = fadesFirstImage
         let previousContentIdentity = representedContentIdentity
         let previousImageLoadPolicy = configuredImageLoadPolicy
         let changesContentIdentity = previousContentIdentity != nil
@@ -319,6 +350,7 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
         if changesContentIdentity {
             transitionPresentation.holdCarryoverForRetarget()
             installedIncomingTransitionContentDescriptor = nil
+            installedIncomingTransitionContentDecodeVariant = nil
         }
         let previousVisualContent = changesContentIdentity
             && !hasCarryoverContent
@@ -330,6 +362,30 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
                 && imageLoadPolicy == .cachedOnly
                 ? .foreground
                 : imageLoadPolicy
+        let signature = ConfigurationSignature(
+            contentIdentity: contentIdentity,
+            itemCount: itemCount,
+            imageSources: imageSources,
+            requiredImageQuality: requiredImageQuality,
+            missingDescriptorFallbackSpec: missingDescriptorFallbackSpec,
+            imageLoadPolicy: resolvedImageLoadPolicy,
+            fadesFirstImage: fadesFirstImage,
+            allowsLocalLargeImageUpgrade: allowsLocalLargeImageUpgrade,
+            imageDecodeVariant: imageDecodeVariant.normalized
+        )
+        let configurationWasUnchanged = configurationSignature == signature
+        if configurationWasUnchanged,
+           imageLoader.hasSatisfyingDisplayedOrDeferredImage
+            || imageLoader.hasActiveCompatibleImageLoad {
+            if resolvedImageLoadPolicy == .foreground {
+                _ = imageLoader.promoteImageLoadingToForeground()
+                imageLoader.reconcileForegroundImageState()
+                startImageLoadIfNeeded(animatedWhenLoaded: true)
+            }
+            return
+        }
+        configurationSignature = signature
+        self.fadesFirstImage = fadesFirstImage
         let cachedImageSelectionPolicy = CachedImageSelectionPolicy.base(
             requiredQuality: requiredImageQuality,
             allowsLocalLargeUpgrade: allowsLocalLargeImageUpgrade
@@ -337,7 +393,8 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
         imageLoader.discardDeferredImageInstallIfIncompatible(
             contentIdentity: contentIdentity,
             imageSources: imageSources,
-            selectionPolicy: cachedImageSelectionPolicy
+            selectionPolicy: cachedImageSelectionPolicy,
+            requiredImageDecodeVariant: imageDecodeVariant
         )
         let descriptorRetention = cachedImageDescriptorRetention(
             displayedDescriptor: displayedImageDescriptor,
@@ -360,7 +417,8 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
             imageSources: imageSources,
             requiredImageQuality: requiredImageQuality,
             allowsImageLoading: resolvedImageLoadPolicy == .foreground,
-            allowsLocalLargeImageUpgrade: allowsLocalLargeImageUpgrade
+            allowsLocalLargeImageUpgrade: allowsLocalLargeImageUpgrade,
+            imageDecodeVariant: imageDecodeVariant
         )
         let requiredDescriptor = imageSources?.descriptor(
             for: requiredImageQuality
@@ -372,6 +430,7 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
             contentIdentity: contentIdentity,
             imageSources: imageSources,
             requiredImageQuality: requiredImageQuality,
+            imageDecodeVariant: imageDecodeVariant,
             imageLoadPolicy: resolvedImageLoadPolicy,
             allowsLocalLargeImageUpgrade: allowsLocalLargeImageUpgrade,
             retainedDescriptor: retainedDescriptor,
@@ -438,6 +497,13 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
         case .disabled:
             break
         case .cachedOnly:
+            if configurationWasUnchanged {
+                installCachedImageIfAvailable(
+                    animatedWhenLoaded: false,
+                    tracksLocalFileAvailability: false,
+                    prewarmsNativeMetalCardFace: false
+                )
+            }
             break
         case .foreground:
             if previousImageLoadPolicy != .foreground,
@@ -474,29 +540,24 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
         }
     }
 
+    @discardableResult
     func refreshCachedImageIfAvailable(
         tokenIndex: Int
-    ) -> CachedImageRefreshResult {
+    ) -> Bool {
         guard representedTokenIndex == tokenIndex,
               configuredImageLoadPolicy == .cachedOnly,
               imageSources != nil else {
-            return .unavailable
+            return false
         }
         guard needsCachedImageRefresh(tokenIndex: tokenIndex) else {
-            return .satisfied
+            return true
         }
         installCachedImageIfAvailable(
             animatedWhenLoaded: false,
             tracksLocalFileAvailability: false,
             prewarmsNativeMetalCardFace: false
         )
-        guard needsCachedImageRefresh(tokenIndex: tokenIndex) else {
-            return .satisfied
-        }
-        guard imageSources?.descriptor(for: requiredImageQuality) != nil else {
-            return .unavailable
-        }
-        return .retry
+        return !needsCachedImageRefresh(tokenIndex: tokenIndex)
     }
 
     func needsCachedImageRefresh(tokenIndex: Int) -> Bool {
@@ -504,6 +565,11 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
     }
 
 #if DEBUG
+    var configuredImageDecodeVariantForTesting:
+        DownloadableMediaImageDecodeVariant {
+        imageLoader.imageDecodeVariant
+    }
+
     func clearDisplayedImageForTesting() {
         imageLoader.clearDisplayedImageForTesting()
         clearTransitionContent()
@@ -533,7 +599,13 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
               let imageSources else {
             return
         }
-        if imageView.image != nil, displayedImageQuality == .large { return }
+        if imageView.image != nil,
+           displayedImageQuality == .large,
+           imageLoader.displayedImageDecodeVariant?.satisfies(
+               imageLoader.imageDecodeVariant
+           ) == true {
+            return
+        }
 
         let cache = DownloadableMediaCache.shared
         installCachedImageIfAvailable(
@@ -542,7 +614,10 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
             prewarmsNativeMetalCardFace: true
         )
         if imageLoader.deferredImageQuality?.canReplace(requiredImageQuality)
-            == true {
+            == true,
+           imageLoader.deferredImageInstall?.imageDecodeVariant.satisfies(
+               imageLoader.imageDecodeVariant
+           ) == true {
             return
         }
 
@@ -567,7 +642,10 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
         }
 
         if let displayedImageQuality,
-           displayedImageQuality.canReplace(requiredImageQuality) {
+           displayedImageQuality.canReplace(requiredImageQuality),
+           imageLoader.displayedImageDecodeVariant?.satisfies(
+               imageLoader.imageDecodeVariant
+           ) == true {
             return
         }
 
@@ -605,6 +683,7 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
             descriptor: cachedImage.descriptor,
             quality: cachedImage.quality,
             tokenIndex: cachedImage.tokenIndex,
+            imageDecodeVariant: cachedImage.imageDecodeVariant,
             animated: animatedWhenLoaded
                 && (imageView.image != nil
                     || hasCarryoverContent
@@ -653,6 +732,7 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
                 descriptor: completion.descriptor,
                 quality: completion.quality,
                 tokenIndex: completion.tokenIndex,
+                imageDecodeVariant: completion.imageDecodeVariant,
                 animated: completion.animatedWhenLoaded
             )
         }
@@ -778,6 +858,7 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
         descriptor: DownloadableMediaDescriptor,
         quality: CollectionBrowseImageQuality,
         tokenIndex: Int,
+        imageDecodeVariant: DownloadableMediaImageDecodeVariant = .full,
         animated: Bool,
         tracksLocalFileAvailability: Bool = true,
         prewarmsNativeMetalCardFace: Bool = true
@@ -790,6 +871,7 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
             descriptor: descriptor,
             quality: quality,
             tokenIndex: tokenIndex,
+            imageDecodeVariant: imageDecodeVariant,
             defersInstall: animated
                 && previousImage.map { $0 !== image } == true
                 && destinationOverlayOpacity.map { $0 < 1 } == true
@@ -804,6 +886,7 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
         imageView.usesNativeMetalCardCornerMask =
             descriptor.usesNativeMetalCardPresentation
         imageView.image = image
+        Self.signposter.emitEvent("ImageInstall")
         placeholderView.setHidden(true, animated: animated)
         if previousImage == nil {
             clearTransitionPlaceholderTone(animated: animated)
@@ -865,6 +948,7 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
             descriptor: deferredImageInstall.descriptor,
             quality: deferredImageInstall.quality,
             tokenIndex: deferredImageInstall.contentIdentity.tokenIndex,
+            imageDecodeVariant: deferredImageInstall.imageDecodeVariant,
             animated: true,
             tracksLocalFileAvailability: usesForegroundImageLoading,
             prewarmsNativeMetalCardFace: usesForegroundImageLoading

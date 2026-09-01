@@ -91,6 +91,9 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         let destinationLayout: MobilePlayerBrowserLayout
         let planeRequest: GridModePlaneRequest
         let configureCount: Counter
+        let cellConfigurations: Box<[
+            MobilePlayerCollectionBrowserGridRenderer.CellConfiguration
+        ]>
         let contentIdentityAccessCount: Counter
         let imageSourcesAccessCount: Counter
         let renderer: MobilePlayerCollectionBrowserGridRenderer
@@ -253,6 +256,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         contentImageSources: CollectionBrowseImageSources? = nil,
         imageAccess: MobilePlayerCollectionBrowserGridRenderer.ImageAccess?
             = nil,
+        imageDecodeVariant: DownloadableMediaImageDecodeVariant? = nil,
         clock: @escaping () -> CFTimeInterval = { 0 }
     ) throws -> Fixture {
         precondition(!showsSourceCell || !showsSourceGrid)
@@ -361,7 +365,12 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             latticeMap: transition.latticeMap(
                 fromAnchorContentPoint: sourceAnchor,
                 toAnchorContentPoint: destinationAnchor
-            )
+            ),
+            imageDecodeVariant: imageDecodeVariant
+                ?? MobilePlayerCollectionBrowserGridImageDecodeVariant.resolve(
+                    for: destinationLayout,
+                    displayScale: 3
+                )
         )
         let collectionLayout: UICollectionViewLayout
         if showsSourceGrid {
@@ -422,6 +431,9 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             collectionView.layoutIfNeeded()
         }
         let configureCount = Counter()
+        let cellConfigurations = Box<[
+            MobilePlayerCollectionBrowserGridRenderer.CellConfiguration
+        ]>([])
         let contentIdentityAccessCount = Counter()
         let imageSourcesAccessCount = Counter()
         let imageSources = contentImageSources ?? makeImageSources()
@@ -437,6 +449,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
                 configureCell: {
                     cell, indexPath, configuration in
                     configureCount.value += 1
+                    cellConfigurations.value.append(configuration)
                     let identity = MobilePlayerBrowserContentIdentity(
                         collectionId: "collection",
                         tokenIndex: indexPath.item
@@ -454,7 +467,8 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
                         imageLoadPolicy: configuration.imageLoadPolicy,
                         fadesFirstImage: false,
                         allowsLocalLargeImageUpgrade:
-                            configuration.allowsLocalLargeImageUpgrade
+                            configuration.allowsLocalLargeImageUpgrade,
+                        imageDecodeVariant: configuration.imageDecodeVariant
                     )
                     guard installsSyntheticContent else { return }
                     cell.installTransitionContent(
@@ -491,6 +505,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             destinationLayout: destinationLayout,
             planeRequest: request,
             configureCount: configureCount,
+            cellConfigurations: cellConfigurations,
             contentIdentityAccessCount: contentIdentityAccessCount,
             imageSourcesAccessCount: imageSourcesAccessCount,
             renderer: renderer,
@@ -505,6 +520,11 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         XCTAssertTrue(fixture.renderer.begin(
             gestureAnchor: gestureAnchor,
             sourceLayout: fixture.sourceLayout,
+            sourceImageDecodeVariant:
+                MobilePlayerCollectionBrowserGridImageDecodeVariant.resolve(
+                    for: fixture.sourceLayout,
+                    displayScale: 3
+                ),
             wasCollectionViewPrefetchingEnabled: true
         ))
     }
@@ -815,7 +835,8 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
                     x: destinationFrame.midX + 400,
                     y: destinationFrame.midY
                 )
-            )
+            ),
+            imageDecodeVariant: fixture.planeRequest.imageDecodeVariant
         )
     }
 
@@ -829,7 +850,8 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             anchorTokenIndex: request.anchorTokenIndex,
             transitionLayout: request.transitionLayout,
             crossfade: request.crossfade,
-            latticeMap: request.latticeMap
+            latticeMap: request.latticeMap,
+            imageDecodeVariant: request.imageDecodeVariant
         )
     }
 

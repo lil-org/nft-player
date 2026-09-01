@@ -8,6 +8,28 @@ struct MobilePlayerCollectionBrowserLayoutAspectState {
     let fallbackSpec: PlayerMediaPlaceholderSpec
 }
 
+enum MobilePlayerCollectionBrowserGridImageDecodeVariant {
+    static func resolve(
+        for layout: MobilePlayerBrowserLayout,
+        displayScale: CGFloat
+    ) -> DownloadableMediaImageDecodeVariant {
+        guard layout.columnCount > 3 else { return .full }
+        let minimumPixelWidth = layout.columnCount <= 5
+            ? CollectionBrowseThumbnailWidth.width260.rawValue
+            : CollectionBrowseThumbnailWidth.width140.rawValue
+        let scale = displayScale.isFinite && displayScale > 0
+            ? displayScale
+            : 3
+        let pixelWidth = max(
+            Int((layout.itemWidth * scale).rounded(.up)),
+            minimumPixelWidth
+        )
+        return .downsampled(
+            maxPixelWidth: ((pixelWidth + 31) / 32) * 32
+        )
+    }
+}
+
 struct GridModeGestureAnchor {
     let tokenIndex: Int
     let viewportPoint: CGPoint
@@ -65,6 +87,27 @@ struct GridModePlaneRequest {
     let transitionLayout: MobilePlayerBrowserGridTransition
     let crossfade: PlayerBrowserGridCrossfade
     let latticeMap: MobilePlayerBrowserGridLatticeMap
+    let imageDecodeVariant: DownloadableMediaImageDecodeVariant
+
+    init(
+        id: UUID,
+        toMode: MobileCollectionBrowserGridMode,
+        layoutAspectState: MobilePlayerCollectionBrowserLayoutAspectState,
+        anchorTokenIndex: Int,
+        transitionLayout: MobilePlayerBrowserGridTransition,
+        crossfade: PlayerBrowserGridCrossfade,
+        latticeMap: MobilePlayerBrowserGridLatticeMap,
+        imageDecodeVariant: DownloadableMediaImageDecodeVariant = .full
+    ) {
+        self.id = id
+        self.toMode = toMode
+        self.layoutAspectState = layoutAspectState
+        self.anchorTokenIndex = anchorTokenIndex
+        self.transitionLayout = transitionLayout
+        self.crossfade = crossfade
+        self.latticeMap = latticeMap
+        self.imageDecodeVariant = imageDecodeVariant.normalized
+    }
 }
 
 struct GridModePlaneContext {
@@ -82,6 +125,9 @@ struct GridModePlaneContext {
     }
     var crossfade: PlayerBrowserGridCrossfade { request.crossfade }
     var latticeMap: MobilePlayerBrowserGridLatticeMap { request.latticeMap }
+    var imageDecodeVariant: DownloadableMediaImageDecodeVariant {
+        request.imageDecodeVariant
+    }
 
     func terminalOutgoingPlane(
         panDeltaY: CGFloat
@@ -163,6 +209,11 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
         }
     }
 
+    private struct TransitionFrameState {
+        let frame: GridTransitionFrame
+        var snapshotDrainResult: MaterializationDrainResult?
+    }
+
     typealias GridModeTransitionImageLoad =
         GridMaterializer.GridModeTransitionImageLoad
     typealias GridModeTransitionImageCompletion =
@@ -187,6 +238,8 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
 
     private let materializer: GridMaterializer
     private(set) var lifecycle: Lifecycle = .idle
+    private var deferredTransitionFrameDrivingState: Bool?
+    private var transitionFrameState: TransitionFrameState?
 
     private var collectionView: MobilePlayerCollectionBrowserCollectionView? {
         materializer.collectionView
@@ -212,6 +265,20 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
         materializer.phantomShapeMaskBuildCount
     }
 
+#if DEBUG
+    var phantomShapeMaskCommitAttemptCount: Int {
+        materializer.phantomShapeMaskCommitAttemptCount
+    }
+
+    var independentMaterializerDisplayLinkStartCount: Int {
+        materializer.independentDisplayLinkStartCount
+    }
+
+    var externalMaterializerFrameDrainCount: Int {
+        materializer.externalFrameDrainCount
+    }
+#endif
+
     var foregroundEligibilityReconciliationCount: Int {
         materializer.foregroundEligibilityReconciliationCount
     }
@@ -236,6 +303,10 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
     var isActive: Bool {
         if case .idle = lifecycle { return false }
         return true
+    }
+
+    var isTransitionFrameDriving: Bool {
+        materializer.isExternallyFrameDriven
     }
 
     var lifecycleName: LifecycleName {
@@ -335,12 +406,14 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
     func begin(
         gestureAnchor: GridModeGestureAnchor?,
         sourceLayout: MobilePlayerBrowserLayout,
+        sourceImageDecodeVariant: DownloadableMediaImageDecodeVariant = .full,
         wasCollectionViewPrefetchingEnabled: Bool
     ) -> Bool {
         guard case .idle = lifecycle else { return false }
         let session = Session(
             gestureAnchor: gestureAnchor,
             sourceLayout: sourceLayout,
+            sourceImageDecodeVariant: sourceImageDecodeVariant,
             wasCollectionViewPrefetchingEnabled:
                 wasCollectionViewPrefetchingEnabled
         )
@@ -374,6 +447,82 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
         materializer.cancelGestureMaterializationBurst(
             session: currentSession
         )
+    }
+
+    func setTransitionFrameDriving(_ isActive: Bool) {
+        guard transitionFrameState == nil else {
+            deferredTransitionFrameDrivingState = isActive
+            return
+        }
+        materializer.setExternallyFrameDriven(isActive)
+    }
+
+    @discardableResult
+    func beginTransitionFrame(_ frame: GridTransitionFrame) -> Bool {
+        guard transitionFrameState == nil else { return false }
+        transitionFrameState = TransitionFrameState(
+            frame: frame,
+            snapshotDrainResult: nil
+        )
+        return true
+    }
+
+    @discardableResult
+    func prepareForSnapshot(
+        using frame: GridTransitionFrame
+    ) -> MaterializationDrainResult? {
+        if var transitionFrameState {
+            if let drainResult = transitionFrameState.snapshotDrainResult {
+                return drainResult
+            }
+            let drainResult = flushSnapshotBarrier(
+                transitionFrameState.frame
+            )
+            transitionFrameState.snapshotDrainResult = drainResult
+            self.transitionFrameState = transitionFrameState
+            return drainResult
+        }
+        return flushSnapshotBarrier(frame)
+    }
+
+    @discardableResult
+    func finishTransitionFrame(
+        _ frame: GridTransitionFrame
+    ) -> MaterializationDrainResult? {
+        defer {
+            transitionFrameState = nil
+            if let deferredTransitionFrameDrivingState {
+                materializer.setExternallyFrameDriven(
+                    deferredTransitionFrameDrivingState,
+                    commitsPendingPhantomMask: false
+                )
+                self.deferredTransitionFrameDrivingState = nil
+            }
+        }
+        if let transitionFrameState {
+            return transitionFrameState.snapshotDrainResult
+                ?? flushTransitionFrame(transitionFrameState.frame)
+        }
+        return flushTransitionFrame(frame)
+    }
+
+    private func flushTransitionFrame(
+        _ frame: GridTransitionFrame
+    ) -> MaterializationDrainResult? {
+        guard currentSession != nil else { return nil }
+        return materializer.drainTransitionFrame(frame)
+    }
+
+    private func flushSnapshotBarrier(
+        _ frame: GridTransitionFrame
+    ) -> MaterializationDrainResult? {
+        guard let session = currentSession else { return nil }
+        let result = materializer.drainTransitionFrame(
+            frame,
+            commitsPendingPhantomMask: false
+        )
+        materializer.commitPhantomShapeExclusionMask(session: session)
+        return result
     }
 
     @discardableResult
@@ -420,7 +569,9 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
               collectionView != nil,
               viewportView != nil,
               scale.isFinite,
-              scale > 0 else {
+              scale > 0,
+              isSafelyQuantizable(scale, step: 0.0005),
+              isSafelyQuantizable(panDeltaY, step: 0.5) else {
             return false
         }
         session.lastPanDeltaY = panDeltaY
@@ -473,6 +624,8 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
         guard case let .active(session) = lifecycle,
               scale.isFinite,
               scale > 0,
+              isSafelyQuantizable(scale, step: 0.0005),
+              isSafelyQuantizable(panDeltaY, step: 0.5),
               var plane = session.plane,
               plane.id == id else {
             return false
@@ -760,21 +913,46 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
         let contentFadeAlpha = PlayerBrowserGridCrossfade.incomingContentAlpha(
             settleProgress: presentationProgress
         )
+        let revision = GridRenderFrameRevision(
+            planeID: plane.id,
+            scale: quantized(scale, step: 0.0005),
+            settleProgress: quantizedProgress(
+                settleProgress,
+                distinguishesZero: true
+            ),
+            presentationProgress: quantizedProgress(
+                presentationProgress,
+                distinguishesZero: true,
+                boundary: PlayerBrowserGridCrossfade
+                    .contentFadeRearmSettleProgress
+            ),
+            panDeltaY: quantized(session.lastPanDeltaY, step: 0.5),
+            sourceGeometrySignature: sourceGeometrySignature(
+                session: session
+            )
+        )
+        let requiresRecovery = session.sourceCoverageRefreshIsDirty
+            || session.destinationPlanRefreshIsDirty
+            || session.phantomShapeRefreshIsDirty
+            || session.managedCellPlanRefreshIsPending
+        let requiresVisualUpdate = session.lastPlaneFrameRevision != revision
+            || requiresRecovery
         let contentFadeWillSweepWithoutAnimation = presentationProgress > 0
             && (session.lastContentFadeAlpha != contentFadeAlpha
                 || session.contentFadeAnimationMayBeActive)
         session.lastSettleProgress = settleProgress
         session.currentContentFadeTargetAlpha = contentFadeAlpha
-        materializer.extendDestinationCoverageIfNeeded(
-            session: session,
-            plane: plane
-        )
         guard materializer.applyPlaneTransform(
             session: session,
             plane: &plane,
             scale: scale,
             settleProgress: settleProgress
         ) else { return }
+        guard requiresVisualUpdate else { return }
+        materializer.extendDestinationCoverageIfNeeded(
+            session: session,
+            plane: plane
+        )
         materializer.extendSourceCoverageIfNeeded(
             session: session,
             layout: plane.transitionLayout.fromLayout,
@@ -829,6 +1007,61 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
             )
         }
         materializer.refreshPhantomShapeExclusionMask(session: session)
+        session.lastPlaneFrameRevision = revision
+    }
+
+    private func quantizedProgress(
+        _ value: CGFloat,
+        distinguishesZero: Bool = false,
+        boundary: CGFloat? = nil
+    ) -> Int {
+        var semanticRevision = 0
+        if distinguishesZero, value != 0 {
+            semanticRevision |= 1
+        }
+        if let boundary, value > boundary {
+            semanticRevision |= 2
+        }
+        return quantized(value, step: 1.0 / 480) * 4 + semanticRevision
+    }
+
+    private func quantized(_ value: CGFloat, step: CGFloat) -> Int {
+        guard isSafelyQuantizable(value, step: step) else {
+            guard !value.isNaN else { return 0 }
+            return value.sign == .minus ? Int.min : Int.max
+        }
+        return Int((value / step).rounded(.toNearestOrAwayFromZero))
+    }
+
+    private func isSafelyQuantizable(
+        _ value: CGFloat,
+        step: CGFloat
+    ) -> Bool {
+        guard value.isFinite, step.isFinite, step > 0 else { return false }
+        let rounded = (value / step).rounded(.toNearestOrAwayFromZero)
+        return rounded.isFinite
+            && rounded > CGFloat(Int.min)
+            && rounded < CGFloat(Int.max)
+    }
+
+    private func sourceGeometrySignature(session: GridRenderSession) -> Int {
+        let displayScale = max(
+            collectionView?.traitCollection.displayScale
+                ?? UIScreen.main.scale,
+            1
+        )
+        let step = 0.5 / displayScale
+        var signature = 0
+        for representation in session.cachedSourceRepresentations.values {
+            var hasher = Hasher()
+            hasher.combine(representation.itemIndex)
+            hasher.combine(quantized(representation.cell.center.x, step: step))
+            hasher.combine(quantized(representation.cell.center.y, step: step))
+            hasher.combine(quantized(representation.cell.bounds.width, step: step))
+            hasher.combine(quantized(representation.cell.bounds.height, step: step))
+            signature ^= hasher.finalize()
+        }
+        return signature
     }
 
     func didConfigureCell(

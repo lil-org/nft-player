@@ -448,6 +448,9 @@ final class MobilePlaybackSession {
         columnCount: Int,
         quality: CollectionBrowseImageQuality,
         requiredTokenRange: ClosedRange<Int>?,
+        visibleTokenRange: ClosedRange<Int>? = nil,
+        isFileOnly: Bool = false,
+        decodeVariant: DownloadableMediaImageDecodeVariant = .full,
         displayedHigherQualityThumbnailTokenIndices: Set<Int>,
         displayedLargeTokenIndices: Set<Int>,
         locallyAvailableLargeTokenIndices: Set<Int>
@@ -477,7 +480,11 @@ final class MobilePlaybackSession {
                 itemCount: snapshot.itemCount,
                 direction: direction,
                 prefetchStride: prefetchStride,
+                columnCount: columnCount,
                 compactCoverage: compactCoverage,
+                visibleTokenRange: visibleTokenRange,
+                includesDecodedDescriptors: !isFileOnly,
+                decodeVariant: decodeVariant,
                 descriptorForTokenIndex: { candidateTokenIndex in
                     let selection = CollectionBrowseImageWindowSelection.resolve(
                         requiredQuality: quality,

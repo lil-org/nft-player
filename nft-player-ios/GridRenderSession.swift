@@ -10,6 +10,7 @@ struct GridRenderTransitionImageLoad {
     let contentGeneration: UInt
     let contentIdentity: MobilePlayerBrowserContentIdentity
     let requiredImageQuality: CollectionBrowseImageQuality
+    let requiredImageDecodeVariant: DownloadableMediaImageDecodeVariant
     let descriptor: DownloadableMediaDescriptor
     let cancellation: () -> Void
 }
@@ -18,6 +19,15 @@ struct GridRenderCellFrameCorrection {
     let centerDelta: CGPoint
     let sizeDelta: CGSize
     let destinationVisibilityProgress: CGFloat
+}
+
+struct GridRenderFrameRevision: Equatable {
+    let planeID: UUID
+    let scale: Int
+    let settleProgress: Int
+    let presentationProgress: Int
+    let panDeltaY: Int
+    let sourceGeometrySignature: Int
 }
 
 @MainActor
@@ -31,6 +41,7 @@ final class GridRenderSession {
     let id = UUID()
     let wasCollectionViewPrefetchingEnabled: Bool
     var sourceLayout: MobilePlayerBrowserLayout
+    let sourceImageDecodeVariant: DownloadableMediaImageDecodeVariant
     var gestureAnchor: GridModeGestureAnchor?
     var visualAnchor: CGPoint?
     var plane: GridModePlaneContext?
@@ -38,6 +49,7 @@ final class GridRenderSession {
     var lastPanDeltaY: CGFloat = 0
     var lastRenderedScale: CGFloat = 1
     var lastSettleProgress: CGFloat = 0
+    var lastPlaneFrameRevision: GridRenderFrameRevision?
     var pendingGestureMaterializationBurst = false
     var lastContentFadeAlpha: CGFloat = 0
     /// The alpha the in-flight render frame will commit. Cell
@@ -71,6 +83,8 @@ final class GridRenderSession {
     var foregroundCurrentViewportCoverage = PlayerBrowserGridPhantomCoverage()
     var foregroundTerminalViewportCoverage = PlayerBrowserGridPhantomCoverage()
     var phantomShapeView: UIView?
+    var defersPhantomShapeMaskCommits = false
+    var phantomShapeMaskIsDirty = false
     var phantomCoverage = PlayerBrowserGridPhantomCoverage()
     var sourceOverscanCoverage = PlayerBrowserGridPhantomCoverage()
     var sourcePlanePriorityCoverage = PlayerBrowserGridPhantomCoverage()
@@ -317,10 +331,12 @@ final class GridRenderSession {
     init(
         gestureAnchor: GridModeGestureAnchor?,
         sourceLayout: MobilePlayerBrowserLayout,
+        sourceImageDecodeVariant: DownloadableMediaImageDecodeVariant,
         wasCollectionViewPrefetchingEnabled: Bool
     ) {
         self.gestureAnchor = gestureAnchor
         self.sourceLayout = sourceLayout
+        self.sourceImageDecodeVariant = sourceImageDecodeVariant.normalized
         self.wasCollectionViewPrefetchingEnabled =
             wasCollectionViewPrefetchingEnabled
     }
