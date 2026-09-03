@@ -84,7 +84,7 @@ extension MobilePlayerFileShareItem {
 @MainActor
 enum MobileCollectionBrowseMediaResolver {
 
-    static func collectionBrowseThumbnailDescriptor(
+    nonisolated static func collectionBrowseThumbnailDescriptor(
         snapshot: PlayerCollectionBrowseSnapshot,
         tokenIndex: Int
     ) -> DownloadableMediaDescriptor? {
@@ -96,7 +96,7 @@ enum MobileCollectionBrowseMediaResolver {
         )
     }
 
-    static func collectionBrowseImageSources(
+    nonisolated static func collectionBrowseImageSources(
         snapshot: PlayerCollectionBrowseSnapshot,
         tokenIndex: Int
     ) -> CollectionBrowseImageSources? {
@@ -108,7 +108,7 @@ enum MobileCollectionBrowseMediaResolver {
         )
     }
 
-    static func collectionBrowseImageDescriptor(
+    nonisolated static func collectionBrowseImageDescriptor(
         snapshot: PlayerCollectionBrowseSnapshot,
         tokenIndex: Int,
         quality: CollectionBrowseImageQuality
@@ -236,6 +236,295 @@ enum MobileCollectionBrowseMediaResolver {
     }
 }
 
+nonisolated struct MobileCollectionBrowseThumbnailWindowPlanRequest: Sendable {
+    let snapshot: PlayerCollectionBrowseSnapshot
+    let tokenIndex: Int
+    let direction: PlayerMediaPrefetchDirection
+    let prefetchStride: Int
+    let columnCount: Int
+    let quality: CollectionBrowseImageQuality
+    let requiredTokenRange: ClosedRange<Int>?
+    let visibleTokenRange: ClosedRange<Int>?
+    let isFileOnly: Bool
+    let decodeVariant: DownloadableMediaImageDecodeVariant
+    let displayedHigherQualityThumbnailTokenIndices: Set<Int>
+    let displayedLargeTokenIndices: Set<Int>
+    let locallyAvailableLargeTokenIndices: Set<Int>
+}
+
+nonisolated protocol MobileCollectionBrowseThumbnailWindowPlanning: Sendable {
+    func makeWindow(
+        for request: MobileCollectionBrowseThumbnailWindowPlanRequest
+    ) async -> PlayerDownloadableMediaWindow?
+}
+
+actor MobileCollectionBrowseThumbnailWindowPlanner:
+    MobileCollectionBrowseThumbnailWindowPlanning {
+    private struct CacheIdentity: Equatable, Sendable {
+        let collectionId: String
+        let itemCount: Int
+    }
+
+    private enum CachedImageSources: Sendable {
+        case available(CollectionBrowseImageSources)
+        case unavailable
+
+        var value: CollectionBrowseImageSources? {
+            switch self {
+            case let .available(imageSources):
+                imageSources
+            case .unavailable:
+                nil
+            }
+        }
+    }
+
+    private struct CachedImageSourcesEntry: Sendable {
+        let imageSources: CachedImageSources
+        var lessRecentTokenIndex: Int?
+        var moreRecentTokenIndex: Int?
+    }
+
+    private let maximumCachedImageSourceCount: Int
+    private let imageSourcesResolver: @Sendable (
+        PlayerCollectionBrowseSnapshot,
+        Int
+    ) -> CollectionBrowseImageSources?
+    private var cacheIdentity: CacheIdentity?
+    private var cachedImageSourcesByTokenIndex = [
+        Int: CachedImageSourcesEntry
+    ]()
+    private var leastRecentTokenIndex: Int?
+    private var mostRecentTokenIndex: Int?
+
+    init(
+        maximumCachedImageSourceCount: Int = 512,
+        imageSourcesResolver: @escaping @Sendable (
+            PlayerCollectionBrowseSnapshot,
+            Int
+        ) -> CollectionBrowseImageSources? = {
+            MobileCollectionBrowseMediaResolver.collectionBrowseImageSources(
+                snapshot: $0,
+                tokenIndex: $1
+            )
+        }
+    ) {
+        self.maximumCachedImageSourceCount = max(
+            maximumCachedImageSourceCount,
+            1
+        )
+        self.imageSourcesResolver = imageSourcesResolver
+    }
+
+    func makeWindow(
+        for request: MobileCollectionBrowseThumbnailWindowPlanRequest
+    ) async -> PlayerDownloadableMediaWindow? {
+        guard !Task.isCancelled,
+              request.snapshot.pagePosition(
+                forTokenIndex: request.tokenIndex
+              ) != nil else {
+            return nil
+        }
+        updateCacheIdentity(for: request.snapshot)
+        let centerImageSources = imageSources(
+            snapshot: request.snapshot,
+            tokenIndex: request.tokenIndex
+        )
+        guard !Task.isCancelled else { return nil }
+        let compactCoverage = MobileCollectionBrowseMediaResolver
+            .collectionBrowseCompactCoverage(
+                imageSources: centerImageSources,
+                centeredAt: request.tokenIndex,
+                direction: request.direction,
+                itemCount: request.snapshot.itemCount,
+                columnCount: request.columnCount,
+                prefetchStride: request.prefetchStride,
+                quality: request.quality,
+                requiredTokenRange: request.requiredTokenRange
+            )
+        let window = PlayerCollectionBrowseMediaWindowLayout.makeWindow(
+            centeredAt: request.tokenIndex,
+            itemCount: request.snapshot.itemCount,
+            direction: request.direction,
+            prefetchStride: request.prefetchStride,
+            columnCount: request.columnCount,
+            compactCoverage: compactCoverage,
+            visibleTokenRange: request.visibleTokenRange,
+            includesDecodedDescriptors: !request.isFileOnly,
+            decodeVariant: request.decodeVariant,
+            descriptorForTokenIndex: { candidateTokenIndex in
+                guard !Task.isCancelled else { return nil }
+                let selection = CollectionBrowseImageWindowSelection.resolve(
+                    requiredQuality: request.quality,
+                    isDisplayingSatisfyingThumbnail:
+                        request.displayedHigherQualityThumbnailTokenIndices
+                            .contains(candidateTokenIndex),
+                    isDisplayingLargeImage:
+                        request.displayedLargeTokenIndices.contains(
+                            candidateTokenIndex
+                        ),
+                    largeImageIsLocallyAvailable:
+                        request.locallyAvailableLargeTokenIndices.contains(
+                            candidateTokenIndex
+                        )
+                )
+                switch selection {
+                case .requestedQuality:
+                    return self.imageSources(
+                        snapshot: request.snapshot,
+                        tokenIndex: candidateTokenIndex
+                    )?.descriptor(for: request.quality)
+                case .locallyAvailableLarge:
+                    return self.imageSources(
+                        snapshot: request.snapshot,
+                        tokenIndex: candidateTokenIndex
+                    )?.largeDescriptor
+                case .omitSatisfiedToken:
+                    return nil
+                }
+            }
+        )
+        return Task.isCancelled ? nil : window
+    }
+
+    private func updateCacheIdentity(
+        for snapshot: PlayerCollectionBrowseSnapshot
+    ) {
+        let identity = CacheIdentity(
+            collectionId: snapshot.collectionId,
+            itemCount: snapshot.itemCount
+        )
+        guard cacheIdentity != identity else { return }
+        cacheIdentity = identity
+        cachedImageSourcesByTokenIndex.removeAll(keepingCapacity: true)
+        leastRecentTokenIndex = nil
+        mostRecentTokenIndex = nil
+    }
+
+    private func imageSources(
+        snapshot: PlayerCollectionBrowseSnapshot,
+        tokenIndex: Int
+    ) -> CollectionBrowseImageSources? {
+        if let cached = cachedImageSourcesByTokenIndex[tokenIndex] {
+            markImageSourcesAsMostRecent(tokenIndex: tokenIndex)
+            return cached.imageSources.value
+        }
+        guard !Task.isCancelled else { return nil }
+        let resolved = imageSourcesResolver(snapshot, tokenIndex)
+        let cachedImageSources: CachedImageSources = resolved.map {
+            .available($0)
+        } ?? .unavailable
+        insertImageSources(
+            cachedImageSources,
+            tokenIndex: tokenIndex
+        )
+        return resolved
+    }
+
+    private func insertImageSources(
+        _ imageSources: CachedImageSources,
+        tokenIndex: Int
+    ) {
+        if cachedImageSourcesByTokenIndex.count
+            >= maximumCachedImageSourceCount {
+            evictLeastRecentImageSources()
+        }
+        cachedImageSourcesByTokenIndex[tokenIndex] = CachedImageSourcesEntry(
+            imageSources: imageSources,
+            lessRecentTokenIndex: mostRecentTokenIndex,
+            moreRecentTokenIndex: nil
+        )
+        if let mostRecentTokenIndex {
+            cachedImageSourcesByTokenIndex[mostRecentTokenIndex]?
+                .moreRecentTokenIndex = tokenIndex
+        } else {
+            leastRecentTokenIndex = tokenIndex
+        }
+        mostRecentTokenIndex = tokenIndex
+    }
+
+    private func markImageSourcesAsMostRecent(tokenIndex: Int) {
+        guard tokenIndex != mostRecentTokenIndex,
+              var entry = cachedImageSourcesByTokenIndex[tokenIndex] else {
+            return
+        }
+        if let lessRecentTokenIndex = entry.lessRecentTokenIndex {
+            cachedImageSourcesByTokenIndex[lessRecentTokenIndex]?
+                .moreRecentTokenIndex = entry.moreRecentTokenIndex
+        } else {
+            leastRecentTokenIndex = entry.moreRecentTokenIndex
+        }
+        if let moreRecentTokenIndex = entry.moreRecentTokenIndex {
+            cachedImageSourcesByTokenIndex[moreRecentTokenIndex]?
+                .lessRecentTokenIndex = entry.lessRecentTokenIndex
+        }
+        entry.lessRecentTokenIndex = mostRecentTokenIndex
+        entry.moreRecentTokenIndex = nil
+        if let mostRecentTokenIndex {
+            cachedImageSourcesByTokenIndex[mostRecentTokenIndex]?
+                .moreRecentTokenIndex = tokenIndex
+        }
+        cachedImageSourcesByTokenIndex[tokenIndex] = entry
+        mostRecentTokenIndex = tokenIndex
+    }
+
+    private func evictLeastRecentImageSources() {
+        guard let tokenIndex = leastRecentTokenIndex,
+              let entry = cachedImageSourcesByTokenIndex.removeValue(
+                forKey: tokenIndex
+              ) else {
+            return
+        }
+        leastRecentTokenIndex = entry.moreRecentTokenIndex
+        if let leastRecentTokenIndex {
+            cachedImageSourcesByTokenIndex[leastRecentTokenIndex]?
+                .lessRecentTokenIndex = nil
+        } else {
+            mostRecentTokenIndex = nil
+        }
+    }
+
+#if DEBUG
+    func imageSourcesForTesting(
+        snapshot: PlayerCollectionBrowseSnapshot,
+        tokenIndex: Int
+    ) -> CollectionBrowseImageSources? {
+        updateCacheIdentity(for: snapshot)
+        return imageSources(snapshot: snapshot, tokenIndex: tokenIndex)
+    }
+
+    var cachedImageSourceCountForTesting: Int {
+        cachedImageSourcesByTokenIndex.count
+    }
+#endif
+}
+
+@MainActor
+final class MobileCollectionBrowseThumbnailWindowPreparationOrder {
+    struct Claim: Equatable {
+        let sequence: UInt64
+    }
+
+    private var nextSequence: UInt64 = 0
+    private var latestCommittedSequence: UInt64 = 0
+
+    func claim() -> Claim {
+        nextSequence &+= 1
+        return Claim(sequence: nextSequence)
+    }
+
+    func commitIfNewer(_ claim: Claim) -> Bool {
+        guard claim.sequence > latestCommittedSequence else { return false }
+        latestCommittedSequence = claim.sequence
+        return true
+    }
+
+    func supersedePendingClaims() {
+        nextSequence &+= 1
+        latestCommittedSequence = nextSequence
+    }
+}
+
 @MainActor
 final class MobilePlaybackSession {
 
@@ -244,6 +533,9 @@ final class MobilePlaybackSession {
         case disconnecting
         case disconnected
     }
+
+    private static let collectionBrowseThumbnailWindowPreparationOrder =
+        MobileCollectionBrowseThumbnailWindowPreparationOrder()
 
     let config: MobilePlayerConfig
 
@@ -257,6 +549,17 @@ final class MobilePlaybackSession {
     private let disconnect: @MainActor (MobilePlaybackSession) -> Void
     private var lifecycleState = LifecycleState.active
     private var navigationRequestGeneration: UInt = 0
+    private let collectionBrowseThumbnailWindowPlanner:
+        any MobileCollectionBrowseThumbnailWindowPlanning
+    private let installDownloadableMediaWindow: @MainActor (
+        PlayerDownloadableMediaWindow,
+        UUID
+    ) -> Void
+    private var collectionBrowseThumbnailWindowPreparationTask:
+        Task<Void, Never>?
+    private var collectionBrowseThumbnailWindowPreparationGeneration: UInt = 0
+    private var collectionBrowseThumbnailWindowPreparationCompletion:
+        (@MainActor (Bool) -> Void)?
     private lazy var dataSource = PlayerTokenPagingDataSource(
         initialCollectionId: config.initialItemId,
         specificInitialToken: config.specificToken,
@@ -268,10 +571,22 @@ final class MobilePlaybackSession {
     fileprivate init(
         config: MobilePlayerConfig,
         viewingSessionTracker: any MobilePlaybackViewingSessionTracking,
+        collectionBrowseThumbnailWindowPlanner:
+            any MobileCollectionBrowseThumbnailWindowPlanning =
+                MobileCollectionBrowseThumbnailWindowPlanner(),
+        installDownloadableMediaWindow: @escaping @MainActor (
+            PlayerDownloadableMediaWindow,
+            UUID
+        ) -> Void = {
+            DownloadableMediaCache.shared.prepareWindow($0, ownerId: $1)
+        },
         disconnect: @escaping @MainActor (MobilePlaybackSession) -> Void
     ) {
         self.config = config
         self.viewingSessionTracker = viewingSessionTracker
+        self.collectionBrowseThumbnailWindowPlanner =
+            collectionBrowseThumbnailWindowPlanner
+        self.installDownloadableMediaWindow = installDownloadableMediaWindow
         self.disconnect = disconnect
     }
 
@@ -283,11 +598,14 @@ final class MobilePlaybackSession {
     func stopAndDisconnect() {
         guard lifecycleState == .active else { return }
         lifecycleState = .disconnecting
+        let thumbnailWindowCompletion =
+            detachPendingCollectionBrowseThumbnailWindowPreparation()
         advanceNavigationRequestGeneration()
         display?.flushPendingViewingProgress()
         display = nil
         lifecycleState = .disconnected
         disconnect(self)
+        thumbnailWindowCompletion?(false)
     }
 
     func goForward() {
@@ -339,7 +657,10 @@ final class MobilePlaybackSession {
 
     func clearDownloadableMediaWindow() {
         guard lifecycleState != .disconnected else { return }
+        let completion =
+            detachPendingCollectionBrowseThumbnailWindowPreparation()
         DownloadableMediaCache.shared.clearActiveWindow(ownerId: mediaWindowOwnerID)
+        completion?(false)
     }
 
     func getToken(pagePosition: PlayerPagePosition) -> GeneratedToken {
@@ -425,22 +746,28 @@ final class MobilePlaybackSession {
         pagePosition: PlayerPagePosition,
         direction: DownloadableMediaCache.PrefetchDirection
     ) -> PlayerDownloadableMediaWindow? {
-        guard lifecycleState == .active,
-              let window = dataSource.downloadableMediaWindow(
-                  pagePosition: pagePosition,
-                  direction: direction
-              ) else {
-            clearDownloadableMediaWindow()
+        guard lifecycleState == .active else { return nil }
+        let completion =
+            detachPendingCollectionBrowseThumbnailWindowPreparation()
+        guard let window = dataSource.downloadableMediaWindow(
+            pagePosition: pagePosition,
+            direction: direction
+        ) else {
+            DownloadableMediaCache.shared.clearActiveWindow(
+                ownerId: mediaWindowOwnerID
+            )
+            completion?(false)
             return nil
         }
+        Self.collectionBrowseThumbnailWindowPreparationOrder
+            .supersedePendingClaims()
 
-        DownloadableMediaCache.shared.prepareWindow(
-            window,
-            ownerId: mediaWindowOwnerID
-        )
+        installDownloadableMediaWindow(window, mediaWindowOwnerID)
+        completion?(false)
         return window
     }
 
+    @discardableResult
     func prepareCollectionBrowseThumbnailWindow(
         centeredAt tokenIndex: Int,
         direction: DownloadableMediaCache.PrefetchDirection,
@@ -453,81 +780,101 @@ final class MobilePlaybackSession {
         decodeVariant: DownloadableMediaImageDecodeVariant = .full,
         displayedHigherQualityThumbnailTokenIndices: Set<Int>,
         displayedLargeTokenIndices: Set<Int>,
-        locallyAvailableLargeTokenIndices: Set<Int>
-    ) {
-        guard lifecycleState == .active,
-              let snapshot = collectionBrowseSnapshot() else {
-            clearDownloadableMediaWindow()
-            return
+        locallyAvailableLargeTokenIndices: Set<Int>,
+        shouldApply: @escaping @MainActor () -> Bool = { true },
+        completion: @escaping @MainActor (Bool) -> Void = { _ in }
+    ) -> Task<Void, Never>? {
+        guard lifecycleState == .active else {
+            completion(false)
+            return nil
         }
-        let compactCoverage = MobileCollectionBrowseMediaResolver
-            .collectionBrowseCompactCoverage(
-                imageSources: MobileCollectionBrowseMediaResolver
-                    .collectionBrowseImageSources(
-                        snapshot: snapshot,
-                        tokenIndex: tokenIndex
-                    ),
-                centeredAt: tokenIndex,
-                direction: direction,
-                itemCount: snapshot.itemCount,
-                columnCount: columnCount,
-                prefetchStride: prefetchStride,
-                quality: quality,
-                requiredTokenRange: requiredTokenRange
+        let supersededCompletion =
+            detachPendingCollectionBrowseThumbnailWindowPreparation()
+        guard let snapshot = collectionBrowseSnapshot() else {
+            DownloadableMediaCache.shared.clearActiveWindow(
+                ownerId: mediaWindowOwnerID
             )
-        guard let preparedWindow = PlayerCollectionBrowseMediaWindowLayout.makeWindow(
-                centeredAt: tokenIndex,
-                itemCount: snapshot.itemCount,
-                direction: direction,
-                prefetchStride: prefetchStride,
-                columnCount: columnCount,
-                compactCoverage: compactCoverage,
-                visibleTokenRange: visibleTokenRange,
-                includesDecodedDescriptors: !isFileOnly,
-                decodeVariant: decodeVariant,
-                descriptorForTokenIndex: { candidateTokenIndex in
-                    let selection = CollectionBrowseImageWindowSelection.resolve(
-                        requiredQuality: quality,
-                        isDisplayingSatisfyingThumbnail:
-                            displayedHigherQualityThumbnailTokenIndices.contains(
-                                candidateTokenIndex
-                            ),
-                        isDisplayingLargeImage:
-                            displayedLargeTokenIndices.contains(
-                                candidateTokenIndex
-                            ),
-                        largeImageIsLocallyAvailable:
-                            locallyAvailableLargeTokenIndices.contains(
-                                candidateTokenIndex
-                            )
-                    )
-                    switch selection {
-                    case .requestedQuality:
-                        return MobileCollectionBrowseMediaResolver
-                            .collectionBrowseImageDescriptor(
-                                snapshot: snapshot,
-                                tokenIndex: candidateTokenIndex,
-                                quality: quality
-                            )
-                    case .locallyAvailableLarge:
-                        return MobileCollectionBrowseMediaResolver
-                            .collectionBrowseImageDescriptor(
-                                snapshot: snapshot,
-                                tokenIndex: candidateTokenIndex,
-                                quality: .large
-                            )
-                    case .omitSatisfiedToken:
-                        return nil
-                    }
-                }
-              ) else {
-            clearDownloadableMediaWindow()
-            return
+            supersededCompletion?(false)
+            completion(false)
+            return nil
         }
-        DownloadableMediaCache.shared.prepareWindow(
-            preparedWindow,
-            ownerId: mediaWindowOwnerID
+        let generation = collectionBrowseThumbnailWindowPreparationGeneration
+        let claim = Self.collectionBrowseThumbnailWindowPreparationOrder.claim()
+        let request = MobileCollectionBrowseThumbnailWindowPlanRequest(
+            snapshot: snapshot,
+            tokenIndex: tokenIndex,
+            direction: direction,
+            prefetchStride: prefetchStride,
+            columnCount: columnCount,
+            quality: quality,
+            requiredTokenRange: requiredTokenRange,
+            visibleTokenRange: visibleTokenRange,
+            isFileOnly: isFileOnly,
+            decodeVariant: decodeVariant,
+            displayedHigherQualityThumbnailTokenIndices:
+                displayedHigherQualityThumbnailTokenIndices,
+            displayedLargeTokenIndices: displayedLargeTokenIndices,
+            locallyAvailableLargeTokenIndices:
+                locallyAvailableLargeTokenIndices
         )
+        let planner = collectionBrowseThumbnailWindowPlanner
+        collectionBrowseThumbnailWindowPreparationCompletion = completion
+        let preparationTask = Task {
+            [weak self] in
+            let preparedWindow = await planner.makeWindow(for: request)
+            guard let self,
+                  self.collectionBrowseThumbnailWindowPreparationGeneration
+                    == generation else {
+                return
+            }
+            self.collectionBrowseThumbnailWindowPreparationTask = nil
+            let completion =
+                self.collectionBrowseThumbnailWindowPreparationCompletion
+            self.collectionBrowseThumbnailWindowPreparationCompletion = nil
+            guard !Task.isCancelled,
+                  self.lifecycleState == .active,
+                  self.collectionBrowseSnapshot() == snapshot,
+                  shouldApply() else {
+                completion?(false)
+                return
+            }
+            guard let preparedWindow else {
+                DownloadableMediaCache.shared.clearActiveWindow(
+                    ownerId: self.mediaWindowOwnerID
+                )
+                completion?(false)
+                return
+            }
+            guard Self.collectionBrowseThumbnailWindowPreparationOrder
+                .commitIfNewer(claim) else {
+                completion?(false)
+                return
+            }
+            self.installDownloadableMediaWindow(
+                preparedWindow,
+                self.mediaWindowOwnerID
+            )
+            completion?(true)
+        }
+        collectionBrowseThumbnailWindowPreparationTask = preparationTask
+        supersededCompletion?(false)
+        return preparationTask
+    }
+
+    func cancelPendingCollectionBrowseThumbnailWindowPreparation() {
+        let completion =
+            detachPendingCollectionBrowseThumbnailWindowPreparation()
+        completion?(false)
+    }
+
+    private func detachPendingCollectionBrowseThumbnailWindowPreparation()
+        -> (@MainActor (Bool) -> Void)? {
+        collectionBrowseThumbnailWindowPreparationGeneration &+= 1
+        collectionBrowseThumbnailWindowPreparationTask?.cancel()
+        collectionBrowseThumbnailWindowPreparationTask = nil
+        let completion = collectionBrowseThumbnailWindowPreparationCompletion
+        collectionBrowseThumbnailWindowPreparationCompletion = nil
+        return completion
     }
 
     func downloadableMediaDescriptor(
@@ -684,6 +1031,40 @@ final class MobilePlaybackSessionRegistry {
             @MainActor (String?) -> any MobilePlaybackViewingSessionTracking
         let clearActiveMediaWindow: @MainActor (UUID) -> Void
         let cancelAllMediaDownloads: @MainActor () -> Void
+        let makeCollectionBrowseThumbnailWindowPlanner:
+            @MainActor () ->
+                any MobileCollectionBrowseThumbnailWindowPlanning
+        let installDownloadableMediaWindow: @MainActor (
+            PlayerDownloadableMediaWindow,
+            UUID
+        ) -> Void
+
+        init(
+            makeViewingSessionTracker: @escaping @MainActor (
+                String?
+            ) -> any MobilePlaybackViewingSessionTracking,
+            clearActiveMediaWindow: @escaping @MainActor (UUID) -> Void,
+            cancelAllMediaDownloads: @escaping @MainActor () -> Void,
+            makeCollectionBrowseThumbnailWindowPlanner:
+                @escaping @MainActor () ->
+                    any MobileCollectionBrowseThumbnailWindowPlanning = {
+                        MobileCollectionBrowseThumbnailWindowPlanner()
+                    },
+            installDownloadableMediaWindow: @escaping @MainActor (
+                PlayerDownloadableMediaWindow,
+                UUID
+            ) -> Void = {
+                DownloadableMediaCache.shared.prepareWindow($0, ownerId: $1)
+            }
+        ) {
+            self.makeViewingSessionTracker = makeViewingSessionTracker
+            self.clearActiveMediaWindow = clearActiveMediaWindow
+            self.cancelAllMediaDownloads = cancelAllMediaDownloads
+            self.makeCollectionBrowseThumbnailWindowPlanner =
+                makeCollectionBrowseThumbnailWindowPlanner
+            self.installDownloadableMediaWindow =
+                installDownloadableMediaWindow
+        }
 
         fileprivate static let live = Dependencies(
             makeViewingSessionTracker: {
@@ -714,7 +1095,11 @@ final class MobilePlaybackSessionRegistry {
             config: config,
             viewingSessionTracker: dependencies.makeViewingSessionTracker(
                 config.continueViewingCollectionId
-            )
+            ),
+            collectionBrowseThumbnailWindowPlanner:
+                dependencies.makeCollectionBrowseThumbnailWindowPlanner(),
+            installDownloadableMediaWindow:
+                dependencies.installDownloadableMediaWindow
         ) { [weak self] session in
             self?.disconnect(session)
         }

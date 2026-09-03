@@ -282,6 +282,13 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             baseColumnCount: { [weak self] in
                 self?.gridMode.columnCount ?? 0
             },
+            configuredPrefetchStride: { [weak self] in
+                self?.configuredPrefetchStride
+                    ?? MobilePlayerBrowserLayout.defaultColumnCount
+            },
+            configuredColumnCount: { [weak self] in
+                self?.configuredColumnCount ?? 0
+            },
             isRendererActive: { [weak self] in
                 self?.gridModeCoordinator.isRendererActive == true
             },
@@ -302,8 +309,12 @@ final class VerticalCollectionBrowserViewController: UIViewController,
                     refreshDistance: distance
                 )
             },
-            prepareThumbnailWindow: { [weak self] preparation in
-                guard let self else { return }
+            prepareThumbnailWindow: {
+                [weak self] preparation, shouldApply, completion in
+                guard let self else {
+                    completion(false)
+                    return
+                }
                 self.playbackSession.prepareCollectionBrowseThumbnailWindow(
                     centeredAt: preparation.tokenIndex,
                     direction: preparation.direction,
@@ -320,8 +331,14 @@ final class VerticalCollectionBrowserViewController: UIViewController,
                     displayedLargeTokenIndices:
                         preparation.displayedLargeTokenIndices,
                     locallyAvailableLargeTokenIndices:
-                        preparation.locallyAvailableLargeTokenIndices
+                        preparation.locallyAvailableLargeTokenIndices,
+                    shouldApply: shouldApply,
+                    completion: completion
                 )
+            },
+            cancelThumbnailWindowPreparation: { [weak self] in
+                self?.playbackSession
+                    .cancelPendingCollectionBrowseThumbnailWindowPreparation()
             }
         ))
         scrollCoordinator.configure(contentAccess: .init(
@@ -550,6 +567,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         }
         gridModeCoordinator.interruptInteractionIfNeeded()
         endScrollMotionAndResetDragState()
+        imagePipeline.cancelPendingThumbnailWindowPreparation()
         flushSettledPosition()
         gridModeCoordinator.cancelGeometryPrewarming()
     }

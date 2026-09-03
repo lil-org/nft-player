@@ -1,12 +1,282 @@
 // ∅ 2026 lil org
 
 import CoreImage
+import os
 import UIKit
 import XCTest
 @testable import nft_player_ios
 
 @MainActor
 extension MobileCollectionBrowserGridModePresentationTests {
+
+    func testThumbnailWindowPlannerCachesSourcesAcrossPlansAndSkipsSatisfiedTokens()
+        async throws {
+        let resolutionCount = OSAllocatedUnfairLock(initialState: 0)
+        let resolvedTokenIndices = OSAllocatedUnfairLock(
+            initialState: Set<Int>()
+        )
+        let snapshot = PlayerCollectionBrowseSnapshot(
+            collectionId: "planner-cache",
+            itemCount: 200,
+            initialTokenIndex: 0
+        )
+        let planner = MobileCollectionBrowseThumbnailWindowPlanner {
+            snapshot, tokenIndex in
+            resolutionCount.withLock { $0 += 1 }
+            resolvedTokenIndices.withLock { _ = $0.insert(tokenIndex) }
+            let descriptor = CollectionCatalogDownloadableMediaDescriptor(
+                collectionId: snapshot.collectionId,
+                tokenId: String(tokenIndex),
+                tokenIndex: tokenIndex,
+                media: .staticImage(
+                    url: URL(
+                        fileURLWithPath: "/planner-cache/\(tokenIndex).webp"
+                    ),
+                    fileExtension: "webp"
+                ),
+                purpose: .collectionBrowserThumbnail
+            )
+            let smallDescriptor = CollectionCatalogDownloadableMediaDescriptor(
+                collectionId: snapshot.collectionId,
+                tokenId: String(tokenIndex),
+                tokenIndex: tokenIndex,
+                media: .staticImage(
+                    url: URL(
+                        fileURLWithPath:
+                            "/planner-cache/260/\(tokenIndex).webp"
+                    ),
+                    fileExtension: "webp"
+                ),
+                purpose: .collectionBrowserThumbnail
+            )
+            return CollectionBrowseImageSources(
+                smallThumbnailDescriptor: smallDescriptor,
+                thumbnailDescriptor: descriptor,
+                largeDescriptor: descriptor
+            )
+        }
+        let request = MobileCollectionBrowseThumbnailWindowPlanRequest(
+            snapshot: snapshot,
+            tokenIndex: 100,
+            direction: .forward,
+            prefetchStride: 25,
+            columnCount: 5,
+            quality: .smallThumbnail,
+            requiredTokenRange: 99...101,
+            visibleTokenRange: 99...101,
+            isFileOnly: false,
+            decodeVariant: .downsampled(maxPixelWidth: 256),
+            displayedHigherQualityThumbnailTokenIndices: [],
+            displayedLargeTokenIndices: [101],
+            locallyAvailableLargeTokenIndices: []
+        )
+
+        let firstWindow = await planner.makeWindow(for: request)
+        let firstResolutionCount = resolutionCount.withLock { $0 }
+        let secondWindow = await planner.makeWindow(for: request)
+
+        XCTAssertNotNil(firstWindow)
+        XCTAssertEqual(secondWindow, firstWindow)
+        XCTAssertGreaterThan(firstResolutionCount, 0)
+        XCTAssertEqual(
+            resolutionCount.withLock { $0 },
+            firstResolutionCount
+        )
+        XCTAssertFalse(resolvedTokenIndices.withLock { $0.contains(101) })
+        XCTAssertEqual(
+            firstWindow?.decodedDescriptors.map(\.tokenIndex),
+            [100, 99, 102, 98, 103, 97, 104, 96, 95]
+        )
+    }
+
+    func testThumbnailWindowPlannerBuildsNineColumnCompactWindow() async throws {
+        let snapshot = PlayerCollectionBrowseSnapshot(
+            collectionId: "planner-nine-column",
+            itemCount: 200,
+            initialTokenIndex: 0
+        )
+        let planner = MobileCollectionBrowseThumbnailWindowPlanner {
+            snapshot, tokenIndex in
+            let thumbnail = CollectionCatalogDownloadableMediaDescriptor(
+                collectionId: snapshot.collectionId,
+                tokenId: String(tokenIndex),
+                tokenIndex: tokenIndex,
+                media: .staticImage(
+                    url: URL(
+                        fileURLWithPath:
+                            "/planner-nine/thumbnail/\(tokenIndex).webp"
+                    ),
+                    fileExtension: "webp"
+                ),
+                purpose: .collectionBrowserThumbnail
+            )
+            let smallest = CollectionCatalogDownloadableMediaDescriptor(
+                collectionId: snapshot.collectionId,
+                tokenId: String(tokenIndex),
+                tokenIndex: tokenIndex,
+                media: .staticImage(
+                    url: URL(
+                        fileURLWithPath:
+                            "/planner-nine/140/\(tokenIndex).webp"
+                    ),
+                    fileExtension: "webp"
+                ),
+                purpose: .collectionBrowserThumbnail
+            )
+            return CollectionBrowseImageSources(
+                smallestThumbnailDescriptor: smallest,
+                thumbnailDescriptor: thumbnail,
+                largeDescriptor: thumbnail
+            )
+        }
+        let request = MobileCollectionBrowseThumbnailWindowPlanRequest(
+            snapshot: snapshot,
+            tokenIndex: 100,
+            direction: .backward,
+            prefetchStride: 25,
+            columnCount: 9,
+            quality: .smallestThumbnail,
+            requiredTokenRange: 99...101,
+            visibleTokenRange: 99...101,
+            isFileOnly: false,
+            decodeVariant: .downsampled(maxPixelWidth: 160),
+            displayedHigherQualityThumbnailTokenIndices: [],
+            displayedLargeTokenIndices: [],
+            locallyAvailableLargeTokenIndices: []
+        )
+
+        let plannedWindow = await planner.makeWindow(for: request)
+        let window = try XCTUnwrap(plannedWindow)
+
+        XCTAssertFalse(window.descriptors.isEmpty)
+        XCTAssertFalse(window.decodedDescriptors.isEmpty)
+        XCTAssertTrue(window.descriptors.allSatisfy {
+            $0.url.path.contains("/140/")
+        })
+        XCTAssertEqual(
+            window.descriptors.map(\.tokenIndex),
+            [100, 99, 101]
+                + Array(stride(from: 98, through: 48, by: -1))
+                + Array(102...107)
+        )
+        XCTAssertEqual(
+            window.decodedDescriptors.map(\.tokenIndex),
+            [100, 99, 101, 102, 103, 104, 105, 106, 107]
+        )
+        XCTAssertEqual(window.decodeVariant, request.decodeVariant)
+
+        let fileOnlyRequest = MobileCollectionBrowseThumbnailWindowPlanRequest(
+            snapshot: snapshot,
+            tokenIndex: request.tokenIndex,
+            direction: request.direction,
+            prefetchStride: request.prefetchStride,
+            columnCount: request.columnCount,
+            quality: request.quality,
+            requiredTokenRange: request.requiredTokenRange,
+            visibleTokenRange: request.visibleTokenRange,
+            isFileOnly: true,
+            decodeVariant: request.decodeVariant,
+            displayedHigherQualityThumbnailTokenIndices: [],
+            displayedLargeTokenIndices: [],
+            locallyAvailableLargeTokenIndices: []
+        )
+        let plannedFileOnlyWindow = await planner.makeWindow(
+            for: fileOnlyRequest
+        )
+        let fileOnlyWindow = try XCTUnwrap(plannedFileOnlyWindow)
+
+        XCTAssertEqual(
+            fileOnlyWindow.descriptors.map(\.tokenIndex),
+            [100, 99, 101] + Array(stride(from: 98, through: 42, by: -1))
+        )
+        XCTAssertTrue(fileOnlyWindow.decodedDescriptors.isEmpty)
+    }
+
+    func testThumbnailWindowPlannerCacheIsBoundedAndRefreshesRecency()
+        async {
+        let resolutionCounts = OSAllocatedUnfairLock(
+            initialState: [String: Int]()
+        )
+        let planner = MobileCollectionBrowseThumbnailWindowPlanner(
+            maximumCachedImageSourceCount: 2
+        ) { snapshot, tokenIndex in
+            let key = "\(snapshot.collectionId):\(tokenIndex)"
+            resolutionCounts.withLock { $0[key, default: 0] += 1 }
+            guard tokenIndex != 3 else { return nil }
+            let descriptor = CollectionCatalogDownloadableMediaDescriptor(
+                collectionId: snapshot.collectionId,
+                tokenId: String(tokenIndex),
+                tokenIndex: tokenIndex,
+                media: .staticImage(
+                    url: URL(fileURLWithPath: "/lru/\(key).webp"),
+                    fileExtension: "webp"
+                ),
+                purpose: .collectionBrowserThumbnail
+            )
+            return CollectionBrowseImageSources(
+                thumbnailDescriptor: descriptor,
+                largeDescriptor: descriptor
+            )
+        }
+        let firstSnapshot = PlayerCollectionBrowseSnapshot(
+            collectionId: "lru-a",
+            itemCount: 4,
+            initialTokenIndex: 0
+        )
+
+        _ = await planner.imageSourcesForTesting(
+            snapshot: firstSnapshot,
+            tokenIndex: 0
+        )
+        _ = await planner.imageSourcesForTesting(
+            snapshot: firstSnapshot,
+            tokenIndex: 1
+        )
+        _ = await planner.imageSourcesForTesting(
+            snapshot: firstSnapshot,
+            tokenIndex: 0
+        )
+        _ = await planner.imageSourcesForTesting(
+            snapshot: firstSnapshot,
+            tokenIndex: 2
+        )
+        _ = await planner.imageSourcesForTesting(
+            snapshot: firstSnapshot,
+            tokenIndex: 0
+        )
+        _ = await planner.imageSourcesForTesting(
+            snapshot: firstSnapshot,
+            tokenIndex: 1
+        )
+        _ = await planner.imageSourcesForTesting(
+            snapshot: firstSnapshot,
+            tokenIndex: 3
+        )
+        _ = await planner.imageSourcesForTesting(
+            snapshot: firstSnapshot,
+            tokenIndex: 3
+        )
+        let firstCachedCount = await planner.cachedImageSourceCountForTesting
+
+        XCTAssertEqual(resolutionCounts.withLock { $0["lru-a:0"] }, 1)
+        XCTAssertEqual(resolutionCounts.withLock { $0["lru-a:1"] }, 2)
+        XCTAssertEqual(resolutionCounts.withLock { $0["lru-a:2"] }, 1)
+        XCTAssertEqual(resolutionCounts.withLock { $0["lru-a:3"] }, 1)
+        XCTAssertEqual(firstCachedCount, 2)
+
+        let secondSnapshot = PlayerCollectionBrowseSnapshot(
+            collectionId: "lru-b",
+            itemCount: 4,
+            initialTokenIndex: 0
+        )
+        _ = await planner.imageSourcesForTesting(
+            snapshot: secondSnapshot,
+            tokenIndex: 0
+        )
+        let secondCachedCount = await planner.cachedImageSourceCountForTesting
+        XCTAssertEqual(resolutionCounts.withLock { $0["lru-b:0"] }, 1)
+        XCTAssertEqual(secondCachedCount, 1)
+    }
 
     func testDenseGridImageRefreshQueuePreservesFairRequeueOrder() {
         var queue = DenseGridImageRefreshQueue()

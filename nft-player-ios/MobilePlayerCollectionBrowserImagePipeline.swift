@@ -6,6 +6,16 @@ import UIKit
 final class MobilePlayerCollectionBrowserImagePipeline {
     struct Snapshot: Equatable {
         let lastThumbnailWindowRequest: ThumbnailWindowRequest?
+        let pendingThumbnailWindowRequest: ThumbnailWindowRequest?
+
+        init(
+            lastThumbnailWindowRequest: ThumbnailWindowRequest?,
+            pendingThumbnailWindowRequest: ThumbnailWindowRequest? = nil
+        ) {
+            self.lastThumbnailWindowRequest = lastThumbnailWindowRequest
+            self.pendingThumbnailWindowRequest =
+                pendingThumbnailWindowRequest
+        }
     }
 
     struct ThumbnailWindowRequest: Equatable {
@@ -21,7 +31,7 @@ final class MobilePlayerCollectionBrowserImagePipeline {
         let decodeVariant: DownloadableMediaImageDecodeVariant
     }
 
-    struct ThumbnailWindowPreparation {
+    struct ThumbnailWindowPreparation: Equatable {
         let tokenIndex: Int
         let direction: DownloadableMediaCache.PrefetchDirection
         let prefetchStride: Int
@@ -45,6 +55,8 @@ final class MobilePlayerCollectionBrowserImagePipeline {
         let requiredImageQuality: @MainActor () -> CollectionBrowseImageQuality
         let imageDecodeVariant: @MainActor () -> DownloadableMediaImageDecodeVariant
         let baseColumnCount: @MainActor () -> Int
+        let configuredPrefetchStride: @MainActor () -> Int
+        let configuredColumnCount: @MainActor () -> Int
         let isRendererActive: @MainActor () -> Bool
         let isApplyingPosition: @MainActor () -> Bool
         let isPreparedTransitionActive: @MainActor () -> Bool
@@ -55,8 +67,11 @@ final class MobilePlayerCollectionBrowserImagePipeline {
             Int
         ) -> ClosedRange<Int>?
         let prepareThumbnailWindow: @MainActor (
-            ThumbnailWindowPreparation
+            ThumbnailWindowPreparation,
+            @escaping @MainActor () -> Bool,
+            @escaping @MainActor (Bool) -> Void
         ) -> Void
+        let cancelThumbnailWindowPreparation: @MainActor () -> Void
     }
 
 #if DEBUG
@@ -100,6 +115,11 @@ final class MobilePlayerCollectionBrowserImagePipeline {
 
     private var contentAccess: ContentAccess?
     private var lastThumbnailWindowRequest: ThumbnailWindowRequest?
+    private var pendingThumbnailWindowRequest: (
+        generation: UInt,
+        request: ThumbnailWindowRequest
+    )?
+    private var thumbnailWindowPreparationGeneration: UInt = 0
     private var denseGridImageDisplayLink: CADisplayLink?
     private let displayLinkTarget = DisplayLinkTarget()
     private var denseGridImageRefreshQueue = DenseGridImageRefreshQueue()
@@ -131,22 +151,50 @@ final class MobilePlayerCollectionBrowserImagePipeline {
     }
 
     func snapshot() -> Snapshot {
-        Snapshot(lastThumbnailWindowRequest: lastThumbnailWindowRequest)
+        Snapshot(
+            lastThumbnailWindowRequest: lastThumbnailWindowRequest,
+            pendingThumbnailWindowRequest:
+                pendingThumbnailWindowRequest?.request
+        )
     }
 
     func restore(_ snapshot: Snapshot) {
         guard !isInvalidated else { return }
+        cancelPendingThumbnailWindowPreparation()
         lastThumbnailWindowRequest = snapshot.lastThumbnailWindowRequest
+        guard isActive,
+              isVisible,
+              let contentAccess,
+              contentAccess.isForegroundActive(),
+              let request = snapshot.pendingThumbnailWindowRequest
+                ?? snapshot.lastThumbnailWindowRequest else {
+            return
+        }
+        prepareThumbnailWindow(
+            around: request.tokenIndex,
+            direction: request.direction,
+            force: true,
+            configuredPrefetchStride:
+                contentAccess.configuredPrefetchStride(),
+            configuredColumnCount: contentAccess.configuredColumnCount(),
+            requiredImageQuality: contentAccess.requiredImageQuality()
+        )
     }
 
     func setActive(_ active: Bool) {
         guard !isInvalidated else { return }
         isActive = active
+        if !active {
+            cancelPendingThumbnailWindowPreparation()
+        }
     }
 
     func setVisible(_ visible: Bool) {
         guard !isInvalidated else { return }
         isVisible = visible
+        if !visible {
+            cancelPendingThumbnailWindowPreparation()
+        }
     }
 
     func setScrollMotionActive(_ active: Bool) {
@@ -156,12 +204,14 @@ final class MobilePlayerCollectionBrowserImagePipeline {
 
     func resetThumbnailWindow() {
         guard !isInvalidated else { return }
+        cancelPendingThumbnailWindowPreparation()
         lastThumbnailWindowRequest = nil
     }
 
     func invalidate() {
         guard !isInvalidated else { return }
         cancelVisibleCellImageLoads()
+        cancelPendingThumbnailWindowPreparation()
         isInvalidated = true
         stopDenseGridImageDisplayLink()
         contentAccess = nil
@@ -180,7 +230,13 @@ final class MobilePlayerCollectionBrowserImagePipeline {
         configuredColumnCount: Int,
         requiredImageQuality: CollectionBrowseImageQuality
     ) {
-        guard !isInvalidated, isActive, let contentAccess else { return }
+        guard !isInvalidated,
+              isActive,
+              isVisible,
+              let contentAccess,
+              contentAccess.isForegroundActive() else {
+            return
+        }
         let prefetchStride = PlayerCollectionBrowseMediaWindowPolicy
             .normalizedPrefetchStride(configuredPrefetchStride)
         let columnCount = configuredColumnCount
@@ -194,7 +250,9 @@ final class MobilePlayerCollectionBrowserImagePipeline {
                 columnCount: columnCount
             )
             : prefetchStride
-        let previousTokenIndex = lastThumbnailWindowRequest.flatMap {
+        let comparisonRequest = pendingThumbnailWindowRequest?.request
+            ?? lastThumbnailWindowRequest
+        let previousTokenIndex = comparisonRequest.flatMap {
             $0.direction == direction
                 && $0.prefetchStride == prefetchStride
                 && $0.columnCount == columnCount
@@ -211,8 +269,8 @@ final class MobilePlayerCollectionBrowserImagePipeline {
             )
         if quality.isDenseGridThumbnail,
            !shouldRefreshStableWindow,
-           lastThumbnailWindowRequest?.isFileOnly == isFileOnly,
-           lastThumbnailWindowRequest?.decodeVariant == decodeVariant {
+           comparisonRequest?.isFileOnly == isFileOnly,
+           comparisonRequest?.decodeVariant == decodeVariant {
 #if DEBUG
             thumbnailWindowMetrics.skippedDisplayedImageScans += 1
 #endif
@@ -260,21 +318,21 @@ final class MobilePlayerCollectionBrowserImagePipeline {
             decodeVariant: decodeVariant
         )
         if !force,
-           let lastThumbnailWindowRequest,
-           lastThumbnailWindowRequest
+           let comparisonRequest,
+           comparisonRequest
                 .displayedHigherQualityThumbnailTokenIndices
                 == displayedHigherQualityThumbnailTokenIndices,
-           lastThumbnailWindowRequest.displayedLargeTokenIndices
+           comparisonRequest.displayedLargeTokenIndices
                 == displayedImages.tokenIndices,
-           lastThumbnailWindowRequest.locallyAvailableLargeTokenIndices
+           comparisonRequest.locallyAvailableLargeTokenIndices
                 == displayedImages.locallyAvailableTokenIndices,
-           lastThumbnailWindowRequest.isFileOnly == isFileOnly,
-           lastThumbnailWindowRequest.decodeVariant == decodeVariant,
+           comparisonRequest.isFileOnly == isFileOnly,
+           comparisonRequest.decodeVariant == decodeVariant,
            !shouldRefreshStableWindow {
             return
         }
 
-        contentAccess.prepareThumbnailWindow(ThumbnailWindowPreparation(
+        let preparation = ThumbnailWindowPreparation(
             tokenIndex: tokenIndex,
             direction: direction,
             prefetchStride: prefetchStride,
@@ -289,7 +347,25 @@ final class MobilePlayerCollectionBrowserImagePipeline {
             displayedLargeTokenIndices: displayedImages.tokenIndices,
             locallyAvailableLargeTokenIndices:
                 displayedImages.locallyAvailableTokenIndices
-        ))
+        )
+        thumbnailWindowPreparationGeneration &+= 1
+        let generation = thumbnailWindowPreparationGeneration
+        pendingThumbnailWindowRequest = (generation, request)
+        contentAccess.prepareThumbnailWindow(
+            preparation,
+            { [weak self] in
+                self?.canApplyThumbnailWindowPreparation(
+                    generation: generation
+                ) == true
+            },
+            { [weak self] didCommit in
+                self?.finishThumbnailWindowPreparation(
+                    generation: generation,
+                    request: request,
+                    didCommit: didCommit
+                )
+            }
+        )
 #if DEBUG
         thumbnailWindowMetrics.preparations += 1
         thumbnailWindowMetrics.fileOnlyPreparations += isFileOnly ? 1 : 0
@@ -301,7 +377,35 @@ final class MobilePlayerCollectionBrowserImagePipeline {
         }.count
 #endif
         Self.signposter.emitEvent("ThumbnailWindow")
-        lastThumbnailWindowRequest = request
+    }
+
+    func cancelPendingThumbnailWindowPreparation() {
+        guard !isInvalidated else { return }
+        thumbnailWindowPreparationGeneration &+= 1
+        pendingThumbnailWindowRequest = nil
+        contentAccess?.cancelThumbnailWindowPreparation()
+    }
+
+    private func canApplyThumbnailWindowPreparation(
+        generation: UInt
+    ) -> Bool {
+        !isInvalidated
+            && isActive
+            && isVisible
+            && pendingThumbnailWindowRequest?.generation == generation
+            && contentAccess?.isForegroundActive() == true
+    }
+
+    private func finishThumbnailWindowPreparation(
+        generation: UInt,
+        request: ThumbnailWindowRequest,
+        didCommit: Bool
+    ) {
+        guard pendingThumbnailWindowRequest?.generation == generation else {
+            return
+        }
+        pendingThumbnailWindowRequest = nil
+        lastThumbnailWindowRequest = didCommit ? request : nil
     }
 
     func configure(
