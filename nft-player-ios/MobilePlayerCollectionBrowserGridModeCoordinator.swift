@@ -220,8 +220,12 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
         ) ?? .defaultMode
     }
 
-    var viewportRenderCells: [MobilePlayerCollectionBrowserCell] {
-        renderer?.viewportRenderCells ?? []
+    func viewportRenderCells(
+        at tokenIndex: Int?
+    ) -> [MobilePlayerCollectionBrowserCell] {
+        guard let renderer else { return [] }
+        guard let tokenIndex else { return renderer.viewportRenderCells }
+        return renderer.viewportRenderCells(at: tokenIndex)
     }
 
     var isRendererActive: Bool {

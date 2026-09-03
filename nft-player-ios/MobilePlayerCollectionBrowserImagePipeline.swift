@@ -40,7 +40,7 @@ final class MobilePlayerCollectionBrowserImagePipeline {
         let visibleIndexPaths: @MainActor () -> [IndexPath]
         let cell: @MainActor (IndexPath) -> MobilePlayerCollectionBrowserCell?
         let visibleCells: @MainActor () -> [MobilePlayerCollectionBrowserCell]
-        let viewportRenderCells: @MainActor () -> [MobilePlayerCollectionBrowserCell]
+        let viewportRenderCells: @MainActor (Int?) -> [MobilePlayerCollectionBrowserCell]
         let collectionID: @MainActor () -> String?
         let requiredImageQuality: @MainActor () -> CollectionBrowseImageQuality
         let imageDecodeVariant: @MainActor () -> DownloadableMediaImageDecodeVariant
@@ -394,14 +394,26 @@ final class MobilePlayerCollectionBrowserImagePipeline {
               let contentAccess else {
             return
         }
-        if let collectionID = contentAccess.collectionID(),
-           !DownloadableMediaCache.shared.fileAvailabilityChange(
+        let cache = DownloadableMediaCache.shared
+        let collectionID = contentAccess.collectionID()
+        if let collectionID,
+           !cache.fileAvailabilityChange(
                notification,
                affectsCollection: collectionID
            ) {
             return
         }
-        contentAccess.visibleCells().forEach {
+        let tokenIndex = collectionID.flatMap {
+            cache.fileAvailabilityTokenIndex(notification, inCollection: $0)
+        }
+        let cells: [MobilePlayerCollectionBrowserCell]
+        if let tokenIndex {
+            let indexPath = IndexPath(item: tokenIndex, section: 0)
+            cells = contentAccess.cell(indexPath).map { [$0] } ?? []
+        } else {
+            cells = contentAccess.visibleCells()
+        }
+        cells.forEach {
             $0.updateLocalFileAvailability(
                 notification: notification,
                 isAvailable: change == .becameAvailable
@@ -410,7 +422,7 @@ final class MobilePlayerCollectionBrowserImagePipeline {
         if defersDenseGridImageLoading || change == .becameUnavailable {
             return
         }
-        contentAccess.viewportRenderCells().forEach {
+        contentAccess.viewportRenderCells(tokenIndex).forEach {
             $0.refreshAvailableImageIfNeeded(notification: notification)
         }
     }

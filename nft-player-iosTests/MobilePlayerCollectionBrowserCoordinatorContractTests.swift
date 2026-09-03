@@ -142,6 +142,10 @@ extension MobilePlayerCollectionBrowserCoordinatorContractTests {
         cell: @escaping @MainActor (
             IndexPath
         ) -> MobilePlayerCollectionBrowserCell? = { _ in nil },
+        visibleCells: @escaping @MainActor ()
+            -> [MobilePlayerCollectionBrowserCell] = { [] },
+        viewportRenderCells: @escaping @MainActor (Int?)
+            -> [MobilePlayerCollectionBrowserCell] = { _ in [] },
         collectionID: @escaping @MainActor () -> String? = { nil },
         requiredImageQuality: @escaping @MainActor ()
             -> CollectionBrowseImageQuality = { .large },
@@ -155,8 +159,8 @@ extension MobilePlayerCollectionBrowserCoordinatorContractTests {
         .init(
             visibleIndexPaths: visibleIndexPaths,
             cell: cell,
-            visibleCells: { [] },
-            viewportRenderCells: { [] },
+            visibleCells: visibleCells,
+            viewportRenderCells: viewportRenderCells,
             collectionID: collectionID,
             requiredImageQuality: requiredImageQuality,
             imageDecodeVariant: imageDecodeVariant,
@@ -597,6 +601,217 @@ extension MobilePlayerCollectionBrowserCoordinatorContractTests {
         XCTAssertEqual(pipeline.snapshot(), snapshot)
         XCTAssertFalse(pipeline.defersDenseGridImageLoading)
         XCTAssertEqual(requiredQualityAccessCount, 0)
+    }
+
+    private func makeFileAvailabilityCell(
+        collectionID: String,
+        tokenIndex: Int
+    ) -> (
+        cell: MobilePlayerCollectionBrowserCell,
+        descriptor: DownloadableMediaDescriptor
+    ) {
+        let descriptor = DownloadableMediaDescriptor(
+            collectionId: collectionID,
+            tokenId: "token-\(tokenIndex)",
+            tokenIndex: tokenIndex,
+            media: .staticImage(
+                url: URL(fileURLWithPath: "/availability-\(tokenIndex).png"),
+                fileExtension: "png"
+            )
+        )
+        let cell = MobilePlayerCollectionBrowserCell(frame: CGRect(
+            x: 0, y: 0, width: 80, height: 80
+        ))
+        cell.configure(
+            contentIdentity: MobilePlayerBrowserContentIdentity(
+                collectionId: collectionID,
+                tokenIndex: tokenIndex
+            ),
+            itemCount: 10,
+            imageSources: CollectionBrowseImageSources(
+                thumbnailDescriptor: descriptor,
+                largeDescriptor: descriptor
+            ),
+            requiredImageQuality: .large,
+            missingDescriptorFallbackSpec: PlayerMediaPlaceholderSpec(
+                thumbnailAspectRatio: nil
+            ),
+            imageLoadPolicy: .disabled
+        )
+        cell.setImage(
+            UIGraphicsImageRenderer(size: CGSize(width: 2, height: 2))
+                .image { _ in },
+            descriptor: descriptor,
+            quality: .large,
+            tokenIndex: tokenIndex,
+            animated: false,
+            tracksLocalFileAvailability: false,
+            prewarmsNativeMetalCardFace: false
+        )
+        return (cell, descriptor)
+    }
+
+    private func deliverFileAvailability(
+        _ change: DownloadableMediaCacheFileAvailabilityChange,
+        scope: DownloadableMediaAvailabilityPublisher.Scope,
+        to pipeline: MobilePlayerCollectionBrowserImagePipeline
+    ) async {
+        let center = NotificationCenter()
+        let publisher = DownloadableMediaAvailabilityPublisher(
+            layout: .live,
+            notificationCenter: center
+        )
+        let delivered = expectation(description: "File availability delivered")
+        let observer = center.addObserver(
+            forName: .downloadableMediaCacheFileAvailabilityDidChange,
+            object: nil,
+            queue: nil
+        ) { notification in
+            let name = notification.name
+            let change = notification.object
+                as? DownloadableMediaCacheFileAvailabilityChange
+            let userInfo = notification.userInfo
+                as? [String: DownloadableMediaAvailabilityPublisher.Scope]
+            MainActor.assumeIsolated {
+                pipeline.handleCacheNotification(Notification(
+                    name: name,
+                    object: change,
+                    userInfo: userInfo
+                ))
+                delivered.fulfill()
+            }
+        }
+        defer { center.removeObserver(observer) }
+        publisher.post(change, scope: scope)
+        await fulfillment(of: [delivered], timeout: 1)
+    }
+
+    func testFileAvailabilityTargetsCellAndPreservesFilteringDuringScroll()
+        async {
+        let collectionID = "targeted-availability-\(UUID())"
+        let (target, descriptor) = makeFileAvailabilityCell(
+            collectionID: collectionID, tokenIndex: 4
+        )
+        let (unrelated, _) = makeFileAvailabilityCell(
+            collectionID: collectionID, tokenIndex: 5
+        )
+        let fileURL = DownloadableMediaCacheLayout.live
+            .location(for: descriptor).mediaURL
+        var cellLookups = [IndexPath]()
+        var viewportLookups = [Int?]()
+        var visibleCellScans = 0
+        let pipeline = MobilePlayerCollectionBrowserImagePipeline()
+        pipeline.configure(contentAccess: makeImageContentAccess(
+            cell: {
+                cellLookups.append($0)
+                return $0.item == 4 ? target : nil
+            },
+            visibleCells: {
+                visibleCellScans += 1
+                return [target, unrelated]
+            },
+            viewportRenderCells: {
+                viewportLookups.append($0)
+                return []
+            },
+            collectionID: { collectionID },
+            requiredImageQuality: { .smallThumbnail }
+        ))
+        pipeline.setActive(true)
+        defer { pipeline.invalidate() }
+
+        await deliverFileAvailability(
+            .becameAvailable, scope: .file(fileURL), to: pipeline
+        )
+
+        XCTAssertEqual(target.displayedLargeImageWindowEntry?.isLocallyAvailable, true)
+        XCTAssertEqual(unrelated.displayedLargeImageWindowEntry?.isLocallyAvailable, false)
+        XCTAssertEqual(cellLookups, [IndexPath(item: 4, section: 0)])
+        XCTAssertEqual(viewportLookups, [4])
+        XCTAssertEqual(visibleCellScans, 0)
+
+        let otherVariantURL = fileURL.deletingLastPathComponent()
+            .appendingPathComponent("000004-other-variant.png")
+        await deliverFileAvailability(
+            .becameUnavailable, scope: .file(otherVariantURL), to: pipeline
+        )
+        XCTAssertEqual(target.displayedLargeImageWindowEntry?.isLocallyAvailable, true)
+
+        pipeline.setScrollMotionActive(true)
+        await deliverFileAvailability(
+            .becameUnavailable, scope: .file(fileURL), to: pipeline
+        )
+        XCTAssertEqual(target.displayedLargeImageWindowEntry?.isLocallyAvailable, false)
+        await deliverFileAvailability(
+            .becameAvailable, scope: .file(fileURL), to: pipeline
+        )
+        XCTAssertEqual(target.displayedLargeImageWindowEntry?.isLocallyAvailable, true)
+        XCTAssertEqual(viewportLookups, [4])
+        XCTAssertEqual(visibleCellScans, 0)
+
+        let lookupCount = cellLookups.count
+        let foreignURL = DownloadableMediaCacheLayout.live
+            .collectionDirectory(collectionId: "other-collection")
+            .appendingPathComponent(fileURL.lastPathComponent)
+        await deliverFileAvailability(
+            .becameAvailable, scope: .file(foreignURL), to: pipeline
+        )
+        XCTAssertEqual(cellLookups.count, lookupCount)
+        XCTAssertEqual(visibleCellScans, 0)
+    }
+
+    func testBroadFileAvailabilityPreservesVisibleCellRefresh() async {
+        let collectionID = "broad-availability-\(UUID())"
+        let (first, _) = makeFileAvailabilityCell(
+            collectionID: collectionID, tokenIndex: 1
+        )
+        let (second, _) = makeFileAvailabilityCell(
+            collectionID: collectionID, tokenIndex: 2
+        )
+        var visibleCellScans = 0
+        var viewportLookups = [Int?]()
+        let pipeline = MobilePlayerCollectionBrowserImagePipeline()
+        pipeline.configure(contentAccess: makeImageContentAccess(
+            cell: { _ in
+                XCTFail("Broad changes must refresh every visible cell")
+                return nil
+            },
+            visibleCells: {
+                visibleCellScans += 1
+                return [first, second]
+            },
+            viewportRenderCells: {
+                viewportLookups.append($0)
+                return []
+            },
+            collectionID: { collectionID }
+        ))
+        pipeline.setActive(true)
+        defer { pipeline.invalidate() }
+
+        await deliverFileAvailability(
+            .becameAvailable, scope: .all, to: pipeline
+        )
+        XCTAssertEqual(first.displayedLargeImageWindowEntry?.isLocallyAvailable, true)
+        XCTAssertEqual(second.displayedLargeImageWindowEntry?.isLocallyAvailable, true)
+        XCTAssertEqual(viewportLookups, [nil])
+
+        await deliverFileAvailability(
+            .becameUnavailable,
+            scope: .collection(DownloadableMediaCacheLayout.live
+                .collectionDirectory(collectionId: collectionID)),
+            to: pipeline
+        )
+        XCTAssertEqual(first.displayedLargeImageWindowEntry?.isLocallyAvailable, false)
+        XCTAssertEqual(second.displayedLargeImageWindowEntry?.isLocallyAvailable, false)
+        pipeline.handleCacheNotification(Notification(
+            name: .downloadableMediaCacheFileAvailabilityDidChange,
+            object: DownloadableMediaCacheFileAvailabilityChange.becameAvailable
+        ))
+        XCTAssertEqual(first.displayedLargeImageWindowEntry?.isLocallyAvailable, true)
+        XCTAssertEqual(second.displayedLargeImageWindowEntry?.isLocallyAvailable, true)
+        XCTAssertEqual(visibleCellScans, 3)
+        XCTAssertEqual(viewportLookups, [nil, nil])
     }
 
 #if DEBUG

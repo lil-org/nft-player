@@ -267,8 +267,8 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             visibleCells: { [weak self] in
                 self?.visibleBrowserCells ?? []
             },
-            viewportRenderCells: { [weak self] in
-                self?.gridModeCoordinator.viewportRenderCells ?? []
+            viewportRenderCells: { [weak self] tokenIndex in
+                self?.gridModeCoordinator.viewportRenderCells(at: tokenIndex) ?? []
             },
             collectionID: { [weak self] in
                 self?.browseSnapshot?.collectionId

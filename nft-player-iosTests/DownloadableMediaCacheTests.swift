@@ -26,6 +26,147 @@ nonisolated private final class DecodedImageAvailabilityRecorder:
 extension DownloadableMediaCacheTests {
 
 #if DEBUG
+    func testFileAvailabilityTokenIndexRoutesPublishedArrivalsAndRemovals()
+        async throws {
+        let fixture = try makeControlledCacheFixture()
+        let publisher = DownloadableMediaAvailabilityPublisher(
+            layout: fixture.layout,
+            notificationCenter: fixture.notificationCenter
+        )
+        let collectionID = "file-availability-routing"
+        for tokenIndex in [0, 42, 1_234_567] {
+            let descriptor = makeDescriptor(
+                name: "token-with-hyphens",
+                collectionId: collectionID,
+                tokenIndex: tokenIndex
+            )
+            for change in [
+                DownloadableMediaCacheFileAvailabilityChange.becameAvailable,
+                .becameUnavailable,
+            ] {
+                let received = DownloadableMediaAsyncRequest<[Int?]>()
+                let cache = fixture.cache
+                let observer = fixture.notificationCenter.addObserver(
+                    forName: .downloadableMediaCacheFileAvailabilityDidChange,
+                    object: nil,
+                    queue: nil
+                ) { notification in
+                    let name = notification.name
+                    let change = notification.object
+                        as? DownloadableMediaCacheFileAvailabilityChange
+                    let userInfo = notification.userInfo
+                        as? [String: DownloadableMediaAvailabilityPublisher.Scope]
+                    MainActor.assumeIsolated {
+                        let notification = Notification(
+                            name: name,
+                            object: change,
+                            userInfo: userInfo
+                        )
+                        received.finish([
+                            cache.fileAvailabilityTokenIndex(
+                                notification,
+                                inCollection: collectionID
+                            ),
+                            cache.fileAvailabilityTokenIndex(
+                                notification,
+                                inCollection: "another-collection"
+                            ),
+                        ])
+                    }
+                }
+                defer {
+                    fixture.notificationCenter.removeObserver(observer)
+                }
+
+                publisher.post(
+                    change,
+                    scope: .file(fixture.layout.location(
+                        for: descriptor
+                    ).mediaURL)
+                )
+                let indices = try await waitForControlledEvent(
+                    "file availability routing"
+                ) {
+                    await received.wait()
+                }
+
+                XCTAssertEqual(indices, [tokenIndex, nil])
+            }
+        }
+    }
+
+    func testFileAvailabilityTokenIndexLeavesBroadAndMalformedScopesUntargeted()
+        async throws {
+        let fixture = try makeControlledCacheFixture()
+        let publisher = DownloadableMediaAvailabilityPublisher(
+            layout: fixture.layout,
+            notificationCenter: fixture.notificationCenter
+        )
+        let collectionID = "file-availability-routing"
+        let directoryURL = fixture.layout.collectionDirectory(
+            collectionId: collectionID
+        )
+        let scopes: [DownloadableMediaAvailabilityPublisher.Scope?] = [
+            .all,
+            .collection(directoryURL),
+            .file(directoryURL.appendingPathComponent("no-index.webp")),
+            .file(directoryURL.appendingPathComponent("000042.webp")),
+            .file(directoryURL.appendingPathComponent("000042-")),
+            .file(directoryURL.appendingPathComponent("-000042-token.webp")),
+            .file(directoryURL.appendingPathComponent("+000042-token.webp")),
+            .file(directoryURL.appendingPathComponent(
+                "999999999999999999999999999999-token.webp"
+            )),
+            nil,
+        ]
+        for scope in scopes {
+            let received = DownloadableMediaAsyncRequest<Int?>()
+            let cache = fixture.cache
+            let observer = fixture.notificationCenter.addObserver(
+                forName: .downloadableMediaCacheFileAvailabilityDidChange,
+                object: nil,
+                queue: nil
+            ) { notification in
+                let name = notification.name
+                let change = notification.object
+                    as? DownloadableMediaCacheFileAvailabilityChange
+                let userInfo = notification.userInfo
+                    as? [String: DownloadableMediaAvailabilityPublisher.Scope]
+                MainActor.assumeIsolated {
+                    let notification = Notification(
+                        name: name,
+                        object: change,
+                        userInfo: userInfo
+                    )
+                    received.finish(cache.fileAvailabilityTokenIndex(
+                        notification,
+                        inCollection: collectionID
+                    ))
+                }
+            }
+            defer {
+                fixture.notificationCenter.removeObserver(observer)
+            }
+
+            if let scope {
+                publisher.post(.becameAvailable, scope: scope)
+            } else {
+                fixture.notificationCenter.post(
+                    name: .downloadableMediaCacheFileAvailabilityDidChange,
+                    object: DownloadableMediaCacheFileAvailabilityChange
+                        .becameAvailable
+                )
+            }
+            let tokenIndex = try await waitForControlledEvent(
+                "broad file availability routing"
+            ) {
+                await received.wait()
+            }
+
+            XCTAssertNil(tokenIndex)
+        }
+    }
+
     func testPendingDecodePriorityBucketsPreserveOrderAndDeduplicate() {
         XCTAssertEqual(
             DownloadableMediaCache.orderedPendingImageDecodeKeysForTesting(

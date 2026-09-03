@@ -1973,6 +1973,16 @@ final class DownloadableMediaCache {
         )
     }
 
+    func fileAvailabilityTokenIndex(
+        _ notification: Notification,
+        inCollection collectionId: String
+    ) -> Int? {
+        availabilityPublisher.tokenIndex(
+            notification,
+            inCollection: collectionId
+        )
+    }
+
     private func configureDecodedImageMemoryCacheLimit(decodedDescriptorCount: Int) {
         memoryCache.configureLimits(
             decodedDescriptorCount: decodedDescriptorCount

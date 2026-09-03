@@ -547,6 +547,37 @@ final class GridMaterializer {
         return cells
     }
 
+    func viewportRenderCells(
+        session: Session?,
+        at tokenIndex: Int
+    ) -> [MobilePlayerCollectionBrowserCell] {
+        guard let collectionView, let viewportView else { return [] }
+        let indexPath = IndexPath(item: tokenIndex, section: 0)
+        var cells: [MobilePlayerCollectionBrowserCell]
+        if let session {
+            cells = sourceCells(session: session, at: tokenIndex)
+            if let phantom = session.phantomCells[tokenIndex],
+               !cells.contains(where: { $0 === phantom }) {
+                cells.append(phantom)
+            }
+        } else if let cell = collectionView.cellForItem(at: indexPath)
+            as? MobilePlayerCollectionBrowserCell {
+            cells = [cell]
+        } else {
+            return []
+        }
+        return cells.filter {
+            $0.superview != nil && $0.represents(tokenIndex: tokenIndex)
+                && MobilePlayerCollectionBrowserTransitionSupport
+                    .itemIntersectsViewport(
+                        at: indexPath,
+                        cell: $0,
+                        collectionView: collectionView,
+                        viewportView: viewportView
+                    )
+        }
+    }
+
     var pendingWorkCount: Int {
         queue.count
     }

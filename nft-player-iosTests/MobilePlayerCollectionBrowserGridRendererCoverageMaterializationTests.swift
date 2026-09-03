@@ -7,6 +7,119 @@ import XCTest
 
 @MainActor
 extension MobilePlayerCollectionBrowserGridRendererTests {
+    func testTargetedViewportCellsMatchIdleVisibleCells() throws {
+        let fixture = try makeFixture(
+            itemCount: 30,
+            showsSourceGrid: true,
+            anchorItemIndex: 0
+        )
+        let visibleCells = fixture.renderer.viewportRenderCells
+        XCTAssertFalse(visibleCells.isEmpty)
+
+        for tokenIndex in 0 ..< 30 {
+            XCTAssertEqual(
+                Set(fixture.renderer.viewportRenderCells(at: tokenIndex).map(
+                    ObjectIdentifier.init
+                )),
+                Set(visibleCells.filter {
+                    $0.represents(tokenIndex: tokenIndex)
+                }.map(ObjectIdentifier.init))
+            )
+        }
+        XCTAssertTrue(fixture.renderer.viewportRenderCells(at: 29).isEmpty)
+    }
+
+    func testTargetedViewportCellsMatchSourceOverscanVisibility() throws {
+        let fixture = try makeFixture(
+            itemCount: 30,
+            anchorItemIndex: 0,
+            clock: { 0 }
+        )
+        defer { _ = fixture.renderer.finish(preservingCarryover: false) }
+        begin(
+            fixture,
+            gestureAnchor: GridModeGestureAnchor(
+                tokenIndex: 0,
+                viewportPoint: CGPoint(
+                    x: fixture.viewportView.bounds.midX,
+                    y: fixture.viewportView.bounds.midY
+                ),
+                relativeItemPoint: CGPoint(x: 0.5, y: 0.5),
+                baseContentOffsetY: 0
+            )
+        )
+        XCTAssertTrue(fixture.renderer.renderZoom(
+            planeID: nil,
+            scale: 0.8,
+            panDeltaY: 0,
+            sourceLayout: fixture.sourceLayout
+        ))
+        drainQueuedWork(fixture)
+        let session = try activeSession(fixture)
+        let visibleCells = fixture.renderer.viewportRenderCells
+        let visibleIDs = Set(visibleCells.map(ObjectIdentifier.init))
+        XCTAssertFalse(visibleCells.isEmpty)
+        XCTAssertTrue(session.sourceOverscanCells.values.contains {
+            !visibleIDs.contains(ObjectIdentifier($0))
+        })
+
+        for tokenIndex in 0 ..< 30 {
+            XCTAssertEqual(
+                Set(fixture.renderer.viewportRenderCells(at: tokenIndex).map(
+                    ObjectIdentifier.init
+                )),
+                Set(visibleCells.filter {
+                    $0.represents(tokenIndex: tokenIndex)
+                }.map(ObjectIdentifier.init))
+            )
+        }
+    }
+
+    func testTargetedViewportCellsIncludeSourceAndPhantomRepresentations()
+        throws {
+        let fixture = try makeFixture(
+            itemCount: 1,
+            showsSourceCell: true,
+            anchorItemIndex: 0,
+            clock: { 0 }
+        )
+        defer { _ = fixture.renderer.finish(preservingCarryover: false) }
+        begin(fixture)
+        XCTAssertTrue(fixture.renderer.installPlane(fixture.planeRequest))
+        drainQueuedWork(fixture)
+        let session = try activeSession(fixture)
+        let source = try XCTUnwrap(fixture.collectionView.cellForItem(
+            at: IndexPath(item: 0, section: 0)
+        ) as? MobilePlayerCollectionBrowserCell)
+        let phantom = try XCTUnwrap(session.phantomCells[0])
+
+        XCTAssertEqual(
+            Set(fixture.renderer.viewportRenderCells(at: 0).map(
+                ObjectIdentifier.init
+            )),
+            Set(fixture.renderer.viewportRenderCells.map(ObjectIdentifier.init))
+        )
+        XCTAssertEqual(
+            Set(fixture.renderer.viewportRenderCells(at: 0).map(
+                ObjectIdentifier.init
+            )),
+            [ObjectIdentifier(source), ObjectIdentifier(phantom)]
+        )
+
+        phantom.frame.origin.y = fixture.collectionView.convert(
+            fixture.viewportView.bounds,
+            from: fixture.viewportView
+        ).maxY + phantom.bounds.height
+        XCTAssertEqual(fixture.renderer.viewportRenderCells(at: 0), [source])
+        XCTAssertEqual(
+            fixture.renderer.viewportRenderCells(at: 0),
+            fixture.renderer.viewportRenderCells
+        )
+
+        source.prepareForGridModePhantomReuse()
+        XCTAssertTrue(fixture.renderer.viewportRenderCells(at: 0).isEmpty)
+    }
+
     func testReplacementPlaneRejectsQueuedSourceMaterialization() throws {
         let fixture = try makeFixture(clock: { 0 })
         let replacementFixture = try makeFixture(itemCount: 1, clock: { 0 })

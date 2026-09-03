@@ -391,6 +391,15 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
         materializer.viewportRenderCells(session: currentSession)
     }
 
+    func viewportRenderCells(
+        at tokenIndex: Int
+    ) -> [MobilePlayerCollectionBrowserCell] {
+        materializer.viewportRenderCells(
+            session: currentSession,
+            at: tokenIndex
+        )
+    }
+
     private var currentSession: Session? {
         switch lifecycle {
         case .idle:

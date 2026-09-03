@@ -149,6 +149,20 @@ nonisolated struct DownloadableMediaCacheLayout: Sendable {
         url.standardizedFileURL.path
     }
 
+    func tokenIndex(forMediaURL mediaURL: URL) -> Int? {
+        let fileName = mediaURL.lastPathComponent
+        guard let separator = fileName.firstIndex(of: "-"),
+              separator != fileName.startIndex,
+              fileName.index(after: separator) != fileName.endIndex else {
+            return nil
+        }
+        let tokenIndex = fileName[..<separator]
+        guard tokenIndex.utf8.allSatisfy({ (48...57).contains($0) }) else {
+            return nil
+        }
+        return Int(tokenIndex)
+    }
+
     private func fileName(
         for descriptor: CollectionCatalogDownloadableMediaDescriptor
     ) -> String {
@@ -602,6 +616,22 @@ final class DownloadableMediaAvailabilityPublisher {
         case .all:
             return true
         }
+    }
+
+    func tokenIndex(
+        _ notification: Notification,
+        inCollection collectionId: String
+    ) -> Int? {
+        guard let scope = notification.userInfo?[Self.scopeUserInfoKey]
+            as? Scope,
+              case let .file(fileURL) = scope,
+              fileURL.deletingLastPathComponent().standardizedFileURL
+                == layout.collectionDirectory(
+                    collectionId: collectionId
+                ).standardizedFileURL else {
+            return nil
+        }
+        return layout.tokenIndex(forMediaURL: fileURL)
     }
 
     func change(
