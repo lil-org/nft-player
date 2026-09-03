@@ -666,6 +666,77 @@ nonisolated struct MobilePlayerBrowserLayout: Equatable, Sendable {
         )
     }
 
+    func anchorItemIndex(near focalPoint: CGPoint, in viewport: CGRect) -> Int? {
+        guard focalPoint.x.isFinite,
+              focalPoint.y.isFinite,
+              !viewport.isEmpty,
+              !viewport.isInfinite,
+              viewport.minX.isFinite,
+              viewport.maxX.isFinite,
+              viewport.minY.isFinite,
+              viewport.maxY.isFinite,
+              let firstRowFrame = rowFrame(at: 0),
+              viewport.maxX >= firstRowFrame.minX,
+              viewport.minX <= firstRowFrame.maxX else {
+            return nil
+        }
+        let candidates = candidateItemIndices(intersecting: viewport)
+        guard !candidates.isEmpty else { return nil }
+        var firstRow = candidates.lowerBound / columnCount
+        var lastRow = (candidates.upperBound - 1) / columnCount
+        while firstRow <= lastRow,
+              rowFrame(at: firstRow)?.intersects(viewport) != true {
+            firstRow += 1
+        }
+        while firstRow <= lastRow,
+              rowFrame(at: lastRow)?.intersects(viewport) != true {
+            lastRow -= 1
+        }
+        guard firstRow <= lastRow else { return nil }
+
+        let lowerRow: Int
+        switch rowStorage {
+        case let .uniform(height):
+            let estimate = floor(
+                (focalPoint.y - topContentInset - height / 2)
+                    / (height + interItemSpacing)
+            )
+            lowerRow = min(max(Self.clampedRowIndex(
+                estimate,
+                rowCount: rowCount
+            ), firstRow), lastRow)
+
+        case .variable:
+            var lowerBound = firstRow
+            var upperBound = lastRow
+            while lowerBound < upperBound {
+                let middle = lowerBound + (upperBound - lowerBound) / 2
+                if let center = rowCenter(at: middle), center < focalPoint.y {
+                    lowerBound = middle + 1
+                } else {
+                    upperBound = middle
+                }
+            }
+            lowerRow = max(firstRow, lowerBound - 1)
+        }
+
+        let upperRow = min(lowerRow + 1, lastRow)
+        let nearbyItems = itemIndex(atRowBoundary: lowerRow)..<itemIndex(
+            atRowBoundary: upperRow + 1
+        )
+        return PlayerCollectionScrollPolicy.anchorIndex(
+            visibleItems: nearbyItems.lazy.compactMap { itemIndex in
+                guard let frame = itemFrame(at: itemIndex),
+                      frame.intersects(viewport) else {
+                    return nil
+                }
+                return PlayerCollectionVisibleItem(index: itemIndex, frame: frame)
+            },
+            focalPoint: focalPoint,
+            itemCount: itemCount
+        )
+    }
+
     func itemIndex(at point: CGPoint) -> Int? {
         guard point.x.isFinite, point.y.isFinite else { return nil }
         let probe = CGRect(
@@ -828,6 +899,16 @@ nonisolated struct MobilePlayerBrowserLayout: Equatable, Sendable {
             return nil
         }
         return start + height / 2
+    }
+
+    private func rowFrame(at rowIndex: Int) -> CGRect? {
+        let items = itemIndices(inRow: rowIndex)
+        guard !items.isEmpty,
+              let firstFrame = itemFrame(at: items.lowerBound),
+              let lastFrame = itemFrame(at: items.upperBound - 1) else {
+            return nil
+        }
+        return firstFrame.union(lastFrame)
     }
 
     private func itemIndex(atRowBoundary rowBoundary: Int) -> Int {

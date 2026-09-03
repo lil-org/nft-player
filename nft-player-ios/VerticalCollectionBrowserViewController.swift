@@ -2046,20 +2046,9 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             return nil
         }
 
-        let visibleItems = collectionView.indexPathsForVisibleItems.compactMap {
-            indexPath -> PlayerCollectionVisibleItem? in
-            guard let frame = browserLayout.itemFrame(at: indexPath.item) else {
-                return nil
-            }
-            return PlayerCollectionVisibleItem(
-                index: indexPath.item,
-                frame: frame
-            )
-        }
-        let candidateIndex = PlayerCollectionScrollPolicy.anchorIndex(
-            visibleItems: visibleItems,
-            focalPoint: currentFocalPoint(),
-            itemCount: browseSnapshot.itemCount
+        let candidateIndex = browserLayout.anchorItemIndex(
+            near: currentFocalPoint(),
+            in: collectionView.bounds
         )
         let resolvedIndex = PlayerCollectionScrollPolicy.resolvedAnchorIndex(
             retainedIndex: forcedFocusedTokenIndex,

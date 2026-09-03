@@ -478,7 +478,7 @@ nonisolated enum PlayerCollectionScrollPolicy: Sendable {
     }
 
     static func anchorIndex(
-        visibleItems: [PlayerCollectionVisibleItem],
+        visibleItems: some Sequence<PlayerCollectionVisibleItem>,
         focalPoint: CGPoint,
         itemCount: Int
     ) -> Int? {
