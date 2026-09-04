@@ -163,18 +163,13 @@ final class DownloadableMediaCache {
         private var variantsByMediaKey =
             [String: Set<DownloadableMediaImageDecodeVariant>]()
         private var collectionByMediaKey = [String: String]()
-
-        var count: Int {
-            variantsByMediaKey.values.reduce(0) { $0 + $1.count }
-        }
-
-        var indexedVariants: [(
+        private var variantsByCacheKey = [String: (
             mediaKey: String,
             variant: DownloadableMediaImageDecodeVariant
-        )] {
-            variantsByMediaKey.flatMap { mediaKey, variants in
-                variants.map { (mediaKey, $0) }
-            }
+        )]()
+
+        var count: Int {
+            variantsByCacheKey.count
         }
 
         func variants(for mediaKey: String) -> Set<DownloadableMediaImageDecodeVariant> {
@@ -186,10 +181,20 @@ final class DownloadableMediaCache {
             collectionId: String,
             variant: DownloadableMediaImageDecodeVariant
         ) {
+            let variant = variant.normalized
             variantsByMediaKey[mediaKey, default: []].insert(
-                variant.normalized
+                variant
             )
             collectionByMediaKey[mediaKey] = collectionId
+            variantsByCacheKey[variant.cacheKey(forMediaKey: mediaKey)] = (
+                mediaKey,
+                variant
+            )
+        }
+
+        mutating func remove(cacheKey: String) {
+            guard let entry = variantsByCacheKey[cacheKey] else { return }
+            remove(mediaKey: entry.mediaKey, variant: entry.variant)
         }
 
         mutating func remove(
@@ -200,6 +205,9 @@ final class DownloadableMediaCache {
                 return
             }
             variants.remove(variant.normalized)
+            variantsByCacheKey.removeValue(
+                forKey: variant.cacheKey(forMediaKey: mediaKey)
+            )
             if variants.isEmpty {
                 variantsByMediaKey.removeValue(forKey: mediaKey)
                 collectionByMediaKey.removeValue(forKey: mediaKey)
@@ -230,13 +238,15 @@ final class DownloadableMediaCache {
         mutating func removeAll() {
             variantsByMediaKey.removeAll(keepingCapacity: false)
             collectionByMediaKey.removeAll(keepingCapacity: false)
+            variantsByCacheKey.removeAll(keepingCapacity: false)
         }
 
         private mutating func remove(mediaKeys: Set<String>) {
             guard !mediaKeys.isEmpty else { return }
-            mediaKeys.forEach {
-                variantsByMediaKey.removeValue(forKey: $0)
-                collectionByMediaKey.removeValue(forKey: $0)
+            for mediaKey in mediaKeys {
+                for variant in variants(for: mediaKey) {
+                    remove(mediaKey: mediaKey, variant: variant)
+                }
             }
         }
     }
@@ -1693,9 +1703,19 @@ final class DownloadableMediaCache {
 
     func installMemoryCachedImageForTesting(
         _ image: DownloadableMediaImage,
-        for descriptor: CollectionCatalogDownloadableMediaDescriptor
+        for descriptor: CollectionCatalogDownloadableMediaDescriptor,
+        variant: DownloadableMediaImageDecodeVariant = .full
     ) {
-        cache(image, for: descriptor)
+        cache(image, for: descriptor, variant: variant)
+    }
+
+    func removeMemoryCachedImageForTesting(
+        for descriptor: CollectionCatalogDownloadableMediaDescriptor,
+        variant: DownloadableMediaImageDecodeVariant = .full
+    ) {
+        memoryCache.removeImageForTesting(
+            forKey: decodedCacheKey(for: descriptor, variant: variant)
+        )
     }
 
     func removeDecodedImageForTesting(
@@ -3921,32 +3941,28 @@ final class DownloadableMediaCache {
             for: descriptor,
             variant: variant
         )
-        guard memoryCache.insert(
+        let wasAdmitted = memoryCache.insert(
             image,
             forKey: key,
             collectionId: descriptor.collectionId
-        ) else { return false }
-        synchronizeDecodedVariantIndex()
-        decodedVariantIndex.record(
-            mediaKey: cacheKey(for: descriptor),
-            collectionId: descriptor.collectionId,
-            variant: variant
         )
+        if wasAdmitted {
+            decodedVariantIndex.record(
+                mediaKey: cacheKey(for: descriptor),
+                collectionId: descriptor.collectionId,
+                variant: variant
+            )
+        }
+        synchronizeDecodedVariantIndex()
+        guard wasAdmitted else { return false }
         availabilityPublisher.postDecodedImageAvailable(for: descriptor)
         return true
     }
 
     private func synchronizeDecodedVariantIndex() {
-        for indexedVariant in decodedVariantIndex.indexedVariants {
-            let key = decodedCacheKey(
-                forKey: indexedVariant.mediaKey,
-                variant: indexedVariant.variant
-            )
+        for key in memoryCache.takeEvictedKeys() {
             guard memoryCache.image(forKey: key) == nil else { continue }
-            decodedVariantIndex.remove(
-                mediaKey: indexedVariant.mediaKey,
-                variant: indexedVariant.variant
-            )
+            decodedVariantIndex.remove(cacheKey: key)
         }
     }
 
@@ -4098,7 +4114,7 @@ final class DownloadableMediaCache {
         forKey key: String,
         variant: DownloadableMediaImageDecodeVariant
     ) -> String {
-        "\(key)|decode|\(variant.normalized.cacheKeyComponent)"
+        variant.cacheKey(forMediaKey: key)
     }
 
     nonisolated private func fileURL(for descriptor: CollectionCatalogDownloadableMediaDescriptor) -> URL {

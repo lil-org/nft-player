@@ -481,13 +481,90 @@ extension DownloadableMediaCacheTests {
         )
     }
 
-    func testMemoryCacheReplacementRetiresOnlyPreviousContentsOffMainThread() async {
+    func testMemoryCacheReservesGenerousThumbnailCapacityWithinExistingBudget() {
+        let cache = DownloadableMediaMemoryCache()
+        let limits = cache.limitsForTesting
+
+        XCTAssertEqual(limits.thumbnailCount, 4_096)
+        XCTAssertGreaterThanOrEqual(limits.thumbnailCost, 256 * 1024 * 1024)
+        XCTAssertLessThanOrEqual(limits.thumbnailCost, 512 * 1024 * 1024)
+        XCTAssertEqual(limits.mediaCount, 240)
+        XCTAssertGreaterThan(limits.mediaCost, 0)
+        XCTAssertEqual(
+            limits.thumbnailCost + limits.mediaCost,
+            limits.combinedCost
+        )
+    }
+
+    func testMemoryCacheRetainsThumbnailsBeyondMediaCountLimit() {
+        let cache = DownloadableMediaMemoryCache()
+        let thumbnail = makeImage(.cyan, size: CGSize(width: 64, height: 64))
+        let media = makeImage(.purple, size: CGSize(width: 1024, height: 768))
+        let thumbnailCount = 512
+
+        for index in 0..<thumbnailCount {
+            XCTAssertTrue(cache.insert(
+                thumbnail,
+                forKey: "thumbnail-\(index)",
+                collectionId: "collection"
+            ))
+        }
+        XCTAssertTrue(cache.insert(
+            media,
+            forKey: "media",
+            collectionId: "collection"
+        ))
+
+        for index in 0..<thumbnailCount {
+            let key = "thumbnail-\(index)"
+            XCTAssertTrue(cache.image(forKey: key) === thumbnail)
+            XCTAssertTrue(cache.thumbnailImageForTesting(forKey: key) === thumbnail)
+            XCTAssertNil(cache.mediaImageForTesting(forKey: key))
+        }
+        XCTAssertTrue(cache.mediaImageForTesting(forKey: "media") === media)
+        XCTAssertNil(cache.thumbnailImageForTesting(forKey: "media"))
+    }
+
+    func testMemoryCacheReplacementMovesSameKeyBetweenPools() {
+        let cache = DownloadableMediaMemoryCache()
+        let thumbnail = makeImage(.cyan, size: CGSize(width: 64, height: 64))
+        let media = makeImage(.purple, size: CGSize(width: 1024, height: 768))
+
+        for image in [thumbnail, media, thumbnail] {
+            XCTAssertTrue(cache.insert(
+                image,
+                forKey: "replacement",
+                collectionId: "collection"
+            ))
+            XCTAssertTrue(cache.image(forKey: "replacement") === image)
+            if image === thumbnail {
+                XCTAssertTrue(
+                    cache.thumbnailImageForTesting(forKey: "replacement") === image
+                )
+                XCTAssertNil(cache.mediaImageForTesting(forKey: "replacement"))
+            } else {
+                XCTAssertTrue(
+                    cache.mediaImageForTesting(forKey: "replacement") === image
+                )
+                XCTAssertNil(cache.thumbnailImageForTesting(forKey: "replacement"))
+            }
+        }
+    }
+
+    func testMemoryCacheReplacementRetiresBothPoolsOffMainThread() async {
         let cache = DownloadableMediaMemoryCache(decodedDescriptorCount: 2)
         let retiredImage = makeImage(.orange)
+        let retiredMedia = makeImage(.blue, size: CGSize(width: 1024, height: 768))
         let activeImage = makeImage(.green)
+        let activeMedia = makeImage(.purple, size: CGSize(width: 1024, height: 768))
         cache.insert(
             retiredImage,
             forKey: "retired",
+            collectionId: "collection"
+        )
+        cache.insert(
+            retiredMedia,
+            forKey: "retired-media",
             collectionId: "collection"
         )
 
@@ -497,27 +574,142 @@ extension DownloadableMediaCacheTests {
             forKey: "active",
             collectionId: "collection"
         )
+        cache.insert(
+            activeMedia,
+            forKey: "active-media",
+            collectionId: "collection"
+        )
         let retirementRanOnMainThread = await cache.waitForRetirementForTesting()
 
         XCTAssertEqual(retirementRanOnMainThread, false)
         XCTAssertNil(cache.image(forKey: "retired"))
+        XCTAssertNil(cache.image(forKey: "retired-media"))
         XCTAssertTrue(cache.image(forKey: "active") === activeImage)
+        XCTAssertTrue(cache.image(forKey: "active-media") === activeMedia)
     }
 
-    func testMemoryWarningDoesNotClearNewerCachedImage() async {
+    func testMemoryWarningClearsBothPoolsAndPreservesNewerCachedImages() async {
+        let retiredDescriptor = makeDescriptor(name: "before-memory-warning")
         let descriptor = makeDescriptor(name: "post-memory-warning")
         let image = makeImage(.magenta)
+        let media = makeImage(.purple, size: CGSize(width: 1024, height: 768))
+        let thumbnailVariant = DownloadableMediaImageDecodeVariant.downsampled(
+            maxPixelWidth: 128
+        )
         let cache = DownloadableMediaCache.shared
         defer {
             cache.resetDecodedImagesForTesting()
             cache.cancelAllDownloads()
         }
+        cache.installMemoryCachedImageForTesting(
+            image,
+            for: retiredDescriptor,
+            variant: thumbnailVariant
+        )
+        cache.installMemoryCachedImageForTesting(media, for: retiredDescriptor)
 
         cache.handleMemoryWarningForTesting()
-        cache.installMemoryCachedImageForTesting(image, for: descriptor)
+        cache.installMemoryCachedImageForTesting(
+            image,
+            for: descriptor,
+            variant: thumbnailVariant
+        )
+        cache.installMemoryCachedImageForTesting(media, for: descriptor)
         _ = await cache.waitForDecodedImageRetirementForTesting()
 
-        XCTAssertTrue(cache.cachedDecodedImage(for: descriptor) === image)
+        XCTAssertNil(cache.anyCachedDecodedImageEntry(for: retiredDescriptor))
+        XCTAssertTrue(cache.cachedDecodedImage(
+            for: descriptor,
+            variant: thumbnailVariant
+        ) === image)
+        XCTAssertTrue(cache.cachedDecodedImage(for: descriptor) === media)
+    }
+
+    func testMemoryCachedVariantsFallbackAcrossPoolsAndPruneEvictedMetadata()
+        throws {
+        let fixture = try makeControlledCacheFixture()
+        let descriptor = makeDescriptor(name: "memory-variants")
+        let triggerDescriptor = makeDescriptor(name: "metadata-prune-trigger")
+        let thumbnail = makeImage(.cyan, size: CGSize(width: 128, height: 128))
+        let media = makeImage(.purple, size: CGSize(width: 1024, height: 768))
+        let variant = DownloadableMediaImageDecodeVariant.downsampled(
+            maxPixelWidth: 128
+        )
+        fixture.cache.installMemoryCachedImageForTesting(
+            thumbnail,
+            for: descriptor,
+            variant: variant
+        )
+        fixture.cache.installMemoryCachedImageForTesting(media, for: descriptor)
+
+        let thumbnailEntry = fixture.cache.cachedDecodedImageEntry(
+            for: descriptor,
+            variant: .downsampled(maxPixelWidth: 64)
+        )
+        XCTAssertTrue(thumbnailEntry?.image === thumbnail)
+        XCTAssertEqual(thumbnailEntry?.variant, variant)
+        let mediaEntry = fixture.cache.cachedDecodedImageEntry(
+            for: descriptor,
+            variant: .downsampled(maxPixelWidth: 256)
+        )
+        XCTAssertTrue(mediaEntry?.image === media)
+        XCTAssertEqual(mediaEntry?.variant, .full)
+
+        fixture.cache.removeMemoryCachedImageForTesting(
+            for: descriptor,
+            variant: variant
+        )
+        fixture.cache.installMemoryCachedImageForTesting(
+            thumbnail,
+            for: triggerDescriptor
+        )
+        XCTAssertEqual(fixture.cache.decodedVariantMetadataCountsForTesting().count, 2)
+        XCTAssertTrue(
+            fixture.cache.anyCachedDecodedImageEntry(for: descriptor)?.image === media
+        )
+
+        fixture.cache.removeMemoryCachedImageForTesting(for: descriptor)
+        fixture.cache.installMemoryCachedImageForTesting(
+            thumbnail,
+            for: triggerDescriptor
+        )
+        XCTAssertEqual(fixture.cache.decodedVariantMetadataCountsForTesting().count, 1)
+        XCTAssertNil(fixture.cache.anyCachedDecodedImageEntry(for: descriptor))
+    }
+
+    func testRetiredCacheEvictionsPreserveReplacementVariantMetadata()
+        async throws {
+        let fixture = try makeControlledCacheFixture()
+        let descriptor = makeDescriptor(name: "retired-variant-replacement")
+        let variant = DownloadableMediaImageDecodeVariant.downsampled(
+            maxPixelWidth: 128
+        )
+        let replacement = makeImage(.cyan, size: CGSize(width: 128, height: 128))
+        fixture.cache.installMemoryCachedImageForTesting(
+            makeImage(.purple, size: CGSize(width: 1024, height: 768)),
+            for: descriptor,
+            variant: variant
+        )
+
+        fixture.cache.resetDecodedImagesForTesting()
+        fixture.cache.installMemoryCachedImageForTesting(
+            replacement,
+            for: descriptor,
+            variant: variant
+        )
+        _ = await fixture.cache.waitForDecodedImageRetirementForTesting()
+        fixture.cache.installMemoryCachedImageForTesting(
+            makeImage(.orange),
+            for: makeDescriptor(name: "retirement-prune-trigger")
+        )
+
+        XCTAssertEqual(fixture.cache.decodedVariantMetadataCountsForTesting().count, 2)
+        let entry = fixture.cache.cachedDecodedImageEntry(
+            for: descriptor,
+            variant: .downsampled(maxPixelWidth: 64)
+        )
+        XCTAssertTrue(entry?.image === replacement)
+        XCTAssertEqual(entry?.variant, variant)
     }
 
     func testMemoryWarningPreservesActiveAnimatedMediaDownload() {
@@ -3255,10 +3447,16 @@ extension DownloadableMediaCacheTests {
         )
     }
 
-    private func makeImage(_ color: UIColor) -> UIImage {
-        UIGraphicsImageRenderer(size: CGSize(width: 2, height: 2)).image {
+    private func makeImage(
+        _ color: UIColor,
+        size: CGSize = CGSize(width: 2, height: 2)
+    ) -> UIImage {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        format.preferredRange = .standard
+        return UIGraphicsImageRenderer(size: size, format: format).image {
             color.setFill()
-            $0.fill(CGRect(x: 0, y: 0, width: 2, height: 2))
+            $0.fill(CGRect(origin: .zero, size: size))
         }
     }
 }

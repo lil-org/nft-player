@@ -37,6 +37,10 @@ nonisolated enum DownloadableMediaImageDecodeVariant: Hashable, Sendable {
         }
     }
 
+    func cacheKey(forMediaKey mediaKey: String) -> String {
+        "\(mediaKey)|decode|\(cacheKeyComponent)"
+    }
+
     func satisfies(_ requestedVariant: Self) -> Bool {
         switch (normalized, requestedVariant.normalized) {
         case (.full, _):

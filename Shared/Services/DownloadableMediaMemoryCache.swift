@@ -8,24 +8,65 @@ import AppKit
 import UIKit
 #endif
 
+private nonisolated final class DownloadableMediaMemoryEntry {
+    let key: String
+    let image: DownloadableMediaImage
+    private let evictionRecorder: DownloadableMediaMemoryEvictionRecorder
+
+    init(
+        key: String,
+        image: DownloadableMediaImage,
+        evictionRecorder: DownloadableMediaMemoryEvictionRecorder
+    ) {
+        self.key = key
+        self.image = image
+        self.evictionRecorder = evictionRecorder
+    }
+
+    deinit {
+        evictionRecorder.recordEviction(forKey: key)
+    }
+}
+
+private nonisolated final class DownloadableMediaMemoryEvictionRecorder:
+    @unchecked Sendable {
+
+    private let lock = NSLock()
+    private var evictedKeys = Set<String>()
+
+    func recordEviction(forKey key: String) {
+        _ = lock.withLock { evictedKeys.insert(key) }
+    }
+
+    func takeEvictedKeys() -> Set<String> {
+        lock.withLock {
+            let result = evictedKeys
+            evictedKeys.removeAll(keepingCapacity: false)
+            return result
+        }
+    }
+}
+
 private nonisolated final class DownloadableMediaMemoryRetirement:
     @unchecked Sendable {
 
-    private var cache: NSCache<NSString, DownloadableMediaImage>?
+    private var caches: [NSCache<NSString, DownloadableMediaMemoryEntry>]
     private var retainedImages: [DownloadableMediaImage]
 
     init(
-        cache: NSCache<NSString, DownloadableMediaImage>,
+        caches: [NSCache<NSString, DownloadableMediaMemoryEntry>],
         retainedImages: [DownloadableMediaImage]
     ) {
-        self.cache = cache
+        self.caches = caches
         self.retainedImages = retainedImages
     }
 
     func releaseContents() {
-        cache?.removeAllObjects()
-        cache = nil
-        retainedImages.removeAll(keepingCapacity: false)
+        autoreleasepool {
+            caches.forEach { $0.removeAllObjects() }
+            caches.removeAll(keepingCapacity: false)
+            retainedImages.removeAll(keepingCapacity: false)
+        }
     }
 }
 
@@ -50,9 +91,17 @@ final class DownloadableMediaMemoryCache {
     private static let mediaFirstCountLimit = 240
     private static let minimumMediaFirstMemoryCostLimit: UInt64 = 768 * 1024 * 1024
     private static let maximumMediaFirstMemoryCostLimit: UInt64 = 2 * 1024 * 1024 * 1024
+    private static let thumbnailCountLimit = 4096
+    private static let maximumThumbnailImageCost = 2 * 1024 * 1024
+    private static let minimumThumbnailMemoryCostLimit: UInt64 = 256 * 1024 * 1024
+    private static let maximumThumbnailMemoryCostLimit: UInt64 = 512 * 1024 * 1024
 #endif
 
-    private var cache = NSCache<NSString, DownloadableMediaImage>()
+    private var cache = NSCache<NSString, DownloadableMediaMemoryEntry>()
+#if os(iOS)
+    private var thumbnailCache = NSCache<NSString, DownloadableMediaMemoryEntry>()
+#endif
+    private var evictionRecorder = DownloadableMediaMemoryEvictionRecorder()
     private let retirementLane = DownloadableMediaMemoryRetirementLane()
     private var retirementTask: Task<Bool, Never>?
 #if !os(iOS)
@@ -76,10 +125,17 @@ final class DownloadableMediaMemoryCache {
             return Lookup(image: image, recordsDiskAccess: false)
         }
 #endif
-        return Lookup(
-            image: cache.object(forKey: key as NSString),
-            recordsDiskAccess: true
-        )
+        return autoreleasepool {
+#if os(iOS)
+            if let entry = thumbnailCache.object(forKey: key as NSString) {
+                return Lookup(image: entry.image, recordsDiskAccess: true)
+            }
+#endif
+            return Lookup(
+                image: cache.object(forKey: key as NSString)?.image,
+                recordsDiskAccess: true
+            )
+        }
     }
 
     func image(forKey key: String) -> DownloadableMediaImage? {
@@ -95,12 +151,31 @@ final class DownloadableMediaMemoryCache {
 #if DEBUG && os(iOS)
         guard acceptsInsertionsForTesting else { return false }
 #endif
-        cache.setObject(
-            image,
-            forKey: key as NSString,
-            cost: estimatedCost(of: image)
-        )
-        let wasAdmitted = cache.object(forKey: key as NSString) != nil
+        let imageCost = estimatedCost(of: image)
+        let wasAdmitted = autoreleasepool {
+#if os(iOS)
+            let destinationCache: NSCache<NSString, DownloadableMediaMemoryEntry>
+            if imageCost <= Self.maximumThumbnailImageCost {
+                destinationCache = thumbnailCache
+                cache.removeObject(forKey: key as NSString)
+            } else {
+                destinationCache = cache
+                thumbnailCache.removeObject(forKey: key as NSString)
+            }
+#else
+            let destinationCache = cache
+#endif
+            destinationCache.setObject(
+                DownloadableMediaMemoryEntry(
+                    key: key,
+                    image: image,
+                    evictionRecorder: evictionRecorder
+                ),
+                forKey: key as NSString,
+                cost: imageCost
+            )
+            return destinationCache.object(forKey: key as NSString) != nil
+        }
 #if !os(iOS)
         if wasAdmitted {
             keysByCollection[collectionId, default: []].insert(key)
@@ -110,7 +185,15 @@ final class DownloadableMediaMemoryCache {
     }
 
     var metadataEntryCapacity: Int {
+#if os(iOS)
+        max(cache.countLimit + thumbnailCache.countLimit, 1)
+#else
         max(cache.countLimit, 1)
+#endif
+    }
+
+    func takeEvictedKeys() -> Set<String> {
+        evictionRecorder.takeEvictedKeys()
     }
 
     func configureLimits(decodedDescriptorCount: Int) {
@@ -118,7 +201,14 @@ final class DownloadableMediaMemoryCache {
         if cache.countLimit != Self.mediaFirstCountLimit {
             cache.countLimit = Self.mediaFirstCountLimit
         }
-        let totalCostLimit = Self.mediaFirstMemoryCostLimit
+        let thumbnailCostLimit = Self.thumbnailMemoryCostLimit
+        if thumbnailCache.countLimit != Self.thumbnailCountLimit {
+            thumbnailCache.countLimit = Self.thumbnailCountLimit
+        }
+        if thumbnailCache.totalCostLimit != thumbnailCostLimit {
+            thumbnailCache.totalCostLimit = thumbnailCostLimit
+        }
+        let totalCostLimit = Self.mediaFirstMemoryCostLimit - thumbnailCostLimit
         if cache.totalCostLimit != totalCostLimit {
             cache.totalCostLimit = totalCostLimit
         }
@@ -173,11 +263,13 @@ final class DownloadableMediaMemoryCache {
     }
 
     func clear() {
-        let retiredCache = cache
-        let replacementCache = NSCache<NSString, DownloadableMediaImage>()
-        replacementCache.countLimit = retiredCache.countLimit
-        replacementCache.totalCostLimit = retiredCache.totalCostLimit
-        cache = replacementCache
+        var retiredCaches = [cache]
+        cache = replacementCache(for: cache)
+#if os(iOS)
+        retiredCaches.append(thumbnailCache)
+        thumbnailCache = replacementCache(for: thumbnailCache)
+#endif
+        evictionRecorder = DownloadableMediaMemoryEvictionRecorder()
 #if !os(iOS)
         keysByCollection.removeAll(keepingCapacity: false)
 #endif
@@ -189,7 +281,7 @@ final class DownloadableMediaMemoryCache {
         let retainedImages = [DownloadableMediaImage]()
 #endif
         let retirement = DownloadableMediaMemoryRetirement(
-            cache: retiredCache,
+            caches: retiredCaches,
             retainedImages: retainedImages
         )
         let previousTask = retirementTask
@@ -210,6 +302,7 @@ final class DownloadableMediaMemoryCache {
 
     func removeInjectedImage(forKey key: String) {
         injectedImages.removeValue(forKey: key)
+        evictionRecorder.recordEviction(forKey: key)
     }
 
     func setAcceptsInsertionsForTesting(_ acceptsInsertions: Bool) {
@@ -219,7 +312,49 @@ final class DownloadableMediaMemoryCache {
     func waitForRetirementForTesting() async -> Bool? {
         await retirementTask?.value
     }
+
+    func thumbnailImageForTesting(forKey key: String) -> DownloadableMediaImage? {
+        autoreleasepool {
+            thumbnailCache.object(forKey: key as NSString)?.image
+        }
+    }
+
+    func mediaImageForTesting(forKey key: String) -> DownloadableMediaImage? {
+        autoreleasepool {
+            cache.object(forKey: key as NSString)?.image
+        }
+    }
+
+    func removeImageForTesting(forKey key: String) {
+        thumbnailCache.removeObject(forKey: key as NSString)
+        cache.removeObject(forKey: key as NSString)
+    }
+
+    var limitsForTesting: (
+        thumbnailCount: Int,
+        thumbnailCost: Int,
+        mediaCount: Int,
+        mediaCost: Int,
+        combinedCost: Int
+    ) {
+        (
+            thumbnailCache.countLimit,
+            thumbnailCache.totalCostLimit,
+            cache.countLimit,
+            cache.totalCostLimit,
+            Self.mediaFirstMemoryCostLimit
+        )
+    }
 #endif
+
+    private func replacementCache(
+        for retiredCache: NSCache<NSString, DownloadableMediaMemoryEntry>
+    ) -> NSCache<NSString, DownloadableMediaMemoryEntry> {
+        let replacement = NSCache<NSString, DownloadableMediaMemoryEntry>()
+        replacement.countLimit = retiredCache.countLimit
+        replacement.totalCostLimit = retiredCache.totalCostLimit
+        return replacement
+    }
 
     private func estimatedCost(of image: DownloadableMediaImage) -> Int {
 #if os(macOS)
@@ -263,6 +398,16 @@ final class DownloadableMediaMemoryCache {
 #endif
 
 #if os(iOS)
+    private static var thumbnailMemoryCostLimit: Int {
+        Int(min(
+            max(
+                ProcessInfo.processInfo.physicalMemory / 16,
+                minimumThumbnailMemoryCostLimit
+            ),
+            maximumThumbnailMemoryCostLimit
+        ))
+    }
+
     private static var mediaFirstMemoryCostLimit: Int {
         let boundedLimit = min(
             max(
