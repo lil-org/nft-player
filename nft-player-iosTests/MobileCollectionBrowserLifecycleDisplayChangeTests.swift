@@ -177,7 +177,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
         XCTAssertEqual(collectionViewLayout.collectionViewContentSize, .zero)
     }
 
-    func testPreViewActivationLoadsGridCoordinator() throws {
+    func testPreViewActivationLoadsGridCoordinator() async throws {
         let metadata = try collectionMetadata()
         let uuid = UUID()
         let session = MobilePlaybackController.shared.startSession(
@@ -199,13 +199,28 @@ extension MobileCollectionBrowserGridModePresentationTests {
 
         XCTAssertFalse(controller.isViewLoaded)
         controller.setActive(true)
+        controller.view.frame = CGRect(x: 0, y: 0, width: 390, height: 844)
+        controller.view.layoutIfNeeded()
+        let collectionView = try XCTUnwrap(
+            controller.view.subviews.first {
+                $0 is MobilePlayerCollectionBrowserCollectionView
+            } as? MobilePlayerCollectionBrowserCollectionView
+        )
 
         XCTAssertTrue(controller.isViewLoaded)
         XCTAssertNotNil(controller.currentPagePosition)
+        try await waitUntil("Visible descriptors were not prepared") {
+            let visibleCells = collectionView.visibleCells.compactMap {
+                $0 as? MobilePlayerCollectionBrowserCell
+            }
+            return !visibleCells.isEmpty
+                && visibleCells.allSatisfy { $0.descriptor != nil }
+        }
     }
 
     func testControllerDeallocatesWithActiveInteractionFadeDisplayLink()
         async throws {
+        try skipIfReduceMotionEnabled()
         let metadata = try collectionMetadata()
         let uuid = UUID()
         let session = MobilePlaybackController.shared.startSession(
@@ -219,10 +234,31 @@ extension MobileCollectionBrowserGridModePresentationTests {
         session.attach(display: display)
         var candidate: VerticalCollectionBrowserViewController? =
             VerticalCollectionBrowserViewController(playbackSession: session)
-        candidate?.loadViewIfNeeded()
-        candidate?.view.frame = CGRect(x: 0, y: 0, width: 390, height: 844)
+        let foregroundScene = try XCTUnwrap(
+            UIApplication.shared.connectedScenes
+                .compactMap { $0 as? UIWindowScene }
+                .first { $0.activationState == .foregroundActive }
+        )
+        let window = UIWindow(windowScene: foregroundScene)
+        window.frame = CGRect(x: 0, y: 0, width: 390, height: 844)
+        window.rootViewController = candidate
+        window.isHidden = false
+        window.layoutIfNeeded()
+        candidate?.viewDidAppear(false)
         candidate?.setActive(true)
         candidate?.view.layoutIfNeeded()
+        let collectionView = try XCTUnwrap(
+            candidate?.view.subviews.first {
+                $0 is MobilePlayerCollectionBrowserCollectionView
+            } as? MobilePlayerCollectionBrowserCollectionView
+        )
+        try await waitUntil("Visible descriptors were not prepared") {
+            let visibleCells = collectionView.visibleCells.compactMap {
+                $0 as? MobilePlayerCollectionBrowserCell
+            }
+            return !visibleCells.isEmpty
+                && visibleCells.allSatisfy { $0.descriptor != nil }
+        }
         let recognizer = TestPinchGestureRecognizer()
         recognizer.reportedLocation = CGPoint(x: 195, y: 422)
         recognizer.reportedState = .began
@@ -231,21 +267,19 @@ extension MobileCollectionBrowserGridModePresentationTests {
         recognizer.reportedState = .changed
         recognizer.scale = 0.8
         sendPinch(recognizer, to: try XCTUnwrap(candidate))
-        await waitForNextMainQueueTurn()
-        let collectionView = try XCTUnwrap(
-            candidate?.view.subviews.first {
-                $0 is MobilePlayerCollectionBrowserCollectionView
-            } as? MobilePlayerCollectionBrowserCollectionView
-        )
-        XCTAssertFalse(collectionView.isScrollEnabled)
+        try await waitUntil("Pinch interaction did not begin") {
+            !collectionView.isScrollEnabled
+        }
         weak var controller: VerticalCollectionBrowserViewController?
         controller = candidate
 
+        window.isHidden = true
+        window.rootViewController = nil
         candidate = nil
         session.stopAndDisconnect()
-        await waitForNextMainQueueTurn()
-
-        XCTAssertNil(controller)
+        try await waitUntil("Controller remained retained") {
+            controller == nil
+        }
     }
 
     func testRestartCollectionPreservesTemporaryGridMode() async throws {
@@ -429,7 +463,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
         XCTAssertGreaterThan(scrollingMetrics.fileOnlyPreparations, 0)
 
         NotificationCenter.default.post(
-            name: UIScene.didEnterBackgroundNotification,
+            name: UIScene.willDeactivateNotification,
             object: scene
         )
         NotificationCenter.default.post(
@@ -664,11 +698,63 @@ extension MobileCollectionBrowserGridModePresentationTests {
         XCTAssertEqual(fixture.controller.gridMode, .large)
 
         fixture.controller.cancelPendingDisplayPreparation()
+        XCTAssertEqual(result, .superseded)
         await fulfillment(of: [completion], timeout: 1)
 
         XCTAssertEqual(result, .superseded)
         XCTAssertEqual(fixture.controller.gridMode, .large)
         XCTAssertEqual(fixture.controller.currentPagePosition, originalPosition)
+    }
+
+    func testReplacementAndCancellationCompleteEachLayoutOperationOnce()
+        async throws {
+        let metadata = try collectionMetadata(minimumTokenCount: 100)
+        let fixture = try makeFixture(collectionId: metadata.id)
+        defer { tearDownFixture(fixture) }
+        let controller = fixture.controller
+        let firstPreparation = try XCTUnwrap(
+            fixture.session.prepareCollectionBrowse(
+                containing: PlayerPagePosition(position: 25)
+            )
+        )
+        let replacementPreparation = try XCTUnwrap(
+            fixture.session.prepareCollectionBrowse(
+                containing: PlayerPagePosition(position: 50)
+            )
+        )
+        var firstResults = [MobilePlayerCollectionBrowserDisplayPreparationResult]()
+        var replacementResults =
+            [MobilePlayerCollectionBrowserDisplayPreparationResult]()
+
+        controller.prepareForDisplay(
+            using: firstPreparation,
+            forcePosition: true,
+            publishWhenStable: false
+        ) { firstResults.append($0) }
+        controller.prepareForDisplay(
+            using: replacementPreparation,
+            forcePosition: true,
+            publishWhenStable: false
+        ) { replacementResults.append($0) }
+        XCTAssertEqual(firstResults, [.superseded])
+        XCTAssertTrue(replacementResults.isEmpty)
+
+        controller.cancelPendingDisplayPreparation()
+        XCTAssertEqual(replacementResults, [.superseded])
+        let finalResult = await prepare(
+            controller,
+            using: firstPreparation,
+            forcePosition: true
+        )
+
+        XCTAssertEqual(finalResult, .prepared)
+        XCTAssertEqual(
+            controller.currentPagePosition,
+            PlayerPagePosition(position: 25)
+        )
+        XCTAssertEqual(firstResults, [.superseded])
+        XCTAssertEqual(replacementResults, [.superseded])
+        XCTAssertTrue(controller.setGridMode(.fiveColumns))
     }
 
     func testCancelledPreparationPreservesFocusAcrossDisplayScaleChange() async throws {

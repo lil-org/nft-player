@@ -140,6 +140,334 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         )
     }
 
+    func testPublishedImageSourcesReconfigureEveryActiveCellRole() throws {
+        let itemCount = 30
+        let fixture = try makeFixture(
+            itemCount: itemCount,
+            sourceColumnCount: 3,
+            destinationColumnCount: 9,
+            destinationMode: .nineColumns,
+            showsSourceCell: true,
+            anchorItemIndex: 0,
+            clock: { 0 }
+        )
+        let imageSourcesByToken = (0..<itemCount).map { tokenIndex in
+            let thumbnailDescriptor =
+                CollectionCatalogDownloadableMediaDescriptor(
+                    collectionId: "collection",
+                    tokenId: String(tokenIndex),
+                    tokenIndex: tokenIndex,
+                    media: .staticImage(
+                        url: URL(fileURLWithPath:
+                            "/thumbnail-\(tokenIndex).webp"),
+                        fileExtension: "webp"
+                    ),
+                    purpose: .collectionBrowserThumbnail
+                )
+            let largeDescriptor = CollectionCatalogDownloadableMediaDescriptor(
+                collectionId: "collection",
+                tokenId: String(tokenIndex),
+                tokenIndex: tokenIndex,
+                media: .staticImage(
+                    url: URL(fileURLWithPath: "/large-\(tokenIndex).webp"),
+                    fileExtension: "webp"
+                ),
+                purpose: .collectionBrowserMid
+            )
+            return CollectionBrowseImageSources(
+                smallestThumbnailDescriptor: thumbnailDescriptor,
+                smallThumbnailDescriptor: thumbnailDescriptor,
+                thumbnailDescriptor: thumbnailDescriptor,
+                largeDescriptor: largeDescriptor
+            )
+        }
+        let publishedTokenIndices = Box<Set<Int>>([])
+        let configurations = Box<[
+            ObjectIdentifier: [
+                MobilePlayerCollectionBrowserGridRenderer.CellConfiguration
+            ]
+        ]>([:])
+        let configuredWithImageSources = Box<Set<ObjectIdentifier>>([])
+        let detailLoadAttempts = Box<[
+            CollectionCatalogDownloadableMediaDescriptor
+        ]>([])
+        let sourceVariant =
+            MobilePlayerCollectionBrowserGridImageDecodeVariant.resolve(
+                for: fixture.sourceLayout,
+                displayScale: 3
+            )
+        let renderer = MobilePlayerCollectionBrowserGridRenderer(
+            collectionView: fixture.collectionView,
+            viewportView: fixture.viewportView,
+            contentAccess: .init(
+                configureCell: { cell, indexPath, configuration in
+                    let cellID = ObjectIdentifier(cell)
+                    configurations.value[cellID, default: []].append(
+                        configuration
+                    )
+                    let publishedImageSources = publishedTokenIndices.value
+                        .contains(indexPath.item)
+                        ? imageSourcesByToken[indexPath.item]
+                        : nil
+                    if publishedImageSources != nil {
+                        configuredWithImageSources.value.insert(cellID)
+                    }
+                    cell.configure(
+                        contentIdentity: MobilePlayerBrowserContentIdentity(
+                            collectionId: "collection",
+                            tokenIndex: indexPath.item
+                        ),
+                        itemCount: itemCount,
+                        imageSources: publishedImageSources,
+                        requiredImageQuality:
+                            configuration.requiredImageQuality ?? .thumbnail,
+                        missingDescriptorFallbackSpec:
+                            PlayerMediaPlaceholderSpec(
+                                thumbnailAspectRatio: nil
+                            ),
+                        imageLoadPolicy: configuration.imageLoadPolicy,
+                        fadesFirstImage: false,
+                        allowsLocalLargeImageUpgrade:
+                            configuration.allowsLocalLargeImageUpgrade,
+                        imageDecodeVariant: configuration.imageDecodeVariant
+                    )
+                },
+                contentIdentity: {
+                    MobilePlayerBrowserContentIdentity(
+                        collectionId: "collection",
+                        tokenIndex: $0
+                    )
+                },
+                imageSources: { tokenIndex in
+                    return publishedTokenIndices.value.contains(tokenIndex)
+                        ? imageSourcesByToken[tokenIndex]
+                        : nil
+                }
+            ),
+            imageAccess: .init(
+                cachedImage: { _, _ in nil },
+                loadImage: { descriptor, _ in
+                    detailLoadAttempts.value.append(descriptor)
+                    return nil
+                }
+            ),
+            clock: { 0 }
+        )
+        defer { _ = renderer.finish(preservingCarryover: false) }
+
+        XCTAssertTrue(renderer.begin(
+            gestureAnchor: nil,
+            sourceLayout: fixture.sourceLayout,
+            sourceImageDecodeVariant: sourceVariant,
+            wasCollectionViewPrefetchingEnabled: true
+        ))
+        XCTAssertTrue(renderer.installPlane(fixture.planeRequest))
+        drainQueuedWork(renderer)
+        guard case let .active(session) = renderer.lifecycle else {
+            return XCTFail("Expected an active renderer session")
+        }
+        let collectionSource = try XCTUnwrap(
+            fixture.collectionView.visibleCells.first
+                as? MobilePlayerCollectionBrowserCell
+        )
+        let sourceOverscanEntry = try XCTUnwrap(
+            session.sourceOverscanCells.first
+        )
+        let destinationPhantomEntry = try XCTUnwrap(
+            session.phantomCells.first
+        )
+        let sourceOverscan = sourceOverscanEntry.value
+        let destinationPhantom = destinationPhantomEntry.value
+        let collectionSourceID = ObjectIdentifier(collectionSource)
+        let sourceOverscanID = ObjectIdentifier(sourceOverscan)
+        let destinationPhantomID = ObjectIdentifier(destinationPhantom)
+        let sourceOverscanConfiguration =
+            MobilePlayerCollectionBrowserGridRenderer.CellConfiguration
+                .sourceOverscan(imageDecodeVariant: sourceVariant)
+        let destinationPhantomConfiguration =
+            MobilePlayerCollectionBrowserGridRenderer.CellConfiguration
+                .destinationPhantom(
+                    requiredImageQuality:
+                        fixture.planeRequest.toMode.requiredImageQuality,
+                    imageDecodeVariant: fixture.planeRequest.imageDecodeVariant
+                )
+
+        XCTAssertEqual(
+            configurations.value[sourceOverscanID]?.last,
+            sourceOverscanConfiguration
+        )
+        XCTAssertEqual(
+            configurations.value[destinationPhantomID]?.last,
+            destinationPhantomConfiguration
+        )
+        let sourceOverscanConfigurationCount =
+            configurations.value[sourceOverscanID]?.count
+        let destinationPhantomConfigurationCount =
+            configurations.value[destinationPhantomID]?.count
+        XCTAssertFalse(
+            configuredWithImageSources.value.contains(sourceOverscanID)
+        )
+        XCTAssertFalse(
+            configuredWithImageSources.value.contains(destinationPhantomID)
+        )
+        let expectedWaiters = Dictionary(uniqueKeysWithValues:
+            session.cachedSourceRepresentations.compactMap {
+                representationID, representation -> (
+                    ObjectIdentifier,
+                    GridRenderTransitionImageSourcesWaiter
+                )? in
+                let sourceItem = representation.itemIndex
+                guard session.selectedSourceItems.contains(sourceItem),
+                      !session.lockedFallbackRepresentationIDs.contains(
+                        representationID
+                      ),
+                      representation.cell.superview != nil,
+                      representation.cell.represents(tokenIndex: sourceItem),
+                      let destinationItem = session.reassignments[sourceItem]
+                else {
+                    return nil
+                }
+                return (
+                    representationID,
+                    GridRenderTransitionImageSourcesWaiter(
+                        sourceItem: sourceItem,
+                        destinationItem: destinationItem
+                    )
+                )
+            }
+        )
+        XCTAssertFalse(expectedWaiters.isEmpty)
+        XCTAssertEqual(session.transitionImageSourcesWaiters, expectedWaiters)
+        XCTAssertTrue(detailLoadAttempts.value.isEmpty)
+        XCTAssertEqual(renderer.pendingDetailMaterializationWorkCount, 0)
+
+        let firstDestination = try XCTUnwrap(
+            expectedWaiters.values
+                .filter { $0.sourceItem != $0.destinationItem }
+                .map(\.destinationItem).min()
+        )
+        let firstDestinationWaiters = expectedWaiters.filter {
+            $0.value.destinationItem == firstDestination
+        }
+        let remainingWaiters = expectedWaiters.filter {
+            $0.value.destinationItem != firstDestination
+        }
+        XCTAssertFalse(remainingWaiters.isEmpty)
+        publishedTokenIndices.value.insert(firstDestination)
+        XCTAssertTrue(renderer.reconcilePublishedImageSources())
+        XCTAssertEqual(
+            renderer.pendingDetailMaterializationRepresentationIDs,
+            Set(firstDestinationWaiters.keys)
+        )
+        XCTAssertEqual(
+            session.transitionImageSourcesWaiters,
+            remainingWaiters
+        )
+        drainQueuedWork(renderer)
+        let firstDescriptor = try XCTUnwrap(
+            imageSourcesByToken[firstDestination].descriptor(
+                for: fixture.planeRequest.toMode.requiredImageQuality
+            )
+        )
+        XCTAssertEqual(
+            detailLoadAttempts.value,
+            Array(
+                repeating: firstDescriptor,
+                count: firstDestinationWaiters.count
+            )
+        )
+        XCTAssertEqual(
+            session.transitionImageSourcesWaiters,
+            remainingWaiters
+        )
+        XCTAssertEqual(renderer.pendingDetailMaterializationWorkCount, 0)
+
+        publishedTokenIndices.value = Set(0..<itemCount)
+        XCTAssertTrue(renderer.reconcilePublishedImageSources())
+        XCTAssertEqual(
+            renderer.pendingDetailMaterializationRepresentationIDs,
+            Set(remainingWaiters.keys)
+        )
+        drainQueuedWork(renderer)
+
+        XCTAssertEqual(
+            configurations.value[collectionSourceID]?.last,
+            .collectionSource(
+                allowsLocalLargeImageUpgrade:
+                    MobileCollectionBrowserGridMode.threeColumns
+                        .allowsLocalLargeImageUpgrade,
+                imageDecodeVariant: sourceVariant
+            )
+        )
+        XCTAssertEqual(
+            configurations.value[sourceOverscanID]?.last,
+            sourceOverscanConfiguration
+        )
+        XCTAssertEqual(
+            configurations.value[destinationPhantomID]?.last,
+            destinationPhantomConfiguration
+        )
+        XCTAssertEqual(
+            configurations.value[sourceOverscanID]?.count,
+            sourceOverscanConfigurationCount.map { $0 + 1 }
+        )
+        XCTAssertEqual(
+            configurations.value[destinationPhantomID]?.count,
+            destinationPhantomConfigurationCount.map { $0 + 1 }
+        )
+        XCTAssertTrue(configuredWithImageSources.value.isSuperset(of: [
+            collectionSourceID,
+            sourceOverscanID,
+            destinationPhantomID,
+        ]))
+        let collectionSourceItem = try XCTUnwrap(
+            fixture.collectionView.indexPath(for: collectionSource)?.item
+        )
+        XCTAssertTrue(collectionSource.hasImageSources(
+            tokenIndex: collectionSourceItem
+        ))
+        XCTAssertTrue(sourceOverscan.hasImageSources(
+            tokenIndex: sourceOverscanEntry.key
+        ))
+        XCTAssertTrue(destinationPhantom.hasImageSources(
+            tokenIndex: destinationPhantomEntry.key
+        ))
+        XCTAssertEqual(
+            detailLoadAttempts.value.count,
+            expectedWaiters.count
+        )
+        XCTAssertEqual(
+            Dictionary(grouping: detailLoadAttempts.value, by: \.tokenIndex)
+                .mapValues(\.count),
+            Dictionary(grouping: expectedWaiters.values, by: \.destinationItem)
+                .mapValues(\.count)
+        )
+        XCTAssertTrue(session.transitionImageSourcesWaiters.isEmpty)
+        XCTAssertTrue(session.transitionImageLoads.isEmpty)
+        XCTAssertEqual(renderer.pendingDetailMaterializationWorkCount, 0)
+
+        let configurationCounts = configurations.value.mapValues(\.count)
+        let terminalLoadAttempts = detailLoadAttempts.value
+        XCTAssertTrue(renderer.reconcilePublishedImageSources())
+
+        XCTAssertEqual(
+            configurations.value.mapValues(\.count),
+            configurationCounts
+        )
+        XCTAssertEqual(renderer.pendingDetailMaterializationWorkCount, 0)
+        XCTAssertEqual(detailLoadAttempts.value, terminalLoadAttempts)
+    }
+
+    func testPublishedImageSourcesReconciliationIsIdleNoOp() throws {
+        let fixture = try makeFixture(providesContentAccess: true)
+
+        XCTAssertFalse(fixture.renderer.reconcilePublishedImageSources())
+
+        XCTAssertEqual(fixture.configureCount.value, 0)
+        XCTAssertEqual(fixture.imageSourcesAccessCount.value, 0)
+        XCTAssertTrue(fixture.renderer.managedCells.isEmpty)
+    }
+
     func testLifecycleCleanupIsIdempotent() throws {
         let fixture = try makeFixture()
 
@@ -422,9 +750,11 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             )
         )
         XCTAssertEqual(fixture.renderer.lifecycleName, .committing)
+        XCTAssertFalse(fixture.renderer.reconcilePublishedImageSources())
 
         fixture.renderer.abortCommit(abortedPreparation)
         XCTAssertEqual(fixture.renderer.lifecycleName, .active)
+        XCTAssertTrue(fixture.renderer.reconcilePublishedImageSources())
         XCTAssertTrue(fixture.renderer.installPlane(fixture.planeRequest))
         let completedPreparation = try XCTUnwrap(
             fixture.renderer.prepareCommit(
@@ -753,5 +1083,18 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         ))
         XCTAssertEqual(fixture.renderer.lifecycleName, .committing)
         _ = fixture.renderer.finish(preservingCarryover: false)
+    }
+
+    private func drainQueuedWork(
+        _ renderer: MobilePlayerCollectionBrowserGridRenderer
+    ) {
+        for _ in 0 ..< 100 {
+            let result = renderer.drainMaterializationWork()
+            if renderer.pendingMaterializationWorkCount == 0,
+               result.processedCount == 0 {
+                return
+            }
+        }
+        XCTFail("Materialization work did not drain")
     }
 }

@@ -192,6 +192,10 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
         representedTokenIndex == tokenIndex
     }
 
+    func hasImageSources(tokenIndex: Int) -> Bool {
+        representedTokenIndex == tokenIndex && imageSources != nil
+    }
+
     func canSelect(
         representing identity: MobilePlayerBrowserContentIdentity
     ) -> Bool {
@@ -534,10 +538,12 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
     }
 
     func demoteImageLoadToCachedOnlyIfNeeded(tokenIndex: Int) {
-        guard representedTokenIndex == tokenIndex,
-              imageLoader.demoteImageLoadingToCachedOnly() else {
-            return
-        }
+        guard representedTokenIndex == tokenIndex else { return }
+        demoteImageLoadToCachedOnlyIfNeeded()
+    }
+
+    func demoteImageLoadToCachedOnlyIfNeeded() {
+        _ = imageLoader.demoteImageLoadingToCachedOnly()
     }
 
     @discardableResult

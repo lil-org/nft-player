@@ -33,6 +33,10 @@ final class GridMaterializer {
     }
 
     enum CellConfiguration: Equatable {
+        case collectionSource(
+            allowsLocalLargeImageUpgrade: Bool,
+            imageDecodeVariant: DownloadableMediaImageDecodeVariant
+        )
         case sourceOverscan(
             imageDecodeVariant: DownloadableMediaImageDecodeVariant
         )
@@ -43,7 +47,7 @@ final class GridMaterializer {
 
         var requiredImageQuality: CollectionBrowseImageQuality? {
             switch self {
-            case .sourceOverscan:
+            case .collectionSource, .sourceOverscan:
                 nil
             case let .destinationPhantom(requiredImageQuality, _):
                 requiredImageQuality
@@ -52,6 +56,8 @@ final class GridMaterializer {
 
         var imageDecodeVariant: DownloadableMediaImageDecodeVariant {
             switch self {
+            case let .collectionSource(_, imageDecodeVariant):
+                imageDecodeVariant
             case let .sourceOverscan(imageDecodeVariant):
                 imageDecodeVariant
             case let .destinationPhantom(_, imageDecodeVariant):
@@ -64,7 +70,12 @@ final class GridMaterializer {
         }
 
         var allowsLocalLargeImageUpgrade: Bool {
-            false
+            switch self {
+            case let .collectionSource(allowsLocalLargeImageUpgrade, _):
+                allowsLocalLargeImageUpgrade
+            case .sourceOverscan, .destinationPhantom:
+                false
+            }
         }
     }
 
@@ -325,6 +336,7 @@ final class GridMaterializer {
     private enum TransitionContentPreparation {
         case ready
         case pending
+        case waitingForImageSources
         case unavailable
     }
 
@@ -432,6 +444,19 @@ final class GridMaterializer {
 
     func activate(session: Session) {
         activeSession = session
+        if let collectionView {
+            for indexPath in collectionView.indexPathsForVisibleItems {
+                guard let cell = collectionView.cellForItem(at: indexPath)
+                    as? MobilePlayerCollectionBrowserCell else {
+                    continue
+                }
+                registerSourceRepresentation(
+                    session: session,
+                    cell: cell,
+                    itemIndex: indexPath.item
+                )
+            }
+        }
         session.defersPhantomShapeMaskCommits = isExternallyFrameDriven
         if isExternallyFrameDriven {
             session.phantomShapeMaskIsDirty = true
@@ -525,8 +550,179 @@ final class GridMaterializer {
             + Array(session.phantomCells.values)
     }
 
+    func reconcilePublishedImageSources(session: Session) {
+        guard activeSession?.id == session.id else { return }
+
+        let sourceColumnCount = session.sourceLayout.columnCount
+        let sourceMode = MobileCollectionBrowserGridMode(
+            rawValue: sourceColumnCount
+        ) ?? (sourceColumnCount.isMultiple(of: 2)
+            ? MobileCollectionBrowserGridMode(
+                rawValue: sourceColumnCount / 2
+            )
+            : nil)
+        for (_, representation) in session.cachedSourceRepresentations {
+            let itemIndex = representation.itemIndex
+            guard representation.cell.superview != nil,
+                  representation.cell.represents(tokenIndex: itemIndex),
+                  !representation.cell.hasImageSources(tokenIndex: itemIndex),
+                  contentAccess.imageSources(itemIndex) != nil else {
+                continue
+            }
+            let configuration: CellConfiguration
+            if session.sourceOverscanCells[itemIndex]
+                === representation.cell {
+                configuration = .sourceOverscan(
+                    imageDecodeVariant: session.sourceImageDecodeVariant
+                )
+            } else {
+                configuration = .collectionSource(
+                    allowsLocalLargeImageUpgrade:
+                        sourceMode?.allowsLocalLargeImageUpgrade ?? false,
+                    imageDecodeVariant: session.sourceImageDecodeVariant
+                )
+            }
+            contentAccess.configureCell(
+                representation.cell,
+                IndexPath(item: itemIndex, section: 0),
+                configuration
+            )
+            guard representation.cell.hasImageSources(
+                tokenIndex: itemIndex
+            ) else { continue }
+            enqueuePublishedSourcePromotion(
+                session: session,
+                cell: representation.cell,
+                tokenIndex: itemIndex
+            )
+        }
+
+        var reconfiguredPhantomCells = [
+            Int: MobilePlayerCollectionBrowserCell
+        ]()
+        if let plane = session.plane {
+            for (itemIndex, cell) in session.phantomCells {
+                guard cell.superview != nil,
+                      cell.represents(tokenIndex: itemIndex),
+                      !cell.hasImageSources(tokenIndex: itemIndex),
+                      contentAccess.imageSources(itemIndex) != nil else {
+                    continue
+                }
+                contentAccess.configureCell(
+                    cell,
+                    IndexPath(item: itemIndex, section: 0),
+                    .destinationPhantom(
+                        requiredImageQuality: plane.toMode.requiredImageQuality,
+                        imageDecodeVariant: plane.imageDecodeVariant
+                    )
+                )
+                guard cell.hasImageSources(tokenIndex: itemIndex) else {
+                    continue
+                }
+                reconfiguredPhantomCells[itemIndex] = cell
+            }
+        }
+
+        guard let plane = session.plane else { return }
+        var resolvedDetailRepresentationIDs = Set<ObjectIdentifier>()
+        let waiters = session.transitionImageSourcesWaiters
+        for (representationID, waiter) in waiters {
+            guard let representation = session.cachedSourceRepresentations[
+                representationID
+            ], representation.itemIndex == waiter.sourceItem,
+                  session.detailedSourceCellItems[representationID]
+                    == waiter.sourceItem,
+                  !session.preparedRepresentationIDs.contains(
+                    representationID
+                  ), session.transitionImageLoads[representationID] == nil,
+                  !session.lockedFallbackRepresentationIDs.contains(
+                    representationID
+                  ), session.selectedSourceItems.contains(waiter.sourceItem),
+                  session.foregroundEligibleRepresentationIDs.contains(
+                    representationID
+                  ), representation.cell.superview != nil,
+                  representation.cell.represents(
+                    tokenIndex: waiter.sourceItem
+                  ), destinationItem(
+                    session: session,
+                    sourceItem: waiter.sourceItem,
+                    plane: plane
+                  ) == waiter.destinationItem else {
+                session.transitionImageSourcesWaiters.removeValue(
+                    forKey: representationID
+                )
+                continue
+            }
+            guard contentAccess.imageSources(waiter.destinationItem) != nil
+            else {
+                continue
+            }
+            session.transitionImageSourcesWaiters.removeValue(
+                forKey: representationID
+            )
+            resolvedDetailRepresentationIDs.insert(representationID)
+        }
+        enqueueDetailedSourceMaterialization(
+            session: session,
+            plane: plane,
+            candidates: .eligibleRepresentationIDs(
+                resolvedDetailRepresentationIDs
+            )
+        )
+        if !reconfiguredPhantomCells.isEmpty {
+            reconcilePhantomImageLoadEligibility(
+                session: session,
+                context: cachedForegroundDestinationEligibilityContext(
+                    session: session,
+                    plane: plane
+                ),
+                cells: reconfiguredPhantomCells
+            )
+        }
+    }
+
     func phantomShapeMaskedFrames(session: Session?) -> [CGRect] {
         planeRenderer.phantomShapeMaskedFrames(session: session)
+    }
+
+    func transitionThumbnailWindow(session: Session)
+        -> MobilePlayerCollectionBrowserImagePipeline.TransitionWindow? {
+        guard let collectionView, let viewportView else { return nil }
+        let viewport = collectionView.convert(
+            viewportView.bounds,
+            from: viewportView
+        )
+        var items = sourceItemIndices(session: session, intersecting: viewport)
+        let layout = session.plane?.transitionLayout.toLayout
+            ?? session.sourceLayout
+        if let plane = session.plane,
+           let destinationViewport = destinationRects(
+               session: session,
+               plane: plane
+           )?.priority {
+            items.formUnion(layout.candidateItemIndices(
+                intersecting: destinationViewport
+            ))
+            items.formUnion(session.selectedSourceItems.compactMap {
+                session.reassignments[$0]
+            })
+        }
+        guard let first = items.min(), let last = items.max() else { return nil }
+        let sourceMode = MobileCollectionBrowserGridMode(
+            rawValue: layout.columnCount
+        ) ?? MobileCollectionBrowserGridMode(rawValue: layout.columnCount / 2)
+        return .init(
+            tokenIndex: min(
+                max(session.gestureAnchor?.tokenIndex ?? first, first),
+                last
+            ),
+            tokenRange: first...last,
+            layout: layout,
+            quality: (session.plane?.toMode ?? sourceMode ?? .threeColumns)
+                .requiredImageQuality,
+            decodeVariant: session.plane?.imageDecodeVariant
+                ?? session.sourceImageDecodeVariant
+        )
     }
 
     func viewportRenderCells(session: Session?)
@@ -3110,6 +3306,39 @@ final class GridMaterializer {
         )
     }
 
+    private func enqueuePublishedSourcePromotion(
+        session: Session,
+        cell: MobilePlayerCollectionBrowserCell,
+        tokenIndex: Int
+    ) {
+        guard let collectionView, let viewportView else { return }
+        let viewportRect = collectionView.convert(
+            viewportView.bounds,
+            from: viewportView
+        )
+        let buffer = priorityCoverageBuffer(for: viewportRect)
+        guard self.cell(
+            cell,
+            intersects: viewportRect.insetBy(
+                dx: -buffer.width,
+                dy: -buffer.height
+            )
+        ) else {
+            return
+        }
+        enqueueMaterialization(
+            session: session,
+            priority: self.cell(cell, intersects: viewportRect)
+                ? .visibleRepresentation
+                : .deferred,
+            kind: .promotion(
+                contentGeneration: session.transitionContentGeneration,
+                representationID: ObjectIdentifier(cell),
+                tokenIndex: tokenIndex
+            )
+        )
+    }
+
     func didConfigureCell(
         _ cell: MobilePlayerCollectionBrowserCell,
         at indexPath: IndexPath
@@ -3129,6 +3358,7 @@ final class GridMaterializer {
         }
         let cellID = ObjectIdentifier(cell)
         session.detailedSourceCellItems.removeValue(forKey: cellID)
+        session.transitionImageSourcesWaiters.removeValue(forKey: cellID)
         if session.lastContentFadeAlpha > 0 {
             session.lockedFallbackRepresentationIDs.insert(cellID)
         }
@@ -3258,6 +3488,7 @@ final class GridMaterializer {
         }
         guard !session.lockedFallbackRepresentationIDs.contains(cellID)
         else {
+            session.transitionImageSourcesWaiters.removeValue(forKey: cellID)
             changesSourceCoverage = classifyUnpreparedSourceRepresentation(
                 session: session,
                 cell: cell,
@@ -3296,6 +3527,7 @@ final class GridMaterializer {
             sourceItem: sourceItem,
             plane: plane
         ) else {
+            session.transitionImageSourcesWaiters.removeValue(forKey: cellID)
             cell.installDeferredBaseImageIfNoIncomingOverlay()
             changesSourceCoverage = session.preparedRepresentationIDs
                 .remove(cellID) != nil || changesSourceCoverage
@@ -3338,9 +3570,12 @@ final class GridMaterializer {
                 destinationItem: destinationItem,
                 plane: plane
             )
-        case .pending, .unavailable:
-            if case .unavailable = preparation {
+        case .pending, .waitingForImageSources, .unavailable:
+            switch preparation {
+            case .waitingForImageSources, .unavailable:
                 cell.installDeferredBaseImageIfNoIncomingOverlay()
+            case .ready, .pending:
+                break
             }
             changesSourceCoverage = session.preparedRepresentationIDs
                 .remove(cellID) != nil || changesSourceCoverage
@@ -3419,25 +3654,61 @@ final class GridMaterializer {
         plane: GridModePlaneContext,
         resolvedContent: ResolvedTransitionContent? = nil
     ) -> TransitionContentPreparation {
-        guard cell.represents(tokenIndex: fromItem) else {
-            return .unavailable
-        }
         let cellID = ObjectIdentifier(cell)
-        let requiredImageDecodeVariant = plane.imageDecodeVariant
-        guard !session.lockedFallbackRepresentationIDs.contains(cellID),
-              let resolvedContent = resolvedContent?.destinationItem == toItem
-                && resolvedContent?.imageDecodeVariant
-                    == requiredImageDecodeVariant
-                ? resolvedContent
-                : resolveTransitionContent(
-                    destinationItem: toItem,
-                    imageDecodeVariant: requiredImageDecodeVariant
-                ) else {
-            cancelTransitionImageLoad(session: session, for: cell)
+        guard cell.represents(tokenIndex: fromItem) else {
+            if session.transitionImageSourcesWaiters[cellID]?.sourceItem
+                == fromItem {
+                session.transitionImageSourcesWaiters.removeValue(
+                    forKey: cellID
+                )
+            }
             return .unavailable
         }
-        let contentIdentity = resolvedContent.contentIdentity
-        let imageSources = resolvedContent.imageSources
+        let requiredImageDecodeVariant = plane.imageDecodeVariant
+        guard !session.lockedFallbackRepresentationIDs.contains(cellID)
+        else {
+            cancelTransitionImageLoad(session: session, for: cell)
+            session.transitionImageSourcesWaiters.removeValue(forKey: cellID)
+            return .unavailable
+        }
+        let transitionContent: ResolvedTransitionContent
+        if let preparedContent = resolvedContent,
+           preparedContent.destinationItem == toItem,
+           preparedContent.imageDecodeVariant == requiredImageDecodeVariant {
+            transitionContent = preparedContent
+        } else {
+            guard let contentIdentity = contentAccess.contentIdentity(toItem)
+            else {
+                cancelTransitionImageLoad(session: session, for: cell)
+                session.transitionImageSourcesWaiters.removeValue(
+                    forKey: cellID
+                )
+                return .unavailable
+            }
+            guard let imageSources = contentAccess.imageSources(toItem) else {
+                cancelTransitionImageLoad(session: session, for: cell)
+                session.transitionImageSourcesWaiters[cellID] =
+                    GridRenderTransitionImageSourcesWaiter(
+                        sourceItem: fromItem,
+                        destinationItem: toItem
+                    )
+                return .waitingForImageSources
+            }
+            transitionContent = ResolvedTransitionContent(
+                destinationItem: toItem,
+                contentIdentity: contentIdentity,
+                imageSources: imageSources,
+                imageDecodeVariant: requiredImageDecodeVariant.normalized,
+                cachedImage: imageAccess.cachedImage(
+                    imageSources,
+                    .highestAvailable,
+                    variant: requiredImageDecodeVariant
+                )
+            )
+        }
+        session.transitionImageSourcesWaiters.removeValue(forKey: cellID)
+        let contentIdentity = transitionContent.contentIdentity
+        let imageSources = transitionContent.imageSources
         let retainedTransitionContentQuality = session
             .preparedRepresentationIDs.contains(cellID)
             && session.detailedSourceCellItems[cellID] == fromItem
@@ -3457,7 +3728,7 @@ final class GridMaterializer {
                 requiredImageDecodeVariant
             ) == true
         var installedCachedContent = false
-        if let cachedImage = resolvedContent.cachedImage {
+        if let cachedImage = transitionContent.cachedImage {
             let satisfiesRequiredQuality = cachedImage.quality.canReplace(
                 requiredQuality
             )
@@ -4004,6 +4275,10 @@ final class GridMaterializer {
         ifRepresenting sourceItem: Int? = nil
     ) {
         let cellID = ObjectIdentifier(cell)
+        if let waiter = session.transitionImageSourcesWaiters[cellID],
+           sourceItem == nil || waiter.sourceItem == sourceItem {
+            session.transitionImageSourcesWaiters.removeValue(forKey: cellID)
+        }
         guard let load = session.transitionImageLoads[cellID],
               sourceItem == nil || load.sourceItem == sourceItem else {
             return
@@ -4032,6 +4307,18 @@ final class GridMaterializer {
         removePendingDetails: Bool
     ) {
         guard !scope.isEmpty else { return }
+        let waiterRepresentationIDs = session.transitionImageSourcesWaiters
+            .compactMap { representationID, waiter in
+                scope.contains(
+                    representationID: representationID,
+                    sourceItem: waiter.sourceItem
+                ) ? representationID : nil
+            }
+        for representationID in waiterRepresentationIDs {
+            session.transitionImageSourcesWaiters.removeValue(
+                forKey: representationID
+            )
+        }
         var loads = [(
             representationID: ObjectIdentifier,
             load: GridModeTransitionImageLoad

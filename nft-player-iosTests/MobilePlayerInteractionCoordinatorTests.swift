@@ -68,7 +68,14 @@ private final class PlayerInteractionTestFixture {
         tokenProvider:
             (@MainActor (PlayerPagePosition) -> GeneratedToken)? = nil,
         externalDisplayTokenUpdater:
-            (@MainActor (GeneratedToken) -> Void)? = nil
+            (@MainActor (GeneratedToken) -> Void)? = nil,
+        windowScene: UIWindowScene? = nil,
+        installDownloadableMediaWindow: @escaping @MainActor (
+            PlayerDownloadableMediaWindow,
+            UUID
+        ) -> Void = {
+            DownloadableMediaCache.shared.prepareWindow($0, ownerId: $1)
+        }
     ) {
         let registry = MobilePlaybackSessionRegistry(
             dependencies: .init(
@@ -76,7 +83,9 @@ private final class PlayerInteractionTestFixture {
                     PlayerInteractionTestViewingTracker()
                 },
                 clearActiveMediaWindow: { _ in },
-                cancelAllMediaDownloads: {}
+                cancelAllMediaDownloads: {},
+                installDownloadableMediaWindow:
+                    installDownloadableMediaWindow
             )
         )
         let playbackSession = registry.startSession(
@@ -130,12 +139,14 @@ private final class PlayerInteractionTestFixture {
             animated: false
         )
 
-        let window = UIWindow(frame: CGRect(
+        let window = windowScene.map(UIWindow.init(windowScene:))
+            ?? UIWindow(frame: .zero)
+        window.frame = CGRect(
             x: 0,
             y: 0,
             width: 390,
             height: 844
-        ))
+        )
         window.rootViewController = navigationController
         window.isHidden = false
         navigationController.view.frame = window.bounds
@@ -318,6 +329,112 @@ extension MobilePlayerInteractionCoordinatorTests {
 
         XCTAssertEqual(resolvedPagePositions, [.initial])
         XCTAssertTrue(externalDisplayTokens.isEmpty)
+    }
+
+    func testWidgetReconciliationPreparesPostCommitThumbnailWindow()
+        async throws {
+        let item = try XCTUnwrap(
+            SuggestedItemsService.visibleItems.first { item in
+                let count = CollectionCatalog.tokenCount(
+                    specificCollectionId: item.id
+                )
+                return count > 3
+                    && PlayerCollectionBrowserSupport.isAvailable(
+                        forCollectionId: item.id
+                    )
+                    && MobileCollectionCatalog.downloadableMediaDescriptor(
+                        specificCollectionId: item.id,
+                        tokenIndex: 2
+                    ) != nil
+                    && MobileCollectionCatalog.collectionBrowseImageSources(
+                        specificCollectionId: item.id,
+                        tokenIndex: 2
+                    ) != nil
+            }
+        )
+        let tokenCount = CollectionCatalog.tokenCount(
+            specificCollectionId: item.id
+        )
+        let anchorTokenIndex = 2
+        let insertedTokenIndex = 3
+        let insertion = PlayerWidgetTokenInsertion(
+            insertedToken: GeneratedToken(
+                fullCollectionId: item.id,
+                collectionName: item.name,
+                address: item.address,
+                id: "widget-token",
+                html: "",
+                displayName: "Widget token",
+                displayTokenId: "widget-token",
+                url: nil
+            ),
+            insertedTokenIndex: insertedTokenIndex,
+            anchorProgress: PlayerViewingProgress(
+                collectionId: item.id,
+                collectionName: item.name,
+                tokenId: "anchor-token",
+                tokenIndex: anchorTokenIndex,
+                tokenCount: tokenCount,
+                updatedAt: .distantPast
+            ),
+            isAnchorProgressResolved: true
+        )
+        let foregroundScene = try XCTUnwrap(
+            UIApplication.shared.connectedScenes
+                .compactMap { $0 as? UIWindowScene }
+                .first { $0.activationState == .foregroundActive }
+        )
+        var installedWindows = [PlayerDownloadableMediaWindow]()
+        let fixture = PlayerInteractionTestFixture(
+            displayMode: .onePerPage,
+            config: MobilePlayerConfig(
+                initialItemId: item.id,
+                widgetTokenInsertion: insertion
+            ),
+            windowScene: foregroundScene,
+            installDownloadableMediaWindow: { window, _ in
+                installedWindows.append(window)
+            }
+        )
+        defer { fixture.tearDown() }
+        XCTAssertNil(fixture.playbackSession.collectionBrowseSnapshot())
+        let initialWindowCount = installedWindows.count
+
+        fixture.navigationController.setViewControllers(
+            [fixture.rootViewController, fixture.browserViewController],
+            animated: false
+        )
+        fixture.navigationController.view.layoutIfNeeded()
+        fixture.modeController.noteNavigationDidShow(
+            fixture.browserViewController
+        )
+        XCTAssertEqual(
+            fixture.playbackSession.collectionBrowseSnapshot()?.collectionId,
+            item.id
+        )
+
+        let didInstallPostCommitWindow = await waitUntil(timeout: 2) {
+            fixture.playbackSession.collectionBrowseSnapshot()?.collectionId
+                == item.id
+                && installedWindows.dropFirst(initialWindowCount).contains {
+                    $0.currentDescriptor.collectionId == item.id
+                        && $0.currentDescriptor.tokenIndex == anchorTokenIndex
+                }
+        }
+        XCTAssertTrue(didInstallPostCommitWindow)
+        XCTAssertEqual(fixture.modeController.activeMode, .collectionBrowser)
+        XCTAssertEqual(
+            fixture.navigationController.viewControllers,
+            [fixture.rootViewController, fixture.browserViewController]
+        )
+
+        let reconciledWindowCount = installedWindows.count
+        fixture.modeController.noteNavigationDidShow(
+            fixture.browserViewController
+        )
+        await waitForNextMainQueueTurn()
+
+        XCTAssertEqual(installedWindows.count, reconciledWindowCount)
     }
 
     private func gestureIdentifiers(in view: UIView) -> Set<ObjectIdentifier> {

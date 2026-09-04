@@ -3,7 +3,7 @@
 import QuartzCore
 import UIKit
 
-struct MobilePlayerCollectionBrowserLayoutAspectState {
+struct MobilePlayerCollectionBrowserLayoutAspectState: Equatable {
     let aspectProfile: MobilePlayerBrowserAspectProfile
     let fallbackSpec: PlayerMediaPlaceholderSpec
 }
@@ -391,6 +391,19 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
         materializer.viewportRenderCells(session: currentSession)
     }
 
+    var transitionThumbnailWindow:
+        MobilePlayerCollectionBrowserImagePipeline.TransitionWindow? {
+        guard case let .active(session) = lifecycle else { return nil }
+        return materializer.transitionThumbnailWindow(session: session)
+    }
+
+    @discardableResult
+    func reconcilePublishedImageSources() -> Bool {
+        guard case let .active(session) = lifecycle else { return false }
+        materializer.reconcilePublishedImageSources(session: session)
+        return true
+    }
+
     func viewportRenderCells(
         at tokenIndex: Int
     ) -> [MobilePlayerCollectionBrowserCell] {
@@ -428,19 +441,6 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
         )
         lifecycle = .active(session)
         materializer.activate(session: session)
-        if let collectionView {
-            for indexPath in collectionView.indexPathsForVisibleItems {
-                guard let cell = collectionView.cellForItem(at: indexPath)
-                    as? MobilePlayerCollectionBrowserCell else {
-                    continue
-                }
-                materializer.registerSourceRepresentation(
-                    session: session,
-                    cell: cell,
-                    itemIndex: indexPath.item
-                )
-            }
-        }
         return true
     }
 

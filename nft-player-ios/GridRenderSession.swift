@@ -15,6 +15,11 @@ struct GridRenderTransitionImageLoad {
     let cancellation: () -> Void
 }
 
+struct GridRenderTransitionImageSourcesWaiter: Equatable {
+    let sourceItem: Int
+    let destinationItem: Int
+}
+
 struct GridRenderCellFrameCorrection {
     let centerDelta: CGPoint
     let sizeDelta: CGSize
@@ -71,6 +76,9 @@ final class GridRenderSession {
     var sourceCoverage =
         PlayerBrowserGridSourceCoveragePlan<ObjectIdentifier>.empty
     var detailedSourceCellItems = [ObjectIdentifier: Int]()
+    var transitionImageSourcesWaiters = [
+        ObjectIdentifier: GridRenderTransitionImageSourcesWaiter
+    ]()
     var cachedSourceRepresentations = [ObjectIdentifier: (
         itemIndex: Int,
         cell: MobilePlayerCollectionBrowserCell
@@ -185,6 +193,9 @@ final class GridRenderSession {
         marginCoverageRepresentationIDs.remove(representationID)
         removeForegroundEligibility(for: representationID)
         detailedSourceCellItems.removeValue(forKey: representationID)
+        transitionImageSourcesWaiters.removeValue(
+            forKey: representationID
+        )
     }
 
     func registerSourceRepresentation(
@@ -290,6 +301,7 @@ final class GridRenderSession {
         lockedFallbackRepresentationIDs.removeAll(keepingCapacity: true)
         sourceCoverage = .empty
         detailedSourceCellItems.removeAll(keepingCapacity: true)
+        transitionImageSourcesWaiters.removeAll(keepingCapacity: true)
         cachedSourceRepresentations.removeAll(keepingCapacity: true)
         clearForegroundEligibility()
         lastReconciledCurrentViewportRepresentationIDs.removeAll(

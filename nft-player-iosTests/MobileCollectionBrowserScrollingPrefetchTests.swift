@@ -1,6 +1,7 @@
 // ∅ 2026 lil org
 
 import CoreImage
+import Dispatch
 import os
 import UIKit
 import XCTest
@@ -20,7 +21,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
             itemCount: 200,
             initialTokenIndex: 0
         )
-        let planner = MobileCollectionBrowseThumbnailWindowPlanner {
+        let cache = MobileCollectionBrowseImageSourcesCache {
             snapshot, tokenIndex in
             resolutionCount.withLock { $0 += 1 }
             resolvedTokenIndices.withLock { _ = $0.insert(tokenIndex) }
@@ -55,6 +56,9 @@ extension MobileCollectionBrowserGridModePresentationTests {
                 largeDescriptor: descriptor
             )
         }
+        let planner = MobileCollectionBrowseThumbnailWindowPlanner(
+            imageSourcesCache: cache
+        )
         let request = MobileCollectionBrowseThumbnailWindowPlanRequest(
             snapshot: snapshot,
             tokenIndex: 100,
@@ -89,13 +93,213 @@ extension MobileCollectionBrowserGridModePresentationTests {
         )
     }
 
+    func testThumbnailWindowPlannerPublishesSharedSourcesWithoutBlockingMainActor()
+        async throws {
+        let resolutionState = OSAllocatedUnfairLock(
+            initialState: (
+                tokenIndices: Set<Int>(),
+                invocationCount: 0,
+                didBlockCenter: false
+            )
+        )
+        let resolutionStarted = expectation(
+            description: "Descriptor resolution started"
+        )
+        let resumeResolution = DispatchSemaphore(value: 0)
+        let resolutionWaitTimedOut = OSAllocatedUnfairLock(
+            initialState: false
+        )
+        let snapshot = PlayerCollectionBrowseSnapshot(
+            collectionId: "shared-planner-cache",
+            itemCount: 40,
+            initialTokenIndex: 10
+        )
+        let cache = MobileCollectionBrowseImageSourcesCache {
+            snapshot, tokenIndex in
+            let shouldBlock = resolutionState.withLock { state in
+                _ = state.tokenIndices.insert(tokenIndex)
+                state.invocationCount += 1
+                guard tokenIndex == 10, !state.didBlockCenter else {
+                    return false
+                }
+                state.didBlockCenter = true
+                return true
+            }
+            if shouldBlock {
+                resolutionStarted.fulfill()
+                if resumeResolution.wait(
+                    timeout: .now() + .seconds(2)
+                ) == .timedOut {
+                    resolutionWaitTimedOut.withLock { $0 = true }
+                }
+            }
+            let descriptor = CollectionCatalogDownloadableMediaDescriptor(
+                collectionId: snapshot.collectionId,
+                tokenId: String(tokenIndex),
+                tokenIndex: tokenIndex,
+                media: .staticImage(
+                    url: URL(
+                        fileURLWithPath:
+                            "/shared-planner-cache/\(tokenIndex).webp"
+                    ),
+                    fileExtension: "webp"
+                ),
+                purpose: .collectionBrowserThumbnail
+            )
+            return CollectionBrowseImageSources(
+                smallThumbnailDescriptor: descriptor,
+                thumbnailDescriptor: descriptor,
+                largeDescriptor: descriptor
+            )
+        }
+        let planner = MobileCollectionBrowseThumbnailWindowPlanner(
+            imageSourcesCache: cache
+        )
+        let request = MobileCollectionBrowseThumbnailWindowPlanRequest(
+            snapshot: snapshot,
+            tokenIndex: 10,
+            direction: .forward,
+            prefetchStride: 10,
+            columnCount: 5,
+            quality: .smallThumbnail,
+            requiredTokenRange: 5...19,
+            visibleTokenRange: 5...19,
+            isFileOnly: false,
+            decodeVariant: .downsampled(maxPixelWidth: 256),
+            displayedHigherQualityThumbnailTokenIndices: [],
+            displayedLargeTokenIndices: [],
+            locallyAvailableLargeTokenIndices: []
+        )
+
+        XCTAssertNil(cache.cachedImageSources(
+            snapshot: snapshot,
+            tokenIndex: 10
+        ))
+        let firstPlan = Task { await planner.makeWindow(for: request) }
+        await fulfillment(of: [resolutionStarted], timeout: 1)
+        let secondPlan = Task { await planner.makeWindow(for: request) }
+        let heartbeat = expectation(description: "Main actor remained responsive")
+        Task { @MainActor in heartbeat.fulfill() }
+        await fulfillment(of: [heartbeat], timeout: 1)
+        resumeResolution.signal()
+
+        let firstWindow = await firstPlan.value
+        let secondWindow = await secondPlan.value
+        let resolutionSnapshot = resolutionState.withLock { $0 }
+        let resolvedCount = resolutionSnapshot.tokenIndices.count
+        let invocationCount = resolutionSnapshot.invocationCount
+
+        XCTAssertNotNil(firstWindow)
+        XCTAssertEqual(secondWindow, firstWindow)
+        XCTAssertFalse(resolutionWaitTimedOut.withLock { $0 })
+        XCTAssertGreaterThan(resolvedCount, 0)
+        XCTAssertEqual(invocationCount, resolvedCount)
+        XCTAssertNotNil(cache.cachedImageSources(
+            snapshot: snapshot,
+            tokenIndex: 10
+        ))
+        let repeatedWindow = await planner.makeWindow(for: request)
+        XCTAssertNotNil(repeatedWindow)
+        XCTAssertEqual(
+            resolutionState.withLock { $0.invocationCount },
+            invocationCount
+        )
+    }
+
+    func testSnapshotChangeRetainsInFlightPlannerPublication() async {
+        let staleResolutionStarted = expectation(
+            description: "Stale image source resolution started"
+        )
+        let resumeStaleResolution = DispatchSemaphore(value: 0)
+        let staleResolutionWaitTimedOut = OSAllocatedUnfairLock(
+            initialState: false
+        )
+        let cache = MobileCollectionBrowseImageSourcesCache {
+            snapshot, tokenIndex in
+            if snapshot.collectionId == "stale" {
+                staleResolutionStarted.fulfill()
+                if resumeStaleResolution.wait(
+                    timeout: .now() + .seconds(2)
+                ) == .timedOut {
+                    staleResolutionWaitTimedOut.withLock { $0 = true }
+                }
+            }
+            let descriptor = CollectionCatalogDownloadableMediaDescriptor(
+                collectionId: snapshot.collectionId,
+                tokenId: String(tokenIndex),
+                tokenIndex: tokenIndex,
+                media: .staticImage(
+                    url: URL(
+                        fileURLWithPath:
+                            "/stale-planner/\(snapshot.collectionId)/\(tokenIndex).webp"
+                    ),
+                    fileExtension: "webp"
+                ),
+                purpose: .collectionBrowserThumbnail
+            )
+            return CollectionBrowseImageSources(
+                thumbnailDescriptor: descriptor,
+                largeDescriptor: descriptor
+            )
+        }
+        let staleSnapshot = PlayerCollectionBrowseSnapshot(
+            collectionId: "stale",
+            itemCount: 10,
+            initialTokenIndex: 0
+        )
+        let activeSnapshot = PlayerCollectionBrowseSnapshot(
+            collectionId: "active",
+            itemCount: 10,
+            initialTokenIndex: 0
+        )
+        let staleRequest = isolatedPlannerRequest(
+            snapshot: staleSnapshot,
+            tokenIndex: 0
+        )
+        let planner = MobileCollectionBrowseThumbnailWindowPlanner(
+            imageSourcesCache: cache
+        )
+        let staleResolution = Task {
+            await planner.makeWindow(for: staleRequest)
+        }
+        await fulfillment(of: [staleResolutionStarted], timeout: 1)
+        resumeStaleResolution.signal()
+        let staleWindow = await staleResolution.value
+
+        XCTAssertNotNil(staleWindow)
+        XCTAssertFalse(staleResolutionWaitTimedOut.withLock { $0 })
+        XCTAssertEqual(cache.cachedImageSourceCount, 1)
+        XCTAssertNotNil(cache.cachedImageSources(
+            snapshot: staleSnapshot,
+            tokenIndex: 0
+        ))
+
+        let activeWindow = await planner.makeWindow(
+            for: isolatedPlannerRequest(
+                snapshot: activeSnapshot,
+                tokenIndex: 0
+            )
+        )
+
+        XCTAssertNotNil(activeWindow)
+        XCTAssertNotNil(cache.cachedImageSources(
+            snapshot: activeSnapshot,
+            tokenIndex: 0
+        ))
+        XCTAssertNotNil(cache.cachedImageSources(
+            snapshot: staleSnapshot,
+            tokenIndex: 0
+        ))
+        XCTAssertEqual(cache.cachedImageSourceCount, 2)
+    }
+
     func testThumbnailWindowPlannerBuildsNineColumnCompactWindow() async throws {
         let snapshot = PlayerCollectionBrowseSnapshot(
             collectionId: "planner-nine-column",
             itemCount: 200,
             initialTokenIndex: 0
         )
-        let planner = MobileCollectionBrowseThumbnailWindowPlanner {
+        let cache = MobileCollectionBrowseImageSourcesCache {
             snapshot, tokenIndex in
             let thumbnail = CollectionCatalogDownloadableMediaDescriptor(
                 collectionId: snapshot.collectionId,
@@ -129,6 +333,9 @@ extension MobileCollectionBrowserGridModePresentationTests {
                 largeDescriptor: thumbnail
             )
         }
+        let planner = MobileCollectionBrowseThumbnailWindowPlanner(
+            imageSourcesCache: cache
+        )
         let request = MobileCollectionBrowseThumbnailWindowPlanRequest(
             snapshot: snapshot,
             tokenIndex: 100,
@@ -192,12 +399,95 @@ extension MobileCollectionBrowserGridModePresentationTests {
         XCTAssertTrue(fileOnlyWindow.decodedDescriptors.isEmpty)
     }
 
-    func testThumbnailWindowPlannerCacheIsBoundedAndRefreshesRecency()
+    func testThumbnailWindowPlannerRetainsVisibleSourcesBeyondCacheCapacity()
+        async throws {
+        let collectionId = "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd27088"
+        let snapshot = PlayerCollectionBrowseSnapshot(
+            collectionId: collectionId,
+            itemCount: CollectionCatalog.tokenCount(
+                specificCollectionId: collectionId
+            ),
+            initialTokenIndex: 0
+        )
+        let imageSize = try XCTUnwrap(
+            CollectionCatalog.collectionBrowseThumbnailDescriptor(
+                specificCollectionId: collectionId,
+                tokenIndex: 0
+            )?.thumbnailAspectRatio?.size
+        )
+        let viewport = CGRect(x: 0, y: 0, width: 390, height: 844)
+        let layout = try XCTUnwrap(MobilePlayerBrowserLayout(
+            viewportSize: viewport.size,
+            topContentInset: 59,
+            bottomContentInset: 34,
+            aspectProfile: MobilePlayerBrowserAspectProfile(
+                itemCount: snapshot.itemCount,
+                uniformImageSize: imageSize,
+                columnCount: 9
+            )
+        ))
+        let candidates = layout.candidateItemIndices(intersecting: viewport)
+        let visibleRange = candidates.lowerBound...(candidates.upperBound - 1)
+        let cache = MobileCollectionBrowseImageSourcesCache()
+        let planner = MobileCollectionBrowseThumbnailWindowPlanner(
+            imageSourcesCache: cache
+        )
+
+        let window = await planner.makeWindow(for: .init(
+            snapshot: snapshot,
+            tokenIndex: 0,
+            direction: .forward,
+            prefetchStride: layout.prefetchStride,
+            columnCount: layout.columnCount,
+            quality: .smallestThumbnail,
+            requiredTokenRange: visibleRange,
+            visibleTokenRange: visibleRange,
+            isFileOnly: true,
+            decodeVariant: .downsampled(maxPixelWidth: 160),
+            displayedHigherQualityThumbnailTokenIndices: [],
+            displayedLargeTokenIndices: [],
+            locallyAvailableLargeTokenIndices: []
+        ))
+
+        XCTAssertGreaterThan(visibleRange.count, 512)
+        XCTAssertGreaterThan(try XCTUnwrap(window).descriptors.count, 512)
+        XCTAssertTrue(visibleRange.allSatisfy {
+            cache.cachedImageSources(snapshot: snapshot, tokenIndex: $0) != nil
+        })
+
+        let nextTokenIndex = snapshot.itemCount - 1
+        _ = await planner.makeWindow(for: isolatedPlannerRequest(
+            snapshot: snapshot,
+            tokenIndex: nextTokenIndex
+        ))
+
+        XCTAssertLessThanOrEqual(cache.cachedImageSourceCount, 512)
+        XCTAssertNil(cache.cachedImageSources(snapshot: snapshot, tokenIndex: 0))
+        XCTAssertNotNil(cache.cachedImageSources(
+            snapshot: snapshot,
+            tokenIndex: nextTokenIndex
+        ))
+
+        cache.clear()
+
+        XCTAssertEqual(cache.cachedImageSourceCount, 0)
+        XCTAssertNil(cache.cachedImageSources(
+            snapshot: snapshot,
+            tokenIndex: nextTokenIndex
+        ))
+    }
+
+    func testThumbnailWindowPlannerCacheIsBoundedAndMemoizesUnavailableSources()
         async {
         let resolutionCounts = OSAllocatedUnfairLock(
             initialState: [String: Int]()
         )
-        let planner = MobileCollectionBrowseThumbnailWindowPlanner(
+        let firstSnapshot = PlayerCollectionBrowseSnapshot(
+            collectionId: "lru-a",
+            itemCount: 4,
+            initialTokenIndex: 0
+        )
+        let cache = MobileCollectionBrowseImageSourcesCache(
             maximumCachedImageSourceCount: 2
         ) { snapshot, tokenIndex in
             let key = "\(snapshot.collectionId):\(tokenIndex)"
@@ -218,82 +508,89 @@ extension MobileCollectionBrowserGridModePresentationTests {
                 largeDescriptor: descriptor
             )
         }
-        let firstSnapshot = PlayerCollectionBrowseSnapshot(
-            collectionId: "lru-a",
-            itemCount: 4,
-            initialTokenIndex: 0
+        let planner = MobileCollectionBrowseThumbnailWindowPlanner(
+            imageSourcesCache: cache
         )
 
-        _ = await planner.imageSourcesForTesting(
-            snapshot: firstSnapshot,
-            tokenIndex: 0
-        )
-        _ = await planner.imageSourcesForTesting(
-            snapshot: firstSnapshot,
-            tokenIndex: 1
-        )
-        _ = await planner.imageSourcesForTesting(
-            snapshot: firstSnapshot,
-            tokenIndex: 0
-        )
-        _ = await planner.imageSourcesForTesting(
-            snapshot: firstSnapshot,
-            tokenIndex: 2
-        )
-        _ = await planner.imageSourcesForTesting(
-            snapshot: firstSnapshot,
-            tokenIndex: 0
-        )
-        _ = await planner.imageSourcesForTesting(
-            snapshot: firstSnapshot,
-            tokenIndex: 1
-        )
-        _ = await planner.imageSourcesForTesting(
-            snapshot: firstSnapshot,
-            tokenIndex: 3
-        )
-        _ = await planner.imageSourcesForTesting(
-            snapshot: firstSnapshot,
-            tokenIndex: 3
-        )
-        let firstCachedCount = await planner.cachedImageSourceCountForTesting
+        for tokenIndex in [0, 1, 0, 2, 0, 1, 3, 3] {
+            _ = await planner.makeWindow(
+                for: isolatedPlannerRequest(
+                    snapshot: firstSnapshot,
+                    tokenIndex: tokenIndex
+                )
+            )
+        }
 
         XCTAssertEqual(resolutionCounts.withLock { $0["lru-a:0"] }, 1)
         XCTAssertEqual(resolutionCounts.withLock { $0["lru-a:1"] }, 2)
         XCTAssertEqual(resolutionCounts.withLock { $0["lru-a:2"] }, 1)
         XCTAssertEqual(resolutionCounts.withLock { $0["lru-a:3"] }, 1)
-        XCTAssertEqual(firstCachedCount, 2)
+        XCTAssertEqual(cache.cachedImageSourceCount, 2)
+        XCTAssertNil(cache.cachedImageSources(
+            snapshot: firstSnapshot,
+            tokenIndex: 3
+        ))
 
         let secondSnapshot = PlayerCollectionBrowseSnapshot(
             collectionId: "lru-b",
             itemCount: 4,
             initialTokenIndex: 0
         )
-        _ = await planner.imageSourcesForTesting(
-            snapshot: secondSnapshot,
-            tokenIndex: 0
+        _ = await planner.makeWindow(
+            for: isolatedPlannerRequest(
+                snapshot: secondSnapshot,
+                tokenIndex: 0
+            )
         )
-        let secondCachedCount = await planner.cachedImageSourceCountForTesting
         XCTAssertEqual(resolutionCounts.withLock { $0["lru-b:0"] }, 1)
-        XCTAssertEqual(secondCachedCount, 1)
+        XCTAssertEqual(cache.cachedImageSourceCount, 2)
+        _ = await planner.makeWindow(
+            for: isolatedPlannerRequest(
+                snapshot: firstSnapshot,
+                tokenIndex: 3
+            )
+        )
+        XCTAssertEqual(resolutionCounts.withLock { $0["lru-a:3"] }, 1)
     }
 
-    func testBrowseImageSourcesCacheMemoizesAvailableAndUnavailableSources() {
-        let resolutionCounts = OSAllocatedUnfairLock(
-            initialState: [Int: Int]()
+    private func isolatedPlannerRequest(
+        snapshot: PlayerCollectionBrowseSnapshot,
+        tokenIndex: Int
+    ) -> MobileCollectionBrowseThumbnailWindowPlanRequest {
+        MobileCollectionBrowseThumbnailWindowPlanRequest(
+            snapshot: snapshot,
+            tokenIndex: tokenIndex,
+            direction: .forward,
+            prefetchStride: 1,
+            columnCount: 1,
+            quality: .thumbnail,
+            requiredTokenRange: tokenIndex...tokenIndex,
+            visibleTokenRange: tokenIndex...tokenIndex,
+            isFileOnly: false,
+            decodeVariant: .full,
+            displayedHigherQualityThumbnailTokenIndices: [],
+            displayedLargeTokenIndices: Set(0..<snapshot.itemCount)
+                .subtracting([tokenIndex]),
+            locallyAvailableLargeTokenIndices: []
         )
-        var cache = MobileCollectionBrowseImageSourcesCache(
-            maximumCachedImageSourceCount: 4
-        ) { snapshot, tokenIndex in
+    }
+
+#if DEBUG
+    func testSessionPlannerPublishesSourcesToControllerAndDisconnectClearsThem()
+        async throws {
+        let metadata = try collectionMetadata(minimumTokenCount: 100)
+        let resolutionCounts = OSAllocatedUnfairLock(initialState: [Int: Int]())
+        let imageSourcesCache = MobileCollectionBrowseImageSourcesCache {
+            snapshot, tokenIndex in
             resolutionCounts.withLock { $0[tokenIndex, default: 0] += 1 }
-            guard tokenIndex != 2 else { return nil }
             let descriptor = CollectionCatalogDownloadableMediaDescriptor(
                 collectionId: snapshot.collectionId,
                 tokenId: String(tokenIndex),
                 tokenIndex: tokenIndex,
                 media: .staticImage(
                     url: URL(
-                        fileURLWithPath: "/cache/\(tokenIndex).webp"
+                        fileURLWithPath:
+                            "/shared-session-cache/\(tokenIndex).webp"
                     ),
                     fileExtension: "webp"
                 ),
@@ -304,124 +601,16 @@ extension MobileCollectionBrowserGridModePresentationTests {
                 largeDescriptor: descriptor
             )
         }
-        let snapshot = PlayerCollectionBrowseSnapshot(
-            collectionId: "cache",
-            itemCount: 4,
-            initialTokenIndex: 0
-        )
-
-        XCTAssertNotNil(cache.imageSources(snapshot: snapshot, tokenIndex: 0))
-        XCTAssertNotNil(cache.imageSources(snapshot: snapshot, tokenIndex: 0))
-        XCTAssertNil(cache.imageSources(snapshot: snapshot, tokenIndex: 2))
-        XCTAssertNil(cache.imageSources(snapshot: snapshot, tokenIndex: 2))
-        XCTAssertNil(cache.imageSources(snapshot: snapshot, tokenIndex: -1))
-        XCTAssertNil(cache.imageSources(snapshot: snapshot, tokenIndex: 4))
-
-        XCTAssertEqual(resolutionCounts.withLock { $0[0] }, 1)
-        XCTAssertEqual(resolutionCounts.withLock { $0[2] }, 1)
-        XCTAssertNil(resolutionCounts.withLock { $0[-1] })
-        XCTAssertNil(resolutionCounts.withLock { $0[4] })
-        XCTAssertEqual(cache.cachedImageSourceCount, 2)
-
-        cache.updateSnapshot(nil)
-
-        XCTAssertEqual(cache.cachedImageSourceCount, 0)
-        XCTAssertNil(cache.imageSources(snapshot: nil, tokenIndex: 0))
-        XCTAssertEqual(resolutionCounts.withLock { $0[0] }, 1)
-        XCTAssertNotNil(cache.imageSources(snapshot: snapshot, tokenIndex: 0))
-        XCTAssertEqual(resolutionCounts.withLock { $0[0] }, 2)
-    }
-
-    func testBrowseImageSourcesCacheUsesLRUAndSnapshotIdentity() {
-        let resolutionCounts = OSAllocatedUnfairLock(
-            initialState: [String: Int]()
-        )
-        var cache = MobileCollectionBrowseImageSourcesCache(
-            maximumCachedImageSourceCount: 2
-        ) { snapshot, tokenIndex in
-            let key = "\(snapshot.collectionId):\(tokenIndex)"
-            resolutionCounts.withLock { $0[key, default: 0] += 1 }
-            let descriptor = CollectionCatalogDownloadableMediaDescriptor(
-                collectionId: snapshot.collectionId,
-                tokenId: String(tokenIndex),
-                tokenIndex: tokenIndex,
-                media: .staticImage(
-                    url: URL(fileURLWithPath: "/cache/\(key).webp"),
-                    fileExtension: "webp"
-                ),
-                purpose: .collectionBrowserThumbnail
-            )
-            return CollectionBrowseImageSources(
-                thumbnailDescriptor: descriptor,
-                largeDescriptor: descriptor
-            )
-        }
-        let snapshot = PlayerCollectionBrowseSnapshot(
-            collectionId: "identity-a",
-            itemCount: 4,
-            initialTokenIndex: 0
-        )
-
-        _ = cache.imageSources(snapshot: snapshot, tokenIndex: 0)
-        _ = cache.imageSources(snapshot: snapshot, tokenIndex: 1)
-        _ = cache.imageSources(snapshot: snapshot, tokenIndex: 0)
-        _ = cache.imageSources(snapshot: snapshot, tokenIndex: 2)
-        _ = cache.imageSources(snapshot: snapshot, tokenIndex: 0)
-        _ = cache.imageSources(snapshot: snapshot, tokenIndex: 1)
-
-        XCTAssertEqual(resolutionCounts.withLock { $0["identity-a:0"] }, 1)
-        XCTAssertEqual(resolutionCounts.withLock { $0["identity-a:1"] }, 2)
-        XCTAssertEqual(resolutionCounts.withLock { $0["identity-a:2"] }, 1)
-        XCTAssertEqual(cache.cachedImageSourceCount, 2)
-
-        let positionOnlyUpdate = PlayerCollectionBrowseSnapshot(
-            collectionId: "identity-a",
-            itemCount: 4,
-            initialTokenIndex: 2
-        )
-        _ = cache.imageSources(snapshot: positionOnlyUpdate, tokenIndex: 0)
-        XCTAssertEqual(resolutionCounts.withLock { $0["identity-a:0"] }, 1)
-
-        let invalidPositionUpdate = PlayerCollectionBrowseSnapshot(
-            collectionId: "identity-a",
-            itemCount: 4,
-            initialTokenIndex: 4
-        )
-        XCTAssertNil(
-            cache.imageSources(
-                snapshot: invalidPositionUpdate,
-                tokenIndex: 0
-            )
-        )
-        XCTAssertEqual(resolutionCounts.withLock { $0["identity-a:0"] }, 1)
-
-        let itemCountUpdate = PlayerCollectionBrowseSnapshot(
-            collectionId: "identity-a",
-            itemCount: 5,
-            initialTokenIndex: 2
-        )
-        _ = cache.imageSources(snapshot: itemCountUpdate, tokenIndex: 0)
-        XCTAssertEqual(resolutionCounts.withLock { $0["identity-a:0"] }, 2)
-        XCTAssertEqual(cache.cachedImageSourceCount, 1)
-
-        let collectionUpdate = PlayerCollectionBrowseSnapshot(
-            collectionId: "identity-b",
-            itemCount: 5,
-            initialTokenIndex: 2
-        )
-        _ = cache.imageSources(snapshot: collectionUpdate, tokenIndex: 0)
-        XCTAssertEqual(resolutionCounts.withLock { $0["identity-b:0"] }, 1)
-        XCTAssertEqual(cache.cachedImageSourceCount, 1)
-    }
-
-#if DEBUG
-    func testControllerImageSourcesCacheTracksSnapshotLifecycle()
-        async throws {
-        let metadata = try collectionMetadata(minimumTokenCount: 100)
-        let resolutionCounts = OSAllocatedUnfairLock(
-            initialState: [String: Int]()
-        )
-        let session = MobilePlaybackController.shared.startSession(
+        let registry = MobilePlaybackSessionRegistry(dependencies: .init(
+            makeViewingSessionTracker: {
+                PlayerViewingSessionTracker(continueViewingCollectionId: $0)
+            },
+            clearActiveMediaWindow: { _ in },
+            cancelAllMediaDownloads: {},
+            makeCollectionBrowseImageSourcesCache: { imageSourcesCache },
+            installDownloadableMediaWindow: { _, _ in }
+        ))
+        let session = registry.startSession(
             config: MobilePlayerConfig(
                 id: UUID(),
                 initialItemId: metadata.id,
@@ -430,31 +619,100 @@ extension MobileCollectionBrowserGridModePresentationTests {
         )
         let display = PlaybackDisplay()
         session.attach(display: display)
-        defer { session.stopAndDisconnect() }
         let controller = VerticalCollectionBrowserViewController(
-            playbackSession: session,
-            imageSourcesResolver: { snapshot, tokenIndex in
-                let key = "\(snapshot.collectionId):\(tokenIndex)"
-                resolutionCounts.withLock { $0[key, default: 0] += 1 }
-                let descriptor =
-                    CollectionCatalogDownloadableMediaDescriptor(
-                        collectionId: snapshot.collectionId,
-                        tokenId: String(tokenIndex),
-                        tokenIndex: tokenIndex,
-                        media: .staticImage(
-                            url: URL(
-                                fileURLWithPath:
-                                    "/controller-cache/\(key).webp"
-                            ),
-                            fileExtension: "webp"
-                        ),
-                        purpose: .collectionBrowserThumbnail
-                    )
-                return CollectionBrowseImageSources(
-                    thumbnailDescriptor: descriptor,
-                    largeDescriptor: descriptor
-                )
-            }
+            playbackSession: session
+        )
+        controller.loadViewIfNeeded()
+
+        let originalSnapshot = try XCTUnwrap(
+            session.collectionBrowseSnapshot()
+        )
+        let tokenIndex = originalSnapshot.itemCount - 1
+        XCTAssertNil(controller.browseImageSourcesForTesting(
+            tokenIndex: tokenIndex
+        ))
+        let prepared = expectation(description: "Thumbnail sources prepared")
+        session.prepareCollectionBrowseThumbnailWindow(
+            centeredAt: tokenIndex,
+            direction: .backward,
+            prefetchStride: 25,
+            columnCount: 5,
+            quality: .smallThumbnail,
+            requiredTokenRange: tokenIndex...tokenIndex,
+            visibleTokenRange: tokenIndex...tokenIndex,
+            displayedHigherQualityThumbnailTokenIndices: [],
+            displayedLargeTokenIndices: [],
+            locallyAvailableLargeTokenIndices: [],
+            completion: { _ in prepared.fulfill() }
+        )
+        await fulfillment(of: [prepared], timeout: 1)
+
+        XCTAssertNotNil(controller.browseImageSourcesForTesting(
+            tokenIndex: tokenIndex
+        ))
+        XCTAssertNotNil(controller.browseImageSourcesForTesting(
+            tokenIndex: tokenIndex
+        ))
+        XCTAssertEqual(
+            resolutionCounts.withLock { $0[tokenIndex, default: 0] },
+            1
+        )
+
+        session.stopAndDisconnect()
+        XCTAssertNil(controller.browseImageSourcesForTesting(
+            tokenIndex: tokenIndex
+        ))
+        XCTAssertEqual(controller.cachedImageSourceCountForTesting, 0)
+    }
+
+    func testHiddenDeepFocusPreparationUsesPlaceholdersAndRestoresStagedSnapshot()
+        async throws {
+        let metadata = try collectionMetadata(minimumTokenCount: 300)
+        let replacementCollectionID = "wide-descriptor-preparation"
+        let imageSourcesCache = MobileCollectionBrowseImageSourcesCache {
+            snapshot, tokenIndex in
+            let descriptor = CollectionCatalogDownloadableMediaDescriptor(
+                collectionId: snapshot.collectionId,
+                tokenId: String(tokenIndex),
+                tokenIndex: tokenIndex,
+                media: .staticImage(
+                    url: URL(
+                        fileURLWithPath:
+                            "/wide-descriptor-preparation/\(tokenIndex).webp"
+                    ),
+                    fileExtension: "webp"
+                ),
+                purpose: .collectionBrowserThumbnail,
+                thumbnailAspectRatio: snapshot.collectionId
+                    == replacementCollectionID
+                    ? ThumbnailAspectRatio(width: 2, height: 1)
+                    : ThumbnailAspectRatio(width: 1, height: 1)
+            )
+            return CollectionBrowseImageSources(
+                smallestThumbnailDescriptor: descriptor,
+                smallThumbnailDescriptor: descriptor,
+                thumbnailDescriptor: descriptor,
+                largeDescriptor: descriptor
+            )
+        }
+        let registry = MobilePlaybackSessionRegistry(dependencies: .init(
+            makeViewingSessionTracker: {
+                PlayerViewingSessionTracker(continueViewingCollectionId: $0)
+            },
+            clearActiveMediaWindow: { _ in },
+            cancelAllMediaDownloads: {},
+            makeCollectionBrowseImageSourcesCache: { imageSourcesCache },
+            installDownloadableMediaWindow: { _, _ in }
+        ))
+        let session = registry.startSession(config: MobilePlayerConfig(
+            id: UUID(),
+            initialItemId: metadata.id,
+            initialTokenIndex: 0
+        ))
+        let display = PlaybackDisplay()
+        session.attach(display: display)
+        let controller = VerticalCollectionBrowserViewController(
+            playbackSession: session
         )
         let foregroundScene = try XCTUnwrap(
             UIApplication.shared.connectedScenes
@@ -474,87 +732,450 @@ extension MobileCollectionBrowserGridModePresentationTests {
             controller.setActive(false)
             window.isHidden = true
             window.rootViewController = nil
+            session.stopAndDisconnect()
         }
-
+        try await selectGridMode(.fiveColumns, controller: controller)
         let originalSnapshot = try XCTUnwrap(
             session.collectionBrowseSnapshot()
         )
-        let tokenIndex = originalSnapshot.itemCount - 1
-        let originalKey = "\(originalSnapshot.collectionId):\(tokenIndex)"
-        let originalBaseline = resolutionCounts.withLock {
-            $0[originalKey, default: 0]
+        let originalPosition = controller.currentPagePosition
+        try await waitUntil("Initial descriptors were not prepared") {
+            controller.browseImageSourcesForTesting(
+                tokenIndex: originalSnapshot.initialTokenIndex
+            ) != nil
         }
-
-        XCTAssertNotNil(controller.browseImageSourcesForTesting(
-            tokenIndex: tokenIndex
-        ))
-        XCTAssertNotNil(controller.browseImageSourcesForTesting(
-            tokenIndex: tokenIndex
-        ))
-        XCTAssertEqual(
-            resolutionCounts.withLock { $0[originalKey, default: 0] },
-            originalBaseline + 1
-        )
-
-        let positionOnlySnapshot = PlayerCollectionBrowseSnapshot(
-            collectionId: originalSnapshot.collectionId,
-            itemCount: originalSnapshot.itemCount,
-            initialTokenIndex: 1
-        )
-        let positionOnlyPreparation = PlayerCollectionBrowsePreparation(
-            sourcePagePosition: .initial,
-            snapshot: positionOnlySnapshot,
-            focusedTokenIndex: 1,
-            requiresWidgetInsertionExit: false
-        )
-        let positionOnlyResult = await prepare(
-            controller,
-            using: positionOnlyPreparation
-        )
-        XCTAssertEqual(positionOnlyResult, .prepared)
-        XCTAssertNotNil(controller.browseImageSourcesForTesting(
-            tokenIndex: tokenIndex
-        ))
-        XCTAssertEqual(
-            resolutionCounts.withLock { $0[originalKey, default: 0] },
-            originalBaseline + 1
-        )
-
+        controller.viewWillDisappear(false)
+        controller.viewDidDisappear(false)
         controller.setActive(false)
-        let replacementSnapshot = PlayerCollectionBrowseSnapshot(
-            collectionId: "controller-cache-replacement",
-            itemCount: originalSnapshot.itemCount,
+        let collectionView = try XCTUnwrap(
+            controller.view.subviews.first {
+                $0 is MobilePlayerCollectionBrowserCollectionView
+            } as? MobilePlayerCollectionBrowserCollectionView
+        )
+        let snapshot = PlayerCollectionBrowseSnapshot(
+            collectionId: replacementCollectionID,
+            itemCount: 300,
             initialTokenIndex: 0
         )
-        let replacementPreparation = PlayerCollectionBrowsePreparation(
+        let preparation = PlayerCollectionBrowsePreparation(
             sourcePagePosition: .initial,
-            snapshot: replacementSnapshot,
-            focusedTokenIndex: 0,
+            snapshot: snapshot,
+            focusedTokenIndex: 150,
             requiresWidgetInsertionExit: false
         )
-        let replacementResult = await prepare(
-            controller,
-            using: replacementPreparation
-        )
-        XCTAssertEqual(replacementResult, .prepared)
-        XCTAssertNotNil(controller.browseImageSourcesForTesting(
-            tokenIndex: tokenIndex
-        ))
-        controller.cancelPendingDisplayPreparation()
-        XCTAssertNotNil(controller.browseImageSourcesForTesting(
-            tokenIndex: tokenIndex
-        ))
+        let completion = expectation(description: "Hidden preparation finished")
+        var result: MobilePlayerCollectionBrowserDisplayPreparationResult?
+        controller.view.layoutIfNeeded()
+        var focusedTokenWasVisible = false
+
+        controller.prepareForDisplay(
+            using: preparation,
+            publishWhenStable: false
+        ) {
+            result = $0
+            controller.view.layoutIfNeeded()
+            let visibleTokenIndices = Set(
+                collectionView.indexPathsForVisibleItems.map(\.item)
+            )
+            focusedTokenWasVisible = visibleTokenIndices.contains(150)
+            completion.fulfill()
+        }
+
+        await fulfillment(of: [completion], timeout: 2)
+        XCTAssertEqual(result, .prepared)
         XCTAssertEqual(
-            resolutionCounts.withLock { $0[originalKey, default: 0] },
-            originalBaseline + 2
+            controller.currentPagePosition,
+            PlayerPagePosition(position: 150)
+        )
+        XCTAssertTrue(focusedTokenWasVisible)
+
+        controller.cancelPendingDisplayPreparation()
+        controller.view.layoutIfNeeded()
+
+        XCTAssertEqual(controller.currentPagePosition, originalPosition)
+        XCTAssertEqual(
+            controller.browseImageSourcesForTesting(
+                tokenIndex: originalSnapshot.initialTokenIndex
+            )?.thumbnailDescriptor.collectionId,
+            originalSnapshot.collectionId
+        )
+    }
+
+    func testUnavailableDescriptorsAllowNavigationRestartAndGridChanges()
+        async throws {
+        let metadata = try collectionMetadata(minimumTokenCount: 100)
+        let imageSourcesCache = MobileCollectionBrowseImageSourcesCache {
+            _, _ in nil
+        }
+        let registry = MobilePlaybackSessionRegistry(dependencies: .init(
+            makeViewingSessionTracker: {
+                PlayerViewingSessionTracker(continueViewingCollectionId: $0)
+            },
+            clearActiveMediaWindow: { _ in },
+            cancelAllMediaDownloads: {},
+            makeCollectionBrowseImageSourcesCache: {
+                imageSourcesCache
+            },
+            installDownloadableMediaWindow: { _, _ in }
+        ))
+        let session = registry.startSession(config: MobilePlayerConfig(
+            id: UUID(),
+            initialItemId: metadata.id,
+            initialTokenIndex: 0
+        ))
+        let display = PlaybackDisplay()
+        session.attach(display: display)
+        let controller = VerticalCollectionBrowserViewController(
+            playbackSession: session
+        )
+        let foregroundScene = try XCTUnwrap(
+            UIApplication.shared.connectedScenes
+                .compactMap { $0 as? UIWindowScene }
+                .first { $0.activationState == .foregroundActive }
+        )
+        let window = UIWindow(windowScene: foregroundScene)
+        window.frame = CGRect(x: 0, y: 0, width: 390, height: 844)
+        window.rootViewController = controller
+        window.isHidden = false
+        window.layoutIfNeeded()
+        controller.viewDidAppear(false)
+        controller.setActive(true)
+        controller.view.layoutIfNeeded()
+        let collectionView = try XCTUnwrap(
+            controller.view.subviews.first {
+                $0 is MobilePlayerCollectionBrowserCollectionView
+            } as? MobilePlayerCollectionBrowserCollectionView
+        )
+        var focusedPagePositions = [PlayerPagePosition]()
+        controller.onFocusedPagePosition = {
+            focusedPagePositions.append($0)
+        }
+        var settledPagePositions = [PlayerPagePosition]()
+        controller.onSettledPagePosition = { pagePosition, _ in
+            settledPagePositions.append(pagePosition)
+            return true
+        }
+        defer {
+            controller.cancelPendingDisplayPreparation()
+            controller.setActive(false)
+            window.isHidden = true
+            window.rootViewController = nil
+            session.stopAndDisconnect()
+        }
+
+        let preparation = try XCTUnwrap(
+            session.prepareCollectionBrowse(
+                containing: PlayerPagePosition(position: 50)
+            )
+        )
+        let completion = expectation(description: "Layout prepared")
+        var result: MobilePlayerCollectionBrowserDisplayPreparationResult?
+        controller.prepareForDisplay(
+            using: preparation,
+            forcePosition: true,
+            publishWhenStable: true
+        ) {
+            result = $0
+            completion.fulfill()
+        }
+        XCTAssertTrue(focusedPagePositions.isEmpty)
+        XCTAssertTrue(settledPagePositions.isEmpty)
+
+        await fulfillment(of: [completion], timeout: 1)
+
+        let target = PlayerPagePosition(position: 50)
+        XCTAssertEqual(result, .prepared)
+        XCTAssertEqual(controller.currentPagePosition, target)
+        XCTAssertEqual(focusedPagePositions.last, target)
+        XCTAssertEqual(settledPagePositions, [target])
+        XCTAssertTrue(collectionView.visibleCells.compactMap {
+            $0 as? MobilePlayerCollectionBrowserCell
+        }.allSatisfy { $0.descriptor == nil })
+
+        controller.scrollToFirstItemAndPublish()
+        try await waitUntil("Restart did not settle without descriptors") {
+            settledPagePositions.last == .initial
+        }
+        XCTAssertEqual(controller.currentPagePosition, .initial)
+        XCTAssertTrue(controller.setGridMode(.fiveColumns))
+    }
+
+    func testActivePreparationCancelledBeforeYieldPreservesUserMotion()
+        async throws {
+        let metadata = try collectionMetadata(minimumTokenCount: 100)
+        let fixture = try makeFixture(collectionId: metadata.id)
+        defer { tearDownFixture(fixture) }
+        let controller = fixture.controller
+        let collectionView = try XCTUnwrap(
+            controller.view.subviews.first {
+                $0 is MobilePlayerCollectionBrowserCollectionView
+            } as? MobilePlayerCollectionBrowserCollectionView
+        )
+        let preparation = try XCTUnwrap(
+            fixture.session.prepareCollectionBrowse(
+                containing: PlayerPagePosition(position: 50)
+            )
+        )
+        let completion = expectation(description: "Preparation superseded")
+        var result: MobilePlayerCollectionBrowserDisplayPreparationResult?
+        var settledPagePositions = [PlayerPagePosition]()
+        controller.onSettledPagePosition = { pagePosition, _ in
+            settledPagePositions.append(pagePosition)
+            return true
+        }
+
+        controller.prepareForDisplay(
+            using: preparation,
+            forcePosition: true,
+            publishWhenStable: false
+        ) {
+            result = $0
+            completion.fulfill()
+        }
+        let preparedOffset = collectionView.contentOffset
+        controller.scrollViewWillBeginDragging(collectionView)
+        XCTAssertTrue(settledPagePositions.isEmpty)
+        collectionView.contentOffset.y += collectionView.bounds.height
+        collectionView.layoutIfNeeded()
+        let userOffset = collectionView.contentOffset
+        controller.scrollViewDidEndDragging(
+            collectionView,
+            willDecelerate: false
         )
 
-        session.stopAndDisconnect()
-        controller.setActive(true)
-        XCTAssertNil(controller.browseImageSourcesForTesting(
-            tokenIndex: tokenIndex
-        ))
-        XCTAssertEqual(controller.cachedImageSourceCountForTesting, 0)
+        await fulfillment(of: [completion], timeout: 1)
+
+        XCTAssertEqual(result, .superseded)
+        XCTAssertNotEqual(userOffset.y, preparedOffset.y)
+        XCTAssertEqual(
+            collectionView.contentOffset.y,
+            userOffset.y,
+            accuracy: 0.5
+        )
+        let settledPosition = try XCTUnwrap(controller.currentPagePosition)
+        XCTAssertNotEqual(settledPosition, PlayerPagePosition(position: 50))
+        XCTAssertEqual(settledPagePositions, [settledPosition])
+        controller.flushSettledPosition()
+        XCTAssertEqual(settledPagePositions, [settledPosition])
+        XCTAssertTrue(controller.setGridMode(.fiveColumns))
+    }
+
+    func testLayoutAndLifecycleRemainIndependentOfBlockedDescriptors()
+        async throws {
+        let metadata = try collectionMetadata(minimumTokenCount: 100)
+
+        let targetTokenIndex = CollectionCatalog.tokenCount(
+            specificCollectionId: metadata.id
+        ) - 1
+        for interruption in [
+            "activation",
+            "drag",
+            "accessibility",
+            "scrollToTop",
+            "disappearance",
+            "deactivation",
+        ] {
+            let resolutionStarted = expectation(
+                description: "\(interruption) resolution started"
+            )
+            let resumeResolution = DispatchSemaphore(value: 0)
+            let didBlockResolution = OSAllocatedUnfairLock(
+                initialState: false
+            )
+            let resolutionWaitTimedOut = OSAllocatedUnfairLock(
+                initialState: false
+            )
+            let imageSourcesCache = MobileCollectionBrowseImageSourcesCache {
+                snapshot, tokenIndex in
+                let shouldBlock = didBlockResolution.withLock { didBlock in
+                    guard tokenIndex == targetTokenIndex, !didBlock else {
+                        return false
+                    }
+                    didBlock = true
+                    return true
+                }
+                if shouldBlock {
+                    resolutionStarted.fulfill()
+                    if resumeResolution.wait(
+                        timeout: .now() + .seconds(2)
+                    ) == .timedOut {
+                        resolutionWaitTimedOut.withLock { $0 = true }
+                    }
+                }
+                let descriptor =
+                    CollectionCatalogDownloadableMediaDescriptor(
+                        collectionId: snapshot.collectionId,
+                        tokenId: String(tokenIndex),
+                        tokenIndex: tokenIndex,
+                        media: .staticImage(
+                            url: URL(
+                                fileURLWithPath:
+                                    "/lifecycle-preparation/\(tokenIndex).webp"
+                            ),
+                            fileExtension: "webp"
+                        ),
+                        purpose: .collectionBrowserThumbnail
+                    )
+                return CollectionBrowseImageSources(
+                    thumbnailDescriptor: descriptor,
+                    largeDescriptor: descriptor
+                )
+            }
+            let registry = MobilePlaybackSessionRegistry(dependencies: .init(
+                makeViewingSessionTracker: {
+                    PlayerViewingSessionTracker(
+                        continueViewingCollectionId: $0
+                    )
+                },
+                clearActiveMediaWindow: { _ in },
+                cancelAllMediaDownloads: {},
+                makeCollectionBrowseImageSourcesCache: {
+                    imageSourcesCache
+                },
+                installDownloadableMediaWindow: { _, _ in }
+            ))
+            let session = registry.startSession(config: MobilePlayerConfig(
+                id: UUID(),
+                initialItemId: metadata.id,
+                initialTokenIndex: 0
+            ))
+            let display = PlaybackDisplay()
+            session.attach(display: display)
+            let controller = VerticalCollectionBrowserViewController(
+                playbackSession: session
+            )
+            let foregroundScene = try XCTUnwrap(
+                UIApplication.shared.connectedScenes
+                    .compactMap { $0 as? UIWindowScene }
+                    .first { $0.activationState == .foregroundActive }
+            )
+            let window = UIWindow(windowScene: foregroundScene)
+            window.frame = CGRect(x: 0, y: 0, width: 390, height: 844)
+            window.rootViewController = controller
+            window.isHidden = false
+            window.layoutIfNeeded()
+            controller.viewDidAppear(false)
+            controller.setActive(true)
+            controller.view.layoutIfNeeded()
+
+            do {
+                defer {
+                    resumeResolution.signal()
+                    controller.cancelPendingDisplayPreparation()
+                    controller.setActive(false)
+                    window.isHidden = true
+                    window.rootViewController = nil
+                    session.stopAndDisconnect()
+                }
+                let collectionView = try XCTUnwrap(
+                    controller.view.subviews.first {
+                        $0 is MobilePlayerCollectionBrowserCollectionView
+                    } as? MobilePlayerCollectionBrowserCollectionView
+                )
+                let preparation = try XCTUnwrap(
+                    session.prepareCollectionBrowse(
+                        containing: PlayerPagePosition(
+                            position: targetTokenIndex
+                        )
+                    )
+                )
+                session.prepareCollectionBrowseThumbnailWindow(
+                    centeredAt: targetTokenIndex,
+                    direction: .forward,
+                    prefetchStride: 1,
+                    columnCount: 3,
+                    quality: .thumbnail,
+                    requiredTokenRange: targetTokenIndex...targetTokenIndex,
+                    visibleTokenRange: targetTokenIndex...targetTokenIndex,
+                    displayedHigherQualityThumbnailTokenIndices: [],
+                    displayedLargeTokenIndices: [],
+                    locallyAvailableLargeTokenIndices: []
+                )
+                await fulfillment(of: [resolutionStarted], timeout: 1)
+                let completion = expectation(
+                    description: "\(interruption) preparation finished"
+                )
+                var results =
+                    [MobilePlayerCollectionBrowserDisplayPreparationResult]()
+                var focusedPagePositions = [PlayerPagePosition]()
+                controller.onFocusedPagePosition = {
+                    focusedPagePositions.append($0)
+                }
+                controller.prepareForDisplay(
+                    using: preparation,
+                    publishWhenStable: false
+                ) {
+                    results.append($0)
+                    completion.fulfill()
+                }
+                XCTAssertTrue(focusedPagePositions.isEmpty, interruption)
+
+                switch interruption {
+                case "activation":
+                    NotificationCenter.default.post(
+                        name: UIScene.didActivateNotification,
+                        object: foregroundScene
+                    )
+                    await fulfillment(of: [completion], timeout: 1)
+                case "drag":
+                    controller.scrollViewWillBeginDragging(collectionView)
+                    controller.scrollViewDidEndDragging(
+                        collectionView,
+                        willDecelerate: false
+                    )
+                case "accessibility":
+                    if let attempt = collectionView.onWillAccessibilityScroll?() {
+                        collectionView.onAccessibilityScrollResult?(
+                            false,
+                            attempt
+                        )
+                    }
+                case "scrollToTop":
+                    XCTAssertTrue(
+                        controller.scrollViewShouldScrollToTop(collectionView)
+                    )
+                    controller.scrollViewDidScrollToTop(collectionView)
+                case "disappearance":
+                    controller.viewWillDisappear(false)
+                default:
+                    let visibleCells = collectionView.visibleCells.compactMap {
+                        $0 as? MobilePlayerCollectionBrowserCell
+                    }
+                    XCTAssertFalse(visibleCells.isEmpty)
+                    XCTAssertTrue(visibleCells.allSatisfy {
+                        $0.usesForegroundImageLoading
+                    })
+                    NotificationCenter.default.post(
+                        name: UIScene.willDeactivateNotification,
+                        object: foregroundScene
+                    )
+                    XCTAssertTrue(visibleCells.allSatisfy {
+                        !$0.usesForegroundImageLoading
+                    })
+                }
+                let expectedResults:
+                    [MobilePlayerCollectionBrowserDisplayPreparationResult] =
+                        interruption == "activation" ? [.prepared] : [.superseded]
+                XCTAssertEqual(results, expectedResults, interruption)
+                XCTAssertNil(controller.browseImageSourcesForTesting(
+                    tokenIndex: targetTokenIndex
+                ))
+                XCTAssertFalse(
+                    resolutionWaitTimedOut.withLock { $0 },
+                    interruption
+                )
+                XCTAssertTrue(
+                    controller.setGridMode(.fiveColumns),
+                    interruption
+                )
+                resumeResolution.signal()
+                if interruption != "activation" {
+                    await fulfillment(of: [completion], timeout: 1)
+                }
+                await waitForNextMainQueueTurn()
+                XCTAssertEqual(results, expectedResults, interruption)
+            }
+        }
     }
 #endif
 
@@ -1417,6 +2038,10 @@ extension MobileCollectionBrowserGridModePresentationTests {
         XCTAssertTrue(visibleCells().allSatisfy {
             !$0.usesForegroundImageLoading
         })
+#if DEBUG
+        let baselineDenseGridImageRefreshEnqueues = fixture.controller
+            .thumbnailWindowMetrics.denseGridImageRefreshEnqueues
+#endif
 
         let firstRow = try XCTUnwrap(
             collectionView.collectionViewLayout.layoutAttributesForItem(
@@ -1441,22 +2066,17 @@ extension MobileCollectionBrowserGridModePresentationTests {
                 .isEmpty
         )
 #if DEBUG
-        let pendingRefreshCount =
-            fixture.controller.pendingDenseGridImageRefreshCount
-        XCTAssertGreaterThan(pendingRefreshCount, 0)
-        XCTAssertLessThanOrEqual(
-            pendingRefreshCount,
-            movedVisibleIndexPaths.count
-        )
-        XCTAssertTrue(fixture.controller.isDenseGridImageDisplayLinkActive)
-        let drainedRefreshCount =
-            fixture.controller
-                .drainDenseGridImageDisplayLinkFrameForTesting()
-        XCTAssertEqual(drainedRefreshCount, min(pendingRefreshCount, 5))
-        XCTAssertEqual(
-            fixture.controller.pendingDenseGridImageRefreshCount,
-            pendingRefreshCount - drainedRefreshCount
-        )
+        try await waitUntil("Rolling thumbnail window did not prepare sources") {
+            fixture.controller.thumbnailWindowMetrics.preparations
+                > baselineThumbnailWindowMetrics.preparations
+                && fixture.controller.thumbnailWindowMetrics
+                    .denseGridImageRefreshEnqueues
+                    > baselineDenseGridImageRefreshEnqueues
+                && movedVisibleIndexPaths.allSatisfy { indexPath in
+                    (collectionView.cellForItem(at: indexPath)
+                        as? MobilePlayerCollectionBrowserCell)?.descriptor != nil
+                }
+        }
 
         let refreshIndexPath = try XCTUnwrap(
             collectionView.indexPathsForVisibleItems.first
@@ -2066,6 +2686,60 @@ extension MobileCollectionBrowserGridModePresentationTests {
 
         XCTAssertEqual(panGestureRecognizer.maximumNumberOfTouches, 1)
     }
+
+#if DEBUG
+    func testHeldPinchPreparesSourcesBeyondTheInitialThumbnailWindow()
+        async throws {
+        let metadata = try collectionMetadata(minimumTokenCount: 300)
+        let fixture = try makeDeterministicFixture(collectionId: metadata.id)
+        defer { tearDownFixture(fixture) }
+        let controller = fixture.controller
+        let frameDriver = try XCTUnwrap(fixture.gridTransitionFrameDriver)
+        let collectionView = try XCTUnwrap(
+            controller.view.subviews.first {
+                $0 is MobilePlayerCollectionBrowserCollectionView
+            } as? MobilePlayerCollectionBrowserCollectionView
+        )
+        try await waitUntil("Initial thumbnail sources were not prepared") {
+            controller.browseImageSourcesForTesting(tokenIndex: 0) != nil
+        }
+        let revealedTokenIndex = 100
+        XCTAssertNil(controller.browseImageSourcesForTesting(
+            tokenIndex: revealedTokenIndex
+        ))
+        let recognizer = TestPinchGestureRecognizer()
+        recognizer.reportedLocation = CGPoint(
+            x: controller.view.bounds.midX,
+            y: controller.view.bounds.midY
+        )
+        recognizer.reportedState = .began
+        recognizer.scale = 1
+        sendPinch(recognizer, to: controller)
+        recognizer.reportedState = .changed
+        recognizer.scale = 0.5
+        sendPinch(recognizer, to: controller)
+
+        try await waitUntil("Held pinch did not prepare newly revealed sources") {
+            frameDriver.advance()
+            return controller.browseImageSourcesForTesting(
+                tokenIndex: revealedTokenIndex
+            ) != nil
+        }
+
+        XCTAssertEqual(recognizer.reportedState, .changed)
+        XCTAssertEqual(controller.gridMode, .threeColumns)
+        XCTAssertFalse(collectionView.isScrollEnabled)
+        let preparations = controller.thumbnailWindowMetrics.preparations
+        for _ in 0..<5 {
+            sendPinch(recognizer, to: controller)
+            frameDriver.advance()
+        }
+        XCTAssertEqual(
+            controller.thumbnailWindowMetrics.preparations,
+            preparations
+        )
+    }
+#endif
 
     func testObservedHorizontalOffsetIsRejectedWithoutInterruptingSettle()
         throws {

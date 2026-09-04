@@ -1,5 +1,6 @@
 // ∅ 2026 lil org
 
+import os
 import UIKit
 
 @MainActor
@@ -258,10 +259,24 @@ nonisolated protocol MobileCollectionBrowseThumbnailWindowPlanning: Sendable {
     ) async -> PlayerDownloadableMediaWindow?
 }
 
-nonisolated struct MobileCollectionBrowseImageSourcesCache: Sendable {
-    private struct CacheIdentity: Equatable, Sendable {
+nonisolated enum MobileCollectionBrowseThumbnailWindowPreparationResult:
+    Equatable,
+    Sendable {
+    case planned
+    case committed
+    case unavailable
+    case superseded
+}
+
+nonisolated final class MobileCollectionBrowseImageSourcesCache: Sendable {
+    private struct CacheIdentity: Hashable, Sendable {
         let collectionId: String
         let itemCount: Int
+    }
+
+    private struct CacheKey: Hashable, Sendable {
+        let identity: CacheIdentity
+        let tokenIndex: Int
     }
 
     private enum CachedImageSources: Sendable {
@@ -280,8 +295,117 @@ nonisolated struct MobileCollectionBrowseImageSourcesCache: Sendable {
 
     private struct CachedImageSourcesEntry: Sendable {
         let imageSources: CachedImageSources
-        var lessRecentTokenIndex: Int?
-        var moreRecentTokenIndex: Int?
+        var lessRecentKey: CacheKey?
+        var moreRecentKey: CacheKey?
+    }
+
+    private enum Lookup {
+        case cached(CachedImageSources)
+        case missing(revision: UInt)
+    }
+
+    private struct Storage: Sendable {
+        var revision: UInt = 0
+        var cachedImageSourcesByKey = [
+            CacheKey: CachedImageSourcesEntry
+        ]()
+        var retainedKeys = Set<CacheKey>()
+        var retainedImageSources = [CacheKey: CachedImageSources]()
+        var leastRecentKey: CacheKey?
+        var mostRecentKey: CacheKey?
+
+        mutating func removeAll() {
+            revision &+= 1
+            cachedImageSourcesByKey.removeAll(keepingCapacity: true)
+            retainedKeys.removeAll()
+            retainedImageSources.removeAll()
+            leastRecentKey = nil
+            mostRecentKey = nil
+        }
+
+        mutating func lookup(key: CacheKey) -> Lookup {
+            guard let cached = retainedImageSources[key]
+                ?? cachedImageSourcesByKey[key]?.imageSources else {
+                return .missing(revision: revision)
+            }
+            markImageSourcesAsMostRecent(key: key)
+            return .cached(cached)
+        }
+
+        mutating func retainImageSources(for keys: Set<CacheKey>) {
+            retainedKeys = keys
+            retainedImageSources = retainedImageSources.filter {
+                keys.contains($0.key)
+            }
+            for key in keys {
+                if let cached = cachedImageSourcesByKey[key] {
+                    retainedImageSources[key] = cached.imageSources
+                }
+            }
+        }
+
+        mutating func insertImageSources(
+            _ imageSources: CachedImageSources,
+            key: CacheKey,
+            maximumCachedImageSourceCount: Int
+        ) {
+            if retainedKeys.contains(key) {
+                retainedImageSources[key] = imageSources
+            }
+            if cachedImageSourcesByKey.count
+                >= maximumCachedImageSourceCount {
+                evictLeastRecentImageSources()
+            }
+            cachedImageSourcesByKey[key] = CachedImageSourcesEntry(
+                imageSources: imageSources,
+                lessRecentKey: mostRecentKey,
+                moreRecentKey: nil
+            )
+            if let mostRecentKey {
+                cachedImageSourcesByKey[mostRecentKey]?.moreRecentKey = key
+            } else {
+                leastRecentKey = key
+            }
+            mostRecentKey = key
+        }
+
+        mutating func markImageSourcesAsMostRecent(key: CacheKey) {
+            guard key != mostRecentKey,
+                  var entry = cachedImageSourcesByKey[key] else {
+                return
+            }
+            if let lessRecentKey = entry.lessRecentKey {
+                cachedImageSourcesByKey[lessRecentKey]?.moreRecentKey =
+                    entry.moreRecentKey
+            } else {
+                leastRecentKey = entry.moreRecentKey
+            }
+            if let moreRecentKey = entry.moreRecentKey {
+                cachedImageSourcesByKey[moreRecentKey]?.lessRecentKey =
+                    entry.lessRecentKey
+            }
+            entry.lessRecentKey = mostRecentKey
+            entry.moreRecentKey = nil
+            if let mostRecentKey {
+                cachedImageSourcesByKey[mostRecentKey]?.moreRecentKey = key
+            }
+            cachedImageSourcesByKey[key] = entry
+            mostRecentKey = key
+        }
+
+        mutating func evictLeastRecentImageSources() {
+            guard let key = leastRecentKey,
+                  let entry = cachedImageSourcesByKey.removeValue(forKey: key)
+            else {
+                return
+            }
+            leastRecentKey = entry.moreRecentKey
+            if let leastRecentKey {
+                cachedImageSourcesByKey[leastRecentKey]?.lessRecentKey = nil
+            } else {
+                mostRecentKey = nil
+            }
+        }
     }
 
     private let maximumCachedImageSourceCount: Int
@@ -289,12 +413,7 @@ nonisolated struct MobileCollectionBrowseImageSourcesCache: Sendable {
         PlayerCollectionBrowseSnapshot,
         Int
     ) -> CollectionBrowseImageSources?
-    private var cacheIdentity: CacheIdentity?
-    private var cachedImageSourcesByTokenIndex = [
-        Int: CachedImageSourcesEntry
-    ]()
-    private var leastRecentTokenIndex: Int?
-    private var mostRecentTokenIndex: Int?
+    private let storage = OSAllocatedUnfairLock(initialState: Storage())
 
     init(
         maximumCachedImageSourceCount: Int = 512,
@@ -315,134 +434,122 @@ nonisolated struct MobileCollectionBrowseImageSourcesCache: Sendable {
         self.imageSourcesResolver = imageSourcesResolver
     }
 
-    mutating func updateSnapshot(
-        _ snapshot: PlayerCollectionBrowseSnapshot?
-    ) {
-        let identity = snapshot.map {
-            CacheIdentity(
-                collectionId: $0.collectionId,
-                itemCount: $0.itemCount
-            )
+    func clear() {
+        storage.withLock { state in
+            state.removeAll()
         }
-        guard cacheIdentity != identity else { return }
-        cacheIdentity = identity
-        cachedImageSourcesByTokenIndex.removeAll(keepingCapacity: true)
-        leastRecentTokenIndex = nil
-        mostRecentTokenIndex = nil
     }
 
-    mutating func imageSources(
+    fileprivate func retainVisibleImageSources(
+        snapshot: PlayerCollectionBrowseSnapshot,
+        tokenRange: ClosedRange<Int>?
+    ) {
+        let identity = CacheIdentity(
+            collectionId: snapshot.collectionId,
+            itemCount: snapshot.itemCount
+        )
+        var keys = Set<CacheKey>()
+        if let tokenRange {
+            let first = max(tokenRange.lowerBound, 0)
+            let last = min(tokenRange.upperBound, snapshot.itemCount - 1)
+            if first <= last {
+                keys = Set((first...last).map {
+                    CacheKey(identity: identity, tokenIndex: $0)
+                })
+            }
+        }
+        storage.withLock { [keys] state in
+            state.retainImageSources(for: keys)
+        }
+    }
+
+    fileprivate func resolveImageSources(
         snapshot: PlayerCollectionBrowseSnapshot?,
         tokenIndex: Int
     ) -> CollectionBrowseImageSources? {
-        updateSnapshot(snapshot)
         guard let snapshot,
               snapshot.pagePosition(forTokenIndex: tokenIndex) != nil else {
             return nil
         }
-        if let cached = cachedImageSourcesByTokenIndex[tokenIndex] {
-            markImageSourcesAsMostRecent(tokenIndex: tokenIndex)
-            return cached.imageSources.value
+        let key = CacheKey(
+            identity: CacheIdentity(
+                collectionId: snapshot.collectionId,
+                itemCount: snapshot.itemCount
+            ),
+            tokenIndex: tokenIndex
+        )
+        let lookup = storage.withLock { state in
+            state.lookup(key: key)
+        }
+        let revision: UInt
+        switch lookup {
+        case let .cached(imageSources):
+            return imageSources.value
+        case let .missing(cacheRevision):
+            revision = cacheRevision
         }
         let resolved = imageSourcesResolver(snapshot, tokenIndex)
         let cachedImageSources: CachedImageSources = resolved.map {
             .available($0)
         } ?? .unavailable
-        insertImageSources(
-            cachedImageSources,
+        return storage.withLock { state in
+            guard state.revision == revision else {
+                return nil
+            }
+            switch state.lookup(key: key) {
+            case let .cached(imageSources):
+                return imageSources.value
+            case .missing:
+                state.insertImageSources(
+                    cachedImageSources,
+                    key: key,
+                    maximumCachedImageSourceCount:
+                        maximumCachedImageSourceCount
+                )
+                return resolved
+            }
+        }
+    }
+
+    func cachedImageSources(
+        snapshot: PlayerCollectionBrowseSnapshot?,
+        tokenIndex: Int
+    ) -> CollectionBrowseImageSources? {
+        guard let snapshot,
+              snapshot.pagePosition(forTokenIndex: tokenIndex) != nil else {
+            return nil
+        }
+        let key = CacheKey(
+            identity: CacheIdentity(
+                collectionId: snapshot.collectionId,
+                itemCount: snapshot.itemCount
+            ),
             tokenIndex: tokenIndex
         )
-        return resolved
+        return storage.withLock { state in
+            switch state.lookup(key: key) {
+            case let .cached(imageSources):
+                return imageSources.value
+            case .missing:
+                return nil
+            }
+        }
     }
 
     var cachedImageSourceCount: Int {
-        cachedImageSourcesByTokenIndex.count
-    }
-
-    private mutating func insertImageSources(
-        _ imageSources: CachedImageSources,
-        tokenIndex: Int
-    ) {
-        if cachedImageSourcesByTokenIndex.count
-            >= maximumCachedImageSourceCount {
-            evictLeastRecentImageSources()
-        }
-        cachedImageSourcesByTokenIndex[tokenIndex] = CachedImageSourcesEntry(
-            imageSources: imageSources,
-            lessRecentTokenIndex: mostRecentTokenIndex,
-            moreRecentTokenIndex: nil
-        )
-        if let mostRecentTokenIndex {
-            cachedImageSourcesByTokenIndex[mostRecentTokenIndex]?
-                .moreRecentTokenIndex = tokenIndex
-        } else {
-            leastRecentTokenIndex = tokenIndex
-        }
-        mostRecentTokenIndex = tokenIndex
-    }
-
-    private mutating func markImageSourcesAsMostRecent(tokenIndex: Int) {
-        guard tokenIndex != mostRecentTokenIndex,
-              var entry = cachedImageSourcesByTokenIndex[tokenIndex] else {
-            return
-        }
-        if let lessRecentTokenIndex = entry.lessRecentTokenIndex {
-            cachedImageSourcesByTokenIndex[lessRecentTokenIndex]?
-                .moreRecentTokenIndex = entry.moreRecentTokenIndex
-        } else {
-            leastRecentTokenIndex = entry.moreRecentTokenIndex
-        }
-        if let moreRecentTokenIndex = entry.moreRecentTokenIndex {
-            cachedImageSourcesByTokenIndex[moreRecentTokenIndex]?
-                .lessRecentTokenIndex = entry.lessRecentTokenIndex
-        }
-        entry.lessRecentTokenIndex = mostRecentTokenIndex
-        entry.moreRecentTokenIndex = nil
-        if let mostRecentTokenIndex {
-            cachedImageSourcesByTokenIndex[mostRecentTokenIndex]?
-                .moreRecentTokenIndex = tokenIndex
-        }
-        cachedImageSourcesByTokenIndex[tokenIndex] = entry
-        mostRecentTokenIndex = tokenIndex
-    }
-
-    private mutating func evictLeastRecentImageSources() {
-        guard let tokenIndex = leastRecentTokenIndex,
-              let entry = cachedImageSourcesByTokenIndex.removeValue(
-                forKey: tokenIndex
-              ) else {
-            return
-        }
-        leastRecentTokenIndex = entry.moreRecentTokenIndex
-        if let leastRecentTokenIndex {
-            cachedImageSourcesByTokenIndex[leastRecentTokenIndex]?
-                .lessRecentTokenIndex = nil
-        } else {
-            mostRecentTokenIndex = nil
+        storage.withLock { state in
+            Set(state.cachedImageSourcesByKey.keys)
+                .union(state.retainedImageSources.keys).count
         }
     }
 }
 
 actor MobileCollectionBrowseThumbnailWindowPlanner:
     MobileCollectionBrowseThumbnailWindowPlanning {
-    private var imageSourcesCache: MobileCollectionBrowseImageSourcesCache
+    private let imageSourcesCache: MobileCollectionBrowseImageSourcesCache
 
-    init(
-        maximumCachedImageSourceCount: Int = 512,
-        imageSourcesResolver: @escaping @Sendable (
-            PlayerCollectionBrowseSnapshot,
-            Int
-        ) -> CollectionBrowseImageSources? = {
-            MobileCollectionBrowseMediaResolver.collectionBrowseImageSources(
-                snapshot: $0,
-                tokenIndex: $1
-            )
-        }
-    ) {
-        imageSourcesCache = MobileCollectionBrowseImageSourcesCache(
-            maximumCachedImageSourceCount: maximumCachedImageSourceCount,
-            imageSourcesResolver: imageSourcesResolver
-        )
+    init(imageSourcesCache: MobileCollectionBrowseImageSourcesCache) {
+        self.imageSourcesCache = imageSourcesCache
     }
 
     func makeWindow(
@@ -454,6 +561,10 @@ actor MobileCollectionBrowseThumbnailWindowPlanner:
               ) != nil else {
             return nil
         }
+        imageSourcesCache.retainVisibleImageSources(
+            snapshot: request.snapshot,
+            tokenRange: request.visibleTokenRange ?? request.requiredTokenRange
+        )
         let centerImageSources = imageSources(
             snapshot: request.snapshot,
             tokenIndex: request.tokenIndex
@@ -520,24 +631,11 @@ actor MobileCollectionBrowseThumbnailWindowPlanner:
         tokenIndex: Int
     ) -> CollectionBrowseImageSources? {
         guard !Task.isCancelled else { return nil }
-        return imageSourcesCache.imageSources(
+        return imageSourcesCache.resolveImageSources(
             snapshot: snapshot,
             tokenIndex: tokenIndex
         )
     }
-
-#if DEBUG
-    func imageSourcesForTesting(
-        snapshot: PlayerCollectionBrowseSnapshot,
-        tokenIndex: Int
-    ) -> CollectionBrowseImageSources? {
-        return imageSources(snapshot: snapshot, tokenIndex: tokenIndex)
-    }
-
-    var cachedImageSourceCountForTesting: Int {
-        imageSourcesCache.cachedImageSourceCount
-    }
-#endif
 }
 
 @MainActor
@@ -594,6 +692,8 @@ final class MobilePlaybackSession {
     private let disconnect: @MainActor (MobilePlaybackSession) -> Void
     private var lifecycleState = LifecycleState.active
     private var navigationRequestGeneration: UInt = 0
+    let collectionBrowseImageSourcesCache:
+        MobileCollectionBrowseImageSourcesCache
     private let collectionBrowseThumbnailWindowPlanner:
         any MobileCollectionBrowseThumbnailWindowPlanning
     private let installDownloadableMediaWindow: @MainActor (
@@ -604,7 +704,9 @@ final class MobilePlaybackSession {
         Task<Void, Never>?
     private var collectionBrowseThumbnailWindowPreparationGeneration: UInt = 0
     private var collectionBrowseThumbnailWindowPreparationCompletion:
-        (@MainActor (Bool) -> Void)?
+        (@MainActor (
+            MobileCollectionBrowseThumbnailWindowPreparationResult
+        ) -> Void)?
     private lazy var dataSource = PlayerTokenPagingDataSource(
         initialCollectionId: config.initialItemId,
         specificInitialToken: config.specificToken,
@@ -616,9 +718,10 @@ final class MobilePlaybackSession {
     fileprivate init(
         config: MobilePlayerConfig,
         viewingSessionTracker: any MobilePlaybackViewingSessionTracking,
+        collectionBrowseImageSourcesCache:
+            MobileCollectionBrowseImageSourcesCache,
         collectionBrowseThumbnailWindowPlanner:
-            any MobileCollectionBrowseThumbnailWindowPlanning =
-                MobileCollectionBrowseThumbnailWindowPlanner(),
+            any MobileCollectionBrowseThumbnailWindowPlanning,
         installDownloadableMediaWindow: @escaping @MainActor (
             PlayerDownloadableMediaWindow,
             UUID
@@ -629,6 +732,8 @@ final class MobilePlaybackSession {
     ) {
         self.config = config
         self.viewingSessionTracker = viewingSessionTracker
+        self.collectionBrowseImageSourcesCache =
+            collectionBrowseImageSourcesCache
         self.collectionBrowseThumbnailWindowPlanner =
             collectionBrowseThumbnailWindowPlanner
         self.installDownloadableMediaWindow = installDownloadableMediaWindow
@@ -648,9 +753,10 @@ final class MobilePlaybackSession {
         advanceNavigationRequestGeneration()
         display?.flushPendingViewingProgress()
         display = nil
+        collectionBrowseImageSourcesCache.clear()
         lifecycleState = .disconnected
         disconnect(self)
-        thumbnailWindowCompletion?(false)
+        thumbnailWindowCompletion?(.superseded)
     }
 
     func goForward() {
@@ -705,7 +811,7 @@ final class MobilePlaybackSession {
         let completion =
             detachPendingCollectionBrowseThumbnailWindowPreparation()
         DownloadableMediaCache.shared.clearActiveWindow(ownerId: mediaWindowOwnerID)
-        completion?(false)
+        completion?(.superseded)
     }
 
     func getToken(pagePosition: PlayerPagePosition) -> GeneratedToken {
@@ -801,19 +907,19 @@ final class MobilePlaybackSession {
             DownloadableMediaCache.shared.clearActiveWindow(
                 ownerId: mediaWindowOwnerID
             )
-            completion?(false)
+            completion?(.superseded)
             return nil
         }
         Self.collectionBrowseThumbnailWindowPreparationOrder
             .supersedePendingClaims()
 
         installDownloadableMediaWindow(window, mediaWindowOwnerID)
-        completion?(false)
+        completion?(.superseded)
         return window
     }
 
-    @discardableResult
     func prepareCollectionBrowseThumbnailWindow(
+        snapshot explicitSnapshot: PlayerCollectionBrowseSnapshot? = nil,
         centeredAt tokenIndex: Int,
         direction: DownloadableMediaCache.PrefetchDirection,
         prefetchStride: Int,
@@ -827,21 +933,24 @@ final class MobilePlaybackSession {
         displayedLargeTokenIndices: Set<Int>,
         locallyAvailableLargeTokenIndices: Set<Int>,
         shouldApply: @escaping @MainActor () -> Bool = { true },
-        completion: @escaping @MainActor (Bool) -> Void = { _ in }
-    ) -> Task<Void, Never>? {
+        completion: @escaping @MainActor (
+            MobileCollectionBrowseThumbnailWindowPreparationResult
+        ) -> Void = { _ in }
+    ) {
         guard lifecycleState == .active else {
-            completion(false)
-            return nil
+            completion(.superseded)
+            return
         }
         let supersededCompletion =
             detachPendingCollectionBrowseThumbnailWindowPreparation()
-        guard let snapshot = collectionBrowseSnapshot() else {
+        guard let snapshot = explicitSnapshot ?? collectionBrowseSnapshot() else {
+            collectionBrowseImageSourcesCache.clear()
             DownloadableMediaCache.shared.clearActiveWindow(
                 ownerId: mediaWindowOwnerID
             )
-            supersededCompletion?(false)
-            completion(false)
-            return nil
+            supersededCompletion?(.superseded)
+            completion(.unavailable)
+            return
         }
         let generation = collectionBrowseThumbnailWindowPreparationGeneration
         let claim = Self.collectionBrowseThumbnailWindowPreparationOrder.claim()
@@ -864,7 +973,7 @@ final class MobilePlaybackSession {
         )
         let planner = collectionBrowseThumbnailWindowPlanner
         collectionBrowseThumbnailWindowPreparationCompletion = completion
-        let preparationTask = Task {
+        collectionBrowseThumbnailWindowPreparationTask = Task {
             [weak self] in
             let preparedWindow = await planner.makeWindow(for: request)
             guard let self,
@@ -877,43 +986,52 @@ final class MobilePlaybackSession {
                 self.collectionBrowseThumbnailWindowPreparationCompletion
             self.collectionBrowseThumbnailWindowPreparationCompletion = nil
             guard !Task.isCancelled,
-                  self.lifecycleState == .active,
+                  self.lifecycleState == .active else {
+                completion?(.superseded)
+                return
+            }
+            let hasPreparedImageSources = preparedWindow != nil
+                || self.collectionBrowseImageSourcesCache.cachedImageSources(
+                    snapshot: snapshot,
+                    tokenIndex: tokenIndex
+                ) != nil
+            guard hasPreparedImageSources else {
+                if self.collectionBrowseSnapshot() == snapshot,
+                   shouldApply() {
+                    DownloadableMediaCache.shared.clearActiveWindow(
+                        ownerId: self.mediaWindowOwnerID
+                    )
+                }
+                completion?(.unavailable)
+                return
+            }
+            guard let preparedWindow,
                   self.collectionBrowseSnapshot() == snapshot,
-                  shouldApply() else {
-                completion?(false)
-                return
-            }
-            guard let preparedWindow else {
-                DownloadableMediaCache.shared.clearActiveWindow(
-                    ownerId: self.mediaWindowOwnerID
-                )
-                completion?(false)
-                return
-            }
-            guard Self.collectionBrowseThumbnailWindowPreparationOrder
-                .commitIfNewer(claim) else {
-                completion?(false)
+                  shouldApply(),
+                  Self.collectionBrowseThumbnailWindowPreparationOrder
+                    .commitIfNewer(claim) else {
+                completion?(.planned)
                 return
             }
             self.installDownloadableMediaWindow(
                 preparedWindow,
                 self.mediaWindowOwnerID
             )
-            completion?(true)
+            completion?(.committed)
         }
-        collectionBrowseThumbnailWindowPreparationTask = preparationTask
-        supersededCompletion?(false)
-        return preparationTask
+        supersededCompletion?(.superseded)
     }
 
     func cancelPendingCollectionBrowseThumbnailWindowPreparation() {
         let completion =
             detachPendingCollectionBrowseThumbnailWindowPreparation()
-        completion?(false)
+        completion?(.superseded)
     }
 
     private func detachPendingCollectionBrowseThumbnailWindowPreparation()
-        -> (@MainActor (Bool) -> Void)? {
+        -> (@MainActor (
+            MobileCollectionBrowseThumbnailWindowPreparationResult
+        ) -> Void)? {
         collectionBrowseThumbnailWindowPreparationGeneration &+= 1
         collectionBrowseThumbnailWindowPreparationTask?.cancel()
         collectionBrowseThumbnailWindowPreparationTask = nil
@@ -1076,8 +1194,10 @@ final class MobilePlaybackSessionRegistry {
             @MainActor (String?) -> any MobilePlaybackViewingSessionTracking
         let clearActiveMediaWindow: @MainActor (UUID) -> Void
         let cancelAllMediaDownloads: @MainActor () -> Void
+        let makeCollectionBrowseImageSourcesCache:
+            @MainActor () -> MobileCollectionBrowseImageSourcesCache
         let makeCollectionBrowseThumbnailWindowPlanner:
-            @MainActor () ->
+            @MainActor (MobileCollectionBrowseImageSourcesCache) ->
                 any MobileCollectionBrowseThumbnailWindowPlanning
         let installDownloadableMediaWindow: @MainActor (
             PlayerDownloadableMediaWindow,
@@ -1090,11 +1210,19 @@ final class MobilePlaybackSessionRegistry {
             ) -> any MobilePlaybackViewingSessionTracking,
             clearActiveMediaWindow: @escaping @MainActor (UUID) -> Void,
             cancelAllMediaDownloads: @escaping @MainActor () -> Void,
-            makeCollectionBrowseThumbnailWindowPlanner:
+            makeCollectionBrowseImageSourcesCache:
                 @escaping @MainActor () ->
-                    any MobileCollectionBrowseThumbnailWindowPlanning = {
-                        MobileCollectionBrowseThumbnailWindowPlanner()
+                    MobileCollectionBrowseImageSourcesCache = {
+                        MobileCollectionBrowseImageSourcesCache()
                     },
+            makeCollectionBrowseThumbnailWindowPlanner:
+                @escaping @MainActor (
+                    MobileCollectionBrowseImageSourcesCache
+                ) -> any MobileCollectionBrowseThumbnailWindowPlanning = {
+                    MobileCollectionBrowseThumbnailWindowPlanner(
+                        imageSourcesCache: $0
+                    )
+                },
             installDownloadableMediaWindow: @escaping @MainActor (
                 PlayerDownloadableMediaWindow,
                 UUID
@@ -1105,6 +1233,8 @@ final class MobilePlaybackSessionRegistry {
             self.makeViewingSessionTracker = makeViewingSessionTracker
             self.clearActiveMediaWindow = clearActiveMediaWindow
             self.cancelAllMediaDownloads = cancelAllMediaDownloads
+            self.makeCollectionBrowseImageSourcesCache =
+                makeCollectionBrowseImageSourcesCache
             self.makeCollectionBrowseThumbnailWindowPlanner =
                 makeCollectionBrowseThumbnailWindowPlanner
             self.installDownloadableMediaWindow =
@@ -1136,13 +1266,21 @@ final class MobilePlaybackSessionRegistry {
     }
 
     func startSession(config: MobilePlayerConfig) -> MobilePlaybackSession {
+        let imageSourcesCache =
+            dependencies.makeCollectionBrowseImageSourcesCache()
+        let thumbnailWindowPlanner:
+            any MobileCollectionBrowseThumbnailWindowPlanning =
+                dependencies.makeCollectionBrowseThumbnailWindowPlanner(
+                    imageSourcesCache
+                )
         let session = MobilePlaybackSession(
             config: config,
             viewingSessionTracker: dependencies.makeViewingSessionTracker(
                 config.continueViewingCollectionId
             ),
+            collectionBrowseImageSourcesCache: imageSourcesCache,
             collectionBrowseThumbnailWindowPlanner:
-                dependencies.makeCollectionBrowseThumbnailWindowPlanner(),
+                thumbnailWindowPlanner,
             installDownloadableMediaWindow:
                 dependencies.installDownloadableMediaWindow
         ) { [weak self] session in

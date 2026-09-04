@@ -427,7 +427,7 @@ extension MobilePlaybackSessionTests {
                 },
                 clearActiveMediaWindow: { _ in },
                 cancelAllMediaDownloads: {},
-                makeCollectionBrowseThumbnailWindowPlanner: { planner },
+                makeCollectionBrowseThumbnailWindowPlanner: { _ in planner },
                 installDownloadableMediaWindow: { _, _ in
                     applicationChecks += 1
                 }
@@ -436,8 +436,10 @@ extension MobilePlaybackSessionTests {
         let session = registry.startSession(
             config: MobilePlayerConfig(initialItemId: collectionID)
         )
-        var completions = [Bool]()
-        let preparationTask = session.prepareCollectionBrowseThumbnailWindow(
+        var completions = [
+            MobileCollectionBrowseThumbnailWindowPreparationResult
+        ]()
+        session.prepareCollectionBrowseThumbnailWindow(
             centeredAt: 0,
             direction: .forward,
             prefetchStride: 9,
@@ -452,12 +454,111 @@ extension MobilePlaybackSessionTests {
         await fulfillment(of: [preparationStarted], timeout: 1)
 
         session.cancelPendingCollectionBrowseThumbnailWindowPreparation()
+        XCTAssertEqual(completions, [.superseded])
         await planner.resume()
-        await preparationTask?.value
 
-        XCTAssertEqual(completions, [false])
+        XCTAssertEqual(completions, [.superseded])
         XCTAssertEqual(applicationChecks, 0)
         session.stopAndDisconnect()
+    }
+
+    func testThumbnailWindowPreparationReportsPlannedAndUnavailable()
+        async throws {
+        let collectionID = try testCollectionIDs().0
+        let imageSourcesCache = MobileCollectionBrowseImageSourcesCache {
+            snapshot, tokenIndex in
+            let descriptor = CollectionCatalogDownloadableMediaDescriptor(
+                collectionId: snapshot.collectionId,
+                tokenId: String(tokenIndex),
+                tokenIndex: tokenIndex,
+                media: .staticImage(
+                    url: URL(
+                        fileURLWithPath:
+                            "/session-result/\(tokenIndex).webp"
+                    ),
+                    fileExtension: "webp"
+                ),
+                purpose: .collectionBrowserThumbnail
+            )
+            return CollectionBrowseImageSources(
+                smallThumbnailDescriptor: descriptor,
+                thumbnailDescriptor: descriptor,
+                largeDescriptor: descriptor
+            )
+        }
+        let registry = MobilePlaybackSessionRegistry(dependencies: .init(
+            makeViewingSessionTracker: { _ in
+                MobilePlaybackSessionTestViewingTracker()
+            },
+            clearActiveMediaWindow: { _ in },
+            cancelAllMediaDownloads: {},
+            makeCollectionBrowseImageSourcesCache: {
+                imageSourcesCache
+            },
+            installDownloadableMediaWindow: { _, _ in
+                XCTFail("A planned window must not be installed")
+            }
+        ))
+        let session = registry.startSession(
+            config: MobilePlayerConfig(initialItemId: collectionID)
+        )
+        var plannedCompletions = [
+            MobileCollectionBrowseThumbnailWindowPreparationResult
+        ]()
+        let plannedCompletion = expectation(description: "Window planned")
+
+        prepareTestThumbnailWindow(
+            on: session,
+            completion: {
+                plannedCompletions.append($0)
+                plannedCompletion.fulfill()
+            },
+            shouldApply: { false }
+        )
+
+        await fulfillment(of: [plannedCompletion], timeout: 1)
+        XCTAssertEqual(plannedCompletions, [.planned])
+        session.stopAndDisconnect()
+
+        let unavailableCache = MobileCollectionBrowseImageSourcesCache {
+            _, _ in nil
+        }
+        let unavailableRegistry = MobilePlaybackSessionRegistry(
+            dependencies: .init(
+                makeViewingSessionTracker: { _ in
+                    MobilePlaybackSessionTestViewingTracker()
+                },
+                clearActiveMediaWindow: { _ in },
+                cancelAllMediaDownloads: {},
+                makeCollectionBrowseImageSourcesCache: {
+                    unavailableCache
+                },
+                installDownloadableMediaWindow: { _, _ in
+                    XCTFail("An unavailable window must not be installed")
+                }
+            )
+        )
+        let unavailableSession = unavailableRegistry.startSession(
+            config: MobilePlayerConfig(initialItemId: collectionID)
+        )
+        var unavailableCompletions = [
+            MobileCollectionBrowseThumbnailWindowPreparationResult
+        ]()
+        let unavailableCompletion = expectation(
+            description: "Window unavailable"
+        )
+
+        prepareTestThumbnailWindow(
+            on: unavailableSession,
+            completion: {
+                unavailableCompletions.append($0)
+                unavailableCompletion.fulfill()
+            }
+        )
+
+        await fulfillment(of: [unavailableCompletion], timeout: 1)
+        XCTAssertEqual(unavailableCompletions, [.unavailable])
+        unavailableSession.stopAndDisconnect()
     }
 
     func testThumbnailWindowPreparationOrderingAcrossSessions()
@@ -465,8 +566,8 @@ extension MobilePlaybackSessionTests {
         let newerCommitted = try await thumbnailWindowOrderingResult(
             cancelsNewerPreparation: false
         )
-        XCTAssertEqual(newerCommitted.newerCompletions, [true])
-        XCTAssertEqual(newerCommitted.olderCompletions, [false])
+        XCTAssertEqual(newerCommitted.newerCompletions, [.committed])
+        XCTAssertEqual(newerCommitted.olderCompletions, [.planned])
         XCTAssertEqual(
             newerCommitted.installedCollectionIDs,
             [newerCommitted.newerCollectionID]
@@ -475,8 +576,8 @@ extension MobilePlaybackSessionTests {
         let newerCancelled = try await thumbnailWindowOrderingResult(
             cancelsNewerPreparation: true
         )
-        XCTAssertEqual(newerCancelled.newerCompletions, [false])
-        XCTAssertEqual(newerCancelled.olderCompletions, [true])
+        XCTAssertEqual(newerCancelled.newerCompletions, [.superseded])
+        XCTAssertEqual(newerCancelled.olderCompletions, [.committed])
         XCTAssertEqual(
             newerCancelled.installedCollectionIDs,
             [newerCancelled.olderCollectionID]
@@ -485,7 +586,7 @@ extension MobilePlaybackSessionTests {
 
     func testThumbnailWindowReplacementIsReentrantSafe() async throws {
         let collectionID = try testCollectionIDs().0
-        let planner = MobileCollectionBrowseThumbnailWindowPlanner {
+        let imageSourcesCache = MobileCollectionBrowseImageSourcesCache {
             snapshot, tokenIndex in
             let descriptor = CollectionCatalogDownloadableMediaDescriptor(
                 collectionId: snapshot.collectionId,
@@ -506,6 +607,9 @@ extension MobilePlaybackSessionTests {
                 largeDescriptor: descriptor
             )
         }
+        let planner = MobileCollectionBrowseThumbnailWindowPlanner(
+            imageSourcesCache: imageSourcesCache
+        )
         var installedTokenIndices = [Int]()
         let registry = MobilePlaybackSessionRegistry(
             dependencies: .init(
@@ -514,7 +618,10 @@ extension MobilePlaybackSessionTests {
                 },
                 clearActiveMediaWindow: { _ in },
                 cancelAllMediaDownloads: {},
-                makeCollectionBrowseThumbnailWindowPlanner: { planner },
+                makeCollectionBrowseImageSourcesCache: {
+                    imageSourcesCache
+                },
+                makeCollectionBrowseThumbnailWindowPlanner: { _ in planner },
                 installDownloadableMediaWindow: { window, _ in
                     installedTokenIndices.append(
                         window.currentDescriptor.tokenIndex
@@ -525,36 +632,55 @@ extension MobilePlaybackSessionTests {
         let session = registry.startSession(
             config: MobilePlayerConfig(initialItemId: collectionID)
         )
-        var firstCompletions = [Bool]()
-        var secondCompletions = [Bool]()
-        var thirdCompletions = [Bool]()
-        var thirdTask: Task<Void, Never>?
-        let firstTask = prepareTestThumbnailWindow(
+        var firstCompletions = [
+            MobileCollectionBrowseThumbnailWindowPreparationResult
+        ]()
+        var secondCompletions = [
+            MobileCollectionBrowseThumbnailWindowPreparationResult
+        ]()
+        var thirdCompletions = [
+            MobileCollectionBrowseThumbnailWindowPreparationResult
+        ]()
+        let firstCompletion = expectation(description: "First window superseded")
+        let secondCompletion = expectation(description: "Second window superseded")
+        let thirdCompletion = expectation(description: "Third window committed")
+        var thirdPreparationStarted = false
+        prepareTestThumbnailWindow(
             on: session,
             tokenIndex: 0,
-            completion: { didCommit in
-                firstCompletions.append(didCommit)
-                guard !didCommit, thirdTask == nil else { return }
-                thirdTask = self.prepareTestThumbnailWindow(
+            completion: { result in
+                firstCompletions.append(result)
+                firstCompletion.fulfill()
+                guard result == .superseded,
+                      !thirdPreparationStarted else { return }
+                thirdPreparationStarted = true
+                self.prepareTestThumbnailWindow(
                     on: session,
                     tokenIndex: 0,
-                    completion: { thirdCompletions.append($0) }
+                    completion: {
+                        thirdCompletions.append($0)
+                        thirdCompletion.fulfill()
+                    }
                 )
             }
         )
-        let secondTask = prepareTestThumbnailWindow(
+        prepareTestThumbnailWindow(
             on: session,
             tokenIndex: 0,
-            completion: { secondCompletions.append($0) }
+            completion: {
+                secondCompletions.append($0)
+                secondCompletion.fulfill()
+            }
         )
 
-        await firstTask?.value
-        await secondTask?.value
-        await thirdTask?.value
+        await fulfillment(
+            of: [firstCompletion, secondCompletion, thirdCompletion],
+            timeout: 1
+        )
 
-        XCTAssertEqual(firstCompletions, [false])
-        XCTAssertEqual(secondCompletions, [false])
-        XCTAssertEqual(thirdCompletions, [true])
+        XCTAssertEqual(firstCompletions, [.superseded])
+        XCTAssertEqual(secondCompletions, [.superseded])
+        XCTAssertEqual(thirdCompletions, [.committed])
         XCTAssertEqual(installedTokenIndices, [0])
         session.stopAndDisconnect()
     }
@@ -564,8 +690,12 @@ extension MobilePlaybackSessionTests {
     ) async throws -> (
         olderCollectionID: String,
         newerCollectionID: String,
-        olderCompletions: [Bool],
-        newerCompletions: [Bool],
+        olderCompletions: [
+            MobileCollectionBrowseThumbnailWindowPreparationResult
+        ],
+        newerCompletions: [
+            MobileCollectionBrowseThumbnailWindowPreparationResult
+        ],
         installedCollectionIDs: [String]
     ) {
         let (olderCollectionID, newerCollectionID) = try testCollectionIDs()
@@ -590,6 +720,7 @@ extension MobilePlaybackSessionTests {
                 clearActiveMediaWindow: { _ in },
                 cancelAllMediaDownloads: {},
                 makeCollectionBrowseThumbnailWindowPlanner: {
+                    _ in
                     planners.removeFirst()
                 },
                 installDownloadableMediaWindow: { window, _ in
@@ -605,16 +736,28 @@ extension MobilePlaybackSessionTests {
         let newerSession = registry.startSession(
             config: MobilePlayerConfig(initialItemId: newerCollectionID)
         )
-        var olderCompletions = [Bool]()
-        var newerCompletions = [Bool]()
-        let olderTask = prepareTestThumbnailWindow(
+        var olderCompletions = [
+            MobileCollectionBrowseThumbnailWindowPreparationResult
+        ]()
+        var newerCompletions = [
+            MobileCollectionBrowseThumbnailWindowPreparationResult
+        ]()
+        let olderCompletion = expectation(description: "Older window completed")
+        let newerCompletion = expectation(description: "Newer window completed")
+        prepareTestThumbnailWindow(
             on: olderSession,
-            completion: { olderCompletions.append($0) }
+            completion: {
+                olderCompletions.append($0)
+                olderCompletion.fulfill()
+            }
         )
         await fulfillment(of: [olderStarted], timeout: 1)
-        let newerTask = prepareTestThumbnailWindow(
+        prepareTestThumbnailWindow(
             on: newerSession,
-            completion: { newerCompletions.append($0) }
+            completion: {
+                newerCompletions.append($0)
+                newerCompletion.fulfill()
+            }
         )
         await fulfillment(of: [newerStarted], timeout: 1)
 
@@ -623,9 +766,9 @@ extension MobilePlaybackSessionTests {
                 .cancelPendingCollectionBrowseThumbnailWindowPreparation()
         }
         await newerPlanner.resume()
-        await newerTask?.value
+        await fulfillment(of: [newerCompletion], timeout: 1)
         await olderPlanner.resume()
-        await olderTask?.value
+        await fulfillment(of: [olderCompletion], timeout: 1)
         olderSession.stopAndDisconnect()
         newerSession.stopAndDisconnect()
 
@@ -641,8 +784,11 @@ extension MobilePlaybackSessionTests {
     private func prepareTestThumbnailWindow(
         on session: MobilePlaybackSession,
         tokenIndex: Int = 0,
-        completion: @escaping @MainActor (Bool) -> Void
-    ) -> Task<Void, Never>? {
+        completion: @escaping @MainActor (
+            MobileCollectionBrowseThumbnailWindowPreparationResult
+        ) -> Void,
+        shouldApply: @escaping @MainActor () -> Bool = { true }
+    ) {
         session.prepareCollectionBrowseThumbnailWindow(
             centeredAt: tokenIndex,
             direction: .forward,
@@ -653,6 +799,7 @@ extension MobilePlaybackSessionTests {
             displayedHigherQualityThumbnailTokenIndices: [],
             displayedLargeTokenIndices: [],
             locallyAvailableLargeTokenIndices: [],
+            shouldApply: shouldApply,
             completion: completion
         )
     }

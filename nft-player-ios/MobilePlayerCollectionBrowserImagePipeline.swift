@@ -29,6 +29,15 @@ final class MobilePlayerCollectionBrowserImagePipeline {
         let locallyAvailableLargeTokenIndices: Set<Int>
         let isFileOnly: Bool
         let decodeVariant: DownloadableMediaImageDecodeVariant
+        var transitionTokenRange: ClosedRange<Int>? = nil
+    }
+
+    struct TransitionWindow {
+        let tokenIndex: Int
+        let tokenRange: ClosedRange<Int>
+        let layout: MobilePlayerBrowserLayout
+        let quality: CollectionBrowseImageQuality
+        let decodeVariant: DownloadableMediaImageDecodeVariant
     }
 
     struct ThumbnailWindowPreparation: Equatable {
@@ -69,9 +78,12 @@ final class MobilePlayerCollectionBrowserImagePipeline {
         let prepareThumbnailWindow: @MainActor (
             ThumbnailWindowPreparation,
             @escaping @MainActor () -> Bool,
-            @escaping @MainActor (Bool) -> Void
+            @escaping @MainActor (
+                MobileCollectionBrowseThumbnailWindowPreparationResult
+            ) -> Void
         ) -> Void
         let cancelThumbnailWindowPreparation: @MainActor () -> Void
+        let thumbnailWindowPreparationDidFinish: @MainActor () -> Void
     }
 
 #if DEBUG
@@ -83,6 +95,7 @@ final class MobilePlayerCollectionBrowserImagePipeline {
         var visibleCellCount = 0
         var emptyVisibleCellCount = 0
         var outstandingCachedImageRefreshes = 0
+        var denseGridImageRefreshEnqueues = 0
     }
 
     private(set) var thumbnailWindowMetrics = ThumbnailWindowMetrics()
@@ -193,7 +206,7 @@ final class MobilePlayerCollectionBrowserImagePipeline {
         guard !isInvalidated else { return }
         isVisible = visible
         if !visible {
-            cancelPendingThumbnailWindowPreparation()
+            suspendRenderedImageLoads()
         }
     }
 
@@ -222,28 +235,49 @@ final class MobilePlayerCollectionBrowserImagePipeline {
         contentAccess?.visibleCells().forEach { $0.cancelImageLoad() }
     }
 
+    func suspendRenderedImageLoads() {
+        guard !isInvalidated else { return }
+        if let contentAccess {
+            var cellIDs = Set<ObjectIdentifier>()
+            let cells = contentAccess.visibleCells()
+                + contentAccess.viewportRenderCells(nil)
+            for cell in cells {
+                guard cellIDs.insert(ObjectIdentifier(cell)).inserted else {
+                    continue
+                }
+                cell.demoteImageLoadToCachedOnlyIfNeeded()
+            }
+        }
+        stopDenseGridImageDisplayLink()
+        cancelPendingThumbnailWindowPreparation()
+    }
+
     func prepareThumbnailWindow(
         around tokenIndex: Int,
         direction: DownloadableMediaCache.PrefetchDirection,
         force: Bool,
         configuredPrefetchStride: Int,
         configuredColumnCount: Int,
-        requiredImageQuality: CollectionBrowseImageQuality
+        requiredImageQuality: CollectionBrowseImageQuality,
+        transitionWindow: TransitionWindow? = nil
     ) {
         guard !isInvalidated,
-              isActive,
-              isVisible,
               let contentAccess,
-              contentAccess.isForegroundActive() else {
+              isActive || contentAccess.isPreparedTransitionActive() else {
+            return
+        }
+        guard transitionWindow == nil
+            || isActive && isVisible && contentAccess.isForegroundActive() else {
             return
         }
         let prefetchStride = PlayerCollectionBrowseMediaWindowPolicy
             .normalizedPrefetchStride(configuredPrefetchStride)
         let columnCount = configuredColumnCount
         let quality = requiredImageQuality
-        let decodeVariant = contentAccess.imageDecodeVariant()
-        let isFileOnly = quality.isDenseGridThumbnail
-            && isScrollMotionActive
+        let decodeVariant = transitionWindow?.decodeVariant
+            ?? contentAccess.imageDecodeVariant()
+        let isFileOnly = transitionWindow != nil
+            || quality.isDenseGridThumbnail && isScrollMotionActive
         let refreshDistance = quality.isDenseGridThumbnail
             ? PlayerCollectionBrowseMediaWindowPolicy.rowAlignedRefreshDistance(
                 prefetchStride: prefetchStride,
@@ -252,6 +286,16 @@ final class MobilePlayerCollectionBrowserImagePipeline {
             : prefetchStride
         let comparisonRequest = pendingThumbnailWindowRequest?.request
             ?? lastThumbnailWindowRequest
+        if let transitionWindow,
+           let comparisonRequest,
+           comparisonRequest.columnCount == columnCount,
+           comparisonRequest.quality == quality,
+           comparisonRequest.decodeVariant == decodeVariant,
+           let preparedRange = comparisonRequest.transitionTokenRange,
+           preparedRange.contains(transitionWindow.tokenRange.lowerBound),
+           preparedRange.contains(transitionWindow.tokenRange.upperBound) {
+            return
+        }
         let previousTokenIndex = comparisonRequest.flatMap {
             $0.direction == direction
                 && $0.prefetchStride == prefetchStride
@@ -265,7 +309,7 @@ final class MobilePlayerCollectionBrowserImagePipeline {
                 previousTokenIndex: previousTokenIndex,
                 nextTokenIndex: tokenIndex,
                 refreshDistance: refreshDistance,
-                force: force
+                force: force || transitionWindow != nil
             )
         if quality.isDenseGridThumbnail,
            !shouldRefreshStableWindow,
@@ -277,8 +321,17 @@ final class MobilePlayerCollectionBrowserImagePipeline {
             return
         }
 
-        let visibleTokenRange = visibleBrowserTokenRange(contentAccess: contentAccess)
-        let requiredTokenRange = visibleTokenRange.map {
+        let transitionTokenRange = transitionWindow.map { window in
+            let first = max(window.tokenRange.lowerBound - columnCount * 2, 0)
+            let last = min(
+                window.tokenRange.upperBound + columnCount * 2,
+                window.layout.itemCount - 1
+            )
+            return first...last
+        }
+        let visibleTokenRange = transitionTokenRange
+            ?? visibleBrowserTokenRange(contentAccess: contentAccess)
+        let requiredTokenRange = transitionTokenRange ?? visibleTokenRange.map {
             requiredThumbnailWindowTokenRange(
                 around: tokenIndex,
                 direction: direction,
@@ -288,7 +341,7 @@ final class MobilePlayerCollectionBrowserImagePipeline {
             )
         }
         let displayedImages: DisplayedImageWindowState
-        if quality == .large {
+        if quality == .large || transitionWindow != nil {
             displayedImages = .empty
         } else {
             displayedImages = displayedImageWindowState(
@@ -315,7 +368,8 @@ final class MobilePlayerCollectionBrowserImagePipeline {
             locallyAvailableLargeTokenIndices:
                 displayedImages.locallyAvailableTokenIndices,
             isFileOnly: isFileOnly,
-            decodeVariant: decodeVariant
+            decodeVariant: decodeVariant,
+            transitionTokenRange: transitionTokenRange
         )
         if !force,
            let comparisonRequest,
@@ -358,11 +412,11 @@ final class MobilePlayerCollectionBrowserImagePipeline {
                     generation: generation
                 ) == true
             },
-            { [weak self] didCommit in
+            { [weak self] result in
                 self?.finishThumbnailWindowPreparation(
                     generation: generation,
                     request: request,
-                    didCommit: didCommit
+                    result: result
                 )
             }
         )
@@ -399,13 +453,20 @@ final class MobilePlayerCollectionBrowserImagePipeline {
     private func finishThumbnailWindowPreparation(
         generation: UInt,
         request: ThumbnailWindowRequest,
-        didCommit: Bool
+        result: MobileCollectionBrowseThumbnailWindowPreparationResult
     ) {
         guard pendingThumbnailWindowRequest?.generation == generation else {
             return
         }
         pendingThumbnailWindowRequest = nil
-        lastThumbnailWindowRequest = didCommit ? request : nil
+        let preparedTransitionSources = result == .planned
+            && request.transitionTokenRange != nil
+        lastThumbnailWindowRequest = result == .committed || preparedTransitionSources
+            ? request
+            : nil
+        if result == .planned || result == .committed {
+            contentAccess?.thumbnailWindowPreparationDidFinish()
+        }
     }
 
     func configure(
@@ -421,17 +482,29 @@ final class MobilePlayerCollectionBrowserImagePipeline {
     ) {
         guard !isInvalidated else { return }
         let defersDenseGridImageLoading = self.defersDenseGridImageLoading
-        if imageLoadPolicy == nil, defersDenseGridImageLoading {
-            cell.demoteImageLoadToCachedOnlyIfNeeded(tokenIndex: tokenIndex)
-        }
+        let isForegroundEligible = isActive
+            && isVisible
+            && contentAccess?.isForegroundActive() == true
+        let participatesInPreparation = isActive
+            || contentAccess?.isPreparedTransitionActive() == true
         let requestedImageLoadPolicy = imageLoadPolicy
-            ?? (isActive || contentAccess?.isPreparedTransitionActive() == true
-                ? (defersDenseGridImageLoading ? .cachedOnly : .foreground)
+            ?? (participatesInPreparation
+                ? (defersDenseGridImageLoading || !isForegroundEligible
+                    ? .cachedOnly
+                    : .foreground)
                 : .disabled)
-        let resolvedImageLoadPolicy = defersDenseGridImageLoading
+        let resolvedImageLoadPolicy = (
+            defersDenseGridImageLoading || !isForegroundEligible
+        )
             && requestedImageLoadPolicy == .foreground
             ? .cachedOnly
             : requestedImageLoadPolicy
+        let shouldDemoteForegroundLoad = resolvedImageLoadPolicy == .cachedOnly
+            && (!isForegroundEligible
+                || imageLoadPolicy == nil && defersDenseGridImageLoading)
+        if shouldDemoteForegroundLoad {
+            cell.demoteImageLoadToCachedOnlyIfNeeded(tokenIndex: tokenIndex)
+        }
         let resolvedRequiredImageQuality = requiredImageQuality
             ?? contentAccess?.requiredImageQuality()
             ?? .large
@@ -445,7 +518,7 @@ final class MobilePlayerCollectionBrowserImagePipeline {
         if defersDenseGridImageLoading,
            cell.needsCachedImageRefresh(tokenIndex: tokenIndex) {
             enqueueDenseGridImageRefresh(tokenIndex: tokenIndex)
-        } else if imageLoadPolicy != nil {
+        } else if imageLoadPolicy != nil || !isForegroundEligible {
             _ = cell.refreshCachedImageIfAvailable(tokenIndex: tokenIndex)
         }
     }
@@ -456,7 +529,9 @@ final class MobilePlayerCollectionBrowserImagePipeline {
         intersectsViewport: @MainActor () -> Bool
     ) {
         guard !isInvalidated,
-              isActive || contentAccess?.isPreparedTransitionActive() == true,
+              isActive,
+              isVisible,
+              contentAccess?.isForegroundActive() == true,
               contentAccess?.isRendererActive() == false else {
             return
         }
@@ -713,6 +788,7 @@ final class MobilePlayerCollectionBrowserImagePipeline {
             return
         }
 #if DEBUG
+        thumbnailWindowMetrics.denseGridImageRefreshEnqueues += 1
         thumbnailWindowMetrics.outstandingCachedImageRefreshes =
             denseGridImageRefreshQueue.count
 #endif

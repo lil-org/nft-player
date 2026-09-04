@@ -263,14 +263,20 @@ final class MobilePlayerSessionModeController {
         playbackSession.acknowledgeIntentionalViewingPosition()
         supersedeActiveOperation()
         let sourcePagePosition = chrome.pagerProvider?.pagerCurrentPagePosition()
-        commitCollectionBrowserPresentation(performsPop: false)
-
-        guard let sourcePagePosition,
-              let preparation = playbackSession.prepareCollectionBrowse(
-                containing: sourcePagePosition
-              ) else {
-            return
+        let preparation = sourcePagePosition.flatMap {
+            playbackSession.prepareCollectionBrowse(containing: $0)
         }
+        let committedPreparation: PlayerCollectionBrowsePreparation?
+        if let preparation,
+           case .resolved = playbackSession.commitCollectionBrowse(
+               preparation: preparation
+           ) {
+            committedPreparation = preparation
+        } else {
+            committedPreparation = nil
+        }
+        commitCollectionBrowserPresentation(performsPop: false)
+        guard let preparation = committedPreparation else { return }
 
         let generation = beginOperation()
         browserViewController.prepareForDisplay(
@@ -290,10 +296,12 @@ final class MobilePlayerSessionModeController {
                 return
             }
 
-            _ = self.playbackSession.commitCollectionBrowse(
-                preparation: preparation
-            )
-            _ = browserViewController.finalizePreparedDisplay(preparation)
+            guard browserViewController.finalizePreparedDisplay(
+                preparation
+            ) else {
+                browserViewController.cancelPendingDisplayPreparation()
+                return
+            }
         }
     }
 
@@ -366,12 +374,14 @@ final class MobilePlayerSessionModeController {
     }
 
     private func beginOperation() -> UInt {
-        if activeOperationGeneration != nil {
-            browserViewController?.cancelPendingDisplayPreparation()
-        }
+        let cancelsPreviousOperation = activeOperationGeneration != nil
         operationGeneration &+= 1
         activeOperationGeneration = operationGeneration
-        return operationGeneration
+        let generation = operationGeneration
+        if cancelsPreviousOperation {
+            browserViewController?.cancelPendingDisplayPreparation()
+        }
+        return generation
     }
 
     private func isCurrentOperation(_ generation: UInt) -> Bool {

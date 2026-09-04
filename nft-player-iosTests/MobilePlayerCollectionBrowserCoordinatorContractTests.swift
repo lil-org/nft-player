@@ -168,16 +168,23 @@ extension MobilePlayerCollectionBrowserCoordinatorContractTests {
             -> DownloadableMediaImageDecodeVariant = { .full },
         configuredPrefetchStride: @escaping @MainActor () -> Int = { 9 },
         configuredColumnCount: @escaping @MainActor () -> Int = { 5 },
+        isPreparedTransitionActive: @escaping @MainActor () -> Bool = {
+            false
+        },
         isForegroundActive: @escaping @MainActor () -> Bool = { true },
         prepareThumbnailWindow: @escaping @MainActor (
             MobilePlayerCollectionBrowserImagePipeline
                 .ThumbnailWindowPreparation,
             @escaping @MainActor () -> Bool,
-            @escaping @MainActor (Bool) -> Void
+            @escaping @MainActor (
+                MobileCollectionBrowseThumbnailWindowPreparationResult
+            ) -> Void
         ) -> Void = { _, shouldApply, completion in
-            completion(shouldApply())
+            completion(shouldApply() ? .committed : .planned)
         },
-        cancelThumbnailWindowPreparation: @escaping @MainActor () -> Void = {}
+        cancelThumbnailWindowPreparation: @escaping @MainActor () -> Void = {},
+        thumbnailWindowPreparationDidFinish:
+            @escaping @MainActor () -> Void = {}
     ) -> MobilePlayerCollectionBrowserImagePipeline.ContentAccess {
         .init(
             visibleIndexPaths: visibleIndexPaths,
@@ -192,12 +199,21 @@ extension MobilePlayerCollectionBrowserCoordinatorContractTests {
             configuredColumnCount: configuredColumnCount,
             isRendererActive: { false },
             isApplyingPosition: { false },
-            isPreparedTransitionActive: { false },
+            isPreparedTransitionActive: isPreparedTransitionActive,
             isForegroundActive: isForegroundActive,
             projectedTokenRange: { _, _, _ in nil },
-            prepareThumbnailWindow: prepareThumbnailWindow,
+            prepareThumbnailWindow: {
+                preparation, shouldApply, completion in
+                prepareThumbnailWindow(
+                    preparation,
+                    shouldApply,
+                    completion
+                )
+            },
             cancelThumbnailWindowPreparation:
-                cancelThumbnailWindowPreparation
+                cancelThumbnailWindowPreparation,
+            thumbnailWindowPreparationDidFinish:
+                thumbnailWindowPreparationDidFinish
         )
     }
 
@@ -518,7 +534,7 @@ extension MobilePlayerCollectionBrowserCoordinatorContractTests {
             prepareThumbnailWindow: {
                 preparation, shouldApply, completion in
                 preparations.append(preparation)
-                completion(shouldApply())
+                completion(shouldApply() ? .committed : .planned)
             },
             cancelThumbnailWindowPreparation: {
                 cancellationCount += 1
@@ -566,7 +582,7 @@ extension MobilePlayerCollectionBrowserCoordinatorContractTests {
             prepareThumbnailWindow: {
                 preparation, shouldApply, completion in
                 preparations.append(preparation)
-                completion(shouldApply())
+                completion(shouldApply() ? .committed : .planned)
             }
         ))
         pipeline.setActive(true)
@@ -607,7 +623,7 @@ extension MobilePlayerCollectionBrowserCoordinatorContractTests {
             prepareThumbnailWindow: {
                 _, shouldApply, completion in
                 preparationCount += 1
-                completion(shouldApply())
+                completion(shouldApply() ? .committed : .planned)
             }
         ))
         pipeline.setActive(true)
@@ -692,14 +708,87 @@ extension MobilePlayerCollectionBrowserCoordinatorContractTests {
         XCTAssertEqual(cancellationCount, 1)
     }
 
+    func testImagePipelineDemotesForegroundCellWhenHiddenOrStaged() {
+        let tokenIndex = 4
+        let identity = MobilePlayerBrowserContentIdentity(
+            collectionId: "policy",
+            tokenIndex: tokenIndex
+        )
+        let cell = MobilePlayerCollectionBrowserCell(frame: CGRect(
+            x: 0,
+            y: 0,
+            width: 80,
+            height: 80
+        ))
+        let fallbackSpec = PlayerMediaPlaceholderSpec(
+            thumbnailAspectRatio: nil
+        )
+        let stagedState = SettlementAcceptance()
+        let pipeline = MobilePlayerCollectionBrowserImagePipeline()
+        pipeline.configure(contentAccess: makeImageContentAccess(
+            visibleCells: { [cell] },
+            isPreparedTransitionActive: { stagedState.value }
+        ))
+        defer { pipeline.invalidate() }
+
+        let configureCell: @MainActor (
+            MobilePlayerCollectionBrowserCell.ImageLoadPolicy
+        ) -> Void = { policy in
+            cell.configure(
+                contentIdentity: identity,
+                itemCount: 10,
+                imageSources: nil,
+                requiredImageQuality: .thumbnail,
+                missingDescriptorFallbackSpec: fallbackSpec,
+                imageLoadPolicy: policy
+            )
+        }
+        let configureThroughPipeline = {
+            pipeline.configure(
+                cell: cell,
+                tokenIndex: tokenIndex,
+                requiredImageQuality: nil,
+                imageLoadPolicy: nil
+            ) { _, policy, _ in
+                configureCell(policy)
+            }
+        }
+
+        pipeline.setActive(true)
+        pipeline.setVisible(true)
+        configureThroughPipeline()
+        XCTAssertTrue(cell.usesForegroundImageLoading)
+        pipeline.setVisible(false)
+        XCTAssertFalse(cell.usesForegroundImageLoading)
+        configureThroughPipeline()
+        XCTAssertFalse(cell.usesForegroundImageLoading)
+
+        pipeline.setVisible(true)
+        configureThroughPipeline()
+        XCTAssertTrue(cell.usesForegroundImageLoading)
+        pipeline.setActive(false)
+        pipeline.setVisible(false)
+        stagedState.value = true
+        configureThroughPipeline()
+        XCTAssertFalse(cell.usesForegroundImageLoading)
+    }
+
     func testImagePipelineRetriesRejectedThumbnailWindowPreparation() {
         let pipeline = MobilePlayerCollectionBrowserImagePipeline()
         var preparationCount = 0
+        var completionCount = 0
         pipeline.configure(contentAccess: makeImageContentAccess(
             prepareThumbnailWindow: {
                 _, shouldApply, completion in
                 preparationCount += 1
-                completion(preparationCount > 1 && shouldApply())
+                completion(
+                    preparationCount > 1 && shouldApply()
+                        ? .committed
+                        : .planned
+                )
+            },
+            thumbnailWindowPreparationDidFinish: {
+                completionCount += 1
             }
         ))
         pipeline.setActive(true)
@@ -725,6 +814,7 @@ extension MobilePlayerCollectionBrowserCoordinatorContractTests {
         )
 
         XCTAssertEqual(preparationCount, 2)
+        XCTAssertEqual(completionCount, 2)
         XCTAssertEqual(
             pipeline.snapshot().lastThumbnailWindowRequest?.tokenIndex,
             18
@@ -733,15 +823,21 @@ extension MobilePlayerCollectionBrowserCoordinatorContractTests {
 
     func testImagePipelineIgnoresSupersededPreparationCompletion() throws {
         typealias ShouldApply = @MainActor () -> Bool
-        typealias Completion = @MainActor (Bool) -> Void
+        typealias Completion = @MainActor (
+            MobileCollectionBrowseThumbnailWindowPreparationResult
+        ) -> Void
         let pipeline = MobilePlayerCollectionBrowserImagePipeline()
         var shouldApplyCallbacks = [ShouldApply]()
         var completions = [Completion]()
+        var completionCount = 0
         pipeline.configure(contentAccess: makeImageContentAccess(
             prepareThumbnailWindow: {
                 _, shouldApply, completion in
                 shouldApplyCallbacks.append(shouldApply)
                 completions.append(completion)
+            },
+            thumbnailWindowPreparationDidFinish: {
+                completionCount += 1
             }
         ))
         pipeline.setActive(true)
@@ -769,7 +865,8 @@ extension MobilePlayerCollectionBrowserCoordinatorContractTests {
         }
 
         XCTAssertFalse(shouldApplyCallbacks[0]())
-        completions[0](true)
+        completions[0](.committed)
+        XCTAssertEqual(completionCount, 0)
         XCTAssertNil(pipeline.snapshot().lastThumbnailWindowRequest)
         XCTAssertEqual(
             pipeline.snapshot().pendingThumbnailWindowRequest?.tokenIndex,
@@ -777,7 +874,8 @@ extension MobilePlayerCollectionBrowserCoordinatorContractTests {
         )
 
         XCTAssertTrue(shouldApplyCallbacks[1]())
-        completions[1](true)
+        completions[1](.committed)
+        XCTAssertEqual(completionCount, 1)
         XCTAssertEqual(
             pipeline.snapshot().lastThumbnailWindowRequest?.tokenIndex,
             18
@@ -805,7 +903,7 @@ extension MobilePlayerCollectionBrowserCoordinatorContractTests {
             prepareThumbnailWindow: {
                 preparation, shouldApply, completion in
                 preparations.append(preparation)
-                completion(shouldApply())
+                completion(shouldApply() ? .committed : .planned)
             }
         ))
         pipeline.setActive(true)
@@ -835,7 +933,9 @@ extension MobilePlayerCollectionBrowserCoordinatorContractTests {
 
     func testImagePipelineRejectsCompletionAfterLeavingForeground() throws {
         typealias ShouldApply = @MainActor () -> Bool
-        typealias Completion = @MainActor (Bool) -> Void
+        typealias Completion = @MainActor (
+            MobileCollectionBrowseThumbnailWindowPreparationResult
+        ) -> Void
         let pipeline = MobilePlayerCollectionBrowserImagePipeline()
         let foregroundState = SettlementAcceptance()
         foregroundState.value = true
@@ -864,7 +964,7 @@ extension MobilePlayerCollectionBrowserCoordinatorContractTests {
         let pendingShouldApply = try XCTUnwrap(shouldApply)
         let pendingCompletion = try XCTUnwrap(completion)
         XCTAssertFalse(pendingShouldApply())
-        pendingCompletion(pendingShouldApply())
+        pendingCompletion(pendingShouldApply() ? .committed : .planned)
 
         XCTAssertNil(pipeline.snapshot().lastThumbnailWindowRequest)
         XCTAssertNil(pipeline.snapshot().pendingThumbnailWindowRequest)
@@ -1440,7 +1540,7 @@ extension MobilePlayerCollectionBrowserCoordinatorContractTests {
         pipeline.configure(contentAccess: makeImageContentAccess(
             prepareThumbnailWindow: { _, shouldApply, completion in
                 callbackSnapshot = pipeline.snapshot()
-                completion(shouldApply())
+                completion(shouldApply() ? .committed : .planned)
             }
         ))
         pipeline.setActive(true)

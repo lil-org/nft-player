@@ -232,6 +232,12 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
         renderer?.isActive == true
     }
 
+    @discardableResult
+    func reconcilePublishedImageSources() -> Bool {
+        guard !isInvalidated else { return false }
+        return renderer?.reconcilePublishedImageSources() == true
+    }
+
     var blocksSelection: Bool {
         transitionRuntime.blocksSelection
     }
@@ -1402,6 +1408,17 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
         if result.needsVisibleCellQualityReconciliation {
             browserEffects?.reloadVisibleCells()
         }
+        if let window = renderer?.transitionThumbnailWindow {
+            imagePipeline?.prepareThumbnailWindow(
+                around: window.tokenIndex,
+                direction: scrollCoordinator?.lastPrefetchDirection ?? .forward,
+                force: false,
+                configuredPrefetchStride: window.layout.prefetchStride,
+                configuredColumnCount: window.layout.columnCount,
+                requiredImageQuality: window.quality,
+                transitionWindow: window
+            )
+        }
         reconcileFrameDriving()
         return result.succeeded
     }
@@ -1646,6 +1663,7 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
         let wasCollectionViewPrefetchingEnabled =
             collectionView.isPrefetchingEnabled
         cancelGeometryPrewarming()
+        scrollCoordinator.cancelPositioning()
         scrollCoordinator.setApplyingPosition(true)
         collectionView.isPrefetchingEnabled = false
         collectionView.layoutIfNeeded()
