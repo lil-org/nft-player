@@ -2779,8 +2779,12 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             .hasPendingGeometryPrewarm
     }
 
-    func drainDenseGridImageDisplayLinkFrameForTesting() -> Int {
-        imagePipeline.drainDenseGridImageDisplayLinkFrameForTesting()
+    func drainDenseGridImageDisplayLinkFrameForTesting(
+        currentTime: () -> CFTimeInterval = CACurrentMediaTime
+    ) -> Int {
+        imagePipeline.drainDenseGridImageDisplayLinkFrameForTesting(
+            currentTime: currentTime
+        )
     }
 
     func replacePendingDenseGridImageRefreshesForTesting(

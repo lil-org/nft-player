@@ -676,8 +676,13 @@ final class MobilePlayerCollectionBrowserImagePipeline {
         denseGridImageDisplayLink != nil
     }
 
-    func drainDenseGridImageDisplayLinkFrameForTesting() -> Int {
-        drainDenseGridImageRefreshes(limit: denseGridImageRefreshBatchSize)
+    func drainDenseGridImageDisplayLinkFrameForTesting(
+        currentTime: () -> CFTimeInterval = CACurrentMediaTime
+    ) -> Int {
+        drainDenseGridImageRefreshes(
+            limit: denseGridImageRefreshBatchSize,
+            currentTime: currentTime
+        )
     }
 
     func replacePendingDenseGridImageRefreshesForTesting(
@@ -796,14 +801,19 @@ final class MobilePlayerCollectionBrowserImagePipeline {
     }
 
     @discardableResult
-    private func drainDenseGridImageRefreshes(limit: Int) -> Int {
+    private func drainDenseGridImageRefreshes(
+        limit: Int,
+        currentTime: () -> CFTimeInterval = CACurrentMediaTime
+    ) -> Int {
         guard defersDenseGridImageLoading else {
             stopDenseGridImageDisplayLink()
             return 0
         }
+        let deadline = currentTime() + DenseGridImageRefreshPolicy.frameTimeBudget
         var processedCount = 0
-        let tokenIndices = denseGridImageRefreshQueue.dequeue(limit: limit)
-        for tokenIndex in tokenIndices {
+        while processedCount < limit,
+              processedCount == 0 || currentTime() < deadline,
+              let tokenIndex = denseGridImageRefreshQueue.dequeue() {
             processedCount += 1
             let indexPath = IndexPath(item: tokenIndex, section: 0)
             guard let cell = contentAccess?.cell(indexPath) else { continue }
@@ -836,12 +846,11 @@ struct DenseGridImageRefreshQueue {
         return true
     }
 
-    mutating func dequeue(limit: Int) -> [Int] {
-        let count = min(max(limit, 0), tokenIndices.count)
-        let result = Array(tokenIndices.prefix(count))
-        tokenIndices.removeFirst(count)
-        result.forEach { tokenIndexSet.remove($0) }
-        return result
+    mutating func dequeue() -> Int? {
+        guard !tokenIndices.isEmpty else { return nil }
+        let tokenIndex = tokenIndices.removeFirst()
+        tokenIndexSet.remove(tokenIndex)
+        return tokenIndex
     }
 
     @discardableResult
@@ -862,6 +871,7 @@ struct DenseGridImageRefreshQueue {
 }
 
 nonisolated enum DenseGridImageRefreshPolicy {
+    static let frameTimeBudget: CFTimeInterval = 0.002
     static let minimumBatchSize = 5
     static let maximumBatchSize = 9
 

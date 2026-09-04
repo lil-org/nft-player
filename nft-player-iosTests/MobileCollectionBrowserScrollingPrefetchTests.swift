@@ -1186,9 +1186,9 @@ extension MobileCollectionBrowserGridModePresentationTests {
             XCTAssertFalse(queue.enqueue(tokenIndex))
         }
 
-        let firstFrame = queue.dequeue(limit: 5)
+        let firstFrame = (0..<5).compactMap { _ in queue.dequeue() }
         firstFrame.forEach { XCTAssertTrue(queue.enqueue($0)) }
-        let secondFrame = queue.dequeue(limit: 5)
+        let secondFrame = (0..<5).compactMap { _ in queue.dequeue() }
 
         XCTAssertEqual(firstFrame, Array(0..<5))
         XCTAssertEqual(secondFrame, Array(5..<10))
@@ -1209,7 +1209,11 @@ extension MobileCollectionBrowserGridModePresentationTests {
         }
 
         XCTAssertEqual(queue.count, 5)
-        XCTAssertEqual(queue.dequeue(limit: 5), Array(10..<15))
+        XCTAssertEqual(
+            (0..<5).compactMap { _ in queue.dequeue() },
+            Array(10..<15)
+        )
+        XCTAssertNil(queue.dequeue())
     }
 
     func testDenseGridImageRefreshBatchScalesToNineColumnsWithinBounds() {
@@ -2247,12 +2251,16 @@ extension MobileCollectionBrowserGridModePresentationTests {
 
         XCTAssertEqual(installedImageCount(), 0)
         XCTAssertEqual(
-            fixture.controller.drainDenseGridImageDisplayLinkFrameForTesting(),
+            fixture.controller.drainDenseGridImageDisplayLinkFrameForTesting(
+                currentTime: { 0 }
+            ),
             5
         )
         XCTAssertEqual(installedImageCount(), 5)
         XCTAssertEqual(
-            fixture.controller.drainDenseGridImageDisplayLinkFrameForTesting(),
+            fixture.controller.drainDenseGridImageDisplayLinkFrameForTesting(
+                currentTime: { 0 }
+            ),
             1
         )
         XCTAssertEqual(installedImageCount(), 6)

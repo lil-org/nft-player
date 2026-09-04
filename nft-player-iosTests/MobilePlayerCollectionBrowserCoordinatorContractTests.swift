@@ -166,6 +166,7 @@ extension MobilePlayerCollectionBrowserCoordinatorContractTests {
             -> CollectionBrowseImageQuality = { .large },
         imageDecodeVariant: @escaping @MainActor ()
             -> DownloadableMediaImageDecodeVariant = { .full },
+        baseColumnCount: @escaping @MainActor () -> Int = { 5 },
         configuredPrefetchStride: @escaping @MainActor () -> Int = { 9 },
         configuredColumnCount: @escaping @MainActor () -> Int = { 5 },
         isPreparedTransitionActive: @escaping @MainActor () -> Bool = {
@@ -194,7 +195,7 @@ extension MobilePlayerCollectionBrowserCoordinatorContractTests {
             collectionID: collectionID,
             requiredImageQuality: requiredImageQuality,
             imageDecodeVariant: imageDecodeVariant,
-            baseColumnCount: { 5 },
+            baseColumnCount: baseColumnCount,
             configuredPrefetchStride: configuredPrefetchStride,
             configuredColumnCount: configuredColumnCount,
             isRendererActive: { false },
@@ -1264,6 +1265,143 @@ extension MobilePlayerCollectionBrowserCoordinatorContractTests {
             } as? NativeMetalCardCornerMaskedImageView
         )
         XCTAssertTrue(imageView.image === image)
+    }
+
+    func testDenseGridImageRefreshBudgetPreservesPendingWorkInOrder() {
+        for columnCount in [5, 9] {
+            let pipeline = MobilePlayerCollectionBrowserImagePipeline()
+            defer { pipeline.invalidate() }
+            var currentTime = 0.0
+            var refreshedTokenIndices = [Int]()
+            pipeline.configure(contentAccess: makeImageContentAccess(
+                cell: { indexPath in
+                    refreshedTokenIndices.append(indexPath.item)
+                    currentTime += DenseGridImageRefreshPolicy.frameTimeBudget * 0.75
+                    return nil
+                },
+                requiredImageQuality: { .smallThumbnail },
+                baseColumnCount: { columnCount }
+            ))
+            pipeline.setScrollMotionActive(true)
+            pipeline.replacePendingDenseGridImageRefreshesForTesting(
+                tokenIndices: [3, 5, 8, 13]
+            )
+
+            XCTAssertEqual(
+                pipeline.drainDenseGridImageDisplayLinkFrameForTesting(
+                    currentTime: { currentTime }
+                ),
+                2
+            )
+            XCTAssertEqual(refreshedTokenIndices, [3, 5])
+            XCTAssertEqual(pipeline.pendingDenseGridImageRefreshCount, 2)
+            XCTAssertEqual(
+                pipeline.thumbnailWindowMetrics.outstandingCachedImageRefreshes,
+                2
+            )
+            XCTAssertTrue(pipeline.isDenseGridImageDisplayLinkActive)
+
+            XCTAssertEqual(
+                pipeline.drainDenseGridImageDisplayLinkFrameForTesting(
+                    currentTime: { currentTime }
+                ),
+                2
+            )
+            XCTAssertEqual(refreshedTokenIndices, [3, 5, 8, 13])
+            XCTAssertEqual(pipeline.pendingDenseGridImageRefreshCount, 0)
+            XCTAssertEqual(
+                pipeline.thumbnailWindowMetrics.outstandingCachedImageRefreshes,
+                0
+            )
+            XCTAssertFalse(pipeline.isDenseGridImageDisplayLinkActive)
+        }
+    }
+
+    func testDenseGridImageRefreshBudgetAllowsOneExpensiveItemPerFrame() {
+        for columnCount in [5, 9] {
+            let pipeline = MobilePlayerCollectionBrowserImagePipeline()
+            defer { pipeline.invalidate() }
+            var currentTime = 0.0
+            var refreshedTokenIndices = [Int]()
+            pipeline.configure(contentAccess: makeImageContentAccess(
+                cell: { indexPath in
+                    refreshedTokenIndices.append(indexPath.item)
+                    currentTime += DenseGridImageRefreshPolicy.frameTimeBudget * 2
+                    return nil
+                },
+                requiredImageQuality: { .smallThumbnail },
+                baseColumnCount: { columnCount }
+            ))
+            pipeline.setScrollMotionActive(true)
+            pipeline.replacePendingDenseGridImageRefreshesForTesting(
+                tokenIndices: [3, 5]
+            )
+
+            XCTAssertEqual(
+                pipeline.drainDenseGridImageDisplayLinkFrameForTesting(
+                    currentTime: { currentTime }
+                ),
+                1
+            )
+            XCTAssertEqual(refreshedTokenIndices, [3])
+            XCTAssertEqual(pipeline.pendingDenseGridImageRefreshCount, 1)
+            XCTAssertTrue(pipeline.isDenseGridImageDisplayLinkActive)
+
+            XCTAssertEqual(
+                pipeline.drainDenseGridImageDisplayLinkFrameForTesting(
+                    currentTime: { currentTime }
+                ),
+                1
+            )
+            XCTAssertEqual(refreshedTokenIndices, [3, 5])
+            XCTAssertEqual(pipeline.pendingDenseGridImageRefreshCount, 0)
+            XCTAssertFalse(pipeline.isDenseGridImageDisplayLinkActive)
+        }
+    }
+
+    func testDenseGridImageRefreshBudgetKeepsColumnBasedLimitForCheapWork() {
+        for columnCount in [5, 9] {
+            let pipeline = MobilePlayerCollectionBrowserImagePipeline()
+            defer { pipeline.invalidate() }
+            var currentTime = 0.0
+            var refreshedTokenIndices = [Int]()
+            pipeline.configure(contentAccess: makeImageContentAccess(
+                cell: { indexPath in
+                    refreshedTokenIndices.append(indexPath.item)
+                    currentTime += DenseGridImageRefreshPolicy.frameTimeBudget / 100
+                    return nil
+                },
+                requiredImageQuality: { .smallThumbnail },
+                baseColumnCount: { columnCount }
+            ))
+            pipeline.setScrollMotionActive(true)
+            pipeline.replacePendingDenseGridImageRefreshesForTesting(
+                tokenIndices: Array(0..<(columnCount + 2))
+            )
+
+            XCTAssertEqual(
+                pipeline.drainDenseGridImageDisplayLinkFrameForTesting(
+                    currentTime: { currentTime }
+                ),
+                columnCount
+            )
+            XCTAssertEqual(refreshedTokenIndices, Array(0..<columnCount))
+            XCTAssertEqual(pipeline.pendingDenseGridImageRefreshCount, 2)
+            XCTAssertTrue(pipeline.isDenseGridImageDisplayLinkActive)
+
+            XCTAssertEqual(
+                pipeline.drainDenseGridImageDisplayLinkFrameForTesting(
+                    currentTime: { currentTime }
+                ),
+                2
+            )
+            XCTAssertEqual(
+                refreshedTokenIndices,
+                Array(0..<(columnCount + 2))
+            )
+            XCTAssertEqual(pipeline.pendingDenseGridImageRefreshCount, 0)
+            XCTAssertFalse(pipeline.isDenseGridImageDisplayLinkActive)
+        }
     }
 
     func testImagePipelineInvalidationClearsAndRejectsPendingDenseGridWork() {
