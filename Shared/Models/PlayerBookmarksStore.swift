@@ -90,10 +90,14 @@ nonisolated struct PlayerBookmarkPresentationState: Equatable, Sendable {
     }
 
     mutating func beginToggle() -> ToggleRequest? {
+        beginUpdate(isBookmarked: !isBookmarked)
+    }
+
+    mutating func beginUpdate(isBookmarked: Bool) -> ToggleRequest? {
         guard canToggle, let target else { return nil }
         revision &+= 1
         isTogglePending = true
-        return ToggleRequest(target: target, isBookmarked: !isBookmarked)
+        return ToggleRequest(target: target, isBookmarked: isBookmarked)
     }
 
     @discardableResult

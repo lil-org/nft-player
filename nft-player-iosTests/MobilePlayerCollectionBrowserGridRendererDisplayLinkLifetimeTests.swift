@@ -73,7 +73,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         guard case let .active(session) = fixture.renderer.lifecycle else {
             return XCTFail("Expected an active renderer session")
         }
-        XCTAssertTrue(session.preparedRepresentationIDs.contains(
+        XCTAssertTrue(session.sourceRepresentations.preparedRepresentationIDs.contains(
             ObjectIdentifier(sourceCell)
         ))
         _ = fixture.renderer.finish(preservingCarryover: false)
@@ -171,7 +171,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         guard case let .active(session) = fixture.renderer.lifecycle else {
             return XCTFail("Expected an active renderer session")
         }
-        XCTAssertTrue(session.transitionImageLoads.isEmpty)
+        XCTAssertTrue(session.sourceRepresentations.transitionImageLoads.isEmpty)
         _ = fixture.renderer.finish(preservingCarryover: false)
     }
 
@@ -978,11 +978,11 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         XCTAssertFalse(sourceRepresentationIDs.isEmpty)
         let unpreparedSourceRepresentationIDs = sourceRepresentationIDs
             .intersection(
-                session.unpreparedMarginTrackingRepresentationIDs
+                session.sourceRepresentations.unpreparedMarginTrackingRepresentationIDs
             )
         let visibleRepresentationID = try XCTUnwrap(
             unpreparedSourceRepresentationIDs.first { representationID in
-                guard let itemIndex = session.cachedSourceRepresentations[
+                guard let itemIndex = session.sourceRepresentations.records[
                     representationID
                 ]?.itemIndex else {
                     return false
@@ -992,7 +992,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         )
         let bufferedRepresentationID = try XCTUnwrap(
             unpreparedSourceRepresentationIDs.first { representationID in
-                guard let itemIndex = session.cachedSourceRepresentations[
+                guard let itemIndex = session.sourceRepresentations.records[
                     representationID
                 ]?.itemIndex else {
                     return false
@@ -1008,18 +1008,18 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         )
         XCTAssertEqual(paintResult.processedCount, 1)
         XCTAssertFalse(
-            session.deferredClassificationPaintRepresentationIDs.contains(
+            session.sourceRepresentations.deferredClassificationPaintRepresentationIDs.contains(
                 visibleRepresentationID
             )
         )
         XCTAssertTrue(
-            session.deferredClassificationPaintRepresentationIDs.contains(
+            session.sourceRepresentations.deferredClassificationPaintRepresentationIDs.contains(
                 bufferedRepresentationID
             )
         )
         drainQueuedWork(fixture)
         XCTAssertTrue(
-            session.deferredClassificationPaintRepresentationIDs.isEmpty
+            session.sourceRepresentations.deferredClassificationPaintRepresentationIDs.isEmpty
         )
     }
 

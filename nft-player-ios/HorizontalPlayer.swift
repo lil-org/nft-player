@@ -3,8 +3,6 @@
 import UIKit
 import SwiftUI
 import WebKit
-import ImageIO
-import AVFoundation
 
 fileprivate final class NativeMetalCardProvisionalOverlayView: UIView {
     private let imageView = NativeMetalCardCornerMaskedImageView()
@@ -118,7 +116,7 @@ enum FullscreenTokenMediaView {
     }
 }
 
-fileprivate enum DownloadableWebMediaKind: Equatable {
+enum DownloadableWebMediaKind: Equatable {
     case image, video, htmlDocument
 }
 
@@ -318,7 +316,7 @@ final class FullscreenTokenMediaRenderer {
         webView.loadHTMLString(html, baseURL: nil)
     }
 
-    fileprivate func renderLocalWebContent(
+    func renderLocalWebContent(
         _ html: String,
         contentKind: DownloadableWebMediaKind,
         htmlDirectoryURL: URL,
@@ -1690,67 +1688,6 @@ private final class PlayerZoomScrollView: UIScrollView {
 
 private class SpecificPageViewController: UIViewController, UIScrollViewDelegate {
 
-    private static let maximumCachedVideoSizeCount = 24
-
-    private struct AnimatedRenderContext: Equatable {
-        let descriptor: DownloadableMediaDescriptor
-        let adjacentDescriptor: DownloadableMediaDescriptor?
-        let fallbackHTML: String
-        let mediaKind: DownloadableWebMediaKind
-    }
-
-    nonisolated private struct LocalMediaFileIdentity: Equatable, Hashable, Sendable {
-        let descriptor: DownloadableMediaDescriptor
-        let fileURL: URL
-    }
-
-    nonisolated private struct LocalMediaFileVersion: Equatable, Hashable, Sendable {
-        let descriptor: DownloadableMediaDescriptor
-        let fileURL: URL
-        let fileSize: Int?
-        let contentModificationDate: Date?
-
-        private init(
-            fileURL: URL,
-            descriptor: DownloadableMediaDescriptor,
-            fileSize: Int?,
-            contentModificationDate: Date?
-        ) {
-            self.descriptor = descriptor
-            self.fileURL = fileURL
-            self.fileSize = fileSize
-            self.contentModificationDate = contentModificationDate
-        }
-
-        @concurrent
-        static func load(
-            fileURL: URL,
-            descriptor: DownloadableMediaDescriptor
-        ) async -> Self {
-            let resourceValues = try? fileURL.resourceValues(
-                forKeys: [.fileSizeKey, .contentModificationDateKey]
-            )
-            return Self(
-                fileURL: fileURL,
-                descriptor: descriptor,
-                fileSize: resourceValues?.fileSize,
-                contentModificationDate: resourceValues?.contentModificationDate
-            )
-        }
-    }
-
-    private typealias VideoSizeRequest = LocalMediaFileVersion
-
-    private struct VideoSizeLoad {
-        let request: VideoSizeRequest
-        let task: Task<Void, Never>
-    }
-
-    private struct LocalMediaFileVersionLoad {
-        let identity: LocalMediaFileIdentity
-        let task: Task<Void, Never>
-    }
-
     private enum ZoomContentLayout: Equatable {
         case viewport
         case staticImage(CGSize)
@@ -1775,28 +1712,19 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     private let zoomScrollView = PlayerZoomScrollView()
     private let mediaContentView = UIView()
     private lazy var mediaRenderer = FullscreenTokenMediaRenderer(containerView: mediaContentView)
+    private lazy var pageMedia = PlayerPageMediaCoordinator(
+        renderer: mediaRenderer,
+        onContentMetrics: { [weak self] metrics, policy in
+            self?.applyMediaContentMetrics(metrics, policy: policy)
+        },
+        hasActiveZoomTransform: { [weak self] in
+            self?.hasActiveZoomTransform ?? false
+        }
+    )
 
     private(set) var pagePosition: PlayerPagePosition
 
     private var renderedPagePosition: PlayerPagePosition?
-    private var animatedRenderContext: AnimatedRenderContext?
-    private var pendingAnimatedImageURL: URL?
-    private var renderedAnimatedImageURL: URL?
-    private var renderedAnimatedNextImageURL: URL?
-    private var pendingAnimatedNextImageURL: URL?
-    private var failedAnimatedLocalContentVersion: LocalMediaFileVersion?
-    private var activeAnimatedLocalContentVersion: LocalMediaFileVersion?
-    private var provisionalAnimatedMediaImage: UIImage?
-    private var provisionalAnimatedMediaImageLoadTask: Task<Void, Never>?
-    private var downloadableMediaCacheObserver: NSObjectProtocol?
-    private var videoSizeLoad: VideoSizeLoad?
-    private var localMediaFileVersionLoad: LocalMediaFileVersionLoad?
-    private var htmlDocumentRenderTask: Task<Void, Never>?
-    private var imageSizeTask: Task<Void, Never>?
-    private var existingAnimatedMediaFileTask: Task<Void, Never>?
-    private var checkedAnimatedMediaFileDescriptor: DownloadableMediaDescriptor?
-    private var cachedVideoSizes = [VideoSizeRequest: CGSize]()
-    private var cachedVideoSizeRequests = [VideoSizeRequest]()
     private var willOrDidAppear = false
     private var isPlaybackActive = true
     private var isZoomInteractionActive = false
@@ -1824,13 +1752,6 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
 
     required init?(coder: NSCoder) {
         fatalError("yo")
-    }
-
-    isolated deinit {
-        cancelVideoSizeLoad()
-        cancelLocalMediaMetadataTasks()
-        cancelProvisionalAnimatedMediaImageLoadIfNeeded()
-        removeDownloadableMediaCacheObserver()
     }
 
     override func viewDidLoad() {
@@ -1887,8 +1808,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     private func cleanupDisplayedContent() {
         resetZoom(animated: false)
         setZoomContentLayout(.viewport)
-        clearAnimatedRenderContext()
-        mediaRenderer.clearContent()
+        pageMedia.clear()
         if let renderedPagePosition {
             playerDataSource?.didCleanupPagePosition(renderedPagePosition)
         }
@@ -1910,7 +1830,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             return
         }
 
-        applyCachedCurrentVideoSizeIfAvailable()
+        pageMedia.reapplyCurrentVideoMetrics()
 
         let locationInContent = coordinateView.convert(location, to: mediaContentView)
         let targetScale = min(
@@ -2326,8 +2246,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         }
 
         resetZoom(animated: false)
-        clearAnimatedRenderContext()
-        mediaRenderer.clearContent()
+        pageMedia.clear()
         renderBundledGenerativeWebContent(token.html)
     }
 
@@ -2404,9 +2323,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         self.pagePosition = pagePosition
         resetZoom(animated: false)
         beginRenderingPagePosition(pagePosition)
-        clearAnimatedRenderContext()
-        setZoomContentLayout(.staticImage(image.size))
-        mediaRenderer.displayLoadedImage(image, key: descriptor)
+        pageMedia.displayCachedImage(image, descriptor: descriptor)
         playerDataSource?.didRenderPagePosition(pagePosition)
         return true
     }
@@ -2418,89 +2335,51 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         renderedPagePosition = pagePosition
     }
 
-    private func standardThumbnailDescriptor(
-        matching descriptor: DownloadableMediaDescriptor
-    ) -> DownloadableMediaDescriptor? {
-        let thumbnailDescriptor = MobileCollectionCatalog.collectionBrowseThumbnailDescriptor(
-            for: descriptor
+    private func applyMediaContentMetrics(
+        _ metrics: PlayerPageMediaCoordinator.ContentMetrics,
+        policy: PlayerPageMediaCoordinator.ReplacementPolicy
+    ) {
+        if policy == .deferWhileZooming,
+           isZoomed || zoomScrollView.isZooming {
+            return
+        }
+        let layout: ZoomContentLayout
+        let allowedContent: ZoomAllowedContent
+        switch metrics {
+        case .viewport:
+            layout = .viewport
+            allowedContent = .fullContent
+        case let .staticImage(size):
+            layout = .staticImage(size)
+            allowedContent = .fullContent
+        case .nativeCard:
+            layout = .viewport
+            allowedContent = .nativeMetalCard
+        }
+        setZoomContentLayout(
+            layout,
+            allowedContent: allowedContent,
+            preservingActiveZoomDuringMediaReplacement: policy == .preserveActiveZoom
         )
-        return thumbnailDescriptor == descriptor ? nil : thumbnailDescriptor
     }
 
     private func renderImage(_ descriptor: DownloadableMediaDescriptor, fallbackHTML: String) {
-        let thumbnailDescriptor = standardThumbnailDescriptor(matching: descriptor)
-        let provisionalImage = thumbnailDescriptor.flatMap {
-            DownloadableMediaCache.shared.cachedDecodedImage(for: $0)
-        }
-        let loadProvisionalImage: ((@escaping (UIImage?) -> Void) -> (() -> Void)?)? = {
-            guard provisionalImage == nil, let thumbnailDescriptor else { return nil }
-            return { completion in
-                let task = Task { @MainActor in
-                    let image = await DownloadableMediaCache.shared.image(
-                        for: thumbnailDescriptor,
-                        priority: .preservingPrefetch
-                    )
-                    guard !Task.isCancelled else { return }
-                    completion(image)
-                }
-                return { task.cancel() }
-            }
-        }()
-
-        clearAnimatedRenderContext()
-        mediaRenderer.renderImage(
-            key: descriptor,
-            hideImageUntilLoaded: false,
-            provisionalImage: provisionalImage,
-            loadProvisionalImage: loadProvisionalImage,
-            load: { completion in
-                let task = Task { @MainActor in
-                    let image = await DownloadableMediaCache.shared.image(
-                        for: descriptor
-                    )
-                    guard !Task.isCancelled else { return }
-                    completion(image)
-                }
-                return { task.cancel() }
-            },
-            fallbackToWebContent: { [weak self] in
-                self?.renderWebContent(fallbackHTML)
-            },
-            shouldAnimateLoadedImageReplacement: { [weak self] in
-                guard let self else { return false }
-                return !self.hasActiveZoomTransform
-            },
-            onDisplayedProvisionalImage: { [weak self] image in
-                self?.setZoomContentLayout(.staticImage(image.size))
-            },
-            onLoadedImage: { [weak self] image in
-                guard let self else { return }
-                self.setZoomContentLayout(
-                    .staticImage(image.size),
-                    preservingActiveZoomDuringMediaReplacement: true
-                )
-            }
-        )
+        pageMedia.render(.image(descriptor, fallbackHTML: fallbackHTML))
     }
 
     private func renderWebContent(_ html: String) {
-        clearAnimatedRenderContext()
         setZoomContentLayout(.viewport)
-        renderAnimatedFallbackWebContent(html)
+        pageMedia.render(.web(html))
     }
 
     private func renderBundledGenerativeWebContent(_ html: String) {
-        clearAnimatedRenderContext()
         if isViewLoaded {
             view.layoutIfNeeded()
         }
         setZoomContentLayout(bundledGenerativeWebContentLayout)
-        mediaRenderer.renderWebContent(
-            html,
-            onBegin: { [weak self] in
-                self?.mediaContentView.layoutIfNeeded()
-            }
-        )
+        pageMedia.render(.web(html, onBegin: { [weak self] in
+            self?.mediaContentView.layoutIfNeeded()
+        }))
     }
 
     private var bundledGenerativeWebContentLayout: ZoomContentLayout {
@@ -2515,40 +2394,11 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     }
 
     private func renderNativeMetalCard(_ token: GeneratedToken, renderKind: NativeMetalCardRenderKind) {
-        clearAnimatedRenderContext()
-        setZoomContentLayout(.viewport, allowedContent: .nativeMetalCard)
-        let thumbnailDescriptor = playerDataSource?
-            .downloadableMediaDescriptor(for: pagePosition)
-            .flatMap(standardThumbnailDescriptor(matching:))
-        let provisionalImage = thumbnailDescriptor.flatMap {
-            DownloadableMediaCache.shared.cachedDecodedImage(for: $0)
-        }
-        let loadProvisionalImage: ((@escaping (UIImage?) -> Void) -> (() -> Void)?)? = {
-            guard provisionalImage == nil, let thumbnailDescriptor else { return nil }
-            return { completion in
-                let task = Task { @MainActor in
-                    let image = await DownloadableMediaCache.shared.image(
-                        for: thumbnailDescriptor,
-                        priority: .preservingPrefetch
-                    )
-                    guard !Task.isCancelled else { return }
-                    completion(image)
-                }
-                return { task.cancel() }
-            }
-        }()
-
-        mediaRenderer.renderNativeMetalCard(
+        pageMedia.render(.nativeCard(
             tokenId: token.id,
-            renderKind: renderKind,
-            provisionalImage: provisionalImage,
-            loadProvisionalImage: loadProvisionalImage
-        )
-    }
-
-    private func renderAnimatedFallbackWebContent(_ html: String) {
-        setZoomContentLayout(.viewport)
-        mediaRenderer.renderWebContent(html)
+            kind: renderKind,
+            descriptor: playerDataSource?.downloadableMediaDescriptor(for: pagePosition)
+        ))
     }
 
     private func renderAnimatedImage(
@@ -2556,603 +2406,30 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         adjacentDescriptor: DownloadableMediaDescriptor?,
         fallbackHTML: String
     ) {
-        renderDownloadableWebMedia(
+        pageMedia.render(.downloadableWebMedia(
             descriptor,
             adjacentDescriptor: adjacentDescriptor,
             fallbackHTML: fallbackHTML,
-            mediaKind: .image
-        )
+            kind: .image
+        ))
     }
 
     private func renderVideo(_ descriptor: DownloadableMediaDescriptor, fallbackHTML: String) {
-        renderDownloadableWebMedia(descriptor, fallbackHTML: fallbackHTML, mediaKind: .video)
+        pageMedia.render(.downloadableWebMedia(
+            descriptor,
+            adjacentDescriptor: nil,
+            fallbackHTML: fallbackHTML,
+            kind: .video
+        ))
     }
 
     private func renderHTMLDocument(_ descriptor: DownloadableMediaDescriptor, fallbackHTML: String) {
-        renderDownloadableWebMedia(descriptor, fallbackHTML: fallbackHTML, mediaKind: .htmlDocument)
-    }
-
-    private func renderDownloadableWebMedia(
-        _ descriptor: DownloadableMediaDescriptor,
-        adjacentDescriptor: DownloadableMediaDescriptor? = nil,
-        fallbackHTML: String,
-        mediaKind: DownloadableWebMediaKind
-    ) {
-        let thumbnailDescriptor = standardThumbnailDescriptor(matching: descriptor)
-        let provisionalImage = thumbnailDescriptor.flatMap {
-            DownloadableMediaCache.shared.cachedDecodedImage(for: $0)
-        }
-        if let provisionalImage {
-            setZoomContentLayout(.staticImage(provisionalImage.size))
-        } else {
-            setZoomContentLayout(.viewport)
-        }
-        let context = AnimatedRenderContext(
-            descriptor: descriptor,
-            adjacentDescriptor: adjacentDescriptor,
+        pageMedia.render(.downloadableWebMedia(
+            descriptor,
+            adjacentDescriptor: nil,
             fallbackHTML: fallbackHTML,
-            mediaKind: mediaKind
-        )
-        setAnimatedRenderContext(context, provisionalImage: provisionalImage)
-        if provisionalImage == nil, let thumbnailDescriptor {
-            loadProvisionalAnimatedMediaImage(
-                thumbnailDescriptor,
-                context: context
-            )
-        }
-        renderAvailableAnimatedLocalContent()
-    }
-
-    private func loadProvisionalAnimatedMediaImage(
-        _ thumbnailDescriptor: DownloadableMediaDescriptor,
-        context: AnimatedRenderContext
-    ) {
-        cancelProvisionalAnimatedMediaImageLoadIfNeeded()
-        provisionalAnimatedMediaImageLoadTask = Task { @MainActor [weak self] in
-            let image = await DownloadableMediaCache.shared.image(
-                for: thumbnailDescriptor,
-                priority: .preservingPrefetch
-            )
-            guard !Task.isCancelled,
-                  let self,
-                  self.animatedRenderContext == context else {
-                return
-            }
-
-            self.provisionalAnimatedMediaImageLoadTask = nil
-            guard let image,
-                  self.renderedAnimatedImageURL == nil else {
-                return
-            }
-
-            self.provisionalAnimatedMediaImage = image
-            if DownloadableMediaCache.shared.knownLocalFileURL(
-                for: context.descriptor
-            ) == nil {
-                self.setZoomContentLayout(.staticImage(image.size))
-                self.mediaRenderer.displayLoadedImage(image, key: context.descriptor)
-            } else {
-                self.mediaRenderer.displayProvisionalImageOverLoadingWebContent(image)
-            }
-        }
-    }
-
-    private func renderAvailableAnimatedLocalContent() {
-        guard let context = animatedRenderContext else { return }
-
-        let imageCache = DownloadableMediaCache.shared
-        guard let localFileURL = imageCache.knownLocalFileURL(
-            for: context.descriptor
-        ) else {
-            resolveExistingAnimatedMediaFileIfNeeded(for: context)
-            cancelVideoSizeLoad()
-            failedAnimatedLocalContentVersion = nil
-            clearAnimatedImageURLState()
-            if let provisionalAnimatedMediaImage {
-                setZoomContentLayout(.staticImage(provisionalAnimatedMediaImage.size))
-            }
-            displayProvisionalAnimatedMediaImageOrClearContent(for: context)
-            return
-        }
-
-        let nextLocalFileURL = context.adjacentDescriptor.flatMap {
-            imageCache.knownLocalFileURL(for: $0)
-        }
-        if pendingAnimatedImageURL == localFileURL {
-            return
-        }
-        if renderedAnimatedImageURL == localFileURL {
-            guard renderedAnimatedNextImageURL != nextLocalFileURL else { return }
-            guard pendingAnimatedNextImageURL != nextLocalFileURL else { return }
-            guard let nextLocalFileURL else {
-                pendingAnimatedNextImageURL = nil
-                renderedAnimatedNextImageURL = nil
-                return
-            }
-
-            pendingAnimatedNextImageURL = nextLocalFileURL
-            mediaRenderer.preloadWebImage(nextLocalFileURL) { [weak self] didPreload in
-                guard let self,
-                      self.animatedRenderContext == context,
-                      self.renderedAnimatedImageURL == localFileURL else {
-                    return
-                }
-
-                if self.pendingAnimatedNextImageURL == nextLocalFileURL {
-                    self.pendingAnimatedNextImageURL = nil
-                }
-                guard didPreload else { return }
-
-                self.renderedAnimatedNextImageURL = nextLocalFileURL
-            }
-            return
-        }
-
-        let identity = LocalMediaFileIdentity(
-            descriptor: context.descriptor,
-            fileURL: localFileURL
-        )
-        guard localMediaFileVersionLoad?.identity != identity else { return }
-        localMediaFileVersionLoad?.task.cancel()
-        let task = Task { [weak self] in
-            let localContentVersion = await LocalMediaFileVersion.load(
-                fileURL: localFileURL,
-                descriptor: context.descriptor
-            )
-            guard !Task.isCancelled,
-                  let self,
-                  self.localMediaFileVersionLoad?.identity == identity else {
-                return
-            }
-            self.localMediaFileVersionLoad = nil
-            guard self.animatedRenderContext == context,
-                  DownloadableMediaCache.shared.knownLocalFileURL(
-                    for: context.descriptor
-                  ) == localFileURL else {
-                return
-            }
-
-            self.renderAvailableAnimatedLocalContent(
-                context: context,
-                localContentVersion: localContentVersion,
-                nextLocalFileURL: nextLocalFileURL,
-                imageCache: imageCache
-            )
-        }
-        localMediaFileVersionLoad = LocalMediaFileVersionLoad(
-            identity: identity,
-            task: task
-        )
-    }
-
-    private func renderAvailableAnimatedLocalContent(
-        context: AnimatedRenderContext,
-        localContentVersion: LocalMediaFileVersion,
-        nextLocalFileURL: URL?,
-        imageCache: DownloadableMediaCache
-    ) {
-        guard failedAnimatedLocalContentVersion != localContentVersion else { return }
-        failedAnimatedLocalContentVersion = nil
-        activeAnimatedLocalContentVersion = localContentVersion
-        let localFileURL = localContentVersion.fileURL
-
-        let html: String
-        switch context.mediaKind {
-        case .image:
-            loadImageSizeIfNeeded(at: localFileURL, context: context)
-            html = DownloadableTokenHTML.createImageHTML(
-                imageURL: localFileURL.absoluteString,
-                nextImageURL: nextLocalFileURL?.absoluteString
-            )
-        case .video:
-            loadVideoSizeIfNeeded(
-                request: localContentVersion,
-                context: context
-            )
-            html = DownloadableTokenHTML.createVideoHTML(videoURL: localFileURL.absoluteString)
-        case .htmlDocument:
-            renderCachedHTMLDocument(
-                context: context,
-                imageCache: imageCache,
-                localContentVersion: localContentVersion
-            )
-            return
-        }
-
-        renderAnimatedLocalWebContent(
-            html,
-            context: context,
-            localContentVersion: localContentVersion,
-            htmlDirectoryURL: imageCache.webViewHTMLDirectoryURL,
-            readAccessURL: imageCache.webViewReadAccessURL
-        )
-    }
-
-    private func resolveExistingAnimatedMediaFileIfNeeded(
-        for context: AnimatedRenderContext
-    ) {
-        guard existingAnimatedMediaFileTask == nil,
-              checkedAnimatedMediaFileDescriptor != context.descriptor else {
-            return
-        }
-
-        checkedAnimatedMediaFileDescriptor = context.descriptor
-        existingAnimatedMediaFileTask = Task { @MainActor [weak self] in
-            let fileURL = await DownloadableMediaCache.shared.existingFileURL(
-                for: context.descriptor
-            )
-            guard !Task.isCancelled,
-                  let self,
-                  self.animatedRenderContext == context else {
-                return
-            }
-            self.existingAnimatedMediaFileTask = nil
-            guard fileURL != nil else { return }
-            self.renderAvailableAnimatedLocalContent()
-        }
-    }
-
-    private func renderAnimatedLocalWebContent(
-        _ html: String,
-        context: AnimatedRenderContext,
-        localContentVersion: LocalMediaFileVersion,
-        htmlDirectoryURL: URL,
-        readAccessURL: URL
-    ) {
-        let fileURL = localContentVersion.fileURL
-        pendingAnimatedImageURL = fileURL
-        mediaRenderer.renderLocalWebContent(
-            html,
-            contentKind: context.mediaKind,
-            htmlDirectoryURL: htmlDirectoryURL,
-            readAccessURL: readAccessURL,
-            provisionalImage: provisionalAnimatedMediaImage,
-            onLoadSuccess: { [weak self] in
-                guard let self,
-                      await self.validateAnimatedLocalContentResult(
-                        localContentVersion,
-                        context: context
-                      ) else { return false }
-
-                self.cancelProvisionalAnimatedMediaImageLoadIfNeeded()
-                self.provisionalAnimatedMediaImage = nil
-                self.failedAnimatedLocalContentVersion = nil
-                self.clearAnimatedImageURLState()
-                self.renderedAnimatedImageURL = fileURL
-                self.activeAnimatedLocalContentVersion = localContentVersion
-                self.renderAvailableAnimatedLocalContent()
-                return true
-            },
-            onLoadFailure: { [weak self] in
-                guard let self,
-                      await self.validateAnimatedLocalContentResult(
-                        localContentVersion,
-                        context: context
-                      ) else { return }
-
-                self.handleAnimatedLocalContentFailure(
-                    context,
-                    localContentVersion: localContentVersion
-                )
-            }
-        )
-    }
-
-    private func renderCachedHTMLDocument(
-        context: AnimatedRenderContext,
-        imageCache: DownloadableMediaCache,
-        localContentVersion: LocalMediaFileVersion
-    ) {
-        let fileURL = localContentVersion.fileURL
-        displayProvisionalAnimatedMediaImageOrClearContent(for: context)
-        pendingAnimatedImageURL = fileURL
-        htmlDocumentRenderTask?.cancel()
-        htmlDocumentRenderTask = Task { [weak self] in
-            let downloadedSourceURLString = await imageCache
-                .downloadedSourceURL(for: context.descriptor)
-                .absoluteString
-            guard !Task.isCancelled else { return }
-            let renderedDocument = await DownloadableTokenHTML.renderDocument(
-                at: fileURL,
-                baseURL: downloadedSourceURLString,
-                includesViewportSizeInDocument: false
-            )
-            guard let self,
-                  !Task.isCancelled,
-                  await validateAnimatedLocalContentResult(
-                    localContentVersion,
-                    context: context
-                  ) else { return }
-
-            htmlDocumentRenderTask = nil
-            guard let renderedDocument else {
-                handleAnimatedLocalContentFailure(
-                    context,
-                    localContentVersion: localContentVersion
-                )
-                return
-            }
-
-            if let viewportSize = renderedDocument.viewportSize {
-                setZoomContentLayout(
-                    .staticImage(viewportSize),
-                    preservingActiveZoomDuringMediaReplacement: true
-                )
-            } else {
-                setZoomContentLayout(.viewport)
-            }
-            renderAnimatedLocalWebContent(
-                renderedDocument.html,
-                context: context,
-                localContentVersion: localContentVersion,
-                htmlDirectoryURL: imageCache.webViewHTMLDirectoryURL,
-                readAccessURL: imageCache.webViewHTMLDirectoryURL
-            )
-        }
-    }
-
-    private func validateAnimatedLocalContentResult(
-        _ localContentVersion: LocalMediaFileVersion,
-        context: AnimatedRenderContext
-    ) async -> Bool {
-        guard animatedRenderContext == context,
-              pendingAnimatedImageURL == localContentVersion.fileURL else {
-            return false
-        }
-
-        let currentVersion: LocalMediaFileVersion?
-        if let currentFileURL = DownloadableMediaCache.shared
-            .knownLocalFileURL(for: context.descriptor) {
-            currentVersion = await LocalMediaFileVersion.load(
-                fileURL: currentFileURL,
-                descriptor: context.descriptor
-            )
-        } else {
-            currentVersion = nil
-        }
-        guard !Task.isCancelled,
-              animatedRenderContext == context,
-              pendingAnimatedImageURL == localContentVersion.fileURL else {
-            return false
-        }
-        guard currentVersion != localContentVersion else { return true }
-
-        failedAnimatedLocalContentVersion = nil
-        clearAnimatedImageURLState()
-        mediaRenderer.invalidateLocalWebContentLoad()
-        renderAvailableAnimatedLocalContent()
-        return false
-    }
-
-    private func displayProvisionalAnimatedMediaImageOrClearContent(
-        for context: AnimatedRenderContext
-    ) {
-        if let provisionalAnimatedMediaImage {
-            mediaRenderer.displayLoadedImage(
-                provisionalAnimatedMediaImage,
-                key: context.descriptor
-            )
-        } else {
-            mediaRenderer.clearContent()
-        }
-    }
-
-    private func handleAnimatedLocalContentFailure(
-        _ context: AnimatedRenderContext,
-        localContentVersion: LocalMediaFileVersion
-    ) {
-        if let provisionalAnimatedMediaImage {
-            cancelVideoSizeLoad()
-            setZoomContentLayout(.staticImage(provisionalAnimatedMediaImage.size))
-            failedAnimatedLocalContentVersion = localContentVersion
-            clearAnimatedImageURLState()
-            displayProvisionalAnimatedMediaImageOrClearContent(for: context)
-            return
-        }
-
-        clearAnimatedRenderContext()
-        renderAnimatedFallbackWebContent(context.fallbackHTML)
-    }
-
-    private func loadImageSizeIfNeeded(
-        at fileURL: URL,
-        context: AnimatedRenderContext
-    ) {
-        imageSizeTask?.cancel()
-        imageSizeTask = Task { [weak self] in
-            let size = await Self.imageSize(at: fileURL)
-            guard let self,
-                  !Task.isCancelled,
-                  animatedRenderContext == context,
-                  (pendingAnimatedImageURL == fileURL
-                    || renderedAnimatedImageURL == fileURL) else {
-                return
-            }
-            imageSizeTask = nil
-            guard let size else { return }
-            setZoomContentLayout(
-                .staticImage(size),
-                preservingActiveZoomDuringMediaReplacement: true
-            )
-        }
-    }
-
-    @concurrent
-    nonisolated private static func imageSize(at fileURL: URL) async -> CGSize? {
-        guard let imageSource = CGImageSourceCreateWithURL(fileURL as CFURL, nil),
-              let properties = CGImageSourceCopyPropertiesAtIndex(imageSource, 0, nil) as? [CFString: Any],
-              let width = properties[kCGImagePropertyPixelWidth] as? NSNumber,
-              let height = properties[kCGImagePropertyPixelHeight] as? NSNumber else {
-            return nil
-        }
-
-        let size = CGSize(width: CGFloat(width.doubleValue), height: CGFloat(height.doubleValue))
-        guard size.width > 0, size.height > 0 else { return nil }
-        return size
-    }
-
-    private func loadVideoSizeIfNeeded(
-        request: VideoSizeRequest,
-        context: AnimatedRenderContext
-    ) {
-        if let videoSizeLoad, videoSizeLoad.request != request {
-            cancelVideoSizeLoad()
-        }
-
-        if let cachedSize = cachedVideoSizes[request] {
-            applyVideoSizeIfCurrent(cachedSize, for: request)
-            return
-        }
-
-        guard videoSizeLoad == nil else { return }
-
-        let fileURL = request.fileURL
-        let task = Task { [weak self, fileURL, request] in
-            let size = await DownloadableMediaVideoLayout.displaySize(at: fileURL)
-            guard !Task.isCancelled,
-                  let self,
-                  videoSizeLoad?.request == request else {
-                return
-            }
-
-            let currentVersion = await LocalMediaFileVersion.load(
-                fileURL: fileURL,
-                descriptor: request.descriptor
-            )
-            guard !Task.isCancelled,
-                  videoSizeLoad?.request == request else { return }
-            videoSizeLoad = nil
-            guard currentVersion == request else {
-                failedAnimatedLocalContentVersion = nil
-                clearAnimatedImageURLState()
-                mediaRenderer.invalidateLocalWebContentLoad()
-                renderAvailableAnimatedLocalContent()
-                return
-            }
-            guard let size else { return }
-
-            cacheVideoSize(size, for: request)
-            applyVideoSizeIfCurrent(size, for: request)
-        }
-
-        videoSizeLoad = VideoSizeLoad(request: request, task: task)
-    }
-
-    private func cacheVideoSize(_ size: CGSize, for request: VideoSizeRequest) {
-        if cachedVideoSizes[request] == nil {
-            cachedVideoSizeRequests.append(request)
-        }
-        cachedVideoSizes[request] = size
-
-        while cachedVideoSizeRequests.count > Self.maximumCachedVideoSizeCount {
-            let removedRequest = cachedVideoSizeRequests.removeFirst()
-            cachedVideoSizes.removeValue(forKey: removedRequest)
-        }
-    }
-
-    private func applyCachedCurrentVideoSizeIfAvailable() {
-        guard let context = animatedRenderContext,
-              context.mediaKind == .video,
-              let request = activeAnimatedLocalContentVersion,
-              request.descriptor == context.descriptor else {
-            return
-        }
-
-        guard let cachedSize = cachedVideoSizes[request] else { return }
-
-        applyVideoSizeIfCurrent(cachedSize, for: request)
-    }
-
-    private func applyVideoSizeIfCurrent(_ size: CGSize, for request: VideoSizeRequest) {
-        guard let context = animatedRenderContext,
-              context.mediaKind == .video,
-              context.descriptor == request.descriptor,
-              DownloadableMediaCache.shared.knownLocalFileURL(
-                  for: request.descriptor
-              ) == request.fileURL,
-              activeAnimatedLocalContentVersion == request,
-              !isZoomed,
-              !zoomScrollView.isZooming else {
-            return
-        }
-
-        setZoomContentLayout(.staticImage(size))
-    }
-
-    private func cancelVideoSizeLoad() {
-        videoSizeLoad?.task.cancel()
-        videoSizeLoad = nil
-    }
-
-    private func cancelProvisionalAnimatedMediaImageLoadIfNeeded() {
-        provisionalAnimatedMediaImageLoadTask?.cancel()
-        provisionalAnimatedMediaImageLoadTask = nil
-    }
-
-    private func setAnimatedRenderContext(
-        _ context: AnimatedRenderContext,
-        provisionalImage: UIImage?
-    ) {
-        cancelVideoSizeLoad()
-        cancelLocalMediaMetadataTasks()
-        cancelProvisionalAnimatedMediaImageLoadIfNeeded()
-        animatedRenderContext = context
-        provisionalAnimatedMediaImage = provisionalImage
-        failedAnimatedLocalContentVersion = nil
-        clearAnimatedImageURLState()
-        installDownloadableMediaCacheObserverIfNeeded()
-    }
-
-    private func clearAnimatedRenderContext() {
-        cancelVideoSizeLoad()
-        cancelLocalMediaMetadataTasks()
-        cancelProvisionalAnimatedMediaImageLoadIfNeeded()
-        animatedRenderContext = nil
-        provisionalAnimatedMediaImage = nil
-        failedAnimatedLocalContentVersion = nil
-        clearAnimatedImageURLState()
-        removeDownloadableMediaCacheObserver()
-    }
-
-    private func cancelLocalMediaMetadataTasks() {
-        htmlDocumentRenderTask?.cancel()
-        htmlDocumentRenderTask = nil
-        imageSizeTask?.cancel()
-        imageSizeTask = nil
-        localMediaFileVersionLoad?.task.cancel()
-        localMediaFileVersionLoad = nil
-        existingAnimatedMediaFileTask?.cancel()
-        existingAnimatedMediaFileTask = nil
-        checkedAnimatedMediaFileDescriptor = nil
-    }
-
-    private func clearAnimatedImageURLState() {
-        pendingAnimatedImageURL = nil
-        renderedAnimatedImageURL = nil
-        renderedAnimatedNextImageURL = nil
-        pendingAnimatedNextImageURL = nil
-        activeAnimatedLocalContentVersion = nil
-    }
-
-    private func installDownloadableMediaCacheObserverIfNeeded() {
-        guard downloadableMediaCacheObserver == nil else { return }
-
-        downloadableMediaCacheObserver = NotificationCenter.default.addObserver(
-            forName: .downloadableMediaCacheFileAvailabilityDidChange,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            MainActor.assumeIsolated {
-                self?.renderAvailableAnimatedLocalContent()
-            }
-        }
-    }
-
-    private func removeDownloadableMediaCacheObserver() {
-        guard let downloadableMediaCacheObserver else { return }
-
-        NotificationCenter.default.removeObserver(downloadableMediaCacheObserver)
-        self.downloadableMediaCacheObserver = nil
+            kind: .htmlDocument
+        ))
     }
 
 }

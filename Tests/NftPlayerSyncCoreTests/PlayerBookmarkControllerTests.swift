@@ -188,6 +188,61 @@ final class PlayerBookmarkControllerTests: XCTestCase {
         XCTAssertTrue(controller.canToggle)
     }
 
+    func testExplicitUpdatePreservesIntentAfterSyncedStateChanges() {
+        let backend = PlayerBookmarkTestBackend()
+        backend.setState(false, for: firstTarget)
+        let controller = backend.makeController()
+        defer {
+            controller.stop()
+            backend.finishReads()
+        }
+        controller.updateTarget(firstTarget)
+        controller.start()
+
+        backend.setState(true, for: firstTarget)
+        backend.postChange()
+        XCTAssertTrue(controller.isBookmarked)
+        XCTAssertTrue(controller.setBookmarked(true))
+        XCTAssertFalse(controller.setBookmarked(false))
+        XCTAssertEqual(backend.updateAttempts.map(\.isBookmarked), [true])
+
+        backend.completeNextUpdate(isBookmarked: true)
+        backend.setState(false, for: firstTarget)
+        backend.postChange()
+        XCTAssertTrue(controller.setBookmarked(false))
+        XCTAssertEqual(backend.updateAttempts.map(\.isBookmarked), [true, false])
+        backend.completeNextUpdate(isBookmarked: false)
+        XCTAssertTrue(controller.canToggle)
+    }
+
+    func testExplicitUpdateRejectsUnreadyStoppedAndPendingTargets() {
+        let backend = PlayerBookmarkTestBackend()
+        backend.setState(false, for: firstTarget, isReady: false)
+        let controller = backend.makeController()
+        defer {
+            controller.stop()
+            backend.finishReads()
+        }
+        controller.updateTarget(firstTarget)
+        XCTAssertFalse(controller.setBookmarked(true))
+        controller.start()
+        XCTAssertFalse(controller.setBookmarked(true))
+
+        backend.setState(false, for: firstTarget, isTogglePending: true)
+        backend.postChange()
+        XCTAssertFalse(controller.setBookmarked(true))
+        XCTAssertTrue(backend.updateAttempts.isEmpty)
+
+        backend.setState(false, for: firstTarget)
+        backend.postChange()
+        XCTAssertTrue(controller.setBookmarked(true))
+        controller.stop()
+        backend.completeNextUpdate(isBookmarked: true)
+        XCTAssertFalse(controller.setBookmarked(false))
+        controller.start()
+        XCTAssertTrue(controller.isBookmarked)
+    }
+
     func testPendingSaveCompletesAfterStopAndRestartReadsItsResult() {
         let backend = PlayerBookmarkTestBackend()
         backend.setState(false, for: firstTarget)

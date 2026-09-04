@@ -311,14 +311,14 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             configuredWithImageSources.value.contains(destinationPhantomID)
         )
         let expectedWaiters = Dictionary(uniqueKeysWithValues:
-            session.cachedSourceRepresentations.compactMap {
+            session.sourceRepresentations.records.compactMap {
                 representationID, representation -> (
                     ObjectIdentifier,
                     GridRenderTransitionImageSourcesWaiter
                 )? in
                 let sourceItem = representation.itemIndex
                 guard session.selectedSourceItems.contains(sourceItem),
-                      !session.lockedFallbackRepresentationIDs.contains(
+                      !session.sourceRepresentations.lockedFallbackRepresentationIDs.contains(
                         representationID
                       ),
                       representation.cell.superview != nil,
@@ -337,7 +337,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             }
         )
         XCTAssertFalse(expectedWaiters.isEmpty)
-        XCTAssertEqual(session.transitionImageSourcesWaiters, expectedWaiters)
+        XCTAssertEqual(session.sourceRepresentations.transitionImageSourcesWaiters, expectedWaiters)
         XCTAssertTrue(detailLoadAttempts.value.isEmpty)
         XCTAssertEqual(renderer.pendingDetailMaterializationWorkCount, 0)
 
@@ -360,7 +360,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             Set(firstDestinationWaiters.keys)
         )
         XCTAssertEqual(
-            session.transitionImageSourcesWaiters,
+            session.sourceRepresentations.transitionImageSourcesWaiters,
             remainingWaiters
         )
         drainQueuedWork(renderer)
@@ -377,7 +377,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             )
         )
         XCTAssertEqual(
-            session.transitionImageSourcesWaiters,
+            session.sourceRepresentations.transitionImageSourcesWaiters,
             remainingWaiters
         )
         XCTAssertEqual(renderer.pendingDetailMaterializationWorkCount, 0)
@@ -442,8 +442,8 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             Dictionary(grouping: expectedWaiters.values, by: \.destinationItem)
                 .mapValues(\.count)
         )
-        XCTAssertTrue(session.transitionImageSourcesWaiters.isEmpty)
-        XCTAssertTrue(session.transitionImageLoads.isEmpty)
+        XCTAssertTrue(session.sourceRepresentations.transitionImageSourcesWaiters.isEmpty)
+        XCTAssertTrue(session.sourceRepresentations.transitionImageLoads.isEmpty)
         XCTAssertEqual(renderer.pendingDetailMaterializationWorkCount, 0)
 
         let configurationCounts = configurations.value.mapValues(\.count)
@@ -573,24 +573,26 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         XCTAssertNotNil(
             session.foregroundCurrentViewportCoverage.installedRect
         )
+        assertSourceRepresentationIndexesConsistent(session)
 
         XCTAssertNotNil(fixture.renderer.finish(preservingCarryover: false))
+        assertSourceRepresentationIndexesConsistent(session)
 
         XCTAssertTrue(session.reassignments.isEmpty)
         XCTAssertTrue(session.selectedSourceItems.isEmpty)
-        XCTAssertTrue(session.preparedRepresentationIDs.isEmpty)
-        XCTAssertTrue(session.lockedFallbackRepresentationIDs.isEmpty)
+        XCTAssertTrue(session.sourceRepresentations.preparedRepresentationIDs.isEmpty)
+        XCTAssertTrue(session.sourceRepresentations.lockedFallbackRepresentationIDs.isEmpty)
         XCTAssertTrue(
-            session.unpreparedMarginTrackingRepresentationIDs.isEmpty
+            session.sourceRepresentations.unpreparedMarginTrackingRepresentationIDs.isEmpty
         )
         XCTAssertTrue(session.sourceCoverage.coveredDestinationItems.isEmpty)
-        XCTAssertTrue(session.detailedSourceCellItems.isEmpty)
-        XCTAssertTrue(session.cachedSourceRepresentations.isEmpty)
-        XCTAssertTrue(session.transitionImageLoads.isEmpty)
-        XCTAssertTrue(session.foregroundEligibleRepresentationIDs.isEmpty)
-        XCTAssertTrue(session.currentViewportRepresentationIDs.isEmpty)
-        XCTAssertTrue(session.cellFrameCorrections.isEmpty)
-        XCTAssertTrue(session.marginCoverageRepresentationIDs.isEmpty)
+        XCTAssertTrue(session.sourceRepresentations.detailedSourceCellItems.isEmpty)
+        XCTAssertTrue(session.sourceRepresentations.records.isEmpty)
+        XCTAssertTrue(session.sourceRepresentations.transitionImageLoads.isEmpty)
+        XCTAssertTrue(session.sourceRepresentations.foregroundEligibleRepresentationIDs.isEmpty)
+        XCTAssertTrue(session.sourceRepresentations.currentViewportRepresentationIDs.isEmpty)
+        XCTAssertTrue(session.sourceRepresentations.cellFrameCorrections.isEmpty)
+        XCTAssertTrue(session.sourceRepresentations.marginCoverageRepresentationIDs.isEmpty)
         XCTAssertFalse(session.hasSourceSeamCompensationTransforms)
         XCTAssertNil(session.foregroundCurrentViewportCoverage.installedRect)
         XCTAssertNil(session.foregroundTerminalViewportCoverage.installedRect)

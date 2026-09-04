@@ -55,8 +55,8 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
                 "no source cell fades out and leaves a hole in the margins"
             )
             return (
-                session.cellFrameCorrections.count,
-                session.marginCoverageRepresentationIDs.count
+                session.sourceRepresentations.cellFrameCorrections.count,
+                session.sourceRepresentations.marginCoverageRepresentationIDs.count
             )
         }
 
@@ -117,14 +117,14 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
 
         XCTAssertEqual(callbacks.value.count, 0)
         XCTAssertFalse(
-            session.preparedRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.preparedRepresentationIDs.contains(representationID)
         )
-        XCTAssertNil(session.cellFrameCorrections[representationID])
+        XCTAssertNil(session.sourceRepresentations.cellFrameCorrections[representationID])
         XCTAssertTrue(
-            session.marginCoverageRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.marginCoverageRepresentationIDs.contains(representationID)
         )
         XCTAssertTrue(
-            session.unpreparedMarginTrackingRepresentationIDs.contains(
+            session.sourceRepresentations.unpreparedMarginTrackingRepresentationIDs.contains(
                 representationID
             )
         )
@@ -138,10 +138,10 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         ))
         XCTAssertEqual(callbacks.value.count, 0)
         XCTAssertTrue(
-            session.lockedFallbackRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.lockedFallbackRepresentationIDs.contains(representationID)
         )
         XCTAssertTrue(
-            session.marginCoverageRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.marginCoverageRepresentationIDs.contains(representationID)
         )
         XCTAssertEqual(sourceCell.alpha, 1, accuracy: 0.000_001)
         XCTAssertTrue(
@@ -160,13 +160,13 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             panDeltaY: 0
         ))
         XCTAssertFalse(
-            session.lockedFallbackRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.lockedFallbackRepresentationIDs.contains(representationID)
         )
         XCTAssertTrue(
-            session.marginCoverageRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.marginCoverageRepresentationIDs.contains(representationID)
         )
         XCTAssertTrue(
-            session.unpreparedMarginTrackingRepresentationIDs.contains(
+            session.sourceRepresentations.unpreparedMarginTrackingRepresentationIDs.contains(
                 representationID
             )
         )
@@ -185,16 +185,16 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             panDeltaY: onScreenPanDeltaY
         ))
         XCTAssertEqual(callbacks.value.count, firstLoadCount)
-        XCTAssertNotNil(session.transitionImageLoads[representationID])
+        XCTAssertNotNil(session.sourceRepresentations.transitionImageLoads[representationID])
         XCTAssertTrue(
-            session.unpreparedMarginTrackingRepresentationIDs.contains(
+            session.sourceRepresentations.unpreparedMarginTrackingRepresentationIDs.contains(
                 representationID
             )
         )
         XCTAssertFalse(
-            session.marginCoverageRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.marginCoverageRepresentationIDs.contains(representationID)
         )
-        XCTAssertNil(session.cellFrameCorrections[representationID])
+        XCTAssertNil(session.sourceRepresentations.cellFrameCorrections[representationID])
 
         XCTAssertTrue(fixture.renderer.renderSettle(
             id: fixture.planeRequest.id,
@@ -203,16 +203,16 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             presentationProgress: 0,
             panDeltaY: 0
         ))
-        XCTAssertNotNil(session.transitionImageLoads[representationID])
+        XCTAssertNotNil(session.sourceRepresentations.transitionImageLoads[representationID])
         XCTAssertTrue(
-            session.unpreparedMarginTrackingRepresentationIDs.contains(
+            session.sourceRepresentations.unpreparedMarginTrackingRepresentationIDs.contains(
                 representationID
             )
         )
         XCTAssertTrue(
-            session.marginCoverageRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.marginCoverageRepresentationIDs.contains(representationID)
         )
-        XCTAssertNil(session.cellFrameCorrections[representationID])
+        XCTAssertNil(session.sourceRepresentations.cellFrameCorrections[representationID])
         XCTAssertTrue(
             fixture.renderer.phantomShapeMaskedFrames.contains(
                 sourceCell.convert(
@@ -227,9 +227,9 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         }
         await runOnNextMainQueueTurn()
         drainQueuedWork(fixture)
-        XCTAssertNil(session.transitionImageLoads[representationID])
+        XCTAssertNil(session.sourceRepresentations.transitionImageLoads[representationID])
         XCTAssertTrue(
-            session.marginCoverageRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.marginCoverageRepresentationIDs.contains(representationID)
         )
 
         XCTAssertTrue(fixture.renderer.renderSettle(
@@ -239,10 +239,10 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             panDeltaY: 0
         ))
         XCTAssertTrue(
-            session.lockedFallbackRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.lockedFallbackRepresentationIDs.contains(representationID)
         )
         XCTAssertTrue(
-            session.marginCoverageRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.marginCoverageRepresentationIDs.contains(representationID)
         )
         XCTAssertEqual(sourceCell.alpha, 1, accuracy: 0.000_001)
         XCTAssertTrue(
@@ -261,14 +261,14 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             panDeltaY: onScreenPanDeltaY
         ))
         XCTAssertTrue(
-            session.unpreparedMarginTrackingRepresentationIDs.contains(
+            session.sourceRepresentations.unpreparedMarginTrackingRepresentationIDs.contains(
                 representationID
             )
         )
         XCTAssertFalse(
-            session.marginCoverageRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.marginCoverageRepresentationIDs.contains(representationID)
         )
-        XCTAssertNil(session.cellFrameCorrections[representationID])
+        XCTAssertNil(session.sourceRepresentations.cellFrameCorrections[representationID])
         XCTAssertEqual(sourceCell.alpha, 1, accuracy: 0.000_001)
 
         XCTAssertTrue(fixture.renderer.renderSettle(
@@ -278,9 +278,9 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             panDeltaY: 0
         ))
         XCTAssertTrue(
-            session.marginCoverageRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.marginCoverageRepresentationIDs.contains(representationID)
         )
-        XCTAssertNil(session.cellFrameCorrections[representationID])
+        XCTAssertNil(session.sourceRepresentations.cellFrameCorrections[representationID])
         XCTAssertEqual(sourceCell.alpha, 1, accuracy: 0.000_001)
 
         XCTAssertTrue(fixture.renderer.renderSettle(
@@ -290,13 +290,13 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             panDeltaY: 0
         ))
         XCTAssertFalse(
-            session.lockedFallbackRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.lockedFallbackRepresentationIDs.contains(representationID)
         )
         XCTAssertTrue(
-            session.marginCoverageRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.marginCoverageRepresentationIDs.contains(representationID)
         )
         XCTAssertTrue(
-            session.unpreparedMarginTrackingRepresentationIDs.contains(
+            session.sourceRepresentations.unpreparedMarginTrackingRepresentationIDs.contains(
                 representationID
             )
         )
@@ -311,17 +311,17 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         await runOnNextMainQueueTurn()
         drainQueuedWork(fixture)
         XCTAssertTrue(
-            session.preparedRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.preparedRepresentationIDs.contains(representationID)
         )
         XCTAssertFalse(
-            session.unpreparedMarginTrackingRepresentationIDs.contains(
+            session.sourceRepresentations.unpreparedMarginTrackingRepresentationIDs.contains(
                 representationID
             )
         )
         XCTAssertTrue(
-            session.marginCoverageRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.marginCoverageRepresentationIDs.contains(representationID)
         )
-        XCTAssertNil(session.cellFrameCorrections[representationID])
+        XCTAssertNil(session.sourceRepresentations.cellFrameCorrections[representationID])
         XCTAssertTrue(primaryTransitionImage(in: sourceCell) === image)
 
         XCTAssertTrue(fixture.renderer.renderSettle(
@@ -342,9 +342,9 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             panDeltaY: -targetOffsetY
         ))
         XCTAssertFalse(
-            session.marginCoverageRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.marginCoverageRepresentationIDs.contains(representationID)
         )
-        XCTAssertNotNil(session.cellFrameCorrections[representationID])
+        XCTAssertNotNil(session.sourceRepresentations.cellFrameCorrections[representationID])
         XCTAssertGreaterThan(contentContainer.alpha, 0)
     }
 
@@ -389,20 +389,20 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             transitionContentContainer(in: sourceCell)
         )
 
-        XCTAssertNil(session.transitionImageLoads[representationID])
+        XCTAssertNil(session.sourceRepresentations.transitionImageLoads[representationID])
         XCTAssertTrue(sourceCell.holdsCarryoverForPendingBaseImage)
         XCTAssertTrue(
-            session.lockedFallbackRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.lockedFallbackRepresentationIDs.contains(representationID)
         )
         XCTAssertTrue(
-            session.unpreparedMarginTrackingRepresentationIDs.contains(
+            session.sourceRepresentations.unpreparedMarginTrackingRepresentationIDs.contains(
                 representationID
             )
         )
         XCTAssertTrue(
-            session.marginCoverageRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.marginCoverageRepresentationIDs.contains(representationID)
         )
-        XCTAssertNil(session.cellFrameCorrections[representationID])
+        XCTAssertNil(session.sourceRepresentations.cellFrameCorrections[representationID])
         XCTAssertEqual(sourceCell.alpha, 1, accuracy: 0.000_001)
         XCTAssertEqual(contentContainer.alpha, 1, accuracy: 0.000_001)
 
@@ -417,14 +417,14 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             panDeltaY: onScreenPanDeltaY
         ))
         XCTAssertTrue(
-            session.unpreparedMarginTrackingRepresentationIDs.contains(
+            session.sourceRepresentations.unpreparedMarginTrackingRepresentationIDs.contains(
                 representationID
             )
         )
         XCTAssertFalse(
-            session.marginCoverageRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.marginCoverageRepresentationIDs.contains(representationID)
         )
-        XCTAssertNil(session.cellFrameCorrections[representationID])
+        XCTAssertNil(session.sourceRepresentations.cellFrameCorrections[representationID])
         XCTAssertEqual(sourceCell.alpha, 1, accuracy: 0.000_001)
         XCTAssertEqual(contentContainer.alpha, 1, accuracy: 0.000_001)
 
@@ -435,9 +435,9 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             panDeltaY: 0
         ))
         XCTAssertTrue(
-            session.marginCoverageRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.marginCoverageRepresentationIDs.contains(representationID)
         )
-        XCTAssertNil(session.cellFrameCorrections[representationID])
+        XCTAssertNil(session.sourceRepresentations.cellFrameCorrections[representationID])
         XCTAssertEqual(sourceCell.alpha, 1, accuracy: 0.000_001)
         XCTAssertEqual(contentContainer.alpha, 1, accuracy: 0.000_001)
         XCTAssertTrue(
@@ -495,7 +495,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         drainQueuedWork(fixture)
         let session = try activeSession(fixture)
         let sourceRepresentation = try XCTUnwrap(
-            session.cachedSourceRepresentations.values.first {
+            session.sourceRepresentations.records.values.first {
                 $0.itemIndex == 6
             }
         )
@@ -527,7 +527,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             to: fixture.viewportView
         )
         XCTAssertTrue(
-            session.marginCoverageRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.marginCoverageRepresentationIDs.contains(representationID)
         )
         XCTAssertNotNil(PlayerBrowserGridGeometry.visibleRect(
             marginFrame,
@@ -569,10 +569,10 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             panDeltaY: 0
         ))
         XCTAssertFalse(
-            session.marginCoverageRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.marginCoverageRepresentationIDs.contains(representationID)
         )
         XCTAssertEqual(
-            try XCTUnwrap(session.cellFrameCorrections[representationID]?
+            try XCTUnwrap(session.sourceRepresentations.cellFrameCorrections[representationID]?
                 .correction.destinationVisibilityProgress),
             progressAtNinety,
             accuracy: 0.000_001
@@ -631,7 +631,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             panDeltaY: offscreenBoundaryPan
         ))
         let offscreenBoundaryProgress = try XCTUnwrap(
-            session.cellFrameCorrections[representationID]?
+            session.sourceRepresentations.cellFrameCorrections[representationID]?
                 .correction.destinationVisibilityProgress
         )
 
@@ -659,7 +659,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             panDeltaY: shallowBoundaryPan
         ))
         let shallowBoundaryProgress = try XCTUnwrap(
-            session.cellFrameCorrections[representationID]?
+            session.sourceRepresentations.cellFrameCorrections[representationID]?
                 .correction.destinationVisibilityProgress
         )
         XCTAssertEqual(
@@ -681,7 +681,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             panDeltaY: 0
         ))
         XCTAssertEqual(
-            try XCTUnwrap(session.cellFrameCorrections[representationID]?
+            try XCTUnwrap(session.sourceRepresentations.cellFrameCorrections[representationID]?
                 .correction.destinationVisibilityProgress),
             progressAtNinetyNine,
             accuracy: 0.000_001
@@ -723,10 +723,10 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             panDeltaY: 0
         ))
         XCTAssertFalse(
-            session.marginCoverageRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.marginCoverageRepresentationIDs.contains(representationID)
         )
         XCTAssertEqual(
-            session.cellFrameCorrections[representationID]?
+            session.sourceRepresentations.cellFrameCorrections[representationID]?
                 .correction.destinationVisibilityProgress,
             1
         )
@@ -804,10 +804,10 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         drainQueuedWork(fixture)
         let session = try activeSession(fixture)
         let representationID = try XCTUnwrap(
-            session.marginCoverageRepresentationIDs.filter {
+            session.sourceRepresentations.marginCoverageRepresentationIDs.filter {
                 representationID in
                 guard let representation = session
-                    .cachedSourceRepresentations[representationID],
+                    .sourceRepresentations.records[representationID],
                       let destinationItem = session.reassignments[
                           representation.itemIndex
                       ],
@@ -818,9 +818,9 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
                 return destinationFrame.minY
                     >= fixture.viewportView.bounds.maxY
             }.min { lhs, rhs in
-                let lhsItem = session.cachedSourceRepresentations[lhs]
+                let lhsItem = session.sourceRepresentations.records[lhs]
                     .flatMap { session.reassignments[$0.itemIndex] }
-                let rhsItem = session.cachedSourceRepresentations[rhs]
+                let rhsItem = session.sourceRepresentations.records[rhs]
                     .flatMap { session.reassignments[$0.itemIndex] }
                 let lhsY = lhsItem.flatMap {
                     fixture.destinationLayout.itemFrame(at: $0)?.minY
@@ -832,7 +832,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             }
         )
         let representation = try XCTUnwrap(
-            session.cachedSourceRepresentations[representationID]
+            session.sourceRepresentations.records[representationID]
         )
         let destinationItem = try XCTUnwrap(
             session.reassignments[representation.itemIndex]
@@ -855,7 +855,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         XCTAssertGreaterThan(session.lastContentFadeAlpha, 0)
         XCTAssertEqual(representation.cell.alpha, 1, accuracy: 0.000_001)
         XCTAssertEqual(contentContainer.alpha, 0, accuracy: 0.000_001)
-        XCTAssertNil(session.cellFrameCorrections[representationID])
+        XCTAssertNil(session.sourceRepresentations.cellFrameCorrections[representationID])
         let marginTransform = representation.cell.transform
         XCTAssertEqual(
             session.sourceCoverage.readyDestinationByRepresentation[
@@ -884,10 +884,10 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             panDeltaY: onScreenPanDeltaY
         ))
         XCTAssertFalse(
-            session.marginCoverageRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.marginCoverageRepresentationIDs.contains(representationID)
         )
         let visibilityProgress = try XCTUnwrap(
-            session.cellFrameCorrections[representationID]?
+            session.sourceRepresentations.cellFrameCorrections[representationID]?
                 .correction.destinationVisibilityProgress
         )
         XCTAssertGreaterThan(visibilityProgress, 0)
@@ -919,9 +919,9 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         )
         drainQueuedWork(fixture)
         XCTAssertFalse(
-            session.marginCoverageRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.marginCoverageRepresentationIDs.contains(representationID)
         )
-        XCTAssertNotNil(session.cellFrameCorrections[representationID])
+        XCTAssertNotNil(session.sourceRepresentations.cellFrameCorrections[representationID])
         XCTAssertEqual(
             contentContainer.alpha,
             session.lastContentFadeAlpha,
@@ -935,9 +935,9 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             panDeltaY: 0
         ))
         XCTAssertTrue(
-            session.marginCoverageRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.marginCoverageRepresentationIDs.contains(representationID)
         )
-        XCTAssertNil(session.cellFrameCorrections[representationID])
+        XCTAssertNil(session.sourceRepresentations.cellFrameCorrections[representationID])
         XCTAssertEqual(representation.cell.transform, marginTransform)
         XCTAssertEqual(contentContainer.alpha, 0, accuracy: 0.000_001)
 
@@ -948,9 +948,9 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             panDeltaY: onScreenPanDeltaY
         ))
         XCTAssertFalse(
-            session.marginCoverageRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.marginCoverageRepresentationIDs.contains(representationID)
         )
-        XCTAssertNotNil(session.cellFrameCorrections[representationID])
+        XCTAssertNotNil(session.sourceRepresentations.cellFrameCorrections[representationID])
         XCTAssertEqual(contentContainer.alpha, 0, accuracy: 0.000_001)
         XCTAssertNil(contentContainer.layer.animation(forKey: "opacity"))
 
@@ -961,9 +961,9 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             panDeltaY: 0
         ))
         XCTAssertTrue(
-            session.marginCoverageRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.marginCoverageRepresentationIDs.contains(representationID)
         )
-        XCTAssertNil(session.cellFrameCorrections[representationID])
+        XCTAssertNil(session.sourceRepresentations.cellFrameCorrections[representationID])
         XCTAssertEqual(contentContainer.alpha, 0, accuracy: 0.000_001)
 
         XCTAssertTrue(fixture.renderer.renderSettle(
@@ -973,9 +973,9 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             panDeltaY: onScreenPanDeltaY
         ))
         XCTAssertFalse(
-            session.marginCoverageRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.marginCoverageRepresentationIDs.contains(representationID)
         )
-        XCTAssertNotNil(session.cellFrameCorrections[representationID])
+        XCTAssertNotNil(session.sourceRepresentations.cellFrameCorrections[representationID])
         XCTAssertEqual(
             session.sourceCoverage.readyDestinationByRepresentation[
                 representationID
@@ -995,7 +995,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             panDeltaY: onScreenPanDeltaY
         ))
         XCTAssertEqual(
-            session.cellFrameCorrections[representationID]?
+            session.sourceRepresentations.cellFrameCorrections[representationID]?
                 .correction.destinationVisibilityProgress,
             1
         )
@@ -1060,10 +1060,10 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         drainQueuedWork(fixture)
         let session = try activeSession(fixture)
         let representationID = try XCTUnwrap(
-            session.marginCoverageRepresentationIDs.filter {
+            session.sourceRepresentations.marginCoverageRepresentationIDs.filter {
                 representationID in
                 guard let representation = session
-                    .cachedSourceRepresentations[representationID],
+                    .sourceRepresentations.records[representationID],
                       fixture.collectionView.indexPath(
                           for: representation.cell
                       ) != nil,
@@ -1077,9 +1077,9 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
                 return destinationFrame.minY
                     >= fixture.viewportView.bounds.maxY
             }.min { lhs, rhs in
-                let lhsItem = session.cachedSourceRepresentations[lhs]
+                let lhsItem = session.sourceRepresentations.records[lhs]
                     .flatMap { session.reassignments[$0.itemIndex] }
-                let rhsItem = session.cachedSourceRepresentations[rhs]
+                let rhsItem = session.sourceRepresentations.records[rhs]
                     .flatMap { session.reassignments[$0.itemIndex] }
                 let lhsY = lhsItem.flatMap {
                     fixture.destinationLayout.itemFrame(at: $0)?.minY
@@ -1091,7 +1091,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             }
         )
         let representation = try XCTUnwrap(
-            session.cachedSourceRepresentations[representationID]
+            session.sourceRepresentations.records[representationID]
         )
         let indexPath = try XCTUnwrap(
             fixture.collectionView.indexPath(for: representation.cell)
@@ -1115,10 +1115,10 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             at: indexPath
         )
         XCTAssertTrue(
-            session.lockedFallbackRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.lockedFallbackRepresentationIDs.contains(representationID)
         )
         XCTAssertTrue(
-            session.marginCoverageRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.marginCoverageRepresentationIDs.contains(representationID)
         )
         XCTAssertEqual(representation.cell.alpha, 1, accuracy: 0.000_001)
 
@@ -1139,7 +1139,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             presentationProgress: 0,
             panDeltaY: onScreenPanDeltaY
         ))
-        XCTAssertNotNil(session.cellFrameCorrections[representationID])
+        XCTAssertNotNil(session.sourceRepresentations.cellFrameCorrections[representationID])
         XCTAssertNil(contentContainer.layer.animation(forKey: "opacity"))
 
         XCTAssertTrue(fixture.renderer.renderSettle(
@@ -1151,10 +1151,10 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         ))
         XCTAssertEqual(session.lastContentFadeAlpha, 0, accuracy: 0.000_001)
         XCTAssertFalse(
-            session.preparedRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.preparedRepresentationIDs.contains(representationID)
         )
         XCTAssertTrue(
-            session.marginCoverageRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.marginCoverageRepresentationIDs.contains(representationID)
         )
 
         XCTAssertTrue(fixture.renderer.renderSettle(
@@ -1165,14 +1165,14 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         ))
 
         XCTAssertFalse(
-            session.marginCoverageRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.marginCoverageRepresentationIDs.contains(representationID)
         )
-        XCTAssertNotNil(session.cellFrameCorrections[representationID])
+        XCTAssertNotNil(session.sourceRepresentations.cellFrameCorrections[representationID])
         XCTAssertTrue(
-            session.lockedFallbackRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.lockedFallbackRepresentationIDs.contains(representationID)
         )
         _ = try XCTUnwrap(
-            session.cellFrameCorrections[representationID]?
+            session.sourceRepresentations.cellFrameCorrections[representationID]?
                 .correction.destinationVisibilityProgress
         )
         XCTAssertEqual(
@@ -1216,7 +1216,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         for _ in 0 ..< 200 {
             _ = fixture.renderer.drainMaterializationWork()
             if session.currentPhantomPlan?.shapeCoverage != nil,
-               !session.marginCoverageRepresentationIDs.isEmpty,
+               !session.sourceRepresentations.marginCoverageRepresentationIDs.isEmpty,
                !session.sourceCoverageRefreshIsDirty,
                !session.destinationPlanRefreshIsDirty,
                !session.phantomShapeRefreshIsDirty {
@@ -1226,10 +1226,10 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         let shapeView = try XCTUnwrap(session.phantomShapeView)
         XCTAssertNotNil(session.currentPhantomPlan?.shapeCoverage)
         let representationID = try XCTUnwrap(
-            session.marginCoverageRepresentationIDs.first {
+            session.sourceRepresentations.marginCoverageRepresentationIDs.first {
                 representationID in
                 guard let representation = session
-                    .cachedSourceRepresentations[representationID],
+                    .sourceRepresentations.records[representationID],
                       fixture.collectionView.indexPath(
                           for: representation.cell
                       ) != nil,
@@ -1253,7 +1253,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             }
         )
         let representation = try XCTUnwrap(
-            session.cachedSourceRepresentations[representationID]
+            session.sourceRepresentations.records[representationID]
         )
         let indexPath = try XCTUnwrap(
             fixture.collectionView.indexPath(for: representation.cell)
@@ -1287,10 +1287,10 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             session.currentPhantomPlan?.shapeCoverage
         )
         XCTAssertTrue(
-            session.marginCoverageRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.marginCoverageRepresentationIDs.contains(representationID)
         )
         XCTAssertTrue(
-            session.lockedFallbackRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.lockedFallbackRepresentationIDs.contains(representationID)
         )
         XCTAssertNil(
             session.sourceCoverage.readyDestinationByRepresentation[
@@ -1322,13 +1322,13 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             to: fixture.collectionView
         )
         XCTAssertFalse(
-            session.marginCoverageRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.marginCoverageRepresentationIDs.contains(representationID)
         )
         XCTAssertTrue(
-            session.lockedFallbackRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.lockedFallbackRepresentationIDs.contains(representationID)
         )
         _ = try XCTUnwrap(
-            session.cellFrameCorrections[representationID]?
+            session.sourceRepresentations.cellFrameCorrections[representationID]?
                 .correction.destinationVisibilityProgress
         )
         XCTAssertEqual(
@@ -1390,8 +1390,8 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
                 settleProgress: settleProgress,
                 panDeltaY: 0
             ))
-            return session.cachedSourceRepresentations
-                .filter { session.cellFrameCorrections[$0.key] == nil }
+            return session.sourceRepresentations.records
+                .filter { session.sourceRepresentations.cellFrameCorrections[$0.key] == nil }
                 .map { $0.value.cell.transform.a }
         }
 
@@ -1525,8 +1525,8 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         drainQueuedWork(fixture)
         let session = try activeSession(fixture)
         let representation = try XCTUnwrap(
-            session.cellFrameCorrections.first.flatMap {
-                session.cachedSourceRepresentations[$0.key]
+            session.sourceRepresentations.cellFrameCorrections.first.flatMap {
+                session.sourceRepresentations.records[$0.key]
             }
         )
         let contentContainer = try XCTUnwrap(
@@ -1810,7 +1810,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             panDeltaY: 0
         ))
         let correctedRepresentationIDs = Set(
-            session.cellFrameCorrections.keys
+            session.sourceRepresentations.cellFrameCorrections.keys
         )
         XCTAssertFalse(correctedRepresentationIDs.isEmpty)
 
@@ -1823,17 +1823,17 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         let removedRepresentationID = try XCTUnwrap(
             correctedRepresentationIDs.first {
                 representationID in
-                session.cellFrameCorrections[representationID] == nil
-                    && !session.preparedRepresentationIDs.contains(
+                session.sourceRepresentations.cellFrameCorrections[representationID] == nil
+                    && !session.sourceRepresentations.preparedRepresentationIDs.contains(
                         representationID
                     )
-                    && session.detailedSourceCellItems[representationID] == nil
-                    && session.cachedSourceRepresentations[representationID]?
+                    && session.sourceRepresentations.detailedSourceCellItems[representationID] == nil
+                    && session.sourceRepresentations.records[representationID]?
                         .cell.superview != nil
             }
         )
         let cell = try XCTUnwrap(
-            session.cachedSourceRepresentations[removedRepresentationID]?.cell
+            session.sourceRepresentations.records[removedRepresentationID]?.cell
         )
         let appliedScaleX = fixture.collectionView.transform.a
         let appliedScaleY = fixture.collectionView.transform.d
@@ -1870,12 +1870,12 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         drainQueuedWork(fixture)
         let session = try activeSession(fixture)
         let representationID = try XCTUnwrap(
-            session.cellFrameCorrections.keys.first {
-                session.cachedSourceRepresentations[$0] != nil
+            session.sourceRepresentations.cellFrameCorrections.keys.first {
+                session.sourceRepresentations.records[$0] != nil
             }
         )
         let representation = try XCTUnwrap(
-            session.cachedSourceRepresentations[representationID]
+            session.sourceRepresentations.records[representationID]
         )
         let destinationItem = try XCTUnwrap(
             session.reassignments[representation.itemIndex]
@@ -2115,7 +2115,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         XCTAssertTrue(fixture.renderer.installPlane(fixture.planeRequest))
         let session = try activeSession(fixture)
         XCTAssertEqual(
-            session.cachedSourceRepresentations[edgeRepresentationID]?.itemIndex,
+            session.sourceRepresentations.records[edgeRepresentationID]?.itemIndex,
             edgeItem
         )
 
@@ -2130,11 +2130,11 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             session.viewportDetailCoverage.installedRect
         )
         XCTAssertTrue(
-            session.cachedSourceRepresentations[edgeRepresentationID]?.cell
+            session.sourceRepresentations.records[edgeRepresentationID]?.cell
                 === edgeCell
         )
         XCTAssertFalse(session.viewportSelectedSourceItems.contains(edgeItem))
-        XCTAssertNil(session.cellFrameCorrections[edgeRepresentationID])
+        XCTAssertNil(session.sourceRepresentations.cellFrameCorrections[edgeRepresentationID])
         edgeCell.frame.origin.x = 0
 
         XCTAssertTrue(fixture.renderer.renderSettle(
@@ -2490,11 +2490,11 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         XCTAssertEqual(session.reassignments[winnerItem], collision.key)
         XCTAssertNil(session.reassignments[loserItem])
         XCTAssertEqual(
-            session.detailedSourceCellItems[loserRepresentationID],
+            session.sourceRepresentations.detailedSourceCellItems[loserRepresentationID],
             loserItem
         )
         XCTAssertFalse(
-            session.preparedRepresentationIDs.contains(loserRepresentationID)
+            session.sourceRepresentations.preparedRepresentationIDs.contains(loserRepresentationID)
         )
 
         winnerCell.frame.origin.y = fixture.viewportView.bounds.maxY * 4
@@ -2511,13 +2511,13 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         XCTAssertTrue(session.selectedSourceItems.contains(loserItem))
         XCTAssertNil(session.reassignments[winnerItem])
         XCTAssertEqual(session.reassignments[loserItem], collision.key)
-        XCTAssertNil(session.detailedSourceCellItems[loserRepresentationID])
+        XCTAssertNil(session.sourceRepresentations.detailedSourceCellItems[loserRepresentationID])
         drainQueuedWork(fixture)
         XCTAssertTrue(
-            session.preparedRepresentationIDs.contains(loserRepresentationID)
+            session.sourceRepresentations.preparedRepresentationIDs.contains(loserRepresentationID)
         )
         XCTAssertEqual(
-            session.detailedSourceCellItems[loserRepresentationID],
+            session.sourceRepresentations.detailedSourceCellItems[loserRepresentationID],
             loserItem
         )
         XCTAssertTrue(primaryTransitionImage(in: loserCell) === image)
@@ -2785,10 +2785,10 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         begin(fixture)
         XCTAssertTrue(fixture.renderer.installPlane(fixture.planeRequest))
         let session = try activeSession(fixture)
-        for _ in 0 ..< 100 where session.cellFrameCorrections.isEmpty {
+        for _ in 0 ..< 100 where session.sourceRepresentations.cellFrameCorrections.isEmpty {
             _ = fixture.renderer.drainMaterializationWork()
         }
-        XCTAssertFalse(session.cellFrameCorrections.isEmpty)
+        XCTAssertFalse(session.sourceRepresentations.cellFrameCorrections.isEmpty)
         let shapeView = try XCTUnwrap(session.phantomShapeView)
         let layers = try phantomShapeLayers(in: shapeView)
         let shapeCoverage = try XCTUnwrap(
@@ -2802,7 +2802,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             settleProgress: 0.8,
             panDeltaY: 0
         ))
-        let firstCorrectedFrames = session.cellFrameCorrections.values
+        let firstCorrectedFrames = session.sourceRepresentations.cellFrameCorrections.values
             .compactMap { entry -> (
                 cell: MobilePlayerCollectionBrowserCell,
                 frame: CGRect
@@ -2837,7 +2837,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         ))
         let changedSource = try XCTUnwrap(
             firstCorrectedFrames.compactMap { entry -> CGRect? in
-                guard session.cellFrameCorrections[
+                guard session.sourceRepresentations.cellFrameCorrections[
                     ObjectIdentifier(entry.cell)
                 ] != nil else {
                     return nil
@@ -2902,14 +2902,14 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         let session = try activeSession(fixture)
         for _ in 0 ..< 100 {
             _ = fixture.renderer.drainMaterializationWork()
-            if !session.cellFrameCorrections.isEmpty,
+            if !session.sourceRepresentations.cellFrameCorrections.isEmpty,
                !session.sourceCoverageRefreshIsDirty,
                !session.destinationPlanRefreshIsDirty,
                !session.phantomShapeRefreshIsDirty {
                 break
             }
         }
-        XCTAssertFalse(session.cellFrameCorrections.isEmpty)
+        XCTAssertFalse(session.sourceRepresentations.cellFrameCorrections.isEmpty)
         let terminalScale = fixture.planeRequest.transitionLayout.itemWidthRatio
         XCTAssertTrue(fixture.renderer.renderSettle(
             id: fixture.planeRequest.id,
@@ -3145,17 +3145,17 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         XCTAssertNotNil(session.currentPhantomPlan?.shapeCoverage)
         let shapeView = try XCTUnwrap(session.phantomShapeView)
         let preinstalledMarginID = try XCTUnwrap(
-            session.marginCoverageRepresentationIDs.first
+            session.sourceRepresentations.marginCoverageRepresentationIDs.first
         )
         let preinstalledRepresentation = try XCTUnwrap(
-            session.cachedSourceRepresentations[preinstalledMarginID]
+            session.sourceRepresentations.records[preinstalledMarginID]
         )
         let preinstalledFrame = preinstalledRepresentation.cell.convert(
             preinstalledRepresentation.cell.bounds,
             to: fixture.collectionView
         )
         XCTAssertTrue(
-            session.unpreparedMarginTrackingRepresentationIDs.contains(
+            session.sourceRepresentations.unpreparedMarginTrackingRepresentationIDs.contains(
                 preinstalledMarginID
             )
         )
@@ -3171,9 +3171,9 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
 
         var preparedMarginID: ObjectIdentifier?
         for _ in 0 ..< 100 where preparedMarginID == nil {
-            let trackedMarginIDs = session.marginCoverageRepresentationIDs
+            let trackedMarginIDs = session.sourceRepresentations.marginCoverageRepresentationIDs
                 .intersection(
-                    session.unpreparedMarginTrackingRepresentationIDs
+                    session.sourceRepresentations.unpreparedMarginTrackingRepresentationIDs
                 )
             let structureBuildCount = fixture.renderer
                 .phantomShapeStructureBuildCount
@@ -3181,11 +3181,11 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             clockCalls.value = 0
             let result = fixture.renderer.drainMaterializationWork()
             let newlyPreparedMarginIDs = trackedMarginIDs.intersection(
-                session.preparedRepresentationIDs
+                session.sourceRepresentations.preparedRepresentationIDs
             ).intersection(
-                session.marginCoverageRepresentationIDs
+                session.sourceRepresentations.marginCoverageRepresentationIDs
             ).subtracting(
-                session.unpreparedMarginTrackingRepresentationIDs
+                session.sourceRepresentations.unpreparedMarginTrackingRepresentationIDs
             )
             guard let representationID = newlyPreparedMarginIDs.first else {
                 continue
@@ -3195,7 +3195,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             XCTAssertTrue(result.stoppedForTimeLimit)
             XCTAssertTrue(session.sourceCoverageRefreshIsDirty)
             let representation = try XCTUnwrap(
-                session.cachedSourceRepresentations[representationID]
+                session.sourceRepresentations.records[representationID]
             )
             let frame = representation.cell.convert(
                 representation.cell.bounds,
@@ -3246,7 +3246,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         XCTAssertTrue(fixture.renderer.installPlane(fixture.planeRequest))
         let session = try activeSession(fixture)
         XCTAssertNotNil(session.currentPhantomPlan?.shapeCoverage)
-        XCTAssertTrue(session.cellFrameCorrections.isEmpty)
+        XCTAssertTrue(session.sourceRepresentations.cellFrameCorrections.isEmpty)
         XCTAssertTrue(fixture.renderer.renderSettle(
             id: fixture.planeRequest.id,
             scale: fixture.planeRequest.transitionLayout.itemWidthRatio,
@@ -3259,7 +3259,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         var selectedCorrectionRepresentationID: ObjectIdentifier?
 
         for _ in 0 ..< 100 where selectedCorrectionRepresentationID == nil {
-            let preparedRepresentationIDs = session.preparedRepresentationIDs
+            let preparedRepresentationIDs = session.sourceRepresentations.preparedRepresentationIDs
             let maskedFrames = fixture.renderer.phantomShapeMaskedFrames
             let structureBuildCount = fixture.renderer
                 .phantomShapeStructureBuildCount
@@ -3267,17 +3267,17 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             clockCalls.value = 0
             let result = fixture.renderer.drainMaterializationWork()
             let newlyPreparedRepresentationIDs = session
-                .preparedRepresentationIDs
+                .sourceRepresentations.preparedRepresentationIDs
                 .subtracting(preparedRepresentationIDs)
             guard let representationID = newlyPreparedRepresentationIDs
                 .first(where: { representationID in
-                    guard !session.lockedFallbackRepresentationIDs.contains(
+                    guard !session.sourceRepresentations.lockedFallbackRepresentationIDs.contains(
                         representationID
                     ),
                     session.sourceCoverage
                         .readyDestinationByRepresentation[representationID]
                         == nil,
-                    let entry = session.cellFrameCorrections[
+                    let entry = session.sourceRepresentations.cellFrameCorrections[
                         representationID
                     ],
                     entry.cell.superview != nil else {
@@ -3311,7 +3311,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             selectedCorrectionRepresentationID
         )
         let corrected = try XCTUnwrap(
-            session.cellFrameCorrections[correctedRepresentationID]
+            session.sourceRepresentations.cellFrameCorrections[correctedRepresentationID]
         )
         let frame = corrected.cell.convert(
             corrected.cell.bounds,
@@ -3693,16 +3693,17 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         drainQueuedWork(fixture)
         let session = try activeSession(fixture)
         let representationID = try XCTUnwrap(
-            session.cellFrameCorrections.keys.first {
-                session.cachedSourceRepresentations[$0] != nil
+            session.sourceRepresentations.cellFrameCorrections.keys.first {
+                session.sourceRepresentations.records[$0] != nil
             }
         )
         let representation = try XCTUnwrap(
-            session.cachedSourceRepresentations[representationID]
+            session.sourceRepresentations.records[representationID]
         )
         let cell = representation.cell
         let previousItem = representation.itemIndex
         let replacementItem = previousItem == 0 ? 1 : 0
+        assertSourceRepresentationIndexesConsistent(session)
 
         cell.frame.origin.y = fixture.viewportView.bounds.maxY * 4
         cell.configure(
@@ -3724,18 +3725,29 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         )
 
         XCTAssertEqual(
-            session.cachedSourceRepresentations[representationID]?.itemIndex,
+            session.sourceRepresentations.records[representationID]?.itemIndex,
             replacementItem
         )
-        XCTAssertNil(session.cellFrameCorrections[representationID])
-        XCTAssertFalse(session.cachedSourceRepresentations.values.contains {
+        XCTAssertNil(session.sourceRepresentations.cellFrameCorrections[representationID])
+        XCTAssertFalse(session.sourceRepresentations.records.values.contains {
             $0.itemIndex == previousItem && $0.cell === cell
         })
+        assertSourceRepresentationIndexesConsistent(session)
+        fixture.renderer.didEndDisplayingCell(
+            cell,
+            at: IndexPath(item: previousItem, section: 0)
+        )
+        XCTAssertEqual(
+            session.sourceRepresentations.records[representationID]?.itemIndex,
+            replacementItem
+        )
+        assertSourceRepresentationIndexesConsistent(session)
         fixture.renderer.didEndDisplayingCell(
             cell,
             at: IndexPath(item: replacementItem, section: 0)
         )
-        XCTAssertNil(session.cachedSourceRepresentations[representationID])
+        XCTAssertNil(session.sourceRepresentations.records[representationID])
+        assertSourceRepresentationIndexesConsistent(session)
     }
 
     func testNarrowRTLViewportUsesMirroredSourceGeometry() throws {

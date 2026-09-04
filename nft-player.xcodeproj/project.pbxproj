@@ -129,6 +129,8 @@
 		2CC0C63A2C6A630700FB56BB /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2C5A59A12C51074B00788870 /* Assets.xcassets */; };
 		2CC93C672DB2B13C00C5801A /* ExternalDisplayViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CC93C662DB2B13A00C5801A /* ExternalDisplayViewController.swift */; };
 		2CC971632D2F4219005A8C4C /* HorizontalPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CC971622D2F4214005A8C4C /* HorizontalPlayer.swift */; };
+		772378664AA24163B4BA75A6 /* PlayerPageMediaCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A9A9BA73759428BAD513ACA /* PlayerPageMediaCoordinator.swift */; };
+		875B5E0727B2451AB8345E43 /* MobilePlayerBookmarkMenuAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5D47C51E61F4E70B54A9B86 /* MobilePlayerBookmarkMenuAction.swift */; };
 		2CC971662E88410100000001 /* MobilePlayerModeController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CC971652E88410100000001 /* MobilePlayerModeController.swift */; };
 		2CDF00102F10000000000001 /* DownloadableMediaCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF00012F10000000000001 /* DownloadableMediaCache.swift */; };
 		2CDF00112F10000000000001 /* DownloadableMediaCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF00012F10000000000001 /* DownloadableMediaCache.swift */; };
@@ -272,6 +274,8 @@
 		2DA200042FD0000000000001 /* MobilePlayerCollectionBrowserGridRendererTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA2000A2FD0000000000001 /* MobilePlayerCollectionBrowserGridRendererTests.swift */; };
 		2DA400012FF0000000000001 /* MobileCollectionBrowserGridModePresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA400022FF0000000000001 /* MobileCollectionBrowserGridModePresentationTests.swift */; };
 		2DB200022FF4000000000001 /* MobilePlaybackSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DB200012FF4000000000001 /* MobilePlaybackSessionTests.swift */; };
+		0BE91AD8507C42D196AC7195 /* PlayerPageMediaCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C317F7CCC8746C09F9D6203 /* PlayerPageMediaCoordinatorTests.swift */; };
+		B17E50F3DA0C4453AEC5E03F /* MobilePlayerBookmarkMenuActionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1017CC23649D46C4975C18F3 /* MobilePlayerBookmarkMenuActionTests.swift */; };
 		2DA500012FF1000000000001 /* MobilePlayerBrowserPageViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA500112FF1000000000001 /* MobilePlayerBrowserPageViewController.swift */; };
 		2DA500022FF1000000000001 /* PendingMainQueueUpdate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA500122FF1000000000001 /* PendingMainQueueUpdate.swift */; };
 		2DA500032FF1000000000001 /* MobilePlayerCollectionBrowserCollectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA500132FF1000000000001 /* MobilePlayerCollectionBrowserCollectionView.swift */; };
@@ -448,6 +452,8 @@
 		2CB01A032F01000000000001 /* PlayerViewingProgressStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerViewingProgressStore.swift; sourceTree = "<group>"; };
 		2CC93C662DB2B13A00C5801A /* ExternalDisplayViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExternalDisplayViewController.swift; sourceTree = "<group>"; };
 		2CC971622D2F4214005A8C4C /* HorizontalPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HorizontalPlayer.swift; sourceTree = "<group>"; };
+		6A9A9BA73759428BAD513ACA /* PlayerPageMediaCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerPageMediaCoordinator.swift; sourceTree = "<group>"; };
+		D5D47C51E61F4E70B54A9B86 /* MobilePlayerBookmarkMenuAction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobilePlayerBookmarkMenuAction.swift; sourceTree = "<group>"; };
 		2CC971652E88410100000001 /* MobilePlayerModeController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobilePlayerModeController.swift; sourceTree = "<group>"; };
 		2CCFED972B08246800D98A2E /* WalletsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletsListView.swift; sourceTree = "<group>"; };
 		2CD488FE2B10C6FA00A53950 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = SOURCE_ROOT; };
@@ -541,6 +547,8 @@
 		2DA2000A2FD0000000000001 /* MobilePlayerCollectionBrowserGridRendererTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobilePlayerCollectionBrowserGridRendererTests.swift; sourceTree = "<group>"; };
 		2DA400022FF0000000000001 /* MobileCollectionBrowserGridModePresentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileCollectionBrowserGridModePresentationTests.swift; sourceTree = "<group>"; };
 		2DB200012FF4000000000001 /* MobilePlaybackSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobilePlaybackSessionTests.swift; sourceTree = "<group>"; };
+		2C317F7CCC8746C09F9D6203 /* PlayerPageMediaCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerPageMediaCoordinatorTests.swift; sourceTree = "<group>"; };
+		1017CC23649D46C4975C18F3 /* MobilePlayerBookmarkMenuActionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobilePlayerBookmarkMenuActionTests.swift; sourceTree = "<group>"; };
 		2DA500112FF1000000000001 /* MobilePlayerBrowserPageViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobilePlayerBrowserPageViewController.swift; sourceTree = "<group>"; };
 		2DA500122FF1000000000001 /* PendingMainQueueUpdate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingMainQueueUpdate.swift; sourceTree = "<group>"; };
 		2DA500132FF1000000000001 /* MobilePlayerCollectionBrowserCollectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobilePlayerCollectionBrowserCollectionView.swift; sourceTree = "<group>"; };
@@ -938,6 +946,8 @@
 				2CFA90002EB0000000000001 /* MobileCollectionCatalog.swift */,
 				2CF08AA82D2A937400D82ACA /* MobilePlayerView.swift */,
 				2CC971622D2F4214005A8C4C /* HorizontalPlayer.swift */,
+				6A9A9BA73759428BAD513ACA /* PlayerPageMediaCoordinator.swift */,
+				D5D47C51E61F4E70B54A9B86 /* MobilePlayerBookmarkMenuAction.swift */,
 				2CC971652E88410100000001 /* MobilePlayerModeController.swift */,
 				2DA500112FF1000000000001 /* MobilePlayerBrowserPageViewController.swift */,
 				2DA500122FF1000000000001 /* PendingMainQueueUpdate.swift */,
@@ -980,6 +990,8 @@
 				2E3000000000000000000009 /* MobilePlayerInteractionCoordinatorTests.swift */,
 				2DA700042FF3000000000001 /* MobileCollectionsSessionCoordinatorTests.swift */,
 				2DB200012FF4000000000001 /* MobilePlaybackSessionTests.swift */,
+				2C317F7CCC8746C09F9D6203 /* PlayerPageMediaCoordinatorTests.swift */,
+				1017CC23649D46C4975C18F3 /* MobilePlayerBookmarkMenuActionTests.swift */,
 				2DA400022FF0000000000001 /* MobileCollectionBrowserGridModePresentationTests.swift */,
 				2DA600162FF2000000000001 /* MobileCollectionBrowserGridTransitionTests.swift */,
 				2DA600172FF2000000000001 /* MobileCollectionBrowserScrollingPrefetchTests.swift */,
@@ -1423,6 +1435,8 @@
 				2E3000000000000000000019 /* MobilePlayerInteractionCoordinatorTests.swift in Sources */,
 				2DA700032FF3000000000001 /* MobileCollectionsSessionCoordinatorTests.swift in Sources */,
 				2DB200022FF4000000000001 /* MobilePlaybackSessionTests.swift in Sources */,
+				0BE91AD8507C42D196AC7195 /* PlayerPageMediaCoordinatorTests.swift in Sources */,
+				B17E50F3DA0C4453AEC5E03F /* MobilePlayerBookmarkMenuActionTests.swift in Sources */,
 				2DA400012FF0000000000001 /* MobileCollectionBrowserGridModePresentationTests.swift in Sources */,
 				2DA600062FF2000000000001 /* MobileCollectionBrowserGridTransitionTests.swift in Sources */,
 				2DA600072FF2000000000001 /* MobileCollectionBrowserScrollingPrefetchTests.swift in Sources */,
@@ -1498,6 +1512,8 @@
 				2CFA91032EB1000000000001 /* PonchoDrifellaShaders.metal in Sources */,
 				2CF08AAC2D2A937400D82ACA /* MobilePlayerView.swift in Sources */,
 				2CC971632D2F4219005A8C4C /* HorizontalPlayer.swift in Sources */,
+				772378664AA24163B4BA75A6 /* PlayerPageMediaCoordinator.swift in Sources */,
+				875B5E0727B2451AB8345E43 /* MobilePlayerBookmarkMenuAction.swift in Sources */,
 				2CC971662E88410100000001 /* MobilePlayerModeController.swift in Sources */,
 				2DA500012FF1000000000001 /* MobilePlayerBrowserPageViewController.swift in Sources */,
 				2DA500022FF1000000000001 /* PendingMainQueueUpdate.swift in Sources */,

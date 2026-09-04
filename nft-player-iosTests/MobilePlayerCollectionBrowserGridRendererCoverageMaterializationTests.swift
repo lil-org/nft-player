@@ -384,12 +384,12 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         )
 
         XCTAssertTrue(
-            session.foregroundEligibleRepresentationIDs.contains(
+            session.sourceRepresentations.foregroundEligibleRepresentationIDs.contains(
                 representationID
             )
         )
         XCTAssertFalse(
-            session.currentViewportRepresentationIDs.contains(
+            session.sourceRepresentations.currentViewportRepresentationIDs.contains(
                 representationID
             )
         )
@@ -474,7 +474,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             usesBufferedCoverage: false
         )
         XCTAssertTrue(actuallyEligibleIDs.isSubset(
-            of: session.foregroundEligibleRepresentationIDs
+            of: session.sourceRepresentations.foregroundEligibleRepresentationIDs
         ))
 
         XCTAssertTrue(fixture.renderer.renderSettle(
@@ -594,7 +594,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             return XCTFail("Expected an active renderer session")
         }
         let representationID = ObjectIdentifier(sourceCell)
-        XCTAssertTrue(session.preparedRepresentationIDs.contains(
+        XCTAssertTrue(session.sourceRepresentations.preparedRepresentationIDs.contains(
             representationID
         ))
         XCTAssertTrue(session.sourceCoverageRefreshIsDirty)
@@ -617,7 +617,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
                 representationID
             ]
         )
-        XCTAssertFalse(session.lockedFallbackRepresentationIDs.contains(
+        XCTAssertFalse(session.sourceRepresentations.lockedFallbackRepresentationIDs.contains(
             representationID
         ))
         _ = fixture.renderer.finish(preservingCarryover: false)
@@ -787,7 +787,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         )
 
         XCTAssertEqual(result.processedCount, 8)
-        XCTAssertGreaterThan(session.preparedRepresentationIDs.count, 1)
+        XCTAssertGreaterThan(session.sourceRepresentations.preparedRepresentationIDs.count, 1)
         XCTAssertEqual(fixture.renderer.sourceCoverageBuildCount, 2)
         XCTAssertFalse(session.sourceCoverageRefreshIsDirty)
         _ = fixture.renderer.finish(preservingCarryover: false)
@@ -819,7 +819,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         XCTAssertGreaterThan(callbacks.value.count, 1)
         let sourceCoverageBuildCount = fixture.renderer
             .sourceCoverageBuildCount
-        XCTAssertGreaterThan(session.transitionImageLoads.count, 1)
+        XCTAssertGreaterThan(session.sourceRepresentations.transitionImageLoads.count, 1)
 
         for callback in callbacks.value {
             callback(makeImage())
@@ -832,7 +832,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
 
         _ = fixture.renderer.drainMaterializationWork()
 
-        XCTAssertGreaterThan(session.preparedRepresentationIDs.count, 1)
+        XCTAssertGreaterThan(session.sourceRepresentations.preparedRepresentationIDs.count, 1)
         XCTAssertEqual(
             fixture.renderer.sourceCoverageBuildCount,
             sourceCoverageBuildCount + 1
@@ -893,10 +893,10 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
 
         XCTAssertTrue(session.sourceCoverageRefreshIsDirty)
         XCTAssertFalse(
-            session.marginCoverageRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.marginCoverageRepresentationIDs.contains(representationID)
         )
         XCTAssertTrue(
-            session.lockedFallbackRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.lockedFallbackRepresentationIDs.contains(representationID)
         )
         XCTAssertEqual(source.alpha, 1, accuracy: 0.000_001)
 
@@ -904,11 +904,11 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         drainQueuedWork(fixture)
 
         XCTAssertFalse(
-            session.marginCoverageRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.marginCoverageRepresentationIDs.contains(representationID)
         )
-        XCTAssertNil(session.cellFrameCorrections[representationID])
+        XCTAssertNil(session.sourceRepresentations.cellFrameCorrections[representationID])
         XCTAssertFalse(
-            session.unpreparedMarginTrackingRepresentationIDs.contains(
+            session.sourceRepresentations.unpreparedMarginTrackingRepresentationIDs.contains(
                 representationID
             )
         )

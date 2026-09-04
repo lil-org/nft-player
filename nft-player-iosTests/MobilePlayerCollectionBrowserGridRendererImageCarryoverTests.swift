@@ -283,7 +283,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         ))
 
         XCTAssertTrue(
-            session.lockedFallbackRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.lockedFallbackRepresentationIDs.contains(representationID)
         )
         XCTAssertTrue(cell.hasCarryoverContent)
         XCTAssertTrue(primaryTransitionImage(in: cell) === thumbnail)
@@ -302,10 +302,10 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         ))
 
         XCTAssertTrue(
-            session.lockedFallbackRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.lockedFallbackRepresentationIDs.contains(representationID)
         )
         XCTAssertFalse(
-            session.preparedRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.preparedRepresentationIDs.contains(representationID)
         )
         XCTAssertTrue(baseImageView.image === large)
         XCTAssertTrue(cell.hasCarryoverContent)
@@ -390,10 +390,10 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         let session = try activeSession(fixture)
         let representationID = ObjectIdentifier(cell)
         XCTAssertTrue(
-            session.lockedFallbackRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.lockedFallbackRepresentationIDs.contains(representationID)
         )
         XCTAssertFalse(
-            session.preparedRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.preparedRepresentationIDs.contains(representationID)
         )
         XCTAssertTrue(cell.hasCarryoverContent)
         XCTAssertTrue(primaryTransitionImage(in: cell) === thumbnail)
@@ -467,7 +467,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         cell.setCarryoverContent(heldCarryover)
         let session = try activeSession(fixture)
         let representationID = ObjectIdentifier(cell)
-        XCTAssertNotNil(session.transitionImageLoads[representationID])
+        XCTAssertNotNil(session.sourceRepresentations.transitionImageLoads[representationID])
 
         let destinationImage = makeImage()
         pendingCompletion(destinationImage)
@@ -475,10 +475,10 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         drainQueuedWork(fixture)
 
         XCTAssertTrue(
-            session.lockedFallbackRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.lockedFallbackRepresentationIDs.contains(representationID)
         )
         XCTAssertFalse(
-            session.preparedRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.preparedRepresentationIDs.contains(representationID)
         )
         XCTAssertTrue(cell.hasCarryoverContent)
         XCTAssertTrue(primaryTransitionImage(in: cell) === thumbnail)
@@ -531,10 +531,10 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             return XCTFail("Expected an active renderer session")
         }
         XCTAssertTrue(
-            session.lockedFallbackRepresentationIDs.contains(sourceCellID)
+            session.sourceRepresentations.lockedFallbackRepresentationIDs.contains(sourceCellID)
         )
         XCTAssertFalse(
-            session.preparedRepresentationIDs.contains(sourceCellID)
+            session.sourceRepresentations.preparedRepresentationIDs.contains(sourceCellID)
         )
 
         XCTAssertTrue(fixture.renderer.renderSettle(
@@ -550,7 +550,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             panDeltaY: 0
         ))
         XCTAssertTrue(
-            session.lockedFallbackRepresentationIDs.contains(sourceCellID)
+            session.sourceRepresentations.lockedFallbackRepresentationIDs.contains(sourceCellID)
         )
         try assertCarryoverSurvives()
         XCTAssertTrue(fixture.renderer.renderSettle(
@@ -562,7 +562,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         drainQueuedWork(fixture)
         try assertCarryoverSurvives()
         XCTAssertTrue(
-            session.lockedFallbackRepresentationIDs.contains(sourceCellID)
+            session.sourceRepresentations.lockedFallbackRepresentationIDs.contains(sourceCellID)
         )
         XCTAssertEqual(sourceCell.alpha, 1, accuracy: 0.000_001)
 
@@ -571,7 +571,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         drainQueuedWork(fixture)
         try assertCarryoverSurvives()
         XCTAssertTrue(
-            session.lockedFallbackRepresentationIDs.contains(sourceCellID)
+            session.sourceRepresentations.lockedFallbackRepresentationIDs.contains(sourceCellID)
         )
 
         XCTAssertTrue(fixture.renderer.discardPlane(
@@ -636,7 +636,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         let session = try activeSession(fixture)
         let representationID = ObjectIdentifier(sourceCell)
         XCTAssertTrue(
-            session.lockedFallbackRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.lockedFallbackRepresentationIDs.contains(representationID)
         )
         XCTAssertTrue(fixture.renderer.renderSettle(
             id: fixture.planeRequest.id,
@@ -668,10 +668,10 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         ))
 
         XCTAssertFalse(
-            session.lockedFallbackRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.lockedFallbackRepresentationIDs.contains(representationID)
         )
         XCTAssertTrue(
-            session.preparedRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.preparedRepresentationIDs.contains(representationID)
         )
         XCTAssertEqual(
             session.sourceCoverage.readyDestinationByRepresentation[
@@ -758,10 +758,10 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         ))
 
         XCTAssertTrue(
-            session.lockedFallbackRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.lockedFallbackRepresentationIDs.contains(representationID)
         )
         XCTAssertFalse(
-            session.preparedRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.preparedRepresentationIDs.contains(representationID)
         )
         XCTAssertTrue(
             sourceCell.carryoverSourceContent?.primary.image === carryoverImage
@@ -953,7 +953,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         guard case let .active(session) = fixture.renderer.lifecycle else {
             return XCTFail("Expected an active renderer session")
         }
-        XCTAssertEqual(session.transitionImageLoads.count, 1)
+        XCTAssertEqual(session.sourceRepresentations.transitionImageLoads.count, 1)
         _ = fixture.renderer.finish(preservingCarryover: false)
     }
 
@@ -983,7 +983,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         guard case let .active(session) = fixture.renderer.lifecycle else {
             return XCTFail("Expected an active renderer session")
         }
-        let activeLoadCount = session.transitionImageLoads.count
+        let activeLoadCount = session.sourceRepresentations.transitionImageLoads.count
         XCTAssertGreaterThan(activeLoadCount, 2)
         XCTAssertEqual(callbacks.value.count, activeLoadCount)
 
@@ -1011,7 +1011,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
                 1
             )
             XCTAssertEqual(cancellationCount.value, activeLoadCount)
-            XCTAssertTrue(session.transitionImageLoads.isEmpty)
+            XCTAssertTrue(session.sourceRepresentations.transitionImageLoads.isEmpty)
             XCTAssertEqual(
                 fixture.renderer
                     .pendingTransitionImageCompletionWorkCount,
@@ -1060,9 +1060,9 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         let session = try activeSession(fixture)
         let representationID = ObjectIdentifier(sourceCell)
         XCTAssertEqual(callbacks.value.count, 1)
-        XCTAssertEqual(session.transitionImageLoads.count, 1)
+        XCTAssertEqual(session.sourceRepresentations.transitionImageLoads.count, 1)
         XCTAssertFalse(
-            session.preparedRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.preparedRepresentationIDs.contains(representationID)
         )
 
         XCTAssertTrue(fixture.renderer.renderSettle(
@@ -1072,10 +1072,10 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             panDeltaY: 0
         ))
         XCTAssertTrue(
-            session.lockedFallbackRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.lockedFallbackRepresentationIDs.contains(representationID)
         )
         XCTAssertEqual(cancellationCount.value, 1)
-        XCTAssertTrue(session.transitionImageLoads.isEmpty)
+        XCTAssertTrue(session.sourceRepresentations.transitionImageLoads.isEmpty)
 
         // Just below the fade start is the rearm dead band: the fallback must
         // stay locked so threshold hover cannot churn image work.
@@ -1087,7 +1087,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             panDeltaY: 0
         ))
         XCTAssertTrue(
-            session.lockedFallbackRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.lockedFallbackRepresentationIDs.contains(representationID)
         )
         drainQueuedWork(fixture)
         XCTAssertEqual(callbacks.value.count, 1)
@@ -1100,13 +1100,13 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             panDeltaY: 0
         ))
         XCTAssertFalse(
-            session.lockedFallbackRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.lockedFallbackRepresentationIDs.contains(representationID)
         )
         XCTAssertEqual(sourceCell.alpha, 1, accuracy: 0.000_001)
         drainQueuedWork(fixture)
         XCTAssertEqual(sourceCell.alpha, 1, accuracy: 0.000_001)
         XCTAssertEqual(callbacks.value.count, 2)
-        XCTAssertEqual(session.transitionImageLoads.count, 1)
+        XCTAssertEqual(session.sourceRepresentations.transitionImageLoads.count, 1)
 
         let oldImage = makeImage()
         callbacks.value[0](oldImage)
@@ -1116,9 +1116,9 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             0
         )
         XCTAssertFalse(
-            session.preparedRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.preparedRepresentationIDs.contains(representationID)
         )
-        XCTAssertEqual(session.transitionImageLoads.count, 1)
+        XCTAssertEqual(session.sourceRepresentations.transitionImageLoads.count, 1)
         XCTAssertNil(primaryTransitionImage(in: sourceCell))
 
         let newImage = makeImage()
@@ -1130,9 +1130,9 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         )
         drainQueuedWork(fixture)
         XCTAssertTrue(
-            session.preparedRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.preparedRepresentationIDs.contains(representationID)
         )
-        XCTAssertNotNil(session.cellFrameCorrections[representationID])
+        XCTAssertNotNil(session.sourceRepresentations.cellFrameCorrections[representationID])
         XCTAssertTrue(primaryTransitionImage(in: sourceCell) === newImage)
 
         XCTAssertTrue(fixture.renderer.renderSettle(
@@ -1142,7 +1142,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             panDeltaY: 0
         ))
         XCTAssertFalse(
-            session.lockedFallbackRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.lockedFallbackRepresentationIDs.contains(representationID)
         )
         XCTAssertEqual(sourceCell.alpha, 1, accuracy: 0.000_001)
         let contentContainer = try XCTUnwrap(
@@ -1195,8 +1195,8 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             return XCTFail("Expected an active renderer session")
         }
         let sourceCellID = ObjectIdentifier(sourceCell)
-        XCTAssertTrue(session.preparedRepresentationIDs.contains(sourceCellID))
-        XCTAssertNotNil(session.transitionImageLoads[sourceCellID])
+        XCTAssertTrue(session.sourceRepresentations.preparedRepresentationIDs.contains(sourceCellID))
+        XCTAssertNotNil(session.sourceRepresentations.transitionImageLoads[sourceCellID])
 
         XCTAssertTrue(fixture.renderer.renderSettle(
             id: fixture.planeRequest.id,
@@ -1206,15 +1206,15 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         ))
 
         XCTAssertEqual(cancellationCount.value, 0)
-        XCTAssertNotNil(session.transitionImageLoads[sourceCellID])
+        XCTAssertNotNil(session.sourceRepresentations.transitionImageLoads[sourceCellID])
         XCTAssertFalse(
-            session.lockedFallbackRepresentationIDs.contains(sourceCellID)
+            session.sourceRepresentations.lockedFallbackRepresentationIDs.contains(sourceCellID)
         )
 
         try XCTUnwrap(callback.value)(makeImage())
         await runOnNextMainQueueTurn()
         drainQueuedWork(fixture)
-        XCTAssertNil(session.transitionImageLoads[sourceCellID])
+        XCTAssertNil(session.sourceRepresentations.transitionImageLoads[sourceCellID])
         XCTAssertEqual(cancellationCount.value, 0)
         _ = fixture.renderer.finish(preservingCarryover: false)
     }
@@ -1253,12 +1253,12 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         drainQueuedWork(fixture)
         let session = try activeSession(fixture)
         let representationID = try XCTUnwrap(
-            session.marginCoverageRepresentationIDs.first {
-                session.transitionImageLoads[$0] != nil
+            session.sourceRepresentations.marginCoverageRepresentationIDs.first {
+                session.sourceRepresentations.transitionImageLoads[$0] != nil
             }
         )
         let representation = try XCTUnwrap(
-            session.cachedSourceRepresentations[representationID]
+            session.sourceRepresentations.records[representationID]
         )
         let contentContainer = try XCTUnwrap(
             transitionContentContainer(in: representation.cell)
@@ -1272,9 +1272,9 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         ))
         XCTAssertGreaterThan(session.lastContentFadeAlpha, 0)
         XCTAssertTrue(
-            session.marginCoverageRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.marginCoverageRepresentationIDs.contains(representationID)
         )
-        XCTAssertNotNil(session.transitionImageLoads[representationID])
+        XCTAssertNotNil(session.sourceRepresentations.transitionImageLoads[representationID])
         XCTAssertEqual(contentContainer.alpha, 0, accuracy: 0.000_001)
         let destinationItem = try XCTUnwrap(
             session.sourceCoverage.readyDestinationByRepresentation[
@@ -1298,9 +1298,9 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         await runOnNextMainQueueTurn()
         drainQueuedWork(fixture)
 
-        XCTAssertNil(session.transitionImageLoads[representationID])
+        XCTAssertNil(session.sourceRepresentations.transitionImageLoads[representationID])
         XCTAssertTrue(
-            session.marginCoverageRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.marginCoverageRepresentationIDs.contains(representationID)
         )
         XCTAssertEqual(
             representation.cell.incomingTransitionContentQuality(
@@ -1345,7 +1345,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         )
 
         XCTAssertTrue(
-            reentered.session.preparedRepresentationIDs.contains(
+            reentered.session.sourceRepresentations.preparedRepresentationIDs.contains(
                 reentered.representationID
             )
         )
@@ -1353,7 +1353,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             primaryTransitionImage(in: reentered.cell) === image
         )
         XCTAssertNotNil(
-            reentered.session.transitionImageLoads[
+            reentered.session.sourceRepresentations.transitionImageLoads[
                 reentered.representationID
             ]
         )
@@ -1402,7 +1402,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             primaryTransitionImage(in: reentered.cell) === largeImage
         )
         XCTAssertNil(
-            reentered.session.transitionImageLoads[
+            reentered.session.sourceRepresentations.transitionImageLoads[
                 reentered.representationID
             ]
         )
@@ -1458,7 +1458,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         })
         XCTAssertTrue(primaryTransitionImage(in: reentered.cell) === fullImage)
         let sourceItem = try XCTUnwrap(
-            reentered.session.cachedSourceRepresentations[
+            reentered.session.sourceRepresentations.records[
                 reentered.representationID
             ]?.itemIndex
         )
@@ -1520,7 +1520,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             primaryTransitionImage(in: reentered.cell) === largeImage
         )
         XCTAssertNil(
-            reentered.session.transitionImageLoads[
+            reentered.session.sourceRepresentations.transitionImageLoads[
                 reentered.representationID
             ]
         )
@@ -1570,7 +1570,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             primaryTransitionImage(in: reentered.cell) === largeImage
         )
         XCTAssertNil(
-            reentered.session.transitionImageLoads[
+            reentered.session.sourceRepresentations.transitionImageLoads[
                 reentered.representationID
             ]
         )
@@ -1611,8 +1611,8 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         }
         let representationID = ObjectIdentifier(sourceCell)
         XCTAssertTrue(session.selectedSourceItems.contains(0))
-        XCTAssertNotNil(session.cachedSourceRepresentations[representationID])
-        XCTAssertNotNil(session.transitionImageLoads[representationID])
+        XCTAssertNotNil(session.sourceRepresentations.records[representationID])
+        XCTAssertNotNil(session.sourceRepresentations.transitionImageLoads[representationID])
 
         loaded(makeImage())
         await runOnNextMainQueueTurn {
@@ -1700,9 +1700,9 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             session: session,
             panDeltaY: 0
         )
-        let firstLoadIDs = Set(session.transitionImageLoads.keys)
+        let firstLoadIDs = Set(session.sourceRepresentations.transitionImageLoads.keys)
         let selectedRepresentationIDs = Set(
-            session.cachedSourceRepresentations.compactMap {
+            session.sourceRepresentations.records.compactMap {
                 representationID, representation in
                 session.selectedSourceItems.contains(
                     representation.itemIndex
@@ -1727,7 +1727,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             session: session,
             panDeltaY: panDeltaY
         )
-        let secondLoadIDs = Set(session.transitionImageLoads.keys)
+        let secondLoadIDs = Set(session.sourceRepresentations.transitionImageLoads.keys)
         let removedIDs = firstLoadIDs.subtracting(secondLoadIDs)
         let addedIDs = secondLoadIDs.subtracting(firstLoadIDs)
         XCTAssertEqual(secondLoadIDs, secondEligibleIDs)
@@ -1830,10 +1830,10 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         guard case let .active(session) = fixture.renderer.lifecycle else {
             return XCTFail("Expected an active renderer session")
         }
-        XCTAssertFalse(session.preparedRepresentationIDs.contains(
+        XCTAssertFalse(session.sourceRepresentations.preparedRepresentationIDs.contains(
             ObjectIdentifier(sourceCell)
         ))
-        XCTAssertTrue(session.lockedFallbackRepresentationIDs.contains(
+        XCTAssertTrue(session.sourceRepresentations.lockedFallbackRepresentationIDs.contains(
             ObjectIdentifier(sourceCell)
         ))
         _ = fixture.renderer.finish(preservingCarryover: false)
@@ -2023,7 +2023,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         )
 
         XCTAssertTrue(
-            session.lockedFallbackRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.lockedFallbackRepresentationIDs.contains(representationID)
         )
         XCTAssertFalse(
             session.sourceCoverage.coveredDestinationItems.contains(0)
@@ -2051,7 +2051,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
                 fixture.collectionView.subviews.firstIndex(of: sourceCell)
             )
         )
-        XCTAssertNotNil(session.cellFrameCorrections[representationID])
+        XCTAssertNotNil(session.sourceRepresentations.cellFrameCorrections[representationID])
 
         XCTAssertTrue(fixture.renderer.renderSettle(
             id: fixture.planeRequest.id,
@@ -2060,12 +2060,12 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             panDeltaY: 0
         ))
         XCTAssertFalse(
-            session.lockedFallbackRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.lockedFallbackRepresentationIDs.contains(representationID)
         )
         XCTAssertFalse(
-            session.preparedRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.preparedRepresentationIDs.contains(representationID)
         )
-        XCTAssertNotNil(session.cellFrameCorrections[representationID])
+        XCTAssertNotNil(session.sourceRepresentations.cellFrameCorrections[representationID])
 
         XCTAssertTrue(fixture.renderer.renderSettle(
             id: fixture.planeRequest.id,
@@ -2073,9 +2073,9 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             settleProgress: 0,
             panDeltaY: 0
         ))
-        XCTAssertNil(session.cellFrameCorrections[representationID])
+        XCTAssertNil(session.sourceRepresentations.cellFrameCorrections[representationID])
         XCTAssertFalse(
-            session.marginCoverageRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.marginCoverageRepresentationIDs.contains(representationID)
         )
     }
 
@@ -2824,7 +2824,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         }
         let sourceCellID = ObjectIdentifier(sourceCell)
         XCTAssertEqual(
-            session.cachedSourceRepresentations[sourceCellID]?.itemIndex,
+            session.sourceRepresentations.records[sourceCellID]?.itemIndex,
             0
         )
 
@@ -2835,7 +2835,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         )
 
         XCTAssertTrue(
-            session.cachedSourceRepresentations[sourceCellID]?.cell
+            session.sourceRepresentations.records[sourceCellID]?.cell
                 === sourceCell
         )
         XCTAssertTrue(fixture.renderer.renderSettle(
@@ -2877,9 +2877,9 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             sourceCell,
             at: IndexPath(item: 0, section: 0)
         )
-        XCTAssertNil(session.cachedSourceRepresentations[sourceCellID])
+        XCTAssertNil(session.sourceRepresentations.records[sourceCellID])
         _ = fixture.renderer.finish(preservingCarryover: false)
-        XCTAssertTrue(session.cachedSourceRepresentations.isEmpty)
+        XCTAssertTrue(session.sourceRepresentations.records.isEmpty)
     }
 
     func testSourceFadeCacheDropsRecycledOverscanRepresentation() throws {
@@ -2896,7 +2896,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         }
         let cachedOverscan = try XCTUnwrap(
             session.sourceOverscanCells.first { _, cell in
-                session.cachedSourceRepresentations[
+                session.sourceRepresentations.records[
                     ObjectIdentifier(cell)
                 ] != nil
             }
@@ -2925,14 +2925,14 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         )
 
         XCTAssertNil(session.sourceOverscanCells[itemIndex])
-        XCTAssertNil(session.cachedSourceRepresentations[overscanID])
+        XCTAssertNil(session.sourceRepresentations.records[overscanID])
         XCTAssertNil(overscanCell.superview)
         XCTAssertFalse(overscanCell.represents(tokenIndex: itemIndex))
         _ = fixture.renderer.finish(preservingCarryover: false)
     }
 
-    func testReconfiguredRepresentationCancelsOldItemWork() throws {
-        let cancellationCount = Counter()
+    func testReconfiguredRepresentationCancelsOldItemWork() async throws {
+        let requests = Box<[(completion: (UIImage?) -> Void, cancellations: Counter)]>([])
         let fixture = try makeFixture(
             itemCount: 30,
             showsSourceCell: true,
@@ -2940,8 +2940,10 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             anchorItemIndex: 0,
             imageAccess: .init(
                 cachedImage: { _, _ in nil },
-                loadImage: { _, _ in
-                    return { cancellationCount.value += 1 }
+                loadImage: { _, completion in
+                    let cancellations = Counter()
+                    requests.value.append((completion, cancellations))
+                    return { cancellations.value += 1 }
                 }
             )
         )
@@ -2955,7 +2957,8 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         drainQueuedWork(fixture)
         let session = try activeSession(fixture)
         let representationID = ObjectIdentifier(cell)
-        XCTAssertNotNil(session.transitionImageLoads[representationID])
+        XCTAssertNotNil(session.sourceRepresentations.transitionImageLoads[representationID])
+        assertSourceRepresentationIndexesConsistent(session)
         fixture.renderer.willDisplayCell(
             cell,
             at: IndexPath(item: 0, section: 0)
@@ -2980,8 +2983,10 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             at: IndexPath(item: 1, section: 0)
         )
 
-        XCTAssertGreaterThan(cancellationCount.value, 0)
-        XCTAssertNil(session.transitionImageLoads[representationID])
+        let cancelledRequests = requests.value.filter { $0.cancellations.value == 1 }
+        XCTAssertFalse(cancelledRequests.isEmpty)
+        XCTAssertTrue(requests.value.allSatisfy { $0.cancellations.value <= 1 })
+        XCTAssertNil(session.sourceRepresentations.transitionImageLoads[representationID])
         XCTAssertFalse(
             fixture.renderer.pendingDetailMaterializationRepresentationKeys
                 .contains(.init(
@@ -2994,5 +2999,25 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
                 .init(representationID: representationID, tokenIndex: 0)
             )
         )
+        assertSourceRepresentationIndexesConsistent(session)
+
+        let oldImage = makeImage()
+        cancelledRequests.forEach { $0.completion(oldImage) }
+        await runOnNextMainQueueTurn()
+        drainQueuedWork(fixture)
+
+        XCTAssertEqual(
+            session.sourceRepresentations.records[representationID]?.itemIndex,
+            1
+        )
+        XCTAssertFalse(session.sourceRepresentations.preparedRepresentationIDs.contains(
+            representationID
+        ))
+        XCTAssertNil(primaryTransitionImage(in: cell))
+        assertSourceRepresentationIndexesConsistent(session)
+
+        _ = fixture.renderer.finish(preservingCarryover: false)
+        XCTAssertTrue(requests.value.allSatisfy { $0.cancellations.value == 1 })
+        assertSourceRepresentationIndexesConsistent(session)
     }
 }

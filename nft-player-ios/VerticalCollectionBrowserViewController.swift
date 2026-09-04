@@ -1350,44 +1350,12 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             )
 
             var children: [UIMenuElement] = [
-                UIDeferredMenuElement.uncached { completion in
-                    Task {
-                        let storedState = PlayerBookmarksStore.storedBookmarkState(
-                            collectionId: descriptor.collectionId,
-                            tokenId: descriptor.tokenId
-                        )
-                        let resolvedIsBookmarked = storedState.isReady
-                            ? storedState.isBookmarked
-                            : await PlayerBookmarksStore.shared.isBookmarked(
-                                collectionId: descriptor.collectionId,
-                                tokenId: descriptor.tokenId
-                            )
-                        let latestState = PlayerBookmarksStore.storedBookmarkState(
-                            collectionId: descriptor.collectionId,
-                            tokenId: descriptor.tokenId
-                        )
-                        let isBookmarked = latestState.isReady
-                            ? latestState.isBookmarked
-                            : resolvedIsBookmarked
-                        let action = UIAction(
-                            title: isBookmarked ? Strings.removeBookmark : Strings.bookmark,
-                            image: UIImage(
-                                systemName: isBookmarked ? "bookmark.fill" : "bookmark"
-                            ),
-                            attributes: latestState.isTogglePending ? .disabled : []
-                        ) { _ in
-                            let didBeginToggle = PlayerBookmarksStore.enqueueBookmarkUpdate(
-                                collectionId: descriptor.collectionId,
-                                tokenId: descriptor.tokenId,
-                                isBookmarked: !isBookmarked
-                            )
-                            if didBeginToggle {
-                                Haptic.selectionChanged()
-                            }
-                        }
-                        completion([action])
-                    }
-                }
+                MobilePlayerBookmarkMenuAction(
+                    target: .init(
+                        collectionId: descriptor.collectionId,
+                        tokenId: descriptor.tokenId
+                    )
+                ).makeDeferredElement()
             ]
             if let url = token?.url {
                 children.append(

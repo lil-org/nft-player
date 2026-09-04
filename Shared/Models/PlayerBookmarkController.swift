@@ -116,8 +116,18 @@ final class PlayerBookmarkController {
 
     @discardableResult
     func toggle(completion: ToggleCompletion? = nil) -> Bool {
+        setBookmarked(!presentationState.isBookmarked, completion: completion)
+    }
+
+    @discardableResult
+    func setBookmarked(
+        _ isBookmarked: Bool,
+        completion: ToggleCompletion? = nil
+    ) -> Bool {
         guard isStarted,
-              let request = presentationState.beginToggle() else {
+              let request = presentationState.beginUpdate(
+                isBookmarked: isBookmarked
+              ) else {
             return false
         }
         cancelLoading()

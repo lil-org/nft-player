@@ -558,20 +558,20 @@ final class GridPlaneRenderer {
         plane: GridModePlaneContext,
         appliedScale: AppliedPlaneScale
     ) {
-        guard !session.cellFrameCorrections.isEmpty,
+        guard !session.sourceRepresentations.cellFrameCorrections.isEmpty,
               let context = cellFrameCorrectionTransformContext(
                   session: session,
                   plane: plane,
                   appliedScale: appliedScale
               ) else {
-            for (cell, _) in session.cellFrameCorrections.values {
+            for (cell, _) in session.sourceRepresentations.cellFrameCorrections.values {
                 setTransform(.identity, on: cell)
             }
             session.hasCellFrameCorrectionTransforms = false
             return
         }
         var hasTransforms = false
-        for (cell, correction) in session.cellFrameCorrections.values {
+        for (cell, correction) in session.sourceRepresentations.cellFrameCorrections.values {
             let applied = applyCellFrameCorrection(
                 correction,
                 to: cell,
@@ -746,7 +746,7 @@ final class GridPlaneRenderer {
         }
         for cell in cells {
             let representationID = ObjectIdentifier(cell)
-            guard session.cachedSourceRepresentations[representationID]?
+            guard session.sourceRepresentations.records[representationID]?
                 .cell === cell,
                   cell.superview != nil else {
                 continue
@@ -877,8 +877,8 @@ final class GridPlaneRenderer {
         }
         var hasTransforms = false
         for (representationID, representation) in
-            session.cachedSourceRepresentations
-        where session.cellFrameCorrections[representationID] == nil
+            session.sourceRepresentations.records
+        where session.sourceRepresentations.cellFrameCorrections[representationID] == nil
             && representation.cell.superview != nil
             && representation.cell.represents(
                 tokenIndex: representation.itemIndex
@@ -1107,14 +1107,14 @@ final class GridPlaneRenderer {
         let transitionVisualRepresentationIDs = Set(
             session.sourceCoverage.readyDestinationByRepresentation.keys
         ).union(
-            session.cellFrameCorrections.keys
+            session.sourceRepresentations.cellFrameCorrections.keys
         ).filter {
             session.sourceRepresentationOwnsTransitionVisual($0)
         }
         let sourceOccupantRepresentationIDs = transitionVisualRepresentationIDs
-            .union(session.marginCoverageRepresentationIDs)
+            .union(session.sourceRepresentations.marginCoverageRepresentationIDs)
         for representationID in sourceOccupantRepresentationIDs {
-            guard let representation = session.cachedSourceRepresentations[
+            guard let representation = session.sourceRepresentations.records[
                 representationID
             ], representation.cell.superview != nil,
             representation.cell.represents(
@@ -1347,8 +1347,8 @@ final class GridPlaneRenderer {
         guard session.hasSourceSeamCompensationTransforms else { return }
         session.hasSourceSeamCompensationTransforms = false
         for (representationID, representation) in
-            session.cachedSourceRepresentations
-        where session.cellFrameCorrections[representationID] == nil
+            session.sourceRepresentations.records
+        where session.sourceRepresentations.cellFrameCorrections[representationID] == nil
             && representation.cell.superview != nil
             && representation.cell.represents(
                 tokenIndex: representation.itemIndex

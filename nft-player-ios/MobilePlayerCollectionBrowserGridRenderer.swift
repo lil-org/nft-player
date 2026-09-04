@@ -987,9 +987,7 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
                 appliedScale: appliedScale
             )
         }
-        session.deferredClassificationPaintRepresentationIDs.removeAll(
-            keepingCapacity: true
-        )
+        session.sourceRepresentations.clearDeferredClassificationPaint()
         materializer.enqueueViewportPromotions(session: session)
         materializer.reconcileForegroundDestinationEligibility(
             session: session,
@@ -1061,7 +1059,7 @@ final class MobilePlayerCollectionBrowserGridRenderer: NSObject {
         )
         let step = 0.5 / displayScale
         var signature = 0
-        for representation in session.cachedSourceRepresentations.values {
+        for representation in session.sourceRepresentations.records.values {
             var hasher = Hasher()
             hasher.combine(representation.itemIndex)
             hasher.combine(quantized(representation.cell.center.x, step: step))

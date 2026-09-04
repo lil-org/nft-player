@@ -437,7 +437,7 @@ final class GridMaterializer {
 
     isolated deinit {
         displayLink?.invalidate()
-        activeSession?.transitionImageLoads.values.forEach {
+        activeSession?.sourceRepresentations.transitionImageLoads.values.forEach {
             $0.cancellation()
         }
         activeSession?.sourceOverscanCells.values.forEach {
@@ -567,7 +567,7 @@ final class GridMaterializer {
                 rawValue: sourceColumnCount / 2
             )
             : nil)
-        for (_, representation) in session.cachedSourceRepresentations {
+        for (_, representation) in session.sourceRepresentations.records {
             let itemIndex = representation.itemIndex
             guard representation.cell.superview != nil,
                   representation.cell.represents(tokenIndex: itemIndex),
@@ -631,20 +631,20 @@ final class GridMaterializer {
 
         guard let plane = session.plane else { return }
         var resolvedDetailRepresentationIDs = Set<ObjectIdentifier>()
-        let waiters = session.transitionImageSourcesWaiters
+        let waiters = session.sourceRepresentations.transitionImageSourcesWaiters
         for (representationID, waiter) in waiters {
-            guard let representation = session.cachedSourceRepresentations[
+            guard let representation = session.sourceRepresentations.records[
                 representationID
             ], representation.itemIndex == waiter.sourceItem,
-                  session.detailedSourceCellItems[representationID]
+                  session.sourceRepresentations.detailedSourceCellItems[representationID]
                     == waiter.sourceItem,
-                  !session.preparedRepresentationIDs.contains(
+                  !session.sourceRepresentations.preparedRepresentationIDs.contains(
                     representationID
-                  ), session.transitionImageLoads[representationID] == nil,
-                  !session.lockedFallbackRepresentationIDs.contains(
+                  ), session.sourceRepresentations.transitionImageLoads[representationID] == nil,
+                  !session.sourceRepresentations.lockedFallbackRepresentationIDs.contains(
                     representationID
                   ), session.selectedSourceItems.contains(waiter.sourceItem),
-                  session.foregroundEligibleRepresentationIDs.contains(
+                  session.sourceRepresentations.foregroundEligibleRepresentationIDs.contains(
                     representationID
                   ), representation.cell.superview != nil,
                   representation.cell.represents(
@@ -654,18 +654,14 @@ final class GridMaterializer {
                     sourceItem: waiter.sourceItem,
                     plane: plane
                   ) == waiter.destinationItem else {
-                session.transitionImageSourcesWaiters.removeValue(
-                    forKey: representationID
-                )
+                session.sourceRepresentations.clearImageSourcesWaiter(for: representationID)
                 continue
             }
             guard contentAccess.imageSources(waiter.destinationItem) != nil
             else {
                 continue
             }
-            session.transitionImageSourcesWaiters.removeValue(
-                forKey: representationID
-            )
+            session.sourceRepresentations.clearImageSourcesWaiter(for: representationID)
             resolvedDetailRepresentationIDs.insert(representationID)
         }
         enqueueDetailedSourceMaterialization(
@@ -1380,9 +1376,9 @@ final class GridMaterializer {
     ) {
         let cellID = ObjectIdentifier(cell)
         let installsOnScreenCorrection = !session
-            .unpreparedMarginTrackingRepresentationIDs.contains(cellID)
-        let hadCorrection = session.cellFrameCorrections[cellID] != nil
-        let wasMarginHeld = session.marginCoverageRepresentationIDs.contains(
+            .sourceRepresentations.unpreparedMarginTrackingRepresentationIDs.contains(cellID)
+        let hadCorrection = session.sourceRepresentations.cellFrameCorrections[cellID] != nil
+        let wasMarginHeld = session.sourceRepresentations.marginCoverageRepresentationIDs.contains(
             cellID
         )
         guard let geometry = geometry ?? cellFrameCorrectionGeometry(
@@ -1488,7 +1484,7 @@ final class GridMaterializer {
         defersStableTransform: Bool,
         defersPresentationUpdate: Bool
     ) {
-        let representationIDs = session.frameTrackedRepresentationIDs
+        let representationIDs = session.sourceRepresentations.frameTrackedRepresentationIDs
         guard !representationIDs.isEmpty,
               let geometry = cellFrameCorrectionGeometry(
                   session: session,
@@ -1497,7 +1493,7 @@ final class GridMaterializer {
             return
         }
         for representationID in representationIDs {
-            guard let representation = session.cachedSourceRepresentations[
+            guard let representation = session.sourceRepresentations.records[
                 representationID
             ],
             representation.cell.superview != nil,
@@ -1609,15 +1605,15 @@ final class GridMaterializer {
         ).itemIndices)
         session.selectedSourceItems = selectedItems
         session.viewportSelectedSourceItems = selectedItems
-        session.preparedRepresentationIDs = session
-            .preparedRepresentationIDs.filter { representationID in
+        session.sourceRepresentations.retainPreparedRepresentations {
+            representationID in
                 sourceCells.contains {
                     ObjectIdentifier($0.cell) == representationID
                         && session.selectedSourceItems.contains(
                             $0.indexPath.item
                         )
                 }
-            }
+        }
     }
 
     @discardableResult
@@ -1659,10 +1655,10 @@ final class GridMaterializer {
         ) != nil
         let correctedSourceItems: [Int]
         if hasUniformLattice {
-            correctedSourceItems = session.cellFrameCorrections.keys.compactMap {
+            correctedSourceItems = session.sourceRepresentations.cellFrameCorrections.keys.compactMap {
                 representationID in
-                session.detailedSourceCellItems[representationID]
-                    ?? session.cachedSourceRepresentations[representationID]?
+                session.sourceRepresentations.detailedSourceCellItems[representationID]
+                    ?? session.sourceRepresentations.records[representationID]?
                         .itemIndex
             }
         } else {
@@ -1922,10 +1918,9 @@ final class GridMaterializer {
                 $1.indexPath.item
             )
         }
-        session.pruneMarginCoverageToSourceRepresentations()
         for entry in sourceCellEntries where
             session.selectedSourceItems.contains(entry.indexPath.item)
-                && !session.preparedRepresentationIDs.contains(
+                && !session.sourceRepresentations.preparedRepresentationIDs.contains(
                     ObjectIdentifier(entry.cell)
                 ) {
             _ = classifyUnpreparedSourceRepresentation(
@@ -1939,10 +1934,10 @@ final class GridMaterializer {
             sourceCellEntries.map { ObjectIdentifier($0.cell) }
         )
         sourceCellEntries.append(contentsOf: session
-            .frameTrackedRepresentationIDs
+            .sourceRepresentations.frameTrackedRepresentationIDs
             .subtracting(existingRepresentationIDs)
             .compactMap { representationID in
-                guard let representation = session.cachedSourceRepresentations[
+                guard let representation = session.sourceRepresentations.records[
                     representationID
                 ], representation.cell.superview != nil,
                 representation.cell.represents(
@@ -1968,8 +1963,8 @@ final class GridMaterializer {
             PlayerBrowserGridSourceCoveragePlan(
                 representations: representations,
                 selectedSourceItems: session.selectedSourceItems,
-                preparedRepresentationIDs: session.preparedRepresentationIDs
-                    .subtracting(session.lockedFallbackRepresentationIDs),
+                preparedRepresentationIDs: session.sourceRepresentations.preparedRepresentationIDs
+                    .subtracting(session.sourceRepresentations.lockedFallbackRepresentationIDs),
                 destinationBySourceItem: {
                     [weak self, weak session] sourceItem in
                     guard let self, let session else { return nil }
@@ -1985,11 +1980,9 @@ final class GridMaterializer {
         if session.lastContentFadeAlpha > 0 {
             let newlyLockedRepresentationIDs = plan
                 .fallbackRepresentationIDs.subtracting(
-                    session.lockedFallbackRepresentationIDs
+                    session.sourceRepresentations.lockedFallbackRepresentationIDs
                 )
-            session.lockedFallbackRepresentationIDs.formUnion(
-                newlyLockedRepresentationIDs
-            )
+            session.sourceRepresentations.lockFallbacks(newlyLockedRepresentationIDs)
             session.removeForegroundEligibility(
                 for: newlyLockedRepresentationIDs
             )
@@ -2097,7 +2090,7 @@ final class GridMaterializer {
             candidateRepresentations = representationIDs.compactMap {
                 representationID in
                 guard let representation = session
-                    .cachedSourceRepresentations[representationID] else {
+                    .sourceRepresentations.records[representationID] else {
                     return nil
                 }
                 return SourceCellEntry(
@@ -2115,13 +2108,13 @@ final class GridMaterializer {
             let representationID = ObjectIdentifier($0.cell)
             return session.selectedSourceItems.contains($0.indexPath.item)
                 && (includesPreparedRepresentations
-                    || !session.preparedRepresentationIDs.contains(
+                    || !session.sourceRepresentations.preparedRepresentationIDs.contains(
                         representationID
                     ))
                 && (includesPreparedRepresentations
-                    || session.detailedSourceCellItems[representationID]
+                    || session.sourceRepresentations.detailedSourceCellItems[representationID]
                         != $0.indexPath.item)
-                && !session.lockedFallbackRepresentationIDs.contains(
+                && !session.sourceRepresentations.lockedFallbackRepresentationIDs.contains(
                     representationID
                 )
         }.sorted { lhs, rhs in
@@ -2136,7 +2129,7 @@ final class GridMaterializer {
             let representationID = ObjectIdentifier(representation.cell)
             let priority: MaterializationPriority
             if usesEligibilityPriority {
-                priority = session.currentViewportRepresentationIDs.contains(
+                priority = session.sourceRepresentations.currentViewportRepresentationIDs.contains(
                     representationID
                 )
                     ? .visibleRepresentation
@@ -2168,15 +2161,11 @@ final class GridMaterializer {
             sourceCells(session: session, at: $0)
         }
         let cellIDs = Set(cells.map(ObjectIdentifier.init))
-        session.preparedRepresentationIDs.subtract(cellIDs)
-        if session.lastContentFadeAlpha > 0 {
-            session.lockedFallbackRepresentationIDs.formUnion(cellIDs)
-        }
-        session.detailedSourceCellItems = session
-            .detailedSourceCellItems.filter {
-                !itemIndices.contains($0.value)
-            }
-        session.removeForegroundEligibility(for: cellIDs)
+        session.sourceRepresentations.clearDetailPreparation(
+            for: cellIDs,
+            sourceItems: itemIndices,
+            lockingFallback: session.lastContentFadeAlpha > 0
+        )
         invalidateTransitionWork(
             session: session,
             scope: .sourceItems(itemIndices),
@@ -2399,11 +2388,11 @@ final class GridMaterializer {
         var eligibleRepresentationIDs = Set<ObjectIdentifier>()
         var currentRepresentationIDs = Set<ObjectIdentifier>()
         for (representationID, representation) in
-            session.cachedSourceRepresentations {
+            session.sourceRepresentations.records {
             guard session.selectedSourceItems.contains(
                 representation.itemIndex
             ),
-            !session.lockedFallbackRepresentationIDs.contains(
+            !session.sourceRepresentations.lockedFallbackRepresentationIDs.contains(
                 representationID
             ),
             representation.cell.represents(
@@ -2429,7 +2418,7 @@ final class GridMaterializer {
             }
         }
         let previousEligibleRepresentationIDs = session
-            .foregroundEligibleRepresentationIDs
+            .sourceRepresentations.foregroundEligibleRepresentationIDs
         let removedRepresentationIDs = previousEligibleRepresentationIDs
             .subtracting(
                 eligibleRepresentationIDs
@@ -2440,10 +2429,10 @@ final class GridMaterializer {
         let priorityChangedRepresentationIDs = session
             .lastReconciledCurrentViewportRepresentationIDs
             .symmetricDifference(currentRepresentationIDs)
-        session.foregroundEligibleRepresentationIDs =
-            eligibleRepresentationIDs
-        session.currentViewportRepresentationIDs =
-            currentRepresentationIDs
+        session.sourceRepresentations.replaceForegroundEligibility(
+            eligible: eligibleRepresentationIDs,
+            currentViewport: currentRepresentationIDs
+        )
         session.lastReconciledCurrentViewportRepresentationIDs =
             currentRepresentationIDs
         for representationID in priorityChangedRepresentationIDs {
@@ -2459,7 +2448,7 @@ final class GridMaterializer {
                 priority: priority
             )
             if eligibleRepresentationIDs.contains(representationID),
-               let load = session.transitionImageLoads[representationID] {
+               let load = session.sourceRepresentations.transitionImageLoads[representationID] {
                 reprioritizeTransitionImageCompletion(
                         sessionID: session.id,
                         loadID: load.id,
@@ -2791,10 +2780,6 @@ final class GridMaterializer {
                 imageDecodeVariant: session.sourceImageDecodeVariant
             )
         )
-        let cellID = ObjectIdentifier(cell)
-        if session.lastContentFadeAlpha > 0 {
-            session.lockedFallbackRepresentationIDs.insert(cellID)
-        }
         planeRenderer.applySourcePresentation(
             to: cell,
             role: .awaitingClassification,
@@ -2819,6 +2804,9 @@ final class GridMaterializer {
             cell: cell,
             itemIndex: itemIndex
         )
+        if session.lastContentFadeAlpha > 0 {
+            session.sourceRepresentations.lockFallback(ObjectIdentifier(cell))
+        }
         invalidateViewportPromotion(session: session)
         if session.plane == nil {
             session.phantomShapeRefreshIsDirty = true
@@ -3017,7 +3005,7 @@ final class GridMaterializer {
         itemIndex: Int
     ) {
         let representationID = ObjectIdentifier(cell)
-        if let registeredItem = session.cachedSourceRepresentations[
+        if let registeredItem = session.sourceRepresentations.records[
             representationID
         ]?.itemIndex, registeredItem != itemIndex {
             cleanupSourceRepresentations(
@@ -3071,14 +3059,14 @@ final class GridMaterializer {
                 )
             }
         case .endDisplay:
+            representations.forEach { removePromotion(for: $0) }
+            invalidateWork(for: representations)
             removeCellFrameCorrections(session: session, for: cells)
             for representation in representations {
                 session.unregisterSourceRepresentation(
                     ObjectIdentifier(representation.cell)
                 )
             }
-            representations.forEach { removePromotion(for: $0) }
-            invalidateWork(for: representations)
             for cell in cells {
                 cell.finishTransitionContent()
                 planeRenderer.resetSourcePresentation(
@@ -3187,14 +3175,14 @@ final class GridMaterializer {
             ?? session.sourceLayout
         let geometry = visualGeometry(for: layout)
         for (representationID, representation) in
-            session.cachedSourceRepresentations {
+            session.sourceRepresentations.records {
             guard representation.cell.superview != nil,
                   representation.cell.represents(
                       tokenIndex: representation.itemIndex
                   ) else {
                 continue
             }
-            let needsLiveIntersection = session.frameTrackedRepresentationIDs
+            let needsLiveIntersection = session.sourceRepresentations.frameTrackedRepresentationIDs
                 .contains(representationID)
                 || !sourceRepresentationMatchesLayout(
                     representation,
@@ -3218,10 +3206,7 @@ final class GridMaterializer {
     }
 
     private func sourceRepresentationMatchesLayout(
-        _ representation: (
-            itemIndex: Int,
-            cell: MobilePlayerCollectionBrowserCell
-        ),
+        _ representation: GridSourceRepresentationStore.Record,
         geometry: MobilePlayerBrowserVisualLayoutGeometry
     ) -> Bool {
         guard let collectionView,
@@ -3255,7 +3240,7 @@ final class GridMaterializer {
         id: ObjectIdentifier,
         itemIndex: Int
     ) -> MobilePlayerCollectionBrowserCell? {
-        if let representation = session.cachedSourceRepresentations[id],
+        if let representation = session.sourceRepresentations.records[id],
            representation.itemIndex == itemIndex,
            representation.cell.superview != nil,
            representation.cell.represents(tokenIndex: itemIndex) {
@@ -3412,10 +3397,10 @@ final class GridMaterializer {
             return
         }
         let cellID = ObjectIdentifier(cell)
-        session.detailedSourceCellItems.removeValue(forKey: cellID)
-        session.transitionImageSourcesWaiters.removeValue(forKey: cellID)
+        session.sourceRepresentations.setDetailedSourceItem(nil, for: cellID)
+        session.sourceRepresentations.clearImageSourcesWaiter(for: cellID)
         if session.lastContentFadeAlpha > 0 {
-            session.lockedFallbackRepresentationIDs.insert(cellID)
+            session.sourceRepresentations.lockFallback(cellID)
         }
         refreshDetailedSourceRepresentations(session: session, plane: plane)
         applySourceContentFade(
@@ -3444,7 +3429,7 @@ final class GridMaterializer {
         if let plane = session.plane {
             let cellID = ObjectIdentifier(browserCell)
             if session.lastContentFadeAlpha > 0 {
-                session.lockedFallbackRepresentationIDs.insert(cellID)
+                session.sourceRepresentations.lockFallback(cellID)
             }
             refreshDetailedSourceRepresentations(session: session, plane: plane)
         } else {
@@ -3471,6 +3456,26 @@ final class GridMaterializer {
         at indexPath: IndexPath
     ) {
         guard let session = activeSession else { return }
+        let representationID = ObjectIdentifier(cell)
+        if let registeredItem = session.sourceRepresentations.records[
+            representationID
+        ]?.itemIndex, registeredItem != indexPath.item {
+            removePromotion(
+                sessionID: session.id,
+                contentGeneration: session.transitionContentGeneration,
+                representationID: representationID,
+                tokenIndex: indexPath.item
+            )
+            invalidateTransitionWork(
+                session: session,
+                scope: .representationKeys([TransitionRepresentationKey(
+                    representationID: representationID,
+                    sourceItem: indexPath.item
+                )]),
+                removePendingDetails: true
+            )
+            return
+        }
         invalidateManagedCellPlans(session: session)
         guard let browserCell = cell as? MobilePlayerCollectionBrowserCell else {
             removeCellFrameCorrection(session: session, for: cell)
@@ -3526,12 +3531,11 @@ final class GridMaterializer {
         let cellID = ObjectIdentifier(cell)
         var changesSourceCoverage = false
         if cell.hasCarryoverContent {
-            changesSourceCoverage = session.lockedFallbackRepresentationIDs
-                .insert(cellID).inserted
+            changesSourceCoverage = session.sourceRepresentations.lockFallback(cellID)
         }
-        guard !session.lockedFallbackRepresentationIDs.contains(cellID)
+        guard !session.sourceRepresentations.lockedFallbackRepresentationIDs.contains(cellID)
         else {
-            session.transitionImageSourcesWaiters.removeValue(forKey: cellID)
+            session.sourceRepresentations.clearImageSourcesWaiter(for: cellID)
             changesSourceCoverage = classifyUnpreparedSourceRepresentation(
                 session: session,
                 cell: cell,
@@ -3549,7 +3553,7 @@ final class GridMaterializer {
             }
             return
         }
-        if let previousItem = session.detailedSourceCellItems[cellID],
+        if let previousItem = session.sourceRepresentations.detailedSourceCellItems[cellID],
            previousItem != sourceItem {
             invalidateTransitionWork(
                 session: session,
@@ -3560,23 +3564,19 @@ final class GridMaterializer {
                 removePendingDetails: true
             )
             removeCellFrameCorrection(session: session, for: cell)
-            changesSourceCoverage = session.preparedRepresentationIDs
-                .remove(cellID) != nil || changesSourceCoverage
+            changesSourceCoverage = session.sourceRepresentations.markUnprepared(cellID) || changesSourceCoverage
             cell.finishTransitionContent()
         }
-        session.detailedSourceCellItems[cellID] = sourceItem
+        session.sourceRepresentations.setDetailedSourceItem(sourceItem, for: cellID)
         guard let destinationItem = destinationItem(
             session: session,
             sourceItem: sourceItem,
             plane: plane
         ) else {
-            session.transitionImageSourcesWaiters.removeValue(forKey: cellID)
+            session.sourceRepresentations.clearImageSourcesWaiter(for: cellID)
             cell.installDeferredBaseImageIfNoIncomingOverlay()
-            changesSourceCoverage = session.preparedRepresentationIDs
-                .remove(cellID) != nil || changesSourceCoverage
-            if session.unpreparedMarginTrackingRepresentationIDs.remove(
-                cellID
-            ) != nil {
+            changesSourceCoverage = session.sourceRepresentations.markUnprepared(cellID) || changesSourceCoverage
+            if session.sourceRepresentations.stopTrackingUnpreparedMargin(cellID) {
                 removeCellFrameCorrection(session: session, for: cell)
                 changesSourceCoverage = true
             }
@@ -3602,11 +3602,8 @@ final class GridMaterializer {
         )
         switch preparation {
         case .ready:
-            changesSourceCoverage = session
-                .unpreparedMarginTrackingRepresentationIDs.remove(cellID)
-                != nil || changesSourceCoverage
-            changesSourceCoverage = session.preparedRepresentationIDs
-                .insert(cellID).inserted || changesSourceCoverage
+            changesSourceCoverage = session.sourceRepresentations
+                .markPrepared(cellID) || changesSourceCoverage
             registerCellFrameCorrection(
                 session: session,
                 cell: cell,
@@ -3620,8 +3617,7 @@ final class GridMaterializer {
             case .ready, .pending:
                 break
             }
-            changesSourceCoverage = session.preparedRepresentationIDs
-                .remove(cellID) != nil || changesSourceCoverage
+            changesSourceCoverage = session.sourceRepresentations.markUnprepared(cellID) || changesSourceCoverage
             changesSourceCoverage = classifyUnpreparedSourceRepresentation(
                 session: session,
                 cell: cell,
@@ -3647,11 +3643,11 @@ final class GridMaterializer {
         plane: GridModePlaneContext
     ) -> Bool {
         let representationID = ObjectIdentifier(cell)
-        let wasTracked = session.unpreparedMarginTrackingRepresentationIDs
+        let wasTracked = session.sourceRepresentations.unpreparedMarginTrackingRepresentationIDs
             .contains(representationID)
         guard wasTracked
-            || session.cellFrameCorrections[representationID] == nil
-                && !session.marginCoverageRepresentationIDs.contains(
+            || session.sourceRepresentations.cellFrameCorrections[representationID] == nil
+                && !session.sourceRepresentations.marginCoverageRepresentationIDs.contains(
                     representationID
                 ) else {
             return false
@@ -3665,8 +3661,7 @@ final class GridMaterializer {
             session.dropCellFrameCorrections(for: [representationID])
             return true
         }
-        let inserted = session.unpreparedMarginTrackingRepresentationIDs
-            .insert(representationID).inserted
+        let inserted = session.sourceRepresentations.trackUnpreparedMargin(representationID)
         // A drain tick landing between settle frames must not paint a
         // classification the next settle frame may reverse: two near-identical
         // rasterizations alternating per frame read as a whole-grid shimmer.
@@ -3699,19 +3694,17 @@ final class GridMaterializer {
     ) -> TransitionContentPreparation {
         let cellID = ObjectIdentifier(cell)
         guard cell.represents(tokenIndex: fromItem) else {
-            if session.transitionImageSourcesWaiters[cellID]?.sourceItem
+            if session.sourceRepresentations.transitionImageSourcesWaiters[cellID]?.sourceItem
                 == fromItem {
-                session.transitionImageSourcesWaiters.removeValue(
-                    forKey: cellID
-                )
+                session.sourceRepresentations.clearImageSourcesWaiter(for: cellID)
             }
             return .unavailable
         }
         let requiredImageDecodeVariant = plane.imageDecodeVariant
-        guard !session.lockedFallbackRepresentationIDs.contains(cellID)
+        guard !session.sourceRepresentations.lockedFallbackRepresentationIDs.contains(cellID)
         else {
             cancelTransitionImageLoad(session: session, for: cell)
-            session.transitionImageSourcesWaiters.removeValue(forKey: cellID)
+            session.sourceRepresentations.clearImageSourcesWaiter(for: cellID)
             return .unavailable
         }
         let transitionContent: ResolvedTransitionContent
@@ -3723,18 +3716,18 @@ final class GridMaterializer {
             guard let contentIdentity = contentAccess.contentIdentity(toItem)
             else {
                 cancelTransitionImageLoad(session: session, for: cell)
-                session.transitionImageSourcesWaiters.removeValue(
-                    forKey: cellID
-                )
+                session.sourceRepresentations.clearImageSourcesWaiter(for: cellID)
                 return .unavailable
             }
             guard let imageSources = contentAccess.imageSources(toItem) else {
                 cancelTransitionImageLoad(session: session, for: cell)
-                session.transitionImageSourcesWaiters[cellID] =
+                session.sourceRepresentations.waitForImageSources(
                     GridRenderTransitionImageSourcesWaiter(
                         sourceItem: fromItem,
                         destinationItem: toItem
-                    )
+                    ),
+                    for: cellID
+                )
                 return .waitingForImageSources
             }
             transitionContent = ResolvedTransitionContent(
@@ -3749,12 +3742,12 @@ final class GridMaterializer {
                 )
             )
         }
-        session.transitionImageSourcesWaiters.removeValue(forKey: cellID)
+        session.sourceRepresentations.clearImageSourcesWaiter(for: cellID)
         let contentIdentity = transitionContent.contentIdentity
         let imageSources = transitionContent.imageSources
         let retainedTransitionContentQuality = session
-            .preparedRepresentationIDs.contains(cellID)
-            && session.detailedSourceCellItems[cellID] == fromItem
+            .sourceRepresentations.preparedRepresentationIDs.contains(cellID)
+            && session.sourceRepresentations.detailedSourceCellItems[cellID] == fromItem
             ? cell.incomingTransitionContentQuality(
                 representing: contentIdentity,
                 from: imageSources
@@ -3830,7 +3823,7 @@ final class GridMaterializer {
                 plane: plane
             )
         )
-        if let load = session.transitionImageLoads[cellID] {
+        if let load = session.sourceRepresentations.transitionImageLoads[cellID] {
             if load.sourceItem == fromItem,
                load.destinationItem == toItem,
                load.planeID == planeID,
@@ -3864,7 +3857,7 @@ final class GridMaterializer {
                 guard let self,
                       let activeSession = self.activeSession,
                       activeSession.id == sessionID,
-                      let load = activeSession.transitionImageLoads[cellID],
+                      let load = activeSession.sourceRepresentations.transitionImageLoads[cellID],
                       load.id == loadID else {
                     return
                 }
@@ -3939,7 +3932,7 @@ final class GridMaterializer {
                     ? .ready
                     : .unavailable
             }
-            session.transitionImageLoads[cellID] = GridModeTransitionImageLoad(
+            session.sourceRepresentations.installImageLoad(GridModeTransitionImageLoad(
                 id: loadID,
                 sourceItem: fromItem,
                 destinationItem: toItem,
@@ -3950,7 +3943,7 @@ final class GridMaterializer {
                 requiredImageDecodeVariant: requiredImageDecodeVariant,
                 descriptor: descriptor,
                 cancellation: cancellation
-            )
+            ), for: cellID)
             return installedCachedContent
                 || retainedTransitionContentQuality != nil
                 ? .ready
@@ -3996,7 +3989,7 @@ final class GridMaterializer {
             alpha: alpha
         )
         let role: GridPlaneRenderer.SourcePresentationRole
-        if session.marginCoverageRepresentationIDs.contains(representationID) {
+        if session.sourceRepresentations.marginCoverageRepresentationIDs.contains(representationID) {
             role = .marginCoverage
         } else if session.sourceRepresentationOwnsTransitionVisual(
             representationID
@@ -4022,7 +4015,7 @@ final class GridMaterializer {
         // incoming overlay down by edge visibility left a ring of half-faded
         // cells at the viewport margins — old art ghosting through new — for
         // the entire flight.
-        guard !session.marginCoverageRepresentationIDs.contains(
+        guard !session.sourceRepresentations.marginCoverageRepresentationIDs.contains(
             representationID
         ) else {
             return 0
@@ -4036,7 +4029,7 @@ final class GridMaterializer {
     ) {
         for representationID in representationIDs {
             guard let representation = session
-                .cachedSourceRepresentations[representationID],
+                .sourceRepresentations.records[representationID],
                   representation.cell.superview != nil,
                   representation.cell.represents(
                       tokenIndex: representation.itemIndex
@@ -4051,18 +4044,18 @@ final class GridMaterializer {
         session: Session,
         dropsUnpreparedGeometry: Bool
     ) {
-        guard !session.lockedFallbackRepresentationIDs.isEmpty
+        guard !session.sourceRepresentations.lockedFallbackRepresentationIDs.isEmpty
             || dropsUnpreparedGeometry else {
             return
         }
         let classifiedRepresentationIDs = session
-            .frameClassifiedRepresentationIDs
+            .sourceRepresentations.frameClassifiedRepresentationIDs
         let droppableRepresentationIDs = dropsUnpreparedGeometry
             ? classifiedRepresentationIDs.subtracting(
-                session.preparedRepresentationIDs
+                session.sourceRepresentations.preparedRepresentationIDs
             )
             : []
-        guard !session.lockedFallbackRepresentationIDs.isEmpty
+        guard !session.sourceRepresentations.lockedFallbackRepresentationIDs.isEmpty
             || !droppableRepresentationIDs.isEmpty else {
             return
         }
@@ -4071,13 +4064,13 @@ final class GridMaterializer {
         // droppable ones. The drop recomputes against the narrowed prepared
         // set below, but every ID it gains that way is rearmed, and rearmed
         // IDs are locked, so they are all here.
-        let neededRepresentationIDs = session.lockedFallbackRepresentationIDs
+        let neededRepresentationIDs = session.sourceRepresentations.lockedFallbackRepresentationIDs
             .union(droppableRepresentationIDs)
         var currentCells = [
             ObjectIdentifier: MobilePlayerCollectionBrowserCell
         ]()
         for (representationID, representation) in
-            session.cachedSourceRepresentations
+            session.sourceRepresentations.records
         where neededRepresentationIDs.contains(representationID)
             && representation.cell.superview != nil
             && representation.cell.represents(
@@ -4112,22 +4105,14 @@ final class GridMaterializer {
             }
         )
         let rearmedRepresentationIDs = session
-            .lockedFallbackRepresentationIDs.subtracting(
+            .sourceRepresentations.lockedFallbackRepresentationIDs.subtracting(
                 retainedRepresentationIDs
             )
         let rearmedCells = rearmedRepresentationIDs.compactMap {
             currentCells[$0]
         }
         if !rearmedRepresentationIDs.isEmpty {
-            session.lockedFallbackRepresentationIDs.subtract(
-                rearmedRepresentationIDs
-            )
-            session.preparedRepresentationIDs.subtract(
-                rearmedRepresentationIDs
-            )
-            session.detailedSourceCellItems = session.detailedSourceCellItems
-                .filter { !rearmedRepresentationIDs.contains($0.key) }
-            session.removeForegroundEligibility(for: rearmedRepresentationIDs)
+            session.sourceRepresentations.rearm(rearmedRepresentationIDs)
             invalidateTransitionWork(
                 session: session,
                 scope: .anySourceForRepresentationIDs(
@@ -4141,9 +4126,9 @@ final class GridMaterializer {
         }
         let droppedGeometryRepresentationIDs = dropsUnpreparedGeometry
             ? classifiedRepresentationIDs.subtracting(
-                session.preparedRepresentationIDs
+                session.sourceRepresentations.preparedRepresentationIDs
             ).subtracting(
-                session.unpreparedMarginTrackingRepresentationIDs
+                session.sourceRepresentations.unpreparedMarginTrackingRepresentationIDs
             )
             : []
         if !droppedGeometryRepresentationIDs.isEmpty {
@@ -4169,15 +4154,15 @@ final class GridMaterializer {
         session: Session,
         plane: GridModePlaneContext
     ) {
-        guard !session.lockedFallbackRepresentationIDs.isEmpty else { return }
-        let candidates = session.cachedSourceRepresentations.compactMap {
+        guard !session.sourceRepresentations.lockedFallbackRepresentationIDs.isEmpty else { return }
+        let candidates = session.sourceRepresentations.records.compactMap {
             representationID, representation -> (
                 ObjectIdentifier,
                 Int,
                 MobilePlayerCollectionBrowserCell,
                 ResolvedTransitionContent
             )? in
-            guard session.lockedFallbackRepresentationIDs.contains(
+            guard session.sourceRepresentations.lockedFallbackRepresentationIDs.contains(
                 representationID
             ), session.selectedSourceItems.contains(representation.itemIndex),
             representation.cell.superview != nil,
@@ -4202,7 +4187,7 @@ final class GridMaterializer {
             )
         }
         for (representationID, sourceItem, cell, resolvedContent) in candidates {
-            session.lockedFallbackRepresentationIDs.remove(representationID)
+            session.sourceRepresentations.unlockFallback(representationID)
             configureDetailedSourceRepresentation(
                 session: session,
                 cell: cell,
@@ -4245,16 +4230,14 @@ final class GridMaterializer {
             }
             let fallbackRepresentationIDs = session.sourceCoverage
                 .fallbackRepresentationIDs
-            session.lockedFallbackRepresentationIDs.formUnion(
-                fallbackRepresentationIDs
-            )
+            session.sourceRepresentations.lockFallbacks(fallbackRepresentationIDs)
             session.removeForegroundEligibility(
-                for: session.lockedFallbackRepresentationIDs
+                for: session.sourceRepresentations.lockedFallbackRepresentationIDs
             )
             invalidateTransitionWork(
                 session: session,
                 scope: .anySourceForRepresentationIDs(
-                    session.lockedFallbackRepresentationIDs
+                    session.sourceRepresentations.lockedFallbackRepresentationIDs
                 ),
                 removePendingDetails: true
             )
@@ -4273,7 +4256,7 @@ final class GridMaterializer {
                   self.activeSession?.id == sessionID else {
                 return
             }
-            for representation in session.cachedSourceRepresentations.values
+            for representation in session.sourceRepresentations.records.values
             where representation.cell.superview != nil
                 && representation.cell.represents(
                     tokenIndex: representation.itemIndex
@@ -4318,11 +4301,11 @@ final class GridMaterializer {
         ifRepresenting sourceItem: Int? = nil
     ) {
         let cellID = ObjectIdentifier(cell)
-        if let waiter = session.transitionImageSourcesWaiters[cellID],
+        if let waiter = session.sourceRepresentations.transitionImageSourcesWaiters[cellID],
            sourceItem == nil || waiter.sourceItem == sourceItem {
-            session.transitionImageSourcesWaiters.removeValue(forKey: cellID)
+            session.sourceRepresentations.clearImageSourcesWaiter(for: cellID)
         }
-        guard let load = session.transitionImageLoads[cellID],
+        guard let load = session.sourceRepresentations.transitionImageLoads[cellID],
               sourceItem == nil || load.sourceItem == sourceItem else {
             return
         }
@@ -4350,7 +4333,7 @@ final class GridMaterializer {
         removePendingDetails: Bool
     ) {
         guard !scope.isEmpty else { return }
-        let waiterRepresentationIDs = session.transitionImageSourcesWaiters
+        let waiterRepresentationIDs = session.sourceRepresentations.transitionImageSourcesWaiters
             .compactMap { representationID, waiter in
                 scope.contains(
                     representationID: representationID,
@@ -4358,9 +4341,7 @@ final class GridMaterializer {
                 ) ? representationID : nil
             }
         for representationID in waiterRepresentationIDs {
-            session.transitionImageSourcesWaiters.removeValue(
-                forKey: representationID
-            )
+            session.sourceRepresentations.clearImageSourcesWaiter(for: representationID)
         }
         var loads = [(
             representationID: ObjectIdentifier,
@@ -4368,26 +4349,26 @@ final class GridMaterializer {
         )]()
         switch scope {
         case .all:
-            loads.reserveCapacity(session.transitionImageLoads.count)
-            for (representationID, load) in session.transitionImageLoads {
+            loads.reserveCapacity(session.sourceRepresentations.transitionImageLoads.count)
+            for (representationID, load) in session.sourceRepresentations.transitionImageLoads {
                 loads.append((representationID, load))
             }
         case let .anySourceForRepresentationIDs(representationIDs):
             loads.reserveCapacity(representationIDs.count)
             for representationID in representationIDs {
-                if let load = session.transitionImageLoads[representationID] {
+                if let load = session.sourceRepresentations.transitionImageLoads[representationID] {
                     loads.append((representationID, load))
                 }
             }
         case let .sourceItems(sourceItems):
-            for (representationID, load) in session.transitionImageLoads
+            for (representationID, load) in session.sourceRepresentations.transitionImageLoads
             where sourceItems.contains(load.sourceItem) {
                 loads.append((representationID, load))
             }
         case let .representationKeys(representationKeys):
             loads.reserveCapacity(representationKeys.count)
             for representationKey in representationKeys {
-                guard let load = session.transitionImageLoads[
+                guard let load = session.sourceRepresentations.transitionImageLoads[
                     representationKey.representationID
                 ],
                 load.sourceItem == representationKey.sourceItem else {
@@ -4397,9 +4378,7 @@ final class GridMaterializer {
             }
         }
         for entry in loads {
-            session.transitionImageLoads.removeValue(
-                forKey: entry.representationID
-            )
+            session.sourceRepresentations.takeImageLoad(for: entry.representationID)
         }
         let loadIDs = Set(loads.map(\.load.id))
         var handledQueueInvalidationDirectly = false
@@ -4708,7 +4687,7 @@ final class GridMaterializer {
 
     private var hasDeferredRenderRefresh: Bool {
         guard let session = activeSession else { return false }
-        return !session.deferredClassificationPaintRepresentationIDs.isEmpty
+        return !session.sourceRepresentations.deferredClassificationPaintRepresentationIDs.isEmpty
             || hasNonClassificationDeferredRenderRefresh(session: session)
             || (!session.defersPhantomShapeMaskCommits
                 && session.phantomShapeMaskIsDirty)
@@ -4729,10 +4708,10 @@ final class GridMaterializer {
     private func nextDeferredClassificationRepresentationID(
         session: Session
     ) -> ObjectIdentifier? {
-        session.deferredClassificationPaintRepresentationIDs.min { lhs, rhs in
-            let lhsItem = session.cachedSourceRepresentations[lhs]?.itemIndex
+        session.sourceRepresentations.deferredClassificationPaintRepresentationIDs.min { lhs, rhs in
+            let lhsItem = session.sourceRepresentations.records[lhs]?.itemIndex
                 ?? Int.max
-            let rhsItem = session.cachedSourceRepresentations[rhs]?.itemIndex
+            let rhsItem = session.sourceRepresentations.records[rhs]?.itemIndex
                 ?? Int.max
             return session.sourceItemPrecedes(lhsItem, rhsItem)
         }
@@ -4742,7 +4721,7 @@ final class GridMaterializer {
         _ representationID: ObjectIdentifier,
         session: Session
     ) -> Bool {
-        guard let itemIndex = session.cachedSourceRepresentations[
+        guard let itemIndex = session.sourceRepresentations.records[
             representationID
         ]?.itemIndex else {
             return false
@@ -4761,13 +4740,11 @@ final class GridMaterializer {
               ) else {
             return false
         }
-        session.deferredClassificationPaintRepresentationIDs.remove(
-            representationID
-        )
-        guard let representation = session.cachedSourceRepresentations[
+        session.sourceRepresentations.finishClassificationPaint(for: representationID)
+        guard let representation = session.sourceRepresentations.records[
             representationID
         ],
-              session.unpreparedMarginTrackingRepresentationIDs.contains(
+              session.sourceRepresentations.unpreparedMarginTrackingRepresentationIDs.contains(
                   representationID
               ),
               representation.cell.superview != nil,
@@ -4901,7 +4878,7 @@ final class GridMaterializer {
                 == completion.contentGeneration,
               let plane = session.plane,
               plane.id == completion.planeID,
-              let load = session.transitionImageLoads[
+              let load = session.sourceRepresentations.transitionImageLoads[
                   completion.representationID
               ],
               load.id == completion.loadID,
@@ -4918,9 +4895,7 @@ final class GridMaterializer {
               load.descriptor == completion.descriptor else {
             return
         }
-        session.transitionImageLoads.removeValue(
-            forKey: completion.representationID
-        )
+        session.sourceRepresentations.takeImageLoad(for: completion.representationID)
         guard session.selectedSourceItems.contains(completion.sourceItem),
               let cell = sourceRepresentation(
                   session: session,
@@ -4950,12 +4925,12 @@ final class GridMaterializer {
             return
         }
         if session.lastContentFadeAlpha > 0 {
-            let isReady = session.preparedRepresentationIDs.contains(
+            let isReady = session.sourceRepresentations.preparedRepresentationIDs.contains(
                 completion.representationID
             ) && session.sourceCoverage.readyDestinationByRepresentation[
                 completion.representationID
             ] == completion.destinationItem
-                && !session.lockedFallbackRepresentationIDs.contains(
+                && !session.sourceRepresentations.lockedFallbackRepresentationIDs.contains(
                     completion.representationID
                 )
             guard isReady else {
@@ -4982,7 +4957,7 @@ final class GridMaterializer {
             )
             return
         }
-        guard !session.lockedFallbackRepresentationIDs.contains(
+        guard !session.sourceRepresentations.lockedFallbackRepresentationIDs.contains(
             completion.representationID
         ) else {
             return
@@ -4997,15 +4972,9 @@ final class GridMaterializer {
             animated: false,
             identity: completion.contentIdentity
         )
-        let stoppedTrackingMargin = session
-            .unpreparedMarginTrackingRepresentationIDs.remove(
-                completion.representationID
-            ) != nil
-        let preparedRepresentation = session.preparedRepresentationIDs.insert(
+        let changesSourceCoverage = session.sourceRepresentations.markPrepared(
             completion.representationID
-        ).inserted
-        let changesSourceCoverage = stoppedTrackingMargin
-            || preparedRepresentation
+        )
         registerCellFrameCorrection(
             session: session,
             cell: cell,
@@ -5021,9 +4990,7 @@ final class GridMaterializer {
         session: Session,
         representationID: ObjectIdentifier
     ) {
-        guard session.lockedFallbackRepresentationIDs.insert(
-            representationID
-        ).inserted else {
+        guard session.sourceRepresentations.lockFallback(representationID) else {
             return
         }
         session.removeForegroundEligibility(for: representationID)

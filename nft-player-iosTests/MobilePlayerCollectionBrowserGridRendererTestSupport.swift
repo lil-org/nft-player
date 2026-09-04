@@ -548,6 +548,82 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         )
     }
 
+    func assertSourceRepresentationIndexesConsistent(
+        _ session: GridRenderSession,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        let store = session.sourceRepresentations
+        let records = store.records
+        func ids(
+            where predicate: (GridSourceRepresentationStore.Record) -> Bool
+        ) -> Set<ObjectIdentifier> {
+            Set(records.compactMap { predicate($0.value) ? $0.key : nil })
+        }
+
+        XCTAssertTrue(records.allSatisfy {
+            $0.key == ObjectIdentifier($0.value.cell)
+        }, file: file, line: line)
+        XCTAssertEqual(
+            store.preparedRepresentationIDs,
+            ids(where: \.isPrepared),
+            file: file, line: line
+        )
+        XCTAssertEqual(
+            store.lockedFallbackRepresentationIDs,
+            ids(where: \.isFallbackLocked),
+            file: file, line: line
+        )
+        XCTAssertEqual(
+            store.unpreparedMarginTrackingRepresentationIDs,
+            ids(where: \.tracksUnpreparedMargin),
+            file: file, line: line
+        )
+        XCTAssertEqual(
+            store.deferredClassificationPaintRepresentationIDs,
+            ids(where: \.needsClassificationPaint),
+            file: file, line: line
+        )
+        XCTAssertEqual(
+            store.marginCoverageRepresentationIDs,
+            ids { $0.geometry == .marginHeld },
+            file: file, line: line
+        )
+        XCTAssertEqual(
+            store.foregroundEligibleRepresentationIDs,
+            ids { $0.foregroundEligibility != .none },
+            file: file, line: line
+        )
+        XCTAssertEqual(
+            store.currentViewportRepresentationIDs,
+            ids { $0.foregroundEligibility == .current },
+            file: file, line: line
+        )
+        XCTAssertEqual(
+            store.detailedSourceCellItems,
+            records.compactMapValues(\.detailedSourceItem),
+            file: file, line: line
+        )
+        XCTAssertEqual(
+            store.transitionImageSourcesWaiters,
+            records.compactMapValues(\.imageWork.waiter),
+            file: file, line: line
+        )
+        XCTAssertEqual(
+            store.transitionImageLoads.mapValues(\.id),
+            records.compactMapValues(\.imageWork.load?.id),
+            file: file, line: line
+        )
+        XCTAssertEqual(
+            store.cellFrameCorrections.mapValues(\.correction),
+            records.compactMapValues(\.geometry.correction),
+            file: file, line: line
+        )
+        XCTAssertTrue(store.cellFrameCorrections.allSatisfy {
+            records[$0.key]?.cell === $0.value.cell
+        }, file: file, line: line)
+    }
+
     func drainQueuedWork(_ fixture: Fixture) {
         for _ in 0 ..< 100 {
             let result = fixture.renderer.drainMaterializationWork()
@@ -628,12 +704,12 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             panDeltaY: panDeltaY,
             session: usesBufferedCoverage ? session : nil
         )
-        return Set(session.cachedSourceRepresentations.compactMap {
+        return Set(session.sourceRepresentations.records.compactMap {
             representationID, representation -> ObjectIdentifier? in
             guard session.selectedSourceItems.contains(
                 representation.itemIndex
             ),
-            !session.lockedFallbackRepresentationIDs.contains(
+            !session.sourceRepresentations.lockedFallbackRepresentationIDs.contains(
                 representationID
             ),
             representation.cell.represents(
@@ -706,12 +782,12 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         )
         let representationID = try XCTUnwrap(
             departingEligibleIDs.first {
-                session.cachedSourceRepresentations[$0] != nil
-                    && session.preparedRepresentationIDs.contains($0)
+                session.sourceRepresentations.records[$0] != nil
+                    && session.sourceRepresentations.preparedRepresentationIDs.contains($0)
             }
         )
         XCTAssertTrue(
-            session.preparedRepresentationIDs.contains(representationID)
+            session.sourceRepresentations.preparedRepresentationIDs.contains(representationID)
         )
 
         let imageSourcesAccessCountBeforeReentry =
@@ -723,7 +799,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             panDeltaY: 0
         ))
         XCTAssertTrue(
-            session.foregroundEligibleRepresentationIDs.contains(
+            session.sourceRepresentations.foregroundEligibleRepresentationIDs.contains(
                 representationID
             )
         )
@@ -743,7 +819,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             imageSourcesAccessCountBeforeReentry
         )
         let cell = try XCTUnwrap(
-            session.cachedSourceRepresentations[representationID]?.cell
+            session.sourceRepresentations.records[representationID]?.cell
         )
         return (session, representationID, cell)
     }
@@ -895,7 +971,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             "Expected an active renderer session"
         )
         return try XCTUnwrap(
-            session.cellFrameCorrections[ObjectIdentifier(sourceCell)]?
+            session.sourceRepresentations.cellFrameCorrections[ObjectIdentifier(sourceCell)]?
                 .correction
         )
     }
@@ -924,9 +1000,9 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
         rightItem: Int,
         right: MobilePlayerCollectionBrowserCell
     )? {
-        let representations = session.cachedSourceRepresentations.compactMap {
+        let representations = session.sourceRepresentations.records.compactMap {
             representationID, representation in
-            session.cellFrameCorrections[representationID] == nil
+            session.sourceRepresentations.cellFrameCorrections[representationID] == nil
                 ? nil
                 : representation
         }
