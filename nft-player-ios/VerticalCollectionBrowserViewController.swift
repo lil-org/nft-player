@@ -1155,6 +1155,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         layoutAspectSampleTokenIndex =
             preparedTransition.layoutAspectSampleTokenIndex
         imagePipeline.cancelVisibleCellImageLoads()
+        imagePipeline.resetVisibleCellTracking()
         collectionView.reloadData()
         configureCollectionLayout()
         collectionView.layoutIfNeeded()
@@ -1191,6 +1192,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             collectionView.setContentOffset(clampedContentOffset(preparedTransition.contentOffset), animated: false)
         }
         collectionView.layoutIfNeeded()
+        imagePipeline.reconcileVisibleCells()
 
         let scrollSnapshot = preparedTransition.scrollCoordinatorSnapshot
         let restoredRetainedFocusFocalBias: PlayerCollectionScrollFocalBias?
@@ -1295,7 +1297,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         didEndDisplaying cell: UICollectionViewCell,
         forItemAt indexPath: IndexPath
     ) {
-        imagePipeline.willEndDisplaying(tokenIndex: indexPath.item)
+        imagePipeline.willEndDisplaying(cell: cell, tokenIndex: indexPath.item)
         gridModeCoordinator.didEndDisplayingCell(cell, at: indexPath)
         guard let browserCell = cell as? MobilePlayerCollectionBrowserCell else {
             return
@@ -2758,6 +2760,10 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     }
 
 #if DEBUG
+    var trackedVisibleTokenIndicesForTesting: Set<Int> {
+        imagePipeline.trackedVisibleTokenIndicesForTesting
+    }
+
     var pendingDenseGridImageRefreshCount: Int {
         imagePipeline.pendingDenseGridImageRefreshCount
     }

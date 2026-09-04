@@ -136,6 +136,8 @@ final class MobilePlayerCollectionBrowserImagePipeline {
     private var denseGridImageDisplayLink: CADisplayLink?
     private let displayLinkTarget = DisplayLinkTarget()
     private var denseGridImageRefreshQueue = DenseGridImageRefreshQueue()
+    private var visibleTokenIndices = Set<Int>()
+    private var visibleCellIDsByTokenIndex = [Int: Set<ObjectIdentifier>]()
     private var isInvalidated = false
 
     private(set) var isActive = false
@@ -225,9 +227,37 @@ final class MobilePlayerCollectionBrowserImagePipeline {
         guard !isInvalidated else { return }
         cancelVisibleCellImageLoads()
         cancelPendingThumbnailWindowPreparation()
+        resetVisibleCellTracking()
         isInvalidated = true
-        stopDenseGridImageDisplayLink()
         contentAccess = nil
+    }
+
+    func resetVisibleCellTracking() {
+        guard !isInvalidated else { return }
+        visibleTokenIndices.removeAll()
+        visibleCellIDsByTokenIndex.removeAll()
+        stopDenseGridImageDisplayLink()
+    }
+
+    func reconcileVisibleCells() {
+        guard !isInvalidated, let contentAccess else { return }
+        visibleTokenIndices.removeAll(keepingCapacity: true)
+        visibleCellIDsByTokenIndex.removeAll(keepingCapacity: true)
+        for indexPath in contentAccess.visibleIndexPaths()
+        where indexPath.section == 0 {
+            guard let cell = contentAccess.cell(indexPath) else { continue }
+            registerVisibleCell(cell, tokenIndex: indexPath.item)
+        }
+    }
+
+    private func registerVisibleCell(
+        _ cell: UICollectionViewCell,
+        tokenIndex: Int
+    ) {
+        visibleTokenIndices.insert(tokenIndex)
+        visibleCellIDsByTokenIndex[tokenIndex, default: []].insert(
+            ObjectIdentifier(cell)
+        )
     }
 
     func cancelVisibleCellImageLoads() {
@@ -528,8 +558,9 @@ final class MobilePlayerCollectionBrowserImagePipeline {
         tokenIndex: Int,
         intersectsViewport: @MainActor () -> Bool
     ) {
-        guard !isInvalidated,
-              isActive,
+        guard !isInvalidated else { return }
+        registerVisibleCell(cell, tokenIndex: tokenIndex)
+        guard isActive,
               isVisible,
               contentAccess?.isForegroundActive() == true,
               contentAccess?.isRendererActive() == false else {
@@ -548,8 +579,18 @@ final class MobilePlayerCollectionBrowserImagePipeline {
         }
     }
 
-    func willEndDisplaying(tokenIndex: Int) {
-        guard !isInvalidated else { return }
+    func willEndDisplaying(cell: UICollectionViewCell, tokenIndex: Int) {
+        guard !isInvalidated,
+              var cellIDs = visibleCellIDsByTokenIndex[tokenIndex],
+              cellIDs.remove(ObjectIdentifier(cell)) != nil else {
+            return
+        }
+        guard cellIDs.isEmpty else {
+            visibleCellIDsByTokenIndex[tokenIndex] = cellIDs
+            return
+        }
+        visibleCellIDsByTokenIndex.removeValue(forKey: tokenIndex)
+        visibleTokenIndices.remove(tokenIndex)
         denseGridImageRefreshQueue.remove(tokenIndex)
 #if DEBUG
         thumbnailWindowMetrics.outstandingCachedImageRefreshes =
@@ -620,7 +661,7 @@ final class MobilePlayerCollectionBrowserImagePipeline {
             item: availability.tokenIndex,
             section: 0
         )
-        guard contentAccess.visibleIndexPaths().contains(indexPath),
+        guard visibleTokenIndices.contains(availability.tokenIndex),
               let cell = contentAccess.cell(indexPath),
               cell.needsCachedImageRefresh(
                   tokenIndex: availability.tokenIndex
@@ -668,6 +709,10 @@ final class MobilePlayerCollectionBrowserImagePipeline {
     }
 
 #if DEBUG
+    var trackedVisibleTokenIndicesForTesting: Set<Int> {
+        visibleTokenIndices
+    }
+
     var pendingDenseGridImageRefreshCount: Int {
         denseGridImageRefreshQueue.count
     }

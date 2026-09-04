@@ -169,6 +169,7 @@ extension MobilePlayerCollectionBrowserCoordinatorContractTests {
         baseColumnCount: @escaping @MainActor () -> Int = { 5 },
         configuredPrefetchStride: @escaping @MainActor () -> Int = { 9 },
         configuredColumnCount: @escaping @MainActor () -> Int = { 5 },
+        isRendererActive: @escaping @MainActor () -> Bool = { false },
         isPreparedTransitionActive: @escaping @MainActor () -> Bool = {
             false
         },
@@ -198,7 +199,7 @@ extension MobilePlayerCollectionBrowserCoordinatorContractTests {
             baseColumnCount: baseColumnCount,
             configuredPrefetchStride: configuredPrefetchStride,
             configuredColumnCount: configuredColumnCount,
-            isRendererActive: { false },
+            isRendererActive: isRendererActive,
             isApplyingPosition: { false },
             isPreparedTransitionActive: isPreparedTransitionActive,
             isForegroundActive: isForegroundActive,
@@ -1183,10 +1184,13 @@ extension MobilePlayerCollectionBrowserCoordinatorContractTests {
     }
 
 #if DEBUG
-    func testDecodedImageAvailabilityRequeuesVisibleDenseCacheMiss() throws {
-        let collectionID = "decoded-image-wake"
-        let tokenIndex = 4
-        let indexPath = IndexPath(item: tokenIndex, section: 0)
+    private func makeDecodedAvailabilityCell(
+        collectionID: String,
+        tokenIndex: Int
+    ) -> (
+        cell: MobilePlayerCollectionBrowserCell,
+        descriptor: CollectionCatalogDownloadableMediaDescriptor
+    ) {
         let descriptor = CollectionCatalogDownloadableMediaDescriptor(
             collectionId: collectionID,
             tokenId: String(tokenIndex),
@@ -1220,6 +1224,30 @@ extension MobilePlayerCollectionBrowserCoordinatorContractTests {
             imageLoadPolicy: .cachedOnly,
             allowsLocalLargeImageUpgrade: false
         )
+        return (cell, descriptor)
+    }
+
+    private func decodedImageNotification(
+        collectionID: String,
+        tokenIndex: Int
+    ) -> Notification {
+        Notification(
+            name: .downloadableMediaCacheDecodedImageDidBecomeAvailable,
+            object: DownloadableMediaCacheDecodedImageAvailability(
+                collectionId: collectionID,
+                tokenIndex: tokenIndex
+            )
+        )
+    }
+
+    func testDecodedImageAvailabilityRequeuesVisibleDenseCacheMiss() throws {
+        let collectionID = "decoded-image-wake"
+        let tokenIndex = 4
+        let indexPath = IndexPath(item: tokenIndex, section: 0)
+        let (cell, descriptor) = makeDecodedAvailabilityCell(
+            collectionID: collectionID,
+            tokenIndex: tokenIndex
+        )
         let pipeline = MobilePlayerCollectionBrowserImagePipeline()
         pipeline.configure(contentAccess: makeImageContentAccess(
             visibleIndexPaths: { [indexPath] },
@@ -1237,6 +1265,15 @@ extension MobilePlayerCollectionBrowserCoordinatorContractTests {
             cache.resetDecodedImagesForTesting()
         }
 
+        pipeline.willDisplay(
+            cell: cell,
+            tokenIndex: tokenIndex,
+            intersectsViewport: { true }
+        )
+        XCTAssertEqual(
+            pipeline.drainDenseGridImageDisplayLinkFrameForTesting(),
+            1
+        )
         XCTAssertFalse(
             cell.refreshCachedImageIfAvailable(tokenIndex: tokenIndex)
         )
@@ -1246,12 +1283,9 @@ extension MobilePlayerCollectionBrowserCoordinatorContractTests {
             size: CGSize(width: 2, height: 2)
         ).image { _ in }
         cache.installDecodedImageForTesting(image, for: descriptor)
-        pipeline.handleDecodedImageNotification(Notification(
-            name: .downloadableMediaCacheDecodedImageDidBecomeAvailable,
-            object: DownloadableMediaCacheDecodedImageAvailability(
-                collectionId: collectionID,
-                tokenIndex: tokenIndex
-            )
+        pipeline.handleDecodedImageNotification(decodedImageNotification(
+            collectionID: collectionID,
+            tokenIndex: tokenIndex
         ))
 
         XCTAssertEqual(pipeline.pendingDenseGridImageRefreshCount, 1)
@@ -1265,6 +1299,236 @@ extension MobilePlayerCollectionBrowserCoordinatorContractTests {
             } as? NativeMetalCardCornerMaskedImageView
         )
         XCTAssertTrue(imageView.image === image)
+        pipeline.handleDecodedImageNotification(decodedImageNotification(
+            collectionID: collectionID,
+            tokenIndex: tokenIndex
+        ))
+        XCTAssertEqual(pipeline.pendingDenseGridImageRefreshCount, 0)
+    }
+
+    func testDecodedImageNotificationsFilterTrackedTokensWithoutVisibilityScans() {
+        for columnCount in [5, 9] {
+            let collectionID = "tracked-notification-\(UUID())"
+            let (cell, _) = makeDecodedAvailabilityCell(
+                collectionID: collectionID,
+                tokenIndex: 4
+            )
+            let (offscreenCell, _) = makeDecodedAvailabilityCell(
+                collectionID: collectionID,
+                tokenIndex: 5
+            )
+            var visibilityScans = 0
+            var cellLookups = [Int]()
+            let pipeline = MobilePlayerCollectionBrowserImagePipeline()
+            defer { pipeline.invalidate() }
+            pipeline.configure(contentAccess: makeImageContentAccess(
+                visibleIndexPaths: {
+                    visibilityScans += 1
+                    return [IndexPath(item: 4, section: 0)]
+                },
+                cell: {
+                    cellLookups.append($0.item)
+                    return $0.item == 4 ? cell : offscreenCell
+                },
+                collectionID: { collectionID },
+                requiredImageQuality: { .smallThumbnail },
+                baseColumnCount: { columnCount }
+            ))
+            pipeline.setScrollMotionActive(true)
+            pipeline.willDisplay(
+                cell: cell,
+                tokenIndex: 4,
+                intersectsViewport: { true }
+            )
+            pipeline.setActive(true)
+            pipeline.setVisible(true)
+
+            pipeline.handleDecodedImageNotification(decodedImageNotification(
+                collectionID: "another-collection",
+                tokenIndex: 4
+            ))
+            pipeline.handleDecodedImageNotification(decodedImageNotification(
+                collectionID: collectionID,
+                tokenIndex: 5
+            ))
+            XCTAssertEqual(pipeline.pendingDenseGridImageRefreshCount, 0)
+            XCTAssertTrue(cellLookups.isEmpty)
+
+            for _ in 0..<3 {
+                pipeline.handleDecodedImageNotification(decodedImageNotification(
+                    collectionID: collectionID,
+                    tokenIndex: 4
+                ))
+            }
+            XCTAssertEqual(pipeline.pendingDenseGridImageRefreshCount, 1)
+            XCTAssertEqual(cellLookups, [4, 4, 4])
+            XCTAssertEqual(visibilityScans, 0)
+
+            pipeline.willEndDisplaying(cell: cell, tokenIndex: 4)
+            pipeline.handleDecodedImageNotification(decodedImageNotification(
+                collectionID: collectionID,
+                tokenIndex: 4
+            ))
+            XCTAssertEqual(pipeline.pendingDenseGridImageRefreshCount, 0)
+            XCTAssertEqual(cellLookups, [4, 4, 4])
+            XCTAssertEqual(visibilityScans, 0)
+        }
+    }
+
+    func testVisibleTrackingKeepsReplacementRefreshUntilItsLastCellLeaves() {
+        let collectionID = "replacement-visibility-\(UUID())"
+        let (oldCell, _) = makeDecodedAvailabilityCell(
+            collectionID: collectionID,
+            tokenIndex: 4
+        )
+        let (replacementCell, _) = makeDecodedAvailabilityCell(
+            collectionID: collectionID,
+            tokenIndex: 4
+        )
+        let pipeline = MobilePlayerCollectionBrowserImagePipeline()
+        defer { pipeline.invalidate() }
+        pipeline.configure(contentAccess: makeImageContentAccess(
+            requiredImageQuality: { .smallThumbnail }
+        ))
+        pipeline.setActive(true)
+        pipeline.setVisible(true)
+        pipeline.setScrollMotionActive(true)
+
+        for cell in [oldCell, oldCell, replacementCell] {
+            pipeline.willDisplay(
+                cell: cell,
+                tokenIndex: 4,
+                intersectsViewport: { true }
+            )
+        }
+        XCTAssertEqual(pipeline.trackedVisibleTokenIndicesForTesting, [4])
+        XCTAssertEqual(pipeline.pendingDenseGridImageRefreshCount, 1)
+
+        pipeline.willEndDisplaying(cell: oldCell, tokenIndex: 4)
+        pipeline.willEndDisplaying(cell: UICollectionViewCell(), tokenIndex: 4)
+        XCTAssertEqual(pipeline.trackedVisibleTokenIndicesForTesting, [4])
+        XCTAssertEqual(pipeline.pendingDenseGridImageRefreshCount, 1)
+
+        pipeline.willEndDisplaying(cell: replacementCell, tokenIndex: 4)
+        XCTAssertTrue(pipeline.trackedVisibleTokenIndicesForTesting.isEmpty)
+        XCTAssertEqual(pipeline.pendingDenseGridImageRefreshCount, 0)
+        pipeline.willEndDisplaying(cell: oldCell, tokenIndex: 4)
+        XCTAssertTrue(pipeline.trackedVisibleTokenIndicesForTesting.isEmpty)
+    }
+
+    func testVisibleTrackingRegistersBeforeEligibilityAndSurvivesLifecycleChanges() {
+        let eligibilityStates = [
+            (active: false, visible: true, foreground: true, renderer: false),
+            (active: true, visible: false, foreground: true, renderer: false),
+            (active: true, visible: true, foreground: false, renderer: false),
+            (active: true, visible: true, foreground: true, renderer: true),
+        ]
+        for eligibility in eligibilityStates {
+            let collectionID = "inactive-visibility-\(UUID())"
+            let (cell, _) = makeDecodedAvailabilityCell(
+                collectionID: collectionID,
+                tokenIndex: 4
+            )
+            let foregroundState = SettlementAcceptance()
+            foregroundState.value = eligibility.foreground
+            let rendererState = SettlementAcceptance()
+            rendererState.value = eligibility.renderer
+            let pipeline = MobilePlayerCollectionBrowserImagePipeline()
+            defer { pipeline.invalidate() }
+            pipeline.configure(contentAccess: makeImageContentAccess(
+                cell: { $0.item == 4 ? cell : nil },
+                visibleCells: { [cell] },
+                collectionID: { collectionID },
+                requiredImageQuality: { .smallThumbnail },
+                isRendererActive: { rendererState.value },
+                isForegroundActive: { foregroundState.value }
+            ))
+            pipeline.setActive(eligibility.active)
+            pipeline.setVisible(eligibility.visible)
+            pipeline.setScrollMotionActive(true)
+            pipeline.willDisplay(
+                cell: cell,
+                tokenIndex: 4,
+                intersectsViewport: { true }
+            )
+            XCTAssertEqual(pipeline.trackedVisibleTokenIndicesForTesting, [4])
+            XCTAssertEqual(pipeline.pendingDenseGridImageRefreshCount, 0)
+
+            pipeline.setActive(false)
+            pipeline.setVisible(false)
+            pipeline.setScrollMotionActive(false)
+            pipeline.resetThumbnailWindow()
+            pipeline.cancelDenseGridImageRefreshes()
+            XCTAssertEqual(pipeline.trackedVisibleTokenIndicesForTesting, [4])
+
+            foregroundState.value = true
+            rendererState.value = false
+            pipeline.setActive(true)
+            pipeline.setVisible(true)
+            pipeline.setScrollMotionActive(true)
+            pipeline.handleDecodedImageNotification(decodedImageNotification(
+                collectionID: collectionID,
+                tokenIndex: 4
+            ))
+            XCTAssertEqual(pipeline.pendingDenseGridImageRefreshCount, 1)
+        }
+    }
+
+    func testVisibleTrackingResetAndReconcileUseCurrentCellsAndPreserveNewWork() {
+        let collectionID = "reconciled-visibility-\(UUID())"
+        let (oldCell, _) = makeDecodedAvailabilityCell(
+            collectionID: collectionID,
+            tokenIndex: 4
+        )
+        let (currentCell, _) = makeDecodedAvailabilityCell(
+            collectionID: collectionID,
+            tokenIndex: 5
+        )
+        var visibilityScans = 0
+        let pipeline = MobilePlayerCollectionBrowserImagePipeline()
+        defer { pipeline.invalidate() }
+        pipeline.configure(contentAccess: makeImageContentAccess(
+            visibleIndexPaths: {
+                visibilityScans += 1
+                return [
+                    IndexPath(item: 5, section: 0),
+                    IndexPath(item: 6, section: 0),
+                ]
+            },
+            cell: { $0.item == 5 ? currentCell : nil },
+            collectionID: { collectionID },
+            requiredImageQuality: { .smallThumbnail }
+        ))
+        pipeline.setScrollMotionActive(true)
+        pipeline.willDisplay(
+            cell: oldCell,
+            tokenIndex: 4,
+            intersectsViewport: { true }
+        )
+        pipeline.replacePendingDenseGridImageRefreshesForTesting(tokenIndices: [4])
+        pipeline.resetVisibleCellTracking()
+        XCTAssertTrue(pipeline.trackedVisibleTokenIndicesForTesting.isEmpty)
+        XCTAssertEqual(pipeline.pendingDenseGridImageRefreshCount, 0)
+        XCTAssertFalse(pipeline.isDenseGridImageDisplayLinkActive)
+
+        pipeline.reconcileVisibleCells()
+        XCTAssertEqual(pipeline.trackedVisibleTokenIndicesForTesting, [5])
+        XCTAssertEqual(visibilityScans, 1)
+        pipeline.setActive(true)
+        pipeline.setVisible(true)
+        pipeline.handleDecodedImageNotification(decodedImageNotification(
+            collectionID: collectionID,
+            tokenIndex: 5
+        ))
+        pipeline.reconcileVisibleCells()
+        pipeline.willEndDisplaying(cell: oldCell, tokenIndex: 4)
+        XCTAssertEqual(pipeline.trackedVisibleTokenIndicesForTesting, [5])
+        XCTAssertEqual(pipeline.pendingDenseGridImageRefreshCount, 1)
+        XCTAssertEqual(visibilityScans, 2)
+
+        pipeline.willEndDisplaying(cell: currentCell, tokenIndex: 5)
+        XCTAssertTrue(pipeline.trackedVisibleTokenIndicesForTesting.isEmpty)
+        XCTAssertEqual(pipeline.pendingDenseGridImageRefreshCount, 0)
     }
 
     func testDenseGridImageRefreshBudgetPreservesPendingWorkInOrder() {
@@ -1405,11 +1669,27 @@ extension MobilePlayerCollectionBrowserCoordinatorContractTests {
     }
 
     func testImagePipelineInvalidationClearsAndRejectsPendingDenseGridWork() {
+        let (cell, _) = makeDecodedAvailabilityCell(
+            collectionID: "invalidated-visibility-\(UUID())",
+            tokenIndex: 3
+        )
+        var visibilityScans = 0
         let pipeline = MobilePlayerCollectionBrowserImagePipeline()
         pipeline.configure(contentAccess: makeImageContentAccess(
+            visibleIndexPaths: {
+                visibilityScans += 1
+                return [IndexPath(item: 3, section: 0)]
+            },
+            cell: { _ in cell },
             requiredImageQuality: { .smallThumbnail }
         ))
         pipeline.setScrollMotionActive(true)
+        pipeline.willDisplay(
+            cell: cell,
+            tokenIndex: 3,
+            intersectsViewport: { true }
+        )
+        XCTAssertEqual(pipeline.trackedVisibleTokenIndicesForTesting, [3])
         pipeline.replacePendingDenseGridImageRefreshesForTesting(
             tokenIndices: [3, 5, 3, 8]
         )
@@ -1422,7 +1702,16 @@ extension MobilePlayerCollectionBrowserCoordinatorContractTests {
         pipeline.replacePendingDenseGridImageRefreshesForTesting(
             tokenIndices: [13, 21]
         )
+        pipeline.willDisplay(
+            cell: cell,
+            tokenIndex: 3,
+            intersectsViewport: { true }
+        )
+        pipeline.reconcileVisibleCells()
+        pipeline.resetVisibleCellTracking()
 
+        XCTAssertTrue(pipeline.trackedVisibleTokenIndicesForTesting.isEmpty)
+        XCTAssertEqual(visibilityScans, 0)
         XCTAssertEqual(pipeline.pendingDenseGridImageRefreshCount, 0)
         XCTAssertFalse(pipeline.isDenseGridImageDisplayLinkActive)
         XCTAssertEqual(

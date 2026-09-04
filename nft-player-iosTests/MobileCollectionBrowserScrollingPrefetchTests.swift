@@ -576,6 +576,24 @@ extension MobileCollectionBrowserGridModePresentationTests {
     }
 
 #if DEBUG
+    private func assertTrackedVisibilityMatchesCollectionView(
+        _ controller: VerticalCollectionBrowserViewController,
+        collectionView: UICollectionView,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        let visibleTokenIndices = Set(
+            collectionView.indexPathsForVisibleItems.map(\.item)
+        )
+        XCTAssertFalse(visibleTokenIndices.isEmpty, file: file, line: line)
+        XCTAssertEqual(
+            controller.trackedVisibleTokenIndicesForTesting,
+            visibleTokenIndices,
+            file: file,
+            line: line
+        )
+    }
+
     func testSessionPlannerPublishesSourcesToControllerAndDisconnectClearsThem()
         async throws {
         let metadata = try collectionMetadata(minimumTokenCount: 100)
@@ -752,6 +770,12 @@ extension MobileCollectionBrowserGridModePresentationTests {
                 $0 is MobilePlayerCollectionBrowserCollectionView
             } as? MobilePlayerCollectionBrowserCollectionView
         )
+        assertTrackedVisibilityMatchesCollectionView(
+            controller,
+            collectionView: collectionView
+        )
+        let originalVisibleTokenIndices =
+            controller.trackedVisibleTokenIndicesForTesting
         let snapshot = PlayerCollectionBrowseSnapshot(
             collectionId: replacementCollectionID,
             itemCount: 300,
@@ -788,11 +812,30 @@ extension MobileCollectionBrowserGridModePresentationTests {
             PlayerPagePosition(position: 150)
         )
         XCTAssertTrue(focusedTokenWasVisible)
+        assertTrackedVisibilityMatchesCollectionView(
+            controller,
+            collectionView: collectionView
+        )
+        let preparedVisibleTokenIndices =
+            controller.trackedVisibleTokenIndicesForTesting
+        XCTAssertTrue(
+            preparedVisibleTokenIndices.isDisjoint(
+                with: originalVisibleTokenIndices
+            )
+        )
 
         controller.cancelPendingDisplayPreparation()
         controller.view.layoutIfNeeded()
 
         XCTAssertEqual(controller.currentPagePosition, originalPosition)
+        assertTrackedVisibilityMatchesCollectionView(
+            controller,
+            collectionView: collectionView
+        )
+        XCTAssertEqual(
+            controller.trackedVisibleTokenIndicesForTesting,
+            originalVisibleTokenIndices
+        )
         XCTAssertEqual(
             controller.browseImageSourcesForTesting(
                 tokenIndex: originalSnapshot.initialTokenIndex
@@ -1907,7 +1950,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
 
     func testNineColumnDragDefersForegroundImageLoadsUntilDragEnds()
         async throws {
-        let metadata = try collectionMetadata(minimumTokenCount: 100)
+        let metadata = try collectionMetadata(minimumTokenCount: 300)
         let fixture = try makeFixture(collectionId: metadata.id)
         defer { tearDownFixture(fixture) }
         let collectionView = try XCTUnwrap(
@@ -1927,12 +1970,42 @@ extension MobileCollectionBrowserGridModePresentationTests {
             ($0 as? MobilePlayerCollectionBrowserCell)?
                 .usesForegroundImageLoading == true
         })
+#if DEBUG
+        assertTrackedVisibilityMatchesCollectionView(
+            fixture.controller,
+            collectionView: collectionView
+        )
+        let initialVisibleTokenIndices =
+            fixture.controller.trackedVisibleTokenIndicesForTesting
+#endif
 
         fixture.controller.scrollViewWillBeginDragging(collectionView)
         XCTAssertTrue(collectionView.visibleCells.allSatisfy {
             ($0 as? MobilePlayerCollectionBrowserCell)?
                 .usesForegroundImageLoading == false
         })
+        collectionView.contentOffset.y = max(
+            -collectionView.adjustedContentInset.top,
+            collectionView.contentSize.height - collectionView.bounds.height
+                + collectionView.adjustedContentInset.bottom
+        )
+        collectionView.layoutIfNeeded()
+        fixture.controller.scrollViewDidScroll(collectionView)
+#if DEBUG
+        assertTrackedVisibilityMatchesCollectionView(
+            fixture.controller,
+            collectionView: collectionView
+        )
+        XCTAssertFalse(
+            fixture.controller.trackedVisibleTokenIndicesForTesting
+                .subtracting(initialVisibleTokenIndices).isEmpty
+        )
+        XCTAssertFalse(
+            initialVisibleTokenIndices.subtracting(
+                fixture.controller.trackedVisibleTokenIndicesForTesting
+            ).isEmpty
+        )
+#endif
 
         fixture.controller.scrollViewDidEndDragging(
             collectionView,
@@ -1942,6 +2015,35 @@ extension MobileCollectionBrowserGridModePresentationTests {
             ($0 as? MobilePlayerCollectionBrowserCell)?
                 .usesForegroundImageLoading == true
         })
+#if DEBUG
+        assertTrackedVisibilityMatchesCollectionView(
+            fixture.controller,
+            collectionView: collectionView
+        )
+        let settledVisibleTokenIndices =
+            fixture.controller.trackedVisibleTokenIndicesForTesting
+        fixture.controller.setActive(false)
+        XCTAssertEqual(
+            fixture.controller.trackedVisibleTokenIndicesForTesting,
+            settledVisibleTokenIndices
+        )
+        fixture.controller.setActive(true)
+        collectionView.layoutIfNeeded()
+        assertTrackedVisibilityMatchesCollectionView(
+            fixture.controller,
+            collectionView: collectionView
+        )
+#endif
+        try await selectGridMode(
+            .fiveColumns,
+            controller: fixture.controller
+        )
+#if DEBUG
+        assertTrackedVisibilityMatchesCollectionView(
+            fixture.controller,
+            collectionView: collectionView
+        )
+#endif
     }
 
 
@@ -2030,6 +2132,10 @@ extension MobileCollectionBrowserGridModePresentationTests {
 #if DEBUG
         let baselineThumbnailWindowMetrics =
             fixture.controller.thumbnailWindowMetrics
+        assertTrackedVisibilityMatchesCollectionView(
+            fixture.controller,
+            collectionView: collectionView
+        )
 #endif
 
         XCTAssertFalse(visibleCells().isEmpty)
@@ -2070,6 +2176,10 @@ extension MobileCollectionBrowserGridModePresentationTests {
                 .isEmpty
         )
 #if DEBUG
+        assertTrackedVisibilityMatchesCollectionView(
+            fixture.controller,
+            collectionView: collectionView
+        )
         try await waitUntil("Rolling thumbnail window did not prepare sources") {
             fixture.controller.thumbnailWindowMetrics.preparations
                 > baselineThumbnailWindowMetrics.preparations
@@ -2150,6 +2260,10 @@ extension MobileCollectionBrowserGridModePresentationTests {
 #if DEBUG
         XCTAssertEqual(fixture.controller.pendingDenseGridImageRefreshCount, 0)
         XCTAssertFalse(fixture.controller.isDenseGridImageDisplayLinkActive)
+        assertTrackedVisibilityMatchesCollectionView(
+            fixture.controller,
+            collectionView: collectionView
+        )
 #endif
 
         fixture.controller.scrollViewWillBeginDragging(collectionView)
@@ -2169,6 +2283,14 @@ extension MobileCollectionBrowserGridModePresentationTests {
             !$0.usesForegroundImageLoading
         })
 #if DEBUG
+        assertTrackedVisibilityMatchesCollectionView(
+            fixture.controller,
+            collectionView: collectionView
+        )
+        XCTAssertEqual(
+            fixture.controller.trackedVisibleTokenIndicesForTesting,
+            Set(initialVisibleIndexPaths.map(\.item))
+        )
         try await waitUntil("Reverse thumbnail window did not advance") {
             fixture.controller.thumbnailWindowMetrics.preparations
                 > reverseThumbnailWindowMetrics.preparations
@@ -2186,6 +2308,10 @@ extension MobileCollectionBrowserGridModePresentationTests {
 #if DEBUG
         XCTAssertEqual(fixture.controller.pendingDenseGridImageRefreshCount, 0)
         XCTAssertFalse(fixture.controller.isDenseGridImageDisplayLinkActive)
+        assertTrackedVisibilityMatchesCollectionView(
+            fixture.controller,
+            collectionView: collectionView
+        )
 #endif
     }
 

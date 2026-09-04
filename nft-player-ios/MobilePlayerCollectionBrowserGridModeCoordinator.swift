@@ -597,6 +597,7 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
             transitionRuntime.beginFirstImageFade(at: frameDriver.now)
             reconcileFrameDriving()
         }
+        imagePipeline.resetVisibleCellTracking()
         collectionView.reloadData()
         if let cachedGeometry {
             layoutOperations.installCollectionLayout(cachedGeometry.layout)
@@ -604,6 +605,7 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
             effects.configureCollectionLayout()
         }
         collectionView.layoutIfNeeded()
+        imagePipeline.reconcileVisibleCells()
         if !carryoverSources.isEmpty {
             installCarryoverContent(
                 sources: carryoverSources,
