@@ -56,6 +56,7 @@ let package = Package(
                 "Models/PlayerViewingProgressStore.swift",
                 "Models/PlayerViewingSessionTracker.swift",
                 "Models/PlayerBookmarksStore.swift",
+                "Models/PlayerBookmarkController.swift",
                 "Models/Strings.swift",
                 "Models/WidgetDeepLink.swift",
                 "Services/PlayerICloudSync.swift"

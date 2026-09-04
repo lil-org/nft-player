@@ -10,18 +10,16 @@ final class PlayerModel {
     
     var currentToken: GeneratedToken {
         didSet {
-            scheduleCurrentTokenBookmarkStateRefresh()
+            bookmarkController.updateTarget(currentBookmarkTarget)
         }
     }
     var history: [GeneratedToken]
     var currentIndex: Int = 0
     private(set) var isCurrentTokenInsertedWidgetToken = false
-    private var bookmarkPresentationState = PlayerBookmarkPresentationState()
+    private let bookmarkController = PlayerBookmarkController()
     private static let historyTrimThreshold = 23
     private static let retainedHistoryCount = 10
     private let viewingSessionTracker: PlayerViewingSessionTracker
-    @ObservationIgnored private var bookmarkStateRefreshTask: Task<Void, Never>?
-    @ObservationIgnored private var bookmarkChangesObserver: NSObjectProtocol?
     @ObservationIgnored private var restartRequestGeneration: UInt = 0
 
     init(specificCollectionId: String?, notTokenId: String?) {
@@ -70,13 +68,6 @@ final class PlayerModel {
             continueViewingCollectionId: widgetTokenInsertion.collectionId
         )
         configureBookmarkState()
-    }
-
-    isolated deinit {
-        bookmarkStateRefreshTask?.cancel()
-        if let bookmarkChangesObserver {
-            NotificationCenter.default.removeObserver(bookmarkChangesObserver)
-        }
     }
 
     var playerWindowTitle: String {
@@ -197,46 +188,21 @@ final class PlayerModel {
     }
 
     var canToggleCurrentTokenBookmark: Bool {
-        canBookmarkCurrentToken && bookmarkPresentationState.canToggle
+        canBookmarkCurrentToken && bookmarkController.canToggle
     }
 
     var isCurrentTokenBookmarked: Bool {
-        bookmarkPresentationState.isBookmarked
+        bookmarkController.isBookmarked
     }
 
     func toggleCurrentTokenBookmark(
         completion: (@MainActor @Sendable (BookmarkTarget, Bool) -> Void)? = nil
     ) {
-        guard let request = bookmarkPresentationState.beginToggle() else { return }
-
-        cancelCurrentTokenBookmarkStateRefresh()
-        PlayerBookmarksStore.enqueueBookmarkUpdate(
-            collectionId: request.target.collectionId,
-            tokenId: request.target.tokenId,
-            isBookmarked: request.isBookmarked
-        ) { [weak self] isBookmarked in
-            guard let self else { return }
-            let storedState = PlayerBookmarksStore.storedBookmarkState(
-                collectionId: request.target.collectionId,
-                tokenId: request.target.tokenId
-            )
-            bookmarkPresentationState.applyToggleCompletion(
-                isBookmarked: isBookmarked,
-                for: request.target,
-                isTogglePending: storedState.isTogglePending
-            )
-            completion?(request.target, isBookmarked)
-        }
+        bookmarkController.toggle(completion: completion)
     }
 
     func refreshCurrentTokenBookmarkState() async {
-        guard let request = beginBookmarkStateRequest() else { return }
-        let isBookmarked = await Self.isBookmarked(target: request.target)
-        guard !Task.isCancelled else { return }
-        bookmarkPresentationState.applyLoadedState(
-            isBookmarked: isBookmarked,
-            for: request
-        )
+        await bookmarkController.refresh()
     }
 
     func progress(for token: GeneratedToken) -> PlayerViewingProgress? {
@@ -434,75 +400,20 @@ final class PlayerModel {
     }
 
     private func configureBookmarkState() {
-        installBookmarkChangesObserver()
-        scheduleCurrentTokenBookmarkStateRefresh()
+        bookmarkController.updateTarget(currentBookmarkTarget)
+        bookmarkController.start()
     }
 
     private static func canBookmark(token: GeneratedToken) -> Bool {
         !token.fullCollectionId.isEmpty && !token.id.isEmpty
     }
 
-    private static func isBookmarked(target: BookmarkTarget) async -> Bool {
-        return await PlayerBookmarksStore.shared.isBookmarked(
-            collectionId: target.collectionId,
-            tokenId: target.tokenId
-        )
-    }
-
-    private func installBookmarkChangesObserver() {
-        bookmarkChangesObserver = NotificationCenter.default.addObserver(
-            forName: .playerBookmarksDidChange,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            MainActor.assumeIsolated {
-                self?.scheduleCurrentTokenBookmarkStateRefresh()
-            }
-        }
-    }
-
-    private func scheduleCurrentTokenBookmarkStateRefresh() {
-        guard let request = beginBookmarkStateRequest() else { return }
-        bookmarkStateRefreshTask = Task { [weak self] in
-            let isBookmarked = await Self.isBookmarked(target: request.target)
-            guard !Task.isCancelled else { return }
-            self?.bookmarkPresentationState.applyLoadedState(
-                isBookmarked: isBookmarked,
-                for: request
-            )
-        }
-    }
-
     private var currentBookmarkTarget: BookmarkTarget? {
         guard canBookmarkCurrentToken else { return nil }
-        return PlayerBookmarkPresentationState.Target(
+        return BookmarkTarget(
             collectionId: currentToken.fullCollectionId,
             tokenId: currentToken.id
         )
-    }
-
-    private func beginBookmarkStateRequest() -> PlayerBookmarkPresentationState.LoadRequest? {
-        cancelCurrentTokenBookmarkStateRefresh()
-        let target = currentBookmarkTarget
-        let storedState = target.map {
-            PlayerBookmarksStore.storedBookmarkState(
-                collectionId: $0.collectionId,
-                tokenId: $0.tokenId
-            )
-        } ?? PlayerStoredBookmarkState(
-            isBookmarked: false,
-            isTogglePending: false,
-            isReady: true
-        )
-        return bookmarkPresentationState.beginLoading(
-            target: target,
-            storedState: storedState
-        )
-    }
-
-    private func cancelCurrentTokenBookmarkStateRefresh() {
-        bookmarkStateRefreshTask?.cancel()
-        bookmarkStateRefreshTask = nil
     }
 
     typealias BookmarkTarget = PlayerBookmarkPresentationState.Target

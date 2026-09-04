@@ -119,7 +119,9 @@
 		2CA4CF5C2B07F76000CC75F4 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 2CA4CF5A2B07F76000CC75F4 /* Main.storyboard */; };
 		2CA979AC2B62BA2400DB3AC8 /* NftGallery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CA979AB2B62BA2400DB3AC8 /* NftGallery.swift */; };
 		2CB01A002F01000000000001 /* PlayerBookmarksStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CB01A022F01000000000001 /* PlayerBookmarksStore.swift */; };
+		E1800E153074370914D3AEAC /* PlayerBookmarkController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF170287D1DFD9E7A5198D0E /* PlayerBookmarkController.swift */; };
 		2CB01A012F01000000000001 /* PlayerBookmarksStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CB01A022F01000000000001 /* PlayerBookmarksStore.swift */; };
+		F8A55C2E5494ABC64E0A8ED0 /* PlayerBookmarkController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF170287D1DFD9E7A5198D0E /* PlayerBookmarkController.swift */; };
 		2CB01A042F01000000000001 /* PlayerViewingProgressStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CB01A032F01000000000001 /* PlayerViewingProgressStore.swift */; };
 		2CB01A052F01000000000001 /* PlayerViewingProgressStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CB01A032F01000000000001 /* PlayerViewingProgressStore.swift */; };
 		2CB01A062F01000000000001 /* PlayerViewingProgressStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CB01A032F01000000000001 /* PlayerViewingProgressStore.swift */; };
@@ -250,6 +252,7 @@
 		2D7000032F70000100000001 /* DownloadableMediaCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF00012F10000000000001 /* DownloadableMediaCache.swift */; };
 		2D7000042F70000100000001 /* PlayerTokenPrewarmer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CDF00022F10000000000001 /* PlayerTokenPrewarmer.swift */; };
 		2D8000002FA0000000000001 /* PlayerBookmarksStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CB01A022F01000000000001 /* PlayerBookmarksStore.swift */; };
+		4FAE91E0826806EC2402A5E7 /* PlayerBookmarkController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF170287D1DFD9E7A5198D0E /* PlayerBookmarkController.swift */; };
 		2D8000012FA0000000000001 /* PlayerICloudSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CF100002F20000000000001 /* PlayerICloudSync.swift */; };
 		2D9000012FB0000000000001 /* CollectionsGridScrollMemory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D9000002FB0000000000001 /* CollectionsGridScrollMemory.swift */; };
 		2D9000022FB0000000000001 /* CollectionsGridScrollMemory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D9000002FB0000000000001 /* CollectionsGridScrollMemory.swift */; };
@@ -441,6 +444,7 @@
 		2CABCDEF2EAD000000000003 /* release */ = {isa = PBXFileReference; lastKnownFileType = folder; path = release; sourceTree = "<group>"; };
 		2CABCDEF2EAD000000000004 /* review */ = {isa = PBXFileReference; lastKnownFileType = folder; path = review; sourceTree = "<group>"; };
 		2CB01A022F01000000000001 /* PlayerBookmarksStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerBookmarksStore.swift; sourceTree = "<group>"; };
+		FF170287D1DFD9E7A5198D0E /* PlayerBookmarkController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerBookmarkController.swift; sourceTree = "<group>"; };
 		2CB01A032F01000000000001 /* PlayerViewingProgressStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerViewingProgressStore.swift; sourceTree = "<group>"; };
 		2CC93C662DB2B13A00C5801A /* ExternalDisplayViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExternalDisplayViewController.swift; sourceTree = "<group>"; };
 		2CC971622D2F4214005A8C4C /* HorizontalPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HorizontalPlayer.swift; sourceTree = "<group>"; };
@@ -653,6 +657,7 @@
 				2C1B60CA2B7E2481009949C2 /* Images.swift */,
 				2C1B60BC2B7D3505009949C2 /* Strings.swift */,
 				2CB01A022F01000000000001 /* PlayerBookmarksStore.swift */,
+				FF170287D1DFD9E7A5198D0E /* PlayerBookmarkController.swift */,
 				2CB01A032F01000000000001 /* PlayerViewingProgressStore.swift */,
 				2D9000002FB0000000000001 /* CollectionsGridScrollMemory.swift */,
 				2DA100002FC0000000000001 /* PlayerCollectionScrollPolicy.swift */,
@@ -1461,6 +1466,7 @@
 				2CDF00222F10000000000001 /* NativeMetalCardMetadata.swift in Sources */,
 				2C7134D62D30460B001E33DC /* MobilePlaybackController.swift in Sources */,
 				2CB01A012F01000000000001 /* PlayerBookmarksStore.swift in Sources */,
+				F8A55C2E5494ABC64E0A8ED0 /* PlayerBookmarkController.swift in Sources */,
 				2CB01A052F01000000000001 /* PlayerViewingProgressStore.swift in Sources */,
 				2D4000002F50000000000001 /* PlayerViewingSessionTracker.swift in Sources */,
 				2CF100052F20000000000001 /* PlayerSyncTypes.swift in Sources */,
@@ -1596,6 +1602,7 @@
 				2C02181B2C53CECD0012EC40 /* GeneratedToken.swift in Sources */,
 				2C0218032C53CC200012EC40 /* TvCollectionsView.swift in Sources */,
 				2D8000002FA0000000000001 /* PlayerBookmarksStore.swift in Sources */,
+				4FAE91E0826806EC2402A5E7 /* PlayerBookmarkController.swift in Sources */,
 				2CB01A072F01000000000001 /* PlayerViewingProgressStore.swift in Sources */,
 				2D4000032F50000000000001 /* PlayerViewingSessionTracker.swift in Sources */,
 				2D1000342F30000000000001 /* PlayerWidgetTokenInsertion.swift in Sources */,
@@ -1659,6 +1666,7 @@
 				2CFF885B2C288C9A0007045F /* SuggestedItem.swift in Sources */,
 				2C1B60CB2B7E2481009949C2 /* Images.swift in Sources */,
 				2CB01A002F01000000000001 /* PlayerBookmarksStore.swift in Sources */,
+				E1800E153074370914D3AEAC /* PlayerBookmarkController.swift in Sources */,
 				2CB01A042F01000000000001 /* PlayerViewingProgressStore.swift in Sources */,
 				2D4000012F50000000000001 /* PlayerViewingSessionTracker.swift in Sources */,
 				2CF100062F20000000000001 /* PlayerSyncTypes.swift in Sources */,

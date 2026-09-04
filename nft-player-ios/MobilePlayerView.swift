@@ -334,8 +334,7 @@ struct MobilePlayerView: View {
     @State private var isCurrentPagePositionInsertedWidgetToken = false
     @State private var canGoBack = false
     @State private var canGoForward = false
-    @State private var bookmarkPresentationState = PlayerBookmarkPresentationState()
-    @State private var bookmarkStateTask: Task<Void, Never>?
+    @State private var bookmarkController = PlayerBookmarkController()
     @State private var bundledGenerativePresentationMode:
         MobileBundledGenerativePresentationMode = .thumbnailAspectFit
     @State private var focusedPagePositionUpdateCoordinator =
@@ -456,17 +455,14 @@ struct MobilePlayerView: View {
                     .accessibilityHidden(chrome.isPlayerContentHiddenForCardTransition)
             }
         }
+        .onAppear {
+            updateBookmarkState(for: currentToken)
+            bookmarkController.start()
+        }
         .onDisappear {
             focusedPagePositionUpdateCoordinator.cancelPendingUpdate()
-            bookmarkStateTask?.cancel()
-            bookmarkStateTask = nil
+            bookmarkController.stop()
             bundledGenerativePresentationMode = .thumbnailAspectFit
-        }
-        .onReceive(
-            NotificationCenter.default.publisher(for: .playerBookmarksDidChange)
-                .receive(on: RunLoop.main)
-        ) { _ in
-            updateBookmarkState(for: currentToken)
         }
         .task {
             guard !isAllowedToHideStatusBar else { return }
@@ -594,11 +590,11 @@ struct MobilePlayerView: View {
     }
 
     private var canToggleCurrentTokenBookmark: Bool {
-        canBookmarkCurrentToken && bookmarkPresentationState.canToggle
+        canBookmarkCurrentToken && bookmarkController.canToggle
     }
 
     private var isCurrentTokenBookmarked: Bool {
-        bookmarkPresentationState.isBookmarked
+        bookmarkController.isBookmarked
     }
 
     private func updateLayoutInteractionState() {
@@ -721,68 +717,16 @@ struct MobilePlayerView: View {
     }
 
     private func toggleCurrentTokenBookmark() {
-        guard let request = bookmarkPresentationState.beginToggle() else { return }
-
-        bookmarkStateTask?.cancel()
-        bookmarkStateTask = nil
-        let didBeginToggle = PlayerBookmarksStore.enqueueBookmarkUpdate(
-            collectionId: request.target.collectionId,
-            tokenId: request.target.tokenId,
-            isBookmarked: request.isBookmarked
-        ) { isBookmarked in
-            let storedState = PlayerBookmarksStore.storedBookmarkState(
-                collectionId: request.target.collectionId,
-                tokenId: request.target.tokenId
-            )
-            bookmarkPresentationState.applyToggleCompletion(
-                isBookmarked: isBookmarked,
-                for: request.target,
-                isTogglePending: storedState.isTogglePending
-            )
-        }
-        if didBeginToggle {
+        if bookmarkController.toggle() {
             Haptic.selectionChanged()
         }
     }
 
     private func updateBookmarkState(for token: GeneratedToken) {
-        bookmarkStateTask?.cancel()
-        bookmarkStateTask = nil
-        let target: PlayerBookmarkPresentationState.Target? = if token.fullCollectionId.isEmpty
-            || token.id.isEmpty {
-            nil
-        } else {
-            PlayerBookmarkPresentationState.Target(
-                collectionId: token.fullCollectionId,
-                tokenId: token.id
-            )
-        }
-        let storedState = target.map {
-            PlayerBookmarksStore.storedBookmarkState(
-                collectionId: $0.collectionId,
-                tokenId: $0.tokenId
-            )
-        } ?? PlayerStoredBookmarkState(
-            isBookmarked: false,
-            isTogglePending: false,
-            isReady: true
-        )
-        guard let request = bookmarkPresentationState.beginLoading(
-            target: target,
-            storedState: storedState
-        ) else { return }
-
-        bookmarkStateTask = Task {
-            let isBookmarked = await PlayerBookmarksStore.shared.isBookmarked(
-                collectionId: request.target.collectionId,
-                tokenId: request.target.tokenId
-            )
-            guard !Task.isCancelled else { return }
-            bookmarkPresentationState.applyLoadedState(
-                isBookmarked: isBookmarked,
-                for: request
-            )
-        }
+        bookmarkController.updateTarget(.init(
+            collectionId: token.fullCollectionId,
+            tokenId: token.id
+        ))
     }
 
 }

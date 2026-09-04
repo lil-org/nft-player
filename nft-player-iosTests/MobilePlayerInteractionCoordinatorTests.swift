@@ -482,6 +482,41 @@ extension MobilePlayerInteractionCoordinatorTests {
         )
     }
 
+    func testUninstalledControllerHasNoSideEffectsAndDeallocates() async throws {
+        let fixture = PlayerInteractionTestFixture(displayMode: .onePerPage)
+        defer { fixture.tearDown() }
+        weak var weakController: PlayerInteractionController?
+
+        do {
+            let controller = try XCTUnwrap(fixture.interactionController)
+            weakController = controller
+            XCTAssertNil(
+                fixture.navigationController.canEnforceNavigationBarChromeVisibility
+            )
+            XCTAssertNil(fixture.chrome.onCollectionBrowserExpandRequest)
+            XCTAssertNil(fixture.navigationController.cardTransitionOverlayView)
+            XCTAssertNil(fixture.playerViewController.onAccessibilityEscape)
+            XCTAssertNil(fixture.playerViewController.onPlayerLayout)
+            XCTAssertNil(fixture.browserViewController.onAccessibilityEscape)
+            XCTAssertNil(fixture.browserViewController.onPlayerLayout)
+
+            fixture.browserViewController.setPlayerPageBackground(color: .orange)
+            fixture.chrome.setPlayerBackgroundColor(.green)
+            await Task.yield()
+            await waitForNextMainQueueTurn()
+
+            XCTAssertTrue(
+                fixture.browserViewController.view.backgroundColor?
+                    .isVisuallyEqual(to: .orange) == true
+            )
+
+            controller.invalidate()
+            fixture.interactionController = nil
+        }
+
+        XCTAssertNil(weakController)
+    }
+
     func testInstallAndInvalidateAreIdempotentAndCleanUp() throws {
         let fixture = PlayerInteractionTestFixture(displayMode: .onePerPage)
         defer { fixture.tearDown() }
@@ -585,6 +620,66 @@ extension MobilePlayerInteractionCoordinatorTests {
         }
 
         XCTAssertNil(weakController)
+    }
+
+    func testReinstallRestoresChromeStateAndObservations() async throws {
+        let fixture = PlayerInteractionTestFixture(displayMode: .onePerPage)
+        defer { fixture.tearDown() }
+        let controller = try XCTUnwrap(fixture.interactionController)
+        let didFinishInitialNavigationTransition = await waitUntil {
+            fixture.navigationController.transitionCoordinator == nil
+        }
+        XCTAssertTrue(didFinishInitialNavigationTransition)
+        controller.install()
+
+        let installedPlayerGestures = gestureIdentifiers(
+            in: fixture.playerViewController.view
+        )
+        let installedNavigationBarGestures = gestureIdentifiers(
+            in: fixture.navigationController.navigationBar
+        )
+        let canvasView = try XCTUnwrap(
+            fixture.navigationController.cardTransitionOverlayView
+        )
+
+        controller.invalidate()
+        fixture.chrome.setPlayerBackgroundColor(.green)
+        fixture.chrome.setControlsVisible(false)
+
+        controller.install()
+        controller.install()
+
+        XCTAssertEqual(
+            gestureIdentifiers(in: fixture.playerViewController.view),
+            installedPlayerGestures
+        )
+        XCTAssertEqual(
+            gestureIdentifiers(in: fixture.navigationController.navigationBar),
+            installedNavigationBarGestures
+        )
+        XCTAssertTrue(
+            fixture.navigationController.cardTransitionOverlayView === canvasView
+        )
+        XCTAssertTrue(canvasView.superview === fixture.navigationController.view)
+        XCTAssertTrue(canvasView.backgroundColor?.isVisuallyEqual(to: .green) == true)
+        XCTAssertEqual(fixture.navigationController.navigationBar.alpha, 0)
+        XCTAssertEqual(
+            fixture.navigationController.canEnforceNavigationBarChromeVisibility?(),
+            true
+        )
+        XCTAssertNotNil(fixture.chrome.onCollectionBrowserExpandRequest)
+        XCTAssertNotNil(fixture.playerViewController.onAccessibilityEscape)
+        XCTAssertNotNil(fixture.playerViewController.onPlayerLayout)
+        XCTAssertNotNil(fixture.browserViewController.onAccessibilityEscape)
+        XCTAssertNotNil(fixture.browserViewController.onPlayerLayout)
+
+        fixture.chrome.setPlayerBackgroundColor(.blue)
+        fixture.chrome.setControlsVisible(true)
+        let didApplyChromeChanges = await waitUntil {
+            canvasView.backgroundColor?.isVisuallyEqual(to: .blue) == true
+                && fixture.navigationController.navigationBar.alpha == 1
+        }
+        XCTAssertTrue(didApplyChromeChanges)
     }
 
     func testBackAndAccessibilityRoutingAndObservationTeardown() async throws {
@@ -698,6 +793,16 @@ extension MobilePlayerInteractionCoordinatorTests {
         if case .fallbackToImmediateOpen = resultAfterInvalidation {
         } else {
             XCTFail("Expand should restore its fallback after invalidation")
+        }
+
+        controller.install()
+
+        XCTAssertNotNil(fixture.chrome.onCollectionBrowserExpandRequest)
+        let resultAfterReinstall = fixture.chrome
+            .requestCollectionBrowserExpand(makeSelection(hasLoadedImage: true))
+        if case .rejected = resultAfterReinstall {
+        } else {
+            XCTFail("A reinstalled controller should reject expansion while zoomed")
         }
     }
 }

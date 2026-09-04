@@ -117,14 +117,14 @@ final class PlayerInteractionController: NSObject, UIGestureRecognizerDelegate {
         super.init()
         navigationChromeCoordinator.delegate = self
         cardTransitionCoordinator.delegate = self
-        navigationChromeCoordinator.configureNavigationBarChromeVisibilityEnforcement()
-        cardTransitionCoordinator.configureCollectionBrowserExpandRequest()
-        navigationChromeCoordinator.startChromeObservation()
     }
 
     func install() {
         guard !isInstalled else { return }
         isInstalled = true
+        navigationChromeCoordinator.configureNavigationBarChromeVisibilityEnforcement()
+        cardTransitionCoordinator.configureCollectionBrowserExpandRequest()
+        navigationChromeCoordinator.startChromeObservation()
         navigationChromeCoordinator.installNavigationBackAction()
         playerViewController.onAccessibilityEscape = { [weak self] in
             self?.navigationChromeCoordinator.handleNavigationBackAction() ?? false

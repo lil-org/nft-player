@@ -167,6 +167,102 @@ extension DownloadableMediaCacheTests {
         }
     }
 
+    func testPendingDownloadsDeduplicateAndPromoteForegroundRequests() {
+        let layout = DownloadableMediaCacheLayout.live
+        let first = makeDescriptor(name: "pending-first")
+        let second = makeDescriptor(name: "pending-second")
+        let promoted = CollectionCatalogDownloadableMediaDescriptor(
+            collectionId: second.collectionId,
+            tokenId: second.tokenId,
+            tokenIndex: second.tokenIndex,
+            media: second.media,
+            purpose: .primary
+        )
+        let firstKey = layout.cacheKey(for: first)
+        let secondKey = layout.cacheKey(for: second)
+        var queue = DownloadableMediaPendingQueue()
+
+        XCTAssertEqual(layout.cacheKey(for: promoted), secondKey)
+        XCTAssertTrue(queue.enqueue(first, forKey: firstKey, at: .back))
+        XCTAssertTrue(queue.enqueue(second, forKey: secondKey, at: .back))
+        XCTAssertFalse(queue.enqueue(promoted, forKey: secondKey, at: .back))
+        XCTAssertEqual(queue.entries.map(\.descriptor), [first, second])
+
+        XCTAssertFalse(queue.enqueue(promoted, forKey: secondKey, at: .front))
+        XCTAssertEqual(queue.entries.map(\.descriptor), [promoted, first])
+        XCTAssertTrue(queue.contains(firstKey))
+        XCTAssertTrue(queue.contains(secondKey))
+    }
+
+    func testPendingDownloadsKeepDistinctSourcesForTheSameToken() {
+        let layout = DownloadableMediaCacheLayout.live
+        let original = makeDescriptor(name: "pending-original")
+        let replacement = CollectionCatalogDownloadableMediaDescriptor(
+            collectionId: original.collectionId,
+            tokenId: original.tokenId,
+            tokenIndex: original.tokenIndex,
+            media: .staticImage(
+                url: URL(string: "https://example.com/replacement.webp")!,
+                fileExtension: original.fileExtension
+            ),
+            purpose: original.purpose
+        )
+        let originalKey = layout.cacheKey(for: original)
+        let replacementKey = layout.cacheKey(for: replacement)
+        var queue = DownloadableMediaPendingQueue()
+
+        XCTAssertNotEqual(originalKey, replacementKey)
+        XCTAssertTrue(queue.enqueue(original, forKey: originalKey, at: .back))
+        XCTAssertTrue(queue.enqueue(replacement, forKey: replacementKey, at: .front))
+        XCTAssertEqual(queue.entries.map(\.descriptor), [replacement, original])
+        XCTAssertTrue(queue.contains(originalKey))
+        XCTAssertTrue(queue.contains(replacementKey))
+    }
+
+    func testPendingDownloadReorderingPreservesPriorityAndRemainingOrder() {
+        let keys = ["tail-a", "demand-b", "near", "demand-a", "tail-b"]
+        var queue = DownloadableMediaPendingQueue()
+        for key in keys {
+            queue.enqueue(makeDescriptor(name: key), forKey: key, at: .back)
+        }
+
+        queue.reorder(
+            priorityKeys: ["demand-a", "demand-b", "unknown-priority"],
+            preferredKeys: ["near", "near", "demand-a", "unknown-preference"]
+        )
+
+        XCTAssertEqual(
+            queue.entries.map(\.key),
+            ["demand-b", "demand-a", "near", "tail-a", "tail-b"]
+        )
+        XCTAssertTrue(keys.allSatisfy { queue.contains($0) })
+        XCTAssertFalse(queue.contains("unknown-priority"))
+        XCTAssertFalse(queue.contains("unknown-preference"))
+    }
+
+    func testPendingDownloadRemovalPreservesSurvivorsAndAllowsReenqueue() {
+        let keys = ["first", "second", "third", "fourth"]
+        var queue = DownloadableMediaPendingQueue()
+        for key in keys {
+            queue.enqueue(makeDescriptor(name: key), forKey: key, at: .back)
+        }
+
+        let removed = queue.removeAll { ["first", "third"].contains($0.key) }
+        XCTAssertEqual(removed.map(\.key), ["first", "third"])
+        XCTAssertEqual(queue.entries.map(\.key), ["second", "fourth"])
+        XCTAssertFalse(queue.contains("first"))
+        XCTAssertFalse(queue.contains("third"))
+        XCTAssertEqual(queue.remove(forKey: "second")?.key, "second")
+        XCTAssertNil(queue.remove(forKey: "second"))
+        XCTAssertFalse(queue.contains("second"))
+        XCTAssertEqual(queue.entries.map(\.key), ["fourth"])
+
+        let first = makeDescriptor(name: "requeued-first")
+        XCTAssertTrue(queue.enqueue(first, forKey: "first", at: .back))
+        XCTAssertEqual(queue.entries.map(\.key), ["fourth", "first"])
+        XCTAssertTrue(queue.contains("first"))
+    }
+
     func testPendingDecodePriorityBucketsPreserveOrderAndDeduplicate() {
         XCTAssertEqual(
             DownloadableMediaCache.orderedPendingImageDecodeKeysForTesting(

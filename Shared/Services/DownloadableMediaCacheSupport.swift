@@ -15,6 +15,95 @@ nonisolated enum DownloadableMediaRequestPriority: Sendable {
     case preservingPrefetch
 }
 
+nonisolated struct DownloadableMediaPendingQueue {
+    struct Entry {
+        let key: String
+        let descriptor: CollectionCatalogDownloadableMediaDescriptor
+    }
+
+    enum Position {
+        case front
+        case back
+    }
+
+    private(set) var entries = [Entry]()
+    private var keys = Set<String>()
+
+    func contains(_ key: String) -> Bool {
+        keys.contains(key)
+    }
+
+    @discardableResult
+    mutating func enqueue(
+        _ descriptor: CollectionCatalogDownloadableMediaDescriptor,
+        forKey key: String,
+        at position: Position
+    ) -> Bool {
+        let inserted = keys.insert(key).inserted
+        if !inserted {
+            guard position == .front else { return false }
+            entries.removeAll { $0.key == key }
+        }
+        let entry = Entry(key: key, descriptor: descriptor)
+        switch position {
+        case .front:
+            entries.insert(entry, at: 0)
+        case .back:
+            entries.append(entry)
+        }
+        return inserted
+    }
+
+    @discardableResult
+    mutating func remove(forKey key: String) -> Entry? {
+        guard keys.contains(key),
+              let index = entries.firstIndex(where: { $0.key == key }) else {
+            return nil
+        }
+        keys.remove(key)
+        return entries.remove(at: index)
+    }
+
+    @discardableResult
+    mutating func removeAll(where shouldRemove: (Entry) -> Bool) -> [Entry] {
+        var removed = [Entry]()
+        var retained = [Entry]()
+        for entry in entries {
+            if shouldRemove(entry) {
+                removed.append(entry)
+                keys.remove(entry.key)
+            } else {
+                retained.append(entry)
+            }
+        }
+        entries = retained
+        return removed
+    }
+
+    mutating func reorder(
+        priorityKeys: Set<String>,
+        preferredKeys: [String]
+    ) {
+        guard !entries.isEmpty else { return }
+        var remaining = Dictionary(uniqueKeysWithValues: entries.map {
+            ($0.key, $0)
+        })
+        var reordered = [Entry]()
+
+        func append(forKey key: String) {
+            guard let entry = remaining.removeValue(forKey: key) else { return }
+            reordered.append(entry)
+        }
+
+        for entry in entries where priorityKeys.contains(entry.key) {
+            append(forKey: entry.key)
+        }
+        preferredKeys.forEach { append(forKey: $0) }
+        entries.forEach { append(forKey: $0.key) }
+        entries = reordered
+    }
+}
+
 nonisolated enum DownloadableMediaImageDecodeVariant: Hashable, Sendable {
     case full
     case downsampled(maxPixelWidth: Int)

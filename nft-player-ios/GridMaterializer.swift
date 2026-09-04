@@ -325,6 +325,12 @@ final class GridMaterializer {
         let cell: MobilePlayerCollectionBrowserCell
     }
 
+    private enum SourceRepresentationCleanupReason {
+        case replacement
+        case endDisplay
+        case overscanRecycle(batch: Bool)
+    }
+
     private struct ResolvedTransitionContent {
         let destinationItem: Int
         let contentIdentity: MobilePlayerBrowserContentIdentity
@@ -2830,37 +2836,19 @@ final class GridMaterializer {
     @discardableResult
     private func recycleSourceOverscanCell(
         session: Session,
-        at itemIndex: Int,
-        performsIndividualCleanup: Bool = true
+        at itemIndex: Int
     ) -> Bool {
-        guard let cell = session.sourceOverscanCells.removeValue(
-            forKey: itemIndex
-        ) else {
+        guard let cell = session.sourceOverscanCells[itemIndex] else {
             return false
         }
-        let cellID = ObjectIdentifier(cell)
-        removePromotion(
-            sessionID: session.id,
-            contentGeneration: session.transitionContentGeneration,
-            representationID: cellID,
-            tokenIndex: itemIndex
+        cleanupSourceRepresentations(
+            session: session,
+            representations: [SourceCellEntry(
+                indexPath: IndexPath(item: itemIndex, section: 0),
+                cell: cell
+            )],
+            reason: .overscanRecycle(batch: false)
         )
-        if performsIndividualCleanup {
-            invalidateTransitionWork(
-                session: session,
-                scope: .representationKeys([TransitionRepresentationKey(
-                    representationID: cellID,
-                    sourceItem: itemIndex
-                )]),
-                removePendingDetails: true
-            )
-        }
-        session.unregisterSourceRepresentation(cellID)
-        if performsIndividualCleanup {
-            removeCellFrameCorrection(session: session, for: cell)
-        }
-        cell.prepareForGridModePhantomReuse()
-        cell.removeFromSuperview()
         return true
     }
 
@@ -2872,30 +2860,19 @@ final class GridMaterializer {
         let recycledItems = session.sourceOverscanCells.keys.filter {
             !itemIndices.contains($0)
         }
-        let representations = Set(recycledItems.compactMap { itemIndex in
+        let representations = recycledItems.compactMap { itemIndex in
             session.sourceOverscanCells[itemIndex].map {
-                TransitionRepresentationKey(
-                    representationID: ObjectIdentifier($0),
-                    sourceItem: itemIndex
+                SourceCellEntry(
+                    indexPath: IndexPath(item: itemIndex, section: 0),
+                    cell: $0
                 )
             }
-        })
-        let recycledCells = recycledItems.compactMap {
-            session.sourceOverscanCells[$0]
         }
-        invalidateTransitionWork(
+        cleanupSourceRepresentations(
             session: session,
-            scope: .representationKeys(representations),
-            removePendingDetails: true
+            representations: representations,
+            reason: .overscanRecycle(batch: true)
         )
-        for itemIndex in recycledItems {
-            recycleSourceOverscanCell(
-                session: session,
-                at: itemIndex,
-                performsIndividualCleanup: false
-            )
-        }
-        removeCellFrameCorrections(session: session, for: recycledCells)
         if !recycledItems.isEmpty {
             invalidateViewportPromotion(session: session)
         }
@@ -3043,23 +3020,101 @@ final class GridMaterializer {
         if let registeredItem = session.cachedSourceRepresentations[
             representationID
         ]?.itemIndex, registeredItem != itemIndex {
-            removePromotion(
-                sessionID: session.id,
-                contentGeneration: session.transitionContentGeneration,
-                representationID: representationID,
-                tokenIndex: registeredItem
-            )
-            invalidateTransitionWork(
+            cleanupSourceRepresentations(
                 session: session,
-                scope: .representationKeys([TransitionRepresentationKey(
-                    representationID: representationID,
-                    sourceItem: registeredItem
-                )]),
-                removePendingDetails: true
+                representations: [SourceCellEntry(
+                    indexPath: IndexPath(item: registeredItem, section: 0),
+                    cell: cell
+                )],
+                reason: .replacement
             )
-            removeCellFrameCorrection(session: session, for: cell)
         }
         session.registerSourceRepresentation(cell, itemIndex: itemIndex)
+    }
+
+    private func cleanupSourceRepresentations(
+        session: Session,
+        representations: [SourceCellEntry],
+        reason: SourceRepresentationCleanupReason
+    ) {
+        func removePromotion(for representation: SourceCellEntry) {
+            self.removePromotion(
+                sessionID: session.id,
+                contentGeneration: session.transitionContentGeneration,
+                representationID: ObjectIdentifier(representation.cell),
+                tokenIndex: representation.indexPath.item
+            )
+        }
+
+        func invalidateWork(for representations: [SourceCellEntry]) {
+            invalidateTransitionWork(
+                session: session,
+                scope: .representationKeys(Set(representations.map {
+                    TransitionRepresentationKey(
+                        representationID: ObjectIdentifier($0.cell),
+                        sourceItem: $0.indexPath.item
+                    )
+                })),
+                removePendingDetails: true
+            )
+        }
+
+        let cells = representations.map(\.cell)
+        switch reason {
+        case .replacement:
+            representations.forEach { removePromotion(for: $0) }
+            invalidateWork(for: representations)
+            removeCellFrameCorrections(session: session, for: cells)
+            for representation in representations {
+                session.unregisterSourceRepresentation(
+                    ObjectIdentifier(representation.cell)
+                )
+            }
+        case .endDisplay:
+            removeCellFrameCorrections(session: session, for: cells)
+            for representation in representations {
+                session.unregisterSourceRepresentation(
+                    ObjectIdentifier(representation.cell)
+                )
+            }
+            representations.forEach { removePromotion(for: $0) }
+            invalidateWork(for: representations)
+            for cell in cells {
+                cell.finishTransitionContent()
+                planeRenderer.resetSourcePresentation(
+                    on: cell,
+                    removingOpacityAnimation: false
+                )
+            }
+        case let .overscanRecycle(batch):
+            if batch {
+                invalidateWork(for: representations)
+            }
+            for representation in representations {
+                guard let cell = session.sourceOverscanCells.removeValue(
+                    forKey: representation.indexPath.item
+                ) else {
+                    continue
+                }
+                let removedRepresentation = SourceCellEntry(
+                    indexPath: representation.indexPath,
+                    cell: cell
+                )
+                removePromotion(for: removedRepresentation)
+                if !batch {
+                    invalidateWork(for: [removedRepresentation])
+                }
+                session.unregisterSourceRepresentation(ObjectIdentifier(cell))
+                if !batch {
+                    removeCellFrameCorrection(session: session, for: cell)
+                }
+                cell.prepareForGridModePhantomReuse()
+                cell.removeFromSuperview()
+            }
+            if batch {
+                removeCellFrameCorrections(session: session, for: cells)
+            }
+        }
     }
 
     private func sourceCells(
@@ -3417,30 +3472,18 @@ final class GridMaterializer {
     ) {
         guard let session = activeSession else { return }
         invalidateManagedCellPlans(session: session)
-        removeCellFrameCorrection(session: session, for: cell)
-        let cellID = ObjectIdentifier(cell)
-        session.unregisterSourceRepresentation(cellID)
         guard let browserCell = cell as? MobilePlayerCollectionBrowserCell else {
+            removeCellFrameCorrection(session: session, for: cell)
+            session.unregisterSourceRepresentation(ObjectIdentifier(cell))
             return
         }
-        removePromotion(
-            sessionID: session.id,
-            contentGeneration: session.transitionContentGeneration,
-            representationID: cellID,
-            tokenIndex: indexPath.item
-        )
-        invalidateTransitionWork(
+        cleanupSourceRepresentations(
             session: session,
-            scope: .representationKeys([TransitionRepresentationKey(
-                representationID: cellID,
-                sourceItem: indexPath.item
-            )]),
-            removePendingDetails: true
-        )
-        browserCell.finishTransitionContent()
-        planeRenderer.resetSourcePresentation(
-            on: browserCell,
-            removingOpacityAnimation: false
+            representations: [SourceCellEntry(
+                indexPath: indexPath,
+                cell: browserCell
+            )],
+            reason: .endDisplay
         )
         markSourceCoverageRefreshDirty(session: session)
     }

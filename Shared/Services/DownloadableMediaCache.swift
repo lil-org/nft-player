@@ -396,8 +396,7 @@ final class DownloadableMediaCache {
     private var exclusiveWindowRegistration: ExclusiveWindowRegistration?
     private var managedWindowsByOwnerId = [UUID: ManagedWindow]()
     private var windowPreparationSequence: UInt64 = 0
-    private var pendingDescriptors = [CollectionCatalogDownloadableMediaDescriptor]()
-    private var pendingKeys = Set<String>()
+    private var pendingDownloads = DownloadableMediaPendingQueue()
     private var ongoingDownloads = [String: OngoingDownload]()
     private var windowWorkTask: Task<Void, Never>?
     private var windowWorkGeneration: UInt64 = 0
@@ -1804,7 +1803,7 @@ final class DownloadableMediaCache {
         let key = cacheKey(for: descriptor)
         return foregroundKey == key
             && foregroundWorkKeys.contains(key)
-            && (pendingKeys.contains(key) || ongoingDownloads[key] != nil)
+            && (pendingDownloads.contains(key) || ongoingDownloads[key] != nil)
     }
 
     func hasForegroundWorkForTesting(
@@ -1829,7 +1828,7 @@ final class DownloadableMediaCache {
         for descriptor: CollectionCatalogDownloadableMediaDescriptor
     ) -> Bool {
         let key = cacheKey(for: descriptor)
-        return pendingKeys.contains(key) || ongoingDownloads[key] != nil
+        return pendingDownloads.contains(key) || ongoingDownloads[key] != nil
     }
 
     func imageDemandCountForTesting(
@@ -2278,7 +2277,7 @@ final class DownloadableMediaCache {
                 $0.values.first?.descriptor
             })
         case .pendingDescriptors:
-            return counts(pendingDescriptors)
+            return counts(pendingDownloads.entries.map(\.descriptor))
         case .ongoingDownloads:
             return counts(ongoingDownloads.values.map(\.descriptor))
         case .activeDecodes:
@@ -2373,10 +2372,9 @@ final class DownloadableMediaCache {
             return
         }
 
-        if pendingKeys.contains(key) {
+        if pendingDownloads.contains(key) {
             guard isForegroundRequest else { return }
-            pendingDescriptors.removeAll { cacheKey(for: $0) == key }
-            pendingDescriptors.insert(descriptor, at: 0)
+            pendingDownloads.enqueue(descriptor, forKey: key, at: .front)
             return
         }
 
@@ -2384,12 +2382,11 @@ final class DownloadableMediaCache {
             ?? (knownAvailableFileURLs[key] != nil)
         guard !hasFile else { return }
 
-        pendingKeys.insert(key)
-        if isForegroundRequest {
-            pendingDescriptors.insert(descriptor, at: 0)
-        } else {
-            pendingDescriptors.append(descriptor)
-        }
+        guard pendingDownloads.enqueue(
+            descriptor,
+            forKey: key,
+            at: isForegroundRequest ? .front : .back
+        ) else { return }
         retainDiskProtection(owner: .pendingDescriptors, descriptor: descriptor)
     }
 
@@ -2429,35 +2426,30 @@ final class DownloadableMediaCache {
     private func popNextStartablePendingDescriptor(
         fileAvailability: WindowFileAvailability?
     ) -> CollectionCatalogDownloadableMediaDescriptor? {
-        var index = 0
-        while index < pendingDescriptors.count {
-            let descriptor = pendingDescriptors[index]
-            let key = cacheKey(for: descriptor)
+        for entry in pendingDownloads.entries {
+            let descriptor = entry.descriptor
+            let key = entry.key
             let hasActiveFileInterest = hasDemandCallbacksOrRetainedFile(forKey: key)
             let isAllowed = isDescriptorInActiveWindow(descriptor) || hasActiveFileInterest
             if !isAllowed {
-                pendingDescriptors.remove(at: index)
-                pendingKeys.remove(key)
+                pendingDownloads.remove(forKey: key)
                 releaseDiskProtection(owner: .pendingDescriptors, descriptor: descriptor)
                 continue
             }
 
             if !foregroundWorkKeys.isEmpty && !isForegroundKey(key) && !hasActiveFileInterest {
-                index += 1
                 continue
             }
 
             let hasFile = fileAvailability?.hasFile(forKey: key)
                 ?? (knownAvailableFileURLs[key] != nil)
             if hasFile {
-                pendingDescriptors.remove(at: index)
-                pendingKeys.remove(key)
+                pendingDownloads.remove(forKey: key)
                 releaseDiskProtection(owner: .pendingDescriptors, descriptor: descriptor)
                 continue
             }
 
-            pendingDescriptors.remove(at: index)
-            pendingKeys.remove(key)
+            pendingDownloads.remove(forKey: key)
             return descriptor
         }
         return nil
@@ -3510,41 +3502,14 @@ final class DownloadableMediaCache {
     }
 
     private func reorderPendingDownloads(preferredDescriptors: [CollectionCatalogDownloadableMediaDescriptor]) {
-        guard !pendingDescriptors.isEmpty else { return }
-
-        var pendingDescriptorsByKey = [String: CollectionCatalogDownloadableMediaDescriptor]()
-        for descriptor in pendingDescriptors {
-            pendingDescriptorsByKey[cacheKey(for: descriptor)] = descriptor
-        }
-
-        var reorderedDescriptors = [CollectionCatalogDownloadableMediaDescriptor]()
-        var usedKeys = Set<String>()
-
-        func appendPendingDescriptor(forKey key: String) {
-            guard usedKeys.insert(key).inserted,
-                  let descriptor = pendingDescriptorsByKey[key] else {
-                return
-            }
-            reorderedDescriptors.append(descriptor)
-        }
-
-        for descriptor in pendingDescriptors {
-            let key = cacheKey(for: descriptor)
-            if hasDemandCallbacksOrRetainedFile(forKey: key) {
-                appendPendingDescriptor(forKey: key)
-            }
-        }
-
-        for descriptor in preferredDescriptors {
-            appendPendingDescriptor(forKey: cacheKey(for: descriptor))
-        }
-
-        for descriptor in pendingDescriptors {
-            appendPendingDescriptor(forKey: cacheKey(for: descriptor))
-        }
-
-        pendingDescriptors = reorderedDescriptors
-        pendingKeys = Set(reorderedDescriptors.map { cacheKey(for: $0) })
+        guard !pendingDownloads.entries.isEmpty else { return }
+        let priorityKeys = Set(pendingDownloads.entries.compactMap { entry in
+            hasDemandCallbacksOrRetainedFile(forKey: entry.key) ? entry.key : nil
+        })
+        pendingDownloads.reorder(
+            priorityKeys: priorityKeys,
+            preferredKeys: preferredDescriptors.map { cacheKey(for: $0) }
+        )
     }
 
     private func complete(
@@ -3610,48 +3575,32 @@ final class DownloadableMediaCache {
     }
 
     private func cancelDownloadsOutsideWindow(collectionId: String, allowedKeys: Set<String>) {
-        pendingDescriptors.removeAll { descriptor in
-            let key = cacheKey(for: descriptor)
-            let shouldRemove = descriptor.collectionId == collectionId
+        cancelUnneededDownloads { key, descriptor in
+            descriptor.collectionId == collectionId
                 && !allowedKeys.contains(key)
-                && !hasDemandCallbacksOrRetainedFile(forKey: key)
-            if shouldRemove {
-                pendingKeys.remove(key)
-                complete(completions.removeValue(forKey: key) ?? [:], with: nil)
-                completeFile(fileCompletions.removeValue(forKey: key) ?? [:], with: nil)
-            }
-            return shouldRemove
         }
-
-        let keysToCancel = ongoingDownloads.compactMap { key, download in
-            download.descriptor.collectionId == collectionId
-                && !allowedKeys.contains(key)
-                && !hasDemandCallbacksOrRetainedFile(forKey: key)
-                ? key
-                : nil
-        }
-
-        for key in keysToCancel {
-            cancelDownload(forKey: key)
-        }
-        updateDiskProtectionContributions()
     }
 
     private func cancelDownloadsOutsideActiveCollection(collectionId: String) {
-        pendingDescriptors.removeAll { descriptor in
-            let key = cacheKey(for: descriptor)
-            let shouldRemove = descriptor.collectionId != collectionId
-                && !hasDemandCallbacksOrRetainedFile(forKey: key)
-            if shouldRemove {
-                pendingKeys.remove(key)
-                complete(completions.removeValue(forKey: key) ?? [:], with: nil)
-                completeFile(fileCompletions.removeValue(forKey: key) ?? [:], with: nil)
-            }
-            return shouldRemove
+        cancelUnneededDownloads { _, descriptor in
+            descriptor.collectionId != collectionId
+        }
+    }
+
+    private func cancelUnneededDownloads(
+        where matchesScope: (String, CollectionCatalogDownloadableMediaDescriptor) -> Bool
+    ) {
+        let removedEntries = pendingDownloads.removeAll { entry in
+            matchesScope(entry.key, entry.descriptor)
+                && !hasDemandCallbacksOrRetainedFile(forKey: entry.key)
+        }
+        for entry in removedEntries {
+            complete(completions.removeValue(forKey: entry.key) ?? [:], with: nil)
+            completeFile(fileCompletions.removeValue(forKey: entry.key) ?? [:], with: nil)
         }
 
         let keysToCancel = ongoingDownloads.compactMap { key, download in
-            download.descriptor.collectionId != collectionId
+            matchesScope(key, download.descriptor)
                 && !hasDemandCallbacksOrRetainedFile(forKey: key)
                 ? key
                 : nil
@@ -3713,8 +3662,7 @@ final class DownloadableMediaCache {
         markForegroundWorkFinished(forKey: key)
 
         if !isDescriptorInActiveWindow(descriptor) {
-            pendingDescriptors.removeAll { cacheKey(for: $0) == key }
-            pendingKeys.remove(key)
+            pendingDownloads.remove(forKey: key)
             updateDiskProtectionContributions()
             cancelDownload(forKey: key)
         } else if !foregroundWorkKeys.isEmpty {
@@ -3768,14 +3716,7 @@ final class DownloadableMediaCache {
     }
 
     private func cancelPendingAndOngoingDownloads(where shouldCancelKey: (String) -> Bool) {
-        pendingDescriptors.removeAll { descriptor in
-            let key = cacheKey(for: descriptor)
-            let shouldCancel = shouldCancelKey(key)
-            if shouldCancel {
-                pendingKeys.remove(key)
-            }
-            return shouldCancel
-        }
+        pendingDownloads.removeAll { shouldCancelKey($0.key) }
 
         let keysToCancel = ongoingDownloads.keys.filter(shouldCancelKey)
         keysToCancel.forEach(cancelDownload)
