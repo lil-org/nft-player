@@ -278,6 +278,286 @@ extension MobileCollectionBrowserGridModePresentationTests {
         XCTAssertEqual(secondCachedCount, 1)
     }
 
+    func testBrowseImageSourcesCacheMemoizesAvailableAndUnavailableSources() {
+        let resolutionCounts = OSAllocatedUnfairLock(
+            initialState: [Int: Int]()
+        )
+        var cache = MobileCollectionBrowseImageSourcesCache(
+            maximumCachedImageSourceCount: 4
+        ) { snapshot, tokenIndex in
+            resolutionCounts.withLock { $0[tokenIndex, default: 0] += 1 }
+            guard tokenIndex != 2 else { return nil }
+            let descriptor = CollectionCatalogDownloadableMediaDescriptor(
+                collectionId: snapshot.collectionId,
+                tokenId: String(tokenIndex),
+                tokenIndex: tokenIndex,
+                media: .staticImage(
+                    url: URL(
+                        fileURLWithPath: "/cache/\(tokenIndex).webp"
+                    ),
+                    fileExtension: "webp"
+                ),
+                purpose: .collectionBrowserThumbnail
+            )
+            return CollectionBrowseImageSources(
+                thumbnailDescriptor: descriptor,
+                largeDescriptor: descriptor
+            )
+        }
+        let snapshot = PlayerCollectionBrowseSnapshot(
+            collectionId: "cache",
+            itemCount: 4,
+            initialTokenIndex: 0
+        )
+
+        XCTAssertNotNil(cache.imageSources(snapshot: snapshot, tokenIndex: 0))
+        XCTAssertNotNil(cache.imageSources(snapshot: snapshot, tokenIndex: 0))
+        XCTAssertNil(cache.imageSources(snapshot: snapshot, tokenIndex: 2))
+        XCTAssertNil(cache.imageSources(snapshot: snapshot, tokenIndex: 2))
+        XCTAssertNil(cache.imageSources(snapshot: snapshot, tokenIndex: -1))
+        XCTAssertNil(cache.imageSources(snapshot: snapshot, tokenIndex: 4))
+
+        XCTAssertEqual(resolutionCounts.withLock { $0[0] }, 1)
+        XCTAssertEqual(resolutionCounts.withLock { $0[2] }, 1)
+        XCTAssertNil(resolutionCounts.withLock { $0[-1] })
+        XCTAssertNil(resolutionCounts.withLock { $0[4] })
+        XCTAssertEqual(cache.cachedImageSourceCount, 2)
+
+        cache.updateSnapshot(nil)
+
+        XCTAssertEqual(cache.cachedImageSourceCount, 0)
+        XCTAssertNil(cache.imageSources(snapshot: nil, tokenIndex: 0))
+        XCTAssertEqual(resolutionCounts.withLock { $0[0] }, 1)
+        XCTAssertNotNil(cache.imageSources(snapshot: snapshot, tokenIndex: 0))
+        XCTAssertEqual(resolutionCounts.withLock { $0[0] }, 2)
+    }
+
+    func testBrowseImageSourcesCacheUsesLRUAndSnapshotIdentity() {
+        let resolutionCounts = OSAllocatedUnfairLock(
+            initialState: [String: Int]()
+        )
+        var cache = MobileCollectionBrowseImageSourcesCache(
+            maximumCachedImageSourceCount: 2
+        ) { snapshot, tokenIndex in
+            let key = "\(snapshot.collectionId):\(tokenIndex)"
+            resolutionCounts.withLock { $0[key, default: 0] += 1 }
+            let descriptor = CollectionCatalogDownloadableMediaDescriptor(
+                collectionId: snapshot.collectionId,
+                tokenId: String(tokenIndex),
+                tokenIndex: tokenIndex,
+                media: .staticImage(
+                    url: URL(fileURLWithPath: "/cache/\(key).webp"),
+                    fileExtension: "webp"
+                ),
+                purpose: .collectionBrowserThumbnail
+            )
+            return CollectionBrowseImageSources(
+                thumbnailDescriptor: descriptor,
+                largeDescriptor: descriptor
+            )
+        }
+        let snapshot = PlayerCollectionBrowseSnapshot(
+            collectionId: "identity-a",
+            itemCount: 4,
+            initialTokenIndex: 0
+        )
+
+        _ = cache.imageSources(snapshot: snapshot, tokenIndex: 0)
+        _ = cache.imageSources(snapshot: snapshot, tokenIndex: 1)
+        _ = cache.imageSources(snapshot: snapshot, tokenIndex: 0)
+        _ = cache.imageSources(snapshot: snapshot, tokenIndex: 2)
+        _ = cache.imageSources(snapshot: snapshot, tokenIndex: 0)
+        _ = cache.imageSources(snapshot: snapshot, tokenIndex: 1)
+
+        XCTAssertEqual(resolutionCounts.withLock { $0["identity-a:0"] }, 1)
+        XCTAssertEqual(resolutionCounts.withLock { $0["identity-a:1"] }, 2)
+        XCTAssertEqual(resolutionCounts.withLock { $0["identity-a:2"] }, 1)
+        XCTAssertEqual(cache.cachedImageSourceCount, 2)
+
+        let positionOnlyUpdate = PlayerCollectionBrowseSnapshot(
+            collectionId: "identity-a",
+            itemCount: 4,
+            initialTokenIndex: 2
+        )
+        _ = cache.imageSources(snapshot: positionOnlyUpdate, tokenIndex: 0)
+        XCTAssertEqual(resolutionCounts.withLock { $0["identity-a:0"] }, 1)
+
+        let invalidPositionUpdate = PlayerCollectionBrowseSnapshot(
+            collectionId: "identity-a",
+            itemCount: 4,
+            initialTokenIndex: 4
+        )
+        XCTAssertNil(
+            cache.imageSources(
+                snapshot: invalidPositionUpdate,
+                tokenIndex: 0
+            )
+        )
+        XCTAssertEqual(resolutionCounts.withLock { $0["identity-a:0"] }, 1)
+
+        let itemCountUpdate = PlayerCollectionBrowseSnapshot(
+            collectionId: "identity-a",
+            itemCount: 5,
+            initialTokenIndex: 2
+        )
+        _ = cache.imageSources(snapshot: itemCountUpdate, tokenIndex: 0)
+        XCTAssertEqual(resolutionCounts.withLock { $0["identity-a:0"] }, 2)
+        XCTAssertEqual(cache.cachedImageSourceCount, 1)
+
+        let collectionUpdate = PlayerCollectionBrowseSnapshot(
+            collectionId: "identity-b",
+            itemCount: 5,
+            initialTokenIndex: 2
+        )
+        _ = cache.imageSources(snapshot: collectionUpdate, tokenIndex: 0)
+        XCTAssertEqual(resolutionCounts.withLock { $0["identity-b:0"] }, 1)
+        XCTAssertEqual(cache.cachedImageSourceCount, 1)
+    }
+
+#if DEBUG
+    func testControllerImageSourcesCacheTracksSnapshotLifecycle()
+        async throws {
+        let metadata = try collectionMetadata(minimumTokenCount: 100)
+        let resolutionCounts = OSAllocatedUnfairLock(
+            initialState: [String: Int]()
+        )
+        let session = MobilePlaybackController.shared.startSession(
+            config: MobilePlayerConfig(
+                id: UUID(),
+                initialItemId: metadata.id,
+                initialTokenIndex: 0
+            )
+        )
+        let display = PlaybackDisplay()
+        session.attach(display: display)
+        defer { session.stopAndDisconnect() }
+        let controller = VerticalCollectionBrowserViewController(
+            playbackSession: session,
+            imageSourcesResolver: { snapshot, tokenIndex in
+                let key = "\(snapshot.collectionId):\(tokenIndex)"
+                resolutionCounts.withLock { $0[key, default: 0] += 1 }
+                let descriptor =
+                    CollectionCatalogDownloadableMediaDescriptor(
+                        collectionId: snapshot.collectionId,
+                        tokenId: String(tokenIndex),
+                        tokenIndex: tokenIndex,
+                        media: .staticImage(
+                            url: URL(
+                                fileURLWithPath:
+                                    "/controller-cache/\(key).webp"
+                            ),
+                            fileExtension: "webp"
+                        ),
+                        purpose: .collectionBrowserThumbnail
+                    )
+                return CollectionBrowseImageSources(
+                    thumbnailDescriptor: descriptor,
+                    largeDescriptor: descriptor
+                )
+            }
+        )
+        let foregroundScene = try XCTUnwrap(
+            UIApplication.shared.connectedScenes
+                .compactMap { $0 as? UIWindowScene }
+                .first { $0.activationState == .foregroundActive }
+        )
+        let window = UIWindow(windowScene: foregroundScene)
+        window.frame = CGRect(x: 0, y: 0, width: 390, height: 844)
+        window.rootViewController = controller
+        window.isHidden = false
+        window.layoutIfNeeded()
+        controller.viewDidAppear(false)
+        controller.setActive(true)
+        controller.view.layoutIfNeeded()
+        defer {
+            controller.cancelPendingDisplayPreparation()
+            controller.setActive(false)
+            window.isHidden = true
+            window.rootViewController = nil
+        }
+
+        let originalSnapshot = try XCTUnwrap(
+            session.collectionBrowseSnapshot()
+        )
+        let tokenIndex = originalSnapshot.itemCount - 1
+        let originalKey = "\(originalSnapshot.collectionId):\(tokenIndex)"
+        let originalBaseline = resolutionCounts.withLock {
+            $0[originalKey, default: 0]
+        }
+
+        XCTAssertNotNil(controller.browseImageSourcesForTesting(
+            tokenIndex: tokenIndex
+        ))
+        XCTAssertNotNil(controller.browseImageSourcesForTesting(
+            tokenIndex: tokenIndex
+        ))
+        XCTAssertEqual(
+            resolutionCounts.withLock { $0[originalKey, default: 0] },
+            originalBaseline + 1
+        )
+
+        let positionOnlySnapshot = PlayerCollectionBrowseSnapshot(
+            collectionId: originalSnapshot.collectionId,
+            itemCount: originalSnapshot.itemCount,
+            initialTokenIndex: 1
+        )
+        let positionOnlyPreparation = PlayerCollectionBrowsePreparation(
+            sourcePagePosition: .initial,
+            snapshot: positionOnlySnapshot,
+            focusedTokenIndex: 1,
+            requiresWidgetInsertionExit: false
+        )
+        let positionOnlyResult = await prepare(
+            controller,
+            using: positionOnlyPreparation
+        )
+        XCTAssertEqual(positionOnlyResult, .prepared)
+        XCTAssertNotNil(controller.browseImageSourcesForTesting(
+            tokenIndex: tokenIndex
+        ))
+        XCTAssertEqual(
+            resolutionCounts.withLock { $0[originalKey, default: 0] },
+            originalBaseline + 1
+        )
+
+        controller.setActive(false)
+        let replacementSnapshot = PlayerCollectionBrowseSnapshot(
+            collectionId: "controller-cache-replacement",
+            itemCount: originalSnapshot.itemCount,
+            initialTokenIndex: 0
+        )
+        let replacementPreparation = PlayerCollectionBrowsePreparation(
+            sourcePagePosition: .initial,
+            snapshot: replacementSnapshot,
+            focusedTokenIndex: 0,
+            requiresWidgetInsertionExit: false
+        )
+        let replacementResult = await prepare(
+            controller,
+            using: replacementPreparation
+        )
+        XCTAssertEqual(replacementResult, .prepared)
+        XCTAssertNotNil(controller.browseImageSourcesForTesting(
+            tokenIndex: tokenIndex
+        ))
+        controller.cancelPendingDisplayPreparation()
+        XCTAssertNotNil(controller.browseImageSourcesForTesting(
+            tokenIndex: tokenIndex
+        ))
+        XCTAssertEqual(
+            resolutionCounts.withLock { $0[originalKey, default: 0] },
+            originalBaseline + 2
+        )
+
+        session.stopAndDisconnect()
+        controller.setActive(true)
+        XCTAssertNil(controller.browseImageSourcesForTesting(
+            tokenIndex: tokenIndex
+        ))
+        XCTAssertEqual(controller.cachedImageSourceCountForTesting, 0)
+    }
+#endif
+
     func testDenseGridImageRefreshQueuePreservesFairRequeueOrder() {
         var queue = DenseGridImageRefreshQueue()
         for tokenIndex in 0..<10 {

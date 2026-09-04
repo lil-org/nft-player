@@ -258,8 +258,7 @@ nonisolated protocol MobileCollectionBrowseThumbnailWindowPlanning: Sendable {
     ) async -> PlayerDownloadableMediaWindow?
 }
 
-actor MobileCollectionBrowseThumbnailWindowPlanner:
-    MobileCollectionBrowseThumbnailWindowPlanning {
+nonisolated struct MobileCollectionBrowseImageSourcesCache: Sendable {
     private struct CacheIdentity: Equatable, Sendable {
         let collectionId: String
         let itemCount: Int
@@ -316,6 +315,136 @@ actor MobileCollectionBrowseThumbnailWindowPlanner:
         self.imageSourcesResolver = imageSourcesResolver
     }
 
+    mutating func updateSnapshot(
+        _ snapshot: PlayerCollectionBrowseSnapshot?
+    ) {
+        let identity = snapshot.map {
+            CacheIdentity(
+                collectionId: $0.collectionId,
+                itemCount: $0.itemCount
+            )
+        }
+        guard cacheIdentity != identity else { return }
+        cacheIdentity = identity
+        cachedImageSourcesByTokenIndex.removeAll(keepingCapacity: true)
+        leastRecentTokenIndex = nil
+        mostRecentTokenIndex = nil
+    }
+
+    mutating func imageSources(
+        snapshot: PlayerCollectionBrowseSnapshot?,
+        tokenIndex: Int
+    ) -> CollectionBrowseImageSources? {
+        updateSnapshot(snapshot)
+        guard let snapshot,
+              snapshot.pagePosition(forTokenIndex: tokenIndex) != nil else {
+            return nil
+        }
+        if let cached = cachedImageSourcesByTokenIndex[tokenIndex] {
+            markImageSourcesAsMostRecent(tokenIndex: tokenIndex)
+            return cached.imageSources.value
+        }
+        let resolved = imageSourcesResolver(snapshot, tokenIndex)
+        let cachedImageSources: CachedImageSources = resolved.map {
+            .available($0)
+        } ?? .unavailable
+        insertImageSources(
+            cachedImageSources,
+            tokenIndex: tokenIndex
+        )
+        return resolved
+    }
+
+    var cachedImageSourceCount: Int {
+        cachedImageSourcesByTokenIndex.count
+    }
+
+    private mutating func insertImageSources(
+        _ imageSources: CachedImageSources,
+        tokenIndex: Int
+    ) {
+        if cachedImageSourcesByTokenIndex.count
+            >= maximumCachedImageSourceCount {
+            evictLeastRecentImageSources()
+        }
+        cachedImageSourcesByTokenIndex[tokenIndex] = CachedImageSourcesEntry(
+            imageSources: imageSources,
+            lessRecentTokenIndex: mostRecentTokenIndex,
+            moreRecentTokenIndex: nil
+        )
+        if let mostRecentTokenIndex {
+            cachedImageSourcesByTokenIndex[mostRecentTokenIndex]?
+                .moreRecentTokenIndex = tokenIndex
+        } else {
+            leastRecentTokenIndex = tokenIndex
+        }
+        mostRecentTokenIndex = tokenIndex
+    }
+
+    private mutating func markImageSourcesAsMostRecent(tokenIndex: Int) {
+        guard tokenIndex != mostRecentTokenIndex,
+              var entry = cachedImageSourcesByTokenIndex[tokenIndex] else {
+            return
+        }
+        if let lessRecentTokenIndex = entry.lessRecentTokenIndex {
+            cachedImageSourcesByTokenIndex[lessRecentTokenIndex]?
+                .moreRecentTokenIndex = entry.moreRecentTokenIndex
+        } else {
+            leastRecentTokenIndex = entry.moreRecentTokenIndex
+        }
+        if let moreRecentTokenIndex = entry.moreRecentTokenIndex {
+            cachedImageSourcesByTokenIndex[moreRecentTokenIndex]?
+                .lessRecentTokenIndex = entry.lessRecentTokenIndex
+        }
+        entry.lessRecentTokenIndex = mostRecentTokenIndex
+        entry.moreRecentTokenIndex = nil
+        if let mostRecentTokenIndex {
+            cachedImageSourcesByTokenIndex[mostRecentTokenIndex]?
+                .moreRecentTokenIndex = tokenIndex
+        }
+        cachedImageSourcesByTokenIndex[tokenIndex] = entry
+        mostRecentTokenIndex = tokenIndex
+    }
+
+    private mutating func evictLeastRecentImageSources() {
+        guard let tokenIndex = leastRecentTokenIndex,
+              let entry = cachedImageSourcesByTokenIndex.removeValue(
+                forKey: tokenIndex
+              ) else {
+            return
+        }
+        leastRecentTokenIndex = entry.moreRecentTokenIndex
+        if let leastRecentTokenIndex {
+            cachedImageSourcesByTokenIndex[leastRecentTokenIndex]?
+                .lessRecentTokenIndex = nil
+        } else {
+            mostRecentTokenIndex = nil
+        }
+    }
+}
+
+actor MobileCollectionBrowseThumbnailWindowPlanner:
+    MobileCollectionBrowseThumbnailWindowPlanning {
+    private var imageSourcesCache: MobileCollectionBrowseImageSourcesCache
+
+    init(
+        maximumCachedImageSourceCount: Int = 512,
+        imageSourcesResolver: @escaping @Sendable (
+            PlayerCollectionBrowseSnapshot,
+            Int
+        ) -> CollectionBrowseImageSources? = {
+            MobileCollectionBrowseMediaResolver.collectionBrowseImageSources(
+                snapshot: $0,
+                tokenIndex: $1
+            )
+        }
+    ) {
+        imageSourcesCache = MobileCollectionBrowseImageSourcesCache(
+            maximumCachedImageSourceCount: maximumCachedImageSourceCount,
+            imageSourcesResolver: imageSourcesResolver
+        )
+    }
+
     func makeWindow(
         for request: MobileCollectionBrowseThumbnailWindowPlanRequest
     ) async -> PlayerDownloadableMediaWindow? {
@@ -325,7 +454,6 @@ actor MobileCollectionBrowseThumbnailWindowPlanner:
               ) != nil else {
             return nil
         }
-        updateCacheIdentity(for: request.snapshot)
         let centerImageSources = imageSources(
             snapshot: request.snapshot,
             tokenIndex: request.tokenIndex
@@ -387,101 +515,15 @@ actor MobileCollectionBrowseThumbnailWindowPlanner:
         return Task.isCancelled ? nil : window
     }
 
-    private func updateCacheIdentity(
-        for snapshot: PlayerCollectionBrowseSnapshot
-    ) {
-        let identity = CacheIdentity(
-            collectionId: snapshot.collectionId,
-            itemCount: snapshot.itemCount
-        )
-        guard cacheIdentity != identity else { return }
-        cacheIdentity = identity
-        cachedImageSourcesByTokenIndex.removeAll(keepingCapacity: true)
-        leastRecentTokenIndex = nil
-        mostRecentTokenIndex = nil
-    }
-
     private func imageSources(
         snapshot: PlayerCollectionBrowseSnapshot,
         tokenIndex: Int
     ) -> CollectionBrowseImageSources? {
-        if let cached = cachedImageSourcesByTokenIndex[tokenIndex] {
-            markImageSourcesAsMostRecent(tokenIndex: tokenIndex)
-            return cached.imageSources.value
-        }
         guard !Task.isCancelled else { return nil }
-        let resolved = imageSourcesResolver(snapshot, tokenIndex)
-        let cachedImageSources: CachedImageSources = resolved.map {
-            .available($0)
-        } ?? .unavailable
-        insertImageSources(
-            cachedImageSources,
+        return imageSourcesCache.imageSources(
+            snapshot: snapshot,
             tokenIndex: tokenIndex
         )
-        return resolved
-    }
-
-    private func insertImageSources(
-        _ imageSources: CachedImageSources,
-        tokenIndex: Int
-    ) {
-        if cachedImageSourcesByTokenIndex.count
-            >= maximumCachedImageSourceCount {
-            evictLeastRecentImageSources()
-        }
-        cachedImageSourcesByTokenIndex[tokenIndex] = CachedImageSourcesEntry(
-            imageSources: imageSources,
-            lessRecentTokenIndex: mostRecentTokenIndex,
-            moreRecentTokenIndex: nil
-        )
-        if let mostRecentTokenIndex {
-            cachedImageSourcesByTokenIndex[mostRecentTokenIndex]?
-                .moreRecentTokenIndex = tokenIndex
-        } else {
-            leastRecentTokenIndex = tokenIndex
-        }
-        mostRecentTokenIndex = tokenIndex
-    }
-
-    private func markImageSourcesAsMostRecent(tokenIndex: Int) {
-        guard tokenIndex != mostRecentTokenIndex,
-              var entry = cachedImageSourcesByTokenIndex[tokenIndex] else {
-            return
-        }
-        if let lessRecentTokenIndex = entry.lessRecentTokenIndex {
-            cachedImageSourcesByTokenIndex[lessRecentTokenIndex]?
-                .moreRecentTokenIndex = entry.moreRecentTokenIndex
-        } else {
-            leastRecentTokenIndex = entry.moreRecentTokenIndex
-        }
-        if let moreRecentTokenIndex = entry.moreRecentTokenIndex {
-            cachedImageSourcesByTokenIndex[moreRecentTokenIndex]?
-                .lessRecentTokenIndex = entry.lessRecentTokenIndex
-        }
-        entry.lessRecentTokenIndex = mostRecentTokenIndex
-        entry.moreRecentTokenIndex = nil
-        if let mostRecentTokenIndex {
-            cachedImageSourcesByTokenIndex[mostRecentTokenIndex]?
-                .moreRecentTokenIndex = tokenIndex
-        }
-        cachedImageSourcesByTokenIndex[tokenIndex] = entry
-        mostRecentTokenIndex = tokenIndex
-    }
-
-    private func evictLeastRecentImageSources() {
-        guard let tokenIndex = leastRecentTokenIndex,
-              let entry = cachedImageSourcesByTokenIndex.removeValue(
-                forKey: tokenIndex
-              ) else {
-            return
-        }
-        leastRecentTokenIndex = entry.moreRecentTokenIndex
-        if let leastRecentTokenIndex {
-            cachedImageSourcesByTokenIndex[leastRecentTokenIndex]?
-                .lessRecentTokenIndex = nil
-        } else {
-            mostRecentTokenIndex = nil
-        }
     }
 
 #if DEBUG
@@ -489,12 +531,11 @@ actor MobileCollectionBrowseThumbnailWindowPlanner:
         snapshot: PlayerCollectionBrowseSnapshot,
         tokenIndex: Int
     ) -> CollectionBrowseImageSources? {
-        updateCacheIdentity(for: snapshot)
         return imageSources(snapshot: snapshot, tokenIndex: tokenIndex)
     }
 
     var cachedImageSourceCountForTesting: Int {
-        cachedImageSourcesByTokenIndex.count
+        imageSourcesCache.cachedImageSourceCount
     }
 #endif
 }

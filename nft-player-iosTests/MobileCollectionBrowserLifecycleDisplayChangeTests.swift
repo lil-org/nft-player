@@ -8,6 +8,175 @@ import XCTest
 @MainActor
 extension MobileCollectionBrowserGridModePresentationTests {
 
+    func testCollectionBrowserLayoutReusesAttributesInDenseGridModes() throws {
+        for columnCount in [5, 9] {
+            let browserLayout = try XCTUnwrap(MobilePlayerBrowserLayout(
+                viewportSize: CGSize(width: 390, height: 844),
+                aspectProfile: MobilePlayerBrowserAspectProfile(
+                    itemCount: 18,
+                    uniformImageSize: CGSize(width: 1, height: 1),
+                    columnCount: columnCount
+                )
+            ))
+            let collectionViewLayout = MobilePlayerCollectionBrowserLayout()
+            collectionViewLayout.browserLayout = browserLayout
+            let indexPath = IndexPath(item: columnCount + 1, section: 0)
+
+            let firstAttributes = try XCTUnwrap(
+                collectionViewLayout.layoutAttributesForItem(at: indexPath)
+            )
+            let repeatedAttributes = try XCTUnwrap(
+                collectionViewLayout.layoutAttributesForItem(at: indexPath)
+            )
+            let elementAttributes = try XCTUnwrap(
+                collectionViewLayout.layoutAttributesForElements(
+                    in: firstAttributes.frame
+                )?.first { $0.indexPath == indexPath }
+            )
+
+            XCTAssertTrue(firstAttributes === repeatedAttributes)
+            XCTAssertTrue(firstAttributes === elementAttributes)
+        }
+    }
+
+    func testCollectionBrowserLayoutCachesExtremeItemCountSparsely() throws {
+        let browserLayout = try XCTUnwrap(MobilePlayerBrowserLayout(
+            viewportSize: CGSize(width: 390, height: 844),
+            aspectProfile: MobilePlayerBrowserAspectProfile(
+                itemCount: Int.max,
+                uniformImageSize: CGSize(width: 1, height: 1),
+                columnCount: 9
+            )
+        ))
+        let collectionViewLayout = MobilePlayerCollectionBrowserLayout()
+        collectionViewLayout.browserLayout = browserLayout
+        let indexPath = IndexPath(item: 0, section: 0)
+
+        let firstAttributes = try XCTUnwrap(
+            collectionViewLayout.layoutAttributesForItem(at: indexPath)
+        )
+        let repeatedAttributes = try XCTUnwrap(
+            collectionViewLayout.layoutAttributesForItem(at: indexPath)
+        )
+
+        XCTAssertTrue(firstAttributes === repeatedAttributes)
+    }
+
+    func testCollectionBrowserLayoutReusesLargeCandidateRange() throws {
+        let browserLayout = try XCTUnwrap(MobilePlayerBrowserLayout(
+            viewportSize: CGSize(width: 390, height: 844),
+            aspectProfile: MobilePlayerBrowserAspectProfile(
+                itemCount: 20_000,
+                uniformImageSize: CGSize(width: 100, height: 1),
+                columnCount: 9
+            )
+        ))
+        let collectionViewLayout = MobilePlayerCollectionBrowserLayout()
+        collectionViewLayout.browserLayout = browserLayout
+        let viewport = CGRect(x: 0, y: 0, width: 390, height: 844)
+        let firstAttributes = try XCTUnwrap(
+            collectionViewLayout.layoutAttributesForElements(in: viewport)
+        )
+        XCTAssertGreaterThan(firstAttributes.count, 512)
+
+        _ = collectionViewLayout.layoutAttributesForItem(
+            at: IndexPath(item: browserLayout.itemCount - 1, section: 0)
+        )
+        let repeatedAttributes = try XCTUnwrap(
+            collectionViewLayout.layoutAttributesForElements(in: viewport)
+        )
+        XCTAssertEqual(firstAttributes.count, repeatedAttributes.count)
+        for (first, repeated) in zip(firstAttributes, repeatedAttributes) {
+            XCTAssertTrue(first === repeated)
+        }
+    }
+
+    func testCollectionBrowserLayoutPreservesCacheForEqualLayout() throws {
+        let aspectProfile = MobilePlayerBrowserAspectProfile(
+            itemCount: 18,
+            uniformImageSize: CGSize(width: 1, height: 1),
+            columnCount: 5
+        )
+        let browserLayout = try XCTUnwrap(MobilePlayerBrowserLayout(
+            viewportSize: CGSize(width: 390, height: 844),
+            aspectProfile: aspectProfile
+        ))
+        let equalBrowserLayout = try XCTUnwrap(MobilePlayerBrowserLayout(
+            viewportSize: CGSize(width: 390, height: 844),
+            aspectProfile: aspectProfile
+        ))
+        let collectionViewLayout = MobilePlayerCollectionBrowserLayout()
+        collectionViewLayout.browserLayout = browserLayout
+        let indexPath = IndexPath(item: 8, section: 0)
+        let cachedAttributes = try XCTUnwrap(
+            collectionViewLayout.layoutAttributesForItem(at: indexPath)
+        )
+
+        collectionViewLayout.browserLayout = equalBrowserLayout
+
+        let retainedAttributes = try XCTUnwrap(
+            collectionViewLayout.layoutAttributesForItem(at: indexPath)
+        )
+        XCTAssertTrue(cachedAttributes === retainedAttributes)
+    }
+
+    func testCollectionBrowserLayoutResetsCacheForChangedLayout() throws {
+        let fiveColumnLayout = try XCTUnwrap(MobilePlayerBrowserLayout(
+            viewportSize: CGSize(width: 390, height: 844),
+            aspectProfile: MobilePlayerBrowserAspectProfile(
+                itemCount: 18,
+                uniformImageSize: CGSize(width: 1, height: 1),
+                columnCount: 5
+            )
+        ))
+        let nineColumnLayout = try XCTUnwrap(MobilePlayerBrowserLayout(
+            viewportSize: CGSize(width: 390, height: 844),
+            aspectProfile: MobilePlayerBrowserAspectProfile(
+                itemCount: 18,
+                uniformImageSize: CGSize(width: 1, height: 1),
+                columnCount: 9
+            )
+        ))
+        let collectionViewLayout = MobilePlayerCollectionBrowserLayout()
+        collectionViewLayout.browserLayout = fiveColumnLayout
+        let indexPath = IndexPath(item: 8, section: 0)
+        let cachedAttributes = try XCTUnwrap(
+            collectionViewLayout.layoutAttributesForItem(at: indexPath)
+        )
+
+        collectionViewLayout.browserLayout = nineColumnLayout
+
+        let replacementAttributes = try XCTUnwrap(
+            collectionViewLayout.layoutAttributesForItem(at: indexPath)
+        )
+        XCTAssertFalse(cachedAttributes === replacementAttributes)
+        XCTAssertEqual(
+            replacementAttributes.frame,
+            try XCTUnwrap(nineColumnLayout.itemFrame(at: indexPath.item))
+        )
+        XCTAssertNotEqual(replacementAttributes.frame, cachedAttributes.frame)
+
+        let expandedLayout = try XCTUnwrap(MobilePlayerBrowserLayout(
+            viewportSize: CGSize(width: 390, height: 844),
+            aspectProfile: MobilePlayerBrowserAspectProfile(
+                itemCount: 19,
+                uniformImageSize: CGSize(width: 1, height: 1),
+                columnCount: 9
+            )
+        ))
+        collectionViewLayout.browserLayout = expandedLayout
+        let expandedAttributes = try XCTUnwrap(
+            collectionViewLayout.layoutAttributesForItem(at: indexPath)
+        )
+        XCTAssertFalse(replacementAttributes === expandedAttributes)
+
+        collectionViewLayout.browserLayout = nil
+        XCTAssertNil(
+            collectionViewLayout.layoutAttributesForItem(at: indexPath)
+        )
+        XCTAssertEqual(collectionViewLayout.collectionViewContentSize, .zero)
+    }
+
     func testPreViewActivationLoadsGridCoordinator() throws {
         let metadata = try collectionMetadata()
         let uuid = UUID()

@@ -74,6 +74,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         MobilePlayerCollectionBrowserScrollCoordinator()
     private let gridModeCoordinator:
         MobilePlayerCollectionBrowserGridModeCoordinator
+    private var imageSourcesCache: MobileCollectionBrowseImageSourcesCache
     private lazy var collectionView: MobilePlayerCollectionBrowserCollectionView = {
         let collectionView = MobilePlayerCollectionBrowserCollectionView(
             frame: .zero,
@@ -141,7 +142,11 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         }
         return collectionView
     }()
-    private var browseSnapshot: PlayerCollectionBrowseSnapshot?
+    private var browseSnapshot: PlayerCollectionBrowseSnapshot? {
+        didSet {
+            imageSourcesCache.updateSnapshot(browseSnapshot)
+        }
+    }
     private var publicationState: PlayerCollectionScrollPublicationState? {
         get { scrollCoordinator.publicationState }
         set { scrollCoordinator.publicationState = newValue }
@@ -239,6 +244,15 @@ final class VerticalCollectionBrowserViewController: UIViewController,
 
     init(
         playbackSession: MobilePlaybackSession,
+        imageSourcesResolver: @escaping @Sendable (
+            PlayerCollectionBrowseSnapshot,
+            Int
+        ) -> CollectionBrowseImageSources? = {
+            MobileCollectionBrowseMediaResolver.collectionBrowseImageSources(
+                snapshot: $0,
+                tokenIndex: $1
+            )
+        },
         gridModeCommitSnapshotFactory: @escaping (UIView) -> UIView? = { view in
             view.resizableSnapshotView(
                 from: view.bounds,
@@ -250,6 +264,9 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             (any GridTransitionFrameDriving)? = nil
     ) {
         self.playbackSession = playbackSession
+        self.imageSourcesCache = MobileCollectionBrowseImageSourcesCache(
+            imageSourcesResolver: imageSourcesResolver
+        )
         self.gridModeCoordinator =
             MobilePlayerCollectionBrowserGridModeCoordinator(
                 commitSnapshotFactory: gridModeCommitSnapshotFactory,
@@ -1229,11 +1246,9 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         guard isActive,
               !gridModeCoordinator.hasInteractionState,
               canSelectBrowserCell(at: indexPath.item),
-              let snapshot = browseSnapshot,
-              let descriptor = MobileCollectionBrowseMediaResolver.collectionBrowseThumbnailDescriptor(
-                snapshot: snapshot,
-                tokenIndex: indexPath.item
-              ),
+              let descriptor = browseImageSources(
+                forTokenIndex: indexPath.item
+              )?.thumbnailDescriptor,
               !descriptor.collectionId.isEmpty,
               !descriptor.tokenId.isEmpty else {
             return nil
@@ -1576,10 +1591,10 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         )
         let sampleRange = firstIndex..<(firstIndex + sampleCount)
         let samples = sampleRange.compactMap { tokenIndex -> LayoutAspectSample? in
-            guard let descriptor = MobileCollectionBrowseMediaResolver.collectionBrowseThumbnailDescriptor(
+            guard let descriptor = imageSourcesCache.imageSources(
                 snapshot: snapshot,
                 tokenIndex: tokenIndex
-            ) else {
+            )?.thumbnailDescriptor else {
                 return nil
             }
             let size = PlayerCollectionBrowserSupport.fallbackImageSize(for: descriptor)
@@ -2438,12 +2453,10 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     private func browseImageSources(
         forTokenIndex tokenIndex: Int
     ) -> CollectionBrowseImageSources? {
-        browseSnapshot.flatMap {
-            MobileCollectionBrowseMediaResolver.collectionBrowseImageSources(
-                snapshot: $0,
-                tokenIndex: tokenIndex
-            )
-        }
+        imageSourcesCache.imageSources(
+            snapshot: browseSnapshot,
+            tokenIndex: tokenIndex
+        )
     }
 
     private func browserContentIdentity(
@@ -2571,6 +2584,16 @@ final class VerticalCollectionBrowserViewController: UIViewController,
 
     func flushPendingGridModePinchFrameForTesting() {
         gridModeCoordinator.flushPendingPinchFrameForTesting()
+    }
+
+    func browseImageSourcesForTesting(
+        tokenIndex: Int
+    ) -> CollectionBrowseImageSources? {
+        browseImageSources(forTokenIndex: tokenIndex)
+    }
+
+    var cachedImageSourceCountForTesting: Int {
+        imageSourcesCache.cachedImageSourceCount
     }
 
 #endif
