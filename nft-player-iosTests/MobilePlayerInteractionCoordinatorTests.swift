@@ -28,6 +28,27 @@ private final class PlayerInteractionDismissRecorder {
 }
 
 @MainActor
+private final class PlayerInteractionDisconnectFlushDisplay:
+    MobilePlaybackSessionDisplay {
+
+    private let onFlush: () -> Void
+
+    init(onFlush: @escaping () -> Void) {
+        self.onFlush = onFlush
+    }
+
+    func navigate(_ direction: PlaybackNavigationDirection) {}
+
+    func getCurrentPagePosition() -> PlayerPagePosition {
+        .initial
+    }
+
+    func flushPendingViewingProgress() {
+        onFlush()
+    }
+}
+
+@MainActor
 private final class PlayerInteractionTestFixture {
     let registry: MobilePlaybackSessionRegistry
     let playbackSession: MobilePlaybackSession
@@ -41,7 +62,14 @@ private final class PlayerInteractionTestFixture {
     let window: UIWindow
     var interactionController: PlayerInteractionController?
 
-    init(displayMode: MobilePlayerDisplayMode) {
+    init(
+        displayMode: MobilePlayerDisplayMode,
+        config: MobilePlayerConfig = MobilePlayerConfig(),
+        tokenProvider:
+            (@MainActor (PlayerPagePosition) -> GeneratedToken)? = nil,
+        externalDisplayTokenUpdater:
+            (@MainActor (GeneratedToken) -> Void)? = nil
+    ) {
         let registry = MobilePlaybackSessionRegistry(
             dependencies: .init(
                 makeViewingSessionTracker: { _ in
@@ -52,7 +80,7 @@ private final class PlayerInteractionTestFixture {
             )
         )
         let playbackSession = registry.startSession(
-            config: MobilePlayerConfig()
+            config: config
         )
         let chrome = MobilePlayerChromeController(
             playerBackgroundColor: .red,
@@ -72,7 +100,9 @@ private final class PlayerInteractionTestFixture {
         playerViewController.installNavigationTitle(chrome: chrome)
         let browserViewController = MobilePlayerBrowserPageViewController(
             playbackSession: playbackSession,
-            chrome: chrome
+            chrome: chrome,
+            tokenProvider: tokenProvider,
+            externalDisplayTokenUpdater: externalDisplayTokenUpdater
         )
         let modeController = MobilePlayerSessionModeController(
             playbackSession: playbackSession,
@@ -150,6 +180,145 @@ private final class PlayerInteractionTestFixture {
 
 @MainActor
 extension MobilePlayerInteractionCoordinatorTests {
+
+    func testBrowserFocusDefersTokenAndExternalDisplayUntilSettle() throws {
+        let item = try XCTUnwrap(
+            SuggestedItemsService.visibleItems.first {
+                let itemCount = CollectionCatalog.tokenCount(
+                    specificCollectionId: $0.id
+                )
+                return itemCount >= 4
+                    && itemCount <= 512
+                    && !$0.name.isEmpty
+                    && PlayerCollectionBrowserSupport.isAvailable(
+                        forCollectionId: $0.id
+                    )
+                    && CollectionCatalog.canGenerateToken(
+                        specificCollectionId: $0.id,
+                        tokenIndex: 0
+                    )
+            }
+        )
+        let itemCount = CollectionCatalog.tokenCount(
+            specificCollectionId: item.id
+        )
+        let token = GeneratedToken(
+            fullCollectionId: item.id,
+            collectionName: item.name,
+            address: item.address,
+            id: "1",
+            html: "",
+            displayName: item.name,
+            displayTokenId: "#1",
+            url: nil
+        )
+        var resolvedPagePositions = [PlayerPagePosition]()
+        var externalDisplayTokens = [GeneratedToken]()
+        let fixture = PlayerInteractionTestFixture(
+            displayMode: .collectionBrowser,
+            config: MobilePlayerConfig(
+                initialItemId: item.id,
+                initialTokenIndex: 2
+            ),
+            tokenProvider: {
+                resolvedPagePositions.append($0)
+                return token
+            },
+            externalDisplayTokenUpdater: {
+                externalDisplayTokens.append($0)
+            }
+        )
+        defer { fixture.tearDown() }
+        let contentViewController = try XCTUnwrap(
+            fixture.browserViewController.children.first
+                as? VerticalCollectionBrowserViewController
+        )
+        fixture.chrome.setPlayerNavigationTitle(
+            collectionTitle: token.collectionName,
+            pageLabel: ""
+        )
+        resolvedPagePositions.removeAll()
+        externalDisplayTokens.removeAll()
+
+        let backwardPosition = PlayerPagePosition(position: -1)
+        contentViewController.onFocusedPagePosition?(backwardPosition)
+
+        XCTAssertEqual(
+            fixture.chrome.playerNavigationTitleController.title,
+            MobilePlayerNavigationTitleState(
+                collectionTitle: token.collectionName,
+                pageLabel: Strings.pagePosition(
+                    current: 2,
+                    total: itemCount
+                )
+            )
+        )
+        let forwardPosition = PlayerPagePosition(position: 1)
+        contentViewController.onFocusedPagePosition?(forwardPosition)
+        XCTAssertEqual(
+            fixture.chrome.playerNavigationTitleController.title,
+            MobilePlayerNavigationTitleState(
+                collectionTitle: token.collectionName,
+                pageLabel: Strings.pagePosition(
+                    current: 4,
+                    total: itemCount
+                )
+            )
+        )
+        XCTAssertTrue(resolvedPagePositions.isEmpty)
+        XCTAssertTrue(externalDisplayTokens.isEmpty)
+
+        XCTAssertEqual(
+            contentViewController.onSettledPagePosition?(
+                forwardPosition,
+                false
+            ),
+            true
+        )
+        XCTAssertEqual(resolvedPagePositions, [forwardPosition])
+        XCTAssertEqual(externalDisplayTokens, [token])
+    }
+
+    func testDisconnectFlushDoesNotUpdateExternalDisplay() throws {
+        let token = GeneratedToken(
+            fullCollectionId: "collection",
+            collectionName: "Collection",
+            address: "",
+            id: "1",
+            html: "",
+            displayName: "Collection #1",
+            displayTokenId: "#1",
+            url: nil
+        )
+        var resolvedPagePositions = [PlayerPagePosition]()
+        var externalDisplayTokens = [GeneratedToken]()
+        let fixture = PlayerInteractionTestFixture(
+            displayMode: .collectionBrowser,
+            tokenProvider: {
+                resolvedPagePositions.append($0)
+                return token
+            },
+            externalDisplayTokenUpdater: {
+                externalDisplayTokens.append($0)
+            }
+        )
+        defer { fixture.tearDown() }
+        let contentViewController = try XCTUnwrap(
+            fixture.browserViewController.children.first
+                as? VerticalCollectionBrowserViewController
+        )
+        resolvedPagePositions.removeAll()
+        externalDisplayTokens.removeAll()
+        let display = PlayerInteractionDisconnectFlushDisplay {
+            _ = contentViewController.onSettledPagePosition?(.initial, false)
+        }
+        fixture.playbackSession.attach(display: display)
+
+        fixture.playbackSession.stopAndDisconnect()
+
+        XCTAssertEqual(resolvedPagePositions, [.initial])
+        XCTAssertTrue(externalDisplayTokens.isEmpty)
+    }
 
     private func gestureIdentifiers(in view: UIView) -> Set<ObjectIdentifier> {
         Set((view.gestureRecognizers ?? []).map(ObjectIdentifier.init))

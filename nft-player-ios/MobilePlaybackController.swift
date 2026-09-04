@@ -543,6 +543,10 @@ final class MobilePlaybackSession {
         config.id
     }
 
+    var isActive: Bool {
+        lifecycleState == .active
+    }
+
     private weak var display: MobilePlaybackSessionDisplay?
     private let viewingSessionTracker: any MobilePlaybackViewingSessionTracking
     fileprivate let mediaWindowOwnerID = UUID()

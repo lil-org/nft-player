@@ -138,6 +138,14 @@ final class MobilePlayerNavigationTitleController {
         }
         self.title = title
     }
+
+    func setPageLabel(_ pageLabel: String) {
+        guard title.pageLabel != pageLabel else { return }
+        title = MobilePlayerNavigationTitleState(
+            collectionTitle: title.collectionTitle,
+            pageLabel: pageLabel
+        )
+    }
 }
 
 @MainActor
@@ -266,6 +274,10 @@ final class MobilePlayerChromeController {
             collectionTitle: collectionTitle,
             pageLabel: pageLabel
         )
+    }
+
+    func setPlayerNavigationPageLabel(_ pageLabel: String) {
+        playerNavigationTitleController.setPageLabel(pageLabel)
     }
 
     func setPlayerContentZoomed(_ isZoomed: Bool) {

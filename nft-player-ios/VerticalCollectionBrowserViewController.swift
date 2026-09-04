@@ -736,6 +736,26 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         return browseSnapshot.pagePosition(forTokenIndex: tokenIndex)
     }
 
+    func pageLabel(for pagePosition: PlayerPagePosition) -> String? {
+        guard let browseSnapshot,
+              browseSnapshot.itemCount > 0,
+              (0..<browseSnapshot.itemCount).contains(
+                  browseSnapshot.initialTokenIndex
+              ) else {
+            return nil
+        }
+        let (tokenIndex, overflow) = browseSnapshot.initialTokenIndex
+            .addingReportingOverflow(pagePosition.position)
+        guard !overflow,
+              (0..<browseSnapshot.itemCount).contains(tokenIndex) else {
+            return nil
+        }
+        return Strings.pagePosition(
+            current: tokenIndex + 1,
+            total: browseSnapshot.itemCount
+        )
+    }
+
     var gridMode: MobileCollectionBrowserGridMode {
         gridModeCoordinator.gridMode
     }

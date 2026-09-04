@@ -10,6 +10,8 @@ final class MobilePlayerBrowserPageViewController: UIViewController {
     private let playbackSession: MobilePlaybackSession
     private let chrome: MobilePlayerChromeController
     private let contentViewController: VerticalCollectionBrowserViewController
+    private let tokenProvider: @MainActor (PlayerPagePosition) -> GeneratedToken
+    private let externalDisplayTokenUpdater: @MainActor (GeneratedToken) -> Void
     private var playerPageBackgroundColor = MobilePlayerBackgroundColor.defaultColor
     private var chromeObservationGeneration: UInt = 0
     private lazy var moreMenu = makeMoreMenu()
@@ -21,10 +23,19 @@ final class MobilePlayerBrowserPageViewController: UIViewController {
 
     init(
         playbackSession: MobilePlaybackSession,
-        chrome: MobilePlayerChromeController
+        chrome: MobilePlayerChromeController,
+        tokenProvider: (@MainActor (PlayerPagePosition) -> GeneratedToken)? = nil,
+        externalDisplayTokenUpdater:
+            (@MainActor (GeneratedToken) -> Void)? = nil
     ) {
         self.playbackSession = playbackSession
         self.chrome = chrome
+        self.tokenProvider = tokenProvider ?? {
+            playbackSession.getToken(pagePosition: $0)
+        }
+        self.externalDisplayTokenUpdater = externalDisplayTokenUpdater ?? {
+            updateExternalDisplayToken($0)
+        }
         self.contentViewController = VerticalCollectionBrowserViewController(
             playbackSession: playbackSession
         )
@@ -130,9 +141,7 @@ final class MobilePlayerBrowserPageViewController: UIViewController {
     }
 
     func seedNavigationTitles() {
-        let token = playbackSession.getToken(
-            pagePosition: playbackSession.startPagePosition()
-        )
+        let token = tokenProvider(playbackSession.startPagePosition())
         refreshNavigationTitles(with: token)
     }
 
@@ -142,9 +151,7 @@ final class MobilePlayerBrowserPageViewController: UIViewController {
         let pagePosition = currentMenuPagePosition
         updatePlayerNavigationTitle(
             for: pagePosition,
-            token: playbackSession.getToken(
-                pagePosition: pagePosition
-            )
+            token: tokenProvider(pagePosition)
         )
     }
 
@@ -188,9 +195,7 @@ final class MobilePlayerBrowserPageViewController: UIViewController {
         if let pagePosition = preparation.snapshot.pagePosition(
             forTokenIndex: preparation.focusedTokenIndex
         ) {
-            let token = playbackSession.getToken(
-                pagePosition: pagePosition
-            )
+            let token = tokenProvider(pagePosition)
             refreshNavigationTitles(with: token)
         }
         contentViewController.commitPreparedDisplay(preparation)
@@ -260,9 +265,7 @@ final class MobilePlayerBrowserPageViewController: UIViewController {
     }
 
     private var currentMenuToken: GeneratedToken {
-        return playbackSession.getToken(
-            pagePosition: currentMenuPagePosition
-        )
+        tokenProvider(currentMenuPagePosition)
     }
 
     private func artistLinkMenus(forCollectionId collectionId: String) -> [UIMenu] {
@@ -298,21 +301,20 @@ final class MobilePlayerBrowserPageViewController: UIViewController {
     }
 
     private func handleFocusedPagePosition(_ pagePosition: PlayerPagePosition) {
-        let token = playbackSession.getToken(
-            pagePosition: pagePosition
+        chrome.setPlayerNavigationPageLabel(
+            contentViewController.pageLabel(for: pagePosition) ?? ""
         )
-        updatePlayerNavigationTitle(for: pagePosition, token: token)
-        updateExternalDisplayToken(token)
     }
 
     private func handleSettledPagePosition(
         pagePosition: PlayerPagePosition,
         hasViewedToEnd: Bool
     ) -> Bool {
-        let token = playbackSession.getToken(
-            pagePosition: pagePosition
-        )
+        let token = tokenProvider(pagePosition)
         updatePlayerNavigationTitle(for: pagePosition, token: token)
+        if playbackSession.isActive {
+            externalDisplayTokenUpdater(token)
+        }
         chrome.setPlayerBackgroundColor(MobilePlayerBackgroundColor.color(for: token))
         chrome.setLayoutInteractionState(
             playbackSession.layoutInteractionState(
