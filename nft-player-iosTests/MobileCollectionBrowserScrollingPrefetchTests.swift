@@ -1325,10 +1325,218 @@ extension MobileCollectionBrowserGridModePresentationTests {
         )
     }
 
+    func testDownloadableManifestMidAvailabilitySupportsBothItemFormats() throws {
+        let formats = [
+            """
+            [{"id":"unminted-1502","url":"https://example.com/1502.webp"}]
+            """,
+            """
+            [["unminted-1502",0,"1502.webp"]]
+            """,
+        ]
+        let cases = [
+            (field: "\"hasMid\": false,", expected: false),
+            (field: "\"hasMid\": true,", expected: true),
+            (field: "", expected: true),
+            (field: "\"hasMid\": null,", expected: true),
+        ]
+
+        for items in formats {
+            for entry in cases {
+                let data = Data("""
+                    {
+                        \(entry.field)
+                        "defaultFileExtension": "webp",
+                        "urlPrefixes": ["https://example.com/"],
+                        "thumbnailAspectRatios": [[1, 1]],
+                        "items": \(items)
+                    }
+                    """.utf8)
+                let payload = try JSONDecoder().decode(
+                    DownloadableCollectionTokensPayload.self,
+                    from: data
+                )
+                let token = try XCTUnwrap(payload.items.first)
+
+                XCTAssertEqual(payload.hasMid, entry.expected)
+                XCTAssertEqual(payload.defaultFileExtension, "webp")
+                XCTAssertEqual(payload.items.count, 1)
+                XCTAssertEqual(token.id, "unminted-1502")
+                XCTAssertEqual(token.url, "https://example.com/1502.webp")
+                XCTAssertEqual(
+                    token.thumbnailAspectRatio,
+                    ThumbnailAspectRatio(width: 1, height: 1)
+                )
+            }
+        }
+    }
+
+    func testPlanetPeppaUsesOriginalLargeImagesAndPreservesThumbnailIndices()
+        throws {
+        let collectionId = try collectionId(internalSlug: "planet_peppa")
+        let snapshot = PlayerCollectionBrowseSnapshot(
+            collectionId: collectionId,
+            itemCount: CollectionCatalog.tokenCount(
+                specificCollectionId: collectionId
+            ),
+            initialTokenIndex: 0
+        )
+
+        XCTAssertEqual(
+            collectionId,
+            "9irtKRLZkY4MjFFQNZPX3o6ZTszfR8kXFJXPBUvEDo9v"
+        )
+        XCTAssertEqual(snapshot.itemCount, 14_997)
+        XCTAssertFalse(CollectionCatalog.collectionBrowseMidImagesAvailable(
+            specificCollectionId: collectionId
+        ))
+        XCTAssertEqual(
+            CollectionCatalog.desktopCollectionBrowseColumnCount(
+                specificCollectionId: collectionId
+            ),
+            3
+        )
+
+        let rows = [
+            (index: 0, stem: 0, tokenId: "BQGjKNV22ZD8AaEFZXNftV7xn3LrGbujfNQXCjQSBnhW"),
+            (index: 1501, stem: 1502, tokenId: "H9LkroJQL7U6BqW6E2mp1fZqAGq5Xvipg3Ytnmj7xEJJ"),
+            (index: 3729, stem: 3730, tokenId: "unminted-3730"),
+            (index: 14996, stem: 14999, tokenId: "unminted-14999"),
+        ]
+        for row in rows {
+            let primaryDescriptor = try XCTUnwrap(
+                CollectionCatalog.downloadableMediaDescriptor(
+                    specificCollectionId: collectionId,
+                    tokenIndex: row.index
+                )
+            )
+            let sources = try XCTUnwrap(
+                CollectionCatalog.collectionBrowseImageSources(
+                    specificCollectionId: collectionId,
+                    tokenIndex: row.index
+                )
+            )
+
+            XCTAssertEqual(sources.largeDescriptor, primaryDescriptor)
+            XCTAssertEqual(sources.largeDescriptor.purpose, .primary)
+            XCTAssertEqual(sources.largeDescriptor.fileExtension, "webp")
+            XCTAssertEqual(sources.largeDescriptor.tokenId, row.tokenId)
+            XCTAssertEqual(sources.largeDescriptor.tokenIndex, row.index)
+            XCTAssertEqual(
+                sources.largeDescriptor.thumbnailAspectRatio,
+                ThumbnailAspectRatio(width: 1, height: 1)
+            )
+            XCTAssertEqual(
+                sources.largeDescriptor.url,
+                URL(string: "https://cdn.lil.org/player/planet_peppa/\(row.stem).webp")
+            )
+            XCTAssertEqual(
+                sources.thumbnailDescriptor.url,
+                URL(string: "https://cdn.lil.org/player/planet_peppa/thumbs/\(row.stem).webp")
+            )
+            XCTAssertEqual(
+                sources.smallThumbnailDescriptor.url,
+                URL(string: "https://cdn.lil.org/player/planet_peppa/thumbs/260/\(row.index).webp")
+            )
+            XCTAssertEqual(
+                sources.smallestThumbnailDescriptor?.url,
+                URL(string: "https://cdn.lil.org/player/planet_peppa/thumbs/140/\(row.index).webp")
+            )
+            XCTAssertEqual(
+                MobileCollectionBrowseMediaResolver.collectionBrowseImageDescriptor(
+                    snapshot: snapshot,
+                    tokenIndex: row.index,
+                    quality: .large
+                ),
+                primaryDescriptor
+            )
+        }
+    }
+
+    func testPlanetPeppaLinksUnmintedTokensToCollectionExplorer() throws {
+        let collectionId = try collectionId(internalSlug: "planet_peppa")
+        let mintedToken = try XCTUnwrap(CollectionCatalog.generateToken(
+            specificCollectionId: collectionId,
+            tokenIndex: 0
+        ))
+        let unmintedToken = try XCTUnwrap(CollectionCatalog.generateToken(
+            specificCollectionId: collectionId,
+            tokenIndex: 3729
+        ))
+
+        XCTAssertEqual(
+            mintedToken.url,
+            URL(string: "https://explorer.solana.com/address/BQGjKNV22ZD8AaEFZXNftV7xn3LrGbujfNQXCjQSBnhW")
+        )
+        XCTAssertEqual(unmintedToken.id, "unminted-3730")
+        XCTAssertEqual(
+            unmintedToken.media?.url,
+            URL(string: "https://cdn.lil.org/player/planet_peppa/3730.webp")
+        )
+        XCTAssertEqual(
+            unmintedToken.url,
+            URL(string: "https://explorer.solana.com/address/\(collectionId)")
+        )
+    }
+
+    func testPlanetPeppaLargePrefetchWindowsSelectOriginalDescriptors()
+        async throws {
+        let collectionId = try collectionId(internalSlug: "planet_peppa")
+        let snapshot = PlayerCollectionBrowseSnapshot(
+            collectionId: collectionId,
+            itemCount: CollectionCatalog.tokenCount(
+                specificCollectionId: collectionId
+            ),
+            initialTokenIndex: 0
+        )
+        let planner = MobileCollectionBrowseThumbnailWindowPlanner(
+            imageSourcesCache: MobileCollectionBrowseImageSourcesCache()
+        )
+
+        for tokenIndex in [0, 1501, 14996] {
+            let request = MobileCollectionBrowseThumbnailWindowPlanRequest(
+                snapshot: snapshot,
+                tokenIndex: tokenIndex,
+                direction: .forward,
+                prefetchStride: 9,
+                columnCount: 3,
+                quality: .large,
+                requiredTokenRange: tokenIndex...tokenIndex,
+                visibleTokenRange: tokenIndex...tokenIndex,
+                isFileOnly: false,
+                decodeVariant: .downsampled(maxPixelWidth: 1024),
+                displayedHigherQualityThumbnailTokenIndices: [],
+                displayedLargeTokenIndices: [],
+                locallyAvailableLargeTokenIndices: []
+            )
+            let plannedWindow = await planner.makeWindow(for: request)
+            let window = try XCTUnwrap(plannedWindow)
+
+            XCTAssertTrue(window.descriptors.contains {
+                $0.tokenIndex == tokenIndex
+            })
+            XCTAssertFalse(window.decodedDescriptors.isEmpty)
+            for descriptor in window.descriptors + window.decodedDescriptors {
+                XCTAssertEqual(
+                    descriptor,
+                    CollectionCatalog.downloadableMediaDescriptor(
+                        specificCollectionId: collectionId,
+                        tokenIndex: descriptor.tokenIndex
+                    )
+                )
+                XCTAssertFalse(descriptor.url.pathComponents.contains("mid"))
+            }
+        }
+    }
+
     func testArtifactMagazineUsesOneBasedCDNMediaTiers() throws {
         let collectionId = try collectionId(
             internalSlug: "artifact_magazine_3"
         )
+
+        XCTAssertTrue(CollectionCatalog.collectionBrowseMidImagesAvailable(
+            specificCollectionId: collectionId
+        ))
 
         for (tokenIndex, cdnIndex) in [(0, 1), (592, 593)] {
             let primaryDescriptor = try XCTUnwrap(
@@ -1368,6 +1576,48 @@ extension MobileCollectionBrowserGridModePresentationTests {
     }
 
 #if DEBUG
+    func testPlanetPeppaLargePrefetchReusesPrimaryImageCache() throws {
+        let collectionId = try collectionId(internalSlug: "planet_peppa")
+        let snapshot = PlayerCollectionBrowseSnapshot(
+            collectionId: collectionId,
+            itemCount: CollectionCatalog.tokenCount(
+                specificCollectionId: collectionId
+            ),
+            initialTokenIndex: 0
+        )
+        let primaryDescriptor = try XCTUnwrap(
+            CollectionCatalog.downloadableMediaDescriptor(
+                specificCollectionId: collectionId,
+                tokenIndex: 1501
+            )
+        )
+        let cache = DownloadableMediaCache.shared
+        cache.removeDecodedImageForTesting(for: primaryDescriptor)
+        defer { cache.removeDecodedImageForTesting(for: primaryDescriptor) }
+
+        XCTAssertEqual(
+            MobileCollectionBrowseMediaResolver.collectionBrowsePrefetchDescriptor(
+                snapshot: snapshot,
+                tokenIndex: 1501,
+                quality: .large
+            ),
+            primaryDescriptor
+        )
+
+        let image = UIGraphicsImageRenderer(
+            size: CGSize(width: 2, height: 2)
+        ).image { _ in }
+        cache.installDecodedImageForTesting(image, for: primaryDescriptor)
+
+        XCTAssertNil(
+            MobileCollectionBrowseMediaResolver.collectionBrowsePrefetchDescriptor(
+                snapshot: snapshot,
+                tokenIndex: 1501,
+                quality: .large
+            )
+        )
+    }
+
     func testNineColumnPrefetchReusesCachedHigherQualityThumbnails() throws {
         let metadata = try collectionMetadata(
             requiresBundledGenerativeToken: true

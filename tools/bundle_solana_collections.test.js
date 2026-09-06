@@ -1,6 +1,8 @@
 "use strict";
 
 const assert = require("node:assert/strict");
+const fs = require("node:fs/promises");
+const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 const test = require("node:test");
@@ -16,12 +18,12 @@ const CASE_VARIANT_COLLECTION_IDS = [
   "JCtP3kK3xGtWs5mDHxJBuRro38HftaiCDdKsfkXuK2gH",
 ];
 
-function runBundler(input, { resolvedCollectionId = null } = {}) {
+function runBundler(input, { resolvedCollectionId = null, assets = [], args = [] } = {}) {
   const harness = `
 global.fetch = async (_url, options) => {
   const request = JSON.parse(options.body);
   const result = request.method === "getAssetsByGroup"
-    ? { items: [], total: 0, page: 1, limit: 1000 }
+    ? { items: ${JSON.stringify(assets)}, total: ${assets.length}, page: 1, limit: 1000 }
     : ${resolvedCollectionId == null
       ? "{}"
       : `{ grouping: [{ group_key: "collection", group_value: ${JSON.stringify(resolvedCollectionId)}, verified: true }] }`};
@@ -41,6 +43,7 @@ process.argv = [
   "--delay-ms", "0",
   "--max-retries", "0",
   "--skip-covers",
+  ...${JSON.stringify(args)},
   ${JSON.stringify(input)},
 ];
 require(${JSON.stringify(BUNDLER_PATH)});
@@ -124,4 +127,57 @@ test("continues resolving known token aliases to their canonical collection ID",
   assert.match(result.stdout, new RegExp(`Fetching ${aliasId} -> ${canonicalId}`, "u"));
   assert.match(result.stdout, new RegExp(`MOCK_RPC getAssetsByGroup ${canonicalId}`, "u"));
   assert.doesNotMatch(result.stderr, /uses a curated native cdn\.lil\.org renderer/u);
+});
+
+test("apply preserves explicit mid availability and leaves legacy manifests unset", async () => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "nft-player-solana-bundle-"));
+  const collectionId = "9irtKRLZkY4MjFFQNZPX3o6ZTszfR8kXFJXPBUvEDo9v";
+  const tokenId = "BQGjKNV22ZD8AaEFZXNftV7xn3LrGbujfNQXCjQSBnhW";
+  const tokenPath = path.join(directory, "Tokens", `${collectionId}.json`);
+  const options = {
+    assets: [{
+      id: tokenId,
+      content: {
+        metadata: { name: "Planet Peppa #0", symbol: "Planet Peppa" },
+        files: [{ uri: "https://cdn.lil.org/player/planet_peppa/0.webp", mime: "image/webp" }],
+      },
+    }],
+    args: [
+      "--apply", "--bundle", directory,
+      "--report", path.join(directory, "report.md"),
+      "--json-report", path.join(directory, "report.json"),
+    ],
+  };
+
+  try {
+    await fs.mkdir(path.dirname(tokenPath));
+    await fs.writeFile(path.join(directory, "items.json"), "[]");
+
+    for (const hasMid of [false, true, undefined, null]) {
+      const original = {
+        hasMid,
+        defaultFileExtension: "webp",
+        urlPrefixes: ["https://cdn.lil.org/player/planet_peppa/"],
+        items: [[tokenId, 0, "0.webp"]],
+        thumbnailAspectRatios: [[1, 1]],
+      };
+      await fs.writeFile(tokenPath, JSON.stringify(original));
+
+      const result = runBundler(collectionId, options);
+      assert.equal(result.status, 0, result.stderr);
+      const updated = JSON.parse(await fs.readFile(tokenPath, "utf8"));
+      assert.equal(Object.hasOwn(updated, "hasMid"), typeof hasMid === "boolean");
+      assert.equal(updated.hasMid, typeof hasMid === "boolean" ? hasMid : undefined);
+      assert.deepEqual(updated.items, original.items);
+      assert.deepEqual(updated.thumbnailAspectRatios, original.thumbnailAspectRatios);
+    }
+
+    await fs.unlink(tokenPath);
+    const result = runBundler(collectionId, options);
+    assert.equal(result.status, 0, result.stderr);
+    const created = JSON.parse(await fs.readFile(tokenPath, "utf8"));
+    assert.equal(Object.hasOwn(created, "hasMid"), false);
+  } finally {
+    await fs.rm(directory, { recursive: true, force: true });
+  }
 });

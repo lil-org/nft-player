@@ -45,6 +45,7 @@ function createFixture(t, {
       : { iosCollectionBrowserColumnCount: catalogColumnCount }),
   }], null, 2)}\n`;
   const tokenText = `${JSON.stringify({
+    hasMid: false,
     defaultFileExtension: "png",
     urlPrefixes: ["https://old.example/"],
     items: [["2", 0, "2.png"], ["1", 0, "1.png"]],
@@ -149,6 +150,7 @@ test("keeps the catalog's checksum casing and preserves manifest metadata", (t) 
   );
 
   const payload = JSON.parse(fs.readFileSync(fixture.tokenPath, "utf8"));
+  assert.equal(payload.hasMid, false);
   assert.deepEqual(tokenIdsFromPayload(payload), ["1", "2"]);
   assert.deepEqual(decodeAspectRatioMetadata(payload), [[4, 3], [16, 9]]);
 

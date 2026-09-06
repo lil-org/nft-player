@@ -1037,6 +1037,12 @@ nonisolated enum CollectionCatalog {
         )
     }
 
+    static func collectionBrowseMidImagesAvailable(
+        specificCollectionId: String
+    ) -> Bool {
+        DownloadableCollectionService.hasMid(collectionId: specificCollectionId)
+    }
+
     static func collectionBrowseThumbnailAspectRatioProfile(
         specificCollectionId: String
     ) -> ThumbnailAspectRatioProfile? {
@@ -1192,6 +1198,10 @@ nonisolated private enum DownloadableCollectionService {
 
     static func hasCollection(id: String) -> Bool {
         index.collectionById[id] != nil
+    }
+
+    static func hasMid(collectionId: String) -> Bool {
+        tokenData(collectionId: collectionId)?.hasMid ?? true
     }
 
     static func tokenCount(collectionId: String) -> Int {
@@ -1361,7 +1371,8 @@ nonisolated private enum DownloadableCollectionService {
             return webURL
         }
         if collection.chain == .solana {
-            return URL(string: "https://explorer.solana.com/address/\(tokenId)")
+            let address = tokenId.hasPrefix("unminted-") ? collection.address : tokenId
+            return URL(string: "https://explorer.solana.com/address/\(address)")
         }
         if collection.chain == .tezos {
             return URL(string: "https://tzkt.io/\(collection.address)/tokens/\(tokenId)")
@@ -1441,6 +1452,7 @@ nonisolated private enum DownloadableCollectionService {
             return nil
         }
         return DownloadableCollectionTokenData(
+            hasMid: payload.hasMid,
             defaultFileExtension: payload.defaultFileExtension,
             tokens: payload.items.filter {
                 resolvedMedia(
@@ -1461,11 +1473,13 @@ nonisolated private struct DownloadableCollectionsIndex: Sendable {
     }
 }
 
-nonisolated private struct DownloadableCollectionTokensPayload: Decodable, Sendable {
+nonisolated struct DownloadableCollectionTokensPayload: Decodable, Sendable {
+    let hasMid: Bool
     let defaultFileExtension: String?
     let items: [DownloadableTokenItem]
 
     enum CodingKeys: String, CodingKey {
+        case hasMid
         case defaultFileExtension
         case items
         case thumbnailAspectRatios
@@ -1475,6 +1489,7 @@ nonisolated private struct DownloadableCollectionTokensPayload: Decodable, Senda
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        hasMid = try container.decodeIfPresent(Bool.self, forKey: .hasMid) ?? true
         defaultFileExtension = Self.normalizedFileExtension(
             try container.decodeIfPresent(String.self, forKey: .defaultFileExtension)
         )
@@ -1536,7 +1551,7 @@ nonisolated private struct DownloadableCollectionTokensPayload: Decodable, Senda
     }
 }
 
-nonisolated private struct DownloadableTokenItem: Codable, Hashable, Sendable {
+nonisolated struct DownloadableTokenItem: Codable, Hashable, Sendable {
     let id: String
     let name: String?
     let url: String?
@@ -1632,12 +1647,14 @@ nonisolated private struct DownloadableCompactTokenRow: Decodable, Sendable {
 }
 
 nonisolated private struct DownloadableCollectionTokenData: Sendable {
+    let hasMid: Bool
     let defaultFileExtension: String?
     let tokens: [DownloadableTokenItem]
     let tokenIndicesById: [String: Int]
     let thumbnailAspectRatioProfile: ThumbnailAspectRatioProfile?
 
-    init(defaultFileExtension: String?, tokens: [DownloadableTokenItem]) {
+    init(hasMid: Bool, defaultFileExtension: String?, tokens: [DownloadableTokenItem]) {
+        self.hasMid = hasMid
         self.defaultFileExtension = defaultFileExtension
         self.tokens = tokens
 

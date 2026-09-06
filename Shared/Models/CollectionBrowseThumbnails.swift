@@ -153,12 +153,10 @@ nonisolated extension CollectionCatalog {
                 ) ?? thumbnailDescriptor
             }
         } else {
-            largeDescriptor = midDescriptor(for: thumbnailDescriptor)
-                ?? thumbnailDescriptor
+            largeDescriptor = standardLargeDescriptor(for: thumbnailDescriptor)
         }
 #else
-        largeDescriptor = midDescriptor(for: thumbnailDescriptor)
-            ?? thumbnailDescriptor
+        largeDescriptor = standardLargeDescriptor(for: thumbnailDescriptor)
 #endif
 
         return CollectionBrowseImageSources(
@@ -167,6 +165,24 @@ nonisolated extension CollectionCatalog {
             thumbnailDescriptor: thumbnailDescriptor,
             largeDescriptor: largeDescriptor
         )
+    }
+
+    private static func standardLargeDescriptor(
+        for thumbnailDescriptor: CollectionCatalogDownloadableMediaDescriptor
+    ) -> CollectionCatalogDownloadableMediaDescriptor {
+        guard collectionBrowseMidImagesAvailable(
+            specificCollectionId: thumbnailDescriptor.collectionId
+        ) else {
+            guard let primaryDescriptor = downloadableMediaDescriptor(
+                specificCollectionId: thumbnailDescriptor.collectionId,
+                tokenIndex: thumbnailDescriptor.tokenIndex
+            ), primaryDescriptor.isStaticImage else {
+                return thumbnailDescriptor
+            }
+            return primaryDescriptor
+        }
+
+        return midDescriptor(for: thumbnailDescriptor) ?? thumbnailDescriptor
     }
 
     private static func standardThumbnailDescriptor(

@@ -102,6 +102,16 @@ const NEW_CDN_COLLECTIONS = [
     internal_slug: "matchstick",
     artists: [],
   },
+  {
+    address: "9irtKRLZkY4MjFFQNZPX3o6ZTszfR8kXFJXPBUvEDo9v",
+    chain: "solana",
+    chainId: 0,
+    name: "Planet Peppa",
+    tokenCount: 14997,
+    standardThumbsPathsAvailable: true,
+    internal_slug: "planet_peppa",
+    artists: [],
+  },
 ];
 const SUPPORTED_MEDIA_EXTENSIONS = new Set([
   "gif", "heic", "heif", "htm", "html", "jpeg", "jpg", "mov", "mp4",
@@ -196,6 +206,10 @@ function midImageURL(thumbnailURL) {
   const collectionParentPath = path.posix.dirname(thumbnailParentPath);
   url.pathname = `${collectionParentPath}/mid/${path.posix.basename(url.pathname)}`;
   return url;
+}
+
+function largeImageURL(payload, sourceURL, thumbnailURL) {
+  return payload.hasMid === false ? new URL(sourceURL) : midImageURL(thumbnailURL);
 }
 
 function entriesByLowercasedName(names) {
@@ -379,6 +393,35 @@ test("Artifact Magazine 3 uses one-based CDN media tiers", () => {
   }
 });
 
+test("Planet Peppa retains original filenames and uses original large images", () => {
+  const item = readJSON(ITEMS_PATH).find((candidate) => candidate.internal_slug === "planet_peppa");
+  assert.ok(item, "Missing planet_peppa");
+  const payload = readJSON(path.join(TOKENS_PATH, `${suggestedItemId(item)}.json`));
+  assert.equal(payload.isComplete, true);
+  assert.equal(payload.hasMid, false);
+  assert.equal(payload.defaultFileExtension, "webp");
+  assert.equal(payload.items.length, item.tokenCount);
+  assert.equal(new Set(tokenIdsFromPayload(payload)).size, item.tokenCount);
+  assert.equal(payload.items.filter((row) => row[0].startsWith("unminted-")).length, 11268);
+  assert.deepEqual(payload.thumbnailAspectRatios, [[1, 1]]);
+  assert.equal(item.iosCollectionBrowserColumnCount, undefined);
+  assert.equal(item.sizedThumbsIndexOffset, undefined);
+
+  for (const [tokenIndex, fileIndex] of [[0, 0], [1501, 1502], [6479, 6481], [8965, 8968], [14996, 14999]]) {
+    const sourceURL = tokenSourceURL(payload, payload.items[tokenIndex]);
+    const thumbnailURL = standardThumbnailURL(sourceURL);
+    assert.equal(sourceURL, `https://cdn.lil.org/player/planet_peppa/${fileIndex}.webp`);
+    assert.equal(thumbnailURL.href, `https://cdn.lil.org/player/planet_peppa/thumbs/${fileIndex}.webp`);
+    assert.equal(largeImageURL(payload, sourceURL, thumbnailURL).href, sourceURL);
+    for (const width of [140, 260]) {
+      assert.equal(
+        sizedThumbnailURL(thumbnailURL, tokenIndex, width).href,
+        `https://cdn.lil.org/player/planet_peppa/thumbs/${width}/${tokenIndex}.webp`
+      );
+    }
+  }
+});
+
 test("catalog IDs exactly match token manifest and cover asset casing", () => {
   const items = readJSON(ITEMS_PATH);
   const scriptIds = scriptCollectionIds();
@@ -494,6 +537,10 @@ test("eligible token manifests derive unique browse image tier URLs", () => {
     );
 
     const payload = readJSON(tokensPath);
+    assert.ok(
+      payload.hasMid == null || typeof payload.hasMid === "boolean",
+      `${item.internal_slug} has an invalid mid image availability value`
+    );
     assert.ok(Array.isArray(payload.items), `${item.internal_slug} has no token items array`);
     assert.ok(payload.items.length > 0, `${item.internal_slug} has an empty token manifest`);
     const sizedThumbsIndexOffset = item.sizedThumbsIndexOffset ?? 0;
@@ -503,7 +550,7 @@ test("eligible token manifests derive unique browse image tier URLs", () => {
     );
 
     const originalURLByDerivedURL = new Map();
-    const originalURLByMidURL = new Map();
+    const originalURLByLargeURL = new Map();
     const sizedURLsByWidth = new Map([
       [140, new Set()],
       [260, new Set()],
@@ -550,14 +597,18 @@ test("eligible token manifests derive unique browse image tier URLs", () => {
       assert.equal(thumbnailURL.search, "");
       assert.equal(thumbnailURL.hash, "");
 
-      const midURL = midImageURL(thumbnailURL);
-      assert.equal(
-        midURL.pathname,
-        `${path.posix.dirname(path.posix.dirname(thumbnailURL.pathname))}/mid/${expectedStem}.webp`,
-        `${item.internal_slug} token ${index} derives an unexpected mid path`
-      );
-      assert.equal(midURL.search, "");
-      assert.equal(midURL.hash, "");
+      const largeURL = largeImageURL(payload, sourceURL, thumbnailURL);
+      if (payload.hasMid === false) {
+        assert.equal(largeURL.href, originalURL.href);
+      } else {
+        assert.equal(
+          largeURL.pathname,
+          `${path.posix.dirname(path.posix.dirname(thumbnailURL.pathname))}/mid/${expectedStem}.webp`,
+          `${item.internal_slug} token ${index} derives an unexpected mid path`
+        );
+        assert.equal(largeURL.search, "");
+        assert.equal(largeURL.hash, "");
+      }
 
       for (const [width, sizedURLs] of sizedURLsByWidth) {
         const sizedThumbnailIndex = index + sizedThumbsIndexOffset;
@@ -592,15 +643,15 @@ test("eligible token manifests derive unique browse image tier URLs", () => {
         originalURLByDerivedURL.set(thumbnailURL.href, originalURL.href);
       }
 
-      const previousMidOriginalURL = originalURLByMidURL.get(midURL.href);
-      if (previousMidOriginalURL != null) {
+      const previousLargeOriginalURL = originalURLByLargeURL.get(largeURL.href);
+      if (previousLargeOriginalURL != null) {
         assert.equal(
           originalURL.href,
-          previousMidOriginalURL,
-          `${item.internal_slug} has distinct originals colliding at ${midURL.href}`
+          previousLargeOriginalURL,
+          `${item.internal_slug} has distinct originals colliding at ${largeURL.href}`
         );
       } else {
-        originalURLByMidURL.set(midURL.href, originalURL.href);
+        originalURLByLargeURL.set(largeURL.href, originalURL.href);
       }
     }
   }
@@ -661,7 +712,7 @@ test("bundled tokens have compact aspect ratios and matching iOS layouts", () =>
   const primaryFileNames = fs.readdirSync(TOKENS_PATH)
     .filter((fileName) => path.extname(fileName) === ".json")
     .sort();
-  assert.equal(primaryFileNames.length, 223);
+  assert.equal(primaryFileNames.length, 224);
 
   const catalogItems = readJSON(ITEMS_PATH);
   const catalogItemByLowercasedFileName = new Map(
@@ -712,7 +763,7 @@ test("bundled tokens have compact aspect ratios and matching iOS layouts", () =>
     primaryTokenCount += payload.items.length;
     primaryByLowercasedFileName.set(fileName.toLowerCase(), { payload, ratios });
   }
-  assert.equal(primaryTokenCount, 215_089);
+  assert.equal(primaryTokenCount, 230_086);
   assert.equal(twoColumnCollectionCount, 39);
   assert.equal(
     manualThreeColumnCollectionCount,

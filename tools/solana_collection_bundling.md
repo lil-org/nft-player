@@ -45,6 +45,8 @@ Token JSON uses the iOS app's compact Solana format:
 
 Rows include a fourth extension field only when a token differs from `defaultFileExtension`.
 
+Static-image collections with standard thumbnails but no `/mid` files can set top-level `"hasMid": false`. The grid uses each original image for its large tier and retains thumbnails for non-static media. Regular and sized thumbnail paths stay unchanged. Both token row formats support the field, and rebundling preserves boolean values. Omitted or null values retain the existing `/mid` behavior.
+
 If an existing token JSON contains a top-level `tmp_files` map, `--apply` preserves entries whose token mint is still present in `items`. It drops and reports stale token mints, ignores invalid file names, and omits the map when no valid entries remain. This preservation reads only the existing token JSON; rebundling does not require `Originals Downloaded` to exist.
 
 The bundler also preserves compact `thumbnailAspectRatios` metadata by token mint, so reordering or removing tokens cannot attach a ratio to the wrong asset. If a newly discovered mint has no existing ratio, the bundler omits the incomplete metadata and reports the missing mint; regenerate the ratios before shipping.

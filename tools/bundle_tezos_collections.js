@@ -22,6 +22,7 @@ const {
   reportAspectRatioMetadataChanges,
 } = require("./thumbnail_aspect_ratios");
 const { preserveTmpFilesFromFile, reportTmpFilesChanges } = require("./tmp_files");
+const { preserveMidAvailabilityFromFile } = require("./token_manifest_metadata");
 
 const DEFAULT_BUNDLE_PATH = path.join("Suggested Items", "Suggested.bundle");
 const DEFAULT_COVERS_PATH = path.join("Suggested Items", "Covers.xcassets");
@@ -1009,11 +1010,12 @@ async function writeBundle(collections, context) {
     reportTmpFilesChanges(collection.collectionId, tmpFilesResult.report);
     const aspectRatioResult = await preserveAspectRatioMetadataFromFile(outputPath, tmpFilesResult.payload);
     reportAspectRatioMetadataChanges(collection.collectionId, aspectRatioResult.report);
+    const payload = await preserveMidAvailabilityFromFile(outputPath, aspectRatioResult.payload);
     collectionBrowserColumnCounts.set(
       collection.collectionId,
       aspectRatioResult.collectionBrowserColumnCount
     );
-    await fs.writeFile(outputPath, `${JSON.stringify(aspectRatioResult.payload)}\n`);
+    await fs.writeFile(outputPath, `${JSON.stringify(payload)}\n`);
   }
 
   await fs.writeFile(
