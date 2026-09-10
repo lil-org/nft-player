@@ -1278,7 +1278,6 @@
     "chainId" : 1,
     "collectionId" : "62fed6de62ee3c66ac30cbab9fd8a77d",
     "name" : "Archetype",
-    "tokenCount" : 600,
     "standardThumbsPathsAvailable" : true,
     "internal_slug" : "archetype",
     "artists" : [
@@ -1292,7 +1291,6 @@
     "chainId" : 1,
     "collectionId" : "0949ae798b3c017f5a4ba28247886220",
     "name" : "Fidenza",
-    "tokenCount" : 999,
     "standardThumbsPathsAvailable" : true,
     "internal_slug" : "fidenza",
     "artists" : [
@@ -1320,7 +1318,6 @@
     "chainId" : 1,
     "collectionId" : "3cbb5aefcaba02af25a1deb7f8c9143a",
     "name" : "Ringers",
-    "tokenCount" : 1000,
     "standardThumbsPathsAvailable" : true,
     "internal_slug" : "ringers",
     "artists" : [
@@ -1362,7 +1359,6 @@
     "chainId" : 1,
     "collectionId" : "9e8ea984c71e50ab0c3b5a679a674f30",
     "name" : "Instructions for Defacement",
-    "tokenCount" : 712,
     "standardThumbsPathsAvailable" : true,
     "internal_slug" : "instructions_for_defacement",
     "artists" : [
@@ -1377,7 +1373,6 @@
     "chainId" : 1,
     "collectionId" : "d0b6cbef56f42c36e25ff83a81a7d295",
     "name" : "Meridian",
-    "tokenCount" : 1000,
     "standardThumbsPathsAvailable" : true,
     "internal_slug" : "meridian",
     "artists" : [
@@ -1391,7 +1386,6 @@
     "chainId" : 1,
     "collectionId" : "fa3e8df7a7bc8c6eaed5c2e64e329884",
     "name" : "The Eternal Pump",
-    "tokenCount" : 50,
     "standardThumbsPathsAvailable" : true,
     "internal_slug" : "the_eternal_pump",
     "artists" : [
@@ -1739,7 +1733,6 @@
     "chainId" : 1,
     "collectionId" : "71f6ddfea755d56de211919de8fc87ec",
     "name" : "Parnassus",
-    "tokenCount" : 100,
     "standardThumbsPathsAvailable" : true,
     "internal_slug" : "parnassus",
     "artists" : [

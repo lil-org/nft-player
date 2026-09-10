@@ -27,6 +27,7 @@ tools/wip/
 /thumbnails/
 /mid-downloads/
 /samples/
+/external/
 
 # Release artifacts
 .asc/artifacts/

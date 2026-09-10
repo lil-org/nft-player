@@ -276,6 +276,7 @@
 		2DB200022FF4000000000001 /* MobilePlaybackSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DB200012FF4000000000001 /* MobilePlaybackSessionTests.swift */; };
 		0BE91AD8507C42D196AC7195 /* PlayerPageMediaCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C317F7CCC8746C09F9D6203 /* PlayerPageMediaCoordinatorTests.swift */; };
 		B17E50F3DA0C4453AEC5E03F /* MobilePlayerBookmarkMenuActionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1017CC23649D46C4975C18F3 /* MobilePlayerBookmarkMenuActionTests.swift */; };
+		2EAB00012FFF000000000001 /* ArtBlocksLocalGenerationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EAB00022FFF000000000001 /* ArtBlocksLocalGenerationTests.swift */; };
 		2DA500012FF1000000000001 /* MobilePlayerBrowserPageViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA500112FF1000000000001 /* MobilePlayerBrowserPageViewController.swift */; };
 		2DA500022FF1000000000001 /* PendingMainQueueUpdate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA500122FF1000000000001 /* PendingMainQueueUpdate.swift */; };
 		2DA500032FF1000000000001 /* MobilePlayerCollectionBrowserCollectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA500132FF1000000000001 /* MobilePlayerCollectionBrowserCollectionView.swift */; };
@@ -549,6 +550,7 @@
 		2DB200012FF4000000000001 /* MobilePlaybackSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobilePlaybackSessionTests.swift; sourceTree = "<group>"; };
 		2C317F7CCC8746C09F9D6203 /* PlayerPageMediaCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerPageMediaCoordinatorTests.swift; sourceTree = "<group>"; };
 		1017CC23649D46C4975C18F3 /* MobilePlayerBookmarkMenuActionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobilePlayerBookmarkMenuActionTests.swift; sourceTree = "<group>"; };
+		2EAB00022FFF000000000001 /* ArtBlocksLocalGenerationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtBlocksLocalGenerationTests.swift; sourceTree = "<group>"; };
 		2DA500112FF1000000000001 /* MobilePlayerBrowserPageViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobilePlayerBrowserPageViewController.swift; sourceTree = "<group>"; };
 		2DA500122FF1000000000001 /* PendingMainQueueUpdate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingMainQueueUpdate.swift; sourceTree = "<group>"; };
 		2DA500132FF1000000000001 /* MobilePlayerCollectionBrowserCollectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobilePlayerCollectionBrowserCollectionView.swift; sourceTree = "<group>"; };
@@ -992,6 +994,7 @@
 				2DB200012FF4000000000001 /* MobilePlaybackSessionTests.swift */,
 				2C317F7CCC8746C09F9D6203 /* PlayerPageMediaCoordinatorTests.swift */,
 				1017CC23649D46C4975C18F3 /* MobilePlayerBookmarkMenuActionTests.swift */,
+				2EAB00022FFF000000000001 /* ArtBlocksLocalGenerationTests.swift */,
 				2DA400022FF0000000000001 /* MobileCollectionBrowserGridModePresentationTests.swift */,
 				2DA600162FF2000000000001 /* MobileCollectionBrowserGridTransitionTests.swift */,
 				2DA600172FF2000000000001 /* MobileCollectionBrowserScrollingPrefetchTests.swift */,
@@ -1437,6 +1440,7 @@
 				2DB200022FF4000000000001 /* MobilePlaybackSessionTests.swift in Sources */,
 				0BE91AD8507C42D196AC7195 /* PlayerPageMediaCoordinatorTests.swift in Sources */,
 				B17E50F3DA0C4453AEC5E03F /* MobilePlayerBookmarkMenuActionTests.swift in Sources */,
+				2EAB00012FFF000000000001 /* ArtBlocksLocalGenerationTests.swift in Sources */,
 				2DA400012FF0000000000001 /* MobileCollectionBrowserGridModePresentationTests.swift in Sources */,
 				2DA600062FF2000000000001 /* MobileCollectionBrowserGridTransitionTests.swift in Sources */,
 				2DA600072FF2000000000001 /* MobileCollectionBrowserScrollingPrefetchTests.swift in Sources */,

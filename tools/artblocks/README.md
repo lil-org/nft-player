@@ -54,3 +54,25 @@ node --test tools/download_artblocks_samples.test.js tools/artblocks/curation.te
 ```
 
 Integration tests use a temporary local HTTP server and generated fixture images. They do not download public Art Blocks media or modify the real sample corpus.
+
+## Bundle existing collections as local generators
+
+The script bundler converts the seven explicitly mapped collections already in the app: Archetype, Fidenza, Ringers, Instructions for Defacement, Meridian, The Eternal Pump, and Parnassus. Flore Perdue, Fragments of an Infinite Field, and Letters to My Future Self remain on their existing CDN images and are excluded from script conversion.
+
+```sh
+node tools/bundle_artblocks_scripts.js
+node tools/bundle_artblocks_scripts.js --apply
+node --test tools/bundle_artblocks_scripts.test.js
+```
+
+Node.js 22 or newer is the only tooling dependency. The default dry run fetches complete artist scripts and hashes from the public Art Blocks GraphQL API and validates the entire conversion without writing files. `--apply` writes the seven script JSONs, expands existing compact token rows to objects with hashes and their original CDN URLs, and removes only the seven catalog `tokenCount` fields so the app selects generation. It preserves all 4,461 existing token IDs and their order, collection identities, thumbnails, aspect ratios, and other manifest metadata. New mints are not added.
+
+All source projects, library versions, external dependencies, and token identities are checked against the explicit mapping in `tools/bundle_artblocks_scripts.js`. Missing, duplicate, unexpected, cross-project, or invalid hashes stop the conversion before any files are written. Two project workers share the sample downloader's throttled GraphQL client and retry transient failures up to five times. Reapplying validates the API data again, rejects changed existing hashes, and leaves byte-identical outputs untouched.
+
+Parnassus uses project 2 in its script and a `collectionIdOverride` containing its original full app ID. Its catalog entry and resource filenames retain the legacy identity. Instructions for Defacement retains the artist script with a small prepended `tokenData` adapter pointing to `https://cdn.lil.org/player/instructions_for_defacement/background.jpg`; this background is a runtime network dependency. Its display-tuning hook gives the document and body the official wrapper's full-height layout. The other six generators need no external assets and use libraries already bundled with the app.
+
+Parnassus also applies main-canvas CSS sizing to fit narrow portrait and landscape screens without cropping, including its original portrait/landscape controls. This changes only presentation: all three 2160×3840 canvas backing stores and the artist's algorithm are retained. It is a heavy generator; desktop WebKit validation observed roughly 1.0–1.2 GiB peak WebContent memory per page, so physical-device memory behavior merits particular attention.
+
+Apply also writes the Git-ignored `tools/reports/artblocks-script-bundle.json` with API project identities, artist names, original script part counts, byte counts, SHA-256 fingerprints, token counts, and runtime asset URLs. `--bundle <directory>`, `--api-url <url>`, and `--report <file>` override the bundle, endpoint, and provenance report destinations. Tests use temporary fixtures and an injected API client; they do not mutate real app resources or download artwork.
+
+After applying, run `node scripts/generate-widget-resources.mjs`, then `node scripts/generate-widget-resources.mjs --check` and the app's generator checks. The retained CDN URLs continue to supply static widget images. This command does not regenerate widgets, alter cover assets, download sample media, or change curation decisions.

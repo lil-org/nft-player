@@ -40,6 +40,15 @@ const NATIVE_SCRIPT_THUMBNAIL_COLLECTIONS = new Set([
   "card_nft_2",
   "poncho_drifella",
 ]);
+const GENERATIVE_CDN_PREVIEW_COLLECTIONS = new Set([
+  "archetype",
+  "fidenza",
+  "instructions_for_defacement",
+  "meridian",
+  "parnassus",
+  "ringers",
+  "the_eternal_pump",
+]);
 const NEW_CDN_COLLECTIONS = [
   {
     address: "0xcde288d791b10b38eca62e6e82a609541fab94e0",
@@ -461,7 +470,7 @@ test("catalog IDs exactly match token manifest and cover asset casing", () => {
   }
 });
 
-test("standard thumbnail availability covers downloadable and native-script collections", () => {
+test("standard thumbnail availability covers downloadable, native, and retained generative previews", () => {
   const items = readJSON(ITEMS_PATH);
   const scriptKinds = scriptCollectionKinds();
   const scriptIds = new Set(scriptKinds.keys());
@@ -469,6 +478,7 @@ test("standard thumbnail availability covers downloadable and native-script coll
     ...eligibleItems(items, scriptIds),
     ...items.filter((item) =>
       NATIVE_SCRIPT_THUMBNAIL_COLLECTIONS.has(item.internal_slug)
+      || GENERATIVE_CDN_PREVIEW_COLLECTIONS.has(item.internal_slug)
     ),
   ];
   const expectedEnabledIds = new Set(expectedEnabledItems.map(suggestedItemId));

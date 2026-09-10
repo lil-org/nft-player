@@ -2,8 +2,9 @@
 
 nonisolated struct Script: Codable, Sendable {
     
-    var id: String { address + abId }
+    var id: String { collectionIdOverride ?? address + abId }
     
+    let collectionIdOverride: String?
     let address: String
     let name: String
     let abId: String
