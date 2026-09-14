@@ -792,7 +792,7 @@ test("bundled tokens have compact aspect ratios and matching iOS layouts", () =>
   const primaryFileNames = fs.readdirSync(TOKENS_PATH)
     .filter((fileName) => path.extname(fileName) === ".json")
     .sort();
-  assert.equal(primaryFileNames.length, 518);
+  assert.equal(primaryFileNames.length, 528);
 
   const catalogItems = readJSON(ITEMS_PATH);
   const catalogItemByLowercasedFileName = new Map(
@@ -854,7 +854,7 @@ test("bundled tokens have compact aspect ratios and matching iOS layouts", () =>
     primaryTokenCount += payload.items.length;
     primaryByLowercasedFileName.set(fileName.toLowerCase(), { payload, ratios });
   }
-  assert.equal(primaryTokenCount, 230_357);
+  assert.equal(primaryTokenCount, 231_898);
   assert.equal(twoColumnCollectionCount, 39);
   assert.equal(
     manualThreeColumnCollectionCount,
@@ -885,7 +885,7 @@ test("bundled tokens have compact aspect ratios and matching iOS layouts", () =>
   const widgetFileNames = fs.readdirSync(WIDGET_TOKENS_PATH)
     .filter((fileName) => path.extname(fileName) === ".json")
     .sort();
-  assert.equal(widgetFileNames.length, 32);
+  assert.equal(widgetFileNames.length, 42);
   let widgetTokenCount = 0;
   for (const fileName of widgetFileNames) {
     const widgetPayload = readJSON(path.join(WIDGET_TOKENS_PATH, fileName));
@@ -907,7 +907,7 @@ test("bundled tokens have compact aspect ratios and matching iOS layouts", () =>
     });
     widgetTokenCount += widgetPayload.items.length;
   }
-  assert.equal(widgetTokenCount, 60_201);
+  assert.equal(widgetTokenCount, 61_742);
 });
 
 test("Terraforms uses Mathcastles HTML primaries with unchanged CDN thumbnails", () => {

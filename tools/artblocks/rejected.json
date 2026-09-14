@@ -1,12 +1,12 @@
 {
   "version": 1,
-  "collectionCount": 833,
+  "collectionCount": 835,
   "sources": {
     "originalCuration": 618,
     "pass1": 104,
     "pass2": 13,
     "pass3": 1,
-    "finderStatic": 97
+    "finderStatic": 99
   },
   "collections": [
     {
@@ -166,6 +166,24 @@
       "localCollectionFolder": "samples/hmm/tied-up-tied-down-let-loose-unwound--1--0x0000000b79eba5ae9327d9b802ac778a67e5c156--0",
       "source": "pass-1",
       "sourceFile": "tools/artblocks/reviews/pass-1.json"
+    },
+    {
+      "identity": "1:0x0000000bf96eb73f37239f61c9344e40d4c3f665:1",
+      "name": "Coral Colors",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/coral-colors--1--0x0000000bf96eb73f37239f61c9344e40d4c3f665--1",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 22,
+      "recordedAt": "2026-09-14T16:19:58.536597+00:00",
+      "downloadedTokenCount": 22,
+      "downloadedBytes": 170518731,
+      "artist": "Sputniko!",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
     },
     {
       "identity": "1:0x0000000c687daed0fba60d1dba4e5f6149e8b894:0",
@@ -1591,6 +1609,24 @@
       "note": null,
       "source": "original-curation",
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
+    },
+    {
+      "identity": "1:0x32d4be5ee74376e08038d652d4dc26e62c67f436:4",
+      "name": "Elefante",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/elefante--1--0x32d4be5ee74376e08038d652d4dc26e62c67f436--4",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "recordedAt": "2026-09-14T16:19:58.536597+00:00",
+      "downloadedTokenCount": 102,
+      "downloadedBytes": 131679369,
+      "artist": "Michael Connolly",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
     },
     {
       "identity": "1:0x32d4be5ee74376e08038d652d4dc26e62c67f436:5",

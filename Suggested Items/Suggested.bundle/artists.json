@@ -642,7 +642,8 @@
     "website": "https://mpkoz.com",
     "collections": [
       "chimera",
-      "parnassus"
+      "parnassus",
+      "bokeh"
     ]
   },
   "nicolas_sassoon": {
@@ -743,7 +744,8 @@
     "collections": [
       "inspirals",
       "eccentrics",
-      "eccentrics_2_orbits"
+      "eccentrics_2_orbits",
+      "windwoven"
     ]
   },
   "rafael_rozendaal": {
@@ -1181,7 +1183,8 @@
       "atlas",
       "calian",
       "cathedral_study",
-      "pax"
+      "pax",
+      "glass"
     ]
   },
   "jos_vromans": {
@@ -1227,7 +1230,8 @@
   "ryan_green": {
     "name": "Ryan Green",
     "collections": [
-      "beauty_in_the_hurting"
+      "beauty_in_the_hurting",
+      "the_colors_that_heal"
     ]
   },
   "lia": {
@@ -2049,6 +2053,42 @@
     "name": "Truedrew",
     "collections": [
       "you_are_here_part_1"
+    ]
+  },
+  "andrew_mitchell": {
+    "name": "Andrew Mitchell",
+    "collections": [
+      "memory_loss"
+    ]
+  },
+  "baret_lavida": {
+    "name": "Baret LaVida",
+    "collections": [
+      "primavera"
+    ]
+  },
+  "juan_pedro_vallejo": {
+    "name": "Juan Pedro Vallejo",
+    "collections": [
+      "subtraction_reconfiguration"
+    ]
+  },
+  "jonny_baho": {
+    "name": "Jonny Baho",
+    "collections": [
+      "talim"
+    ]
+  },
+  "emily_edelman": {
+    "name": "Emily Edelman",
+    "collections": [
+      "twos"
+    ]
+  },
+  "obvious": {
+    "name": "Obvious",
+    "collections": [
+      "whispering_sands"
     ]
   }
 }

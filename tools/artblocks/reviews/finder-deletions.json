@@ -5,7 +5,7 @@
   "instruction": "i removed some more mb-static collections — remember them as deleted, and let me know how much tokens are collections left in mb-static if we were to download them fully",
   "previousStaticSHA256": "9c1ecd3000aec220b48189d1364139ac32a72da192dfad0bf3efd8358afee4bd",
   "previousStaticCommit": "7dc7320b766177b463cfbd0f7b2e3130567346bf",
-  "collectionCount": 97,
+  "collectionCount": 99,
   "collections": [
     {
       "identity": "1:0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270:69",
@@ -1185,6 +1185,36 @@
       "recordedAt": "2026-09-14T12:31:35.576254+00:00",
       "downloadedTokenCount": 100,
       "downloadedBytes": 898697380
+    },
+    {
+      "identity": "1:0x0000000bf96eb73f37239f61c9344e40d4c3f665:1",
+      "name": "Coral Colors",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/coral-colors--1--0x0000000bf96eb73f37239f61c9344e40d4c3f665--1",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 22,
+      "recordedAt": "2026-09-14T16:19:58.536597+00:00",
+      "downloadedTokenCount": 22,
+      "downloadedBytes": 170518731
+    },
+    {
+      "identity": "1:0x32d4be5ee74376e08038d652d4dc26e62c67f436:4",
+      "name": "Elefante",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/elefante--1--0x32d4be5ee74376e08038d652d4dc26e62c67f436--4",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "recordedAt": "2026-09-14T16:19:58.536597+00:00",
+      "downloadedTokenCount": 102,
+      "downloadedBytes": 131679369
     }
   ],
   "updates": [
@@ -1201,6 +1231,18 @@
         "1:0x00000007cc35dcab4a396249aefa295a8b6e16ba:5",
         "1:0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270:227",
         "1:0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676:76"
+      ]
+    },
+    {
+      "recordedAt": "2026-09-14T16:19:58.536597+00:00",
+      "sourceType": "user-confirmed-local-deletions",
+      "instruction": "changed our mind about 2 collections:\n\ncoral_colors\nelefante\n\n\nlet's preserve them as deleted",
+      "previousCommit": "7dbc37818f7d7307e4f1d22f8c36d2d0cf5a2a04",
+      "previousStaticSHA256": "8cff9d19e5d896c24c0ad9b8680e0d42d287477f097a1ccea4470e0ede0cd143",
+      "previousDownloadInventorySHA256": "de79c0d50d1da44f75e52334b472a332da9b7cc30b88a9506437b978d8bdc8d7",
+      "removedIdentities": [
+        "1:0x0000000bf96eb73f37239f61c9344e40d4c3f665:1",
+        "1:0x32d4be5ee74376e08038d652d4dc26e62c67f436:4"
       ]
     }
   ]

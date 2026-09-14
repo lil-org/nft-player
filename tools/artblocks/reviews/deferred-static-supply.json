@@ -2,26 +2,14 @@
   "version": 1,
   "checkedAt": "2026-09-14T11:30:05.711754+00:00",
   "source": "https://data.artblocks.io/v1/graphql",
-  "collectionCount": 12,
-  "mintedTokenCount": 1665,
-  "localSampleCount": 275,
+  "collectionCount": 10,
+  "mintedTokenCount": 1541,
+  "localSampleCount": 230,
   "collections": [
     {
       "identity": "1:0xab0000000000aa06f89b268d604a9c1c41524ac6:496",
       "name": "Bokeh",
       "mintedTokenCount": 300,
-      "localSampleCount": 23
-    },
-    {
-      "identity": "1:0x0000000bf96eb73f37239f61c9344e40d4c3f665:1",
-      "name": "Coral Colors",
-      "mintedTokenCount": 22,
-      "localSampleCount": 22
-    },
-    {
-      "identity": "1:0x32d4be5ee74376e08038d652d4dc26e62c67f436:4",
-      "name": "Elefante",
-      "mintedTokenCount": 102,
       "localSampleCount": 23
     },
     {
@@ -79,5 +67,5 @@
       "localSampleCount": 23
     }
   ],
-  "selectionUpdatedAt": "2026-09-14T12:31:35.576254+00:00"
+  "selectionUpdatedAt": "2026-09-14T16:19:58.536597+00:00"
 }

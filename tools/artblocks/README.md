@@ -2,7 +2,7 @@
 
 `curation.json` preserves the review decisions independently of downloaded files. Each entry is keyed by `chain-id:lowercase-contract-address:project-id` and contains its name, artist, group, and local folder basename. Retained collections also record the reviewed token IDs, invocations, media URLs, and extensions.
 
-The original snapshot in `reviews/pass-1-curation.json` preserves the September 6, 2026 inventory. Current production eligibility is recorded by the approved, deferred-static, and rejected ledgers described below; live curation retains historical group labels and saved sample references.
+The original snapshot in `reviews/pass-1-curation.json` preserves the September 6, 2026 inventory. Review decisions are recorded by the approved, deferred-static, and rejected ledgers described below; live curation retains historical group labels and saved sample references.
 
 The entire project-root `samples/` directory remains Git-ignored, including media, raw manifests, and generated reports. Only this compact registry, documentation, and tooling belong in Git. Excluded collections have no sample references and are never automatically downloaded again.
 
@@ -79,7 +79,7 @@ After applying, run `node scripts/generate-widget-resources.mjs`, then `node scr
 
 ## Bundled approved Art Blocks collections
 
-The September 14, 2026 production batch adds **292 collections and 143,847 minted tokens** to the normal iOS/iPadOS app. The catalog contains **517 entries**, including the original 225. Other platforms keep their prior visible catalogs and generator availability; widget resources and eligibility remain unchanged.
+The September 14, 2026 production batch adds **292 collections and 143,847 minted tokens** to the normal iOS/iPadOS app. That batch brought the catalog to **517 entries**, including the original 225, while leaving other platforms and widget eligibility unchanged.
 
 The additions are generative-only, with neutral covers and no thumbnail browser or remote sample-image fallback. Artist scripts, embedded fonts/data, pinned rendering libraries, Hypertype's local dependency, and frozen contract parameters ship in the app. The permanent Art Blocks renderer preserves 213 direct and 79 calibrated startup policies, quality monitoring, collection fixes, and cache migration. `bundledDate` records `2026-09-14` for this batch and remains stable on rebuilds.
 
@@ -93,15 +93,15 @@ node tools/promote_artblocks_collections.js --publish
 
 The complete original 519-project resource corpus and unused historical dependencies are preserved under `archive/pass-5`, outside application targets. The temporary review UI, decisions/notes/export controls, pass selection, and executable pass-preparation commands have been removed. Historical command sources and documentation are retained as inert text in `archive/pass-5/retired-review-tooling`.
 
-The [static candidates](reviews/deferred-static.md) retain 12 collections and 275 reviewed sample references, including original media and PNG alternatives. The [rejection ledger](rejected.json) retains 833 rejected/deleted identities. Future discovery and sample selection consult these records. Promotion left the existing sample files untouched. The subsequent authorized sample cleanup removed non-static samples and consolidated the retained collection folders under `samples/mb-static/`.
+The [static review records](reviews/deferred-static.md) retain 10 collections and 230 reviewed sample references, including original media and PNG alternatives. These ten collections are now bundled as CDN images in the app and widget selection; their saved review decisions remain unchanged. The [rejection ledger](rejected.json) retains 835 rejected/deleted identities, including Coral Colors and Elefante. Future discovery and sample selection consult these records. Promotion left the existing sample files untouched. The subsequent authorized sample cleanup removed non-static samples and consolidated the retained collection folders under `samples/mb-static/`.
 
-Live `curation.json` retains legacy group labels (53 good, 233 ok, 219 hmm, and 632 excluded); the cumulative rejection ledger additionally includes 104 first-pass rejections and 97 user-confirmed Finder deletions. Use the cumulative ledgers for current eligibility, rather than inferring eligibility from those historical group labels. The known inventory partitions exactly into 292 approved, 12 deferred-static, 833 rejected, and zero pending collections.
+Live `curation.json` retains legacy group labels (53 good, 233 ok, 219 hmm, and 632 excluded); the cumulative rejection ledger additionally includes 104 first-pass rejections and 99 user-confirmed Finder deletions. Use the cumulative ledgers for review history and the live app catalog for current bundled collections. The saved review inventory partitions exactly into 292 approved, 10 originally deferred-static, 835 rejected, and zero pending collections.
 
 Historical source regeneration remains available through `build_artblocks_good_preview.js`, which also supplies production parameter validation. Its default output is the ignored `build/artblocks-historical-review/Good` directory. It does not activate an application review pass. Frozen parameter parsing is shared with production capture; reviewed parameter records are never refreshed by the production workflow.
 
 ## Local samples for Finder review
 
-Following the user’s Finder review, 12 `mb static` collections remain in `samples/mb-static/`, with 1,665 PNGs including 275 original samples. The 97 removed collection folders are recorded as deleted in `reviews/finder-deletions.json` and the cumulative rejection ledger. Counts for the retained selection are recorded in [deferred-static-supply.json](reviews/deferred-static-supply.json). Their original collection folders and file bytes are preserved. The current [static index](reviews/deferred-static.md) links to the new locations; decisions, notes, original groups, token IDs, and PNG alternatives remain unchanged.
+Following the user’s Finder review and the deletion of Coral Colors and Elefante, the saved static inventory retains 10 collections and 1,541 PNG records, including 230 original samples. The 99 removed identities are recorded in `reviews/finder-deletions.json` and the cumulative rejection ledger. Counts are recorded in [deferred-static-supply.json](reviews/deferred-static-supply.json). The [static index](reviews/deferred-static.md) retains historical folder names and full token-ID filenames. Local assets are currently absent; their absence does not imply further deletion decisions.
 
 ```sh
 python3 tools/cleanup_artblocks_samples.py
@@ -129,4 +129,4 @@ Transfers use six workers, five retries with backoff, a 10 GiB free-space reserv
 
 The cleanup verifier recognizes a completed full-download inventory while continuing to enforce all original sample checksums. Local download progress and partial files remain under `build/`; the completed inventory and per-collection index are committed, and the PNG files remain Git-ignored.
 
-The current [full static inventory](reviews/static-downloads.md) contains 1,665 PNGs totaling 10,676,508,132 bytes. The original full download contained 4,287 PNGs; its inventory remains in Git history. All additional files used the official standard image URL, with no fallback or format substitution.
+The current [full static inventory](reviews/static-downloads.md) records 1,541 PNGs totaling 10,374,310,032 bytes: 230 original samples and 1,311 additional downloads. The original full download contained 4,287 PNGs; its inventory remains in Git history. All additional files used the official standard image URL, with no fallback or format substitution.

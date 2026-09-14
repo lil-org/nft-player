@@ -1,14 +1,12 @@
 # Collections deferred for static review
 
-12 collections with 275 saved samples, together in `samples/mb-static/`.
+10 collections with 230 saved samples, together in `samples/mb-static/`.
 
 Original decisions, notes, groups, and PNG alternatives are retained in [deferred-static.json](deferred-static.json). Previous locations are preserved in the sample-cleanup archive.
 
 | Collection | Decision pass | Saved tokens | Finder folder |
 | --- | --- | ---: | --- |
 | Bokeh | pass-1 | 23 | [bokeh--1--0xab0000000000aa06f89b268d604a9c1c41524ac6--496](../../../samples/mb-static/bokeh--1--0xab0000000000aa06f89b268d604a9c1c41524ac6--496) |
-| Coral Colors | pass-1 | 22 | [coral-colors--1--0x0000000bf96eb73f37239f61c9344e40d4c3f665--1](../../../samples/mb-static/coral-colors--1--0x0000000bf96eb73f37239f61c9344e40d4c3f665--1) |
-| Elefante | pass-1 | 23 | [elefante--1--0x32d4be5ee74376e08038d652d4dc26e62c67f436--4](../../../samples/mb-static/elefante--1--0x32d4be5ee74376e08038d652d4dc26e62c67f436--4) |
 | Glass | pass-1 | 23 | [glass--1--0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270--344](../../../samples/mb-static/glass--1--0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270--344) |
 | Memory Loss | pass-1 | 23 | [memory-loss--1--0x1353fd9d3dc70d1a18149c8fb2adb4fb906de4e8--13](../../../samples/mb-static/memory-loss--1--0x1353fd9d3dc70d1a18149c8fb2adb4fb906de4e8--13) |
 | Primavera | pass-1 | 23 | [primavera--1--0x000019bd92633e9e00dc08adb0d0dffb00a1fe2a--0](../../../samples/mb-static/primavera--1--0x000019bd92633e9e00dc08adb0d0dffb00a1fe2a--0) |
@@ -19,4 +17,4 @@ Original decisions, notes, groups, and PNG alternatives are retained in [deferre
 | Whispering Sands | pass-1 | 23 | [whispering-sands--1--0x7c3ea2b7b3befa1115ab51c09f0c9f245c500b18--28](../../../samples/mb-static/whispering-sands--1--0x7c3ea2b7b3befa1115ab51c09f0c9f245c500b18--28) |
 | Windwoven | pass-1 | 23 | [windwoven--1--0x1353fd9d3dc70d1a18149c8fb2adb4fb906de4e8--12](../../../samples/mb-static/windwoven--1--0x1353fd9d3dc70d1a18149c8fb2adb4fb906de4e8--12) |
 
-Full PNG download: **1,665 tokens** across 12 collections; 275 original samples plus 1,390 additional PNGs. [Per-collection download inventory](static-downloads.md).
+Full PNG download: **1,541 tokens** across 10 collections; 230 original samples plus 1,311 additional PNGs. [Per-collection download inventory](static-downloads.md).

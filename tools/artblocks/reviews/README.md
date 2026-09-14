@@ -45,7 +45,7 @@ The final pass-5 runtime selection is preserved under `../archive/pass-5/Develop
 
 The production app has no active review pass, decision store, note editor, export controls, or sample-image switch. Historical device review keys are left untouched. Valid rendering calibration is migrated separately because it is permanent renderer state.
 
-Temporary pass-preparation commands and their tests were retired. Their source and prior documentation are preserved as inert text under `../archive/pass-5/retired-review-tooling`. The [production workflow](../production/README.md) validates the current 292/12/833 partition and the complete frozen token capture without recreating app review resources.
+Temporary pass-preparation commands and their tests were retired. Their source and prior documentation are preserved as inert text under `../archive/pass-5/retired-review-tooling`. The [production workflow](../production/README.md) validates the historical 292/10/835 review partition and the complete frozen token capture without recreating app review resources.
 
 
 ## Finder sample cleanup
@@ -57,7 +57,7 @@ After production promotion, the user requested that only `mb static` samples rem
 
 `finder-deletions.json` records the user's confirmation that removed local collection folders should be remembered as deleted. The first reconciliation found 92 missing folders and 17 complete remaining collections. A subsequent user-confirmed update records five additional deletions: Bokeh (lamps), Ephemeral Tides, Jankpop, Kai-Gen, and Odysseys. The deleted collections now carry `decision: no`, `status: deleted`, their prior `mb static` decision and source pass, and original notes in the rejection ledger. No further sample files were deleted or downloaded by this reconciliation.
 
-The current static list contains 12 collections and 275 original PNG sample references; their full local download contains 1,665 PNGs. `deferred-static-supply.json` records the official Art Blocks API count checked on September 14, 2026: 4,287 minted tokens across the original 17 collections, reduced to 1,665 for the remaining 12 identities without refreshing the cutoff. The removed Jankpop had 143 tokens at that check. The existing 292 approvals are unchanged; cumulative rejected/deleted identities now total 833.
+The retained static list contains 10 collections and 230 original PNG sample references; its full download inventory records 1,541 PNGs, including 1,311 additional downloads. `deferred-static-supply.json` records the official Art Blocks API count checked on September 14, 2026: 4,287 minted tokens across the original 17 collections, reduced to 1,541 for the remaining 10 identities without refreshing the cutoff. The removed Jankpop had 143 tokens at that check. The existing 292 approvals are unchanged; cumulative rejected/deleted identities now total 835. The later deletion of Coral Colors and Elefante brings recorded Finder deletions to 99. The ten retained static collections are now bundled as CDN images in the app and widgets; their review records retain historical folder names and full token-ID filenames. Local assets are currently absent, without any further deletion decisions.
 
 The original cleanup plan and completion journal remain immutable historical evidence. Its verifier recognizes only explicitly recorded later deletions, still checks all remaining media against their original checksums, and refuses unexplained missing folders.
 
