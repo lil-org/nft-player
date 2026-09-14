@@ -109,7 +109,7 @@ def load_ledgers(root):
     return documents, sets
 
 
-def markdown(document):
+def markdown(document, downloads=None):
     lines = ['# Collections deferred for static review', '',
              f"{document['collectionCount']} collections with {document['tokenCount']:,} saved samples, together in `samples/mb-static/`.", '',
              'Original decisions, notes, groups, and PNG alternatives are retained in [deferred-static.json](deferred-static.json). Previous locations are preserved in the sample-cleanup archive.', '',
@@ -118,6 +118,8 @@ def markdown(document):
         name = row['name'].strip().replace('|', '\\|')
         source = row.get('sourcePassID', '')
         lines.append(f"| {name} | {source} | {len(row['samples'])} | [{Path(row['localCollectionFolder']).name}](../../../{row['localCollectionFolder']}) |")
+    if downloads:
+        lines.extend(['', f"Full PNG download: **{downloads['total']:,} tokens** across {downloads['collections']} collections; {downloads['original']:,} original samples plus {downloads['added']:,} additional PNGs. [Per-collection download inventory](static-downloads.md)."])
     return ('\n'.join(lines) + '\n').encode()
 
 
@@ -238,10 +240,17 @@ def readonly_inputs(root, plan, allow_updated=False):
             continue
         require(hashlib.sha256(actual).hexdigest() == sha, f'Changed input ledger: {name}')
     md = safe_path(root, STATIC_MD).read_bytes()
-    require(hashlib.sha256(md).hexdigest() == plan['originalMarkdownSHA256'] or allow_updated and md == markdown(plan['updatedStatic']), 'Changed static Markdown index')
+    valid_md = hashlib.sha256(md).hexdigest() == plan['originalMarkdownSHA256'] or allow_updated and md == markdown(plan['updatedStatic'])
+    if not valid_md and allow_updated:
+        expanded = include_static_downloads(root, plan)
+        valid_md = md == markdown(plan['updatedStatic'], expanded.get('downloadsSummary'))
+    require(valid_md, 'Changed static Markdown index')
 
 
 def sample_readme(plan):
+    if 'downloadsSummary' in plan:
+        counts = plan['downloadsSummary']
+        return (f"# Static collection PNGs\n\n{counts['collections']} collections and {counts['total']:,} PNGs are in [mb-static](mb-static/), with all minted tokens through the recorded download cutoff. The {counts['original']:,} original PNGs and collection manifests remain unchanged; {counts['added']:,} additional PNGs were downloaded.\n\nOpen the folders in Finder and sort by name. Full counts and checksums are indexed in ../tools/artblocks/reviews/static-downloads.md and static-downloads.json. The original review decisions and sample references remain in deferred-static.json.\n\nVerify with `node tools/download_artblocks_static.js --verify` or `python3 tools/cleanup_artblocks_samples.py --check`. Do not infer curation from the local file tree or run --capture-curation against it.\n").encode()
     return (f"# Static-review samples\n\n{plan['summary']['retainedCollections']} collections and {plan['summary']['retainedSamples']:,} original samples are in [mb-static](mb-static/).\n\nOpen this folder in Finder and sort by name. PNG and MP4 samples remain in their original formats. Each collection retains its manifest. Notes, previous decision provenance, and PNG alternative URLs are in ../tools/artblocks/reviews/deferred-static.json.\n\nThis is a reduced local review corpus, not the historical good/ok/hmm curation layout. Do not run --capture-curation against it. Verify it with `python3 tools/cleanup_artblocks_samples.py --check`.\n").encode()
 
 
@@ -286,6 +295,54 @@ def current_static_plan(root, original):
     return current
 
 
+def include_static_downloads(root, original):
+    path = safe_path(root, 'tools/artblocks/reviews/static-downloads.json')
+    if not path.exists():
+        return original
+    inventory = json.loads(path.read_bytes())
+    require(inventory.get('version') == 1 and inventory.get('status') == 'complete', 'Full static download is incomplete; use the static downloader to resume')
+    require(inventory.get('sourceIndexSHA256') == digest(root / STATIC_JSON) and inventory.get('sourceRejectedSHA256') == digest(root / REJECTED_JSON), 'Static download decisions changed')
+    result = copy.deepcopy(original)
+    moves = {row['identity']: row for row in result['moves']}
+    seen = set()
+    added = 0
+    for collection in inventory['collections']:
+        identity = collection['identity']
+        require(identity in moves and identity not in seen, 'Unexpected or duplicate full-download collection')
+        seen.add(identity)
+        row = moves[identity]
+        require(collection['folder'] == row['destination'] and collection['name'] == row['name'], 'Static download folder mismatch')
+        require(collection['originalManifestSHA256'] == row['files']['manifest.json']['sha256'], 'Original sample manifest changed')
+        cutoff = collection['invocationCutoff']
+        require(isinstance(cutoff, int) and cutoff > 0 and cutoff == len(collection['tokens']), 'Incomplete full-download token list')
+        original_files = set(row['files']) - {'manifest.json', '.DS_Store'}
+        seen_originals = set()
+        project_id = int(identity.split(':')[2])
+        for invocation, token in enumerate(collection['tokens']):
+            expected_id = str(project_id * 1000000 + invocation)
+            require(token['id'] == expected_id and token['file'] == expected_id + '.png', 'Static download token identity mismatch')
+            require(token['status'] == 'downloaded', 'Static token is not downloaded')
+            data = token['download']
+            require(data['extension'] == 'png' and isinstance(data['bytes'], int) and data['bytes'] > 0
+                    and len(data['sha256']) == 64 and all(c in '0123456789abcdef' for c in data['sha256']), 'Invalid static download metadata')
+            file = token['file']
+            require(token['original'] == (file in original_files), 'Wrong original sample membership')
+            if token['original']:
+                seen_originals.add(file)
+                require(row['files'][file]['bytes'] == data['bytes'] and row['files'][file]['sha256'] == data['sha256'], 'Original PNG checksum changed')
+            else:
+                row['files'][file] = {'bytes': data['bytes'], 'sha256': data['sha256']}
+                added += 1
+        require(seen_originals == original_files, 'Original PNGs missing from full download')
+    require(seen == set(moves), 'Full static download collection coverage is incomplete')
+    result['downloadsSummary'] = {'collections': len(seen), 'total': result['summary']['retainedSamples'] + added,
+                                  'original': result['summary']['retainedSamples'], 'added': added}
+    result['summary'].update(originalSamples=result['summary']['retainedSamples'], additionalDownloadedPNGs=added,
+                              retainedSamples=result['downloadsSummary']['total'],
+                              retainedBytes=sum(info['bytes'] for row in result['moves'] for info in row['files'].values()))
+    return result
+
+
 def check(root, archive):
     plan_path = safe_path(root, archive + '/plan.json')
     plan = json.loads(plan_path.read_bytes())
@@ -295,7 +352,8 @@ def check(root, archive):
     plan = current_static_plan(root, plan)
     readonly_inputs(root, plan, allow_updated=True)
     require((root / STATIC_JSON).read_bytes() == encoded(plan['updatedStatic']), 'Static index not updated')
-    require((root / STATIC_MD).read_bytes() == markdown(plan['updatedStatic']), 'Static Markdown not updated')
+    plan = include_static_downloads(root, plan)
+    require((root / STATIC_MD).read_bytes() == markdown(plan['updatedStatic'], plan.get('downloadsSummary')), 'Static Markdown not updated')
     verify_retained(root, plan)
     require(not any(safe_path(root, r['source']).exists() for r in plan['removals']), 'Removal still present')
     require(not any(safe_path(root, 'samples/' + group).exists() for group in GROUPS), 'Old group still present')

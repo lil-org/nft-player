@@ -101,7 +101,7 @@ Historical source regeneration remains available through `build_artblocks_good_p
 
 ## Local samples for Finder review
 
-Following the user’s Finder review, 17 `mb static` collections remain downloaded in `samples/mb-static/`, with 387 PNG samples. The 92 missing collection folders are recorded as deleted in `reviews/finder-deletions.json` and the cumulative rejection ledger. The remaining collections have 4,287 minted tokens in the official API check recorded in [deferred-static-supply.json](reviews/deferred-static-supply.json). Their original collection folders and file bytes are preserved. The current [static index](reviews/deferred-static.md) links to the new locations; decisions, notes, original groups, token IDs, and PNG alternatives remain unchanged.
+Following the user’s Finder review, 17 `mb static` collections remain downloaded in `samples/mb-static/`, with 4,287 PNGs after the complete static download; the original review selection contains 387 samples. The 92 missing collection folders are recorded as deleted in `reviews/finder-deletions.json` and the cumulative rejection ledger. The remaining collections have 4,287 minted tokens in the official API check recorded in [deferred-static-supply.json](reviews/deferred-static-supply.json). Their original collection folders and file bytes are preserved. The current [static index](reviews/deferred-static.md) links to the new locations; decisions, notes, original groups, token IDs, and PNG alternatives remain unchanged.
 
 ```sh
 python3 tools/cleanup_artblocks_samples.py
@@ -111,3 +111,22 @@ python3 tools/cleanup_artblocks_samples.py --check
 The cleanup command defaults to a read-only inventory summary. `--apply` resumes the exact recorded cleanup or verifies an already completed run. It validates identities against committed decision ledgers, hashes every retained file before moving, and verifies all moved files before deleting any other collection. Its journal, original indexes, local reports, and deletion inventory are retained in `archive/sample-cleanup-2026-09-14/`. The original removal set contains 396 top-level folders, plus the already rejected Blind Spots collection found inside Alien DNA's folder.
 
 Do not run the historical grouped `--capture-curation` operation against this reduced corpus: the files' presence is no longer a statement of curation eligibility. Use the cleanup verifier for this layout. App bundles, production tokens, frozen parameters, approval/rejection ledgers, and historical exports are unaffected. No new media was downloaded or converted.
+
+
+## Full PNG downloads for static candidates
+
+`node tools/download_artblocks_static.js --download` expands only the current static-review selection to every minted token through its frozen cutoff, keeping the existing Finder folders. It preserves the original PNGs and `manifest.json` files and records additional media separately in `reviews/static-downloads.json`. The original `deferred-static.json` sample references remain historical review evidence; additional downloads do not create approval decisions.
+
+```sh
+node tools/download_artblocks_static.js --plan
+node tools/download_artblocks_static.js --download
+node tools/download_artblocks_static.js --verify
+```
+
+The default is the read-only plan. Initial capture verifies project identities and complete paginated token coverage. Download/resume pins its cutoff and caches metadata under ignored `build/artblocks-static-download/`; a changed static or rejected ledger stops resumption. Existing files are checked before transfers and are never overwritten on conflict. New files use standard image PNG URLs, then official PNG preview/proxy alternatives. Video, live HTML, high-resolution alternatives, and thumbnails are not selected. No image resizing or recompression is performed.
+
+Transfers use six workers, five retries with backoff, a 10 GiB free-space reserve, per-token state, and atomic no-overwrite file publication. PNG headers, decoded image contents, dimensions, byte counts, and SHA-256 are validated. Failed tokens remain explicit; completion requires every frozen token. `--verify` performs a complete local hash and image-decode check without network requests.
+
+The cleanup verifier recognizes a completed full-download inventory while continuing to enforce all original sample checksums. Local download progress and partial files remain under `build/`; the completed inventory and per-collection index are committed, and the PNG files remain Git-ignored.
+
+The completed [full static inventory](reviews/static-downloads.md) contains 4,287 PNGs totaling 22,075,613,505 bytes. All 3,900 additions used the official standard image URL; no fallback or format substitution was needed.

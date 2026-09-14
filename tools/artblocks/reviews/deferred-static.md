@@ -23,3 +23,5 @@ Original decisions, notes, groups, and PNG alternatives are retained in [deferre
 | Twos | pass-1 | 23 | [twos--1--0x99a9b7c1116f9ceeb1652de04d5969cce509b069--469](../../../samples/mb-static/twos--1--0x99a9b7c1116f9ceeb1652de04d5969cce509b069--469) |
 | Whispering Sands | pass-1 | 23 | [whispering-sands--1--0x7c3ea2b7b3befa1115ab51c09f0c9f245c500b18--28](../../../samples/mb-static/whispering-sands--1--0x7c3ea2b7b3befa1115ab51c09f0c9f245c500b18--28) |
 | Windwoven | pass-1 | 23 | [windwoven--1--0x1353fd9d3dc70d1a18149c8fb2adb4fb906de4e8--12](../../../samples/mb-static/windwoven--1--0x1353fd9d3dc70d1a18149c8fb2adb4fb906de4e8--12) |
+
+Full PNG download: **4,287 tokens** across 17 collections; 387 original samples plus 3,900 additional PNGs. [Per-collection download inventory](static-downloads.md).

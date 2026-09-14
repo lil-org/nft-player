@@ -248,6 +248,34 @@ class CleanupTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             cleanup.check(self.root, cleanup.ARCHIVE)
 
+    def test_full_png_inventory_preserves_original_checksums_and_allows_only_declared_additions(self):
+        import hashlib
+        self.apply()
+        plan = json.loads((self.root / cleanup.ARCHIVE / 'plan.json').read_bytes())
+        row = plan['moves'][0]
+        original_file = Path(self.static['samples'][0]['localPath']).name
+        original_data = row['files'][original_file]
+        additional = b'additional PNG fixture'
+        new_file = '1000001.png'
+        self.write(row['destination'] + '/' + new_file, additional)
+        inventory = {'version': 1, 'status': 'complete', 'sourceIndexSHA256': cleanup.digest(self.root / cleanup.STATIC_JSON),
+                     'sourceRejectedSHA256': cleanup.digest(self.root / cleanup.REJECTED_JSON),
+                     'collections': [{'identity': row['identity'], 'name': row['name'], 'folder': row['destination'],
+                                      'invocationCutoff': 2, 'originalManifestSHA256': row['manifestSHA256'],
+                                      'tokens': [{'id': '1000000', 'file': original_file, 'original': True, 'status': 'downloaded',
+                                                  'download': dict(original_data, extension='png')},
+                                                 {'id': '1000001', 'file': new_file, 'original': False, 'status': 'downloaded',
+                                                  'download': {'extension': 'png', 'bytes': len(additional), 'sha256': hashlib.sha256(additional).hexdigest()}}]}]}
+        self.write('tools/artblocks/reviews/static-downloads.json', cleanup.encoded(inventory))
+        expanded = cleanup.include_static_downloads(self.root, plan)
+        self.write(cleanup.STATIC_MD, cleanup.markdown(plan['updatedStatic'], expanded['downloadsSummary']))
+        self.write('samples/README.md', cleanup.sample_readme(expanded))
+        self.assertEqual(cleanup.check(self.root, cleanup.ARCHIVE)['retainedSamples'], 2)
+        inventory['collections'][0]['tokens'][0]['download']['sha256'] = 'f' * 64
+        self.write('tools/artblocks/reviews/static-downloads.json', cleanup.encoded(inventory))
+        with self.assertRaises(ValueError):
+            cleanup.check(self.root, cleanup.ARCHIVE)
+
     def test_input_ledger_change_stops_resume(self):
         def interrupt(event):
             if event == 'retained-verified':
