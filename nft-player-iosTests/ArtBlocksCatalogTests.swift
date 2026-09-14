@@ -11,7 +11,7 @@ extension ArtBlocksCatalogTests {
         SuggestedItemsService.allItems.filter { $0.bundledDate == "2026-09-14" && $0.generativeOnly == true }
     }
 
-    func testApprovedCollectionsAreNormalCatalogEntriesWithoutImageModes() throws {
+    func testApprovedCollectionsHaveCoversAndGenerativeOnlyPlayback() throws {
         XCTAssertEqual(SuggestedItemsService.allItems.count, 529)
         XCTAssertEqual(additions.count, 292)
         var policies = [String: Int]()
@@ -19,13 +19,16 @@ extension ArtBlocksCatalogTests {
             XCTAssertFalse(item.id.contains("dev-good"), item.name)
             XCTAssertEqual(item.id, item.address + (item.abId ?? ""), item.name)
             XCTAssertEqual(item.iosOnly, true)
-            XCTAssertEqual(item.hasCover, false)
+            XCTAssertEqual(item.hasCover, true)
             XCTAssertEqual(item.hasThumbnails, false)
             XCTAssertFalse(item.isDownloadableCollection)
             XCTAssertNil(item.tokenCount)
             XCTAssertFalse(item.artists.isEmpty, item.name)
             XCTAssertTrue(SuggestedItemsService.visibleItems.contains { $0.id == item.id })
-            XCTAssertTrue(CollectionCatalog.allItems.contains { $0.id == item.id && !$0.hasCover })
+            XCTAssertTrue(CollectionCatalog.allItems.contains { $0.id == item.id && $0.hasCover })
+            let cover = try XCTUnwrap(UIImage(named: item.id)?.cgImage, item.name)
+            XCTAssertEqual(cover.width, 300, item.name)
+            XCTAssertEqual(cover.height, 300, item.name)
             XCTAssertTrue(TokenGenerator.usesArtBlocksRenderer(collectionId: item.id))
             XCTAssertTrue(CollectionCatalog.canOpenCollection(specificCollectionId: item.id))
             XCTAssertFalse(CollectionCatalog.isDownloadableCollection(specificCollectionId: item.id))
