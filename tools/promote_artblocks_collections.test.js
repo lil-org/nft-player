@@ -32,8 +32,8 @@ test("artist matching reserves existing identity and adds an exact credit", () =
 
 test("historical partitions are disjoint and future selection excludes rejected/static collections", async () => {
   const ledger = await curationLedgers();
-  assert.equal(ledger.collectionCount, 828);
-  assert.equal(ledger.sources.finderStatic, 92);
+  assert.equal(ledger.collectionCount, 833);
+  assert.equal(ledger.sources.finderStatic, 97);
   const decisions = await historicalDecisions({});
   assert.equal(decisions.size, 845);
   for (const entry of ledger.collections) assert(decisions.has(entry.identity));

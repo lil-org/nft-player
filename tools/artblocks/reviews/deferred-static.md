@@ -1,21 +1,16 @@
 # Collections deferred for static review
 
-17 collections with 387 saved samples, together in `samples/mb-static/`.
+12 collections with 275 saved samples, together in `samples/mb-static/`.
 
 Original decisions, notes, groups, and PNG alternatives are retained in [deferred-static.json](deferred-static.json). Previous locations are preserved in the sample-cleanup archive.
 
 | Collection | Decision pass | Saved tokens | Finder folder |
 | --- | --- | ---: | --- |
 | Bokeh | pass-1 | 23 | [bokeh--1--0xab0000000000aa06f89b268d604a9c1c41524ac6--496](../../../samples/mb-static/bokeh--1--0xab0000000000aa06f89b268d604a9c1c41524ac6--496) |
-| Bokeh (lamps) | pass-1 | 20 | [bokeh-lamps--1--0xab0000000000aa06f89b268d604a9c1c41524ac6--495](../../../samples/mb-static/bokeh-lamps--1--0xab0000000000aa06f89b268d604a9c1c41524ac6--495) |
 | Coral Colors | pass-1 | 22 | [coral-colors--1--0x0000000bf96eb73f37239f61c9344e40d4c3f665--1](../../../samples/mb-static/coral-colors--1--0x0000000bf96eb73f37239f61c9344e40d4c3f665--1) |
 | Elefante | pass-1 | 23 | [elefante--1--0x32d4be5ee74376e08038d652d4dc26e62c67f436--4](../../../samples/mb-static/elefante--1--0x32d4be5ee74376e08038d652d4dc26e62c67f436--4) |
-| Ephemeral Tides | pass-1 | 23 | [ephemeral-tides--1--0x1353fd9d3dc70d1a18149c8fb2adb4fb906de4e8--9](../../../samples/mb-static/ephemeral-tides--1--0x1353fd9d3dc70d1a18149c8fb2adb4fb906de4e8--9) |
 | Glass | pass-1 | 23 | [glass--1--0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270--344](../../../samples/mb-static/glass--1--0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270--344) |
-| Jankpop | pass-1 | 23 | [jankpop--1--0x00000007cc35dcab4a396249aefa295a8b6e16ba--5](../../../samples/mb-static/jankpop--1--0x00000007cc35dcab4a396249aefa295a8b6e16ba--5) |
-| Kai-Gen | pass-1 | 23 | [kai-gen--1--0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270--227](../../../samples/mb-static/kai-gen--1--0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270--227) |
 | Memory Loss | pass-1 | 23 | [memory-loss--1--0x1353fd9d3dc70d1a18149c8fb2adb4fb906de4e8--13](../../../samples/mb-static/memory-loss--1--0x1353fd9d3dc70d1a18149c8fb2adb4fb906de4e8--13) |
-| Odysseys | pass-1 | 23 | [odysseys--1--0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676--76](../../../samples/mb-static/odysseys--1--0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676--76) |
 | Primavera | pass-1 | 23 | [primavera--1--0x000019bd92633e9e00dc08adb0d0dffb00a1fe2a--0](../../../samples/mb-static/primavera--1--0x000019bd92633e9e00dc08adb0d0dffb00a1fe2a--0) |
 | Subtraction, Reconfiguration | pass-1 | 23 | [subtraction-reconfiguration--1--0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676--65](../../../samples/mb-static/subtraction-reconfiguration--1--0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676--65) |
 | Talim | pass-1 | 23 | [talim--42161--0x47a91457a3a1f700097199fd63c039c4784384ab--233](../../../samples/mb-static/talim--42161--0x47a91457a3a1f700097199fd63c039c4784384ab--233) |
@@ -24,4 +19,4 @@ Original decisions, notes, groups, and PNG alternatives are retained in [deferre
 | Whispering Sands | pass-1 | 23 | [whispering-sands--1--0x7c3ea2b7b3befa1115ab51c09f0c9f245c500b18--28](../../../samples/mb-static/whispering-sands--1--0x7c3ea2b7b3befa1115ab51c09f0c9f245c500b18--28) |
 | Windwoven | pass-1 | 23 | [windwoven--1--0x1353fd9d3dc70d1a18149c8fb2adb4fb906de4e8--12](../../../samples/mb-static/windwoven--1--0x1353fd9d3dc70d1a18149c8fb2adb4fb906de4e8--12) |
 
-Full PNG download: **4,287 tokens** across 17 collections; 387 original samples plus 3,900 additional PNGs. [Per-collection download inventory](static-downloads.md).
+Full PNG download: **1,665 tokens** across 12 collections; 275 original samples plus 1,390 additional PNGs. [Per-collection download inventory](static-downloads.md).

@@ -1,12 +1,12 @@
 {
   "version": 1,
-  "collectionCount": 828,
+  "collectionCount": 833,
   "sources": {
     "originalCuration": 618,
     "pass1": 104,
     "pass2": 13,
     "pass3": 1,
-    "finderStatic": 92
+    "finderStatic": 97
   },
   "collections": [
     {
@@ -93,6 +93,24 @@
       "note": null,
       "source": "original-curation",
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
+    },
+    {
+      "identity": "1:0x00000007cc35dcab4a396249aefa295a8b6e16ba:5",
+      "name": "Jankpop",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/jankpop--1--0x00000007cc35dcab4a396249aefa295a8b6e16ba--5",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "recordedAt": "2026-09-14T12:31:35.576254+00:00",
+      "downloadedTokenCount": 143,
+      "downloadedBytes": 1505818501,
+      "artist": "Harvey Rayner",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
     },
     {
       "identity": "1:0x0000000826d45c6b947d485eeb8322acccad8ddb:0",
@@ -1089,6 +1107,24 @@
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
     },
     {
+      "identity": "1:0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676:76",
+      "name": "Odysseys",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/odysseys--1--0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676--76",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "recordedAt": "2026-09-14T12:31:35.576254+00:00",
+      "downloadedTokenCount": 100,
+      "downloadedBytes": 898697380,
+      "artist": "Florian Zumbrunn",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
       "identity": "1:0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676:78",
       "name": "Lightbreak",
       "artist": "Luke Shannon",
@@ -1208,6 +1244,24 @@
       "note": null,
       "source": "original-curation",
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
+    },
+    {
+      "identity": "1:0x1353fd9d3dc70d1a18149c8fb2adb4fb906de4e8:9",
+      "name": "Ephemeral Tides",
+      "group": "hmm",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/ephemeral-tides--1--0x1353fd9d3dc70d1a18149c8fb2adb4fb906de4e8--9",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "recordedAt": "2026-09-14T12:31:35.576254+00:00",
+      "downloadedTokenCount": 311,
+      "downloadedBytes": 5912084563,
+      "artist": "Ryan Bell",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
     },
     {
       "identity": "1:0x13aae6f9599880edbb7d144bb13f1212cee99533:2",
@@ -4284,6 +4338,24 @@
       "sourceFile": "tools/artblocks/reviews/pass-1.json"
     },
     {
+      "identity": "1:0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270:227",
+      "name": "Kai-Gen",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/kai-gen--1--0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270--227",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "recordedAt": "2026-09-14T12:31:35.576254+00:00",
+      "downloadedTokenCount": 2048,
+      "downloadedBytes": 2963143899,
+      "artist": "Takeshi Murata, Christopher Rutledge, J. Krispy",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
       "identity": "1:0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270:228",
       "name": "Incomplete Control",
       "artist": "Tyler Hobbs",
@@ -5786,6 +5858,24 @@
       "note": null,
       "source": "original-curation",
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
+    },
+    {
+      "identity": "1:0xab0000000000aa06f89b268d604a9c1c41524ac6:495",
+      "name": "Bokeh (lamps)",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/bokeh-lamps--1--0xab0000000000aa06f89b268d604a9c1c41524ac6--495",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 20,
+      "recordedAt": "2026-09-14T12:31:35.576254+00:00",
+      "downloadedTokenCount": 20,
+      "downloadedBytes": 119361030,
+      "artist": "mpkoz",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
     },
     {
       "identity": "1:0xab0000000000aa06f89b268d604a9c1c41524ac6:497",

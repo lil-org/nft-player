@@ -2,21 +2,15 @@
   "version": 1,
   "checkedAt": "2026-09-14T11:30:05.711754+00:00",
   "source": "https://data.artblocks.io/v1/graphql",
-  "collectionCount": 17,
-  "mintedTokenCount": 4287,
-  "localSampleCount": 387,
+  "collectionCount": 12,
+  "mintedTokenCount": 1665,
+  "localSampleCount": 275,
   "collections": [
     {
       "identity": "1:0xab0000000000aa06f89b268d604a9c1c41524ac6:496",
       "name": "Bokeh",
       "mintedTokenCount": 300,
       "localSampleCount": 23
-    },
-    {
-      "identity": "1:0xab0000000000aa06f89b268d604a9c1c41524ac6:495",
-      "name": "Bokeh (lamps)",
-      "mintedTokenCount": 20,
-      "localSampleCount": 20
     },
     {
       "identity": "1:0x0000000bf96eb73f37239f61c9344e40d4c3f665:1",
@@ -31,39 +25,15 @@
       "localSampleCount": 23
     },
     {
-      "identity": "1:0x1353fd9d3dc70d1a18149c8fb2adb4fb906de4e8:9",
-      "name": "Ephemeral Tides",
-      "mintedTokenCount": 311,
-      "localSampleCount": 23
-    },
-    {
       "identity": "1:0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270:344",
       "name": "Glass",
       "mintedTokenCount": 300,
       "localSampleCount": 23
     },
     {
-      "identity": "1:0x00000007cc35dcab4a396249aefa295a8b6e16ba:5",
-      "name": "Jankpop",
-      "mintedTokenCount": 143,
-      "localSampleCount": 23
-    },
-    {
-      "identity": "1:0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270:227",
-      "name": "Kai-Gen",
-      "mintedTokenCount": 2048,
-      "localSampleCount": 23
-    },
-    {
       "identity": "1:0x1353fd9d3dc70d1a18149c8fb2adb4fb906de4e8:13",
       "name": "Memory Loss",
       "mintedTokenCount": 256,
-      "localSampleCount": 23
-    },
-    {
-      "identity": "1:0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676:76",
-      "name": "Odysseys",
-      "mintedTokenCount": 100,
       "localSampleCount": 23
     },
     {
@@ -108,5 +78,6 @@
       "mintedTokenCount": 110,
       "localSampleCount": 23
     }
-  ]
+  ],
+  "selectionUpdatedAt": "2026-09-14T12:31:35.576254+00:00"
 }

@@ -2,7 +2,7 @@
 
 The approved batch contains 292 collections. `final-approval.md` records the user's instruction; it is not a device export. `identity-mapping.json` maps historical review identities to production IDs. `provenance.json` records counts, invocation cutoffs, and source/resource checksums.
 
-The complete original 519-project review corpus and the pre-promotion production catalog are retained in `../archive/pass-5`. Exact exports, approved manifests, and the current 17-project static list (the original 109-project selection is archived) remain in `../reviews`. The cumulative 828-project rejection ledger is `../rejected.json`. Discovery and sample selection consult both deferred and rejected identities. Existing sample folders are not deleted by this workflow.
+The complete original 519-project review corpus and the pre-promotion production catalog are retained in `../archive/pass-5`. Exact exports, approved manifests, and the current 12-project static list (the original 109-project selection is archived) remain in `../reviews`. The cumulative 833-project rejection ledger is `../rejected.json`. Discovery and sample selection consult both deferred and rejected identities. Existing sample folders are not deleted by this workflow.
 
 ## Frozen capture and reproducible publication
 

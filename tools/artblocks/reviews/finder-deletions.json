@@ -5,7 +5,7 @@
   "instruction": "i removed some more mb-static collections — remember them as deleted, and let me know how much tokens are collections left in mb-static if we were to download them fully",
   "previousStaticSHA256": "9c1ecd3000aec220b48189d1364139ac32a72da192dfad0bf3efd8358afee4bd",
   "previousStaticCommit": "7dc7320b766177b463cfbd0f7b2e3130567346bf",
-  "collectionCount": 92,
+  "collectionCount": 97,
   "collections": [
     {
       "identity": "1:0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270:69",
@@ -1110,6 +1110,98 @@
       "status": "deleted",
       "previousDecision": "mb static",
       "sampleCount": 23
+    },
+    {
+      "identity": "1:0xab0000000000aa06f89b268d604a9c1c41524ac6:495",
+      "name": "Bokeh (lamps)",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/bokeh-lamps--1--0xab0000000000aa06f89b268d604a9c1c41524ac6--495",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 20,
+      "recordedAt": "2026-09-14T12:31:35.576254+00:00",
+      "downloadedTokenCount": 20,
+      "downloadedBytes": 119361030
+    },
+    {
+      "identity": "1:0x1353fd9d3dc70d1a18149c8fb2adb4fb906de4e8:9",
+      "name": "Ephemeral Tides",
+      "group": "hmm",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/ephemeral-tides--1--0x1353fd9d3dc70d1a18149c8fb2adb4fb906de4e8--9",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "recordedAt": "2026-09-14T12:31:35.576254+00:00",
+      "downloadedTokenCount": 311,
+      "downloadedBytes": 5912084563
+    },
+    {
+      "identity": "1:0x00000007cc35dcab4a396249aefa295a8b6e16ba:5",
+      "name": "Jankpop",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/jankpop--1--0x00000007cc35dcab4a396249aefa295a8b6e16ba--5",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "recordedAt": "2026-09-14T12:31:35.576254+00:00",
+      "downloadedTokenCount": 143,
+      "downloadedBytes": 1505818501
+    },
+    {
+      "identity": "1:0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270:227",
+      "name": "Kai-Gen",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/kai-gen--1--0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270--227",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "recordedAt": "2026-09-14T12:31:35.576254+00:00",
+      "downloadedTokenCount": 2048,
+      "downloadedBytes": 2963143899
+    },
+    {
+      "identity": "1:0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676:76",
+      "name": "Odysseys",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/odysseys--1--0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676--76",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "recordedAt": "2026-09-14T12:31:35.576254+00:00",
+      "downloadedTokenCount": 100,
+      "downloadedBytes": 898697380
+    }
+  ],
+  "updates": [
+    {
+      "recordedAt": "2026-09-14T12:31:35.576254+00:00",
+      "sourceType": "user-confirmed-local-deletions",
+      "instruction": "ok i removed a couple more collections — remember them as removed, commit and push",
+      "previousCommit": "4ae2c5ed6a39fa946232eebeadd52d78e896fef6",
+      "previousStaticSHA256": "3ef59a798742195aa8249c2674d7e0453fc28a446575197d9adfc8f61fe03091",
+      "previousDownloadInventorySHA256": "cb68fd58727ff6b288c9c3d798d0b4455aa0f070fb12902e156e082eb43c567e",
+      "removedIdentities": [
+        "1:0xab0000000000aa06f89b268d604a9c1c41524ac6:495",
+        "1:0x1353fd9d3dc70d1a18149c8fb2adb4fb906de4e8:9",
+        "1:0x00000007cc35dcab4a396249aefa295a8b6e16ba:5",
+        "1:0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270:227",
+        "1:0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676:76"
+      ]
     }
   ]
 }

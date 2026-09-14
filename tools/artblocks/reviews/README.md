@@ -45,7 +45,7 @@ The final pass-5 runtime selection is preserved under `../archive/pass-5/Develop
 
 The production app has no active review pass, decision store, note editor, export controls, or sample-image switch. Historical device review keys are left untouched. Valid rendering calibration is migrated separately because it is permanent renderer state.
 
-Temporary pass-preparation commands and their tests were retired. Their source and prior documentation are preserved as inert text under `../archive/pass-5/retired-review-tooling`. The [production workflow](../production/README.md) validates the current 292/17/828 partition and the complete frozen token capture without recreating app review resources.
+Temporary pass-preparation commands and their tests were retired. Their source and prior documentation are preserved as inert text under `../archive/pass-5/retired-review-tooling`. The [production workflow](../production/README.md) validates the current 292/12/833 partition and the complete frozen token capture without recreating app review resources.
 
 
 ## Finder sample cleanup
@@ -55,8 +55,11 @@ After production promotion, the user requested that only `mb static` samples rem
 
 ## Subsequent Finder decisions
 
-`finder-deletions.json` records the user's confirmation that removed local collection folders should be remembered as deleted. Reconciliation found 92 missing folders and 17 complete remaining collections. The deleted collections now carry `decision: no`, `status: deleted`, their prior `mb static` decision and source pass, and original notes in the rejection ledger. No further sample files were deleted or downloaded by this reconciliation.
+`finder-deletions.json` records the user's confirmation that removed local collection folders should be remembered as deleted. The first reconciliation found 92 missing folders and 17 complete remaining collections. A subsequent user-confirmed update records five additional deletions: Bokeh (lamps), Ephemeral Tides, Jankpop, Kai-Gen, and Odysseys. The deleted collections now carry `decision: no`, `status: deleted`, their prior `mb static` decision and source pass, and original notes in the rejection ledger. No further sample files were deleted or downloaded by this reconciliation.
 
-The current static list contains 17 collections and 387 PNG samples. `deferred-static-supply.json` records the official Art Blocks API count checked on September 14, 2026: 4,287 minted tokens in total. Jankpop had 143 tokens at that check, compared with 140 in the old local sample manifest. The existing 292 approvals are unchanged; cumulative rejected/deleted identities now total 828.
+The current static list contains 12 collections and 275 original PNG sample references; their full local download contains 1,665 PNGs. `deferred-static-supply.json` records the official Art Blocks API count checked on September 14, 2026: 4,287 minted tokens across the original 17 collections, reduced to 1,665 for the remaining 12 identities without refreshing the cutoff. The removed Jankpop had 143 tokens at that check. The existing 292 approvals are unchanged; cumulative rejected/deleted identities now total 833.
 
 The original cleanup plan and completion journal remain immutable historical evidence. Its verifier recognizes only explicitly recorded later deletions, still checks all remaining media against their original checksums, and refuses unexplained missing folders.
+
+
+The second Finder update is recorded in the `updates` array of `finder-deletions.json`, including the exact user instruction and prior index/inventory hashes. Existing deletion records are preserved. `static-downloads.json` retains unchanged records and checksums for the remaining collections and records the selection reduction in `selectionReconciliations`; the full prior inventory remains available at its recorded Git commit. No additional media was deleted or downloaded by this bookkeeping update.
