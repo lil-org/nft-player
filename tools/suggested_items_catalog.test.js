@@ -51,6 +51,33 @@ const GENERATIVE_CDN_PREVIEW_COLLECTIONS = new Set([
 ]);
 const NEW_CDN_COLLECTIONS = [
   {
+    address: "0x495f947276749ce646f68ac8c248420045cb7b5e",
+    collectionId: "minote",
+    chain: "ethereum",
+    chainId: 1,
+    name: "Mi Note",
+    tokenCount: 166,
+    bundledDate: "2026-09-14",
+    iosOnly: true,
+    standardThumbsPathsAvailable: true,
+    collectionWebURL: "https://opensea.io/collection/minote",
+    internal_slug: "mi_note",
+    artists: ["yomme"],
+  },
+  {
+    address: "0xc22bd85e6d6c058226f46a693f0df4054496db5b",
+    chain: "ethereum",
+    chainId: 1,
+    name: "Mi Note 3",
+    tokenCount: 105,
+    bundledDate: "2026-09-14",
+    iosOnly: true,
+    standardThumbsPathsAvailable: true,
+    collectionWebURL: "https://opensea.io/collection/mi-note-3",
+    internal_slug: "mi_note_3",
+    artists: ["yomme"],
+  },
+  {
     address: "0xcde288d791b10b38eca62e6e82a609541fab94e0",
     chain: "ethereum",
     chainId: 1,
@@ -373,6 +400,49 @@ test("new CDN collections have their exact catalog metadata", () => {
       Object.fromEntries(Object.keys(expected).map((key) => [key, item[key]])),
       expected
     );
+  }
+});
+
+test("Mi Note collections retain on-chain identities, names, and exported media order", () => {
+  const items = readJSON(ITEMS_PATH);
+  const samplesBySlug = {
+    mi_note: [
+      [0, "1792024277779561240403209846655221275479918327843323078189317850316310315009", "Angel Lady", "0"],
+      [83, "1792024277779561240403209846655221275479918327843323078189317973461612625921", "Bear Raincoat", "83"],
+      [165, "1792024277779561240403209846655221275479918327843323078189318095507403309057", "Kabukimono", "165"],
+    ],
+    mi_note_3: [
+      [0, "2", "Crying Pajama Kid in an Alien Hat with Milady Fumo", "2"],
+      [52, "60", "Alien Hat Ronin", "60"],
+      [104, "117", "Drifella Employee 111", "117"],
+    ],
+  };
+
+  for (const [slug, samples] of Object.entries(samplesBySlug)) {
+    const item = items.find((candidate) => candidate.internal_slug === slug);
+    const payload = readJSON(path.join(TOKENS_PATH, `${suggestedItemId(item)}.json`));
+    assert.equal(payload.items.length, item.tokenCount);
+    assert.equal(new Set(tokenIdsFromPayload(payload)).size, item.tokenCount);
+    assert.equal(item.iosCollectionBrowserColumnCount, undefined);
+    assert.equal(item.sizedThumbsIndexOffset, undefined);
+    assert.equal(payload.hasMid, undefined);
+    for (const [index, row] of payload.items.entries()) {
+      assert.equal(typeof row.name, "string");
+      assert.ok(row.name.length > 0);
+      assert.match(row.id, slug === "mi_note" ? /^\d{76}$/u : /^\d+$/u);
+      const stem = slug === "mi_note" ? index : row.id;
+      assert.equal(row.url, `https://cdn.lil.org/player/${slug}/${stem}.jpg`);
+    }
+    for (const [index, id, name, stem] of samples) {
+      const row = payload.items[index];
+      assert.deepEqual(row, { id, name, url: `https://cdn.lil.org/player/${slug}/${stem}.jpg` });
+      const thumbnailURL = standardThumbnailURL(row.url);
+      assert.equal(thumbnailURL.href, `https://cdn.lil.org/player/${slug}/thumbs/${stem}.webp`);
+      assert.equal(largeImageURL(payload, row.url, thumbnailURL).href, `https://cdn.lil.org/player/${slug}/mid/${stem}.webp`);
+      for (const width of [140, 260]) {
+        assert.equal(sizedThumbnailURL(thumbnailURL, index, width).href, `https://cdn.lil.org/player/${slug}/thumbs/${width}/${index}.webp`);
+      }
+    }
   }
 });
 
@@ -722,7 +792,7 @@ test("bundled tokens have compact aspect ratios and matching iOS layouts", () =>
   const primaryFileNames = fs.readdirSync(TOKENS_PATH)
     .filter((fileName) => path.extname(fileName) === ".json")
     .sort();
-  assert.equal(primaryFileNames.length, 516);
+  assert.equal(primaryFileNames.length, 518);
 
   const catalogItems = readJSON(ITEMS_PATH);
   const catalogItemByLowercasedFileName = new Map(
@@ -784,7 +854,7 @@ test("bundled tokens have compact aspect ratios and matching iOS layouts", () =>
     primaryTokenCount += payload.items.length;
     primaryByLowercasedFileName.set(fileName.toLowerCase(), { payload, ratios });
   }
-  assert.equal(primaryTokenCount, 230_086);
+  assert.equal(primaryTokenCount, 230_357);
   assert.equal(twoColumnCollectionCount, 39);
   assert.equal(
     manualThreeColumnCollectionCount,

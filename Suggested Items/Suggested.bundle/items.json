@@ -2564,6 +2564,22 @@
     "iosCollectionBrowserColumnCount": 2
   },
   {
+    "address": "0x495f947276749ce646f68ac8c248420045cb7b5e",
+    "collectionId": "minote",
+    "chain": "ethereum",
+    "chainId": 1,
+    "name": "Mi Note",
+    "tokenCount": 166,
+    "bundledDate": "2026-09-14",
+    "iosOnly": true,
+    "standardThumbsPathsAvailable": true,
+    "collectionWebURL": "https://opensea.io/collection/minote",
+    "internal_slug": "mi_note",
+    "artists": [
+      "yomme"
+    ]
+  },
+  {
     "address": "0x8ffc6bfbce284b508f0e53b8599f8f03ffeb452f",
     "chain": "ethereum",
     "chainId": 1,
@@ -2572,6 +2588,21 @@
     "iosOnly": true,
     "standardThumbsPathsAvailable": true,
     "internal_slug": "mi_note_2",
+    "artists": [
+      "yomme"
+    ]
+  },
+  {
+    "address": "0xc22bd85e6d6c058226f46a693f0df4054496db5b",
+    "chain": "ethereum",
+    "chainId": 1,
+    "name": "Mi Note 3",
+    "tokenCount": 105,
+    "bundledDate": "2026-09-14",
+    "iosOnly": true,
+    "standardThumbsPathsAvailable": true,
+    "collectionWebURL": "https://opensea.io/collection/mi-note-3",
+    "internal_slug": "mi_note_3",
     "artists": [
       "yomme"
     ]

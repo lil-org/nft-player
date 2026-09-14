@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 import XCTest
 @testable import nft_player_ios
 
@@ -11,7 +12,7 @@ extension ArtBlocksCatalogTests {
     }
 
     func testApprovedCollectionsAreNormalCatalogEntriesWithoutImageModes() throws {
-        XCTAssertEqual(SuggestedItemsService.allItems.count, 517)
+        XCTAssertEqual(SuggestedItemsService.allItems.count, 519)
         XCTAssertEqual(additions.count, 292)
         var policies = [String: Int]()
         for item in additions {
@@ -87,5 +88,47 @@ extension ArtBlocksCatalogTests {
         XCTAssertNil(legacy.bundledDate)
         XCTAssertNil(legacy.generativeOnly)
         XCTAssertTrue(CollectionCatalogItem(item: legacy).hasCover)
+    }
+
+    func testMiNoteCollectionsOpenWithCoversNamesAndIndividualArtworkLinks() throws {
+        for (slug, count) in [("mi_note", 166), ("mi_note_3", 105)] {
+            let item = try XCTUnwrap(SuggestedItemsService.allItems.first { $0.internalSlug == slug })
+            XCTAssertTrue(SuggestedItemsService.visibleItems.contains(item))
+            XCTAssertTrue(CollectionCatalog.allItems.contains { $0.id == item.id && $0.hasCover })
+            XCTAssertTrue(CollectionCatalog.canOpenCollection(specificCollectionId: item.id))
+            XCTAssertTrue(PlayerCollectionBrowserSupport.isAvailable(forCollectionId: item.id))
+            XCTAssertEqual(CollectionCatalog.tokenCount(specificCollectionId: item.id), count)
+            XCTAssertEqual(SuggestedItemsService.artists(forCollectionId: item.id).map(\.id), ["yomme"])
+            XCTAssertEqual(CollectionCatalog.collectionWebURL(specificCollectionId: item.id)?.absoluteString, item.collectionWebURL)
+            let cover = try XCTUnwrap(UIImage(named: item.id))
+            XCTAssertEqual(cover.cgImage?.width, 300)
+            XCTAssertEqual(cover.cgImage?.height, 300)
+
+            let tokens = try XCTUnwrap(SuggestedItemsService.bundledTokens(collectionId: item.id)).items
+            XCTAssertEqual(tokens.count, count)
+            for (index, expected) in tokens.enumerated() {
+                let token = try XCTUnwrap(CollectionCatalog.generateToken(specificCollectionId: item.id, tokenIndex: index))
+                XCTAssertEqual(token.id, expected.id)
+                XCTAssertEqual(token.fullCollectionId, item.id)
+                XCTAssertEqual(token.address, item.address)
+                XCTAssertEqual(token.displayName, expected.name)
+                XCTAssertEqual(token.media?.url.absoluteString, expected.url)
+                XCTAssertEqual(CollectionCatalog.tokenIndex(specificCollectionId: item.id, tokenId: token.id), index)
+                XCTAssertEqual(token.url?.absoluteString, "https://eth.blockscout.com/token/\(item.address)/instance/\(expected.id)?tab=metadata")
+
+                let sources = try XCTUnwrap(CollectionCatalog.collectionBrowseImageSources(specificCollectionId: item.id, tokenIndex: index))
+                let originalURL = try XCTUnwrap(expected.url.flatMap(URL.init(string:)))
+                let stem = originalURL.deletingPathExtension().lastPathComponent
+                let base = "https://cdn.lil.org/player/\(slug)"
+                XCTAssertEqual(sources.thumbnailDescriptor.url.absoluteString, "\(base)/thumbs/\(stem).webp")
+                XCTAssertEqual(sources.smallThumbnailDescriptor.url.absoluteString, "\(base)/thumbs/260/\(index).webp")
+                XCTAssertEqual(sources.smallestThumbnailDescriptor?.url.absoluteString, "\(base)/thumbs/140/\(index).webp")
+                XCTAssertEqual(sources.largeDescriptor.url.absoluteString, "\(base)/mid/\(stem).webp")
+                XCTAssertEqual(sources.thumbnailDescriptor.thumbnailAspectRatio, expected.thumbnailAspectRatio)
+                XCTAssertNotNil(expected.thumbnailAspectRatio)
+            }
+            XCTAssertNil(CollectionCatalog.generateToken(specificCollectionId: item.id, tokenIndex: -1))
+            XCTAssertNil(CollectionCatalog.generateToken(specificCollectionId: item.id, tokenIndex: count))
+        }
     }
 }

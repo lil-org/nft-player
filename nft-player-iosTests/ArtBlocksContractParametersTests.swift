@@ -267,7 +267,7 @@ extension ArtBlocksContractParametersTests {
         let selected = SuggestedItemsService.allItems
         let affected = selected.filter { collectionNames.contains($0.name) }
         XCTAssertEqual(affected.count, 3)
-        XCTAssertEqual(selected.count, 517)
+        XCTAssertEqual(selected.count, 519)
         for item in affected {
             XCTAssertTrue(TokenGenerator.usesArtBlocksRenderer(collectionId: item.id))
             let script = try bundledScript(item)

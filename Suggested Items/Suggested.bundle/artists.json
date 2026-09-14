@@ -1009,7 +1009,9 @@
     "name": "yomme",
     "x": "https://x.com/yomme639",
     "collections": [
-      "mi_note_2"
+      "mi_note",
+      "mi_note_2",
+      "mi_note_3"
     ]
   },
   "srdan_sarovic_una_popovic": {
