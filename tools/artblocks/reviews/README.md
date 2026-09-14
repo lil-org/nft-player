@@ -46,3 +46,8 @@ The final pass-5 runtime selection is preserved under `../archive/pass-5/Develop
 The production app has no active review pass, decision store, note editor, export controls, or sample-image switch. Historical device review keys are left untouched. Valid rendering calibration is migrated separately because it is permanent renderer state.
 
 Temporary pass-preparation commands and their tests were retired. Their source and prior documentation are preserved as inert text under `../archive/pass-5/retired-review-tooling`. The [production workflow](../production/README.md) validates the current 292/109/736 partition and the complete frozen token capture without recreating app review resources.
+
+
+## Finder sample cleanup
+
+After production promotion, the user requested that only `mb static` samples remain downloaded. Current `deferred-static.json` sample paths now point into `samples/mb-static/`. Its decisions, notes, groups, token IDs, and PNG alternative URLs are unchanged. The exact previous JSON and Markdown indexes are archived in `../archive/sample-cleanup-2026-09-14/`, alongside the move/delete inventory and verification result. Older exports retain their historical paths as provenance.

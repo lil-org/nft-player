@@ -93,8 +93,21 @@ node tools/promote_artblocks_collections.js --publish
 
 The complete original 519-project resource corpus and unused historical dependencies are preserved under `archive/pass-5`, outside application targets. The temporary review UI, decisions/notes/export controls, pass selection, and executable pass-preparation commands have been removed. Historical command sources and documentation are retained as inert text in `archive/pass-5/retired-review-tooling`.
 
-The [static candidates](reviews/deferred-static.md) retain 109 collections and 2,486 reviewed sample references, including original media and PNG alternatives. The [rejection ledger](rejected.json) retains 736 rejected/deleted identities. Future discovery and sample selection consult these records. The 104 first-pass rejected folders still present locally were not deleted by promotion.
+The [static candidates](reviews/deferred-static.md) retain 109 collections and 2,486 reviewed sample references, including original media and PNG alternatives. The [rejection ledger](rejected.json) retains 736 rejected/deleted identities. Future discovery and sample selection consult these records. Promotion left the existing sample files untouched. The subsequent authorized sample cleanup removed non-static samples and consolidated the retained collection folders under `samples/mb-static/`.
 
 Live `curation.json` retains legacy group labels (53 good, 233 ok, 219 hmm, and 632 excluded); the cumulative rejection ledger additionally includes 104 first-pass rejections. Use the cumulative ledgers for current eligibility, rather than inferring eligibility from those historical group labels. The known inventory partitions exactly into 292 approved, 109 deferred-static, 736 rejected, and zero pending collections.
 
 Historical source regeneration remains available through `build_artblocks_good_preview.js`, which also supplies production parameter validation. Its default output is the ignored `build/artblocks-historical-review/Good` directory. It does not activate an application review pass. Frozen parameter parsing is shared with production capture; reviewed parameter records are never refreshed by the production workflow.
+
+## Local samples for Finder review
+
+Only the 109 `mb static` collections remain downloaded, together in `samples/mb-static/`: 2,486 media files (2,397 PNGs and 89 MP4s). Their original collection folders and file bytes are preserved. The current [static index](reviews/deferred-static.md) links to the new locations; decisions, notes, original groups, token IDs, and PNG alternatives remain unchanged.
+
+```sh
+python3 tools/cleanup_artblocks_samples.py
+python3 tools/cleanup_artblocks_samples.py --check
+```
+
+The cleanup command defaults to a read-only inventory summary. `--apply` resumes the exact recorded cleanup or verifies an already completed run. It validates identities against committed decision ledgers, hashes every retained file before moving, and verifies all moved files before deleting any other collection. Its journal, original indexes, local reports, and deletion inventory are retained in `archive/sample-cleanup-2026-09-14/`. The original removal set contains 396 top-level folders, plus the already rejected Blind Spots collection found inside Alien DNA's folder.
+
+Do not run the historical grouped `--capture-curation` operation against this reduced corpus: the files' presence is no longer a statement of curation eligibility. Use the cleanup verifier for this layout. App bundles, production tokens, frozen parameters, approval/rejection ledgers, and historical exports are unaffected. No new media was downloaded or converted.
