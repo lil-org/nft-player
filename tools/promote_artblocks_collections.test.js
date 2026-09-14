@@ -6,7 +6,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { createHash } = require("node:crypto");
 const sha256 = value => createHash("sha256").update(value).digest("hex");
-const { exchangeDirectories, validateCaptureChecksums, validateParameterRecord, productionToken, addArtist, curationLedgers, planPromotion, publish } = require("./promote_artblocks_collections");
+const { appendFinderRejections, exchangeDirectories, validateCaptureChecksums, validateParameterRecord, productionToken, addArtist, curationLedgers, planPromotion, publish } = require("./promote_artblocks_collections");
 const { mergeGeneratedSuggestedItem } = require("./suggested_items");
 const { historicalDecisions } = require("./download_artblocks_samples");
 
@@ -32,7 +32,8 @@ test("artist matching reserves existing identity and adds an exact credit", () =
 
 test("historical partitions are disjoint and future selection excludes rejected/static collections", async () => {
   const ledger = await curationLedgers();
-  assert.equal(ledger.collectionCount, 736);
+  assert.equal(ledger.collectionCount, 828);
+  assert.equal(ledger.sources.finderStatic, 92);
   const decisions = await historicalDecisions({});
   assert.equal(decisions.size, 845);
   for (const entry of ledger.collections) assert(decisions.has(entry.identity));
@@ -146,4 +147,22 @@ test("public promotion planner rejects a completion manifest that omits paramete
   };
   try { await assert.rejects(planPromotion(), /checksum membership/); }
   finally { fs.readFile = originalReadFile; }
+});
+
+
+test("Finder deletions retain provenance and cannot reject non-static or duplicate identities", () => {
+  const identity = "1:0x123:1";
+  const prior = { identity, name: "Static", group: "ok", note: "Original note", sourcePassID: "pass-1", localCollectionFolder: "samples/ok/static", samples: [{ tokenId: "1000000" }] };
+  const row = { identity, name: "Static", group: "ok", note: "Original note", sourcePassID: "pass-1", localCollectionFolder: "samples/mb-static/static", sampleCount: 1, previousDecision: "mb static", decision: "no", status: "deleted" };
+  const initial = { collections: [prior] }, curation = { collections: { [identity]: { artist: "Artist" } } };
+  const journal = { version: 1, collectionCount: 1, collections: [row] };
+  const rejected = new Map();
+  appendFinderRejections(rejected, initial, journal, curation);
+  assert.equal(rejected.get(identity).note, prior.note);
+  assert.equal(rejected.get(identity).source, "finder-static-review");
+  assert.throws(() => appendFinderRejections(rejected, initial, journal, curation), /Conflicting Finder/);
+  assert.throws(() => appendFinderRejections(new Map(), { collections: [] }, journal, curation), /Conflicting Finder/);
+  for (const changes of [{ note: "changed" }, { localCollectionFolder: "samples/another" }, { sampleCount: 2 }]) {
+    assert.throws(() => appendFinderRejections(new Map(), initial, { ...journal, collections: [{ ...row, ...changes }] }, curation), /Conflicting Finder/);
+  }
 });

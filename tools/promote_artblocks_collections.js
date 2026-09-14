@@ -52,6 +52,22 @@ function addArtist(artists, name, slug) {
   return key;
 }
 
+function appendFinderRejections(rejected, initialStatic, journal, curation) {
+  if (journal.version !== 1 || journal.collectionCount !== journal.collections?.length) throw new Error("Invalid Finder deletion record");
+  const original = new Map(initialStatic.collections.map(row => [row.identity, row]));
+  const sourceFile = "tools/artblocks/reviews/finder-deletions.json";
+  for (const row of journal.collections) {
+    const previous = original.get(row.identity);
+    if (!previous || rejected.has(row.identity) || row.decision !== "no" || row.status !== "deleted" || row.previousDecision !== "mb static"
+        || row.name !== previous.name || row.group !== previous.group || row.note !== previous.note || row.sourcePassID !== previous.sourcePassID
+        || row.sampleCount !== previous.samples.length || row.localCollectionFolder !== `samples/mb-static/${path.basename(previous.localCollectionFolder)}`) {
+      throw new Error(`Conflicting Finder deletion: ${row.identity}`);
+    }
+    rejected.set(row.identity, { ...row, artist: curation.collections[row.identity].artist,
+      source: "finder-static-review", sourceFile });
+  }
+}
+
 async function curationLedgers() {
   const base = await read(path.join(ROOT, "tools/artblocks/reviews/pass-1-curation.json"));
   const rejected = new Map();
@@ -68,6 +84,9 @@ async function curationLedgers() {
         source: pass, sourceFile: `tools/artblocks/reviews/${file}` });
     }
   }
+  const initialStatic = await read(path.join(ROOT, "tools/artblocks/archive/sample-cleanup-2026-09-14/deferred-static.json"));
+  const finder = await read(path.join(ROOT, "tools/artblocks/reviews/finder-deletions.json"));
+  appendFinderRejections(rejected, initialStatic, finder, base);
   const approved = await read(path.join(ROOT, "tools/artblocks/reviews/approved.json"));
   const deferred = await read(path.join(ROOT, "tools/artblocks/reviews/deferred-static.json"));
   const seen = new Set(rejected.keys());
@@ -75,8 +94,14 @@ async function curationLedgers() {
     if (seen.has(item.identity)) throw new Error(`Overlapping curation partition: ${item.identity}`);
     seen.add(item.identity);
   }
-  if (rejected.size !== 736 || approved.collectionCount !== 292 || deferred.collectionCount !== 109 || deferred.tokenCount !== 2486 || seen.size !== 1137) throw new Error("Unexpected curation partition counts");
-  return { version: 1, collectionCount: rejected.size, sources: { originalCuration: 618, pass1: 104, pass2: 13, pass3: 1 },
+  const kept = new Set(deferred.collections.map(row => row.identity));
+  const deleted = new Set(finder.collections.map(row => row.identity));
+  const validStatic = initialStatic.collections.every(row => kept.has(row.identity) !== deleted.has(row.identity));
+  if (rejected.size !== 736 + finder.collectionCount || approved.collectionCount !== 292
+      || deferred.collectionCount !== deferred.collections.length || deferred.collectionCount + finder.collectionCount !== initialStatic.collectionCount
+      || deferred.tokenCount !== deferred.collections.reduce((sum, row) => sum + row.samples.length, 0)
+      || !validStatic || seen.size !== 1137) throw new Error("Unexpected curation partition counts");
+  return { version: 1, collectionCount: rejected.size, sources: { originalCuration: 618, pass1: 104, pass2: 13, pass3: 1, finderStatic: finder.collectionCount },
     collections: [...rejected.values()].sort((a, b) => a.identity.localeCompare(b.identity, "en-US")) };
 }
 
@@ -242,5 +267,5 @@ async function main(args = process.argv.slice(2)) {
   console.log(json({ ...plan.provenance, collections: undefined, publish: args.includes("--publish") }));
 }
 
-module.exports = { exchangeDirectories, recoverPublication, validateCaptureChecksums, validateParameterRecord, productionToken, addArtist, curationLedgers, planPromotion, publish };
+module.exports = { appendFinderRejections, exchangeDirectories, recoverPublication, validateCaptureChecksums, validateParameterRecord, productionToken, addArtist, curationLedgers, planPromotion, publish };
 if (require.main === module) main().catch(error => { console.error(error); process.exitCode = 1; });

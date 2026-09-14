@@ -245,11 +245,54 @@ def sample_readme(plan):
     return (f"# Static-review samples\n\n{plan['summary']['retainedCollections']} collections and {plan['summary']['retainedSamples']:,} original samples are in [mb-static](mb-static/).\n\nOpen this folder in Finder and sort by name. PNG and MP4 samples remain in their original formats. Each collection retains its manifest. Notes, previous decision provenance, and PNG alternative URLs are in ../tools/artblocks/reviews/deferred-static.json.\n\nThis is a reduced local review corpus, not the historical good/ok/hmm curation layout. Do not run --capture-curation against it. Verify it with `python3 tools/cleanup_artblocks_samples.py --check`.\n").encode()
 
 
+def current_static_plan(root, original):
+    journal_path = safe_path(root, 'tools/artblocks/reviews/finder-deletions.json')
+    if not journal_path.exists():
+        return original
+    journal = json.loads(journal_path.read_bytes())
+    require(journal.get('version') == 1 and journal.get('collectionCount') == len(journal['collections']), 'Invalid Finder deletion record')
+    require(hashlib.sha256(encoded(original['updatedStatic'])).hexdigest() == journal.get('previousStaticSHA256'), 'Finder decisions have a different source index')
+    previous = {row['identity']: row for row in original['updatedStatic']['collections']}
+    deleted = set()
+    rejected = json.loads(safe_path(root, REJECTED_JSON).read_bytes())
+    rejection_rows = {row['identity']: row for row in rejected['collections']}
+    require(len(rejection_rows) == len(rejected['collections']) == rejected['collectionCount'], 'Invalid rejection ledger')
+    for row in journal['collections']:
+        identity = row['identity']
+        require(identity in previous and identity not in deleted, 'Unexpected or duplicate Finder deletion')
+        prior = previous[identity]
+        require(row.get('decision') == 'no' and row.get('status') == 'deleted' and row.get('previousDecision') == 'mb static', 'Invalid Finder decision')
+        require(all(row.get(key) == prior.get(key) for key in ('name', 'group', 'note', 'sourcePassID', 'localCollectionFolder')), 'Finder decision changed original metadata')
+        require(row.get('sampleCount') == len(prior['samples']), 'Finder deletion sample count mismatch')
+        require(not safe_path(root, prior['localCollectionFolder']).exists(), 'A recorded deleted collection is still present')
+        rejection = rejection_rows.get(identity, {})
+        require(all(rejection.get(key) == value for key, value in row.items()) and rejection.get('source') == 'finder-static-review', 'Finder deletion missing from rejection ledger')
+        deleted.add(identity)
+    before_rejected = copy.deepcopy(rejected)
+    before_rejected['collections'] = [row for row in rejected['collections'] if row['identity'] not in deleted]
+    before_rejected['collectionCount'] = len(before_rejected['collections'])
+    require(before_rejected.get('sources', {}).pop('finderStatic', None) == len(deleted), 'Wrong Finder rejection count')
+    require(hashlib.sha256(encoded(before_rejected)).hexdigest() == original['inputs'][REJECTED_JSON], 'Earlier rejection records changed')
+    current = copy.deepcopy(original)
+    current['moves'] = [row for row in current['moves'] if row['identity'] not in deleted]
+    current['updatedStatic']['collections'] = [row for row in current['updatedStatic']['collections'] if row['identity'] not in deleted]
+    current['updatedStatic']['collectionCount'] = len(current['moves'])
+    current['updatedStatic']['tokenCount'] = sum(len(row['samples']) for row in current['updatedStatic']['collections'])
+    require(safe_path(root, STATIC_JSON).read_bytes() == encoded(current['updatedStatic']), 'Current static index does not match recorded deletions')
+    current['inputs'][REJECTED_JSON] = digest(root / REJECTED_JSON)
+    current['summary'].update(retainedCollections=len(current['moves']), retainedSamples=current['updatedStatic']['tokenCount'],
+                              retainedBytes=sum(item['bytes'] for row in current['moves'] for item in row['files'].values()),
+                              laterFinderDeletions=len(deleted))
+    return current
+
+
 def check(root, archive):
     plan_path = safe_path(root, archive + '/plan.json')
     plan = json.loads(plan_path.read_bytes())
     state = json.loads(safe_path(root, archive + '/progress.json').read_bytes())
     require(state['planSHA256'] == digest(plan_path) and state.get('complete'), 'Cleanup is not complete')
+    original_plan = plan
+    plan = current_static_plan(root, plan)
     readonly_inputs(root, plan, allow_updated=True)
     require((root / STATIC_JSON).read_bytes() == encoded(plan['updatedStatic']), 'Static index not updated')
     require((root / STATIC_MD).read_bytes() == markdown(plan['updatedStatic']), 'Static Markdown not updated')
@@ -262,7 +305,7 @@ def check(root, archive):
         if item['archive']:
             target = safe_path(root, archive + '/local-reports/' + item['path'])
             require(target.is_file() and digest(target) == item['sha256'], f'Missing report archive: {target}')
-    for name, sha in [(STATIC_JSON, plan['inputs'][STATIC_JSON]), (STATIC_MD, plan['originalMarkdownSHA256'])]:
+    for name, sha in [(STATIC_JSON, original_plan['inputs'][STATIC_JSON]), (STATIC_MD, original_plan['originalMarkdownSHA256'])]:
         require(digest(safe_path(root, archive + '/' + Path(name).name)) == sha, 'Missing original static index archive')
     return plan['summary']
 
@@ -404,7 +447,7 @@ def main():
     elif args.apply:
         result = apply(ROOT, ARCHIVE)
     elif (ROOT / ARCHIVE / 'plan.json').exists():
-        result = json.loads((ROOT / ARCHIVE / 'plan.json').read_bytes())['summary']
+        result = current_static_plan(ROOT, json.loads((ROOT / ARCHIVE / 'plan.json').read_bytes()))['summary']
     else:
         result = create_plan(ROOT)['summary']
     print(json.dumps(result, indent=2))

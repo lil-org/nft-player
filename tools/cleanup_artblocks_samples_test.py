@@ -19,6 +19,8 @@ class CleanupTests(unittest.TestCase):
         self.rejected = self.collection('rejected', 'hmm', 3)
         for name, rows in [(cleanup.STATIC_JSON, [self.static]), (cleanup.APPROVED_JSON, [self.approved]), (cleanup.REJECTED_JSON, [self.rejected])]:
             data = {'version': 1, 'collectionCount': len(rows), 'collections': rows}
+            if name == cleanup.REJECTED_JSON:
+                data['sources'] = {'initial': len(rows)}
             if name == cleanup.STATIC_JSON:
                 data['tokenCount'] = 1
                 data['sourceReviews'] = {'pass-1': 'original-fingerprint'}
@@ -205,6 +207,46 @@ class CleanupTests(unittest.TestCase):
         self.collection('unknown-child', 'good', 4, parent=self.static['localCollectionFolder'])
         with self.assertRaises(ValueError):
             self.apply()
+
+    def test_confirmed_finder_deletion_updates_verification_without_rewriting_cleanup_history(self):
+        import hashlib
+        import shutil
+        self.apply()
+        original_plan = (self.root / cleanup.ARCHIVE / 'plan.json').read_bytes()
+        old_bytes = (self.root / cleanup.STATIC_JSON).read_bytes()
+        previous = json.loads(old_bytes)
+        prior = previous['collections'][0]
+        shutil.rmtree(self.root / prior['localCollectionFolder'])
+        row = {key: prior[key] for key in ('identity', 'name', 'group', 'note', 'sourcePassID', 'localCollectionFolder')}
+        row.update(decision='no', status='deleted', previousDecision='mb static', sampleCount=1)
+        journal = {'version': 1, 'collectionCount': 1, 'previousStaticSHA256': hashlib.sha256(old_bytes).hexdigest(), 'collections': [row]}
+        self.write('tools/artblocks/reviews/finder-deletions.json', cleanup.encoded(journal))
+        rejected = json.loads((self.root / cleanup.REJECTED_JSON).read_bytes())
+        rejected['collections'].append(dict(row, source='finder-static-review'))
+        rejected['collectionCount'] += 1
+        rejected['sources']['finderStatic'] = 1
+        self.write(cleanup.REJECTED_JSON, cleanup.encoded(rejected))
+        previous.update(collections=[], collectionCount=0, tokenCount=0)
+        self.write(cleanup.STATIC_JSON, cleanup.encoded(previous))
+        self.write(cleanup.STATIC_MD, cleanup.markdown(previous))
+        current = cleanup.current_static_plan(self.root, json.loads(original_plan))
+        self.write('samples/README.md', cleanup.sample_readme(current))
+        result = cleanup.check(self.root, cleanup.ARCHIVE)
+        self.assertEqual(result['retainedCollections'], 0)
+        self.assertEqual(result['laterFinderDeletions'], 1)
+        self.assertEqual((self.root / cleanup.ARCHIVE / 'plan.json').read_bytes(), original_plan)
+        journal['collections'][0]['note'] = 'Changed historical note'
+        self.write('tools/artblocks/reviews/finder-deletions.json', cleanup.encoded(journal))
+        with self.assertRaises(ValueError):
+            cleanup.check(self.root, cleanup.ARCHIVE)
+
+    def test_unrecorded_missing_folder_is_not_treated_as_a_decision(self):
+        import shutil
+        self.apply()
+        destination = self.root / 'samples/mb-static' / Path(self.static['localCollectionFolder']).name
+        shutil.rmtree(destination)
+        with self.assertRaises(ValueError):
+            cleanup.check(self.root, cleanup.ARCHIVE)
 
     def test_input_ledger_change_stops_resume(self):
         def interrupt(event):

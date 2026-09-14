@@ -1,11 +1,12 @@
 {
   "version": 1,
-  "collectionCount": 736,
+  "collectionCount": 828,
   "sources": {
     "originalCuration": 618,
     "pass1": 104,
     "pass2": 13,
-    "pass3": 1
+    "pass3": 1,
+    "finderStatic": 92
   },
   "collections": [
     {
@@ -31,6 +32,21 @@
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
     },
     {
+      "identity": "1:0x00000007cc35dcab4a396249aefa295a8b6e16ba:0",
+      "name": "Deco Echo",
+      "group": "hmm",
+      "note": null,
+      "sourcePassID": "pass-2",
+      "localCollectionFolder": "samples/mb-static/deco-echo--1--0x00000007cc35dcab4a396249aefa295a8b6e16ba--0",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Harvey Rayner",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
       "identity": "1:0x00000007cc35dcab4a396249aefa295a8b6e16ba:1",
       "name": "Amplitudes of Canvas",
       "artist": "Harvey Rayner",
@@ -51,6 +67,21 @@
       "note": null,
       "source": "original-curation",
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
+    },
+    {
+      "identity": "1:0x00000007cc35dcab4a396249aefa295a8b6e16ba:3",
+      "name": "Algorithmic Synesthesia CC",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/algorithmic-synesthesia-cc--1--0x00000007cc35dcab4a396249aefa295a8b6e16ba--3",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Harvey Rayner",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
     },
     {
       "identity": "1:0x00000007cc35dcab4a396249aefa295a8b6e16ba:4",
@@ -139,6 +170,21 @@
       "note": null,
       "source": "original-curation",
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
+    },
+    {
+      "identity": "1:0x0000003601ae3f24a52323705fb36b8833071fd3:0",
+      "name": "And Yet We Dance",
+      "group": "good",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/and-yet-we-dance--1--0x0000003601ae3f24a52323705fb36b8833071fd3--0",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Ryan Bell",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
     },
     {
       "identity": "1:0x00000038610bc4c96ef657aa1bcb8902ae65c62a:0",
@@ -262,6 +308,21 @@
       "sourceFile": "tools/artblocks/reviews/pass-1.json"
     },
     {
+      "identity": "1:0x0000006693e685fcfc54c9d423b5e321b4a15192:0",
+      "name": "Hatches",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-2",
+      "localCollectionFolder": "samples/mb-static/hatches--1--0x0000006693e685fcfc54c9d423b5e321b4a15192--0",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Rob Dixon (Radix)",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
       "identity": "1:0x000000a35301fa5784e820f489003ffcffdc69a6:0",
       "name": "I.",
       "artist": "ryley-o.eth",
@@ -350,6 +411,21 @@
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
     },
     {
+      "identity": "1:0x000000dc68934ed27fd11e32491cdf6717acaf21:0",
+      "name": "Broken Dreams",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/broken-dreams--1--0x000000dc68934ed27fd11e32491cdf6717acaf21--0",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Manuel Larino x The Generative Art Museum",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
       "identity": "1:0x000000e0808eae91ad4d81d2789b8caf89747b61:0",
       "name": "Untitled",
       "artist": "Olga Fradina",
@@ -383,6 +459,21 @@
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
     },
     {
+      "identity": "1:0x0000018afa7ca51648ed4b2b00c133005ea17115:0",
+      "name": "Origin",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/origin--1--0x0000018afa7ca51648ed4b2b00c133005ea17115--0",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Monokai",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
       "identity": "1:0x000004c65ceb3182be720037fb001a6e1962acb4:0",
       "decision": "no",
       "group": "ok",
@@ -414,6 +505,21 @@
       "note": null,
       "source": "original-curation",
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
+    },
+    {
+      "identity": "1:0x0000149485af7433f8da00419b931100d4aaef42:0",
+      "name": "Billows",
+      "group": "good",
+      "note": null,
+      "sourcePassID": "pass-2",
+      "localCollectionFolder": "samples/mb-static/billows--1--0x0000149485af7433f8da00419b931100d4aaef42--0",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Shane Richardson",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
     },
     {
       "identity": "1:0x0000186a8ba59c7f63423b0e528e384000008ac9:0",
@@ -559,6 +665,21 @@
       "sourceFile": "tools/artblocks/reviews/pass-1.json"
     },
     {
+      "identity": "1:0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676:23",
+      "name": "ToSolaris",
+      "group": "good",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/tosolaris--1--0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676--23",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Iskra Velitchkova",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
       "identity": "1:0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676:24",
       "name": "Glaciations",
       "artist": "Anna Lucia",
@@ -647,6 +768,21 @@
       "sourceFile": "tools/artblocks/reviews/pass-1.json"
     },
     {
+      "identity": "1:0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676:36",
+      "name": "Sunset from the Bluffs",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/sunset-from-the-bluffs--1--0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676--36",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Nat Sarkissian",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
       "identity": "1:0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676:39",
       "name": "Cantera",
       "artist": "mrkswcz",
@@ -669,6 +805,21 @@
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
     },
     {
+      "identity": "1:0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676:41",
+      "name": "Agar",
+      "group": "hmm",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/agar--1--0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676--41",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Emily Edelman",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
       "identity": "1:0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676:42",
       "name": "L'Appel",
       "artist": "Alexis André",
@@ -689,6 +840,36 @@
       "note": null,
       "source": "original-curation",
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
+    },
+    {
+      "identity": "1:0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676:48",
+      "name": "Undercurrents",
+      "group": "hmm",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/undercurrents--1--0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676--48",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Melissa Wiederrecht",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
+      "identity": "1:0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676:49",
+      "name": "Margaret",
+      "group": "hmm",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/margaret--1--0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676--49",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "qubibi",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
     },
     {
       "identity": "1:0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676:5",
@@ -755,6 +936,21 @@
       "note": null,
       "source": "original-curation",
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
+    },
+    {
+      "identity": "1:0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676:59",
+      "name": "Esquejes",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-2",
+      "localCollectionFolder": "samples/mb-static/esquejes--1--0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676--59",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Pedro Falco",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
     },
     {
       "identity": "1:0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676:6",
@@ -854,6 +1050,21 @@
       "note": null,
       "source": "original-curation",
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
+    },
+    {
+      "identity": "1:0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676:72",
+      "name": "SPINᵗ",
+      "group": "hmm",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/spint--1--0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676--72",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "NumbersInMotion",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
     },
     {
       "identity": "1:0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676:73",
@@ -1021,6 +1232,51 @@
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
     },
     {
+      "identity": "1:0x16da6c9f17b525613950bfba89f7719dad35607d:0",
+      "name": "Continuum",
+      "group": "hmm",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/continuum--1--0x16da6c9f17b525613950bfba89f7719dad35607d--0",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Lammetje",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
+      "identity": "1:0x1725dc55c1bd5200bf00566cf20000b10800c68e:1",
+      "name": "Isoplanet",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/isoplanet--1--0x1725dc55c1bd5200bf00566cf20000b10800c68e--1",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Joshua Bagley",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
+      "identity": "1:0x1d0977e86c70eabb5c8fd98db1b08c6d60caa0c1:0",
+      "name": "Navette",
+      "group": "hmm",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/navette--1--0x1d0977e86c70eabb5c8fd98db1b08c6d60caa0c1--0",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Alexis André",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
       "identity": "1:0x1d0977e86c70eabb5c8fd98db1b08c6d60caa0c1:2",
       "name": "Portraits",
       "artist": "Martin Grasser",
@@ -1142,6 +1398,51 @@
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
     },
     {
+      "identity": "1:0x294fed5f1d3d30cfa6fe86a937dc3141eec8bc6d:6",
+      "name": "Spire (Bokashi Cone)",
+      "group": "hmm",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/spire-bokashi-cone--1--0x294fed5f1d3d30cfa6fe86a937dc3141eec8bc6d--6",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "DCA",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
+      "identity": "1:0x2b3c48be4fb33b0724214aff12b086b0214f8f15:0",
+      "name": "Microcosms",
+      "group": "hmm",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/microcosms--1--0x2b3c48be4fb33b0724214aff12b086b0214f8f15--0",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Fahad Karim",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
+      "identity": "1:0x32d4be5ee74376e08038d652d4dc26e62c67f436:1",
+      "name": "Concrete Letters",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/concrete-letters--1--0x32d4be5ee74376e08038d652d4dc26e62c67f436--1",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "makio135",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
       "identity": "1:0x32d4be5ee74376e08038d652d4dc26e62c67f436:10",
       "name": "Suma",
       "artist": "Aleksandra Jovanić",
@@ -1151,6 +1452,21 @@
       "note": null,
       "source": "original-curation",
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
+    },
+    {
+      "identity": "1:0x32d4be5ee74376e08038d652d4dc26e62c67f436:12",
+      "name": "la caverna",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/la-caverna--1--0x32d4be5ee74376e08038d652d4dc26e62c67f436--12",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Marcelo Soria-Rodríguez",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
     },
     {
       "identity": "1:0x32d4be5ee74376e08038d652d4dc26e62c67f436:13",
@@ -1186,6 +1502,21 @@
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
     },
     {
+      "identity": "1:0x32d4be5ee74376e08038d652d4dc26e62c67f436:17",
+      "name": "Transition",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/transition--1--0x32d4be5ee74376e08038d652d4dc26e62c67f436--17",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "William Watkins",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
       "identity": "1:0x32d4be5ee74376e08038d652d4dc26e62c67f436:2",
       "decision": "no",
       "group": "hmm",
@@ -1217,6 +1548,36 @@
       "note": null,
       "source": "original-curation",
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
+    },
+    {
+      "identity": "1:0x32d4be5ee74376e08038d652d4dc26e62c67f436:7",
+      "name": "Spatial Curvatures",
+      "group": "hmm",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/spatial-curvatures--1--0x32d4be5ee74376e08038d652d4dc26e62c67f436--7",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "DistCollective",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
+      "identity": "1:0x32d4be5ee74376e08038d652d4dc26e62c67f436:8",
+      "name": "Drifting Dreams",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/drifting-dreams--1--0x32d4be5ee74376e08038d652d4dc26e62c67f436--8",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Licia He",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
     },
     {
       "identity": "1:0x381233d5584fdb42e46b4d9ba91876479aab7acd:0",
@@ -1316,6 +1677,21 @@
       "note": null,
       "source": "original-curation",
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
+    },
+    {
+      "identity": "1:0x62e37f664b5945629b6549a87f8e10ed0b6d923b:0",
+      "name": "AIXXA",
+      "group": "hmm",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/aixxa--1--0x62e37f664b5945629b6549a87f8e10ed0b6d923b--0",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Shvembldr",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
     },
     {
       "identity": "1:0x64780ce53f6e966e18a22af13a2f97369580ec11:0",
@@ -1428,6 +1804,36 @@
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
     },
     {
+      "identity": "1:0x7c3ea2b7b3befa1115ab51c09f0c9f245c500b18:13",
+      "name": "Neural Fad",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/neural-fad--1--0x7c3ea2b7b3befa1115ab51c09f0c9f245c500b18--13",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Emi Kusano",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
+      "identity": "1:0x7c3ea2b7b3befa1115ab51c09f0c9f245c500b18:15",
+      "name": "Inhabitants",
+      "group": "hmm",
+      "note": null,
+      "sourcePassID": "pass-2",
+      "localCollectionFolder": "samples/mb-static/inhabitants--1--0x7c3ea2b7b3befa1115ab51c09f0c9f245c500b18--15",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 19,
+      "artist": "Kaoru Tanaka",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
       "identity": "1:0x7c3ea2b7b3befa1115ab51c09f0c9f245c500b18:16",
       "name": "Totem : Symbols of Change",
       "artist": "Beervangeer & Studio Poca",
@@ -1505,6 +1911,21 @@
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
     },
     {
+      "identity": "1:0x7c3ea2b7b3befa1115ab51c09f0c9f245c500b18:22",
+      "name": "Techno-Animism",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/techno-animism--1--0x7c3ea2b7b3befa1115ab51c09f0c9f245c500b18--22",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Emi Kusano",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
       "identity": "1:0x7c3ea2b7b3befa1115ab51c09f0c9f245c500b18:23",
       "name": "Aura",
       "artist": "Roope Rainisto",
@@ -1547,6 +1968,21 @@
       "note": null,
       "source": "original-curation",
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
+    },
+    {
+      "identity": "1:0x7c3ea2b7b3befa1115ab51c09f0c9f245c500b18:27",
+      "name": "le travail des rêves",
+      "group": "hmm",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/le-travail-des-reves--1--0x7c3ea2b7b3befa1115ab51c09f0c9f245c500b18--27",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "aurèce vettier",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
     },
     {
       "identity": "1:0x7c3ea2b7b3befa1115ab51c09f0c9f245c500b18:3",
@@ -1593,6 +2029,21 @@
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
     },
     {
+      "identity": "1:0x7c3ea2b7b3befa1115ab51c09f0c9f245c500b18:7",
+      "name": "INFINITE | 無限",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/infinite--1--0x7c3ea2b7b3befa1115ab51c09f0c9f245c500b18--7",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Ivona Tau",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
       "identity": "1:0x7c3ea2b7b3befa1115ab51c09f0c9f245c500b18:8",
       "name": "Cry Me A...",
       "artist": "Jenni Pasanen",
@@ -1602,6 +2053,21 @@
       "note": null,
       "source": "original-curation",
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
+    },
+    {
+      "identity": "1:0x7c3ea2b7b3befa1115ab51c09f0c9f245c500b18:9",
+      "name": "CIVICS",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/civics--1--0x7c3ea2b7b3befa1115ab51c09f0c9f245c500b18--9",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Kevin Abosch",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
     },
     {
       "identity": "1:0x7c78f67700e700b4005c8a3d920a1a99e6004800:0",
@@ -1747,6 +2213,21 @@
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
     },
     {
+      "identity": "1:0x959d2f3caf19d20bdbb4e0a4f21ca8a815eddf65:2",
+      "name": "PRIMAL",
+      "group": "good",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/primal--1--0x959d2f3caf19d20bdbb4e0a4f21ca8a815eddf65--2",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "David Seven",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
       "identity": "1:0x96a83b48de94e130cf2aa81b28391c28ee33d253:1",
       "name": "Filigree – Collector's Edition",
       "artist": "Matt DesLauriers",
@@ -1813,6 +2294,21 @@
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
     },
     {
+      "identity": "1:0x96a83b48de94e130cf2aa81b28391c28ee33d253:7",
+      "name": "Moments - Digital Edition",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/moments-digital-edition--1--0x96a83b48de94e130cf2aa81b28391c28ee33d253--7",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Florian Zumbrunn",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
       "identity": "1:0x96a83b48de94e130cf2aa81b28391c28ee33d253:8",
       "name": "Materialistic - Curated Edition",
       "artist": "Anthony Hiley-Mann (MV)",
@@ -1822,6 +2318,21 @@
       "note": null,
       "source": "original-curation",
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
+    },
+    {
+      "identity": "1:0x96a83b48de94e130cf2aa81b28391c28ee33d253:9",
+      "name": "Materialistic - Digital Edition",
+      "group": "hmm",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/materialistic-digital-edition--1--0x96a83b48de94e130cf2aa81b28391c28ee33d253--9",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Anthony Hiley-Mann (MV)",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
     },
     {
       "identity": "1:0x9800005deb3cfaf80077dbe9b9004c0020c1d6c5:3",
@@ -2033,6 +2544,21 @@
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
     },
     {
+      "identity": "1:0x99a9b7c1116f9ceeb1652de04d5969cce509b069:406",
+      "name": "WaVyScApE",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/wavyscape--1--0x99a9b7c1116f9ceeb1652de04d5969cce509b069--406",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Holger Lippmann",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
       "identity": "1:0x99a9b7c1116f9ceeb1652de04d5969cce509b069:408",
       "name": "NimTeens",
       "artist": "Bryan Brinkman",
@@ -2055,6 +2581,36 @@
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
     },
     {
+      "identity": "1:0x99a9b7c1116f9ceeb1652de04d5969cce509b069:410",
+      "name": "Jenim",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/jenim--1--0x99a9b7c1116f9ceeb1652de04d5969cce509b069--410",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Orr Kislev & Alona Rodeh",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
+      "identity": "1:0x99a9b7c1116f9ceeb1652de04d5969cce509b069:411",
+      "name": "Symbol 1",
+      "group": "hmm",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/symbol-1--1--0x99a9b7c1116f9ceeb1652de04d5969cce509b069--411",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Emily Weil",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
       "identity": "1:0x99a9b7c1116f9ceeb1652de04d5969cce509b069:414",
       "name": "KARMA",
       "artist": "KALA",
@@ -2066,6 +2622,21 @@
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
     },
     {
+      "identity": "1:0x99a9b7c1116f9ceeb1652de04d5969cce509b069:415",
+      "name": "Renders Game",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/renders-game--1--0x99a9b7c1116f9ceeb1652de04d5969cce509b069--415",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "MountVitruvius",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
       "identity": "1:0x99a9b7c1116f9ceeb1652de04d5969cce509b069:417",
       "decision": "no",
       "group": "ok",
@@ -2075,6 +2646,21 @@
       "localCollectionFolder": "samples/ok/ceramics--1--0x99a9b7c1116f9ceeb1652de04d5969cce509b069--417",
       "source": "pass-1",
       "sourceFile": "tools/artblocks/reviews/pass-1.json"
+    },
+    {
+      "identity": "1:0x99a9b7c1116f9ceeb1652de04d5969cce509b069:418",
+      "name": "Neural Sediments",
+      "group": "hmm",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/neural-sediments--1--0x99a9b7c1116f9ceeb1652de04d5969cce509b069--418",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Eko33",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
     },
     {
       "identity": "1:0x99a9b7c1116f9ceeb1652de04d5969cce509b069:419",
@@ -2110,6 +2696,21 @@
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
     },
     {
+      "identity": "1:0x99a9b7c1116f9ceeb1652de04d5969cce509b069:423",
+      "name": "Solar Transits",
+      "group": "hmm",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/solar-transits--1--0x99a9b7c1116f9ceeb1652de04d5969cce509b069--423",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Robert Hodgin",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
       "identity": "1:0x99a9b7c1116f9ceeb1652de04d5969cce509b069:424",
       "name": "Worlds Within",
       "artist": "Jason Ting",
@@ -2119,6 +2720,21 @@
       "note": null,
       "source": "original-curation",
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
+    },
+    {
+      "identity": "1:0x99a9b7c1116f9ceeb1652de04d5969cce509b069:425",
+      "name": "Mellifera",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-2",
+      "localCollectionFolder": "samples/mb-static/mellifera--1--0x99a9b7c1116f9ceeb1652de04d5969cce509b069--425",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "artplusbrad",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
     },
     {
       "identity": "1:0x99a9b7c1116f9ceeb1652de04d5969cce509b069:427",
@@ -2165,6 +2781,36 @@
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
     },
     {
+      "identity": "1:0x99a9b7c1116f9ceeb1652de04d5969cce509b069:437",
+      "name": "Nära",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/nara--1--0x99a9b7c1116f9ceeb1652de04d5969cce509b069--437",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Tengil",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
+      "identity": "1:0x99a9b7c1116f9ceeb1652de04d5969cce509b069:438",
+      "name": "Subtle",
+      "group": "hmm",
+      "note": null,
+      "sourcePassID": "pass-2",
+      "localCollectionFolder": "samples/mb-static/subtle--1--0x99a9b7c1116f9ceeb1652de04d5969cce509b069--438",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "willstall",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
       "identity": "1:0x99a9b7c1116f9ceeb1652de04d5969cce509b069:439",
       "name": "Enigma",
       "artist": "RalenArc",
@@ -2174,6 +2820,21 @@
       "note": null,
       "source": "original-curation",
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
+    },
+    {
+      "identity": "1:0x99a9b7c1116f9ceeb1652de04d5969cce509b069:440",
+      "name": "Augury",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/augury--1--0x99a9b7c1116f9ceeb1652de04d5969cce509b069--440",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "LoVid",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
     },
     {
       "identity": "1:0x99a9b7c1116f9ceeb1652de04d5969cce509b069:443",
@@ -2218,6 +2879,21 @@
       "note": null,
       "source": "original-curation",
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
+    },
+    {
+      "identity": "1:0x99a9b7c1116f9ceeb1652de04d5969cce509b069:450",
+      "name": "Overload",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/overload--1--0x99a9b7c1116f9ceeb1652de04d5969cce509b069--450",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Shvembldr",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
     },
     {
       "identity": "1:0x99a9b7c1116f9ceeb1652de04d5969cce509b069:451",
@@ -2275,6 +2951,21 @@
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
     },
     {
+      "identity": "1:0x99a9b7c1116f9ceeb1652de04d5969cce509b069:456",
+      "name": "Spaghetti Bones",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/spaghetti-bones--1--0x99a9b7c1116f9ceeb1652de04d5969cce509b069--456",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Joshua Bagley",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
       "identity": "1:0x99a9b7c1116f9ceeb1652de04d5969cce509b069:458",
       "name": "Mycelia",
       "artist": "JMY",
@@ -2284,6 +2975,21 @@
       "note": null,
       "source": "original-curation",
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
+    },
+    {
+      "identity": "1:0x99a9b7c1116f9ceeb1652de04d5969cce509b069:462",
+      "name": "Gumbo",
+      "group": "hmm",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/gumbo--1--0x99a9b7c1116f9ceeb1652de04d5969cce509b069--462",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Mathias Isaksen",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
     },
     {
       "identity": "1:0x99a9b7c1116f9ceeb1652de04d5969cce509b069:463",
@@ -2352,6 +3058,21 @@
       "sourceFile": "tools/artblocks/reviews/pass-1.json"
     },
     {
+      "identity": "1:0x99a9b7c1116f9ceeb1652de04d5969cce509b069:474",
+      "name": "Lumina",
+      "group": "hmm",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/lumina--1--0x99a9b7c1116f9ceeb1652de04d5969cce509b069--474",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "DistCollective",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
       "identity": "1:0x99a9b7c1116f9ceeb1652de04d5969cce509b069:475",
       "name": "Recollection",
       "artist": "Robert Hodgin",
@@ -2361,6 +3082,36 @@
       "note": null,
       "source": "original-curation",
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
+    },
+    {
+      "identity": "1:0x99a9b7c1116f9ceeb1652de04d5969cce509b069:476",
+      "name": "Life and Love and Nothing",
+      "group": "hmm",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/life-and-love-and-nothing--1--0x99a9b7c1116f9ceeb1652de04d5969cce509b069--476",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Nat Sarkissian",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
+      "identity": "1:0x99a9b7c1116f9ceeb1652de04d5969cce509b069:477",
+      "name": "siempre en mí, siempre en ti",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/siempre-en-mi-siempre-en-ti--1--0x99a9b7c1116f9ceeb1652de04d5969cce509b069--477",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Marcelo Soria-Rodríguez",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
     },
     {
       "identity": "1:0x99a9b7c1116f9ceeb1652de04d5969cce509b069:478",
@@ -2383,6 +3134,21 @@
       "localCollectionFolder": "samples/ok/immaterial--1--0x99a9b7c1116f9ceeb1652de04d5969cce509b069--481",
       "source": "pass-1",
       "sourceFile": "tools/artblocks/reviews/pass-1.json"
+    },
+    {
+      "identity": "1:0x99a9b7c1116f9ceeb1652de04d5969cce509b069:482",
+      "name": "Trichro-matic",
+      "group": "hmm",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/trichro-matic--1--0x99a9b7c1116f9ceeb1652de04d5969cce509b069--482",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "MountVitruvius",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
     },
     {
       "identity": "1:0x99a9b7c1116f9ceeb1652de04d5969cce509b069:484",
@@ -2418,6 +3184,21 @@
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
     },
     {
+      "identity": "1:0x9f79e46a309f804aa4b7b53a1f72c69137427794:10",
+      "name": "Chaos Control",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/chaos-control--1--0x9f79e46a309f804aa4b7b53a1f72c69137427794--10",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Olga Fradina",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
       "identity": "1:0x9f79e46a309f804aa4b7b53a1f72c69137427794:11",
       "name": "Dead Air",
       "artist": "artplusbrad",
@@ -2427,6 +3208,36 @@
       "note": null,
       "source": "original-curation",
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
+    },
+    {
+      "identity": "1:0x9f79e46a309f804aa4b7b53a1f72c69137427794:13",
+      "name": "Whispers of Knowledge",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/whispers-of-knowledge--1--0x9f79e46a309f804aa4b7b53a1f72c69137427794--13",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Ferdinand Dervieux",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
+      "identity": "1:0x9f79e46a309f804aa4b7b53a1f72c69137427794:16",
+      "name": "Wired wonders",
+      "group": "hmm",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/wired-wonders--1--0x9f79e46a309f804aa4b7b53a1f72c69137427794--16",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Alessandro Fiore",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
     },
     {
       "identity": "1:0x9f79e46a309f804aa4b7b53a1f72c69137427794:17",
@@ -2462,6 +3273,21 @@
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
     },
     {
+      "identity": "1:0x9f79e46a309f804aa4b7b53a1f72c69137427794:8",
+      "name": "Pulse of Expression",
+      "group": "hmm",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/pulse-of-expression--1--0x9f79e46a309f804aa4b7b53a1f72c69137427794--8",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 20,
+      "artist": "Mathis Biabiany",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
       "identity": "1:0x9f79e46a309f804aa4b7b53a1f72c69137427794:9",
       "decision": "no",
       "group": "hmm",
@@ -2471,6 +3297,21 @@
       "localCollectionFolder": "samples/hmm/summit--1--0x9f79e46a309f804aa4b7b53a1f72c69137427794--9",
       "source": "pass-1",
       "sourceFile": "tools/artblocks/reviews/pass-1.json"
+    },
+    {
+      "identity": "1:0xa319c382a702682129fcbf55d514e61a16f97f9c:0",
+      "name": "Streamlines",
+      "group": "hmm",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/streamlines--1--0xa319c382a702682129fcbf55d514e61a16f97f9c--0",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "NumbersInMotion",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
     },
     {
       "identity": "1:0xa319c382a702682129fcbf55d514e61a16f97f9c:1",
@@ -2691,6 +3532,21 @@
       "note": null,
       "source": "original-curation",
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
+    },
+    {
+      "identity": "1:0xa73300003e020c436a67809e9300301600013000:0",
+      "name": "piñata3",
+      "group": "good",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/pinata3--1--0xa73300003e020c436a67809e9300301600013000--0",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Fahad Karim",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
     },
     {
       "identity": "1:0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270:10",
@@ -3078,6 +3934,21 @@
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
     },
     {
+      "identity": "1:0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270:169",
+      "name": "Augmented Sequence",
+      "group": "hmm",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/augmented-sequence--1--0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270--169",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "toiminto",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
       "identity": "1:0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270:172",
       "name": "Rituals - Venice",
       "artist": "Aaron Penne x Boreta",
@@ -3098,6 +3969,21 @@
       "note": null,
       "source": "original-curation",
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
+    },
+    {
+      "identity": "1:0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270:18",
+      "name": "Gen 2",
+      "group": "hmm",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/gen-2--1--0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270--18",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "DCA",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
     },
     {
       "identity": "1:0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270:180",
@@ -3144,6 +4030,21 @@
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
     },
     {
+      "identity": "1:0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270:192",
+      "name": "Recursion",
+      "group": "hmm",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/recursion--1--0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270--192",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Hevey",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
       "identity": "1:0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270:195",
       "decision": "no",
       "group": "hmm",
@@ -3188,6 +4089,21 @@
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
     },
     {
+      "identity": "1:0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270:200",
+      "name": "Saturazione",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-2",
+      "localCollectionFolder": "samples/mb-static/saturazione--1--0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270--200",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Stefano Contiero",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
       "identity": "1:0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270:201",
       "decision": "no",
       "group": "hmm",
@@ -3219,6 +4135,21 @@
       "note": null,
       "source": "original-curation",
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
+    },
+    {
+      "identity": "1:0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270:204",
+      "name": "Edifice",
+      "group": "hmm",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/edifice--1--0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270--204",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Ben Kovach",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
     },
     {
       "identity": "1:0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270:21",
@@ -3384,6 +4315,21 @@
       "note": null,
       "source": "original-curation",
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
+    },
+    {
+      "identity": "1:0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270:234",
+      "name": "The Wrapture",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/the-wrapture--1--0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270--234",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Dmitri Cherniak",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
     },
     {
       "identity": "1:0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270:238",
@@ -3639,6 +4585,21 @@
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
     },
     {
+      "identity": "1:0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270:270",
+      "name": "Foliage",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/foliage--1--0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270--270",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Falko",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
       "identity": "1:0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270:272",
       "decision": "no",
       "group": "hmm",
@@ -3683,6 +4644,21 @@
       "sourceFile": "tools/artblocks/reviews/pass-1.json"
     },
     {
+      "identity": "1:0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270:282",
+      "name": "Memories of Qilin",
+      "group": "good",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/memories-of-qilin--1--0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270--282",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Emily Xie",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
       "identity": "1:0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270:285",
       "name": "Supermental",
       "artist": "Rosenlykke",
@@ -3705,6 +4681,21 @@
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
     },
     {
+      "identity": "1:0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270:288",
+      "name": "Mazinaw",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/mazinaw--1--0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270--288",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Eric De Giuli",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
       "identity": "1:0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270:289",
       "decision": "no",
       "group": "ok",
@@ -3725,6 +4716,21 @@
       "note": null,
       "source": "original-curation",
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
+    },
+    {
+      "identity": "1:0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270:291",
+      "name": "APEX",
+      "group": "good",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/apex--1--0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270--291",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "phenomena",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
     },
     {
       "identity": "1:0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270:295",
@@ -3892,6 +4898,21 @@
       "sourceFile": "tools/artblocks/reviews/pass-1.json"
     },
     {
+      "identity": "1:0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270:313",
+      "name": "Photon's Dream",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/photon-s-dream--1--0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270--313",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Harvey Rayner | patterndotco",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
       "identity": "1:0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270:316",
       "decision": "no",
       "group": "hmm",
@@ -3980,6 +5001,21 @@
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
     },
     {
+      "identity": "1:0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270:330",
+      "name": "Squares",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/squares--1--0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270--330",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Martin Grasser",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
       "identity": "1:0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270:332",
       "decision": "no",
       "group": "hmm",
@@ -4000,6 +5036,21 @@
       "note": null,
       "source": "original-curation",
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
+    },
+    {
+      "identity": "1:0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270:334",
+      "name": "Running Moon",
+      "group": "good",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/running-moon--1--0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270--334",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Licia He",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
     },
     {
       "identity": "1:0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270:337",
@@ -4110,6 +5161,51 @@
       "note": null,
       "source": "original-curation",
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
+    },
+    {
+      "identity": "1:0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270:352",
+      "name": "The Inner World",
+      "group": "hmm",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/the-inner-world--1--0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270--352",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Dominikus",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
+      "identity": "1:0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270:353",
+      "name": "Pointila",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/pointila--1--0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270--353",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Phaust",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
+      "identity": "1:0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270:354",
+      "name": "Interferences",
+      "group": "good",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/interferences--1--0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270--354",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Juan Pedro Vallejo",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
     },
     {
       "identity": "1:0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270:357",
@@ -4374,6 +5470,36 @@
       "localCollectionFolder": "samples/hmm/petri--1--0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270--67",
       "source": "pass-1",
       "sourceFile": "tools/artblocks/reviews/pass-1.json"
+    },
+    {
+      "identity": "1:0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270:68",
+      "name": "Messengers",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/messengers--1--0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270--68",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Alexis André",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
+      "identity": "1:0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270:69",
+      "name": "Abstraction",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/abstraction--1--0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270--69",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Hevey",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
     },
     {
       "identity": "1:0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270:7",
@@ -4717,6 +5843,21 @@
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
     },
     {
+      "identity": "1:0xab0000000000aa06f89b268d604a9c1c41524ac6:504",
+      "name": "BUSY",
+      "group": "good",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/busy--1--0xab0000000000aa06f89b268d604a9c1c41524ac6--504",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "James Merrill",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
       "identity": "1:0xababababab20053426ad1c782de9ea8444358070:3",
       "decision": "no",
       "group": "ok",
@@ -4726,6 +5867,21 @@
       "localCollectionFolder": "samples/ok/drawings-for-a-monument--1--0xababababab20053426ad1c782de9ea8444358070--3",
       "source": "pass-1",
       "sourceFile": "tools/artblocks/reviews/pass-1.json"
+    },
+    {
+      "identity": "1:0xababababab20053426ad1c782de9ea8444358070:4",
+      "name": "Diggly Collects All",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-2",
+      "localCollectionFolder": "samples/mb-static/diggly-collects-all--1--0xababababab20053426ad1c782de9ea8444358070--4",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "DCA",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
     },
     {
       "identity": "1:0xababababab20053426ad1c782de9ea8444358070:5",
@@ -4748,6 +5904,36 @@
       "localCollectionFolder": "samples/hmm/time-between-the-lines-is-thread-through-the-mind--1--0xac521ea7a83a3bc3f9f1e09f8300a6301743fb1f--0",
       "source": "pass-1",
       "sourceFile": "tools/artblocks/reviews/pass-1.json"
+    },
+    {
+      "identity": "1:0xac521ea7a83a3bc3f9f1e09f8300a6301743fb1f:1",
+      "name": "Scribble Together",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/scribble-together--1--0xac521ea7a83a3bc3f9f1e09f8300a6301743fb1f--1",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "minimizer",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
+      "identity": "1:0xac521ea7a83a3bc3f9f1e09f8300a6301743fb1f:2",
+      "name": "Scribble Party",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/scribble-party--1--0xac521ea7a83a3bc3f9f1e09f8300a6301743fb1f--2",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "minimizer",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
     },
     {
       "identity": "1:0xb265cb2ee300007d8889440041f900f109ae00c9:0",
@@ -5047,6 +6233,21 @@
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
     },
     {
+      "identity": "1:0xedd5c3d8e8fc1e88b93a98282b8ccfd953c483a4:1",
+      "name": "Opuntia",
+      "group": "hmm",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/opuntia--1--0xedd5c3d8e8fc1e88b93a98282b8ccfd953c483a4--1",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 18,
+      "artist": "Jake Rockland",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
       "identity": "1:0xf3cc21a4009093b45b5d005ce7a0a80000580056:0",
       "name": "Defrag Me",
       "artist": "Jorge Ledezma",
@@ -5210,6 +6411,36 @@
       "note": null,
       "source": "original-curation",
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
+    },
+    {
+      "identity": "42161:0x47a91457a3a1f700097199fd63c039c4784384ab:113",
+      "name": "Spiroglyph",
+      "group": "hmm",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/spiroglyph--42161--0x47a91457a3a1f700097199fd63c039c4784384ab--113",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Kamau Kamau & Ian Wright",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
+      "identity": "42161:0x47a91457a3a1f700097199fd63c039c4784384ab:114",
+      "name": "Anthill Tapestry",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/anthill-tapestry--42161--0x47a91457a3a1f700097199fd63c039c4784384ab--114",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 21,
+      "artist": "Murat Atimtay",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
     },
     {
       "identity": "42161:0x47a91457a3a1f700097199fd63c039c4784384ab:115",
@@ -5463,6 +6694,21 @@
       "note": null,
       "source": "original-curation",
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
+    },
+    {
+      "identity": "42161:0x47a91457a3a1f700097199fd63c039c4784384ab:140",
+      "name": "Don't Hash && Dash",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/don-t-hash-dash--42161--0x47a91457a3a1f700097199fd63c039c4784384ab--140",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Christin Penz - 0xTHISISCLICK",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
     },
     {
       "identity": "42161:0x47a91457a3a1f700097199fd63c039c4784384ab:142",
@@ -5839,6 +7085,21 @@
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
     },
     {
+      "identity": "42161:0x47a91457a3a1f700097199fd63c039c4784384ab:176",
+      "name": "Algebraic Swirls",
+      "group": "hmm",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/algebraic-swirls--42161--0x47a91457a3a1f700097199fd63c039c4784384ab--176",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Frazier",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
       "identity": "42161:0x47a91457a3a1f700097199fd63c039c4784384ab:177",
       "name": "Beyond the compass",
       "artist": "ArtvisionNFT",
@@ -6037,6 +7298,21 @@
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
     },
     {
+      "identity": "42161:0x47a91457a3a1f700097199fd63c039c4784384ab:196",
+      "name": "Canyons",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/canyons--42161--0x47a91457a3a1f700097199fd63c039c4784384ab--196",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "Nabeel",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
       "identity": "42161:0x47a91457a3a1f700097199fd63c039c4784384ab:197",
       "name": "Geo Glide",
       "artist": "Nebulity",
@@ -6101,6 +7377,21 @@
       "note": null,
       "source": "original-curation",
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
+    },
+    {
+      "identity": "42161:0x47a91457a3a1f700097199fd63c039c4784384ab:201",
+      "name": "When Lives Mingle",
+      "group": "hmm",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/when-lives-mingle--42161--0x47a91457a3a1f700097199fd63c039c4784384ab--201",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "code2pixels",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
     },
     {
       "identity": "42161:0x47a91457a3a1f700097199fd63c039c4784384ab:202",
@@ -6191,6 +7482,21 @@
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
     },
     {
+      "identity": "42161:0x47a91457a3a1f700097199fd63c039c4784384ab:21",
+      "name": "Plumes of Chaos",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/plumes-of-chaos--42161--0x47a91457a3a1f700097199fd63c039c4784384ab--21",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "oliveskin",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
       "identity": "42161:0x47a91457a3a1f700097199fd63c039c4784384ab:210",
       "name": "‏SUDDEN URGE TO LEAVE EVERYTHING",
       "artist": "Reza Milani",
@@ -6200,6 +7506,21 @@
       "note": null,
       "source": "original-curation",
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
+    },
+    {
+      "identity": "42161:0x47a91457a3a1f700097199fd63c039c4784384ab:211",
+      "name": "The Tallest Poppy",
+      "group": "hmm",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/the-tallest-poppy--42161--0x47a91457a3a1f700097199fd63c039c4784384ab--211",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "mindrash",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
     },
     {
       "identity": "42161:0x47a91457a3a1f700097199fd63c039c4784384ab:212",
@@ -6310,6 +7631,21 @@
       "note": null,
       "source": "original-curation",
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
+    },
+    {
+      "identity": "42161:0x47a91457a3a1f700097199fd63c039c4784384ab:223",
+      "name": "TopoWarp",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/topowarp--42161--0x47a91457a3a1f700097199fd63c039c4784384ab--223",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "erfanhoseini",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
     },
     {
       "identity": "42161:0x47a91457a3a1f700097199fd63c039c4784384ab:224",
@@ -6972,6 +8308,21 @@
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
     },
     {
+      "identity": "42161:0x47a91457a3a1f700097199fd63c039c4784384ab:295",
+      "name": "Blissful Aurora",
+      "group": "ok",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/blissful-aurora--42161--0x47a91457a3a1f700097199fd63c039c4784384ab--295",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 23,
+      "artist": "P1x3lboy",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
       "identity": "42161:0x47a91457a3a1f700097199fd63c039c4784384ab:296",
       "name": "Cloud Patina",
       "artist": "0xPhiiil",
@@ -7137,6 +8488,21 @@
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
     },
     {
+      "identity": "42161:0x47a91457a3a1f700097199fd63c039c4784384ab:313",
+      "name": "Resonance",
+      "group": "hmm",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/resonance--42161--0x47a91457a3a1f700097199fd63c039c4784384ab--313",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 21,
+      "artist": "Grenier",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
+    },
+    {
       "identity": "42161:0x47a91457a3a1f700097199fd63c039c4784384ab:314",
       "name": "Ethereality Flux",
       "artist": "HaSh2aRt",
@@ -7267,6 +8633,21 @@
       "note": null,
       "source": "original-curation",
       "sourceFile": "tools/artblocks/reviews/pass-1-curation.json"
+    },
+    {
+      "identity": "42161:0x47a91457a3a1f700097199fd63c039c4784384ab:329",
+      "name": "Prismatic Phantasms",
+      "group": "hmm",
+      "note": null,
+      "sourcePassID": "pass-1",
+      "localCollectionFolder": "samples/mb-static/prismatic-phantasms--42161--0x47a91457a3a1f700097199fd63c039c4784384ab--329",
+      "decision": "no",
+      "status": "deleted",
+      "previousDecision": "mb static",
+      "sampleCount": 22,
+      "artist": "Teraki",
+      "source": "finder-static-review",
+      "sourceFile": "tools/artblocks/reviews/finder-deletions.json"
     },
     {
       "identity": "42161:0x47a91457a3a1f700097199fd63c039c4784384ab:33",

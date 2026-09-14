@@ -21,7 +21,7 @@
 | mb static | 9 | 203 | Added to the combined static-review list |
 | double-check | 79 | 1,794 | The archived third review pass |
 
-[The combined static-review list](deferred-static.md) contains 109 collections and 2,486 token references from both passes. `deferred-static.json` retains source-pass provenance, notes, original local paths, and PNG references. Its 89 original MP4 samples have separate PNG fallbacks. The two original first-pass artifacts remain unchanged.
+The original combined static-review selection contained 109 collections and 2,486 token references from both passes; its exact indexes are preserved in `../archive/sample-cleanup-2026-09-14/`. `deferred-static.json` retains source-pass provenance, notes, original local paths, and PNG references. Its 89 original MP4 samples have separate PNG fallbacks. The two original first-pass artifacts remain unchanged.
 
 `pass-3-decisions.json` records the user's instruction that all 79 reviewed collections are now `yes` except `aaa` (`no`) and `pool party` (`double-check`). This is explicitly a recorded user instruction, **not a device export**. It preserves the literal message, the approved Cycle-mode preference, the resolved identities, and null notes; it does not claim to export unprovided device notes. Its SHA-256 is `ccb8f359b8a13d71fb6236a4c745b9807eb767d33b6742a71264cdf65b17abd7`.
 
@@ -45,9 +45,18 @@ The final pass-5 runtime selection is preserved under `../archive/pass-5/Develop
 
 The production app has no active review pass, decision store, note editor, export controls, or sample-image switch. Historical device review keys are left untouched. Valid rendering calibration is migrated separately because it is permanent renderer state.
 
-Temporary pass-preparation commands and their tests were retired. Their source and prior documentation are preserved as inert text under `../archive/pass-5/retired-review-tooling`. The [production workflow](../production/README.md) validates the current 292/109/736 partition and the complete frozen token capture without recreating app review resources.
+Temporary pass-preparation commands and their tests were retired. Their source and prior documentation are preserved as inert text under `../archive/pass-5/retired-review-tooling`. The [production workflow](../production/README.md) validates the current 292/17/828 partition and the complete frozen token capture without recreating app review resources.
 
 
 ## Finder sample cleanup
 
 After production promotion, the user requested that only `mb static` samples remain downloaded. Current `deferred-static.json` sample paths now point into `samples/mb-static/`. Its decisions, notes, groups, token IDs, and PNG alternative URLs are unchanged. The exact previous JSON and Markdown indexes are archived in `../archive/sample-cleanup-2026-09-14/`, alongside the move/delete inventory and verification result. Older exports retain their historical paths as provenance.
+
+
+## Subsequent Finder decisions
+
+`finder-deletions.json` records the user's confirmation that removed local collection folders should be remembered as deleted. Reconciliation found 92 missing folders and 17 complete remaining collections. The deleted collections now carry `decision: no`, `status: deleted`, their prior `mb static` decision and source pass, and original notes in the rejection ledger. No further sample files were deleted or downloaded by this reconciliation.
+
+The current static list contains 17 collections and 387 PNG samples. `deferred-static-supply.json` records the official Art Blocks API count checked on September 14, 2026: 4,287 minted tokens in total. Jankpop had 143 tokens at that check, compared with 140 in the old local sample manifest. The existing 292 approvals are unchanged; cumulative rejected/deleted identities now total 828.
+
+The original cleanup plan and completion journal remain immutable historical evidence. Its verifier recognizes only explicitly recorded later deletions, still checks all remaining media against their original checksums, and refuses unexplained missing folders.
