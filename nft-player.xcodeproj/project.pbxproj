@@ -13,6 +13,16 @@
 		2C0218072C53CE6D0012EC40 /* regl.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CEF35AF2C413D9F00388574 /* regl.js */; };
 		2C0218082C53CE6D0012EC40 /* three.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CEF35B12C413D9F00388574 /* three.js */; };
 		2C0218092C53CE6D0012EC40 /* p5js190.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CE0F1572C4D37E6003004F2 /* p5js190.js */; };
+		BDC83E0EB2CCC196711F3EC9 /* secondary-assets in Resources */ = {isa = PBXBuildFile; fileRef = A7136D569F3D58C928CFDF13 /* secondary-assets */; };
+		EA6F7464B69DDBDA6C1EEF0C /* tone1504.js in Resources */ = {isa = PBXBuildFile; fileRef = 299E934F95F18C635C384D53 /* tone1504.js */; };
+		877B6DF156ACF63FA751E6EB /* tone1504-Tone.js.LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = 716B6F45B954A25CF62EFBB6 /* tone1504-Tone.js.LICENSE.txt */; };
+		F3B962F8C4715B7899914B8A /* tone1504-LICENSE.md in Resources */ = {isa = PBXBuildFile; fileRef = 97C02C2CF2254687DADA8490 /* tone1504-LICENSE.md */; };
+		8714DD240700DED0D248CBA7 /* three167.js in Resources */ = {isa = PBXBuildFile; fileRef = 8B06F97C7AA01E2C36EEB2F4 /* three167.js */; };
+		176C9FE2A0A71302A16E497A /* three167-LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = 36E4CA8FDC4CD291584C63FF /* three167-LICENSE */; };
+		08CDD6846FBDC4D621BFD80F /* p5js11111.js in Resources */ = {isa = PBXBuildFile; fileRef = 58129A528836AF6CD3ABCCB6 /* p5js11111.js */; };
+		8C86D45780E57718390A2A5D /* p5js11111-license.txt in Resources */ = {isa = PBXBuildFile; fileRef = E29C84394910C1ECB8A6C70C /* p5js11111-license.txt */; };
+		C426BE587889B6BE33DD6886 /* manifest.json in Resources */ = {isa = PBXBuildFile; fileRef = 84AE50F4156BF6BF0B3BE7C2 /* manifest.json */; };
+		2EAB20000000000000000001 /* processingjs146.js in Resources */ = {isa = PBXBuildFile; fileRef = 2EAB20000000000000000002 /* processingjs146.js */; };
 		2C02180A2C53CE6D0012EC40 /* tone.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CEF35B22C413D9F00388574 /* tone.js */; };
 		2C02180B2C53CE6D0012EC40 /* twemoji.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CEF35B32C413DA000388574 /* twemoji.js */; };
 		2C02180C2C53CE940012EC40 /* Covers.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2C4659932C308B44008CF97F /* Covers.xcassets */; };
@@ -21,6 +31,14 @@
 		2C02180F2C53CECD0012EC40 /* PlayerModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C8ADAA72C46F3FC008BC560 /* PlayerModel.swift */; };
 		2C0218102C53CECD0012EC40 /* TokenGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CE9A5752C3DA9FB009AEAF4 /* TokenGenerator.swift */; };
 		2C0218112C53CECD0012EC40 /* RawHtmlGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CEF35AC2C413AE700388574 /* RawHtmlGenerator.swift */; };
+		2EAB81000000000000000001 /* ArtBlocksRenderingResolutionOverrides.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EAB81000000000000000005 /* ArtBlocksRenderingResolutionOverrides.swift */; };
+		2EAB93000000000000000001 /* ArtBlocksRenderingStartupProfiles.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EAB93000000000000000005 /* ArtBlocksRenderingStartupProfiles.swift */; };
+		2EAB81000000000000000002 /* ArtBlocksRenderingResolutionOverrides.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EAB81000000000000000005 /* ArtBlocksRenderingResolutionOverrides.swift */; };
+		2EAB93000000000000000002 /* ArtBlocksRenderingStartupProfiles.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EAB93000000000000000005 /* ArtBlocksRenderingStartupProfiles.swift */; };
+		2EAB81000000000000000003 /* ArtBlocksRenderingResolutionOverrides.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EAB81000000000000000005 /* ArtBlocksRenderingResolutionOverrides.swift */; };
+		2EAB93000000000000000003 /* ArtBlocksRenderingStartupProfiles.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EAB93000000000000000005 /* ArtBlocksRenderingStartupProfiles.swift */; };
+		2EAB81000000000000000004 /* ArtBlocksRenderingResolutionOverrides.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EAB81000000000000000005 /* ArtBlocksRenderingResolutionOverrides.swift */; };
+		2EAB93000000000000000004 /* ArtBlocksRenderingStartupProfiles.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EAB93000000000000000005 /* ArtBlocksRenderingStartupProfiles.swift */; };
 		2C0218122C53CECD0012EC40 /* NftGallery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CA979AB2B62BA2400DB3AC8 /* NftGallery.swift */; };
 		2C0218132C53CECD0012EC40 /* Chain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C4DBFC02C3698D10097AD35 /* Chain.swift */; };
 		2C0218162C53CECD0012EC40 /* Strings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C1B60BC2B7D3505009949C2 /* Strings.swift */; };
@@ -33,6 +51,16 @@
 		2C08041C2D2991F200CA9AB2 /* regl.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CEF35AF2C413D9F00388574 /* regl.js */; };
 		2C08041D2D2991F200CA9AB2 /* three.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CEF35B12C413D9F00388574 /* three.js */; };
 		2C08041E2D2991F200CA9AB2 /* p5js190.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CE0F1572C4D37E6003004F2 /* p5js190.js */; };
+		88803EC75609F584D0E9C44E /* secondary-assets in Resources */ = {isa = PBXBuildFile; fileRef = A7136D569F3D58C928CFDF13 /* secondary-assets */; };
+		3469650E61FFB363F8A8CA8C /* tone1504.js in Resources */ = {isa = PBXBuildFile; fileRef = 299E934F95F18C635C384D53 /* tone1504.js */; };
+		08127DE7D8476B98A7A061E4 /* tone1504-Tone.js.LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = 716B6F45B954A25CF62EFBB6 /* tone1504-Tone.js.LICENSE.txt */; };
+		384D1E930CED392A4A03025A /* tone1504-LICENSE.md in Resources */ = {isa = PBXBuildFile; fileRef = 97C02C2CF2254687DADA8490 /* tone1504-LICENSE.md */; };
+		F03CDA31FCA3839029512C89 /* three167.js in Resources */ = {isa = PBXBuildFile; fileRef = 8B06F97C7AA01E2C36EEB2F4 /* three167.js */; };
+		A9E5B0991F765CCCC3083958 /* three167-LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = 36E4CA8FDC4CD291584C63FF /* three167-LICENSE */; };
+		FD3FEBF88049B913A9477E33 /* p5js11111.js in Resources */ = {isa = PBXBuildFile; fileRef = 58129A528836AF6CD3ABCCB6 /* p5js11111.js */; };
+		C6EA377BAE5A4368D53841DF /* p5js11111-license.txt in Resources */ = {isa = PBXBuildFile; fileRef = E29C84394910C1ECB8A6C70C /* p5js11111-license.txt */; };
+		8DE808EC07033EAB075EDA82 /* manifest.json in Resources */ = {isa = PBXBuildFile; fileRef = 84AE50F4156BF6BF0B3BE7C2 /* manifest.json */; };
+		2EAB20000000000000000003 /* processingjs146.js in Resources */ = {isa = PBXBuildFile; fileRef = 2EAB20000000000000000002 /* processingjs146.js */; };
 		2C08041F2D2991F200CA9AB2 /* tone.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CEF35B22C413D9F00388574 /* tone.js */; };
 		2C0804202D2991F200CA9AB2 /* twemoji.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CEF35B32C413DA000388574 /* twemoji.js */; };
 		2C086E872C2F3C3600D4268D /* BundledTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C086E862C2F3C3600D4268D /* BundledTokens.swift */; };
@@ -92,6 +120,16 @@
 		2C85F3A52FA3470D0065AE2B /* regl.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CEF35AF2C413D9F00388574 /* regl.js */; };
 		2C85F3A62FA3470D0065AE2B /* three.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CEF35B12C413D9F00388574 /* three.js */; };
 		2C85F3A72FA3470D0065AE2B /* p5js190.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CE0F1572C4D37E6003004F2 /* p5js190.js */; };
+		4C06AC5BDFDDE13F422A0853 /* secondary-assets in Resources */ = {isa = PBXBuildFile; fileRef = A7136D569F3D58C928CFDF13 /* secondary-assets */; };
+		2CEE05DA4CEB5C4304D428D3 /* tone1504.js in Resources */ = {isa = PBXBuildFile; fileRef = 299E934F95F18C635C384D53 /* tone1504.js */; };
+		19ABC57CD359A0D9788E563B /* tone1504-Tone.js.LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = 716B6F45B954A25CF62EFBB6 /* tone1504-Tone.js.LICENSE.txt */; };
+		74A17F18AD29E21FFDD693E3 /* tone1504-LICENSE.md in Resources */ = {isa = PBXBuildFile; fileRef = 97C02C2CF2254687DADA8490 /* tone1504-LICENSE.md */; };
+		ACF2FDBE65F380B5607BE0CF /* three167.js in Resources */ = {isa = PBXBuildFile; fileRef = 8B06F97C7AA01E2C36EEB2F4 /* three167.js */; };
+		BB19F4D1E07BC0F9A545BEEF /* three167-LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = 36E4CA8FDC4CD291584C63FF /* three167-LICENSE */; };
+		430038B72A9BBBC95CCD2EF6 /* p5js11111.js in Resources */ = {isa = PBXBuildFile; fileRef = 58129A528836AF6CD3ABCCB6 /* p5js11111.js */; };
+		73687D65B8A859B283E098E2 /* p5js11111-license.txt in Resources */ = {isa = PBXBuildFile; fileRef = E29C84394910C1ECB8A6C70C /* p5js11111-license.txt */; };
+		9D712302A61F37792F01E579 /* manifest.json in Resources */ = {isa = PBXBuildFile; fileRef = 84AE50F4156BF6BF0B3BE7C2 /* manifest.json */; };
+		2EAB20000000000000000004 /* processingjs146.js in Resources */ = {isa = PBXBuildFile; fileRef = 2EAB20000000000000000002 /* processingjs146.js */; };
 		2C85F3A82FA3470D0065AE2B /* tone.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CEF35B22C413D9F00388574 /* tone.js */; };
 		2C85F3A92FA3470D0065AE2B /* twemoji.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CEF35B32C413DA000388574 /* twemoji.js */; };
 		2C8A42EA2B1A272600BE4166 /* Network.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C8A42E92B1A272600BE4166 /* Network.swift */; };
@@ -105,6 +143,16 @@
 		2C94428B2C5154E00078C051 /* regl.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CEF35AF2C413D9F00388574 /* regl.js */; };
 		2C94428C2C5154E00078C051 /* three.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CEF35B12C413D9F00388574 /* three.js */; };
 		2C94428D2C5154E00078C051 /* p5js190.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CE0F1572C4D37E6003004F2 /* p5js190.js */; };
+		3C088532C093D65531A42B54 /* secondary-assets in Resources */ = {isa = PBXBuildFile; fileRef = A7136D569F3D58C928CFDF13 /* secondary-assets */; };
+		4C4D8D011D594B8E6F4F9A58 /* tone1504.js in Resources */ = {isa = PBXBuildFile; fileRef = 299E934F95F18C635C384D53 /* tone1504.js */; };
+		BB06D1D106AB2EDD394137CB /* tone1504-Tone.js.LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = 716B6F45B954A25CF62EFBB6 /* tone1504-Tone.js.LICENSE.txt */; };
+		B7242B5EB8F8DE51116A5470 /* tone1504-LICENSE.md in Resources */ = {isa = PBXBuildFile; fileRef = 97C02C2CF2254687DADA8490 /* tone1504-LICENSE.md */; };
+		9D3ADA861AF8687A79EA3E18 /* three167.js in Resources */ = {isa = PBXBuildFile; fileRef = 8B06F97C7AA01E2C36EEB2F4 /* three167.js */; };
+		D113C1BE3CD5C17F7F42FA45 /* three167-LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = 36E4CA8FDC4CD291584C63FF /* three167-LICENSE */; };
+		CDC4017658740078A271F61F /* p5js11111.js in Resources */ = {isa = PBXBuildFile; fileRef = 58129A528836AF6CD3ABCCB6 /* p5js11111.js */; };
+		4EEDC881F790801A16873F86 /* p5js11111-license.txt in Resources */ = {isa = PBXBuildFile; fileRef = E29C84394910C1ECB8A6C70C /* p5js11111-license.txt */; };
+		27BFCE20CC958E8905C11AE7 /* manifest.json in Resources */ = {isa = PBXBuildFile; fileRef = 84AE50F4156BF6BF0B3BE7C2 /* manifest.json */; };
+		2EAB20000000000000000005 /* processingjs146.js in Resources */ = {isa = PBXBuildFile; fileRef = 2EAB20000000000000000002 /* processingjs146.js */; };
 		2C94428E2C5154E00078C051 /* tone.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CEF35B22C413D9F00388574 /* tone.js */; };
 		2C9442902C515A490078C051 /* TokenGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CE9A5752C3DA9FB009AEAF4 /* TokenGenerator.swift */; };
 		2C9442912C515A570078C051 /* NftGallery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CA979AB2B62BA2400DB3AC8 /* NftGallery.swift */; };
@@ -277,6 +325,14 @@
 		0BE91AD8507C42D196AC7195 /* PlayerPageMediaCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C317F7CCC8746C09F9D6203 /* PlayerPageMediaCoordinatorTests.swift */; };
 		B17E50F3DA0C4453AEC5E03F /* MobilePlayerBookmarkMenuActionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1017CC23649D46C4975C18F3 /* MobilePlayerBookmarkMenuActionTests.swift */; };
 		2EAB00012FFF000000000001 /* ArtBlocksLocalGenerationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EAB00022FFF000000000001 /* ArtBlocksLocalGenerationTests.swift */; };
+		2EAB30000000000000000001 /* ArtBlocksCatalogTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EAB30000000000000000002 /* ArtBlocksCatalogTests.swift */; };
+		2EAB80000000000000000001 /* ArtBlocksRenderingResolutionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EAB80000000000000000002 /* ArtBlocksRenderingResolutionTests.swift */; };
+		2EAB94000000000000000001 /* ArtBlocksRenderingStartupTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EAB94000000000000000002 /* ArtBlocksRenderingStartupTests.swift */; };
+		2EAB95000000000000000001 /* ArtBlocksRenderingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EAB95000000000000000002 /* ArtBlocksRenderingTests.swift */; };
+		2EAB90000000000000000001 /* ArtBlocksContractParametersTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EAB90000000000000000002 /* ArtBlocksContractParametersTests.swift */; };
+		2EAB40000000000000000001 /* ArtBlocksRenderingResizeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EAB40000000000000000002 /* ArtBlocksRenderingResizeTests.swift */; };
+		C1BDBDFCA2E97F4F5302E0A0 /* ArtBlocksRenderingNetworkTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84FF8ACB6B6F36AAF544C63E /* ArtBlocksRenderingNetworkTests.swift */; };
+		4FCD13DF2BCE84FD50EC125D /* ArtBlocksBundledResourceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 613021839F06631D63D4AE0C /* ArtBlocksBundledResourceTests.swift */; };
 		2DA500012FF1000000000001 /* MobilePlayerBrowserPageViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA500112FF1000000000001 /* MobilePlayerBrowserPageViewController.swift */; };
 		2DA500022FF1000000000001 /* PendingMainQueueUpdate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA500122FF1000000000001 /* PendingMainQueueUpdate.swift */; };
 		2DA500032FF1000000000001 /* MobilePlayerCollectionBrowserCollectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA500132FF1000000000001 /* MobilePlayerCollectionBrowserCollectionView.swift */; };
@@ -330,6 +386,9 @@
 		2F1000000000000000000006 /* MobilePlayerGridTransitionCoverRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F1000000000000000000005 /* MobilePlayerGridTransitionCoverRenderer.swift */; };
 		2E1500000000000000000002 /* PlayerBrowserGridCrossfade.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E1500000000000000000001 /* PlayerBrowserGridCrossfade.swift */; };
 		2E1500000000000000000003 /* PlayerBrowserGridCrossfade.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E1500000000000000000001 /* PlayerBrowserGridCrossfade.swift */; };
+		84D39702BDF96A2F8C46B872 /* ArtBlocksCalibrationMigrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34A05C11D924875A9F990737 /* ArtBlocksCalibrationMigrationTests.swift */; };
+		C0994D2F78D4DAF75267B6BB /* ArtBlocksPlaybackErrorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6216CC0A86B269987E288EF /* ArtBlocksPlaybackErrorTests.swift */; };
+		0A1BF3AE97261037B3F3FFE3 /* ArtBlocksExternalDisplayTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54AC8ECC300A24A245BEF292 /* ArtBlocksExternalDisplayTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -478,10 +537,22 @@
 		2CDF000C2F10000000000001 /* NativeMetalCardAssetCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeMetalCardAssetCache.swift; sourceTree = "<group>"; };
 		2CDF000D2F10000000000001 /* NativeMetalCardRendererCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeMetalCardRendererCore.swift; sourceTree = "<group>"; };
 		2CE0F1572C4D37E6003004F2 /* p5js190.js */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.javascript; path = p5js190.js; sourceTree = "<group>"; };
+		A7136D569F3D58C928CFDF13 /* secondary-assets */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = folder; path = "newlibs/secondary-assets"; sourceTree = "<group>"; };
+		299E934F95F18C635C384D53 /* tone1504.js */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.javascript; path = "newlibs/tone1504.js"; sourceTree = "<group>"; };
+		716B6F45B954A25CF62EFBB6 /* tone1504-Tone.js.LICENSE.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "newlibs/tone1504-Tone.js.LICENSE.txt"; sourceTree = "<group>"; };
+		97C02C2CF2254687DADA8490 /* tone1504-LICENSE.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "newlibs/tone1504-LICENSE.md"; sourceTree = "<group>"; };
+		8B06F97C7AA01E2C36EEB2F4 /* three167.js */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.javascript; path = "newlibs/three167.js"; sourceTree = "<group>"; };
+		36E4CA8FDC4CD291584C63FF /* three167-LICENSE */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "newlibs/three167-LICENSE"; sourceTree = "<group>"; };
+		58129A528836AF6CD3ABCCB6 /* p5js11111.js */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.javascript; path = "newlibs/p5js11111.js"; sourceTree = "<group>"; };
+		E29C84394910C1ECB8A6C70C /* p5js11111-license.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "newlibs/p5js11111-license.txt"; sourceTree = "<group>"; };
+		84AE50F4156BF6BF0B3BE7C2 /* manifest.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "newlibs/manifest.json"; sourceTree = "<group>"; };
+		2EAB20000000000000000002 /* processingjs146.js */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.javascript; path = processingjs146.js; sourceTree = "<group>"; };
 		2CE9A5752C3DA9FB009AEAF4 /* TokenGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenGenerator.swift; sourceTree = "<group>"; };
 		2CE9A5772C3DAB03009AEAF4 /* GeneratedToken.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeneratedToken.swift; sourceTree = "<group>"; };
 		2CE9A7702BAD8ECD00579BF7 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		2CEF35AC2C413AE700388574 /* RawHtmlGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawHtmlGenerator.swift; sourceTree = "<group>"; };
+		2EAB81000000000000000005 /* ArtBlocksRenderingResolutionOverrides.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtBlocksRenderingResolutionOverrides.swift; sourceTree = "<group>"; };
+		2EAB93000000000000000005 /* ArtBlocksRenderingStartupProfiles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtBlocksRenderingStartupProfiles.swift; sourceTree = "<group>"; };
 		2CEF35AF2C413D9F00388574 /* regl.js */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.javascript; path = regl.js; sourceTree = "<group>"; };
 		2CEF35B02C413D9F00388574 /* paper.js */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.javascript; path = paper.js; sourceTree = "<group>"; };
 		2CEF35B12C413D9F00388574 /* three.js */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.javascript; path = three.js; sourceTree = "<group>"; };
@@ -551,6 +622,14 @@
 		2C317F7CCC8746C09F9D6203 /* PlayerPageMediaCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerPageMediaCoordinatorTests.swift; sourceTree = "<group>"; };
 		1017CC23649D46C4975C18F3 /* MobilePlayerBookmarkMenuActionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobilePlayerBookmarkMenuActionTests.swift; sourceTree = "<group>"; };
 		2EAB00022FFF000000000001 /* ArtBlocksLocalGenerationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtBlocksLocalGenerationTests.swift; sourceTree = "<group>"; };
+		2EAB30000000000000000002 /* ArtBlocksCatalogTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtBlocksCatalogTests.swift; sourceTree = "<group>"; };
+		2EAB80000000000000000002 /* ArtBlocksRenderingResolutionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtBlocksRenderingResolutionTests.swift; sourceTree = "<group>"; };
+		2EAB94000000000000000002 /* ArtBlocksRenderingStartupTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtBlocksRenderingStartupTests.swift; sourceTree = "<group>"; };
+		2EAB95000000000000000002 /* ArtBlocksRenderingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtBlocksRenderingTests.swift; sourceTree = "<group>"; };
+		2EAB90000000000000000002 /* ArtBlocksContractParametersTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtBlocksContractParametersTests.swift; sourceTree = "<group>"; };
+		2EAB40000000000000000002 /* ArtBlocksRenderingResizeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtBlocksRenderingResizeTests.swift; sourceTree = "<group>"; };
+		84FF8ACB6B6F36AAF544C63E /* ArtBlocksRenderingNetworkTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtBlocksRenderingNetworkTests.swift; sourceTree = "<group>"; };
+		613021839F06631D63D4AE0C /* ArtBlocksBundledResourceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtBlocksBundledResourceTests.swift; sourceTree = "<group>"; };
 		2DA500112FF1000000000001 /* MobilePlayerBrowserPageViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobilePlayerBrowserPageViewController.swift; sourceTree = "<group>"; };
 		2DA500122FF1000000000001 /* PendingMainQueueUpdate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingMainQueueUpdate.swift; sourceTree = "<group>"; };
 		2DA500132FF1000000000001 /* MobilePlayerCollectionBrowserCollectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobilePlayerCollectionBrowserCollectionView.swift; sourceTree = "<group>"; };
@@ -593,6 +672,9 @@
 		2F1000000000000000000003 /* GridTransitionFrameDriver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GridTransitionFrameDriver.swift; sourceTree = "<group>"; };
 		2F1000000000000000000005 /* MobilePlayerGridTransitionCoverRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobilePlayerGridTransitionCoverRenderer.swift; sourceTree = "<group>"; };
 		2E1500000000000000000001 /* PlayerBrowserGridCrossfade.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerBrowserGridCrossfade.swift; sourceTree = "<group>"; };
+		34A05C11D924875A9F990737 /* ArtBlocksCalibrationMigrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtBlocksCalibrationMigrationTests.swift; sourceTree = "<group>"; };
+		D6216CC0A86B269987E288EF /* ArtBlocksPlaybackErrorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtBlocksPlaybackErrorTests.swift; sourceTree = "<group>"; };
+		54AC8ECC300A24A245BEF292 /* ArtBlocksExternalDisplayTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtBlocksExternalDisplayTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -717,6 +799,8 @@
 				2CF4C49A2B7F567B000AB4A6 /* Navigator.swift */,
 				2CE9A5752C3DA9FB009AEAF4 /* TokenGenerator.swift */,
 				2CEF35AC2C413AE700388574 /* RawHtmlGenerator.swift */,
+				2EAB81000000000000000005 /* ArtBlocksRenderingResolutionOverrides.swift */,
+				2EAB93000000000000000005 /* ArtBlocksRenderingStartupProfiles.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -926,6 +1010,16 @@
 				2CEF35AF2C413D9F00388574 /* regl.js */,
 				2CEF35B12C413D9F00388574 /* three.js */,
 				2CE0F1572C4D37E6003004F2 /* p5js190.js */,
+				A7136D569F3D58C928CFDF13 /* secondary-assets */,
+				299E934F95F18C635C384D53 /* tone1504.js */,
+				716B6F45B954A25CF62EFBB6 /* tone1504-Tone.js.LICENSE.txt */,
+				97C02C2CF2254687DADA8490 /* tone1504-LICENSE.md */,
+				8B06F97C7AA01E2C36EEB2F4 /* three167.js */,
+				36E4CA8FDC4CD291584C63FF /* three167-LICENSE */,
+				58129A528836AF6CD3ABCCB6 /* p5js11111.js */,
+				E29C84394910C1ECB8A6C70C /* p5js11111-license.txt */,
+				84AE50F4156BF6BF0B3BE7C2 /* manifest.json */,
+				2EAB20000000000000000002 /* processingjs146.js */,
 				2CEF35B22C413D9F00388574 /* tone.js */,
 				2CEF35B32C413DA000388574 /* twemoji.js */,
 			);
@@ -995,6 +1089,17 @@
 				2C317F7CCC8746C09F9D6203 /* PlayerPageMediaCoordinatorTests.swift */,
 				1017CC23649D46C4975C18F3 /* MobilePlayerBookmarkMenuActionTests.swift */,
 				2EAB00022FFF000000000001 /* ArtBlocksLocalGenerationTests.swift */,
+				2EAB30000000000000000002 /* ArtBlocksCatalogTests.swift */,
+				54AC8ECC300A24A245BEF292 /* ArtBlocksExternalDisplayTests.swift */,
+				D6216CC0A86B269987E288EF /* ArtBlocksPlaybackErrorTests.swift */,
+				34A05C11D924875A9F990737 /* ArtBlocksCalibrationMigrationTests.swift */,
+				2EAB80000000000000000002 /* ArtBlocksRenderingResolutionTests.swift */,
+				2EAB94000000000000000002 /* ArtBlocksRenderingStartupTests.swift */,
+				2EAB95000000000000000002 /* ArtBlocksRenderingTests.swift */,
+				2EAB90000000000000000002 /* ArtBlocksContractParametersTests.swift */,
+				2EAB40000000000000000002 /* ArtBlocksRenderingResizeTests.swift */,
+				84FF8ACB6B6F36AAF544C63E /* ArtBlocksRenderingNetworkTests.swift */,
+				613021839F06631D63D4AE0C /* ArtBlocksBundledResourceTests.swift */,
 				2DA400022FF0000000000001 /* MobileCollectionBrowserGridModePresentationTests.swift */,
 				2DA600162FF2000000000001 /* MobileCollectionBrowserGridTransitionTests.swift */,
 				2DA600172FF2000000000001 /* MobileCollectionBrowserScrollingPrefetchTests.swift */,
@@ -1333,6 +1438,16 @@
 				2C08041C2D2991F200CA9AB2 /* regl.js in Resources */,
 				2C08041D2D2991F200CA9AB2 /* three.js in Resources */,
 				2C08041E2D2991F200CA9AB2 /* p5js190.js in Resources */,
+				88803EC75609F584D0E9C44E /* secondary-assets in Resources */,
+				3469650E61FFB363F8A8CA8C /* tone1504.js in Resources */,
+				08127DE7D8476B98A7A061E4 /* tone1504-Tone.js.LICENSE.txt in Resources */,
+				384D1E930CED392A4A03025A /* tone1504-LICENSE.md in Resources */,
+				F03CDA31FCA3839029512C89 /* three167.js in Resources */,
+				A9E5B0991F765CCCC3083958 /* three167-LICENSE in Resources */,
+				FD3FEBF88049B913A9477E33 /* p5js11111.js in Resources */,
+				C6EA377BAE5A4368D53841DF /* p5js11111-license.txt in Resources */,
+				8DE808EC07033EAB075EDA82 /* manifest.json in Resources */,
+				2EAB20000000000000000003 /* processingjs146.js in Resources */,
 				2C08041F2D2991F200CA9AB2 /* tone.js in Resources */,
 				2C6359562D29C5A400E40241 /* Localizable.xcstrings in Resources */,
 				2C0804202D2991F200CA9AB2 /* twemoji.js in Resources */,
@@ -1355,6 +1470,16 @@
 				2C94428B2C5154E00078C051 /* regl.js in Resources */,
 				2C94428C2C5154E00078C051 /* three.js in Resources */,
 				2C94428D2C5154E00078C051 /* p5js190.js in Resources */,
+				3C088532C093D65531A42B54 /* secondary-assets in Resources */,
+				4C4D8D011D594B8E6F4F9A58 /* tone1504.js in Resources */,
+				BB06D1D106AB2EDD394137CB /* tone1504-Tone.js.LICENSE.txt in Resources */,
+				B7242B5EB8F8DE51116A5470 /* tone1504-LICENSE.md in Resources */,
+				9D3ADA861AF8687A79EA3E18 /* three167.js in Resources */,
+				D113C1BE3CD5C17F7F42FA45 /* three167-LICENSE in Resources */,
+				CDC4017658740078A271F61F /* p5js11111.js in Resources */,
+				4EEDC881F790801A16873F86 /* p5js11111-license.txt in Resources */,
+				27BFCE20CC958E8905C11AE7 /* manifest.json in Resources */,
+				2EAB20000000000000000005 /* processingjs146.js in Resources */,
 				2C94428E2C5154E00078C051 /* tone.js in Resources */,
 				2C9442882C5154CF0078C051 /* twemoji.js in Resources */,
 				2C5A59BD2C514FD200788870 /* Suggested.bundle in Resources */,
@@ -1374,6 +1499,16 @@
 				2CF08AB32D2A9FEE00D82ACA /* Localizable.xcstrings in Resources */,
 				2C0218082C53CE6D0012EC40 /* three.js in Resources */,
 				2C0218092C53CE6D0012EC40 /* p5js190.js in Resources */,
+				BDC83E0EB2CCC196711F3EC9 /* secondary-assets in Resources */,
+				EA6F7464B69DDBDA6C1EEF0C /* tone1504.js in Resources */,
+				877B6DF156ACF63FA751E6EB /* tone1504-Tone.js.LICENSE.txt in Resources */,
+				F3B962F8C4715B7899914B8A /* tone1504-LICENSE.md in Resources */,
+				8714DD240700DED0D248CBA7 /* three167.js in Resources */,
+				176C9FE2A0A71302A16E497A /* three167-LICENSE in Resources */,
+				08CDD6846FBDC4D621BFD80F /* p5js11111.js in Resources */,
+				8C86D45780E57718390A2A5D /* p5js11111-license.txt in Resources */,
+				C426BE587889B6BE33DD6886 /* manifest.json in Resources */,
+				2EAB20000000000000000001 /* processingjs146.js in Resources */,
 				2C02180A2C53CE6D0012EC40 /* tone.js in Resources */,
 				2C02180B2C53CE6D0012EC40 /* twemoji.js in Resources */,
 				2C5A59B52C51400300788870 /* Assets.xcassets in Resources */,
@@ -1389,6 +1524,16 @@
 				2C85F3A52FA3470D0065AE2B /* regl.js in Resources */,
 				2C85F3A62FA3470D0065AE2B /* three.js in Resources */,
 				2C85F3A72FA3470D0065AE2B /* p5js190.js in Resources */,
+				4C06AC5BDFDDE13F422A0853 /* secondary-assets in Resources */,
+				2CEE05DA4CEB5C4304D428D3 /* tone1504.js in Resources */,
+				19ABC57CD359A0D9788E563B /* tone1504-Tone.js.LICENSE.txt in Resources */,
+				74A17F18AD29E21FFDD693E3 /* tone1504-LICENSE.md in Resources */,
+				ACF2FDBE65F380B5607BE0CF /* three167.js in Resources */,
+				BB19F4D1E07BC0F9A545BEEF /* three167-LICENSE in Resources */,
+				430038B72A9BBBC95CCD2EF6 /* p5js11111.js in Resources */,
+				73687D65B8A859B283E098E2 /* p5js11111-license.txt in Resources */,
+				9D712302A61F37792F01E579 /* manifest.json in Resources */,
+				2EAB20000000000000000004 /* processingjs146.js in Resources */,
 				2C85F3A82FA3470D0065AE2B /* tone.js in Resources */,
 				2C85F3A92FA3470D0065AE2B /* twemoji.js in Resources */,
 				2C85F3A22FA3469B0065AE2B /* Suggested.bundle in Resources */,
@@ -1441,6 +1586,17 @@
 				0BE91AD8507C42D196AC7195 /* PlayerPageMediaCoordinatorTests.swift in Sources */,
 				B17E50F3DA0C4453AEC5E03F /* MobilePlayerBookmarkMenuActionTests.swift in Sources */,
 				2EAB00012FFF000000000001 /* ArtBlocksLocalGenerationTests.swift in Sources */,
+				2EAB30000000000000000001 /* ArtBlocksCatalogTests.swift in Sources */,
+				0A1BF3AE97261037B3F3FFE3 /* ArtBlocksExternalDisplayTests.swift in Sources */,
+				C0994D2F78D4DAF75267B6BB /* ArtBlocksPlaybackErrorTests.swift in Sources */,
+				84D39702BDF96A2F8C46B872 /* ArtBlocksCalibrationMigrationTests.swift in Sources */,
+				2EAB80000000000000000001 /* ArtBlocksRenderingResolutionTests.swift in Sources */,
+				2EAB94000000000000000001 /* ArtBlocksRenderingStartupTests.swift in Sources */,
+				2EAB95000000000000000001 /* ArtBlocksRenderingTests.swift in Sources */,
+				2EAB90000000000000000001 /* ArtBlocksContractParametersTests.swift in Sources */,
+				2EAB40000000000000000001 /* ArtBlocksRenderingResizeTests.swift in Sources */,
+				C1BDBDFCA2E97F4F5302E0A0 /* ArtBlocksRenderingNetworkTests.swift in Sources */,
+				4FCD13DF2BCE84FD50EC125D /* ArtBlocksBundledResourceTests.swift in Sources */,
 				2DA400012FF0000000000001 /* MobileCollectionBrowserGridModePresentationTests.swift in Sources */,
 				2DA600062FF2000000000001 /* MobileCollectionBrowserGridTransitionTests.swift in Sources */,
 				2DA600072FF2000000000001 /* MobileCollectionBrowserScrollingPrefetchTests.swift in Sources */,
@@ -1495,6 +1651,8 @@
 				2D10001A2F30000000000001 /* WidgetDeepLink.swift in Sources */,
 				2C460ED72D2985FF0083124E /* TokenGenerator.swift in Sources */,
 				2C460ED82D2985FF0083124E /* RawHtmlGenerator.swift in Sources */,
+				2EAB81000000000000000001 /* ArtBlocksRenderingResolutionOverrides.swift in Sources */,
+				2EAB93000000000000000001 /* ArtBlocksRenderingStartupProfiles.swift in Sources */,
 				2C460ED32D2985D20083124E /* Network.swift in Sources */,
 				2C460ED42D2985D20083124E /* HostAppImages.swift in Sources */,
 				2CF08AA92D2A937400D82ACA /* MobileCollectionsView.swift in Sources */,
@@ -1562,6 +1720,8 @@
 			files = (
 				2C5A59C12C514FE400788870 /* SuggestedItem.swift in Sources */,
 				2C9442922C515AC40078C051 /* RawHtmlGenerator.swift in Sources */,
+				2EAB81000000000000000002 /* ArtBlocksRenderingResolutionOverrides.swift in Sources */,
+				2EAB93000000000000000002 /* ArtBlocksRenderingStartupProfiles.swift in Sources */,
 				2C5A59CF2C5152A600788870 /* VisionPlayerView.swift in Sources */,
 				2C5A59C72C51502300788870 /* Chain.swift in Sources */,
 				2C5A59C02C514FDE00788870 /* BundledTokens.swift in Sources */,
@@ -1608,6 +1768,8 @@
 				2C02180F2C53CECD0012EC40 /* PlayerModel.swift in Sources */,
 				2C0218102C53CECD0012EC40 /* TokenGenerator.swift in Sources */,
 				2C0218112C53CECD0012EC40 /* RawHtmlGenerator.swift in Sources */,
+				2EAB81000000000000000003 /* ArtBlocksRenderingResolutionOverrides.swift in Sources */,
+				2EAB93000000000000000003 /* ArtBlocksRenderingStartupProfiles.swift in Sources */,
 				2C4D31652C56B65E00C586D1 /* TvHelpers.swift in Sources */,
 				2C0218122C53CECD0012EC40 /* NftGallery.swift in Sources */,
 				2C0218132C53CECD0012EC40 /* Chain.swift in Sources */,
@@ -1662,6 +1824,8 @@
 				2C3B775F2C3D6DEC000A9B52 /* MacPlayerPageController.swift in Sources */,
 				2C9973FE2C4AEAAB00C058E2 /* WebViewWithMenu.swift in Sources */,
 				2CEF35AD2C413AE700388574 /* RawHtmlGenerator.swift in Sources */,
+				2EAB81000000000000000004 /* ArtBlocksRenderingResolutionOverrides.swift in Sources */,
+				2EAB93000000000000000004 /* ArtBlocksRenderingStartupProfiles.swift in Sources */,
 				2CF4C49B2B7F567B000AB4A6 /* Navigator.swift in Sources */,
 				2D10001B2F30000000000001 /* WidgetDeepLink.swift in Sources */,
 				2CDF00112F10000000000001 /* DownloadableMediaCache.swift in Sources */,

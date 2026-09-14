@@ -87,14 +87,7 @@ nonisolated enum SuggestedItemsService {
     }()
 
     private static let snapshot: Snapshot = {
-        let allItems: [SuggestedItem]
-        if let url = bundle.url(forResource: "items", withExtension: "json"),
-           let data = try? Data(contentsOf: url),
-           let items = try? JSONDecoder().decode([SuggestedItem].self, from: data) {
-            allItems = items
-        } else {
-            allItems = []
-        }
+        let allItems = loadItems(resource: "items")
 
         let itemsById = allItems.reduce(into: [String: SuggestedItem]()) { result, item in
             result[item.id] = result[item.id] ?? item
@@ -121,12 +114,32 @@ nonisolated enum SuggestedItemsService {
         )
     }()
 
+    private static func loadItems(resource: String) -> [SuggestedItem] {
+        guard let url = bundle.url(forResource: resource, withExtension: "json"),
+              let data = try? Data(contentsOf: url),
+              let items = try? JSONDecoder().decode([SuggestedItem].self, from: data) else {
+            return []
+        }
+        return items
+    }
+
     static let allItems = snapshot.allItems
-    static let visibleItems = snapshot.allItems
-    static let allDownloadableCollectionItems = snapshot.allItems.filter(\.isDownloadableCollection)
+    static let visibleItems = snapshot.allItems.filter {
+        isCollectionAvailableOnCurrentPlatform(id: $0.id)
+    }
+    static let allDownloadableCollectionItems = visibleItems.filter(\.isDownloadableCollection)
 
     static func item(id: String) -> SuggestedItem? {
         snapshot.itemsById[id]
+    }
+
+    static func isCollectionAvailableOnCurrentPlatform(id: String) -> Bool {
+#if os(iOS)
+        return true
+#else
+        guard let item = item(id: id) else { return true }
+        return item.iosOnly != true || item.generativeOnly != true
+#endif
     }
 
     static func artists(forCollectionId collectionId: String) -> [SuggestedArtist] {
@@ -135,7 +148,8 @@ nonisolated enum SuggestedItemsService {
     }
     
     static func bundledTokens(collectionId: String) -> BundledTokens? {
-        if let url = bundle.url(forResource: "Tokens/" + collectionId, withExtension: "json") ?? bundle.url(forResource: "Tokens/" + collectionId.lowercased(), withExtension: "json"),
+        let directory = "Tokens/"
+        if let url = bundle.url(forResource: directory + collectionId, withExtension: "json") ?? bundle.url(forResource: directory + collectionId.lowercased(), withExtension: "json"),
            let data = try? Data(contentsOf: url),
            let bundledTokens = try? JSONDecoder().decode(BundledTokens.self, from: data) {
             return bundledTokens
@@ -152,5 +166,14 @@ nonisolated enum SuggestedItemsService {
             )
         }
         return Bundle.main.url(forResource: name, withExtension: "js")
+    }
+
+    static func hostSecondaryResourceURL(relativePath: String) -> URL? {
+        guard relativePath.hasPrefix("secondary-assets/"),
+              !relativePath.split(separator: "/").contains("..") else { return nil }
+        if let alternativeResourceDirectoryURL {
+            return alternativeResourceDirectoryURL.appendingPathComponent(relativePath)
+        }
+        return Bundle.main.url(forResource: relativePath, withExtension: nil)
     }
 }

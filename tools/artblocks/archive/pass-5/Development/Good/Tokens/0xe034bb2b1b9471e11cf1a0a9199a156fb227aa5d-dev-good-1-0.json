@@ -1,0 +1,309 @@
+{
+  "items": [
+    {
+      "id": "0",
+      "hash": "0xf31cef6aebacf52aed5e43e5943fd87be977e3a89e60a6b783762eee5702220d",
+      "url": "https://sothebys-gen-art-mainnet.s3.amazonaws.com/0.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "1",
+      "hash": "0xc13b9396f47aec8ce287fb3ed76c87e81f039390126bddf44f9991559313db92",
+      "url": "https://sothebys-gen-art-mainnet.s3.amazonaws.com/1.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "2",
+      "hash": "0x04b47a14963f8a134c9f122716086ff8242c67d16f5ad156ce7f62a69f8541d0",
+      "url": "https://sothebys-gen-art-mainnet.s3.amazonaws.com/2.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "3",
+      "hash": "0xae2f943726cb22720ea0e828f074dd047f0c15ebea167b455634491453b05946",
+      "url": "https://sothebys-gen-art-mainnet.s3.amazonaws.com/3.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "4",
+      "hash": "0x89b66f4c265bcdfb6eb6537de3a6642d764a18a53a33402c1e0395853a1ad0db",
+      "url": "https://sothebys-gen-art-mainnet.s3.amazonaws.com/4.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "5",
+      "hash": "0xaf27f496a0416918dc5ed1931ddfece7d1953147d066e8cfd74ec55609a7c1a1",
+      "url": "https://sothebys-gen-art-mainnet.s3.amazonaws.com/5.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "6",
+      "hash": "0x53bab47394c4d9d9c9e5974014cfea9d1922d81c02c7b15e9c88080991f19975",
+      "url": "https://sothebys-gen-art-mainnet.s3.amazonaws.com/6.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "7",
+      "hash": "0xd5be67aea32565e0d322dcc1fac354e631e1aaef71d0e46059c44feea1e5b432",
+      "url": "https://sothebys-gen-art-mainnet.s3.amazonaws.com/7.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "8",
+      "hash": "0xaac399adbfb2e82b900098e336af0fd13f80803cb12acdca8c93fc98c663a2cd",
+      "url": "https://sothebys-gen-art-mainnet.s3.amazonaws.com/8.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "9",
+      "hash": "0x001845cf353dc1c7d8be23006276071b02c38bc15c4f945071c89d730028d868",
+      "url": "https://sothebys-gen-art-mainnet.s3.amazonaws.com/9.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "10",
+      "hash": "0x6963f08e5b939feeb6dccec2dbe945f7f69faaef1693238c5237867be64f43b5",
+      "url": "https://sothebys-gen-art-mainnet.s3.amazonaws.com/10.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "11",
+      "hash": "0xa0844230ac2cbe2100616a65721379aeaab5782bc75f7884ee5473db2f1c9f54",
+      "url": "https://sothebys-gen-art-mainnet.s3.amazonaws.com/11.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "12",
+      "hash": "0x31fa587fe10b607d665c8f9d3d32be21a45a9dd95c896b5807030646261aa332",
+      "url": "https://sothebys-gen-art-mainnet.s3.amazonaws.com/12.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "13",
+      "hash": "0xd3720607793ee692be101271884687242c3615faa793076048fb6c6c0e120ae1",
+      "url": "https://sothebys-gen-art-mainnet.s3.amazonaws.com/13.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "14",
+      "hash": "0xeb51443e3ea48db260b776112440c61bf84440704cf342a8eb2959bf5c10edaf",
+      "url": "https://sothebys-gen-art-mainnet.s3.amazonaws.com/14.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "15",
+      "hash": "0x1aee354cd045300a51b12f1fbc452a54ec6980fe5c1b6c5b3d276c48a66c6aff",
+      "url": "https://sothebys-gen-art-mainnet.s3.amazonaws.com/15.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "16",
+      "hash": "0xe19ebb991a8e3c220f406cba2eca6593a2e29baebcec73ff700907243784139e",
+      "url": "https://sothebys-gen-art-mainnet.s3.amazonaws.com/16.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "17",
+      "hash": "0xd95e90cb4c438666ecc193b208e991cc51967721b9326b83a4fb4cc76e7c9d18",
+      "url": "https://sothebys-gen-art-mainnet.s3.amazonaws.com/17.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "18",
+      "hash": "0xa88a3150efe0ccb34f1c2e48640e19a3ab4e9448f79832db06e15db1b92f4ae4",
+      "url": "https://sothebys-gen-art-mainnet.s3.amazonaws.com/18.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "19",
+      "hash": "0x5091214b53457c1841d838d0c7b1fc13ae69b21aa037420e686e71f1ff85b787",
+      "url": "https://sothebys-gen-art-mainnet.s3.amazonaws.com/19.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "20",
+      "hash": "0x692835537374706584bd06e0a800ef3a210edbea7d559414192e00a8a54dd2b5",
+      "url": "https://sothebys-gen-art-mainnet.s3.amazonaws.com/20.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "21",
+      "hash": "0xf6a6aaac49e9964f3fdee1e660dd48c03c4806bd548d3d2c53c717609f1be5e7",
+      "url": "https://sothebys-gen-art-mainnet.s3.amazonaws.com/21.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "22",
+      "hash": "0xa033caadc6d9eeeca4e78c2e08040e988e093cad65154eda8f0133780d0de84b",
+      "url": "https://sothebys-gen-art-mainnet.s3.amazonaws.com/22.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    }
+  ],
+  "thumbnailAspectRatios": [
+    [
+      1,
+      1
+    ]
+  ]
+}

@@ -1,0 +1,309 @@
+{
+  "items": [
+    {
+      "id": "0",
+      "hash": "0x80a50d744e188a688d1b2a0cf8093805470b022156874f9ef3173efb7b87b0ee",
+      "url": "https://art-blocks-explorations-mainnet.s3.amazonaws.com/0.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "1",
+      "hash": "0x1a4032ad5ae46899a14c2a23e0e305013b4aab43f7ac2b9a56d2679c29c57136",
+      "url": "https://art-blocks-explorations-mainnet.s3.amazonaws.com/1.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "2",
+      "hash": "0x4bf07a89a2fb444dce91e1e85170d4237a20a4fcebdf799260ea62ca9db1c22d",
+      "url": "https://art-blocks-explorations-mainnet.s3.amazonaws.com/2.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "3",
+      "hash": "0xd3b18e040148133e8ea4dcbfbc6c51fb186702fcd2891628881fd78a262dba8b",
+      "url": "https://art-blocks-explorations-mainnet.s3.amazonaws.com/3.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "4",
+      "hash": "0xe6bccf208e94d48bca409320fd88dc2e15a54a273238082d42b28bea2ef324c1",
+      "url": "https://art-blocks-explorations-mainnet.s3.amazonaws.com/4.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "5",
+      "hash": "0xe4943c40b112526a302bdc311b640f8be824763f891fbd3e855e46e3b8111d58",
+      "url": "https://art-blocks-explorations-mainnet.s3.amazonaws.com/5.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "6",
+      "hash": "0x820fbdedc571c166a91ef672e5178dc39ade61b2cb8a91eb80dfe37383b001e2",
+      "url": "https://art-blocks-explorations-mainnet.s3.amazonaws.com/6.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "7",
+      "hash": "0x3207296cbc5d3707e73e1a15efab1736149cb641607429a14a3d5fe7fa616f86",
+      "url": "https://art-blocks-explorations-mainnet.s3.amazonaws.com/7.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "8",
+      "hash": "0x871f43b5affb91a8ede7f53632149ebf1d0ca064e4d589309f259a5b96a8832a",
+      "url": "https://art-blocks-explorations-mainnet.s3.amazonaws.com/8.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "9",
+      "hash": "0x74dbefa77b35cb4832ea26ebf8f8e98bc4d6b8c2c24d9ebfaf8f9682ed83ca24",
+      "url": "https://art-blocks-explorations-mainnet.s3.amazonaws.com/9.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "10",
+      "hash": "0x8ca5ac537aecbf114b294e1890f398c839b75acf8f465fc637706d202b9d5ef1",
+      "url": "https://art-blocks-explorations-mainnet.s3.amazonaws.com/10.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "11",
+      "hash": "0x31171f1bf31fd0ef557457e724cdc9f170af242e92640586446ecc8e64e36d59",
+      "url": "https://art-blocks-explorations-mainnet.s3.amazonaws.com/11.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "12",
+      "hash": "0x5fd1dbcdd6d7bd006cd59560f68f53b824181bb7a988390fb9947547ef6a18c8",
+      "url": "https://art-blocks-explorations-mainnet.s3.amazonaws.com/12.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "13",
+      "hash": "0xbeab68ff33b882d2cfbb536e4de2a7302f4533d60441d6bdb1f39becc11a82b2",
+      "url": "https://art-blocks-explorations-mainnet.s3.amazonaws.com/13.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "14",
+      "hash": "0x03315e5ac6eb3562ed9b087d3ff965ce43c3bc0007efcfedab0da4fe17c7f85a",
+      "url": "https://art-blocks-explorations-mainnet.s3.amazonaws.com/14.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "15",
+      "hash": "0x4bf6a5a28a82aa46d98e8afe144bb57b2c63c40c3eea935d7b329b2c60ae983b",
+      "url": "https://art-blocks-explorations-mainnet.s3.amazonaws.com/15.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "16",
+      "hash": "0x9e789dcfda6e43081f964eb6d91b7ef75b1bd087728e38fba7f8f22cbe7a5441",
+      "url": "https://art-blocks-explorations-mainnet.s3.amazonaws.com/16.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "17",
+      "hash": "0x436a51c5628eb8256b4f8c9ee7239d7211c5e11ca5706d911a6c66951e055816",
+      "url": "https://art-blocks-explorations-mainnet.s3.amazonaws.com/17.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "18",
+      "hash": "0xe5dcb970691e48ce905733569a92954604863609ede79a543251f2a703d42e59",
+      "url": "https://art-blocks-explorations-mainnet.s3.amazonaws.com/18.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "19",
+      "hash": "0x4092cafb018e0c8c582a1f694acd6bf63234269babe2b5ba0843f1f53f8b266d",
+      "url": "https://art-blocks-explorations-mainnet.s3.amazonaws.com/19.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "20",
+      "hash": "0xeeb67f4770dbe83ec6df0f923d19c6d1e772a82d387c8266b12ffcd926865b2c",
+      "url": "https://art-blocks-explorations-mainnet.s3.amazonaws.com/20.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "21",
+      "hash": "0xfae5afdfa3c9b554525c87e4a7f1783507a832105cd6e7a23993bfb841371960",
+      "url": "https://art-blocks-explorations-mainnet.s3.amazonaws.com/21.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "22",
+      "hash": "0x6e512e0214f7ca07d33c62e25bdeca76ff1ec86120f28de946299f068a387da5",
+      "url": "https://art-blocks-explorations-mainnet.s3.amazonaws.com/22.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    }
+  ],
+  "thumbnailAspectRatios": [
+    [
+      1,
+      1
+    ]
+  ]
+}

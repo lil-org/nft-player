@@ -2,7 +2,7 @@
 
 `curation.json` preserves the review decisions independently of downloaded files. Each entry is keyed by `chain-id:lowercase-contract-address:project-id` and contains its name, artist, group, and local folder basename. Retained collections also record the reviewed token IDs, invocations, media URLs, and extensions.
 
-The initial snapshot contains 55 `good`, 237 `ok`, 227 `hmm`, and 618 `excluded` collections. The 519 retained collections have 11,627 sample references. The source inventory was fetched on September 6, 2026; these are review decisions for that inventory, not a current API count.
+The original snapshot in `reviews/pass-1-curation.json` preserves the September 6, 2026 inventory. Current production eligibility is recorded by the approved, deferred-static, and rejected ledgers described below; live curation retains historical group labels and saved sample references.
 
 The entire project-root `samples/` directory remains Git-ignored, including media, raw manifests, and generated reports. Only this compact registry, documentation, and tooling belong in Git. Excluded collections have no sample references and are never automatically downloaded again.
 
@@ -76,3 +76,25 @@ Parnassus also applies main-canvas CSS sizing to fit narrow portrait and landsca
 Apply also writes the Git-ignored `tools/reports/artblocks-script-bundle.json` with API project identities, artist names, original script part counts, byte counts, SHA-256 fingerprints, token counts, and runtime asset URLs. `--bundle <directory>`, `--api-url <url>`, and `--report <file>` override the bundle, endpoint, and provenance report destinations. Tests use temporary fixtures and an injected API client; they do not mutate real app resources or download artwork.
 
 After applying, run `node scripts/generate-widget-resources.mjs`, then `node scripts/generate-widget-resources.mjs --check` and the app's generator checks. The retained CDN URLs continue to supply static widget images. This command does not regenerate widgets, alter cover assets, download sample media, or change curation decisions.
+
+## Bundled approved Art Blocks collections
+
+The September 14, 2026 production batch adds **292 collections and 143,847 minted tokens** to the normal iOS/iPadOS app. The catalog contains **517 entries**, including the original 225. Other platforms keep their prior visible catalogs and generator availability; widget resources and eligibility remain unchanged.
+
+The additions are generative-only, with neutral covers and no thumbnail browser or remote sample-image fallback. Artist scripts, embedded fonts/data, pinned rendering libraries, Hypertype's local dependency, and frozen contract parameters ship in the app. The permanent Art Blocks renderer preserves 213 direct and 79 calibrated startup policies, quality monitoring, collection fixes, and cache migration. `bundledDate` records `2026-09-14` for this batch and remains stable on rebuilds.
+
+Use the [production capture and publication workflow](production/README.md):
+
+```sh
+python3 tools/capture_artblocks_production.py --offline
+node tools/promote_artblocks_collections.js
+node tools/promote_artblocks_collections.js --publish
+```
+
+The complete original 519-project resource corpus and unused historical dependencies are preserved under `archive/pass-5`, outside application targets. The temporary review UI, decisions/notes/export controls, pass selection, and executable pass-preparation commands have been removed. Historical command sources and documentation are retained as inert text in `archive/pass-5/retired-review-tooling`.
+
+The [static candidates](reviews/deferred-static.md) retain 109 collections and 2,486 reviewed sample references, including original media and PNG alternatives. The [rejection ledger](rejected.json) retains 736 rejected/deleted identities. Future discovery and sample selection consult these records. The 104 first-pass rejected folders still present locally were not deleted by promotion.
+
+Live `curation.json` retains legacy group labels (53 good, 233 ok, 219 hmm, and 632 excluded); the cumulative rejection ledger additionally includes 104 first-pass rejections. Use the cumulative ledgers for current eligibility, rather than inferring eligibility from those historical group labels. The known inventory partitions exactly into 292 approved, 109 deferred-static, 736 rejected, and zero pending collections.
+
+Historical source regeneration remains available through `build_artblocks_good_preview.js`, which also supplies production parameter validation. Its default output is the ignored `build/artblocks-historical-review/Good` directory. It does not activate an application review pass. Frozen parameter parsing is shared with production capture; reviewed parameter records are never refreshed by the production workflow.

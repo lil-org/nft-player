@@ -464,7 +464,7 @@ test("catalog IDs exactly match token manifest and cover asset casing", () => {
     const expectedCoverImagesetName = `${collectionId}.imageset`;
     assert.deepEqual(
       coverImagesetsByLowercasedName.get(expectedCoverImagesetName.toLowerCase()) ?? [],
-      [expectedCoverImagesetName],
+      item.hasCover === false ? [] : [expectedCoverImagesetName],
       `${item.internal_slug} cover asset casing does not exactly match its catalog ID`
     );
   }
@@ -722,7 +722,7 @@ test("bundled tokens have compact aspect ratios and matching iOS layouts", () =>
   const primaryFileNames = fs.readdirSync(TOKENS_PATH)
     .filter((fileName) => path.extname(fileName) === ".json")
     .sort();
-  assert.equal(primaryFileNames.length, 224);
+  assert.equal(primaryFileNames.length, 516);
 
   const catalogItems = readJSON(ITEMS_PATH);
   const catalogItemByLowercasedFileName = new Map(
@@ -737,6 +737,17 @@ test("bundled tokens have compact aspect ratios and matching iOS layouts", () =>
   let manualThreeColumnCollectionCount = 0;
   for (const fileName of primaryFileNames) {
     const payload = readJSON(path.join(TOKENS_PATH, fileName));
+    const catalogItem = catalogItemByLowercasedFileName.get(fileName.toLowerCase());
+    if (catalogItem?.hasThumbnails === false) {
+      assert.equal(catalogItem.generativeOnly, true);
+      assert.equal(catalogItem.iosOnly, true);
+      assert.equal(catalogItem.tokenCount, undefined);
+      assert.equal(catalogItem.bundledDate, "2026-09-14");
+      assert.equal(payload.thumbnailAspectRatios, undefined);
+      assert.equal(payload.artworkAspectRatios.length, 1);
+      assert.ok(payload.items.every(token => /^0x[0-9a-fA-F]{64}$/u.test(token.hash)));
+      continue;
+    }
     const ratios = decodeAspectRatioMetadata(payload);
     assert.ok(ratios, `${fileName} has no thumbnail aspect-ratio metadata`);
     assert.equal(ratios.length, payload.items.length, `${fileName} has incomplete aspect-ratio metadata`);

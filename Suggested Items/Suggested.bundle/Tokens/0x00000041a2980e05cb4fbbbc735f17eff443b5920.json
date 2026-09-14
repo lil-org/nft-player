@@ -1,0 +1,537 @@
+{
+  "items": [
+    {
+      "id": "0",
+      "hash": "0xa80ea1de50b504122ec21a793957dc6ee95b8f24bdfc00582c4ec43e2a975363",
+      "url": "https://abstudio-85-mainnet.s3.amazonaws.com/0.png",
+      "referencePixelSize": [
+        1680,
+        2400
+      ],
+      "imageAspectRatio": [
+        1680,
+        2400
+      ]
+    },
+    {
+      "id": "1",
+      "hash": "0xf4f29ed6b22d6522a56861c4be54b361b316f2cc6abedbbe6a88b3297a211f29",
+      "url": "https://abstudio-85-mainnet.s3.amazonaws.com/1.png",
+      "referencePixelSize": [
+        1680,
+        2400
+      ],
+      "imageAspectRatio": [
+        1680,
+        2400
+      ]
+    },
+    {
+      "id": "2",
+      "hash": "0x7d9d43732fbeb42bc2649d66020bce916edc4560170ea7496734d0db684ccb7e",
+      "url": "https://abstudio-85-mainnet.s3.amazonaws.com/2.png",
+      "referencePixelSize": [
+        1680,
+        2400
+      ],
+      "imageAspectRatio": [
+        1680,
+        2400
+      ]
+    },
+    {
+      "id": "3",
+      "hash": "0x962fe5aef31a5e62847b29ec645cc1b899e4097ec45fbfc8270ed4472393808d",
+      "url": "https://abstudio-85-mainnet.s3.amazonaws.com/3.png",
+      "referencePixelSize": [
+        1680,
+        2400
+      ],
+      "imageAspectRatio": [
+        1680,
+        2400
+      ]
+    },
+    {
+      "id": "4",
+      "hash": "0xb4f6ec56a827382123f02f488afdc74ff7ed768764977880eca64e3537a371f7",
+      "url": "https://abstudio-85-mainnet.s3.amazonaws.com/4.png",
+      "referencePixelSize": [
+        1680,
+        2400
+      ],
+      "imageAspectRatio": [
+        1680,
+        2400
+      ]
+    },
+    {
+      "id": "5",
+      "hash": "0x82c2c4b3503e8a76389135b20ca3f1853561614747a6d0f2c8fbf3643ba8e794",
+      "url": "https://abstudio-85-mainnet.s3.amazonaws.com/5.png",
+      "referencePixelSize": [
+        1680,
+        2400
+      ],
+      "imageAspectRatio": [
+        1680,
+        2400
+      ]
+    },
+    {
+      "id": "6",
+      "hash": "0x5615e49d1fe95183f11ebca024c5a29f7b6ec8d7d4620d0c2275f610af0f3276",
+      "url": "https://abstudio-85-mainnet.s3.amazonaws.com/6.png",
+      "referencePixelSize": [
+        1680,
+        2400
+      ],
+      "imageAspectRatio": [
+        1680,
+        2400
+      ]
+    },
+    {
+      "id": "7",
+      "hash": "0x6ee955d3669c0c249156d3d551042b8f84780cb4648bfd87d2f02f202aa6e8f7",
+      "url": "https://abstudio-85-mainnet.s3.amazonaws.com/7.png",
+      "referencePixelSize": [
+        1680,
+        2400
+      ],
+      "imageAspectRatio": [
+        1680,
+        2400
+      ]
+    },
+    {
+      "id": "8",
+      "hash": "0x008deab903c1b1ba23372f7af0b8fb5dd7ad21e547f2e0dfe706d5d1f0dc0a4b",
+      "url": "https://abstudio-85-mainnet.s3.amazonaws.com/8.png",
+      "referencePixelSize": [
+        1680,
+        2400
+      ],
+      "imageAspectRatio": [
+        1680,
+        2400
+      ]
+    },
+    {
+      "id": "9",
+      "hash": "0x0fc52ba201661c368932fef788a9c6dd8b065ad2a170f1080e75f9f72576fdcd",
+      "url": "https://abstudio-85-mainnet.s3.amazonaws.com/9.png",
+      "referencePixelSize": [
+        1680,
+        2400
+      ],
+      "imageAspectRatio": [
+        1680,
+        2400
+      ]
+    },
+    {
+      "id": "10",
+      "hash": "0x7f32a46e0ab825c91a4409849a8cf1b97ebbd47c48ef7b9b1a237514dbed37e6",
+      "url": "https://abstudio-85-mainnet.s3.amazonaws.com/10.png",
+      "referencePixelSize": [
+        1680,
+        2400
+      ],
+      "imageAspectRatio": [
+        1680,
+        2400
+      ]
+    },
+    {
+      "id": "11",
+      "hash": "0x48c93c26fac5ccde96fad40fcc47634d6142827b95f3ec12388045501ffabea5",
+      "url": "https://abstudio-85-mainnet.s3.amazonaws.com/11.png",
+      "referencePixelSize": [
+        1680,
+        2400
+      ],
+      "imageAspectRatio": [
+        1680,
+        2400
+      ]
+    },
+    {
+      "id": "12",
+      "hash": "0x86719c8935ef63558453da035e82b2997fa3589a2bb447b4a4cb2edde7b2d64d",
+      "url": "https://abstudio-85-mainnet.s3.amazonaws.com/12.png",
+      "referencePixelSize": [
+        1680,
+        2400
+      ],
+      "imageAspectRatio": [
+        1680,
+        2400
+      ]
+    },
+    {
+      "id": "13",
+      "hash": "0xd14932d60044c7981e854c10669a58207343daa418d77b6be8ab5832ad74b943",
+      "url": "https://abstudio-85-mainnet.s3.amazonaws.com/13.png",
+      "referencePixelSize": [
+        1680,
+        2400
+      ],
+      "imageAspectRatio": [
+        1680,
+        2400
+      ]
+    },
+    {
+      "id": "14",
+      "hash": "0x2a2760a3762e8b4bf2cd5f5337b6b2298c60231532eeaef0e3e93937c7530313",
+      "url": "https://abstudio-85-mainnet.s3.amazonaws.com/14.png",
+      "referencePixelSize": [
+        1680,
+        2400
+      ],
+      "imageAspectRatio": [
+        1680,
+        2400
+      ]
+    },
+    {
+      "id": "15",
+      "hash": "0x0abc76e944aeec8856cc57a89a832dc2fc9a0d99ac2d926f867f3d358016b04d",
+      "url": "https://abstudio-85-mainnet.s3.amazonaws.com/15.png",
+      "referencePixelSize": [
+        1680,
+        2400
+      ],
+      "imageAspectRatio": [
+        1680,
+        2400
+      ]
+    },
+    {
+      "id": "16",
+      "hash": "0x944858d5b43a059cc50900ec6939aa1909ff2dc22c7dedd42fa843cf3ce90b4f",
+      "url": "https://abstudio-85-mainnet.s3.amazonaws.com/16.png",
+      "referencePixelSize": [
+        1680,
+        2400
+      ],
+      "imageAspectRatio": [
+        1680,
+        2400
+      ]
+    },
+    {
+      "id": "17",
+      "hash": "0x25944c7f8cb846d35e1b15351f3fd5a99da8624de3e804de665c2b9ca9dee611",
+      "url": "https://abstudio-85-mainnet.s3.amazonaws.com/17.png",
+      "referencePixelSize": [
+        1680,
+        2400
+      ],
+      "imageAspectRatio": [
+        1680,
+        2400
+      ]
+    },
+    {
+      "id": "18",
+      "hash": "0x44c4efb9132c26e1aa7cd7dcda4c1d1c2cf2985287567f0c644b2e9875bbf086",
+      "url": "https://abstudio-85-mainnet.s3.amazonaws.com/18.png",
+      "referencePixelSize": [
+        1680,
+        2400
+      ],
+      "imageAspectRatio": [
+        1680,
+        2400
+      ]
+    },
+    {
+      "id": "19",
+      "hash": "0x4db176d7de685bb0aa1c0d4ee1fa8185bb3b8d8d0e678640e65ecfa46b847d26",
+      "url": "https://abstudio-85-mainnet.s3.amazonaws.com/19.png",
+      "referencePixelSize": [
+        1680,
+        2400
+      ],
+      "imageAspectRatio": [
+        1680,
+        2400
+      ]
+    },
+    {
+      "id": "20",
+      "hash": "0x6707fdf06880079f0d426f666184b55ad9e5333393848dcefb0be65452b83199",
+      "url": "https://abstudio-85-mainnet.s3.amazonaws.com/20.png",
+      "referencePixelSize": [
+        1680,
+        2400
+      ],
+      "imageAspectRatio": [
+        1680,
+        2400
+      ]
+    },
+    {
+      "id": "21",
+      "hash": "0xfbc2cca69c4fd3eb354d3fb734d17d1f5b121267c8792ed22eaa9d329e4e2451",
+      "url": "https://abstudio-85-mainnet.s3.amazonaws.com/21.png",
+      "referencePixelSize": [
+        1680,
+        2400
+      ],
+      "imageAspectRatio": [
+        1680,
+        2400
+      ]
+    },
+    {
+      "id": "22",
+      "hash": "0xce0faea7df63e5619a405e1300c9379ea7063f05410d2a564a79334fe0a05378",
+      "url": "https://abstudio-85-mainnet.s3.amazonaws.com/22.png",
+      "referencePixelSize": [
+        1680,
+        2400
+      ],
+      "imageAspectRatio": [
+        1680,
+        2400
+      ]
+    },
+    {
+      "id": "23",
+      "hash": "0x8fe9ea70658faec2434a5bf90d89a9bfbf6f3a9ea77cf929da11e581901e6df5",
+      "imageAspectRatio": [
+        1680,
+        2400
+      ],
+      "referencePixelSize": [
+        1680,
+        2400
+      ]
+    },
+    {
+      "id": "24",
+      "hash": "0x04076b6248ae7d84cd74775be0a713b535977c7b4de75d33e28d41351e4e9ed4",
+      "imageAspectRatio": [
+        1680,
+        2400
+      ],
+      "referencePixelSize": [
+        1680,
+        2400
+      ]
+    },
+    {
+      "id": "25",
+      "hash": "0xac9b16e61881286c8aa14658230c9cf18e85dbe65bb2d351ed17816a331e627e",
+      "imageAspectRatio": [
+        1680,
+        2400
+      ],
+      "referencePixelSize": [
+        1680,
+        2400
+      ]
+    },
+    {
+      "id": "26",
+      "hash": "0xb645c122d91cf5a9cd012f0dbc03c8ebd02a643bad656e1ecd680cdc5cad1c66",
+      "imageAspectRatio": [
+        1680,
+        2400
+      ],
+      "referencePixelSize": [
+        1680,
+        2400
+      ]
+    },
+    {
+      "id": "27",
+      "hash": "0x7b841e3b312846a7773da4178ad172e34d0733e46e6a55a8d4d21cd1c0b2e019",
+      "imageAspectRatio": [
+        1680,
+        2400
+      ],
+      "referencePixelSize": [
+        1680,
+        2400
+      ]
+    },
+    {
+      "id": "28",
+      "hash": "0x83a77ad1440cbec066715b7809862e8ad848fa6f581a02eec24864ac023c2ef2",
+      "imageAspectRatio": [
+        1680,
+        2400
+      ],
+      "referencePixelSize": [
+        1680,
+        2400
+      ]
+    },
+    {
+      "id": "29",
+      "hash": "0x42b5bf5bafb3748035a895bc67c5730ce57562e9ed2531428c6015394ab2a475",
+      "imageAspectRatio": [
+        1680,
+        2400
+      ],
+      "referencePixelSize": [
+        1680,
+        2400
+      ]
+    },
+    {
+      "id": "30",
+      "hash": "0x3ffea9c633dde8784d90107a24a9ea25724bd50e657b4553122a9c44290fe791",
+      "imageAspectRatio": [
+        1680,
+        2400
+      ],
+      "referencePixelSize": [
+        1680,
+        2400
+      ]
+    },
+    {
+      "id": "31",
+      "hash": "0x37b94e07f14c372a82a335988f5ce2eef7a7da97d035901374b46d7421e188c5",
+      "imageAspectRatio": [
+        1680,
+        2400
+      ],
+      "referencePixelSize": [
+        1680,
+        2400
+      ]
+    },
+    {
+      "id": "32",
+      "hash": "0x0fcc2181c1f7d2f024868d51be74b1b5e6cb85df3089b8f9cb5785917b4af790",
+      "imageAspectRatio": [
+        1680,
+        2400
+      ],
+      "referencePixelSize": [
+        1680,
+        2400
+      ]
+    },
+    {
+      "id": "33",
+      "hash": "0x8a7a700b0d39fd5e988ccbf31929b888bd383ae6d697e4fa86a7698367161a70",
+      "imageAspectRatio": [
+        1680,
+        2400
+      ],
+      "referencePixelSize": [
+        1680,
+        2400
+      ]
+    },
+    {
+      "id": "34",
+      "hash": "0x7e044b7452c445ef52b5c846f9d8f0c245702aa6c1513d51b428410edbb79489",
+      "imageAspectRatio": [
+        1680,
+        2400
+      ],
+      "referencePixelSize": [
+        1680,
+        2400
+      ]
+    },
+    {
+      "id": "35",
+      "hash": "0xecc414b133adb73f5d69c24771577c10f4799e5890ca59565e004d057ec5506f",
+      "imageAspectRatio": [
+        1680,
+        2400
+      ],
+      "referencePixelSize": [
+        1680,
+        2400
+      ]
+    },
+    {
+      "id": "36",
+      "hash": "0xb4a8832632904a82eaec17fe4f2a3c4057fe106b3a439471957d7e60176eb049",
+      "imageAspectRatio": [
+        1680,
+        2400
+      ],
+      "referencePixelSize": [
+        1680,
+        2400
+      ]
+    },
+    {
+      "id": "37",
+      "hash": "0x3ecc72e7fcd16d4fd77fbc16f978106537b79c655c76e9dfb6a947cd7891cb6b",
+      "imageAspectRatio": [
+        1680,
+        2400
+      ],
+      "referencePixelSize": [
+        1680,
+        2400
+      ]
+    },
+    {
+      "id": "38",
+      "hash": "0xd87a68e4ef5c92987358c995c94989ad6704bf0c1b6003ef073140dd14946bd2",
+      "imageAspectRatio": [
+        1680,
+        2400
+      ],
+      "referencePixelSize": [
+        1680,
+        2400
+      ]
+    },
+    {
+      "id": "39",
+      "hash": "0x6a9f5072218f4cd66312e7dd6eee5c74cbf0507c7558050399c66af6bd00438c",
+      "imageAspectRatio": [
+        1680,
+        2400
+      ],
+      "referencePixelSize": [
+        1680,
+        2400
+      ]
+    },
+    {
+      "id": "40",
+      "hash": "0x8e98798636c5dca5aa8f85ea71bed526f01636894c6ab3b062b1a0890dece560",
+      "imageAspectRatio": [
+        1680,
+        2400
+      ],
+      "referencePixelSize": [
+        1680,
+        2400
+      ]
+    },
+    {
+      "id": "41",
+      "hash": "0x37e29301ee3501f167d8bdea7f15ddc0ae68054a6844e9546fad911e7d31a98e",
+      "imageAspectRatio": [
+        1680,
+        2400
+      ],
+      "referencePixelSize": [
+        1680,
+        2400
+      ]
+    }
+  ],
+  "artworkAspectRatios": [
+    [
+      7,
+      10
+    ]
+  ]
+}

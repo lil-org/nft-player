@@ -1,0 +1,339 @@
+{
+  "items": [
+    {
+      "id": "0",
+      "hash": "0x01ba633ec644facca4d347ae5a4c051f2926320a371d0980a6c61ad7a6970473",
+      "url": "https://abstudio-66-mainnet.s3.amazonaws.com/0.png",
+      "previewImageAspectRatio": [
+        1800,
+        2400
+      ],
+      "previewContractParameters": {},
+      "previewReferencePixelSize": [
+        1800,
+        2400
+      ]
+    },
+    {
+      "id": "1",
+      "hash": "0xecebed91b5bf15420d3e55404c9174fa626ffb2f5943b52eb9d7fa5fc758d858",
+      "url": "https://abstudio-66-mainnet.s3.amazonaws.com/1.png",
+      "previewImageAspectRatio": [
+        1800,
+        2400
+      ],
+      "previewContractParameters": {},
+      "previewReferencePixelSize": [
+        1800,
+        2400
+      ]
+    },
+    {
+      "id": "2",
+      "hash": "0x00d477b72302c7df2be3e92d9bf767f5a61db42265d71e1691726f307336ef28",
+      "url": "https://abstudio-66-mainnet.s3.amazonaws.com/2.png",
+      "previewImageAspectRatio": [
+        1800,
+        2400
+      ],
+      "previewContractParameters": {},
+      "previewReferencePixelSize": [
+        1800,
+        2400
+      ]
+    },
+    {
+      "id": "3",
+      "hash": "0x87ff58644b2eafb9b72ac505ad5df4120417619171741baa07c6fa01f28b25a1",
+      "url": "https://abstudio-66-mainnet.s3.amazonaws.com/3.png",
+      "previewImageAspectRatio": [
+        1800,
+        2400
+      ],
+      "previewContractParameters": {},
+      "previewReferencePixelSize": [
+        1800,
+        2400
+      ]
+    },
+    {
+      "id": "4",
+      "hash": "0xa5a4888e1f7d9901b4dddb8f1922b3ddb6120d1eb7b359e29180327889d02f09",
+      "url": "https://abstudio-66-mainnet.s3.amazonaws.com/4.png",
+      "previewImageAspectRatio": [
+        1800,
+        2400
+      ],
+      "previewContractParameters": {},
+      "previewReferencePixelSize": [
+        1800,
+        2400
+      ]
+    },
+    {
+      "id": "5",
+      "hash": "0xa754c71209719fb06b7702e4931ca95d9ba93644741a7d02cdc0c063a8f0854d",
+      "url": "https://abstudio-66-mainnet.s3.amazonaws.com/5.png",
+      "previewImageAspectRatio": [
+        1800,
+        2400
+      ],
+      "previewContractParameters": {},
+      "previewReferencePixelSize": [
+        1800,
+        2400
+      ]
+    },
+    {
+      "id": "6",
+      "hash": "0x92e63276ace8afd9860a4889186e823071219d0418863e326290d12c8d420535",
+      "url": "https://abstudio-66-mainnet.s3.amazonaws.com/6.png",
+      "previewImageAspectRatio": [
+        1800,
+        2400
+      ],
+      "previewContractParameters": {},
+      "previewReferencePixelSize": [
+        1800,
+        2400
+      ]
+    },
+    {
+      "id": "7",
+      "hash": "0xf7e4b89e5cc6145782a5630ce9db83b45b516ab1d39fa39a0b2d6f98d6de9759",
+      "url": "https://abstudio-66-mainnet.s3.amazonaws.com/7.png",
+      "previewImageAspectRatio": [
+        1800,
+        2400
+      ],
+      "previewContractParameters": {},
+      "previewReferencePixelSize": [
+        1800,
+        2400
+      ]
+    },
+    {
+      "id": "8",
+      "hash": "0x35a08e9390ece6d85bf825cbddda00af3360e406b173b08cf24bfeacec2663e0",
+      "url": "https://abstudio-66-mainnet.s3.amazonaws.com/8.png",
+      "previewImageAspectRatio": [
+        1800,
+        2400
+      ],
+      "previewContractParameters": {},
+      "previewReferencePixelSize": [
+        1800,
+        2400
+      ]
+    },
+    {
+      "id": "9",
+      "hash": "0x56fc66e7a4eac60aaa3542a6a0e35a2e65bd3c72f527755aeaf8584d65e20aeb",
+      "url": "https://abstudio-66-mainnet.s3.amazonaws.com/9.png",
+      "previewImageAspectRatio": [
+        1800,
+        2400
+      ],
+      "previewContractParameters": {},
+      "previewReferencePixelSize": [
+        1800,
+        2400
+      ]
+    },
+    {
+      "id": "10",
+      "hash": "0x848934f90c14d68abfe42a7193955555a5ec839f44a2c8cfc612f428660efec1",
+      "url": "https://abstudio-66-mainnet.s3.amazonaws.com/10.png",
+      "previewImageAspectRatio": [
+        1800,
+        2400
+      ],
+      "previewContractParameters": {},
+      "previewReferencePixelSize": [
+        1800,
+        2400
+      ]
+    },
+    {
+      "id": "11",
+      "hash": "0x67cf00e6d77fdf60faaf077b02baf3fabef8fb88b62589b751b18e2b939c7709",
+      "url": "https://abstudio-66-mainnet.s3.amazonaws.com/11.png",
+      "previewImageAspectRatio": [
+        1800,
+        2400
+      ],
+      "previewContractParameters": {},
+      "previewReferencePixelSize": [
+        1800,
+        2400
+      ]
+    },
+    {
+      "id": "12",
+      "hash": "0x90bf97944d84e926a7c47bf4835c19415b5076b00245d0646fbe77dc253d4b99",
+      "url": "https://abstudio-66-mainnet.s3.amazonaws.com/12.png",
+      "previewImageAspectRatio": [
+        1800,
+        2400
+      ],
+      "previewContractParameters": {},
+      "previewReferencePixelSize": [
+        1800,
+        2400
+      ]
+    },
+    {
+      "id": "13",
+      "hash": "0xebf3b02744bf09589ab4b1ac6b243d8d06911af61c5fec96ccb1168c28cd555c",
+      "url": "https://abstudio-66-mainnet.s3.amazonaws.com/13.png",
+      "previewImageAspectRatio": [
+        1800,
+        2400
+      ],
+      "previewContractParameters": {},
+      "previewReferencePixelSize": [
+        1800,
+        2400
+      ]
+    },
+    {
+      "id": "14",
+      "hash": "0xb0b3f68000fc1f05c5381382eab40d85a21b7175d5f6e91fb9f1dd6b755139c3",
+      "url": "https://abstudio-66-mainnet.s3.amazonaws.com/14.png",
+      "previewImageAspectRatio": [
+        1800,
+        2400
+      ],
+      "previewContractParameters": {},
+      "previewReferencePixelSize": [
+        1800,
+        2400
+      ]
+    },
+    {
+      "id": "15",
+      "hash": "0xc3fec288c3736fe2ac009cc6057f183cf1acbf79fff80c79cc545095d7edc9d9",
+      "url": "https://abstudio-66-mainnet.s3.amazonaws.com/15.png",
+      "previewImageAspectRatio": [
+        1800,
+        2400
+      ],
+      "previewContractParameters": {},
+      "previewReferencePixelSize": [
+        1800,
+        2400
+      ]
+    },
+    {
+      "id": "16",
+      "hash": "0x59c2a5acd19a278bd2a0072798abaec8310943a720a1fc8c26b1ca0514ae0ca8",
+      "url": "https://abstudio-66-mainnet.s3.amazonaws.com/16.png",
+      "previewImageAspectRatio": [
+        1800,
+        2400
+      ],
+      "previewContractParameters": {},
+      "previewReferencePixelSize": [
+        1800,
+        2400
+      ]
+    },
+    {
+      "id": "17",
+      "hash": "0x003dc040423e56aa419d6bd0c5985bc82e54857577561b78f2fe93dbdbc248ac",
+      "url": "https://abstudio-66-mainnet.s3.amazonaws.com/17.png",
+      "previewImageAspectRatio": [
+        1800,
+        2400
+      ],
+      "previewContractParameters": {},
+      "previewReferencePixelSize": [
+        1800,
+        2400
+      ]
+    },
+    {
+      "id": "18",
+      "hash": "0x8c1c4e35867730002af75f4b94862f35044dbb92efc53722918bb7e7b3591140",
+      "url": "https://abstudio-66-mainnet.s3.amazonaws.com/18.png",
+      "previewImageAspectRatio": [
+        1800,
+        2400
+      ],
+      "previewContractParameters": {
+        "Palette": "El Fiasco",
+        "Shape Series": "3"
+      },
+      "previewReferencePixelSize": [
+        1800,
+        2400
+      ]
+    },
+    {
+      "id": "19",
+      "hash": "0x5f4dcbc3d0bd4863b409a1ed87a2d65f664475a20b8485819f7bf149e2aea128",
+      "url": "https://abstudio-66-mainnet.s3.amazonaws.com/19.png",
+      "previewImageAspectRatio": [
+        1800,
+        2400
+      ],
+      "previewContractParameters": {},
+      "previewReferencePixelSize": [
+        1800,
+        2400
+      ]
+    },
+    {
+      "id": "20",
+      "hash": "0x6b31623f947a0007b2ccae5951c044c8ae60bc552bfee1511818ce5d9eec17eb",
+      "url": "https://abstudio-66-mainnet.s3.amazonaws.com/20.png",
+      "previewImageAspectRatio": [
+        1800,
+        2400
+      ],
+      "previewContractParameters": {},
+      "previewReferencePixelSize": [
+        1800,
+        2400
+      ]
+    },
+    {
+      "id": "21",
+      "hash": "0x0c75080b44dd4055272fbdc9c7e299256834be9c92d857a60c6b9190bb4b205a",
+      "url": "https://abstudio-66-mainnet.s3.amazonaws.com/21.png",
+      "previewImageAspectRatio": [
+        1800,
+        2400
+      ],
+      "previewContractParameters": {},
+      "previewReferencePixelSize": [
+        1800,
+        2400
+      ]
+    },
+    {
+      "id": "22",
+      "hash": "0x1ee7b59adac475059a64d6b1d41de193a8cf3270ba954b616ab8d246679df9d1",
+      "url": "https://abstudio-66-mainnet.s3.amazonaws.com/22.png",
+      "previewImageAspectRatio": [
+        1800,
+        2400
+      ],
+      "previewContractParameters": {
+        "Brush": "rotring",
+        "Palette": "Sin City",
+        "Shape Series": "2"
+      },
+      "previewReferencePixelSize": [
+        1800,
+        2400
+      ]
+    }
+  ],
+  "thumbnailAspectRatios": [
+    [
+      3,
+      4
+    ]
+  ]
+}

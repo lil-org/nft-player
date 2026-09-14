@@ -1,0 +1,157 @@
+"use strict";
+
+const fs = require("node:fs/promises");
+const path = require("node:path");
+const { createHash } = require("node:crypto");
+const { validateCuration } = require("./artblocks/curation");
+const { createArtifacts } = require("./prepare_artblocks_review_pass");
+const { CURATION_SHA256, createThirdArtifacts, validateRemoval, checkThirdReviewPass, applyThirdReviewPass }
+  = require("./prepare_artblocks_review_pass_3");
+
+const ROOT = path.resolve(__dirname, "..");
+const PREVIOUS_CURATION_SHA256 = "868309eccd0e9b4183b2cddfb9761004bb52d56989592f246bb03163d72243b2";
+const REJECTED_IDENTITY = "1:0x1353fd9d3dc70d1a18149c8fb2adb4fb906de4e8:1";
+const PENDING_IDENTITY = "1:0xaa00b2b2db36b8f8004a9aa96f0012005d92b300:0";
+const DECISION_INSTRUCTION = `this is amazing, all these are "yes" now except 2 collections:
+
+"aaa" is no
+
+"pool party" is double check — it says 'long press for views'. any way for it to work automatically wothoit ascing for that long press?
+
+
+preserve all other collections as yes — like we preserved yes ones previously, remove "aaa", and let's attempt fixing "pool party" — but let's not go deep into it, if it's too hard to fix, let's just remove "pool party" as well.`;
+const EXPECTED_COUNTS = Object.freeze({ yes: { collections: 77, tokens: 1751 }, no: { collections: 1, tokens: 23 },
+  "double-check": { collections: 1, tokens: 20 }, notes: 0 });
+const digest = value => createHash("sha256").update(value).digest("hex");
+const json = value => Buffer.from(JSON.stringify(value, null, 2) + "\n");
+
+async function optionalFile(file) {
+  try {
+    const stat = await fs.lstat(file);
+    if (!stat.isFile() || stat.isSymbolicLink()) throw new Error(`Expected a regular file: ${file}`);
+    return await fs.readFile(file);
+  } catch (error) {
+    if (error.code === "ENOENT") return null;
+    throw error;
+  }
+}
+
+function createFourthArtifacts(previous, corpus, catalog, tokensByIdentity, options = {}) {
+  const rejectedIdentity = options.rejectedIdentity ?? REJECTED_IDENTITY;
+  const pendingIdentity = options.pendingIdentity ?? PENDING_IDENTITY;
+  const selected = new Set(previous.runtime.selectedIdentities);
+  if (selected.size !== previous.runtime.selectedIdentities.length || !selected.has(rejectedIdentity)
+    || !selected.has(pendingIdentity) || rejectedIdentity === pendingIdentity) throw new Error("Invalid pass-3 review partition");
+  if (corpus.collections[rejectedIdentity]?.name !== "aaa" || corpus.collections[pendingIdentity]?.name !== "pool party") {
+    throw new Error("Review exceptions do not match their frozen collection identities");
+  }
+  const records = {}, approvedByIdentity = new Map(previous.approved.collections.map(record => [record.identity, record]));
+  const counts = { yes: { collections: 0, tokens: 0 }, no: { collections: 0, tokens: 0 }, "double-check": { collections: 0, tokens: 0 }, notes: 0 };
+  const approved = [], newlyApproved = [];
+  const liveCuration = structuredClone(previous.liveCuration);
+  for (const item of catalog) {
+    const key = item.reviewIdentity;
+    if (!selected.has(key)) {
+      if (approvedByIdentity.has(key)) approved.push(approvedByIdentity.get(key));
+      continue;
+    }
+    if (approvedByIdentity.has(key)) throw new Error(`Previously approved identity occurs in pass-3: ${key}`);
+    const original = corpus.collections[key], tokens = tokensByIdentity.get(key)?.items;
+    if (!tokens || tokens.length !== original.samples.length || tokens.some((token, index) => token.id !== original.samples[index].tokenId)) {
+      throw new Error(`Bundled token selection differs from curation: ${key}`);
+    }
+    const decision = key === rejectedIdentity ? "no" : key === pendingIdentity ? "double-check" : "yes";
+    records[key] = { name: original.name, group: original.group, decision, note: null };
+    counts[decision].collections++;
+    counts[decision].tokens += tokens.length;
+    if (decision === "yes") {
+      const localCollectionFolder = path.posix.join("samples", original.group, original.directory);
+      const record = { identity: key, ...records[key], sourcePassID: "pass-3", localCollectionFolder,
+        samples: tokens.map((token, index) => ({ tokenId: token.id,
+          localPath: path.posix.join(localCollectionFolder, `${token.id}.${original.samples[index].extension}`), fallbackImageURL: token.url })) };
+      approved.push(record);
+      newlyApproved.push(record);
+    }
+  }
+  if (Object.keys(records).length !== selected.size || approved.length !== previous.approved.collectionCount + newlyApproved.length) {
+    throw new Error("Missing pass-3 or approved catalog identities");
+  }
+  if (JSON.stringify(counts) !== JSON.stringify(options.expectedCounts ?? EXPECTED_COUNTS)) throw new Error("Unexpected pass-3 decision counts");
+  liveCuration.collections[rejectedIdentity].group = "excluded";
+  delete liveCuration.collections[rejectedIdentity].samples;
+  validateCuration(liveCuration);
+  const source = json({ version: 1, passID: "pass-3", sourceType: "recorded-user-instruction", deviceExport: false,
+    instruction: DECISION_INSTRUCTION,
+    poolPartyMode: { mode: "Cycle", source: "User-approved implementation plan", instruction: "This starts the authored history animation immediately and removes the long-press hint." },
+    sourceRuntimeSHA256: digest(json(previous.runtime)), counts, collections: records });
+  const sourceReviewSHA256 = digest(source);
+  const manifest = collections => ({ version: 1,
+    sourceReviews: { ...previous.approved.sourceReviews, "pass-3": sourceReviewSHA256 },
+    collectionCount: collections.length, tokenCount: collections.reduce((sum, entry) => sum + entry.samples.length, 0), collections });
+  return { source, counts, liveCuration, approved: manifest(approved), newlyApproved: manifest(newlyApproved),
+    rejected: { identity: rejectedIdentity, ...corpus.collections[rejectedIdentity] },
+    runtime: { version: 1, passID: "pass-4", sourceReviewSHA256, selectedIdentities: [pendingIdentity], initialNotesByIdentity: {} } };
+}
+
+async function planFourthReviewPass(options = {}) {
+  const reviews = path.resolve(options.reviews ?? path.join(ROOT, "tools", "artblocks", "reviews"));
+  const preview = path.resolve(options.preview ?? path.join(ROOT, "Suggested Items", "Suggested.bundle", "Development", "Good"));
+  const curation = path.resolve(options.curation ?? path.join(ROOT, "tools", "artblocks", "curation.json"));
+  const samplesRoot = path.resolve(options.samplesRoot ?? path.join(ROOT, "samples"));
+  const runtimeOutput = path.resolve(options.runtimeOutput ?? path.join(preview, "..", "review-pass.json"));
+  const inputs = new Map();
+  async function read(file, optional = false) {
+    const contents = await optionalFile(file);
+    inputs.set(file, contents);
+    if (!optional && contents === null) throw new Error(`Missing review input: ${file}`);
+    return contents;
+  }
+  const corpusSource = await read(path.join(reviews, "pass-1-curation.json"));
+  if (digest(corpusSource) !== (options.expectedCurationSHA256 ?? CURATION_SHA256)) throw new Error("Original curation SHA-256 differs");
+  const corpus = JSON.parse(corpusSource);
+  const catalog = JSON.parse(await read(path.join(preview, "items.json")));
+  if (!Array.isArray(catalog)) throw new Error("Expected a preview catalog array");
+  const tokensByIdentity = new Map();
+  for (const item of catalog) {
+    if (!/^0x[\da-f]{40}$/u.test(item.address) || !/^-dev-good-\d+-\d+$/u.test(item.collectionId)) throw new Error("Invalid preview token resource identity");
+    tokensByIdentity.set(item.reviewIdentity, JSON.parse(await read(path.join(preview, "Tokens", `${item.address}${item.collectionId}.json`))));
+  }
+  const first = createArtifacts(await read(path.join(reviews, "pass-1.json")), corpus, catalog, tokensByIdentity, options.firstPass);
+  const previous = createThirdArtifacts(await read(path.join(reviews, "pass-2.json")), corpus, first, catalog, tokensByIdentity, options.thirdPass);
+  const previousCuration = json(previous.liveCuration);
+  if (digest(previousCuration) !== (options.expectedPreviousCurationSHA256 ?? PREVIOUS_CURATION_SHA256)) throw new Error("Pass-3 curation SHA-256 differs");
+  for (const [name, expected] of [["pass-2-approved.json", previous.approved], ["deferred-static.json", previous.deferred]]) {
+    if (!(await read(path.join(reviews, name))).equals(json(expected))) throw new Error(`Historical review artifact differs: ${name}`);
+  }
+  await read(path.join(reviews, "deferred-static.md"));
+  const artifacts = createFourthArtifacts(previous, corpus, catalog, tokensByIdentity, options);
+  const sourcePath = path.join(reviews, "pass-3-decisions.json");
+  if (options.source && !(await read(path.resolve(options.source))).equals(artifacts.source)) throw new Error("Source differs from the recorded user instruction");
+  const nextCuration = json(artifacts.liveCuration), liveSource = await read(curation);
+  if (!liveSource.equals(previousCuration) && !liveSource.equals(nextCuration)) throw new Error("Live curation contains unrelated changes; refusing to replace it");
+  const activeSource = await read(runtimeOutput);
+  if (!activeSource.equals(json(previous.runtime)) && !activeSource.equals(json(artifacts.runtime))) throw new Error("Active review selection contains unrelated changes");
+  const immutableFiles = new Set([sourcePath, path.join(reviews, "pass-3-runtime.json"), path.join(reviews, "pass-3-curation.json"), path.join(reviews, "pass-3-approved.json")]);
+  const approvedList = Buffer.from(["# Approved collections", "",
+    `${artifacts.approved.collectionCount} collections with ${artifacts.approved.tokenCount.toLocaleString("en-US")} saved token references are set aside for later. Rendering remains on the path approved in the listed pass.`, "",
+    "The complete saved paths, PNG references, notes, and decision provenance are in [approved.json](approved.json).", "",
+    "| Collection | Decision pass | Saved tokens |", "| --- | --- | ---: |",
+    ...artifacts.approved.collections.map(entry => `| ${entry.name.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll("|", "\\|").replaceAll("\n", " ")} | ${entry.sourcePassID} | ${entry.samples.length} |`), ""].join("\n"));
+  const files = new Map([[sourcePath, artifacts.source], [path.join(reviews, "pass-3-runtime.json"), json(previous.runtime)],
+    [path.join(reviews, "pass-3-curation.json"), previousCuration], [path.join(reviews, "pass-3-approved.json"), json(artifacts.newlyApproved)],
+    [path.resolve(options.approvedOutput ?? path.join(reviews, "approved.json")), json(artifacts.approved)],
+    [path.resolve(options.approvedListOutput ?? path.join(reviews, "approved.md")), approvedList],
+    [curation, nextCuration], [runtimeOutput, json(artifacts.runtime)]]);
+  if (files.size !== 8) throw new Error("Review output paths must be distinct");
+  for (const [file, contents] of files) {
+    const previous = inputs.has(file) ? inputs.get(file) : await read(file, true);
+    if (immutableFiles.has(file) && previous && !previous.equals(contents)) throw new Error(`Refusing to replace frozen review archive: ${file}`);
+  }
+  const record = artifacts.rejected;
+  const removals = [{ record, directory: path.join(samplesRoot, record.group, record.directory), fingerprint: await validateRemoval(samplesRoot, record) }];
+  return { files, immutableFiles, inputs, removals, samplesRoot, counts: artifacts.counts,
+    approvedCounts: { collections: artifacts.approved.collectionCount, tokens: artifacts.approved.tokenCount }, sourceReviewSHA256: artifacts.runtime.sourceReviewSHA256 };
+}
+
+module.exports = { PREVIOUS_CURATION_SHA256, REJECTED_IDENTITY, PENDING_IDENTITY, DECISION_INSTRUCTION, EXPECTED_COUNTS,
+  createFourthArtifacts, planFourthReviewPass, checkFourthReviewPass: checkThirdReviewPass, applyFourthReviewPass: applyThirdReviewPass };

@@ -1,0 +1,11 @@
+Hypertype — shared rendering dependency
+Artist: Mark Webster
+
+This is the original, unmodified dependency declared by the Hypertype artist script (Ethereum, contract 0xbb5471c292065d3b01b2e81e299267221ae9a250, project 0).
+Source: https://gateway.pinata.cloud/ipfs/QmXWXHGkxYFjJF5AuPiVB91VXK31LnoPN9EXKgiWFUvfT6
+IPFS CID: QmXWXHGkxYFjJF5AuPiVB91VXK31LnoPN9EXKgiWFUvfT6
+SHA-256: 48d2613055cacdf43217ed43710990150ef2afaa15540c69d2b840d80fd4b6c8
+
+The file contains shared rendering code, 35 data records, 104 vector glyphs, and 14 palettes. It is shared by all tokens; token-specific selection remains in the original artist code.
+Embedded retrieved_url values identify the data records’ sources and are not runtime asset requests.
+No license identifier was supplied in the cached project metadata or this dependency.

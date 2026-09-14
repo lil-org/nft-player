@@ -1,0 +1,309 @@
+{
+  "items": [
+    {
+      "id": "0",
+      "hash": "0x5a6a50f958b8dda68eb19bfc60868050d934c9362d86b0df1713e0df799238fd",
+      "url": "https://coindesk-mainnet.s3.amazonaws.com/0.png",
+      "previewImageAspectRatio": [
+        1920,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        1920,
+        2400
+      ]
+    },
+    {
+      "id": "1",
+      "hash": "0x2463c3aa6a09a2db67d96a6d511a62928d9ac28a3f629203245da88d27387c25",
+      "url": "https://coindesk-mainnet.s3.amazonaws.com/1.png",
+      "previewImageAspectRatio": [
+        1920,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        1920,
+        2400
+      ]
+    },
+    {
+      "id": "2",
+      "hash": "0x7a93ba63dd67b9a585a11a135588ed77cdf9f8aad5e1ce7727d456962caa2257",
+      "url": "https://coindesk-mainnet.s3.amazonaws.com/2.png",
+      "previewImageAspectRatio": [
+        1920,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        1920,
+        2400
+      ]
+    },
+    {
+      "id": "3",
+      "hash": "0x4e0c0e5ff4ea6bdd0eed5257ff64ef1e4714177473db844c28db74bf687c18ba",
+      "url": "https://coindesk-mainnet.s3.amazonaws.com/3.png",
+      "previewImageAspectRatio": [
+        1920,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        1920,
+        2400
+      ]
+    },
+    {
+      "id": "4",
+      "hash": "0x1635278ce19c4d1f2fb506f19e847ab62e97ba94e496b500eebf7bd431d7c82b",
+      "url": "https://coindesk-mainnet.s3.amazonaws.com/4.png",
+      "previewImageAspectRatio": [
+        1920,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        1920,
+        2400
+      ]
+    },
+    {
+      "id": "5",
+      "hash": "0xb4de9f956362ab7a4478e011bd82959e913a402285814a128b78c6b98253923f",
+      "url": "https://coindesk-mainnet.s3.amazonaws.com/5.png",
+      "previewImageAspectRatio": [
+        1920,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        1920,
+        2400
+      ]
+    },
+    {
+      "id": "6",
+      "hash": "0x9d6f670f553d7852072d45440c82ec08f0f1df85d58dbf35c35c1b7dfd2ddd07",
+      "url": "https://coindesk-mainnet.s3.amazonaws.com/6.png",
+      "previewImageAspectRatio": [
+        1920,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        1920,
+        2400
+      ]
+    },
+    {
+      "id": "7",
+      "hash": "0xef425d3b00641f36e937c9937fe07ecbf325663e75e4a7465524fd214e552962",
+      "url": "https://coindesk-mainnet.s3.amazonaws.com/7.png",
+      "previewImageAspectRatio": [
+        1920,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        1920,
+        2400
+      ]
+    },
+    {
+      "id": "8",
+      "hash": "0xdd5eef160d1e1537467a504139e19dbe6313e6edd9a493c35ccedef5e99bc88b",
+      "url": "https://coindesk-mainnet.s3.amazonaws.com/8.png",
+      "previewImageAspectRatio": [
+        1920,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        1920,
+        2400
+      ]
+    },
+    {
+      "id": "9",
+      "hash": "0xc20b6031c0c864df2dec3663ca745e3faf39bec57835b7180c61e6c4e80238a5",
+      "url": "https://coindesk-mainnet.s3.amazonaws.com/9.png",
+      "previewImageAspectRatio": [
+        1920,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        1920,
+        2400
+      ]
+    },
+    {
+      "id": "10",
+      "hash": "0xe9cb1afe955410d0dc9e6e62cc2a13b99fc77f55ac19d7c0a501343429a65f51",
+      "url": "https://coindesk-mainnet.s3.amazonaws.com/10.png",
+      "previewImageAspectRatio": [
+        1920,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        1920,
+        2400
+      ]
+    },
+    {
+      "id": "11",
+      "hash": "0xde9bf4aadf64122d5bb402669d5579e8e10da4ff9ea4b27f936241f8c212171f",
+      "url": "https://coindesk-mainnet.s3.amazonaws.com/11.png",
+      "previewImageAspectRatio": [
+        1920,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        1920,
+        2400
+      ]
+    },
+    {
+      "id": "12",
+      "hash": "0xdde1df3df6aaeb92cf695ce5ed83c6022fd3291018f3b01ddea48478830813e2",
+      "url": "https://coindesk-mainnet.s3.amazonaws.com/12.png",
+      "previewImageAspectRatio": [
+        1920,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        1920,
+        2400
+      ]
+    },
+    {
+      "id": "13",
+      "hash": "0x5a5d7183924a1501e17dab2d253a055ae19afc9a3585e7f85842183d30dcf071",
+      "url": "https://coindesk-mainnet.s3.amazonaws.com/13.png",
+      "previewImageAspectRatio": [
+        1920,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        1920,
+        2400
+      ]
+    },
+    {
+      "id": "14",
+      "hash": "0xff97e2d9126d7885a317d517a8281934336f9924b0d5d667a3875092a7821041",
+      "url": "https://coindesk-mainnet.s3.amazonaws.com/14.png",
+      "previewImageAspectRatio": [
+        1920,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        1920,
+        2400
+      ]
+    },
+    {
+      "id": "15",
+      "hash": "0xa2448f3ad3c8a80242bcd3de65b8a40738593fd155bbf1181bfb931bd1caeee2",
+      "url": "https://coindesk-mainnet.s3.amazonaws.com/15.png",
+      "previewImageAspectRatio": [
+        1920,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        1920,
+        2400
+      ]
+    },
+    {
+      "id": "16",
+      "hash": "0xef4ae37feeef37c4113982ae9c6ff0f68318c4b429f40216a84b997a3beab535",
+      "url": "https://coindesk-mainnet.s3.amazonaws.com/16.png",
+      "previewImageAspectRatio": [
+        1920,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        1920,
+        2400
+      ]
+    },
+    {
+      "id": "17",
+      "hash": "0x4d0af6dcd65925ada1d8b7acf06186edca5098f4b88397905cf8e1bc2e6b5dbc",
+      "url": "https://coindesk-mainnet.s3.amazonaws.com/17.png",
+      "previewImageAspectRatio": [
+        1920,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        1920,
+        2400
+      ]
+    },
+    {
+      "id": "18",
+      "hash": "0x913fb820694343cdc9251e0e7d6733be7c3789aa35d07a7402ba86cf30081cfe",
+      "url": "https://coindesk-mainnet.s3.amazonaws.com/18.png",
+      "previewImageAspectRatio": [
+        1920,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        1920,
+        2400
+      ]
+    },
+    {
+      "id": "19",
+      "hash": "0x6cce0699127bf46fc90aa0e1f42bf381acfe7b43e815ecce4221984885d816e9",
+      "url": "https://coindesk-mainnet.s3.amazonaws.com/19.png",
+      "previewImageAspectRatio": [
+        1920,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        1920,
+        2400
+      ]
+    },
+    {
+      "id": "20",
+      "hash": "0x30a4c6245a970586c493c724120a2957895e3bd792ca5ca5449be9e8e3218f30",
+      "url": "https://coindesk-mainnet.s3.amazonaws.com/20.png",
+      "previewImageAspectRatio": [
+        1920,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        1920,
+        2400
+      ]
+    },
+    {
+      "id": "21",
+      "hash": "0x211ec1fcd326c4480aa5cef8ee0e5021136591672ebc35a038a40a98b54ab4ab",
+      "url": "https://coindesk-mainnet.s3.amazonaws.com/21.png",
+      "previewImageAspectRatio": [
+        1920,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        1920,
+        2400
+      ]
+    },
+    {
+      "id": "22",
+      "hash": "0x23d24b05566215998fcfc379145d811095c02d0f0d1a5bde41d081d4666e475a",
+      "url": "https://coindesk-mainnet.s3.amazonaws.com/22.png",
+      "previewImageAspectRatio": [
+        1920,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        1920,
+        2400
+      ]
+    }
+  ],
+  "thumbnailAspectRatios": [
+    [
+      4,
+      5
+    ]
+  ]
+}

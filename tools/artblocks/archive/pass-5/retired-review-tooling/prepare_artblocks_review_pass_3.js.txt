@@ -1,0 +1,265 @@
+"use strict";
+
+const fs = require("node:fs/promises");
+const path = require("node:path");
+const { createHash, randomUUID } = require("node:crypto");
+const { identity, validateCuration } = require("./artblocks/curation");
+const { createArtifacts } = require("./prepare_artblocks_review_pass");
+
+const ROOT = path.resolve(__dirname, "..");
+const SOURCE_SHA256 = "c95cda472c92db8e6bb7afc1d667aade0cbca41c59f0cf3bac1e8898d1c76916";
+const CURATION_SHA256 = "eff11e853fb991e49ffbb76771eeff5af415a6afa008544c29a0b1d3be4d8cba";
+const EXPECTED_COUNTS = Object.freeze({
+  yes: { collections: 214, tokens: 4753 },
+  no: { collections: 13, tokens: 278 },
+  "mb static": { collections: 9, tokens: 203 },
+  "double-check": { collections: 79, tokens: 1794 },
+  notes: 13,
+});
+const sha256 = value => createHash("sha256").update(value).digest("hex");
+const json = value => Buffer.from(JSON.stringify(value, null, 2) + "\n");
+const object = value => value !== null && typeof value === "object" && !Array.isArray(value);
+const same = (first, second) => first === null ? second === null : second !== null && first.equals(second);
+
+async function optionalFile(file) {
+  try {
+    const stat = await fs.lstat(file);
+    if (!stat.isFile() || stat.isSymbolicLink()) throw new Error(`Expected a regular file: ${file}`);
+    return await fs.readFile(file);
+  } catch (error) {
+    if (error.code === "ENOENT") return null;
+    throw error;
+  }
+}
+
+function createThirdArtifacts(source, corpus, first, catalog, tokensByIdentity, options = {}) {
+  const review = JSON.parse(source.toString("utf8"));
+  if (!object(review) || review.version !== 3 || review.passID !== "pass-2" || !object(review.collections)) {
+    throw new Error("Expected a version 3 pass-2 collection review export");
+  }
+  const expectedIdentities = new Set(first.runtime.selectedIdentities);
+  const decisions = ["yes", "no", "mb static", "double-check"];
+  for (const [key, record] of Object.entries(review.collections)) {
+    if (!expectedIdentities.has(key)) throw new Error(`Unknown second-pass identity: ${key}`);
+    const original = corpus.collections[key];
+    if (!object(record) || record.name !== original.name || record.group !== original.group) {
+      throw new Error(`Second-pass metadata differs from original curation: ${key}`);
+    }
+    if (!decisions.includes(record.decision)) throw new Error(`Invalid second-pass decision: ${key}`);
+    if (!Object.hasOwn(record, "note") || record.note !== null && typeof record.note !== "string") {
+      throw new Error(`Invalid second-pass note: ${key}`);
+    }
+  }
+  if (Object.keys(review.collections).length !== expectedIdentities.size) throw new Error("Missing second-pass identities");
+  const sourceReviewSHA256 = sha256(source);
+  if (sourceReviewSHA256 !== (options.expectedSourceSHA256 ?? SOURCE_SHA256)) throw new Error("Second review export SHA-256 does not match the frozen source");
+  const counts = Object.fromEntries(decisions.map(decision => [decision, { collections: 0, tokens: 0 }]));
+  counts.notes = 0;
+  const approved = [], deferred = [], rejected = [], selectedIdentities = [];
+  const previousDeferred = new Map(first.deferred.collections.map(record => [record.identity, record]));
+  const liveCuration = structuredClone(corpus);
+  for (const item of catalog) {
+    const key = item.reviewIdentity, record = review.collections[key], original = corpus.collections[key];
+    if (previousDeferred.has(key)) deferred.push({ ...previousDeferred.get(key), sourcePassID: "pass-1" });
+    if (!record) continue;
+    const tokens = tokensByIdentity.get(key).items;
+    counts[record.decision].collections++;
+    counts[record.decision].tokens += tokens.length;
+    if (record.note !== null) counts.notes++;
+    const localCollectionFolder = path.posix.join("samples", original.group, original.directory);
+    const entry = {
+      identity: key, name: record.name, group: record.group, decision: record.decision, note: record.note,
+      sourcePassID: "pass-2", localCollectionFolder,
+      samples: tokens.map((token, index) => ({
+        tokenId: token.id,
+        localPath: path.posix.join(localCollectionFolder, `${token.id}.${original.samples[index].extension}`),
+        fallbackImageURL: token.url,
+      })),
+    };
+    if (record.decision === "yes") approved.push(entry);
+    if (record.decision === "mb static") deferred.push(entry);
+    if (record.decision === "double-check") selectedIdentities.push(key);
+    if (record.decision === "no") {
+      rejected.push({ identity: key, ...original });
+      liveCuration.collections[key].group = "excluded";
+      delete liveCuration.collections[key].samples;
+    }
+  }
+  const expected = options.expectedCounts ?? EXPECTED_COUNTS;
+  for (const decision of decisions) {
+    if (counts[decision].collections !== expected[decision].collections || counts[decision].tokens !== expected[decision].tokens) {
+      throw new Error(`Unexpected second-pass ${decision} partition`);
+    }
+  }
+  if (counts.notes !== expected.notes) throw new Error("Unexpected second-pass note count");
+  validateCuration(liveCuration);
+  const manifest = collections => ({
+    version: 1,
+    sourceReviews: { "pass-1": first.runtime.sourceReviewSHA256, "pass-2": sourceReviewSHA256 },
+    collectionCount: collections.length,
+    tokenCount: collections.reduce((sum, record) => sum + record.samples.length, 0),
+    collections,
+  });
+  return {
+    counts, rejected, liveCuration,
+    approved: manifest(approved), deferred: manifest(deferred),
+    runtime: { version: 1, passID: "pass-3", sourceReviewSHA256, selectedIdentities, initialNotesByIdentity: {} },
+  };
+}
+
+async function validateRemoval(samplesRoot, record) {
+  const directory = path.join(samplesRoot, record.group, record.directory);
+  for (const file of [samplesRoot, path.join(samplesRoot, record.group), directory]) {
+    try {
+      const stat = await fs.lstat(file);
+      if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error(`Unsafe sample directory: ${file}`);
+    } catch (error) {
+      if (error.code === "ENOENT") return null;
+      throw error;
+    }
+  }
+  const source = await optionalFile(path.join(directory, "manifest.json"));
+  if (!source) throw new Error(`Rejected sample folder has no manifest: ${directory}`);
+  const manifest = JSON.parse(source.toString("utf8"));
+  if (manifest.version !== 1 || manifest.identity !== record.identity
+    || identity(manifest.project?.chain_id, manifest.project?.contract_address, manifest.project?.project_id) !== record.identity
+    || manifest.project.name !== record.name || manifest.project.artist_name !== record.artist
+    || !Array.isArray(manifest.tokens) || manifest.tokens.length !== record.samples.length
+    || manifest.tokens.some((entry, index) => entry.token?.token_id !== record.samples[index].tokenId
+      || entry.token?.invocation !== record.samples[index].invocation
+      || entry.download?.sourceURL !== record.samples[index].url
+      || entry.download?.extension !== record.samples[index].extension
+      || entry.download?.file !== `${record.samples[index].tokenId}.${record.samples[index].extension}`)) {
+    throw new Error(`Rejected sample manifest differs from frozen curation: ${directory}`);
+  }
+  for (const entry of await fs.readdir(directory, { withFileTypes: true })) {
+    if (!entry.isFile()) throw new Error(`Unexpected nested directory or symlink in rejected samples: ${path.join(directory, entry.name)}`);
+  }
+  return sha256(source);
+}
+
+async function planThirdReviewPass(options = {}) {
+  const reviews = path.resolve(options.reviews ?? path.join(ROOT, "tools", "artblocks", "reviews"));
+  const preview = path.resolve(options.preview ?? path.join(ROOT, "Suggested Items", "Suggested.bundle", "Development", "Good"));
+  const curation = path.resolve(options.curation ?? path.join(ROOT, "tools", "artblocks", "curation.json"));
+  const samplesRoot = path.resolve(options.samplesRoot ?? path.join(ROOT, "samples"));
+  const snapshot = path.join(reviews, "pass-1-curation.json"), archive = path.join(reviews, "pass-2.json");
+  const inputs = new Map();
+  async function read(file, optional = false) {
+    const contents = await optionalFile(file);
+    inputs.set(file, contents);
+    if (!optional && contents === null) throw new Error(`Missing review input: ${file}`);
+    return contents;
+  }
+  const liveSource = await read(curation);
+  const corpusSource = await read(snapshot, true) ?? liveSource;
+  if (sha256(corpusSource) !== (options.expectedCurationSHA256 ?? CURATION_SHA256)) throw new Error("Original curation SHA-256 does not match the frozen corpus");
+  const corpus = JSON.parse(corpusSource.toString("utf8"));
+  const firstSource = await read(path.join(reviews, "pass-1.json"));
+  const source = await read(path.resolve(options.source ?? archive));
+  const catalog = JSON.parse((await read(path.join(preview, "items.json"))).toString("utf8"));
+  if (!Array.isArray(catalog)) throw new Error("Expected a preview catalog array");
+  const tokensByIdentity = new Map();
+  for (const item of catalog) {
+    if (!object(item) || !/^0x[\da-f]{40}$/u.test(item.address) || !/^-dev-good-\d+-\d+$/u.test(item.collectionId)) {
+      throw new Error("Invalid preview token resource identity");
+    }
+    tokensByIdentity.set(item.reviewIdentity, JSON.parse((await read(path.join(preview, "Tokens", `${item.address}${item.collectionId}.json`))).toString("utf8")));
+  }
+  const first = createArtifacts(firstSource, corpus, catalog, tokensByIdentity, options.firstPass ?? {});
+  const artifacts = createThirdArtifacts(source, corpus, first, catalog, tokensByIdentity, options);
+  const deferredList = Buffer.from([
+    "# Collections deferred for static review", "",
+    `${artifacts.deferred.collectionCount} collections with ${artifacts.deferred.tokenCount.toLocaleString("en-US")} saved token references. The original ${first.deferred.collectionCount} first-pass choices and ${artifacts.counts["mb static"].collections} second-pass choices are listed together for a later review.`, "",
+    "The complete saved paths and PNG references are in [deferred-static.json](deferred-static.json).", "",
+    "| Collection | Decision pass | Saved tokens |", "| --- | --- | ---: |",
+    ...artifacts.deferred.collections.map(record => `| ${record.name.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll("|", "\\|").replaceAll("\n", " ")} | ${record.sourcePassID} | ${record.samples.length} |`), "",
+  ].join("\n"));
+  const nextCuration = json(artifacts.liveCuration);
+  if (!liveSource.equals(corpusSource) && !liveSource.equals(nextCuration)) throw new Error("Live curation contains unrelated changes; refusing to replace it");
+  const immutableFiles = new Set([snapshot, archive, path.join(reviews, "pass-2-runtime.json")]);
+  const files = new Map([
+    [snapshot, corpusSource],
+    [archive, source],
+    [path.join(reviews, "pass-2-runtime.json"), json(first.runtime)],
+    [path.join(reviews, "pass-1-static.json"), json(first.deferred)],
+    [path.join(reviews, "pass-2-approved.json"), json(artifacts.approved)],
+    [path.join(reviews, "deferred-static.json"), json(artifacts.deferred)],
+    [path.join(reviews, "deferred-static.md"), deferredList],
+    [curation, nextCuration],
+    [path.resolve(options.runtimeOutput ?? path.join(preview, "..", "review-pass.json")), json(artifacts.runtime)],
+  ]);
+  if (files.size !== 9) throw new Error("Review output paths must be distinct");
+  for (const [file, contents] of files) {
+    const previous = inputs.has(file) ? inputs.get(file) : await read(file, true);
+    if (immutableFiles.has(file) && previous && !previous.equals(contents)) throw new Error(`Refusing to replace frozen review archive: ${file}`);
+  }
+  const removals = [];
+  for (const record of artifacts.rejected) {
+    removals.push({ record, directory: path.join(samplesRoot, record.group, record.directory), fingerprint: await validateRemoval(samplesRoot, record) });
+  }
+  return { files, immutableFiles, inputs, removals, samplesRoot, counts: artifacts.counts, sourceReviewSHA256: artifacts.runtime.sourceReviewSHA256 };
+}
+
+async function checkFiles(plan) {
+  for (const [file, contents] of plan.files) {
+    if (!same(contents, await optionalFile(file))) throw new Error(`Review artifact is missing or stale: ${file}`);
+  }
+}
+
+async function checkThirdReviewPass(plan) {
+  await checkFiles(plan);
+  for (const removal of plan.removals) {
+    if (await validateRemoval(plan.samplesRoot, removal.record) !== null) throw new Error(`Rejected sample folder still exists: ${removal.directory}`);
+  }
+}
+
+async function applyThirdReviewPass(plan) {
+  const staged = [], published = [];
+  try {
+    for (const [file, previous] of plan.inputs) {
+      if (!same(previous, await optionalFile(file))) throw new Error(`Review input changed after validation: ${file}`);
+    }
+    for (const removal of plan.removals) {
+      if (await validateRemoval(plan.samplesRoot, removal.record) !== removal.fingerprint) throw new Error(`Rejected sample folder changed after validation: ${removal.directory}`);
+    }
+    for (const [file, contents] of plan.files) {
+      const previous = plan.inputs.get(file);
+      if (same(contents, previous)) continue;
+      await fs.mkdir(path.dirname(file), { recursive: true });
+      const temporary = `${file}.${randomUUID()}.tmp`;
+      staged.push({ file, temporary, contents, previous });
+      await fs.writeFile(temporary, contents, { flag: "wx" });
+    }
+    for (const entry of staged) {
+      if (plan.immutableFiles.has(entry.file)) await fs.link(entry.temporary, entry.file);
+      else await fs.rename(entry.temporary, entry.file);
+      published.push(entry);
+    }
+    await checkFiles(plan);
+  } catch (error) {
+    for (const entry of published.reverse()) {
+      if (plan.immutableFiles.has(entry.file)) continue;
+      if (entry.previous === null) await fs.rm(entry.file, { force: true });
+      else {
+        const rollback = `${entry.file}.${randomUUID()}.tmp`;
+        await fs.writeFile(rollback, entry.previous, { flag: "wx" });
+        await fs.rename(rollback, entry.file);
+      }
+    }
+    throw error;
+  } finally {
+    await Promise.all(staged.map(entry => fs.rm(entry.temporary, { force: true })));
+  }
+  for (const removal of plan.removals) {
+    const fingerprint = await validateRemoval(plan.samplesRoot, removal.record);
+    if (fingerprint === null) continue;
+    if (fingerprint !== removal.fingerprint) throw new Error(`Rejected sample folder changed before deletion: ${removal.directory}`);
+    await fs.rm(removal.directory, { recursive: true });
+  }
+  await checkThirdReviewPass(plan);
+  return staged.length;
+}
+
+module.exports = { SOURCE_SHA256, CURATION_SHA256, EXPECTED_COUNTS, createThirdArtifacts, validateRemoval,
+  planThirdReviewPass, checkThirdReviewPass, applyThirdReviewPass };

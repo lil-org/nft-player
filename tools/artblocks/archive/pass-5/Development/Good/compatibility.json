@@ -1,0 +1,95 @@
+{
+  "version": 1,
+  "staticFirst": {
+    "1:0x00000053a75735169ad44f6760c11f3d3d3b3544:0": {
+      "name": "DDUST",
+      "reason": "Requires live contract parameters that are unavailable in the bundled review renderer.",
+      "expectedDependency": {
+        "dependency_type": "ONCHAIN",
+        "data": "#web3call_contract#",
+        "bytecode_address": "0x00000000a78e278b2d2e2935faebe19ee9f1ff14"
+      }
+    },
+    "1:0x00000053a75735169ad44f6760c11f3d3d3b3544:1": {
+      "name": "Portraits I",
+      "reason": "Requires live contract parameters that are unavailable in the bundled review renderer.",
+      "expectedDependency": {
+        "dependency_type": "ONCHAIN",
+        "data": "#web3call_contract#",
+        "bytecode_address": "0x00000000a78e278b2d2e2935faebe19ee9f1ff14"
+      }
+    },
+    "1:0x0000006693e685fcfc54c9d423b5e321b4a15192:0": {
+      "name": "Hatches",
+      "reason": "Requires live contract parameters that are unavailable in the bundled review renderer.",
+      "expectedDependency": {
+        "dependency_type": "ONCHAIN",
+        "data": "#web3call_contract#",
+        "bytecode_address": "0x00000000a78e278b2d2e2935faebe19ee9f1ff14"
+      }
+    },
+    "1:0x000000dc68934ed27fd11e32491cdf6717acaf21:0": {
+      "name": "Broken Dreams",
+      "reason": "Requires live contract parameters that are unavailable in the bundled review renderer.",
+      "expectedDependency": {
+        "dependency_type": "ONCHAIN",
+        "data": "#web3call_contract#",
+        "bytecode_address": "0x00000000a78e278b2d2e2935faebe19ee9f1ff14"
+      }
+    },
+    "1:0x000000dc68934ed27fd11e32491cdf6717acaf21:1": {
+      "name": "Gift of Time",
+      "reason": "Requires live contract parameters that are unavailable in the bundled review renderer.",
+      "expectedDependency": {
+        "dependency_type": "ONCHAIN",
+        "data": "#web3call_contract#",
+        "bytecode_address": "0x00000000a78e278b2d2e2935faebe19ee9f1ff14"
+      }
+    },
+    "1:0x000019bd92633e9e00dc08adb0d0dffb00a1fe2a:0": {
+      "name": "Primavera",
+      "reason": "Requires live contract parameters that are unavailable in the bundled review renderer.",
+      "expectedDependency": {
+        "dependency_type": "ONCHAIN",
+        "data": "#web3call_contract#",
+        "bytecode_address": "0x00000000a78e278b2d2e2935faebe19ee9f1ff14"
+      }
+    },
+    "1:0xaa00b2b2db36b8f8004a9aa96f0012005d92b300:0": {
+      "name": "pool party",
+      "reason": "Requires live contract parameters that are unavailable in the bundled review renderer.",
+      "expectedDependency": {
+        "dependency_type": "ONCHAIN",
+        "data": "#web3call_contract#",
+        "bytecode_address": "0x00000000a78e278b2d2e2935faebe19ee9f1ff14"
+      }
+    },
+    "1:0xababababab20053426ad1c782de9ea8444358070:3": {
+      "name": "Drawings for a Monument",
+      "reason": "Requires live contract parameters that are unavailable in the bundled review renderer.",
+      "expectedDependency": {
+        "dependency_type": "ONCHAIN",
+        "data": "#web3call_contract#",
+        "bytecode_address": "0x00000000a78e278b2d2e2935faebe19ee9f1ff14"
+      }
+    },
+    "1:0xababababab20053426ad1c782de9ea8444358070:4": {
+      "name": "Diggly Collects All",
+      "reason": "Requires live contract parameters that are unavailable in the bundled review renderer.",
+      "expectedDependency": {
+        "dependency_type": "ONCHAIN",
+        "data": "#web3call_contract#",
+        "bytecode_address": "0x00000000a78e278b2d2e2935faebe19ee9f1ff14"
+      }
+    },
+    "1:0xcfa6a2d5bc2a77c0cdd3046e09da21e45d1df0f1:1": {
+      "name": "degenerative",
+      "reason": "Requires live contract parameters that are unavailable in the bundled review renderer.",
+      "expectedDependency": {
+        "dependency_type": "ONCHAIN",
+        "data": "#web3call_contract#",
+        "bytecode_address": "0x00000000a78e278b2d2e2935faebe19ee9f1ff14"
+      }
+    }
+  }
+}

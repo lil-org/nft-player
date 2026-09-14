@@ -34,7 +34,8 @@
     "website": "https://www.aaronpenne.io/",
     "bluesky": "https://bsky.app/profile/aaronpenne.io",
     "collections": [
-      "one_more_day"
+      "one_more_day",
+      "receive_transmission"
     ]
   },
   "alejandro_cartagena": {
@@ -90,7 +91,9 @@
     "collections": [
       "energy_sculpture",
       "hyperhash",
-      "the_field"
+      "the_field",
+      "hashcrash",
+      "ultrawave_369"
     ]
   },
   "blume_garden": {
@@ -136,7 +139,8 @@
     "name": "Cooper Jamieson",
     "x": "https://x.com/CooperSJamieson",
     "collections": [
-      "placement"
+      "placement",
+      "libra"
     ]
   },
   "daim_aggott_honsch": {
@@ -220,7 +224,8 @@
     "website": "https://www.fernandojerez.com/",
     "collections": [
       "metropixeland",
-      "renaissance"
+      "renaissance",
+      "umk"
     ]
   },
   "g_oo_f": {
@@ -236,7 +241,9 @@
     "x": "https://x.com/grelysian",
     "website": "https://tigerbob.io",
     "collections": [
-      "tigerbob"
+      "tigerbob",
+      "tigerbob_charm_packs",
+      "tigerbob_mystery_garden"
     ]
   },
   "grant_oesterling": {
@@ -303,7 +310,8 @@
     "collections": [
       "because_unless_until",
       "mono_no_aware",
-      "zoologic"
+      "zoologic",
+      "implications"
     ]
   },
   "jan_robert_leegte": {
@@ -327,21 +335,39 @@
     "x": "https://x.com/_jzlabs",
     "collections": [
       "light_beams",
-      "transitions"
+      "transitions",
+      "bubble_blobby",
+      "into_the_light"
     ]
   },
   "jeff_davis": {
     "name": "Jeff Davis",
     "x": "https://x.com/jeffgdavis",
     "collections": [
-      "inflection"
+      "inflection",
+      "color_study",
+      "construction_token",
+      "cuadro",
+      "culmination",
+      "digital_sketch",
+      "formation",
+      "led",
+      "mechanical_drawing",
+      "neighborhood",
+      "optimism",
+      "portal",
+      "progression",
+      "reflection",
+      "rhythm",
+      "view_card"
     ]
   },
   "jen_stark": {
     "name": "Jen Stark",
     "x": "https://x.com/jen_stark",
     "collections": [
-      "cosmos"
+      "cosmos",
+      "vortex"
     ]
   },
   "jim_spindle": {
@@ -356,7 +382,9 @@
     "name": "Jimena Buena Vida",
     "x": "https://x.com/JimenaBuenaVida",
     "collections": [
-      "epiphanies"
+      "epiphanies",
+      "all_our_faces",
+      "echoes_of_frida_sutura"
     ]
   },
   "jiwa": {
@@ -401,7 +429,8 @@
     "x": "https://x.com/KZ_LAB_E",
     "collections": [
       "ghost_in_the_code",
-      "memories_of_digital_data"
+      "memories_of_digital_data",
+      "rain_blooms"
     ]
   },
   "kikillo": {
@@ -433,7 +462,8 @@
     "name": "Kjetil Golid",
     "x": "https://x.com/kGolid",
     "collections": [
-      "archetype"
+      "archetype",
+      "orbifold"
     ]
   },
   "lars_wander": {
@@ -441,7 +471,9 @@
     "x": "https://x.com/larswander",
     "website": "https://larswander.com",
     "collections": [
-      "7_factorial"
+      "7_factorial",
+      "full_spectrum",
+      "while_true"
     ]
   },
   "leo_villareal": {
@@ -480,7 +512,10 @@
     "x": "https://x.com/LorenBednar",
     "collections": [
       "divergence",
-      "kaleidoscope"
+      "kaleidoscope",
+      "afterimage",
+      "ensemble",
+      "parade"
     ]
   },
   "louis_andre_labadie": {
@@ -518,7 +553,8 @@
     "name": "Marcelo Soria-Rodríguez",
     "x": "https://x.com/msoriaro",
     "collections": [
-      "variaciones_del_yo"
+      "variaciones_del_yo",
+      "entretiempos"
     ]
   },
   "martnbruc": {
@@ -565,7 +601,11 @@
     "name": "Melissa Wiederrecht",
     "x": "https://x.com/mwiederrecht",
     "collections": [
-      "bakhoor_assandal"
+      "bakhoor_assandal",
+      "deja_vu",
+      "misbah",
+      "sandaliya",
+      "sudfah"
     ]
   },
   "mifella": {
@@ -626,7 +666,10 @@
     "name": "Owen Moore",
     "bluesky": "https://bsky.app/profile/owmo-studio.bsky.social",
     "collections": [
-      "waveshapes"
+      "waveshapes",
+      "erratic",
+      "quarantine",
+      "spaghettification"
     ]
   },
   "p1xelfool": {
@@ -640,7 +683,8 @@
     "name": "Pandelune",
     "x": "https://x.com/PandeluneA",
     "collections": [
-      "orthogone"
+      "orthogone",
+      "murano_fantasy"
     ]
   },
   "parker_ito": {
@@ -667,7 +711,8 @@
     "x": "https://x.com/PawelDudko",
     "collections": [
       "gravity",
-      "ingress"
+      "ingress",
+      "chroma_theory"
     ]
   },
   "pelle_cass": {
@@ -696,7 +741,9 @@
     "name": "Radix",
     "x": "https://x.com/robdixon",
     "collections": [
-      "inspirals"
+      "inspirals",
+      "eccentrics",
+      "eccentrics_2_orbits"
     ]
   },
   "rafael_rozendaal": {
@@ -726,7 +773,31 @@
       "through",
       "traffic",
       "twist",
-      "volume"
+      "volume",
+      "all_the_time",
+      "balance",
+      "box",
+      "circulate",
+      "corners",
+      "directions",
+      "flood",
+      "fold",
+      "grit",
+      "half_half_half",
+      "home",
+      "house",
+      "large_shape",
+      "nausea",
+      "open_close",
+      "pages",
+      "pulse",
+      "ripple",
+      "rooms",
+      "sinking",
+      "stretch",
+      "transit_2",
+      "warp",
+      "zoom"
     ]
   },
   "ranxdeer": {
@@ -840,7 +911,9 @@
       "essenza",
       "frammenti",
       "infinito",
-      "leggenda"
+      "leggenda",
+      "ofrenda",
+      "rinascita"
     ]
   },
   "sterling_crispin": {
@@ -857,7 +930,9 @@
     "collections": [
       "cryptogodking",
       "dopamine_machines",
-      "instructions_for_defacement"
+      "instructions_for_defacement",
+      "fake_internet_money",
+      "i_saw_it_in_a_dream"
     ]
   },
   "supermetal_bosch": {
@@ -935,6 +1010,1043 @@
     "x": "https://x.com/yomme639",
     "collections": [
       "mi_note_2"
+    ]
+  },
+  "srdan_sarovic_una_popovic": {
+    "name": "Srđan Šarović, Una Popović",
+    "collections": [
+      "logoria"
+    ]
+  },
+  "fingacode": {
+    "name": "fingacode",
+    "collections": [
+      "classifieds",
+      "jazz",
+      "nth_culture",
+      "translucent_panes"
+    ]
+  },
+  "shvembldr": {
+    "name": "Shvembldr",
+    "collections": [
+      "postkonstrukt",
+      "alien_dna",
+      "ieva"
+    ]
+  },
+  "generative_goods": {
+    "name": "Generative Goods",
+    "collections": [
+      "micro"
+    ]
+  },
+  "bard_ionson": {
+    "name": "Bård Ionson",
+    "collections": [
+      "8"
+    ]
+  },
+  "daniel_catt": {
+    "name": "Daniel Catt",
+    "collections": [
+      "70s_pop_series_one",
+      "70s_pop_series_two"
+    ]
+  },
+  "zach_lieberman": {
+    "name": "Zach Lieberman",
+    "collections": [
+      "100_sunsets",
+      "box_light_studies"
+    ]
+  },
+  "alexis_andre": {
+    "name": "Alexis André",
+    "collections": [
+      "720_minutes",
+      "decores",
+      "friendship_bracelets",
+      "void"
+    ]
+  },
+  "martin_grasser": {
+    "name": "Martin Grasser",
+    "collections": [
+      "a_temporary_arrangement_of_material",
+      "love"
+    ]
+  },
+  "pab": {
+    "name": "pab",
+    "collections": [
+      "aceleraciones"
+    ]
+  },
+  "jorge_ledezma": {
+    "name": "Jorge Ledezma",
+    "collections": [
+      "aitherios"
+    ]
+  },
+  "rvig": {
+    "name": "RVig",
+    "collections": [
+      "alchimie",
+      "flowers",
+      "nebula",
+      "volute"
+    ]
+  },
+  "hackatao_plus_insigt": {
+    "name": "HACKATAO + Insigℏt",
+    "collections": [
+      "aleph0"
+    ]
+  },
+  "robert_hodgin": {
+    "name": "Robert Hodgin",
+    "collections": [
+      "ancient_courses_of_fictional_rivers",
+      "latent_spirits"
+    ]
+  },
+  "iryanbell": {
+    "name": "iRyanBell",
+    "collections": [
+      "and_yet_we_love"
+    ]
+  },
+  "eltono": {
+    "name": "Eltono",
+    "collections": [
+      "andradite",
+      "swing"
+    ]
+  },
+  "william_mapan": {
+    "name": "William Mapan",
+    "collections": [
+      "anticyclone"
+    ]
+  },
+  "akira_ishi": {
+    "name": "Akira Ishi",
+    "collections": [
+      "aodach"
+    ]
+  },
+  "cory_haber": {
+    "name": "Cory Haber",
+    "collections": [
+      "apophenies"
+    ]
+  },
+  "devi_parikh_and_abhishek_das": {
+    "name": "Devi Parikh and Abhishek Das",
+    "collections": [
+      "aragnation"
+    ]
+  },
+  "emily_edelman_dima_ofman_andrew_badr": {
+    "name": "Emily Edelman - Dima Ofman - Andrew Badr",
+    "collections": [
+      "asemica"
+    ]
+  },
+  "tezumie": {
+    "name": "Tezumie",
+    "collections": [
+      "assembly"
+    ]
+  },
+  "steganon": {
+    "name": "steganon",
+    "collections": [
+      "assorted_positivity",
+      "autology"
+    ]
+  },
+  "falko": {
+    "name": "Falko",
+    "collections": [
+      "asterisms"
+    ]
+  },
+  "eric_de_giuli": {
+    "name": "Eric De Giuli",
+    "collections": [
+      "atlas",
+      "calian",
+      "cathedral_study",
+      "pax"
+    ]
+  },
+  "jos_vromans": {
+    "name": "Jos Vromans",
+    "collections": [
+      "attraction",
+      "incircles"
+    ]
+  },
+  "yazid": {
+    "name": "Yazid",
+    "collections": [
+      "automatism"
+    ]
+  },
+  "jimishim": {
+    "name": "jimishim",
+    "collections": [
+      "autopoiesis",
+      "striation"
+    ]
+  },
+  "kelly_milligan_x_amber_vittoria": {
+    "name": "Kelly Milligan x Amber Vittoria",
+    "collections": [
+      "balance_2"
+    ]
+  },
+  "motus_art": {
+    "name": "Motus Art",
+    "collections": [
+      "balletic",
+      "contours"
+    ]
+  },
+  "bucky": {
+    "name": "Bucky",
+    "collections": [
+      "bauhaus_synthesis",
+      "can_you_see_it"
+    ]
+  },
+  "ryan_green": {
+    "name": "Ryan Green",
+    "collections": [
+      "beauty_in_the_hurting"
+    ]
+  },
+  "lia": {
+    "name": "LIA",
+    "collections": [
+      "being_yourself_while_fitting_in",
+      "little_boxes_on_the_hillsides_child"
+    ]
+  },
+  "ippsketch": {
+    "name": "ippsketch",
+    "collections": [
+      "bent"
+    ]
+  },
+  "numbersinmotion": {
+    "name": "NumbersInMotion",
+    "collections": [
+      "blaschke_ballet",
+      "watercolor_dreams"
+    ]
+  },
+  "eboy": {
+    "name": "eBoy",
+    "collections": [
+      "blockbob_rorschach"
+    ]
+  },
+  "anna_carreras": {
+    "name": "Anna Carreras",
+    "collections": [
+      "brava",
+      "trossets"
+    ]
+  },
+  "raregonzo": {
+    "name": "raregonzo",
+    "collections": [
+      "breathe_you"
+    ]
+  },
+  "wawaa": {
+    "name": "WAWAA",
+    "collections": [
+      "brickwork"
+    ]
+  },
+  "heeey": {
+    "name": "Heeey",
+    "collections": [
+      "bright",
+      "transit"
+    ]
+  },
+  "steen_neo": {
+    "name": "steen & n-e-o",
+    "collections": [
+      "calendart"
+    ]
+  },
+  "juan_rodriguez_garcia": {
+    "name": "Juan Rodríguez García",
+    "collections": [
+      "caminos",
+      "memorias_del_espacio_olvidado"
+    ]
+  },
+  "michelangelo_encapsuled": {
+    "name": "michelangelo (encapsuled)",
+    "collections": [
+      "carattere",
+      "linea",
+      "testo"
+    ]
+  },
+  "hevey": {
+    "name": "Hevey",
+    "collections": [
+      "cells"
+    ]
+  },
+  "laya_mathikshara_santiago": {
+    "name": "Laya Mathikshara & Santiago",
+    "collections": [
+      "cerebellum"
+    ]
+  },
+  "xnmtrc": {
+    "name": "xnmtrc",
+    "collections": [
+      "chroma_genesis"
+    ]
+  },
+  "encapsuled": {
+    "name": "encapsuled",
+    "collections": [
+      "chronicles"
+    ]
+  },
+  "sarasmith": {
+    "name": "SaraSmith",
+    "collections": [
+      "cityzen"
+    ]
+  },
+  "phenomena": {
+    "name": "phenomena",
+    "collections": [
+      "classical_revival",
+      "longing"
+    ]
+  },
+  "tottyeth_totdgbtagb": {
+    "name": "totty.eth (totdgbtagb)",
+    "collections": [
+      "cohesion"
+    ]
+  },
+  "john_f_simon_jr": {
+    "name": "John F. Simon, Jr.",
+    "collections": [
+      "complexcity_20002023"
+    ]
+  },
+  "buitrago": {
+    "name": "Buitrago",
+    "collections": [
+      "creative_chaos",
+      "mental_entanglement"
+    ]
+  },
+  "devi_parikh": {
+    "name": "Devi Parikh",
+    "collections": [
+      "cushions"
+    ]
+  },
+  "pxlq": {
+    "name": "pxlq",
+    "collections": [
+      "cyber_cities",
+      "dynamic_slices",
+      "hieroglyphs"
+    ]
+  },
+  "modnar_wolf": {
+    "name": "MODNAR WOLF",
+    "collections": [
+      "dear_hash"
+    ]
+  },
+  "proof_of_beauty_studios": {
+    "name": "Proof of Beauty Studios",
+    "collections": [
+      "deconstructed_city_plans"
+    ]
+  },
+  "ryleyoeth_x_sally_ohlsen": {
+    "name": "ryley-o.eth x Sally Ohlsen",
+    "collections": [
+      "degenerative"
+    ]
+  },
+  "autonymous": {
+    "name": "Autonymous",
+    "collections": [
+      "delights"
+    ]
+  },
+  "andreas_gysin": {
+    "name": "Andreas Gysin",
+    "collections": [
+      "descent"
+    ]
+  },
+  "sabha": {
+    "name": "Sabha",
+    "collections": [
+      "downtown",
+      "hash",
+      "vessel"
+    ]
+  },
+  "joshua_bagley": {
+    "name": "Joshua Bagley",
+    "collections": [
+      "dreams",
+      "mister_shifty_and_the_drifty_dudes"
+    ]
+  },
+  "holger_lippmann": {
+    "name": "Holger Lippmann",
+    "collections": [
+      "epastel_ii"
+    ]
+  },
+  "generative_artworks": {
+    "name": "Generative Artworks",
+    "collections": [
+      "enchiridion"
+    ]
+  },
+  "rudxane": {
+    "name": "rudxane",
+    "collections": [
+      "encore",
+      "fold_2"
+    ]
+  },
+  "cyberia": {
+    "name": "cyberia",
+    "collections": [
+      "fermented_fruit"
+    ]
+  },
+  "rvig_medecins_sans_frontieres_msf": {
+    "name": "RVig × Médecins Sans Frontières (MSF)",
+    "collections": [
+      "field_impact"
+    ]
+  },
+  "sebastian_brocher_cryptoarte": {
+    "name": "Sebastián Brocher (CryptoArte)",
+    "collections": [
+      "fluiroso",
+      "rotor"
+    ]
+  },
+  "manuel_larino": {
+    "name": "Manuel Larino",
+    "collections": [
+      "forecast",
+      "gift_of_time"
+    ]
+  },
+  "matt_kane": {
+    "name": "Matt Kane",
+    "collections": [
+      "gazers"
+    ]
+  },
+  "dca": {
+    "name": "DCA",
+    "collections": [
+      "genesis"
+    ]
+  },
+  "rich_lord": {
+    "name": "Rich Lord",
+    "collections": [
+      "geometry_runners"
+    ]
+  },
+  "emily_nicoll": {
+    "name": "Emily Nicoll",
+    "collections": [
+      "geophylla"
+    ]
+  },
+  "jimmy_herdberg": {
+    "name": "Jimmy Herdberg",
+    "collections": [
+      "gravity_16",
+      "time_travel_in_a_subconscious_mind"
+    ]
+  },
+  "eliya_stein": {
+    "name": "Eliya Stein",
+    "collections": [
+      "gravity_grid",
+      "incantation",
+      "labyrometry",
+      "liquid_ruminations"
+    ]
+  },
+  "jess_hewitt": {
+    "name": "Jess Hewitt",
+    "collections": [
+      "haywire_cafe"
+    ]
+  },
+  "anapet": {
+    "name": "AnaPet",
+    "collections": [
+      "heartbeat"
+    ]
+  },
+  "sarah_ridgley": {
+    "name": "Sarah Ridgley",
+    "collections": [
+      "himinn"
+    ]
+  },
+  "ryan_bell": {
+    "name": "Ryan Bell",
+    "collections": [
+      "hyper_drive_aside"
+    ]
+  },
+  "mark_webster": {
+    "name": "Mark Webster",
+    "collections": [
+      "hypertype"
+    ]
+  },
+  "nicole_vella": {
+    "name": "Nicole Vella",
+    "collections": [
+      "if_you_could_do_it_all_again"
+    ]
+  },
+  "kalis": {
+    "name": "Kalis",
+    "collections": [
+      "imperfections"
+    ]
+  },
+  "p1x3lboy": {
+    "name": "P1x3lboy",
+    "collections": [
+      "integration"
+    ]
+  },
+  "camille_roux": {
+    "name": "Camille Roux",
+    "collections": [
+      "intricada"
+    ]
+  },
+  "henrysdev_amnda": {
+    "name": "henrysdev & AMNDA",
+    "collections": [
+      "isodream"
+    ]
+  },
+  "james_dalessandro": {
+    "name": "James Dalessandro",
+    "collections": [
+      "lacunae"
+    ]
+  },
+  "mitchell_f_chan": {
+    "name": "Mitchell F. Chan",
+    "collections": [
+      "lewitt_generator_generator"
+    ]
+  },
+  "itsgalo_x_office_ca": {
+    "name": "itsgalo x office ca",
+    "collections": [
+      "lightweight_reconstruction"
+    ]
+  },
+  "kitel": {
+    "name": "Kitel",
+    "collections": [
+      "lines_of_memories"
+    ]
+  },
+  "anna_lucia": {
+    "name": "Anna Lucia",
+    "collections": [
+      "loom",
+      "thread"
+    ]
+  },
+  "daniel_calderon_arenas": {
+    "name": "Daniel Calderon Arenas",
+    "collections": [
+      "marfa_yucca"
+    ]
+  },
+  "amy_goodchild": {
+    "name": "Amy Goodchild",
+    "collections": [
+      "meaningless"
+    ]
+  },
+  "emi_kusano": {
+    "name": "Emi Kusano",
+    "collections": [
+      "melancholic_magical_maiden"
+    ]
+  },
+  "yungwknd": {
+    "name": "yungwknd",
+    "collections": [
+      "melt_into_you"
+    ]
+  },
+  "fabianospeziari_x_donnoh": {
+    "name": "fabianospeziari x donnoh",
+    "collections": [
+      "mental_pathways"
+    ]
+  },
+  "jinyao_lin": {
+    "name": "Jinyao Lin",
+    "collections": [
+      "metaphysics"
+    ]
+  },
+  "third_vision": {
+    "name": "Third Vision",
+    "collections": [
+      "miragem"
+    ]
+  },
+  "neel_shivdasani": {
+    "name": "Neel Shivdasani",
+    "collections": [
+      "motion_pictures"
+    ]
+  },
+  "olga_fradina": {
+    "name": "Olga Fradina",
+    "collections": [
+      "naive"
+    ]
+  },
+  "ilithya_x_erin_wajufos": {
+    "name": "ilithya x Erin Wajufos",
+    "collections": [
+      "net_net_net"
+    ]
+  },
+  "artplusbrad": {
+    "name": "artplusbrad",
+    "collections": [
+      "ode_to_roy",
+      "ode_to_untitled"
+    ]
+  },
+  "rizzle_sebi_miguelgarest": {
+    "name": "Rizzle, Sebi, Miguelgarest",
+    "collections": [
+      "onchainchain"
+    ]
+  },
+  "aaron_penne_x_boreta": {
+    "name": "Aaron Penne x Boreta",
+    "collections": [
+      "passages"
+    ]
+  },
+  "jake_rockland": {
+    "name": "Jake Rockland",
+    "collections": [
+      "patchwork_saguaros",
+      "sonoran_roadways",
+      "speckled_summits",
+      "stipple_sunsets"
+    ]
+  },
+  "vamoss": {
+    "name": "Vamoss",
+    "collections": [
+      "patterns_of_life"
+    ]
+  },
+  "punch_card_collective": {
+    "name": "Punch Card Collective",
+    "collections": [
+      "perpetua"
+    ]
+  },
+  "omri_tintpulver": {
+    "name": "Omri Tintpulver",
+    "collections": [
+      "pigs_tail"
+    ]
+  },
+  "kai": {
+    "name": "kai",
+    "collections": [
+      "pixel_glass"
+    ]
+  },
+  "basement_x_ryleyo": {
+    "name": "BASEMENT x Ryley-O",
+    "collections": [
+      "pool_party"
+    ]
+  },
+  "remnynt": {
+    "name": "remnynt",
+    "collections": [
+      "proscenium"
+    ]
+  },
+  "insight": {
+    "name": "Insigħt",
+    "collections": [
+      "quantum_collapses"
+    ]
+  },
+  "ikiddo": {
+    "name": "Ikiddo",
+    "collections": [
+      "quantumcirclet",
+      "uniqueness"
+    ]
+  },
+  "tara_donovan": {
+    "name": "Tara Donovan",
+    "collections": [
+      "qwerty"
+    ]
+  },
+  "yon": {
+    "name": "YON",
+    "collections": [
+      "rainbows"
+    ]
+  },
+  "thomas_lin_pedersen": {
+    "name": "Thomas Lin Pedersen",
+    "collections": [
+      "rapture",
+      "screens"
+    ]
+  },
+  "julian_hespenheide_the_generative_art_museum": {
+    "name": "Julian Hespenheide × The Generative Art Museum",
+    "collections": [
+      "ratio"
+    ]
+  },
+  "ben_kanizay": {
+    "name": "Ben Kanizay",
+    "collections": [
+      "retrometrix"
+    ]
+  },
+  "nadieh_bremer": {
+    "name": "Nadieh Bremer",
+    "collections": [
+      "rotae"
+    ]
+  },
+  "mario_carrillo": {
+    "name": "Mario Carrillo",
+    "collections": [
+      "rubicon"
+    ]
+  },
+  "william_tan": {
+    "name": "William Tan",
+    "collections": [
+      "scribbled_boundaries"
+    ]
+  },
+  "minimizer": {
+    "name": "minimizer",
+    "collections": [
+      "scribbled_daydreams"
+    ]
+  },
+  "orpheusk": {
+    "name": "Orpheusk",
+    "collections": [
+      "scribblines"
+    ]
+  },
+  "ralgo": {
+    "name": "Ralgo",
+    "collections": [
+      "seasky"
+    ]
+  },
+  "r4v3n": {
+    "name": "r4v3n",
+    "collections": [
+      "shields"
+    ]
+  },
+  "espina": {
+    "name": "espina",
+    "collections": [
+      "sigils",
+      "warp_2"
+    ]
+  },
+  "itsgalo": {
+    "name": "itsgalo",
+    "collections": [
+      "skeuomorphs"
+    ]
+  },
+  "mark_cotton": {
+    "name": "Mark Cotton",
+    "collections": [
+      "space_birds"
+    ]
+  },
+  "whalestreet_x_pxlq": {
+    "name": "WhaleStreet x pxlq",
+    "collections": [
+      "space_debris_maider"
+    ]
+  },
+  "alexander_reben": {
+    "name": "Alexander Reben",
+    "collections": [
+      "spiroflakes"
+    ]
+  },
+  "philip_bell": {
+    "name": "Philip Bell",
+    "collections": [
+      "staccato"
+    ]
+  },
+  "ruben_alexander": {
+    "name": "Ruben Alexander",
+    "collections": [
+      "star_flower"
+    ]
+  },
+  "alida_sun": {
+    "name": "Alida Sun",
+    "collections": [
+      "stellaraum"
+    ]
+  },
+  "nathaniel_stern_and_sasha_stiles": {
+    "name": "Nathaniel Stern and Sasha Stiles",
+    "collections": [
+      "still_moving"
+    ]
+  },
+  "julien_gachadoat": {
+    "name": "Julien Gachadoat",
+    "collections": [
+      "structures"
+    ]
+  },
+  "petitsapin": {
+    "name": "petitsapin",
+    "collections": [
+      "such_a_lovely_time"
+    ]
+  },
+  "pzs": {
+    "name": "PZS",
+    "collections": [
+      "summoning_ritual"
+    ]
+  },
+  "chaosconstruct": {
+    "name": "Chaosconstruct",
+    "collections": [
+      "synapses"
+    ]
+  },
+  "claudia_hart_and_andrew_blanton": {
+    "name": "Claudia Hart and Andrew Blanton",
+    "collections": [
+      "systems_madness"
+    ]
+  },
+  "carlos_marcial": {
+    "name": "Carlos Marcial",
+    "collections": [
+      "the_collectors_room"
+    ]
+  },
+  "camille_roux_x_matthieu_segret": {
+    "name": "Camille Roux x Matthieu Segret",
+    "collections": [
+      "the_destination"
+    ]
+  },
+  "fesq": {
+    "name": "FESQ",
+    "collections": [
+      "the_distance_in_between"
+    ]
+  },
+  "per_kristian_stoveland": {
+    "name": "Per Kristian Stoveland",
+    "collections": [
+      "the_harvest"
+    ]
+  },
+  "amy_goodchild_x_the_generative_art_museum": {
+    "name": "Amy Goodchild x The Generative Art Museum",
+    "collections": [
+      "the_light_where_we_meet"
+    ]
+  },
+  "sputniko": {
+    "name": "Sputniko!",
+    "collections": [
+      "the_nursery"
+    ]
+  },
+  "cole_sternberg": {
+    "name": "Cole Sternberg",
+    "collections": [
+      "the_spring_begins_with_the_first_rainstorm"
+    ]
+  },
+  "vera_molnar_in_collaboration_with_martin_grasser": {
+    "name": "Vera Molnár, in collaboration with Martin Grasser",
+    "collections": [
+      "themes_and_variations"
+    ]
+  },
+  "willard": {
+    "name": "WILLARD",
+    "collections": [
+      "theoretical_townships"
+    ]
+  },
+  "eric_davidson": {
+    "name": "Eric Davidson",
+    "collections": [
+      "thoughts_of_meadow"
+    ]
+  },
+  "abieyuwa_and_sabha": {
+    "name": "Abieyuwa and Sabha",
+    "collections": [
+      "through_my_windshield"
+    ]
+  },
+  "reva": {
+    "name": "Reva",
+    "collections": [
+      "through_the_window"
+    ]
+  },
+  "lovid": {
+    "name": "LoVid",
+    "collections": [
+      "tide_predictor"
+    ]
+  },
+  "steen_x_neo": {
+    "name": "steen x n-e-o",
+    "collections": [
+      "time_squared"
+    ]
+  },
+  "jeres": {
+    "name": "Jeres",
+    "collections": [
+      "torrent"
+    ]
+  },
+  "jack_butcher": {
+    "name": "Jack Butcher",
+    "collections": [
+      "trademark"
+    ]
+  },
+  "hal09999_x_the_generative_art_museum": {
+    "name": "HAL09999 x The Generative Art Museum",
+    "collections": [
+      "transformations_du_champ"
+    ]
+  },
+  "xsaha": {
+    "name": " XSaha",
+    "collections": [
+      "turner_in_the_light"
+    ]
+  },
+  "ge1doot": {
+    "name": "ge1doot",
+    "collections": [
+      "utopia"
+    ]
+  },
+  "darien_brito": {
+    "name": "Darien Brito",
+    "collections": [
+      "vahria"
+    ]
+  },
+  "tengil": {
+    "name": "Tengil",
+    "collections": [
+      "vaxt"
+    ]
+  },
+  "bustavo_x_the_generative_art_museum": {
+    "name": "bustavo x The Generative Art Museum",
+    "collections": [
+      "vivoteca"
+    ]
+  },
+  "disruptedstar": {
+    "name": "DisruptedStar",
+    "collections": [
+      "voyager"
+    ]
+  },
+  "volekr": {
+    "name": "Volekr",
+    "collections": [
+      "whispers_of_motion_fiat_pass"
+    ]
+  },
+  "frederik_vanhoutte_x_the_generative_art_museum": {
+    "name": "Frederik Vanhoutte x The Generative Art Museum",
+    "collections": [
+      "winterkammer"
+    ]
+  },
+  "kenny_vaden": {
+    "name": "Kenny Vaden",
+    "collections": [
+      "worlds"
+    ]
+  },
+  "truedrew": {
+    "name": "Truedrew",
+    "collections": [
+      "you_are_here_part_1"
     ]
   }
 }

@@ -1,0 +1,179 @@
+{
+  "items": [
+    {
+      "id": "1000000",
+      "hash": "0x2f289250e8ef0caabe94f0991f64d9b41c32b8c1c08da10c189c861fa0c5ec50",
+      "url": "https://trame-cpg-mainnet.s3.amazonaws.com/1000000.png",
+      "referencePixelSize": [
+        1271,
+        2400
+      ],
+      "imageAspectRatio": [
+        1271,
+        2400
+      ]
+    },
+    {
+      "id": "1000001",
+      "hash": "0x96f08a5ea79133a21f43cdcc8fd87cfc0b79edb18a38d2e1c9d3ad64ee82afd2",
+      "url": "https://trame-cpg-mainnet.s3.amazonaws.com/1000001.png",
+      "referencePixelSize": [
+        1271,
+        2400
+      ],
+      "imageAspectRatio": [
+        1271,
+        2400
+      ]
+    },
+    {
+      "id": "1000002",
+      "hash": "0x93c3f71e2a6d7b1cede7107bf23823d3cbb2a834ca9306f8c5bf286900be0146",
+      "url": "https://trame-cpg-mainnet.s3.amazonaws.com/1000002.png",
+      "referencePixelSize": [
+        1271,
+        2400
+      ],
+      "imageAspectRatio": [
+        1271,
+        2400
+      ]
+    },
+    {
+      "id": "1000003",
+      "hash": "0x7f21809a58696b7a40625ef0dac561cdf4a4047127437ff5187f93670bc7644f",
+      "url": "https://trame-cpg-mainnet.s3.amazonaws.com/1000003.png",
+      "referencePixelSize": [
+        1271,
+        2400
+      ],
+      "imageAspectRatio": [
+        1271,
+        2400
+      ]
+    },
+    {
+      "id": "1000004",
+      "hash": "0xb503840dd60162280965d9fe80fefe90a1e7e5d4d90115385572c751532fa30a",
+      "url": "https://trame-cpg-mainnet.s3.amazonaws.com/1000004.png",
+      "referencePixelSize": [
+        1271,
+        2400
+      ],
+      "imageAspectRatio": [
+        1271,
+        2400
+      ]
+    },
+    {
+      "id": "1000005",
+      "hash": "0x2b73ceeebe6e7bb1d013875074f0900b6488e002a55fedc1c27f1a833c66a09e",
+      "url": "https://trame-cpg-mainnet.s3.amazonaws.com/1000005.png",
+      "referencePixelSize": [
+        1271,
+        2400
+      ],
+      "imageAspectRatio": [
+        1271,
+        2400
+      ]
+    },
+    {
+      "id": "1000006",
+      "hash": "0xbb583db334bf877efe0b7ddf3ff8dc356484ff4b8f5bfb49eb013132e6f02a42",
+      "url": "https://trame-cpg-mainnet.s3.amazonaws.com/1000006.png",
+      "referencePixelSize": [
+        1271,
+        2400
+      ],
+      "imageAspectRatio": [
+        1271,
+        2400
+      ]
+    },
+    {
+      "id": "1000007",
+      "hash": "0xd2fb606b3c501eb39cf6dba4379aff79889ff5d65550ec5755d7adbb52048065",
+      "url": "https://trame-cpg-mainnet.s3.amazonaws.com/1000007.png",
+      "referencePixelSize": [
+        1271,
+        2400
+      ],
+      "imageAspectRatio": [
+        1271,
+        2400
+      ]
+    },
+    {
+      "id": "1000008",
+      "hash": "0x95cae46243442b9dd766e78c45634869c703d0b57f3d24b97f6d1eb02f292146",
+      "url": "https://trame-cpg-mainnet.s3.amazonaws.com/1000008.png",
+      "referencePixelSize": [
+        1271,
+        2400
+      ],
+      "imageAspectRatio": [
+        1271,
+        2400
+      ]
+    },
+    {
+      "id": "1000009",
+      "hash": "0x013858987952a24f858b16a82e246bc366f235ec2595413a0cd9e92db079f141",
+      "url": "https://trame-cpg-mainnet.s3.amazonaws.com/1000009.png",
+      "referencePixelSize": [
+        1271,
+        2400
+      ],
+      "imageAspectRatio": [
+        1271,
+        2400
+      ]
+    },
+    {
+      "id": "1000010",
+      "hash": "0x4343d4a887654df26fb31d575c20ffaa55f440b94c7f3db4333c31eb7e99c452",
+      "url": "https://trame-cpg-mainnet.s3.amazonaws.com/1000010.png",
+      "referencePixelSize": [
+        1271,
+        2400
+      ],
+      "imageAspectRatio": [
+        1271,
+        2400
+      ]
+    },
+    {
+      "id": "1000011",
+      "hash": "0x0930b0b2b24479dda28a797aa260098c1a010486417efdb1eb41794c0ecd5e85",
+      "url": "https://trame-cpg-mainnet.s3.amazonaws.com/1000011.png",
+      "referencePixelSize": [
+        1271,
+        2400
+      ],
+      "imageAspectRatio": [
+        1271,
+        2400
+      ]
+    },
+    {
+      "id": "1000012",
+      "hash": "0x749711254aa59fcff3f75a801941776254e9acd96f47f260346ab496f5a2dc5a",
+      "url": "https://trame-cpg-mainnet.s3.amazonaws.com/1000012.png",
+      "referencePixelSize": [
+        1271,
+        2400
+      ],
+      "imageAspectRatio": [
+        1271,
+        2400
+      ]
+    }
+  ],
+  "artworkAspectRatios": [
+    [
+      9,
+      17
+    ]
+  ]
+}

@@ -17,6 +17,8 @@ class ExternalDisplayViewController: UIViewController {
     private var placeholderStack: UIStackView!
     private var renderedTokenKey = ""
     private var willOrDidAppear = false
+    private var laidOutArtworkSize: CGSize = .zero
+    private var artworkResizeTask: Task<Void, Never>?
     
     init() {
         super.init(nibName: nil, bundle: nil)
@@ -26,6 +28,10 @@ class ExternalDisplayViewController: UIViewController {
     
     required init?(coder: NSCoder) {
         fatalError("yo")
+    }
+
+    isolated deinit {
+        artworkResizeTask?.cancel()
     }
     
     override func viewDidLoad() {
@@ -37,6 +43,24 @@ class ExternalDisplayViewController: UIViewController {
         super.viewWillAppear(animated)
         willOrDidAppear = true
         renderCurrentItem()
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        let size = view.bounds.size
+        guard size.width > 0, size.height > 0, size != laidOutArtworkSize else { return }
+        let hadLayout = laidOutArtworkSize != .zero
+        laidOutArtworkSize = size
+        artworkResizeTask?.cancel()
+        artworkResizeTask = nil
+        guard hadLayout, willOrDidAppear, view.window != nil else { return }
+        let tokenKey = renderedTokenKey
+        artworkResizeTask = Task { @MainActor [weak self] in
+            do { try await Task.sleep(for: .milliseconds(200)) } catch { return }
+            guard let self, self.renderedTokenKey == tokenKey, self.viewIfLoaded?.window != nil else { return }
+            self.artworkResizeTask = nil
+            _ = self.mediaRenderer.reloadStableArtworkAfterResize()
+        }
     }
     
     private func ensurePlaceholder() {
@@ -82,6 +106,8 @@ class ExternalDisplayViewController: UIViewController {
         let tokenKey = renderKey(for: currentToken)
         guard tokenKey != renderedTokenKey else { return }
 
+        artworkResizeTask?.cancel()
+        artworkResizeTask = nil
         renderedTokenKey = tokenKey
         if let nativeRenderKind = currentToken.nativeMetalCardRenderKind {
             renderNativeMetalCard(currentToken, renderKind: nativeRenderKind)
@@ -120,6 +146,10 @@ class ExternalDisplayViewController: UIViewController {
 
     private func renderWebContent(_ html: String) {
         ensurePlaceholder()
+        mediaRenderer.configureArtBlocksRendering(
+            collectionId: currentToken.fullCollectionId,
+            tokenId: currentToken.id
+        )
         mediaRenderer.renderWebContent(
             html,
             hidesEmptyWebContent: true,

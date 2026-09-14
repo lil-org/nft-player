@@ -1,0 +1,123 @@
+"use strict";
+
+const fs = require("node:fs/promises");
+const path = require("node:path");
+const { createHash } = require("node:crypto");
+const { PENDING_IDENTITY, planFourthReviewPass, checkFourthReviewPass } = require("./prepare_artblocks_review_pass_4");
+const { checkThirdReviewPass, applyThirdReviewPass } = require("./prepare_artblocks_review_pass_3");
+
+const ROOT = path.resolve(__dirname, "..");
+const DECISION_INSTRUCTION = `ok let's mark poll party as yes now.
+
+now let me do a final review in ios app for all 292 collections marked yes.
+
+> I found and removed unnecessary fixed waits.
+
+these fixes were amazing — i wonder if you could apply them as well for all other yes collections (so not only double-check) get this improved loading speed — and i would like to review all these final versions in the app again — so reset all decisions and notes in this final review build for me — so i'd be able to add some final notes or mb change my mind about some of these previously approved collections.`;
+const EXPECTED_COUNTS = Object.freeze({ yes: { collections: 1, tokens: 20 }, notes: 0 });
+const EXPECTED_APPROVED_COUNTS = Object.freeze({ collections: 292, tokens: 6524 });
+const digest = value => createHash("sha256").update(value).digest("hex");
+const json = value => Buffer.from(JSON.stringify(value, null, 2) + "\n");
+
+async function optionalFile(file) {
+  try {
+    const stat = await fs.lstat(file);
+    if (!stat.isFile() || stat.isSymbolicLink()) throw new Error(`Expected a regular file: ${file}`);
+    return await fs.readFile(file);
+  } catch (error) {
+    if (error.code === "ENOENT") return null;
+    throw error;
+  }
+}
+
+function createFifthArtifacts(previous, corpus, catalog, tokensByIdentity, options = {}) {
+  const pendingIdentity = options.pendingIdentity ?? PENDING_IDENTITY;
+  if (previous.runtime.passID !== "pass-4" || previous.runtime.selectedIdentities.length !== 1
+    || previous.runtime.selectedIdentities[0] !== pendingIdentity || corpus.collections[pendingIdentity]?.name !== "pool party") {
+    throw new Error("Expected the frozen pool-party-only fourth review pass");
+  }
+  const original = corpus.collections[pendingIdentity], tokens = tokensByIdentity.get(pendingIdentity)?.items;
+  if (!tokens || tokens.length !== original.samples.length
+    || tokens.some((token, index) => token.id !== original.samples[index].tokenId)) throw new Error("Pool party token selection differs from curation");
+  const counts = { yes: { collections: 1, tokens: tokens.length }, notes: 0 };
+  if (JSON.stringify(counts) !== JSON.stringify(options.expectedCounts ?? EXPECTED_COUNTS)) throw new Error("Unexpected fourth-pass approval counts");
+  const source = json({ version: 1, passID: "pass-4", sourceType: "recorded-user-instruction", deviceExport: false,
+    instruction: DECISION_INSTRUCTION, sourceRuntimeSHA256: digest(json(previous.runtime)), counts,
+    collections: { [pendingIdentity]: { name: original.name, group: original.group, decision: "yes", note: null } } });
+  const sourceReviewSHA256 = digest(source);
+  const approvedByIdentity = new Map(previous.approved.collections.map(record => [record.identity, record]));
+  if (approvedByIdentity.size !== previous.approved.collectionCount || approvedByIdentity.has(pendingIdentity)) {
+    throw new Error("Previous approvals contain duplicate or pending identities");
+  }
+  const localCollectionFolder = path.posix.join("samples", original.group, original.directory);
+  approvedByIdentity.set(pendingIdentity, { identity: pendingIdentity, name: original.name, group: original.group,
+    decision: "yes", note: null, sourcePassID: "pass-4", localCollectionFolder,
+    samples: tokens.map((token, index) => ({ tokenId: token.id,
+      localPath: path.posix.join(localCollectionFolder, `${token.id}.${original.samples[index].extension}`), fallbackImageURL: token.url })) });
+  const collections = catalog.filter(item => approvedByIdentity.has(item.reviewIdentity)).map(item => approvedByIdentity.get(item.reviewIdentity));
+  if (collections.length !== approvedByIdentity.size || new Set(collections.map(record => record.identity)).size !== collections.length) {
+    throw new Error("Missing or duplicated approved catalog identities");
+  }
+  const approved = { version: 1, sourceReviews: { ...previous.approved.sourceReviews, "pass-4": sourceReviewSHA256 },
+    collectionCount: collections.length, tokenCount: collections.reduce((sum, record) => sum + record.samples.length, 0), collections };
+  const expected = options.expectedApprovedCounts ?? EXPECTED_APPROVED_COUNTS;
+  if (approved.collectionCount !== expected.collections || approved.tokenCount !== expected.tokens) throw new Error("Unexpected cumulative approval counts");
+  return { source, counts, approved, runtime: { version: 1, passID: "pass-5", sourceReviewSHA256,
+    selectedIdentities: collections.map(record => record.identity), initialNotesByIdentity: {} } };
+}
+
+async function planFifthReviewPass(options = {}) {
+  const reviews = path.resolve(options.reviews ?? path.join(ROOT, "tools", "artblocks", "reviews"));
+  const preview = path.resolve(options.preview ?? path.join(ROOT, "Suggested Items", "Suggested.bundle", "Development", "Good"));
+  const curation = path.resolve(options.curation ?? path.join(ROOT, "tools", "artblocks", "curation.json"));
+  const runtimeOutput = path.resolve(options.runtimeOutput ?? path.join(preview, "..", "review-pass.json"));
+  const inputs = new Map();
+  async function read(file, optional = false) {
+    const contents = await optionalFile(file);
+    inputs.set(file, contents);
+    if (!optional && contents === null) throw new Error(`Missing review input: ${file}`);
+    return contents;
+  }
+  const archiveRuntime = path.join(reviews, "pass-4-runtime.json"), archiveApproved = path.join(reviews, "pass-4-approved.json");
+  const archiveApprovedList = path.join(reviews, "pass-4-approved.md"), archiveCuration = path.join(reviews, "pass-4-curation.json");
+  const historical = { runtimeOutput: await read(archiveRuntime, true) ? archiveRuntime : runtimeOutput,
+    approvedOutput: await read(archiveApproved, true) ? archiveApproved : path.join(reviews, "approved.json"),
+    approvedListOutput: await read(archiveApprovedList, true) ? archiveApprovedList : path.join(reviews, "approved.md"),
+    curation: await read(archiveCuration, true) ? archiveCuration : curation };
+  const fourth = await planFourthReviewPass({ ...options, ...options.fourthPass, ...historical, source: undefined });
+  await checkFourthReviewPass(fourth);
+  for (const [file, contents] of fourth.inputs) inputs.set(file, contents);
+  const previous = { runtime: JSON.parse(fourth.files.get(historical.runtimeOutput)), approved: JSON.parse(fourth.files.get(historical.approvedOutput)) };
+  const catalog = JSON.parse(inputs.get(path.join(preview, "items.json")));
+  const tokensByIdentity = new Map(catalog.map(item => [item.reviewIdentity,
+    JSON.parse(inputs.get(path.join(preview, "Tokens", `${item.address}${item.collectionId}.json`)))]));
+  const artifacts = createFifthArtifacts(previous, JSON.parse(inputs.get(path.join(reviews, "pass-1-curation.json"))), catalog, tokensByIdentity, options);
+  if (options.source && !(await read(path.resolve(options.source))).equals(artifacts.source)) throw new Error("Source differs from the recorded user instruction");
+  if (!(await read(curation)).equals(fourth.files.get(historical.curation))) throw new Error("Live curation differs from the preserved fourth pass");
+  for (const [file, before, after] of [[runtimeOutput, json(previous.runtime), json(artifacts.runtime)],
+    [path.join(reviews, "approved.json"), json(previous.approved), json(artifacts.approved)]]) {
+    const current = await read(file);
+    if (!current.equals(before) && !current.equals(after)) throw new Error(`Active review data contains unrelated changes: ${file}`);
+  }
+  const sourcePath = path.join(reviews, "pass-4-decisions.json");
+  const immutableFiles = new Set([sourcePath, archiveRuntime, archiveApproved, archiveApprovedList, archiveCuration]);
+  const approvedList = Buffer.from(["# Approved collections", "",
+    `${artifacts.approved.collectionCount} collections with ${artifacts.approved.tokenCount.toLocaleString("en-US")} saved token references were approved before the final review. Their historical decisions remain preserved while pass-5 starts clean.`, "",
+    "The complete saved paths, PNG references, notes, and decision provenance are in [approved.json](approved.json).", "",
+    "| Collection | Decision pass | Saved tokens |", "| --- | --- | ---: |",
+    ...artifacts.approved.collections.map(entry => `| ${entry.name.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll("|", "\\|").replaceAll("\n", " ")} | ${entry.sourcePassID} | ${entry.samples.length} |`), ""].join("\n"));
+  const files = new Map([[sourcePath, artifacts.source], [archiveRuntime, json(previous.runtime)],
+    [archiveApproved, json(previous.approved)], [archiveApprovedList, fourth.files.get(historical.approvedListOutput)],
+    [archiveCuration, fourth.files.get(historical.curation)], [path.join(reviews, "approved.json"), json(artifacts.approved)],
+    [path.join(reviews, "approved.md"), approvedList], [runtimeOutput, json(artifacts.runtime)]]);
+  if (files.size !== 8) throw new Error("Review output paths must be distinct");
+  for (const [file, contents] of files) {
+    const previous = inputs.has(file) ? inputs.get(file) : await read(file, true);
+    if (immutableFiles.has(file) && previous && !previous.equals(contents)) throw new Error(`Refusing to replace frozen review archive: ${file}`);
+  }
+  return { files, immutableFiles, inputs, removals: [], samplesRoot: fourth.samplesRoot, counts: artifacts.counts,
+    approvedCounts: { collections: artifacts.approved.collectionCount, tokens: artifacts.approved.tokenCount }, sourceReviewSHA256: artifacts.runtime.sourceReviewSHA256 };
+}
+
+module.exports = { DECISION_INSTRUCTION, EXPECTED_COUNTS, EXPECTED_APPROVED_COUNTS, createFifthArtifacts, planFifthReviewPass,
+  checkFifthReviewPass: checkThirdReviewPass, applyFifthReviewPass: applyThirdReviewPass };

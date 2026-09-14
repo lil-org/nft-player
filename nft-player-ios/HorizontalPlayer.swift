@@ -80,8 +80,10 @@ enum FullscreenTokenMediaView {
         return imageView
     }
 
-    static func webView(in containerView: UIView) -> AutoReloadingWebView {
-        let webView = AutoReloadingWebView.new
+    static func webView(in containerView: UIView, usesArtBlocksRenderer: Bool = false) -> AutoReloadingWebView {
+        let webView = usesArtBlocksRenderer
+            ? AutoReloadingWebView.newArtBlocksRenderer()
+            : AutoReloadingWebView.new
         webView.isUserInteractionEnabled = false
         install(webView, in: containerView)
         return webView
@@ -137,6 +139,11 @@ final class FullscreenTokenMediaRenderer {
     private var activeLocalWebReadinessID: UUID?
     private var activeLocalWebReadinessTask: Task<Void, Never>?
     private var usesTransparentPlayerBackground = false
+    private var artworkIdentity: (collectionId: String, tokenId: String)?
+    private var artworkErrorView: UIView?
+    private var artworkErrorLabel: UILabel?
+    private var artworkFailureHandler: ((String) -> Void)?
+    private var usesArtBlocksWebConfiguration = false
 
     init(containerView: UIView) {
         self.containerView = containerView
@@ -150,6 +157,7 @@ final class FullscreenTokenMediaRenderer {
     }
 
     func clearContent() {
+        clearArtBlocksRendering()
         cancelLocalWebReadiness()
         cancelCurrentImageLoad()
         hideNativeMetalCardView()
@@ -157,6 +165,87 @@ final class FullscreenTokenMediaRenderer {
         unloadWebContentIfNeeded()
         imageView?.layer.removeAllAnimations()
         imageView?.image = nil
+    }
+
+    func configureArtBlocksRendering(collectionId: String, tokenId: String, onError: ((String) -> Void)? = nil) {
+        guard TokenGenerator.usesArtBlocksRenderer(collectionId: collectionId) else {
+            clearArtBlocksRendering()
+            return
+        }
+        artworkIdentity = (collectionId, tokenId)
+        artworkFailureHandler = onError
+        artworkErrorView?.isHidden = true
+        ensureWebView()
+        webView.configureArtBlocksRendering(collectionId: collectionId, tokenId: tokenId) { [weak self] message in
+            guard let self else { return }
+            if let artworkFailureHandler = self.artworkFailureHandler {
+                artworkFailureHandler(message)
+            } else {
+                self.showArtworkError(message)
+            }
+        }
+    }
+
+    func reloadStableArtworkAfterResize() -> Bool {
+        guard webView?.usesStableArtworkPresentation == true else { return false }
+        webView.reloadStableArtworkAfterResize()
+        return true
+    }
+
+    private func clearArtBlocksRendering() {
+        artworkIdentity = nil
+        artworkFailureHandler = nil
+        artworkErrorView?.isHidden = true
+        webView?.clearArtBlocksRendering()
+    }
+
+    private func showArtworkError(_ message: String) {
+        guard artworkIdentity != nil else { return }
+        if artworkErrorView == nil {
+            let errorView = UIView()
+            errorView.translatesAutoresizingMaskIntoConstraints = false
+            errorView.backgroundColor = UIColor.secondarySystemBackground.withAlphaComponent(0.96)
+            errorView.layer.cornerRadius = 16
+
+            let label = UILabel()
+            label.font = .preferredFont(forTextStyle: .callout)
+            label.textColor = .label
+            label.textAlignment = .center
+            label.numberOfLines = 7
+
+            let retry = UIButton(type: .system)
+            retry.setTitle(String(localized: "Retry artwork"), for: .normal)
+            retry.accessibilityIdentifier = "artwork.retry"
+            retry.addAction(UIAction { [weak self] _ in
+                self?.artworkErrorView?.isHidden = true
+                self?.webView?.retryArtwork()
+            }, for: .touchUpInside)
+
+            let stack = UIStackView(arrangedSubviews: [label, retry])
+            stack.translatesAutoresizingMaskIntoConstraints = false
+            stack.axis = .vertical
+            stack.spacing = 12
+            errorView.addSubview(stack)
+            containerView.addSubview(errorView)
+            NSLayoutConstraint.activate([
+                errorView.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
+                errorView.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
+                errorView.leadingAnchor.constraint(greaterThanOrEqualTo: containerView.leadingAnchor, constant: 24),
+                errorView.trailingAnchor.constraint(lessThanOrEqualTo: containerView.trailingAnchor, constant: -24),
+                errorView.widthAnchor.constraint(lessThanOrEqualToConstant: 360),
+                stack.leadingAnchor.constraint(equalTo: errorView.leadingAnchor, constant: 20),
+                stack.trailingAnchor.constraint(equalTo: errorView.trailingAnchor, constant: -20),
+                stack.topAnchor.constraint(equalTo: errorView.topAnchor, constant: 20),
+                stack.bottomAnchor.constraint(equalTo: errorView.bottomAnchor, constant: -16)
+            ])
+            artworkErrorView = errorView
+            artworkErrorLabel = label
+        }
+        artworkErrorLabel?.text = String(localized: "This artwork couldn’t be rendered.")
+        if let artworkErrorView {
+            artworkErrorView.isHidden = false
+            containerView.bringSubviewToFront(artworkErrorView)
+        }
     }
 
     func displayLoadedImage<Key: Hashable>(_ image: UIImage, key: Key) {
@@ -314,6 +403,13 @@ final class FullscreenTokenMediaRenderer {
             onBegin: onBegin
         )
         webView.loadHTMLString(html, baseURL: nil)
+        if artworkIdentity != nil, html.isEmpty {
+            if let artworkFailureHandler {
+                artworkFailureHandler("The bundled script or token hash is missing.")
+            } else {
+                showArtworkError("The bundled script or token hash is missing.")
+            }
+        }
     }
 
     func renderLocalWebContent(
@@ -718,9 +814,16 @@ final class FullscreenTokenMediaRenderer {
     }
 
     private func ensureWebView() {
+        let usesArtBlocksRenderer = artworkIdentity != nil
+        if webView != nil, usesArtBlocksWebConfiguration != usesArtBlocksRenderer {
+            webView.unloadContent()
+            webView.removeFromSuperview()
+            webView = nil
+        }
         guard webView == nil else { return }
 
-        webView = FullscreenTokenMediaView.webView(in: containerView)
+        usesArtBlocksWebConfiguration = usesArtBlocksRenderer
+        webView = FullscreenTokenMediaView.webView(in: containerView, usesArtBlocksRenderer: usesArtBlocksRenderer)
         if usesTransparentPlayerBackground {
             webView.makePlayerBackgroundTransparent()
         }
@@ -978,7 +1081,6 @@ struct HorizontalPlayerContainerView: UIViewControllerRepresentable {
 
     final class Coordinator {
         private var lastBundledGenerativePresentationMode: MobileBundledGenerativePresentationMode?
-
         func shouldApplyBundledGenerativePresentationMode(
             _ mode: MobileBundledGenerativePresentationMode
         ) -> Bool {
@@ -1449,6 +1551,11 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, U
     }
 
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+        var touchedView = touch.view
+        while let view = touchedView {
+            if view.accessibilityIdentifier == "artwork.retry" { return false }
+            touchedView = view.superview
+        }
         guard gestureRecognizer === singleTapRecognizer || gestureRecognizer === doubleTapRecognizer else {
             return true
         }
@@ -1510,6 +1617,14 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, U
                 id: token.fullCollectionId
               ) else {
             return nil
+        }
+
+        if TokenGenerator.usesArtBlocksRenderer(collectionId: token.fullCollectionId),
+           let index = TokenGenerator.tokenIndex(specificCollectionId: token.fullCollectionId, tokenId: token.id) {
+            return TokenGenerator.bundledWebGenerativeToken(
+                specificCollectionId: token.fullCollectionId,
+                tokenIndex: index
+            )?.artworkAspectRatio
         }
 
         guard let descriptor = playbackSession.collectionBrowseThumbnailDescriptor(
@@ -1731,6 +1846,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     private var zoomContentLayout: ZoomContentLayout = .viewport
     private var zoomAllowedContent: ZoomAllowedContent = .fullContent
     private var laidOutZoomViewportSize: CGSize = .zero
+    private var artworkResizeTask: Task<Void, Never>?
     var onZoomStateChange: (() -> Void)?
     var preferredPrefetchDirection: DownloadableMediaCache.PrefetchDirection = .forward
     var isZoomed: Bool {
@@ -1794,11 +1910,15 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         guard viewportSize.width > 0, viewportSize.height > 0 else { return }
 
         if laidOutZoomViewportSize != viewportSize {
+            let hadViewportSize = laidOutZoomViewportSize != .zero
             laidOutZoomViewportSize = viewportSize
             if isZoomed {
                 resetZoom(animated: false)
             }
             updateZoomContentFrame(resetOffset: true)
+            if hadViewportSize {
+                scheduleArtworkResize()
+            }
         } else {
             updateZoomContentInsets()
             clampZoomContentOffsetIfNeeded()
@@ -1806,6 +1926,8 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     }
 
     private func cleanupDisplayedContent() {
+        artworkResizeTask?.cancel()
+        artworkResizeTask = nil
         resetZoom(animated: false)
         setZoomContentLayout(.viewport)
         pageMedia.clear()
@@ -1813,6 +1935,32 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             playerDataSource?.didCleanupPagePosition(renderedPagePosition)
         }
         renderedPagePosition = nil
+    }
+
+    private func scheduleArtworkResize() {
+        artworkResizeTask?.cancel()
+        artworkResizeTask = nil
+        guard renderedPagePosition == pagePosition,
+              willOrDidAppear,
+              isPlaybackActive,
+              viewIfLoaded?.window != nil,
+              let token = playerDataSource?.getToken(pagePosition: pagePosition),
+              TokenGenerator.usesArtBlocksRenderer(collectionId: token.fullCollectionId) else {
+            return
+        }
+        let position = pagePosition
+        artworkResizeTask = Task { @MainActor [weak self] in
+            do {
+                try await Task.sleep(for: .milliseconds(200))
+            } catch {
+                return
+            }
+            guard let self,
+                  self.pagePosition == position,
+                  self.viewIfLoaded?.window != nil else { return }
+            self.artworkResizeTask = nil
+            self.reloadRenderedBundledGenerativeWebContentIfNeeded()
+        }
     }
 
     func update(pagePosition: PlayerPagePosition) {
@@ -2206,7 +2354,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             if TokenGenerator.isBundledWebGenerativeCollection(
                 id: token.fullCollectionId
             ) {
-                renderBundledGenerativeWebContent(token.html)
+                renderBundledGenerativeWebContent(token)
             } else {
                 renderWebContent(token.html)
             }
@@ -2245,9 +2393,11 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
             return
         }
 
+        if mediaRenderer.reloadStableArtworkAfterResize() { return }
+
         resetZoom(animated: false)
         pageMedia.clear()
-        renderBundledGenerativeWebContent(token.html)
+        renderBundledGenerativeWebContent(token)
     }
 
     fileprivate func refreshDownloadableMediaWindow() {
@@ -2372,12 +2522,13 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         pageMedia.render(.web(html))
     }
 
-    private func renderBundledGenerativeWebContent(_ html: String) {
+    private func renderBundledGenerativeWebContent(_ token: GeneratedToken) {
         if isViewLoaded {
             view.layoutIfNeeded()
         }
         setZoomContentLayout(bundledGenerativeWebContentLayout)
-        pageMedia.render(.web(html, onBegin: { [weak self] in
+        mediaRenderer.configureArtBlocksRendering(collectionId: token.fullCollectionId, tokenId: token.id)
+        pageMedia.render(.web(token.html, onBegin: { [weak self] in
             self?.mediaContentView.layoutIfNeeded()
         }))
     }

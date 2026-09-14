@@ -1,0 +1,10 @@
+{
+  "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
+  "name": "Directions",
+  "abId": "11",
+  "chain": "ethereum",
+  "kind": "js",
+  "value": "let t=Date,o=Math,e=window,s=Date.now,n=document,r=Math.ceil;const V=\"20230712.102308\",a={};let l,f,c;a.t=\"#000\",a.o=\"#f00\",a.l=\"#00f\",a.i=2,a.p=3,a.h=1e4,n.body.style=\"overflow:hidden;background:#000;\";let d,i,p,h,m,u,w=t=>{let e=parseInt(tokenData.tokenId.slice(-6));f=o.min(h,m)/a.p,c=[{m:e>>2,u:[a.l,a.t],n:a.p+1,D:0},{m:(e+2)%4,u:[a.t,a.o],n:a.i+1,D:1/(a.p-1)}],c.forEach((t=>{t.k=[];let{n:o,k:e,u:s,m:n}=t,r=1/(2*o);n>=2&&s.reverse(),t.v=o*f;for(let t=0;t<o;t++)e.push([s[0],2*t*r],[s[1],(2*t+1)*r]);e.push([s[0],1])}))},D=t=>{requestAnimationFrame(D),d.fillStyle=a.t,d.fillRect(-h/2-1,-m/2-1,h+2,m+2),l=(s()-u)/a.h,c.forEach((({v:t,m:e,k:s,D:n})=>{d.save(),d.rotate(e*o.PI/2);let r=t-f,a=(.5-(l-n+1)%1)*f,c=d.createLinearGradient(a-t/2,0,a+t/2,0);s.forEach((([t,o])=>{c.addColorStop(o,t)})),d.fillStyle=c,d.fillRect(-r/2,-r/2,r,r),d.restore()}))},k=e.onresize=t=>{let o=e.innerWidth,s=e.innerHeight,n=e.devicePixelRatio;o&&(h=r(o*n),m=r(s*n),d.scale(n,n),i.width=h,i.height=m,p.width=o+\"px\",p.height=s+\"px\",d.translate(h/2,m/2),w(),D())};e.onload=()=>{i=n.querySelector(\"canvas\"),p=i.style,p.margin=\"0\",d=i.getContext(\"2d\"),u=s(),k()};",
+  "renderingProfile": "artBlocks",
+  "chainId": 1
+}

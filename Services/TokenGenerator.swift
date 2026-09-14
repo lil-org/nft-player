@@ -5,7 +5,17 @@ import os
 
 nonisolated enum TokenGenerator {
     
-    private static let dirURL = SuggestedItemsService.bundle.url(forResource: "Scripts", withExtension: nil)!
+    private static let scriptURLsByJSONName: [String: URL] = {
+        guard let directory = SuggestedItemsService.bundle.url(forResource: "Scripts", withExtension: nil),
+              let urls = try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil) else {
+            return [:]
+        }
+        var urlsByName = [String: URL]()
+        for url in urls where url.pathExtension == "json" {
+            urlsByName[url.lastPathComponent] = url
+        }
+        return urlsByName
+    }()
     private static let cache = OSAllocatedUnfairLock(initialState: CacheState())
     private static let cardNft2NativeCollection = RangedNativeCollection(
         collectionId: NativeMetalCardRenderKind.cardNft2.collectionId,
@@ -102,12 +112,10 @@ nonisolated enum TokenGenerator {
     }()
 
     private static let jsonsNames: Set<String> = {
-        let fileManager = FileManager.default
-        let fileURLs = (try? fileManager.contentsOfDirectory(at: dirURL, includingPropertiesForKeys: nil)) ?? []
-        return Set(fileURLs.compactMap { fileURL in
-            let fileName = fileURL.lastPathComponent
+        return Set(scriptURLsByJSONName.keys.compactMap { fileName in
             let collectionId = String(fileName.dropLast(5))
-            guard !platformDisabledCollectionIds.contains(collectionId) else { return nil }
+            guard !platformDisabledCollectionIds.contains(collectionId),
+                  SuggestedItemsService.isCollectionAvailableOnCurrentPlatform(id: collectionId) else { return nil }
             if disablesNativeRenderersOnCurrentPlatform,
                nativeRendererCollectionIds.contains(collectionId) {
                 return nil
@@ -148,9 +156,25 @@ nonisolated enum TokenGenerator {
             specificCollectionId: specificCollectionId
         )?.thumbnailAspectRatioProfile
     }
-    
+
+    static func artworkAspectRatioProfile(specificCollectionId: String) -> ThumbnailAspectRatioProfile? {
+        guard !isRangedNativeCollection(specificCollectionId) else { return nil }
+        return collectionData(specificCollectionId: specificCollectionId)?.artworkAspectRatioProfile
+    }
+
+    static func usesArtBlocksRenderer(collectionId: String) -> Bool {
+        guard canGenerate(id: collectionId) else { return false }
+        return script(specificCollectionId: collectionId)?.usesArtBlocksRenderer == true
+    }
+
+    static func legacyArtBlocksCollectionId(collectionId: String) -> String? {
+        guard canGenerate(id: collectionId) else { return nil }
+        return script(specificCollectionId: collectionId)?.legacyArtBlocksCollectionId
+    }
+
     static func isCollectionDisabledOnCurrentPlatform(id: String) -> Bool {
-        if platformDisabledCollectionIds.contains(id) {
+        if !SuggestedItemsService.isCollectionAvailableOnCurrentPlatform(id: id)
+            || platformDisabledCollectionIds.contains(id) {
             return true
         }
         guard disablesNativeRenderersOnCurrentPlatform else {
@@ -226,7 +250,8 @@ nonisolated enum TokenGenerator {
         if script.chain == .solana {
             return URL(string: "https://explorer.solana.com/address/\(script.address)")
         }
-        return NftGallery.blockExplorer.url(network: .mainnet, chain: .ethereum, collectionAddress: script.address, tokenId: nil)
+        let network = SuggestedItemsService.item(id: script.id)?.network ?? .mainnet
+        return NftGallery.blockExplorer.url(network: network, chain: .ethereum, collectionAddress: script.address, tokenId: nil)
     }
 
     private static func collectionData(specificCollectionId: String) -> CollectionTokenData? {
@@ -309,12 +334,12 @@ nonisolated enum TokenGenerator {
     }
 
     private static func script(jsonName: String) -> Script? {
+        guard jsonsNames.contains(jsonName) else { return nil }
         if let cachedEntry = cache.withLock({ $0.scriptByJSONName[jsonName] }) {
             return cachedEntry.script
         }
 
-        let url = dirURL.appendingPathComponent(jsonName)
-        let decodedScript = (try? Data(contentsOf: url)).flatMap {
+        let decodedScript = scriptURLsByJSONName[jsonName].flatMap { try? Data(contentsOf: $0) }.flatMap {
             try? JSONDecoder().decode(Script.self, from: $0)
         }
         let entry: ScriptCacheEntry = decodedScript.map(ScriptCacheEntry.found) ?? .missing
@@ -356,7 +381,8 @@ nonisolated enum TokenGenerator {
             return URL(string: "https://explorer.solana.com/address/\(script.address)")
         }
 
-        return NftGallery.blockExplorer.url(network: .mainnet, chain: .ethereum, collectionAddress: script.address, tokenId: token.id)
+        let network = SuggestedItemsService.item(id: script.id)?.network ?? .mainnet
+        return NftGallery.blockExplorer.url(network: network, chain: .ethereum, collectionAddress: script.address, tokenId: token.id)
     }
     
 }
@@ -366,6 +392,7 @@ nonisolated private struct CollectionTokenData: Sendable {
     let tokens: [BundledTokens.Item]
     let tokenIndicesById: [String: Int]
     let thumbnailAspectRatioProfile: ThumbnailAspectRatioProfile?
+    let artworkAspectRatioProfile: ThumbnailAspectRatioProfile?
 
     init(script: Script, tokens: [BundledTokens.Item]) {
         self.script = script
@@ -373,13 +400,16 @@ nonisolated private struct CollectionTokenData: Sendable {
 
         var tokenIndicesById = [String: Int]()
         var aspectRatioProfileBuilder = ThumbnailAspectRatioProfileBuilder()
+        var artworkAspectRatioProfileBuilder = ThumbnailAspectRatioProfileBuilder()
         for (index, token) in tokens.enumerated() {
             aspectRatioProfileBuilder.append(token.thumbnailAspectRatio)
+            artworkAspectRatioProfileBuilder.append(token.artworkAspectRatio ?? token.thumbnailAspectRatio)
             if tokenIndicesById[token.id] == nil {
                 tokenIndicesById[token.id] = index
             }
         }
         self.tokenIndicesById = tokenIndicesById
         self.thumbnailAspectRatioProfile = aspectRatioProfileBuilder.profile
+        self.artworkAspectRatioProfile = artworkAspectRatioProfileBuilder.profile
     }
 }

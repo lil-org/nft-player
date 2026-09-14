@@ -1,0 +1,10 @@
+{
+  "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
+  "name": "Half Half Half",
+  "abId": "21",
+  "chain": "ethereum",
+  "kind": "js",
+  "value": "let e,t,l,r,n=Math,F=window,a=document,s=Math.ceil,o=n.random,V=\"20231207.155101\",C={t:[\"#FCCDFF\",\"#00A545\",\"#C4E9FB\",\"#29ABE2\",\"#6F00A4\",\"#ED1E79\",\"#FFFF9B\",\"#FF6200\",\"#00A99D\",\"#666\",\"#CCC\",\"#B8FFDE\"],l:.003,F:e=>n.sin(e*n.PI/2),o:[.2,.7],S:[35,213,550,156,36,258,248,107,288,417,134,255,634,364,294,154,184,292]},d={};d.i=(e,t)=>d.u(e.slice()).slice(0,t),d.C=(e,t)=>e+o()*(t-e),d.u=e=>{for(let t=e.length;t;t--){let l=o()*t>>0,r=e[t-1];e[t-1]=e[l],e[l]=r}return e},d.A=e=>{let t=4022871197,l=2.3283064365386963e-10;var r=e=>{e=String(e);for(let l=0;l<e.length;l++){t+=e.charCodeAt(l);let r=.02519603282416938*t;t=r>>>0,r-=t,r*=t,t=r>>>0,r-=t,t+=4294967296*r}return(t>>>0)*l};let n=1,F=r(\" \"),a=r(\" \"),s=r(\" \");return F-=r(e),F<0&&(F+=1),a-=r(e),a<0&&(a+=1),s-=r(e),s<0&&(s+=1),()=>{let e=2091639*F+n*l;return F=a,a=s,s=e-(n=0|e)}},a.body.style.overflow=\"hidden\";let i,u,f,A,D,E,p=r=>{D=parseInt(tokenData.tokenId.slice(-6));let n=C.S[D%C.S.length];o=d.A(n),e=d.i(C.t,2),o()<.5&&e.reverse(),l=!1,t=o()<.5,B(d.C(...C.o))},B=(n=0)=>{r=n,t==l&&e.reverse(),t=!t,l=o()<.5},_=()=>{let e=r;r=(e+C.l)%1,e>r&&B()},c=e=>{let n=f/2,F=A/2;h(0,0,0,f,A);let a=C.F(r);if(t){let e=f*a*.5,t=f-e;l?(h(1,0,0,e,F+2),h(1,0,F,t,A-F)):(h(1,t,0,e,F+2),h(1,e,F,t,A-F))}else{let e=A*a*.5,t=A-e;l?(h(1,0,t,n+2,A-t),h(1,n,e,f-n,A-e)):(h(1,0,0,n+2,e),h(1,n,0,f-n,t))}},h=(t,l,r,n,F)=>{i.fillStyle=e[t],i.fillRect(l,r,n,F)},m=e=>{c(),requestAnimationFrame(m)},v=F.onresize=e=>{let t=F.innerWidth,l=F.innerHeight,r=F.devicePixelRatio;t&&(f=s(t*r),A=s(l*r),i.scale(r,r),u.width=f,u.height=A,u.style.width=t+\"px\",u.style.height=l+\"px\",p())};F.onload=()=>{u=a.querySelector(\"canvas\"),u.style.margin=\"0\",i=u.getContext(\"2d\"),v(),setInterval(_,17),m()};",
+  "collectionIdOverride": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5-dev-good-1-21",
+  "isDevelopmentPreview": true
+}

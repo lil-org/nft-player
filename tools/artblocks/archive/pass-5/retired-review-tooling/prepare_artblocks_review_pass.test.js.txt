@@ -1,0 +1,269 @@
+"use strict";
+
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const fs = require("node:fs/promises");
+const path = require("node:path");
+const os = require("node:os");
+const { createHash } = require("node:crypto");
+const { SOURCE_REVIEW_SHA256, EXPECTED_COUNTS, createArtifacts, planReviewPass, checkReviewPass, applyReviewPass, main }
+  = require("./prepare_artblocks_review_pass");
+
+const address = "0x0000000000000000000000000000000000000001";
+const key = (project, chain = 1) => `${chain}:${address}:${project}`;
+const digest = value => createHash("sha256").update(value).digest("hex");
+const note = "静止画？ 👍\nTry \"landscape\" \\ portrait\nЕщё один просмотр";
+
+function fixtureData() {
+  const definitions = [
+    { project: 1, chain: 1, name: "Alpha", group: "good", decision: "yes", note: null, extensions: ["png", "mp4"] },
+    { project: 2, chain: 1, name: "Rejected", group: "hmm", decision: "no", note: null, extensions: ["png"] },
+    { project: 3, chain: 1, name: "Static", group: "ok", decision: "mb static", note: "Later", extensions: ["mp4", "png"] },
+    { project: 4, chain: 42161, name: "Beta", group: "hmm", decision: "yes", note, extensions: ["png"] },
+  ];
+  const review = { version: 2, collections: {} };
+  const curation = { version: 1, source: { endpoint: "https://data.artblocks.io/v1/graphql", discoveredAt: "2026-09-06T00:00:00Z" }, collections: {} };
+  const items = new Map();
+  const tokensByIdentity = new Map();
+  for (const item of definitions) {
+    const identity = key(item.project, item.chain);
+    const samples = item.extensions.map((extension, index) => ({
+      tokenId: String(item.project * 1000000 + index), invocation: index,
+      url: `https://example.test/reviewed/${item.project}/${index}.${extension}`, extension,
+    }));
+    review.collections[identity] = { name: item.name, group: item.group, decision: item.decision, note: item.note };
+    curation.collections[identity] = { name: item.name, artist: "Artist", group: item.group, directory: `${item.name} folder `, samples };
+    items.set(identity, { address, chain: "ethereum", chainId: item.chain, collectionId: `-dev-good-${item.chain}-${item.project}`,
+      name: item.name, reviewIdentity: identity, reviewGroup: item.group });
+    tokensByIdentity.set(identity, { items: samples.map(sample => ({
+      id: sample.tokenId, hash: "0x" + "a".repeat(64), url: `https://example.test/api/${sample.tokenId}.png?image=still`,
+    })) });
+  }
+  curation.collections[key(99)] = { name: "Previously excluded", artist: "Artist", group: "excluded", directory: "Previously excluded" };
+  const catalog = [items.get(key(4, 42161)), items.get(key(1)), items.get(key(3)), items.get(key(2))];
+  const source = Buffer.from(JSON.stringify(review, null, 4).replaceAll("\n", "\r\n") + "\r\n");
+  return { source, review, curation, catalog, tokensByIdentity, options: {
+    expectedSourceSHA256: digest(source),
+    expectedCounts: { yes: { collections: 2, tokens: 3 }, no: { collections: 1, tokens: 1 }, "mb static": { collections: 1, tokens: 2 }, notes: 2 },
+  } };
+}
+
+function artifacts(fixture) {
+  return createArtifacts(fixture.source, fixture.curation, fixture.catalog, fixture.tokensByIdentity, fixture.options);
+}
+
+async function fixture(t) {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "artblocks-review-pass-test-"));
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const data = fixtureData();
+  const config = {
+    ...data.options,
+    passID: "pass-2",
+    source: path.join(directory, "device-export.json"),
+    curation: path.join(directory, "curation.json"),
+    preview: path.join(directory, "Development", "Good"),
+    archive: path.join(directory, "reviews", "pass-1.json"),
+    staticOutput: path.join(directory, "reviews", "pass-1-static.json"),
+    runtimeOutput: path.join(directory, "Development", "review-pass.json"),
+  };
+  await fs.mkdir(path.join(config.preview, "Tokens"), { recursive: true });
+  await fs.mkdir(path.join(config.preview, "Scripts"));
+  await fs.writeFile(config.source, data.source);
+  await fs.writeFile(config.curation, JSON.stringify(data.curation));
+  await fs.writeFile(path.join(config.preview, "items.json"), JSON.stringify(data.catalog));
+  for (const item of data.catalog) {
+    await fs.writeFile(path.join(config.preview, "Tokens", `${item.address}${item.collectionId}.json`), JSON.stringify(data.tokensByIdentity.get(item.reviewIdentity)));
+    await fs.writeFile(path.join(config.preview, "Scripts", `${item.address}${item.collectionId}.json`), JSON.stringify({ value: `artist source ${item.reviewIdentity}` }));
+  }
+  return { directory, data, config };
+}
+
+async function fileSnapshot(directory) {
+  const result = new Map();
+  async function visit(relative = "") {
+    for (const item of await fs.readdir(path.join(directory, relative), { withFileTypes: true })) {
+      const file = path.join(relative, item.name);
+      if (item.isDirectory()) await visit(file);
+      else result.set(file, await fs.readFile(path.join(directory, file)));
+    }
+  }
+  await visit();
+  return result;
+}
+
+test("the frozen first-pass specification reconciles all 519 collections and 11,627 tokens", () => {
+  assert.equal(SOURCE_REVIEW_SHA256, "076a3b03c9a09987e9c1a4e1feca664231219f12794db8c5feaa2c4d188b2689");
+  assert.deepEqual(EXPECTED_COUNTS, { yes: { collections: 315, tokens: 7028 }, no: { collections: 104, tokens: 2316 }, "mb static": { collections: 100, tokens: 2283 }, notes: 4 });
+  assert.equal(["yes", "no", "mb static"].reduce((sum, decision) => sum + EXPECTED_COUNTS[decision].collections, 0), 519);
+  assert.equal(["yes", "no", "mb static"].reduce((sum, decision) => sum + EXPECTED_COUNTS[decision].tokens, 0), 11627);
+});
+
+test("the archived device export produces the checked-in 315-collection pass and 100-collection static manifest", async () => {
+  const plan = await planReviewPass({ preview: path.join(__dirname, "artblocks/archive/pass-5/Development/Good") });
+  await checkReviewPass(plan);
+  assert.deepEqual(plan.counts, EXPECTED_COUNTS);
+  const runtime = JSON.parse([...plan.files].find(([file]) => path.basename(file) === "pass-2-runtime.json")[1]);
+  const deferred = JSON.parse([...plan.files].find(([file]) => path.basename(file) === "pass-1-static.json")[1]);
+  assert.equal(runtime.selectedIdentities.length, 315);
+  assert.equal(new Set(runtime.selectedIdentities).size, 315);
+  assert.equal(Object.keys(runtime.initialNotesByIdentity).length, 4);
+  assert.ok(Object.keys(runtime.initialNotesByIdentity).every(identity => runtime.selectedIdentities.includes(identity)));
+  assert.equal(deferred.collections.length, 100);
+  const staticSamples = deferred.collections.flatMap(collection => collection.samples);
+  assert.equal(staticSamples.length, 2283);
+  assert.equal(staticSamples.filter(sample => sample.localPath.endsWith(".mp4")).length, 70);
+  assert.ok(staticSamples.every(sample => new URL(sample.fallbackImageURL).pathname.endsWith(".png")));
+});
+
+test("artifacts retain the exact archive, catalog order, and independent Unicode notes", () => {
+  const f = fixtureData(), result = artifacts(f);
+  assert.deepEqual(result.archive, f.source);
+  assert.deepEqual(result.runtime, {
+    version: 1, passID: "pass-2", sourceReviewSHA256: digest(f.source),
+    selectedIdentities: [key(4, 42161), key(1)], initialNotesByIdentity: { [key(4, 42161)]: note },
+  });
+  assert.equal(result.deferred.collections[0].note, "Later");
+  assert.equal(result.deferred.collections[0].decision, "mb static");
+  assert.deepEqual(result.counts, f.options.expectedCounts);
+  assert.equal(Object.hasOwn(result.runtime, "decisionsByIdentity"), false);
+});
+
+test("deferred static review keeps local MP4 paths but uses saved HTTPS PNG fallbacks", () => {
+  const f = fixtureData(), result = artifacts(f);
+  assert.equal(result.deferred.collectionCount, 1);
+  assert.equal(result.deferred.tokenCount, 2);
+  const record = result.deferred.collections[0];
+  assert.equal(record.identity, key(3));
+  assert.equal(record.localCollectionFolder, "samples/ok/Static folder ");
+  assert.deepEqual(record.samples[0], {
+    tokenId: "3000000", localPath: "samples/ok/Static folder /3000000.mp4", fallbackImageURL: "https://example.test/api/3000000.png?image=still",
+  });
+  assert.equal(record.samples[1].localPath, "samples/ok/Static folder /3000001.png");
+  assert.ok(record.samples.every(sample => new URL(sample.fallbackImageURL).pathname.endsWith(".png")));
+});
+
+test("malformed exports, unresolved decisions, and invalid notes fail before producing artifacts", () => {
+  for (const change of [
+    review => { review.version = 1; },
+    review => { review.collections = []; },
+    review => { review.collections[key(1)].decision = null; },
+    review => { review.collections[key(1)].decision = "good"; },
+    review => { delete review.collections[key(1)].note; },
+    review => { review.collections[key(1)].note = 42; },
+  ]) {
+    const f = fixtureData();
+    change(f.review);
+    f.source = Buffer.from(JSON.stringify(f.review));
+    assert.throws(() => artifacts(f), /version 2|decision|note/u);
+  }
+  const f = fixtureData();
+  f.source = Buffer.from("not JSON");
+  assert.throws(() => artifacts(f), SyntaxError);
+});
+
+test("unknown, missing, and noncanonical review identities are rejected", () => {
+  const unknown = fixtureData();
+  unknown.review.collections[key(99)] = unknown.review.collections[key(1)];
+  unknown.source = Buffer.from(JSON.stringify(unknown.review));
+  assert.throws(() => artifacts(unknown), /Unknown review identity/u);
+
+  const missing = fixtureData();
+  delete missing.review.collections[key(1)];
+  missing.source = Buffer.from(JSON.stringify(missing.review));
+  assert.throws(() => artifacts(missing), /Missing review identity/u);
+
+  const noncanonical = fixtureData();
+  noncanonical.review.collections[`01:${address}:1`] = noncanonical.review.collections[key(1)];
+  noncanonical.source = Buffer.from(JSON.stringify(noncanonical.review));
+  assert.throws(() => artifacts(noncanonical), /canonical review identity/u);
+});
+
+test("review metadata and preview identity metadata must match the original curation", () => {
+  for (const field of ["name", "group"]) {
+    const f = fixtureData();
+    f.review.collections[key(1)][field] = "changed";
+    f.source = Buffer.from(JSON.stringify(f.review));
+    assert.throws(() => artifacts(f), /Review metadata differs/u);
+  }
+  for (const field of ["address", "chainId", "collectionId", "name", "reviewGroup"]) {
+    const f = fixtureData();
+    f.catalog[0][field] = "changed";
+    assert.throws(() => artifacts(f), /Preview metadata differs/u);
+  }
+  const duplicate = fixtureData();
+  duplicate.catalog[1] = duplicate.catalog[0];
+  assert.throws(() => artifacts(duplicate), /duplicate preview identity/u);
+  const missing = fixtureData();
+  missing.catalog.pop();
+  assert.throws(() => artifacts(missing), /catalog does not match/u);
+});
+
+test("changed token order, invalid fallback formats, partition counts, and source hashes are rejected", () => {
+  const tokens = fixtureData();
+  tokens.tokensByIdentity.get(key(1)).items.reverse();
+  assert.throws(() => artifacts(tokens), /token selection differs/u);
+  for (const url of ["https://example.test/movie.mp4", "http://example.test/still.png", "https://user:password@example.test/still.png", null]) {
+    const f = fixtureData();
+    f.tokensByIdentity.get(key(3)).items[0].url = url;
+    assert.throws(() => artifacts(f), /PNG fallback/u);
+  }
+  const counts = fixtureData();
+  counts.options.expectedCounts.yes.collections++;
+  assert.throws(() => artifacts(counts), /Unexpected yes partition/u);
+  const notes = fixtureData();
+  notes.options.expectedCounts.notes++;
+  assert.throws(() => artifacts(notes), /Unexpected note count/u);
+  const digest = fixtureData();
+  digest.source = Buffer.concat([digest.source, Buffer.from("\n")]);
+  assert.throws(() => artifacts(digest), /SHA-256/u);
+});
+
+test("dry run writes nothing and apply preserves every input, artist source, and token file", async t => {
+  const f = await fixture(t), before = await fileSnapshot(f.directory), logs = [];
+  const plan = await main([], { ...f.config, log: value => logs.push(value) });
+  assert.deepEqual(await fileSnapshot(f.directory), before);
+  assert.equal(JSON.parse(logs[0]).mode, "dry-run");
+  await assert.rejects(checkReviewPass(plan), /missing or stale/u);
+  assert.equal(await applyReviewPass(plan), 3);
+  const after = await fileSnapshot(f.directory);
+  assert.equal(after.size, before.size + 3);
+  for (const [file, contents] of before) assert.deepEqual(after.get(file), contents, file);
+  assert.deepEqual(await fs.readFile(f.config.archive), f.data.source);
+  assert.equal(path.dirname(f.config.runtimeOutput), path.dirname(f.config.preview));
+  await checkReviewPass(plan);
+});
+
+test("repeated preparation is deterministic and check detects stale generated output", async t => {
+  const f = await fixture(t), plan = await planReviewPass(f.config);
+  await applyReviewPass(plan);
+  const before = await fileSnapshot(f.directory), modificationTime = (await fs.stat(f.config.runtimeOutput)).mtimeMs;
+  const repeated = await planReviewPass({ ...f.config, source: undefined });
+  assert.deepEqual(repeated.files, plan.files);
+  assert.equal(await applyReviewPass(repeated), 0);
+  assert.deepEqual(await fileSnapshot(f.directory), before);
+  assert.equal((await fs.stat(f.config.runtimeOutput)).mtimeMs, modificationTime);
+  await fs.writeFile(f.config.runtimeOutput, "stale");
+  await assert.rejects(checkReviewPass(repeated), /missing or stale/u);
+  assert.equal(await applyReviewPass(repeated), 1);
+  await checkReviewPass(repeated);
+});
+
+test("an existing first review archive is never replaced by a different export", async t => {
+  const f = await fixture(t);
+  await fs.mkdir(path.dirname(f.config.archive));
+  const original = Buffer.from("previous immutable archive");
+  await fs.writeFile(f.config.archive, original);
+  await assert.rejects(planReviewPass(f.config), /Refusing to replace/u);
+  assert.deepEqual(await fs.readFile(f.config.archive), original);
+  await assert.rejects(fs.stat(f.config.runtimeOutput), { code: "ENOENT" });
+});
+
+test("the CLI applies and checks the archive offline with explicit operation validation", async t => {
+  const f = await fixture(t), logs = [];
+  await main(["--source", f.config.source, "--apply"], { ...f.config, log: value => logs.push(value) });
+  await main(["--check"], { ...f.config, source: undefined, log: value => logs.push(value) });
+  assert.deepEqual(logs.map(value => JSON.parse(value).mode), ["apply", "check"]);
+  await assert.rejects(main(["--source"]), /Missing value/u);
+  await assert.rejects(main(["--apply", "--check"]), /Choose only one/u);
+  await assert.rejects(main(["--unknown"]), /Unknown option/u);
+});

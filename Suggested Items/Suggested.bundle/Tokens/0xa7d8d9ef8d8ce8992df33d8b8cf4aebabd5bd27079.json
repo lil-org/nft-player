@@ -1,0 +1,1125 @@
+{
+  "items": [
+    {
+      "id": "79000000",
+      "hash": "0x9163fb6431141321e39ba1df1a7d1d0b2d102bb7dbcf0edb870e08ce70bb5188",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/79000000.png",
+      "referencePixelSize": [
+        1200,
+        1200
+      ],
+      "imageAspectRatio": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000001",
+      "hash": "0xde79cdfdf8d11f4748ded26ef31c835faa98a87beed3f6faf48a21a1fa325a64",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/79000001.png",
+      "referencePixelSize": [
+        1200,
+        1200
+      ],
+      "imageAspectRatio": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000002",
+      "hash": "0x6bf2b99c816443add546bfe0763ee0d34ede6cffcc8e76bcb0b65b02cbf95e0b",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/79000002.png",
+      "referencePixelSize": [
+        1200,
+        1200
+      ],
+      "imageAspectRatio": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000003",
+      "hash": "0x081ccb14b77b2693c7da41fa34403b2349c0bfb93a7d5dde1b93e68ac18eaf07",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/79000003.png",
+      "referencePixelSize": [
+        1200,
+        1200
+      ],
+      "imageAspectRatio": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000004",
+      "hash": "0x441c8d1b533efd5b884f0add7444a0fe721aba8552c4aadc84a130d86fb41903",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/79000004.png",
+      "referencePixelSize": [
+        1200,
+        1200
+      ],
+      "imageAspectRatio": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000005",
+      "hash": "0xf7be5954af13f14386c4af223162c8047ad49730368563db5bc851c1e8bcff61",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/79000005.png",
+      "referencePixelSize": [
+        1200,
+        1200
+      ],
+      "imageAspectRatio": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000006",
+      "hash": "0xd4867fe9a11ab9d9b0a900a1b28965d8afa7958c92b6b49084244bd7d0a26375",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/79000006.png",
+      "referencePixelSize": [
+        1200,
+        1200
+      ],
+      "imageAspectRatio": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000007",
+      "hash": "0x9a5148c507166ac9cf6d7e01067ef26f27fa7874359a68bde9b593a07faf706f",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/79000007.png",
+      "referencePixelSize": [
+        1200,
+        1200
+      ],
+      "imageAspectRatio": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000008",
+      "hash": "0x3c7c25dedd88a519030e874ee27277f703ff1cf631adf60475289b575a264f36",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/79000008.png",
+      "referencePixelSize": [
+        1200,
+        1200
+      ],
+      "imageAspectRatio": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000009",
+      "hash": "0x180984b6d764d33c5bbf8a523c765157cce628a508b8b537a1b7b77a98071c22",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/79000009.png",
+      "referencePixelSize": [
+        1200,
+        1200
+      ],
+      "imageAspectRatio": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000010",
+      "hash": "0x71244562ee4834eb3c9ed17dda658db68366b2ab045743efaa84bdf28529db18",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/79000010.png",
+      "referencePixelSize": [
+        1200,
+        1200
+      ],
+      "imageAspectRatio": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000011",
+      "hash": "0x5a570e7b6fba0b303f9b6a6b1fe93de0da956e88c5e4cc31308c520b75a6080e",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/79000011.png",
+      "referencePixelSize": [
+        1200,
+        1200
+      ],
+      "imageAspectRatio": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000012",
+      "hash": "0xc32a2e7e22e3fec28e433799fe91734d316303d4c6c41a073af92fce10e400de",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/79000012.png",
+      "referencePixelSize": [
+        2400,
+        2400
+      ],
+      "imageAspectRatio": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "79000013",
+      "hash": "0x29050a650d23e874af2a349288df4ccd98de4386cdf473476035ae0e5ce4806d",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/79000013.png",
+      "referencePixelSize": [
+        1200,
+        1200
+      ],
+      "imageAspectRatio": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000014",
+      "hash": "0xd9f5729b31631075c2802abda83a5bc58ff1fcc58e9bc5268b1a3f9cf9de8c0c",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/79000014.png",
+      "referencePixelSize": [
+        1200,
+        1200
+      ],
+      "imageAspectRatio": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000015",
+      "hash": "0xad10cf4857ebc937a3097f7eb656eb4717a413c1431a356222ff261cd1111739",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/79000015.png",
+      "referencePixelSize": [
+        1200,
+        1200
+      ],
+      "imageAspectRatio": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000016",
+      "hash": "0xd62adea57942e1fc3ebb8d14f4afef5aca9e91c5da1a784e22d94c670be92c0f",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/79000016.png",
+      "referencePixelSize": [
+        1200,
+        1200
+      ],
+      "imageAspectRatio": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000017",
+      "hash": "0x40ba15304f5889c90dc7907f8d8b850598537b98f3121ba9c962793a463a4634",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/79000017.png",
+      "referencePixelSize": [
+        1200,
+        1200
+      ],
+      "imageAspectRatio": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000018",
+      "hash": "0x62d6631482cb0e112b1d11c386c461b7173eb8d5eb11b31a0d95814451a6bdc3",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/79000018.png",
+      "referencePixelSize": [
+        1200,
+        1200
+      ],
+      "imageAspectRatio": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000019",
+      "hash": "0x7d9723126e3d0103fc5677ed9d237b9a0e123caa3c102c8ec574642a84f2e3e7",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/79000019.png",
+      "referencePixelSize": [
+        1200,
+        1200
+      ],
+      "imageAspectRatio": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000020",
+      "hash": "0xf50ac8fdf120b9a855cd680dec1b5d75b9302cb9442cfcb15e4b7703f0c926e5",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/79000020.png",
+      "referencePixelSize": [
+        1200,
+        1200
+      ],
+      "imageAspectRatio": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000021",
+      "hash": "0xa99d3a9ccb315b28f02e6c033cd4f0706edc191e335fbe72afbb087ce2e3969c",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/79000021.png",
+      "referencePixelSize": [
+        1200,
+        1200
+      ],
+      "imageAspectRatio": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000022",
+      "hash": "0x70ee25a3bcd83a04a56914dd8c83f123708c9501e75a5157aeb2aaf39a7255fb",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/79000022.png",
+      "referencePixelSize": [
+        1200,
+        1200
+      ],
+      "imageAspectRatio": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000023",
+      "hash": "0x5cf9a867c75aec721f4be4fce0c7b33d7bd6d5b2f71957875181e4f02c2a9726",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000024",
+      "hash": "0x7c18f679b544783fdded6c03394ec52be998b8f928c3bf50eea0d8e4e4347014",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000025",
+      "hash": "0x2a954668ac8c287583359e51db3fec556f3983a4b22d459a8e7766fa8af35d09",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000026",
+      "hash": "0xab4fe468c5703637e90e1b9ebec732d92849baae318143480d86d0c89cf74ee3",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000027",
+      "hash": "0x8d93202cd08e0b4278135c431a5357fbb301dda96513afd6aef36306196283e4",
+      "imageAspectRatio": [
+        2400,
+        2400
+      ],
+      "referencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "79000028",
+      "hash": "0x65aef77362311d5760285529cb64fd44697bf92af5735bc30ac7b3a2667cc9b3",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000029",
+      "hash": "0x0977ccf60d1f686e77205e40e9d7186e625e4c4d666a79e591b61ebc8d0d1313",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000030",
+      "hash": "0x5821a4c275309767a93ad25bf662dd2c3a3c7a48a9988607d4c83a8b6db68a86",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000031",
+      "hash": "0xc3d6dd8ad51b1d3cd2e2df57206003edf81684f6134dfc042f571d1496e4294d",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000032",
+      "hash": "0xda08144cc42d1904df6c1526b90153b16bc9fa341fcf032d3531cc2469940e69",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000033",
+      "hash": "0x7fb2bbe4fa9e42526823544729029778a0750d5ad8a8dd0796654ba9ba67aba8",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000034",
+      "hash": "0xcff71e086834fe661f6e510923a066cd8e00c73b9d972524a0f6f26d5bf5dcc4",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000035",
+      "hash": "0x5f71fb7abcfd139579e1a35dba7a8452687b4bc9a9533339f5e6a5696b8a303d",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000036",
+      "hash": "0xbf14a903986e0904791c3f3fd252e37f7bd0d9167358a3136d10b27aae941b07",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000037",
+      "hash": "0xcfbc824ba9b2caa91f9719f7ed21d596ec6701ead4aa5ecd4d981af9aa903e73",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000038",
+      "hash": "0xd9de298d0e9e48272b98085123b0633acb32c388b65865539bd2c847c0e40f5e",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000039",
+      "hash": "0x768e71387e373136c66711ac030c2af50205585464314ba11a1143322bdbdb33",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000040",
+      "hash": "0x334aefb5260a2309f246fe26761ce54f6e9216c4d48796f09aef68701ab1b478",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000041",
+      "hash": "0x1586eab56c663fe2e865028b48def315a0108722b1a70ed56c37111461e2b9c0",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000042",
+      "hash": "0x8cfd4719a337cf93498e3b461187970c0d3023d63a1091c406022989909d27e9",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000043",
+      "hash": "0xb25e8661affc7b081116fb3260637fbe3cfaf10c6a08b50adcefc5248d326398",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000044",
+      "hash": "0xefc46f50362b5d00313c3698f3058f62a2f26cd4ac2790a7243e0ddf9d3b09de",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000045",
+      "hash": "0x706a153131bf7d94add42744055eb25f263ae360209e422ecd236f3ae4c1b2f4",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000046",
+      "hash": "0xc639eb1b8bfb1a4048d04156116e01d90e903b17d1c9f64da00bd6d1f33758bf",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000047",
+      "hash": "0x2a425303d320cb73557d7e96aab122207c43cb32a0dd7f2cec67778ba45e3c78"
+    },
+    {
+      "id": "79000048",
+      "hash": "0x882a1d6d48d765bad4f518210dc07375edb768a898c5efa23e04d329e3dd8d19",
+      "imageAspectRatio": [
+        2400,
+        2400
+      ],
+      "referencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "79000049",
+      "hash": "0x6da73f16ddf26d0903c3762391c139f7614fecbac5cfbb65581c29ea8243000b",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000050",
+      "hash": "0x3aef9ba8ebf9d2392dd31a3a46199a893b5f09157fbbbebdaf32673a28087769",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000051",
+      "hash": "0x28ec0257275c7d05e6db6a4760b2f4fc8fcb372464ec98fbed4f0d6e2e0e551d"
+    },
+    {
+      "id": "79000052",
+      "hash": "0xb1f050f76a4ef251f923804faa6b03d1fa7c2fda5f45a8d4d3984f85abd2fe54",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000053",
+      "hash": "0x586c1d920a3941423c073985b1e8762d0b1826da0c42cdb92a4e84b7ecc9a694",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000054",
+      "hash": "0x48c150356bc0a9c4d2fa6c25601d977cbe8d8e31b8fd9c4566e56e6449730ecc",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000055",
+      "hash": "0xe9cbe7cd4742f86b97d3f49de2c01f925e3172f68266c4f410b2c8e753b69ca7",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000056",
+      "hash": "0x8f8c51d1a455b3fcef7e7fbeda963d43346e27c76670ee096be0b6415391cb6a",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000057",
+      "hash": "0x16db6b7e8b602a9519472e14c674f7a565fb51f2782ef463ac8aae037f908c3d",
+      "imageAspectRatio": [
+        2400,
+        2400
+      ],
+      "referencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "79000058",
+      "hash": "0x8f26281839574de7b313810f1c27dc974bd87d0c71676b24cb10120f7bb21ace",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000059",
+      "hash": "0x341af0c6af460261e412c8b4bb7b4a05a7a56956338edc5098730a83390cc0eb",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000060",
+      "hash": "0x5a99968fdbcdcfd149a0b5ed6045ebfd5c993ecef69d63811b85e4ada19f73d8"
+    },
+    {
+      "id": "79000061",
+      "hash": "0x1285a4377766f2617014bed2fedc425f9d1aa3f26ddc7847709d882269966b58",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000062",
+      "hash": "0xb27b4bd6e97e96f464c5a5fd00de775b17d3e87156cd78c16669661d5f720fb9",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000063",
+      "hash": "0x7fbab857f8de20620d29dc821b333b00f258e27ef88e378e9bed98abad3e59b2",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000064",
+      "hash": "0x328407d43e2f4383272e8c3b24dc980590024c622865f08b685ee33b8286fd70",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000065",
+      "hash": "0x832568d790e0a8303497d529b99c1182542a10848e1c6fc27a8f023c2023cb71",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000066",
+      "hash": "0x9a528eeed38a30f5e180795a3bbd399d1d9eedd3814552f841b25f340552060a",
+      "imageAspectRatio": [
+        2400,
+        2400
+      ],
+      "referencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "79000067",
+      "hash": "0x5adbe5dd5faa085da9ccd983ac8c853b281e2edc3a3690c784f8a2238c3a06e8",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000068",
+      "hash": "0x4f2792653c72c97ab2d28e34c292cea0d7c87d1451330f0d9a6824a0e7671207",
+      "imageAspectRatio": [
+        2400,
+        2400
+      ],
+      "referencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "79000069",
+      "hash": "0x6efe83e817663e0dfa97532efcd8393e004950b88f8b4b3a539179c68af55f62",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000070",
+      "hash": "0xa0bf2dd0faf15b6d613516c62fd3b1a19bce80cb796d01c3e96515cfe175820a",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000071",
+      "hash": "0x803e0e6f632f1138aa7f60348c5870472cb660c768e9cf8af502ecc6d758551a",
+      "imageAspectRatio": [
+        2400,
+        2400
+      ],
+      "referencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "79000072",
+      "hash": "0x37c91bd4dd1b24464e9cd9677ea138d031e4abf6f0f55311c2bb48cb37ced41b",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000073",
+      "hash": "0x34d19a67bd0c66ff96d29ed3b525054ce0e307113ed146144564701f862a7ba4",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000074",
+      "hash": "0x839307db121bb22bc98a3df61689bcfdf2de040518457b6279f09e0c0ace3ea5",
+      "imageAspectRatio": [
+        2400,
+        2400
+      ],
+      "referencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "79000075",
+      "hash": "0x1c405557a969efd903c6fe5d73cc8914bf464b24d95b2fc51041143c7f37fc92",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000076",
+      "hash": "0xedfeeea86ff5c387c71508e189d80beefb64fe1100350a6909d01b2c6ce988b2",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000077",
+      "hash": "0xbd4326f447457fbaadff9beeb5270720b3fc7b807cf54fd33d8bdd7cef68a1e6",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000078",
+      "hash": "0xa518b9da6be7efbb7292279fa5d9d7bb843f9d66b1900ec6163f7e58ee000e28",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000079",
+      "hash": "0xfea114396e0d4168a350f448faa0c8257da9e2f178bed3e514150130292da303",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000080",
+      "hash": "0xf22c26e14ebfe1a15df7fb0daa4dae680a85ec1a42463b9d0b03595a46010977",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000081",
+      "hash": "0xa39ba2e6cdc6d1d8e39ea57202fbd7efe935a3743f31633da95a802fcfcda7d3",
+      "imageAspectRatio": [
+        2400,
+        2400
+      ],
+      "referencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "79000082",
+      "hash": "0xb51a48cbae705917001d39a417343f85f02e300c904258c3103bee54405be188",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000083",
+      "hash": "0x7455fa3e8bc2676477f7d7ccf4a7a783cc0bea99ee585a664fc6a11e658b59f6",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000084",
+      "hash": "0xbd3ceace9b19d536b152d90f591a994bde3730376a847704140f4cc3674b7aa4",
+      "imageAspectRatio": [
+        2400,
+        2400
+      ],
+      "referencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "79000085",
+      "hash": "0x42225ab0f9f5ea5e50cd5f0fa92105b5e43e1341f9c9c142b9746d642e4536ab",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000086",
+      "hash": "0x36b1f7c0ff7f9a2ed09fabfdcadb4dd530823fd66630a6134d36e0857b0ad88a",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000087",
+      "hash": "0x2c147b10b01a644312250f66b9524fcee6437ceb95c0ebcba95f54417449ff20",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000088",
+      "hash": "0xec72ab1f88edac4ea2eda2a868bc0a2179c2927667b453e03ca15321fbf0a02b",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000089",
+      "hash": "0xbe2ab74246851fe443d81518df82e6a0c482978c4b0e7365caa9cc6d1cf5f519",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000090",
+      "hash": "0x756ebf916eceb13f03784060630a00c50021b8638c1cd268876dbd69dd856cb9",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000091",
+      "hash": "0x3b9b02ab32d1673e7081daca2a283bdf3892e5c0d913a321ccfb2f688ba5d436",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "79000092",
+      "hash": "0x9ce267c1148a406939c2976eb2f544e1bae162987e06595a9567e82d7dd8bce3",
+      "imageAspectRatio": [
+        1200,
+        1200
+      ],
+      "referencePixelSize": [
+        1200,
+        1200
+      ]
+    }
+  ],
+  "artworkAspectRatios": [
+    [
+      1,
+      1
+    ]
+  ]
+}

@@ -1,0 +1,429 @@
+{
+  "items": [
+    {
+      "id": "14000000",
+      "hash": "0x554e86fb237a2ff9f4ccb90e203ff69b1552ad74208c646972415711a5b42e45",
+      "url": "https://newrafael-work-mainnet.s3.amazonaws.com/14000000.png",
+      "referencePixelSize": [
+        2400,
+        2400
+      ],
+      "imageAspectRatio": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "14000001",
+      "hash": "0x9cd0fa42437218570252220ad014e9ed969380a3ba4bb96b26e1cfa8b12c88eb",
+      "url": "https://newrafael-work-mainnet.s3.amazonaws.com/14000001.png",
+      "referencePixelSize": [
+        2400,
+        2400
+      ],
+      "imageAspectRatio": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "14000002",
+      "hash": "0xf1921e8b61c1825ef9fcf15347ed79d4bb860d79ebd0478f61e65fc16b0967cb",
+      "url": "https://newrafael-work-mainnet.s3.amazonaws.com/14000002.png",
+      "referencePixelSize": [
+        2400,
+        2400
+      ],
+      "imageAspectRatio": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "14000003",
+      "hash": "0xb35742a0499da842c9e815bb96395a999c9be3def88710ceb927dfea20ab2803",
+      "url": "https://newrafael-work-mainnet.s3.amazonaws.com/14000003.png",
+      "referencePixelSize": [
+        2400,
+        2400
+      ],
+      "imageAspectRatio": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "14000004",
+      "hash": "0x2a749a0bde9367687830d43767ff22a765e98d213fce16b0c74d0795afef364a",
+      "url": "https://newrafael-work-mainnet.s3.amazonaws.com/14000004.png",
+      "referencePixelSize": [
+        2400,
+        2400
+      ],
+      "imageAspectRatio": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "14000005",
+      "hash": "0x69c01cf47fcb09fbcaddf7992b7f74a72c9cb2eada6a950d59b7441ef217dd96",
+      "url": "https://newrafael-work-mainnet.s3.amazonaws.com/14000005.png",
+      "referencePixelSize": [
+        2400,
+        2400
+      ],
+      "imageAspectRatio": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "14000006",
+      "hash": "0x22c1da46cd369587b32fea623b2173ebc0f337835f66642657f6a9296e102fc6",
+      "url": "https://newrafael-work-mainnet.s3.amazonaws.com/14000006.png",
+      "referencePixelSize": [
+        2400,
+        2400
+      ],
+      "imageAspectRatio": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "14000007",
+      "hash": "0x4e2fec0d371703679d611573e3ad9af7272c6fa46f291b02514e19a77f698ee6",
+      "url": "https://newrafael-work-mainnet.s3.amazonaws.com/14000007.png",
+      "referencePixelSize": [
+        2400,
+        2400
+      ],
+      "imageAspectRatio": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "14000008",
+      "hash": "0xeee877f4ee47f0e4c9ccb5185ea9077f5f2fa64e206b3651c768f88557606e9f",
+      "url": "https://newrafael-work-mainnet.s3.amazonaws.com/14000008.png",
+      "referencePixelSize": [
+        2400,
+        2400
+      ],
+      "imageAspectRatio": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "14000009",
+      "hash": "0x7a41e51662a218eaaa986a55dd7b6535804f3affaf5551dd5fa2501edffa838a",
+      "url": "https://newrafael-work-mainnet.s3.amazonaws.com/14000009.png",
+      "referencePixelSize": [
+        2400,
+        2400
+      ],
+      "imageAspectRatio": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "14000010",
+      "hash": "0xe0fd27dd7c81fc3ad27a73e5f89a67439cbdc60f1202d9d6fcde6118e64e0fcd",
+      "url": "https://newrafael-work-mainnet.s3.amazonaws.com/14000010.png",
+      "referencePixelSize": [
+        2400,
+        2400
+      ],
+      "imageAspectRatio": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "14000011",
+      "hash": "0x5e7fb8eb90ef5994f1f5781d579a2ab86edffb7a18332fc05c295e2358f05b29",
+      "url": "https://newrafael-work-mainnet.s3.amazonaws.com/14000011.png",
+      "referencePixelSize": [
+        2400,
+        2400
+      ],
+      "imageAspectRatio": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "14000012",
+      "hash": "0x9cb321c5da52fa03256d0d03d9daeeb7f5f9c73d12a45c502e3b0f6c3ce5b702",
+      "url": "https://newrafael-work-mainnet.s3.amazonaws.com/14000012.png",
+      "referencePixelSize": [
+        2400,
+        2400
+      ],
+      "imageAspectRatio": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "14000013",
+      "hash": "0xeab9aadccc00bda0b1aa9ca339ab8e68f7103b4df7e414b162d821b84007b2b6",
+      "url": "https://newrafael-work-mainnet.s3.amazonaws.com/14000013.png",
+      "referencePixelSize": [
+        2400,
+        2400
+      ],
+      "imageAspectRatio": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "14000014",
+      "hash": "0xe95b5a6f2fc312e9cfe806a9ee6f27f9b0744d955e6b4d3253e3dd9d72558f4b",
+      "url": "https://newrafael-work-mainnet.s3.amazonaws.com/14000014.png",
+      "referencePixelSize": [
+        2400,
+        2400
+      ],
+      "imageAspectRatio": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "14000015",
+      "hash": "0xa067a97ee9e80a5a268084c537fdf231fa1ff5b25152d9e0fc0d47dacaa98ac7",
+      "url": "https://newrafael-work-mainnet.s3.amazonaws.com/14000015.png",
+      "referencePixelSize": [
+        2400,
+        2400
+      ],
+      "imageAspectRatio": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "14000016",
+      "hash": "0xf8022d6be995d44529aeed832b1e2261181d35548d6740aa362c4d7e5c52b784",
+      "url": "https://newrafael-work-mainnet.s3.amazonaws.com/14000016.png",
+      "referencePixelSize": [
+        2400,
+        2400
+      ],
+      "imageAspectRatio": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "14000017",
+      "hash": "0x219f4d5ae5e3a8d33ab566c3e5e5b4b11db8c6507ca800ea137acfa886468dbb",
+      "url": "https://newrafael-work-mainnet.s3.amazonaws.com/14000017.png",
+      "referencePixelSize": [
+        2400,
+        2400
+      ],
+      "imageAspectRatio": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "14000018",
+      "hash": "0xe78223e41346f3914c0b08ddaf6aaa4004c5da3542f7662659feffbc52273619",
+      "url": "https://newrafael-work-mainnet.s3.amazonaws.com/14000018.png",
+      "referencePixelSize": [
+        2400,
+        2400
+      ],
+      "imageAspectRatio": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "14000019",
+      "hash": "0xb9b657aef5050b38c218f75cb5de289379040d832fd04d17a53f350eb722cdac",
+      "url": "https://newrafael-work-mainnet.s3.amazonaws.com/14000019.png",
+      "referencePixelSize": [
+        2400,
+        2400
+      ],
+      "imageAspectRatio": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "14000020",
+      "hash": "0x7542fcc2fcac7ada51e2476ffc520f15fbc498e82ab8a76c65b51cc2c29e4846",
+      "url": "https://newrafael-work-mainnet.s3.amazonaws.com/14000020.png",
+      "referencePixelSize": [
+        2400,
+        2400
+      ],
+      "imageAspectRatio": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "14000021",
+      "hash": "0xadd70b38fabac6740258be60a62b00e29d832883a8177838597deb8a660a86b1",
+      "url": "https://newrafael-work-mainnet.s3.amazonaws.com/14000021.png",
+      "referencePixelSize": [
+        2400,
+        2400
+      ],
+      "imageAspectRatio": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "14000022",
+      "hash": "0x2572cd745456a5750172b7e7a2108260f78713886d49665408039e6a704b6a86",
+      "url": "https://newrafael-work-mainnet.s3.amazonaws.com/14000022.png",
+      "referencePixelSize": [
+        2400,
+        2400
+      ],
+      "imageAspectRatio": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "14000023",
+      "hash": "0x29554414df92e5d65466ffc3c30f20a105a518968219801258d25af0b20b72ae",
+      "imageAspectRatio": [
+        2400,
+        2400
+      ],
+      "referencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "14000024",
+      "hash": "0xbd3edb34b41215d027230e4eb6992a282fe010f7168bff40184ce941a7149ae2",
+      "imageAspectRatio": [
+        2400,
+        2400
+      ],
+      "referencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "14000025",
+      "hash": "0x75b071750c6d79e3e123a62ff56305c000a1276aa61291e039aef1a89fbbb2c3",
+      "imageAspectRatio": [
+        2400,
+        2400
+      ],
+      "referencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "14000026",
+      "hash": "0xc72518c0f77d498803c3b29bb21eb221f8896c126bcfbc91b4ecd22e81276022",
+      "imageAspectRatio": [
+        2400,
+        2400
+      ],
+      "referencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "14000027",
+      "hash": "0x641601e8cb69d44419d77f03a1997f1af203b05af5dd3b92fad062f2e28d94ce",
+      "imageAspectRatio": [
+        2400,
+        2400
+      ],
+      "referencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "14000028",
+      "hash": "0xec6e251e8cee40846ece5f056b36179ff5445a89670212d9a862e199b3b7b01b",
+      "imageAspectRatio": [
+        2400,
+        2400
+      ],
+      "referencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "14000029",
+      "hash": "0xee7d36561361c5d45b1a9580840231e39856c1e502fd0f7b577ab00bd05672db",
+      "imageAspectRatio": [
+        2400,
+        2400
+      ],
+      "referencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "14000030",
+      "hash": "0x7c51b942532947e5d7d96a3e357782bd534f9055d5231a595c93504c357c76e2",
+      "imageAspectRatio": [
+        2400,
+        2400
+      ],
+      "referencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "14000031",
+      "hash": "0x85879faed205d57253d4118c6d7eb63fa305f440d0182526c126e189dd1bf35e",
+      "imageAspectRatio": [
+        2400,
+        2400
+      ],
+      "referencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "14000032",
+      "hash": "0xa04d057c44b326728940f4d9e5d6f3c3b0a9fcb777e18e055de559cdaf748db7",
+      "imageAspectRatio": [
+        2400,
+        2400
+      ],
+      "referencePixelSize": [
+        2400,
+        2400
+      ]
+    }
+  ],
+  "artworkAspectRatios": [
+    [
+      1,
+      1
+    ]
+  ]
+}

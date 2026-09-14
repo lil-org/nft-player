@@ -1,0 +1,309 @@
+{
+  "items": [
+    {
+      "id": "0",
+      "hash": "0xea56d0da1a48ed54835b0cda1e68916de77d0b0ef717ba655227d264724c90f2",
+      "url": "https://artcode-mainnet.s3.amazonaws.com/0.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "1",
+      "hash": "0x3acb3c78c5a70637133fb5582cd74af9d0289d8ef65bea956af35223b8901d90",
+      "url": "https://artcode-mainnet.s3.amazonaws.com/1.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "2",
+      "hash": "0xc4f75bd301ef455c6e72be3796ffd3a620799174adde9ce83ba0e79817ec7b32",
+      "url": "https://artcode-mainnet.s3.amazonaws.com/2.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "3",
+      "hash": "0x2ea828b9f08d6b0e79ccc38e6e72edacc75b07dc4cf428eb4b3c3178e1342edb",
+      "url": "https://artcode-mainnet.s3.amazonaws.com/3.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "4",
+      "hash": "0x8892235d68425093e18cc2c1e33d0b1c402e878bc3a626f8c39d6f03bbac861a",
+      "url": "https://artcode-mainnet.s3.amazonaws.com/4.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "5",
+      "hash": "0x77d27ce94fe1f5212f5bb5a1e025f585ecb83d8fa7862d0dcd964dc92050ca85",
+      "url": "https://artcode-mainnet.s3.amazonaws.com/5.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "6",
+      "hash": "0x1c2a37009ee8c03fdcff2a150e6ea9e7604541f15392665e94b1be48eaabcc63",
+      "url": "https://artcode-mainnet.s3.amazonaws.com/6.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "7",
+      "hash": "0x4441acbc04e4b5ad586e9697c60def10f9323b8cc3fa39767dd00d1786a08923",
+      "url": "https://artcode-mainnet.s3.amazonaws.com/7.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "8",
+      "hash": "0x057802321698f568f2de9385a7ee2c8d25393f1b97cca31b06dc1f21d7d9b84b",
+      "url": "https://artcode-mainnet.s3.amazonaws.com/8.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "9",
+      "hash": "0x8d09e8fbdd518774757fb4996d826fae96dfbe0d0319b47cfdb38a178ff3d257",
+      "url": "https://artcode-mainnet.s3.amazonaws.com/9.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "10",
+      "hash": "0x067588de85cf28c9104b2562a5041a9d294dce2aa6aa2a6b7503ae9c7679287c",
+      "url": "https://artcode-mainnet.s3.amazonaws.com/10.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "11",
+      "hash": "0x4e4c7889fe6fc23b61fb0856389cf3b19a430e2640f87355f6e376b099b4a166",
+      "url": "https://artcode-mainnet.s3.amazonaws.com/11.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "12",
+      "hash": "0xf51879c7da78c2585267cfb27c3d0bbe30c783ed152364893eee89fe7e322146",
+      "url": "https://artcode-mainnet.s3.amazonaws.com/12.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "13",
+      "hash": "0x2bba40c5309dbdbd721b604b3b0f4b9a641bf7c45eaf365e46aa28b06484a0ce",
+      "url": "https://artcode-mainnet.s3.amazonaws.com/13.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "14",
+      "hash": "0xce4de8792715746062c604e5e4a968517831267ecbe9937ff9abe45093fccd63",
+      "url": "https://artcode-mainnet.s3.amazonaws.com/14.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "15",
+      "hash": "0xaa71fc7c81a82e4eb5bde6e0f8b2ddd2c519efa9b5d930efe52e0b1c5a202769",
+      "url": "https://artcode-mainnet.s3.amazonaws.com/15.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "16",
+      "hash": "0x7f9f7480450c043446ba3398b2a8c32bc13ded8ff3e7b019d09e28768303b5a5",
+      "url": "https://artcode-mainnet.s3.amazonaws.com/16.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "17",
+      "hash": "0xe271eef4a2f06f59542bf8c304a9914abe94519f533f8a3c8a5add7d20c3120a",
+      "url": "https://artcode-mainnet.s3.amazonaws.com/17.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "18",
+      "hash": "0x3cea1a8d8fa9eecff74ec8100aefff1e4c8667af16bd9a25d4ad186eb3e1412f",
+      "url": "https://artcode-mainnet.s3.amazonaws.com/18.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "19",
+      "hash": "0x7692045ae11bcf126b53a3b6f910af0645d2e5ca8583d60c644423ed1096e9d6",
+      "url": "https://artcode-mainnet.s3.amazonaws.com/19.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "20",
+      "hash": "0x6513edb51e43dbce7721c8cf09a95678fedfd08105444950a90b766788ae36ae",
+      "url": "https://artcode-mainnet.s3.amazonaws.com/20.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "21",
+      "hash": "0xe47d34fc5210bf9bbf35b7c4d64f7d7253e58c3dc9aaf3e337c4ca9ad8d257b6",
+      "url": "https://artcode-mainnet.s3.amazonaws.com/21.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "22",
+      "hash": "0x28b70c58434ca4c8ce36343bfcab35e5fe8ab7faa469f8bb6cbd27d3e01f0f0d",
+      "url": "https://artcode-mainnet.s3.amazonaws.com/22.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    }
+  ],
+  "thumbnailAspectRatios": [
+    [
+      1,
+      1
+    ]
+  ]
+}

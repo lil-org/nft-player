@@ -91,6 +91,7 @@ nonisolated extension CollectionCatalog {
         specificCollectionId: String,
         tokenIndex: Int
     ) -> CollectionCatalogDownloadableMediaDescriptor? {
+        guard SuggestedItemsService.item(id: specificCollectionId)?.hasThumbnails != false else { return nil }
         if let descriptor = bundledGenerativeThumbnailDescriptor(
             specificCollectionId: specificCollectionId,
             tokenIndex: tokenIndex

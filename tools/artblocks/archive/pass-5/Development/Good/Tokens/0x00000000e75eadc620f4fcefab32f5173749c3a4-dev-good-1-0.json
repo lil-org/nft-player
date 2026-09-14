@@ -1,0 +1,309 @@
+{
+  "items": [
+    {
+      "id": "0",
+      "hash": "0xcd54c56a2d0c280a76fdbe60b4c380a4ba180ead2df3ebc23d04a93e53bd1f61",
+      "url": "https://stitchables-mainnet.s3.amazonaws.com/0.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "1",
+      "hash": "0x3557be2abc4d3c8b8c0daab4d51bede1fa798e98892d88516c8836e75f7131bc",
+      "url": "https://stitchables-mainnet.s3.amazonaws.com/1.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "2",
+      "hash": "0x730efb51a6f3803e6a3a01d2175ac57ace0274c30cccdf8010f3bde78fb50ba4",
+      "url": "https://stitchables-mainnet.s3.amazonaws.com/2.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "3",
+      "hash": "0x8694d82ddcc248c0525e7b65e198d08d9fdfad29db6178a709681e86b7f9342c",
+      "url": "https://stitchables-mainnet.s3.amazonaws.com/3.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "4",
+      "hash": "0x928be1bb2c43f9a80f9c35986263e2dec82cd30aa518418bb196c601e32c2317",
+      "url": "https://stitchables-mainnet.s3.amazonaws.com/4.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "5",
+      "hash": "0x8a6a698858b623a5150d8629719361eb6302c558504b8047935364477583100e",
+      "url": "https://stitchables-mainnet.s3.amazonaws.com/5.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "6",
+      "hash": "0x32f40ad41efbe583824854629dbca672141ec0bdf720e63a20f2e4a368548168",
+      "url": "https://stitchables-mainnet.s3.amazonaws.com/6.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "7",
+      "hash": "0x5212b4df087e60d0d198be9bee5b0c3c46867008a2149648a0a8ec09a78cba08",
+      "url": "https://stitchables-mainnet.s3.amazonaws.com/7.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "8",
+      "hash": "0x5be38c9c5349a9654c6dad04e4bbfbb9252824af72ebb9ea19876b3c2e9e974f",
+      "url": "https://stitchables-mainnet.s3.amazonaws.com/8.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "9",
+      "hash": "0x3461c62dda5158fd5062d700ef15cadef63d3a764e8fec425ac42bb853c31155",
+      "url": "https://stitchables-mainnet.s3.amazonaws.com/9.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "10",
+      "hash": "0x6dbb212af2bb3e11f7c7bb27b70287ae9a9ebba2625916d3aaca9ed80ccda089",
+      "url": "https://stitchables-mainnet.s3.amazonaws.com/10.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "11",
+      "hash": "0x17127d93e904f793e4ca8f55e5bd221502a158b7e4998ea014f05cde91410bf7",
+      "url": "https://stitchables-mainnet.s3.amazonaws.com/11.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "12",
+      "hash": "0x17ec64e3f9e3ca8879da8444887f4d01a84bf6e16ed7d1be6dbc997a37fe1283",
+      "url": "https://stitchables-mainnet.s3.amazonaws.com/12.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "13",
+      "hash": "0x620019155e8d6f303869c50df3106f982e9a2b87523976315d8969bd6654193d",
+      "url": "https://stitchables-mainnet.s3.amazonaws.com/13.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "14",
+      "hash": "0x16258b9ce4669c27c42a2f98c5794dbd935e2420ca10fbcdfb9e5685a9facc16",
+      "url": "https://stitchables-mainnet.s3.amazonaws.com/14.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "15",
+      "hash": "0x1f1e1006f3bf6f2804593fcd6d74474f6d3c3220802af31783853c73fe61b037",
+      "url": "https://stitchables-mainnet.s3.amazonaws.com/15.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "16",
+      "hash": "0xd124614b45d20ba077cb61030f44d05840fafa0981c3516dc57be32345617943",
+      "url": "https://stitchables-mainnet.s3.amazonaws.com/16.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "17",
+      "hash": "0x03c389f3d37d80775240f6ea4b8711e98eb2ec243399b049ae9511b74ef56ec0",
+      "url": "https://stitchables-mainnet.s3.amazonaws.com/17.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "18",
+      "hash": "0x4b4f355240201e41db166fef765e72cbbdbd711a1eb0302bce494cddef3f3e9d",
+      "url": "https://stitchables-mainnet.s3.amazonaws.com/18.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "19",
+      "hash": "0x713979738e9a69809a7420f87095058ef0403e02ca3cd29f680180f156758a72",
+      "url": "https://stitchables-mainnet.s3.amazonaws.com/19.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "20",
+      "hash": "0xfcc58d42ee92b8c5c881094a2d4bbbf5fa9393428b3a2a2c759b6cac987c0396",
+      "url": "https://stitchables-mainnet.s3.amazonaws.com/20.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "21",
+      "hash": "0xbbf0d4fe1a4454ff69e0671a9633a471b38f8e4b35758923dd4c263734233909",
+      "url": "https://stitchables-mainnet.s3.amazonaws.com/21.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "22",
+      "hash": "0x6b91c1dbe2bd7a4d9b3f65c277c2a4d1a59a9bbc766eed4ce158e0b70fc8d816",
+      "url": "https://stitchables-mainnet.s3.amazonaws.com/22.png",
+      "previewImageAspectRatio": [
+        2400,
+        2400
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        2400
+      ]
+    }
+  ],
+  "thumbnailAspectRatios": [
+    [
+      1,
+      1
+    ]
+  ]
+}

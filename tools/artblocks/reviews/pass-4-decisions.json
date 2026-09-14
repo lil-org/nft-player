@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "passID": "pass-4",
+  "sourceType": "recorded-user-instruction",
+  "deviceExport": false,
+  "instruction": "ok let's mark poll party as yes now.\n\nnow let me do a final review in ios app for all 292 collections marked yes.\n\n> I found and removed unnecessary fixed waits.\n\nthese fixes were amazing — i wonder if you could apply them as well for all other yes collections (so not only double-check) get this improved loading speed — and i would like to review all these final versions in the app again — so reset all decisions and notes in this final review build for me — so i'd be able to add some final notes or mb change my mind about some of these previously approved collections.",
+  "sourceRuntimeSHA256": "4bcd1ef8c6fbc6f3c9b079e01b3514dca3ddb996e413f7e7e937d1748e2d4473",
+  "counts": {
+    "yes": {
+      "collections": 1,
+      "tokens": 20
+    },
+    "notes": 0
+  },
+  "collections": {
+    "1:0xaa00b2b2db36b8f8004a9aa96f0012005d92b300:0": {
+      "name": "pool party",
+      "group": "ok",
+      "decision": "yes",
+      "note": null
+    }
+  }
+}

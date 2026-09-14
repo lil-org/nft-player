@@ -19,13 +19,13 @@ nonisolated struct SuggestedItem: Identifiable, Hashable, Codable, Sendable {
     }
 
     var isDownloadableCollection: Bool {
-        isIOSOnlyCollection || tokenCount != nil
+        generativeOnly != true && (isSolanaCollection || isTezosCollection || tokenCount != nil)
     }
     
     var network: Network {
         return Network(rawValue: chainId) ?? .mainnet
     }
-    
+
     let name: String
     let internalSlug: String?
     let address: String
@@ -34,7 +34,11 @@ nonisolated struct SuggestedItem: Identifiable, Hashable, Codable, Sendable {
     let collectionId: String?
     let abId: String?
     let tokenCount: Int?
+    let bundledDate: String?
     let iosOnly: Bool?
+    let generativeOnly: Bool?
+    let hasCover: Bool?
+    let hasThumbnails: Bool?
     let iosCollectionBrowserColumnCount: Int?
     let playerBackgroundColor: String?
     let webURL: String?
@@ -53,7 +57,11 @@ nonisolated struct SuggestedItem: Identifiable, Hashable, Codable, Sendable {
         case collectionId
         case abId
         case tokenCount
+        case bundledDate
         case iosOnly
+        case generativeOnly
+        case hasCover
+        case hasThumbnails
         case iosCollectionBrowserColumnCount
         case playerBackgroundColor
         case webURL

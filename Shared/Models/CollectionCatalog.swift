@@ -56,11 +56,13 @@ nonisolated struct CollectionCatalogItem: Hashable, Identifiable, Sendable {
     let id: String
     let name: String
     let coverAssetName: String
+    let hasCover: Bool
 
     init(item: SuggestedItem) {
         id = item.id
         name = item.name
         coverAssetName = item.id
+        hasCover = item.hasCover != false
     }
 }
 
@@ -831,6 +833,7 @@ nonisolated enum CollectionCatalog {
             generativeItemsForGrid
                 + downloadableItemsForGrid
         )
+        .filter { SuggestedItemsService.isCollectionAvailableOnCurrentPlatform(id: $0.id) }
         .filter { !TokenGenerator.isCollectionDisabledOnCurrentPlatform(id: $0.id) }
         .map { CollectionCatalogItem(item: $0) }
     }()
@@ -856,6 +859,7 @@ nonisolated enum CollectionCatalog {
     }
 
     static func canOpenCollection(specificCollectionId: String) -> Bool {
+        guard SuggestedItemsService.isCollectionAvailableOnCurrentPlatform(id: specificCollectionId) else { return false }
         if let tokenCount = DownloadableCollectionService.indexedTokenCount(collectionId: specificCollectionId) {
             return tokenCount > 0
         }

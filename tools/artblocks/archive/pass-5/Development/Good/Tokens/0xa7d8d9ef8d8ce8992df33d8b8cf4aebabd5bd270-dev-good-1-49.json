@@ -1,0 +1,309 @@
+{
+  "items": [
+    {
+      "id": "49000000",
+      "hash": "0xa276ca696b939d2d646d7cdb52438a754522a9dd6d1f241b92ff9c023666975b",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/49000000.png",
+      "previewImageAspectRatio": [
+        1200,
+        1200
+      ],
+      "previewReferencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "49000001",
+      "hash": "0x93be978e32952cb0126c589746e25e51debfba3301ba22f4c4dcf516baa7b76e",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/49000001.png",
+      "previewImageAspectRatio": [
+        1200,
+        1200
+      ],
+      "previewReferencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "49000002",
+      "hash": "0x0e7228c86eb65156ad059bdfd2ad48fc583a190890a4d8746d63b4a2fc2c74fc",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/49000002.png",
+      "previewImageAspectRatio": [
+        1200,
+        1200
+      ],
+      "previewReferencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "49000003",
+      "hash": "0xdc8f2c93e45db71576f32dd67f3982779893ebb8c1575220a92bd15ef9f99c4a",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/49000003.png",
+      "previewImageAspectRatio": [
+        1200,
+        1200
+      ],
+      "previewReferencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "49000004",
+      "hash": "0x65268a06bde60ecdc1d98973911b643ef3379f7877577799365d57c1fb662ced",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/49000004.png",
+      "previewImageAspectRatio": [
+        1200,
+        1200
+      ],
+      "previewReferencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "49000005",
+      "hash": "0xd34e731cad507357f431edb5d8289b0723f26d983949ba8d0368f200b0c78109",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/49000005.png",
+      "previewImageAspectRatio": [
+        1200,
+        1200
+      ],
+      "previewReferencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "49000006",
+      "hash": "0x2b9d36072282711557ceb0ef2096a3dcec7426975dc3a56d6f30726ea5baa50c",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/49000006.png",
+      "previewImageAspectRatio": [
+        1200,
+        1200
+      ],
+      "previewReferencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "49000007",
+      "hash": "0xea1ad82bf74aa1ba5907b9a546108a4f316152970bf81898a558183c121036d4",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/49000007.png",
+      "previewImageAspectRatio": [
+        1200,
+        1200
+      ],
+      "previewReferencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "49000008",
+      "hash": "0x59fd03f2a0392b0caf7c545c45e547ddf5ac49a6c7e68e9aea10968149a7e4b6",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/49000008.png",
+      "previewImageAspectRatio": [
+        1200,
+        1200
+      ],
+      "previewReferencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "49000009",
+      "hash": "0x70e896f73b5f89fe4032c7267473d0f992b8059a0b213ad1b603b05f1f4d6b30",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/49000009.png",
+      "previewImageAspectRatio": [
+        1200,
+        1200
+      ],
+      "previewReferencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "49000010",
+      "hash": "0x11a209cab2b482a663373050aa45c8bf02127a5de4474e3b216453f46f5e1da8",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/49000010.png",
+      "previewImageAspectRatio": [
+        1200,
+        1200
+      ],
+      "previewReferencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "49000011",
+      "hash": "0xc3d5ea35b0329ab81fed12f8df1df86b033bd51dce1beedda53526c225a4a1f6",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/49000011.png",
+      "previewImageAspectRatio": [
+        1200,
+        1200
+      ],
+      "previewReferencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "49000012",
+      "hash": "0x86662d23df51560a1e702d55f286b38ef321598d7cc923c603832500571844de",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/49000012.png",
+      "previewImageAspectRatio": [
+        1200,
+        1200
+      ],
+      "previewReferencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "49000013",
+      "hash": "0x6ca2629f2150df81783dc40e359fa22bce5f907f2cc63dc7325eac241ceebc4c",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/49000013.png",
+      "previewImageAspectRatio": [
+        1200,
+        1200
+      ],
+      "previewReferencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "49000014",
+      "hash": "0x659f1f5acbe35603962ed654d6a07ece04433cbb99fc52d2d0d0a049e928f667",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/49000014.png",
+      "previewImageAspectRatio": [
+        1200,
+        1200
+      ],
+      "previewReferencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "49000015",
+      "hash": "0xdbde45a05154c782b443133864e8661a4d5fdf99cc45a2adb812043ce3e49135",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/49000015.png",
+      "previewImageAspectRatio": [
+        1200,
+        1200
+      ],
+      "previewReferencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "49000016",
+      "hash": "0xd06e5381f31f07d4915f2bd72210bf315377e630be7f37fdeb197cbb1206b18b",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/49000016.png",
+      "previewImageAspectRatio": [
+        1200,
+        1200
+      ],
+      "previewReferencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "49000017",
+      "hash": "0x28877f1ac038f7e136be2e9a7de245282d60e08b3a5497452e42017d426bbf7b",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/49000017.png",
+      "previewImageAspectRatio": [
+        1200,
+        1200
+      ],
+      "previewReferencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "49000018",
+      "hash": "0xcdf6fdf1ea695ed205ce8e4a22d23dba02934a0a44826f4ec2f485f64f3f70fd",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/49000018.png",
+      "previewImageAspectRatio": [
+        1200,
+        1200
+      ],
+      "previewReferencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "49000019",
+      "hash": "0x7e58378ed3a45efddea9153ed5b6185207f3fe3da7fd710a5dba1ad1c96cf3f3",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/49000019.png",
+      "previewImageAspectRatio": [
+        1200,
+        1200
+      ],
+      "previewReferencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "49000020",
+      "hash": "0x4311748123edf45975a4a06aa97d26155de94fcd00913e38d7d2eb29f57b6911",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/49000020.png",
+      "previewImageAspectRatio": [
+        1200,
+        1200
+      ],
+      "previewReferencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "49000021",
+      "hash": "0x6dca69b80a155eb48d5dcd9dd0bbd709b0705452f8015240b7efb593ad2f1c23",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/49000021.png",
+      "previewImageAspectRatio": [
+        1200,
+        1200
+      ],
+      "previewReferencePixelSize": [
+        1200,
+        1200
+      ]
+    },
+    {
+      "id": "49000022",
+      "hash": "0x914f33c03c67d294cd9bf1530ea92ac32a7f0f5d4e1a557e4442b6bb542a3339",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/49000022.png",
+      "previewImageAspectRatio": [
+        1200,
+        1200
+      ],
+      "previewReferencePixelSize": [
+        1200,
+        1200
+      ]
+    }
+  ],
+  "thumbnailAspectRatios": [
+    [
+      1,
+      1
+    ]
+  ]
+}

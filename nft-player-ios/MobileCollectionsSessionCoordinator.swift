@@ -353,6 +353,8 @@ final class MobileCollectionsSessionCoordinator {
         request: PlayerPresentationRequestGate.Request,
         widgetHandoffRequest: WidgetLaunchPresentationState.Request? = nil
     ) async -> Bool {
+        guard visibleCollectionIds.contains(collectionId),
+              dependencies.canOpenCollection(collectionId) else { return false }
         await dependencies.flushPersistenceUpdates()
         guard playerPresentationGate.isPending(request) else { return false }
         let progress = await dependencies.progressStore.progress(

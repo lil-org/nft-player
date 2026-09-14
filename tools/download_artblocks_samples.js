@@ -46,6 +46,13 @@ async function writeJSON(file, value) {
   await fs.rename(temporary, file);
 }
 
+async function historicalDecisions(context) {
+  const root = context.decisionDirectory ?? path.join(__dirname, "artblocks");
+  const rejected = await readJSON(path.join(root, "rejected.json"));
+  const deferred = await readJSON(path.join(root, "reviews/deferred-static.json"));
+  return new Set([...(rejected?.collections ?? []), ...(deferred?.collections ?? [])].map(collection => collection.identity));
+}
+
 async function bundledIdentities(projects, bundle) {
   const items = await readJSON(path.join(bundle, "items.json"));
   if (!Array.isArray(items)) throw new Error("Missing bundled collection catalog");
@@ -197,8 +204,9 @@ async function resolveCuratedRecords(context, curation) {
     }
   }
   const records = [];
+  const decided = await historicalDecisions(context);
   for (const [key, entry] of Object.entries(curation.collections)) {
-    if (entry.group === "excluded") continue;
+    if (entry.group === "excluded" || decided.has(key)) continue;
     const found = local.get(key);
     const group = found?.group ?? entry.group;
     if (context.group && group !== context.group) continue;
@@ -662,7 +670,8 @@ Downloads use six workers, five retries and a 10 GiB free-space reserve.`);
   try {
     if (mode === "discover") {
       const inventory = await discover(context);
-      const unreviewed = inventory.projects.filter(project => !curation.collections[projectIdentity(project)]);
+      const decided = await historicalDecisions(context);
+      const unreviewed = inventory.projects.filter(project => !curation.collections[projectIdentity(project)] && !decided.has(projectIdentity(project)));
       await fs.mkdir(context.output, { recursive: true });
       await writeJSON(path.join(context.output, "discovery.json"), { ...inventory,
         projects: unreviewed.map(project => ({ ...project, status: "unreviewed" })) });
@@ -685,7 +694,7 @@ Downloads use six workers, five retries and a 10 GiB free-space reserve.`);
   }
 }
 
-module.exports = { identity, projectIdentity, folderName, bundledIdentities, retryDelay, selectTokens, graphql,
+module.exports = { historicalDecisions, identity, projectIdentity, folderName, bundledIdentities, retryDelay, selectTokens, graphql,
   mediaCandidates, mediaRank, sniffExtension, validateMedia, downloadCandidate, downloadToken,
   verifiedDownload, buildSummary, discover, resolveCuratedRecords, prepareCuratedRecords, main };
 

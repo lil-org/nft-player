@@ -1,0 +1,537 @@
+{
+  "items": [
+    {
+      "id": "442000000",
+      "hash": "0xbada20100f1ab98d6a9a3a60789aecd045d27f76a0bca36e0ed36bec2e7dc662",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/442000000.png",
+      "referencePixelSize": [
+        2400,
+        2400
+      ],
+      "imageAspectRatio": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "442000001",
+      "hash": "0xb2c370950c436872ee87b8d02fe72a18556c94bb6443c98e32bb48e1d23b66ae",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/442000001.png",
+      "referencePixelSize": [
+        2400,
+        2400
+      ],
+      "imageAspectRatio": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "442000002",
+      "hash": "0x6eb1aa6115f35ac59f046da5328eba26b2bac8ea0d68a1426a9ddf3c24f6e897",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/442000002.png",
+      "referencePixelSize": [
+        2400,
+        2400
+      ],
+      "imageAspectRatio": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "442000003",
+      "hash": "0x57638545f747e2b5eb95769c92528a469ac90685f72f0febb1e26c6b450d5757",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/442000003.png",
+      "referencePixelSize": [
+        2400,
+        2400
+      ],
+      "imageAspectRatio": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "442000004",
+      "hash": "0xb37998d009837123f90cc5b82c4645a9c3c22d69c11fef35739cb9f0ae3dc138",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/442000004.png",
+      "referencePixelSize": [
+        2400,
+        2400
+      ],
+      "imageAspectRatio": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "442000005",
+      "hash": "0x2b47e44f064d45bf847675ed4e3fff2b33b4fae33f84292140c8ba1b074fcbc1",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/442000005.png",
+      "referencePixelSize": [
+        2400,
+        2400
+      ],
+      "imageAspectRatio": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "442000006",
+      "hash": "0x66e71ac56a286f0d5ab4e3ac467c39a16d5ef7ecfd31ef68a3a00dec9b690590",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/442000006.png",
+      "referencePixelSize": [
+        2400,
+        2400
+      ],
+      "imageAspectRatio": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "442000007",
+      "hash": "0x49c8ae0baaec21c0c64fa00629cbcdeb292ec15399fd31b11bd9cba2d5ff2485",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/442000007.png",
+      "referencePixelSize": [
+        2400,
+        2400
+      ],
+      "imageAspectRatio": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "442000008",
+      "hash": "0x4492cfaee45814568c3a54885565e6ed52e2d30368d67ad2ea1b5bbb70db3bed",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/442000008.png",
+      "referencePixelSize": [
+        2400,
+        2400
+      ],
+      "imageAspectRatio": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "442000009",
+      "hash": "0x1d8a1ecd935c65e9c491d45d4ca8b338f91c6118fc616f4bbcdb10c043db0870",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/442000009.png",
+      "referencePixelSize": [
+        2400,
+        2400
+      ],
+      "imageAspectRatio": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "442000010",
+      "hash": "0x1108abff1d8e19b5130a4dfe53167d9ba1f6436e290b2b77648713d34961f5dc",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/442000010.png",
+      "referencePixelSize": [
+        2400,
+        2400
+      ],
+      "imageAspectRatio": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "442000011",
+      "hash": "0x2b3f4bbb7b0814de7792d8e83476f81b6287f89e096cfc12652e71f601cd6a1c",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/442000011.png",
+      "referencePixelSize": [
+        2400,
+        2400
+      ],
+      "imageAspectRatio": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "442000012",
+      "hash": "0xabe818d37e99a9657c71ab6b70b109aced4c56abbf6910a90e7f75b18f22fb8d",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/442000012.png",
+      "referencePixelSize": [
+        2400,
+        2400
+      ],
+      "imageAspectRatio": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "442000013",
+      "hash": "0x8f2ec8d3105cca6b420a41ba5ff33b11d16c82d972798beaed7d0dec20fb171c",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/442000013.png",
+      "referencePixelSize": [
+        2400,
+        2400
+      ],
+      "imageAspectRatio": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "442000014",
+      "hash": "0xaef45252e3432df62d92555dc157294c28d3d3a9d0bcbd402ce9d01aa793bfd7",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/442000014.png",
+      "referencePixelSize": [
+        2400,
+        2400
+      ],
+      "imageAspectRatio": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "442000015",
+      "hash": "0x5ad4ebf89bffd8606982554d847bfb6a0c1ed8e74437c2732b9f869fad5b06d2",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/442000015.png",
+      "referencePixelSize": [
+        2400,
+        2400
+      ],
+      "imageAspectRatio": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "442000016",
+      "hash": "0xc8a7c69a3ad44c6dae747d8a7205cacff6edffda7ac41a576959887be2527e99",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/442000016.png",
+      "referencePixelSize": [
+        2400,
+        2400
+      ],
+      "imageAspectRatio": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "442000017",
+      "hash": "0xee985ddfe154942eb1c5d045d438ee8342966594da2122cfec670212845f2849",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/442000017.png",
+      "referencePixelSize": [
+        2400,
+        2400
+      ],
+      "imageAspectRatio": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "442000018",
+      "hash": "0x0f23d6c618571526aa592c417a40ffcb3d389a810c818d16116d54c731d99033",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/442000018.png",
+      "referencePixelSize": [
+        2400,
+        2400
+      ],
+      "imageAspectRatio": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "442000019",
+      "hash": "0x62654f48fc2b7ffd14dd48119dff8fbd7f4e06fa717a28ef49ac760d8a645aac",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/442000019.png",
+      "referencePixelSize": [
+        2400,
+        2400
+      ],
+      "imageAspectRatio": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "442000020",
+      "hash": "0xd325b87341f1217af69233699429e2383d341adc5bb9eb6ce9dd663f49c3426f",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/442000020.png",
+      "referencePixelSize": [
+        2400,
+        2400
+      ],
+      "imageAspectRatio": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "442000021",
+      "hash": "0xce1c8703037cc3975bbbe0f30338eed305fe45503672ae39a278172258d462d6",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/442000021.png",
+      "referencePixelSize": [
+        2400,
+        2400
+      ],
+      "imageAspectRatio": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "442000022",
+      "hash": "0x2f3139f98f43c75075130a0e88311ef69172444b3291262bb2018e72dcdeeee9",
+      "url": "https://artblocks-mainnet.s3.amazonaws.com/442000022.png",
+      "referencePixelSize": [
+        2400,
+        2400
+      ],
+      "imageAspectRatio": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "442000023",
+      "hash": "0x8437f830efeedb480a08f0910c3779be7cb237a4d12e5a85060853b083ed41ad",
+      "imageAspectRatio": [
+        2400,
+        2400
+      ],
+      "referencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "442000024",
+      "hash": "0xe25afd0331f94fa8bf290835889f47736fdd90af8dddae62f69567f6e5d5b866",
+      "imageAspectRatio": [
+        2400,
+        2400
+      ],
+      "referencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "442000025",
+      "hash": "0x3a91960da389d31a086563e75e0b41ef337ab35c21d40b66c5078311ad6c1a29",
+      "imageAspectRatio": [
+        2400,
+        2400
+      ],
+      "referencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "442000026",
+      "hash": "0xe68fa740ca42fcec08dfc61fee0e707445d16e8ec5c70d37097bae8d1997408a",
+      "imageAspectRatio": [
+        2400,
+        2400
+      ],
+      "referencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "442000027",
+      "hash": "0x8b6b82d63a6e476a3c3adffd9d013e9626c53e018debf09210f676021f0c2ede",
+      "imageAspectRatio": [
+        2400,
+        2400
+      ],
+      "referencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "442000028",
+      "hash": "0x47082c68e8b781981c116bc7a3e310bf841e5f58e99af45cae860f9d65c836f8",
+      "imageAspectRatio": [
+        2400,
+        2400
+      ],
+      "referencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "442000029",
+      "hash": "0x7a9a1365ee13cf78d721edde184cbd946581a02691670dcce7fab993b17dec5d",
+      "imageAspectRatio": [
+        2400,
+        2400
+      ],
+      "referencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "442000030",
+      "hash": "0xc118d60051299b3e9a609492ab3d6e1f56a003bfbb45831e128b9d345c42c7f1",
+      "imageAspectRatio": [
+        2400,
+        2400
+      ],
+      "referencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "442000031",
+      "hash": "0x996229a46b6cf583e0e84bc52b8b5d17c4f35230f2208b5a5ea117c23af6317a",
+      "imageAspectRatio": [
+        2400,
+        2400
+      ],
+      "referencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "442000032",
+      "hash": "0x1afb99eab1f509f13b97412b01475199be89cb41f4e6b8a4416d2e8a28eea431",
+      "imageAspectRatio": [
+        2400,
+        2400
+      ],
+      "referencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "442000033",
+      "hash": "0x6262f11dc243fa8f82c09fe2630a3ce5d4493544663a328e411b49a66c29b9b0",
+      "imageAspectRatio": [
+        2400,
+        2400
+      ],
+      "referencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "442000034",
+      "hash": "0x68e608fabd6d8c40ad6c85dc58f7b92458e3cf99e8f7ca3e820de48902145770",
+      "imageAspectRatio": [
+        2400,
+        2400
+      ],
+      "referencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "442000035",
+      "hash": "0x5e97c1bd36255d0ffb1148e8a60328d5b769716b3dd4140f00783f179990eb42",
+      "imageAspectRatio": [
+        2400,
+        2400
+      ],
+      "referencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "442000036",
+      "hash": "0x74e4a87de8385a062ad2199c8e7da5f6a2bbfd42b1f97dc872e54a351f0bb6b0",
+      "imageAspectRatio": [
+        2400,
+        2400
+      ],
+      "referencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "442000037",
+      "hash": "0x29bf1f70ae18b1aa4cbde4a679b0f553bd546b7903429f06b2b78d8b306f03cc",
+      "imageAspectRatio": [
+        2400,
+        2400
+      ],
+      "referencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "442000038",
+      "hash": "0x5ad77ee0122ce9bae3d1d6e0829dfe655a16d250af3d5bdd1882f7fb0c3dcc1c",
+      "imageAspectRatio": [
+        2400,
+        2400
+      ],
+      "referencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "442000039",
+      "hash": "0xe8d6c1c35a3d864e2f75c99c5237c02d0b9035d97119eebdc7981b3bb0486857",
+      "imageAspectRatio": [
+        2400,
+        2400
+      ],
+      "referencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "442000040",
+      "hash": "0x621ae94ae5dd9f4f0fcbe98c521bfd9e79d7292f2d02bedc42a9b1ec7d0925d1",
+      "imageAspectRatio": [
+        2400,
+        2400
+      ],
+      "referencePixelSize": [
+        2400,
+        2400
+      ]
+    },
+    {
+      "id": "442000041",
+      "hash": "0xdfcca006dc3eaa9cbe0f8683f65dae5c5d26f8b0d392dd5e1ba4e21eccfa66d1",
+      "imageAspectRatio": [
+        2400,
+        2400
+      ],
+      "referencePixelSize": [
+        2400,
+        2400
+      ]
+    }
+  ],
+  "artworkAspectRatios": [
+    [
+      1,
+      1
+    ]
+  ]
+}

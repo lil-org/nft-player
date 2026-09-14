@@ -795,6 +795,7 @@ final class MobileCollectionCoverImageCache {
     private init() {}
 
     func cachedImage(assetName: String, targetSize: CGSize, displayScale: CGFloat) -> UIImage? {
+        guard SuggestedItemsService.item(id: assetName)?.hasCover != false else { return nil }
         let targetPixelSide = targetPixelSide(for: targetSize, displayScale: displayScale)
         return storage.image(
             forKey: cacheKey(assetName: assetName, targetPixelSide: targetPixelSide)
@@ -807,6 +808,10 @@ final class MobileCollectionCoverImageCache {
         displayScale: CGFloat,
         completion: @escaping (UIImage?) -> Void
     ) {
+        guard SuggestedItemsService.item(id: assetName)?.hasCover != false else {
+            completion(nil)
+            return
+        }
         let targetPixelSide = targetPixelSide(for: targetSize, displayScale: displayScale)
         let key = cacheKey(assetName: assetName, targetPixelSide: targetPixelSide)
         if let image = storage.image(forKey: key) {
@@ -828,6 +833,7 @@ final class MobileCollectionCoverImageCache {
 
     func prefetch(assetNames: [String], targetSize: CGSize, displayScale: CGFloat) {
         assetNames.forEach { assetName in
+            guard SuggestedItemsService.item(id: assetName)?.hasCover != false else { return }
             let targetPixelSide = targetPixelSide(for: targetSize, displayScale: displayScale)
             let key = cacheKey(assetName: assetName, targetPixelSide: targetPixelSide)
             guard storage.image(forKey: key) == nil else { return }
@@ -952,11 +958,16 @@ private final class CollectionGridCell: UICollectionViewCell {
         shouldAnimateInitialAppearance: Bool
     ) {
         let coverAssetChanged = representedCoverAssetName != item.coverAssetName
-        let shouldUpdateCover = coverAssetChanged
+        let shouldUpdateCover = item.hasCover && (coverAssetChanged
             || representedCoverSize != coverSize
-            || imageView.image == nil
+            || imageView.image == nil)
         representedCoverAssetName = item.coverAssetName
         representedCoverSize = coverSize
+        imageView.backgroundColor = item.hasCover ? .clear : .secondarySystemFill
+        if !item.hasCover {
+            cancelInitialCoverAppearance()
+            imageView.image = nil
+        }
         let cachedCoverImage: UIImage?
         if shouldUpdateCover {
             cachedCoverImage = MobileCollectionCoverImageCache.shared.cachedImage(

@@ -50,3 +50,4 @@ staging/
 # Log Files
 *.log
 *.ipk
+/tools/artblocks/production/capture/pages/

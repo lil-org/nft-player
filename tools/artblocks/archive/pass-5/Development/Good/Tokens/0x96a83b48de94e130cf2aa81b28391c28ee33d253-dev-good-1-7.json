@@ -1,0 +1,309 @@
+{
+  "items": [
+    {
+      "id": "7000000",
+      "hash": "0x507859e945cef5a3b0189e6412d27cc1feefb934438b6d75988dad0a7f233b4d",
+      "url": "https://the-disruptive-gallery-mainnet.s3.amazonaws.com/7000000.png",
+      "previewImageAspectRatio": [
+        2400,
+        1200
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        1200
+      ]
+    },
+    {
+      "id": "7000001",
+      "hash": "0xc210e4f20c7821bdf822becdd9d990ccd621bd7cf9371f34554a3daf8bf8aeb7",
+      "url": "https://the-disruptive-gallery-mainnet.s3.amazonaws.com/7000001.png",
+      "previewImageAspectRatio": [
+        2400,
+        1200
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        1200
+      ]
+    },
+    {
+      "id": "7000002",
+      "hash": "0xf29e66cbf8b3f6b93ebc7289b5942fe6fe2678fcadeee55d1761a1d9f910f1c4",
+      "url": "https://the-disruptive-gallery-mainnet.s3.amazonaws.com/7000002.png",
+      "previewImageAspectRatio": [
+        2400,
+        1200
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        1200
+      ]
+    },
+    {
+      "id": "7000003",
+      "hash": "0x615abe39ab8554d3fab396279960c363369bc4b57ab5eb50129885ccfb040ec5",
+      "url": "https://the-disruptive-gallery-mainnet.s3.amazonaws.com/7000003.png",
+      "previewImageAspectRatio": [
+        2400,
+        1200
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        1200
+      ]
+    },
+    {
+      "id": "7000004",
+      "hash": "0xf5c213cd00478487bac2c3df35f393df6abdcfa90582d3fe4911e17eeef40b29",
+      "url": "https://the-disruptive-gallery-mainnet.s3.amazonaws.com/7000004.png",
+      "previewImageAspectRatio": [
+        2400,
+        1200
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        1200
+      ]
+    },
+    {
+      "id": "7000005",
+      "hash": "0x07fdaf94b19449e7738454411f332719b963da5d0866f7f7f9a67e001af1f217",
+      "url": "https://the-disruptive-gallery-mainnet.s3.amazonaws.com/7000005.png",
+      "previewImageAspectRatio": [
+        2400,
+        1200
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        1200
+      ]
+    },
+    {
+      "id": "7000006",
+      "hash": "0xbc210f7ce4883ee7271428d402cbd28faa029544a579fc667f0af87a9444e388",
+      "url": "https://the-disruptive-gallery-mainnet.s3.amazonaws.com/7000006.png",
+      "previewImageAspectRatio": [
+        2400,
+        1200
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        1200
+      ]
+    },
+    {
+      "id": "7000007",
+      "hash": "0xb3018af4e10cb81046be73f1d7271677fb454723e21e1aaa847f0f8dc17568c9",
+      "url": "https://the-disruptive-gallery-mainnet.s3.amazonaws.com/7000007.png",
+      "previewImageAspectRatio": [
+        2400,
+        1200
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        1200
+      ]
+    },
+    {
+      "id": "7000008",
+      "hash": "0x0a3de1225e62a6a5df35338dd99b4d9d22f321affd15e8997cd2896038c6302f",
+      "url": "https://the-disruptive-gallery-mainnet.s3.amazonaws.com/7000008.png",
+      "previewImageAspectRatio": [
+        2400,
+        1200
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        1200
+      ]
+    },
+    {
+      "id": "7000009",
+      "hash": "0xedb6dc94fe120df701d0ac650d3615d807138a3378741539b9b77279d4623f3c",
+      "url": "https://the-disruptive-gallery-mainnet.s3.amazonaws.com/7000009.png",
+      "previewImageAspectRatio": [
+        2400,
+        1200
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        1200
+      ]
+    },
+    {
+      "id": "7000010",
+      "hash": "0xc4d9a25ce713fde0330b075c372d233e24396667d200abcfb274ae9a136b3b9e",
+      "url": "https://the-disruptive-gallery-mainnet.s3.amazonaws.com/7000010.png",
+      "previewImageAspectRatio": [
+        2400,
+        1200
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        1200
+      ]
+    },
+    {
+      "id": "7000011",
+      "hash": "0xf8e7a0bd9f681741a3aecef9496de3251ea3f197931cbbc9e3f83fde55695e9f",
+      "url": "https://the-disruptive-gallery-mainnet.s3.amazonaws.com/7000011.png",
+      "previewImageAspectRatio": [
+        2400,
+        1200
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        1200
+      ]
+    },
+    {
+      "id": "7000012",
+      "hash": "0xbe9aafc052383aa0a375073f73ebc772a0b6e06136b851de30f6d1943fd081fe",
+      "url": "https://the-disruptive-gallery-mainnet.s3.amazonaws.com/7000012.png",
+      "previewImageAspectRatio": [
+        2400,
+        1200
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        1200
+      ]
+    },
+    {
+      "id": "7000013",
+      "hash": "0x67c8207278ea40bd791564042f5699115fcab4d5dcb36cb82eeff76d96280850",
+      "url": "https://the-disruptive-gallery-mainnet.s3.amazonaws.com/7000013.png",
+      "previewImageAspectRatio": [
+        2400,
+        1200
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        1200
+      ]
+    },
+    {
+      "id": "7000014",
+      "hash": "0xee847f9e86ad806145681351e4f6c29da2c8670a5b754bf520bd49297e6da66a",
+      "url": "https://the-disruptive-gallery-mainnet.s3.amazonaws.com/7000014.png",
+      "previewImageAspectRatio": [
+        2400,
+        1200
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        1200
+      ]
+    },
+    {
+      "id": "7000015",
+      "hash": "0xb6e9a7cdfb5f21af78c3696302b2ceca020d337f398bba726154bb4a7e565c3b",
+      "url": "https://the-disruptive-gallery-mainnet.s3.amazonaws.com/7000015.png",
+      "previewImageAspectRatio": [
+        2400,
+        1200
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        1200
+      ]
+    },
+    {
+      "id": "7000016",
+      "hash": "0xb545cf832a601dcfb1a7bd202805dbb98dcd6f1949fd6e285a00fa11bb34d83d",
+      "url": "https://the-disruptive-gallery-mainnet.s3.amazonaws.com/7000016.png",
+      "previewImageAspectRatio": [
+        2400,
+        1200
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        1200
+      ]
+    },
+    {
+      "id": "7000017",
+      "hash": "0xa8d2c44f3bb5290ef76f7ed91d76d51e40aaeb678f9fe7d1834d2fded79f3c13",
+      "url": "https://the-disruptive-gallery-mainnet.s3.amazonaws.com/7000017.png",
+      "previewImageAspectRatio": [
+        2400,
+        1200
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        1200
+      ]
+    },
+    {
+      "id": "7000018",
+      "hash": "0xee274e684b7104c76d20d79fbca6e41ee29526fac659be32bd4a4f98c27531b0",
+      "url": "https://the-disruptive-gallery-mainnet.s3.amazonaws.com/7000018.png",
+      "previewImageAspectRatio": [
+        2400,
+        1200
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        1200
+      ]
+    },
+    {
+      "id": "7000019",
+      "hash": "0x8c3788413f71f33c6116d9120c6189e696ca246a409a44a9ff1bbfb42c16bb33",
+      "url": "https://the-disruptive-gallery-mainnet.s3.amazonaws.com/7000019.png",
+      "previewImageAspectRatio": [
+        2400,
+        1200
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        1200
+      ]
+    },
+    {
+      "id": "7000020",
+      "hash": "0xe25d7ee160891c19356892a892e6d209ee8c6d7d8606fd9d036c3bac46695bf4",
+      "url": "https://the-disruptive-gallery-mainnet.s3.amazonaws.com/7000020.png",
+      "previewImageAspectRatio": [
+        2400,
+        1200
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        1200
+      ]
+    },
+    {
+      "id": "7000021",
+      "hash": "0x8578a7e1c72dac4408a447f030d5f5f8b2b3716f185f7586d0285861e69d03b6",
+      "url": "https://the-disruptive-gallery-mainnet.s3.amazonaws.com/7000021.png",
+      "previewImageAspectRatio": [
+        2400,
+        1200
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        1200
+      ]
+    },
+    {
+      "id": "7000022",
+      "hash": "0x58bfed9068f0933ebad3aa79ca2f7e4725e66b2d5de85a32472606e6e354385f",
+      "url": "https://the-disruptive-gallery-mainnet.s3.amazonaws.com/7000022.png",
+      "previewImageAspectRatio": [
+        2400,
+        1200
+      ],
+      "previewReferencePixelSize": [
+        2400,
+        1200
+      ]
+    }
+  ],
+  "thumbnailAspectRatios": [
+    [
+      2,
+      1
+    ]
+  ]
+}

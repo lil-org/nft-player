@@ -16,6 +16,11 @@ const LATIN_ASCII_REPLACEMENTS = new Map([
   ["Ŋ", "N"], ["ŋ", "n"], ["ı", "i"], ["ſ", "s"],
 ]);
 const PRESERVED_GENERATED_SUGGESTED_ITEM_FIELDS = [
+  "bundledDate",
+  "iosOnly",
+  "generativeOnly",
+  "hasCover",
+  "hasThumbnails",
   "playerBackgroundColor",
   "webURL",
   "collectionWebURL",
@@ -31,6 +36,7 @@ function mergeGeneratedSuggestedItem(existingItem, generatedItem) {
   return {
     ...pickExistingFields(existingItem, PRESERVED_GENERATED_SUGGESTED_ITEM_FIELDS),
     ...generatedItem,
+    ...(existingItem?.bundledDate != null ? { bundledDate: existingItem.bundledDate } : {}),
   };
 }
 

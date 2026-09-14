@@ -538,6 +538,19 @@ struct MobilePlayerView: View {
             return false
         }
 
+        if TokenGenerator.usesArtBlocksRenderer(collectionId: currentToken.fullCollectionId) {
+            guard let tokenIndex = TokenGenerator.tokenIndex(
+                    specificCollectionId: currentToken.fullCollectionId,
+                    tokenId: currentToken.id
+                  ),
+                  let token = TokenGenerator.bundledWebGenerativeToken(
+                    specificCollectionId: currentToken.fullCollectionId,
+                    tokenIndex: tokenIndex
+                  ) else { return false }
+            return token.id == currentToken.id
+                && (token.artworkAspectRatio ?? token.thumbnailAspectRatio) != nil
+        }
+
         guard let descriptor = playbackSession.collectionBrowseThumbnailDescriptor(
             pagePosition: currentPagePosition
         ) else {
