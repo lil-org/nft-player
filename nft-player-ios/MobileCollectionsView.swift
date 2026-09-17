@@ -75,6 +75,7 @@ struct MobileCollectionsView: View {
         }
         .ignoresSafeArea()
         .persistentSystemOverlays(.hidden)
+        .preloadCollectionCovers()
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
             sessionCoordinator.applicationDidBecomeActive()
         }

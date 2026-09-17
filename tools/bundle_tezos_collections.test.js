@@ -42,7 +42,7 @@ function runBundler(fixture, apply) {
     "--delay-ms", "0", "--max-retries", "0", "--skip-covers",
     apply ? "--apply" : "--dry-run",
     "--bundle", fixture.root,
-    "--covers", path.join(fixture.root, "Covers.xcassets"),
+    "--covers", path.join(fixture.root, "covers"),
     "--report", path.join(fixture.root, "report.md"),
     "--json-report", path.join(fixture.root, "report.json"),
     CONTRACT,
@@ -94,5 +94,5 @@ test("Tezos dry-run paths use the preserved catalog slug", (t) => {
   assert.equal(fs.readFileSync(fixture.itemsPath, "utf8"), original);
   const report = JSON.parse(fs.readFileSync(path.join(fixture.root, "report.json"), "utf8"));
   assert.equal(report.collections[0].cover.assetId, "curated_collection");
-  assert.equal(report.collections[0].cover.outputPath, path.join(fixture.root, "Covers.xcassets", "curated_collection.imageset", "curated_collection.jpg"));
+  assert.equal(report.collections[0].cover.outputPath, path.join(fixture.root, "covers", "curated_collection.jpg"));
 });

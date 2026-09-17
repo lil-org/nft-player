@@ -27,7 +27,6 @@ const ARTISTS_PATH = path.join(SUGGESTED_BUNDLE_PATH, "artists.json");
 const ITEMS_PATH = path.join(SUGGESTED_BUNDLE_PATH, "items.json");
 const SCRIPTS_PATH = path.join(SUGGESTED_BUNDLE_PATH, "Scripts");
 const TOKENS_PATH = path.join(SUGGESTED_BUNDLE_PATH, "Tokens");
-const COVERS_PATH = path.resolve(__dirname, "../Suggested Items/Covers.xcassets");
 const WIDGET_TOKENS_PATH = path.resolve(__dirname, "../Suggested Items/WidgetSuggested.bundle/Tokens");
 const MANUAL_THREE_COLUMN_COLLECTION_SLUGS = [
   "blume",
@@ -518,25 +517,6 @@ test("catalog slugs exactly match bundled resource names and preserve script ide
       suggestedItemId(item),
       `${slug} script identity does not match its catalog item`
     );
-  }
-
-  const coverImagesetNames = fs.readdirSync(COVERS_PATH, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory() && entry.name.endsWith(".imageset"))
-    .map((entry) => entry.name);
-  assert.deepEqual(
-    coverImagesetNames.sort(),
-    items.filter((item) => item.hasCover !== false)
-      .map((item) => `${item.internal_slug}.imageset`).sort()
-  );
-  for (const imagesetName of coverImagesetNames) {
-    const slug = path.basename(imagesetName, ".imageset");
-    const imagesetPath = path.join(COVERS_PATH, imagesetName);
-    const contents = readJSON(path.join(imagesetPath, "Contents.json"));
-    assert.deepEqual(
-      contents.images.flatMap((image) => image.filename == null ? [] : [image.filename]),
-      [`${slug}.jpg`]
-    );
-    assert.deepEqual(fs.readdirSync(imagesetPath).sort(), ["Contents.json", `${slug}.jpg`].sort());
   }
 });
 

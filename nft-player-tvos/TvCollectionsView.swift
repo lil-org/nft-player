@@ -119,6 +119,7 @@ struct TvCollectionsView: View {
                 await performViewingProgressRefresh(id: viewingProgressRefreshID)
             }
             .collectionsGridScrollMemoryLifecycleFlush(tracker: gridScrollMemoryTracker)
+            .preloadCollectionCovers()
             .onChange(of: isNavigatingToPlayer) { _, isNavigatingToPlayer in
                 if isNavigatingToPlayer {
                     cancelRestoredGridFocus()
@@ -456,11 +457,7 @@ private struct TvCollectionGridItemButton: View {
     var body: some View {
         Button(action: action) {
             ZStack(alignment: .topTrailing) {
-                Image(item.coverAssetName)
-                    .resizable()
-                    .scaledToFill()
-                    .clipped()
-                    .aspectRatio(1, contentMode: .fill)
+                CollectionCoverImage(assetName: item.coverAssetName, hasCover: item.hasCover)
                     .contentShape(Rectangle())
 
                 VStack {

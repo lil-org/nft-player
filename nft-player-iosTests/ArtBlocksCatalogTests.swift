@@ -1,5 +1,4 @@
 import Foundation
-import UIKit
 import XCTest
 @testable import nft_player_ios
 
@@ -7,7 +6,7 @@ nonisolated final class ArtBlocksCatalogTests: XCTestCase {}
 
 @MainActor
 extension ArtBlocksCatalogTests {
-    func testBundledResourcesUseSlugsWithoutChangingCollectionIdentity() throws {
+    func testBundledResourcesAndCoverNamesUseSlugsWithoutChangingCollectionIdentity() throws {
         var tokenCount = 0
         var scriptCount = 0
         for item in SuggestedItemsService.allItems {
@@ -17,7 +16,8 @@ extension ArtBlocksCatalogTests {
             XCTAssertEqual(SuggestedItemsService.item(id: item.id), item)
             XCTAssertEqual(CollectionCatalogItem(item: item).id, item.id)
             XCTAssertEqual(CollectionCatalogItem(item: item).coverAssetName, slug)
-            XCTAssertNotNil(UIImage(named: slug), item.name)
+            XCTAssertFalse(slug.isEmpty, item.name)
+            XCTAssertFalse(slug.contains("/"), item.name)
 
             if item.internalSlug == "card_nft_2" {
                 XCTAssertNil(SuggestedItemsService.bundledTokensURL(collectionId: item.id))
@@ -106,9 +106,8 @@ extension ArtBlocksCatalogTests {
             XCTAssertFalse(item.artists.isEmpty, item.name)
             XCTAssertTrue(SuggestedItemsService.visibleItems.contains { $0.id == item.id })
             XCTAssertTrue(CollectionCatalog.allItems.contains { $0.id == item.id && $0.hasCover })
-            let cover = try XCTUnwrap(UIImage(named: item.bundledResourceName)?.cgImage, item.name)
-            XCTAssertEqual(cover.width, 300, item.name)
-            XCTAssertEqual(cover.height, 300, item.name)
+            let slug = try XCTUnwrap(item.internalSlug, item.name)
+            XCTAssertEqual(CollectionCatalogItem(item: item).coverAssetName, slug, item.name)
             XCTAssertTrue(TokenGenerator.usesArtBlocksRenderer(collectionId: item.id))
             XCTAssertTrue(CollectionCatalog.canOpenCollection(specificCollectionId: item.id))
             XCTAssertFalse(CollectionCatalog.isDownloadableCollection(specificCollectionId: item.id))
@@ -232,9 +231,7 @@ extension ArtBlocksCatalogTests {
             XCTAssertEqual(CollectionCatalog.tokenCount(specificCollectionId: item.id), count)
             XCTAssertEqual(SuggestedItemsService.artists(forCollectionId: item.id).map(\.id), ["yomme"])
             XCTAssertEqual(CollectionCatalog.collectionWebURL(specificCollectionId: item.id)?.absoluteString, item.collectionWebURL)
-            let cover = try XCTUnwrap(UIImage(named: item.bundledResourceName))
-            XCTAssertEqual(cover.cgImage?.width, 300)
-            XCTAssertEqual(cover.cgImage?.height, 300)
+            XCTAssertEqual(CollectionCatalogItem(item: item).coverAssetName, slug)
 
             let tokens = try XCTUnwrap(SuggestedItemsService.bundledTokens(collectionId: item.id)).items
             XCTAssertEqual(tokens.count, count)
@@ -298,9 +295,7 @@ extension ArtBlocksCatalogTests {
             XCTAssertFalse(TokenGenerator.usesArtBlocksRenderer(collectionId: item.id))
             XCTAssertTrue(CollectionCatalog.collectionBrowseMidImagesAvailable(specificCollectionId: item.id))
             XCTAssertEqual(CollectionCatalog.tokenCount(specificCollectionId: item.id), count)
-            let cover = try XCTUnwrap(UIImage(named: item.bundledResourceName))
-            XCTAssertEqual(cover.cgImage?.width, 300)
-            XCTAssertEqual(cover.cgImage?.height, 300)
+            XCTAssertEqual(CollectionCatalogItem(item: item).coverAssetName, slug)
 
             let projectID = try XCTUnwrap(item.abId.flatMap(Int.init))
             let tokens = try XCTUnwrap(SuggestedItemsService.bundledTokens(collectionId: item.id))

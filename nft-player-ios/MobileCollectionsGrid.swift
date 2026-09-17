@@ -254,6 +254,16 @@ struct InfiniteCollectionsGridView: UIViewRepresentable {
             return gridCell
         }
 
+        func collectionView(_ collectionView: UICollectionView, willDisplay cell: UICollectionViewCell, forItemAt indexPath: IndexPath) {
+            guard let cell = cell as? CollectionGridCell else { return }
+            cell.setDisplaying(true)
+            configureCell(cell, at: indexPath, in: collectionView)
+        }
+
+        func collectionView(_ collectionView: UICollectionView, didEndDisplaying cell: UICollectionViewCell, forItemAt indexPath: IndexPath) {
+            (cell as? CollectionGridCell)?.setDisplaying(false)
+        }
+
         func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
             onSelect(item(for: indexPath.item))
         }
@@ -400,6 +410,15 @@ struct InfiniteCollectionsGridView: UIViewRepresentable {
             collectionView.indexPathsForVisibleItems.forEach { indexPath in
                 guard let gridCell = collectionView.cellForItem(at: indexPath) as? CollectionGridCell else { return }
                 configureCell(gridCell, at: indexPath, in: collectionView)
+            }
+        }
+
+        func refreshCover(named assetName: String, in collectionView: UICollectionView) {
+            guard !items.isEmpty else { return }
+            for indexPath in collectionView.indexPathsForVisibleItems {
+                guard item(for: indexPath.item).coverAssetName == assetName,
+                      let cell = collectionView.cellForItem(at: indexPath) as? CollectionGridCell else { continue }
+                configureCell(cell, at: indexPath, in: collectionView)
             }
         }
 
@@ -610,6 +629,24 @@ final class InfiniteCollectionsGridContainerView: UIView {
             name: UIApplication.didEnterBackgroundNotification,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(coverDidBecomeAvailable),
+            name: .collectionCoverDidBecomeAvailable,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(retryVisibleCovers),
+            name: UIApplication.didBecomeActiveNotification,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(retryVisibleCovers),
+            name: .collectionCoverConnectionRecovered,
+            object: nil
+        )
     }
 
     required init?(coder: NSCoder) {
@@ -705,6 +742,16 @@ final class InfiniteCollectionsGridContainerView: UIView {
     @objc private func flushRememberedScrollPosition() {
         coordinator?.flushScrollPosition(in: collectionView)
     }
+
+    @objc private func coverDidBecomeAvailable(_ notification: Notification) {
+        guard let assetName = notification.object as? String else { return }
+        coordinator?.refreshCover(named: assetName, in: collectionView)
+    }
+
+    @objc private func retryVisibleCovers() {
+        guard window != nil else { return }
+        coordinator?.updateVisibleProgressCells(in: collectionView)
+    }
 }
 
 private extension Double {
@@ -737,15 +784,24 @@ private actor MobileCollectionCoverImageDecodeLane {
         key: String,
         targetPixelSide: Int,
         displayScale: CGFloat,
+        priority: PersistentCollectionCoverCache.Priority,
         storage: MobileCollectionCoverImageStorage
-    ) -> UIImage? {
+    ) async -> UIImage? {
         if let image = storage.image(forKey: key) {
             return image
         }
         guard !Task.isCancelled else { return nil }
 
+        guard let data = try? await PersistentCollectionCoverCache.shared.data(
+            for: assetName,
+            priority: priority
+        ), !Task.isCancelled else { return nil }
+        if let image = storage.image(forKey: key) {
+            return image
+        }
+
         let image = autoreleasepool { () -> UIImage? in
-            guard let image = UIImage(named: assetName) else { return nil }
+            guard let image = UIImage(data: data) else { return nil }
 
             let scale = max(displayScale, 1)
             let targetSide = CGFloat(targetPixelSide) / scale
@@ -802,33 +858,28 @@ final class MobileCollectionCoverImageCache {
         )
     }
 
-    func loadImage(
+    func image(
         assetName: String,
         targetSize: CGSize,
-        displayScale: CGFloat,
-        completion: @escaping (UIImage?) -> Void
-    ) {
+        displayScale: CGFloat
+    ) async -> UIImage? {
         guard SuggestedItemsService.item(resourceName: assetName)?.hasCover != false else {
-            completion(nil)
-            return
+            return nil
         }
         let targetPixelSide = targetPixelSide(for: targetSize, displayScale: displayScale)
         let key = cacheKey(assetName: assetName, targetPixelSide: targetPixelSide)
         if let image = storage.image(forKey: key) {
-            completion(image)
-            return
+            return image
         }
 
-        Task(priority: .userInitiated) {
-            let image = await visibleDecodeLane.image(
-                assetName: assetName,
-                key: key,
-                targetPixelSide: targetPixelSide,
-                displayScale: displayScale,
-                storage: storage
-            )
-            completion(image)
-        }
+        return await visibleDecodeLane.image(
+            assetName: assetName,
+            key: key,
+            targetPixelSide: targetPixelSide,
+            displayScale: displayScale,
+            priority: .visible,
+            storage: storage
+        )
     }
 
     func prefetch(assetNames: [String], targetSize: CGSize, displayScale: CGFloat) {
@@ -847,6 +898,7 @@ final class MobileCollectionCoverImageCache {
                     key: key,
                     targetPixelSide: targetPixelSide,
                     displayScale: displayScale,
+                    priority: .prefetch,
                     storage: storage
                 )
                 guard !Task.isCancelled,
@@ -897,6 +949,8 @@ private final class CollectionGridCell: UICollectionViewCell {
     private var showsCompletedBadge = false
     private var representedCoverAssetName: String?
     private var representedCoverSize = CGSize.zero
+    private var coverLoadTask: Task<Void, Never>?
+    private var isDisplaying = false
     private var representedProgressPercent: Int?
     private var representedHasViewedToEnd = false
     private var hasInitialCoverAppearanceState = false
@@ -937,6 +991,7 @@ private final class CollectionGridCell: UICollectionViewCell {
 
     override func prepareForReuse() {
         super.prepareForReuse()
+        setDisplaying(false)
         representedCoverAssetName = nil
         representedCoverSize = .zero
         representedProgressPercent = nil
@@ -949,6 +1004,20 @@ private final class CollectionGridCell: UICollectionViewCell {
         showsCompletedBadge = false
     }
 
+    isolated deinit {
+        coverLoadTask?.cancel()
+    }
+
+    func setDisplaying(_ isDisplaying: Bool) {
+        self.isDisplaying = isDisplaying
+        if !isDisplaying { cancelCoverLoad() }
+    }
+
+    private func cancelCoverLoad() {
+        coverLoadTask?.cancel()
+        coverLoadTask = nil
+    }
+
     func configure(
         item: MobileCollectionItem,
         progressPercent: Int?,
@@ -958,15 +1027,19 @@ private final class CollectionGridCell: UICollectionViewCell {
         shouldAnimateInitialAppearance: Bool
     ) {
         let coverAssetChanged = representedCoverAssetName != item.coverAssetName
+        if coverAssetChanged || representedCoverSize != coverSize || !item.hasCover {
+            cancelCoverLoad()
+        }
         let shouldUpdateCover = item.hasCover && (coverAssetChanged
             || representedCoverSize != coverSize
             || imageView.image == nil)
         representedCoverAssetName = item.coverAssetName
         representedCoverSize = coverSize
-        imageView.backgroundColor = item.hasCover ? .clear : .secondarySystemFill
+        imageView.backgroundColor = imageView.image == nil ? .secondarySystemFill : .clear
         if !item.hasCover {
             cancelInitialCoverAppearance()
             imageView.image = nil
+            imageView.backgroundColor = .secondarySystemFill
         }
         let cachedCoverImage: UIImage?
         if shouldUpdateCover {
@@ -985,21 +1058,24 @@ private final class CollectionGridCell: UICollectionViewCell {
             }
 
             if cachedCoverImage == nil {
+                cancelInitialCoverAppearance()
                 if coverAssetChanged || imageView.image == nil {
                     imageView.image = nil
+                    imageView.backgroundColor = .secondarySystemFill
                 }
-                MobileCollectionCoverImageCache.shared.loadImage(
-                    assetName: item.coverAssetName,
-                    targetSize: coverSize,
-                    displayScale: displayScale
-                ) { [weak self] image in
-                    guard let self,
-                          self.representedCoverAssetName == item.coverAssetName,
-                          self.representedCoverSize == coverSize,
-                          self.imageView.image == nil else {
-                        return
+                if isDisplaying, coverLoadTask == nil {
+                    coverLoadTask = Task(priority: .userInitiated) { [weak self] in
+                        let image = await MobileCollectionCoverImageCache.shared.image(
+                            assetName: item.coverAssetName,
+                            targetSize: coverSize,
+                            displayScale: displayScale
+                        )
+                        guard !Task.isCancelled, let self,
+                              self.representedCoverAssetName == item.coverAssetName,
+                              self.representedCoverSize == coverSize else { return }
+                        self.coverLoadTask = nil
+                        self.setCoverImage(image, animated: self.consumeInitialCoverAppearance())
                     }
-                    self.setCoverImage(image, animated: self.consumeInitialCoverAppearance())
                 }
             }
         }
@@ -1023,6 +1099,7 @@ private final class CollectionGridCell: UICollectionViewCell {
         }
         accessibilityLabel = item.name
         if let cachedCoverImage {
+            cancelCoverLoad()
             setCoverImage(cachedCoverImage, animated: consumeInitialCoverAppearance())
         }
         setNeedsLayout()
@@ -1051,6 +1128,7 @@ private final class CollectionGridCell: UICollectionViewCell {
 
     private func setCoverImage(_ image: UIImage?, animated: Bool) {
         imageView.image = image
+        imageView.backgroundColor = image == nil ? .secondarySystemFill : .clear
 
         guard animated, image != nil else {
             cancelInitialCoverAppearance()

@@ -114,6 +114,7 @@ struct WalletsListView: View {
             }
         }
         .collectionsGridScrollMemoryLifecycleFlush(tracker: gridScrollMemoryTracker)
+        .preloadCollectionCovers()
         .animation(continueViewingControlAnimation, value: recentContinueViewingProgresses)
         .animation(
             continueViewingControlAnimation,
@@ -262,11 +263,7 @@ private struct CollectionTile: View {
 
     var body: some View {
         ZStack {
-            Image(item.coverAssetName)
-                .resizable()
-                .scaledToFill()
-                .clipped()
-                .aspectRatio(1, contentMode: .fit)
+            CollectionCoverImage(assetName: item.coverAssetName, hasCover: item.hasCover)
 
             VStack {
                 Spacer()
@@ -421,9 +418,10 @@ private struct ContinueViewingCoverThumbnail: View {
     let assetName: String
 
     var body: some View {
-        Image(assetName)
-            .resizable()
-            .scaledToFill()
+        CollectionCoverImage(
+            assetName: assetName,
+            hasCover: SuggestedItemsService.item(resourceName: assetName)?.hasCover != false
+        )
             .frame(width: continueViewingCoverThumbnailSize, height: continueViewingCoverThumbnailSize)
             .clipShape(
                 RoundedRectangle(

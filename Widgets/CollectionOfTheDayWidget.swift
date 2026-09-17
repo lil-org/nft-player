@@ -46,7 +46,9 @@ nonisolated struct CollectionOfTheDayProvider: TimelineProvider, Sendable {
     }
 
     func getSnapshot(in context: Context, completion: @escaping @Sendable (CollectionOfTheDayEntry) -> Void) {
-        completion(CollectionWidgetTimelineFactory.placeholderEntry(source: source))
+        Task {
+            completion(await CollectionWidgetTimelineFactory.snapshotEntry(source: source))
+        }
     }
 
     func getTimeline(
@@ -62,7 +64,18 @@ nonisolated struct CollectionOfTheDayProvider: TimelineProvider, Sendable {
 
 nonisolated private enum CollectionWidgetTimelineFactory {
     static func placeholderEntry(source: CollectionOfTheDaySource, date: Date = Date()) -> CollectionOfTheDayEntry {
-        fallbackEntry(source: source, date: date)
+        guard let collection = source.collection(for: date) else {
+            return emptyEntry(date: date)
+        }
+        return cachedTokenEntry(collection: collection, date: date)
+    }
+
+    @concurrent
+    static func snapshotEntry(source: CollectionOfTheDaySource, date: Date = Date()) async -> CollectionOfTheDayEntry {
+        guard let collection = source.collection(for: date) else {
+            return emptyEntry(date: date)
+        }
+        return await fallbackEntry(collection: collection, date: date)
     }
 
     static func timeline(
@@ -79,7 +92,7 @@ nonisolated private enum CollectionWidgetTimelineFactory {
         }
 
         guard let imageReference = CollectionOfTheDayWidgetData.randomStaticImageReference(collection: collection) else {
-            return fallbackTimeline(collection: collection, date: date)
+            return await fallbackTimeline(collection: collection, date: date)
         }
 
         let maxPixelSize = CollectionOfTheDayWidgetData.maxImagePixelSize(displaySize: displaySize)
@@ -96,7 +109,7 @@ nonisolated private enum CollectionWidgetTimelineFactory {
                     data,
                     maxPixelSize: maxPixelSize
                   ) else {
-                return fallbackTimeline(collection: collection, date: date)
+                return await fallbackTimeline(collection: collection, date: date)
             }
 
             await CollectionOfTheDayWidgetData.cacheImageData(
@@ -122,23 +135,15 @@ nonisolated private enum CollectionWidgetTimelineFactory {
             }
             return Timeline(entries: [entry], policy: .after(nextRotationDate))
         } catch {
-            return fallbackTimeline(collection: collection, date: date)
+            return await fallbackTimeline(collection: collection, date: date)
         }
     }
 
-    private static func fallbackTimeline(collection: WidgetCollection, date: Date) -> Timeline<CollectionOfTheDayEntry> {
+    private static func fallbackTimeline(collection: WidgetCollection, date: Date) async -> Timeline<CollectionOfTheDayEntry> {
         Timeline(
-            entries: [fallbackEntry(collection: collection, date: date)],
+            entries: [await fallbackEntry(collection: collection, date: date)],
             policy: .after(CollectionOfTheDayWidgetData.retryDate(after: date))
         )
-    }
-
-    private static func fallbackEntry(source: CollectionOfTheDaySource, date: Date) -> CollectionOfTheDayEntry {
-        guard let collection = source.collection(for: date) else {
-            return emptyEntry(date: date)
-        }
-
-        return fallbackEntry(collection: collection, date: date)
     }
 
     private static func emptyEntry(date: Date) -> CollectionOfTheDayEntry {
@@ -151,7 +156,7 @@ nonisolated private enum CollectionWidgetTimelineFactory {
         )
     }
 
-    private static func fallbackEntry(collection: WidgetCollection, date: Date) -> CollectionOfTheDayEntry {
+    private static func cachedTokenEntry(collection: WidgetCollection, date: Date) -> CollectionOfTheDayEntry {
         let cachedImage = CollectionOfTheDayWidgetData.cachedImage(collectionId: collection.id)
         return CollectionOfTheDayEntry(
             date: date,
@@ -159,6 +164,24 @@ nonisolated private enum CollectionWidgetTimelineFactory {
             tokenId: cachedImage?.tokenId,
             coverAssetName: collection.coverAssetName,
             imageData: cachedImage?.data
+        )
+    }
+
+    @concurrent
+    private static func fallbackEntry(collection: WidgetCollection, date: Date) async -> CollectionOfTheDayEntry {
+        let cachedEntry = cachedTokenEntry(collection: collection, date: date)
+        guard cachedEntry.imageData == nil, collection.hasCover else { return cachedEntry }
+
+        let coverData = try? await PersistentCollectionCoverCache.shared.data(
+            for: collection.coverAssetName,
+            priority: .visible
+        )
+        return CollectionOfTheDayEntry(
+            date: date,
+            collectionId: collection.id,
+            tokenId: nil,
+            coverAssetName: collection.coverAssetName,
+            imageData: coverData
         )
     }
 
@@ -187,8 +210,6 @@ struct CollectionOfTheDayWidgetView: View {
         if let imageData = entry.imageData,
            let image = CollectionOfTheDayWidgetData.platformImage(data: imageData) {
             fullColorWidgetImage(platformImage(image))
-        } else if !entry.coverAssetName.isEmpty {
-            fullColorWidgetImage(Image(entry.coverAssetName))
         } else {
             Color.black
         }
@@ -304,7 +325,7 @@ nonisolated struct SelectedCollectionWidgetProvider: AppIntentTimelineProvider, 
     }
 
     func snapshot(for configuration: SelectedCollectionWidgetIntent, in context: Context) async -> CollectionOfTheDayEntry {
-        CollectionWidgetTimelineFactory.placeholderEntry(source: source(for: configuration))
+        await CollectionWidgetTimelineFactory.snapshotEntry(source: source(for: configuration))
     }
 
     func timeline(for configuration: SelectedCollectionWidgetIntent, in context: Context) async -> Timeline<CollectionOfTheDayEntry> {

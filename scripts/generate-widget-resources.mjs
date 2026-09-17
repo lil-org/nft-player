@@ -13,9 +13,7 @@ const repositoryRoot = path.resolve(scriptDirectory, "..");
 const suggestedItemsDirectory = path.join(repositoryRoot, "Suggested Items");
 export async function generateWidgetResources(directory, { check = false } = {}) {
   const sourceBundleDirectory = path.join(directory, "Suggested.bundle");
-  const sourceCoversDirectory = path.join(directory, "Covers.xcassets");
   const outputBundleDirectory = path.join(directory, "WidgetSuggested.bundle");
-  const outputCoversDirectory = path.join(directory, "WidgetCovers.xcassets");
   const eligibleCollectionsPath = path.join(directory, "widget-eligible-collections.json");
   const eligibleSlugs = await readEligibleCollectionSlugs(eligibleCollectionsPath);
   const sourceItems = await readJSON(path.join(sourceBundleDirectory, "items.json"));
@@ -57,36 +55,12 @@ export async function generateWidgetResources(directory, { check = false } = {})
   }
   failIfAny("Missing token JSON files in Suggested.bundle/Tokens", missingTokens);
 
-  const expectedCoverFiles = new Map();
-  expectedCoverFiles.set(
-    "Contents.json",
-    await fs.readFile(path.join(sourceCoversDirectory, "Contents.json"))
-  );
-
-  const missingCovers = [];
-  for (const slug of eligibleSlugs) {
-    const sourceImageset = path.join(sourceCoversDirectory, `${slug}.imageset`);
-    if (!(await exists(sourceImageset))) {
-      missingCovers.push(slug);
-      continue;
-    }
-    await collectFiles(sourceImageset, async (sourceFilePath, relativePath) => {
-      expectedCoverFiles.set(
-        path.join(`${slug}.imageset`, relativePath),
-        await fs.readFile(sourceFilePath)
-      );
-    });
-  }
-  failIfAny("Missing cover imagesets in Covers.xcassets", missingCovers);
-
   if (check) {
     await checkOutput(outputBundleDirectory, expectedBundleFiles);
-    await checkOutput(outputCoversDirectory, expectedCoverFiles);
     return;
   }
 
   await writeOutput(outputBundleDirectory, expectedBundleFiles);
-  await writeOutput(outputCoversDirectory, expectedCoverFiles);
 }
 
 async function readEligibleCollectionSlugs(eligibleCollectionsPath) {
@@ -203,7 +177,6 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
       console.log("Widget resources are current.");
     } else {
       console.log("Generated Suggested Items/WidgetSuggested.bundle");
-      console.log("Generated Suggested Items/WidgetCovers.xcassets");
     }
   }).catch((error) => {
     console.error(error.message);

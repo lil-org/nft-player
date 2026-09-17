@@ -364,6 +364,7 @@ nonisolated struct WidgetCollection: Decodable, Hashable, Sendable {
     let collectionId: String?
     let abId: String?
     let name: String
+    let hasCover: Bool
     private let chain: WidgetCollectionChain
 
     enum CodingKeys: String, CodingKey {
@@ -372,6 +373,7 @@ nonisolated struct WidgetCollection: Decodable, Hashable, Sendable {
         case collectionId
         case abId
         case name
+        case hasCover
         case chain
     }
 
@@ -381,6 +383,7 @@ nonisolated struct WidgetCollection: Decodable, Hashable, Sendable {
         internalSlug = try container.decodeIfPresent(String.self, forKey: .internalSlug)
         collectionId = try container.decodeIfPresent(String.self, forKey: .collectionId)
         abId = try container.decodeIfPresent(String.self, forKey: .abId)
+        hasCover = try container.decodeIfPresent(Bool.self, forKey: .hasCover) ?? true
         chain = try container.decode(WidgetCollectionChain.self, forKey: .chain)
 
         let decodedName = try container.decodeIfPresent(String.self, forKey: .name)?

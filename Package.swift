@@ -14,6 +14,7 @@ let package = Package(
             path: "Shared",
             exclude: [
                 "Assets",
+                "Views",
                 "Extensions/CollectionsGridScrollViewHelpers.swift",
                 "Extensions/Links.swift",
                 "Extensions/Notification.swift",
@@ -61,6 +62,8 @@ let package = Package(
                 "Models/WidgetDeepLink.swift",
                 "Services/PlayerICloudSync.swift",
                 "Services/PersistentArtworkDependencyCache.swift",
+                "Services/PersistentCollectionCoverCache.swift",
+                "Services/CollectionCoverRecovery.swift",
                 "Services/PersistentJavaScriptLibrary.swift",
                 "Services/PersistentWebContentLoadGate.swift"
             ],

@@ -25,13 +25,15 @@ By default, the script refuses to bundle collections above 15,000 assets. Use `-
 
 - `Suggested Items/Suggested.bundle/Tokens/<internal_slug>.json`
 - `Suggested Items/Suggested.bundle/items.json`
-- `Suggested Items/Covers.xcassets/<internal_slug>.imageset/<internal_slug>.jpg`
+- `covers/<internal_slug>.jpg`
 - `tools/reports/solana-collection-bundle-report.md`
 - `tools/reports/solana-collection-bundle-report.json`
 
 Resource names use the catalog entry’s `internal_slug`. Existing slugs remain stable when a collection is rebundled; new slugs are assigned against the full catalog before paths and dry-run reports are produced. Blockchain addresses and token IDs remain unchanged.
 
-Cover generation requires ImageMagick, macOS `sips`, and Xcode `actool`. ImageMagick writes a static 300x300 JPEG from the first source frame with no alpha, flattened on an opaque black canvas; `--cover-quality` is passed to ImageMagick's JPEG encoder. The converter writes standard sRGB pixels with a standard sRGB ICC profile instead of preserving device/display profiles, which keeps colors stable across Apple platforms and avoids the pale-cover regression. Covers are JPEG instead of HEIC because tvOS/visionOS can render some bundled HEIF renditions as blank even when macOS and iOS decode them. The bundler validates each final JPEG structurally, validates the completed catalog with temporary tvOS/visionOS asset-catalog compiles, then fails the collection cover write if Apple tooling reports an unsafe cover.
+Cover generation requires ImageMagick and macOS `sips`. ImageMagick writes a static 300x300 JPEG from the first source frame with no alpha, flattened on an opaque black canvas; `--cover-quality` controls JPEG quality. The converter normalizes pixels and the ICC profile to standard sRGB and validates every output JPEG before replacing the staged file.
+
+`--covers <path>` changes the staging directory, which defaults to `covers/` at the project root. Staged images are optional local files and are not bundled into the app or widgets. Manually upload generated covers to `https://cdn.lil.org/player/covers/v1/<internal_slug>.jpg` before shipping the collection. The apps and widgets download covers from these URLs and retain them in a persistent cache.
 
 Token JSON uses the iOS app's compact Solana format:
 
@@ -70,8 +72,8 @@ After applying a bundle, run:
 ```sh
 node --test tools/*.test.js
 node scripts/generate-widget-resources.mjs --check
-sips -g format -g pixelWidth -g pixelHeight -g hasAlpha -g samplesPerPixel -g profile "Suggested Items/Covers.xcassets/<internal_slug>.imageset/<internal_slug>.jpg"
-magick identify -format "%m %[colorspace] %[channels] %w %h %[profiles]\n" "Suggested Items/Covers.xcassets/<internal_slug>.imageset/<internal_slug>.jpg"
+sips -g format -g pixelWidth -g pixelHeight -g hasAlpha -g samplesPerPixel -g profile "covers/<internal_slug>.jpg"
+magick identify -format "%m %[colorspace] %[channels] %w %h %[profiles]\n" "covers/<internal_slug>.jpg"
 xcodebuild -project nft-player.xcodeproj -scheme nft-player-ios -destination 'generic/platform=iOS' build
 ```
 
@@ -91,4 +93,4 @@ node tools/remove_bundled_collections.js --apply "Collection Name"
 node tools/remove_bundled_collections.js --apply "<collection id>"
 ```
 
-The remover matches exact internal slug, collection id, address, or collection name. `--apply` removes the matching `items.json` entry, `Tokens/<internal_slug>.json`, any `Scripts/<internal_slug>.json`, and `Covers.xcassets/<internal_slug>.imageset`.
+The remover matches exact internal slug, collection id, address, or collection name. `--apply` removes the matching `items.json` entry, `Tokens/<internal_slug>.json`, any `Scripts/<internal_slug>.json`, and any local `covers/<internal_slug>.jpg`. Missing staged covers are allowed; the remover does not delete CDN files.

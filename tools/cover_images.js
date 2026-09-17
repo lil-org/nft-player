@@ -1,5 +1,4 @@
 const fs = require("node:fs/promises");
-const os = require("node:os");
 const path = require("node:path");
 const { spawn } = require("node:child_process");
 const { suggestedItemResourceName } = require("./suggested_items");
@@ -20,11 +19,6 @@ async function resolveCoverTools() {
     throw new Error("No cover normalization tool found. Install ImageMagick to normalize RGB/no-alpha cover sources.");
   }
 
-  const hasXcrun = await commandExists("xcrun");
-  if (!hasXcrun) {
-    throw new Error("No Xcode asset validation tool found. Install Xcode command line tools so xcrun actool can validate cover assets.");
-  }
-
   const hasSips = await commandExists("sips");
   if (!hasSips) {
     throw new Error("No Apple image inspection tool found. Install macOS sips to validate cover color profiles.");
@@ -43,7 +37,6 @@ async function resolveCoverTools() {
   return {
     convertCommand,
     hasSips,
-    hasXcrun,
     identifyCommand,
     srgbProfilePath,
   };
@@ -61,21 +54,6 @@ async function writePlaceholderCover(coverTools, outputPath, collectionName, siz
   await writeValidatedCover(coverTools, outputPath, size, async (tempOutputPath) => {
     await writeJPEGPlaceholder(coverTools, tempOutputPath, label, size, quality);
   });
-}
-
-async function writeCoverContents(imagesetPath, coverAssetId, fileExtension = COVER_FILE_EXTENSION) {
-  await fs.writeFile(path.join(imagesetPath, "Contents.json"), `${JSON.stringify({
-    images: [
-      {
-        filename: `${coverAssetId}.${fileExtension}`,
-        idiom: "universal",
-      },
-    ],
-    info: {
-      author: "xcode",
-      version: 1,
-    },
-  }, null, 2)}\n`);
 }
 
 function coverAssetIdForCollection(collection) {
@@ -193,50 +171,6 @@ async function writeJPEGPlaceholder(coverTools, outputPath, label, size, quality
     "-quality", String(quality),
     outputPath,
   ]);
-}
-
-async function assertCoverCatalogIsAssetCatalogCompatible(assetCatalogPath) {
-  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "cover-actool-"));
-  try {
-    for (const spec of coverActoolValidationSpecs()) {
-      const compilePath = path.join(tempRoot, `compiled-${spec.label}`);
-      await fs.mkdir(compilePath, { recursive: true });
-      const { output } = await runCommandCombinedOutput("xcrun", [
-        "actool",
-        "--compile", compilePath,
-        "--platform", spec.platform,
-        "--minimum-deployment-target", spec.minimumDeploymentTarget,
-        "--target-device", spec.targetDevice,
-        "--warnings",
-        "--errors",
-        "--notices",
-        "--output-format", "human-readable-text",
-        assetCatalogPath,
-      ]);
-      if (/Invalid value for reserved bit/u.test(output)) {
-        throw new Error(`cover catalog ${assetCatalogPath} is not ${spec.label} asset-catalog safe: actool reported "Invalid value for reserved bit"`);
-      }
-    }
-  } finally {
-    await fs.rm(tempRoot, { force: true, recursive: true });
-  }
-}
-
-function coverActoolValidationSpecs() {
-  return [
-    {
-      label: "tvOS",
-      platform: "appletvos",
-      minimumDeploymentTarget: "15.0",
-      targetDevice: "tv",
-    },
-    {
-      label: "visionOS",
-      platform: "xros",
-      minimumDeploymentTarget: "1.0",
-      targetDevice: "vision",
-    },
-  ];
 }
 
 async function inspectCoverWithSips(outputPath) {
@@ -395,35 +329,10 @@ async function runCommandOutput(command, args, { captureStdout = true } = {}) {
   });
 }
 
-async function runCommandCombinedOutput(command, args) {
-  return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { stdio: ["ignore", "pipe", "pipe"] });
-    let stdout = "";
-    let stderr = "";
-    child.stdout.on("data", (chunk) => {
-      stdout += chunk.toString();
-    });
-    child.stderr.on("data", (chunk) => {
-      stderr += chunk.toString();
-    });
-    child.on("close", (code) => {
-      const output = `${stdout}${stderr}`;
-      if (code === 0) {
-        resolve({ stdout, stderr, output });
-      } else {
-        reject(new Error(`${command} exited ${code}: ${output.trim()}`));
-      }
-    });
-    child.on("error", reject);
-  });
-}
-
 module.exports = {
-  assertCoverCatalogIsAssetCatalogCompatible,
   assertUniqueCoverAssetIds,
   convertCover,
   coverAssetIdForCollection,
   resolveCoverTools,
-  writeCoverContents,
   writePlaceholderCover,
 };

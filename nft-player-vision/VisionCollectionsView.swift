@@ -167,6 +167,7 @@ struct VisionCollectionsView: View {
             await performViewingProgressRefresh(id: viewingProgressRefreshID)
         }
         .collectionsGridScrollMemoryLifecycleFlush(tracker: gridScrollMemoryTracker)
+        .preloadCollectionCovers()
         .onDisappear {
             cancelPendingPlayerPresentation()
             dismissImmersiveSpaceIfNeeded()
@@ -189,11 +190,7 @@ struct VisionCollectionsView: View {
                     didSelectCollectionItem(item)
                 }) {
                     ZStack(alignment: .topTrailing) {
-                        Image(item.coverAssetName)
-                            .resizable()
-                            .scaledToFill()
-                            .clipped()
-                            .aspectRatio(1, contentMode: .fill)
+                        CollectionCoverImage(assetName: item.coverAssetName, hasCover: item.hasCover)
                             .contentShape(Rectangle())
                         VStack {
                             Spacer()

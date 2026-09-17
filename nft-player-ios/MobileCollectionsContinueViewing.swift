@@ -95,7 +95,8 @@ struct CollectionCoverThumbnail: View {
 
     @Environment(\.displayScale) private var displayScale
     @State private var loadedImage: LoadedImage?
-    @State private var pendingThumbnailLoadKey: String?
+    @State private var refreshID = 0
+    @State private var isVisible = false
 
     var body: some View {
         ZStack {
@@ -114,13 +115,26 @@ struct CollectionCoverThumbnail: View {
                 .stroke(.white.opacity(0.22), lineWidth: 0.5)
         }
         .accessibilityHidden(true)
-        .task(id: thumbnailLoadKey) {
+        .onAppear { isVisible = true }
+        .onDisappear { isVisible = false }
+        .task(id: "\(thumbnailLoadKey)-\(refreshID)") {
             await loadImage(for: thumbnailLoadKey)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .collectionCoverDidBecomeAvailable)) { notification in
+            guard isVisible, notification.object as? String == assetName, displayedImage == nil else { return }
+            refreshID &+= 1
+        }
+        .onReceive(
+            NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)
+                .merge(with: NotificationCenter.default.publisher(for: .collectionCoverConnectionRecovered))
+        ) { _ in
+            guard isVisible, displayedImage == nil else { return }
+            refreshID &+= 1
         }
     }
 
     private var thumbnailLoadKey: String {
-        "\(assetName)-\(displayScale)"
+        "\(assetName)-\(size)-\(displayScale)"
     }
 
     private var displayedImage: UIImage? {
@@ -142,7 +156,6 @@ struct CollectionCoverThumbnail: View {
     @MainActor
     private func loadImage(for loadKey: String) async {
         let scale = displayScale > 0 ? displayScale : UIScreen.main.scale
-        pendingThumbnailLoadKey = loadKey
         if let cachedImage = MobileCollectionCoverImageCache.shared.cachedImage(
             assetName: assetName,
             targetSize: targetSize,
@@ -153,18 +166,13 @@ struct CollectionCoverThumbnail: View {
         }
 
         loadedImage = nil
-        let requestedAssetName = assetName
-        MobileCollectionCoverImageCache.shared.loadImage(
-            assetName: requestedAssetName,
+        let image = await MobileCollectionCoverImageCache.shared.image(
+            assetName: assetName,
             targetSize: targetSize,
             displayScale: scale
-        ) { loadedImage in
-            guard pendingThumbnailLoadKey == loadKey,
-                  let loadedImage else {
-                return
-            }
-            self.loadedImage = LoadedImage(loadKey: loadKey, image: loadedImage)
-        }
+        )
+        guard !Task.isCancelled, let image else { return }
+        loadedImage = LoadedImage(loadKey: loadKey, image: image)
     }
 
     private struct LoadedImage {
@@ -172,4 +180,3 @@ struct CollectionCoverThumbnail: View {
         let image: UIImage
     }
 }
-

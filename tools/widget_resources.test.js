@@ -27,21 +27,16 @@ async function fixture(t) {
   ];
   await writeJSON(directory, "Suggested.bundle/items.json", items);
   await writeJSON(directory, "widget-eligible-collections.json", ["beta", "alpha"]);
-  await writeJSON(directory, "Covers.xcassets/Contents.json", { info: { version: 1 } });
   for (const item of items) {
     const slug = item.internal_slug;
     await writeJSON(directory, `Suggested.bundle/Tokens/${slug}.json`, {
       items: [{ id: item.abId, url: `https://example.com/${slug}.jpg` }],
     });
-    await writeJSON(directory, `Covers.xcassets/${slug}.imageset/Contents.json`, {
-      images: [{ filename: `${slug}.jpg` }],
-    });
-    await writeFile(directory, `Covers.xcassets/${slug}.imageset/${slug}.jpg`, Buffer.from([0xff, 0xd8, Number(item.abId)]));
   }
   return { directory, items };
 }
 
-test("widget resources use slugs, preserve selection order and copy payload bytes", async (t) => {
+test("widget resources use slugs and copy metadata and token bytes without local covers", async (t) => {
   const { directory, items } = await fixture(t);
   const { generateWidgetResources } = await generator;
   await generateWidgetResources(directory);
@@ -55,14 +50,14 @@ test("widget resources use slugs, preserve selection order and copy payload byte
     ["alpha.json", "beta.json"]
   );
   for (const slug of ["alpha", "beta"]) {
-    for (const [source, output] of [
-      [`Suggested.bundle/Tokens/${slug}.json`, `WidgetSuggested.bundle/Tokens/${slug}.json`],
-      [`Covers.xcassets/${slug}.imageset/Contents.json`, `WidgetCovers.xcassets/${slug}.imageset/Contents.json`],
-      [`Covers.xcassets/${slug}.imageset/${slug}.jpg`, `WidgetCovers.xcassets/${slug}.imageset/${slug}.jpg`],
-    ]) {
-      assert.deepEqual(await fs.readFile(path.join(directory, output)), await fs.readFile(path.join(directory, source)));
-    }
+    assert.deepEqual(
+      await fs.readFile(path.join(directory, `WidgetSuggested.bundle/Tokens/${slug}.json`)),
+      await fs.readFile(path.join(directory, `Suggested.bundle/Tokens/${slug}.json`))
+    );
   }
+  assert.deepEqual((await fs.readdir(directory)).sort(), [
+    "Suggested.bundle", "WidgetSuggested.bundle", "widget-eligible-collections.json",
+  ]);
   await generateWidgetResources(directory, { check: true });
 });
 
@@ -95,30 +90,15 @@ test("widget generation rejects invalid or ambiguous slug selections", async (t)
   }
 });
 
-test("widget generation requires slug-named token and cover resources", async (t) => {
+test("widget generation requires slug-named token resources", async (t) => {
   const { generateWidgetResources } = await generator;
-  for (const kind of ["token", "cover"]) {
-    await t.test(kind, async (t) => {
-      const { directory, items } = await fixture(t);
-      const item = items[0];
-      const oldId = item.address + item.abId;
-      if (kind === "token") {
-        await fs.rename(
-          path.join(directory, "Suggested.bundle/Tokens/alpha.json"),
-          path.join(directory, `Suggested.bundle/Tokens/${oldId}.json`)
-        );
-      } else {
-        await fs.rename(
-          path.join(directory, "Covers.xcassets/alpha.imageset"),
-          path.join(directory, `Covers.xcassets/${oldId}.imageset`)
-        );
-      }
-      await assert.rejects(
-        generateWidgetResources(directory),
-        kind === "token" ? /Missing token JSON files/ : /Missing cover imagesets/
-      );
-    });
-  }
+  const { directory, items } = await fixture(t);
+  const oldId = items[0].address + items[0].abId;
+  await fs.rename(
+    path.join(directory, "Suggested.bundle/Tokens/alpha.json"),
+    path.join(directory, `Suggested.bundle/Tokens/${oldId}.json`)
+  );
+  await assert.rejects(generateWidgetResources(directory), /Missing token JSON files/);
 });
 
 test("widget check reports stale output without changing it and generation removes old names", async (t) => {

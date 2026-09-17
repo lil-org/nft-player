@@ -26,7 +26,7 @@ function createFixture(t, {
 
   const bundlePath = path.join(root, "Suggested.bundle");
   const tokensPath = path.join(bundlePath, "Tokens");
-  const coversPath = path.join(root, "Covers.xcassets");
+  const coversPath = path.join(root, "covers");
   const itemsPath = path.join(bundlePath, "items.json");
   const tokenPath = path.join(tokensPath, `${internalSlug}.json`);
   const reportPath = path.join(root, "reports", "report.md");
@@ -201,12 +201,12 @@ test("rejects case-colliding manifests before modifying the bundle", (t) => {
 
 test("rejects a cover casing conflict before modifying tokens or items", (t) => {
   const fixture = createFixture(t);
-  fs.mkdirSync(path.join(fixture.coversPath, "ALLSTARZ.imageset"));
+  fs.writeFileSync(path.join(fixture.coversPath, "ALLSTARZ.jpg"), "existing cover");
 
   const result = runBundler(fixture, { skipCovers: false });
 
   assert.equal(result.status, 1);
-  assert.match(result.stderr, /Filename casing mismatch for cover asset/u);
+  assert.match(result.stderr, /Filename casing mismatch for cover image/u);
   assert.equal(fs.readFileSync(fixture.tokenPath, "utf8"), fixture.tokenText);
   assert.equal(fs.readFileSync(fixture.itemsPath, "utf8"), fixture.itemsText);
 });
@@ -221,7 +221,7 @@ test("dry runs preserve custom slugs and report slug cover paths without changin
   const report = JSON.parse(fs.readFileSync(fixture.jsonReportPath, "utf8"));
   assert.equal(report.collections[0].internal_slug, "curated_allstarz");
   assert.equal(report.collections[0].cover.assetId, "curated_allstarz");
-  assert.equal(report.collections[0].cover.outputPath, path.join(fixture.coversPath, "curated_allstarz.imageset", "curated_allstarz.jpg"));
+  assert.equal(report.collections[0].cover.outputPath, path.join(fixture.coversPath, "curated_allstarz.jpg"));
 });
 
 test("assigns new resource slugs without colliding with existing catalog names", (t) => {
@@ -239,7 +239,7 @@ test("assigns new resource slugs without colliding with existing catalog names",
   assert.deepEqual(fs.readdirSync(fixture.tokensPath), []);
   const dryRunReport = JSON.parse(fs.readFileSync(fixture.jsonReportPath, "utf8"));
   assert.equal(dryRunReport.collections[0].internal_slug, "allstarz_2");
-  assert.equal(dryRunReport.collections[0].cover.outputPath, path.join(fixture.coversPath, "allstarz_2.imageset", "allstarz_2.jpg"));
+  assert.equal(dryRunReport.collections[0].cover.outputPath, path.join(fixture.coversPath, "allstarz_2.jpg"));
   const result = runBundler(fixture);
   assert.equal(result.status, 0, result.stderr);
   const items = JSON.parse(fs.readFileSync(fixture.itemsPath, "utf8"));

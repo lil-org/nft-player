@@ -9,7 +9,7 @@ const {
 } = require("./suggested_items");
 
 const DEFAULT_BUNDLE_PATH = path.join("Suggested Items", "Suggested.bundle");
-const DEFAULT_COVERS_PATH = path.join("Suggested Items", "Covers.xcassets");
+const DEFAULT_COVERS_PATH = "covers";
 
 function usage() {
   return `
@@ -17,10 +17,10 @@ Usage:
   node tools/remove_bundled_collections.js [options] <collection-slug-id-or-name>...
 
 Options:
-  --apply           Remove matching catalog entries, token/script JSON files, and cover imagesets.
+  --apply           Remove matching catalog entries, token/script JSON files, and local staged cover JPEGs.
   --dry-run         Print what would be removed without changing files. Default.
   --bundle <path>   Suggested.bundle path. Default: ${DEFAULT_BUNDLE_PATH}
-  --covers <path>   Covers.xcassets path. Default: ${DEFAULT_COVERS_PATH}
+  --covers <path>   Cover JPEG staging directory. Default: ${DEFAULT_COVERS_PATH}
   --help            Show this help.
 `.trim();
 }
@@ -192,15 +192,15 @@ async function main() {
   for (const target of targets) {
     const tokenFilePath = path.join(tokensPath, `${target.resourceName}.json`);
     const scriptFilePath = path.join(scriptsPath, `${target.resourceName}.json`);
-    const imagesetPath = path.join(coversPath, `${target.resourceName}.imageset`);
+    const coverFilePath = path.join(coversPath, `${target.resourceName}.jpg`);
     filePlans.push({
       ...target,
       tokenFilePath,
       tokenFileExists: await pathExists(tokenFilePath),
       scriptFilePath,
       scriptFileExists: await pathExists(scriptFilePath),
-      imagesetPath,
-      imagesetExists: await pathExists(imagesetPath),
+      coverFilePath,
+      coverFileExists: await pathExists(coverFilePath),
     });
   }
 
@@ -210,7 +210,7 @@ async function main() {
     console.log(`  catalog entry: ${plan.foundCatalogEntry ? "yes" : "no"}`);
     console.log(`  token JSON: ${plan.tokenFileExists ? plan.tokenFilePath : "missing"}`);
     console.log(`  script JSON: ${plan.scriptFileExists ? plan.scriptFilePath : "missing"}`);
-    console.log(`  cover imageset: ${plan.imagesetExists ? plan.imagesetPath : "missing"}`);
+    console.log(`  staged cover JPEG: ${plan.coverFileExists ? plan.coverFilePath : "missing"}`);
   }
 
   if (!options.apply) {
@@ -222,7 +222,7 @@ async function main() {
   for (const plan of filePlans) {
     await fs.rm(plan.tokenFilePath, { force: true });
     await fs.rm(plan.scriptFilePath, { force: true });
-    await fs.rm(plan.imagesetPath, { force: true, recursive: true });
+    await fs.rm(plan.coverFilePath, { force: true });
   }
 
   console.log(`Removed ${removedCatalogEntries} catalog entr${removedCatalogEntries === 1 ? "y" : "ies"}.`);

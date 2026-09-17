@@ -204,7 +204,7 @@ test("Solana dry runs preserve curated slugs when the fetched collection name ch
     }],
     args: [
       "--dry-run", "--bundle", directory,
-      "--covers", path.join(directory, "Covers.xcassets"),
+      "--covers", path.join(directory, "covers"),
       "--report", path.join(directory, "report.md"),
       "--json-report", path.join(directory, "report.json"),
     ],
@@ -213,6 +213,6 @@ test("Solana dry runs preserve curated slugs when the fetched collection name ch
   assert.equal(await fs.readFile(itemsPath, "utf8"), original);
   const report = JSON.parse(await fs.readFile(path.join(directory, "report.json"), "utf8"));
   assert.equal(report.collections[0].internal_slug, "curated_collection");
-  assert.equal(report.collections[0].cover.outputPath, path.join(directory, "Covers.xcassets", "curated_collection.imageset", "curated_collection.jpg"));
+  assert.equal(report.collections[0].cover.outputPath, path.join(directory, "covers", "curated_collection.jpg"));
   await assert.rejects(fs.access(path.join(directory, "Tokens")), { code: "ENOENT" });
 });

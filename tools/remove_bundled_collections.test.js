@@ -13,7 +13,7 @@ const ADDRESS = "0x1111111111111111111111111111111111111111";
 function createFixture(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "nft-player-remove-bundle-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
-  const coversPath = path.join(root, "Covers.xcassets");
+  const coversPath = path.join(root, "covers");
   const items = [
     { address: ADDRESS, chain: "ethereum", internal_slug: "first_collection", name: "First Collection" },
     { address: ADDRESS, chain: "base", internal_slug: "second_collection", name: "Second Collection" },
@@ -25,7 +25,8 @@ function createFixture(t) {
       fs.mkdirSync(path.join(root, directory), { recursive: true });
       fs.writeFileSync(path.join(root, directory, `${item.internal_slug}.json`), "{}");
     }
-    fs.mkdirSync(path.join(coversPath, `${item.internal_slug}.imageset`), { recursive: true });
+    fs.mkdirSync(coversPath, { recursive: true });
+    fs.writeFileSync(path.join(coversPath, `${item.internal_slug}.jpg`), "existing cover");
   }
   return { root, coversPath, itemsPath, items };
 }
@@ -45,7 +46,7 @@ test("removing by slug deletes its resources and preserves a collection with the
   for (const directory of ["Tokens", "Scripts"]) {
     assert.deepEqual(fs.readdirSync(path.join(fixture.root, directory)), ["second_collection.json"]);
   }
-  assert.deepEqual(fs.readdirSync(fixture.coversPath), ["second_collection.imageset"]);
+  assert.deepEqual(fs.readdirSync(fixture.coversPath), ["second_collection.jpg"]);
 });
 
 test("removal by name resolves slug resources in a read-only dry run", (t) => {
@@ -55,6 +56,8 @@ test("removal by name resolves slug resources in a read-only dry run", (t) => {
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /Tokens\/first_collection\.json/u);
   assert.match(result.stdout, /Scripts\/first_collection\.json/u);
+  assert.match(result.stdout, /covers\/first_collection\.jpg/u);
+  assert.equal(fs.readFileSync(path.join(fixture.coversPath, "first_collection.jpg"), "utf8"), "existing cover");
   assert.equal(fs.readFileSync(fixture.itemsPath, "utf8"), original);
   assert.equal(fs.existsSync(path.join(fixture.root, "Tokens", "first_collection.json")), true);
 });
@@ -79,8 +82,8 @@ test("exact slug selectors disambiguate collections with the same display name",
       );
     }
     fs.renameSync(
-      path.join(fixture.coversPath, `${item.internal_slug}.imageset`),
-      path.join(fixture.coversPath, `${slug}.imageset`)
+      path.join(fixture.coversPath, `${item.internal_slug}.jpg`),
+      path.join(fixture.coversPath, `${slug}.jpg`)
     );
     item.internal_slug = slug;
     item.name = "Balance";
@@ -99,5 +102,15 @@ test("exact slug selectors disambiguate collections with the same display name",
   for (const directory of ["Tokens", "Scripts"]) {
     assert.deepEqual(fs.readdirSync(path.join(fixture.root, directory)), ["balance_2.json"]);
   }
-  assert.deepEqual(fs.readdirSync(fixture.coversPath), ["balance_2.imageset"]);
+  assert.deepEqual(fs.readdirSync(fixture.coversPath), ["balance_2.jpg"]);
+});
+
+test("removal succeeds when no local cover staging directory exists", (t) => {
+  const fixture = createFixture(t);
+  fs.rmSync(fixture.coversPath, { recursive: true });
+  const result = runRemover(fixture, "first_collection");
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /staged cover JPEG: missing/u);
+  assert.deepEqual(JSON.parse(fs.readFileSync(fixture.itemsPath, "utf8")), [fixture.items[1]]);
+  assert.equal(fs.existsSync(fixture.coversPath), false);
 });

@@ -8,7 +8,6 @@
 
 /* Begin PBXBuildFile section */
 		2C0218032C53CC200012EC40 /* TvCollectionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C0218022C53CC200012EC40 /* TvCollectionsView.swift */; };
-		2C02180C2C53CE940012EC40 /* Covers.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2C4659932C308B44008CF97F /* Covers.xcassets */; };
 		2C02180D2C53CE940012EC40 /* Suggested.bundle in Resources */ = {isa = PBXBuildFile; fileRef = 2C09BAE32C308145009BA300 /* Suggested.bundle */; };
 		2C02180E2C53CECD0012EC40 /* Network.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C8A42E92B1A272600BE4166 /* Network.swift */; };
 		2C02180F2C53CECD0012EC40 /* PlayerModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C8ADAA72C46F3FC008BC560 /* PlayerModel.swift */; };
@@ -50,8 +49,6 @@
 		2C460EDD2D2986530083124E /* SuggestedItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CFF885A2C288C9A0007045F /* SuggestedItem.swift */; };
 		2C460EDE2D29865F0083124E /* Script.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C8C8DE82C3C890B00BC83E9 /* Script.swift */; };
 		2C460EDF2D2987000083124E /* Suggested.bundle in Resources */ = {isa = PBXBuildFile; fileRef = 2C09BAE32C308145009BA300 /* Suggested.bundle */; };
-		2C460EE02D2987080083124E /* Covers.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2C4659932C308B44008CF97F /* Covers.xcassets */; };
-		2C4659942C308B47008CF97F /* Covers.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2C4659932C308B44008CF97F /* Covers.xcassets */; };
 		2C4D315F2C56AC7F00C586D1 /* TvPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C4D315E2C56AC7F00C586D1 /* TvPlayerView.swift */; };
 		2C4D31612C56B10E00C586D1 /* HostAppImages.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C1B60C32B7D41D1009949C2 /* HostAppImages.swift */; };
 		2C4D31632C56B29000C586D1 /* TvGeneratedTokenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C4D31622C56B29000C586D1 /* TvGeneratedTokenView.swift */; };
@@ -61,7 +58,6 @@
 		2C5A599E2C51073F00788870 /* nft_player_visionApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C5A599D2C51073F00788870 /* nft_player_visionApp.swift */; };
 		2C5A59B12C51400200788870 /* nft_player_tvosApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C5A59B02C51400200788870 /* nft_player_tvosApp.swift */; };
 		2C5A59B52C51400300788870 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2C5A59B42C51400300788870 /* Assets.xcassets */; };
-		2C5A59BC2C514FCF00788870 /* Covers.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2C4659932C308B44008CF97F /* Covers.xcassets */; };
 		2C5A59BD2C514FD200788870 /* Suggested.bundle in Resources */ = {isa = PBXBuildFile; fileRef = 2C09BAE32C308145009BA300 /* Suggested.bundle */; };
 		2C5A59BE2C514FD700788870 /* GeneratedToken.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CE9A5772C3DAB03009AEAF4 /* GeneratedToken.swift */; };
 		2C5A59BF2C514FDB00788870 /* Script.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C8C8DE82C3C890B00BC83E9 /* Script.swift */; };
@@ -204,8 +200,6 @@
 		2D1000212F30000000000001 /* CollectionOfTheDayWidgetData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D1000032F30000000000001 /* CollectionOfTheDayWidgetData.swift */; };
 		2D1000222F30000000000001 /* WidgetSuggested.bundle in Resources */ = {isa = PBXBuildFile; fileRef = 2D2000002F31000000000001 /* WidgetSuggested.bundle */; };
 		2D1000232F30000000000001 /* WidgetSuggested.bundle in Resources */ = {isa = PBXBuildFile; fileRef = 2D2000002F31000000000001 /* WidgetSuggested.bundle */; };
-		2D1000242F30000000000001 /* WidgetCovers.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2D2000012F31000000000001 /* WidgetCovers.xcassets */; };
-		2D1000252F30000000000001 /* WidgetCovers.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2D2000012F31000000000001 /* WidgetCovers.xcassets */; };
 		2D1000262F30000000000001 /* nft-player-ios-widget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 2D1000072F30000000000001 /* nft-player-ios-widget.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		2D1000272F30000000000001 /* nft-player-widget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 2D1000082F30000000000001 /* nft-player-widget.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		2D1000312F30000000000001 /* PlayerWidgetTokenInsertion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D1000302F30000000000001 /* PlayerWidgetTokenInsertion.swift */; };
@@ -226,7 +220,6 @@
 		2D5000012F60000000000001 /* CollectionOfTheDayWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D1000022F30000000000001 /* CollectionOfTheDayWidget.swift */; };
 		2D5000022F60000000000001 /* CollectionOfTheDayWidgetData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D1000032F30000000000001 /* CollectionOfTheDayWidgetData.swift */; };
 		2D5000032F60000000000001 /* WidgetSuggested.bundle in Resources */ = {isa = PBXBuildFile; fileRef = 2D2000002F31000000000001 /* WidgetSuggested.bundle */; };
-		2D5000042F60000000000001 /* WidgetCovers.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2D2000012F31000000000001 /* WidgetCovers.xcassets */; };
 		2D5000052F60000000000001 /* nft-player-vision-widget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 2D5000092F60000000000001 /* nft-player-vision-widget.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		2D5000132F60000000000001 /* WidgetDeepLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D1000012F30000000000001 /* WidgetDeepLink.swift */; };
 		2D6000002F70000000000001 /* CollectionCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CFA92002EB2000000000001 /* CollectionCatalog.swift */; };
@@ -338,6 +331,21 @@
 		DDFA1C35E9F22CBB2ECDB50D /* PersistentJavaScriptLibraryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B8A752674CE8F7CFDD0295F /* PersistentJavaScriptLibraryTests.swift */; };
 		AC2AA73D1542A89E1AFC2DC3 /* JavaScriptLibraryFixtures.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE5F857CE081552F72574F61 /* JavaScriptLibraryFixtures.swift */; };
 		A216F22FE1C4CE587D98FE67 /* JavaScriptLibraries in Resources */ = {isa = PBXBuildFile; fileRef = EEDE9772604F3354A2A430A9 /* JavaScriptLibraries */; };
+		4180A20081E24475BF4E460F /* PersistentCollectionCoverCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B56945C9D424F02B9A6EAB4 /* PersistentCollectionCoverCache.swift */; };
+		61C1CA39D5A44FA0A7DDEA6A /* CollectionCoverImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5F362FB51EF4E58A0A1FA47 /* CollectionCoverImage.swift */; };
+		CEAD913F42054AA196199399 /* PersistentCollectionCoverCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B56945C9D424F02B9A6EAB4 /* PersistentCollectionCoverCache.swift */; };
+		F84C336095284AFB97890CC5 /* CollectionCoverImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5F362FB51EF4E58A0A1FA47 /* CollectionCoverImage.swift */; };
+		9E85A6FEE54749E88F84251B /* PersistentCollectionCoverCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B56945C9D424F02B9A6EAB4 /* PersistentCollectionCoverCache.swift */; };
+		DF377F40C3AB42C48740027B /* PersistentCollectionCoverCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B56945C9D424F02B9A6EAB4 /* PersistentCollectionCoverCache.swift */; };
+		DAD7AC8B5A434F74B7D64E75 /* CollectionCoverImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5F362FB51EF4E58A0A1FA47 /* CollectionCoverImage.swift */; };
+		94735469DB624802A9452F60 /* PersistentCollectionCoverCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B56945C9D424F02B9A6EAB4 /* PersistentCollectionCoverCache.swift */; };
+		E39FF6DEFEE742ACB5EF39C0 /* PersistentCollectionCoverCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B56945C9D424F02B9A6EAB4 /* PersistentCollectionCoverCache.swift */; };
+		58FB35F8CD3B419F9CE4C12E /* PersistentCollectionCoverCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B56945C9D424F02B9A6EAB4 /* PersistentCollectionCoverCache.swift */; };
+		E59ECA00AA404E5EA7666DC2 /* CollectionCoverImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5F362FB51EF4E58A0A1FA47 /* CollectionCoverImage.swift */; };
+		1881237E1D7F411B9EE502C9 /* CollectionCoverRecovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D8366B62533413FB6870768 /* CollectionCoverRecovery.swift */; };
+		E4C0928C23614E0693D7656A /* CollectionCoverRecovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D8366B62533413FB6870768 /* CollectionCoverRecovery.swift */; };
+		486F3737B9E34CB38D7B6004 /* CollectionCoverRecovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D8366B62533413FB6870768 /* CollectionCoverRecovery.swift */; };
+		1C23D7E0466D45CBB76131C9 /* CollectionCoverRecovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D8366B62533413FB6870768 /* CollectionCoverRecovery.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -417,7 +425,6 @@
 		2C2CB47C2D29545F00042E74 /* nft-player-ios.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "nft-player-ios.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		2C3B775E2C3D6DEC000A9B52 /* MacPlayerPageController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacPlayerPageController.swift; sourceTree = "<group>"; };
 		2C424F452B9775E6007868F8 /* RightClickActivatingWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RightClickActivatingWindow.swift; sourceTree = "<group>"; };
-		2C4659932C308B44008CF97F /* Covers.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Covers.xcassets; sourceTree = "<group>"; };
 		2C4D315E2C56AC7F00C586D1 /* TvPlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TvPlayerView.swift; sourceTree = "<group>"; };
 		2C4D31622C56B29000C586D1 /* TvGeneratedTokenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TvGeneratedTokenView.swift; sourceTree = "<group>"; };
 		2C4D31642C56B65E00C586D1 /* TvHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TvHelpers.swift; sourceTree = "<group>"; };
@@ -529,7 +536,6 @@
 		2D1000082F30000000000001 /* nft-player-widget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "nft-player-widget.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
 		2D1000302F30000000000001 /* PlayerWidgetTokenInsertion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerWidgetTokenInsertion.swift; sourceTree = "<group>"; };
 		2D2000002F31000000000001 /* WidgetSuggested.bundle */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.plug-in"; path = WidgetSuggested.bundle; sourceTree = "<group>"; };
-		2D2000012F31000000000001 /* WidgetCovers.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = WidgetCovers.xcassets; sourceTree = "<group>"; };
 		2D4000042F50000000000001 /* PlayerViewingSessionTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerViewingSessionTracker.swift; sourceTree = "<group>"; };
 		2D4000072F50000000000001 /* nft_player_vision.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = nft_player_vision.entitlements; sourceTree = "<group>"; };
 		2D5000082F60000000000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -615,6 +621,9 @@
 		8B8A752674CE8F7CFDD0295F /* PersistentJavaScriptLibraryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistentJavaScriptLibraryTests.swift; sourceTree = "<group>"; };
 		EE5F857CE081552F72574F61 /* JavaScriptLibraryFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JavaScriptLibraryFixtures.swift; sourceTree = "<group>"; };
 		EEDE9772604F3354A2A430A9 /* JavaScriptLibraries */ = {isa = PBXFileReference; lastKnownFileType = folder; path = JavaScriptLibraries; sourceTree = "<group>"; };
+		3B56945C9D424F02B9A6EAB4 /* PersistentCollectionCoverCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistentCollectionCoverCache.swift; sourceTree = "<group>"; };
+		A5F362FB51EF4E58A0A1FA47 /* CollectionCoverImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionCoverImage.swift; sourceTree = "<group>"; };
+		2D8366B62533413FB6870768 /* CollectionCoverRecovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionCoverRecovery.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -715,6 +724,8 @@
 		2C0D86CA2B08E7D900106915 /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				2D8366B62533413FB6870768 /* CollectionCoverRecovery.swift */,
+				3B56945C9D424F02B9A6EAB4 /* PersistentCollectionCoverCache.swift */,
 				A6D5822E291DFBFCC6146033 /* PersistentWebContentLoadGate.swift */,
 				C96828DAB00AFD584931A050 /* PersistentJavaScriptLibrary.swift */,
 				2CDF00012F10000000000001 /* DownloadableMediaCache.swift */,
@@ -833,9 +844,7 @@
 				2C086E862C2F3C3600D4268D /* BundledTokens.swift */,
 				2C8C8DE82C3C890B00BC83E9 /* Script.swift */,
 				2CE9A5772C3DAB03009AEAF4 /* GeneratedToken.swift */,
-				2D2000012F31000000000001 /* WidgetCovers.xcassets */,
 				2D2000002F31000000000001 /* WidgetSuggested.bundle */,
-				2C4659932C308B44008CF97F /* Covers.xcassets */,
 				2C09BAE32C308145009BA300 /* Suggested.bundle */,
 			);
 			path = "Suggested Items";
@@ -844,6 +853,7 @@
 		2CA34B4F2B08B32600DAB623 /* Shared */ = {
 			isa = PBXGroup;
 			children = (
+				1303522E64D34DC8831CA5E2 /* Views */,
 				2C92642F2E11D3D300FBF476 /* Assets */,
 				2C0D86CA2B08E7D900106915 /* Services */,
 				2C0D86C92B08E7C600106915 /* Models */,
@@ -1081,6 +1091,14 @@
 				2E36FBF9208A412B9DE6C626 /* Hypertype */,
 			);
 			path = Fixtures;
+			sourceTree = "<group>";
+		};
+		1303522E64D34DC8831CA5E2 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				A5F362FB51EF4E58A0A1FA47 /* CollectionCoverImage.swift */,
+			);
+			path = Views;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -1370,7 +1388,6 @@
 				2C460EDF2D2987000083124E /* Suggested.bundle in Resources */,
 				2CF08AAD2D2A937400D82ACA /* Assets.xcassets in Resources */,
 				2C92642D2E11D3D300FBF476 /* AppIcon.icon in Resources */,
-				2C460EE02D2987080083124E /* Covers.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1378,7 +1395,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				2C5A59BC2C514FCF00788870 /* Covers.xcassets in Resources */,
 				2CC0C63A2C6A630700FB56BB /* Assets.xcassets in Resources */,
 				2C5A59BD2C514FD200788870 /* Suggested.bundle in Resources */,
 				2C5A59D32C5153EF00788870 /* Localizable.xcstrings in Resources */,
@@ -1389,7 +1405,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				2C02180C2C53CE940012EC40 /* Covers.xcassets in Resources */,
 				2C02180D2C53CE940012EC40 /* Suggested.bundle in Resources */,
 				2CF08AB32D2A9FEE00D82ACA /* Localizable.xcstrings in Resources */,
 				2C5A59B52C51400300788870 /* Assets.xcassets in Resources */,
@@ -1404,7 +1419,6 @@
 				2CA4CF592B07F76000CC75F4 /* Assets.xcassets in Resources */,
 				2CA4CF5C2B07F76000CC75F4 /* Main.storyboard in Resources */,
 				2C92642E2E11D3D300FBF476 /* AppIcon.icon in Resources */,
-				2C4659942C308B47008CF97F /* Covers.xcassets in Resources */,
 				2CE9A7712BAD8ECD00579BF7 /* Localizable.xcstrings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1414,7 +1428,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				2D1000222F30000000000001 /* WidgetSuggested.bundle in Resources */,
-				2D1000242F30000000000001 /* WidgetCovers.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1423,7 +1436,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				2D1000232F30000000000001 /* WidgetSuggested.bundle in Resources */,
-				2D1000252F30000000000001 /* WidgetCovers.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1432,7 +1444,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				2D5000032F60000000000001 /* WidgetSuggested.bundle in Resources */,
-				2D5000042F60000000000001 /* WidgetCovers.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1494,6 +1505,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1C23D7E0466D45CBB76131C9 /* CollectionCoverRecovery.swift in Sources */,
+				58FB35F8CD3B419F9CE4C12E /* PersistentCollectionCoverCache.swift in Sources */,
+				E59ECA00AA404E5EA7666DC2 /* CollectionCoverImage.swift in Sources */,
 				B8A228DF21654118BB8407F4 /* PersistentWebContentLoadGate.swift in Sources */,
 				FD7C35D1CB1FA482F466F892 /* PersistentJavaScriptLibrary.swift in Sources */,
 				2DA700012FF3000000000001 /* MobileCollectionsSessionCoordinator.swift in Sources */,
@@ -1597,6 +1611,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1881237E1D7F411B9EE502C9 /* CollectionCoverRecovery.swift in Sources */,
+				4180A20081E24475BF4E460F /* PersistentCollectionCoverCache.swift in Sources */,
+				61C1CA39D5A44FA0A7DDEA6A /* CollectionCoverImage.swift in Sources */,
 				37807370A20DB25256B247BD /* PersistentWebContentLoadGate.swift in Sources */,
 				8BFD0E748F3518BCD925D85A /* PersistentJavaScriptLibrary.swift in Sources */,
 				2C5A59C12C514FE400788870 /* SuggestedItem.swift in Sources */,
@@ -1646,6 +1663,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				486F3737B9E34CB38D7B6004 /* CollectionCoverRecovery.swift in Sources */,
+				DF377F40C3AB42C48740027B /* PersistentCollectionCoverCache.swift in Sources */,
+				DAD7AC8B5A434F74B7D64E75 /* CollectionCoverImage.swift in Sources */,
 				1EE49D1653B8A3C4CF6BC361 /* PersistentWebContentLoadGate.swift in Sources */,
 				D630337CE750668B61190CD9 /* PersistentJavaScriptLibrary.swift in Sources */,
 				2C02180E2C53CECD0012EC40 /* Network.swift in Sources */,
@@ -1695,6 +1715,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E4C0928C23614E0693D7656A /* CollectionCoverRecovery.swift in Sources */,
+				CEAD913F42054AA196199399 /* PersistentCollectionCoverCache.swift in Sources */,
+				F84C336095284AFB97890CC5 /* CollectionCoverImage.swift in Sources */,
 				0450BB3CA9A34080049E68E7 /* PersistentWebContentLoadGate.swift in Sources */,
 				20CE2BAE61F02C6AD1088C8F /* PersistentJavaScriptLibrary.swift in Sources */,
 				2C8A42EA2B1A272600BE4166 /* Network.swift in Sources */,
@@ -1779,6 +1802,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				94735469DB624802A9452F60 /* PersistentCollectionCoverCache.swift in Sources */,
 				2D10001C2F30000000000001 /* WidgetDeepLink.swift in Sources */,
 				2D1000202F30000000000001 /* CollectionOfTheDayWidgetData.swift in Sources */,
 				2D10001E2F30000000000001 /* CollectionOfTheDayWidget.swift in Sources */,
@@ -1789,6 +1813,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E39FF6DEFEE742ACB5EF39C0 /* PersistentCollectionCoverCache.swift in Sources */,
 				2D10001D2F30000000000001 /* WidgetDeepLink.swift in Sources */,
 				2D1000212F30000000000001 /* CollectionOfTheDayWidgetData.swift in Sources */,
 				2D10001F2F30000000000001 /* CollectionOfTheDayWidget.swift in Sources */,
@@ -1799,6 +1824,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				9E85A6FEE54749E88F84251B /* PersistentCollectionCoverCache.swift in Sources */,
 				2D5000002F60000000000001 /* WidgetDeepLink.swift in Sources */,
 				2D5000022F60000000000001 /* CollectionOfTheDayWidgetData.swift in Sources */,
 				2D5000012F60000000000001 /* CollectionOfTheDayWidget.swift in Sources */,

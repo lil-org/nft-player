@@ -4,12 +4,10 @@ const fs = require("node:fs/promises");
 const path = require("node:path");
 const os = require("node:os");
 const {
-  assertCoverCatalogIsAssetCatalogCompatible,
   assertUniqueCoverAssetIds,
   convertCover,
   coverAssetIdForCollection,
   resolveCoverTools,
-  writeCoverContents,
   writePlaceholderCover,
 } = require("./cover_images");
 const {
@@ -27,7 +25,7 @@ const { preserveTmpFilesFromFile, reportTmpFilesChanges } = require("./tmp_files
 const { preserveMidAvailabilityFromFile } = require("./token_manifest_metadata");
 
 const DEFAULT_BUNDLE_PATH = path.join("Suggested Items", "Suggested.bundle");
-const DEFAULT_COVERS_PATH = path.join("Suggested Items", "Covers.xcassets");
+const DEFAULT_COVERS_PATH = "covers";
 const DEFAULT_REPORT_PATH = path.join("tools", "reports", "solana-collection-bundle-report.md");
 const DEFAULT_JSON_REPORT_PATH = path.join("tools", "reports", "solana-collection-bundle-report.json");
 const DEFAULT_API_KEY_PATH = path.join(os.homedir(), "Developer", "secrets", "tools", "HELIUS_API_KEY");
@@ -74,7 +72,7 @@ Options:
   --apply                 Write token JSON, items.json, covers, and reports.
   --dry-run               Fetch and validate without writing bundle assets. Default.
   --bundle <path>         Suggested.bundle path. Default: ${DEFAULT_BUNDLE_PATH}
-  --covers <path>         Covers.xcassets path. Default: ${DEFAULT_COVERS_PATH}
+  --covers <path>         Cover JPEG staging directory. Default: ${DEFAULT_COVERS_PATH}
   --report <path>         Markdown report path. Default: ${DEFAULT_REPORT_PATH}
   --json-report <path>    JSON report path. Default: ${DEFAULT_JSON_REPORT_PATH}
   --api-key <key>         Helius API key. Defaults to HELIUS_API_KEY env or ${DEFAULT_API_KEY_PATH}
@@ -257,7 +255,7 @@ async function main() {
     const item = suggestedItemForCollection(updatedItems, collection.collectionId, "solana");
     collection.internal_slug = suggestedItemResourceName(item);
     collection.cover.assetId = collection.internal_slug;
-    collection.cover.outputPath = path.join(options.coversPath, `${collection.internal_slug}.imageset`, `${collection.internal_slug}.jpg`);
+    collection.cover.outputPath = path.join(options.coversPath, `${collection.internal_slug}.jpg`);
   }
 
   if (!options.skipCovers) {
@@ -1155,9 +1153,8 @@ async function writeCovers(collections, context) {
       continue;
     }
 
-    const imagesetPath = path.join(context.options.coversPath, `${coverAssetId}.imageset`);
-    const outputPath = path.join(imagesetPath, `${coverAssetId}.jpg`);
-    await fs.mkdir(imagesetPath, { recursive: true });
+    const outputPath = path.join(context.options.coversPath, `${coverAssetId}.jpg`);
+    await fs.mkdir(context.options.coversPath, { recursive: true });
 
     let lastError = null;
     const reachableCandidates = await reachableCoverCandidates(coverCandidates, 2500, 8);
@@ -1168,7 +1165,6 @@ async function writeCovers(collections, context) {
       try {
         await downloadFileWithRetry(candidate.url, tempPath, context.options.timeoutMs);
         await convertCover(coverTools, tempPath, outputPath, context.options.coverSize, context.options.coverQuality);
-        await writeCoverContents(imagesetPath, coverAssetId);
         collection.cover.assetId = coverAssetId;
         collection.cover.sourceUrl = candidate.url;
         collection.cover.sourceKind = candidate.kind;
@@ -1188,7 +1184,6 @@ async function writeCovers(collections, context) {
       collection.cover.error = lastError.message;
       try {
         await writePlaceholderCover(coverTools, outputPath, collection.name, context.options.coverSize, context.options.coverQuality, "Solana");
-        await writeCoverContents(imagesetPath, coverAssetId);
         collection.cover.assetId = coverAssetId;
         collection.cover.sourceUrl = null;
         collection.cover.sourceKind = "generated-placeholder";
@@ -1199,8 +1194,6 @@ async function writeCovers(collections, context) {
       }
     }
   }
-
-  await assertCoverCatalogIsAssetCatalogCompatible(context.options.coversPath);
 }
 
 async function reachableCoverCandidates(candidates, timeoutMs, concurrency) {
