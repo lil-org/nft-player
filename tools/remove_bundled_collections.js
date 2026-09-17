@@ -2,7 +2,11 @@
 
 const fs = require("node:fs/promises");
 const path = require("node:path");
-const { suggestedItemId: collectionIdFor } = require("./suggested_items");
+const {
+  suggestedItemId: collectionIdFor,
+  suggestedItemIdentityKey,
+  suggestedItemResourceName,
+} = require("./suggested_items");
 
 const DEFAULT_BUNDLE_PATH = path.join("Suggested Items", "Suggested.bundle");
 const DEFAULT_COVERS_PATH = path.join("Suggested Items", "Covers.xcassets");
@@ -10,10 +14,10 @@ const DEFAULT_COVERS_PATH = path.join("Suggested Items", "Covers.xcassets");
 function usage() {
   return `
 Usage:
-  node tools/remove_bundled_collections.js [options] <collection-id-or-name>...
+  node tools/remove_bundled_collections.js [options] <collection-slug-id-or-name>...
 
 Options:
-  --apply           Remove matching catalog entries, token JSON files, and cover imagesets.
+  --apply           Remove matching catalog entries, token/script JSON files, and cover imagesets.
   --dry-run         Print what would be removed without changing files. Default.
   --bundle <path>   Suggested.bundle path. Default: ${DEFAULT_BUNDLE_PATH}
   --covers <path>   Covers.xcassets path. Default: ${DEFAULT_COVERS_PATH}
@@ -67,7 +71,7 @@ function parseArgs(argv) {
   }
 
   if (options.inputs.length === 0) {
-    throw new Error("Pass at least one collection id, address, or exact collection name.");
+    throw new Error("Pass at least one collection slug, id, address, or exact collection name.");
   }
 
   return options;
@@ -87,9 +91,12 @@ function resolveTargets(items, tokenFileIds, inputs) {
   for (const input of inputs) {
     const inputKey = normalized(input);
     const exactIdMatches = items.filter((item) => normalized(collectionIdFor(item)) === inputKey);
+    const exactSlugMatches = items.filter((item) => item.internal_slug === input);
     const exactAddressMatches = items.filter((item) => normalized(item.address) === inputKey);
     const exactNameMatches = items.filter((item) => normalized(item.name) === inputKey);
-    const matches = uniqueItems([...exactIdMatches, ...exactAddressMatches, ...exactNameMatches]);
+    const matches = uniqueItems(exactSlugMatches.length > 0
+      ? exactSlugMatches
+      : [...exactIdMatches, ...exactAddressMatches, ...exactNameMatches]);
 
     if (matches.length > 1) {
       throw new Error(`Input "${input}" matched multiple catalog entries: ${matches.map((item) => `${item.name} (${collectionIdFor(item)})`).join(", ")}`);
@@ -98,9 +105,12 @@ function resolveTargets(items, tokenFileIds, inputs) {
     if (matches.length === 1) {
       const item = matches[0];
       const id = collectionIdFor(item);
-      targets.set(id, {
+      const identity = suggestedItemIdentityKey(item);
+      targets.set(identity, {
         input,
         id,
+        identity,
+        resourceName: suggestedItemResourceName(item),
         name: item.name ?? null,
         foundCatalogEntry: true,
       });
@@ -111,13 +121,14 @@ function resolveTargets(items, tokenFileIds, inputs) {
       targets.set(input, {
         input,
         id: input,
+        resourceName: input,
         name: null,
         foundCatalogEntry: false,
       });
       continue;
     }
 
-    throw new Error(`No bundled collection matched "${input}". Use the exact collection id, address, or name.`);
+    throw new Error(`No bundled collection matched "${input}". Use the exact collection slug, id, address, or name.`);
   }
 
   return [...targets.values()];
@@ -127,7 +138,7 @@ function uniqueItems(items) {
   const seen = new Set();
   const unique = [];
   for (const item of items) {
-    const id = collectionIdFor(item);
+    const id = suggestedItemIdentityKey(item);
     if (!seen.has(id)) {
       seen.add(id);
       unique.push(item);
@@ -167,23 +178,27 @@ async function main() {
   const coversPath = path.resolve(options.coversPath);
   const itemsPath = path.join(bundlePath, "items.json");
   const tokensPath = path.join(bundlePath, "Tokens");
+  const scriptsPath = path.join(bundlePath, "Scripts");
 
   const items = JSON.parse(await fs.readFile(itemsPath, "utf8"));
   const tokenFileIds = await readTokenFileIds(tokensPath);
   const targets = resolveTargets(items, tokenFileIds, options.inputs);
-  const targetIds = new Set(targets.map((target) => target.id));
+  const targetIds = new Set(targets.map((target) => target.identity));
 
-  const nextItems = items.filter((item) => !targetIds.has(collectionIdFor(item)));
+  const nextItems = items.filter((item) => !targetIds.has(suggestedItemIdentityKey(item)));
   const removedCatalogEntries = items.length - nextItems.length;
 
   const filePlans = [];
   for (const target of targets) {
-    const tokenFilePath = path.join(tokensPath, `${target.id}.json`);
-    const imagesetPath = path.join(coversPath, `${target.id}.imageset`);
+    const tokenFilePath = path.join(tokensPath, `${target.resourceName}.json`);
+    const scriptFilePath = path.join(scriptsPath, `${target.resourceName}.json`);
+    const imagesetPath = path.join(coversPath, `${target.resourceName}.imageset`);
     filePlans.push({
       ...target,
       tokenFilePath,
       tokenFileExists: await pathExists(tokenFilePath),
+      scriptFilePath,
+      scriptFileExists: await pathExists(scriptFilePath),
       imagesetPath,
       imagesetExists: await pathExists(imagesetPath),
     });
@@ -194,6 +209,7 @@ async function main() {
     console.log(`- ${plan.name ?? plan.id} (${plan.id})`);
     console.log(`  catalog entry: ${plan.foundCatalogEntry ? "yes" : "no"}`);
     console.log(`  token JSON: ${plan.tokenFileExists ? plan.tokenFilePath : "missing"}`);
+    console.log(`  script JSON: ${plan.scriptFileExists ? plan.scriptFilePath : "missing"}`);
     console.log(`  cover imageset: ${plan.imagesetExists ? plan.imagesetPath : "missing"}`);
   }
 
@@ -205,6 +221,7 @@ async function main() {
   await fs.writeFile(itemsPath, formatSuggestedItems(nextItems));
   for (const plan of filePlans) {
     await fs.rm(plan.tokenFilePath, { force: true });
+    await fs.rm(plan.scriptFilePath, { force: true });
     await fs.rm(plan.imagesetPath, { force: true, recursive: true });
   }
 

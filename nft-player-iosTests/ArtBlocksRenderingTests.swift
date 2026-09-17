@@ -695,8 +695,8 @@ extension ArtBlocksRenderingTests {
     }
 
     private func resources(_ id: String) throws -> Resources {
-        let scriptURL = try XCTUnwrap(SuggestedItemsService.bundle.url(forResource: "Scripts/\(id)", withExtension: "json"))
-        let tokensURL = try XCTUnwrap(SuggestedItemsService.bundle.url(forResource: "Tokens/\(id)", withExtension: "json"))
+        let scriptURL = try XCTUnwrap(SuggestedItemsService.bundledScriptURL(collectionId: id))
+        let tokensURL = try XCTUnwrap(SuggestedItemsService.bundledTokensURL(collectionId: id))
         let source = try Data(contentsOf: scriptURL), tokenData = try Data(contentsOf: tokensURL)
         return Resources(script: try JSONDecoder().decode(Script.self, from: source),
             tokens: try JSONDecoder().decode(BundledTokens.self, from: tokenData).items,

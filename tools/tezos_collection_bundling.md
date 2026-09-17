@@ -25,13 +25,13 @@ By default, the script refuses to bundle collections above 15,000 tokens. Use `-
 
 `--apply` writes:
 
-- `Suggested Items/Suggested.bundle/Tokens/<contract>.json`
+- `Suggested Items/Suggested.bundle/Tokens/<internal_slug>.json`
 - `Suggested Items/Suggested.bundle/items.json`
-- `Suggested Items/Covers.xcassets/<coverAssetId>.imageset/<coverAssetId>.jpg`
+- `Suggested Items/Covers.xcassets/<internal_slug>.imageset/<internal_slug>.jpg`
 - `tools/reports/tezos-collection-bundle-report.md`
 - `tools/reports/tezos-collection-bundle-report.json`
 
-For Tezos bundles, `<coverAssetId>` is currently the same value as `<contract>`.
+Resource names use the catalog entry’s `internal_slug`. Existing slugs remain stable when a collection is rebundled; new slugs are assigned against the full catalog before paths and dry-run reports are produced. Blockchain addresses and token IDs remain unchanged.
 
 Cover generation requires ImageMagick, macOS `sips`, and Xcode `actool`. ImageMagick writes a static 300x300 JPEG from the first source frame with no alpha, flattened on an opaque black canvas; `--cover-quality` is passed to ImageMagick's JPEG encoder. The converter writes standard sRGB pixels with a standard sRGB ICC profile instead of preserving device/display profiles, which keeps colors stable across Apple platforms and avoids the pale-cover regression. Covers are JPEG instead of HEIC because tvOS/visionOS can render some bundled HEIF renditions as blank even when macOS and iOS decode them. The bundler validates each final JPEG structurally, validates the completed catalog with temporary tvOS/visionOS asset-catalog compiles, then fails the collection cover write if Apple tooling reports an unsafe cover.
 
@@ -69,8 +69,8 @@ After applying a bundle, run:
 ```sh
 node --test tools/*.test.js
 node scripts/generate-widget-resources.mjs --check
-sips -g format -g pixelWidth -g pixelHeight -g hasAlpha -g samplesPerPixel -g profile "Suggested Items/Covers.xcassets/<coverAssetId>.imageset/<coverAssetId>.jpg"
-magick identify -format "%m %[colorspace] %[channels] %w %h %[profiles]\n" "Suggested Items/Covers.xcassets/<coverAssetId>.imageset/<coverAssetId>.jpg"
+sips -g format -g pixelWidth -g pixelHeight -g hasAlpha -g samplesPerPixel -g profile "Suggested Items/Covers.xcassets/<internal_slug>.imageset/<internal_slug>.jpg"
+magick identify -format "%m %[colorspace] %[channels] %w %h %[profiles]\n" "Suggested Items/Covers.xcassets/<internal_slug>.imageset/<internal_slug>.jpg"
 xcodebuild -project nft-player.xcodeproj -scheme nft-player-ios -destination 'generic/platform=iOS' build
 ```
 
@@ -92,4 +92,4 @@ node tools/remove_bundled_collections.js --apply "Drawing Exercises"
 node tools/remove_bundled_collections.js --apply "KT1D9bUmPBXK1KgpgaTDjH6yNnBubof1ELzK"
 ```
 
-The remover matches exact collection id, address, or collection name. `--apply` removes the matching `items.json` entry, `Tokens/<collectionId>.json`, and `Covers.xcassets/<coverAssetId>.imageset`.
+The remover matches exact internal slug, collection id, address, or collection name. `--apply` removes the matching `items.json` entry, `Tokens/<internal_slug>.json`, any `Scripts/<internal_slug>.json`, and `Covers.xcassets/<internal_slug>.imageset`.

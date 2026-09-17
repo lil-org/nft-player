@@ -17,6 +17,7 @@ nonisolated enum SuggestedItemsService {
     private struct Snapshot: Sendable {
         let allItems: [SuggestedItem]
         let itemsById: [String: SuggestedItem]
+        let itemsByResourceName: [String: SuggestedItem]
         let artistsBySlug: [String: SuggestedArtist]
     }
 
@@ -92,6 +93,9 @@ nonisolated enum SuggestedItemsService {
         let itemsById = allItems.reduce(into: [String: SuggestedItem]()) { result, item in
             result[item.id] = result[item.id] ?? item
         }
+        let itemsByResourceName = allItems.reduce(into: [String: SuggestedItem]()) { result, item in
+            result[item.bundledResourceName] = result[item.bundledResourceName] ?? item
+        }
 
         let artistsBySlug: [String: SuggestedArtist]
         if let url = bundle.url(forResource: "artists", withExtension: "json"),
@@ -110,6 +114,7 @@ nonisolated enum SuggestedItemsService {
         return Snapshot(
             allItems: allItems,
             itemsById: itemsById,
+            itemsByResourceName: itemsByResourceName,
             artistsBySlug: artistsBySlug
         )
     }()
@@ -133,6 +138,10 @@ nonisolated enum SuggestedItemsService {
         snapshot.itemsById[id]
     }
 
+    static func item(resourceName: String) -> SuggestedItem? {
+        snapshot.itemsByResourceName[resourceName]
+    }
+
     static func isCollectionAvailableOnCurrentPlatform(id: String) -> Bool {
 #if os(iOS)
         return true
@@ -148,14 +157,28 @@ nonisolated enum SuggestedItemsService {
     }
     
     static func bundledTokens(collectionId: String) -> BundledTokens? {
-        let directory = "Tokens/"
-        if let url = bundle.url(forResource: directory + collectionId, withExtension: "json") ?? bundle.url(forResource: directory + collectionId.lowercased(), withExtension: "json"),
+        if let url = bundledTokensURL(collectionId: collectionId),
            let data = try? Data(contentsOf: url),
            let bundledTokens = try? JSONDecoder().decode(BundledTokens.self, from: data) {
             return bundledTokens
         } else {
             return nil
         }
+    }
+
+    static func bundledTokensURL(collectionId: String) -> URL? {
+        bundledResourceURL(collectionId: collectionId, subdirectory: "Tokens")
+    }
+
+    static func bundledScriptURL(collectionId: String) -> URL? {
+        bundledResourceURL(collectionId: collectionId, subdirectory: "Scripts")
+    }
+
+    private static func bundledResourceURL(collectionId: String, subdirectory: String) -> URL? {
+        let collection = item(id: collectionId) ?? item(id: collectionId.lowercased())
+        let resourceName = collection?.bundledResourceName ?? collectionId
+        return bundle.url(forResource: resourceName, withExtension: "json", subdirectory: subdirectory)
+            ?? bundle.url(forResource: resourceName.lowercased(), withExtension: "json", subdirectory: subdirectory)
     }
 
 }

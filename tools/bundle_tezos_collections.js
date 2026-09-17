@@ -15,6 +15,8 @@ const {
 const {
   applyIOSCollectionBrowserColumnCounts,
   assignInternalSlugs,
+  suggestedItemForCollection,
+  suggestedItemResourceName,
   mergeGeneratedSuggestedItem,
 } = require("./suggested_items");
 const {
@@ -228,12 +230,21 @@ async function main() {
     console.log(`  ${result.name}: ${result.tokens.length} unique token media, ${result.tokenPayload.urlPrefixes.length} URL prefix(es)`);
   }
 
+  const existingItems = JSON.parse(await fs.readFile(path.join(options.bundlePath, "items.json"), "utf8"));
+  const updatedItems = assignInternalSlugs(mergeSuggestedItems(existingItems, collectionResults));
+  for (const collection of collectionResults) {
+    const item = suggestedItemForCollection(updatedItems, collection.collectionId, "tezos");
+    collection.internal_slug = suggestedItemResourceName(item);
+    collection.cover.assetId = collection.internal_slug;
+    collection.cover.outputPath = path.join(options.coversPath, `${collection.internal_slug}.imageset`, `${collection.internal_slug}.jpg`);
+  }
+
   if (!options.skipCovers) {
     assertUniqueCoverAssetIds(collectionResults);
   }
 
   if (options.apply) {
-    await writeBundle(collectionResults, context);
+    await writeBundle(collectionResults, context, updatedItems);
   } else {
     await writeReports(collectionResults, options, true);
     console.log("Dry run complete. Reports were written; bundle assets were not changed.");
@@ -321,7 +332,6 @@ async function fetchCollectionBundle(contract, context) {
     tokenPayload,
     mediaReview: preparedTokens.mediaReview,
     cover: {
-      assetId: contract,
       sourceUrl: normalizeAssetUrl(collectionMetadata.imageUri ?? collectionMetadata.image ?? collectionMetadata.thumbnailUri)
         ?? tokenCoverUrls[0]
         ?? firstImageMediaURL(preparedTokens.tokens)
@@ -332,7 +342,6 @@ async function fetchCollectionBundle(contract, context) {
         ...sampleTokens(preparedTokens.tokens, 40).map((token) => token.media.url),
       ]),
       sourceKind: collectionMetadata.imageUri || collectionMetadata.image || collectionMetadata.thumbnailUri ? "contract-metadata" : "first-token",
-      outputPath: path.join(context.options.coversPath, `${contract}.imageset`, `${contract}.jpg`),
     },
   };
 }
@@ -990,7 +999,7 @@ function mostCommonValue(values) {
   return [...counts.entries()].sort((left, right) => right[1] - left[1] || naturalCompare(left[0], right[0]))[0]?.[0] ?? null;
 }
 
-async function writeBundle(collections, context) {
+async function writeBundle(collections, context, updatedItems) {
   const { options } = context;
   const bundlePath = path.resolve(options.bundlePath);
   const tokensPath = path.join(bundlePath, "Tokens");
@@ -1000,12 +1009,9 @@ async function writeBundle(collections, context) {
   }
   await fs.mkdir(tokensPath, { recursive: true });
 
-  const existingItems = JSON.parse(await fs.readFile(itemsPath, "utf8"));
-  const updatedItems = assignInternalSlugs(mergeSuggestedItems(existingItems, collections));
-
   const collectionBrowserColumnCounts = new Map();
   for (const collection of collections) {
-    const outputPath = path.join(tokensPath, `${collection.collectionId}.json`);
+    const outputPath = path.join(tokensPath, `${suggestedItemResourceName(collection)}.json`);
     const tmpFilesResult = await preserveTmpFilesFromFile(outputPath, collection.tokenPayload);
     reportTmpFilesChanges(collection.collectionId, tmpFilesResult.report);
     const aspectRatioResult = await preserveAspectRatioMetadataFromFile(outputPath, tmpFilesResult.payload);
@@ -1389,6 +1395,7 @@ function reportableCollection(collection) {
   return {
     input: collection.input,
     collectionId: collection.collectionId,
+    internal_slug: collection.internal_slug,
     name: collection.name,
     tokenCount: collection.tokens.length,
     totalFromTzkt: collection.totalFromTzkt,

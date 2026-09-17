@@ -245,9 +245,10 @@ nonisolated enum CollectionOfTheDayWidgetData {
         return items
     }
 
-    private static func tokenPayload(collectionId: String) -> WidgetTokenPayload? {
-        let url = suggestedBundle.url(forResource: collectionId, withExtension: "json", subdirectory: "Tokens")
-            ?? suggestedBundle.url(forResource: collectionId.lowercased(), withExtension: "json", subdirectory: "Tokens")
+    private static func tokenPayload(collection: WidgetCollection) -> WidgetTokenPayload? {
+        let resourceName = collection.bundledResourceName
+        let url = suggestedBundle.url(forResource: resourceName, withExtension: "json", subdirectory: "Tokens")
+            ?? suggestedBundle.url(forResource: resourceName.lowercased(), withExtension: "json", subdirectory: "Tokens")
         guard let url,
               let data = try? Data(contentsOf: url),
               let payload = try? JSONDecoder().decode(WidgetTokenPayload.self, from: data) else {
@@ -262,7 +263,7 @@ nonisolated enum CollectionOfTheDayWidgetData {
         }
 
         let imageReferences: [WidgetStaticImageReference]
-        if let payload = tokenPayload(collectionId: collection.id) {
+        if let payload = tokenPayload(collection: collection) {
             imageReferences = payload.items.compactMap { item in
                 item.staticImageReference(collection: collection, defaultFileExtension: payload.defaultFileExtension)
             }
@@ -359,6 +360,7 @@ nonisolated enum CollectionOfTheDayWidgetData {
 
 nonisolated struct WidgetCollection: Decodable, Hashable, Sendable {
     let address: String
+    let internalSlug: String?
     let collectionId: String?
     let abId: String?
     let name: String
@@ -366,6 +368,7 @@ nonisolated struct WidgetCollection: Decodable, Hashable, Sendable {
 
     enum CodingKeys: String, CodingKey {
         case address
+        case internalSlug = "internal_slug"
         case collectionId
         case abId
         case name
@@ -375,6 +378,7 @@ nonisolated struct WidgetCollection: Decodable, Hashable, Sendable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         address = try container.decode(String.self, forKey: .address)
+        internalSlug = try container.decodeIfPresent(String.self, forKey: .internalSlug)
         collectionId = try container.decodeIfPresent(String.self, forKey: .collectionId)
         abId = try container.decodeIfPresent(String.self, forKey: .abId)
         chain = try container.decode(WidgetCollectionChain.self, forKey: .chain)
@@ -393,8 +397,13 @@ nonisolated struct WidgetCollection: Decodable, Hashable, Sendable {
         address + (abId ?? collectionId ?? "")
     }
 
+    var bundledResourceName: String {
+        guard let internalSlug, !internalSlug.isEmpty else { return id }
+        return internalSlug
+    }
+
     var coverAssetName: String {
-        id
+        bundledResourceName
     }
 
     var usesEthereumMediaProxyFallback: Bool {

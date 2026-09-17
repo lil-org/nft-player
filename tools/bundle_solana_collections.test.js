@@ -133,7 +133,7 @@ test("apply preserves explicit mid availability and leaves legacy manifests unse
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "nft-player-solana-bundle-"));
   const collectionId = "9irtKRLZkY4MjFFQNZPX3o6ZTszfR8kXFJXPBUvEDo9v";
   const tokenId = "BQGjKNV22ZD8AaEFZXNftV7xn3LrGbujfNQXCjQSBnhW";
-  const tokenPath = path.join(directory, "Tokens", `${collectionId}.json`);
+  const tokenPath = path.join(directory, "Tokens", "planet_peppa.json");
   const options = {
     assets: [{
       id: tokenId,
@@ -180,4 +180,39 @@ test("apply preserves explicit mid availability and leaves legacy manifests unse
   } finally {
     await fs.rm(directory, { recursive: true, force: true });
   }
+});
+
+test("Solana dry runs preserve curated slugs when the fetched collection name changes", async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "nft-player-solana-slug-"));
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const collectionId = "9irtKRLZkY4MjFFQNZPX3o6ZTszfR8kXFJXPBUvEDo9v";
+  const itemsPath = path.join(directory, "items.json");
+  const original = JSON.stringify([{
+    address: collectionId,
+    chain: "solana",
+    name: "Old Name",
+    internal_slug: "curated_collection",
+  }]);
+  await fs.writeFile(itemsPath, original);
+  const result = runBundler(collectionId, {
+    assets: [{
+      id: "BQGjKNV22ZD8AaEFZXNftV7xn3LrGbujfNQXCjQSBnhW",
+      content: {
+        metadata: { name: "Planet Peppa #0", symbol: "Planet Peppa" },
+        files: [{ uri: "https://cdn.lil.org/player/planet_peppa/0.webp", mime: "image/webp" }],
+      },
+    }],
+    args: [
+      "--dry-run", "--bundle", directory,
+      "--covers", path.join(directory, "Covers.xcassets"),
+      "--report", path.join(directory, "report.md"),
+      "--json-report", path.join(directory, "report.json"),
+    ],
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(await fs.readFile(itemsPath, "utf8"), original);
+  const report = JSON.parse(await fs.readFile(path.join(directory, "report.json"), "utf8"));
+  assert.equal(report.collections[0].internal_slug, "curated_collection");
+  assert.equal(report.collections[0].cover.outputPath, path.join(directory, "Covers.xcassets", "curated_collection.imageset", "curated_collection.jpg"));
+  await assert.rejects(fs.access(path.join(directory, "Tokens")), { code: "ENOENT" });
 });

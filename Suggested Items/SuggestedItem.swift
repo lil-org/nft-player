@@ -6,6 +6,11 @@ nonisolated struct SuggestedItem: Identifiable, Hashable, Codable, Sendable {
     
     var id: String { address + (abId ?? collectionId ?? "") }
 
+    var bundledResourceName: String {
+        guard let internalSlug, !internalSlug.isEmpty else { return id }
+        return internalSlug
+    }
+
     var isSolanaCollection: Bool {
         chain == .solana
     }

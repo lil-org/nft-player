@@ -170,10 +170,10 @@ function scriptCollectionKinds() {
   return new Map(
     fs.readdirSync(SCRIPTS_PATH)
       .filter((fileName) => path.extname(fileName) === ".json")
-      .map((fileName) => [
-        path.basename(fileName, ".json"),
-        readJSON(path.join(SCRIPTS_PATH, fileName)).kind,
-      ])
+      .map((fileName) => {
+        const script = readJSON(path.join(SCRIPTS_PATH, fileName));
+        return [script.collectionIdOverride ?? script.address + script.abId, script.kind];
+      })
   );
 }
 
@@ -250,17 +250,6 @@ function midImageURL(thumbnailURL) {
 
 function largeImageURL(payload, sourceURL, thumbnailURL) {
   return payload.hasMid === false ? new URL(sourceURL) : midImageURL(thumbnailURL);
-}
-
-function entriesByLowercasedName(names) {
-  const entries = new Map();
-  for (const name of names) {
-    const normalizedName = name.toLowerCase();
-    const matches = entries.get(normalizedName) ?? [];
-    matches.push(name);
-    entries.set(normalizedName, matches);
-  }
-  return entries;
 }
 
 test("artist catalog is a slug-keyed dictionary with valid records", () => {
@@ -424,7 +413,7 @@ test("Mi Note collections retain on-chain identities, names, and exported media 
 
   for (const [slug, samples] of Object.entries(samplesBySlug)) {
     const item = items.find((candidate) => candidate.internal_slug === slug);
-    const payload = readJSON(path.join(TOKENS_PATH, `${suggestedItemId(item)}.json`));
+    const payload = readJSON(path.join(TOKENS_PATH, `${item.internal_slug}.json`));
     assert.equal(payload.items.length, item.tokenCount);
     assert.equal(new Set(tokenIdsFromPayload(payload)).size, item.tokenCount);
     assert.equal(item.iosCollectionBrowserColumnCount, undefined);
@@ -456,7 +445,7 @@ test("Artifact Magazine 3 uses one-based CDN media tiers", () => {
   assert.ok(item, "Missing artifact_magazine_3");
   assert.equal(item.sizedThumbsIndexOffset, 1);
 
-  const payload = readJSON(path.join(TOKENS_PATH, `${suggestedItemId(item)}.json`));
+  const payload = readJSON(path.join(TOKENS_PATH, `${item.internal_slug}.json`));
   assert.equal(payload.items.length, 593);
   assert.equal(payload.items[0][0], "3dJFRCd9VCKVBu4XRbuofqTyCqDE1jZHAmprKcU9otsm");
   assert.equal(payload.items.at(-1)[0], "2R53LsQgyUCeQtsd7r92nqdKd2AWEF2asYjpeRcZQbHP");
@@ -479,7 +468,7 @@ test("Artifact Magazine 3 uses one-based CDN media tiers", () => {
 test("Planet Peppa retains original filenames and uses original large images", () => {
   const item = readJSON(ITEMS_PATH).find((candidate) => candidate.internal_slug === "planet_peppa");
   assert.ok(item, "Missing planet_peppa");
-  const payload = readJSON(path.join(TOKENS_PATH, `${suggestedItemId(item)}.json`));
+  const payload = readJSON(path.join(TOKENS_PATH, `${item.internal_slug}.json`));
   assert.equal(payload.isComplete, true);
   assert.equal(payload.hasMid, false);
   assert.equal(payload.defaultFileExtension, "webp");
@@ -505,42 +494,49 @@ test("Planet Peppa retains original filenames and uses original large images", (
   }
 });
 
-test("catalog IDs exactly match token manifest and cover asset casing", () => {
+test("catalog slugs exactly match bundled resource names and preserve script identities", () => {
   const items = readJSON(ITEMS_PATH);
-  const scriptIds = scriptCollectionIds();
+  const itemsBySlug = new Map(items.map((item) => [item.internal_slug, item]));
   const tokenFileNames = fs.readdirSync(TOKENS_PATH)
     .filter((fileName) => path.extname(fileName) === ".json");
+  assert.deepEqual(
+    tokenFileNames.sort(),
+    items.filter((item) => item.internal_slug !== "card_nft_2")
+      .map((item) => `${item.internal_slug}.json`).sort()
+  );
+
+  const scriptFileNames = fs.readdirSync(SCRIPTS_PATH)
+    .filter((fileName) => path.extname(fileName) === ".json");
+  assert.equal(scriptFileNames.length, 407);
+  for (const fileName of scriptFileNames) {
+    const slug = path.basename(fileName, ".json");
+    const item = itemsBySlug.get(slug);
+    assert.ok(item, `Unexpected script resource ${fileName}`);
+    const script = readJSON(path.join(SCRIPTS_PATH, fileName));
+    assert.equal(
+      script.collectionIdOverride ?? script.address + script.abId,
+      suggestedItemId(item),
+      `${slug} script identity does not match its catalog item`
+    );
+  }
+
   const coverImagesetNames = fs.readdirSync(COVERS_PATH, { withFileTypes: true })
     .filter((entry) => entry.isDirectory() && entry.name.endsWith(".imageset"))
     .map((entry) => entry.name);
-  const tokenFilesByLowercasedName = entriesByLowercasedName(tokenFileNames);
-  const coverImagesetsByLowercasedName = entriesByLowercasedName(coverImagesetNames);
-
-  for (const [normalizedName, matches] of tokenFilesByLowercasedName) {
-    assert.equal(matches.length, 1, `Token manifests collide by case for ${normalizedName}: ${matches.join(", ")}`);
-  }
-  for (const [normalizedName, matches] of coverImagesetsByLowercasedName) {
-    assert.equal(matches.length, 1, `Cover assets collide by case for ${normalizedName}: ${matches.join(", ")}`);
-  }
-
-  for (const item of items) {
-    const collectionId = suggestedItemId(item);
-    const expectedTokenFileName = `${collectionId}.json`;
-    const tokenMatches = tokenFilesByLowercasedName.get(expectedTokenFileName.toLowerCase()) ?? [];
-    if (!scriptIds.has(collectionId) || tokenMatches.length > 0) {
-      assert.deepEqual(
-        tokenMatches,
-        [expectedTokenFileName],
-        `${item.internal_slug} token manifest casing does not exactly match its catalog ID`
-      );
-    }
-
-    const expectedCoverImagesetName = `${collectionId}.imageset`;
+  assert.deepEqual(
+    coverImagesetNames.sort(),
+    items.filter((item) => item.hasCover !== false)
+      .map((item) => `${item.internal_slug}.imageset`).sort()
+  );
+  for (const imagesetName of coverImagesetNames) {
+    const slug = path.basename(imagesetName, ".imageset");
+    const imagesetPath = path.join(COVERS_PATH, imagesetName);
+    const contents = readJSON(path.join(imagesetPath, "Contents.json"));
     assert.deepEqual(
-      coverImagesetsByLowercasedName.get(expectedCoverImagesetName.toLowerCase()) ?? [],
-      item.hasCover === false ? [] : [expectedCoverImagesetName],
-      `${item.internal_slug} cover asset casing does not exactly match its catalog ID`
+      contents.images.flatMap((image) => image.filename == null ? [] : [image.filename]),
+      [`${slug}.jpg`]
     );
+    assert.deepEqual(fs.readdirSync(imagesetPath).sort(), ["Contents.json", `${slug}.jpg`].sort());
   }
 });
 
@@ -587,11 +583,10 @@ test("standard thumbnail availability covers downloadable, native, and bundled g
 
 test("September generative collections expose indexed CDN tiers without changing playback identity", () => {
   const items = readJSON(ITEMS_PATH).filter(isSeptemberGenerativeCollection);
-  const widgetIds = new Set(readJSON(path.resolve(__dirname, "../Suggested Items/widget-eligible-collections.json")));
+  const widgetSlugs = new Set(readJSON(path.resolve(__dirname, "../Suggested Items/widget-eligible-collections.json")));
   assert.equal(items.length, 292);
   let count = 0;
   for (const item of items) {
-    const collectionId = suggestedItemId(item);
     assert.equal(item.hasThumbnails, true, item.name);
     assert.equal(item.standardThumbsPathsAvailable, true, item.name);
     assert.equal(item.generativeOnly, true);
@@ -599,11 +594,11 @@ test("September generative collections expose indexed CDN tiers without changing
     assert.equal(item.hasCover, true);
     assert.equal(item.tokenCount, undefined);
     assert.equal(item.sizedThumbsIndexOffset, undefined);
-    assert.equal(widgetIds.has(collectionId), false);
-    const script = readJSON(path.join(SCRIPTS_PATH, `${collectionId}.json`));
+    assert.equal(widgetSlugs.has(item.internal_slug), false);
+    const script = readJSON(path.join(SCRIPTS_PATH, `${item.internal_slug}.json`));
     assert.equal(script.renderingProfile, "artBlocks");
     assert.ok(script.value.length > 0);
-    const payload = readJSON(path.join(TOKENS_PATH, `${collectionId}.json`));
+    const payload = readJSON(path.join(TOKENS_PATH, `${item.internal_slug}.json`));
     const ratios = decodeAspectRatioMetadata(payload);
     assert.equal(ratios.length, payload.items.length);
     assert.equal(payload.artworkAspectRatios.length, 1);
@@ -625,7 +620,7 @@ test("September generative collections expose indexed CDN tiers without changing
   assert.equal(count, 143_847);
   const neighborhood = items.find(item => item.internal_slug === "neighborhood");
   assert.ok(neighborhood);
-  const payload = readJSON(path.join(TOKENS_PATH, `${suggestedItemId(neighborhood)}.json`));
+  const payload = readJSON(path.join(TOKENS_PATH, `${neighborhood.internal_slug}.json`));
   const ratios = decodeAspectRatioMetadata(payload);
   assert.deepEqual(payload.artworkAspectRatios, [[1, 1]]);
   for (const [index, ratio] of [[0, [16, 9]], [3, [1, 1]], [7, [9, 16]]]) {
@@ -663,10 +658,9 @@ test("eligible token manifests derive unique browse image tier URLs", () => {
   );
 
   for (const item of eligibleItems(items, scriptIds)) {
-    const collectionId = suggestedItemId(item);
-    const tokensPath = path.join(TOKENS_PATH, `${collectionId}.json`);
+    const tokensPath = path.join(TOKENS_PATH, `${item.internal_slug}.json`);
     assert.ok(
-      tokenFileNames.has(`${collectionId}.json`),
+      tokenFileNames.has(`${item.internal_slug}.json`),
       `${item.internal_slug} is missing an exact-case token manifest`
     );
 
@@ -849,19 +843,19 @@ test("bundled tokens have compact aspect ratios and matching iOS layouts", () =>
   assert.equal(primaryFileNames.length, 528);
 
   const catalogItems = readJSON(ITEMS_PATH);
-  const catalogItemByLowercasedFileName = new Map(
+  const catalogItemByFileName = new Map(
     catalogItems.map((item) => [
-      `${suggestedItemId(item)}.json`.toLowerCase(),
+      `${item.internal_slug}.json`,
       item,
     ])
   );
-  const primaryByLowercasedFileName = new Map();
+  const primaryByFileName = new Map();
   let primaryTokenCount = 0;
   let twoColumnCollectionCount = 0;
   let manualThreeColumnCollectionCount = 0;
   for (const fileName of primaryFileNames) {
     const payload = readJSON(path.join(TOKENS_PATH, fileName));
-    const catalogItem = catalogItemByLowercasedFileName.get(fileName.toLowerCase());
+    const catalogItem = catalogItemByFileName.get(fileName);
     if (isSeptemberGenerativeCollection(catalogItem)) {
       assert.equal(catalogItem.generativeOnly, true);
       assert.equal(catalogItem.iosOnly, true);
@@ -885,7 +879,7 @@ test("bundled tokens have compact aspect ratios and matching iOS layouts", () =>
       `${fileName} does not use the canonical compact aspect-ratio encoding`
     );
 
-    const item = catalogItemByLowercasedFileName.get(fileName.toLowerCase());
+    const item = catalogItemByFileName.get(fileName);
     assert.ok(item, `${fileName} has no suggested catalog item`);
     const derivedColumnCount =
       collectionBrowserColumnCountFromAspectRatios(ratios);
@@ -905,7 +899,7 @@ test("bundled tokens have compact aspect ratios and matching iOS layouts", () =>
     }
 
     primaryTokenCount += payload.items.length;
-    primaryByLowercasedFileName.set(fileName.toLowerCase(), { payload, ratios });
+    primaryByFileName.set(fileName, { payload, ratios });
   }
   assert.equal(primaryTokenCount, 375_745);
   assert.equal(twoColumnCollectionCount, 76);
@@ -925,8 +919,8 @@ test("bundled tokens have compact aspect ratios and matching iOS layouts", () =>
   );
 
   for (const item of catalogItems) {
-    const fileName = `${suggestedItemId(item)}.json`.toLowerCase();
-    if (!primaryByLowercasedFileName.has(fileName)) {
+    const fileName = `${item.internal_slug}.json`;
+    if (!primaryByFileName.has(fileName)) {
       assert.equal(
         item[IOS_COLLECTION_BROWSER_COLUMN_COUNT_KEY],
         undefined,
@@ -946,7 +940,7 @@ test("bundled tokens have compact aspect ratios and matching iOS layouts", () =>
     assert.ok(widgetRatios, `${fileName} has no widget thumbnail aspect-ratio metadata`);
     assert.equal(widgetRatios.length, widgetPayload.items.length);
 
-    const primary = primaryByLowercasedFileName.get(fileName.toLowerCase());
+    const primary = primaryByFileName.get(fileName);
     assert.ok(primary, `${fileName} has no matching primary token manifest`);
     const primaryRatioById = new Map(
       tokenIdsFromPayload(primary.payload).map((id, index) => [id, primary.ratios[index]])
@@ -974,7 +968,7 @@ test("Terraforms uses Mathcastles HTML primaries with unchanged CDN thumbnails",
     "https://cdn.lil.org/player/terraforms/thumbs/"
   );
 
-  const payload = readJSON(path.join(TOKENS_PATH, `${suggestedItemId(terraforms)}.json`));
+  const payload = readJSON(path.join(TOKENS_PATH, `${terraforms.internal_slug}.json`));
   assert.equal(Object.prototype.hasOwnProperty.call(payload, "tmp_files"), false);
   assert.equal(payload.defaultFileExtension, "html");
   assert.deepEqual(payload.urlPrefixes, [

@@ -5,16 +5,12 @@ import os
 
 nonisolated enum TokenGenerator {
     
-    private static let scriptURLsByJSONName: [String: URL] = {
-        guard let directory = SuggestedItemsService.bundle.url(forResource: "Scripts", withExtension: nil),
-              let urls = try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil) else {
-            return [:]
+    private static let scriptURLsByCollectionId: [String: URL] = {
+        SuggestedItemsService.allItems.reduce(into: [:]) { result, item in
+            if let url = SuggestedItemsService.bundledScriptURL(collectionId: item.id) {
+                result[item.id] = url
+            }
         }
-        var urlsByName = [String: URL]()
-        for url in urls where url.pathExtension == "json" {
-            urlsByName[url.lastPathComponent] = url
-        }
-        return urlsByName
     }()
     private static let cache = OSAllocatedUnfairLock(initialState: CacheState())
     private static let cardNft2NativeCollection = RangedNativeCollection(
@@ -29,8 +25,8 @@ nonisolated enum TokenGenerator {
     private static let nativeRendererCollectionIds = Set(NativeMetalCardRenderKind.allCases.map(\.collectionId))
 
     private struct CacheState: Sendable {
-        var collectionDataByJSONName = [String: CollectionTokenData]()
-        var scriptByJSONName = [String: ScriptCacheEntry]()
+        var collectionDataByCollectionId = [String: CollectionTokenData]()
+        var scriptByCollectionId = [String: ScriptCacheEntry]()
     }
 
     private enum ScriptCacheEntry: Sendable {
@@ -111,21 +107,14 @@ nonisolated enum TokenGenerator {
 #endif
     }()
 
-    private static let jsonsNames: Set<String> = {
-        return Set(scriptURLsByJSONName.keys.compactMap { fileName in
-            let collectionId = String(fileName.dropLast(5))
-            guard !platformDisabledCollectionIds.contains(collectionId),
-                  SuggestedItemsService.isCollectionAvailableOnCurrentPlatform(id: collectionId) else { return nil }
-            if disablesNativeRenderersOnCurrentPlatform,
-               nativeRendererCollectionIds.contains(collectionId) {
-                return nil
-            }
-            return fileName
+    private static let generativeCollectionIds: Set<String> = {
+        Set(scriptURLsByCollectionId.keys.filter { collectionId in
+            !isCollectionDisabledOnCurrentPlatform(id: collectionId)
         })
     }()
 
     static func canGenerate(id: String) -> Bool {
-        return jsonsNames.contains(id + ".json")
+        return generativeCollectionIds.contains(id)
     }
 
     static func isBundledWebGenerativeCollection(id: String) -> Bool {
@@ -189,7 +178,7 @@ nonisolated enum TokenGenerator {
     }
 
     static let allGenerativeSuggestedItems = SuggestedItemsService.visibleItems.filter {
-        jsonsNames.contains($0.id + ".json")
+        canGenerate(id: $0.id)
     }
     
     static func tokenCount(specificCollectionId: String) -> Int {
@@ -259,10 +248,6 @@ nonisolated enum TokenGenerator {
         return NftGallery.blockExplorer.url(network: network, chain: .ethereum, collectionAddress: script.address, tokenId: nil)
     }
 
-    private static func collectionData(specificCollectionId: String) -> CollectionTokenData? {
-        collectionData(jsonName: specificCollectionId + ".json")
-    }
-
     private static func isRangedNativeCollection(_ specificCollectionId: String) -> Bool {
         rangedNativeCollectionsById[specificCollectionId] != nil
     }
@@ -270,7 +255,7 @@ nonisolated enum TokenGenerator {
     private static func activeRangedNativeCollection(specificCollectionId: String) -> RangedNativeCollection? {
         guard let collection = rangedNativeCollectionsById[specificCollectionId],
               collection.count > 0,
-              jsonsNames.contains(specificCollectionId + ".json") else { return nil }
+              canGenerate(id: specificCollectionId) else { return nil }
         return collection
     }
 
@@ -316,43 +301,39 @@ nonisolated enum TokenGenerator {
         BundledTokens.Item(id: String(tokenID), name: nil, url: nil, sh: nil, hash: nil)
     }
 
-    private static func script(specificCollectionId: String) -> Script? {
-        script(jsonName: specificCollectionId + ".json")
-    }
-
-    private static func collectionData(jsonName: String) -> CollectionTokenData? {
-        if let collectionData = cache.withLock({ $0.collectionDataByJSONName[jsonName] }) {
+    private static func collectionData(specificCollectionId: String) -> CollectionTokenData? {
+        if let collectionData = cache.withLock({ $0.collectionDataByCollectionId[specificCollectionId] }) {
             return collectionData
         }
 
-        guard let script = script(jsonName: jsonName),
+        guard let script = script(specificCollectionId: specificCollectionId),
               let tokens = bundledTokens(script: script) else { return nil }
 
         let collectionData = CollectionTokenData(script: script, tokens: tokens)
         return cache.withLock { state in
-            if let cachedCollectionData = state.collectionDataByJSONName[jsonName] {
+            if let cachedCollectionData = state.collectionDataByCollectionId[specificCollectionId] {
                 return cachedCollectionData
             }
-            state.collectionDataByJSONName[jsonName] = collectionData
+            state.collectionDataByCollectionId[specificCollectionId] = collectionData
             return collectionData
         }
     }
 
-    private static func script(jsonName: String) -> Script? {
-        guard jsonsNames.contains(jsonName) else { return nil }
-        if let cachedEntry = cache.withLock({ $0.scriptByJSONName[jsonName] }) {
+    private static func script(specificCollectionId: String) -> Script? {
+        guard canGenerate(id: specificCollectionId) else { return nil }
+        if let cachedEntry = cache.withLock({ $0.scriptByCollectionId[specificCollectionId] }) {
             return cachedEntry.script
         }
 
-        let decodedScript = scriptURLsByJSONName[jsonName].flatMap { try? Data(contentsOf: $0) }.flatMap {
+        let decodedScript = scriptURLsByCollectionId[specificCollectionId].flatMap { try? Data(contentsOf: $0) }.flatMap {
             try? JSONDecoder().decode(Script.self, from: $0)
         }
         let entry: ScriptCacheEntry = decodedScript.map(ScriptCacheEntry.found) ?? .missing
         return cache.withLock { state in
-            if let cachedEntry = state.scriptByJSONName[jsonName] {
+            if let cachedEntry = state.scriptByCollectionId[specificCollectionId] {
                 return cachedEntry.script
             }
-            state.scriptByJSONName[jsonName] = entry
+            state.scriptByCollectionId[specificCollectionId] = entry
             return decodedScript
         }
     }

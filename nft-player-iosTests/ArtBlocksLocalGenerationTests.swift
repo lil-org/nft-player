@@ -280,10 +280,7 @@ extension ArtBlocksLocalGenerationTests {
     }
 
     private func bundledScript(for project: Project) throws -> Script {
-        let url = try XCTUnwrap(SuggestedItemsService.bundle.url(
-            forResource: "Scripts/" + project.id,
-            withExtension: "json"
-        ), project.name)
+        let url = try XCTUnwrap(SuggestedItemsService.bundledScriptURL(collectionId: project.id), project.name)
         return try JSONDecoder().decode(Script.self, from: Data(contentsOf: url))
     }
 }

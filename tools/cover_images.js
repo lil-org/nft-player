@@ -2,6 +2,7 @@ const fs = require("node:fs/promises");
 const os = require("node:os");
 const path = require("node:path");
 const { spawn } = require("node:child_process");
+const { suggestedItemResourceName } = require("./suggested_items");
 
 const COVER_BACKGROUND_COLOR = "#000000";
 const COVER_FILE_EXTENSION = "jpg";
@@ -78,7 +79,7 @@ async function writeCoverContents(imagesetPath, coverAssetId, fileExtension = CO
 }
 
 function coverAssetIdForCollection(collection) {
-  return collection.cover?.assetId ?? collection.collectionId;
+  return suggestedItemResourceName(collection);
 }
 
 function assertUniqueCoverAssetIds(collections, { caseInsensitive = false } = {}) {

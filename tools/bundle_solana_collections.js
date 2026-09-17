@@ -15,6 +15,8 @@ const {
 const {
   applyIOSCollectionBrowserColumnCounts,
   assignInternalSlugs,
+  suggestedItemForCollection,
+  suggestedItemResourceName,
   mergeGeneratedSuggestedItem,
 } = require("./suggested_items");
 const {
@@ -249,6 +251,15 @@ async function main() {
     console.log(`  ${result.name}: ${result.tokens.length} tokens, ${result.tokenPayload.urlPrefixes.length} URL prefix(es)`);
   }
 
+  const existingItems = JSON.parse(await fs.readFile(path.join(options.bundlePath, "items.json"), "utf8"));
+  const updatedItems = assignInternalSlugs(mergeSuggestedItems(existingItems, collectionResults));
+  for (const collection of collectionResults) {
+    const item = suggestedItemForCollection(updatedItems, collection.collectionId, "solana");
+    collection.internal_slug = suggestedItemResourceName(item);
+    collection.cover.assetId = collection.internal_slug;
+    collection.cover.outputPath = path.join(options.coversPath, `${collection.internal_slug}.imageset`, `${collection.internal_slug}.jpg`);
+  }
+
   if (!options.skipCovers) {
     assertUniqueCoverAssetIds(collectionResults);
   }
@@ -262,7 +273,7 @@ async function main() {
   };
 
   if (options.apply) {
-    await writeBundle(collectionResults, context);
+    await writeBundle(collectionResults, context, updatedItems);
   } else {
     await fs.mkdir(path.dirname(options.reportPath), { recursive: true });
     await fs.writeFile(options.reportPath, report);
@@ -404,7 +415,6 @@ async function fetchCollectionBundle(input, canonicalId, context) {
     tokenPayload,
     mediaReview: preparedTokens.mediaReview,
     cover: {
-      assetId: collectionId,
       sourceUrl: normalizeAssetUrl(collectionMetadata?.image)
         ?? tokenCoverUrls[0]
         ?? firstImageMediaURL(preparedTokens.tokens)
@@ -415,7 +425,6 @@ async function fetchCollectionBundle(input, canonicalId, context) {
         ...sampleTokens(preparedTokens.tokens, 40).map((token) => token.media.url),
       ]),
       sourceKind: collectionMetadata?.image ? "collection-metadata" : "first-token",
-      outputPath: path.join(context.options.coversPath, `${collectionId}.imageset`, `${collectionId}.jpg`),
     },
   };
 }
@@ -1037,7 +1046,7 @@ function mostCommonValue(values) {
   return [...counts.entries()].sort((left, right) => right[1] - left[1] || naturalCompare(left[0], right[0]))[0]?.[0] ?? null;
 }
 
-async function writeBundle(collections, context) {
+async function writeBundle(collections, context, updatedItems) {
   const { options } = context;
   const bundlePath = path.resolve(options.bundlePath);
   const tokensPath = path.join(bundlePath, "Tokens");
@@ -1048,12 +1057,9 @@ async function writeBundle(collections, context) {
   await fs.mkdir(tokensPath, { recursive: true });
   await fs.mkdir(path.dirname(options.reportPath), { recursive: true });
 
-  const existingItems = JSON.parse(await fs.readFile(itemsPath, "utf8"));
-  const updatedItems = assignInternalSlugs(mergeSuggestedItems(existingItems, collections));
-
   const collectionBrowserColumnCounts = new Map();
   for (const collection of collections) {
-    const outputPath = path.join(tokensPath, `${collection.collectionId}.json`);
+    const outputPath = path.join(tokensPath, `${suggestedItemResourceName(collection)}.json`);
     const tmpFilesResult = await preserveTmpFilesFromFile(outputPath, collection.tokenPayload);
     reportTmpFilesChanges(collection.collectionId, tmpFilesResult.report);
     const aspectRatioResult = await preserveAspectRatioMetadataFromFile(outputPath, tmpFilesResult.payload);
@@ -1423,6 +1429,7 @@ function reportableCollection(collection) {
   return {
     input: collection.input,
     collectionId: collection.collectionId,
+    internal_slug: collection.internal_slug,
     name: collection.name,
     tokenCount: collection.tokens.length,
     totalFromHelius: collection.totalFromHelius,

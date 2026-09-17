@@ -4,41 +4,38 @@ import { constants as fsConstants } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import suggestedItems from "../tools/suggested_items.js";
+
+const { assertValidInternalSlugs, INTERNAL_SLUG_PATTERN, MAX_INTERNAL_SLUG_LENGTH } = suggestedItems;
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = path.resolve(scriptDirectory, "..");
 const suggestedItemsDirectory = path.join(repositoryRoot, "Suggested Items");
-const sourceBundleDirectory = path.join(suggestedItemsDirectory, "Suggested.bundle");
-const sourceCoversDirectory = path.join(suggestedItemsDirectory, "Covers.xcassets");
-const outputBundleDirectory = path.join(suggestedItemsDirectory, "WidgetSuggested.bundle");
-const outputCoversDirectory = path.join(suggestedItemsDirectory, "WidgetCovers.xcassets");
-const eligibleCollectionsPath = path.join(suggestedItemsDirectory, "widget-eligible-collections.json");
-
-const isCheckMode = process.argv.includes("--check");
-
-async function main() {
-  const eligibleIds = await readEligibleCollectionIds();
+export async function generateWidgetResources(directory, { check = false } = {}) {
+  const sourceBundleDirectory = path.join(directory, "Suggested.bundle");
+  const sourceCoversDirectory = path.join(directory, "Covers.xcassets");
+  const outputBundleDirectory = path.join(directory, "WidgetSuggested.bundle");
+  const outputCoversDirectory = path.join(directory, "WidgetCovers.xcassets");
+  const eligibleCollectionsPath = path.join(directory, "widget-eligible-collections.json");
+  const eligibleSlugs = await readEligibleCollectionSlugs(eligibleCollectionsPath);
   const sourceItems = await readJSON(path.join(sourceBundleDirectory, "items.json"));
-  const itemsById = new Map();
-
-  for (const item of sourceItems) {
-    const id = collectionId(item);
-    if (id && !itemsById.has(id)) {
-      itemsById.set(id, item);
-    }
+  if (!Array.isArray(sourceItems)) {
+    throw new Error("Suggested.bundle/items.json must contain a JSON array.");
   }
+  assertValidInternalSlugs(sourceItems);
+  const itemsBySlug = new Map(sourceItems.map((item) => [item.internal_slug, item]));
 
   const selectedItems = [];
   const missingItems = [];
-  for (const id of eligibleIds) {
-    const item = itemsById.get(id);
+  for (const slug of eligibleSlugs) {
+    const item = itemsBySlug.get(slug);
     if (item) {
       selectedItems.push(item);
     } else {
-      missingItems.push(id);
+      missingItems.push(slug);
     }
   }
-  failIfAny("Missing collection ids in Suggested.bundle/items.json", missingItems);
+  failIfAny("Missing collection slugs in Suggested.bundle/items.json", missingItems);
 
   const expectedBundleFiles = new Map();
   expectedBundleFiles.set(
@@ -47,13 +44,10 @@ async function main() {
   );
 
   const missingTokens = [];
-  for (const id of eligibleIds) {
-    const tokenPath = await firstExistingPath([
-      path.join(sourceBundleDirectory, "Tokens", `${id}.json`),
-      path.join(sourceBundleDirectory, "Tokens", `${id.toLowerCase()}.json`),
-    ]);
-    if (!tokenPath) {
-      missingTokens.push(id);
+  for (const slug of eligibleSlugs) {
+    const tokenPath = path.join(sourceBundleDirectory, "Tokens", `${slug}.json`);
+    if (!(await exists(tokenPath))) {
+      missingTokens.push(slug);
       continue;
     }
     expectedBundleFiles.set(
@@ -70,70 +64,51 @@ async function main() {
   );
 
   const missingCovers = [];
-  for (const id of eligibleIds) {
-    const sourceImageset = path.join(sourceCoversDirectory, `${id}.imageset`);
+  for (const slug of eligibleSlugs) {
+    const sourceImageset = path.join(sourceCoversDirectory, `${slug}.imageset`);
     if (!(await exists(sourceImageset))) {
-      missingCovers.push(id);
+      missingCovers.push(slug);
       continue;
     }
     await collectFiles(sourceImageset, async (sourceFilePath, relativePath) => {
       expectedCoverFiles.set(
-        path.join(`${id}.imageset`, relativePath),
+        path.join(`${slug}.imageset`, relativePath),
         await fs.readFile(sourceFilePath)
       );
     });
   }
   failIfAny("Missing cover imagesets in Covers.xcassets", missingCovers);
 
-  if (isCheckMode) {
+  if (check) {
     await checkOutput(outputBundleDirectory, expectedBundleFiles);
     await checkOutput(outputCoversDirectory, expectedCoverFiles);
-    console.log("Widget resources are current.");
     return;
   }
 
   await writeOutput(outputBundleDirectory, expectedBundleFiles);
   await writeOutput(outputCoversDirectory, expectedCoverFiles);
-  console.log(`Generated ${path.relative(repositoryRoot, outputBundleDirectory)}`);
-  console.log(`Generated ${path.relative(repositoryRoot, outputCoversDirectory)}`);
 }
 
-async function readEligibleCollectionIds() {
+async function readEligibleCollectionSlugs(eligibleCollectionsPath) {
   const value = await readJSON(eligibleCollectionsPath);
   if (!Array.isArray(value)) {
     throw new Error("widget-eligible-collections.json must contain a JSON array.");
   }
 
-  const ids = value.map((item) => {
-    if (typeof item !== "string" || item.trim() === "") {
-      throw new Error("widget-eligible-collections.json must contain only non-empty strings.");
+  const slugs = value.map((item) => {
+    if (typeof item !== "string" || !INTERNAL_SLUG_PATTERN.test(item) || item.length > MAX_INTERNAL_SLUG_LENGTH) {
+      throw new Error("widget-eligible-collections.json must contain only valid internal_slug strings.");
     }
     return item;
   });
 
-  const duplicates = ids.filter((id, index) => ids.indexOf(id) !== index);
-  failIfAny("Duplicate collection ids in widget-eligible-collections.json", duplicates);
-  return ids;
-}
-
-function collectionId(item) {
-  if (!item || typeof item.address !== "string") {
-    return undefined;
-  }
-  return item.address + (item.abId ?? item.collectionId ?? "");
+  const duplicates = slugs.filter((slug, index) => slugs.indexOf(slug) !== index);
+  failIfAny("Duplicate collection slugs in widget-eligible-collections.json", duplicates);
+  return slugs;
 }
 
 async function readJSON(filePath) {
   return JSON.parse(await fs.readFile(filePath, "utf8"));
-}
-
-async function firstExistingPath(paths) {
-  for (const filePath of paths) {
-    if (await exists(filePath)) {
-      return filePath;
-    }
-  }
-  return undefined;
 }
 
 async function exists(filePath) {
@@ -221,7 +196,17 @@ function failIfAny(title, values) {
   throw new Error(`${title}:\n${Array.from(new Set(values)).join("\n")}`);
 }
 
-main().catch((error) => {
-  console.error(error.message);
-  process.exit(1);
-});
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  const check = process.argv.includes("--check");
+  generateWidgetResources(suggestedItemsDirectory, { check }).then(() => {
+    if (check) {
+      console.log("Widget resources are current.");
+    } else {
+      console.log("Generated Suggested Items/WidgetSuggested.bundle");
+      console.log("Generated Suggested Items/WidgetCovers.xcassets");
+    }
+  }).catch((error) => {
+    console.error(error.message);
+    process.exit(1);
+  });
+}

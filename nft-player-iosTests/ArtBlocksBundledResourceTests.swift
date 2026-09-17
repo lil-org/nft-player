@@ -306,8 +306,8 @@ extension ArtBlocksBundledResourceTests {
 
     private func hypertypeResources() throws -> (Script, BundledTokens) {
         let identifier = "0xbb5471c292065d3b01b2e81e299267221ae9a2500"
-        let scriptURL = try XCTUnwrap(SuggestedItemsService.bundle.url(forResource: "Scripts/" + identifier, withExtension: "json"))
-        let tokensURL = try XCTUnwrap(SuggestedItemsService.bundle.url(forResource: "Tokens/" + identifier, withExtension: "json"))
+        let scriptURL = try XCTUnwrap(SuggestedItemsService.bundledScriptURL(collectionId: identifier))
+        let tokensURL = try XCTUnwrap(SuggestedItemsService.bundledTokensURL(collectionId: identifier))
         return (
             try JSONDecoder().decode(Script.self, from: Data(contentsOf: scriptURL)),
             try JSONDecoder().decode(BundledTokens.self, from: Data(contentsOf: tokensURL))

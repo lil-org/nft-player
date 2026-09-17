@@ -7,6 +7,85 @@ nonisolated final class ArtBlocksCatalogTests: XCTestCase {}
 
 @MainActor
 extension ArtBlocksCatalogTests {
+    func testBundledResourcesUseSlugsWithoutChangingCollectionIdentity() throws {
+        var tokenCount = 0
+        var scriptCount = 0
+        for item in SuggestedItemsService.allItems {
+            let slug = try XCTUnwrap(item.internalSlug, item.name)
+            XCTAssertEqual(item.bundledResourceName, slug)
+            XCTAssertEqual(SuggestedItemsService.item(resourceName: slug), item)
+            XCTAssertEqual(SuggestedItemsService.item(id: item.id), item)
+            XCTAssertEqual(CollectionCatalogItem(item: item).id, item.id)
+            XCTAssertEqual(CollectionCatalogItem(item: item).coverAssetName, slug)
+            XCTAssertNotNil(UIImage(named: slug), item.name)
+
+            if item.internalSlug == "card_nft_2" {
+                XCTAssertNil(SuggestedItemsService.bundledTokensURL(collectionId: item.id))
+            } else {
+                let url = try XCTUnwrap(SuggestedItemsService.bundledTokensURL(collectionId: item.id), item.name)
+                XCTAssertEqual(url.lastPathComponent, slug + ".json")
+                XCTAssertNotNil(SuggestedItemsService.bundledTokens(collectionId: item.id), item.name)
+                tokenCount += 1
+            }
+
+            if let url = SuggestedItemsService.bundledScriptURL(collectionId: item.id) {
+                XCTAssertEqual(url.lastPathComponent, slug + ".json")
+                let script = try JSONDecoder().decode(Script.self, from: Data(contentsOf: url))
+                XCTAssertEqual(script.id, item.id, item.name)
+                XCTAssertTrue(TokenGenerator.canGenerate(id: item.id), item.name)
+                scriptCount += 1
+            } else {
+                XCTAssertFalse(TokenGenerator.canGenerate(id: item.id), item.name)
+            }
+        }
+        XCTAssertEqual(tokenCount, 528)
+        XCTAssertEqual(scriptCount, 407)
+        XCTAssertNil(SuggestedItemsService.bundledTokensURL(collectionId: "unknown_collection"))
+        XCTAssertNil(SuggestedItemsService.bundledScriptURL(collectionId: "unknown_collection"))
+    }
+
+    func testBundledResourcesPreserveLowercaseIdentifierFallback() throws {
+        let item = try XCTUnwrap(SuggestedItemsService.item(resourceName: "archetype"))
+        XCTAssertEqual(item.id, item.id.lowercased())
+        let uppercaseId = item.id.uppercased()
+        XCTAssertNotEqual(uppercaseId, item.id)
+        XCTAssertNil(SuggestedItemsService.item(id: uppercaseId))
+
+        let tokensURL = try XCTUnwrap(SuggestedItemsService.bundledTokensURL(collectionId: item.id))
+        let scriptURL = try XCTUnwrap(SuggestedItemsService.bundledScriptURL(collectionId: item.id))
+        XCTAssertEqual(SuggestedItemsService.bundledTokensURL(collectionId: uppercaseId), tokensURL)
+        XCTAssertEqual(SuggestedItemsService.bundledScriptURL(collectionId: uppercaseId), scriptURL)
+
+        let tokens = try XCTUnwrap(SuggestedItemsService.bundledTokens(collectionId: item.id))
+        let uppercaseTokens = try XCTUnwrap(SuggestedItemsService.bundledTokens(collectionId: uppercaseId))
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .sortedKeys
+        XCTAssertEqual(try encoder.encode(uppercaseTokens), try encoder.encode(tokens))
+
+        let solana = try XCTUnwrap(SuggestedItemsService.allItems.first { $0.chain == .solana })
+        let lowercasedSolanaId = solana.id.lowercased()
+        XCTAssertNotEqual(lowercasedSolanaId, solana.id)
+        XCTAssertNotNil(SuggestedItemsService.bundledTokensURL(collectionId: solana.id))
+        XCTAssertNil(SuggestedItemsService.item(id: lowercasedSolanaId))
+        XCTAssertNil(SuggestedItemsService.bundledTokensURL(collectionId: lowercasedSolanaId))
+    }
+
+    func testResourceNameFallbackPreservesLegacyDecodingAndCoverMetadata() throws {
+        let item = try XCTUnwrap(SuggestedItemsService.allItems.first)
+        var fields = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(item)) as? [String: Any])
+        fields.removeValue(forKey: "internal_slug")
+        fields["hasCover"] = false
+        let legacy = try JSONDecoder().decode(SuggestedItem.self, from: JSONSerialization.data(withJSONObject: fields))
+        XCTAssertNil(legacy.internalSlug)
+        XCTAssertEqual(legacy.bundledResourceName, item.id)
+        XCTAssertEqual(CollectionCatalogItem(item: legacy).coverAssetName, item.id)
+        XCTAssertFalse(CollectionCatalogItem(item: legacy).hasCover)
+
+        fields["internal_slug"] = ""
+        let emptySlug = try JSONDecoder().decode(SuggestedItem.self, from: JSONSerialization.data(withJSONObject: fields))
+        XCTAssertEqual(emptySlug.bundledResourceName, item.id)
+    }
+
     private var additions: [SuggestedItem] {
         SuggestedItemsService.allItems.filter { $0.bundledDate == "2026-09-14" && $0.generativeOnly == true }
     }
@@ -27,7 +106,7 @@ extension ArtBlocksCatalogTests {
             XCTAssertFalse(item.artists.isEmpty, item.name)
             XCTAssertTrue(SuggestedItemsService.visibleItems.contains { $0.id == item.id })
             XCTAssertTrue(CollectionCatalog.allItems.contains { $0.id == item.id && $0.hasCover })
-            let cover = try XCTUnwrap(UIImage(named: item.id)?.cgImage, item.name)
+            let cover = try XCTUnwrap(UIImage(named: item.bundledResourceName)?.cgImage, item.name)
             XCTAssertEqual(cover.width, 300, item.name)
             XCTAssertEqual(cover.height, 300, item.name)
             XCTAssertTrue(TokenGenerator.usesArtBlocksRenderer(collectionId: item.id))
@@ -42,7 +121,7 @@ extension ArtBlocksCatalogTests {
             let token = try XCTUnwrap(CollectionCatalog.generateToken(specificCollectionId: item.id, tokenIndex: 0))
             XCTAssertNil(token.media)
             XCTAssertFalse(token.html.isEmpty)
-            let url = try XCTUnwrap(SuggestedItemsService.bundle.url(forResource: "Scripts/" + item.id, withExtension: "json"))
+            let url = try XCTUnwrap(SuggestedItemsService.bundledScriptURL(collectionId: item.id))
             let script = try JSONDecoder().decode(Script.self, from: Data(contentsOf: url))
             let policy = ArtBlocksRenderingStartupProfiles.startupProfile(script) == nil ? "direct" : "calibrated"
             policies[policy, default: 0] += 1
@@ -153,7 +232,7 @@ extension ArtBlocksCatalogTests {
             XCTAssertEqual(CollectionCatalog.tokenCount(specificCollectionId: item.id), count)
             XCTAssertEqual(SuggestedItemsService.artists(forCollectionId: item.id).map(\.id), ["yomme"])
             XCTAssertEqual(CollectionCatalog.collectionWebURL(specificCollectionId: item.id)?.absoluteString, item.collectionWebURL)
-            let cover = try XCTUnwrap(UIImage(named: item.id))
+            let cover = try XCTUnwrap(UIImage(named: item.bundledResourceName))
             XCTAssertEqual(cover.cgImage?.width, 300)
             XCTAssertEqual(cover.cgImage?.height, 300)
 
@@ -219,7 +298,7 @@ extension ArtBlocksCatalogTests {
             XCTAssertFalse(TokenGenerator.usesArtBlocksRenderer(collectionId: item.id))
             XCTAssertTrue(CollectionCatalog.collectionBrowseMidImagesAvailable(specificCollectionId: item.id))
             XCTAssertEqual(CollectionCatalog.tokenCount(specificCollectionId: item.id), count)
-            let cover = try XCTUnwrap(UIImage(named: item.id))
+            let cover = try XCTUnwrap(UIImage(named: item.bundledResourceName))
             XCTAssertEqual(cover.cgImage?.width, 300)
             XCTAssertEqual(cover.cgImage?.height, 300)
 

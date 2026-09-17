@@ -795,7 +795,7 @@ final class MobileCollectionCoverImageCache {
     private init() {}
 
     func cachedImage(assetName: String, targetSize: CGSize, displayScale: CGFloat) -> UIImage? {
-        guard SuggestedItemsService.item(id: assetName)?.hasCover != false else { return nil }
+        guard SuggestedItemsService.item(resourceName: assetName)?.hasCover != false else { return nil }
         let targetPixelSide = targetPixelSide(for: targetSize, displayScale: displayScale)
         return storage.image(
             forKey: cacheKey(assetName: assetName, targetPixelSide: targetPixelSide)
@@ -808,7 +808,7 @@ final class MobileCollectionCoverImageCache {
         displayScale: CGFloat,
         completion: @escaping (UIImage?) -> Void
     ) {
-        guard SuggestedItemsService.item(id: assetName)?.hasCover != false else {
+        guard SuggestedItemsService.item(resourceName: assetName)?.hasCover != false else {
             completion(nil)
             return
         }
@@ -833,7 +833,7 @@ final class MobileCollectionCoverImageCache {
 
     func prefetch(assetNames: [String], targetSize: CGSize, displayScale: CGFloat) {
         assetNames.forEach { assetName in
-            guard SuggestedItemsService.item(id: assetName)?.hasCover != false else { return }
+            guard SuggestedItemsService.item(resourceName: assetName)?.hasCover != false else { return }
             let targetPixelSide = targetPixelSide(for: targetSize, displayScale: displayScale)
             let key = cacheKey(assetName: assetName, targetPixelSide: targetPixelSide)
             guard storage.image(forKey: key) == nil else { return }

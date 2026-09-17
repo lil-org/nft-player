@@ -15,6 +15,8 @@ const {
 const {
   applyIOSCollectionBrowserColumnCounts,
   assignInternalSlugs,
+  suggestedItemForCollection,
+  suggestedItemResourceName,
   suggestedItemId,
 } = require("./suggested_items");
 const {
@@ -290,8 +292,17 @@ async function main() {
     }
   }
 
+  const existingItems = JSON.parse(await fs.readFile(path.join(options.bundlePath, "items.json"), "utf8"));
+  const updatedItems = assignInternalSlugs(mergeSuggestedItems(existingItems, collectionResults));
+  for (const collection of collectionResults) {
+    const item = suggestedItemForCollection(updatedItems, collection.collectionId, collection.appChain);
+    collection.internal_slug = suggestedItemResourceName(item);
+    collection.cover.assetId = collection.internal_slug;
+    collection.cover.outputPath = path.join(options.coversPath, `${collection.internal_slug}.imageset`, `${collection.internal_slug}.jpg`);
+  }
+
   if (options.apply) {
-    await writeBundle(collectionResults, context, failedCollections);
+    await writeBundle(collectionResults, context, updatedItems, failedCollections);
   } else {
     assertUniqueCoverAssetIds(collectionResults, { caseInsensitive: true });
     await writeReports(collectionResults, options, true, failedCollections);
@@ -1339,21 +1350,16 @@ function mostCommonValue(values) {
   return [...counts.entries()].sort((left, right) => right[1] - left[1] || naturalCompare(left[0], right[0]))[0]?.[0] ?? null;
 }
 
-async function writeBundle(collections, context, failedCollections = []) {
+async function writeBundle(collections, context, updatedItems, failedCollections = []) {
   const { options } = context;
   const bundlePath = path.resolve(options.bundlePath);
   const tokensPath = path.join(bundlePath, "Tokens");
   const itemsPath = path.join(bundlePath, "items.json");
 
-  const existingItems = JSON.parse(await fs.readFile(itemsPath, "utf8"));
-  const updatedItems = assignInternalSlugs(mergeSuggestedItems(existingItems, collections));
   const persistedCollectionIds = new Map(collections.map((collection) => [
     collection,
     canonicalPersistedCollectionId(collection, updatedItems),
   ]));
-  for (const [collection, persistedCollectionId] of persistedCollectionIds) {
-    collection.cover.assetId = persistedCollectionId;
-  }
   assertUniqueCoverAssetIds(collections, { caseInsensitive: true });
   const existingTokenManifestNames = await directoryNamesIfExists(tokensPath);
   const tokenManifestPaths = new Map(collections.map((collection) => [
@@ -1361,7 +1367,6 @@ async function writeBundle(collections, context, failedCollections = []) {
     tokenManifestPathForCollection(
       tokensPath,
       collection,
-      persistedCollectionIds.get(collection),
       existingTokenManifestNames
     ),
   ]));
@@ -1403,10 +1408,9 @@ async function writeBundle(collections, context, failedCollections = []) {
 function tokenManifestPathForCollection(
   tokensPath,
   collection,
-  persistedCollectionId,
   existingFileNames
 ) {
-  const fileName = `${persistedCollectionId}.json`;
+  const fileName = `${suggestedItemResourceName(collection)}.json`;
   assertCaseExactArtifactName(
     fileName,
     existingFileNames,
@@ -1433,19 +1437,7 @@ function assertCaseExactArtifactName(expectedName, existingNames, label) {
 }
 
 function canonicalPersistedCollectionId(collection, items) {
-  const identity = collection.collectionId.toLowerCase();
-  const chain = collection.appChain.toLowerCase();
-  const matches = items
-    .filter((item) => String(item.chain).toLowerCase() === chain)
-    .map((item) => suggestedItemId(item))
-    .filter((collectionId) => collectionId.toLowerCase() === identity);
-
-  if (matches.length !== 1) {
-    throw new Error(
-      `Expected exactly one items.json entry for ${collection.collectionId}; found ${matches.length}`
-    );
-  }
-  return matches[0];
+  return suggestedItemId(suggestedItemForCollection(items, collection.collectionId, collection.appChain));
 }
 
 function mergeSuggestedItems(existingItems, collections) {
@@ -1896,6 +1888,7 @@ function reportableCollection(collection) {
   return {
     input: collection.input,
     collectionId: collection.collectionId,
+    internal_slug: collection.internal_slug,
     address: collection.address,
     chain: collection.appChain,
     chainId: collection.chainId,

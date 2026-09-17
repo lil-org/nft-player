@@ -268,7 +268,7 @@ extension ArtBlocksContractParametersTests {
         let selected = SuggestedItemsService.allItems
         let affected = selected.filter { collectionNames.contains($0.name) }
         XCTAssertEqual(affected.count, 3)
-        XCTAssertEqual(selected.count, 519)
+        XCTAssertEqual(selected.count, 529)
         for item in affected {
             XCTAssertTrue(TokenGenerator.usesArtBlocksRenderer(collectionId: item.id))
             let script = try bundledScript(item)
@@ -370,9 +370,7 @@ extension ArtBlocksContractParametersTests {
     }
 
     private func bundledScript(_ item: SuggestedItem) throws -> Script {
-        let url = try XCTUnwrap(SuggestedItemsService.bundle.url(
-            forResource: "Scripts/" + item.id, withExtension: "json"
-        ))
+        let url = try XCTUnwrap(SuggestedItemsService.bundledScriptURL(collectionId: item.id))
         return try JSONDecoder().decode(Script.self, from: Data(contentsOf: url))
     }
 

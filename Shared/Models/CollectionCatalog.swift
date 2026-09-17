@@ -61,7 +61,7 @@ nonisolated struct CollectionCatalogItem: Hashable, Identifiable, Sendable {
     init(item: SuggestedItem) {
         id = item.id
         name = item.name
-        coverAssetName = item.id
+        coverAssetName = item.bundledResourceName
         hasCover = item.hasCover != false
     }
 }
@@ -1449,8 +1449,7 @@ nonisolated private enum DownloadableCollectionService {
 
     private static func loadTokenData(collectionId: String) -> DownloadableCollectionTokenData? {
         guard let collection = index.collectionById[collectionId],
-              let url = SuggestedItemsService.bundle.url(forResource: collectionId, withExtension: "json", subdirectory: "Tokens")
-                ?? SuggestedItemsService.bundle.url(forResource: collectionId.lowercased(), withExtension: "json", subdirectory: "Tokens"),
+              let url = SuggestedItemsService.bundledTokensURL(collectionId: collectionId),
               let data = try? Data(contentsOf: url),
               let payload = try? JSONDecoder().decode(DownloadableCollectionTokensPayload.self, from: data) else {
             return nil

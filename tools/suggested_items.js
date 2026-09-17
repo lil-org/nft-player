@@ -102,6 +102,20 @@ function suggestedItemIdentityKey(item) {
   return collectionIdentityKey(suggestedItemId(item), item.chain);
 }
 
+function suggestedItemForCollection(items, collectionId, chain) {
+  const identity = collectionIdentityKey(collectionId, chain);
+  const matches = items.filter((item) => suggestedItemIdentityKey(item) === identity);
+  if (matches.length !== 1) {
+    throw new Error(`Expected exactly one items.json entry for ${identity}; found ${matches.length}`);
+  }
+  return matches[0];
+}
+
+function suggestedItemResourceName(item) {
+  assertInternalSlug(item.internal_slug, item);
+  return item.internal_slug;
+}
+
 function slugifyCollectionName(name) {
   return String(name ?? "")
     .replace(/\+/gu, "plus")
@@ -241,7 +255,9 @@ module.exports = {
   collectionIdentityKey,
   mergeGeneratedSuggestedItem,
   slugifyCollectionName,
+  suggestedItemForCollection,
   suggestedItemId,
   suggestedItemIdentityKey,
+  suggestedItemResourceName,
   withIOSCollectionBrowserColumnCount,
 };
