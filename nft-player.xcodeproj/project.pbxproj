@@ -8,10 +8,6 @@
 
 /* Begin PBXBuildFile section */
 		2C0218032C53CC200012EC40 /* TvCollectionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C0218022C53CC200012EC40 /* TvCollectionsView.swift */; };
-		877B6DF156ACF63FA751E6EB /* tone1504-Tone.js.LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = 716B6F45B954A25CF62EFBB6 /* tone1504-Tone.js.LICENSE.txt */; };
-		F3B962F8C4715B7899914B8A /* tone1504-LICENSE.md in Resources */ = {isa = PBXBuildFile; fileRef = 97C02C2CF2254687DADA8490 /* tone1504-LICENSE.md */; };
-		176C9FE2A0A71302A16E497A /* three167-LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = 36E4CA8FDC4CD291584C63FF /* three167-LICENSE */; };
-		8C86D45780E57718390A2A5D /* p5js11111-license.txt in Resources */ = {isa = PBXBuildFile; fileRef = E29C84394910C1ECB8A6C70C /* p5js11111-license.txt */; };
 		2C02180C2C53CE940012EC40 /* Covers.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2C4659932C308B44008CF97F /* Covers.xcassets */; };
 		2C02180D2C53CE940012EC40 /* Suggested.bundle in Resources */ = {isa = PBXBuildFile; fileRef = 2C09BAE32C308145009BA300 /* Suggested.bundle */; };
 		2C02180E2C53CECD0012EC40 /* Network.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C8A42E92B1A272600BE4166 /* Network.swift */; };
@@ -34,10 +30,6 @@
 		2C0218192C53CECD0012EC40 /* BundledTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C086E862C2F3C3600D4268D /* BundledTokens.swift */; };
 		2C02181A2C53CECD0012EC40 /* Script.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C8C8DE82C3C890B00BC83E9 /* Script.swift */; };
 		2C02181B2C53CECD0012EC40 /* GeneratedToken.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CE9A5772C3DAB03009AEAF4 /* GeneratedToken.swift */; };
-		08127DE7D8476B98A7A061E4 /* tone1504-Tone.js.LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = 716B6F45B954A25CF62EFBB6 /* tone1504-Tone.js.LICENSE.txt */; };
-		384D1E930CED392A4A03025A /* tone1504-LICENSE.md in Resources */ = {isa = PBXBuildFile; fileRef = 97C02C2CF2254687DADA8490 /* tone1504-LICENSE.md */; };
-		A9E5B0991F765CCCC3083958 /* three167-LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = 36E4CA8FDC4CD291584C63FF /* three167-LICENSE */; };
-		C6EA377BAE5A4368D53841DF /* p5js11111-license.txt in Resources */ = {isa = PBXBuildFile; fileRef = E29C84394910C1ECB8A6C70C /* p5js11111-license.txt */; };
 		2C086E872C2F3C3600D4268D /* BundledTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C086E862C2F3C3600D4268D /* BundledTokens.swift */; };
 		2C1B60BD2B7D3505009949C2 /* Strings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C1B60BC2B7D3505009949C2 /* Strings.swift */; };
 		2C1B60C42B7D41D1009949C2 /* HostAppImages.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C1B60C32B7D41D1009949C2 /* HostAppImages.swift */; };
@@ -89,19 +81,11 @@
 		2C6359562D29C5A400E40241 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 2CE9A7702BAD8ECD00579BF7 /* Localizable.xcstrings */; };
 		2C7134D62D30460B001E33DC /* MobilePlaybackController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C7134D52D304609001E33DC /* MobilePlaybackController.swift */; };
 		2C85F3A22FA3469B0065AE2B /* Suggested.bundle in Resources */ = {isa = PBXBuildFile; fileRef = 2C09BAE32C308145009BA300 /* Suggested.bundle */; };
-		19ABC57CD359A0D9788E563B /* tone1504-Tone.js.LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = 716B6F45B954A25CF62EFBB6 /* tone1504-Tone.js.LICENSE.txt */; };
-		74A17F18AD29E21FFDD693E3 /* tone1504-LICENSE.md in Resources */ = {isa = PBXBuildFile; fileRef = 97C02C2CF2254687DADA8490 /* tone1504-LICENSE.md */; };
-		BB19F4D1E07BC0F9A545BEEF /* three167-LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = 36E4CA8FDC4CD291584C63FF /* three167-LICENSE */; };
-		73687D65B8A859B283E098E2 /* p5js11111-license.txt in Resources */ = {isa = PBXBuildFile; fileRef = E29C84394910C1ECB8A6C70C /* p5js11111-license.txt */; };
 		2C8A42EA2B1A272600BE4166 /* Network.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C8A42E92B1A272600BE4166 /* Network.swift */; };
 		2C8ADAA82C46F3FC008BC560 /* PlayerModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C8ADAA72C46F3FC008BC560 /* PlayerModel.swift */; };
 		2C8C8DE92C3C890B00BC83E9 /* Script.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C8C8DE82C3C890B00BC83E9 /* Script.swift */; };
 		2C92642D2E11D3D300FBF476 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 2C92642C2E11D3D300FBF476 /* AppIcon.icon */; };
 		2C92642E2E11D3D300FBF476 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 2C92642C2E11D3D300FBF476 /* AppIcon.icon */; };
-		BB06D1D106AB2EDD394137CB /* tone1504-Tone.js.LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = 716B6F45B954A25CF62EFBB6 /* tone1504-Tone.js.LICENSE.txt */; };
-		B7242B5EB8F8DE51116A5470 /* tone1504-LICENSE.md in Resources */ = {isa = PBXBuildFile; fileRef = 97C02C2CF2254687DADA8490 /* tone1504-LICENSE.md */; };
-		D113C1BE3CD5C17F7F42FA45 /* three167-LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = 36E4CA8FDC4CD291584C63FF /* three167-LICENSE */; };
-		4EEDC881F790801A16873F86 /* p5js11111-license.txt in Resources */ = {isa = PBXBuildFile; fileRef = E29C84394910C1ECB8A6C70C /* p5js11111-license.txt */; };
 		2C9442902C515A490078C051 /* TokenGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CE9A5752C3DA9FB009AEAF4 /* TokenGenerator.swift */; };
 		2C9442912C515A570078C051 /* NftGallery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CA979AB2B62BA2400DB3AC8 /* NftGallery.swift */; };
 		2C9442922C515AC40078C051 /* RawHtmlGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CEF35AC2C413AE700388574 /* RawHtmlGenerator.swift */; };
@@ -501,10 +485,6 @@
 		2CDF000B2F10000000000001 /* NativeMetalCardMetadata.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeMetalCardMetadata.swift; sourceTree = "<group>"; };
 		2CDF000C2F10000000000001 /* NativeMetalCardAssetCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeMetalCardAssetCache.swift; sourceTree = "<group>"; };
 		2CDF000D2F10000000000001 /* NativeMetalCardRendererCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeMetalCardRendererCore.swift; sourceTree = "<group>"; };
-		716B6F45B954A25CF62EFBB6 /* tone1504-Tone.js.LICENSE.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "tone1504-Tone.js.LICENSE.txt"; sourceTree = "<group>"; };
-		97C02C2CF2254687DADA8490 /* tone1504-LICENSE.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "tone1504-LICENSE.md"; sourceTree = "<group>"; };
-		36E4CA8FDC4CD291584C63FF /* three167-LICENSE */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "three167-LICENSE"; sourceTree = "<group>"; };
-		E29C84394910C1ECB8A6C70C /* p5js11111-license.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "p5js11111-license.txt"; sourceTree = "<group>"; };
 		2CE9A5752C3DA9FB009AEAF4 /* TokenGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenGenerator.swift; sourceTree = "<group>"; };
 		2CE9A5772C3DAB03009AEAF4 /* GeneratedToken.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeneratedToken.swift; sourceTree = "<group>"; };
 		2CE9A7702BAD8ECD00579BF7 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
@@ -864,7 +844,6 @@
 		2CA34B4F2B08B32600DAB623 /* Shared */ = {
 			isa = PBXGroup;
 			children = (
-				5F2C51B94D025428EC61469F /* ThirdPartyNotices */,
 				2C92642F2E11D3D300FBF476 /* Assets */,
 				2C0D86CA2B08E7D900106915 /* Services */,
 				2C0D86C92B08E7C600106915 /* Models */,
@@ -1102,17 +1081,6 @@
 				2E36FBF9208A412B9DE6C626 /* Hypertype */,
 			);
 			path = Fixtures;
-			sourceTree = "<group>";
-		};
-		5F2C51B94D025428EC61469F /* ThirdPartyNotices */ = {
-			isa = PBXGroup;
-			children = (
-				716B6F45B954A25CF62EFBB6 /* tone1504-Tone.js.LICENSE.txt */,
-				E29C84394910C1ECB8A6C70C /* p5js11111-license.txt */,
-				97C02C2CF2254687DADA8490 /* tone1504-LICENSE.md */,
-				36E4CA8FDC4CD291584C63FF /* three167-LICENSE */,
-			);
-			path = ThirdPartyNotices;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -1398,10 +1366,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				08127DE7D8476B98A7A061E4 /* tone1504-Tone.js.LICENSE.txt in Resources */,
-				384D1E930CED392A4A03025A /* tone1504-LICENSE.md in Resources */,
-				A9E5B0991F765CCCC3083958 /* three167-LICENSE in Resources */,
-				C6EA377BAE5A4368D53841DF /* p5js11111-license.txt in Resources */,
 				2C6359562D29C5A400E40241 /* Localizable.xcstrings in Resources */,
 				2C460EDF2D2987000083124E /* Suggested.bundle in Resources */,
 				2CF08AAD2D2A937400D82ACA /* Assets.xcassets in Resources */,
@@ -1416,10 +1380,6 @@
 			files = (
 				2C5A59BC2C514FCF00788870 /* Covers.xcassets in Resources */,
 				2CC0C63A2C6A630700FB56BB /* Assets.xcassets in Resources */,
-				BB06D1D106AB2EDD394137CB /* tone1504-Tone.js.LICENSE.txt in Resources */,
-				B7242B5EB8F8DE51116A5470 /* tone1504-LICENSE.md in Resources */,
-				D113C1BE3CD5C17F7F42FA45 /* three167-LICENSE in Resources */,
-				4EEDC881F790801A16873F86 /* p5js11111-license.txt in Resources */,
 				2C5A59BD2C514FD200788870 /* Suggested.bundle in Resources */,
 				2C5A59D32C5153EF00788870 /* Localizable.xcstrings in Resources */,
 			);
@@ -1432,10 +1392,6 @@
 				2C02180C2C53CE940012EC40 /* Covers.xcassets in Resources */,
 				2C02180D2C53CE940012EC40 /* Suggested.bundle in Resources */,
 				2CF08AB32D2A9FEE00D82ACA /* Localizable.xcstrings in Resources */,
-				877B6DF156ACF63FA751E6EB /* tone1504-Tone.js.LICENSE.txt in Resources */,
-				F3B962F8C4715B7899914B8A /* tone1504-LICENSE.md in Resources */,
-				176C9FE2A0A71302A16E497A /* three167-LICENSE in Resources */,
-				8C86D45780E57718390A2A5D /* p5js11111-license.txt in Resources */,
 				2C5A59B52C51400300788870 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1444,10 +1400,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				19ABC57CD359A0D9788E563B /* tone1504-Tone.js.LICENSE.txt in Resources */,
-				74A17F18AD29E21FFDD693E3 /* tone1504-LICENSE.md in Resources */,
-				BB19F4D1E07BC0F9A545BEEF /* three167-LICENSE in Resources */,
-				73687D65B8A859B283E098E2 /* p5js11111-license.txt in Resources */,
 				2C85F3A22FA3469B0065AE2B /* Suggested.bundle in Resources */,
 				2CA4CF592B07F76000CC75F4 /* Assets.xcassets in Resources */,
 				2CA4CF5C2B07F76000CC75F4 /* Main.storyboard in Resources */,

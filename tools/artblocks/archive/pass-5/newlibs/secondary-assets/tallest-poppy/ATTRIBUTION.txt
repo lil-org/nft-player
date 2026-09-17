@@ -1,9 +1,0 @@
-The Tallest Poppy — model.js
-Artist: mindrash
-
-The original, unmodified model asset is distributed with the project under CC BY-NC 4.0, as reported by public Art Blocks project metadata (Arbitrum, contract 0x47a91457a3a1f700097199fd63c039c4784384ab, project 211).
-License: https://creativecommons.org/licenses/by-nc/4.0/
-Source: https://gateway.pinata.cloud/ipfs/bafybeieocnugxnd6lwozwzi3s6t6drqi7ycxkbrwplh3uiwmdoykd4fodq/model.js
-SHA-256: 56ec282001c75e0ee7778ed0de7ec039ba33900efe8d651b7b99d9bfa09d0a50
-
-The adjacent Three.js and Draco libraries retain their separate MIT and Apache-2.0 licenses.

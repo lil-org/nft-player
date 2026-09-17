@@ -1,9 +1,0 @@
-{
-  "version": 1,
-  "passID": "pass-4",
-  "sourceReviewSHA256": "ccb8f359b8a13d71fb6236a4c745b9807eb767d33b6742a71264cdf65b17abd7",
-  "selectedIdentities": [
-    "1:0xaa00b2b2db36b8f8004a9aa96f0012005d92b300:0"
-  ],
-  "initialNotesByIdentity": {}
-}

@@ -14,7 +14,6 @@ let package = Package(
             path: "Shared",
             exclude: [
                 "Assets",
-                "ThirdPartyNotices",
                 "Extensions/CollectionsGridScrollViewHelpers.swift",
                 "Extensions/Links.swift",
                 "Extensions/Notification.swift",
