@@ -113,20 +113,22 @@ final class PlayerWebContentLoadCoordinator {
         completedNavigation.successHandler?()
     }
 
-    func didFail(_ navigation: WKNavigation?, error: Error) {
+    @discardableResult
+    func didFail(_ navigation: WKNavigation?, error: Error) -> Bool {
         guard let navigation,
               let failedNavigation = activeNavigation,
               navigation === failedNavigation.navigation else {
-            return
+            return false
         }
         guard !Self.isCancelledNavigationError(error) else {
             clearActiveNavigationCallbacks()
-            return
+            return false
         }
 
         clearActiveNavigationCallbacks()
         clearRequestedContentState()
         failedNavigation.failureHandler?()
+        return true
     }
 
     func loadPendingContentIfNeeded(wasVisible: Bool, isVisible: Bool) {

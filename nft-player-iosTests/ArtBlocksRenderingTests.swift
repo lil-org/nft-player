@@ -46,6 +46,7 @@ private final class RenderingFixture {
     private(set) var loadedHTML = ""
 
     init(size: CGSize) throws {
+        webView.artworkDependencyCache = JavaScriptLibraryFixtures.cache
         let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
             .first { $0.activationState == .foregroundActive })
         webView.frame = CGRect(origin: .zero, size: size)

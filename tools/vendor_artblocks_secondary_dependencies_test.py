@@ -1,6 +1,7 @@
 import hashlib
 import json
 import pathlib
+import re
 import tempfile
 import unittest
 from unittest import mock
@@ -15,14 +16,49 @@ class SecondaryDependencyFixtureTests(unittest.TestCase):
 
     def test_default_manifest_keeps_dependency_only_in_test_fixtures(self):
         manifest = json.loads(vendor.DEFAULT_MANIFEST.read_text())
+        self.assertEqual(vendor.DEFAULT_MANIFEST, vendor.REPOSITORY / "tools/artblocks/dependencies.json")
+        self.assertFalse((vendor.REPOSITORY / "nft-player/Generators").exists())
         self.assertEqual(manifest["secondaryAssets"], [])
         asset, = manifest["onDemandSecondaryAssets"]
         self.assertEqual(asset["cdnURL"], "https://cdn.lil.org/player/hypertype/dependency.js")
         self.assertEqual(asset["bytes"], 712587)
         self.assertEqual(asset["sha256"], "48d2613055cacdf43217ed43710990150ef2afaa15540c69d2b840d80fd4b6c8")
         self.assertEqual(vendor.DEFAULT_DESTINATION, vendor.REPOSITORY / "nft-player-iosTests/Fixtures")
-        self.assertEqual(vendor.verify_or_restore(manifest["secondaryVendorFiles"], vendor.DEFAULT_DESTINATION), 0)
-        self.assertFalse((vendor.REPOSITORY / "nft-player/Generators/newlibs/secondary-assets/hypertype/dependency.js").exists())
+        self.assertEqual(vendor.verify_or_restore(vendor.fixture_records(manifest), vendor.DEFAULT_DESTINATION), 0)
+
+    def test_all_libraries_are_exact_pinned_cdn_fixtures_and_not_app_resources(self):
+        manifest = json.loads(vendor.DEFAULT_MANIFEST.read_text())
+        libraries = manifest["libraries"]
+        self.assertEqual({library["file"] for library in libraries}, {
+            "p5js100.js", "p5js190.js", "p5js11111.js", "paper.js", "processingjs146.js",
+            "regl.js", "three.js", "three167.js", "tone.js", "tone1504.js", "twemoji.js",
+        })
+        self.assertEqual(len(libraries), 11)
+        self.assertEqual(sum(library["bytes"] for library in libraries), 5307166)
+        self.assertEqual(len(vendor.fixture_records(manifest)), 13)
+        project = (vendor.REPOSITORY / "nft-player.xcodeproj/project.pbxproj").read_text()
+        for library in libraries:
+            with self.subTest(library=library["file"]):
+                self.assertEqual(library["cdnURL"], f"https://cdn.lil.org/player/lib/{library['file']}")
+                self.assertNotIn(f"/* {library['file']} in Resources */", project)
+                vendor.verify_bytes(library, (vendor.REPOSITORY / library["fixture"]).read_bytes())
+        self.assertEqual(len(re.findall(r"JavaScriptLibraries in Resources \*/ =", project)), 1)
+        for filename in ("p5js11111-license.txt", "three167-LICENSE", "tone1504-LICENSE.md",
+                         "tone1504-Tone.js.LICENSE.txt"):
+            self.assertTrue((vendor.REPOSITORY / "Shared/ThirdPartyNotices" / filename).is_file())
+            self.assertEqual(len(re.findall(re.escape(filename) + r" in Resources \*/ =", project)), 4)
+
+    def test_library_restoration_uses_its_cdn_pin(self):
+        manifest = json.loads(vendor.DEFAULT_MANIFEST.read_text())
+        record = next(record for record in vendor.fixture_records(manifest)
+                      if record["file"] == "JavaScriptLibraries/paper.js")
+        data = (vendor.DEFAULT_DESTINATION / record["file"]).read_bytes()
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            with mock.patch.object(vendor, "download", return_value=data) as download:
+                self.assertEqual(vendor.verify_or_restore([record], root, fetch=True), 1)
+            download.assert_called_once_with("https://cdn.lil.org/player/lib/paper.js", len(data))
+            self.assertEqual((root / record["file"]).read_bytes(), data)
 
     def test_verification_does_not_fetch_or_change_invalid_fixture(self):
         with tempfile.TemporaryDirectory() as directory:

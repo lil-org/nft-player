@@ -1,0 +1,162 @@
+{
+  "schemaVersion": 2,
+  "libraries": [
+    {
+      "name": "p5",
+      "version": "0.10.2",
+      "file": "p5js100.js",
+      "bytes": 623013,
+      "sha256": "3e0d5d8be7c1179dd16e1f68651fc5783d71b05cd32c2f7ade571a7350f489ab",
+      "cdnURL": "https://cdn.lil.org/player/lib/p5js100.js",
+      "fixture": "nft-player-iosTests/Fixtures/JavaScriptLibraries/p5js100.js"
+    },
+    {
+      "name": "p5",
+      "version": "1.11.11",
+      "file": "p5js11111.js",
+      "bytes": 1057680,
+      "sha256": "1343f616bf9914da8253faae00201ea5f72772916998bc6add4c2a07e00a662c",
+      "cdnURL": "https://cdn.lil.org/player/lib/p5js11111.js",
+      "fixture": "nft-player-iosTests/Fixtures/JavaScriptLibraries/p5js11111.js",
+      "upstream": {
+        "source": "https://registry.npmjs.org/p5/-/p5-1.11.11.tgz",
+        "packageIntegrity": "sha512-k58mfexvavFb+KNRpi70PbkKE2gCNiWQkzS4kVOyC2F9SKGgYy1jSO+JXZ24ikXV9OvZIAxGusiSVWEijYrmNg==",
+        "packagePath": "package/lib/p5.min.js"
+      },
+      "licenses": [
+        "Shared/ThirdPartyNotices/p5js11111-license.txt"
+      ]
+    },
+    {
+      "name": "p5",
+      "version": "1.9.0",
+      "file": "p5js190.js",
+      "bytes": 1029097,
+      "sha256": "726ac96626b93f5bcaff83a910b6c60d3a9728f063e0eb73b5d0819ffc356915",
+      "cdnURL": "https://cdn.lil.org/player/lib/p5js190.js",
+      "fixture": "nft-player-iosTests/Fixtures/JavaScriptLibraries/p5js190.js"
+    },
+    {
+      "name": "paper",
+      "version": "0.12.15",
+      "file": "paper.js",
+      "bytes": 235545,
+      "sha256": "7cef19f56270df49c30d5c6246f3806e3990d847ff9e3b6f9cdf1e4db72d16e9",
+      "cdnURL": "https://cdn.lil.org/player/lib/paper.js",
+      "fixture": "nft-player-iosTests/Fixtures/JavaScriptLibraries/paper.js"
+    },
+    {
+      "name": "processing",
+      "version": "1.4.5",
+      "file": "processingjs146.js",
+      "bytes": 224507,
+      "sha256": "5fe82ab91f2aa66bc7c736e4a5b50981b9e694318472217457b1b2acead6b1f6",
+      "cdnURL": "https://cdn.lil.org/player/lib/processingjs146.js",
+      "fixture": "nft-player-iosTests/Fixtures/JavaScriptLibraries/processingjs146.js"
+    },
+    {
+      "name": "regl",
+      "version": "2.1.0",
+      "file": "regl.js",
+      "bytes": 86891,
+      "sha256": "1e85c84ef254125921378d82f4da4e457a0a399bc315880c8c997dd5af8c534d",
+      "cdnURL": "https://cdn.lil.org/player/lib/regl.js",
+      "fixture": "nft-player-iosTests/Fixtures/JavaScriptLibraries/regl.js"
+    },
+    {
+      "name": "three",
+      "version": "0.124.0",
+      "file": "three.js",
+      "bytes": 653449,
+      "sha256": "a8a966c3de0bac23630957e8b6ceb1330725bc2889a0b2dad952d710797ba179",
+      "cdnURL": "https://cdn.lil.org/player/lib/three.js",
+      "fixture": "nft-player-iosTests/Fixtures/JavaScriptLibraries/three.js"
+    },
+    {
+      "name": "three",
+      "version": "0.167.0",
+      "file": "three167.js",
+      "bytes": 684042,
+      "sha256": "54a7a52ddce0ad06fbd1d021fd03b1e1812d946114a2111e1260bcd490c6b840",
+      "cdnURL": "https://cdn.lil.org/player/lib/three167.js",
+      "fixture": "nft-player-iosTests/Fixtures/JavaScriptLibraries/three167.js",
+      "upstream": {
+        "source": "https://registry.npmjs.org/three/-/three-0.167.0.tgz",
+        "packageIntegrity": "sha512-9Y1a66fpjqF3rhq7ivKTaKtjQLZ97Hj/lZ00DmZWaKHaQFH4uzYT1znwRDWQOcgMmCcOloQzo61gDmqO8l9xmA==",
+        "packagePath": "package/build/three.module.min.js"
+      },
+      "licenses": [
+        "Shared/ThirdPartyNotices/three167-LICENSE"
+      ]
+    },
+    {
+      "name": "tone",
+      "version": "14.8.15",
+      "file": "tone.js",
+      "bytes": 349761,
+      "sha256": "4d7c4cf19549784271e12048a2492326cfddd1f1f769b8e414f683f409d33890",
+      "cdnURL": "https://cdn.lil.org/player/lib/tone.js",
+      "fixture": "nft-player-iosTests/Fixtures/JavaScriptLibraries/tone.js"
+    },
+    {
+      "name": "tone",
+      "version": "15.0.4",
+      "file": "tone1504.js",
+      "bytes": 345744,
+      "sha256": "33c3fdc2f26f66f203631deb2c51a5ade54cdffb8271d2d98106c295de89bc0d",
+      "cdnURL": "https://cdn.lil.org/player/lib/tone1504.js",
+      "fixture": "nft-player-iosTests/Fixtures/JavaScriptLibraries/tone1504.js",
+      "upstream": {
+        "source": "https://registry.npmjs.org/tone/-/tone-15.0.4.tgz",
+        "packageIntegrity": "sha512-Fr2xATgdkNhzwMZhrU0DXpkXQyambq73hjHRrBiC0Wkc6aPYRdmkySE9kRFAW878zgMiD+Lqvn/uNHt/7hbdnQ==",
+        "packagePath": "package/build/Tone.js"
+      },
+      "licenses": [
+        "Shared/ThirdPartyNotices/tone1504-LICENSE.md",
+        "Shared/ThirdPartyNotices/tone1504-Tone.js.LICENSE.txt"
+      ]
+    },
+    {
+      "name": "twemoji",
+      "version": "14.0.2",
+      "file": "twemoji.js",
+      "bytes": 17437,
+      "sha256": "706224d8dc5440460f8ed91c1a6aad25d732af6e0ee6fb31151b157ab485babb",
+      "cdnURL": "https://cdn.lil.org/player/lib/twemoji.js",
+      "fixture": "nft-player-iosTests/Fixtures/JavaScriptLibraries/twemoji.js"
+    }
+  ],
+  "secondaryAssets": [],
+  "secondaryVendorFiles": [
+    {
+      "file": "Hypertype/dependency.js",
+      "source": "https://cdn.lil.org/player/hypertype/dependency.js",
+      "cidPath": "QmXWXHGkxYFjJF5AuPiVB91VXK31LnoPN9EXKgiWFUvfT6",
+      "bytes": 712587,
+      "sha256": "48d2613055cacdf43217ed43710990150ef2afaa15540c69d2b840d80fd4b6c8",
+      "upstreamSource": "https://gateway.pinata.cloud/ipfs/QmXWXHGkxYFjJF5AuPiVB91VXK31LnoPN9EXKgiWFUvfT6"
+    },
+    {
+      "file": "Hypertype/ATTRIBUTION.txt",
+      "content": "Hypertype — shared rendering dependency\nArtist: Mark Webster\n\nThis is the original, unmodified dependency declared by the Hypertype artist script (Ethereum, contract 0xbb5471c292065d3b01b2e81e299267221ae9a250, project 0).\nSource: https://gateway.pinata.cloud/ipfs/QmXWXHGkxYFjJF5AuPiVB91VXK31LnoPN9EXKgiWFUvfT6\nIPFS CID: QmXWXHGkxYFjJF5AuPiVB91VXK31LnoPN9EXKgiWFUvfT6\nSHA-256: 48d2613055cacdf43217ed43710990150ef2afaa15540c69d2b840d80fd4b6c8\n\nThe file contains shared rendering code, 35 data records, 104 vector glyphs, and 14 palettes. It is shared by all tokens; token-specific selection remains in the original artist code.\nEmbedded retrieved_url values identify the data records’ sources and are not runtime asset requests.\nNo license identifier was supplied in the cached project metadata or this dependency.\n",
+      "bytes": 818,
+      "sha256": "03fd966a9f2215942ae40663c1686a428490a7c647360ffc4683b3803d9d06b3"
+    }
+  ],
+  "onDemandSecondaryAssets": [
+    {
+      "source": "https://gateway.pinata.cloud/ipfs/QmXWXHGkxYFjJF5AuPiVB91VXK31LnoPN9EXKgiWFUvfT6",
+      "cidPath": "QmXWXHGkxYFjJF5AuPiVB91VXK31LnoPN9EXKgiWFUvfT6",
+      "bytes": 712587,
+      "sha256": "48d2613055cacdf43217ed43710990150ef2afaa15540c69d2b840d80fd4b6c8",
+      "name": "Hypertype shared rendering dependency",
+      "artist": "Mark Webster",
+      "attribution": "nft-player-iosTests/Fixtures/Hypertype/ATTRIBUTION.txt",
+      "dataRecords": 35,
+      "vectorGlyphs": 104,
+      "palettes": 14,
+      "cdnURL": "https://cdn.lil.org/player/hypertype/dependency.js",
+      "fixture": "nft-player-iosTests/Fixtures/Hypertype/dependency.js"
+    }
+  ]
+}

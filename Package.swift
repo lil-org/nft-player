@@ -14,6 +14,7 @@ let package = Package(
             path: "Shared",
             exclude: [
                 "Assets",
+                "ThirdPartyNotices",
                 "Extensions/CollectionsGridScrollViewHelpers.swift",
                 "Extensions/Links.swift",
                 "Extensions/Notification.swift",
@@ -60,7 +61,9 @@ let package = Package(
                 "Models/Strings.swift",
                 "Models/WidgetDeepLink.swift",
                 "Services/PlayerICloudSync.swift",
-                "Services/PersistentArtworkDependencyCache.swift"
+                "Services/PersistentArtworkDependencyCache.swift",
+                "Services/PersistentJavaScriptLibrary.swift",
+                "Services/PersistentWebContentLoadGate.swift"
             ],
             swiftSettings: [
                 .enableUpcomingFeature("InferIsolatedConformances"),

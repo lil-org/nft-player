@@ -138,7 +138,7 @@ extension ArtBlocksLocalGenerationTests {
             XCTAssertNil(TokenGenerator.generateToken(specificCollectionId: project.id, tokenIndex: -1))
             XCTAssertNil(TokenGenerator.generateToken(specificCollectionId: project.id, tokenIndex: project.count))
             if project.kind == .p5js100 || project.kind == .three {
-                XCTAssertNotNil(SuggestedItemsService.hostResourceURL(forJavaScriptLibrary: project.kind.rawValue))
+                XCTAssertNotNil(PersistentJavaScriptLibrary.library(named: project.kind.rawValue))
             }
         }
     }

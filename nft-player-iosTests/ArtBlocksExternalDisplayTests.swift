@@ -196,10 +196,7 @@ private final class ExternalDisplayIntegrationFixture {
 @MainActor
 extension ArtBlocksExternalDisplayTests {
     func testControllerPreservesDirectAndCalibratedRenderingAcrossTokensAndResize() async throws {
-        let assetURL = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "dependency", withExtension: "js", subdirectory: "Hypertype"))
-        let asset = try Data(contentsOf: assetURL)
-        let fixtureCache = PersistentArtworkDependencyCache(transport: { _ in (asset, 200) })
-        _ = try await fixtureCache.data(for: .hypertype)
+        try await JavaScriptLibraryFixtures.seedSharedCache()
         updateExternalDisplayToken(.empty)
         defer { updateExternalDisplayToken(.empty) }
         let hypertype = "0xbb5471c292065d3b01b2e81e299267221ae9a2500"

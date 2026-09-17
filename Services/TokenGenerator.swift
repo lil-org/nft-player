@@ -162,6 +162,11 @@ nonisolated enum TokenGenerator {
         return collectionData(specificCollectionId: specificCollectionId)?.artworkAspectRatioProfile
     }
 
+    static func requiredPersistentDependencies(collectionId: String) -> [PersistentArtworkDependency] {
+        guard canGenerate(id: collectionId), let script = script(specificCollectionId: collectionId) else { return [] }
+        return RawHtmlGenerator.requiredDependencies(for: script)
+    }
+
     static func usesArtBlocksRenderer(collectionId: String) -> Bool {
         guard canGenerate(id: collectionId) else { return false }
         return script(specificCollectionId: collectionId)?.usesArtBlocksRenderer == true

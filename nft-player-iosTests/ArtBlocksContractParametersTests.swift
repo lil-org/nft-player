@@ -33,6 +33,7 @@ private final class ContractParametersFixture: NSObject, WKScriptMessageHandler 
         let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
             .first { $0.activationState == .foregroundActive })
         webView = AutoReloadingWebView.newArtBlocksRenderer()
+        webView.artworkDependencyCache = JavaScriptLibraryFixtures.cache
         webView.frame = CGRect(x: 0, y: 0, width: min(390, 844 * ratio), height: min(844, 390 / ratio))
         window = UIWindow(windowScene: scene)
         super.init()

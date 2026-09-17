@@ -23,7 +23,7 @@ private actor DependencyLoadingTransport {
 }
 
 @MainActor
-private final class DependencyLoadingProbe: NSObject, WKScriptMessageHandler {
+final class DependencyLoadingProbe: NSObject, WKScriptMessageHandler {
     var documentCount = 0
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
@@ -32,15 +32,17 @@ private final class DependencyLoadingProbe: NSObject, WKScriptMessageHandler {
 }
 
 @MainActor
-private final class DependencyRendererFixture {
+final class DependencyRendererFixture {
     let window: UIWindow
     let container: UIView
     let renderer: FullscreenTokenMediaRenderer
     let webView: AutoReloadingWebView
     let probe = DependencyLoadingProbe()
     private weak var previousKeyWindow: UIWindow?
+    private let collectionId: String
 
-    init(cache: PersistentArtworkDependencyCache) throws {
+    init(cache: PersistentArtworkDependencyCache, collectionId: String = PersistentArtworkDependency.hypertype.collectionId) throws {
+        self.collectionId = collectionId
         let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
             .first { $0.activationState == .foregroundActive })
         previousKeyWindow = scene.windows.first { $0.isKeyWindow }
@@ -52,7 +54,10 @@ private final class DependencyRendererFixture {
         window.makeKeyAndVisible()
         window.layoutIfNeeded()
         renderer = FullscreenTokenMediaRenderer(containerView: container)
-        renderer.configureArtBlocksRendering(collectionId: PersistentArtworkDependency.hypertype.collectionId, tokenId: "0")
+        renderer.configureArtBlocksRendering(collectionId: collectionId, tokenId: "0")
+        if !TokenGenerator.usesArtBlocksRenderer(collectionId: collectionId) {
+            renderer.renderWebContent("", hidesEmptyWebContent: true)
+        }
         webView = try XCTUnwrap(Self.descendants(container).compactMap { $0 as? AutoReloadingWebView }.first)
         webView.artworkDependencyCache = cache
         webView.configuration.userContentController.add(probe, name: "dependencyDocumentProbe")
@@ -64,7 +69,7 @@ private final class DependencyRendererFixture {
     }
 
     func load(index: Int = 0) throws {
-        let id = PersistentArtworkDependency.hypertype.collectionId
+        let id = collectionId
         let token = try XCTUnwrap(TokenGenerator.generateToken(specificCollectionId: id, tokenIndex: index))
         renderer.configureArtBlocksRendering(collectionId: id, tokenId: token.id)
         renderer.renderWebContent(token.html)

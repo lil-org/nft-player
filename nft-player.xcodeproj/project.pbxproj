@@ -8,22 +8,10 @@
 
 /* Begin PBXBuildFile section */
 		2C0218032C53CC200012EC40 /* TvCollectionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C0218022C53CC200012EC40 /* TvCollectionsView.swift */; };
-		2C0218052C53CE6D0012EC40 /* p5js100.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CEF35B42C413DA000388574 /* p5js100.js */; };
-		2C0218062C53CE6D0012EC40 /* paper.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CEF35B02C413D9F00388574 /* paper.js */; };
-		2C0218072C53CE6D0012EC40 /* regl.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CEF35AF2C413D9F00388574 /* regl.js */; };
-		2C0218082C53CE6D0012EC40 /* three.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CEF35B12C413D9F00388574 /* three.js */; };
-		2C0218092C53CE6D0012EC40 /* p5js190.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CE0F1572C4D37E6003004F2 /* p5js190.js */; };
-		EA6F7464B69DDBDA6C1EEF0C /* tone1504.js in Resources */ = {isa = PBXBuildFile; fileRef = 299E934F95F18C635C384D53 /* tone1504.js */; };
 		877B6DF156ACF63FA751E6EB /* tone1504-Tone.js.LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = 716B6F45B954A25CF62EFBB6 /* tone1504-Tone.js.LICENSE.txt */; };
 		F3B962F8C4715B7899914B8A /* tone1504-LICENSE.md in Resources */ = {isa = PBXBuildFile; fileRef = 97C02C2CF2254687DADA8490 /* tone1504-LICENSE.md */; };
-		8714DD240700DED0D248CBA7 /* three167.js in Resources */ = {isa = PBXBuildFile; fileRef = 8B06F97C7AA01E2C36EEB2F4 /* three167.js */; };
 		176C9FE2A0A71302A16E497A /* three167-LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = 36E4CA8FDC4CD291584C63FF /* three167-LICENSE */; };
-		08CDD6846FBDC4D621BFD80F /* p5js11111.js in Resources */ = {isa = PBXBuildFile; fileRef = 58129A528836AF6CD3ABCCB6 /* p5js11111.js */; };
 		8C86D45780E57718390A2A5D /* p5js11111-license.txt in Resources */ = {isa = PBXBuildFile; fileRef = E29C84394910C1ECB8A6C70C /* p5js11111-license.txt */; };
-		C426BE587889B6BE33DD6886 /* manifest.json in Resources */ = {isa = PBXBuildFile; fileRef = 84AE50F4156BF6BF0B3BE7C2 /* manifest.json */; };
-		2EAB20000000000000000001 /* processingjs146.js in Resources */ = {isa = PBXBuildFile; fileRef = 2EAB20000000000000000002 /* processingjs146.js */; };
-		2C02180A2C53CE6D0012EC40 /* tone.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CEF35B22C413D9F00388574 /* tone.js */; };
-		2C02180B2C53CE6D0012EC40 /* twemoji.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CEF35B32C413DA000388574 /* twemoji.js */; };
 		2C02180C2C53CE940012EC40 /* Covers.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2C4659932C308B44008CF97F /* Covers.xcassets */; };
 		2C02180D2C53CE940012EC40 /* Suggested.bundle in Resources */ = {isa = PBXBuildFile; fileRef = 2C09BAE32C308145009BA300 /* Suggested.bundle */; };
 		2C02180E2C53CECD0012EC40 /* Network.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C8A42E92B1A272600BE4166 /* Network.swift */; };
@@ -46,21 +34,10 @@
 		2C0218192C53CECD0012EC40 /* BundledTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C086E862C2F3C3600D4268D /* BundledTokens.swift */; };
 		2C02181A2C53CECD0012EC40 /* Script.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C8C8DE82C3C890B00BC83E9 /* Script.swift */; };
 		2C02181B2C53CECD0012EC40 /* GeneratedToken.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CE9A5772C3DAB03009AEAF4 /* GeneratedToken.swift */; };
-		2C08041B2D2991F200CA9AB2 /* paper.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CEF35B02C413D9F00388574 /* paper.js */; };
-		2C08041C2D2991F200CA9AB2 /* regl.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CEF35AF2C413D9F00388574 /* regl.js */; };
-		2C08041D2D2991F200CA9AB2 /* three.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CEF35B12C413D9F00388574 /* three.js */; };
-		2C08041E2D2991F200CA9AB2 /* p5js190.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CE0F1572C4D37E6003004F2 /* p5js190.js */; };
-		3469650E61FFB363F8A8CA8C /* tone1504.js in Resources */ = {isa = PBXBuildFile; fileRef = 299E934F95F18C635C384D53 /* tone1504.js */; };
 		08127DE7D8476B98A7A061E4 /* tone1504-Tone.js.LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = 716B6F45B954A25CF62EFBB6 /* tone1504-Tone.js.LICENSE.txt */; };
 		384D1E930CED392A4A03025A /* tone1504-LICENSE.md in Resources */ = {isa = PBXBuildFile; fileRef = 97C02C2CF2254687DADA8490 /* tone1504-LICENSE.md */; };
-		F03CDA31FCA3839029512C89 /* three167.js in Resources */ = {isa = PBXBuildFile; fileRef = 8B06F97C7AA01E2C36EEB2F4 /* three167.js */; };
 		A9E5B0991F765CCCC3083958 /* three167-LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = 36E4CA8FDC4CD291584C63FF /* three167-LICENSE */; };
-		FD3FEBF88049B913A9477E33 /* p5js11111.js in Resources */ = {isa = PBXBuildFile; fileRef = 58129A528836AF6CD3ABCCB6 /* p5js11111.js */; };
 		C6EA377BAE5A4368D53841DF /* p5js11111-license.txt in Resources */ = {isa = PBXBuildFile; fileRef = E29C84394910C1ECB8A6C70C /* p5js11111-license.txt */; };
-		8DE808EC07033EAB075EDA82 /* manifest.json in Resources */ = {isa = PBXBuildFile; fileRef = 84AE50F4156BF6BF0B3BE7C2 /* manifest.json */; };
-		2EAB20000000000000000003 /* processingjs146.js in Resources */ = {isa = PBXBuildFile; fileRef = 2EAB20000000000000000002 /* processingjs146.js */; };
-		2C08041F2D2991F200CA9AB2 /* tone.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CEF35B22C413D9F00388574 /* tone.js */; };
-		2C0804202D2991F200CA9AB2 /* twemoji.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CEF35B32C413DA000388574 /* twemoji.js */; };
 		2C086E872C2F3C3600D4268D /* BundledTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C086E862C2F3C3600D4268D /* BundledTokens.swift */; };
 		2C1B60BD2B7D3505009949C2 /* Strings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C1B60BC2B7D3505009949C2 /* Strings.swift */; };
 		2C1B60C42B7D41D1009949C2 /* HostAppImages.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C1B60C32B7D41D1009949C2 /* HostAppImages.swift */; };
@@ -82,7 +59,6 @@
 		2C460EDE2D29865F0083124E /* Script.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C8C8DE82C3C890B00BC83E9 /* Script.swift */; };
 		2C460EDF2D2987000083124E /* Suggested.bundle in Resources */ = {isa = PBXBuildFile; fileRef = 2C09BAE32C308145009BA300 /* Suggested.bundle */; };
 		2C460EE02D2987080083124E /* Covers.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2C4659932C308B44008CF97F /* Covers.xcassets */; };
-		2C460EED2D2990EA0083124E /* p5js100.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CEF35B42C413DA000388574 /* p5js100.js */; };
 		2C4659942C308B47008CF97F /* Covers.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2C4659932C308B44008CF97F /* Covers.xcassets */; };
 		2C4D315F2C56AC7F00C586D1 /* TvPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C4D315E2C56AC7F00C586D1 /* TvPlayerView.swift */; };
 		2C4D31612C56B10E00C586D1 /* HostAppImages.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C1B60C32B7D41D1009949C2 /* HostAppImages.swift */; };
@@ -113,43 +89,19 @@
 		2C6359562D29C5A400E40241 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 2CE9A7702BAD8ECD00579BF7 /* Localizable.xcstrings */; };
 		2C7134D62D30460B001E33DC /* MobilePlaybackController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C7134D52D304609001E33DC /* MobilePlaybackController.swift */; };
 		2C85F3A22FA3469B0065AE2B /* Suggested.bundle in Resources */ = {isa = PBXBuildFile; fileRef = 2C09BAE32C308145009BA300 /* Suggested.bundle */; };
-		2C85F3A32FA3470D0065AE2B /* p5js100.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CEF35B42C413DA000388574 /* p5js100.js */; };
-		2C85F3A42FA3470D0065AE2B /* paper.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CEF35B02C413D9F00388574 /* paper.js */; };
-		2C85F3A52FA3470D0065AE2B /* regl.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CEF35AF2C413D9F00388574 /* regl.js */; };
-		2C85F3A62FA3470D0065AE2B /* three.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CEF35B12C413D9F00388574 /* three.js */; };
-		2C85F3A72FA3470D0065AE2B /* p5js190.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CE0F1572C4D37E6003004F2 /* p5js190.js */; };
-		2CEE05DA4CEB5C4304D428D3 /* tone1504.js in Resources */ = {isa = PBXBuildFile; fileRef = 299E934F95F18C635C384D53 /* tone1504.js */; };
 		19ABC57CD359A0D9788E563B /* tone1504-Tone.js.LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = 716B6F45B954A25CF62EFBB6 /* tone1504-Tone.js.LICENSE.txt */; };
 		74A17F18AD29E21FFDD693E3 /* tone1504-LICENSE.md in Resources */ = {isa = PBXBuildFile; fileRef = 97C02C2CF2254687DADA8490 /* tone1504-LICENSE.md */; };
-		ACF2FDBE65F380B5607BE0CF /* three167.js in Resources */ = {isa = PBXBuildFile; fileRef = 8B06F97C7AA01E2C36EEB2F4 /* three167.js */; };
 		BB19F4D1E07BC0F9A545BEEF /* three167-LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = 36E4CA8FDC4CD291584C63FF /* three167-LICENSE */; };
-		430038B72A9BBBC95CCD2EF6 /* p5js11111.js in Resources */ = {isa = PBXBuildFile; fileRef = 58129A528836AF6CD3ABCCB6 /* p5js11111.js */; };
 		73687D65B8A859B283E098E2 /* p5js11111-license.txt in Resources */ = {isa = PBXBuildFile; fileRef = E29C84394910C1ECB8A6C70C /* p5js11111-license.txt */; };
-		9D712302A61F37792F01E579 /* manifest.json in Resources */ = {isa = PBXBuildFile; fileRef = 84AE50F4156BF6BF0B3BE7C2 /* manifest.json */; };
-		2EAB20000000000000000004 /* processingjs146.js in Resources */ = {isa = PBXBuildFile; fileRef = 2EAB20000000000000000002 /* processingjs146.js */; };
-		2C85F3A82FA3470D0065AE2B /* tone.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CEF35B22C413D9F00388574 /* tone.js */; };
-		2C85F3A92FA3470D0065AE2B /* twemoji.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CEF35B32C413DA000388574 /* twemoji.js */; };
 		2C8A42EA2B1A272600BE4166 /* Network.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C8A42E92B1A272600BE4166 /* Network.swift */; };
 		2C8ADAA82C46F3FC008BC560 /* PlayerModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C8ADAA72C46F3FC008BC560 /* PlayerModel.swift */; };
 		2C8C8DE92C3C890B00BC83E9 /* Script.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C8C8DE82C3C890B00BC83E9 /* Script.swift */; };
 		2C92642D2E11D3D300FBF476 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 2C92642C2E11D3D300FBF476 /* AppIcon.icon */; };
 		2C92642E2E11D3D300FBF476 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 2C92642C2E11D3D300FBF476 /* AppIcon.icon */; };
-		2C9442882C5154CF0078C051 /* twemoji.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CEF35B32C413DA000388574 /* twemoji.js */; };
-		2C9442892C5154E00078C051 /* p5js100.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CEF35B42C413DA000388574 /* p5js100.js */; };
-		2C94428A2C5154E00078C051 /* paper.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CEF35B02C413D9F00388574 /* paper.js */; };
-		2C94428B2C5154E00078C051 /* regl.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CEF35AF2C413D9F00388574 /* regl.js */; };
-		2C94428C2C5154E00078C051 /* three.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CEF35B12C413D9F00388574 /* three.js */; };
-		2C94428D2C5154E00078C051 /* p5js190.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CE0F1572C4D37E6003004F2 /* p5js190.js */; };
-		4C4D8D011D594B8E6F4F9A58 /* tone1504.js in Resources */ = {isa = PBXBuildFile; fileRef = 299E934F95F18C635C384D53 /* tone1504.js */; };
 		BB06D1D106AB2EDD394137CB /* tone1504-Tone.js.LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = 716B6F45B954A25CF62EFBB6 /* tone1504-Tone.js.LICENSE.txt */; };
 		B7242B5EB8F8DE51116A5470 /* tone1504-LICENSE.md in Resources */ = {isa = PBXBuildFile; fileRef = 97C02C2CF2254687DADA8490 /* tone1504-LICENSE.md */; };
-		9D3ADA861AF8687A79EA3E18 /* three167.js in Resources */ = {isa = PBXBuildFile; fileRef = 8B06F97C7AA01E2C36EEB2F4 /* three167.js */; };
 		D113C1BE3CD5C17F7F42FA45 /* three167-LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = 36E4CA8FDC4CD291584C63FF /* three167-LICENSE */; };
-		CDC4017658740078A271F61F /* p5js11111.js in Resources */ = {isa = PBXBuildFile; fileRef = 58129A528836AF6CD3ABCCB6 /* p5js11111.js */; };
 		4EEDC881F790801A16873F86 /* p5js11111-license.txt in Resources */ = {isa = PBXBuildFile; fileRef = E29C84394910C1ECB8A6C70C /* p5js11111-license.txt */; };
-		27BFCE20CC958E8905C11AE7 /* manifest.json in Resources */ = {isa = PBXBuildFile; fileRef = 84AE50F4156BF6BF0B3BE7C2 /* manifest.json */; };
-		2EAB20000000000000000005 /* processingjs146.js in Resources */ = {isa = PBXBuildFile; fileRef = 2EAB20000000000000000002 /* processingjs146.js */; };
-		2C94428E2C5154E00078C051 /* tone.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CEF35B22C413D9F00388574 /* tone.js */; };
 		2C9442902C515A490078C051 /* TokenGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CE9A5752C3DA9FB009AEAF4 /* TokenGenerator.swift */; };
 		2C9442912C515A570078C051 /* NftGallery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CA979AB2B62BA2400DB3AC8 /* NftGallery.swift */; };
 		2C9442922C515AC40078C051 /* RawHtmlGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CEF35AC2C413AE700388574 /* RawHtmlGenerator.swift */; };
@@ -391,6 +343,17 @@
 		3D0A10E9E2A649E8B0AD20B5 /* PersistentArtworkDependencyCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72061D69A27B4BD2AD79894E /* PersistentArtworkDependencyCache.swift */; };
 		F07E58FCB5EC46BD968FA02E /* PersistentArtworkDependencyLoadingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18B78536187C4E289BFABB9B /* PersistentArtworkDependencyLoadingTests.swift */; };
 		7FE956096C44445F97464DA7 /* Hypertype in Resources */ = {isa = PBXBuildFile; fileRef = 2E36FBF9208A412B9DE6C626 /* Hypertype */; };
+		FD7C35D1CB1FA482F466F892 /* PersistentJavaScriptLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = C96828DAB00AFD584931A050 /* PersistentJavaScriptLibrary.swift */; };
+		8BFD0E748F3518BCD925D85A /* PersistentJavaScriptLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = C96828DAB00AFD584931A050 /* PersistentJavaScriptLibrary.swift */; };
+		20CE2BAE61F02C6AD1088C8F /* PersistentJavaScriptLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = C96828DAB00AFD584931A050 /* PersistentJavaScriptLibrary.swift */; };
+		D630337CE750668B61190CD9 /* PersistentJavaScriptLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = C96828DAB00AFD584931A050 /* PersistentJavaScriptLibrary.swift */; };
+		B8A228DF21654118BB8407F4 /* PersistentWebContentLoadGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6D5822E291DFBFCC6146033 /* PersistentWebContentLoadGate.swift */; };
+		37807370A20DB25256B247BD /* PersistentWebContentLoadGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6D5822E291DFBFCC6146033 /* PersistentWebContentLoadGate.swift */; };
+		0450BB3CA9A34080049E68E7 /* PersistentWebContentLoadGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6D5822E291DFBFCC6146033 /* PersistentWebContentLoadGate.swift */; };
+		1EE49D1653B8A3C4CF6BC361 /* PersistentWebContentLoadGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6D5822E291DFBFCC6146033 /* PersistentWebContentLoadGate.swift */; };
+		DDFA1C35E9F22CBB2ECDB50D /* PersistentJavaScriptLibraryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B8A752674CE8F7CFDD0295F /* PersistentJavaScriptLibraryTests.swift */; };
+		AC2AA73D1542A89E1AFC2DC3 /* JavaScriptLibraryFixtures.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE5F857CE081552F72574F61 /* JavaScriptLibraryFixtures.swift */; };
+		A216F22FE1C4CE587D98FE67 /* JavaScriptLibraries in Resources */ = {isa = PBXBuildFile; fileRef = EEDE9772604F3354A2A430A9 /* JavaScriptLibraries */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -538,28 +501,16 @@
 		2CDF000B2F10000000000001 /* NativeMetalCardMetadata.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeMetalCardMetadata.swift; sourceTree = "<group>"; };
 		2CDF000C2F10000000000001 /* NativeMetalCardAssetCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeMetalCardAssetCache.swift; sourceTree = "<group>"; };
 		2CDF000D2F10000000000001 /* NativeMetalCardRendererCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeMetalCardRendererCore.swift; sourceTree = "<group>"; };
-		2CE0F1572C4D37E6003004F2 /* p5js190.js */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.javascript; path = p5js190.js; sourceTree = "<group>"; };
-		299E934F95F18C635C384D53 /* tone1504.js */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.javascript; path = "newlibs/tone1504.js"; sourceTree = "<group>"; };
-		716B6F45B954A25CF62EFBB6 /* tone1504-Tone.js.LICENSE.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "newlibs/tone1504-Tone.js.LICENSE.txt"; sourceTree = "<group>"; };
-		97C02C2CF2254687DADA8490 /* tone1504-LICENSE.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "newlibs/tone1504-LICENSE.md"; sourceTree = "<group>"; };
-		8B06F97C7AA01E2C36EEB2F4 /* three167.js */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.javascript; path = "newlibs/three167.js"; sourceTree = "<group>"; };
-		36E4CA8FDC4CD291584C63FF /* three167-LICENSE */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "newlibs/three167-LICENSE"; sourceTree = "<group>"; };
-		58129A528836AF6CD3ABCCB6 /* p5js11111.js */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.javascript; path = "newlibs/p5js11111.js"; sourceTree = "<group>"; };
-		E29C84394910C1ECB8A6C70C /* p5js11111-license.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "newlibs/p5js11111-license.txt"; sourceTree = "<group>"; };
-		84AE50F4156BF6BF0B3BE7C2 /* manifest.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "newlibs/manifest.json"; sourceTree = "<group>"; };
-		2EAB20000000000000000002 /* processingjs146.js */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.javascript; path = processingjs146.js; sourceTree = "<group>"; };
+		716B6F45B954A25CF62EFBB6 /* tone1504-Tone.js.LICENSE.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "tone1504-Tone.js.LICENSE.txt"; sourceTree = "<group>"; };
+		97C02C2CF2254687DADA8490 /* tone1504-LICENSE.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "tone1504-LICENSE.md"; sourceTree = "<group>"; };
+		36E4CA8FDC4CD291584C63FF /* three167-LICENSE */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "three167-LICENSE"; sourceTree = "<group>"; };
+		E29C84394910C1ECB8A6C70C /* p5js11111-license.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "p5js11111-license.txt"; sourceTree = "<group>"; };
 		2CE9A5752C3DA9FB009AEAF4 /* TokenGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenGenerator.swift; sourceTree = "<group>"; };
 		2CE9A5772C3DAB03009AEAF4 /* GeneratedToken.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeneratedToken.swift; sourceTree = "<group>"; };
 		2CE9A7702BAD8ECD00579BF7 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		2CEF35AC2C413AE700388574 /* RawHtmlGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawHtmlGenerator.swift; sourceTree = "<group>"; };
 		2EAB81000000000000000005 /* ArtBlocksRenderingResolutionOverrides.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtBlocksRenderingResolutionOverrides.swift; sourceTree = "<group>"; };
 		2EAB93000000000000000005 /* ArtBlocksRenderingStartupProfiles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtBlocksRenderingStartupProfiles.swift; sourceTree = "<group>"; };
-		2CEF35AF2C413D9F00388574 /* regl.js */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.javascript; path = regl.js; sourceTree = "<group>"; };
-		2CEF35B02C413D9F00388574 /* paper.js */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.javascript; path = paper.js; sourceTree = "<group>"; };
-		2CEF35B12C413D9F00388574 /* three.js */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.javascript; path = three.js; sourceTree = "<group>"; };
-		2CEF35B22C413D9F00388574 /* tone.js */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.javascript; path = tone.js; sourceTree = "<group>"; };
-		2CEF35B32C413DA000388574 /* twemoji.js */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.javascript; path = twemoji.js; sourceTree = "<group>"; };
-		2CEF35B42C413DA000388574 /* p5js100.js */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.javascript; path = p5js100.js; sourceTree = "<group>"; };
 		2CF08AA32D2A937400D82ACA /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		2CF08AA42D2A937400D82ACA /* MobileCollectionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileCollectionsView.swift; sourceTree = "<group>"; };
 		2E3000000000000000000001 /* MobileCollectionsGrid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileCollectionsGrid.swift; sourceTree = "<group>"; };
@@ -679,6 +630,11 @@
 		72061D69A27B4BD2AD79894E /* PersistentArtworkDependencyCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistentArtworkDependencyCache.swift; sourceTree = "<group>"; };
 		18B78536187C4E289BFABB9B /* PersistentArtworkDependencyLoadingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistentArtworkDependencyLoadingTests.swift; sourceTree = "<group>"; };
 		2E36FBF9208A412B9DE6C626 /* Hypertype */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Hypertype; sourceTree = "<group>"; };
+		C96828DAB00AFD584931A050 /* PersistentJavaScriptLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistentJavaScriptLibrary.swift; sourceTree = "<group>"; };
+		A6D5822E291DFBFCC6146033 /* PersistentWebContentLoadGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistentWebContentLoadGate.swift; sourceTree = "<group>"; };
+		8B8A752674CE8F7CFDD0295F /* PersistentJavaScriptLibraryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistentJavaScriptLibraryTests.swift; sourceTree = "<group>"; };
+		EE5F857CE081552F72574F61 /* JavaScriptLibraryFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JavaScriptLibraryFixtures.swift; sourceTree = "<group>"; };
+		EEDE9772604F3354A2A430A9 /* JavaScriptLibraries */ = {isa = PBXFileReference; lastKnownFileType = folder; path = JavaScriptLibraries; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -779,6 +735,8 @@
 		2C0D86CA2B08E7D900106915 /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				A6D5822E291DFBFCC6146033 /* PersistentWebContentLoadGate.swift */,
+				C96828DAB00AFD584931A050 /* PersistentJavaScriptLibrary.swift */,
 				2CDF00012F10000000000001 /* DownloadableMediaCache.swift */,
 				72061D69A27B4BD2AD79894E /* PersistentArtworkDependencyCache.swift */,
 				2ECA00000000000000000001 /* DownloadableMediaCacheSupport.swift */,
@@ -906,6 +864,7 @@
 		2CA34B4F2B08B32600DAB623 /* Shared */ = {
 			isa = PBXGroup;
 			children = (
+				5F2C51B94D025428EC61469F /* ThirdPartyNotices */,
 				2C92642F2E11D3D300FBF476 /* Assets */,
 				2C0D86CA2B08E7D900106915 /* Services */,
 				2C0D86C92B08E7C600106915 /* Models */,
@@ -999,35 +958,11 @@
 		2CD488FD2B10C6B000A53950 /* Supporting Files */ = {
 			isa = PBXGroup;
 			children = (
-				2CEF35AE2C413D8900388574 /* Generators */,
 				2CE9A7702BAD8ECD00579BF7 /* Localizable.xcstrings */,
 				2CD488FE2B10C6FA00A53950 /* README.md */,
 			);
 			name = "Supporting Files";
 			path = "nft-player";
-			sourceTree = "<group>";
-		};
-		2CEF35AE2C413D8900388574 /* Generators */ = {
-			isa = PBXGroup;
-			children = (
-				2CEF35B42C413DA000388574 /* p5js100.js */,
-				2CEF35B02C413D9F00388574 /* paper.js */,
-				2CEF35AF2C413D9F00388574 /* regl.js */,
-				2CEF35B12C413D9F00388574 /* three.js */,
-				2CE0F1572C4D37E6003004F2 /* p5js190.js */,
-				299E934F95F18C635C384D53 /* tone1504.js */,
-				716B6F45B954A25CF62EFBB6 /* tone1504-Tone.js.LICENSE.txt */,
-				97C02C2CF2254687DADA8490 /* tone1504-LICENSE.md */,
-				8B06F97C7AA01E2C36EEB2F4 /* three167.js */,
-				36E4CA8FDC4CD291584C63FF /* three167-LICENSE */,
-				58129A528836AF6CD3ABCCB6 /* p5js11111.js */,
-				E29C84394910C1ECB8A6C70C /* p5js11111-license.txt */,
-				84AE50F4156BF6BF0B3BE7C2 /* manifest.json */,
-				2EAB20000000000000000002 /* processingjs146.js */,
-				2CEF35B22C413D9F00388574 /* tone.js */,
-				2CEF35B32C413DA000388574 /* twemoji.js */,
-			);
-			path = Generators;
 			sourceTree = "<group>";
 		};
 		2CF08AB12D2A958B00D82ACA /* nft-player-ios */ = {
@@ -1086,6 +1021,8 @@
 		2DA2000C2FD0000000000001 /* nft-player-iosTests */ = {
 			isa = PBXGroup;
 			children = (
+				EE5F857CE081552F72574F61 /* JavaScriptLibraryFixtures.swift */,
+				8B8A752674CE8F7CFDD0295F /* PersistentJavaScriptLibraryTests.swift */,
 				2ECA00000000000000000006 /* DownloadableMediaCacheTests.swift */,
 				2E3000000000000000000009 /* MobilePlayerInteractionCoordinatorTests.swift */,
 				2DA700042FF3000000000001 /* MobileCollectionsSessionCoordinatorTests.swift */,
@@ -1161,9 +1098,21 @@
 		32A6AC462E5F442987766A69 /* Fixtures */ = {
 			isa = PBXGroup;
 			children = (
+				EEDE9772604F3354A2A430A9 /* JavaScriptLibraries */,
 				2E36FBF9208A412B9DE6C626 /* Hypertype */,
 			);
 			path = Fixtures;
+			sourceTree = "<group>";
+		};
+		5F2C51B94D025428EC61469F /* ThirdPartyNotices */ = {
+			isa = PBXGroup;
+			children = (
+				716B6F45B954A25CF62EFBB6 /* tone1504-Tone.js.LICENSE.txt */,
+				E29C84394910C1ECB8A6C70C /* p5js11111-license.txt */,
+				97C02C2CF2254687DADA8490 /* tone1504-LICENSE.md */,
+				36E4CA8FDC4CD291584C63FF /* three167-LICENSE */,
+			);
+			path = ThirdPartyNotices;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -1449,23 +1398,11 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				2C08041B2D2991F200CA9AB2 /* paper.js in Resources */,
-				2C08041C2D2991F200CA9AB2 /* regl.js in Resources */,
-				2C08041D2D2991F200CA9AB2 /* three.js in Resources */,
-				2C08041E2D2991F200CA9AB2 /* p5js190.js in Resources */,
-				3469650E61FFB363F8A8CA8C /* tone1504.js in Resources */,
 				08127DE7D8476B98A7A061E4 /* tone1504-Tone.js.LICENSE.txt in Resources */,
 				384D1E930CED392A4A03025A /* tone1504-LICENSE.md in Resources */,
-				F03CDA31FCA3839029512C89 /* three167.js in Resources */,
 				A9E5B0991F765CCCC3083958 /* three167-LICENSE in Resources */,
-				FD3FEBF88049B913A9477E33 /* p5js11111.js in Resources */,
 				C6EA377BAE5A4368D53841DF /* p5js11111-license.txt in Resources */,
-				8DE808EC07033EAB075EDA82 /* manifest.json in Resources */,
-				2EAB20000000000000000003 /* processingjs146.js in Resources */,
-				2C08041F2D2991F200CA9AB2 /* tone.js in Resources */,
 				2C6359562D29C5A400E40241 /* Localizable.xcstrings in Resources */,
-				2C0804202D2991F200CA9AB2 /* twemoji.js in Resources */,
-				2C460EED2D2990EA0083124E /* p5js100.js in Resources */,
 				2C460EDF2D2987000083124E /* Suggested.bundle in Resources */,
 				2CF08AAD2D2A937400D82ACA /* Assets.xcassets in Resources */,
 				2C92642D2E11D3D300FBF476 /* AppIcon.icon in Resources */,
@@ -1479,22 +1416,10 @@
 			files = (
 				2C5A59BC2C514FCF00788870 /* Covers.xcassets in Resources */,
 				2CC0C63A2C6A630700FB56BB /* Assets.xcassets in Resources */,
-				2C9442892C5154E00078C051 /* p5js100.js in Resources */,
-				2C94428A2C5154E00078C051 /* paper.js in Resources */,
-				2C94428B2C5154E00078C051 /* regl.js in Resources */,
-				2C94428C2C5154E00078C051 /* three.js in Resources */,
-				2C94428D2C5154E00078C051 /* p5js190.js in Resources */,
-				4C4D8D011D594B8E6F4F9A58 /* tone1504.js in Resources */,
 				BB06D1D106AB2EDD394137CB /* tone1504-Tone.js.LICENSE.txt in Resources */,
 				B7242B5EB8F8DE51116A5470 /* tone1504-LICENSE.md in Resources */,
-				9D3ADA861AF8687A79EA3E18 /* three167.js in Resources */,
 				D113C1BE3CD5C17F7F42FA45 /* three167-LICENSE in Resources */,
-				CDC4017658740078A271F61F /* p5js11111.js in Resources */,
 				4EEDC881F790801A16873F86 /* p5js11111-license.txt in Resources */,
-				27BFCE20CC958E8905C11AE7 /* manifest.json in Resources */,
-				2EAB20000000000000000005 /* processingjs146.js in Resources */,
-				2C94428E2C5154E00078C051 /* tone.js in Resources */,
-				2C9442882C5154CF0078C051 /* twemoji.js in Resources */,
 				2C5A59BD2C514FD200788870 /* Suggested.bundle in Resources */,
 				2C5A59D32C5153EF00788870 /* Localizable.xcstrings in Resources */,
 			);
@@ -1506,23 +1431,11 @@
 			files = (
 				2C02180C2C53CE940012EC40 /* Covers.xcassets in Resources */,
 				2C02180D2C53CE940012EC40 /* Suggested.bundle in Resources */,
-				2C0218052C53CE6D0012EC40 /* p5js100.js in Resources */,
-				2C0218062C53CE6D0012EC40 /* paper.js in Resources */,
-				2C0218072C53CE6D0012EC40 /* regl.js in Resources */,
 				2CF08AB32D2A9FEE00D82ACA /* Localizable.xcstrings in Resources */,
-				2C0218082C53CE6D0012EC40 /* three.js in Resources */,
-				2C0218092C53CE6D0012EC40 /* p5js190.js in Resources */,
-				EA6F7464B69DDBDA6C1EEF0C /* tone1504.js in Resources */,
 				877B6DF156ACF63FA751E6EB /* tone1504-Tone.js.LICENSE.txt in Resources */,
 				F3B962F8C4715B7899914B8A /* tone1504-LICENSE.md in Resources */,
-				8714DD240700DED0D248CBA7 /* three167.js in Resources */,
 				176C9FE2A0A71302A16E497A /* three167-LICENSE in Resources */,
-				08CDD6846FBDC4D621BFD80F /* p5js11111.js in Resources */,
 				8C86D45780E57718390A2A5D /* p5js11111-license.txt in Resources */,
-				C426BE587889B6BE33DD6886 /* manifest.json in Resources */,
-				2EAB20000000000000000001 /* processingjs146.js in Resources */,
-				2C02180A2C53CE6D0012EC40 /* tone.js in Resources */,
-				2C02180B2C53CE6D0012EC40 /* twemoji.js in Resources */,
 				2C5A59B52C51400300788870 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1531,22 +1444,10 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				2C85F3A32FA3470D0065AE2B /* p5js100.js in Resources */,
-				2C85F3A42FA3470D0065AE2B /* paper.js in Resources */,
-				2C85F3A52FA3470D0065AE2B /* regl.js in Resources */,
-				2C85F3A62FA3470D0065AE2B /* three.js in Resources */,
-				2C85F3A72FA3470D0065AE2B /* p5js190.js in Resources */,
-				2CEE05DA4CEB5C4304D428D3 /* tone1504.js in Resources */,
 				19ABC57CD359A0D9788E563B /* tone1504-Tone.js.LICENSE.txt in Resources */,
 				74A17F18AD29E21FFDD693E3 /* tone1504-LICENSE.md in Resources */,
-				ACF2FDBE65F380B5607BE0CF /* three167.js in Resources */,
 				BB19F4D1E07BC0F9A545BEEF /* three167-LICENSE in Resources */,
-				430038B72A9BBBC95CCD2EF6 /* p5js11111.js in Resources */,
 				73687D65B8A859B283E098E2 /* p5js11111-license.txt in Resources */,
-				9D712302A61F37792F01E579 /* manifest.json in Resources */,
-				2EAB20000000000000000004 /* processingjs146.js in Resources */,
-				2C85F3A82FA3470D0065AE2B /* tone.js in Resources */,
-				2C85F3A92FA3470D0065AE2B /* twemoji.js in Resources */,
 				2C85F3A22FA3469B0065AE2B /* Suggested.bundle in Resources */,
 				2CA4CF592B07F76000CC75F4 /* Assets.xcassets in Resources */,
 				2CA4CF5C2B07F76000CC75F4 /* Main.storyboard in Resources */,
@@ -1587,6 +1488,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A216F22FE1C4CE587D98FE67 /* JavaScriptLibraries in Resources */,
 				7FE956096C44445F97464DA7 /* Hypertype in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1598,6 +1500,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AC2AA73D1542A89E1AFC2DC3 /* JavaScriptLibraryFixtures.swift in Sources */,
+				DDFA1C35E9F22CBB2ECDB50D /* PersistentJavaScriptLibraryTests.swift in Sources */,
 				2ECA00000000000000000030 /* DownloadableMediaCacheTests.swift in Sources */,
 				2E3000000000000000000019 /* MobilePlayerInteractionCoordinatorTests.swift in Sources */,
 				2DA700032FF3000000000001 /* MobileCollectionsSessionCoordinatorTests.swift in Sources */,
@@ -1638,6 +1542,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B8A228DF21654118BB8407F4 /* PersistentWebContentLoadGate.swift in Sources */,
+				FD7C35D1CB1FA482F466F892 /* PersistentJavaScriptLibrary.swift in Sources */,
 				2DA700012FF3000000000001 /* MobileCollectionsSessionCoordinator.swift in Sources */,
 				2C460EDC2D2986460083124E /* SuggestedItemsService.swift in Sources */,
 				2C460EDE2D29865F0083124E /* Script.swift in Sources */,
@@ -1739,6 +1645,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				37807370A20DB25256B247BD /* PersistentWebContentLoadGate.swift in Sources */,
+				8BFD0E748F3518BCD925D85A /* PersistentJavaScriptLibrary.swift in Sources */,
 				2C5A59C12C514FE400788870 /* SuggestedItem.swift in Sources */,
 				2C9442922C515AC40078C051 /* RawHtmlGenerator.swift in Sources */,
 				22589EBF7FC946878B0CF499 /* PersistentArtworkDependencyCache.swift in Sources */,
@@ -1786,6 +1694,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1EE49D1653B8A3C4CF6BC361 /* PersistentWebContentLoadGate.swift in Sources */,
+				D630337CE750668B61190CD9 /* PersistentJavaScriptLibrary.swift in Sources */,
 				2C02180E2C53CECD0012EC40 /* Network.swift in Sources */,
 				2C02180F2C53CECD0012EC40 /* PlayerModel.swift in Sources */,
 				2C0218102C53CECD0012EC40 /* TokenGenerator.swift in Sources */,
@@ -1833,6 +1743,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0450BB3CA9A34080049E68E7 /* PersistentWebContentLoadGate.swift in Sources */,
+				20CE2BAE61F02C6AD1088C8F /* PersistentJavaScriptLibrary.swift in Sources */,
 				2C8A42EA2B1A272600BE4166 /* Network.swift in Sources */,
 				2CA979AC2B62BA2400DB3AC8 /* NftGallery.swift in Sources */,
 				2CE9A5762C3DA9FB009AEAF4 /* TokenGenerator.swift in Sources */,

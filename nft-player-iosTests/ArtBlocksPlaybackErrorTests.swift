@@ -42,6 +42,7 @@ extension ArtBlocksPlaybackErrorTests {
         let renderer = FullscreenTokenMediaRenderer(containerView: container)
         renderer.configureArtBlocksRendering(collectionId: collectionId, tokenId: token.id)
         let webView = try XCTUnwrap(descendants(of: container).compactMap { $0 as? AutoReloadingWebView }.first)
+        webView.artworkDependencyCache = JavaScriptLibraryFixtures.cache
         let probe = PlaybackErrorDocumentProbe()
         webView.configuration.userContentController.add(probe, name: "playbackErrorDocumentProbe")
         webView.configuration.userContentController.addUserScript(WKUserScript(source: """

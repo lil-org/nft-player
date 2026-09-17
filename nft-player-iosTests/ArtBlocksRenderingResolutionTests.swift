@@ -31,6 +31,7 @@ private final class ResolutionFixture {
             .first { $0.activationState == .foregroundActive })
         nativeScale = scene.screen.scale
         webView = artBlocksRendering ? AutoReloadingWebView.newArtBlocksRenderer() : AutoReloadingWebView.new
+        webView.artworkDependencyCache = JavaScriptLibraryFixtures.cache
         webView.frame = CGRect(origin: CGPoint(x: 12, y: 60), size: size)
         webView.configuration.userContentController.add(probe, name: "resolutionDocumentProbe")
         webView.configuration.userContentController.addUserScript(WKUserScript(source: """

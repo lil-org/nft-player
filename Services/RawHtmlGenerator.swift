@@ -2,49 +2,48 @@
 
 import CryptoKit
 import Foundation
-import os
 
 nonisolated enum RawHtmlGenerator {
     
-    private static let libScripts = OSAllocatedUnfairLock(
-        initialState: [String: String]()
-    )
-    
     private static func libScript(_ kind: Script.Kind) -> String {
-        cachedLibraryScript(key: kind.rawValue) {
-            SuggestedItemsService.hostResourceURL(forJavaScriptLibrary: kind.rawValue)
-        }
+        guard let library = PersistentJavaScriptLibrary.library(named: kind.rawValue) else { return "" }
+        return PersistentJavaScriptLibrary.reference(for: library)
     }
 
-    private static func cachedLibraryScript(key: String, resourceURL: () -> URL?) -> String {
-        if let libScript = libScripts.withLock({ $0[key] }) {
-            return libScript
-        }
+    private static let embeddedP5Pattern = #"<script\s+src=["']https://cdnjs\.cloudflare\.com/ajax/libs/p5\.js/1\.4\.0/p5(?:\.min)?\.js["']\s*>\s*</script>"#
 
-        guard let url = resourceURL(),
-              let libScript = try? String(contentsOf: url, encoding: .utf8) else {
-            return ""
+    static func requiredDependencies(for script: Script) -> [PersistentArtworkDependency] {
+        guard !script.kind.isNativeRenderer else { return [] }
+        var kinds = (script.additionalLibraries ?? []).filter { $0 != script.kind && $0 != .three167 }
+        if script.kind == .html, script.value.range(of: embeddedP5Pattern, options: .regularExpression) != nil {
+            kinds.append(.p5js140)
+        } else {
+            kinds.append(script.kind)
         }
-
-        return libScripts.withLock { scripts in
-            if let cachedLibScript = scripts[key] {
-                return cachedLibScript
+        var dependencies: [PersistentArtworkDependency] = []
+        for kind in kinds {
+            if let library = PersistentJavaScriptLibrary.library(named: kind.rawValue), !dependencies.contains(library) {
+                dependencies.append(library)
             }
-            scripts[key] = libScript
-            return libScript
         }
+        if !persistentHypertypeDependency(script).isEmpty { dependencies.append(.hypertype) }
+        return dependencies
     }
-    
+
     static func createHtml(
         script: Script,
         token: BundledTokens.Item,
-        forceLibScript: String? = nil
+        forceLibScript: String? = nil,
+        libraryScriptProvider: ((Script.Kind) -> String?)? = nil
     ) -> String {
         guard !script.kind.isNativeRenderer else { return "" }
         guard let hash = token.hash else { return "" }
 
         let id = token.id
-        let libScript = forceLibScript ?? libScript(script.kind)
+        let libraryScript: (Script.Kind) -> String = { kind in
+            libraryScriptProvider?(kind) ?? Self.libScript(kind)
+        }
+        let libScript = forceLibScript ?? libraryScript(script.kind)
         let viewport =
             """
             <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
@@ -78,12 +77,12 @@ nonisolated enum RawHtmlGenerator {
         case .html:
             var document = script.value
             if let libraryTag = document.range(
-                of: #"<script\s+src=["']https://cdnjs\.cloudflare\.com/ajax/libs/p5\.js/1\.4\.0/p5(?:\.min)?\.js["']\s*>\s*</script>"#,
+                of: embeddedP5Pattern,
                 options: .regularExpression
             ) {
                 document.replaceSubrange(
                     libraryTag,
-                    with: "<script>\(Self.libScript(.p5js140).replacingOccurrences(of: "</script", with: "<\\/script"))</script>"
+                    with: "<script>\(escapedInlineLibrary(libraryScript(.p5js140)))</script>"
                 )
             }
             html = insertingInHead(
@@ -426,7 +425,7 @@ nonisolated enum RawHtmlGenerator {
         }
         let additionalLibraries = (script.additionalLibraries ?? [])
             .filter { $0 != script.kind && $0 != .three167 }
-            .map { "<script>\(Self.libScript($0))</script>" }
+            .map { "<script>\(libraryScript($0))</script>" }
             .joined(separator: "\n")
         let startupProfile = ArtBlocksRenderingStartupProfiles.startupProfile(script)
         let bootstrap = script.usesArtBlocksRenderer
@@ -571,13 +570,16 @@ nonisolated enum RawHtmlGenerator {
         return content + "\n" + document
     }
 
-    private static let hypertypeDependencyReference =
-        "nft-player-dependency:hypertype:" + PersistentArtworkDependency.hypertype.sha256
+    private static let hypertypeDependencyReference = PersistentJavaScriptLibrary.hypertypeReference
+
+    static func requiredDependencies(in html: String, collectionId: String?) -> [PersistentArtworkDependency] {
+        PersistentJavaScriptLibrary.requiredDependencies(in: html).filter {
+            $0 != .hypertype || collectionId == PersistentArtworkDependency.hypertype.collectionId
+        }
+    }
 
     static func requiredDependency(in html: String, collectionId: String?) -> PersistentArtworkDependency? {
-        guard collectionId == PersistentArtworkDependency.hypertype.collectionId,
-              html.contains(hypertypeDependencyReference) else { return nil }
-        return .hypertype
+        requiredDependencies(in: html, collectionId: collectionId).first
     }
 
     static func resolveDependencies(
@@ -585,13 +587,8 @@ nonisolated enum RawHtmlGenerator {
         collectionId: String?,
         cache: PersistentArtworkDependencyCache
     ) async throws -> String {
-        guard let dependency = requiredDependency(in: html, collectionId: collectionId) else { return html }
-        let data = try await cache.data(for: dependency)
-        try Task.checkCancellation()
-        return html.replacingOccurrences(
-            of: hypertypeDependencyReference,
-            with: "data:text/javascript;base64," + data.base64EncodedString()
-        )
+        guard !requiredDependencies(in: html, collectionId: collectionId).isEmpty else { return html }
+        return try await PersistentJavaScriptLibrary.resolve(html, cache: cache)
     }
 
     private static func persistentHypertypeDependency(_ script: Script) -> String {
@@ -668,8 +665,16 @@ nonisolated enum RawHtmlGenerator {
         return "<script type=\"importmap\">\(String(decoding: data, as: UTF8.self))</script>"
     }
 
+    private static func escapedInlineLibrary(_ source: String) -> String {
+        if let library = PersistentJavaScriptLibrary.all.first(where: { PersistentJavaScriptLibrary.reference(for: $0) == source }) {
+            return PersistentJavaScriptLibrary.reference(for: library, format: .escapedInline)
+        }
+        return source.replacingOccurrences(of: "</script", with: "<\\/script")
+    }
+
     private static func moduleDataURL(_ source: String) -> String {
-        "data:text/javascript;base64," + Data(source.utf8).base64EncodedString()
+        if let reference = PersistentJavaScriptLibrary.dataURLReference(forInlineReference: source) { return reference }
+        return "data:text/javascript;base64," + Data(source.utf8).base64EncodedString()
     }
 
     private static func artworkErrorBootstrap(

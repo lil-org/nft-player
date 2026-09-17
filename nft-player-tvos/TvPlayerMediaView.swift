@@ -9,6 +9,7 @@ struct TvPlayerMediaView: View {
     let token: GeneratedToken
     let context: PlayerTokenContext?
     let preferredPrefetchDirection: DownloadableMediaCache.PrefetchDirection
+    var onDependencyFailureChange: ((Bool) -> Void)?
 
     @State private var ownerId = UUID()
     @State private var staticImage: UIImage?
@@ -57,18 +58,24 @@ struct TvPlayerMediaView: View {
                     fallbackURL: fallbackURL(for: token, descriptor: descriptor),
                     onLocalLoadFailure: {
                         handleLocalWebContentLoadFailure(for: descriptor)
-                    }
+                    },
+                    onDependencyFailureChange: onDependencyFailureChange
                 )
             } else if fallbackHTMLDescriptor == descriptor {
                 TvGeneratedTokenView(
                     contentString: token.html,
-                    fallbackURL: fallbackURL(for: token, descriptor: descriptor)
+                    fallbackURL: fallbackURL(for: token, descriptor: descriptor),
+                    onDependencyFailureChange: onDependencyFailureChange
                 )
             } else {
                 Color.black
             }
         } else {
-            TvGeneratedTokenView(contentString: token.html, fallbackURL: fallbackURL(for: token))
+            TvGeneratedTokenView(
+                contentString: token.html,
+                fallbackURL: fallbackURL(for: token),
+                onDependencyFailureChange: onDependencyFailureChange
+            )
         }
     }
 

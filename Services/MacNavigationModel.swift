@@ -101,6 +101,7 @@ final class MacNavigationModel {
     private(set) var routeTransition: MacRouteTransition = .none
     weak var commands: MacNavigationCommands?
 
+    private var preloadedCollectionId: String?
     private var browserFocusTokenIndex: Int?
     private var isChromeRefreshScheduled = false
 
@@ -201,12 +202,25 @@ final class MacNavigationModel {
 
     private func adopt(session: MacPlayerSession) {
         self.session = session
+        preloadDependencies(for: session.playerModel.currentToken.fullCollectionId)
         observePlayerModel(session.playerModel, sessionId: session.id)
     }
 
     private func releaseSession() {
         browserFocusTokenIndex = nil
+        preloadedCollectionId = nil
         session = nil
+    }
+
+    private func preloadDependencies(for collectionId: String) {
+        guard preloadedCollectionId != collectionId else { return }
+        preloadedCollectionId = collectionId
+        let dependencies = TokenGenerator.requiredPersistentDependencies(collectionId: collectionId)
+        Task {
+            for dependency in dependencies {
+                _ = try? await PersistentArtworkDependencyCache.shared.data(for: dependency)
+            }
+        }
     }
 
     private func observePlayerModel(_ playerModel: PlayerModel, sessionId: UUID) {
@@ -222,6 +236,7 @@ final class MacNavigationModel {
                       self.session?.id == sessionId else {
                     return
                 }
+                self.preloadDependencies(for: playerModel.currentToken.fullCollectionId)
                 self.refreshChrome()
                 self.observePlayerModel(playerModel, sessionId: sessionId)
             }

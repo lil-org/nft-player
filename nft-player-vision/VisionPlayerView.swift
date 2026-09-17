@@ -53,6 +53,15 @@ struct VisionPlayerView: View {
                 )
                 .padding(.bottom, VisionOrnamentMetrics.bottomPadding)
         }
+        .task(id: playerModel.currentToken.fullCollectionId) {
+            let dependencies = TokenGenerator.requiredPersistentDependencies(
+                collectionId: playerModel.currentToken.fullCollectionId
+            )
+            for dependency in dependencies {
+                guard !Task.isCancelled else { return }
+                _ = try? await PersistentArtworkDependencyCache.shared.data(for: dependency)
+            }
+        }
         .onDisappear {
             playerModel.cancelPendingCollectionRestart()
             DownloadableMediaCache.shared.clearActiveWindow(ownerId: playerModel.id)
@@ -1735,6 +1744,8 @@ private final class VisionPlayerPageHostController: UIViewController, UIScrollVi
             ownerId: playerModel.id,
             preferredPrefetchDirection: preferredPrefetchDirection,
             ownsDownloadableMediaWindow: ownsDownloadableMediaWindow,
+            allowsDependencyDownloads: ownsDownloadableMediaWindow
+                || playerModel.token(for: pagePosition).fullCollectionId == playerModel.currentToken.fullCollectionId,
             renderGeneration: renderGeneration,
             mediaRefreshGeneration: mediaRefreshGeneration,
             onZoomContentLayoutChange: { [weak self] layout, generation in
@@ -1813,7 +1824,7 @@ private final class VisionPlayerPageHostController: UIViewController, UIScrollVi
     private func installHostingController() {
         addChild(hostingController)
         hostingController.view.backgroundColor = .black
-        hostingController.view.isUserInteractionEnabled = false
+        hostingController.view.isUserInteractionEnabled = true
         hostingController.view.translatesAutoresizingMaskIntoConstraints = false
         zoomContentView.addSubview(hostingController.view)
         NSLayoutConstraint.activate([
@@ -2280,6 +2291,7 @@ private struct VisionPlayerPageHostView: View {
     let ownerId: UUID
     let preferredPrefetchDirection: DownloadableMediaCache.PrefetchDirection
     let ownsDownloadableMediaWindow: Bool
+    let allowsDependencyDownloads: Bool
     let renderGeneration: Int
     let mediaRefreshGeneration: Int
     let onZoomContentLayoutChange: (VisionPlayerZoomContentLayout, Int) -> Void
@@ -2297,6 +2309,7 @@ private struct VisionPlayerPageHostView: View {
             ownerId: ownerId,
             preferredPrefetchDirection: preferredPrefetchDirection,
             ownsDownloadableMediaWindow: ownsDownloadableMediaWindow,
+            allowsDependencyDownloads: allowsDependencyDownloads,
             mediaRefreshGeneration: mediaRefreshGeneration,
             layoutGeneration: renderGeneration,
             onZoomContentLayoutChange: onZoomContentLayoutChange,
@@ -2315,6 +2328,7 @@ private struct VisionPlayerMediaView: View {
     let ownerId: UUID
     let preferredPrefetchDirection: DownloadableMediaCache.PrefetchDirection
     let ownsDownloadableMediaWindow: Bool
+    let allowsDependencyDownloads: Bool
     let mediaRefreshGeneration: Int
     let layoutGeneration: Int
     let onZoomContentLayoutChange: (VisionPlayerZoomContentLayout, Int) -> Void
@@ -2379,12 +2393,12 @@ private struct VisionPlayerMediaView: View {
                     }
                 )
             } else if fallbackHTMLDescriptor == descriptor {
-                VisionWebView(htmlString: token.html)
+                VisionWebView(htmlString: token.html, allowsDependencyDownloads: allowsDependencyDownloads)
             } else {
                 Color.black
             }
         } else {
-            VisionWebView(htmlString: token.html)
+            VisionWebView(htmlString: token.html, allowsDependencyDownloads: allowsDependencyDownloads)
         }
     }
 

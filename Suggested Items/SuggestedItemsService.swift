@@ -158,14 +158,4 @@ nonisolated enum SuggestedItemsService {
         }
     }
 
-    static func hostResourceURL(forJavaScriptLibrary name: String) -> URL? {
-        if let alternativeResourceDirectoryURL {
-            return alternativeResourceDirectoryURL.appendingPathComponent(
-                name + ".js",
-                isDirectory: false
-            )
-        }
-        return Bundle.main.url(forResource: name, withExtension: "js")
-    }
-
 }

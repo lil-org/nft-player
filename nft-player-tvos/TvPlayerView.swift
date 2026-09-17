@@ -7,6 +7,7 @@ struct TvPlayerView: View {
     
     @State private var playerModelOwner: TvPlayerModelOwner
     @State private var isChromeVisible = false
+    @State private var hasDependencyFailure = false
     @State private var preferredPrefetchDirection: DownloadableMediaCache.PrefetchDirection = .forward
     @State private var bookmarkHUDState: TvBookmarkHUDState?
 
@@ -42,6 +43,7 @@ struct TvPlayerView: View {
                     Task { await playerModel.refreshCurrentTokenBookmarkState() }
                 }
                 .onChange(of: playerModel.currentToken) { _, token in
+                    hasDependencyFailure = false
                     if let progress = playerModel.viewingProgress(for: token) {
                         PlayerPersistenceUpdates.enqueue {
                             await playerModel.markViewed(progress)
@@ -49,15 +51,17 @@ struct TvPlayerView: View {
                     }
                 }
 
-            TvPlayerInputSurface(
-                onBookmarkToggle: toggleCurrentTokenBookmark,
-                onMove: handleMoveCommand,
-                onPlayPause: toggleChromeVisibility,
-                isBookmarkToggleEnabled: playerModel.canToggleCurrentTokenBookmark,
-                accessibilityLabel: playerModel.isCurrentTokenBookmarked ? Strings.removeBookmark : Strings.bookmark
-            )
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .edgesIgnoringSafeArea(.all)
+            if !hasDependencyFailure {
+                TvPlayerInputSurface(
+                    onBookmarkToggle: toggleCurrentTokenBookmark,
+                    onMove: handleMoveCommand,
+                    onPlayPause: toggleChromeVisibility,
+                    isBookmarkToggleEnabled: playerModel.canToggleCurrentTokenBookmark,
+                    accessibilityLabel: playerModel.isCurrentTokenBookmarked ? Strings.removeBookmark : Strings.bookmark
+                )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .edgesIgnoringSafeArea(.all)
+            }
             
             if isChromeVisible {
                 chromeView()
@@ -73,6 +77,17 @@ struct TvPlayerView: View {
                     .transition(.scale(scale: 0.86).combined(with: .opacity))
             }
         }
+        .onMoveCommand(perform: hasDependencyFailure ? { handleMoveCommand($0) } : nil)
+        .onPlayPauseCommand(perform: hasDependencyFailure ? { toggleChromeVisibility() } : nil)
+        .task(id: playerModel.currentToken.fullCollectionId) {
+            let dependencies = TokenGenerator.requiredPersistentDependencies(
+                collectionId: playerModel.currentToken.fullCollectionId
+            )
+            for dependency in dependencies {
+                guard !Task.isCancelled else { return }
+                _ = try? await PersistentArtworkDependencyCache.shared.data(for: dependency)
+            }
+        }
         .navigationBarHidden(true)
     }
 
@@ -81,7 +96,12 @@ struct TvPlayerView: View {
         return TvPlayerMediaView(
             token: token,
             context: context,
-            preferredPrefetchDirection: preferredPrefetchDirection
+            preferredPrefetchDirection: preferredPrefetchDirection,
+            onDependencyFailureChange: { failed in
+                guard playerModel.currentToken.fullCollectionId == token.fullCollectionId,
+                      playerModel.currentToken.id == token.id else { return }
+                hasDependencyFailure = failed
+            }
         )
         .id(TvPlayerMediaIdentity(token: token, context: context))
     }

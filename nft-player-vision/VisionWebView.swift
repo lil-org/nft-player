@@ -11,10 +11,12 @@ enum VisionWebContent {
 struct VisionWebView: UIViewRepresentable {
     let content: VisionWebContent
     let onLocalLoadFailure: (() -> Void)?
+    let allowsDependencyDownloads: Bool
 
-    init(htmlString: String) {
+    init(htmlString: String, allowsDependencyDownloads: Bool = true) {
         self.content = .html(htmlString)
         self.onLocalLoadFailure = nil
+        self.allowsDependencyDownloads = allowsDependencyDownloads
     }
 
     init(
@@ -23,6 +25,7 @@ struct VisionWebView: UIViewRepresentable {
     ) {
         self.content = content
         self.onLocalLoadFailure = onLocalLoadFailure
+        self.allowsDependencyDownloads = true
     }
 
     func makeUIView(context: Context) -> VisionPlayerWebView {
@@ -30,6 +33,7 @@ struct VisionWebView: UIViewRepresentable {
     }
     
     func updateUIView(_ uiView: VisionPlayerWebView, context: Context) {
+        uiView.allowsDependencyDownloads = allowsDependencyDownloads
         uiView.load(
             content,
             onLocalLoadFailure: deferred(onLocalLoadFailure)
@@ -53,6 +57,19 @@ final class VisionPlayerWebView: WKWebView, WKNavigationDelegate {
     private static var prewarmTask: Task<Void, Never>?
     private static var prewarmedWebView: VisionPlayerWebView?
     private static var didSchedulePrewarm = false
+
+    var artworkDependencyCache: PersistentArtworkDependencyCache {
+        get { dependencyLoadGate.cache }
+        set { dependencyLoadGate.cache = newValue }
+    }
+
+    var allowsDependencyDownloads = true
+
+    private let dependencyLoadGate = PersistentWebContentLoadGate()
+    private var requestedDependencyHTML: String?
+    private var requestedDependencyBaseURL: URL?
+    private var requestedDependencyAllowsDownloads = true
+    private var dependencyStatusView: UIView?
 
     private lazy var contentLoadCoordinator = PlayerWebContentLoadCoordinator(
         hasVisibleSize: { [weak self] in self?.hasVisibleSize == true },
@@ -170,7 +187,46 @@ final class VisionPlayerWebView: WKWebView, WKNavigationDelegate {
     }
 
     @discardableResult override func loadHTMLString(_ string: String, baseURL: URL?) -> WKNavigation? {
-        contentLoadCoordinator.loadHTMLString(string, baseURL: baseURL)
+        let allowsDownloads = allowsDependencyDownloads
+        if requestedDependencyHTML == string,
+           requestedDependencyBaseURL == baseURL,
+           requestedDependencyAllowsDownloads == allowsDownloads {
+            return nil
+        }
+        requestedDependencyHTML = string
+        requestedDependencyBaseURL = baseURL
+        requestedDependencyAllowsDownloads = allowsDownloads
+        let handled = dependencyLoadGate.load(
+            string,
+            context: baseURL?.absoluteString ?? "",
+            allowsDownloads: allowsDownloads,
+            onStart: { [weak self] in
+                self?.contentLoadCoordinator.unloadContent()
+                if allowsDownloads {
+                    self?.showDependencyStatus(failed: false)
+                } else {
+                    self?.showDependencyStatus(failed: false, isPreview: true)
+                }
+            },
+            onReady: { [weak self] preparedHTML in
+                guard let self else { return }
+                self.clearDependencyStatus()
+                self.contentLoadCoordinator.loadHTMLString(preparedHTML, baseURL: baseURL)
+            },
+            onFailure: { [weak self] _ in
+                if allowsDownloads {
+                    self?.showDependencyStatus(failed: true)
+                } else {
+                    self?.requestedDependencyHTML = nil
+                    self?.showDependencyStatus(failed: false, isPreview: true)
+                }
+            }
+        )
+        guard !handled else { return nil }
+        requestedDependencyHTML = nil
+        requestedDependencyBaseURL = nil
+        clearDependencyStatus()
+        return contentLoadCoordinator.loadHTMLString(string, baseURL: baseURL)
     }
 
     @discardableResult func loadLocalHTMLString(
@@ -179,7 +235,8 @@ final class VisionPlayerWebView: WKWebView, WKNavigationDelegate {
         allowingReadAccessTo readAccessURL: URL,
         onFailure: (() -> Void)? = nil
     ) -> WKNavigation? {
-        contentLoadCoordinator.loadLocalHTMLString(
+        resetDependencyLoad()
+        return contentLoadCoordinator.loadLocalHTMLString(
             string,
             htmlDirectoryURL: htmlDirectoryURL,
             allowingReadAccessTo: readAccessURL,
@@ -188,10 +245,12 @@ final class VisionPlayerWebView: WKWebView, WKNavigationDelegate {
     }
 
     func unloadContent() {
+        resetDependencyLoad()
         contentLoadCoordinator.unloadContent()
     }
 
     override func stopLoading() {
+        resetDependencyLoad()
         contentLoadCoordinator.prepareForStopLoading()
         super.stopLoading()
     }
@@ -201,11 +260,77 @@ final class VisionPlayerWebView: WKWebView, WKNavigationDelegate {
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-        contentLoadCoordinator.didFail(navigation, error: error)
+        if contentLoadCoordinator.didFail(navigation, error: error) {
+            requestedDependencyHTML = nil
+        }
     }
 
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
-        contentLoadCoordinator.didFail(navigation, error: error)
+        if contentLoadCoordinator.didFail(navigation, error: error) {
+            requestedDependencyHTML = nil
+        }
+    }
+
+    @objc private func retryDependencyLoad() {
+        guard let html = requestedDependencyHTML else { return }
+        let baseURL = requestedDependencyBaseURL
+        requestedDependencyHTML = nil
+        dependencyLoadGate.cancel()
+        loadHTMLString(html, baseURL: baseURL)
+    }
+
+    private func resetDependencyLoad() {
+        dependencyLoadGate.reset()
+        requestedDependencyHTML = nil
+        requestedDependencyBaseURL = nil
+        clearDependencyStatus()
+    }
+
+    private func clearDependencyStatus() {
+        dependencyStatusView?.removeFromSuperview()
+        dependencyStatusView = nil
+        isUserInteractionEnabled = false
+    }
+
+    private func showDependencyStatus(failed: Bool, isPreview: Bool = false) {
+        clearDependencyStatus()
+        isUserInteractionEnabled = failed
+        let overlay = UIView(frame: bounds)
+        overlay.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        overlay.backgroundColor = .black
+        if isPreview {
+            addSubview(overlay)
+            dependencyStatusView = overlay
+            return
+        }
+        let label = UILabel()
+        label.text = failed ? "The artwork could not load its required files." : "Loading artwork…"
+        label.textColor = .white
+        label.textAlignment = .center
+        label.numberOfLines = 0
+        let stack = UIStackView(arrangedSubviews: [label])
+        stack.axis = .vertical
+        stack.alignment = .center
+        stack.spacing = 14
+        if failed {
+            let retry = UIButton(type: .system)
+            retry.setTitle("Retry", for: .normal)
+            retry.addTarget(self, action: #selector(retryDependencyLoad), for: .touchUpInside)
+            stack.addArrangedSubview(retry)
+        } else {
+            let progress = UIActivityIndicatorView(style: .medium)
+            progress.startAnimating()
+            stack.addArrangedSubview(progress)
+        }
+        overlay.addSubview(stack)
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            stack.centerXAnchor.constraint(equalTo: overlay.centerXAnchor),
+            stack.centerYAnchor.constraint(equalTo: overlay.centerYAnchor),
+            stack.widthAnchor.constraint(lessThanOrEqualTo: overlay.widthAnchor, multiplier: 0.85)
+        ])
+        addSubview(overlay)
+        dependencyStatusView = overlay
     }
 
     private func performSuperLoadHTMLString(_ string: String, baseURL: URL?) -> WKNavigation? {

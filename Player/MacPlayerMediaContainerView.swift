@@ -968,6 +968,8 @@ final class MacPlayerMediaContainerView: NSView {
         hideImageView()
         hideNativeMetalCardView()
         let webView = ensureWebView()
+        webView.allowsDependencyDownloads = renderMode?.canDemandLoad == true
+            || currentToken?.fullCollectionId == MacNavigationModel.shared.session?.playerModel.currentToken.fullCollectionId
         webViewMayContainContent = !html.isEmpty
         webView.isHidden = false
         if let htmlDirectoryURL, let readAccessURL {

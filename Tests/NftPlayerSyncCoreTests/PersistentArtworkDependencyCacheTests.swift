@@ -141,13 +141,28 @@ final class PersistentArtworkDependencyCacheTests: XCTestCase {
         let dependency = descriptor(javascript)
         let probe = DependencyTransportProbe(bytes: javascript, held: true)
         let cache = PersistentArtworkDependencyCache(rootURL: root, transport: { try await probe.fetch($0) })
-        let canceled = Task { try await cache.data(for: dependency) }
+        let stopped = expectation(description: "Consumer stops before download finishes")
+        let canceled = Task {
+            do { _ = try await cache.data(for: dependency); XCTFail("Canceled consumer should stop waiting") }
+            catch is CancellationError { stopped.fulfill() }
+            catch { XCTFail("Unexpected error: \(error)") }
+        }
         await probe.waitUntilCalled()
-        let remaining = Task { try await cache.data(for: dependency) }
         canceled.cancel()
+        await fulfillment(of: [stopped], timeout: 2)
+        let remaining = Task { try await cache.data(for: dependency) }
+        let previewStopped = expectation(description: "Preview stops before download finishes")
+        let preview = Task {
+            do { _ = try await cache.cachedData(for: dependency); XCTFail("Canceled preview should stop waiting") }
+            catch is CancellationError { previewStopped.fulfill() }
+            catch { XCTFail("Unexpected error: \(error)") }
+        }
+        for _ in 0..<10 { await Task.yield() }
+        preview.cancel()
+        await fulfillment(of: [previewStopped], timeout: 2)
         await probe.release()
-        do { _ = try await canceled.value; XCTFail("Canceled consumer should stop using the result") }
-        catch is CancellationError {}
+        await canceled.value
+        await preview.value
         let result = try await remaining.value
         XCTAssertEqual(result, javascript)
         let calls = await probe.calls

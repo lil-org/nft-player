@@ -10,7 +10,7 @@ import urllib.request
 
 
 REPOSITORY = pathlib.Path(__file__).resolve().parents[1]
-DEFAULT_MANIFEST = REPOSITORY / "nft-player/Generators/newlibs/manifest.json"
+DEFAULT_MANIFEST = REPOSITORY / "tools/artblocks/dependencies.json"
 DEFAULT_DESTINATION = REPOSITORY / "nft-player-iosTests/Fixtures"
 USER_AGENT = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
@@ -95,6 +95,21 @@ def verify_or_restore(records, destination, fetch=False):
     return len(replacements)
 
 
+def fixture_records(manifest):
+    records = list(manifest["secondaryVendorFiles"])
+    for library in manifest["libraries"]:
+        filename = relative_path(library["file"])
+        if len(filename.parts) != 1 or filename.suffix != ".js":
+            raise ValueError(f"Invalid library filename: {filename}")
+        expected_fixture = f"nft-player-iosTests/Fixtures/JavaScriptLibraries/{filename}"
+        if library["fixture"] != expected_fixture:
+            raise ValueError(f"Unexpected library fixture path: {library['fixture']}")
+        records.append({"file": f"JavaScriptLibraries/{filename}",
+                        "bytes": library["bytes"], "sha256": library["sha256"],
+                        "source": library["cdnURL"]})
+    return records
+
+
 def main():
     parser = argparse.ArgumentParser(description="Verify or restore pinned Art Blocks dependency fixtures used only by tests.")
     parser.add_argument("--manifest", type=pathlib.Path, default=DEFAULT_MANIFEST)
@@ -103,7 +118,7 @@ def main():
     parser.add_argument("--fetch", action="store_true", help="Restore missing or modified test fixtures from their pinned sources.")
     args = parser.parse_args()
     manifest = json.loads(args.manifest.read_text())
-    records = manifest["secondaryVendorFiles"]
+    records = fixture_records(manifest)
     replacements = verify_or_restore(records, args.destination, args.fetch)
     print(f"Verified {len(records)} test-only dependency fixture files ({sum(record['bytes'] for record in records):,} bytes).")
     if replacements:

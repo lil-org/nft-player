@@ -3,10 +3,22 @@ import Darwin
 import Foundation
 
 nonisolated struct PersistentArtworkDependency: Hashable, Sendable {
-    let collectionId: String
+    let id: String
+    var collectionId: String { id }
     let remoteURL: URL
     let expectedByteCount: Int
     let sha256: String
+
+    init(id: String, remoteURL: URL, expectedByteCount: Int, sha256: String) {
+        self.id = id
+        self.remoteURL = remoteURL
+        self.expectedByteCount = expectedByteCount
+        self.sha256 = sha256
+    }
+
+    init(collectionId: String, remoteURL: URL, expectedByteCount: Int, sha256: String) {
+        self.init(id: collectionId, remoteURL: remoteURL, expectedByteCount: expectedByteCount, sha256: sha256)
+    }
 
     static let hypertype = PersistentArtworkDependency(
         collectionId: "0xbb5471c292065d3b01b2e81e299267221ae9a2500",
@@ -20,7 +32,9 @@ nonisolated struct PersistentArtworkDependency: Hashable, Sendable {
     }
 
     fileprivate var directoryName: String {
-        collectionId == Self.hypertype.collectionId ? "hypertype" : Self.digest(Data(collectionId.utf8))
+        if id == Self.hypertype.id { return "hypertype" }
+        if id.hasPrefix("library:") { return "libraries" }
+        return Self.digest(Data(id.utf8))
     }
 
     fileprivate static func digest(_ data: Data) -> String {
@@ -34,6 +48,7 @@ actor PersistentArtworkDependencyCache {
     enum Failure: Error, Equatable {
         case applicationSupportUnavailable
         case invalidDescriptor
+        case notCached
         case httpStatus(Int)
         case byteCount(expected: Int, actual: Int)
         case checksum
@@ -52,41 +67,101 @@ actor PersistentArtworkDependencyCache {
 
     private struct Pending {
         let id: UUID
-        let task: Task<Data, Error>
+        var waiters: [UUID: CheckedContinuation<Data?, Error>]
     }
 
     private let rootURL: URL?
     private let transport: Transport
     private var pending: [PersistentArtworkDependency: Pending] = [:]
+    private var activeDownloads = 0
+    private var downloadWaiters: [CheckedContinuation<Void, Never>] = []
 
     init(rootURL: URL? = nil, transport: @escaping Transport = PersistentArtworkDependencyCache.download) {
-        self.rootURL = rootURL ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
+#if os(tvOS)
+        let storageDirectory: FileManager.SearchPathDirectory = .cachesDirectory
+#else
+        let storageDirectory: FileManager.SearchPathDirectory = .applicationSupportDirectory
+#endif
+        self.rootURL = rootURL ?? FileManager.default.urls(for: storageDirectory, in: .userDomainMask).first?
             .appendingPathComponent("ArtworkDependencies", isDirectory: true)
         self.transport = transport
     }
 
     func data(for dependency: PersistentArtworkDependency) async throws -> Data {
+        guard let data = try await requestData(for: dependency, allowsDownloads: true) else { throw Failure.notCached }
+        return data
+    }
+
+    func cachedData(for dependency: PersistentArtworkDependency) async throws -> Data? {
+        try await requestData(for: dependency, allowsDownloads: false)
+    }
+
+    private func requestData(for dependency: PersistentArtworkDependency, allowsDownloads: Bool) async throws -> Data? {
+        let waiterID = UUID()
+        let data = try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Data?, Error>) in
+                do {
+                    try Task.checkCancellation()
+                    if pending[dependency] != nil {
+                        pending[dependency]?.waiters[waiterID] = continuation
+                        return
+                    }
+                    guard let rootURL else { throw Failure.applicationSupportUnavailable }
+                    if !allowsDownloads {
+                        try Self.validateDescriptor(dependency)
+                        let file = rootURL.appendingPathComponent(dependency.directoryName, isDirectory: true)
+                            .appendingPathComponent(dependency.sha256 + ".js")
+                        continuation.resume(returning: try Self.existing(file, dependency: dependency))
+                        return
+                    }
+                    let requestID = UUID()
+                    pending[dependency] = Pending(id: requestID, waiters: [waiterID: continuation])
+                    Task.detached(priority: .utility) {
+                        let result: Result<Data, Error>
+                        do {
+                            result = .success(try await Self.load(dependency, rootURL: rootURL, transport: { url in
+                                try await self.downloadWithLimit(url)
+                            }))
+                        } catch {
+                            result = .failure(error)
+                        }
+                        await self.finish(dependency, requestID: requestID, result: result)
+                    }
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+        } onCancel: {
+            Task { await self.cancelWaiter(waiterID, for: dependency) }
+        }
         try Task.checkCancellation()
-        let request: Pending
-        if let existing = pending[dependency] {
-            request = existing
+        return data
+    }
+
+    private func cancelWaiter(_ id: UUID, for dependency: PersistentArtworkDependency) {
+        pending[dependency]?.waiters.removeValue(forKey: id)?.resume(throwing: CancellationError())
+    }
+
+    private func finish(_ dependency: PersistentArtworkDependency, requestID: UUID, result: Result<Data, Error>) {
+        guard pending[dependency]?.id == requestID,
+              let request = pending.removeValue(forKey: dependency) else { return }
+        for waiter in request.waiters.values { waiter.resume(with: result.map { Optional($0) }) }
+    }
+
+    private func downloadWithLimit(_ url: URL) async throws -> (data: Data, statusCode: Int) {
+        if activeDownloads == 4 {
+            await withCheckedContinuation { downloadWaiters.append($0) }
         } else {
-            guard let rootURL else { throw Failure.applicationSupportUnavailable }
-            let transport = self.transport
-            request = Pending(id: UUID(), task: Task.detached(priority: .utility) {
-                try await Self.load(dependency, rootURL: rootURL, transport: transport)
-            })
-            pending[dependency] = request
+            activeDownloads += 1
         }
-        do {
-            let data = try await request.task.value
-            if pending[dependency]?.id == request.id { pending[dependency] = nil }
-            try Task.checkCancellation()
-            return data
-        } catch {
-            if pending[dependency]?.id == request.id { pending[dependency] = nil }
-            throw error
+        defer {
+            if downloadWaiters.isEmpty {
+                activeDownloads -= 1
+            } else {
+                downloadWaiters.removeFirst().resume()
+            }
         }
+        return try await transport(url)
     }
 
     private nonisolated static func download(_ url: URL) async throws -> (data: Data, statusCode: Int) {
@@ -131,9 +206,13 @@ actor PersistentArtworkDependencyCache {
         guard fsync(descriptor) == 0 else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
     }
 
-    private nonisolated static func load(_ dependency: PersistentArtworkDependency, rootURL: URL, transport: Transport) async throws -> Data {
+    private nonisolated static func validateDescriptor(_ dependency: PersistentArtworkDependency) throws {
         guard dependency.expectedByteCount > 0,
               dependency.sha256.range(of: "^[a-f0-9]{64}$", options: .regularExpression) != nil else { throw Failure.invalidDescriptor }
+    }
+
+    private nonisolated static func load(_ dependency: PersistentArtworkDependency, rootURL: URL, transport: Transport) async throws -> Data {
+        try validateDescriptor(dependency)
         let manager = FileManager.default
         let directory = rootURL.appendingPathComponent(dependency.directoryName, isDirectory: true)
         try manager.createDirectory(at: directory, withIntermediateDirectories: true)

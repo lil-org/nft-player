@@ -170,6 +170,7 @@ final class FullscreenTokenMediaRenderer {
     func configureArtBlocksRendering(collectionId: String, tokenId: String, onError: ((String) -> Void)? = nil) {
         guard TokenGenerator.usesArtBlocksRenderer(collectionId: collectionId) else {
             clearArtBlocksRendering()
+            artworkFailureHandler = onError
             return
         }
         artworkIdentity = (collectionId, tokenId)
@@ -177,12 +178,7 @@ final class FullscreenTokenMediaRenderer {
         artworkErrorView?.isHidden = true
         ensureWebView()
         webView.configureArtBlocksRendering(collectionId: collectionId, tokenId: tokenId) { [weak self] message in
-            guard let self else { return }
-            if let artworkFailureHandler = self.artworkFailureHandler {
-                artworkFailureHandler(message)
-            } else {
-                self.showArtworkError(message)
-            }
+            self?.handleArtworkFailure(message)
         }
     }
 
@@ -199,8 +195,13 @@ final class FullscreenTokenMediaRenderer {
         webView?.clearArtBlocksRendering()
     }
 
+    private func handleArtworkFailure(_ message: String) {
+        if let artworkFailureHandler { artworkFailureHandler(message) }
+        else { showArtworkError(message) }
+    }
+
     private func showArtworkError(_ message: String) {
-        guard artworkIdentity != nil else { return }
+        guard artworkIdentity != nil || webView?.hasPersistentDependencyContent == true else { return }
         if artworkErrorView == nil {
             let errorView = UIView()
             errorView.translatesAutoresizingMaskIntoConstraints = false
@@ -249,6 +250,7 @@ final class FullscreenTokenMediaRenderer {
     }
 
     func displayLoadedImage<Key: Hashable>(_ image: UIImage, key: Key) {
+        artworkErrorView?.isHidden = true
         cancelCurrentImageLoad()
         hideNativeMetalCardView()
         let imageKey = AnyHashable(key)
@@ -742,6 +744,7 @@ final class FullscreenTokenMediaRenderer {
     ) {
         cancelLocalWebReadiness()
         cancelCurrentImageLoad()
+        artworkErrorView?.isHidden = true
         representedImageKey = nil
         ensureWebView()
         if let provisionalImage {
@@ -824,6 +827,7 @@ final class FullscreenTokenMediaRenderer {
 
         usesArtBlocksWebConfiguration = usesArtBlocksRenderer
         webView = FullscreenTokenMediaView.webView(in: containerView, usesArtBlocksRenderer: usesArtBlocksRenderer)
+        webView.dependencyErrorHandler = { [weak self] message in self?.handleArtworkFailure(message) }
         if usesTransparentPlayerBackground {
             webView.makePlayerBackgroundTransparent()
         }
@@ -851,6 +855,7 @@ final class FullscreenTokenMediaRenderer {
     }
 
     private func hideWebContent() {
+        artworkErrorView?.isHidden = true
         invalidateLocalWebContentLoad()
         webView?.isHidden = true
     }

@@ -82,6 +82,7 @@ extension ArtBlocksCalibrationMigrationTests {
         for (key, value) in reviewSentinels { defaults.set(value, forKey: key) }
 
         let webView = AutoReloadingWebView.newArtBlocksRenderer()
+        webView.artworkDependencyCache = JavaScriptLibraryFixtures.cache
         webView.frame = CGRect(origin: .zero, size: size)
         let probe = CalibrationMigrationDocumentProbe()
         webView.configuration.userContentController.add(probe, name: "calibrationMigrationDocumentProbe")

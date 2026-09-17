@@ -62,25 +62,30 @@ struct TvGeneratedTokenView: UIViewRepresentable {
     let webContent: TvWebContent
     let fallbackURL: URL?
     let onLocalLoadFailure: (() -> Void)?
+    let onDependencyFailureChange: ((Bool) -> Void)?
 
     init(
         contentString: String,
         fallbackURL: URL?,
-        onLocalLoadFailure: (() -> Void)? = nil
+        onLocalLoadFailure: (() -> Void)? = nil,
+        onDependencyFailureChange: ((Bool) -> Void)? = nil
     ) {
         self.webContent = .html(contentString)
         self.fallbackURL = fallbackURL
         self.onLocalLoadFailure = onLocalLoadFailure
+        self.onDependencyFailureChange = onDependencyFailureChange
     }
 
     init(
         webContent: TvWebContent,
         fallbackURL: URL? = nil,
-        onLocalLoadFailure: (() -> Void)? = nil
+        onLocalLoadFailure: (() -> Void)? = nil,
+        onDependencyFailureChange: ((Bool) -> Void)? = nil
     ) {
         self.webContent = webContent
         self.fallbackURL = fallbackURL
         self.onLocalLoadFailure = onLocalLoadFailure
+        self.onDependencyFailureChange = onDependencyFailureChange
     }
 
     static func scheduleFirstUsePrewarm() {
@@ -261,12 +266,49 @@ struct TvGeneratedTokenView: UIViewRepresentable {
             return
         }
 
-        loadContentWhenReady(
-            request,
-            in: uiView,
-            coordinator: context.coordinator,
-            loadGeneration: loadGeneration
-        )
+        let coordinator = context.coordinator
+        coordinator.onDependencyFailureChange = { [weak coordinator] failed in
+            Task { @MainActor [weak coordinator] in
+                guard coordinator?.isCurrentGeneration(loadGeneration) == true else { return }
+                onDependencyFailureChange?(failed)
+            }
+        }
+        prepareContent(request, in: uiView, coordinator: coordinator, loadGeneration: loadGeneration)
+    }
+
+    private func prepareContent(
+        _ request: LoadRequest,
+        in view: UIView,
+        coordinator: Coordinator,
+        loadGeneration: Int
+    ) {
+        guard coordinator.isCurrentGeneration(loadGeneration) else { return }
+        let ready: (LoadRequest) -> Void = { [weak view, weak coordinator] preparedRequest in
+            guard let view, let coordinator, coordinator.isCurrentGeneration(loadGeneration) else { return }
+            coordinator.clearDependencyStatus()
+            loadContentWhenReady(preparedRequest, in: view, coordinator: coordinator, loadGeneration: loadGeneration)
+        }
+        if case let .html(html) = request.webContent {
+            if shouldAlwaysFallback, request.fallbackURL != nil {
+                ready(LoadRequest(webContent: .html(unloadedHTML), fallbackURL: request.fallbackURL))
+                return
+            }
+            coordinator.retryDependencies = { [weak view, weak coordinator] in
+                guard let view, let coordinator, coordinator.isCurrentGeneration(loadGeneration) else { return }
+                prepareContent(request, in: view, coordinator: coordinator, loadGeneration: loadGeneration)
+            }
+            let handled = coordinator.dependencyLoadGate.load(
+                html,
+                context: String(loadGeneration),
+                onStart: { [weak coordinator] in coordinator?.prepareForDependencies() },
+                onReady: { preparedHTML in
+                    ready(LoadRequest(webContent: .html(preparedHTML), fallbackURL: request.fallbackURL))
+                },
+                onFailure: { [weak coordinator] _ in coordinator?.showDependencyStatus(failed: true) }
+            )
+            if handled { return }
+        }
+        ready(request)
     }
 
     private func loadContentWhenReady(
@@ -280,7 +322,7 @@ struct TvGeneratedTokenView: UIViewRepresentable {
 
         guard view.bounds.width >= 1 && view.bounds.height >= 1 else {
             guard attempt < maxLayoutRetryCount else {
-                loadContentWithoutSampling(request, coordinator: coordinator)
+                loadContentWithoutSampling(request, coordinator: coordinator, loadGeneration: loadGeneration)
                 return
             }
 
@@ -334,8 +376,8 @@ struct TvGeneratedTokenView: UIViewRepresentable {
         coordinator.loadContent?(request.webContent, fallbackURL)
     }
 
-    private func loadContentWithoutSampling(_ request: LoadRequest, coordinator: Coordinator) {
-        coordinator.finishWithoutSampling(request)
+    private func loadContentWithoutSampling(_ request: LoadRequest, coordinator: Coordinator, loadGeneration: Int) {
+        coordinator.finishWithoutSampling(loadGeneration: loadGeneration)
         let fallbackURL = shouldSkipTvFallbackCheck ? nil : request.fallbackURL
         coordinator.loadContent?(request.webContent, fallbackURL)
     }
@@ -377,6 +419,10 @@ struct TvGeneratedTokenView: UIViewRepresentable {
         var loadSample: (() -> Void)?
         var loadContent: ((TvWebContent, URL?) -> Void)?
         var unloadContent: (() -> Void)?
+        let dependencyLoadGate = PersistentWebContentLoadGate()
+        var retryDependencies: (() -> Void)?
+        var onDependencyFailureChange: ((Bool) -> Void)?
+        private var dependencyStatusView: UIView?
         private var loadGeneration = 0
         private var currentRequest: LoadRequest?
         private var currentFallbackImageTask: Task<Void, Never>?
@@ -395,9 +441,69 @@ struct TvGeneratedTokenView: UIViewRepresentable {
             self.onLocalLoadFailure = onLocalLoadFailure
             guard currentRequest != request else { return nil }
 
+            dependencyLoadGate.cancel()
+            retryDependencies = nil
+            clearDependencyStatus()
             currentRequest = request
             loadGeneration += 1
             return loadGeneration
+        }
+
+        func prepareForDependencies() {
+            clearFallbackView()
+            unloadContent?()
+            needsSampleReload = true
+            showDependencyStatus(failed: false)
+        }
+
+        func clearDependencyStatus() {
+            dependencyStatusView?.removeFromSuperview()
+            dependencyStatusView = nil
+            onDependencyFailureChange?(false)
+        }
+
+        func showDependencyStatus(failed: Bool) {
+            clearDependencyStatus()
+            guard let webView = delegatedWebView else { return }
+            let overlay = UIView(frame: webView.bounds)
+            overlay.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+            overlay.backgroundColor = .black
+            let label = UILabel()
+            label.text = failed ? "The artwork could not load its required files." : "Loading artwork…"
+            label.textColor = .white
+            label.textAlignment = .center
+            label.numberOfLines = 0
+            let stack = UIStackView(arrangedSubviews: [label])
+            stack.axis = .vertical
+            stack.alignment = .center
+            stack.spacing = 24
+            if failed {
+                let retry = UIButton(type: .system)
+                retry.setTitle("Retry", for: .normal)
+                retry.addTarget(self, action: #selector(retryDependencyLoad), for: .primaryActionTriggered)
+                stack.addArrangedSubview(retry)
+            } else {
+                let progress = UIActivityIndicatorView(style: .large)
+                progress.startAnimating()
+                stack.addArrangedSubview(progress)
+            }
+            overlay.addSubview(stack)
+            stack.translatesAutoresizingMaskIntoConstraints = false
+            NSLayoutConstraint.activate([
+                stack.centerXAnchor.constraint(equalTo: overlay.centerXAnchor),
+                stack.centerYAnchor.constraint(equalTo: overlay.centerYAnchor),
+                stack.widthAnchor.constraint(lessThanOrEqualTo: overlay.widthAnchor, multiplier: 0.85)
+            ])
+            webView.addSubview(overlay)
+            dependencyStatusView = overlay
+            onDependencyFailureChange?(failed)
+            if failed {
+                webView.setNeedsFocusUpdate()
+            }
+        }
+
+        @objc private func retryDependencyLoad() {
+            retryDependencies?()
         }
 
         func isCurrentGeneration(_ generation: Int) -> Bool {
@@ -418,10 +524,9 @@ struct TvGeneratedTokenView: UIViewRepresentable {
             needsSampleReload = false
         }
 
-        func finishWithoutSampling(_ request: LoadRequest) {
-            if currentRequest == request {
-                currentRequest = nil
-            }
+        func finishWithoutSampling(loadGeneration: Int) {
+            guard isCurrentGeneration(loadGeneration) else { return }
+            currentRequest = nil
             if shouldSampleTvFallback {
                 needsSampleReload = true
             }
@@ -464,6 +569,10 @@ struct TvGeneratedTokenView: UIViewRepresentable {
         }
 
         func dismantle() {
+            dependencyLoadGate.reset()
+            retryDependencies = nil
+            onDependencyFailureChange = nil
+            clearDependencyStatus()
             loadGeneration += 1
             currentRequest = nil
             needsSampleReload = false

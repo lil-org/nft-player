@@ -156,6 +156,14 @@ extension MobilePlaybackSessionTests {
         return (collectionIDs[0], collectionIDs[1])
     }
 
+    private func dependencyFreeCollectionID() throws -> String {
+        try XCTUnwrap(SuggestedItemsService.visibleItems.first { item in
+            TokenGenerator.requiredPersistentDependencies(collectionId: item.id).isEmpty
+                && CollectionCatalog.tokenCount(specificCollectionId: item.id) >= 4
+                && CollectionCatalog.canGenerateToken(specificCollectionId: item.id, tokenIndex: 0)
+        }?.id)
+    }
+
     private func dependencyRegistry(
         preload: @escaping @MainActor (String) -> Void
     ) -> MobilePlaybackSessionRegistry {
@@ -194,7 +202,7 @@ extension MobilePlaybackSessionTests {
     func testArtworkDependencyPreloadStartsForActualCollectionEntries() throws {
         let item = try dependencyCollection()
         let token = try XCTUnwrap(CollectionCatalog.generateToken(specificCollectionId: item.id, tokenIndex: 7))
-        let (otherID, _) = try testCollectionIDs()
+        let otherID = try dependencyFreeCollectionID()
         var requests = [String]()
         let registry = dependencyRegistry { requests.append($0) }
         let configurations = [
@@ -215,7 +223,7 @@ extension MobilePlaybackSessionTests {
 
     func testOtherCollectionsAndTokenPreparationDoNotRequestDependencies() throws {
         let item = try dependencyCollection()
-        let (otherID, _) = try testCollectionIDs()
+        let otherID = try dependencyFreeCollectionID()
         XCTAssertNotEqual(otherID, item.id)
         var requests = [String]()
         let registry = dependencyRegistry { requests.append($0) }
@@ -231,7 +239,7 @@ extension MobilePlaybackSessionTests {
 
     func testWidgetAnchorDependencyWaitsForCommittedCollectionBrowse() throws {
         let item = try dependencyCollection()
-        let (otherID, _) = try testCollectionIDs()
+        let otherID = try dependencyFreeCollectionID()
         let insertedToken = try XCTUnwrap(CollectionCatalog.generateToken(specificCollectionId: otherID, tokenIndex: 0))
         var requests = [String]()
         let registry = dependencyRegistry { requests.append($0) }
@@ -266,7 +274,7 @@ extension MobilePlaybackSessionTests {
 
     func testSettledCollectionChangePreloadsOnceAndStopsAfterDisconnect() throws {
         let item = try dependencyCollection()
-        let (otherID, _) = try testCollectionIDs()
+        let otherID = try dependencyFreeCollectionID()
         let insertedToken = try XCTUnwrap(CollectionCatalog.generateToken(specificCollectionId: otherID, tokenIndex: 0))
         var requests = [String]()
         let registry = dependencyRegistry { requests.append($0) }
