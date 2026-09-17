@@ -4025,5 +4025,11 @@
       889,
       500
     ]
+  ],
+  "thumbnailAspectRatios": [
+    [
+      16,
+      9
+    ]
   ]
 }

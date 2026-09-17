@@ -1073,5 +1073,11 @@
       833,
       1000
     ]
+  ],
+  "thumbnailAspectRatios": [
+    [
+      5,
+      6
+    ]
   ]
 }

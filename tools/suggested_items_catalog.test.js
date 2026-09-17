@@ -158,6 +158,10 @@ function readJSON(filePath) {
   return JSON.parse(fs.readFileSync(filePath, "utf8"));
 }
 
+function isSeptemberGenerativeCollection(item) {
+  return item?.bundledDate === "2026-09-14" && item.generativeOnly === true;
+}
+
 function scriptCollectionIds() {
   return new Set(scriptCollectionKinds().keys());
 }
@@ -540,7 +544,7 @@ test("catalog IDs exactly match token manifest and cover asset casing", () => {
   }
 });
 
-test("standard thumbnail availability covers downloadable, native, and retained generative previews", () => {
+test("standard thumbnail availability covers downloadable, native, and bundled generative collections", () => {
   const items = readJSON(ITEMS_PATH);
   const scriptKinds = scriptCollectionKinds();
   const scriptIds = new Set(scriptKinds.keys());
@@ -549,6 +553,7 @@ test("standard thumbnail availability covers downloadable, native, and retained 
     ...items.filter((item) =>
       NATIVE_SCRIPT_THUMBNAIL_COLLECTIONS.has(item.internal_slug)
       || GENERATIVE_CDN_PREVIEW_COLLECTIONS.has(item.internal_slug)
+      || isSeptemberGenerativeCollection(item)
     ),
   ];
   const expectedEnabledIds = new Set(expectedEnabledItems.map(suggestedItemId));
@@ -578,6 +583,55 @@ test("standard thumbnail availability covers downloadable, native, and retained 
     items.filter((item) => item.standardThumbsPathsAvailable === true).length,
     expectedEnabledItems.length
   );
+});
+
+test("September generative collections expose indexed CDN tiers without changing playback identity", () => {
+  const items = readJSON(ITEMS_PATH).filter(isSeptemberGenerativeCollection);
+  const widgetIds = new Set(readJSON(path.resolve(__dirname, "../Suggested Items/widget-eligible-collections.json")));
+  assert.equal(items.length, 292);
+  let count = 0;
+  for (const item of items) {
+    const collectionId = suggestedItemId(item);
+    assert.equal(item.hasThumbnails, true, item.name);
+    assert.equal(item.standardThumbsPathsAvailable, true, item.name);
+    assert.equal(item.generativeOnly, true);
+    assert.equal(item.iosOnly, true);
+    assert.equal(item.hasCover, true);
+    assert.equal(item.tokenCount, undefined);
+    assert.equal(item.sizedThumbsIndexOffset, undefined);
+    assert.equal(widgetIds.has(collectionId), false);
+    const script = readJSON(path.join(SCRIPTS_PATH, `${collectionId}.json`));
+    assert.equal(script.renderingProfile, "artBlocks");
+    assert.ok(script.value.length > 0);
+    const payload = readJSON(path.join(TOKENS_PATH, `${collectionId}.json`));
+    const ratios = decodeAspectRatioMetadata(payload);
+    assert.equal(ratios.length, payload.items.length);
+    assert.equal(payload.artworkAspectRatios.length, 1);
+    assert.ok(payload.artworkAspectRatios[0].every(value => Number.isInteger(value) && value > 0));
+    const base = `https://cdn.lil.org/player/${item.internal_slug}`;
+    const indicesById = new Map(tokenIdsFromPayload(payload).map((id, index) => [id, index]));
+    assert.equal(indicesById.size, payload.items.length);
+    for (const [index, token] of payload.items.entries()) {
+      assert.equal(token.id, String(BigInt(item.abId) * 1000000n + BigInt(index)), item.name);
+      assert.match(token.hash, /^0x[0-9a-fA-F]{64}$/u);
+      assert.equal(indicesById.get(token.id), index);
+      const thumbnailURL = new URL(`${base}/thumbs/${index}.webp`);
+      assert.equal(midImageURL(thumbnailURL).href, `${base}/mid/${index}.webp`);
+      assert.equal(sizedThumbnailURL(thumbnailURL, index, 260).href, `${base}/thumbs/260/${index}.webp`);
+      assert.equal(sizedThumbnailURL(thumbnailURL, index, 140).href, `${base}/thumbs/140/${index}.webp`);
+    }
+    count += payload.items.length;
+  }
+  assert.equal(count, 143_847);
+  const neighborhood = items.find(item => item.internal_slug === "neighborhood");
+  assert.ok(neighborhood);
+  const payload = readJSON(path.join(TOKENS_PATH, `${suggestedItemId(neighborhood)}.json`));
+  const ratios = decodeAspectRatioMetadata(payload);
+  assert.deepEqual(payload.artworkAspectRatios, [[1, 1]]);
+  for (const [index, ratio] of [[0, [16, 9]], [3, [1, 1]], [7, [9, 16]]]) {
+    assert.deepEqual(ratios[index], ratio);
+    assert.equal(payload.items[index].id, String(146000000 + index));
+  }
 });
 
 test("media extension resolution prefers URL, then row, then manifest defaults", () => {
@@ -808,15 +862,14 @@ test("bundled tokens have compact aspect ratios and matching iOS layouts", () =>
   for (const fileName of primaryFileNames) {
     const payload = readJSON(path.join(TOKENS_PATH, fileName));
     const catalogItem = catalogItemByLowercasedFileName.get(fileName.toLowerCase());
-    if (catalogItem?.hasThumbnails === false) {
+    if (isSeptemberGenerativeCollection(catalogItem)) {
       assert.equal(catalogItem.generativeOnly, true);
       assert.equal(catalogItem.iosOnly, true);
       assert.equal(catalogItem.tokenCount, undefined);
       assert.equal(catalogItem.bundledDate, "2026-09-14");
-      assert.equal(payload.thumbnailAspectRatios, undefined);
+      assert.equal(catalogItem.hasThumbnails, true);
       assert.equal(payload.artworkAspectRatios.length, 1);
       assert.ok(payload.items.every(token => /^0x[0-9a-fA-F]{64}$/u.test(token.hash)));
-      continue;
     }
     const ratios = decodeAspectRatioMetadata(payload);
     assert.ok(ratios, `${fileName} has no thumbnail aspect-ratio metadata`);
@@ -854,8 +907,8 @@ test("bundled tokens have compact aspect ratios and matching iOS layouts", () =>
     primaryTokenCount += payload.items.length;
     primaryByLowercasedFileName.set(fileName.toLowerCase(), { payload, ratios });
   }
-  assert.equal(primaryTokenCount, 231_898);
-  assert.equal(twoColumnCollectionCount, 39);
+  assert.equal(primaryTokenCount, 375_745);
+  assert.equal(twoColumnCollectionCount, 76);
   assert.equal(
     manualThreeColumnCollectionCount,
     MANUAL_THREE_COLUMN_COLLECTION_SLUGS.length

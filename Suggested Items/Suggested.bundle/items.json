@@ -2767,11 +2767,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "srdan_sarovic_una_popovic"
     ],
-    "internal_slug": "logoria"
+    "internal_slug": "logoria",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x32d4be5ee74376e08038d652d4dc26e62c67f436",
@@ -2783,11 +2784,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "fingacode"
     ],
-    "internal_slug": "classifieds"
+    "internal_slug": "classifieds",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x62e37f664b5945629b6549a87f8e10ed0b6d923b",
@@ -2799,11 +2801,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "shvembldr"
     ],
-    "internal_slug": "postkonstrukt"
+    "internal_slug": "postkonstrukt",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x0000000080d04343d60d06e1a36aaf46c9242805",
@@ -2815,11 +2818,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "generative_goods"
     ],
-    "internal_slug": "micro"
+    "internal_slug": "micro",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -2831,11 +2835,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "bard_ionson"
     ],
-    "internal_slug": "8"
+    "internal_slug": "8",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -2847,11 +2852,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "daniel_catt"
     ],
-    "internal_slug": "70s_pop_series_one"
+    "internal_slug": "70s_pop_series_one",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -2863,11 +2869,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "daniel_catt"
     ],
-    "internal_slug": "70s_pop_series_two"
+    "internal_slug": "70s_pop_series_two",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -2879,11 +2886,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "zach_lieberman"
     ],
-    "internal_slug": "100_sunsets"
+    "internal_slug": "100_sunsets",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -2895,11 +2903,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "alexis_andre"
     ],
-    "internal_slug": "720_minutes"
+    "internal_slug": "720_minutes",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -2911,11 +2920,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "martin_grasser"
     ],
-    "internal_slug": "a_temporary_arrangement_of_material"
+    "internal_slug": "a_temporary_arrangement_of_material",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -2927,11 +2937,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "pab"
     ],
-    "internal_slug": "aceleraciones"
+    "internal_slug": "aceleraciones",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -2943,11 +2954,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "loren_bednar"
     ],
-    "internal_slug": "afterimage"
+    "internal_slug": "afterimage",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -2959,11 +2971,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "jorge_ledezma"
     ],
-    "internal_slug": "aitherios"
+    "internal_slug": "aitherios",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x000000a6e6366baf7c98a2ab73d3df1092dd7bb0",
@@ -2975,11 +2988,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "rvig"
     ],
-    "internal_slug": "alchimie"
+    "internal_slug": "alchimie",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xf03511ec774289da497cdb2070df4c711580ff7a",
@@ -2991,11 +3005,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "hackatao_plus_insigt"
     ],
-    "internal_slug": "aleph0"
+    "internal_slug": "aleph0",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3007,11 +3022,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "shvembldr"
     ],
-    "internal_slug": "alien_dna"
+    "internal_slug": "alien_dna",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -3023,11 +3039,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "jimena_buena_vida"
     ],
-    "internal_slug": "all_our_faces"
+    "internal_slug": "all_our_faces",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -3039,11 +3056,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "rafael_rozendaal"
     ],
-    "internal_slug": "all_the_time"
+    "internal_slug": "all_the_time",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3055,11 +3073,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "robert_hodgin"
     ],
-    "internal_slug": "ancient_courses_of_fictional_rivers"
+    "internal_slug": "ancient_courses_of_fictional_rivers",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -3071,11 +3090,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "iryanbell"
     ],
-    "internal_slug": "and_yet_we_love"
+    "internal_slug": "and_yet_we_love",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3087,11 +3107,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "eltono"
     ],
-    "internal_slug": "andradite"
+    "internal_slug": "andradite",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3103,11 +3124,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "william_mapan"
     ],
-    "internal_slug": "anticyclone"
+    "internal_slug": "anticyclone",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -3119,11 +3141,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "akira_ishi"
     ],
-    "internal_slug": "aodach"
+    "internal_slug": "aodach",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -3135,11 +3158,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "cory_haber"
     ],
-    "internal_slug": "apophenies"
+    "internal_slug": "apophenies",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -3151,11 +3175,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "devi_parikh_and_abhishek_das"
     ],
-    "internal_slug": "aragnation"
+    "internal_slug": "aragnation",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3167,11 +3192,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "emily_edelman_dima_ofman_andrew_badr"
     ],
-    "internal_slug": "asemica"
+    "internal_slug": "asemica",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -3183,11 +3209,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "tezumie"
     ],
-    "internal_slug": "assembly"
+    "internal_slug": "assembly",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3199,11 +3226,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "steganon"
     ],
-    "internal_slug": "assorted_positivity"
+    "internal_slug": "assorted_positivity",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3215,11 +3243,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "falko"
     ],
-    "internal_slug": "asterisms"
+    "internal_slug": "asterisms",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xaf40b66072fe00cacf5a25cd1b7f1688cde20f2f",
@@ -3231,11 +3260,13 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "eric_de_giuli"
     ],
-    "internal_slug": "atlas"
+    "internal_slug": "atlas",
+    "standardThumbsPathsAvailable": true,
+    "iosCollectionBrowserColumnCount": 2
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3247,11 +3278,13 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "jos_vromans"
     ],
-    "internal_slug": "attraction"
+    "internal_slug": "attraction",
+    "standardThumbsPathsAvailable": true,
+    "iosCollectionBrowserColumnCount": 2
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3263,11 +3296,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "steganon"
     ],
-    "internal_slug": "autology"
+    "internal_slug": "autology",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3279,11 +3313,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "yazid"
     ],
-    "internal_slug": "automatism"
+    "internal_slug": "automatism",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -3295,11 +3330,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "jimishim"
     ],
-    "internal_slug": "autopoiesis"
+    "internal_slug": "autopoiesis",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -3311,11 +3347,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "rafael_rozendaal"
     ],
-    "internal_slug": "balance"
+    "internal_slug": "balance",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -3327,11 +3364,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "kelly_milligan_x_amber_vittoria"
     ],
-    "internal_slug": "balance_2"
+    "internal_slug": "balance_2",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3343,11 +3381,13 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "motus_art"
     ],
-    "internal_slug": "balletic"
+    "internal_slug": "balletic",
+    "standardThumbsPathsAvailable": true,
+    "iosCollectionBrowserColumnCount": 2
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -3359,11 +3399,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "bucky"
     ],
-    "internal_slug": "bauhaus_synthesis"
+    "internal_slug": "bauhaus_synthesis",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3375,11 +3416,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "ryan_green"
     ],
-    "internal_slug": "beauty_in_the_hurting"
+    "internal_slug": "beauty_in_the_hurting",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3391,11 +3433,13 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "lia"
     ],
-    "internal_slug": "being_yourself_while_fitting_in"
+    "internal_slug": "being_yourself_while_fitting_in",
+    "standardThumbsPathsAvailable": true,
+    "iosCollectionBrowserColumnCount": 2
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3407,11 +3451,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "ippsketch"
     ],
-    "internal_slug": "bent"
+    "internal_slug": "bent",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3423,11 +3468,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "numbersinmotion"
     ],
-    "internal_slug": "blaschke_ballet"
+    "internal_slug": "blaschke_ballet",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3439,11 +3485,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "eboy"
     ],
-    "internal_slug": "blockbob_rorschach"
+    "internal_slug": "blockbob_rorschach",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -3455,11 +3502,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "rafael_rozendaal"
     ],
-    "internal_slug": "box"
+    "internal_slug": "box",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xab0000000000aa06f89b268d604a9c1c41524ac6",
@@ -3471,11 +3519,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "zach_lieberman"
     ],
-    "internal_slug": "box_light_studies"
+    "internal_slug": "box_light_studies",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -3487,11 +3536,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "anna_carreras"
     ],
-    "internal_slug": "brava"
+    "internal_slug": "brava",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3503,11 +3553,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "raregonzo"
     ],
-    "internal_slug": "breathe_you"
+    "internal_slug": "breathe_you",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa319c382a702682129fcbf55d514e61a16f97f9c",
@@ -3519,11 +3570,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "wawaa"
     ],
-    "internal_slug": "brickwork"
+    "internal_slug": "brickwork",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -3535,11 +3587,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "heeey"
     ],
-    "internal_slug": "bright"
+    "internal_slug": "bright",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3551,11 +3604,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "jason_ting"
     ],
-    "internal_slug": "bubble_blobby"
+    "internal_slug": "bubble_blobby",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3567,11 +3621,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "steen_neo"
     ],
-    "internal_slug": "calendart"
+    "internal_slug": "calendart",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -3583,11 +3638,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "eric_de_giuli"
     ],
-    "internal_slug": "calian"
+    "internal_slug": "calian",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -3599,11 +3655,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "juan_rodriguez_garcia"
     ],
-    "internal_slug": "caminos"
+    "internal_slug": "caminos",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -3615,11 +3672,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "bucky"
     ],
-    "internal_slug": "can_you_see_it"
+    "internal_slug": "can_you_see_it",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x9800005deb3cfaf80077dbe9b9004c0020c1d6c5",
@@ -3631,11 +3689,13 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "michelangelo_encapsuled"
     ],
-    "internal_slug": "carattere"
+    "internal_slug": "carattere",
+    "standardThumbsPathsAvailable": true,
+    "iosCollectionBrowserColumnCount": 2
   },
   {
     "address": "0x1353fd9d3dc70d1a18149c8fb2adb4fb906de4e8",
@@ -3647,11 +3707,13 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "eric_de_giuli"
     ],
-    "internal_slug": "cathedral_study"
+    "internal_slug": "cathedral_study",
+    "standardThumbsPathsAvailable": true,
+    "iosCollectionBrowserColumnCount": 2
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3663,11 +3725,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "hevey"
     ],
-    "internal_slug": "cells"
+    "internal_slug": "cells",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -3679,11 +3742,13 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "laya_mathikshara_santiago"
     ],
-    "internal_slug": "cerebellum"
+    "internal_slug": "cerebellum",
+    "standardThumbsPathsAvailable": true,
+    "iosCollectionBrowserColumnCount": 2
   },
   {
     "address": "0xb3526a6400260078517643cfd8490078803e0000",
@@ -3695,11 +3760,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "xnmtrc"
     ],
-    "internal_slug": "chroma_genesis"
+    "internal_slug": "chroma_genesis",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3711,11 +3777,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "pawel_dudko"
     ],
-    "internal_slug": "chroma_theory"
+    "internal_slug": "chroma_theory",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x32d4be5ee74376e08038d652d4dc26e62c67f436",
@@ -3727,11 +3794,13 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "encapsuled"
     ],
-    "internal_slug": "chronicles"
+    "internal_slug": "chronicles",
+    "standardThumbsPathsAvailable": true,
+    "iosCollectionBrowserColumnCount": 2
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -3743,11 +3812,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "rafael_rozendaal"
     ],
-    "internal_slug": "circulate"
+    "internal_slug": "circulate",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -3759,11 +3829,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "sarasmith"
     ],
-    "internal_slug": "cityzen"
+    "internal_slug": "cityzen",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x000000098a14b4e08132fd55faec521ab597a001",
@@ -3775,11 +3846,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "phenomena"
     ],
-    "internal_slug": "classical_revival"
+    "internal_slug": "classical_revival",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -3791,11 +3863,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "tottyeth_totdgbtagb"
     ],
-    "internal_slug": "cohesion"
+    "internal_slug": "cohesion",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3807,11 +3880,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "jeff_davis"
     ],
-    "internal_slug": "color_study"
+    "internal_slug": "color_study",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x5fdf5e6caf7b8b0f64c3612afd85e9407a7e1389",
@@ -3823,11 +3897,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "john_f_simon_jr"
     ],
-    "internal_slug": "complexcity_20002023"
+    "internal_slug": "complexcity_20002023",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x059edd72cd353df5106d2b9cc5ab83a52287ac3a",
@@ -3839,11 +3914,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "jeff_davis"
     ],
-    "internal_slug": "construction_token"
+    "internal_slug": "construction_token",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x000000058b5d9e705ee989fabc8dfdc1bfbdfa6b",
@@ -3855,11 +3931,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "motus_art"
     ],
-    "internal_slug": "contours"
+    "internal_slug": "contours",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3871,11 +3948,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "rafael_rozendaal"
     ],
-    "internal_slug": "corners"
+    "internal_slug": "corners",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -3887,11 +3965,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "buitrago"
     ],
-    "internal_slug": "creative_chaos"
+    "internal_slug": "creative_chaos",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -3903,11 +3982,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "jeff_davis"
     ],
-    "internal_slug": "cuadro"
+    "internal_slug": "cuadro",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -3919,11 +3999,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "jeff_davis"
     ],
-    "internal_slug": "culmination"
+    "internal_slug": "culmination",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3935,11 +4016,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "devi_parikh"
     ],
-    "internal_slug": "cushions"
+    "internal_slug": "cushions",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3951,11 +4033,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "pxlq"
     ],
-    "internal_slug": "cyber_cities"
+    "internal_slug": "cyber_cities",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3967,11 +4050,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "modnar_wolf"
     ],
-    "internal_slug": "dear_hash"
+    "internal_slug": "dear_hash",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xd10e3dee203579fcee90ed7d0bdd8086f7e53beb",
@@ -3983,11 +4067,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "proof_of_beauty_studios"
     ],
-    "internal_slug": "deconstructed_city_plans"
+    "internal_slug": "deconstructed_city_plans",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x32d4be5ee74376e08038d652d4dc26e62c67f436",
@@ -3999,11 +4084,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "alexis_andre"
     ],
-    "internal_slug": "decores"
+    "internal_slug": "decores",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xcfa6a2d5bc2a77c0cdd3046e09da21e45d1df0f1",
@@ -4015,11 +4101,13 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "ryleyoeth_x_sally_ohlsen"
     ],
-    "internal_slug": "degenerative"
+    "internal_slug": "degenerative",
+    "standardThumbsPathsAvailable": true,
+    "iosCollectionBrowserColumnCount": 2
   },
   {
     "address": "0x1353fd9d3dc70d1a18149c8fb2adb4fb906de4e8",
@@ -4031,11 +4119,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "melissa_wiederrecht"
     ],
-    "internal_slug": "deja_vu"
+    "internal_slug": "deja_vu",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -4047,11 +4136,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "autonymous"
     ],
-    "internal_slug": "delights"
+    "internal_slug": "delights",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -4063,11 +4153,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "andreas_gysin"
     ],
-    "internal_slug": "descent"
+    "internal_slug": "descent",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x000009bb1740eea484f7db00000a9227e578bf96",
@@ -4079,11 +4170,13 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "jeff_davis"
     ],
-    "internal_slug": "digital_sketch"
+    "internal_slug": "digital_sketch",
+    "standardThumbsPathsAvailable": true,
+    "iosCollectionBrowserColumnCount": 2
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -4095,11 +4188,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "rafael_rozendaal"
     ],
-    "internal_slug": "directions"
+    "internal_slug": "directions",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -4111,11 +4205,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "sabha"
     ],
-    "internal_slug": "downtown"
+    "internal_slug": "downtown",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4127,11 +4222,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "joshua_bagley"
     ],
-    "internal_slug": "dreams"
+    "internal_slug": "dreams",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4143,11 +4239,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "pxlq"
     ],
-    "internal_slug": "dynamic_slices"
+    "internal_slug": "dynamic_slices",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x0000001590abfb45b052c28fb7dac11c062b9337",
@@ -4159,11 +4256,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "holger_lippmann"
     ],
-    "internal_slug": "epastel_ii"
+    "internal_slug": "epastel_ii",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4175,11 +4273,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "radix"
     ],
-    "internal_slug": "eccentrics"
+    "internal_slug": "eccentrics",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4191,11 +4290,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "radix"
     ],
-    "internal_slug": "eccentrics_2_orbits"
+    "internal_slug": "eccentrics_2_orbits",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x0000000fae63d15270aafe9e08a71cd28079572d",
@@ -4207,11 +4307,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "jimena_buena_vida"
     ],
-    "internal_slug": "echoes_of_frida_sutura"
+    "internal_slug": "echoes_of_frida_sutura",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4223,11 +4324,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "generative_artworks"
     ],
-    "internal_slug": "enchiridion"
+    "internal_slug": "enchiridion",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -4239,11 +4341,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "rudxane"
     ],
-    "internal_slug": "encore"
+    "internal_slug": "encore",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xd10e3dee203579fcee90ed7d0bdd8086f7e53beb",
@@ -4255,11 +4358,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "loren_bednar"
     ],
-    "internal_slug": "ensemble"
+    "internal_slug": "ensemble",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4271,11 +4375,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "marcelo_soria_rodriguez"
     ],
-    "internal_slug": "entretiempos"
+    "internal_slug": "entretiempos",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4287,11 +4392,13 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "owen_moore"
     ],
-    "internal_slug": "erratic"
+    "internal_slug": "erratic",
+    "standardThumbsPathsAvailable": true,
+    "iosCollectionBrowserColumnCount": 2
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4303,11 +4410,13 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "steve_pikelny"
     ],
-    "internal_slug": "fake_internet_money"
+    "internal_slug": "fake_internet_money",
+    "standardThumbsPathsAvailable": true,
+    "iosCollectionBrowserColumnCount": 2
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4319,11 +4428,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "cyberia"
     ],
-    "internal_slug": "fermented_fruit"
+    "internal_slug": "fermented_fruit",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x000000a6e6366baf7c98a2ab73d3df1092dd7bb0",
@@ -4335,11 +4445,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "rvig_medecins_sans_frontieres_msf"
     ],
-    "internal_slug": "field_impact"
+    "internal_slug": "field_impact",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -4351,11 +4462,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "rafael_rozendaal"
     ],
-    "internal_slug": "flood"
+    "internal_slug": "flood",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4367,11 +4479,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "rvig"
     ],
-    "internal_slug": "flowers"
+    "internal_slug": "flowers",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -4383,11 +4496,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "sebastian_brocher_cryptoarte"
     ],
-    "internal_slug": "fluiroso"
+    "internal_slug": "fluiroso",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -4399,11 +4513,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "rafael_rozendaal"
     ],
-    "internal_slug": "fold"
+    "internal_slug": "fold",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xaf40b66072fe00cacf5a25cd1b7f1688cde20f2f",
@@ -4415,11 +4530,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "rudxane"
     ],
-    "internal_slug": "fold_2"
+    "internal_slug": "fold_2",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -4431,11 +4547,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "manuel_larino"
     ],
-    "internal_slug": "forecast"
+    "internal_slug": "forecast",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -4447,11 +4564,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "jeff_davis"
     ],
-    "internal_slug": "formation"
+    "internal_slug": "formation",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x942bc2d3e7a589fe5bd4a5c6ef9727dfd82f5c8a",
@@ -4463,11 +4581,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "alexis_andre"
     ],
-    "internal_slug": "friendship_bracelets"
+    "internal_slug": "friendship_bracelets",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -4479,11 +4598,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "lars_wander"
     ],
-    "internal_slug": "full_spectrum"
+    "internal_slug": "full_spectrum",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4495,11 +4615,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "matt_kane"
     ],
-    "internal_slug": "gazers"
+    "internal_slug": "gazers",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x059edd72cd353df5106d2b9cc5ab83a52287ac3a",
@@ -4511,11 +4632,13 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "dca"
     ],
-    "internal_slug": "genesis"
+    "internal_slug": "genesis",
+    "standardThumbsPathsAvailable": true,
+    "iosCollectionBrowserColumnCount": 2
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4527,11 +4650,13 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "rich_lord"
     ],
-    "internal_slug": "geometry_runners"
+    "internal_slug": "geometry_runners",
+    "standardThumbsPathsAvailable": true,
+    "iosCollectionBrowserColumnCount": 2
   },
   {
     "address": "0x02f518c529a0002e505000795d00c500eb00534a",
@@ -4543,11 +4668,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "emily_nicoll"
     ],
-    "internal_slug": "geophylla"
+    "internal_slug": "geophylla",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x000000dc68934ed27fd11e32491cdf6717acaf21",
@@ -4559,11 +4685,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "manuel_larino"
     ],
-    "internal_slug": "gift_of_time"
+    "internal_slug": "gift_of_time",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4575,11 +4702,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "jimmy_herdberg"
     ],
-    "internal_slug": "gravity_16"
+    "internal_slug": "gravity_16",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4591,11 +4719,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "eliya_stein"
     ],
-    "internal_slug": "gravity_grid"
+    "internal_slug": "gravity_grid",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -4607,11 +4736,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "rafael_rozendaal"
     ],
-    "internal_slug": "grit"
+    "internal_slug": "grit",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -4623,11 +4753,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "rafael_rozendaal"
     ],
-    "internal_slug": "half_half_half"
+    "internal_slug": "half_half_half",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -4639,11 +4770,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "sabha"
     ],
-    "internal_slug": "hash"
+    "internal_slug": "hash",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4655,11 +4787,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "beervangeer"
     ],
-    "internal_slug": "hashcrash"
+    "internal_slug": "hashcrash",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4671,11 +4804,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "jess_hewitt"
     ],
-    "internal_slug": "haywire_cafe"
+    "internal_slug": "haywire_cafe",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x8db6f700a7c90000f92ac90084ad93a500f1eae0",
@@ -4687,11 +4821,13 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "anapet"
     ],
-    "internal_slug": "heartbeat"
+    "internal_slug": "heartbeat",
+    "standardThumbsPathsAvailable": true,
+    "iosCollectionBrowserColumnCount": 2
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4703,11 +4839,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "pxlq"
     ],
-    "internal_slug": "hieroglyphs"
+    "internal_slug": "hieroglyphs",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4719,11 +4856,13 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "sarah_ridgley"
     ],
-    "internal_slug": "himinn"
+    "internal_slug": "himinn",
+    "standardThumbsPathsAvailable": true,
+    "iosCollectionBrowserColumnCount": 2
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -4735,11 +4874,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "rafael_rozendaal"
     ],
-    "internal_slug": "home"
+    "internal_slug": "home",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -4751,11 +4891,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "rafael_rozendaal"
     ],
-    "internal_slug": "house"
+    "internal_slug": "house",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -4767,11 +4908,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "ryan_bell"
     ],
-    "internal_slug": "hyper_drive_aside"
+    "internal_slug": "hyper_drive_aside",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xbb5471c292065d3b01b2e81e299267221ae9a250",
@@ -4783,11 +4925,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "mark_webster"
     ],
-    "internal_slug": "hypertype"
+    "internal_slug": "hypertype",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4799,11 +4942,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "steve_pikelny"
     ],
-    "internal_slug": "i_saw_it_in_a_dream"
+    "internal_slug": "i_saw_it_in_a_dream",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4815,11 +4959,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "shvembldr"
     ],
-    "internal_slug": "ieva"
+    "internal_slug": "ieva",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -4831,11 +4976,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "nicole_vella"
     ],
-    "internal_slug": "if_you_could_do_it_all_again"
+    "internal_slug": "if_you_could_do_it_all_again",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4847,11 +4993,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "kalis"
     ],
-    "internal_slug": "imperfections"
+    "internal_slug": "imperfections",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -4863,11 +5010,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "ixnayokay"
     ],
-    "internal_slug": "implications"
+    "internal_slug": "implications",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4879,11 +5027,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "eliya_stein"
     ],
-    "internal_slug": "incantation"
+    "internal_slug": "incantation",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x000000ff2fbc55b982010b42e235cc2a0ce3250b",
@@ -4895,11 +5044,13 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "jos_vromans"
     ],
-    "internal_slug": "incircles"
+    "internal_slug": "incircles",
+    "standardThumbsPathsAvailable": true,
+    "iosCollectionBrowserColumnCount": 2
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -4911,11 +5062,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "p1x3lboy"
     ],
-    "internal_slug": "integration"
+    "internal_slug": "integration",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x0000f6bc84ab98fbd8fce1f6d047965c723f0000",
@@ -4927,11 +5079,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "jason_ting"
     ],
-    "internal_slug": "into_the_light"
+    "internal_slug": "into_the_light",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -4943,11 +5096,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "camille_roux"
     ],
-    "internal_slug": "intricada"
+    "internal_slug": "intricada",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4959,11 +5113,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "henrysdev_amnda"
     ],
-    "internal_slug": "isodream"
+    "internal_slug": "isodream",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x000000412217f67742376769695498074f007b97",
@@ -4975,11 +5130,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "fingacode"
     ],
-    "internal_slug": "jazz"
+    "internal_slug": "jazz",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4991,11 +5147,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "eliya_stein"
     ],
-    "internal_slug": "labyrometry"
+    "internal_slug": "labyrometry",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5007,11 +5164,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "james_dalessandro"
     ],
-    "internal_slug": "lacunae"
+    "internal_slug": "lacunae",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -5023,11 +5181,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "rafael_rozendaal"
     ],
-    "internal_slug": "large_shape"
+    "internal_slug": "large_shape",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5039,11 +5198,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "robert_hodgin"
     ],
-    "internal_slug": "latent_spirits"
+    "internal_slug": "latent_spirits",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -5055,11 +5215,13 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "jeff_davis"
     ],
-    "internal_slug": "led"
+    "internal_slug": "led",
+    "standardThumbsPathsAvailable": true,
+    "iosCollectionBrowserColumnCount": 2
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5071,11 +5233,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "mitchell_f_chan"
     ],
-    "internal_slug": "lewitt_generator_generator"
+    "internal_slug": "lewitt_generator_generator",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -5087,11 +5250,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "cooper_jamieson"
     ],
-    "internal_slug": "libra"
+    "internal_slug": "libra",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x0000b52017e1ec58f64171b6001518c07a9aec00",
@@ -5103,11 +5267,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "itsgalo_x_office_ca"
     ],
-    "internal_slug": "lightweight_reconstruction"
+    "internal_slug": "lightweight_reconstruction",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x9800005deb3cfaf80077dbe9b9004c0020c1d6c5",
@@ -5119,11 +5284,13 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "michelangelo_encapsuled"
     ],
-    "internal_slug": "linea"
+    "internal_slug": "linea",
+    "standardThumbsPathsAvailable": true,
+    "iosCollectionBrowserColumnCount": 2
   },
   {
     "address": "0x9f79e46a309f804aa4b7b53a1f72c69137427794",
@@ -5135,11 +5302,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "kitel"
     ],
-    "internal_slug": "lines_of_memories"
+    "internal_slug": "lines_of_memories",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5151,11 +5319,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "eliya_stein"
     ],
-    "internal_slug": "liquid_ruminations"
+    "internal_slug": "liquid_ruminations",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5167,11 +5336,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "lia"
     ],
-    "internal_slug": "little_boxes_on_the_hillsides_child"
+    "internal_slug": "little_boxes_on_the_hillsides_child",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -5183,11 +5353,13 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "phenomena"
     ],
-    "internal_slug": "longing"
+    "internal_slug": "longing",
+    "standardThumbsPathsAvailable": true,
+    "iosCollectionBrowserColumnCount": 2
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5199,11 +5371,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "anna_lucia"
     ],
-    "internal_slug": "loom"
+    "internal_slug": "loom",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x4d928ab507bf633dd8e68024a1fb4c99316bbdf3",
@@ -5215,11 +5388,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "martin_grasser"
     ],
-    "internal_slug": "love"
+    "internal_slug": "love",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x942bc2d3e7a589fe5bd4a5c6ef9727dfd82f5c8a",
@@ -5231,11 +5405,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "daniel_calderon_arenas"
     ],
-    "internal_slug": "marfa_yucca"
+    "internal_slug": "marfa_yucca",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -5247,11 +5422,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "amy_goodchild"
     ],
-    "internal_slug": "meaningless"
+    "internal_slug": "meaningless",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x000009bb1740eea484f7db00000a9227e578bf96",
@@ -5263,11 +5439,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "jeff_davis"
     ],
-    "internal_slug": "mechanical_drawing"
+    "internal_slug": "mechanical_drawing",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -5279,11 +5456,13 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "emi_kusano"
     ],
-    "internal_slug": "melancholic_magical_maiden"
+    "internal_slug": "melancholic_magical_maiden",
+    "standardThumbsPathsAvailable": true,
+    "iosCollectionBrowserColumnCount": 2
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -5295,11 +5474,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "yungwknd"
     ],
-    "internal_slug": "melt_into_you"
+    "internal_slug": "melt_into_you",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x1353fd9d3dc70d1a18149c8fb2adb4fb906de4e8",
@@ -5311,11 +5491,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "juan_rodriguez_garcia"
     ],
-    "internal_slug": "memorias_del_espacio_olvidado"
+    "internal_slug": "memorias_del_espacio_olvidado",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -5327,11 +5508,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "buitrago"
     ],
-    "internal_slug": "mental_entanglement"
+    "internal_slug": "mental_entanglement",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5343,11 +5525,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "fabianospeziari_x_donnoh"
     ],
-    "internal_slug": "mental_pathways"
+    "internal_slug": "mental_pathways",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -5359,11 +5542,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "jinyao_lin"
     ],
-    "internal_slug": "metaphysics"
+    "internal_slug": "metaphysics",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -5375,11 +5559,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "third_vision"
     ],
-    "internal_slug": "miragem"
+    "internal_slug": "miragem",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x0000000c687f0226eaf0bdb39104fad56738cdf2",
@@ -5391,11 +5576,13 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "melissa_wiederrecht"
     ],
-    "internal_slug": "misbah"
+    "internal_slug": "misbah",
+    "standardThumbsPathsAvailable": true,
+    "iosCollectionBrowserColumnCount": 2
   },
   {
     "address": "0x1725dc55c1bd5200bf00566cf20000b10800c68e",
@@ -5407,11 +5594,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "joshua_bagley"
     ],
-    "internal_slug": "mister_shifty_and_the_drifty_dudes"
+    "internal_slug": "mister_shifty_and_the_drifty_dudes",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x000000637fddcdd459b047897afb3ea46aa6f334",
@@ -5423,11 +5611,13 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "neel_shivdasani"
     ],
-    "internal_slug": "motion_pictures"
+    "internal_slug": "motion_pictures",
+    "standardThumbsPathsAvailable": true,
+    "iosCollectionBrowserColumnCount": 2
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5439,11 +5629,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "pandelune"
     ],
-    "internal_slug": "murano_fantasy"
+    "internal_slug": "murano_fantasy",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -5455,11 +5646,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "olga_fradina"
     ],
-    "internal_slug": "naive"
+    "internal_slug": "naive",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -5471,11 +5663,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "rafael_rozendaal"
     ],
-    "internal_slug": "nausea"
+    "internal_slug": "nausea",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5487,11 +5680,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "rvig"
     ],
-    "internal_slug": "nebula"
+    "internal_slug": "nebula",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5503,11 +5697,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "jeff_davis"
     ],
-    "internal_slug": "neighborhood"
+    "internal_slug": "neighborhood",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -5519,11 +5714,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "ilithya_x_erin_wajufos"
     ],
-    "internal_slug": "net_net_net"
+    "internal_slug": "net_net_net",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -5535,11 +5731,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "fingacode"
     ],
-    "internal_slug": "nth_culture"
+    "internal_slug": "nth_culture",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5551,11 +5748,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "artplusbrad"
     ],
-    "internal_slug": "ode_to_roy"
+    "internal_slug": "ode_to_roy",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5567,11 +5765,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "artplusbrad"
     ],
-    "internal_slug": "ode_to_untitled"
+    "internal_slug": "ode_to_untitled",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x00002491b000aa008756652c87cc92d87e896f0f",
@@ -5583,11 +5782,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "stefano_contiero"
     ],
-    "internal_slug": "ofrenda"
+    "internal_slug": "ofrenda",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5599,11 +5799,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "rizzle_sebi_miguelgarest"
     ],
-    "internal_slug": "onchainchain"
+    "internal_slug": "onchainchain",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -5615,11 +5816,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "rafael_rozendaal"
     ],
-    "internal_slug": "open_close"
+    "internal_slug": "open_close",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x1d0977e86c70eabb5c8fd98db1b08c6d60caa0c1",
@@ -5631,11 +5833,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "jeff_davis"
     ],
-    "internal_slug": "optimism"
+    "internal_slug": "optimism",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -5647,11 +5850,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "kjetil_golid"
     ],
-    "internal_slug": "orbifold"
+    "internal_slug": "orbifold",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -5663,11 +5867,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "rafael_rozendaal"
     ],
-    "internal_slug": "pages"
+    "internal_slug": "pages",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5679,11 +5884,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "loren_bednar"
     ],
-    "internal_slug": "parade"
+    "internal_slug": "parade",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -5695,11 +5901,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "aaron_penne_x_boreta"
     ],
-    "internal_slug": "passages"
+    "internal_slug": "passages",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5711,11 +5918,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "jake_rockland"
     ],
-    "internal_slug": "patchwork_saguaros"
+    "internal_slug": "patchwork_saguaros",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5727,11 +5935,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "vamoss"
     ],
-    "internal_slug": "patterns_of_life"
+    "internal_slug": "patterns_of_life",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xd40030fd1d00f1a9944462ff0025e9c8d0003500",
@@ -5743,11 +5952,13 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "eric_de_giuli"
     ],
-    "internal_slug": "pax"
+    "internal_slug": "pax",
+    "standardThumbsPathsAvailable": true,
+    "iosCollectionBrowserColumnCount": 2
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5759,11 +5970,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "punch_card_collective"
     ],
-    "internal_slug": "perpetua"
+    "internal_slug": "perpetua",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -5775,11 +5987,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "omri_tintpulver"
     ],
-    "internal_slug": "pigs_tail"
+    "internal_slug": "pigs_tail",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5791,11 +6004,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "kai"
     ],
-    "internal_slug": "pixel_glass"
+    "internal_slug": "pixel_glass",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xaa00b2b2db36b8f8004a9aa96f0012005d92b300",
@@ -5807,11 +6021,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "basement_x_ryleyo"
     ],
-    "internal_slug": "pool_party"
+    "internal_slug": "pool_party",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5823,11 +6038,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "jeff_davis"
     ],
-    "internal_slug": "portal"
+    "internal_slug": "portal",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x000009bb1740eea484f7db00000a9227e578bf96",
@@ -5839,11 +6055,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "jeff_davis"
     ],
-    "internal_slug": "progression"
+    "internal_slug": "progression",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -5855,11 +6072,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "remnynt"
     ],
-    "internal_slug": "proscenium"
+    "internal_slug": "proscenium",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -5871,11 +6089,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "rafael_rozendaal"
     ],
-    "internal_slug": "pulse"
+    "internal_slug": "pulse",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5887,11 +6106,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "insight"
     ],
-    "internal_slug": "quantum_collapses"
+    "internal_slug": "quantum_collapses",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -5903,11 +6123,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "ikiddo"
     ],
-    "internal_slug": "quantumcirclet"
+    "internal_slug": "quantumcirclet",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5919,11 +6140,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "owen_moore"
     ],
-    "internal_slug": "quarantine"
+    "internal_slug": "quarantine",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x64780ce53f6e966e18a22af13a2f97369580ec11",
@@ -5935,11 +6157,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "tara_donovan"
     ],
-    "internal_slug": "qwerty"
+    "internal_slug": "qwerty",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x70270e65bc37832ef845fa330c2b71501970dab9",
@@ -5951,11 +6174,13 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "kazuhiro_tanimoto"
     ],
-    "internal_slug": "rain_blooms"
+    "internal_slug": "rain_blooms",
+    "standardThumbsPathsAvailable": true,
+    "iosCollectionBrowserColumnCount": 2
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -5967,11 +6192,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "yon"
     ],
-    "internal_slug": "rainbows"
+    "internal_slug": "rainbows",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5983,11 +6209,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "thomas_lin_pedersen"
     ],
-    "internal_slug": "rapture"
+    "internal_slug": "rapture",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x0000528a4a3859020a7970110c16941a00fadf00",
@@ -5999,11 +6226,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "julian_hespenheide_the_generative_art_museum"
     ],
-    "internal_slug": "ratio"
+    "internal_slug": "ratio",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x294fed5f1d3d30cfa6fe86a937dc3141eec8bc6d",
@@ -6015,11 +6243,13 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "aaron_penne"
     ],
-    "internal_slug": "receive_transmission"
+    "internal_slug": "receive_transmission",
+    "standardThumbsPathsAvailable": true,
+    "iosCollectionBrowserColumnCount": 2
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6031,11 +6261,13 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "jeff_davis"
     ],
-    "internal_slug": "reflection"
+    "internal_slug": "reflection",
+    "standardThumbsPathsAvailable": true,
+    "iosCollectionBrowserColumnCount": 2
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -6047,11 +6279,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "ben_kanizay"
     ],
-    "internal_slug": "retrometrix"
+    "internal_slug": "retrometrix",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6063,11 +6296,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "jeff_davis"
     ],
-    "internal_slug": "rhythm"
+    "internal_slug": "rhythm",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6079,11 +6313,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "stefano_contiero"
     ],
-    "internal_slug": "rinascita"
+    "internal_slug": "rinascita",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -6095,11 +6330,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "rafael_rozendaal"
     ],
-    "internal_slug": "ripple"
+    "internal_slug": "ripple",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -6111,11 +6347,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "rafael_rozendaal"
     ],
-    "internal_slug": "rooms"
+    "internal_slug": "rooms",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6127,11 +6364,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "nadieh_bremer"
     ],
-    "internal_slug": "rotae"
+    "internal_slug": "rotae",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6143,11 +6381,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "sebastian_brocher_cryptoarte"
     ],
-    "internal_slug": "rotor"
+    "internal_slug": "rotor",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -6159,11 +6398,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "mario_carrillo"
     ],
-    "internal_slug": "rubicon"
+    "internal_slug": "rubicon",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6175,11 +6415,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "melissa_wiederrecht"
     ],
-    "internal_slug": "sandaliya"
+    "internal_slug": "sandaliya",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6191,11 +6432,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "thomas_lin_pedersen"
     ],
-    "internal_slug": "screens"
+    "internal_slug": "screens",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6207,11 +6449,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "william_tan"
     ],
-    "internal_slug": "scribbled_boundaries"
+    "internal_slug": "scribbled_boundaries",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa319c382a702682129fcbf55d514e61a16f97f9c",
@@ -6223,11 +6466,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "minimizer"
     ],
-    "internal_slug": "scribbled_daydreams"
+    "internal_slug": "scribbled_daydreams",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6239,11 +6483,13 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "orpheusk"
     ],
-    "internal_slug": "scribblines"
+    "internal_slug": "scribblines",
+    "standardThumbsPathsAvailable": true,
+    "iosCollectionBrowserColumnCount": 2
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -6255,11 +6501,13 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "ralgo"
     ],
-    "internal_slug": "seasky"
+    "internal_slug": "seasky",
+    "standardThumbsPathsAvailable": true,
+    "iosCollectionBrowserColumnCount": 2
   },
   {
     "address": "0xa319c382a702682129fcbf55d514e61a16f97f9c",
@@ -6271,11 +6519,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "r4v3n"
     ],
-    "internal_slug": "shields"
+    "internal_slug": "shields",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6287,11 +6536,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "espina"
     ],
-    "internal_slug": "sigils"
+    "internal_slug": "sigils",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -6303,11 +6553,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "rafael_rozendaal"
     ],
-    "internal_slug": "sinking"
+    "internal_slug": "sinking",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -6319,11 +6570,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "itsgalo"
     ],
-    "internal_slug": "skeuomorphs"
+    "internal_slug": "skeuomorphs",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -6335,11 +6587,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "jake_rockland"
     ],
-    "internal_slug": "sonoran_roadways"
+    "internal_slug": "sonoran_roadways",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6351,11 +6604,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "mark_cotton"
     ],
-    "internal_slug": "space_birds"
+    "internal_slug": "space_birds",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6367,11 +6621,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "whalestreet_x_pxlq"
     ],
-    "internal_slug": "space_debris_maider"
+    "internal_slug": "space_debris_maider",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6383,11 +6638,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "owen_moore"
     ],
-    "internal_slug": "spaghettification"
+    "internal_slug": "spaghettification",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6399,11 +6655,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "jake_rockland"
     ],
-    "internal_slug": "speckled_summits"
+    "internal_slug": "speckled_summits",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6415,11 +6672,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "alexander_reben"
     ],
-    "internal_slug": "spiroflakes"
+    "internal_slug": "spiroflakes",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6431,11 +6689,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "philip_bell"
     ],
-    "internal_slug": "staccato"
+    "internal_slug": "staccato",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6447,11 +6706,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "ruben_alexander"
     ],
-    "internal_slug": "star_flower"
+    "internal_slug": "star_flower",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -6463,11 +6723,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "alida_sun"
     ],
-    "internal_slug": "stellaraum"
+    "internal_slug": "stellaraum",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -6479,11 +6740,13 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "nathaniel_stern_and_sasha_stiles"
     ],
-    "internal_slug": "still_moving"
+    "internal_slug": "still_moving",
+    "standardThumbsPathsAvailable": true,
+    "iosCollectionBrowserColumnCount": 2
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6495,11 +6758,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "jake_rockland"
     ],
-    "internal_slug": "stipple_sunsets"
+    "internal_slug": "stipple_sunsets",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -6511,11 +6775,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "rafael_rozendaal"
     ],
-    "internal_slug": "stretch"
+    "internal_slug": "stretch",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -6527,11 +6792,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "jimishim"
     ],
-    "internal_slug": "striation"
+    "internal_slug": "striation",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa319c382a702682129fcbf55d514e61a16f97f9c",
@@ -6543,11 +6809,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "julien_gachadoat"
     ],
-    "internal_slug": "structures"
+    "internal_slug": "structures",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -6559,11 +6826,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "petitsapin"
     ],
-    "internal_slug": "such_a_lovely_time"
+    "internal_slug": "such_a_lovely_time",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6575,11 +6843,13 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "melissa_wiederrecht"
     ],
-    "internal_slug": "sudfah"
+    "internal_slug": "sudfah",
+    "standardThumbsPathsAvailable": true,
+    "iosCollectionBrowserColumnCount": 2
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6591,11 +6861,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "pzs"
     ],
-    "internal_slug": "summoning_ritual"
+    "internal_slug": "summoning_ritual",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6607,11 +6878,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "eltono"
     ],
-    "internal_slug": "swing"
+    "internal_slug": "swing",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6623,11 +6895,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "chaosconstruct"
     ],
-    "internal_slug": "synapses"
+    "internal_slug": "synapses",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -6639,11 +6912,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "claudia_hart_and_andrew_blanton"
     ],
-    "internal_slug": "systems_madness"
+    "internal_slug": "systems_madness",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x9800005deb3cfaf80077dbe9b9004c0020c1d6c5",
@@ -6655,11 +6929,13 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "michelangelo_encapsuled"
     ],
-    "internal_slug": "testo"
+    "internal_slug": "testo",
+    "standardThumbsPathsAvailable": true,
+    "iosCollectionBrowserColumnCount": 2
   },
   {
     "address": "0x1353fd9d3dc70d1a18149c8fb2adb4fb906de4e8",
@@ -6671,11 +6947,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "carlos_marcial"
     ],
-    "internal_slug": "the_collectors_room"
+    "internal_slug": "the_collectors_room",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -6687,11 +6964,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "camille_roux_x_matthieu_segret"
     ],
-    "internal_slug": "the_destination"
+    "internal_slug": "the_destination",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -6703,11 +6981,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "fesq"
     ],
-    "internal_slug": "the_distance_in_between"
+    "internal_slug": "the_distance_in_between",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -6719,11 +6998,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "per_kristian_stoveland"
     ],
-    "internal_slug": "the_harvest"
+    "internal_slug": "the_harvest",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x00000041a2980e05cb4fbbbc735f17eff443b592",
@@ -6735,11 +7015,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "amy_goodchild_x_the_generative_art_museum"
     ],
-    "internal_slug": "the_light_where_we_meet"
+    "internal_slug": "the_light_where_we_meet",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -6751,11 +7032,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "sputniko"
     ],
-    "internal_slug": "the_nursery"
+    "internal_slug": "the_nursery",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6767,11 +7049,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "cole_sternberg"
     ],
-    "internal_slug": "the_spring_begins_with_the_first_rainstorm"
+    "internal_slug": "the_spring_begins_with_the_first_rainstorm",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xe034bb2b1b9471e11cf1a0a9199a156fb227aa5d",
@@ -6783,11 +7066,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "vera_molnar_in_collaboration_with_martin_grasser"
     ],
-    "internal_slug": "themes_and_variations"
+    "internal_slug": "themes_and_variations",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x9f79e46a309f804aa4b7b53a1f72c69137427794",
@@ -6799,11 +7083,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "willard"
     ],
-    "internal_slug": "theoretical_townships"
+    "internal_slug": "theoretical_townships",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6815,11 +7100,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "eric_davidson"
     ],
-    "internal_slug": "thoughts_of_meadow"
+    "internal_slug": "thoughts_of_meadow",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x8ce22a649a0ea5008900740028007278038d0023",
@@ -6831,11 +7117,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "anna_lucia"
     ],
-    "internal_slug": "thread"
+    "internal_slug": "thread",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -6847,11 +7134,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "abieyuwa_and_sabha"
     ],
-    "internal_slug": "through_my_windshield"
+    "internal_slug": "through_my_windshield",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6863,11 +7151,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "reva"
     ],
-    "internal_slug": "through_the_window"
+    "internal_slug": "through_the_window",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -6879,11 +7168,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "lovid"
     ],
-    "internal_slug": "tide_predictor"
+    "internal_slug": "tide_predictor",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x000056c200618b979900c3f1ef9aef86f4c47eaa",
@@ -6895,11 +7185,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "gossamer_rozen"
     ],
-    "internal_slug": "tigerbob_charm_packs"
+    "internal_slug": "tigerbob_charm_packs",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x000056c200618b979900c3f1ef9aef86f4c47eaa",
@@ -6911,11 +7202,13 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "gossamer_rozen"
     ],
-    "internal_slug": "tigerbob_mystery_garden"
+    "internal_slug": "tigerbob_mystery_garden",
+    "standardThumbsPathsAvailable": true,
+    "iosCollectionBrowserColumnCount": 2
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6927,11 +7220,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "steen_x_neo"
     ],
-    "internal_slug": "time_squared"
+    "internal_slug": "time_squared",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6943,11 +7237,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "jimmy_herdberg"
     ],
-    "internal_slug": "time_travel_in_a_subconscious_mind"
+    "internal_slug": "time_travel_in_a_subconscious_mind",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -6959,11 +7254,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "jeres"
     ],
-    "internal_slug": "torrent"
+    "internal_slug": "torrent",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x8cdbd7010bd197848e95c1fd7f6e870aac9b0d3c",
@@ -6975,11 +7271,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "jack_butcher"
     ],
-    "internal_slug": "trademark"
+    "internal_slug": "trademark",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x000000b394cac6057d87df835bea27844b3e2828",
@@ -6991,11 +7288,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "hal09999_x_the_generative_art_museum"
     ],
-    "internal_slug": "transformations_du_champ"
+    "internal_slug": "transformations_du_champ",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -7007,11 +7305,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "rafael_rozendaal"
     ],
-    "internal_slug": "transit_2"
+    "internal_slug": "transit_2",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -7023,11 +7322,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "heeey"
     ],
-    "internal_slug": "transit"
+    "internal_slug": "transit",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -7039,11 +7339,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "fingacode"
     ],
-    "internal_slug": "translucent_panes"
+    "internal_slug": "translucent_panes",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -7055,11 +7356,13 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "anna_carreras"
     ],
-    "internal_slug": "trossets"
+    "internal_slug": "trossets",
+    "standardThumbsPathsAvailable": true,
+    "iosCollectionBrowserColumnCount": 2
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -7071,11 +7374,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "xsaha"
     ],
-    "internal_slug": "turner_in_the_light"
+    "internal_slug": "turner_in_the_light",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -7087,11 +7391,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "beervangeer"
     ],
-    "internal_slug": "ultrawave_369"
+    "internal_slug": "ultrawave_369",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -7103,11 +7408,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "fernando_jerez"
     ],
-    "internal_slug": "umk"
+    "internal_slug": "umk",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -7119,11 +7425,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "ikiddo"
     ],
-    "internal_slug": "uniqueness"
+    "internal_slug": "uniqueness",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -7135,11 +7442,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "ge1doot"
     ],
-    "internal_slug": "utopia"
+    "internal_slug": "utopia",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -7151,11 +7459,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "darien_brito"
     ],
-    "internal_slug": "vahria"
+    "internal_slug": "vahria",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -7167,11 +7476,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "tengil"
     ],
-    "internal_slug": "vaxt"
+    "internal_slug": "vaxt",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -7183,11 +7493,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "sabha"
     ],
-    "internal_slug": "vessel"
+    "internal_slug": "vessel",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -7199,11 +7510,13 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "jeff_davis"
     ],
-    "internal_slug": "view_card"
+    "internal_slug": "view_card",
+    "standardThumbsPathsAvailable": true,
+    "iosCollectionBrowserColumnCount": 2
   },
   {
     "address": "0x00000024ca7f3cfba7084e3289a9048d79261b29",
@@ -7215,11 +7528,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "bustavo_x_the_generative_art_museum"
     ],
-    "internal_slug": "vivoteca"
+    "internal_slug": "vivoteca",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -7231,11 +7545,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "alexis_andre"
     ],
-    "internal_slug": "void"
+    "internal_slug": "void",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -7247,11 +7562,13 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "rvig"
     ],
-    "internal_slug": "volute"
+    "internal_slug": "volute",
+    "standardThumbsPathsAvailable": true,
+    "iosCollectionBrowserColumnCount": 2
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -7263,11 +7580,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "jen_stark"
     ],
-    "internal_slug": "vortex"
+    "internal_slug": "vortex",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -7279,11 +7597,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "disruptedstar"
     ],
-    "internal_slug": "voyager"
+    "internal_slug": "voyager",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -7295,11 +7614,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "rafael_rozendaal"
     ],
-    "internal_slug": "warp"
+    "internal_slug": "warp",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -7311,11 +7631,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "espina"
     ],
-    "internal_slug": "warp_2"
+    "internal_slug": "warp_2",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -7327,11 +7648,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "numbersinmotion"
     ],
-    "internal_slug": "watercolor_dreams"
+    "internal_slug": "watercolor_dreams",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0xab0000000000aa06f89b268d604a9c1c41524ac6",
@@ -7343,11 +7665,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "lars_wander"
     ],
-    "internal_slug": "while_true"
+    "internal_slug": "while_true",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -7359,11 +7682,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "volekr"
     ],
-    "internal_slug": "whispers_of_motion_fiat_pass"
+    "internal_slug": "whispers_of_motion_fiat_pass",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x000000c9572b8a9a638f238510af4e90a4e365ee",
@@ -7375,11 +7699,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "frederik_vanhoutte_x_the_generative_art_museum"
     ],
-    "internal_slug": "winterkammer"
+    "internal_slug": "winterkammer",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x13aae6f9599880edbb7d144bb13f1212cee99533",
@@ -7391,11 +7716,13 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "kenny_vaden"
     ],
-    "internal_slug": "worlds"
+    "internal_slug": "worlds",
+    "standardThumbsPathsAvailable": true,
+    "iosCollectionBrowserColumnCount": 2
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -7407,11 +7734,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "truedrew"
     ],
-    "internal_slug": "you_are_here_part_1"
+    "internal_slug": "you_are_here_part_1",
+    "standardThumbsPathsAvailable": true
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -7423,11 +7751,12 @@
     "iosOnly": true,
     "generativeOnly": true,
     "hasCover": true,
-    "hasThumbnails": false,
+    "hasThumbnails": true,
     "artists": [
       "rafael_rozendaal"
     ],
-    "internal_slug": "zoom"
+    "internal_slug": "zoom",
+    "standardThumbsPathsAvailable": true
   },
   {
     "name": "Bokeh",

@@ -11,7 +11,7 @@ extension ArtBlocksCatalogTests {
         SuggestedItemsService.allItems.filter { $0.bundledDate == "2026-09-14" && $0.generativeOnly == true }
     }
 
-    func testApprovedCollectionsHaveCoversAndGenerativeOnlyPlayback() throws {
+    func testApprovedCollectionsHaveCoversAndBrowsersWithGenerativeOnlyPlayback() throws {
         XCTAssertEqual(SuggestedItemsService.allItems.count, 529)
         XCTAssertEqual(additions.count, 292)
         var policies = [String: Int]()
@@ -20,7 +20,8 @@ extension ArtBlocksCatalogTests {
             XCTAssertEqual(item.id, item.address + (item.abId ?? ""), item.name)
             XCTAssertEqual(item.iosOnly, true)
             XCTAssertEqual(item.hasCover, true)
-            XCTAssertEqual(item.hasThumbnails, false)
+            XCTAssertEqual(item.hasThumbnails, true)
+            XCTAssertEqual(item.standardThumbsPathsAvailable, true)
             XCTAssertFalse(item.isDownloadableCollection)
             XCTAssertNil(item.tokenCount)
             XCTAssertFalse(item.artists.isEmpty, item.name)
@@ -32,14 +33,23 @@ extension ArtBlocksCatalogTests {
             XCTAssertTrue(TokenGenerator.usesArtBlocksRenderer(collectionId: item.id))
             XCTAssertTrue(CollectionCatalog.canOpenCollection(specificCollectionId: item.id))
             XCTAssertFalse(CollectionCatalog.isDownloadableCollection(specificCollectionId: item.id))
-            XCTAssertFalse(PlayerCollectionBrowserSupport.isAvailable(forCollectionId: item.id))
-            XCTAssertNil(CollectionCatalog.collectionBrowseThumbnailDescriptor(specificCollectionId: item.id, tokenIndex: 0))
+            XCTAssertTrue(PlayerCollectionBrowserSupport.isAvailable(forCollectionId: item.id))
+            XCTAssertTrue(CollectionCatalog.collectionBrowseMidImagesAvailable(specificCollectionId: item.id))
+            let descriptor = try XCTUnwrap(CollectionCatalog.collectionBrowseThumbnailDescriptor(specificCollectionId: item.id, tokenIndex: 0))
+            XCTAssertTrue(PlayerCollectionBrowserSupport.isAvailable(for: descriptor))
+            XCTAssertTrue(descriptor.isStaticImage)
+            XCTAssertTrue(descriptor.isCollectionBrowserThumbnail)
+            let token = try XCTUnwrap(CollectionCatalog.generateToken(specificCollectionId: item.id, tokenIndex: 0))
+            XCTAssertNil(token.media)
+            XCTAssertFalse(token.html.isEmpty)
             let url = try XCTUnwrap(SuggestedItemsService.bundle.url(forResource: "Scripts/" + item.id, withExtension: "json"))
             let script = try JSONDecoder().decode(Script.self, from: Data(contentsOf: url))
             let policy = ArtBlocksRenderingStartupProfiles.startupProfile(script) == nil ? "direct" : "calibrated"
             policies[policy, default: 0] += 1
         }
         XCTAssertEqual(policies, ["direct": 213, "calibrated": 79])
+        XCTAssertEqual(PlayerDisplayMode.initialMode(hasWidgetTokenInsertion: false, collectionBrowserAvailable: true), .collectionBrowser)
+        XCTAssertEqual(PlayerDisplayMode.initialMode(hasWidgetTokenInsertion: true, collectionBrowserAvailable: true), .onePerPage)
     }
 
     func testAllMintedRecordsDecodeWithHashesAndStableNavigationIdentity() throws {
@@ -49,18 +59,58 @@ extension ArtBlocksCatalogTests {
             XCTAssertFalse(tokens.items.isEmpty, item.name)
             XCTAssertEqual(Set(tokens.items.map(\.id)).count, tokens.items.count, item.name)
             XCTAssertEqual(CollectionCatalog.tokenCount(specificCollectionId: item.id), tokens.items.count)
-            for token in tokens.items {
+            let projectID = try XCTUnwrap(item.abId.flatMap(Int.init))
+            let slug = try XCTUnwrap(item.internalSlug)
+            for (index, token) in tokens.items.enumerated() {
+                XCTAssertEqual(token.id, String(projectID * 1_000_000 + index), item.name)
                 XCTAssertNotNil(token.hash?.range(of: "^0x[0-9a-fA-F]{64}$", options: .regularExpression), item.name + " " + token.id)
-                XCTAssertNotNil(token.artworkAspectRatio ?? token.thumbnailAspectRatio, item.name + " " + token.id)
+                XCTAssertNotNil(token.artworkAspectRatio, item.name + " " + token.id)
+                XCTAssertNotNil(token.thumbnailAspectRatio, item.name + " " + token.id)
+                XCTAssertEqual(CollectionCatalog.tokenIndex(specificCollectionId: item.id, tokenId: token.id), index)
             }
             for index in Set([0, tokens.items.count / 2, tokens.items.count - 1]) {
                 let token = tokens.items[index]
                 XCTAssertEqual(TokenGenerator.tokenIndex(specificCollectionId: item.id, tokenId: token.id), index)
-                XCTAssertNil(CollectionCatalog.collectionBrowseThumbnailDescriptor(specificCollectionId: item.id, tokenIndex: index))
+                let sources = try XCTUnwrap(CollectionCatalog.collectionBrowseImageSources(specificCollectionId: item.id, tokenIndex: index))
+                let base = "https://cdn.lil.org/player/\(slug)"
+                XCTAssertEqual(sources.thumbnailDescriptor.url.absoluteString, "\(base)/thumbs/\(index).webp")
+                XCTAssertEqual(sources.smallThumbnailDescriptor.url.absoluteString, "\(base)/thumbs/260/\(index).webp")
+                XCTAssertEqual(sources.smallestThumbnailDescriptor?.url.absoluteString, "\(base)/thumbs/140/\(index).webp")
+                XCTAssertEqual(sources.largeDescriptor.url.absoluteString, "\(base)/mid/\(index).webp")
+                for descriptor in [sources.thumbnailDescriptor, sources.smallThumbnailDescriptor, sources.largeDescriptor] {
+                    XCTAssertEqual(descriptor.collectionId, item.id)
+                    XCTAssertEqual(descriptor.tokenId, token.id)
+                    XCTAssertEqual(descriptor.tokenIndex, index)
+                    XCTAssertEqual(descriptor.thumbnailAspectRatio, token.thumbnailAspectRatio)
+                }
+                XCTAssertEqual(sources.smallestThumbnailDescriptor?.tokenId, token.id)
+                XCTAssertEqual(sources.smallestThumbnailDescriptor?.thumbnailAspectRatio, token.thumbnailAspectRatio)
             }
+            XCTAssertNil(CollectionCatalog.collectionBrowseThumbnailDescriptor(specificCollectionId: item.id, tokenIndex: -1))
+            XCTAssertNil(CollectionCatalog.collectionBrowseThumbnailDescriptor(specificCollectionId: item.id, tokenIndex: tokens.items.count))
             count += tokens.items.count
         }
-        XCTAssertGreaterThan(count, 6_524)
+        XCTAssertEqual(count, 143_847)
+    }
+
+    func testNeighborhoodThumbnailFramingIsIndependentOfGenerativeArtworkFraming() throws {
+        let item = try XCTUnwrap(additions.first { $0.internalSlug == "neighborhood" })
+        let tokens = try XCTUnwrap(SuggestedItemsService.bundledTokens(collectionId: item.id)).items
+        for (index, width, height) in [(0, 16, 9), (3, 1, 1), (7, 9, 16)] {
+            let ratio = ThumbnailAspectRatio(width: width, height: height)
+            XCTAssertEqual(tokens[index].id, String(146_000_000 + index))
+            XCTAssertEqual(tokens[index].thumbnailAspectRatio, ratio)
+            XCTAssertEqual(tokens[index].artworkAspectRatio, ThumbnailAspectRatio(width: 1, height: 1))
+            let sources = try XCTUnwrap(CollectionCatalog.collectionBrowseImageSources(specificCollectionId: item.id, tokenIndex: index))
+            XCTAssertEqual(sources.thumbnailDescriptor.thumbnailAspectRatio, ratio)
+            XCTAssertEqual(sources.smallThumbnailDescriptor.thumbnailAspectRatio, ratio)
+            XCTAssertEqual(sources.smallestThumbnailDescriptor?.thumbnailAspectRatio, ratio)
+            XCTAssertEqual(sources.largeDescriptor.thumbnailAspectRatio, ratio)
+            let generated = try XCTUnwrap(CollectionCatalog.generateToken(specificCollectionId: item.id, tokenIndex: index))
+            XCTAssertEqual(generated.id, tokens[index].id)
+            XCTAssertNil(generated.media)
+            XCTAssertFalse(generated.html.isEmpty)
+        }
     }
 
     func testLargeCollectionsGenerateOnlyRequestedTokensWithoutImages() throws {

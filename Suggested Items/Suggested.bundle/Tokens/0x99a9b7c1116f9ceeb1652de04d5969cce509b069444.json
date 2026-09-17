@@ -3269,5 +3269,11 @@
       5,
       7
     ]
+  ],
+  "thumbnailAspectRatios": [
+    [
+      343,
+      480
+    ]
   ]
 }
