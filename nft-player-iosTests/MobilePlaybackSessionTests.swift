@@ -156,6 +156,138 @@ extension MobilePlaybackSessionTests {
         return (collectionIDs[0], collectionIDs[1])
     }
 
+    private func dependencyRegistry(
+        preload: @escaping @MainActor (String) -> Void
+    ) -> MobilePlaybackSessionRegistry {
+        MobilePlaybackSessionRegistry(dependencies: .init(
+            makeViewingSessionTracker: { _ in MobilePlaybackSessionTestViewingTracker() },
+            clearActiveMediaWindow: { _ in },
+            cancelAllMediaDownloads: {},
+            preloadArtworkDependency: preload
+        ))
+    }
+
+    private func dependencyCollection() throws -> SuggestedItem {
+        try XCTUnwrap(SuggestedItemsService.visibleItems.first { $0.internalSlug == "hypertype" })
+    }
+
+    private func dependencyAnchorInsertion(
+        item: SuggestedItem,
+        insertedToken: GeneratedToken
+    ) throws -> PlayerWidgetTokenInsertion {
+        let tokens = try XCTUnwrap(SuggestedItemsService.bundledTokens(collectionId: item.id)).items
+        return PlayerWidgetTokenInsertion(
+            insertedToken: insertedToken,
+            insertedTokenIndex: 0,
+            anchorProgress: PlayerViewingProgress(
+                collectionId: item.id,
+                collectionName: item.name,
+                tokenId: tokens[2].id,
+                tokenIndex: 2,
+                tokenCount: tokens.count,
+                updatedAt: .distantPast
+            ),
+            isAnchorProgressResolved: true
+        )
+    }
+
+    func testArtworkDependencyPreloadStartsForActualCollectionEntries() throws {
+        let item = try dependencyCollection()
+        let token = try XCTUnwrap(CollectionCatalog.generateToken(specificCollectionId: item.id, tokenIndex: 7))
+        let (otherID, _) = try testCollectionIDs()
+        var requests = [String]()
+        let registry = dependencyRegistry { requests.append($0) }
+        let configurations = [
+            MobilePlayerConfig(initialItemId: item.id),
+            MobilePlayerConfig(initialItemId: item.id, initialTokenId: token.id,
+                               initialTokenIndex: 7, continueViewingCollectionId: item.id),
+            MobilePlayerConfig(initialItemId: otherID, specificToken: token),
+            MobilePlayerConfig(initialItemId: otherID,
+                               widgetTokenInsertion: try dependencyAnchorInsertion(item: item, insertedToken: token))
+        ]
+        for (index, config) in configurations.enumerated() {
+            let session = registry.startSession(config: config)
+            XCTAssertTrue(session.isActive)
+            XCTAssertEqual(requests, Array(repeating: item.id, count: index + 1))
+            session.stopAndDisconnect()
+        }
+    }
+
+    func testOtherCollectionsAndTokenPreparationDoNotRequestDependencies() throws {
+        let item = try dependencyCollection()
+        let (otherID, _) = try testCollectionIDs()
+        XCTAssertNotEqual(otherID, item.id)
+        var requests = [String]()
+        let registry = dependencyRegistry { requests.append($0) }
+        let session = registry.startSession(config: MobilePlayerConfig(initialItemId: otherID))
+        defer { session.stopAndDisconnect() }
+        XCTAssertNotNil(CollectionCatalog.generateToken(specificCollectionId: item.id, tokenIndex: 0))
+        XCTAssertNotNil(session.collectionBrowseSnapshot())
+        XCTAssertNotNil(session.prepareCollectionBrowse(containing: .initial))
+        _ = session.getToken(pagePosition: .initial)
+        _ = session.markViewed(pagePosition: .initial)
+        XCTAssertTrue(requests.isEmpty)
+    }
+
+    func testWidgetAnchorDependencyWaitsForCommittedCollectionBrowse() throws {
+        let item = try dependencyCollection()
+        let (otherID, _) = try testCollectionIDs()
+        let insertedToken = try XCTUnwrap(CollectionCatalog.generateToken(specificCollectionId: otherID, tokenIndex: 0))
+        var requests = [String]()
+        let registry = dependencyRegistry { requests.append($0) }
+        let session = registry.startSession(config: MobilePlayerConfig(
+            initialItemId: item.id,
+            widgetTokenInsertion: try dependencyAnchorInsertion(item: item, insertedToken: insertedToken)
+        ))
+        defer { session.stopAndDisconnect() }
+        XCTAssertEqual(session.getToken(pagePosition: .initial).fullCollectionId, otherID)
+        _ = session.markViewed(pagePosition: .initial)
+        let preparation = try XCTUnwrap(session.prepareCollectionBrowse(containing: .initial))
+        XCTAssertEqual(preparation.snapshot.collectionId, item.id)
+        XCTAssertTrue(requests.isEmpty)
+        let invalid = PlayerCollectionBrowsePreparation(
+            sourcePagePosition: preparation.sourcePagePosition,
+            snapshot: preparation.snapshot,
+            focusedTokenIndex: preparation.focusedTokenIndex + 1,
+            requiresWidgetInsertionExit: preparation.requiresWidgetInsertionExit
+        )
+        XCTAssertEqual(session.commitCollectionBrowse(preparation: invalid), .unavailable)
+        XCTAssertTrue(requests.isEmpty)
+        guard case .resolved(let position) = session.commitCollectionBrowse(preparation: preparation) else {
+            return XCTFail("Expected the prepared collection to commit")
+        }
+        XCTAssertEqual(requests, [item.id])
+        XCTAssertEqual(session.getToken(pagePosition: position).fullCollectionId, item.id)
+        _ = session.markViewed(pagePosition: position)
+        let repeated = try XCTUnwrap(session.prepareCollectionBrowse(containing: position))
+        XCTAssertEqual(session.commitCollectionBrowse(preparation: repeated), .resolved(position))
+        XCTAssertEqual(requests, [item.id])
+    }
+
+    func testSettledCollectionChangePreloadsOnceAndStopsAfterDisconnect() throws {
+        let item = try dependencyCollection()
+        let (otherID, _) = try testCollectionIDs()
+        let insertedToken = try XCTUnwrap(CollectionCatalog.generateToken(specificCollectionId: otherID, tokenIndex: 0))
+        var requests = [String]()
+        let registry = dependencyRegistry { requests.append($0) }
+        let session = registry.startSession(config: MobilePlayerConfig(
+            initialItemId: item.id,
+            widgetTokenInsertion: try dependencyAnchorInsertion(item: item, insertedToken: insertedToken)
+        ))
+        let anchorPosition = PlayerPagePosition(position: 1)
+        XCTAssertEqual(session.getToken(pagePosition: anchorPosition).fullCollectionId, item.id)
+        XCTAssertTrue(requests.isEmpty)
+        XCTAssertNotNil(session.markViewed(pagePosition: anchorPosition))
+        XCTAssertEqual(requests, [item.id])
+        XCTAssertNotNil(session.markViewed(pagePosition: anchorPosition))
+        XCTAssertEqual(requests, [item.id])
+        let preparation = try XCTUnwrap(session.prepareCollectionBrowse(containing: anchorPosition))
+        session.stopAndDisconnect()
+        XCTAssertNil(session.markViewed(pagePosition: anchorPosition))
+        XCTAssertEqual(session.commitCollectionBrowse(preparation: preparation), .unavailable)
+        XCTAssertEqual(requests, [item.id])
+    }
+
     func testSessionsWithSharedConfigIDKeepIndependentStateAndDisplays() throws {
         let registry = MobilePlaybackSessionRegistry(
             dependencies: .init(

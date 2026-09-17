@@ -53,35 +53,37 @@
       "sha256": "4d7c4cf19549784271e12048a2492326cfddd1f1f769b8e414f683f409d33890"
     }
   ],
-  "secondaryAssets": [
+  "secondaryAssets": [],
+  "secondaryVendorFiles": [
     {
-      "file": "secondary-assets/hypertype/dependency.js",
+      "file": "Hypertype/dependency.js",
+      "source": "https://cdn.lil.org/player/hypertype/dependency.js",
+      "cidPath": "QmXWXHGkxYFjJF5AuPiVB91VXK31LnoPN9EXKgiWFUvfT6",
+      "bytes": 712587,
+      "sha256": "48d2613055cacdf43217ed43710990150ef2afaa15540c69d2b840d80fd4b6c8",
+      "upstreamSource": "https://gateway.pinata.cloud/ipfs/QmXWXHGkxYFjJF5AuPiVB91VXK31LnoPN9EXKgiWFUvfT6"
+    },
+    {
+      "file": "Hypertype/ATTRIBUTION.txt",
+      "content": "Hypertype — shared rendering dependency\nArtist: Mark Webster\n\nThis is the original, unmodified dependency declared by the Hypertype artist script (Ethereum, contract 0xbb5471c292065d3b01b2e81e299267221ae9a250, project 0).\nSource: https://gateway.pinata.cloud/ipfs/QmXWXHGkxYFjJF5AuPiVB91VXK31LnoPN9EXKgiWFUvfT6\nIPFS CID: QmXWXHGkxYFjJF5AuPiVB91VXK31LnoPN9EXKgiWFUvfT6\nSHA-256: 48d2613055cacdf43217ed43710990150ef2afaa15540c69d2b840d80fd4b6c8\n\nThe file contains shared rendering code, 35 data records, 104 vector glyphs, and 14 palettes. It is shared by all tokens; token-specific selection remains in the original artist code.\nEmbedded retrieved_url values identify the data records’ sources and are not runtime asset requests.\nNo license identifier was supplied in the cached project metadata or this dependency.\n",
+      "bytes": 818,
+      "sha256": "03fd966a9f2215942ae40663c1686a428490a7c647360ffc4683b3803d9d06b3"
+    }
+  ],
+  "onDemandSecondaryAssets": [
+    {
       "source": "https://gateway.pinata.cloud/ipfs/QmXWXHGkxYFjJF5AuPiVB91VXK31LnoPN9EXKgiWFUvfT6",
       "cidPath": "QmXWXHGkxYFjJF5AuPiVB91VXK31LnoPN9EXKgiWFUvfT6",
       "bytes": 712587,
       "sha256": "48d2613055cacdf43217ed43710990150ef2afaa15540c69d2b840d80fd4b6c8",
       "name": "Hypertype shared rendering dependency",
       "artist": "Mark Webster",
-      "attribution": "secondary-assets/hypertype/ATTRIBUTION.txt",
+      "attribution": "nft-player-iosTests/Fixtures/Hypertype/ATTRIBUTION.txt",
       "dataRecords": 35,
       "vectorGlyphs": 104,
-      "palettes": 14
+      "palettes": 14,
+      "cdnURL": "https://cdn.lil.org/player/hypertype/dependency.js",
+      "fixture": "nft-player-iosTests/Fixtures/Hypertype/dependency.js"
     }
-  ],
-  "secondaryVendorFiles": [
-    {
-      "file": "secondary-assets/hypertype/dependency.js",
-      "source": "https://gateway.pinata.cloud/ipfs/QmXWXHGkxYFjJF5AuPiVB91VXK31LnoPN9EXKgiWFUvfT6",
-      "cidPath": "QmXWXHGkxYFjJF5AuPiVB91VXK31LnoPN9EXKgiWFUvfT6",
-      "bytes": 712587,
-      "sha256": "48d2613055cacdf43217ed43710990150ef2afaa15540c69d2b840d80fd4b6c8"
-    },
-    {
-      "file": "secondary-assets/hypertype/ATTRIBUTION.txt",
-      "content": "Hypertype — shared rendering dependency\nArtist: Mark Webster\n\nThis is the original, unmodified dependency declared by the Hypertype artist script (Ethereum, contract 0xbb5471c292065d3b01b2e81e299267221ae9a250, project 0).\nSource: https://gateway.pinata.cloud/ipfs/QmXWXHGkxYFjJF5AuPiVB91VXK31LnoPN9EXKgiWFUvfT6\nIPFS CID: QmXWXHGkxYFjJF5AuPiVB91VXK31LnoPN9EXKgiWFUvfT6\nSHA-256: 48d2613055cacdf43217ed43710990150ef2afaa15540c69d2b840d80fd4b6c8\n\nThe file contains shared rendering code, 35 data records, 104 vector glyphs, and 14 palettes. It is shared by all tokens; token-specific selection remains in the original artist code.\nEmbedded retrieved_url values identify the data records’ sources and are not runtime asset requests.\nNo license identifier was supplied in the cached project metadata or this dependency.\n",
-      "bytes": 818,
-      "sha256": "03fd966a9f2215942ae40663c1686a428490a7c647360ffc4683b3803d9d06b3"
-    }
-  ],
-  "onDemandSecondaryAssets": []
+  ]
 }

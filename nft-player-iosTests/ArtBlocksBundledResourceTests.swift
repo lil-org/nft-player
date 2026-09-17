@@ -186,11 +186,13 @@ private final class HypertypeOfflineFixture: NSObject, WKNavigationDelegate {
 
 @MainActor
 extension ArtBlocksBundledResourceTests {
-    func testHypertypeBundlingRequiresExactArtistIdentitySourceAndDependency() throws {
+    func testHypertypePersistentDependencyRequiresExactArtistIdentitySourceAndDependency() throws {
         let (script, tokens) = try hypertypeResources()
         let token = try XCTUnwrap(tokens.items.first)
         let html = RawHtmlGenerator.createHtml(script: script, token: token)
-        XCTAssertTrue(html.contains("function nftPlayerHypertypeBundledDependency()"))
+        XCTAssertTrue(html.contains("function nftPlayerHypertypePersistentDependency()"))
+        XCTAssertEqual(RawHtmlGenerator.requiredDependency(in: html, collectionId: script.id), .hypertype)
+        XCTAssertFalse(html.contains("data:text/javascript;base64,"))
         XCTAssertTrue(html.contains("<script>" + script.value + "</script>"))
         XCTAssertEqual(ArtBlocksRenderingStartupProfiles.startupPolicy(script), .direct)
         let fields = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(script)) as? [String: Any])
@@ -227,24 +229,32 @@ extension ArtBlocksBundledResourceTests {
         variations.append(extraDependency)
         for variant in variations {
             let modified = try JSONDecoder().decode(Script.self, from: JSONSerialization.data(withJSONObject: variant))
-            XCTAssertFalse(RawHtmlGenerator.createHtml(script: modified, token: token).contains("function nftPlayerHypertypeBundledDependency()"))
+            XCTAssertFalse(RawHtmlGenerator.createHtml(script: modified, token: token).contains("function nftPlayerHypertypePersistentDependency()"))
         }
     }
 
     func testAllHypertypeTokensMatchOriginalSVGWithoutNetworkAccess() async throws {
         let (script, tokens) = try hypertypeResources()
-        XCTAssertGreaterThanOrEqual(tokens.items.count, 23)
-        let assetURL = try XCTUnwrap(SuggestedItemsService.hostSecondaryResourceURL(relativePath: "secondary-assets/hypertype/dependency.js"))
+        XCTAssertEqual(tokens.items.count, 150)
+        let assetURL = try XCTUnwrap(Bundle(for: ArtBlocksBundledResourceTests.self).url(forResource: "dependency", withExtension: "js", subdirectory: "Hypertype"))
         let asset = try Data(contentsOf: assetURL)
         XCTAssertEqual(asset.count, 712_587)
         XCTAssertEqual(digest(asset), "48d2613055cacdf43217ed43710990150ef2afaa15540c69d2b840d80fd4b6c8")
+        let cacheRoot = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: cacheRoot) }
+        let cache = PersistentArtworkDependencyCache(rootURL: cacheRoot) { _ in (asset, 200) }
+        _ = try await cache.data(for: .hypertype)
+        let offlineCache = PersistentArtworkDependencyCache(rootURL: cacheRoot) { _ in
+            throw URLError(.notConnectedToInternet)
+        }
         let rules = try await WKContentRuleListStore.default().compileContentRuleList(
             forIdentifier: "HypertypeOfflineAllResources",
             encodedContentRuleList: #"[{"trigger":{"url-filter":"^https?://"},"action":{"type":"block"}}]"#
         )
         var measurements: [[String: Any]] = []
         for token in tokens.items {
-            let html = RawHtmlGenerator.createHtml(script: script, token: token)
+            let generated = RawHtmlGenerator.createHtml(script: script, token: token)
+            let html = try await RawHtmlGenerator.resolveDependencies(in: generated, collectionId: script.id, cache: offlineCache)
             let adapterRange = try hypertypeAdapterRange(in: html)
             let capture = "<script>window.__hypertypeOriginalSrc = Object.getOwnPropertyDescriptor(HTMLScriptElement.prototype, 'src');</script>"
             var localHTML = html
@@ -305,7 +315,7 @@ extension ArtBlocksBundledResourceTests {
     }
 
     private func hypertypeAdapterRange(in html: String) throws -> Range<String.Index> {
-        let marker = try XCTUnwrap(html.range(of: "function nftPlayerHypertypeBundledDependency()"))
+        let marker = try XCTUnwrap(html.range(of: "function nftPlayerHypertypePersistentDependency()"))
         let start = try XCTUnwrap(html.range(of: "<script", options: .backwards, range: html.startIndex..<marker.lowerBound)).lowerBound
         let end = try XCTUnwrap(html.range(of: "</script>", range: marker.upperBound..<html.endIndex)).upperBound
         return start..<end

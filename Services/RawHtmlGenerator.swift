@@ -411,7 +411,7 @@ nonisolated enum RawHtmlGenerator {
         var resolvedHTML = html
         let beforeArtist = [
             ArtBlocksRenderingResolutionOverrides.beforeArtist(script),
-            bundledHypertypeDependency(script),
+            persistentHypertypeDependency(script),
             ArtBlocksRenderingStartupProfiles.beforeArtist(script)
         ].filter { !$0.isEmpty }.joined(separator: "\n")
         let afterArtist = [ArtBlocksRenderingResolutionOverrides.afterArtist(script),
@@ -571,19 +571,30 @@ nonisolated enum RawHtmlGenerator {
         return content + "\n" + document
     }
 
-    private static let hypertypeDependencyURL: String = {
-        let source = cachedLibraryScript(key: "secondary-assets/hypertype/dependency.js") {
-            SuggestedItemsService.hostSecondaryResourceURL(relativePath: "secondary-assets/hypertype/dependency.js")
-        }
-        let bytes = Data(source.utf8)
-        let digest = SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined()
-        guard digest == "48d2613055cacdf43217ed43710990150ef2afaa15540c69d2b840d80fd4b6c8" else {
-            return moduleDataURL("throw new Error('Missing or invalid bundled Hypertype dependency.');")
-        }
-        return moduleDataURL(source)
-    }()
+    private static let hypertypeDependencyReference =
+        "nft-player-dependency:hypertype:" + PersistentArtworkDependency.hypertype.sha256
 
-    private static func bundledHypertypeDependency(_ script: Script) -> String {
+    static func requiredDependency(in html: String, collectionId: String?) -> PersistentArtworkDependency? {
+        guard collectionId == PersistentArtworkDependency.hypertype.collectionId,
+              html.contains(hypertypeDependencyReference) else { return nil }
+        return .hypertype
+    }
+
+    static func resolveDependencies(
+        in html: String,
+        collectionId: String?,
+        cache: PersistentArtworkDependencyCache
+    ) async throws -> String {
+        guard let dependency = requiredDependency(in: html, collectionId: collectionId) else { return html }
+        let data = try await cache.data(for: dependency)
+        try Task.checkCancellation()
+        return html.replacingOccurrences(
+            of: hypertypeDependencyReference,
+            with: "data:text/javascript;base64," + data.base64EncodedString()
+        )
+    }
+
+    private static func persistentHypertypeDependency(_ script: Script) -> String {
         let cid = "QmXWXHGkxYFjJF5AuPiVB91VXK31LnoPN9EXKgiWFUvfT6"
         guard script.usesArtBlocksRenderer, script.kind == .svg,
               script.name == "Hypertype", script.chain == .ethereum,
@@ -596,7 +607,7 @@ nonisolated enum RawHtmlGenerator {
               SHA256.hash(data: Data(script.value.utf8)).map({ String(format: "%02x", $0) }).joined()
                 == "d90c56c0fe5a34593123ad9ff81cb4da43981c1f182a70ca5e2b1be777955e51" else { return "" }
         return """
-        (function nftPlayerHypertypeBundledDependency() {
+        (function nftPlayerHypertypePersistentDependency() {
           const prototype = HTMLScriptElement.prototype;
           const descriptor = Object.getOwnPropertyDescriptor(prototype, "src");
           const source = tokenData.preferredIPFSGateway + "\(cid)";
@@ -604,7 +615,7 @@ nonisolated enum RawHtmlGenerator {
             set: function (value) {
               if (String(value) === source) {
                 Object.defineProperty(prototype, "src", descriptor);
-                return descriptor.set.call(this, "\(hypertypeDependencyURL)");
+                return descriptor.set.call(this, "\(hypertypeDependencyReference)");
               }
               return descriptor.set.call(this, value);
             }

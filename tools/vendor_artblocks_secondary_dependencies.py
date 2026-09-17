@@ -10,7 +10,8 @@ import urllib.request
 
 
 REPOSITORY = pathlib.Path(__file__).resolve().parents[1]
-DEFAULT_DESTINATION = REPOSITORY / "nft-player/Generators/newlibs"
+DEFAULT_MANIFEST = REPOSITORY / "nft-player/Generators/newlibs/manifest.json"
+DEFAULT_DESTINATION = REPOSITORY / "nft-player-iosTests/Fixtures"
 USER_AGENT = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
     "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15"
@@ -67,14 +68,7 @@ def retrieve(record, package_cache):
     return data
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Verify or restore the pinned Art Blocks secondary rendering dependencies.")
-    parser.add_argument("--manifest", type=pathlib.Path, default=DEFAULT_DESTINATION / "manifest.json")
-    parser.add_argument("--destination", type=pathlib.Path, default=DEFAULT_DESTINATION)
-    parser.add_argument("--fetch", action="store_true", help="Restore missing or modified files from their pinned sources.")
-    args = parser.parse_args()
-    manifest = json.loads(args.manifest.read_text())
-    records = manifest["secondaryVendorFiles"]
+def verify_or_restore(records, destination, fetch=False):
     paths = [relative_path(record["file"]) for record in records]
     if len(set(paths)) != len(paths):
         raise ValueError("Duplicate secondary resource paths")
@@ -82,25 +76,38 @@ def main():
     package_cache = {}
     replacements = {}
     for record, relative in zip(records, paths):
-        target = args.destination / relative
+        target = destination / relative
         try:
             verify_bytes(record, target.read_bytes())
         except (OSError, ValueError):
-            if not args.fetch:
+            if not fetch:
                 raise
             replacements[relative] = retrieve(record, package_cache)
 
     for relative, data in replacements.items():
-        target = args.destination / relative
+        target = destination / relative
         target.parent.mkdir(parents=True, exist_ok=True)
         with tempfile.NamedTemporaryFile(dir=target.parent, delete=False) as staging:
             staging.write(data)
             temporary = pathlib.Path(staging.name)
         temporary.replace(target)
 
-    print(f"Verified {len(records)} secondary dependency files ({sum(record['bytes'] for record in records):,} bytes).")
+    return len(replacements)
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Verify or restore pinned Art Blocks dependency fixtures used only by tests.")
+    parser.add_argument("--manifest", type=pathlib.Path, default=DEFAULT_MANIFEST)
+    parser.add_argument("--destination", type=pathlib.Path, default=DEFAULT_DESTINATION,
+                        help="Test-fixture destination, separate from shipped application resources.")
+    parser.add_argument("--fetch", action="store_true", help="Restore missing or modified test fixtures from their pinned sources.")
+    args = parser.parse_args()
+    manifest = json.loads(args.manifest.read_text())
+    records = manifest["secondaryVendorFiles"]
+    replacements = verify_or_restore(records, args.destination, args.fetch)
+    print(f"Verified {len(records)} test-only dependency fixture files ({sum(record['bytes'] for record in records):,} bytes).")
     if replacements:
-        print(f"Restored {len(replacements)} files from their pinned sources.")
+        print(f"Restored {replacements} test fixtures from their pinned sources.")
 
 
 if __name__ == "__main__":

@@ -168,12 +168,4 @@ nonisolated enum SuggestedItemsService {
         return Bundle.main.url(forResource: name, withExtension: "js")
     }
 
-    static func hostSecondaryResourceURL(relativePath: String) -> URL? {
-        guard relativePath.hasPrefix("secondary-assets/"),
-              !relativePath.split(separator: "/").contains("..") else { return nil }
-        if let alternativeResourceDirectoryURL {
-            return alternativeResourceDirectoryURL.appendingPathComponent(relativePath)
-        }
-        return Bundle.main.url(forResource: relativePath, withExtension: nil)
-    }
 }

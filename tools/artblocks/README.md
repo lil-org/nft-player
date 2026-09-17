@@ -81,7 +81,17 @@ After applying, run `node scripts/generate-widget-resources.mjs`, then `node scr
 
 The September 14, 2026 production batch adds **292 collections and 143,847 minted tokens** to the normal iOS/iPadOS app. That batch brought the catalog to **517 entries**, including the original 225, while leaving other platforms and widget eligibility unchanged.
 
-The additions are generative-only, with neutral covers and no thumbnail browser or remote sample-image fallback. Artist scripts, embedded fonts/data, pinned rendering libraries, Hypertype's local dependency, and frozen contract parameters ship in the app. The permanent Art Blocks renderer preserves 213 direct and 79 calibrated startup policies, quality monitoring, collection fixes, and cache migration. `bundledDate` records `2026-09-14` for this batch and remains stable on rebuilds.
+The additions retain generative-only playback and now have artwork covers and a CDN thumbnail browser. Their four image tiers use `https://cdn.lil.org/player/<internal_slug>/` with `mid/<assetNumber>.webp`, `thumbs/<assetNumber>.webp`, `thumbs/260/<playerIndex>.webp`, and `thumbs/140/<playerIndex>.webp`. Artist scripts, embedded fonts/data, pinned rendering libraries, and frozen contract parameters ship in the app. The permanent Art Blocks renderer preserves 213 direct and 79 calibrated startup policies, quality monitoring, collection fixes, and cache migration. `bundledDate` records `2026-09-14` for this batch and remains stable on rebuilds.
+
+Hypertype's shared JavaScript dependency loads from `https://cdn.lil.org/player/hypertype/dependency.js` when its live artwork first opens. The native dependency cache validates its 712,587-byte length and SHA-256 `48d2613055cacdf43217ed43710990150ef2afaa15540c69d2b840d80fd4b6c8` before use, persists verified bytes in Application Support with backup exclusion, and reuses them offline without expiry or media-cache eviction. An uncached offline request reports a loading error; the original IPFS gateway is not a fallback. Original artist code, token hashes, shared datasets, glyphs, and palettes remain unchanged.
+
+The exact dependency and attribution are retained only in `nft-player-iosTests/Fixtures/Hypertype/` for offline rendering comparisons. They are resources of the test bundle, excluded from all four application bundles. `nft-player/Generators/newlibs/manifest.json` records the CDN URL, original IPFS CID/source, byte count, and checksum. Verify or restore the test fixtures with:
+
+```sh
+python3 tools/vendor_artblocks_secondary_dependencies.py
+python3 tools/vendor_artblocks_secondary_dependencies.py --fetch
+python3 -m unittest discover -s tools -p 'vendor_artblocks_secondary_dependencies_test.py'
+```
 
 Use the [production capture and publication workflow](production/README.md):
 

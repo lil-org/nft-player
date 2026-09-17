@@ -59,7 +59,8 @@ let package = Package(
                 "Models/PlayerBookmarkController.swift",
                 "Models/Strings.swift",
                 "Models/WidgetDeepLink.swift",
-                "Services/PlayerICloudSync.swift"
+                "Services/PlayerICloudSync.swift",
+                "Services/PersistentArtworkDependencyCache.swift"
             ],
             swiftSettings: [
                 .enableUpcomingFeature("InferIsolatedConformances"),

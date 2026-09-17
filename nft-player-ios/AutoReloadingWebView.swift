@@ -55,6 +55,11 @@ class AutoReloadingWebView: WKWebView, WKNavigationDelegate {
     private var artworkTokenId: String?
     private var artworkErrorHandler: ((String) -> Void)?
     private var artworkHTML: String?
+    private var preparedArtworkHTML: String?
+    private var artworkDependencyTask: Task<Void, Never>?
+    private var artworkDependencyRequest: (id: UUID, html: String, baseURL: URL?)?
+    private var artworkDependencyCover: UIView?
+    var artworkDependencyCache = PersistentArtworkDependencyCache.shared
     private var artworkBaseURL: URL?
     private var artworkLogicalRenderSize: CGSize?
     private var artworkStartupProfile: ArtBlocksRenderingStartupProfiles.Profile?
@@ -115,6 +120,7 @@ class AutoReloadingWebView: WKWebView, WKNavigationDelegate {
     }
 
     isolated deinit {
+        artworkDependencyTask?.cancel()
         artworkLoadTimeout?.cancel()
         artworkResolutionReloadTask?.cancel()
         artworkStartupTask?.cancel()
@@ -149,6 +155,8 @@ class AutoReloadingWebView: WKWebView, WKNavigationDelegate {
         artworkTokenId = nil
         artworkErrorHandler = nil
         artworkHTML = nil
+        preparedArtworkHTML = nil
+        removeArtworkDependencyCover()
         artworkBaseURL = nil
         artworkLogicalRenderSize = nil
         artworkStartupTask?.cancel()
@@ -260,13 +268,70 @@ class AutoReloadingWebView: WKWebView, WKNavigationDelegate {
         let resolvedBaseURL = artworkCollectionId != nil
             ? (baseURL ?? URL(string: "https://preview.artblocks.invalid/"))
             : baseURL
-        if artworkStartupProfile != nil, artworkHTML == string, artworkBaseURL == resolvedBaseURL,
+        if let pending = artworkDependencyRequest,
+           pending.html == string, pending.baseURL == resolvedBaseURL {
+            return nil
+        }
+        cancelArtworkDependencyLoad()
+        if RawHtmlGenerator.requiredDependency(in: string, collectionId: artworkCollectionId) != nil {
+            if artworkHTML == string, artworkBaseURL == resolvedBaseURL,
+               let preparedArtworkHTML, !didReportArtworkError {
+                return loadPreparedHTML(preparedArtworkHTML, originalHTML: string, baseURL: resolvedBaseURL)
+            }
+            invalidateRequestedContent()
+            artworkHTML = string
+            preparedArtworkHTML = nil
+            artworkBaseURL = resolvedBaseURL
+            artworkLogicalRenderSize = nil
+            artworkStartupProfile = nil
+            artworkRenderedSize = nil
+            showArtworkDependencyCover()
+            if url != nil { super.loadHTMLString("", baseURL: nil) }
+            let requestID = UUID()
+            let collectionId = artworkCollectionId
+            let tokenId = artworkTokenId
+            let cache = artworkDependencyCache
+            artworkDependencyRequest = (requestID, string, resolvedBaseURL)
+            artworkDependencyTask = Task { @MainActor [weak self] in
+                do {
+                    let resolved = try await RawHtmlGenerator.resolveDependencies(
+                        in: string, collectionId: collectionId, cache: cache
+                    )
+                    guard !Task.isCancelled, let self,
+                          self.artworkDependencyRequest?.id == requestID,
+                          self.artworkCollectionId == collectionId,
+                          self.artworkTokenId == tokenId else { return }
+                    self.artworkDependencyRequest = nil
+                    self.artworkDependencyTask = nil
+                    self.loadPreparedHTML(resolved, originalHTML: string, baseURL: resolvedBaseURL)
+                } catch {
+                    guard !Task.isCancelled, let self,
+                          self.artworkDependencyRequest?.id == requestID,
+                          self.artworkCollectionId == collectionId,
+                          self.artworkTokenId == tokenId else { return }
+                    self.artworkDependencyRequest = nil
+                    self.artworkDependencyTask = nil
+                    self.reportArtworkError("The artwork dependency could not be loaded. Retry or move to another item.")
+                }
+            }
+            return nil
+        }
+        return loadPreparedHTML(string, originalHTML: string, baseURL: resolvedBaseURL)
+    }
+
+    @discardableResult private func loadPreparedHTML(
+        _ string: String,
+        originalHTML: String,
+        baseURL resolvedBaseURL: URL?
+    ) -> WKNavigation? {
+        if artworkStartupProfile != nil, artworkHTML == originalHTML, artworkBaseURL == resolvedBaseURL,
            artworkGeneration != nil, !didReportArtworkError, artworkPendingStartup == nil,
            artworkRenderedSize == bounds.size {
             return nil
         }
         if artworkCollectionId != nil {
-            artworkHTML = string
+            artworkHTML = originalHTML
+            preparedArtworkHTML = string
             artworkBaseURL = resolvedBaseURL
             artworkLogicalRenderSize = nil
             artworkStartupProfile = nil
@@ -306,6 +371,7 @@ class AutoReloadingWebView: WKWebView, WKNavigationDelegate {
         onSuccess: (() -> Void)? = nil,
         onFailure: (() -> Void)? = nil
     ) -> WKNavigation? {
+        cancelArtworkDependencyLoad()
         return contentLoadCoordinator.loadLocalHTMLString(
             string,
             htmlDirectoryURL: htmlDirectoryURL,
@@ -342,6 +408,7 @@ class AutoReloadingWebView: WKWebView, WKNavigationDelegate {
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         contentLoadCoordinator.didFinish(navigation)
         if let navigation, navigation === artworkNavigation, artworkStartupProfile == nil {
+            removeArtworkDependencyCover()
             artworkLoadTimeout?.cancel()
             artworkLoadTimeout = nil
         }
@@ -716,7 +783,7 @@ class AutoReloadingWebView: WKWebView, WKNavigationDelegate {
             if self.artworkStartupProfile == nil { self.artworkResolutionReloadTask = nil }
             guard self.artworkGeneration == generation,
                   self.currentArtworkResolutionKey == key,
-                  let html = self.artworkHTML else { return }
+                  let html = self.preparedArtworkHTML else { return }
             if self.artworkStartupProfile != nil {
                 let snapshot = self.artworkCover?.isHidden == true ? try? await self.takeSnapshot(configuration: nil) : nil
                 guard !Task.isCancelled, self.artworkGeneration == generation, self.currentArtworkResolutionKey == key else { return }
@@ -755,6 +822,7 @@ class AutoReloadingWebView: WKWebView, WKNavigationDelegate {
     }
 
     private func cancelArtworkLoad() {
+        cancelArtworkDependencyLoad()
         artworkGeneration = nil
         artworkNavigation = nil
         artworkLoadTimeout?.cancel()
@@ -764,6 +832,30 @@ class AutoReloadingWebView: WKWebView, WKNavigationDelegate {
         artworkRevealTask?.cancel()
         artworkRevealTask = nil
         didReportArtworkError = false
+    }
+
+    private func cancelArtworkDependencyLoad() {
+        artworkDependencyTask?.cancel()
+        artworkDependencyTask = nil
+        artworkDependencyRequest = nil
+    }
+
+    private func showArtworkDependencyCover() {
+        guard artworkDependencyCover == nil else { return }
+        let cover = UIView(frame: bounds)
+        cover.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        cover.backgroundColor = .black
+        cover.isUserInteractionEnabled = false
+        addSubview(cover)
+        artworkDependencyCover = cover
+        accessibilityElementsHidden = true
+    }
+
+    private func removeArtworkDependencyCover() {
+        guard let artworkDependencyCover else { return }
+        artworkDependencyCover.removeFromSuperview()
+        self.artworkDependencyCover = nil
+        accessibilityElementsHidden = false
     }
 
     func reloadStableArtworkAfterResize() {

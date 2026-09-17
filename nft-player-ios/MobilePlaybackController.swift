@@ -690,6 +690,8 @@ final class MobilePlaybackSession {
     private let viewingSessionTracker: any MobilePlaybackViewingSessionTracking
     fileprivate let mediaWindowOwnerID = UUID()
     private let disconnect: @MainActor (MobilePlaybackSession) -> Void
+    private let preloadArtworkDependency: @MainActor (String) -> Void
+    private var preloadedArtworkCollectionIDs = Set<String>()
     private var lifecycleState = LifecycleState.active
     private var navigationRequestGeneration: UInt = 0
     let collectionBrowseImageSourcesCache:
@@ -728,6 +730,7 @@ final class MobilePlaybackSession {
         ) -> Void = {
             DownloadableMediaCache.shared.prepareWindow($0, ownerId: $1)
         },
+        preloadArtworkDependency: @escaping @MainActor (String) -> Void,
         disconnect: @escaping @MainActor (MobilePlaybackSession) -> Void
     ) {
         self.config = config
@@ -737,7 +740,26 @@ final class MobilePlaybackSession {
         self.collectionBrowseThumbnailWindowPlanner =
             collectionBrowseThumbnailWindowPlanner
         self.installDownloadableMediaWindow = installDownloadableMediaWindow
+        self.preloadArtworkDependency = preloadArtworkDependency
         self.disconnect = disconnect
+    }
+
+    fileprivate func preloadInitialArtworkDependency() {
+        preloadArtworkDependencyIfNeeded(
+            collectionId: config.widgetTokenInsertion?.insertedToken.fullCollectionId
+                ?? config.specificToken?.fullCollectionId
+                ?? config.initialItemId
+        )
+    }
+
+    private func preloadArtworkDependencyIfNeeded(collectionId: String?) {
+        guard lifecycleState == .active,
+              let collectionId,
+              PersistentArtworkDependency.forCollection(collectionId) != nil,
+              preloadedArtworkCollectionIDs.insert(collectionId).inserted else {
+            return
+        }
+        preloadArtworkDependency(collectionId)
     }
 
     func attach(display: MobilePlaybackSessionDisplay) {
@@ -843,7 +865,11 @@ final class MobilePlaybackSession {
     func commitCollectionBrowse(
         preparation: PlayerCollectionBrowsePreparation
     ) -> PlayerCollectionBrowsePositionResolution {
-        activeDataSource?.commitCollectionBrowse(preparation) ?? .unavailable
+        let result = activeDataSource?.commitCollectionBrowse(preparation) ?? .unavailable
+        if case .resolved = result {
+            preloadArtworkDependencyIfNeeded(collectionId: preparation.snapshot.collectionId)
+        }
+        return result
     }
 
     func collectionBrowseThumbnailDescriptor(
@@ -1070,9 +1096,14 @@ final class MobilePlaybackSession {
               let progress = dataSource.progress(
                   pagePosition: pagePosition,
                   hasViewedToEnd: hasViewedToEnd
-              ) else {
+        ) else {
             return nil
         }
+        preloadArtworkDependencyIfNeeded(
+            collectionId: dataSource.isInsertedWidgetToken(pagePosition: pagePosition)
+                ? config.widgetTokenInsertion?.insertedToken.fullCollectionId
+                : progress.collectionId
+        )
         let tracker = viewingSessionTracker
         PlayerPersistenceUpdates.enqueue {
             await tracker.markViewed(progress)
@@ -1203,6 +1234,7 @@ final class MobilePlaybackSessionRegistry {
             PlayerDownloadableMediaWindow,
             UUID
         ) -> Void
+        let preloadArtworkDependency: @MainActor (String) -> Void
 
         init(
             makeViewingSessionTracker: @escaping @MainActor (
@@ -1228,7 +1260,8 @@ final class MobilePlaybackSessionRegistry {
                 UUID
             ) -> Void = {
                 DownloadableMediaCache.shared.prepareWindow($0, ownerId: $1)
-            }
+            },
+            preloadArtworkDependency: @escaping @MainActor (String) -> Void = { _ in }
         ) {
             self.makeViewingSessionTracker = makeViewingSessionTracker
             self.clearActiveMediaWindow = clearActiveMediaWindow
@@ -1239,6 +1272,7 @@ final class MobilePlaybackSessionRegistry {
                 makeCollectionBrowseThumbnailWindowPlanner
             self.installDownloadableMediaWindow =
                 installDownloadableMediaWindow
+            self.preloadArtworkDependency = preloadArtworkDependency
         }
 
         fileprivate static let live = Dependencies(
@@ -1250,8 +1284,17 @@ final class MobilePlaybackSessionRegistry {
             },
             cancelAllMediaDownloads: {
                 DownloadableMediaCache.shared.cancelAllDownloads()
-            }
+            },
+            preloadArtworkDependency: preloadPersistentArtworkDependency
         )
+
+        @MainActor
+        private static func preloadPersistentArtworkDependency(_ collectionId: String) {
+            guard let dependency = PersistentArtworkDependency.forCollection(collectionId) else { return }
+            Task(priority: .utility) { @MainActor in
+                _ = try? await PersistentArtworkDependencyCache.shared.data(for: dependency)
+            }
+        }
     }
 
     private let dependencies: Dependencies
@@ -1282,11 +1325,13 @@ final class MobilePlaybackSessionRegistry {
             collectionBrowseThumbnailWindowPlanner:
                 thumbnailWindowPlanner,
             installDownloadableMediaWindow:
-                dependencies.installDownloadableMediaWindow
+                dependencies.installDownloadableMediaWindow,
+            preloadArtworkDependency: dependencies.preloadArtworkDependency
         ) { [weak self] session in
             self?.disconnect(session)
         }
         activeSessions[ObjectIdentifier(session)] = session
+        session.preloadInitialArtworkDependency()
         return session
     }
 

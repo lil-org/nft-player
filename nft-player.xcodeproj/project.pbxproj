@@ -13,7 +13,6 @@
 		2C0218072C53CE6D0012EC40 /* regl.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CEF35AF2C413D9F00388574 /* regl.js */; };
 		2C0218082C53CE6D0012EC40 /* three.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CEF35B12C413D9F00388574 /* three.js */; };
 		2C0218092C53CE6D0012EC40 /* p5js190.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CE0F1572C4D37E6003004F2 /* p5js190.js */; };
-		BDC83E0EB2CCC196711F3EC9 /* secondary-assets in Resources */ = {isa = PBXBuildFile; fileRef = A7136D569F3D58C928CFDF13 /* secondary-assets */; };
 		EA6F7464B69DDBDA6C1EEF0C /* tone1504.js in Resources */ = {isa = PBXBuildFile; fileRef = 299E934F95F18C635C384D53 /* tone1504.js */; };
 		877B6DF156ACF63FA751E6EB /* tone1504-Tone.js.LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = 716B6F45B954A25CF62EFBB6 /* tone1504-Tone.js.LICENSE.txt */; };
 		F3B962F8C4715B7899914B8A /* tone1504-LICENSE.md in Resources */ = {isa = PBXBuildFile; fileRef = 97C02C2CF2254687DADA8490 /* tone1504-LICENSE.md */; };
@@ -51,7 +50,6 @@
 		2C08041C2D2991F200CA9AB2 /* regl.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CEF35AF2C413D9F00388574 /* regl.js */; };
 		2C08041D2D2991F200CA9AB2 /* three.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CEF35B12C413D9F00388574 /* three.js */; };
 		2C08041E2D2991F200CA9AB2 /* p5js190.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CE0F1572C4D37E6003004F2 /* p5js190.js */; };
-		88803EC75609F584D0E9C44E /* secondary-assets in Resources */ = {isa = PBXBuildFile; fileRef = A7136D569F3D58C928CFDF13 /* secondary-assets */; };
 		3469650E61FFB363F8A8CA8C /* tone1504.js in Resources */ = {isa = PBXBuildFile; fileRef = 299E934F95F18C635C384D53 /* tone1504.js */; };
 		08127DE7D8476B98A7A061E4 /* tone1504-Tone.js.LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = 716B6F45B954A25CF62EFBB6 /* tone1504-Tone.js.LICENSE.txt */; };
 		384D1E930CED392A4A03025A /* tone1504-LICENSE.md in Resources */ = {isa = PBXBuildFile; fileRef = 97C02C2CF2254687DADA8490 /* tone1504-LICENSE.md */; };
@@ -120,7 +118,6 @@
 		2C85F3A52FA3470D0065AE2B /* regl.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CEF35AF2C413D9F00388574 /* regl.js */; };
 		2C85F3A62FA3470D0065AE2B /* three.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CEF35B12C413D9F00388574 /* three.js */; };
 		2C85F3A72FA3470D0065AE2B /* p5js190.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CE0F1572C4D37E6003004F2 /* p5js190.js */; };
-		4C06AC5BDFDDE13F422A0853 /* secondary-assets in Resources */ = {isa = PBXBuildFile; fileRef = A7136D569F3D58C928CFDF13 /* secondary-assets */; };
 		2CEE05DA4CEB5C4304D428D3 /* tone1504.js in Resources */ = {isa = PBXBuildFile; fileRef = 299E934F95F18C635C384D53 /* tone1504.js */; };
 		19ABC57CD359A0D9788E563B /* tone1504-Tone.js.LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = 716B6F45B954A25CF62EFBB6 /* tone1504-Tone.js.LICENSE.txt */; };
 		74A17F18AD29E21FFDD693E3 /* tone1504-LICENSE.md in Resources */ = {isa = PBXBuildFile; fileRef = 97C02C2CF2254687DADA8490 /* tone1504-LICENSE.md */; };
@@ -143,7 +140,6 @@
 		2C94428B2C5154E00078C051 /* regl.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CEF35AF2C413D9F00388574 /* regl.js */; };
 		2C94428C2C5154E00078C051 /* three.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CEF35B12C413D9F00388574 /* three.js */; };
 		2C94428D2C5154E00078C051 /* p5js190.js in Resources */ = {isa = PBXBuildFile; fileRef = 2CE0F1572C4D37E6003004F2 /* p5js190.js */; };
-		3C088532C093D65531A42B54 /* secondary-assets in Resources */ = {isa = PBXBuildFile; fileRef = A7136D569F3D58C928CFDF13 /* secondary-assets */; };
 		4C4D8D011D594B8E6F4F9A58 /* tone1504.js in Resources */ = {isa = PBXBuildFile; fileRef = 299E934F95F18C635C384D53 /* tone1504.js */; };
 		BB06D1D106AB2EDD394137CB /* tone1504-Tone.js.LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = 716B6F45B954A25CF62EFBB6 /* tone1504-Tone.js.LICENSE.txt */; };
 		B7242B5EB8F8DE51116A5470 /* tone1504-LICENSE.md in Resources */ = {isa = PBXBuildFile; fileRef = 97C02C2CF2254687DADA8490 /* tone1504-LICENSE.md */; };
@@ -389,6 +385,12 @@
 		84D39702BDF96A2F8C46B872 /* ArtBlocksCalibrationMigrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34A05C11D924875A9F990737 /* ArtBlocksCalibrationMigrationTests.swift */; };
 		C0994D2F78D4DAF75267B6BB /* ArtBlocksPlaybackErrorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6216CC0A86B269987E288EF /* ArtBlocksPlaybackErrorTests.swift */; };
 		0A1BF3AE97261037B3F3FFE3 /* ArtBlocksExternalDisplayTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54AC8ECC300A24A245BEF292 /* ArtBlocksExternalDisplayTests.swift */; };
+		75D7C651CAB9453489F8F1FB /* PersistentArtworkDependencyCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72061D69A27B4BD2AD79894E /* PersistentArtworkDependencyCache.swift */; };
+		22589EBF7FC946878B0CF499 /* PersistentArtworkDependencyCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72061D69A27B4BD2AD79894E /* PersistentArtworkDependencyCache.swift */; };
+		C37EFB7ED5644B8EAA750329 /* PersistentArtworkDependencyCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72061D69A27B4BD2AD79894E /* PersistentArtworkDependencyCache.swift */; };
+		3D0A10E9E2A649E8B0AD20B5 /* PersistentArtworkDependencyCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72061D69A27B4BD2AD79894E /* PersistentArtworkDependencyCache.swift */; };
+		F07E58FCB5EC46BD968FA02E /* PersistentArtworkDependencyLoadingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18B78536187C4E289BFABB9B /* PersistentArtworkDependencyLoadingTests.swift */; };
+		7FE956096C44445F97464DA7 /* Hypertype in Resources */ = {isa = PBXBuildFile; fileRef = 2E36FBF9208A412B9DE6C626 /* Hypertype */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -537,7 +539,6 @@
 		2CDF000C2F10000000000001 /* NativeMetalCardAssetCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeMetalCardAssetCache.swift; sourceTree = "<group>"; };
 		2CDF000D2F10000000000001 /* NativeMetalCardRendererCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeMetalCardRendererCore.swift; sourceTree = "<group>"; };
 		2CE0F1572C4D37E6003004F2 /* p5js190.js */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.javascript; path = p5js190.js; sourceTree = "<group>"; };
-		A7136D569F3D58C928CFDF13 /* secondary-assets */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = folder; path = "newlibs/secondary-assets"; sourceTree = "<group>"; };
 		299E934F95F18C635C384D53 /* tone1504.js */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.javascript; path = "newlibs/tone1504.js"; sourceTree = "<group>"; };
 		716B6F45B954A25CF62EFBB6 /* tone1504-Tone.js.LICENSE.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "newlibs/tone1504-Tone.js.LICENSE.txt"; sourceTree = "<group>"; };
 		97C02C2CF2254687DADA8490 /* tone1504-LICENSE.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "newlibs/tone1504-LICENSE.md"; sourceTree = "<group>"; };
@@ -675,6 +676,9 @@
 		34A05C11D924875A9F990737 /* ArtBlocksCalibrationMigrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtBlocksCalibrationMigrationTests.swift; sourceTree = "<group>"; };
 		D6216CC0A86B269987E288EF /* ArtBlocksPlaybackErrorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtBlocksPlaybackErrorTests.swift; sourceTree = "<group>"; };
 		54AC8ECC300A24A245BEF292 /* ArtBlocksExternalDisplayTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtBlocksExternalDisplayTests.swift; sourceTree = "<group>"; };
+		72061D69A27B4BD2AD79894E /* PersistentArtworkDependencyCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistentArtworkDependencyCache.swift; sourceTree = "<group>"; };
+		18B78536187C4E289BFABB9B /* PersistentArtworkDependencyLoadingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistentArtworkDependencyLoadingTests.swift; sourceTree = "<group>"; };
+		2E36FBF9208A412B9DE6C626 /* Hypertype */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Hypertype; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -776,6 +780,7 @@
 			isa = PBXGroup;
 			children = (
 				2CDF00012F10000000000001 /* DownloadableMediaCache.swift */,
+				72061D69A27B4BD2AD79894E /* PersistentArtworkDependencyCache.swift */,
 				2ECA00000000000000000001 /* DownloadableMediaCacheSupport.swift */,
 				2ECA00000000000000000002 /* DownloadableMediaDownloader.swift */,
 				2ECA00000000000000000003 /* DownloadableMediaImageDecoder.swift */,
@@ -1010,7 +1015,6 @@
 				2CEF35AF2C413D9F00388574 /* regl.js */,
 				2CEF35B12C413D9F00388574 /* three.js */,
 				2CE0F1572C4D37E6003004F2 /* p5js190.js */,
-				A7136D569F3D58C928CFDF13 /* secondary-assets */,
 				299E934F95F18C635C384D53 /* tone1504.js */,
 				716B6F45B954A25CF62EFBB6 /* tone1504-Tone.js.LICENSE.txt */,
 				97C02C2CF2254687DADA8490 /* tone1504-LICENSE.md */,
@@ -1100,6 +1104,8 @@
 				2EAB40000000000000000002 /* ArtBlocksRenderingResizeTests.swift */,
 				84FF8ACB6B6F36AAF544C63E /* ArtBlocksRenderingNetworkTests.swift */,
 				613021839F06631D63D4AE0C /* ArtBlocksBundledResourceTests.swift */,
+				18B78536187C4E289BFABB9B /* PersistentArtworkDependencyLoadingTests.swift */,
+				32A6AC462E5F442987766A69 /* Fixtures */,
 				2DA400022FF0000000000001 /* MobileCollectionBrowserGridModePresentationTests.swift */,
 				2DA600162FF2000000000001 /* MobileCollectionBrowserGridTransitionTests.swift */,
 				2DA600172FF2000000000001 /* MobileCollectionBrowserScrollingPrefetchTests.swift */,
@@ -1152,6 +1158,14 @@
 			path = "nft-player-vision-widget";
 			sourceTree = "<group>";
 		};
+		32A6AC462E5F442987766A69 /* Fixtures */ = {
+			isa = PBXGroup;
+			children = (
+				2E36FBF9208A412B9DE6C626 /* Hypertype */,
+			);
+			path = Fixtures;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -1182,6 +1196,7 @@
 			buildPhases = (
 				2DA2000E2FD0000000000001 /* Sources */,
 				2DA2000B2FD0000000000001 /* Frameworks */,
+				E066CFDBFF254A97808D880F /* Resources */,
 			);
 			buildRules = (
 			);
@@ -1438,7 +1453,6 @@
 				2C08041C2D2991F200CA9AB2 /* regl.js in Resources */,
 				2C08041D2D2991F200CA9AB2 /* three.js in Resources */,
 				2C08041E2D2991F200CA9AB2 /* p5js190.js in Resources */,
-				88803EC75609F584D0E9C44E /* secondary-assets in Resources */,
 				3469650E61FFB363F8A8CA8C /* tone1504.js in Resources */,
 				08127DE7D8476B98A7A061E4 /* tone1504-Tone.js.LICENSE.txt in Resources */,
 				384D1E930CED392A4A03025A /* tone1504-LICENSE.md in Resources */,
@@ -1470,7 +1484,6 @@
 				2C94428B2C5154E00078C051 /* regl.js in Resources */,
 				2C94428C2C5154E00078C051 /* three.js in Resources */,
 				2C94428D2C5154E00078C051 /* p5js190.js in Resources */,
-				3C088532C093D65531A42B54 /* secondary-assets in Resources */,
 				4C4D8D011D594B8E6F4F9A58 /* tone1504.js in Resources */,
 				BB06D1D106AB2EDD394137CB /* tone1504-Tone.js.LICENSE.txt in Resources */,
 				B7242B5EB8F8DE51116A5470 /* tone1504-LICENSE.md in Resources */,
@@ -1499,7 +1512,6 @@
 				2CF08AB32D2A9FEE00D82ACA /* Localizable.xcstrings in Resources */,
 				2C0218082C53CE6D0012EC40 /* three.js in Resources */,
 				2C0218092C53CE6D0012EC40 /* p5js190.js in Resources */,
-				BDC83E0EB2CCC196711F3EC9 /* secondary-assets in Resources */,
 				EA6F7464B69DDBDA6C1EEF0C /* tone1504.js in Resources */,
 				877B6DF156ACF63FA751E6EB /* tone1504-Tone.js.LICENSE.txt in Resources */,
 				F3B962F8C4715B7899914B8A /* tone1504-LICENSE.md in Resources */,
@@ -1524,7 +1536,6 @@
 				2C85F3A52FA3470D0065AE2B /* regl.js in Resources */,
 				2C85F3A62FA3470D0065AE2B /* three.js in Resources */,
 				2C85F3A72FA3470D0065AE2B /* p5js190.js in Resources */,
-				4C06AC5BDFDDE13F422A0853 /* secondary-assets in Resources */,
 				2CEE05DA4CEB5C4304D428D3 /* tone1504.js in Resources */,
 				19ABC57CD359A0D9788E563B /* tone1504-Tone.js.LICENSE.txt in Resources */,
 				74A17F18AD29E21FFDD693E3 /* tone1504-LICENSE.md in Resources */,
@@ -1572,6 +1583,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		E066CFDBFF254A97808D880F /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7FE956096C44445F97464DA7 /* Hypertype in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -1597,6 +1616,7 @@
 				2EAB40000000000000000001 /* ArtBlocksRenderingResizeTests.swift in Sources */,
 				C1BDBDFCA2E97F4F5302E0A0 /* ArtBlocksRenderingNetworkTests.swift in Sources */,
 				4FCD13DF2BCE84FD50EC125D /* ArtBlocksBundledResourceTests.swift in Sources */,
+				F07E58FCB5EC46BD968FA02E /* PersistentArtworkDependencyLoadingTests.swift in Sources */,
 				2DA400012FF0000000000001 /* MobileCollectionBrowserGridModePresentationTests.swift in Sources */,
 				2DA600062FF2000000000001 /* MobileCollectionBrowserGridTransitionTests.swift in Sources */,
 				2DA600072FF2000000000001 /* MobileCollectionBrowserScrollingPrefetchTests.swift in Sources */,
@@ -1651,6 +1671,7 @@
 				2D10001A2F30000000000001 /* WidgetDeepLink.swift in Sources */,
 				2C460ED72D2985FF0083124E /* TokenGenerator.swift in Sources */,
 				2C460ED82D2985FF0083124E /* RawHtmlGenerator.swift in Sources */,
+				75D7C651CAB9453489F8F1FB /* PersistentArtworkDependencyCache.swift in Sources */,
 				2EAB81000000000000000001 /* ArtBlocksRenderingResolutionOverrides.swift in Sources */,
 				2EAB93000000000000000001 /* ArtBlocksRenderingStartupProfiles.swift in Sources */,
 				2C460ED32D2985D20083124E /* Network.swift in Sources */,
@@ -1720,6 +1741,7 @@
 			files = (
 				2C5A59C12C514FE400788870 /* SuggestedItem.swift in Sources */,
 				2C9442922C515AC40078C051 /* RawHtmlGenerator.swift in Sources */,
+				22589EBF7FC946878B0CF499 /* PersistentArtworkDependencyCache.swift in Sources */,
 				2EAB81000000000000000002 /* ArtBlocksRenderingResolutionOverrides.swift in Sources */,
 				2EAB93000000000000000002 /* ArtBlocksRenderingStartupProfiles.swift in Sources */,
 				2C5A59CF2C5152A600788870 /* VisionPlayerView.swift in Sources */,
@@ -1768,6 +1790,7 @@
 				2C02180F2C53CECD0012EC40 /* PlayerModel.swift in Sources */,
 				2C0218102C53CECD0012EC40 /* TokenGenerator.swift in Sources */,
 				2C0218112C53CECD0012EC40 /* RawHtmlGenerator.swift in Sources */,
+				C37EFB7ED5644B8EAA750329 /* PersistentArtworkDependencyCache.swift in Sources */,
 				2EAB81000000000000000003 /* ArtBlocksRenderingResolutionOverrides.swift in Sources */,
 				2EAB93000000000000000003 /* ArtBlocksRenderingStartupProfiles.swift in Sources */,
 				2C4D31652C56B65E00C586D1 /* TvHelpers.swift in Sources */,
@@ -1824,6 +1847,7 @@
 				2C3B775F2C3D6DEC000A9B52 /* MacPlayerPageController.swift in Sources */,
 				2C9973FE2C4AEAAB00C058E2 /* WebViewWithMenu.swift in Sources */,
 				2CEF35AD2C413AE700388574 /* RawHtmlGenerator.swift in Sources */,
+				3D0A10E9E2A649E8B0AD20B5 /* PersistentArtworkDependencyCache.swift in Sources */,
 				2EAB81000000000000000004 /* ArtBlocksRenderingResolutionOverrides.swift in Sources */,
 				2EAB93000000000000000004 /* ArtBlocksRenderingStartupProfiles.swift in Sources */,
 				2CF4C49B2B7F567B000AB4A6 /* Navigator.swift in Sources */,
