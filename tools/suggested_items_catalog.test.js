@@ -190,6 +190,16 @@ function tokenSourceURL(payload, row) {
   return prefix + urlSuffix;
 }
 
+function tokenItem(payload, row) {
+  if (!Array.isArray(row)) return row;
+  return {
+    id: row[0],
+    url: tokenSourceURL(payload, row),
+    ...(row[3] != null ? { fileExtension: row[3] } : {}),
+    ...row[4],
+  };
+}
+
 function normalizedFileExtension(value) {
   if (typeof value !== "string") return undefined;
   const normalized = value.replace(/^[. \n\t\r]+|[. \n\t\r]+$/gu, "").toLowerCase();
@@ -418,7 +428,8 @@ test("Mi Note collections retain on-chain identities, names, and exported media 
     assert.equal(item.iosCollectionBrowserColumnCount, undefined);
     assert.equal(item.sizedThumbsIndexOffset, undefined);
     assert.equal(payload.hasMid, undefined);
-    for (const [index, row] of payload.items.entries()) {
+    for (const [index, compactRow] of payload.items.entries()) {
+      const row = tokenItem(payload, compactRow);
       assert.equal(typeof row.name, "string");
       assert.ok(row.name.length > 0);
       assert.match(row.id, slug === "mi_note" ? /^\d{76}$/u : /^\d+$/u);
@@ -426,13 +437,36 @@ test("Mi Note collections retain on-chain identities, names, and exported media 
       assert.equal(row.url, `https://cdn.lil.org/player/${slug}/${stem}.jpg`);
     }
     for (const [index, id, name, stem] of samples) {
-      const row = payload.items[index];
+      const row = tokenItem(payload, payload.items[index]);
       assert.deepEqual(row, { id, name, url: `https://cdn.lil.org/player/${slug}/${stem}.jpg` });
       const thumbnailURL = standardThumbnailURL(row.url);
       assert.equal(thumbnailURL.href, `https://cdn.lil.org/player/${slug}/thumbs/${stem}.webp`);
       assert.equal(largeImageURL(payload, row.url, thumbnailURL).href, `https://cdn.lil.org/player/${slug}/mid/${stem}.webp`);
       for (const width of [140, 260]) {
         assert.equal(sizedThumbnailURL(thumbnailURL, index, width).href, `https://cdn.lil.org/player/${slug}/thumbs/${width}/${index}.webp`);
+      }
+    }
+  }
+});
+
+test("token manifests share repeated URL prefixes in both bundles", () => {
+  for (const directory of [TOKENS_PATH, WIDGET_TOKENS_PATH]) {
+    for (const fileName of fs.readdirSync(directory).filter((name) => name.endsWith(".json"))) {
+      const payload = readJSON(path.join(directory, fileName));
+      const fullURLPrefixes = new Set();
+      for (const row of payload.items) {
+        if (Array.isArray(row)) {
+          assert.ok(Number.isInteger(row[1]), fileName);
+          assert.equal(typeof payload.urlPrefixes?.[row[1]], "string", fileName);
+          assert.ok(row.length >= 3 && row.length <= 5, fileName);
+          if (row[4] != null) {
+            assert.ok(Object.keys(row[4]).every((key) => ["name", "hash"].includes(key)), fileName);
+          }
+        } else if (row.url != null) {
+          const prefix = row.url.slice(0, row.url.lastIndexOf("/") + 1);
+          assert.ok(!fullURLPrefixes.has(prefix), `${fileName} repeats the full URL prefix ${prefix}`);
+          fullURLPrefixes.add(prefix);
+        }
       }
     }
   }

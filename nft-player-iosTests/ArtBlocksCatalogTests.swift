@@ -6,6 +6,63 @@ nonisolated final class ArtBlocksCatalogTests: XCTestCase {}
 
 @MainActor
 extension ArtBlocksCatalogTests {
+    private var compactTokenFixture: Data {
+        Data("""
+        {
+          "defaultFileExtension": " .PNG ",
+          "urlPrefixes": ["https://example.com/"],
+          "thumbnailAspectRatios": [[3, 4], [16, 9]],
+          "thumbnailAspectRatioOverrides": [[2, 1]],
+          "artworkAspectRatios": [[1, 1]],
+          "items": [
+            ["legacy", 0, "legacy.png"],
+            ["extension", 0, "extension", ".JPG"],
+            ["named-hash", 0, "named.png", null, {"name": "Named artwork", "hash": "0xabc"}],
+            ["named-extension", 0, "named", "webp", {"name": "Extension artwork"}],
+            ["absolute", -1, "https://other.example/art.png", null, {"hash": "0xdef"}]
+          ]
+        }
+        """.utf8)
+    }
+
+    func testCompactBundledTokensPreserveNamesHashesAndAspectRatiosAfterRoundTrip() throws {
+        let tokens = try JSONDecoder().decode(BundledTokens.self, from: compactTokenFixture)
+        XCTAssertEqual(tokens.items.map(\.id), ["legacy", "extension", "named-hash", "named-extension", "absolute"])
+        XCTAssertEqual(tokens.items.map(\.url), [
+            "https://example.com/legacy.png",
+            "https://example.com/extension",
+            "https://example.com/named.png",
+            "https://example.com/named",
+            "https://other.example/art.png"
+        ])
+        XCTAssertEqual(tokens.items.map(\.name), [nil, nil, "Named artwork", "Extension artwork", nil])
+        XCTAssertEqual(tokens.items.map(\.hash), [nil, nil, "0xabc", nil, "0xdef"])
+        XCTAssertEqual(tokens.items[2].thumbnailAspectRatio, ThumbnailAspectRatio(width: 16, height: 9))
+        XCTAssertEqual(tokens.items[0].thumbnailAspectRatio, ThumbnailAspectRatio(width: 3, height: 4))
+        XCTAssertTrue(tokens.items.allSatisfy { $0.artworkAspectRatio == ThumbnailAspectRatio(width: 1, height: 1) })
+
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .sortedKeys
+        let encoded = try encoder.encode(tokens)
+        let restored = try JSONDecoder().decode(BundledTokens.self, from: encoded)
+        XCTAssertEqual(restored.items.map(\.name), tokens.items.map(\.name))
+        XCTAssertEqual(restored.items.map(\.hash), tokens.items.map(\.hash))
+        XCTAssertEqual(restored.items.map(\.thumbnailAspectRatio), tokens.items.map(\.thumbnailAspectRatio))
+        XCTAssertEqual(try encoder.encode(restored), encoded)
+    }
+
+    func testCompactDownloadableTokensPreserveNamesExtensionsAndAspectRatios() throws {
+        let tokens = try JSONDecoder().decode(DownloadableCollectionTokensPayload.self, from: compactTokenFixture)
+        XCTAssertEqual(tokens.defaultFileExtension, "png")
+        XCTAssertEqual(tokens.items.map(\.id), ["legacy", "extension", "named-hash", "named-extension", "absolute"])
+        XCTAssertEqual(tokens.items.map(\.name), [nil, nil, "Named artwork", "Extension artwork", nil])
+        XCTAssertEqual(tokens.items.map(\.fileExtension), [nil, "jpg", nil, "webp", nil])
+        XCTAssertEqual(tokens.items[2].url, "https://example.com/named.png")
+        XCTAssertEqual(tokens.items[4].url, "https://other.example/art.png")
+        XCTAssertEqual(tokens.items[2].thumbnailAspectRatio, ThumbnailAspectRatio(width: 16, height: 9))
+        XCTAssertEqual(tokens.items[0].thumbnailAspectRatio, ThumbnailAspectRatio(width: 3, height: 4))
+    }
+
     func testBundledResourcesAndCoverNamesUseSlugsWithoutChangingCollectionIdentity() throws {
         var tokenCount = 0
         var scriptCount = 0
@@ -236,6 +293,7 @@ extension ArtBlocksCatalogTests {
             let tokens = try XCTUnwrap(SuggestedItemsService.bundledTokens(collectionId: item.id)).items
             XCTAssertEqual(tokens.count, count)
             for (index, expected) in tokens.enumerated() {
+                XCTAssertFalse(try XCTUnwrap(expected.name).isEmpty)
                 let token = try XCTUnwrap(CollectionCatalog.generateToken(specificCollectionId: item.id, tokenIndex: index))
                 XCTAssertEqual(token.id, expected.id)
                 XCTAssertEqual(token.fullCollectionId, item.id)

@@ -299,15 +299,25 @@ nonisolated struct BundledTokens: Codable, Sendable {
     }
 
     private struct CompactItem: Decodable, Sendable {
+        struct Metadata: Decodable, Sendable {
+            let name: String?
+            let hash: String?
+        }
+
         let id: String
         let prefixIndex: Int
         let urlSuffix: String
+        let metadata: Metadata?
 
         init(from decoder: Decoder) throws {
             var container = try decoder.unkeyedContainer()
             id = try container.decode(String.self)
             prefixIndex = try container.decode(Int.self)
             urlSuffix = try container.decode(String.self)
+            if !container.isAtEnd {
+                _ = try container.decodeIfPresent(String.self)
+            }
+            metadata = container.isAtEnd ? nil : try container.decodeIfPresent(Metadata.self)
         }
     }
 
@@ -355,7 +365,13 @@ nonisolated struct BundledTokens: Codable, Sendable {
                 } else {
                     url = compactItem.urlSuffix
                 }
-                return Item(id: compactItem.id, name: nil, url: url, sh: nil, hash: nil)
+                return Item(
+                    id: compactItem.id,
+                    name: compactItem.metadata?.name,
+                    url: url,
+                    sh: nil,
+                    hash: compactItem.metadata?.hash
+                )
             }
         }
 

@@ -107,10 +107,11 @@ test("widget projection preserves compact URL and extension fallbacks without ex
     urlPrefixes: ["https://example.com/"],
     thumbnailAspectRatios: [[1, 1]],
     items: [
-      ["1", 0, "one.webp", "png"],
-      ["2", 0, "two", ".JPEG"],
+      ["1", 0, "one.webp", "png", { name: "One", hash: "0x1" }],
+      ["2", 0, "two", ".JPEG", { name: "Two" }],
       ["3", -1, "https://example.com/three"],
       ["4", 0, "four.mp4", "jpg"],
+      ["5", 0, "five.png", null, { hash: "0x5" }],
     ],
   };
   await writeFile(directory, "Suggested.bundle/Tokens/alpha.json", JSON.stringify(payload));
@@ -125,6 +126,7 @@ test("widget projection preserves compact URL and extension fallbacks without ex
       ["2", 0, "two", "jpeg"],
       ["3", -1, "https://example.com/three"],
       ["4", 0, "four.mp4"],
+      ["5", 0, "five.png"],
     ],
   });
 });

@@ -1503,7 +1503,7 @@ nonisolated struct DownloadableCollectionTokensPayload: Decodable, Sendable {
             decodedItems = compactRows.map { row in
                 DownloadableTokenItem(
                     id: row.id,
-                    name: nil,
+                    name: row.metadata?.name,
                     url: row.url(prefixes: urlPrefixes),
                     sh: nil,
                     fileExtension: row.fileExtension,
@@ -1630,17 +1630,25 @@ nonisolated struct DownloadableTokenItem: Codable, Hashable, Sendable {
 }
 
 nonisolated private struct DownloadableCompactTokenRow: Decodable, Sendable {
+    struct Metadata: Decodable, Sendable {
+        let name: String?
+    }
+
     let id: String
     let prefixIndex: Int
     let urlSuffix: String
     let fileExtension: String?
+    let metadata: Metadata?
 
     init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         id = try container.decode(String.self)
         prefixIndex = try container.decode(Int.self)
         urlSuffix = try container.decode(String.self)
-        fileExtension = DownloadableMediaFileExtension.normalized(try? container.decode(String.self))
+        fileExtension = DownloadableMediaFileExtension.normalized(
+            container.isAtEnd ? nil : try container.decodeIfPresent(String.self)
+        )
+        metadata = container.isAtEnd ? nil : try container.decodeIfPresent(Metadata.self)
     }
 
     func url(prefixes: [String]) -> String {

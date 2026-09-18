@@ -27,6 +27,8 @@ scripts/test.sh
 
 Derived data defaults to the ignored `build/test-derived-data` directory.
 
+Token manifests in `Suggested Items/Suggested.bundle/Tokens` share repeated URL prefixes through `urlPrefixes`. Compact rows use `[id, prefixIndex, urlSuffix]`, followed by an optional file extension and optional metadata object containing `name` and/or `hash`. When metadata is present without a file extension, use `[id, prefixIndex, urlSuffix, null, {"hash":"..."}]`. Tokens without an explicit URL retain their object format and implicit media source. After changing token manifests, regenerate widget resources with `node scripts/generate-widget-resources.mjs`.
+
 ## app store
 Install [asc](https://asccli.sh) and Node.js, then authenticate asc with App Store Connect. The release helper uses Node for JSON parsing; no npm packages are required.
 
