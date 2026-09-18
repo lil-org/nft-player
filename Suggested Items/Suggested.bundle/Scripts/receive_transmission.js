@@ -1,0 +1,161 @@
+const urlParams=new URLSearchParams(window.location.search);function download(){var e=`receive_transmission_${tokenData.tokenId}_${tokenData.hash}.png`;save(e)}function getTimestamp(){return(new Date).toISOString().replace(/[^T0-9]/g,"").replace("T","_")}"undefined"==typeof tokenData&&(tokenData={hash:"0x"+Math.round(1e12*Math.random()+1e12),tokenId:"18000199"});let debug=!1;urlParams.has("debug")&&(debug=!0),urlParams.has("hash")&&(tokenData.hash=urlParams.get("hash"));let seed=gs(tokenData.hash),aspect=16/9,fill=!1;if(urlParams.has("aspect")){let e=urlParams.get("aspect"),t=parseFloat(e);isNaN(t)||0===t?"fill"===e?fill=!0:console.warn("Invalid aspect ratio provided. Using default ",aspect):aspect=t}function getDim(e=1,t=!1){let n,r;return innerWidth/innerHeight>e?(r=innerHeight,n=r*e):(n=innerWidth,r=n/e),t&&(n=innerWidth,r=innerHeight),{w:n,h:r}}function lerpHex(e,t,n){var r=+e.replace("#","0x"),a=r>>16,e=r>>8&255,r=255&r,t=+t.replace("#","0x");return"#"+((1<<24)+(a+n*((t>>16)-a)<<16)+(e+n*((t>>8&255)-e)<<8)+(r+n*((255&t)-r))|0).toString(16).slice(1)}function hex3to6(e){return 7<=(e="#"!=e[0]?"#"+e:e).length?e:e=e.split("").map(e=>"#"==e?e:e+e).join("")}function lerp(e,t,n){return e*(1-n)+t*n}function mapRng(e,t,n,r,a){return(e-t)/(n-t)*(a-r)+r}function titleCase(t){t=t.toLowerCase().split(" ");for(let e=0;e<t.length;e++)t[e]=t[e].charAt(0).toUpperCase()+t[e].slice(1);return t.join(" ")}function urlP(e){return urlParams.get(e)?lower(urlParams.get(e)):""}function gs(e){return parseInt(tokenData.hash.slice(0,16),16)}function rd(){return seed^=seed<<13,seed^=seed>>17,seed^=seed<<5,(seed<0?1+~seed:seed)%1e3/1e3}function rb(e,t){return e+(t-e)*rd()}function rj(e,t){return rb(e-t,e+t)}function rc(e){return e[Math.floor(rb(0,.99*e.length))]}function rco(e){let n=[];return e.forEach((t,e)=>{for(let e=0;e<t.w;e++)n.push(t)}),rc(n)}function shuffle(t){for(let e=t.length-1;0<e;e--){var n=Math.floor(rd()*(e+1));[t[e],t[n]]=[t[n],t[e]]}}function gj(e,t,n=!1){let r=e.filter(({n:e})=>e==t);return n?(r=r.map(({v:e})=>e),[...r]):r[0]}function linGrad(e,t,n,r,a,o,s=drawingContext){let c=s.createLinearGradient(e,t,n,r);c.addColorStop(0,a),c.addColorStop(1,o),s.fillStyle=c}function mapEase(e,t,n,r,a,o){let s=(e-t)/(n-t);switch(o){case"linear":return r+s*(a-r);case"sineIn":return r+(1-cos(s*PI/2))*(a-r);case"sineOut":return r+sin(s*PI/2)*(a-r);case"sineInOut":return r+(1-cos(PI*s))/2*(a-r);case"quadIn":return r+s*s*(a-r);case"quadOut":return r+s*(2-s)*(a-r);case"quadInOut":return s<.5?r+2*s*s*(a-r):r+(4-2*s)*s*(a-r);case"cubicIn":return r+s*s*s*(a-r);case"cubicOut":return r+--s*s*s*(a-r);case"c":return s<.5?r+4*s*s*s*(a-r):r+--s*s*s*4*(a-r);case"expoIn":return 0===s?r:r+pow(2,10*(s-1))*(a-r);case"expoOut":return 1===s?r+(a-r):r+(1-pow(2,-10*s))*(a-r);case"expoInOut":return 0===s?r:1===s?r+(a-r):(s*=2)<1?r+pow(2,10*(s-1))/2*(a-r):r+(2-pow(2,-10*--s))/2*(a-r);case"expoOutIn":return s<.5?0===s?r:r+(1-pow(2,2*s*-10))/2*(a-r):(s=2*(s-.5),1===s?r+(a-r)/2:r+(pow(2,10*(s-1))/2+.5)*(a-r));default:return r+s*(a-r)}}function rgbToHsl(e,t,n){e/=255,t/=255,n/=255;var r=Math.max(e,t,n),a=Math.min(e,t,n);let o,s,c=(r+a)/2;if(r==a)o=s=0;else{var i=r-a;switch(s=.5<c?i/(2-r-a):i/(r+a),r){case e:o=(t-n)/i+(t<n?6:0);break;case t:o=(n-e)/i+2;break;case n:o=(e-t)/i+4}o/=6}return[o,s,c]}function hslToRgb(e,t,n){let r,a,o;function s(e,t,n){return n<0&&(n+=1),1<n&&--n,n<1/6?e+6*(t-e)*n:n<.5?t:n<2/3?e+(t-e)*(2/3-n)*6:e}return 0==t?r=a=o=n:(t=2*n-(n=n<.5?n*(1+t):n+t-n*t),r=s(t,n,e+1/3),a=s(t,n,e),o=s(t,n,e-1/3)),[255*r,255*a,255*o]}function findLum(e,t=255){var n=e.width,r=e.height;let a=createGraphics(n,r);a.image(e,0,0,n,r);let o=255,s=0;a.loadPixels();for(let e=0;e<a.pixels.length;e+=4){var c=.299*a.pixels[e]+.587*a.pixels[e+1]+.114*a.pixels[e+2];c<o&&(o=c),c>s&&(s=c)}return o=map(o,0,255,0,t),s=map(s,0,255,0,t),a.remove(),{min:o,max:s}}function keyPressed(){"s"==key?download():"r"==key?window.location.reload():"d"==key&&showcaseDebug()}function mouseClicked(){(mouseX<width/2&&mouseY>height/2?download:showcaseDebug)()}function showcaseDebug(){pad=.003,showcase=(showcase+1)%showcaseMax,1===showcase?image(texC,0,0,width,height):image(sA,0,0,width,height,width*pad,height*pad,width*(1-2*pad),height*(1-2*pad))}function varyHSL(e,t,n,r,a="exact"){var o=color(e),s=hue(o),e=saturation(o),o=lightness(o);"jitter"==a&&(t=rj(0,t),n=rj(0,n),r=rj(0,r)),s=(s+t)%360,e=constrain(e+n,0,100),o=constrain(o+r,0,100),push(),colorMode(HSL,360,100,100);o=color(s,e,o);return pop(),o}let cw="#F5F8F8",cb="#050505",zephyrPal=["#4E6E61","#365","#4C3F5D","#336","#358","#45A","#576","#5493B6","#7AC","#89292D","#87A","#8F3935","#A33","#B8513B","#B78","#C54","#C95","#D57C30","#D94","#DA9","#C99","#DEC254"],palette=[{w:5,n:"Cat's Cradle",v:["#45A","#336","#358","#5493B6",cw,cb]},{w:20,n:"Jocelyn",v:[cw,cb,cw]},{w:15,n:"Zephyr",v:zephyrPal},{w:60,n:"Oracle",v:[cb,cw,rc(zephyrPal)],cb:cb,cw:cw},{w:3,n:"Halcyon",v:["#756485","#835061","#9A95A0","#B6A5C8","#9B85A2","#835061","#C58FAD","#BC849E","#883E3F","#BD636E","#CF707D","#703946","#8C495C","#B9627D","#683D4D","#3F2D39","#7F4364","#5E3750","#252830","#4A354F","#3A2D3E","#1E231D","#242525","#212322","#1C211E","#2E272D","#42303D","#26262D","#482F37","#7B4048","#4C3037","#442F35","#A9554E","#9C4E47","#4E282B","#B26A53","#CE7C5D","#884331","#9A605B","#C48A8C","#A06B6A","#714A4F","#A88DB1","#A38AAE","#594662","#B1A9B4","#242525","#212322","#1C211E"]},{w:10,n:"Ian",v:["#000000","#000102","#010101","#020202","#030302","#030303","#040302","#060504","#070707","#080808","#090A08","#0B0D11","#0D0E10","#0E0F10","#0F0E0D","#0F0F0E","#110C05","#111110","#141313","#161616","#171717","#191816","#1A1919","#1A1A1B","#1F2021","#202020","#212021","#23211D","#252424","#2B2522","#2F2D2D","#322E2D","#393633","#3C3837","#3F3C3B","#52504E","#544E4A","#615E5A","#6F6962","#706D67","#786D65","#7F746B","#96958F","#9F9B94","#A09990","#EEE4D9","#EEEAE2","#F4EBE1","#FAF3E8","#FCF6EE","#FDF5EA","#FFFAEF","#060506"]},{w:10,n:"Basil Gogos",v:["#823d65","#83ABAB",cb,"#7A4280",cb,cw]},{w:2,n:"Young Again",v:["#a36aa5","#006eb8","#fcb315","#e31f26",cw,cb]}];baseVertShader=`
+    attribute vec3 aPosition;
+    attribute vec2 aTexCoord;
+
+    varying vec2 vTexCoord;
+
+    void main() {
+      vTexCoord = aTexCoord;
+
+      vec4 positionVec4 = vec4(aPosition, 1.0);
+      positionVec4.xy = positionVec4.xy * 2.0 - 1.0;
+
+      gl_Position = positionVec4;
+    }`,blurFragShader=`
+    #ifdef GL_ES
+    precision highp float;
+    precision highp int;
+    #endif
+    varying vec2 vTexCoord;
+
+    uniform sampler2D tex0;
+    uniform vec2 direction;
+
+    // https://software.intel.com/en-us/blogs/2014/07/15/an-investigation-of-fast-real-time-gpu-based-image-blur-algorithms
+    vec3 gaussianBlur( sampler2D t, vec2 texUV, vec2 stepSize ){   
+    	vec3 colOut = vec3( 0.0 );                                                                                                                                   
+    	const int stepCount = 9;
+    	float gWeights[stepCount];
+    	    gWeights[0] = 0.10855;
+    	    gWeights[1] = 0.13135;
+    	    gWeights[2] = 0.10406;
+    	    gWeights[3] = 0.07216;
+    	    gWeights[4] = 0.04380;
+    	    gWeights[5] = 0.02328;
+    	    gWeights[6] = 0.01083;
+    	    gWeights[7] = 0.00441;
+    	    gWeights[8] = 0.00157;
+    	float gOffsets[stepCount];
+    	    gOffsets[0] = 0.66293;
+    	    gOffsets[1] = 2.47904;
+    	    gOffsets[2] = 4.46232;
+    	    gOffsets[3] = 6.44568;
+    	    gOffsets[4] = 8.42917;
+    	    gOffsets[5] = 10.41281;
+    	    gOffsets[6] = 12.39664;
+    	    gOffsets[7] = 14.38070;
+    	    gOffsets[8] = 16.36501;
+
+          vec2 maxCoord = vec2(1.0, 1.0) - stepSize;
+          vec2 minCoord = stepSize;
+    	
+          for( int i = 0; i < stepCount; i++ ){  
+            vec2 texCoordOffset = gOffsets[i] * stepSize;
+            vec2 clampedPos = clamp(texUV + texCoordOffset, minCoord, maxCoord);
+            vec2 clampedNeg = clamp(texUV - texCoordOffset, minCoord, maxCoord);
+            
+            vec3 col = texture2D( t, clampedPos ).xyz + texture2D( t, clampedNeg ).xyz; 
+            col *= gWeights[i];
+            colOut +=  col;                                                                                                                               
+        }
+    
+        return colOut;                                                                                                                                                   
+    } 
+
+
+    void main() {
+
+      vec2 uv = vTexCoord;
+      uv = 1.0 - uv;
+      vec3 blur = gaussianBlur(tex0, uv, .0015 * direction);
+
+      gl_FragColor = vec4(blur, 1.0);
+    }`,addFragShader=`
+  precision highp float;
+  varying vec2 vTexCoord;
+  uniform sampler2D tex0;
+  uniform sampler2D tex1;
+
+  void main() {
+    vec4 color0 = texture2D(tex0, vTexCoord);
+    vec4 color1 = texture2D(tex1, vTexCoord);
+    
+    vec4 outputColor = color0 + color1;
+    
+    gl_FragColor = outputColor;
+  }
+`,subtractFragShader=`
+  precision highp float;
+  varying vec2 vTexCoord;
+  uniform sampler2D tex0;
+  uniform sampler2D tex1;
+
+  void main() {
+    vec4 color0 = texture2D(tex0, vTexCoord);
+    vec4 color1 = texture2D(tex1, vTexCoord);
+    
+    vec4 outputColor = color1 - color1;
+    
+    gl_FragColor = outputColor;
+  }
+`,snapFragShader=`
+    precision highp float;
+
+    varying vec2 vTexCoord;
+
+    uniform sampler2D tex;
+    uniform float minLum, maxLum;
+
+    float map(float value, float min1, float max1, float min2, float max2) {
+      return min2 + (value - min1) * (max2 - min2) / (max1 - min1);
+    }
+
+    void main() {
+
+      vec2 uv = vTexCoord;
+      uv.y = 1.0 - uv.y;
+
+      vec3 c = texture2D(tex, uv).rgb;
+      
+      float lum = dot(c, vec3(0.299, 0.587, 0.114));
+
+      lum = map(lum, minLum, maxLum, 0., 1.);
+      c = vec3(lum);
+
+      gl_FragColor = vec4(c, 1.0);
+    }`,colorizeFragShader=`
+    #ifdef GL_ES
+    precision highp float;
+    precision highp int;
+    #endif
+    varying vec2 vTexCoord;
+
+    uniform sampler2D texA, texB, texC;
+    uniform float fc;
+
+    float map(float value, float min1, float max1, float min2, float max2) {
+      return min2 + (value - min1) * (max2 - min2) / (max1 - min1);
+    }
+
+    void main() {
+
+      vec2 uv = vTexCoord;
+      uv.y = 1.0 - uv.y;
+
+      vec3 c = vec3(0.);
+      vec3 cA = texture2D(texA, uv).rgb;
+      vec3 cB = texture2D(texB, uv).rgb;
+
+      float lumA = dot(cA, vec3(0.299, 0.587, 0.114));
+      float lumB = dot(cB, vec3(0.299, 0.587, 0.114));
+
+      float x, y;
+      x = lumA + lumB;
+      y = lumB - lumA;
+
+      c = texture2D(texC, vec2(lumA, lumB)).rgb;
+
+      gl_FragColor = vec4(c, 1.0);
+    }
+
+`;let showcase=1,showcaseMax=2,dim,dimFixedMin,shBlurHor,shBlurVer,shBlurHorB,shBlurVerB,shColorize,shCombine,shSnapA,shSnapB,s,texC,sA,sB,rrr=rd(),pp={dirHA:[{w:4,n:"XS",v:[0,1]},{w:5,n:"S",v:[0,1.3]},{w:7,n:"M",v:[0,1.6]},{w:8,n:"L",v:[0,2]},{w:2,n:"XL",v:[0,10]},{w:1,n:"XXL",v:[0,20]}],dirVA:[{w:4,n:"XS",v:[1,0]},{w:4,n:"S",v:[1.3,0]}],dirHB:[{w:4,n:"0 Degrees",v:[0,1]},{w:5,n:"30 Degrees",v:[0,1.3]},{w:7,n:"60 Degrees",v:[0,1.6]},{w:8,n:"90 Degrees",v:[0,2]},{w:2,n:"120 Degrees",v:[0,10]},{w:1,n:"180 Degrees",v:[0,20]}],dirVB:[{w:4,n:"30 Degrees",v:[1,0]},{w:4,n:"60 Degrees",v:[1.3,0]}],blurPassesA:[{w:0,n:"None",v:0},{w:6,n:"Light",v:4},{w:3,n:"Medium",v:5},{w:2,n:"Heavy",v:6},{w:1,n:"Extra Heavy",v:8}],blurPassesB:[{w:0,n:"None",v:0},{w:6,n:"Out of Phase",v:4},{w:3,n:"Incremental",v:5},{w:2,n:"In Phase",v:6},{w:1,n:"Locked",v:8}],bands:[{w:1,n:"AM",v:0},{w:50,n:"FM",v:1}],imgAType:[{w:30,n:"Stable",v:"gridWithOffsetCircles"},{w:1,n:"Interference",v:"drawConcentricRects"}],imgBType:[{w:20,n:"Stable",v:"gridWithOffsetCircles"},{w:1,n:"Interference",v:"drawConcentricRects"}],imgCType:[{w:1,n:"Kelly",v:"randomGrid"}],gridded:[{w:10,n:"No",v:!1},{w:1,n:"Yes",v:!0}],pal:palette},p={};for(let e in pp)p[e]=rco(pp[e]);for(let e=0;e<p.pal.v.length;e++)p.pal.v[e]=hex3to6(p.pal.v[e]);function setup(){switch(pixelDensity(2),dim=getDim(aspect,fill),dimFixed={w:800,h:round(800/aspect)},dimFixedMin=min(dimFixed.w,dimFixed.h),createCanvas(dim.w,dim.h),noStroke(),colorMode(HSL,360,100,100,100),rr=rb(9,16),cc=rb(9,26),debug&&console.log("drawing A"),p.imgAType.v){case"gridWithOffsetCircles":sA=drawGridWithOffsetCircles(rr,cc);break;case"drawConcentricRects":sA=drawConcentricRects(rr,cc);break;case"draw3Rects":sA=draw3Rects()}switch(sA.noStroke(),debug&&console.log("drawing B"),p.imgBType.v){case"gridWithOffsetCircles":sB=drawGridWithOffsetCircles(rr,cc);break;case"drawConcentricRects":sB=drawConcentricRects(rr,cc);break;case"draw3Rects":sB=draw3Rects()}sB.noStroke(),debug&&console.log("drawing C"),"randomGrid"===p.imgCType.v&&(texC=drawC_randomGrid()),debug&&(img_a=createGraphics(dim.w/2,dim.h/2),img_b=createGraphics(dim.w/2,dim.h/2),img_a_blur=createGraphics(dim.w/2,dim.h/2),img_b_blur=createGraphics(dim.w/2,dim.h/2),img_a.background(cb),img_b.background(cb),img_a_blur.background(cb),img_b_blur.background(cb)),img_out=createGraphics(dim.w,dim.h),img_out.background(cb),document.body.style.backgroundColor="black",debug&&(console.log("img_a and img_b"),img_a.image(sA,0,0,dim.w/2,dim.h/2),img_b.image(sB,0,0,dim.w/2,dim.h/2));for(let e=0;e<p.blurPassesA.v;e++)sA=blur(sA,shBlurHor,shBlurVer,p.dirHA.v,p.dirVA.v);for(let e=0;e<p.blurPassesB.v;e++)sB=blur(sB,shBlurHorB,shBlurVerB,p.dirHB.v,p.dirVB.v);lumA=findLum(sA,1),sA=snap(sA,shSnapA,lumA.min,lumA.max),lumB=findLum(sB,1),sB=snap(sB,shSnapB,lumB.min,lumB.max),debug&&(img_a_blur.image(sA,0,0,dim.w/2,dim.h/2),img_b_blur.image(sB,0,0,dim.w/2,dim.h/2)),sAFull=createGraphics(dim.w,dim.h,WEBGL),sAFull.translate(-dim.w/2,-dim.h/2),sAFull.image(sA,0,0,dim.w,dim.h),sBFull=createGraphics(dim.w,dim.h,WEBGL),sBFull.translate(-dim.w/2,-dim.h/2),sBFull.image(sB,0,0,dim.w,dim.h),sA=colorize(sAFull,sBFull,texC),img_out.image(sA,0,0,dim.w,dim.h)}function draw(){showcaseDebug(),noLoop()}function drawGridWithOffsetCircles(r,i){var a=dimFixed.w,s=dimFixed.h;let e=createGraphics(a,s,WEBGL);e.colorMode(HSL,360,100,100,100),e.translate(-a/2,-s/2);let t=createGraphics(a,s);t.colorMode(HSL,360,100,100,100),t.background("black"),t.rectMode(CORNERS),t.noStroke(),t.fill("black"),t.rect(0,0,a,s);var n=a/r,d=s/i;let o=0,l=0;rd()<.5&&(t.fill("red"),t.rect(.4*a,0,.6*a,s));for(let e=0;e<r;e++){l=0;var c=n*e/(r-1);for(let e=0;e<i;e++){var h=d*e/(i-1);t.fill("white"),t.triangle(o,l,o,l+h,o+c,l),t.triangle(a-o,l,a-o,l+h,a-o-c,l),t.triangle(o,s-l,o,s-l-h,o+c,s-l),t.triangle(a-o,s-l,a-o,s-l-h,a-o-c,s-l),l+=h}o+=c}return rd()<.5&&(t.fill("blue"),t.rectMode(CENTER),t.rect(a/2,s/2,.02*a,.1*s)),e.image(t,0,0),t.remove(),e}function drawConcentricRects(r,i){var a=dimFixed.w,s=dimFixed.h;let e=createGraphics(a,s,WEBGL);e.colorMode(HSL,360,100,100,100),e.translate(-a/2,-s/2);let t=createGraphics(a,s);t.colorMode(HSL,360,100,100,100),t.background("black"),t.rectMode(CORNERS),t.noStroke(),t.fill("black"),t.rect(0,0,a,s),sw=.001*dimFixedMin*rb(5,10),shadowOffset=.5*sw;var n=a/r,d=s/i;let o=0,l=0;for(let e=0;e<=r;e++){l=0;var c=n*e/(r-1);for(let e=0;e<=i;e++){var h=d*e/(i-1);t.stroke("gray"),t.strokeWeight(sw),t.line(o+shadowOffset,0,o+shadowOffset,s),t.line(a-o-shadowOffset,0,a-o-shadowOffset,s),t.line(0,l+shadowOffset,a,l+shadowOffset),t.line(0,s-l-shadowOffset,a,s-l-shadowOffset),l+=h}o+=c}o=0;for(let e=l=0;e<=r;e++){l=0;var m=n*e/(r-1);for(let e=0;e<=i;e++){var g=d*e/(i-1);t.stroke("white"),t.strokeWeight(sw),t.line(o,0,o,s),t.line(a-o,0,a-o,s),t.line(0,l,a,l),t.line(0,s-l,a,s-l),l+=g}o+=m}return e.image(t,0,0,a,s),t.remove(),e}function drawC_randomGrid(){var e=dimFixed.w,r=dimFixed.h;g3=createGraphics(e,r,WEBGL),g3.colorMode(HSL,360,100,100,100),g3.translate(-e/2,-r/2),g=createGraphics(e,r),g.colorMode(HSL,360,100,100,100),g.background(255),g.noStroke();for(var i=floor(rb(30,50)),a=floor(i*(r/e)),s=e/i,t=r/a,n=i/2,d=a/2,o=0;o<i;o++)for(var l=0;l<a;l++){var c=o*s,h=l*t,m=dist(o,l,n,d),w=Math.min(i,a)/3,w=exp(-.5*pow(m/w,2));p.gridded.v&&(w=.8),col=rd()<w?varyHSL(rc(p.pal.v),5,10,5,"jitter"):varyHSL(cb,0,10,5,"jitter"),g.fill(col),g.rect(c,h,1.1*s,1.1*t)}return g3.image(g,0,0,e,r),g.remove(),g3}function blur(e,r,i,a,s){var t=e.width,n=e.height;return e.shader(r),r.setUniform("tex0",e),r.setUniform("direction",a),r.setUniform("resolution",[t,n]),e.rect(0,0,t,n),e.resetShader(),e.shader(i),i.setUniform("tex0",e),i.setUniform("direction",s),i.setUniform("resolution",[t,n]),e.rect(0,0,t,n),e.resetShader(),e}function snap(e,r,i=0,a=1){var s=e.width,t=e.height;return g=createGraphics(s,t,WEBGL),g.translate(-s/2,-t/2),g.image(e,0,0),g.shader(r),r.setUniform("tex",g),r.setUniform("minLum",i),r.setUniform("maxLum",a),g.rect(0,0,s,t),g.resetShader(),g.remove(),g}function colorize(e,r,i,a=0,s){var t=e.width,n=e.height;return e.shader(shColorize),shColorize.setUniform("texA",e),shColorize.setUniform("texB",r),shColorize.setUniform("texC",i),shColorize.setUniform("fc",frameCount),e.rect(0,0,t,n),e.resetShader(),e}"Oracle"==p.pal.n?p.prophecy={w:1,n:`${p.pal.v[2].replace("#","")}`,v:!0}:p.prophecy={w:1,n:"None",v:!1},p.gridded.v&&(p.imgAType=gj(pp.imgAType,"Interference"),p.blurPassesA=gj(pp.blurPassesA,"None")),console.table("Receive Transmission by Aaron Penne (2023)"),console.log("token id: ",tokenData.tokenId),console.log("token hash: ",tokenData.hash),console.table({Colors:p.pal.n,Bands:p.bands.n,"Data Refinement":p.blurPassesA.n,"Radio Tuning":p.blurPassesB.n,"Horizontal Calibration":p.dirHA.n,"Vertical Calibration":p.dirVA.n,Azimuth:p.dirHB.n,Declination:p.dirVB.n,"Signal A":p.imgAType.n,"Signal B":p.imgBType.n,"Palette Structure":p.imgCType.n,"Graph Paper":p.gridded.n,Prophecy:p.prophecy.n}),shBlurHor=new p5.Shader(this._renderer,baseVertShader,blurFragShader),shBlurVer=new p5.Shader(this._renderer,baseVertShader,blurFragShader),shBlurHorB=new p5.Shader(this._renderer,baseVertShader,blurFragShader),shBlurVerB=new p5.Shader(this._renderer,baseVertShader,blurFragShader),shAdd=new p5.Shader(this._renderer,baseVertShader,addFragShader),shSubtract=new p5.Shader(this._renderer,baseVertShader,subtractFragShader),shSnapA=new p5.Shader(this._renderer,baseVertShader,snapFragShader),shSnapB=new p5.Shader(this._renderer,baseVertShader,snapFragShader),shColorize=new p5.Shader(this._renderer,baseVertShader,colorizeFragShader);

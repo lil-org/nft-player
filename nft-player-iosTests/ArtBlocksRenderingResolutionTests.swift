@@ -183,11 +183,10 @@ extension ArtBlocksRenderingResolutionTests {
     }
 
     func testOdeToRoyMaskKeepsRetinaPixelsAndLogicalPlacement() async throws {
-        let fields: [String: Any] = [
-            "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270", "name": "Ode to Roy", "abId": "63",
-            "kind": "p5js100", "collectionIdOverride": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd27063",
-            "renderingProfile": "artBlocks",
-            "value": """
+        let script = Script(
+            id: "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd27063",
+            address: "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270", name: "Ode to Roy", abId: "63",
+            value: """
             let ov, ma, im, cn = 0;
             function oP() {
               (im = ov.get()).mask(ma), image(im, -cn, -cn);
@@ -202,9 +201,9 @@ extension ArtBlocksRenderingResolutionTests {
               oP();
               window.maskPixels=[get(25,50),get(75,50)];
             }
-            """
-        ]
-        let script = try JSONDecoder().decode(Script.self, from: JSONSerialization.data(withJSONObject: fields))
+            """,
+            metadata: .init(kind: .p5js100, renderingProfile: .artBlocks)
+        )
         let token = BundledTokens.Item(id: "63000000", name: nil, url: nil, sh: nil, hash: "0x" + String(repeating: "a", count: 64))
         let fixture = try ResolutionFixture(size: CGSize(width: 100, height: 100))
         defer { fixture.close() }
@@ -218,11 +217,10 @@ extension ArtBlocksRenderingResolutionTests {
     }
 
     func testDenseCropPreservesPixelsAndTransparentCanvasEdges() async throws {
-        let fields: [String: Any] = [
-            "address": "0x47a91457a3a1f700097199fd63c039c4784384ab", "name": "Can you see it", "abId": "315",
-            "kind": "p5js100", "collectionIdOverride": "0x47a91457a3a1f700097199fd63c039c4784384ab315",
-            "renderingProfile": "artBlocks",
-            "value": """
+        let script = Script(
+            id: "0x47a91457a3a1f700097199fd63c039c4784384ab315",
+            address: "0x47a91457a3a1f700097199fd63c039c4784384ab", name: "Can you see it", abId: "315",
+            value: """
             let numFields=1;
             function applyEffectsToFields() {
               const x=90,y=0,w=width,h=height;
@@ -235,9 +233,9 @@ extension ArtBlocksRenderingResolutionTests {
               image=function(source){window.__denseCrop=source;return originalImage.apply(this,arguments);};
               applyEffectsToFields();
             }
-            """
-        ]
-        let script = try JSONDecoder().decode(Script.self, from: JSONSerialization.data(withJSONObject: fields))
+            """,
+            metadata: .init(kind: .p5js100, renderingProfile: .artBlocks)
+        )
         let token = BundledTokens.Item(id: "17", name: nil, url: nil, sh: nil, hash: "0x" + String(repeating: "a", count: 64))
         let fixture = try ResolutionFixture(size: CGSize(width: 100, height: 100))
         defer { fixture.close() }
@@ -539,7 +537,7 @@ extension ArtBlocksRenderingResolutionTests {
         let scriptURL = try XCTUnwrap(SuggestedItemsService.bundledScriptURL(collectionId: item.id))
         let tokenURL = try XCTUnwrap(SuggestedItemsService.bundledTokensURL(collectionId: item.id))
         let originalSource = try Data(contentsOf: scriptURL)
-        let script = try JSONDecoder().decode(Script.self, from: originalSource)
+        let script = try XCTUnwrap(SuggestedItemsService.bundledScript(collectionId: item.id))
         let tokens = try JSONDecoder().decode(BundledTokens.self, from: Data(contentsOf: tokenURL)).items
         let token = try XCTUnwrap(tokens.indices.contains(tokenIndex) ? tokens[tokenIndex] : nil)
         let ratio = try XCTUnwrap(token.artworkAspectRatio)
@@ -635,10 +633,10 @@ extension ArtBlocksRenderingResolutionTests {
 
     private func syntheticScript(source: String, artBlocksRendering: Bool = true) throws -> (Script, BundledTokens.Item) {
         let id = "resolution-test-\(UUID().uuidString)"
-        let fields: [String: Any] = ["address": "0xresolution", "abId": "0", "name": "Resolution fixture",
-            "collectionIdOverride": id, "kind": "js", "value": source,
-            "renderingProfile": artBlocksRendering ? "artBlocks" as Any : NSNull(), "requiresInitialCanvas": false]
-        let script = try JSONDecoder().decode(Script.self, from: JSONSerialization.data(withJSONObject: fields))
+        let script = Script(
+            id: id, address: "0xresolution", name: "Resolution fixture", abId: "0", value: source,
+            metadata: .init(kind: .js, renderingProfile: artBlocksRendering ? .artBlocks : nil, requiresInitialCanvas: false)
+        )
         let token = BundledTokens.Item(id: "17", name: nil, url: nil, sh: nil, hash: "0x" + String(repeating: "a", count: 64))
         return (script, token)
     }

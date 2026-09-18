@@ -118,13 +118,11 @@ extension ArtBlocksRenderingNetworkTests {
         expectedFailureHost: String? = nil,
         expectedResult: String? = nil
     ) async throws {
-        let fixture: [String: Any] = [
-            "address": "0xpreview", "abId": "0", "name": "Request lifecycle test",
-            "kind": "js", "value": source + "\nwindow.__scenarioStarted = true;",
-            "renderingProfile": "artBlocks", "requiresInitialCanvas": false,
-            "collectionIdOverride": "preview-request-lifecycle"
-        ]
-        let script = try JSONDecoder().decode(Script.self, from: JSONSerialization.data(withJSONObject: fixture))
+        let script = Script(
+            id: "preview-request-lifecycle", address: "0xpreview", name: "Request lifecycle test", abId: "0",
+            value: source + "\nwindow.__scenarioStarted = true;",
+            metadata: .init(kind: .js, renderingProfile: .artBlocks, requiresInitialCanvas: false)
+        )
         let tokenFixture: [String: Any] = ["items": [["id": "0", "hash": "0x" + String(repeating: "a", count: 64)]]]
         let tokens = try JSONDecoder().decode(BundledTokens.self, from: JSONSerialization.data(withJSONObject: tokenFixture))
         let webView = AutoReloadingWebView.newArtBlocksRenderer()

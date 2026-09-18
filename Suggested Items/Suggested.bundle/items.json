@@ -9,7 +9,10 @@
     "internal_slug": "hyperhash",
     "artists": [
       "beervangeer"
-    ]
+    ],
+    "script": {
+      "kind": "p5js100"
+    }
   },
   {
     "abId": "17",
@@ -22,7 +25,10 @@
     "artists": [
       "simon_de_mai"
     ],
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "js"
+    }
   },
   {
     "abId": "9",
@@ -32,7 +38,10 @@
     "collectionId": "aded45d3a6625cdeefcab7546c7549e5",
     "name": "Ignition",
     "internal_slug": "ignition",
-    "artists": []
+    "artists": [],
+    "script": {
+      "kind": "js"
+    }
   },
   {
     "abId": "29",
@@ -44,7 +53,11 @@
     "internal_slug": "inspirals",
     "artists": [
       "radix"
-    ]
+    ],
+    "script": {
+      "kind": "p5js100",
+      "nftPlayerDisplayTuning": "setTimeout(() => ['keydown', 'keyup'].forEach(event => document.dispatchEvent(new KeyboardEvent(event, { key: 'f', code: 'KeyF', keyCode: 70, bubbles: true }))), 23);"
+    }
   },
   {
     "abId": "64",
@@ -54,7 +67,10 @@
     "collectionId": "b22836540fa4e773a3309425fef939c8",
     "name": "AlgoRhythms",
     "internal_slug": "algorhythms",
-    "artists": []
+    "artists": [],
+    "script": {
+      "kind": "tone"
+    }
   },
   {
     "abId": "120",
@@ -66,7 +82,10 @@
     "internal_slug": "endless_nameless",
     "artists": [
       "rafael_rozendaal"
-    ]
+    ],
+    "script": {
+      "kind": "js"
+    }
   },
   {
     "abId": "53",
@@ -78,7 +97,10 @@
     "internal_slug": "subscapes",
     "artists": [
       "matt_deslauriers"
-    ]
+    ],
+    "script": {
+      "kind": "js"
+    }
   },
   {
     "abId": "373",
@@ -90,7 +112,10 @@
     "internal_slug": "intersections",
     "artists": [
       "rafael_rozendaal"
-    ]
+    ],
+    "script": {
+      "kind": "js"
+    }
   },
   {
     "abId": "235",
@@ -103,7 +128,10 @@
     "artists": [
       "louis_andre_labadie"
     ],
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "js"
+    }
   },
   {
     "abId": "44",
@@ -115,7 +143,10 @@
     "internal_slug": "cryptogodking",
     "artists": [
       "steve_pikelny"
-    ]
+    ],
+    "script": {
+      "kind": "p5js100"
+    }
   },
   {
     "abId": "0",
@@ -128,7 +159,10 @@
     "artists": [
       "snowfro"
     ],
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "p5js100"
+    }
   },
   {
     "abId": "399",
@@ -140,7 +174,10 @@
     "internal_slug": "the_field",
     "artists": [
       "beervangeer"
-    ]
+    ],
+    "script": {
+      "kind": "p5js100"
+    }
   },
   {
     "abId": "264",
@@ -152,7 +189,10 @@
     "internal_slug": "thereidoscope",
     "artists": [
       "daim_aggott_honsch"
-    ]
+    ],
+    "script": {
+      "kind": "p5js100"
+    }
   },
   {
     "abId": "0",
@@ -165,7 +205,10 @@
     "artists": [
       "owen_mcateer"
     ],
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "p5js190"
+    }
   },
   {
     "abId": "117",
@@ -177,7 +220,10 @@
     "internal_slug": "transitions",
     "artists": [
       "jason_ting"
-    ]
+    ],
+    "script": {
+      "kind": "three"
+    }
   },
   {
     "abId": "12",
@@ -190,7 +236,10 @@
     "artists": [
       "fernando_jerez"
     ],
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "p5js100"
+    }
   },
   {
     "abId": "14",
@@ -202,7 +251,10 @@
     "internal_slug": "kernels",
     "artists": [
       "julian_hespenheide"
-    ]
+    ],
+    "script": {
+      "kind": "p5js100"
+    }
   },
   {
     "abId": "12",
@@ -214,7 +266,10 @@
     "internal_slug": "passing",
     "artists": [
       "rafael_rozendaal"
-    ]
+    ],
+    "script": {
+      "kind": "js"
+    }
   },
   {
     "abId": "21",
@@ -227,7 +282,10 @@
     "artists": [
       "stefano_contiero"
     ],
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "tone"
+    }
   },
   {
     "abId": "19",
@@ -239,7 +297,10 @@
     "internal_slug": "volume",
     "artists": [
       "rafael_rozendaal"
-    ]
+    ],
+    "script": {
+      "kind": "js"
+    }
   },
   {
     "abId": "2",
@@ -251,7 +312,10 @@
     "internal_slug": "traffic",
     "artists": [
       "rafael_rozendaal"
-    ]
+    ],
+    "script": {
+      "kind": "js"
+    }
   },
   {
     "abId": "287",
@@ -263,7 +327,10 @@
     "internal_slug": "zoologic",
     "artists": [
       "ixnayokay"
-    ]
+    ],
+    "script": {
+      "kind": "js"
+    }
   },
   {
     "abId": "20",
@@ -275,7 +342,10 @@
     "internal_slug": "radial",
     "artists": [
       "rafael_rozendaal"
-    ]
+    ],
+    "script": {
+      "kind": "js"
+    }
   },
   {
     "abId": "22",
@@ -287,7 +357,10 @@
     "internal_slug": "fiber",
     "artists": [
       "rafael_rozendaal"
-    ]
+    ],
+    "script": {
+      "kind": "js"
+    }
   },
   {
     "abId": "8",
@@ -299,7 +372,10 @@
     "internal_slug": "through",
     "artists": [
       "rafael_rozendaal"
-    ]
+    ],
+    "script": {
+      "kind": "js"
+    }
   },
   {
     "abId": "293",
@@ -309,7 +385,10 @@
     "collectionId": "934a910e709523a1d8a300538945e2a0",
     "name": "Túnel Dimensional",
     "internal_slug": "tunel_dimensional",
-    "artists": []
+    "artists": [],
+    "script": {
+      "kind": "p5js100"
+    }
   },
   {
     "abId": "460",
@@ -322,7 +401,10 @@
     "artists": [
       "grant_oesterling"
     ],
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "p5js100"
+    }
   },
   {
     "abId": "25",
@@ -334,7 +416,10 @@
     "internal_slug": "clash",
     "artists": [
       "rafael_rozendaal"
-    ]
+    ],
+    "script": {
+      "kind": "js"
+    }
   },
   {
     "abId": "26",
@@ -346,7 +431,10 @@
     "internal_slug": "rio",
     "artists": [
       "rafael_rozendaal"
-    ]
+    ],
+    "script": {
+      "kind": "js"
+    }
   },
   {
     "abId": "123",
@@ -358,7 +446,10 @@
     "internal_slug": "nucleus",
     "artists": [
       "hjalmar_astrom"
-    ]
+    ],
+    "script": {
+      "kind": "p5js100"
+    }
   },
   {
     "abId": "323",
@@ -370,7 +461,10 @@
     "internal_slug": "ghost_in_the_code",
     "artists": [
       "kazuhiro_tanimoto"
-    ]
+    ],
+    "script": {
+      "kind": "p5js100"
+    }
   },
   {
     "abId": "338",
@@ -382,7 +476,10 @@
     "internal_slug": "undead_wyverns",
     "artists": [
       "hideo"
-    ]
+    ],
+    "script": {
+      "kind": "three"
+    }
   },
   {
     "abId": "9",
@@ -394,7 +491,10 @@
     "internal_slug": "staring",
     "artists": [
       "rafael_rozendaal"
-    ]
+    ],
+    "script": {
+      "kind": "js"
+    }
   },
   {
     "abId": "490",
@@ -406,7 +506,10 @@
     "internal_slug": "twist",
     "artists": [
       "rafael_rozendaal"
-    ]
+    ],
+    "script": {
+      "kind": "js"
+    }
   },
   {
     "abId": "472",
@@ -419,7 +522,10 @@
     "artists": [
       "ixnayokay"
     ],
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "js"
+    }
   },
   {
     "abId": "10",
@@ -431,7 +537,10 @@
     "internal_slug": "no_idea",
     "artists": [
       "rafael_rozendaal"
-    ]
+    ],
+    "script": {
+      "kind": "js"
+    }
   },
   {
     "abId": "50",
@@ -443,7 +552,10 @@
     "internal_slug": "nature_finds_a_way",
     "artists": [
       "samer_dabra"
-    ]
+    ],
+    "script": {
+      "kind": "three"
+    }
   },
   {
     "abId": "16",
@@ -455,7 +567,10 @@
     "internal_slug": "inner",
     "artists": [
       "rafael_rozendaal"
-    ]
+    ],
+    "script": {
+      "kind": "js"
+    }
   },
   {
     "abId": "0",
@@ -468,7 +583,10 @@
     "artists": [
       "marcelo_soria_rodriguez"
     ],
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "p5js190"
+    }
   },
   {
     "abId": "17",
@@ -480,7 +598,10 @@
     "internal_slug": "stripes",
     "artists": [
       "rafael_rozendaal"
-    ]
+    ],
+    "script": {
+      "kind": "js"
+    }
   },
   {
     "abId": "4",
@@ -491,7 +612,10 @@
     "name": "Aesthetics of Failure",
     "internal_slug": "aesthetics_of_failure",
     "artists": [],
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "p5js100"
+    }
   },
   {
     "abId": "426",
@@ -503,7 +627,10 @@
     "internal_slug": "cargo",
     "artists": [
       "kim_asendorf"
-    ]
+    ],
+    "script": {
+      "kind": "js"
+    }
   },
   {
     "abId": "428",
@@ -516,7 +643,10 @@
     "artists": [
       "kazuhiro_tanimoto"
     ],
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "p5js100"
+    }
   },
   {
     "abId": "151",
@@ -526,7 +656,10 @@
     "collectionId": "4bb2d4d02830fabd91efd86eb4bdbb0d",
     "name": "High Tide",
     "internal_slug": "high_tide",
-    "artists": []
+    "artists": [],
+    "script": {
+      "kind": "p5js100"
+    }
   },
   {
     "abId": "158",
@@ -538,7 +671,10 @@
     "internal_slug": "a_heart_and_a_soul",
     "artists": [
       "roman_janajev"
-    ]
+    ],
+    "script": {
+      "kind": "p5js100"
+    }
   },
   {
     "abId": "480",
@@ -550,7 +686,10 @@
     "internal_slug": "axo",
     "artists": [
       "jiwa"
-    ]
+    ],
+    "script": {
+      "kind": "js"
+    }
   },
   {
     "abId": "175",
@@ -562,7 +701,10 @@
     "internal_slug": "mono_no_aware",
     "artists": [
       "ixnayokay"
-    ]
+    ],
+    "script": {
+      "kind": "p5js100"
+    }
   },
   {
     "abId": "182",
@@ -572,7 +714,10 @@
     "collectionId": "cab43901e288f51fcc054959db06fe86",
     "name": "Amoeba",
     "internal_slug": "amoeba",
-    "artists": []
+    "artists": [],
+    "script": {
+      "kind": "p5js100"
+    }
   },
   {
     "abId": "3",
@@ -584,7 +729,10 @@
     "internal_slug": "inflection",
     "artists": [
       "jeff_davis"
-    ]
+    ],
+    "script": {
+      "kind": "p5js100"
+    }
   },
   {
     "abId": "391",
@@ -594,7 +742,10 @@
     "collectionId": "7f17b4e6be5195e890b0c774f131e6db",
     "name": "Contrast Agent",
     "internal_slug": "contrast_agent",
-    "artists": []
+    "artists": [],
+    "script": {
+      "kind": "regl"
+    }
   },
   {
     "abId": "181",
@@ -606,7 +757,10 @@
     "internal_slug": "focus",
     "artists": [
       "matto"
-    ]
+    ],
+    "script": {
+      "kind": "p5js100"
+    }
   },
   {
     "abId": "35",
@@ -618,7 +772,10 @@
     "internal_slug": "cage",
     "artists": [
       "john_provencher"
-    ]
+    ],
+    "script": {
+      "kind": "js"
+    }
   },
   {
     "abId": "29",
@@ -630,7 +787,10 @@
     "internal_slug": "push",
     "artists": [
       "rafael_rozendaal"
-    ]
+    ],
+    "script": {
+      "kind": "js"
+    }
   },
   {
     "abId": "54",
@@ -640,7 +800,10 @@
     "collectionId": "0b8cfd2706187fc99ea72079591a5f00",
     "name": "Square Symphony",
     "internal_slug": "square_symphony",
-    "artists": []
+    "artists": [],
+    "script": {
+      "kind": "p5js100"
+    }
   },
   {
     "abId": "168",
@@ -650,7 +813,10 @@
     "collectionId": "39daa9f150ba6adf00b699804a2b9691",
     "name": "Bloom",
     "internal_slug": "bloom",
-    "artists": []
+    "artists": [],
+    "script": {
+      "kind": "js"
+    }
   },
   {
     "abId": "260",
@@ -662,7 +828,10 @@
     "internal_slug": "non_either",
     "artists": [
       "rafael_rozendaal"
-    ]
+    ],
+    "script": {
+      "kind": "js"
+    }
   },
   {
     "abId": "67",
@@ -674,7 +843,10 @@
     "internal_slug": "karne",
     "artists": [
       "lolo_armdz"
-    ]
+    ],
+    "script": {
+      "kind": "three"
+    }
   },
   {
     "abId": "205",
@@ -686,7 +858,10 @@
     "internal_slug": "placement",
     "artists": [
       "cooper_jamieson"
-    ]
+    ],
+    "script": {
+      "kind": "js"
+    }
   },
   {
     "abId": "85",
@@ -699,7 +874,10 @@
     "artists": [
       "casey_reas"
     ],
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "p5js100"
+    }
   },
   {
     "abId": "3",
@@ -711,7 +889,10 @@
     "internal_slug": "7_factorial",
     "artists": [
       "lars_wander"
-    ]
+    ],
+    "script": {
+      "kind": "js"
+    }
   },
   {
     "abId": "1",
@@ -724,7 +905,10 @@
     "artists": [
       "casey_reas"
     ],
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "p5js100"
+    }
   },
   {
     "abId": "4",
@@ -736,7 +920,10 @@
     "internal_slug": "kaleidoscope",
     "artists": [
       "loren_bednar"
-    ]
+    ],
+    "script": {
+      "kind": "js"
+    }
   },
   {
     "abId": "336",
@@ -748,7 +935,10 @@
     "internal_slug": "polychrome_music",
     "artists": [
       "rafael_rozendaal"
-    ]
+    ],
+    "script": {
+      "kind": "tone"
+    }
   },
   {
     "abId": "44",
@@ -760,7 +950,10 @@
     "internal_slug": "event_horizon",
     "artists": [
       "kim_asendorf"
-    ]
+    ],
+    "script": {
+      "kind": "js"
+    }
   },
   {
     "abId": "331",
@@ -772,7 +965,10 @@
     "internal_slug": "metropixeland",
     "artists": [
       "fernando_jerez"
-    ]
+    ],
+    "script": {
+      "kind": "three"
+    }
   },
   {
     "abId": "26",
@@ -784,7 +980,10 @@
     "internal_slug": "lumen",
     "artists": [
       "p1xelfool"
-    ]
+    ],
+    "script": {
+      "kind": "p5js100"
+    }
   },
   {
     "abId": "15",
@@ -796,7 +995,10 @@
     "internal_slug": "stereo",
     "artists": [
       "rafael_rozendaal"
-    ]
+    ],
+    "script": {
+      "kind": "js"
+    }
   },
   {
     "abId": "280",
@@ -808,7 +1010,10 @@
     "internal_slug": "window",
     "artists": [
       "jan_robert_leegte"
-    ]
+    ],
+    "script": {
+      "kind": "js"
+    }
   },
   {
     "abId": "457",
@@ -821,7 +1026,10 @@
     "artists": [
       "steve_pikelny"
     ],
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "twemoji"
+    }
   },
   {
     "abId": "1",
@@ -833,7 +1041,10 @@
     "internal_slug": "leggenda",
     "artists": [
       "stefano_contiero"
-    ]
+    ],
+    "script": {
+      "kind": "p5js100"
+    }
   },
   {
     "abId": "233",
@@ -845,7 +1056,10 @@
     "internal_slug": "chimera",
     "artists": [
       "mpkoz"
-    ]
+    ],
+    "script": {
+      "kind": "three"
+    }
   },
   {
     "abId": "4",
@@ -857,7 +1071,10 @@
     "internal_slug": "melting",
     "artists": [
       "rafael_rozendaal"
-    ]
+    ],
+    "script": {
+      "kind": "js"
+    }
   },
   {
     "abId": "356",
@@ -869,7 +1086,10 @@
     "internal_slug": "essenza",
     "artists": [
       "stefano_contiero"
-    ]
+    ],
+    "script": {
+      "kind": "js"
+    }
   },
   {
     "abId": "8",
@@ -882,7 +1102,10 @@
     "artists": [
       "owen_moore"
     ],
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "js"
+    }
   },
   {
     "abId": "5",
@@ -894,7 +1117,10 @@
     "internal_slug": "implosion",
     "artists": [
       "rafael_rozendaal"
-    ]
+    ],
+    "script": {
+      "kind": "js"
+    }
   },
   {
     "abId": "3",
@@ -904,7 +1130,10 @@
     "collectionId": "a98d925c2ade3926b27258313370e0ca",
     "name": "Diatom",
     "internal_slug": "diatom",
-    "artists": []
+    "artists": [],
+    "script": {
+      "kind": "p5js100"
+    }
   },
   {
     "abId": "435",
@@ -915,7 +1144,10 @@
     "name": "Flows",
     "internal_slug": "flows",
     "artists": [],
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "p5js100"
+    }
   },
   {
     "abId": "57",
@@ -927,7 +1159,10 @@
     "internal_slug": "epiphanies",
     "artists": [
       "jimena_buena_vida"
-    ]
+    ],
+    "script": {
+      "kind": "p5js100"
+    }
   },
   {
     "abId": "432",
@@ -939,7 +1174,10 @@
     "internal_slug": "divergence",
     "artists": [
       "loren_bednar"
-    ]
+    ],
+    "script": {
+      "kind": "tone"
+    }
   },
   {
     "abId": "32",
@@ -951,7 +1189,10 @@
     "internal_slug": "light_beams",
     "artists": [
       "jason_ting"
-    ]
+    ],
+    "script": {
+      "kind": "regl"
+    }
   },
   {
     "abId": "6",
@@ -964,7 +1205,10 @@
     "artists": [
       "daim_aggott_honsch"
     ],
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "p5js100"
+    }
   },
   {
     "abId": "6",
@@ -976,7 +1220,10 @@
     "internal_slug": "quadrant",
     "artists": [
       "rafael_rozendaal"
-    ]
+    ],
+    "script": {
+      "kind": "js"
+    }
   },
   {
     "abId": "15",
@@ -988,7 +1235,10 @@
     "internal_slug": "gravity",
     "artists": [
       "pawel_dudko"
-    ]
+    ],
+    "script": {
+      "kind": "js"
+    }
   },
   {
     "abId": "479",
@@ -1000,7 +1250,10 @@
     "internal_slug": "bakhoor_assandal",
     "artists": [
       "melissa_wiederrecht"
-    ]
+    ],
+    "script": {
+      "kind": "js"
+    }
   },
   {
     "abId": "18",
@@ -1012,7 +1265,10 @@
     "internal_slug": "overlay",
     "artists": [
       "rafael_rozendaal"
-    ]
+    ],
+    "script": {
+      "kind": "js"
+    }
   },
   {
     "abId": "249",
@@ -1024,7 +1280,10 @@
     "internal_slug": "facets",
     "artists": [
       "conundrumer"
-    ]
+    ],
+    "script": {
+      "kind": "regl"
+    }
   },
   {
     "abId": "3",
@@ -1036,7 +1295,10 @@
     "internal_slug": "contractions",
     "artists": [
       "loie_hollowell"
-    ]
+    ],
+    "script": {
+      "kind": "js"
+    }
   },
   {
     "abId": "19",
@@ -1046,7 +1308,10 @@
     "collectionId": "43fafd24b529b42ff4c069b78ad3eca3",
     "name": "R3sonance",
     "internal_slug": "r3sonance",
-    "artists": []
+    "artists": [],
+    "script": {
+      "kind": "js"
+    }
   },
   {
     "abId": "212",
@@ -1058,7 +1323,10 @@
     "internal_slug": "dive",
     "artists": [
       "rafael_rozendaal"
-    ]
+    ],
+    "script": {
+      "kind": "js"
+    }
   },
   {
     "abId": "26",
@@ -1070,7 +1338,10 @@
     "internal_slug": "energy_sculpture",
     "artists": [
       "beervangeer"
-    ]
+    ],
+    "script": {
+      "kind": "p5js100"
+    }
   },
   {
     "abId": "56",
@@ -1080,7 +1351,10 @@
     "collectionId": "5411bf000012cd0580c7b9a5a6c6c997",
     "name": "Aurora IV",
     "internal_slug": "aurora_iv",
-    "artists": []
+    "artists": [],
+    "script": {
+      "kind": "js"
+    }
   },
   {
     "abId": "0",
@@ -1093,7 +1367,10 @@
     "artists": [
       "aaron_penne"
     ],
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "js"
+    }
   },
   {
     "abId": "1",
@@ -1105,7 +1382,10 @@
     "internal_slug": "empty_rooms",
     "artists": [
       "casey_reas"
-    ]
+    ],
+    "script": {
+      "kind": "p5js100"
+    }
   },
   {
     "abId": "18",
@@ -1117,7 +1397,10 @@
     "internal_slug": "jaggedmemories",
     "artists": [
       "shunsuke_takawo"
-    ]
+    ],
+    "script": {
+      "kind": "p5js100"
+    }
   },
   {
     "abId": "377",
@@ -1129,7 +1412,10 @@
     "internal_slug": "ingress",
     "artists": [
       "pawel_dudko"
-    ]
+    ],
+    "script": {
+      "kind": "p5js100"
+    }
   },
   {
     "abId": "132",
@@ -1141,7 +1427,10 @@
     "internal_slug": "tangled",
     "artists": [
       "andrei_antonescu"
-    ]
+    ],
+    "script": {
+      "kind": "p5js100"
+    }
   },
   {
     "abId": "133",
@@ -1153,7 +1442,10 @@
     "internal_slug": "organized_disruption",
     "artists": [
       "joshua_davis"
-    ]
+    ],
+    "script": {
+      "kind": "p5js100"
+    }
   },
   {
     "abId": "162",
@@ -1163,7 +1455,10 @@
     "collectionId": "8da8f87a831b5ae57695411ade574ef3",
     "name": "Democracity",
     "internal_slug": "democracity",
-    "artists": []
+    "artists": [],
+    "script": {
+      "kind": "three"
+    }
   },
   {
     "abId": "250",
@@ -1175,7 +1470,10 @@
     "internal_slug": "cosmic_reef",
     "artists": [
       "leo_villareal"
-    ]
+    ],
+    "script": {
+      "kind": "three"
+    }
   },
   {
     "abId": "279",
@@ -1187,7 +1485,10 @@
     "internal_slug": "neophyte_mmxxii",
     "artists": [
       "sterling_crispin"
-    ]
+    ],
+    "script": {
+      "kind": "three"
+    }
   },
   {
     "abId": "300",
@@ -1197,7 +1498,10 @@
     "collectionId": "8da8f87a831b5ae57695411ade574ef3",
     "name": "Assemblage",
     "internal_slug": "assemblage",
-    "artists": []
+    "artists": [],
+    "script": {
+      "kind": "three"
+    }
   },
   {
     "abId": "314",
@@ -1209,7 +1513,10 @@
     "internal_slug": "divenire",
     "artists": [
       "emanuele_pasin"
-    ]
+    ],
+    "script": {
+      "kind": "p5js100"
+    }
   },
   {
     "abId": "369",
@@ -1221,7 +1528,10 @@
     "internal_slug": "century_2052",
     "artists": [
       "casey_reas"
-    ]
+    ],
+    "script": {
+      "kind": "p5js100"
+    }
   },
   {
     "abId": "371",
@@ -1233,7 +1543,10 @@
     "internal_slug": "jpeg",
     "artists": [
       "jan_robert_leegte"
-    ]
+    ],
+    "script": {
+      "kind": "js"
+    }
   },
   {
     "abId": "72",
@@ -1245,7 +1558,10 @@
     "internal_slug": "frammenti",
     "artists": [
       "stefano_contiero"
-    ]
+    ],
+    "script": {
+      "kind": "p5js100"
+    }
   },
   {
     "abId": "88",
@@ -1258,7 +1574,10 @@
     "artists": [
       "pandelune"
     ],
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "p5js100"
+    }
   },
   {
     "address": "0x5a0121a0a21232ec0d024dab9017314509026480",
@@ -1282,7 +1601,10 @@
     "internal_slug": "archetype",
     "artists": [
       "kjetil_golid"
-    ]
+    ],
+    "script": {
+      "kind": "p5js100"
+    }
   },
   {
     "abId": "78",
@@ -1295,7 +1617,10 @@
     "internal_slug": "fidenza",
     "artists": [
       "tyler_hobbs"
-    ]
+    ],
+    "script": {
+      "kind": "p5js100"
+    }
   },
   {
     "abId": "159",
@@ -1322,7 +1647,10 @@
     "internal_slug": "ringers",
     "artists": [
       "dmitri_cherniak"
-    ]
+    ],
+    "script": {
+      "kind": "p5js100"
+    }
   },
   {
     "abId": "29",
@@ -1364,7 +1692,11 @@
     "artists": [
       "steve_pikelny"
     ],
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "js",
+      "nftPlayerDisplayTuning": "document.documentElement.style.height = \"100%\";\ndocument.body.style.minHeight = \"100%\";"
+    }
   },
   {
     "abId": "163",
@@ -1377,7 +1709,10 @@
     "internal_slug": "meridian",
     "artists": [
       "matt_deslauriers"
-    ]
+    ],
+    "script": {
+      "kind": "js"
+    }
   },
   {
     "abId": "22",
@@ -1390,7 +1725,10 @@
     "internal_slug": "the_eternal_pump",
     "artists": [
       "dmitri_cherniak"
-    ]
+    ],
+    "script": {
+      "kind": "three"
+    }
   },
   {
     "address": "0x46ac8540d698167fcbb9e846511beb8cf8af9bd8",
@@ -1737,7 +2075,12 @@
     "internal_slug": "parnassus",
     "artists": [
       "mpkoz"
-    ]
+    ],
+    "script": {
+      "kind": "p5js100",
+      "nftPlayerDisplayTuning": "(() => {\n  const style = document.createElement(\"style\");\n  style.textContent = `\n    #defaultCanvas0 {\n      position: fixed !important;\n      left: 50% !important;\n      top: 50% !important;\n      margin: 0 !important;\n      width: min(100vw, 56.25vh) !important;\n      height: min(100vh, calc(100vw * 16 / 9)) !important;\n      transform: translate(-50%, -50%) !important;\n    }\n    #defaultCanvas0[style*=\"rotate(-90deg)\"] {\n      width: min(100vh, 56.25vw) !important;\n      height: min(100vw, calc(100vh * 16 / 9)) !important;\n      transform: translate(-50%, -50%) rotate(-90deg) !important;\n    }\n  `;\n  document.head.appendChild(style);\n})();",
+      "projectId": "2"
+    }
   },
   {
     "address": "0x1d2550d198197df1a10af515cf2ea0d790889b93",
@@ -2114,7 +2457,10 @@
     "internal_slug": "poncho_drifella",
     "artists": [
       "evil_biscuit"
-    ]
+    ],
+    "script": {
+      "kind": "native.poncho-drifella"
+    }
   },
   {
     "address": "r1pCPYkbbpZWv7RCvuCMtpA3NSQY3fzVFo6HL43A4ot",
@@ -2616,7 +2962,10 @@
     "internal_slug": "card_nft_2",
     "artists": [
       "evil_biscuit"
-    ]
+    ],
+    "script": {
+      "kind": "native.card-nft-2"
+    }
   },
   {
     "address": "0xd497a414bb00803e846b53d07fcb742831b24906",
@@ -2772,7 +3121,11 @@
       "srdan_sarovic_una_popovic"
     ],
     "internal_slug": "logoria",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x32d4be5ee74376e08038d652d4dc26e62c67f436",
@@ -2789,7 +3142,11 @@
       "fingacode"
     ],
     "internal_slug": "classifieds",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x62e37f664b5945629b6549a87f8e10ed0b6d923b",
@@ -2806,7 +3163,11 @@
       "shvembldr"
     ],
     "internal_slug": "postkonstrukt",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x0000000080d04343d60d06e1a36aaf46c9242805",
@@ -2823,7 +3184,11 @@
       "generative_goods"
     ],
     "internal_slug": "micro",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js190",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -2840,7 +3205,11 @@
       "bard_ionson"
     ],
     "internal_slug": "8",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -2857,7 +3226,11 @@
       "daniel_catt"
     ],
     "internal_slug": "70s_pop_series_one",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -2874,7 +3247,11 @@
       "daniel_catt"
     ],
     "internal_slug": "70s_pop_series_two",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -2891,7 +3268,11 @@
       "zach_lieberman"
     ],
     "internal_slug": "100_sunsets",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -2908,7 +3289,11 @@
       "alexis_andre"
     ],
     "internal_slug": "720_minutes",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -2925,7 +3310,11 @@
       "martin_grasser"
     ],
     "internal_slug": "a_temporary_arrangement_of_material",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "three",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -2942,7 +3331,11 @@
       "pab"
     ],
     "internal_slug": "aceleraciones",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -2959,7 +3352,12 @@
       "loren_bednar"
     ],
     "internal_slug": "afterimage",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks",
+      "requiresInitialCanvas": false
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -2976,7 +3374,11 @@
       "jorge_ledezma"
     ],
     "internal_slug": "aitherios",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x000000a6e6366baf7c98a2ab73d3df1092dd7bb0",
@@ -2993,7 +3395,11 @@
       "rvig"
     ],
     "internal_slug": "alchimie",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xf03511ec774289da497cdb2070df4c711580ff7a",
@@ -3010,7 +3416,11 @@
       "hackatao_plus_insigt"
     ],
     "internal_slug": "aleph0",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "three",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3027,7 +3437,11 @@
       "shvembldr"
     ],
     "internal_slug": "alien_dna",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -3044,7 +3458,11 @@
       "jimena_buena_vida"
     ],
     "internal_slug": "all_our_faces",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -3061,7 +3479,11 @@
       "rafael_rozendaal"
     ],
     "internal_slug": "all_the_time",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3078,7 +3500,11 @@
       "robert_hodgin"
     ],
     "internal_slug": "ancient_courses_of_fictional_rivers",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -3095,7 +3521,11 @@
       "iryanbell"
     ],
     "internal_slug": "and_yet_we_love",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3112,7 +3542,11 @@
       "eltono"
     ],
     "internal_slug": "andradite",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3129,7 +3563,11 @@
       "william_mapan"
     ],
     "internal_slug": "anticyclone",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "three",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -3146,7 +3584,11 @@
       "akira_ishi"
     ],
     "internal_slug": "aodach",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -3163,7 +3605,11 @@
       "cory_haber"
     ],
     "internal_slug": "apophenies",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -3180,7 +3626,11 @@
       "devi_parikh_and_abhishek_das"
     ],
     "internal_slug": "aragnation",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3197,7 +3647,11 @@
       "emily_edelman_dima_ofman_andrew_badr"
     ],
     "internal_slug": "asemica",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -3214,7 +3668,11 @@
       "tezumie"
     ],
     "internal_slug": "assembly",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3231,7 +3689,11 @@
       "steganon"
     ],
     "internal_slug": "assorted_positivity",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3248,7 +3710,11 @@
       "falko"
     ],
     "internal_slug": "asterisms",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xaf40b66072fe00cacf5a25cd1b7f1688cde20f2f",
@@ -3266,7 +3732,11 @@
     ],
     "internal_slug": "atlas",
     "standardThumbsPathsAvailable": true,
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3284,7 +3754,11 @@
     ],
     "internal_slug": "attraction",
     "standardThumbsPathsAvailable": true,
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3301,7 +3775,11 @@
       "steganon"
     ],
     "internal_slug": "autology",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3318,7 +3796,11 @@
       "yazid"
     ],
     "internal_slug": "automatism",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -3335,7 +3817,12 @@
       "jimishim"
     ],
     "internal_slug": "autopoiesis",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks",
+      "requiresInitialCanvas": false
+    }
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -3352,7 +3839,11 @@
       "rafael_rozendaal"
     ],
     "internal_slug": "balance",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -3369,7 +3860,11 @@
       "kelly_milligan_x_amber_vittoria"
     ],
     "internal_slug": "balance_2",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3387,7 +3882,11 @@
     ],
     "internal_slug": "balletic",
     "standardThumbsPathsAvailable": true,
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -3404,7 +3903,11 @@
       "bucky"
     ],
     "internal_slug": "bauhaus_synthesis",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3421,7 +3924,11 @@
       "ryan_green"
     ],
     "internal_slug": "beauty_in_the_hurting",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3439,7 +3946,11 @@
     ],
     "internal_slug": "being_yourself_while_fitting_in",
     "standardThumbsPathsAvailable": true,
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3456,7 +3967,11 @@
       "ippsketch"
     ],
     "internal_slug": "bent",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3473,7 +3988,11 @@
       "numbersinmotion"
     ],
     "internal_slug": "blaschke_ballet",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3490,7 +4009,11 @@
       "eboy"
     ],
     "internal_slug": "blockbob_rorschach",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -3507,7 +4030,11 @@
       "rafael_rozendaal"
     ],
     "internal_slug": "box",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xab0000000000aa06f89b268d604a9c1c41524ac6",
@@ -3524,7 +4051,11 @@
       "zach_lieberman"
     ],
     "internal_slug": "box_light_studies",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -3541,7 +4072,11 @@
       "anna_carreras"
     ],
     "internal_slug": "brava",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3558,7 +4093,11 @@
       "raregonzo"
     ],
     "internal_slug": "breathe_you",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa319c382a702682129fcbf55d514e61a16f97f9c",
@@ -3575,7 +4114,11 @@
       "wawaa"
     ],
     "internal_slug": "brickwork",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -3592,7 +4135,11 @@
       "heeey"
     ],
     "internal_slug": "bright",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3609,7 +4156,11 @@
       "jason_ting"
     ],
     "internal_slug": "bubble_blobby",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "regl",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3626,7 +4177,11 @@
       "steen_neo"
     ],
     "internal_slug": "calendart",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -3643,7 +4198,11 @@
       "eric_de_giuli"
     ],
     "internal_slug": "calian",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -3660,7 +4219,11 @@
       "juan_rodriguez_garcia"
     ],
     "internal_slug": "caminos",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -3677,7 +4240,11 @@
       "bucky"
     ],
     "internal_slug": "can_you_see_it",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x9800005deb3cfaf80077dbe9b9004c0020c1d6c5",
@@ -3695,7 +4262,11 @@
     ],
     "internal_slug": "carattere",
     "standardThumbsPathsAvailable": true,
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x1353fd9d3dc70d1a18149c8fb2adb4fb906de4e8",
@@ -3713,7 +4284,11 @@
     ],
     "internal_slug": "cathedral_study",
     "standardThumbsPathsAvailable": true,
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3730,7 +4305,11 @@
       "hevey"
     ],
     "internal_slug": "cells",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -3748,7 +4327,11 @@
     ],
     "internal_slug": "cerebellum",
     "standardThumbsPathsAvailable": true,
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "three",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xb3526a6400260078517643cfd8490078803e0000",
@@ -3765,7 +4348,11 @@
       "xnmtrc"
     ],
     "internal_slug": "chroma_genesis",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js190",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3782,7 +4369,11 @@
       "pawel_dudko"
     ],
     "internal_slug": "chroma_theory",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x32d4be5ee74376e08038d652d4dc26e62c67f436",
@@ -3800,7 +4391,11 @@
     ],
     "internal_slug": "chronicles",
     "standardThumbsPathsAvailable": true,
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -3817,7 +4412,11 @@
       "rafael_rozendaal"
     ],
     "internal_slug": "circulate",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -3834,7 +4433,11 @@
       "sarasmith"
     ],
     "internal_slug": "cityzen",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x000000098a14b4e08132fd55faec521ab597a001",
@@ -3851,7 +4454,11 @@
       "phenomena"
     ],
     "internal_slug": "classical_revival",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -3868,7 +4475,11 @@
       "tottyeth_totdgbtagb"
     ],
     "internal_slug": "cohesion",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3885,7 +4496,11 @@
       "jeff_davis"
     ],
     "internal_slug": "color_study",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x5fdf5e6caf7b8b0f64c3612afd85e9407a7e1389",
@@ -3902,7 +4517,11 @@
       "john_f_simon_jr"
     ],
     "internal_slug": "complexcity_20002023",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x059edd72cd353df5106d2b9cc5ab83a52287ac3a",
@@ -3919,7 +4538,11 @@
       "jeff_davis"
     ],
     "internal_slug": "construction_token",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "processingjs146",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x000000058b5d9e705ee989fabc8dfdc1bfbdfa6b",
@@ -3936,7 +4559,11 @@
       "motus_art"
     ],
     "internal_slug": "contours",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "regl",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3953,7 +4580,11 @@
       "rafael_rozendaal"
     ],
     "internal_slug": "corners",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -3970,7 +4601,11 @@
       "buitrago"
     ],
     "internal_slug": "creative_chaos",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -3987,7 +4622,11 @@
       "jeff_davis"
     ],
     "internal_slug": "cuadro",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -4004,7 +4643,11 @@
       "jeff_davis"
     ],
     "internal_slug": "culmination",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4021,7 +4664,11 @@
       "devi_parikh"
     ],
     "internal_slug": "cushions",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4038,7 +4685,11 @@
       "pxlq"
     ],
     "internal_slug": "cyber_cities",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4055,7 +4706,11 @@
       "modnar_wolf"
     ],
     "internal_slug": "dear_hash",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xd10e3dee203579fcee90ed7d0bdd8086f7e53beb",
@@ -4072,7 +4727,11 @@
       "proof_of_beauty_studios"
     ],
     "internal_slug": "deconstructed_city_plans",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x32d4be5ee74376e08038d652d4dc26e62c67f436",
@@ -4089,7 +4748,11 @@
       "alexis_andre"
     ],
     "internal_slug": "decores",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xcfa6a2d5bc2a77c0cdd3046e09da21e45d1df0f1",
@@ -4107,7 +4770,19 @@
     ],
     "internal_slug": "degenerative",
     "standardThumbsPathsAvailable": true,
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks",
+      "externalAssetDependencies": [
+        {
+          "index": 0,
+          "cid": "",
+          "dependency_type": "ONCHAIN",
+          "bytecode_address": "0x00000000a78e278b2d2e2935faebe19ee9f1ff14"
+        }
+      ]
+    }
   },
   {
     "address": "0x1353fd9d3dc70d1a18149c8fb2adb4fb906de4e8",
@@ -4124,7 +4799,11 @@
       "melissa_wiederrecht"
     ],
     "internal_slug": "deja_vu",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -4141,7 +4820,11 @@
       "autonymous"
     ],
     "internal_slug": "delights",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -4158,7 +4841,11 @@
       "andreas_gysin"
     ],
     "internal_slug": "descent",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x000009bb1740eea484f7db00000a9227e578bf96",
@@ -4176,7 +4863,11 @@
     ],
     "internal_slug": "digital_sketch",
     "standardThumbsPathsAvailable": true,
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "p5js190",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -4193,7 +4884,11 @@
       "rafael_rozendaal"
     ],
     "internal_slug": "directions",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -4210,7 +4905,11 @@
       "sabha"
     ],
     "internal_slug": "downtown",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4227,7 +4926,11 @@
       "joshua_bagley"
     ],
     "internal_slug": "dreams",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4244,7 +4947,11 @@
       "pxlq"
     ],
     "internal_slug": "dynamic_slices",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x0000001590abfb45b052c28fb7dac11c062b9337",
@@ -4261,7 +4968,11 @@
       "holger_lippmann"
     ],
     "internal_slug": "epastel_ii",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4278,7 +4989,11 @@
       "radix"
     ],
     "internal_slug": "eccentrics",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4295,7 +5010,11 @@
       "radix"
     ],
     "internal_slug": "eccentrics_2_orbits",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x0000000fae63d15270aafe9e08a71cd28079572d",
@@ -4312,7 +5031,11 @@
       "jimena_buena_vida"
     ],
     "internal_slug": "echoes_of_frida_sutura",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4329,7 +5052,11 @@
       "generative_artworks"
     ],
     "internal_slug": "enchiridion",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -4346,7 +5073,11 @@
       "rudxane"
     ],
     "internal_slug": "encore",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xd10e3dee203579fcee90ed7d0bdd8086f7e53beb",
@@ -4363,7 +5094,11 @@
       "loren_bednar"
     ],
     "internal_slug": "ensemble",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4380,7 +5115,11 @@
       "marcelo_soria_rodriguez"
     ],
     "internal_slug": "entretiempos",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4398,7 +5137,11 @@
     ],
     "internal_slug": "erratic",
     "standardThumbsPathsAvailable": true,
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4416,7 +5159,11 @@
     ],
     "internal_slug": "fake_internet_money",
     "standardThumbsPathsAvailable": true,
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4433,7 +5180,11 @@
       "cyberia"
     ],
     "internal_slug": "fermented_fruit",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x000000a6e6366baf7c98a2ab73d3df1092dd7bb0",
@@ -4450,7 +5201,11 @@
       "rvig_medecins_sans_frontieres_msf"
     ],
     "internal_slug": "field_impact",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -4467,7 +5222,11 @@
       "rafael_rozendaal"
     ],
     "internal_slug": "flood",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4484,7 +5243,11 @@
       "rvig"
     ],
     "internal_slug": "flowers",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -4501,7 +5264,11 @@
       "sebastian_brocher_cryptoarte"
     ],
     "internal_slug": "fluiroso",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -4518,7 +5285,11 @@
       "rafael_rozendaal"
     ],
     "internal_slug": "fold",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xaf40b66072fe00cacf5a25cd1b7f1688cde20f2f",
@@ -4535,7 +5306,11 @@
       "rudxane"
     ],
     "internal_slug": "fold_2",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -4552,7 +5327,11 @@
       "manuel_larino"
     ],
     "internal_slug": "forecast",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -4569,7 +5348,11 @@
       "jeff_davis"
     ],
     "internal_slug": "formation",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x942bc2d3e7a589fe5bd4a5c6ef9727dfd82f5c8a",
@@ -4586,7 +5369,11 @@
       "alexis_andre"
     ],
     "internal_slug": "friendship_bracelets",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -4603,7 +5390,11 @@
       "lars_wander"
     ],
     "internal_slug": "full_spectrum",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4620,7 +5411,11 @@
       "matt_kane"
     ],
     "internal_slug": "gazers",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x059edd72cd353df5106d2b9cc5ab83a52287ac3a",
@@ -4638,7 +5433,11 @@
     ],
     "internal_slug": "genesis",
     "standardThumbsPathsAvailable": true,
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "processingjs146",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4656,7 +5455,11 @@
     ],
     "internal_slug": "geometry_runners",
     "standardThumbsPathsAvailable": true,
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "three",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x02f518c529a0002e505000795d00c500eb00534a",
@@ -4673,7 +5476,11 @@
       "emily_nicoll"
     ],
     "internal_slug": "geophylla",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "three",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x000000dc68934ed27fd11e32491cdf6717acaf21",
@@ -4690,7 +5497,19 @@
       "manuel_larino"
     ],
     "internal_slug": "gift_of_time",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js190",
+      "renderingProfile": "artBlocks",
+      "externalAssetDependencies": [
+        {
+          "index": 0,
+          "cid": "",
+          "dependency_type": "ONCHAIN",
+          "bytecode_address": "0x00000000a78e278b2d2e2935faebe19ee9f1ff14"
+        }
+      ]
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4707,7 +5526,11 @@
       "jimmy_herdberg"
     ],
     "internal_slug": "gravity_16",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4724,7 +5547,11 @@
       "eliya_stein"
     ],
     "internal_slug": "gravity_grid",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -4741,7 +5568,11 @@
       "rafael_rozendaal"
     ],
     "internal_slug": "grit",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -4758,7 +5589,11 @@
       "rafael_rozendaal"
     ],
     "internal_slug": "half_half_half",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -4775,7 +5610,11 @@
       "sabha"
     ],
     "internal_slug": "hash",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4792,7 +5631,11 @@
       "beervangeer"
     ],
     "internal_slug": "hashcrash",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4809,7 +5652,11 @@
       "jess_hewitt"
     ],
     "internal_slug": "haywire_cafe",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x8db6f700a7c90000f92ac90084ad93a500f1eae0",
@@ -4827,7 +5674,11 @@
     ],
     "internal_slug": "heartbeat",
     "standardThumbsPathsAvailable": true,
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4844,7 +5695,11 @@
       "pxlq"
     ],
     "internal_slug": "hieroglyphs",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4862,7 +5717,11 @@
     ],
     "internal_slug": "himinn",
     "standardThumbsPathsAvailable": true,
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -4879,7 +5738,11 @@
       "rafael_rozendaal"
     ],
     "internal_slug": "home",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -4896,7 +5759,11 @@
       "rafael_rozendaal"
     ],
     "internal_slug": "house",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -4913,7 +5780,11 @@
       "ryan_bell"
     ],
     "internal_slug": "hyper_drive_aside",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xbb5471c292065d3b01b2e81e299267221ae9a250",
@@ -4930,7 +5801,20 @@
       "mark_webster"
     ],
     "internal_slug": "hypertype",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "svg",
+      "renderingProfile": "artBlocks",
+      "externalAssetDependencies": [
+        {
+          "index": 0,
+          "cid": "QmXWXHGkxYFjJF5AuPiVB91VXK31LnoPN9EXKgiWFUvfT6",
+          "dependency_type": "IPFS",
+          "data": null,
+          "bytecode_address": null
+        }
+      ]
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4947,7 +5831,11 @@
       "steve_pikelny"
     ],
     "internal_slug": "i_saw_it_in_a_dream",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4964,7 +5852,11 @@
       "shvembldr"
     ],
     "internal_slug": "ieva",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -4981,7 +5873,11 @@
       "nicole_vella"
     ],
     "internal_slug": "if_you_could_do_it_all_again",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4998,7 +5894,11 @@
       "kalis"
     ],
     "internal_slug": "imperfections",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -5015,7 +5915,11 @@
       "ixnayokay"
     ],
     "internal_slug": "implications",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5032,7 +5936,11 @@
       "eliya_stein"
     ],
     "internal_slug": "incantation",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x000000ff2fbc55b982010b42e235cc2a0ce3250b",
@@ -5050,7 +5958,11 @@
     ],
     "internal_slug": "incircles",
     "standardThumbsPathsAvailable": true,
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -5067,7 +5979,11 @@
       "p1x3lboy"
     ],
     "internal_slug": "integration",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x0000f6bc84ab98fbd8fce1f6d047965c723f0000",
@@ -5084,7 +6000,11 @@
       "jason_ting"
     ],
     "internal_slug": "into_the_light",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -5101,7 +6021,11 @@
       "camille_roux"
     ],
     "internal_slug": "intricada",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5118,7 +6042,11 @@
       "henrysdev_amnda"
     ],
     "internal_slug": "isodream",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x000000412217f67742376769695498074f007b97",
@@ -5135,7 +6063,11 @@
       "fingacode"
     ],
     "internal_slug": "jazz",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5152,7 +6084,11 @@
       "eliya_stein"
     ],
     "internal_slug": "labyrometry",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5169,7 +6105,11 @@
       "james_dalessandro"
     ],
     "internal_slug": "lacunae",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -5186,7 +6126,11 @@
       "rafael_rozendaal"
     ],
     "internal_slug": "large_shape",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5203,7 +6147,11 @@
       "robert_hodgin"
     ],
     "internal_slug": "latent_spirits",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -5221,7 +6169,11 @@
     ],
     "internal_slug": "led",
     "standardThumbsPathsAvailable": true,
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5238,7 +6190,11 @@
       "mitchell_f_chan"
     ],
     "internal_slug": "lewitt_generator_generator",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -5255,7 +6211,11 @@
       "cooper_jamieson"
     ],
     "internal_slug": "libra",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x0000b52017e1ec58f64171b6001518c07a9aec00",
@@ -5272,7 +6232,11 @@
       "itsgalo_x_office_ca"
     ],
     "internal_slug": "lightweight_reconstruction",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x9800005deb3cfaf80077dbe9b9004c0020c1d6c5",
@@ -5290,7 +6254,11 @@
     ],
     "internal_slug": "linea",
     "standardThumbsPathsAvailable": true,
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x9f79e46a309f804aa4b7b53a1f72c69137427794",
@@ -5307,7 +6275,11 @@
       "kitel"
     ],
     "internal_slug": "lines_of_memories",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5324,7 +6296,11 @@
       "eliya_stein"
     ],
     "internal_slug": "liquid_ruminations",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5341,7 +6317,11 @@
       "lia"
     ],
     "internal_slug": "little_boxes_on_the_hillsides_child",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -5359,7 +6339,11 @@
     ],
     "internal_slug": "longing",
     "standardThumbsPathsAvailable": true,
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5376,7 +6360,11 @@
       "anna_lucia"
     ],
     "internal_slug": "loom",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x4d928ab507bf633dd8e68024a1fb4c99316bbdf3",
@@ -5393,7 +6381,11 @@
       "martin_grasser"
     ],
     "internal_slug": "love",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "three",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x942bc2d3e7a589fe5bd4a5c6ef9727dfd82f5c8a",
@@ -5410,7 +6402,11 @@
       "daniel_calderon_arenas"
     ],
     "internal_slug": "marfa_yucca",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -5427,7 +6423,11 @@
       "amy_goodchild"
     ],
     "internal_slug": "meaningless",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x000009bb1740eea484f7db00000a9227e578bf96",
@@ -5444,7 +6444,11 @@
       "jeff_davis"
     ],
     "internal_slug": "mechanical_drawing",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js190",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -5462,7 +6466,11 @@
     ],
     "internal_slug": "melancholic_magical_maiden",
     "standardThumbsPathsAvailable": true,
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "three",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -5479,7 +6487,11 @@
       "yungwknd"
     ],
     "internal_slug": "melt_into_you",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x1353fd9d3dc70d1a18149c8fb2adb4fb906de4e8",
@@ -5496,7 +6508,11 @@
       "juan_rodriguez_garcia"
     ],
     "internal_slug": "memorias_del_espacio_olvidado",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -5513,7 +6529,11 @@
       "buitrago"
     ],
     "internal_slug": "mental_entanglement",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5530,7 +6550,11 @@
       "fabianospeziari_x_donnoh"
     ],
     "internal_slug": "mental_pathways",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -5547,7 +6571,11 @@
       "jinyao_lin"
     ],
     "internal_slug": "metaphysics",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -5564,7 +6592,11 @@
       "third_vision"
     ],
     "internal_slug": "miragem",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x0000000c687f0226eaf0bdb39104fad56738cdf2",
@@ -5582,7 +6614,11 @@
     ],
     "internal_slug": "misbah",
     "standardThumbsPathsAvailable": true,
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x1725dc55c1bd5200bf00566cf20000b10800c68e",
@@ -5599,7 +6635,11 @@
       "joshua_bagley"
     ],
     "internal_slug": "mister_shifty_and_the_drifty_dudes",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js190",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x000000637fddcdd459b047897afb3ea46aa6f334",
@@ -5617,7 +6657,11 @@
     ],
     "internal_slug": "motion_pictures",
     "standardThumbsPathsAvailable": true,
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5634,7 +6678,11 @@
       "pandelune"
     ],
     "internal_slug": "murano_fantasy",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -5651,7 +6699,11 @@
       "olga_fradina"
     ],
     "internal_slug": "naive",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -5668,7 +6720,11 @@
       "rafael_rozendaal"
     ],
     "internal_slug": "nausea",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5685,7 +6741,11 @@
       "rvig"
     ],
     "internal_slug": "nebula",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5702,7 +6762,11 @@
       "jeff_davis"
     ],
     "internal_slug": "neighborhood",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -5719,7 +6783,11 @@
       "ilithya_x_erin_wajufos"
     ],
     "internal_slug": "net_net_net",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -5736,7 +6804,11 @@
       "fingacode"
     ],
     "internal_slug": "nth_culture",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5753,7 +6825,11 @@
       "artplusbrad"
     ],
     "internal_slug": "ode_to_roy",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5770,7 +6846,11 @@
       "artplusbrad"
     ],
     "internal_slug": "ode_to_untitled",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x00002491b000aa008756652c87cc92d87e896f0f",
@@ -5787,7 +6867,11 @@
       "stefano_contiero"
     ],
     "internal_slug": "ofrenda",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5804,7 +6888,11 @@
       "rizzle_sebi_miguelgarest"
     ],
     "internal_slug": "onchainchain",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "three",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -5821,7 +6909,11 @@
       "rafael_rozendaal"
     ],
     "internal_slug": "open_close",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x1d0977e86c70eabb5c8fd98db1b08c6d60caa0c1",
@@ -5838,7 +6930,11 @@
       "jeff_davis"
     ],
     "internal_slug": "optimism",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -5855,7 +6951,11 @@
       "kjetil_golid"
     ],
     "internal_slug": "orbifold",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -5872,7 +6972,11 @@
       "rafael_rozendaal"
     ],
     "internal_slug": "pages",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5889,7 +6993,11 @@
       "loren_bednar"
     ],
     "internal_slug": "parade",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -5906,7 +7014,11 @@
       "aaron_penne_x_boreta"
     ],
     "internal_slug": "passages",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5923,7 +7035,11 @@
       "jake_rockland"
     ],
     "internal_slug": "patchwork_saguaros",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5940,7 +7056,11 @@
       "vamoss"
     ],
     "internal_slug": "patterns_of_life",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xd40030fd1d00f1a9944462ff0025e9c8d0003500",
@@ -5958,7 +7078,11 @@
     ],
     "internal_slug": "pax",
     "standardThumbsPathsAvailable": true,
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5975,7 +7099,11 @@
       "punch_card_collective"
     ],
     "internal_slug": "perpetua",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "regl",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -5992,7 +7120,11 @@
       "omri_tintpulver"
     ],
     "internal_slug": "pigs_tail",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6009,7 +7141,11 @@
       "kai"
     ],
     "internal_slug": "pixel_glass",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xaa00b2b2db36b8f8004a9aa96f0012005d92b300",
@@ -6026,7 +7162,19 @@
       "basement_x_ryleyo"
     ],
     "internal_slug": "pool_party",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js190",
+      "renderingProfile": "artBlocks",
+      "externalAssetDependencies": [
+        {
+          "index": 0,
+          "cid": "",
+          "dependency_type": "ONCHAIN",
+          "bytecode_address": "0x00000000a78e278b2d2e2935faebe19ee9f1ff14"
+        }
+      ]
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6043,7 +7191,11 @@
       "jeff_davis"
     ],
     "internal_slug": "portal",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x000009bb1740eea484f7db00000a9227e578bf96",
@@ -6060,7 +7212,11 @@
       "jeff_davis"
     ],
     "internal_slug": "progression",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js190",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -6077,7 +7233,11 @@
       "remnynt"
     ],
     "internal_slug": "proscenium",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -6094,7 +7254,11 @@
       "rafael_rozendaal"
     ],
     "internal_slug": "pulse",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6111,7 +7275,11 @@
       "insight"
     ],
     "internal_slug": "quantum_collapses",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -6128,7 +7296,11 @@
       "ikiddo"
     ],
     "internal_slug": "quantumcirclet",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6145,7 +7317,11 @@
       "owen_moore"
     ],
     "internal_slug": "quarantine",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "three",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x64780ce53f6e966e18a22af13a2f97369580ec11",
@@ -6162,7 +7338,11 @@
       "tara_donovan"
     ],
     "internal_slug": "qwerty",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x70270e65bc37832ef845fa330c2b71501970dab9",
@@ -6180,7 +7360,11 @@
     ],
     "internal_slug": "rain_blooms",
     "standardThumbsPathsAvailable": true,
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -6197,7 +7381,11 @@
       "yon"
     ],
     "internal_slug": "rainbows",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6214,7 +7402,11 @@
       "thomas_lin_pedersen"
     ],
     "internal_slug": "rapture",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x0000528a4a3859020a7970110c16941a00fadf00",
@@ -6231,7 +7423,11 @@
       "julian_hespenheide_the_generative_art_museum"
     ],
     "internal_slug": "ratio",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js190",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x294fed5f1d3d30cfa6fe86a937dc3141eec8bc6d",
@@ -6249,7 +7445,11 @@
     ],
     "internal_slug": "receive_transmission",
     "standardThumbsPathsAvailable": true,
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6267,7 +7467,11 @@
     ],
     "internal_slug": "reflection",
     "standardThumbsPathsAvailable": true,
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -6284,7 +7488,11 @@
       "ben_kanizay"
     ],
     "internal_slug": "retrometrix",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6301,7 +7509,11 @@
       "jeff_davis"
     ],
     "internal_slug": "rhythm",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6318,7 +7530,11 @@
       "stefano_contiero"
     ],
     "internal_slug": "rinascita",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -6335,7 +7551,11 @@
       "rafael_rozendaal"
     ],
     "internal_slug": "ripple",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -6352,7 +7572,11 @@
       "rafael_rozendaal"
     ],
     "internal_slug": "rooms",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6369,7 +7593,11 @@
       "nadieh_bremer"
     ],
     "internal_slug": "rotae",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6386,7 +7614,11 @@
       "sebastian_brocher_cryptoarte"
     ],
     "internal_slug": "rotor",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -6403,7 +7635,11 @@
       "mario_carrillo"
     ],
     "internal_slug": "rubicon",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "three",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6420,7 +7656,11 @@
       "melissa_wiederrecht"
     ],
     "internal_slug": "sandaliya",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6437,7 +7677,11 @@
       "thomas_lin_pedersen"
     ],
     "internal_slug": "screens",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6454,7 +7698,11 @@
       "william_tan"
     ],
     "internal_slug": "scribbled_boundaries",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa319c382a702682129fcbf55d514e61a16f97f9c",
@@ -6471,7 +7719,11 @@
       "minimizer"
     ],
     "internal_slug": "scribbled_daydreams",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6489,7 +7741,11 @@
     ],
     "internal_slug": "scribblines",
     "standardThumbsPathsAvailable": true,
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -6507,7 +7763,11 @@
     ],
     "internal_slug": "seasky",
     "standardThumbsPathsAvailable": true,
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa319c382a702682129fcbf55d514e61a16f97f9c",
@@ -6524,7 +7784,11 @@
       "r4v3n"
     ],
     "internal_slug": "shields",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6541,7 +7805,11 @@
       "espina"
     ],
     "internal_slug": "sigils",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -6558,7 +7826,11 @@
       "rafael_rozendaal"
     ],
     "internal_slug": "sinking",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -6575,7 +7847,11 @@
       "itsgalo"
     ],
     "internal_slug": "skeuomorphs",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -6592,7 +7868,11 @@
       "jake_rockland"
     ],
     "internal_slug": "sonoran_roadways",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6609,7 +7889,11 @@
       "mark_cotton"
     ],
     "internal_slug": "space_birds",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6626,7 +7910,11 @@
       "whalestreet_x_pxlq"
     ],
     "internal_slug": "space_debris_maider",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6643,7 +7931,11 @@
       "owen_moore"
     ],
     "internal_slug": "spaghettification",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6660,7 +7952,11 @@
       "jake_rockland"
     ],
     "internal_slug": "speckled_summits",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6677,7 +7973,11 @@
       "alexander_reben"
     ],
     "internal_slug": "spiroflakes",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "html",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6694,7 +7994,11 @@
       "philip_bell"
     ],
     "internal_slug": "staccato",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6711,7 +8015,11 @@
       "ruben_alexander"
     ],
     "internal_slug": "star_flower",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -6728,7 +8036,11 @@
       "alida_sun"
     ],
     "internal_slug": "stellaraum",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -6746,7 +8058,11 @@
     ],
     "internal_slug": "still_moving",
     "standardThumbsPathsAvailable": true,
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6763,7 +8079,11 @@
       "jake_rockland"
     ],
     "internal_slug": "stipple_sunsets",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -6780,7 +8100,11 @@
       "rafael_rozendaal"
     ],
     "internal_slug": "stretch",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -6797,7 +8121,11 @@
       "jimishim"
     ],
     "internal_slug": "striation",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa319c382a702682129fcbf55d514e61a16f97f9c",
@@ -6814,7 +8142,11 @@
       "julien_gachadoat"
     ],
     "internal_slug": "structures",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -6831,7 +8163,11 @@
       "petitsapin"
     ],
     "internal_slug": "such_a_lovely_time",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6849,7 +8185,11 @@
     ],
     "internal_slug": "sudfah",
     "standardThumbsPathsAvailable": true,
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6866,7 +8206,11 @@
       "pzs"
     ],
     "internal_slug": "summoning_ritual",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6883,7 +8227,11 @@
       "eltono"
     ],
     "internal_slug": "swing",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6900,7 +8248,11 @@
       "chaosconstruct"
     ],
     "internal_slug": "synapses",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -6917,7 +8269,11 @@
       "claudia_hart_and_andrew_blanton"
     ],
     "internal_slug": "systems_madness",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x9800005deb3cfaf80077dbe9b9004c0020c1d6c5",
@@ -6935,7 +8291,11 @@
     ],
     "internal_slug": "testo",
     "standardThumbsPathsAvailable": true,
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x1353fd9d3dc70d1a18149c8fb2adb4fb906de4e8",
@@ -6952,7 +8312,11 @@
       "carlos_marcial"
     ],
     "internal_slug": "the_collectors_room",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "three",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -6969,7 +8333,11 @@
       "camille_roux_x_matthieu_segret"
     ],
     "internal_slug": "the_destination",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -6986,7 +8354,11 @@
       "fesq"
     ],
     "internal_slug": "the_distance_in_between",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -7003,7 +8375,11 @@
       "per_kristian_stoveland"
     ],
     "internal_slug": "the_harvest",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x00000041a2980e05cb4fbbbc735f17eff443b592",
@@ -7020,7 +8396,11 @@
       "amy_goodchild_x_the_generative_art_museum"
     ],
     "internal_slug": "the_light_where_we_meet",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -7037,7 +8417,11 @@
       "sputniko"
     ],
     "internal_slug": "the_nursery",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "three",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -7054,7 +8438,11 @@
       "cole_sternberg"
     ],
     "internal_slug": "the_spring_begins_with_the_first_rainstorm",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xe034bb2b1b9471e11cf1a0a9199a156fb227aa5d",
@@ -7071,7 +8459,11 @@
       "vera_molnar_in_collaboration_with_martin_grasser"
     ],
     "internal_slug": "themes_and_variations",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x9f79e46a309f804aa4b7b53a1f72c69137427794",
@@ -7088,7 +8480,11 @@
       "willard"
     ],
     "internal_slug": "theoretical_townships",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -7105,7 +8501,11 @@
       "eric_davidson"
     ],
     "internal_slug": "thoughts_of_meadow",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x8ce22a649a0ea5008900740028007278038d0023",
@@ -7122,7 +8522,11 @@
       "anna_lucia"
     ],
     "internal_slug": "thread",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -7139,7 +8543,11 @@
       "abieyuwa_and_sabha"
     ],
     "internal_slug": "through_my_windshield",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -7156,7 +8564,11 @@
       "reva"
     ],
     "internal_slug": "through_the_window",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -7173,7 +8585,11 @@
       "lovid"
     ],
     "internal_slug": "tide_predictor",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x000056c200618b979900c3f1ef9aef86f4c47eaa",
@@ -7190,7 +8606,11 @@
       "gossamer_rozen"
     ],
     "internal_slug": "tigerbob_charm_packs",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js11111",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x000056c200618b979900c3f1ef9aef86f4c47eaa",
@@ -7208,7 +8628,11 @@
     ],
     "internal_slug": "tigerbob_mystery_garden",
     "standardThumbsPathsAvailable": true,
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "p5js190",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -7225,7 +8649,11 @@
       "steen_x_neo"
     ],
     "internal_slug": "time_squared",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -7242,7 +8670,11 @@
       "jimmy_herdberg"
     ],
     "internal_slug": "time_travel_in_a_subconscious_mind",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -7259,7 +8691,11 @@
       "jeres"
     ],
     "internal_slug": "torrent",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x8cdbd7010bd197848e95c1fd7f6e870aac9b0d3c",
@@ -7276,7 +8712,11 @@
       "jack_butcher"
     ],
     "internal_slug": "trademark",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x000000b394cac6057d87df835bea27844b3e2828",
@@ -7293,7 +8733,14 @@
       "hal09999_x_the_generative_art_museum"
     ],
     "internal_slug": "transformations_du_champ",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "three167",
+      "renderingProfile": "artBlocks",
+      "additionalLibraries": [
+        "tone1504"
+      ]
+    }
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -7310,7 +8757,11 @@
       "rafael_rozendaal"
     ],
     "internal_slug": "transit_2",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -7327,7 +8778,11 @@
       "heeey"
     ],
     "internal_slug": "transit",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -7344,7 +8799,11 @@
       "fingacode"
     ],
     "internal_slug": "translucent_panes",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -7362,7 +8821,11 @@
     ],
     "internal_slug": "trossets",
     "standardThumbsPathsAvailable": true,
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -7379,7 +8842,11 @@
       "xsaha"
     ],
     "internal_slug": "turner_in_the_light",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -7396,7 +8863,11 @@
       "beervangeer"
     ],
     "internal_slug": "ultrawave_369",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -7413,7 +8884,11 @@
       "fernando_jerez"
     ],
     "internal_slug": "umk",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -7430,7 +8905,11 @@
       "ikiddo"
     ],
     "internal_slug": "uniqueness",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -7447,7 +8926,11 @@
       "ge1doot"
     ],
     "internal_slug": "utopia",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -7464,7 +8947,11 @@
       "darien_brito"
     ],
     "internal_slug": "vahria",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "three",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -7481,7 +8968,11 @@
       "tengil"
     ],
     "internal_slug": "vaxt",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -7498,7 +8989,11 @@
       "sabha"
     ],
     "internal_slug": "vessel",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -7516,7 +9011,11 @@
     ],
     "internal_slug": "view_card",
     "standardThumbsPathsAvailable": true,
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x00000024ca7f3cfba7084e3289a9048d79261b29",
@@ -7533,7 +9032,11 @@
       "bustavo_x_the_generative_art_museum"
     ],
     "internal_slug": "vivoteca",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js190",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -7550,7 +9053,11 @@
       "alexis_andre"
     ],
     "internal_slug": "void",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -7568,7 +9075,11 @@
     ],
     "internal_slug": "volute",
     "standardThumbsPathsAvailable": true,
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -7585,7 +9096,11 @@
       "jen_stark"
     ],
     "internal_slug": "vortex",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "three",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -7602,7 +9117,11 @@
       "disruptedstar"
     ],
     "internal_slug": "voyager",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -7619,7 +9138,11 @@
       "rafael_rozendaal"
     ],
     "internal_slug": "warp",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -7636,7 +9159,11 @@
       "espina"
     ],
     "internal_slug": "warp_2",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -7653,7 +9180,11 @@
       "numbersinmotion"
     ],
     "internal_slug": "watercolor_dreams",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0xab0000000000aa06f89b268d604a9c1c41524ac6",
@@ -7670,7 +9201,11 @@
       "lars_wander"
     ],
     "internal_slug": "while_true",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -7687,7 +9222,11 @@
       "volekr"
     ],
     "internal_slug": "whispers_of_motion_fiat_pass",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x000000c9572b8a9a638f238510af4e90a4e365ee",
@@ -7704,7 +9243,11 @@
       "frederik_vanhoutte_x_the_generative_art_museum"
     ],
     "internal_slug": "winterkammer",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js190",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x13aae6f9599880edbb7d144bb13f1212cee99533",
@@ -7722,7 +9265,11 @@
     ],
     "internal_slug": "worlds",
     "standardThumbsPathsAvailable": true,
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -7739,7 +9286,11 @@
       "truedrew"
     ],
     "internal_slug": "you_are_here_part_1",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "p5js100",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -7756,7 +9307,11 @@
       "rafael_rozendaal"
     ],
     "internal_slug": "zoom",
-    "standardThumbsPathsAvailable": true
+    "standardThumbsPathsAvailable": true,
+    "script": {
+      "kind": "js",
+      "renderingProfile": "artBlocks"
+    }
   },
   {
     "name": "Bokeh",

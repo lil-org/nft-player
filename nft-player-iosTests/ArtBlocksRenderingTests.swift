@@ -698,7 +698,7 @@ extension ArtBlocksRenderingTests {
         let scriptURL = try XCTUnwrap(SuggestedItemsService.bundledScriptURL(collectionId: id))
         let tokensURL = try XCTUnwrap(SuggestedItemsService.bundledTokensURL(collectionId: id))
         let source = try Data(contentsOf: scriptURL), tokenData = try Data(contentsOf: tokensURL)
-        return Resources(script: try JSONDecoder().decode(Script.self, from: source),
+        return Resources(script: try XCTUnwrap(SuggestedItemsService.bundledScript(collectionId: id)),
             tokens: try JSONDecoder().decode(BundledTokens.self, from: tokenData).items,
             scriptURL: scriptURL, tokensURL: tokensURL, source: source, tokenData: tokenData)
     }

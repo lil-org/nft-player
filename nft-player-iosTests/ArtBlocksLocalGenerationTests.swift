@@ -73,7 +73,7 @@ extension ArtBlocksLocalGenerationTests {
             XCTAssertEqual(script.address, project.address)
             XCTAssertEqual(script.abId, String(project.projectId))
             XCTAssertEqual(script.kind, project.kind)
-            XCTAssertEqual(script.collectionIdOverride, project.legacySuffix == nil ? nil : project.id)
+            XCTAssertEqual(item.script?.projectId, project.legacySuffix == nil ? nil : String(project.projectId))
             XCTAssertFalse(script.value.isEmpty, project.name)
         }
     }
@@ -265,26 +265,21 @@ extension ArtBlocksLocalGenerationTests {
         }
     }
 
-    func testScriptIdentityOverrideIsOptionalAndRoundTrips() throws {
-        let fixture: [String: Any] = [
-            "address": "0xcollection", "abId": "2", "name": "Legacy script",
-            "kind": "js", "value": "void 0;",
-        ]
-        let oldScript = try JSONDecoder().decode(Script.self, from: JSONSerialization.data(withJSONObject: fixture))
-        XCTAssertNil(oldScript.collectionIdOverride)
-        XCTAssertEqual(oldScript.id, "0xcollection2")
-        var overriddenFixture = fixture
-        overriddenFixture["collectionIdOverride"] = "preserved-collection-id"
-        let newScript = try JSONDecoder().decode(Script.self, from: JSONSerialization.data(withJSONObject: overriddenFixture))
-        XCTAssertEqual(newScript.abId, "2")
-        XCTAssertEqual(newScript.id, "preserved-collection-id")
-        let roundTripped = try JSONDecoder().decode(Script.self, from: JSONEncoder().encode(newScript))
-        XCTAssertEqual(roundTripped.id, newScript.id)
-        XCTAssertEqual(roundTripped.collectionIdOverride, newScript.collectionIdOverride)
+    func testParnassusProjectIdIsSeparateFromItsCatalogIdentityAndRoundTrips() throws {
+        let project = try XCTUnwrap(projects.first { $0.slug == "parnassus" })
+        let item = try XCTUnwrap(SuggestedItemsService.item(id: project.id))
+        let script = try bundledScript(for: project)
+        XCTAssertNil(item.abId)
+        XCTAssertEqual(item.collectionId, project.legacySuffix)
+        XCTAssertEqual(item.script?.projectId, "2")
+        XCTAssertEqual(script.abId, "2")
+        XCTAssertEqual(script.id, item.id)
+        let restored = try JSONDecoder().decode(SuggestedItem.self, from: JSONEncoder().encode(item))
+        XCTAssertEqual(restored.id, item.id)
+        XCTAssertEqual(restored.script, item.script)
     }
 
     private func bundledScript(for project: Project) throws -> Script {
-        let url = try XCTUnwrap(SuggestedItemsService.bundledScriptURL(collectionId: project.id), project.name)
-        return try JSONDecoder().decode(Script.self, from: Data(contentsOf: url))
+        return try XCTUnwrap(SuggestedItemsService.bundledScript(collectionId: project.id))
     }
 }

@@ -15,15 +15,15 @@ function createFixture(t) {
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const coversPath = path.join(root, "covers");
   const items = [
-    { address: ADDRESS, chain: "ethereum", internal_slug: "first_collection", name: "First Collection" },
-    { address: ADDRESS, chain: "base", internal_slug: "second_collection", name: "Second Collection" },
+    { address: ADDRESS, chain: "ethereum", internal_slug: "first_collection", name: "First Collection", script: { kind: "js" } },
+    { address: ADDRESS, chain: "base", internal_slug: "second_collection", name: "Second Collection", script: { kind: "js" } },
   ];
   const itemsPath = path.join(root, "items.json");
   fs.writeFileSync(itemsPath, JSON.stringify(items));
   for (const item of items) {
-    for (const directory of ["Tokens", "Scripts"]) {
+    for (const [directory, extension] of [["Tokens", "json"], ["Scripts", "js"]]) {
       fs.mkdirSync(path.join(root, directory), { recursive: true });
-      fs.writeFileSync(path.join(root, directory, `${item.internal_slug}.json`), "{}");
+      fs.writeFileSync(path.join(root, directory, `${item.internal_slug}.${extension}`), directory === "Scripts" ? "void 0;" : "{}");
     }
     fs.mkdirSync(coversPath, { recursive: true });
     fs.writeFileSync(path.join(coversPath, `${item.internal_slug}.jpg`), "existing cover");
@@ -43,8 +43,8 @@ test("removing by slug deletes its resources and preserves a collection with the
   const result = runRemover(fixture, "first_collection");
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(JSON.parse(fs.readFileSync(fixture.itemsPath, "utf8")), [fixture.items[1]]);
-  for (const directory of ["Tokens", "Scripts"]) {
-    assert.deepEqual(fs.readdirSync(path.join(fixture.root, directory)), ["second_collection.json"]);
+  for (const [directory, extension] of [["Tokens", "json"], ["Scripts", "js"]]) {
+    assert.deepEqual(fs.readdirSync(path.join(fixture.root, directory)), [`second_collection.${extension}`]);
   }
   assert.deepEqual(fs.readdirSync(fixture.coversPath), ["second_collection.jpg"]);
 });
@@ -55,11 +55,12 @@ test("removal by name resolves slug resources in a read-only dry run", (t) => {
   const result = runRemover(fixture, "First Collection", false);
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /Tokens\/first_collection\.json/u);
-  assert.match(result.stdout, /Scripts\/first_collection\.json/u);
+  assert.match(result.stdout, /Scripts\/first_collection\.js/u);
   assert.match(result.stdout, /covers\/first_collection\.jpg/u);
   assert.equal(fs.readFileSync(path.join(fixture.coversPath, "first_collection.jpg"), "utf8"), "existing cover");
   assert.equal(fs.readFileSync(fixture.itemsPath, "utf8"), original);
   assert.equal(fs.existsSync(path.join(fixture.root, "Tokens", "first_collection.json")), true);
+  assert.equal(fs.readFileSync(path.join(fixture.root, "Scripts", "first_collection.js"), "utf8"), "void 0;");
 });
 
 test("ambiguous address selectors fail before deleting resources", (t) => {
@@ -75,10 +76,10 @@ test("exact slug selectors disambiguate collections with the same display name",
   const fixture = createFixture(t);
   for (const [index, slug] of ["balance", "balance_2"].entries()) {
     const item = fixture.items[index];
-    for (const directory of ["Tokens", "Scripts"]) {
+    for (const [directory, extension] of [["Tokens", "json"], ["Scripts", "js"]]) {
       fs.renameSync(
-        path.join(fixture.root, directory, `${item.internal_slug}.json`),
-        path.join(fixture.root, directory, `${slug}.json`)
+        path.join(fixture.root, directory, `${item.internal_slug}.${extension}`),
+        path.join(fixture.root, directory, `${slug}.${extension}`)
       );
     }
     fs.renameSync(
@@ -99,8 +100,8 @@ test("exact slug selectors disambiguate collections with the same display name",
   const slugResult = runRemover(fixture, "balance");
   assert.equal(slugResult.status, 0, slugResult.stderr);
   assert.deepEqual(JSON.parse(fs.readFileSync(fixture.itemsPath, "utf8")), [fixture.items[1]]);
-  for (const directory of ["Tokens", "Scripts"]) {
-    assert.deepEqual(fs.readdirSync(path.join(fixture.root, directory)), ["balance_2.json"]);
+  for (const [directory, extension] of [["Tokens", "json"], ["Scripts", "js"]]) {
+    assert.deepEqual(fs.readdirSync(path.join(fixture.root, directory)), [`balance_2.${extension}`]);
   }
   assert.deepEqual(fs.readdirSync(fixture.coversPath), ["balance_2.jpg"]);
 });
@@ -113,4 +114,42 @@ test("removal succeeds when no local cover staging directory exists", (t) => {
   assert.match(result.stdout, /staged cover JPEG: missing/u);
   assert.deepEqual(JSON.parse(fs.readFileSync(fixture.itemsPath, "utf8")), [fixture.items[1]]);
   assert.equal(fs.existsSync(fixture.coversPath), false);
+});
+
+test("removal handles HTML, Processing, and native script collections", async (t) => {
+  for (const [kind, extension] of [["html", "html"], ["processingjs146", "pde"], ["native.card-nft-2", null]]) {
+    await t.test(kind, (t) => {
+      const fixture = createFixture(t);
+      fixture.items[0].script.kind = kind;
+      fs.writeFileSync(fixture.itemsPath, JSON.stringify(fixture.items));
+      fs.rmSync(path.join(fixture.root, "Scripts", "first_collection.js"));
+      if (extension != null) {
+        fs.writeFileSync(path.join(fixture.root, "Scripts", `first_collection.${extension}`), "source");
+      }
+
+      const preview = runRemover(fixture, "first_collection", false);
+      assert.equal(preview.status, 0, preview.stderr);
+      if (extension != null) {
+        assert.ok(preview.stdout.includes(`Scripts/first_collection.${extension}`));
+      } else {
+        assert.match(preview.stdout, /script source: none/u);
+      }
+      const result = runRemover(fixture, "first_collection");
+      assert.equal(result.status, 0, result.stderr);
+      assert.deepEqual(fs.readdirSync(path.join(fixture.root, "Scripts")), ["second_collection.js"]);
+      assert.deepEqual(JSON.parse(fs.readFileSync(fixture.itemsPath, "utf8")), [fixture.items[1]]);
+    });
+  }
+});
+
+test("removal cleans orphaned token and source files by slug", (t) => {
+  const fixture = createFixture(t);
+  fs.writeFileSync(fixture.itemsPath, JSON.stringify([fixture.items[1]]));
+
+  const result = runRemover(fixture, "first_collection");
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /catalog entry: no/u);
+  assert.deepEqual(fs.readdirSync(path.join(fixture.root, "Scripts")), ["second_collection.js"]);
+  assert.deepEqual(fs.readdirSync(path.join(fixture.root, "Tokens")), ["second_collection.json"]);
+  assert.deepEqual(JSON.parse(fs.readFileSync(fixture.itemsPath, "utf8")), [fixture.items[1]]);
 });

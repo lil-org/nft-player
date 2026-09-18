@@ -61,6 +61,30 @@ test("widget resources use slugs and preserve collection metadata without local 
   await generateWidgetResources(directory, { check: true });
 });
 
+test("widget resources preserve script metadata without copying script sources", async (t) => {
+  const { directory, items } = await fixture(t);
+  const { generateWidgetResources } = await generator;
+  items[0].script = {
+    kind: "js",
+    renderingProfile: "artBlocks",
+    projectId: "2",
+    externalAssetDependencies: [{ index: 0, cid: "dependency", dependency_type: "IPFS" }],
+  };
+  items[1].script = { kind: "native.card-nft-2" };
+  await writeJSON(directory, "Suggested.bundle/items.json", items);
+  await writeFile(directory, "Suggested.bundle/Scripts/alpha.js", "void 0;");
+  await generateWidgetResources(directory);
+
+  assert.deepEqual(
+    JSON.parse(await fs.readFile(path.join(directory, "WidgetSuggested.bundle/items.json"), "utf8")),
+    [items[1], items[0]]
+  );
+  assert.deepEqual((await fs.readdir(path.join(directory, "WidgetSuggested.bundle"))).sort(), [
+    "Tokens", "items.json",
+  ]);
+  await generateWidgetResources(directory, { check: true });
+});
+
 test("widget projection preserves object media sources while removing unused metadata", async (t) => {
   const { directory, items } = await fixture(t);
   const { generateWidgetResources } = await generator;

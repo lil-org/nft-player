@@ -370,20 +370,19 @@ extension ArtBlocksContractParametersTests {
     }
 
     private func bundledScript(_ item: SuggestedItem) throws -> Script {
-        let url = try XCTUnwrap(SuggestedItemsService.bundledScriptURL(collectionId: item.id))
-        return try JSONDecoder().decode(Script.self, from: Data(contentsOf: url))
+        return try XCTUnwrap(SuggestedItemsService.bundledScript(collectionId: item.id))
     }
 
-    private func dependency(index: Int = 0, type: String = "ONCHAIN", address: String = "0x00000000a78e278b2d2e2935faebe19ee9f1ff14") -> [String: Any] {
-        ["index": index, "cid": "", "dependency_type": type, "bytecode_address": address, "data": "original dependency data"]
+    private func dependency(index: Int = 0, type: String = "ONCHAIN", address: String = "0x00000000a78e278b2d2e2935faebe19ee9f1ff14") -> Script.ExternalAssetDependency {
+        .init(index: index, cid: "", dependency_type: type, data: "original dependency data", bytecode_address: address)
     }
 
-    private func syntheticScript(dependency: [String: Any], artBlocksRendering: Bool = true) throws -> Script {
-        let fields: [String: Any] = [
-            "address": "0xparameters", "name": "Parameters fixture", "abId": "0", "kind": "js", "value": "",
-            "renderingProfile": artBlocksRendering ? "artBlocks" as Any : NSNull(), "externalAssetDependencies": [dependency]
-        ]
-        return try JSONDecoder().decode(Script.self, from: JSONSerialization.data(withJSONObject: fields))
+    private func syntheticScript(dependency: Script.ExternalAssetDependency, artBlocksRendering: Bool = true) throws -> Script {
+        Script(
+            id: "0xparameters0", address: "0xparameters", name: "Parameters fixture", abId: "0", value: "",
+            metadata: .init(kind: .js, renderingProfile: artBlocksRendering ? .artBlocks : nil,
+                            externalAssetDependencies: [dependency])
+        )
     }
 
     private func tokenData(in html: String) throws -> [String: Any] {

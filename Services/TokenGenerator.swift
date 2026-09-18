@@ -5,13 +5,6 @@ import os
 
 nonisolated enum TokenGenerator {
     
-    private static let scriptURLsByCollectionId: [String: URL] = {
-        SuggestedItemsService.allItems.reduce(into: [:]) { result, item in
-            if let url = SuggestedItemsService.bundledScriptURL(collectionId: item.id) {
-                result[item.id] = url
-            }
-        }
-    }()
     private static let cache = OSAllocatedUnfairLock(initialState: CacheState())
     private static let cardNft2NativeCollection = RangedNativeCollection(
         collectionId: NativeMetalCardRenderKind.cardNft2.collectionId,
@@ -108,8 +101,13 @@ nonisolated enum TokenGenerator {
     }()
 
     private static let generativeCollectionIds: Set<String> = {
-        Set(scriptURLsByCollectionId.keys.filter { collectionId in
-            !isCollectionDisabledOnCurrentPlatform(id: collectionId)
+        Set(SuggestedItemsService.allItems.compactMap { item in
+            guard let metadata = item.script,
+                  !isCollectionDisabledOnCurrentPlatform(id: item.id),
+                  metadata.kind.isNativeRenderer || SuggestedItemsService.bundledScriptURL(collectionId: item.id) != nil else {
+                return nil
+            }
+            return item.id
         })
     }()
 
@@ -325,16 +323,14 @@ nonisolated enum TokenGenerator {
             return cachedEntry.script
         }
 
-        let decodedScript = scriptURLsByCollectionId[specificCollectionId].flatMap { try? Data(contentsOf: $0) }.flatMap {
-            try? JSONDecoder().decode(Script.self, from: $0)
-        }
-        let entry: ScriptCacheEntry = decodedScript.map(ScriptCacheEntry.found) ?? .missing
+        let loadedScript = SuggestedItemsService.bundledScript(collectionId: specificCollectionId)
+        let entry: ScriptCacheEntry = loadedScript.map(ScriptCacheEntry.found) ?? .missing
         return cache.withLock { state in
             if let cachedEntry = state.scriptByCollectionId[specificCollectionId] {
                 return cachedEntry.script
             }
             state.scriptByCollectionId[specificCollectionId] = entry
-            return decodedScript
+            return loadedScript
         }
     }
 

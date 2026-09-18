@@ -44,3 +44,32 @@ nonisolated enum JavaScriptLibraryFixtures {
         }
     }
 }
+
+extension Script {
+    func replacing(
+        id: String? = nil,
+        address: String? = nil,
+        name: String? = nil,
+        abId: String? = nil,
+        chain: Chain? = nil,
+        value: String? = nil,
+        metadata: Metadata? = nil
+    ) -> Script {
+        Script(
+            id: id ?? self.id,
+            address: address ?? self.address,
+            name: name ?? self.name,
+            abId: abId ?? self.abId,
+            chain: chain ?? self.chain,
+            chainId: chainId,
+            value: value ?? self.value,
+            metadata: metadata ?? self.metadata
+        )
+    }
+
+    func modifyingMetadata(_ update: (inout Metadata) -> Void) -> Script {
+        var metadata = metadata
+        update(&metadata)
+        return replacing(metadata: metadata)
+    }
+}

@@ -65,6 +65,25 @@ test("preserves token and collection web URL overrides when regenerating a sugge
   });
 });
 
+test("preserves script metadata when regenerating a suggested item", () => {
+  const script = {
+    kind: "js",
+    renderingProfile: "artBlocks",
+    requiresInitialCanvas: true,
+    additionalLibraries: ["tone"],
+    externalAssetDependencies: [{ index: 0, cid: "dependency", dependency_type: "IPFS" }],
+  };
+  const existingItem = { address: "collection-id", chain: "solana", script };
+  const generatedItem = {
+    address: "collection-id", chain: "solana", name: "Example Collection", tokenCount: 100,
+  };
+
+  assert.deepEqual(mergeGeneratedSuggestedItem(existingItem, generatedItem), {
+    ...generatedItem,
+    script,
+  });
+});
+
 test("encodes automatic two-column decisions and preserves manual three-column overrides", () => {
   const item = {
     address: "collection-id",

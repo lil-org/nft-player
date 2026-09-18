@@ -167,13 +167,17 @@ function scriptCollectionIds() {
 
 function scriptCollectionKinds() {
   return new Map(
-    fs.readdirSync(SCRIPTS_PATH)
-      .filter((fileName) => path.extname(fileName) === ".json")
-      .map((fileName) => {
-        const script = readJSON(path.join(SCRIPTS_PATH, fileName));
-        return [script.collectionIdOverride ?? script.address + script.abId, script.kind];
-      })
+    readJSON(ITEMS_PATH)
+      .filter((item) => item.script != null)
+      .map((item) => [suggestedItemId(item), item.script.kind])
   );
+}
+
+function scriptSourceFileName(item) {
+  const kind = item.script?.kind;
+  if (kind == null || kind.startsWith("native.")) return null;
+  const extension = kind === "html" ? "html" : kind === "processingjs146" ? "pde" : "js";
+  return `${item.internal_slug}.${extension}`;
 }
 
 function eligibleItems(items, scriptIds) {
@@ -530,9 +534,8 @@ test("Planet Peppa retains original filenames and uses original large images", (
   }
 });
 
-test("catalog slugs exactly match bundled resource names and preserve script identities", () => {
+test("catalog script metadata exactly matches raw bundled source resources", () => {
   const items = readJSON(ITEMS_PATH);
-  const itemsBySlug = new Map(items.map((item) => [item.internal_slug, item]));
   const tokenFileNames = fs.readdirSync(TOKENS_PATH)
     .filter((fileName) => path.extname(fileName) === ".json");
   assert.deepEqual(
@@ -541,19 +544,39 @@ test("catalog slugs exactly match bundled resource names and preserve script ide
       .map((item) => `${item.internal_slug}.json`).sort()
   );
 
-  const scriptFileNames = fs.readdirSync(SCRIPTS_PATH)
-    .filter((fileName) => path.extname(fileName) === ".json");
-  assert.equal(scriptFileNames.length, 407);
-  for (const fileName of scriptFileNames) {
-    const slug = path.basename(fileName, ".json");
-    const item = itemsBySlug.get(slug);
-    assert.ok(item, `Unexpected script resource ${fileName}`);
-    const script = readJSON(path.join(SCRIPTS_PATH, fileName));
-    assert.equal(
-      script.collectionIdOverride ?? script.address + script.abId,
-      suggestedItemId(item),
-      `${slug} script identity does not match its catalog item`
+  const scriptedItems = items.filter((item) => item.script != null);
+  assert.equal(scriptedItems.length, 407);
+  const allowedFields = new Set([
+    "kind", "renderingProfile", "nftPlayerDisplayTuning", "requiresInitialCanvas",
+    "additionalLibraries", "isModule", "externalAssetDependencies", "projectId",
+  ]);
+  for (const item of scriptedItems) {
+    assert.equal(typeof item.script, "object", item.internal_slug);
+    assert.equal(Array.isArray(item.script), false, item.internal_slug);
+    assert.ok(typeof item.script.kind === "string" && item.script.kind.length > 0, item.internal_slug);
+    assert.deepEqual(
+      Object.keys(item.script).filter((field) => !allowedFields.has(field)),
+      [],
+      `${item.internal_slug} duplicates identity or source fields in script metadata`
     );
+  }
+  assert.deepEqual(
+    scriptedItems.filter((item) => item.script.projectId != null)
+      .map((item) => [item.internal_slug, item.script.projectId]),
+    [["parnassus", "2"]]
+  );
+
+  const scriptFileNames = fs.readdirSync(SCRIPTS_PATH).sort();
+  assert.deepEqual(
+    scriptFileNames,
+    scriptedItems.map(scriptSourceFileName).filter((fileName) => fileName != null).sort()
+  );
+  assert.equal(scriptFileNames.length, 405);
+  assert.equal(scriptFileNames.filter((fileName) => path.extname(fileName) === ".js").length, 402);
+  assert.equal(scriptFileNames.filter((fileName) => path.extname(fileName) === ".pde").length, 2);
+  assert.equal(scriptFileNames.filter((fileName) => path.extname(fileName) === ".html").length, 1);
+  for (const fileName of scriptFileNames) {
+    assert.ok(fs.readFileSync(path.join(SCRIPTS_PATH, fileName), "utf8").length > 0, fileName);
   }
 });
 
@@ -612,9 +635,8 @@ test("September generative collections expose indexed CDN tiers without changing
     assert.equal(item.tokenCount, undefined);
     assert.equal(item.sizedThumbsIndexOffset, undefined);
     assert.equal(widgetSlugs.has(item.internal_slug), false);
-    const script = readJSON(path.join(SCRIPTS_PATH, `${item.internal_slug}.json`));
-    assert.equal(script.renderingProfile, "artBlocks");
-    assert.ok(script.value.length > 0);
+    assert.equal(item.script.renderingProfile, "artBlocks");
+    assert.ok(fs.readFileSync(path.join(SCRIPTS_PATH, scriptSourceFileName(item)), "utf8").length > 0);
     const payload = readJSON(path.join(TOKENS_PATH, `${item.internal_slug}.json`));
     const ratios = decodeAspectRatioMetadata(payload);
     assert.equal(ratios.length, payload.items.length);

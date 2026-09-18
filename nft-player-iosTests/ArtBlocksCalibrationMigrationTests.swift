@@ -27,8 +27,7 @@ extension ArtBlocksCalibrationMigrationTests {
     func testLegacyCalibrationMigratesBeforeFirstArtworkLoadWithoutChangingHistoricalReviewState() async throws {
         let collectionId = "0x47a91457a3a1f700097199fd63c039c4784384ab80"
         let identity = "42161:0x47a91457a3a1f700097199fd63c039c4784384ab:80"
-        let scriptURL = try XCTUnwrap(SuggestedItemsService.bundledScriptURL(collectionId: collectionId))
-        let script = try JSONDecoder().decode(Script.self, from: Data(contentsOf: scriptURL))
+        let script = try XCTUnwrap(SuggestedItemsService.bundledScript(collectionId: collectionId))
         let token = try XCTUnwrap(SuggestedItemsService.bundledTokens(collectionId: collectionId)?.items.first)
         let profile = try XCTUnwrap(ArtBlocksRenderingStartupProfiles.startupProfile(script))
         let legacyId = try XCTUnwrap(script.legacyArtBlocksCollectionId)

@@ -195,40 +195,34 @@ extension ArtBlocksBundledResourceTests {
         XCTAssertFalse(html.contains("data:text/javascript;base64,"))
         XCTAssertTrue(html.contains("<script>" + script.value + "</script>"))
         XCTAssertEqual(ArtBlocksRenderingStartupProfiles.startupPolicy(script), .direct)
-        let fields = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(script)) as? [String: Any])
-        var variations: [[String: Any]] = []
-        for (key, value) in [
-            ("address", "0x0000000000000000000000000000000000000001"),
-            ("collectionIdOverride", script.id + "-other"),
-            ("name", "Different collection"),
-            ("abId", "1"),
-            ("chain", "base"),
-            ("value", script.value + "\n"),
-            ("kind", "js")
+        let dependency = try XCTUnwrap(script.externalAssetDependencies?.first)
+        var variations = [
+            script.replacing(address: "0x0000000000000000000000000000000000000001"),
+            script.replacing(id: script.id + "-other"),
+            script.replacing(name: "Different collection"),
+            script.replacing(abId: "1"),
+            script.replacing(chain: .base),
+            script.replacing(value: script.value + "\n"),
+            script.modifyingMetadata { $0.kind = .js },
+            script.modifyingMetadata { $0.renderingProfile = nil },
+            script.modifyingMetadata { $0.externalAssetDependencies = [dependency, dependency] }
+        ]
+        for changedDependency in [
+            Script.ExternalAssetDependency(index: dependency.index, cid: "QmChangedDependency",
+                dependency_type: dependency.dependency_type, data: dependency.data, bytecode_address: dependency.bytecode_address),
+            Script.ExternalAssetDependency(index: dependency.index, cid: dependency.cid,
+                dependency_type: "ONCHAIN", data: dependency.data, bytecode_address: dependency.bytecode_address),
+            Script.ExternalAssetDependency(index: 1, cid: dependency.cid,
+                dependency_type: dependency.dependency_type, data: dependency.data, bytecode_address: dependency.bytecode_address),
+            Script.ExternalAssetDependency(index: dependency.index, cid: dependency.cid,
+                dependency_type: dependency.dependency_type, data: "changed data", bytecode_address: dependency.bytecode_address),
+            Script.ExternalAssetDependency(index: dependency.index, cid: dependency.cid,
+                dependency_type: dependency.dependency_type, data: dependency.data,
+                bytecode_address: "0x0000000000000000000000000000000000000001")
         ] {
-            var changed = fields
-            changed[key] = value
-            variations.append(changed)
+            variations.append(script.modifyingMetadata { $0.externalAssetDependencies = [changedDependency] })
         }
-        var production = fields
-        production.removeValue(forKey: "renderingProfile")
-        variations.append(production)
-        let dependency = try XCTUnwrap((fields["externalAssetDependencies"] as? [[String: Any]])?.first)
-        for (key, value) in [
-            ("cid", "QmChangedDependency"), ("dependency_type", "ONCHAIN"), ("index", 1),
-            ("data", "changed data"), ("bytecode_address", "0x0000000000000000000000000000000000000001")
-        ] as [(String, Any)] {
-            var changed = fields
-            var entry = dependency
-            entry[key] = value
-            changed["externalAssetDependencies"] = [entry]
-            variations.append(changed)
-        }
-        var extraDependency = fields
-        extraDependency["externalAssetDependencies"] = [dependency, dependency]
-        variations.append(extraDependency)
-        for variant in variations {
-            let modified = try JSONDecoder().decode(Script.self, from: JSONSerialization.data(withJSONObject: variant))
+        for modified in variations {
             XCTAssertFalse(RawHtmlGenerator.createHtml(script: modified, token: token).contains("function nftPlayerHypertypePersistentDependency()"))
         }
     }
@@ -306,10 +300,9 @@ extension ArtBlocksBundledResourceTests {
 
     private func hypertypeResources() throws -> (Script, BundledTokens) {
         let identifier = "0xbb5471c292065d3b01b2e81e299267221ae9a2500"
-        let scriptURL = try XCTUnwrap(SuggestedItemsService.bundledScriptURL(collectionId: identifier))
         let tokensURL = try XCTUnwrap(SuggestedItemsService.bundledTokensURL(collectionId: identifier))
         return (
-            try JSONDecoder().decode(Script.self, from: Data(contentsOf: scriptURL)),
+            try XCTUnwrap(SuggestedItemsService.bundledScript(collectionId: identifier)),
             try JSONDecoder().decode(BundledTokens.self, from: Data(contentsOf: tokensURL))
         )
     }

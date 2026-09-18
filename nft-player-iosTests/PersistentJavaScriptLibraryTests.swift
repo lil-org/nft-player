@@ -40,11 +40,9 @@ private actor LibraryDownloadProbe {
 @MainActor
 extension PersistentJavaScriptLibraryTests {
     private func scripts() throws -> [Script] {
-        let directory = SuggestedItemsService.bundle.bundleURL.appendingPathComponent("Scripts")
-        return try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
-            .filter { $0.pathExtension == "json" }
-            .sorted { $0.lastPathComponent < $1.lastPathComponent }
-            .map { try JSONDecoder().decode(Script.self, from: Data(contentsOf: $0)) }
+        try SuggestedItemsService.allItems.filter { $0.script != nil }
+            .sorted { $0.bundledResourceName < $1.bundledResourceName }
+            .map { try XCTUnwrap(SuggestedItemsService.bundledScript(collectionId: $0.id), $0.name) }
     }
 
     private func token(for script: Script) -> BundledTokens.Item {
@@ -143,11 +141,11 @@ extension PersistentJavaScriptLibraryTests {
         XCTAssertLessThan(toneRange.lowerBound, importRange.lowerBound)
         XCTAssertTrue(resolved.contains("data:text/javascript;base64," + (try JavaScriptLibraryFixtures.data(for: three)).base64EncodedString()))
         let paperSource = try XCTUnwrap(scripts.first { $0.kind == .p5js100 })
-        var fields = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(paperSource)) as? [String: Any])
-        fields["kind"] = "paper"
-        fields["value"] = "document.body.dataset.paper = String(typeof paper);"
-        fields.removeValue(forKey: "renderingProfile")
-        let paper = try JSONDecoder().decode(Script.self, from: JSONSerialization.data(withJSONObject: fields))
+        let paper = paperSource.replacing(value: "document.body.dataset.paper = String(typeof paper);")
+            .modifyingMetadata {
+                $0.kind = .paper
+                $0.renderingProfile = nil
+            }
         let template = RawHtmlGenerator.createHtml(script: paper, token: token(for: paper))
         XCTAssertEqual(PersistentJavaScriptLibrary.requiredDependencies(in: template), [try XCTUnwrap(PersistentJavaScriptLibrary.library(named: "paper"))])
     }
@@ -164,9 +162,7 @@ extension PersistentJavaScriptLibraryTests {
         fixture.window.layoutIfNeeded()
         try await waitUntil { (try await fixture.webView.evaluateJavaScript("window.previousArtwork")) as? Bool == true }
 
-        var fields = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(script)) as? [String: Any])
-        fields["value"] = "window.libraryFixture = typeof p5;"
-        let simple = try JSONDecoder().decode(Script.self, from: JSONSerialization.data(withJSONObject: fields))
+        let simple = script.replacing(value: "window.libraryFixture = typeof p5;")
         let html = RawHtmlGenerator.createHtml(script: simple, token: token(for: script))
         fixture.renderer.renderWebContent(html)
         try await waitUntil { await probe.urls.count == 1 }
@@ -202,9 +198,7 @@ extension PersistentJavaScriptLibraryTests {
         let cache = PersistentArtworkDependencyCache(rootURL: try directory(), transport: { try await probe.download($0) })
         let fixture = try DependencyRendererFixture(cache: cache, collectionId: script.id)
         defer { fixture.close() }
-        var fields = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(script)) as? [String: Any])
-        fields["value"] = "window.libraryFixture = typeof p5;"
-        let simple = try JSONDecoder().decode(Script.self, from: JSONSerialization.data(withJSONObject: fields))
+        let simple = script.replacing(value: "window.libraryFixture = typeof p5;")
         let html = RawHtmlGenerator.createHtml(script: simple, token: token(for: script))
         fixture.renderer.renderWebContent(html)
         fixture.window.layoutIfNeeded()
@@ -270,9 +264,7 @@ extension PersistentJavaScriptLibraryTests {
         let fixture = try DependencyRendererFixture(cache: cache, collectionId: script.id)
         defer { fixture.close() }
         XCTAssertTrue(fixture.webView.configuration.suppressesIncrementalRendering)
-        var fields = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(script)) as? [String: Any])
-        fields["value"] = "window.libraryFixture = typeof p5;"
-        let simple = try JSONDecoder().decode(Script.self, from: JSONSerialization.data(withJSONObject: fields))
+        let simple = script.replacing(value: "window.libraryFixture = typeof p5;")
         let html = RawHtmlGenerator.createHtml(script: simple, token: token(for: script))
         fixture.renderer.renderWebContent(html)
         fixture.window.layoutIfNeeded()

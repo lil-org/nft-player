@@ -66,6 +66,8 @@ extension ArtBlocksCatalogTests {
     func testBundledResourcesAndCoverNamesUseSlugsWithoutChangingCollectionIdentity() throws {
         var tokenCount = 0
         var scriptCount = 0
+        var sourceNames = Set<String>()
+        var sourceCounts: [String: Int] = [:]
         for item in SuggestedItemsService.allItems {
             let slug = try XCTUnwrap(item.internalSlug, item.name)
             XCTAssertEqual(item.bundledResourceName, slug)
@@ -85,20 +87,44 @@ extension ArtBlocksCatalogTests {
                 tokenCount += 1
             }
 
-            if let url = SuggestedItemsService.bundledScriptURL(collectionId: item.id) {
-                XCTAssertEqual(url.lastPathComponent, slug + ".json")
-                let script = try JSONDecoder().decode(Script.self, from: Data(contentsOf: url))
+            if let metadata = item.script {
+                let script = try XCTUnwrap(SuggestedItemsService.bundledScript(collectionId: item.id), item.name)
                 XCTAssertEqual(script.id, item.id, item.name)
+                XCTAssertEqual(script.address, item.address, item.name)
+                XCTAssertEqual(script.name, item.name, item.name)
+                XCTAssertEqual(script.chain, item.chain, item.name)
+                XCTAssertEqual(script.chainId, item.chainId, item.name)
+                XCTAssertEqual(script.metadata, metadata, item.name)
                 XCTAssertTrue(TokenGenerator.canGenerate(id: item.id), item.name)
+                if metadata.kind.isNativeRenderer {
+                    XCTAssertNil(SuggestedItemsService.bundledScriptURL(collectionId: item.id), item.name)
+                    XCTAssertTrue(script.value.isEmpty, item.name)
+                } else {
+                    let url = try XCTUnwrap(SuggestedItemsService.bundledScriptURL(collectionId: item.id), item.name)
+                    let fileExtension = try XCTUnwrap(metadata.kind.sourceFileExtension)
+                    XCTAssertEqual(url.lastPathComponent, slug + "." + fileExtension)
+                    XCTAssertEqual(try Data(contentsOf: url), Data(script.value.utf8), item.name)
+                    sourceNames.insert(url.lastPathComponent)
+                    sourceCounts[fileExtension, default: 0] += 1
+                }
                 scriptCount += 1
             } else {
+                XCTAssertNil(SuggestedItemsService.bundledScript(collectionId: item.id), item.name)
+                XCTAssertNil(SuggestedItemsService.bundledScriptURL(collectionId: item.id), item.name)
                 XCTAssertFalse(TokenGenerator.canGenerate(id: item.id), item.name)
             }
         }
         XCTAssertEqual(tokenCount, 528)
         XCTAssertEqual(scriptCount, 407)
+        XCTAssertEqual(sourceNames.count, 405)
+        XCTAssertEqual(sourceCounts, ["js": 402, "pde": 2, "html": 1])
+        let directory = SuggestedItemsService.bundle.bundleURL.appendingPathComponent("Scripts")
+        let files = try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
+        XCTAssertEqual(Set(files.map(\.lastPathComponent)), sourceNames)
+        XCTAssertFalse(files.contains { $0.pathExtension == "json" })
         XCTAssertNil(SuggestedItemsService.bundledTokensURL(collectionId: "unknown_collection"))
         XCTAssertNil(SuggestedItemsService.bundledScriptURL(collectionId: "unknown_collection"))
+        XCTAssertNil(SuggestedItemsService.bundledScript(collectionId: "unknown_collection"))
     }
 
     func testBundledResourcesPreserveLowercaseIdentifierFallback() throws {
@@ -112,6 +138,18 @@ extension ArtBlocksCatalogTests {
         let scriptURL = try XCTUnwrap(SuggestedItemsService.bundledScriptURL(collectionId: item.id))
         XCTAssertEqual(SuggestedItemsService.bundledTokensURL(collectionId: uppercaseId), tokensURL)
         XCTAssertEqual(SuggestedItemsService.bundledScriptURL(collectionId: uppercaseId), scriptURL)
+        let script = try XCTUnwrap(SuggestedItemsService.bundledScript(collectionId: item.id))
+        let uppercaseScript = try XCTUnwrap(SuggestedItemsService.bundledScript(collectionId: uppercaseId))
+        XCTAssertEqual(uppercaseScript.id, script.id)
+        XCTAssertEqual(uppercaseScript.value, script.value)
+        XCTAssertEqual(uppercaseScript.metadata, script.metadata)
+        for resourceName in [item.bundledResourceName, item.bundledResourceName.uppercased()] {
+            XCTAssertEqual(SuggestedItemsService.bundledScriptURL(collectionId: resourceName), scriptURL)
+            let resourceScript = try XCTUnwrap(SuggestedItemsService.bundledScript(collectionId: resourceName))
+            XCTAssertEqual(resourceScript.id, script.id)
+            XCTAssertEqual(resourceScript.value, script.value)
+            XCTAssertEqual(resourceScript.metadata, script.metadata)
+        }
 
         let tokens = try XCTUnwrap(SuggestedItemsService.bundledTokens(collectionId: item.id))
         let uppercaseTokens = try XCTUnwrap(SuggestedItemsService.bundledTokens(collectionId: uppercaseId))
@@ -125,6 +163,69 @@ extension ArtBlocksCatalogTests {
         XCTAssertNotNil(SuggestedItemsService.bundledTokensURL(collectionId: solana.id))
         XCTAssertNil(SuggestedItemsService.item(id: lowercasedSolanaId))
         XCTAssertNil(SuggestedItemsService.bundledTokensURL(collectionId: lowercasedSolanaId))
+    }
+
+    func testBundledScriptRejectsMissingAndInvalidUTF8SourcesAndPreservesSourceBytes() throws {
+        let item = try XCTUnwrap(SuggestedItemsService.item(resourceName: "archetype"))
+        let missing = try scriptBundle()
+        XCTAssertNil(SuggestedItemsService.bundledScriptURL(collectionId: item.id, in: missing))
+        XCTAssertNil(SuggestedItemsService.bundledScript(collectionId: item.id, in: missing))
+
+        let invalid = try scriptBundle(sources: ["archetype.js": Data([0xff, 0xfe, 0x80])])
+        XCTAssertNotNil(SuggestedItemsService.bundledScriptURL(collectionId: item.id, in: invalid))
+        XCTAssertNil(SuggestedItemsService.bundledScript(collectionId: item.id, in: invalid))
+
+        let source = Data(" \tconst café = 'λ';\r\n\r\n".utf8)
+        let valid = try scriptBundle(sources: ["archetype.js": source])
+        let loaded = try XCTUnwrap(SuggestedItemsService.bundledScript(collectionId: item.id, in: valid))
+        XCTAssertEqual(Data(loaded.value.utf8), source)
+        XCTAssertEqual(loaded.id, item.id)
+        XCTAssertEqual(loaded.metadata, item.script)
+    }
+
+    func testNativeGenerationUsesCatalogMetadataWithoutSourceFiles() throws {
+        let emptyBundle = try scriptBundle()
+        for slug in ["card_nft_2", "poncho_drifella"] {
+            let item = try XCTUnwrap(SuggestedItemsService.item(resourceName: slug))
+            let script = try XCTUnwrap(SuggestedItemsService.bundledScript(collectionId: item.id, in: emptyBundle))
+            XCTAssertNil(SuggestedItemsService.bundledScriptURL(collectionId: item.id, in: emptyBundle))
+            XCTAssertTrue(script.kind.isNativeRenderer)
+            XCTAssertTrue(script.value.isEmpty)
+            XCTAssertTrue(TokenGenerator.canGenerate(id: item.id))
+            let token = try XCTUnwrap(TokenGenerator.generateToken(specificCollectionId: item.id, tokenIndex: 0))
+            XCTAssertEqual(token.fullCollectionId, item.id)
+            XCTAssertEqual(token.renderKind, script.kind.generatedTokenRenderKind)
+        }
+    }
+
+    func testSourceFormatsAndRendererMetadataRoundTripThroughTheCatalog() throws {
+        for (slug, kind, fileExtension) in [
+            ("hypertype", Script.Kind.svg, "js"),
+            ("genesis", .processingjs146, "pde"),
+            ("construction_token", .processingjs146, "pde"),
+            ("spiroflakes", .html, "html")
+        ] {
+            let item = try XCTUnwrap(SuggestedItemsService.item(resourceName: slug))
+            let script = try XCTUnwrap(SuggestedItemsService.bundledScript(collectionId: item.id))
+            XCTAssertEqual(script.kind, kind)
+            XCTAssertEqual(SuggestedItemsService.bundledScriptURL(collectionId: item.id)?.pathExtension, fileExtension)
+            XCTAssertFalse(script.value.isEmpty)
+        }
+        for item in SuggestedItemsService.allItems where item.script != nil {
+            let restored = try JSONDecoder().decode(SuggestedItem.self, from: JSONEncoder().encode(item))
+            XCTAssertEqual(restored.script, item.script, item.name)
+        }
+    }
+
+    private func scriptBundle(sources: [String: Data] = [:]) throws -> Bundle {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".bundle")
+        let scripts = root.appendingPathComponent("Scripts")
+        try FileManager.default.createDirectory(at: scripts, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: root) }
+        for (filename, source) in sources {
+            try source.write(to: scripts.appendingPathComponent(filename))
+        }
+        return try XCTUnwrap(Bundle(url: root))
     }
 
     func testResourceNameFallbackPreservesLegacyDecodingAndCoverMetadata() throws {
@@ -177,8 +278,7 @@ extension ArtBlocksCatalogTests {
             let token = try XCTUnwrap(CollectionCatalog.generateToken(specificCollectionId: item.id, tokenIndex: 0))
             XCTAssertNil(token.media)
             XCTAssertFalse(token.html.isEmpty)
-            let url = try XCTUnwrap(SuggestedItemsService.bundledScriptURL(collectionId: item.id))
-            let script = try JSONDecoder().decode(Script.self, from: Data(contentsOf: url))
+            let script = try XCTUnwrap(SuggestedItemsService.bundledScript(collectionId: item.id))
             let policy = ArtBlocksRenderingStartupProfiles.startupProfile(script) == nil ? "direct" : "calibrated"
             policies[policy, default: 0] += 1
         }

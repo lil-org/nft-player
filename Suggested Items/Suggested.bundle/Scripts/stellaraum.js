@@ -1,0 +1,35 @@
+let seed=gSFTD(tokenData);let tokenId=parseInt(tokenData.tokenId.substring(2));let bgc=['#200080','#ff3300','#003153','#666666','#697085','#87ceeb'];let rP=sPFTD(tokenData);let params={bgCS:parseInt(mapParam(rP[1],0,bgc.length-1)),gM:rP[5]<100,invSpdX:rP[8]<127,invSpdY:rP[9]<127,rXM:parseInt(mapParam(rP[13],0,4)),dL1:rP[16]<127,dL2:rP[17]<127,dL3:rP[18]<127,dL4:rP[19]<127,dShp:rP[20]<127,fcU:parseInt(mapParam(rP[21],6,14)),rSpdX:mapParam(rP[23],2,3),rSpdY:mapParam(rP[24],2,3),rSpdPtX:mapParam(rP[25],0.1,3),rSpdPtY:mapParam(rP[26],0.1,3),grdSz:parseInt(mapParam(rP[27],30,180)),shpMd:parseInt(mapParam(rP[28],3,12)),ptSmth:rP[30]<100,hLines:rP[31]<127};const aspectW=1;const aspectH=1;const D_S=1000;let W_TEMP=window.innerWidth/aspectW;let H_TEMP=window.innerHeight/aspectH;let DIM_TEMP=Math.min(W_TEMP,H_TEMP);let W=DIM_TEMP*aspectW;let H=DIM_TEMP*aspectH;let DIM=Math.min(W,H);let M=DIM/D_S;let unitX=W/params.fcU;let unitY=H/params.fcU;let xc,yc;let count;let mods=[];let max_distance;let xSmooth=W/2;let ySmooth=H/2;let gridSize=params.grdSz;let pointer=[];let divPtX;let divPtY;class Module{constructor(xOff,yOff,x,y,xSpeed,ySpeed,xUnit,yUnit){this.xOff=xOff;this.yOff=yOff;this.x=x;this.y=y;this.xSpeed=xSpeed;this.ySpeed=ySpeed;this.xUnit=xUnit;this.yUnit=yUnit;this.xDir=1;this.yDir=1;this.divPtX=this.xOff+this.x;this.divPtY=this.yOff+this.y}
+update(){if(this.x>this.xUnit||this.x<0){if(this.x>this.xUnit){this.x=this.xUnit}
+if(this.x<0){this.x=0}
+this.xDir*=-1}
+if(this.y>this.yUnit||this.y<0){if(this.y>this.yUnit){this.y=this.yUnit}
+if(this.y<0){this.y=0}
+this.yDir*=-1}
+this.x+=this.xSpeed*this.xDir;this.y+=this.ySpeed*this.yDir;this.divPtX=this.xOff+this.x;this.divPtY=this.yOff+this.y}
+draw(){ellipse(this.divPtX,this.divPtY,6*M,6*M)}}
+function calculateFeatures(tokenData){let rP=sPFTD(tokenData);let params={bgCS:parseInt(mapParam(rP[1],0,bgc.length-1)),gM:rP[5]<100,rSpdPtX:mapParam(rP[25],0.1,3),rSpdPtY:mapParam(rP[26],0.1,3),shpMd:parseInt(mapParam(rP[28],3,12)),hLines:rP[31]<127};let shpMdFeature;if(params.shpMd==2){shpMdFeature="Line"}else if(params.shpMd==3){shpMdFeature="Triangle"}else if(params.shpMd==4){shpMdFeature="Diamond"}else if(params.shpMd==5){shpMdFeature="Pentagon"}else if(params.shpMd==6){shpMdFeature="Hexagon"}else if(params.shpMd==7){shpMdFeature="Septagon"}else if(params.shpMd==8){shpMdFeature="Octagon"}else if(params.shpMd==9){shpMdFeature="Nonagon"}else if(params.shpMd==10){shpMdFeature="Decagon"}else if(params.shpMd==11){shpMdFeature="Hendecagon"}else if(params.shpMd==12){shpMdFeature="Dodecagon"}
+if(params.hLines){shpMdFeature="Line"}
+let speedPtFeature;let speedPtXFeature=params.rSpdPtX;let speedPtYFeature=params.rSpdPtY;if((speedPtXFeature<0.5)&&(speedPtYFeature<0.5)){speedPtFeature="Slow"}else if((speedPtXFeature>2.5)&&(speedPtYFeature>2.5)){speedPtFeature="Fast"}else{speedPtFeature="Medium"}
+let bgcFeature=["Dusk","Sunset","Berlin Blue","Kraftwerk","Storm","Summer"];let bgcFeatureReduced=bgcFeature[params.bgCS];if(params.gM){bgcFeatureReduced="Black"}
+return{"Elements":shpMdFeature,"Movement":speedPtFeature,"Sky":bgcFeatureReduced}}
+console.log(calculateFeatures(tokenData));function setup(){createCanvas(W,H,WEBGL);smooth();noCursor();strokeWeight(3*M);pixelDensity(1);setAttributes('antialias',!0);xc=params.fcU;yc=params.fcU;count=xc*yc;max_distance=dst(0,0,W,H);createModule();createPointer()}
+function draw(){let bg=bgc[params.bgCS];if(params.gM){bg=color(0)}
+background(bg);translate(-W/2,-H/2,0);pointer[0].update();divPtX=pointer[0].x;divPtY=pointer[0].y;if(params.ptSmth){xSmooth=lerp(xSmooth,pointer[0].x,0.05);ySmooth=lerp(ySmooth,pointer[0].y,0.05);push();noFill();ellipse(xSmooth,ySmooth,4*M,4*M,params.shpMd);pop();divPtX=xSmooth;divPtY=ySmooth}
+push();strokeWeight(3*M);stroke(255,255);noFill();for(let i=0;i<count;i++){mods[i].update();mods[i].draw();let xP=mods[i].divPtX;let yP=mods[i].divPtY;let distance=dst(divPtX,divPtY,xP,yP);mods[i].xSpeed=distance/max_distance*10*M;mods[i].ySpeed=distance/max_distance*10*M;push();stroke(255,255-(distance/2));line(xP,yP,divPtX,divPtY);pop();let size=(distance/max_distance)*gridSize*1*M;let sizeInv=(1-(distance/max_distance))*gridSize*2*M;if(params.dShp){if(params.hLines){if(params.dL1){line(xP-(size/2),yP,xP+(size/2),yP)}
+if(params.dL2){line(xP,yP-(size/2),xP,yP+(size/2))}
+if(params.dL3){line(xP-(size/2),yP-(size/2),xP+(size/2),yP+(size/2))}
+if(params.dL4){line(xP-(size/2),yP+(size/2),xP+(size/2),yP-(size/2))}}else{ellipse(xP,yP,size,size,params.shpMd)}}
+if(distance<=DIM/2){if(params.hLines){if(params.rXM==0){line(xP-(sizeInv/2),yP,xP+(sizeInv/2),yP)}else if(params.rXM==1){line(xP,yP-(sizeInv/2),xP,yP+(sizeInv/2))}else if(params.rXM==2){line(xP-(sizeInv/2),yP-(sizeInv/2),xP+(sizeInv/2),yP+(sizeInv/2))}else if(params.rXM==3){line(xP-(sizeInv/2),yP+(sizeInv/2),xP+(sizeInv/2),yP-(sizeInv/2))}else{line(xP-(sizeInv/2),yP,xP+(sizeInv/2),yP)}}else{ellipse(xP,yP,sizeInv,sizeInv,params.shpMd)}}}
+pop()}
+function createModule(){mods=[];let index=0;for(let y=0;y<yc;y++){for(let x=0;x<xc;x++){mods[index++]=new Module(x*unitX,y*unitY,unitX/2,unitY/2,params.rSpdX*M,params.rSpdY*M,unitX,unitY)}}}
+function createPointer(){let speedPtX=params.rSpdPtX*M;let speedPtY=params.rSpdPtY*M;if(params.invSpdX){speedPtX*=-1}
+if(params.invSpdY){speedPtY*=-1}
+pointer=[];pointer[0]=new Module(0,0,W/2,H/2,speedPtX,speedPtY,W,H)}
+function windowResized(){W_TEMP=window.innerWidth/aspectW;H_TEMP=window.innerHeight/aspectH;DIM_TEMP=Math.min(W_TEMP,H_TEMP);W=DIM_TEMP*aspectW;H=DIM_TEMP*aspectH;DIM=Math.min(W,H);M=DIM/D_S;resizeCanvas(W,H,WEBGL);strokeWeight(3*M);max_distance=dst(0,0,W,H);unitX=W/params.fcU;unitY=H/params.fcU;createModule();createPointer()}
+function sPFTD(token){let hashPairs=[]
+for(let j=0;j<32;j++){hashPairs.push(token.hash.slice(2+(j*2),4+(j*2)))}
+return hashPairs.map(x=>{return parseInt(x,16)})}
+function gSFTD(token){return parseInt(token.hash.slice(0,16),16)}
+function dst(x1,y1,x2,y2){return Math.sqrt((x2-x1)*(x2-x1)+(y2-y1)*(y2-y1))}
+function mapd(n,start1,stop1,start2,stop2){return((n-start1)/(stop1-start1))*(stop2-start2)+start2}
+function mapParam(n,start,stop){return mapd(n,0,255,start,stop)}

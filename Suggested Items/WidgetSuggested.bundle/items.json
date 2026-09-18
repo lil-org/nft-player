@@ -10,7 +10,10 @@
     "internal_slug": "archetype",
     "artists": [
       "kjetil_golid"
-    ]
+    ],
+    "script": {
+      "kind": "p5js100"
+    }
   },
   {
     "abId": "159",
@@ -37,7 +40,10 @@
     "internal_slug": "the_eternal_pump",
     "artists": [
       "dmitri_cherniak"
-    ]
+    ],
+    "script": {
+      "kind": "three"
+    }
   },
   {
     "address": "0x46ac8540d698167fcbb9e846511beb8cf8af9bd8",

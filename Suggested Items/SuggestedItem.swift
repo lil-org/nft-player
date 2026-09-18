@@ -52,6 +52,7 @@ nonisolated struct SuggestedItem: Identifiable, Hashable, Codable, Sendable {
     let standardThumbsBaseURL: String?
     let sizedThumbsIndexOffset: Int?
     let artists: [String]
+    let script: Script.Metadata?
 
     enum CodingKeys: String, CodingKey {
         case name
@@ -75,6 +76,7 @@ nonisolated struct SuggestedItem: Identifiable, Hashable, Codable, Sendable {
         case standardThumbsBaseURL
         case sizedThumbsIndexOffset
         case artists
+        case script
     }
     
 }
