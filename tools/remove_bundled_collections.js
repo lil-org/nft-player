@@ -17,7 +17,7 @@ Usage:
   node tools/remove_bundled_collections.js [options] <collection-slug-id-or-name>...
 
 Options:
-  --apply           Remove matching catalog entries, token JSON, script source files, and local staged cover JPEGs.
+  --apply           Remove matching catalog entries, token JSON, and local staged cover JPEGs.
   --dry-run         Print what would be removed without changing files. Default.
   --bundle <path>   Suggested.bundle path. Default: ${DEFAULT_BUNDLE_PATH}
   --covers <path>   Cover JPEG staging directory. Default: ${DEFAULT_COVERS_PATH}
@@ -178,7 +178,6 @@ async function main() {
   const coversPath = path.resolve(options.coversPath);
   const itemsPath = path.join(bundlePath, "items.json");
   const tokensPath = path.join(bundlePath, "Tokens");
-  const scriptsPath = path.join(bundlePath, "Scripts");
 
   const items = JSON.parse(await fs.readFile(itemsPath, "utf8"));
   const tokenFileIds = await readTokenFileIds(tokensPath);
@@ -191,17 +190,11 @@ async function main() {
   const filePlans = [];
   for (const target of targets) {
     const tokenFilePath = path.join(tokensPath, `${target.resourceName}.json`);
-    const scriptFilePaths = [];
-    for (const extension of ["js", "html", "pde"]) {
-      const filePath = path.join(scriptsPath, `${target.resourceName}.${extension}`);
-      if (await pathExists(filePath)) scriptFilePaths.push(filePath);
-    }
     const coverFilePath = path.join(coversPath, `${target.resourceName}.jpg`);
     filePlans.push({
       ...target,
       tokenFilePath,
       tokenFileExists: await pathExists(tokenFilePath),
-      scriptFilePaths,
       coverFilePath,
       coverFileExists: await pathExists(coverFilePath),
     });
@@ -212,7 +205,6 @@ async function main() {
     console.log(`- ${plan.name ?? plan.id} (${plan.id})`);
     console.log(`  catalog entry: ${plan.foundCatalogEntry ? "yes" : "no"}`);
     console.log(`  token JSON: ${plan.tokenFileExists ? plan.tokenFilePath : "missing"}`);
-    console.log(`  script source: ${plan.scriptFilePaths.length > 0 ? plan.scriptFilePaths.join(", ") : "none"}`);
     console.log(`  staged cover JPEG: ${plan.coverFileExists ? plan.coverFilePath : "missing"}`);
   }
 
@@ -224,7 +216,6 @@ async function main() {
   await fs.writeFile(itemsPath, formatSuggestedItems(nextItems));
   for (const plan of filePlans) {
     await fs.rm(plan.tokenFilePath, { force: true });
-    for (const filePath of plan.scriptFilePaths) await fs.rm(filePath, { force: true });
     await fs.rm(plan.coverFilePath, { force: true });
   }
 

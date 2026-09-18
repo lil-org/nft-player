@@ -158,7 +158,7 @@ extension MobilePlaybackSessionTests {
 
     private func dependencyFreeCollectionID() throws -> String {
         try XCTUnwrap(SuggestedItemsService.visibleItems.first { item in
-            TokenGenerator.requiredPersistentDependencies(collectionId: item.id).isEmpty
+            !TokenGenerator.needsArtworkPreparation(collectionId: item.id)
                 && CollectionCatalog.tokenCount(specificCollectionId: item.id) >= 4
                 && CollectionCatalog.canGenerateToken(specificCollectionId: item.id, tokenIndex: 0)
         }?.id)

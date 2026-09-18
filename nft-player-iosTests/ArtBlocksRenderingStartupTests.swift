@@ -205,10 +205,10 @@ private final class StartupFixture {
 extension ArtBlocksRenderingStartupTests {
     func testPoolPartyAutomaticPlaybackForEverySavedToken() async throws {
         let id = "0xaa00b2b2db36b8f8004a9aa96f0012005d92b3000"
-        let scriptURL = try XCTUnwrap(SuggestedItemsService.bundledScriptURL(collectionId: id))
+        let scriptURL = try XCTUnwrap(JavaScriptLibraryFixtures.scriptURL(collectionId: id))
         let tokensURL = try XCTUnwrap(SuggestedItemsService.bundledTokensURL(collectionId: id))
         let source = try Data(contentsOf: scriptURL), tokenData = try Data(contentsOf: tokensURL)
-        let script = try XCTUnwrap(SuggestedItemsService.bundledScript(collectionId: id))
+        let script = try XCTUnwrap(JavaScriptLibraryFixtures.script(collectionId: id))
         let tokens = try JSONDecoder().decode(BundledTokens.self, from: tokenData).items
         let profile = try XCTUnwrap(ArtBlocksRenderingStartupProfiles.startupProfile(script))
         let expectsCycle = ArtBlocksRenderingStartupProfiles.afterArtist(script).contains("timeline_mode = true;")
@@ -448,7 +448,7 @@ extension ArtBlocksRenderingStartupTests {
     private func syntheticStartupFixture() throws -> (StartupFixture, Script, [BundledTokens.Item], StartupReadinessProbe) {
         let id = "0x47a91457a3a1f700097199fd63c039c4784384ab3"
         let tokensURL = try XCTUnwrap(SuggestedItemsService.bundledTokensURL(collectionId: id))
-        let script = try XCTUnwrap(SuggestedItemsService.bundledScript(collectionId: id))
+        let script = try XCTUnwrap(JavaScriptLibraryFixtures.script(collectionId: id))
         let tokens = try JSONDecoder().decode(BundledTokens.self, from: Data(contentsOf: tokensURL)).items
         AutoReloadingWebView.resetStartupCalibrationsForTesting()
         let fixture = try StartupFixture(size: CGSize(width: 300, height: 300))
@@ -507,17 +507,17 @@ extension ArtBlocksRenderingStartupTests {
     func testStartupColdCoverageForEveryCalibratedCollection() async throws {
         let items = try SuggestedItemsService.allItems.filter { item in
             guard TokenGenerator.usesArtBlocksRenderer(collectionId: item.id) else { return false }
-            let script = try XCTUnwrap(SuggestedItemsService.bundledScript(collectionId: item.id))
+            let script = try XCTUnwrap(JavaScriptLibraryFixtures.script(collectionId: item.id))
             if case .calibrated = ArtBlocksRenderingStartupProfiles.startupPolicy(script) { return true }
             return false
         }
         XCTAssertEqual(items.count, 79)
         var results: [[String: Any]] = []
         for item in items {
-            let scriptURL = try XCTUnwrap(SuggestedItemsService.bundledScriptURL(collectionId: item.id))
+            let scriptURL = try XCTUnwrap(JavaScriptLibraryFixtures.scriptURL(collectionId: item.id))
             let tokensURL = try XCTUnwrap(SuggestedItemsService.bundledTokensURL(collectionId: item.id))
             let source = try Data(contentsOf: scriptURL), tokenData = try Data(contentsOf: tokensURL)
-            let script = try XCTUnwrap(SuggestedItemsService.bundledScript(collectionId: item.id))
+            let script = try XCTUnwrap(JavaScriptLibraryFixtures.script(collectionId: item.id))
             let token = try XCTUnwrap(JSONDecoder().decode(BundledTokens.self, from: tokenData).items.first)
             let ratio = try XCTUnwrap(token.artworkAspectRatio)
             let profile = try XCTUnwrap(ArtBlocksRenderingStartupProfiles.startupProfile(script))
@@ -581,10 +581,10 @@ extension ArtBlocksRenderingStartupTests {
             ("Vahria", "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270340")
         ]
         for (name, id) in collections {
-            let scriptURL = try XCTUnwrap(SuggestedItemsService.bundledScriptURL(collectionId: id))
+            let scriptURL = try XCTUnwrap(JavaScriptLibraryFixtures.scriptURL(collectionId: id))
             let tokensURL = try XCTUnwrap(SuggestedItemsService.bundledTokensURL(collectionId: id))
             let source = try Data(contentsOf: scriptURL), tokenData = try Data(contentsOf: tokensURL)
-            let script = try XCTUnwrap(SuggestedItemsService.bundledScript(collectionId: id))
+            let script = try XCTUnwrap(JavaScriptLibraryFixtures.script(collectionId: id))
             let token = try XCTUnwrap(JSONDecoder().decode(BundledTokens.self, from: tokenData).items.first)
             let ratio = try XCTUnwrap(token.artworkAspectRatio)
             let profile = try XCTUnwrap(ArtBlocksRenderingStartupProfiles.startupProfile(script))
@@ -635,7 +635,7 @@ extension ArtBlocksRenderingStartupTests {
     func testStartupWithoutVisibleDrawingReportsAStallAfterDOMCompletes() async throws {
         let id = "0x47a91457a3a1f700097199fd63c039c4784384ab3"
         let tokensURL = try XCTUnwrap(SuggestedItemsService.bundledTokensURL(collectionId: id))
-        let script = try XCTUnwrap(SuggestedItemsService.bundledScript(collectionId: id))
+        let script = try XCTUnwrap(JavaScriptLibraryFixtures.script(collectionId: id))
         let token = try XCTUnwrap(JSONDecoder().decode(BundledTokens.self, from: Data(contentsOf: tokensURL)).items.first)
         let fixture = try StartupFixture(size: CGSize(width: 300, height: 300))
         defer { fixture.close() }
@@ -655,7 +655,7 @@ extension ArtBlocksRenderingStartupTests {
     func testPresentedStartupCancelsItsStallTimeout() async throws {
         let id = "0x47a91457a3a1f700097199fd63c039c4784384ab3"
         let tokensURL = try XCTUnwrap(SuggestedItemsService.bundledTokensURL(collectionId: id))
-        let script = try XCTUnwrap(SuggestedItemsService.bundledScript(collectionId: id))
+        let script = try XCTUnwrap(JavaScriptLibraryFixtures.script(collectionId: id))
         let token = try XCTUnwrap(JSONDecoder().decode(BundledTokens.self, from: Data(contentsOf: tokensURL)).items.first)
         let fixture = try StartupFixture(size: CGSize(width: 300, height: 300))
         defer { fixture.close() }
@@ -749,11 +749,11 @@ extension ArtBlocksRenderingStartupTests {
 
     func testStartupCushionsAllReviewedTokensAndAdditionalVariants() async throws {
         let collectionId = "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270231"
-        let scriptURL = try XCTUnwrap(SuggestedItemsService.bundledScriptURL(collectionId: collectionId))
+        let scriptURL = try XCTUnwrap(JavaScriptLibraryFixtures.scriptURL(collectionId: collectionId))
         let tokenURL = try XCTUnwrap(SuggestedItemsService.bundledTokensURL(collectionId: collectionId))
         let originalSource = try Data(contentsOf: scriptURL)
         let originalTokens = try Data(contentsOf: tokenURL)
-        let script = try XCTUnwrap(SuggestedItemsService.bundledScript(collectionId: collectionId))
+        let script = try XCTUnwrap(JavaScriptLibraryFixtures.script(collectionId: collectionId))
         let allTokens = try JSONDecoder().decode(BundledTokens.self, from: originalTokens).items
         XCTAssertGreaterThan(allTokens.count, 23)
         guard allTokens.count > 23 else { return }
@@ -814,7 +814,7 @@ extension ArtBlocksRenderingStartupTests {
     private func verifyRedundantRequest(_ request: RedundantRequest) async throws {
         let collectionId = "0x47a91457a3a1f700097199fd63c039c4784384ab3"
         let tokenURL = try XCTUnwrap(SuggestedItemsService.bundledTokensURL(collectionId: collectionId))
-        let script = try XCTUnwrap(SuggestedItemsService.bundledScript(collectionId: collectionId))
+        let script = try XCTUnwrap(JavaScriptLibraryFixtures.script(collectionId: collectionId))
         let token = try XCTUnwrap(JSONDecoder().decode(BundledTokens.self, from: Data(contentsOf: tokenURL)).items.first)
         let profile = try XCTUnwrap(ArtBlocksRenderingStartupProfiles.startupProfile(script))
         let size = CGSize(width: 300, height: 300)
@@ -857,11 +857,11 @@ extension ArtBlocksRenderingStartupTests {
     }
 
     private func verifyCollection(_ collectionId: String, name: String) async throws {
-        let scriptURL = try XCTUnwrap(SuggestedItemsService.bundledScriptURL(collectionId: collectionId))
+        let scriptURL = try XCTUnwrap(JavaScriptLibraryFixtures.scriptURL(collectionId: collectionId))
         let tokenURL = try XCTUnwrap(SuggestedItemsService.bundledTokensURL(collectionId: collectionId))
         let originalSource = try Data(contentsOf: scriptURL)
         let originalTokens = try Data(contentsOf: tokenURL)
-        let script = try XCTUnwrap(SuggestedItemsService.bundledScript(collectionId: collectionId))
+        let script = try XCTUnwrap(JavaScriptLibraryFixtures.script(collectionId: collectionId))
         let tokens = try JSONDecoder().decode(BundledTokens.self, from: originalTokens).items
         XCTAssertEqual(script.id, collectionId)
         XCTAssertEqual(script.name, name)

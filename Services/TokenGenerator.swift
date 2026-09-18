@@ -19,21 +19,6 @@ nonisolated enum TokenGenerator {
 
     private struct CacheState: Sendable {
         var collectionDataByCollectionId = [String: CollectionTokenData]()
-        var scriptByCollectionId = [String: ScriptCacheEntry]()
-    }
-
-    private enum ScriptCacheEntry: Sendable {
-        case found(Script)
-        case missing
-
-        var script: Script? {
-            switch self {
-            case let .found(script):
-                return script
-            case .missing:
-                return nil
-            }
-        }
     }
 
     private struct RangedNativeCollection: Sendable {
@@ -104,7 +89,7 @@ nonisolated enum TokenGenerator {
         Set(SuggestedItemsService.allItems.compactMap { item in
             guard let metadata = item.script,
                   !isCollectionDisabledOnCurrentPlatform(id: item.id),
-                  metadata.kind.isNativeRenderer || SuggestedItemsService.bundledScriptURL(collectionId: item.id) != nil else {
+                  metadata.kind.isNativeRenderer || item.scriptDependency != nil else {
                 return nil
             }
             return item.id
@@ -117,10 +102,10 @@ nonisolated enum TokenGenerator {
 
     static func isBundledWebGenerativeCollection(id: String) -> Bool {
         guard canGenerate(id: id),
-              let script = script(specificCollectionId: id) else {
+              let metadata = SuggestedItemsService.item(id: id)?.script else {
             return false
         }
-        return !script.kind.isNativeRenderer
+        return !metadata.kind.isNativeRenderer
     }
 
     static func bundledWebGenerativeToken(
@@ -149,19 +134,19 @@ nonisolated enum TokenGenerator {
         return collectionData(specificCollectionId: specificCollectionId)?.artworkAspectRatioProfile
     }
 
-    static func requiredPersistentDependencies(collectionId: String) -> [PersistentArtworkDependency] {
-        guard canGenerate(id: collectionId), let script = script(specificCollectionId: collectionId) else { return [] }
-        return RawHtmlGenerator.requiredDependencies(for: script)
+    static func needsArtworkPreparation(collectionId: String) -> Bool {
+        isBundledWebGenerativeCollection(id: collectionId)
     }
 
     static func usesArtBlocksRenderer(collectionId: String) -> Bool {
         guard canGenerate(id: collectionId) else { return false }
-        return script(specificCollectionId: collectionId)?.usesArtBlocksRenderer == true
+        return SuggestedItemsService.item(id: collectionId)?.script?.renderingProfile == .artBlocks
     }
 
     static func legacyArtBlocksCollectionId(collectionId: String) -> String? {
-        guard canGenerate(id: collectionId) else { return nil }
-        return script(specificCollectionId: collectionId)?.legacyArtBlocksCollectionId
+        guard usesArtBlocksRenderer(collectionId: collectionId),
+              let item = SuggestedItemsService.item(id: collectionId) else { return nil }
+        return item.address + "-dev-good-" + String(item.chainId) + "-" + item.scriptProjectId
     }
 
     static func isCollectionDisabledOnCurrentPlatform(id: String) -> Bool {
@@ -205,7 +190,7 @@ nonisolated enum TokenGenerator {
         ) else {
             return nil
         }
-        return (source.script.name, source.token.id)
+        return (source.item.name, source.token.id)
     }
 #endif
 
@@ -216,15 +201,15 @@ nonisolated enum TokenGenerator {
         ) else {
             return nil
         }
-        return generateToken(source.token, script: source.script)
+        return generateToken(source.token, item: source.item)
     }
     
     static func generateRandomToken(specificCollectionId: String, notTokenId: String?) -> GeneratedToken? {
         if isRangedNativeCollection(specificCollectionId) {
             guard let collection = activeRangedNativeCollection(specificCollectionId: specificCollectionId) else { return nil }
-            guard let script = script(specificCollectionId: specificCollectionId),
+            guard let item = generativeItem(specificCollectionId: specificCollectionId),
                   let token = collection.randomToken(notTokenId: notTokenId) else { return nil }
-            return generateToken(token, script: script)
+            return generateToken(token, item: item)
         }
 
         guard let collectionData = collectionData(specificCollectionId: specificCollectionId),
@@ -234,16 +219,15 @@ nonisolated enum TokenGenerator {
             randomToken = another
         }
         
-        return generateToken(randomToken, script: collectionData.script)
+        return generateToken(randomToken, item: collectionData.item)
     }
 
     static func collectionWebURL(specificCollectionId: String) -> URL? {
-        guard let script = script(specificCollectionId: specificCollectionId) else { return nil }
-        if script.chain == .solana {
-            return URL(string: "https://explorer.solana.com/address/\(script.address)")
+        guard let item = generativeItem(specificCollectionId: specificCollectionId) else { return nil }
+        if item.chain == .solana {
+            return URL(string: "https://explorer.solana.com/address/\(item.address)")
         }
-        let network = SuggestedItemsService.item(id: script.id)?.network ?? .mainnet
-        return NftGallery.blockExplorer.url(network: network, chain: .ethereum, collectionAddress: script.address, tokenId: nil)
+        return NftGallery.blockExplorer.url(network: item.network, chain: .ethereum, collectionAddress: item.address, tokenId: nil)
     }
 
     private static func isRangedNativeCollection(_ specificCollectionId: String) -> Bool {
@@ -260,16 +244,16 @@ nonisolated enum TokenGenerator {
     private static func tokenSource(
         specificCollectionId: String,
         tokenIndex: Int
-    ) -> (token: BundledTokens.Item, script: Script)? {
+    ) -> (token: BundledTokens.Item, item: SuggestedItem)? {
         if isRangedNativeCollection(specificCollectionId) {
             guard let collection = activeRangedNativeCollection(
                 specificCollectionId: specificCollectionId
             ),
-                  let script = script(specificCollectionId: specificCollectionId),
+                  let item = generativeItem(specificCollectionId: specificCollectionId),
                   let token = collection.token(at: tokenIndex) else {
                 return nil
             }
-            return (token, script)
+            return (token, item)
         }
 
         guard let collectionData = collectionData(
@@ -278,7 +262,7 @@ nonisolated enum TokenGenerator {
               collectionData.tokens.indices.contains(tokenIndex) else {
             return nil
         }
-        return (collectionData.tokens[tokenIndex], collectionData.script)
+        return (collectionData.tokens[tokenIndex], collectionData.item)
     }
 
     private static let cardNft2RangedTokenCount: Int = {
@@ -304,10 +288,10 @@ nonisolated enum TokenGenerator {
             return collectionData
         }
 
-        guard let script = script(specificCollectionId: specificCollectionId),
-              let tokens = bundledTokens(script: script) else { return nil }
+        guard let item = generativeItem(specificCollectionId: specificCollectionId),
+              let tokens = SuggestedItemsService.bundledTokens(collectionId: item.id)?.items else { return nil }
 
-        let collectionData = CollectionTokenData(script: script, tokens: tokens)
+        let collectionData = CollectionTokenData(item: item, tokens: tokens)
         return cache.withLock { state in
             if let cachedCollectionData = state.collectionDataByCollectionId[specificCollectionId] {
                 return cachedCollectionData
@@ -317,38 +301,30 @@ nonisolated enum TokenGenerator {
         }
     }
 
-    private static func script(specificCollectionId: String) -> Script? {
+    private static func generativeItem(specificCollectionId: String) -> SuggestedItem? {
         guard canGenerate(id: specificCollectionId) else { return nil }
-        if let cachedEntry = cache.withLock({ $0.scriptByCollectionId[specificCollectionId] }) {
-            return cachedEntry.script
-        }
-
-        let loadedScript = SuggestedItemsService.bundledScript(collectionId: specificCollectionId)
-        let entry: ScriptCacheEntry = loadedScript.map(ScriptCacheEntry.found) ?? .missing
-        return cache.withLock { state in
-            if let cachedEntry = state.scriptByCollectionId[specificCollectionId] {
-                return cachedEntry.script
-            }
-            state.scriptByCollectionId[specificCollectionId] = entry
-            return loadedScript
-        }
-    }
-
-    private static func bundledTokens(script: Script) -> [BundledTokens.Item]? {
-        SuggestedItemsService.bundledTokens(collectionId: script.id)?.items
+        return SuggestedItemsService.item(id: specificCollectionId)
     }
     
-    private static func generateToken(_ token: BundledTokens.Item, script: Script) -> GeneratedToken? {
-        let renderKind = script.kind.generatedTokenRenderKind
-        let html = RawHtmlGenerator.createHtml(script: script, token: token)
-        let cleanId = (token.id.hasPrefix(script.abId) && token.id != script.abId) ? String(token.id.dropFirst(script.abId.count).drop(while: { $0 == "0" })) : token.id
+    private static func generateToken(_ token: BundledTokens.Item, item: SuggestedItem) -> GeneratedToken? {
+        guard let metadata = item.script else { return nil }
+        let renderKind = metadata.kind.generatedTokenRenderKind
+        let html: String
+        if metadata.kind.isNativeRenderer {
+            html = ""
+        } else {
+            guard let dependency = item.scriptDependency else { return nil }
+            html = ArtworkContentResolver.reference(collectionId: item.id, tokenId: token.id, sha256: dependency.sha256)
+        }
+        let projectId = item.scriptProjectId
+        let cleanId = (token.id.hasPrefix(projectId) && token.id != projectId) ? String(token.id.dropFirst(projectId.count).drop(while: { $0 == "0" })) : token.id
         let displayTokenId = "#" + (cleanId.isEmpty ? "0" : cleanId)
-        let name = script.name + " " + displayTokenId
+        let name = item.name + " " + displayTokenId
         
-        let webURL = webURL(script: script, token: token)
-        let generatedToken = GeneratedToken(fullCollectionId: script.id,
-                                            collectionName: script.name,
-                                            address: script.address,
+        let webURL = webURL(item: item, token: token)
+        let generatedToken = GeneratedToken(fullCollectionId: item.id,
+                                            collectionName: item.name,
+                                            address: item.address,
                                             id: token.id,
                                             html: html,
                                             displayName: name,
@@ -358,26 +334,25 @@ nonisolated enum TokenGenerator {
         return generatedToken
     }
 
-    private static func webURL(script: Script, token: BundledTokens.Item) -> URL? {
-        if script.chain == .solana {
-            return URL(string: "https://explorer.solana.com/address/\(script.address)")
+    private static func webURL(item: SuggestedItem, token: BundledTokens.Item) -> URL? {
+        if item.chain == .solana {
+            return URL(string: "https://explorer.solana.com/address/\(item.address)")
         }
 
-        let network = SuggestedItemsService.item(id: script.id)?.network ?? .mainnet
-        return NftGallery.blockExplorer.url(network: network, chain: .ethereum, collectionAddress: script.address, tokenId: token.id)
+        return NftGallery.blockExplorer.url(network: item.network, chain: .ethereum, collectionAddress: item.address, tokenId: token.id)
     }
     
 }
 
 nonisolated private struct CollectionTokenData: Sendable {
-    let script: Script
+    let item: SuggestedItem
     let tokens: [BundledTokens.Item]
     let tokenIndicesById: [String: Int]
     let thumbnailAspectRatioProfile: ThumbnailAspectRatioProfile?
     let artworkAspectRatioProfile: ThumbnailAspectRatioProfile?
 
-    init(script: Script, tokens: [BundledTokens.Item]) {
-        self.script = script
+    init(item: SuggestedItem, tokens: [BundledTokens.Item]) {
+        self.item = item
         self.tokens = tokens
 
         var tokenIndicesById = [String: Int]()

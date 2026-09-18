@@ -12,7 +12,9 @@
       "kjetil_golid"
     ],
     "script": {
-      "kind": "p5js100"
+      "kind": "p5js100",
+      "expectedByteCount": 13911,
+      "sha256": "df11271ee0703061323471035a0360a08ff7624482568aba043414da04c1e45d"
     }
   },
   {
@@ -42,7 +44,9 @@
       "dmitri_cherniak"
     ],
     "script": {
-      "kind": "three"
+      "kind": "three",
+      "expectedByteCount": 7067,
+      "sha256": "9c97f9188f563450e22eda2cf9deb5aaa4332d6fca5a5c6fdbfc4e1c9840a843"
     }
   },
   {

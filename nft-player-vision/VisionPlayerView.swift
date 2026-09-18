@@ -54,13 +54,12 @@ struct VisionPlayerView: View {
                 .padding(.bottom, VisionOrnamentMetrics.bottomPadding)
         }
         .task(id: playerModel.currentToken.fullCollectionId) {
-            let dependencies = TokenGenerator.requiredPersistentDependencies(
+            guard TokenGenerator.needsArtworkPreparation(
+                collectionId: playerModel.currentToken.fullCollectionId
+            ) else { return }
+            try? await ArtworkContentResolver.prepareCollection(
                 collectionId: playerModel.currentToken.fullCollectionId
             )
-            for dependency in dependencies {
-                guard !Task.isCancelled else { return }
-                _ = try? await PersistentArtworkDependencyCache.shared.data(for: dependency)
-            }
         }
         .onDisappear {
             playerModel.cancelPendingCollectionRestart()

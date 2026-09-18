@@ -215,11 +215,9 @@ final class MacNavigationModel {
     private func preloadDependencies(for collectionId: String) {
         guard preloadedCollectionId != collectionId else { return }
         preloadedCollectionId = collectionId
-        let dependencies = TokenGenerator.requiredPersistentDependencies(collectionId: collectionId)
+        guard TokenGenerator.needsArtworkPreparation(collectionId: collectionId) else { return }
         Task {
-            for dependency in dependencies {
-                _ = try? await PersistentArtworkDependencyCache.shared.data(for: dependency)
-            }
+            try? await ArtworkContentResolver.prepareCollection(collectionId: collectionId)
         }
     }
 

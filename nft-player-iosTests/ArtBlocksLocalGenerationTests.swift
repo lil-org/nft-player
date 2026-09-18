@@ -109,7 +109,7 @@ extension ArtBlocksLocalGenerationTests {
         XCTAssertEqual(total, 4_461)
     }
 
-    func testLowMiddleAndHighTokensProduceHTMLWithStableIdentityAndThumbnails() throws {
+    func testLowMiddleAndHighTokensProduceHTMLWithStableIdentityAndThumbnails() async throws {
         for project in projects {
             let script = try bundledScript(for: project)
             for index in project.sampleIndices {
@@ -123,8 +123,10 @@ extension ArtBlocksLocalGenerationTests {
                 XCTAssertEqual(token.displayName, "\(project.name) #\(index)")
                 XCTAssertEqual(token.renderKind ?? .html, .html)
                 XCTAssertNil(token.media)
-                XCTAssertTrue(token.html.hasPrefix("<html>"))
-                XCTAssertTrue(token.html.contains(script.value), project.name)
+                XCTAssertTrue(ArtworkContentResolver.requiresPreparation(token.html))
+                let html = try await ArtworkContentResolver.resolve(token.html, cache: JavaScriptLibraryFixtures.cache)
+                XCTAssertTrue(html.hasPrefix("<html>"))
+                XCTAssertTrue(html.contains(script.value), project.name)
                 let context = try XCTUnwrap(CollectionCatalog.tokenContext(for: token))
                 XCTAssertEqual(context.collectionId, project.id)
                 XCTAssertEqual(context.tokenIndex, index)
@@ -244,7 +246,7 @@ extension ArtBlocksLocalGenerationTests {
         XCTAssertFalse(TokenGenerator.canGenerate(id: project.address + "2"))
     }
 
-    func testDefacementUsesCDNAssetAdapterAndDisplayTuning() throws {
+    func testDefacementUsesCDNAssetAdapterAndDisplayTuning() async throws {
         let project = try XCTUnwrap(projects.first { $0.slug == "instructions_for_defacement" })
         let script = try bundledScript(for: project)
         let token = try XCTUnwrap(CollectionCatalog.generateToken(specificCollectionId: project.id, tokenIndex: 0))
@@ -257,7 +259,8 @@ extension ArtBlocksLocalGenerationTests {
         XCTAssertTrue(tuning.contains("document.documentElement.style.height"))
         XCTAssertTrue(tuning.contains("document.body.style.minHeight"))
         XCTAssertTrue(tuning.contains("100%"))
-        XCTAssertTrue(token.html.contains(tuning))
+        let html = try await ArtworkContentResolver.resolve(token.html, cache: JavaScriptLibraryFixtures.cache)
+        XCTAssertTrue(html.contains(tuning))
         XCTAssertEqual(SuggestedItemsService.item(id: project.id)?.iosCollectionBrowserColumnCount, 2)
         for other in projects where other.id != project.id {
             let otherScript = try bundledScript(for: other)
@@ -280,6 +283,6 @@ extension ArtBlocksLocalGenerationTests {
     }
 
     private func bundledScript(for project: Project) throws -> Script {
-        return try XCTUnwrap(SuggestedItemsService.bundledScript(collectionId: project.id))
+        return try XCTUnwrap(JavaScriptLibraryFixtures.script(collectionId: project.id))
     }
 }

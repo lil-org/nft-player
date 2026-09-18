@@ -755,7 +755,7 @@ final class MobilePlaybackSession {
     private func preloadArtworkDependencyIfNeeded(collectionId: String?) {
         guard lifecycleState == .active,
               let collectionId,
-              !TokenGenerator.requiredPersistentDependencies(collectionId: collectionId).isEmpty,
+              TokenGenerator.needsArtworkPreparation(collectionId: collectionId),
               preloadedArtworkCollectionIDs.insert(collectionId).inserted else {
             return
         }
@@ -1290,14 +1290,9 @@ final class MobilePlaybackSessionRegistry {
 
         @MainActor
         private static func preloadPersistentArtworkDependency(_ collectionId: String) {
-            let dependencies = TokenGenerator.requiredPersistentDependencies(collectionId: collectionId)
-            guard !dependencies.isEmpty else { return }
-            Task(priority: .utility) { @MainActor in
-                await withTaskGroup(of: Void.self) { group in
-                    for dependency in dependencies {
-                        group.addTask { _ = try? await PersistentArtworkDependencyCache.shared.data(for: dependency) }
-                    }
-                }
+            guard TokenGenerator.needsArtworkPreparation(collectionId: collectionId) else { return }
+            Task(priority: .utility) {
+                try? await ArtworkContentResolver.prepareCollection(collectionId: collectionId)
             }
         }
     }

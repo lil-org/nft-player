@@ -94,4 +94,4 @@ node tools/remove_bundled_collections.js --apply "Drawing Exercises"
 node tools/remove_bundled_collections.js --apply "KT1D9bUmPBXK1KgpgaTDjH6yNnBubof1ELzK"
 ```
 
-The remover matches exact internal slug, collection id, address, or collection name. `--apply` removes the matching `items.json` entry, `Tokens/<internal_slug>.json`, any `Scripts/<internal_slug>.js`, `.html`, or `.pde` source files, and any local `covers/<internal_slug>.jpg`. Script metadata lives in the catalog entry; native renderers have no script source file. Missing staged covers are allowed; the remover does not delete CDN files.
+The remover matches exact internal slug, collection id, address, or collection name. `--apply` removes the matching `items.json` entry, `Tokens/<internal_slug>.json`, and any local `covers/<internal_slug>.jpg`. Script metadata and source pins live in the catalog entry; artwork source files are hosted on the CDN. Missing staged covers are allowed. The remover leaves CDN files and the ignored artwork test cache intact because other descriptors may share those sources.

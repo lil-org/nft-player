@@ -302,7 +302,7 @@ extension ArtBlocksBundledResourceTests {
         let identifier = "0xbb5471c292065d3b01b2e81e299267221ae9a2500"
         let tokensURL = try XCTUnwrap(SuggestedItemsService.bundledTokensURL(collectionId: identifier))
         return (
-            try XCTUnwrap(SuggestedItemsService.bundledScript(collectionId: identifier)),
+            try XCTUnwrap(JavaScriptLibraryFixtures.script(collectionId: identifier)),
             try JSONDecoder().decode(BundledTokens.self, from: Data(contentsOf: tokensURL))
         )
     }

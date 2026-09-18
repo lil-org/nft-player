@@ -180,7 +180,8 @@ extension MobileCollectionBrowserGridModePresentationTests {
     func testPreViewActivationLoadsGridCoordinator() async throws {
         let metadata = try collectionMetadata()
         let uuid = UUID()
-        let session = MobilePlaybackController.shared.startSession(
+        let registry = makePlaybackRegistry()
+        let session = registry.startSession(
             config: MobilePlayerConfig(
                 id: uuid,
                 initialItemId: metadata.id,
@@ -195,6 +196,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
         defer {
             controller.setActive(false)
             session.stopAndDisconnect()
+            XCTAssertEqual(registry.activeSessionCount, 0)
         }
 
         XCTAssertFalse(controller.isViewLoaded)
@@ -223,7 +225,8 @@ extension MobileCollectionBrowserGridModePresentationTests {
         try skipIfReduceMotionEnabled()
         let metadata = try collectionMetadata()
         let uuid = UUID()
-        let session = MobilePlaybackController.shared.startSession(
+        let registry = makePlaybackRegistry()
+        let session = registry.startSession(
             config: MobilePlayerConfig(
                 id: uuid,
                 initialItemId: metadata.id,
@@ -277,6 +280,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
         window.rootViewController = nil
         candidate = nil
         session.stopAndDisconnect()
+        XCTAssertEqual(registry.activeSessionCount, 0)
         try await waitUntil("Controller remained retained") {
             controller == nil
         }

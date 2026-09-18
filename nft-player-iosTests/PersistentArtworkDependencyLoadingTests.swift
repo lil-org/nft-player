@@ -6,11 +6,268 @@ import XCTest
 
 nonisolated final class PersistentArtworkDependencyLoadingTests: XCTestCase {}
 
+nonisolated final class ArtworkContentResolverTests: XCTestCase {}
+
+private actor ArtworkSourceTransport {
+    private(set) var urls: [URL] = []
+    private var held: Bool
+    private var failuresRemaining: Int
+    private var continuations: [CheckedContinuation<Void, Never>] = []
+
+    init(held: Bool = false, failures: Int = 0) {
+        self.held = held
+        failuresRemaining = failures
+    }
+
+    func download(_ url: URL) async throws -> (data: Data, statusCode: Int) {
+        guard let dependency = JavaScriptLibraryFixtures.dependencies.first(where: { $0.remoteURL == url }) else {
+            throw URLError(.unsupportedURL)
+        }
+        urls.append(url)
+        if held { await withCheckedContinuation { continuations.append($0) } }
+        if failuresRemaining > 0 {
+            failuresRemaining -= 1
+            return (Data(), 503)
+        }
+        return (try JavaScriptLibraryFixtures.data(for: dependency), 200)
+    }
+
+    func release() {
+        held = false
+        continuations.forEach { $0.resume() }
+        continuations.removeAll()
+    }
+}
+
+@MainActor
+extension ArtworkContentResolverTests {
+    private func root() -> URL {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        addTeardownBlock { try? FileManager.default.removeItem(at: root) }
+        return root
+    }
+
+    private func item(_ slug: String = "meridian") throws -> SuggestedItem {
+        try XCTUnwrap(SuggestedItemsService.scriptItem(collectionId: slug))
+    }
+
+    private func token(_ item: SuggestedItem, index: Int = 0) throws -> GeneratedToken {
+        try XCTUnwrap(TokenGenerator.generateToken(specificCollectionId: item.id, tokenIndex: index))
+    }
+
+    private func waitUntil(_ condition: () async -> Bool) async throws {
+        let deadline = Date().addingTimeInterval(15)
+        while Date() < deadline {
+            if await condition() { return }
+            try await Task.sleep(for: .milliseconds(25))
+        }
+        XCTFail("Artwork source operation did not reach the expected state")
+        throw URLError(.timedOut)
+    }
+
+    func testCatalogAndGenerationProduceStableReferencesWithoutSourcePreparation() throws {
+        for item in SuggestedItemsService.allItems where item.scriptDependency != nil {
+            let first = try token(item)
+            let repeated = try token(item)
+            XCTAssertEqual(first.html, repeated.html, item.name)
+            XCTAssertTrue(ArtworkContentResolver.requiresPreparation(first.html), item.name)
+            XCTAssertFalse(first.html.hasPrefix("<html>"), item.name)
+            XCTAssertLessThan(first.html.utf8.count, 1_024, item.name)
+            XCTAssertTrue(TokenGenerator.needsArtworkPreparation(collectionId: item.id), item.name)
+        }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: SuggestedItemsService.bundle.bundleURL.appendingPathComponent("Scripts").path))
+    }
+
+    func testAllArtworkFixturesMatchCatalogPinsAndStayOutOfApplicationBundle() throws {
+        let items = SuggestedItemsService.allItems.filter { $0.scriptDependency != nil }
+        XCTAssertEqual(items.count, 405)
+        for item in items {
+            let dependency = try XCTUnwrap(item.scriptDependency)
+            let data = try JavaScriptLibraryFixtures.data(for: dependency)
+            let script = try JavaScriptLibraryFixtures.script(collectionId: item.id)
+            XCTAssertEqual(Data(script.value.utf8), data, item.name)
+            XCTAssertNil(Bundle.main.url(forResource: dependency.sha256, withExtension: item.script?.kind.sourceFileExtension,
+                                        subdirectory: "ArtworkScripts"), item.name)
+        }
+    }
+
+    func testArtworkFixturesUseRendererExtensionAndExplainMissingHydration() throws {
+        let dependency = try XCTUnwrap(item("genesis").scriptDependency)
+        let expected = try JavaScriptLibraryFixtures.data(for: dependency)
+        for sourceURL in ["https://example.test/download", "https://example.test/source.txt"] {
+            let overridden = PersistentArtworkDependency(
+                id: dependency.id, remoteURL: try XCTUnwrap(URL(string: sourceURL)),
+                expectedByteCount: dependency.expectedByteCount, sha256: dependency.sha256
+            )
+            XCTAssertEqual(try JavaScriptLibraryFixtures.data(for: overridden), expected)
+        }
+        let missing = PersistentArtworkDependency(
+            id: dependency.id, remoteURL: dependency.remoteURL,
+            expectedByteCount: dependency.expectedByteCount, sha256: String(repeating: "0", count: 64)
+        )
+        XCTAssertThrowsError(try JavaScriptLibraryFixtures.data(for: missing)) { error in
+            XCTAssertTrue(error.localizedDescription.contains("node scripts/hydrate-artwork-test-sources.mjs"))
+            XCTAssertTrue(error.localizedDescription.contains(missing.sha256 + ".pde"))
+        }
+    }
+
+    func testJavaScriptWithoutLibrariesFetchesSourceOnceAndReopensOffline() async throws {
+        let item = try item()
+        let dependency = try XCTUnwrap(item.scriptDependency)
+        let expected = try JavaScriptLibraryFixtures.script(collectionId: item.id)
+        XCTAssertTrue(RawHtmlGenerator.requiredDependencies(for: expected).isEmpty)
+        let probe = ArtworkSourceTransport()
+        let directory = root()
+        let cache = PersistentArtworkDependencyCache(rootURL: directory, transport: { try await probe.download($0) })
+        let generated = try token(item)
+        let html = try await ArtworkContentResolver.resolve(generated.html, cache: cache)
+        XCTAssertTrue(html.contains(expected.value))
+        XCTAssertFalse(ArtworkContentResolver.requiresPreparation(html))
+        let warm = try await ArtworkContentResolver.resolve(generated.html, cache: cache)
+        XCTAssertEqual(warm, html)
+        let urls = await probe.urls
+        XCTAssertEqual(urls, [dependency.remoteURL])
+        let offline = PersistentArtworkDependencyCache(rootURL: directory) { _ in
+            XCTFail("Offline source should already be cached")
+            throw URLError(.notConnectedToInternet)
+        }
+        let reopened = try await ArtworkContentResolver.resolve(generated.html, cache: offline)
+        XCTAssertEqual(reopened, html)
+    }
+
+    func testConcurrentTokenResolutionsShareSourceDownloadAndKeepEachToken() async throws {
+        let item = try item()
+        let probe = ArtworkSourceTransport(held: true)
+        let cache = PersistentArtworkDependencyCache(rootURL: root(), transport: { try await probe.download($0) })
+        let tokens = try (0..<8).map { try token(item, index: $0) }
+        let tasks = tokens.map { token in Task { try await ArtworkContentResolver.resolve(token.html, cache: cache) } }
+        try await waitUntil { await probe.urls.count == 1 }
+        await probe.release()
+        for (token, task) in zip(tokens, tasks) {
+            let html = try await task.value
+            XCTAssertTrue(html.contains(token.id))
+            XCTAssertFalse(ArtworkContentResolver.requiresPreparation(html))
+        }
+        let urls = await probe.urls
+        XCTAssertEqual(urls, [try XCTUnwrap(item.scriptDependency).remoteURL])
+    }
+
+    func testCacheOnlyPreviewDoesNotDownloadSourceOrMissingLibraries() async throws {
+        let item = try item("archetype")
+        let probe = ArtworkSourceTransport()
+        let directory = root()
+        let cache = PersistentArtworkDependencyCache(rootURL: directory, transport: { try await probe.download($0) })
+        let generated = try token(item)
+        do {
+            _ = try await ArtworkContentResolver.resolve(generated.html, cache: cache, allowsDownloads: false)
+            XCTFail("Cold preview should fail without a source")
+        } catch let failure as PersistentArtworkDependencyCache.Failure { XCTAssertEqual(failure, .notCached) }
+        var urls = await probe.urls
+        XCTAssertEqual(urls, [])
+        XCTAssertFalse(FileManager.default.fileExists(atPath: directory.path))
+        _ = try await ArtworkContentResolver.script(collectionId: item.id, cache: cache)
+        do {
+            _ = try await ArtworkContentResolver.resolve(generated.html, cache: cache, allowsDownloads: false)
+            XCTFail("Preview should fail without its library")
+        } catch let failure as PersistentArtworkDependencyCache.Failure { XCTAssertEqual(failure, .notCached) }
+        urls = await probe.urls
+        XCTAssertEqual(urls, [try XCTUnwrap(item.scriptDependency).remoteURL])
+        try await ArtworkContentResolver.prepareCollection(collectionId: item.id, cache: cache)
+        let preparedURLs = await probe.urls
+        let html = try await ArtworkContentResolver.resolve(generated.html, cache: cache, allowsDownloads: false)
+        XCTAssertFalse(ArtworkContentResolver.requiresPreparation(html))
+        urls = await probe.urls
+        XCTAssertEqual(urls, preparedURLs)
+        XCTAssertEqual(urls.count, 2)
+    }
+
+    func testInvalidReferenceOrSourceVersionCannotStartDownload() async throws {
+        let item = try item()
+        let generated = try token(item)
+        let probe = ArtworkSourceTransport()
+        let cache = PersistentArtworkDependencyCache(rootURL: root(), transport: { try await probe.download($0) })
+        for reference in [
+            "nft-player-artwork:v2:invalid",
+            "nft-player-artwork:v1:invalid",
+            ArtworkContentResolver.reference(collectionId: item.id, tokenId: generated.id, sha256: String(repeating: "0", count: 64))
+        ] {
+            XCTAssertTrue(ArtworkContentResolver.requiresPreparation(reference))
+            do {
+                _ = try await ArtworkContentResolver.resolve(reference, cache: cache)
+                XCTFail("Invalid reference should fail")
+            } catch let failure as ArtworkContentResolver.Failure { XCTAssertEqual(failure, .invalidReference) }
+        }
+        let urls = await probe.urls
+        XCTAssertEqual(urls, [])
+    }
+
+    func testFailedSourceFetchRemainsRetryable() async throws {
+        let item = try item()
+        let probe = ArtworkSourceTransport(failures: 1)
+        let cache = PersistentArtworkDependencyCache(rootURL: root(), transport: { try await probe.download($0) })
+        let reference = try token(item).html
+        do {
+            _ = try await ArtworkContentResolver.resolve(reference, cache: cache)
+            XCTFail("First source request should fail")
+        } catch let failure as PersistentArtworkDependencyCache.Failure { XCTAssertEqual(failure, .httpStatus(503)) }
+        let html = try await ArtworkContentResolver.resolve(reference, cache: cache)
+        XCTAssertFalse(ArtworkContentResolver.requiresPreparation(html))
+        let urls = await probe.urls
+        XCTAssertEqual(urls.count, 2)
+    }
+
+    func testFailedSourceFetchShowsRetryBeforeLoadingAnyDocumentAndRecovers() async throws {
+        let item = try item("hypertype")
+        let dependency = try XCTUnwrap(item.scriptDependency)
+        let probe = ArtworkSourceTransport(failures: 1)
+        let cache = PersistentArtworkDependencyCache(rootURL: root(), transport: { try await probe.download($0) })
+        let fixture = try DependencyRendererFixture(cache: cache, collectionId: item.id)
+        defer { fixture.close() }
+        try fixture.load()
+        try await waitUntil { fixture.showsRetry }
+        XCTAssertEqual(fixture.probe.documentCount, 0)
+        let failedURLs = await probe.urls
+        XCTAssertEqual(failedURLs, [dependency.remoteURL])
+        try XCTUnwrap(fixture.retryButton).sendActions(for: .touchUpInside)
+        try await waitUntil { await fixture.renderedTokenID() == "0" }
+        XCTAssertFalse(fixture.showsRetry)
+        XCTAssertEqual(fixture.probe.documentCount, 1)
+        let urls = await probe.urls
+        XCTAssertEqual(urls.filter { $0 == dependency.remoteURL }.count, 2)
+        XCTAssertEqual(urls.count, 3)
+    }
+
+    func testWebViewWaitsForSourceAndOnlyLoadsLatestToken() async throws {
+        let item = try item("hypertype")
+        let probe = ArtworkSourceTransport(held: true)
+        let cache = PersistentArtworkDependencyCache(rootURL: root(), transport: { try await probe.download($0) })
+        let fixture = try DependencyRendererFixture(cache: cache, collectionId: item.id)
+        defer { fixture.close() }
+        try fixture.load()
+        try await waitUntil { await probe.urls.count == 1 }
+        XCTAssertEqual(fixture.probe.documentCount, 0)
+        XCTAssertTrue(fixture.webView.hasPersistentDependencyContent)
+        try fixture.load(index: 2)
+        await probe.release()
+        try await waitUntil { await fixture.renderedTokenID() == "2" }
+        XCTAssertEqual(fixture.probe.documentCount, 1)
+        let urls = await probe.urls
+        XCTAssertEqual(urls.filter { $0 == item.scriptDependency?.remoteURL }.count, 1)
+        XCTAssertEqual(urls.count, 2)
+    }
+}
+
 private actor DependencyLoadingTransport {
     private(set) var requests = 0
     private var pending: CheckedContinuation<(data: Data, statusCode: Int), Error>?
 
     func download(_ url: URL) async throws -> (data: Data, statusCode: Int) {
+        if url != PersistentArtworkDependency.hypertype.remoteURL {
+            guard let dependency = JavaScriptLibraryFixtures.dependencies.first(where: { $0.remoteURL == url }) else {
+                throw URLError(.unsupportedURL)
+            }
+            return (try JavaScriptLibraryFixtures.data(for: dependency), 200)
+        }
         requests += 1
         return try await withCheckedThrowingContinuation { pending = $0 }
     }
@@ -53,7 +310,7 @@ final class DependencyRendererFixture {
         window.rootViewController = host
         window.makeKeyAndVisible()
         window.layoutIfNeeded()
-        renderer = FullscreenTokenMediaRenderer(containerView: container)
+        renderer = FullscreenTokenMediaRenderer(containerView: container, artworkDependencyCache: cache)
         renderer.configureArtBlocksRendering(collectionId: collectionId, tokenId: "0")
         if !TokenGenerator.usesArtBlocksRenderer(collectionId: collectionId) {
             renderer.renderWebContent("", hidesEmptyWebContent: true)
@@ -212,9 +469,8 @@ extension PersistentArtworkDependencyLoadingTests {
     func testRecreatedCacheLoadsAnotherArtworkOffline() async throws {
         let directory = root()
         defer { try? FileManager.default.removeItem(at: directory) }
-        let bytes = try asset()
-        let online = PersistentArtworkDependencyCache(rootURL: directory) { _ in (bytes, 200) }
-        _ = try await online.data(for: .hypertype)
+        let online = JavaScriptLibraryFixtures.makeCache(rootURL: directory)
+        try await ArtworkContentResolver.prepareCollection(collectionId: PersistentArtworkDependency.hypertype.collectionId, cache: online)
         let offline = PersistentArtworkDependencyCache(rootURL: directory) { _ in throw URLError(.notConnectedToInternet) }
         let fixture = try DependencyRendererFixture(cache: offline)
         defer { fixture.close() }
@@ -228,8 +484,7 @@ extension PersistentArtworkDependencyLoadingTests {
     func testRepeatedHTMLPreservesTheDocumentAndExplicitRetryReloadsIt() async throws {
         let directory = root()
         defer { try? FileManager.default.removeItem(at: directory) }
-        let bytes = try asset()
-        let cache = PersistentArtworkDependencyCache(rootURL: directory) { _ in (bytes, 200) }
+        let cache = JavaScriptLibraryFixtures.makeCache(rootURL: directory)
         let fixture = try DependencyRendererFixture(cache: cache)
         defer { fixture.close() }
         try fixture.load()

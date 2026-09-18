@@ -173,13 +173,6 @@ function scriptCollectionKinds() {
   );
 }
 
-function scriptSourceFileName(item) {
-  const kind = item.script?.kind;
-  if (kind == null || kind.startsWith("native.")) return null;
-  const extension = kind === "html" ? "html" : kind === "processingjs146" ? "pde" : "js";
-  return `${item.internal_slug}.${extension}`;
-}
-
 function eligibleItems(items, scriptIds) {
   return items.filter((item) => !scriptIds.has(suggestedItemId(item)));
 }
@@ -534,7 +527,8 @@ test("Planet Peppa retains original filenames and uses original large images", (
   }
 });
 
-test("catalog script metadata exactly matches raw bundled source resources", () => {
+test("catalog scripts pin remote sources without bundling artwork source files", async () => {
+  const { artworkSourceDescriptors } = await import("../scripts/hydrate-artwork-test-sources.mjs");
   const items = readJSON(ITEMS_PATH);
   const tokenFileNames = fs.readdirSync(TOKENS_PATH)
     .filter((fileName) => path.extname(fileName) === ".json");
@@ -549,6 +543,7 @@ test("catalog script metadata exactly matches raw bundled source resources", () 
   const allowedFields = new Set([
     "kind", "renderingProfile", "nftPlayerDisplayTuning", "requiresInitialCanvas",
     "additionalLibraries", "isModule", "externalAssetDependencies", "projectId",
+    "expectedByteCount", "sha256", "sourceURL",
   ]);
   for (const item of scriptedItems) {
     assert.equal(typeof item.script, "object", item.internal_slug);
@@ -566,18 +561,12 @@ test("catalog script metadata exactly matches raw bundled source resources", () 
     [["parnassus", "2"]]
   );
 
-  const scriptFileNames = fs.readdirSync(SCRIPTS_PATH).sort();
-  assert.deepEqual(
-    scriptFileNames,
-    scriptedItems.map(scriptSourceFileName).filter((fileName) => fileName != null).sort()
-  );
-  assert.equal(scriptFileNames.length, 405);
-  assert.equal(scriptFileNames.filter((fileName) => path.extname(fileName) === ".js").length, 402);
-  assert.equal(scriptFileNames.filter((fileName) => path.extname(fileName) === ".pde").length, 2);
-  assert.equal(scriptFileNames.filter((fileName) => path.extname(fileName) === ".html").length, 1);
-  for (const fileName of scriptFileNames) {
-    assert.ok(fs.readFileSync(path.join(SCRIPTS_PATH, fileName), "utf8").length > 0, fileName);
-  }
+  const sources = artworkSourceDescriptors(items);
+  assert.equal(sources.length, 405);
+  assert.equal(sources.filter((source) => source.extension === "js").length, 402);
+  assert.equal(sources.filter((source) => source.extension === "pde").length, 2);
+  assert.equal(sources.filter((source) => source.extension === "html").length, 1);
+  assert.equal(fs.existsSync(SCRIPTS_PATH), false, "Artwork sources must not be bundled with the app");
 });
 
 test("standard thumbnail availability covers downloadable, native, and bundled generative collections", () => {
@@ -636,7 +625,8 @@ test("September generative collections expose indexed CDN tiers without changing
     assert.equal(item.sizedThumbsIndexOffset, undefined);
     assert.equal(widgetSlugs.has(item.internal_slug), false);
     assert.equal(item.script.renderingProfile, "artBlocks");
-    assert.ok(fs.readFileSync(path.join(SCRIPTS_PATH, scriptSourceFileName(item)), "utf8").length > 0);
+    assert.ok(item.script.expectedByteCount > 0);
+    assert.match(item.script.sha256, /^[a-f0-9]{64}$/u);
     const payload = readJSON(path.join(TOKENS_PATH, `${item.internal_slug}.json`));
     const ratios = decodeAspectRatioMetadata(payload);
     assert.equal(ratios.length, payload.items.length);

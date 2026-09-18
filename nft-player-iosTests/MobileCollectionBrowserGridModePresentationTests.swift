@@ -83,6 +83,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
 
     @MainActor
     final class Fixture {
+        let registry: MobilePlaybackSessionRegistry
         let session: MobilePlaybackSession
         let display: PlaybackDisplay
         let controller: VerticalCollectionBrowserViewController
@@ -90,12 +91,14 @@ extension MobileCollectionBrowserGridModePresentationTests {
         let gridTransitionFrameDriver: ManualGridTransitionFrameDriver?
 
         init(
+            registry: MobilePlaybackSessionRegistry,
             session: MobilePlaybackSession,
             display: PlaybackDisplay,
             controller: VerticalCollectionBrowserViewController,
             window: UIWindow,
             gridTransitionFrameDriver: ManualGridTransitionFrameDriver?
         ) {
+            self.registry = registry
             self.session = session
             self.display = display
             self.controller = controller
@@ -157,7 +160,8 @@ extension MobileCollectionBrowserGridModePresentationTests {
         gridTransitionFrameDriver: ManualGridTransitionFrameDriver? = nil
     ) throws -> Fixture {
         let uuid = UUID()
-        let session = MobilePlaybackController.shared.startSession(
+        let registry = makePlaybackRegistry()
+        let session = registry.startSession(
             config: MobilePlayerConfig(
                 id: uuid,
                 initialItemId: collectionId,
@@ -202,12 +206,28 @@ extension MobileCollectionBrowserGridModePresentationTests {
         XCTAssertEqual(controller.gridMode, .threeColumns)
         XCTAssertNotNil(controller.currentPagePosition)
         return Fixture(
+            registry: registry,
             session: session,
             display: display,
             controller: controller,
             window: window,
             gridTransitionFrameDriver: gridTransitionFrameDriver
         )
+    }
+
+    func makePlaybackRegistry() -> MobilePlaybackSessionRegistry {
+        MobilePlaybackSessionRegistry(dependencies: .init(
+            makeViewingSessionTracker: {
+                PlayerViewingSessionTracker(continueViewingCollectionId: $0)
+            },
+            clearActiveMediaWindow: {
+                DownloadableMediaCache.shared.clearActiveWindow(ownerId: $0)
+            },
+            cancelAllMediaDownloads: {
+                DownloadableMediaCache.shared.cancelAllDownloads()
+            },
+            preloadArtworkDependency: { _ in }
+        ))
     }
 
     func makeDeterministicFixture(
@@ -227,6 +247,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
         fixture.window.isHidden = true
         fixture.window.rootViewController = nil
         fixture.session.stopAndDisconnect()
+        XCTAssertEqual(fixture.registry.activeSessionCount, 0)
     }
 
     func selectGridMode(

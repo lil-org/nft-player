@@ -170,26 +170,7 @@ nonisolated enum SuggestedItemsService {
         bundledResourceURL(collectionId: collectionId, subdirectory: "Tokens")
     }
 
-    static func bundledScript(collectionId: String, in resourceBundle: Bundle = bundle) -> Script? {
-        guard let collection = scriptItem(for: collectionId),
-              let metadata = collection.script else { return nil }
-        if metadata.kind.isNativeRenderer {
-            return Script(item: collection, value: "")
-        }
-        guard let url = bundledScriptURL(collectionId: collectionId, in: resourceBundle),
-              let source = try? String(contentsOf: url, encoding: .utf8) else { return nil }
-        return Script(item: collection, value: source)
-    }
-
-    static func bundledScriptURL(collectionId: String, in resourceBundle: Bundle = bundle) -> URL? {
-        guard let collection = scriptItem(for: collectionId),
-              let fileExtension = collection.script?.kind.sourceFileExtension else { return nil }
-        let resourceName = collection.bundledResourceName
-        return resourceBundle.url(forResource: resourceName, withExtension: fileExtension, subdirectory: "Scripts")
-            ?? resourceBundle.url(forResource: resourceName.lowercased(), withExtension: fileExtension, subdirectory: "Scripts")
-    }
-
-    private static func scriptItem(for collectionId: String) -> SuggestedItem? {
+    static func scriptItem(collectionId: String) -> SuggestedItem? {
         let lowercaseId = collectionId.lowercased()
         return item(id: collectionId) ?? item(id: lowercaseId)
             ?? item(resourceName: collectionId) ?? item(resourceName: lowercaseId)

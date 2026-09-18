@@ -13,6 +13,7 @@
 		2C02180F2C53CECD0012EC40 /* PlayerModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C8ADAA72C46F3FC008BC560 /* PlayerModel.swift */; };
 		2C0218102C53CECD0012EC40 /* TokenGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CE9A5752C3DA9FB009AEAF4 /* TokenGenerator.swift */; };
 		2C0218112C53CECD0012EC40 /* RawHtmlGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CEF35AC2C413AE700388574 /* RawHtmlGenerator.swift */; };
+		11A0D0F2918F4D24ABFC1B69 /* ArtworkContentResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A56CE627B7945F6ABC1D88D /* ArtworkContentResolver.swift */; };
 		2EAB81000000000000000001 /* ArtBlocksRenderingResolutionOverrides.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EAB81000000000000000005 /* ArtBlocksRenderingResolutionOverrides.swift */; };
 		2EAB93000000000000000001 /* ArtBlocksRenderingStartupProfiles.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EAB93000000000000000005 /* ArtBlocksRenderingStartupProfiles.swift */; };
 		2EAB81000000000000000002 /* ArtBlocksRenderingResolutionOverrides.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EAB81000000000000000005 /* ArtBlocksRenderingResolutionOverrides.swift */; };
@@ -43,6 +44,7 @@
 		2C460ED42D2985D20083124E /* HostAppImages.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C1B60C32B7D41D1009949C2 /* HostAppImages.swift */; };
 		2C460ED72D2985FF0083124E /* TokenGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CE9A5752C3DA9FB009AEAF4 /* TokenGenerator.swift */; };
 		2C460ED82D2985FF0083124E /* RawHtmlGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CEF35AC2C413AE700388574 /* RawHtmlGenerator.swift */; };
+		4B46D25D041249CABEE81162 /* ArtworkContentResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A56CE627B7945F6ABC1D88D /* ArtworkContentResolver.swift */; };
 		2C460EDA2D2986240083124E /* GeneratedToken.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CE9A5772C3DAB03009AEAF4 /* GeneratedToken.swift */; };
 		2C460EDB2D29863A0083124E /* BundledTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C086E862C2F3C3600D4268D /* BundledTokens.swift */; };
 		2C460EDC2D2986460083124E /* SuggestedItemsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C9C60342C2C5FE8001D9B51 /* SuggestedItemsService.swift */; };
@@ -85,6 +87,7 @@
 		2C9442902C515A490078C051 /* TokenGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CE9A5752C3DA9FB009AEAF4 /* TokenGenerator.swift */; };
 		2C9442912C515A570078C051 /* NftGallery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CA979AB2B62BA2400DB3AC8 /* NftGallery.swift */; };
 		2C9442922C515AC40078C051 /* RawHtmlGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CEF35AC2C413AE700388574 /* RawHtmlGenerator.swift */; };
+		E1CC6462671B41118E738CAF /* ArtworkContentResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A56CE627B7945F6ABC1D88D /* ArtworkContentResolver.swift */; };
 		2C98C4AD2BEE9E390040383D /* Consts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C98C4AC2BEE9E390040383D /* Consts.swift */; };
 		2C9973FE2C4AEAAB00C058E2 /* WebViewWithMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C9973FD2C4AEAAB00C058E2 /* WebViewWithMenu.swift */; };
 		2C9974002C4AF12400C058E2 /* PlayerMenuDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C9973FF2C4AF12400C058E2 /* PlayerMenuDelegate.swift */; };
@@ -157,6 +160,7 @@
 		2CE9A5782C3DAB03009AEAF4 /* GeneratedToken.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CE9A5772C3DAB03009AEAF4 /* GeneratedToken.swift */; };
 		2CE9A7712BAD8ECD00579BF7 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 2CE9A7702BAD8ECD00579BF7 /* Localizable.xcstrings */; };
 		2CEF35AD2C413AE700388574 /* RawHtmlGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CEF35AC2C413AE700388574 /* RawHtmlGenerator.swift */; };
+		6CC7B47984114537825E1CF0 /* ArtworkContentResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A56CE627B7945F6ABC1D88D /* ArtworkContentResolver.swift */; };
 		2CF08AA92D2A937400D82ACA /* MobileCollectionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CF08AA42D2A937400D82ACA /* MobileCollectionsView.swift */; };
 		2E3000000000000000000011 /* MobileCollectionsGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E3000000000000000000001 /* MobileCollectionsGrid.swift */; };
 		2E3000000000000000000012 /* MobileCollectionsContinueViewing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E3000000000000000000002 /* MobileCollectionsContinueViewing.swift */; };
@@ -331,6 +335,7 @@
 		DDFA1C35E9F22CBB2ECDB50D /* PersistentJavaScriptLibraryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B8A752674CE8F7CFDD0295F /* PersistentJavaScriptLibraryTests.swift */; };
 		AC2AA73D1542A89E1AFC2DC3 /* JavaScriptLibraryFixtures.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE5F857CE081552F72574F61 /* JavaScriptLibraryFixtures.swift */; };
 		A216F22FE1C4CE587D98FE67 /* JavaScriptLibraries in Resources */ = {isa = PBXBuildFile; fileRef = EEDE9772604F3354A2A430A9 /* JavaScriptLibraries */; };
+		C0364FBE738640AEBAA0E6F2 /* ArtworkScripts in Resources */ = {isa = PBXBuildFile; fileRef = B128C352B53F4CA0BF7D28E1 /* ArtworkScripts */; };
 		4180A20081E24475BF4E460F /* PersistentCollectionCoverCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B56945C9D424F02B9A6EAB4 /* PersistentCollectionCoverCache.swift */; };
 		61C1CA39D5A44FA0A7DDEA6A /* CollectionCoverImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5F362FB51EF4E58A0A1FA47 /* CollectionCoverImage.swift */; };
 		CEAD913F42054AA196199399 /* PersistentCollectionCoverCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B56945C9D424F02B9A6EAB4 /* PersistentCollectionCoverCache.swift */; };
@@ -496,6 +501,7 @@
 		2CE9A5772C3DAB03009AEAF4 /* GeneratedToken.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeneratedToken.swift; sourceTree = "<group>"; };
 		2CE9A7702BAD8ECD00579BF7 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		2CEF35AC2C413AE700388574 /* RawHtmlGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawHtmlGenerator.swift; sourceTree = "<group>"; };
+		0A56CE627B7945F6ABC1D88D /* ArtworkContentResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtworkContentResolver.swift; sourceTree = "<group>"; };
 		2EAB81000000000000000005 /* ArtBlocksRenderingResolutionOverrides.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtBlocksRenderingResolutionOverrides.swift; sourceTree = "<group>"; };
 		2EAB93000000000000000005 /* ArtBlocksRenderingStartupProfiles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtBlocksRenderingStartupProfiles.swift; sourceTree = "<group>"; };
 		2CF08AA32D2A937400D82ACA /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -621,6 +627,7 @@
 		8B8A752674CE8F7CFDD0295F /* PersistentJavaScriptLibraryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistentJavaScriptLibraryTests.swift; sourceTree = "<group>"; };
 		EE5F857CE081552F72574F61 /* JavaScriptLibraryFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JavaScriptLibraryFixtures.swift; sourceTree = "<group>"; };
 		EEDE9772604F3354A2A430A9 /* JavaScriptLibraries */ = {isa = PBXFileReference; lastKnownFileType = folder; path = JavaScriptLibraries; sourceTree = "<group>"; };
+		B128C352B53F4CA0BF7D28E1 /* ArtworkScripts */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ArtworkScripts; path = "build/test-artwork-sources/ArtworkScripts"; sourceTree = SOURCE_ROOT; };
 		3B56945C9D424F02B9A6EAB4 /* PersistentCollectionCoverCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistentCollectionCoverCache.swift; sourceTree = "<group>"; };
 		A5F362FB51EF4E58A0A1FA47 /* CollectionCoverImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionCoverImage.swift; sourceTree = "<group>"; };
 		2D8366B62533413FB6870768 /* CollectionCoverRecovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionCoverRecovery.swift; sourceTree = "<group>"; };
@@ -753,6 +760,7 @@
 				2CF4C49A2B7F567B000AB4A6 /* Navigator.swift */,
 				2CE9A5752C3DA9FB009AEAF4 /* TokenGenerator.swift */,
 				2CEF35AC2C413AE700388574 /* RawHtmlGenerator.swift */,
+				0A56CE627B7945F6ABC1D88D /* ArtworkContentResolver.swift */,
 				2EAB81000000000000000005 /* ArtBlocksRenderingResolutionOverrides.swift */,
 				2EAB93000000000000000005 /* ArtBlocksRenderingStartupProfiles.swift */,
 			);
@@ -1088,6 +1096,7 @@
 			isa = PBXGroup;
 			children = (
 				EEDE9772604F3354A2A430A9 /* JavaScriptLibraries */,
+				B128C352B53F4CA0BF7D28E1 /* ArtworkScripts */,
 				2E36FBF9208A412B9DE6C626 /* Hypertype */,
 			);
 			path = Fixtures;
@@ -1452,6 +1461,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A216F22FE1C4CE587D98FE67 /* JavaScriptLibraries in Resources */,
+				C0364FBE738640AEBAA0E6F2 /* ArtworkScripts in Resources */,
 				7FE956096C44445F97464DA7 /* Hypertype in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1543,6 +1553,7 @@
 				2D10001A2F30000000000001 /* WidgetDeepLink.swift in Sources */,
 				2C460ED72D2985FF0083124E /* TokenGenerator.swift in Sources */,
 				2C460ED82D2985FF0083124E /* RawHtmlGenerator.swift in Sources */,
+				4B46D25D041249CABEE81162 /* ArtworkContentResolver.swift in Sources */,
 				75D7C651CAB9453489F8F1FB /* PersistentArtworkDependencyCache.swift in Sources */,
 				2EAB81000000000000000001 /* ArtBlocksRenderingResolutionOverrides.swift in Sources */,
 				2EAB93000000000000000001 /* ArtBlocksRenderingStartupProfiles.swift in Sources */,
@@ -1618,6 +1629,7 @@
 				8BFD0E748F3518BCD925D85A /* PersistentJavaScriptLibrary.swift in Sources */,
 				2C5A59C12C514FE400788870 /* SuggestedItem.swift in Sources */,
 				2C9442922C515AC40078C051 /* RawHtmlGenerator.swift in Sources */,
+				E1CC6462671B41118E738CAF /* ArtworkContentResolver.swift in Sources */,
 				22589EBF7FC946878B0CF499 /* PersistentArtworkDependencyCache.swift in Sources */,
 				2EAB81000000000000000002 /* ArtBlocksRenderingResolutionOverrides.swift in Sources */,
 				2EAB93000000000000000002 /* ArtBlocksRenderingStartupProfiles.swift in Sources */,
@@ -1672,6 +1684,7 @@
 				2C02180F2C53CECD0012EC40 /* PlayerModel.swift in Sources */,
 				2C0218102C53CECD0012EC40 /* TokenGenerator.swift in Sources */,
 				2C0218112C53CECD0012EC40 /* RawHtmlGenerator.swift in Sources */,
+				11A0D0F2918F4D24ABFC1B69 /* ArtworkContentResolver.swift in Sources */,
 				C37EFB7ED5644B8EAA750329 /* PersistentArtworkDependencyCache.swift in Sources */,
 				2EAB81000000000000000003 /* ArtBlocksRenderingResolutionOverrides.swift in Sources */,
 				2EAB93000000000000000003 /* ArtBlocksRenderingStartupProfiles.swift in Sources */,
@@ -1734,6 +1747,7 @@
 				2C3B775F2C3D6DEC000A9B52 /* MacPlayerPageController.swift in Sources */,
 				2C9973FE2C4AEAAB00C058E2 /* WebViewWithMenu.swift in Sources */,
 				2CEF35AD2C413AE700388574 /* RawHtmlGenerator.swift in Sources */,
+				6CC7B47984114537825E1CF0 /* ArtworkContentResolver.swift in Sources */,
 				3D0A10E9E2A649E8B0AD20B5 /* PersistentArtworkDependencyCache.swift in Sources */,
 				2EAB81000000000000000004 /* ArtBlocksRenderingResolutionOverrides.swift in Sources */,
 				2EAB93000000000000000004 /* ArtBlocksRenderingStartupProfiles.swift in Sources */,

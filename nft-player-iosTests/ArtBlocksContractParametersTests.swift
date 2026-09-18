@@ -370,7 +370,7 @@ extension ArtBlocksContractParametersTests {
     }
 
     private func bundledScript(_ item: SuggestedItem) throws -> Script {
-        return try XCTUnwrap(SuggestedItemsService.bundledScript(collectionId: item.id))
+        return try XCTUnwrap(JavaScriptLibraryFixtures.script(collectionId: item.id))
     }
 
     private func dependency(index: Int = 0, type: String = "ONCHAIN", address: String = "0x00000000a78e278b2d2e2935faebe19ee9f1ff14") -> Script.ExternalAssetDependency {

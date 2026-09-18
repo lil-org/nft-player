@@ -11,6 +11,43 @@ nonisolated struct SuggestedItem: Identifiable, Hashable, Codable, Sendable {
         return internalSlug
     }
 
+    var scriptProjectId: String {
+        script?.projectId ?? abId ?? ""
+    }
+
+    var scriptDependency: PersistentArtworkDependency? {
+        guard let script,
+              let fileExtension = script.kind.sourceFileExtension,
+              let expectedByteCount = script.expectedByteCount, expectedByteCount > 0,
+              let sha256 = script.sha256,
+              sha256.range(of: "^[a-f0-9]{64}$", options: .regularExpression) != nil else {
+            return nil
+        }
+        let resourceName = bundledResourceName
+        guard !resourceName.isEmpty,
+              resourceName != ".", resourceName != "..",
+              !resourceName.contains("/"), !resourceName.contains("\\") else { return nil }
+        let remoteURL: URL
+        if let sourceURL = script.sourceURL {
+            guard let components = URLComponents(string: sourceURL),
+                  components.scheme?.lowercased() == "https",
+                  components.host?.isEmpty == false,
+                  components.user == nil, components.password == nil,
+                  components.fragment == nil,
+                  let url = components.url else { return nil }
+            remoteURL = url
+        } else {
+            remoteURL = URL(string: "https://cdn.lil.org/player/scripts/")!
+                .appendingPathComponent(resourceName + "." + fileExtension)
+        }
+        return PersistentArtworkDependency(
+            id: "script:" + resourceName,
+            remoteURL: remoteURL,
+            expectedByteCount: expectedByteCount,
+            sha256: sha256
+        )
+    }
+
     var isSolanaCollection: Bool {
         chain == .solana
     }

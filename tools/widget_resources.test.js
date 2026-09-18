@@ -66,13 +66,15 @@ test("widget resources preserve script metadata without copying script sources",
   const { generateWidgetResources } = await generator;
   items[0].script = {
     kind: "js",
+    expectedByteCount: 7,
+    sha256: "a".repeat(64),
+    sourceURL: "https://cdn.example.test/immutable/source-v2.js",
     renderingProfile: "artBlocks",
     projectId: "2",
     externalAssetDependencies: [{ index: 0, cid: "dependency", dependency_type: "IPFS" }],
   };
   items[1].script = { kind: "native.card-nft-2" };
   await writeJSON(directory, "Suggested.bundle/items.json", items);
-  await writeFile(directory, "Suggested.bundle/Scripts/alpha.js", "void 0;");
   await generateWidgetResources(directory);
 
   assert.deepEqual(

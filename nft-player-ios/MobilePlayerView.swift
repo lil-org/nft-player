@@ -323,6 +323,7 @@ final class MobilePlayerCardTransitionCanvas {
 struct MobilePlayerView: View {
 
     private let playbackSession: MobilePlaybackSession
+    private let artworkDependencyCache: PersistentArtworkDependencyCache
     private let onDismiss: () -> Void
     private let collectionBrowserAvailable: Bool
     private let chrome: MobilePlayerChromeController
@@ -343,9 +344,11 @@ struct MobilePlayerView: View {
     init(
         playbackSession: MobilePlaybackSession,
         onDismiss: @escaping () -> Void,
-        chrome: MobilePlayerChromeController
+        chrome: MobilePlayerChromeController,
+        artworkDependencyCache: PersistentArtworkDependencyCache = .shared
     ) {
         self.playbackSession = playbackSession
+        self.artworkDependencyCache = artworkDependencyCache
         self.onDismiss = onDismiss
         self.chrome = chrome
         self.collectionBrowserAvailable = PlayerCollectionBrowserSupport.isAvailable(
@@ -366,6 +369,7 @@ struct MobilePlayerView: View {
                 HorizontalPlayerContainerView(
                     playbackSession: playbackSession,
                     chrome: chrome,
+                    artworkDependencyCache: artworkDependencyCache,
                     bundledGenerativePresentationMode: bundledGenerativePresentationMode,
                     onFocusedPagePositionUpdate: handleFocusedPagePositionUpdate,
                     onSettledPagePositionUpdate: handleSettledPagePositionUpdate,

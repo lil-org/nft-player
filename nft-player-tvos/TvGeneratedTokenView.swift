@@ -419,7 +419,7 @@ struct TvGeneratedTokenView: UIViewRepresentable {
         var loadSample: (() -> Void)?
         var loadContent: ((TvWebContent, URL?) -> Void)?
         var unloadContent: (() -> Void)?
-        let dependencyLoadGate = PersistentWebContentLoadGate()
+        let dependencyLoadGate = ArtworkContentResolver.makeLoadGate()
         var retryDependencies: (() -> Void)?
         var onDependencyFailureChange: ((Bool) -> Void)?
         private var dependencyStatusView: UIView?

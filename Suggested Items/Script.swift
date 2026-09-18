@@ -46,7 +46,7 @@ nonisolated struct Script: Sendable {
             id: item.id,
             address: item.address,
             name: item.name,
-            abId: metadata.projectId ?? item.abId ?? "",
+            abId: item.scriptProjectId,
             chain: item.chain,
             chainId: item.chainId,
             value: value,
@@ -68,6 +68,9 @@ nonisolated struct Script: Sendable {
         var additionalLibraries: [Kind]? = nil
         var isModule: Bool? = nil
         var externalAssetDependencies: [ExternalAssetDependency]? = nil
+        var expectedByteCount: Int? = nil
+        var sha256: String? = nil
+        var sourceURL: String? = nil
     }
 
     enum RenderingProfile: String, Codable, Hashable, Sendable {

@@ -10,6 +10,9 @@ cd "$repo_root"
 echo "Running Swift package tests..."
 swift test --package-path "$repo_root"
 
+echo "Preparing pinned artwork sources for offline iOS rendering tests..."
+node "$repo_root/scripts/hydrate-artwork-test-sources.mjs"
+
 if [[ -n "${IOS_TEST_DESTINATION:-}" ]]; then
   ios_test_destination="$IOS_TEST_DESTINATION"
 else

@@ -65,7 +65,7 @@ final class VisionPlayerWebView: WKWebView, WKNavigationDelegate {
 
     var allowsDependencyDownloads = true
 
-    private let dependencyLoadGate = PersistentWebContentLoadGate()
+    private let dependencyLoadGate = ArtworkContentResolver.makeLoadGate()
     private var requestedDependencyHTML: String?
     private var requestedDependencyBaseURL: URL?
     private var requestedDependencyAllowsDownloads = true

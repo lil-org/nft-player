@@ -42,7 +42,7 @@ extension PersistentJavaScriptLibraryTests {
     private func scripts() throws -> [Script] {
         try SuggestedItemsService.allItems.filter { $0.script != nil }
             .sorted { $0.bundledResourceName < $1.bundledResourceName }
-            .map { try XCTUnwrap(SuggestedItemsService.bundledScript(collectionId: $0.id), $0.name) }
+            .map { try XCTUnwrap(JavaScriptLibraryFixtures.script(collectionId: $0.id), $0.name) }
     }
 
     private func token(for script: Script) -> BundledTokens.Item {
@@ -95,7 +95,7 @@ extension PersistentJavaScriptLibraryTests {
             let libraries = dependencies.filter { $0.id.hasPrefix("library:") }
             if !libraries.isEmpty { usingLibraries += 1 }
             references += libraries.count
-            XCTAssertEqual(TokenGenerator.requiredPersistentDependencies(collectionId: script.id), dependencies, script.name)
+            XCTAssertEqual(TokenGenerator.needsArtworkPreparation(collectionId: script.id), !script.kind.isNativeRenderer, script.name)
             let token = token(for: script)
             let deferred = RawHtmlGenerator.createHtml(script: script, token: token)
             XCTAssertEqual(PersistentJavaScriptLibrary.requiredDependencies(in: deferred), dependencies, script.name)

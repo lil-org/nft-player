@@ -56,7 +56,7 @@ class AutoReloadingWebView: WKWebView, WKNavigationDelegate {
     private var artworkErrorHandler: ((String) -> Void)?
     private var artworkHTML: String?
     private var preparedArtworkHTML: String?
-    private let dependencyLoadGate = PersistentWebContentLoadGate()
+    private let dependencyLoadGate = ArtworkContentResolver.makeLoadGate()
     private var dependencySourceHTML: (html: String, baseURL: URL?)?
     private var dependencyNavigation: WKNavigation?
     private var didReportDependencyError = false

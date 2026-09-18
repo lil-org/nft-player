@@ -103,7 +103,8 @@ private final class PlayerInteractionTestFixture {
             rootView: MobilePlayerView(
                 playbackSession: playbackSession,
                 onDismiss: {},
-                chrome: chrome
+                chrome: chrome,
+                artworkDependencyCache: JavaScriptLibraryFixtures.cache
             )
         )
         playerViewController.installNavigationTitle(chrome: chrome)

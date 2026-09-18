@@ -126,6 +126,7 @@ final class FullscreenTokenMediaRenderer {
     private typealias ImageLoadCancellation = () -> Void
 
     private let containerView: UIView
+    private let artworkDependencyCache: PersistentArtworkDependencyCache
     private var webView: AutoReloadingWebView!
     private var imageView: UIImageView!
     private var nativeMetalCardView: NativeMetalCardView!
@@ -145,8 +146,9 @@ final class FullscreenTokenMediaRenderer {
     private var artworkFailureHandler: ((String) -> Void)?
     private var usesArtBlocksWebConfiguration = false
 
-    init(containerView: UIView) {
+    init(containerView: UIView, artworkDependencyCache: PersistentArtworkDependencyCache = .shared) {
         self.containerView = containerView
+        self.artworkDependencyCache = artworkDependencyCache
     }
 
     isolated deinit {
@@ -407,9 +409,9 @@ final class FullscreenTokenMediaRenderer {
         webView.loadHTMLString(html, baseURL: nil)
         if artworkIdentity != nil, html.isEmpty {
             if let artworkFailureHandler {
-                artworkFailureHandler("The bundled script or token hash is missing.")
+                artworkFailureHandler("The artwork source or token hash is missing.")
             } else {
-                showArtworkError("The bundled script or token hash is missing.")
+                showArtworkError("The artwork source or token hash is missing.")
             }
         }
     }
@@ -827,6 +829,7 @@ final class FullscreenTokenMediaRenderer {
 
         usesArtBlocksWebConfiguration = usesArtBlocksRenderer
         webView = FullscreenTokenMediaView.webView(in: containerView, usesArtBlocksRenderer: usesArtBlocksRenderer)
+        webView.artworkDependencyCache = artworkDependencyCache
         webView.dependencyErrorHandler = { [weak self] message in self?.handleArtworkFailure(message) }
         if usesTransparentPlayerBackground {
             webView.makePlayerBackgroundTransparent()
@@ -1096,6 +1099,7 @@ struct HorizontalPlayerContainerView: UIViewControllerRepresentable {
     }
 
     private let playbackSession: MobilePlaybackSession
+    private let artworkDependencyCache: PersistentArtworkDependencyCache
     private let chrome: MobilePlayerChromeController
     private let bundledGenerativePresentationMode: MobileBundledGenerativePresentationMode
     private let onFocusedPagePositionUpdate: ((PlayerPagePosition) -> Void)
@@ -1108,6 +1112,7 @@ struct HorizontalPlayerContainerView: UIViewControllerRepresentable {
     init(
         playbackSession: MobilePlaybackSession,
         chrome: MobilePlayerChromeController,
+        artworkDependencyCache: PersistentArtworkDependencyCache = .shared,
         bundledGenerativePresentationMode: MobileBundledGenerativePresentationMode,
         onFocusedPagePositionUpdate: @escaping (PlayerPagePosition) -> Void,
         onSettledPagePositionUpdate: @escaping (PlayerPagePosition, Bool) -> Bool,
@@ -1117,6 +1122,7 @@ struct HorizontalPlayerContainerView: UIViewControllerRepresentable {
         onZoomStateChange: @escaping (Bool) -> Void
     ) {
         self.playbackSession = playbackSession
+        self.artworkDependencyCache = artworkDependencyCache
         self.chrome = chrome
         self.bundledGenerativePresentationMode = bundledGenerativePresentationMode
         self.onFocusedPagePositionUpdate = onFocusedPagePositionUpdate
@@ -1135,6 +1141,7 @@ struct HorizontalPlayerContainerView: UIViewControllerRepresentable {
         return HorizontalPlayerContainer(
             playbackSession: playbackSession,
             chrome: chrome,
+            artworkDependencyCache: artworkDependencyCache,
             bundledGenerativePresentationMode: bundledGenerativePresentationMode,
             onFocusedPagePositionUpdate: onFocusedPagePositionUpdate,
             onSettledPagePositionUpdate: onSettledPagePositionUpdate,
@@ -1159,6 +1166,7 @@ struct HorizontalPlayerContainerView: UIViewControllerRepresentable {
 class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, UIGestureRecognizerDelegate, MobilePlayerPagerProviding {
 
     private let playbackSession: MobilePlaybackSession
+    let artworkDependencyCache: PersistentArtworkDependencyCache
     private let chrome: MobilePlayerChromeController
     private var bundledGenerativePresentationMode: MobileBundledGenerativePresentationMode
     private let onFocusedPagePositionUpdate: ((PlayerPagePosition) -> Void)
@@ -1220,6 +1228,7 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, U
     init(
         playbackSession: MobilePlaybackSession,
         chrome: MobilePlayerChromeController,
+        artworkDependencyCache: PersistentArtworkDependencyCache = .shared,
         bundledGenerativePresentationMode: MobileBundledGenerativePresentationMode,
         onFocusedPagePositionUpdate: @escaping (PlayerPagePosition) -> Void,
         onSettledPagePositionUpdate: @escaping (PlayerPagePosition, Bool) -> Bool,
@@ -1229,6 +1238,7 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, U
         onZoomStateChange: @escaping (Bool) -> Void
     ) {
         self.playbackSession = playbackSession
+        self.artworkDependencyCache = artworkDependencyCache
         self.chrome = chrome
         self.bundledGenerativePresentationMode = bundledGenerativePresentationMode
         self.onFocusedPagePositionUpdate = onFocusedPagePositionUpdate
@@ -1717,6 +1727,7 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, U
 
 private protocol HorizontalPlayerDataSource: AnyObject {
 
+    var artworkDependencyCache: PersistentArtworkDependencyCache { get }
     func getToken(pagePosition: PlayerPagePosition) -> GeneratedToken
     func prepareDownloadableMediaWindow(
         for pagePosition: PlayerPagePosition,
@@ -1829,9 +1840,13 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
     }
 
     private weak var playerDataSource: HorizontalPlayerDataSource?
+    private let artworkDependencyCache: PersistentArtworkDependencyCache
     private let zoomScrollView = PlayerZoomScrollView()
     private let mediaContentView = UIView()
-    private lazy var mediaRenderer = FullscreenTokenMediaRenderer(containerView: mediaContentView)
+    private lazy var mediaRenderer = FullscreenTokenMediaRenderer(
+        containerView: mediaContentView,
+        artworkDependencyCache: artworkDependencyCache
+    )
     private lazy var pageMedia = PlayerPageMediaCoordinator(
         renderer: mediaRenderer,
         onContentMetrics: { [weak self] metrics, policy in
@@ -1866,6 +1881,7 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
         playerDataSource: HorizontalPlayerDataSource?
     ) {
         self.playerDataSource = playerDataSource
+        self.artworkDependencyCache = playerDataSource?.artworkDependencyCache ?? .shared
         self.pagePosition = pagePosition
         super.init(nibName: nil, bundle: nil)
         renderCurrentItem()

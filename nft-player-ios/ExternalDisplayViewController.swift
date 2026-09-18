@@ -13,14 +13,19 @@ func updateExternalDisplayToken(_ token: GeneratedToken) {
 
 class ExternalDisplayViewController: UIViewController {
     
-    private lazy var mediaRenderer = FullscreenTokenMediaRenderer(containerView: view)
+    private let artworkDependencyCache: PersistentArtworkDependencyCache
+    private lazy var mediaRenderer = FullscreenTokenMediaRenderer(
+        containerView: view,
+        artworkDependencyCache: artworkDependencyCache
+    )
     private var placeholderStack: UIStackView!
     private var renderedTokenKey = ""
     private var willOrDidAppear = false
     private var laidOutArtworkSize: CGSize = .zero
     private var artworkResizeTask: Task<Void, Never>?
     
-    init() {
+    init(artworkDependencyCache: PersistentArtworkDependencyCache = .shared) {
+        self.artworkDependencyCache = artworkDependencyCache
         super.init(nibName: nil, bundle: nil)
         currentDisplay = self
         renderCurrentItem()

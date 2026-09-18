@@ -17,7 +17,7 @@ Open `nft-player.xcodeproj` in Xcode to run the app. Run the complete Swift pack
 scripts/test.sh
 ```
 
-The script runs package tests first, then uses the first available iPhone simulator for the iOS tests. Override the destination or derived-data location when needed:
+The script runs package tests, hydrates pinned artwork sources for offline rendering tests, then uses the first available iPhone simulator for the iOS tests. Node.js is required for hydration. Override the destination or derived-data location when needed:
 
 ```sh
 IOS_TEST_DESTINATION='platform=iOS Simulator,name=iPhone 17 Pro,OS=latest' \
@@ -26,6 +26,17 @@ scripts/test.sh
 ```
 
 Derived data defaults to the ignored `build/test-derived-data` directory.
+
+Before running iOS tests directly from Xcode, prepare their artwork sources:
+
+```sh
+node scripts/hydrate-artwork-test-sources.mjs
+node scripts/hydrate-artwork-test-sources.mjs --check
+```
+
+The hydrator verifies the catalog's byte counts and SHA-256 pins and downloads only missing or corrupt versions, with at most four requests at a time. Its `--check` mode is offline and makes no changes. Verified files live in ignored `build/test-artwork-sources/ArtworkScripts/<sha256>.<extension>` and are copied only into the test bundle. Rendering tests use these local files through an injected transport; they never download artwork sources. Swift package and Node unit tests do not require this artwork cache. Run the Node suite with `node --test tools/*.test.js`.
+
+Artwork sources are hosted at `https://cdn.lil.org/player/scripts/<internal_slug>.<extension>` and are not committed or included in application bundles. `items.json` keeps renderer metadata in `script`, together with `expectedByteCount` and `sha256` for web artwork. Source extensions are `.html` for HTML, `.pde` for Processing, and `.js` otherwise; native renderers have no source descriptor. Publish immutable source URLs before updating pins. Use an absolute HTTPS `script.sourceURL` override for a new version so older app releases retain access to their pinned bytes. The application downloads each requested source version once and retains it without an expiry; missing or corrupt cached files are fetched again. tvOS may purge its system cache.
 
 Token manifests in `Suggested Items/Suggested.bundle/Tokens` share repeated URL prefixes through `urlPrefixes`. Compact rows use `[id, prefixIndex, urlSuffix]`, followed by an optional file extension and optional metadata object containing `name` and/or `hash`. When metadata is present without a file extension, use `[id, prefixIndex, urlSuffix, null, {"hash":"..."}]`. Tokens without an explicit URL retain their object format and implicit media source. After changing token manifests, regenerate widget resources with `node scripts/generate-widget-resources.mjs`.
 

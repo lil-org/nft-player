@@ -235,6 +235,27 @@ final class PersistentArtworkDependencyCacheTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: file(in: root, for: dependency).path))
     }
 
+    func testNewPinnedSourceVersionCannotReusePreviousBytes() async throws {
+        let root = try directory()
+        let first = descriptor(javascript)
+        let updatedSource = Data("globalThis.hypertypeFixture = 'new source version';\n".utf8)
+        let second = descriptor(updatedSource)
+        let probe = DependencyTransportProbe(bytes: javascript)
+        let cache = PersistentArtworkDependencyCache(rootURL: root, transport: { try await probe.fetch($0) })
+        let original = try await cache.data(for: first)
+        XCTAssertEqual(original, javascript)
+        let missing = try await cache.cachedData(for: second)
+        XCTAssertNil(missing)
+        await probe.replace(bytes: updatedSource)
+        let updated = try await cache.data(for: second)
+        XCTAssertEqual(updated, updatedSource)
+        let preserved = try await cache.cachedData(for: first)
+        XCTAssertEqual(preserved, javascript)
+        let calls = await probe.calls
+        XCTAssertEqual(calls, 2)
+        XCTAssertNotEqual(file(in: root, for: first), file(in: root, for: second))
+    }
+
     func testStaleOwnedStagingIsRemovedWhileUnrelatedFilesRemain() async throws {
         let root = try directory()
         let dependency = descriptor(javascript)

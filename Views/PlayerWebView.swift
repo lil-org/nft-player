@@ -25,7 +25,7 @@ final class PlayerWebView: WebViewWithMenu, WKNavigationDelegate {
 
     var allowsDependencyDownloads = true
 
-    private let dependencyLoadGate = PersistentWebContentLoadGate()
+    private let dependencyLoadGate = ArtworkContentResolver.makeLoadGate()
     private var requestedDependencyHTML: String?
     private var requestedDependencyBaseURL: URL?
     private var requestedDependencyAllowsDownloads = true

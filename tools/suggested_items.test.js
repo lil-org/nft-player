@@ -68,6 +68,9 @@ test("preserves token and collection web URL overrides when regenerating a sugge
 test("preserves script metadata when regenerating a suggested item", () => {
   const script = {
     kind: "js",
+    expectedByteCount: 7,
+    sha256: "a".repeat(64),
+    sourceURL: "https://cdn.example.test/immutable/source-v2.js",
     renderingProfile: "artBlocks",
     requiresInitialCanvas: true,
     additionalLibraries: ["tone"],

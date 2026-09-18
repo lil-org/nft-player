@@ -41,7 +41,7 @@ private final class ExternalDisplayEvaluation {
 
 @MainActor
 private final class ExternalDisplayIntegrationFixture {
-    let controller = ExternalDisplayViewController()
+    let controller = ExternalDisplayViewController(artworkDependencyCache: JavaScriptLibraryFixtures.cache)
     let probe = ExternalDisplayDocumentProbe()
     let window: UIWindow
     let webView: AutoReloadingWebView
@@ -196,7 +196,6 @@ private final class ExternalDisplayIntegrationFixture {
 @MainActor
 extension ArtBlocksExternalDisplayTests {
     func testControllerPreservesDirectAndCalibratedRenderingAcrossTokensAndResize() async throws {
-        try await JavaScriptLibraryFixtures.seedSharedCache()
         updateExternalDisplayToken(.empty)
         defer { updateExternalDisplayToken(.empty) }
         let hypertype = "0xbb5471c292065d3b01b2e81e299267221ae9a2500"

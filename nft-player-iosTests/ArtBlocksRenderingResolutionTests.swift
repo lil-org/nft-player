@@ -534,10 +534,10 @@ extension ArtBlocksRenderingResolutionTests {
         let catalogURL = try XCTUnwrap(SuggestedItemsService.bundle.url(forResource: "items", withExtension: "json"))
         let catalog = try JSONDecoder().decode([SuggestedItem].self, from: Data(contentsOf: catalogURL))
         let item = try XCTUnwrap(catalog.first { $0.name.trimmingCharacters(in: .whitespacesAndNewlines) == name })
-        let scriptURL = try XCTUnwrap(SuggestedItemsService.bundledScriptURL(collectionId: item.id))
+        let scriptURL = try XCTUnwrap(JavaScriptLibraryFixtures.scriptURL(collectionId: item.id))
         let tokenURL = try XCTUnwrap(SuggestedItemsService.bundledTokensURL(collectionId: item.id))
         let originalSource = try Data(contentsOf: scriptURL)
-        let script = try XCTUnwrap(SuggestedItemsService.bundledScript(collectionId: item.id))
+        let script = try XCTUnwrap(JavaScriptLibraryFixtures.script(collectionId: item.id))
         let tokens = try JSONDecoder().decode(BundledTokens.self, from: Data(contentsOf: tokenURL)).items
         let token = try XCTUnwrap(tokens.indices.contains(tokenIndex) ? tokens[tokenIndex] : nil)
         let ratio = try XCTUnwrap(token.artworkAspectRatio)
