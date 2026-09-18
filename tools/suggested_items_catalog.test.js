@@ -468,9 +468,12 @@ test("Planet Peppa retains original filenames and uses original large images", (
   const item = readJSON(ITEMS_PATH).find((candidate) => candidate.internal_slug === "planet_peppa");
   assert.ok(item, "Missing planet_peppa");
   const payload = readJSON(path.join(TOKENS_PATH, `${item.internal_slug}.json`));
-  assert.equal(payload.isComplete, true);
+  assert.equal(payload.isComplete ?? true, true);
   assert.equal(payload.hasMid, false);
-  assert.equal(payload.defaultFileExtension, "webp");
+  assert.equal(
+    resolvedFileExtension(payload, payload.items[0], tokenSourceURL(payload, payload.items[0])),
+    "webp"
+  );
   assert.equal(payload.items.length, item.tokenCount);
   assert.equal(new Set(tokenIdsFromPayload(payload)).size, item.tokenCount);
   assert.equal(payload.items.filter((row) => row[0].startsWith("unminted-")).length, 11268);
@@ -916,22 +919,26 @@ test("bundled tokens have compact aspect ratios and matching iOS layouts", () =>
   let widgetTokenCount = 0;
   for (const fileName of widgetFileNames) {
     const widgetPayload = readJSON(path.join(WIDGET_TOKENS_PATH, fileName));
-    const widgetRatios = decodeAspectRatioMetadata(widgetPayload);
-    assert.ok(widgetRatios, `${fileName} has no widget thumbnail aspect-ratio metadata`);
-    assert.equal(widgetRatios.length, widgetPayload.items.length);
-
     const primary = primaryByFileName.get(fileName);
     assert.ok(primary, `${fileName} has no matching primary token manifest`);
-    const primaryRatioById = new Map(
-      tokenIdsFromPayload(primary.payload).map((id, index) => [id, primary.ratios[index]])
-    );
-    tokenIdsFromPayload(widgetPayload).forEach((id, index) => {
-      assert.deepEqual(
-        widgetRatios[index],
-        primaryRatioById.get(id),
-        `${fileName} token ${id} differs from its primary thumbnail ratio`
-      );
+    const collection = catalogItems.find((item) => `${item.internal_slug}.json` === fileName);
+    const mediaReferences = (payload) => payload.items.map((row) => {
+      const id = Array.isArray(row) ? row[0] : row.id;
+      const url = tokenSourceURL(payload, row)
+        ?? (row.sh != null ? `https://cdn.simplehash.com/assets/${row.sh}` : undefined)
+        ?? (collection.chain === "ethereum" ? `https://media-proxy.artblocks.io/${collection.address}/${id}.png` : undefined);
+      return { id, url, fileExtension: url == null ? undefined : resolvedFileExtension(payload, row, url) };
     });
+    assert.deepEqual(mediaReferences(widgetPayload), mediaReferences(primary.payload), fileName);
+    assert.ok(Object.keys(widgetPayload).every((key) => ["items", "urlPrefixes", "defaultFileExtension"].includes(key)), fileName);
+    for (const row of widgetPayload.items) {
+      assert.ok(
+        Array.isArray(row)
+          ? row.length >= 3 && row.length <= 4
+          : Object.keys(row).every((key) => ["id", "url", "sh", "fileExtension"].includes(key)),
+        fileName
+      );
+    }
     widgetTokenCount += widgetPayload.items.length;
   }
   assert.equal(widgetTokenCount, 61_742);

@@ -1,7 +1,4 @@
 {
-  "isComplete": true,
-  "defaultFileExtension": "png",
-  "hasMid": true,
   "urlPrefixes": [
     "https://cdn.lil.org/player/glass/"
   ],
@@ -1505,12 +1502,6 @@
       "344000299",
       0,
       "299.png"
-    ]
-  ],
-  "thumbnailAspectRatios": [
-    [
-      4,
-      5
     ]
   ]
 }

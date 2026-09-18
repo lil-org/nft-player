@@ -48,9 +48,12 @@ export async function generateWidgetResources(directory, { check = false } = {})
       missingTokens.push(slug);
       continue;
     }
+    const source = await fs.readFile(tokenPath, "utf8");
+    const payload = widgetTokenPayload(JSON.parse(source), itemsBySlug.get(slug));
+    const indentation = /^\s*\{[^\S\n]*\n/u.test(source) ? 2 : undefined;
     expectedBundleFiles.set(
       path.join("Tokens", path.basename(tokenPath)),
-      await fs.readFile(tokenPath)
+      Buffer.from(`${JSON.stringify(payload, null, indentation)}${source.endsWith("\n") ? "\n" : ""}`)
     );
   }
   failIfAny("Missing token JSON files in Suggested.bundle/Tokens", missingTokens);
@@ -61,6 +64,60 @@ export async function generateWidgetResources(directory, { check = false } = {})
   }
 
   await writeOutput(outputBundleDirectory, expectedBundleFiles);
+}
+
+function widgetTokenPayload(payload, collection) {
+  const prefixes = payload.urlPrefixes ?? [];
+  let usesPrefixes = false;
+  let usesDefaultFileExtension = false;
+  const items = payload.items.map((item) => {
+    const compact = Array.isArray(item);
+    const id = compact ? item[0] : item.id;
+    const prefix = compact ? prefixes[item[1]] : undefined;
+    const url = compact ? (prefix ?? "") + item[2] : item.url;
+    const sourceURL = url
+      ?? (item.sh != null ? `https://cdn.simplehash.com/assets/${item.sh}` : undefined)
+      ?? (collection.chain === "ethereum" ? `https://media-proxy.artblocks.io/${collection.address}/${id}.png` : undefined);
+    const pathExtension = explicitPathExtension(sourceURL);
+    const fileExtension = pathExtension
+      ? undefined
+      : normalizedFileExtension(compact ? item[3] : item.fileExtension);
+    if (sourceURL != null && !pathExtension && fileExtension == null) {
+      usesDefaultFileExtension = true;
+    }
+    if (compact) {
+      usesPrefixes ||= prefix != null;
+      return fileExtension == null ? item.slice(0, 3) : [...item.slice(0, 3), fileExtension];
+    }
+    return {
+      id,
+      ...(url != null ? { url } : item.sh != null ? { sh: item.sh } : {}),
+      ...(fileExtension != null ? { fileExtension } : {}),
+    };
+  });
+  const defaultFileExtension = usesDefaultFileExtension
+    ? normalizedFileExtension(payload.defaultFileExtension)
+    : undefined;
+  return {
+    ...(defaultFileExtension != null ? { defaultFileExtension } : {}),
+    ...(usesPrefixes ? { urlPrefixes: prefixes } : {}),
+    items,
+  };
+}
+
+function normalizedFileExtension(value) {
+  if (typeof value !== "string") return undefined;
+  const normalized = value.replace(/^[. \n\t\r]+|[. \n\t\r]+$/gu, "").toLowerCase();
+  return normalized === "" ? undefined : normalized;
+}
+
+function explicitPathExtension(url) {
+  if (url == null) return undefined;
+  try {
+    return normalizedFileExtension(path.posix.extname(new URL(url).pathname));
+  } catch {
+    return undefined;
+  }
 }
 
 async function readEligibleCollectionSlugs(eligibleCollectionsPath) {

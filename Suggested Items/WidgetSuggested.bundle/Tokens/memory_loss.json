@@ -1,7 +1,4 @@
 {
-  "isComplete": true,
-  "defaultFileExtension": "png",
-  "hasMid": true,
   "urlPrefixes": [
     "https://cdn.lil.org/player/memory_loss/"
   ],
@@ -1285,12 +1282,6 @@
       "13000255",
       0,
       "255.png"
-    ]
-  ],
-  "thumbnailAspectRatios": [
-    [
-      1,
-      1
     ]
   ]
 }

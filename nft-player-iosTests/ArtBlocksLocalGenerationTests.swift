@@ -78,7 +78,7 @@ extension ArtBlocksLocalGenerationTests {
         }
     }
 
-    func testAll4461TokenIDsHashesImagesAndAspectRatiosArePreserved() throws {
+    func testAll4461TokenIDsHashesAndAspectRatiosArePreserved() throws {
         var total = 0
         for project in projects {
             let tokens = try XCTUnwrap(SuggestedItemsService.bundledTokens(collectionId: project.id))
@@ -93,7 +93,11 @@ extension ArtBlocksLocalGenerationTests {
             for (index, token) in tokens.items.enumerated() {
                 let hash = try XCTUnwrap(token.hash, "\(project.name) #\(index)")
                 XCTAssertNotNil(hash.range(of: "^0x[0-9a-fA-F]{64}$", options: .regularExpression))
-                XCTAssertEqual(token.url, project.imageURL(at: index))
+                if ["archetype", "the_eternal_pump"].contains(project.slug) {
+                    XCTAssertEqual(token.url, project.imageURL(at: index))
+                } else {
+                    XCTAssertNil(token.url, "\(project.name) #\(index)")
+                }
                 XCTAssertEqual(token.thumbnailAspectRatio, project.ratio)
                 XCTAssertEqual(
                     CollectionCatalog.tokenIndex(specificCollectionId: project.id, tokenId: token.id),

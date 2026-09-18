@@ -2,172 +2,55 @@
   "items": [
     {
       "id": "315000000",
-      "hash": "0xdd60dcf9724f8c63df4b3551905b6508f0326a1b5528cbb474ee3df509d8deef",
-      "url": "https://prohibition-arbitrum-2.s3.amazonaws.com/315000000.png",
-      "referencePixelSize": [
-        2400,
-        2400
-      ],
-      "imageAspectRatio": [
-        2400,
-        2400
-      ]
+      "hash": "0xdd60dcf9724f8c63df4b3551905b6508f0326a1b5528cbb474ee3df509d8deef"
     },
     {
       "id": "315000001",
-      "hash": "0x9f7c60cc5ecbd3d1c7a6eda50aa5d7c0f0b89d212fb6538fb24ac214c9ef916e",
-      "url": "https://prohibition-arbitrum-2.s3.amazonaws.com/315000001.png",
-      "referencePixelSize": [
-        2400,
-        2400
-      ],
-      "imageAspectRatio": [
-        2400,
-        2400
-      ]
+      "hash": "0x9f7c60cc5ecbd3d1c7a6eda50aa5d7c0f0b89d212fb6538fb24ac214c9ef916e"
     },
     {
       "id": "315000002",
-      "hash": "0xde387891d5437604ed5fdfc5e8546e6b17f782a5834a399ea9360f1a9ad4cbd7",
-      "url": "https://prohibition-arbitrum-2.s3.amazonaws.com/315000002.png",
-      "referencePixelSize": [
-        2400,
-        2400
-      ],
-      "imageAspectRatio": [
-        2400,
-        2400
-      ]
+      "hash": "0xde387891d5437604ed5fdfc5e8546e6b17f782a5834a399ea9360f1a9ad4cbd7"
     },
     {
       "id": "315000003",
-      "hash": "0x57c82def975b6bb1f0b9159ef73b12dafc096af34d11f8b775b31ef9c16091e8",
-      "url": "https://prohibition-arbitrum-2.s3.amazonaws.com/315000003.png",
-      "referencePixelSize": [
-        2400,
-        2400
-      ],
-      "imageAspectRatio": [
-        2400,
-        2400
-      ]
+      "hash": "0x57c82def975b6bb1f0b9159ef73b12dafc096af34d11f8b775b31ef9c16091e8"
     },
     {
       "id": "315000004",
-      "hash": "0x70b8bfa335c865695144c09c432c636482cd9eabc9c9c904f7969e360a5d3407",
-      "url": "https://prohibition-arbitrum-2.s3.amazonaws.com/315000004.png",
-      "referencePixelSize": [
-        2400,
-        2400
-      ],
-      "imageAspectRatio": [
-        2400,
-        2400
-      ]
+      "hash": "0x70b8bfa335c865695144c09c432c636482cd9eabc9c9c904f7969e360a5d3407"
     },
     {
       "id": "315000005",
-      "hash": "0x575d723c18f7ff43c749dd7b8087f29ca9947b2e00910793e6c88ddeaff47f3e",
-      "url": "https://prohibition-arbitrum-2.s3.amazonaws.com/315000005.png",
-      "referencePixelSize": [
-        2400,
-        2400
-      ],
-      "imageAspectRatio": [
-        2400,
-        2400
-      ]
+      "hash": "0x575d723c18f7ff43c749dd7b8087f29ca9947b2e00910793e6c88ddeaff47f3e"
     },
     {
       "id": "315000006",
-      "hash": "0xa93558851ea734b2216204abd988f9fce8d9a7d9397f326939bb5b3c825fd769",
-      "url": "https://prohibition-arbitrum-2.s3.amazonaws.com/315000006.png",
-      "referencePixelSize": [
-        2400,
-        2400
-      ],
-      "imageAspectRatio": [
-        2400,
-        2400
-      ]
+      "hash": "0xa93558851ea734b2216204abd988f9fce8d9a7d9397f326939bb5b3c825fd769"
     },
     {
       "id": "315000007",
-      "hash": "0x9c9d6a4e90f25aec37513e4352e86837e26b8748b4c43eed07c9ea778b1a93e7",
-      "url": "https://prohibition-arbitrum-2.s3.amazonaws.com/315000007.png",
-      "referencePixelSize": [
-        2400,
-        2400
-      ],
-      "imageAspectRatio": [
-        2400,
-        2400
-      ]
+      "hash": "0x9c9d6a4e90f25aec37513e4352e86837e26b8748b4c43eed07c9ea778b1a93e7"
     },
     {
       "id": "315000008",
-      "hash": "0x4943d2df432fc6c173a9c7463ddc910d92f1e327b1046cbf1f4094a2c5c8d294",
-      "url": "https://prohibition-arbitrum-2.s3.amazonaws.com/315000008.png",
-      "referencePixelSize": [
-        2400,
-        2400
-      ],
-      "imageAspectRatio": [
-        2400,
-        2400
-      ]
+      "hash": "0x4943d2df432fc6c173a9c7463ddc910d92f1e327b1046cbf1f4094a2c5c8d294"
     },
     {
       "id": "315000009",
-      "hash": "0xb78912bdc62878522de550f5e8f80d5664cb474ad9ae153216d5a159821c0403",
-      "url": "https://prohibition-arbitrum-2.s3.amazonaws.com/315000009.png",
-      "referencePixelSize": [
-        2400,
-        2400
-      ],
-      "imageAspectRatio": [
-        2400,
-        2400
-      ]
+      "hash": "0xb78912bdc62878522de550f5e8f80d5664cb474ad9ae153216d5a159821c0403"
     },
     {
       "id": "315000010",
-      "hash": "0x1efbe2ff0d23fe03601821bd4662201acec258f8de5a24a5a86cb5127a8d0e59",
-      "url": "https://prohibition-arbitrum-2.s3.amazonaws.com/315000010.png",
-      "referencePixelSize": [
-        2400,
-        2400
-      ],
-      "imageAspectRatio": [
-        2400,
-        2400
-      ]
+      "hash": "0x1efbe2ff0d23fe03601821bd4662201acec258f8de5a24a5a86cb5127a8d0e59"
     },
     {
       "id": "315000011",
-      "hash": "0x3d6b3ceb9a3b1b15a47e6b88ca6f9da251ace0e282026bb440ad6a4351b489a1",
-      "url": "https://prohibition-arbitrum-2.s3.amazonaws.com/315000011.png",
-      "referencePixelSize": [
-        2400,
-        2400
-      ],
-      "imageAspectRatio": [
-        2400,
-        2400
-      ]
+      "hash": "0x3d6b3ceb9a3b1b15a47e6b88ca6f9da251ace0e282026bb440ad6a4351b489a1"
     },
     {
       "id": "315000012",
-      "hash": "0x2953003f5a1dcdba6032f8160edf339e99d89c7dcb71c9c19536bdff480a425d",
-      "url": "https://prohibition-arbitrum-2.s3.amazonaws.com/315000012.png",
-      "referencePixelSize": [
-        2400,
-        2400
-      ],
-      "imageAspectRatio": [
-        2400,
-        2400
-      ]
+      "hash": "0x2953003f5a1dcdba6032f8160edf339e99d89c7dcb71c9c19536bdff480a425d"
     }
   ],
   "artworkAspectRatios": [

@@ -1,7 +1,4 @@
 {
-  "isComplete": true,
-  "defaultFileExtension": "png",
-  "hasMid": true,
   "urlPrefixes": [
     "https://cdn.lil.org/player/subtraction_reconfiguration/"
   ],
@@ -505,12 +502,6 @@
       "65000099",
       0,
       "99.png"
-    ]
-  ],
-  "thumbnailAspectRatios": [
-    [
-      4,
-      5
     ]
   ]
 }

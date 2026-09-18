@@ -2,338 +2,107 @@
   "items": [
     {
       "id": "1000000",
-      "hash": "0x5a150f11a397c01028d7934aba5e13da832fe6f007438548aef5e0e9da136b4e",
-      "url": "https://tboa-mainnet.s3.amazonaws.com/1000000.png",
-      "referencePixelSize": [
-        1800,
-        2400
-      ],
-      "imageAspectRatio": [
-        1800,
-        2400
-      ]
+      "hash": "0x5a150f11a397c01028d7934aba5e13da832fe6f007438548aef5e0e9da136b4e"
     },
     {
       "id": "1000001",
-      "hash": "0x3c86c8e0495ca74305b73f37dca23ed4e16299cd7717ece6964214c40246febc",
-      "url": "https://tboa-mainnet.s3.amazonaws.com/1000001.png",
-      "referencePixelSize": [
-        1800,
-        2400
-      ],
-      "imageAspectRatio": [
-        1800,
-        2400
-      ]
+      "hash": "0x3c86c8e0495ca74305b73f37dca23ed4e16299cd7717ece6964214c40246febc"
     },
     {
       "id": "1000002",
-      "hash": "0x1b3f465197bb80f4859ada83b4a49332f09bb088ef3fc7b816a08cbcf1cb56dd",
-      "url": "https://tboa-mainnet.s3.amazonaws.com/1000002.png",
-      "referencePixelSize": [
-        1800,
-        2400
-      ],
-      "imageAspectRatio": [
-        1800,
-        2400
-      ]
+      "hash": "0x1b3f465197bb80f4859ada83b4a49332f09bb088ef3fc7b816a08cbcf1cb56dd"
     },
     {
       "id": "1000003",
-      "hash": "0x1a3dbdac6620344bbfbe735e4fb351dfaf980677eea4c63f60824b09b994ecb0",
-      "url": "https://tboa-mainnet.s3.amazonaws.com/1000003.png",
-      "referencePixelSize": [
-        1800,
-        2400
-      ],
-      "imageAspectRatio": [
-        1800,
-        2400
-      ]
+      "hash": "0x1a3dbdac6620344bbfbe735e4fb351dfaf980677eea4c63f60824b09b994ecb0"
     },
     {
       "id": "1000004",
-      "hash": "0x2bf5f49a006ff506f1caa008a2a49089bfdb3c40ebdfb0db72356c37489c8130",
-      "url": "https://tboa-mainnet.s3.amazonaws.com/1000004.png",
-      "referencePixelSize": [
-        1800,
-        2400
-      ],
-      "imageAspectRatio": [
-        1800,
-        2400
-      ]
+      "hash": "0x2bf5f49a006ff506f1caa008a2a49089bfdb3c40ebdfb0db72356c37489c8130"
     },
     {
       "id": "1000005",
-      "hash": "0x03e6cd10929bf939f679fb0ea70cb7d3fe3c9d52ee9af0d99f73aa6c8e80d035",
-      "url": "https://tboa-mainnet.s3.amazonaws.com/1000005.png",
-      "referencePixelSize": [
-        1800,
-        2400
-      ],
-      "imageAspectRatio": [
-        1800,
-        2400
-      ]
+      "hash": "0x03e6cd10929bf939f679fb0ea70cb7d3fe3c9d52ee9af0d99f73aa6c8e80d035"
     },
     {
       "id": "1000006",
-      "hash": "0xa2937deed163cdc11188ce8956d52ddd93eafa205fd260ff5aea7c622d9273b2",
-      "url": "https://tboa-mainnet.s3.amazonaws.com/1000006.png",
-      "referencePixelSize": [
-        1800,
-        2400
-      ],
-      "imageAspectRatio": [
-        1800,
-        2400
-      ]
+      "hash": "0xa2937deed163cdc11188ce8956d52ddd93eafa205fd260ff5aea7c622d9273b2"
     },
     {
       "id": "1000007",
-      "hash": "0xed2ea8e4880b3e943f897e62310400ade1a2a06befb64b8b66de3b3ea23dc2e6",
-      "url": "https://tboa-mainnet.s3.amazonaws.com/1000007.png",
-      "referencePixelSize": [
-        1800,
-        2400
-      ],
-      "imageAspectRatio": [
-        1800,
-        2400
-      ]
+      "hash": "0xed2ea8e4880b3e943f897e62310400ade1a2a06befb64b8b66de3b3ea23dc2e6"
     },
     {
       "id": "1000008",
-      "hash": "0x203bb4bf8b602ddcdc592faba32faacf9d1a8a426329888b8e72dd10fad910ea",
-      "url": "https://tboa-mainnet.s3.amazonaws.com/1000008.png",
-      "referencePixelSize": [
-        1800,
-        2400
-      ],
-      "imageAspectRatio": [
-        1800,
-        2400
-      ]
+      "hash": "0x203bb4bf8b602ddcdc592faba32faacf9d1a8a426329888b8e72dd10fad910ea"
     },
     {
       "id": "1000009",
-      "hash": "0xf916d164031bad57cd7f4578a0467c4f034a80e11526e486a5fd23bb0ca64218",
-      "url": "https://tboa-mainnet.s3.amazonaws.com/1000009.png",
-      "referencePixelSize": [
-        1800,
-        2400
-      ],
-      "imageAspectRatio": [
-        1800,
-        2400
-      ]
+      "hash": "0xf916d164031bad57cd7f4578a0467c4f034a80e11526e486a5fd23bb0ca64218"
     },
     {
       "id": "1000010",
-      "hash": "0xfe2fe1d373a6eff467584251289dde848214f2b88d0a87a76cc4130711129ee8",
-      "url": "https://tboa-mainnet.s3.amazonaws.com/1000010.png",
-      "referencePixelSize": [
-        1800,
-        2400
-      ],
-      "imageAspectRatio": [
-        1800,
-        2400
-      ]
+      "hash": "0xfe2fe1d373a6eff467584251289dde848214f2b88d0a87a76cc4130711129ee8"
     },
     {
       "id": "1000011",
-      "hash": "0x68472197201d4bdda8220945b6a90da45204cd8535d00f9ea9a2de5aea7b3cf9",
-      "url": "https://tboa-mainnet.s3.amazonaws.com/1000011.png",
-      "referencePixelSize": [
-        1800,
-        2400
-      ],
-      "imageAspectRatio": [
-        1800,
-        2400
-      ]
+      "hash": "0x68472197201d4bdda8220945b6a90da45204cd8535d00f9ea9a2de5aea7b3cf9"
     },
     {
       "id": "1000012",
-      "hash": "0x0571d9ccb1aba0eb5f76e24b56a17bf83d2bb476ef6fd121c5e4d6cbfdc781e3",
-      "url": "https://tboa-mainnet.s3.amazonaws.com/1000012.png",
-      "referencePixelSize": [
-        1800,
-        2400
-      ],
-      "imageAspectRatio": [
-        1800,
-        2400
-      ]
+      "hash": "0x0571d9ccb1aba0eb5f76e24b56a17bf83d2bb476ef6fd121c5e4d6cbfdc781e3"
     },
     {
       "id": "1000013",
-      "hash": "0x452d83f435a9464241aef6729672602ca48525d6778f138bc7156f75a40f89ed",
-      "url": "https://tboa-mainnet.s3.amazonaws.com/1000013.png",
-      "referencePixelSize": [
-        1800,
-        2400
-      ],
-      "imageAspectRatio": [
-        1800,
-        2400
-      ]
+      "hash": "0x452d83f435a9464241aef6729672602ca48525d6778f138bc7156f75a40f89ed"
     },
     {
       "id": "1000014",
-      "hash": "0x5422e51429e3ddd54bb288158831e2279e99987697ab9d53c6ba34482aab88f3",
-      "url": "https://tboa-mainnet.s3.amazonaws.com/1000014.png",
-      "referencePixelSize": [
-        1800,
-        2400
-      ],
-      "imageAspectRatio": [
-        1800,
-        2400
-      ]
+      "hash": "0x5422e51429e3ddd54bb288158831e2279e99987697ab9d53c6ba34482aab88f3"
     },
     {
       "id": "1000015",
-      "hash": "0x6afc002a406e96d4dd7fd4e27e71e98e4c96336643796480a6392c8657c00e27",
-      "url": "https://tboa-mainnet.s3.amazonaws.com/1000015.png",
-      "referencePixelSize": [
-        1800,
-        2400
-      ],
-      "imageAspectRatio": [
-        1800,
-        2400
-      ]
+      "hash": "0x6afc002a406e96d4dd7fd4e27e71e98e4c96336643796480a6392c8657c00e27"
     },
     {
       "id": "1000016",
-      "hash": "0x7529f0deddb700830abac700e69246f36d9f06f7b90ff5e94e301b2f07ba2bbd",
-      "url": "https://tboa-mainnet.s3.amazonaws.com/1000016.png",
-      "referencePixelSize": [
-        1800,
-        2400
-      ],
-      "imageAspectRatio": [
-        1800,
-        2400
-      ]
+      "hash": "0x7529f0deddb700830abac700e69246f36d9f06f7b90ff5e94e301b2f07ba2bbd"
     },
     {
       "id": "1000017",
-      "hash": "0xe4963fdfce931e6b5b28b504d4b27e7bbbab9b9cb4dddffbb982e2a0651aed19",
-      "url": "https://tboa-mainnet.s3.amazonaws.com/1000017.png",
-      "referencePixelSize": [
-        1800,
-        2400
-      ],
-      "imageAspectRatio": [
-        1800,
-        2400
-      ]
+      "hash": "0xe4963fdfce931e6b5b28b504d4b27e7bbbab9b9cb4dddffbb982e2a0651aed19"
     },
     {
       "id": "1000018",
-      "hash": "0x82806e0f46fb8879b6eeb98b2db521b348f317a30f7048e35e48a096d697621f",
-      "url": "https://tboa-mainnet.s3.amazonaws.com/1000018.png",
-      "referencePixelSize": [
-        1800,
-        2400
-      ],
-      "imageAspectRatio": [
-        1800,
-        2400
-      ]
+      "hash": "0x82806e0f46fb8879b6eeb98b2db521b348f317a30f7048e35e48a096d697621f"
     },
     {
       "id": "1000019",
-      "hash": "0x9ef93b3f72772479539219b95f4097aced99da0ae69e0f682e43891a71ae6400",
-      "url": "https://tboa-mainnet.s3.amazonaws.com/1000019.png",
-      "referencePixelSize": [
-        1800,
-        2400
-      ],
-      "imageAspectRatio": [
-        1800,
-        2400
-      ]
+      "hash": "0x9ef93b3f72772479539219b95f4097aced99da0ae69e0f682e43891a71ae6400"
     },
     {
       "id": "1000020",
-      "hash": "0x0aab143f118476f205b1be9746b43aaaeeb61c1714f06f9d7ffcbc9dea136135",
-      "url": "https://tboa-mainnet.s3.amazonaws.com/1000020.png",
-      "referencePixelSize": [
-        1800,
-        2400
-      ],
-      "imageAspectRatio": [
-        1800,
-        2400
-      ]
+      "hash": "0x0aab143f118476f205b1be9746b43aaaeeb61c1714f06f9d7ffcbc9dea136135"
     },
     {
       "id": "1000021",
-      "hash": "0x58c25e15d62342cbd2001b154483e91fcba625b1e993aeb4fb2ef9be645b5f5d",
-      "url": "https://tboa-mainnet.s3.amazonaws.com/1000021.png",
-      "referencePixelSize": [
-        1800,
-        2400
-      ],
-      "imageAspectRatio": [
-        1800,
-        2400
-      ]
+      "hash": "0x58c25e15d62342cbd2001b154483e91fcba625b1e993aeb4fb2ef9be645b5f5d"
     },
     {
       "id": "1000022",
-      "hash": "0xa6e840aa6e5dd3656272393b2fe64f521fa5f687e39af86a08d075cdb04c2b01",
-      "url": "https://tboa-mainnet.s3.amazonaws.com/1000022.png",
-      "referencePixelSize": [
-        1800,
-        2400
-      ],
-      "imageAspectRatio": [
-        1800,
-        2400
-      ]
+      "hash": "0xa6e840aa6e5dd3656272393b2fe64f521fa5f687e39af86a08d075cdb04c2b01"
     },
     {
       "id": "1000023",
-      "hash": "0x5294676cb0aa4b6c4e7b7fa3403a73313c726726c05475376f7ee5ce1269d09e",
-      "imageAspectRatio": [
-        1800,
-        2400
-      ],
-      "referencePixelSize": [
-        1800,
-        2400
-      ]
+      "hash": "0x5294676cb0aa4b6c4e7b7fa3403a73313c726726c05475376f7ee5ce1269d09e"
     },
     {
       "id": "1000024",
-      "hash": "0x33bf8529d4db7c61a745a6f759461a9d21cb3f2578af70cc513a4f46075b95fe",
-      "imageAspectRatio": [
-        1800,
-        2400
-      ],
-      "referencePixelSize": [
-        1800,
-        2400
-      ]
+      "hash": "0x33bf8529d4db7c61a745a6f759461a9d21cb3f2578af70cc513a4f46075b95fe"
     },
     {
       "id": "1000025",
-      "hash": "0x6e94a2670c1575bb5643cb75e4e7f50181e9fe48b201c97e8a1dcd7eb28aa551",
-      "imageAspectRatio": [
-        1800,
-        2400
-      ],
-      "referencePixelSize": [
-        1800,
-        2400
-      ]
+      "hash": "0x6e94a2670c1575bb5643cb75e4e7f50181e9fe48b201c97e8a1dcd7eb28aa551"
     }
   ],
   "artworkAspectRatios": [

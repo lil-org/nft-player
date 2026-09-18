@@ -2,698 +2,227 @@
   "items": [
     {
       "id": "342000000",
-      "hash": "0xdd2e011711a236ec0f4fa5d70bb0ea55cf35ffadc935a2d5cc473a268cff90a8",
-      "url": "https://artblocks-mainnet.s3.amazonaws.com/342000000.png",
-      "referencePixelSize": [
-        2400,
-        1350
-      ],
-      "imageAspectRatio": [
-        2400,
-        1350
-      ]
+      "hash": "0xdd2e011711a236ec0f4fa5d70bb0ea55cf35ffadc935a2d5cc473a268cff90a8"
     },
     {
       "id": "342000001",
-      "hash": "0xc49bc8e40ca84c0a9ffb14bf60cdea7db86c4ff2b6f064f9f0db2e4b1b35bc3c",
-      "url": "https://artblocks-mainnet.s3.amazonaws.com/342000001.png",
-      "referencePixelSize": [
-        2400,
-        1350
-      ],
-      "imageAspectRatio": [
-        2400,
-        1350
-      ]
+      "hash": "0xc49bc8e40ca84c0a9ffb14bf60cdea7db86c4ff2b6f064f9f0db2e4b1b35bc3c"
     },
     {
       "id": "342000002",
-      "hash": "0x365efc1a4e5c5e6c202397215462c1b9b1ecd2531176f999a419eb200d5b9270",
-      "url": "https://artblocks-mainnet.s3.amazonaws.com/342000002.png",
-      "referencePixelSize": [
-        2400,
-        1350
-      ],
-      "imageAspectRatio": [
-        2400,
-        1350
-      ]
+      "hash": "0x365efc1a4e5c5e6c202397215462c1b9b1ecd2531176f999a419eb200d5b9270"
     },
     {
       "id": "342000003",
-      "hash": "0x6539c149296cc47fbe48d27272a09580d69b1ee4f0187b87b79fbff6d3f26fa8",
-      "url": "https://artblocks-mainnet.s3.amazonaws.com/342000003.png",
-      "referencePixelSize": [
-        2400,
-        1350
-      ],
-      "imageAspectRatio": [
-        2400,
-        1350
-      ]
+      "hash": "0x6539c149296cc47fbe48d27272a09580d69b1ee4f0187b87b79fbff6d3f26fa8"
     },
     {
       "id": "342000004",
-      "hash": "0xbef03883dce6b5ac828efd9b741f2ee8105225c567948c7bc437373dd96df8d6",
-      "url": "https://artblocks-mainnet.s3.amazonaws.com/342000004.png",
-      "referencePixelSize": [
-        2400,
-        1350
-      ],
-      "imageAspectRatio": [
-        2400,
-        1350
-      ]
+      "hash": "0xbef03883dce6b5ac828efd9b741f2ee8105225c567948c7bc437373dd96df8d6"
     },
     {
       "id": "342000005",
-      "hash": "0xee8d3bef3f639664b8b40c44e61a49ea24f08d89125cf0e61a683c4f42ab6fd1",
-      "url": "https://artblocks-mainnet.s3.amazonaws.com/342000005.png",
-      "referencePixelSize": [
-        2400,
-        1350
-      ],
-      "imageAspectRatio": [
-        2400,
-        1350
-      ]
+      "hash": "0xee8d3bef3f639664b8b40c44e61a49ea24f08d89125cf0e61a683c4f42ab6fd1"
     },
     {
       "id": "342000006",
-      "hash": "0x41e3a682ccbbea6f428318b7041a04ffba041e59f37e03b4322ed5c9708eb16e",
-      "url": "https://artblocks-mainnet.s3.amazonaws.com/342000006.png",
-      "referencePixelSize": [
-        2400,
-        1350
-      ],
-      "imageAspectRatio": [
-        2400,
-        1350
-      ]
+      "hash": "0x41e3a682ccbbea6f428318b7041a04ffba041e59f37e03b4322ed5c9708eb16e"
     },
     {
       "id": "342000007",
-      "hash": "0xbadbfe0b0b71a6c755d0ddd435ba428bac69409e033c4c0f99f4a4e347209775",
-      "url": "https://artblocks-mainnet.s3.amazonaws.com/342000007.png",
-      "referencePixelSize": [
-        2400,
-        1350
-      ],
-      "imageAspectRatio": [
-        2400,
-        1350
-      ]
+      "hash": "0xbadbfe0b0b71a6c755d0ddd435ba428bac69409e033c4c0f99f4a4e347209775"
     },
     {
       "id": "342000008",
-      "hash": "0x993ff156d40f694a83817045e63a7de1c8284852ad08e1e1db397631cd02773b",
-      "url": "https://artblocks-mainnet.s3.amazonaws.com/342000008.png",
-      "referencePixelSize": [
-        2400,
-        1350
-      ],
-      "imageAspectRatio": [
-        2400,
-        1350
-      ]
+      "hash": "0x993ff156d40f694a83817045e63a7de1c8284852ad08e1e1db397631cd02773b"
     },
     {
       "id": "342000009",
-      "hash": "0xab359b4cd12bcde9b4e887f246540d28fbc2aca68d51c1366aa6977a072bcd07",
-      "url": "https://artblocks-mainnet.s3.amazonaws.com/342000009.png",
-      "referencePixelSize": [
-        2400,
-        1350
-      ],
-      "imageAspectRatio": [
-        2400,
-        1350
-      ]
+      "hash": "0xab359b4cd12bcde9b4e887f246540d28fbc2aca68d51c1366aa6977a072bcd07"
     },
     {
       "id": "342000010",
-      "hash": "0x20e2216902b675831edd624421a128d5b128f910b96724821b9228e71fb3cf01",
-      "url": "https://artblocks-mainnet.s3.amazonaws.com/342000010.png",
-      "referencePixelSize": [
-        2400,
-        1350
-      ],
-      "imageAspectRatio": [
-        2400,
-        1350
-      ]
+      "hash": "0x20e2216902b675831edd624421a128d5b128f910b96724821b9228e71fb3cf01"
     },
     {
       "id": "342000011",
-      "hash": "0x090fd522f3e63c1235fb2825fa9feb7dca6a0bf5ee7e728360fa1180620cbf4d",
-      "url": "https://artblocks-mainnet.s3.amazonaws.com/342000011.png",
-      "referencePixelSize": [
-        2400,
-        1350
-      ],
-      "imageAspectRatio": [
-        2400,
-        1350
-      ]
+      "hash": "0x090fd522f3e63c1235fb2825fa9feb7dca6a0bf5ee7e728360fa1180620cbf4d"
     },
     {
       "id": "342000012",
-      "hash": "0xde98bd361a48ce345cc3f4a1a90351c18a6a21f465d9bd5979d3064ed4d5123d",
-      "url": "https://artblocks-mainnet.s3.amazonaws.com/342000012.png",
-      "referencePixelSize": [
-        2400,
-        1350
-      ],
-      "imageAspectRatio": [
-        2400,
-        1350
-      ]
+      "hash": "0xde98bd361a48ce345cc3f4a1a90351c18a6a21f465d9bd5979d3064ed4d5123d"
     },
     {
       "id": "342000013",
-      "hash": "0x1f2ef9fef6865bb5cca5cdffe5b1bc534aedf34673c94deaa50989d2c2110096",
-      "url": "https://artblocks-mainnet.s3.amazonaws.com/342000013.png",
-      "referencePixelSize": [
-        2400,
-        1350
-      ],
-      "imageAspectRatio": [
-        2400,
-        1350
-      ]
+      "hash": "0x1f2ef9fef6865bb5cca5cdffe5b1bc534aedf34673c94deaa50989d2c2110096"
     },
     {
       "id": "342000014",
-      "hash": "0x57ed1222f82ec6e80cdf69008377e6aa753104e6e43a893232c151cab9bdef4e",
-      "url": "https://artblocks-mainnet.s3.amazonaws.com/342000014.png",
-      "referencePixelSize": [
-        2400,
-        1350
-      ],
-      "imageAspectRatio": [
-        2400,
-        1350
-      ]
+      "hash": "0x57ed1222f82ec6e80cdf69008377e6aa753104e6e43a893232c151cab9bdef4e"
     },
     {
       "id": "342000015",
-      "hash": "0x37b1f37bddd57217bb707a07dfc656c3c7b5553addae432bd83328847d63c8aa",
-      "url": "https://artblocks-mainnet.s3.amazonaws.com/342000015.png",
-      "referencePixelSize": [
-        2400,
-        1350
-      ],
-      "imageAspectRatio": [
-        2400,
-        1350
-      ]
+      "hash": "0x37b1f37bddd57217bb707a07dfc656c3c7b5553addae432bd83328847d63c8aa"
     },
     {
       "id": "342000016",
-      "hash": "0xb319b5f614a69524a1b3182aa61fca80b20aa9d6bdeea0e14065985ce5e88036",
-      "url": "https://artblocks-mainnet.s3.amazonaws.com/342000016.png",
-      "referencePixelSize": [
-        2400,
-        1350
-      ],
-      "imageAspectRatio": [
-        2400,
-        1350
-      ]
+      "hash": "0xb319b5f614a69524a1b3182aa61fca80b20aa9d6bdeea0e14065985ce5e88036"
     },
     {
       "id": "342000017",
-      "hash": "0x69fd8de4705eebed2c26fddfd2d2f4d362a9e3bdb0ef486ee014add9ae8a93db",
-      "url": "https://artblocks-mainnet.s3.amazonaws.com/342000017.png",
-      "referencePixelSize": [
-        2400,
-        1350
-      ],
-      "imageAspectRatio": [
-        2400,
-        1350
-      ]
+      "hash": "0x69fd8de4705eebed2c26fddfd2d2f4d362a9e3bdb0ef486ee014add9ae8a93db"
     },
     {
       "id": "342000018",
-      "hash": "0x3b8b36b9261c29f13c99ac09762556b1c7135ca71afad6f602c3fa31f6b27764",
-      "url": "https://artblocks-mainnet.s3.amazonaws.com/342000018.png",
-      "referencePixelSize": [
-        2400,
-        1350
-      ],
-      "imageAspectRatio": [
-        2400,
-        1350
-      ]
+      "hash": "0x3b8b36b9261c29f13c99ac09762556b1c7135ca71afad6f602c3fa31f6b27764"
     },
     {
       "id": "342000019",
-      "hash": "0x3a04638ddc5619db7d9478ad2419b4cd5e43da96d3f27a9b846402757ba039c6",
-      "url": "https://artblocks-mainnet.s3.amazonaws.com/342000019.png",
-      "referencePixelSize": [
-        2400,
-        1350
-      ],
-      "imageAspectRatio": [
-        2400,
-        1350
-      ]
+      "hash": "0x3a04638ddc5619db7d9478ad2419b4cd5e43da96d3f27a9b846402757ba039c6"
     },
     {
       "id": "342000020",
-      "hash": "0xd76bc3bbf946a0f11fb8e63db52978d946fc77b43492dbccd89c54492209e195",
-      "url": "https://artblocks-mainnet.s3.amazonaws.com/342000020.png",
-      "referencePixelSize": [
-        2400,
-        1350
-      ],
-      "imageAspectRatio": [
-        2400,
-        1350
-      ]
+      "hash": "0xd76bc3bbf946a0f11fb8e63db52978d946fc77b43492dbccd89c54492209e195"
     },
     {
       "id": "342000021",
-      "hash": "0x2df5270695b052972e08aaffa8251b9d7f4849254de6bd17b3c35d29f8ba9186",
-      "url": "https://artblocks-mainnet.s3.amazonaws.com/342000021.png",
-      "referencePixelSize": [
-        2400,
-        1350
-      ],
-      "imageAspectRatio": [
-        2400,
-        1350
-      ]
+      "hash": "0x2df5270695b052972e08aaffa8251b9d7f4849254de6bd17b3c35d29f8ba9186"
     },
     {
       "id": "342000022",
-      "hash": "0x014e95b2dbee13e09004b97ccbb2ccee507395f0098d41a98a78549ff307d374",
-      "url": "https://artblocks-mainnet.s3.amazonaws.com/342000022.png",
-      "referencePixelSize": [
-        2400,
-        1350
-      ],
-      "imageAspectRatio": [
-        2400,
-        1350
-      ]
+      "hash": "0x014e95b2dbee13e09004b97ccbb2ccee507395f0098d41a98a78549ff307d374"
     },
     {
       "id": "342000023",
-      "hash": "0x50a14f03114d7d756cff296a8874249dbae539c49f97395759571223fd76a287",
-      "imageAspectRatio": [
-        2400,
-        1350
-      ],
-      "referencePixelSize": [
-        2400,
-        1350
-      ]
+      "hash": "0x50a14f03114d7d756cff296a8874249dbae539c49f97395759571223fd76a287"
     },
     {
       "id": "342000024",
-      "hash": "0x32d5dcf92005f45d456023a1046d9e5ee29fa31429e8a91d4fde10c7984b9663",
-      "imageAspectRatio": [
-        2400,
-        1350
-      ],
-      "referencePixelSize": [
-        2400,
-        1350
-      ]
+      "hash": "0x32d5dcf92005f45d456023a1046d9e5ee29fa31429e8a91d4fde10c7984b9663"
     },
     {
       "id": "342000025",
-      "hash": "0x0a90eb1e20b1a6df9cbf47104166a63dd705619b7de11a27005d942167fc52cd",
-      "imageAspectRatio": [
-        2400,
-        1350
-      ],
-      "referencePixelSize": [
-        2400,
-        1350
-      ]
+      "hash": "0x0a90eb1e20b1a6df9cbf47104166a63dd705619b7de11a27005d942167fc52cd"
     },
     {
       "id": "342000026",
-      "hash": "0x05245ba79dc717dbba67a74bba5583c144c4f59f5ceaf7009f7f9fdaa7d98b67",
-      "imageAspectRatio": [
-        2400,
-        1350
-      ],
-      "referencePixelSize": [
-        2400,
-        1350
-      ]
+      "hash": "0x05245ba79dc717dbba67a74bba5583c144c4f59f5ceaf7009f7f9fdaa7d98b67"
     },
     {
       "id": "342000027",
-      "hash": "0xb6268f971df8a01b83d81e07864dbb00ddf15057770b2f9a8613aaea31fa0a79",
-      "imageAspectRatio": [
-        2400,
-        1350
-      ],
-      "referencePixelSize": [
-        2400,
-        1350
-      ]
+      "hash": "0xb6268f971df8a01b83d81e07864dbb00ddf15057770b2f9a8613aaea31fa0a79"
     },
     {
       "id": "342000028",
-      "hash": "0x82fb97d8ab5526dc532583a218b3324865aa23080f818aa10533d25c141c0fbd",
-      "imageAspectRatio": [
-        2400,
-        1350
-      ],
-      "referencePixelSize": [
-        2400,
-        1350
-      ]
+      "hash": "0x82fb97d8ab5526dc532583a218b3324865aa23080f818aa10533d25c141c0fbd"
     },
     {
       "id": "342000029",
-      "hash": "0x1ff22b9c350beb68f5876d1a9dda44861a70a1410b8b77489fc504c0fda8606d",
-      "imageAspectRatio": [
-        2400,
-        1350
-      ],
-      "referencePixelSize": [
-        2400,
-        1350
-      ]
+      "hash": "0x1ff22b9c350beb68f5876d1a9dda44861a70a1410b8b77489fc504c0fda8606d"
     },
     {
       "id": "342000030",
-      "hash": "0xe18fdf6864158b1eaf37b0c1b0c03eb556dfba99506368c5dbf2eca502f84aa2",
-      "imageAspectRatio": [
-        2400,
-        1350
-      ],
-      "referencePixelSize": [
-        2400,
-        1350
-      ]
+      "hash": "0xe18fdf6864158b1eaf37b0c1b0c03eb556dfba99506368c5dbf2eca502f84aa2"
     },
     {
       "id": "342000031",
-      "hash": "0xfa923da5871ade857db055895fd5e8d6d2b26d205a7090fc15a258a7ced6cacb",
-      "imageAspectRatio": [
-        2400,
-        1350
-      ],
-      "referencePixelSize": [
-        2400,
-        1350
-      ]
+      "hash": "0xfa923da5871ade857db055895fd5e8d6d2b26d205a7090fc15a258a7ced6cacb"
     },
     {
       "id": "342000032",
-      "hash": "0xbfd7f94b5fa7360007cf2a6f20efbff5e605c838a4ffd88545b9386e16f18215",
-      "imageAspectRatio": [
-        2400,
-        1350
-      ],
-      "referencePixelSize": [
-        2400,
-        1350
-      ]
+      "hash": "0xbfd7f94b5fa7360007cf2a6f20efbff5e605c838a4ffd88545b9386e16f18215"
     },
     {
       "id": "342000033",
-      "hash": "0x28c0877e4946e7b6053ab54ffe444c73b8aab7e8c61d65b38c2a71b7e65fd352",
-      "imageAspectRatio": [
-        2400,
-        1350
-      ],
-      "referencePixelSize": [
-        2400,
-        1350
-      ]
+      "hash": "0x28c0877e4946e7b6053ab54ffe444c73b8aab7e8c61d65b38c2a71b7e65fd352"
     },
     {
       "id": "342000034",
-      "hash": "0xfc29a6145d40ae4245d64c02bce2207041daedbe5e1d3751bff7cf81dbe64d67",
-      "imageAspectRatio": [
-        2400,
-        1350
-      ],
-      "referencePixelSize": [
-        2400,
-        1350
-      ]
+      "hash": "0xfc29a6145d40ae4245d64c02bce2207041daedbe5e1d3751bff7cf81dbe64d67"
     },
     {
       "id": "342000035",
-      "hash": "0x5aff16bbb3cae56baaa17f38b47090cf65adb02139ae9870bfc0e6435acc7ee2",
-      "imageAspectRatio": [
-        2400,
-        1350
-      ],
-      "referencePixelSize": [
-        2400,
-        1350
-      ]
+      "hash": "0x5aff16bbb3cae56baaa17f38b47090cf65adb02139ae9870bfc0e6435acc7ee2"
     },
     {
       "id": "342000036",
-      "hash": "0x335940976b851a1dc5ed255aae78ec284eb7da15df751038146f722f60eb6477",
-      "imageAspectRatio": [
-        2400,
-        1350
-      ],
-      "referencePixelSize": [
-        2400,
-        1350
-      ]
+      "hash": "0x335940976b851a1dc5ed255aae78ec284eb7da15df751038146f722f60eb6477"
     },
     {
       "id": "342000037",
-      "hash": "0x0730aea84604457959411e485f05b963de85796a5c54bd4ca057253e20ea4416",
-      "imageAspectRatio": [
-        2400,
-        1350
-      ],
-      "referencePixelSize": [
-        2400,
-        1350
-      ]
+      "hash": "0x0730aea84604457959411e485f05b963de85796a5c54bd4ca057253e20ea4416"
     },
     {
       "id": "342000038",
-      "hash": "0x95398fc9668c3675f91217a1995a0618ec9a17056fe5016058e1372038c55ba0",
-      "imageAspectRatio": [
-        2400,
-        1350
-      ],
-      "referencePixelSize": [
-        2400,
-        1350
-      ]
+      "hash": "0x95398fc9668c3675f91217a1995a0618ec9a17056fe5016058e1372038c55ba0"
     },
     {
       "id": "342000039",
-      "hash": "0x2be26a82402a7aba11a23c922095a41fcd3d1c47740dcc8116c7af7f7a25e0bd",
-      "imageAspectRatio": [
-        2400,
-        1350
-      ],
-      "referencePixelSize": [
-        2400,
-        1350
-      ]
+      "hash": "0x2be26a82402a7aba11a23c922095a41fcd3d1c47740dcc8116c7af7f7a25e0bd"
     },
     {
       "id": "342000040",
-      "hash": "0x9b7df7dd1597a88b5f52fd23c39ae28d94d98e17b85509db293d8708b6d304cf",
-      "imageAspectRatio": [
-        2400,
-        1350
-      ],
-      "referencePixelSize": [
-        2400,
-        1350
-      ]
+      "hash": "0x9b7df7dd1597a88b5f52fd23c39ae28d94d98e17b85509db293d8708b6d304cf"
     },
     {
       "id": "342000041",
-      "hash": "0xa44280711ba657fc501118aeaafed66bcbdd273427326d7996c8d8a03d86cb90",
-      "imageAspectRatio": [
-        2400,
-        1350
-      ],
-      "referencePixelSize": [
-        2400,
-        1350
-      ]
+      "hash": "0xa44280711ba657fc501118aeaafed66bcbdd273427326d7996c8d8a03d86cb90"
     },
     {
       "id": "342000042",
-      "hash": "0x96981e3352f2c9806740eecf6328df4b70f9ed5402a7097ca4f708b0ccab3c00",
-      "imageAspectRatio": [
-        2400,
-        1350
-      ],
-      "referencePixelSize": [
-        2400,
-        1350
-      ]
+      "hash": "0x96981e3352f2c9806740eecf6328df4b70f9ed5402a7097ca4f708b0ccab3c00"
     },
     {
       "id": "342000043",
-      "hash": "0xadb875f0d88ef64eda9014d216cec5054dadb93d8fedc918ae42214f7601532d",
-      "imageAspectRatio": [
-        2400,
-        1350
-      ],
-      "referencePixelSize": [
-        2400,
-        1350
-      ]
+      "hash": "0xadb875f0d88ef64eda9014d216cec5054dadb93d8fedc918ae42214f7601532d"
     },
     {
       "id": "342000044",
-      "hash": "0xf893db5c728174c29db316265cf5849e2b862729b2186e2e52ced73264e0b461",
-      "imageAspectRatio": [
-        2400,
-        1350
-      ],
-      "referencePixelSize": [
-        2400,
-        1350
-      ]
+      "hash": "0xf893db5c728174c29db316265cf5849e2b862729b2186e2e52ced73264e0b461"
     },
     {
       "id": "342000045",
-      "hash": "0xde3896fd9c39fa81aa128dfaebea9a437183946f419f7f663a8fbbc844a0f824",
-      "imageAspectRatio": [
-        2400,
-        1350
-      ],
-      "referencePixelSize": [
-        2400,
-        1350
-      ]
+      "hash": "0xde3896fd9c39fa81aa128dfaebea9a437183946f419f7f663a8fbbc844a0f824"
     },
     {
       "id": "342000046",
-      "hash": "0x53e110bbbaed928d560a2e040e7211629def48189e9bc323671b430311fc202f",
-      "imageAspectRatio": [
-        2400,
-        1350
-      ],
-      "referencePixelSize": [
-        2400,
-        1350
-      ]
+      "hash": "0x53e110bbbaed928d560a2e040e7211629def48189e9bc323671b430311fc202f"
     },
     {
       "id": "342000047",
-      "hash": "0xb1945c9ec7c3ad50d6e061388d63c82f7aa66c579df038d10707dbc2e7184992",
-      "imageAspectRatio": [
-        2400,
-        1350
-      ],
-      "referencePixelSize": [
-        2400,
-        1350
-      ]
+      "hash": "0xb1945c9ec7c3ad50d6e061388d63c82f7aa66c579df038d10707dbc2e7184992"
     },
     {
       "id": "342000048",
-      "hash": "0x0cd4997665811f4b1da1c1b577c00b5591306e816df5098f61b0a88ff3dd16fa",
-      "imageAspectRatio": [
-        2400,
-        1350
-      ],
-      "referencePixelSize": [
-        2400,
-        1350
-      ]
+      "hash": "0x0cd4997665811f4b1da1c1b577c00b5591306e816df5098f61b0a88ff3dd16fa"
     },
     {
       "id": "342000049",
-      "hash": "0x0d751cc6787bc591aac9c53a74ee5c1af1e13c662fa856138fd76db9f00daf47",
-      "imageAspectRatio": [
-        2400,
-        1350
-      ],
-      "referencePixelSize": [
-        2400,
-        1350
-      ]
+      "hash": "0x0d751cc6787bc591aac9c53a74ee5c1af1e13c662fa856138fd76db9f00daf47"
     },
     {
       "id": "342000050",
-      "hash": "0x84084fc51df686fc7c8e773c1248caed348e7785ea48f4d314a459fcba8d58c2",
-      "imageAspectRatio": [
-        2400,
-        1350
-      ],
-      "referencePixelSize": [
-        2400,
-        1350
-      ]
+      "hash": "0x84084fc51df686fc7c8e773c1248caed348e7785ea48f4d314a459fcba8d58c2"
     },
     {
       "id": "342000051",
-      "hash": "0x8877f13ce39e854c56f240aec36cc3c5422ee4d00bb07637615545572e6c0669",
-      "imageAspectRatio": [
-        2400,
-        1350
-      ],
-      "referencePixelSize": [
-        2400,
-        1350
-      ]
+      "hash": "0x8877f13ce39e854c56f240aec36cc3c5422ee4d00bb07637615545572e6c0669"
     },
     {
       "id": "342000052",
-      "hash": "0xca91e23fc9374ccd9cb4326d4ee58cd052bb64304a41398a42ccf1a858668fe3",
-      "imageAspectRatio": [
-        2400,
-        1350
-      ],
-      "referencePixelSize": [
-        2400,
-        1350
-      ]
+      "hash": "0xca91e23fc9374ccd9cb4326d4ee58cd052bb64304a41398a42ccf1a858668fe3"
     },
     {
       "id": "342000053",
-      "hash": "0xe33bedb65284321291d430e35420136017c37e5db565ee13a74ea59f820b76bf",
-      "imageAspectRatio": [
-        2400,
-        1350
-      ],
-      "referencePixelSize": [
-        2400,
-        1350
-      ]
+      "hash": "0xe33bedb65284321291d430e35420136017c37e5db565ee13a74ea59f820b76bf"
     },
     {
       "id": "342000054",
-      "hash": "0x29793959ae3b9a7d5c47f13515d18216b58929e9daef57ab5390709bfe7dbcd1",
-      "imageAspectRatio": [
-        2400,
-        1350
-      ],
-      "referencePixelSize": [
-        2400,
-        1350
-      ]
+      "hash": "0x29793959ae3b9a7d5c47f13515d18216b58929e9daef57ab5390709bfe7dbcd1"
     },
     {
       "id": "342000055",
-      "hash": "0x352ec081b1d4af5dabe8b454eb657efcf54ddd0f427c220de9528fb12436b878",
-      "imageAspectRatio": [
-        2400,
-        1350
-      ],
-      "referencePixelSize": [
-        2400,
-        1350
-      ]
+      "hash": "0x352ec081b1d4af5dabe8b454eb657efcf54ddd0f427c220de9528fb12436b878"
     }
   ],
   "artworkAspectRatios": [

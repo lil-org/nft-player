@@ -2,211 +2,67 @@
   "items": [
     {
       "id": "0",
-      "hash": "0xdfa1b27c1e43f66482241f4dc71525c960d9addb868af29b18b16b7bfaaf692d",
-      "url": "https://abstudio-50-mainnet.s3.amazonaws.com/0.png",
-      "referencePixelSize": [
-        2400,
-        2400
-      ],
-      "imageAspectRatio": [
-        2400,
-        2400
-      ]
+      "hash": "0xdfa1b27c1e43f66482241f4dc71525c960d9addb868af29b18b16b7bfaaf692d"
     },
     {
       "id": "1",
-      "hash": "0xfd87d9f3f444337561424779c7c3cd57fbfb135e4256506e1fdf305830d0e5cf",
-      "url": "https://abstudio-50-mainnet.s3.amazonaws.com/1.png",
-      "referencePixelSize": [
-        2400,
-        2400
-      ],
-      "imageAspectRatio": [
-        2400,
-        2400
-      ]
+      "hash": "0xfd87d9f3f444337561424779c7c3cd57fbfb135e4256506e1fdf305830d0e5cf"
     },
     {
       "id": "2",
-      "hash": "0x38dfda184a2270e3e6087189e6c041b31b25c563b4b1c653d45f5da87ca29f8c",
-      "url": "https://abstudio-50-mainnet.s3.amazonaws.com/2.png",
-      "referencePixelSize": [
-        2400,
-        2400
-      ],
-      "imageAspectRatio": [
-        2400,
-        2400
-      ]
+      "hash": "0x38dfda184a2270e3e6087189e6c041b31b25c563b4b1c653d45f5da87ca29f8c"
     },
     {
       "id": "3",
-      "hash": "0xe0836028621c0211df495112c59ad3c5fdcee93b47602346510f6f6eeedcee22",
-      "url": "https://abstudio-50-mainnet.s3.amazonaws.com/3.png",
-      "referencePixelSize": [
-        2400,
-        2400
-      ],
-      "imageAspectRatio": [
-        2400,
-        2400
-      ]
+      "hash": "0xe0836028621c0211df495112c59ad3c5fdcee93b47602346510f6f6eeedcee22"
     },
     {
       "id": "4",
-      "hash": "0xdcbd1b1b3b693d304f634b65ec58bc9dacf6969003f3f613ffbd9a2667e4e5b1",
-      "url": "https://abstudio-50-mainnet.s3.amazonaws.com/4.png",
-      "referencePixelSize": [
-        2400,
-        2400
-      ],
-      "imageAspectRatio": [
-        2400,
-        2400
-      ]
+      "hash": "0xdcbd1b1b3b693d304f634b65ec58bc9dacf6969003f3f613ffbd9a2667e4e5b1"
     },
     {
       "id": "5",
-      "hash": "0xfffaabfa4c35b8133822c0efb4995629b044cf4276b0a0880f59a269f951a724",
-      "url": "https://abstudio-50-mainnet.s3.amazonaws.com/5.png",
-      "referencePixelSize": [
-        2400,
-        2400
-      ],
-      "imageAspectRatio": [
-        2400,
-        2400
-      ]
+      "hash": "0xfffaabfa4c35b8133822c0efb4995629b044cf4276b0a0880f59a269f951a724"
     },
     {
       "id": "6",
-      "hash": "0x6dee3af1242617df5101e4bed2217a316c52397f44cb4b7ee28f80d0b48e101d",
-      "url": "https://abstudio-50-mainnet.s3.amazonaws.com/6.png",
-      "referencePixelSize": [
-        2400,
-        2400
-      ],
-      "imageAspectRatio": [
-        2400,
-        2400
-      ]
+      "hash": "0x6dee3af1242617df5101e4bed2217a316c52397f44cb4b7ee28f80d0b48e101d"
     },
     {
       "id": "7",
-      "hash": "0x1617cc562775266876d530c6265c66c9f83d6ea33e96a608032f6d92972d0ee4",
-      "url": "https://abstudio-50-mainnet.s3.amazonaws.com/7.png",
-      "referencePixelSize": [
-        2400,
-        2400
-      ],
-      "imageAspectRatio": [
-        2400,
-        2400
-      ]
+      "hash": "0x1617cc562775266876d530c6265c66c9f83d6ea33e96a608032f6d92972d0ee4"
     },
     {
       "id": "8",
-      "hash": "0xbc111523a64b28311161acafd1ae1f1e0219d8ed60190212495303db92fe215f",
-      "url": "https://abstudio-50-mainnet.s3.amazonaws.com/8.png",
-      "referencePixelSize": [
-        2400,
-        2400
-      ],
-      "imageAspectRatio": [
-        2400,
-        2400
-      ]
+      "hash": "0xbc111523a64b28311161acafd1ae1f1e0219d8ed60190212495303db92fe215f"
     },
     {
       "id": "9",
-      "hash": "0xb0a70b3f77f5735098f62b5ab6b4c39d380953c388c15dcb074de622ec90f379",
-      "url": "https://abstudio-50-mainnet.s3.amazonaws.com/9.png",
-      "referencePixelSize": [
-        2400,
-        2400
-      ],
-      "imageAspectRatio": [
-        2400,
-        2400
-      ]
+      "hash": "0xb0a70b3f77f5735098f62b5ab6b4c39d380953c388c15dcb074de622ec90f379"
     },
     {
       "id": "10",
-      "hash": "0x137fb2ce9d11c2392a25976da084949cb685498e43cc62010378b920372aa37d",
-      "url": "https://abstudio-50-mainnet.s3.amazonaws.com/10.png",
-      "referencePixelSize": [
-        2400,
-        2400
-      ],
-      "imageAspectRatio": [
-        2400,
-        2400
-      ]
+      "hash": "0x137fb2ce9d11c2392a25976da084949cb685498e43cc62010378b920372aa37d"
     },
     {
       "id": "11",
-      "hash": "0x794635caa44999c7d44c492297f8410e72e9f98d1f8f79c6cd6e261a0810968e",
-      "url": "https://abstudio-50-mainnet.s3.amazonaws.com/11.png",
-      "referencePixelSize": [
-        2400,
-        2400
-      ],
-      "imageAspectRatio": [
-        2400,
-        2400
-      ]
+      "hash": "0x794635caa44999c7d44c492297f8410e72e9f98d1f8f79c6cd6e261a0810968e"
     },
     {
       "id": "12",
-      "hash": "0x8f0b0409c858de12b52d51372056fc0c4902c35768f789319a34f68a6dedb91f",
-      "url": "https://abstudio-50-mainnet.s3.amazonaws.com/12.png",
-      "referencePixelSize": [
-        2400,
-        2400
-      ],
-      "imageAspectRatio": [
-        2400,
-        2400
-      ]
+      "hash": "0x8f0b0409c858de12b52d51372056fc0c4902c35768f789319a34f68a6dedb91f"
     },
     {
       "id": "13",
-      "hash": "0xa79a2610355a0dbeb45eeeb69324ea3b4fbef4075cc6ad7576fd006fa382b356",
-      "url": "https://abstudio-50-mainnet.s3.amazonaws.com/13.png",
-      "referencePixelSize": [
-        2400,
-        2400
-      ],
-      "imageAspectRatio": [
-        2400,
-        2400
-      ]
+      "hash": "0xa79a2610355a0dbeb45eeeb69324ea3b4fbef4075cc6ad7576fd006fa382b356"
     },
     {
       "id": "14",
-      "hash": "0x779bbf69fd86eae86e9203bd91c2c32aaa303e0935baa2e879853a08c406ba04",
-      "url": "https://abstudio-50-mainnet.s3.amazonaws.com/14.png",
-      "referencePixelSize": [
-        2400,
-        2400
-      ],
-      "imageAspectRatio": [
-        2400,
-        2400
-      ]
+      "hash": "0x779bbf69fd86eae86e9203bd91c2c32aaa303e0935baa2e879853a08c406ba04"
     },
     {
       "id": "15",
-      "hash": "0x014e1f118f0bb813184ff41e0ad529c5a478aac68e0c146f3363bccf63e9788a",
-      "url": "https://abstudio-50-mainnet.s3.amazonaws.com/15.png",
-      "referencePixelSize": [
-        2400,
-        2400
-      ],
-      "imageAspectRatio": [
-        2400,
-        2400
-      ]
+      "hash": "0x014e1f118f0bb813184ff41e0ad529c5a478aac68e0c146f3363bccf63e9788a"
     }
   ],
   "artworkAspectRatios": [

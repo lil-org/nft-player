@@ -1,7 +1,4 @@
 {
-  "isComplete": true,
-  "defaultFileExtension": "png",
-  "hasMid": true,
   "urlPrefixes": [
     "https://cdn.lil.org/player/twos/"
   ],
@@ -325,12 +322,6 @@
       "469000063",
       0,
       "63.png"
-    ]
-  ],
-  "thumbnailAspectRatios": [
-    [
-      5,
-      6
     ]
   ]
 }

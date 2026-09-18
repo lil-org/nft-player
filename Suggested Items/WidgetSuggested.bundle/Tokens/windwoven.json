@@ -1,7 +1,4 @@
 {
-  "isComplete": true,
-  "defaultFileExtension": "png",
-  "hasMid": true,
   "urlPrefixes": [
     "https://cdn.lil.org/player/windwoven/"
   ],
@@ -555,12 +552,6 @@
       "12000109",
       0,
       "109.png"
-    ]
-  ],
-  "thumbnailAspectRatios": [
-    [
-      3,
-      4
     ]
   ]
 }

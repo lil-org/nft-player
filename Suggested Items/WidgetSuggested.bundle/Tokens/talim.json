@@ -1,7 +1,4 @@
 {
-  "isComplete": true,
-  "defaultFileExtension": "png",
-  "hasMid": true,
   "urlPrefixes": [
     "https://cdn.lil.org/player/talim/"
   ],
@@ -500,12 +497,6 @@
       "233000098",
       0,
       "98.png"
-    ]
-  ],
-  "thumbnailAspectRatios": [
-    [
-      3,
-      4
     ]
   ]
 }

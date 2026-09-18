@@ -36,7 +36,7 @@ async function fixture(t) {
   return { directory, items };
 }
 
-test("widget resources use slugs and copy metadata and token bytes without local covers", async (t) => {
+test("widget resources use slugs and preserve collection metadata without local covers", async (t) => {
   const { directory, items } = await fixture(t);
   const { generateWidgetResources } = await generator;
   await generateWidgetResources(directory);
@@ -51,14 +51,97 @@ test("widget resources use slugs and copy metadata and token bytes without local
   );
   for (const slug of ["alpha", "beta"]) {
     assert.deepEqual(
-      await fs.readFile(path.join(directory, `WidgetSuggested.bundle/Tokens/${slug}.json`)),
-      await fs.readFile(path.join(directory, `Suggested.bundle/Tokens/${slug}.json`))
+      JSON.parse(await fs.readFile(path.join(directory, `WidgetSuggested.bundle/Tokens/${slug}.json`), "utf8")),
+      JSON.parse(await fs.readFile(path.join(directory, `Suggested.bundle/Tokens/${slug}.json`), "utf8"))
     );
   }
   assert.deepEqual((await fs.readdir(directory)).sort(), [
     "Suggested.bundle", "WidgetSuggested.bundle", "widget-eligible-collections.json",
   ]);
   await generateWidgetResources(directory, { check: true });
+});
+
+test("widget projection preserves object media sources while removing unused metadata", async (t) => {
+  const { directory, items } = await fixture(t);
+  const { generateWidgetResources } = await generator;
+  items[0].chain = "ethereum";
+  await writeJSON(directory, "Suggested.bundle/items.json", items);
+  await writeJSON(directory, "Suggested.bundle/Tokens/alpha.json", {
+    isComplete: true,
+    hasMid: false,
+    defaultFileExtension: ".WEBP",
+    urlPrefixes: ["https://unused.example/"],
+    thumbnailAspectRatios: [[1, 1]],
+    artworkAspectRatios: [[2, 1]],
+    items: [
+      { id: "1", url: "https://example.com/one.png?size=2", sh: "unused", name: "One", hash: "0x1", fileExtension: "jpg", referencePixelSize: [100, 100] },
+      { id: "2", url: "https://example.com/two", fileExtension: ".JPG", imageAspectRatio: [1, 1] },
+      { id: "3", sh: "three", name: "Three" },
+      { id: "4", name: "Four" },
+      { id: "5", url: "https://example.com/five.gif", fileExtension: "png" },
+    ],
+  });
+  await generateWidgetResources(directory);
+  assert.deepEqual(
+    JSON.parse(await fs.readFile(path.join(directory, "WidgetSuggested.bundle/Tokens/alpha.json"), "utf8")),
+    {
+      defaultFileExtension: "webp",
+      items: [
+        { id: "1", url: "https://example.com/one.png?size=2" },
+        { id: "2", url: "https://example.com/two", fileExtension: "jpg" },
+        { id: "3", sh: "three" },
+        { id: "4" },
+        { id: "5", url: "https://example.com/five.gif" },
+      ],
+    }
+  );
+  await generateWidgetResources(directory, { check: true });
+});
+
+test("widget projection preserves compact URL and extension fallbacks without expanding compact files", async (t) => {
+  const { directory } = await fixture(t);
+  const { generateWidgetResources } = await generator;
+  const payload = {
+    hasMid: true,
+    defaultFileExtension: "png",
+    urlPrefixes: ["https://example.com/"],
+    thumbnailAspectRatios: [[1, 1]],
+    items: [
+      ["1", 0, "one.webp", "png"],
+      ["2", 0, "two", ".JPEG"],
+      ["3", -1, "https://example.com/three"],
+      ["4", 0, "four.mp4", "jpg"],
+    ],
+  };
+  await writeFile(directory, "Suggested.bundle/Tokens/alpha.json", JSON.stringify(payload));
+  await generateWidgetResources(directory);
+  const output = await fs.readFile(path.join(directory, "WidgetSuggested.bundle/Tokens/alpha.json"), "utf8");
+  assert.equal(output.includes("\n"), false);
+  assert.deepEqual(JSON.parse(output), {
+    defaultFileExtension: "png",
+    urlPrefixes: payload.urlPrefixes,
+    items: [
+      ["1", 0, "one.webp"],
+      ["2", 0, "two", "jpeg"],
+      ["3", -1, "https://example.com/three"],
+      ["4", 0, "four.mp4"],
+    ],
+  });
+});
+
+test("widget projection removes defaults overridden by URLs or row extensions", async (t) => {
+  const { directory } = await fixture(t);
+  const { generateWidgetResources } = await generator;
+  await writeJSON(directory, "Suggested.bundle/Tokens/alpha.json", {
+    defaultFileExtension: "png",
+    urlPrefixes: ["https://example.com/"],
+    items: [["1", 0, "one.webp", "png"], ["2", 0, "two", "jpg"]],
+  });
+  await generateWidgetResources(directory);
+  assert.deepEqual(
+    JSON.parse(await fs.readFile(path.join(directory, "WidgetSuggested.bundle/Tokens/alpha.json"), "utf8")),
+    { urlPrefixes: ["https://example.com/"], items: [["1", 0, "one.webp"], ["2", 0, "two", "jpg"]] }
+  );
 });
 
 test("widget generation rejects invalid or ambiguous slug selections", async (t) => {
