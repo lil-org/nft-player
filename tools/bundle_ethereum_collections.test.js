@@ -49,8 +49,8 @@ function createFixture(t, {
     hasMid: false,
     tmp_files: { "1": "original.png" },
     defaultFileExtension: "png",
-    urlPrefixes: ["https://old.example/"],
-    items: [["2", 0, "2.png"], ["1", 0, "1.png"]],
+    urlPrefix: "https://old.example/",
+    items: [["2", "2.png"], ["1", "1.png"]],
     aspectRatios: [[16, 9], [4, 3]],
     aspectRatioOverrides: [[1, 1]],
   })}\n`;
@@ -76,6 +76,7 @@ function runBundler(fixture, {
   injectTokenCollision = false,
   apply = true,
   skipCovers = true,
+  urls = ["https://assets.example/1.png", "https://assets.example/2.png"],
 } = {}) {
   const argv = [
     process.execPath,
@@ -112,8 +113,8 @@ global.fetch = async (input) => {
   if (/\\/nfts(?:\\?|$)/u.test(url)) {
     payload = {
       nfts: [
-        { identifier: "2", name: "Allstarz #2", image_url: "https://assets.example/2.png" },
-        { identifier: "1", name: "Allstarz #1", image_url: "https://assets.example/1.png" },
+        { identifier: "2", name: "Allstarz #2", image_url: ${JSON.stringify(urls[1])} },
+        { identifier: "1", name: "Allstarz #1", image_url: ${JSON.stringify(urls[0])} },
       ],
       next: null,
     };
@@ -141,6 +142,23 @@ require(${JSON.stringify(BUNDLER_PATH)});
     timeout: 5000,
   });
 }
+
+test("Ethereum bundling reconstructs URLs with one prefix across directories and origins", (t) => {
+  for (const [urls, prefix] of [
+    [["https://assets.example/art/1.png", "https://assets.example/art/2.png"], "https://assets.example/art/"],
+    [["https://assets.example/art/one/1.png", "https://assets.example/art/two/2.png"], "https://assets.example/art/"],
+    [["https://assets.example/1.png", "https://other.example/2.png"], ""],
+  ]) {
+    const fixture = createFixture(t);
+    const result = runBundler(fixture, { urls });
+    assert.equal(result.status, 0, result.stderr);
+    const payload = JSON.parse(fs.readFileSync(fixture.tokenPath, "utf8"));
+    assert.equal(payload.urlPrefix, prefix);
+    assert.equal(Object.hasOwn(payload, "urlPrefixes"), false);
+    assert.deepEqual(payload.items, urls.map((url, index) => [String(index + 1), url.slice(prefix.length)]));
+    assert.deepEqual(payload.items.map((row) => payload.urlPrefix + row[1]), urls);
+  }
+});
 
 test("writes slug resources while preserving checksum identity and manifest metadata", (t) => {
   const fixture = createFixture(t);

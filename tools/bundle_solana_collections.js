@@ -23,6 +23,7 @@ const {
 } = require("./aspect_ratios");
 const { preserveTmpFilesFromFile, reportTmpFilesChanges } = require("./tmp_files");
 const { preserveMidAvailabilityFromFile } = require("./token_manifest_metadata");
+const { commonURLDirectoryPrefix } = require("./token_url_prefix");
 
 const DEFAULT_BUNDLE_PATH = path.join("Suggested Items", "Suggested.bundle");
 const DEFAULT_COVERS_PATH = "covers";
@@ -246,7 +247,7 @@ async function main() {
     console.log(`Fetching ${input}${input === canonicalId ? "" : ` -> ${canonicalId}`}`);
     const result = await fetchCollectionBundle(input, canonicalId, context);
     collectionResults.push(result);
-    console.log(`  ${result.name}: ${result.tokens.length} tokens, ${result.tokenPayload.urlPrefixes.length} URL prefix(es)`);
+    console.log(`  ${result.name}: ${result.tokens.length} tokens, URL prefix ${JSON.stringify(result.tokenPayload.urlPrefix)}`);
   }
 
   const existingItems = JSON.parse(await fs.readFile(path.join(options.bundlePath, "items.json"), "utf8"));
@@ -963,17 +964,16 @@ function naturalCompare(left, right) {
 
 function buildTokenPayload(tokens, metadata) {
   const urls = tokens.map((token) => token.media.url);
-  const prefixes = buildUrlPrefixes(urls);
+  const urlPrefix = commonURLDirectoryPrefix(urls);
   const extensions = tokens.map((token) => token.media.extension);
   const defaultFileExtension = mostCommonValue(extensions);
 
   return {
     defaultFileExtension,
-    urlPrefixes: prefixes,
+    urlPrefix,
     items: tokens.map((token) => {
-      const prefixIndex = bestPrefixIndex(token.media.url, prefixes);
-      const suffix = token.media.url.slice(prefixes[prefixIndex].length);
-      const row = [token.id, prefixIndex, suffix];
+      const suffix = token.media.url.slice(urlPrefix.length);
+      const row = [token.id, suffix];
       if (token.media.extension !== defaultFileExtension) {
         row.push(token.media.extension);
       }
@@ -996,44 +996,6 @@ function buildTokenPayload(tokens, metadata) {
       },
     },
   };
-}
-
-function buildUrlPrefixes(urls) {
-  const groups = new Map();
-  for (const url of urls) {
-    const prefix = urlPrefixForCompression(url);
-    groups.set(prefix, (groups.get(prefix) ?? 0) + 1);
-  }
-
-  return [...groups.entries()]
-    .sort((left, right) => right[1] - left[1] || right[0].length - left[0].length || naturalCompare(left[0], right[0]))
-    .map(([prefix]) => prefix);
-}
-
-function urlPrefixForCompression(urlString) {
-  try {
-    const url = new URL(urlString);
-    const pathname = url.pathname;
-    const slashIndex = pathname.lastIndexOf("/");
-    const pathPrefix = slashIndex >= 0 ? pathname.slice(0, slashIndex + 1) : pathname;
-    url.pathname = pathPrefix;
-    url.search = "";
-    url.hash = "";
-    return url.toString();
-  } catch {
-    const slashIndex = urlString.lastIndexOf("/");
-    return slashIndex >= 0 ? urlString.slice(0, slashIndex + 1) : "";
-  }
-}
-
-function bestPrefixIndex(url, prefixes) {
-  let bestIndex = -1;
-  for (let index = 0; index < prefixes.length; index += 1) {
-    if (url.startsWith(prefixes[index]) && (bestIndex === -1 || prefixes[index].length > prefixes[bestIndex].length)) {
-      bestIndex = index;
-    }
-  }
-  return bestIndex === -1 ? 0 : bestIndex;
 }
 
 function mostCommonValue(values) {

@@ -455,7 +455,7 @@ nonisolated private struct WidgetTokenPayload: Decodable, Sendable {
     enum CodingKeys: String, CodingKey {
         case defaultFileExtension
         case items
-        case urlPrefixes
+        case urlPrefix
     }
 
     init(from decoder: Decoder) throws {
@@ -463,13 +463,13 @@ nonisolated private struct WidgetTokenPayload: Decodable, Sendable {
         defaultFileExtension = WidgetMediaFileExtension.normalized(
             try container.decodeIfPresent(String.self, forKey: .defaultFileExtension)
         )
-        let urlPrefixes = try container.decodeIfPresent([String].self, forKey: .urlPrefixes) ?? []
+        let urlPrefix = try container.decodeIfPresent(String.self, forKey: .urlPrefix) ?? ""
 
         if let compactRows = try? container.decode([WidgetCompactTokenRow].self, forKey: .items) {
             items = compactRows.map { row in
                 WidgetTokenItem(
                     id: row.id,
-                    url: row.url(prefixes: urlPrefixes),
+                    url: urlPrefix + row.urlSuffix,
                     sh: nil,
                     fileExtension: row.fileExtension
                 )
@@ -525,20 +525,13 @@ nonisolated private struct WidgetTokenItem: Decodable, Hashable, Sendable {
 
 nonisolated private struct WidgetCompactTokenRow: Decodable, Sendable {
     let id: String
-    let prefixIndex: Int
     let urlSuffix: String
     let fileExtension: String?
 
     init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         id = try container.decode(String.self)
-        prefixIndex = try container.decode(Int.self)
         urlSuffix = try container.decode(String.self)
         fileExtension = WidgetMediaFileExtension.normalized(try? container.decode(String.self))
-    }
-
-    func url(prefixes: [String]) -> String {
-        guard prefixes.indices.contains(prefixIndex) else { return urlSuffix }
-        return prefixes[prefixIndex] + urlSuffix
     }
 }

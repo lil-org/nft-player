@@ -299,14 +299,12 @@ nonisolated struct BundledTokens: Codable, Sendable {
         }
 
         let id: String
-        let prefixIndex: Int
         let urlSuffix: String
         let metadata: Metadata?
 
         init(from decoder: Decoder) throws {
             var container = try decoder.unkeyedContainer()
             id = try container.decode(String.self)
-            prefixIndex = try container.decode(Int.self)
             urlSuffix = try container.decode(String.self)
             if !container.isAtEnd {
                 _ = try container.decodeIfPresent(String.self)
@@ -320,7 +318,7 @@ nonisolated struct BundledTokens: Codable, Sendable {
         case items
         case aspectRatios
         case aspectRatioOverrides
-        case urlPrefixes
+        case urlPrefix
     }
     
     let isComplete: Bool
@@ -344,18 +342,12 @@ nonisolated struct BundledTokens: Codable, Sendable {
         if let objectItems = try? container.decode([Item].self, forKey: .items) {
             decodedItems = objectItems
         } else {
-            let urlPrefixes = try container.decodeIfPresent([String].self, forKey: .urlPrefixes) ?? []
+            let urlPrefix = try container.decodeIfPresent(String.self, forKey: .urlPrefix) ?? ""
             decodedItems = try container.decode([CompactItem].self, forKey: .items).map { compactItem in
-                let url: String
-                if urlPrefixes.indices.contains(compactItem.prefixIndex) {
-                    url = urlPrefixes[compactItem.prefixIndex] + compactItem.urlSuffix
-                } else {
-                    url = compactItem.urlSuffix
-                }
-                return Item(
+                Item(
                     id: compactItem.id,
                     name: compactItem.metadata?.name,
-                    url: url,
+                    url: urlPrefix + compactItem.urlSuffix,
                     sh: nil,
                     hash: compactItem.metadata?.hash
                 )

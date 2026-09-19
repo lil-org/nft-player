@@ -1487,7 +1487,7 @@ nonisolated struct DownloadableCollectionTokensPayload: Decodable, Sendable {
         case items
         case aspectRatios
         case aspectRatioOverrides
-        case urlPrefixes
+        case urlPrefix
     }
 
     init(from decoder: Decoder) throws {
@@ -1496,7 +1496,7 @@ nonisolated struct DownloadableCollectionTokensPayload: Decodable, Sendable {
         defaultFileExtension = Self.normalizedFileExtension(
             try container.decodeIfPresent(String.self, forKey: .defaultFileExtension)
         )
-        let urlPrefixes = try container.decodeIfPresent([String].self, forKey: .urlPrefixes) ?? []
+        let urlPrefix = try container.decodeIfPresent(String.self, forKey: .urlPrefix) ?? ""
 
         let decodedItems: [DownloadableTokenItem]
         if let compactRows = try? container.decode([DownloadableCompactTokenRow].self, forKey: .items) {
@@ -1504,7 +1504,7 @@ nonisolated struct DownloadableCollectionTokensPayload: Decodable, Sendable {
                 DownloadableTokenItem(
                     id: row.id,
                     name: row.metadata?.name,
-                    url: row.url(prefixes: urlPrefixes),
+                    url: urlPrefix + row.urlSuffix,
                     sh: nil,
                     fileExtension: row.fileExtension,
                     aspectRatio: nil
@@ -1635,7 +1635,6 @@ nonisolated private struct DownloadableCompactTokenRow: Decodable, Sendable {
     }
 
     let id: String
-    let prefixIndex: Int
     let urlSuffix: String
     let fileExtension: String?
     let metadata: Metadata?
@@ -1643,17 +1642,11 @@ nonisolated private struct DownloadableCompactTokenRow: Decodable, Sendable {
     init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         id = try container.decode(String.self)
-        prefixIndex = try container.decode(Int.self)
         urlSuffix = try container.decode(String.self)
         fileExtension = DownloadableMediaFileExtension.normalized(
             container.isAtEnd ? nil : try container.decodeIfPresent(String.self)
         )
         metadata = container.isAtEnd ? nil : try container.decodeIfPresent(Metadata.self)
-    }
-
-    func url(prefixes: [String]) -> String {
-        guard prefixes.indices.contains(prefixIndex) else { return urlSuffix }
-        return prefixes[prefixIndex] + urlSuffix
     }
 }
 

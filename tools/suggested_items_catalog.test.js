@@ -182,9 +182,7 @@ function tokenSourceURL(payload, row) {
     return row.url;
   }
 
-  const [, prefixIndex, urlSuffix] = row;
-  const prefix = payload.urlPrefixes?.[prefixIndex] ?? "";
-  return prefix + urlSuffix;
+  return (payload.urlPrefix ?? "") + row[1];
 }
 
 function tokenItem(payload, row) {
@@ -192,8 +190,8 @@ function tokenItem(payload, row) {
   return {
     id: row[0],
     url: tokenSourceURL(payload, row),
-    ...(row[3] != null ? { fileExtension: row[3] } : {}),
-    ...row[4],
+    ...(row[2] != null ? { fileExtension: row[2] } : {}),
+    ...row[3],
   };
 }
 
@@ -208,7 +206,7 @@ function resolvedFileExtension(payload, row, sourceURL) {
     path.posix.extname(new URL(sourceURL).pathname)
   );
   const rowFileExtension = normalizedFileExtension(
-    Array.isArray(row) ? row[3] : row.fileExtension
+    Array.isArray(row) ? row[2] : row.fileExtension
   );
   return sourcePathExtension
     ?? rowFileExtension
@@ -446,18 +444,19 @@ test("Mi Note collections retain on-chain identities, names, and exported media 
   }
 });
 
-test("token manifests share repeated URL prefixes in both bundles", () => {
+test("token manifests use one URL prefix and compact rows without prefix indices in both bundles", () => {
   for (const directory of [TOKENS_PATH, WIDGET_TOKENS_PATH]) {
     for (const fileName of fs.readdirSync(directory).filter((name) => name.endsWith(".json"))) {
       const payload = readJSON(path.join(directory, fileName));
+      assert.equal(Object.hasOwn(payload, "urlPrefixes"), false, fileName);
       const fullURLPrefixes = new Set();
       for (const row of payload.items) {
         if (Array.isArray(row)) {
-          assert.ok(Number.isInteger(row[1]), fileName);
-          assert.equal(typeof payload.urlPrefixes?.[row[1]], "string", fileName);
-          assert.ok(row.length >= 3 && row.length <= 5, fileName);
-          if (row[4] != null) {
-            assert.ok(Object.keys(row[4]).every((key) => ["name", "hash"].includes(key)), fileName);
+          assert.equal(typeof row[1], "string", fileName);
+          assert.equal(typeof payload.urlPrefix, "string", fileName);
+          assert.ok(row.length >= 2 && row.length <= 4, fileName);
+          if (row[3] != null) {
+            assert.ok(Object.keys(row[3]).every((key) => ["name", "hash"].includes(key)), fileName);
           }
         } else if (row.url != null) {
           const prefix = row.url.slice(0, row.url.lastIndexOf("/") + 1);
@@ -658,19 +657,19 @@ test("September generative collections expose indexed CDN tiers without changing
 test("media extension resolution prefers URL, then row, then manifest defaults", () => {
   const payload = {
     defaultFileExtension: ".HTML",
-    urlPrefixes: ["https://example.com/tokens/"],
+    urlPrefix: "https://example.com/tokens/",
   };
 
   assert.equal(
-    resolvedFileExtension(payload, ["1", 0, "1.svg", "mov"], "https://example.com/tokens/1.svg"),
+    resolvedFileExtension(payload, ["1", "1.svg", "mov"], "https://example.com/tokens/1.svg"),
     "svg"
   );
   assert.equal(
-    resolvedFileExtension(payload, ["2", 0, "2", ".MOV"], "https://example.com/tokens/2"),
+    resolvedFileExtension(payload, ["2", "2", ".MOV"], "https://example.com/tokens/2"),
     "mov"
   );
   assert.equal(
-    resolvedFileExtension(payload, ["3", 0, "3"], "https://example.com/tokens/3"),
+    resolvedFileExtension(payload, ["3", "3"], "https://example.com/tokens/3"),
     "html"
   );
 });
@@ -973,11 +972,11 @@ test("bundled tokens have compact aspect ratios and matching iOS layouts", () =>
       return { id, url, fileExtension: url == null ? undefined : resolvedFileExtension(payload, row, url) };
     });
     assert.deepEqual(mediaReferences(widgetPayload), mediaReferences(primary.payload), fileName);
-    assert.ok(Object.keys(widgetPayload).every((key) => ["items", "urlPrefixes", "defaultFileExtension"].includes(key)), fileName);
+    assert.ok(Object.keys(widgetPayload).every((key) => ["items", "urlPrefix", "defaultFileExtension"].includes(key)), fileName);
     for (const row of widgetPayload.items) {
       assert.ok(
         Array.isArray(row)
-          ? row.length >= 3 && row.length <= 4
+          ? row.length >= 2 && row.length <= 3
           : Object.keys(row).every((key) => ["id", "url", "sh", "fileExtension"].includes(key)),
         fileName
       );
@@ -1001,16 +1000,13 @@ test("Terraforms uses Mathcastles HTML primaries with unchanged CDN thumbnails",
   const payload = readJSON(path.join(TOKENS_PATH, `${terraforms.internal_slug}.json`));
   assert.equal(Object.prototype.hasOwnProperty.call(payload, "tmp_files"), false);
   assert.equal(payload.defaultFileExtension, "html");
-  assert.deepEqual(payload.urlPrefixes, [
-    "https://tokens.mathcastles.xyz/terraforms/token-html/",
-  ]);
+  assert.equal(payload.urlPrefix, "https://tokens.mathcastles.xyz/terraforms/token-html/");
   assert.equal(payload.items.length, 9844);
 
   for (const [index, row] of payload.items.entries()) {
     assert.ok(Array.isArray(row), `Terraforms token ${index} is not a compact row`);
-    assert.equal(row.length, 3, `Terraforms token ${index} has unexpected row metadata`);
-    const [tokenId, prefixIndex, urlSuffix] = row;
-    assert.equal(prefixIndex, 0, `Terraforms token ${index} has an unexpected prefix`);
+    assert.equal(row.length, 2, `Terraforms token ${index} has unexpected row metadata`);
+    const [tokenId, urlSuffix] = row;
     assert.equal(urlSuffix, tokenId, `Terraforms token ${index} has an unexpected URL suffix`);
 
     const sourceURL = tokenSourceURL(payload, row);

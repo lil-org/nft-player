@@ -1331,7 +1331,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
             [{"id":"unminted-1502","url":"https://example.com/1502.webp"}]
             """,
             """
-            [["unminted-1502",0,"1502.webp"]]
+            [["unminted-1502","1502.webp"]]
             """,
         ]
         let cases = [
@@ -1347,7 +1347,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
                     {
                         \(entry.field)
                         "defaultFileExtension": "webp",
-                        "urlPrefixes": ["https://example.com/"],
+                        "urlPrefix": "https://example.com/",
                         "aspectRatios": [[1, 1]],
                         "items": \(items)
                     }

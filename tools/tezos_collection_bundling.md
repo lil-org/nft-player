@@ -42,8 +42,8 @@ Token JSON uses the iOS app's compact downloadable collection format:
 ```json
 {
   "defaultFileExtension": "gif",
-  "urlPrefixes": ["https://ipfs.io/ipfs/"],
-  "items": [["0", 0, "QmHash"]]
+  "urlPrefix": "https://ipfs.io/ipfs/",
+  "items": [["0", "QmHash"]]
 }
 ```
 

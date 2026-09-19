@@ -40,8 +40,8 @@ Token JSON uses the iOS app's compact Solana format:
 ```json
 {
   "defaultFileExtension": "png",
-  "urlPrefixes": ["https://example.com/assets/"],
-  "items": [["mint-address", 0, "1.png"]]
+  "urlPrefix": "https://example.com/assets/",
+  "items": [["mint-address", "1.png"]]
 }
 ```
 

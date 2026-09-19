@@ -21,7 +21,7 @@ test("extracts token IDs from compact and object payloads", () => {
   assert.deepEqual(
     tokenIdsFromPayload({
       items: [
-        ["compact", 0, "compact.png"],
+        ["compact", "compact.png"],
         { id: "object", url: "https://example.com/object.png" },
         [42, 0, "numeric.png"],
       ],

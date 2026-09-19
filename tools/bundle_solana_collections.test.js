@@ -129,6 +129,39 @@ test("continues resolving known token aliases to their canonical collection ID",
   assert.doesNotMatch(result.stderr, /uses a curated native cdn\.lil\.org renderer/u);
 });
 
+test("Solana bundling reconstructs URLs with one prefix across directories and origins", async (t) => {
+  const tokenIds = ["BQGjKNV22ZD8AaEFZXNftV7xn3LrGbujfNQXCjQSBnhW", "EazEpagtyeRAx9npnpVMpygoA8ouX7DRpLTghhPvYTiu"];
+  for (const [urls, prefix] of [
+    [["https://assets.example/art/1.png", "https://assets.example/art/2.png"], "https://assets.example/art/"],
+    [["https://assets.example/art/one/1.png", "https://assets.example/art/two/2.png"], "https://assets.example/art/"],
+    [["https://assets.example/1.png", "https://other.example/2.png"], ""],
+  ]) {
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(), "nft-player-solana-prefix-"));
+    t.after(() => fs.rm(directory, { recursive: true, force: true }));
+    await fs.writeFile(path.join(directory, "items.json"), "[]");
+    const result = runBundler("9irtKRLZkY4MjFFQNZPX3o6ZTszfR8kXFJXPBUvEDo9v", {
+      assets: urls.map((url, index) => ({
+        id: tokenIds[index],
+        content: {
+          metadata: { name: `Planet Peppa #${index}`, symbol: "Planet Peppa" },
+          files: [{ uri: url, mime: "image/png" }],
+        },
+      })),
+      args: [
+        "--apply", "--bundle", directory,
+        "--report", path.join(directory, "report.md"),
+        "--json-report", path.join(directory, "report.json"),
+      ],
+    });
+    assert.equal(result.status, 0, result.stderr);
+    const payload = JSON.parse(await fs.readFile(path.join(directory, "Tokens", "planet_peppa.json"), "utf8"));
+    assert.equal(payload.urlPrefix, prefix);
+    assert.equal(Object.hasOwn(payload, "urlPrefixes"), false);
+    assert.deepEqual(payload.items, urls.map((url, index) => [tokenIds[index], url.slice(prefix.length)]));
+    assert.deepEqual(payload.items.map((row) => payload.urlPrefix + row[1]), urls);
+  }
+});
+
 test("apply preserves explicit mid availability and leaves legacy manifests unset", async () => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "nft-player-solana-bundle-"));
   const collectionId = "9irtKRLZkY4MjFFQNZPX3o6ZTszfR8kXFJXPBUvEDo9v";
@@ -157,8 +190,8 @@ test("apply preserves explicit mid availability and leaves legacy manifests unse
       const original = {
         hasMid,
         defaultFileExtension: "webp",
-        urlPrefixes: ["https://cdn.lil.org/player/planet_peppa/"],
-        items: [[tokenId, 0, "0.webp"]],
+        urlPrefix: "https://cdn.lil.org/player/planet_peppa/",
+        items: [[tokenId, "0.webp"]],
         aspectRatios: [[1, 1]],
       };
       await fs.writeFile(tokenPath, JSON.stringify(original));

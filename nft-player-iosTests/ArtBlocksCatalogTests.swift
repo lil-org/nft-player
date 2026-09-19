@@ -10,15 +10,15 @@ extension ArtBlocksCatalogTests {
         Data("""
         {
           "defaultFileExtension": " .PNG ",
-          "urlPrefixes": ["https://example.com/"],
+          "urlPrefix": "https://example.com/",
           "aspectRatios": [[3, 4], [16, 9]],
           "aspectRatioOverrides": [[2, 1]],
           "items": [
-            ["legacy", 0, "legacy.png"],
-            ["extension", 0, "extension", ".JPG"],
-            ["named-hash", 0, "named.png", null, {"name": "Named artwork", "hash": "0xabc"}],
-            ["named-extension", 0, "named", "webp", {"name": "Extension artwork"}],
-            ["absolute", -1, "https://other.example/art.png", null, {"hash": "0xdef"}]
+            ["legacy", "legacy.png"],
+            ["extension", "extension", ".JPG"],
+            ["named-hash", "named.png", null, {"name": "Named artwork", "hash": "0xabc"}],
+            ["named-extension", "named", "webp", {"name": "Extension artwork"}],
+            ["hash-only", "art.png", null, {"hash": "0xdef"}]
           ]
         }
         """.utf8)
@@ -26,13 +26,13 @@ extension ArtBlocksCatalogTests {
 
     func testCompactBundledTokensPreserveNamesHashesAndAspectRatiosAfterRoundTrip() throws {
         let tokens = try JSONDecoder().decode(BundledTokens.self, from: compactTokenFixture)
-        XCTAssertEqual(tokens.items.map(\.id), ["legacy", "extension", "named-hash", "named-extension", "absolute"])
+        XCTAssertEqual(tokens.items.map(\.id), ["legacy", "extension", "named-hash", "named-extension", "hash-only"])
         XCTAssertEqual(tokens.items.map(\.url), [
             "https://example.com/legacy.png",
             "https://example.com/extension",
             "https://example.com/named.png",
             "https://example.com/named",
-            "https://other.example/art.png"
+            "https://example.com/art.png"
         ])
         XCTAssertEqual(tokens.items.map(\.name), [nil, nil, "Named artwork", "Extension artwork", nil])
         XCTAssertEqual(tokens.items.map(\.hash), [nil, nil, "0xabc", nil, "0xdef"])
@@ -52,13 +52,31 @@ extension ArtBlocksCatalogTests {
     func testCompactDownloadableTokensPreserveNamesExtensionsAndAspectRatios() throws {
         let tokens = try JSONDecoder().decode(DownloadableCollectionTokensPayload.self, from: compactTokenFixture)
         XCTAssertEqual(tokens.defaultFileExtension, "png")
-        XCTAssertEqual(tokens.items.map(\.id), ["legacy", "extension", "named-hash", "named-extension", "absolute"])
+        XCTAssertEqual(tokens.items.map(\.id), ["legacy", "extension", "named-hash", "named-extension", "hash-only"])
         XCTAssertEqual(tokens.items.map(\.name), [nil, nil, "Named artwork", "Extension artwork", nil])
         XCTAssertEqual(tokens.items.map(\.fileExtension), [nil, "jpg", nil, "webp", nil])
         XCTAssertEqual(tokens.items[2].url, "https://example.com/named.png")
-        XCTAssertEqual(tokens.items[4].url, "https://other.example/art.png")
+        XCTAssertEqual(tokens.items[4].url, "https://example.com/art.png")
         XCTAssertEqual(tokens.items[2].aspectRatio, AspectRatio(width: 16, height: 9))
         XCTAssertEqual(tokens.items[0].aspectRatio, AspectRatio(width: 3, height: 4))
+    }
+
+    func testCompactTokensPreserveFullURLsWithAnEmptyOrAbsentPrefix() throws {
+        let urls = ["https://example.com/art.png?size=2#preview", "https://other.example/art"]
+        for prefixField in [#""urlPrefix": "","#, ""] {
+            let data = Data("""
+            {
+              \(prefixField)
+              "items": [["1", "\(urls[0])", null, {"hash": "0xabc"}], ["2", "\(urls[1])", ".JPG"]]
+            }
+            """.utf8)
+            let bundled = try JSONDecoder().decode(BundledTokens.self, from: data)
+            let downloadable = try JSONDecoder().decode(DownloadableCollectionTokensPayload.self, from: data)
+            XCTAssertEqual(bundled.items.compactMap(\.url), urls)
+            XCTAssertEqual(downloadable.items.compactMap(\.url), urls)
+            XCTAssertEqual(bundled.items[0].hash, "0xabc")
+            XCTAssertEqual(downloadable.items[1].fileExtension, "jpg")
+        }
     }
 
     func testObjectTokensShareNormalizedAspectRatiosAndRoundTripOverrides() throws {
@@ -79,7 +97,7 @@ extension ArtBlocksCatalogTests {
     }
 
     func testAspectRatioMetadataCanBeAbsentInBothTokenFormats() throws {
-        for json in [#"{"items":[{"id":"a"}]}"#, #"{"items":[["a",0,"a.png"]],"urlPrefixes":["https://example.com/"]}"#] {
+        for json in [#"{"items":[{"id":"a"}]}"#, #"{"items":[["a","a.png"]],"urlPrefix":"https://example.com/"}"#] {
             let data = Data(json.utf8)
             let bundled = try JSONDecoder().decode(BundledTokens.self, from: data)
             let downloadable = try JSONDecoder().decode(DownloadableCollectionTokensPayload.self, from: data)
@@ -108,7 +126,7 @@ extension ArtBlocksCatalogTests {
             ["aspectRatios": [[1, 1], [4, 3]], "aspectRatioOverrides": [[0, 2]]],
             ["aspectRatios": [[1, 1], [4, 3]], "aspectRatioOverrides": [[0, 1], [0, 1]]]
         ]
-        let itemFormats: [Any] = [[["id": "a"], ["id": "b"]], [["a", 0, "a.png"], ["b", 0, "b.png"]]]
+        let itemFormats: [Any] = [[["id": "a"], ["id": "b"]], [["a", "a.png"], ["b", "b.png"]]]
         for metadata in invalidMetadata {
             for items in itemFormats {
                 var payload = metadata

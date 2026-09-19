@@ -96,7 +96,7 @@ test("widget projection preserves object media sources while removing unused met
     isComplete: true,
     hasMid: false,
     defaultFileExtension: ".WEBP",
-    urlPrefixes: ["https://unused.example/"],
+    urlPrefix: "https://unused.example/",
     aspectRatios: [[1, 1]],
     items: [
       { id: "1", url: "https://example.com/one.png?size=2", sh: "unused", name: "One", hash: "0x1", fileExtension: "jpg", referencePixelSize: [100, 100] },
@@ -129,14 +129,14 @@ test("widget projection preserves compact URL and extension fallbacks without ex
   const payload = {
     hasMid: true,
     defaultFileExtension: "png",
-    urlPrefixes: ["https://example.com/"],
+    urlPrefix: "https://example.com/",
     aspectRatios: [[1, 1]],
     items: [
-      ["1", 0, "one.webp", "png", { name: "One", hash: "0x1" }],
-      ["2", 0, "two", ".JPEG", { name: "Two" }],
-      ["3", -1, "https://example.com/three"],
-      ["4", 0, "four.mp4", "jpg"],
-      ["5", 0, "five.png", null, { hash: "0x5" }],
+      ["1", "one.webp", "png", { name: "One", hash: "0x1" }],
+      ["2", "two", ".JPEG", { name: "Two" }],
+      ["3", "three"],
+      ["4", "four.mp4", "jpg"],
+      ["5", "five.png", null, { hash: "0x5" }],
     ],
   };
   await writeFile(directory, "Suggested.bundle/Tokens/alpha.json", JSON.stringify(payload));
@@ -145,15 +145,33 @@ test("widget projection preserves compact URL and extension fallbacks without ex
   assert.equal(output.includes("\n"), false);
   assert.deepEqual(JSON.parse(output), {
     defaultFileExtension: "png",
-    urlPrefixes: payload.urlPrefixes,
+    urlPrefix: payload.urlPrefix,
     items: [
-      ["1", 0, "one.webp"],
-      ["2", 0, "two", "jpeg"],
-      ["3", -1, "https://example.com/three"],
-      ["4", 0, "four.mp4"],
-      ["5", 0, "five.png"],
+      ["1", "one.webp"],
+      ["2", "two", "jpeg"],
+      ["3", "three"],
+      ["4", "four.mp4"],
+      ["5", "five.png"],
     ],
   });
+});
+
+test("widget projection preserves full URLs with an empty or absent prefix", async (t) => {
+  const { directory } = await fixture(t);
+  const { generateWidgetResources } = await generator;
+  for (const urlPrefix of ["", undefined]) {
+    await writeJSON(directory, "Suggested.bundle/Tokens/alpha.json", {
+      urlPrefix,
+      defaultFileExtension: "png",
+      items: [["1", "https://example.com/one.webp"], ["2", "https://other.example/two", ".JPG"]],
+    });
+    await generateWidgetResources(directory);
+    assert.deepEqual(
+      JSON.parse(await fs.readFile(path.join(directory, "WidgetSuggested.bundle/Tokens/alpha.json"), "utf8")),
+      { urlPrefix: "", items: [["1", "https://example.com/one.webp"], ["2", "https://other.example/two", "jpg"]] }
+    );
+    await generateWidgetResources(directory, { check: true });
+  }
 });
 
 test("widget projection removes defaults overridden by URLs or row extensions", async (t) => {
@@ -161,13 +179,13 @@ test("widget projection removes defaults overridden by URLs or row extensions", 
   const { generateWidgetResources } = await generator;
   await writeJSON(directory, "Suggested.bundle/Tokens/alpha.json", {
     defaultFileExtension: "png",
-    urlPrefixes: ["https://example.com/"],
-    items: [["1", 0, "one.webp", "png"], ["2", 0, "two", "jpg"]],
+    urlPrefix: "https://example.com/",
+    items: [["1", "one.webp", "png"], ["2", "two", "jpg"]],
   });
   await generateWidgetResources(directory);
   assert.deepEqual(
     JSON.parse(await fs.readFile(path.join(directory, "WidgetSuggested.bundle/Tokens/alpha.json"), "utf8")),
-    { urlPrefixes: ["https://example.com/"], items: [["1", 0, "one.webp"], ["2", 0, "two", "jpg"]] }
+    { urlPrefix: "https://example.com/", items: [["1", "one.webp"], ["2", "two", "jpg"]] }
   );
 });
 
