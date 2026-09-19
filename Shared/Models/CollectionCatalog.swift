@@ -1443,9 +1443,7 @@ nonisolated private enum DownloadableCollectionService {
             return nil
         }
         return DownloadableCollectionTokenData(
-            tokens: payload.items.filter {
-                $0.resolvedMedia(collection: collection) != nil
-            },
+            tokens: payload.downloadableItems,
             defaultAspectRatio: collection.aspectRatio
         )
     }
@@ -1461,6 +1459,34 @@ nonisolated private struct DownloadableCollectionsIndex: Sendable {
 
 nonisolated struct DownloadableCollectionTokensPayload: Decodable, Sendable {
     let items: [DownloadableTokenItem]
+    let excludedMediaIndices: [Int]
+
+    var downloadableItems: [DownloadableTokenItem] {
+        guard !excludedMediaIndices.isEmpty else { return items }
+        var nextExcluded = 0
+        return items.enumerated().compactMap { index, item in
+            guard nextExcluded < excludedMediaIndices.count,
+                  excludedMediaIndices[nextExcluded] == index else { return item }
+            nextExcluded += 1
+            return nil
+        }
+    }
+
+    init(from decoder: Decoder) throws {
+        let manifest = try CompactTokenManifest(from: decoder)
+        let names = try manifest.decodeColumn(String.self, forKey: .name)
+        let ratios = try manifest.decodeColumn(AspectRatio.self, forKey: .aspectRatio)
+        excludedMediaIndices = manifest.excludedMediaIndices
+        items = (0..<manifest.count).map { index in
+            let id = manifest.id(at: index)
+            return DownloadableTokenItem(
+                id: id,
+                name: names?[index],
+                urlSuffix: manifest.urlSuffix(at: index, id: id),
+                aspectRatio: ratios?[index]
+            )
+        }
+    }
 
     init(data: Data) throws {
         self = try JSONDecoder().decode(Self.self, from: data)
@@ -1489,29 +1515,27 @@ nonisolated struct DownloadableTokenItem: Codable, Hashable, Sendable {
 
     func resolvedFileExtension(collection: DownloadableCollectionIndexItem) -> String? {
         guard let url = resolvedURLString(collection: collection) else { return nil }
-        return DownloadableMediaFileExtension.resolved(in: url)
+        return BundledMediaResolver.resolve(url)?.fileExtension
     }
 
     func resolvedMedia(collection: DownloadableCollectionIndexItem) -> GeneratedTokenMedia? {
         guard let urlString = resolvedURLString(collection: collection),
-              let url = URL(string: urlString),
-              let fileExtension = resolvedFileExtension(collection: collection) else {
+              let resolved = BundledMediaResolver.resolve(urlString),
+              let fileExtension = resolved.fileExtension,
+              let kind = resolved.kind else {
             return nil
         }
 
-        if DownloadableMediaFileExtension.isAnimatedImage(fileExtension) {
-            return .animatedImage(url: url, fileExtension: fileExtension)
+        switch kind {
+        case .animatedImage:
+            return .animatedImage(url: resolved.url, fileExtension: fileExtension)
+        case .video:
+            return .video(url: resolved.url, fileExtension: fileExtension)
+        case .html:
+            return .html(url: resolved.url, fileExtension: fileExtension)
+        case .staticImage:
+            return .staticImage(url: resolved.url, fileExtension: fileExtension)
         }
-        if DownloadableMediaFileExtension.isVideo(fileExtension) {
-            return .video(url: url, fileExtension: fileExtension)
-        }
-        if DownloadableMediaFileExtension.isHTML(fileExtension) {
-            return .html(url: url, fileExtension: fileExtension)
-        }
-        if DownloadableMediaFileExtension.isStaticImage(fileExtension) {
-            return .staticImage(url: url, fileExtension: fileExtension)
-        }
-        return nil
     }
 }
 
@@ -1533,47 +1557,6 @@ nonisolated private struct DownloadableCollectionTokenData: Sendable {
         }
         self.tokenIndicesById = tokenIndicesById
         self.aspectRatioProfile = aspectRatioProfileBuilder.profile
-    }
-}
-
-nonisolated private enum DownloadableMediaFileExtension {
-    private static let staticImageExtensions = Set(["png", "jpg", "jpeg", "webp", "heic", "heif", "tiff"])
-    private static let animatedImageExtensions = Set(["gif", "svg"])
-    private static let videoExtensions = Set(["mp4", "mov"])
-    private static let htmlExtensions = Set(["html", "htm", "xhtml"])
-
-    static func normalized(_ value: String?) -> String? {
-        guard let value else { return nil }
-        let normalized = value.trimmingCharacters(in: CharacterSet(charactersIn: ". \n\t\r")).lowercased()
-        return normalized.isEmpty ? nil : normalized
-    }
-
-    static func resolved(in urlString: String) -> String? {
-        guard let url = URL(string: urlString) else {
-            return nil
-        }
-        if !url.pathExtension.isEmpty {
-            return normalized(url.pathExtension)
-        }
-        let queryExtension = URLComponents(url: url, resolvingAgainstBaseURL: false)?
-            .queryItems?.first { $0.name == "ext" }?.value
-        return normalized(queryExtension)
-    }
-
-    static func isStaticImage(_ fileExtension: String) -> Bool {
-        staticImageExtensions.contains(fileExtension)
-    }
-
-    static func isAnimatedImage(_ fileExtension: String) -> Bool {
-        animatedImageExtensions.contains(fileExtension)
-    }
-
-    static func isVideo(_ fileExtension: String) -> Bool {
-        videoExtensions.contains(fileExtension)
-    }
-
-    static func isHTML(_ fileExtension: String) -> Bool {
-        htmlExtensions.contains(fileExtension)
     }
 }
 

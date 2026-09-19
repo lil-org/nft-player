@@ -5,8 +5,10 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import suggestedItems from "../tools/suggested_items.js";
+import tokenManifest from "../tools/token_manifest.js";
 
 const { assertValidInternalSlugs, INTERNAL_SLUG_PATTERN, MAX_INTERNAL_SLUG_LENGTH } = suggestedItems;
+const { decodeTokenManifest, serializeTokenManifest } = tokenManifest;
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = path.resolve(scriptDirectory, "..");
@@ -50,10 +52,9 @@ export async function generateWidgetResources(directory, { check = false } = {})
     }
     const source = await fs.readFile(tokenPath, "utf8");
     const payload = widgetTokenPayload(JSON.parse(source));
-    const indentation = /^\s*\{[^\S\n]*\n/u.test(source) ? 2 : undefined;
     expectedBundleFiles.set(
       path.join("Tokens", path.basename(tokenPath)),
-      Buffer.from(`${JSON.stringify(payload, null, indentation)}${source.endsWith("\n") ? "\n" : ""}`)
+      Buffer.from(serializeTokenManifest(payload))
     );
   }
   failIfAny("Missing token JSON files in Suggested.bundle/Tokens", missingTokens);
@@ -66,8 +67,8 @@ export async function generateWidgetResources(directory, { check = false } = {})
   await writeOutput(outputBundleDirectory, expectedBundleFiles);
 }
 
-function widgetTokenPayload(payload) {
-  const items = payload.items.map((item) => {
+export function widgetTokenPayload(payload) {
+  const items = decodeTokenManifest(payload).items.map((item) => {
     const id = item.id;
     return {
       id,

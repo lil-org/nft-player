@@ -5,6 +5,9 @@ import path from "node:path";
 import test from "node:test";
 import { tokenMetadata, updateTokenMetadata } from "./update-token-metadata.mjs";
 import suggestedItems from "../tools/suggested_items.js";
+import tokenManifest from "../tools/token_manifest.js";
+
+const { decodeTokenManifest } = tokenManifest;
 
 async function fixture(t, items, manifests) {
   const bundleDirectory = await fs.mkdtemp(path.join(os.tmpdir(), "nft-token-metadata-"));
@@ -74,8 +77,9 @@ test("updates deterministically while preserving tokenCount values and absence",
     zero: { items: [] },
   });
   const tokenPath = path.join(bundleDirectory, "Tokens", "counted.json");
-  const tokenBytes = await fs.readFile(tokenPath);
   assert.deepEqual(await updateTokenMetadata({ bundleDirectory }), { collections: 3, tokens: 3, updated: 3 });
+  const tokenBytes = await fs.readFile(tokenPath);
+  assert.deepEqual(JSON.parse(tokenBytes), { version: 2, count: 2, ids: ["5", "9"], aspectRatio: [null, [4, 3]] });
   const generated = await fs.readFile(itemsPath, "utf8");
   assert.deepEqual(JSON.parse(generated), [
     { ...items[0], bundledTokenCount: 2, hasUniformAspectRatio: true },
@@ -107,6 +111,7 @@ test("validates filtered media counts using path extensions before the first que
   const { bundleDirectory, itemsPath } = await fixture(t, [collection], { sample: payload });
   await updateTokenMetadata({ bundleDirectory });
   assert.equal(JSON.parse(await fs.readFile(itemsPath, "utf8"))[0].bundledTokenCount, 8);
+  assert.deepEqual(JSON.parse(await fs.readFile(path.join(bundleDirectory, "Tokens", "sample.json"), "utf8")).excludedMediaIndices, [4, 5, 6, 7]);
   await fs.writeFile(itemsPath, JSON.stringify([{ ...collection, tokenCount: 8 }]));
   await assert.rejects(updateTokenMetadata({ bundleDirectory }), /but 4 tokens/u);
 });
@@ -202,4 +207,54 @@ test("collection regeneration preserves generated metadata including zero and fa
   assert.deepEqual(suggestedItems.mergeGeneratedSuggestedItem({
     bundledTokenCount: 0, hasUniformAspectRatio: false,
   }, { name: "Sample" }), { bundledTokenCount: 0, hasUniformAspectRatio: false, name: "Sample" });
+});
+
+test("preserves mixed records, duplicate IDs, and source positions while computing exclusions", async (t) => {
+  const rows = [
+    { id: "same", urlSuffix: "0.txt" },
+    { id: "same", urlSuffix: "1.png" },
+    { id: "third", urlSuffix: "2.svg" },
+    { id: "last", urlSuffix: "3.bin" },
+  ];
+  const { bundleDirectory } = await fixture(t, [{
+    internal_slug: "sample", tokenCount: 2, urlPrefix: "https://example.com/",
+  }], { sample: { items: rows } });
+  await updateTokenMetadata({ bundleDirectory });
+  const payload = JSON.parse(await fs.readFile(path.join(bundleDirectory, "Tokens", "sample.json"), "utf8"));
+  assert.deepEqual(payload.excludedMediaIndices, [0, 3]);
+  const decoded = decodeTokenManifest(payload);
+  assert.deepEqual(decoded.items, rows);
+  assert.deepEqual(decoded.items.filter((_, index) => !decoded.excludedMediaIndices.includes(index)), rows.slice(1, 3));
+  await updateTokenMetadata({ bundleDirectory, check: true });
+});
+
+test("check recomputes eligibility after collection URL changes without writing", async (t) => {
+  const item = { internal_slug: "sample", tokenCount: 1, urlPrefix: "https://example.com/" };
+  const { bundleDirectory, itemsPath } = await fixture(t, [item], {
+    sample: { items: [{ id: "1", urlSuffix: "1.png" }, { id: "2", urlSuffix: "2" }] },
+  });
+  await updateTokenMetadata({ bundleDirectory });
+  const tokenPath = path.join(bundleDirectory, "Tokens", "sample.json");
+  const tokenBytes = await fs.readFile(tokenPath, "utf8");
+  const catalog = JSON.parse(await fs.readFile(itemsPath, "utf8"));
+  catalog[0].urlPrefix = "https://example.com/file.png?token=";
+  catalog[0].tokenCount = 2;
+  const catalogBytes = JSON.stringify(catalog);
+  await fs.writeFile(itemsPath, catalogBytes);
+  await assert.rejects(updateTokenMetadata({ bundleDirectory, check: true }), /out of date/u);
+  assert.equal(await fs.readFile(itemsPath, "utf8"), catalogBytes);
+  assert.equal(await fs.readFile(tokenPath, "utf8"), tokenBytes);
+  await updateTokenMetadata({ bundleDirectory });
+  assert.equal(JSON.parse(await fs.readFile(tokenPath, "utf8")).excludedMediaIndices, undefined);
+  await updateTokenMetadata({ bundleDirectory, check: true });
+});
+
+test("validates later inputs before rewriting earlier valid legacy manifests", async (t) => {
+  const { bundleDirectory, itemsPath } = await fixture(t, [
+    { internal_slug: "first" }, { internal_slug: "bad" },
+  ], { first: { items: [{ id: "1" }] }, bad: { version: 2, count: 2, ids: ["1"] } });
+  const tokenPath = path.join(bundleDirectory, "Tokens", "first.json");
+  const before = await Promise.all([fs.readFile(itemsPath, "utf8"), fs.readFile(tokenPath, "utf8")]);
+  await assert.rejects(updateTokenMetadata({ bundleDirectory }), /bad:/u);
+  assert.deepEqual(await Promise.all([fs.readFile(itemsPath, "utf8"), fs.readFile(tokenPath, "utf8")]), before);
 });

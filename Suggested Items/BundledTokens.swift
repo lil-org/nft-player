@@ -172,6 +172,56 @@ nonisolated struct BundledTokens: Codable, Sendable {
     }
 
     let items: [Item]
+    let excludedMediaIndices: [Int]
+
+    init(from decoder: Decoder) throws {
+        let manifest = try CompactTokenManifest(from: decoder)
+        let names = try manifest.decodeColumn(String.self, forKey: .name)
+        let hashes = try manifest.decodeColumn(String.self, forKey: .hash)
+        let aspectRatios = try manifest.decodeColumn(AspectRatio.self, forKey: .aspectRatio)
+        let parameters = try manifest.decodeColumn([String: String].self, forKey: .contractParameters)
+        var items: [Item] = []
+        items.reserveCapacity(manifest.count)
+        for index in 0..<manifest.count {
+            let id = manifest.id(at: index)
+            items.append(Item(
+                id: id,
+                name: names?[index],
+                hash: hashes?[index],
+                aspectRatio: aspectRatios?[index],
+                contractParameters: parameters?[index],
+                urlSuffix: manifest.urlSuffix(at: index, id: id)
+            ))
+        }
+        self.items = items
+        excludedMediaIndices = manifest.excludedMediaIndices
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CompactTokenManifest.CodingKeys.self)
+        try container.encode(2, forKey: .version)
+        try container.encode(items.count, forKey: .count)
+        try container.encode(items.map(\.id), forKey: .ids)
+        try encodeColumn(\.name, forKey: .name, into: &container)
+        try encodeColumn(\.hash, forKey: .hash, into: &container)
+        try encodeColumn(\.urlSuffix, forKey: .urlSuffix, into: &container)
+        try encodeColumn(\.aspectRatio, forKey: .aspectRatio, into: &container)
+        try encodeColumn(\.contractParameters, forKey: .contractParameters, into: &container)
+        if !excludedMediaIndices.isEmpty {
+            try container.encode(excludedMediaIndices, forKey: .excludedMediaIndices)
+        }
+    }
+
+    private func encodeColumn<T: Encodable>(
+        _ keyPath: KeyPath<Item, T?>,
+        forKey key: CompactTokenManifest.CodingKeys,
+        into container: inout KeyedEncodingContainer<CompactTokenManifest.CodingKeys>
+    ) throws {
+        let values = items.map { $0[keyPath: keyPath] }
+        if values.contains(where: { $0 != nil }) {
+            try container.encode(values, forKey: key)
+        }
+    }
 
     init(data: Data) throws {
         self = try JSONDecoder().decode(Self.self, from: data)

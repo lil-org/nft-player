@@ -123,7 +123,9 @@ extension ArtBlocksRenderingNetworkTests {
             value: source + "\nwindow.__scenarioStarted = true;",
             metadata: .init(kind: .js, renderingProfile: .artBlocks, requiresInitialCanvas: false)
         )
-        let tokenFixture: [String: Any] = ["items": [["id": "0", "hash": "0x" + String(repeating: "a", count: 64)]]]
+        let tokenFixture: [String: Any] = [
+            "version": 2, "count": 1, "firstId": "0", "hash": ["0x" + String(repeating: "a", count: 64)]
+        ]
         let tokens = try JSONDecoder().decode(BundledTokens.self, from: JSONSerialization.data(withJSONObject: tokenFixture))
         let webView = AutoReloadingWebView.newArtBlocksRenderer()
         webView.frame = CGRect(x: 0, y: 0, width: 390, height: 844)

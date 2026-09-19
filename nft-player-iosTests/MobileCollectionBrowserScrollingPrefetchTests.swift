@@ -1352,7 +1352,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
                     item: JSONDecoder().decode(SuggestedItem.self, from: collectionData)
                 ))
                 let data = Data("""
-                    {"items":[{"id":"unminted-1502","urlSuffix":"\(format.suffix)"}]}
+                    {"version":2,"count":1,"ids":["unminted-1502"],"urlSuffix":["\(format.suffix)"]}
                     """.utf8)
                 let payload = try DownloadableCollectionTokensPayload(data: data)
                 let token = try XCTUnwrap(payload.items.first)

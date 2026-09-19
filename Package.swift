@@ -44,6 +44,8 @@ let package = Package(
                 "Services/PonchoDrifellaAssetCache.swift"
             ],
             sources: [
+                "Models/CompactTokenManifest.swift",
+                "Models/BundledMediaResolver.swift",
                 "Models/CollectionBrowserConfiguration.swift",
                 "Models/MobilePlayerBrowserLayout.swift",
                 "Models/PlayerBrowserGridCrossfade.swift",

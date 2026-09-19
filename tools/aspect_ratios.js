@@ -1,6 +1,7 @@
 "use strict";
 
 const fs = require("node:fs/promises");
+const { decodeTokenManifest } = require("./token_manifest");
 
 const COLLECTION_BROWSER_DEFAULT_COLUMN_COUNT = 3;
 const COLLECTION_BROWSER_LANDSCAPE_COLUMN_COUNT = 2;
@@ -35,28 +36,15 @@ function ratioKey(ratio) {
 }
 
 function tokenIdsFromPayload(payload) {
-  if (!Array.isArray(payload?.items)) {
-    throw new TypeError("Token payload must contain an items array");
-  }
-
-  return payload.items.map((row, index) => {
-    if (row == null || typeof row !== "object" || Array.isArray(row)) {
-      throw new TypeError(`Token item ${index} must be an object`);
-    }
-    const value = row.id;
-    if (value == null || (typeof value === "string" && value.length === 0)) {
-      throw new TypeError(`Token item ${index} must contain an id`);
-    }
-    return String(value);
-  });
+  return decodeTokenManifest(payload).items.map((item) => item.id);
 }
 
 function decodeAspectRatioMetadata(payload, defaultAspectRatio) {
-  tokenIdsFromPayload(payload);
+  const { items } = decodeTokenManifest(payload);
   const defaultRatio = defaultAspectRatio == null
     ? null
     : normalizedRatio(defaultAspectRatio, "Collection aspectRatio");
-  const resolved = payload.items.map((item, index) => item.aspectRatio == null
+  const resolved = items.map((item, index) => item.aspectRatio == null
     ? defaultRatio
     : normalizedRatio(item.aspectRatio, `Token item ${index} aspectRatio`)
   );
@@ -118,7 +106,7 @@ function collectionBrowserColumnCountFromAspectRatios(values) {
 
 function withoutAspectRatioMetadata(payload) {
   return {
-    items: payload.items.map((item) => {
+    items: decodeTokenManifest(payload).items.map((item) => {
       const token = { ...item };
       delete token.aspectRatio;
       return token;

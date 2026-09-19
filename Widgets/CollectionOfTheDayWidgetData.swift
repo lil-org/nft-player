@@ -432,32 +432,16 @@ nonisolated private enum WidgetCollectionChain: Decodable, Hashable, Sendable {
     }
 }
 
-nonisolated private enum WidgetMediaFileExtension {
-    private static let staticImageExtensions = Set(["png", "jpg", "jpeg", "webp", "heic", "heif", "tiff"])
-
-    static func normalized(_ value: String?) -> String? {
-        guard let value else { return nil }
-        let normalized = value.trimmingCharacters(in: CharacterSet(charactersIn: ". \n\t\r")).lowercased()
-        return normalized.isEmpty ? nil : normalized
-    }
-
-    static func resolved(in urlString: String) -> String? {
-        guard let url = URL(string: urlString) else { return nil }
-        if !url.pathExtension.isEmpty {
-            return normalized(url.pathExtension)
-        }
-        let queryExtension = URLComponents(url: url, resolvingAgainstBaseURL: false)?
-            .queryItems?.first { $0.name == "ext" }?.value
-        return normalized(queryExtension)
-    }
-
-    static func isStaticImage(_ fileExtension: String) -> Bool {
-        staticImageExtensions.contains(fileExtension)
-    }
-}
-
 nonisolated private struct WidgetTokenPayload: Decodable, Sendable {
     let items: [WidgetTokenItem]
+
+    init(from decoder: Decoder) throws {
+        let manifest = try CompactTokenManifest(from: decoder)
+        items = (0..<manifest.count).map { index in
+            let id = manifest.id(at: index)
+            return WidgetTokenItem(id: id, urlSuffix: manifest.urlSuffix(at: index, id: id))
+        }
+    }
 }
 
 nonisolated private struct WidgetTokenItem: Decodable, Hashable, Sendable {
@@ -466,12 +450,11 @@ nonisolated private struct WidgetTokenItem: Decodable, Hashable, Sendable {
 
     func staticImageReference(collection: WidgetCollection) -> WidgetStaticImageReference? {
         guard let urlString = resolvedURLString(collection: collection),
-              let url = URL(string: urlString),
-              let fileExtension = WidgetMediaFileExtension.resolved(in: urlString),
-              WidgetMediaFileExtension.isStaticImage(fileExtension) else {
+              let resolved = BundledMediaResolver.resolve(urlString),
+              case .staticImage? = resolved.kind else {
             return nil
         }
-        return WidgetStaticImageReference(tokenId: id, url: url)
+        return WidgetStaticImageReference(tokenId: id, url: resolved.url)
     }
 
     private func resolvedURLString(collection: WidgetCollection) -> String? {

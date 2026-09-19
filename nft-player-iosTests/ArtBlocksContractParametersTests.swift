@@ -205,8 +205,8 @@ extension ArtBlocksContractParametersTests {
     func testFrozenParametersRoundTripWithoutLosingTokenOrAspectRatioMetadata() throws {
         let parameters = ["message": "Frozen \"雪\"\nline", "empty": "", "number": "0"]
         let data = try JSONSerialization.data(withJSONObject: [
-            "items": [["id": "7", "hash": "0xabc", "contractParameters": parameters,
-                       "aspectRatio": [3, 4]]]
+            "version": 2, "count": 1, "firstId": "7", "hash": ["0xabc"],
+            "contractParameters": [parameters], "aspectRatio": [[3, 4]]
         ])
         let tokens = try JSONDecoder().decode(BundledTokens.self, from: data)
         let first = try XCTUnwrap(tokens.items.first)
