@@ -1339,7 +1339,7 @@
       "266.png"
     ]
   ],
-  "thumbnailAspectRatios": [
+  "aspectRatios": [
     [
       1,
       1
@@ -1777,7 +1777,7 @@
       449
     ]
   ],
-  "thumbnailAspectRatioOverrides": [
+  "aspectRatioOverrides": [
     [
       1,
       22

@@ -224,7 +224,7 @@
       "44.png"
     ]
   ],
-  "thumbnailAspectRatios": [
+  "aspectRatios": [
     [
       20,
       27
@@ -234,7 +234,7 @@
       142
     ]
   ],
-  "thumbnailAspectRatioOverrides": [
+  "aspectRatioOverrides": [
     [
       25,
       1

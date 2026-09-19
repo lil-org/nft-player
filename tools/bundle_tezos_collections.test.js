@@ -6,7 +6,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 const test = require("node:test");
-const { decodeAspectRatioMetadata, tokenIdsFromPayload } = require("./thumbnail_aspect_ratios");
+const { decodeAspectRatioMetadata, tokenIdsFromPayload } = require("./aspect_ratios");
 
 const BUNDLER_PATH = path.resolve(__dirname, "bundle_tezos_collections.js");
 const CONTRACT = "KT1LiZ9cFA9fRQdKkbJtfz1djC7AkrTkTcDE";
@@ -30,8 +30,8 @@ function createFixture(t) {
     items: [["2", 0, "2.png"], ["1", 0, "1.png"]],
     urlPrefixes: ["https://old.example/"],
     tmp_files: { "1": "original.png" },
-    thumbnailAspectRatios: [[16, 9], [4, 3]],
-    thumbnailAspectRatioOverrides: [[1, 1]],
+    aspectRatios: [[16, 9], [4, 3]],
+    aspectRatioOverrides: [[1, 1]],
   }));
   return { root, tokensPath, itemsPath, tokenPath };
 }

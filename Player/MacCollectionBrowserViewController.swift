@@ -486,7 +486,7 @@ final class MacCollectionBrowserViewController: NSViewController,
         let columnCount = CollectionCatalog.desktopCollectionBrowseColumnCount(
             specificCollectionId: snapshot.collectionId
         )
-        if let profile = CollectionCatalog.collectionBrowseThumbnailAspectRatioProfile(
+        if let profile = CollectionCatalog.collectionBrowseAspectRatioProfile(
             specificCollectionId: snapshot.collectionId
         ), profile.isCompatible(withItemCount: snapshot.itemCount) {
             switch profile {

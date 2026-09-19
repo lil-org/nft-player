@@ -204,7 +204,7 @@
       "41.jpg"
     ]
   ],
-  "thumbnailAspectRatios": [
+  "aspectRatios": [
     [
       650,
       433
@@ -214,7 +214,7 @@
       631
     ]
   ],
-  "thumbnailAspectRatioOverrides": [
+  "aspectRatioOverrides": [
     [
       19,
       1

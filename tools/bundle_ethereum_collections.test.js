@@ -10,7 +10,7 @@ const test = require("node:test");
 const {
   decodeAspectRatioMetadata,
   tokenIdsFromPayload,
-} = require("./thumbnail_aspect_ratios");
+} = require("./aspect_ratios");
 
 const BUNDLER_PATH = path.resolve(__dirname, "bundle_ethereum_collections.js");
 const LOWERCASE_ID = "0xec0a7a26456b8451aefc4b00393ce1beff5eb3e9";
@@ -51,8 +51,8 @@ function createFixture(t, {
     defaultFileExtension: "png",
     urlPrefixes: ["https://old.example/"],
     items: [["2", 0, "2.png"], ["1", 0, "1.png"]],
-    thumbnailAspectRatios: [[16, 9], [4, 3]],
-    thumbnailAspectRatioOverrides: [[1, 1]],
+    aspectRatios: [[16, 9], [4, 3]],
+    aspectRatioOverrides: [[1, 1]],
   })}\n`;
   fs.writeFileSync(itemsPath, itemsText);
   if (includeTokenManifest) {

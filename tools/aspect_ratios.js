@@ -2,8 +2,8 @@
 
 const fs = require("node:fs/promises");
 
-const ASPECT_RATIOS_KEY = "thumbnailAspectRatios";
-const ASPECT_RATIO_OVERRIDES_KEY = "thumbnailAspectRatioOverrides";
+const ASPECT_RATIOS_KEY = "aspectRatios";
+const ASPECT_RATIO_OVERRIDES_KEY = "aspectRatioOverrides";
 const COLLECTION_BROWSER_DEFAULT_COLUMN_COUNT = 3;
 const COLLECTION_BROWSER_LANDSCAPE_COLUMN_COUNT = 2;
 
@@ -16,7 +16,7 @@ function greatestCommonDivisor(left, right) {
   return a;
 }
 
-function normalizedRatio(value, context = "Thumbnail aspect ratio") {
+function normalizedRatio(value, context = "Aspect ratio") {
   if (
     !Array.isArray(value)
     || value.length !== 2
@@ -110,11 +110,11 @@ function decodeAspectRatioMetadata(payload) {
 
 function encodeAspectRatioMetadata(values) {
   if (!Array.isArray(values) || values.length === 0) {
-    throw new TypeError("Thumbnail aspect ratios must be a non-empty array");
+    throw new TypeError("Aspect ratios must be a non-empty array");
   }
 
   const normalized = values.map((ratio, index) =>
-    normalizedRatio(ratio, `Thumbnail aspect ratio ${index}`)
+    normalizedRatio(ratio, `Aspect ratio ${index}`)
   );
   const statsByRatio = new Map();
   normalized.forEach((ratio, index) => {
@@ -153,7 +153,7 @@ function encodeAspectRatioMetadata(values) {
 
 function collectionBrowserColumnCountFromAspectRatios(values) {
   if (!Array.isArray(values) || values.length === 0) {
-    throw new TypeError("Thumbnail aspect ratios must be a non-empty array");
+    throw new TypeError("Aspect ratios must be a non-empty array");
   }
 
   let landscapeCount = 0;
@@ -161,7 +161,7 @@ function collectionBrowserColumnCountFromAspectRatios(values) {
   values.forEach((value, index) => {
     const [width, height] = normalizedRatio(
       value,
-      `Thumbnail aspect ratio ${index}`
+      `Aspect ratio ${index}`
     );
     if (width > height) {
       landscapeCount += 1;
@@ -269,24 +269,24 @@ function summarizedIds(ids) {
 function reportAspectRatioMetadataChanges(collectionId, report, logger = console) {
   if (!report.sourceExists) {
     logger.warn(
-      `No existing token payload was available to preserve thumbnail aspect ratios while bundling ${collectionId}.`
+      `No existing token payload was available to preserve aspect ratios while bundling ${collectionId}.`
     );
     return;
   }
   if (!report.metadataExists) {
     logger.warn(
-      `No existing thumbnail aspect-ratio metadata was available while rebundling ${collectionId}.`
+      `No existing aspect-ratio metadata was available while rebundling ${collectionId}.`
     );
     return;
   }
   if (report.missingIds.length > 0) {
     logger.warn(
-      `Omitted thumbnail aspect-ratio metadata while rebundling ${collectionId} because ${report.missingIds.length} token id(s) have no existing ratio: ${summarizedIds(report.missingIds)}`
+      `Omitted aspect-ratio metadata while rebundling ${collectionId} because ${report.missingIds.length} token id(s) have no existing ratio: ${summarizedIds(report.missingIds)}`
     );
   }
   if (report.staleIds.length > 0) {
     logger.warn(
-      `Dropped thumbnail aspect ratios for ${report.staleIds.length} stale token id(s) while rebundling ${collectionId}: ${summarizedIds(report.staleIds)}`
+      `Dropped aspect ratios for ${report.staleIds.length} stale token id(s) while rebundling ${collectionId}: ${summarizedIds(report.staleIds)}`
     );
   }
 }

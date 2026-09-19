@@ -51,7 +51,7 @@ Rows include a fourth extension field only when a token differs from `defaultFil
 
 If an existing token JSON contains a top-level `tmp_files` map, `--apply` preserves entries whose token ID is still present in `items`. It drops and reports stale token IDs, ignores invalid file names, and omits the map when no valid entries remain. This preservation reads only the existing token JSON; rebundling does not require `Originals Downloaded` to exist.
 
-The bundler also preserves compact `thumbnailAspectRatios` metadata by token ID, so reordering or removing tokens cannot attach a ratio to the wrong asset. If a newly discovered token has no existing ratio, the bundler omits the incomplete metadata and reports the missing ID; regenerate the ratios before shipping.
+The bundler also preserves compact `aspectRatios` metadata by token ID, so reordering or removing tokens cannot attach a ratio to the wrong asset. If a newly discovered token has no existing ratio, the bundler omits the incomplete metadata and reports the missing ID; regenerate the ratios before shipping.
 
 ## Media Policy
 

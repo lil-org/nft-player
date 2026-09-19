@@ -4097,7 +4097,7 @@
       "hash": "0x759fea9bb1bc8a3bbf3047dfa500b7134018501828b42a077fe57e2894912afd"
     }
   ],
-  "thumbnailAspectRatios": [
+  "aspectRatios": [
     [
       3,
       4
@@ -4107,7 +4107,7 @@
       1
     ]
   ],
-  "thumbnailAspectRatioOverrides": [
+  "aspectRatioOverrides": [
     [
       624,
       1

@@ -112,15 +112,15 @@ extension ArtBlocksRenderingResizeTests {
         player.willMove(toParent: nil)
         player.view.removeFromSuperview()
         player.removeFromParent()
-        let fittedPlayer = makePlayer(session: session, presentationMode: .thumbnailAspectFit)
+        let fittedPlayer = makePlayer(session: session, presentationMode: .aspectFit)
         host.addChild(fittedPlayer)
         host.view.addSubview(fittedPlayer.view)
         fittedPlayer.view.frame = CGRect(x: 0, y: 0, width: 844, height: 390)
         fittedPlayer.didMove(toParent: host)
         fittedPlayer.view.layoutIfNeeded()
         defer { fittedPlayer.deactivatePagerForCollectionBrowser() }
-        XCTAssertNil(CollectionCatalog.collectionBrowseThumbnailDescriptor(specificCollectionId: item.id, tokenIndex: 0))
-        let ratio = try XCTUnwrap(tokens.items[0].artworkAspectRatio ?? tokens.items[0].thumbnailAspectRatio)
+        let ratio = try XCTUnwrap(tokens.items[0].aspectRatio)
+        XCTAssertEqual(CollectionCatalog.collectionBrowseThumbnailDescriptor(specificCollectionId: item.id, tokenIndex: 0)?.aspectRatio, ratio)
         XCTAssertEqual(ratio.width, ratio.height)
         try await waitForPreview {
             guard let fittedWebView = self.webViews(in: fittedPlayer.view).first else { return false }
@@ -134,13 +134,105 @@ extension ArtBlocksRenderingResizeTests {
         XCTAssertEqual(fittedDimensions[1] * Double(fittedWebView.pageZoom), 390, accuracy: 1)
     }
 
-    private func makePlayer(session: MobilePlaybackSession, presentationMode: MobileBundledGenerativePresentationMode) -> HorizontalPlayerContainer {
+    func testFittedPlaybackFollowsPerTokenRatiosAcrossNavigationAndResize() async throws {
+        let item = try XCTUnwrap(SuggestedItemsService.allItems.first { $0.internalSlug == "neighborhood" })
+        let tokens = try XCTUnwrap(SuggestedItemsService.bundledTokens(collectionId: item.id)).items
+        let registry = MobilePlaybackSessionRegistry(dependencies: .init(
+            makeViewingSessionTracker: { _ in PreviewResizeViewingTracker() },
+            clearActiveMediaWindow: { _ in },
+            cancelAllMediaDownloads: {},
+            installDownloadableMediaWindow: { _, _ in XCTFail("Generative playback requested downloadable media") }
+        ))
+        let session = registry.startSession(config: MobilePlayerConfig(initialItemId: item.id, initialTokenIndex: 2))
+        var settledPosition: PlayerPagePosition?
+        let player = makePlayer(session: session, presentationMode: .aspectFit) { position, _ in
+            settledPosition = position
+            return true
+        }
+        let host = UIViewController()
+        host.addChild(player)
+        host.view.addSubview(player.view)
+        player.view.frame = CGRect(x: 0, y: 0, width: 390, height: 844)
+        player.didMove(toParent: host)
+        let navigation = PlayerNavigationController(rootViewController: host)
+        navigation.setNavigationBarHidden(true, animated: false)
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            .first { $0.activationState == .foregroundActive })
+        let window = UIWindow(windowScene: scene)
+        window.rootViewController = navigation
+        window.isHidden = false
+        window.layoutIfNeeded()
+        player.view.layoutIfNeeded()
+        defer {
+            player.deactivatePagerForCollectionBrowser()
+            session.stopAndDisconnect()
+            window.isHidden = true
+            window.rootViewController = nil
+        }
+
+        let initialPosition = player.pagerCurrentPagePosition().position
+        for index in 2...7 {
+            if index > 2 {
+                player.navigatePager(.forward)
+            }
+            var observedTokens: [String] = []
+            try await waitForPreview(message: "Token \(index), page \(player.pagerCurrentPagePosition().position): \(observedTokens)") {
+                observedTokens = []
+                guard player.pagerCurrentPagePosition().position == initialPosition + index - 2,
+                      settledPosition?.position == initialPosition + index - 2 else { return false }
+                for webView in self.webViews(in: player.view) {
+                    let tokenId = try? await webView.evaluateJavaScript("document.readyState === 'complete' && tokenData.tokenId")
+                    observedTokens.append(String(describing: tokenId))
+                    if tokenId as? String == tokens[index].id {
+                        return true
+                    }
+                }
+                return false
+            }
+            let ratio = try XCTUnwrap(tokens[index].aspectRatio)
+            try await assertFittedWebView(player: player, tokenId: tokens[index].id, ratio: ratio)
+            if index == 3 || index == 7 {
+                player.view.frame.size = index == 3 ? CGSize(width: 844, height: 390) : CGSize(width: 390, height: 844)
+                player.view.layoutIfNeeded()
+                try await assertFittedWebView(player: player, tokenId: tokens[index].id, ratio: ratio)
+            }
+        }
+    }
+
+    private func assertFittedWebView(player: HorizontalPlayerContainer, tokenId: String, ratio: AspectRatio) async throws {
+        let viewport = player.view.bounds.size
+        let scale = min(viewport.width / ratio.size.width, viewport.height / ratio.size.height)
+        let expected = CGSize(width: ratio.size.width * scale, height: ratio.size.height * scale)
+        var observedSizes: [String] = []
+        try await waitForPreview(message: "Token \(tokenId), expected \(expected), observed \(observedSizes)") {
+            observedSizes = []
+            for webView in self.webViews(in: player.view) {
+                observedSizes.append("\(webView.bounds.size), zoom \(webView.pageZoom)")
+                guard (try? await webView.evaluateJavaScript("document.readyState === 'complete' && tokenData.tokenId")) as? String == tokenId,
+                      abs(webView.bounds.width - expected.width) < 1,
+                      abs(webView.bounds.height - expected.height) < 1,
+                      let dimensions = try? await webView.evaluateJavaScript("[innerWidth, innerHeight]") as? [Double],
+                      dimensions.count == 2 else { continue }
+                if abs(dimensions[0] * Double(webView.pageZoom) - Double(expected.width)) <= 1,
+                   abs(dimensions[1] * Double(webView.pageZoom) - Double(expected.height)) <= 1 {
+                    return true
+                }
+            }
+            return false
+        }
+    }
+
+    private func makePlayer(
+        session: MobilePlaybackSession,
+        presentationMode: MobileBundledGenerativePresentationMode,
+        onSettledPagePositionUpdate: @escaping (PlayerPagePosition, Bool) -> Bool = { _, _ in true }
+    ) -> HorizontalPlayerContainer {
         HorizontalPlayerContainer(
             playbackSession: session,
             chrome: MobilePlayerChromeController(allowsNavigationBackSwipe: false),
             bundledGenerativePresentationMode: presentationMode,
             onFocusedPagePositionUpdate: { _ in },
-            onSettledPagePositionUpdate: { _, _ in true },
+            onSettledPagePositionUpdate: onSettledPagePositionUpdate,
             onPaginationAttempt: {},
             onUnavailableNavigation: {},
             onToggleChrome: {},
@@ -152,13 +244,18 @@ extension ArtBlocksRenderingResizeTests {
         (view as? AutoReloadingWebView).map { [$0] } ?? view.subviews.flatMap { webViews(in: $0) }
     }
 
-    private func waitForPreview(_ condition: @MainActor () async -> Bool) async throws {
+    private func waitForPreview(
+        message: @autoclosure () -> String = "Timed out waiting for the actual preview player",
+        file: StaticString = #filePath,
+        line: UInt = #line,
+        _ condition: @MainActor () async -> Bool
+    ) async throws {
         let deadline = Date().addingTimeInterval(15)
         while Date() < deadline {
             if await condition() { return }
             try await Task.sleep(for: .milliseconds(50))
         }
-        XCTFail("Timed out waiting for the actual preview player")
+        XCTFail(message(), file: file, line: line)
         throw NSError(domain: "ArtBlocksRenderingResizeTests", code: 1)
     }
 }

@@ -3,7 +3,7 @@
   "urlPrefixes": [
     "https://cdn.lil.org/player/planet_peppa/"
   ],
-  "thumbnailAspectRatios": [
+  "aspectRatios": [
     [
       1,
       1

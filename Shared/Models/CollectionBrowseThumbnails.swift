@@ -244,7 +244,7 @@ nonisolated extension CollectionCatalog {
             tokenIndex: primaryDescriptor.tokenIndex,
             media: .staticImage(url: thumbnailURL, fileExtension: "webp"),
             purpose: .collectionBrowserThumbnail,
-            thumbnailAspectRatio: primaryDescriptor.thumbnailAspectRatio
+            aspectRatio: primaryDescriptor.aspectRatio
         )
     }
 
@@ -264,7 +264,7 @@ nonisolated extension CollectionCatalog {
             tokenIndex: thumbnailDescriptor.tokenIndex,
             media: .staticImage(url: midURL, fileExtension: "webp"),
             purpose: .collectionBrowserMid,
-            thumbnailAspectRatio: thumbnailDescriptor.thumbnailAspectRatio
+            aspectRatio: thumbnailDescriptor.aspectRatio
         )
     }
 
@@ -316,7 +316,7 @@ nonisolated extension CollectionCatalog {
             tokenIndex: thumbnailDescriptor.tokenIndex,
             media: .staticImage(url: sizedThumbnailURL, fileExtension: "webp"),
             purpose: .collectionBrowserThumbnail,
-            thumbnailAspectRatio: thumbnailDescriptor.thumbnailAspectRatio
+            aspectRatio: thumbnailDescriptor.aspectRatio
         )
     }
 
@@ -391,7 +391,7 @@ nonisolated extension CollectionCatalog {
             tokenIndex: tokenIndex,
             media: .staticImage(url: thumbnailURL, fileExtension: "webp"),
             purpose: .collectionBrowserThumbnail,
-            thumbnailAspectRatio: token.thumbnailAspectRatio
+            aspectRatio: token.aspectRatio
         )
     }
 }

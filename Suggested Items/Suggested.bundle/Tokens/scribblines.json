@@ -1025,13 +1025,7 @@
       "hash": "0x3f6de46d6fa8439903bb7c0300b14fa4d10866ded56b68b60c6a07c15e3f0bcf"
     }
   ],
-  "artworkAspectRatios": [
-    [
-      13,
-      10
-    ]
-  ],
-  "thumbnailAspectRatios": [
+  "aspectRatios": [
     [
       100,
       77
@@ -1041,7 +1035,7 @@
       1847
     ]
   ],
-  "thumbnailAspectRatioOverrides": [
+  "aspectRatioOverrides": [
     [
       5,
       1

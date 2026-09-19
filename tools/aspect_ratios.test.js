@@ -15,7 +15,7 @@ const {
   preserveAspectRatioMetadataFromFile,
   reportAspectRatioMetadataChanges,
   tokenIdsFromPayload,
-} = require("./thumbnail_aspect_ratios");
+} = require("./aspect_ratios");
 
 test("extracts token IDs from compact and object payloads", () => {
   assert.deepEqual(

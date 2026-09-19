@@ -2269,7 +2269,7 @@
       "id": "181000566"
     }
   ],
-  "thumbnailAspectRatios": [
+  "aspectRatios": [
     [
       1,
       1
@@ -2283,7 +2283,7 @@
       34
     ]
   ],
-  "thumbnailAspectRatioOverrides": [
+  "aspectRatioOverrides": [
     [
       1,
       2

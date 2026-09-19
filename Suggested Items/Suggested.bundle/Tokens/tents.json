@@ -5584,7 +5584,7 @@
       "1116.jpg"
     ]
   ],
-  "thumbnailAspectRatios": [
+  "aspectRatios": [
     [
       650,
       409
@@ -5890,7 +5890,7 @@
       389
     ]
   ],
-  "thumbnailAspectRatioOverrides": [
+  "aspectRatioOverrides": [
     [
       0,
       1

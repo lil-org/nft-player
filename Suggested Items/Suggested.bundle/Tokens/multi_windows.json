@@ -1004,7 +1004,7 @@
       "212.gif"
     ]
   ],
-  "thumbnailAspectRatios": [
+  "aspectRatios": [
     [
       325,
       253
@@ -1074,7 +1074,7 @@
       243
     ]
   ],
-  "thumbnailAspectRatioOverrides": [
+  "aspectRatioOverrides": [
     [
       0,
       2

@@ -331,7 +331,7 @@ final class MobilePlayerCollectionBrowserCell: UICollectionViewCell {
         imageView.alpha = 1
         imageView.image = nil
         imageView.usesNativeMetalCardCornerMask = false
-        placeholderView.configure(with: PlayerMediaPlaceholderSpec(thumbnailAspectRatio: nil))
+        placeholderView.configure(with: PlayerMediaPlaceholderSpec(aspectRatio: nil))
         placeholderView.setHidden(false, animated: false)
     }
 

@@ -704,7 +704,7 @@ extension ArtBlocksRenderingTests {
     }
 
     private func size(for token: BundledTokens.Item) throws -> CGSize {
-        let ratio = try XCTUnwrap(token.artworkAspectRatio ?? token.thumbnailAspectRatio)
+        let ratio = try XCTUnwrap(token.aspectRatio)
         return CGSize(width: 300, height: 300 / ratio.value)
     }
 

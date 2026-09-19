@@ -7704,7 +7704,7 @@
       "1601.gif"
     ]
   ],
-  "thumbnailAspectRatios": [
+  "aspectRatios": [
     [
       1,
       1
@@ -8274,7 +8274,7 @@
       533
     ]
   ],
-  "thumbnailAspectRatioOverrides": [
+  "aspectRatioOverrides": [
     [
       0,
       20

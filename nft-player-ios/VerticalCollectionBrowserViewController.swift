@@ -1581,7 +1581,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         }
 
         let aspectRatioProfile = MobileCollectionBrowseMediaResolver
-            .collectionBrowseThumbnailAspectRatioProfile(snapshot: snapshot)
+            .collectionBrowseAspectRatioProfile(snapshot: snapshot)
         let aspectState = makeLayoutAspectState(
             snapshot: snapshot,
             columnCount: columnCount,
@@ -1595,7 +1595,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
         snapshot: PlayerCollectionBrowseSnapshot,
         columnCount: Int,
         focusedTokenIndex: Int?,
-        aspectRatioProfile: ThumbnailAspectRatioProfile?
+        aspectRatioProfile: AspectRatioProfile?
     ) -> MobilePlayerCollectionBrowserLayoutAspectState {
         let defaultSize = CGSize(width: 1, height: 1)
         let sampleState = makeLayoutAspectSamples(
@@ -1707,7 +1707,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
     private func makeLayoutAspectProfile(
         snapshot: PlayerCollectionBrowseSnapshot,
         columnCount: Int,
-        aspectRatioProfile: ThumbnailAspectRatioProfile
+        aspectRatioProfile: AspectRatioProfile
     ) -> MobilePlayerBrowserAspectProfile {
         switch aspectRatioProfile {
         case let .uniform(aspectRatio):
@@ -2563,7 +2563,7 @@ final class VerticalCollectionBrowserViewController: UIViewController,
             columnCount: gridMode.columnCount,
             focusedTokenIndex: layoutAspectSampleTokenIndex,
             aspectRatioProfile: MobileCollectionBrowseMediaResolver
-                .collectionBrowseThumbnailAspectRatioProfile(
+                .collectionBrowseAspectRatioProfile(
                     snapshot: browseSnapshot
                 )
         )

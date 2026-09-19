@@ -157,7 +157,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
             imageSources: nil,
             requiredImageQuality: .thumbnail,
             missingDescriptorFallbackSpec: PlayerMediaPlaceholderSpec(
-                thumbnailAspectRatio: nil
+                aspectRatio: nil
             ),
             imageLoadPolicy: .disabled
         )
@@ -1107,7 +1107,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
                 imageSources: nil,
                 requiredImageQuality: .thumbnail,
                 missingDescriptorFallbackSpec: PlayerMediaPlaceholderSpec(
-                    thumbnailAspectRatio: nil
+                    aspectRatio: nil
                 ),
                 imageLoadPolicy: .disabled
             )

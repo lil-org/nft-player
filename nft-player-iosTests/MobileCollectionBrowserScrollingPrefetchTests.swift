@@ -413,7 +413,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
             CollectionCatalog.collectionBrowseThumbnailDescriptor(
                 specificCollectionId: collectionId,
                 tokenIndex: 0
-            )?.thumbnailAspectRatio?.size
+            )?.aspectRatio?.size
         )
         let viewport = CGRect(x: 0, y: 0, width: 390, height: 844)
         let layout = try XCTUnwrap(MobilePlayerBrowserLayout(
@@ -701,10 +701,10 @@ extension MobileCollectionBrowserGridModePresentationTests {
                     fileExtension: "webp"
                 ),
                 purpose: .collectionBrowserThumbnail,
-                thumbnailAspectRatio: snapshot.collectionId
+                aspectRatio: snapshot.collectionId
                     == replacementCollectionID
-                    ? ThumbnailAspectRatio(width: 2, height: 1)
-                    : ThumbnailAspectRatio(width: 1, height: 1)
+                    ? AspectRatio(width: 2, height: 1)
+                    : AspectRatio(width: 1, height: 1)
             )
             return CollectionBrowseImageSources(
                 smallestThumbnailDescriptor: descriptor,
@@ -1348,7 +1348,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
                         \(entry.field)
                         "defaultFileExtension": "webp",
                         "urlPrefixes": ["https://example.com/"],
-                        "thumbnailAspectRatios": [[1, 1]],
+                        "aspectRatios": [[1, 1]],
                         "items": \(items)
                     }
                     """.utf8)
@@ -1364,8 +1364,8 @@ extension MobileCollectionBrowserGridModePresentationTests {
                 XCTAssertEqual(token.id, "unminted-1502")
                 XCTAssertEqual(token.url, "https://example.com/1502.webp")
                 XCTAssertEqual(
-                    token.thumbnailAspectRatio,
-                    ThumbnailAspectRatio(width: 1, height: 1)
+                    token.aspectRatio,
+                    AspectRatio(width: 1, height: 1)
                 )
             }
         }
@@ -1423,8 +1423,8 @@ extension MobileCollectionBrowserGridModePresentationTests {
             XCTAssertEqual(sources.largeDescriptor.tokenId, row.tokenId)
             XCTAssertEqual(sources.largeDescriptor.tokenIndex, row.index)
             XCTAssertEqual(
-                sources.largeDescriptor.thumbnailAspectRatio,
-                ThumbnailAspectRatio(width: 1, height: 1)
+                sources.largeDescriptor.aspectRatio,
+                AspectRatio(width: 1, height: 1)
             )
             XCTAssertEqual(
                 sources.largeDescriptor.url,

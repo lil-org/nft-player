@@ -496,7 +496,7 @@ extension MobilePlayerCollectionBrowserTransitionPresentationTests {
             imageSources: imageSources,
             requiredImageQuality: .thumbnail,
             missingDescriptorFallbackSpec: PlayerMediaPlaceholderSpec(
-                thumbnailAspectRatio: nil
+                aspectRatio: nil
             ),
             imageLoadPolicy: .disabled
         )
@@ -517,7 +517,7 @@ extension MobilePlayerCollectionBrowserTransitionPresentationTests {
             imageSources: imageSources,
             requiredImageQuality: .thumbnail,
             missingDescriptorFallbackSpec: PlayerMediaPlaceholderSpec(
-                thumbnailAspectRatio: nil
+                aspectRatio: nil
             ),
             imageLoadPolicy: .disabled
         )
@@ -549,7 +549,7 @@ extension MobilePlayerCollectionBrowserTransitionPresentationTests {
                 imageSources: imageSources,
                 requiredImageQuality: .thumbnail,
                 missingDescriptorFallbackSpec: PlayerMediaPlaceholderSpec(
-                    thumbnailAspectRatio: nil
+                    aspectRatio: nil
                 ),
                 imageLoadPolicy: .disabled
             )
@@ -806,7 +806,7 @@ extension MobilePlayerCollectionBrowserTransitionPresentationTests {
             imageSources: sources,
             requiredImageQuality: .thumbnail,
             missingDescriptorFallbackSpec: PlayerMediaPlaceholderSpec(
-                thumbnailAspectRatio: nil
+                aspectRatio: nil
             ),
             imageLoadPolicy: .disabled
         )
@@ -833,7 +833,7 @@ extension MobilePlayerCollectionBrowserTransitionPresentationTests {
             imageSources: sources,
             requiredImageQuality: .thumbnail,
             missingDescriptorFallbackSpec: PlayerMediaPlaceholderSpec(
-                thumbnailAspectRatio: nil
+                aspectRatio: nil
             ),
             imageLoadPolicy: .disabled
         )
@@ -865,7 +865,7 @@ extension MobilePlayerCollectionBrowserTransitionPresentationTests {
             imageSources: sources,
             requiredImageQuality: .large,
             missingDescriptorFallbackSpec: PlayerMediaPlaceholderSpec(
-                thumbnailAspectRatio: nil
+                aspectRatio: nil
             ),
             imageLoadPolicy: .disabled
         )
@@ -919,7 +919,7 @@ extension MobilePlayerCollectionBrowserTransitionPresentationTests {
             imageSources: sources,
             requiredImageQuality: .large,
             missingDescriptorFallbackSpec: PlayerMediaPlaceholderSpec(
-                thumbnailAspectRatio: nil
+                aspectRatio: nil
             ),
             imageLoadPolicy: .disabled
         )
@@ -993,7 +993,7 @@ extension MobilePlayerCollectionBrowserTransitionPresentationTests {
             imageSources: sources,
             requiredImageQuality: .large,
             missingDescriptorFallbackSpec: PlayerMediaPlaceholderSpec(
-                thumbnailAspectRatio: nil
+                aspectRatio: nil
             ),
             imageLoadPolicy: .disabled
         )
@@ -1074,7 +1074,7 @@ extension MobilePlayerCollectionBrowserTransitionPresentationTests {
                 imageSources: sources,
                 requiredImageQuality: .large,
                 missingDescriptorFallbackSpec: PlayerMediaPlaceholderSpec(
-                    thumbnailAspectRatio: nil
+                    aspectRatio: nil
                 ),
                 imageLoadPolicy: .disabled
             )
@@ -1134,7 +1134,7 @@ extension MobilePlayerCollectionBrowserTransitionPresentationTests {
             imageSources: sources,
             requiredImageQuality: .large,
             missingDescriptorFallbackSpec: PlayerMediaPlaceholderSpec(
-                thumbnailAspectRatio: nil
+                aspectRatio: nil
             ),
             imageLoadPolicy: .disabled
         )
@@ -1191,7 +1191,7 @@ extension MobilePlayerCollectionBrowserTransitionPresentationTests {
             imageSources: sources,
             requiredImageQuality: .thumbnail,
             missingDescriptorFallbackSpec: PlayerMediaPlaceholderSpec(
-                thumbnailAspectRatio: nil
+                aspectRatio: nil
             ),
             imageLoadPolicy: .disabled
         )
@@ -1233,7 +1233,7 @@ extension MobilePlayerCollectionBrowserTransitionPresentationTests {
             imageSources: makeImageSources(),
             requiredImageQuality: .thumbnail,
             missingDescriptorFallbackSpec: PlayerMediaPlaceholderSpec(
-                thumbnailAspectRatio: nil
+                aspectRatio: nil
             ),
             imageLoadPolicy: .disabled
         )
@@ -1274,7 +1274,7 @@ extension MobilePlayerCollectionBrowserTransitionPresentationTests {
             imageSources: makeImageSources(),
             requiredImageQuality: .thumbnail,
             missingDescriptorFallbackSpec: PlayerMediaPlaceholderSpec(
-                thumbnailAspectRatio: nil
+                aspectRatio: nil
             ),
             imageLoadPolicy: .disabled
         )

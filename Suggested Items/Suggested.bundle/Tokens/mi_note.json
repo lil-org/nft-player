@@ -1498,7 +1498,7 @@
       }
     ]
   ],
-  "thumbnailAspectRatios": [
+  "aspectRatios": [
     [
       84,
       127
@@ -1668,7 +1668,7 @@
       43
     ]
   ],
-  "thumbnailAspectRatioOverrides": [
+  "aspectRatioOverrides": [
     [
       0,
       24

@@ -20,7 +20,7 @@ const {
 const {
   preserveAspectRatioMetadataFromFile,
   reportAspectRatioMetadataChanges,
-} = require("./thumbnail_aspect_ratios");
+} = require("./aspect_ratios");
 const { preserveTmpFilesFromFile, reportTmpFilesChanges } = require("./tmp_files");
 const { preserveMidAvailabilityFromFile } = require("./token_manifest_metadata");
 

@@ -460,7 +460,7 @@ extension MobilePlayerCollectionBrowserCachedImagePolicyTests {
             imageSources: sources,
             requiredImageQuality: .thumbnail,
             missingDescriptorFallbackSpec:
-                PlayerMediaPlaceholderSpec(thumbnailAspectRatio: nil),
+                PlayerMediaPlaceholderSpec(aspectRatio: nil),
             imageLoadPolicy: .foreground,
             allowsLocalLargeImageUpgrade: false,
             imageDecodeVariant: .downsampled(maxPixelWidth: 140)
@@ -473,7 +473,7 @@ extension MobilePlayerCollectionBrowserCachedImagePolicyTests {
             imageSources: sources,
             requiredImageQuality: .thumbnail,
             missingDescriptorFallbackSpec:
-                PlayerMediaPlaceholderSpec(thumbnailAspectRatio: nil),
+                PlayerMediaPlaceholderSpec(aspectRatio: nil),
             imageLoadPolicy: .foreground,
             allowsLocalLargeImageUpgrade: false,
             imageDecodeVariant: .full
@@ -504,7 +504,7 @@ extension MobilePlayerCollectionBrowserCachedImagePolicyTests {
             width: 120,
             height: 80
         ))
-        let placeholder = PlayerMediaPlaceholderSpec(thumbnailAspectRatio: nil)
+        let placeholder = PlayerMediaPlaceholderSpec(aspectRatio: nil)
         let imageView = try XCTUnwrap(
             cell.contentView.subviews.first {
                 $0 is NativeMetalCardCornerMaskedImageView
@@ -566,7 +566,7 @@ extension MobilePlayerCollectionBrowserCachedImagePolicyTests {
             width: 120,
             height: 80
         ))
-        let placeholder = PlayerMediaPlaceholderSpec(thumbnailAspectRatio: nil)
+        let placeholder = PlayerMediaPlaceholderSpec(aspectRatio: nil)
         let imageView = try XCTUnwrap(
             cell.contentView.subviews.first {
                 $0 is NativeMetalCardCornerMaskedImageView
@@ -631,7 +631,7 @@ extension MobilePlayerCollectionBrowserCachedImagePolicyTests {
             width: 120,
             height: 80
         ))
-        let placeholder = PlayerMediaPlaceholderSpec(thumbnailAspectRatio: nil)
+        let placeholder = PlayerMediaPlaceholderSpec(aspectRatio: nil)
         let imageView = try XCTUnwrap(
             cell.contentView.subviews.first {
                 $0 is NativeMetalCardCornerMaskedImageView
@@ -690,7 +690,7 @@ extension MobilePlayerCollectionBrowserCachedImagePolicyTests {
             width: 120,
             height: 80
         ))
-        let placeholder = PlayerMediaPlaceholderSpec(thumbnailAspectRatio: nil)
+        let placeholder = PlayerMediaPlaceholderSpec(aspectRatio: nil)
         let imageView = try XCTUnwrap(
             cell.contentView.subviews.first {
                 $0 is NativeMetalCardCornerMaskedImageView
@@ -757,7 +757,7 @@ extension MobilePlayerCollectionBrowserCachedImagePolicyTests {
             imageSources: sources,
             requiredImageQuality: .thumbnail,
             missingDescriptorFallbackSpec:
-                PlayerMediaPlaceholderSpec(thumbnailAspectRatio: nil),
+                PlayerMediaPlaceholderSpec(aspectRatio: nil),
             imageLoadPolicy: .foreground,
             allowsLocalLargeImageUpgrade: false
         )
@@ -772,7 +772,7 @@ extension MobilePlayerCollectionBrowserCachedImagePolicyTests {
             imageSources: sources,
             requiredImageQuality: .thumbnail,
             missingDescriptorFallbackSpec:
-                PlayerMediaPlaceholderSpec(thumbnailAspectRatio: nil),
+                PlayerMediaPlaceholderSpec(aspectRatio: nil),
             imageLoadPolicy: .foreground,
             allowsLocalLargeImageUpgrade: false
         )
@@ -804,7 +804,7 @@ extension MobilePlayerCollectionBrowserCachedImagePolicyTests {
             imageSources: sources,
             requiredImageQuality: .smallestThumbnail,
             missingDescriptorFallbackSpec:
-                PlayerMediaPlaceholderSpec(thumbnailAspectRatio: nil),
+                PlayerMediaPlaceholderSpec(aspectRatio: nil),
             imageLoadPolicy: .cachedOnly,
             allowsLocalLargeImageUpgrade: false
         )
@@ -864,7 +864,7 @@ extension MobilePlayerCollectionBrowserCachedImagePolicyTests {
             height: 80
         ))
         let placeholder = PlayerMediaPlaceholderSpec(
-            thumbnailAspectRatio: nil
+            aspectRatio: nil
         )
         cell.configure(
             contentIdentity: identityA,
@@ -990,7 +990,7 @@ extension MobilePlayerCollectionBrowserCachedImagePolicyTests {
         ))
         let thumbnailImage = makeImage(.red)
         let largeImage = makeImage(.blue)
-        let placeholder = PlayerMediaPlaceholderSpec(thumbnailAspectRatio: nil)
+        let placeholder = PlayerMediaPlaceholderSpec(aspectRatio: nil)
 
         cell.configure(
             contentIdentity: identity,
@@ -1068,7 +1068,7 @@ extension MobilePlayerCollectionBrowserCachedImagePolicyTests {
             imageSources: fixture.sources,
             requiredImageQuality: .large,
             missingDescriptorFallbackSpec: PlayerMediaPlaceholderSpec(
-                thumbnailAspectRatio: nil
+                aspectRatio: nil
             ),
             imageLoadPolicy: .disabled
         )
@@ -1155,7 +1155,7 @@ extension MobilePlayerCollectionBrowserCachedImagePolicyTests {
             imageSources: sources,
             requiredImageQuality: .smallThumbnail,
             missingDescriptorFallbackSpec:
-                PlayerMediaPlaceholderSpec(thumbnailAspectRatio: nil),
+                PlayerMediaPlaceholderSpec(aspectRatio: nil),
             imageLoadPolicy: .cachedOnly,
             allowsLocalLargeImageUpgrade: false
         )
@@ -1217,7 +1217,7 @@ extension MobilePlayerCollectionBrowserCachedImagePolicyTests {
             width: 120,
             height: 80
         ))
-        let placeholder = PlayerMediaPlaceholderSpec(thumbnailAspectRatio: nil)
+        let placeholder = PlayerMediaPlaceholderSpec(aspectRatio: nil)
 
         cell.configure(
             contentIdentity: identityA,

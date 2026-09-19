@@ -89,7 +89,7 @@ private final class GridModeContractDataSource: NSObject,
             imageSources: nil,
             requiredImageQuality: .thumbnail,
             missingDescriptorFallbackSpec: PlayerMediaPlaceholderSpec(
-                thumbnailAspectRatio: nil
+                aspectRatio: nil
             ),
             imageLoadPolicy: .disabled
         )
@@ -243,7 +243,7 @@ extension MobilePlayerCollectionBrowserCoordinatorContractTests {
     private func makeGridModeAspectProfile(
         snapshot: PlayerCollectionBrowseSnapshot,
         columnCount: Int,
-        profile: ThumbnailAspectRatioProfile
+        profile: AspectRatioProfile
     ) -> MobilePlayerBrowserAspectProfile {
         switch profile {
         case let .uniform(aspectRatio):
@@ -279,7 +279,7 @@ extension MobilePlayerCollectionBrowserCoordinatorContractTests {
         )
         let thumbnailProfile = try XCTUnwrap(
             MobileCollectionBrowseMediaResolver
-                .collectionBrowseThumbnailAspectRatioProfile(
+                .collectionBrowseAspectRatioProfile(
                     snapshot: snapshot
                 )
         )
@@ -335,7 +335,7 @@ extension MobilePlayerCollectionBrowserCoordinatorContractTests {
             layoutAspectState: .init(
                 aspectProfile: currentAspectProfile,
                 fallbackSpec: PlayerMediaPlaceholderSpec(
-                    thumbnailAspectRatio: nil
+                    aspectRatio: nil
                 )
             )
         )
@@ -374,7 +374,7 @@ extension MobilePlayerCollectionBrowserCoordinatorContractTests {
                             configuration.requiredImageQuality ?? .thumbnail,
                         missingDescriptorFallbackSpec:
                             PlayerMediaPlaceholderSpec(
-                                thumbnailAspectRatio: nil
+                                aspectRatio: nil
                             ),
                         imageLoadPolicy: configuration.imageLoadPolicy,
                         allowsLocalLargeImageUpgrade:
@@ -420,12 +420,12 @@ extension MobilePlayerCollectionBrowserCoordinatorContractTests {
                     return .init(
                         aspectProfile: aspectProfile,
                         fallbackSpec: PlayerMediaPlaceholderSpec(
-                            thumbnailAspectRatio: nil
+                            aspectRatio: nil
                         )
                     )
                 },
                 makeLayoutFallbackSpec: { _, _ in
-                    PlayerMediaPlaceholderSpec(thumbnailAspectRatio: nil)
+                    PlayerMediaPlaceholderSpec(aspectRatio: nil)
                 },
                 makeLayoutAspectProfile: {
                     updatedSnapshot, columnCount, profile in
@@ -489,7 +489,7 @@ extension MobilePlayerCollectionBrowserCoordinatorContractTests {
                             profile: thumbnailProfile
                         ),
                         fallbackSpec: PlayerMediaPlaceholderSpec(
-                            thumbnailAspectRatio: nil
+                            aspectRatio: nil
                         )
                     )
                 },
@@ -723,7 +723,7 @@ extension MobilePlayerCollectionBrowserCoordinatorContractTests {
             height: 80
         ))
         let fallbackSpec = PlayerMediaPlaceholderSpec(
-            thumbnailAspectRatio: nil
+            aspectRatio: nil
         )
         let stagedState = SettlementAcceptance()
         let pipeline = MobilePlayerCollectionBrowserImagePipeline()
@@ -1003,7 +1003,7 @@ extension MobilePlayerCollectionBrowserCoordinatorContractTests {
             ),
             requiredImageQuality: .large,
             missingDescriptorFallbackSpec: PlayerMediaPlaceholderSpec(
-                thumbnailAspectRatio: nil
+                aspectRatio: nil
             ),
             imageLoadPolicy: .disabled
         )
@@ -1219,7 +1219,7 @@ extension MobilePlayerCollectionBrowserCoordinatorContractTests {
             ),
             requiredImageQuality: .smallThumbnail,
             missingDescriptorFallbackSpec: PlayerMediaPlaceholderSpec(
-                thumbnailAspectRatio: nil
+                aspectRatio: nil
             ),
             imageLoadPolicy: .cachedOnly,
             allowsLocalLargeImageUpgrade: false

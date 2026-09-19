@@ -1659,7 +1659,7 @@
       "330.png"
     ]
   ],
-  "thumbnailAspectRatios": [
+  "aspectRatios": [
     [
       140,
       303
@@ -2701,7 +2701,7 @@
       47
     ]
   ],
-  "thumbnailAspectRatioOverrides": [
+  "aspectRatioOverrides": [
     [
       0,
       50

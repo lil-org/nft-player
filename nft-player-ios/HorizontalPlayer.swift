@@ -1622,9 +1622,9 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, U
         bundledGenerativePresentationMode
     }
 
-    fileprivate func bundledGenerativeThumbnailAspectRatio(
+    fileprivate func bundledGenerativeAspectRatio(
         for pagePosition: PlayerPagePosition
-    ) -> ThumbnailAspectRatio? {
+    ) -> AspectRatio? {
         let token = getToken(pagePosition: pagePosition)
         guard token.media == nil,
               token.nativeMetalCardRenderKind == nil,
@@ -1639,7 +1639,7 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, U
             return TokenGenerator.bundledWebGenerativeToken(
                 specificCollectionId: token.fullCollectionId,
                 tokenIndex: index
-            )?.artworkAspectRatio
+            )?.aspectRatio
         }
 
         guard let descriptor = playbackSession.collectionBrowseThumbnailDescriptor(
@@ -1652,7 +1652,7 @@ class HorizontalPlayerContainer: UIViewController, HorizontalPlayerDataSource, U
               descriptor.tokenId == token.id else {
             return nil
         }
-        return descriptor.thumbnailAspectRatio
+        return descriptor.aspectRatio
     }
 
     fileprivate func canRenderPagePosition(_ pagePosition: PlayerPagePosition) -> Bool {
@@ -1737,9 +1737,9 @@ private protocol HorizontalPlayerDataSource: AnyObject {
     func downloadableMediaDescriptor(for pagePosition: PlayerPagePosition) -> DownloadableMediaDescriptor?
     func currentBundledGenerativePresentationMode()
         -> MobileBundledGenerativePresentationMode
-    func bundledGenerativeThumbnailAspectRatio(
+    func bundledGenerativeAspectRatio(
         for pagePosition: PlayerPagePosition
-    ) -> ThumbnailAspectRatio?
+    ) -> AspectRatio?
     func canRenderPagePosition(_ pagePosition: PlayerPagePosition) -> Bool
     func startPagePosition() -> PlayerPagePosition
     func didRenderPagePosition(_ pagePosition: PlayerPagePosition)
@@ -2556,13 +2556,13 @@ private class SpecificPageViewController: UIViewController, UIScrollViewDelegate
 
     private var bundledGenerativeWebContentLayout: ZoomContentLayout {
         guard playerDataSource?.currentBundledGenerativePresentationMode()
-                == .thumbnailAspectFit,
-              let thumbnailAspectRatio = playerDataSource?
-                .bundledGenerativeThumbnailAspectRatio(for: pagePosition) else {
+                == .aspectFit,
+              let aspectRatio = playerDataSource?
+                .bundledGenerativeAspectRatio(for: pagePosition) else {
             return .viewport
         }
 
-        return .fittedWebContent(thumbnailAspectRatio.size)
+        return .fittedWebContent(aspectRatio.size)
     }
 
     private func renderNativeMetalCard(_ token: GeneratedToken, renderKind: NativeMetalCardRenderKind) {

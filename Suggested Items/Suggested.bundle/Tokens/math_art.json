@@ -504,7 +504,7 @@
       "99.jpg"
     ]
   ],
-  "thumbnailAspectRatios": [
+  "aspectRatios": [
     [
       84,
       85
@@ -618,7 +618,7 @@
       633
     ]
   ],
-  "thumbnailAspectRatioOverrides": [
+  "aspectRatioOverrides": [
     [
       1,
       12

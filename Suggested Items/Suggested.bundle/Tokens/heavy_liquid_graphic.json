@@ -4999,7 +4999,7 @@
       "368.png"
     ]
   ],
-  "thumbnailAspectRatios": [
+  "aspectRatios": [
     [
       1,
       1
@@ -5009,7 +5009,7 @@
       151
     ]
   ],
-  "thumbnailAspectRatioOverrides": [
+  "aspectRatioOverrides": [
     [
       0,
       1

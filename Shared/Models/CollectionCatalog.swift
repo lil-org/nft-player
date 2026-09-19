@@ -78,7 +78,7 @@ nonisolated struct CollectionCatalogDownloadableMediaDescriptor: Hashable, Senda
     let tokenIndex: Int
     let media: GeneratedTokenMedia
     let purpose: CollectionCatalogDownloadableMediaPurpose
-    let thumbnailAspectRatio: ThumbnailAspectRatio?
+    let aspectRatio: AspectRatio?
 
     init(
         collectionId: String,
@@ -86,14 +86,14 @@ nonisolated struct CollectionCatalogDownloadableMediaDescriptor: Hashable, Senda
         tokenIndex: Int,
         media: GeneratedTokenMedia,
         purpose: CollectionCatalogDownloadableMediaPurpose = .primary,
-        thumbnailAspectRatio: ThumbnailAspectRatio? = nil
+        aspectRatio: AspectRatio? = nil
     ) {
         self.collectionId = collectionId
         self.tokenId = tokenId
         self.tokenIndex = tokenIndex
         self.media = media
         self.purpose = purpose
-        self.thumbnailAspectRatio = thumbnailAspectRatio
+        self.aspectRatio = aspectRatio
     }
 
     var url: URL {
@@ -1047,22 +1047,22 @@ nonisolated enum CollectionCatalog {
         DownloadableCollectionService.hasMid(collectionId: specificCollectionId)
     }
 
-    static func collectionBrowseThumbnailAspectRatioProfile(
+    static func collectionBrowseAspectRatioProfile(
         specificCollectionId: String
-    ) -> ThumbnailAspectRatioProfile? {
+    ) -> AspectRatioProfile? {
         if DownloadableCollectionService.hasCollection(id: specificCollectionId) {
-            return DownloadableCollectionService.thumbnailAspectRatioProfile(
+            return DownloadableCollectionService.aspectRatioProfile(
                 collectionId: specificCollectionId
             )
         }
-        if let profile = TokenGenerator.thumbnailAspectRatioProfile(
+        if let profile = TokenGenerator.aspectRatioProfile(
             specificCollectionId: specificCollectionId
         ) {
             return profile
         }
 #if os(iOS) || os(macOS)
         if let renderKind = NativeMetalCardRenderKind(collectionId: specificCollectionId) {
-            return .uniform(ThumbnailAspectRatio(
+            return .uniform(AspectRatio(
                 width: Int(renderKind.staticImageSize.width),
                 height: Int(renderKind.staticImageSize.height)
             ))
@@ -1124,7 +1124,7 @@ nonisolated enum CollectionCatalog {
             tokenId: String(tokenID),
             tokenIndex: tokenIndex,
             media: .staticImage(url: url, fileExtension: renderKind.staticImageFileExtension),
-            thumbnailAspectRatio: ThumbnailAspectRatio(
+            aspectRatio: AspectRatio(
                 width: Int(renderKind.staticImageSize.width),
                 height: Int(renderKind.staticImageSize.height)
             )
@@ -1336,14 +1336,14 @@ nonisolated private enum DownloadableCollectionService {
             tokenId: token.id,
             tokenIndex: tokenIndex,
             media: media,
-            thumbnailAspectRatio: token.thumbnailAspectRatio
+            aspectRatio: token.aspectRatio
         )
     }
 
-    static func thumbnailAspectRatioProfile(
+    static func aspectRatioProfile(
         collectionId: String
-    ) -> ThumbnailAspectRatioProfile? {
-        tokenData(collectionId: collectionId)?.thumbnailAspectRatioProfile
+    ) -> AspectRatioProfile? {
+        tokenData(collectionId: collectionId)?.aspectRatioProfile
     }
 
     private static func displayTokenId(
@@ -1485,8 +1485,8 @@ nonisolated struct DownloadableCollectionTokensPayload: Decodable, Sendable {
         case hasMid
         case defaultFileExtension
         case items
-        case thumbnailAspectRatios
-        case thumbnailAspectRatioOverrides
+        case aspectRatios
+        case aspectRatioOverrides
         case urlPrefixes
     }
 
@@ -1507,7 +1507,7 @@ nonisolated struct DownloadableCollectionTokensPayload: Decodable, Sendable {
                     url: row.url(prefixes: urlPrefixes),
                     sh: nil,
                     fileExtension: row.fileExtension,
-                    thumbnailAspectRatio: nil
+                    aspectRatio: nil
                 )
             }
         } else {
@@ -1518,22 +1518,22 @@ nonisolated struct DownloadableCollectionTokensPayload: Decodable, Sendable {
                     url: item.url,
                     sh: item.sh,
                     fileExtension: Self.normalizedFileExtension(item.fileExtension),
-                    thumbnailAspectRatio: nil
+                    aspectRatio: nil
                 )
             }
         }
 
-        let thumbnailAspectRatios = try container.decodeIfPresent(
-            [ThumbnailAspectRatio].self,
-            forKey: .thumbnailAspectRatios
+        let aspectRatios = try container.decodeIfPresent(
+            [AspectRatio].self,
+            forKey: .aspectRatios
         )
-        let thumbnailAspectRatioOverrides = try container.decodeIfPresent(
-            [ThumbnailAspectRatioOverride].self,
-            forKey: .thumbnailAspectRatioOverrides
+        let aspectRatioOverrides = try container.decodeIfPresent(
+            [AspectRatioOverride].self,
+            forKey: .aspectRatioOverrides
         )
-        let resolvedAspectRatios = try ThumbnailAspectRatioMetadata.resolve(
-            aspectRatios: thumbnailAspectRatios,
-            overrides: thumbnailAspectRatioOverrides,
+        let resolvedAspectRatios = try AspectRatioMetadata.resolve(
+            aspectRatios: aspectRatios,
+            overrides: aspectRatioOverrides,
             itemCount: decodedItems.count,
             codingPath: container.codingPath
         )
@@ -1544,7 +1544,7 @@ nonisolated struct DownloadableCollectionTokensPayload: Decodable, Sendable {
                 url: item.url,
                 sh: item.sh,
                 fileExtension: item.fileExtension,
-                thumbnailAspectRatio: resolvedAspectRatios?[index]
+                aspectRatio: resolvedAspectRatios?[index]
             )
         }
     }
@@ -1560,7 +1560,7 @@ nonisolated struct DownloadableTokenItem: Codable, Hashable, Sendable {
     let url: String?
     let sh: String?
     let fileExtension: String?
-    let thumbnailAspectRatio: ThumbnailAspectRatio?
+    let aspectRatio: AspectRatio?
 
     private enum CodingKeys: String, CodingKey {
         case id
@@ -1576,14 +1576,14 @@ nonisolated struct DownloadableTokenItem: Codable, Hashable, Sendable {
         url: String?,
         sh: String?,
         fileExtension: String?,
-        thumbnailAspectRatio: ThumbnailAspectRatio? = nil
+        aspectRatio: AspectRatio? = nil
     ) {
         self.id = id
         self.name = name
         self.url = url
         self.sh = sh
         self.fileExtension = fileExtension
-        self.thumbnailAspectRatio = thumbnailAspectRatio
+        self.aspectRatio = aspectRatio
     }
 
     init(from decoder: Decoder) throws {
@@ -1593,7 +1593,7 @@ nonisolated struct DownloadableTokenItem: Codable, Hashable, Sendable {
         url = try container.decodeIfPresent(String.self, forKey: .url)
         sh = try container.decodeIfPresent(String.self, forKey: .sh)
         fileExtension = try container.decodeIfPresent(String.self, forKey: .fileExtension)
-        thumbnailAspectRatio = nil
+        aspectRatio = nil
     }
 
     func encode(to encoder: Encoder) throws {
@@ -1662,7 +1662,7 @@ nonisolated private struct DownloadableCollectionTokenData: Sendable {
     let defaultFileExtension: String?
     let tokens: [DownloadableTokenItem]
     let tokenIndicesById: [String: Int]
-    let thumbnailAspectRatioProfile: ThumbnailAspectRatioProfile?
+    let aspectRatioProfile: AspectRatioProfile?
 
     init(hasMid: Bool, defaultFileExtension: String?, tokens: [DownloadableTokenItem]) {
         self.hasMid = hasMid
@@ -1670,15 +1670,15 @@ nonisolated private struct DownloadableCollectionTokenData: Sendable {
         self.tokens = tokens
 
         var tokenIndicesById = [String: Int]()
-        var aspectRatioProfileBuilder = ThumbnailAspectRatioProfileBuilder()
+        var aspectRatioProfileBuilder = AspectRatioProfileBuilder()
         for (index, token) in tokens.enumerated() {
-            aspectRatioProfileBuilder.append(token.thumbnailAspectRatio)
+            aspectRatioProfileBuilder.append(token.aspectRatio)
             if tokenIndicesById[token.id] == nil {
                 tokenIndicesById[token.id] = index
             }
         }
         self.tokenIndicesById = tokenIndicesById
-        self.thumbnailAspectRatioProfile = aspectRatioProfileBuilder.profile
+        self.aspectRatioProfile = aspectRatioProfileBuilder.profile
     }
 }
 

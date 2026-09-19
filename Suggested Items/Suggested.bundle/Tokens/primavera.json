@@ -355,7 +355,7 @@
       "69.png"
     ]
   ],
-  "thumbnailAspectRatios": [
+  "aspectRatios": [
     [
       9,
       16
@@ -377,7 +377,7 @@
       1
     ]
   ],
-  "thumbnailAspectRatioOverrides": [
+  "aspectRatioOverrides": [
     [
       0,
       1

@@ -20,7 +20,7 @@ const {
   decodeAspectRatioMetadata,
   encodeAspectRatioMetadata,
   tokenIdsFromPayload,
-} = require("./thumbnail_aspect_ratios");
+} = require("./aspect_ratios");
 
 const SUGGESTED_BUNDLE_PATH = path.resolve(__dirname, "../Suggested Items/Suggested.bundle");
 const ARTISTS_PATH = path.join(SUGGESTED_BUNDLE_PATH, "artists.json");
@@ -508,7 +508,7 @@ test("Planet Peppa retains original filenames and uses original large images", (
   assert.equal(payload.items.length, item.tokenCount);
   assert.equal(new Set(tokenIdsFromPayload(payload)).size, item.tokenCount);
   assert.equal(payload.items.filter((row) => row[0].startsWith("unminted-")).length, 11268);
-  assert.deepEqual(payload.thumbnailAspectRatios, [[1, 1]]);
+  assert.deepEqual(payload.aspectRatios, [[1, 1]]);
   assert.equal(item.iosCollectionBrowserColumnCount, undefined);
   assert.equal(item.sizedThumbsIndexOffset, undefined);
 
@@ -630,8 +630,6 @@ test("September generative collections expose indexed CDN tiers without changing
     const payload = readJSON(path.join(TOKENS_PATH, `${item.internal_slug}.json`));
     const ratios = decodeAspectRatioMetadata(payload);
     assert.equal(ratios.length, payload.items.length);
-    assert.equal(payload.artworkAspectRatios.length, 1);
-    assert.ok(payload.artworkAspectRatios[0].every(value => Number.isInteger(value) && value > 0));
     const base = `https://cdn.lil.org/player/${item.internal_slug}`;
     const indicesById = new Map(tokenIdsFromPayload(payload).map((id, index) => [id, index]));
     assert.equal(indicesById.size, payload.items.length);
@@ -651,7 +649,6 @@ test("September generative collections expose indexed CDN tiers without changing
   assert.ok(neighborhood);
   const payload = readJSON(path.join(TOKENS_PATH, `${neighborhood.internal_slug}.json`));
   const ratios = decodeAspectRatioMetadata(payload);
-  assert.deepEqual(payload.artworkAspectRatios, [[1, 1]]);
   for (const [index, ratio] of [[0, [16, 9]], [3, [1, 1]], [7, [9, 16]]]) {
     assert.deepEqual(ratios[index], ratio);
     assert.equal(payload.items[index].id, String(146000000 + index));
@@ -891,11 +888,11 @@ test("bundled tokens have compact aspect ratios and matching iOS layouts", () =>
       assert.equal(catalogItem.tokenCount, undefined);
       assert.equal(catalogItem.bundledDate, "2026-09-14");
       assert.equal(catalogItem.hasThumbnails, true);
-      assert.equal(payload.artworkAspectRatios.length, 1);
       assert.ok(payload.items.every(token => /^0x[0-9a-fA-F]{64}$/u.test(token.hash)));
     }
     const ratios = decodeAspectRatioMetadata(payload);
-    assert.ok(ratios, `${fileName} has no thumbnail aspect-ratio metadata`);
+    assert.ok(ratios, `${fileName} has no aspect-ratio metadata`);
+    assert.equal(Object.keys(payload).some(key => /^(artwork|thumbnail)AspectRatio/u.test(key)), false, fileName);
     assert.equal(ratios.length, payload.items.length, `${fileName} has incomplete aspect-ratio metadata`);
     assert.deepEqual(
       {

@@ -540,7 +540,7 @@ extension ArtBlocksRenderingResolutionTests {
         let script = try XCTUnwrap(JavaScriptLibraryFixtures.script(collectionId: item.id))
         let tokens = try JSONDecoder().decode(BundledTokens.self, from: Data(contentsOf: tokenURL)).items
         let token = try XCTUnwrap(tokens.indices.contains(tokenIndex) ? tokens[tokenIndex] : nil)
-        let ratio = try XCTUnwrap(token.artworkAspectRatio)
+        let ratio = try XCTUnwrap(token.aspectRatio)
         let fixture = try ResolutionFixture(size: CGSize(width: 300, height: 300 / ratio.value))
         defer { fixture.close() }
         fixture.load(script, token: token)

@@ -384,7 +384,7 @@
       "75.mp4"
     ]
   ],
-  "thumbnailAspectRatios": [
+  "aspectRatios": [
     [
       1,
       1
@@ -402,7 +402,7 @@
       244
     ]
   ],
-  "thumbnailAspectRatioOverrides": [
+  "aspectRatioOverrides": [
     [
       2,
       3

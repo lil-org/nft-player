@@ -4001,13 +4001,7 @@
       "hash": "0x05d48b873daea07a06846005790ada12c980531226836751dd33eb1605055cd7"
     }
   ],
-  "artworkAspectRatios": [
-    [
-      5741,
-      8119
-    ]
-  ],
-  "thumbnailAspectRatios": [
+  "aspectRatios": [
     [
       283,
       400

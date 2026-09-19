@@ -2144,7 +2144,7 @@
       "427.jpg"
     ]
   ],
-  "thumbnailAspectRatios": [
+  "aspectRatios": [
     [
       325,
       203
@@ -2186,7 +2186,7 @@
       5
     ]
   ],
-  "thumbnailAspectRatioOverrides": [
+  "aspectRatioOverrides": [
     [
       0,
       4

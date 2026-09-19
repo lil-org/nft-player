@@ -519,7 +519,7 @@ extension ArtBlocksRenderingStartupTests {
             let source = try Data(contentsOf: scriptURL), tokenData = try Data(contentsOf: tokensURL)
             let script = try XCTUnwrap(JavaScriptLibraryFixtures.script(collectionId: item.id))
             let token = try XCTUnwrap(JSONDecoder().decode(BundledTokens.self, from: tokenData).items.first)
-            let ratio = try XCTUnwrap(token.artworkAspectRatio)
+            let ratio = try XCTUnwrap(token.aspectRatio)
             let profile = try XCTUnwrap(ArtBlocksRenderingStartupProfiles.startupProfile(script))
             let size = CGSize(width: 300, height: 300 / ratio.value)
             AutoReloadingWebView.resetStartupCalibrationsForTesting()
@@ -586,7 +586,7 @@ extension ArtBlocksRenderingStartupTests {
             let source = try Data(contentsOf: scriptURL), tokenData = try Data(contentsOf: tokensURL)
             let script = try XCTUnwrap(JavaScriptLibraryFixtures.script(collectionId: id))
             let token = try XCTUnwrap(JSONDecoder().decode(BundledTokens.self, from: tokenData).items.first)
-            let ratio = try XCTUnwrap(token.artworkAspectRatio)
+            let ratio = try XCTUnwrap(token.aspectRatio)
             let profile = try XCTUnwrap(ArtBlocksRenderingStartupProfiles.startupProfile(script))
             let size = CGSize(width: 300, height: 300 / ratio.value)
             for pass in 1...2 {
@@ -869,8 +869,8 @@ extension ArtBlocksRenderingStartupTests {
         XCTAssertGreaterThanOrEqual(tokens.count, 2)
         guard tokens.count >= 2 else { return }
         let first = tokens[0], next = tokens[1]
-        let firstRatio = try XCTUnwrap(first.artworkAspectRatio)
-        let nextRatio = try XCTUnwrap(next.artworkAspectRatio)
+        let firstRatio = try XCTUnwrap(first.aspectRatio)
+        let nextRatio = try XCTUnwrap(next.aspectRatio)
         let firstSize = CGSize(width: 300, height: 300 / firstRatio.value)
         let nextSize = CGSize(width: 300, height: 300 / nextRatio.value)
         AutoReloadingWebView.resetStartupCalibrationsForTesting()

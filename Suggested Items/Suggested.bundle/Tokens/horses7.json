@@ -8889,7 +8889,7 @@
       "1558.jpg"
     ]
   ],
-  "thumbnailAspectRatios": [
+  "aspectRatios": [
     [
       65,
       42
@@ -8907,7 +8907,7 @@
       269
     ]
   ],
-  "thumbnailAspectRatioOverrides": [
+  "aspectRatioOverrides": [
     [
       22,
       1

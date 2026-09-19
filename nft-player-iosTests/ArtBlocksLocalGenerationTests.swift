@@ -12,7 +12,7 @@ extension ArtBlocksLocalGenerationTests {
         let projectId: Int
         let count: Int
         let kind: Script.Kind
-        let ratio: ThumbnailAspectRatio
+        let ratio: AspectRatio
         var address = "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270"
         var legacySuffix: String?
 
@@ -87,7 +87,7 @@ extension ArtBlocksLocalGenerationTests {
             XCTAssertEqual(TokenGenerator.tokenCount(specificCollectionId: project.id), project.count)
             XCTAssertEqual(CollectionCatalog.tokenCount(specificCollectionId: project.id), project.count)
             XCTAssertEqual(
-                CollectionCatalog.collectionBrowseThumbnailAspectRatioProfile(specificCollectionId: project.id),
+                CollectionCatalog.collectionBrowseAspectRatioProfile(specificCollectionId: project.id),
                 .uniform(project.ratio)
             )
             for (index, token) in tokens.items.enumerated() {
@@ -98,7 +98,7 @@ extension ArtBlocksLocalGenerationTests {
                 } else {
                     XCTAssertNil(token.url, "\(project.name) #\(index)")
                 }
-                XCTAssertEqual(token.thumbnailAspectRatio, project.ratio)
+                XCTAssertEqual(token.aspectRatio, project.ratio)
                 XCTAssertEqual(
                     CollectionCatalog.tokenIndex(specificCollectionId: project.id, tokenId: token.id),
                     index
@@ -139,7 +139,7 @@ extension ArtBlocksLocalGenerationTests {
                 XCTAssertEqual(thumbnail.tokenId, token.id)
                 XCTAssertEqual(thumbnail.media.url.absoluteString,
                                "https://cdn.lil.org/player/\(project.slug)/thumbs/\(index).webp")
-                XCTAssertEqual(thumbnail.thumbnailAspectRatio, project.ratio)
+                XCTAssertEqual(thumbnail.aspectRatio, project.ratio)
             }
             XCTAssertNil(TokenGenerator.generateToken(specificCollectionId: project.id, tokenIndex: -1))
             XCTAssertNil(TokenGenerator.generateToken(specificCollectionId: project.id, tokenIndex: project.count))
@@ -152,7 +152,7 @@ extension ArtBlocksLocalGenerationTests {
     func testStaticCollectionsKeepTheirOriginalImagesAndRemainVisibleInTheFullGrid() throws {
         let staticProjects: [(
             name: String, slug: String, address: String, projectId: Int,
-            count: Int, ratio: ThumbnailAspectRatio
+            count: Int, ratio: AspectRatio
         )] = [
             ("Fragments of an Infinite Field", "fragments_of_an_infinite_field",
              "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270", 159, 1_024, .init(width: 1, height: 1)),
@@ -181,7 +181,7 @@ extension ArtBlocksLocalGenerationTests {
             for (index, token) in tokens.items.enumerated() {
                 XCTAssertNil(token.hash, "\(project.name) #\(index)")
                 XCTAssertEqual(token.url, "https://cdn.lil.org/player/\(project.slug)/\(index).png")
-                XCTAssertEqual(token.thumbnailAspectRatio, project.ratio)
+                XCTAssertEqual(token.aspectRatio, project.ratio)
                 XCTAssertEqual(CollectionCatalog.tokenIndex(specificCollectionId: id, tokenId: token.id), index)
             }
             for index in [0, project.count / 2, project.count - 1] {
@@ -200,10 +200,10 @@ extension ArtBlocksLocalGenerationTests {
                 XCTAssertEqual(thumbnail.tokenId, token.id)
                 XCTAssertEqual(thumbnail.media.url.absoluteString,
                                "https://cdn.lil.org/player/\(project.slug)/thumbs/\(index).webp")
-                XCTAssertEqual(thumbnail.thumbnailAspectRatio, project.ratio)
+                XCTAssertEqual(thumbnail.aspectRatio, project.ratio)
             }
             XCTAssertEqual(
-                CollectionCatalog.collectionBrowseThumbnailAspectRatioProfile(specificCollectionId: id),
+                CollectionCatalog.collectionBrowseAspectRatioProfile(specificCollectionId: id),
                 .uniform(project.ratio)
             )
         }

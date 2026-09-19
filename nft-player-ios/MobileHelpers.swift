@@ -26,11 +26,11 @@ struct PlayerMediaPlaceholderSpec: Equatable {
     }
 
     init(
-        thumbnailAspectRatio: ThumbnailAspectRatio?,
+        aspectRatio: AspectRatio?,
         usesNativeMetalCardCornerMask: Bool = false
     ) {
         self.init(
-            aspectSize: thumbnailAspectRatio?.size ?? CGSize(width: 1, height: 1),
+            aspectSize: aspectRatio?.size ?? CGSize(width: 1, height: 1),
             usesNativeMetalCardCornerMask: usesNativeMetalCardCornerMask
         )
     }

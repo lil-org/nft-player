@@ -120,18 +120,13 @@ nonisolated enum TokenGenerator {
         return collectionData.tokens[tokenIndex]
     }
 
-    static func thumbnailAspectRatioProfile(
+    static func aspectRatioProfile(
         specificCollectionId: String
-    ) -> ThumbnailAspectRatioProfile? {
+    ) -> AspectRatioProfile? {
         guard !isRangedNativeCollection(specificCollectionId) else { return nil }
         return collectionData(
             specificCollectionId: specificCollectionId
-        )?.thumbnailAspectRatioProfile
-    }
-
-    static func artworkAspectRatioProfile(specificCollectionId: String) -> ThumbnailAspectRatioProfile? {
-        guard !isRangedNativeCollection(specificCollectionId) else { return nil }
-        return collectionData(specificCollectionId: specificCollectionId)?.artworkAspectRatioProfile
+        )?.aspectRatioProfile
     }
 
     static func needsArtworkPreparation(collectionId: String) -> Bool {
@@ -348,25 +343,21 @@ nonisolated private struct CollectionTokenData: Sendable {
     let item: SuggestedItem
     let tokens: [BundledTokens.Item]
     let tokenIndicesById: [String: Int]
-    let thumbnailAspectRatioProfile: ThumbnailAspectRatioProfile?
-    let artworkAspectRatioProfile: ThumbnailAspectRatioProfile?
+    let aspectRatioProfile: AspectRatioProfile?
 
     init(item: SuggestedItem, tokens: [BundledTokens.Item]) {
         self.item = item
         self.tokens = tokens
 
         var tokenIndicesById = [String: Int]()
-        var aspectRatioProfileBuilder = ThumbnailAspectRatioProfileBuilder()
-        var artworkAspectRatioProfileBuilder = ThumbnailAspectRatioProfileBuilder()
+        var aspectRatioProfileBuilder = AspectRatioProfileBuilder()
         for (index, token) in tokens.enumerated() {
-            aspectRatioProfileBuilder.append(token.thumbnailAspectRatio)
-            artworkAspectRatioProfileBuilder.append(token.artworkAspectRatio ?? token.thumbnailAspectRatio)
+            aspectRatioProfileBuilder.append(token.aspectRatio)
             if tokenIndicesById[token.id] == nil {
                 tokenIndicesById[token.id] = index
             }
         }
         self.tokenIndicesById = tokenIndicesById
-        self.thumbnailAspectRatioProfile = aspectRatioProfileBuilder.profile
-        self.artworkAspectRatioProfile = artworkAspectRatioProfileBuilder.profile
+        self.aspectRatioProfile = aspectRatioProfileBuilder.profile
     }
 }

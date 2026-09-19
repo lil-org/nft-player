@@ -196,11 +196,11 @@ enum MobileCollectionBrowseMediaResolver {
         return requestedDescriptor
     }
 
-    static func collectionBrowseThumbnailAspectRatioProfile(
+    static func collectionBrowseAspectRatioProfile(
         snapshot: PlayerCollectionBrowseSnapshot
-    ) -> ThumbnailAspectRatioProfile? {
+    ) -> AspectRatioProfile? {
         guard snapshot.itemCount > 0,
-              let profile = MobileCollectionCatalog.collectionBrowseThumbnailAspectRatioProfile(
+              let profile = MobileCollectionCatalog.collectionBrowseAspectRatioProfile(
                 specificCollectionId: snapshot.collectionId
               ),
               profile.isCompatible(withItemCount: snapshot.itemCount) else {

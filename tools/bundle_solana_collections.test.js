@@ -159,7 +159,7 @@ test("apply preserves explicit mid availability and leaves legacy manifests unse
         defaultFileExtension: "webp",
         urlPrefixes: ["https://cdn.lil.org/player/planet_peppa/"],
         items: [[tokenId, 0, "0.webp"]],
-        thumbnailAspectRatios: [[1, 1]],
+        aspectRatios: [[1, 1]],
       };
       await fs.writeFile(tokenPath, JSON.stringify(original));
 
@@ -169,7 +169,7 @@ test("apply preserves explicit mid availability and leaves legacy manifests unse
       assert.equal(Object.hasOwn(updated, "hasMid"), typeof hasMid === "boolean");
       assert.equal(updated.hasMid, typeof hasMid === "boolean" ? hasMid : undefined);
       assert.deepEqual(updated.items, original.items);
-      assert.deepEqual(updated.thumbnailAspectRatios, original.thumbnailAspectRatios);
+      assert.deepEqual(updated.aspectRatios, original.aspectRatios);
     }
 
     await fs.unlink(tokenPath);

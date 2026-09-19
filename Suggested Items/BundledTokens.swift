@@ -35,12 +35,12 @@ nonisolated struct ArtworkReferencePixelSize: Codable, Hashable, Sendable {
     var size: CGSize { CGSize(width: width, height: height) }
 }
 
-nonisolated struct ThumbnailAspectRatio: Codable, Hashable, Sendable {
+nonisolated struct AspectRatio: Codable, Hashable, Sendable {
     let width: Int
     let height: Int
 
     init(width: Int, height: Int) {
-        precondition(width > 0 && height > 0, "Thumbnail aspect-ratio dimensions must be positive")
+        precondition(width > 0 && height > 0, "Aspect-ratio dimensions must be positive")
         let divisor = Self.greatestCommonDivisor(width, height)
         self.width = width / divisor
         self.height = height / divisor
@@ -53,7 +53,7 @@ nonisolated struct ThumbnailAspectRatio: Codable, Hashable, Sendable {
         guard width > 0, height > 0, container.isAtEnd else {
             throw DecodingError.dataCorruptedError(
                 in: container,
-                debugDescription: "Thumbnail aspect ratio must be a [positiveWidth, positiveHeight] pair"
+                debugDescription: "Aspect ratio must be a [positiveWidth, positiveHeight] pair"
             )
         }
         self.init(width: width, height: height)
@@ -83,7 +83,7 @@ nonisolated struct ThumbnailAspectRatio: Codable, Hashable, Sendable {
     }
 }
 
-nonisolated struct ThumbnailAspectRatioOverride: Codable, Sendable {
+nonisolated struct AspectRatioOverride: Codable, Sendable {
     let tokenIndex: Int
     let ratioIndex: Int
 
@@ -94,7 +94,7 @@ nonisolated struct ThumbnailAspectRatioOverride: Codable, Sendable {
         guard container.isAtEnd else {
             throw DecodingError.dataCorruptedError(
                 in: container,
-                debugDescription: "Thumbnail aspect-ratio override must be a [tokenIndex, ratioIndex] pair"
+                debugDescription: "Aspect-ratio override must be a [tokenIndex, ratioIndex] pair"
             )
         }
     }
@@ -106,9 +106,9 @@ nonisolated struct ThumbnailAspectRatioOverride: Codable, Sendable {
     }
 }
 
-nonisolated enum ThumbnailAspectRatioProfile: Hashable, Sendable {
-    case uniform(ThumbnailAspectRatio)
-    case variable([ThumbnailAspectRatio])
+nonisolated enum AspectRatioProfile: Hashable, Sendable {
+    case uniform(AspectRatio)
+    case variable([AspectRatio])
 
     func isCompatible(withItemCount itemCount: Int) -> Bool {
         guard itemCount > 0 else { return false }
@@ -121,13 +121,13 @@ nonisolated enum ThumbnailAspectRatioProfile: Hashable, Sendable {
     }
 }
 
-nonisolated struct ThumbnailAspectRatioProfileBuilder: Sendable {
+nonisolated struct AspectRatioProfileBuilder: Sendable {
     private var itemCount = 0
-    private var firstAspectRatio: ThumbnailAspectRatio?
-    private var variableAspectRatios: [ThumbnailAspectRatio]?
+    private var firstAspectRatio: AspectRatio?
+    private var variableAspectRatios: [AspectRatio]?
     private var hasMissingAspectRatio = false
 
-    mutating func append(_ aspectRatio: ThumbnailAspectRatio?) {
+    mutating func append(_ aspectRatio: AspectRatio?) {
         defer { itemCount += 1 }
         guard !hasMissingAspectRatio,
               let aspectRatio else {
@@ -148,7 +148,7 @@ nonisolated struct ThumbnailAspectRatioProfileBuilder: Sendable {
         }
     }
 
-    var profile: ThumbnailAspectRatioProfile? {
+    var profile: AspectRatioProfile? {
         guard itemCount > 0,
               !hasMissingAspectRatio,
               let firstAspectRatio else {
@@ -161,24 +161,24 @@ nonisolated struct ThumbnailAspectRatioProfileBuilder: Sendable {
     }
 }
 
-nonisolated enum ThumbnailAspectRatioMetadata {
+nonisolated enum AspectRatioMetadata {
     static func resolve(
-        aspectRatios: [ThumbnailAspectRatio]?,
-        overrides: [ThumbnailAspectRatioOverride]?,
+        aspectRatios: [AspectRatio]?,
+        overrides: [AspectRatioOverride]?,
         itemCount: Int,
         codingPath: [CodingKey]
-    ) throws -> [ThumbnailAspectRatio]? {
+    ) throws -> [AspectRatio]? {
         guard aspectRatios != nil || overrides != nil else { return nil }
         guard let aspectRatios, !aspectRatios.isEmpty else {
             throw corrupted(
                 codingPath: codingPath,
-                description: "thumbnailAspectRatios must be a non-empty array when aspect-ratio metadata is present"
+                description: "aspectRatios must be a non-empty array when aspect-ratio metadata is present"
             )
         }
         guard Set(aspectRatios).count == aspectRatios.count else {
             throw corrupted(
                 codingPath: codingPath,
-                description: "thumbnailAspectRatios must not contain duplicate ratios"
+                description: "aspectRatios must not contain duplicate ratios"
             )
         }
 
@@ -188,20 +188,20 @@ nonisolated enum ThumbnailAspectRatioMetadata {
             guard resolved.indices.contains(override.tokenIndex) else {
                 throw corrupted(
                     codingPath: codingPath,
-                    description: "Thumbnail aspect-ratio override has an invalid token index: \(override.tokenIndex)"
+                    description: "Aspect-ratio override has an invalid token index: \(override.tokenIndex)"
                 )
             }
             guard override.ratioIndex > 0,
                   aspectRatios.indices.contains(override.ratioIndex) else {
                 throw corrupted(
                     codingPath: codingPath,
-                    description: "Thumbnail aspect-ratio override has an invalid ratio index: \(override.ratioIndex)"
+                    description: "Aspect-ratio override has an invalid ratio index: \(override.ratioIndex)"
                 )
             }
             guard overriddenTokenIndices.insert(override.tokenIndex).inserted else {
                 throw corrupted(
                     codingPath: codingPath,
-                    description: "Thumbnail aspect-ratio overrides repeat token index: \(override.tokenIndex)"
+                    description: "Aspect-ratio overrides repeat token index: \(override.tokenIndex)"
                 )
             }
             resolved[override.tokenIndex] = aspectRatios[override.ratioIndex]
@@ -222,9 +222,8 @@ nonisolated struct BundledTokens: Codable, Sendable {
         let url: String?
         let sh: String?
         let hash: String?
-        let thumbnailAspectRatio: ThumbnailAspectRatio?
-        var artworkAspectRatio: ThumbnailAspectRatio?
-        let imageAspectRatio: ThumbnailAspectRatio?
+        let aspectRatio: AspectRatio?
+        let imageAspectRatio: AspectRatio?
         let referencePixelSize: ArtworkReferencePixelSize?
         let contractParameters: [String: String]?
 
@@ -234,7 +233,6 @@ nonisolated struct BundledTokens: Codable, Sendable {
             case url
             case sh
             case hash
-            case artworkAspectRatio
             case imageAspectRatio
             case referencePixelSize
             case contractParameters
@@ -249,9 +247,8 @@ nonisolated struct BundledTokens: Codable, Sendable {
             url: String?,
             sh: String?,
             hash: String?,
-            thumbnailAspectRatio: ThumbnailAspectRatio? = nil,
-            artworkAspectRatio: ThumbnailAspectRatio? = nil,
-            imageAspectRatio: ThumbnailAspectRatio? = nil,
+            aspectRatio: AspectRatio? = nil,
+            imageAspectRatio: AspectRatio? = nil,
             referencePixelSize: ArtworkReferencePixelSize? = nil,
             contractParameters: [String: String]? = nil
         ) {
@@ -260,8 +257,7 @@ nonisolated struct BundledTokens: Codable, Sendable {
             self.url = url
             self.sh = sh
             self.hash = hash
-            self.thumbnailAspectRatio = thumbnailAspectRatio
-            self.artworkAspectRatio = artworkAspectRatio
+            self.aspectRatio = aspectRatio
             self.imageAspectRatio = imageAspectRatio
             self.referencePixelSize = referencePixelSize
             self.contractParameters = contractParameters
@@ -274,10 +270,9 @@ nonisolated struct BundledTokens: Codable, Sendable {
             url = try container.decodeIfPresent(String.self, forKey: .url)
             sh = try container.decodeIfPresent(String.self, forKey: .sh)
             hash = try container.decodeIfPresent(String.self, forKey: .hash)
-            thumbnailAspectRatio = nil
-            artworkAspectRatio = try container.decodeIfPresent(ThumbnailAspectRatio.self, forKey: .artworkAspectRatio)
-            imageAspectRatio = try container.decodeIfPresent(ThumbnailAspectRatio.self, forKey: .imageAspectRatio)
-                ?? container.decodeIfPresent(ThumbnailAspectRatio.self, forKey: .previewImageAspectRatio)
+            aspectRatio = nil
+            imageAspectRatio = try container.decodeIfPresent(AspectRatio.self, forKey: .imageAspectRatio)
+                ?? container.decodeIfPresent(AspectRatio.self, forKey: .previewImageAspectRatio)
             referencePixelSize = try container.decodeIfPresent(ArtworkReferencePixelSize.self, forKey: .referencePixelSize)
                 ?? container.decodeIfPresent(ArtworkReferencePixelSize.self, forKey: .previewReferencePixelSize)
             contractParameters = try container.decodeIfPresent([String: String].self, forKey: .contractParameters)
@@ -291,7 +286,6 @@ nonisolated struct BundledTokens: Codable, Sendable {
             try container.encodeIfPresent(url, forKey: .url)
             try container.encodeIfPresent(sh, forKey: .sh)
             try container.encodeIfPresent(hash, forKey: .hash)
-            try container.encodeIfPresent(artworkAspectRatio, forKey: .artworkAspectRatio)
             try container.encodeIfPresent(imageAspectRatio, forKey: .imageAspectRatio)
             try container.encodeIfPresent(referencePixelSize, forKey: .referencePixelSize)
             try container.encodeIfPresent(contractParameters, forKey: .contractParameters)
@@ -324,34 +318,27 @@ nonisolated struct BundledTokens: Codable, Sendable {
     private enum CodingKeys: String, CodingKey {
         case isComplete
         case items
-        case thumbnailAspectRatios
-        case thumbnailAspectRatioOverrides
-        case artworkAspectRatios
-        case artworkAspectRatioOverrides
+        case aspectRatios
+        case aspectRatioOverrides
         case urlPrefixes
     }
     
     let isComplete: Bool
     let items: [Item]
-    private let thumbnailAspectRatios: [ThumbnailAspectRatio]?
-    private let thumbnailAspectRatioOverrides: [ThumbnailAspectRatioOverride]?
-    private let artworkAspectRatios: [ThumbnailAspectRatio]?
-    private let artworkAspectRatioOverrides: [ThumbnailAspectRatioOverride]?
+    private let aspectRatios: [AspectRatio]?
+    private let aspectRatioOverrides: [AspectRatioOverride]?
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         isComplete = try container.decodeIfPresent(Bool.self, forKey: .isComplete) ?? true
-        thumbnailAspectRatios = try container.decodeIfPresent(
-            [ThumbnailAspectRatio].self,
-            forKey: .thumbnailAspectRatios
+        aspectRatios = try container.decodeIfPresent(
+            [AspectRatio].self,
+            forKey: .aspectRatios
         )
-        thumbnailAspectRatioOverrides = try container.decodeIfPresent(
-            [ThumbnailAspectRatioOverride].self,
-            forKey: .thumbnailAspectRatioOverrides
+        aspectRatioOverrides = try container.decodeIfPresent(
+            [AspectRatioOverride].self,
+            forKey: .aspectRatioOverrides
         )
-
-        artworkAspectRatios = try container.decodeIfPresent([ThumbnailAspectRatio].self, forKey: .artworkAspectRatios)
-        artworkAspectRatioOverrides = try container.decodeIfPresent([ThumbnailAspectRatioOverride].self, forKey: .artworkAspectRatioOverrides)
 
         let decodedItems: [Item]
         if let objectItems = try? container.decode([Item].self, forKey: .items) {
@@ -375,15 +362,9 @@ nonisolated struct BundledTokens: Codable, Sendable {
             }
         }
 
-        let resolvedAspectRatios = try ThumbnailAspectRatioMetadata.resolve(
-            aspectRatios: thumbnailAspectRatios,
-            overrides: thumbnailAspectRatioOverrides,
-            itemCount: decodedItems.count,
-            codingPath: container.codingPath
-        )
-        let resolvedArtworkAspectRatios = try ThumbnailAspectRatioMetadata.resolve(
-            aspectRatios: artworkAspectRatios,
-            overrides: artworkAspectRatioOverrides,
+        let resolvedAspectRatios = try AspectRatioMetadata.resolve(
+            aspectRatios: aspectRatios,
+            overrides: aspectRatioOverrides,
             itemCount: decodedItems.count,
             codingPath: container.codingPath
         )
@@ -394,8 +375,7 @@ nonisolated struct BundledTokens: Codable, Sendable {
                 url: item.url,
                 sh: item.sh,
                 hash: item.hash,
-                thumbnailAspectRatio: resolvedAspectRatios?[index],
-                artworkAspectRatio: item.artworkAspectRatio ?? resolvedArtworkAspectRatios?[index] ?? resolvedAspectRatios?[index],
+                aspectRatio: resolvedAspectRatios?[index],
                 imageAspectRatio: item.imageAspectRatio,
                 referencePixelSize: item.referencePixelSize,
                 contractParameters: item.contractParameters
@@ -406,24 +386,9 @@ nonisolated struct BundledTokens: Codable, Sendable {
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(isComplete, forKey: .isComplete)
-        let encodedRatios = try ThumbnailAspectRatioMetadata.resolve(
-            aspectRatios: artworkAspectRatios ?? thumbnailAspectRatios,
-            overrides: artworkAspectRatios == nil ? thumbnailAspectRatioOverrides : artworkAspectRatioOverrides,
-            itemCount: items.count,
-            codingPath: container.codingPath
-        )
-        let encodedItems = items.enumerated().map { index, item in
-            var item = item
-            if item.artworkAspectRatio == encodedRatios?[index] {
-                item.artworkAspectRatio = nil
-            }
-            return item
-        }
-        try container.encode(encodedItems, forKey: .items)
-        try container.encodeIfPresent(thumbnailAspectRatios, forKey: .thumbnailAspectRatios)
-        try container.encodeIfPresent(thumbnailAspectRatioOverrides, forKey: .thumbnailAspectRatioOverrides)
-        try container.encodeIfPresent(artworkAspectRatios, forKey: .artworkAspectRatios)
-        try container.encodeIfPresent(artworkAspectRatioOverrides, forKey: .artworkAspectRatioOverrides)
+        try container.encode(items, forKey: .items)
+        try container.encodeIfPresent(aspectRatios, forKey: .aspectRatios)
+        try container.encodeIfPresent(aspectRatioOverrides, forKey: .aspectRatioOverrides)
     }
     
 }

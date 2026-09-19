@@ -399,7 +399,7 @@
       "68.gif"
     ]
   ],
-  "thumbnailAspectRatios": [
+  "aspectRatios": [
     [
       650,
       509
@@ -493,7 +493,7 @@
       33
     ]
   ],
-  "thumbnailAspectRatioOverrides": [
+  "aspectRatioOverrides": [
     [
       0,
       4

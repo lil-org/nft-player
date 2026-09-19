@@ -97,8 +97,7 @@ test("widget projection preserves object media sources while removing unused met
     hasMid: false,
     defaultFileExtension: ".WEBP",
     urlPrefixes: ["https://unused.example/"],
-    thumbnailAspectRatios: [[1, 1]],
-    artworkAspectRatios: [[2, 1]],
+    aspectRatios: [[1, 1]],
     items: [
       { id: "1", url: "https://example.com/one.png?size=2", sh: "unused", name: "One", hash: "0x1", fileExtension: "jpg", referencePixelSize: [100, 100] },
       { id: "2", url: "https://example.com/two", fileExtension: ".JPG", imageAspectRatio: [1, 1] },
@@ -131,7 +130,7 @@ test("widget projection preserves compact URL and extension fallbacks without ex
     hasMid: true,
     defaultFileExtension: "png",
     urlPrefixes: ["https://example.com/"],
-    thumbnailAspectRatios: [[1, 1]],
+    aspectRatios: [[1, 1]],
     items: [
       ["1", 0, "one.webp", "png", { name: "One", hash: "0x1" }],
       ["2", 0, "two", ".JPEG", { name: "Two" }],

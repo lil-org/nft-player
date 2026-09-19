@@ -279,7 +279,7 @@
       "54.jpg"
     ]
   ],
-  "thumbnailAspectRatios": [
+  "aspectRatios": [
     [
       650,
       433
@@ -317,7 +317,7 @@
       529
     ]
   ],
-  "thumbnailAspectRatioOverrides": [
+  "aspectRatioOverrides": [
     [
       4,
       3

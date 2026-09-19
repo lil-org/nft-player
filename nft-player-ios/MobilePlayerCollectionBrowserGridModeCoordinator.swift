@@ -62,7 +62,7 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
             PlayerCollectionBrowseSnapshot,
             Int,
             Int?,
-            ThumbnailAspectRatioProfile?
+            AspectRatioProfile?
         ) -> MobilePlayerCollectionBrowserLayoutAspectState
         let makeLayoutFallbackSpec: @MainActor (
             PlayerCollectionBrowseSnapshot,
@@ -71,7 +71,7 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
         let makeLayoutAspectProfile: @MainActor (
             PlayerCollectionBrowseSnapshot,
             Int,
-            ThumbnailAspectRatioProfile
+            AspectRatioProfile
         ) -> MobilePlayerBrowserAspectProfile
         let makeBrowserLayout: @MainActor (
             MobilePlayerBrowserAspectProfile
@@ -698,7 +698,7 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
 
     private func geometryPrewarmContext() -> (
         snapshot: PlayerCollectionBrowseSnapshot,
-        aspectRatioProfile: ThumbnailAspectRatioProfile
+        aspectRatioProfile: AspectRatioProfile
     )? {
         guard let state = currentState?(),
               let collectionView,
@@ -717,7 +717,7 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
               !state.isScrollMotionActive,
               let browseSnapshot = state.browseSnapshot,
               let aspectRatioProfile = MobileCollectionBrowseMediaResolver
-                .collectionBrowseThumbnailAspectRatioProfile(
+                .collectionBrowseAspectRatioProfile(
                     snapshot: browseSnapshot
                 ),
               case .variable = aspectRatioProfile else {
@@ -761,7 +761,7 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
     private func makeGeometry(
         snapshot: PlayerCollectionBrowseSnapshot,
         mode: MobileCollectionBrowserGridMode,
-        aspectRatioProfile: ThumbnailAspectRatioProfile
+        aspectRatioProfile: AspectRatioProfile
     ) -> CachedGridModeGeometry? {
         guard let layoutOperations else { return nil }
         ensureGeometryCache(snapshot: snapshot)
@@ -802,7 +802,7 @@ final class MobilePlayerCollectionBrowserGridModeCoordinator: NSObject,
         let aspectState: MobilePlayerCollectionBrowserLayoutAspectState
         let layout: MobilePlayerBrowserLayout
         let aspectRatioProfile = MobileCollectionBrowseMediaResolver
-            .collectionBrowseThumbnailAspectRatioProfile(
+            .collectionBrowseAspectRatioProfile(
                 snapshot: browseSnapshot
             )
         if let aspectRatioProfile {

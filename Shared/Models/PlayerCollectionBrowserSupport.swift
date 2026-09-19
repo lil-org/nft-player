@@ -96,8 +96,8 @@ nonisolated enum PlayerCollectionBrowserSupport {
     static func fallbackImageSize(
         for descriptor: CollectionCatalogDownloadableMediaDescriptor
     ) -> CGSize {
-        if let thumbnailAspectRatio = descriptor.thumbnailAspectRatio {
-            return thumbnailAspectRatio.size
+        if let aspectRatio = descriptor.aspectRatio {
+            return aspectRatio.size
         }
 
         if let renderKind = descriptor.nativeMetalCardRenderKind {

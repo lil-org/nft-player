@@ -206,22 +206,20 @@ extension ArtBlocksContractParametersTests {
         let parameters = ["message": "Frozen \"雪\"\nline", "empty": "", "number": "0"]
         let data = try JSONSerialization.data(withJSONObject: [
             "items": [["id": "7", "hash": "0xabc", "contractParameters": parameters,
-                       "artworkAspectRatio": [2, 3], "imageAspectRatio": [1, 1], "referencePixelSize": [2400, 3600]]],
-            "thumbnailAspectRatios": [[3, 4]]
+                       "imageAspectRatio": [1, 1], "referencePixelSize": [2400, 3600]]],
+            "aspectRatios": [[3, 4]]
         ])
         let tokens = try JSONDecoder().decode(BundledTokens.self, from: data)
         let first = try XCTUnwrap(tokens.items.first)
         XCTAssertEqual(first.id, "7")
         XCTAssertEqual(first.hash, "0xabc")
         XCTAssertEqual(first.contractParameters, parameters)
-        XCTAssertEqual(first.thumbnailAspectRatio, ThumbnailAspectRatio(width: 3, height: 4))
-        XCTAssertEqual(first.artworkAspectRatio, ThumbnailAspectRatio(width: 2, height: 3))
-        XCTAssertEqual(first.imageAspectRatio, ThumbnailAspectRatio(width: 1, height: 1))
+        XCTAssertEqual(first.aspectRatio, AspectRatio(width: 3, height: 4))
+        XCTAssertEqual(first.imageAspectRatio, AspectRatio(width: 1, height: 1))
         XCTAssertEqual(first.referencePixelSize, ArtworkReferencePixelSize(width: 2400, height: 3600))
         let restored = try JSONDecoder().decode(BundledTokens.self, from: JSONEncoder().encode(tokens))
         XCTAssertEqual(restored.items.first?.contractParameters, parameters)
-        XCTAssertEqual(restored.items.first?.thumbnailAspectRatio, first.thumbnailAspectRatio)
-        XCTAssertEqual(restored.items.first?.artworkAspectRatio, first.artworkAspectRatio)
+        XCTAssertEqual(restored.items.first?.aspectRatio, first.aspectRatio)
         XCTAssertEqual(restored.items.first?.imageAspectRatio, first.imageAspectRatio)
         XCTAssertEqual(restored.items.first?.referencePixelSize, first.referencePixelSize)
         let invalid = Data(#"{"id":"7","contractParameters":{"number":42}}"#.utf8)
@@ -310,7 +308,7 @@ extension ArtBlocksContractParametersTests {
         )
         for index in [0, tokens.items.count - 1] {
             let token = tokens.items[index]
-            let fixture = try ContractParametersFixture(ratio: token.artworkAspectRatio?.value ?? 1, rules: try XCTUnwrap(rules))
+            let fixture = try ContractParametersFixture(ratio: token.aspectRatio?.value ?? 1, rules: try XCTUnwrap(rules))
             defer { fixture.close() }
             try fixture.load(script: script, token: token)
             let snapshot = try await waitForArtwork(in: fixture, collectionName: name, timeout: name == "Gift of Time" ? 60 : 30)

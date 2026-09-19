@@ -51,7 +51,7 @@ Static-image collections with standard thumbnails but no `/mid` files can set to
 
 If an existing token JSON contains a top-level `tmp_files` map, `--apply` preserves entries whose token mint is still present in `items`. It drops and reports stale token mints, ignores invalid file names, and omits the map when no valid entries remain. This preservation reads only the existing token JSON; rebundling does not require `Originals Downloaded` to exist.
 
-The bundler also preserves compact `thumbnailAspectRatios` metadata by token mint, so reordering or removing tokens cannot attach a ratio to the wrong asset. If a newly discovered mint has no existing ratio, the bundler omits the incomplete metadata and reports the missing mint; regenerate the ratios before shipping.
+The bundler also preserves compact `aspectRatios` metadata by token mint, so reordering or removing tokens cannot attach a ratio to the wrong asset. If a newly discovered mint has no existing ratio, the bundler omits the incomplete metadata and reports the missing mint; regenerate the ratios before shipping.
 
 ## Media Policy
 

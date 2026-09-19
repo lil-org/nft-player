@@ -223,7 +223,7 @@ extension MobilePlayerCollectionBrowserGridRendererTests {
                             configuration.requiredImageQuality ?? .thumbnail,
                         missingDescriptorFallbackSpec:
                             PlayerMediaPlaceholderSpec(
-                                thumbnailAspectRatio: nil
+                                aspectRatio: nil
                             ),
                         imageLoadPolicy: configuration.imageLoadPolicy,
                         fadesFirstImage: false,

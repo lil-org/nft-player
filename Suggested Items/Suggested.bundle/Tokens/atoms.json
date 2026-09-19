@@ -153,7 +153,7 @@
       "hash": "0xff8dd245d6ccb23312271de96e8041d5311c5f18d43d520d827f441ec9054261"
     }
   ],
-  "thumbnailAspectRatios": [
+  "aspectRatios": [
     [
       130,
       73

@@ -940,14 +940,14 @@ final class MacPlayerMediaContainerView: NSView {
         guard let context,
               token.nativeMetalCardRenderKind == nil,
               TokenGenerator.isBundledWebGenerativeCollection(id: context.collectionId),
-              let thumbnailAspectRatio = CollectionCatalog.collectionBrowseThumbnailDescriptor(
+              let aspectRatio = CollectionCatalog.collectionBrowseThumbnailDescriptor(
                 specificCollectionId: context.collectionId,
                 tokenIndex: context.tokenIndex
-              )?.thumbnailAspectRatio else {
+              )?.aspectRatio else {
             return .viewport
         }
 
-        let size = thumbnailAspectRatio.size
+        let size = aspectRatio.size
         guard size.width > 0, size.height > 0, size.width.isFinite, size.height.isFinite else {
             return .viewport
         }

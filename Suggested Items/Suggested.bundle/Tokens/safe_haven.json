@@ -119,7 +119,7 @@
       "22.mov"
     ]
   ],
-  "thumbnailAspectRatios": [
+  "aspectRatios": [
     [
       325,
       244
@@ -129,7 +129,7 @@
       37
     ]
   ],
-  "thumbnailAspectRatioOverrides": [
+  "aspectRatioOverrides": [
     [
       15,
       1

@@ -3,7 +3,7 @@ const crypto = require("node:crypto");
 const {
   COLLECTION_BROWSER_DEFAULT_COLUMN_COUNT,
   COLLECTION_BROWSER_LANDSCAPE_COLUMN_COUNT,
-} = require("./thumbnail_aspect_ratios");
+} = require("./aspect_ratios");
 
 const INTERNAL_SLUG_PATTERN = /^[a-z0-9]+(?:_[a-z0-9]+)*$/u;
 const MAX_INTERNAL_SLUG_LENGTH = 120;

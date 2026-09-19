@@ -2556,13 +2556,7 @@
       }
     }
   ],
-  "artworkAspectRatios": [
-    [
-      14,
-      25
-    ]
-  ],
-  "thumbnailAspectRatios": [
+  "aspectRatios": [
     [
       269,
       480

@@ -23,7 +23,7 @@ private let playerProgressControlSize: CGFloat = 34
 private let playerNavigationArrowSpacing: CGFloat = 4
 
 enum MobileBundledGenerativePresentationMode: Equatable {
-    case thumbnailAspectFit
+    case aspectFit
     case fullscreen
 }
 
@@ -337,7 +337,7 @@ struct MobilePlayerView: View {
     @State private var canGoForward = false
     @State private var bookmarkController = PlayerBookmarkController()
     @State private var bundledGenerativePresentationMode:
-        MobileBundledGenerativePresentationMode = .thumbnailAspectFit
+        MobileBundledGenerativePresentationMode = .aspectFit
     @State private var focusedPagePositionUpdateCoordinator =
         MobilePlayerFocusedPagePositionUpdateCoordinator()
 
@@ -466,7 +466,7 @@ struct MobilePlayerView: View {
         .onDisappear {
             focusedPagePositionUpdateCoordinator.cancelPendingUpdate()
             bookmarkController.stop()
-            bundledGenerativePresentationMode = .thumbnailAspectFit
+            bundledGenerativePresentationMode = .aspectFit
         }
         .task {
             guard !isAllowedToHideStatusBar else { return }
@@ -552,7 +552,7 @@ struct MobilePlayerView: View {
                     tokenIndex: tokenIndex
                   ) else { return false }
             return token.id == currentToken.id
-                && (token.artworkAspectRatio ?? token.thumbnailAspectRatio) != nil
+                && token.aspectRatio != nil
         }
 
         guard let descriptor = playbackSession.collectionBrowseThumbnailDescriptor(
@@ -563,7 +563,7 @@ struct MobilePlayerView: View {
 
         return descriptor.collectionId == currentToken.fullCollectionId
             && descriptor.tokenId == currentToken.id
-            && descriptor.thumbnailAspectRatio != nil
+            && descriptor.aspectRatio != nil
     }
 
     private var bundledGenerativeFullscreenBinding: Binding<Bool> {
@@ -575,7 +575,7 @@ struct MobilePlayerView: View {
                 guard !chrome.isPlayerContentHiddenForCardTransition else { return }
                 bundledGenerativePresentationMode = isFullscreen
                     ? .fullscreen
-                    : .thumbnailAspectFit
+                    : .aspectFit
             }
         )
     }

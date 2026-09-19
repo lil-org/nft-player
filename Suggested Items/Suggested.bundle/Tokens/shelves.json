@@ -8334,7 +8334,7 @@
       "1393.webp"
     ]
   ],
-  "thumbnailAspectRatios": [
+  "aspectRatios": [
     [
       140,
       207
@@ -8344,7 +8344,7 @@
       613
     ]
   ],
-  "thumbnailAspectRatioOverrides": [
+  "aspectRatioOverrides": [
     [
       69,
       1

@@ -11,9 +11,8 @@ extension ArtBlocksCatalogTests {
         {
           "defaultFileExtension": " .PNG ",
           "urlPrefixes": ["https://example.com/"],
-          "thumbnailAspectRatios": [[3, 4], [16, 9]],
-          "thumbnailAspectRatioOverrides": [[2, 1]],
-          "artworkAspectRatios": [[1, 1]],
+          "aspectRatios": [[3, 4], [16, 9]],
+          "aspectRatioOverrides": [[2, 1]],
           "items": [
             ["legacy", 0, "legacy.png"],
             ["extension", 0, "extension", ".JPG"],
@@ -37,9 +36,8 @@ extension ArtBlocksCatalogTests {
         ])
         XCTAssertEqual(tokens.items.map(\.name), [nil, nil, "Named artwork", "Extension artwork", nil])
         XCTAssertEqual(tokens.items.map(\.hash), [nil, nil, "0xabc", nil, "0xdef"])
-        XCTAssertEqual(tokens.items[2].thumbnailAspectRatio, ThumbnailAspectRatio(width: 16, height: 9))
-        XCTAssertEqual(tokens.items[0].thumbnailAspectRatio, ThumbnailAspectRatio(width: 3, height: 4))
-        XCTAssertTrue(tokens.items.allSatisfy { $0.artworkAspectRatio == ThumbnailAspectRatio(width: 1, height: 1) })
+        XCTAssertEqual(tokens.items[2].aspectRatio, AspectRatio(width: 16, height: 9))
+        XCTAssertEqual(tokens.items[0].aspectRatio, AspectRatio(width: 3, height: 4))
 
         let encoder = JSONEncoder()
         encoder.outputFormatting = .sortedKeys
@@ -47,7 +45,7 @@ extension ArtBlocksCatalogTests {
         let restored = try JSONDecoder().decode(BundledTokens.self, from: encoded)
         XCTAssertEqual(restored.items.map(\.name), tokens.items.map(\.name))
         XCTAssertEqual(restored.items.map(\.hash), tokens.items.map(\.hash))
-        XCTAssertEqual(restored.items.map(\.thumbnailAspectRatio), tokens.items.map(\.thumbnailAspectRatio))
+        XCTAssertEqual(restored.items.map(\.aspectRatio), tokens.items.map(\.aspectRatio))
         XCTAssertEqual(try encoder.encode(restored), encoded)
     }
 
@@ -59,8 +57,67 @@ extension ArtBlocksCatalogTests {
         XCTAssertEqual(tokens.items.map(\.fileExtension), [nil, "jpg", nil, "webp", nil])
         XCTAssertEqual(tokens.items[2].url, "https://example.com/named.png")
         XCTAssertEqual(tokens.items[4].url, "https://other.example/art.png")
-        XCTAssertEqual(tokens.items[2].thumbnailAspectRatio, ThumbnailAspectRatio(width: 16, height: 9))
-        XCTAssertEqual(tokens.items[0].thumbnailAspectRatio, ThumbnailAspectRatio(width: 3, height: 4))
+        XCTAssertEqual(tokens.items[2].aspectRatio, AspectRatio(width: 16, height: 9))
+        XCTAssertEqual(tokens.items[0].aspectRatio, AspectRatio(width: 3, height: 4))
+    }
+
+    func testObjectTokensShareNormalizedAspectRatiosAndRoundTripOverrides() throws {
+        let data = Data(#"{"items":[{"id":"a"},{"id":"b"},{"id":"c"}],"aspectRatios":[[32,18],[6,8]],"aspectRatioOverrides":[[1,1]]}"#.utf8)
+        let expected = [AspectRatio(width: 16, height: 9), AspectRatio(width: 3, height: 4), AspectRatio(width: 16, height: 9)]
+        let bundled = try JSONDecoder().decode(BundledTokens.self, from: data)
+        let downloadable = try JSONDecoder().decode(DownloadableCollectionTokensPayload.self, from: data)
+        XCTAssertEqual(bundled.items.compactMap(\.aspectRatio), expected)
+        XCTAssertEqual(downloadable.items.compactMap(\.aspectRatio), expected)
+
+        let encoded = try JSONEncoder().encode(bundled)
+        let restored = try JSONDecoder().decode(BundledTokens.self, from: encoded)
+        XCTAssertEqual(restored.items.compactMap(\.aspectRatio), expected)
+        let payload = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        XCTAssertEqual(Set(payload.keys), ["isComplete", "items", "aspectRatios", "aspectRatioOverrides"])
+        XCTAssertEqual(payload["aspectRatios"] as? [[Int]], [[16, 9], [3, 4]])
+        XCTAssertEqual(payload["aspectRatioOverrides"] as? [[Int]], [[1, 1]])
+    }
+
+    func testAspectRatioMetadataCanBeAbsentInBothTokenFormats() throws {
+        for json in [#"{"items":[{"id":"a"}]}"#, #"{"items":[["a",0,"a.png"]],"urlPrefixes":["https://example.com/"]}"#] {
+            let data = Data(json.utf8)
+            let bundled = try JSONDecoder().decode(BundledTokens.self, from: data)
+            let downloadable = try JSONDecoder().decode(DownloadableCollectionTokensPayload.self, from: data)
+            XCTAssertNil(try XCTUnwrap(bundled.items.first).aspectRatio)
+            XCTAssertNil(try XCTUnwrap(downloadable.items.first).aspectRatio)
+            let restored = try JSONDecoder().decode(BundledTokens.self, from: JSONEncoder().encode(bundled))
+            XCTAssertNil(try XCTUnwrap(restored.items.first).aspectRatio)
+        }
+    }
+
+    func testBothTokenDecodersRejectMalformedAspectRatioMetadata() throws {
+        let invalidMetadata: [[String: Any]] = [
+            ["aspectRatioOverrides": []],
+            ["aspectRatios": []],
+            ["aspectRatios": [[1, 1], [2, 2]]],
+            ["aspectRatios": [[1]]],
+            ["aspectRatios": [[1, 1, 1]]],
+            ["aspectRatios": [[0, 1]]],
+            ["aspectRatios": [[-1, 1]]],
+            ["aspectRatios": [[1.5, 1]]],
+            ["aspectRatios": [["1", "1"]]],
+            ["aspectRatios": [[1, 1]], "aspectRatioOverrides": [[0]]],
+            ["aspectRatios": [[1, 1], [4, 3]], "aspectRatioOverrides": [[-1, 1]]],
+            ["aspectRatios": [[1, 1], [4, 3]], "aspectRatioOverrides": [[2, 1]]],
+            ["aspectRatios": [[1, 1], [4, 3]], "aspectRatioOverrides": [[0, 0]]],
+            ["aspectRatios": [[1, 1], [4, 3]], "aspectRatioOverrides": [[0, 2]]],
+            ["aspectRatios": [[1, 1], [4, 3]], "aspectRatioOverrides": [[0, 1], [0, 1]]]
+        ]
+        let itemFormats: [Any] = [[["id": "a"], ["id": "b"]], [["a", 0, "a.png"], ["b", 0, "b.png"]]]
+        for metadata in invalidMetadata {
+            for items in itemFormats {
+                var payload = metadata
+                payload["items"] = items
+                let data = try JSONSerialization.data(withJSONObject: payload)
+                XCTAssertThrowsError(try JSONDecoder().decode(BundledTokens.self, from: data), "\(payload)")
+                XCTAssertThrowsError(try JSONDecoder().decode(DownloadableCollectionTokensPayload.self, from: data), "\(payload)")
+            }
+        }
     }
 
     func testBundledResourcesAndCoverNamesUseSlugsWithoutChangingCollectionIdentity() throws {
@@ -290,8 +347,7 @@ extension ArtBlocksCatalogTests {
             for (index, token) in tokens.items.enumerated() {
                 XCTAssertEqual(token.id, String(projectID * 1_000_000 + index), item.name)
                 XCTAssertNotNil(token.hash?.range(of: "^0x[0-9a-fA-F]{64}$", options: .regularExpression), item.name + " " + token.id)
-                XCTAssertNotNil(token.artworkAspectRatio, item.name + " " + token.id)
-                XCTAssertNotNil(token.thumbnailAspectRatio, item.name + " " + token.id)
+                XCTAssertNotNil(token.aspectRatio, item.name + " " + token.id)
                 XCTAssertEqual(CollectionCatalog.tokenIndex(specificCollectionId: item.id, tokenId: token.id), index)
             }
             for index in Set([0, tokens.items.count / 2, tokens.items.count - 1]) {
@@ -307,10 +363,10 @@ extension ArtBlocksCatalogTests {
                     XCTAssertEqual(descriptor.collectionId, item.id)
                     XCTAssertEqual(descriptor.tokenId, token.id)
                     XCTAssertEqual(descriptor.tokenIndex, index)
-                    XCTAssertEqual(descriptor.thumbnailAspectRatio, token.thumbnailAspectRatio)
+                    XCTAssertEqual(descriptor.aspectRatio, token.aspectRatio)
                 }
                 XCTAssertEqual(sources.smallestThumbnailDescriptor?.tokenId, token.id)
-                XCTAssertEqual(sources.smallestThumbnailDescriptor?.thumbnailAspectRatio, token.thumbnailAspectRatio)
+                XCTAssertEqual(sources.smallestThumbnailDescriptor?.aspectRatio, token.aspectRatio)
             }
             XCTAssertNil(CollectionCatalog.collectionBrowseThumbnailDescriptor(specificCollectionId: item.id, tokenIndex: -1))
             XCTAssertNil(CollectionCatalog.collectionBrowseThumbnailDescriptor(specificCollectionId: item.id, tokenIndex: tokens.items.count))
@@ -319,23 +375,46 @@ extension ArtBlocksCatalogTests {
         XCTAssertEqual(count, 143_847)
     }
 
-    func testNeighborhoodThumbnailFramingIsIndependentOfGenerativeArtworkFraming() throws {
+    func testNeighborhoodUsesPerTokenAspectRatiosForBrowsingAndPlayback() throws {
         let item = try XCTUnwrap(additions.first { $0.internalSlug == "neighborhood" })
         let tokens = try XCTUnwrap(SuggestedItemsService.bundledTokens(collectionId: item.id)).items
         for (index, width, height) in [(0, 16, 9), (3, 1, 1), (7, 9, 16)] {
-            let ratio = ThumbnailAspectRatio(width: width, height: height)
+            let ratio = AspectRatio(width: width, height: height)
             XCTAssertEqual(tokens[index].id, String(146_000_000 + index))
-            XCTAssertEqual(tokens[index].thumbnailAspectRatio, ratio)
-            XCTAssertEqual(tokens[index].artworkAspectRatio, ThumbnailAspectRatio(width: 1, height: 1))
+            XCTAssertEqual(tokens[index].aspectRatio, ratio)
             let sources = try XCTUnwrap(CollectionCatalog.collectionBrowseImageSources(specificCollectionId: item.id, tokenIndex: index))
-            XCTAssertEqual(sources.thumbnailDescriptor.thumbnailAspectRatio, ratio)
-            XCTAssertEqual(sources.smallThumbnailDescriptor.thumbnailAspectRatio, ratio)
-            XCTAssertEqual(sources.smallestThumbnailDescriptor?.thumbnailAspectRatio, ratio)
-            XCTAssertEqual(sources.largeDescriptor.thumbnailAspectRatio, ratio)
+            XCTAssertEqual(sources.thumbnailDescriptor.aspectRatio, ratio)
+            XCTAssertEqual(sources.smallThumbnailDescriptor.aspectRatio, ratio)
+            XCTAssertEqual(sources.smallestThumbnailDescriptor?.aspectRatio, ratio)
+            XCTAssertEqual(sources.largeDescriptor.aspectRatio, ratio)
             let generated = try XCTUnwrap(CollectionCatalog.generateToken(specificCollectionId: item.id, tokenIndex: index))
             XCTAssertEqual(generated.id, tokens[index].id)
             XCTAssertNil(generated.media)
             XCTAssertFalse(generated.html.isEmpty)
+        }
+        XCTAssertEqual(TokenGenerator.aspectRatioProfile(specificCollectionId: item.id), .variable(tokens.compactMap(\.aspectRatio)))
+    }
+
+    func testDegenerativeAndAssemblyUseImageRatiosForPlayback() throws {
+        for (slug, expected) in [
+            ("degenerative", [AspectRatio(width: 400, height: 289), AspectRatio(width: 600, height: 437)]),
+            ("assembly", [AspectRatio(width: 5, height: 6)])
+        ] {
+            let item = try XCTUnwrap(SuggestedItemsService.allItems.first { $0.internalSlug == slug })
+            let tokens = try XCTUnwrap(SuggestedItemsService.bundledTokens(collectionId: item.id)).items
+            for ratio in expected {
+                let index = try XCTUnwrap(tokens.firstIndex { $0.aspectRatio == ratio })
+                XCTAssertEqual(TokenGenerator.bundledWebGenerativeToken(specificCollectionId: item.id, tokenIndex: index)?.aspectRatio, ratio)
+                let sources = try XCTUnwrap(CollectionCatalog.collectionBrowseImageSources(specificCollectionId: item.id, tokenIndex: index))
+                XCTAssertEqual(sources.thumbnailDescriptor.aspectRatio, ratio)
+                XCTAssertEqual(sources.largeDescriptor.aspectRatio, ratio)
+            }
+            if slug == "degenerative" {
+                XCTAssertEqual(Set(tokens.compactMap(\.aspectRatio)).count, 32)
+                XCTAssertEqual(TokenGenerator.aspectRatioProfile(specificCollectionId: item.id), .variable(tokens.compactMap(\.aspectRatio)))
+            } else {
+                XCTAssertEqual(TokenGenerator.aspectRatioProfile(specificCollectionId: item.id), .uniform(expected[0]))
+            }
         }
     }
 
@@ -402,8 +481,8 @@ extension ArtBlocksCatalogTests {
                 XCTAssertEqual(sources.smallThumbnailDescriptor.url.absoluteString, "\(base)/thumbs/260/\(index).webp")
                 XCTAssertEqual(sources.smallestThumbnailDescriptor?.url.absoluteString, "\(base)/thumbs/140/\(index).webp")
                 XCTAssertEqual(sources.largeDescriptor.url.absoluteString, "\(base)/mid/\(stem).webp")
-                XCTAssertEqual(sources.thumbnailDescriptor.thumbnailAspectRatio, expected.thumbnailAspectRatio)
-                XCTAssertNotNil(expected.thumbnailAspectRatio)
+                XCTAssertEqual(sources.thumbnailDescriptor.aspectRatio, expected.aspectRatio)
+                XCTAssertNotNil(expected.aspectRatio)
             }
             XCTAssertNil(CollectionCatalog.generateToken(specificCollectionId: item.id, tokenIndex: -1))
             XCTAssertNil(CollectionCatalog.generateToken(specificCollectionId: item.id, tokenIndex: count))
@@ -455,7 +534,7 @@ extension ArtBlocksCatalogTests {
             for (index, expected) in tokens.items.enumerated() {
                 XCTAssertEqual(expected.id, String(projectID * 1_000_000 + index))
                 XCTAssertEqual(expected.url, "\(base)/\(index).png")
-                XCTAssertNotNil(expected.thumbnailAspectRatio)
+                XCTAssertNotNil(expected.aspectRatio)
                 let token = try XCTUnwrap(CollectionCatalog.generateToken(specificCollectionId: item.id, tokenIndex: index))
                 XCTAssertEqual(token.id, expected.id)
                 XCTAssertEqual(token.fullCollectionId, item.id)
@@ -472,8 +551,8 @@ extension ArtBlocksCatalogTests {
                 XCTAssertEqual(sources.smallThumbnailDescriptor.url.absoluteString, "\(base)/thumbs/260/\(index).webp")
                 XCTAssertEqual(sources.smallestThumbnailDescriptor?.url.absoluteString, "\(base)/thumbs/140/\(index).webp")
                 XCTAssertEqual(sources.largeDescriptor.url.absoluteString, "\(base)/mid/\(index).webp")
-                XCTAssertEqual(sources.thumbnailDescriptor.thumbnailAspectRatio, expected.thumbnailAspectRatio)
-                XCTAssertEqual(sources.largeDescriptor.thumbnailAspectRatio, expected.thumbnailAspectRatio)
+                XCTAssertEqual(sources.thumbnailDescriptor.aspectRatio, expected.aspectRatio)
+                XCTAssertEqual(sources.largeDescriptor.aspectRatio, expected.aspectRatio)
             }
             XCTAssertNil(CollectionCatalog.generateToken(specificCollectionId: item.id, tokenIndex: -1))
             XCTAssertNil(CollectionCatalog.generateToken(specificCollectionId: item.id, tokenIndex: count))
@@ -490,14 +569,14 @@ extension ArtBlocksCatalogTests {
         let tokens = try XCTUnwrap(SuggestedItemsService.bundledTokens(collectionId: item.id)).items
         let expectations = [(0, 6, 5), (1, 9, 16), (2, 16, 9), (4, 5, 6), (15, 1, 1)]
         for (index, width, height) in expectations {
-            let expected = ThumbnailAspectRatio(width: width, height: height)
-            XCTAssertEqual(tokens[index].thumbnailAspectRatio, expected)
+            let expected = AspectRatio(width: width, height: height)
+            XCTAssertEqual(tokens[index].aspectRatio, expected)
             let sources = try XCTUnwrap(CollectionCatalog.collectionBrowseImageSources(specificCollectionId: item.id, tokenIndex: index))
-            XCTAssertEqual(sources.thumbnailDescriptor.thumbnailAspectRatio, expected)
-            XCTAssertEqual(sources.smallThumbnailDescriptor.thumbnailAspectRatio, expected)
-            XCTAssertEqual(sources.smallestThumbnailDescriptor?.thumbnailAspectRatio, expected)
-            XCTAssertEqual(sources.largeDescriptor.thumbnailAspectRatio, expected)
+            XCTAssertEqual(sources.thumbnailDescriptor.aspectRatio, expected)
+            XCTAssertEqual(sources.smallThumbnailDescriptor.aspectRatio, expected)
+            XCTAssertEqual(sources.smallestThumbnailDescriptor?.aspectRatio, expected)
+            XCTAssertEqual(sources.largeDescriptor.aspectRatio, expected)
         }
-        XCTAssertEqual(Set(tokens.compactMap(\.thumbnailAspectRatio)).count, 5)
+        XCTAssertEqual(Set(tokens.compactMap(\.aspectRatio)).count, 5)
     }
 }
