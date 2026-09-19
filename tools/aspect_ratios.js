@@ -2,8 +2,6 @@
 
 const fs = require("node:fs/promises");
 
-const ASPECT_RATIOS_KEY = "aspectRatios";
-const ASPECT_RATIO_OVERRIDES_KEY = "aspectRatioOverrides";
 const COLLECTION_BROWSER_DEFAULT_COLUMN_COUNT = 3;
 const COLLECTION_BROWSER_LANDSCAPE_COLUMN_COUNT = 2;
 
@@ -42,7 +40,10 @@ function tokenIdsFromPayload(payload) {
   }
 
   return payload.items.map((row, index) => {
-    const value = Array.isArray(row) ? row[0] : row?.id;
+    if (row == null || typeof row !== "object" || Array.isArray(row)) {
+      throw new TypeError(`Token item ${index} must be an object`);
+    }
+    const value = row.id;
     if (value == null || (typeof value === "string" && value.length === 0)) {
       throw new TypeError(`Token item ${index} must contain an id`);
     }
@@ -51,103 +52,42 @@ function tokenIdsFromPayload(payload) {
 }
 
 function decodeAspectRatioMetadata(payload) {
-  const encodedRatios = payload?.[ASPECT_RATIOS_KEY];
-  const encodedOverrides = payload?.[ASPECT_RATIO_OVERRIDES_KEY];
-  if (encodedRatios == null && encodedOverrides == null) {
-    return null;
-  }
-  if (!Array.isArray(encodedRatios) || encodedRatios.length === 0) {
-    throw new TypeError(`${ASPECT_RATIOS_KEY} must be a non-empty array when aspect-ratio metadata is present`);
-  }
-
-  const ratios = encodedRatios.map((ratio, index) =>
-    normalizedRatio(ratio, `${ASPECT_RATIOS_KEY}[${index}]`)
+  tokenIdsFromPayload(payload);
+  const defaultRatio = payload.aspectRatio == null
+    ? null
+    : normalizedRatio(payload.aspectRatio, "Collection aspectRatio");
+  const resolved = payload.items.map((item, index) => item.aspectRatio == null
+    ? defaultRatio
+    : normalizedRatio(item.aspectRatio, `Token item ${index} aspectRatio`)
   );
-  const ratioKeys = ratios.map(ratioKey);
-  if (new Set(ratioKeys).size !== ratioKeys.length) {
-    throw new TypeError(`${ASPECT_RATIOS_KEY} must not contain duplicate ratios`);
-  }
-
-  if (encodedOverrides != null && !Array.isArray(encodedOverrides)) {
-    throw new TypeError(`${ASPECT_RATIO_OVERRIDES_KEY} must be an array`);
-  }
-
-  const itemCount = tokenIdsFromPayload(payload).length;
-  const resolved = Array.from({ length: itemCount }, () => [...ratios[0]]);
-  const overriddenTokenIndices = new Set();
-  for (const [index, override] of (encodedOverrides ?? []).entries()) {
-    if (
-      !Array.isArray(override)
-      || override.length !== 2
-      || !Number.isSafeInteger(override[0])
-      || !Number.isSafeInteger(override[1])
-    ) {
-      throw new TypeError(
-        `${ASPECT_RATIO_OVERRIDES_KEY}[${index}] must be a [tokenIndex, ratioIndex] integer pair`
-      );
-    }
-
-    const [tokenIndex, ratioIndex] = override;
-    if (tokenIndex < 0 || tokenIndex >= itemCount) {
-      throw new RangeError(
-        `${ASPECT_RATIO_OVERRIDES_KEY}[${index}] has an invalid token index: ${tokenIndex}`
-      );
-    }
-    if (ratioIndex <= 0 || ratioIndex >= ratios.length) {
-      throw new RangeError(
-        `${ASPECT_RATIO_OVERRIDES_KEY}[${index}] has an invalid ratio index: ${ratioIndex}`
-      );
-    }
-    if (overriddenTokenIndices.has(tokenIndex)) {
-      throw new TypeError(`${ASPECT_RATIO_OVERRIDES_KEY} repeats token index: ${tokenIndex}`);
-    }
-
-    overriddenTokenIndices.add(tokenIndex);
-    resolved[tokenIndex] = [...ratios[ratioIndex]];
-  }
-  return resolved;
+  return defaultRatio == null && resolved.every((ratio) => ratio == null) ? null : resolved;
 }
 
-function encodeAspectRatioMetadata(values) {
+function encodeAspectRatioMetadata(payload, values) {
   if (!Array.isArray(values) || values.length === 0) {
     throw new TypeError("Aspect ratios must be a non-empty array");
   }
-
+  if (tokenIdsFromPayload(payload).length !== values.length) {
+    throw new TypeError("Aspect ratios must match the token count");
+  }
   const normalized = values.map((ratio, index) =>
     normalizedRatio(ratio, `Aspect ratio ${index}`)
   );
-  const statsByRatio = new Map();
-  normalized.forEach((ratio, index) => {
+  const counts = new Map();
+  for (const ratio of normalized) {
     const key = ratioKey(ratio);
-    const existing = statsByRatio.get(key);
-    if (existing) {
-      existing.count += 1;
-    } else {
-      statsByRatio.set(key, {
-        ratio,
-        count: 1,
-        firstIndex: index,
-      });
-    }
-  });
-
-  const stats = [...statsByRatio.values()].sort(
-    (left, right) => right.count - left.count || left.firstIndex - right.firstIndex
-  );
-  const ratioIndexByKey = new Map(
-    stats.map((entry, index) => [ratioKey(entry.ratio), index])
-  );
-  const overrides = [];
-  normalized.forEach((ratio, tokenIndex) => {
-    const ratioIndex = ratioIndexByKey.get(ratioKey(ratio));
-    if (ratioIndex > 0) {
-      overrides.push([tokenIndex, ratioIndex]);
-    }
-  });
-
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  const defaultKey = [...counts.keys()].sort((a, b) => counts.get(b) - counts.get(a))[0];
+  const defaultRatio = normalized.find((ratio) => ratioKey(ratio) === defaultKey);
+  const result = withoutAspectRatioMetadata(payload);
   return {
-    [ASPECT_RATIOS_KEY]: stats.map((entry) => [...entry.ratio]),
-    ...(overrides.length === 0 ? {} : { [ASPECT_RATIO_OVERRIDES_KEY]: overrides }),
+    ...result,
+    aspectRatio: [...defaultRatio],
+    items: result.items.map((item, index) => ({
+      ...item,
+      ...(ratioKey(normalized[index]) === defaultKey ? {} : { aspectRatio: normalized[index] }),
+    })),
   };
 }
 
@@ -177,8 +117,12 @@ function collectionBrowserColumnCountFromAspectRatios(values) {
 
 function withoutAspectRatioMetadata(payload) {
   const result = { ...payload };
-  delete result[ASPECT_RATIOS_KEY];
-  delete result[ASPECT_RATIO_OVERRIDES_KEY];
+  delete result.aspectRatio;
+  result.items = payload.items.map((item) => {
+    const token = { ...item };
+    delete token.aspectRatio;
+    return token;
+  });
   return result;
 }
 
@@ -195,7 +139,7 @@ function uniqueTokenIds(payload, label) {
 }
 
 function preserveAspectRatioMetadata(existingPayload, nextPayload) {
-  const payload = withoutAspectRatioMetadata(nextPayload);
+  let payload = withoutAspectRatioMetadata(nextPayload);
   const report = {
     sourceExists: true,
     metadataExists: false,
@@ -216,7 +160,7 @@ function preserveAspectRatioMetadata(existingPayload, nextPayload) {
   report.staleIds = existingIds.filter((id) => !nextIdSet.has(id));
 
   const ratioById = new Map(
-    existingIds.map((id, index) => [id, existingRatios[index]])
+    existingIds.flatMap((id, index) => existingRatios[index] == null ? [] : [[id, existingRatios[index]]])
   );
   report.missingIds = nextIds.filter((id) => !ratioById.has(id));
   if (report.missingIds.length > 0 || nextIds.length === 0) {
@@ -225,10 +169,7 @@ function preserveAspectRatioMetadata(existingPayload, nextPayload) {
 
   report.preservedIds = [...nextIds];
   const preservedRatios = nextIds.map((id) => ratioById.get(id));
-  Object.assign(
-    payload,
-    encodeAspectRatioMetadata(preservedRatios)
-  );
+  payload = encodeAspectRatioMetadata(payload, preservedRatios);
   return {
     payload,
     report,
@@ -292,8 +233,6 @@ function reportAspectRatioMetadataChanges(collectionId, report, logger = console
 }
 
 module.exports = {
-  ASPECT_RATIOS_KEY,
-  ASPECT_RATIO_OVERRIDES_KEY,
   COLLECTION_BROWSER_DEFAULT_COLUMN_COUNT,
   COLLECTION_BROWSER_LANDSCAPE_COLUMN_COUNT,
   collectionBrowserColumnCountFromAspectRatios,

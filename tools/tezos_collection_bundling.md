@@ -37,21 +37,21 @@ Cover generation requires ImageMagick and macOS `sips`. ImageMagick writes a sta
 
 `--covers <path>` changes the staging directory, which defaults to `covers/` at the project root. Staged images are optional local files and are not bundled into the app or widgets. Manually upload generated covers to `https://cdn.lil.org/player/covers/v1/<internal_slug>.jpg` before shipping the collection. The apps and widgets download covers from these URLs and retain them in a persistent cache.
 
-Token JSON uses the iOS app's compact downloadable collection format:
+Token JSON uses named token objects with a shared URL prefix:
 
 ```json
 {
   "defaultFileExtension": "gif",
   "urlPrefix": "https://ipfs.io/ipfs/",
-  "items": [["0", "QmHash"]]
+  "items": [{"id": "0", "urlSuffix": "QmHash"}]
 }
 ```
 
-Rows include a fourth extension field only when a token differs from `defaultFileExtension`.
+Tokens include a named `fileExtension` field only when they differ from `defaultFileExtension`.
 
 If an existing token JSON contains a top-level `tmp_files` map, `--apply` preserves entries whose token ID is still present in `items`. It drops and reports stale token IDs, ignores invalid file names, and omits the map when no valid entries remain. This preservation reads only the existing token JSON; rebundling does not require `Originals Downloaded` to exist.
 
-The bundler also preserves compact `aspectRatios` metadata by token ID, so reordering or removing tokens cannot attach a ratio to the wrong asset. If a newly discovered token has no existing ratio, the bundler omits the incomplete metadata and reports the missing ID; regenerate the ratios before shipping.
+The bundler also preserves the collection default `aspectRatio` and per-token `aspectRatio` exceptions by token ID, so reordering or removing tokens cannot attach a ratio to the wrong asset. If a newly discovered token has no existing ratio, the bundler omits the incomplete metadata and reports the missing ID; regenerate the ratios before shipping.
 
 ## Media Policy
 

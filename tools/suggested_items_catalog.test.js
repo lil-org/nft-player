@@ -12,8 +12,6 @@ const {
   withIOSCollectionBrowserColumnCount,
 } = require("./suggested_items");
 const {
-  ASPECT_RATIOS_KEY,
-  ASPECT_RATIO_OVERRIDES_KEY,
   COLLECTION_BROWSER_DEFAULT_COLUMN_COUNT,
   COLLECTION_BROWSER_LANDSCAPE_COLUMN_COUNT,
   collectionBrowserColumnCountFromAspectRatios,
@@ -177,22 +175,14 @@ function eligibleItems(items, scriptIds) {
   return items.filter((item) => !scriptIds.has(suggestedItemId(item)));
 }
 
-function tokenSourceURL(payload, row) {
-  if (!Array.isArray(row)) {
-    return row.url;
-  }
-
-  return (payload.urlPrefix ?? "") + row[1];
+function tokenSourceURL(payload, token) {
+  return token.url ?? (token.urlSuffix == null ? undefined : (payload.urlPrefix ?? "") + token.urlSuffix);
 }
 
-function tokenItem(payload, row) {
-  if (!Array.isArray(row)) return row;
-  return {
-    id: row[0],
-    url: tokenSourceURL(payload, row),
-    ...(row[2] != null ? { fileExtension: row[2] } : {}),
-    ...row[3],
-  };
+function tokenItem(payload, token) {
+  const { urlSuffix, aspectRatio, ...item } = token;
+  const url = tokenSourceURL(payload, token);
+  return { ...item, ...(url == null ? {} : { url }) };
 }
 
 function normalizedFileExtension(value) {
@@ -206,7 +196,7 @@ function resolvedFileExtension(payload, row, sourceURL) {
     path.posix.extname(new URL(sourceURL).pathname)
   );
   const rowFileExtension = normalizedFileExtension(
-    Array.isArray(row) ? row[2] : row.fileExtension
+    row.fileExtension
   );
   return sourcePathExtension
     ?? rowFileExtension
@@ -444,24 +434,20 @@ test("Mi Note collections retain on-chain identities, names, and exported media 
   }
 });
 
-test("token manifests use one URL prefix and compact rows without prefix indices in both bundles", () => {
+test("token manifests use named objects and a shared URL prefix in both bundles", () => {
   for (const directory of [TOKENS_PATH, WIDGET_TOKENS_PATH]) {
     for (const fileName of fs.readdirSync(directory).filter((name) => name.endsWith(".json"))) {
       const payload = readJSON(path.join(directory, fileName));
-      assert.equal(Object.hasOwn(payload, "urlPrefixes"), false, fileName);
-      const fullURLPrefixes = new Set();
-      for (const row of payload.items) {
-        if (Array.isArray(row)) {
-          assert.equal(typeof row[1], "string", fileName);
+      for (const key of ["urlPrefixes", "aspectRatios", "aspectRatioOverrides"]) {
+        assert.equal(Object.hasOwn(payload, key), false, `${fileName}: ${key}`);
+      }
+      for (const token of payload.items) {
+        assert.ok(token != null && typeof token === "object" && !Array.isArray(token), fileName);
+        assert.equal(typeof token.id, "string", fileName);
+        if (token.urlSuffix != null) {
+          assert.equal(typeof token.urlSuffix, "string", fileName);
           assert.equal(typeof payload.urlPrefix, "string", fileName);
-          assert.ok(row.length >= 2 && row.length <= 4, fileName);
-          if (row[3] != null) {
-            assert.ok(Object.keys(row[3]).every((key) => ["name", "hash"].includes(key)), fileName);
-          }
-        } else if (row.url != null) {
-          const prefix = row.url.slice(0, row.url.lastIndexOf("/") + 1);
-          assert.ok(!fullURLPrefixes.has(prefix), `${fileName} repeats the full URL prefix ${prefix}`);
-          fullURLPrefixes.add(prefix);
+          assert.equal(Object.hasOwn(token, "url"), false, fileName);
         }
       }
     }
@@ -476,8 +462,8 @@ test("Artifact Magazine 3 uses one-based CDN media tiers", () => {
 
   const payload = readJSON(path.join(TOKENS_PATH, `${item.internal_slug}.json`));
   assert.equal(payload.items.length, 593);
-  assert.equal(payload.items[0][0], "3dJFRCd9VCKVBu4XRbuofqTyCqDE1jZHAmprKcU9otsm");
-  assert.equal(payload.items.at(-1)[0], "2R53LsQgyUCeQtsd7r92nqdKd2AWEF2asYjpeRcZQbHP");
+  assert.equal(payload.items[0].id, "3dJFRCd9VCKVBu4XRbuofqTyCqDE1jZHAmprKcU9otsm");
+  assert.equal(payload.items.at(-1).id, "2R53LsQgyUCeQtsd7r92nqdKd2AWEF2asYjpeRcZQbHP");
 
   for (const [tokenIndex, cdnIndex] of [[0, 1], [592, 593]]) {
     const sourceURL = tokenSourceURL(payload, payload.items[tokenIndex]);
@@ -506,8 +492,8 @@ test("Planet Peppa retains original filenames and uses original large images", (
   );
   assert.equal(payload.items.length, item.tokenCount);
   assert.equal(new Set(tokenIdsFromPayload(payload)).size, item.tokenCount);
-  assert.equal(payload.items.filter((row) => row[0].startsWith("unminted-")).length, 11268);
-  assert.deepEqual(payload.aspectRatios, [[1, 1]]);
+  assert.equal(payload.items.filter((row) => row.id.startsWith("unminted-")).length, 11268);
+  assert.deepEqual(payload.aspectRatio, [1, 1]);
   assert.equal(item.iosCollectionBrowserColumnCount, undefined);
   assert.equal(item.sizedThumbsIndexOffset, undefined);
 
@@ -654,22 +640,22 @@ test("September generative collections expose indexed CDN tiers without changing
   }
 });
 
-test("media extension resolution prefers URL, then row, then manifest defaults", () => {
+test("media extension resolution prefers URL, then token, then manifest defaults", () => {
   const payload = {
     defaultFileExtension: ".HTML",
     urlPrefix: "https://example.com/tokens/",
   };
 
   assert.equal(
-    resolvedFileExtension(payload, ["1", "1.svg", "mov"], "https://example.com/tokens/1.svg"),
+    resolvedFileExtension(payload, { id: "1", urlSuffix: "1.svg", fileExtension: "mov" }, "https://example.com/tokens/1.svg"),
     "svg"
   );
   assert.equal(
-    resolvedFileExtension(payload, ["2", "2", ".MOV"], "https://example.com/tokens/2"),
+    resolvedFileExtension(payload, { id: "2", urlSuffix: "2", fileExtension: ".MOV" }, "https://example.com/tokens/2"),
     "mov"
   );
   assert.equal(
-    resolvedFileExtension(payload, ["3", "3"], "https://example.com/tokens/3"),
+    resolvedFileExtension(payload, { id: "3", urlSuffix: "3" }, "https://example.com/tokens/3"),
     "html"
   );
 });
@@ -861,7 +847,7 @@ test("thumbnail base overrides support extensionless sources and strip source ex
   );
 });
 
-test("bundled tokens have compact aspect ratios and matching iOS layouts", () => {
+test("bundled tokens have default and per-token aspect ratios with matching iOS layouts", () => {
   const primaryFileNames = fs.readdirSync(TOKENS_PATH)
     .filter((fileName) => path.extname(fileName) === ".json")
     .sort();
@@ -894,14 +880,9 @@ test("bundled tokens have compact aspect ratios and matching iOS layouts", () =>
     assert.equal(Object.keys(payload).some(key => /^(artwork|thumbnail)AspectRatio/u.test(key)), false, fileName);
     assert.equal(ratios.length, payload.items.length, `${fileName} has incomplete aspect-ratio metadata`);
     assert.deepEqual(
-      {
-        [ASPECT_RATIOS_KEY]: payload[ASPECT_RATIOS_KEY],
-        ...(payload[ASPECT_RATIO_OVERRIDES_KEY] == null
-          ? {}
-          : { [ASPECT_RATIO_OVERRIDES_KEY]: payload[ASPECT_RATIO_OVERRIDES_KEY] }),
-      },
-      encodeAspectRatioMetadata(ratios),
-      `${fileName} does not use the canonical compact aspect-ratio encoding`
+      payload,
+      encodeAspectRatioMetadata(payload, ratios),
+      `${fileName} does not use the canonical default and per-token aspect ratios`
     );
 
     const item = catalogItemByFileName.get(fileName);
@@ -965,7 +946,7 @@ test("bundled tokens have compact aspect ratios and matching iOS layouts", () =>
     assert.ok(primary, `${fileName} has no matching primary token manifest`);
     const collection = catalogItems.find((item) => `${item.internal_slug}.json` === fileName);
     const mediaReferences = (payload) => payload.items.map((row) => {
-      const id = Array.isArray(row) ? row[0] : row.id;
+      const id = row.id;
       const url = tokenSourceURL(payload, row)
         ?? (row.sh != null ? `https://cdn.simplehash.com/assets/${row.sh}` : undefined)
         ?? (collection.chain === "ethereum" ? `https://media-proxy.artblocks.io/${collection.address}/${id}.png` : undefined);
@@ -975,9 +956,7 @@ test("bundled tokens have compact aspect ratios and matching iOS layouts", () =>
     assert.ok(Object.keys(widgetPayload).every((key) => ["items", "urlPrefix", "defaultFileExtension"].includes(key)), fileName);
     for (const row of widgetPayload.items) {
       assert.ok(
-        Array.isArray(row)
-          ? row.length >= 2 && row.length <= 3
-          : Object.keys(row).every((key) => ["id", "url", "sh", "fileExtension"].includes(key)),
+        Object.keys(row).every((key) => ["id", "url", "urlSuffix", "sh", "fileExtension"].includes(key)),
         fileName
       );
     }
@@ -1004,9 +983,8 @@ test("Terraforms uses Mathcastles HTML primaries with unchanged CDN thumbnails",
   assert.equal(payload.items.length, 9844);
 
   for (const [index, row] of payload.items.entries()) {
-    assert.ok(Array.isArray(row), `Terraforms token ${index} is not a compact row`);
-    assert.equal(row.length, 2, `Terraforms token ${index} has unexpected row metadata`);
-    const [tokenId, urlSuffix] = row;
+    assert.deepEqual(Object.keys(row).sort(), ["id", "urlSuffix"], `Terraforms token ${index} has unexpected metadata`);
+    const { id: tokenId, urlSuffix } = row;
     assert.equal(urlSuffix, tokenId, `Terraforms token ${index} has an unexpected URL suffix`);
 
     const sourceURL = tokenSourceURL(payload, row);

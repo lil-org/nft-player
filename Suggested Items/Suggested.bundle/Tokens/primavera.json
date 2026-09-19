@@ -1,506 +1,486 @@
 {
   "hasMid": true,
   "urlPrefix": "https://cdn.lil.org/player/primavera/",
+  "aspectRatio": [
+    9,
+    16
+  ],
   "items": [
-    [
-      "0",
-      "0.png"
-    ],
-    [
-      "1",
-      "1.png"
-    ],
-    [
-      "2",
-      "2.png"
-    ],
-    [
-      "3",
-      "3.png"
-    ],
-    [
-      "4",
-      "4.png"
-    ],
-    [
-      "5",
-      "5.png"
-    ],
-    [
-      "6",
-      "6.png"
-    ],
-    [
-      "7",
-      "7.png"
-    ],
-    [
-      "8",
-      "8.png"
-    ],
-    [
-      "9",
-      "9.png"
-    ],
-    [
-      "10",
-      "10.png"
-    ],
-    [
-      "11",
-      "11.png"
-    ],
-    [
-      "12",
-      "12.png"
-    ],
-    [
-      "13",
-      "13.png"
-    ],
-    [
-      "14",
-      "14.png"
-    ],
-    [
-      "15",
-      "15.png"
-    ],
-    [
-      "16",
-      "16.png"
-    ],
-    [
-      "17",
-      "17.png"
-    ],
-    [
-      "18",
-      "18.png"
-    ],
-    [
-      "19",
-      "19.png"
-    ],
-    [
-      "20",
-      "20.png"
-    ],
-    [
-      "21",
-      "21.png"
-    ],
-    [
-      "22",
-      "22.png"
-    ],
-    [
-      "23",
-      "23.png"
-    ],
-    [
-      "24",
-      "24.png"
-    ],
-    [
-      "25",
-      "25.png"
-    ],
-    [
-      "26",
-      "26.png"
-    ],
-    [
-      "27",
-      "27.png"
-    ],
-    [
-      "28",
-      "28.png"
-    ],
-    [
-      "29",
-      "29.png"
-    ],
-    [
-      "30",
-      "30.png"
-    ],
-    [
-      "31",
-      "31.png"
-    ],
-    [
-      "32",
-      "32.png"
-    ],
-    [
-      "33",
-      "33.png"
-    ],
-    [
-      "34",
-      "34.png"
-    ],
-    [
-      "35",
-      "35.png"
-    ],
-    [
-      "36",
-      "36.png"
-    ],
-    [
-      "37",
-      "37.png"
-    ],
-    [
-      "38",
-      "38.png"
-    ],
-    [
-      "39",
-      "39.png"
-    ],
-    [
-      "40",
-      "40.png"
-    ],
-    [
-      "41",
-      "41.png"
-    ],
-    [
-      "42",
-      "42.png"
-    ],
-    [
-      "43",
-      "43.png"
-    ],
-    [
-      "44",
-      "44.png"
-    ],
-    [
-      "45",
-      "45.png"
-    ],
-    [
-      "46",
-      "46.png"
-    ],
-    [
-      "47",
-      "47.png"
-    ],
-    [
-      "48",
-      "48.png"
-    ],
-    [
-      "49",
-      "49.png"
-    ],
-    [
-      "50",
-      "50.png"
-    ],
-    [
-      "51",
-      "51.png"
-    ],
-    [
-      "52",
-      "52.png"
-    ],
-    [
-      "53",
-      "53.png"
-    ],
-    [
-      "54",
-      "54.png"
-    ],
-    [
-      "55",
-      "55.png"
-    ],
-    [
-      "56",
-      "56.png"
-    ],
-    [
-      "57",
-      "57.png"
-    ],
-    [
-      "58",
-      "58.png"
-    ],
-    [
-      "59",
-      "59.png"
-    ],
-    [
-      "60",
-      "60.png"
-    ],
-    [
-      "61",
-      "61.png"
-    ],
-    [
-      "62",
-      "62.png"
-    ],
-    [
-      "63",
-      "63.png"
-    ],
-    [
-      "64",
-      "64.png"
-    ],
-    [
-      "65",
-      "65.png"
-    ],
-    [
-      "66",
-      "66.png"
-    ],
-    [
-      "67",
-      "67.png"
-    ],
-    [
-      "68",
-      "68.png"
-    ],
-    [
-      "69",
-      "69.png"
-    ]
-  ],
-  "aspectRatios": [
-    [
-      9,
-      16
-    ],
-    [
-      6,
-      5
-    ],
-    [
-      16,
-      9
-    ],
-    [
-      5,
-      6
-    ],
-    [
-      1,
-      1
-    ]
-  ],
-  "aspectRatioOverrides": [
-    [
-      0,
-      1
-    ],
-    [
-      2,
-      2
-    ],
-    [
-      4,
-      3
-    ],
-    [
-      8,
-      3
-    ],
-    [
-      9,
-      2
-    ],
-    [
-      10,
-      2
-    ],
-    [
-      11,
-      1
-    ],
-    [
-      13,
-      2
-    ],
-    [
-      14,
-      1
-    ],
-    [
-      15,
-      4
-    ],
-    [
-      16,
-      2
-    ],
-    [
-      17,
-      4
-    ],
-    [
-      18,
-      3
-    ],
-    [
-      20,
-      3
-    ],
-    [
-      21,
-      4
-    ],
-    [
-      22,
-      1
-    ],
-    [
-      24,
-      2
-    ],
-    [
-      26,
-      2
-    ],
-    [
-      29,
-      3
-    ],
-    [
-      30,
-      2
-    ],
-    [
-      31,
-      4
-    ],
-    [
-      32,
-      3
-    ],
-    [
-      35,
-      1
-    ],
-    [
-      36,
-      4
-    ],
-    [
-      38,
-      1
-    ],
-    [
-      39,
-      1
-    ],
-    [
-      40,
-      2
-    ],
-    [
-      41,
-      2
-    ],
-    [
-      42,
-      2
-    ],
-    [
-      43,
-      2
-    ],
-    [
-      44,
-      1
-    ],
-    [
-      45,
-      1
-    ],
-    [
-      46,
-      1
-    ],
-    [
-      47,
-      3
-    ],
-    [
-      48,
-      4
-    ],
-    [
-      51,
-      4
-    ],
-    [
-      53,
-      3
-    ],
-    [
-      54,
-      3
-    ],
-    [
-      55,
-      4
-    ],
-    [
-      56,
-      3
-    ],
-    [
-      58,
-      1
-    ],
-    [
-      59,
-      3
-    ],
-    [
-      60,
-      2
-    ],
-    [
-      62,
-      1
-    ],
-    [
-      63,
-      4
-    ],
-    [
-      65,
-      3
-    ],
-    [
-      66,
-      1
-    ],
-    [
-      67,
-      3
-    ],
-    [
-      68,
-      4
-    ]
+    {
+      "id": "0",
+      "urlSuffix": "0.png",
+      "aspectRatio": [
+        6,
+        5
+      ]
+    },
+    {
+      "id": "1",
+      "urlSuffix": "1.png"
+    },
+    {
+      "id": "2",
+      "urlSuffix": "2.png",
+      "aspectRatio": [
+        16,
+        9
+      ]
+    },
+    {
+      "id": "3",
+      "urlSuffix": "3.png"
+    },
+    {
+      "id": "4",
+      "urlSuffix": "4.png",
+      "aspectRatio": [
+        5,
+        6
+      ]
+    },
+    {
+      "id": "5",
+      "urlSuffix": "5.png"
+    },
+    {
+      "id": "6",
+      "urlSuffix": "6.png"
+    },
+    {
+      "id": "7",
+      "urlSuffix": "7.png"
+    },
+    {
+      "id": "8",
+      "urlSuffix": "8.png",
+      "aspectRatio": [
+        5,
+        6
+      ]
+    },
+    {
+      "id": "9",
+      "urlSuffix": "9.png",
+      "aspectRatio": [
+        16,
+        9
+      ]
+    },
+    {
+      "id": "10",
+      "urlSuffix": "10.png",
+      "aspectRatio": [
+        16,
+        9
+      ]
+    },
+    {
+      "id": "11",
+      "urlSuffix": "11.png",
+      "aspectRatio": [
+        6,
+        5
+      ]
+    },
+    {
+      "id": "12",
+      "urlSuffix": "12.png"
+    },
+    {
+      "id": "13",
+      "urlSuffix": "13.png",
+      "aspectRatio": [
+        16,
+        9
+      ]
+    },
+    {
+      "id": "14",
+      "urlSuffix": "14.png",
+      "aspectRatio": [
+        6,
+        5
+      ]
+    },
+    {
+      "id": "15",
+      "urlSuffix": "15.png",
+      "aspectRatio": [
+        1,
+        1
+      ]
+    },
+    {
+      "id": "16",
+      "urlSuffix": "16.png",
+      "aspectRatio": [
+        16,
+        9
+      ]
+    },
+    {
+      "id": "17",
+      "urlSuffix": "17.png",
+      "aspectRatio": [
+        1,
+        1
+      ]
+    },
+    {
+      "id": "18",
+      "urlSuffix": "18.png",
+      "aspectRatio": [
+        5,
+        6
+      ]
+    },
+    {
+      "id": "19",
+      "urlSuffix": "19.png"
+    },
+    {
+      "id": "20",
+      "urlSuffix": "20.png",
+      "aspectRatio": [
+        5,
+        6
+      ]
+    },
+    {
+      "id": "21",
+      "urlSuffix": "21.png",
+      "aspectRatio": [
+        1,
+        1
+      ]
+    },
+    {
+      "id": "22",
+      "urlSuffix": "22.png",
+      "aspectRatio": [
+        6,
+        5
+      ]
+    },
+    {
+      "id": "23",
+      "urlSuffix": "23.png"
+    },
+    {
+      "id": "24",
+      "urlSuffix": "24.png",
+      "aspectRatio": [
+        16,
+        9
+      ]
+    },
+    {
+      "id": "25",
+      "urlSuffix": "25.png"
+    },
+    {
+      "id": "26",
+      "urlSuffix": "26.png",
+      "aspectRatio": [
+        16,
+        9
+      ]
+    },
+    {
+      "id": "27",
+      "urlSuffix": "27.png"
+    },
+    {
+      "id": "28",
+      "urlSuffix": "28.png"
+    },
+    {
+      "id": "29",
+      "urlSuffix": "29.png",
+      "aspectRatio": [
+        5,
+        6
+      ]
+    },
+    {
+      "id": "30",
+      "urlSuffix": "30.png",
+      "aspectRatio": [
+        16,
+        9
+      ]
+    },
+    {
+      "id": "31",
+      "urlSuffix": "31.png",
+      "aspectRatio": [
+        1,
+        1
+      ]
+    },
+    {
+      "id": "32",
+      "urlSuffix": "32.png",
+      "aspectRatio": [
+        5,
+        6
+      ]
+    },
+    {
+      "id": "33",
+      "urlSuffix": "33.png"
+    },
+    {
+      "id": "34",
+      "urlSuffix": "34.png"
+    },
+    {
+      "id": "35",
+      "urlSuffix": "35.png",
+      "aspectRatio": [
+        6,
+        5
+      ]
+    },
+    {
+      "id": "36",
+      "urlSuffix": "36.png",
+      "aspectRatio": [
+        1,
+        1
+      ]
+    },
+    {
+      "id": "37",
+      "urlSuffix": "37.png"
+    },
+    {
+      "id": "38",
+      "urlSuffix": "38.png",
+      "aspectRatio": [
+        6,
+        5
+      ]
+    },
+    {
+      "id": "39",
+      "urlSuffix": "39.png",
+      "aspectRatio": [
+        6,
+        5
+      ]
+    },
+    {
+      "id": "40",
+      "urlSuffix": "40.png",
+      "aspectRatio": [
+        16,
+        9
+      ]
+    },
+    {
+      "id": "41",
+      "urlSuffix": "41.png",
+      "aspectRatio": [
+        16,
+        9
+      ]
+    },
+    {
+      "id": "42",
+      "urlSuffix": "42.png",
+      "aspectRatio": [
+        16,
+        9
+      ]
+    },
+    {
+      "id": "43",
+      "urlSuffix": "43.png",
+      "aspectRatio": [
+        16,
+        9
+      ]
+    },
+    {
+      "id": "44",
+      "urlSuffix": "44.png",
+      "aspectRatio": [
+        6,
+        5
+      ]
+    },
+    {
+      "id": "45",
+      "urlSuffix": "45.png",
+      "aspectRatio": [
+        6,
+        5
+      ]
+    },
+    {
+      "id": "46",
+      "urlSuffix": "46.png",
+      "aspectRatio": [
+        6,
+        5
+      ]
+    },
+    {
+      "id": "47",
+      "urlSuffix": "47.png",
+      "aspectRatio": [
+        5,
+        6
+      ]
+    },
+    {
+      "id": "48",
+      "urlSuffix": "48.png",
+      "aspectRatio": [
+        1,
+        1
+      ]
+    },
+    {
+      "id": "49",
+      "urlSuffix": "49.png"
+    },
+    {
+      "id": "50",
+      "urlSuffix": "50.png"
+    },
+    {
+      "id": "51",
+      "urlSuffix": "51.png",
+      "aspectRatio": [
+        1,
+        1
+      ]
+    },
+    {
+      "id": "52",
+      "urlSuffix": "52.png"
+    },
+    {
+      "id": "53",
+      "urlSuffix": "53.png",
+      "aspectRatio": [
+        5,
+        6
+      ]
+    },
+    {
+      "id": "54",
+      "urlSuffix": "54.png",
+      "aspectRatio": [
+        5,
+        6
+      ]
+    },
+    {
+      "id": "55",
+      "urlSuffix": "55.png",
+      "aspectRatio": [
+        1,
+        1
+      ]
+    },
+    {
+      "id": "56",
+      "urlSuffix": "56.png",
+      "aspectRatio": [
+        5,
+        6
+      ]
+    },
+    {
+      "id": "57",
+      "urlSuffix": "57.png"
+    },
+    {
+      "id": "58",
+      "urlSuffix": "58.png",
+      "aspectRatio": [
+        6,
+        5
+      ]
+    },
+    {
+      "id": "59",
+      "urlSuffix": "59.png",
+      "aspectRatio": [
+        5,
+        6
+      ]
+    },
+    {
+      "id": "60",
+      "urlSuffix": "60.png",
+      "aspectRatio": [
+        16,
+        9
+      ]
+    },
+    {
+      "id": "61",
+      "urlSuffix": "61.png"
+    },
+    {
+      "id": "62",
+      "urlSuffix": "62.png",
+      "aspectRatio": [
+        6,
+        5
+      ]
+    },
+    {
+      "id": "63",
+      "urlSuffix": "63.png",
+      "aspectRatio": [
+        1,
+        1
+      ]
+    },
+    {
+      "id": "64",
+      "urlSuffix": "64.png"
+    },
+    {
+      "id": "65",
+      "urlSuffix": "65.png",
+      "aspectRatio": [
+        5,
+        6
+      ]
+    },
+    {
+      "id": "66",
+      "urlSuffix": "66.png",
+      "aspectRatio": [
+        6,
+        5
+      ]
+    },
+    {
+      "id": "67",
+      "urlSuffix": "67.png",
+      "aspectRatio": [
+        5,
+        6
+      ]
+    },
+    {
+      "id": "68",
+      "urlSuffix": "68.png",
+      "aspectRatio": [
+        1,
+        1
+      ]
+    },
+    {
+      "id": "69",
+      "urlSuffix": "69.png"
+    }
   ]
 }

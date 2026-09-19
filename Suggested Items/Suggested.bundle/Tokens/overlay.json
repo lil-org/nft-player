@@ -1,4 +1,8 @@
 {
+  "aspectRatio": [
+    1,
+    1
+  ],
   "items": [
     {
       "hash": "0xc70d24b4db09246c20a2cdad2ec61fc4ac8d652fb1665764b2341482657224b2",
@@ -64,11 +68,5 @@
       "id": "18000015",
       "hash": "0xe294e99b311e934f4f8eef9b2b5b94a4775b4eb697deded0bc38ed4340d5b882"
     }
-  ],
-  "aspectRatios": [
-    [
-      1,
-      1
-    ]
   ]
 }

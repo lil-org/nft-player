@@ -1,125 +1,109 @@
 {
   "urlPrefix": "https://cdn.lil.org/player/cats_a_form_study/",
+  "aspectRatio": [
+    1,
+    1
+  ],
   "items": [
-    [
-      "1",
-      "1.gif"
-    ],
-    [
-      "2",
-      "2.gif"
-    ],
-    [
-      "3",
-      "3.gif"
-    ],
-    [
-      "4",
-      "4.gif"
-    ],
-    [
-      "5",
-      "5.gif"
-    ],
-    [
-      "6",
-      "6.gif"
-    ],
-    [
-      "7",
-      "7.gif"
-    ],
-    [
-      "8",
-      "8.gif"
-    ],
-    [
-      "9",
-      "9.gif"
-    ],
-    [
-      "10",
-      "10.gif"
-    ],
-    [
-      "11",
-      "11.gif"
-    ],
-    [
-      "12",
-      "12.gif"
-    ],
-    [
-      "13",
-      "13.gif"
-    ],
-    [
-      "14",
-      "14.gif"
-    ],
-    [
-      "15",
-      "15.gif"
-    ],
-    [
-      "16",
-      "16.gif"
-    ],
-    [
-      "17",
-      "17.gif"
-    ],
-    [
-      "18",
-      "18.gif"
-    ],
-    [
-      "19",
-      "19.gif"
-    ],
-    [
-      "20",
-      "20.gif"
-    ],
-    [
-      "21",
-      "21.gif"
-    ],
-    [
-      "22",
-      "22.gif"
-    ]
-  ],
-  "aspectRatios": [
-    [
-      1,
-      1
-    ],
-    [
-      65,
-      64
-    ],
-    [
-      105,
-      121
-    ],
-    [
-      13,
-      12
-    ]
-  ],
-  "aspectRatioOverrides": [
-    [
-      0,
-      1
-    ],
-    [
-      5,
-      2
-    ],
-    [
-      19,
-      3
-    ]
+    {
+      "id": "1",
+      "urlSuffix": "1.gif",
+      "aspectRatio": [
+        65,
+        64
+      ]
+    },
+    {
+      "id": "2",
+      "urlSuffix": "2.gif"
+    },
+    {
+      "id": "3",
+      "urlSuffix": "3.gif"
+    },
+    {
+      "id": "4",
+      "urlSuffix": "4.gif"
+    },
+    {
+      "id": "5",
+      "urlSuffix": "5.gif"
+    },
+    {
+      "id": "6",
+      "urlSuffix": "6.gif",
+      "aspectRatio": [
+        105,
+        121
+      ]
+    },
+    {
+      "id": "7",
+      "urlSuffix": "7.gif"
+    },
+    {
+      "id": "8",
+      "urlSuffix": "8.gif"
+    },
+    {
+      "id": "9",
+      "urlSuffix": "9.gif"
+    },
+    {
+      "id": "10",
+      "urlSuffix": "10.gif"
+    },
+    {
+      "id": "11",
+      "urlSuffix": "11.gif"
+    },
+    {
+      "id": "12",
+      "urlSuffix": "12.gif"
+    },
+    {
+      "id": "13",
+      "urlSuffix": "13.gif"
+    },
+    {
+      "id": "14",
+      "urlSuffix": "14.gif"
+    },
+    {
+      "id": "15",
+      "urlSuffix": "15.gif"
+    },
+    {
+      "id": "16",
+      "urlSuffix": "16.gif"
+    },
+    {
+      "id": "17",
+      "urlSuffix": "17.gif"
+    },
+    {
+      "id": "18",
+      "urlSuffix": "18.gif"
+    },
+    {
+      "id": "19",
+      "urlSuffix": "19.gif"
+    },
+    {
+      "id": "20",
+      "urlSuffix": "20.gif",
+      "aspectRatio": [
+        13,
+        12
+      ]
+    },
+    {
+      "id": "21",
+      "urlSuffix": "21.gif"
+    },
+    {
+      "id": "22",
+      "urlSuffix": "22.gif"
+    }
   ]
 }

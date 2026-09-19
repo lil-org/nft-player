@@ -27,11 +27,10 @@ function createFixture(t) {
   }]));
   fs.writeFileSync(tokenPath, JSON.stringify({
     hasMid: false,
-    items: [["2", "2.png"], ["1", "1.png"]],
+    items: [{ id: "2", urlSuffix: "2.png" }, { id: "1", urlSuffix: "1.png", aspectRatio: [4, 3] }],
     urlPrefix: "https://old.example/",
     tmp_files: { "1": "original.png" },
-    aspectRatios: [[16, 9], [4, 3]],
-    aspectRatioOverrides: [[1, 1]],
+    aspectRatio: [16, 9],
   }));
   return { root, tokensPath, itemsPath, tokenPath };
 }
@@ -81,8 +80,8 @@ test("Tezos bundling reconstructs URLs with one prefix across directories and or
     const payload = JSON.parse(fs.readFileSync(fixture.tokenPath, "utf8"));
     assert.equal(payload.urlPrefix, prefix);
     assert.equal(Object.hasOwn(payload, "urlPrefixes"), false);
-    assert.deepEqual(payload.items, urls.map((url, index) => [String(index + 1), url.slice(prefix.length)]));
-    assert.deepEqual(payload.items.map((row) => payload.urlPrefix + row[1]), urls);
+    assert.deepEqual(payload.items, urls.map((url, index) => ({ id: String(index + 1), urlSuffix: url.slice(prefix.length), ...(index === 1 ? { aspectRatio: [16, 9] } : {}) })));
+    assert.deepEqual(payload.items.map((row) => payload.urlPrefix + row.urlSuffix), urls);
   }
 });
 

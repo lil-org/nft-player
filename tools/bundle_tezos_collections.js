@@ -925,12 +925,13 @@ function buildTokenPayload(tokens, metadata) {
     defaultFileExtension,
     urlPrefix,
     items: tokens.map((token) => {
-      const suffix = token.media.url.slice(urlPrefix.length);
-      const row = [token.id, suffix];
-      if (token.media.extension !== defaultFileExtension) {
-        row.push(token.media.extension);
-      }
-      return row;
+      return {
+        id: token.id,
+        urlSuffix: token.media.url.slice(urlPrefix.length),
+        ...(token.media.extension !== defaultFileExtension
+          ? { fileExtension: token.media.extension }
+          : {}),
+      };
     }),
     _tezosBundler: {
       generatedAt: new Date().toISOString(),

@@ -1325,13 +1325,13 @@ extension MobileCollectionBrowserGridModePresentationTests {
         )
     }
 
-    func testDownloadableManifestMidAvailabilitySupportsBothItemFormats() throws {
+    func testDownloadableManifestMidAvailabilitySupportsURLsAndSuffixes() throws {
         let formats = [
             """
             [{"id":"unminted-1502","url":"https://example.com/1502.webp"}]
             """,
             """
-            [["unminted-1502","1502.webp"]]
+            [{"id":"unminted-1502","urlSuffix":"1502.webp"}]
             """,
         ]
         let cases = [
@@ -1348,7 +1348,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
                         \(entry.field)
                         "defaultFileExtension": "webp",
                         "urlPrefix": "https://example.com/",
-                        "aspectRatios": [[1, 1]],
+                        "aspectRatio": [1, 1],
                         "items": \(items)
                     }
                     """.utf8)

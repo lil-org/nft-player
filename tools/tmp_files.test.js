@@ -13,7 +13,7 @@ const {
 
 test("preserves only valid tmp_files for token IDs that remain", () => {
   const existingPayload = {
-    items: [["1", "old-1"], ["2", "old-2"], ["stale", "old-stale"]],
+    items: [{ id: "1", urlSuffix: "old-1" }, { id: "2", urlSuffix: "old-2" }, { id: "stale", urlSuffix: "old-stale" }],
     tmp_files: {
       stale: "99.jpg",
       2: "2.png",
@@ -21,7 +21,7 @@ test("preserves only valid tmp_files for token IDs that remain", () => {
       invalid: "nested/3.jpg",
     },
   };
-  const nextRows = [["2", "new-2", "png"], ["1", "new-1"]];
+  const nextRows = [{ id: "2", urlSuffix: "new-2", fileExtension: "png" }, { id: "1", urlSuffix: "new-1" }];
   const nextPayload = {
     defaultFileExtension: "jpg",
     urlPrefix: "https://example.com/",
@@ -46,7 +46,7 @@ test("preserves only valid tmp_files for token IDs that remain", () => {
 test("omits tmp_files when no valid current entries remain", () => {
   const { payload, report } = preserveTmpFiles(
     { tmp_files: { stale: "stale.jpg", current: "../current.jpg" } },
-    { items: [["current", "current.jpg"]] }
+    { items: [{ id: "current", urlSuffix: "current.jpg" }] }
   );
 
   assert.equal(Object.hasOwn(payload, "tmp_files"), false);
@@ -56,7 +56,7 @@ test("omits tmp_files when no valid current entries remain", () => {
 
 test("missing existing token payload is a no-op", async () => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "nft-player-tmp-files-"));
-  const nextPayload = { items: [["1", "1.jpg"]] };
+  const nextPayload = { items: [{ id: "1", urlSuffix: "1.jpg" }] };
   try {
     const { payload, report } = await preserveTmpFilesFromFile(path.join(directory, "missing.json"), nextPayload);
     assert.deepEqual(payload, nextPayload);

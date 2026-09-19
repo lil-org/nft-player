@@ -25,10 +25,10 @@ function tokenIdsFromPayload(payload) {
   const ids = [];
   const seen = new Set();
   for (const row of payload.items) {
-    if (!Array.isArray(row) || row.length === 0 || row[0] == null) {
+    if (!isPlainObject(row) || row.id == null) {
       continue;
     }
-    const id = String(row[0]);
+    const id = String(row.id);
     if (!seen.has(id)) {
       ids.push(id);
       seen.add(id);

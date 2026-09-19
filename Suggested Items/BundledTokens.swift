@@ -83,29 +83,6 @@ nonisolated struct AspectRatio: Codable, Hashable, Sendable {
     }
 }
 
-nonisolated struct AspectRatioOverride: Codable, Sendable {
-    let tokenIndex: Int
-    let ratioIndex: Int
-
-    init(from decoder: Decoder) throws {
-        var container = try decoder.unkeyedContainer()
-        tokenIndex = try container.decode(Int.self)
-        ratioIndex = try container.decode(Int.self)
-        guard container.isAtEnd else {
-            throw DecodingError.dataCorruptedError(
-                in: container,
-                debugDescription: "Aspect-ratio override must be a [tokenIndex, ratioIndex] pair"
-            )
-        }
-    }
-
-    func encode(to encoder: Encoder) throws {
-        var container = encoder.unkeyedContainer()
-        try container.encode(tokenIndex)
-        try container.encode(ratioIndex)
-    }
-}
-
 nonisolated enum AspectRatioProfile: Hashable, Sendable {
     case uniform(AspectRatio)
     case variable([AspectRatio])
@@ -161,65 +138,14 @@ nonisolated struct AspectRatioProfileBuilder: Sendable {
     }
 }
 
-nonisolated enum AspectRatioMetadata {
-    static func resolve(
-        aspectRatios: [AspectRatio]?,
-        overrides: [AspectRatioOverride]?,
-        itemCount: Int,
-        codingPath: [CodingKey]
-    ) throws -> [AspectRatio]? {
-        guard aspectRatios != nil || overrides != nil else { return nil }
-        guard let aspectRatios, !aspectRatios.isEmpty else {
-            throw corrupted(
-                codingPath: codingPath,
-                description: "aspectRatios must be a non-empty array when aspect-ratio metadata is present"
-            )
-        }
-        guard Set(aspectRatios).count == aspectRatios.count else {
-            throw corrupted(
-                codingPath: codingPath,
-                description: "aspectRatios must not contain duplicate ratios"
-            )
-        }
-
-        var resolved = Array(repeating: aspectRatios[0], count: itemCount)
-        var overriddenTokenIndices = Set<Int>()
-        for override in overrides ?? [] {
-            guard resolved.indices.contains(override.tokenIndex) else {
-                throw corrupted(
-                    codingPath: codingPath,
-                    description: "Aspect-ratio override has an invalid token index: \(override.tokenIndex)"
-                )
-            }
-            guard override.ratioIndex > 0,
-                  aspectRatios.indices.contains(override.ratioIndex) else {
-                throw corrupted(
-                    codingPath: codingPath,
-                    description: "Aspect-ratio override has an invalid ratio index: \(override.ratioIndex)"
-                )
-            }
-            guard overriddenTokenIndices.insert(override.tokenIndex).inserted else {
-                throw corrupted(
-                    codingPath: codingPath,
-                    description: "Aspect-ratio overrides repeat token index: \(override.tokenIndex)"
-                )
-            }
-            resolved[override.tokenIndex] = aspectRatios[override.ratioIndex]
-        }
-        return resolved
-    }
-
-    private static func corrupted(codingPath: [CodingKey], description: String) -> DecodingError {
-        .dataCorrupted(.init(codingPath: codingPath, debugDescription: description))
-    }
-}
-
 nonisolated struct BundledTokens: Codable, Sendable {
     
     struct Item: Codable, Sendable {
         let id: String
         let name: String?
         let url: String?
+        let urlSuffix: String?
+        let fileExtension: String?
         let sh: String?
         let hash: String?
         let aspectRatio: AspectRatio?
@@ -231,6 +157,9 @@ nonisolated struct BundledTokens: Codable, Sendable {
             case id
             case name
             case url
+            case urlSuffix
+            case fileExtension
+            case aspectRatio
             case sh
             case hash
             case imageAspectRatio
@@ -250,11 +179,15 @@ nonisolated struct BundledTokens: Codable, Sendable {
             aspectRatio: AspectRatio? = nil,
             imageAspectRatio: AspectRatio? = nil,
             referencePixelSize: ArtworkReferencePixelSize? = nil,
-            contractParameters: [String: String]? = nil
+            contractParameters: [String: String]? = nil,
+            urlSuffix: String? = nil,
+            fileExtension: String? = nil
         ) {
             self.id = id
             self.name = name
             self.url = url
+            self.urlSuffix = urlSuffix
+            self.fileExtension = fileExtension
             self.sh = sh
             self.hash = hash
             self.aspectRatio = aspectRatio
@@ -268,9 +201,11 @@ nonisolated struct BundledTokens: Codable, Sendable {
             id = try container.decode(String.self, forKey: .id)
             name = try container.decodeIfPresent(String.self, forKey: .name)
             url = try container.decodeIfPresent(String.self, forKey: .url)
+            urlSuffix = try container.decodeIfPresent(String.self, forKey: .urlSuffix)
+            fileExtension = try container.decodeIfPresent(String.self, forKey: .fileExtension)
             sh = try container.decodeIfPresent(String.self, forKey: .sh)
             hash = try container.decodeIfPresent(String.self, forKey: .hash)
-            aspectRatio = nil
+            aspectRatio = try container.decodeIfPresent(AspectRatio.self, forKey: .aspectRatio)
             imageAspectRatio = try container.decodeIfPresent(AspectRatio.self, forKey: .imageAspectRatio)
                 ?? container.decodeIfPresent(AspectRatio.self, forKey: .previewImageAspectRatio)
             referencePixelSize = try container.decodeIfPresent(ArtworkReferencePixelSize.self, forKey: .referencePixelSize)
@@ -280,10 +215,22 @@ nonisolated struct BundledTokens: Codable, Sendable {
         }
 
         func encode(to encoder: Encoder) throws {
+            try encode(to: encoder, defaultAspectRatio: nil, urlPrefix: nil)
+        }
+
+        func encode(to encoder: Encoder, defaultAspectRatio: AspectRatio?, urlPrefix: String?) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encode(id, forKey: .id)
             try container.encodeIfPresent(name, forKey: .name)
-            try container.encodeIfPresent(url, forKey: .url)
+            if let urlSuffix, url == nil || urlPrefix.map({ $0 + urlSuffix }) == url {
+                try container.encode(urlSuffix, forKey: .urlSuffix)
+            } else {
+                try container.encodeIfPresent(url, forKey: .url)
+            }
+            try container.encodeIfPresent(fileExtension, forKey: .fileExtension)
+            if aspectRatio != defaultAspectRatio {
+                try container.encodeIfPresent(aspectRatio, forKey: .aspectRatio)
+            }
             try container.encodeIfPresent(sh, forKey: .sh)
             try container.encodeIfPresent(hash, forKey: .hash)
             try container.encodeIfPresent(imageAspectRatio, forKey: .imageAspectRatio)
@@ -292,85 +239,38 @@ nonisolated struct BundledTokens: Codable, Sendable {
         }
     }
 
-    private struct CompactItem: Decodable, Sendable {
-        struct Metadata: Decodable, Sendable {
-            let name: String?
-            let hash: String?
-        }
-
-        let id: String
-        let urlSuffix: String
-        let metadata: Metadata?
-
-        init(from decoder: Decoder) throws {
-            var container = try decoder.unkeyedContainer()
-            id = try container.decode(String.self)
-            urlSuffix = try container.decode(String.self)
-            if !container.isAtEnd {
-                _ = try container.decodeIfPresent(String.self)
-            }
-            metadata = container.isAtEnd ? nil : try container.decodeIfPresent(Metadata.self)
-        }
-    }
-
     private enum CodingKeys: String, CodingKey {
         case isComplete
         case items
-        case aspectRatios
-        case aspectRatioOverrides
+        case aspectRatio
         case urlPrefix
     }
-    
+
     let isComplete: Bool
     let items: [Item]
-    private let aspectRatios: [AspectRatio]?
-    private let aspectRatioOverrides: [AspectRatioOverride]?
+    private let aspectRatio: AspectRatio?
+    private let urlPrefix: String?
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         isComplete = try container.decodeIfPresent(Bool.self, forKey: .isComplete) ?? true
-        aspectRatios = try container.decodeIfPresent(
-            [AspectRatio].self,
-            forKey: .aspectRatios
-        )
-        aspectRatioOverrides = try container.decodeIfPresent(
-            [AspectRatioOverride].self,
-            forKey: .aspectRatioOverrides
-        )
-
-        let decodedItems: [Item]
-        if let objectItems = try? container.decode([Item].self, forKey: .items) {
-            decodedItems = objectItems
-        } else {
-            let urlPrefix = try container.decodeIfPresent(String.self, forKey: .urlPrefix) ?? ""
-            decodedItems = try container.decode([CompactItem].self, forKey: .items).map { compactItem in
-                Item(
-                    id: compactItem.id,
-                    name: compactItem.metadata?.name,
-                    url: urlPrefix + compactItem.urlSuffix,
-                    sh: nil,
-                    hash: compactItem.metadata?.hash
-                )
-            }
-        }
-
-        let resolvedAspectRatios = try AspectRatioMetadata.resolve(
-            aspectRatios: aspectRatios,
-            overrides: aspectRatioOverrides,
-            itemCount: decodedItems.count,
-            codingPath: container.codingPath
-        )
-        items = decodedItems.enumerated().map { index, item in
+        aspectRatio = try container.decodeIfPresent(AspectRatio.self, forKey: .aspectRatio)
+        urlPrefix = try container.decodeIfPresent(String.self, forKey: .urlPrefix)
+        let defaultAspectRatio = aspectRatio
+        let prefix = urlPrefix ?? ""
+        items = try container.decode([Item].self, forKey: .items).map { item in
             Item(
                 id: item.id,
                 name: item.name,
-                url: item.url,
+                url: item.url ?? item.urlSuffix.map { prefix + $0 },
                 sh: item.sh,
                 hash: item.hash,
-                aspectRatio: resolvedAspectRatios?[index],
+                aspectRatio: item.aspectRatio ?? defaultAspectRatio,
                 imageAspectRatio: item.imageAspectRatio,
                 referencePixelSize: item.referencePixelSize,
-                contractParameters: item.contractParameters
+                contractParameters: item.contractParameters,
+                urlSuffix: item.url == nil ? item.urlSuffix : nil,
+                fileExtension: item.fileExtension
             )
         }
     }
@@ -378,9 +278,15 @@ nonisolated struct BundledTokens: Codable, Sendable {
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(isComplete, forKey: .isComplete)
-        try container.encode(items, forKey: .items)
-        try container.encodeIfPresent(aspectRatios, forKey: .aspectRatios)
-        try container.encodeIfPresent(aspectRatioOverrides, forKey: .aspectRatioOverrides)
+        try container.encodeIfPresent(aspectRatio, forKey: .aspectRatio)
+        try container.encodeIfPresent(urlPrefix, forKey: .urlPrefix)
+        var encodedItems = container.nestedUnkeyedContainer(forKey: .items)
+        for item in items {
+            try item.encode(
+                to: encodedItems.superEncoder(),
+                defaultAspectRatio: aspectRatio,
+                urlPrefix: urlPrefix ?? ""
+            )
+        }
     }
-    
 }

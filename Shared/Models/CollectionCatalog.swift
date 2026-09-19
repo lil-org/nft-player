@@ -1485,72 +1485,28 @@ nonisolated struct DownloadableCollectionTokensPayload: Decodable, Sendable {
         case hasMid
         case defaultFileExtension
         case items
-        case aspectRatios
-        case aspectRatioOverrides
+        case aspectRatio
         case urlPrefix
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         hasMid = try container.decodeIfPresent(Bool.self, forKey: .hasMid) ?? true
-        defaultFileExtension = Self.normalizedFileExtension(
+        defaultFileExtension = DownloadableMediaFileExtension.normalized(
             try container.decodeIfPresent(String.self, forKey: .defaultFileExtension)
         )
         let urlPrefix = try container.decodeIfPresent(String.self, forKey: .urlPrefix) ?? ""
-
-        let decodedItems: [DownloadableTokenItem]
-        if let compactRows = try? container.decode([DownloadableCompactTokenRow].self, forKey: .items) {
-            decodedItems = compactRows.map { row in
-                DownloadableTokenItem(
-                    id: row.id,
-                    name: row.metadata?.name,
-                    url: urlPrefix + row.urlSuffix,
-                    sh: nil,
-                    fileExtension: row.fileExtension,
-                    aspectRatio: nil
-                )
-            }
-        } else {
-            decodedItems = try container.decode([DownloadableTokenItem].self, forKey: .items).map { item in
-                DownloadableTokenItem(
-                    id: item.id,
-                    name: item.name,
-                    url: item.url,
-                    sh: item.sh,
-                    fileExtension: Self.normalizedFileExtension(item.fileExtension),
-                    aspectRatio: nil
-                )
-            }
-        }
-
-        let aspectRatios = try container.decodeIfPresent(
-            [AspectRatio].self,
-            forKey: .aspectRatios
-        )
-        let aspectRatioOverrides = try container.decodeIfPresent(
-            [AspectRatioOverride].self,
-            forKey: .aspectRatioOverrides
-        )
-        let resolvedAspectRatios = try AspectRatioMetadata.resolve(
-            aspectRatios: aspectRatios,
-            overrides: aspectRatioOverrides,
-            itemCount: decodedItems.count,
-            codingPath: container.codingPath
-        )
-        items = decodedItems.enumerated().map { index, item in
+        let aspectRatio = try container.decodeIfPresent(AspectRatio.self, forKey: .aspectRatio)
+        items = try container.decode([DownloadableTokenItem].self, forKey: .items).map { item in
             DownloadableTokenItem(
                 id: item.id,
                 name: item.name,
-                url: item.url,
+                url: item.url ?? item.urlSuffix.map { urlPrefix + $0 },
                 sh: item.sh,
-                fileExtension: item.fileExtension,
-                aspectRatio: resolvedAspectRatios?[index]
+                fileExtension: DownloadableMediaFileExtension.normalized(item.fileExtension),
+                aspectRatio: item.aspectRatio ?? aspectRatio
             )
         }
-    }
-
-    private static func normalizedFileExtension(_ value: String?) -> String? {
-        DownloadableMediaFileExtension.normalized(value)
     }
 }
 
@@ -1558,6 +1514,7 @@ nonisolated struct DownloadableTokenItem: Codable, Hashable, Sendable {
     let id: String
     let name: String?
     let url: String?
+    let urlSuffix: String?
     let sh: String?
     let fileExtension: String?
     let aspectRatio: AspectRatio?
@@ -1566,6 +1523,8 @@ nonisolated struct DownloadableTokenItem: Codable, Hashable, Sendable {
         case id
         case name
         case url
+        case urlSuffix
+        case aspectRatio
         case sh
         case fileExtension
     }
@@ -1581,6 +1540,7 @@ nonisolated struct DownloadableTokenItem: Codable, Hashable, Sendable {
         self.id = id
         self.name = name
         self.url = url
+        self.urlSuffix = nil
         self.sh = sh
         self.fileExtension = fileExtension
         self.aspectRatio = aspectRatio
@@ -1591,9 +1551,10 @@ nonisolated struct DownloadableTokenItem: Codable, Hashable, Sendable {
         id = try container.decode(String.self, forKey: .id)
         name = try container.decodeIfPresent(String.self, forKey: .name)
         url = try container.decodeIfPresent(String.self, forKey: .url)
+        urlSuffix = try container.decodeIfPresent(String.self, forKey: .urlSuffix)
         sh = try container.decodeIfPresent(String.self, forKey: .sh)
         fileExtension = try container.decodeIfPresent(String.self, forKey: .fileExtension)
-        aspectRatio = nil
+        aspectRatio = try container.decodeIfPresent(AspectRatio.self, forKey: .aspectRatio)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -1601,6 +1562,8 @@ nonisolated struct DownloadableTokenItem: Codable, Hashable, Sendable {
         try container.encode(id, forKey: .id)
         try container.encodeIfPresent(name, forKey: .name)
         try container.encodeIfPresent(url, forKey: .url)
+        try container.encodeIfPresent(urlSuffix, forKey: .urlSuffix)
+        try container.encodeIfPresent(aspectRatio, forKey: .aspectRatio)
         try container.encodeIfPresent(sh, forKey: .sh)
         try container.encodeIfPresent(fileExtension, forKey: .fileExtension)
     }
@@ -1626,27 +1589,6 @@ nonisolated struct DownloadableTokenItem: Codable, Hashable, Sendable {
         return DownloadableMediaFileExtension.explicitPathExtension(in: url)
             ?? DownloadableMediaFileExtension.normalized(fileExtension)
             ?? defaultFileExtension
-    }
-}
-
-nonisolated private struct DownloadableCompactTokenRow: Decodable, Sendable {
-    struct Metadata: Decodable, Sendable {
-        let name: String?
-    }
-
-    let id: String
-    let urlSuffix: String
-    let fileExtension: String?
-    let metadata: Metadata?
-
-    init(from decoder: Decoder) throws {
-        var container = try decoder.unkeyedContainer()
-        id = try container.decode(String.self)
-        urlSuffix = try container.decode(String.self)
-        fileExtension = DownloadableMediaFileExtension.normalized(
-            container.isAtEnd ? nil : try container.decodeIfPresent(String.self)
-        )
-        metadata = container.isAtEnd ? nil : try container.decodeIfPresent(Metadata.self)
     }
 }
 

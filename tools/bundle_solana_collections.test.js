@@ -157,8 +157,8 @@ test("Solana bundling reconstructs URLs with one prefix across directories and o
     const payload = JSON.parse(await fs.readFile(path.join(directory, "Tokens", "planet_peppa.json"), "utf8"));
     assert.equal(payload.urlPrefix, prefix);
     assert.equal(Object.hasOwn(payload, "urlPrefixes"), false);
-    assert.deepEqual(payload.items, urls.map((url, index) => [tokenIds[index], url.slice(prefix.length)]));
-    assert.deepEqual(payload.items.map((row) => payload.urlPrefix + row[1]), urls);
+    assert.deepEqual(payload.items, urls.map((url, index) => ({ id: tokenIds[index], urlSuffix: url.slice(prefix.length) })));
+    assert.deepEqual(payload.items.map((row) => payload.urlPrefix + row.urlSuffix), urls);
   }
 });
 
@@ -191,8 +191,8 @@ test("apply preserves explicit mid availability and leaves legacy manifests unse
         hasMid,
         defaultFileExtension: "webp",
         urlPrefix: "https://cdn.lil.org/player/planet_peppa/",
-        items: [[tokenId, "0.webp"]],
-        aspectRatios: [[1, 1]],
+        items: [{ id: tokenId, urlSuffix: "0.webp" }],
+        aspectRatio: [1, 1],
       };
       await fs.writeFile(tokenPath, JSON.stringify(original));
 
@@ -202,7 +202,7 @@ test("apply preserves explicit mid availability and leaves legacy manifests unse
       assert.equal(Object.hasOwn(updated, "hasMid"), typeof hasMid === "boolean");
       assert.equal(updated.hasMid, typeof hasMid === "boolean" ? hasMid : undefined);
       assert.deepEqual(updated.items, original.items);
-      assert.deepEqual(updated.aspectRatios, original.aspectRatios);
+      assert.deepEqual(updated.aspectRatio, original.aspectRatio);
     }
 
     await fs.unlink(tokenPath);

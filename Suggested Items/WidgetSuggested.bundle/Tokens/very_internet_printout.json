@@ -1,101 +1,101 @@
 {
   "urlPrefix": "https://cdn.lil.org/player/very_internet_printout/",
   "items": [
-    [
-      "1",
-      "1.png"
-    ],
-    [
-      "2",
-      "2.png"
-    ],
-    [
-      "3",
-      "3.png"
-    ],
-    [
-      "4",
-      "4.png"
-    ],
-    [
-      "5",
-      "5.png"
-    ],
-    [
-      "6",
-      "6.png"
-    ],
-    [
-      "7",
-      "7.png"
-    ],
-    [
-      "8",
-      "8.png"
-    ],
-    [
-      "9",
-      "9.png"
-    ],
-    [
-      "10",
-      "10.png"
-    ],
-    [
-      "11",
-      "11.png"
-    ],
-    [
-      "12",
-      "12.png"
-    ],
-    [
-      "13",
-      "13.png"
-    ],
-    [
-      "14",
-      "14.png"
-    ],
-    [
-      "15",
-      "15.png"
-    ],
-    [
-      "16",
-      "16.png"
-    ],
-    [
-      "17",
-      "17.png"
-    ],
-    [
-      "18",
-      "18.png"
-    ],
-    [
-      "19",
-      "19.png"
-    ],
-    [
-      "20",
-      "20.png"
-    ],
-    [
-      "21",
-      "21.png"
-    ],
-    [
-      "22",
-      "22.png"
-    ],
-    [
-      "23",
-      "23.png"
-    ],
-    [
-      "24",
-      "24.png"
-    ]
+    {
+      "id": "1",
+      "urlSuffix": "1.png"
+    },
+    {
+      "id": "2",
+      "urlSuffix": "2.png"
+    },
+    {
+      "id": "3",
+      "urlSuffix": "3.png"
+    },
+    {
+      "id": "4",
+      "urlSuffix": "4.png"
+    },
+    {
+      "id": "5",
+      "urlSuffix": "5.png"
+    },
+    {
+      "id": "6",
+      "urlSuffix": "6.png"
+    },
+    {
+      "id": "7",
+      "urlSuffix": "7.png"
+    },
+    {
+      "id": "8",
+      "urlSuffix": "8.png"
+    },
+    {
+      "id": "9",
+      "urlSuffix": "9.png"
+    },
+    {
+      "id": "10",
+      "urlSuffix": "10.png"
+    },
+    {
+      "id": "11",
+      "urlSuffix": "11.png"
+    },
+    {
+      "id": "12",
+      "urlSuffix": "12.png"
+    },
+    {
+      "id": "13",
+      "urlSuffix": "13.png"
+    },
+    {
+      "id": "14",
+      "urlSuffix": "14.png"
+    },
+    {
+      "id": "15",
+      "urlSuffix": "15.png"
+    },
+    {
+      "id": "16",
+      "urlSuffix": "16.png"
+    },
+    {
+      "id": "17",
+      "urlSuffix": "17.png"
+    },
+    {
+      "id": "18",
+      "urlSuffix": "18.png"
+    },
+    {
+      "id": "19",
+      "urlSuffix": "19.png"
+    },
+    {
+      "id": "20",
+      "urlSuffix": "20.png"
+    },
+    {
+      "id": "21",
+      "urlSuffix": "21.png"
+    },
+    {
+      "id": "22",
+      "urlSuffix": "22.png"
+    },
+    {
+      "id": "23",
+      "urlSuffix": "23.png"
+    },
+    {
+      "id": "24",
+      "urlSuffix": "24.png"
+    }
   ]
 }

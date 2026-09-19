@@ -1,163 +1,161 @@
 {
   "urlPrefix": "https://cdn.lil.org/player/constant/",
-  "items": [
-    [
-      "0",
-      "0.svg"
-    ],
-    [
-      "1",
-      "1.svg"
-    ],
-    [
-      "2",
-      "2.svg"
-    ],
-    [
-      "3",
-      "3.svg"
-    ],
-    [
-      "4",
-      "4.svg"
-    ],
-    [
-      "5",
-      "5.svg"
-    ],
-    [
-      "6",
-      "6.svg"
-    ],
-    [
-      "7",
-      "7.svg"
-    ],
-    [
-      "8",
-      "8.svg"
-    ],
-    [
-      "9",
-      "9.svg"
-    ],
-    [
-      "10",
-      "10.svg"
-    ],
-    [
-      "11",
-      "11.svg"
-    ],
-    [
-      "12",
-      "12.svg"
-    ],
-    [
-      "13",
-      "13.svg"
-    ],
-    [
-      "14",
-      "14.svg"
-    ],
-    [
-      "15",
-      "15.svg"
-    ],
-    [
-      "16",
-      "16.svg"
-    ],
-    [
-      "17",
-      "17.svg"
-    ],
-    [
-      "18",
-      "18.svg"
-    ],
-    [
-      "19",
-      "19.svg"
-    ],
-    [
-      "20",
-      "20.svg"
-    ],
-    [
-      "21",
-      "21.svg"
-    ],
-    [
-      "22",
-      "22.svg"
-    ],
-    [
-      "23",
-      "23.svg"
-    ],
-    [
-      "24",
-      "24.svg"
-    ],
-    [
-      "25",
-      "25.svg"
-    ],
-    [
-      "26",
-      "26.svg"
-    ],
-    [
-      "27",
-      "27.svg"
-    ],
-    [
-      "28",
-      "28.svg"
-    ],
-    [
-      "29",
-      "29.svg"
-    ],
-    [
-      "30",
-      "30.svg"
-    ],
-    [
-      "31",
-      "31.svg"
-    ],
-    [
-      "32",
-      "32.svg"
-    ],
-    [
-      "33",
-      "33.svg"
-    ],
-    [
-      "34",
-      "34.svg"
-    ],
-    [
-      "37",
-      "37.svg"
-    ],
-    [
-      "38",
-      "38.svg"
-    ],
-    [
-      "39",
-      "39.svg"
-    ]
+  "aspectRatio": [
+    1,
+    1
   ],
-  "aspectRatios": [
-    [
-      1,
-      1
-    ]
+  "items": [
+    {
+      "id": "0",
+      "urlSuffix": "0.svg"
+    },
+    {
+      "id": "1",
+      "urlSuffix": "1.svg"
+    },
+    {
+      "id": "2",
+      "urlSuffix": "2.svg"
+    },
+    {
+      "id": "3",
+      "urlSuffix": "3.svg"
+    },
+    {
+      "id": "4",
+      "urlSuffix": "4.svg"
+    },
+    {
+      "id": "5",
+      "urlSuffix": "5.svg"
+    },
+    {
+      "id": "6",
+      "urlSuffix": "6.svg"
+    },
+    {
+      "id": "7",
+      "urlSuffix": "7.svg"
+    },
+    {
+      "id": "8",
+      "urlSuffix": "8.svg"
+    },
+    {
+      "id": "9",
+      "urlSuffix": "9.svg"
+    },
+    {
+      "id": "10",
+      "urlSuffix": "10.svg"
+    },
+    {
+      "id": "11",
+      "urlSuffix": "11.svg"
+    },
+    {
+      "id": "12",
+      "urlSuffix": "12.svg"
+    },
+    {
+      "id": "13",
+      "urlSuffix": "13.svg"
+    },
+    {
+      "id": "14",
+      "urlSuffix": "14.svg"
+    },
+    {
+      "id": "15",
+      "urlSuffix": "15.svg"
+    },
+    {
+      "id": "16",
+      "urlSuffix": "16.svg"
+    },
+    {
+      "id": "17",
+      "urlSuffix": "17.svg"
+    },
+    {
+      "id": "18",
+      "urlSuffix": "18.svg"
+    },
+    {
+      "id": "19",
+      "urlSuffix": "19.svg"
+    },
+    {
+      "id": "20",
+      "urlSuffix": "20.svg"
+    },
+    {
+      "id": "21",
+      "urlSuffix": "21.svg"
+    },
+    {
+      "id": "22",
+      "urlSuffix": "22.svg"
+    },
+    {
+      "id": "23",
+      "urlSuffix": "23.svg"
+    },
+    {
+      "id": "24",
+      "urlSuffix": "24.svg"
+    },
+    {
+      "id": "25",
+      "urlSuffix": "25.svg"
+    },
+    {
+      "id": "26",
+      "urlSuffix": "26.svg"
+    },
+    {
+      "id": "27",
+      "urlSuffix": "27.svg"
+    },
+    {
+      "id": "28",
+      "urlSuffix": "28.svg"
+    },
+    {
+      "id": "29",
+      "urlSuffix": "29.svg"
+    },
+    {
+      "id": "30",
+      "urlSuffix": "30.svg"
+    },
+    {
+      "id": "31",
+      "urlSuffix": "31.svg"
+    },
+    {
+      "id": "32",
+      "urlSuffix": "32.svg"
+    },
+    {
+      "id": "33",
+      "urlSuffix": "33.svg"
+    },
+    {
+      "id": "34",
+      "urlSuffix": "34.svg"
+    },
+    {
+      "id": "37",
+      "urlSuffix": "37.svg"
+    },
+    {
+      "id": "38",
+      "urlSuffix": "38.svg"
+    },
+    {
+      "id": "39",
+      "urlSuffix": "39.svg"
+    }
   ]
 }

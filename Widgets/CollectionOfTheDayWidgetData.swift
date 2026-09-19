@@ -465,30 +465,20 @@ nonisolated private struct WidgetTokenPayload: Decodable, Sendable {
         )
         let urlPrefix = try container.decodeIfPresent(String.self, forKey: .urlPrefix) ?? ""
 
-        if let compactRows = try? container.decode([WidgetCompactTokenRow].self, forKey: .items) {
-            items = compactRows.map { row in
-                WidgetTokenItem(
-                    id: row.id,
-                    url: urlPrefix + row.urlSuffix,
-                    sh: nil,
-                    fileExtension: row.fileExtension
-                )
-            }
-        } else {
-            items = try container.decode([WidgetTokenItem].self, forKey: .items).map { item in
-                WidgetTokenItem(
-                    id: item.id,
-                    url: item.url,
-                    sh: item.sh,
-                    fileExtension: WidgetMediaFileExtension.normalized(item.fileExtension)
-                )
-            }
+        items = try container.decode([WidgetTokenItem].self, forKey: .items).map { item in
+            WidgetTokenItem(
+                id: item.id,
+                url: item.url ?? item.urlSuffix.map { urlPrefix + $0 },
+                sh: item.sh,
+                fileExtension: WidgetMediaFileExtension.normalized(item.fileExtension)
+            )
         }
     }
 }
 
 nonisolated private struct WidgetTokenItem: Decodable, Hashable, Sendable {
     let id: String
+    var urlSuffix: String? = nil
     let url: String?
     let sh: String?
     let fileExtension: String?
@@ -520,18 +510,5 @@ nonisolated private struct WidgetTokenItem: Decodable, Hashable, Sendable {
         WidgetMediaFileExtension.explicitPathExtension(in: urlString)
             ?? WidgetMediaFileExtension.normalized(fileExtension)
             ?? defaultFileExtension
-    }
-}
-
-nonisolated private struct WidgetCompactTokenRow: Decodable, Sendable {
-    let id: String
-    let urlSuffix: String
-    let fileExtension: String?
-
-    init(from decoder: Decoder) throws {
-        var container = try decoder.unkeyedContainer()
-        id = try container.decode(String.self)
-        urlSuffix = try container.decode(String.self)
-        fileExtension = WidgetMediaFileExtension.normalized(try? container.decode(String.self))
     }
 }

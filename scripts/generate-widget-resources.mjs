@@ -71,26 +71,30 @@ function widgetTokenPayload(payload, collection) {
   let usesPrefix = false;
   let usesDefaultFileExtension = false;
   const items = payload.items.map((item) => {
-    const compact = Array.isArray(item);
-    const id = compact ? item[0] : item.id;
-    const url = compact ? urlPrefix + item[1] : item.url;
+    const id = item.id;
+    const url = item.url ?? (item.urlSuffix != null ? urlPrefix + item.urlSuffix : undefined);
     const sourceURL = url
       ?? (item.sh != null ? `https://cdn.simplehash.com/assets/${item.sh}` : undefined)
       ?? (collection.chain === "ethereum" ? `https://media-proxy.artblocks.io/${collection.address}/${id}.png` : undefined);
     const pathExtension = explicitPathExtension(sourceURL);
     const fileExtension = pathExtension
       ? undefined
-      : normalizedFileExtension(compact ? item[2] : item.fileExtension);
+      : normalizedFileExtension(item.fileExtension);
     if (sourceURL != null && !pathExtension && fileExtension == null) {
       usesDefaultFileExtension = true;
     }
-    if (compact) {
+    let mediaSource = {};
+    if (item.url != null) {
+      mediaSource = { url: item.url };
+    } else if (item.urlSuffix != null) {
       usesPrefix = true;
-      return fileExtension == null ? item.slice(0, 2) : [...item.slice(0, 2), fileExtension];
+      mediaSource = { urlSuffix: item.urlSuffix };
+    } else if (item.sh != null) {
+      mediaSource = { sh: item.sh };
     }
     return {
       id,
-      ...(url != null ? { url } : item.sh != null ? { sh: item.sh } : {}),
+      ...mediaSource,
       ...(fileExtension != null ? { fileExtension } : {}),
     };
   });

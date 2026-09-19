@@ -1,209 +1,201 @@
 {
   "urlPrefix": "https://cdn.lil.org/player/fifty_ways_of_looking_at_a_poem/",
+  "aspectRatio": [
+    20,
+    27
+  ],
   "items": [
-    [
-      "1",
-      "1.png"
-    ],
-    [
-      "2",
-      "2.png"
-    ],
-    [
-      "3",
-      "3.png"
-    ],
-    [
-      "4",
-      "4.png"
-    ],
-    [
-      "5",
-      "5.png"
-    ],
-    [
-      "6",
-      "6.png"
-    ],
-    [
-      "7",
-      "7.png"
-    ],
-    [
-      "8",
-      "8.png"
-    ],
-    [
-      "9",
-      "9.png"
-    ],
-    [
-      "10",
-      "10.png"
-    ],
-    [
-      "11",
-      "11.png"
-    ],
-    [
-      "12",
-      "12.png"
-    ],
-    [
-      "13",
-      "13.png"
-    ],
-    [
-      "14",
-      "14.png"
-    ],
-    [
-      "15",
-      "15.png"
-    ],
-    [
-      "16",
-      "16.png"
-    ],
-    [
-      "17",
-      "17.png"
-    ],
-    [
-      "18",
-      "18.png"
-    ],
-    [
-      "19",
-      "19.png"
-    ],
-    [
-      "20",
-      "20.png"
-    ],
-    [
-      "21",
-      "21.png"
-    ],
-    [
-      "22",
-      "22.png"
-    ],
-    [
-      "23",
-      "23.png"
-    ],
-    [
-      "24",
-      "24.png"
-    ],
-    [
-      "25",
-      "25.png"
-    ],
-    [
-      "26",
-      "26.png"
-    ],
-    [
-      "27",
-      "27.png"
-    ],
-    [
-      "28",
-      "28.png"
-    ],
-    [
-      "29",
-      "29.png"
-    ],
-    [
-      "30",
-      "30.png"
-    ],
-    [
-      "31",
-      "31.png"
-    ],
-    [
-      "32",
-      "32.png"
-    ],
-    [
-      "33",
-      "33.png"
-    ],
-    [
-      "34",
-      "34.png"
-    ],
-    [
-      "35",
-      "35.png"
-    ],
-    [
-      "36",
-      "36.png"
-    ],
-    [
-      "37",
-      "37.png"
-    ],
-    [
-      "38",
-      "38.png"
-    ],
-    [
-      "39",
-      "39.png"
-    ],
-    [
-      "40",
-      "40.png"
-    ],
-    [
-      "41",
-      "41.png"
-    ],
-    [
-      "42",
-      "42.png"
-    ],
-    [
-      "43",
-      "43.png"
-    ],
-    [
-      "44",
-      "44.png"
-    ]
-  ],
-  "aspectRatios": [
-    [
-      20,
-      27
-    ],
-    [
-      105,
-      142
-    ]
-  ],
-  "aspectRatioOverrides": [
-    [
-      25,
-      1
-    ],
-    [
-      27,
-      1
-    ],
-    [
-      28,
-      1
-    ],
-    [
-      40,
-      1
-    ]
+    {
+      "id": "1",
+      "urlSuffix": "1.png"
+    },
+    {
+      "id": "2",
+      "urlSuffix": "2.png"
+    },
+    {
+      "id": "3",
+      "urlSuffix": "3.png"
+    },
+    {
+      "id": "4",
+      "urlSuffix": "4.png"
+    },
+    {
+      "id": "5",
+      "urlSuffix": "5.png"
+    },
+    {
+      "id": "6",
+      "urlSuffix": "6.png"
+    },
+    {
+      "id": "7",
+      "urlSuffix": "7.png"
+    },
+    {
+      "id": "8",
+      "urlSuffix": "8.png"
+    },
+    {
+      "id": "9",
+      "urlSuffix": "9.png"
+    },
+    {
+      "id": "10",
+      "urlSuffix": "10.png"
+    },
+    {
+      "id": "11",
+      "urlSuffix": "11.png"
+    },
+    {
+      "id": "12",
+      "urlSuffix": "12.png"
+    },
+    {
+      "id": "13",
+      "urlSuffix": "13.png"
+    },
+    {
+      "id": "14",
+      "urlSuffix": "14.png"
+    },
+    {
+      "id": "15",
+      "urlSuffix": "15.png"
+    },
+    {
+      "id": "16",
+      "urlSuffix": "16.png"
+    },
+    {
+      "id": "17",
+      "urlSuffix": "17.png"
+    },
+    {
+      "id": "18",
+      "urlSuffix": "18.png"
+    },
+    {
+      "id": "19",
+      "urlSuffix": "19.png"
+    },
+    {
+      "id": "20",
+      "urlSuffix": "20.png"
+    },
+    {
+      "id": "21",
+      "urlSuffix": "21.png"
+    },
+    {
+      "id": "22",
+      "urlSuffix": "22.png"
+    },
+    {
+      "id": "23",
+      "urlSuffix": "23.png"
+    },
+    {
+      "id": "24",
+      "urlSuffix": "24.png"
+    },
+    {
+      "id": "25",
+      "urlSuffix": "25.png"
+    },
+    {
+      "id": "26",
+      "urlSuffix": "26.png",
+      "aspectRatio": [
+        105,
+        142
+      ]
+    },
+    {
+      "id": "27",
+      "urlSuffix": "27.png"
+    },
+    {
+      "id": "28",
+      "urlSuffix": "28.png",
+      "aspectRatio": [
+        105,
+        142
+      ]
+    },
+    {
+      "id": "29",
+      "urlSuffix": "29.png",
+      "aspectRatio": [
+        105,
+        142
+      ]
+    },
+    {
+      "id": "30",
+      "urlSuffix": "30.png"
+    },
+    {
+      "id": "31",
+      "urlSuffix": "31.png"
+    },
+    {
+      "id": "32",
+      "urlSuffix": "32.png"
+    },
+    {
+      "id": "33",
+      "urlSuffix": "33.png"
+    },
+    {
+      "id": "34",
+      "urlSuffix": "34.png"
+    },
+    {
+      "id": "35",
+      "urlSuffix": "35.png"
+    },
+    {
+      "id": "36",
+      "urlSuffix": "36.png"
+    },
+    {
+      "id": "37",
+      "urlSuffix": "37.png"
+    },
+    {
+      "id": "38",
+      "urlSuffix": "38.png"
+    },
+    {
+      "id": "39",
+      "urlSuffix": "39.png"
+    },
+    {
+      "id": "40",
+      "urlSuffix": "40.png"
+    },
+    {
+      "id": "41",
+      "urlSuffix": "41.png",
+      "aspectRatio": [
+        105,
+        142
+      ]
+    },
+    {
+      "id": "42",
+      "urlSuffix": "42.png"
+    },
+    {
+      "id": "43",
+      "urlSuffix": "43.png"
+    },
+    {
+      "id": "44",
+      "urlSuffix": "44.png"
+    }
   ]
 }

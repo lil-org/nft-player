@@ -593,25 +593,29 @@ final class MobilePlayerBrowserLayoutTests: XCTestCase {
     }
 
     func testInYourDreamsUsesVariableCachedRowHeights() throws {
-        let aspectRatios = [
-            CGSize(width: 1, height: 1),
-            CGSize(width: 325, height: 183),
-            CGSize(width: 140, height: 249),
-            CGSize(width: 325, height: 244),
+        let wideLandscapeSize = CGSize(width: 325, height: 183)
+        let portraitSize = CGSize(width: 140, height: 249)
+        let landscapeSize = CGSize(width: 325, height: 244)
+        let tokenImageSizes: [Int: CGSize] = [
+            2: landscapeSize, 4: portraitSize, 5: portraitSize,
+            6: portraitSize, 7: landscapeSize, 8: wideLandscapeSize,
+            12: wideLandscapeSize, 13: landscapeSize, 14: wideLandscapeSize,
+            15: wideLandscapeSize, 16: landscapeSize, 17: landscapeSize,
+            19: wideLandscapeSize, 20: portraitSize, 22: wideLandscapeSize,
+            23: wideLandscapeSize, 24: wideLandscapeSize, 25: wideLandscapeSize,
+            26: wideLandscapeSize, 27: wideLandscapeSize, 34: wideLandscapeSize,
+            35: portraitSize, 36: wideLandscapeSize, 40: wideLandscapeSize,
+            42: wideLandscapeSize, 43: wideLandscapeSize, 45: landscapeSize,
+            46: portraitSize, 49: portraitSize, 51: wideLandscapeSize,
+            52: wideLandscapeSize, 63: portraitSize, 64: wideLandscapeSize,
+            65: portraitSize, 66: portraitSize, 67: portraitSize,
+            68: portraitSize, 69: portraitSize, 70: wideLandscapeSize,
+            71: portraitSize, 72: portraitSize, 73: portraitSize,
+            74: wideLandscapeSize, 75: portraitSize,
         ]
-        let aspectRatioOverrides = [
-            (2, 3), (4, 2), (5, 2), (6, 2), (7, 3), (8, 1),
-            (12, 1), (13, 3), (14, 1), (15, 1), (16, 3), (17, 3),
-            (19, 1), (20, 2), (22, 1), (23, 1), (24, 1), (25, 1),
-            (26, 1), (27, 1), (34, 1), (35, 2), (36, 1), (40, 1),
-            (42, 1), (43, 1), (45, 3), (46, 2), (49, 2), (51, 1),
-            (52, 1), (63, 2), (64, 1), (65, 2), (66, 2), (67, 2),
-            (68, 2), (69, 2), (70, 1), (71, 2), (72, 2), (73, 2),
-            (74, 1), (75, 2),
-        ]
-        var itemImageSizes = Array(repeating: aspectRatios[0], count: 76)
-        for (itemIndex, aspectRatioIndex) in aspectRatioOverrides {
-            itemImageSizes[itemIndex] = aspectRatios[aspectRatioIndex]
+        var itemImageSizes = Array(repeating: CGSize(width: 1, height: 1), count: 76)
+        for (itemIndex, imageSize) in tokenImageSizes {
+            itemImageSizes[itemIndex] = imageSize
         }
         let layout = try XCTUnwrap(MobilePlayerBrowserLayout(
             viewportSize: CGSize(width: 430, height: 932),

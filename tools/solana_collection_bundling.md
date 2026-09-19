@@ -35,23 +35,23 @@ Cover generation requires ImageMagick and macOS `sips`. ImageMagick writes a sta
 
 `--covers <path>` changes the staging directory, which defaults to `covers/` at the project root. Staged images are optional local files and are not bundled into the app or widgets. Manually upload generated covers to `https://cdn.lil.org/player/covers/v1/<internal_slug>.jpg` before shipping the collection. The apps and widgets download covers from these URLs and retain them in a persistent cache.
 
-Token JSON uses the iOS app's compact Solana format:
+Token JSON uses named token objects with a shared URL prefix:
 
 ```json
 {
   "defaultFileExtension": "png",
   "urlPrefix": "https://example.com/assets/",
-  "items": [["mint-address", "1.png"]]
+  "items": [{"id": "mint-address", "urlSuffix": "1.png"}]
 }
 ```
 
-Rows include a fourth extension field only when a token differs from `defaultFileExtension`.
+Tokens include a named `fileExtension` field only when they differ from `defaultFileExtension`.
 
-Static-image collections with standard thumbnails but no `/mid` files can set top-level `"hasMid": false`. The grid uses each original image for its large tier and retains thumbnails for non-static media. Regular and sized thumbnail paths stay unchanged. Both token row formats support the field, and rebundling preserves boolean values. Omitted or null values retain the existing `/mid` behavior.
+Static-image collections with standard thumbnails but no `/mid` files can set top-level `"hasMid": false`. The grid uses each original image for its large tier and retains thumbnails for non-static media. Regular and sized thumbnail paths stay unchanged. Rebundling preserves boolean values. Omitted or null values retain the existing `/mid` behavior.
 
 If an existing token JSON contains a top-level `tmp_files` map, `--apply` preserves entries whose token mint is still present in `items`. It drops and reports stale token mints, ignores invalid file names, and omits the map when no valid entries remain. This preservation reads only the existing token JSON; rebundling does not require `Originals Downloaded` to exist.
 
-The bundler also preserves compact `aspectRatios` metadata by token mint, so reordering or removing tokens cannot attach a ratio to the wrong asset. If a newly discovered mint has no existing ratio, the bundler omits the incomplete metadata and reports the missing mint; regenerate the ratios before shipping.
+The bundler also preserves the collection default `aspectRatio` and per-token `aspectRatio` exceptions by token mint, so reordering or removing tokens cannot attach a ratio to the wrong asset. If a newly discovered mint has no existing ratio, the bundler omits the incomplete metadata and reports the missing mint; regenerate the ratios before shipping.
 
 ## Media Policy
 
