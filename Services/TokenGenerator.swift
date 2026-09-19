@@ -275,7 +275,7 @@ nonisolated enum TokenGenerator {
     }
 
     private static func cardNft2Token(id tokenID: Int) -> BundledTokens.Item {
-        BundledTokens.Item(id: String(tokenID), name: nil, url: nil, sh: nil, hash: nil)
+        BundledTokens.Item(id: String(tokenID), name: nil, hash: nil)
     }
 
     private static func collectionData(specificCollectionId: String) -> CollectionTokenData? {

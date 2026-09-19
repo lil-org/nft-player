@@ -47,7 +47,7 @@ extension PersistentJavaScriptLibraryTests {
 
     private func token(for script: Script) -> BundledTokens.Item {
         SuggestedItemsService.bundledTokens(collectionId: script.id)?.items.first(where: { $0.hash != nil })
-            ?? BundledTokens.Item(id: script.abId + "000000", name: nil, url: nil, sh: nil, hash: "0x" + String(repeating: "1", count: 64))
+            ?? BundledTokens.Item(id: script.abId + "000000", name: nil, hash: "0x" + String(repeating: "1", count: 64))
     }
 
     private func directory() throws -> URL {

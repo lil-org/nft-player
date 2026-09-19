@@ -458,8 +458,6 @@ nonisolated private struct WidgetTokenPayload: Decodable, Sendable {
 nonisolated private struct WidgetTokenItem: Decodable, Hashable, Sendable {
     let id: String
     let urlSuffix: String?
-    let url: String?
-    let sh: String?
     let fileExtension: String?
 
     func staticImageReference(collection: WidgetCollection) -> WidgetStaticImageReference? {
@@ -473,14 +471,8 @@ nonisolated private struct WidgetTokenItem: Decodable, Hashable, Sendable {
     }
 
     private func resolvedURLString(collection: WidgetCollection) -> String? {
-        if let url {
-            return url
-        }
         if let urlSuffix {
             return (collection.urlPrefix ?? "") + urlSuffix
-        }
-        if let sh {
-            return "https://cdn.simplehash.com/assets/\(sh)"
         }
         if collection.usesEthereumMediaProxyFallback {
             return "https://media-proxy.artblocks.io/\(collection.address)/\(id).png"

@@ -3,38 +3,6 @@
 import CoreGraphics
 import Foundation
 
-nonisolated struct ArtworkReferencePixelSize: Codable, Hashable, Sendable {
-    let width: Int
-    let height: Int
-
-    init(width: Int, height: Int) {
-        precondition(width > 0 && height > 0, "Reference pixel dimensions must be positive")
-        self.width = width
-        self.height = height
-    }
-
-    init(from decoder: Decoder) throws {
-        var container = try decoder.unkeyedContainer()
-        let width = try container.decode(Int.self)
-        let height = try container.decode(Int.self)
-        guard width > 0, height > 0, container.isAtEnd else {
-            throw DecodingError.dataCorruptedError(
-                in: container,
-                debugDescription: "Reference pixel size must be a [positiveWidth, positiveHeight] pair"
-            )
-        }
-        self.init(width: width, height: height)
-    }
-
-    func encode(to encoder: Encoder) throws {
-        var container = encoder.unkeyedContainer()
-        try container.encode(width)
-        try container.encode(height)
-    }
-
-    var size: CGSize { CGSize(width: width, height: height) }
-}
-
 nonisolated struct AspectRatio: Codable, Hashable, Sendable {
     let width: Int
     let height: Int
@@ -143,93 +111,28 @@ nonisolated struct BundledTokens: Codable, Sendable {
     struct Item: Codable, Sendable {
         let id: String
         let name: String?
-        let url: String?
         let urlSuffix: String?
         let fileExtension: String?
-        let sh: String?
         let hash: String?
         let aspectRatio: AspectRatio?
-        let imageAspectRatio: AspectRatio?
-        let referencePixelSize: ArtworkReferencePixelSize?
         let contractParameters: [String: String]?
-
-        private enum CodingKeys: String, CodingKey {
-            case id
-            case name
-            case url
-            case urlSuffix
-            case fileExtension
-            case aspectRatio
-            case sh
-            case hash
-            case imageAspectRatio
-            case referencePixelSize
-            case contractParameters
-            case previewImageAspectRatio
-            case previewReferencePixelSize
-            case previewContractParameters
-        }
 
         init(
             id: String,
             name: String?,
-            url: String?,
-            sh: String?,
             hash: String?,
             aspectRatio: AspectRatio? = nil,
-            imageAspectRatio: AspectRatio? = nil,
-            referencePixelSize: ArtworkReferencePixelSize? = nil,
             contractParameters: [String: String]? = nil,
             urlSuffix: String? = nil,
             fileExtension: String? = nil
         ) {
             self.id = id
             self.name = name
-            self.url = url
             self.urlSuffix = urlSuffix
             self.fileExtension = fileExtension
-            self.sh = sh
             self.hash = hash
             self.aspectRatio = aspectRatio
-            self.imageAspectRatio = imageAspectRatio
-            self.referencePixelSize = referencePixelSize
             self.contractParameters = contractParameters
-        }
-
-        init(from decoder: Decoder) throws {
-            let container = try decoder.container(keyedBy: CodingKeys.self)
-            id = try container.decode(String.self, forKey: .id)
-            name = try container.decodeIfPresent(String.self, forKey: .name)
-            url = try container.decodeIfPresent(String.self, forKey: .url)
-            urlSuffix = try container.decodeIfPresent(String.self, forKey: .urlSuffix)
-            fileExtension = try container.decodeIfPresent(String.self, forKey: .fileExtension)
-            sh = try container.decodeIfPresent(String.self, forKey: .sh)
-            hash = try container.decodeIfPresent(String.self, forKey: .hash)
-            aspectRatio = try container.decodeIfPresent(AspectRatio.self, forKey: .aspectRatio)
-            imageAspectRatio = try container.decodeIfPresent(AspectRatio.self, forKey: .imageAspectRatio)
-                ?? container.decodeIfPresent(AspectRatio.self, forKey: .previewImageAspectRatio)
-            referencePixelSize = try container.decodeIfPresent(ArtworkReferencePixelSize.self, forKey: .referencePixelSize)
-                ?? container.decodeIfPresent(ArtworkReferencePixelSize.self, forKey: .previewReferencePixelSize)
-            contractParameters = try container.decodeIfPresent([String: String].self, forKey: .contractParameters)
-                ?? container.decodeIfPresent([String: String].self, forKey: .previewContractParameters)
-        }
-
-        func encode(to encoder: Encoder) throws {
-            var container = encoder.container(keyedBy: CodingKeys.self)
-            try container.encode(id, forKey: .id)
-            try container.encodeIfPresent(name, forKey: .name)
-            if let url {
-                try container.encode(url, forKey: .url)
-            } else {
-                try container.encodeIfPresent(urlSuffix, forKey: .urlSuffix)
-            }
-            try container.encodeIfPresent(fileExtension, forKey: .fileExtension)
-            try container.encodeIfPresent(aspectRatio, forKey: .aspectRatio)
-            try container.encodeIfPresent(sh, forKey: .sh)
-            try container.encodeIfPresent(hash, forKey: .hash)
-            try container.encodeIfPresent(imageAspectRatio, forKey: .imageAspectRatio)
-            try container.encodeIfPresent(referencePixelSize, forKey: .referencePixelSize)
-            try container.encodeIfPresent(contractParameters, forKey: .contractParameters)
         }
     }
 
@@ -237,18 +140,14 @@ nonisolated struct BundledTokens: Codable, Sendable {
 
     init(data: Data, collection: SuggestedItem) throws {
         let payload = try JSONDecoder().decode(Self.self, from: data)
-        let prefix = collection.urlPrefix ?? ""
         items = payload.items.map { item in
             Item(
                 id: item.id,
                 name: item.name,
-                url: item.url ?? item.urlSuffix.map { prefix + $0 },
-                sh: item.sh,
                 hash: item.hash,
                 aspectRatio: item.aspectRatio ?? collection.aspectRatio,
-                imageAspectRatio: item.imageAspectRatio,
-                referencePixelSize: item.referencePixelSize,
                 contractParameters: item.contractParameters,
+                urlSuffix: item.urlSuffix,
                 fileExtension: item.fileExtension
             )
         }

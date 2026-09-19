@@ -1476,13 +1476,11 @@ nonisolated struct DownloadableCollectionTokensPayload: Decodable, Sendable {
 
     init(data: Data, collection: DownloadableCollectionIndexItem) throws {
         let payload = try JSONDecoder().decode(Self.self, from: data)
-        let urlPrefix = collection.urlPrefix ?? ""
         items = payload.items.map { item in
             DownloadableTokenItem(
                 id: item.id,
                 name: item.name,
-                url: item.url ?? item.urlSuffix.map { urlPrefix + $0 },
-                sh: item.sh,
+                urlSuffix: item.urlSuffix,
                 fileExtension: DownloadableMediaFileExtension.normalized(item.fileExtension),
                 aspectRatio: item.aspectRatio ?? collection.aspectRatio
             )
@@ -1493,67 +1491,13 @@ nonisolated struct DownloadableCollectionTokensPayload: Decodable, Sendable {
 nonisolated struct DownloadableTokenItem: Codable, Hashable, Sendable {
     let id: String
     let name: String?
-    let url: String?
     let urlSuffix: String?
-    let sh: String?
     let fileExtension: String?
     let aspectRatio: AspectRatio?
 
-    private enum CodingKeys: String, CodingKey {
-        case id
-        case name
-        case url
-        case urlSuffix
-        case aspectRatio
-        case sh
-        case fileExtension
-    }
-
-    init(
-        id: String,
-        name: String?,
-        url: String?,
-        sh: String?,
-        fileExtension: String?,
-        aspectRatio: AspectRatio? = nil
-    ) {
-        self.id = id
-        self.name = name
-        self.url = url
-        self.urlSuffix = nil
-        self.sh = sh
-        self.fileExtension = fileExtension
-        self.aspectRatio = aspectRatio
-    }
-
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        id = try container.decode(String.self, forKey: .id)
-        name = try container.decodeIfPresent(String.self, forKey: .name)
-        url = try container.decodeIfPresent(String.self, forKey: .url)
-        urlSuffix = try container.decodeIfPresent(String.self, forKey: .urlSuffix)
-        sh = try container.decodeIfPresent(String.self, forKey: .sh)
-        fileExtension = try container.decodeIfPresent(String.self, forKey: .fileExtension)
-        aspectRatio = try container.decodeIfPresent(AspectRatio.self, forKey: .aspectRatio)
-    }
-
-    func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(id, forKey: .id)
-        try container.encodeIfPresent(name, forKey: .name)
-        try container.encodeIfPresent(url, forKey: .url)
-        try container.encodeIfPresent(urlSuffix, forKey: .urlSuffix)
-        try container.encodeIfPresent(aspectRatio, forKey: .aspectRatio)
-        try container.encodeIfPresent(sh, forKey: .sh)
-        try container.encodeIfPresent(fileExtension, forKey: .fileExtension)
-    }
-
     func resolvedURLString(collection: DownloadableCollectionIndexItem) -> String? {
-        if let url {
-            return url
-        }
-        if let sh {
-            return "https://cdn.simplehash.com/assets/\(sh)"
+        if let urlSuffix {
+            return (collection.urlPrefix ?? "") + urlSuffix
         }
         if collection.chain == .ethereum {
             return "https://media-proxy.artblocks.io/\(collection.address)/\(id).png"

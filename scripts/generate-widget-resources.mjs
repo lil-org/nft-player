@@ -70,17 +70,9 @@ function widgetTokenPayload(payload) {
   const items = payload.items.map((item) => {
     const id = item.id;
     const fileExtension = normalizedFileExtension(item.fileExtension);
-    let mediaSource = {};
-    if (item.url != null) {
-      mediaSource = { url: item.url };
-    } else if (item.urlSuffix != null) {
-      mediaSource = { urlSuffix: item.urlSuffix };
-    } else if (item.sh != null) {
-      mediaSource = { sh: item.sh };
-    }
     return {
       id,
-      ...mediaSource,
+      ...(item.urlSuffix != null ? { urlSuffix: item.urlSuffix } : {}),
       ...(fileExtension != null ? { fileExtension } : {}),
     };
   });

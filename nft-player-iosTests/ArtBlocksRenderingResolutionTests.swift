@@ -204,7 +204,7 @@ extension ArtBlocksRenderingResolutionTests {
             """,
             metadata: .init(kind: .p5js100, renderingProfile: .artBlocks)
         )
-        let token = BundledTokens.Item(id: "63000000", name: nil, url: nil, sh: nil, hash: "0x" + String(repeating: "a", count: 64))
+        let token = BundledTokens.Item(id: "63000000", name: nil, hash: "0x" + String(repeating: "a", count: 64))
         let fixture = try ResolutionFixture(size: CGSize(width: 100, height: 100))
         defer { fixture.close() }
         fixture.load(script, token: token)
@@ -236,7 +236,7 @@ extension ArtBlocksRenderingResolutionTests {
             """,
             metadata: .init(kind: .p5js100, renderingProfile: .artBlocks)
         )
-        let token = BundledTokens.Item(id: "17", name: nil, url: nil, sh: nil, hash: "0x" + String(repeating: "a", count: 64))
+        let token = BundledTokens.Item(id: "17", name: nil, hash: "0x" + String(repeating: "a", count: 64))
         let fixture = try ResolutionFixture(size: CGSize(width: 100, height: 100))
         defer { fixture.close() }
         fixture.load(script, token: token)
@@ -637,7 +637,7 @@ extension ArtBlocksRenderingResolutionTests {
             id: id, address: "0xresolution", name: "Resolution fixture", abId: "0", value: source,
             metadata: .init(kind: .js, renderingProfile: artBlocksRendering ? .artBlocks : nil, requiresInitialCanvas: false)
         )
-        let token = BundledTokens.Item(id: "17", name: nil, url: nil, sh: nil, hash: "0x" + String(repeating: "a", count: 64))
+        let token = BundledTokens.Item(id: "17", name: nil, hash: "0x" + String(repeating: "a", count: 64))
         return (script, token)
     }
 

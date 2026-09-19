@@ -206,7 +206,7 @@ extension ArtBlocksContractParametersTests {
         let parameters = ["message": "Frozen \"雪\"\nline", "empty": "", "number": "0"]
         let data = try JSONSerialization.data(withJSONObject: [
             "items": [["id": "7", "hash": "0xabc", "contractParameters": parameters,
-                       "imageAspectRatio": [1, 1], "referencePixelSize": [2400, 3600], "aspectRatio": [3, 4]]]
+                       "aspectRatio": [3, 4]]]
         ])
         let tokens = try JSONDecoder().decode(BundledTokens.self, from: data)
         let first = try XCTUnwrap(tokens.items.first)
@@ -214,20 +214,16 @@ extension ArtBlocksContractParametersTests {
         XCTAssertEqual(first.hash, "0xabc")
         XCTAssertEqual(first.contractParameters, parameters)
         XCTAssertEqual(first.aspectRatio, AspectRatio(width: 3, height: 4))
-        XCTAssertEqual(first.imageAspectRatio, AspectRatio(width: 1, height: 1))
-        XCTAssertEqual(first.referencePixelSize, ArtworkReferencePixelSize(width: 2400, height: 3600))
         let restored = try JSONDecoder().decode(BundledTokens.self, from: JSONEncoder().encode(tokens))
         XCTAssertEqual(restored.items.first?.contractParameters, parameters)
         XCTAssertEqual(restored.items.first?.aspectRatio, first.aspectRatio)
-        XCTAssertEqual(restored.items.first?.imageAspectRatio, first.imageAspectRatio)
-        XCTAssertEqual(restored.items.first?.referencePixelSize, first.referencePixelSize)
         let invalid = Data(#"{"id":"7","contractParameters":{"number":42}}"#.utf8)
         XCTAssertThrowsError(try JSONDecoder().decode(BundledTokens.Item.self, from: invalid))
     }
 
     func testParameterObjectReplacesOnlyTheMatchingArtBlocksOnchainDependency() throws {
         let parameters = ["parameter": "frozen"]
-        let token = BundledTokens.Item(id: "1", name: nil, url: nil, sh: nil, hash: "0xabc", contractParameters: parameters)
+        let token = BundledTokens.Item(id: "1", name: nil, hash: "0xabc", contractParameters: parameters)
         let matched = try syntheticScript(dependency: dependency())
         let matchedData = try tokenData(in: RawHtmlGenerator.createHtml(script: matched, token: token, forceLibScript: ""))
         let assets = try XCTUnwrap(matchedData["externalAssetDependencies"] as? [[String: Any]])
@@ -246,7 +242,7 @@ extension ArtBlocksContractParametersTests {
     func testEscapedParameterStringsRemainObjectsAndDoNotAffectOtherRenderers() throws {
         let parameter = "</script><script>window.bad = true</script>\n雪 \\ \"quoted\""
         let parameters = ["text": parameter]
-        let token = BundledTokens.Item(id: "1", name: nil, url: nil, sh: nil, hash: "0xabc", contractParameters: parameters)
+        let token = BundledTokens.Item(id: "1", name: nil, hash: "0xabc", contractParameters: parameters)
         let script = try syntheticScript(dependency: dependency())
         let html = RawHtmlGenerator.createHtml(script: script, token: token, forceLibScript: "")
         XCTAssertFalse(html.contains("<script>window.bad = true</script>"))
@@ -254,7 +250,7 @@ extension ArtBlocksContractParametersTests {
         let assets = try XCTUnwrap(data["externalAssetDependencies"] as? [[String: Any]])
         XCTAssertEqual(assets.first?["data"] as? [String: String], parameters)
         let production = try syntheticScript(dependency: dependency(), artBlocksRendering: false)
-        let originalToken = BundledTokens.Item(id: token.id, name: nil, url: nil, sh: nil, hash: token.hash)
+        let originalToken = BundledTokens.Item(id: token.id, name: nil, hash: token.hash)
         XCTAssertEqual(
             RawHtmlGenerator.createHtml(script: production, token: token, forceLibScript: ""),
             RawHtmlGenerator.createHtml(script: production, token: originalToken, forceLibScript: "")

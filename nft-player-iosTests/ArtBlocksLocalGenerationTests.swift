@@ -81,6 +81,7 @@ extension ArtBlocksLocalGenerationTests {
     func testAll4461TokenIDsHashesAndAspectRatiosArePreserved() throws {
         var total = 0
         for project in projects {
+            let item = try XCTUnwrap(SuggestedItemsService.item(id: project.id))
             let tokens = try XCTUnwrap(SuggestedItemsService.bundledTokens(collectionId: project.id))
             XCTAssertEqual(tokens.items.count, project.count, project.name)
             XCTAssertEqual(tokens.items.map(\.id), (0..<project.count).map(project.tokenId))
@@ -94,9 +95,9 @@ extension ArtBlocksLocalGenerationTests {
                 let hash = try XCTUnwrap(token.hash, "\(project.name) #\(index)")
                 XCTAssertNotNil(hash.range(of: "^0x[0-9a-fA-F]{64}$", options: .regularExpression))
                 if ["archetype", "the_eternal_pump"].contains(project.slug) {
-                    XCTAssertEqual(token.url, project.imageURL(at: index))
+                    XCTAssertEqual((item.urlPrefix ?? "") + (try XCTUnwrap(token.urlSuffix)), project.imageURL(at: index))
                 } else {
-                    XCTAssertNil(token.url, "\(project.name) #\(index)")
+                    XCTAssertNil(token.urlSuffix, "\(project.name) #\(index)")
                 }
                 XCTAssertEqual(token.aspectRatio, project.ratio)
                 XCTAssertEqual(
@@ -180,7 +181,7 @@ extension ArtBlocksLocalGenerationTests {
             })
             for (index, token) in tokens.items.enumerated() {
                 XCTAssertNil(token.hash, "\(project.name) #\(index)")
-                XCTAssertEqual(token.url, "https://cdn.lil.org/player/\(project.slug)/\(index).png")
+                XCTAssertEqual((item.urlPrefix ?? "") + (try XCTUnwrap(token.urlSuffix)), "https://cdn.lil.org/player/\(project.slug)/\(index).png")
                 XCTAssertEqual(token.aspectRatio, project.ratio)
                 XCTAssertEqual(CollectionCatalog.tokenIndex(specificCollectionId: id, tokenId: token.id), index)
             }

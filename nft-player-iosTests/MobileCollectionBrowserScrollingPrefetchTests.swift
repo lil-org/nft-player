@@ -1327,12 +1327,8 @@ extension MobileCollectionBrowserGridModePresentationTests {
 
     func testCollectionMidAvailabilitySupportsURLsAndSuffixes() throws {
         let formats = [
-            """
-            [{"id":"unminted-1502","url":"https://example.com/1502.webp"}]
-            """,
-            """
-            [{"id":"unminted-1502","urlSuffix":"1502.webp"}]
-            """,
+            (prefix: "", suffix: "https://example.com/1502.webp"),
+            (prefix: "https://example.com/", suffix: "1502.webp"),
         ]
         let cases = [
             (field: "\"hasMid\": false,", expected: false),
@@ -1341,28 +1337,30 @@ extension MobileCollectionBrowserGridModePresentationTests {
             (field: "\"hasMid\": null,", expected: true),
         ]
 
-        for items in formats {
+        for format in formats {
             for entry in cases {
                 let collectionData = Data("""
                     {
                         "name": "Fixture", "address": "0xfixture", "chainId": 1,
                         "chain": "ethereum", "tokenCount": 1, "artists": [],
                         \(entry.field)
-                        "urlPrefix": "https://example.com/",
+                        "urlPrefix": "\(format.prefix)",
                         "aspectRatio": [1, 1]
                     }
                     """.utf8)
                 let collection = try XCTUnwrap(DownloadableCollectionIndexItem(
                     item: JSONDecoder().decode(SuggestedItem.self, from: collectionData)
                 ))
-                let data = Data("{\"items\":\(items)}".utf8)
+                let data = Data("""
+                    {"items":[{"id":"unminted-1502","urlSuffix":"\(format.suffix)"}]}
+                    """.utf8)
                 let payload = try DownloadableCollectionTokensPayload(data: data, collection: collection)
                 let token = try XCTUnwrap(payload.items.first)
 
                 XCTAssertEqual(collection.hasMid, entry.expected)
                 XCTAssertEqual(payload.items.count, 1)
                 XCTAssertEqual(token.id, "unminted-1502")
-                XCTAssertEqual(token.url, "https://example.com/1502.webp")
+                XCTAssertEqual(token.resolvedURLString(collection: collection), "https://example.com/1502.webp")
                 XCTAssertEqual(
                     token.aspectRatio,
                     AspectRatio(width: 1, height: 1)
