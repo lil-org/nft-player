@@ -1481,7 +1481,6 @@ nonisolated struct DownloadableCollectionTokensPayload: Decodable, Sendable {
                 id: item.id,
                 name: item.name,
                 urlSuffix: item.urlSuffix,
-                fileExtension: DownloadableMediaFileExtension.normalized(item.fileExtension),
                 aspectRatio: item.aspectRatio ?? collection.aspectRatio
             )
         }
@@ -1492,7 +1491,6 @@ nonisolated struct DownloadableTokenItem: Codable, Hashable, Sendable {
     let id: String
     let name: String?
     let urlSuffix: String?
-    let fileExtension: String?
     let aspectRatio: AspectRatio?
 
     func resolvedURLString(collection: DownloadableCollectionIndexItem) -> String? {
@@ -1507,8 +1505,7 @@ nonisolated struct DownloadableTokenItem: Codable, Hashable, Sendable {
 
     func resolvedFileExtension(collection: DownloadableCollectionIndexItem) -> String? {
         guard let url = resolvedURLString(collection: collection) else { return nil }
-        return DownloadableMediaFileExtension.explicitPathExtension(in: url)
-            ?? DownloadableMediaFileExtension.normalized(fileExtension)
+        return DownloadableMediaFileExtension.resolved(in: url)
     }
 }
 
@@ -1545,11 +1542,16 @@ nonisolated private enum DownloadableMediaFileExtension {
         return normalized.isEmpty ? nil : normalized
     }
 
-    static func explicitPathExtension(in urlString: String) -> String? {
+    static func resolved(in urlString: String) -> String? {
         guard let url = URL(string: urlString) else {
             return nil
         }
-        return normalized(url.pathExtension)
+        if !url.pathExtension.isEmpty {
+            return normalized(url.pathExtension)
+        }
+        let queryExtension = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+            .queryItems?.first { $0.name == "ext" }?.value
+        return normalized(queryExtension)
     }
 
     static func isStaticImage(_ fileExtension: String) -> Bool {

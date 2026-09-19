@@ -441,9 +441,14 @@ nonisolated private enum WidgetMediaFileExtension {
         return normalized.isEmpty ? nil : normalized
     }
 
-    static func explicitPathExtension(in urlString: String) -> String? {
+    static func resolved(in urlString: String) -> String? {
         guard let url = URL(string: urlString) else { return nil }
-        return normalized(url.pathExtension)
+        if !url.pathExtension.isEmpty {
+            return normalized(url.pathExtension)
+        }
+        let queryExtension = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+            .queryItems?.first { $0.name == "ext" }?.value
+        return normalized(queryExtension)
     }
 
     static func isStaticImage(_ fileExtension: String) -> Bool {
@@ -458,12 +463,11 @@ nonisolated private struct WidgetTokenPayload: Decodable, Sendable {
 nonisolated private struct WidgetTokenItem: Decodable, Hashable, Sendable {
     let id: String
     let urlSuffix: String?
-    let fileExtension: String?
 
     func staticImageReference(collection: WidgetCollection) -> WidgetStaticImageReference? {
         guard let urlString = resolvedURLString(collection: collection),
               let url = URL(string: urlString),
-              let fileExtension = resolvedFileExtension(urlString: urlString),
+              let fileExtension = WidgetMediaFileExtension.resolved(in: urlString),
               WidgetMediaFileExtension.isStaticImage(fileExtension) else {
             return nil
         }
@@ -478,10 +482,5 @@ nonisolated private struct WidgetTokenItem: Decodable, Hashable, Sendable {
             return "https://media-proxy.artblocks.io/\(collection.address)/\(id).png"
         }
         return nil
-    }
-
-    private func resolvedFileExtension(urlString: String) -> String? {
-        WidgetMediaFileExtension.explicitPathExtension(in: urlString)
-            ?? WidgetMediaFileExtension.normalized(fileExtension)
     }
 }

@@ -112,7 +112,6 @@ nonisolated struct BundledTokens: Codable, Sendable {
         let id: String
         let name: String?
         let urlSuffix: String?
-        let fileExtension: String?
         let hash: String?
         let aspectRatio: AspectRatio?
         let contractParameters: [String: String]?
@@ -123,13 +122,11 @@ nonisolated struct BundledTokens: Codable, Sendable {
             hash: String?,
             aspectRatio: AspectRatio? = nil,
             contractParameters: [String: String]? = nil,
-            urlSuffix: String? = nil,
-            fileExtension: String? = nil
+            urlSuffix: String? = nil
         ) {
             self.id = id
             self.name = name
             self.urlSuffix = urlSuffix
-            self.fileExtension = fileExtension
             self.hash = hash
             self.aspectRatio = aspectRatio
             self.contractParameters = contractParameters
@@ -147,8 +144,7 @@ nonisolated struct BundledTokens: Codable, Sendable {
                 hash: item.hash,
                 aspectRatio: item.aspectRatio ?? collection.aspectRatio,
                 contractParameters: item.contractParameters,
-                urlSuffix: item.urlSuffix,
-                fileExtension: item.fileExtension
+                urlSuffix: item.urlSuffix
             )
         }
     }

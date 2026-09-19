@@ -69,20 +69,12 @@ export async function generateWidgetResources(directory, { check = false } = {})
 function widgetTokenPayload(payload) {
   const items = payload.items.map((item) => {
     const id = item.id;
-    const fileExtension = normalizedFileExtension(item.fileExtension);
     return {
       id,
       ...(item.urlSuffix != null ? { urlSuffix: item.urlSuffix } : {}),
-      ...(fileExtension != null ? { fileExtension } : {}),
     };
   });
   return { items };
-}
-
-function normalizedFileExtension(value) {
-  if (typeof value !== "string") return undefined;
-  const normalized = value.replace(/^[. \n\t\r]+|[. \n\t\r]+$/gu, "").toLowerCase();
-  return normalized === "" ? undefined : normalized;
 }
 
 async function readEligibleCollectionSlugs(eligibleCollectionsPath) {
