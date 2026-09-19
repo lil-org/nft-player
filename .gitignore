@@ -21,7 +21,6 @@ nft-player.xcodeproj/project.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist
 *.moved-aside
 *.xcuserstate
 .DS_Store
-tools/wip/
 
 # Local thumbnail corpus used for offline sampling
 /thumbnails/
@@ -39,7 +38,6 @@ tools/wip/
 .bundle
 .cache
 *.map
-tools/reports/
 Originals Downloaded/
 
 # JS
@@ -50,4 +48,3 @@ staging/
 # Log Files
 *.log
 *.ipk
-/tools/artblocks/production/capture/pages/
