@@ -365,6 +365,7 @@ nonisolated struct WidgetCollection: Decodable, Hashable, Sendable {
     let abId: String?
     let name: String
     let hasCover: Bool
+    let urlPrefix: String?
     private let chain: WidgetCollectionChain
 
     enum CodingKeys: String, CodingKey {
@@ -374,6 +375,7 @@ nonisolated struct WidgetCollection: Decodable, Hashable, Sendable {
         case abId
         case name
         case hasCover
+        case urlPrefix
         case chain
     }
 
@@ -384,6 +386,7 @@ nonisolated struct WidgetCollection: Decodable, Hashable, Sendable {
         collectionId = try container.decodeIfPresent(String.self, forKey: .collectionId)
         abId = try container.decodeIfPresent(String.self, forKey: .abId)
         hasCover = try container.decodeIfPresent(Bool.self, forKey: .hasCover) ?? true
+        urlPrefix = try container.decodeIfPresent(String.self, forKey: .urlPrefix)
         chain = try container.decode(WidgetCollectionChain.self, forKey: .chain)
 
         let decodedName = try container.decodeIfPresent(String.self, forKey: .name)?
@@ -450,30 +453,11 @@ nonisolated private enum WidgetMediaFileExtension {
 
 nonisolated private struct WidgetTokenPayload: Decodable, Sendable {
     let items: [WidgetTokenItem]
-
-    enum CodingKeys: String, CodingKey {
-        case items
-        case urlPrefix
-    }
-
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        let urlPrefix = try container.decodeIfPresent(String.self, forKey: .urlPrefix) ?? ""
-
-        items = try container.decode([WidgetTokenItem].self, forKey: .items).map { item in
-            WidgetTokenItem(
-                id: item.id,
-                url: item.url ?? item.urlSuffix.map { urlPrefix + $0 },
-                sh: item.sh,
-                fileExtension: WidgetMediaFileExtension.normalized(item.fileExtension)
-            )
-        }
-    }
 }
 
 nonisolated private struct WidgetTokenItem: Decodable, Hashable, Sendable {
     let id: String
-    var urlSuffix: String? = nil
+    let urlSuffix: String?
     let url: String?
     let sh: String?
     let fileExtension: String?
@@ -491,6 +475,9 @@ nonisolated private struct WidgetTokenItem: Decodable, Hashable, Sendable {
     private func resolvedURLString(collection: WidgetCollection) -> String? {
         if let url {
             return url
+        }
+        if let urlSuffix {
+            return (collection.urlPrefix ?? "") + urlSuffix
         }
         if let sh {
             return "https://cdn.simplehash.com/assets/\(sh)"

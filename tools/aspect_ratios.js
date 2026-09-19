@@ -51,11 +51,11 @@ function tokenIdsFromPayload(payload) {
   });
 }
 
-function decodeAspectRatioMetadata(payload) {
+function decodeAspectRatioMetadata(payload, defaultAspectRatio) {
   tokenIdsFromPayload(payload);
-  const defaultRatio = payload.aspectRatio == null
+  const defaultRatio = defaultAspectRatio == null
     ? null
-    : normalizedRatio(payload.aspectRatio, "Collection aspectRatio");
+    : normalizedRatio(defaultAspectRatio, "Collection aspectRatio");
   const resolved = payload.items.map((item, index) => item.aspectRatio == null
     ? defaultRatio
     : normalizedRatio(item.aspectRatio, `Token item ${index} aspectRatio`)
@@ -82,12 +82,13 @@ function encodeAspectRatioMetadata(payload, values) {
   const defaultRatio = normalized.find((ratio) => ratioKey(ratio) === defaultKey);
   const result = withoutAspectRatioMetadata(payload);
   return {
-    ...result,
     aspectRatio: [...defaultRatio],
-    items: result.items.map((item, index) => ({
-      ...item,
-      ...(ratioKey(normalized[index]) === defaultKey ? {} : { aspectRatio: normalized[index] }),
-    })),
+    payload: {
+      items: result.items.map((item, index) => ({
+        ...item,
+        ...(ratioKey(normalized[index]) === defaultKey ? {} : { aspectRatio: normalized[index] }),
+      })),
+    },
   };
 }
 
@@ -116,14 +117,13 @@ function collectionBrowserColumnCountFromAspectRatios(values) {
 }
 
 function withoutAspectRatioMetadata(payload) {
-  const result = { ...payload };
-  delete result.aspectRatio;
-  result.items = payload.items.map((item) => {
-    const token = { ...item };
-    delete token.aspectRatio;
-    return token;
-  });
-  return result;
+  return {
+    items: payload.items.map((item) => {
+      const token = { ...item };
+      delete token.aspectRatio;
+      return token;
+    }),
+  };
 }
 
 function uniqueTokenIds(payload, label) {
@@ -138,8 +138,8 @@ function uniqueTokenIds(payload, label) {
   return ids;
 }
 
-function preserveAspectRatioMetadata(existingPayload, nextPayload) {
-  let payload = withoutAspectRatioMetadata(nextPayload);
+function preserveAspectRatioMetadata(existingPayload, nextPayload, defaultAspectRatio) {
+  const payload = withoutAspectRatioMetadata(nextPayload);
   const report = {
     sourceExists: true,
     metadataExists: false,
@@ -148,9 +148,9 @@ function preserveAspectRatioMetadata(existingPayload, nextPayload) {
     missingIds: [],
   };
 
-  const existingRatios = decodeAspectRatioMetadata(existingPayload);
+  const existingRatios = decodeAspectRatioMetadata(existingPayload, defaultAspectRatio);
   if (existingRatios == null) {
-    return { payload, report, collectionBrowserColumnCount: null };
+    return { payload, aspectRatio: null, report, collectionBrowserColumnCount: null };
   }
   report.metadataExists = true;
 
@@ -164,21 +164,20 @@ function preserveAspectRatioMetadata(existingPayload, nextPayload) {
   );
   report.missingIds = nextIds.filter((id) => !ratioById.has(id));
   if (report.missingIds.length > 0 || nextIds.length === 0) {
-    return { payload, report, collectionBrowserColumnCount: null };
+    return { payload, aspectRatio: null, report, collectionBrowserColumnCount: null };
   }
 
   report.preservedIds = [...nextIds];
   const preservedRatios = nextIds.map((id) => ratioById.get(id));
-  payload = encodeAspectRatioMetadata(payload, preservedRatios);
   return {
-    payload,
+    ...encodeAspectRatioMetadata(payload, preservedRatios),
     report,
     collectionBrowserColumnCount:
       collectionBrowserColumnCountFromAspectRatios(preservedRatios),
   };
 }
 
-async function preserveAspectRatioMetadataFromFile(filePath, nextPayload) {
+async function preserveAspectRatioMetadataFromFile(filePath, nextPayload, defaultAspectRatio) {
   let existingPayload;
   try {
     existingPayload = JSON.parse(await fs.readFile(filePath, "utf8"));
@@ -186,6 +185,7 @@ async function preserveAspectRatioMetadataFromFile(filePath, nextPayload) {
     if (error?.code === "ENOENT") {
       const result = {
         payload: withoutAspectRatioMetadata(nextPayload),
+        aspectRatio: null,
         report: {
           sourceExists: false,
           metadataExists: false,
@@ -199,7 +199,7 @@ async function preserveAspectRatioMetadataFromFile(filePath, nextPayload) {
     }
     throw error;
   }
-  return preserveAspectRatioMetadata(existingPayload, nextPayload);
+  return preserveAspectRatioMetadata(existingPayload, nextPayload, defaultAspectRatio);
 }
 
 function summarizedIds(ids) {

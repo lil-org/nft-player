@@ -81,6 +81,9 @@ nonisolated struct SuggestedItem: Identifiable, Hashable, Codable, Sendable {
     let generativeOnly: Bool?
     let hasCover: Bool?
     let hasThumbnails: Bool?
+    let urlPrefix: String?
+    let aspectRatio: AspectRatio?
+    let hasMid: Bool?
     let iosCollectionBrowserColumnCount: Int?
     let playerBackgroundColor: String?
     let webURL: String?
@@ -105,6 +108,9 @@ nonisolated struct SuggestedItem: Identifiable, Hashable, Codable, Sendable {
         case generativeOnly
         case hasCover
         case hasThumbnails
+        case urlPrefix
+        case aspectRatio
+        case hasMid
         case iosCollectionBrowserColumnCount
         case playerBackgroundColor
         case webURL

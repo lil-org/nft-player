@@ -1,19 +1,14 @@
 const assert = require("node:assert/strict");
-const fs = require("node:fs/promises");
-const os = require("node:os");
-const path = require("node:path");
 const test = require("node:test");
 
 const {
   isValidTmpFileName,
   preserveTmpFiles,
-  preserveTmpFilesFromFile,
   reportTmpFilesChanges,
 } = require("./tmp_files");
 
 test("preserves only valid tmp_files for token IDs that remain", () => {
-  const existingPayload = {
-    items: [{ id: "1", urlSuffix: "old-1" }, { id: "2", urlSuffix: "old-2" }, { id: "stale", urlSuffix: "old-stale" }],
+  const existingCollection = {
     tmp_files: {
       stale: "99.jpg",
       2: "2.png",
@@ -23,11 +18,10 @@ test("preserves only valid tmp_files for token IDs that remain", () => {
   };
   const nextRows = [{ id: "2", urlSuffix: "new-2", fileExtension: "png" }, { id: "1", urlSuffix: "new-1", fileExtension: "jpg" }];
   const nextPayload = {
-    urlPrefix: "https://example.com/",
     items: nextRows,
   };
 
-  const { payload, report } = preserveTmpFiles(existingPayload, nextPayload);
+  const { payload, report } = preserveTmpFiles(existingCollection, nextPayload);
 
   assert.deepEqual(payload, {
     ...nextPayload,
@@ -53,17 +47,12 @@ test("omits tmp_files when no valid current entries remain", () => {
   assert.deepEqual(report.invalidIds, ["current"]);
 });
 
-test("missing existing token payload is a no-op", async () => {
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "nft-player-tmp-files-"));
+test("missing collection metadata is a no-op", () => {
   const nextPayload = { items: [{ id: "1", urlSuffix: "1.jpg" }] };
-  try {
-    const { payload, report } = await preserveTmpFilesFromFile(path.join(directory, "missing.json"), nextPayload);
-    assert.deepEqual(payload, nextPayload);
-    assert.equal(report.sourceExists, false);
-    assert.deepEqual(report.preservedIds, []);
-  } finally {
-    await fs.rm(directory, { recursive: true, force: true });
-  }
+  const { payload, report } = preserveTmpFiles(null, nextPayload);
+  assert.deepEqual(payload, nextPayload);
+  assert.equal(report.sourceExists, false);
+  assert.deepEqual(report.preservedIds, []);
 });
 
 test("rejects unsafe or extensionless file names", () => {

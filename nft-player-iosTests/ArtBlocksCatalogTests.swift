@@ -9,8 +9,6 @@ extension ArtBlocksCatalogTests {
     private var tokenFixture: Data {
         Data("""
         {
-          "urlPrefix": "https://example.com/",
-          "aspectRatio": [3, 4],
           "items": [
             {"id": "legacy", "urlSuffix": "legacy.png"},
             {"id": "extension", "urlSuffix": "extension", "fileExtension": ".JPG"},
@@ -22,8 +20,18 @@ extension ArtBlocksCatalogTests {
         """.utf8)
     }
 
+    private func collectionFixture(metadata: [String: Any] = [:]) throws -> SuggestedItem {
+        var payload: [String: Any] = [
+            "name": "Fixture", "address": "0xfixture", "chainId": 1,
+            "chain": "ethereum", "tokenCount": 5, "artists": []
+        ]
+        payload.merge(metadata) { _, value in value }
+        return try JSONDecoder().decode(SuggestedItem.self, from: JSONSerialization.data(withJSONObject: payload))
+    }
+
     func testBundledTokensPreserveNamesHashesURLsAndAspectRatiosAfterRoundTrip() throws {
-        let tokens = try JSONDecoder().decode(BundledTokens.self, from: tokenFixture)
+        let collection = try collectionFixture(metadata: ["urlPrefix": "https://example.com/", "aspectRatio": [3, 4]])
+        let tokens = try BundledTokens(data: tokenFixture, collection: collection)
         XCTAssertEqual(tokens.items.map(\.id), ["legacy", "extension", "named-hash", "named-extension", "hash-only"])
         XCTAssertEqual(tokens.items.map(\.url), [
             "https://example.com/legacy.png",
@@ -48,16 +56,16 @@ extension ArtBlocksCatalogTests {
         XCTAssertEqual(restored.items.map(\.aspectRatio), tokens.items.map(\.aspectRatio))
         XCTAssertEqual(try encoder.encode(restored), encoded)
         let payload = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
-        XCTAssertEqual(payload["urlPrefix"] as? String, "https://example.com/")
+        XCTAssertEqual(Set(payload.keys), ["items"])
         let items = try XCTUnwrap(payload["items"] as? [[String: Any]])
-        XCTAssertEqual(items[0]["urlSuffix"] as? String, "legacy.png")
-        XCTAssertNil(items[0]["url"])
-        XCTAssertNil(items[0]["aspectRatio"])
+        XCTAssertEqual(items[0]["url"] as? String, "https://example.com/legacy.png")
+        XCTAssertEqual(items[0]["aspectRatio"] as? [Int], [3, 4])
         XCTAssertEqual(items[2]["aspectRatio"] as? [Int], [16, 9])
     }
 
     func testIndividualTokenRoundTripPreservesResolvedURLAndRatio() throws {
-        let tokens = try JSONDecoder().decode(BundledTokens.self, from: tokenFixture)
+        let collection = try collectionFixture(metadata: ["urlPrefix": "https://example.com/", "aspectRatio": [3, 4]])
+        let tokens = try BundledTokens(data: tokenFixture, collection: collection)
         let token = tokens.items[2]
         let restored = try JSONDecoder().decode(BundledTokens.Item.self, from: JSONEncoder().encode(token))
         XCTAssertEqual(restored.url, token.url)
@@ -66,7 +74,10 @@ extension ArtBlocksCatalogTests {
     }
 
     func testDownloadableTokensPreserveNamesExtensionsAndAspectRatios() throws {
-        let tokens = try JSONDecoder().decode(DownloadableCollectionTokensPayload.self, from: tokenFixture)
+        let collection = try XCTUnwrap(DownloadableCollectionIndexItem(item: collectionFixture(
+            metadata: ["urlPrefix": "https://example.com/", "aspectRatio": [3, 4]]
+        )))
+        let tokens = try DownloadableCollectionTokensPayload(data: tokenFixture, collection: collection)
         XCTAssertEqual(tokens.items.map(\.id), ["legacy", "extension", "named-hash", "named-extension", "hash-only"])
         XCTAssertEqual(tokens.items.map(\.name), [nil, nil, "Named artwork", "Extension artwork", nil])
         XCTAssertEqual(tokens.items.map(\.fileExtension), [nil, "jpg", nil, "webp", nil])
@@ -77,10 +88,11 @@ extension ArtBlocksCatalogTests {
     }
 
     func testDownloadableMediaExtensionsUseURLPathsThenItemHints() throws {
-        let item = try XCTUnwrap(SuggestedItemsService.allItems.first { $0.internalSlug == "terraforms" })
-        let collection = try XCTUnwrap(DownloadableCollectionIndexItem(item: item))
-        let data = Data(#"{"urlPrefix":"https://example.com/","items":[{"id":"1","urlSuffix":"1.SVG?ext=png#frame","fileExtension":"mov"},{"id":"2","urlSuffix":"2","fileExtension":" .HTML "},{"id":"3","urlSuffix":"3?ext=png","fileExtension":" .PNG "},{"id":"4","urlSuffix":"4?ext=png"},{"id":"5","urlSuffix":"5","fileExtension":" . "},{"id":"6","sh":"asset","fileExtension":"webp"}]}"#.utf8)
-        let payload = try JSONDecoder().decode(DownloadableCollectionTokensPayload.self, from: data)
+        let collection = try XCTUnwrap(DownloadableCollectionIndexItem(item: collectionFixture(
+            metadata: ["urlPrefix": "https://example.com/"]
+        )))
+        let data = Data(#"{"items":[{"id":"1","urlSuffix":"1.SVG?ext=png#frame","fileExtension":"mov"},{"id":"2","urlSuffix":"2","fileExtension":" .HTML "},{"id":"3","urlSuffix":"3?ext=png","fileExtension":" .PNG "},{"id":"4","urlSuffix":"4?ext=png"},{"id":"5","urlSuffix":"5","fileExtension":" . "},{"id":"6","sh":"asset","fileExtension":"webp"}]}"#.utf8)
+        let payload = try DownloadableCollectionTokensPayload(data: data, collection: collection)
         XCTAssertEqual(
             payload.items.map { $0.resolvedFileExtension(collection: collection) },
             ["svg", "html", "png", nil, nil, "webp"]
@@ -88,10 +100,11 @@ extension ArtBlocksCatalogTests {
     }
 
     func testRemovedTokenMetadataIsIgnoredAndNotEncoded() throws {
-        let data = Data(#"{"isComplete":false,"defaultFileExtension":"html","items":[{"id":"1","url":"https://example.com/1"}]}"#.utf8)
+        let data = Data(#"{"isComplete":false,"defaultFileExtension":"html","urlPrefix":"https://ignored.example/","aspectRatio":[4,3],"hasMid":false,"items":[{"id":"1","url":"https://example.com/1"}]}"#.utf8)
         let bundled = try JSONDecoder().decode(BundledTokens.self, from: data)
         let encoded = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(bundled)) as? [String: Any])
         XCTAssertEqual(Set(encoded.keys), ["items"])
+        XCTAssertNil(bundled.items.first?.aspectRatio)
 
         let item = try XCTUnwrap(SuggestedItemsService.allItems.first { $0.internalSlug == "terraforms" })
         let collection = try XCTUnwrap(DownloadableCollectionIndexItem(item: item))
@@ -120,20 +133,31 @@ extension ArtBlocksCatalogTests {
         }
     }
 
+    func testRawTokenRoundTripPreservesSuffixesAndOnlyItemOverrides() throws {
+        let tokens = try JSONDecoder().decode(BundledTokens.self, from: tokenFixture)
+        let encoded = try JSONEncoder().encode(tokens)
+        let payload = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        XCTAssertEqual(Set(payload.keys), ["items"])
+        let items = try XCTUnwrap(payload["items"] as? [[String: Any]])
+        XCTAssertEqual(items[0]["urlSuffix"] as? String, "legacy.png")
+        XCTAssertNil(items[0]["url"])
+        XCTAssertNil(items[0]["aspectRatio"])
+        XCTAssertEqual(items[2]["aspectRatio"] as? [Int], [16, 9])
+    }
+
     func testTokensPreserveFullURLsWithAnEmptyOrAbsentPrefix() throws {
         let urls = ["https://example.com/art.png?size=2#preview", "https://other.example/art"]
-        for prefixField in [#""urlPrefix": "","#, ""] {
+        for metadata: [String: Any] in [["urlPrefix": ""], [:]] {
+            let collection = try collectionFixture(metadata: metadata)
+            let downloadableCollection = try XCTUnwrap(DownloadableCollectionIndexItem(item: collection))
             let data = Data("""
-            {
-              \(prefixField)
-              "items": [
+            {"items":[
                 {"id":"1", "urlSuffix":"\(urls[0])", "hash":"0xabc"},
                 {"id":"2", "urlSuffix":"\(urls[1])", "fileExtension":".JPG"}
-              ]
-            }
+            ]}
             """.utf8)
-            let bundled = try JSONDecoder().decode(BundledTokens.self, from: data)
-            let downloadable = try JSONDecoder().decode(DownloadableCollectionTokensPayload.self, from: data)
+            let bundled = try BundledTokens(data: data, collection: collection)
+            let downloadable = try DownloadableCollectionTokensPayload(data: data, collection: downloadableCollection)
             XCTAssertEqual(bundled.items.compactMap(\.url), urls)
             XCTAssertEqual(downloadable.items.compactMap(\.url), urls)
             XCTAssertEqual(bundled.items[0].hash, "0xabc")
@@ -142,75 +166,72 @@ extension ArtBlocksCatalogTests {
     }
 
     func testPrefixAppliesOnlyToSuffixesAndPreservesImplicitSources() throws {
-        let data = Data(#"{"urlPrefix":"https://prefix.example/","items":[{"id":"a","url":"https://other.example/a","urlSuffix":"ignored"},{"id":"b","sh":"asset"},{"id":"c"}]}"#.utf8)
-        let bundled = try JSONDecoder().decode(BundledTokens.self, from: data)
-        let downloadable = try JSONDecoder().decode(DownloadableCollectionTokensPayload.self, from: data)
+        let collection = try collectionFixture(metadata: ["urlPrefix": "https://prefix.example/"])
+        let downloadableCollection = try XCTUnwrap(DownloadableCollectionIndexItem(item: collection))
+        let data = Data(#"{"items":[{"id":"a","url":"https://other.example/a","urlSuffix":"ignored"},{"id":"b","sh":"asset"},{"id":"c"}]}"#.utf8)
+        let bundled = try BundledTokens(data: data, collection: collection)
+        let downloadable = try DownloadableCollectionTokensPayload(data: data, collection: downloadableCollection)
         XCTAssertEqual(bundled.items.map(\.url), ["https://other.example/a", nil, nil])
         XCTAssertEqual(downloadable.items.map(\.url), bundled.items.map(\.url))
         XCTAssertEqual(bundled.items[1].sh, "asset")
         XCTAssertEqual(downloadable.items[1].sh, "asset")
-        let restored = try JSONDecoder().decode(BundledTokens.self, from: JSONEncoder().encode(bundled))
+        let restored = try BundledTokens(data: JSONEncoder().encode(bundled), collection: collection)
         XCTAssertEqual(restored.items.map(\.url), bundled.items.map(\.url))
         XCTAssertEqual(restored.items[1].sh, "asset")
     }
 
-    func testTokensShareNormalizedDefaultAndEncodeOnlyExceptions() throws {
-        let data = Data(#"{"items":[{"id":"a"},{"id":"b","aspectRatio":[6,8]},{"id":"c","aspectRatio":[64,36]}],"aspectRatio":[32,18]}"#.utf8)
+    func testTokensUseCollectionRatioAndPreserveItemOverrides() throws {
+        let collection = try collectionFixture(metadata: ["aspectRatio": [32, 18]])
+        let downloadableCollection = try XCTUnwrap(DownloadableCollectionIndexItem(item: collection))
+        let data = Data(#"{"items":[{"id":"a"},{"id":"b","aspectRatio":[6,8]},{"id":"c","aspectRatio":[64,36]}]}"#.utf8)
         let expected = [AspectRatio(width: 16, height: 9), AspectRatio(width: 3, height: 4), AspectRatio(width: 16, height: 9)]
-        let bundled = try JSONDecoder().decode(BundledTokens.self, from: data)
-        let downloadable = try JSONDecoder().decode(DownloadableCollectionTokensPayload.self, from: data)
+        let bundled = try BundledTokens(data: data, collection: collection)
+        let downloadable = try DownloadableCollectionTokensPayload(data: data, collection: downloadableCollection)
         XCTAssertEqual(bundled.items.compactMap(\.aspectRatio), expected)
         XCTAssertEqual(downloadable.items.compactMap(\.aspectRatio), expected)
         let encoded = try JSONEncoder().encode(bundled)
-        let restored = try JSONDecoder().decode(BundledTokens.self, from: encoded)
+        let restored = try BundledTokens(data: encoded, collection: collection)
         XCTAssertEqual(restored.items.compactMap(\.aspectRatio), expected)
         let payload = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
-        XCTAssertEqual(Set(payload.keys), ["items", "aspectRatio"])
-        XCTAssertEqual(payload["aspectRatio"] as? [Int], [16, 9])
-        let items = try XCTUnwrap(payload["items"] as? [[String: Any]])
-        XCTAssertNil(items[0]["aspectRatio"])
-        XCTAssertEqual(items[1]["aspectRatio"] as? [Int], [3, 4])
-        XCTAssertNil(items[2]["aspectRatio"])
+        XCTAssertEqual(Set(payload.keys), ["items"])
     }
 
     func testTokenRatiosWorkWithoutACollectionDefault() throws {
+        let collection = try collectionFixture()
+        let downloadableCollection = try XCTUnwrap(DownloadableCollectionIndexItem(item: collection))
         let data = Data(#"{"items":[{"id":"a","aspectRatio":[4,3]},{"id":"b"}]}"#.utf8)
-        let bundled = try JSONDecoder().decode(BundledTokens.self, from: data)
-        let downloadable = try JSONDecoder().decode(DownloadableCollectionTokensPayload.self, from: data)
+        let bundled = try BundledTokens(data: data, collection: collection)
+        let downloadable = try DownloadableCollectionTokensPayload(data: data, collection: downloadableCollection)
         let expected: [AspectRatio?] = [AspectRatio(width: 4, height: 3), nil]
         XCTAssertEqual(bundled.items.map(\.aspectRatio), expected)
         XCTAssertEqual(downloadable.items.map(\.aspectRatio), expected)
         let encoded = try JSONEncoder().encode(bundled)
         let restored = try JSONDecoder().decode(BundledTokens.self, from: encoded)
         XCTAssertEqual(restored.items.map(\.aspectRatio), expected)
-        let payload = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
-        XCTAssertNil(payload["aspectRatio"])
     }
 
-    func testAspectRatioMetadataCanBeAbsentOrNull() throws {
-        for json in [#"{"items":[{"id":"a"}]}"#, #"{"aspectRatio":null,"items":[{"id":"a","aspectRatio":null}]}"#] {
-            let data = Data(json.utf8)
-            let bundled = try JSONDecoder().decode(BundledTokens.self, from: data)
-            let downloadable = try JSONDecoder().decode(DownloadableCollectionTokensPayload.self, from: data)
+    func testCollectionMetadataCanBeAbsentOrNull() throws {
+        for metadata: [String: Any] in [[:], ["aspectRatio": NSNull(), "urlPrefix": NSNull(), "hasMid": NSNull()]] {
+            let collection = try collectionFixture(metadata: metadata)
+            let downloadableCollection = try XCTUnwrap(DownloadableCollectionIndexItem(item: collection))
+            let data = Data(#"{"items":[{"id":"a","aspectRatio":null,"urlSuffix":"https://example.com/a.png"}]}"#.utf8)
+            let bundled = try BundledTokens(data: data, collection: collection)
+            let downloadable = try DownloadableCollectionTokensPayload(data: data, collection: downloadableCollection)
             XCTAssertNil(try XCTUnwrap(bundled.items.first).aspectRatio)
             XCTAssertNil(try XCTUnwrap(downloadable.items.first).aspectRatio)
-            let restored = try JSONDecoder().decode(BundledTokens.self, from: JSONEncoder().encode(bundled))
-            XCTAssertNil(try XCTUnwrap(restored.items.first).aspectRatio)
+            XCTAssertEqual(bundled.items.first?.url, "https://example.com/a.png")
+            XCTAssertEqual(downloadable.items.first?.url, bundled.items.first?.url)
+            XCTAssertTrue(downloadableCollection.hasMid)
         }
     }
 
-    func testBothTokenDecodersRejectMalformedAspectRatios() throws {
+    func testDecodersRejectMalformedCollectionAndItemAspectRatios() throws {
         let invalidRatios: [Any] = [[], [1], [1, 1, 1], [0, 1], [-1, 1], [1.5, 1], ["1", "1"], "1:1", ["width": 1, "height": 1]]
         for ratio in invalidRatios {
-            let payloads: [[String: Any]] = [
-                ["aspectRatio": ratio, "items": [["id": "a"]]],
-                ["aspectRatio": [1, 1], "items": [["id": "a", "aspectRatio": ratio]]]
-            ]
-            for payload in payloads {
-                let data = try JSONSerialization.data(withJSONObject: payload)
-                XCTAssertThrowsError(try JSONDecoder().decode(BundledTokens.self, from: data), "\(payload)")
-                XCTAssertThrowsError(try JSONDecoder().decode(DownloadableCollectionTokensPayload.self, from: data), "\(payload)")
-            }
+            XCTAssertThrowsError(try collectionFixture(metadata: ["aspectRatio": ratio]))
+            let data = try JSONSerialization.data(withJSONObject: ["items": [["id": "a", "aspectRatio": ratio]]])
+            XCTAssertThrowsError(try JSONDecoder().decode(BundledTokens.self, from: data))
+            XCTAssertThrowsError(try JSONDecoder().decode(DownloadableCollectionTokensPayload.self, from: data))
         }
     }
 

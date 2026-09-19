@@ -1173,6 +1173,9 @@ nonisolated struct DownloadableCollectionIndexItem: Codable, Hashable, Identifia
     let network: Network
     let tokenCount: Int
     let webURL: URL?
+    let urlPrefix: String?
+    let aspectRatio: AspectRatio?
+    let hasMid: Bool
 
     init?(item: SuggestedItem) {
         guard item.isDownloadableCollection,
@@ -1186,6 +1189,9 @@ nonisolated struct DownloadableCollectionIndexItem: Codable, Hashable, Identifia
         network = item.network
         self.tokenCount = tokenCount
         webURL = item.webURL.flatMap(URL.init(string:))
+        urlPrefix = item.urlPrefix
+        aspectRatio = item.aspectRatio
+        hasMid = item.hasMid ?? true
     }
 }
 
@@ -1205,7 +1211,7 @@ nonisolated private enum DownloadableCollectionService {
     }
 
     static func hasMid(collectionId: String) -> Bool {
-        tokenData(collectionId: collectionId)?.hasMid ?? true
+        index.collectionById[collectionId]?.hasMid ?? true
     }
 
     static func tokenCount(collectionId: String) -> Int {
@@ -1443,11 +1449,10 @@ nonisolated private enum DownloadableCollectionService {
         guard let collection = index.collectionById[collectionId],
               let url = SuggestedItemsService.bundledTokensURL(collectionId: collectionId),
               let data = try? Data(contentsOf: url),
-              let payload = try? JSONDecoder().decode(DownloadableCollectionTokensPayload.self, from: data) else {
+              let payload = try? DownloadableCollectionTokensPayload(data: data, collection: collection) else {
             return nil
         }
         return DownloadableCollectionTokenData(
-            hasMid: payload.hasMid,
             tokens: payload.items.filter {
                 resolvedMedia(
                     for: $0,
@@ -1467,29 +1472,19 @@ nonisolated private struct DownloadableCollectionsIndex: Sendable {
 }
 
 nonisolated struct DownloadableCollectionTokensPayload: Decodable, Sendable {
-    let hasMid: Bool
     let items: [DownloadableTokenItem]
 
-    enum CodingKeys: String, CodingKey {
-        case hasMid
-        case items
-        case aspectRatio
-        case urlPrefix
-    }
-
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        hasMid = try container.decodeIfPresent(Bool.self, forKey: .hasMid) ?? true
-        let urlPrefix = try container.decodeIfPresent(String.self, forKey: .urlPrefix) ?? ""
-        let aspectRatio = try container.decodeIfPresent(AspectRatio.self, forKey: .aspectRatio)
-        items = try container.decode([DownloadableTokenItem].self, forKey: .items).map { item in
+    init(data: Data, collection: DownloadableCollectionIndexItem) throws {
+        let payload = try JSONDecoder().decode(Self.self, from: data)
+        let urlPrefix = collection.urlPrefix ?? ""
+        items = payload.items.map { item in
             DownloadableTokenItem(
                 id: item.id,
                 name: item.name,
                 url: item.url ?? item.urlSuffix.map { urlPrefix + $0 },
                 sh: item.sh,
                 fileExtension: DownloadableMediaFileExtension.normalized(item.fileExtension),
-                aspectRatio: item.aspectRatio ?? aspectRatio
+                aspectRatio: item.aspectRatio ?? collection.aspectRatio
             )
         }
     }
@@ -1574,13 +1569,11 @@ nonisolated struct DownloadableTokenItem: Codable, Hashable, Sendable {
 }
 
 nonisolated private struct DownloadableCollectionTokenData: Sendable {
-    let hasMid: Bool
     let tokens: [DownloadableTokenItem]
     let tokenIndicesById: [String: Int]
     let aspectRatioProfile: AspectRatioProfile?
 
-    init(hasMid: Bool, tokens: [DownloadableTokenItem]) {
-        self.hasMid = hasMid
+    init(tokens: [DownloadableTokenItem]) {
         self.tokens = tokens
 
         var tokenIndicesById = [String: Int]()

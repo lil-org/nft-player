@@ -22,8 +22,8 @@ async function fixture(t) {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "nft-player-widget-slugs-"));
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
   const items = [
-    { address: "0xAbCd", abId: "1", internal_slug: "alpha", name: "Alpha" },
-    { address: "0xAbCd", abId: "2", internal_slug: "beta", name: "Beta" },
+    { address: "0xAbCd", abId: "1", internal_slug: "alpha", name: "Alpha", urlPrefix: "https://example.com/", aspectRatio: [4, 3], hasMid: true },
+    { address: "0xAbCd", abId: "2", internal_slug: "beta", name: "Beta", urlPrefix: "", aspectRatio: [1, 1], hasMid: false },
   ];
   await writeJSON(directory, "Suggested.bundle/items.json", items);
   await writeJSON(directory, "widget-eligible-collections.json", ["beta", "alpha"]);
@@ -93,9 +93,6 @@ test("widget projection preserves object media sources while removing unused met
   items[0].chain = "ethereum";
   await writeJSON(directory, "Suggested.bundle/items.json", items);
   await writeJSON(directory, "Suggested.bundle/Tokens/alpha.json", {
-    hasMid: false,
-    urlPrefix: "https://unused.example/",
-    aspectRatio: [1, 1],
     items: [
       { id: "1", url: "https://example.com/one.png?size=2", sh: "unused", name: "One", hash: "0x1", fileExtension: "jpg", referencePixelSize: [100, 100] },
       { id: "2", url: "https://example.com/two", fileExtension: ".JPG", imageAspectRatio: [1, 1] },
@@ -128,9 +125,6 @@ test("widget projection preserves named URL suffixes and extension fallbacks", a
   const { directory } = await fixture(t);
   const { generateWidgetResources } = await generator;
   const payload = {
-    hasMid: true,
-    urlPrefix: "https://example.com/",
-    aspectRatio: [1, 1],
     items: [
       { id: "1", urlSuffix: "one.webp", fileExtension: "png", name: "One", hash: "0x1" },
       { id: "2", urlSuffix: "two", fileExtension: ".JPEG", name: "Two" },
@@ -144,7 +138,6 @@ test("widget projection preserves named URL suffixes and extension fallbacks", a
   const output = await fs.readFile(path.join(directory, "WidgetSuggested.bundle/Tokens/alpha.json"), "utf8");
   assert.equal(output.includes("\n"), false);
   assert.deepEqual(JSON.parse(output), {
-    urlPrefix: payload.urlPrefix,
     items: [
       { id: "1", urlSuffix: "one.webp", fileExtension: "png" },
       { id: "2", urlSuffix: "two", fileExtension: "jpeg" },
@@ -155,19 +148,22 @@ test("widget projection preserves named URL suffixes and extension fallbacks", a
   });
 });
 
-test("widget projection preserves full URLs with an empty or absent prefix", async (t) => {
-  const { directory } = await fixture(t);
+test("widget projection preserves full URLs with an empty or absent collection prefix", async (t) => {
+  const { directory, items } = await fixture(t);
   const { generateWidgetResources } = await generator;
   for (const urlPrefix of ["", undefined]) {
+    items[0].urlPrefix = urlPrefix;
+    await writeJSON(directory, "Suggested.bundle/items.json", items);
     await writeJSON(directory, "Suggested.bundle/Tokens/alpha.json", {
-      urlPrefix,
       items: [{ id: "1", urlSuffix: "https://example.com/one.webp" }, { id: "2", urlSuffix: "https://other.example/two", fileExtension: ".JPG" }],
     });
     await generateWidgetResources(directory);
     assert.deepEqual(
       JSON.parse(await fs.readFile(path.join(directory, "WidgetSuggested.bundle/Tokens/alpha.json"), "utf8")),
-      { urlPrefix: "", items: [{ id: "1", urlSuffix: "https://example.com/one.webp" }, { id: "2", urlSuffix: "https://other.example/two", fileExtension: "jpg" }] }
+      { items: [{ id: "1", urlSuffix: "https://example.com/one.webp" }, { id: "2", urlSuffix: "https://other.example/two", fileExtension: "jpg" }] }
     );
+    const widgetItems = JSON.parse(await fs.readFile(path.join(directory, "WidgetSuggested.bundle/items.json"), "utf8"));
+    assert.equal(widgetItems.find((item) => item.internal_slug === "alpha").urlPrefix, urlPrefix);
     await generateWidgetResources(directory, { check: true });
   }
 });
@@ -176,13 +172,12 @@ test("widget projection retains hints for encoded paths and malformed URLs", asy
   const { directory } = await fixture(t);
   const { generateWidgetResources } = await generator;
   await writeJSON(directory, "Suggested.bundle/Tokens/alpha.json", {
-    urlPrefix: "https://example.com/",
     items: [{ id: "1", urlSuffix: "collection.v1%2F42", fileExtension: ".PNG" }, { id: "2", url: "https://bad host.example/two.png", fileExtension: ".PNG" }],
   });
   await generateWidgetResources(directory);
   assert.deepEqual(
     JSON.parse(await fs.readFile(path.join(directory, "WidgetSuggested.bundle/Tokens/alpha.json"), "utf8")),
-    { urlPrefix: "https://example.com/", items: [{ id: "1", urlSuffix: "collection.v1%2F42", fileExtension: "png" }, { id: "2", url: "https://bad host.example/two.png", fileExtension: "png" }] }
+    { items: [{ id: "1", urlSuffix: "collection.v1%2F42", fileExtension: "png" }, { id: "2", url: "https://bad host.example/two.png", fileExtension: "png" }] }
   );
 });
 

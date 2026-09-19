@@ -1325,7 +1325,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
         )
     }
 
-    func testDownloadableManifestMidAvailabilitySupportsURLsAndSuffixes() throws {
+    func testCollectionMidAvailabilitySupportsURLsAndSuffixes() throws {
         let formats = [
             """
             [{"id":"unminted-1502","url":"https://example.com/1502.webp"}]
@@ -1343,21 +1343,23 @@ extension MobileCollectionBrowserGridModePresentationTests {
 
         for items in formats {
             for entry in cases {
-                let data = Data("""
+                let collectionData = Data("""
                     {
+                        "name": "Fixture", "address": "0xfixture", "chainId": 1,
+                        "chain": "ethereum", "tokenCount": 1, "artists": [],
                         \(entry.field)
                         "urlPrefix": "https://example.com/",
-                        "aspectRatio": [1, 1],
-                        "items": \(items)
+                        "aspectRatio": [1, 1]
                     }
                     """.utf8)
-                let payload = try JSONDecoder().decode(
-                    DownloadableCollectionTokensPayload.self,
-                    from: data
-                )
+                let collection = try XCTUnwrap(DownloadableCollectionIndexItem(
+                    item: JSONDecoder().decode(SuggestedItem.self, from: collectionData)
+                ))
+                let data = Data("{\"items\":\(items)}".utf8)
+                let payload = try DownloadableCollectionTokensPayload(data: data, collection: collection)
                 let token = try XCTUnwrap(payload.items.first)
 
-                XCTAssertEqual(payload.hasMid, entry.expected)
+                XCTAssertEqual(collection.hasMid, entry.expected)
                 XCTAssertEqual(payload.items.count, 1)
                 XCTAssertEqual(token.id, "unminted-1502")
                 XCTAssertEqual(token.url, "https://example.com/1502.webp")

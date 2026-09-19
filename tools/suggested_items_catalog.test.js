@@ -175,13 +175,13 @@ function eligibleItems(items, scriptIds) {
   return items.filter((item) => !scriptIds.has(suggestedItemId(item)));
 }
 
-function tokenSourceURL(payload, token) {
-  return token.url ?? (token.urlSuffix == null ? undefined : (payload.urlPrefix ?? "") + token.urlSuffix);
+function tokenSourceURL(collection, token) {
+  return token.url ?? (token.urlSuffix == null ? undefined : (collection.urlPrefix ?? "") + token.urlSuffix);
 }
 
-function tokenItem(payload, token) {
+function tokenItem(collection, token) {
   const { urlSuffix, aspectRatio, ...item } = token;
-  const url = tokenSourceURL(payload, token);
+  const url = tokenSourceURL(collection, token);
   return { ...item, ...(url == null ? {} : { url }) };
 }
 
@@ -241,8 +241,8 @@ function midImageURL(thumbnailURL) {
   return url;
 }
 
-function largeImageURL(payload, sourceURL, thumbnailURL) {
-  return payload.hasMid === false ? new URL(sourceURL) : midImageURL(thumbnailURL);
+function largeImageURL(collection, sourceURL, thumbnailURL) {
+  return collection.hasMid === false ? new URL(sourceURL) : midImageURL(thumbnailURL);
 }
 
 test("artist catalog is a slug-keyed dictionary with valid records", () => {
@@ -411,9 +411,9 @@ test("Mi Note collections retain on-chain identities, names, and exported media 
     assert.equal(new Set(tokenIdsFromPayload(payload)).size, item.tokenCount);
     assert.equal(item.iosCollectionBrowserColumnCount, undefined);
     assert.equal(item.sizedThumbsIndexOffset, undefined);
-    assert.equal(payload.hasMid, undefined);
+    assert.equal(item.hasMid, undefined);
     for (const [index, compactRow] of payload.items.entries()) {
-      const row = tokenItem(payload, compactRow);
+      const row = tokenItem(item, compactRow);
       assert.equal(typeof row.name, "string");
       assert.ok(row.name.length > 0);
       assert.match(row.id, slug === "mi_note" ? /^\d{76}$/u : /^\d+$/u);
@@ -421,11 +421,11 @@ test("Mi Note collections retain on-chain identities, names, and exported media 
       assert.equal(row.url, `https://cdn.lil.org/player/${slug}/${stem}.jpg`);
     }
     for (const [index, id, name, stem] of samples) {
-      const row = tokenItem(payload, payload.items[index]);
+      const row = tokenItem(item, payload.items[index]);
       assert.deepEqual(row, { id, name, url: `https://cdn.lil.org/player/${slug}/${stem}.jpg` });
       const thumbnailURL = standardThumbnailURL(row.url);
       assert.equal(thumbnailURL.href, `https://cdn.lil.org/player/${slug}/thumbs/${stem}.webp`);
-      assert.equal(largeImageURL(payload, row.url, thumbnailURL).href, `https://cdn.lil.org/player/${slug}/mid/${stem}.webp`);
+      assert.equal(largeImageURL(item, row.url, thumbnailURL).href, `https://cdn.lil.org/player/${slug}/mid/${stem}.webp`);
       for (const width of [140, 260]) {
         assert.equal(sizedThumbnailURL(thumbnailURL, index, width).href, `https://cdn.lil.org/player/${slug}/thumbs/${width}/${index}.webp`);
       }
@@ -433,19 +433,21 @@ test("Mi Note collections retain on-chain identities, names, and exported media 
   }
 });
 
-test("token manifests use named objects and a shared URL prefix in both bundles", () => {
+test("token manifests use named objects with collection URL prefixes in both bundles", () => {
   for (const directory of [TOKENS_PATH, WIDGET_TOKENS_PATH]) {
+    const collections = readJSON(path.join(directory, "..", "items.json"));
+    const bySlug = new Map(collections.map((item) => [item.internal_slug, item]));
     for (const fileName of fs.readdirSync(directory).filter((name) => name.endsWith(".json"))) {
       const payload = readJSON(path.join(directory, fileName));
-      for (const key of ["urlPrefixes", "aspectRatios", "aspectRatioOverrides"]) {
-        assert.equal(Object.hasOwn(payload, key), false, `${fileName}: ${key}`);
-      }
+      assert.deepEqual(Object.keys(payload), ["items"], fileName);
+      const collection = bySlug.get(path.basename(fileName, ".json"));
+      assert.ok(collection, fileName);
       for (const token of payload.items) {
         assert.ok(token != null && typeof token === "object" && !Array.isArray(token), fileName);
         assert.equal(typeof token.id, "string", fileName);
         if (token.urlSuffix != null) {
           assert.equal(typeof token.urlSuffix, "string", fileName);
-          assert.equal(typeof payload.urlPrefix, "string", fileName);
+          assert.equal(typeof collection.urlPrefix, "string", fileName);
           assert.equal(Object.hasOwn(token, "url"), false, fileName);
         }
       }
@@ -465,7 +467,7 @@ test("Artifact Magazine 3 uses one-based CDN media tiers", () => {
   assert.equal(payload.items.at(-1).id, "2R53LsQgyUCeQtsd7r92nqdKd2AWEF2asYjpeRcZQbHP");
 
   for (const [tokenIndex, cdnIndex] of [[0, 1], [592, 593]]) {
-    const sourceURL = tokenSourceURL(payload, payload.items[tokenIndex]);
+    const sourceURL = tokenSourceURL(item, payload.items[tokenIndex]);
     const thumbnailURL = standardThumbnailURL(sourceURL);
     assert.equal(sourceURL, `https://cdn.lil.org/player/artifact_magazine_3/${cdnIndex}.png`);
     assert.equal(thumbnailURL.href, `https://cdn.lil.org/player/artifact_magazine_3/thumbs/${cdnIndex}.webp`);
@@ -483,24 +485,24 @@ test("Planet Peppa retains original filenames and uses original large images", (
   const item = readJSON(ITEMS_PATH).find((candidate) => candidate.internal_slug === "planet_peppa");
   assert.ok(item, "Missing planet_peppa");
   const payload = readJSON(path.join(TOKENS_PATH, `${item.internal_slug}.json`));
-  assert.equal(payload.hasMid, false);
+  assert.equal(item.hasMid, false);
   assert.equal(
-    resolvedFileExtension(payload.items[0], tokenSourceURL(payload, payload.items[0])),
+    resolvedFileExtension(payload.items[0], tokenSourceURL(item, payload.items[0])),
     "webp"
   );
   assert.equal(payload.items.length, item.tokenCount);
   assert.equal(new Set(tokenIdsFromPayload(payload)).size, item.tokenCount);
   assert.equal(payload.items.filter((row) => row.id.startsWith("unminted-")).length, 11268);
-  assert.deepEqual(payload.aspectRatio, [1, 1]);
+  assert.deepEqual(item.aspectRatio, [1, 1]);
   assert.equal(item.iosCollectionBrowserColumnCount, undefined);
   assert.equal(item.sizedThumbsIndexOffset, undefined);
 
   for (const [tokenIndex, fileIndex] of [[0, 0], [1501, 1502], [6479, 6481], [8965, 8968], [14996, 14999]]) {
-    const sourceURL = tokenSourceURL(payload, payload.items[tokenIndex]);
+    const sourceURL = tokenSourceURL(item, payload.items[tokenIndex]);
     const thumbnailURL = standardThumbnailURL(sourceURL);
     assert.equal(sourceURL, `https://cdn.lil.org/player/planet_peppa/${fileIndex}.webp`);
     assert.equal(thumbnailURL.href, `https://cdn.lil.org/player/planet_peppa/thumbs/${fileIndex}.webp`);
-    assert.equal(largeImageURL(payload, sourceURL, thumbnailURL).href, sourceURL);
+    assert.equal(largeImageURL(item, sourceURL, thumbnailURL).href, sourceURL);
     for (const width of [140, 260]) {
       assert.equal(
         sizedThumbnailURL(thumbnailURL, tokenIndex, width).href,
@@ -611,7 +613,7 @@ test("September generative collections expose indexed CDN tiers without changing
     assert.ok(item.script.expectedByteCount > 0);
     assert.match(item.script.sha256, /^[a-f0-9]{64}$/u);
     const payload = readJSON(path.join(TOKENS_PATH, `${item.internal_slug}.json`));
-    const ratios = decodeAspectRatioMetadata(payload);
+    const ratios = decodeAspectRatioMetadata(payload, item.aspectRatio);
     assert.equal(ratios.length, payload.items.length);
     const base = `https://cdn.lil.org/player/${item.internal_slug}`;
     const indicesById = new Map(tokenIdsFromPayload(payload).map((id, index) => [id, index]));
@@ -631,7 +633,7 @@ test("September generative collections expose indexed CDN tiers without changing
   const neighborhood = items.find(item => item.internal_slug === "neighborhood");
   assert.ok(neighborhood);
   const payload = readJSON(path.join(TOKENS_PATH, `${neighborhood.internal_slug}.json`));
-  const ratios = decodeAspectRatioMetadata(payload);
+  const ratios = decodeAspectRatioMetadata(payload, neighborhood.aspectRatio);
   for (const [index, ratio] of [[0, [16, 9]], [3, [1, 1]], [7, [9, 16]]]) {
     assert.deepEqual(ratios[index], ratio);
     assert.equal(payload.items[index].id, String(146000000 + index));
@@ -670,7 +672,7 @@ test("eligible token manifests derive unique browse image tier URLs", () => {
 
     const payload = readJSON(tokensPath);
     assert.ok(
-      payload.hasMid == null || typeof payload.hasMid === "boolean",
+      item.hasMid == null || typeof item.hasMid === "boolean",
       `${item.internal_slug} has an invalid mid image availability value`
     );
     assert.ok(Array.isArray(payload.items), `${item.internal_slug} has no token items array`);
@@ -688,7 +690,7 @@ test("eligible token manifests derive unique browse image tier URLs", () => {
       [260, new Set()],
     ]);
     for (const [index, row] of payload.items.entries()) {
-      const sourceURL = tokenSourceURL(payload, row);
+      const sourceURL = tokenSourceURL(item, row);
       assert.equal(
         typeof sourceURL,
         "string",
@@ -729,8 +731,8 @@ test("eligible token manifests derive unique browse image tier URLs", () => {
       assert.equal(thumbnailURL.search, "");
       assert.equal(thumbnailURL.hash, "");
 
-      const largeURL = largeImageURL(payload, sourceURL, thumbnailURL);
-      if (payload.hasMid === false) {
+      const largeURL = largeImageURL(item, sourceURL, thumbnailURL);
+      if (item.hasMid === false) {
         assert.equal(largeURL.href, originalURL.href);
       } else {
         assert.equal(
@@ -840,12 +842,11 @@ test("thumbnail base overrides support extensionless sources and strip source ex
   );
 });
 
-test("token manifests omit removed collection metadata", () => {
+test("token manifests contain only items", () => {
   for (const directory of [TOKENS_PATH, WIDGET_TOKENS_PATH]) {
     for (const fileName of fs.readdirSync(directory).filter((name) => name.endsWith(".json"))) {
       const payload = readJSON(path.join(directory, fileName));
-      assert.equal(Object.hasOwn(payload, "defaultFileExtension"), false, fileName);
-      assert.equal(Object.hasOwn(payload, "isComplete"), false, fileName);
+      assert.deepEqual(Object.keys(payload), ["items"], fileName);
     }
   }
 });
@@ -878,12 +879,12 @@ test("bundled tokens have default and per-token aspect ratios with matching iOS 
       assert.equal(catalogItem.hasThumbnails, true);
       assert.ok(payload.items.every(token => /^0x[0-9a-fA-F]{64}$/u.test(token.hash)));
     }
-    const ratios = decodeAspectRatioMetadata(payload);
+    const ratios = decodeAspectRatioMetadata(payload, catalogItem.aspectRatio);
     assert.ok(ratios, `${fileName} has no aspect-ratio metadata`);
     assert.equal(Object.keys(payload).some(key => /^(artwork|thumbnail)AspectRatio/u.test(key)), false, fileName);
     assert.equal(ratios.length, payload.items.length, `${fileName} has incomplete aspect-ratio metadata`);
     assert.deepEqual(
-      payload,
+      { payload, aspectRatio: catalogItem.aspectRatio },
       encodeAspectRatioMetadata(payload, ratios),
       `${fileName} does not use the canonical default and per-token aspect ratios`
     );
@@ -938,6 +939,7 @@ test("bundled tokens have default and per-token aspect ratios with matching iOS 
     }
   }
 
+  const widgetCollections = readJSON(path.join(WIDGET_TOKENS_PATH, "..", "items.json"));
   const widgetFileNames = fs.readdirSync(WIDGET_TOKENS_PATH)
     .filter((fileName) => path.extname(fileName) === ".json")
     .sort();
@@ -948,15 +950,17 @@ test("bundled tokens have default and per-token aspect ratios with matching iOS 
     const primary = primaryByFileName.get(fileName);
     assert.ok(primary, `${fileName} has no matching primary token manifest`);
     const collection = catalogItems.find((item) => `${item.internal_slug}.json` === fileName);
-    const mediaReferences = (payload) => payload.items.map((row) => {
+    const widgetCollection = widgetCollections.find((item) => item.internal_slug === collection.internal_slug);
+    assert.deepEqual(widgetCollection, collection, fileName);
+    const mediaReferences = (payload, metadata) => payload.items.map((row) => {
       const id = row.id;
-      const url = tokenSourceURL(payload, row)
+      const url = tokenSourceURL(metadata, row)
         ?? (row.sh != null ? `https://cdn.simplehash.com/assets/${row.sh}` : undefined)
         ?? (collection.chain === "ethereum" ? `https://media-proxy.artblocks.io/${collection.address}/${id}.png` : undefined);
       return { id, url, fileExtension: url == null ? undefined : resolvedFileExtension(row, url) };
     });
-    assert.deepEqual(mediaReferences(widgetPayload), mediaReferences(primary.payload), fileName);
-    assert.ok(Object.keys(widgetPayload).every((key) => ["items", "urlPrefix"].includes(key)), fileName);
+    assert.deepEqual(mediaReferences(widgetPayload, widgetCollection), mediaReferences(primary.payload, collection), fileName);
+    assert.deepEqual(Object.keys(widgetPayload), ["items"], fileName);
     for (const row of widgetPayload.items) {
       assert.ok(
         Object.keys(row).every((key) => ["id", "url", "urlSuffix", "sh", "fileExtension"].includes(key)),
@@ -981,7 +985,7 @@ test("Terraforms uses Mathcastles HTML primaries with unchanged CDN thumbnails",
 
   const payload = readJSON(path.join(TOKENS_PATH, `${terraforms.internal_slug}.json`));
   assert.equal(Object.prototype.hasOwnProperty.call(payload, "tmp_files"), false);
-  assert.equal(payload.urlPrefix, "https://tokens.mathcastles.xyz/terraforms/token-html/");
+  assert.equal(terraforms.urlPrefix, "https://tokens.mathcastles.xyz/terraforms/token-html/");
   assert.equal(payload.items.length, 9844);
 
   for (const [index, row] of payload.items.entries()) {
@@ -990,7 +994,7 @@ test("Terraforms uses Mathcastles HTML primaries with unchanged CDN thumbnails",
     const { id: tokenId, urlSuffix } = row;
     assert.equal(urlSuffix, tokenId, `Terraforms token ${index} has an unexpected URL suffix`);
 
-    const sourceURL = tokenSourceURL(payload, row);
+    const sourceURL = tokenSourceURL(terraforms, row);
     assert.equal(
       sourceURL,
       `https://tokens.mathcastles.xyz/terraforms/token-html/${tokenId}`

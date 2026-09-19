@@ -41,16 +41,16 @@ function createFixture(t, {
     name: "Allstarz",
     tokenCount: 2,
     internal_slug: internalSlug,
+    hasMid: false,
+    tmp_files: { "1": "original.png", stale: "stale.png", "2": "../invalid.png" },
+    urlPrefix: "https://old.example/",
+    aspectRatio: [16, 9],
     ...(catalogColumnCount == null
       ? {}
       : { iosCollectionBrowserColumnCount: catalogColumnCount }),
   }], null, 2)}\n`;
   const tokenText = `${JSON.stringify({
-    hasMid: false,
-    tmp_files: { "1": "original.png" },
-    urlPrefix: "https://old.example/",
     items: [{ id: "2", urlSuffix: "2.png" }, { id: "1", urlSuffix: "1.png", aspectRatio: [4, 3] }],
-    aspectRatio: [16, 9],
   })}\n`;
   fs.writeFileSync(itemsPath, itemsText);
   if (includeTokenManifest) {
@@ -152,12 +152,11 @@ test("Ethereum bundling reconstructs URLs with one prefix across directories and
     const result = runBundler(fixture, { urls });
     assert.equal(result.status, 0, result.stderr);
     const payload = JSON.parse(fs.readFileSync(fixture.tokenPath, "utf8"));
-    assert.equal(payload.urlPrefix, prefix);
-    assert.equal(Object.hasOwn(payload, "urlPrefixes"), false);
-    assert.equal(Object.hasOwn(payload, "defaultFileExtension"), false);
-    assert.equal(Object.hasOwn(payload, "isComplete"), false);
+    const [item] = JSON.parse(fs.readFileSync(fixture.itemsPath, "utf8"));
+    assert.equal(item.urlPrefix, prefix);
+    assert.deepEqual(Object.keys(payload), ["items"]);
     assert.deepEqual(payload.items, urls.map((url, index) => ({ id: String(index + 1), urlSuffix: url.slice(prefix.length), fileExtension: "png", ...(index === 1 ? { aspectRatio: [16, 9] } : {}) })));
-    assert.deepEqual(payload.items.map((row) => payload.urlPrefix + row.urlSuffix), urls);
+    assert.deepEqual(payload.items.map((row) => item.urlPrefix + row.urlSuffix), urls);
   }
 });
 
@@ -172,9 +171,10 @@ test("Ethereum bundling preserves media hints without reparsing source URLs", (t
     const result = runBundler(fixture, { urls, mime });
     assert.equal(result.status, 0, result.stderr);
     const payload = JSON.parse(fs.readFileSync(fixture.tokenPath, "utf8"));
-    assert.equal(Object.hasOwn(payload, "defaultFileExtension"), false);
+    const [item] = JSON.parse(fs.readFileSync(fixture.itemsPath, "utf8"));
+    assert.deepEqual(Object.keys(payload), ["items"]);
     assert.deepEqual(payload.items.map((row) => row.fileExtension), extensions);
-    assert.deepEqual(payload.items.map((row) => payload.urlPrefix + row.urlSuffix), urls);
+    assert.deepEqual(payload.items.map((row) => item.urlPrefix + row.urlSuffix), urls);
   }
 });
 
@@ -189,12 +189,12 @@ test("writes slug resources while preserving checksum identity and manifest meta
   );
 
   const payload = JSON.parse(fs.readFileSync(fixture.tokenPath, "utf8"));
-  assert.equal(payload.hasMid, false);
-  assert.deepEqual(payload.tmp_files, { "1": "original.png" });
-  assert.deepEqual(tokenIdsFromPayload(payload), ["1", "2"]);
-  assert.deepEqual(decodeAspectRatioMetadata(payload), [[4, 3], [16, 9]]);
-
   const [item] = JSON.parse(fs.readFileSync(fixture.itemsPath, "utf8"));
+  assert.deepEqual(Object.keys(payload), ["items"]);
+  assert.equal(item.hasMid, false);
+  assert.deepEqual(item.tmp_files, { "1": "original.png" });
+  assert.deepEqual(tokenIdsFromPayload(payload), ["1", "2"]);
+  assert.deepEqual(decodeAspectRatioMetadata(payload, item.aspectRatio), [[4, 3], [16, 9]]);
   assert.equal(item.address, CHECKSUM_ID);
   assert.equal(item.iosCollectionBrowserColumnCount, 2);
 });
@@ -286,4 +286,17 @@ test("assigns new resource slugs without colliding with existing catalog names",
   const report = JSON.parse(fs.readFileSync(fixture.jsonReportPath, "utf8"));
   assert.equal(report.collections[0].cover.assetId, "allstarz_2");
   assert.equal(report.collections[0].cover.outputPath, dryRunReport.collections[0].cover.outputPath);
+});
+
+test("Ethereum rebundling clears stale defaults when an imported token has no previous ratio", (t) => {
+  const fixture = createFixture(t);
+  fs.writeFileSync(fixture.tokenPath, JSON.stringify({ items: [{ id: "1" }] }));
+  const result = runBundler(fixture);
+  assert.equal(result.status, 0, result.stderr);
+  const [item] = JSON.parse(fs.readFileSync(fixture.itemsPath, "utf8"));
+  const payload = JSON.parse(fs.readFileSync(fixture.tokenPath, "utf8"));
+  assert.equal(Object.hasOwn(item, "aspectRatio"), false);
+  assert.equal(Object.hasOwn(item, "iosCollectionBrowserColumnCount"), false);
+  assert.equal(decodeAspectRatioMetadata(payload, item.aspectRatio), null);
+  assert.match(result.stderr, /no existing ratio: 2/u);
 });

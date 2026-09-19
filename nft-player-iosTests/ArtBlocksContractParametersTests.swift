@@ -206,8 +206,7 @@ extension ArtBlocksContractParametersTests {
         let parameters = ["message": "Frozen \"雪\"\nline", "empty": "", "number": "0"]
         let data = try JSONSerialization.data(withJSONObject: [
             "items": [["id": "7", "hash": "0xabc", "contractParameters": parameters,
-                       "imageAspectRatio": [1, 1], "referencePixelSize": [2400, 3600]]],
-            "aspectRatio": [3, 4]
+                       "imageAspectRatio": [1, 1], "referencePixelSize": [2400, 3600], "aspectRatio": [3, 4]]]
         ])
         let tokens = try JSONDecoder().decode(BundledTokens.self, from: data)
         let first = try XCTUnwrap(tokens.items.first)

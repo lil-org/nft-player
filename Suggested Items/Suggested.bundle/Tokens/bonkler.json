@@ -1,9 +1,4 @@
 {
-  "urlPrefix": "https://cdn.lil.org/player/bonkler/",
-  "aspectRatio": [
-    3,
-    4
-  ],
   "items": [
     {
       "id": "1",

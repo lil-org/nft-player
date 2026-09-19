@@ -14,7 +14,11 @@
       "kind": "p5js100",
       "expectedByteCount": 7849,
       "sha256": "47b83771884e748725c647884e0c02a9fdb1f795b4576e83b9cb86ab35243796"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "17",
@@ -32,7 +36,11 @@
       "kind": "js",
       "expectedByteCount": 4736,
       "sha256": "02ba5eaac6ca868eb1707e56f88c3a1f84426164762d309fc4f2cc6603d8233d"
-    }
+    },
+    "aspectRatio": [
+      650,
+      489
+    ]
   },
   {
     "abId": "9",
@@ -47,7 +55,11 @@
       "kind": "js",
       "expectedByteCount": 11616,
       "sha256": "b1253442c46066a0dea97e830ebb165db7cb11ba8afbdae63a5a0448a9966532"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "29",
@@ -65,7 +77,11 @@
       "nftPlayerDisplayTuning": "setTimeout(() => ['keydown', 'keyup'].forEach(event => document.dispatchEvent(new KeyboardEvent(event, { key: 'f', code: 'KeyF', keyCode: 70, bubbles: true }))), 23);",
       "expectedByteCount": 34659,
       "sha256": "764714a779cb4f055ffda4e99801a466b7c87a0c9e69b4b0e931298fb9323ee4"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "64",
@@ -80,7 +96,11 @@
       "kind": "tone",
       "expectedByteCount": 25503,
       "sha256": "da7be0a8086d6f819551368bf9fea798a4b1c267d857728602b52306910fc0ff"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "120",
@@ -97,7 +117,11 @@
       "kind": "js",
       "expectedByteCount": 2976,
       "sha256": "0413b2030b221792426aa3e3f6a90fff50e8a7777108c611f27701a980d84599"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "53",
@@ -114,7 +138,11 @@
       "kind": "js",
       "expectedByteCount": 17130,
       "sha256": "a6b6984e0fc0ceb54c6d7299df93e86b927031f788877a773097ba93fab2b3f1"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "373",
@@ -131,7 +159,11 @@
       "kind": "js",
       "expectedByteCount": 5427,
       "sha256": "1c27d961f45a2639639a2c79d6cee8df1afa54b294c7286a9aef3dfdf880a3f7"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "235",
@@ -149,7 +181,11 @@
       "kind": "js",
       "expectedByteCount": 8418,
       "sha256": "831c947279d1682009bef4e828f168bc176d760c0087f65f0f98b36339ba340c"
-    }
+    },
+    "aspectRatio": [
+      650,
+      459
+    ]
   },
   {
     "abId": "44",
@@ -166,7 +202,11 @@
       "kind": "p5js100",
       "expectedByteCount": 7084,
       "sha256": "1f5be8513e0fb7ad4a0e800cbc8cadd1138fc6adf9c9b0fad3f7c4ddda15204b"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "0",
@@ -184,7 +224,11 @@
       "kind": "p5js100",
       "expectedByteCount": 5553,
       "sha256": "50b104b163e44e99a4686278eb742315278ec1c6e3153f175e95ceae1aa8fb74"
-    }
+    },
+    "aspectRatio": [
+      650,
+      433
+    ]
   },
   {
     "abId": "399",
@@ -201,7 +245,11 @@
       "kind": "p5js100",
       "expectedByteCount": 33090,
       "sha256": "49fecf3a60d98dcc85489ea6430821bfc0e7a34d1bf11384a1ff14371e86213e"
-    }
+    },
+    "aspectRatio": [
+      3,
+      4
+    ]
   },
   {
     "abId": "264",
@@ -218,7 +266,11 @@
       "kind": "p5js100",
       "expectedByteCount": 18954,
       "sha256": "907463b3d0be1e5535859be48e7b1d9148c79c4e3680472667e2d17403919391"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "0",
@@ -236,7 +288,11 @@
       "kind": "p5js190",
       "expectedByteCount": 4453,
       "sha256": "c8a8735ce9f549f9cc18de75ff73ec3e3a213aa51fe3e140d256e815a5775d11"
-    }
+    },
+    "aspectRatio": [
+      325,
+      183
+    ]
   },
   {
     "abId": "117",
@@ -253,7 +309,11 @@
       "kind": "three",
       "expectedByteCount": 25078,
       "sha256": "93f66cbb5df1ffe72aaa06f6d743c5b1845f14907b9060a231192e61e7dce334"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "12",
@@ -271,7 +331,11 @@
       "kind": "p5js100",
       "expectedByteCount": 7764,
       "sha256": "1bc9955cd0d90d93c0fee5fa4c657cdd69293b9132acbb9d45b826a82d73d23f"
-    }
+    },
+    "aspectRatio": [
+      325,
+      183
+    ]
   },
   {
     "abId": "14",
@@ -288,7 +352,11 @@
       "kind": "p5js100",
       "expectedByteCount": 73659,
       "sha256": "ab29f39fba1e7ddb07d2ab66ac1536e46008884b548974f9ec1faf0d87ff83ea"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "12",
@@ -305,7 +373,11 @@
       "kind": "js",
       "expectedByteCount": 3041,
       "sha256": "ada223bf1d443a9f4a7e543daa7dfa165ba2e93bcee416ba7a8cbb8701bd97c7"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "21",
@@ -323,7 +395,11 @@
       "kind": "tone",
       "expectedByteCount": 13650,
       "sha256": "a129fddfdcee3f38ccaf8717816660b49538fa377ecc50696859999dad7ba811"
-    }
+    },
+    "aspectRatio": [
+      325,
+      183
+    ]
   },
   {
     "abId": "19",
@@ -340,7 +416,11 @@
       "kind": "js",
       "expectedByteCount": 2796,
       "sha256": "e7b3643fffaae3334368fb411166989ec285088665659b3996c455623176bf1f"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "2",
@@ -357,7 +437,11 @@
       "kind": "js",
       "expectedByteCount": 2946,
       "sha256": "fe9ed1bdcdb9dbd6fc040183be1f362c7b24fa37f845c8310a19eac40b8abdc9"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "287",
@@ -374,7 +458,11 @@
       "kind": "js",
       "expectedByteCount": 76261,
       "sha256": "3834fb943af54a4c32ddfc6e4f5a0392ba43a4e1500a2650eee0c8b25ce35a56"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "20",
@@ -391,7 +479,11 @@
       "kind": "js",
       "expectedByteCount": 3488,
       "sha256": "982ac6ab482a371a628683be33ee916aec278f621410bba1bc3c64c89d36fc4b"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "22",
@@ -408,7 +500,11 @@
       "kind": "js",
       "expectedByteCount": 3809,
       "sha256": "f6c8b2f9b9ebceefbd392a397af69b076e541aee7085fd8f3b4b932e87bfc800"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "8",
@@ -425,7 +521,11 @@
       "kind": "js",
       "expectedByteCount": 2565,
       "sha256": "48c0e95c737627ed02db3cf5675c6054480d8612db392e0f62f93e7038fa955d"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "293",
@@ -440,7 +540,11 @@
       "kind": "p5js100",
       "expectedByteCount": 10028,
       "sha256": "9d0520e8f42bfa0ec2b9e3dd605a4a0ad4f8daa3400eecf3fd91245ec6797d32"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "460",
@@ -458,7 +562,11 @@
       "kind": "p5js100",
       "expectedByteCount": 11985,
       "sha256": "fbe22a297035984dc76bb053f0e501f348ed2e2fdac533d8a5debedd95661b09"
-    }
+    },
+    "aspectRatio": [
+      5,
+      3
+    ]
   },
   {
     "abId": "25",
@@ -475,7 +583,11 @@
       "kind": "js",
       "expectedByteCount": 2499,
       "sha256": "b2d60727729489e67f1fe9cdfff81002a0b6f831527e4e4e61c8ab047b3ed118"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "26",
@@ -492,7 +604,11 @@
       "kind": "js",
       "expectedByteCount": 2406,
       "sha256": "aceac1b9117abaee0e3d278679526608a95d085ee8e57fbe6d12a3009dc05d27"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "123",
@@ -509,7 +625,11 @@
       "kind": "p5js100",
       "expectedByteCount": 3102,
       "sha256": "7848b4f0ade583bd70a35efa17fc63841e0085a7b060af11cc3f7640d6e14bb6"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "323",
@@ -526,7 +646,11 @@
       "kind": "p5js100",
       "expectedByteCount": 13925,
       "sha256": "82a34a501a5faed37406bc0588d23135cc841b6f49d1eda0c13ee0ac5af488f6"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "338",
@@ -543,7 +667,11 @@
       "kind": "three",
       "expectedByteCount": 43550,
       "sha256": "1f281bcb8abe4eb10d52c1fbcf4476612bb61ec21ff295f789c7389470df7ed6"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "9",
@@ -560,7 +688,11 @@
       "kind": "js",
       "expectedByteCount": 3146,
       "sha256": "f8d0904e83d3647cd2e69198cf4cbd17c58aaf89f09beca0a6721e83b8c7ff43"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "490",
@@ -577,7 +709,11 @@
       "kind": "js",
       "expectedByteCount": 4447,
       "sha256": "183c5eb5510d46a354fa42aaaaa35f872e0ceb18284662ea61f1d1be72fac2bc"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "472",
@@ -595,7 +731,11 @@
       "kind": "js",
       "expectedByteCount": 83082,
       "sha256": "22015da8fcde43f4d2e5411e9b2bec9f10afb3a3a07e4638462b90503b7983eb"
-    }
+    },
+    "aspectRatio": [
+      325,
+      183
+    ]
   },
   {
     "abId": "10",
@@ -612,7 +752,11 @@
       "kind": "js",
       "expectedByteCount": 15250,
       "sha256": "2016597962e0f7805704c2e236c4b9b8faaaa67652a097806b8023bff319974b"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "50",
@@ -629,7 +773,11 @@
       "kind": "three",
       "expectedByteCount": 32500,
       "sha256": "3ba6360f2ec8d5647ffb9df921ecac54e100c56a7b82d238cd340f82c6f30785"
-    }
+    },
+    "aspectRatio": [
+      140,
+      249
+    ]
   },
   {
     "abId": "16",
@@ -646,7 +794,11 @@
       "kind": "js",
       "expectedByteCount": 3664,
       "sha256": "7943e0a9bec097b54d46d5ef7484ebf2d9c9370c0311b1801bb27b6ba0bc74ff"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "0",
@@ -664,7 +816,11 @@
       "kind": "p5js190",
       "expectedByteCount": 41086,
       "sha256": "b1f0e668fd7fb32ee52112e2c13ac4b893ce3e379cdc66a3b159687047e1e950"
-    }
+    },
+    "aspectRatio": [
+      325,
+      183
+    ]
   },
   {
     "abId": "17",
@@ -681,7 +837,11 @@
       "kind": "js",
       "expectedByteCount": 3239,
       "sha256": "593592318a9337cbec16e6e7fdb32cf61620fe4c81a585136e20fdee8b9199cb"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "4",
@@ -697,7 +857,11 @@
       "kind": "p5js100",
       "expectedByteCount": 17592,
       "sha256": "51525e8307788919838f6d32886a43be0f051c1ce3047f00f5195a088b4b4210"
-    }
+    },
+    "aspectRatio": [
+      130,
+      73
+    ]
   },
   {
     "abId": "426",
@@ -714,7 +878,11 @@
       "kind": "js",
       "expectedByteCount": 35882,
       "sha256": "7bdb958f78092a003d50952620c2458df5863924ad4e8f78521f58c724a903c1"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "428",
@@ -732,7 +900,11 @@
       "kind": "p5js100",
       "expectedByteCount": 28627,
       "sha256": "2c5df29968520791fa057712fad5a6d29d3de78162e1f5a5f753ad9452bdddf8"
-    }
+    },
+    "aspectRatio": [
+      650,
+      389
+    ]
   },
   {
     "abId": "151",
@@ -747,7 +919,11 @@
       "kind": "p5js100",
       "expectedByteCount": 11156,
       "sha256": "e7faacb5eafa569408fa8d468e59011b9de0fae587ea2ad2cb5a0724a6f5db6d"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "158",
@@ -764,7 +940,11 @@
       "kind": "p5js100",
       "expectedByteCount": 7143,
       "sha256": "c7a27c44bcdf9c9c3aa988cda44584c2383ae7204d54664f85bfadd5f2c34a40"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "480",
@@ -781,7 +961,11 @@
       "kind": "js",
       "expectedByteCount": 19748,
       "sha256": "dc9369f637b1d9709e3b3a92e27a558be023d20c1ffd1c327b2a51f77e2b5d5c"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "175",
@@ -798,7 +982,11 @@
       "kind": "p5js100",
       "expectedByteCount": 10769,
       "sha256": "044cde40d0a731bf0a529409693f43f7333679ac294b12dfb67bf2d9d43ae51d"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "182",
@@ -813,7 +1001,11 @@
       "kind": "p5js100",
       "expectedByteCount": 3259,
       "sha256": "835b79ebfb2da2b3de118e6dbe02d4346b5f1b52301f5452abcf5510d26f3eaf"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "3",
@@ -830,7 +1022,11 @@
       "kind": "p5js100",
       "expectedByteCount": 2623,
       "sha256": "ed789eb7478d191fbcec9c7ad5a3c02ec86dda4601427b9ccaa330553b066caf"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "391",
@@ -845,7 +1041,11 @@
       "kind": "regl",
       "expectedByteCount": 20277,
       "sha256": "e64a5d3d0eeec3328d1cda9d716bd43b9d71a71f9334af3a8601df8224cfa062"
-    }
+    },
+    "aspectRatio": [
+      84,
+      107
+    ]
   },
   {
     "abId": "181",
@@ -862,7 +1062,11 @@
       "kind": "p5js100",
       "expectedByteCount": 18815,
       "sha256": "6eb9b8939ee875f35ede89fd4f0c936fb3f718b612007481ac1efd28e752c097"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "35",
@@ -879,7 +1083,11 @@
       "kind": "js",
       "expectedByteCount": 2496,
       "sha256": "f52d3f1abb2201b5cfea9a311d943c2f607f054d07cc7da1d62c0f22758bfacb"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "29",
@@ -896,7 +1104,11 @@
       "kind": "js",
       "expectedByteCount": 8408,
       "sha256": "f648f5d0a0e04b723025f9815645b5896cbda852dcc6def9146497a0f911b8d0"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "54",
@@ -911,7 +1123,11 @@
       "kind": "p5js100",
       "expectedByteCount": 14977,
       "sha256": "bde0b0ab14b61ff2c2d30d5a823efe225397d688fc0e30f9109cb8234cde9d38"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "168",
@@ -926,7 +1142,11 @@
       "kind": "js",
       "expectedByteCount": 14339,
       "sha256": "47460bda2c1ae0329414ec2b726dd2e22669d5131aba724318d41ef7c1262317"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "260",
@@ -943,7 +1163,11 @@
       "kind": "js",
       "expectedByteCount": 3766,
       "sha256": "d70830b0ae4599d7b287d4b37e37920fe8e083b8158fa1c71feeb20ec2c97ebd"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "67",
@@ -960,7 +1184,11 @@
       "kind": "three",
       "expectedByteCount": 14691,
       "sha256": "d2526fa9e67abee2566fcc8bc4efc52b0dbcdcb4a05431733e9326bd852a1647"
-    }
+    },
+    "aspectRatio": [
+      140,
+      249
+    ]
   },
   {
     "abId": "205",
@@ -977,7 +1205,11 @@
       "kind": "js",
       "expectedByteCount": 36121,
       "sha256": "7c94f6ce6708801f5bc36699a6ff88f564e09a265cb53f0de1642a73946cf657"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "85",
@@ -995,7 +1227,11 @@
       "kind": "p5js100",
       "expectedByteCount": 36200,
       "sha256": "7543d6f78494aabb40e196df2072df9b9e46a9db10c87909f86e30d229be36b0"
-    }
+    },
+    "aspectRatio": [
+      130,
+      73
+    ]
   },
   {
     "abId": "3",
@@ -1012,7 +1248,11 @@
       "kind": "js",
       "expectedByteCount": 1646,
       "sha256": "14af2c7e7cbf9811943f3e5e6074047b6a357a7b9f24253f798e59eae25a672a"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "1",
@@ -1030,7 +1270,11 @@
       "kind": "p5js100",
       "expectedByteCount": 6886,
       "sha256": "5ea9a929e1b2c32e707f56585c44d11e547a9642830cc10c5d57e6c1626f8a98"
-    }
+    },
+    "aspectRatio": [
+      130,
+      73
+    ]
   },
   {
     "abId": "4",
@@ -1047,7 +1291,11 @@
       "kind": "js",
       "expectedByteCount": 14981,
       "sha256": "c204c775d8afb622078706f230370103b7b277f9bc348370d5296f608e00b2de"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "336",
@@ -1064,7 +1312,11 @@
       "kind": "tone",
       "expectedByteCount": 29006,
       "sha256": "b67c65d809e4e9e22876725d4961f39740fcb54468eb3d141a992e9f02760744"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "44",
@@ -1081,7 +1333,11 @@
       "kind": "js",
       "expectedByteCount": 15828,
       "sha256": "87c4def14385d4df5b6b92a66dd67b15651332cb60de83e1d4a79b9477b68e26"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "331",
@@ -1098,7 +1354,11 @@
       "kind": "three",
       "expectedByteCount": 25062,
       "sha256": "e24527523266c9850cb8d65e9672824094b5422f76a33a0982c06b23fca1a17d"
-    }
+    },
+    "aspectRatio": [
+      3,
+      4
+    ]
   },
   {
     "abId": "26",
@@ -1115,7 +1375,11 @@
       "kind": "p5js100",
       "expectedByteCount": 14039,
       "sha256": "8356400ffea1a9e256b6b1085c75ccf2d67051a495e136052b6cae16071c597e"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "15",
@@ -1132,7 +1396,11 @@
       "kind": "js",
       "expectedByteCount": 5078,
       "sha256": "1ec7512e258e024c444e4d09d16bde3c479da02e14d8fba85f71ecd74089c9a8"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "280",
@@ -1149,7 +1417,11 @@
       "kind": "js",
       "expectedByteCount": 10410,
       "sha256": "96f9503d3fc19ad2f4f558e139fe2ebfaf37b38324eb1f7ef8a7250a53194319"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "457",
@@ -1167,7 +1439,11 @@
       "kind": "twemoji",
       "expectedByteCount": 53453,
       "sha256": "0e5e228ad56bbe64a4c27cb54660fd11ab1d9c1515ca275e24ee3d669334dfc6"
-    }
+    },
+    "aspectRatio": [
+      13,
+      8
+    ]
   },
   {
     "abId": "1",
@@ -1184,7 +1460,11 @@
       "kind": "p5js100",
       "expectedByteCount": 8220,
       "sha256": "f9604f8cbbc7f7b9641aebb29fcb7d3032c8c5d6167f6d58614bebd100d888b7"
-    }
+    },
+    "aspectRatio": [
+      3,
+      5
+    ]
   },
   {
     "abId": "233",
@@ -1201,7 +1481,11 @@
       "kind": "three",
       "expectedByteCount": 49927,
       "sha256": "510a2b5fc1d75959dcde0ab351c5ef3b82afe364d340cd2aecec751130282b32"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "4",
@@ -1218,7 +1502,11 @@
       "kind": "js",
       "expectedByteCount": 2104,
       "sha256": "30691044a1d1175b68642c91e3d2d0b225c3605103a09e5841b8a20e301ffaed"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "356",
@@ -1235,7 +1523,11 @@
       "kind": "js",
       "expectedByteCount": 9523,
       "sha256": "a4f5182a841ce2ad76a506d82f98ee5d030b4a7ce47dfe16e51b800f161d1ca0"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "8",
@@ -1253,7 +1545,11 @@
       "kind": "js",
       "expectedByteCount": 20819,
       "sha256": "074c4db62fe2c5f5c6b1d0f81ac3e819d56764d4c4f7889fbd927163a41d0cdb"
-    }
+    },
+    "aspectRatio": [
+      325,
+      244
+    ]
   },
   {
     "abId": "5",
@@ -1270,7 +1566,11 @@
       "kind": "js",
       "expectedByteCount": 4291,
       "sha256": "e83ff4c8802960b4ec6bab56fd415225895fd4d3ac61d5e3e79ce4d632678e97"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "3",
@@ -1285,7 +1585,11 @@
       "kind": "p5js100",
       "expectedByteCount": 3296,
       "sha256": "4b73116a0f68488b8ed649d5f0ba60ab720d7ed550a251f3b7059e0c52db7653"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "435",
@@ -1301,7 +1605,11 @@
       "kind": "p5js100",
       "expectedByteCount": 28439,
       "sha256": "5e89b8c00d354f6ba85c643f957544d9b04118d4f479c1bcf16510312cacc3bf"
-    }
+    },
+    "aspectRatio": [
+      325,
+      183
+    ]
   },
   {
     "abId": "57",
@@ -1318,7 +1626,11 @@
       "kind": "p5js100",
       "expectedByteCount": 13414,
       "sha256": "2ad58a462e76cf6eafb87ef81fa4c70048b8853d8af08bd64fa503a0baca483c"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "432",
@@ -1335,7 +1647,11 @@
       "kind": "tone",
       "expectedByteCount": 31055,
       "sha256": "87cf875e663686ee05cca9a7b6f4f6fb0f5bd3b6a059eff143191d087eb373a7"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "32",
@@ -1352,7 +1668,11 @@
       "kind": "regl",
       "expectedByteCount": 7498,
       "sha256": "9d1b1c4ec2e4599c0f428b25b631d6c5372c20495ac11dbe51140154424633a2"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "6",
@@ -1370,7 +1690,11 @@
       "kind": "p5js100",
       "expectedByteCount": 30788,
       "sha256": "3e5c25d573ebe688202a9564024e3a4002c5be5e6c0d538482ee0b4f1bae936c"
-    }
+    },
+    "aspectRatio": [
+      130,
+      73
+    ]
   },
   {
     "abId": "6",
@@ -1387,7 +1711,11 @@
       "kind": "js",
       "expectedByteCount": 3169,
       "sha256": "b801a0dd439d2d341ddb532dd66bbe1853b7ae367f4fa73f625ce6b0087dd082"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "15",
@@ -1404,7 +1732,11 @@
       "kind": "js",
       "expectedByteCount": 10742,
       "sha256": "ca24d73f32667307510732f9d1709aa86b479d9e0a3e50fce156a0e8c6e4f651"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "479",
@@ -1421,7 +1753,11 @@
       "kind": "js",
       "expectedByteCount": 12162,
       "sha256": "419a59795d89522d58fb3f48f1273cf3156faca95816f2ad6d6d4c7d7751fd7e"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "18",
@@ -1438,7 +1774,11 @@
       "kind": "js",
       "expectedByteCount": 1935,
       "sha256": "d10a88c7fcc766a7a63daa36437741e9330e4717cb343e68b3f8dae917539cde"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "249",
@@ -1455,7 +1795,11 @@
       "kind": "regl",
       "expectedByteCount": 23755,
       "sha256": "f9c6dfb9dd1bef00df9ef1f821f1e55124952904c2833bed521d81cff40a702e"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "3",
@@ -1472,7 +1816,11 @@
       "kind": "js",
       "expectedByteCount": 40580,
       "sha256": "9f3afae402da77b2d15f9f2514a4c58a1a1aa72b1550ae9c4babba2b57357dfb"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "19",
@@ -1487,7 +1835,11 @@
       "kind": "js",
       "expectedByteCount": 16156,
       "sha256": "44aa01f2f1315acea0d6a3bad6ce625b1ec2e00d22f72f37563aafc938520398"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "212",
@@ -1504,7 +1856,11 @@
       "kind": "js",
       "expectedByteCount": 9978,
       "sha256": "27eb299a0eb0011571ab23aa40de853a59da6e917e1032818d8fe4ae5ab2ee0d"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "26",
@@ -1521,7 +1877,11 @@
       "kind": "p5js100",
       "expectedByteCount": 8455,
       "sha256": "2464acd347f6fc95ddf7b722eb39bb76f435570946dd84eec03e2ec443da30cf"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "56",
@@ -1536,7 +1896,11 @@
       "kind": "js",
       "expectedByteCount": 12068,
       "sha256": "b9d36e61d276282b244bbbf04777acdabe8de500cfd8b64e08bbaaf42d8ffd6f"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "0",
@@ -1554,7 +1918,11 @@
       "kind": "js",
       "expectedByteCount": 14052,
       "sha256": "6f40be7a0818abd4cde38b06e2800632f21113ab6df86c0e7cb39330bc1b2741"
-    }
+    },
+    "aspectRatio": [
+      325,
+      183
+    ]
   },
   {
     "abId": "1",
@@ -1571,7 +1939,11 @@
       "kind": "p5js100",
       "expectedByteCount": 29178,
       "sha256": "5298304d3583d02f62aaf6e35c1ffd682c52468d69a74073833b7e280032661f"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "18",
@@ -1588,7 +1960,11 @@
       "kind": "p5js100",
       "expectedByteCount": 15985,
       "sha256": "fc8751a840f2ca013e9195edbe2c6c8c53033bc091dcd4c560ebae5d0c629662"
-    }
+    },
+    "aspectRatio": [
+      140,
+      249
+    ]
   },
   {
     "abId": "377",
@@ -1605,7 +1981,11 @@
       "kind": "p5js100",
       "expectedByteCount": 14627,
       "sha256": "2308cc3df54c80e52f74ed45b4fb30250753cf200cfb0e84e65e21897df9ff07"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "132",
@@ -1622,7 +2002,11 @@
       "kind": "p5js100",
       "expectedByteCount": 7858,
       "sha256": "ec8f94627d56d780e0767199a700f073c8e4ff4b4997ca1234e69f2d7f9c047b"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "133",
@@ -1639,7 +2023,11 @@
       "kind": "p5js100",
       "expectedByteCount": 9900,
       "sha256": "beedea357a60da00a5e28a1de7952dfb757b65376c49ca70d88aa79b6d6576c3"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "162",
@@ -1654,7 +2042,11 @@
       "kind": "three",
       "expectedByteCount": 33673,
       "sha256": "7cdc285dc8b7885cb4b5c70da22b232f8bc2931677d0d7a66971f90d030de637"
-    }
+    },
+    "aspectRatio": [
+      3,
+      4
+    ]
   },
   {
     "abId": "250",
@@ -1671,7 +2063,11 @@
       "kind": "three",
       "expectedByteCount": 121126,
       "sha256": "3e96c23e383e1a53932fcc47b936e585ded9b8a445e9830ac90455aef148ca4a"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "279",
@@ -1688,7 +2084,11 @@
       "kind": "three",
       "expectedByteCount": 18218,
       "sha256": "8c6a90cd9209b1914a6a39c04a24d00b42c18f5bfe98bbe55a1ff33a167200a9"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "300",
@@ -1703,7 +2103,11 @@
       "kind": "three",
       "expectedByteCount": 35708,
       "sha256": "4ac2f72574255effc414214c1ae7d34142f44bf4560b5d5cf89f5e1cf15cdf4b"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "314",
@@ -1720,7 +2124,11 @@
       "kind": "p5js100",
       "expectedByteCount": 4462,
       "sha256": "a2e0c758684255b48a9ae1c4272b1ea0ed34411100a5af720c1d7867c0bb4359"
-    }
+    },
+    "aspectRatio": [
+      4,
+      5
+    ]
   },
   {
     "abId": "369",
@@ -1737,7 +2145,11 @@
       "kind": "p5js100",
       "expectedByteCount": 6802,
       "sha256": "1770ad5783f63828424ffbec61a464e437a4f7c6a54e9b256898269b0280f6c5"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "371",
@@ -1754,7 +2166,11 @@
       "kind": "js",
       "expectedByteCount": 5364,
       "sha256": "49b0aa0e246ca205e144cbc849dd95eba794dda6e66dcc7a6e1f1a30cc613544"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "72",
@@ -1771,7 +2187,11 @@
       "kind": "p5js100",
       "expectedByteCount": 4704,
       "sha256": "c59db92621107f9dddcce7bfa8fe5c120845a331de5cd0d3b1089ac5eaed94b3"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "88",
@@ -1789,7 +2209,11 @@
       "kind": "p5js100",
       "expectedByteCount": 6118,
       "sha256": "5e4f9ec537bff6927062f07acb070175f26b34b046ce97393d1923a5d5ec0de2"
-    }
+    },
+    "aspectRatio": [
+      650,
+      163
+    ]
   },
   {
     "address": "0x5a0121a0a21232ec0d024dab9017314509026480",
@@ -1800,7 +2224,12 @@
     "tokenCount": 10000,
     "standardThumbsPathsAvailable": true,
     "internal_slug": "finiliar",
-    "artists": []
+    "artists": [],
+    "urlPrefix": "https://cdn.lil.org/player/finiliar/",
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "23",
@@ -1818,7 +2247,12 @@
       "kind": "p5js100",
       "expectedByteCount": 13911,
       "sha256": "df11271ee0703061323471035a0360a08ff7624482568aba043414da04c1e45d"
-    }
+    },
+    "urlPrefix": "https://cdn.lil.org/player/archetype/",
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "78",
@@ -1836,7 +2270,11 @@
       "kind": "p5js100",
       "expectedByteCount": 14495,
       "sha256": "08c1373fa241742c279bdf8da65f1c2ce69eb556046d094f929e2460e06a5832"
-    }
+    },
+    "aspectRatio": [
+      5,
+      6
+    ]
   },
   {
     "abId": "159",
@@ -1850,6 +2288,11 @@
     "internal_slug": "fragments_of_an_infinite_field",
     "artists": [
       "monica_rizzolli"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/fragments_of_an_infinite_field/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -1868,7 +2311,11 @@
       "kind": "p5js100",
       "expectedByteCount": 7680,
       "sha256": "3d4860a5816e718611bdbdf0b85e35eb6f6e40922bba5b314f5494c6f9f6362f"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "29",
@@ -1882,6 +2329,11 @@
     "internal_slug": "flore_perdue",
     "artists": [
       "linda_dounia"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/flore_perdue/",
+    "aspectRatio": [
+      105,
+      142
     ]
   },
   {
@@ -1896,6 +2348,11 @@
     "internal_slug": "letters_to_my_future_self",
     "artists": [
       "ryan_struhl"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/letters_to_my_future_self/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -1916,7 +2373,11 @@
       "nftPlayerDisplayTuning": "document.documentElement.style.height = \"100%\";\ndocument.body.style.minHeight = \"100%\";",
       "expectedByteCount": 42422,
       "sha256": "06f37d245a6b688b80fd99bd9327d62b51e671f09cb0a2817c7a42e97bdd7eed"
-    }
+    },
+    "aspectRatio": [
+      325,
+      139
+    ]
   },
   {
     "abId": "163",
@@ -1934,7 +2395,11 @@
       "kind": "js",
       "expectedByteCount": 15295,
       "sha256": "1b123c894fcaa578f941e66ef316d3196925364d6a64f37ebfd6337f2c5f8121"
-    }
+    },
+    "aspectRatio": [
+      140,
+      249
+    ]
   },
   {
     "abId": "22",
@@ -1952,7 +2417,12 @@
       "kind": "three",
       "expectedByteCount": 7067,
       "sha256": "9c97f9188f563450e22eda2cf9deb5aaa4332d6fca5a5c6fdbfc4e1c9840a843"
-    }
+    },
+    "urlPrefix": "https://cdn.lil.org/player/the_eternal_pump/",
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x46ac8540d698167fcbb9e846511beb8cf8af9bd8",
@@ -1965,6 +2435,11 @@
     "internal_slug": "math_art",
     "artists": [
       "herbert_w_franke"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/math_art/",
+    "aspectRatio": [
+      84,
+      85
     ]
   },
   {
@@ -1979,7 +2454,12 @@
     "artists": [
       "mitch_dobrowner"
     ],
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "urlPrefix": "https://cdn.lil.org/player/storms/",
+    "aspectRatio": [
+      650,
+      433
+    ]
   },
   {
     "address": "0x0427743df720801825a5c82e0582b1e915e0f750",
@@ -1992,6 +2472,11 @@
     "internal_slug": "0xmons",
     "artists": [
       "0xmons"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/0xmons/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -2006,7 +2491,12 @@
     "artists": [
       "anastasia_samoylova"
     ],
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "urlPrefix": "https://cdn.lil.org/player/landscape_sublime/",
+    "aspectRatio": [
+      650,
+      433
+    ]
   },
   {
     "address": "0x46ac8540d698167fcbb9e846511beb8cf8af9bd8",
@@ -2019,6 +2509,11 @@
     "internal_slug": "beyond_the_veil",
     "artists": [
       "ella_barnes"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/beyond_the_veil/",
+    "aspectRatio": [
+      5,
+      7
     ]
   },
   {
@@ -2033,7 +2528,12 @@
     "artists": [
       "rumi_ando"
     ],
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "urlPrefix": "https://cdn.lil.org/player/tokyo_nude/",
+    "aspectRatio": [
+      650,
+      433
+    ]
   },
   {
     "address": "0xBE8E0F43A2CEB7ee944B4FC5F4f54b078223422c",
@@ -2046,6 +2546,11 @@
     "internal_slug": "cosmos",
     "artists": [
       "jen_stark"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/cosmos/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -2057,7 +2562,12 @@
     "tokenCount": 150,
     "standardThumbsPathsAvailable": true,
     "internal_slug": "bonkler",
-    "artists": []
+    "artists": [],
+    "urlPrefix": "https://cdn.lil.org/player/bonkler/",
+    "aspectRatio": [
+      3,
+      4
+    ]
   },
   {
     "address": "0x17abd4cc1382397ec2b675f98621c3ba809897de",
@@ -2072,6 +2582,11 @@
     "internal_slug": "super_metal_mons",
     "artists": [
       "supermetal_bosch"
+    ],
+    "urlPrefix": "https://cdn.lil.org/nft/smm/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -2085,7 +2600,12 @@
     "artists": [
       "supermetal_bosch"
     ],
-    "iosCollectionBrowserColumnCount": 3
+    "iosCollectionBrowserColumnCount": 3,
+    "urlPrefix": "https://cdn.lil.org/nft/smm2/",
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x32d6ba9aa1b06fbcaeb3f6c5ff05cd6a77dcf387",
@@ -2097,6 +2617,11 @@
     "internal_slug": "super_sofubi",
     "artists": [
       "supermetal_bosch"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/super_sofubi/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -2108,7 +2633,12 @@
     "tokenCount": 1111,
     "standardThumbsPathsAvailable": true,
     "internal_slug": "bibos",
-    "artists": []
+    "artists": [],
+    "urlPrefix": "https://cdn.lil.org/player/bibos/",
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x0c640779dbd6cda40d54350344dfd37d99aed8aa",
@@ -2120,6 +2650,11 @@
     "internal_slug": "very_internet_printout",
     "artists": [
       "elle"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/very_internet_printout/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -2132,6 +2667,11 @@
     "internal_slug": "all_my_files",
     "artists": [
       "stardrop"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/all_my_files/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -2144,6 +2684,11 @@
     "internal_slug": "everything_i_own",
     "artists": [
       "stardrop"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/everything_i_own/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -2154,7 +2699,12 @@
     "tokenCount": 22,
     "standardThumbsPathsAvailable": true,
     "internal_slug": "cats_a_form_study",
-    "artists": []
+    "artists": [],
+    "urlPrefix": "https://cdn.lil.org/player/cats_a_form_study/",
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xEC0a7A26456B8451aefc4b00393ce1BefF5eB3e9",
@@ -2166,6 +2716,11 @@
     "internal_slug": "allstarz",
     "artists": [
       "allstarz"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/allstarz/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -2178,6 +2733,11 @@
     "internal_slug": "allstarz_psx",
     "artists": [
       "allstarz"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/allstarz_psx/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -2188,7 +2748,12 @@
     "tokenCount": 1957,
     "standardThumbsPathsAvailable": true,
     "internal_slug": "frank",
-    "artists": []
+    "artists": [],
+    "urlPrefix": "https://cdn.lil.org/player/frank/",
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xc62e3fd5b02618f90dd07d1e478963038fa9089c",
@@ -2198,7 +2763,12 @@
     "tokenCount": 1884,
     "standardThumbsPathsAvailable": true,
     "internal_slug": "milady_aura_petz",
-    "artists": []
+    "artists": [],
+    "urlPrefix": "https://cdn.lil.org/player/milady_aura_petz/",
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x9c8ff314c9bc7f6e59a9d9225fb22946427edc03",
@@ -2208,7 +2778,12 @@
     "tokenCount": 1933,
     "standardThumbsPathsAvailable": true,
     "internal_slug": "nouns",
-    "artists": []
+    "artists": [],
+    "urlPrefix": "https://cdn.lil.org/player/nouns/",
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x1ee3bcc37b747c29a0583352b3d9541f393cea82",
@@ -2218,7 +2793,12 @@
     "tokenCount": 545,
     "standardThumbsPathsAvailable": true,
     "internal_slug": "gushies",
-    "artists": []
+    "artists": [],
+    "urlPrefix": "https://cdn.lil.org/player/gushies/",
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa29798f81ae9c7110091527edd8d869604a2dac8",
@@ -2232,6 +2812,11 @@
     "internal_slug": "emojipack",
     "artists": [
       "supermetal_bosch"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/emojipack/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -2244,6 +2829,11 @@
     "internal_slug": "tubbypxgan",
     "artists": [
       "supermetal_bosch"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/tubbypxgan/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -2257,6 +2847,11 @@
     "artists": [
       "ann_hirsch",
       "maya_man"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/ladies/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -2267,7 +2862,12 @@
     "tokenCount": 3333,
     "standardThumbsPathsAvailable": true,
     "internal_slug": "sproto_gremlins",
-    "artists": []
+    "artists": [],
+    "urlPrefix": "https://cdn.lil.org/player/sproto_gremlins/",
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x181cde16170fac94c27584492cc9842e2cb3bd54",
@@ -2277,7 +2877,12 @@
     "tokenCount": 376,
     "standardThumbsPathsAvailable": true,
     "internal_slug": "pfpplus",
-    "artists": []
+    "artists": [],
+    "urlPrefix": "https://cdn.lil.org/player/pfpplus/",
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x9d09df7143ed764baa9427c05ca504d4241e2dba",
@@ -2287,7 +2892,12 @@
     "tokenCount": 502,
     "standardThumbsPathsAvailable": true,
     "internal_slug": "bloomers",
-    "artists": []
+    "artists": [],
+    "urlPrefix": "https://cdn.lil.org/player/bloomers/",
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -2306,7 +2916,11 @@
       "projectId": "2",
       "expectedByteCount": 60141,
       "sha256": "9e165cd37ed4be14fc1b5c19cac80e0f17f15dff116002c3fbf8dba7478d78da"
-    }
+    },
+    "aspectRatio": [
+      140,
+      249
+    ]
   },
   {
     "address": "0x1d2550d198197df1a10af515cf2ea0d790889b93",
@@ -2319,6 +2933,11 @@
     "internal_slug": "babes",
     "artists": [
       "petra_voice"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/babes/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -2331,7 +2950,12 @@
     "standardThumbsPathsAvailable": true,
     "internal_slug": "changing_places",
     "artists": [],
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "urlPrefix": "https://cdn.lil.org/player/changing_places/",
+    "aspectRatio": [
+      650,
+      523
+    ]
   },
   {
     "address": "0x5198dfdc6efd06db7d3ee7c65e794caadca4296a",
@@ -2345,7 +2969,12 @@
     "artists": [
       "pelle_cass"
     ],
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "urlPrefix": "https://cdn.lil.org/player/crowded_fields/",
+    "aspectRatio": [
+      650,
+      433
+    ]
   },
   {
     "address": "0x9e7d4a73fe79359733bb2e5dad76ca5efd65ca7e",
@@ -2358,6 +2987,11 @@
     "internal_slug": "fifty_ways_of_looking_at_a_poem",
     "artists": [
       "ana_maria_caballero"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/fifty_ways_of_looking_at_a_poem/",
+    "aspectRatio": [
+      20,
+      27
     ]
   },
   {
@@ -2372,7 +3006,12 @@
     "artists": [
       "roope_rainisto"
     ],
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "urlPrefix": "https://cdn.lil.org/player/vacation/",
+    "aspectRatio": [
+      325,
+      203
+    ]
   },
   {
     "address": "0xa80617371a5f511bf4c1ddf822e6040acaa63e71",
@@ -2386,7 +3025,12 @@
     "artists": [
       "shl0ms"
     ],
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "urlPrefix": "https://cdn.lil.org/player/car/",
+    "aspectRatio": [
+      325,
+      183
+    ]
   },
   {
     "address": "0x8713cb7bcf1cab261a30882fdf224cd2246cb711",
@@ -2399,6 +3043,11 @@
     "internal_slug": "red_trucks",
     "artists": [
       "alejandro_cartagena"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/red_trucks/",
+    "aspectRatio": [
+      420,
+      683
     ]
   },
   {
@@ -2412,6 +3061,11 @@
     "internal_slug": "constant",
     "artists": [
       "jonathan_chomko"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/constant/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -2426,7 +3080,12 @@
     "artists": [
       "worm_emoji"
     ],
-    "iosCollectionBrowserColumnCount": 3
+    "iosCollectionBrowserColumnCount": 3,
+    "urlPrefix": "https://cdn.lil.org/player/screenshot_catalog/",
+    "aspectRatio": [
+      140,
+      303
+    ]
   },
   {
     "address": "0x74f41f4d43c064f69958c56536381a235be906c4",
@@ -2439,6 +3098,11 @@
     "internal_slug": "imagined_wreckage",
     "artists": [
       "chuck_anderson"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/imagined_wreckage/",
+    "aspectRatio": [
+      4,
+      5
     ]
   },
   {
@@ -2452,6 +3116,11 @@
     "artists": [
       "g_oo_f",
       "heavenly_daze"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/holes/",
+    "aspectRatio": [
+      7,
+      9
     ]
   },
   {
@@ -2464,6 +3133,11 @@
     "internal_slug": "horses2",
     "artists": [
       "parker_ito"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/horses2/",
+    "aspectRatio": [
+      3,
+      4
     ]
   },
   {
@@ -2476,6 +3150,11 @@
     "internal_slug": "scarecrow",
     "artists": [
       "jim_spindle"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/scarecrow/",
+    "aspectRatio": [
+      4,
+      5
     ]
   },
   {
@@ -2488,6 +3167,11 @@
     "internal_slug": "busta_bounca",
     "artists": [
       "turtletimezone"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/busta_bounca/",
+    "aspectRatio": [
+      210,
+      373
     ]
   },
   {
@@ -2500,6 +3184,11 @@
     "internal_slug": "cloudcastle",
     "artists": [
       "terrorism"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/cloudcastle/",
+    "aspectRatio": [
+      3,
+      4
     ]
   },
   {
@@ -2512,6 +3201,11 @@
     "internal_slug": "tojiba_disc_buddies",
     "artists": [
       "tojiba"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/tojiba_disc_buddies/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -2525,7 +3219,12 @@
     "artists": [
       "lowbie"
     ],
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "urlPrefix": "https://cdn.lil.org/player/pray4lowbie/",
+    "aspectRatio": [
+      130,
+      77
+    ]
   },
   {
     "address": "4rWMqk4PXKrWdmA9QSJB27CYwThYmDvZ9rwcZsQfnJ6K",
@@ -2535,7 +3234,12 @@
     "tokenCount": 1499,
     "standardThumbsPathsAvailable": true,
     "internal_slug": "bricks",
-    "artists": []
+    "artists": [],
+    "urlPrefix": "https://cdn.lil.org/player/bricks/",
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "4sx77DrZ4ia5kVdx3THTv68QgPsSvorNSdwX3F5m75Bs",
@@ -2547,6 +3251,11 @@
     "internal_slug": "owee",
     "artists": [
       "turtletimezone"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/owee/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -2560,7 +3269,12 @@
     "artists": [
       "lowbie"
     ],
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "urlPrefix": "https://cdn.lil.org/player/postcards2/",
+    "aspectRatio": [
+      650,
+      487
+    ]
   },
   {
     "address": "5AVocDEamuwaZf3bXP6tcg52w7cgBvMNJAYvG9rmouCh",
@@ -2573,7 +3287,12 @@
     "artists": [
       "jim_spindle"
     ],
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "urlPrefix": "https://cdn.lil.org/player/little_fellow/",
+    "aspectRatio": [
+      650,
+      591
+    ]
   },
   {
     "address": "5fCjwvmjJ8gCnYbGBVuUhiCFHMtATo19MdBAxNGsirnS",
@@ -2585,6 +3304,11 @@
     "internal_slug": "hyperwarhaul",
     "artists": [
       "meinong"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/hyperwarhaul/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -2598,6 +3322,11 @@
     "internal_slug": "artifact_magazine_2",
     "artists": [
       "gucci4mycat"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/artifact_magazine_2/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -2610,6 +3339,11 @@
     "internal_slug": "chomsky_honks",
     "artists": [
       "fairybaby420"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/chomsky_honks/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -2622,6 +3356,11 @@
     "internal_slug": "edible_kawaii_demonz",
     "artists": [
       "kikillo"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/edible_kawaii_demonz/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -2635,6 +3374,11 @@
     "artists": [
       "g_oo_f",
       "heavenly_daze"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/shelves/",
+    "aspectRatio": [
+      140,
+      207
     ]
   },
   {
@@ -2647,6 +3391,11 @@
     "internal_slug": "imagined",
     "artists": [
       "ranxdeer"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/imagined/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -2659,6 +3408,11 @@
     "internal_slug": "card_nft",
     "artists": [
       "evil_biscuit"
+    ],
+    "urlPrefix": "https://cdn.lil.org/nft/card_nft/",
+    "aspectRatio": [
+      388,
+      549
     ]
   },
   {
@@ -2672,6 +3426,11 @@
     "artists": [
       "evil_biscuit",
       "parker_ito"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/heavy_liquid_graphic/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -2686,7 +3445,11 @@
     ],
     "script": {
       "kind": "native.poncho-drifella"
-    }
+    },
+    "aspectRatio": [
+      5,
+      7
+    ]
   },
   {
     "address": "r1pCPYkbbpZWv7RCvuCMtpA3NSQY3fzVFo6HL43A4ot",
@@ -2698,6 +3461,11 @@
     "internal_slug": "john",
     "artists": [
       "e9mund"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/john/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -2710,6 +3478,11 @@
     "internal_slug": "lucky_13_pixel_fairies",
     "artists": [
       "13_33_covenant"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/lucky_13_pixel_fairies/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -2723,7 +3496,12 @@
     "artists": [
       "blume_garden"
     ],
-    "iosCollectionBrowserColumnCount": 3
+    "iosCollectionBrowserColumnCount": 3,
+    "urlPrefix": "https://cdn.lil.org/player/blume/",
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "GVQ4Zsd7jLZbVCxq9QsmQySuKekwT1XbMSjGbwt8UtcB",
@@ -2735,6 +3513,11 @@
     "internal_slug": "flopawrettes",
     "artists": [
       "boredcactus"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/flopawrettes/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -2747,6 +3530,11 @@
     "internal_slug": "icsa",
     "artists": [
       "enzoriofonseca"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/icsa/",
+    "aspectRatio": [
+      70,
+      93
     ]
   },
   {
@@ -2760,7 +3548,12 @@
     "artists": [
       "evil_biscuit"
     ],
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "urlPrefix": "https://cdn.lil.org/player/drifella_iii/",
+    "aspectRatio": [
+      325,
+      138
+    ]
   },
   {
     "address": "7cHTjqr2S8uUCrG3TVFvFix3vcLjhPiwrtRsAeJtESRj",
@@ -2772,6 +3565,11 @@
     "internal_slug": "drifella_2",
     "artists": [
       "evil_biscuit"
+    ],
+    "urlPrefix": "https://cdn.lil.org/nft/drifella_2/",
+    "aspectRatio": [
+      140,
+      151
     ]
   },
   {
@@ -2784,6 +3582,11 @@
     "internal_slug": "vehicle_wammin",
     "artists": [
       "patrician"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/vehicle_wammin/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -2796,6 +3599,11 @@
     "internal_slug": "foodiez",
     "artists": [
       "grotto_labs"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/foodiez/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -2809,7 +3617,12 @@
     "artists": [
       "jared_madere"
     ],
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "urlPrefix": "https://cdn.lil.org/player/tents/",
+    "aspectRatio": [
+      650,
+      409
+    ]
   },
   {
     "address": "6UTLD74x8gefsWqP7oDNm3MM1VJ5CQe31MKdpHo19vcT",
@@ -2821,6 +3634,11 @@
     "internal_slug": "record_of_hyperwar",
     "artists": [
       "meinong"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/record_of_hyperwar/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -2833,6 +3651,11 @@
     "internal_slug": "drilady",
     "artists": [
       "parker_ito"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/drilady/",
+    "aspectRatio": [
+      140,
+      151
     ]
   },
   {
@@ -2845,6 +3668,11 @@
     "internal_slug": "yeche_lunch",
     "artists": [
       "patrician"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/yeche_lunch/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -2857,6 +3685,11 @@
     "internal_slug": "little_swag_world",
     "artists": [
       "supermetal_bosch"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/little_swag_world/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -2869,6 +3702,11 @@
     "internal_slug": "organic_evolution",
     "artists": [
       "supermetal_bosch"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/organic_evolution/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -2881,6 +3719,11 @@
     "internal_slug": "tojia",
     "artists": [
       "tojiba"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/tojia/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -2893,6 +3736,11 @@
     "internal_slug": "tojiba_cpu_corp",
     "artists": [
       "tojiba"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/tojiba_cpu_corp/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -2905,6 +3753,11 @@
     "internal_slug": "the_same_old_gag",
     "artists": [
       "tojiba"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/the_same_old_gag/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -2917,6 +3770,11 @@
     "internal_slug": "reverie",
     "artists": [
       "gucci4mycat"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/reverie/",
+    "aspectRatio": [
+      10,
+      13
     ]
   },
   {
@@ -2929,6 +3787,11 @@
     "internal_slug": "mifella_genesis",
     "artists": [
       "mifella"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/mifella_genesis/",
+    "aspectRatio": [
+      21,
+      26
     ]
   },
   {
@@ -2942,6 +3805,11 @@
     "internal_slug": "swag_pack",
     "artists": [
       "supermetal_bosch"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/swag_pack/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -2954,6 +3822,11 @@
     "internal_slug": "little_swag_world_hexp",
     "artists": [
       "supermetal_bosch"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/little_swag_world_hexp/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -2966,6 +3839,11 @@
     "internal_slug": "bestiary",
     "artists": [
       "marcelo_pinel"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/bestiary/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -2979,7 +3857,12 @@
     "artists": [
       "sabato"
     ],
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "urlPrefix": "https://cdn.lil.org/player/drawing_exercises/",
+    "aspectRatio": [
+      650,
+      509
+    ]
   },
   {
     "address": "KT1W9KTJDVQQtscFgT1wVJXSJWEBFsxxccGB",
@@ -2992,7 +3875,12 @@
     "artists": [
       "nicolas_sassoon"
     ],
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "urlPrefix": "https://cdn.lil.org/player/lava_studies/",
+    "aspectRatio": [
+      325,
+      183
+    ]
   },
   {
     "address": "KT1WEmBKKQGMqvdWTpTYF2EXkriM4QBKoKjb",
@@ -3005,7 +3893,12 @@
     "artists": [
       "moesh1t"
     ],
-    "iosCollectionBrowserColumnCount": 3
+    "iosCollectionBrowserColumnCount": 3,
+    "urlPrefix": "https://cdn.lil.org/player/moeshit/",
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "KT1ReF4XJNvhqiC5ckP4XcH6GZdpDzKHpKc8",
@@ -3017,6 +3910,11 @@
     "internal_slug": "real_world_data",
     "artists": [
       "uczine"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/real_world_data/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -3029,6 +3927,11 @@
     "internal_slug": "fratze",
     "artists": [
       "kim_asendorf"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/fratze/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -3042,7 +3945,12 @@
     "artists": [
       "martnbruc"
     ],
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "urlPrefix": "https://cdn.lil.org/player/multi_windows/",
+    "aspectRatio": [
+      325,
+      253
+    ]
   },
   {
     "address": "KT1Aaas4fpfgpdbwopnba9SUhvSsswSTSdo2",
@@ -3055,7 +3963,12 @@
     "artists": [
       "skomra"
     ],
-    "iosCollectionBrowserColumnCount": 3
+    "iosCollectionBrowserColumnCount": 3,
+    "urlPrefix": "https://cdn.lil.org/player/skomra/",
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xeed41d06ae195ca8f5cacace4cd691ee75f0683f",
@@ -3066,7 +3979,12 @@
     "iosOnly": true,
     "standardThumbsPathsAvailable": true,
     "internal_slug": "cigawrette_packs",
-    "artists": []
+    "artists": [],
+    "urlPrefix": "https://cdn.lil.org/player/cigawrette_packs/",
+    "aspectRatio": [
+      4,
+      5
+    ]
   },
   {
     "address": "0x30f9efa712dde239a13a5fef1a8c7a6ac530a26d",
@@ -3079,6 +3997,11 @@
     "internal_slug": "milady_aura2_after_death",
     "artists": [
       "evil_biscuit"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/milady_aura2_after_death/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -3092,6 +4015,11 @@
     "internal_slug": "quantizer",
     "artists": [
       "harm_van_den_dorpel"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/quantizer/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -3105,6 +4033,11 @@
     "internal_slug": "in_your_dreams",
     "artists": [
       "macbeth"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/in_your_dreams/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -3119,7 +4052,12 @@
     "artists": [
       "kirill_semenovich"
     ],
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "urlPrefix": "https://cdn.lil.org/player/safe_haven/",
+    "aspectRatio": [
+      325,
+      244
+    ]
   },
   {
     "address": "0x6dc47d63df19198e87b7c500c6ed9861b0fab7de",
@@ -3133,7 +4071,12 @@
     "artists": [
       "petra_cortright"
     ],
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "urlPrefix": "https://cdn.lil.org/player/burnt_umber_broken_silver_american_spirit/",
+    "aspectRatio": [
+      325,
+      244
+    ]
   },
   {
     "address": "0x495f947276749ce646f68ac8c248420045cb7b5e",
@@ -3149,6 +4092,11 @@
     "internal_slug": "mi_note",
     "artists": [
       "yomme"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/mi_note/",
+    "aspectRatio": [
+      84,
+      127
     ]
   },
   {
@@ -3162,6 +4110,11 @@
     "internal_slug": "mi_note_2",
     "artists": [
       "yomme"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/mi_note_2/",
+    "aspectRatio": [
+      60,
+      91
     ]
   },
   {
@@ -3177,6 +4130,11 @@
     "internal_slug": "mi_note_3",
     "artists": [
       "yomme"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/mi_note_3/",
+    "aspectRatio": [
+      420,
+      631
     ]
   },
   {
@@ -3204,6 +4162,11 @@
     "internal_slug": "tigerbob",
     "artists": [
       "gossamer_rozen"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/tigerbob/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -3219,6 +4182,11 @@
     "artists": [
       "0x113d",
       "xaltgeist"
+    ],
+    "urlPrefix": "https://tokens.mathcastles.xyz/terraforms/token-html/",
+    "aspectRatio": [
+      70,
+      101
     ]
   },
   {
@@ -3232,6 +4200,11 @@
     "internal_slug": "shishi",
     "artists": [
       "shiro"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/shishi/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -3246,7 +4219,12 @@
     "artists": [
       "0xdeafbeef"
     ],
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "urlPrefix": "https://cdn.lil.org/player/chronophotograph/",
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "9sSCFj6NGEfmDS4QQEVqv17ZANen7pmowqnCiUBRPjd9",
@@ -3259,7 +4237,12 @@
     "artists": [
       "parker_ito"
     ],
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "urlPrefix": "https://cdn.lil.org/player/horses7/",
+    "aspectRatio": [
+      65,
+      42
+    ]
   },
   {
     "address": "0xcde288d791b10b38eca62e6e82a609541fab94e0",
@@ -3269,7 +4252,12 @@
     "tokenCount": 1999,
     "standardThumbsPathsAvailable": true,
     "internal_slug": "chair_nft",
-    "artists": []
+    "artists": [],
+    "urlPrefix": "https://cdn.lil.org/player/chair_nft/",
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "36NQDyvCBqg4N1z5mZi2i4nW1K9ELdzmntMMKnqbChVZ",
@@ -3280,7 +4268,12 @@
     "standardThumbsPathsAvailable": true,
     "sizedThumbsIndexOffset": 1,
     "internal_slug": "artifact_magazine_3",
-    "artists": []
+    "artists": [],
+    "urlPrefix": "https://cdn.lil.org/player/artifact_magazine_3/",
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "3Rb9mG22dkAFVA8PVRgD76SiHUwUTK38Kq55NkrZuR2k",
@@ -3290,7 +4283,12 @@
     "tokenCount": 1968,
     "standardThumbsPathsAvailable": true,
     "internal_slug": "rare_weitsmans",
-    "artists": []
+    "artists": [],
+    "urlPrefix": "https://cdn.lil.org/player/rare_weitsmans/",
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "Es6NZcYQpyo8wukzvznTHXbFXsGMWAP7YbyohEe77poo",
@@ -3300,7 +4298,12 @@
     "tokenCount": 192,
     "standardThumbsPathsAvailable": true,
     "internal_slug": "tomodachi_void_club",
-    "artists": []
+    "artists": [],
+    "urlPrefix": "https://cdn.lil.org/player/tomodachi_void_club/",
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "KT1LiZ9cFA9fRQdKkbJtfz1djC7AkrTkTcDE",
@@ -3310,7 +4313,12 @@
     "tokenCount": 94,
     "standardThumbsPathsAvailable": true,
     "internal_slug": "friedeberg",
-    "artists": []
+    "artists": [],
+    "urlPrefix": "https://cdn.lil.org/player/friedeberg/",
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "KT1MSEve3ZVZWH1MVeWHTeafWq3sq2GYwMwC",
@@ -3320,7 +4328,12 @@
     "tokenCount": 415,
     "standardThumbsPathsAvailable": true,
     "internal_slug": "matchstick",
-    "artists": []
+    "artists": [],
+    "urlPrefix": "https://cdn.lil.org/player/matchstick/",
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "9irtKRLZkY4MjFFQNZPX3o6ZTszfR8kXFJXPBUvEDo9v",
@@ -3330,7 +4343,13 @@
     "tokenCount": 14997,
     "standardThumbsPathsAvailable": true,
     "internal_slug": "planet_peppa",
-    "artists": []
+    "artists": [],
+    "urlPrefix": "https://cdn.lil.org/player/planet_peppa/",
+    "aspectRatio": [
+      1,
+      1
+    ],
+    "hasMid": false
   },
   {
     "address": "0x00009f857c1ccd5ca0dc5900427fb8da00628099",
@@ -3353,7 +4372,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 57584,
       "sha256": "26b144077b889c2054156f9c1ff0a315200298a08306e58914f6b41a650db539"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x32d4be5ee74376e08038d652d4dc26e62c67f436",
@@ -3376,7 +4399,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 6069,
       "sha256": "9e58b7627852c7e4782bf17fd3e520b5c0e5e26d1226e0460ccbe7638bf7de1d"
-    }
+    },
+    "aspectRatio": [
+      1847,
+      2400
+    ]
   },
   {
     "address": "0x62e37f664b5945629b6549a87f8e10ed0b6d923b",
@@ -3399,7 +4426,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 15646,
       "sha256": "7cf724f4cc8ff659b8c534049ce1d52f0c685cd77b08fc851c58c85c43f81d9b"
-    }
+    },
+    "aspectRatio": [
+      3,
+      4
+    ]
   },
   {
     "address": "0x0000000080d04343d60d06e1a36aaf46c9242805",
@@ -3422,7 +4453,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 238763,
       "sha256": "d28913b4343b2042c36cad55b877e86fcddd48adb8f62755ed316a9ed933f0f8"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3445,7 +4480,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 23729,
       "sha256": "f8916e0a1399485e9c786109347b222a2fde0a2a7065bbda1744fd4b46fdda96"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3468,7 +4507,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 13517,
       "sha256": "c08e0ad309fdb555b0cd3c3fa6704423a4728ba0e775f242e42ed6da08aff442"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3491,7 +4534,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 12155,
       "sha256": "91f5e411a74c949c3d05e83c93ee0b444bc3cec18e593ba97354aa814daad237"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -3514,7 +4561,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 31467,
       "sha256": "6348179e69854bfdc270bc44935034002c34d047304b8b6c19d797cf130f385e"
-    }
+    },
+    "aspectRatio": [
+      4,
+      5
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3537,7 +4588,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 17109,
       "sha256": "c2512a517f5845b35096252396f65ef37ad9e8b9a6bfb1078a72796ebf143589"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -3560,7 +4615,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 34664,
       "sha256": "3687ffb2df1c5ca930d8b50936ba3bc1cb796ba248124cab231e2800964729da"
-    }
+    },
+    "aspectRatio": [
+      3,
+      4
+    ]
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -3583,7 +4642,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 7066,
       "sha256": "7bcc641d49ae64e49ba50a933484880a6ee8c285cbf5791e4e76c8b654c1df2c"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -3607,7 +4670,11 @@
       "requiresInitialCanvas": false,
       "expectedByteCount": 18812,
       "sha256": "e599fa9ce386cc508dba531d4fd906091a9800f654dcef62f1c49d3ba3ef452f"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3630,7 +4697,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 11586,
       "sha256": "795018e82a6cd43967762d2d01bf20cc1ef69229b662aa9f0917d73f8978d5b3"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x000000a6e6366baf7c98a2ab73d3df1092dd7bb0",
@@ -3653,7 +4724,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 10364,
       "sha256": "77ff1de0ba83d4d0379aaefb149d6a4721cd58d2316026bb762e8fb9d9ef369c"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xf03511ec774289da497cdb2070df4c711580ff7a",
@@ -3676,7 +4751,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 56399,
       "sha256": "0790a5debcb67357f3f3cc925107780a343eacf6e9d689fee957ff74bf2ee9ca"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3699,7 +4778,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 19531,
       "sha256": "558223316ac57f434b20aee57b6147a545a2114571da329c258542426f241c5b"
-    }
+    },
+    "aspectRatio": [
+      3,
+      4
+    ]
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -3722,7 +4805,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 31500,
       "sha256": "3eda8dea0dfd5c159d92f2cc9513eaf24cd7bf3fbf0b8cfb8fc400ebc12b1553"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -3745,7 +4832,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 2338,
       "sha256": "8632e21a440d154bfafa3611d9d7dfe5a699ad5441005e3cfa09c386ce510be3"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3768,7 +4859,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 51062,
       "sha256": "9ffba47be593ae6ffe6aa1d9a7184c5945a87947ca1e684cb1608f7bcc8c2293"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -3791,7 +4886,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 16047,
       "sha256": "5d109a0f77fbd841085fcff1cb17e25324165df506f73adf880563fa5ca3cb94"
-    }
+    },
+    "aspectRatio": [
+      3,
+      4
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3814,7 +4913,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 10989,
       "sha256": "c1a8d6488335842968dcc05553e182559d18717db70835dda5e61c62d79ec07d"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3837,7 +4940,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 86194,
       "sha256": "4da3aff13f942586c7b75361ae1af17acd0c8172d288290b3371e5763d3040ea"
-    }
+    },
+    "aspectRatio": [
+      283,
+      400
+    ]
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -3860,7 +4967,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 6826,
       "sha256": "28f49550451881258d953a49e08b93d12967d196191dccc8b21e0ee924bb88da"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -3883,7 +4994,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 21426,
       "sha256": "1ded4e4dfd2012f25c11fba2bfbe4b7150c1eb7d8a8684876b83dda768b9430c"
-    }
+    },
+    "aspectRatio": [
+      3,
+      4
+    ]
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -3906,7 +5021,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 68417,
       "sha256": "3facb20dde1e914595f3a6d74a7692ddbdca3fa2c011160e5f7747e3400a8787"
-    }
+    },
+    "aspectRatio": [
+      3,
+      4
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3929,7 +5048,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 59879,
       "sha256": "6b23146ab051237d63aa3fbfe797881f878d3a4bb3d5f2706ae4f2e9f6d16775"
-    }
+    },
+    "aspectRatio": [
+      4,
+      5
+    ]
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -3952,7 +5075,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 9415,
       "sha256": "2b2d410f17587653b9d47915b36d4a2b0941f1ca3aa09ea5dfe901818e5027be"
-    }
+    },
+    "aspectRatio": [
+      5,
+      6
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3975,7 +5102,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 13520,
       "sha256": "8b57fe54f75f0827cb4c5b24d1b8c6834cea3c13854439018498e3522abdfa55"
-    }
+    },
+    "aspectRatio": [
+      3,
+      4
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -3998,7 +5129,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 6293,
       "sha256": "758444ef8d0c209a0bd229883c2ceb9d5ee0466a7f4522278f558f60593a9268"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xaf40b66072fe00cacf5a25cd1b7f1688cde20f2f",
@@ -4022,7 +5157,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 41805,
       "sha256": "3c30d2dbac4410341392c09596c7bc6c769b8a725d1ad2aaf994524084d6810f"
-    }
+    },
+    "aspectRatio": [
+      16,
+      9
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4046,7 +5185,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 3326,
       "sha256": "4f164fb5120b2f37ee49ba0c8f1afac3658c8a0b50dca7babd6765c4d1c2097b"
-    }
+    },
+    "aspectRatio": [
+      3,
+      2
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4069,7 +5212,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 17283,
       "sha256": "4d47e51c058e161128ae1f8fab7e00f81f59008504ef8e5bb8dd73f6705b9559"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4092,7 +5239,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 19010,
       "sha256": "25cb58e0d8f98570958107b4ea99af5e14fbdba82664b31154d705e24e49a2e9"
-    }
+    },
+    "aspectRatio": [
+      4,
+      5
+    ]
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -4116,7 +5267,11 @@
       "requiresInitialCanvas": false,
       "expectedByteCount": 10545,
       "sha256": "98234bf23b188f1dfd2ae98499a0dfd98680a67cc180186b389d3d738491af1b"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -4139,7 +5294,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 4060,
       "sha256": "be5225e3de4ad1027869e40ff0fe8fb125ae961f65582cd2ecb907c266dd1f22"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -4162,7 +5321,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 54707,
       "sha256": "4d5152fa263ae2d7d918ffbe4bb20978ff72ba5c3aa06ee135c8c87de6f7cdea"
-    }
+    },
+    "aspectRatio": [
+      3,
+      4
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4186,7 +5349,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 7858,
       "sha256": "b1c434faaa860a58448c604d1a9017674efd7858e196ebc7c68223aa6078107f"
-    }
+    },
+    "aspectRatio": [
+      16,
+      9
+    ]
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -4209,7 +5376,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 6123,
       "sha256": "f1c0fea0cae86472ba716de98597fc8f006b0908dca8d0eaba08c443a8a46a76"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4232,7 +5403,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 13518,
       "sha256": "40a3a4c45d5f93690e1fc57e3a5dc033ae7666e060483ea8ab556b7579bf4fbd"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4256,7 +5431,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 6287,
       "sha256": "954483000ebba5f40b6118e13b1377e2abfb4c86fba3c624fd69cc87e1d6c3f7"
-    }
+    },
+    "aspectRatio": [
+      16,
+      9
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4279,7 +5458,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 6893,
       "sha256": "c24975c9cc7fad33a37150d5946ff557c25cb312c9b091430d9231bfb509bbe7"
-    }
+    },
+    "aspectRatio": [
+      3,
+      4
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4302,7 +5485,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 7588,
       "sha256": "86761eb678d782e9ae72ef5ac96cd7871d5af2b1657791bd3cbcc1d896b499fb"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4325,7 +5512,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 7580,
       "sha256": "e9c9317b2250de3ed0f0cc8ae73cf278386a6aafc37c422f81ec2bebce22c8eb"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -4348,7 +5539,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 4233,
       "sha256": "c306db220f1894b94aeb4034bd94348cf3328b3d0b98a205c06e86760025b4c9"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xab0000000000aa06f89b268d604a9c1c41524ac6",
@@ -4371,7 +5566,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 41245,
       "sha256": "12ac88782ef299080819436e0b60b9f3bbdc114a96ebed92be38c45ab3aabca4"
-    }
+    },
+    "aspectRatio": [
+      4,
+      5
+    ]
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -4394,7 +5593,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 21654,
       "sha256": "816722b3e5526d0a105791c79e9163e14c8bf646f44cb613edcdacdc3101a905"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4417,7 +5620,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 20236,
       "sha256": "84a5028bb33a85176168748921c5d94383cecfbd4cc32b322be5590cb2df4998"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa319c382a702682129fcbf55d514e61a16f97f9c",
@@ -4440,7 +5647,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 14044,
       "sha256": "08e904e0a358a6a48bfd5273cf35600b89d866f07baf4f5cb2dc987f134bb8c0"
-    }
+    },
+    "aspectRatio": [
+      943,
+      1200
+    ]
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -4463,7 +5674,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 3622,
       "sha256": "cf4c4ec665c8771854df3b8faad6320f846033aa5abbd276fe3cafdada4e1cfe"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4486,7 +5701,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 8076,
       "sha256": "21a5ea9d250242594b0dfe72e0640bfd3dfeeec8fdd5eb62aa2f777199bde5ff"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4509,7 +5728,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 5786,
       "sha256": "8760931c0b275e45dea83f03b3021845607663da016f55bd9abbb5b1becd4d9f"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -4532,7 +5755,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 30159,
       "sha256": "7143052ed75e18a70ecc0567f524301a4fa3f02d384711f3c13f1e2d85cdb41b"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -4555,7 +5782,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 26081,
       "sha256": "b7e7291f69d6cb57064d3d26641a6440ab4fc162ca160bef2a8252096ff409df"
-    }
+    },
+    "aspectRatio": [
+      343,
+      480
+    ]
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -4578,7 +5809,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 31759,
       "sha256": "bc07c9b1cb6acfb676896dee34f3cd4796f5b6d7011c832707905cdc95ba7e50"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x9800005deb3cfaf80077dbe9b9004c0020c1d6c5",
@@ -4602,7 +5837,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 10399,
       "sha256": "852bc83dbaa4bf3164dc043921497498da82c9d2568fac84a5b6384f488b4034"
-    }
+    },
+    "aspectRatio": [
+      400,
+      283
+    ]
   },
   {
     "address": "0x1353fd9d3dc70d1a18149c8fb2adb4fb906de4e8",
@@ -4626,7 +5865,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 34478,
       "sha256": "170ebb6bee754e1312b7bed50a453b084ecc9541ec3534f5a179dc39662be4e2"
-    }
+    },
+    "aspectRatio": [
+      16,
+      9
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4649,7 +5892,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 11899,
       "sha256": "9f5bf1be039ef33cfedcd8437ea90bb8c5bbaa6c21fb3d260c26ef39dc278a9c"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -4673,7 +5920,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 47889,
       "sha256": "3d15d6169999b17991a1f449d23aa7e32933ce94eabd330d70856a694c972480"
-    }
+    },
+    "aspectRatio": [
+      2400,
+      1847
+    ]
   },
   {
     "address": "0xb3526a6400260078517643cfd8490078803e0000",
@@ -4696,7 +5947,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 6880,
       "sha256": "95e0d6434c5e0cd050f5ac1c9b54fb8455e41dbe3e4a257f6758036ddf50dbab"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4719,7 +5974,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 2495,
       "sha256": "af5637d607606dc4d6deedebc53e453e9815e41dc8832e6b9fa2b056cb9aa6af"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x32d4be5ee74376e08038d652d4dc26e62c67f436",
@@ -4743,7 +6002,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 4619,
       "sha256": "a2c9538625cebe6af3091c891fb5494bbf143cd8405b1320fde759a72835ea37"
-    }
+    },
+    "aspectRatio": [
+      400,
+      283
+    ]
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -4766,7 +6029,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 2956,
       "sha256": "7ee17ed1988167c5872a9a112342a43a44ea7aa3b1c75d317aa1a8f9a85fd38a"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -4789,7 +6056,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 75344,
       "sha256": "068ac92b3af4503397de4ad0ddc313d4fc55f379919da89958bf4b9c107e2094"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x000000098a14b4e08132fd55faec521ab597a001",
@@ -4812,7 +6083,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 34920,
       "sha256": "6e465c2594aae65e14be45d1ebaa07bf61a9780b1d21f7772465982beba9f2fb"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -4835,7 +6110,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 8075,
       "sha256": "b1a3ddb289c59af44a1168da5f422c1ba48413055d4c323633aba29e98486841"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4858,7 +6137,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 9824,
       "sha256": "5842796d33b61fe29e3f56216112d1332341e72c378efa3a1d39fe422ec5a6e7"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x5fdf5e6caf7b8b0f64c3612afd85e9407a7e1389",
@@ -4881,7 +6164,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 59232,
       "sha256": "bcf61b2035829169254c5cf1c9450179083ca765f1414a9e34662942f79f8939"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x059edd72cd353df5106d2b9cc5ab83a52287ac3a",
@@ -4904,7 +6191,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 6329,
       "sha256": "e66bae6ba7a7b24a83616491efc2dc87bbb892ff5a3d8962cc913c61e9a86c0b"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x000000058b5d9e705ee989fabc8dfdc1bfbdfa6b",
@@ -4927,7 +6218,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 3795,
       "sha256": "36365fd395a67594000c838bda5670f18a4eb836ca016749603ba2a203b8a2a4"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -4950,7 +6245,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 1828,
       "sha256": "d4c85be6c2a9d9738fa9fa89eb85b14863af807898420dacde1bb2a8d14ded55"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -4973,7 +6272,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 30411,
       "sha256": "1076307068a47402f8c069bd96041b21ad668f4b20d565a0dfc02b2642ce6d63"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -4996,7 +6299,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 6468,
       "sha256": "df3d3aa2dc85afbc3bbb94a13a00c7d25dc4bc19c9ceaea09f832168096877c5"
-    }
+    },
+    "aspectRatio": [
+      4,
+      5
+    ]
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -5019,7 +6326,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 7754,
       "sha256": "4b7ec0cab3bfecc756621045d85dadb6460f9f19fc852035d5a6ffbfcd82bbbb"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5042,7 +6353,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 13327,
       "sha256": "05132785b8defb374e43d6384d27ff2d4e1d329ba3b37c2b9369d29c0f43fc67"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5065,7 +6380,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 3766,
       "sha256": "a977faee6fe59614fc3fd1251a9e3700b3b2b0d4d315b8b63a0d3020ec138e25"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5088,7 +6407,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 4688,
       "sha256": "9b644bf4aded3fb3c518065ae38e06b7b822487f9fdf42fc444260e35738bfe0"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xd10e3dee203579fcee90ed7d0bdd8086f7e53beb",
@@ -5111,7 +6434,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 12380,
       "sha256": "e3c95244e9182f9a6db2701fd5e411abe51370ee77235dc0754813ff5a86b8a8"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x32d4be5ee74376e08038d652d4dc26e62c67f436",
@@ -5134,7 +6461,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 13931,
       "sha256": "fe3d8eb0f22d82316630ffe86540d535ec92e89a680bb5c2d49fab48243b5441"
-    }
+    },
+    "aspectRatio": [
+      9,
+      16
+    ]
   },
   {
     "address": "0xcfa6a2d5bc2a77c0cdd3046e09da21e45d1df0f1",
@@ -5166,7 +6497,11 @@
       ],
       "expectedByteCount": 55918,
       "sha256": "4c00b97c01abd59d6ef5564a925563de2f17899a065d28bd73f34c0408a002bc"
-    }
+    },
+    "aspectRatio": [
+      400,
+      289
+    ]
   },
   {
     "address": "0x1353fd9d3dc70d1a18149c8fb2adb4fb906de4e8",
@@ -5189,7 +6524,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 15933,
       "sha256": "1126b2c4def56f080e13ada26671071de843703c2f8faa3eb685614b272215d5"
-    }
+    },
+    "aspectRatio": [
+      4,
+      5
+    ]
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -5212,7 +6551,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 5917,
       "sha256": "fcaa09f23fac65a67593b9d4418e59131e17aaa2a7b06dda9230c4c1a10c8d69"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -5235,7 +6578,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 33932,
       "sha256": "77e74e3d42863678bbc26b6d39a50194aa61d4893fa8a3392b1b649a1958ee98"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x000009bb1740eea484f7db00000a9227e578bf96",
@@ -5259,7 +6606,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 23244,
       "sha256": "2c5cb1ef479dc68809ac906d41a6e1b0a39cc50941d005690e538ef99c0253e2"
-    }
+    },
+    "aspectRatio": [
+      2400,
+      1801
+    ]
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -5282,7 +6633,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 1142,
       "sha256": "4ed7ade883ebbfe9678d4db35a6b6fe59ee9016693c4a9dad73ccc2783fdb4fc"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -5305,7 +6660,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 11820,
       "sha256": "6df34e566d08a03c1503577b02797e9d1f8f68d30ebb5c87814b4d7e41793529"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5328,7 +6687,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 4260,
       "sha256": "9c737be81dcaca7e3c3adc379a707ec994a246a71976d6749a136061f7a3549a"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5351,7 +6714,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 5030,
       "sha256": "7c04fba2e34ae7c44723e58136abb80d5fcdf1e1fc14e6732dd02648d4f899c4"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x0000001590abfb45b052c28fb7dac11c062b9337",
@@ -5374,7 +6741,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 16942,
       "sha256": "182ac89949141191c513c154a9fbd4548a745e21bae100a8fb14a9b7577cf541"
-    }
+    },
+    "aspectRatio": [
+      5,
+      8
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5397,7 +6768,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 15547,
       "sha256": "09d2d27271322944bebedec45077fb7625574ef99bcb5a47177d3dd6b86fd52a"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5420,7 +6795,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 24326,
       "sha256": "94d0019f85c218b4a5ed6ecf87d4f2fc73653eb28c59e001cebdfb7fe0f8662b"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x0000000fae63d15270aafe9e08a71cd28079572d",
@@ -5443,7 +6822,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 28135,
       "sha256": "3d5a91561b19b1411a59baf91df5e729a64a313bb91ac45c59a078cd1bea5f3a"
-    }
+    },
+    "aspectRatio": [
+      9,
+      16
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5466,7 +6849,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 8593,
       "sha256": "4c69242e216764c453bd83822e59578c5f3eb29774700135b48cd6b05813800d"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -5489,7 +6876,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 18491,
       "sha256": "a93a6fa3a34226d5cdf2057916bf5da792f4bbce5cc5afcf40f9d29067c18165"
-    }
+    },
+    "aspectRatio": [
+      3,
+      4
+    ]
   },
   {
     "address": "0xd10e3dee203579fcee90ed7d0bdd8086f7e53beb",
@@ -5512,7 +6903,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 8109,
       "sha256": "21a3a39b4bb5c02839132ac4b268bf0b45627c41308373ebcb8a68d40e20a2f9"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5535,7 +6930,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 35500,
       "sha256": "b06d892aa7d18c770aa66f7028ddcf73e11ad8b2fbce5f504d8f7378759a3a63"
-    }
+    },
+    "aspectRatio": [
+      77,
+      100
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5559,7 +6958,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 13913,
       "sha256": "8567b497a94c5c08cff2b9a8ea8ddaedc28f8fe315a0381d8f90d9cdb9bfe42a"
-    }
+    },
+    "aspectRatio": [
+      3,
+      2
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5583,7 +6986,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 34660,
       "sha256": "fc28948dc5896d16533a7ea3f27c8924d2ec4ef87f7d502f96bac21cf413f39f"
-    }
+    },
+    "aspectRatio": [
+      240,
+      137
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5606,7 +7013,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 8717,
       "sha256": "feef33106d85d0e95ee12fbb42d401699bf399ba6e2686d1f69c3531e637eced"
-    }
+    },
+    "aspectRatio": [
+      2,
+      3
+    ]
   },
   {
     "address": "0x000000a6e6366baf7c98a2ab73d3df1092dd7bb0",
@@ -5629,7 +7040,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 29369,
       "sha256": "a9313e25162801f3a0f4a2c6f4eeade61b6d5ec5f804193e19b9e91e80674133"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -5652,7 +7067,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 3750,
       "sha256": "b49935c161d7f5b1d30adc87366207ca6ac74f2be57ca8d520ba7519c9ad86fb"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5675,7 +7094,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 2318,
       "sha256": "f8678f00d3d7db04701c6bba9f916660168bc05b51f0d86a5639406df64581ca"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -5698,7 +7121,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 14767,
       "sha256": "b490e0531618caa8288dc2731f5014290f61f43cc659c26777443059084532bf"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -5721,7 +7148,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 1831,
       "sha256": "b89df70856b123263173fb5ff1f846fd485b73d11fd5bb905b628fc39bd21143"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xaf40b66072fe00cacf5a25cd1b7f1688cde20f2f",
@@ -5744,7 +7175,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 12776,
       "sha256": "12cf1948c430f226749cf5f44ebfdb1e61b6e0acebf0daabf1e8cc9b8cc159ab"
-    }
+    },
+    "aspectRatio": [
+      3,
+      4
+    ]
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -5767,7 +7202,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 37524,
       "sha256": "daacf4d8ff4804b28e7d19224f948937806418feb5be7f4116275b1037da3487"
-    }
+    },
+    "aspectRatio": [
+      3,
+      4
+    ]
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -5790,7 +7229,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 4773,
       "sha256": "cc79c7c2903c079de33e7704d078abc5b8ce8daa6b71a7988c9a82e1e3a3fc70"
-    }
+    },
+    "aspectRatio": [
+      1601,
+      2400
+    ]
   },
   {
     "address": "0x942bc2d3e7a589fe5bd4a5c6ef9727dfd82f5c8a",
@@ -5813,7 +7256,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 36441,
       "sha256": "e416e984cfe1e0b73297a90939a8849644dbc9a343b581ce822269b693a76952"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -5836,7 +7283,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 18536,
       "sha256": "dcbe514f0e1a3af68540e4e2dfdede38c604e37cad7b1dba761aa6bb86ba3bc2"
-    }
+    },
+    "aspectRatio": [
+      473,
+      600
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5859,7 +7310,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 29083,
       "sha256": "9dc23ee4e642a6d4d1f55c27decdaf540f6e66b4ed09a2de3e5820d67acba503"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x059edd72cd353df5106d2b9cc5ab83a52287ac3a",
@@ -5883,7 +7338,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 14769,
       "sha256": "5ce729a4c493ce5dc8179e5b4ca21263e0bebc5d01dca6ff6d95b70ad8caa24c"
-    }
+    },
+    "aspectRatio": [
+      4,
+      3
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5907,7 +7366,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 25470,
       "sha256": "7c3a0f18c79a95a49ca80a57aaff8a41adc2b324a4b20012312b2eacea23dacb"
-    }
+    },
+    "aspectRatio": [
+      2400,
+      1351
+    ]
   },
   {
     "address": "0x02f518c529a0002e505000795d00c500eb00534a",
@@ -5930,7 +7393,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 21971,
       "sha256": "06792e6a4a43a1a3aebc5729b566951d67e230a2b78981bacc2936207d2a311c"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x000000dc68934ed27fd11e32491cdf6717acaf21",
@@ -5961,7 +7428,11 @@
       ],
       "expectedByteCount": 138502,
       "sha256": "408b7a610827c4dd18febf9f0d4da1edd76e6f44bbaa0b10d8ada22ba5861daa"
-    }
+    },
+    "aspectRatio": [
+      269,
+      480
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -5984,7 +7455,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 4087,
       "sha256": "c7bd1faaa25475721df39cb7802c99b95126efd58f0cf1abb111b12f0a6e12c0"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6007,7 +7482,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 1549,
       "sha256": "84a4e09a6819731fda7eb9ed27c7de44ea4054c7f9576a1582bf072b9bce5980"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -6030,7 +7509,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 3671,
       "sha256": "189b8a3ea9c0e55a7034c1fffeaec73a8d93a9bbebdf7606235c66a5a71227be"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -6053,7 +7536,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 1719,
       "sha256": "fefa014529649f098572aa0a3867dc219bb42049f1e549ebf3f72dbf488825cd"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -6076,7 +7563,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 5362,
       "sha256": "5dcf0e0ec0e870e3bbc4dcd3a48ef5afebb1079a52018f325f8dfbd5a9904331"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6099,7 +7590,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 3002,
       "sha256": "e35ae6bbc855940379a701769d55cc21e96948aacba03eb208bb383f2964ce37"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6122,7 +7617,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 8415,
       "sha256": "b3a676722c9a4a8f4641c2fff0e830bcee3139c3df7c4b2b8b6739926539d17b"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x8db6f700a7c90000f92ac90084ad93a500f1eae0",
@@ -6146,7 +7645,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 12363,
       "sha256": "ad8ad754adefb195f97abe4119df4d5680cfa9f776b2eb433241be1cd907ec34"
-    }
+    },
+    "aspectRatio": [
+      16,
+      9
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6169,7 +7672,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 2568,
       "sha256": "06f857d40411f131344065fce34f3ec8e2934401c2047821d316fb8045e02094"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6193,7 +7700,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 6594,
       "sha256": "0c614fe864ddb9232e7c6d5a04517b334d94772dd5fef89db1d40ca041b7464b"
-    }
+    },
+    "aspectRatio": [
+      600,
+      337
+    ]
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -6216,7 +7727,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 2438,
       "sha256": "3eab511447ab6af2a7784729374c6eec23d9c1fd60d13970881edaa1a3fc4c63"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -6239,7 +7754,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 3956,
       "sha256": "3bb01ad9e5047fdba1bd329b682883f20d751168facc1b294fa626ab0d4d0669"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -6262,7 +7781,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 20560,
       "sha256": "047178bb5c1e79fbb65375aa025f60a74a71ce31a469d8d072f73b55039d5e0b"
-    }
+    },
+    "aspectRatio": [
+      3,
+      4
+    ]
   },
   {
     "address": "0xbb5471c292065d3b01b2e81e299267221ae9a250",
@@ -6294,7 +7817,11 @@
       ],
       "expectedByteCount": 1326,
       "sha256": "d90c56c0fe5a34593123ad9ff81cb4da43981c1f182a70ca5e2b1be777955e51"
-    }
+    },
+    "aspectRatio": [
+      3,
+      4
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6317,7 +7844,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 4010,
       "sha256": "33c88cc41dc55b7770972518fd550115ef617e6acd3135a5fc372677a2ef5e37"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6340,7 +7871,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 14735,
       "sha256": "51f8d35bf1f124a06b704dc6d9f17465bfdee3e9e54eb2d3e1ce21c2e31c5958"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -6363,7 +7898,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 11156,
       "sha256": "ea54dd70d8e1c3964e9e1d1e5eb9c0b7d3ecff838d2a1d765f91ef710ec49610"
-    }
+    },
+    "aspectRatio": [
+      3,
+      4
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6386,7 +7925,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 5745,
       "sha256": "54a8062271229377c0f4b96ab5bdd574d9e1ad076ce06d22beea9cbe07f650a8"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -6409,7 +7952,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 48460,
       "sha256": "309ca34beed499e3f9e968864bcb7bc5dadcbc5c9d8388ec489580f4f8308b0b"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6432,7 +7979,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 7876,
       "sha256": "405dbc530802bc9e6faa8dddeb5fb6c0a279d9f3506770bdc0bf84e31389af37"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x000000ff2fbc55b982010b42e235cc2a0ce3250b",
@@ -6456,7 +8007,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 3567,
       "sha256": "b4e38a1061b9e102b77b9ca6dc33ff77900ff36975a0eabb07d8df386faaf23a"
-    }
+    },
+    "aspectRatio": [
+      707,
+      500
+    ]
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -6479,7 +8034,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 10456,
       "sha256": "3e90ced8729c9532ec8e3a0f9109310e3e132caf66dbf480aeba0ae9d42481ff"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x0000f6bc84ab98fbd8fce1f6d047965c723f0000",
@@ -6502,7 +8061,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 11466,
       "sha256": "478803fa8b6a2e77466ee89277addf96325300a66ed28273a4222e8315e1b623"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -6525,7 +8088,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 16407,
       "sha256": "6d23a90ab110f3c39a9824137ed9fa18efba80be080d4ad6b992602a698dbd91"
-    }
+    },
+    "aspectRatio": [
+      2,
+      3
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6548,7 +8115,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 8346,
       "sha256": "6017c726a87f587a48468b4ff9464e314f23763b125c22855f0b2692e2f424bc"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x000000412217f67742376769695498074f007b97",
@@ -6571,7 +8142,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 9540,
       "sha256": "052ec69bf996ba5fe8aa3c2316aec046ee4aa606530f3a611aea94f2c046f9d1"
-    }
+    },
+    "aspectRatio": [
+      1697,
+      2400
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6594,7 +8169,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 4975,
       "sha256": "029d97a39390771eafc88dfad78a27a3201a2564cb4689b83456700a6f5acdb3"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6617,7 +8196,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 5816,
       "sha256": "aad7e80a8e383d44ea67866d4a860704a7a5abb46f07ff9c8bf49d54e80038b2"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -6640,7 +8223,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 2030,
       "sha256": "fd9bee9e74251eefe33df68497d1eeea4e3b0b710bcb5c80a327d5aabf6d3e17"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6663,7 +8250,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 20857,
       "sha256": "7b20abe918b7d2390b5a3a41a9c2d12d3b1f45af37fe442183d3d83cf2ee6a03"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -6687,7 +8278,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 3201,
       "sha256": "ffd60c73204f5bd8774a398c71fb562263c46a517386376b1e1399c4d96e991b"
-    }
+    },
+    "aspectRatio": [
+      16,
+      9
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6710,7 +8305,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 16842,
       "sha256": "e738daaca0ef42279ba138d5892eab080ccbad7eaf2fc6dc421f14efe54147df"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -6733,7 +8332,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 11316,
       "sha256": "a4ee3aa9d17da885e57f9ef24b76b8c8c0bda55eec90ed258c88a0b6551d0b97"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x0000b52017e1ec58f64171b6001518c07a9aec00",
@@ -6756,7 +8359,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 24439,
       "sha256": "ab7026990f4a5ba6c4d3e4d67c5dfd82fbcf71e54315443f6a9fe385930d3850"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x9800005deb3cfaf80077dbe9b9004c0020c1d6c5",
@@ -6780,7 +8387,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 9142,
       "sha256": "39efe6d81ddb94e2e5a054007bccc9f8b33f89544442605b4cc8c05a700a218b"
-    }
+    },
+    "aspectRatio": [
+      400,
+      283
+    ]
   },
   {
     "address": "0x9f79e46a309f804aa4b7b53a1f72c69137427794",
@@ -6803,7 +8414,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 8697,
       "sha256": "d87253db662b2b03c26fff65af4889939497a20e28cacf1100f0d4461f74e844"
-    }
+    },
+    "aspectRatio": [
+      1697,
+      2400
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6826,7 +8441,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 8708,
       "sha256": "0a58885f70f63690e01a9321ee91ea52959b2025870ceeee92dbc5745ccde3fe"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6849,7 +8468,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 3519,
       "sha256": "e5598752cc15c83d5942ef48b20fb03e6e6dbab2bfb7fdee0cc2c54466ad056f"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -6873,7 +8496,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 33576,
       "sha256": "0fd6c4477ac3a9745a6dac4d0ddc1fee44b0180071d5b8d2f310e1fc84cfc997"
-    }
+    },
+    "aspectRatio": [
+      2400,
+      1351
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -6896,7 +8523,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 7337,
       "sha256": "fef16b2ee68a74371a14bb2077d356a869316f55d52cc3d9c6c797818639e49b"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x4d928ab507bf633dd8e68024a1fb4c99316bbdf3",
@@ -6919,7 +8550,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 26118,
       "sha256": "110ea42afe606aa3baef2086755ced055e2b0618dce6d89cb71dbe0e4a08513a"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x942bc2d3e7a589fe5bd4a5c6ef9727dfd82f5c8a",
@@ -6942,7 +8577,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 34717,
       "sha256": "91d6e22919b560d3ecc6ae2633f355e6a543e0639ac5235afbc849ee22420cee"
-    }
+    },
+    "aspectRatio": [
+      3,
+      4
+    ]
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -6965,7 +8604,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 42397,
       "sha256": "37b2248e24fc525961c7f39e150cd519e9e47908767add000d226b2c804c9e64"
-    }
+    },
+    "aspectRatio": [
+      343,
+      480
+    ]
   },
   {
     "address": "0x000009bb1740eea484f7db00000a9227e578bf96",
@@ -6988,7 +8631,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 17437,
       "sha256": "c40d835984d98ffd735816612139ae02eccbf048ebe04c01ba1bbea7dc70b06c"
-    }
+    },
+    "aspectRatio": [
+      1769,
+      2400
+    ]
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -7012,7 +8659,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 743002,
       "sha256": "059ee6c53c962180da7c4ce51525441bb495750b5f2d9420a2eab8a0d5111850"
-    }
+    },
+    "aspectRatio": [
+      2400,
+      1801
+    ]
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -7035,7 +8686,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 12262,
       "sha256": "decd994eee67db355b4695b78b9a52f5cfc7c7fae3fa1b9e8aae998ca707f930"
-    }
+    },
+    "aspectRatio": [
+      2,
+      3
+    ]
   },
   {
     "address": "0x1353fd9d3dc70d1a18149c8fb2adb4fb906de4e8",
@@ -7058,7 +8713,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 22370,
       "sha256": "b4c1d77ebd4101521f20a8f0bedc6bd4d5c6a041b2fbffd011752e9f1313a579"
-    }
+    },
+    "aspectRatio": [
+      1412,
+      2401
+    ]
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -7081,7 +8740,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 8302,
       "sha256": "a0682128256ac76cd44d59eb1c27c575fd64bc22273de32af43dd0042f5600dc"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -7104,7 +8767,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 10910,
       "sha256": "696f551de2fdf53cc46acead712506953dbcac81a2f53a26e68c4a11f10c2809"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -7127,7 +8794,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 21871,
       "sha256": "f88aea9e983c8d842f2945844bf3fb156bf005ea48ee7a57732c94d37727783a"
-    }
+    },
+    "aspectRatio": [
+      7,
+      10
+    ]
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -7150,7 +8821,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 18437,
       "sha256": "01ad61d6b7ea2b0d56117887b605a60b27a6202cbf570f99ae3b8e9fba27cdc3"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x0000000c687f0226eaf0bdb39104fad56738cdf2",
@@ -7174,7 +8849,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 11583,
       "sha256": "bd81a39ef7f3779f418a34e42471ff43e4e1406cfdbbb72e1fe9e31067d791bc"
-    }
+    },
+    "aspectRatio": [
+      2400,
+      1801
+    ]
   },
   {
     "address": "0x1725dc55c1bd5200bf00566cf20000b10800c68e",
@@ -7197,7 +8876,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 14068,
       "sha256": "77d16e7cc6e2a0720ad5514a7bb63c872397a430fd749ad00b8401732d80818d"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x000000637fddcdd459b047897afb3ea46aa6f334",
@@ -7221,7 +8904,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 14522,
       "sha256": "a2c8ccd4d70dea8c720f438c3f44b99018c5ee07078084f09d1611557772cbb6"
-    }
+    },
+    "aspectRatio": [
+      3,
+      2
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -7244,7 +8931,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 89561,
       "sha256": "520e9b9edbf38ac9ce7146b6c84b6cfbfd207d6632775e8a3d42c7c94d1f527b"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -7267,7 +8958,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 21982,
       "sha256": "2f9cc3040b111afcee350b29b61e16cb9d08ab3418cd7a23582fb7860bd9554d"
-    }
+    },
+    "aspectRatio": [
+      9,
+      16
+    ]
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -7290,7 +8985,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 3968,
       "sha256": "9a83217fddb547f932a5148747160a9aec3850cf1a3f0ca6bcae30bd1e6309a9"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -7313,7 +9012,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 4748,
       "sha256": "f56a27283e2744b59db7552046323ebdad1945f9091e9622750bfbec2ee6fe2b"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -7336,7 +9039,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 9059,
       "sha256": "75867aac0f33fb1f9cc871cca07b694de96eeecc131ddf7e649c6f12fec67787"
-    }
+    },
+    "aspectRatio": [
+      16,
+      9
+    ]
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -7359,7 +9066,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 39622,
       "sha256": "71de1b3efaa83960c7af4cdbbbddd66164014092e677ec29eae59095067aec3f"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -7382,7 +9093,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 20500,
       "sha256": "fe787323775dc4675d942ec175fb5a0b86d766442fbcb284a9ac84a00bac76f7"
-    }
+    },
+    "aspectRatio": [
+      3,
+      4
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -7405,7 +9120,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 8114,
       "sha256": "aefffcabd313b1958cd711798ad8be4b4cfd71aa08c6b5b01f0f2f898f46ff0a"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -7428,7 +9147,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 9443,
       "sha256": "72a0471c8294f92e334a286adeb23693ac134c8b47ce4372338b359cee6f1ca5"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x00002491b000aa008756652c87cc92d87e896f0f",
@@ -7451,7 +9174,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 29663,
       "sha256": "c663e42ed9a412e35b727ce4c89fad798830fd4d3d6d9475769cc2f00481d2d9"
-    }
+    },
+    "aspectRatio": [
+      4,
+      5
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -7474,7 +9201,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 77155,
       "sha256": "8e86826fe3c1d7a18e939af0c42b3cb194413496b4546dc1b72a89033b47f6eb"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -7497,7 +9228,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 3236,
       "sha256": "db0f05979c0cda47899f04643ac0d406e28f4d41c33c3afebd05ed81bb4d9449"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x1d0977e86c70eabb5c8fd98db1b08c6d60caa0c1",
@@ -7520,7 +9255,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 7309,
       "sha256": "5bf27a6d7c5c35e000113f3d91a5a90881b521447c53060d893f3732569fcdff"
-    }
+    },
+    "aspectRatio": [
+      1271,
+      2400
+    ]
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -7543,7 +9282,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 12705,
       "sha256": "a4fdfaa6acf4eb202aa9e1dbb1cbc9a2620bba2676b36363154044c13e884a73"
-    }
+    },
+    "aspectRatio": [
+      5,
+      8
+    ]
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -7566,7 +9309,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 3161,
       "sha256": "2e20dd317f5cd9cfaefebb2504ee2da16ce00aff2b87338253455b1fdcf6f244"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -7589,7 +9336,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 11285,
       "sha256": "3badfd101df0598f54b1a750869cf174db74ede5095131694e823802982bdcd6"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -7612,7 +9363,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 61713,
       "sha256": "2919632bb146990ecbfa50e15d96fc2785c9bc36d52c2c0e14eef6fb003573ab"
-    }
+    },
+    "aspectRatio": [
+      9,
+      16
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -7635,7 +9390,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 3934,
       "sha256": "0263204a4276f1a04f8295fe9fdad13effa75fe917c2bc612fb86c18b1a726ef"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -7658,7 +9417,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 2739,
       "sha256": "ddb00353034971c2a682a85e206e87ff085b8ddd678e0ac5127704ed7c12e469"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xd40030fd1d00f1a9944462ff0025e9c8d0003500",
@@ -7682,7 +9445,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 59645,
       "sha256": "c8bc8860f18590ea009fb5ddf1f0c205ce6a49c9088b7744c55e3f61764fa111"
-    }
+    },
+    "aspectRatio": [
+      16,
+      9
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -7705,7 +9472,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 38695,
       "sha256": "ecaa126e41e41f4a7317f4763d0574bc1d2a833dbfbce77fa6caf3feb9196d99"
-    }
+    },
+    "aspectRatio": [
+      5,
+      6
+    ]
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -7728,7 +9499,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 8477,
       "sha256": "8d145248a020c4902e1d18b20618d115d11e2f2c379a584bce68e50453afa872"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -7751,7 +9526,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 2130,
       "sha256": "6742fe91268e92c631b8bb6a262781615868f3ef4a935fd4036de17ef1077777"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xaa00b2b2db36b8f8004a9aa96f0012005d92b300",
@@ -7782,7 +9561,11 @@
       ],
       "expectedByteCount": 282208,
       "sha256": "07975b0bf147dbff9b45e084bedb50c9f21895bb58884beeac10d0426a7d061f"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -7805,7 +9588,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 3394,
       "sha256": "1aa6a2f5114d9f679b7cd4ac7993ee050f2c7b18baa9c4021b48b0fb6a660e7e"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x000009bb1740eea484f7db00000a9227e578bf96",
@@ -7828,7 +9615,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 10854,
       "sha256": "f6be88263d70f218ae32eae9264e3156e4b651e45a572f6576f45ccf6d6c4177"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -7851,7 +9642,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 145110,
       "sha256": "f2fc7b982429e22928ffd1268595573385ad342567bbc119c5f3d5c994ae4842"
-    }
+    },
+    "aspectRatio": [
+      371,
+      600
+    ]
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -7874,7 +9669,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 2923,
       "sha256": "3e96b0b91fde3cb586a39b71ede5f51f8f20093fe1aa62a84fc4baee8c9330c6"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -7897,7 +9696,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 25955,
       "sha256": "0ca01314c994508a56cd2360ceafafb4df2ffdfdc5783c6e289793de560e3804"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -7920,7 +9723,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 7252,
       "sha256": "6cd7225a63cfd48cce74411098222512cf42fa5500f9b8f123eb9f0985d5a447"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -7943,7 +9750,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 4826,
       "sha256": "70cc8c8ad4aaee795750cb35bbdaecb72d18e07550fd6b50ee7d547e516bbccb"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x64780ce53f6e966e18a22af13a2f97369580ec11",
@@ -7966,7 +9777,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 38132,
       "sha256": "5d8083f05d00530f63d49490e90f66e83164615e14517ef48c180588e3c3f72d"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x70270e65bc37832ef845fa330c2b71501970dab9",
@@ -7990,7 +9805,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 78962,
       "sha256": "1151ecf02316989b496537701f032931dd48b29f51017c3e98a860978f4be8b8"
-    }
+    },
+    "aspectRatio": [
+      16,
+      9
+    ]
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -8013,7 +9832,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 22430,
       "sha256": "6d9f6ed1a7563b8263dff97d7447b2d8fff95213df35239a1c36d858ccd2e256"
-    }
+    },
+    "aspectRatio": [
+      9,
+      16
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -8036,7 +9859,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 12585,
       "sha256": "b6d667903feeb1d6356c91990f3cd6c3a4de0e74431fa0e51b48bdaafb83e792"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x0000528a4a3859020a7970110c16941a00fadf00",
@@ -8059,7 +9886,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 51683,
       "sha256": "18809be788d6e60d129fb6bf6673220f1a766afb41cc8deb2ac854f6cc84cacf"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x294fed5f1d3d30cfa6fe86a937dc3141eec8bc6d",
@@ -8083,7 +9914,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 18281,
       "sha256": "5dea3ea07abac149a484c364a5ea9d2210876200b8e827c6fe2fe2a6daacd6ae"
-    }
+    },
+    "aspectRatio": [
+      16,
+      9
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -8107,7 +9942,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 5210,
       "sha256": "9deb748682c59f9f77fc33a5b1977ce5560b5b6b2367a2afd08a024fac09e8cf"
-    }
+    },
+    "aspectRatio": [
+      16,
+      9
+    ]
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -8130,7 +9969,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 574310,
       "sha256": "1083487bc0988bf6a7c0a2353abbbf0427c4726f182750f2ea76fd1c4a49e3b1"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -8153,7 +9996,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 5695,
       "sha256": "d405eaa7a9b42da76850424becd38452e4b7f32b78aa54a5c3cf2a6614dea36c"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -8176,7 +10023,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 3226,
       "sha256": "01cf21d8cad04bd969d22568445910787a48118ea072047fca490931af08ce57"
-    }
+    },
+    "aspectRatio": [
+      4,
+      5
+    ]
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -8199,7 +10050,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 2973,
       "sha256": "6a73ffeb9b8796241bf01a0422348d5b1db3e7c0ced01987c3d79e61e953514e"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -8222,7 +10077,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 4643,
       "sha256": "aa714ea8907a017a51e8f2e6926c573e7fcecf251d677140cb3963a6301915be"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -8245,7 +10104,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 11808,
       "sha256": "fc6b0ee77c0cc4a49955fb35449288f1f0e5f7002bd0139c4aa7cc6cc6d604a3"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -8268,7 +10131,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 8551,
       "sha256": "3acdfa0df75409b208a695d7d18bc5bcd6be05fe8246bf9e60639c2be4b20333"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -8291,7 +10158,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 16330,
       "sha256": "1ede590555d67072d24eff6ddab5c60e35ab983448465b8beaeeef9c32e54b2b"
-    }
+    },
+    "aspectRatio": [
+      9,
+      16
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -8314,7 +10185,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 5959,
       "sha256": "a1367e748f74481b2d0e0932625b417240d1dde0422fded9930dee0b466d46c3"
-    }
+    },
+    "aspectRatio": [
+      3,
+      4
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -8337,7 +10212,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 13676,
       "sha256": "0fb836e0d334b6a78e46aebb43877484e222d413779af0310b58905f0c80d79e"
-    }
+    },
+    "aspectRatio": [
+      283,
+      400
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -8360,7 +10239,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 22708,
       "sha256": "944f7fb2be11837c6e71d10060e344e3f518f01ca4d26ca76effa62623c8e4a4"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa319c382a702682129fcbf55d514e61a16f97f9c",
@@ -8383,7 +10266,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 9539,
       "sha256": "3e037ab8c2e722af0600ce975fe5a1002b59bdb69f956a84ad9897eeae703de6"
-    }
+    },
+    "aspectRatio": [
+      3,
+      4
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -8407,7 +10294,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 9481,
       "sha256": "dce5d1983578b4cdf294f56edf7e6216840b5c157efccaddc0c6358f7c44ee9f"
-    }
+    },
+    "aspectRatio": [
+      100,
+      77
+    ]
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -8431,7 +10322,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 21903,
       "sha256": "e858654fa5acecb9c3994ae6f1aa71928fe7d22a6f7d854aa31cc9d648b2fe44"
-    }
+    },
+    "aspectRatio": [
+      2400,
+      1847
+    ]
   },
   {
     "address": "0xa319c382a702682129fcbf55d514e61a16f97f9c",
@@ -8454,7 +10349,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 5541,
       "sha256": "b38444f8235f3b38b878c028ddaf72da16f726425b176fc6dc83e83442092103"
-    }
+    },
+    "aspectRatio": [
+      3,
+      4
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -8477,7 +10376,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 3908,
       "sha256": "40cecbb4554fce586577a2e111b18d8d92566a5cff56ae0d85043f51b921c47c"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -8500,7 +10403,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 2206,
       "sha256": "dae30f2a9659ec7fd73fc6d5f5a29ab3550e200c783bd05017193abadb265501"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -8523,7 +10430,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 24117,
       "sha256": "220936f08b301a8df4313492946930ae8736984f67cab96e4488558e904ca4a0"
-    }
+    },
+    "aspectRatio": [
+      3,
+      4
+    ]
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -8546,7 +10457,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 7595,
       "sha256": "777959d37cf56458bd7542e52cea7b418aef02c3ac82a0d5aef1ead70991ecfd"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -8569,7 +10484,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 16801,
       "sha256": "5f72910c1d600d1a5a70ec5fe7cebccbc1342d9037bf47591992f3dfa6be3a26"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -8592,7 +10511,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 5364,
       "sha256": "b988ae23153629c53a6f4dc217b4d0023427ce708b5de7cd467c1cc015dee7c8"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -8615,7 +10538,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 7218,
       "sha256": "11f8bb6aae4ec4fc9002212ba34c3d2f029c8df0df6a703e64491b5728ebe98b"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -8638,7 +10565,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 5618,
       "sha256": "86de902cae3b31ae7a9d19851b0de492b84de874ac4d738ca32a8dcda67c90df"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -8661,7 +10592,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 1244,
       "sha256": "f9a585c3ac2f483e8cf94c464f848f96197b6a04e28f405006a8d41dcdc2052c"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -8684,7 +10619,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 5238,
       "sha256": "52667939bf6a837b92655f7736a1f6aac160c42682fadfa8430c5d61a7890af3"
-    }
+    },
+    "aspectRatio": [
+      1733,
+      2400
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -8707,7 +10646,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 4294,
       "sha256": "1012bd2f1a789ae417e7bcd4838bfe22575bb3e6f8c2d823ad963df9ba8ee730"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -8730,7 +10673,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 6191,
       "sha256": "ec0379a420d11fb71c09948ad4b5d5415da7700b94328270dc4baa4abd9b8ab0"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -8754,7 +10701,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 24241,
       "sha256": "e464bd33e76aaec858afbba9838442d28185bd63fa02776e505bce1416f51137"
-    }
+    },
+    "aspectRatio": [
+      3,
+      2
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -8777,7 +10728,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 4241,
       "sha256": "af3028664ebfbb5ab0547b334876829a6f076fe4d8cbc9c315230cce780c7e00"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -8800,7 +10755,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 5391,
       "sha256": "b2fa3fbcf04c6d168bc6fa69e1a93a4ba47f3fca1cd63e8c7c6f0622b3a24ade"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -8823,7 +10782,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 20456,
       "sha256": "1eb974b5b8f475eafc4e9350f6c8ce044ec209a849afb449a72dc8bfc3383a33"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa319c382a702682129fcbf55d514e61a16f97f9c",
@@ -8846,7 +10809,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 49265,
       "sha256": "f23be57d7e1c45d6f4022710e6423bed48f911205ea93a7ae07722551d901df5"
-    }
+    },
+    "aspectRatio": [
+      1697,
+      2400
+    ]
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -8869,7 +10836,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 13660,
       "sha256": "50ebb51ca7016e28202b5136944ec4ada5eb740db4cc6c79a7d6f91d180521b6"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -8893,7 +10864,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 8998,
       "sha256": "03f2a86eab52024eca02cb01aa39f5f46b37a0c3a4598ee2af8174a1f677f0d2"
-    }
+    },
+    "aspectRatio": [
+      2400,
+      1697
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -8916,7 +10891,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 5142,
       "sha256": "cbfb51eb6a3f40b0d9da0e60f399e4c6e74f830ed54208db3c3d1e2c10c64568"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -8939,7 +10918,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 12677,
       "sha256": "61442c6ffc5fe942606f758ed6e13ee03ce1d9a0a1eb78d4411263a6820c9270"
-    }
+    },
+    "aspectRatio": [
+      77,
+      100
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -8962,7 +10945,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 5224,
       "sha256": "f87cbebb3779f878283a29f7fa7c907d306a4ed160ba5144edb657758362cd89"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -8985,7 +10972,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 23651,
       "sha256": "901ca525bdb4faee5d568734cb23c3e154f1c172394a5ecca8f663ca1af7e4bf"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x9800005deb3cfaf80077dbe9b9004c0020c1d6c5",
@@ -9009,7 +11000,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 9078,
       "sha256": "9aaee1ffcff7814390e4e50da4f11fe2b4cfd95e2c18b9a372f925c41d8e52fd"
-    }
+    },
+    "aspectRatio": [
+      400,
+      283
+    ]
   },
   {
     "address": "0x1353fd9d3dc70d1a18149c8fb2adb4fb906de4e8",
@@ -9032,7 +11027,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 19149,
       "sha256": "5827ccd876b9660ba48d1f021d19e3d2914c489bae2a4003376744f3fc123312"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -9055,7 +11054,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 27933,
       "sha256": "71600162f3539147895ac2cd83e07edb9a7ffb217612366ecd11e3500ebd8d96"
-    }
+    },
+    "aspectRatio": [
+      9,
+      16
+    ]
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -9078,7 +11081,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 24188,
       "sha256": "b8a595562defd61322714f854c7d7f2fbca2ecb549c7c898c06273cca989cef8"
-    }
+    },
+    "aspectRatio": [
+      283,
+      400
+    ]
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -9101,7 +11108,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 21889,
       "sha256": "30b638bd514ccb97b0ddabe36b05aa10ee3c05ce168df89541f6f80ba41c96c2"
-    }
+    },
+    "aspectRatio": [
+      4,
+      5
+    ]
   },
   {
     "address": "0x00000041a2980e05cb4fbbbc735f17eff443b592",
@@ -9124,7 +11135,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 72152,
       "sha256": "e02b3ea7ea03d1089b9be69ff5dad7cfb77a1c78dbcd24ce16a9bd94a4bdeae6"
-    }
+    },
+    "aspectRatio": [
+      7,
+      10
+    ]
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -9147,7 +11162,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 23875,
       "sha256": "fe5e31df9c51f26389d9391a4aec2c6d58e94631bdceb95f4f93728cd41d81dd"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -9170,7 +11189,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 477754,
       "sha256": "300e6c32c61879118bbb637d573b59bf93b130e6c2e6c4ab8d5df7496b0ac261"
-    }
+    },
+    "aspectRatio": [
+      5,
+      6
+    ]
   },
   {
     "address": "0xe034bb2b1b9471e11cf1a0a9199a156fb227aa5d",
@@ -9193,7 +11216,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 251163,
       "sha256": "d7799751c1017efe9de352cd73c969893fd7757fc9e58d468ebe9c2b1a9f3f42"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x9f79e46a309f804aa4b7b53a1f72c69137427794",
@@ -9216,7 +11243,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 112316,
       "sha256": "c0b5755effe20f77922dd1d82b70943c89f9a65ee45e357c1d8857b95bfd4608"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -9239,7 +11270,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 5904,
       "sha256": "75de99377866678606554c395fb0d4769713c5b22eaedb9a1dd35e72493b345d"
-    }
+    },
+    "aspectRatio": [
+      17,
+      24
+    ]
   },
   {
     "address": "0x8ce22a649a0ea5008900740028007278038d0023",
@@ -9262,7 +11297,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 4894,
       "sha256": "c3cab324aedaf1ecc9395b09fb97a58f2e7417aec48328d3cf6bb160875b398d"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -9285,7 +11324,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 12727,
       "sha256": "4156e8f416529a67a58aa64a9856dd923e367a6c4fdb20b3ca3eb5755921e3a6"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -9308,7 +11351,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 13125,
       "sha256": "713cf83ff5ff4d1b98015aa3b856ea559386204764a3eb0a7784382fab8b369d"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -9331,7 +11378,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 4602,
       "sha256": "6f55ce9c5487dc4e9dcec138c86d4231318f6d8166db892afa0035595902a683"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x000056c200618b979900c3f1ef9aef86f4c47eaa",
@@ -9354,7 +11405,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 29115,
       "sha256": "593b983d3bdfb99f73d4e3bd9907449c8f95e20aa60b41d8b8705395d4aa55f7"
-    }
+    },
+    "aspectRatio": [
+      9,
+      13
+    ]
   },
   {
     "address": "0x000056c200618b979900c3f1ef9aef86f4c47eaa",
@@ -9378,7 +11433,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 1096616,
       "sha256": "2d68c297a4bbd8c39b45666f590e0fbe6a521214f874a2f34a67dc51e37665df"
-    }
+    },
+    "aspectRatio": [
+      6,
+      5
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -9401,7 +11460,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 11941,
       "sha256": "8c4cb3038a6d8f1ff909d8ce65c38ab9ef10c6f17b9ea34b0eb8d258ce05be66"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -9424,7 +11487,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 4041,
       "sha256": "7338b69957d8ec64e5a3e7078c7c94706adffb859557a4954088a6b0c7cfb7b6"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -9447,7 +11514,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 8864,
       "sha256": "20ebec7069685fe2b5116005b313e131fd7aed112f1eb366329d9f99238ca174"
-    }
+    },
+    "aspectRatio": [
+      3,
+      4
+    ]
   },
   {
     "address": "0x8cdbd7010bd197848e95c1fd7f6e870aac9b0d3c",
@@ -9470,7 +11541,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 10391,
       "sha256": "90b53dffb16d44dae0a0e8f337f550a87d85605d340bdea822645e2820083afb"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x000000b394cac6057d87df835bea27844b3e2828",
@@ -9496,7 +11571,11 @@
       ],
       "expectedByteCount": 164963,
       "sha256": "b46cfe862804d2726c909dc5f8a35ee76f902f47fd9aaa30a36dee64c7c8bf32"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -9519,7 +11598,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 3558,
       "sha256": "86970d5dc5543145ca32721cd127da3314a97509abe6555dded5046420e7e184"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -9542,7 +11625,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 12221,
       "sha256": "2660469be32f236f66b23f1da5b3e45659f5d4893f8bfa117e685dc0c69d12ac"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x0a1bbd57033f57e7b6743621b79fcb9eb2ce3676",
@@ -9565,7 +11652,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 4977,
       "sha256": "701925cea0388b5a8117ddda14846df01cc61c348783622fa07c82ce40ae488b"
-    }
+    },
+    "aspectRatio": [
+      121,
+      150
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -9589,7 +11680,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 11540,
       "sha256": "6f08a536bf0e35d0ad6607a74864b9a27df0ac8fe18bfcd514e96db75d0f26e3"
-    }
+    },
+    "aspectRatio": [
+      80,
+      47
+    ]
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -9612,7 +11707,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 3604,
       "sha256": "79c02c91e3a8c19fd1d03965fa7309f0302b4a41d2ef2b5bdecc2abfdc3272da"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -9635,7 +11734,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 6092,
       "sha256": "cba2778dd61ee1336af218da1eaf8388bd96e634e567f740e605756e67ed7e90"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -9658,7 +11761,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 19798,
       "sha256": "214c4fbd1a6b8b09eef6043491af390491b2a58033daf839f62302d1e0c7fd3d"
-    }
+    },
+    "aspectRatio": [
+      2,
+      3
+    ]
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -9681,7 +11788,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 5685,
       "sha256": "ca2cd14e158b1857468831fbf7c28eb01d0bdd684b54fb356157204eeb30fd07"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -9704,7 +11815,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 11937,
       "sha256": "75a12aa0e2193b00c9136f3edd0c9a9230e6d591d73c72d49575f4da24765c2a"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -9727,7 +11842,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 24258,
       "sha256": "98b96fce69d12cf063cd8ab5a94348930116df80d6867392e564a504a91b1f02"
-    }
+    },
+    "aspectRatio": [
+      3,
+      4
+    ]
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -9750,7 +11869,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 15808,
       "sha256": "dd5e20f75218fc2da50ff4009405e5ecbd6da30bd84ae6f49f0ce619cc78a9c1"
-    }
+    },
+    "aspectRatio": [
+      533,
+      800
+    ]
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -9773,7 +11896,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 19980,
       "sha256": "d0fa4cd698a4fdc197bc558a70c7776745dfdb9119e81c9c2bc308ee73e0e4ed"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -9797,7 +11924,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 5968,
       "sha256": "805c1e968c31fd9e618649ff7959599fb9b5018faf99ce42fd0f6e4721909481"
-    }
+    },
+    "aspectRatio": [
+      600,
+      337
+    ]
   },
   {
     "address": "0x00000024ca7f3cfba7084e3289a9048d79261b29",
@@ -9820,7 +11951,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 18681,
       "sha256": "eaa85a3757549e116586dfb9a5d9fd5a17c4e5e452ff257e458ab2330c56549e"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -9843,7 +11978,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 12120,
       "sha256": "f22eb13302adb156372c59f701e63ec08c5eebe1f45cd1567204031a90a52012"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -9867,7 +12006,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 7341,
       "sha256": "9336b2c4ab85730d5e66e72828747d35c9638956826a64e3d3530016eed4128e"
-    }
+    },
+    "aspectRatio": [
+      3,
+      2
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -9890,7 +12033,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 27124,
       "sha256": "cdb02442edabe86c8c43e505ac23e27d3227464f30f4bcfdfbc8605ebfd2ddc0"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x99a9b7c1116f9ceeb1652de04d5969cce509b069",
@@ -9913,7 +12060,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 54604,
       "sha256": "e8104c2673edbfe66f3e869bbc76edfa2aa86b9f0f883102a7991f9c0db93d13"
-    }
+    },
+    "aspectRatio": [
+      2,
+      3
+    ]
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -9936,7 +12087,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 7208,
       "sha256": "d2cb8fcf5631839d36442de3834ed4f55df46d73ac0505d48c1a3c869d5a08e0"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -9959,7 +12114,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 4651,
       "sha256": "7fa75662ec9e554bfc1623b2daee18fb071c70bdcf0e5ec9d0a4decde6186dcb"
-    }
+    },
+    "aspectRatio": [
+      5,
+      6
+    ]
   },
   {
     "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
@@ -9982,7 +12141,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 17229,
       "sha256": "40dfdec66cf9c9e9ef61f005527ecef9b2e2248738cc42ea78c66001c2b8a61b"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0xab0000000000aa06f89b268d604a9c1c41524ac6",
@@ -10005,7 +12168,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 23714,
       "sha256": "bb92cebc462a33fdcc2f0d13c40f38d1ae9b92b414e47d8f03e28bdeef829d31"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -10028,7 +12195,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 13898,
       "sha256": "eef63c00738117523b60fcba7d98e76f4611147f7be2a38c661e51c17ae9169d"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x000000c9572b8a9a638f238510af4e90a4e365ee",
@@ -10051,7 +12222,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 45005,
       "sha256": "b9fff0733e300386cb5e3eed3c2829ac02526f8a5a768fe109facf3e4e998b2f"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x13aae6f9599880edbb7d144bb13f1212cee99533",
@@ -10075,7 +12250,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 17005,
       "sha256": "b97af557f8db7050e510ba469c59f8c2b47e16f1a098d1daf9993e1859655ced"
-    }
+    },
+    "aspectRatio": [
+      2,
+      1
+    ]
   },
   {
     "address": "0x47a91457a3a1f700097199fd63c039c4784384ab",
@@ -10098,7 +12277,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 28897,
       "sha256": "0d0db5987aa3f2d9e1f5479c8bc883b99fc701de471328fb9f5837a7c503b07c"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x68c01cb4733a82a58d5e7bb31bddbff26a3a35d5",
@@ -10121,7 +12304,11 @@
       "renderingProfile": "artBlocks",
       "expectedByteCount": 4503,
       "sha256": "de41f775a3bd29ed1c867e2cef282d53a6cdd160ad7e510b614d8a00c5e1e32f"
-    }
+    },
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "name": "Bokeh",
@@ -10136,7 +12323,13 @@
     "tokenCount": 300,
     "standardThumbsPathsAvailable": true,
     "hasCover": true,
-    "bundledDate": "2026-09-14"
+    "bundledDate": "2026-09-14",
+    "urlPrefix": "https://cdn.lil.org/player/bokeh/",
+    "aspectRatio": [
+      9,
+      16
+    ],
+    "hasMid": true
   },
   {
     "name": "Glass",
@@ -10151,7 +12344,13 @@
     "tokenCount": 300,
     "standardThumbsPathsAvailable": true,
     "hasCover": true,
-    "bundledDate": "2026-09-14"
+    "bundledDate": "2026-09-14",
+    "urlPrefix": "https://cdn.lil.org/player/glass/",
+    "aspectRatio": [
+      4,
+      5
+    ],
+    "hasMid": true
   },
   {
     "name": "Memory Loss",
@@ -10166,7 +12365,13 @@
     "tokenCount": 256,
     "standardThumbsPathsAvailable": true,
     "hasCover": true,
-    "bundledDate": "2026-09-14"
+    "bundledDate": "2026-09-14",
+    "urlPrefix": "https://cdn.lil.org/player/memory_loss/",
+    "aspectRatio": [
+      1,
+      1
+    ],
+    "hasMid": true
   },
   {
     "name": "Primavera",
@@ -10181,7 +12386,13 @@
     "tokenCount": 70,
     "standardThumbsPathsAvailable": true,
     "hasCover": true,
-    "bundledDate": "2026-09-14"
+    "bundledDate": "2026-09-14",
+    "urlPrefix": "https://cdn.lil.org/player/primavera/",
+    "aspectRatio": [
+      9,
+      16
+    ],
+    "hasMid": true
   },
   {
     "name": "Subtraction, Reconfiguration",
@@ -10196,7 +12407,13 @@
     "tokenCount": 100,
     "standardThumbsPathsAvailable": true,
     "hasCover": true,
-    "bundledDate": "2026-09-14"
+    "bundledDate": "2026-09-14",
+    "urlPrefix": "https://cdn.lil.org/player/subtraction_reconfiguration/",
+    "aspectRatio": [
+      4,
+      5
+    ],
+    "hasMid": true
   },
   {
     "name": "Talim",
@@ -10211,7 +12428,13 @@
     "tokenCount": 99,
     "standardThumbsPathsAvailable": true,
     "hasCover": true,
-    "bundledDate": "2026-09-14"
+    "bundledDate": "2026-09-14",
+    "urlPrefix": "https://cdn.lil.org/player/talim/",
+    "aspectRatio": [
+      3,
+      4
+    ],
+    "hasMid": true
   },
   {
     "name": "The Colors That Heal",
@@ -10226,7 +12449,13 @@
     "tokenCount": 142,
     "standardThumbsPathsAvailable": true,
     "hasCover": true,
-    "bundledDate": "2026-09-14"
+    "bundledDate": "2026-09-14",
+    "urlPrefix": "https://cdn.lil.org/player/the_colors_that_heal/",
+    "aspectRatio": [
+      3,
+      4
+    ],
+    "hasMid": true
   },
   {
     "name": "Twos",
@@ -10241,7 +12470,13 @@
     "tokenCount": 64,
     "standardThumbsPathsAvailable": true,
     "hasCover": true,
-    "bundledDate": "2026-09-14"
+    "bundledDate": "2026-09-14",
+    "urlPrefix": "https://cdn.lil.org/player/twos/",
+    "aspectRatio": [
+      5,
+      6
+    ],
+    "hasMid": true
   },
   {
     "name": "Whispering Sands",
@@ -10256,7 +12491,13 @@
     "tokenCount": 100,
     "standardThumbsPathsAvailable": true,
     "hasCover": true,
-    "bundledDate": "2026-09-14"
+    "bundledDate": "2026-09-14",
+    "urlPrefix": "https://cdn.lil.org/player/whispering_sands/",
+    "aspectRatio": [
+      1,
+      1
+    ],
+    "hasMid": true
   },
   {
     "name": "Windwoven",
@@ -10271,6 +12512,12 @@
     "tokenCount": 110,
     "standardThumbsPathsAvailable": true,
     "hasCover": true,
-    "bundledDate": "2026-09-14"
+    "bundledDate": "2026-09-14",
+    "urlPrefix": "https://cdn.lil.org/player/windwoven/",
+    "aspectRatio": [
+      3,
+      4
+    ],
+    "hasMid": true
   }
 ]

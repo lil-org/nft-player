@@ -174,3 +174,15 @@ test("rejects noncanonical collection browser column counts", () => {
     /must be 2, 3, or null/u
   );
 });
+
+test("preserves collection token defaults and source file metadata during regeneration", () => {
+  const metadata = {
+    urlPrefix: "https://assets.example/",
+    aspectRatio: [4, 3],
+    hasMid: false,
+    tmp_files: { "1": "original.png" },
+  };
+  const generatedItem = { address: "collection-id", chain: "solana", tokenCount: 2 };
+  assert.deepEqual(mergeGeneratedSuggestedItem(metadata, generatedItem), { ...metadata, ...generatedItem });
+  assert.deepEqual(mergeGeneratedSuggestedItem({}, generatedItem), generatedItem);
+});

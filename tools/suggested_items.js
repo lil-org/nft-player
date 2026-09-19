@@ -31,6 +31,10 @@ const PRESERVED_GENERATED_SUGGESTED_ITEM_FIELDS = [
   "standardThumbsBaseURL",
   "sizedThumbsIndexOffset",
   "script",
+  "urlPrefix",
+  "aspectRatio",
+  "hasMid",
+  "tmp_files",
 ];
 
 function mergeGeneratedSuggestedItem(existingItem, generatedItem) {

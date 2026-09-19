@@ -67,8 +67,6 @@ export async function generateWidgetResources(directory, { check = false } = {})
 }
 
 function widgetTokenPayload(payload) {
-  const urlPrefix = payload.urlPrefix ?? "";
-  let usesPrefix = false;
   const items = payload.items.map((item) => {
     const id = item.id;
     const fileExtension = normalizedFileExtension(item.fileExtension);
@@ -76,7 +74,6 @@ function widgetTokenPayload(payload) {
     if (item.url != null) {
       mediaSource = { url: item.url };
     } else if (item.urlSuffix != null) {
-      usesPrefix = true;
       mediaSource = { urlSuffix: item.urlSuffix };
     } else if (item.sh != null) {
       mediaSource = { sh: item.sh };
@@ -87,10 +84,7 @@ function widgetTokenPayload(payload) {
       ...(fileExtension != null ? { fileExtension } : {}),
     };
   });
-  return {
-    ...(usesPrefix ? { urlPrefix } : {}),
-    items,
-  };
+  return { items };
 }
 
 function normalizedFileExtension(value) {

@@ -159,16 +159,15 @@ test("Solana bundling preserves media hints without reparsing source URLs", asyn
     });
     assert.equal(result.status, 0, result.stderr);
     const payload = JSON.parse(await fs.readFile(path.join(directory, "Tokens", "planet_peppa.json"), "utf8"));
-    assert.equal(payload.urlPrefix, prefix);
-    assert.equal(Object.hasOwn(payload, "urlPrefixes"), false);
-    assert.equal(Object.hasOwn(payload, "defaultFileExtension"), false);
-    assert.equal(Object.hasOwn(payload, "isComplete"), false);
+    const [item] = JSON.parse(await fs.readFile(path.join(directory, "items.json"), "utf8"));
+    assert.equal(item.urlPrefix, prefix);
+    assert.deepEqual(Object.keys(payload), ["items"]);
     assert.deepEqual(payload.items, urls.map((url, index) => ({ id: tokenIds[index], urlSuffix: url.slice(prefix.length), fileExtension: "png" })));
-    assert.deepEqual(payload.items.map((row) => payload.urlPrefix + row.urlSuffix), urls);
+    assert.deepEqual(payload.items.map((row) => item.urlPrefix + row.urlSuffix), urls);
   }
 });
 
-test("apply preserves explicit mid availability and leaves legacy manifests unset", async () => {
+test("apply preserves collection metadata and leaves absent mid availability unset", async () => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "nft-player-solana-bundle-"));
   const collectionId = "9irtKRLZkY4MjFFQNZPX3o6ZTszfR8kXFJXPBUvEDo9v";
   const tokenId = "BQGjKNV22ZD8AaEFZXNftV7xn3LrGbujfNQXCjQSBnhW";
@@ -194,27 +193,39 @@ test("apply preserves explicit mid availability and leaves legacy manifests unse
 
     for (const hasMid of [false, true, undefined, null]) {
       const original = {
-        hasMid,
-        urlPrefix: "https://cdn.lil.org/player/planet_peppa/",
         items: [{ id: tokenId, urlSuffix: "0.webp", fileExtension: "webp" }],
-        aspectRatio: [1, 1],
       };
+      await fs.writeFile(path.join(directory, "items.json"), JSON.stringify([{
+        address: collectionId,
+        chain: "solana",
+        name: "Planet Peppa",
+        internal_slug: "planet_peppa",
+        hasMid,
+        urlPrefix: "https://old.example/",
+        aspectRatio: [1, 1],
+      }]));
       await fs.writeFile(tokenPath, JSON.stringify(original));
 
       const result = runBundler(collectionId, options);
       assert.equal(result.status, 0, result.stderr);
       const updated = JSON.parse(await fs.readFile(tokenPath, "utf8"));
-      assert.equal(Object.hasOwn(updated, "hasMid"), typeof hasMid === "boolean");
-      assert.equal(updated.hasMid, typeof hasMid === "boolean" ? hasMid : undefined);
+      const [item] = JSON.parse(await fs.readFile(path.join(directory, "items.json"), "utf8"));
+      assert.deepEqual(Object.keys(updated), ["items"]);
+      assert.equal(Object.hasOwn(item, "hasMid"), typeof hasMid === "boolean");
+      assert.equal(item.hasMid, typeof hasMid === "boolean" ? hasMid : undefined);
       assert.deepEqual(updated.items, original.items);
-      assert.deepEqual(updated.aspectRatio, original.aspectRatio);
+      assert.deepEqual(item.aspectRatio, [1, 1]);
+      assert.equal(item.urlPrefix, "https://cdn.lil.org/player/planet_peppa/");
     }
 
     await fs.unlink(tokenPath);
     const result = runBundler(collectionId, options);
     assert.equal(result.status, 0, result.stderr);
     const created = JSON.parse(await fs.readFile(tokenPath, "utf8"));
-    assert.equal(Object.hasOwn(created, "hasMid"), false);
+    assert.deepEqual(Object.keys(created), ["items"]);
+    const [item] = JSON.parse(await fs.readFile(path.join(directory, "items.json"), "utf8"));
+    assert.equal(Object.hasOwn(item, "hasMid"), false);
+    assert.equal(Object.hasOwn(item, "aspectRatio"), false);
   } finally {
     await fs.rm(directory, { recursive: true, force: true });
   }

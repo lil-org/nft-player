@@ -1,10 +1,4 @@
 {
-  "hasMid": true,
-  "urlPrefix": "https://cdn.lil.org/player/the_colors_that_heal/",
-  "aspectRatio": [
-    3,
-    4
-  ],
   "items": [
     {
       "id": "0",

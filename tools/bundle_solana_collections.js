@@ -11,18 +11,12 @@ const {
   writePlaceholderCover,
 } = require("./cover_images");
 const {
-  applyIOSCollectionBrowserColumnCounts,
   assignInternalSlugs,
   suggestedItemForCollection,
   suggestedItemResourceName,
   mergeGeneratedSuggestedItem,
 } = require("./suggested_items");
-const {
-  preserveAspectRatioMetadataFromFile,
-  reportAspectRatioMetadataChanges,
-} = require("./aspect_ratios");
-const { preserveTmpFilesFromFile, reportTmpFilesChanges } = require("./tmp_files");
-const { preserveMidAvailabilityFromFile } = require("./token_manifest_metadata");
+const { preserveTokenMetadataFromFile } = require("./token_manifest_metadata");
 const { commonURLDirectoryPrefix } = require("./token_url_prefix");
 
 const DEFAULT_BUNDLE_PATH = path.join("Suggested Items", "Suggested.bundle");
@@ -247,7 +241,7 @@ async function main() {
     console.log(`Fetching ${input}${input === canonicalId ? "" : ` -> ${canonicalId}`}`);
     const result = await fetchCollectionBundle(input, canonicalId, context);
     collectionResults.push(result);
-    console.log(`  ${result.name}: ${result.tokens.length} tokens, URL prefix ${JSON.stringify(result.tokenPayload.urlPrefix)}`);
+    console.log(`  ${result.name}: ${result.tokens.length} tokens, URL prefix ${JSON.stringify(result.urlPrefix)}`);
   }
 
   const existingItems = JSON.parse(await fs.readFile(path.join(options.bundlePath, "items.json"), "utf8"));
@@ -387,18 +381,8 @@ async function fetchCollectionBundle(input, canonicalId, context) {
     throw new Error(`No app-supported image, GIF, or MP4 media found for ${collectionId} (${name}).`);
   }
 
-  const tokenPayload = buildTokenPayload(preparedTokens.tokens, {
-    input,
-    collectionId,
-    name,
-    resolvedFromToken,
-    totalFromHelius: firstPage.total ?? null,
-    assetsSeen: assets.length,
-    duplicateFileURLItems: preparedTokens.mediaReview.duplicateFileURLItems,
-    unsupportedMedia: preparedTokens.mediaReview.unsupportedItems,
-    mediaDecisionItems: preparedTokens.mediaReview.decisionItems,
-    missingMediaItems: preparedTokens.mediaReview.missingMediaItems,
-  });
+  const urlPrefix = commonURLDirectoryPrefix(preparedTokens.tokens.map((token) => token.media.url));
+  const tokenPayload = buildTokenPayload(preparedTokens.tokens, urlPrefix);
 
   const tokenCoverUrls = preparedTokens.tokens.flatMap((token) => token.coverUrls);
   return {
@@ -412,6 +396,7 @@ async function fetchCollectionBundle(input, canonicalId, context) {
     assetsSeen: assets.length,
     tokens: preparedTokens.tokens,
     tokenPayload,
+    urlPrefix,
     mediaReview: preparedTokens.mediaReview,
     cover: {
       sourceUrl: normalizeAssetUrl(collectionMetadata?.image)
@@ -962,35 +947,13 @@ function naturalCompare(left, right) {
   return String(left).localeCompare(String(right), undefined, { numeric: true, sensitivity: "base" });
 }
 
-function buildTokenPayload(tokens, metadata) {
-  const urls = tokens.map((token) => token.media.url);
-  const urlPrefix = commonURLDirectoryPrefix(urls);
-
+function buildTokenPayload(tokens, urlPrefix) {
   return {
-    urlPrefix,
-    items: tokens.map((token) => {
-      return {
-        id: token.id,
-        urlSuffix: token.media.url.slice(urlPrefix.length),
-        fileExtension: token.media.extension,
-      };
-    }),
-    _solanaBundler: {
-      generatedAt: new Date().toISOString(),
-      input: metadata.input,
-      collectionId: metadata.collectionId,
-      name: metadata.name,
-      resolvedFromToken: metadata.resolvedFromToken,
-      totalFromHelius: metadata.totalFromHelius,
-      assetsSeen: metadata.assetsSeen,
-      tokenCount: tokens.length,
-      mediaReview: {
-        decisionItems: metadata.mediaDecisionItems,
-        duplicateFileURLItemCount: metadata.duplicateFileURLItems.length,
-        unsupportedItems: metadata.unsupportedMedia,
-        missingMediaItems: metadata.missingMediaItems,
-      },
-    },
+    items: tokens.map((token) => ({
+      id: token.id,
+      urlSuffix: token.media.url.slice(urlPrefix.length),
+      fileExtension: token.media.extension,
+    })),
   };
 }
 
@@ -1005,27 +968,23 @@ async function writeBundle(collections, context, updatedItems) {
   await fs.mkdir(tokensPath, { recursive: true });
   await fs.mkdir(path.dirname(options.reportPath), { recursive: true });
 
-  const collectionBrowserColumnCounts = new Map();
+  const collectionItems = new Map();
+  const tokenOutputs = [];
   for (const collection of collections) {
     const outputPath = path.join(tokensPath, `${suggestedItemResourceName(collection)}.json`);
-    const tmpFilesResult = await preserveTmpFilesFromFile(outputPath, collection.tokenPayload);
-    reportTmpFilesChanges(collection.collectionId, tmpFilesResult.report);
-    const aspectRatioResult = await preserveAspectRatioMetadataFromFile(outputPath, tmpFilesResult.payload);
-    reportAspectRatioMetadataChanges(collection.collectionId, aspectRatioResult.report);
-    const payload = await preserveMidAvailabilityFromFile(outputPath, aspectRatioResult.payload);
-    collectionBrowserColumnCounts.set(
-      collection.collectionId,
-      aspectRatioResult.collectionBrowserColumnCount
-    );
-    await fs.writeFile(outputPath, `${JSON.stringify(payload)}\n`);
+    const item = suggestedItemForCollection(updatedItems, collection.collectionId, "solana");
+    const result = await preserveTokenMetadataFromFile(outputPath, collection.tokenPayload, item);
+    collectionItems.set(item.internal_slug, { ...result.collectionItem, urlPrefix: collection.urlPrefix });
+    tokenOutputs.push({ outputPath, content: `${JSON.stringify(result.payload)}\n` });
   }
-
-  await fs.writeFile(
-    itemsPath,
-    formatSuggestedItems(
-      applyIOSCollectionBrowserColumnCounts(updatedItems, collectionBrowserColumnCounts)
-    )
+  const itemsContent = formatSuggestedItems(
+    updatedItems.map((item) => collectionItems.get(item.internal_slug) ?? item)
   );
+
+  for (const { outputPath, content } of tokenOutputs) {
+    await fs.writeFile(outputPath, content);
+  }
+  await fs.writeFile(itemsPath, itemsContent);
 
   if (!options.skipCovers) {
     await writeCovers(collections, context);

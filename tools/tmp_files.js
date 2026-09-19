@@ -1,4 +1,3 @@
-const fs = require("node:fs/promises");
 const path = require("node:path");
 
 function isPlainObject(value) {
@@ -37,18 +36,18 @@ function tokenIdsFromPayload(payload) {
   return ids;
 }
 
-function preserveTmpFiles(existingPayload, nextPayload) {
+function preserveTmpFiles(existingCollection, nextPayload) {
   const payload = { ...nextPayload };
   delete payload.tmp_files;
 
   const report = {
-    sourceExists: true,
+    sourceExists: existingCollection != null,
     preservedIds: [],
     staleIds: [],
     invalidIds: [],
     invalidMap: false,
   };
-  const existingTmpFiles = existingPayload?.tmp_files;
+  const existingTmpFiles = existingCollection?.tmp_files;
   if (existingTmpFiles == null) {
     return { payload, report };
   }
@@ -81,21 +80,6 @@ function preserveTmpFiles(existingPayload, nextPayload) {
   return { payload, report };
 }
 
-async function preserveTmpFilesFromFile(filePath, nextPayload) {
-  let existingPayload;
-  try {
-    existingPayload = JSON.parse(await fs.readFile(filePath, "utf8"));
-  } catch (error) {
-    if (error?.code === "ENOENT") {
-      const result = preserveTmpFiles(null, nextPayload);
-      result.report.sourceExists = false;
-      return result;
-    }
-    throw error;
-  }
-  return preserveTmpFiles(existingPayload, nextPayload);
-}
-
 function reportTmpFilesChanges(collectionId, report, logger = console) {
   if (report.invalidMap) {
     logger.warn(`Ignored invalid tmp_files map while rebundling ${collectionId}.`);
@@ -115,7 +99,6 @@ function reportTmpFilesChanges(collectionId, report, logger = console) {
 module.exports = {
   isValidTmpFileName,
   preserveTmpFiles,
-  preserveTmpFilesFromFile,
   reportTmpFilesChanges,
   tokenIdsFromPayload,
 };

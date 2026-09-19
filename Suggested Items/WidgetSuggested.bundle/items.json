@@ -15,7 +15,12 @@
       "kind": "p5js100",
       "expectedByteCount": 13911,
       "sha256": "df11271ee0703061323471035a0360a08ff7624482568aba043414da04c1e45d"
-    }
+    },
+    "urlPrefix": "https://cdn.lil.org/player/archetype/",
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "abId": "159",
@@ -29,6 +34,11 @@
     "internal_slug": "fragments_of_an_infinite_field",
     "artists": [
       "monica_rizzolli"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/fragments_of_an_infinite_field/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -47,7 +57,12 @@
       "kind": "three",
       "expectedByteCount": 7067,
       "sha256": "9c97f9188f563450e22eda2cf9deb5aaa4332d6fca5a5c6fdbfc4e1c9840a843"
-    }
+    },
+    "urlPrefix": "https://cdn.lil.org/player/the_eternal_pump/",
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x46ac8540d698167fcbb9e846511beb8cf8af9bd8",
@@ -60,6 +75,11 @@
     "internal_slug": "math_art",
     "artists": [
       "herbert_w_franke"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/math_art/",
+    "aspectRatio": [
+      84,
+      85
     ]
   },
   {
@@ -74,7 +94,12 @@
     "artists": [
       "rumi_ando"
     ],
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "urlPrefix": "https://cdn.lil.org/player/tokyo_nude/",
+    "aspectRatio": [
+      650,
+      433
+    ]
   },
   {
     "address": "0x17abd4cc1382397ec2b675f98621c3ba809897de",
@@ -87,7 +112,12 @@
     "artists": [
       "supermetal_bosch"
     ],
-    "iosCollectionBrowserColumnCount": 3
+    "iosCollectionBrowserColumnCount": 3,
+    "urlPrefix": "https://cdn.lil.org/nft/smm2/",
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x32d6ba9aa1b06fbcaeb3f6c5ff05cd6a77dcf387",
@@ -99,6 +129,11 @@
     "internal_slug": "super_sofubi",
     "artists": [
       "supermetal_bosch"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/super_sofubi/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -111,6 +146,11 @@
     "internal_slug": "very_internet_printout",
     "artists": [
       "elle"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/very_internet_printout/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -121,7 +161,12 @@
     "tokenCount": 545,
     "standardThumbsPathsAvailable": true,
     "internal_slug": "gushies",
-    "artists": []
+    "artists": [],
+    "urlPrefix": "https://cdn.lil.org/player/gushies/",
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x1d2550d198197df1a10af515cf2ea0d790889b93",
@@ -134,6 +179,11 @@
     "internal_slug": "babes",
     "artists": [
       "petra_voice"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/babes/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -146,6 +196,11 @@
     "internal_slug": "tojiba_disc_buddies",
     "artists": [
       "tojiba"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/tojiba_disc_buddies/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -156,7 +211,12 @@
     "tokenCount": 1499,
     "standardThumbsPathsAvailable": true,
     "internal_slug": "bricks",
-    "artists": []
+    "artists": [],
+    "urlPrefix": "https://cdn.lil.org/player/bricks/",
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "5AVocDEamuwaZf3bXP6tcg52w7cgBvMNJAYvG9rmouCh",
@@ -169,7 +229,12 @@
     "artists": [
       "jim_spindle"
     ],
-    "iosCollectionBrowserColumnCount": 2
+    "iosCollectionBrowserColumnCount": 2,
+    "urlPrefix": "https://cdn.lil.org/player/little_fellow/",
+    "aspectRatio": [
+      650,
+      591
+    ]
   },
   {
     "address": "JDmZF2EsfWHcq9evTLDfqqUhAHh3zTYMy2rTeEfhx9hy",
@@ -182,6 +247,11 @@
     "artists": [
       "evil_biscuit",
       "parker_ito"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/heavy_liquid_graphic/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -194,6 +264,11 @@
     "internal_slug": "edible_kawaii_demonz",
     "artists": [
       "kikillo"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/edible_kawaii_demonz/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -206,6 +281,11 @@
     "internal_slug": "john",
     "artists": [
       "e9mund"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/john/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -219,7 +299,12 @@
     "artists": [
       "blume_garden"
     ],
-    "iosCollectionBrowserColumnCount": 3
+    "iosCollectionBrowserColumnCount": 3,
+    "urlPrefix": "https://cdn.lil.org/player/blume/",
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "GVQ4Zsd7jLZbVCxq9QsmQySuKekwT1XbMSjGbwt8UtcB",
@@ -231,6 +316,11 @@
     "internal_slug": "flopawrettes",
     "artists": [
       "boredcactus"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/flopawrettes/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -243,6 +333,11 @@
     "internal_slug": "vehicle_wammin",
     "artists": [
       "patrician"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/vehicle_wammin/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -255,6 +350,11 @@
     "internal_slug": "foodiez",
     "artists": [
       "grotto_labs"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/foodiez/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -267,6 +367,11 @@
     "internal_slug": "yeche_lunch",
     "artists": [
       "patrician"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/yeche_lunch/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -279,6 +384,11 @@
     "internal_slug": "little_swag_world",
     "artists": [
       "supermetal_bosch"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/little_swag_world/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -291,6 +401,11 @@
     "internal_slug": "organic_evolution",
     "artists": [
       "supermetal_bosch"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/organic_evolution/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -303,6 +418,11 @@
     "internal_slug": "tojia",
     "artists": [
       "tojiba"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/tojia/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -315,6 +435,11 @@
     "internal_slug": "tojiba_cpu_corp",
     "artists": [
       "tojiba"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/tojiba_cpu_corp/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -327,6 +452,11 @@
     "internal_slug": "the_same_old_gag",
     "artists": [
       "tojiba"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/the_same_old_gag/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -340,6 +470,11 @@
     "internal_slug": "milady_aura2_after_death",
     "artists": [
       "evil_biscuit"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/milady_aura2_after_death/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -353,6 +488,11 @@
     "internal_slug": "tigerbob",
     "artists": [
       "gossamer_rozen"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/tigerbob/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -366,6 +506,11 @@
     "internal_slug": "shishi",
     "artists": [
       "shiro"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/shishi/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -378,6 +523,11 @@
     "internal_slug": "allstarz",
     "artists": [
       "allstarz"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/allstarz/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -388,7 +538,12 @@
     "tokenCount": 1884,
     "standardThumbsPathsAvailable": true,
     "internal_slug": "milady_aura_petz",
-    "artists": []
+    "artists": [],
+    "urlPrefix": "https://cdn.lil.org/player/milady_aura_petz/",
+    "aspectRatio": [
+      1,
+      1
+    ]
   },
   {
     "address": "0x44096d6de5d17020ce0c41d75ce27b33c6d28e1a",
@@ -400,6 +555,11 @@
     "internal_slug": "tubbypxgan",
     "artists": [
       "supermetal_bosch"
+    ],
+    "urlPrefix": "https://cdn.lil.org/player/tubbypxgan/",
+    "aspectRatio": [
+      1,
+      1
     ]
   },
   {
@@ -415,7 +575,13 @@
     "tokenCount": 300,
     "standardThumbsPathsAvailable": true,
     "hasCover": true,
-    "bundledDate": "2026-09-14"
+    "bundledDate": "2026-09-14",
+    "urlPrefix": "https://cdn.lil.org/player/bokeh/",
+    "aspectRatio": [
+      9,
+      16
+    ],
+    "hasMid": true
   },
   {
     "name": "Glass",
@@ -430,7 +596,13 @@
     "tokenCount": 300,
     "standardThumbsPathsAvailable": true,
     "hasCover": true,
-    "bundledDate": "2026-09-14"
+    "bundledDate": "2026-09-14",
+    "urlPrefix": "https://cdn.lil.org/player/glass/",
+    "aspectRatio": [
+      4,
+      5
+    ],
+    "hasMid": true
   },
   {
     "name": "Memory Loss",
@@ -445,7 +617,13 @@
     "tokenCount": 256,
     "standardThumbsPathsAvailable": true,
     "hasCover": true,
-    "bundledDate": "2026-09-14"
+    "bundledDate": "2026-09-14",
+    "urlPrefix": "https://cdn.lil.org/player/memory_loss/",
+    "aspectRatio": [
+      1,
+      1
+    ],
+    "hasMid": true
   },
   {
     "name": "Primavera",
@@ -460,7 +638,13 @@
     "tokenCount": 70,
     "standardThumbsPathsAvailable": true,
     "hasCover": true,
-    "bundledDate": "2026-09-14"
+    "bundledDate": "2026-09-14",
+    "urlPrefix": "https://cdn.lil.org/player/primavera/",
+    "aspectRatio": [
+      9,
+      16
+    ],
+    "hasMid": true
   },
   {
     "name": "Subtraction, Reconfiguration",
@@ -475,7 +659,13 @@
     "tokenCount": 100,
     "standardThumbsPathsAvailable": true,
     "hasCover": true,
-    "bundledDate": "2026-09-14"
+    "bundledDate": "2026-09-14",
+    "urlPrefix": "https://cdn.lil.org/player/subtraction_reconfiguration/",
+    "aspectRatio": [
+      4,
+      5
+    ],
+    "hasMid": true
   },
   {
     "name": "Talim",
@@ -490,7 +680,13 @@
     "tokenCount": 99,
     "standardThumbsPathsAvailable": true,
     "hasCover": true,
-    "bundledDate": "2026-09-14"
+    "bundledDate": "2026-09-14",
+    "urlPrefix": "https://cdn.lil.org/player/talim/",
+    "aspectRatio": [
+      3,
+      4
+    ],
+    "hasMid": true
   },
   {
     "name": "The Colors That Heal",
@@ -505,7 +701,13 @@
     "tokenCount": 142,
     "standardThumbsPathsAvailable": true,
     "hasCover": true,
-    "bundledDate": "2026-09-14"
+    "bundledDate": "2026-09-14",
+    "urlPrefix": "https://cdn.lil.org/player/the_colors_that_heal/",
+    "aspectRatio": [
+      3,
+      4
+    ],
+    "hasMid": true
   },
   {
     "name": "Twos",
@@ -520,7 +722,13 @@
     "tokenCount": 64,
     "standardThumbsPathsAvailable": true,
     "hasCover": true,
-    "bundledDate": "2026-09-14"
+    "bundledDate": "2026-09-14",
+    "urlPrefix": "https://cdn.lil.org/player/twos/",
+    "aspectRatio": [
+      5,
+      6
+    ],
+    "hasMid": true
   },
   {
     "name": "Whispering Sands",
@@ -535,7 +743,13 @@
     "tokenCount": 100,
     "standardThumbsPathsAvailable": true,
     "hasCover": true,
-    "bundledDate": "2026-09-14"
+    "bundledDate": "2026-09-14",
+    "urlPrefix": "https://cdn.lil.org/player/whispering_sands/",
+    "aspectRatio": [
+      1,
+      1
+    ],
+    "hasMid": true
   },
   {
     "name": "Windwoven",
@@ -550,6 +764,12 @@
     "tokenCount": 110,
     "standardThumbsPathsAvailable": true,
     "hasCover": true,
-    "bundledDate": "2026-09-14"
+    "bundledDate": "2026-09-14",
+    "urlPrefix": "https://cdn.lil.org/player/windwoven/",
+    "aspectRatio": [
+      3,
+      4
+    ],
+    "hasMid": true
   }
 ]

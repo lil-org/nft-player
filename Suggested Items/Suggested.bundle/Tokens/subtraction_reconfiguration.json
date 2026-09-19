@@ -1,10 +1,4 @@
 {
-  "hasMid": true,
-  "urlPrefix": "https://cdn.lil.org/player/subtraction_reconfiguration/",
-  "aspectRatio": [
-    4,
-    5
-  ],
   "items": [
     {
       "id": "65000000",

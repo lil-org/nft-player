@@ -157,9 +157,10 @@ nonisolated enum SuggestedItemsService {
     }
     
     static func bundledTokens(collectionId: String) -> BundledTokens? {
-        if let url = bundledTokensURL(collectionId: collectionId),
+        if let collection = scriptItem(collectionId: collectionId),
+           let url = bundledTokensURL(collectionId: collectionId),
            let data = try? Data(contentsOf: url),
-           let bundledTokens = try? JSONDecoder().decode(BundledTokens.self, from: data) {
+           let bundledTokens = try? BundledTokens(data: data, collection: collection) {
             return bundledTokens
         } else {
             return nil

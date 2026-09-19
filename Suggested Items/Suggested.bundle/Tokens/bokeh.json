@@ -1,10 +1,4 @@
 {
-  "hasMid": true,
-  "urlPrefix": "https://cdn.lil.org/player/bokeh/",
-  "aspectRatio": [
-    9,
-    16
-  ],
   "items": [
     {
       "id": "496000000",

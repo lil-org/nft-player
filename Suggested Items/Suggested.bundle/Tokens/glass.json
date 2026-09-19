@@ -1,10 +1,4 @@
 {
-  "hasMid": true,
-  "urlPrefix": "https://cdn.lil.org/player/glass/",
-  "aspectRatio": [
-    4,
-    5
-  ],
   "items": [
     {
       "id": "344000000",

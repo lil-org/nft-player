@@ -1,9 +1,4 @@
 {
-  "urlPrefix": "https://cdn.lil.org/player/car/",
-  "aspectRatio": [
-    325,
-    183
-  ],
   "items": [
     {
       "id": "1",

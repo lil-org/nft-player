@@ -1,10 +1,4 @@
 {
-  "hasMid": true,
-  "urlPrefix": "https://cdn.lil.org/player/twos/",
-  "aspectRatio": [
-    5,
-    6
-  ],
   "items": [
     {
       "id": "469000000",

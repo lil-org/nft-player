@@ -1,9 +1,4 @@
 {
-  "urlPrefix": "https://cdn.lil.org/player/bloomers/",
-  "aspectRatio": [
-    1,
-    1
-  ],
   "items": [
     {
       "id": "1",

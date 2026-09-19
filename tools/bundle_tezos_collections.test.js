@@ -24,18 +24,18 @@ function createFixture(t) {
     name: "Old Collection Name",
     internal_slug: "curated_collection",
     artists: ["curated_artist"],
+    hasMid: false,
+    tmp_files: { "1": "original.png", stale: "stale.png", "2": "../invalid.png" },
+    urlPrefix: "https://old.example/",
+    aspectRatio: [16, 9],
   }]));
   fs.writeFileSync(tokenPath, JSON.stringify({
-    hasMid: false,
     items: [{ id: "2", urlSuffix: "2.png" }, { id: "1", urlSuffix: "1.png", aspectRatio: [4, 3] }],
-    urlPrefix: "https://old.example/",
-    tmp_files: { "1": "original.png" },
-    aspectRatio: [16, 9],
   }));
   return { root, tokensPath, itemsPath, tokenPath };
 }
 
-function runBundler(fixture, apply, urls = ["https://assets.example/1.png", "https://assets.example/2.png"], mime = null) {
+function runBundler(fixture, apply, urls = ["https://assets.example/1.png", "https://assets.example/2.png"], mime = null, contracts = [CONTRACT]) {
   const argv = [
     process.execPath, BUNDLER_PATH,
     "--delay-ms", "0", "--max-retries", "0", "--skip-covers",
@@ -44,7 +44,7 @@ function runBundler(fixture, apply, urls = ["https://assets.example/1.png", "htt
     "--covers", path.join(fixture.root, "covers"),
     "--report", path.join(fixture.root, "report.md"),
     "--json-report", path.join(fixture.root, "report.json"),
-    CONTRACT,
+    ...contracts,
   ];
   const harness = `
 global.fetch = async (input) => {
@@ -79,12 +79,11 @@ test("Tezos bundling reconstructs URLs with one prefix across directories and or
     const result = runBundler(fixture, true, urls);
     assert.equal(result.status, 0, result.stderr);
     const payload = JSON.parse(fs.readFileSync(fixture.tokenPath, "utf8"));
-    assert.equal(payload.urlPrefix, prefix);
-    assert.equal(Object.hasOwn(payload, "urlPrefixes"), false);
-    assert.equal(Object.hasOwn(payload, "defaultFileExtension"), false);
-    assert.equal(Object.hasOwn(payload, "isComplete"), false);
+    const [item] = JSON.parse(fs.readFileSync(fixture.itemsPath, "utf8"));
+    assert.equal(item.urlPrefix, prefix);
+    assert.deepEqual(Object.keys(payload), ["items"]);
     assert.deepEqual(payload.items, urls.map((url, index) => ({ id: String(index + 1), urlSuffix: url.slice(prefix.length), fileExtension: "png", ...(index === 1 ? { aspectRatio: [16, 9] } : {}) })));
-    assert.deepEqual(payload.items.map((row) => payload.urlPrefix + row.urlSuffix), urls);
+    assert.deepEqual(payload.items.map((row) => item.urlPrefix + row.urlSuffix), urls);
   }
 });
 
@@ -99,9 +98,10 @@ test("Tezos bundling preserves media hints without reparsing source URLs", (t) =
     const result = runBundler(fixture, true, urls, mime);
     assert.equal(result.status, 0, result.stderr);
     const payload = JSON.parse(fs.readFileSync(fixture.tokenPath, "utf8"));
-    assert.equal(Object.hasOwn(payload, "defaultFileExtension"), false);
+    const [item] = JSON.parse(fs.readFileSync(fixture.itemsPath, "utf8"));
+    assert.deepEqual(Object.keys(payload), ["items"]);
     assert.deepEqual(payload.items.map((row) => row.fileExtension), extensions);
-    assert.deepEqual(payload.items.map((row) => payload.urlPrefix + row.urlSuffix), urls);
+    assert.deepEqual(payload.items.map((row) => item.urlPrefix + row.urlSuffix), urls);
   }
 });
 
@@ -111,11 +111,12 @@ test("Tezos rebundling preserves curated slugs and token metadata when a name ch
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(fs.readdirSync(fixture.tokensPath), ["curated_collection.json"]);
   const payload = JSON.parse(fs.readFileSync(fixture.tokenPath, "utf8"));
-  assert.equal(payload.hasMid, false);
-  assert.deepEqual(payload.tmp_files, { "1": "original.png" });
-  assert.deepEqual(tokenIdsFromPayload(payload), ["1", "2"]);
-  assert.deepEqual(decodeAspectRatioMetadata(payload), [[4, 3], [16, 9]]);
   const [item] = JSON.parse(fs.readFileSync(fixture.itemsPath, "utf8"));
+  assert.deepEqual(Object.keys(payload), ["items"]);
+  assert.equal(item.hasMid, false);
+  assert.deepEqual(item.tmp_files, { "1": "original.png" });
+  assert.deepEqual(tokenIdsFromPayload(payload), ["1", "2"]);
+  assert.deepEqual(decodeAspectRatioMetadata(payload, item.aspectRatio), [[4, 3], [16, 9]]);
   assert.equal(item.address, CONTRACT);
   assert.equal(item.name, "New Collection Name");
   assert.equal(item.internal_slug, "curated_collection");
@@ -131,4 +132,41 @@ test("Tezos dry-run paths use the preserved catalog slug", (t) => {
   const report = JSON.parse(fs.readFileSync(path.join(fixture.root, "report.json"), "utf8"));
   assert.equal(report.collections[0].cover.assetId, "curated_collection");
   assert.equal(report.collections[0].cover.outputPath, path.join(fixture.root, "covers", "curated_collection.jpg"));
+});
+
+test("Tezos rebundling clears stale defaults when an imported token has no previous ratio", (t) => {
+  const fixture = createFixture(t);
+  fs.writeFileSync(fixture.tokenPath, JSON.stringify({ items: [{ id: "1" }] }));
+  const result = runBundler(fixture, true);
+  assert.equal(result.status, 0, result.stderr);
+  const [item] = JSON.parse(fs.readFileSync(fixture.itemsPath, "utf8"));
+  const payload = JSON.parse(fs.readFileSync(fixture.tokenPath, "utf8"));
+  assert.equal(Object.hasOwn(item, "aspectRatio"), false);
+  assert.equal(Object.hasOwn(item, "iosCollectionBrowserColumnCount"), false);
+  assert.equal(decodeAspectRatioMetadata(payload, item.aspectRatio), null);
+  assert.match(result.stderr, /no existing ratio: 2/u);
+});
+
+test("Tezos validates every collection's metadata before changing token files or catalog defaults", (t) => {
+  const fixture = createFixture(t);
+  const secondContract = "KT1D9bUmPBXK1KgpgaTDjH6yNnBubof1ELzK";
+  const secondTokenPath = path.join(fixture.tokensPath, "second_collection.json");
+  const items = JSON.parse(fs.readFileSync(fixture.itemsPath, "utf8"));
+  items.push({
+    address: secondContract,
+    chain: "tezos",
+    name: "Second Collection",
+    internal_slug: "second_collection",
+    urlPrefix: "https://old.example/",
+    aspectRatio: [0, 1],
+  });
+  fs.writeFileSync(fixture.itemsPath, JSON.stringify(items));
+  fs.writeFileSync(secondTokenPath, JSON.stringify({ items: [{ id: "1" }, { id: "2" }] }));
+  const originalTokens = fs.readFileSync(fixture.tokenPath, "utf8");
+  const originalItems = fs.readFileSync(fixture.itemsPath, "utf8");
+  const result = runBundler(fixture, true, undefined, null, [CONTRACT, secondContract]);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Collection aspectRatio must be/u);
+  assert.equal(fs.readFileSync(fixture.tokenPath, "utf8"), originalTokens);
+  assert.equal(fs.readFileSync(fixture.itemsPath, "utf8"), originalItems);
 });

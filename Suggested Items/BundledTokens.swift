@@ -215,22 +215,16 @@ nonisolated struct BundledTokens: Codable, Sendable {
         }
 
         func encode(to encoder: Encoder) throws {
-            try encode(to: encoder, defaultAspectRatio: nil, urlPrefix: nil)
-        }
-
-        func encode(to encoder: Encoder, defaultAspectRatio: AspectRatio?, urlPrefix: String?) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encode(id, forKey: .id)
             try container.encodeIfPresent(name, forKey: .name)
-            if let urlSuffix, url == nil || urlPrefix.map({ $0 + urlSuffix }) == url {
-                try container.encode(urlSuffix, forKey: .urlSuffix)
+            if let url {
+                try container.encode(url, forKey: .url)
             } else {
-                try container.encodeIfPresent(url, forKey: .url)
+                try container.encodeIfPresent(urlSuffix, forKey: .urlSuffix)
             }
             try container.encodeIfPresent(fileExtension, forKey: .fileExtension)
-            if aspectRatio != defaultAspectRatio {
-                try container.encodeIfPresent(aspectRatio, forKey: .aspectRatio)
-            }
+            try container.encodeIfPresent(aspectRatio, forKey: .aspectRatio)
             try container.encodeIfPresent(sh, forKey: .sh)
             try container.encodeIfPresent(hash, forKey: .hash)
             try container.encodeIfPresent(imageAspectRatio, forKey: .imageAspectRatio)
@@ -239,49 +233,23 @@ nonisolated struct BundledTokens: Codable, Sendable {
         }
     }
 
-    private enum CodingKeys: String, CodingKey {
-        case items
-        case aspectRatio
-        case urlPrefix
-    }
-
     let items: [Item]
-    private let aspectRatio: AspectRatio?
-    private let urlPrefix: String?
 
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        aspectRatio = try container.decodeIfPresent(AspectRatio.self, forKey: .aspectRatio)
-        urlPrefix = try container.decodeIfPresent(String.self, forKey: .urlPrefix)
-        let defaultAspectRatio = aspectRatio
-        let prefix = urlPrefix ?? ""
-        items = try container.decode([Item].self, forKey: .items).map { item in
+    init(data: Data, collection: SuggestedItem) throws {
+        let payload = try JSONDecoder().decode(Self.self, from: data)
+        let prefix = collection.urlPrefix ?? ""
+        items = payload.items.map { item in
             Item(
                 id: item.id,
                 name: item.name,
                 url: item.url ?? item.urlSuffix.map { prefix + $0 },
                 sh: item.sh,
                 hash: item.hash,
-                aspectRatio: item.aspectRatio ?? defaultAspectRatio,
+                aspectRatio: item.aspectRatio ?? collection.aspectRatio,
                 imageAspectRatio: item.imageAspectRatio,
                 referencePixelSize: item.referencePixelSize,
                 contractParameters: item.contractParameters,
-                urlSuffix: item.url == nil ? item.urlSuffix : nil,
                 fileExtension: item.fileExtension
-            )
-        }
-    }
-
-    func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encodeIfPresent(aspectRatio, forKey: .aspectRatio)
-        try container.encodeIfPresent(urlPrefix, forKey: .urlPrefix)
-        var encodedItems = container.nestedUnkeyedContainer(forKey: .items)
-        for item in items {
-            try item.encode(
-                to: encodedItems.superEncoder(),
-                defaultAspectRatio: aspectRatio,
-                urlPrefix: urlPrefix ?? ""
             )
         }
     }

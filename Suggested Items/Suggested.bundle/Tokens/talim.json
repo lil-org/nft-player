@@ -1,10 +1,4 @@
 {
-  "hasMid": true,
-  "urlPrefix": "https://cdn.lil.org/player/talim/",
-  "aspectRatio": [
-    3,
-    4
-  ],
   "items": [
     {
       "id": "233000000",

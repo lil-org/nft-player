@@ -11,18 +11,12 @@ const {
   writePlaceholderCover,
 } = require("./cover_images");
 const {
-  applyIOSCollectionBrowserColumnCounts,
   assignInternalSlugs,
   suggestedItemForCollection,
   suggestedItemResourceName,
   suggestedItemId,
 } = require("./suggested_items");
-const {
-  preserveAspectRatioMetadataFromFile,
-  reportAspectRatioMetadataChanges,
-} = require("./aspect_ratios");
-const { preserveTmpFilesFromFile, reportTmpFilesChanges } = require("./tmp_files");
-const { preserveMidAvailabilityFromFile } = require("./token_manifest_metadata");
+const { preserveTokenMetadataFromFile } = require("./token_manifest_metadata");
 const { commonURLDirectoryPrefix } = require("./token_url_prefix");
 
 const DEFAULT_BUNDLE_PATH = path.join("Suggested Items", "Suggested.bundle");
@@ -274,7 +268,7 @@ async function main() {
     try {
       const result = await fetchCollectionBundle(input, target, context);
       collectionResults.push(result);
-      console.log(`  ${result.name}: ${result.tokens.length} token media row(s), URL prefix ${JSON.stringify(result.tokenPayload.urlPrefix)}`);
+      console.log(`  ${result.name}: ${result.tokens.length} token media row(s), URL prefix ${JSON.stringify(result.urlPrefix)}`);
     } catch (error) {
       if (!options.continueOnError) {
         throw error;
@@ -421,7 +415,8 @@ async function fetchCollectionBundle(input, target, context) {
 
   const collectionId = collectionIdForTarget(target);
   const coverSource = firstCollectionCoverURL(collectionInfo);
-  const tokenPayload = buildTokenPayload(preparedTokens.tokens);
+  const urlPrefix = commonURLDirectoryPrefix(preparedTokens.tokens.map((token) => token.media.url));
+  const tokenPayload = buildTokenPayload(preparedTokens.tokens, urlPrefix);
 
   return {
     input,
@@ -437,6 +432,7 @@ async function fetchCollectionBundle(input, target, context) {
     tokensSeen: tokens.length,
     tokens: preparedTokens.tokens,
     tokenPayload,
+    urlPrefix,
     mediaReview: preparedTokens.mediaReview,
     cover: {
       sourceUrl: coverSource?.url ?? null,
@@ -1275,19 +1271,13 @@ function normalizedNameKey(value) {
     .toLowerCase();
 }
 
-function buildTokenPayload(tokens) {
-  const urls = tokens.map((token) => token.media.url);
-  const urlPrefix = commonURLDirectoryPrefix(urls);
-
+function buildTokenPayload(tokens, urlPrefix) {
   return {
-    urlPrefix,
-    items: tokens.map((token) => {
-      return {
-        id: token.id,
-        urlSuffix: token.media.url.slice(urlPrefix.length),
-        fileExtension: token.media.extension,
-      };
-    }),
+    items: tokens.map((token) => ({
+      id: token.id,
+      urlSuffix: token.media.url.slice(urlPrefix.length),
+      fileExtension: token.media.extension,
+    })),
   };
 }
 
@@ -1297,10 +1287,6 @@ async function writeBundle(collections, context, updatedItems, failedCollections
   const tokensPath = path.join(bundlePath, "Tokens");
   const itemsPath = path.join(bundlePath, "items.json");
 
-  const persistedCollectionIds = new Map(collections.map((collection) => [
-    collection,
-    canonicalPersistedCollectionId(collection, updatedItems),
-  ]));
   assertUniqueCoverAssetIds(collections, { caseInsensitive: true });
   const existingTokenManifestNames = await directoryNamesIfExists(tokensPath);
   const tokenManifestPaths = new Map(collections.map((collection) => [
@@ -1316,27 +1302,23 @@ async function writeBundle(collections, context, updatedItems, failedCollections
     : await coverArtifactsForCollections(collections, options.coversPath);
 
   await fs.mkdir(tokensPath, { recursive: true });
-  const collectionBrowserColumnCounts = new Map();
+  const collectionItems = new Map();
+  const tokenOutputs = [];
   for (const collection of collections) {
     const outputPath = tokenManifestPaths.get(collection);
-    const tmpFilesResult = await preserveTmpFilesFromFile(outputPath, collection.tokenPayload);
-    reportTmpFilesChanges(collection.collectionId, tmpFilesResult.report);
-    const aspectRatioResult = await preserveAspectRatioMetadataFromFile(outputPath, tmpFilesResult.payload);
-    reportAspectRatioMetadataChanges(collection.collectionId, aspectRatioResult.report);
-    const payload = await preserveMidAvailabilityFromFile(outputPath, aspectRatioResult.payload);
-    collectionBrowserColumnCounts.set(
-      persistedCollectionIds.get(collection),
-      aspectRatioResult.collectionBrowserColumnCount
-    );
-    await fs.writeFile(outputPath, `${JSON.stringify(payload)}\n`);
+    const item = suggestedItemForCollection(updatedItems, collection.collectionId, collection.appChain);
+    const result = await preserveTokenMetadataFromFile(outputPath, collection.tokenPayload, item);
+    collectionItems.set(item.internal_slug, { ...result.collectionItem, urlPrefix: collection.urlPrefix });
+    tokenOutputs.push({ outputPath, content: `${JSON.stringify(result.payload)}\n` });
   }
-
-  await fs.writeFile(
-    itemsPath,
-    formatSuggestedItems(
-      applyIOSCollectionBrowserColumnCounts(updatedItems, collectionBrowserColumnCounts)
-    )
+  const itemsContent = formatSuggestedItems(
+    updatedItems.map((item) => collectionItems.get(item.internal_slug) ?? item)
   );
+
+  for (const { outputPath, content } of tokenOutputs) {
+    await fs.writeFile(outputPath, content);
+  }
+  await fs.writeFile(itemsPath, itemsContent);
 
   if (!options.skipCovers) {
     await writeCovers(collections, context, coverArtifacts);
@@ -1375,10 +1357,6 @@ function assertCaseExactArtifactName(expectedName, existingNames, label) {
       + `but found ${caseInsensitiveMatches[0]}`
     );
   }
-}
-
-function canonicalPersistedCollectionId(collection, items) {
-  return suggestedItemId(suggestedItemForCollection(items, collection.collectionId, collection.appChain));
 }
 
 function mergeSuggestedItems(existingItems, collections) {

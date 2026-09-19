@@ -209,7 +209,7 @@ extension ArtBlocksRenderingStartupTests {
         let tokensURL = try XCTUnwrap(SuggestedItemsService.bundledTokensURL(collectionId: id))
         let source = try Data(contentsOf: scriptURL), tokenData = try Data(contentsOf: tokensURL)
         let script = try XCTUnwrap(JavaScriptLibraryFixtures.script(collectionId: id))
-        let tokens = try JSONDecoder().decode(BundledTokens.self, from: tokenData).items
+        let tokens = try BundledTokens(data: tokenData, collection: XCTUnwrap(SuggestedItemsService.scriptItem(collectionId: id))).items
         let profile = try XCTUnwrap(ArtBlocksRenderingStartupProfiles.startupProfile(script))
         let expectsCycle = ArtBlocksRenderingStartupProfiles.afterArtist(script).contains("timeline_mode = true;")
         XCTAssertTrue(expectsCycle)
@@ -449,7 +449,7 @@ extension ArtBlocksRenderingStartupTests {
         let id = "0x47a91457a3a1f700097199fd63c039c4784384ab3"
         let tokensURL = try XCTUnwrap(SuggestedItemsService.bundledTokensURL(collectionId: id))
         let script = try XCTUnwrap(JavaScriptLibraryFixtures.script(collectionId: id))
-        let tokens = try JSONDecoder().decode(BundledTokens.self, from: Data(contentsOf: tokensURL)).items
+        let tokens = try BundledTokens(data: Data(contentsOf: tokensURL), collection: XCTUnwrap(SuggestedItemsService.scriptItem(collectionId: id))).items
         AutoReloadingWebView.resetStartupCalibrationsForTesting()
         let fixture = try StartupFixture(size: CGSize(width: 300, height: 300))
         let probe = StartupReadinessProbe()
@@ -518,7 +518,7 @@ extension ArtBlocksRenderingStartupTests {
             let tokensURL = try XCTUnwrap(SuggestedItemsService.bundledTokensURL(collectionId: item.id))
             let source = try Data(contentsOf: scriptURL), tokenData = try Data(contentsOf: tokensURL)
             let script = try XCTUnwrap(JavaScriptLibraryFixtures.script(collectionId: item.id))
-            let token = try XCTUnwrap(JSONDecoder().decode(BundledTokens.self, from: tokenData).items.first)
+            let token = try XCTUnwrap(BundledTokens(data: tokenData, collection: item).items.first)
             let ratio = try XCTUnwrap(token.aspectRatio)
             let profile = try XCTUnwrap(ArtBlocksRenderingStartupProfiles.startupProfile(script))
             let size = CGSize(width: 300, height: 300 / ratio.value)
@@ -585,7 +585,7 @@ extension ArtBlocksRenderingStartupTests {
             let tokensURL = try XCTUnwrap(SuggestedItemsService.bundledTokensURL(collectionId: id))
             let source = try Data(contentsOf: scriptURL), tokenData = try Data(contentsOf: tokensURL)
             let script = try XCTUnwrap(JavaScriptLibraryFixtures.script(collectionId: id))
-            let token = try XCTUnwrap(JSONDecoder().decode(BundledTokens.self, from: tokenData).items.first)
+            let token = try XCTUnwrap(BundledTokens(data: tokenData, collection: XCTUnwrap(SuggestedItemsService.scriptItem(collectionId: id))).items.first)
             let ratio = try XCTUnwrap(token.aspectRatio)
             let profile = try XCTUnwrap(ArtBlocksRenderingStartupProfiles.startupProfile(script))
             let size = CGSize(width: 300, height: 300 / ratio.value)
@@ -636,7 +636,7 @@ extension ArtBlocksRenderingStartupTests {
         let id = "0x47a91457a3a1f700097199fd63c039c4784384ab3"
         let tokensURL = try XCTUnwrap(SuggestedItemsService.bundledTokensURL(collectionId: id))
         let script = try XCTUnwrap(JavaScriptLibraryFixtures.script(collectionId: id))
-        let token = try XCTUnwrap(JSONDecoder().decode(BundledTokens.self, from: Data(contentsOf: tokensURL)).items.first)
+        let token = try XCTUnwrap(BundledTokens(data: Data(contentsOf: tokensURL), collection: XCTUnwrap(SuggestedItemsService.scriptItem(collectionId: id))).items.first)
         let fixture = try StartupFixture(size: CGSize(width: 300, height: 300))
         defer { fixture.close() }
         fixture.webView.startupTimeoutForTesting = .seconds(1)
@@ -656,7 +656,7 @@ extension ArtBlocksRenderingStartupTests {
         let id = "0x47a91457a3a1f700097199fd63c039c4784384ab3"
         let tokensURL = try XCTUnwrap(SuggestedItemsService.bundledTokensURL(collectionId: id))
         let script = try XCTUnwrap(JavaScriptLibraryFixtures.script(collectionId: id))
-        let token = try XCTUnwrap(JSONDecoder().decode(BundledTokens.self, from: Data(contentsOf: tokensURL)).items.first)
+        let token = try XCTUnwrap(BundledTokens(data: Data(contentsOf: tokensURL), collection: XCTUnwrap(SuggestedItemsService.scriptItem(collectionId: id))).items.first)
         let fixture = try StartupFixture(size: CGSize(width: 300, height: 300))
         defer { fixture.close() }
         fixture.webView.startupTimeoutForTesting = .seconds(2)
@@ -754,7 +754,7 @@ extension ArtBlocksRenderingStartupTests {
         let originalSource = try Data(contentsOf: scriptURL)
         let originalTokens = try Data(contentsOf: tokenURL)
         let script = try XCTUnwrap(JavaScriptLibraryFixtures.script(collectionId: collectionId))
-        let allTokens = try JSONDecoder().decode(BundledTokens.self, from: originalTokens).items
+        let allTokens = try BundledTokens(data: originalTokens, collection: XCTUnwrap(SuggestedItemsService.scriptItem(collectionId: collectionId))).items
         XCTAssertGreaterThan(allTokens.count, 23)
         guard allTokens.count > 23 else { return }
         let reviewedTokenIDs = (0..<23).map { String(231_000_000 + $0) }
@@ -815,7 +815,7 @@ extension ArtBlocksRenderingStartupTests {
         let collectionId = "0x47a91457a3a1f700097199fd63c039c4784384ab3"
         let tokenURL = try XCTUnwrap(SuggestedItemsService.bundledTokensURL(collectionId: collectionId))
         let script = try XCTUnwrap(JavaScriptLibraryFixtures.script(collectionId: collectionId))
-        let token = try XCTUnwrap(JSONDecoder().decode(BundledTokens.self, from: Data(contentsOf: tokenURL)).items.first)
+        let token = try XCTUnwrap(BundledTokens(data: Data(contentsOf: tokenURL), collection: XCTUnwrap(SuggestedItemsService.scriptItem(collectionId: collectionId))).items.first)
         let profile = try XCTUnwrap(ArtBlocksRenderingStartupProfiles.startupProfile(script))
         let size = CGSize(width: 300, height: 300)
         AutoReloadingWebView.resetStartupCalibrationsForTesting()
@@ -862,7 +862,7 @@ extension ArtBlocksRenderingStartupTests {
         let originalSource = try Data(contentsOf: scriptURL)
         let originalTokens = try Data(contentsOf: tokenURL)
         let script = try XCTUnwrap(JavaScriptLibraryFixtures.script(collectionId: collectionId))
-        let tokens = try JSONDecoder().decode(BundledTokens.self, from: originalTokens).items
+        let tokens = try BundledTokens(data: originalTokens, collection: XCTUnwrap(SuggestedItemsService.scriptItem(collectionId: collectionId))).items
         XCTAssertEqual(script.id, collectionId)
         XCTAssertEqual(script.name, name)
         let profile = try XCTUnwrap(ArtBlocksRenderingStartupProfiles.startupProfile(script))
