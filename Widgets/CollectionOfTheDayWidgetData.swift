@@ -265,7 +265,7 @@ nonisolated enum CollectionOfTheDayWidgetData {
         let imageReferences: [WidgetStaticImageReference]
         if let payload = tokenPayload(collection: collection) {
             imageReferences = payload.items.compactMap { item in
-                item.staticImageReference(collection: collection, defaultFileExtension: payload.defaultFileExtension)
+                item.staticImageReference(collection: collection)
             }
         } else {
             imageReferences = []
@@ -449,20 +449,15 @@ nonisolated private enum WidgetMediaFileExtension {
 }
 
 nonisolated private struct WidgetTokenPayload: Decodable, Sendable {
-    let defaultFileExtension: String?
     let items: [WidgetTokenItem]
 
     enum CodingKeys: String, CodingKey {
-        case defaultFileExtension
         case items
         case urlPrefix
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        defaultFileExtension = WidgetMediaFileExtension.normalized(
-            try container.decodeIfPresent(String.self, forKey: .defaultFileExtension)
-        )
         let urlPrefix = try container.decodeIfPresent(String.self, forKey: .urlPrefix) ?? ""
 
         items = try container.decode([WidgetTokenItem].self, forKey: .items).map { item in
@@ -483,10 +478,10 @@ nonisolated private struct WidgetTokenItem: Decodable, Hashable, Sendable {
     let sh: String?
     let fileExtension: String?
 
-    func staticImageReference(collection: WidgetCollection, defaultFileExtension: String?) -> WidgetStaticImageReference? {
+    func staticImageReference(collection: WidgetCollection) -> WidgetStaticImageReference? {
         guard let urlString = resolvedURLString(collection: collection),
               let url = URL(string: urlString),
-              let fileExtension = resolvedFileExtension(urlString: urlString, defaultFileExtension: defaultFileExtension),
+              let fileExtension = resolvedFileExtension(urlString: urlString),
               WidgetMediaFileExtension.isStaticImage(fileExtension) else {
             return nil
         }
@@ -506,9 +501,8 @@ nonisolated private struct WidgetTokenItem: Decodable, Hashable, Sendable {
         return nil
     }
 
-    private func resolvedFileExtension(urlString: String, defaultFileExtension: String?) -> String? {
+    private func resolvedFileExtension(urlString: String) -> String? {
         WidgetMediaFileExtension.explicitPathExtension(in: urlString)
             ?? WidgetMediaFileExtension.normalized(fileExtension)
-            ?? defaultFileExtension
     }
 }

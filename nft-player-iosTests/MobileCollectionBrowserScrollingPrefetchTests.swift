@@ -1346,7 +1346,6 @@ extension MobileCollectionBrowserGridModePresentationTests {
                 let data = Data("""
                     {
                         \(entry.field)
-                        "defaultFileExtension": "webp",
                         "urlPrefix": "https://example.com/",
                         "aspectRatio": [1, 1],
                         "items": \(items)
@@ -1359,7 +1358,6 @@ extension MobileCollectionBrowserGridModePresentationTests {
                 let token = try XCTUnwrap(payload.items.first)
 
                 XCTAssertEqual(payload.hasMid, entry.expected)
-                XCTAssertEqual(payload.defaultFileExtension, "webp")
                 XCTAssertEqual(payload.items.count, 1)
                 XCTAssertEqual(token.id, "unminted-1502")
                 XCTAssertEqual(token.url, "https://example.com/1502.webp")

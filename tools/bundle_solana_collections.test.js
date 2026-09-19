@@ -129,12 +129,16 @@ test("continues resolving known token aliases to their canonical collection ID",
   assert.doesNotMatch(result.stderr, /uses a curated native cdn\.lil\.org renderer/u);
 });
 
-test("Solana bundling reconstructs URLs with one prefix across directories and origins", async (t) => {
+test("Solana bundling preserves media hints without reparsing source URLs", async (t) => {
   const tokenIds = ["BQGjKNV22ZD8AaEFZXNftV7xn3LrGbujfNQXCjQSBnhW", "EazEpagtyeRAx9npnpVMpygoA8ouX7DRpLTghhPvYTiu"];
   for (const [urls, prefix] of [
     [["https://assets.example/art/1.png", "https://assets.example/art/2.png"], "https://assets.example/art/"],
     [["https://assets.example/art/one/1.png", "https://assets.example/art/two/2.png"], "https://assets.example/art/"],
     [["https://assets.example/1.png", "https://other.example/2.png"], ""],
+    [["https://assets.example/1", "https://assets.example/2"], "https://assets.example/"],
+    [["https://assets.example/1?ext=png", "https://assets.example/2?ext=png"], "https://assets.example/"],
+    [["https://assets.example/1.png", "https://assets.example/collection.v1%2F42"], "https://assets.example/"],
+    [["https://assets.example/1.png", "https://bad host.example/42.png"], ""],
   ]) {
     const directory = await fs.mkdtemp(path.join(os.tmpdir(), "nft-player-solana-prefix-"));
     t.after(() => fs.rm(directory, { recursive: true, force: true }));
@@ -157,7 +161,9 @@ test("Solana bundling reconstructs URLs with one prefix across directories and o
     const payload = JSON.parse(await fs.readFile(path.join(directory, "Tokens", "planet_peppa.json"), "utf8"));
     assert.equal(payload.urlPrefix, prefix);
     assert.equal(Object.hasOwn(payload, "urlPrefixes"), false);
-    assert.deepEqual(payload.items, urls.map((url, index) => ({ id: tokenIds[index], urlSuffix: url.slice(prefix.length) })));
+    assert.equal(Object.hasOwn(payload, "defaultFileExtension"), false);
+    assert.equal(Object.hasOwn(payload, "isComplete"), false);
+    assert.deepEqual(payload.items, urls.map((url, index) => ({ id: tokenIds[index], urlSuffix: url.slice(prefix.length), fileExtension: "png" })));
     assert.deepEqual(payload.items.map((row) => payload.urlPrefix + row.urlSuffix), urls);
   }
 });
@@ -189,9 +195,8 @@ test("apply preserves explicit mid availability and leaves legacy manifests unse
     for (const hasMid of [false, true, undefined, null]) {
       const original = {
         hasMid,
-        defaultFileExtension: "webp",
         urlPrefix: "https://cdn.lil.org/player/planet_peppa/",
-        items: [{ id: tokenId, urlSuffix: "0.webp" }],
+        items: [{ id: tokenId, urlSuffix: "0.webp", fileExtension: "webp" }],
         aspectRatio: [1, 1],
       };
       await fs.writeFile(tokenPath, JSON.stringify(original));

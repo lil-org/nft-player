@@ -49,7 +49,7 @@ export async function generateWidgetResources(directory, { check = false } = {})
       continue;
     }
     const source = await fs.readFile(tokenPath, "utf8");
-    const payload = widgetTokenPayload(JSON.parse(source), itemsBySlug.get(slug));
+    const payload = widgetTokenPayload(JSON.parse(source));
     const indentation = /^\s*\{[^\S\n]*\n/u.test(source) ? 2 : undefined;
     expectedBundleFiles.set(
       path.join("Tokens", path.basename(tokenPath)),
@@ -66,23 +66,12 @@ export async function generateWidgetResources(directory, { check = false } = {})
   await writeOutput(outputBundleDirectory, expectedBundleFiles);
 }
 
-function widgetTokenPayload(payload, collection) {
+function widgetTokenPayload(payload) {
   const urlPrefix = payload.urlPrefix ?? "";
   let usesPrefix = false;
-  let usesDefaultFileExtension = false;
   const items = payload.items.map((item) => {
     const id = item.id;
-    const url = item.url ?? (item.urlSuffix != null ? urlPrefix + item.urlSuffix : undefined);
-    const sourceURL = url
-      ?? (item.sh != null ? `https://cdn.simplehash.com/assets/${item.sh}` : undefined)
-      ?? (collection.chain === "ethereum" ? `https://media-proxy.artblocks.io/${collection.address}/${id}.png` : undefined);
-    const pathExtension = explicitPathExtension(sourceURL);
-    const fileExtension = pathExtension
-      ? undefined
-      : normalizedFileExtension(item.fileExtension);
-    if (sourceURL != null && !pathExtension && fileExtension == null) {
-      usesDefaultFileExtension = true;
-    }
+    const fileExtension = normalizedFileExtension(item.fileExtension);
     let mediaSource = {};
     if (item.url != null) {
       mediaSource = { url: item.url };
@@ -98,11 +87,7 @@ function widgetTokenPayload(payload, collection) {
       ...(fileExtension != null ? { fileExtension } : {}),
     };
   });
-  const defaultFileExtension = usesDefaultFileExtension
-    ? normalizedFileExtension(payload.defaultFileExtension)
-    : undefined;
   return {
-    ...(defaultFileExtension != null ? { defaultFileExtension } : {}),
     ...(usesPrefix ? { urlPrefix } : {}),
     items,
   };
@@ -112,15 +97,6 @@ function normalizedFileExtension(value) {
   if (typeof value !== "string") return undefined;
   const normalized = value.replace(/^[. \n\t\r]+|[. \n\t\r]+$/gu, "").toLowerCase();
   return normalized === "" ? undefined : normalized;
-}
-
-function explicitPathExtension(url) {
-  if (url == null) return undefined;
-  try {
-    return normalizedFileExtension(path.posix.extname(new URL(url).pathname));
-  } catch {
-    return undefined;
-  }
 }
 
 async function readEligibleCollectionSlugs(eligibleCollectionsPath) {

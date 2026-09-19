@@ -240,20 +240,17 @@ nonisolated struct BundledTokens: Codable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case isComplete
         case items
         case aspectRatio
         case urlPrefix
     }
 
-    let isComplete: Bool
     let items: [Item]
     private let aspectRatio: AspectRatio?
     private let urlPrefix: String?
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        isComplete = try container.decodeIfPresent(Bool.self, forKey: .isComplete) ?? true
         aspectRatio = try container.decodeIfPresent(AspectRatio.self, forKey: .aspectRatio)
         urlPrefix = try container.decodeIfPresent(String.self, forKey: .urlPrefix)
         let defaultAspectRatio = aspectRatio
@@ -277,7 +274,6 @@ nonisolated struct BundledTokens: Codable, Sendable {
 
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(isComplete, forKey: .isComplete)
         try container.encodeIfPresent(aspectRatio, forKey: .aspectRatio)
         try container.encodeIfPresent(urlPrefix, forKey: .urlPrefix)
         var encodedItems = container.nestedUnkeyedContainer(forKey: .items)

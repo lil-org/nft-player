@@ -1278,30 +1278,17 @@ function normalizedNameKey(value) {
 function buildTokenPayload(tokens) {
   const urls = tokens.map((token) => token.media.url);
   const urlPrefix = commonURLDirectoryPrefix(urls);
-  const extensions = tokens.map((token) => token.media.extension);
-  const defaultFileExtension = mostCommonValue(extensions);
 
   return {
-    defaultFileExtension,
     urlPrefix,
     items: tokens.map((token) => {
       return {
         id: token.id,
         urlSuffix: token.media.url.slice(urlPrefix.length),
-        ...(token.media.extension !== defaultFileExtension
-          ? { fileExtension: token.media.extension }
-          : {}),
+        fileExtension: token.media.extension,
       };
     }),
   };
-}
-
-function mostCommonValue(values) {
-  const counts = new Map();
-  for (const value of values) {
-    counts.set(value, (counts.get(value) ?? 0) + 1);
-  }
-  return [...counts.entries()].sort((left, right) => right[1] - left[1] || naturalCompare(left[0], right[0]))[0]?.[0] ?? null;
 }
 
 async function writeBundle(collections, context, updatedItems, failedCollections = []) {

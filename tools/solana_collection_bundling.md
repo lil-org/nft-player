@@ -39,13 +39,12 @@ Token JSON uses named token objects with a shared URL prefix:
 
 ```json
 {
-  "defaultFileExtension": "png",
   "urlPrefix": "https://example.com/assets/",
-  "items": [{"id": "mint-address", "urlSuffix": "1.png"}]
+  "items": [{"id": "mint-address", "urlSuffix": "1.png", "fileExtension": "png"}]
 }
 ```
 
-Tokens include a named `fileExtension` field only when they differ from `defaultFileExtension`.
+Import tools include the selected media’s `fileExtension` on every token, preserving hints for extensionless and encoded URLs. Media resolution prefers the URL path extension, then the token field; there is no collection-wide extension fallback.
 
 Static-image collections with standard thumbnails but no `/mid` files can set top-level `"hasMid": false`. The grid uses each original image for its large tier and retains thumbnails for non-static media. Regular and sized thumbnail paths stay unchanged. Rebundling preserves boolean values. Omitted or null values retain the existing `/mid` behavior.
 

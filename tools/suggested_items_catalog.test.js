@@ -191,7 +191,7 @@ function normalizedFileExtension(value) {
   return normalized === "" ? undefined : normalized;
 }
 
-function resolvedFileExtension(payload, row, sourceURL) {
+function resolvedFileExtension(row, sourceURL) {
   const sourcePathExtension = normalizedFileExtension(
     path.posix.extname(new URL(sourceURL).pathname)
   );
@@ -199,8 +199,7 @@ function resolvedFileExtension(payload, row, sourceURL) {
     row.fileExtension
   );
   return sourcePathExtension
-    ?? rowFileExtension
-    ?? normalizedFileExtension(payload.defaultFileExtension);
+    ?? rowFileExtension;
 }
 
 function standardThumbnailURL(sourceURL, thumbsBaseURL) {
@@ -484,10 +483,9 @@ test("Planet Peppa retains original filenames and uses original large images", (
   const item = readJSON(ITEMS_PATH).find((candidate) => candidate.internal_slug === "planet_peppa");
   assert.ok(item, "Missing planet_peppa");
   const payload = readJSON(path.join(TOKENS_PATH, `${item.internal_slug}.json`));
-  assert.equal(payload.isComplete ?? true, true);
   assert.equal(payload.hasMid, false);
   assert.equal(
-    resolvedFileExtension(payload, payload.items[0], tokenSourceURL(payload, payload.items[0])),
+    resolvedFileExtension(payload.items[0], tokenSourceURL(payload, payload.items[0])),
     "webp"
   );
   assert.equal(payload.items.length, item.tokenCount);
@@ -640,23 +638,18 @@ test("September generative collections expose indexed CDN tiers without changing
   }
 });
 
-test("media extension resolution prefers URL, then token, then manifest defaults", () => {
-  const payload = {
-    defaultFileExtension: ".HTML",
-    urlPrefix: "https://example.com/tokens/",
-  };
-
+test("media extension resolution prefers URL, then token, without a manifest default", () => {
   assert.equal(
-    resolvedFileExtension(payload, { id: "1", urlSuffix: "1.svg", fileExtension: "mov" }, "https://example.com/tokens/1.svg"),
+    resolvedFileExtension({ id: "1", urlSuffix: "1.svg", fileExtension: "mov" }, "https://example.com/tokens/1.svg"),
     "svg"
   );
   assert.equal(
-    resolvedFileExtension(payload, { id: "2", urlSuffix: "2", fileExtension: ".MOV" }, "https://example.com/tokens/2"),
+    resolvedFileExtension({ id: "2", urlSuffix: "2", fileExtension: ".MOV" }, "https://example.com/tokens/2"),
     "mov"
   );
   assert.equal(
-    resolvedFileExtension(payload, { id: "3", urlSuffix: "3" }, "https://example.com/tokens/3"),
-    "html"
+    resolvedFileExtension({ id: "3", urlSuffix: "3" }, "https://example.com/tokens/3"),
+    undefined
   );
 });
 
@@ -705,7 +698,7 @@ test("eligible token manifests derive unique browse image tier URLs", () => {
       const originalURL = new URL(sourceURL);
       const originalFileName = path.posix.basename(originalURL.pathname);
       const originalExtension = path.posix.extname(originalFileName);
-      const fileExtension = resolvedFileExtension(payload, row, sourceURL);
+      const fileExtension = resolvedFileExtension(row, sourceURL);
       assert.ok(
         SUPPORTED_MEDIA_EXTENSIONS.has(fileExtension),
         `${item.internal_slug} token ${index} has an unsupported media extension: ${sourceURL}`
@@ -847,6 +840,16 @@ test("thumbnail base overrides support extensionless sources and strip source ex
   );
 });
 
+test("token manifests omit removed collection metadata", () => {
+  for (const directory of [TOKENS_PATH, WIDGET_TOKENS_PATH]) {
+    for (const fileName of fs.readdirSync(directory).filter((name) => name.endsWith(".json"))) {
+      const payload = readJSON(path.join(directory, fileName));
+      assert.equal(Object.hasOwn(payload, "defaultFileExtension"), false, fileName);
+      assert.equal(Object.hasOwn(payload, "isComplete"), false, fileName);
+    }
+  }
+});
+
 test("bundled tokens have default and per-token aspect ratios with matching iOS layouts", () => {
   const primaryFileNames = fs.readdirSync(TOKENS_PATH)
     .filter((fileName) => path.extname(fileName) === ".json")
@@ -950,10 +953,10 @@ test("bundled tokens have default and per-token aspect ratios with matching iOS 
       const url = tokenSourceURL(payload, row)
         ?? (row.sh != null ? `https://cdn.simplehash.com/assets/${row.sh}` : undefined)
         ?? (collection.chain === "ethereum" ? `https://media-proxy.artblocks.io/${collection.address}/${id}.png` : undefined);
-      return { id, url, fileExtension: url == null ? undefined : resolvedFileExtension(payload, row, url) };
+      return { id, url, fileExtension: url == null ? undefined : resolvedFileExtension(row, url) };
     });
     assert.deepEqual(mediaReferences(widgetPayload), mediaReferences(primary.payload), fileName);
-    assert.ok(Object.keys(widgetPayload).every((key) => ["items", "urlPrefix", "defaultFileExtension"].includes(key)), fileName);
+    assert.ok(Object.keys(widgetPayload).every((key) => ["items", "urlPrefix"].includes(key)), fileName);
     for (const row of widgetPayload.items) {
       assert.ok(
         Object.keys(row).every((key) => ["id", "url", "urlSuffix", "sh", "fileExtension"].includes(key)),
@@ -978,12 +981,12 @@ test("Terraforms uses Mathcastles HTML primaries with unchanged CDN thumbnails",
 
   const payload = readJSON(path.join(TOKENS_PATH, `${terraforms.internal_slug}.json`));
   assert.equal(Object.prototype.hasOwnProperty.call(payload, "tmp_files"), false);
-  assert.equal(payload.defaultFileExtension, "html");
   assert.equal(payload.urlPrefix, "https://tokens.mathcastles.xyz/terraforms/token-html/");
   assert.equal(payload.items.length, 9844);
 
   for (const [index, row] of payload.items.entries()) {
-    assert.deepEqual(Object.keys(row).sort(), ["id", "urlSuffix"], `Terraforms token ${index} has unexpected metadata`);
+    assert.deepEqual(Object.keys(row).sort(), ["fileExtension", "id", "urlSuffix"], `Terraforms token ${index} has unexpected metadata`);
+    assert.equal(row.fileExtension, "html");
     const { id: tokenId, urlSuffix } = row;
     assert.equal(urlSuffix, tokenId, `Terraforms token ${index} has an unexpected URL suffix`);
 
@@ -992,7 +995,7 @@ test("Terraforms uses Mathcastles HTML primaries with unchanged CDN thumbnails",
       sourceURL,
       `https://tokens.mathcastles.xyz/terraforms/token-html/${tokenId}`
     );
-    assert.equal(resolvedFileExtension(payload, row, sourceURL), "html");
+    assert.equal(resolvedFileExtension(row, sourceURL), "html");
     assert.equal(
       standardThumbnailURL(sourceURL, terraforms.standardThumbsBaseURL).href,
       `https://cdn.lil.org/player/terraforms/thumbs/${tokenId}.webp`

@@ -41,13 +41,12 @@ Token JSON uses named token objects with a shared URL prefix:
 
 ```json
 {
-  "defaultFileExtension": "gif",
   "urlPrefix": "https://ipfs.io/ipfs/",
-  "items": [{"id": "0", "urlSuffix": "QmHash"}]
+  "items": [{"id": "0", "urlSuffix": "QmHash", "fileExtension": "gif"}]
 }
 ```
 
-Tokens include a named `fileExtension` field only when they differ from `defaultFileExtension`.
+Import tools include the selected media’s `fileExtension` on every token, preserving hints for extensionless and encoded URLs. Media resolution prefers the URL path extension, then the token field; there is no collection-wide extension fallback.
 
 If an existing token JSON contains a top-level `tmp_files` map, `--apply` preserves entries whose token ID is still present in `items`. It drops and reports stale token IDs, ignores invalid file names, and omits the map when no valid entries remain. This preservation reads only the existing token JSON; rebundling does not require `Originals Downloaded` to exist.
 

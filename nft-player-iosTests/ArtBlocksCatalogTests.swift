@@ -9,7 +9,6 @@ extension ArtBlocksCatalogTests {
     private var tokenFixture: Data {
         Data("""
         {
-          "defaultFileExtension": " .PNG ",
           "urlPrefix": "https://example.com/",
           "aspectRatio": [3, 4],
           "items": [
@@ -68,7 +67,6 @@ extension ArtBlocksCatalogTests {
 
     func testDownloadableTokensPreserveNamesExtensionsAndAspectRatios() throws {
         let tokens = try JSONDecoder().decode(DownloadableCollectionTokensPayload.self, from: tokenFixture)
-        XCTAssertEqual(tokens.defaultFileExtension, "png")
         XCTAssertEqual(tokens.items.map(\.id), ["legacy", "extension", "named-hash", "named-extension", "hash-only"])
         XCTAssertEqual(tokens.items.map(\.name), [nil, nil, "Named artwork", "Extension artwork", nil])
         XCTAssertEqual(tokens.items.map(\.fileExtension), [nil, "jpg", nil, "webp", nil])
@@ -76,6 +74,50 @@ extension ArtBlocksCatalogTests {
         XCTAssertEqual(tokens.items[4].url, "https://example.com/art.png")
         XCTAssertEqual(tokens.items[2].aspectRatio, AspectRatio(width: 16, height: 9))
         XCTAssertEqual(tokens.items[0].aspectRatio, AspectRatio(width: 3, height: 4))
+    }
+
+    func testDownloadableMediaExtensionsUseURLPathsThenItemHints() throws {
+        let item = try XCTUnwrap(SuggestedItemsService.allItems.first { $0.internalSlug == "terraforms" })
+        let collection = try XCTUnwrap(DownloadableCollectionIndexItem(item: item))
+        let data = Data(#"{"urlPrefix":"https://example.com/","items":[{"id":"1","urlSuffix":"1.SVG?ext=png#frame","fileExtension":"mov"},{"id":"2","urlSuffix":"2","fileExtension":" .HTML "},{"id":"3","urlSuffix":"3?ext=png","fileExtension":" .PNG "},{"id":"4","urlSuffix":"4?ext=png"},{"id":"5","urlSuffix":"5","fileExtension":" . "},{"id":"6","sh":"asset","fileExtension":"webp"}]}"#.utf8)
+        let payload = try JSONDecoder().decode(DownloadableCollectionTokensPayload.self, from: data)
+        XCTAssertEqual(
+            payload.items.map { $0.resolvedFileExtension(collection: collection) },
+            ["svg", "html", "png", nil, nil, "webp"]
+        )
+    }
+
+    func testRemovedTokenMetadataIsIgnoredAndNotEncoded() throws {
+        let data = Data(#"{"isComplete":false,"defaultFileExtension":"html","items":[{"id":"1","url":"https://example.com/1"}]}"#.utf8)
+        let bundled = try JSONDecoder().decode(BundledTokens.self, from: data)
+        let encoded = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(bundled)) as? [String: Any])
+        XCTAssertEqual(Set(encoded.keys), ["items"])
+
+        let item = try XCTUnwrap(SuggestedItemsService.allItems.first { $0.internalSlug == "terraforms" })
+        let collection = try XCTUnwrap(DownloadableCollectionIndexItem(item: item))
+        let downloadable = try JSONDecoder().decode(DownloadableCollectionTokensPayload.self, from: data)
+        XCTAssertNil(try XCTUnwrap(downloadable.items.first).resolvedFileExtension(collection: collection))
+    }
+
+    func testTerraformsItemHintsPreserveHTMLMediaAndThumbnails() throws {
+        let item = try XCTUnwrap(SuggestedItemsService.allItems.first { $0.internalSlug == "terraforms" })
+        let tokens = try XCTUnwrap(SuggestedItemsService.bundledTokens(collectionId: item.id))
+        XCTAssertEqual(tokens.items.count, 9844)
+        XCTAssertEqual(CollectionCatalog.tokenCount(specificCollectionId: item.id), 9844)
+
+        for (index, token) in tokens.items.enumerated() {
+            XCTAssertEqual(token.fileExtension, "html")
+            let descriptor = try XCTUnwrap(CollectionCatalog.downloadableMediaDescriptor(specificCollectionId: item.id, tokenIndex: index))
+            guard case let .html(url, fileExtension) = descriptor.media else {
+                XCTFail("Expected HTML for Terraforms token \(token.id)")
+                continue
+            }
+            XCTAssertEqual(descriptor.tokenId, token.id)
+            XCTAssertEqual(url.absoluteString, "https://tokens.mathcastles.xyz/terraforms/token-html/\(token.id)")
+            XCTAssertEqual(fileExtension, "html")
+            let sources = try XCTUnwrap(CollectionCatalog.collectionBrowseImageSources(specificCollectionId: item.id, tokenIndex: index))
+            XCTAssertEqual(sources.thumbnailDescriptor.url.absoluteString, "https://cdn.lil.org/player/terraforms/thumbs/\(token.id).webp")
+        }
     }
 
     func testTokensPreserveFullURLsWithAnEmptyOrAbsentPrefix() throws {
@@ -123,7 +165,7 @@ extension ArtBlocksCatalogTests {
         let restored = try JSONDecoder().decode(BundledTokens.self, from: encoded)
         XCTAssertEqual(restored.items.compactMap(\.aspectRatio), expected)
         let payload = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
-        XCTAssertEqual(Set(payload.keys), ["isComplete", "items", "aspectRatio"])
+        XCTAssertEqual(Set(payload.keys), ["items", "aspectRatio"])
         XCTAssertEqual(payload["aspectRatio"] as? [Int], [16, 9])
         let items = try XCTUnwrap(payload["items"] as? [[String: Any]])
         XCTAssertNil(items[0]["aspectRatio"])
@@ -585,7 +627,6 @@ extension ArtBlocksCatalogTests {
 
             let projectID = try XCTUnwrap(item.abId.flatMap(Int.init))
             let tokens = try XCTUnwrap(SuggestedItemsService.bundledTokens(collectionId: item.id))
-            XCTAssertTrue(tokens.isComplete)
             XCTAssertEqual(tokens.items.count, count)
             XCTAssertEqual(Set(tokens.items.map(\.id)).count, count)
             let base = "https://cdn.lil.org/player/\(slug)"

@@ -21,9 +21,8 @@ test("preserves only valid tmp_files for token IDs that remain", () => {
       invalid: "nested/3.jpg",
     },
   };
-  const nextRows = [{ id: "2", urlSuffix: "new-2", fileExtension: "png" }, { id: "1", urlSuffix: "new-1" }];
+  const nextRows = [{ id: "2", urlSuffix: "new-2", fileExtension: "png" }, { id: "1", urlSuffix: "new-1", fileExtension: "jpg" }];
   const nextPayload = {
-    defaultFileExtension: "jpg",
     urlPrefix: "https://example.com/",
     items: nextRows,
   };

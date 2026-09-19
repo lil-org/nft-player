@@ -35,7 +35,7 @@ function createFixture(t) {
   return { root, tokensPath, itemsPath, tokenPath };
 }
 
-function runBundler(fixture, apply, urls = ["https://assets.example/1.png", "https://assets.example/2.png"]) {
+function runBundler(fixture, apply, urls = ["https://assets.example/1.png", "https://assets.example/2.png"], mime = null) {
   const argv = [
     process.execPath, BUNDLER_PATH,
     "--delay-ms", "0", "--max-retries", "0", "--skip-covers",
@@ -56,6 +56,7 @@ global.fetch = async (input) => {
       : ["1", "2"].map((id) => ({ tokenId: id, metadata: {
         name: "Collection #" + id,
         artifactUri: ${JSON.stringify(urls)}[Number(id) - 1],
+        mimeType: ${JSON.stringify(mime)},
       } }));
   return { ok: true, status: 200, json: async () => payload };
 };
@@ -80,7 +81,26 @@ test("Tezos bundling reconstructs URLs with one prefix across directories and or
     const payload = JSON.parse(fs.readFileSync(fixture.tokenPath, "utf8"));
     assert.equal(payload.urlPrefix, prefix);
     assert.equal(Object.hasOwn(payload, "urlPrefixes"), false);
-    assert.deepEqual(payload.items, urls.map((url, index) => ({ id: String(index + 1), urlSuffix: url.slice(prefix.length), ...(index === 1 ? { aspectRatio: [16, 9] } : {}) })));
+    assert.equal(Object.hasOwn(payload, "defaultFileExtension"), false);
+    assert.equal(Object.hasOwn(payload, "isComplete"), false);
+    assert.deepEqual(payload.items, urls.map((url, index) => ({ id: String(index + 1), urlSuffix: url.slice(prefix.length), fileExtension: "png", ...(index === 1 ? { aspectRatio: [16, 9] } : {}) })));
+    assert.deepEqual(payload.items.map((row) => payload.urlPrefix + row.urlSuffix), urls);
+  }
+});
+
+test("Tezos bundling preserves media hints without reparsing source URLs", (t) => {
+  for (const [urls, mime, extensions] of [
+    [["https://assets.example/1", "https://assets.example/2"], "image/gif", ["gif", "gif"]],
+    [["https://assets.example/1?ext=png", "https://assets.example/2?ext=webp"], null, ["png", "webp"]],
+    [["https://assets.example/1.png", "https://assets.example/collection.v1%2F42"], "image/png", ["png", "png"]],
+    [["https://assets.example/1.png", "https://bad host.example/42.png"], "image/png", ["png", "png"]],
+  ]) {
+    const fixture = createFixture(t);
+    const result = runBundler(fixture, true, urls, mime);
+    assert.equal(result.status, 0, result.stderr);
+    const payload = JSON.parse(fs.readFileSync(fixture.tokenPath, "utf8"));
+    assert.equal(Object.hasOwn(payload, "defaultFileExtension"), false);
+    assert.deepEqual(payload.items.map((row) => row.fileExtension), extensions);
     assert.deepEqual(payload.items.map((row) => payload.urlPrefix + row.urlSuffix), urls);
   }
 });
