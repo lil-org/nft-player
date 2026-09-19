@@ -117,16 +117,23 @@ nonisolated enum TokenGenerator {
               collectionData.tokens.indices.contains(tokenIndex) else {
             return nil
         }
-        return collectionData.tokens[tokenIndex]
+        return collectionData.tokens[tokenIndex].resolvingAspectRatio(
+            default: collectionData.item.aspectRatio
+        )
     }
 
     static func aspectRatioProfile(
         specificCollectionId: String
     ) -> AspectRatioProfile? {
-        guard !isRangedNativeCollection(specificCollectionId) else { return nil }
-        return collectionData(
-            specificCollectionId: specificCollectionId
-        )?.aspectRatioProfile
+        guard !isRangedNativeCollection(specificCollectionId),
+              let item = generativeItem(specificCollectionId: specificCollectionId) else { return nil }
+        return BundledTokenMetadata.aspectRatioProfile(
+            count: item.bundledTokenCount,
+            isUniform: item.hasUniformAspectRatio,
+            defaultAspectRatio: item.aspectRatio
+        ) {
+            collectionData(specificCollectionId: specificCollectionId)?.aspectRatioProfile
+        }
     }
 
     static func needsArtworkPreparation(collectionId: String) -> Bool {
@@ -163,7 +170,10 @@ nonisolated enum TokenGenerator {
         if isRangedNativeCollection(specificCollectionId) {
             return activeRangedNativeCollection(specificCollectionId: specificCollectionId)?.count ?? 0
         }
-        return collectionData(specificCollectionId: specificCollectionId)?.tokens.count ?? 0
+        guard let item = generativeItem(specificCollectionId: specificCollectionId) else { return 0 }
+        return BundledTokenMetadata.count(item.bundledTokenCount) {
+            collectionData(specificCollectionId: specificCollectionId)?.tokens.count ?? 0
+        }
     }
 
     static func tokenIndex(specificCollectionId: String, tokenId: String) -> Int? {
@@ -352,7 +362,7 @@ nonisolated private struct CollectionTokenData: Sendable {
         var tokenIndicesById = [String: Int]()
         var aspectRatioProfileBuilder = AspectRatioProfileBuilder()
         for (index, token) in tokens.enumerated() {
-            aspectRatioProfileBuilder.append(token.aspectRatio)
+            aspectRatioProfileBuilder.append(token.aspectRatio ?? item.aspectRatio)
             if tokenIndicesById[token.id] == nil {
                 tokenIndicesById[token.id] = index
             }

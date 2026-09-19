@@ -538,7 +538,7 @@ extension ArtBlocksRenderingResolutionTests {
         let tokenURL = try XCTUnwrap(SuggestedItemsService.bundledTokensURL(collectionId: item.id))
         let originalSource = try Data(contentsOf: scriptURL)
         let script = try XCTUnwrap(JavaScriptLibraryFixtures.script(collectionId: item.id))
-        let tokens = try BundledTokens(data: Data(contentsOf: tokenURL), collection: item).items
+        let tokens = try BundledTokens(data: Data(contentsOf: tokenURL)).items.resolvingAspectRatios(default: item.aspectRatio)
         let token = try XCTUnwrap(tokens.indices.contains(tokenIndex) ? tokens[tokenIndex] : nil)
         let ratio = try XCTUnwrap(token.aspectRatio)
         let fixture = try ResolutionFixture(size: CGSize(width: 300, height: 300 / ratio.value))

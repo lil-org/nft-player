@@ -20,7 +20,9 @@
     "aspectRatio": [
       1,
       1
-    ]
+    ],
+    "bundledTokenCount": 600,
+    "hasUniformAspectRatio": true
   },
   {
     "abId": "159",
@@ -39,7 +41,9 @@
     "aspectRatio": [
       1,
       1
-    ]
+    ],
+    "bundledTokenCount": 1024,
+    "hasUniformAspectRatio": true
   },
   {
     "abId": "22",
@@ -62,7 +66,9 @@
     "aspectRatio": [
       1,
       1
-    ]
+    ],
+    "bundledTokenCount": 50,
+    "hasUniformAspectRatio": true
   },
   {
     "address": "0x46ac8540d698167fcbb9e846511beb8cf8af9bd8",
@@ -80,7 +86,9 @@
     "aspectRatio": [
       84,
       85
-    ]
+    ],
+    "bundledTokenCount": 100,
+    "hasUniformAspectRatio": false
   },
   {
     "address": "0x46ac8540d698167fcbb9e846511beb8cf8af9bd8",
@@ -99,7 +107,9 @@
     "aspectRatio": [
       650,
       433
-    ]
+    ],
+    "bundledTokenCount": 55,
+    "hasUniformAspectRatio": false
   },
   {
     "address": "0x17abd4cc1382397ec2b675f98621c3ba809897de",
@@ -117,7 +127,9 @@
     "aspectRatio": [
       1,
       1
-    ]
+    ],
+    "bundledTokenCount": 777,
+    "hasUniformAspectRatio": false
   },
   {
     "address": "0x32d6ba9aa1b06fbcaeb3f6c5ff05cd6a77dcf387",
@@ -134,7 +146,9 @@
     "aspectRatio": [
       1,
       1
-    ]
+    ],
+    "bundledTokenCount": 300,
+    "hasUniformAspectRatio": true
   },
   {
     "address": "0x0c640779dbd6cda40d54350344dfd37d99aed8aa",
@@ -151,7 +165,9 @@
     "aspectRatio": [
       1,
       1
-    ]
+    ],
+    "bundledTokenCount": 24,
+    "hasUniformAspectRatio": true
   },
   {
     "address": "0x1ee3bcc37b747c29a0583352b3d9541f393cea82",
@@ -166,7 +182,9 @@
     "aspectRatio": [
       1,
       1
-    ]
+    ],
+    "bundledTokenCount": 545,
+    "hasUniformAspectRatio": true
   },
   {
     "address": "0x1d2550d198197df1a10af515cf2ea0d790889b93",
@@ -184,7 +202,9 @@
     "aspectRatio": [
       1,
       1
-    ]
+    ],
+    "bundledTokenCount": 339,
+    "hasUniformAspectRatio": true
   },
   {
     "address": "3dWnCTx5gY3F9hVhiMu7b5we6WSKnyzL9CYdE1rW1HUm",
@@ -201,7 +221,9 @@
     "aspectRatio": [
       1,
       1
-    ]
+    ],
+    "bundledTokenCount": 4998,
+    "hasUniformAspectRatio": true
   },
   {
     "address": "4rWMqk4PXKrWdmA9QSJB27CYwThYmDvZ9rwcZsQfnJ6K",
@@ -216,7 +238,9 @@
     "aspectRatio": [
       1,
       1
-    ]
+    ],
+    "bundledTokenCount": 1499,
+    "hasUniformAspectRatio": true
   },
   {
     "address": "5AVocDEamuwaZf3bXP6tcg52w7cgBvMNJAYvG9rmouCh",
@@ -234,7 +258,9 @@
     "aspectRatio": [
       650,
       591
-    ]
+    ],
+    "bundledTokenCount": 2024,
+    "hasUniformAspectRatio": true
   },
   {
     "address": "JDmZF2EsfWHcq9evTLDfqqUhAHh3zTYMy2rTeEfhx9hy",
@@ -252,7 +278,9 @@
     "aspectRatio": [
       1,
       1
-    ]
+    ],
+    "bundledTokenCount": 999,
+    "hasUniformAspectRatio": false
   },
   {
     "address": "Bkp4sEpGBgHkjtXpBdZiCxiMhAnx2aY6m3a5E8RdgY6S",
@@ -269,7 +297,9 @@
     "aspectRatio": [
       1,
       1
-    ]
+    ],
+    "bundledTokenCount": 3330,
+    "hasUniformAspectRatio": true
   },
   {
     "address": "r1pCPYkbbpZWv7RCvuCMtpA3NSQY3fzVFo6HL43A4ot",
@@ -286,7 +316,9 @@
     "aspectRatio": [
       1,
       1
-    ]
+    ],
+    "bundledTokenCount": 3210,
+    "hasUniformAspectRatio": true
   },
   {
     "address": "21nXQ4m9zfTsqAHADNjFHRJBxnoynMsL9HRSpdwqKHQH",
@@ -304,7 +336,9 @@
     "aspectRatio": [
       1,
       1
-    ]
+    ],
+    "bundledTokenCount": 368,
+    "hasUniformAspectRatio": false
   },
   {
     "address": "GVQ4Zsd7jLZbVCxq9QsmQySuKekwT1XbMSjGbwt8UtcB",
@@ -321,7 +355,9 @@
     "aspectRatio": [
       1,
       1
-    ]
+    ],
+    "bundledTokenCount": 4439,
+    "hasUniformAspectRatio": true
   },
   {
     "address": "BBkMWyu4RRrNSdjGDV27FGgZZ58o7jfvQY1MrD2iTfs6",
@@ -338,7 +374,9 @@
     "aspectRatio": [
       1,
       1
-    ]
+    ],
+    "bundledTokenCount": 1283,
+    "hasUniformAspectRatio": true
   },
   {
     "address": "HCWQe6eVmzawiQTf58kM795eGTvvqNZSUrbvnEYokd4B",
@@ -355,7 +393,9 @@
     "aspectRatio": [
       1,
       1
-    ]
+    ],
+    "bundledTokenCount": 4424,
+    "hasUniformAspectRatio": true
   },
   {
     "address": "8bP9cNrTrwuMnmUsSHZ9ReTiJhKVmyjXUfUUrjkqEmef",
@@ -372,7 +412,9 @@
     "aspectRatio": [
       1,
       1
-    ]
+    ],
+    "bundledTokenCount": 32,
+    "hasUniformAspectRatio": true
   },
   {
     "address": "CjL5WpAmf4cMEEGwZGTfTDKWok9a92ykq9aLZrEK2D5H",
@@ -389,7 +431,9 @@
     "aspectRatio": [
       1,
       1
-    ]
+    ],
+    "bundledTokenCount": 3327,
+    "hasUniformAspectRatio": true
   },
   {
     "address": "2W68ofaUBEQYoFUwEWWHoYq8MBauPbxhZtv71vqZsyhp",
@@ -406,7 +450,9 @@
     "aspectRatio": [
       1,
       1
-    ]
+    ],
+    "bundledTokenCount": 72,
+    "hasUniformAspectRatio": true
   },
   {
     "address": "9xAjzT43stvxq8fNLtWxYu3sBYWdbZP22fQqzQdNYMzY",
@@ -423,7 +469,9 @@
     "aspectRatio": [
       1,
       1
-    ]
+    ],
+    "bundledTokenCount": 4438,
+    "hasUniformAspectRatio": true
   },
   {
     "address": "AU9F91RsrqQEeN8sshErtQnT8CgYxrg9YD9n4AHHvus7",
@@ -440,7 +488,9 @@
     "aspectRatio": [
       1,
       1
-    ]
+    ],
+    "bundledTokenCount": 2220,
+    "hasUniformAspectRatio": true
   },
   {
     "address": "CHuQxKgso7sGagfakRPeii6xQGByJtnMm3V3ho7ZTJBn",
@@ -457,7 +507,9 @@
     "aspectRatio": [
       1,
       1
-    ]
+    ],
+    "bundledTokenCount": 616,
+    "hasUniformAspectRatio": true
   },
   {
     "address": "0x30f9efa712dde239a13a5fef1a8c7a6ac530a26d",
@@ -475,7 +527,9 @@
     "aspectRatio": [
       1,
       1
-    ]
+    ],
+    "bundledTokenCount": 1369,
+    "hasUniformAspectRatio": true
   },
   {
     "address": "0xd497a414bb00803e846b53d07fcb742831b24906",
@@ -493,7 +547,9 @@
     "aspectRatio": [
       1,
       1
-    ]
+    ],
+    "bundledTokenCount": 1000,
+    "hasUniformAspectRatio": true
   },
   {
     "address": "0x6873e99fb85de770cc89fa37bc9c859fc2ebaf60",
@@ -511,7 +567,9 @@
     "aspectRatio": [
       1,
       1
-    ]
+    ],
+    "bundledTokenCount": 3520,
+    "hasUniformAspectRatio": true
   },
   {
     "address": "0xEC0a7A26456B8451aefc4b00393ce1BefF5eB3e9",
@@ -528,7 +586,9 @@
     "aspectRatio": [
       1,
       1
-    ]
+    ],
+    "bundledTokenCount": 10000,
+    "hasUniformAspectRatio": true
   },
   {
     "address": "0xc62e3fd5b02618f90dd07d1e478963038fa9089c",
@@ -543,7 +603,9 @@
     "aspectRatio": [
       1,
       1
-    ]
+    ],
+    "bundledTokenCount": 1884,
+    "hasUniformAspectRatio": true
   },
   {
     "address": "0x44096d6de5d17020ce0c41d75ce27b33c6d28e1a",
@@ -560,7 +622,9 @@
     "aspectRatio": [
       1,
       1
-    ]
+    ],
+    "bundledTokenCount": 1335,
+    "hasUniformAspectRatio": true
   },
   {
     "name": "Bokeh",
@@ -581,7 +645,9 @@
       9,
       16
     ],
-    "hasMid": true
+    "hasMid": true,
+    "bundledTokenCount": 300,
+    "hasUniformAspectRatio": true
   },
   {
     "name": "Glass",
@@ -602,7 +668,9 @@
       4,
       5
     ],
-    "hasMid": true
+    "hasMid": true,
+    "bundledTokenCount": 300,
+    "hasUniformAspectRatio": true
   },
   {
     "name": "Memory Loss",
@@ -623,7 +691,9 @@
       1,
       1
     ],
-    "hasMid": true
+    "hasMid": true,
+    "bundledTokenCount": 256,
+    "hasUniformAspectRatio": true
   },
   {
     "name": "Primavera",
@@ -644,7 +714,9 @@
       9,
       16
     ],
-    "hasMid": true
+    "hasMid": true,
+    "bundledTokenCount": 70,
+    "hasUniformAspectRatio": false
   },
   {
     "name": "Subtraction, Reconfiguration",
@@ -665,7 +737,9 @@
       4,
       5
     ],
-    "hasMid": true
+    "hasMid": true,
+    "bundledTokenCount": 100,
+    "hasUniformAspectRatio": true
   },
   {
     "name": "Talim",
@@ -686,7 +760,9 @@
       3,
       4
     ],
-    "hasMid": true
+    "hasMid": true,
+    "bundledTokenCount": 99,
+    "hasUniformAspectRatio": true
   },
   {
     "name": "The Colors That Heal",
@@ -707,7 +783,9 @@
       3,
       4
     ],
-    "hasMid": true
+    "hasMid": true,
+    "bundledTokenCount": 142,
+    "hasUniformAspectRatio": true
   },
   {
     "name": "Twos",
@@ -728,7 +806,9 @@
       5,
       6
     ],
-    "hasMid": true
+    "hasMid": true,
+    "bundledTokenCount": 64,
+    "hasUniformAspectRatio": true
   },
   {
     "name": "Whispering Sands",
@@ -749,7 +829,9 @@
       1,
       1
     ],
-    "hasMid": true
+    "hasMid": true,
+    "bundledTokenCount": 100,
+    "hasUniformAspectRatio": true
   },
   {
     "name": "Windwoven",
@@ -770,6 +852,8 @@
       3,
       4
     ],
-    "hasMid": true
+    "hasMid": true,
+    "bundledTokenCount": 110,
+    "hasUniformAspectRatio": true
   }
 ]

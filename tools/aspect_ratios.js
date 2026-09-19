@@ -238,6 +238,7 @@ module.exports = {
   collectionBrowserColumnCountFromAspectRatios,
   decodeAspectRatioMetadata,
   encodeAspectRatioMetadata,
+  normalizedRatio,
   preserveAspectRatioMetadataFromFile,
   reportAspectRatioMetadataChanges,
   tokenIdsFromPayload,

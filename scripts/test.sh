@@ -7,6 +7,10 @@ derived_data_path="${TEST_DERIVED_DATA_PATH:-$repo_root/build/test-derived-data}
 
 cd "$repo_root"
 
+echo "Checking bundled token metadata..."
+node --test "$repo_root/scripts/update-token-metadata.test.mjs"
+node "$repo_root/scripts/update-token-metadata.mjs" --check
+
 echo "Running Swift package tests..."
 swift test --package-path "$repo_root"
 

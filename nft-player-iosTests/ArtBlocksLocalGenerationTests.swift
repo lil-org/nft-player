@@ -99,7 +99,7 @@ extension ArtBlocksLocalGenerationTests {
                 } else {
                     XCTAssertNil(token.urlSuffix, "\(project.name) #\(index)")
                 }
-                XCTAssertEqual(token.aspectRatio, project.ratio)
+                XCTAssertEqual(token.resolvingAspectRatio(default: item.aspectRatio).aspectRatio, project.ratio)
                 XCTAssertEqual(
                     CollectionCatalog.tokenIndex(specificCollectionId: project.id, tokenId: token.id),
                     index
@@ -182,7 +182,7 @@ extension ArtBlocksLocalGenerationTests {
             for (index, token) in tokens.items.enumerated() {
                 XCTAssertNil(token.hash, "\(project.name) #\(index)")
                 XCTAssertEqual((item.urlPrefix ?? "") + (try XCTUnwrap(token.urlSuffix)), "https://cdn.lil.org/player/\(project.slug)/\(index).png")
-                XCTAssertEqual(token.aspectRatio, project.ratio)
+                XCTAssertEqual(token.resolvingAspectRatio(default: item.aspectRatio).aspectRatio, project.ratio)
                 XCTAssertEqual(CollectionCatalog.tokenIndex(specificCollectionId: id, tokenId: token.id), index)
             }
             for index in [0, project.count / 2, project.count - 1] {

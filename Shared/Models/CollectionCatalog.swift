@@ -1172,6 +1172,8 @@ nonisolated struct DownloadableCollectionIndexItem: Codable, Hashable, Identifia
     let chain: Chain
     let network: Network
     let tokenCount: Int
+    let bundledTokenCount: Int?
+    let hasUniformAspectRatio: Bool?
     let webURL: URL?
     let urlPrefix: String?
     let aspectRatio: AspectRatio?
@@ -1188,6 +1190,8 @@ nonisolated struct DownloadableCollectionIndexItem: Codable, Hashable, Identifia
         chain = item.chain
         network = item.network
         self.tokenCount = tokenCount
+        bundledTokenCount = item.bundledTokenCount
+        hasUniformAspectRatio = item.hasUniformAspectRatio
         webURL = item.webURL.flatMap(URL.init(string:))
         urlPrefix = item.urlPrefix
         aspectRatio = item.aspectRatio
@@ -1215,9 +1219,17 @@ nonisolated private enum DownloadableCollectionService {
     }
 
     static func tokenCount(collectionId: String) -> Int {
-        tokenData(collectionId: collectionId)?.tokens.count
-            ?? index.collectionById[collectionId]?.tokenCount
-            ?? 0
+        guard let collection = index.collectionById[collectionId] else { return 0 }
+        if let cachedCount = cache.withLock({
+            $0.tokenDataByCollectionId[collectionId]?.tokens.count
+        }) {
+            return cachedCount
+        }
+        return BundledTokenMetadata.count(
+            collection.bundledTokenCount == nil ? nil : collection.tokenCount
+        ) {
+            tokenData(collectionId: collectionId)?.tokens.count ?? collection.tokenCount
+        }
     }
 
     static func indexedTokenCount(collectionId: String) -> Int? {
@@ -1270,10 +1282,7 @@ nonisolated private enum DownloadableCollectionService {
         let tokenData = source.tokenData
         let token = source.token
 
-        guard let media = resolvedMedia(
-            for: token,
-            collection: collection
-        ) else {
+        guard let media = token.resolvedMedia(collection: collection) else {
             return nil
         }
 
@@ -1288,10 +1297,7 @@ nonisolated private enum DownloadableCollectionService {
         switch media {
         case .staticImage, .animatedImage:
             let nextMedia = tokenData.tokens.indices.contains(tokenIndex + 1)
-                ? resolvedMedia(
-                    for: tokenData.tokens[tokenIndex + 1],
-                    collection: collection
-                )
+                ? tokenData.tokens[tokenIndex + 1].resolvedMedia(collection: collection)
                 : nil
             html = DownloadableTokenHTML.createImageHTML(
                 imageURL: media.url.absoluteString,
@@ -1326,10 +1332,7 @@ nonisolated private enum DownloadableCollectionService {
         let collection = source.collection
         let token = source.token
 
-        guard let media = resolvedMedia(
-            for: token,
-            collection: collection
-        ) else {
+        guard let media = token.resolvedMedia(collection: collection) else {
             return nil
         }
 
@@ -1338,14 +1341,26 @@ nonisolated private enum DownloadableCollectionService {
             tokenId: token.id,
             tokenIndex: tokenIndex,
             media: media,
-            aspectRatio: token.aspectRatio
+            aspectRatio: token.resolvedAspectRatio(collection: collection)
         )
     }
 
     static func aspectRatioProfile(
         collectionId: String
     ) -> AspectRatioProfile? {
-        tokenData(collectionId: collectionId)?.aspectRatioProfile
+        guard let collection = index.collectionById[collectionId] else { return nil }
+        if let cachedTokenData = cache.withLock({
+            $0.tokenDataByCollectionId[collectionId]
+        }) {
+            return cachedTokenData.aspectRatioProfile
+        }
+        return BundledTokenMetadata.aspectRatioProfile(
+            count: collection.bundledTokenCount == nil ? nil : collection.tokenCount,
+            isUniform: collection.hasUniformAspectRatio,
+            defaultAspectRatio: collection.aspectRatio
+        ) {
+            tokenData(collectionId: collectionId)?.aspectRatioProfile
+        }
     }
 
     private static func displayTokenId(
@@ -1394,31 +1409,6 @@ nonisolated private enum DownloadableCollectionService {
         )
     }
 
-    private static func resolvedMedia(
-        for token: DownloadableTokenItem,
-        collection: DownloadableCollectionIndexItem
-    ) -> GeneratedTokenMedia? {
-        guard let urlString = token.resolvedURLString(collection: collection),
-              let url = URL(string: urlString),
-              let fileExtension = token.resolvedFileExtension(collection: collection) else {
-            return nil
-        }
-
-        if DownloadableMediaFileExtension.isAnimatedImage(fileExtension) {
-            return .animatedImage(url: url, fileExtension: fileExtension)
-        }
-        if DownloadableMediaFileExtension.isVideo(fileExtension) {
-            return .video(url: url, fileExtension: fileExtension)
-        }
-        if DownloadableMediaFileExtension.isHTML(fileExtension) {
-            return .html(url: url, fileExtension: fileExtension)
-        }
-        if DownloadableMediaFileExtension.isStaticImage(fileExtension) {
-            return .staticImage(url: url, fileExtension: fileExtension)
-        }
-        return nil
-    }
-
     private static func tokenData(collectionId: String) -> DownloadableCollectionTokenData? {
         if let cachedTokenData = cache.withLock({
             $0.tokenDataByCollectionId[collectionId]
@@ -1449,16 +1439,14 @@ nonisolated private enum DownloadableCollectionService {
         guard let collection = index.collectionById[collectionId],
               let url = SuggestedItemsService.bundledTokensURL(collectionId: collectionId),
               let data = try? Data(contentsOf: url),
-              let payload = try? DownloadableCollectionTokensPayload(data: data, collection: collection) else {
+              let payload = try? DownloadableCollectionTokensPayload(data: data) else {
             return nil
         }
         return DownloadableCollectionTokenData(
             tokens: payload.items.filter {
-                resolvedMedia(
-                    for: $0,
-                    collection: collection
-                ) != nil
-            }
+                $0.resolvedMedia(collection: collection) != nil
+            },
+            defaultAspectRatio: collection.aspectRatio
         )
     }
 }
@@ -1474,16 +1462,8 @@ nonisolated private struct DownloadableCollectionsIndex: Sendable {
 nonisolated struct DownloadableCollectionTokensPayload: Decodable, Sendable {
     let items: [DownloadableTokenItem]
 
-    init(data: Data, collection: DownloadableCollectionIndexItem) throws {
-        let payload = try JSONDecoder().decode(Self.self, from: data)
-        items = payload.items.map { item in
-            DownloadableTokenItem(
-                id: item.id,
-                name: item.name,
-                urlSuffix: item.urlSuffix,
-                aspectRatio: item.aspectRatio ?? collection.aspectRatio
-            )
-        }
+    init(data: Data) throws {
+        self = try JSONDecoder().decode(Self.self, from: data)
     }
 }
 
@@ -1492,6 +1472,10 @@ nonisolated struct DownloadableTokenItem: Codable, Hashable, Sendable {
     let name: String?
     let urlSuffix: String?
     let aspectRatio: AspectRatio?
+
+    func resolvedAspectRatio(collection: DownloadableCollectionIndexItem) -> AspectRatio? {
+        aspectRatio ?? collection.aspectRatio
+    }
 
     func resolvedURLString(collection: DownloadableCollectionIndexItem) -> String? {
         if let urlSuffix {
@@ -1507,6 +1491,28 @@ nonisolated struct DownloadableTokenItem: Codable, Hashable, Sendable {
         guard let url = resolvedURLString(collection: collection) else { return nil }
         return DownloadableMediaFileExtension.resolved(in: url)
     }
+
+    func resolvedMedia(collection: DownloadableCollectionIndexItem) -> GeneratedTokenMedia? {
+        guard let urlString = resolvedURLString(collection: collection),
+              let url = URL(string: urlString),
+              let fileExtension = resolvedFileExtension(collection: collection) else {
+            return nil
+        }
+
+        if DownloadableMediaFileExtension.isAnimatedImage(fileExtension) {
+            return .animatedImage(url: url, fileExtension: fileExtension)
+        }
+        if DownloadableMediaFileExtension.isVideo(fileExtension) {
+            return .video(url: url, fileExtension: fileExtension)
+        }
+        if DownloadableMediaFileExtension.isHTML(fileExtension) {
+            return .html(url: url, fileExtension: fileExtension)
+        }
+        if DownloadableMediaFileExtension.isStaticImage(fileExtension) {
+            return .staticImage(url: url, fileExtension: fileExtension)
+        }
+        return nil
+    }
 }
 
 nonisolated private struct DownloadableCollectionTokenData: Sendable {
@@ -1514,13 +1520,13 @@ nonisolated private struct DownloadableCollectionTokenData: Sendable {
     let tokenIndicesById: [String: Int]
     let aspectRatioProfile: AspectRatioProfile?
 
-    init(tokens: [DownloadableTokenItem]) {
+    init(tokens: [DownloadableTokenItem], defaultAspectRatio: AspectRatio?) {
         self.tokens = tokens
 
         var tokenIndicesById = [String: Int]()
         var aspectRatioProfileBuilder = AspectRatioProfileBuilder()
         for (index, token) in tokens.enumerated() {
-            aspectRatioProfileBuilder.append(token.aspectRatio)
+            aspectRatioProfileBuilder.append(token.aspectRatio ?? defaultAspectRatio)
             if tokenIndicesById[token.id] == nil {
                 tokenIndicesById[token.id] = index
             }

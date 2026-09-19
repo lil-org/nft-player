@@ -119,7 +119,7 @@ extension ArtBlocksRenderingResizeTests {
         fittedPlayer.didMove(toParent: host)
         fittedPlayer.view.layoutIfNeeded()
         defer { fittedPlayer.deactivatePagerForCollectionBrowser() }
-        let ratio = try XCTUnwrap(tokens.items[0].aspectRatio)
+        let ratio = try XCTUnwrap(tokens.items[0].resolvingAspectRatio(default: item.aspectRatio).aspectRatio)
         XCTAssertEqual(CollectionCatalog.collectionBrowseThumbnailDescriptor(specificCollectionId: item.id, tokenIndex: 0)?.aspectRatio, ratio)
         XCTAssertEqual(ratio.width, ratio.height)
         try await waitForPreview {
@@ -137,6 +137,7 @@ extension ArtBlocksRenderingResizeTests {
     func testFittedPlaybackFollowsPerTokenRatiosAcrossNavigationAndResize() async throws {
         let item = try XCTUnwrap(SuggestedItemsService.allItems.first { $0.internalSlug == "neighborhood" })
         let tokens = try XCTUnwrap(SuggestedItemsService.bundledTokens(collectionId: item.id)).items
+            .resolvingAspectRatios(default: item.aspectRatio)
         let registry = MobilePlaybackSessionRegistry(dependencies: .init(
             makeViewingSessionTracker: { _ in PreviewResizeViewingTracker() },
             clearActiveMediaWindow: { _ in },

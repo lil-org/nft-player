@@ -66,6 +66,32 @@ nonisolated enum AspectRatioProfile: Hashable, Sendable {
     }
 }
 
+nonisolated enum BundledTokenMetadata {
+    static func count(_ count: Int?, loading fallback: () -> Int) -> Int {
+        if let count, count >= 0 {
+            return count
+        }
+        return fallback()
+    }
+
+    static func aspectRatioProfile(
+        count: Int?,
+        isUniform: Bool?,
+        defaultAspectRatio: AspectRatio?,
+        loading fallback: () -> AspectRatioProfile?
+    ) -> AspectRatioProfile? {
+        if count == 0 {
+            return nil
+        }
+        if let count, count > 0,
+           isUniform == true,
+           let defaultAspectRatio {
+            return .uniform(defaultAspectRatio)
+        }
+        return fallback()
+    }
+}
+
 nonisolated struct AspectRatioProfileBuilder: Sendable {
     private var itemCount = 0
     private var firstAspectRatio: AspectRatio?
@@ -131,21 +157,23 @@ nonisolated struct BundledTokens: Codable, Sendable {
             self.aspectRatio = aspectRatio
             self.contractParameters = contractParameters
         }
+
+        func resolvingAspectRatio(default defaultAspectRatio: AspectRatio?) -> Self {
+            guard aspectRatio == nil, let defaultAspectRatio else { return self }
+            return Self(
+                id: id,
+                name: name,
+                hash: hash,
+                aspectRatio: defaultAspectRatio,
+                contractParameters: contractParameters,
+                urlSuffix: urlSuffix
+            )
+        }
     }
 
     let items: [Item]
 
-    init(data: Data, collection: SuggestedItem) throws {
-        let payload = try JSONDecoder().decode(Self.self, from: data)
-        items = payload.items.map { item in
-            Item(
-                id: item.id,
-                name: item.name,
-                hash: item.hash,
-                aspectRatio: item.aspectRatio ?? collection.aspectRatio,
-                contractParameters: item.contractParameters,
-                urlSuffix: item.urlSuffix
-            )
-        }
+    init(data: Data) throws {
+        self = try JSONDecoder().decode(Self.self, from: data)
     }
 }

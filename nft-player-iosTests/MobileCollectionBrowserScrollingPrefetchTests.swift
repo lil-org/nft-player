@@ -1354,7 +1354,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
                 let data = Data("""
                     {"items":[{"id":"unminted-1502","urlSuffix":"\(format.suffix)"}]}
                     """.utf8)
-                let payload = try DownloadableCollectionTokensPayload(data: data, collection: collection)
+                let payload = try DownloadableCollectionTokensPayload(data: data)
                 let token = try XCTUnwrap(payload.items.first)
 
                 XCTAssertEqual(collection.hasMid, entry.expected)
@@ -1362,7 +1362,7 @@ extension MobileCollectionBrowserGridModePresentationTests {
                 XCTAssertEqual(token.id, "unminted-1502")
                 XCTAssertEqual(token.resolvedURLString(collection: collection), "https://example.com/1502.webp")
                 XCTAssertEqual(
-                    token.aspectRatio,
+                    token.resolvedAspectRatio(collection: collection),
                     AspectRatio(width: 1, height: 1)
                 )
             }

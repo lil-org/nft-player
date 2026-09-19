@@ -17,7 +17,7 @@ Open `nft-player.xcodeproj` in Xcode to run the app. Run the complete Swift pack
 scripts/test.sh
 ```
 
-The script runs package tests, hydrates pinned artwork sources for offline rendering tests, then uses the first available iPhone simulator for the iOS tests. Node.js is required for hydration. Override the destination or derived-data location when needed:
+The script tests and checks generated token metadata, runs package tests, hydrates pinned artwork sources for offline rendering tests, then uses the first available iPhone simulator for the iOS tests. Node.js is required for metadata checks and hydration. Override the destination or derived-data location when needed:
 
 ```sh
 IOS_TEST_DESTINATION='platform=iOS Simulator,name=iPhone 17 Pro,OS=latest' \
@@ -38,9 +38,22 @@ The hydrator verifies the catalog's byte counts and SHA-256 pins and downloads o
 
 Artwork sources are hosted at `https://cdn.lil.org/player/scripts/<internal_slug>.<extension>` and are not committed or included in application bundles. `items.json` keeps renderer metadata in `script`, together with `expectedByteCount` and `sha256` for web artwork. Source extensions are `.html` for HTML, `.pde` for Processing, and `.js` otherwise; native renderers have no source descriptor. Publish immutable source URLs before updating pins. Use an absolute HTTPS `script.sourceURL` override for a new version so older app releases retain access to their pinned bytes. The application downloads each requested source version once and retains it without an expiry; missing or corrupt cached files are fetched again. tvOS may purge its system cache.
 
-Token manifests in `Suggested Items/Suggested.bundle/Tokens` contain only an `items` array of named objects. Collection metadata lives on the matching `internal_slug` record in `Suggested Items/Suggested.bundle/items.json`. Tokens with explicit media use the collection’s `urlPrefix` and provide their own `urlSuffix`, for example `{"id":"1","urlSuffix":"1.png","name":"Artwork"}`. URLs are reconstructed by concatenating the prefix and suffix; an empty or absent prefix allows full URLs in `urlSuffix`. Supported item fields are `id` (required), `urlSuffix`, `name`, `hash`, `aspectRatio`, and `contractParameters` (a string-to-string object). Tokens can omit `urlSuffix` to use their implicit media source. Media resolution uses the URL path extension first; when the path has no extension, it uses the first `ext` query parameter, for example `{"id":"1","urlSuffix":"1?ext=html"}`. Extension values are normalized to lowercase; empty or unsupported values remain unclassified. After changing token manifests, regenerate widget resources with `node scripts/generate-widget-resources.mjs`.
+Token manifests in `Suggested Items/Suggested.bundle/Tokens` contain only an `items` array of named objects. Collection metadata lives on the matching `internal_slug` record in `Suggested Items/Suggested.bundle/items.json`. Tokens with explicit media use the collection’s `urlPrefix` and provide their own `urlSuffix`, for example `{"id":"1","urlSuffix":"1.png","name":"Artwork"}`. URLs are reconstructed by concatenating the prefix and suffix; an empty or absent prefix allows full URLs in `urlSuffix`. Supported item fields are `id` (required), `urlSuffix`, `name`, `hash`, `aspectRatio`, and `contractParameters` (a string-to-string object). Tokens can omit `urlSuffix` to use their implicit media source. Media resolution uses the URL path extension first; when the path has no extension, it uses the first `ext` query parameter, for example `{"id":"1","urlSuffix":"1?ext=html"}`. Extension values are normalized to lowercase; empty or unsupported values remain unclassified.
 
 The collection record’s `aspectRatio` supplies the default for browser layout and fitted artwork playback. Ratios are positive-integer `[width, height]` pairs. Tokens inherit the default unless they supply their own `aspectRatio`, for example `{"id":"2","urlSuffix":"2.png","aspectRatio":[4,3]}`. A token ratio can also be used without a collection default; if neither exists, the app keeps its existing sizing fallback. Collection `hasMid` defaults to `true` when absent or null; `false` uses original static images for the large browse tier. Widget token files also contain only `items`, with their collection defaults copied into `WidgetSuggested.bundle/items.json`.
+
+Collection records also contain generated `bundledTokenCount` and `hasUniformAspectRatio` fields so browser layout can use counts and uniform ratios without decoding token manifests. `bundledTokenCount` is the number of bundled token objects, independent of the existing `tokenCount` field. `hasUniformAspectRatio` is true only for a nonempty manifest whose effective token ratios all equal the collection default after normalization; it is false when the default is missing or the manifest is empty. The native ranged `card_nft_2` collection has no token manifest and omits these fields.
+
+After changing token manifests or collection aspect ratios, update the catalog metadata before regenerating widget resources:
+
+```sh
+node scripts/update-token-metadata.mjs
+node scripts/generate-widget-resources.mjs
+node scripts/update-token-metadata.mjs --check
+node scripts/generate-widget-resources.mjs --check
+```
+
+The metadata updater changes only the main catalog, preserves `tokenCount`, and rejects malformed manifests, missing expected token files, or downloadable counts that differ from the supported media records. URL validation runs once through Xcode's Swift toolchain using Foundation, matching the app's URL parsing. Its `--check` mode detects missing or stale generated fields without writing files. Widget generation copies the updated collection metadata into its catalog.
 
 ## app store
 Install [asc](https://asccli.sh) and Node.js, then authenticate asc with App Store Connect. The release helper uses Node for JSON parsing; no npm packages are required.

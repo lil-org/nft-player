@@ -34,6 +34,8 @@ const PRESERVED_GENERATED_SUGGESTED_ITEM_FIELDS = [
   "urlPrefix",
   "aspectRatio",
   "hasMid",
+  "bundledTokenCount",
+  "hasUniformAspectRatio",
   "tmp_files",
 ];
 

@@ -76,6 +76,8 @@ nonisolated struct SuggestedItem: Identifiable, Hashable, Codable, Sendable {
     let collectionId: String?
     let abId: String?
     let tokenCount: Int?
+    let bundledTokenCount: Int?
+    let hasUniformAspectRatio: Bool?
     let bundledDate: String?
     let iosOnly: Bool?
     let generativeOnly: Bool?
@@ -103,6 +105,8 @@ nonisolated struct SuggestedItem: Identifiable, Hashable, Codable, Sendable {
         case collectionId
         case abId
         case tokenCount
+        case bundledTokenCount
+        case hasUniformAspectRatio
         case bundledDate
         case iosOnly
         case generativeOnly

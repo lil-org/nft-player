@@ -302,7 +302,7 @@ extension ArtBlocksContractParametersTests {
             encodedContentRuleList: #"[{"trigger":{"url-filter":"^https?://"},"action":{"type":"block"}}]"#
         )
         for index in [0, tokens.items.count - 1] {
-            let token = tokens.items[index]
+            let token = tokens.items[index].resolvingAspectRatio(default: item.aspectRatio)
             let fixture = try ContractParametersFixture(ratio: token.aspectRatio?.value ?? 1, rules: try XCTUnwrap(rules))
             defer { fixture.close() }
             try fixture.load(script: script, token: token)
